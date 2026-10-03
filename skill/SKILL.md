@@ -95,7 +95,11 @@ findings and confirm acceptance evidence before completion; claim checks only wi
 
 ## Models
 
-`models.toml` beside this skill is the source for seven role models/efforts; CEO uses the chat model. Use configured
-settings without substitution; report unavailable settings. GPT-6 Sol profiles must not exceed High. After changing
-models, run `python3 <skill-directory>/scripts/apply-models.py --agents-dir <Codex-home>/agents` to validate/update only
-model/effort fields. Use `--check` for validation. New sessions reload profiles; running agents retain their settings.
+`models.toml` beside this skill is the source for the seven role model IDs and local reasoning-effort policies; CEO
+uses the chat model. Each role selects a model declared in `[models]`, and its effort must appear in that model's
+`allowed_reasoning_efforts` list. These lists validate local configuration only; they do not prove server support,
+account access, or current availability. Use configured settings without substitution and report unavailable settings.
+
+After editing `models.toml`, apply the settings to installed profiles with
+`python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
+show the updates. New sessions reload profiles; running agents retain their current settings.

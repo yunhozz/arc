@@ -1,6 +1,14 @@
-# Source of truth for the model and reasoning effort of each Yunho agent role.
-# After editing this file, run: python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
-version = 1
+# Single source for each role's exact model ID and local reasoning-effort policy.
+# Add exact model IDs under [models."<model-id>"] and edit their allowed list here.
+# These lists are local validation policy; they do not confirm server support,
+# account access, or current model availability.
+version = 2
+
+[models."gpt-6.1-sol"]
+allowed_reasoning_efforts = ["none", "minimal", "low", "medium", "high"]
+
+[models."gpt-6-luna"]
+allowed_reasoning_efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
 
 [roles.yunho_team_lead]
 model = "gpt-6.1-sol"
