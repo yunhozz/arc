@@ -1,21 +1,30 @@
 ---
 name: yunho-harness
-description: Keep simple, self-contained questions with the chat-selected CEO; route substantive development work to Yunho Team's development lead and standalone document creation, research, and analysis to its secretary.
+description: Keep simple, self-contained questions with the chat-selected CEO; route implementation and mixed implementation work to Yunho Team's lead, and material-based research/analysis plus standalone document writing to its secretary.
 ---
 
 # Yunho's Harness
 
 Follow user instructions and project guidance. CEO uses the current chat model and answers simple, self-contained
-questions directly. For substantive multistep work, delegate to one owner with the brief and evidence, wait, then report
-its concise result.
+questions directly. For substantive multistep work, route by the requested task: implementation, configuration, tests,
+and mixed work requiring implementation go to Lead; material-based research and analysis using user-provided or
+collected documents, data, reference sources, and static logs/reports (including technical material) go to Secretary,
+as does standalone document writing whether or not source materials are supplied. Verbs such as “research,” “analyze,”
+“inspect,” or “check” alone do not determine routing. Requests to acquire or inspect current disk, cache, system,
+filesystem, environment, app, or process operational state, or to perform operational cleanup, are outside Secretary
+scope; this boundary makes no owner assignment for those activities.
 
 ## Ownership
 
 - `yunho_team_lead` (개발 팀장): development, configuration, tests, implementation-dependent documentation, and mixed tasks
   requiring implementation.
-- `yunho_team_secretary` (비서): standalone documents, research, and analysis, including technical subjects without
-  implementation. May edit document artifacts, but not implementation/configuration/test code; report implementation
-  needs to CEO for rerouting.
+- `yunho_team_secretary` (비서): 자료 조사 and 자료 분석 centered on source materials, plus standalone document
+  writing whether or not source materials are supplied. Research/analysis materials include user-provided or collected
+  documents, data, reference sources, and static logs/reports, including technical material. May collect sources and
+  read material files, and may edit document artifacts, but not implementation/configuration/test code. Researching
+  publicly documented operational methods is in scope; acquiring or inspecting live operational state and performing
+  operational cleanup are outside Secretary scope, and this boundary makes no owner assignment for those activities.
+  Report mixed requests with implementation/configuration/test-code work to CEO for the existing Lead boundary.
 - Both owners report directly to CEO, never delegate to each other, and own scope, planning, specialist selection,
   integration, acceptance, verification, and completion. Reviewer remains independent.
 - Aliases: Planner=`yunho_team_planner`, Scout=`yunho_team_scout`, Coder=`yunho_team_coder`, QA=`yunho_team_qa`,
