@@ -1,0 +1,6 @@
+# Merge into ~/.codex/config.toml without duplicating an existing [agents] table.
+# Runtime capacity is separate from the Harness limit of one owner plus three specialists.
+[agents]
+# default_subagent_model = "gpt-6.1-sol"
+# default_subagent_reasoning_effort = "medium"
+max_concurrent_threads_per_session = 100

@@ -1,0 +1,31 @@
+# Source of truth for the model and reasoning effort of each Yunho agent role.
+# After editing this file, run: python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
+version = 1
+
+[roles.yunho_team_lead]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
+
+[roles.yunho_team_secretary]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
+
+[roles.yunho_team_planner]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+
+[roles.yunho_team_scout]
+model = "gpt-6-luna"
+model_reasoning_effort = "high"
+
+[roles.yunho_team_coder]
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
+
+[roles.yunho_team_qa]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
+
+[roles.yunho_team_reviewer]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
