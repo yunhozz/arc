@@ -11,13 +11,14 @@ if sys.version_info < (3, 11):
 
 import argparse
 import hashlib
+import importlib.util
 import os
 import re
 import shutil
 import stat
-import subprocess
 import tempfile
 from datetime import datetime, timezone
+from types import ModuleType
 from pathlib import Path, PurePosixPath
 
 
@@ -32,7 +33,8 @@ PROFILE_FILES = (
     "yunho-team-reviewer.toml",
 )
 MANIFEST_REQUIRED_ROOTS = ("skill", "agents", "dependencies")
-MANIFEST_REQUIRED_FILES = ("install.py", "install.command")
+MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md")
+MUTABLE_PAYLOAD_FILES = {"skill/models.toml"}
 MANIFEST_LINE = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
 
 
@@ -81,30 +83,111 @@ def require_regular_file(path: Path) -> None:
         raise InstallerError(f"expected a regular file: {path}")
 
 
+def require_directory(path: Path) -> None:
+    reject_symlink_components(path)
+    try:
+        mode = path.lstat().st_mode
+    except OSError as exc:
+        raise InstallerError(f"required directory is missing or unreadable: {path}: {exc}") from exc
+    if not stat.S_ISDIR(mode):
+        raise InstallerError(f"expected a directory: {path}")
+
+
+def selected_tree_files(tree: Path) -> tuple[Path, ...]:
+    """Validate a payload tree and return regular files except regular .DS_Store files."""
+    tree = absolute(tree)
+    require_directory(tree)
+    selected: list[Path] = []
+
+    def raise_walk_error(exc: OSError) -> None:
+        raise InstallerError(f"cannot inspect payload tree {tree}: {exc}") from exc
+
+    for directory, directory_names, file_names in os.walk(
+        tree, topdown=True, followlinks=False, onerror=raise_walk_error
+    ):
+        parent = Path(directory)
+        for name in sorted(directory_names):
+            path = parent / name
+            try:
+                mode = path.lstat().st_mode
+            except OSError as exc:
+                raise InstallerError(f"cannot inspect payload entry {path}: {exc}") from exc
+            if stat.S_ISLNK(mode):
+                raise InstallerError(f"symlink in payload is unsafe: {path}")
+            if name == ".DS_Store":
+                raise InstallerError(f".DS_Store payload entry must be a regular file: {path}")
+            if not stat.S_ISDIR(mode):
+                raise InstallerError(f"unexpected payload entry type: {path}")
+        for name in sorted(file_names):
+            path = parent / name
+            try:
+                mode = path.lstat().st_mode
+            except OSError as exc:
+                raise InstallerError(f"cannot inspect payload entry {path}: {exc}") from exc
+            if stat.S_ISLNK(mode):
+                raise InstallerError(f"symlink in payload is unsafe: {path}")
+            if name == ".DS_Store":
+                if not stat.S_ISREG(mode):
+                    raise InstallerError(f".DS_Store payload entry must be a regular file: {path}")
+                continue
+            if not stat.S_ISREG(mode):
+                raise InstallerError(f"unexpected payload entry type: {path}")
+            selected.append(path)
+    return tuple(sorted(selected))
+
+
+def dependency_sources(root: Path) -> tuple[Path, ...]:
+    """Return selected dependency skill directories after validating their contents."""
+    dependency_root = root / "dependencies"
+    require_directory(dependency_root)
+    sources: list[Path] = []
+    for source in sorted(dependency_root.iterdir(), key=lambda path: path.name):
+        try:
+            mode = source.lstat().st_mode
+        except OSError as exc:
+            raise InstallerError(f"cannot inspect dependency payload entry {source}: {exc}") from exc
+        if stat.S_ISLNK(mode):
+            raise InstallerError(f"symlink in dependency payload is unsafe: {source}")
+        if source.name == ".DS_Store":
+            if not stat.S_ISREG(mode):
+                raise InstallerError(f".DS_Store payload entry must be a regular file: {source}")
+            continue
+        if not stat.S_ISDIR(mode):
+            raise InstallerError(f"dependency payload entries must be skill directories: {source}")
+        selected_tree_files(source)
+        sources.append(source)
+    if not sources:
+        raise InstallerError(f"no dependency skills were found in {dependency_root}")
+    return tuple(sources)
+
+
 def staged_root() -> Path:
     script = absolute(Path(__file__))
     reject_symlink_components(script)
     require_regular_file(script)
     root = script.parent
-    for name in ("skill", "agents", "dependencies"):
-        reject_symlinks_in_tree(root / name)
+    selected_tree_files(root / "skill")
+    selected_tree_files(root / "agents")
+    selected_tree_files(root / "dependencies")
+    dependency_sources(root)
     require_regular_file(root / "skill" / "models.toml")
     require_regular_file(root / "skill" / "scripts" / "apply-models.py")
+    require_regular_file(root / "skill" / "scripts" / "model_config.py")
     for filename in PROFILE_FILES:
         require_regular_file(root / "agents" / filename)
-    dependencies = root / "dependencies"
-    if not any(path.is_dir() for path in dependencies.iterdir()):
-        raise InstallerError(f"no dependency skills were found in {dependencies}")
-    if any(not path.is_dir() for path in dependencies.iterdir()):
-        raise InstallerError(f"dependency payload entries must all be skill directories: {dependencies}")
+    for filename in MANIFEST_REQUIRED_FILES:
+        require_regular_file(root / filename)
     return root
 
 
 def verify_manifest(root: Path) -> None:
     manifest = root / "MANIFEST.sha256"
-    if not manifest.exists():
-        raise InstallerError(f"required SHA-256 manifest is missing: {manifest}")
     require_regular_file(manifest)
+    selected_payload = {
+        path.relative_to(root).as_posix()
+        for directory in MANIFEST_REQUIRED_ROOTS
+        for path in selected_tree_files(root / directory)
+    }
     try:
         lines = manifest.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError) as exc:
@@ -131,7 +214,9 @@ def verify_manifest(root: Path) -> None:
         ):
             raise InstallerError(f"unsafe manifest path: {raw_name!r}")
         name = relative.as_posix()
-        if name == "MANIFEST.sha256" or name in listed:
+        if name == "MANIFEST.sha256" or name in MUTABLE_PAYLOAD_FILES or ".DS_Store" in relative.parts:
+            raise InstallerError(f"manifest must not list mutable or excluded payload path: {name}")
+        if name in listed:
             raise InstallerError(f"duplicate or self-referential manifest path: {name}")
         path = root.joinpath(*relative.parts)
         require_regular_file(path)
@@ -140,40 +225,78 @@ def verify_manifest(root: Path) -> None:
             raise InstallerError(f"SHA-256 mismatch for {name}")
         listed[name] = expected.lower()
 
-    required = {"/".join((directory, path.relative_to(root / directory).as_posix()))
-                for directory in MANIFEST_REQUIRED_ROOTS
-                for path in (root / directory).rglob("*")
-                if path.is_file()}
-    required.update(MANIFEST_REQUIRED_FILES)
+    required = set(MANIFEST_REQUIRED_FILES)
+    required.update(selected_payload - MUTABLE_PAYLOAD_FILES)
     missing = sorted(required - set(listed))
     if missing:
         raise InstallerError("manifest does not cover required installer payload files: " + ", ".join(missing))
-    print(f"Payload manifest verified ({len(listed)} files).")
+    print(f"Immutable payload manifest verified ({len(listed)} files).")
 
 
-def preflight_profiles(root: Path) -> None:
-    validator = root / "skill" / "scripts" / "apply-models.py"
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(validator),
-            "--config",
-            str(root / "skill" / "models.toml"),
-            "--agents-dir",
-            str(root / "agents"),
-            "--check",
-        ],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.stdout:
-        print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
-    if result.stderr:
-        print(result.stderr, end="" if result.stderr.endswith("\n") else "\n", file=sys.stderr)
-    if result.returncode != 0:
-        raise InstallerError(f"staged model/profile preflight failed with exit code {result.returncode}")
+def load_model_module(root: Path) -> ModuleType:
+    module_path = absolute(root / "skill" / "scripts" / "model_config.py")
+    try:
+        spec = importlib.util.spec_from_file_location("_yunho_harness_model_config", module_path)
+        if spec is None or spec.loader is None:
+            raise InstallerError(f"cannot load shared model configuration module: {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        write_bytecode = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
+        try:
+            try:
+                spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(spec.name, None)
+                raise
+        finally:
+            sys.dont_write_bytecode = write_bytecode
+    except InstallerError:
+        raise
+    except Exception as exc:
+        raise InstallerError(f"cannot load shared model configuration module at {module_path}: {exc}") from exc
+    return module
+
+
+def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
+    config_path = root / "skill" / "models.toml"
+    try:
+        settings = module.load_settings(config_path)
+    except module.ValidationError as exc:
+        raise InstallerError(str(exc)) from exc
+
+    rendered: dict[str, bytes] = {}
+    for role, filename in module.ROLE_FILES.items():
+        source = root / "agents" / filename
+        try:
+            require_regular_file(source)
+            content = source.read_bytes()
+            module.validate_template(content, role, source)
+            rendered[filename] = module.render_profile(content, role, settings[role], source)
+        except module.ValidationError as exc:
+            raise InstallerError(str(exc)) from exc
+        except OSError as exc:
+            raise InstallerError(f"cannot read source profile {source}: {exc}") from exc
+    if set(rendered) != set(PROFILE_FILES):
+        raise InstallerError("shared model configuration does not define exactly the seven profile files")
+    return rendered
+
+
+def ignore_ds_store(directory: str, names: list[str]) -> set[str]:
+    """Exclude only validated regular .DS_Store files from staged tree copies."""
+    excluded: set[str] = set()
+    for name in names:
+        if name != ".DS_Store":
+            continue
+        path = Path(directory) / name
+        try:
+            mode = path.lstat().st_mode
+        except OSError as exc:
+            raise InstallerError(f"cannot inspect .DS_Store payload entry {path}: {exc}") from exc
+        if not stat.S_ISREG(mode):
+            raise InstallerError(f".DS_Store payload entry must be a regular file: {path}")
+        excluded.add(name)
+    return excluded
 
 
 def codex_home() -> Path:
@@ -212,6 +335,8 @@ def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Pa
 
     for path in (home, skills_dir, agents_dir, backups_dir, harness_target, *profile_targets.values()):
         reject_symlink_components(path)
+    for path in (home, skills_dir, agents_dir, backups_dir):
+        check_directory_or_missing(path)
     check_directory_or_missing(harness_target)
     for path in profile_targets.values():
         check_file_or_missing(path)
@@ -220,7 +345,7 @@ def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Pa
 
     user_skills = absolute(Path.home() / ".agents" / "skills")
     dependencies_to_install: list[tuple[Path, Path]] = []
-    for source in sorted((root / "dependencies").iterdir(), key=lambda path: path.name):
+    for source in dependency_sources(root):
         selected_target = skills_dir / source.name
         user_target = user_skills / source.name
         reject_symlink_components(selected_target)
@@ -291,7 +416,7 @@ def rollback(actions: list[dict[str, object]]) -> list[str]:
     return errors
 
 
-def perform_install(root: Path, home: Path, dry_run: bool = False) -> None:
+def perform_install(root: Path, home: Path, rendered_profiles: dict[str, bytes], dry_run: bool = False) -> None:
     skills_dir, agents_dir, backups_dir, profile_targets, dependencies = install_plan(root, home)
     if dry_run:
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
@@ -318,14 +443,25 @@ def perform_install(root: Path, home: Path, dry_run: bool = False) -> None:
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
         staged_harness = skill_stage_area / INSTALL_NAME
-        shutil.copytree(root / "skill", staged_harness, copy_function=shutil.copy2)
+        shutil.copytree(
+            root / "skill",
+            staged_harness,
+            copy_function=shutil.copy2,
+            ignore=ignore_ds_store,
+        )
 
         profile_stage_area = create_stage_area(agents_dir, "profiles")
         stage_areas.append(profile_stage_area)
         staged_profiles: dict[str, Path] = {}
         for filename in PROFILE_FILES:
+            source = root / "agents" / filename
             staged = profile_stage_area / filename
-            shutil.copy2(root / "agents" / filename, staged)
+            try:
+                with staged.open("xb") as handle:
+                    handle.write(rendered_profiles[filename])
+                shutil.copystat(source, staged)
+            except OSError as exc:
+                raise InstallerError(f"cannot stage generated profile {filename}: {exc}") from exc
             staged_profiles[filename] = staged
 
         dependency_stages: list[tuple[Path, Path]] = []
@@ -334,7 +470,12 @@ def perform_install(root: Path, home: Path, dry_run: bool = False) -> None:
             stage_areas.append(dependency_stage_area)
             for index, (source, target) in enumerate(dependencies):
                 staged = dependency_stage_area / f"{index}-{source.name}"
-                shutil.copytree(source, staged, copy_function=shutil.copy2)
+                shutil.copytree(
+                    source,
+                    staged,
+                    copy_function=shutil.copy2,
+                    ignore=ignore_ds_store,
+                )
                 dependency_stages.append((staged, target))
 
         old_harness = skill_stage_area / "previous-harness"
@@ -384,7 +525,9 @@ def perform_install(root: Path, home: Path, dry_run: bool = False) -> None:
 
     print(f"Installed Harness skill and profiles under: {home}")
     print(f"Backups: {backup_root}")
-    print("Manual activation: add the loader from AGENTS.harness.md to an applicable AGENTS.md, then restart Codex.")
+    print(f"설치 안내: {root / 'README.md'}")
+    print(f"설치된 Harness skill: {skills_dir / INSTALL_NAME / 'SKILL.md'}")
+    print("수동 활성화: README.md의 loader를 해당 AGENTS.md에 추가하고 Codex를 다시 시작하세요.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -400,13 +543,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         root = staged_root()
         verify_manifest(root)
-        preflight_profiles(root)
+        model_config = load_model_module(root)
+        rendered_profiles = preflight_profiles(root, model_config)
+        home = codex_home()
         if args.check:
+            install_plan(root, home)
             print("Installer payload preflight passed.")
             return 0
-        perform_install(root, codex_home(), dry_run=args.dry_run)
+        perform_install(root, home, rendered_profiles, dry_run=args.dry_run)
         return 0
-    except (InstallerError, OSError, subprocess.SubprocessError) as exc:
+    except (InstallerError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

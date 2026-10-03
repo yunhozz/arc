@@ -102,4 +102,5 @@ account access, or current availability. Use configured settings without substit
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
-show the updates. New sessions reload profiles; running agents retain their current settings.
+show the updates. The `install.py` installer renders settings into all seven profiles during installation. New
+sessions reload profiles; running agents retain their current settings.
