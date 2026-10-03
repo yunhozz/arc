@@ -24,11 +24,35 @@ its concise result.
   concurrently or nest them. Parallelize independent tasks only; dependent handoffs are sequential and editing scopes
   cannot overlap. Specialists cannot spawn agents.
 
+## Instruction and execution adapter
+
+Apply platform, user, and project instructions according to their precedence, then Harness rules for ownership,
+permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
+adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
+`superpowers:subagent-driven-development` to the selected Harness mode; this replaces executor mechanics only. Report
+conflicts or missing non-executor skills before dependent work.
+
+Planner returns complete drafts, review findings, and next actions; Lead integrates/saves/reviews and obtains decisions;
+Coder implements assigned files; QA checks without edits; Reviewer reads independently; Lead accepts/completes. Keep an
+explicitly selected execution mode. If none is specified, Lead recommends one during plan approval:
+
+- **Native:** Lead coordinates sequential tasks; Coder may be reused. QA completes before a fresh independent Reviewer
+  checks the full change; Lead accepts only after review.
+- **Fresh-agent:** use a fresh Coder and Reviewer task per implementation task. Required QA precedes review, and that
+  review resolves before dependent work; finish with a fresh review of the full change.
+
+Freshness changes task context, not authority, configured models, or concurrency. Mode checkpoints supplement risk-based
+QA/review; retain every applicable checkpoint.
+
 ## Design and planning
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This Harness controls
 routing/approval gates even if a called skill names another executor. Follow installed instructions and user
 constraints; report missing required skills before that stage.
+
+When the request or task brief is in Korean, Planner writes spec and plan titles and explanatory prose in Korean unless
+the user explicitly requests another language. Preserve identifiers, skill/API names, code, paths, commands, and
+literal values exactly. Lead preserves the agreed language when saving and integrating Planner output.
 
 1. Before software feature, design, or behavior changes, Lead assigns Planner the installed `brainstorming` skill with
    the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
@@ -38,17 +62,28 @@ constraints; report missing required skills before that stage.
    for implementation. Bounded: approve a short design before Coder. Architectural: approve design, then Planner returns
    complete spec draft and self-review findings; Lead integrates, saves, self-reviews, and obtains written-spec approval
    before implementation planning. Planner is read-only and cannot request approval.
-3. After design approval and before Coder, Lead assesses plan depth separately from file count, LOC, or bounded scope.
-   Skip `writing-plans` only for one local change with no cross-component shared state, lifecycle, or integration-order
-   concerns and one focused verification path. Dependent stages, shared state, lifecycle, integration ordering, or
-   distinct verification paths require a draft.
-4. When required, record dependencies/plan-depth rationale in the brief. Planner follows installed `writing-plans`,
-   returning full draft, assumptions/open decisions, and verification requirements. Lead integrates, saves to the user's
-   path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews per that skill, and obtains plan
-   approval. Planner cannot save, implement, or request approval.
+3. After approved design/spec and before Coder, Lead assesses plan depth separately from file count, LOC, or bounded
+   scope. Architectural work always uses installed `writing-plans` and requires written plan approval, regardless of
+   locality, risk, or size. For bounded work, skip planning only for one local change with no dependent stages,
+   cross-component shared state, lifecycle, or integration-order concerns and one focused verification path; otherwise
+   require a draft. A bounded label or “no plan” request does not bypass this judgment.
+4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows installed `writing-plans`,
+   returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
+   Lead integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
+   then obtains plan and execution-mode approval before Coder. Planner cannot save, implement, or request approval.
 5. Coder starts after all applicable design/spec/plan approvals, with approved artifacts, brief, and relevant findings.
    Non-behavior configuration/documentation changes may proceed directly. These stages preserve Secretary's standalone
    ownership.
+
+## Coder TDD and constraints
+
+Before feature, bug-fix, or behavior implementation, Coder follows the installed `test-driven-development` skill,
+including bounded, no-plan, and low-risk work. Plan depth, risk, and execution mode do not waive TDD. If an unavoidable
+constraint blocks a required step, Coder pauses before editing and gives Lead the scope, exact constraint and evidence,
+required TDD steps, alternatives, uncertainty, and approval needed. Lead records the decision in the brief/plan and
+obtains any required human approval; internal approval is not a substitute. Non-behavior documentation/configuration
+is not automatically a TDD change: use applicable structural checks, record any specifically authorized exception and
+limits, and do not generalize it to behavior work or claim TDD.
 
 ## Risk-scaled execution
 
@@ -71,6 +106,25 @@ implementation, or completion decision. Lead routes actionable findings to Coder
 affected checks, and Reviewer rechecks only when warranted. Reuse verified inspections/checks/reviews until relevant
 state changes, failure, or missing/conflicting evidence warrants another pass. Resolve or explicitly disposition
 findings and confirm acceptance evidence before completion; claim checks only with verified output.
+
+## Workspace handoff
+
+Before implementation, Lead follows installed `using-git-worktrees`: detect existing isolation with the submodule guard,
+honor a declared preference, obtain required consent, prefer native tools, and use only its documented fallback,
+including sandbox-denial handling. Record the actual absolute workspace and the isolation/preference/consent/setup
+evidence in the brief; give every specialist that same workspace and absolute artifact paths. Coder, QA, and Reviewer
+use only the supplied workspace and return missing, inaccessible, or conflicting paths to Lead before dependent work.
+
+## Visual companion
+
+Planner identifies a genuinely visual question, why a visual helps, options, the user decision, and a complete content
+draft; Planner does not write screens, start a server, operate a browser, or request approval. Lead makes a just-in-time
+offer as its own message only when a question is clearer visually, then waits for acceptance. If declined, continue in
+text and do not offer again unless the user raises it. If accepted, decide per question whether to use the companion.
+Lead owns its guide, server/browser, workspace paths, live-session checks, complete keyed URL, screens, session state,
+feedback/events, stale-screen clearing when returning to text, and cleanup. Check the server before showing a screen;
+after the user's reply, treat terminal text as primary and events as supplemental. A UI topic or accepted companion
+alone does not route every question through a browser.
 
 ## Token discipline and handoffs
 
