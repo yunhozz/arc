@@ -3,9 +3,9 @@
 ## 요구 사항
 
 - Python 3.11 이상
-- `install.py`, `install.command`, `README.md`, `MANIFEST.sha256`, `skill/`, `agents/`, `dependencies/`가 함께 있는 전체 저장소
+- `install.py`, `install.command`, `README.md`, `MANIFEST.sha256`, `external-skills.toml`, `skill/`, `agents/`가 함께 있는 전체 저장소
 
-이 설치 도구는 저장소 안의 공통 설정 모듈과 의존 skill 파일을 사용합니다. 파일 하나만 따로 복사하는 설치는 지원하지 않습니다.
+이 설치 도구는 저장소 안의 공통 설정 모듈과 프로필 템플릿을 사용하며, 필수 외부 스킬이 미리 설치되어 있어야 합니다. 파일 하나만 따로 복사하는 설치는 지원하지 않습니다.
 
 저장소의 `config.toml`은 동시 agent 수를 직접 설정할 때 참고하는 선택 예시입니다. 설치기는 이 파일을 설치하거나 전역 설정에 병합하지 않습니다.
 
@@ -17,7 +17,7 @@
 python3 install.py
 ```
 
-`CODEX_HOME`을 설정하지 않으면 `~/.codex` 아래에 Harness skill, 일곱 에이전트 프로필, 필요한 의존 skill을 설치합니다. 다른 위치를 사용하려면 `CODEX_HOME`에 Codex home 경로를 지정합니다. `CODEX_HOME`이 빈 문자열이면 설치가 실패합니다.
+`CODEX_HOME`을 설정하지 않으면 `~/.codex` 아래에 Harness skill과 일곱 에이전트 프로필을 설치합니다. 다른 위치를 사용하려면 `CODEX_HOME`에 Codex home 경로를 지정합니다. `CODEX_HOME`이 빈 문자열이면 설치가 실패합니다. 외부 스킬은 설치 전에 준비해야 합니다.
 
 설치 전에 두 가지 읽기 전용 옵션으로 확인할 수 있습니다.
 
@@ -26,7 +26,33 @@ python3 install.py --check
 python3 install.py --dry-run
 ```
 
-`--check`는 선택된 변경 불가 파일의 무결성 목록, 모델 설정, 일곱 템플릿과 생성 결과, 설치 대상 경로를 확인합니다. `--dry-run`은 같은 입력과 대상을 확인하고 설치 위치 및 보존할 의존 skill을 표시합니다. 두 명령 모두 디렉터리, 백업, 임시 파일 또는 프로필을 만들거나 수정하지 않습니다. `--check`는 설치된 프로필과 설정 사이의 차이를 검사하는 명령이 아닙니다.
+세 명령 모두 manifest 무결성, 외부 스킬 snapshot, 모델 설정, 일곱 템플릿과 생성 결과, 설치 대상 경로를 확인합니다. 외부 스킬 검사가 끝나기 전에는 설치 파일, 디렉터리, 백업 또는 staging을 만들거나 수정하지 않습니다. `--check`와 `--dry-run`은 성공해도 파일을 만들거나 수정하지 않습니다. `--check`는 설치된 프로필과 설정 사이의 차이를 검사하는 명령이 아닙니다.
+
+## 필수 외부 스킬
+
+일반 설치, `--check`, `--dry-run`은 다음 네 스킬이 호환성 검사에 통과해야 합니다.
+
+```text
+brainstorming
+writing-plans
+test-driven-development
+using-git-worktrees
+```
+
+각 스킬은 다음 두 위치에서만 찾습니다.
+
+```text
+<selected CODEX_HOME>/skills/<skill-name>
+<actual user home>/.agents/skills/<skill-name>
+```
+
+`CODEX_HOME`을 설정하지 않으면 첫 위치는 실제 사용자 home의 `.codex/skills`입니다. 두 번째 위치는 `CODEX_HOME`과 독립적입니다. 존재하는 후보는 모두 확인하며, 같은 실제 디렉터리를 가리키는 경로만 한 번 검사합니다. 두 후보가 서로 다른 디렉터리라면 각각 승인된 snapshot과 일치해야 합니다. 검색 순서는 우선순위를 뜻하지 않습니다. plugin cache, 프로젝트별 경로, 임의 재귀 검색은 확인하지 않습니다.
+
+`external-skills.toml`은 네 스킬의 필수 파일 총 11개와 검토된 SHA-256 snapshot을 지정합니다. 모든 필수 파일은 동일한 하나의 snapshot과 일치해야 합니다. 필수 목록 밖의 파일은 비교하거나 재귀 검색하지 않습니다. 필수 스킬 누락, 파일 읽기 실패, 잘못된 lock 또는 snapshot 불일치는 종료 코드 2로 실패하며 외부 파일 내용을 출력하지 않습니다. Snapshot 불일치는 호환성이 확인되지 않았다는 뜻이며, 의미상 비호환을 증명하는 것은 아닙니다.
+
+후보 root 또는 상위 경로의 symbolic link는 strict resolution으로 디렉터리에 도달할 때 허용합니다. Lock에 적힌 각 필수 파일은 실제 skill root 내부에 있는 일반 파일이어야 합니다. root 내부 파일을 가리키는 필수 파일 symbolic link는 허용하고 root 밖을 가리키거나, dangling/cycle이거나, 특수 파일인 경로는 거부합니다. Installer는 외부 스킬을 내려받거나 설치·복사·수정·삭제·백업하지 않습니다.
+
+검토한 snapshot을 갱신하려면 외부 파일 변경을 현재 Harness의 adapter 및 관련 정책과 대조하고, 필수 파일의 raw bytes를 검토한 뒤 새 snapshot ID와 해당 스킬의 필수 파일 전체 SHA-256을 명시적으로 추가합니다. 한 snapshot 안의 파일만 조합해 통과할 수 있습니다. Lock 변경 후에는 `MANIFEST.sha256`에 기록된 `external-skills.toml`의 SHA-256도 다시 계산해 갱신합니다. 설치기는 현재 값을 자동 승인하지 않습니다. Hash 일치는 upstream 출처나 runtime 동작을 인증하지 않으며, 특히 선택적인 Node.js·Bash visual companion 실행 환경을 검증하지 않습니다. Snapshot 밖 추가 파일·다른 검색 위치·검사 이후의 파일 변경도 보장하지 않습니다.
 
 ## 모델 설정
 
@@ -55,13 +81,11 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 
 `CODEX_HOME`을 사용한다면 그 경로 아래의 `skills/yunho-harness/scripts/apply-models.py`를 실행합니다. `apply-models.py --check`는 모든 프로필이 설정과 일치하면 종료 코드 0, 차이가 있으면 1을 반환하며 파일을 수정하지 않습니다. `--dry-run`은 필요한 변경을 표시하고 파일을 수정하지 않습니다. 잘못된 설정, 프로필, 경로는 종료 코드 2입니다. 일반 실행은 일곱 프로필을 모두 읽고 생성 결과를 준비한 뒤 변경 파일을 반영합니다.
 
-## 백업 및 dependency 보존
+## 백업 및 transaction
 
 설치 전 기존 Harness skill과 일곱 agent 프로필을 `$CODEX_HOME/backups/` 아래의 시간표시 디렉터리에 백업합니다. 설치 단계가 실패하면 완료된 교체 작업을 역순으로 복원합니다. 파일 시스템 전체의 원자성을 보장하지 않으므로 실패 뒤 백업 또는 임시 디렉터리가 남을 수 있습니다.
 
-선택한 `$CODEX_HOME/skills/` 또는 `~/.agents/skills/`에 같은 이름의 의존 skill이 있으면 기존 파일을 보존하고 새로 설치하지 않습니다. 보존된 의존 skill의 버전과 Harness의 호환성은 검사하거나 보장하지 않습니다.
-
-`skill/`, `agents/`, `dependencies/` 아래에서 일반 파일인 `.DS_Store`는 설치 파일, 무결성 목록의 포함 범위, 설치 복사에서 제외됩니다. 같은 이름의 symbolic link, directory 또는 특수 파일은 오류입니다.
+`skill/`, `agents/` 아래에서 일반 파일인 `.DS_Store`는 설치 파일, 무결성 목록의 포함 범위, 설치 복사에서 제외됩니다. 같은 이름의 symbolic link, directory 또는 특수 파일은 오류입니다.
 
 ## 수동 활성화
 
@@ -90,8 +114,8 @@ Lead는 종속 구현 task를 순차 조율하고, 승인된 범위·workspace·
 
 필요한 확인과 발견 사항 처리를 마치고 Lead가 task를 수락한 뒤, Lead는 그 task에 한정된 focused commit을 선택적으로 만들 수 있습니다. stage된 내용과 수락 범위를 대조하고, 미해결 기준이나 필수 확인이 있으면 커밋하지 않습니다. 커밋은 남은 전체 integration 확인을 대체하지 않습니다. Conventional Commits 형식과 간결한 한국어 description을 사용합니다. Push, merge, 배포, 설치는 별도 권한을 따릅니다.
 
-`dependencies/`의 변경은 저장소에 번들된 문서만 갱신합니다. Installer는 같은 이름으로 설치된 dependency를 보존하며 호환성을 검사하지 않으므로 저장소 변경이 설치본에 자동 반영되지는 않습니다. 활성 Harness adapter는 기존 설치 문서의 executor 요청과 별도 실행 방법 선택 질문을 현재 순차 흐름에 대응시킵니다. 실행 agent도 자동 reload되지 않습니다. 과거 brief·spec·plan은 당시 승인과 실행의 기록이고, 현재 실행은 활성 Harness 정책을 따릅니다.
+활성 Harness adapter는 기존 설치 문서의 executor 요청과 별도 실행 방법 선택 질문을 현재 순차 흐름에 대응시킵니다. 실행 agent도 자동 reload되지 않습니다. 과거 brief·spec·plan은 당시 승인과 실행의 기록이고, 현재 실행은 활성 Harness 정책을 따릅니다.
 
 ## 무결성 범위
 
-`MANIFEST.sha256`은 `install.py`, `install.command`, README, 선택된 skill·template·의존 파일의 변경 불가 내용을 검사합니다. 편집 가능한 `skill/models.toml`은 무결성 목록에서 제외되며, 대신 version 2 구조와 역할·모델 effort 연결을 검증합니다. 유효한 설정을 편집해도 manifest를 다시 만들 필요는 없습니다. 이 검사는 설정 작성자를 인증하지 않으며, 무결성 목록 자체의 진위나 원격 모델 지원을 증명하지 않습니다.
+`MANIFEST.sha256`은 `install.py`, `install.command`, README, `external-skills.toml`, 선택된 `skill/` 및 `agents/` 파일의 변경 불가 내용을 검사합니다. 편집 가능한 `skill/models.toml`은 무결성 목록에서 제외되며, 대신 version 2 구조와 역할·모델 effort 연결을 검증합니다. 유효한 설정을 편집해도 manifest를 다시 만들 필요는 없습니다. 이 검사는 설정 작성자를 인증하지 않으며, 무결성 목록 자체의 진위나 원격 모델 지원을 증명하지 않습니다.

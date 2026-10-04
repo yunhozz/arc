@@ -17,6 +17,7 @@ import re
 import shutil
 import stat
 import tempfile
+import tomllib
 from datetime import datetime, timezone
 from types import ModuleType
 from pathlib import Path, PurePosixPath
@@ -32,14 +33,179 @@ PROFILE_FILES = (
     "yunho-team-qa.toml",
     "yunho-team-reviewer.toml",
 )
-MANIFEST_REQUIRED_ROOTS = ("skill", "agents", "dependencies")
-MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md")
+REQUIRED_EXTERNAL_FILES = {
+    "brainstorming": (
+        "SKILL.md",
+        "visual-companion.md",
+        "scripts/start-server.sh",
+        "scripts/stop-server.sh",
+        "scripts/server.cjs",
+        "scripts/helper.js",
+        "scripts/frame-template.html",
+    ),
+    "writing-plans": ("SKILL.md",),
+    "test-driven-development": ("SKILL.md", "writing-good-tests.md"),
+    "using-git-worktrees": ("SKILL.md",),
+}
+MANIFEST_REQUIRED_ROOTS = ("skill", "agents")
+MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md", "external-skills.toml")
 MUTABLE_PAYLOAD_FILES = {"skill/models.toml"}
 MANIFEST_LINE = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
+EXTERNAL_DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 
 
 class InstallerError(Exception):
     """A safely reported installation or payload validation error."""
+
+
+SnapshotMap = dict[str, dict[str, dict[str, str]]]
+
+
+def load_external_snapshots(root: Path) -> SnapshotMap:
+    """Parse the reviewed external skill snapshots from the staged payload."""
+    lock = root / "external-skills.toml"
+    require_regular_file(lock)
+    try:
+        document = tomllib.loads(lock.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise InstallerError(f"cannot read external skill lock {lock}: {exc}") from exc
+
+    def invalid(reason: str) -> None:
+        raise InstallerError(f"invalid external skill lock {lock}: {reason}")
+
+    if set(document) != {"version", "snapshots"}:
+        invalid("top-level keys must be exactly version and snapshots")
+    if type(document["version"]) is not int or document["version"] != 1:
+        invalid("version must be integer 1")
+    entries = document["snapshots"]
+    if not isinstance(entries, list) or not entries:
+        invalid("snapshots must be a nonempty array of tables")
+
+    snapshots: SnapshotMap = {skill: {} for skill in REQUIRED_EXTERNAL_FILES}
+    for index, entry in enumerate(entries, start=1):
+        label = f"snapshot {index}"
+        if not isinstance(entry, dict) or set(entry) != {"skill", "id", "files"}:
+            invalid(f"{label} must have exactly skill, id and files")
+        skill, snapshot_id, files = entry["skill"], entry["id"], entry["files"]
+        if not isinstance(skill, str) or skill not in REQUIRED_EXTERNAL_FILES:
+            invalid(f"{label} has an unknown skill")
+        if not isinstance(snapshot_id, str) or not snapshot_id.strip():
+            invalid(f"{label} id must be a nonempty string")
+        if snapshot_id in snapshots[skill]:
+            invalid(f"{skill} has duplicate snapshot id {snapshot_id!r}")
+        if not isinstance(files, dict) or not files:
+            invalid(f"{label} files must be a nonempty mapping")
+
+        checked: dict[str, str] = {}
+        for raw_path, digest in files.items():
+            if (
+                not isinstance(raw_path, str)
+                or not raw_path
+                or "\\" in raw_path
+                or "\x00" in raw_path
+            ):
+                invalid(f"{label} has an unsafe file path")
+            relative = PurePosixPath(raw_path)
+            if (
+                relative.is_absolute()
+                or any(part in ("", ".", "..") for part in relative.parts)
+                or relative.as_posix() != raw_path
+            ):
+                invalid(f"{label} has unsafe file path {raw_path!r}")
+            if not isinstance(digest, str) or EXTERNAL_DIGEST.fullmatch(digest) is None:
+                invalid(f"{label} has invalid SHA-256 for {raw_path!r}")
+            checked[raw_path] = digest.lower()
+
+        if set(checked) != set(REQUIRED_EXTERNAL_FILES[skill]):
+            invalid(f"{label} file set does not match required files for {skill}")
+        snapshots[skill][snapshot_id] = checked
+
+    missing = [skill for skill, records in snapshots.items() if not records]
+    if missing:
+        invalid("missing required snapshots: " + ", ".join(missing))
+    return snapshots
+
+
+def validate_external_skills(home: Path, user_home: Path, snapshots: SnapshotMap) -> None:
+    """Read-only validation of the supported external skill locations."""
+    errors: list[str] = []
+    bases = (absolute(home / "skills"), absolute(user_home / ".agents" / "skills"))
+    for skill, required_files in REQUIRED_EXTERNAL_FILES.items():
+        seen: set[Path] = set()
+        found = False
+        for base in bases:
+            candidate = base / skill
+            prefix = f"{skill}: 후보 {candidate}"
+            try:
+                resolved = _external_candidate_root(candidate)
+            except (InstallerError, OSError, RuntimeError, ValueError) as exc:
+                found = True
+                errors.append(f"{prefix}: root 해석 오류: {exc}")
+                continue
+            if resolved is None:
+                continue
+            found = True
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            if resolved != candidate:
+                prefix += f" (실제 {resolved})"
+
+            digests: dict[str, str] = {}
+            candidate_errors: list[str] = []
+            for relative in required_files:
+                original = resolved.joinpath(*PurePosixPath(relative).parts)
+                try:
+                    actual = original.resolve(strict=True)
+                    if not actual.is_relative_to(resolved):
+                        raise InstallerError(f"root 외부 참조: {relative} -> {actual}")
+                    if not stat.S_ISREG(actual.stat().st_mode):
+                        raise InstallerError(f"일반 파일이 아님: {relative} -> {actual}")
+                    digests[relative] = hashlib.sha256(actual.read_bytes()).hexdigest()
+                except (InstallerError, OSError, RuntimeError, ValueError) as exc:
+                    candidate_errors.append(f"{prefix}: 파일 {relative}: {exc}")
+            if candidate_errors:
+                errors.extend(candidate_errors)
+                continue
+
+            approved = snapshots[skill]
+            if not any(digests == files for files in approved.values()):
+                comparisons = []
+                for snapshot_id, files in approved.items():
+                    mismatches = [path for path in required_files if digests[path] != files[path]]
+                    comparisons.append(f"{snapshot_id}: " + ", ".join(mismatches))
+                errors.append(f"{prefix}: 호환성이 확인되지 않음; " + "; ".join(comparisons))
+
+        if not found:
+            candidates = ", ".join(str(base / skill) for base in bases)
+            errors.append(f"{skill}: 필수 외부 스킬 누락; 후보 {candidates}")
+
+    if errors:
+        raise InstallerError("\n".join(errors))
+
+
+def _external_candidate_root(candidate: Path) -> Path | None:
+    """Resolve an external skill root; return None only for ordinary absence."""
+    candidate = absolute(candidate)
+    current = Path(candidate.anchor)
+    for component in candidate.parts[1:]:
+        current /= component
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError:
+            return None
+        if stat.S_ISLNK(mode):
+            resolved = current.resolve(strict=True)
+            resolved_mode = resolved.stat().st_mode
+            if current != candidate and not stat.S_ISDIR(resolved_mode):
+                raise InstallerError(f"parent is not a directory: {current}")
+        elif current != candidate and not stat.S_ISDIR(mode):
+            raise InstallerError(f"parent is not a directory: {current}")
+
+    resolved = candidate.resolve(strict=True)
+    if not stat.S_ISDIR(resolved.stat().st_mode):
+        raise InstallerError(f"candidate root is not a directory: {resolved}")
+    return resolved
 
 
 def absolute(path: Path) -> Path:
@@ -136,31 +302,6 @@ def selected_tree_files(tree: Path) -> tuple[Path, ...]:
     return tuple(sorted(selected))
 
 
-def dependency_sources(root: Path) -> tuple[Path, ...]:
-    """Return selected dependency skill directories after validating their contents."""
-    dependency_root = root / "dependencies"
-    require_directory(dependency_root)
-    sources: list[Path] = []
-    for source in sorted(dependency_root.iterdir(), key=lambda path: path.name):
-        try:
-            mode = source.lstat().st_mode
-        except OSError as exc:
-            raise InstallerError(f"cannot inspect dependency payload entry {source}: {exc}") from exc
-        if stat.S_ISLNK(mode):
-            raise InstallerError(f"symlink in dependency payload is unsafe: {source}")
-        if source.name == ".DS_Store":
-            if not stat.S_ISREG(mode):
-                raise InstallerError(f".DS_Store payload entry must be a regular file: {source}")
-            continue
-        if not stat.S_ISDIR(mode):
-            raise InstallerError(f"dependency payload entries must be skill directories: {source}")
-        selected_tree_files(source)
-        sources.append(source)
-    if not sources:
-        raise InstallerError(f"no dependency skills were found in {dependency_root}")
-    return tuple(sources)
-
-
 def staged_root() -> Path:
     script = absolute(Path(__file__))
     reject_symlink_components(script)
@@ -168,8 +309,6 @@ def staged_root() -> Path:
     root = script.parent
     selected_tree_files(root / "skill")
     selected_tree_files(root / "agents")
-    selected_tree_files(root / "dependencies")
-    dependency_sources(root)
     require_regular_file(root / "skill" / "models.toml")
     require_regular_file(root / "skill" / "scripts" / "apply-models.py")
     require_regular_file(root / "skill" / "scripts" / "model_config.py")
@@ -326,7 +465,7 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
-def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Path], list[tuple[Path, Path]]]:
+def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Path]]:
     skills_dir = home / "skills"
     agents_dir = home / "agents"
     backups_dir = home / "backups"
@@ -343,21 +482,9 @@ def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Pa
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
-    user_skills = absolute(Path.home() / ".agents" / "skills")
-    dependencies_to_install: list[tuple[Path, Path]] = []
-    for source in dependency_sources(root):
-        selected_target = skills_dir / source.name
-        user_target = user_skills / source.name
-        reject_symlink_components(selected_target)
-        reject_symlink_components(user_target)
-        selected_exists = check_directory_or_missing(selected_target)
-        user_exists = check_directory_or_missing(user_target)
-        if selected_exists or user_exists:
-            retained = selected_target if selected_exists else user_target
-            print(f"Keeping existing dependency skill: {retained}")
-        else:
-            dependencies_to_install.append((source, selected_target))
-    return skills_dir, agents_dir, backups_dir, profile_targets, dependencies_to_install
+    snapshots = load_external_snapshots(root)
+    validate_external_skills(home, absolute(Path.home()), snapshots)
+    return skills_dir, agents_dir, backups_dir, profile_targets
 
 
 def make_backup_directory(parent: Path) -> Path:
@@ -417,12 +544,10 @@ def rollback(actions: list[dict[str, object]]) -> list[str]:
 
 
 def perform_install(root: Path, home: Path, rendered_profiles: dict[str, bytes], dry_run: bool = False) -> None:
-    skills_dir, agents_dir, backups_dir, profile_targets, dependencies = install_plan(root, home)
+    skills_dir, agents_dir, backups_dir, profile_targets = install_plan(root, home)
     if dry_run:
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
         print(f"Would install seven profiles: {agents_dir}")
-        for _, target in dependencies:
-            print(f"Would install dependency skill: {target}")
         return
 
     for directory in (home, skills_dir, agents_dir, backups_dir):
@@ -464,20 +589,6 @@ def perform_install(root: Path, home: Path, rendered_profiles: dict[str, bytes],
                 raise InstallerError(f"cannot stage generated profile {filename}: {exc}") from exc
             staged_profiles[filename] = staged
 
-        dependency_stages: list[tuple[Path, Path]] = []
-        if dependencies:
-            dependency_stage_area = create_stage_area(skills_dir, "dependencies")
-            stage_areas.append(dependency_stage_area)
-            for index, (source, target) in enumerate(dependencies):
-                staged = dependency_stage_area / f"{index}-{source.name}"
-                shutil.copytree(
-                    source,
-                    staged,
-                    copy_function=shutil.copy2,
-                    ignore=ignore_ds_store,
-                )
-                dependency_stages.append((staged, target))
-
         old_harness = skill_stage_area / "previous-harness"
         harness_action: dict[str, object] = {"target": harness_target, "previous": None, "installed": False}
         if harness_target.exists():
@@ -496,15 +607,6 @@ def perform_install(root: Path, home: Path, rendered_profiles: dict[str, bytes],
                 action["previous"] = previous
             actions.append(action)
             os.replace(staged_profiles[filename], target)
-            action["installed"] = True
-
-        for staged, target in dependency_stages:
-            reject_symlink_components(target)
-            if target.exists():
-                raise InstallerError(f"dependency target appeared during installation: {target}")
-            action = {"target": target, "previous": None, "installed": False}
-            actions.append(action)
-            os.replace(staged, target)
             action["installed"] = True
 
     except BaseException as exc:
