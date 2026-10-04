@@ -38,27 +38,21 @@ scope; this boundary makes no owner assignment for those activities.
 Apply platform, user, and project instructions according to their precedence, then Harness rules for ownership,
 permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
-`superpowers:subagent-driven-development` to the selected Harness mode; this replaces executor mechanics only. Report
-conflicts or missing non-executor skills before dependent work.
+`superpowers:subagent-driven-development` to Lead's sequential coordination and risk-scaled verification; this replaces
+executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
+Preserve plan approval, TDD, workspace, design, spec, and other applicable requirements. Report conflicts or missing
+non-executor skills before dependent work.
 
 Planner, Reviewer, and Scout return findings, relevant questions, next actions, and workspace/path issues to the
 invoking owner (Lead or Secretary). Planner preserves complete requested drafts. The invoking owner integrates results,
 routes decisions and required approvals, and owns acceptance and completion within its assigned scope. Shared specialist
 reporting does not transfer owner-specific duties. For development work, design/planning approvals, Coder/QA
 coordination, implementation acceptance, and completion remain with Lead. Coder implements assigned files; QA checks
-without edits; Reviewer reads independently. Keep an explicitly selected execution mode. If none is specified, Lead
-recommends one during plan approval:
-
-- **Native:** Lead coordinates sequential tasks; Coder may be reused. QA completes before a fresh independent Reviewer
-  checks the full change. That review may also satisfy the risk-required review only when its scope, evidence, relevant
-  state, independence, required freshness, and position in the flow meet both requirements; record both requirements
-  as met. Lead accepts only after review.
-- **Fresh-agent:** use a fresh Coder and Reviewer task per implementation task. Required QA precedes each task review,
-  and each review resolves before dependent work; after all task reviews resolve, a separate fresh Reviewer task checks
-  the full change, even when there is only one implementation task.
-
-Freshness changes task context, not authority, configured models, or concurrency. Mode checkpoints supplement risk-based
-QA/review; retain every applicable checkpoint.
+without edits; Reviewer reads independently. Lead coordinates dependent implementation tasks sequentially and may reuse
+Coder while the approved scope, workspace, ownership, and relevant context remain valid. Do not add per-task QA or
+review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
+next task depends on a still-unverified risky contract, complete applicable QA/review at that dependency boundary and
+resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
 
 ## Design and planning
 
@@ -69,6 +63,9 @@ constraints; report missing required skills before that stage.
 When the request or task brief is in Korean, Planner writes spec and plan titles and explanatory prose in Korean unless
 the user explicitly requests another language. Preserve identifiers, skill/API names, code, paths, commands, and
 literal values exactly. Lead preserves the agreed language when saving and integrating Planner output.
+
+Assess design and plan depth separately from verification risk; risk determines the required checks and review, not the
+design path or plan approval gates.
 
 1. Before software feature, design, or behavior changes, Lead assigns Planner the installed `brainstorming` skill with
    the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
@@ -86,7 +83,7 @@ literal values exactly. Lead preserves the agreed language when saving and integ
 4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows installed `writing-plans`,
    returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
    Lead integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
-   then obtains plan and execution-mode approval before Coder. Planner cannot save, implement, or request approval.
+   then obtains plan approval before Coder. Planner cannot save, implement, or request approval.
 5. Coder starts after all applicable design/spec/plan approvals, with approved artifacts, brief, and relevant findings.
    Non-behavior configuration/documentation changes may proceed directly. These stages preserve Secretary's standalone
    ownership.
@@ -94,7 +91,7 @@ literal values exactly. Lead preserves the agreed language when saving and integ
 ## Coder TDD and constraints
 
 Before feature, bug-fix, or behavior implementation, Coder follows the installed `test-driven-development` skill,
-including bounded, no-plan, and low-risk work. Plan depth, risk, and execution mode do not waive TDD. If an unavoidable
+including bounded, no-plan, and low-risk work. Plan depth and risk do not waive TDD. If an unavoidable
 constraint blocks a required step, Coder pauses before editing and gives Lead the scope, exact constraint and evidence,
 required TDD steps, alternatives, uncertainty, and approval needed. Lead records the decision in the brief/plan and
 obtains any required human approval; internal approval is not a substitute. Non-behavior documentation/configuration
@@ -106,30 +103,67 @@ limits, and do not generalize it to behavior work or claim TDD.
 Lead identifies affected behavior, risk, and smallest meaningful verification. Product/test edits belong exclusively to
 Coder with assigned file ownership; Lead may inspect/run checks but routes code corrections to Coder.
 
-Determine the minimum flow by combining applicable risk requirements with the selected mode checkpoints; retain every
-applicable requirement. The risk table alone is not the complete flow. A single check or review may satisfy overlapping
+Determine the minimum flow from risk requirements and any specific applicable instruction or approved commitment.
+The risk table is the baseline; do not add automatic per-task checkpoints. A check or review may satisfy overlapping
 requirements only when its scope, evidence, relevant state, independence, required freshness, and position in the flow
-satisfy each requirement. Relevant changes, failures, or missing/conflicting evidence invalidate reuse for the affected
+satisfy each one. Relevant changes, failures, or missing/conflicting evidence invalidate reuse for the affected
 requirement. Record which requirements each check or review satisfies.
 
-| Risk                  | Risk-based requirement (combine with mode checkpoints) |
-|-----------------------|--------------------------------------------|
-| Small, low risk       | Coder → Lead's focused checks; QA optional |
-| Ordinary behavior     | Coder → QA's independent behavior check    |
-| Significant/high risk | Coder → QA → independent Reviewer          |
+| Risk                  | Minimum flow |
+|-----------------------|--------------|
+| Small, low risk       | Coder → Lead's focused checks → acceptance |
+| Ordinary behavior     | Coder → independent QA → acceptance |
+| Significant/high risk | Coder → QA → independent Reviewer of the full change → acceptance |
+
+For small, low-risk work, Lead's focused checks are sufficient when scope and acceptance evidence are clear and no
+specific instruction or approved commitment requires more; do not call QA or Reviewer automatically. Ordinary behavior
+requires independent QA. Significant/high-risk work requires QA followed by independent review of the full change at the
+final relevant state. Lead accepts only after applicable checks, findings, and evidence gaps are resolved or explicitly
+dispositioned.
+
+Small, low-risk work is narrow, understood, readily reversible, and verifiable through focused checks. Ordinary behavior
+is a behavior change that does not meet all small, low-risk conditions and has no significant-risk trigger. Significant
+risk includes material changes to shared role or behavior contracts, shared state, lifecycle or integration order,
+security or permissions, data loss or migration, public interfaces, or costly installation, deployment, or rollback.
+Substantial behavior or contract changes are significant regardless of file count; numerous known metadata files are not
+significant solely because there are many, and a one-file permission or data-loss rule may be. If scope or risk is
+unclear, do not use the low-risk flow: investigate the uncertainty or apply the higher verification flow.
+An environment failure is distinct from a code failure; it does not by itself change design depth or waive a required
+check. Report the exact limitation and any remaining evidence gap to the owner.
+
+For a verified `.gitignore` and IDE/macOS metadata cleanup, confirm the listed targets are unused, required project
+materials are unaffected, ignore patterns cover only intended paths, and the diff matches the approved scope. Lead can
+then complete focused checks without automatically calling QA or Reviewer. A vague request to delete unnecessary files
+does not establish low risk; reclassify when installer, manifest, or other contracts are affected.
 
 Use additional Planner/Scout only for unresolved planning/discovery questions. Reviewer covers substantial changes and
 correctness, factual, security, data, or interface risks. Owners may use Planner/Scout/Reviewer when justified; only
 Lead uses Coder/QA. Secretary works alone when small or sequential work needs no specialist.
 
-QA runs existing functional/test checks without editing source, documents, tests, or configuration. Reviewer reads the
-assigned diff/source for correctness, factual accuracy, and security; no planning, delegation, QA, editing,
-implementation, or completion decision. Lead routes actionable development findings to Coder; after a behavior fix QA reruns affected checks, and Reviewer
+QA independently runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
+configuration changes, without editing source, documents, tests, or configuration. Reviewer reads the assigned
+diff/source for correctness, factual accuracy, and security; for significant/high-risk work, review the full change after
+QA at the final relevant state. Reviewer does no planning, delegation, QA, editing, implementation, or completion
+decision. Lead routes actionable development findings to Coder; after a behavior fix QA reruns affected checks, and Reviewer
 rechecks only when warranted. Reuse verified inspections/checks/reviews only when their scope, evidence, relevant
-state, independence, required freshness, and position in the flow still satisfy every requirement they cover. Relevant
-changes, failures, or missing/conflicting evidence invalidate reuse for affected requirements. Record which
+state, independence, required freshness, and position in the flow still satisfy every requirement they cover. Reuse a
+Reviewer only when independent of the work and self-review and when evidence meets required scope and freshness; do not
+require a new Reviewer for each task unless a separate instruction requires it. For significant work, the
+whole-change review must follow QA and cover the final relevant state. Relevant changes, failures, or missing/conflicting
+evidence invalidate reuse for affected requirements. Record which
 requirements each check or review satisfies. Resolve or explicitly disposition findings and confirm acceptance
 evidence before completion; claim checks only with verified output.
+
+## Optional commit after acceptance
+
+After applicable checks and reviews are complete and findings are resolved or explicitly dispositioned, Lead may accept
+a task and optionally create a focused commit for that accepted task. Confirm the staged diff contains only the
+accepted task; do not commit unresolved acceptance criteria or required checks. A commit does not replace QA, review,
+acceptance, or remaining integration checks. Follow Conventional Commits with the message form
+`<type>(<scope>): <description>`. Use a concise, specific Korean description without a trailing period, a lowercase
+scope when useful, one logical change per commit, and body/footer only when needed while preserving Git trailer syntax.
+This permits commits only; push, merge, publishing, deployment, and installation still follow their separate approval
+rules.
 
 ## Workspace handoff
 

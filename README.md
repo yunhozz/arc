@@ -76,6 +76,22 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 
 `CODEX_HOME`이 기본 경로가 아니라면 loader의 skill 경로를 실제 설치 위치로 바꿉니다. 새 세션은 설치된 에이전트 프로필을 읽으며, 이미 실행 중인 에이전트 설정은 자동으로 바뀌지 않습니다.
 
+## 실행 흐름
+
+Lead는 종속 구현 task를 순차 조율하고, 승인된 범위·workspace·관련 맥락이 유효하면 Coder를 재사용할 수 있습니다. 설계·계획 깊이와 검증 위험도는 별도로 판단하며, architectural 작업은 written spec과 written plan 승인을 거칩니다. Bounded 작업의 계획 생략은 단일 국소 변경, 종속 단계·공유 상태·lifecycle·통합 순서 없음, 하나의 집중 검증 경로를 모두 만족할 때만 가능합니다.
+
+| 변경 위험 | 최소 흐름 |
+|---|---|
+| 작은 저위험 | Coder → Lead 집중 확인 → 수락. 확인된 범위와 근거가 명확하면 QA·Reviewer를 자동 호출하지 않습니다. |
+| 일반 행동 변경 | Coder → 독립 QA → 수락 |
+| Significant/high-risk | Coder → QA → 최종 관련 상태의 전체 변경 독립 검토 → 수락 |
+
+적용 지침이나 승인된 약속이 더 많은 확인을 요구하면 이를 유지합니다. 증거는 범위·실제 결과·관련 상태·독립성·필요한 freshness·흐름상 위치가 유효할 때만 재사용합니다. 관련 변경이나 실패는 영향받은 근거를 무효화합니다. 행동 변경에는 TDD를 적용합니다. 문서·설정의 예외는 brief에 구체적으로 승인된 범위만 따르며 구조 확인을 실제 runtime 동작의 증거로 표현하지 않습니다.
+
+필요한 확인과 발견 사항 처리를 마치고 Lead가 task를 수락한 뒤, Lead는 그 task에 한정된 focused commit을 선택적으로 만들 수 있습니다. stage된 내용과 수락 범위를 대조하고, 미해결 기준이나 필수 확인이 있으면 커밋하지 않습니다. 커밋은 남은 전체 integration 확인을 대체하지 않습니다. Conventional Commits 형식과 간결한 한국어 description을 사용합니다. Push, merge, 배포, 설치는 별도 권한을 따릅니다.
+
+`dependencies/`의 변경은 저장소에 번들된 문서만 갱신합니다. Installer는 같은 이름으로 설치된 dependency를 보존하며 호환성을 검사하지 않으므로 저장소 변경이 설치본에 자동 반영되지는 않습니다. 활성 Harness adapter는 기존 설치 문서의 executor 요청과 별도 실행 방법 선택 질문을 현재 순차 흐름에 대응시킵니다. 실행 agent도 자동 reload되지 않습니다. 과거 brief·spec·plan은 당시 승인과 실행의 기록이고, 현재 실행은 활성 Harness 정책을 따릅니다.
+
 ## 무결성 범위
 
 `MANIFEST.sha256`은 `install.py`, `install.command`, README, 선택된 skill·template·의존 파일의 변경 불가 내용을 검사합니다. 편집 가능한 `skill/models.toml`은 무결성 목록에서 제외되며, 대신 version 2 구조와 역할·모델 effort 연결을 검증합니다. 유효한 설정을 편집해도 manifest를 다시 만들 필요는 없습니다. 이 검사는 설정 작성자를 인증하지 않으며, 무결성 목록 자체의 진위나 원격 모델 지원을 증명하지 않습니다.
