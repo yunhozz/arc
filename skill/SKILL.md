@@ -41,14 +41,21 @@ adds no agents or authority. Map executor requests such as `superpowers:executin
 `superpowers:subagent-driven-development` to the selected Harness mode; this replaces executor mechanics only. Report
 conflicts or missing non-executor skills before dependent work.
 
-Planner returns complete drafts, review findings, and next actions; Lead integrates/saves/reviews and obtains decisions;
-Coder implements assigned files; QA checks without edits; Reviewer reads independently; Lead accepts/completes. Keep an
-explicitly selected execution mode. If none is specified, Lead recommends one during plan approval:
+Planner, Reviewer, and Scout return findings, relevant questions, next actions, and workspace/path issues to the
+invoking owner (Lead or Secretary). Planner preserves complete requested drafts. The invoking owner integrates results,
+routes decisions and required approvals, and owns acceptance and completion within its assigned scope. Shared specialist
+reporting does not transfer owner-specific duties. For development work, design/planning approvals, Coder/QA
+coordination, implementation acceptance, and completion remain with Lead. Coder implements assigned files; QA checks
+without edits; Reviewer reads independently. Keep an explicitly selected execution mode. If none is specified, Lead
+recommends one during plan approval:
 
 - **Native:** Lead coordinates sequential tasks; Coder may be reused. QA completes before a fresh independent Reviewer
-  checks the full change; Lead accepts only after review.
-- **Fresh-agent:** use a fresh Coder and Reviewer task per implementation task. Required QA precedes review, and that
-  review resolves before dependent work; finish with a fresh review of the full change.
+  checks the full change. That review may also satisfy the risk-required review only when its scope, evidence, relevant
+  state, independence, required freshness, and position in the flow meet both requirements; record both requirements
+  as met. Lead accepts only after review.
+- **Fresh-agent:** use a fresh Coder and Reviewer task per implementation task. Required QA precedes each task review,
+  and each review resolves before dependent work; after all task reviews resolve, a separate fresh Reviewer task checks
+  the full change, even when there is only one implementation task.
 
 Freshness changes task context, not authority, configured models, or concurrency. Mode checkpoints supplement risk-based
 QA/review; retain every applicable checkpoint.
@@ -99,7 +106,13 @@ limits, and do not generalize it to behavior work or claim TDD.
 Lead identifies affected behavior, risk, and smallest meaningful verification. Product/test edits belong exclusively to
 Coder with assigned file ownership; Lead may inspect/run checks but routes code corrections to Coder.
 
-| Risk                  | Required flow after applicable planning    |
+Determine the minimum flow by combining applicable risk requirements with the selected mode checkpoints; retain every
+applicable requirement. The risk table alone is not the complete flow. A single check or review may satisfy overlapping
+requirements only when its scope, evidence, relevant state, independence, required freshness, and position in the flow
+satisfy each requirement. Relevant changes, failures, or missing/conflicting evidence invalidate reuse for the affected
+requirement. Record which requirements each check or review satisfies.
+
+| Risk                  | Risk-based requirement (combine with mode checkpoints) |
 |-----------------------|--------------------------------------------|
 | Small, low risk       | Coder → Lead's focused checks; QA optional |
 | Ordinary behavior     | Coder → QA's independent behavior check    |
@@ -111,18 +124,21 @@ Lead uses Coder/QA. Secretary works alone when small or sequential work needs no
 
 QA runs existing functional/test checks without editing source, documents, tests, or configuration. Reviewer reads the
 assigned diff/source for correctness, factual accuracy, and security; no planning, delegation, QA, editing,
-implementation, or completion decision. Lead routes actionable findings to Coder; after a behavior fix QA reruns
-affected checks, and Reviewer rechecks only when warranted. Reuse verified inspections/checks/reviews until relevant
-state changes, failure, or missing/conflicting evidence warrants another pass. Resolve or explicitly disposition
-findings and confirm acceptance evidence before completion; claim checks only with verified output.
+implementation, or completion decision. Lead routes actionable development findings to Coder; after a behavior fix QA reruns affected checks, and Reviewer
+rechecks only when warranted. Reuse verified inspections/checks/reviews only when their scope, evidence, relevant
+state, independence, required freshness, and position in the flow still satisfy every requirement they cover. Relevant
+changes, failures, or missing/conflicting evidence invalidate reuse for affected requirements. Record which
+requirements each check or review satisfies. Resolve or explicitly disposition findings and confirm acceptance
+evidence before completion; claim checks only with verified output.
 
 ## Workspace handoff
 
 Before implementation, Lead follows installed `using-git-worktrees`: detect existing isolation with the submodule guard,
 honor a declared preference, obtain required consent, prefer native tools, and use only its documented fallback,
 including sandbox-denial handling. Record the actual absolute workspace and the isolation/preference/consent/setup
-evidence in the brief; give every specialist that same workspace and absolute artifact paths. Coder, QA, and Reviewer
-use only the supplied workspace and return missing, inaccessible, or conflicting paths to Lead before dependent work.
+evidence in the brief; give every specialist that same workspace and absolute artifact paths. Coder and QA use only the supplied workspace and return missing, inaccessible, or conflicting paths to Lead before
+dependent work. Planner, Reviewer, and Scout use the supplied workspace and return such issues to their invoking owner
+under the common reporting rule before dependent work.
 
 ## Visual companion
 
