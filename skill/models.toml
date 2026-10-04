@@ -31,8 +31,8 @@ model = "gpt-6-luna"
 model_reasoning_effort = "max"
 
 [roles.yunho_team_qa]
-model = "gpt-6.1-sol"
-model_reasoning_effort = "low"
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
 
 [roles.yunho_team_reviewer]
 model = "gpt-6.1-sol"
