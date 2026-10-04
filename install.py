@@ -11,13 +11,16 @@ if sys.version_info < (3, 11):
 
 import argparse
 import hashlib
+import json
 import importlib.util
 import os
 import re
 import shutil
+import shlex
+import signal
 import stat
+import subprocess
 import tempfile
-import tomllib
 from datetime import datetime, timezone
 from types import ModuleType
 from pathlib import Path, PurePosixPath
@@ -48,140 +51,16 @@ REQUIRED_EXTERNAL_FILES = {
     "using-git-worktrees": ("SKILL.md",),
 }
 MANIFEST_REQUIRED_ROOTS = ("skill", "agents")
-MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md", "external-skills.toml")
+MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md")
 MUTABLE_PAYLOAD_FILES = {"skill/models.toml"}
 MANIFEST_LINE = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
-EXTERNAL_DIGEST = re.compile(r"[0-9a-fA-F]{64}")
+EXTERNAL_SOURCE = "https://github.com/obra/superpowers"
+EXTERNAL_FETCH_TIMEOUT_SECONDS = 300
+EXTERNAL_TERMINATION_GRACE_SECONDS = 5
 
 
 class InstallerError(Exception):
     """A safely reported installation or payload validation error."""
-
-
-SnapshotMap = dict[str, dict[str, dict[str, str]]]
-
-
-def load_external_snapshots(root: Path) -> SnapshotMap:
-    """Parse the reviewed external skill snapshots from the staged payload."""
-    lock = root / "external-skills.toml"
-    require_regular_file(lock)
-    try:
-        document = tomllib.loads(lock.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
-        raise InstallerError(f"cannot read external skill lock {lock}: {exc}") from exc
-
-    def invalid(reason: str) -> None:
-        raise InstallerError(f"invalid external skill lock {lock}: {reason}")
-
-    if set(document) != {"version", "snapshots"}:
-        invalid("top-level keys must be exactly version and snapshots")
-    if type(document["version"]) is not int or document["version"] != 1:
-        invalid("version must be integer 1")
-    entries = document["snapshots"]
-    if not isinstance(entries, list) or not entries:
-        invalid("snapshots must be a nonempty array of tables")
-
-    snapshots: SnapshotMap = {skill: {} for skill in REQUIRED_EXTERNAL_FILES}
-    for index, entry in enumerate(entries, start=1):
-        label = f"snapshot {index}"
-        if not isinstance(entry, dict) or set(entry) != {"skill", "id", "files"}:
-            invalid(f"{label} must have exactly skill, id and files")
-        skill, snapshot_id, files = entry["skill"], entry["id"], entry["files"]
-        if not isinstance(skill, str) or skill not in REQUIRED_EXTERNAL_FILES:
-            invalid(f"{label} has an unknown skill")
-        if not isinstance(snapshot_id, str) or not snapshot_id.strip():
-            invalid(f"{label} id must be a nonempty string")
-        if snapshot_id in snapshots[skill]:
-            invalid(f"{skill} has duplicate snapshot id {snapshot_id!r}")
-        if not isinstance(files, dict) or not files:
-            invalid(f"{label} files must be a nonempty mapping")
-
-        checked: dict[str, str] = {}
-        for raw_path, digest in files.items():
-            if (
-                not isinstance(raw_path, str)
-                or not raw_path
-                or "\\" in raw_path
-                or "\x00" in raw_path
-            ):
-                invalid(f"{label} has an unsafe file path")
-            relative = PurePosixPath(raw_path)
-            if (
-                relative.is_absolute()
-                or any(part in ("", ".", "..") for part in relative.parts)
-                or relative.as_posix() != raw_path
-            ):
-                invalid(f"{label} has unsafe file path {raw_path!r}")
-            if not isinstance(digest, str) or EXTERNAL_DIGEST.fullmatch(digest) is None:
-                invalid(f"{label} has invalid SHA-256 for {raw_path!r}")
-            checked[raw_path] = digest.lower()
-
-        if set(checked) != set(REQUIRED_EXTERNAL_FILES[skill]):
-            invalid(f"{label} file set does not match required files for {skill}")
-        snapshots[skill][snapshot_id] = checked
-
-    missing = [skill for skill, records in snapshots.items() if not records]
-    if missing:
-        invalid("missing required snapshots: " + ", ".join(missing))
-    return snapshots
-
-
-def validate_external_skills(home: Path, user_home: Path, snapshots: SnapshotMap) -> None:
-    """Read-only validation of the supported external skill locations."""
-    errors: list[str] = []
-    bases = (absolute(home / "skills"), absolute(user_home / ".agents" / "skills"))
-    for skill, required_files in REQUIRED_EXTERNAL_FILES.items():
-        seen: set[Path] = set()
-        found = False
-        for base in bases:
-            candidate = base / skill
-            prefix = f"{skill}: 후보 {candidate}"
-            try:
-                resolved = _external_candidate_root(candidate)
-            except (InstallerError, OSError, RuntimeError, ValueError) as exc:
-                found = True
-                errors.append(f"{prefix}: root 해석 오류: {exc}")
-                continue
-            if resolved is None:
-                continue
-            found = True
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            if resolved != candidate:
-                prefix += f" (실제 {resolved})"
-
-            digests: dict[str, str] = {}
-            candidate_errors: list[str] = []
-            for relative in required_files:
-                original = resolved.joinpath(*PurePosixPath(relative).parts)
-                try:
-                    actual = original.resolve(strict=True)
-                    if not actual.is_relative_to(resolved):
-                        raise InstallerError(f"root 외부 참조: {relative} -> {actual}")
-                    if not stat.S_ISREG(actual.stat().st_mode):
-                        raise InstallerError(f"일반 파일이 아님: {relative} -> {actual}")
-                    digests[relative] = hashlib.sha256(actual.read_bytes()).hexdigest()
-                except (InstallerError, OSError, RuntimeError, ValueError) as exc:
-                    candidate_errors.append(f"{prefix}: 파일 {relative}: {exc}")
-            if candidate_errors:
-                errors.extend(candidate_errors)
-                continue
-
-            approved = snapshots[skill]
-            if not any(digests == files for files in approved.values()):
-                comparisons = []
-                for snapshot_id, files in approved.items():
-                    mismatches = [path for path in required_files if digests[path] != files[path]]
-                    comparisons.append(f"{snapshot_id}: " + ", ".join(mismatches))
-                errors.append(f"{prefix}: 호환성이 확인되지 않음; " + "; ".join(comparisons))
-
-        if not found:
-            candidates = ", ".join(str(base / skill) for base in bases)
-            errors.append(f"{skill}: 필수 외부 스킬 누락; 후보 {candidates}")
-
-    if errors:
-        raise InstallerError("\n".join(errors))
 
 
 def _external_candidate_root(candidate: Path) -> Path | None:
@@ -207,6 +86,496 @@ def _external_candidate_root(candidate: Path) -> Path | None:
         raise InstallerError(f"candidate root is not a directory: {resolved}")
     return resolved
 
+
+
+def validate_required_external_files(root: Path, required_files: tuple[str, ...]) -> None:
+    """Validate only required regular files beneath an external skill root."""
+    candidate = absolute(root)
+    try:
+        resolved_root = candidate.resolve(strict=True)
+        root_mode = resolved_root.stat().st_mode
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise InstallerError(f"cannot resolve external skill root {candidate}: {exc}") from exc
+    if not stat.S_ISDIR(root_mode):
+        raise InstallerError(f"external skill root is not a directory: {candidate}")
+
+    errors: list[str] = []
+    for raw_relative in required_files:
+        if (
+            not isinstance(raw_relative, str)
+            or not raw_relative
+            or "\\" in raw_relative
+            or "\x00" in raw_relative
+        ):
+            errors.append(f"unsafe required file path: {raw_relative!r}")
+            continue
+        relative = PurePosixPath(raw_relative)
+        if (
+            relative.is_absolute()
+            or any(part in ("", ".", "..") for part in relative.parts)
+            or relative.as_posix() != raw_relative
+        ):
+            errors.append(f"unsafe required file path: {raw_relative!r}")
+            continue
+
+        original = resolved_root.joinpath(*relative.parts)
+        try:
+            actual = original.resolve(strict=True)
+            if not actual.is_relative_to(resolved_root):
+                raise InstallerError(f"root 외부 참조: {raw_relative} -> {actual}")
+            if not stat.S_ISREG(actual.stat().st_mode):
+                raise InstallerError(f"일반 파일이 아님: {raw_relative} -> {actual}")
+        except (InstallerError, OSError, RuntimeError, ValueError) as exc:
+            errors.append(f"파일 {raw_relative}: {exc}")
+
+    if errors:
+        raise InstallerError("\n".join(errors))
+
+
+def validate_external_skills(home: Path, user_home: Path) -> None:
+    """Read-only validation of required files in supported external skill locations."""
+    errors: list[str] = []
+    bases = (absolute(home / "skills"), absolute(user_home / ".agents" / "skills"))
+    for skill, required_files in REQUIRED_EXTERNAL_FILES.items():
+        found = False
+        seen: set[Path] = set()
+        for base in bases:
+            candidate = base / skill
+            try:
+                resolved = _external_candidate_root(candidate)
+            except (InstallerError, OSError, RuntimeError, ValueError) as exc:
+                found = True
+                errors.append(f"{skill}: 후보 {candidate}: root 해석 오류: {exc}")
+                continue
+            if resolved is None:
+                continue
+            found = True
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            try:
+                validate_required_external_files(resolved, required_files)
+            except InstallerError as exc:
+                errors.append(f"{skill}: 후보 {candidate}: {exc}")
+        if not found:
+            candidates = ", ".join(str(base / skill) for base in bases)
+            errors.append(f"{skill}: 필수 외부 스킬 누락; 후보 {candidates}")
+
+    if errors:
+        raise InstallerError("\n".join(errors))
+
+
+def _validate_backupable_tree(root: Path) -> None:
+    """Reject special entries without following symlinks that backups preserve."""
+    def raise_walk_error(exc: OSError) -> None:
+        raise InstallerError(f"cannot inspect existing external skill tree {root}: {exc}") from exc
+
+    for directory, directory_names, file_names in os.walk(
+        root, topdown=True, followlinks=False, onerror=raise_walk_error
+    ):
+        parent = Path(directory)
+        for name in (*directory_names, *file_names):
+            entry = parent / name
+            try:
+                mode = entry.lstat().st_mode
+            except OSError as exc:
+                raise InstallerError(f"cannot inspect existing external skill entry {entry}: {exc}") from exc
+            if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
+                raise InstallerError(f"existing external skill tree contains a special file: {entry}")
+
+
+def external_candidate_paths(home: Path, user_home: Path) -> dict[str, tuple[Path, ...]]:
+    """List selected and existing legacy paths for read-only dry-run reporting."""
+    home = absolute(home)
+    user_home = absolute(user_home)
+    targets: dict[str, tuple[Path, ...]] = {}
+    for skill in REQUIRED_EXTERNAL_FILES:
+        selected = home / "skills" / skill
+        paths = [selected]
+        legacy = user_home / ".agents" / "skills" / skill
+        if os.path.lexists(legacy):
+            paths.append(legacy)
+        targets[skill] = tuple(paths)
+    return targets
+
+
+def external_write_targets(home: Path, user_home: Path) -> dict[str, tuple[Path, ...]]:
+    """Resolve safe selected-home targets and existing legacy targets without writing."""
+    home = absolute(home)
+    user_home = absolute(user_home)
+
+    def validate_target(path: Path) -> bool:
+        path = absolute(path)
+        reject_symlink_components(path)
+        for parent in reversed(path.parents):
+            try:
+                mode = parent.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise InstallerError(f"cannot inspect install target parent {parent}: {exc}") from exc
+            if not stat.S_ISDIR(mode):
+                raise InstallerError(f"install target parent is not a directory: {parent}")
+        try:
+            mode = path.lstat().st_mode
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise InstallerError(f"cannot inspect install target {path}: {exc}") from exc
+        if not stat.S_ISDIR(mode):
+            raise InstallerError(f"expected a directory at external skill install target: {path}")
+        _validate_backupable_tree(path)
+        return True
+
+    targets: dict[str, tuple[Path, ...]] = {}
+    for skill in REQUIRED_EXTERNAL_FILES:
+        selected = home / "skills" / skill
+        paths = [selected]
+        validate_target(selected)
+        legacy = user_home / ".agents" / "skills" / skill
+        if os.path.lexists(legacy):
+            validate_target(legacy)
+            paths.append(legacy)
+        targets[skill] = tuple(dict.fromkeys(paths))
+    return targets
+
+
+def validate_acquired_external_tree(root: Path, required_files: tuple[str, ...]) -> None:
+    """Validate every acquired tree entry and all link targets before staging."""
+    root = absolute(root)
+    try:
+        root_mode = root.lstat().st_mode
+    except OSError as exc:
+        raise InstallerError(f"cannot inspect acquired external skill root {root}: {exc}") from exc
+    if stat.S_ISLNK(root_mode) or not stat.S_ISDIR(root_mode):
+        raise InstallerError(f"acquired external skill root must be a real directory: {root}")
+    resolved_root = root.resolve(strict=True)
+
+    def raise_walk_error(exc: OSError) -> None:
+        raise InstallerError(f"cannot inspect acquired external skill tree {root}: {exc}") from exc
+
+    directory_graph: dict[Path, set[Path]] = {resolved_root: set()}
+    for directory, directory_names, file_names in os.walk(
+        resolved_root, topdown=True, followlinks=False, onerror=raise_walk_error
+    ):
+        parent = Path(directory)
+        directory_graph.setdefault(parent, set())
+        for name in (*directory_names, *file_names):
+            entry = parent / name
+            try:
+                mode = entry.lstat().st_mode
+            except OSError as exc:
+                raise InstallerError(f"cannot inspect acquired external skill entry {entry}: {exc}") from exc
+            if stat.S_ISDIR(mode):
+                directory_graph[parent].add(entry)
+                directory_graph.setdefault(entry, set())
+                continue
+            if stat.S_ISREG(mode):
+                continue
+            if not stat.S_ISLNK(mode):
+                raise InstallerError(f"acquired external skill tree contains a special file: {entry}")
+            try:
+                target = entry.resolve(strict=True)
+                if not target.is_relative_to(resolved_root):
+                    raise InstallerError(f"acquired external skill link escapes its root: {entry} -> {target}")
+                target_mode = target.stat().st_mode
+                if not (stat.S_ISDIR(target_mode) or stat.S_ISREG(target_mode)):
+                    raise InstallerError(f"acquired external skill link has an invalid target: {entry} -> {target}")
+                if stat.S_ISDIR(target_mode):
+                    directory_graph[parent].add(target)
+                    directory_graph.setdefault(target, set())
+                    if entry.parent.resolve(strict=True).is_relative_to(target):
+                        raise InstallerError(f"acquired external skill directory link creates a cycle: {entry} -> {target}")
+            except (InstallerError, OSError, RuntimeError, ValueError) as exc:
+                raise InstallerError(f"invalid acquired external skill link {entry}: {exc}") from exc
+
+    colors: dict[Path, int] = {}
+    for start in directory_graph:
+        if colors.get(start) == 2:
+            continue
+        colors[start] = 1
+        stack = [(start, iter(sorted(directory_graph[start], key=os.fspath)))]
+        while stack:
+            directory, children = stack[-1]
+            try:
+                child = next(children)
+            except StopIteration:
+                colors[directory] = 2
+                stack.pop()
+                continue
+            state = colors.get(child, 0)
+            if state == 1:
+                raise InstallerError(f"acquired external skill directory links create a cycle at {child}")
+            if state == 2:
+                continue
+            colors[child] = 1
+            stack.append((child, iter(sorted(directory_graph[child], key=os.fspath))))
+
+    validate_required_external_files(resolved_root, required_files)
+
+
+
+def stage_external_tree(source: Path, destination: Path) -> None:
+    """Copy a validated skill tree and rewrite internal links as relative links."""
+    source = absolute(source)
+    required_files = REQUIRED_EXTERNAL_FILES.get(source.name)
+    if required_files is None:
+        raise InstallerError(f"unknown external skill tree: {source}")
+    validate_acquired_external_tree(source, required_files)
+
+    destination = absolute(destination)
+    reject_symlink_components(destination)
+    if os.path.lexists(destination):
+        raise InstallerError(f"external skill staging destination already exists: {destination}")
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, destination, symlinks=True, copy_function=shutil.copy2)
+        resolved_source = source.resolve(strict=True)
+        for directory, directory_names, file_names in os.walk(
+            destination, topdown=True, followlinks=False
+        ):
+            parent = Path(directory)
+            for name in (*directory_names, *file_names):
+                staged_link = parent / name
+                if not staged_link.is_symlink():
+                    continue
+                relative_link = staged_link.relative_to(destination)
+                source_link = source / relative_link
+                resolved_target = source_link.resolve(strict=True)
+                relative_target = resolved_target.relative_to(resolved_source)
+                staged_target = destination / relative_target
+                link_text = os.path.relpath(staged_target, staged_link.parent)
+                staged_link.unlink()
+                staged_link.symlink_to(
+                    link_text,
+                    target_is_directory=stat.S_ISDIR(resolved_target.stat().st_mode),
+                )
+        validate_acquired_external_tree(destination, required_files)
+    except BaseException:
+        if os.path.lexists(destination):
+            try:
+                mode = destination.lstat().st_mode
+                if stat.S_ISDIR(mode) and not stat.S_ISLNK(mode):
+                    shutil.rmtree(destination)
+                else:
+                    destination.unlink()
+            except FileNotFoundError:
+                pass
+        raise
+
+def _prepare_acquisition_work(work: Path) -> Path:
+    work = absolute(work)
+    try:
+        mode = work.lstat().st_mode
+    except OSError as exc:
+        raise InstallerError(f"cannot inspect temporary acquisition directory {work}: {exc}") from exc
+    if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+        raise InstallerError(f"temporary acquisition path must be a real directory: {work}")
+    try:
+        if next(work.iterdir(), None) is not None:
+            raise InstallerError(f"temporary acquisition directory must be empty: {work}")
+        return work.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise InstallerError(f"cannot prepare temporary acquisition directory {work}: {exc}") from exc
+
+
+def _clear_acquisition_work(work: Path) -> None:
+    try:
+        entries = tuple(work.iterdir())
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise InstallerError(f"cannot inspect temporary acquisition directory {work}: {exc}") from exc
+    for entry in entries:
+        try:
+            mode = entry.lstat().st_mode
+            if stat.S_ISDIR(mode) and not stat.S_ISLNK(mode):
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise InstallerError(f"cannot clean temporary acquisition entry {entry}: {exc}") from exc
+
+
+def _stop_acquisition_process(process: subprocess.Popen[bytes]) -> None:
+    def signal_group(signum: int) -> None:
+        try:
+            os.killpg(process.pid, signum)
+        except ProcessLookupError:
+            pass
+
+    signal_group(signal.SIGTERM)
+    try:
+        process.communicate(timeout=EXTERNAL_TERMINATION_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        signal_group(signal.SIGKILL)
+        process.communicate()
+
+
+def _decode_cli_output(value: bytes | str | None, stream: str) -> str:
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    try:
+        return value.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise InstallerError(f"external skill CLI returned non-UTF-8 {stream}") from exc
+
+
+def _validate_acquisition_records(stdout: str, work: Path) -> None:
+    try:
+        records = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise InstallerError(f"external skill CLI returned invalid JSON: {exc}") from exc
+    if not isinstance(records, list):
+        raise InstallerError("external skill CLI JSON must be a list of skill results")
+
+    expected = set(REQUIRED_EXTERNAL_FILES)
+    seen: set[str] = set()
+    for record in records:
+        if not isinstance(record, dict):
+            raise InstallerError("external skill CLI result must be an object")
+        skill = record.get("name")
+        if not isinstance(skill, str) or skill not in expected:
+            raise InstallerError(f"external skill CLI returned an unexpected skill: {skill!r}")
+        if skill in seen:
+            raise InstallerError(f"external skill CLI returned duplicate result for {skill}")
+        seen.add(skill)
+        if (
+            record.get("status") != "installed"
+            or record.get("source") != "obra/superpowers"
+            or "ref" not in record
+            or record["ref"] is not None
+            or record.get("scope") != "project"
+            or record.get("agents") != ["Codex"]
+            or record.get("mode") != "copy"
+        ):
+            raise InstallerError(f"external skill CLI did not install {skill} in the required mode")
+        expected_path = str(work / ".agents" / "skills" / skill)
+        if record.get("path") != expected_path:
+            raise InstallerError(f"external skill CLI returned an unexpected path for {skill}")
+
+    if seen != expected:
+        missing = sorted(expected - seen)
+        raise InstallerError("external skill CLI omitted required results: " + ", ".join(missing))
+
+
+def _validate_acquisition_path(work: Path, root: Path) -> None:
+    try:
+        relative = root.relative_to(work)
+    except ValueError as exc:
+        raise InstallerError(f"acquired skill path escapes temporary project: {root}") from exc
+    current = work
+    for index, component in enumerate(relative.parts):
+        current = current / component
+        try:
+            mode = current.lstat().st_mode
+        except OSError as exc:
+            raise InstallerError(f"cannot inspect acquired skill path component {current}: {exc}") from exc
+        if stat.S_ISLNK(mode):
+            raise InstallerError(f"symlink in acquired skill path is unsafe: {current}")
+        if index < len(relative.parts) - 1 and not stat.S_ISDIR(mode):
+            raise InstallerError(f"acquired skill path parent is not a directory: {current}")
+
+
+def external_acquisition_command() -> list[str]:
+    return [
+        "npx", "--yes", "skills@latest", "add", EXTERNAL_SOURCE,
+        "--skill", *REQUIRED_EXTERNAL_FILES,
+        "--agent", "codex", "--yes", "--copy", "--json",
+    ]
+
+
+def acquire_external_skills(work: Path) -> dict[str, Path]:
+    """Download and validate all required skills inside a dedicated temporary project."""
+    work = _prepare_acquisition_work(work)
+    temporary_home = work / "home"
+    config_home = work / "config"
+    codex_runtime = work / "codex-runtime"
+    npm_cache = work / "npm-cache"
+    state_home = work / "state"
+    temp_dir = work / "tmp"
+    npm_userconfig = work / "npm-userconfig"
+    npm_globalconfig = work / "npm-globalconfig"
+    gitconfig = work / "gitconfig"
+    try:
+        for directory in (temporary_home, config_home, codex_runtime, npm_cache, state_home, temp_dir):
+            directory.mkdir()
+        for config_file in (npm_userconfig, npm_globalconfig, gitconfig):
+            config_file.touch()
+
+        # Preserve only executable lookup and locale; credentials, proxies, user configs,
+        # and Node injection flags must not reach the external package manager.
+        env = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL") if key in os.environ}
+        env.update(
+            {
+                "CI": "1",
+                "DO_NOT_TRACK": "1",
+                "HOME": str(temporary_home),
+                "XDG_CONFIG_HOME": str(config_home),
+                "CODEX_HOME": str(codex_runtime),
+                "TMPDIR": str(temp_dir),
+                "XDG_STATE_HOME": str(state_home),
+                "npm_config_cache": str(npm_cache),
+                "npm_config_userconfig": str(npm_userconfig),
+                "npm_config_globalconfig": str(npm_globalconfig),
+                "npm_config_audit": "false",
+                "npm_config_fund": "false",
+                "npm_config_update_notifier": "false",
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": str(gitconfig),
+                "GIT_TERMINAL_PROMPT": "0",
+            }
+        )
+        command = external_acquisition_command()
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=work,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            raise InstallerError(f"cannot start external skill CLI: {exc}") from exc
+
+        try:
+            stdout, stderr = process.communicate(timeout=EXTERNAL_FETCH_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as exc:
+            _stop_acquisition_process(process)
+            raise InstallerError(
+                f"external skill acquisition timed out after {EXTERNAL_FETCH_TIMEOUT_SECONDS} seconds"
+            ) from exc
+        except KeyboardInterrupt:
+            _stop_acquisition_process(process)
+            raise
+
+        stderr_text = _decode_cli_output(stderr, "stderr")
+        if process.returncode != 0:
+            detail = f": {stderr_text.strip()}" if stderr_text.strip() else ""
+            raise InstallerError(f"external skill CLI failed with exit code {process.returncode}{detail}")
+        _validate_acquisition_records(_decode_cli_output(stdout, "stdout"), work)
+
+        acquired: dict[str, Path] = {}
+        for skill, required_files in REQUIRED_EXTERNAL_FILES.items():
+            root = work / ".agents" / "skills" / skill
+            _validate_acquisition_path(work, root)
+            validate_acquired_external_tree(root, required_files)
+            acquired[skill] = root
+        return acquired
+    except KeyboardInterrupt:
+        _clear_acquisition_work(work)
+        raise
+    except InstallerError:
+        _clear_acquisition_work(work)
+        raise
+    except (OSError, RuntimeError, ValueError) as exc:
+        _clear_acquisition_work(work)
+        raise InstallerError(f"external skill acquisition failed: {exc}") from exc
 
 def absolute(path: Path) -> Path:
     return Path(os.path.abspath(os.fspath(path)))
@@ -465,7 +834,14 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
-def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Path]]:
+def install_plan(
+    root: Path,
+    home: Path,
+    *,
+    user_home: Path | None = None,
+    validate_external: bool = True,
+) -> tuple[Path, Path, Path, dict[str, Path]]:
+    user_home = absolute(Path.home() if user_home is None else user_home)
     skills_dir = home / "skills"
     agents_dir = home / "agents"
     backups_dir = home / "backups"
@@ -482,8 +858,8 @@ def install_plan(root: Path, home: Path) -> tuple[Path, Path, Path, dict[str, Pa
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
-    snapshots = load_external_snapshots(root)
-    validate_external_skills(home, absolute(Path.home()), snapshots)
+    if validate_external:
+        validate_external_skills(home, user_home)
     return skills_dir, agents_dir, backups_dir, profile_targets
 
 
@@ -500,11 +876,24 @@ def make_backup_directory(parent: Path) -> Path:
     raise InstallerError(f"could not allocate a unique backup directory under {parent}")
 
 
-def backup_existing(harness_target: Path, profile_targets: dict[str, Path], backup_root: Path) -> None:
+def backup_existing(
+    harness_target: Path,
+    profile_targets: dict[str, Path],
+    backup_root: Path,
+    external_targets: dict[str, tuple[Path, ...]],
+) -> None:
     if harness_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(harness_target, target, copy_function=shutil.copy2)
+        shutil.copytree(harness_target, target, symlinks=True, copy_function=shutil.copy2)
+    for skill, paths in external_targets.items():
+        for source in paths:
+            if not os.path.lexists(source):
+                continue
+            group = "skills" if source.parent == harness_target.parent else "legacy-agents-skills"
+            target = backup_root / group / skill
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
     for filename, source in profile_targets.items():
         if source.exists():
             target = backup_root / "agents" / filename
@@ -517,7 +906,7 @@ def create_stage_area(parent: Path, label: str) -> Path:
 
 
 def remove_path(path: Path) -> None:
-    if not path.exists():
+    if not os.path.lexists(path):
         return
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
@@ -533,51 +922,83 @@ def rollback(actions: list[dict[str, object]]) -> list[str]:
         installed = action["installed"]
         assert isinstance(target, Path)
         assert previous is None or isinstance(previous, Path)
+        action["rollback_failed"] = False
         try:
             if installed:
                 remove_path(target)
-            if previous is not None and previous.exists():
+            if previous is not None and os.path.lexists(previous):
                 os.replace(previous, target)
         except OSError as exc:
+            action["rollback_failed"] = True
             errors.append(f"{target}: {exc}")
     return errors
 
 
-def perform_install(root: Path, home: Path, rendered_profiles: dict[str, bytes], dry_run: bool = False) -> None:
-    skills_dir, agents_dir, backups_dir, profile_targets = install_plan(root, home)
-    if dry_run:
-        print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
-        print(f"Would install seven profiles: {agents_dir}")
-        return
+def _remove_stage_areas(stage_areas: list[Path], retained: set[Path] | None = None) -> None:
+    retained = set() if retained is None else retained
+    for area in reversed(stage_areas):
+        if area in retained:
+            continue
+        try:
+            shutil.rmtree(area)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print(f"Could not remove temporary staging directory {area}: {exc}", file=sys.stderr)
 
-    for directory in (home, skills_dir, agents_dir, backups_dir):
+
+def _copy_harness_to_stage(source: Path, destination: Path) -> None:
+    shutil.copytree(
+        source,
+        destination,
+        copy_function=shutil.copy2,
+        ignore=ignore_ds_store,
+    )
+
+
+def _transactional_install(
+    root: Path,
+    home: Path,
+    rendered_profiles: dict[str, bytes],
+    external_targets: dict[str, tuple[Path, ...]],
+    acquired: dict[str, Path],
+    skills_dir: Path,
+    agents_dir: Path,
+    backups_dir: Path,
+    profile_targets: dict[str, Path],
+) -> Path:
+    harness_target = skills_dir / INSTALL_NAME
+    directories = {home, skills_dir, agents_dir, backups_dir}
+    directories.update(target.parent for paths in external_targets.values() for target in paths)
+    for directory in sorted(directories, key=os.fspath):
         reject_symlink_components(directory)
         directory.mkdir(parents=True, exist_ok=True)
         reject_symlink_components(directory)
 
-    harness_target = skills_dir / INSTALL_NAME
     backup_root = make_backup_directory(backups_dir)
-    try:
-        backup_existing(harness_target, profile_targets, backup_root)
-    except BaseException:
-        raise
+    backup_existing(harness_target, profile_targets, backup_root, external_targets)
 
     stage_areas: list[Path] = []
-    actions: list[dict[str, object]] = []
+    staged_targets: list[tuple[Path, Path, Path]] = []
+    target_changes_started = False
     try:
+        for skill, targets in external_targets.items():
+            source = acquired[skill]
+            for target in targets:
+                area = create_stage_area(target.parent, "external")
+                stage_areas.append(area)
+                staged = area / skill
+                stage_external_tree(source, staged)
+                staged_targets.append((target, staged, area))
+
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
         staged_harness = skill_stage_area / INSTALL_NAME
-        shutil.copytree(
-            root / "skill",
-            staged_harness,
-            copy_function=shutil.copy2,
-            ignore=ignore_ds_store,
-        )
+        _copy_harness_to_stage(root / "skill", staged_harness)
+        staged_targets.append((harness_target, staged_harness, skill_stage_area))
 
         profile_stage_area = create_stage_area(agents_dir, "profiles")
         stage_areas.append(profile_stage_area)
-        staged_profiles: dict[str, Path] = {}
         for filename in PROFILE_FILES:
             source = root / "agents" / filename
             staged = profile_stage_area / filename
@@ -587,45 +1008,111 @@ def perform_install(root: Path, home: Path, rendered_profiles: dict[str, bytes],
                 shutil.copystat(source, staged)
             except OSError as exc:
                 raise InstallerError(f"cannot stage generated profile {filename}: {exc}") from exc
-            staged_profiles[filename] = staged
+            staged_targets.append((profile_targets[filename], staged, profile_stage_area))
 
-        old_harness = skill_stage_area / "previous-harness"
-        harness_action: dict[str, object] = {"target": harness_target, "previous": None, "installed": False}
-        if harness_target.exists():
-            os.replace(harness_target, old_harness)
-            harness_action["previous"] = old_harness
-        actions.append(harness_action)
-        os.replace(staged_harness, harness_target)
-        harness_action["installed"] = True
-
-        for filename in PROFILE_FILES:
-            target = profile_targets[filename]
-            previous = profile_stage_area / f"previous-{filename}"
-            action: dict[str, object] = {"target": target, "previous": None, "installed": False}
-            if target.exists():
-                os.replace(target, previous)
-                action["previous"] = previous
-            actions.append(action)
-            os.replace(staged_profiles[filename], target)
-            action["installed"] = True
-
-    except BaseException as exc:
-        rollback_errors = rollback(actions)
-        if rollback_errors:
-            print("Rollback had errors: " + "; ".join(rollback_errors), file=sys.stderr)
-        if isinstance(exc, Exception):
-            raise InstallerError(f"installation failed; prior files were restored where possible: {exc}") from exc
+        actions: list[dict[str, object]] = []
+        target_changes_started = True
+        try:
+            for target, staged, area in staged_targets:
+                action: dict[str, object] = {
+                    "target": target,
+                    "previous": None,
+                    "installed": False,
+                    "area": area,
+                    "rollback_failed": False,
+                }
+                actions.append(action)
+                if os.path.lexists(target):
+                    previous = area / f"previous-{target.name}"
+                    action["previous"] = previous
+                    os.replace(target, previous)
+                os.replace(staged, target)
+                action["installed"] = True
+        except BaseException as exc:
+            rollback_errors = rollback(actions)
+            retained_areas: set[Path] = set()
+            recovery_paths: set[Path] = set()
+            for action in actions:
+                previous = action["previous"]
+                area = action["area"]
+                rollback_failed = action["rollback_failed"]
+                assert previous is None or isinstance(previous, Path)
+                assert isinstance(area, Path)
+                if rollback_failed:
+                    retained_areas.add(area)
+                    if previous is not None and os.path.lexists(previous):
+                        recovery_paths.add(previous)
+                    else:
+                        recovery_paths.add(action["target"])
+                elif previous is not None and os.path.lexists(previous):
+                    retained_areas.add(area)
+                    recovery_paths.add(previous)
+            _remove_stage_areas(stage_areas, retained_areas)
+            if rollback_errors:
+                recovery = ", ".join(str(path) for path in sorted(recovery_paths, key=os.fspath))
+                raise InstallerError(
+                    f"installation failed: {exc}; rollback failed: {'; '.join(rollback_errors)}; "
+                    f"backup preserved at {backup_root}; recovery data preserved at: {recovery}"
+                ) from exc
+            if isinstance(exc, Exception):
+                raise InstallerError(
+                    f"installation failed; prior files were restored where possible: {exc}"
+                ) from exc
+            raise
+        _remove_stage_areas(stage_areas)
+    except BaseException:
+        # The action-loop handler already chose which areas to retain after rollback.
+        if not target_changes_started:
+            _remove_stage_areas(stage_areas)
         raise
-    finally:
-        for area in reversed(stage_areas):
-            try:
-                shutil.rmtree(area, ignore_errors=False)
-            except FileNotFoundError:
-                pass
-            except OSError as exc:
-                print(f"Could not remove temporary staging directory {area}: {exc}", file=sys.stderr)
 
-    print(f"Installed Harness skill and profiles under: {home}")
+    return backup_root
+
+
+def perform_install(
+    root: Path,
+    home: Path,
+    rendered_profiles: dict[str, bytes],
+    dry_run: bool = False,
+    *,
+    user_home: Path | None = None,
+) -> None:
+    user_home = absolute(Path.home() if user_home is None else user_home)
+    skills_dir, agents_dir, backups_dir, profile_targets = install_plan(
+        root,
+        home,
+        user_home=user_home,
+        validate_external=dry_run,
+    )
+    external_targets = (
+        external_candidate_paths(home, user_home)
+        if dry_run
+        else external_write_targets(home, user_home)
+    )
+    if dry_run:
+        print(f"Would acquire with: {shlex.join(external_acquisition_command())}")
+        print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
+        print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
+        print(f"Would install seven profiles: {agents_dir}")
+        return
+
+    with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
+        acquired = acquire_external_skills(Path(temporary))
+        if external_write_targets(home, user_home) != external_targets:
+            raise InstallerError("external skill targets changed during acquisition; refusing to install")
+        backup_root = _transactional_install(
+            root,
+            home,
+            rendered_profiles,
+            external_targets,
+            acquired,
+            skills_dir,
+            agents_dir,
+            backups_dir,
+            profile_targets,
+        )
+
+    print(f"Installed four external skills, Harness skill and profiles under: {home}")
     print(f"Backups: {backup_root}")
     print(f"설치 안내: {root / 'README.md'}")
     print(f"설치된 Harness skill: {skills_dir / INSTALL_NAME / 'SKILL.md'}")

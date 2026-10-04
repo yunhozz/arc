@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import hashlib
-import copy
 import json
 import os
 from pathlib import Path
 import shutil
+import signal
+import subprocess
 import stat
 import tempfile
-import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -29,65 +29,7 @@ FILES = {
     "test-driven-development": ("SKILL.md", "writing-good-tests.md"),
     "using-git-worktrees": ("SKILL.md",),
 }
-
-
-def render_lock(records: list[tuple[str, str, bytes]]) -> str:
-    lines = ["version = 1"]
-    for skill, snapshot_id, variant in records:
-        lines.extend(("", "[[snapshots]]", f'skill = "{skill}"', f'id = "{snapshot_id}"', "[snapshots.files]"))
-        for relative in FILES[skill]:
-            content = variant + b":" + relative.encode("utf-8")
-            digest = hashlib.sha256(content).hexdigest()
-            lines.append(f'"{relative}" = "{digest}"')
-    return "\n".join(lines) + "\n"
-
-
-def toml_value(value: object) -> str:
-    if isinstance(value, str):
-        return json.dumps(value)
-    if value is True:
-        return "true"
-    if value is False:
-        return "false"
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
-    return str(value)
-
-
-def render_document(document: dict[str, object]) -> str:
-    lines: list[str] = []
-    for key, value in document.items():
-        if key != "snapshots":
-            lines.append(f"{key} = {toml_value(value)}")
-    snapshots = document.get("snapshots")
-    if not isinstance(snapshots, list):
-        lines.append(f"snapshots = {toml_value(snapshots)}")
-        return "\n".join(lines) + "\n"
-    for entry in snapshots:
-        if not isinstance(entry, dict):
-            raise TypeError("snapshot fixture entries must be mappings")
-        lines.extend(("", "[[snapshots]]"))
-        for key, value in entry.items():
-            if key != "files":
-                lines.append(f"{key} = {toml_value(value)}")
-        files = entry.get("files")
-        if isinstance(files, dict):
-            lines.extend(("", "[snapshots.files]"))
-            for path, digest in files.items():
-                lines.append(f"{toml_value(path)} = {toml_value(digest)}")
-        elif "files" in entry:
-            lines.append(f"files = {toml_value(files)}")
-    return "\n".join(lines) + "\n"
-
-
-def legacy_root(base: Path, records: list[tuple[str, str, bytes]]) -> Path:
-    root = base / "legacy-payload"
-    for skill in ("brainstorming", "writing-plans"):
-        path = root / "dependencies" / skill / "SKILL.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("legacy fixture\n", encoding="utf-8")
-    (root / "external-skills.toml").write_text(render_lock(records), encoding="utf-8")
-    return root
+REPO = Path(__file__).resolve().parents[1]
 
 
 def write_candidate(base: Path, skill: str, variant: bytes = b"A") -> Path:
@@ -103,11 +45,8 @@ def write_candidates(base: Path, variant: bytes = b"A") -> dict[str, Path]:
     return {skill: write_candidate(base, skill, variant) for skill in FILES}
 
 
-REPO = Path(__file__).resolve().parents[1]
-
-
 def refresh_manifest(root: Path) -> None:
-    names = {"install.py", "install.command", "README.md", "external-skills.toml"}
+    names = {"install.py", "install.command", "README.md"}
     for directory in ("skill", "agents"):
         for path in (root / directory).rglob("*"):
             if path.is_file() and path.name != ".DS_Store":
@@ -121,13 +60,12 @@ def refresh_manifest(root: Path) -> None:
     (root / "MANIFEST.sha256").write_text(contents, encoding="utf-8")
 
 
-def installer_payload(base: Path, records: list[tuple[str, str, bytes]]) -> Path:
+def installer_payload(base: Path) -> Path:
     root = base / "payload"
     for directory in ("skill", "agents"):
         shutil.copytree(REPO / directory, root / directory, ignore=shutil.ignore_patterns(".DS_Store"))
     for filename in ("install.py", "install.command", "README.md"):
         shutil.copy2(REPO / filename, root / filename)
-    (root / "external-skills.toml").write_text(render_lock(records), encoding="utf-8")
     refresh_manifest(root)
     return root
 
@@ -166,52 +104,32 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.codex_home = self.base / "codex-home"
         self.user_home = self.base / "user-home"
         self.user_home.mkdir()
-        self.records = [(skill, "test-a", b"A") for skill in FILES]
-        self.legacy = legacy_root(self.base, self.records)
-        self.lock_path = self.legacy / "external-skills.toml"
-
-    @property
-    def valid_lock(self) -> str:
-        return render_lock(self.records)
-
-    def write_lock(self, document: str) -> None:
-        self.lock_path.write_text(document, encoding="utf-8")
-
-    @property
-    def snapshots(self) -> installer.SnapshotMap:
-        return installer.load_external_snapshots(self.legacy)
-
-    def set_snapshots(self, variants: tuple[tuple[str, bytes], ...]) -> None:
-        self.records = [
-            (skill, snapshot_id, variant)
-            for snapshot_id, variant in variants
-            for skill in FILES
-        ]
-        self.write_lock(render_lock(self.records))
 
     def install_candidates(self, base: Path, variant: bytes = b"A") -> dict[str, Path]:
         return write_candidates(base, variant)
 
-    def validate(self, snapshots: installer.SnapshotMap | None = None) -> None:
-        if snapshots is None:
-            snapshots = self.snapshots
-        installer.validate_external_skills(self.codex_home, self.user_home, snapshots)
-
-    def assert_candidates_accepted(self) -> None:
+    def validate(self) -> None:
         try:
-            self.validate()
-        except installer.InstallerError as exc:
-            self.fail(f"approved external skill candidates were rejected: {exc}")
+            installer.validate_external_skills(self.codex_home, self.user_home)
+        except TypeError as exc:
+            self.fail(f"snapshot-free external validation API is missing: {exc}")
 
-    def run_main(self, argv: list[str]) -> tuple[int, str]:
+    def write_targets(self) -> dict[str, tuple[Path, ...]]:
+        try:
+            return installer.external_write_targets(self.codex_home, self.user_home)
+        except AttributeError as exc:
+            self.fail(f"external write target API is missing: {exc}")
+
+    def run_main(self, argv: list[str], codex_home: str | None = None) -> tuple[int, str]:
         import io
         from contextlib import redirect_stderr, redirect_stdout
 
         stdout, stderr = io.StringIO(), io.StringIO()
+        selected_home = str(self.codex_home) if codex_home is None else codex_home
         with (
-            patch.object(installer, "__file__", str(self.payload / "install.py")),
+            patch.object(installer, "__file__", str((self.payload / "install.py"))),
             patch.object(Path, "home", return_value=self.user_home),
-            patch.dict(os.environ, {"CODEX_HOME": str(self.codex_home)}),
+            patch.dict(os.environ, {"CODEX_HOME": selected_home}),
             redirect_stdout(stdout),
             redirect_stderr(stderr),
         ):
@@ -219,8 +137,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         return status, stdout.getvalue() + stderr.getvalue()
 
     def create_payload(self) -> Path:
-        self.payload = installer_payload(self.base, self.records)
-        self.lock_path = self.payload / "external-skills.toml"
+        self.payload = installer_payload(self.base)
         return self.payload
 
     def seed_existing_targets(self) -> None:
@@ -232,330 +149,42 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         for filename in installer.PROFILE_FILES:
             (agents / filename).write_bytes(b"previous profile")
 
-    def reset_homes(self) -> None:
-        for root in (self.codex_home, self.user_home):
-            if root.exists():
-                shutil.rmtree(root)
-        self.user_home.mkdir()
-
-    def external_state(self):
-        return {
-            str(base / skill): tree_state(base / skill)
-            for base in (
-                self.codex_home / "skills",
-                self.user_home / ".agents" / "skills",
-            )
-            for skill in FILES
-        }
-
     def assert_no_stages(self) -> None:
         self.assertEqual(list(self.codex_home.glob("**/.yunho-harness-*-*")), [])
 
-    def test_missing_external_skill_fails_install_plan(self) -> None:
-        with patch.object(Path, "home", return_value=self.user_home):
-            with self.assertRaises(installer.InstallerError):
-                installer.install_plan(self.legacy, self.codex_home)
+    def acquisition_stub(self, variants: tuple[bytes, ...] = (b"latest",)):
+        calls: list[Path] = []
 
-    def test_lock_returns_exact_normalized_snapshot_map(self) -> None:
-        expected = {
-            skill: {
-                "test-a": {
-                    relative: hashlib.sha256(b"A:" + relative.encode("utf-8")).hexdigest()
-                    for relative in paths
-                }
-            }
-            for skill, paths in FILES.items()
-        }
+        def acquire(work: Path) -> dict[str, Path]:
+            work = Path(work)
+            calls.append(work)
+            variant = variants[min(len(calls) - 1, len(variants) - 1)]
+            return write_candidates(work / ".agents" / "skills", variant=variant)
 
-        self.assertEqual(installer.load_external_snapshots(self.legacy), expected)
+        return acquire, calls
 
-    def test_production_lock_matches_reviewed_snapshot(self) -> None:
-        expected = {
-            "brainstorming": {
-                "local-reviewed-2026-10-04": {
-                    "SKILL.md": "a32d2255354775aa124855aa7100cf276bea096fff4ebb3a0edf57be216e6c72",
-                    "visual-companion.md": "6ffcb038b53254bd31debaa15e12dcd4ff24bd63d690e0b644ac6396701cf2e2",
-                    "scripts/start-server.sh": "a4e5ae84275bcaacd2f84345afeabe59cf7b00ba080e123da7cc1fb226f12847",
-                    "scripts/stop-server.sh": "0b5ccbbd57f62d3ed88993f7940b5ee0e5c0fc9b21c550c623da4f6292e47daf",
-                    "scripts/server.cjs": "2d2961ea8d11f56c5f4c3a1a68d22709efa5d7601a2246d8c880774e7e9e8412",
-                    "scripts/helper.js": "43c6d69954a46ec34a2a262bcc62a9a7e83e839c739f199cb72646d397c686e3",
-                    "scripts/frame-template.html": "6a8a4e58bd6a44b904e2e3c57de774481d909204597e1498de53f1b2fecc4c4e",
-                }
-            },
-            "writing-plans": {
-                "local-reviewed-2026-10-04": {
-                    "SKILL.md": "0bc3d36590f7b2c323ed3ec18ff77e9f8ed57af42f5680a02b11a2d20de265cf",
-                }
-            },
-            "test-driven-development": {
-                "local-reviewed-2026-10-04": {
-                    "SKILL.md": "64b03fce4aee5a97a93160cea8111f3ba13a17b7c001db4bd5836d67fd10705d",
-                    "writing-good-tests.md": "51471c853306ff92ca8bb41dcaea05f31c0e46b03651f8f3c99754b7172f4ae1",
-                }
-            },
-            "using-git-worktrees": {
-                "local-reviewed-2026-10-04": {
-                    "SKILL.md": "8cfb86f121269e8f7f12361e6795c4f6738828340e28964c9229d365666c9edd",
-                }
-            },
-        }
+    def test_structurally_valid_changed_bytes_are_accepted(self) -> None:
+        self.install_candidates(self.codex_home / "skills", variant=b"new upstream")
 
-        try:
-            actual = installer.load_external_snapshots(REPO)
-        except installer.InstallerError as exc:
-            self.fail(f"reviewed production lock is missing or invalid: {exc}")
+        self.validate()
 
-        self.assertEqual(actual, expected)
-
-    def test_lock_rejects_invalid_schema(self) -> None:
-        valid = tomllib.loads(self.valid_lock)
-        cases: list[tuple[str, str]] = [
-            ("malformed TOML", "version = [\nsnapshots = []\n"),
-            ("duplicate TOML key", "version = 1\nversion = 1\nsnapshots = []\n"),
-            ("snapshot is not a table", "version = 1\nsnapshots = [1]\n"),
-        ]
-
-        def changed(label: str, mutate) -> None:
-            document = copy.deepcopy(valid)
-            mutate(document)
-            cases.append((label, render_document(document)))
-
-        changed("unsupported version", lambda doc: doc.__setitem__("version", 2))
-        changed("boolean version", lambda doc: doc.__setitem__("version", True))
-        changed("extra top-level key", lambda doc: doc.__setitem__("extra", 1))
-        changed("snapshots is not an array", lambda doc: doc.__setitem__("snapshots", {}))
-        changed("empty snapshots", lambda doc: doc.__setitem__("snapshots", []))
-        changed("entry has an extra key", lambda doc: doc["snapshots"][0].__setitem__("extra", 1))
-        changed("entry has no id", lambda doc: doc["snapshots"][0].pop("id"))
-        changed("unknown skill", lambda doc: doc["snapshots"][0].__setitem__("skill", "other"))
-        changed("skill is not a string", lambda doc: doc["snapshots"][0].__setitem__("skill", 1))
-        changed("empty id", lambda doc: doc["snapshots"][0].__setitem__("id", ""))
-        changed("blank id", lambda doc: doc["snapshots"][0].__setitem__("id", " "))
-        changed("id is not a string", lambda doc: doc["snapshots"][0].__setitem__("id", 1))
-        changed("files is not a mapping", lambda doc: doc["snapshots"][0].__setitem__("files", []))
-        changed("files is empty", lambda doc: doc["snapshots"][0].__setitem__("files", {}))
-        changed("required file is missing", lambda doc: doc["snapshots"][0]["files"].pop("SKILL.md"))
-        changed("unexpected file is listed", lambda doc: doc["snapshots"][0]["files"].__setitem__("extra.md", "0" * 64))
-        changed("digest has invalid characters", lambda doc: doc["snapshots"][0]["files"].__setitem__("SKILL.md", "g" * 64))
-        duplicate = copy.deepcopy(valid)
-        duplicate["snapshots"].append(copy.deepcopy(duplicate["snapshots"][0]))
-        cases.append(("duplicate snapshot id", render_document(duplicate)))
-        incomplete = copy.deepcopy(valid)
-        incomplete["snapshots"] = incomplete["snapshots"][:1]
-        cases.append(("required skill has no snapshot", render_document(incomplete)))
-
-        for label, document in cases:
-            with self.subTest(case=label):
-                self.write_lock(document)
-                with self.assertRaises(installer.InstallerError):
-                    installer.load_external_snapshots(self.legacy)
-
-    def test_lock_normalizes_uppercase_sha256(self) -> None:
-        document = tomllib.loads(self.valid_lock)
-        for entry in document["snapshots"]:
-            entry["files"] = {path: digest.upper() for path, digest in entry["files"].items()}
-        self.write_lock(render_document(document))
-
-        result = installer.load_external_snapshots(self.legacy)
-        self.assertEqual(
-            result,
-            {
-                skill: {
-                    "test-a": {
-                        relative: hashlib.sha256(b"A:" + relative.encode("utf-8")).hexdigest()
-                        for relative in paths
-                    }
-                }
-                for skill, paths in FILES.items()
-            },
-        )
-
-    def test_lock_read_failure_is_reported(self) -> None:
-        original = Path.read_text
-
-        def fail_lock(path: Path, *args, **kwargs):
-            if path == self.lock_path:
-                raise PermissionError("fixture denied")
-            return original(path, *args, **kwargs)
-
-        with patch.object(Path, "read_text", fail_lock):
-            with self.assertRaises(installer.InstallerError):
-                installer.load_external_snapshots(self.legacy)
-
-    def test_lock_rejects_noncanonical_paths_after_toml_parse(self) -> None:
-        for bad_path in (
-            "/SKILL.md",
-            "./SKILL.md",
-            "../SKILL.md",
-            "scripts\\SKILL.md",
-            "scripts//SKILL.md",
-            "scripts/./SKILL.md",
-            "SKILL.md/",
-            "",
-        ):
-            with self.subTest(path=bad_path):
-                document = tomllib.loads(self.valid_lock)
-                files = document["snapshots"][0]["files"]
-                files[bad_path] = files.pop("SKILL.md")
-                self.write_lock(render_document(document))
-                with self.assertRaises(installer.InstallerError):
-                    installer.load_external_snapshots(self.legacy)
-
-    def test_codex_home_candidates_are_accepted(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-
-        self.assert_candidates_accepted()
-
-    def test_actual_home_agents_candidates_are_accepted(self) -> None:
-        self.install_candidates(self.user_home / ".agents" / "skills")
-
-        self.assert_candidates_accepted()
-
-    def test_candidates_in_both_locations_are_accepted(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        self.install_candidates(self.user_home / ".agents" / "skills")
-
-        self.assert_candidates_accepted()
-
-    def test_all_candidates_must_match_an_approved_snapshot(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        self.install_candidates(self.user_home / ".agents" / "skills")
-        changed = self.user_home / ".agents" / "skills" / "brainstorming" / "SKILL.md"
-        changed.write_bytes(b"unreviewed bytes")
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn("brainstorming", str(caught.exception))
-        self.assertIn("호환성이 확인되지 않음", str(caught.exception))
-
-    def test_files_from_different_snapshots_cannot_be_mixed(self) -> None:
-        self.set_snapshots((("test-a", b"A"), ("test-b", b"B")))
-        self.install_candidates(self.codex_home / "skills")
-        changed = self.codex_home / "skills" / "brainstorming" / "SKILL.md"
-        changed.write_bytes(b"B:SKILL.md")
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn("호환성이 확인되지 않음", str(caught.exception))
-        self.assertIn("brainstorming", str(caught.exception))
-
-    def test_two_complete_approved_snapshots_can_both_exist(self) -> None:
-        self.set_snapshots((("test-a", b"A"), ("test-b", b"B")))
-        self.install_candidates(self.codex_home / "skills", b"A")
-        self.install_candidates(self.user_home / ".agents" / "skills", b"B")
-
-        self.assert_candidates_accepted()
-
-    def test_additional_files_do_not_change_snapshot_result(self) -> None:
+    def test_required_only_validation_ignores_unrelated_special_entries(self) -> None:
         candidates = self.install_candidates(self.codex_home / "skills")
-        (candidates["brainstorming"] / "extra.txt").write_bytes(b"ignored")
-        (candidates["brainstorming"] / ".DS_Store").write_bytes(b"ignored")
+        extra = candidates["writing-plans"] / "extra.fifo"
+        os.mkfifo(extra)
 
-        self.assert_candidates_accepted()
+        self.validate()
 
-    def test_missing_skills_report_both_absolute_candidate_paths(self) -> None:
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
+        self.assertTrue(stat.S_ISFIFO(extra.lstat().st_mode))
 
-        message = str(caught.exception)
-        self.assertIn("brainstorming", message)
-        self.assertIn(str(self.codex_home / "skills" / "brainstorming"), message)
-        self.assertIn(str(self.user_home / ".agents" / "skills" / "brainstorming"), message)
-
-    def test_candidate_root_regular_file_is_rejected(self) -> None:
-        base = self.codex_home / "skills"
-        base.mkdir(parents=True)
-        candidate = base / "brainstorming"
-        candidate.write_bytes(b"not a directory")
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn(str(candidate), str(caught.exception))
-        self.assertIn("root 해석 오류", str(caught.exception))
-
-    def test_dangling_parent_alias_is_not_silent_absence(self) -> None:
-        self.codex_home.mkdir()
-        alias = self.codex_home / "skills"
-        alias.symlink_to(self.base / "missing-parent", target_is_directory=True)
-        self.install_candidates(self.user_home / ".agents" / "skills")
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn(str(alias), str(caught.exception))
-        self.assertIn("root 해석 오류", str(caught.exception))
-
-    def test_dangling_candidate_alias_is_not_silent_absence(self) -> None:
-        base = self.codex_home / "skills"
-        base.mkdir(parents=True)
-        candidate = base / "brainstorming"
-        candidate.symlink_to(self.base / "missing-skill", target_is_directory=True)
-        self.install_candidates(self.user_home / ".agents" / "skills")
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn(str(candidate), str(caught.exception))
-        self.assertIn("root 해석 오류", str(caught.exception))
-
-    def test_candidate_symlink_cycle_is_rejected(self) -> None:
-        base = self.codex_home / "skills"
-        base.mkdir(parents=True)
-        candidate = base / "brainstorming"
-        candidate.symlink_to(candidate, target_is_directory=True)
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn(str(candidate), str(caught.exception))
-        self.assertIn("root 해석 오류", str(caught.exception))
-
-    def test_candidate_root_symlinks_to_a_directory_are_accepted(self) -> None:
-        real_base = self.base / "real-skills"
-        real = self.install_candidates(real_base)
-        codex_skills = self.codex_home / "skills"
-        codex_skills.mkdir(parents=True)
-        for skill in FILES:
-            (codex_skills / skill).symlink_to(real[skill], target_is_directory=True)
-
-        self.assert_candidates_accepted()
-
-    def test_candidate_parent_symlink_to_a_directory_is_accepted(self) -> None:
-        real_base = self.base / "real-skills"
-        self.install_candidates(real_base)
-        self.codex_home.mkdir()
-        (self.codex_home / "skills").symlink_to(real_base, target_is_directory=True)
-
-        self.assert_candidates_accepted()
-
-    def test_identical_real_candidate_roots_are_read_once(self) -> None:
+    def test_missing_required_file_is_rejected(self) -> None:
         candidates = self.install_candidates(self.codex_home / "skills")
-        agents = self.user_home / ".agents"
-        agents.mkdir()
-        (agents / "skills").symlink_to(self.codex_home / "skills", target_is_directory=True)
-        snapshots = self.snapshots
-        counts: dict[Path, int] = {}
-        original = Path.read_bytes
+        (candidates["writing-plans"] / "SKILL.md").unlink()
 
-        def count_reads(path: Path) -> bytes:
-            counts[path] = counts.get(path, 0) + 1
-            return original(path)
+        with self.assertRaises(installer.InstallerError) as caught:
+            self.validate()
 
-        with patch.object(Path, "read_bytes", count_reads):
-            try:
-                installer.validate_external_skills(self.codex_home, self.user_home, snapshots)
-            except installer.InstallerError as exc:
-                self.fail(f"approved aliased candidates were rejected: {exc}")
-
-        expected = {
-            (candidates[skill] / relative).resolve(): 1
-            for skill, paths in FILES.items()
-            for relative in paths
-        }
-        self.assertEqual(counts, expected)
+        self.assertIn("SKILL.md", str(caught.exception))
 
     def test_required_internal_file_symlink_is_accepted(self) -> None:
         candidates = self.install_candidates(self.codex_home / "skills")
@@ -563,16 +192,16 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         required = skill_root / "SKILL.md"
         required.unlink()
         internal = skill_root / "reviewed-skill.md"
-        internal.write_bytes(b"A:SKILL.md")
+        internal.write_bytes(b"new upstream")
         required.symlink_to(internal)
 
-        self.assert_candidates_accepted()
+        self.validate()
 
     def test_required_external_file_symlink_is_rejected(self) -> None:
         candidates = self.install_candidates(self.codex_home / "skills")
         required = candidates["brainstorming"] / "SKILL.md"
         outside = self.base / "outside.md"
-        outside.write_bytes(b"A:SKILL.md")
+        outside.write_bytes(b"not part of the skill")
         required.unlink()
         required.symlink_to(outside)
 
@@ -580,22 +209,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             self.validate()
 
         self.assertIn("root 외부 참조", str(caught.exception))
-        self.assertIn("SKILL.md", str(caught.exception))
 
-    def test_required_directory_is_rejected(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        required = self.codex_home / "skills" / "writing-plans" / "SKILL.md"
-        required.unlink()
-        required.mkdir()
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn("일반 파일이 아님", str(caught.exception))
-
-    def test_required_fifo_is_rejected_before_reading(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        required = self.codex_home / "skills" / "writing-plans" / "SKILL.md"
+    def test_required_fifo_is_rejected_without_reading_it(self) -> None:
+        candidates = self.install_candidates(self.codex_home / "skills")
+        required = candidates["writing-plans"] / "SKILL.md"
         required.unlink()
         os.mkfifo(required)
 
@@ -603,58 +220,213 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             self.validate()
 
         self.assertIn("일반 파일이 아님", str(caught.exception))
-        self.assertTrue(stat.S_ISFIFO(required.stat().st_mode))
+        self.assertTrue(stat.S_ISFIFO(required.lstat().st_mode))
 
-    def test_raw_byte_changes_are_rejected(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        required = self.codex_home / "skills" / "writing-plans" / "SKILL.md"
-        required.write_bytes(b"A:SKILL.md\r\n")
-
-        with self.assertRaises(installer.InstallerError) as caught:
-            self.validate()
-
-        self.assertIn("호환성이 확인되지 않음", str(caught.exception))
-        self.assertIn("SKILL.md", str(caught.exception))
-
-    def test_multiple_mismatches_are_reported_without_file_contents(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        secret = b"fixture-content-must-not-be-printed"
-        for skill in ("writing-plans", "using-git-worktrees"):
-            (self.codex_home / "skills" / skill / "SKILL.md").write_bytes(secret)
-
+    def test_missing_skill_reports_both_absolute_candidates(self) -> None:
         with self.assertRaises(installer.InstallerError) as caught:
             self.validate()
 
         message = str(caught.exception)
-        self.assertIn("writing-plans", message)
-        self.assertIn("using-git-worktrees", message)
-        self.assertNotIn(secret.decode(), message)
+        self.assertIn(str(self.codex_home / "skills" / "brainstorming"), message)
+        self.assertIn(str(self.user_home / ".agents" / "skills" / "brainstorming"), message)
 
-    def test_second_candidate_read_failure_is_rejected(self) -> None:
-        self.install_candidates(self.codex_home / "skills")
-        self.install_candidates(self.user_home / ".agents" / "skills")
-        denied = (self.user_home / ".agents" / "skills" / "writing-plans" / "SKILL.md").resolve()
-        original = Path.read_bytes
+    def test_readonly_validation_accepts_candidate_root_alias(self) -> None:
+        candidates = self.install_candidates(self.base / "real-skills")
+        codex_skills = self.codex_home / "skills"
+        codex_skills.mkdir(parents=True)
+        for skill in FILES:
+            (codex_skills / skill).symlink_to(candidates[skill], target_is_directory=True)
 
-        def fail_one(path: Path) -> bytes:
-            if path == denied:
-                raise PermissionError("fixture denied")
-            return original(path)
+        self.validate()
 
-        with patch.object(Path, "read_bytes", fail_one):
-            with self.assertRaises(installer.InstallerError) as caught:
-                self.validate()
+    def test_readonly_validation_accepts_parent_alias(self) -> None:
+        self.install_candidates(self.base / "real-skills")
+        self.codex_home.mkdir()
+        (self.codex_home / "skills").symlink_to(self.base / "real-skills", target_is_directory=True)
 
-        self.assertIn(
-            str(self.user_home / ".agents" / "skills" / "writing-plans"),
-            str(caught.exception),
-        )
-        self.assertIn("SKILL.md", str(caught.exception))
-        self.assertIn("fixture denied", str(caught.exception))
+        self.validate()
 
-    def test_valid_check_accepts_payload_without_dependencies(self) -> None:
+    def test_write_targets_reject_root_alias_without_touching_target(self) -> None:
+        upstream = write_candidate(self.base / "upstream", "brainstorming")
+        skills = self.codex_home / "skills"
+        skills.mkdir(parents=True)
+        (skills / "brainstorming").symlink_to(upstream, target_is_directory=True)
+        before = tree_state(upstream)
+
+        with self.assertRaises(installer.InstallerError):
+            self.write_targets()
+
+        self.assertEqual(tree_state(upstream), before)
+
+    def test_write_targets_reject_parent_alias_without_touching_target(self) -> None:
+        upstream = self.base / "upstream"
+        candidates = write_candidates(upstream)
+        self.codex_home.mkdir()
+        (self.codex_home / "skills").symlink_to(upstream, target_is_directory=True)
+        before = {skill: tree_state(root) for skill, root in candidates.items()}
+
+        with self.assertRaises(installer.InstallerError):
+            self.write_targets()
+
+        self.assertEqual({skill: tree_state(root) for skill, root in candidates.items()}, before)
+
+    def test_write_targets_reject_regular_file_root(self) -> None:
+        skills = self.codex_home / "skills"
+        skills.mkdir(parents=True)
+        candidate = skills / "brainstorming"
+        candidate.write_text("not a directory", encoding="utf-8")
+
+        with self.assertRaises(installer.InstallerError):
+            self.write_targets()
+
+    def test_write_targets_reject_special_tree_entries(self) -> None:
+        for entry_type in ("fifo", "socket"):
+            with self.subTest(entry_type=entry_type):
+                self.codex_home.mkdir(exist_ok=True)
+                candidate = self.codex_home / "skills" / "brainstorming"
+                candidate.mkdir(parents=True, exist_ok=True)
+                special = candidate / f"extra.{entry_type}"
+                if entry_type == "fifo":
+                    os.mkfifo(special)
+                else:
+                    special.write_bytes(b"synthetic socket entry")
+                original_lstat = Path.lstat
+
+                def with_socket_type(path: Path, *args, **kwargs):
+                    result = original_lstat(path, *args, **kwargs)
+                    if entry_type == "socket" and path == special:
+                        fields = list(result)
+                        fields[0] = stat.S_IFSOCK | stat.S_IMODE(fields[0])
+                        return os.stat_result(fields)
+                    return result
+
+                with (
+                    patch.object(Path, "lstat", with_socket_type),
+                    self.assertRaises(installer.InstallerError),
+                ):
+                    self.write_targets()
+                special.unlink()
+
+    def test_write_targets_allow_backupable_internal_links(self) -> None:
+        candidate = self.codex_home / "skills" / "brainstorming"
+        candidate.mkdir(parents=True)
+        (candidate / "SKILL.md").write_text("previous", encoding="utf-8")
+        (candidate / "alias.md").symlink_to(candidate / "SKILL.md")
+
+        targets = self.write_targets()
+
+        self.assertEqual(targets["brainstorming"], (candidate,))
+        self.assertEqual(os.readlink(candidate / "alias.md"), str(candidate / "SKILL.md"))
+
+    def test_write_targets_include_existing_legacy_candidates(self) -> None:
+        selected = self.codex_home / "skills"
+        legacy = self.user_home / ".agents" / "skills"
+        legacy_candidate = legacy / "writing-plans"
+        legacy_candidate.mkdir(parents=True)
+
+        targets = self.write_targets()
+
+        self.assertEqual(targets["writing-plans"], (selected / "writing-plans", legacy_candidate))
+        self.assertFalse((legacy / "brainstorming").exists())
+
+    def test_write_targets_do_not_create_missing_legacy_candidates(self) -> None:
+        targets = self.write_targets()
+
+        for skill, paths in targets.items():
+            self.assertEqual(paths, (self.codex_home / "skills" / skill,))
+        self.assertFalse((self.user_home / ".agents").exists())
+
+    def seed_alias_with_unrelated_fifo(self, alias_kind: str) -> tuple[Path, ...]:
         self.create_payload()
-        self.install_candidates(self.user_home / ".agents" / "skills")
+        selected = self.install_candidates(self.codex_home / "skills")
+        os.mkfifo(selected["writing-plans"] / "extra.fifo")
+        state_roots = [
+            self.codex_home,
+            self.user_home,
+            self.base / "actual-selected",
+            self.base / "actual-legacy",
+        ]
+        if alias_kind == "candidate-root":
+            real_root = write_candidate(
+                self.base / "actual-selected", "brainstorming", variant=b"alias target"
+            )
+            shutil.rmtree(selected["brainstorming"])
+            selected["brainstorming"].symlink_to(real_root, target_is_directory=True)
+        elif alias_kind == "legacy-parent":
+            write_candidates(self.base / "actual-legacy", variant=b"legacy target")
+            agents = self.user_home / ".agents"
+            agents.mkdir()
+            (agents / "skills").symlink_to(self.base / "actual-legacy", target_is_directory=True)
+        else:
+            raise AssertionError(f"unexpected alias kind: {alias_kind}")
+        return tuple(state_roots)
+
+    def assert_readonly_main_accepts_alias(self, argv: list[str], alias_kind: str) -> None:
+        state_roots = self.seed_alias_with_unrelated_fifo(alias_kind)
+        before = tuple(tree_state(path) for path in state_roots)
+        with patch.object(installer, "acquire_external_skills") as acquire:
+            status, output = self.run_main(argv)
+        self.assertEqual(status, 0, output)
+        if argv == ["--check"]:
+            self.assertIn("Installer payload preflight passed.", output)
+        else:
+            self.assertIn("Would update external skills:", output)
+            self.assertIn(str(self.codex_home / "skills" / "brainstorming"), output)
+            if alias_kind == "legacy-parent":
+                self.assertIn(
+                    str(self.user_home / ".agents" / "skills" / "brainstorming"),
+                    output,
+                )
+        acquire.assert_not_called()
+        self.assertEqual(tuple(tree_state(path) for path in state_roots), before)
+        self.assert_no_stages()
+
+    def test_check_accepts_required_files_through_candidate_root_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_accepts_alias(["--check"], "candidate-root")
+
+    def test_check_accepts_required_files_through_legacy_parent_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_accepts_alias(["--check"], "legacy-parent")
+
+    def test_dry_run_accepts_required_files_through_candidate_root_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_accepts_alias(["--dry-run"], "candidate-root")
+
+    def test_dry_run_accepts_required_files_through_legacy_parent_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_accepts_alias(["--dry-run"], "legacy-parent")
+
+    def test_install_rejects_candidate_root_alias_before_acquisition(self) -> None:
+        self.create_payload()
+        selected = self.install_candidates(self.codex_home / "skills")
+        real_root = write_candidate(self.base / "actual-selected", "brainstorming")
+        shutil.rmtree(selected["brainstorming"])
+        selected["brainstorming"].symlink_to(real_root, target_is_directory=True)
+        before = (tree_state(self.codex_home), tree_state(self.user_home), tree_state(self.base / "actual-selected"))
+
+        with patch.object(installer, "acquire_external_skills") as acquire:
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 2, output)
+        acquire.assert_not_called()
+        self.assertEqual(
+            (tree_state(self.codex_home), tree_state(self.user_home), tree_state(self.base / "actual-selected")),
+            before,
+        )
+
+    def test_install_rejects_unrelated_special_entry_before_acquisition(self) -> None:
+        self.create_payload()
+        selected = self.install_candidates(self.codex_home / "skills")
+        os.mkfifo(selected["writing-plans"] / "extra.fifo")
+        before = (tree_state(self.codex_home), tree_state(self.user_home))
+
+        with patch.object(installer, "acquire_external_skills") as acquire:
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 2, output)
+        acquire.assert_not_called()
+        self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
+
+    def test_check_validates_structure_and_does_not_write(self) -> None:
+        self.create_payload()
+        self.install_candidates(self.user_home / ".agents" / "skills", variant=b"changed upstream")
         before = tree_state(self.codex_home), tree_state(self.user_home)
 
         status, output = self.run_main(["--check"])
@@ -663,7 +435,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
         self.assertFalse((self.payload / "dependencies").exists())
 
-    def test_valid_dry_run_does_not_write(self) -> None:
+    def test_dry_run_validates_structure_and_does_not_write(self) -> None:
         self.create_payload()
         self.install_candidates(self.user_home / ".agents" / "skills")
         self.seed_existing_targets()
@@ -672,84 +444,40 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         status, output = self.run_main(["--dry-run"])
 
         self.assertEqual(status, 0, output)
+        self.assertIn(
+            "npx --yes skills@latest add https://github.com/obra/superpowers --skill "
+            "brainstorming writing-plans test-driven-development using-git-worktrees "
+            "--agent codex --yes --copy --json",
+            output,
+        )
         self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
-        self.assertNotIn("dependency skill", output)
         self.assert_no_stages()
 
-    def test_external_failure_does_not_write_for_all_entrypoints(self) -> None:
+    def test_check_and_dry_run_reject_missing_candidates_without_writes(self) -> None:
         self.create_payload()
-        for existing in (False, True):
-            for failure in ("missing", "mismatch", "malformed-lock"):
-                for argv in ([], ["--check"], ["--dry-run"]):
-                    with self.subTest(existing=existing, failure=failure, argv=argv):
-                        self.reset_homes()
-                        self.write_lock(self.valid_lock)
-                        if existing:
-                            self.seed_existing_targets()
-                        if failure != "missing":
-                            self.install_candidates(self.user_home / ".agents" / "skills")
-                        if failure == "mismatch":
-                            changed = (
-                                self.user_home
-                                / ".agents"
-                                / "skills"
-                                / "brainstorming"
-                                / "SKILL.md"
-                            )
-                            changed.write_bytes(b"unreviewed")
-                        if failure == "malformed-lock":
-                            self.write_lock("version = [\n")
-                        refresh_manifest(self.payload)
-                        before = tree_state(self.codex_home), tree_state(self.user_home)
-
-                        status, output = self.run_main(argv)
-
-                        self.assertEqual(status, 2, output)
-                        if failure == "missing":
-                            self.assertIn("필수 외부 스킬 누락", output)
-                        elif failure == "mismatch":
-                            self.assertIn("호환성이 확인되지 않음", output)
-                        else:
-                            self.assertIn("external skill lock", output)
-                        self.assertEqual(
-                            (tree_state(self.codex_home), tree_state(self.user_home)),
-                            before,
-                        )
-                        self.assertEqual(list(self.codex_home.glob("backups/*")), [])
-                        self.assert_no_stages()
-
-    def test_manifest_failure_precedes_lock_parsing(self) -> None:
-        self.create_payload()
-        self.install_candidates(self.user_home / ".agents" / "skills")
-        self.write_lock(self.valid_lock + "\n")
         before = tree_state(self.codex_home), tree_state(self.user_home)
 
-        with patch.object(
-            installer,
-            "load_external_snapshots",
-            side_effect=AssertionError("parser must not run"),
-        ) as parser:
-            status, output = self.run_main([])
+        for argv in (["--check"], ["--dry-run"]):
+            with self.subTest(argv=argv):
+                status, output = self.run_main(list(argv))
+                self.assertEqual(status, 2, output)
+                self.assertIn("필수 외부 스킬 누락", output)
+                self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
 
-        self.assertEqual(status, 2, output)
-        self.assertIn("SHA-256 mismatch", output)
-        parser.assert_not_called()
-        self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
-
-    def test_install_writes_only_harness_and_seven_profiles(self) -> None:
+    def test_install_writes_harness_profiles_and_four_external_skills(self) -> None:
         self.create_payload()
-        self.install_candidates(self.user_home / ".agents" / "skills")
-        external_before = self.external_state()
-        user_before = tree_state(self.user_home)
+        candidates = self.install_candidates(self.user_home / ".agents" / "skills")
+        acquire, _calls = self.acquisition_stub((b"current upstream",))
         model = installer.load_model_module(self.payload)
         expected_profiles = installer.preflight_profiles(self.payload, model)
 
-        status, output = self.run_main([])
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
 
         self.assertEqual(status, 0, output)
         self.assertEqual(
             {path.name for path in (self.codex_home / "skills").iterdir()},
-            {installer.INSTALL_NAME},
+            {installer.INSTALL_NAME, *FILES},
         )
         self.assertEqual(
             {path.name for path in (self.codex_home / "agents").iterdir()},
@@ -761,27 +489,339 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             target = self.codex_home / "agents" / filename
             source = self.payload / "agents" / filename
             self.assertEqual(target.read_bytes(), expected)
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), stat.S_IMODE(source.stat().st_mode))
+        for skill in FILES:
+            expected = {relative: b"current upstream:" + relative.encode() for relative in FILES[skill]}
             self.assertEqual(
-                stat.S_IMODE(target.stat().st_mode),
-                stat.S_IMODE(source.stat().st_mode),
+                {path.relative_to(self.codex_home / "skills" / skill).as_posix(): path.read_bytes()
+                 for path in (self.codex_home / "skills" / skill).rglob("*") if path.is_file()},
+                expected,
             )
-        self.assertEqual(self.external_state(), external_before)
-        self.assertEqual(tree_state(self.user_home), user_before)
+            self.assertEqual(
+                (candidates[skill] / "SKILL.md").read_bytes(),
+                b"current upstream:SKILL.md",
+            )
         self.assertEqual(len(list(self.codex_home.glob("backups/*"))), 1)
         self.assert_no_stages()
+
+    def test_install_syncs_all_four_on_every_run(self) -> None:
+        self.create_payload()
+        acquire, calls = self.acquisition_stub((b"upstream one", b"upstream two"))
+
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            first_status, first_output = self.run_main([])
+            self.assertEqual(first_status, 0, first_output)
+            installed = self.codex_home / "skills"
+            self.assertEqual(
+                {skill: (installed / skill / "SKILL.md").read_bytes() for skill in FILES},
+                {skill: b"upstream one:SKILL.md" for skill in FILES},
+            )
+            (installed / "writing-plans" / "SKILL.md").write_bytes(b"local edit")
+            second_status, second_output = self.run_main([])
+
+        self.assertEqual(second_status, 0, second_output)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(
+            {skill: (installed / skill / "SKILL.md").read_bytes() for skill in FILES},
+            {skill: b"upstream two:SKILL.md" for skill in FILES},
+        )
+
+    def test_install_updates_existing_legacy_only(self) -> None:
+        self.create_payload()
+        legacy = self.user_home / ".agents" / "skills"
+        write_candidate(legacy, "writing-plans", variant=b"old legacy")
+        acquire, _calls = self.acquisition_stub()
+
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 0, output)
+        self.assertEqual(
+            (legacy / "writing-plans" / "SKILL.md").read_bytes(),
+            b"latest:SKILL.md",
+        )
+        self.assertEqual(
+            {path.name for path in legacy.iterdir()},
+            {"writing-plans"},
+        )
+        for skill in set(FILES) - {"writing-plans"}:
+            self.assertFalse((legacy / skill).exists())
+
+    def test_sync_removes_deleted_upstream_files(self) -> None:
+        self.create_payload()
+        installed = self.codex_home / "skills" / "brainstorming"
+        installed.mkdir(parents=True)
+        (installed / "SKILL.md").write_bytes(b"old")
+        (installed / "removed-upstream.md").write_bytes(b"obsolete local copy")
+        acquire, _calls = self.acquisition_stub()
+
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 0, output)
+        self.assertFalse((installed / "removed-upstream.md").exists())
+        self.assertEqual((installed / "SKILL.md").read_bytes(), b"latest:SKILL.md")
+
+    def test_read_only_options_never_acquire_or_write(self) -> None:
+        self.create_payload()
+        write_candidates(self.user_home / ".agents" / "skills", variant=b"existing")
+        before = tree_state(self.base)
+
+        with patch.object(installer, "acquire_external_skills") as acquire:
+            for argv in (["--check"], ["--dry-run"]):
+                with self.subTest(argv=argv):
+                    status, output = self.run_main(list(argv))
+                    self.assertEqual(status, 0, output)
+            acquire.assert_not_called()
+
+        self.assertEqual(tree_state(self.base), before)
+
+    def test_manifest_preflight_fails_before_acquisition(self) -> None:
+        payload = self.create_payload()
+        (payload / "MANIFEST.sha256").write_text("broken\n", encoding="utf-8")
+        before = tree_state(self.base)
+
+        with patch.object(installer, "acquire_external_skills") as acquire:
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 2, output)
+        acquire.assert_not_called()
+        self.assertEqual(tree_state(self.base), before)
+
+    def test_acquisition_failure_leaves_targets_and_backup_unchanged(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        write_candidates(self.codex_home / "skills", variant=b"old external")
+        before = tree_state(self.codex_home)
+
+        with patch.object(
+            installer,
+            "acquire_external_skills",
+            side_effect=installer.InstallerError("synthetic acquisition failure"),
+        ) as acquire:
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 2, output)
+        acquire.assert_called_once()
+        self.assertEqual(tree_state(self.codex_home), before)
+        self.assert_no_stages()
+
+    def test_external_replace_failure_restores_all_targets(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        write_candidates(self.codex_home / "skills", variant=b"old external")
+        before = tree_state(self.codex_home)
+        external_before = {
+            skill: tree_state(self.codex_home / "skills" / skill) for skill in FILES
+        }
+        harness_before = tree_state(self.codex_home / "skills" / installer.INSTALL_NAME)
+        profiles_before = {
+            filename: tree_state(self.codex_home / "agents" / filename)
+            for filename in installer.PROFILE_FILES
+        }
+        acquire, _calls = self.acquisition_stub((b"new external",))
+        selected = self.codex_home / "skills" / "writing-plans"
+        real_replace = os.replace
+        injected = False
+
+        def fail_writing_plans_stage(source: Path, target: Path, *args, **kwargs) -> None:
+            nonlocal injected
+            if not injected and Path(target) == selected and Path(source) != selected:
+                injected = True
+                raise OSError("injected external replacement failure")
+            real_replace(source, target, *args, **kwargs)
+
+        with (
+            patch.object(installer, "acquire_external_skills", side_effect=acquire) as acquisition,
+            patch.object(installer.os, "replace", fail_writing_plans_stage),
+        ):
+            status, output = self.run_main([])
+
+        self.assertTrue(injected)
+        acquisition.assert_called_once()
+        self.assertEqual(status, 2, output)
+        self.assertEqual(
+            {skill: tree_state(self.codex_home / "skills" / skill) for skill in FILES},
+            external_before,
+        )
+        self.assertEqual(
+            tree_state(self.codex_home / "skills" / installer.INSTALL_NAME),
+            harness_before,
+        )
+        for filename in installer.PROFILE_FILES:
+            self.assertEqual(
+                tree_state(self.codex_home / "agents" / filename),
+                profiles_before[filename],
+            )
+
+    def test_successful_sync_backs_up_selected_and_legacy_external_trees(self) -> None:
+        self.create_payload()
+        selected = write_candidates(
+            self.codex_home / "skills", variant=b"old selected"
+        )["brainstorming"]
+        selected_link = selected / "old-link.md"
+        selected_link.symlink_to(selected / "SKILL.md")
+        selected_link_text = os.readlink(selected_link)
+        legacy = write_candidate(
+            self.user_home / ".agents" / "skills", "writing-plans", variant=b"old legacy"
+        )
+        acquire, _calls = self.acquisition_stub((b"new external",))
+
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 0, output)
+        backup_roots = list((self.codex_home / "backups").iterdir())
+        self.assertEqual(len(backup_roots), 1)
+        backup = backup_roots[0]
+        selected_backup = backup / "skills" / "brainstorming"
+        legacy_backup = backup / "legacy-agents-skills" / "writing-plans"
+        self.assertTrue(selected_backup.is_dir(), "selected external skill backup is missing")
+        self.assertTrue(legacy_backup.is_dir(), "legacy external skill backup is missing")
+        self.assertEqual(
+            (selected_backup / "SKILL.md").read_bytes(),
+            b"old selected:SKILL.md",
+        )
+        self.assertTrue((selected_backup / "old-link.md").is_symlink())
+        self.assertEqual(
+            os.readlink(selected_backup / "old-link.md"),
+            selected_link_text,
+        )
+        self.assertEqual(
+            (legacy_backup / "SKILL.md").read_bytes(),
+            b"old legacy:SKILL.md",
+        )
+        self.assertTrue(legacy.exists())
+
+    def test_profile_failure_restores_external_targets_too(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        write_candidates(self.codex_home / "skills", variant=b"old external")
+        before = tree_state(self.codex_home)
+        external_before = {
+            skill: tree_state(self.codex_home / "skills" / skill) for skill in FILES
+        }
+        harness_before = tree_state(self.codex_home / "skills" / installer.INSTALL_NAME)
+        profiles_before = {
+            filename: tree_state(self.codex_home / "agents" / filename)
+            for filename in installer.PROFILE_FILES
+        }
+        acquire, _calls = self.acquisition_stub((b"new external",))
+        agents = self.codex_home / "agents"
+        failed_name = installer.PROFILE_FILES[1]
+        real_replace = os.replace
+        injected = False
+
+        def fail_profile_stage(source: Path, target: Path, *args, **kwargs) -> None:
+            nonlocal injected
+            if not injected and Path(target) == agents / failed_name:
+                injected = True
+                raise OSError("injected profile replacement failure")
+            real_replace(source, target, *args, **kwargs)
+
+        with (
+            patch.object(installer, "acquire_external_skills", side_effect=acquire) as acquisition,
+            patch.object(installer.os, "replace", fail_profile_stage),
+        ):
+            status, output = self.run_main([])
+
+        self.assertTrue(injected)
+        acquisition.assert_called_once()
+        self.assertEqual(status, 2, output)
+        self.assertEqual(
+            {skill: tree_state(self.codex_home / "skills" / skill) for skill in FILES},
+            external_before,
+        )
+        self.assertEqual(
+            tree_state(self.codex_home / "skills" / installer.INSTALL_NAME),
+            harness_before,
+        )
+        for filename in installer.PROFILE_FILES:
+            self.assertEqual(
+                tree_state(self.codex_home / "agents" / filename),
+                profiles_before[filename],
+            )
+
+    def test_failed_install_removes_new_external_targets(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        acquire, _calls = self.acquisition_stub((b"new external",))
+        agents = self.codex_home / "agents"
+        failed_name = installer.PROFILE_FILES[1]
+        real_replace = os.replace
+        injected = False
+
+        def fail_profile_stage(source: Path, target: Path, *args, **kwargs) -> None:
+            nonlocal injected
+            if not injected and Path(target) == agents / failed_name:
+                injected = True
+                raise OSError("injected profile replacement failure")
+            real_replace(source, target, *args, **kwargs)
+
+        with (
+            patch.object(installer, "acquire_external_skills", side_effect=acquire) as acquisition,
+            patch.object(installer.os, "replace", fail_profile_stage),
+        ):
+            status, output = self.run_main([])
+
+        self.assertTrue(injected)
+        acquisition.assert_called_once()
+        self.assertEqual(status, 2, output)
+        for skill in FILES:
+            self.assertFalse((self.codex_home / "skills" / skill).exists())
+
+    def test_rollback_failure_preserves_previous_and_reports_recovery_path(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        write_candidates(self.codex_home / "skills", variant=b"old external")
+        acquire, _calls = self.acquisition_stub((b"new external",))
+        selected = self.codex_home / "skills" / "writing-plans"
+        agents = self.codex_home / "agents"
+        failed_name = installer.PROFILE_FILES[1]
+        real_replace = os.replace
+        profile_failed = False
+        recovery_source: Path | None = None
+
+        def fail_install_and_restore(source: Path, target: Path, *args, **kwargs) -> None:
+            nonlocal profile_failed, recovery_source
+            source, target = Path(source), Path(target)
+            if not profile_failed and target == agents / failed_name:
+                profile_failed = True
+                raise OSError("injected profile replacement failure")
+            if profile_failed and target == selected and source.name == "previous-writing-plans":
+                recovery_source = source
+                raise OSError("injected external rollback failure")
+            real_replace(source, target, *args, **kwargs)
+
+        with (
+            patch.object(installer, "acquire_external_skills", side_effect=acquire) as acquisition,
+            patch.object(installer.os, "replace", fail_install_and_restore),
+        ):
+            status, output = self.run_main([])
+
+        self.assertTrue(profile_failed)
+        acquisition.assert_called_once()
+        self.assertEqual(status, 2, output)
+        self.assertIsNotNone(recovery_source)
+        assert recovery_source is not None
+        self.assertTrue(recovery_source.is_absolute())
+        self.assertTrue(recovery_source.exists())
+        self.assertIn(str(recovery_source), output)
+        self.assertEqual(
+            (recovery_source / "SKILL.md").read_bytes(),
+            b"old external:SKILL.md",
+        )
+        self.assertIn("rollback", output.lower())
 
     def test_replace_failure_restores_targets_and_keeps_backup(self) -> None:
         self.create_payload()
         self.install_candidates(self.user_home / ".agents" / "skills")
-        self.seed_existing_targets()
         harness = self.codex_home / "skills" / installer.INSTALL_NAME
+        self.seed_existing_targets()
         agents = self.codex_home / "agents"
         harness_before = tree_state(harness)
-        profiles_before = {
-            filename: tree_state(agents / filename) for filename in installer.PROFILE_FILES
-        }
-        external_before = self.external_state()
-        user_before = tree_state(self.user_home)
+        profiles_before = {filename: tree_state(agents / filename) for filename in installer.PROFILE_FILES}
+        acquire, _calls = self.acquisition_stub((b"current upstream",))
         failed_name = installer.PROFILE_FILES[1]
         real_replace = os.replace
         injected = False
@@ -799,7 +839,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 raise OSError("fixture replacement failure")
             real_replace(source, target, *args, **kwargs)
 
-        with patch.object(installer.os, "replace", fail_second_profile):
+        with (
+            patch.object(installer, "acquire_external_skills", side_effect=acquire),
+            patch.object(installer.os, "replace", fail_second_profile),
+        ):
             status, output = self.run_main([])
 
         self.assertTrue(injected)
@@ -808,15 +851,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual(tree_state(harness), harness_before)
         for filename, before in profiles_before.items():
             self.assertEqual(tree_state(agents / filename), before)
-        self.assertEqual(self.external_state(), external_before)
-        self.assertEqual(tree_state(self.user_home), user_before)
         backups = list(self.codex_home.glob("backups/*"))
         self.assertEqual(len(backups), 1)
         backup = backups[0]
-        self.assertEqual(
-            tree_state(backup / "skills" / installer.INSTALL_NAME),
-            harness_before,
-        )
+        self.assertEqual(tree_state(backup / "skills" / installer.INSTALL_NAME), harness_before)
         for filename, before in profiles_before.items():
             self.assertEqual(tree_state(backup / "agents" / filename), before)
         self.assert_no_stages()
@@ -824,3 +862,614 @@ class ExternalSkillPreflightTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeProcess:
+    def __init__(
+        self,
+        stdout: bytes = b"",
+        stderr: bytes = b"",
+        returncode: int = 0,
+        communicate_outcomes=None,
+    ):
+        self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = returncode
+        self.pid = 48271
+        self.communicate_timeouts: list[float | None] = []
+        self.communicate_outcomes = list(communicate_outcomes or ())
+
+    def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
+        self.communicate_timeouts.append(timeout)
+        if self.communicate_outcomes:
+            outcome = self.communicate_outcomes.pop(0)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+        return self.stdout, self.stderr
+
+
+class AcquiredTreeValidationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        self.addCleanup(self.temporary.cleanup)
+        self.base = Path(self.temporary.name)
+
+    def skill_root(self) -> Path:
+        return write_candidate(self.base / "acquired", "writing-plans", variant=b"latest")
+
+    def validate(self, root: Path) -> None:
+        installer.validate_acquired_external_tree(root, FILES["writing-plans"])
+
+    def test_acquired_tree_accepts_required_files_and_unrelated_regular_files(self) -> None:
+        root = self.skill_root()
+        (root / "notes.txt").write_text("extra upstream file", encoding="utf-8")
+
+        self.validate(root)
+
+    def test_acquired_tree_accepts_absolute_internal_file_link(self) -> None:
+        root = self.skill_root()
+        reference = root / "reference.md"
+        reference.write_bytes(b"internal reference")
+        (root / "reference-link.md").symlink_to(reference)
+
+        self.validate(root)
+
+    def test_acquired_tree_accepts_internal_directory_link(self) -> None:
+        root = self.skill_root()
+        shared = root / "shared"
+        shared.mkdir()
+        (shared / "guide.md").write_bytes(b"guide")
+        (root / "shared-link").symlink_to(shared, target_is_directory=True)
+
+        self.validate(root)
+
+    def test_acquired_tree_rejects_link_outside_root(self) -> None:
+        root = self.skill_root()
+        outside = self.base / "outside.md"
+        outside.write_bytes(b"outside")
+        (root / "escape.md").symlink_to(outside)
+
+        with self.assertRaises(installer.InstallerError) as caught:
+            self.validate(root)
+
+        self.assertIn("escapes its root", str(caught.exception))
+
+    def test_acquired_tree_rejects_dangling_and_cyclic_links(self) -> None:
+        for kind in ("dangling", "cycle"):
+            with self.subTest(kind=kind):
+                root = write_candidate(self.base / kind, "writing-plans", variant=b"latest")
+                first = root / "link-a"
+                if kind == "dangling":
+                    first.symlink_to(root / "missing")
+                else:
+                    second = root / "link-b"
+                    first.symlink_to(second)
+                    second.symlink_to(first)
+
+                with self.assertRaises(installer.InstallerError):
+                    self.validate(root)
+
+    def test_acquired_tree_rejects_directory_link_cycle(self) -> None:
+        root = self.skill_root()
+        child = root / "nested"
+        child.mkdir()
+        (child / "back-to-root").symlink_to(root, target_is_directory=True)
+
+        with self.assertRaises(installer.InstallerError) as caught:
+            self.validate(root)
+
+        self.assertIn("cycle", str(caught.exception))
+
+    def test_acquired_tree_rejects_sibling_directory_link_cycle(self) -> None:
+        root = self.skill_root()
+        left = root / "left"
+        right = root / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "to-right").symlink_to(right, target_is_directory=True)
+        (right / "to-left").symlink_to(left, target_is_directory=True)
+
+        with self.assertRaises(installer.InstallerError) as caught:
+            self.validate(root)
+
+        self.assertIn("cycle", str(caught.exception))
+
+    def test_acquired_tree_rejects_root_symlink(self) -> None:
+        root = self.skill_root()
+        alias = self.base / "alias"
+        alias.symlink_to(root, target_is_directory=True)
+
+        with self.assertRaises(installer.InstallerError):
+            self.validate(alias)
+
+    def test_acquired_tree_rejects_fifo_and_socket_entries(self) -> None:
+        for kind in ("fifo", "socket"):
+            with self.subTest(kind=kind):
+                root = write_candidate(self.base / kind, "writing-plans", variant=b"latest")
+                entry = root / f"extra.{kind}"
+                if kind == "fifo":
+                    os.mkfifo(entry)
+                else:
+                    entry.write_bytes(b"synthetic socket entry")
+                original_lstat = Path.lstat
+
+                def with_socket_type(path: Path, *args, **kwargs):
+                    result = original_lstat(path, *args, **kwargs)
+                    if kind == "socket" and path == entry:
+                        fields = list(result)
+                        fields[0] = stat.S_IFSOCK | stat.S_IMODE(fields[0])
+                        return os.stat_result(fields)
+                    return result
+
+                with patch.object(Path, "lstat", with_socket_type):
+                    with self.assertRaises(installer.InstallerError):
+                        self.validate(root)
+
+    def test_acquired_tree_rejects_missing_required_file(self) -> None:
+        root = self.skill_root()
+        (root / "SKILL.md").unlink()
+
+        with self.assertRaises(installer.InstallerError):
+            self.validate(root)
+
+
+class ExternalSkillAcquisitionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        self.addCleanup(self.temporary.cleanup)
+        self.base = Path(self.temporary.name)
+        self.user_home = self.base / "user home with spaces"
+        self.user_home.mkdir()
+
+    def records(self, work: Path, names=None, status: str = "installed", path_overrides=None) -> str:
+        selected_names = tuple(FILES) if names is None else tuple(names)
+        path_overrides = {} if path_overrides is None else path_overrides
+        rows = [
+            {
+                "name": skill,
+                "status": status,
+                "source": "obra/superpowers",
+                "ref": None,
+                "path": path_overrides.get(skill, str(work / ".agents" / "skills" / skill)),
+                "scope": "project",
+                "agents": ["Codex"],
+                "mode": "copy",
+            }
+            for skill in selected_names
+        ]
+        return json.dumps(rows)
+
+    def make_runner(
+        self,
+        output,
+        *,
+        returncode: int = 0,
+        stderr: bytes = b"",
+        setup=None,
+        communicate_outcomes=None,
+    ):
+        calls = []
+
+        def spawn(command, **kwargs):
+            work = Path(kwargs["cwd"])
+            if setup is not None:
+                setup(work)
+            stdout = output(work) if callable(output) else output
+            process = FakeProcess(
+                stdout=stdout,
+                stderr=stderr,
+                returncode=returncode,
+                communicate_outcomes=communicate_outcomes,
+            )
+            calls.append((command, kwargs, process))
+            return process
+
+        return spawn, calls
+
+    def acquire(self, work: Path) -> dict[str, Path]:
+        method = getattr(installer, "acquire_external_skills", None)
+        if method is None:
+            self.fail("external acquisition API is missing")
+        return method(work)
+
+    def stage(self, source: Path, destination: Path) -> None:
+        method = getattr(installer, "stage_external_tree", None)
+        if method is None:
+            self.fail("external tree staging API is missing")
+        method(source, destination)
+
+    def test_acquisition_uses_exact_four_skill_command(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+
+        def setup(cwd: Path) -> None:
+            write_candidates(cwd / ".agents" / "skills", variant=b"latest")
+
+        spawn, calls = self.make_runner(lambda cwd: self.records(cwd), setup=setup)
+        with (
+            patch.dict(os.environ, {"HOME": str(self.user_home), "CODEX_HOME": "/parent/codex"}),
+            patch.object(subprocess, "Popen", side_effect=spawn),
+        ):
+            result = self.acquire(work)
+
+        self.assertEqual(set(result), set(FILES))
+        self.assertEqual(
+            result,
+            {skill: work / ".agents" / "skills" / skill for skill in FILES},
+        )
+        self.assertEqual(len(calls), 1)
+        command, kwargs, process = calls[0]
+        self.assertEqual(
+            command,
+            [
+                "npx", "--yes", "skills@latest", "add", "https://github.com/obra/superpowers",
+                "--skill", "brainstorming", "writing-plans", "test-driven-development",
+                "using-git-worktrees", "--agent", "codex", "--yes", "--copy", "--json",
+            ],
+        )
+        self.assertEqual(kwargs["cwd"], work)
+        self.assertEqual(kwargs["env"]["HOME"], str(work / "home"))
+        self.assertEqual(kwargs["env"]["CODEX_HOME"], str(work / "codex-runtime"))
+        self.assertEqual(kwargs["env"]["npm_config_cache"], str(work / "npm-cache"))
+        self.assertEqual(kwargs["env"]["XDG_STATE_HOME"], str(work / "state"))
+        self.assertEqual(kwargs["env"]["TMPDIR"], str(work / "tmp"))
+        self.assertTrue(kwargs["start_new_session"])
+        self.assertIs(kwargs["stdout"], subprocess.PIPE)
+        self.assertIs(kwargs["stderr"], subprocess.PIPE)
+        self.assertEqual(process.communicate_timeouts, [300])
+        for path in ("codex-runtime", "npm-cache", "state", "tmp"):
+            self.assertTrue((work / path).is_dir())
+
+    def test_acquisition_passes_only_isolated_nonsecret_environment(self) -> None:
+        work = self.base / "isolated-work"
+        work.mkdir()
+        setup = lambda cwd: write_candidates(cwd / ".agents" / "skills", variant=b"latest")
+        spawn, calls = self.make_runner(lambda cwd: self.records(cwd), setup=setup)
+        inherited = {
+            "HOME": str(self.user_home),
+            "CODEX_HOME": "/parent/codex",
+            "PATH": "/trusted/node/bin:/usr/bin",
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "CI": "false",
+            "GITHUB_TOKEN": "sentinel-github",
+            "GH_TOKEN": "sentinel-gh",
+            "AWS_ACCESS_KEY_ID": "sentinel-aws-key",
+            "AWS_SECRET_ACCESS_KEY": "sentinel-aws-secret",
+            "OPENAI_API_KEY": "sentinel-api-key",
+            "API_TOKEN": "sentinel-api-token",
+            "NODE_OPTIONS": "--require=/untrusted/inject.js",
+            "HTTP_PROXY": "http://user:secret@proxy.invalid:8080",
+            "HTTPS_PROXY": "http://user:secret@proxy.invalid:8080",
+            "ALL_PROXY": "http://user:secret@proxy.invalid:8080",
+            "http_proxy": "http://user:secret@proxy.invalid:8080",
+            "npm_config_userconfig": "/parent/.npmrc",
+            "NPM_CONFIG_USERCONFIG": "/parent/.npmrc",
+            "npm_config_globalconfig": "/parent/npmrc",
+            "npm_config_cache": "/parent/npm-cache",
+            "GIT_CONFIG_GLOBAL": "/parent/.gitconfig",
+            "GIT_CONFIG_NOSYSTEM": "0",
+            "GIT_TERMINAL_PROMPT": "1",
+        }
+
+        with (
+            patch.dict(os.environ, inherited, clear=True),
+            patch.object(subprocess, "Popen", side_effect=spawn),
+        ):
+            self.acquire(work)
+
+        command, kwargs, _process = calls[0]
+        env = kwargs["env"]
+        for key in (
+            "GITHUB_TOKEN", "GH_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+            "OPENAI_API_KEY", "API_TOKEN", "NODE_OPTIONS", "HTTP_PROXY", "HTTPS_PROXY",
+            "ALL_PROXY", "http_proxy", "NPM_CONFIG_USERCONFIG",
+        ):
+            self.assertNotIn(key, set(env), f"sensitive inherited variable {key} must be excluded")
+        self.assertEqual(
+            set(env),
+            {
+                "PATH", "LANG", "LC_ALL", "CI", "DO_NOT_TRACK", "HOME", "XDG_CONFIG_HOME",
+                "CODEX_HOME", "TMPDIR", "XDG_STATE_HOME", "npm_config_cache",
+                "npm_config_userconfig", "npm_config_globalconfig", "npm_config_audit",
+                "npm_config_fund", "npm_config_update_notifier", "GIT_CONFIG_NOSYSTEM",
+                "GIT_CONFIG_GLOBAL", "GIT_TERMINAL_PROMPT",
+            },
+            "child environment keys must match the explicit allowlist",
+        )
+        self.assertEqual(env["PATH"], inherited["PATH"])
+        self.assertEqual(env["LANG"], inherited["LANG"])
+        self.assertEqual(env["LC_ALL"], inherited["LC_ALL"])
+        self.assertEqual(env["CI"], "1")
+        self.assertEqual(env["DO_NOT_TRACK"], "1")
+        self.assertEqual(env["HOME"], str(work / "home"))
+        self.assertEqual(env["XDG_CONFIG_HOME"], str(work / "config"))
+        self.assertEqual(env["CODEX_HOME"], str(work / "codex-runtime"))
+        self.assertEqual(env["TMPDIR"], str(work / "tmp"))
+        self.assertEqual(env["XDG_STATE_HOME"], str(work / "state"))
+        self.assertEqual(env["npm_config_cache"], str(work / "npm-cache"))
+        self.assertEqual(env["npm_config_userconfig"], str(work / "npm-userconfig"))
+        self.assertEqual(env["npm_config_globalconfig"], str(work / "npm-globalconfig"))
+        self.assertEqual(env["npm_config_audit"], "false")
+        self.assertEqual(env["npm_config_fund"], "false")
+        self.assertEqual(env["npm_config_update_notifier"], "false")
+        self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
+        self.assertEqual(env["GIT_CONFIG_GLOBAL"], str(work / "gitconfig"))
+        self.assertEqual(env["GIT_TERMINAL_PROMPT"], "0")
+        self.assertEqual(kwargs["cwd"], work)
+        self.assertEqual(command[0], "npx")
+        self.assertTrue((work / "npm-userconfig").is_file())
+        self.assertTrue((work / "npm-globalconfig").is_file())
+        self.assertTrue((work / "gitconfig").is_file())
+
+    def test_acquisition_accepts_deployed_cli_record_shape(self) -> None:
+        work = self.base / "deployed-shape"
+        work.mkdir()
+
+        def setup(cwd: Path) -> None:
+            write_candidates(cwd / ".agents" / "skills", variant=b"latest")
+
+        rows = [
+            {
+                "name": skill,
+                "status": "installed",
+                "source": "obra/superpowers",
+                "ref": None,
+                "scope": "project",
+                "agents": ["Codex"],
+                "mode": "copy",
+                "path": str(work / ".agents" / "skills" / skill),
+            }
+            for skill in FILES
+        ]
+        spawn, _calls = self.make_runner(json.dumps(rows), setup=setup)
+
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            try:
+                acquired = self.acquire(work)
+            except installer.InstallerError as exc:
+                self.fail(f"deployed skills@latest JSON record was rejected: {exc}")
+
+        self.assertEqual(
+            acquired,
+            {skill: work / ".agents" / "skills" / skill for skill in FILES},
+        )
+
+    def test_acquisition_rejects_unexpected_source_or_pinned_ref(self) -> None:
+        work = self.base / "wrong-source"
+        work.mkdir()
+        rows = json.loads(self.records(work))
+        rows[0].update(source="untrusted/fork", ref="deadbeef")
+        spawn, _calls = self.make_runner(json.dumps(rows))
+
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            with self.assertRaises(installer.InstallerError):
+                self.acquire(work)
+
+    def test_acquisition_rejects_missing_ref_field(self) -> None:
+        work = self.base / "missing-ref"
+        work.mkdir()
+        rows = json.loads(self.records(work))
+        del rows[0]["ref"]
+
+        def setup(cwd: Path) -> None:
+            write_candidates(cwd / ".agents" / "skills", variant=b"latest")
+
+        spawn, _calls = self.make_runner(json.dumps(rows), setup=setup)
+
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            try:
+                self.acquire(work)
+            except installer.InstallerError:
+                return
+            self.fail("deployed CLI result without explicit null ref was accepted")
+
+    def test_acquisition_rejects_partial_json(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+        spawn, _ = self.make_runner(lambda cwd: self.records(cwd, names=tuple(FILES)[:-1]))
+
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            with self.assertRaises(installer.InstallerError):
+                self.acquire(work)
+
+    def test_acquisition_rejects_failed_or_skipped_results(self) -> None:
+        for status in ("failed", "skipped"):
+            with self.subTest(status=status):
+                work = self.base / status
+                work.mkdir()
+                spawn, _ = self.make_runner(lambda cwd: self.records(cwd, status=status))
+                with patch.object(subprocess, "Popen", side_effect=spawn):
+                    with self.assertRaises(installer.InstallerError):
+                        self.acquire(work)
+
+    def test_acquisition_rejects_missing_required_file(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+
+        def setup(cwd: Path) -> None:
+            candidates = write_candidates(cwd / ".agents" / "skills", variant=b"latest")
+            (candidates["writing-plans"] / "SKILL.md").unlink()
+
+        spawn, _ = self.make_runner(lambda cwd: self.records(cwd), setup=setup)
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            with self.assertRaises(installer.InstallerError) as caught:
+                self.acquire(work)
+        self.assertIn("SKILL.md", str(caught.exception))
+
+    def test_acquisition_rejects_path_mismatch_and_duplicate_names(self) -> None:
+        for case in ("path", "duplicate"):
+            with self.subTest(case=case):
+                work = self.base / case
+                work.mkdir()
+                names = tuple(FILES)
+                overrides = {"brainstorming": str(self.base / "other-skill")} if case == "path" else None
+                output = self.records(work, path_overrides=overrides)
+                if case == "duplicate":
+                    rows = json.loads(output)
+                    output = json.dumps([*rows, rows[0]])
+                spawn, _ = self.make_runner(output)
+                with patch.object(subprocess, "Popen", side_effect=spawn):
+                    with self.assertRaises(installer.InstallerError):
+                        self.acquire(work)
+
+    def test_acquisition_rejects_malformed_json(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+        spawn, _ = self.make_runner(b"[not json")
+
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            with self.assertRaises(installer.InstallerError):
+                self.acquire(work)
+
+    def test_acquisition_rejects_nonzero_exit(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+        spawn, _ = self.make_runner(self.records(work), returncode=1, stderr=b"network failed")
+
+        with patch.object(subprocess, "Popen", side_effect=spawn):
+            with self.assertRaises(installer.InstallerError) as caught:
+                self.acquire(work)
+        self.assertIn("network failed", str(caught.exception))
+
+    def test_acquisition_reports_missing_npx(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+
+        with patch.object(subprocess, "Popen", side_effect=FileNotFoundError("npx not found")):
+            with self.assertRaises(installer.InstallerError) as caught:
+                self.acquire(work)
+        self.assertIn("npx not found", str(caught.exception))
+
+    def test_acquisition_timeout_terminates_process_group_and_cleans_work(self) -> None:
+        work = self.base / "timeout"
+        work.mkdir()
+
+        def setup(cwd: Path) -> None:
+            write_candidates(cwd / ".agents" / "skills", variant=b"partial")
+
+        outcomes = [
+            subprocess.TimeoutExpired("npx", 300),
+            subprocess.TimeoutExpired("npx", 5),
+            (b"", b""),
+        ]
+        spawn, calls = self.make_runner(
+            lambda cwd: self.records(cwd), setup=setup, communicate_outcomes=outcomes
+        )
+        with (
+            patch.object(subprocess, "Popen", side_effect=spawn),
+            patch.object(installer.os, "killpg") as killpg,
+        ):
+            try:
+                self.acquire(work)
+            except subprocess.TimeoutExpired as exc:
+                self.fail(f"timed out child must be stopped and reported as InstallerError: {exc}")
+            except installer.InstallerError as exc:
+                self.assertIn("timed out", str(exc))
+            else:
+                self.fail("timed out acquisition unexpectedly succeeded")
+
+        process = calls[0][2]
+        self.assertEqual(process.communicate_timeouts, [300, 5, None])
+        self.assertEqual(
+            [call.args for call in killpg.call_args_list],
+            [(process.pid, signal.SIGTERM), (process.pid, signal.SIGKILL)],
+        )
+        self.assertEqual(list(work.iterdir()), [])
+
+    def test_acquisition_interrupt_terminates_process_group_and_cleans_work(self) -> None:
+        work = self.base / "interrupt"
+        work.mkdir()
+
+        def setup(cwd: Path) -> None:
+            write_candidates(cwd / ".agents" / "skills", variant=b"partial")
+
+        spawn, calls = self.make_runner(
+            lambda cwd: self.records(cwd),
+            setup=setup,
+            communicate_outcomes=[KeyboardInterrupt(), (b"", b"")],
+        )
+        with (
+            patch.object(subprocess, "Popen", side_effect=spawn),
+            patch.object(installer.os, "killpg") as killpg,
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.acquire(work)
+
+        process = calls[0][2]
+        self.assertEqual(process.communicate_timeouts, [300, 5])
+        self.assertEqual([call.args for call in killpg.call_args_list], [(process.pid, signal.SIGTERM)])
+        self.assertEqual(list(work.iterdir()), [])
+
+    def test_staging_rewrites_absolute_internal_link(self) -> None:
+        source = write_candidate(self.base / "source", "writing-plans", variant=b"latest")
+        reference = source / "reference.md"
+        reference.write_bytes(b"reference")
+        (source / "reference-link.md").symlink_to(reference)
+        destination = self.base / "staged" / "writing-plans"
+        destination.parent.mkdir()
+
+        self.stage(source, destination)
+
+        self.assertFalse(Path(os.readlink(destination / "reference-link.md")).is_absolute())
+        self.assertEqual((destination / "reference-link.md").read_bytes(), b"reference")
+
+    def test_staging_preserves_internal_directory_link_as_relative(self) -> None:
+        source = write_candidate(self.base / "source", "writing-plans", variant=b"latest")
+        shared = source / "shared"
+        shared.mkdir()
+        (shared / "guide.md").write_bytes(b"guide")
+        (source / "shared-link").symlink_to(shared, target_is_directory=True)
+        destination = self.base / "staged" / "writing-plans"
+        destination.parent.mkdir()
+
+        self.stage(source, destination)
+
+        self.assertFalse(Path(os.readlink(destination / "shared-link")).is_absolute())
+        self.assertEqual((destination / "shared-link" / "guide.md").read_bytes(), b"guide")
+
+    def test_staging_rejects_escape_link_before_copy(self) -> None:
+        source = write_candidate(self.base / "source", "writing-plans", variant=b"latest")
+        outside = self.base / "outside.md"
+        outside.write_bytes(b"outside")
+        (source / "escape.md").symlink_to(outside)
+        destination = self.base / "staged" / "writing-plans"
+        destination.parent.mkdir()
+
+        with self.assertRaises(installer.InstallerError):
+            self.stage(source, destination)
+
+        self.assertFalse(os.path.lexists(destination))
+
+    def test_staging_rejects_existing_destination(self) -> None:
+        source = write_candidate(self.base / "source", "writing-plans", variant=b"latest")
+        destination = self.base / "staged" / "writing-plans"
+        destination.mkdir(parents=True)
+        (destination / "stale.txt").write_bytes(b"stale")
+        before = tree_state(destination)
+
+        with self.assertRaises(installer.InstallerError):
+            self.stage(source, destination)
+
+        self.assertEqual(tree_state(destination), before)
+
+    def test_blank_codex_home_fails_before_acquisition(self) -> None:
+        payload = installer_payload(self.base)
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with (
+            patch.object(installer, "__file__", str(payload / "install.py")),
+            patch.object(Path, "home", return_value=self.user_home),
+            patch.dict(os.environ, {"CODEX_HOME": ""}),
+            patch.object(installer, "acquire_external_skills", create=True) as acquire,
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            status = installer.main([])
+
+        self.assertEqual(status, 2, stdout.getvalue() + stderr.getvalue())
+        self.assertIn("CODEX_HOME is set but empty", stderr.getvalue())
+        acquire.assert_not_called()
