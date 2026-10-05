@@ -28,7 +28,6 @@ from pathlib import Path, PurePosixPath
 
 INSTALL_NAME = "yunho-harness"
 PROFILE_FILES = (
-    "yunho-team-lead.toml",
     "yunho-team-secretary.toml",
     "yunho-team-planner.toml",
     "yunho-team-scout.toml",
@@ -36,6 +35,7 @@ PROFILE_FILES = (
     "yunho-team-qa.toml",
     "yunho-team-reviewer.toml",
 )
+RETIRED_PROFILE_FILES = ("yunho-team-lead.toml",)
 REQUIRED_EXTERNAL_FILES = {
     "brainstorming": (
         "SKILL.md",
@@ -786,7 +786,7 @@ def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
         except OSError as exc:
             raise InstallerError(f"cannot read source profile {source}: {exc}") from exc
     if set(rendered) != set(PROFILE_FILES):
-        raise InstallerError("shared model configuration does not define exactly the seven profile files")
+        raise InstallerError("shared model configuration does not define exactly the six profile files")
     return rendered
 
 
@@ -834,6 +834,11 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
+def retired_profile_targets(home: Path) -> dict[str, Path]:
+    """Return only the retired profiles in the selected Codex home."""
+    return {filename: home / "agents" / filename for filename in RETIRED_PROFILE_FILES}
+
+
 def install_plan(
     root: Path,
     home: Path,
@@ -855,6 +860,10 @@ def install_plan(
     check_directory_or_missing(harness_target)
     for path in profile_targets.values():
         check_file_or_missing(path)
+    for path in retired_profile_targets(home).values():
+        reject_symlink_components(path)
+        if os.path.lexists(path):
+            require_regular_file(path)
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
@@ -881,6 +890,7 @@ def backup_existing(
     profile_targets: dict[str, Path],
     backup_root: Path,
     external_targets: dict[str, tuple[Path, ...]],
+    retired_targets: dict[str, Path] | None = None,
 ) -> None:
     if harness_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
@@ -894,8 +904,9 @@ def backup_existing(
             target = backup_root / group / skill
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
-    for filename, source in profile_targets.items():
-        if source.exists():
+    for filename, source in {**profile_targets, **(retired_targets or {})}.items():
+        if os.path.lexists(source):
+            require_regular_file(source)
             target = backup_root / "agents" / filename
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
@@ -976,10 +987,15 @@ def _transactional_install(
         reject_symlink_components(directory)
 
     backup_root = make_backup_directory(backups_dir)
-    backup_existing(harness_target, profile_targets, backup_root, external_targets)
+    retired_targets = retired_profile_targets(home)
+    for target in retired_targets.values():
+        reject_symlink_components(target)
+        if os.path.lexists(target):
+            require_regular_file(target)
+    backup_existing(harness_target, profile_targets, backup_root, external_targets, retired_targets)
 
     stage_areas: list[Path] = []
-    staged_targets: list[tuple[Path, Path, Path]] = []
+    staged_targets: list[tuple[Path, Path | None, Path]] = []
     target_changes_started = False
     try:
         for skill, targets in external_targets.items():
@@ -991,10 +1007,22 @@ def _transactional_install(
                 stage_external_tree(source, staged)
                 staged_targets.append((target, staged, area))
 
+        for target in retired_targets.values():
+            if os.path.lexists(target):
+                area = create_stage_area(target.parent, "retired")
+                stage_areas.append(area)
+                staged_targets.append((target, None, area))
+
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
         staged_harness = skill_stage_area / INSTALL_NAME
         _copy_harness_to_stage(root / "skill", staged_harness)
+        model_config = load_model_module(root)
+        try:
+            settings = model_config.load_settings(root / "skill" / "models.toml")
+            (staged_harness / "models.toml").write_bytes(model_config.serialize_settings(settings))
+        except model_config.ValidationError as exc:
+            raise InstallerError(str(exc)) from exc
         staged_targets.append((harness_target, staged_harness, skill_stage_area))
 
         profile_stage_area = create_stage_area(agents_dir, "profiles")
@@ -1026,8 +1054,9 @@ def _transactional_install(
                     previous = area / f"previous-{target.name}"
                     action["previous"] = previous
                     os.replace(target, previous)
-                os.replace(staged, target)
-                action["installed"] = True
+                if staged is not None:
+                    os.replace(staged, target)
+                    action["installed"] = True
         except BaseException as exc:
             rollback_errors = rollback(actions)
             retained_areas: set[Path] = set()
@@ -1093,7 +1122,10 @@ def perform_install(
         print(f"Would acquire with: {shlex.join(external_acquisition_command())}")
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
-        print(f"Would install seven profiles: {agents_dir}")
+        print(f"Would install six profiles: {agents_dir}")
+        for target in retired_profile_targets(home).values():
+            if os.path.lexists(target):
+                print(f"Would backup and remove retired profile: {target}")
         return
 
     with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
@@ -1122,7 +1154,7 @@ def perform_install(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Install the staged Yunho Harness into a Codex home.")
     action = parser.add_mutually_exclusive_group()
-    action.add_argument("--check", action="store_true", help="validate the staged manifest and all seven profiles without installing")
+    action.add_argument("--check", action="store_true", help="validate the staged manifest and all six profiles without installing")
     action.add_argument("--dry-run", action="store_true", help="show planned targets without writing files")
     return parser
 

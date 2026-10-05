@@ -2,10 +2,6 @@
 # Each role is applied directly; model availability is not validated here.
 version = 3
 
-[roles.yunho_team_lead]
-model = "gpt-6-luna"
-model_reasoning_effort = "max"
-
 [roles.yunho_team_secretary]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "low"

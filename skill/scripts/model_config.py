@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import tomllib
 import unicodedata
 from pathlib import Path
@@ -11,7 +12,6 @@ from typing import TypedDict
 
 
 ROLE_FILES: dict[str, str] = {
-    "yunho_team_lead": "yunho-team-lead.toml",
     "yunho_team_secretary": "yunho-team-secretary.toml",
     "yunho_team_planner": "yunho-team-planner.toml",
     "yunho_team_scout": "yunho-team-scout.toml",
@@ -97,14 +97,14 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
         )
 
     roles = config["roles"]
-    if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
+    if not isinstance(roles, dict) or set(roles) not in (set(ROLE_FILES), set(ROLE_FILES) | {"yunho_team_lead"}):
         actual_roles = set(roles) if isinstance(roles, dict) else set()
         missing = sorted(set(ROLE_FILES) - actual_roles)
         extra = sorted(actual_roles - set(ROLE_FILES))
-        raise _error(config_path, "roles", f"must define exactly the seven Harness roles (missing={missing}, extra={extra})")
+        raise _error(config_path, "roles", f"must define the six Harness roles, optionally with known legacy yunho_team_lead (missing={missing}, extra={extra})")
 
     result: dict[str, RoleSettings] = {}
-    for role in ROLE_FILES:
+    for role in roles:
         role_settings = roles[role]
         if not isinstance(role_settings, dict) or set(role_settings) != set(_MODEL_FIELDS):
             keys = set(role_settings) if isinstance(role_settings, dict) else set()
@@ -115,8 +115,28 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
             )
         model = _validated_string(role_settings["model"], config_path, f"roles.{role}.model")
         effort = _validated_string(role_settings["model_reasoning_effort"], config_path, f"roles.{role}.model_reasoning_effort")
-        result[role] = {"model": model, "model_reasoning_effort": effort}
+        if role in ROLE_FILES:
+            result[role] = {"model": model, "model_reasoning_effort": effort}
+    if "yunho_team_lead" in roles:
+        print("Ignoring validated legacy yunho_team_lead settings; using six Harness roles.", file=sys.stderr)
     return result
+
+
+def serialize_settings(settings: dict[str, RoleSettings]) -> bytes:
+    """Serialize effective settings as canonical version 3 six-role TOML."""
+    path = Path("models.toml")
+    if set(settings) != set(ROLE_FILES):
+        raise _error(path, "roles", "must define exactly the six Harness roles")
+    lines = [
+        "# Single source for each role's exact model ID and reasoning-effort selection.",
+        "# Each role is applied directly; model availability is not validated here.",
+        "version = 3",
+    ]
+    for role in ROLE_FILES:
+        values = _settings_for_profile(settings[role], role, path)
+        lines.extend(["", f"[roles.{role}]"])
+        lines.extend(f"{key} = {json.dumps(values[key], ensure_ascii=False)}" for key in _MODEL_FIELDS)
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def _physical_lines(text: str) -> list[tuple[str, int]]:
