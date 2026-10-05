@@ -85,7 +85,7 @@ model = "example-model-id"
 model_reasoning_effort = "medium"
 ```
 
-표준 설정은 Secretary, Planner, Scout, Coder, QA, Reviewer의 여섯 역할을 정확히 포함합니다. CEO는 현재 chat model을 사용하며 별도 모델 항목이나 프로필을 만들지 않습니다. 유효한 기존 version 3 설정이 이 여섯 역할과 알려진 `yunho_team_lead` 하나를 포함하면, 로더는 Lead 필드까지 검증한 뒤 해당 항목만 effective settings에서 제외하고 stderr로 알립니다. 다른 여섯 model/effort 선택은 보존합니다. 알 수 없는 추가 역할, 누락된 역할, 잘못된 필드나 version은 오류입니다. 원본 설정 파일은 수정하지 않습니다.
+표준 설정은 Secretary, Planner, Scout, Coder, QA, Reviewer의 여섯 역할을 정확히 포함합니다. CEO는 현재 chat model을 사용하며 별도 모델 항목이나 프로필을 만들지 않습니다. 추가 역할, 누락된 역할, 잘못된 필드나 version은 오류입니다. 원본 설정 파일은 수정하지 않습니다.
 
 로더는 여섯 역할과 각 역할의 필수 문자열 필드를 검증하지만, 원격 서비스가 모델이나 effort를 지원하는지, 계정 접근 권한이나 현재 사용 가능 여부를 확인하지 않습니다. 이전 version 1·2 파일은 자동 변환되지 않습니다. version 3 형식으로 직접 갱신해야 합니다.
 
@@ -95,7 +95,7 @@ model_reasoning_effort = "medium"
 python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 ```
 
-`CODEX_HOME`을 사용한다면 그 경로 아래의 `skills/yunho-harness/scripts/apply-models.py`를 실행합니다. `apply-models.py --check`는 모든 프로필이 설정과 일치하면 종료 코드 0, 차이가 있으면 1을 반환하며 파일을 수정하지 않습니다. `--dry-run`은 필요한 변경을 표시하고 파일을 수정하지 않습니다. 잘못된 설정, 프로필, 경로는 종료 코드 2입니다. 일반 실행은 여섯 프로필을 모두 읽고 생성 결과를 준비한 뒤 변경 파일을 반영합니다. 표준 및 legacy 설정 모두 지원하며 원본 설정을 다시 쓰거나 stale `yunho-team-lead.toml`을 수정·삭제하지 않습니다. 프로필 퇴역은 설치기가 담당합니다.
+`CODEX_HOME`을 사용한다면 그 경로 아래의 `skills/yunho-harness/scripts/apply-models.py`를 실행합니다. `apply-models.py --check`는 모든 프로필이 설정과 일치하면 종료 코드 0, 차이가 있으면 1을 반환하며 파일을 수정하지 않습니다. `--dry-run`은 필요한 변경을 표시하고 파일을 수정하지 않습니다. 잘못된 설정, 프로필, 경로는 종료 코드 2입니다. 일반 실행은 여섯 프로필을 모두 읽고 생성 결과를 준비한 뒤 변경 파일을 반영합니다. 원본 설정은 다시 쓰지 않습니다.
 
 ## 백업 및 transaction
 
@@ -106,14 +106,11 @@ skills/<skill-name>                  # 선택 Codex home의 외부 스킬
 legacy-agents-skills/<skill-name>   # 실제 사용자 home의 기존 .agents 후보
 skills/yunho-harness                # 기존 Harness skill
 agents/<profile>.toml               # 기존 여섯 활성 프로필
-agents/yunho-team-lead.toml         # 존재하는 퇴역 프로필
 ```
 
 백업은 기존 파일과 symbolic link를 따라가지 않고 보존합니다. 새 upstream tree로 전체 디렉터리를 바꾸므로 개인 수정은 백업에 남고 설치 위치에서는 사라집니다. upstream에서 삭제된 파일도 설치 위치에서 제거됩니다. 설치 전 상태가 필요하면 해당 백업의 파일을 직접 복원하세요. 성공한 설치와 실패한 설치 모두 완성된 백업을 보존합니다.
 
-설치기는 선택된 Codex home의 정확한 `agents/yunho-team-lead.toml`만 백업 후 퇴역시킵니다. 다른 home이나 이름의 프로필은 검색·삭제하지 않습니다. 대상이 없으면 no-op이고, 대상 또는 상위 경로의 symlink를 거부하며, 퇴역 대상이 directory나 FIFO 같은 특수 파일이어도 live 변경 전에 거부합니다. 백업 실패 시 live target을 바꾸지 않습니다. `--check`도 이 경로를 검사하며 `--dry-run`은 대상이 있을 때만 backup/removal 계획을 표시합니다.
-
-각 target의 같은 filesystem에 staging을 준비한 뒤, 외부 스킬 갱신·Lead 퇴역·Harness와 활성 프로필 교체를 하나의 journal 순서로 수행합니다. 퇴역 뒤 다른 작업이 실패하면 이전 Lead의 bytes와 mode를 복원하며, 퇴역 자체가 실패하면 앞선 갱신도 rollback합니다. 원래 없던 Lead는 rollback 후에도 없습니다. 중간 오류에서는 완료된 교체를 역순으로 복구합니다. 전체 파일시스템에 걸친 원자성을 제공하지는 않으며, 복구 자체가 실패하면 error 출력에 백업과 보존한 recovery 경로를 표시합니다. 그 경우 표시된 경로를 삭제하지 말고 수동 복구에 사용하세요. 읽기 전용 옵션과 사전 검사 또는 취득·검증 실패는 실제 설치 대상을 변경하지 않습니다.
+설치기는 여섯 역할의 프로필만 관리하며 추가 프로필은 그대로 둡니다. 각 target의 같은 filesystem에 staging을 준비한 뒤, 외부 스킬·Harness·여섯 프로필을 하나의 journal 순서로 교체합니다. 중간 오류에서는 완료된 교체를 역순으로 복구합니다. 전체 파일시스템에 걸친 원자성을 제공하지는 않으며, 복구 자체가 실패하면 error 출력에 백업과 보존한 recovery 경로를 표시합니다. 그 경우 표시된 경로를 삭제하지 말고 수동 복구에 사용하세요. 읽기 전용 옵션과 사전 검사 또는 취득·검증 실패는 실제 설치 대상을 변경하지 않습니다.
 
 `skill/`, `agents/` 아래에서 일반 파일인 `.DS_Store`는 설치 파일, 무결성 목록의 포함 범위, 설치 복사에서 제외됩니다. 같은 이름의 symbolic link, directory 또는 특수 파일은 오류입니다.
 

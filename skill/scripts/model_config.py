@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 import tomllib
 import unicodedata
 from pathlib import Path
@@ -97,11 +96,11 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
         )
 
     roles = config["roles"]
-    if not isinstance(roles, dict) or set(roles) not in (set(ROLE_FILES), set(ROLE_FILES) | {"yunho_team_lead"}):
+    if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
         actual_roles = set(roles) if isinstance(roles, dict) else set()
         missing = sorted(set(ROLE_FILES) - actual_roles)
         extra = sorted(actual_roles - set(ROLE_FILES))
-        raise _error(config_path, "roles", f"must define the six Harness roles, optionally with known legacy yunho_team_lead (missing={missing}, extra={extra})")
+        raise _error(config_path, "roles", f"must define exactly the six Harness roles (missing={missing}, extra={extra})")
 
     result: dict[str, RoleSettings] = {}
     for role in roles:
@@ -115,10 +114,7 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
             )
         model = _validated_string(role_settings["model"], config_path, f"roles.{role}.model")
         effort = _validated_string(role_settings["model_reasoning_effort"], config_path, f"roles.{role}.model_reasoning_effort")
-        if role in ROLE_FILES:
-            result[role] = {"model": model, "model_reasoning_effort": effort}
-    if "yunho_team_lead" in roles:
-        print("Ignoring validated legacy yunho_team_lead settings; using six Harness roles.", file=sys.stderr)
+        result[role] = {"model": model, "model_reasoning_effort": effort}
     return result
 
 

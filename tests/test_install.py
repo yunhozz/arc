@@ -137,20 +137,6 @@ class ModelSettingsTests(unittest.TestCase):
         self.assertEqual(set(self.module.ROLE_FILES), set(SIX_SETTINGS))
         self.assertEqual(self.module.load_settings(REPO / "skill/models.toml"), SIX_SETTINGS)
 
-    def test_model_legacy_preserves_six_selections(self) -> None:
-        choices = {role: {"model": f"custom-{index}", "model_reasoning_effort": "high"}
-                   for index, role in enumerate(SIX_SETTINGS)}
-        legacy = {**choices, "yunho_team_lead": {"model": "legacy", "model_reasoning_effort": "max"}}
-        self.assertEqual(self.load(legacy), choices)
-        self.assertEqual(self.config.read_bytes(), settings_bytes(legacy))
-
-    def test_model_legacy_lead_requires_valid_fields(self) -> None:
-        for fields in ({"model": "legacy"}, {"model": "legacy", "model_reasoning_effort": "max", "extra": "x"},
-                       {"model": "", "model_reasoning_effort": "max"},
-                       {"model": 42, "model_reasoning_effort": "max"}):
-            with self.subTest(fields=fields), self.assertRaises(self.module.ValidationError):
-                self.load({**SIX_SETTINGS, "yunho_team_lead": fields})
-
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
         for roles in ({**SIX_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
                       {role: fields for role, fields in SIX_SETTINGS.items() if role != "yunho_team_coder"}):
@@ -181,21 +167,14 @@ class ApplyModelsTests(unittest.TestCase):
         self.agents.mkdir()
         self.module = installer.load_model_module(REPO)
 
-    def fixture(self, legacy=False, matching=False, stale=False) -> None:
+    def fixture(self, matching=False) -> None:
         roles = dict(SIX_SETTINGS)
-        if legacy:
-            roles["yunho_team_lead"] = {"model": "legacy", "model_reasoning_effort": "max"}
         self.config.write_bytes(settings_bytes(roles))
         for role, settings in SIX_SETTINGS.items():
             filename = role.replace("_", "-") + ".toml"
             template = (REPO / "agents" / filename).read_bytes()
             content = self.module.render_profile(template, role, settings, self.agents / filename) if matching else template
             (self.agents / filename).write_bytes(content)
-        lead = self.agents / "yunho-team-lead.toml"
-        if stale:
-            lead.write_bytes(b"untouched stale Lead")
-        else:
-            lead.unlink(missing_ok=True)
 
     def cli(self, *flags):
         return subprocess.run(
@@ -204,55 +183,47 @@ class ApplyModelsTests(unittest.TestCase):
             capture_output=True, text=True, check=False,
         )
 
-    def test_apply_models_check_standard_and_legacy_without_lead_profile(self) -> None:
-        for legacy in (False, True):
-            with self.subTest(legacy=legacy):
-                self.fixture(legacy=legacy, matching=True)
-                before = tree_state(self.base)
-                result = self.cli("--check")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("six", result.stdout)
-                self.assertNotIn("seven", result.stdout)
-                self.assertEqual(tree_state(self.base), before)
-                self.fixture(legacy=legacy)
-                before = tree_state(self.base)
-                result = self.cli("--check")
-                self.assertEqual(result.returncode, 1, result.stderr)
-                self.assertEqual(tree_state(self.base), before)
+    def test_apply_models_check_standard(self) -> None:
+        self.fixture(matching=True)
+        before = tree_state(self.base)
+        result = self.cli("--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("six", result.stdout)
+        self.assertNotIn("seven", result.stdout)
+        self.assertEqual(tree_state(self.base), before)
+        self.fixture()
+        before = tree_state(self.base)
+        result = self.cli("--check")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(tree_state(self.base), before)
         self.config.write_bytes(b'version = 2\nroles = {}\n')
         before = tree_state(self.base)
         self.assertEqual(self.cli("--check").returncode, 2)
         self.assertEqual(tree_state(self.base), before)
 
-    def test_apply_models_dry_run_preserves_config_profiles_and_stale_lead(self) -> None:
-        for legacy in (False, True):
-            with self.subTest(legacy=legacy):
-                self.fixture(legacy=legacy, stale=True)
-                before = tree_state(self.base)
-                result = self.cli("--dry-run")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(tree_state(self.base), before)
-                self.assertIn("six", result.stdout)
-                self.assertNotIn("seven", result.stdout)
+    def test_apply_models_dry_run_preserves_config_profiles(self) -> None:
+        self.fixture()
+        before = tree_state(self.base)
+        result = self.cli("--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(tree_state(self.base), before)
+        self.assertIn("six", result.stdout)
+        self.assertNotIn("seven", result.stdout)
 
-    def test_apply_models_applies_six_profiles_without_mutating_config_or_stale_lead(self) -> None:
-        for legacy in (False, True):
-            with self.subTest(legacy=legacy):
-                self.fixture(legacy=legacy, stale=True)
-                config_before = self.config.read_bytes()
-                lead_before = tree_state(self.agents / "yunho-team-lead.toml")
-                result = self.cli()
-                self.assertEqual(result.returncode, 0, result.stderr)
-                for role, settings in SIX_SETTINGS.items():
-                    profile = tomllib.loads((self.agents / (role.replace("_", "-") + ".toml")).read_text())
-                    self.assertEqual({key: profile[key] for key in settings}, settings)
-                self.assertEqual(self.config.read_bytes(), config_before)
-                self.assertEqual(tree_state(self.agents / "yunho-team-lead.toml"), lead_before)
-                self.assertIn("six", result.stdout)
-                self.assertNotIn("seven", result.stdout)
-                result = self.cli()
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("six", result.stdout)
+    def test_apply_models_applies_six_profiles_without_mutating_config(self) -> None:
+        self.fixture()
+        config_before = self.config.read_bytes()
+        result = self.cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for role, settings in SIX_SETTINGS.items():
+            profile = tomllib.loads((self.agents / (role.replace("_", "-") + ".toml")).read_text())
+            self.assertEqual({key: profile[key] for key in settings}, settings)
+        self.assertEqual(self.config.read_bytes(), config_before)
+        self.assertIn("six", result.stdout)
+        self.assertNotIn("seven", result.stdout)
+        result = self.cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("six", result.stdout)
 
 
 class RolePolicyTests(unittest.TestCase):
@@ -282,7 +253,6 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(ownership, r"all six roles.*directly to ceo.*depth 2")
         self.assertRegex(ownership, r"at most four.*subagents.*including secretary")
         self.assertRegex(ownership, r"ceo.*specialist.*results.*secretary")
-        self.assertNotRegex(ownership, r"yunho_team_lead.*development")
 
 
 class ExternalSkillPreflightTests(unittest.TestCase):
@@ -652,246 +622,6 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 self.assertEqual(status, 2, output)
                 self.assertIn("필수 외부 스킬 누락", output)
                 self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
-
-    def retired_fixture(self, present: bool = True) -> Path:
-        self.create_payload()
-        self.seed_existing_targets()
-        write_candidates(self.codex_home / "skills", variant=b"old external")
-        lead = self.codex_home / "agents/yunho-team-lead.toml"
-        if present:
-            lead.write_bytes(b"custom legacy Lead")
-            lead.chmod(0o640)
-        return lead
-
-    def live_targets_state(self):
-        return tree_state(self.codex_home / "skills"), tree_state(self.codex_home / "agents")
-
-    def test_retired_upgrade_backs_up_and_removes_lead(self) -> None:
-        lead = self.retired_fixture()
-        original = tree_state(lead)
-        acquire, _ = self.acquisition_stub()
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
-            status, output = self.run_main([])
-        self.assertEqual(status, 0, output)
-        self.assertFalse(os.path.lexists(lead))
-        backups = list((self.codex_home / "backups").glob("*/agents/yunho-team-lead.toml"))
-        self.assertEqual(len(backups), 1)
-        self.assertEqual(tree_state(backups[0]), original)
-        for name in installer.PROFILE_FILES:
-            self.assertEqual(tomllib.loads((lead.parent / name).read_text())["name"], name[:-5].replace("-", "_"))
-        self.assert_no_stages()
-
-    def test_retired_missing_is_noop(self) -> None:
-        lead = self.retired_fixture(False)
-        acquire, _ = self.acquisition_stub()
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
-            status, output = self.run_main([])
-        self.assertEqual(status, 0, output)
-        self.assertFalse(os.path.lexists(lead))
-        self.assertEqual(list((self.codex_home / "backups").glob("*/agents/yunho-team-lead.toml")), [])
-        self.assert_no_stages()
-
-    def test_retired_invalid_targets_leave_state_unchanged(self) -> None:
-        lead = self.retired_fixture(False)
-        for kind in ("symlink", "dangling", "directory", "fifo", "parent"):
-            with self.subTest(kind=kind):
-                # Isolate cases even when a contract assertion fails before cleanup.
-                if os.path.lexists(lead):
-                    if lead.is_dir() and not lead.is_symlink():
-                        lead.rmdir()
-                    else:
-                        lead.unlink()
-                if kind == "symlink":
-                    lead.symlink_to(self.payload / "README.md")
-                elif kind == "dangling":
-                    lead.symlink_to(self.base / "missing")
-                elif kind == "directory":
-                    lead.mkdir()
-                elif kind == "fifo":
-                    os.mkfifo(lead)
-                else:
-                    lead.parent.rename(self.codex_home / "real-agents")
-                    lead.parent.symlink_to(self.codex_home / "real-agents", target_is_directory=True)
-                before = tree_state(self.codex_home)
-                acquire, _ = self.acquisition_stub()
-                with patch.object(installer, "acquire_external_skills", side_effect=acquire) as acquisition:
-                    status, output = self.run_main([])
-                self.assertEqual(status, 2, output)
-                self.assertEqual(tree_state(self.codex_home), before)
-                acquisition.assert_not_called()
-                if kind == "parent":
-                    lead.parent.unlink()
-                    (self.codex_home / "real-agents").rename(lead.parent)
-                elif kind == "directory":
-                    lead.rmdir()
-                else:
-                    lead.unlink()
-
-    def test_retired_backup_failure_does_not_mutate_live_targets(self) -> None:
-        lead = self.retired_fixture()
-        before = self.live_targets_state()
-        acquire, _ = self.acquisition_stub()
-        real_copy = shutil.copy2
-        injected = False
-
-        def fail_backup(source, target, *args, **kwargs):
-            nonlocal injected
-            if Path(source) == lead:
-                injected = True
-                raise OSError("retired backup failure")
-            return real_copy(source, target, *args, **kwargs)
-
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.shutil, "copy2", fail_backup):
-            status, output = self.run_main([])
-        self.assertTrue(injected)
-        self.assertEqual(status, 2, output)
-        self.assertEqual(self.live_targets_state(), before)
-        self.assert_no_stages()
-
-    def test_retired_later_failure_restores_previous_state(self) -> None:
-        lead = self.retired_fixture()
-        before = self.live_targets_state()
-        acquire, _ = self.acquisition_stub()
-        real_replace = os.replace
-        injected = False
-
-        def fail_after_retirement(source, target, *args, **kwargs):
-            nonlocal injected
-            if not injected and Path(target) == lead.parent / installer.PROFILE_FILES[0] and not lead.exists():
-                injected = True
-                raise OSError("after retirement failure")
-            return real_replace(source, target, *args, **kwargs)
-
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail_after_retirement):
-            status, output = self.run_main([])
-        self.assertTrue(injected)
-        self.assertEqual(status, 2, output)
-        self.assertEqual(self.live_targets_state(), before)
-        self.assert_no_stages()
-
-    def test_retired_action_failure_rolls_back_prior_changes(self) -> None:
-        lead = self.retired_fixture()
-        before = self.live_targets_state()
-        acquire, _ = self.acquisition_stub()
-        real_replace = os.replace
-        injected = False
-        external_was_changed = False
-
-        def fail_retirement(source, target, *args, **kwargs):
-            nonlocal injected, external_was_changed
-            if Path(source) == lead:
-                injected = True
-                external_was_changed = (self.codex_home / "skills/writing-plans/SKILL.md").read_bytes() != b"old external:SKILL.md"
-                raise OSError("retirement action failure")
-            return real_replace(source, target, *args, **kwargs)
-
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail_retirement):
-            status, output = self.run_main([])
-        self.assertTrue(injected)
-        self.assertTrue(external_was_changed)
-        self.assertEqual(status, 2, output)
-        self.assertEqual(self.live_targets_state(), before)
-        self.assert_no_stages()
-
-    def test_retired_absent_rollback_stays_absent(self) -> None:
-        lead = self.retired_fixture(False)
-        before = self.live_targets_state()
-        acquire, _ = self.acquisition_stub()
-        real_replace = os.replace
-        injected = False
-
-        def fail_profile(source, target, *args, **kwargs):
-            nonlocal injected
-            if not injected and Path(target) == lead.parent / installer.PROFILE_FILES[0]:
-                injected = True
-                raise OSError("profile failure with absent Lead")
-            return real_replace(source, target, *args, **kwargs)
-
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail_profile):
-            status, output = self.run_main([])
-        self.assertTrue(injected)
-        self.assertEqual(status, 2, output)
-        self.assertFalse(os.path.lexists(lead))
-        self.assertEqual(self.live_targets_state(), before)
-        self.assert_no_stages()
-
-    def test_retired_rollback_failure_preserves_recovery(self) -> None:
-        lead = self.retired_fixture()
-        original = tree_state(lead)
-        acquire, _ = self.acquisition_stub()
-        real_replace = os.replace
-        injected = False
-        recovery = None
-
-        def fail_profile_and_restore(source, target, *args, **kwargs):
-            nonlocal injected, recovery
-            source, target = Path(source), Path(target)
-            if not injected and target == lead.parent / installer.PROFILE_FILES[0] and not lead.exists():
-                injected = True
-                raise OSError("later profile failure")
-            if injected and target == lead:
-                recovery = source
-                raise OSError("Lead restore failure")
-            return real_replace(source, target, *args, **kwargs)
-
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail_profile_and_restore):
-            status, output = self.run_main([])
-        self.assertTrue(injected)
-        self.assertEqual(status, 2, output)
-        self.assertIsNotNone(recovery)
-        self.assertEqual(tree_state(recovery), original)
-        self.assertIn(str(recovery), output)
-        self.assertIn(str(lead), output)
-        backups = list((self.codex_home / "backups").glob("*/agents/yunho-team-lead.toml"))
-        self.assertEqual(len(backups), 1)
-        self.assertEqual(tree_state(backups[0]), original)
-        self.assertIn(str(backups[0].parents[1]), output)
-
-    def test_retired_readonly_modes_do_not_write(self) -> None:
-        lead = self.retired_fixture()
-        before = tree_state(self.base)
-        with patch.object(installer, "acquire_external_skills") as acquisition:
-            for flags in (["--check"], ["--dry-run"]):
-                with self.subTest(flags=flags):
-                    status, output = self.run_main(flags)
-                    self.assertEqual(status, 0, output)
-                    self.assertEqual(tree_state(self.base), before)
-                    if flags == ["--dry-run"]:
-                        self.assertIn(str(lead), output)
-                        self.assertIn("backup", output.lower())
-                        self.assertIn("remove", output.lower())
-            acquisition.assert_not_called()
-
-    def test_retired_does_not_touch_unrelated_profiles(self) -> None:
-        lead = self.retired_fixture()
-        unrelated = lead.with_name("other-lead.toml")
-        unrelated.write_bytes(b"unrelated profile")
-        other_home = self.base / "other-home/agents/yunho-team-lead.toml"
-        other_home.parent.mkdir(parents=True)
-        other_home.write_bytes(b"other home Lead")
-        before = tree_state(unrelated), tree_state(other_home)
-        acquire, _ = self.acquisition_stub()
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
-            status, output = self.run_main([])
-        self.assertEqual(status, 0, output)
-        self.assertEqual((tree_state(unrelated), tree_state(other_home)), before)
-        self.assertFalse(os.path.lexists(lead))
-
-    def test_model_install_normalizes_legacy_settings(self) -> None:
-        self.create_payload()
-        choices = {role: {"model": f"installed-{index}", "model_reasoning_effort": "high"}
-                   for index, role in enumerate(SIX_SETTINGS)}
-        source = self.payload / "skill/models.toml"
-        original = settings_bytes({**choices, "yunho_team_lead": {"model": "legacy", "model_reasoning_effort": "max"}})
-        source.write_bytes(original)
-        self.install_candidates(self.user_home / ".agents" / "skills")
-        acquire, _ = self.acquisition_stub()
-        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
-            status, output = self.run_main([])
-        self.assertEqual(status, 0, output)
-        installed = self.codex_home / "skills" / installer.INSTALL_NAME / "models.toml"
-        self.assertEqual(tomllib.loads(installed.read_text()), {"version": 3, "roles": choices})
-        self.assertEqual(source.read_bytes(), original)
 
     def test_install_writes_harness_profiles_and_four_external_skills(self) -> None:
         self.create_payload()

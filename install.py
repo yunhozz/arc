@@ -35,7 +35,6 @@ PROFILE_FILES = (
     "yunho-team-qa.toml",
     "yunho-team-reviewer.toml",
 )
-RETIRED_PROFILE_FILES = ("yunho-team-lead.toml",)
 REQUIRED_EXTERNAL_FILES = {
     "brainstorming": (
         "SKILL.md",
@@ -834,11 +833,6 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
-def retired_profile_targets(home: Path) -> dict[str, Path]:
-    """Return only the retired profiles in the selected Codex home."""
-    return {filename: home / "agents" / filename for filename in RETIRED_PROFILE_FILES}
-
-
 def install_plan(
     root: Path,
     home: Path,
@@ -860,10 +854,6 @@ def install_plan(
     check_directory_or_missing(harness_target)
     for path in profile_targets.values():
         check_file_or_missing(path)
-    for path in retired_profile_targets(home).values():
-        reject_symlink_components(path)
-        if os.path.lexists(path):
-            require_regular_file(path)
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
@@ -890,7 +880,6 @@ def backup_existing(
     profile_targets: dict[str, Path],
     backup_root: Path,
     external_targets: dict[str, tuple[Path, ...]],
-    retired_targets: dict[str, Path] | None = None,
 ) -> None:
     if harness_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
@@ -904,7 +893,7 @@ def backup_existing(
             target = backup_root / group / skill
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
-    for filename, source in {**profile_targets, **(retired_targets or {})}.items():
+    for filename, source in profile_targets.items():
         if os.path.lexists(source):
             require_regular_file(source)
             target = backup_root / "agents" / filename
@@ -987,15 +976,10 @@ def _transactional_install(
         reject_symlink_components(directory)
 
     backup_root = make_backup_directory(backups_dir)
-    retired_targets = retired_profile_targets(home)
-    for target in retired_targets.values():
-        reject_symlink_components(target)
-        if os.path.lexists(target):
-            require_regular_file(target)
-    backup_existing(harness_target, profile_targets, backup_root, external_targets, retired_targets)
+    backup_existing(harness_target, profile_targets, backup_root, external_targets)
 
     stage_areas: list[Path] = []
-    staged_targets: list[tuple[Path, Path | None, Path]] = []
+    staged_targets: list[tuple[Path, Path, Path]] = []
     target_changes_started = False
     try:
         for skill, targets in external_targets.items():
@@ -1006,12 +990,6 @@ def _transactional_install(
                 staged = area / skill
                 stage_external_tree(source, staged)
                 staged_targets.append((target, staged, area))
-
-        for target in retired_targets.values():
-            if os.path.lexists(target):
-                area = create_stage_area(target.parent, "retired")
-                stage_areas.append(area)
-                staged_targets.append((target, None, area))
 
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
@@ -1054,9 +1032,8 @@ def _transactional_install(
                     previous = area / f"previous-{target.name}"
                     action["previous"] = previous
                     os.replace(target, previous)
-                if staged is not None:
-                    os.replace(staged, target)
-                    action["installed"] = True
+                os.replace(staged, target)
+                action["installed"] = True
         except BaseException as exc:
             rollback_errors = rollback(actions)
             retained_areas: set[Path] = set()
@@ -1123,9 +1100,6 @@ def perform_install(
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
         print(f"Would install six profiles: {agents_dir}")
-        for target in retired_profile_targets(home).values():
-            if os.path.lexists(target):
-                print(f"Would backup and remove retired profile: {target}")
         return
 
     with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
