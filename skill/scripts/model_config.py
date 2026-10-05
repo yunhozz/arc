@@ -76,44 +76,25 @@ def _parse_file(path: Path, label: str) -> tuple[bytes, str, dict]:
 
 
 def load_settings(config_path: Path) -> dict[str, RoleSettings]:
-    """Read and validate the version 2 model and role matrix."""
+    """Read and validate the version 3 role settings."""
     _, _, config = _parse_file(config_path, "settings")
     version = config.get("version")
-    if type(version) is int and version == 1:
-        raise _error(config_path, "version", "must be integer 2; update version 1 settings to the version 2 model matrix")
-    if "version" in config and (type(version) is not int or version != 2):
-        raise _error(config_path, "version", "must be integer 2")
-    if set(config) != {"version", "models", "roles"}:
-        missing = sorted({"version", "models", "roles"} - set(config))
-        extra = sorted(set(config) - {"version", "models", "roles"})
+    if type(version) is int and version in (1, 2):
+        raise _error(
+            config_path,
+            "version",
+            f"must be integer 3; update version {version} settings to the version 3 role-only format",
+        )
+    if "version" in config and (type(version) is not int or version != 3):
+        raise _error(config_path, "version", "must be integer 3")
+    if set(config) != {"version", "roles"}:
+        missing = sorted({"version", "roles"} - set(config))
+        extra = sorted(set(config) - {"version", "roles"})
         raise _error(
             config_path,
             "top level",
-            f"must contain exactly 'version', 'models', and 'roles' (missing={missing}, extra={extra})",
+            f"must contain exactly 'version' and 'roles' (missing={missing}, extra={extra})",
         )
-    models = config["models"]
-    if not isinstance(models, dict) or not models:
-        raise _error(config_path, "models", "must be a nonempty table")
-    validated_models: dict[str, list[str]] = {}
-    for model, raw_model_settings in models.items():
-        model_key = _validated_string(model, config_path, f"models.{model!r}")
-        if not isinstance(raw_model_settings, dict) or set(raw_model_settings) != {"allowed_reasoning_efforts"}:
-            keys = set(raw_model_settings) if isinstance(raw_model_settings, dict) else set()
-            raise _error(
-                config_path,
-                f"models.{model_key}",
-                f"must contain only 'allowed_reasoning_efforts' (found={sorted(keys)})",
-            )
-        allowed = raw_model_settings["allowed_reasoning_efforts"]
-        if not isinstance(allowed, list) or not allowed:
-            raise _error(config_path, f"models.{model_key}.allowed_reasoning_efforts", "must be a nonempty array")
-        validated_efforts = [
-            _validated_string(effort, config_path, f"models.{model_key}.allowed_reasoning_efforts[{index}]")
-            for index, effort in enumerate(allowed)
-        ]
-        if len(set(validated_efforts)) != len(validated_efforts):
-            raise _error(config_path, f"models.{model_key}.allowed_reasoning_efforts", "must not contain duplicates")
-        validated_models[model_key] = validated_efforts
 
     roles = config["roles"]
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
@@ -134,10 +115,6 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
             )
         model = _validated_string(role_settings["model"], config_path, f"roles.{role}.model")
         effort = _validated_string(role_settings["model_reasoning_effort"], config_path, f"roles.{role}.model_reasoning_effort")
-        if model not in validated_models:
-            raise _error(config_path, f"roles.{role}.model", f"model {model!r} is not defined in 'models'")
-        if effort not in validated_models[model]:
-            raise _error(config_path, f"roles.{role}", f"effort {effort!r} is not allowed for {model!r}")
         result[role] = {"model": model, "model_reasoning_effort": effort}
     return result
 

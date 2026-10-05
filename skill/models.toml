@@ -1,18 +1,10 @@
-# Single source for each role's exact model ID and local reasoning-effort policy.
-# Add exact model IDs under [models."<model-id>"] and edit their allowed list here.
-# These lists are local validation policy; they do not confirm server support,
-# account access, or current model availability.
-version = 2
-
-[models."gpt-6.1-sol"]
-allowed_reasoning_efforts = ["none", "minimal", "low", "medium", "high"]
-
-[models."gpt-6-luna"]
-allowed_reasoning_efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+# Single source for each role's exact model ID and reasoning-effort selection.
+# Each role is applied directly; model availability is not validated here.
+version = 3
 
 [roles.yunho_team_lead]
-model = "gpt-6.1-sol"
-model_reasoning_effort = "low"
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
 
 [roles.yunho_team_secretary]
 model = "gpt-6.1-sol"

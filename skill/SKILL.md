@@ -208,10 +208,10 @@ alone does not route every question through a browser.
 
 ## Models
 
-`models.toml` beside this skill is the source for the seven role model IDs and local reasoning-effort policies; CEO
-uses the chat model. Each role selects a model declared in `[models]`, and its effort must appear in that model's
-`allowed_reasoning_efforts` list. These lists validate local configuration only; they do not prove server support,
-account access, or current availability. Use configured settings without substitution and report unavailable settings.
+`models.toml` beside this skill is the source for the seven role model IDs and reasoning-effort selections; CEO uses
+the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not
+prove server support, account access, or current availability. Use configured settings without substitution and report
+unavailable settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to

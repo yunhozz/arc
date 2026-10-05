@@ -73,24 +73,21 @@ using-git-worktrees
 
 ## 모델 설정
 
-모델 설정 파일은 `skill/models.toml`입니다. version 2에서 `[models."<exact-model-id>"]` 표는 모델별 reasoning effort 허용 목록을 정의하고, `[roles.<role>]` 표는 각 역할의 모델과 reasoning effort를 선택합니다. 새 모델 ID를 사용할 때는 해당 ID와 `allowed_reasoning_efforts` 목록을 추가하고 역할 값도 그 모델을 가리키도록 편집합니다. 각 역할의 effort는 선택한 모델의 목록에 있어야 합니다.
+모델 설정 파일은 `skill/models.toml`입니다. version 3은 `[roles.<role>]` 표만 사용하며, 각 역할의 `model`과 `model_reasoning_effort` 값이 그대로 적용됩니다. 모델별 허용 목록은 두지 않습니다.
 
 다음은 작성 형식의 일부 예시이며, 실제 설정 파일에는 일곱 Harness 역할이 모두 있어야 합니다.
 
 ```toml
-version = 2
-
-[models."example-model-id"]
-allowed_reasoning_efforts = ["low", "medium"]
+version = 3
 
 [roles.yunho_team_coder]
 model = "example-model-id"
 model_reasoning_effort = "medium"
 ```
 
-이 목록은 로컬 설정 검증 정책입니다. 원격 서비스가 모델을 지원하는지, 계정이 해당 모델에 접근할 수 있는지, 지금 사용할 수 있는지는 확인하지 않습니다. 이전 version 1 파일은 자동 변환되지 않습니다. version 2의 `[models]` 표와 역할 설정으로 직접 갱신해야 합니다.
+로더는 일곱 역할과 각 역할의 필수 문자열 필드를 검증하지만, 원격 서비스가 모델이나 effort를 지원하는지, 계정 접근 권한이나 현재 사용 가능 여부를 확인하지 않습니다. 이전 version 1·2 파일은 자동 변환되지 않습니다. version 3 형식으로 직접 갱신해야 합니다.
 
-새 환경에 설치하면 `install.py`가 설정을 읽고 일곱 프로필을 생성합니다. 유효한 `models.toml` 정책만 편집할 때 manifest를 다시 생성할 필요는 없습니다. 기존 설치에서 모델 설정만 바꾼 경우, 설치된 `models.toml`을 편집한 뒤 다음 스크립트를 실행해 프로필에 반영합니다.
+새 환경에 설치하면 `install.py`가 설정을 읽고 일곱 프로필을 생성합니다. 유효한 `models.toml` 역할 설정만 편집할 때 manifest를 다시 생성할 필요는 없습니다. 기존 설치에서 모델 설정만 바꾼 경우, 설치된 `models.toml`을 편집한 뒤 다음 스크립트를 실행해 프로필에 반영합니다.
 
 ```sh
 python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
@@ -148,4 +145,4 @@ Lead는 종속 구현 task를 순차 조율하고, 승인된 범위·workspace·
 
 `MANIFEST.sha256`은 `install.py`, `install.command`, README, 선택된 `skill/` 및 `agents/` 파일의 변경 불가 내용을 검사합니다. 외부 skills lock이나 외부 skill SHA snapshot은 사용하지 않습니다. 외부 내용은 매 일반 설치에서 upstream에서 가져오며, CLI 결과의 source/ref/mode와 acquired tree의 경로·종류·link 안전성을 확인합니다. 이 검사는 원격 저장소 출처를 독립적으로 암호학적으로 인증하거나, 특정 upstream byte 버전을 고정하지 않습니다.
 
-편집 가능한 `skill/models.toml`은 내부 manifest에서 제외되며, 대신 version 2 구조와 역할·모델 effort 연결을 검증합니다. 유효한 설정을 편집해도 manifest를 다시 만들 필요는 없습니다. 내부 manifest는 포함 파일의 무결성을 검사하지만 manifest 자체의 진위나 원격 모델 지원을 증명하지 않습니다.
+편집 가능한 `skill/models.toml`은 내부 manifest에서 제외되며, 대신 version 3 설정에서 일곱 역할이 모두 있는지와 각 역할의 필수 `model`, `model_reasoning_effort` 필드가 문자열인지 검증합니다. 유효한 설정을 편집해도 manifest를 다시 만들 필요는 없습니다. 내부 manifest는 포함 파일의 무결성을 검사하지만 manifest 자체의 진위나 원격 모델 지원을 증명하지 않습니다.
