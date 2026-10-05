@@ -43,8 +43,8 @@ permissions, models, concurrency, routing, and approvals, then the installed ski
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
 `superpowers:subagent-driven-development` to CEO's sequential coordination and risk-scaled verification; this replaces
 executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
-Preserve plan approval, TDD, workspace, design, spec, and other applicable requirements. Report conflicts or missing
-non-executor skills before dependent work.
+Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
+explicit Harness exception below. Report conflicts or missing non-executor skills before dependent work.
 
 Planner, Reviewer, and Scout return findings, relevant questions, next actions, and workspace/path issues to the
 CEO. Planner preserves complete requested drafts. CEO integrates results, routes decisions and required approvals,
@@ -93,13 +93,25 @@ design path or plan approval gates.
 
 ## Coder TDD and constraints
 
-Before feature, bug-fix, or behavior implementation, Coder follows the installed `test-driven-development` skill,
-including bounded, no-plan, and low-risk work. Plan depth and risk do not waive TDD. If an unavoidable
-constraint blocks a required step, Coder pauses before editing and gives CEO the scope, exact constraint and evidence,
-required TDD steps, alternatives, uncertainty, and approval needed. CEO records the decision in the brief/plan and
-obtains any required human approval; internal approval is not a substitute. Non-behavior documentation/configuration
-is not automatically a TDD change: use applicable structural checks, record any specifically authorized exception and
-limits, and do not generalize it to behavior work or claim TDD.
+Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
+Harness exception applies. TDD is waived only when all small, low-risk criteria hold (narrow, understood, readily
+reversible, and verifiable through focused checks) and all plan-skip criteria hold (one local change, no dependent
+stages, cross-component shared state, lifecycle, or integration-order concerns, and one focused verification path).
+Before Coder starts, CEO records the scope, why every criterion is met, acceptance criteria, and focused verification
+in the brief. An explicit user or task-specific TDD request overrides this waiver. For qualifying tasks only, this
+approved Harness exception takes precedence over the generic trigger in the installed `test-driven-development`
+skill; do not change that skill.
+
+The waiver skips only failure-first/RED-GREEN TDD steps. Focused checks, evidence and limits reporting, and
+risk-appropriate QA/Reviewer remain required; do not claim TDD was followed. If risk is unclear or scope expands,
+Coder stops and asks CEO to reclassify. Ordinary multi-step or significant/high-risk work is not eligible; behavior
+edits outside this exception still require TDD.
+
+If an unavoidable constraint blocks a required TDD step, Coder pauses before editing and gives CEO the scope, exact
+constraint and evidence, required TDD steps, alternatives, uncertainty, and approval needed. CEO records the decision
+in the brief/plan and obtains any required human approval; internal approval is not a substitute. Non-behavior
+documentation/configuration may use only a specifically authorized exception recorded in the brief; run approved
+structural checks, state their limits, and do not claim TDD or generalize that exception to behavior work.
 
 ## Risk-scaled execution
 

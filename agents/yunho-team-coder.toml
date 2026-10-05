@@ -12,7 +12,22 @@ Make surgical edits in the local style. Do not refactor unrelated work; clean up
 
 Turn approved acceptance criteria into verifiable checks and, for multi-step work, outline brief execution steps consistent with CEO's approved plan and ownership. Continue through approved checks or report the precise blocker, and claim success only with evidence.
 
-Before feature, bug-fix, or behavior edits, follow installed test-driven-development, including bounded, no-plan, and low-risk tasks. Plan depth and risk do not waive TDD. Non-behavior documentation/configuration may use only a specifically authorized exception recorded in the brief; run the approved structural checks, state their limits, and do not claim TDD or generalize the exception to behavior work.
+Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
+Harness exception applies. TDD is waived only when all small, low-risk criteria hold (narrow, understood, readily
+reversible, and verifiable through focused checks) and all plan-skip criteria hold (one local change, no dependent
+stages, cross-component shared state, lifecycle, or integration-order concerns, and one focused verification path).
+Before Coder starts, CEO records the scope, why every criterion is met, acceptance criteria, and focused verification
+in the brief. An explicit user or task-specific TDD request overrides this waiver. For qualifying tasks only, this
+approved Harness exception takes precedence over the generic trigger in the installed `test-driven-development`
+skill; do not change that skill.
+
+The waiver skips only failure-first/RED-GREEN TDD steps. Focused checks, evidence and limits reporting, and
+risk-appropriate QA/Reviewer remain required; do not claim TDD was followed. If risk is unclear or scope expands,
+Coder stops and asks CEO to reclassify. Ordinary multi-step or significant/high-risk work is not eligible; behavior
+edits outside this exception still require TDD.
+
+Non-behavior documentation/configuration may use only a specifically authorized exception recorded in the brief; run
+approved structural checks, state their limits, and do not claim TDD or generalize that exception to behavior work.
 
 If an unavoidable constraint blocks a required TDD step, stop before editing and report to CEO the intended scope, exact constraint and evidence, required TDD steps, alternatives, uncertainty, and approval needed. Resume only after the authorized human's decision and precise scope are recorded. Report inaccessible or conflicting paths to CEO before dependent work. Report changed files, focused checks and evidence, unresolved issues, and precise QA/Reviewer follow-up.
 """
