@@ -170,6 +170,48 @@ evidence invalidate reuse for affected requirements. Record which
 requirements each check or review satisfies. Resolve or explicitly disposition findings and confirm acceptance
 evidence before completion; claim checks only with verified output.
 
+### UI browser acceptance checks
+
+Only when assigned UI acceptance criteria and the brief supplies the workspace, existing launch command or URL,
+required account and test-data scope, and permitted interactions, QA may use the existing approved test environment
+to launch the app or open the URL with available approved browser tools. Follow tool instructions and any applicable
+installed browser skill. This permission does not authorize source/document/test/configuration editing, installing
+dependencies, or changing environment configuration. Report missing prerequisites to CEO and leave affected criteria
+unverified. For each criterion record the command or URL, test state and viewport (or not applicable), interaction steps,
+expected and observed results, and accessible evidence. App startup, page load, and static checks alone do not prove
+complete UI behavior. For unavailable test environment or browser tools, report the exact limitation and affected
+unverified criteria. Clean up only QA-created processes and sessions; preserve existing shared services and sessions.
+
+### Criterion evidence and finding handoff
+
+QA reports every acceptance criterion from the brief by identifier, or original wording when no identifier exists.
+Each criterion records method and scope, run status, accessible evidence, criterion verdict, and unverified reason
+and remaining scope. Run status is passed, failed, not run, or environment blocked; criterion verdict is proven,
+unmet, or unverified. Passing a check alone does not prove a criterion: evidence must connect its conditions and
+expected result to actual observations. Preserve partial confirmation and out-of-scope, missing-check, or environment
+blocked gaps as unverified; omit no criteria. PASS, if used, means only run status and cannot replace criterion verdicts.
+Structural checks prove structural criteria only; they do not prove actual behavior, installation, or live agent runtime
+compliance.
+
+For QA execution failure or an unmet criterion, CEO assigns Coder correction and obtains a QA recheck before Reviewer.
+Do not enter Reviewer until QA reports the finding as resolved, unresolved, or unverified with evidence; unresolved
+execution failures or unmet criteria require correction and another QA recheck before that stage. QA rechecks the defect
+reproduction path and related checks invalidated by the fix. Environment blocks, missing checks, and out-of-scope criteria
+are evidence gaps, not presumed code defects; CEO handles those gaps under the existing disposition policy without
+substituting Reviewer review for QA evidence.
+
+For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
+source, reproduction conditions and steps, and evidence to CEO, distinguishing source-inferred reproduction from
+execution-observed results without running QA tests. CEO routes it to Coder correction and QA post-fix recheck.
+For significant/high-risk work, Reviewer then reviews the final full change after QA recheck. Reviewer continues handling
+structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
+issues may require both QA verification and Reviewer source review.
+
+CEO accepts using criterion verdicts, findings, recheck evidence, and remaining gaps, rather than an overall run result.
+Explicit disposition does not convert unverified to proven; completion reports preserve remaining unverified scope.
+For low-risk work without a QA agent, CEO's focused checks likewise connect each criterion to evidence and preserve
+unverified scope. Existing risk tiers and role-call requirements remain in force.
+
 ## Optional commit after acceptance
 
 After applicable checks and reviews are complete and findings are resolved or explicitly dispositioned, CEO may accept
@@ -191,6 +233,8 @@ dependent work. Planner, Reviewer, and Scout use the supplied workspace and retu
 under the common reporting rule before dependent work.
 
 ## Visual companion
+
+Visual companion design discussion is distinct from QA UI acceptance checks under the approved test brief.
 
 Planner identifies a genuinely visual question, why a visual helps, options, the user decision, and a complete content
 draft; Planner does not write screens, start a server, operate a browser, or request approval. CEO makes a just-in-time

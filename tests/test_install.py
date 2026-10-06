@@ -254,6 +254,73 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(ownership, r"at most four.*subagents.*including secretary")
         self.assertRegex(ownership, r"ceo.*specialist.*results.*secretary")
 
+    def test_qa_ui_browser_acceptance_contract(self) -> None:
+        qa = " ".join(tomllib.loads(
+            (REPO / "agents/yunho-team-qa.toml").read_text()
+        )["developer_instructions"].lower().split())
+        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        for artifact, text in (("qa", qa), ("policy", policy)):
+            for contract in (
+                r"only when.*assigned ui.*brief.*workspace.*existing launch command or url.*account.*test.data.*permitted interactions",
+                r"approved test environment.*launch.*open.*approved browser tools",
+                r"tool instructions.*applicable installed browser skill",
+                r"does not authorize.*editing.*dependencies.*environment configuration",
+                r"missing prerequisites.*ceo.*unverified",
+                r"command or url.*test state.*viewport.*not applicable.*interaction steps.*expected.*observed.*accessible evidence",
+                r"startup.*page load.*static checks.*do not prove.*ui behavior",
+                r"unavailable.*environment.*browser tools.*exact limitation.*unverified",
+                r"clean up only.*created.*processes.*sessions.*preserve.*shared",
+            ):
+                with self.subTest(artifact=artifact, contract=contract):
+                    self.assertRegex(text, contract)
+        self.assertRegex(policy, r"visual companion.*design discussion.*distinct from.*qa.*ui acceptance")
+        readme = (REPO / "README.md").read_text()
+        for term in ("UI 수락 기준", "브라우저", "viewport", "공유", "Visual companion"):
+            with self.subTest(readme_term=term):
+                self.assertIn(term, readme)
+
+    def test_qa_reporting_contract(self) -> None:
+        instructions = " ".join(tomllib.loads(
+            (REPO / "agents/yunho-team-qa.toml").read_text()
+        )["developer_instructions"].lower().split())
+        for contract in (
+            r"every acceptance criterion.*identifier.*original wording",
+            r"method.*scope.*run status.*accessible evidence.*criterion verdict.*unverified reason",
+            r"run status.*passed.*failed.*not run.*environment blocked",
+            r"criterion verdict.*proven.*unmet.*unverified",
+            r"passing.*alone.*does not prove",
+            r"partial.*out.of.scope.*missing checks.*environment.*unverified",
+            r"after a fix.*defect reproduction path.*invalidated.*resolved.*unresolved.*unverified",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(instructions, contract)
+
+    def test_reviewer_finding_handoff(self) -> None:
+        instructions = " ".join(tomllib.loads(
+            (REPO / "agents/yunho-team-reviewer.toml").read_text()
+        )["developer_instructions"].lower().split())
+        for contract in (
+            r"behavior.*finding.*criterion.*expected behavior.*observed problem.*source.*reproduction conditions.*steps.*evidence",
+            r"source.inferred.*execution.observed",
+            r"ceo.*coder.*qa.*recheck",
+            r"do not.*run qa tests",
+            r"structure.*design.*factual.*security",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(instructions, contract)
+
+    def test_acceptance_evidence_flow(self) -> None:
+        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        for contract in (
+            r"qa.*failure.*ceo.*coder.*correction.*qa recheck.*before reviewer",
+            r"do not enter reviewer.*qa.*resolved.*unresolved.*unverified",
+            r"disposition.*does not.*unverified.*proven",
+            r"low.risk.*ceo.*criterion.*evidence.*unverified",
+            r"structural checks.*do not prove.*runtime",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(policy, contract)
+
 
 class ExternalSkillPreflightTests(unittest.TestCase):
     def setUp(self) -> None:
