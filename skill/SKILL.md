@@ -225,12 +225,19 @@ rules.
 
 ## Workspace handoff
 
-After all applicable design/spec/plan approvals and before Coder starts, CEO prepares a new task branch in the
-existing checkout. Confirm the supplied absolute workspace is accessible and belongs to the intended Git repository;
-record its actual absolute path, current branch or detached HEAD, current HEAD, and staged, unstaged, and untracked
-changes. Stop if the workspace is inaccessible, is not the intended Git repository, or HEAD cannot be resolved. Do not
-initialize Git or switch to another repository automatically.
+### Checkout approval
 
+After all applicable design/spec/plan approvals and before Coder starts, CEO confirms the supplied absolute workspace
+is accessible and belongs to the intended Git repository; record its actual absolute path, current branch or detached
+HEAD, current HEAD, and staged, unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the
+intended Git repository, or HEAD cannot be resolved. Do not initialize Git or switch to another repository automatically.
+Before creating or switching to a new task branch, obtain explicit user approval. The approval request must identify
+the absolute workspace, current branch or detached HEAD, base HEAD, and candidate task branch. Planning document
+completion or approval does not constitute branch creation or checkout approval.
+
+### New task branch
+
+With explicit user approval for the execution target, prepare the new task branch in the existing checkout.
 Choose a valid Git branch name in the form `<type>/<short-kebab-case-topic>`. Use a lowercase prefix for the task's
 main purpose and a short, specific lowercase kebab-case topic with no spaces. For mixed tasks, choose the main purpose.
 
@@ -250,47 +257,70 @@ main purpose and a short, specific lowercase kebab-case topic with no spaces. Fo
 
 Validate the name and check for collisions before creation. If the base name exists, append `-2`, `-3`, and increasing
 numeric suffixes to the topic, choosing the first unused name. Never reuse, delete, or overwrite an existing branch.
-If a new collision occurs during creation, try the next suffix; distinguish a missing branch from a lookup error.
-For example: `chore/branch-workspace-policy`, then `chore/branch-workspace-policy-2`.
+Distinguish a lookup error from a missing branch. For example: `chore/branch-workspace-policy`, then
+`chore/branch-workspace-policy-2`.
+Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate before execution. If the approval
+target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
+collision, obtain approval for that candidate before creating or switching; without that approval, use the current
+checkout path. A failure during creation remains an operational failure subject to the stop rule below.
 
-Create and switch to the new branch from the confirmed current HEAD in the current checkout, for example with
-`git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and creation and switching succeed.
-After success, confirm the actual current branch matches the chosen name, HEAD matches the recorded base, the checkout
-absolute path is unchanged, and existing changes are preserved. Do not create a worktree or fall back to worktree
-provisioning on failure.
+Create and switch to the approved new branch from the confirmed base HEAD in the current checkout, for example with
+`git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and included in the approval target.
+After success, confirm the actual current branch matches the approved candidate, HEAD matches the recorded base, the
+checkout absolute path is unchanged, and existing changes are preserved. Do not create a worktree or fall back to
+worktree provisioning on failure.
 
-After confirming the successful switch, actual current branch, and unchanged checkout path, if planning documents
-have been written and approved for this task, CEO must stage and commit only those approved documents (spec and/or
-plan) in one focused docs commit before Coder handoff. Verify the staged paths match exactly those approved documents.
-Never include implementation files; this commit does not mean implementation acceptance. Record the commit SHA and
-included paths in the brief, together with the post-commit HEAD. Do not push without a separate explicit user request.
+### Current checkout
+
+With no explicit approval for new checkout, including refusal, no response, or an unclear response, do not create or
+switch a branch; continue on the current checkout. Confirm the absolute workspace, current branch or detached HEAD,
+HEAD, and existing changes and their preservation and edit ownership. Record this state in the brief. If the state
+cannot be confirmed or ownership is unclear, stop handoff until CEO resolves it. Lack of checkout approval alone does
+not stop Coder handoff.
+
+### Planning document commit
+
+On the new task branch path, confirm the successful switch, actual branch, and unchanged checkout path before the docs
+commit. On the current checkout path, confirm the branch or detached HEAD, checkout path, and existing changes first.
+On both paths, if planning documents have been written and approved for this task, CEO must stage and commit only those
+approved documents (spec and/or plan) in one focused docs commit before Coder handoff. Verify the staged paths match
+exactly those approved documents. Never include implementation files; this commit does not mean implementation
+acceptance. Record the commit SHA and included paths in the brief, together with the post-commit HEAD. Do not push
+without a separate explicit user request.
 
 When approved planning documents exist, if the docs commit fails or staged paths differ from the approved documents,
 stop Coder handoff, inspect and record the actual branch and index state, and resolve the issue before resuming.
 Do not commit implementation files instead or automatically unstage, reset, or discard unrelated changes.
 
-If no planning documents were required and none were produced under the existing design/plan depth rules, skip the docs commit
-and record that fact and the applicable depth rationale in the brief. Coder handoff may proceed after successful branch
-and checkout path confirmation. This rule does not require new documents or change the existing approval gates.
+If no planning documents were required and none were produced under the existing design/plan depth rules, skip the docs
+commit and record that fact and the applicable depth rationale in the brief. Coder handoff may proceed on either path
+with the confirmed branch or detached HEAD and checkout path. Document absence does not change checkout approval
+requirements. This rule does not require new documents or change the existing approval gates.
+
+### Existing changes and failures
 
 A branch does not isolate uncommitted changes into a separate directory as a worktree does. Record how existing staged,
 unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Do not
-automatically stash, commit, reset, clean, or delete changes to prepare the branch. Only the approved post-switch
-docs commit above is an exception to the preparation commit prohibition; preserve all unrelated dirty files. If existing changes prevent switching
-or ownership is unclear, stop handoff until CEO resolves the state and scope.
+automatically stash, commit, reset, clean, or delete changes to prepare the checkout. Only the approved docs commit
+above on either path is an exception to the preparation commit prohibition; preserve all unrelated dirty files.
+If existing changes prevent switching or ownership is unclear, stop handoff until CEO resolves the state and scope.
 
-For an invalid name, creation or switching failure, lookup error, or unexpected current branch, inspect and record the
-error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial completion:
-report it, do not automatically delete it, and do not treat preparation as complete. CEO resolves the problem and
-rechecks preparation before handoff.
+For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
+record the error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial
+completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically
+fall back to the current checkout path after an operational failure. Operational failure is distinct from lack of
+approval. CEO resolves the problem and rechecks preparation before handoff.
+
+### Handoff evidence
 
 Record the actual absolute workspace, prior branch or detached HEAD and base HEAD, prior change state and preservation
-and edit scope, chosen task branch, creation/switch result, and post-switch branch/path/HEAD/change checks in the brief.
-Include any failure or partial completion and its resolution, plus absolute artifact paths. Give all six roles the same
-actual workspace, task branch, preparation evidence, and absolute artifact paths. Coder and QA work only in the supplied
-workspace; Planner, Reviewer, Scout, and Secretary use that same workspace. Every role reports missing, inaccessible,
-or conflicting paths and unexpected branch state to CEO before dependent work. Roles do not independently create or
-switch workspaces or branches.
+and edit scope, checkout approval result and evidence, selected execution path, final branch or detached HEAD,
+creation/switch result if attempted, and post-selection branch/path/HEAD/change checks in the brief. Include the docs
+commit SHA and included paths or skip rationale, any failure or partial completion and its resolution, plus absolute
+artifact paths. Give all six roles the same actual workspace, selected execution checkout, preparation evidence, and
+absolute artifact paths. Coder and QA work only in the supplied workspace; Planner, Reviewer, Scout, and Secretary use
+that same workspace. Every role reports missing, inaccessible, or conflicting paths and unexpected branch state to
+CEO before dependent work. Roles do not independently create or switch workspaces or branches.
 
 ## Visual companion
 
