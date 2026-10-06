@@ -308,19 +308,108 @@ class RolePolicyTests(unittest.TestCase):
             with self.subTest(contract=contract):
                 self.assertRegex(instructions, contract)
 
+    def _workspace_handoff_section(self, title: str) -> str:
+        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        handoff = policy.split("## workspace handoff", 1)[1].split("## visual companion", 1)[0]
+        self.assertIn(f"### {title.lower()}", handoff)
+        return handoff.split(f"### {title.lower()}", 1)[1].split("### ", 1)[0]
+
+    def _assert_workspace_handoff_contracts(
+        self, title: str, contracts: tuple[str, ...]
+    ) -> None:
+        section = self._workspace_handoff_section(title)
+        for contract in contracts:
+            with self.subTest(section=title, contract=contract):
+                self.assertRegex(section, contract)
+
+    def test_workspace_handoff_requires_scoped_checkout_approval(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            "Checkout approval",
+            (
+                r"after all applicable design/spec/plan approvals",
+                r"before.*creat.*switch.*explicit user approval",
+                r"approval.*absolute workspace.*current branch.*detached head.*base head.*candidate",
+                r"planning document.*approval.*does not.*branch.*approval",
+            ),
+        )
+
+    def test_workspace_handoff_without_approval_uses_current_checkout(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            "Current checkout",
+            (
+                r"no explicit approval.*refus.*no response.*unclear",
+                r"do not create or switch.*branch",
+                r"continue.*current checkout",
+                r"confirm.*branch.*detached head.*head.*existing changes",
+                r"lack of checkout approval alone.*does not.*stop coder handoff",
+            ),
+        )
+
+    def test_workspace_handoff_reapproves_changed_targets(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            "New task branch",
+            (
+                r"recheck.*workspace.*branch.*base head.*candidate.*before",
+                r"approval target.*changes.*explicit user approval",
+                r"candidate.*changes.*approval.*before.*creat.*switch",
+                r"without.*approval.*current checkout",
+                r"lookup error.*missing branch",
+            ),
+        )
+
+    def test_workspace_handoff_preserves_branch_collision_rules(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            "New task branch",
+            (
+                r"valid git branch name.*`<type>/<short-kebab-case-topic>`",
+                r"lowercase prefix.*lowercase kebab-case topic with no spaces",
+                r"validate the name.*check for collisions before creation",
+                r"base name exists.*append `-2`, `-3`.*increasing numeric suffixes.*first unused name",
+                r"never reuse, delete, or overwrite an existing branch",
+            ),
+        )
+
+    def test_workspace_handoff_preserves_existing_changes(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            "Existing changes and failures",
+            (
+                r"existing staged, unstaged, and untracked changes.*preservation and edit ownership.*brief",
+                r"do not automatically stash, commit, reset, clean, or delete changes",
+                r"only the approved docs commit.*either path.*exception.*preserve all unrelated dirty files",
+                r"existing changes prevent switching.*stop handoff until ceo resolves the state and scope",
+            ),
+        )
+
+    def test_workspace_handoff_failures_do_not_fallback(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            "Existing changes and failures",
+            (
+                r"branch creation.*switch.*failure.*actual git state.*stop coder handoff",
+                r"created.*without.*successful switch.*partial completion",
+                r"do not.*automatically.*(?:fall back|fallback).*current checkout",
+                r"operational failure.*distinct from.*lack of approval",
+                r"do not.*automatically delete",
+            ),
+        )
+
     def test_workspace_handoff_commits_approved_plan_docs_before_coder(self) -> None:
         policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
         handoff = policy.split("## workspace handoff", 1)[1].split("## visual companion", 1)[0]
-        self.assertRegex(
-            handoff,
-            r"create and switch.*after.*branch.*path.*if.*planning documents.*written and approved.*ceo.*stage and commit only those approved documents.*before coder handoff",
+        self._assert_workspace_handoff_contracts(
+            "Planning document commit",
+            (
+                r"new task branch.*successful switch.*branch.*path",
+                r"current checkout.*confirm.*branch.*path.*existing changes",
+                r"both paths.*planning documents.*written and approved",
+                r"ceo.*stage and commit only those approved documents.*before coder handoff",
+            ),
         )
         for contract in (
             r"record.*commit sha.*included paths.*brief",
             r"never include implementation files.*does not mean implementation acceptance",
             r"do not push.*separate.*user.*request",
             r"when approved planning documents exist.*commit fails.*staged paths.*stop coder handoff.*branch.*index",
-            r"no planning documents.*existing design/plan depth rules.*skip.*docs commit.*record.*brief.*coder handoff.*successful branch.*path.*confirmation",
+            r"no planning documents.*existing design/plan depth rules.*skip.*docs commit.*record.*brief.*coder handoff.*confirmed.*(?:branch|detached head).*path",
             r"do not automatically.*(?:unstage|reset).*unrelated",
             r"only.*approved.*docs commit.*exception",
         ):
