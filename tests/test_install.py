@@ -29,7 +29,6 @@ FILES = {
     ),
     "writing-plans": ("SKILL.md",),
     "test-driven-development": ("SKILL.md", "writing-good-tests.md"),
-    "using-git-worktrees": ("SKILL.md",),
 }
 REPO = Path(__file__).resolve().parents[1]
 
@@ -308,6 +307,25 @@ class RolePolicyTests(unittest.TestCase):
         ):
             with self.subTest(contract=contract):
                 self.assertRegex(instructions, contract)
+
+    def test_workspace_handoff_commits_approved_plan_docs_before_coder(self) -> None:
+        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        handoff = policy.split("## workspace handoff", 1)[1].split("## visual companion", 1)[0]
+        self.assertRegex(
+            handoff,
+            r"create and switch.*after.*branch.*path.*if.*planning documents.*written and approved.*ceo.*stage and commit only those approved documents.*before coder handoff",
+        )
+        for contract in (
+            r"record.*commit sha.*included paths.*brief",
+            r"never include implementation files.*does not mean implementation acceptance",
+            r"do not push.*separate.*user.*request",
+            r"when approved planning documents exist.*commit fails.*staged paths.*stop coder handoff.*branch.*index",
+            r"no planning documents.*existing design/plan depth rules.*skip.*docs commit.*record.*brief.*coder handoff.*successful branch.*path.*confirmation",
+            r"do not automatically.*(?:unstage|reset).*unrelated",
+            r"only.*approved.*docs commit.*exception",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(handoff, contract)
 
     def test_acceptance_evidence_flow(self) -> None:
         policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
@@ -672,7 +690,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual(status, 0, output)
         self.assertIn(
             "npx --yes skills@latest add https://github.com/obra/superpowers --skill "
-            "brainstorming writing-plans test-driven-development using-git-worktrees "
+            "brainstorming writing-plans test-driven-development "
             "--agent codex --yes --copy --json",
             output,
         )
@@ -690,7 +708,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 self.assertIn("필수 외부 스킬 누락", output)
                 self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
 
-    def test_install_writes_harness_profiles_and_four_external_skills(self) -> None:
+    def test_install_writes_harness_profiles_and_three_external_skills(self) -> None:
         self.create_payload()
         candidates = self.install_candidates(self.user_home / ".agents" / "skills")
         acquire, _calls = self.acquisition_stub((b"current upstream",))
@@ -701,6 +719,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             status, output = self.run_main([])
 
         self.assertEqual(status, 0, output)
+        self.assertIn("Installed three external skills", output)
         self.assertEqual(
             {path.name for path in (self.codex_home / "skills").iterdir()},
             {installer.INSTALL_NAME, *FILES},
@@ -730,7 +749,27 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual(len(list(self.codex_home.glob("backups/*"))), 1)
         self.assert_no_stages()
 
-    def test_install_syncs_all_four_on_every_run(self) -> None:
+    def test_install_preserves_existing_using_git_worktrees(self) -> None:
+        self.create_payload()
+        roots = (
+            self.codex_home / "skills" / "using-git-worktrees",
+            self.user_home / ".agents" / "skills" / "using-git-worktrees",
+        )
+        for root in roots:
+            root.mkdir(parents=True)
+            (root / "SKILL.md").write_bytes(b"existing obsolete skill")
+            (root / "sentinel.txt").write_bytes(b"preserve me")
+        before = [tree_state(root) for root in roots]
+        self.assertNotIn("using-git-worktrees", self.write_targets())
+        acquire, _calls = self.acquisition_stub()
+
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+
+        self.assertEqual(status, 0, output)
+        self.assertEqual([tree_state(root) for root in roots], before)
+
+    def test_install_syncs_all_three_on_every_run(self) -> None:
         self.create_payload()
         acquire, calls = self.acquisition_stub((b"upstream one", b"upstream two"))
 
@@ -1305,7 +1344,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             self.fail("external tree staging API is missing")
         method(source, destination)
 
-    def test_acquisition_uses_exact_four_skill_command(self) -> None:
+    def test_acquisition_uses_exact_three_skill_command(self) -> None:
         work = self.base / "work"
         work.mkdir()
 
@@ -1331,7 +1370,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             [
                 "npx", "--yes", "skills@latest", "add", "https://github.com/obra/superpowers",
                 "--skill", "brainstorming", "writing-plans", "test-driven-development",
-                "using-git-worktrees", "--agent", "codex", "--yes", "--copy", "--json",
+                "--agent", "codex", "--yes", "--copy", "--json",
             ],
         )
         self.assertEqual(kwargs["cwd"], work)
@@ -1490,6 +1529,14 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             except installer.InstallerError:
                 return
             self.fail("deployed CLI result without explicit null ref was accepted")
+
+    def test_acquisition_rejects_unrequested_using_git_worktrees_result(self) -> None:
+        work = self.base / "work"
+        work.mkdir()
+        records = self.records(work, names=(*FILES, "using-git-worktrees"))
+
+        with self.assertRaisesRegex(installer.InstallerError, "unexpected skill"):
+            installer._validate_acquisition_records(records, work)
 
     def test_acquisition_rejects_partial_json(self) -> None:
         work = self.base / "work"
