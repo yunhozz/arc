@@ -18,13 +18,13 @@
 - worktree를 생성하지 않는다.
 - 브랜치 이름은 작업 유형 prefix, 슬래시, 소문자 kebab-case 주제명 순서를 따른다. 기본 이름은 chore/branch-workspace-policy이다.
 - 충돌 시 -2, -3 순서로 새 이름을 선택한다. 기존 브랜치를 재사용·삭제·덮어쓰지 않는다.
-- 자동 stash, commit, reset, clean 또는 기존 변경 삭제를 하지 않는다.
+- 기존 변경을 자동 stash, reset, clean 또는 삭제하지 않는다. Task 1에서는 승인된 명세·계획 문서만 commit하며 구현 파일은 수락 전 commit하지 않는다.
 - 모든 역할에 동일한 실제 workspace, 작업 브랜치, 준비 증거와 artifact 절대 경로를 전달한다.
 - 필수 외부 스킬은 brainstorming, writing-plans, test-driven-development이다.
 - 기존 사용자 설치본, 역사적 문서, 기존 역할 책임과 승인 단계를 보존한다.
 - 기존 설치기의 파일 검증·환경 격리·rollback 계약을 유지한다.
 - 테스트 수정·추가·실행은 사용자가 명시적으로 승인한 뒤 수행한다.
-- 이번 작업에서는 commit과 push를 하지 않는다.
+- 브랜치 전환 후 CEO는 승인 명세와 계획 문서만 별도 docs commit으로 기록한다. 구현 파일 commit은 수락 후에만 가능하며 push는 하지 않는다.
 
 ## Review Focus
 
@@ -56,8 +56,10 @@
 | /Users/yunho/Desktop/project/yunho-harness/tests/test_install.py | 승인 후 Coder: fixture·기대값·회귀 검증 |
 | /Users/yunho/Desktop/project/yunho-harness/README.md | Coder: 설치 집합과 브랜치 운영 설명 |
 | /Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256 | Coder: 최종 파일 checksum |
+| /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md | CEO: 승인 설계 문서; branch 전환 후 단독 staging 대상 |
+| /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/plans/2026-10-06-branch-workspace-policy.md | CEO: 승인 구현 계획; branch 전환 후 단독 staging 대상 |
 
-CEO는 위 구현·설정·테스트 파일을 직접 수정하지 않는다. Coder는 다른 작업자의 변경을 되돌리지 않고 지정한 범위에서 기존 구조를 유지한다.
+CEO는 구현·설정·테스트 파일을 직접 수정하지 않는다. CEO는 지정한 승인 설계 문서와 계획 문서를 통합·갱신하고 커밋한다. Coder는 다른 작업자의 변경을 되돌리지 않고 지정한 범위에서 기존 구조를 유지한다.
 
 ## Task 1: CEO 작업 브랜치 준비
 
@@ -70,7 +72,7 @@ CEO는 위 구현·설정·테스트 파일을 직접 수정하지 않는다. Co
 **Interfaces**
 
 - Consumes: 승인된 명세·계획, 테스트 작업 승인, 제공된 workspace.
-- Produces: 실제 workspace, 기준 HEAD, 작업 브랜치, 변경 상태·소유 범위, 승인 artifact 경로를 담은 Coder brief.
+- Produces: 실제 workspace, 기준 HEAD, 작업 브랜치, 승인 문서 commit, 변경 상태·소유 범위, artifact 경로를 담은 Coder brief.
 - 이후 작업은 이 brief에 기록한 동일 workspace와 브랜치를 사용한다.
 
 - [ ] **Step 1: 실제 workspace와 Git 상태를 확인한다.**
@@ -112,9 +114,19 @@ checkout 경로, 현재 branch 또는 detached HEAD, 기준 HEAD, staged·unstag
 
 checkout 경로, 현재 브랜치, 기준 HEAD 및 기존 변경 보존을 확인한다. 실패 후 브랜치만 만들어진 상태는 부분 완료로 보고하며 자동 삭제하지 않는다.
 
-- [ ] **Step 5: Coder brief를 확정한다.**
+- [ ] **Step 5: 승인된 설계 문서와 계획을 커밋한다.**
 
-실제 workspace와 작업 브랜치, 준비 전후 증거, 승인 문서 절대 경로, 기존 변경의 소유·편집 범위, 테스트 승인 범위와 Coder 파일 소유권을 기록한다.
+브랜치와 checkout 경로가 확인된 뒤 명세와 계획만 stage한다.
+
+    git add docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md docs/superpowers/plans/2026-10-06-branch-workspace-policy.md
+    git diff --cached --name-only
+    git commit -m "docs(workflow): 승인된 기획 문서 기록"
+
+stage된 경로가 승인 명세와 계획 두 파일뿐인지 확인한 뒤 커밋한다. 구현·설정·테스트 파일을 이 커밋에 포함하지 않는다. 완료 후 commit SHA와 포함 경로를 기록한다. 현재 두 문서의 이전 커밋이 있더라도 승인된 후속 수정은 이 순서에 따라 별도 docs commit으로 기록한다. 커밋 실패 또는 예상 밖 staged 경로가 있으면 Coder handoff를 멈추고 실제 index를 확인·기록한다. 구현 파일을 대신 commit하거나 staged 변경을 자동 복구하지 않는다.
+
+- [ ] **Step 6: Coder brief를 확정한다.**
+
+실제 workspace와 작업 브랜치, 준비 전후 증거, 명세·계획 commit SHA와 절대 경로, 기존 변경의 소유·편집 범위, 테스트 승인 범위와 Coder 파일 소유권을 기록한다.
 
 **완료 기준:** 새 작업 브랜치로 전환되었고 checkout과 기존 변경이 보존되었으며 경로·상태·소유 범위 문제가 해결되어 있다.
 
@@ -203,24 +215,35 @@ Step 3의 동일한 세 명령을 다시 실행한다. 각 명령의 정상 종�
 
 **완료 기준:** 새 세 스킬 계약, 제외된 기존 설치본 보존, 남은 필수 스킬 검증, 설치 안전성과 rollback이 통과하고 실제 RED/GREEN 증거가 기록되어 있다.
 
-## Task 3: 활성 하네스와 README 변경
+## Task 3: planning 문서 커밋 순서와 활성 하네스 반영
 
 **Files**
 
 - Modify: /Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md
 - Modify: /Users/yunho/Desktop/project/yunho-harness/README.md
+- Test: /Users/yunho/Desktop/project/yunho-harness/tests/test_install.py
 
 **Interfaces**
 
-- Consumes: 승인 명세 §4–7과 Task 2의 세 스킬 계약.
-- Produces: CEO 브랜치 준비·handoff 계약 및 installer와 일치하는 사용자 안내.
+- Consumes: 승인 명세 §4–7, Task 1의 branch와 승인 문서 commit, Task 2의 세 스킬 계약.
+- Produces: CEO가 branch 전환 후 승인 명세·계획만 commit하고 Coder에게 넘기는 workspace 정책 및 installer와 일치하는 사용자 안내.
 - 정책 문서 변경이며 새 실행 API는 없다.
 
-- [ ] **Step 1: Workspace handoff를 브랜치 준비 계약으로 교체한다.**
+- [ ] **Step 1: planning 문서 commit 순서를 검증하는 구조 테스트를 작성한다.**
 
-필요한 승인 완료 시점, workspace·Git 상태 확인, 현재 HEAD에서 브랜치를 생성·전환하는 순서와 성공 확인을 명시한다.
+RolePolicyTests.test_workspace_handoff_commits_approved_plan_docs_before_coder를 추가한다. 검증 범위는 branch 생성·전환 뒤 CEO가 승인된 명세와 계획만 stage·commit하고, 해당 commit이 Coder handoff 전에 발생하며, 구현 파일과 push를 포함하지 않는다는 규칙이다.
 
-다음 브랜치 prefix와 용도 표를 포함한다.
+- [ ] **Step 2: 새 구조 테스트의 RED를 확인한다.**
+
+    python3 -B -m unittest discover -s tests -p test_install.py -k test_workspace_handoff_commits_approved_plan_docs_before_coder -v
+
+현재 정책에는 planning 문서 commit 순서가 없으므로 해당 계약 assertion에서 실패해야 한다. import·환경 오류는 RED 증거가 아니다.
+
+- [ ] **Step 3: Workspace handoff에 branch 이후 docs commit 규칙을 추가한다.**
+
+브랜치 생성·전환 및 실제 경로 확인 뒤, CEO가 승인 명세·계획만 focused docs commit으로 stage하고 기록하도록 명시한다. 이 commit에 implementation 파일을 넣지 않으며, commit이 구현 수락을 뜻하지 않고 push가 포함되지 않는다고 분명히 한다. Coder brief에는 commit SHA와 포함 경로를 기록한다.
+
+동일 섹션의 브랜치 이름 규칙에는 다음 prefix와 용도 표를 둔다.
 
 | Prefix | 용도 |
 |---|---|
@@ -240,7 +263,11 @@ Step 3의 동일한 세 명령을 다시 실행한다. 각 명령의 정상 종�
 
 Non-Git workspace, 생성·전환 실패·부분 완료·기대 브랜치 불일치의 중단, 기존 변경 보존과 브랜치의 미커밋 변경 격리 한계, 모든 역할에 동일 workspace·브랜치·증거 handoff를 포함한다.
 
-- [ ] **Step 2: README의 외부 스킬 설명을 변경한다.**
+- [ ] **Step 4: planning 문서 순서 테스트의 GREEN을 확인한다.**
+
+Step 2와 동일한 명령을 실행해 성공하고, assertion이 branch 전환 → CEO의 문서 commit → Coder handoff 순서를 확인하는지 기록한다.
+
+- [ ] **Step 5: README의 외부 스킬 설명을 변경한다.**
 
 외부 스킬 수를 세 개로 바꾸고 목록을 다음과 일치시킨다.
 
@@ -248,11 +275,15 @@ Non-Git workspace, 생성·전환 실패·부분 완료·기대 브랜치 불일
 
 설치 경로 표의 외부 스킬 네 개 문구도 세 개로 바꾼다. 나머지 네 개 표현이 agent 동시 실행 수 등 다른 계약에 쓰이면 유지한다.
 
-- [ ] **Step 3: 승인 명세와 활성 문서를 구조적으로 대조한다.**
+- [ ] **Step 6: 승인 명세와 활성 문서를 구조적으로 대조하고 전체 suite를 실행한다.**
 
 명세의 성공·충돌·실패·부분 완료·미커밋 변경·handoff 요구사항마다 최종 문구가 있는지 확인한다. README 집합은 Task 2의 mapping과 대조한다. 활성 정책의 worktree 의무가 제거되었는지 확인하며 역사적 문서는 수정하지 않는다.
 
-**완료 기준:** 활성 정책이 승인된 브랜치 계약을 빠짐없이 설명하고 README가 세 스킬 계약과 일치한다.
+다음 전체 테스트 명령을 실행한다.
+
+    python3 -B -m unittest discover -s tests -v
+
+**완료 기준:** 활성 정책이 승인된 브랜치 생성·전환·문서 commit 계약을 빠짐없이 설명하고 그 순서 테스트가 통과하며 README가 세 스킬 계약과 일치한다.
 
 ## Task 4: manifest 갱신과 최종 독립 검증
 
@@ -285,11 +316,11 @@ QA에게 workspace·브랜치·승인 artifact·테스트 승인 범위를 전�
     shasum -a 256 -c MANIFEST.sha256
     git diff --check
 
-QA는 Review Focus의 다섯 조건과 명세의 정책 구조 기준을 확인한다. 승인 문서·계획을 포함한 변경 목록을 대조하고 범위 밖 변경, 기존 사용자 설치본 변경, commit·push가 없는지 보고한다.
+QA는 Review Focus의 다섯 조건과 명세의 정책 구조 기준을 확인한다. 승인 문서·계획을 포함한 변경 목록을 대조하고, 승인된 문서 commit 외에 구현 파일 commit·push가 없으며 기존 사용자 설치본 변경이 없는지 보고한다.
 
 - [ ] **Step 4: QA 이후 독립 Reviewer가 전체 변경을 검토한다.**
 
-Reviewer는 최종 diff와 승인 명세를 비교해 브랜치 계약, 이름 충돌·실패 처리, 세 스킬 집합 일관성, 기존 설치본 보존, 설치 안전성·rollback, manifest와 범위를 검토한다.
+Reviewer는 최종 diff와 승인 명세를 비교해 브랜치 계약, 이름 충돌·실패 처리, 승인 명세·계획 docs commit의 경로와 순서, 세 스킬 집합 일관성, 기존 설치본 보존, 설치 안전성·rollback, manifest와 범위를 검토한다.
 
 - [ ] **Step 5: 발견 사항을 해결하고 CEO가 수용한다.**
 
@@ -300,7 +331,7 @@ Reviewer는 최종 diff와 승인 명세를 비교해 브랜치 계약, 이름 �
 ## 의존성과 가정
 
     계획 승인 및 테스트 작업 승인
-    → Task 1: CEO 브랜치 준비
+    → Task 1: CEO 브랜치 준비 후 승인 문서 commit
     → Task 2: installer TDD
     → Task 3: 정책·README
     → Task 4: manifest·QA·Reviewer·수용
@@ -319,5 +350,5 @@ Reviewer는 최종 diff와 승인 명세를 비교해 브랜치 계약, 이름 �
 - 기존 테스트 이름, dry-run 기대값, fixture, 완료 출력 변경을 명시했다.
 - 회귀 테스트를 implementation 전에 작성하고 실제 RED 후 GREEN으로 진행하도록 순서를 정했다.
 - 승인 명세와 이후 저장할 계획이 untracked일 수 있음을 기록하고 과거 clean 증거를 재사용하지 않는다.
-- 브랜치 prefix, 숫자 suffix, 기본 이름과 no commit/push 제약을 포함했다.
+- 브랜치 prefix, 숫자 suffix, 기본 이름과 승인 문서 전용 commit 범위·실패 처리를 포함했다.
 - 테스트 작업 승인이 해결되지 않은 결정이며 경로·검증 실행 상태에 관한 주장은 하지 않는다.

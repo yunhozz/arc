@@ -19,6 +19,8 @@ Planner 기획 이후 구현 준비 과정에서 using-git-worktrees 실행을 �
 
 브랜치 준비는 Coder 시작 전에 수행한다. 기획 승인만으로 아직 필요한 명세·계획 승인 단계를 건너뛰지 않는다.
 
+Planner가 명세와 계획 문서를 작성하고 필요한 사용자 승인을 받은 뒤, CEO가 작업 브랜치를 만들고 전환한다. 전환을 확인한 다음 CEO는 승인된 명세와 계획 문서만 별도 docs 커밋으로 기록하고, 그 후 Coder에게 구현을 넘긴다.
+
 ## 3. 변경 범위
 
 | 파일 | 변경 내용 |
@@ -77,6 +79,10 @@ CEO는 현재 checkout에서 새 작업 브랜치를 생성하고 전환한다. 
 
 기본 브랜치 이름이 이미 있으면 기존 브랜치를 재사용하거나 덮어쓰지 않는다. 주제 끝에 -2, -3처럼 2부터 증가하는 숫자 suffix를 붙여 충돌하지 않는 첫 이름을 선택한다. 예: chore/branch-workspace-policy, chore/branch-workspace-policy-2, chore/branch-workspace-policy-3. 생성 시점에 추가 충돌이 생기면 다음 suffix로 다시 시도한다. worktree 생성으로 fallback하지 않는다.
 
+브랜치 전환과 현재 checkout 경로를 확인한 뒤 CEO는 승인된 명세·계획 문서만 stage해 하나의 focused docs commit으로 만든다. 해당 커밋에는 implementation 파일을 포함하지 않으며, 이 커밋은 구현 수락을 뜻하지 않는다. 문서 커밋 뒤 Coder brief에 commit SHA와 포함 경로를 기록한다. push는 별도 요청 없이는 수행하지 않는다.
+
+문서 commit을 만들지 못했거나 staged 경로가 승인 문서와 다르면 Coder handoff를 중단한다. CEO는 실제 branch·index 상태를 확인하고 기록하며, implementation 파일을 대신 commit하거나 자동으로 staged 변경을 되돌리지 않는다.
+
 ### 4.3 기존 미커밋 변경
 
 브랜치는 worktree처럼 미커밋 변경을 별도의 작업 디렉터리로 격리하지 않는다. 전환이 성공해도 기존 staged, unstaged, untracked 변경이 같은 checkout에 남을 수 있다.
@@ -94,6 +100,7 @@ CEO는 기존 변경과 이번 작업의 관계를 확인하고, 변경 보존 �
 | 브랜치 이름이 유효하지 않음 | 생성하지 않고 이름 수정 필요를 CEO가 처리 |
 | 브랜치 이름 충돌 | 기존 브랜치를 삭제·덮어쓰기·재사용하지 않고 -2부터 숫자 suffix를 붙여 새 고유 이름을 선택 |
 | 브랜치 생성 또는 전환 실패 | 오류와 실제 Git 상태를 확인·기록하고 Coder handoff 중단 |
+| 승인 문서 commit 실패 또는 staged 경로 불일치 | 실제 branch·index 상태를 확인·기록하고 Coder handoff 중단. implementation 파일을 대신 commit하지 않음 |
 | 실패 후 새 브랜치만 생성된 상태 | 부분 완료 상태로 보고. 자동 삭제하거나 준비 완료로 간주하지 않음 |
 | 성공 명령 뒤 현재 브랜치가 기대와 다름 | 불일치를 보고하고 handoff 중단 |
 | 역할이 전달된 workspace 또는 브랜치의 불일치를 발견 | CEO에게 보고하고 dependent work 중단 |
@@ -109,6 +116,7 @@ CEO는 모든 역할에 동일한 실제 workspace 절대 경로와 작업 브�
 - 준비 전 변경 상태와 기존 변경의 보존·편집 범위.
 - 생성한 작업 브랜치 이름.
 - 생성·전환 결과와 성공 후 현재 브랜치 확인 결과.
+- 승인 명세·계획 문서 commit의 SHA와 포함된 경로.
 - 실패나 부분 완료가 있었다면 해당 상태와 해결 결과.
 - 전달하는 artifact의 절대 경로.
 
@@ -141,16 +149,18 @@ MANIFEST.sha256는 최종 파일 내용에 맞춰 갱신한다. 현재 manifest�
 1. 활성 skill/SKILL.md에 installed using-git-worktrees 실행 의무와 worktree provisioning 절차가 남아 있지 않다.
 2. 필요한 기획 승인 단계가 완료된 뒤 Coder 시작 전에 CEO가 Git 상태 확인, 새 작업 브랜치 생성, 전환, 성공 확인을 수행하도록 명시되어 있다.
 3. 브랜치는 현재 HEAD를 기준으로 하며 현재 checkout 절대 경로를 유지한다.
-4. 브랜치 이름이 type/topic 형식이며 작업 목적에 맞는 소문자 prefix와 소문자 kebab-case 주제명을 사용한다.
-5. 이름에 공백이 없고 Git에서 유효하며, 충돌 시 기존 브랜치를 재사용·삭제·덮어쓰지 않고 -2부터 숫자 suffix를 붙여 새 이름을 선택한다.
-6. non-Git workspace, 생성·전환 실패, 부분 완료와 handoff 불일치의 중단 동작이 명확하다.
-7. 브랜치가 미커밋 변경을 worktree처럼 격리하지 않는다는 점과 기존 변경 보존 원칙이 명시되어 있다.
-8. 모든 역할에 workspace, 작업 브랜치, 준비 증거와 artifact 절대 경로를 전달하도록 규정되어 있다.
-9. 설치기의 필수 외부 스킬 집합과 실제 fetch·validate·write 경로에서 using-git-worktrees가 제외된다.
-10. README가 같은 세 스킬 집합을 설명한다.
-11. 변경된 manifest 대상 파일의 checksum이 실제 최종 내용과 일치한다.
-12. 역사적 문서와 기존 사용자의 외부 스킬 설치 파일은 변경 범위에 포함되지 않는다.
-13. 승인된 테스트 수정 범위가 있으면 기대값이 새 계약과 일치하고 관련 installer 검증이 통과한다. 테스트 수정이 승인되지 않으면 기존 네 스킬 기대값과의 불일치를 해결되지 않은 검증 항목으로 명시한다.
+4. 브랜치 확인 뒤 Coder handoff 전에 CEO가 승인 명세·계획 문서만 별도 docs commit으로 기록하고 SHA와 포함 경로를 brief에 남긴다.
+5. 문서 commit 실패 또는 잘못된 staged 경로에서는 handoff를 중단하고 implementation 파일을 commit하지 않는다.
+6. 브랜치 이름이 type/topic 형식이며 작업 목적에 맞는 소문자 prefix와 소문자 kebab-case 주제명을 사용한다.
+7. 이름에 공백이 없고 Git에서 유효하며, 충돌 시 기존 브랜치를 재사용·삭제·덮어쓰지 않고 -2부터 숫자 suffix를 붙여 새 이름을 선택한다.
+8. non-Git workspace, 생성·전환 실패, 부분 완료와 handoff 불일치의 중단 동작이 명확하다.
+9. 브랜치가 미커밋 변경을 worktree처럼 격리하지 않는다는 점과 기존 변경 보존 원칙이 명시되어 있다.
+10. 모든 역할에 workspace, 작업 브랜치, 준비 증거와 artifact 절대 경로를 전달하도록 규정되어 있다.
+11. 설치기의 필수 외부 스킬 집합과 실제 fetch·validate·write 경로에서 using-git-worktrees가 제외된다.
+12. README가 같은 세 스킬 집합을 설명한다.
+13. 변경된 manifest 대상 파일의 checksum이 실제 최종 내용과 일치한다.
+14. 역사적 문서와 기존 사용자의 외부 스킬 설치 파일은 변경 범위에 포함되지 않는다.
+15. 승인된 테스트 수정 범위가 있으면 기대값이 새 계약과 일치하고 관련 installer 검증이 통과한다. 테스트 수정이 승인되지 않으면 기존 네 스킬 기대값과의 불일치를 해결되지 않은 검증 항목으로 명시한다.
 
 ## 9. 검증 요구사항
 
@@ -180,6 +190,7 @@ MANIFEST.sha256는 최종 파일 내용에 맞춰 갱신한다. 현재 manifest�
 - 설계·명세·계획 승인 완료와 브랜치 준비 시점을 분리해 승인 단계를 우회하지 않도록 했다.
 - 현재 checkout 유지와 브랜치 생성·전환의 의미를 명확히 했고, 브랜치 기준점을 현재 HEAD로 고정했다.
 - 작업 유형 prefix, kebab-case 이름 형식, 충돌 suffix, 실패·부분 완료 및 미커밋 변경의 취급을 정의했다.
+- 승인된 명세·계획 문서의 branch 이후 focused commit을 명시하고 implementation 및 push와 구분했다.
 - 설치기의 브랜치 조작과 기존 외부 스킬 삭제가 범위에 섞이지 않도록 했다.
 - 테스트 수정 권한을 해결되지 않은 항목으로 남기고 승인 없이 검증 완료로 간주하지 않았다.
 - 역사적 문서와 기존 사용자의 설치 스킬은 보존한다.
