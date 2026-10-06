@@ -19,7 +19,7 @@ Planner 기획 이후 구현 준비 과정에서 using-git-worktrees 실행을 �
 
 브랜치 준비는 Coder 시작 전에 수행한다. 기획 승인만으로 아직 필요한 명세·계획 승인 단계를 건너뛰지 않는다.
 
-Planner가 명세와 계획 문서를 작성하고 필요한 사용자 승인을 받은 뒤, CEO가 작업 브랜치를 만들고 전환한다. 전환을 확인한 다음 CEO는 승인된 명세와 계획 문서만 별도 docs 커밋으로 기록하고, 그 후 Coder에게 구현을 넘긴다.
+Planner가 이번 작업처럼 승인된 기획 문서를 작성하는 경우, 필요한 사용자 승인을 받은 뒤 CEO가 작업 브랜치를 만들고 전환한다. 전환을 확인한 다음 CEO는 실제 작성·승인된 기획 문서만 별도 docs 커밋으로 기록하고, 그 후 Coder에게 구현을 넘긴다. 기존 계획 깊이 규칙에 따라 기획 문서가 없는 경로에서는 커밋 단계를 생략하고, brief에 문서가 없어 생략했음을 기록한 뒤 브랜치 확인 후 handoff한다.
 
 ## 3. 변경 범위
 
@@ -79,9 +79,9 @@ CEO는 현재 checkout에서 새 작업 브랜치를 생성하고 전환한다. 
 
 기본 브랜치 이름이 이미 있으면 기존 브랜치를 재사용하거나 덮어쓰지 않는다. 주제 끝에 -2, -3처럼 2부터 증가하는 숫자 suffix를 붙여 충돌하지 않는 첫 이름을 선택한다. 예: chore/branch-workspace-policy, chore/branch-workspace-policy-2, chore/branch-workspace-policy-3. 생성 시점에 추가 충돌이 생기면 다음 suffix로 다시 시도한다. worktree 생성으로 fallback하지 않는다.
 
-브랜치 전환과 현재 checkout 경로를 확인한 뒤 CEO는 승인된 명세·계획 문서만 stage해 하나의 focused docs commit으로 만든다. 해당 커밋에는 implementation 파일을 포함하지 않으며, 이 커밋은 구현 수락을 뜻하지 않는다. 문서 커밋 뒤 Coder brief에 commit SHA와 포함 경로를 기록한다. push는 별도 요청 없이는 수행하지 않는다.
+브랜치 전환과 현재 checkout 경로를 확인한 뒤 CEO는 실제 작성·승인된 기획 문서가 있으면 그 문서만 stage해 하나의 focused docs commit으로 만든다. 이 문서에는 spec과 plan, 또는 승인된 일부 문서가 포함될 수 있다. 해당 커밋에는 implementation 파일을 포함하지 않으며, 이 커밋은 구현 수락을 뜻하지 않는다. CEO는 Coder brief에 commit SHA와 포함 경로를 기록한다. 이 작업 깊이 규칙상 기획 문서를 작성하지 않은 경우에는 docs commit을 만들지 않고, 그 사실을 brief에 기록한다. 두 경로 모두 성공적인 브랜치 확인 뒤 handoff를 진행하며 push는 별도 요청 없이는 수행하지 않는다.
 
-문서 commit을 만들지 못했거나 staged 경로가 승인 문서와 다르면 Coder handoff를 중단한다. CEO는 실제 branch·index 상태를 확인하고 기록하며, implementation 파일을 대신 commit하거나 자동으로 staged 변경을 되돌리지 않는다.
+기획 문서가 있는데 docs commit을 만들지 못했거나 staged 경로가 실제 작성·승인된 문서와 다르면 Coder handoff를 중단한다. CEO는 실제 branch·index 상태를 확인하고 기록하며, implementation 파일을 대신 commit하거나 자동으로 staged 변경을 되돌리지 않는다. 기획 문서가 없는 허용 경로에는 이 커밋 실패 조건을 적용하지 않는다.
 
 ### 4.3 기존 미커밋 변경
 
@@ -116,7 +116,7 @@ CEO는 모든 역할에 동일한 실제 workspace 절대 경로와 작업 브�
 - 준비 전 변경 상태와 기존 변경의 보존·편집 범위.
 - 생성한 작업 브랜치 이름.
 - 생성·전환 결과와 성공 후 현재 브랜치 확인 결과.
-- 승인 명세·계획 문서 commit의 SHA와 포함된 경로.
+- 기획 문서를 작성한 경우 해당 문서 commit의 SHA와 포함 경로, 작성하지 않은 경우 생략 사유.
 - 실패나 부분 완료가 있었다면 해당 상태와 해결 결과.
 - 전달하는 artifact의 절대 경로.
 
@@ -149,8 +149,8 @@ MANIFEST.sha256는 최종 파일 내용에 맞춰 갱신한다. 현재 manifest�
 1. 활성 skill/SKILL.md에 installed using-git-worktrees 실행 의무와 worktree provisioning 절차가 남아 있지 않다.
 2. 필요한 기획 승인 단계가 완료된 뒤 Coder 시작 전에 CEO가 Git 상태 확인, 새 작업 브랜치 생성, 전환, 성공 확인을 수행하도록 명시되어 있다.
 3. 브랜치는 현재 HEAD를 기준으로 하며 현재 checkout 절대 경로를 유지한다.
-4. 브랜치 확인 뒤 Coder handoff 전에 CEO가 승인 명세·계획 문서만 별도 docs commit으로 기록하고 SHA와 포함 경로를 brief에 남긴다.
-5. 문서 commit 실패 또는 잘못된 staged 경로에서는 handoff를 중단하고 implementation 파일을 commit하지 않는다.
+4. 승인된 기획 문서를 작성한 경우 브랜치 확인 뒤 Coder handoff 전에 CEO가 해당 문서만 별도 docs commit으로 기록하고 SHA와 포함 경로를 brief에 남긴다. 허용된 작업 깊이에서 기획 문서를 작성하지 않은 경우 CEO는 생략 사실을 brief에 기록하고 브랜치 확인 뒤 handoff한다.
+5. 기획 문서가 있는 경우 docs commit 실패 또는 잘못된 staged 경로에서 handoff를 중단하고 implementation 파일을 commit하지 않는다. 기획 문서가 없는 허용 경로는 docs commit 생략만으로 handoff를 막지 않는다.
 6. 브랜치 이름이 type/topic 형식이며 작업 목적에 맞는 소문자 prefix와 소문자 kebab-case 주제명을 사용한다.
 7. 이름에 공백이 없고 Git에서 유효하며, 충돌 시 기존 브랜치를 재사용·삭제·덮어쓰지 않고 -2부터 숫자 suffix를 붙여 새 이름을 선택한다.
 8. non-Git workspace, 생성·전환 실패, 부분 완료와 handoff 불일치의 중단 동작이 명확하다.
@@ -190,7 +190,7 @@ MANIFEST.sha256는 최종 파일 내용에 맞춰 갱신한다. 현재 manifest�
 - 설계·명세·계획 승인 완료와 브랜치 준비 시점을 분리해 승인 단계를 우회하지 않도록 했다.
 - 현재 checkout 유지와 브랜치 생성·전환의 의미를 명확히 했고, 브랜치 기준점을 현재 HEAD로 고정했다.
 - 작업 유형 prefix, kebab-case 이름 형식, 충돌 suffix, 실패·부분 완료 및 미커밋 변경의 취급을 정의했다.
-- 승인된 명세·계획 문서의 branch 이후 focused commit을 명시하고 implementation 및 push와 구분했다.
+- 승인된 기획 문서가 작성된 경로의 branch 이후 focused commit과 문서 없는 허용 경로의 생략을 구분하고 implementation 및 push와 구분했다.
 - 설치기의 브랜치 조작과 기존 외부 스킬 삭제가 범위에 섞이지 않도록 했다.
 - 테스트 수정 권한을 해결되지 않은 항목으로 남기고 승인 없이 검증 완료로 간주하지 않았다.
 - 역사적 문서와 기존 사용자의 설치 스킬은 보존한다.
