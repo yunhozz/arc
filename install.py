@@ -47,7 +47,6 @@ REQUIRED_EXTERNAL_FILES = {
     ),
     "writing-plans": ("SKILL.md",),
     "test-driven-development": ("SKILL.md", "writing-good-tests.md"),
-    "using-git-worktrees": ("SKILL.md",),
 }
 MANIFEST_REQUIRED_ROOTS = ("skill", "agents")
 MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md")
@@ -1118,7 +1117,7 @@ def perform_install(
             profile_targets,
         )
 
-    print(f"Installed four external skills, Harness skill and profiles under: {home}")
+    print(f"Installed three external skills, Harness skill and profiles under: {home}")
     print(f"Backups: {backup_root}")
     print(f"설치 안내: {root / 'README.md'}")
     print(f"설치된 Harness skill: {skills_dir / INSTALL_NAME / 'SKILL.md'}")

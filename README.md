@@ -42,17 +42,17 @@ UI 수락 기준이 배정되고 brief에 작업공간·기존 실행 명령 또
 python3 install.py
 ```
 
-설치기는 내부 파일·모델 설정·프로필을 검사한 뒤, [obra/superpowers](https://github.com/obra/superpowers)에서 다음 네 스킬을 매번 `skills@latest`로 새로 가져옵니다. 별도 수동 설치는 필요하지 않습니다.
+설치기는 내부 파일·모델 설정·프로필을 검사한 뒤, [obra/superpowers](https://github.com/obra/superpowers)에서 다음 세 스킬을 매번 `skills@latest`로 새로 가져옵니다. 별도 수동 설치는 필요하지 않습니다.
 
 ```text
-brainstorming · writing-plans · test-driven-development · using-git-worktrees
+brainstorming · writing-plans · test-driven-development
 ```
 
 취득 결과를 검증한 뒤 외부 스킬, Harness, 여섯 역할 프로필을 백업하고 갱신합니다. 기본 설치 위치는 `~/.codex`이며, 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다.
 
 | 설치 대상 | 갱신 범위 |
 |---|---|
-| `<CODEX_HOME>/skills/` | 외부 스킬 네 개와 `yunho-harness` |
+| `<CODEX_HOME>/skills/` | 외부 스킬 세 개와 `yunho-harness` |
 | `<CODEX_HOME>/agents/` | Harness 역할 프로필 여섯 개 |
 | `~/.agents/skills/` | 설치 시작 시 이미 존재하는 외부 스킬 후보만 |
 
