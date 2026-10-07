@@ -82,11 +82,12 @@ Bounded plan-skip, or non-behavior documentation/configuration paths; preserve e
 
 Normal order: design approval → required spec writing/saving/self-review and written-spec approval → required plans
 writing/saving/self-review and individual approvals → complete applicable set → explicit execution-target choice and
-any approved branch switch → existing-commit verification and one batch commit of remaining approved documents →
-final Git verification → Coder handoff. Written-spec approval still precedes implementation planning.
+any approved branch switch or worktree creation → existing-commit verification and one batch commit of remaining approved documents →
+final Git verification → Coder handoff. For the selected worktree path, creation/identity verification and
+approved-document transfer precede the target batch docs commit; preserve source changes under handoff. Written-spec approval still precedes implementation planning.
 
 While documents are being written, reviewed, or approved, do not request execution-checkout selection, create/switch
-branches, stage documents, or commit planning documents for this task's execution preparation. Read-only workspace,
+branches, perform worktree creation, stage documents, or commit planning documents for this task's execution preparation. Read-only workspace,
 repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
 handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
 

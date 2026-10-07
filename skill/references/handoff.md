@@ -18,7 +18,7 @@ Checkout approval below. Planning approval, silence, or ambiguous responses neve
 
 ### Git mutation evidence gate
 
-Before each preparation Git mutation—branch creation/switch, approved-document staging, or commit—read this
+Before each preparation Git mutation—branch creation/switch, worktree creation, approved-document staging, or commit—read this
 reference and recheck the complete approved document set and approval evidence; explicit execution-target choice
 or verified valid reuse; absolute workspace and intended repository; current branch or detached HEAD and HEAD;
 staged/unstaged/untracked changes, preservation and edit ownership; and the exact command, target paths, and
@@ -41,7 +41,8 @@ cannot be resolved. Do not initialize Git or switch to another repository automa
 
 Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
 After applicable design/spec/plan approvals, obtain and record an explicit user choice for the first start: use the
-current checkout, or create a new task branch from the verified base HEAD in that same checkout. Present the absolute
+current checkout, create a new task branch from the verified base HEAD in that same checkout, or create a
+new worktree and task branch under the dedicated path below. Present the absolute
 workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Planning
 approval alone, no response, refusal of a new branch alone, or an unclear response does not select the current
 checkout. Without an explicit execution-target choice or verified valid reuse under the choice-lifetime rules below, wait and do not start or restart Coder.
@@ -105,7 +106,53 @@ Create and switch to the approved new branch from the confirmed base HEAD in the
 `git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and included in the approval target.
 After success, confirm the actual current branch matches the approved candidate, HEAD matches the recorded base, the
 checkout absolute path is unchanged, and existing changes are preserved. Do not create a worktree or fall back to
-worktree provisioning on failure.
+worktree provisioning on failure. Only explicit selection of New worktree and task branch permits worktree creation.
+
+### New worktree and task branch
+
+Only an explicit user choice of this third path authorizes preparation. The selection target includes the
+source absolute path, intended repository and Git common directory, source branch or detached HEAD, verified
+base SHA, unused branch candidate, target absolute path, and approved document transfer/commit scope.
+Use the verified source HEAD SHA as the base. Do not substitute remote HEAD or a default branch or fetch automatically.
+Recheck approved source state, base SHA and branch/path candidates before creation, before and after choice.
+After selection and before creation, any changes to these values require a fresh explicit choice for the updated target.
+This is the pre-creation candidate rule. After successful creation and verification, apply Choice lifetime and restart record.
+
+Use the New task branch name format and collision rules. The default candidate is `../<repo>-<topic>-worktree`,
+a sibling under the same parent as the source root; repo is the source root name and topic excludes the branch type
+and slash. Resolve the actual absolute path and require the same parent. Any file, directory, symlink, or registered
+worktree is a collision. Empty directories are collisions; do not reuse them. Distinguish lookup error from missing
+branch/path; uncertain lookup stops preparation. Use branch topic suffixes `-2`, `-3` for the first unused name,
+and propose path suffixes such as `-worktree-2`. Never reuse, delete, or overwrite an existing branch or worktree.
+A collision after selection and before creation means stop and obtain a new explicit choice for the final branch/path pair;
+do not automatically retry another path or branch, infer a path from silence, or fall back to another execution path.
+
+Create only the approved target with `git worktree add -b <branch> <absolute-path> <base-sha>`.
+Do not use --force or -B.
+Preserve the source branch, HEAD, index, and files. Additions to shared Git metadata for the approved branch and
+worktree registration are authorized. After success verify the actual absolute target root, linked-worktree registration,
+source and target Git common directory identity, selected branch, base SHA, registered path/branch versus actual
+state, and target dirty state. Reverify preservation of source branch, HEAD, index and files.
+Linked worktree `.git` may be a file; do not require the same top-level path or a `.git` directory for repository identity.
+
+For untracked approved spec/plan documents, no index entry is normal: verify working-tree bytes against the approved
+version. For tracked approved documents, index bytes and working-tree bytes must both match the approved version.
+Any mismatch means stop; do not resolve it by staging source documents. Unrelated staged changes, required uncommitted
+implementation/configuration/test changes, and unclear ownership block preparation. Clearly unrelated unstaged/untracked
+changes may remain in source and are not transferred. Do not automatically stash, commit, reset, clean, or unstage;
+do not transfer dirty implementation files. Use Worktree document transfer before target docs preparation.
+
+### Worktree document transfer
+
+Verify existing approved commits by SHA, message, paths and approved content valid at base and target; reuse them.
+Copy only uncommitted approved spec/plan documents to the target at the same repository-relative path.
+Do not move, delete, or modify the source documents. If a destination resolves outside the worktree, including through
+an escaping symlink, stop. Before replacing an existing destination, prove its clean base state and bytes match the
+base version; then replace with the approved version. For unexpected changes, do not overwrite; stop.
+For identical content, verify approved bytes before reuse. After transfer verify bytes match the approved version.
+The canonical record includes each document approval/version/evidence, source and target absolute paths and the common
+relative path plus content verification. Changed content or approval scope requires approval of the revised version.
+Transfer no other files. Failure or partial transfer blocks all dependent staging, commit and Coder handoff.
 
 ### Current checkout
 
@@ -118,6 +165,9 @@ state and the choice evidence in the brief. Missing choice, unconfirmed state, o
 Begin only after all applicable specs/plans are written, individually approved, and the document set is complete.
 On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
 changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
+On the new worktree path, verify the created worktree and document transfer before any target docs commit.
+At the target, commit only remaining approved documents once; do not automatically make a source document commit.
+Record the selected base SHA and post-commit HEAD.
 CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
 content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting them.
 
@@ -148,6 +198,12 @@ On branch collisions, Git preparation failures, partial completion, or metadata 
 
 ### Handoff evidence
 
+For the worktree path the canonical record maps source and target absolute paths, Git common directory, base SHA,
+selected branch/path, registration and preservation checks, and document transfer evidence. Give all six roles the
+selected absolute worktree path: Coder, QA, Planner, Reviewer, Scout, Secretary. On the same approved worktree,
+recheck actual state before reuse of the initial explicit choice; loss of target trust requires a new explicit choice.
+Do not automatically recreate, cleanup, or archive a worktree. Each role stays in the supplied workspace.
+
 Include accessible Planner spec/plan drafts and self-review findings, CEO integration/save/review responsibility,
 approval versions/evidence, absolute save paths, document-save gate results, execution-target request readiness,
 and each preparation Git mutation's pre-action evidence and post-action result in the same canonical record.
@@ -165,6 +221,11 @@ that same workspace. Every role reports missing, inaccessible, or conflicting pa
 CEO before dependent work. Roles do not independently create or switch workspaces or branches.
 
 ### Choice lifetime and restart record
+
+After successful worktree creation and verification, normal changes in the selected target are governed by this
+reuse rule: authorized HEAD and dirty-state changes, including approved document transfer, docs commits, and
+implementation, do not by themselves invalidate the initial choice. The creation base SHA remains evidence;
+target HEAD need not remain at that base. This does not waive source preservation or unexpected-state checks.
 
 On every first start and restart, CEO and Coder independently recheck actual Git state against the current brief:
 absolute workspace and repository identity, branch or detached HEAD, HEAD, staged/unstaged/untracked changes,

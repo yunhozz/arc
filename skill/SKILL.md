@@ -86,6 +86,7 @@ execution-target choice or verified valid reuse, accessible intended repository/
 HEAD, staged/unstaged/untracked state, preservation/ownership, approved document commits or valid absence, and final
 state without unresolved failure/partial completion. Coder independently checks before editing; missing evidence,
 mismatches, unclear ownership or unresolved preparation block edits and require CEO resolution and full revalidation.
+For a selected worktree, verify common directory, registration, and source preservation under handoff.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
 Coder cannot repair preparation by commits, permission changes, lock deletion, sandbox bypass or reset/stash/clean.
 The canonical record, delta restart brief, choice lifetime, branch protection and docs-commit order are in handoff.

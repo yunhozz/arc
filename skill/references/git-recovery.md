@@ -25,7 +25,7 @@ authorized writes and verified results establish recovery.
 A branch does not isolate uncommitted changes into a separate directory as a worktree does. Record how existing staged,
 unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Do not
 automatically stash, commit, reset, clean, or delete changes to prepare the checkout. Only the approved docs commit
-above on either path is an exception to the preparation commit prohibition; preserve all unrelated dirty files.
+on all three paths is an exception to the preparation commit prohibition; preserve all unrelated dirty files.
 If existing changes prevent switching or ownership is unclear, stop handoff until CEO resolves the state and scope.
 
 For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
@@ -34,3 +34,16 @@ completion: report it, do not automatically delete it, and do not treat preparat
 fall back to the current checkout path after an operational failure. Both operational failure and missing
 execution-target choice block handoff. CEO resolves the problem and rechecks preparation before handoff.
 
+
+### Worktree failures and partial completion
+
+Worktree creation, registration, checkout, document transfer, staging, or commit failure means stop dependent work
+and Coder handoff. Partial completion includes branch-only creation, partial path creation, registration/actual-path
+mismatch, wrong base or branch, and partial document transfer. Record source and target exact command, error,
+branch, HEAD, Git common directory, registration, index and files, including target dirty state and source preservation.
+Before any authorized retry, inspect actual state and completed work; do not repeat completed actions.
+Do not automatically fallback, retry another path/branch, delete branches/paths/worktrees, prune registrations with
+`git worktree prune`, use `--force` or `-B`, remove locks, change permissions, or reset/stash/clean.
+Normal worktree preparation after explicit third-path selection is permitted under handoff; moving to an arbitrary
+workspace during recovery remains prohibited. Resolve preparation and revalidate the full gate; if target trust is
+invalidated or the target changes, obtain a new explicit choice. No automatic cleanup/archive is authorized.

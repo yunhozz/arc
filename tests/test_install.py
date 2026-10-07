@@ -368,6 +368,8 @@ class ConditionalReferenceTests(unittest.TestCase):
             r"architectural work always.*writing-plans.*written plan approval",
             r"skip planning only for one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
             r"changed approved documents require approval of the revised version",
+            r"while documents.*do not.*worktree creation.*stage documents.*commit planning documents",
+            r"normal order:.*complete applicable set.*explicit execution-target choice.*approved branch switch or worktree creation.*batch commit.*final git verification",
         ):
             self.assertRegex(planning, contract)
         recovery = policy_text("git-recovery")
@@ -516,7 +518,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
         handoff = policy_text("handoff")
         self.assertIn("### git mutation evidence gate", handoff)
         gate = handoff.split("### git mutation evidence gate")[1].split("### checkout approval")[0]
-        for phrase in ("before each", "branch creation/switch", "staging", "commit", "complete approved document set",
+        for phrase in ("before each", "branch creation/switch", "worktree creation", "staging", "commit", "complete approved document set",
                        "explicit execution-target choice", "absolute workspace", "repository", "branch or detached head",
                        "staged/unstaged/untracked", "preservation", "ownership", "command", "target paths",
                        "unresolved failure", "read-only"):
@@ -645,7 +647,7 @@ class RolePolicyTests(unittest.TestCase):
             "Checkout approval",
             (
                 r"before every coder first start and restart",
-                r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch",
+                r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch.*new worktree and task branch",
                 r"present.*absolute workspace.*current branch.*detached head.*base head.*validated candidate",
                 r"planning approval alone, no response, refusal of a new branch alone, or an unclear response.*does not select.*current checkout",
             ),
@@ -692,7 +694,7 @@ class RolePolicyTests(unittest.TestCase):
             (
                 r"existing staged, unstaged, and untracked changes.*preservation and edit ownership.*brief",
                 r"do not automatically stash, commit, reset, clean, or delete changes",
-                r"only the approved docs commit.*either path.*exception.*preserve all unrelated dirty files",
+                r"only the approved docs commit.*all three paths.*exception.*preserve all unrelated dirty files",
                 r"existing changes prevent switching.*stop handoff until ceo resolves the state and scope",
             ),
         )
@@ -715,6 +717,7 @@ class RolePolicyTests(unittest.TestCase):
             "Planning document commit",
             (
                 r"new task branch.*successful switch.*branch.*path",
+                r"new worktree.*verify.*worktree.*document transfer.*before.*commit",
                 r"current checkout.*verify.*selected branch.*detached head.*path.*existing changes",
                 r"ceo verifies each approved spec/plan already committed.*sha.*message.*paths.*content.*approved version.*reuse.*without recommitting",
                 r"approved documents still uncommitted.*ceo.*finalizes.*message before the first commit.*stages only those documents.*before handoff",
@@ -731,6 +734,154 @@ class RolePolicyTests(unittest.TestCase):
         ):
             with self.subTest(contract=contract):
                 self.assertRegex(handoff, contract)
+
+    def test_workspace_handoff_worktree_scoped_choice_and_base(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'New worktree and task branch',
+            (
+                r'selection target.*source absolute path.*repository.*common directory.*branch or detached head.*base sha.*branch candidate.*absolute path.*approved document',
+                r'verified source head sha.*base.*do not.*remote.*default branch.*fetch',
+                r'recheck.*source state.*base sha.*branch/path candidates.*before.*after.*choice',
+                r'after selection and before creation.*changes.*fresh explicit choice.*pre-creation candidate rule',
+                r'after successful creation and verification.*choice lifetime and restart record',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_collisions_require_new_choice(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'New worktree and task branch',
+            (
+                r'\.\./<repo>-<topic>-worktree.*sibling.*same parent',
+                r'file.*directory.*symlink.*registered worktree.*collision',
+                r'empty director.*do not reuse',
+                r'lookup error.*missing',
+                r'`-2`, `-3`.*first unused.*-worktree-2',
+                r'collision.*stop.*new explicit choice.*do not automatically retry',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_creation_and_identity(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'New worktree and task branch',
+            (
+                r'git worktree add -b <branch> <absolute-path> <base-sha>',
+                r'preserve.*source branch.*head.*index.*files.*shared git metadata',
+                r'linked-worktree registration.*common directory.*branch.*base sha.*registered path.*dirty state',
+                r'\.git.*file.*do not.*same top-level.*identity',
+            ),
+        )
+        raw = (REPO / "skill/references/handoff.md").read_text()
+        section = raw.split("### New worktree and task branch", 1)[1].split("### ", 1)[0]
+        self.assertIn("Do not use --force or -B.", section)
+
+    def test_workspace_handoff_worktree_source_dirty_states(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'New worktree and task branch',
+            (
+                r'untracked approved.*no index entry.*working-tree bytes.*approved version',
+                r'tracked approved.*index bytes.*working-tree bytes.*both.*approved version',
+                r'mismatch.*stop.*do not.*staging',
+                r'unrelated staged.*required uncommitted implementation.*unclear ownership.*block',
+                r'do not automatically.*stash.*commit.*reset.*clean.*unstage.*dirty implementation',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_document_transfer(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'Worktree document transfer',
+            (
+                r'only uncommitted approved spec/plan.*same repository-relative path',
+                r'do not move, delete, or modify.*source',
+                r'outside.*worktree.*symlink.*stop',
+                r'clean base.*bytes.*base version.*replace.*approved version',
+                r'unexpected changes.*do not overwrite.*stop',
+                r'identical content.*verify.*reuse',
+                r'after transfer.*bytes.*approved version.*canonical record.*source.*target.*relative path',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_docs_commit_order(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'Planning document commit',
+            (
+                r'new worktree.*verify.*worktree.*document transfer.*before.*commit',
+                r'target.*remaining.*once.*do not.*source.*commit',
+                r'base sha.*post-commit head',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_partial_completion(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'Worktree failures and partial completion',
+            (
+                r'creation.*registration.*checkout.*document transfer.*staging.*commit.*failure.*stop.*handoff',
+                r'branch-only.*partial path.*registration.*wrong base.*partial document',
+                r'source.*target.*command.*error.*branch.*head.*common directory.*registration.*index.*files',
+                r'do not.*fallback.*retry.*delete.*prune.*--force.*-b',
+                r'before.*retry.*actual state.*completed work',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_roles_and_restart(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'Handoff evidence',
+            (
+                r'canonical.*source.*target.*common directory.*base sha',
+                r'all six roles.*absolute worktree path.*coder.*qa.*planner.*reviewer.*scout.*secretary',
+                r'same.*worktree.*recheck.*reuse.*initial.*choice.*trust.*new explicit choice',
+                r'do not automatically.*recreate.*cleanup.*archive',
+            ),
+        )
+
+        self._assert_workspace_handoff_contracts(
+            'Choice lifetime and restart record',
+            (
+                r'after successful worktree creation and verification.*selected target.*authorized head and dirty-state changes.*approved document transfer.*docs commits.*implementation.*do not.*invalidate.*initial choice',
+                r'creation base sha.*evidence.*target head need not remain.*base',
+                r'every first start and restart.*recheck.*actual git state.*ownership',
+                r'scope, workspace, repository, target, or approved branch candidate.*changes.*fresh explicit choice',
+                r'state mismatches and unresolved failures block.*editing',
+                r'does not waive source preservation or unexpected-state checks',
+            ),
+        )
+
+    def test_workspace_handoff_worktree_keeps_in_place_prohibition(self) -> None:
+        self._assert_workspace_handoff_contracts(
+            'New task branch',
+            (
+                r'do not create a worktree.*failure',
+                r'only.*explicit.*new worktree and task branch.*permits.*worktree',
+            ),
+        )
+
+    def test_worktree_planning_and_core_preparation_gates(self) -> None:
+        planning = policy_text("planning").split("### complete planning-document set", 1)[1].split("### evidence refresh", 1)[0]
+        self.assertRegex(planning, r"while documents.*do not.*worktree creation.*stage documents.*commit planning documents")
+        self.assertRegex(planning, r"normal order:.*complete applicable set.*explicit execution-target choice.*approved branch switch or worktree creation.*batch commit")
+        core = policy_text("core").split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
+        self.assertRegex(core, r"selected worktree.*common directory.*registration.*source preservation")
+        self.assertRegex(core, r"depth-2 roles use the supplied workspace")
+
+    def test_worktree_readme_matches_selected_execution_paths(self) -> None:
+        readme = " ".join((REPO / "README.md").read_text().split())
+        section = readme.split("현재 승인 범위의 필요한 문서를", 1)[1].split("최초 인계 기록", 1)[0]
+        for phrase in ("현재 체크아웃", "같은 체크아웃", "새 worktree와 새 task branch", "../<repo>-<topic>-worktree",
+                       "생성·검증", "문서 전달", "대상에서", "untracked", "index entry", "working-tree bytes",
+                       "Tracked", "index bytes", "불일치", "staging", "부분 완료", "재개", "runtime"):
+            with self.subTest(contract=phrase):
+                self.assertIn(phrase, section)
+        self.assertRegex(section, r"개별 승인.*명시 선택.*생성·검증.*문서 전달.*대상에서.*커밋.*최종.*인계")
+        self.assertRegex(section, r"untracked.*index entry 없이.*working-tree bytes.*승인 버전")
+        self.assertRegex(section, r"Tracked.*index bytes.*working-tree bytes.*모두.*승인 버전")
+        self.assertRegex(section, r"불일치.*중단.*staging.*해결하지")
+        candidate = section.split("새 worktree의 기본 후보", 1)[1].split("개별 승인 완료", 1)[0]
+        self.assertRegex(candidate, r"생성 전.*원본 상태.*base SHA.*branch/path 후보.*선택 후 생성 전에.*바뀌면.*새 명시 선택")
+        self.assertRegex(candidate, r"생성 전 후보 규칙.*생성·검증 성공 후.*재개 선택 재사용")
+        restart = section.split("동일 승인 범위·작업공간", 1)[1]
+        self.assertRegex(restart, r"생성·검증 성공 후.*선택된 대상.*승인 문서 전달.*문서 커밋.*구현.*HEAD·dirty 변경.*최초 선택.*무효화하지")
+        self.assertRegex(restart, r"생성 base SHA.*증거.*대상 HEAD.*base에 머물.*요구하지")
+        self.assertRegex(restart, r"매 시작·재개마다.*상태.*소유권")
+        self.assertRegex(restart, r"원본 보존.*예상 밖 상태 확인.*면제하지")
 
     def test_acceptance_evidence_flow(self) -> None:
         policy = policy_text("verification")
