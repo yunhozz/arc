@@ -53,8 +53,8 @@ CEO는 QA의 전체 실행 결과 하나만으로 수락을 결정하지 않는�
 ## 영향을 받는 파일
 
 - `skill/SKILL.md`: 기준별 증거 계약, QA 실패 및 Reviewer 발견 인계, CEO acceptance 원칙.
-- `agents/yunho-team-qa.toml`: 필수 기준별 결과와 실행/입증 상태 보고 형식.
-- `agents/yunho-team-reviewer.toml`: 기준 연계 행동 발견의 근거·재현 상태·CEO 인계.
+- `agents/harness-qa.toml`: 필수 기준별 결과와 실행/입증 상태 보고 형식.
+- `agents/harness-reviewer.toml`: 기준 연계 행동 발견의 근거·재현 상태·CEO 인계.
 - `README.md`: 위험도 흐름과 “검사 통과” 대 “기준 입증” 구분의 짧은 설명.
 - `MANIFEST.sha256`: 변경된 배포 파일의 digest 동기화.
 

@@ -19,7 +19,7 @@ scope; this boundary makes no owner assignment for those activities.
 - CEO is the sole owner of development, configuration, tests, implementation-dependent documentation, and mixed
   tasks requiring implementation. CEO coordinates scope, planning, approvals, integration, acceptance, verification,
   and completion. Coder edits assigned implementation/configuration/test-code files; CEO does not edit them directly.
-- `yunho_team_secretary`: Research and analysis centered on source materials, plus standalone document
+- `harness_secretary`: Research and analysis centered on source materials, plus standalone document
   writing whether or not source materials are supplied. Research/analysis materials include user-provided or collected
   documents, data, reference sources, and static logs/reports, including technical material. May collect sources and
   read material files, and may edit document artifacts, but not implementation/configuration/test code. Researching
@@ -28,8 +28,8 @@ scope; this boundary makes no owner assignment for those activities.
   Report mixed requests with implementation/configuration/test-code work to CEO for development coordination.
 - All six roles report directly to CEO at depth 2: Secretary, Planner, Scout, Coder, QA, and Reviewer. CEO is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
-- Aliases: Secretary=`yunho_team_secretary`, Planner=`yunho_team_planner`, Scout=`yunho_team_scout`,
-  Coder=`yunho_team_coder`, QA=`yunho_team_qa`, Reviewer=`yunho_team_reviewer`.
+- Aliases: Secretary=`harness_secretary`, Planner=`harness_planner`, Scout=`harness_scout`,
+  Coder=`harness_coder`, QA=`harness_qa`, Reviewer=`harness_reviewer`.
 - Across the full tree, allow at most four simultaneous subagents, including Secretary; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
 - Secretary owns assigned material/document scope, planning, integration, verification, acceptance, and completion.

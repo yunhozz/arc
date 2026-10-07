@@ -15,7 +15,7 @@
 ## 공통 제약
 
 - Dependencies·installer·모델·무관 파일 변경 금지, 바이트 보존, 기존 `.DS_Store`·`.idea/` 유지.
-- 허용: `skill/SKILL.md`, `agents/yunho-team-lead.toml`, `agents/yunho-team-planner.toml`, `agents/yunho-team-coder.toml`, 대응 `MANIFEST.sha256`.
+- 허용: `skill/SKILL.md`, `agents/harness-lead.toml`, `agents/harness-planner.toml`, `agents/harness-coder.toml`, 대응 `MANIFEST.sha256`.
 - Architectural 계획 필수. Planner 읽기 전용·승인/agent 불가. Lead 승인·통합·공간·완료. Coder 수정, QA 수정 없는 검증, Reviewer QA/수정 없는 독립 검토.
 - 모델·동시 실행·승인 유지. 설치·브라우저·서버 검증 제외. 공간은 설치 using-git-worktrees·필요 동의.
 - 한국어 제목·설명, 명시 다른 언어 우선, 식별자·skill/API·코드·경로·명령·literal 보존, Lead 언어 유지.
@@ -157,8 +157,8 @@ Spec 역할/skill 이름 유지. 언어 선행 권한을 전체 계약 권한으
 python3 -B - <<'PY'
 from pathlib import Path
 import hashlib
-for name in ('skill/SKILL.md', 'agents/yunho-team-lead.toml',
-             'agents/yunho-team-planner.toml', 'agents/yunho-team-coder.toml'):
+for name in ('skill/SKILL.md', 'agents/harness-lead.toml',
+             'agents/harness-planner.toml', 'agents/harness-coder.toml'):
     print(f'{hashlib.sha256(Path(name).read_bytes()).hexdigest()}  {name}')
 PY
 ```

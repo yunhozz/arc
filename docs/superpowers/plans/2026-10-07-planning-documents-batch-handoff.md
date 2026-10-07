@@ -14,7 +14,7 @@
 
 - 작업공간은 `/Users/ma-24-007/Desktop/workspace/yunho-harness`다.
 - Coder는 `skill/SKILL.md`, `README.md`, `MANIFEST.sha256`만 편집한다.
-- `agents/yunho-team-coder.toml`, `tests/test_install.py`는 읽기 전용으로 대조한다.
+- `agents/harness-coder.toml`, `tests/test_install.py`는 읽기 전용으로 대조한다.
 - 테스트를 추가·수정·실행하지 않는다. TDD와 설치 검사 실행도 포함하지 않는다.
 - 추가 파일 수정이 필요하면 편집 전에 CEO에게 보고하고 범위 승인을 받는다.
 - 승인된 spec·plan과 shared brief는 CEO가 통합·저장한다.
@@ -94,7 +94,7 @@ docs(harness): 계획 문서 일괄 준비 설계와 구현 계획 정리
 ## 작업 2: README 동기화와 기존 계약 대조
 
 **편집 파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/README.md`<br>
-**읽기 전용 파일:** `agents/yunho-team-coder.toml`, `tests/test_install.py`<br>
+**읽기 전용 파일:** `agents/harness-coder.toml`, `tests/test_install.py`<br>
 **담당:** Coder
 
 - [ ] `Coder 인계와 Git 준비`에 모든 적용 spec·plan의 작성과 개별 승인 후 한 번 준비하는 순서를 설명한다.

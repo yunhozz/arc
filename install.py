@@ -28,12 +28,12 @@ from pathlib import Path, PurePosixPath
 
 INSTALL_NAME = "yunho-harness"
 PROFILE_FILES = (
-    "yunho-team-secretary.toml",
-    "yunho-team-planner.toml",
-    "yunho-team-scout.toml",
-    "yunho-team-coder.toml",
-    "yunho-team-qa.toml",
-    "yunho-team-reviewer.toml",
+    "harness-secretary.toml",
+    "harness-planner.toml",
+    "harness-scout.toml",
+    "harness-coder.toml",
+    "harness-qa.toml",
+    "harness-reviewer.toml",
 )
 REQUIRED_EXTERNAL_FILES = {
     "brainstorming": (
@@ -832,6 +832,18 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
+def legacy_profile_targets(home: Path) -> dict[str, Path]:
+    """Validate and return only the six prior role profiles that exist."""
+    prefix = "-".join(("yunho", "team"))
+    targets: dict[str, Path] = {}
+    for role in ("secretary", "planner", "scout", "coder", "qa", "reviewer"):
+        filename = f"{prefix}-{role}.toml"
+        path = home / "agents" / filename
+        if check_file_or_missing(path):
+            targets[filename] = path
+    return targets
+
+
 def install_plan(
     root: Path,
     home: Path,
@@ -856,6 +868,7 @@ def install_plan(
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
+    legacy_profile_targets(home)
     if validate_external:
         validate_external_skills(home, user_home)
     return skills_dir, agents_dir, backups_dir, profile_targets
@@ -879,6 +892,8 @@ def backup_existing(
     profile_targets: dict[str, Path],
     backup_root: Path,
     external_targets: dict[str, tuple[Path, ...]],
+    *,
+    legacy_targets: dict[str, Path],
 ) -> None:
     if harness_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
@@ -892,7 +907,7 @@ def backup_existing(
             target = backup_root / group / skill
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
-    for filename, source in profile_targets.items():
+    for filename, source in {**profile_targets, **legacy_targets}.items():
         if os.path.lexists(source):
             require_regular_file(source)
             target = backup_root / "agents" / filename
@@ -965,6 +980,8 @@ def _transactional_install(
     agents_dir: Path,
     backups_dir: Path,
     profile_targets: dict[str, Path],
+    *,
+    legacy_targets: dict[str, Path],
 ) -> Path:
     harness_target = skills_dir / INSTALL_NAME
     directories = {home, skills_dir, agents_dir, backups_dir}
@@ -975,7 +992,7 @@ def _transactional_install(
         reject_symlink_components(directory)
 
     backup_root = make_backup_directory(backups_dir)
-    backup_existing(harness_target, profile_targets, backup_root, external_targets)
+    backup_existing(harness_target, profile_targets, backup_root, external_targets, legacy_targets=legacy_targets)
 
     stage_areas: list[Path] = []
     staged_targets: list[tuple[Path, Path, Path]] = []
@@ -1018,6 +1035,17 @@ def _transactional_install(
         actions: list[dict[str, object]] = []
         target_changes_started = True
         try:
+            for filename, target in legacy_targets.items():
+                previous = profile_stage_area / f"previous-{filename}"
+                actions.append({
+                    "target": target,
+                    "previous": previous,
+                    "installed": False,
+                    "area": profile_stage_area,
+                    "rollback_failed": False,
+                })
+                require_regular_file(target)
+                os.replace(target, previous)
             for target, staged, area in staged_targets:
                 action: dict[str, object] = {
                     "target": target,
@@ -1089,6 +1117,7 @@ def perform_install(
         user_home=user_home,
         validate_external=dry_run,
     )
+    legacy_targets = legacy_profile_targets(home)
     external_targets = (
         external_candidate_paths(home, user_home)
         if dry_run
@@ -1099,12 +1128,16 @@ def perform_install(
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
         print(f"Would install six profiles: {agents_dir}")
+        for target in legacy_targets.values():
+            print(f"Would back up and remove prior profile: {target}")
         return
 
     with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
         acquired = acquire_external_skills(Path(temporary))
         if external_write_targets(home, user_home) != external_targets:
             raise InstallerError("external skill targets changed during acquisition; refusing to install")
+        if legacy_profile_targets(home) != legacy_targets:
+            raise InstallerError("legacy profile candidates changed during acquisition; refusing to install")
         backup_root = _transactional_install(
             root,
             home,
@@ -1115,6 +1148,7 @@ def perform_install(
             agents_dir,
             backups_dir,
             profile_targets,
+            legacy_targets=legacy_targets,
         )
 
     print(f"Installed three external skills, Harness skill and profiles under: {home}")

@@ -40,8 +40,8 @@
 | 파일 | 책임 |
 |---|---|
 | skill/SKILL.md | CEO 개발 소유권, 라우팅·직접 보고·동시성·승인·검증 계약 |
-| agents/yunho-team-secretary.toml 및 다섯 specialist 프로필 | 역할별 scope와 CEO 직접 보고 |
-| agents/yunho-team-lead.toml | 작업 2에서 제거 |
+| agents/harness-secretary.toml 및 다섯 specialist 프로필 | 역할별 scope와 CEO 직접 보고 |
+| agents/harness-lead.toml | 작업 2에서 제거 |
 | skill/models.toml | 표준 여섯 역할 및 기존 선택 |
 | skill/scripts/model_config.py | 여섯 역할 매핑과 제한된 legacy 호환 |
 | skill/scripts/apply-models.py | 여섯 프로필 적용 및 출력 |
@@ -59,12 +59,12 @@
 **Files:**
 
 - Modify: skill/SKILL.md
-- Modify: agents/yunho-team-secretary.toml
-- Modify: agents/yunho-team-planner.toml
-- Modify: agents/yunho-team-scout.toml
-- Modify: agents/yunho-team-coder.toml
-- Modify: agents/yunho-team-qa.toml
-- Modify: agents/yunho-team-reviewer.toml
+- Modify: agents/harness-secretary.toml
+- Modify: agents/harness-planner.toml
+- Modify: agents/harness-scout.toml
+- Modify: agents/harness-coder.toml
+- Modify: agents/harness-qa.toml
+- Modify: agents/harness-reviewer.toml
 - Test: tests/test_install.py
 
 **Interfaces:**
@@ -113,7 +113,7 @@
 - Modify: skill/scripts/model_config.py
 - Modify: skill/scripts/apply-models.py
 - Modify: install.py의 PROFILE_FILES, staged model settings normalization, preflight 오류 및 profile-count 출력
-- Delete: agents/yunho-team-lead.toml
+- Delete: agents/harness-lead.toml
 - Test: tests/test_install.py
 
 **Interfaces:**
@@ -128,7 +128,7 @@
 
 - [ ] **Step 1: 표준·legacy model 입력의 failing tests를 추가한다.**
 
-  tests/test_install.py의 기존 installer 테스트 harness를 사용하고 test_model_ 접두사 tests를 추가한다. tomllib과 model configuration module을 기존 test helper 방식으로 load한다. 기대 역할은 다음 여섯 개다: yunho_team_secretary, yunho_team_planner, yunho_team_scout, yunho_team_coder, yunho_team_qa, yunho_team_reviewer.
+  tests/test_install.py의 기존 installer 테스트 harness를 사용하고 test_model_ 접두사 tests를 추가한다. tomllib과 model configuration module을 기존 test helper 방식으로 load한다. 기대 역할은 다음 여섯 개다: harness_secretary, harness_planner, harness_scout, harness_coder, harness_qa, harness_reviewer.
 
   추가할 test와 assertion:
 
@@ -193,7 +193,7 @@
 **Interfaces:**
 
 - Consumes: Task 2의 six-role PROFILE_FILES와 normalized settings.
-- Add: RETIRED_PROFILE_FILES = ("yunho-team-lead.toml",).
+- Add: RETIRED_PROFILE_FILES = ("harness-lead.toml",).
 - Add: retired_profile_targets(home: Path) -> dict[str, Path], 선택한 home 아래의 정확한 retired path만 반환.
 - Preserve: install_plan의 기존 반환 tuple 및 호출자. Retired path 검증은 추가한다.
 - Extend: backup_existing(..., retired_targets: dict[str, Path] | None = None) -> None. 존재하는 retired 일반 file을 기존 backup tree에 보존한다.
@@ -273,7 +273,7 @@
 
     git diff --check
     python3 -B -c 'from pathlib import Path; import install; install.verify_manifest(Path.cwd()); print("manifest valid")'
-    rg -n 'Lead|lead|yunho_team_lead|seven|일곱' README.md skill agents install.py
+    rg -n 'Lead|lead|harness_lead|seven|일곱' README.md skill agents install.py
     git status --short
 
   기대: whitespace와 manifest 검사가 통과한다. 남은 Lead 언급은 legacy validator, retired target, migration 안내에만 있고 활성 routing/model/profile mapping에는 없다. 검색 결과는 승인 spec과 대조하고 문자열 하나만으로 판정하지 않는다.

@@ -42,10 +42,10 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 | 파일 | 변경 책임 |
 |---|---|
 | `/Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md` | 공통 보고 규칙, 위험도와 모드 결합, 중복 충족 및 재사용 조건 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/yunho-team-planner.toml` | 공통 보고 대상과 개발 전용 절차 구분 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/yunho-team-reviewer.toml` | 보고 대상과 owner의 완료 판단 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/yunho-team-scout.toml` | owner 보고와 다음 역할용 결과 형식 구분 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/yunho-team-lead.toml` | 최소 검증 흐름, 리뷰 중복 충족 조건 |
+| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-planner.toml` | 공통 보고 대상과 개발 전용 절차 구분 |
+| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-reviewer.toml` | 보고 대상과 owner의 완료 판단 |
+| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-scout.toml` | owner 보고와 다음 역할용 결과 형식 구분 |
+| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-lead.toml` | 최소 검증 흐름, 리뷰 중복 충족 조건 |
 | `/Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256` | 위 다섯 payload 파일의 변경된 hash |
 
 정책과 프로필은 함께 승인·검토할 하나의 변경 단위다. 문구 확정 → 프로필 동기화 → manifest 갱신 → 구조 검증 → QA → fresh 전체 Reviewer → Lead acceptance 순서로 진행한다. 여러 파일의 의미와 manifest가 종속되어 no-plan 조건에 해당하지 않는다.
@@ -154,10 +154,10 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
   import tomllib
 
   paths = [
-      Path("agents/yunho-team-planner.toml"),
-      Path("agents/yunho-team-reviewer.toml"),
-      Path("agents/yunho-team-scout.toml"),
-      Path("agents/yunho-team-lead.toml"),
+      Path("agents/harness-planner.toml"),
+      Path("agents/harness-reviewer.toml"),
+      Path("agents/harness-scout.toml"),
+      Path("agents/harness-lead.toml"),
   ]
   for path in paths:
       data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -196,10 +196,10 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 
   selected = {
       "skill/SKILL.md",
-      "agents/yunho-team-planner.toml",
-      "agents/yunho-team-reviewer.toml",
-      "agents/yunho-team-scout.toml",
-      "agents/yunho-team-lead.toml",
+      "agents/harness-planner.toml",
+      "agents/harness-reviewer.toml",
+      "agents/harness-scout.toml",
+      "agents/harness-lead.toml",
   }
   manifest = Path("MANIFEST.sha256")
   lines = manifest.read_bytes().splitlines(keepends=True)

@@ -2,22 +2,22 @@
 
 ## 목적과 승인된 결정
 
-CEO를 개발의 유일한 소유자로 지정하고 별도 yunho_team_lead 역할을 폐기한다. CEO는 현재 chat model을 사용하며 전용 CEO agent 프로필이나 모델 항목을 추가하지 않는다.
+CEO를 개발의 유일한 소유자로 지정하고 별도 harness_lead 역할을 폐기한다. CEO는 현재 chat model을 사용하며 전용 CEO agent 프로필이나 모델 항목을 추가하지 않는다.
 
 CEO는 depth 1이며 아래 여섯 역할은 모두 CEO 직속 depth 2다.
 
-- yunho_team_secretary
-- yunho_team_planner
-- yunho_team_scout
-- yunho_team_coder
-- yunho_team_qa
-- yunho_team_reviewer
+- harness_secretary
+- harness_planner
+- harness_scout
+- harness_coder
+- harness_qa
+- harness_reviewer
 
 전체 트리에서 동시에 활성화할 수 있는 subagent는 최대 4개다. depth 2 역할은 agent를 만들거나 다른 역할에 직접 일을 위임하지 않는다.
 
 CEO는 개발 조율, 승인, 통합, 수락, 완료를 담당한다. 실제 구현·설정·test-code 파일 수정은 기존처럼 Coder가 수행한다. Secretary의 자료 중심 조사·분석과 독립 문서 작성 범위를 보존한다.
 
-기존 설치의 정확한 agents/yunho-team-lead.toml 대상은 설치 transaction 안에서 백업 후 퇴역시키며, 실패하면 원래 상태로 복원한다. 정확한 legacy version 3 모델 설정에서 알려진 yunho_team_lead 항목만 정규화 결과에서 제외하고 나머지 여섯 역할의 model과 effort 선택은 보존한다.
+기존 설치의 정확한 agents/harness-lead.toml 대상은 설치 transaction 안에서 백업 후 퇴역시키며, 실패하면 원래 상태로 복원한다. 정확한 legacy version 3 모델 설정에서 알려진 harness_lead 항목만 정규화 결과에서 제외하고 나머지 여섯 역할의 model과 effort 선택은 보존한다.
 
 ## 범위와 제외 사항
 
@@ -107,15 +107,15 @@ Planner는 시각 질문, 시각화가 돕는 이유, 선택지, 완전한 conte
 
 Version 3을 유지한다. 표준 roles 집합은 다음 여섯 역할과 정확히 일치해야 한다.
 
-yunho_team_secretary, yunho_team_planner, yunho_team_scout, yunho_team_coder, yunho_team_qa, yunho_team_reviewer
+harness_secretary, harness_planner, harness_scout, harness_coder, harness_qa, harness_reviewer
 
 각 역할은 기존처럼 nonempty model과 model_reasoning_effort 문자열을 갖는다. 여섯 specialist 각각의 현재 model ID와 effort 값은 바꾸지 않는다. CEO용 model/profile을 만들지 않고 Lead 모델 값을 CEO로 옮기지 않는다. 모델 ID, effort, server support, account access, current availability 검증은 현재 범위를 유지한다.
 
-skill/scripts/model_config.py의 ROLE_FILES, install.py의 PROFILE_FILES, package의 agents/ 템플릿 및 skill/models.toml은 동일한 여섯 역할 집합과 일치해야 한다. source의 agents/yunho-team-lead.toml 및 role mapping은 제거한다.
+skill/scripts/model_config.py의 ROLE_FILES, install.py의 PROFILE_FILES, package의 agents/ 템플릿 및 skill/models.toml은 동일한 여섯 역할 집합과 일치해야 한다. source의 agents/harness-lead.toml 및 role mapping은 제거한다.
 
 ### 제한된 legacy 모델 입력
 
-읽기 전용 loader는 표준 여섯 역할에 더해 알려진 yunho_team_lead 하나만 포함한 기존 version 3 입력을 호환 처리한다.
+읽기 전용 loader는 표준 여섯 역할에 더해 알려진 harness_lead 하나만 포함한 기존 version 3 입력을 호환 처리한다.
 
 - 여섯 역할의 유효한 model과 model_reasoning_effort 값은 그대로 반환한다.
 - 알려진 Lead 항목은 effective settings에서 제외하고, 그 사실을 간결하게 알린다.
@@ -133,7 +133,7 @@ apply-models.py는 effective six-role settings만 이용해 현재 여섯 profil
 
 신규 활성 프로필 target은 여섯 개다. 유일한 retired-profile 대상은 현재 선택된 Codex home 아래의 정확한 다음 path다.
 
-<selected CODEX_HOME>/agents/yunho-team-lead.toml
+<selected CODEX_HOME>/agents/harness-lead.toml
 
 다른 홈·경로의 lead 파일을 검색·삭제하지 않는다. 퇴역 target과 상위 경로를 기존 안전 검사에 포함한다. target이 없으면 no-op이다. 경로 구성 요소나 target이 symlink, directory 또는 special file이면 target mutation 전 오류 처리한다.
 
@@ -141,7 +141,7 @@ apply-models.py는 effective six-role settings만 이용해 현재 여섯 profil
 
 ### 백업, 적용, rollback
 
-존재하는 retired Lead 일반 파일을 기존 backup tree의 agents/yunho-team-lead.toml 경로에 보존한다. 백업을 만들거나 검증하지 못하면 어떤 live target도 변경하지 않는다. 성공한 설치 뒤에도 백업은 유지한다.
+존재하는 retired Lead 일반 파일을 기존 backup tree의 agents/harness-lead.toml 경로에 보존한다. 백업을 만들거나 검증하지 못하면 어떤 live target도 변경하지 않는다. 성공한 설치 뒤에도 백업은 유지한다.
 
 Lead retirement를 Harness skill, 외부 skill, 여섯 active profile과 동일한 transaction/journal/rollback 범위에 포함한다. 성공 시 live retired path가 없다. Retirement 이후 다른 action이 실패하면 기존 Lead file을 정확히 복원한다. Retirement action 자체가 실패하면 앞서 바뀐 target도 rollback한다. 기존 Lead가 없었으면 rollback 후에도 없다. Rollback이 실패하면 복구 데이터와 backup을 보존하고 실패 대상·복구 경로를 출력한다. 이런 실패를 성공 설치로 보고하지 않는다.
 
@@ -150,9 +150,9 @@ Lead retirement를 Harness skill, 외부 skill, 여섯 active profile과 동일�
 ## 파일별 책임
 
 - skill/SKILL.md: CEO 소유권·보고 구조·Secretary scope·4-subagent cap·approval/TDD/risk/workspace/commit/adapter/visual 계약
-- agents/yunho-team-lead.toml: 제거
-- agents/yunho-team-secretary.toml: Secretary의 기존 scope 및 경계를 보존하고 CEO 직속·no-delegation 흐름 반영
-- agents/yunho-team-planner.toml, -scout.toml, -coder.toml, -qa.toml, -reviewer.toml: CEO 직접 보고 및 역할별 read/write/approval 경계 반영
+- agents/harness-lead.toml: 제거
+- agents/harness-secretary.toml: Secretary의 기존 scope 및 경계를 보존하고 CEO 직속·no-delegation 흐름 반영
+- agents/harness-planner.toml, -scout.toml, -coder.toml, -qa.toml, -reviewer.toml: CEO 직접 보고 및 역할별 read/write/approval 경계 반영
 - skill/models.toml: version 3의 표준 여섯 역할, 기존 여섯 선택 유지
 - skill/scripts/model_config.py: 여섯 역할 매핑 및 제한된 legacy 7-role reader 정규화
 - skill/scripts/apply-models.py: six-role 적용·검사·출력 및 non-mutating compatibility handling
@@ -167,7 +167,7 @@ config.toml의 runtime concurrent thread 수는 Harness의 4-subagent cap과 다
 
 ### 역할 정책
 
-1. 활성 개발 owner와 개발 승인·통합·완료 책임은 CEO 하나다. 별도 yunho_team_lead owner/호출 경로가 없다.
+1. 활성 개발 owner와 개발 승인·통합·완료 책임은 CEO 하나다. 별도 harness_lead owner/호출 경로가 없다.
 2. Secretary와 다섯 development specialist는 CEO의 direct report이며 depth 3 경로가 금지된다.
 3. Secretary의 material-based 조사·분석, standalone document scope, live operational boundary가 유지된다.
 4. Secretary가 specialist 지원을 필요로 하면 CEO에 요청하고 specialist 결과도 CEO 경유로 받는다.

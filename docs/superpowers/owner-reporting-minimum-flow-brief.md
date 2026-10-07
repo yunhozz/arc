@@ -6,7 +6,7 @@
 
 ## 범위와 결정
 
-- 수정 payload: `skill/SKILL.md`, `agents/yunho-team-planner.toml`, `agents/yunho-team-reviewer.toml`, `agents/yunho-team-scout.toml`, `agents/yunho-team-lead.toml`, `MANIFEST.sha256`.
+- 수정 payload: `skill/SKILL.md`, `agents/harness-planner.toml`, `agents/harness-reviewer.toml`, `agents/harness-scout.toml`, `agents/harness-lead.toml`, `MANIFEST.sha256`.
 - README, 기타 프로필, dependency, installer, 모델은 제외한다. 사용자 지정 보호 영역은 시작 시점 바이트 그대로 보존한다.
 - CEO가 user의 짧은 설계 및 Native 승인을 전달했다. 계획 승인은 아직 없다.
 - 정책 문서 명확화이며 실행 코드·테스트 수정은 없다. TOML 파싱, 문서 사례·diff 확인, installer `--check`만 계획한다. 테스트·dependency 설치 금지. TDD 주장은 하지 않는다.
@@ -35,7 +35,7 @@ Coder는 설치된 `/Users/yunho/.agents/skills/test-driven-development/SKILL.md
 
 ## 인간 결정과 재개
 
-CEO가 user의 직접 결정 `여섯 파일 한정 TDD 예외 승인`을 전달했다. 예외는 `skill/SKILL.md`, `agents/yunho-team-planner.toml`, `agents/yunho-team-reviewer.toml`, `agents/yunho-team-scout.toml`, `agents/yunho-team-lead.toml`, `MANIFEST.sha256`의 승인된 두 명확화만 적용한다. TOML 파싱, 정책 사례·보호 영역·diff 확인, `python3 install.py --check`, 독립 QA 및 fresh 전체 Reviewer를 수행한다. failing-first와 테스트 suite 실행은 하지 않으며 TDD를 수행했다고 주장하지 않는다. 구현 범위·보호 영역·향후 작업의 TDD 요구는 확대하거나 변경하지 않는다. 기존 managed worktree에서 Coder를 재개한다.
+CEO가 user의 직접 결정 `여섯 파일 한정 TDD 예외 승인`을 전달했다. 예외는 `skill/SKILL.md`, `agents/harness-planner.toml`, `agents/harness-reviewer.toml`, `agents/harness-scout.toml`, `agents/harness-lead.toml`, `MANIFEST.sha256`의 승인된 두 명확화만 적용한다. TOML 파싱, 정책 사례·보호 영역·diff 확인, `python3 install.py --check`, 독립 QA 및 fresh 전체 Reviewer를 수행한다. failing-first와 테스트 suite 실행은 하지 않으며 TDD를 수행했다고 주장하지 않는다. 구현 범위·보호 영역·향후 작업의 TDD 요구는 확대하거나 변경하지 않는다. 기존 managed worktree에서 Coder를 재개한다.
 
 ## 구현 결과와 다음 gate
 

@@ -23,7 +23,7 @@
 - Spike, Bounded plan-skip, non-behavior docs/config 경로에 새 spec 의무를 추가하지 않는다. Plan이 필요하다는 사실만으로 Bounded spec을 요구하지 않는다.
 - Coder만 구현·설정·테스트 파일을 수정한다. CEO는 조정·승인·통합·검증·수락을 맡는다.
 - 외부 skills, 설치된 사본, 모델, 권한 설정은 수정하지 않는다.
-- `agents/yunho-team-planner.toml`의 기존 책임 문구는 만족하므로 수정하지 않는다.
+- `agents/harness-planner.toml`의 기존 책임 문구는 만족하므로 수정하지 않는다.
 - 적용 문서 전체 승인 전 대상 선택 요청, branch 변경, staging, 문서 commit을 하지 않는다.
 - 승인 문서 준비 commit과 수락 후 선택적 구현 commit을 구분한다. Push는 포함하지 않는다.
 - 기존 staged/unstaged/untracked 변경과 소유권을 보존한다. 자동 stash/reset/clean을 하지 않는다.
@@ -63,7 +63,7 @@
 - `/Users/yunho/Desktop/project/yunho-harness/skill/references/planning.md`
 - `/Users/yunho/Desktop/project/yunho-harness/skill/references/handoff.md`
 - `/Users/yunho/Desktop/project/yunho-harness/README.md`
-- 읽기 전용: `/Users/yunho/Desktop/project/yunho-harness/agents/yunho-team-planner.toml`
+- 읽기 전용: `/Users/yunho/Desktop/project/yunho-harness/agents/harness-planner.toml`
 
 **Interfaces:** 기존 `policy_text(name: str) -> str`, `REPO`, `tomllib`, `unittest`를 사용한다. `HarnessPreactionGateTests`의 기존 다섯 검사 이름을 유지하여 필요한 assertion을 추가·확장한다. 기존 `ConditionalReferenceTests`, `RolePolicyTests`, handoff 계약을 유지한다. 검사는 문서 구조만 확인하며 live Git 또는 agent runtime을 실행하지 않는다.
 

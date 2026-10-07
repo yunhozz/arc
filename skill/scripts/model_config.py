@@ -11,12 +11,12 @@ from typing import TypedDict
 
 
 ROLE_FILES: dict[str, str] = {
-    "yunho_team_secretary": "yunho-team-secretary.toml",
-    "yunho_team_planner": "yunho-team-planner.toml",
-    "yunho_team_scout": "yunho-team-scout.toml",
-    "yunho_team_coder": "yunho-team-coder.toml",
-    "yunho_team_qa": "yunho-team-qa.toml",
-    "yunho_team_reviewer": "yunho-team-reviewer.toml",
+    "harness_secretary": "harness-secretary.toml",
+    "harness_planner": "harness-planner.toml",
+    "harness_scout": "harness-scout.toml",
+    "harness_coder": "harness-coder.toml",
+    "harness_qa": "harness-qa.toml",
+    "harness_reviewer": "harness-reviewer.toml",
 }
 
 
@@ -75,17 +75,17 @@ def _parse_file(path: Path, label: str) -> tuple[bytes, str, dict]:
 
 
 def load_settings(config_path: Path) -> dict[str, RoleSettings]:
-    """Read and validate the version 3 role settings."""
+    """Read and validate the version 4 role settings."""
     _, _, config = _parse_file(config_path, "settings")
     version = config.get("version")
-    if type(version) is int and version in (1, 2):
+    if type(version) is int and version in (1, 2, 3):
         raise _error(
             config_path,
             "version",
-            f"must be integer 3; update version {version} settings to the version 3 role-only format",
+            f"must be integer 4; update version {version} settings to the version 4 role-only format",
         )
-    if "version" in config and (type(version) is not int or version != 3):
-        raise _error(config_path, "version", "must be integer 3")
+    if "version" in config and (type(version) is not int or version != 4):
+        raise _error(config_path, "version", "must be integer 4")
     if set(config) != {"version", "roles"}:
         missing = sorted({"version", "roles"} - set(config))
         extra = sorted(set(config) - {"version", "roles"})
@@ -119,14 +119,14 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
 
 
 def serialize_settings(settings: dict[str, RoleSettings]) -> bytes:
-    """Serialize effective settings as canonical version 3 six-role TOML."""
+    """Serialize effective settings as canonical version 4 six-role TOML."""
     path = Path("models.toml")
     if set(settings) != set(ROLE_FILES):
         raise _error(path, "roles", "must define exactly the six Harness roles")
     lines = [
         "# Single source for each role's exact model ID and reasoning-effort selection.",
         "# Each role is applied directly; model availability is not validated here.",
-        "version = 3",
+        "version = 4",
     ]
     for role in ROLE_FILES:
         values = _settings_for_profile(settings[role], role, path)

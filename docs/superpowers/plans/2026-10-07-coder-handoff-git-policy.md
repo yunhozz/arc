@@ -15,7 +15,7 @@
 ## 공통 제약
 
 - 작업공간은 `/Users/ma-24-007/Desktop/workspace/yunho-harness`로 고정한다.
-- Coder 편집 범위는 `skill/SKILL.md`, `agents/yunho-team-coder.toml`, `README.md`, `MANIFEST.sha256`뿐이다.
+- Coder 편집 범위는 `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`, `MANIFEST.sha256`뿐이다.
 - 추가 파일이 필요하면 Coder는 편집 전에 CEO에게 범위 변경을 보고한다.
 - 테스트 코드를 추가하거나 테스트를 실행하지 않는다. 사용자가 테스트를 요청하지 않았다. 설치·실제 런타임 에이전트 준수도 확인했다고 주장하지 않는다.
 - CEO는 구현·프로필 파일을 직접 편집하지 않는다. 기존 무관한 변경은 보존한다.
@@ -77,7 +77,7 @@ docs(harness): Coder 인계 게이트 구현 계획 정리
 
 **파일:**
 
-- `/Users/ma-24-007/Desktop/workspace/yunho-harness/agents/yunho-team-coder.toml`
+- `/Users/ma-24-007/Desktop/workspace/yunho-harness/agents/harness-coder.toml`
 - `/Users/ma-24-007/Desktop/workspace/yunho-harness/README.md`
 
 **담당:** Coder
@@ -96,7 +96,7 @@ docs(harness): Coder 인계 게이트 구현 계획 정리
 **파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/MANIFEST.sha256`
 **담당:** Coder
 
-1. 확정된 `skill/SKILL.md`, `agents/yunho-team-coder.toml`, `README.md`의 SHA-256을 계산한다.
+1. 확정된 `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`의 SHA-256을 계산한다.
 2. manifest에서 해당 세 경로의 해시만 갱신하고 기존 경로·정렬·다른 해시를 보존한다.
 3. manifest 해시 대조와 `git diff --check`를 실행해 무결성·공백 오류를 확인한다. 이들은 텍스트/해시 확인이며 테스트 실행이 아니다.
 4. 변경 파일 목록과 실제 diff를 확인해 구현 편집이 승인된 네 파일에 한정되는지 대조한다. spec·plan은 CEO가 작성한 문서로 분리해 기록한다.

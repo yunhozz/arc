@@ -15,9 +15,9 @@ Harness 계층에서 감사된 여섯 차이를 해결한다: 계획 없는 boun
 | 파일 | 책임 |
 |---|---|
 | `skill/SKILL.md` | 중앙 우선순위·승인·TDD·작업 공간·시각화·언어 정책 |
-| `agents/yunho-team-lead.toml` | 집행·예외 기록·실행 대응·작업 공간·runtime·언어 보존 |
-| `agents/yunho-team-planner.toml` | 읽기 전용 초안·계획 판단·시각화 인계·언어 정책 |
-| `agents/yunho-team-coder.toml` | 설치 TDD·할당 수정·예외 보고·전달된 작업 공간 사용 |
+| `agents/harness-lead.toml` | 집행·예외 기록·실행 대응·작업 공간·runtime·언어 보존 |
+| `agents/harness-planner.toml` | 읽기 전용 초안·계획 판단·시각화 인계·언어 정책 |
+| `agents/harness-coder.toml` | 설치 TDD·할당 수정·예외 보고·전달된 작업 공간 사용 |
 | `MANIFEST.sha256` | 실제 변경된 Harness payload의 해시만 갱신 |
 
 QA·Reviewer·Scout·Secretary의 현재 책임은 충분하다. Dependencies·installer 코드·모델·무관한 파일은 변경하지 않는다. 실제 설치·브라우저·서버는 검증에 필요하지 않다. Spec·계획은 Lead가 통합·저장·자체 검토한다. 구현 작업 공간은 7절을 따른다.
