@@ -92,6 +92,52 @@ design path or plan approval gates.
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
    These stages preserve Secretary's standalone ownership.
 
+### Complete planning-document set
+
+The applicable document set means all specs and plans required for the current approved execution scope, not future
+project work. CEO records scope, design/plan depth, absolute document paths and coverage, approved versions/status,
+plan dependencies and execution order, skipped stages with rationale, and documents still awaiting writing or approval
+in the shared brief. The set is complete only when every required document is written and individually approved and
+no unresolved scope or dependency decision requires another document. Do not omit required documents from the list.
+
+Normal order: design approval → required spec writing/saving/self-review and written-spec approval → required plans
+writing/saving/self-review and individual approvals → complete applicable set → explicit execution-target choice and
+any approved branch switch → existing-commit verification and one batch commit of remaining approved documents →
+final Git verification → Coder handoff. Written-spec approval still precedes implementation planning.
+
+While documents are being written, reviewed, or approved, do not request execution-checkout selection, create/switch
+branches, stage documents, or commit planning documents for this task's execution preparation. Read-only workspace,
+repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
+handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
+
+This Harness explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
+save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
+all applicable plans. Commit the spec only in the final batch preparation. Do not describe an uncommitted spec as
+committed in approval requests. Do not modify external skills. `writing-plans` implementation-step commit instructions
+are not permission for document commits during planning or for starting Coder.
+
+| Path | Applicable approvals and preparation |
+|------|--------------------------------------|
+| Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only CEO/Planner investigation without Coder does not trigger that gate. |
+| Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
+| Bounded, plan required | Approve the short design and every required plan; write a spec only when the existing depth judgment requires it. Complete all applicable artifacts before one preparation batch and the common gate. |
+| Architectural | Approve design, then written spec, then every required plan using `writing-plans`; complete the document set before target selection, batch preparation, final verification, and the common gate. |
+| Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
+
+Spike probe and subsequent implementation are separate approval scopes. Report probe findings, reassess implementation
+design/plan depth, and approve its required spec and all plans before its preparation batch. Probe approval or code
+does not approve later implementation. Document omission skips only document obligations, never explicit execution-target
+choice, Git state/ownership checks, or handoff evidence. Record design/plan depth and verification risk independently;
+bounded or document omission does not imply low risk, and architectural depth does not add QA/Reviewer at every stage.
+Apply existing risk-scaled QA/Reviewer and specific approved obligations separately.
+
+If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
+before preparation. Changed approved documents require approval of the revised version. If implementation reveals new
+scope, stop affected execution until that scope's documents, approvals, and preparation are complete. Do not amend old
+commits to retroactively include it. An already-running Coder must stop before edits dependent on new plans; inspect
+current changes/Git state and do not retroactively claim preparation. A restart without document changes reuses verified
+valid commits and still requires the restart's explicit target choice and actual-state checks.
+
 ## Coder TDD and constraints
 
 Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
@@ -233,6 +279,7 @@ to the intended Git repository; record its actual absolute path, current branch 
 unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the intended repository, or HEAD
 cannot be resolved. Do not initialize Git or switch to another repository automatically.
 
+Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
 After applicable design/spec/plan approvals, obtain and record an explicit user choice for this handoff: use the
 current checkout, or create a new task branch from the verified base HEAD in that same checkout. Present the absolute
 workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Planning
@@ -243,7 +290,10 @@ checkout. Without an explicit execution-target choice, wait and do not start or 
 
 CEO may start or restart Coder only after all of these conditions are verified:
 
-1. All applicable design/spec/plan approvals are recorded with approved artifact paths.
+1. All applicable design/spec/plan approvals are recorded with approved artifact paths or valid depth-omission reasons.
+   For a Coder Spike probe, record its approved question, method/scope, acceptance criteria, and constraints.
+   The complete current-scope document list, approved versions, plan dependencies/order, and absence of unfinished
+   applicable documents are verified. Future implementation artifacts are not part of the probe scope or approved by it.
 2. The user explicitly selected the execution target for this handoff.
 3. The accessible absolute workspace is the intended Git repository.
 4. Actual branch or detached HEAD, HEAD, staged/unstaged/untracked state, preservation, and edit ownership are known.
@@ -305,14 +355,18 @@ state and the choice evidence in the brief. Missing choice, unconfirmed state, o
 
 ### Planning document commit
 
+Begin only after all applicable specs/plans are written, individually approved, and the document set is complete.
 On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
 changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
 CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
-content matching the approved version; reuse valid commits without recommitting them.
+content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting them.
 
 For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
 Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
-before handoff. Verify both staged paths and staged diff match exactly the approved documents. If unrelated staged
+before handoff. Batch all remaining uncommitted approved documents together in that single commit, including all specs
+and plans when none are committed. If only some remain, verify/reuse existing commits and commit the remainder once.
+If all are validly committed, verify only; do not create duplicate or empty commits. Do not amend, reset, or recommit
+past commits merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved documents. If unrelated staged
 files exist, preserve them and stop; do not automatically unstage, reset, stash, clean, or discard them. Never include
 implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
 repair it. A separately needed amend requires rechecking its approval scope, current HEAD, and publication state.
@@ -365,6 +419,9 @@ and edit scope, checkout approval result and evidence, selected execution path, 
 creation/switch result if attempted, and post-selection branch/path/HEAD/change checks in the brief. Include the docs
 commit SHA, actual message, included paths, approved-content verification or valid no-document depth rationale,
 final verification, and any failure/partial completion and recovery evidence, plus absolute approved artifact paths.
+Record the complete current-scope document list, absolute paths/coverage, approved versions/status, plan dependencies
+and execution order, skipped-stage reasons, and confirmation that no applicable document awaits writing/approval.
+Distinguish reused existing commits from the batch preparation commit, or record valid document absence.
 Record applicable approvals and the explicit execution-target choice for each first start or restart. Give all six
 roles the same actual workspace, selected execution checkout, preparation evidence, and absolute artifact paths. Coder and QA work only in the supplied workspace; Planner, Reviewer, Scout, and Secretary use
 that same workspace. Every role reports missing, inaccessible, or conflicting paths and unexpected branch state to
