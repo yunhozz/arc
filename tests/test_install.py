@@ -326,22 +326,21 @@ class RolePolicyTests(unittest.TestCase):
         self._assert_workspace_handoff_contracts(
             "Checkout approval",
             (
-                r"after all applicable design/spec/plan approvals",
-                r"before.*creat.*switch.*explicit user approval",
-                r"approval.*absolute workspace.*current branch.*detached head.*base head.*candidate",
-                r"planning document.*approval.*does not.*branch.*approval",
+                r"before every coder first start and restart",
+                r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch",
+                r"present.*absolute workspace.*current branch.*detached head.*base head.*validated candidate",
+                r"planning approval alone, no response, refusal of a new branch alone, or an unclear response.*does not select.*current checkout",
             ),
         )
 
-    def test_workspace_handoff_without_approval_uses_current_checkout(self) -> None:
+    def test_workspace_handoff_current_checkout_requires_explicit_choice(self) -> None:
         self._assert_workspace_handoff_contracts(
             "Current checkout",
             (
-                r"no explicit approval.*refus.*no response.*unclear",
-                r"do not create or switch.*branch",
-                r"continue.*current checkout",
-                r"confirm.*branch.*detached head.*head.*existing changes",
-                r"lack of checkout approval alone.*does not.*stop coder handoff",
+                r"only after the user explicitly selects the current checkout for this handoff",
+                r"confirm.*absolute workspace.*branch.*detached head.*head.*existing changes",
+                r"preservation and edit ownership.*choice evidence.*brief",
+                r"missing choice.*unconfirmed state.*unclear ownership blocks handoff",
             ),
         )
 
@@ -352,7 +351,7 @@ class RolePolicyTests(unittest.TestCase):
                 r"recheck.*workspace.*branch.*base head.*candidate.*before",
                 r"approval target.*changes.*explicit user approval",
                 r"candidate.*changes.*approval.*before.*creat.*switch",
-                r"without.*approval.*current checkout",
+                r"without that approval, block handoff.*current checkout only after the user explicitly selects it for this handoff",
                 r"lookup error.*missing branch",
             ),
         )
@@ -387,7 +386,7 @@ class RolePolicyTests(unittest.TestCase):
                 r"branch creation.*switch.*failure.*actual git state.*stop coder handoff",
                 r"created.*without.*successful switch.*partial completion",
                 r"do not.*automatically.*(?:fall back|fallback).*current checkout",
-                r"operational failure.*distinct from.*lack of approval",
+                r"both operational failure and missing execution-target choice block handoff",
                 r"do not.*automatically delete",
             ),
         )
@@ -399,17 +398,17 @@ class RolePolicyTests(unittest.TestCase):
             "Planning document commit",
             (
                 r"new task branch.*successful switch.*branch.*path",
-                r"current checkout.*confirm.*branch.*path.*existing changes",
-                r"both paths.*planning documents.*written and approved",
-                r"ceo.*stage and commit only those approved documents.*before coder handoff",
+                r"current checkout.*verify.*selected branch.*detached head.*path.*existing changes",
+                r"ceo verifies each approved spec/plan already committed.*sha.*message.*paths.*content.*approved version.*reuse.*without recommitting",
+                r"approved documents still uncommitted.*ceo.*finalizes.*message before the first commit.*stages only those documents.*before handoff",
             ),
         )
         for contract in (
-            r"record.*commit sha.*included paths.*brief",
-            r"never include implementation files.*does not mean implementation acceptance",
+            r"include the docs commit sha.*actual message.*included paths.*approved-content verification",
+            r"never include implementation files.*this commit is not implementation acceptance",
             r"do not push.*separate.*user.*request",
-            r"when approved planning documents exist.*commit fails.*staged paths.*stop coder handoff.*branch.*index",
-            r"no planning documents.*existing design/plan depth rules.*skip.*docs commit.*record.*brief.*coder handoff.*confirmed.*(?:branch|detached head).*path",
+            r"docs commit fails or staged content differs.*stop handoff.*branch.*head.*index.*partial completion",
+            r"skip this commit only when no planning documents were required and none were produced.*design/plan depth rules.*record.*depth rationale.*uncommitted documents cannot be treated as absent",
             r"do not automatically.*(?:unstage|reset).*unrelated",
             r"only.*approved.*docs commit.*exception",
         ):

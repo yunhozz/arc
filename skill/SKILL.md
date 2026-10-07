@@ -87,9 +87,10 @@ design path or plan approval gates.
    returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
    CEO integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
    then obtains plan approval before Coder. Planner cannot save, implement, or request approval.
-5. Coder starts after all applicable design/spec/plan approvals, with approved artifacts, brief, and relevant findings.
-   Non-behavior configuration/documentation changes may proceed directly. These stages preserve Secretary's standalone
-   ownership.
+5. Every Coder first start and restart requires all applicable design/spec/plan approvals and the complete
+   `Workspace handoff` gate below, with approved artifacts, brief, and relevant findings. Non-behavior
+   configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
+   These stages preserve Secretary's standalone ownership.
 
 ## Coder TDD and constraints
 
@@ -227,13 +228,38 @@ rules.
 
 ### Checkout approval
 
-After all applicable design/spec/plan approvals and before Coder starts, CEO confirms the supplied absolute workspace
-is accessible and belongs to the intended Git repository; record its actual absolute path, current branch or detached
-HEAD, current HEAD, and staged, unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the
-intended Git repository, or HEAD cannot be resolved. Do not initialize Git or switch to another repository automatically.
-Before creating or switching to a new task branch, obtain explicit user approval. The approval request must identify
-the absolute workspace, current branch or detached HEAD, base HEAD, and candidate task branch. Planning document
-completion or approval does not constitute branch creation or checkout approval.
+Before every Coder first start and restart, CEO confirms the supplied absolute workspace is accessible and belongs
+to the intended Git repository; record its actual absolute path, current branch or detached HEAD, HEAD, and staged,
+unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the intended repository, or HEAD
+cannot be resolved. Do not initialize Git or switch to another repository automatically.
+
+After applicable design/spec/plan approvals, obtain and record an explicit user choice for this handoff: use the
+current checkout, or create a new task branch from the verified base HEAD in that same checkout. Present the absolute
+workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Planning
+approval alone, no response, refusal of a new branch alone, or an unclear response does not select the current
+checkout. Without an explicit execution-target choice, wait and do not start or restart Coder.
+
+### Coder handoff gate
+
+CEO may start or restart Coder only after all of these conditions are verified:
+
+1. All applicable design/spec/plan approvals are recorded with approved artifact paths.
+2. The user explicitly selected the execution target for this handoff.
+3. The accessible absolute workspace is the intended Git repository.
+4. Actual branch or detached HEAD, HEAD, staged/unstaged/untracked state, preservation, and edit ownership are known.
+   Unrelated staged files are preserved and block handoff until CEO resolves preparation.
+5. Approved planning-document commits are verified, or no documents were required or produced and the valid depth
+   rationale is recorded.
+6. After any commit or branch operation, final path, branch, HEAD, and change state are rechecked with no unresolved
+   failure or partial completion.
+7. The brief includes these preparation and final-verification facts and evidence.
+
+Any missing or failed condition blocks handoff. CEO may continue read-only investigation and authorized preparation
+or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
+HEAD, or relevant state changes. Coder independently checks the brief and actual checkout before editing on every
+start or restart; missing evidence, mismatched state, or unclear ownership requires a report to CEO and no edits.
+Coder does not repair preparation through commits, branch creation/switching, or Git permission changes. CEO resolves
+preparation and passes the gate again before Coder resumes.
 
 ### New task branch
 
@@ -261,8 +287,9 @@ Distinguish a lookup error from a missing branch. For example: `chore/branch-wor
 `chore/branch-workspace-policy-2`.
 Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate before execution. If the approval
 target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
-collision, obtain approval for that candidate before creating or switching; without that approval, use the current
-checkout path. A failure during creation remains an operational failure subject to the stop rule below.
+collision, obtain approval for that candidate before creating or switching; without that approval, block handoff.
+Use the current checkout only after the user explicitly selects it for this handoff. A failure during creation remains
+an operational failure subject to the stop rule below.
 
 Create and switch to the approved new branch from the confirmed base HEAD in the current checkout, for example with
 `git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and included in the approval target.
@@ -272,30 +299,50 @@ worktree provisioning on failure.
 
 ### Current checkout
 
-With no explicit approval for new checkout, including refusal, no response, or an unclear response, do not create or
-switch a branch; continue on the current checkout. Confirm the absolute workspace, current branch or detached HEAD,
-HEAD, and existing changes and their preservation and edit ownership. Record this state in the brief. If the state
-cannot be confirmed or ownership is unclear, stop handoff until CEO resolves it. Lack of checkout approval alone does
-not stop Coder handoff.
+Only after the user explicitly selects the current checkout for this handoff, confirm the absolute workspace,
+current branch or detached HEAD, HEAD, and existing changes with their preservation and edit ownership. Record this
+state and the choice evidence in the brief. Missing choice, unconfirmed state, or unclear ownership blocks handoff.
 
 ### Planning document commit
 
-On the new task branch path, confirm the successful switch, actual branch, and unchanged checkout path before the docs
-commit. On the current checkout path, confirm the branch or detached HEAD, checkout path, and existing changes first.
-On both paths, if planning documents have been written and approved for this task, CEO must stage and commit only those
-approved documents (spec and/or plan) in one focused docs commit before Coder handoff. Verify the staged paths match
-exactly those approved documents. Never include implementation files; this commit does not mean implementation
-acceptance. Record the commit SHA and included paths in the brief, together with the post-commit HEAD. Do not push
-without a separate explicit user request.
+On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
+changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
+CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
+content matching the approved version; reuse valid commits without recommitting them.
 
-When approved planning documents exist, if the docs commit fails or staged paths differ from the approved documents,
-stop Coder handoff, inspect and record the actual branch and index state, and resolve the issue before resuming.
-Do not commit implementation files instead or automatically unstage, reset, or discard unrelated changes.
+For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
+Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
+before handoff. Verify both staged paths and staged diff match exactly the approved documents. If unrelated staged
+files exist, preserve them and stop; do not automatically unstage, reset, stash, clean, or discard them. Never include
+implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
+repair it. A separately needed amend requires rechecking its approval scope, current HEAD, and publication state.
 
-If no planning documents were required and none were produced under the existing design/plan depth rules, skip the docs
-commit and record that fact and the applicable depth rationale in the brief. Coder handoff may proceed on either path
-with the confirmed branch or detached HEAD and checkout path. Document absence does not change checkout approval
-requirements. This rule does not require new documents or change the existing approval gates.
+If the docs commit fails or staged content differs, stop handoff and inspect actual branch, HEAD, index, and partial
+completion. Resolve the issue before resuming; do not commit implementation instead. After success verify SHA, actual
+message, included paths/content, post-commit HEAD, final branch, and staged/unstaged/untracked state in the brief.
+A successful command exit alone does not prove preparation complete. This commit is not implementation acceptance
+or push approval; do not push without a separate explicit user request.
+
+Skip this commit only when no planning documents were required and none were produced under the design/plan depth
+rules; record that fact and the applicable depth rationale. Uncommitted documents cannot be treated as absent.
+This does not require new documents or bypass checkout choice or any other handoff-gate condition.
+
+### Git metadata write denial
+
+If authorized staging, committing, branch creation, or switching is denied while writing `.git/index.lock` or other
+Git metadata, CEO blocks handoff and safely inspects the exact command, workspace, error, failed path, actual Git
+directory, branch, HEAD, index state, and partial completion. Read-only inspection includes lock existence and any
+observable related processes, sandbox restrictions, OS permissions/ACLs, and concurrent Git activity. Record supported
+causes and remaining uncertainty; denial of lock creation alone does not prove a stale lock.
+
+Do not delete lock files, use `chmod` or `chown`, bypass the sandbox, move to another workspace, or automatically
+reset/stash/clean. If evidence confirms sandbox denial of an already authorized operation, request the tool-supported
+minimum escalation for only the exact single Git command and workspace, never broad Git access. Before retrying,
+recheck branch, HEAD, index, and partial completion; do not repeat work already completed. After success verify the
+commit or branch result and final state, then reevaluate the entire handoff gate. Denied escalation or unresolved OS
+permission/ACL problems keep handoff blocked; report the reason and actual state to CEO/user. Choosing the final
+message in advance prevents unnecessary amend but does not repair required Git write access; only successful
+authorized writes and verified results establish recovery.
 
 ### Existing changes and failures
 
@@ -308,17 +355,18 @@ If existing changes prevent switching or ownership is unclear, stop handoff unti
 For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
 record the error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial
 completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically
-fall back to the current checkout path after an operational failure. Operational failure is distinct from lack of
-approval. CEO resolves the problem and rechecks preparation before handoff.
+fall back to the current checkout path after an operational failure. Both operational failure and missing
+execution-target choice block handoff. CEO resolves the problem and rechecks preparation before handoff.
 
 ### Handoff evidence
 
 Record the actual absolute workspace, prior branch or detached HEAD and base HEAD, prior change state and preservation
 and edit scope, checkout approval result and evidence, selected execution path, final branch or detached HEAD,
 creation/switch result if attempted, and post-selection branch/path/HEAD/change checks in the brief. Include the docs
-commit SHA and included paths or skip rationale, any failure or partial completion and its resolution, plus absolute
-artifact paths. Give all six roles the same actual workspace, selected execution checkout, preparation evidence, and
-absolute artifact paths. Coder and QA work only in the supplied workspace; Planner, Reviewer, Scout, and Secretary use
+commit SHA, actual message, included paths, approved-content verification or valid no-document depth rationale,
+final verification, and any failure/partial completion and recovery evidence, plus absolute approved artifact paths.
+Record applicable approvals and the explicit execution-target choice for each first start or restart. Give all six
+roles the same actual workspace, selected execution checkout, preparation evidence, and absolute artifact paths. Coder and QA work only in the supplied workspace; Planner, Reviewer, Scout, and Secretary use
 that same workspace. Every role reports missing, inaccessible, or conflicting paths and unexpected branch state to
 CEO before dependent work. Roles do not independently create or switch workspaces or branches.
 
