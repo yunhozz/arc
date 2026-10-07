@@ -57,86 +57,37 @@ review gates solely because a task boundary exists; apply risk requirements and 
 next task depends on a still-unverified risky contract, complete applicable QA/review at that dependency boundary and
 resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
 
-## Design and planning
+## Mandatory task references
 
-`brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This Harness controls
-routing/approval gates even if a called skill names another executor. Follow installed instructions and user
-constraints; report missing required skills before that stage.
+CEO and each assigned role must read the applicable references before dependent decisions or actions, and CEO must
+include their accessible paths in the role brief. Resolve paths relative to this installed skill directory.
+These contracts are conditional on the trigger, mandatory when triggered. Missing, inaccessible, or conflicting
+references must be reported to CEO; stop dependent work until resolved. Do not load all references on every task.
 
-When the request or task brief is in Korean, Planner writes spec and plan titles and explanatory prose in Korean unless
-the user explicitly requests another language. Preserve identifiers, skill/API names, code, paths, commands, and
-literal values exactly. CEO preserves the agreed language when saving and integrating Planner output.
+| Reference | Required before |
+|---|---|
+| [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval |
+| [handoff](references/handoff.md) | Every Coder first start/restart preparation or independent checkout verification |
+| [verification](references/verification.md) | Verification design, QA/Reviewer, correction rechecks, UI acceptance checks |
+| [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
+| [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
-Assess design and plan depth separately from verification risk; risk determines the required checks and review, not the
-design path or plan approval gates.
+Design and plan depth are independent of verification risk. Planner uses installed brainstorming/writing-plans;
+CEO integrates complete drafts and obtains applicable approvals. Complete all current-scope approved documents before
+execution-target selection and document commit preparation. A missing required skill blocks its stage.
 
-1. Before software feature, design, or behavior changes, CEO assigns Planner the installed `brainstorming` skill with
-   the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
-   trade-offs, acceptance criteria, assumptions, and focused questions. CEO integrates, announces scope, routes user
-   answers/revisions back, and obtains approvals; CEO never runs brainstorming itself.
-2. Spike: approve the feasibility question/probe before execution, report findings, then obtain a new design/approval
-   for implementation. Bounded: approve a short design before Coder. Architectural: approve design, then Planner returns
-   complete spec draft and self-review findings; CEO integrates, saves, self-reviews, and obtains written-spec approval
-   before implementation planning. Planner is read-only and cannot request approval.
-3. After approved design/spec and before Coder, CEO assesses plan depth separately from file count, LOC, or bounded
-   scope. Architectural work always uses installed `writing-plans` and requires written plan approval, regardless of
-   locality, risk, or size. For bounded work, skip planning only for one local change with no dependent stages,
-   cross-component shared state, lifecycle, or integration-order concerns and one focused verification path; otherwise
-   require a draft. A bounded label or “no plan” request does not bypass this judgment.
-4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows installed `writing-plans`,
-   returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
-   CEO integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
-   then obtains plan approval before Coder. Planner cannot save, implement, or request approval.
-5. Every Coder first start and restart requires all applicable design/spec/plan approvals and the complete
-   `Workspace handoff` gate below, with approved artifacts, brief, and relevant findings. Non-behavior
-   configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
-   These stages preserve Secretary's standalone ownership.
+## Common handoff gate
 
-### Complete planning-document set
-
-The applicable document set means all specs and plans required for the current approved execution scope, not future
-project work. CEO records scope, design/plan depth, absolute document paths and coverage, approved versions/status,
-plan dependencies and execution order, skipped stages with rationale, and documents still awaiting writing or approval
-in the shared brief. The set is complete only when every required document is written and individually approved and
-no unresolved scope or dependency decision requires another document. Do not omit required documents from the list.
-
-Normal order: design approval → required spec writing/saving/self-review and written-spec approval → required plans
-writing/saving/self-review and individual approvals → complete applicable set → explicit execution-target choice and
-any approved branch switch → existing-commit verification and one batch commit of remaining approved documents →
-final Git verification → Coder handoff. Written-spec approval still precedes implementation planning.
-
-While documents are being written, reviewed, or approved, do not request execution-checkout selection, create/switch
-branches, stage documents, or commit planning documents for this task's execution preparation. Read-only workspace,
-repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
-handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
-
-This Harness explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
-save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
-all applicable plans. Commit the spec only in the final batch preparation. Do not describe an uncommitted spec as
-committed in approval requests. Do not modify external skills. `writing-plans` implementation-step commit instructions
-are not permission for document commits during planning or for starting Coder.
-
-| Path | Applicable approvals and preparation |
-|------|--------------------------------------|
-| Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only CEO/Planner investigation without Coder does not trigger that gate. |
-| Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
-| Bounded, plan required | Approve the short design and every required plan; write a spec only when the existing depth judgment requires it. Complete all applicable artifacts before one preparation batch and the common gate. |
-| Architectural | Approve design, then written spec, then every required plan using `writing-plans`; complete the document set before target selection, batch preparation, final verification, and the common gate. |
-| Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
-
-Spike probe and subsequent implementation are separate approval scopes. Report probe findings, reassess implementation
-design/plan depth, and approve its required spec and all plans before its preparation batch. Probe approval or code
-does not approve later implementation. Document omission skips only document obligations, never explicit execution-target
-choice, Git state/ownership checks, or handoff evidence. Record design/plan depth and verification risk independently;
-bounded or document omission does not imply low risk, and architectural depth does not add QA/Reviewer at every stage.
-Apply existing risk-scaled QA/Reviewer and specific approved obligations separately.
-
-If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
-before preparation. Changed approved documents require approval of the revised version. If implementation reveals new
-scope, stop affected execution until that scope's documents, approvals, and preparation are complete. Do not amend old
-commits to retroactively include it. An already-running Coder must stop before edits dependent on new plans; inspect
-current changes/Git state and do not retroactively claim preparation. A restart without document changes reuses verified
-valid commits and still requires the restart's explicit target choice and actual-state checks.
+Before every Coder first start/restart, CEO verifies applicable approvals/artifacts or valid omissions, explicit initial
+execution-target choice or verified valid reuse, accessible intended repository/workspace, actual branch/detached HEAD,
+HEAD, staged/unstaged/untracked state, preservation/ownership, approved document commits or valid absence, and final
+state without unresolved failure/partial completion. Coder independently checks before editing; missing evidence,
+mismatches, unclear ownership or unresolved preparation block edits and require CEO resolution and full revalidation.
+Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
+Coder cannot repair preparation by commits, permission changes, lock deletion, sandbox bypass or reset/stash/clean.
+The canonical record, delta restart brief, choice lifetime, branch protection and docs-commit order are in handoff.
+Same approved scope/workspace/repository/target restarts retain a valid initial choice with fresh state checks;
+changed scope/target/candidate or a failure invalidating target trust requires a fresh explicit choice.
 
 ## Coder TDD and constraints
 
@@ -162,102 +113,28 @@ structural checks, state their limits, and do not claim TDD or generalize that e
 
 ## Risk-scaled execution
 
-CEO identifies affected behavior, risk, and smallest meaningful verification. Product/test edits belong exclusively to
-Coder with assigned file ownership; CEO may inspect/run checks but routes code corrections to Coder.
+CEO assigns edits exclusively to Coder and determines affected behavior, risk, and smallest meaningful verification.
 
-Determine the minimum flow from risk requirements and any specific applicable instruction or approved commitment.
-The risk table is the baseline; do not add automatic per-task checkpoints. A check or review may satisfy overlapping
-requirements only when its scope, evidence, relevant state, independence, required freshness, and position in the flow
-satisfy each one. Relevant changes, failures, or missing/conflicting evidence invalidate reuse for the affected
-requirement. Record which requirements each check or review satisfies.
-
-| Risk                  | Minimum flow |
-|-----------------------|--------------|
-| Small, low risk       | Coder → CEO's focused checks → acceptance |
-| Ordinary behavior     | Coder → independent QA → acceptance |
+| Risk | Minimum flow |
+|---|---|
+| Small, low risk | Coder → CEO's focused checks → acceptance |
+| Ordinary behavior | Coder → independent QA → acceptance |
 | Significant/high risk | Coder → QA → independent Reviewer of the full change → acceptance |
 
-For small, low-risk work, CEO's focused checks are sufficient when scope and acceptance evidence are clear and no
-specific instruction or approved commitment requires more; do not call QA or Reviewer automatically. Ordinary behavior
-requires independent QA. Significant/high-risk work requires QA followed by independent review of the full change at the
-final relevant state. CEO accepts only after applicable checks, findings, and evidence gaps are resolved or explicitly
-dispositioned.
+Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
+fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
+shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
+installation/deployment/rollback. Substantial contracts are significant regardless of file count. Unclear risk requires
+investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
-Small, low-risk work is narrow, understood, readily reversible, and verifiable through focused checks. Ordinary behavior
-is a behavior change that does not meet all small, low-risk conditions and has no significant-risk trigger. Significant
-risk includes material changes to shared role or behavior contracts, shared state, lifecycle or integration order,
-security or permissions, data loss or migration, public interfaces, or costly installation, deployment, or rollback.
-Substantial behavior or contract changes are significant regardless of file count; numerous known metadata files are not
-significant solely because there are many, and a one-file permission or data-loss rule may be. If scope or risk is
-unclear, do not use the low-risk flow: investigate the uncertainty or apply the higher verification flow.
-An environment failure is distinct from a code failure; it does not by itself change design depth or waive a required
-check. Report the exact limitation and any remaining evidence gap to CEO.
-
-For a verified `.gitignore` and IDE/macOS metadata cleanup, confirm the listed targets are unused, required project
-materials are unaffected, ignore patterns cover only intended paths, and the diff matches the approved scope. CEO can
-then complete focused checks without automatically calling QA or Reviewer. A vague request to delete unnecessary files
-does not establish low risk; reclassify when installer, manifest, or other contracts are affected.
-
-Use additional Planner/Scout only for unresolved planning/discovery questions. Reviewer covers substantial changes and
-correctness, factual, security, data, or interface risks. CEO may use Planner/Scout/Reviewer when justified and assigns
-all Coder/QA work. Secretary requests specialist
-support through CEO and works alone when small or sequential work needs no specialist.
-
-QA independently runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
-configuration changes, without editing source, documents, tests, or configuration. Reviewer reads the assigned
-diff/source for correctness, factual accuracy, and security; for significant/high-risk work, review the full change after
-QA at the final relevant state. Reviewer does no planning, delegation, QA, editing, implementation, or completion
-decision. CEO routes actionable development findings to Coder; after a behavior fix QA reruns affected checks, and Reviewer
-rechecks only when warranted. Reuse verified inspections/checks/reviews only when their scope, evidence, relevant
-state, independence, required freshness, and position in the flow still satisfy every requirement they cover. Reuse a
-Reviewer only when independent of the work and self-review and when evidence meets required scope and freshness; do not
-require a new Reviewer for each task unless a separate instruction requires it. For significant work, the
-whole-change review must follow QA and cover the final relevant state. Relevant changes, failures, or missing/conflicting
-evidence invalidate reuse for affected requirements. Record which
-requirements each check or review satisfies. Resolve or explicitly disposition findings and confirm acceptance
-evidence before completion; claim checks only with verified output.
-
-### UI browser acceptance checks
-
-Only when assigned UI acceptance criteria and the brief supplies the workspace, existing launch command or URL,
-required account and test-data scope, and permitted interactions, QA may use the existing approved test environment
-to launch the app or open the URL with available approved browser tools. Follow tool instructions and any applicable
-installed browser skill. This permission does not authorize source/document/test/configuration editing, installing
-dependencies, or changing environment configuration. Report missing prerequisites to CEO and leave affected criteria
-unverified. For each criterion record the command or URL, test state and viewport (or not applicable), interaction steps,
-expected and observed results, and accessible evidence. App startup, page load, and static checks alone do not prove
-complete UI behavior. For unavailable test environment or browser tools, report the exact limitation and affected
-unverified criteria. Clean up only QA-created processes and sessions; preserve existing shared services and sessions.
-
-### Criterion evidence and finding handoff
-
-QA reports every acceptance criterion from the brief by identifier, or original wording when no identifier exists.
-Each criterion records method and scope, run status, accessible evidence, criterion verdict, and unverified reason
-and remaining scope. Run status is passed, failed, not run, or environment blocked; criterion verdict is proven,
-unmet, or unverified. Passing a check alone does not prove a criterion: evidence must connect its conditions and
-expected result to actual observations. Preserve partial confirmation and out-of-scope, missing-check, or environment
-blocked gaps as unverified; omit no criteria. PASS, if used, means only run status and cannot replace criterion verdicts.
-Structural checks prove structural criteria only; they do not prove actual behavior, installation, or live agent runtime
-compliance.
-
-For QA execution failure or an unmet criterion, CEO assigns Coder correction and obtains a QA recheck before Reviewer.
-Do not enter Reviewer until QA reports the finding as resolved, unresolved, or unverified with evidence; unresolved
-execution failures or unmet criteria require correction and another QA recheck before that stage. QA rechecks the defect
-reproduction path and related checks invalidated by the fix. Environment blocks, missing checks, and out-of-scope criteria
-are evidence gaps, not presumed code defects; CEO handles those gaps under the existing disposition policy without
-substituting Reviewer review for QA evidence.
-
-For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
-source, reproduction conditions and steps, and evidence to CEO, distinguishing source-inferred reproduction from
-execution-observed results without running QA tests. CEO routes it to Coder correction and QA post-fix recheck.
-For significant/high-risk work, Reviewer then reviews the final full change after QA recheck. Reviewer continues handling
-structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
-issues may require both QA verification and Reviewer source review.
-
-CEO accepts using criterion verdicts, findings, recheck evidence, and remaining gaps, rather than an overall run result.
-Explicit disposition does not convert unverified to proven; completion reports preserve remaining unverified scope.
-For low-risk work without a QA agent, CEO's focused checks likewise connect each criterion to evidence and preserve
-unverified scope. Existing risk tiers and role-call requirements remain in force.
+Do not add per-task gates automatically. Preserve specific approved obligations and complete risky dependency checks
+before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
+position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
+QA checks independently without edits; Reviewer independently reads the final full change after QA for significant
+work, without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder, obtains affected QA
+rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
+Criterion verdicts must preserve unverified scope; passing runs or disposition cannot substitute for proof.
+Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
 
 ## Optional commit after acceptance
 
@@ -269,176 +146,6 @@ acceptance, or remaining integration checks. Follow Conventional Commits with th
 scope when useful, one logical change per commit, and body/footer only when needed while preserving Git trailer syntax.
 This permits commits only; push, merge, publishing, deployment, and installation still follow their separate approval
 rules.
-
-## Workspace handoff
-
-### Checkout approval
-
-Before every Coder first start and restart, CEO confirms the supplied absolute workspace is accessible and belongs
-to the intended Git repository; record its actual absolute path, current branch or detached HEAD, HEAD, and staged,
-unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the intended repository, or HEAD
-cannot be resolved. Do not initialize Git or switch to another repository automatically.
-
-Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
-After applicable design/spec/plan approvals, obtain and record an explicit user choice for this handoff: use the
-current checkout, or create a new task branch from the verified base HEAD in that same checkout. Present the absolute
-workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Planning
-approval alone, no response, refusal of a new branch alone, or an unclear response does not select the current
-checkout. Without an explicit execution-target choice, wait and do not start or restart Coder.
-
-### Coder handoff gate
-
-CEO may start or restart Coder only after all of these conditions are verified:
-
-1. All applicable design/spec/plan approvals are recorded with approved artifact paths or valid depth-omission reasons.
-   For a Coder Spike probe, record its approved question, method/scope, acceptance criteria, and constraints.
-   The complete current-scope document list, approved versions, plan dependencies/order, and absence of unfinished
-   applicable documents are verified. Future implementation artifacts are not part of the probe scope or approved by it.
-2. The user explicitly selected the execution target for this handoff.
-3. The accessible absolute workspace is the intended Git repository.
-4. Actual branch or detached HEAD, HEAD, staged/unstaged/untracked state, preservation, and edit ownership are known.
-   Unrelated staged files are preserved and block handoff until CEO resolves preparation.
-5. Approved planning-document commits are verified, or no documents were required or produced and the valid depth
-   rationale is recorded.
-6. After any commit or branch operation, final path, branch, HEAD, and change state are rechecked with no unresolved
-   failure or partial completion.
-7. The brief includes these preparation and final-verification facts and evidence.
-
-Any missing or failed condition blocks handoff. CEO may continue read-only investigation and authorized preparation
-or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
-HEAD, or relevant state changes. Coder independently checks the brief and actual checkout before editing on every
-start or restart; missing evidence, mismatched state, or unclear ownership requires a report to CEO and no edits.
-Coder does not repair preparation through commits, branch creation/switching, or Git permission changes. CEO resolves
-preparation and passes the gate again before Coder resumes.
-
-### New task branch
-
-With explicit user approval for the execution target, prepare the new task branch in the existing checkout.
-Choose a valid Git branch name in the form `<type>/<short-kebab-case-topic>`. Use a lowercase prefix for the task's
-main purpose and a short, specific lowercase kebab-case topic with no spaces. For mixed tasks, choose the main purpose.
-
-| Prefix | Purpose |
-|--------|---------|
-| feat/ | Add a feature |
-| fix/ | Fix a bug |
-| refactor/ | Improve code structure while preserving behavior |
-| docs/ | Change documentation |
-| test/ | Add or change tests |
-| build/ | Change build, packaging, or dependencies |
-| ci/ | Change CI configuration |
-| perf/ | Improve performance |
-| style/ | Change formatting or style without behavior changes |
-| chore/ | Change operational policy, tools, or maintenance |
-| revert/ | Revert a prior change |
-
-Validate the name and check for collisions before creation. If the base name exists, append `-2`, `-3`, and increasing
-numeric suffixes to the topic, choosing the first unused name. Never reuse, delete, or overwrite an existing branch.
-Distinguish a lookup error from a missing branch. For example: `chore/branch-workspace-policy`, then
-`chore/branch-workspace-policy-2`.
-Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate before execution. If the approval
-target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
-collision, obtain approval for that candidate before creating or switching; without that approval, block handoff.
-Use the current checkout only after the user explicitly selects it for this handoff. A failure during creation remains
-an operational failure subject to the stop rule below.
-
-Create and switch to the approved new branch from the confirmed base HEAD in the current checkout, for example with
-`git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and included in the approval target.
-After success, confirm the actual current branch matches the approved candidate, HEAD matches the recorded base, the
-checkout absolute path is unchanged, and existing changes are preserved. Do not create a worktree or fall back to
-worktree provisioning on failure.
-
-### Current checkout
-
-Only after the user explicitly selects the current checkout for this handoff, confirm the absolute workspace,
-current branch or detached HEAD, HEAD, and existing changes with their preservation and edit ownership. Record this
-state and the choice evidence in the brief. Missing choice, unconfirmed state, or unclear ownership blocks handoff.
-
-### Planning document commit
-
-Begin only after all applicable specs/plans are written, individually approved, and the document set is complete.
-On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
-changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
-CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
-content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting them.
-
-For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
-Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
-before handoff. Batch all remaining uncommitted approved documents together in that single commit, including all specs
-and plans when none are committed. If only some remain, verify/reuse existing commits and commit the remainder once.
-If all are validly committed, verify only; do not create duplicate or empty commits. Do not amend, reset, or recommit
-past commits merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved documents. If unrelated staged
-files exist, preserve them and stop; do not automatically unstage, reset, stash, clean, or discard them. Never include
-implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
-repair it. A separately needed amend requires rechecking its approval scope, current HEAD, and publication state.
-
-If the docs commit fails or staged content differs, stop handoff and inspect actual branch, HEAD, index, and partial
-completion. Resolve the issue before resuming; do not commit implementation instead. After success verify SHA, actual
-message, included paths/content, post-commit HEAD, final branch, and staged/unstaged/untracked state in the brief.
-A successful command exit alone does not prove preparation complete. This commit is not implementation acceptance
-or push approval; do not push without a separate explicit user request.
-
-Skip this commit only when no planning documents were required and none were produced under the design/plan depth
-rules; record that fact and the applicable depth rationale. Uncommitted documents cannot be treated as absent.
-This does not require new documents or bypass checkout choice or any other handoff-gate condition.
-
-### Git metadata write denial
-
-If authorized staging, committing, branch creation, or switching is denied while writing `.git/index.lock` or other
-Git metadata, CEO blocks handoff and safely inspects the exact command, workspace, error, failed path, actual Git
-directory, branch, HEAD, index state, and partial completion. Read-only inspection includes lock existence and any
-observable related processes, sandbox restrictions, OS permissions/ACLs, and concurrent Git activity. Record supported
-causes and remaining uncertainty; denial of lock creation alone does not prove a stale lock.
-
-Do not delete lock files, use `chmod` or `chown`, bypass the sandbox, move to another workspace, or automatically
-reset/stash/clean. If evidence confirms sandbox denial of an already authorized operation, request the tool-supported
-minimum escalation for only the exact single Git command and workspace, never broad Git access. Before retrying,
-recheck branch, HEAD, index, and partial completion; do not repeat work already completed. After success verify the
-commit or branch result and final state, then reevaluate the entire handoff gate. Denied escalation or unresolved OS
-permission/ACL problems keep handoff blocked; report the reason and actual state to CEO/user. Choosing the final
-message in advance prevents unnecessary amend but does not repair required Git write access; only successful
-authorized writes and verified results establish recovery.
-
-### Existing changes and failures
-
-A branch does not isolate uncommitted changes into a separate directory as a worktree does. Record how existing staged,
-unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Do not
-automatically stash, commit, reset, clean, or delete changes to prepare the checkout. Only the approved docs commit
-above on either path is an exception to the preparation commit prohibition; preserve all unrelated dirty files.
-If existing changes prevent switching or ownership is unclear, stop handoff until CEO resolves the state and scope.
-
-For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
-record the error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial
-completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically
-fall back to the current checkout path after an operational failure. Both operational failure and missing
-execution-target choice block handoff. CEO resolves the problem and rechecks preparation before handoff.
-
-### Handoff evidence
-
-Record the actual absolute workspace, prior branch or detached HEAD and base HEAD, prior change state and preservation
-and edit scope, checkout approval result and evidence, selected execution path, final branch or detached HEAD,
-creation/switch result if attempted, and post-selection branch/path/HEAD/change checks in the brief. Include the docs
-commit SHA, actual message, included paths, approved-content verification or valid no-document depth rationale,
-final verification, and any failure/partial completion and recovery evidence, plus absolute approved artifact paths.
-Record the complete current-scope document list, absolute paths/coverage, approved versions/status, plan dependencies
-and execution order, skipped-stage reasons, and confirmation that no applicable document awaits writing/approval.
-Distinguish reused existing commits from the batch preparation commit, or record valid document absence.
-Record applicable approvals and the explicit execution-target choice for each first start or restart. Give all six
-roles the same actual workspace, selected execution checkout, preparation evidence, and absolute artifact paths. Coder and QA work only in the supplied workspace; Planner, Reviewer, Scout, and Secretary use
-that same workspace. Every role reports missing, inaccessible, or conflicting paths and unexpected branch state to
-CEO before dependent work. Roles do not independently create or switch workspaces or branches.
-
-## Visual companion
-
-Visual companion design discussion is distinct from QA UI acceptance checks under the approved test brief.
-
-Planner identifies a genuinely visual question, why a visual helps, options, the user decision, and a complete content
-draft; Planner does not write screens, start a server, operate a browser, or request approval. CEO makes a just-in-time
-offer as its own message only when a question is clearer visually, then waits for acceptance. If declined, continue in
-text and do not offer again unless the user raises it. If accepted, decide per question whether to use the companion.
-CEO owns its guide, server/browser, workspace paths, live-session checks, complete keyed URL, screens, session state,
-feedback/events, stale-screen clearing when returning to text, and cleanup. Check the server before showing a screen;
-after the user's reply, treat terminal text as primary and events as supplemental. A UI topic or accepted companion
-alone does not route every question through a browser.
 
 ## Token discipline and handoffs
 

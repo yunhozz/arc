@@ -1,0 +1,36 @@
+# Git recovery contract
+
+Read on branch collision, Git preparation failure, partial completion, or metadata write denial.
+Use [handoff.md](handoff.md) for approved branch selection and the complete restart gate.
+
+### Git metadata write denial
+
+If authorized staging, committing, branch creation, or switching is denied while writing `.git/index.lock` or other
+Git metadata, CEO blocks handoff and safely inspects the exact command, workspace, error, failed path, actual Git
+directory, branch, HEAD, index state, and partial completion. Read-only inspection includes lock existence and any
+observable related processes, sandbox restrictions, OS permissions/ACLs, and concurrent Git activity. Record supported
+causes and remaining uncertainty; denial of lock creation alone does not prove a stale lock.
+
+Do not delete lock files, use `chmod` or `chown`, bypass the sandbox, move to another workspace, or automatically
+reset/stash/clean. If evidence confirms sandbox denial of an already authorized operation, request the tool-supported
+minimum escalation for only the exact single Git command and workspace, never broad Git access. Before retrying,
+recheck branch, HEAD, index, and partial completion; do not repeat work already completed. After success verify the
+commit or branch result and final state, then reevaluate the entire handoff gate. Denied escalation or unresolved OS
+permission/ACL problems keep handoff blocked; report the reason and actual state to CEO/user. Choosing the final
+message in advance prevents unnecessary amend but does not repair required Git write access; only successful
+authorized writes and verified results establish recovery.
+
+### Existing changes and failures
+
+A branch does not isolate uncommitted changes into a separate directory as a worktree does. Record how existing staged,
+unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Do not
+automatically stash, commit, reset, clean, or delete changes to prepare the checkout. Only the approved docs commit
+above on either path is an exception to the preparation commit prohibition; preserve all unrelated dirty files.
+If existing changes prevent switching or ownership is unclear, stop handoff until CEO resolves the state and scope.
+
+For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
+record the error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial
+completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically
+fall back to the current checkout path after an operational failure. Both operational failure and missing
+execution-target choice block handoff. CEO resolves the problem and rechecks preparation before handoff.
+

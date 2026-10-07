@@ -225,6 +225,123 @@ class ApplyModelsTests(unittest.TestCase):
         self.assertIn("six", result.stdout)
 
 
+REFERENCE_NAMES = ("planning", "handoff", "verification", "git-recovery", "visual-companion")
+
+
+def policy_text(name: str) -> str:
+    path = REPO / "skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
+    return " ".join(path.read_text().lower().split())
+
+
+class ConditionalReferenceTests(unittest.TestCase):
+    # User-approved static contract exception for this change only.
+    # These checks do not establish consuming-agent runtime compliance.
+    def test_core_requires_task_scoped_references(self) -> None:
+        core = policy_text("core")
+        self.assertRegex(core, r"must read.*before.*dependent")
+        self.assertRegex(core, r"missing.*conflicting.*ceo.*stop")
+        for name in REFERENCE_NAMES:
+            with self.subTest(reference=name):
+                self.assertIn(f"references/{name}.md", core)
+                self.assertTrue((REPO / f"skill/references/{name}.md").is_file())
+        self.assertRegex(core, r"do not load all references")
+
+    def test_reference_triggers_cover_dependent_stages(self) -> None:
+        core = policy_text("core")
+        for name, trigger in (
+            ("planning", r"design/plan-depth judgments.*spec/plan drafting or approval"),
+            ("handoff", r"every coder first start/restart.*independent checkout verification"),
+            ("verification", r"verification design.*qa/reviewer.*correction rechecks.*ui acceptance"),
+            ("git-recovery", r"branch collision.*git preparation failure.*partial completion.*metadata write denial"),
+            ("visual-companion", r"visual companion offer or operation"),
+        ):
+            with self.subTest(reference=name):
+                row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+                           if f"references/{name}.md" in line)
+                self.assertRegex(row, trigger)
+        self.assertRegex(core, r"ceo.*each assigned role.*must read")
+        self.assertRegex(core, r"ceo must.*accessible paths.*role brief")
+
+    def test_planning_order_and_recovery_protections_remain(self) -> None:
+        planning = policy_text("planning")
+        for contract in (
+            r"normal order: design approval.*written-spec approval.*individual approvals.*complete applicable set.*explicit execution-target choice.*batch commit.*final git verification.*coder handoff",
+            r"while documents.*do not request execution-checkout selection.*stage documents.*commit planning documents",
+            r"architectural work always.*writing-plans.*written plan approval",
+            r"skip planning only for one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
+            r"changed approved documents require approval of the revised version",
+        ):
+            self.assertRegex(planning, contract)
+        recovery = policy_text("git-recovery")
+        for contract in (
+            r"denial of lock creation alone does not prove a stale lock",
+            r"do not delete lock files.*chmod.*chown.*bypass the sandbox.*move to another workspace.*reset/stash/clean",
+            r"minimum escalation.*exact single git command and workspace.*never broad git access",
+            r"before retrying.*branch.*head.*index.*partial completion",
+            r"both operational failure and missing execution-target choice block handoff",
+        ):
+            self.assertRegex(recovery, contract)
+
+    def test_core_word_count_meets_budget(self) -> None:
+        result = subprocess.run(["wc", "-w", str(REPO / "skill/SKILL.md")],
+                                capture_output=True, text=True, check=True)
+        self.assertLessEqual(int(result.stdout.split()[0]), 2788)
+
+    def test_references_preserve_policy_contracts(self) -> None:
+        contracts = {
+            "planning": ("complete planning-document set", "written-spec approval", "individually approved"),
+            "handoff": ("planning document commit", "unrelated staged", "approved-content verification"),
+            "verification": ("criterion verdict", "ui browser acceptance checks", "whole-change review"),
+            "git-recovery": ("git metadata write denial", "partial completion", "do not delete lock files"),
+            "visual-companion": ("complete keyed url", "terminal text as primary", "waits for acceptance"),
+        }
+        for name, phrases in contracts.items():
+            path = REPO / f"skill/references/{name}.md"
+            self.assertTrue(path.is_file(), name)
+            for phrase in phrases:
+                with self.subTest(reference=name, contract=phrase):
+                    self.assertIn(phrase, policy_text(name))
+
+    def test_core_preserves_role_and_risk_gates(self) -> None:
+        core = policy_text("core")
+        for contract in (r"all six roles.*directly to ceo.*depth 2",
+                         r"coder.*independent qa", r"qa.*independent reviewer.*full change",
+                         r"ordinary.*significant/high-risk.*not eligible",
+                         r"explicit user or task-specific tdd request overrides"):
+            self.assertRegex(core, contract)
+
+    def test_coder_reuses_choice_but_rechecks_state(self) -> None:
+        coder = " ".join(tomllib.loads((REPO / "agents/yunho-team-coder.toml").read_text())
+                         ["developer_instructions"].lower().split())
+        self.assertRegex(coder, r"reuse.*initial explicit choice")
+        self.assertRegex(coder, r"every first start or restart.*independently verify")
+        self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
+
+    def test_restart_choice_lifetime_and_evidence(self) -> None:
+        path = REPO / "skill/references/handoff.md"
+        self.assertTrue(path.is_file())
+        handoff = policy_text("handoff")
+        cases = {
+            "first start": r"first start.*explicit user choice",
+            "same target": r"same approved scope.*workspace.*repository.*execution target.*reuse.*initial explicit choice",
+            "fresh state": r"every first start and restart.*ceo.*coder.*actual.*git state",
+            "changed target": r"scope.*workspace.*repository.*target.*approved branch candidate.*changes.*fresh explicit choice",
+            "invalidating failure": r"failure.*old target cannot be trusted.*fresh explicit choice",
+            "normal work": r"normal.*head.*dirty.*do not.*invalidate",
+            "record": r"one canonical initial handoff record.*accessible",
+            "delta": r"delta-only restart brief.*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
+            "block": r"inaccessible.*record.*missing evidence.*unclear ownership.*block",
+        }
+        for case, contract in cases.items():
+            with self.subTest(case=case):
+                self.assertRegex(handoff, contract)
+        coder = " ".join(tomllib.loads((REPO / "agents/yunho-team-coder.toml").read_text())
+                         ["developer_instructions"].lower().split())
+        self.assertRegex(coder, r"reuse.*initial explicit choice")
+        self.assertRegex(coder, r"every first start or restart.*independently verify")
+        self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
+
+
 class RolePolicyTests(unittest.TestCase):
     # Approved package-consistency checks; these do not execute agent runtime behavior.
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:
@@ -257,7 +374,7 @@ class RolePolicyTests(unittest.TestCase):
         qa = " ".join(tomllib.loads(
             (REPO / "agents/yunho-team-qa.toml").read_text()
         )["developer_instructions"].lower().split())
-        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        policy = policy_text("verification")
         for artifact, text in (("qa", qa), ("policy", policy)):
             for contract in (
                 r"only when.*assigned ui.*brief.*workspace.*existing launch command or url.*account.*test.data.*permitted interactions",
@@ -309,8 +426,7 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(instructions, contract)
 
     def _workspace_handoff_section(self, title: str) -> str:
-        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
-        handoff = policy.split("## workspace handoff", 1)[1].split("## visual companion", 1)[0]
+        handoff = policy_text("handoff") + " " + policy_text("git-recovery")
         self.assertIn(f"### {title.lower()}", handoff)
         return handoff.split(f"### {title.lower()}", 1)[1].split("### ", 1)[0]
 
@@ -392,8 +508,7 @@ class RolePolicyTests(unittest.TestCase):
         )
 
     def test_workspace_handoff_commits_approved_plan_docs_before_coder(self) -> None:
-        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
-        handoff = policy.split("## workspace handoff", 1)[1].split("## visual companion", 1)[0]
+        handoff = policy_text("handoff") + " " + policy_text("git-recovery")
         self._assert_workspace_handoff_contracts(
             "Planning document commit",
             (
@@ -416,7 +531,7 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(handoff, contract)
 
     def test_acceptance_evidence_flow(self) -> None:
-        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        policy = policy_text("verification")
         for contract in (
             r"qa.*failure.*ceo.*coder.*correction.*qa recheck.*before reviewer",
             r"do not enter reviewer.*qa.*resolved.*unresolved.*unverified",
@@ -796,6 +911,32 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 self.assertIn("필수 외부 스킬 누락", output)
                 self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
 
+    def test_manifest_rejects_missing_reference_entry(self) -> None:
+        self.create_payload()
+        for name in REFERENCE_NAMES:
+            with self.subTest(reference=name):
+                path = self.payload / f"skill/references/{name}.md"
+                self.assertTrue(path.is_file(), str(path))
+                refresh_manifest(self.payload)
+                manifest = self.payload / "MANIFEST.sha256"
+                manifest.write_text("".join(line for line in manifest.read_text().splitlines(True)
+                                            if not line.endswith(f"  skill/references/{name}.md\n")))
+                with self.assertRaisesRegex(installer.InstallerError, "does not cover.*references"):
+                    installer.verify_manifest(self.payload)
+
+    def test_manifest_rejects_reference_hash_mismatch(self) -> None:
+        self.create_payload()
+        for name in REFERENCE_NAMES:
+            with self.subTest(reference=name):
+                path = self.payload / f"skill/references/{name}.md"
+                self.assertTrue(path.is_file(), str(path))
+                refresh_manifest(self.payload)
+                original = path.read_bytes()
+                path.write_bytes(original + b"\nchanged contract\n")
+                with self.assertRaisesRegex(installer.InstallerError, "SHA-256 mismatch.*references"):
+                    installer.verify_manifest(self.payload)
+                path.write_bytes(original)
+
     def test_install_writes_harness_profiles_and_three_external_skills(self) -> None:
         self.create_payload()
         candidates = self.install_candidates(self.user_home / ".agents" / "skills")
@@ -818,6 +959,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         )
         harness = self.codex_home / "skills" / installer.INSTALL_NAME
         self.assertEqual(tree_state(harness), tree_state(self.payload / "skill"))
+        for name in REFERENCE_NAMES:
+            relative = f"references/{name}.md"
+            self.assertTrue((harness / relative).is_file(), relative)
+            self.assertEqual((harness / relative).read_bytes(), (self.payload / "skill" / relative).read_bytes())
         for filename, expected in expected_profiles.items():
             target = self.codex_home / "agents" / filename
             source = self.payload / "agents" / filename
