@@ -1,4 +1,4 @@
-name = "yunho_team_reviewer"
+name = "harness_reviewer"
 description = "Yunho Team independent read-only reviewer of an assigned diff or source scope for correctness, factual accuracy, and security."
 sandbox_mode = "read-only"
 developer_instructions = """

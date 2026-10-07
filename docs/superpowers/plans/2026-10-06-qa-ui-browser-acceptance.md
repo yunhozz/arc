@@ -15,7 +15,7 @@
 | 파일 | Coder 변경 |
 |---|---|
 | `tests/test_install.py` | UI 검증 조건·보고·정리·Visual companion 경계를 확인하는 집중 구조 계약 테스트 |
-| `agents/yunho-team-qa.toml` | 조건부 앱 실행 및 브라우저 acceptance 검증 지침 |
+| `agents/harness-qa.toml` | 조건부 앱 실행 및 브라우저 acceptance 검증 지침 |
 | `skill/SKILL.md` | 공통 QA 실행 계약과 Visual companion 경계 한 문장 |
 | `README.md` | 사용자용 한국어 요약 |
 | `MANIFEST.sha256` | 위 배포 파일의 해시 동기화 |

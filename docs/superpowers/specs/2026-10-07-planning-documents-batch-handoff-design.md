@@ -111,7 +111,7 @@ CEO는 승인된 각 문서가 이미 커밋된 경우 SHA, 실제 메시지, �
 - `skill/SKILL.md`: 계획 문서 작성·승인 완료 전 실행 준비 금지, 완결 기준, 외부 brainstorming 커밋 지시 이연, 일괄 문서 커밋과 예외를 명시한다.
 - `README.md`: 모든 적용 문서 승인 후 체크아웃 선택과 문서 일괄 준비를 안내한다.
 - `MANIFEST.sha256`: 관리 대상 변경 파일의 해시만 갱신한다.
-- `agents/yunho-team-coder.toml`: 독립 사전 확인 계약은 유지한다. 필요한 문서 목록·승인 버전 확인이 부족하면 범위 변경을 보고한다.
+- `agents/harness-coder.toml`: 독립 사전 확인 계약은 유지한다. 필요한 문서 목록·승인 버전 확인이 부족하면 범위 변경을 보고한다.
 - `tests/test_install.py`: 읽기 전용 근거로 검토한다. 이번 범위에서는 테스트를 추가·수정·실행하지 않는다.
 
 외부 brainstorming·writing-plans 스킬, 설치기, 모델 설정, 다른 역할 프로필, 설치된 Harness 사본, 별도 프로젝트의 Git 권한은 변경하지 않는다. Push·merge·배포 권한도 확대하지 않는다.

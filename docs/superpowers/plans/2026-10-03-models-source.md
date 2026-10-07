@@ -47,13 +47,13 @@ preflight·backup·staging·promotion 순서로 동작한다.
 | `skill/models.toml`                | version 2 matrix와 역할 값                     |
 | `skill/scripts/model_config.py`    | 새 공통 검증·bytes rendering                   |
 | `skill/scripts/apply-models.py`    | 설치 프로필 CLI·파일 transaction               |
-| `agents/yunho-team-lead.toml`      | Lead 템플릿                                    |
-| `agents/yunho-team-secretary.toml` | Secretary 템플릿                               |
-| `agents/yunho-team-planner.toml`   | Planner 템플릿                                 |
-| `agents/yunho-team-scout.toml`     | Scout 템플릿                                   |
-| `agents/yunho-team-coder.toml`     | Coder 템플릿                                   |
-| `agents/yunho-team-qa.toml`        | QA 템플릿                                      |
-| `agents/yunho-team-reviewer.toml`  | Reviewer 템플릿                                |
+| `agents/harness-lead.toml`      | Lead 템플릿                                    |
+| `agents/harness-secretary.toml` | Secretary 템플릿                               |
+| `agents/harness-planner.toml`   | Planner 템플릿                                 |
+| `agents/harness-scout.toml`     | Scout 템플릿                                   |
+| `agents/harness-coder.toml`     | Coder 템플릿                                   |
+| `agents/harness-qa.toml`        | QA 템플릿                                      |
+| `agents/harness-reviewer.toml`  | Reviewer 템플릿                                |
 | `install.py`                       | payload 선택·manifest·모듈 load·설치 lifecycle |
 | `skill/SKILL.md`                   | 모델 설정·적용 workflow                        |
 | `config.toml`                      | 모델 주석 제거·수동 concurrency 예시           |

@@ -1,6 +1,6 @@
 # Yunho Harness
 
-This Harness coordinates Codex research, document writing, and development by role. CEO coordinates development, while Secretary and five specialist roles carry out their assigned work.
+이 Harness는 Codex의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, Secretary와 다섯 전문 역할이 배정된 작업을 수행합니다.
 
 ## 👥 역할과 작업 흐름
 
@@ -15,8 +15,8 @@ This Harness coordinates Codex research, document writing, and development by ro
 | Reviewer | 독립 검토 |
 
 - 개발·설정·테스트·구현 의존 문서와 구현이 섞인 작업은 CEO가 책임지고, 코드 편집은 Coder에게 맡깁니다.
-- Secretary works with materials such as documents, data, and static logs. Researching publicly documented operational methods is also in scope. Inspecting current system, app, or process state and performing operational cleanup are outside scope. This boundary does not automatically assign another owner.
-- All six roles report directly to CEO and may not create agents or delegate directly to other roles. The full tree is limited to four concurrent subagents, including Secretary. Parallelize only independent tasks; handle dependent tasks sequentially.
+- Secretary는 문서·데이터·정적 로그 등의 자료를 다룹니다. 공개 문서에 기록된 운영 방법 조사도 담당 범위에 포함됩니다. 현재 시스템·앱·프로세스 상태의 확인과 운영 정리는 담당 범위 밖이며, 이 경계가 다른 담당자를 자동으로 지정하지는 않습니다.
+- 여섯 역할은 모두 CEO에게 직접 보고하며, 에이전트를 만들거나 다른 역할에 직접 위임할 수 없습니다. 전체 트리에서 Secretary를 포함해 하위 에이전트는 최대 네 개까지 동시에 실행합니다. 독립적인 작업만 병렬로 처리하고, 종속 작업은 순서대로 수행합니다.
 
 | 변경 위험 | 최소 검증 흐름 |
 |---|---|
@@ -28,59 +28,59 @@ QA는 모든 수락 기준에 확인 방법·범위, 실행 결과, 근거, 기�
 
 QA 실행 실패나 기준 불충족은 CEO가 Coder 수정과 QA 재확인을 거친 뒤 Reviewer 단계로 전달합니다. Reviewer의 기준 연계 행동 발견도 CEO를 통해 Coder 수정·QA 재확인으로 이어지며, 중요·고위험 변경은 그 뒤 최종 전체 변경을 다시 검토합니다. Reviewer는 QA 검사를 실행하지 않으며 구조·설계·사실·보안 검토를 유지합니다. CEO가 증거 공백을 명시적으로 처분해도 미검증을 입증으로 바꾸지 않습니다.
 
-UI 수락 기준이 배정되고 brief에 작업공간·기존 실행 명령 또는 URL·계정과 테스트 데이터 범위·허용 상호작용이 있으면, QA는 기존 승인 환경과 사용 가능한 승인 브라우저 도구로 확인합니다. 기준별 명령/URL, 테스트 상태·viewport(해당 없으면 해당 없음), 상호작용 단계, 기대·관찰 결과와 근거를 보고하며, 기동·로딩·정적 검사만으로 전체 UI 동작을 입증하지 않습니다. 전제조건·환경·도구가 부족하면 CEO에 제한을 보고하고 해당 기준은 미검증으로 둡니다. 편집·의존성 설치·환경 설정 변경 권한은 없으며, QA가 만든 프로세스·세션만 정리하고 기존 공유 서비스·세션은 보존합니다. 이 수락 검사는 CEO의 Visual companion 디자인 논의와 구분합니다.
+UI 수락 기준이 배정되고 작업 요약에 작업공간·기존 실행 명령 또는 URL·계정과 테스트 데이터 범위·허용 상호작용이 있으면, QA는 기존 승인 환경과 사용 가능한 승인 브라우저 도구로 확인합니다. 기준별 명령/URL, 테스트 상태·화면 표시 영역(해당 없으면 해당 없음), 상호작용 단계, 기대·관찰 결과와 근거를 보고하며, 기동·로딩·정적 검사만으로 전체 UI 동작을 입증하지 않습니다. 전제조건·환경·도구가 부족하면 CEO에 제한을 보고하고 해당 기준은 미검증으로 둡니다. 편집·의존성 설치·환경 설정 변경 권한은 없으며, QA가 만든 프로세스·세션만 정리하고 기존 공유 서비스·세션은 보존합니다. 이 수락 검사는 CEO의 Visual companion 디자인 논의와 구분합니다.
 
 설계·계획 깊이와 검증 위험도는 별도로 판단합니다. 행동 변경에는 기본적으로 TDD를 적용하며, 조건을 모두 만족하는 단일 국소 변경만 CEO가 근거를 기록해 실패 우선 절차를 면제할 수 있습니다. 상세 정책은 [Harness 지침](skill/SKILL.md)을 따릅니다.
 
 ## 조건별 필수 참조와 Coder 인계
 
 핵심 [Harness 지침](skill/SKILL.md)을 읽고, 아래 조건이 발생하면 해당 참조를 종속 행동 전에 반드시 읽습니다.
-CEO는 배정 역할의 brief에 접근 가능한 참조 경로를 전달합니다. 참조 누락·접근 불가·충돌 시 CEO에게 보고하고 해당 작업을 멈춥니다.
-매 작업에 모든 참조를 읽을 필요는 없습니다. 설치기는 `skill/references/`도 재귀 복사하며 manifest로 검사합니다.
+CEO는 배정 역할의 작업 요약에 접근 가능한 참조 경로를 전달합니다. 참조 누락·접근 불가·충돌 시 CEO에게 보고하고 해당 작업을 멈춥니다.
+매 작업에 모든 참조를 읽을 필요는 없습니다. 설치기는 `skill/references/`도 재귀 복사하며 무결성 목록으로 검사합니다.
 
 | 참조 | 필수 시점 |
 |---|---|
 | [계획](skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
 | [인계](skill/references/handoff.md) | 실행 대상 선택 요청, 각 준비 Git 변경, Coder 최초 시작·재개 준비와 독립 확인 전 |
 | [검증](skill/references/verification.md) | 검증 설계, QA/Reviewer, 수정 재확인, UI 수락 검사 전 |
-| [Git 복구](skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, metadata 쓰기 거부 시 |
-| [Visual companion](skill/references/visual-companion.md) | 시각 자료 제안·companion 운영 전 |
+| [Git 복구](skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, 메타데이터 쓰기 거부 시 |
+| [Visual companion](skill/references/visual-companion.md) | 시각 자료 제안·시각 보조 도구 운영 전 |
 
-Architectural spec 전체 초안과 자체 검토는 Planner가 반환하고 CEO가 통합·저장·검토한 뒤 written-spec 승인을 받습니다.
-Bounded written spec은 기존 CEO 깊이 판단이 요구할 때만 같은 작성·저장·개별 승인 게이트를 적용합니다.
-승인된 짧은 설계와 required spec을 구별하며, 짧은 설계 저장·승인이 required spec 승인을 대신하지 않습니다.
-필요한 spec의 승인 버전을 문서 집합에 포함하고 종속 plan 작성·실행 준비 전에 승인을 완료합니다.
-Plan 필요성만으로 spec을 요구하지 않으며 Spike·Bounded plan-skip·non-behavior 경로에 새 spec 의무를 추가하지 않습니다.
+아키텍처 수준(Architectural) 명세의 전체 초안과 자체 검토는 Planner가 반환하고 CEO가 통합·저장·검토한 뒤 서면 명세 승인을 받습니다.
+범위가 제한된(Bounded) 서면 명세는 기존 CEO의 깊이 판단이 요구할 때만 같은 작성·저장·개별 승인 절차를 적용합니다.
+승인된 짧은 설계와 필수 명세를 구별하며, 짧은 설계 저장·승인이 필수 명세 승인을 대신하지 않습니다.
+필요한 명세의 승인 버전을 문서 집합에 포함하고 종속 계획 작성·실행 준비 전에 승인을 완료합니다.
+계획이 필요하다는 이유만으로 명세를 요구하지 않으며, 탐색(Spike)·범위 제한 계획 생략(Bounded plan-skip)·비행동 변경(non-behavior) 경로에 새 명세 의무를 추가하지 않습니다.
 상세 적용 조건과 생략 근거는 [계획 참조](skill/references/planning.md)를 따릅니다.
-CEO는 Planner 초안을 대체하는 독립 spec 초안을 작성하지 않으며, 실질적인 누락은 Planner에게 보완 요청합니다.
-최초 spec/plan 저장 전에는 역할·승인 범위·초안과 자체 검토·절대 저장 경로 증거를 확인합니다.
-Spec 저장에는 아직 존재하지 않는 written-spec 승인이나 실행 대상 선택을 요구하지 않습니다.
-설치된 brainstorming의 조기 spec commit 지시는 Harness의 승인·선택·일괄 준비 순서에 맞춰 적용합니다.
+CEO는 Planner 초안을 대체하는 독립 명세 초안을 작성하지 않으며, 실질적인 누락은 Planner에게 보완 요청합니다.
+최초 명세·계획 저장 전에는 역할·승인 범위·초안과 자체 검토·절대 저장 경로 증거를 확인합니다.
+명세 저장에는 아직 존재하지 않는 서면 명세 승인이나 실행 대상 선택을 요구하지 않습니다.
+설치된 brainstorming의 조기 명세 커밋 지시는 Harness의 승인·선택·일괄 준비 순서에 맞춰 적용합니다.
 
 현재 승인 범위의 필요한 문서를 모두 작성·개별 승인받고 집합을 완결한 뒤 실행 대상을 선택합니다.
 최초 시작에는 현재 체크아웃 또는 같은 체크아웃의 검증된 새 브랜치를 사용자가 명시 선택해야 합니다.
 계획 승인·무응답·불명확한 답변은 선택이 아닙니다. 승인 문서 커밋 또는 유효한 문서 생략 근거와 최종 상태를 확인한 뒤 인계합니다.
-문서 작성·승인 중에는 실행 준비 목적의 대상 선택·브랜치 전환·staging·커밋을 하지 않습니다.
+문서 작성·승인 중에는 실행 준비 목적의 대상 선택·브랜치 전환·스테이징·커밋을 하지 않습니다.
 
 선택 요청 직전에는 문서 목록·승인 버전과 근거·의존 순서·미완료 문서 부재를 확인합니다.
-각 branch 변경·staging·commit 직전에는 문서 완결·명시 선택과 최신 저장소 상태·보존·소유권·명령 범위를 확인합니다.
+각 브랜치 변경·스테이징·커밋 직전에는 문서 완결·명시 선택과 최신 저장소 상태·보존·소유권·명령 범위를 확인합니다.
 선택 요청 전에 선택 증거를 요구하지 않습니다. 누락·불일치·실패는 해당 행동을 멈추고 CEO가 해결합니다.
-기존 유효 문서 commit은 검증해 재사용하고 남은 승인 문서만 한 번에 준비하며 staged 경로·diff·message와 사후 상태를 확인합니다.
-이 증거는 기존 정본에 기록하며 과거 조기 저장·commit을 소급 승인하지 않습니다.
+기존 유효 문서 커밋은 검증해 재사용하고 남은 승인 문서만 한 번에 준비하며 스테이징된 경로·차이·커밋 메시지와 사후 상태를 확인합니다.
+이 증거는 기존 정본에 기록하며 과거 조기 저장·커밋을 소급 승인하지 않습니다.
 
 동일 승인 범위·작업공간·저장소·실행 대상의 재개는 유효한 최초 명시 선택을 재사용합니다.
-CEO와 Coder는 매 시작마다 실제 브랜치 또는 detached HEAD·HEAD·staged/unstaged/untracked 상태,
+CEO와 Coder는 매 시작마다 실제 브랜치 또는 detached HEAD·HEAD·스테이징됨/스테이징 안 됨/추적 안 됨 상태,
 보존·편집 소유권, 승인 문서·커밋, 승인과 최종 확인을 다시 검증합니다.
-범위·작업공간·저장소·대상·승인 branch 후보가 바뀌거나 실패 때문에 기존 대상을 신뢰할 수 없으면 새 명시 선택을 받습니다.
-정상 승인 작업의 HEAD·dirty 변화만으로 선택이 무효화되지는 않습니다. 상태 불일치·미해결 실패·누락 증거는 편집을 차단합니다.
+범위·작업공간·저장소·대상·승인 브랜치 후보가 바뀌거나 실패 때문에 기존 대상을 신뢰할 수 없으면 새 명시 선택을 받습니다.
+정상 승인 작업의 HEAD·작업 트리 변경만으로 선택이 무효화되지는 않습니다. 상태 불일치·미해결 실패·누락 증거는 편집을 차단합니다.
 
-최초 인계 기록은 하나의 접근 가능한 정본으로 보존하고 재개 brief에는 그 위치, 다음 목표·소유권,
+최초 인계 기록은 하나의 접근 가능한 정본으로 보존하고 재개 작업 요약에는 그 위치, 다음 목표·소유권,
 승인·문서·범위 변경분, 최신 Git 상태·차이, 선택 유효성·재사용 검증, CEO 최종 확인과 남은 문제를 전달합니다.
 이전 대화나 접근 불가 링크로 증거를 대신하지 않습니다. 상세 승인 순서·문서 커밋·브랜치 보호와 기록 필드는 인계 참조를 따릅니다.
-Git 복구에서는 lock 삭제·chmod/chown·권한 우회·작업공간 이동·자동 reset/stash/clean을 하지 않습니다.
+Git 복구에서는 잠금 파일 삭제·chmod/chown·권한 우회·작업공간 이동·자동 reset/stash/clean을 하지 않습니다.
 
 정적 정책 계약 테스트는 문서 구조·계약을 확인하며 실제 에이전트 준수를 입증하지 않습니다.
-설치 payload 복사와 manifest 실패 검사는 임시 환경에서 실제 설치기 동작을 확인합니다.
+설치 파일 묶음 복사와 무결성 목록 실패 검사는 임시 환경에서 실제 설치기 동작을 확인합니다.
 50% 절감 목표는 핵심 파일의 `wc -w` 기준이며 실제 모델 토큰·비용 또는 참조를 포함한 전체 사용량 절감을 보장하지 않습니다.
 
 ## 🚀 설치
@@ -101,6 +101,8 @@ brainstorming · writing-plans · test-driven-development
 
 취득 결과를 검증한 뒤 외부 스킬, Harness, 여섯 역할 프로필을 백업하고 갱신합니다. 기본 설치 위치는 `~/.codex`이며, 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다.
 
+이전 역할 프로필은 구성 요소 `("yunho", "team")`를 `-`로 연결한 접두사에 `secretary`, `planner`, `scout`, `coder`, `qa`, `reviewer`와 `.toml`을 붙인 정확한 여섯 경로만 대상으로 삼습니다. 선택한 Codex 홈의 `agents/` 바로 아래에 존재하는 후보와 상위 경로를 안전 검사합니다. 심볼릭 링크·디렉터리·특수 파일인 후보 또는 안전하지 않은 상위 경로는 설치 변경 전에 거부합니다. 일반 파일인 후보를 `backups/<timestamp>/agents/`에 영구 백업합니다. 거래 안에서 이전 후보를 복구용 위치로 먼저 이동한 다음 새 `harness-<role>.toml` 프로필을 설치하며, 실패하면 이전 파일을 복구합니다. 폐기 역할과 다른 사용자 프로필은 유지합니다.
+
 | 설치 대상 | 갱신 범위 |
 |---|---|
 | `<CODEX_HOME>/skills/` | 외부 스킬 세 개와 `yunho-harness` |
@@ -116,7 +118,7 @@ python3 install.py --check    # 로컬 파일·설정·경로 검사
 python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 ```
 
-두 옵션은 파일을 수정하거나 캐시·백업을 만들지 않고, subprocess·`npx`·네트워크도 실행하지 않습니다. Node.js/npm·Git 없이 사용할 수 있습니다. 현재 외부 스킬의 필수 파일 구조를 검사하지만, 최신 upstream이나 설치된 프로필과 모델 설정의 일치 여부를 확인하지는 않습니다. 설치기 오류의 종료 코드는 `2`입니다.
+두 옵션은 파일을 수정하거나 캐시·백업을 만들지 않고, 하위 프로세스·`npx`·네트워크도 실행하지 않습니다. Node.js/npm·Git 없이 사용할 수 있습니다. 현재 외부 스킬의 필수 파일 구조를 검사하지만, 최신 원본 저장소나 설치된 프로필과 모델 설정의 일치 여부를 확인하지는 않습니다. 설치기 오류의 종료 코드는 `2`입니다.
 
 ## 🔌 수동 활성화
 
@@ -131,23 +133,25 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 
 `CODEX_HOME`을 지정했다면 위 경로를 실제 설치 위치로 바꿉니다. 설치기는 전역 설정과 `AGENTS.md`를 수정하지 않습니다. 저장소의 `config.toml`은 선택 참고 예시이며 자동 설치·병합하지 않습니다.
 
-새 세션은 설치된 프로필을 읽습니다. 실행 중인 에이전트의 설정과 부모 관계는 자동으로 바뀌지 않으며, 정책·프로필의 구조 확인만으로 실제 실행 관계를 검증한 것은 아닙니다.
+새 세션은 설치된 프로필과 새 역할 ID를 읽습니다. 사용자 작성 외부 설정·스크립트·문서의 역할 참조는 새 `harness_<role>` ID와 `harness-<role>.toml` 파일명으로 직접 수정해야 합니다. 과거 계획·명세·요약 문서의 명칭도 현재 체계로 정규화했으며, 날짜·승인 사실·폐기 역할의 당시 의미는 유지합니다.
+
+실행 중인 에이전트의 설정과 부모 관계는 자동으로 바뀌지 않으며, 정책·프로필의 구조 확인만으로 실제 실행 관계를 검증한 것은 아닙니다.
 
 ## ⚙️ 모델 변경
 
 [skill/models.toml](skill/models.toml)이 여섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다.
 
 ```toml
-version = 3
+version = 4
 
-[roles.yunho_team_coder]
+[roles.harness_coder]
 model = "example-model-id"
 model_reasoning_effort = "medium"
 ```
 
-위 예시는 일부만 보여줍니다. 실제 파일에는 여섯 역할과 각 역할의 두 문자열 필드가 모두 필요합니다. 이전 version 1·2는 자동 변환하지 않으며, 모델·추론 강도의 원격 지원이나 계정 접근 권한은 검사하지 않습니다.
+위 예시는 일부만 보여줍니다. 실제 파일에는 여섯 역할과 각 역할의 두 문자열 필드가 모두 필요합니다. 이전 설정 버전 1·2·3은 오류로 거부하고 자동 변환하지 않으며, 모델·추론 강도의 원격 지원이나 계정 접근 권한은 검사하지 않습니다.
 
-새 설치는 저장소 설정을 사용하며 이전 사용자 설정을 자동 병합하지 않습니다. **기존 설치의 모델만 변경하려면** 설치된 `~/.codex/skills/yunho-harness/models.toml`을 편집한 뒤 실행합니다.
+새 설치는 저장소 설정을 사용하며 이전 사용자 모델 설정과 프로필의 개인 수정 사항을 자동 병합하지 않습니다. 기존 Harness 백업의 `models.toml`을 참고해 새 형식에 필요한 값을 직접 반영할 수 있습니다. **기존 설치의 모델만 변경하려면** 설치된 `~/.codex/skills/yunho-harness/models.toml`을 편집한 뒤 실행합니다.
 
 ```sh
 python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py --check
@@ -155,12 +159,12 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py --dry-run
 python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 ```
 
-`CODEX_HOME`을 사용한다면 명령의 경로도 바꿉니다. `--check`는 프로필 일치 시 `0`, 차이 발견 시 `1`을 반환합니다. `--dry-run`은 변경 예정 내용을 표시하고, 일반 실행은 프로필에 반영합니다. 설정·프로필·경로 오류는 `2`입니다. 설정 원본은 다시 쓰지 않으며, 유효한 `models.toml` 변경에는 manifest 재생성이 필요하지 않습니다.
+`CODEX_HOME`을 사용한다면 명령의 경로도 바꿉니다. `--check`는 프로필 일치 시 `0`, 차이 발견 시 `1`을 반환합니다. `--dry-run`은 변경 예정 내용을 표시하고, 일반 실행은 프로필에 반영합니다. 설정·프로필·경로 오류는 `2`입니다. 설정 원본은 다시 쓰지 않으며, 유효한 `models.toml` 변경에는 무결성 목록 재생성이 필요하지 않습니다.
 
 ## 🛡️ 백업과 무결성
 
-- 기존 대상은 선택한 Codex home의 `backups/<timestamp>/`에 보존합니다. 외부 스킬은 전체 트리를 교체하므로 개인 수정과 upstream에서 삭제된 파일은 설치 위치에서 사라집니다. 이전 내용은 백업에서 직접 복원하세요.
-- 취득·검증을 마친 뒤 설치 대상을 교체하며, 중간 오류에서는 완료된 교체를 역순으로 복구합니다. 전체 파일시스템에 걸친 원자성은 보장하지 않습니다. 복구 실패 시 출력된 백업·recovery 경로를 보존해 수동 복구에 사용하세요.
+- 기존 대상은 선택한 Codex 홈의 `backups/<timestamp>/`에 보존합니다. 외부 스킬은 전체 트리를 교체하므로 개인 수정과 원본 저장소에서 삭제된 파일은 설치 위치에서 사라집니다. 이전 내용은 백업에서 직접 복원하세요.
+- 취득·검증을 마친 뒤 설치 대상을 교체하며, 중간 오류에서는 완료된 교체를 역순으로 복구합니다. 전체 파일시스템에 걸친 원자성은 보장하지 않습니다. 복구 실패 시 출력된 백업·복구 데이터(recovery) 경로를 보존해 수동 복구에 사용하세요.
 - 외부 스킬 후보와 상위 경로의 심볼릭 링크는 일반 설치에서 거부합니다. 취득한 트리는 내부의 유효한 링크만 허용하고, 외부로 나가는 링크·끊어진 링크·순환 링크·특수 파일은 거부합니다.
 - `MANIFEST.sha256`은 설치기·README·선택된 내부 스킬 및 프로필 파일의 무결성을 검사합니다. 편집 가능한 `skill/models.toml`은 제외하고 별도로 설정 형식을 검사합니다. `skill/`, `agents/` 아래 일반 파일인 `.DS_Store`는 제외하며 같은 이름의 다른 항목 유형은 오류입니다.
-- 외부 스킬은 특정 버전이나 해시로 고정하지 않습니다. CLI 결과와 트리 구조를 검증하지만 원격 출처를 독립적으로 암호학적 인증하지는 않습니다. 내부 manifest 역시 자체 진위나 원격 모델 지원을 증명하지 않습니다.
+- 외부 스킬은 특정 버전이나 해시로 고정하지 않습니다. CLI 결과와 트리 구조를 검증하지만 원격 출처를 독립적으로 암호학적 인증하지는 않습니다. 내부 무결성 목록 역시 자체 진위나 원격 모델 지원을 증명하지 않습니다.

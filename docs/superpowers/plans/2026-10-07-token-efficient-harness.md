@@ -44,7 +44,7 @@
 |---|---|
 | `skill/SKILL.md` | 상시 정책, 필수 참조 트리거, 공통 게이트, 위험별 기본 흐름 |
 | `skill/references/*.md` | 계획, handoff, 검증/UI, Git 복구, Visual companion 상세 계약 |
-| `agents/yunho-team-coder.toml` | Coder의 최초/재개 독립 확인과 편집 차단 조건 |
+| `agents/harness-coder.toml` | Coder의 최초/재개 독립 확인과 편집 차단 조건 |
 | `tests/test_install.py` | 정책 계약, 설치 참조·manifest, 변경된 선택 수명 검증 |
 | `README.md` | 설치된 참조 로딩과 최초/재개 사용자 안내 |
 | `MANIFEST.sha256` | 변경 payload와 다섯 신규 참조의 해시 |
@@ -71,7 +71,7 @@
 
 ## Task 2: Coder 최초 선택과 재개 계약
 
-**Files:** `skill/SKILL.md`, `skill/references/{planning,handoff,git-recovery}.md`, `agents/yunho-team-coder.toml`, `tests/test_install.py`
+**Files:** `skill/SKILL.md`, `skill/references/{planning,handoff,git-recovery}.md`, `agents/harness-coder.toml`, `tests/test_install.py`
 
 - [ ] 다음 사례를 테스트한다: 최초 선택 누락/계획 승인만 있음은 차단; 명시적 최초 선택과 모든 게이트 충족은 허용; 동일 범위 재개는 선택 유지; 모든 재개는 실제 Git 상태 확인; 범위·작업공간·저장소·대상·branch 후보 변경과 무효화 실패는 새 선택 요구; 기록 접근 불가·증거 누락·소유권 불명·무관한 staged 변경은 편집 차단.
 - [ ] 테스트가 현재의 “매 재개 새 선택” 정책과 새 계약의 차이로 실패하는지 확인한다.

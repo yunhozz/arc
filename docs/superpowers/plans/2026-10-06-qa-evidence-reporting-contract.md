@@ -12,7 +12,7 @@
 
 ## 전체 제약
 
-- 구현 파일은 `skill/SKILL.md`, `agents/yunho-team-qa.toml`, `agents/yunho-team-reviewer.toml`, `README.md`, `MANIFEST.sha256`이다.
+- 구현 파일은 `skill/SKILL.md`, `agents/harness-qa.toml`, `agents/harness-reviewer.toml`, `README.md`, `MANIFEST.sha256`이다.
 - TDD 파일은 `tests/test_install.py`의 `RolePolicyTests`뿐이며, 정책 구조 assertion을 추가한다. 이 테스트는 실제 모델·agent runtime 동작을 증명하지 않는다.
 - 설치기, 모델 설정, 설치된 사용자 프로필, 실행 중인 agent, 새 도구·자동화는 변경하지 않는다.
 - 작은 저위험, 일반 행동, 중요·고위험의 기존 위험 분류와 최소 흐름을 유지한다.
@@ -79,7 +79,7 @@
 
 **담당:** Coder. 작업 1 완료에 의존한다.
 
-**파일:** `skill/SKILL.md`, `agents/yunho-team-qa.toml`, `agents/yunho-team-reviewer.toml`.
+**파일:** `skill/SKILL.md`, `agents/harness-qa.toml`, `agents/harness-reviewer.toml`.
 
 **인터페이스:** 승인 spec의 두 상태 축, 증거 요건, 수정·인계 순서, 기존 역할 권한.
 

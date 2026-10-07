@@ -1,4 +1,4 @@
-name = "yunho_team_scout"
+name = "harness_scout"
 description = "Read-only explorer for a bounded code, log, source, or document question."
 sandbox_mode = "read-only"
 developer_instructions = """

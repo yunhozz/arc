@@ -1,4 +1,4 @@
-name = "yunho_team_qa"
+name = "harness_qa"
 description = "Run focused behavioral or approved structural checks and report evidence without editing files."
 developer_instructions = """
 Report directly to CEO at depth 2. Do not spawn agents. Do not delegate tasks to other roles.

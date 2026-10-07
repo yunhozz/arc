@@ -18,7 +18,7 @@
 - 면제는 TDD의 실패 우선 및 RED/GREEN 절차만 생략한다. 요구되는 검사, 증거, 한계 보고, QA/Reviewer 흐름은 그대로 적용한다. 면제 작업을 TDD로 수행했다고 주장하지 않는다.
 - 일반 행동 변경은 TDD를 유지한다. 순수 문서·비행동 설정은 기존 승인된 구조 검증 예외를 유지한다.
 - `test-driven-development`의 일반 적용 문구는 수정하지 않는다. Harness와 Coder 지침이 자격을 충족한 경우의 명시적 예외임을 분명히 한다.
-- Coder 소유 원본: `skill/SKILL.md`, `agents/yunho-team-coder.toml`, `MANIFEST.sha256`.
+- Coder 소유 원본: `skill/SKILL.md`, `agents/harness-coder.toml`, `MANIFEST.sha256`.
 - CEO 소유 문서 정합성: `README.md`의 행동 변경/TDD 설명 한 곳을 예외와 맞춘다.
 - CEO가 설치본을 반영할 때 Harness skill은 원본과 동일하게 복사하고, Coder profile은 `developer_instructions`만 갱신하며 설치된 `model`과 `model_reasoning_effort` 설정을 보존한다.
 - 설치본 변경은 두 지정 파일로 제한한다. 전체 installer 실행과 외부 skill 취득은 범위 밖이다.
@@ -49,7 +49,7 @@
 
 **담당:** Coder가 Harness 원본과 프로필 편집; CEO가 README의 implementation-dependent 문구를 반영.
 
-**파일:** `skill/SKILL.md`, `agents/yunho-team-coder.toml`, `README.md`.
+**파일:** `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`.
 
 - [ ] Harness adapter의 TDD 요구를 적용 가능한 요구로 표현하고, 자격 조건을 모두 만족하는 경우에는 일반 TDD skill trigger를 덮는 명시적 Harness 예외를 둔다.
 - [ ] Harness TDD 단락과 Coder profile에 동일한 자격·기록·우선순위·중단 기준을 둔다.
@@ -63,9 +63,9 @@
 
 **담당:** Coder가 manifest를 갱신; CEO가 지정 설치본만 동기화.
 
-**파일:** `MANIFEST.sha256`, `/Users/yunho/.codex/skills/yunho-harness/SKILL.md`, `/Users/yunho/.codex/agents/yunho-team-coder.toml`.
+**파일:** `MANIFEST.sha256`, `/Users/yunho/.codex/skills/yunho-harness/SKILL.md`, `/Users/yunho/.codex/agents/harness-coder.toml`.
 
-- [ ] 변경된 원본 `skill/SKILL.md`, `agents/yunho-team-coder.toml`, `README.md`의 manifest 해시만 갱신한다.
+- [ ] 변경된 원본 `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`의 manifest 해시만 갱신한다.
 - [ ] 설치 Harness skill을 원본과 동일한 bytes로 반영한다.
 - [ ] 설치 Coder profile은 `developer_instructions`만 원본과 맞추고 모델 설정과 나머지 필드를 보존한다.
 - [ ] 설치 후 TOML 구문을 파싱하고 원본/설치본 정책 일치와 모델 필드 보존을 확인한다.

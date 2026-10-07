@@ -33,31 +33,31 @@ allowed_reasoning_efforts = ["none", "minimal", "low", "medium", "high"]
 [models."gpt-6-luna"]
 allowed_reasoning_efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
 
-[roles.yunho_team_lead]
+[roles.harness_lead]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "low"
 
-[roles.yunho_team_secretary]
+[roles.harness_secretary]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "low"
 
-[roles.yunho_team_planner]
+[roles.harness_planner]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 
-[roles.yunho_team_scout]
+[roles.harness_scout]
 model = "gpt-6-luna"
 model_reasoning_effort = "high"
 
-[roles.yunho_team_coder]
+[roles.harness_coder]
 model = "gpt-6-luna"
 model_reasoning_effort = "max"
 
-[roles.yunho_team_qa]
+[roles.harness_qa]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "low"
 
-[roles.yunho_team_reviewer]
+[roles.harness_reviewer]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 ```
