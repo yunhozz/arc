@@ -1,8 +1,36 @@
 # Handoff contract
 
-Read before every Coder first start or restart preparation and independent checkout check.
+Read before an execution-target choice request, each preparation Git mutation (branch creation/switch, staging,
+commit), and every Coder first start or restart preparation and independent checkout check.
 
 ## Workspace handoff
+
+### Execution-target request gate
+
+Before requesting the user's execution-target choice, CEO verifies and records the complete document list, absolute
+paths and scope coverage, approved versions and individual approval evidence, plan dependencies and execution order,
+and no unfinished applicable documents or unresolved scope/dependency decisions requiring another document.
+The set contains required artifacts, not a spec on every path; use planning depth and valid omission rationales.
+Unfinished documents or missing approval evidence stop the choice request and preparation. Read-only state checks
+are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate.
+Present the verified workspace, current branch or detached HEAD, HEAD, and any validated new-branch candidate under
+Checkout approval below. Planning approval, silence, or ambiguous responses never constitute target choice.
+
+### Git mutation evidence gate
+
+Before each preparation Git mutation—branch creation/switch, approved-document staging, or commit—read this
+reference and recheck the complete approved document set and approval evidence; explicit execution-target choice
+or verified valid reuse; absolute workspace and intended repository; current branch or detached HEAD and HEAD;
+staged/unstaged/untracked changes, preservation and edit ownership; and the exact command, target paths, and
+approved scope. Confirm no unresolved failure or partial completion. Record these facts in the canonical handoff
+record/shared brief before the action. Missing or mismatched evidence stops that mutation until CEO resolves it.
+Read-only Git checks remain allowed. Do not infer execution authority from an external skill's early commit step.
+
+Before committing, also verify staged paths/content and the finalized message under Planning document commit.
+After every branch or commit operation, verify actual path, branch, HEAD, preserved changes, and result before the
+next dependent action. After staging, verify the actual index paths and diff before commit. Preserve unrelated
+changes and stop on unrelated staged files; do not automatically unstage, reset, stash, clean, or discard them.
+Reverify affected evidence after changes or failures; do not retroactively approve an action taken before its gate.
 
 ### Checkout approval
 
@@ -120,6 +148,9 @@ On branch collisions, Git preparation failures, partial completion, or metadata 
 
 ### Handoff evidence
 
+Include accessible Planner spec/plan drafts and self-review findings, CEO integration/save/review responsibility,
+approval versions/evidence, absolute save paths, document-save gate results, execution-target request readiness,
+and each preparation Git mutation's pre-action evidence and post-action result in the same canonical record.
 Record the actual absolute workspace, prior branch or detached HEAD and base HEAD, prior change state and preservation
 and edit scope, checkout approval result and evidence, selected execution path, final branch or detached HEAD,
 creation/switch result if attempted, and post-selection branch/path/HEAD/change checks in the brief. Include the docs

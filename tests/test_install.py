@@ -342,6 +342,110 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
 
 
+class HarnessPreactionGateTests(unittest.TestCase):
+    # Specifically approved structural contract checks, not consuming-agent runtime tests.
+    def test_preaction_role_precedence(self) -> None:
+        core = policy_text("core").split("## instruction and execution adapter")[1].split("## mandatory task references")[0]
+        self.assertRegex(core, r"brainstorming.*role.*save.*early.*commit.*harness")
+        planning = policy_text("planning").split("### document-save evidence gates")[0]
+        self.assertIn("ceo must not substitute an independently authored spec", planning)
+        self.assertRegex(planning, r"planner.*complete spec draft and self-review.*ceo integrates, saves, self-reviews")
+        self.assertRegex(planning, r"bounded written spec.*existing ceo depth judgment.*planner.*proportional complete spec draft.*self-review.*ceo.*individual written-spec approval")
+        planner = " ".join(tomllib.loads((REPO / "agents/yunho-team-planner.toml").read_text())
+                           ["developer_instructions"].lower().split())
+        self.assertRegex(planner, r"complete spec draft and self-review.*ceo integrates/saves/self-reviews")
+
+    def test_preaction_document_save_evidence(self) -> None:
+        planning = policy_text("planning")
+        self.assertIn("### document-save evidence gates", planning)
+        gates = planning.split("### document-save evidence gates")[1].split("### complete planning-document set")[0]
+        spec, plan = gates.split("**plan save:**")
+        with self.subTest(path="architectural"):
+            self.assertIn("first architectural spec save", spec)
+            for phrase in ("approved design scope", "approval evidence", "planner's complete spec draft",
+                           "self-review", "ceo's integration/save/review responsibility", "absolute save path"):
+                self.assertIn(phrase, spec)
+        with self.subTest(path="bounded_required_spec"):
+            for phrase in ("first required bounded written spec save", "existing ceo depth judgment",
+                           "approved short design", "spec-necessity rationale and scope", "proportional complete draft",
+                           "self-review", "ceo's integration/save/review responsibility", "individual written-spec approval"):
+                self.assertIn(phrase, spec)
+        with self.subTest(path="short_design_distinction"):
+            self.assertRegex(spec, r"saving or approving the short design does not replace.*required spec.*drafting.*self-review.*individual approval")
+        with self.subTest(path="spec_approval_order"):
+            self.assertRegex(spec, r"architectural and required bounded specs.*approved versions.*applicable document set")
+            self.assertRegex(spec, r"written-spec approval.*before dependent plan drafting and execution preparation")
+        with self.subTest(path="save_without_circular_approval"):
+            self.assertIn("does not require written-spec approval or execution-target choice", spec)
+        complete = planning.split("### complete planning-document set")[1].split("### evidence refresh and limits")[0]
+        rows = {line.split("|")[1].strip().lower(): " ".join(line.lower().split())
+                for line in (REPO / "skill/references/planning.md").read_text().splitlines()
+                if line.startswith("| ") and len(line.split("|")) >= 4}
+        with self.subTest(path="bounded_plan_required_without_spec"):
+            self.assertIn("a required plan does not itself require a written spec", complete)
+            self.assertIn("only when the existing ceo depth judgment requires it", rows["bounded, plan required"])
+        for path, row, contract in (
+            ("spike", "spike probe", "do not force specs/plans for still-unknown implementation"),
+            ("bounded_plan_skip", "bounded, plan skipped", "approve the short design"),
+            ("nonbehavior", "non-behavior documentation/configuration", "why design/planning stages are inapplicable"),
+        ):
+            with self.subTest(path=path):
+                self.assertIn(contract, rows[row])
+                self.assertIn("no new spec obligation", rows[row])
+        with self.subTest(path="plan_save"):
+            for phrase in ("approved design", "approved written-spec version", "plan-depth", "dependencies",
+                           "planner's complete plan draft", "self-review", "absolute save path"):
+                self.assertIn(phrase, plan)
+            self.assertRegex(plan, r"missing.*mismatched.*stop.*save.*ceo")
+
+    def test_preaction_reference_and_choice_order(self) -> None:
+        rows = (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+        planning = next(row for row in rows if "references/planning.md" in row)
+        handoff = next(row for row in rows if "references/handoff.md" in row)
+        self.assertIn("first spec/plan save", planning)
+        for trigger in ("execution-target choice request", "each preparation git mutation"):
+            self.assertIn(trigger, handoff)
+        self.assertIn("### execution-target request gate", policy_text("handoff"))
+        choice = policy_text("handoff").split("### execution-target request gate")[1].split("### git mutation evidence gate")[0]
+        for phrase in ("complete document list", "absolute paths", "approved versions", "individual approval evidence",
+                       "dependencies", "no unfinished applicable documents"):
+            self.assertIn(phrase, choice)
+        self.assertRegex(choice, r"unfinished.*missing approval.*stop.*request")
+        self.assertIn("do not require choice evidence before asking for that choice", choice)
+        self.assertIn("required artifacts, not a spec on every path", choice)
+
+    def test_preaction_git_evidence_and_batch_order(self) -> None:
+        handoff = policy_text("handoff")
+        self.assertIn("### git mutation evidence gate", handoff)
+        gate = handoff.split("### git mutation evidence gate")[1].split("### checkout approval")[0]
+        for phrase in ("before each", "branch creation/switch", "staging", "commit", "complete approved document set",
+                       "explicit execution-target choice", "absolute workspace", "repository", "branch or detached head",
+                       "staged/unstaged/untracked", "preservation", "ownership", "command", "target paths",
+                       "unresolved failure", "read-only"):
+            with self.subTest(evidence=phrase):
+                self.assertIn(phrase, gate)
+        planning = policy_text("planning").split("### complete planning-document set")[1]
+        self.assertRegex(planning, r"defers.*brainstorming.*commit the spec.*written-spec review")
+        self.assertIn("spec steps apply only to architectural and required bounded specs", planning)
+        commit = handoff.split("### planning document commit")[1].split("### recovery prerequisite")[0]
+        for contract in (r"reuse valid commits without recommitting", r"batch all remaining uncommitted approved documents",
+                         r"staged paths and staged diff match exactly", r"finalizes.*message before the first commit",
+                         r"after success verify sha.*post-commit head.*final branch"):
+            self.assertRegex(commit, contract)
+
+    def test_preaction_stop_and_runtime_limits(self) -> None:
+        planning = policy_text("planning")
+        self.assertIn("### evidence refresh and limits", planning)
+        limits = planning.split("### evidence refresh and limits")[1]
+        for phrase in ("missing", "mismatched", "unfinished approvals", "failure", "stop", "reverify",
+                       "do not retroactively", "structural checks", "runtime compliance", "unverified"):
+            self.assertIn(phrase, limits)
+        self.assertIn("do not modify external skills", planning)
+        handoff = policy_text("handoff")
+        self.assertRegex(handoff, r"unrelated staged files.*preserved.*block handoff")
+        self.assertRegex(handoff, r"do not automatically unstage, reset, stash, clean, or discard")
+
+
 class RolePolicyTests(unittest.TestCase):
     # Approved package-consistency checks; these do not execute agent runtime behavior.
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:

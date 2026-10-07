@@ -40,16 +40,33 @@ CEO는 배정 역할의 brief에 접근 가능한 참조 경로를 전달합니�
 
 | 참조 | 필수 시점 |
 |---|---|
-| [계획](skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인 전 |
-| [인계](skill/references/handoff.md) | Coder 최초 시작·재개 준비와 독립 확인 전 |
+| [계획](skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
+| [인계](skill/references/handoff.md) | 실행 대상 선택 요청, 각 준비 Git 변경, Coder 최초 시작·재개 준비와 독립 확인 전 |
 | [검증](skill/references/verification.md) | 검증 설계, QA/Reviewer, 수정 재확인, UI 수락 검사 전 |
 | [Git 복구](skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, metadata 쓰기 거부 시 |
 | [Visual companion](skill/references/visual-companion.md) | 시각 자료 제안·companion 운영 전 |
+
+Architectural spec 전체 초안과 자체 검토는 Planner가 반환하고 CEO가 통합·저장·검토한 뒤 written-spec 승인을 받습니다.
+Bounded written spec은 기존 CEO 깊이 판단이 요구할 때만 같은 작성·저장·개별 승인 게이트를 적용합니다.
+승인된 짧은 설계와 required spec을 구별하며, 짧은 설계 저장·승인이 required spec 승인을 대신하지 않습니다.
+필요한 spec의 승인 버전을 문서 집합에 포함하고 종속 plan 작성·실행 준비 전에 승인을 완료합니다.
+Plan 필요성만으로 spec을 요구하지 않으며 Spike·Bounded plan-skip·non-behavior 경로에 새 spec 의무를 추가하지 않습니다.
+상세 적용 조건과 생략 근거는 [계획 참조](skill/references/planning.md)를 따릅니다.
+CEO는 Planner 초안을 대체하는 독립 spec 초안을 작성하지 않으며, 실질적인 누락은 Planner에게 보완 요청합니다.
+최초 spec/plan 저장 전에는 역할·승인 범위·초안과 자체 검토·절대 저장 경로 증거를 확인합니다.
+Spec 저장에는 아직 존재하지 않는 written-spec 승인이나 실행 대상 선택을 요구하지 않습니다.
+설치된 brainstorming의 조기 spec commit 지시는 Harness의 승인·선택·일괄 준비 순서에 맞춰 적용합니다.
 
 현재 승인 범위의 필요한 문서를 모두 작성·개별 승인받고 집합을 완결한 뒤 실행 대상을 선택합니다.
 최초 시작에는 현재 체크아웃 또는 같은 체크아웃의 검증된 새 브랜치를 사용자가 명시 선택해야 합니다.
 계획 승인·무응답·불명확한 답변은 선택이 아닙니다. 승인 문서 커밋 또는 유효한 문서 생략 근거와 최종 상태를 확인한 뒤 인계합니다.
 문서 작성·승인 중에는 실행 준비 목적의 대상 선택·브랜치 전환·staging·커밋을 하지 않습니다.
+
+선택 요청 직전에는 문서 목록·승인 버전과 근거·의존 순서·미완료 문서 부재를 확인합니다.
+각 branch 변경·staging·commit 직전에는 문서 완결·명시 선택과 최신 저장소 상태·보존·소유권·명령 범위를 확인합니다.
+선택 요청 전에 선택 증거를 요구하지 않습니다. 누락·불일치·실패는 해당 행동을 멈추고 CEO가 해결합니다.
+기존 유효 문서 commit은 검증해 재사용하고 남은 승인 문서만 한 번에 준비하며 staged 경로·diff·message와 사후 상태를 확인합니다.
+이 증거는 기존 정본에 기록하며 과거 조기 저장·commit을 소급 승인하지 않습니다.
 
 동일 승인 범위·작업공간·저장소·실행 대상의 재개는 유효한 최초 명시 선택을 재사용합니다.
 CEO와 Coder는 매 시작마다 실제 브랜치 또는 detached HEAD·HEAD·staged/unstaged/untracked 상태,

@@ -44,7 +44,9 @@ adds no agents or authority. Map executor requests such as `superpowers:executin
 `superpowers:subagent-driven-development` to CEO's sequential coordination and risk-scaled verification; this replaces
 executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
-explicit Harness exception below. Report conflicts or missing non-executor skills before dependent work.
+explicit Harness exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
+Harness Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
+missing non-executor skills before dependent work.
 
 Planner, Reviewer, and Scout return findings, relevant questions, next actions, and workspace/path issues to the
 CEO. Planner preserves complete requested drafts. CEO integrates results, routes decisions and required approvals,
@@ -66,14 +68,15 @@ references must be reported to CEO; stop dependent work until resolved. Do not l
 
 | Reference | Required before |
 |---|---|
-| [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval |
-| [handoff](references/handoff.md) | Every Coder first start/restart preparation or independent checkout verification |
+| [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval, first spec/plan save |
+| [handoff](references/handoff.md) | Execution-target choice request, each preparation Git mutation, every Coder first start/restart preparation or independent checkout verification |
 | [verification](references/verification.md) | Verification design, QA/Reviewer, correction rechecks, UI acceptance checks |
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
 Design and plan depth are independent of verification risk. Planner uses installed brainstorming/writing-plans;
-CEO integrates complete drafts and obtains applicable approvals. Complete all current-scope approved documents before
+CEO integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
+required by the existing CEO depth judgment use planning save gates; a required plan alone does not require a spec. Complete all current-scope approved documents before
 execution-target selection and document commit preparation. A missing required skill blocks its stage.
 
 ## Common handoff gate

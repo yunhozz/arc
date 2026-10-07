@@ -1,6 +1,6 @@
 # Planning contract
 
-Read before design/plan-depth decisions or spec/plan drafting and approval.
+Read before design/plan-depth decisions, spec/plan drafting and approval, and the first spec/plan save.
 
 ## Design and planning
 
@@ -37,6 +37,36 @@ design path or plan approval gates.
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
    These stages preserve Secretary's standalone ownership.
 
+When a Bounded written spec is required by the existing CEO depth judgment, record that necessity and scope and
+use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
+CEO integrates, saves, self-reviews, and obtains individual written-spec approval before dependent plan drafting
+and execution preparation. This applies the existing depth judgment, not a new spec-necessity rule.
+
+CEO must not substitute an independently authored spec for Planner's complete draft. If the draft has substantive
+omissions, return them to Planner for completion. A user may explicitly change the writing responsibility; record
+that change and its evidence in the brief. Design approval alone does not change ownership.
+
+### Document-save evidence gates
+
+Before the first architectural spec save, first required Bounded written spec save, or first plan save, read this
+reference and record accessible evidence in the shared brief/canonical handoff record. Saving creates a reviewable file; it is not approval or a Git commit.
+
+**Spec save:** Verify the approved design scope and approval evidence, accessible Planner's complete spec draft and
+self-review findings, CEO's integration/save/review responsibility, and intended absolute save path.
+For a required Bounded written spec, also verify the existing CEO depth judgment, approved short design,
+spec-necessity rationale and scope, and Planner's proportional complete draft and self-review. Saving or approving
+the short design does not replace the required spec's drafting, self-review, or individual approval.
+Architectural and required Bounded specs enter as approved versions in the applicable document set; complete
+individual written-spec approval before dependent plan drafting and execution preparation. This gate
+permits saving for review and does not require written-spec approval or execution-target choice. CEO integrates,
+saves, and self-reviews before requesting written-spec approval. Do not describe an uncommitted file as committed.
+
+**Plan save:** Verify the approved design and, when required, approved written-spec version and approval evidence,
+CEO's plan-depth judgment, applicable plan list and dependencies, accessible Planner's complete plan draft and
+self-review findings, CEO's integration/save/review responsibility, and intended absolute save path.
+If evidence is missing or mismatched in either gate, stop the affected save and report to CEO for resolution.
+Revised approved documents require approval of their revised versions.
+
 ### Complete planning-document set
 
 The applicable document set means all specs and plans required for the current approved execution scope, not future
@@ -44,6 +74,11 @@ project work. CEO records scope, design/plan depth, absolute document paths and 
 plan dependencies and execution order, skipped stages with rationale, and documents still awaiting writing or approval
 in the shared brief. The set is complete only when every required document is written and individually approved and
 no unresolved scope or dependency decision requires another document. Do not omit required documents from the list.
+
+A required plan does not itself require a written spec. Bounded uses the existing CEO depth judgment to determine
+whether a written spec is required; do not infer one from plan necessity. Spec steps apply only to Architectural and
+required Bounded specs, and plan steps only to required plans. These gates add no new spec obligation to Spike,
+Bounded plan-skip, or non-behavior documentation/configuration paths; preserve existing omission rationales.
 
 Normal order: design approval → required spec writing/saving/self-review and written-spec approval → required plans
 writing/saving/self-review and individual approvals → complete applicable set → explicit execution-target choice and
@@ -63,11 +98,11 @@ are not permission for document commits during planning or for starting Coder.
 
 | Path | Applicable approvals and preparation |
 |------|--------------------------------------|
-| Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only CEO/Planner investigation without Coder does not trigger that gate. |
-| Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
-| Bounded, plan required | Approve the short design and every required plan; write a spec only when the existing depth judgment requires it. Complete all applicable artifacts before one preparation batch and the common gate. |
+| Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation; no new spec obligation is added by this gate. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only CEO/Planner investigation without Coder does not trigger that gate. |
+| Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale; this gate adds no new spec obligation. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
+| Bounded, plan required | Approve the short design and every required plan; write a spec only when the existing CEO depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting and preparation. Complete all applicable artifacts before one preparation batch and the common gate. |
 | Architectural | Approve design, then written spec, then every required plan using `writing-plans`; complete the document set before target selection, batch preparation, final verification, and the common gate. |
-| Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
+| Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; this gate adds no new spec obligation. Still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
 
 Spike probe and subsequent implementation are separate approval scopes. Report probe findings, reassess implementation
 design/plan depth, and approve its required spec and all plans before its preparation batch. Probe approval or code
@@ -83,3 +118,14 @@ commits to retroactively include it. An already-running Coder must stop before e
 current changes/Git state and do not retroactively claim preparation. A restart without document changes reuses verified
 valid commits and a still-valid initial execution-target choice under [handoff.md](handoff.md), with fresh actual-state checks.
 
+### Evidence refresh and limits
+
+Missing or mismatched evidence, unfinished approvals, unclear ownership, or unresolved failure blocks the affected
+save, execution-target request, Git mutation, or Coder handoff: stop and report to CEO. CEO resolves the issue and
+reverifies affected evidence before resumption. Reverify evidence when scope, approved versions, paths, target, or
+relevant Git state changes. Preserve unrelated changes under handoff rules; read-only investigation remains allowed.
+
+Do not retroactively treat an early save or commit as satisfying these gates or as user approval. Record the actual
+order and any evidence gap. Structural checks prove only the repository's written policy contract, not consuming-agent
+runtime compliance. Without execution records for role returns, approvals, saves, and Git actions, leave runtime
+compliance unverified. Do not add runtime infrastructure or modify external skills for these checks.
