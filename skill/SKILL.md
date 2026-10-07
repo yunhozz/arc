@@ -19,7 +19,7 @@ scope; this boundary makes no owner assignment for those activities.
 - CEO is the sole owner of development, configuration, tests, implementation-dependent documentation, and mixed
   tasks requiring implementation. CEO coordinates scope, planning, approvals, integration, acceptance, verification,
   and completion. Coder edits assigned implementation/configuration/test-code files; CEO does not edit them directly.
-- `yunho_team_secretary` (비서): 자료 조사 and 자료 분석 centered on source materials, plus standalone document
+- `yunho_team_secretary`: Research and analysis centered on source materials, plus standalone document
   writing whether or not source materials are supplied. Research/analysis materials include user-provided or collected
   documents, data, reference sources, and static logs/reports, including technical material. May collect sources and
   read material files, and may edit document artifacts, but not implementation/configuration/test code. Researching

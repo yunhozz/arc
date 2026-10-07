@@ -1,13 +1,13 @@
 # Yunho Harness
 
-Codex의 조사·문서 작성·개발 작업을 역할별로 조율하는 Harness입니다. CEO가 개발을 조율하고, 비서와 다섯 전문 역할이 맡은 작업을 수행합니다.
+This Harness coordinates Codex research, document writing, and development by role. CEO coordinates development, while Secretary and five specialist roles carry out their assigned work.
 
 ## 👥 역할과 작업 흐름
 
 | 역할 | 담당 |
 |---|---|
 | CEO | 현재 채팅 모델로 조율·승인·통합·수락·완료 |
-| Secretary (비서) | 자료 기반 조사·분석, 독립 문서 작성 |
+| Secretary | 자료 기반 조사·분석, 독립 문서 작성 |
 | Planner | 설계·구현 계획 작성 |
 | Scout | 범위를 정한 코드·자료 탐색 |
 | Coder | 할당된 구현·설정·테스트 코드 편집 |
@@ -15,8 +15,8 @@ Codex의 조사·문서 작성·개발 작업을 역할별로 조율하는 Harne
 | Reviewer | 독립 검토 |
 
 - 개발·설정·테스트·구현 의존 문서와 구현이 섞인 작업은 CEO가 책임지고, 코드 편집은 Coder에게 맡깁니다.
-- 비서는 문서·데이터·정적 로그 등 자료를 다룹니다. 공개된 운영 방법 조사도 담당하지만, 현재 시스템·앱·프로세스 상태 검사와 운영 정리는 범위 밖입니다. 이 경계가 다른 소유자를 자동 지정하지는 않습니다.
-- 여섯 역할은 CEO 직속이며 에이전트를 만들거나 다른 역할에 직접 위임하지 않습니다. 전체 동시 활성 하위 에이전트는 비서를 포함해 최대 4개입니다. 독립 작업만 병렬화하고, 종속 작업은 순서대로 진행합니다.
+- Secretary works with materials such as documents, data, and static logs. Researching publicly documented operational methods is also in scope. Inspecting current system, app, or process state and performing operational cleanup are outside scope. This boundary does not automatically assign another owner.
+- All six roles report directly to CEO and may not create agents or delegate directly to other roles. The full tree is limited to four concurrent subagents, including Secretary. Parallelize only independent tasks; handle dependent tasks sequentially.
 
 | 변경 위험 | 최소 검증 흐름 |
 |---|---|
