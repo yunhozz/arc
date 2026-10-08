@@ -1,4 +1,4 @@
-# Scouter 역할 통합 및 프로필 전환 명세
+# Scouter 역할 통합 및 관리형 worktree 인계 명세
 
 ## 1. 목적
 
@@ -6,7 +6,7 @@
 
 독립 문서 파일 작성은 Scouter의 책임에서 제거한다. 독립 문서 작성 요청을 전문 역할에 자동 배정하지 않는다. 조사 결과를 CEO에게 설명하는 응답은 허용한다. Planner의 개발 명세·계획 작성과 Coder의 구현 종속 문서 변경은 각각 기존 책임으로 유지한다.
 
-활성 전문 역할은 Scouter, Planner, Coder, QA, Reviewer다. 기존 개발 소유권, depth 2 보고 구조, 최대 동시 하위 에이전트 네 명, 에이전트 간 직접 위임 금지를 유지한다.
+활성 전문 역할은 Scouter, Planner, Coder, QA, Reviewer다. 기존 개발 소유권, depth 2 보고 구조, 최대 동시 하위 에이전트 네 명, 에이전트 간 직접 위임 금지를 유지한다. 사용자가 새 worktree를 실행 대상으로 선택하면 Codex 앱의 `create_worktree` 도구로 현재 대화에 연결된 관리형 worktree를 만든다.
 
 ## 2. 현재 구조와 목표
 
@@ -16,6 +16,7 @@
 - 기존 Scout 정책: agents/harness-scout.toml
 - 공통 라우팅 및 소유권: skill/SKILL.md
 - 현재 모델 스키마: version 4, 여섯 역할
+- 현재 새 worktree 준비 절차는 `git worktree add`로 Git worktree만 생성하며 Codex 앱 관리형 등록·대화 연결을 보장하지 않는다.
 
 목표 역할 ID는 harness_scouter이며, 프로필 파일은 agents/harness-scouter.toml이다. 사용자 지시에 따라 Scouter는 gpt-6-luna 모델과 max 추론 강도를 사용한다. 기존 Secretary와 Scout의 모델 설정은 계승하지 않는다. 활성 Scout 별칭과 Secretary 역할 ID는 남기지 않는다.
 
@@ -114,11 +115,12 @@ install.py는 다음 프로필만 검증·생성·설치한다.
 | skill/scripts/model_config.py | ID 매핑, 버전·필드 검증, 직렬화 |
 | skill/scripts/apply-models.py | 다섯 프로필 check·dry-run·적용 출력 |
 | install.py | 다섯 활성 대상과 두 폐기 대상의 검사·백업·거래·rollback·출력, yunho-team-* 자동 마이그레이션 검사 제거 |
-| skill/references/handoff.md | 다섯 역할의 작업공간·인계 표현 |
-| skill/references/planning.md | Secretary의 독립 문서 책임 잔여 표현 |
+| skill/references/handoff.md | 다섯 역할의 작업공간·인계 표현, Codex 앱 관리형 worktree 생성·검증·전달 |
+| skill/references/planning.md | Secretary 문서 책임 잔여 표현과 관리형 worktree 준비 순서 |
+| skill/references/git-recovery.md | 관리형 worktree 생성·등록·대화 연결 실패와 부분 완료 복구 경계 |
 | skill/references/verification.md | Scout 참조를 Scouter로 교체하고 역할 경계 유지 |
-| README.md | 역할 표, 문서 범위, 다섯 프로필, version 5, 설치·백업 설명 |
-| tests/test_install.py | 역할·라우팅·모델·설치·안전 거부·rollback 회귀 검사 |
+| README.md | 역할 표, 문서 범위, 다섯 프로필, version 5, 설치·백업·관리형 worktree 설명 |
+| tests/test_install.py | 역할·라우팅·모델·설치·안전 거부·rollback·관리형 worktree 정책 회귀 검사 |
 | MANIFEST.sha256 | 새 배포 파일 집합과 변경 payload의 해시 |
 
 config.toml은 런타임 수용량 예시만 담고 현재 다섯 역할 ID를 열거하지 않으므로 수정하지 않는다. 과거 docs/superpowers/specs/ 및 plans/의 승인 기록은 역사 자료로 유지하고 수정하지 않는다.
@@ -141,14 +143,18 @@ config.toml은 런타임 수용량 예시만 담고 현재 다섯 역할 ID를 �
 | AC-12 | rollback 실패 시 오류 및 백업·복구 자료 경로를 보고하고 복구 자료를 보존한다 |
 | AC-13 | 현재 정책·프로필·모델·설치기·참조·README·테스트·manifest가 정합하다 |
 | AC-14 | 과거 승인 spec/plan과 그 역사적 내용은 변경하지 않는다 |
+| AC-15 | 새 worktree 선택 시 CEO는 `mcp__codex_app__create_worktree`에 `allowAsync: true`, 설명용 `name`, 검증된 원본 HEAD 전체 SHA `ref`를 전달하며 직접 `git worktree add`를 사용하지 않는다. 선택된 branch 후보를 검증된 managed worktree에서 생성하거나, 같은 base를 가리키며 미사용인 기존 승인 branch를 확인해 체크아웃한다 |
+| AC-16 | 도구가 비동기로 반환하면 `mcp__codex_app__get_worktree_creation_status`로 완료를 확인한다. 완료 뒤 반환된 실제 경로·앱 관리 및 현재 대화 연결·초기 branch/detached 상태·HEAD/ref·linked 등록·common directory·대상 dirty state와 원본 보존을 검증한다. 최종 checkout은 사용자 승인 branch여야 한다 |
+| AC-17 | 도구가 미커밋 변경을 복사하지 않는 전제에서 승인 문서만 전달한다. Tracked 원본 문서는 index blob·mode가 source HEAD와 같아 staged 변경이 없고 working-tree bytes가 최신 승인 버전과 같아야 한다. 대상의 깨끗한 base 문서를 확인한 뒤 승인 bytes로 교체하고 원본은 변경하지 않는다. Untracked 문서는 HEAD/index에 경로가 없고 승인 bytes와 일치해야 한다 |
+| AC-18 | 도구 불가·생성/등록/연결 실패·identity/base 검증 불일치·branch 충돌 시 후속 작업과 Coder 인계를 중단하고 상태를 기록한다. raw Git 생성, 다른 name/ref/path/branch 자동 재시도, 자동 삭제·prune·archive로 fallback하지 않는다 |
 
 ## 8. 검증 및 위험
 
-역할 공유 계약, 모델 schema, 프로필 제거·복구가 함께 바뀌므로 significant 변경이다. 테스트를 먼저 작성해 실패를 확인한 다음 구현하고 전체 관련 테스트를 실행한다. Coder 이후 독립 QA가 수락 기준을 검사하고, 그 뒤 Reviewer가 최종 전체 변경을 검토한다. CEO가 근거와 미검증 범위를 검토해 수락한다.
+역할 공유 계약, 모델 schema, 프로필 제거·복구, managed worktree 실행 준비가 함께 바뀌므로 significant 변경이다. 테스트를 먼저 작성해 실패를 확인한 다음 구현하고 전체 관련 테스트를 실행한다. Coder 이후 독립 QA가 수락 기준을 검사하고, 그 뒤 Reviewer가 최종 전체 변경을 검토한다. CEO가 근거와 미검증 범위를 검토해 수락한다.
 
 검사 설계는 각 AC의 방법·범위·실행 상태·근거·판정·미검증 사유를 연결한다. 구조 검사는 정적 정책과 설정 정합성만 입증한다. 설치 테스트는 시험 환경에서 다룬 설치 동작만 입증한다. 실행 중인 에이전트의 실제 준수나 모델 서버의 가용성을 입증했다고 말하지 않는다.
 
-최소 검증 대상은 정확한 다섯 ID와 각 모델·effort(Scouter는 gpt-6-luna/max) 및 version 5 입력 검증, 모델 적용의 check/dry-run/실제 적용, 새·반복 설치, 폐기 대상의 백업·삭제·rollback, 안전하지 않은 경로 거부, 후보 집합 변경, yunho-team-* 경로를 읽거나 변경하지 않는 것, 사용자 파일 보존, manifest 및 현재 정책 정합성이다.
+최소 검증 대상은 정확한 다섯 ID와 각 모델·effort(Scouter는 gpt-6-luna/max) 및 version 5 입력 검증, 모델 적용의 check/dry-run/실제 적용, 새·반복 설치, 폐기 대상의 백업·삭제·rollback, 안전하지 않은 경로 거부, 후보 집합 변경, yunho-team-* 경로를 읽거나 변경하지 않는 것, 사용자 파일 보존, manifest 및 현재 정책 정합성이다. 관리형 worktree 정책 검사는 입력·비동기 완료·대화 연결·identity 검증·문서 전달·실패 시 no-fallback 지침의 정합성을 확인한다. 실제 앱 도구의 provisioning 및 연결은 도구 호출 결과로 별도 검증하며 구조 검사만으로 입증했다고 말하지 않는다.
 
 ## 9. 제외 범위
 
@@ -163,7 +169,50 @@ config.toml은 런타임 수용량 예시만 담고 현재 다섯 역할 ID를 �
 
 새 프로필은 새 세션에서 사용된다. 이미 실행 중인 에이전트의 지침이나 관계가 자동 전환된다고 보장하지 않는다.
 
-## 10. 후속 절차
+## 10. Codex 앱 관리형 worktree 실행 대상
+
+사용자가 세 번째 실행 대상인 새 worktree를 선택하면 CEO는 Codex 앱 도구 `mcp__codex_app__create_worktree`를 사용한다. 직접 `git worktree add`로 생성하지 않는다. Branch 이름 선택·충돌 규칙은 유지하되, 도구 완료 후 반환된 managed worktree 안에서 승인 branch를 생성하거나 확인해 체크아웃한다.
+
+선택 전에 다음 입력과 앱 동작을 제시한다.
+
+- 원본 절대 경로, 저장소·Git common directory, 원본 branch 또는 detached HEAD, 검증된 전체 HEAD SHA
+- 사용자 선택 branch 후보와 충돌 상태, 도구에 전달할 짧은 설명용 `name`, `ref`에 사용할 전체 HEAD SHA
+- 승인 spec/plan의 전달·대상 커밋 범위
+- 앱이 목적지 경로를 결정하고 완료된 worktree를 현재 대화에 연결한다는 점, tool이 branch 이름 인자를 받지 않으므로 완료 뒤 CEO가 승인 branch를 체크아웃한다는 사실
+
+도구 인자에는 목적지 경로와 branch 이름이 없다. 설명용 `name`은 경로를 보장하지 않는다. branch 후보는 도구 호출 전 일반 branch collision rule로 검사하고 사용자 승인을 받는다. 후보가 이미 존재하면, 그 branch가 승인된 후보이며 선택한 base SHA를 가리키고 어떤 worktree에도 checkout되어 있지 않을 때만 재사용한다. 그 밖의 충돌은 사용자가 새 후보를 선택할 때까지 중단한다.
+
+호출 예시는 다음과 같다.
+
+```text
+mcp__codex_app__create_worktree({
+  allowAsync: true,
+  name: "scouter-role-integration",
+  ref: "<verified-source-head-sha>"
+})
+```
+
+`ref`를 생략하면 도구의 remote default branch가 사용될 수 있으므로 생략하지 않는다. 자동 fetch나 다른 base 대체를 하지 않는다. 호출 직전에 원본 경로·저장소·HEAD·index·파일 상태, SHA, 승인 branch 후보와 충돌 상태, `name`, 승인 문서 범위를 다시 확인한다. 이 값이 달라졌으면 갱신된 입력으로 새 명시 선택을 받는다.
+
+도구가 `operationId`를 반환하면 `mcp__codex_app__get_worktree_creation_status`로 완료를 확인한다. 준비·생성·등록 진행 상태는 성공으로 취급하지 않는다. 등록 실패 시에만 도구가 반환한 workspace 경로로 `mcp__codex_app__attach_worktree`를 재시도할 수 있다. 관리형 등록·대화 연결이 완료되기 전에는 문서 전달, staging, commit, Coder 시작을 하지 않는다.
+
+완료 후 CEO는 반환된 실제 절대 경로와 앱 artifact/대화 연결 상태를 확인하고 다음을 기록한다.
+
+- 반환된 worktree 경로와 현재 대화의 관리형 연결
+- linked-worktree 등록, 원본과 대상의 Git common directory 일치
+- 도구의 초기 branch 또는 detached HEAD, 승인 branch 후보, 최종 branch, 대상 HEAD와 승인 `ref` SHA 일치
+- 대상의 staged·unstaged·untracked 상태
+- 원본 branch·HEAD·index·파일 보존
+
+경로와 초기 branch 상태는 도구 결과 및 Git 상태에서 확인하고 불일치를 추정으로 해결하지 않는다. 목적지는 앱이 정한 실제 경로를 사용한다. 대상 HEAD가 승인 `ref`와 같고 등록·연결이 확인된 뒤, 초기 상태가 detached이면 승인 후보를 `git switch -c <approved-branch> <ref>`로 만든다. 같은 base를 가리키는 미사용 승인 branch가 이미 있으면 `git switch <approved-branch>`로 체크아웃한다. 승인 후보가 아닌 branch를 체크아웃하거나 branch pointer를 이동하거나 충돌 후보를 자동 변경하지 않는다. 최종 branch와 HEAD를 재검증한다.
+
+도구는 미커밋 변경을 복사하지 않는다. Untracked 승인 문서는 source HEAD·index에 경로가 없고 source working-tree bytes가 최신 승인 내용과 같아야 한다. Tracked 승인 문서는 source index의 blob·mode가 source HEAD와 같아 staged 변경이 없어야 하고, source working-tree bytes는 최신 승인 내용과 같아야 한다. 승인된 working-tree 개정은 source HEAD/index와 다를 수 있으며, 확인을 위해 원본 문서를 staging하지 않는다.
+
+전달 대상의 HEAD는 선택된 source base SHA여야 한다. 승인된 tracked 문서를 교체하기 전 대상 경로의 staged·unstaged 변경이 없고 index·working-tree bytes가 base 문서와 같은지 확인한다. Base에 없는 문서는 대상에서도 없어야 복사할 수 있다. 목적지가 worktree 밖으로 나가는 symlink, 예상 밖 내용, 상태 불일치는 중단 사유다. 승인된 spec/plan만 같은 상대 경로로 전달하고 bytes를 승인 버전과 대조한다. 원본은 수정·삭제·이동하지 않는다. 기존 승인 커밋을 검증해 재사용하고 남은 승인 문서만 대상에서 기존 일괄 준비 절차로 커밋한다.
+
+생성·등록·연결·base/identity·branch·문서 전달 검증 실패는 후속 작업과 Coder 인계를 막는다. 도구 입력·operationId·결과·오류 및 확인한 원본/대상 상태를 기록한다. 도구가 불가하거나 실패해도 raw Git worktree 생성, 다른 name/ref/path/branch 자동 재시도, 자동 cleanup/prune/archive로 전환하지 않는다. `attach_worktree` 재시도 후에도 연결되지 않거나 상태를 검증할 수 없으면 중단하고 사용자에게 실제 상태를 보고한다.
+
+## 11. 후속 절차
 
 CEO는 이 초안을 통합하고 자체 검토한 뒤 사용자의 서면 명세 승인을 받는다. 승인 후 Planner가 writing-plans를 사용해 구현 계획 전체 초안과 자체 검토를 반환한다. 계획 승인, 실행 대상 선택 및 Coder 인계 게이트 완료 전에는 Coder를 시작하지 않는다.
 
@@ -176,10 +225,12 @@ CEO는 이 초안을 통합하고 자체 검토한 뒤 사용자의 서면 명�
 - Planner 초안, Coder 구현 종속 문서, QA 검증, Reviewer 독립성, CEO 수락을 분리했다.
 - 관리 대상인 구 Secretary·Scout와 설치기가 건드리지 않는 yunho-team-* 파일을 구분했다.
 - version 5 스키마·설치·백업·삭제·rollback을 모두 수락 기준과 연결했다.
+- 관리형 worktree 경로는 앱 도구로 실제 경로를 만들고, 승인 branch를 생성·체크아웃한 뒤 identity·base와 실제 branch 상태를 검증하도록 정했다. raw Git 생성 fallback은 금지했다.
+- tracked 승인 문서 개정은 원본 staged 변경 없이 working-tree 승인 bytes를 전달하고, 대상의 깨끗한 base를 확인한 뒤 교체한다.
 - config.toml이 역할 ID를 열거하지 않아 제외했고, 역사적 승인 자료를 변경 대상에서 뺐다.
 - 글자 수 제한은 코드 근거가 없어 제외하고, 확인 시 명세 재승인을 요구한다.
 - placeholder와 구현 인터페이스 불일치는 없다.
 
 ### 가정과 남은 제한
 
-독립 문서 작성 제외는 전문 역할에 자동 배정하지 않는다는 의미로 해석했다. Scouter가 조사 결과를 대화 응답으로 설명하는 것은 허용한다. 운영 상태 조사·정리 제외는 기존 Secretary 정책을 유지한다. 설치 대상은 정확한 파일명으로 제한하며, 교체되는 파일의 기존 내용은 영구 백업으로 보존한다.
+독립 문서 작성 제외는 전문 역할에 자동 배정하지 않는다는 의미로 해석했다. Scouter가 조사 결과를 대화 응답으로 설명하는 것은 허용한다. 운영 상태 조사·정리 제외는 기존 Secretary 정책을 유지한다. 설치 대상은 정확한 파일명으로 제한하며, 교체되는 파일의 기존 내용은 영구 백업으로 보존한다. 관리형 worktree의 목적지는 도구가 정하고 branch 이름은 사용자가 승인하므로 둘을 분리해 확인한다.
