@@ -1,22 +1,22 @@
 # Yunho Harness
 
-이 Harness는 Codex의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, Secretary와 다섯 전문 역할이 배정된 작업을 수행합니다.
+이 Harness는 Codex의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, 다섯 전문 역할이 배정된 작업을 수행합니다.
 
 ## 👥 역할과 작업 흐름
 
 | 역할 | 담당 |
 |---|---|
 | CEO | 현재 채팅 모델로 조율·승인·통합·수락·완료 |
-| Secretary | 자료 기반 조사·분석, 독립 문서 작성 |
+| Scouter | 읽기 전용 자료 조사·분석, 정적 코드·문서·데이터 탐색 |
 | Planner | 설계·구현 계획 작성 |
-| Scout | 범위를 정한 코드·자료 탐색 |
 | Coder | 할당된 구현·설정·테스트 코드 편집 |
 | QA | 독립 검증 |
 | Reviewer | 독립 검토 |
 
 - 개발·설정·테스트·구현 의존 문서와 구현이 섞인 작업은 CEO가 책임지고, 코드 편집은 Coder에게 맡깁니다.
-- Secretary는 문서·데이터·정적 로그 등의 자료를 다룹니다. 공개 문서에 기록된 운영 방법 조사도 담당 범위에 포함됩니다. 현재 시스템·앱·프로세스 상태의 확인과 운영 정리는 담당 범위 밖이며, 이 경계가 다른 담당자를 자동으로 지정하지는 않습니다.
-- 여섯 역할은 모두 CEO에게 직접 보고하며, 에이전트를 만들거나 다른 역할에 직접 위임할 수 없습니다. 전체 트리에서 Secretary를 포함해 하위 에이전트는 최대 네 개까지 동시에 실행합니다. 독립적인 작업만 병렬로 처리하고, 종속 작업은 순서대로 수행합니다.
+- 독립 문서 작성은 전문 역할에 자동 배정하지 않습니다. Scouter는 파일을 편집하거나 독립 문서 파일을 작성하지 않습니다. Planner는 설계·명세·계획 초안, Coder는 구현 종속 문서를 담당합니다.
+- Scouter는 문서·데이터·정적 로그 등의 자료를 다룹니다. 공개 문서에 기록된 운영 방법 조사도 담당 범위에 포함됩니다. 현재 시스템·앱·프로세스 상태의 확인과 운영 정리는 담당 범위 밖이며, 이 경계가 다른 담당자를 자동으로 지정하지는 않습니다.
+- 다섯 역할은 모두 CEO에게 직접 보고하며, 에이전트를 만들거나 다른 역할에 직접 위임할 수 없습니다. 전체 트리에서 Scouter를 포함해 하위 에이전트는 최대 네 개까지 동시에 실행합니다. 독립적인 작업만 병렬로 처리하고, 종속 작업은 순서대로 수행합니다.
 
 | 변경 위험 | 최소 검증 흐름 |
 |---|---|
@@ -58,7 +58,7 @@ CEO는 Planner 초안을 대체하는 독립 명세 초안을 작성하지 않�
 설치된 brainstorming의 조기 명세 커밋 지시는 Harness의 승인·선택·일괄 준비 순서에 맞춰 적용합니다.
 
 현재 승인 범위의 필요한 문서를 모두 작성·개별 승인받고 집합을 완결한 뒤 실행 대상을 선택합니다.
-최초 시작에는 현재 체크아웃, 같은 체크아웃의 검증된 새 브랜치, 새 worktree와 새 task branch 중 하나를 사용자가 명시 선택해야 합니다.
+최초 시작에는 현재 체크아웃, 같은 체크아웃의 검증된 새 브랜치, 새 관리형 worktree와 새 task branch 중 하나를 사용자가 명시 선택해야 합니다.
 계획 승인·무응답·불명확한 답변은 선택이 아닙니다. 승인 문서 커밋 또는 유효한 문서 생략 근거와 최종 상태를 확인한 뒤 인계합니다.
 문서 작성·승인 중에는 실행 준비 목적의 대상 선택·브랜치 전환·worktree 생성·스테이징·커밋을 하지 않습니다.
 
@@ -68,28 +68,27 @@ CEO는 Planner 초안을 대체하는 독립 명세 초안을 작성하지 않�
 기존 유효 문서 커밋은 검증해 재사용하고 남은 승인 문서만 한 번에 준비하며 스테이징된 경로·차이·커밋 메시지와 사후 상태를 확인합니다.
 이 증거는 기존 정본에 기록하며 과거 조기 저장·커밋을 소급 승인하지 않습니다.
 
-새 worktree의 기본 후보 `../<repo>-<topic>-worktree`는 원본과 같은 부모 아래 sibling 절대 경로로 확인합니다.
-원본 절대 경로·repository/common directory·branch 또는 detached HEAD·검증된 현재 HEAD SHA와 후보 branch/path,
-승인 문서 전달·커밋 범위를 함께 제시하고 선택받습니다. Remote/default branch로 base를 바꾸거나 자동 fetch하지 않습니다.
-기존 branch·파일·빈 디렉터리·symlink·등록된 worktree는 재사용하지 않습니다. 조회 오류는 부재와 구분합니다.
-후보에 suffix를 제안할 수 있습니다. 생성 전 승인된 원본 상태·base SHA·branch/path 후보를 선택 전후에 재확인하며,
-선택 후 생성 전에 이 값이 바뀌면 중단하고 갱신 대상의 새 명시 선택을 받습니다. 이는 생성 전 후보 규칙입니다.
-생성·검증 성공 후에는 아래 재개 선택 재사용 규칙을 적용합니다.
+새 관리형 worktree는 `mcp__codex_app__create_worktree`로 생성합니다. 앱이 실제 경로를 결정하며 목적지 path·branch 인자를 받지 않습니다.
+설명용 `name`과 검증된 source HEAD 전체 SHA인 `ref`, `allowAsync: true`를 사용합니다. Remote/default base 대체와 자동 fetch는 하지 않습니다.
+선택 전 원본 절대 경로·repository/common directory·branch/detached HEAD·base SHA·승인 branch 후보와 충돌 상태·name·승인 문서 범위를 제시합니다.
+호출 직전 같은 입력을 재확인하고 바뀌면 새 명시 선택을 받습니다. branch 충돌은 승인 없이 다른 후보로 바꾸지 않습니다.
+같은 base를 가리키고 다른 worktree에서 사용하지 않는 승인 branch만 재사용합니다.
 
-개별 승인 완료 → 실행 대상 명시 선택 → worktree/branch 생성·검증 → 기존 문서 커밋 검증·재사용 → 승인 문서 전달
-→ 대상에서 남은 승인 문서만 한 번 커밋 → 원본·대상 최종 상태 확인 → Coder 인계 순서입니다.
-생성 명령은 `git worktree add -b <branch> <absolute-path> <base-sha>`이며 `--force`와 `-B`를 쓰지 않습니다.
-Linked 등록·common directory·branch·base·절대 path·dirty state와 원본 branch·HEAD·index·파일 보존을 확인합니다.
-승인된 untracked spec/plan은 index entry 없이 working-tree bytes를 승인 버전과 비교합니다.
-Tracked 승인 문서는 index bytes와 working-tree bytes가 모두 승인 버전과 같아야 합니다.
-불일치하면 중단하며 staging으로 해결하지 않습니다. 무관 staged 변경·불명확한 소유권·필요한 미커밋 구현 변경도 차단합니다.
+개별 승인 완료 → 실행 대상 명시 선택 → 앱 생성·관리형 현재 대화 연결·identity/base 검증 → 승인 branch 생성·체크아웃 및 HEAD 검증
+→ 기존 승인 커밋 검증·재사용 → 승인 문서 전달 → 대상에서 남은 승인 문서만 한 번 커밋 → 원본·대상 최종 상태 확인 → Coder 인계 순서입니다.
+`operationId`가 반환되면 `mcp__codex_app__get_worktree_creation_status`로 완료를 확인합니다. 진행 상태는 성공이 아닙니다.
+등록 실패 때만 반환 workspace에 `mcp__codex_app__attach_worktree`를 재시도합니다. 앱 관리·현재 대화 연결을 검증하기 전에는 문서 전달·staging·commit·Coder 시작을 하지 않습니다.
+초기 detached HEAD에서 `git switch -c <approved-branch> <ref>`로 승인 branch를 생성하고, 같은 base의 미사용 승인 branch는 `git switch <approved-branch>`로 체크아웃합니다.
+예상 밖 branch·base·연결은 중단 사유입니다. Linked 등록·common directory·실제 반환 path·dirty state와 원본 branch·HEAD·index·파일 보존을 확인합니다.
+앱은 미커밋 변경을 복사하지 않습니다. untracked 승인 문서는 source HEAD와 index에 경로가 없고 working-tree bytes가 최신 승인 버전이어야 합니다.
+Tracked 승인 문서는 index blob·mode가 source HEAD와 같고 working-tree bytes가 최신 승인 버전이어야 합니다. 승인 개정 bytes는 HEAD/index와 다를 수 있습니다.
+불일치하면 중단하며 source staging으로 해결하지 않습니다. 무관 staged 변경·불명확한 소유권·필요한 미커밋 구현 변경도 차단합니다.
 원본 dirty 구현은 자동 이전하지 않고 stash/commit/reset/clean/unstage로 준비하지 않습니다.
-미커밋 승인 spec/plan만 같은 상대 경로로 복사하며 원본을 수정·삭제·이동하지 않습니다.
-대상 path/symlink가 worktree 밖으로 나가면 중단합니다. 깨끗한 base bytes를 확인한 문서만 승인 버전으로 교체하고,
-예상 밖 변경은 덮어쓰지 않습니다. 동일 내용은 검증해 재사용하고 전달 후 bytes와 정본의 source/target 대응을 확인합니다.
-실패·부분 완료는 인계를 차단하고 실제 source/target 상태를 기록합니다. 자동 fallback·다른 후보 재시도·삭제·prune·force를 금지합니다.
-모든 여섯 역할은 선택된 절대 workspace를 공유합니다. 자동 recreate/cleanup/archive는 하지 않습니다.
-구조 검사는 정책 계약을 확인하며 실제 Git provisioning이나 agent runtime 준수는 미검증입니다.
+승인된 미커밋 spec/plan만 같은 상대 경로로 전달합니다. destination HEAD는 선택한 base SHA여야 하며 tracked 대상의 index·working bytes가 깨끗한 base와 같은지 먼저 확인합니다.
+base에 없는 문서는 destination에도 없어야 복사합니다. escaping symlink·예상 밖 변경은 거부하며 원본은 수정·삭제·이동하지 않습니다.
+전달 후 승인 bytes와 source/target 대응을 정본에 기록합니다. 생성·등록·연결·identity·branch·전달 실패·부분 완료는 후속 작업과 인계를 차단합니다.
+도구 입력·operationId·결과·오류와 실제 source/target 상태를 기록합니다. raw Git 생성 fallback·다른 name/ref/path/branch 자동 재시도·cleanup/delete/prune/archive는 하지 않습니다.
+다섯 역할은 반환된 같은 절대 workspace를 사용합니다. 구조 검사는 정책만 확인하며 실제 앱 provisioning·연결과 agent runtime 준수를 증명하지 않습니다.
 
 동일 승인 범위·작업공간·저장소·실행 대상의 재개는 유효한 최초 명시 선택을 재사용합니다.
 생성·검증 성공 후 선택된 대상의 승인 문서 전달·문서 커밋·구현에 따른 정상 승인 HEAD·dirty 변경은 최초 선택을 무효화하지 않습니다.
@@ -125,14 +124,14 @@ python3 install.py
 brainstorming · writing-plans · test-driven-development
 ```
 
-취득 결과를 검증한 뒤 외부 스킬, Harness, 여섯 역할 프로필을 백업하고 갱신합니다. 기본 설치 위치는 `~/.codex`이며, 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다.
+취득 결과를 검증한 뒤 외부 스킬, Harness, 다섯 역할 프로필을 백업하고 갱신합니다. 기본 설치 위치는 `~/.codex`이며, 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다.
 
-이전 역할 프로필은 구성 요소 `("yunho", "team")`를 `-`로 연결한 접두사에 `secretary`, `planner`, `scout`, `coder`, `qa`, `reviewer`와 `.toml`을 붙인 정확한 여섯 경로만 대상으로 삼습니다. 선택한 Codex 홈의 `agents/` 바로 아래에 존재하는 후보와 상위 경로를 안전 검사합니다. 심볼릭 링크·디렉터리·특수 파일인 후보 또는 안전하지 않은 상위 경로는 설치 변경 전에 거부합니다. 일반 파일인 후보를 `backups/<timestamp>/agents/`에 영구 백업합니다. 거래 안에서 이전 후보를 복구용 위치로 먼저 이동한 다음 새 `harness-<role>.toml` 프로필을 설치하며, 실패하면 이전 파일을 복구합니다. 폐기 역할과 다른 사용자 프로필은 유지합니다.
+선택한 Codex 홈의 `agents/` 바로 아래 정확한 두 관리 프로필 `harness-secretary.toml`, `harness-scout.toml`만 폐기합니다. 후보와 상위 경로의 안전성을 검사하며 symlink·디렉터리·특수 파일은 변경 전에 거부합니다. 취득 전후에 후보의 목록·내용·metadata·identity를 비교해 변경 시 중단합니다. 원본 bytes와 mode를 `backups/<timestamp>/agents/`에 백업하고, 모든 백업·staging 준비 뒤 거래에서 두 폐기 파일을 먼저 복구 가능한 위치로 이동합니다. 이어서 다섯 활성 프로필을 교체하며 실패 시 함께 복구합니다. 복구 실패 시 백업과 복구 자료의 절대 경로를 보고하고 자료를 보존합니다. `yunho-team-*` 경로는 비관리 사용자 파일이므로 탐색·검사·백업·삭제하지 않습니다. 다른 사용자 프로필도 보존합니다. dry-run은 다섯 활성 프로필과 발견된 폐기 경로를 표시하며 파일을 변경하지 않습니다.
 
 | 설치 대상 | 갱신 범위 |
 |---|---|
 | `<CODEX_HOME>/skills/` | 외부 스킬 세 개와 `yunho-harness` |
-| `<CODEX_HOME>/agents/` | Harness 역할 프로필 여섯 개 |
+| `<CODEX_HOME>/agents/` | Harness 역할 프로필 다섯 개 |
 | `~/.agents/skills/` | 설치 시작 시 이미 존재하는 외부 스킬 후보만 |
 
 외부 스킬 취득은 임시 환경에서 실행하며 사용자 npm/Git 설정·자격 증명·프록시 환경 변수를 이어받지 않습니다. 해당 설정에 의존하는 네트워크에서는 설치가 실패할 수 있습니다. Node.js 최소 버전은 이 저장소에서 고정하지 않습니다.
@@ -165,17 +164,17 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 
 ## ⚙️ 모델 변경
 
-[skill/models.toml](skill/models.toml)이 여섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다.
+[skill/models.toml](skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다.
 
 ```toml
-version = 4
+version = 5
 
 [roles.harness_coder]
 model = "example-model-id"
 model_reasoning_effort = "medium"
 ```
 
-위 예시는 일부만 보여줍니다. 실제 파일에는 여섯 역할과 각 역할의 두 문자열 필드가 모두 필요합니다. 이전 설정 버전 1·2·3은 오류로 거부하고 자동 변환하지 않으며, 모델·추론 강도의 원격 지원이나 계정 접근 권한은 검사하지 않습니다.
+위 예시는 일부만 보여줍니다. 실제 파일에는 다섯 역할과 각 역할의 두 문자열 필드가 모두 필요합니다. 이전 설정 버전 1·2·3·4는 오류로 거부하고 자동 변환하지 않으며, 모델·추론 강도의 원격 지원이나 계정 접근 권한은 검사하지 않습니다.
 
 새 설치는 저장소 설정을 사용하며 이전 사용자 모델 설정과 프로필의 개인 수정 사항을 자동 병합하지 않습니다. 기존 Harness 백업의 `models.toml`을 참고해 새 형식에 필요한 값을 직접 반영할 수 있습니다. **기존 설치의 모델만 변경하려면** 설치된 `~/.codex/skills/yunho-harness/models.toml`을 편집한 뒤 실행합니다.
 

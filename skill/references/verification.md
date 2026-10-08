@@ -41,10 +41,9 @@ materials are unaffected, ignore patterns cover only intended paths, and the dif
 then complete focused checks without automatically calling QA or Reviewer. A vague request to delete unnecessary files
 does not establish low risk; reclassify when installer, manifest, or other contracts are affected.
 
-Use additional Planner/Scout only for unresolved planning/discovery questions. Reviewer covers substantial changes and
-correctness, factual, security, data, or interface risks. CEO may use Planner/Scout/Reviewer when justified and assigns
-all Coder/QA work. Secretary requests specialist
-support through CEO and works alone when small or sequential work needs no specialist.
+Use additional Planner/Scouter only for unresolved planning/discovery questions. Reviewer covers substantial changes and
+correctness, factual, security, data, or interface risks. CEO may use Planner/Scouter/Reviewer when justified and assigns
+all Coder/QA work. Specialists report unresolved questions to CEO, who assigns support only when needed.
 
 QA independently runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
 configuration changes, without editing source, documents, tests, or configuration. Reviewer reads the assigned

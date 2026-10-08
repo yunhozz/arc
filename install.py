@@ -22,15 +22,15 @@ import stat
 import subprocess
 import tempfile
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from types import ModuleType
 from pathlib import Path, PurePosixPath
 
 
 INSTALL_NAME = "yunho-harness"
 PROFILE_FILES = (
-    "harness-secretary.toml",
+    "harness-scouter.toml",
     "harness-planner.toml",
-    "harness-scout.toml",
     "harness-coder.toml",
     "harness-qa.toml",
     "harness-reviewer.toml",
@@ -784,7 +784,7 @@ def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
         except OSError as exc:
             raise InstallerError(f"cannot read source profile {source}: {exc}") from exc
     if set(rendered) != set(PROFILE_FILES):
-        raise InstallerError("shared model configuration does not define exactly the six profile files")
+        raise InstallerError("shared model configuration does not define exactly the five profile files")
     return rendered
 
 
@@ -832,16 +832,42 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
-def legacy_profile_targets(home: Path) -> dict[str, Path]:
-    """Validate and return only the six prior role profiles that exist."""
-    prefix = "-".join(("yunho", "team"))
+RETIRED_PROFILE_FILES = (
+    "harness-secretary.toml",
+    "harness-scout.toml",
+)
+
+
+def retired_profile_targets(home: Path) -> dict[str, Path]:
+    """Validate only the two managed retired profiles; never enumerate agents/."""
     targets: dict[str, Path] = {}
-    for role in ("secretary", "planner", "scout", "coder", "qa", "reviewer"):
-        filename = f"{prefix}-{role}.toml"
+    for filename in RETIRED_PROFILE_FILES:
         path = home / "agents" / filename
         if check_file_or_missing(path):
             targets[filename] = path
     return targets
+
+
+@dataclass(frozen=True)
+class RetiredProfileSnapshot:
+    path: Path
+    content: bytes
+    mode: int
+    device: int
+    inode: int
+    mtime_ns: int
+    ctime_ns: int
+
+
+def retired_profile_snapshot(home: Path) -> dict[str, RetiredProfileSnapshot]:
+    snapshots: dict[str, RetiredProfileSnapshot] = {}
+    for filename, path in retired_profile_targets(home).items():
+        metadata = path.lstat()
+        snapshots[filename] = RetiredProfileSnapshot(
+            path, path.read_bytes(), metadata.st_mode, metadata.st_dev, metadata.st_ino,
+            metadata.st_mtime_ns, metadata.st_ctime_ns,
+        )
+    return snapshots
 
 
 def install_plan(
@@ -868,7 +894,7 @@ def install_plan(
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
-    legacy_profile_targets(home)
+    retired_profile_targets(home)
     if validate_external:
         validate_external_skills(home, user_home)
     return skills_dir, agents_dir, backups_dir, profile_targets
@@ -893,7 +919,7 @@ def backup_existing(
     backup_root: Path,
     external_targets: dict[str, tuple[Path, ...]],
     *,
-    legacy_targets: dict[str, Path],
+    retired_targets: dict[str, Path],
 ) -> None:
     if harness_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
@@ -907,7 +933,7 @@ def backup_existing(
             target = backup_root / group / skill
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
-    for filename, source in {**profile_targets, **legacy_targets}.items():
+    for filename, source in {**profile_targets, **retired_targets}.items():
         if os.path.lexists(source):
             require_regular_file(source)
             target = backup_root / "agents" / filename
@@ -981,7 +1007,7 @@ def _transactional_install(
     backups_dir: Path,
     profile_targets: dict[str, Path],
     *,
-    legacy_targets: dict[str, Path],
+    retired_targets: dict[str, Path],
 ) -> Path:
     harness_target = skills_dir / INSTALL_NAME
     directories = {home, skills_dir, agents_dir, backups_dir}
@@ -992,7 +1018,7 @@ def _transactional_install(
         reject_symlink_components(directory)
 
     backup_root = make_backup_directory(backups_dir)
-    backup_existing(harness_target, profile_targets, backup_root, external_targets, legacy_targets=legacy_targets)
+    backup_existing(harness_target, profile_targets, backup_root, external_targets, retired_targets=retired_targets)
 
     stage_areas: list[Path] = []
     staged_targets: list[tuple[Path, Path, Path]] = []
@@ -1035,7 +1061,7 @@ def _transactional_install(
         actions: list[dict[str, object]] = []
         target_changes_started = True
         try:
-            for filename, target in legacy_targets.items():
+            for filename, target in retired_targets.items():
                 previous = profile_stage_area / f"previous-{filename}"
                 actions.append({
                     "target": target,
@@ -1117,7 +1143,8 @@ def perform_install(
         user_home=user_home,
         validate_external=dry_run,
     )
-    legacy_targets = legacy_profile_targets(home)
+    retired_snapshot = retired_profile_snapshot(home)
+    retired_targets = {name: snapshot.path for name, snapshot in retired_snapshot.items()}
     external_targets = (
         external_candidate_paths(home, user_home)
         if dry_run
@@ -1127,8 +1154,8 @@ def perform_install(
         print(f"Would acquire with: {shlex.join(external_acquisition_command())}")
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
-        print(f"Would install six profiles: {agents_dir}")
-        for target in legacy_targets.values():
+        print(f"Would install five profiles: {agents_dir}")
+        for target in retired_targets.values():
             print(f"Would back up and remove prior profile: {target}")
         return
 
@@ -1136,8 +1163,8 @@ def perform_install(
         acquired = acquire_external_skills(Path(temporary))
         if external_write_targets(home, user_home) != external_targets:
             raise InstallerError("external skill targets changed during acquisition; refusing to install")
-        if legacy_profile_targets(home) != legacy_targets:
-            raise InstallerError("legacy profile candidates changed during acquisition; refusing to install")
+        if retired_profile_snapshot(home) != retired_snapshot:
+            raise InstallerError("retired profile candidates changed during acquisition; refusing to install")
         backup_root = _transactional_install(
             root,
             home,
@@ -1148,7 +1175,7 @@ def perform_install(
             agents_dir,
             backups_dir,
             profile_targets,
-            legacy_targets=legacy_targets,
+            retired_targets=retired_targets,
         )
 
     print(f"Installed three external skills, Harness skill and profiles under: {home}")
@@ -1161,7 +1188,7 @@ def perform_install(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Install the staged Yunho Harness into a Codex home.")
     action = parser.add_mutually_exclusive_group()
-    action.add_argument("--check", action="store_true", help="validate the staged manifest and all six profiles without installing")
+    action.add_argument("--check", action="store_true", help="validate the staged manifest and all five profiles without installing")
     action.add_argument("--dry-run", action="store_true", help="show planned targets without writing files")
     return parser
 

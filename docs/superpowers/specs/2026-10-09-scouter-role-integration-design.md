@@ -156,9 +156,17 @@ config.toml은 런타임 수용량 예시만 담고 현재 다섯 역할 ID를 �
 
 최소 검증 대상은 정확한 다섯 ID와 각 모델·effort(Scouter는 gpt-6-luna/max) 및 version 5 입력 검증, 모델 적용의 check/dry-run/실제 적용, 새·반복 설치, 폐기 대상의 백업·삭제·rollback, 안전하지 않은 경로 거부, 후보 집합 변경, yunho-team-* 경로를 읽거나 변경하지 않는 것, 사용자 파일 보존, manifest 및 현재 정책 정합성이다. 관리형 worktree 정책 검사는 입력·비동기 완료·대화 연결·identity 검증·문서 전달·실패 시 no-fallback 지침의 정합성을 확인한다. 실제 앱 도구의 provisioning 및 연결은 도구 호출 결과로 별도 검증하며 구조 검사만으로 입증했다고 말하지 않는다.
 
+### 8.1 확인된 텍스트 길이 제한 제거
+
+`tests/test_install.py`의 `ConditionalReferenceTests.test_core_word_count_meets_budget`는 `wc -w`로
+`skill/SKILL.md`를 계산해 2788단어 이하를 강제한다. 글자 수가 아닌 단어 수 제한이지만 사용자 요청의
+텍스트 길이 제한으로 처리하여 해당 테스트를 제거한다. 다른 구현·설정은 변경하지 않는다.
+`_validated_string`의 비어 있음·주변 공백·제어문자·줄바꿈 검증은 길이 상한이 아니므로 유지한다.
+관련 구조 검색으로 제한 테스트 부재를 확인하고 전체 unittest suite를 실행한다. tests 파일은
+MANIFEST.sha256 관리 대상이 아니므로 이 제거만으로 manifest를 갱신하지 않는다.
+
 ## 9. 제외 범위
 
-- 글자 수 제한 코드 제거: 현재 저장소 검색에서 해당 제한을 찾지 못해 구체적인 출처·필드 확인 전까지 제외한다. 이 문구는 추후 범위가 확인되면 명세를 수정·재승인한다.
 - 과거 spec/plan 수정, 외부 skill 변경, 전역 사용자 설정 자동 수정
 - 다른 활성 역할의 모델·effort 변경
 - 문서 작성 전문 역할 신설 또는 다른 역할로의 자동 재배정
@@ -228,7 +236,7 @@ CEO는 이 초안을 통합하고 자체 검토한 뒤 사용자의 서면 명�
 - 관리형 worktree 경로는 앱 도구로 실제 경로를 만들고, 승인 branch를 생성·체크아웃한 뒤 identity·base와 실제 branch 상태를 검증하도록 정했다. raw Git 생성 fallback은 금지했다.
 - tracked 승인 문서 개정은 원본 staged 변경 없이 working-tree 승인 bytes를 전달하고, 대상의 깨끗한 base를 확인한 뒤 교체한다.
 - config.toml이 역할 ID를 열거하지 않아 제외했고, 역사적 승인 자료를 변경 대상에서 뺐다.
-- 글자 수 제한은 코드 근거가 없어 제외하고, 확인 시 명세 재승인을 요구한다.
+- 확인된 텍스트 길이 제한은 tests/test_install.py의 test_core_word_count_meets_budget이며, skill/SKILL.md에 2788단어 상한을 강제한다. 사용자 요청 범위에 포함해 이 테스트를 제거한다.
 - placeholder와 구현 인터페이스 불일치는 없다.
 
 ### 가정과 남은 제한

@@ -35,7 +35,7 @@ design path or plan approval gates.
 5. Every Coder first start and restart requires all applicable design/spec/plan approvals and the complete
    `Workspace handoff` gate below, with approved artifacts, brief, and relevant findings. Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
-   These stages preserve Secretary's standalone ownership.
+   Standalone document writing has no specialist auto-route.
 
 When a Bounded written spec is required by the existing CEO depth judgment, record that necessity and scope and
 use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
@@ -130,3 +130,15 @@ Do not retroactively treat an early save or commit as satisfying these gates or 
 order and any evidence gap. Structural checks prove only the repository's written policy contract, not consuming-agent
 runtime compliance. Without execution records for role returns, approvals, saves, and Git actions, leave runtime
 compliance unverified. Do not add runtime infrastructure or modify external skills for these checks.
+
+### Managed worktree preparation
+
+For the third execution path, use mcp__codex_app__create_worktree with allowAsync: true, descriptive name and verified
+full source HEAD ref after explicit choice. The app selects the actual destination path. Verify asynchronous completion,
+app-managed current-chat attachment, linked registration, common directory and base before creating/checking out the
+approved branch. Recheck the final approved branch/HEAD before approved-document transfer, batch docs commit, final
+Git verification and Coder handoff. No raw Git worktree creation or automatic alternate-input retry is permitted.
+Source tracked docs require index blob/mode equal to HEAD and working-tree bytes equal to the latest approved version;
+source untracked docs require HEAD/index absence and approved bytes. Do not stage source revisions. Verify destination
+HEAD equals selected base and base-clean destination bytes before replacement; absent base documents must remain
+absent until approved transfer. See handoff.md for the complete inputs, collision/reuse rules and failure gates.

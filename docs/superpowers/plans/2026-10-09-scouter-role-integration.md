@@ -22,7 +22,7 @@
 - 설치 폐기 대상은 harness-secretary.toml, harness-scout.toml 두 개뿐이다.
 - yunho-team-* 경로를 탐색·검사·백업·삭제하지 않는다.
 - config.toml, 과거 spec/plan, 외부 skills는 변경하지 않는다.
-- 글자 수 제한 제거와 제어문자·문자열 검증 변경은 범위 밖이다.
+- 확인된 test_core_word_count_meets_budget의 2788단어 상한 테스트를 텍스트 길이 제한으로 처리해 제거한다. _validated_string의 제어문자·문자열 안전 검증은 유지한다.
 - 새 worktree는 `mcp__codex_app__create_worktree`에 `allowAsync: true`, 설명용 `name`, 검증한 원본 HEAD 전체 SHA `ref`를 전달해 생성한다.
 - 생성 전 사용자 지정 목적지 경로나 path 충돌 검사는 요구하지 않는다. 승인 branch 후보와 branch 충돌 검사는 유지한다. 앱 반환 경로와 초기 상태를 확인한 뒤 승인 branch를 생성·확인해 체크아웃한다.
 - 등록 실패 시 반환된 workspace의 `attach_worktree` 재시도만 허용한다. raw Git worktree 생성, 다른 입력의 자동 생성 재시도, 자동 정리는 금지한다.
@@ -422,6 +422,15 @@ manifest에는 agents/harness-scouter.toml이 있고 두 폐기 프로필은 없
 
 - [ ] 배포 계약 검사를 다시 실행해 통과를 확인한다.
 
+### 4.2.1 확인된 텍스트 길이 제한 제거
+
+- [ ] `tests/test_install.py`의 `test_core_word_count_meets_budget`만 제거한다. 이 테스트는 `wc -w`와 2788단어 상한으로 skill/SKILL.md를 제한한다.
+- [ ] 이번 명세·계획의 미발견·제외 설명을 제거하고 확인된 제한과 제거·검증 범위를 기록한다. 다른 구현·설정과 기존 Coder 변경분은 보존한다.
+- [ ] `_validated_string`은 길이 상한이 아닌 문자열·제어문자 안전 검증이므로 수정하지 않는다.
+- [ ] `rg -n 'test_core_word_count_meets_budget|2788|wc.*-w' tests skill install.py README.md`로 활성 코드의 제한 부재를 확인한다. 이번 spec/plan의 제거 기록은 의도된 언급으로 유지한다.
+- [ ] MANIFEST.sha256의 test 파일 포함 여부를 확인한다. 현재 tests/test_install.py는 관리되지 않으므로 이번 테스트 제거만을 위한 manifest 갱신은 하지 않는다.
+- [ ] 아래 전체 unittest suite와 git diff --check를 실행하고 로그·결과를 CEO에게 보고한다. 작은 추적 수정으로 자동 커밋하지 않는다.
+
 ### 4.3 전체 회귀
 
 - [ ] 전체 suite를 실행한다.
@@ -474,6 +483,6 @@ manifest에는 agents/harness-scouter.toml이 있고 두 폐기 프로필은 없
 - 폐기 후보 변경은 목록만 비교하지 않고 내용·metadata·identity까지 감지한다.
 - 외부 skill의 별도 경로 호환, 문자열 검증, 과거 기록, 런타임 capacity를 변경하지 않는다.
 - 구조 검사는 runtime 준수를, 격리 설치 검사는 실제 사용자 환경을, 모델 검사는 서버 가용성을 증명하지 않는다.
-- 글자 수 제한 구현은 발견되지 않아 제외되며, source가 특정되면 별도 명세 승인이 필요하다.
+- 발견된 텍스트 길이 제한 test_core_word_count_meets_budget를 제거한다. 단어 수 상한이며 _validated_string의 안전 검증과 구별한다.
 - 문서 지침 수정은 앱 tool 자체의 runtime 동작을 바꾸지 않는다. 수락 시 앱이 실제로 반환하는 관리형 연결 증거와 구조 검증 결과를 구분한다.
 - 구현 인터페이스와 계획 작업 사이의 타입 불일치나 placeholder는 없다.

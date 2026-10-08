@@ -1,18 +1,14 @@
 # Single source for each role's exact model ID and reasoning-effort selection.
 # Each role is applied directly; model availability is not validated here.
-version = 4
+version = 5
 
-[roles.harness_secretary]
-model = "gpt-6.1-sol"
-model_reasoning_effort = "low"
+[roles.harness_scouter]
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
 
 [roles.harness_planner]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
-
-[roles.harness_scout]
-model = "gpt-6-luna"
-model_reasoning_effort = "high"
 
 [roles.harness_coder]
 model = "gpt-6.1-sol"

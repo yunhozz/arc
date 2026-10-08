@@ -37,7 +37,7 @@ execution-target choice block handoff. CEO resolves the problem and rechecks pre
 
 ### Worktree failures and partial completion
 
-Worktree creation, registration, checkout, document transfer, staging, or commit failure means stop dependent work
+Worktree creation, registration, attachment, identity/base verification, checkout, document transfer, staging, or commit failure means stop dependent work
 and Coder handoff. Partial completion includes branch-only creation, partial path creation, registration/actual-path
 mismatch, wrong base or branch, and partial document transfer. Record source and target exact command, error,
 branch, HEAD, Git common directory, registration, index and files, including target dirty state and source preservation.
@@ -47,3 +47,11 @@ Do not automatically fallback, retry another path/branch, delete branches/paths/
 Normal worktree preparation after explicit third-path selection is permitted under handoff; moving to an arbitrary
 workspace during recovery remains prohibited. Resolve preparation and revalidate the full gate; if target trust is
 invalidated or the target changes, obtain a new explicit choice. No automatic cleanup/archive is authorized.
+
+For managed worktree failures record tool inputs, operationId, result/error, returned actual path, app-managed
+registration and current-chat attachment, initial/final branch, base/ref SHA, source/target HEAD/index/files and ownership.
+Preparing/creating/registering is not completion. Only a registration failure permits attach retry using
+mcp__codex_app__attach_worktree with the tool-returned workspace; check completion and current-chat attachment again.
+If attachment still fails or tools/results cannot be verified, stop and report actual state. Do not provision with raw
+Git, automatically retry another name/ref/path/branch, delete/cleanup/prune/archive, or treat a directory as proof of
+app management. Revalidate the full handoff gate before dependent work; never repeat completed branch/doc operations.
