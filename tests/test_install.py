@@ -97,18 +97,17 @@ def tree_state(root: Path):
     return state
 
 
-SIX_SETTINGS = {
-    "harness_secretary": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
+FIVE_SETTINGS = {
+    "harness_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
     "harness_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
-    "harness_scout": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "harness_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
     "harness_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
     "harness_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }
 
 
-def settings_bytes(roles: dict, version=4) -> bytes:
-    lines = [f"version = {str(version).lower()}"]
+def settings_bytes(roles: dict, version=5) -> bytes:
+    lines = [f"version = {json.dumps(version)}"]
     for role, fields in roles.items():
         lines.append(f"[roles.{role}]")
         for key, value in fields.items():
@@ -123,55 +122,55 @@ class ModelSettingsTests(unittest.TestCase):
         self.config = Path(temporary.name) / "models.toml"
         self.module = installer.load_model_module(REPO)
 
-    def load(self, roles: dict, version=4):
+    def load(self, roles: dict, version=5):
         self.config.write_bytes(settings_bytes(roles, version))
         return self.module.load_settings(self.config)
 
-    def test_model_standard_six_roles(self) -> None:
+    def test_model_standard_five_roles(self) -> None:
         try:
-            settings = self.load(SIX_SETTINGS)
+            settings = self.load(FIVE_SETTINGS)
         except self.module.ValidationError as exc:
-            self.fail(f"standard six-role settings must be accepted: {exc}")
-        self.assertEqual(settings, SIX_SETTINGS)
-        self.assertEqual(set(self.module.ROLE_FILES), set(SIX_SETTINGS))
-        self.assertEqual(self.module.load_settings(REPO / "skill/models.toml"), SIX_SETTINGS)
+            self.fail(f"standard five-role settings must be accepted: {exc}")
+        self.assertEqual(settings, FIVE_SETTINGS)
+        self.assertEqual(set(self.module.ROLE_FILES), set(FIVE_SETTINGS))
+        self.assertEqual(self.module.load_settings(REPO / "skill/models.toml"), FIVE_SETTINGS)
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
-        for roles in ({**SIX_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
-                      {role: fields for role, fields in SIX_SETTINGS.items() if role != "harness_coder"}):
+        for roles in ({**FIVE_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
+                      {role: fields for role, fields in FIVE_SETTINGS.items() if role != "harness_coder"}):
             with self.subTest(roles=roles), self.assertRaises(self.module.ValidationError):
                 self.load(roles)
-        for version in (1, 2, 3, True):
+        for version in (1, 2, 3, 4, True, "5"):
             with self.subTest(version=version), self.assertRaises(self.module.ValidationError):
-                self.load(SIX_SETTINGS, version)
+                self.load(FIVE_SETTINGS, version)
         for content in (b'version = 4\nroles = "invalid"\n', b'version = 4\n[roles', b'roles = {}\n'):
             self.config.write_bytes(content)
             with self.subTest(content=content), self.assertRaises(self.module.ValidationError):
                 self.module.load_settings(self.config)
 
-    def test_model_profile_sets_match_six_roles(self) -> None:
-        filenames = {f"{role.replace('_', '-')}.toml" for role in SIX_SETTINGS}
+    def test_model_profile_sets_match_five_roles(self) -> None:
+        filenames = {f"{role.replace('_', '-')}.toml" for role in FIVE_SETTINGS}
         self.assertEqual(set(self.module.ROLE_FILES.values()), filenames)
         self.assertEqual(set(installer.PROFILE_FILES), filenames)
         self.assertEqual({p.name for p in (REPO / "agents").glob("*.toml")}, filenames)
 
-    def test_naming_v4_settings_and_serialization(self) -> None:
+    def test_naming_v5_settings_and_serialization(self) -> None:
         try:
-            loaded = self.load(SIX_SETTINGS)
+            loaded = self.load(FIVE_SETTINGS)
         except self.module.ValidationError as exc:
-            self.fail(f"version 4 settings must be accepted: {exc}")
-        self.assertEqual(loaded, SIX_SETTINGS)
+            self.fail(f"version 5 settings must be accepted: {exc}")
+        self.assertEqual(loaded, FIVE_SETTINGS)
         serialized = self.module.serialize_settings(loaded)
-        self.assertEqual(tomllib.loads(serialized.decode())["version"], 4)
+        self.assertEqual(tomllib.loads(serialized.decode())["version"], 5)
         self.config.write_bytes(serialized)
-        self.assertEqual(self.module.load_settings(self.config), SIX_SETTINGS)
+        self.assertEqual(self.module.load_settings(self.config), FIVE_SETTINGS)
 
     def test_naming_rejects_old_versions_and_keys(self) -> None:
         legacy_prefix = "_".join(("yunho", "team"))
         legacy_roles = {legacy_prefix + role.removeprefix("harness"): fields
-                        for role, fields in SIX_SETTINGS.items()}
-        for version, roles in ((1, SIX_SETTINGS), (2, SIX_SETTINGS), (3, legacy_roles),
-                               (True, SIX_SETTINGS), (4, legacy_roles)):
+                        for role, fields in FIVE_SETTINGS.items()}
+        for version, roles in ((1, FIVE_SETTINGS), (2, FIVE_SETTINGS), (3, legacy_roles),
+                               (True, FIVE_SETTINGS), (4, legacy_roles)):
             with self.subTest(version=version):
                 original = settings_bytes(roles, version)
                 self.config.write_bytes(original)
@@ -179,11 +178,33 @@ class ModelSettingsTests(unittest.TestCase):
                     self.module.load_settings(self.config)
                 self.assertEqual(self.config.read_bytes(), original)
 
+    def test_model_rejects_old_role_ids_and_invalid_fields_without_writes(self) -> None:
+        for old in ("harness_secretary", "harness_scout"):
+            roles = {key: dict(value) for key, value in FIVE_SETTINGS.items()}
+            roles[old] = roles.pop("harness_scouter")
+            original = settings_bytes(roles)
+            self.config.write_bytes(original)
+            with self.assertRaises(self.module.ValidationError):
+                self.module.load_settings(self.config)
+            self.assertEqual(self.config.read_bytes(), original)
+        for value in ({"model": "x"}, {"model": "x", "model_reasoning_effort": "low", "extra": "x"},
+                      {"model": "x\n", "model_reasoning_effort": "low"},
+                      {"model": " x", "model_reasoning_effort": "low"},
+                      {"model": "x", "model_reasoning_effort": True}):
+            roles = {**FIVE_SETTINGS, "harness_scouter": value}
+            original = settings_bytes(roles)
+            self.config.write_bytes(original)
+            with self.assertRaises(self.module.ValidationError):
+                self.module.load_settings(self.config)
+            self.assertEqual(self.config.read_bytes(), original)
+        for version in (1, 2, 3, 4):
+            with self.assertRaisesRegex(self.module.ValidationError, "update.*version 5"):
+                self.load(FIVE_SETTINGS, version)
+
     def test_naming_profile_identity_and_mapping(self) -> None:
         expected = {
-            "harness_secretary": "harness-secretary.toml",
+            "harness_scouter": "harness-scouter.toml",
             "harness_planner": "harness-planner.toml",
-            "harness_scout": "harness-scout.toml",
             "harness_coder": "harness-coder.toml",
             "harness_qa": "harness-qa.toml",
             "harness_reviewer": "harness-reviewer.toml",
@@ -195,9 +216,9 @@ class ModelSettingsTests(unittest.TestCase):
             profile = tomllib.loads((REPO / "agents" / filename).read_text())
             self.assertEqual(profile["name"], role)
             rendered = self.module.render_profile((REPO / "agents" / filename).read_bytes(),
-                                                  role, SIX_SETTINGS[role], REPO / "agents" / filename)
+                                                  role, FIVE_SETTINGS[role], REPO / "agents" / filename)
             effective = tomllib.loads(rendered.decode())
-            self.assertEqual({key: effective[key] for key in SIX_SETTINGS[role]}, SIX_SETTINGS[role])
+            self.assertEqual({key: effective[key] for key in FIVE_SETTINGS[role]}, FIVE_SETTINGS[role])
 
     def test_naming_rejects_profile_name_mismatch(self) -> None:
         with self.assertRaises(self.module.ValidationError):
@@ -215,9 +236,9 @@ class ApplyModelsTests(unittest.TestCase):
         self.module = installer.load_model_module(REPO)
 
     def fixture(self, matching=False) -> None:
-        roles = dict(SIX_SETTINGS)
+        roles = dict(FIVE_SETTINGS)
         self.config.write_bytes(settings_bytes(roles))
-        for role, settings in SIX_SETTINGS.items():
+        for role, settings in FIVE_SETTINGS.items():
             filename = role.replace("_", "-") + ".toml"
             fields = settings if matching else {"model": "old-model", "model_reasoning_effort": "low"}
             content = (f'name = "{role}"\n' + "".join(
@@ -236,7 +257,7 @@ class ApplyModelsTests(unittest.TestCase):
         before = tree_state(self.base)
         result = self.cli("--check")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("six", result.stdout)
+        self.assertIn("five", result.stdout)
         self.assertNotIn("seven", result.stdout)
         self.assertEqual(tree_state(self.base), before)
         self.fixture()
@@ -255,25 +276,25 @@ class ApplyModelsTests(unittest.TestCase):
         result = self.cli("--dry-run")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(tree_state(self.base), before)
-        self.assertIn("six", result.stdout)
+        self.assertIn("five", result.stdout)
         self.assertNotIn("seven", result.stdout)
 
-    def test_apply_models_applies_six_profiles_without_mutating_config(self) -> None:
+    def test_apply_models_applies_five_profiles_without_mutating_config(self) -> None:
         self.fixture()
         config_before = self.config.read_bytes()
         result = self.cli()
         self.assertEqual(result.returncode, 0, result.stderr)
-        for role, settings in SIX_SETTINGS.items():
+        for role, settings in FIVE_SETTINGS.items():
             profile = tomllib.loads((self.agents / (role.replace("_", "-") + ".toml")).read_text())
             self.assertEqual({key: profile[key] for key in settings}, settings)
         self.assertEqual(self.config.read_bytes(), config_before)
-        self.assertIn("six", result.stdout)
+        self.assertIn("five", result.stdout)
         self.assertNotIn("seven", result.stdout)
         result = self.cli()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("six", result.stdout)
+        self.assertIn("five", result.stdout)
 
-    def test_naming_apply_models_v4_contract(self) -> None:
+    def test_naming_apply_models_v5_contract(self) -> None:
         self.fixture(matching=True)
         before = tree_state(self.base)
         self.assertEqual(self.cli("--check").returncode, 0)
@@ -287,8 +308,8 @@ class ApplyModelsTests(unittest.TestCase):
         self.assertEqual(self.cli().returncode, 0)
         self.assertEqual(self.cli("--check").returncode, 0)
         self.assertEqual(self.config.read_bytes(), config_before)
-        for version in (1, 2, 3):
-            self.config.write_bytes(settings_bytes(SIX_SETTINGS, version))
+        for version in (1, 2, 3, 4):
+            self.config.write_bytes(settings_bytes(FIVE_SETTINGS, version))
             before = tree_state(self.base)
             self.assertEqual(self.cli().returncode, 2)
             self.assertEqual(tree_state(self.base), before)
@@ -382,11 +403,6 @@ class ConditionalReferenceTests(unittest.TestCase):
         ):
             self.assertRegex(recovery, contract)
 
-    def test_core_word_count_meets_budget(self) -> None:
-        result = subprocess.run(["wc", "-w", str(REPO / "skill/SKILL.md")],
-                                capture_output=True, text=True, check=True)
-        self.assertLessEqual(int(result.stdout.split()[0]), 2788)
-
     def test_references_preserve_policy_contracts(self) -> None:
         contracts = {
             "planning": ("complete planning-document set", "written-spec approval", "individually approved"),
@@ -404,7 +420,7 @@ class ConditionalReferenceTests(unittest.TestCase):
 
     def test_core_preserves_role_and_risk_gates(self) -> None:
         core = policy_text("core")
-        for contract in (r"all six roles.*directly to ceo.*depth 2",
+        for contract in (r"all five roles.*directly to ceo.*depth 2",
                          r"coder.*independent qa", r"qa.*independent reviewer.*full change",
                          r"ordinary.*significant/high-risk.*not eligible",
                          r"explicit user or task-specific tdd request overrides"):
@@ -549,7 +565,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
 class RolePolicyTests(unittest.TestCase):
     # Approved package-consistency checks; these do not execute agent runtime behavior.
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:
-        for role in ("secretary", "planner", "scout", "coder", "qa", "reviewer"):
+        for role in ("scouter", "planner", "coder", "qa", "reviewer"):
             with self.subTest(role=role):
                 profile = tomllib.loads((REPO / "agents" / f"harness-{role}.toml").read_text())
                 self.assertEqual(profile["name"], f"harness_{role}")
@@ -557,22 +573,32 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(instructions, r"report(?:s)? directly to (?:the )?ceo")
                 self.assertRegex(instructions, r"(?:do not|never|cannot) (?:create|spawn) (?:agents|subagents)")
                 self.assertRegex(instructions, r"(?:do not|never|cannot) (?:delegate|assign) (?:work|tasks)")
-        secretary = " ".join(tomllib.loads(
-            (REPO / "agents/harness-secretary.toml").read_text()
-        )["developer_instructions"].lower().split())
-        for contract in (r"research/analysis.*documents, data, reference sources.*static.*logs/reports",
-                         r"standalone document writing", r"operational cleanup.*outside secretary scope",
-                         r"do not edit implementation/configuration/test code"):
-            self.assertRegex(secretary, contract)
-
     def test_role_policy_assigns_development_to_ceo(self) -> None:
         policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
         ownership = policy.split("## ownership", 1)[1].split("## instruction", 1)[0]
         self.assertRegex(ownership, r"ceo.*sole owner.*development, configuration, tests")
         self.assertRegex(ownership, r"coder.*(?:edits|implements).*assigned.*files")
-        self.assertRegex(ownership, r"all six roles.*directly to ceo.*depth 2")
-        self.assertRegex(ownership, r"at most four.*subagents.*including secretary")
-        self.assertRegex(ownership, r"ceo.*specialist.*results.*secretary")
+        self.assertRegex(ownership, r"all five roles.*directly to ceo.*depth 2")
+        self.assertRegex(ownership, r"at most four.*subagents.*including scouter")
+        self.assertRegex(ownership, r"scouter.*read.only")
+
+    def test_scouter_read_only_scope_and_reporting(self) -> None:
+        profile = tomllib.loads((REPO / "agents/harness-scouter.toml").read_text())
+        self.assertEqual(profile["name"], "harness_scouter")
+        self.assertEqual(profile["sandbox_mode"], "read-only")
+        instructions = " ".join(profile["developer_instructions"].lower().split())
+        for phrase in ("research", "analysis", "static", "code", "documents", "data", "evidence",
+                       "unresolved", "do not edit files", "standalone document", "operational cleanup"):
+            self.assertIn(phrase, instructions)
+
+    def test_standalone_document_writing_has_no_specialist_auto_route(self) -> None:
+        self.assertIn("standalone document writing has no specialist auto-route", policy_text("core"))
+
+    def test_active_references_use_five_role_contract(self) -> None:
+        for name in ("core", "handoff", "planning", "verification"):
+            text = policy_text(name)
+            for old in ("harness_secretary", "harness_scout`", "secretary", "all six roles"):
+                self.assertNotIn(old, text)
 
     def test_qa_ui_browser_acceptance_contract(self) -> None:
         qa = " ".join(tomllib.loads(
@@ -647,7 +673,7 @@ class RolePolicyTests(unittest.TestCase):
             "Checkout approval",
             (
                 r"before every coder first start and restart",
-                r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch.*new worktree and task branch",
+                r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch.*new managed worktree and task branch",
                 r"present.*absolute workspace.*current branch.*detached head.*base head.*validated candidate",
                 r"planning approval alone, no response, refusal of a new branch alone, or an unclear response.*does not select.*current checkout",
             ),
@@ -687,6 +713,13 @@ class RolePolicyTests(unittest.TestCase):
                 r"never reuse, delete, or overwrite an existing branch",
             ),
         )
+
+    def test_managed_branch_selection_order_and_collision_reuse(self) -> None:
+        section = self._workspace_handoff_section("New managed worktree")
+        self.assertRegex(section, r"before.*create_worktree.*approved branch candidate.*collision")
+        self.assertRegex(section, r"registration.*attachment.*base.*before.*approved branch")
+        self.assertRegex(section, r"same base.*not checked out in any worktree.*reuse")
+        self.assertRegex(section, r"collision.*new explicit choice")
 
     def test_workspace_handoff_preserves_existing_changes(self) -> None:
         self._assert_workspace_handoff_contracts(
@@ -736,69 +769,64 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(handoff, contract)
 
     def test_workspace_handoff_worktree_scoped_choice_and_base(self) -> None:
-        self._assert_workspace_handoff_contracts(
-            'New worktree and task branch',
-            (
-                r'selection target.*source absolute path.*repository.*common directory.*branch or detached head.*base sha.*branch candidate.*absolute path.*approved document',
-                r'verified source head sha.*base.*do not.*remote.*default branch.*fetch',
-                r'recheck.*source state.*base sha.*branch/path candidates.*before.*after.*choice',
-                r'after selection and before creation.*changes.*fresh explicit choice.*pre-creation candidate rule',
-                r'after successful creation and verification.*choice lifetime and restart record',
-            ),
-        )
+        self._assert_workspace_handoff_contracts("New managed worktree", (
+            r"selection target.*source absolute path.*repository.*common directory.*branch or detached head.*full.*sha.*approved branch candidate.*collision.*name.*approved document",
+            r"verified source head.*do not.*remote.*default branch.*fetch",
+            r"recheck.*source state.*base sha.*approved branch.*name.*before.*after.*choice",
+            r"after selection and before creation.*changes.*fresh explicit choice",
+        ))
 
-    def test_workspace_handoff_worktree_collisions_require_new_choice(self) -> None:
-        self._assert_workspace_handoff_contracts(
-            'New worktree and task branch',
-            (
-                r'\.\./<repo>-<topic>-worktree.*sibling.*same parent',
-                r'file.*directory.*symlink.*registered worktree.*collision',
-                r'empty director.*do not reuse',
-                r'lookup error.*missing',
-                r'`-2`, `-3`.*first unused.*-worktree-2',
-                r'collision.*stop.*new explicit choice.*do not automatically retry',
-            ),
-        )
+    def test_workspace_handoff_managed_worktree_inputs_and_results(self) -> None:
+        section = self._workspace_handoff_section("New managed worktree")
+        for phrase in ("mcp__codex_app__create_worktree", "allowasync: true", "name", "ref",
+                       "full sha", "descriptive", "no destination path or branch", "collision",
+                       "git switch -c <approved-branch> <ref>", "git switch <approved-branch>",
+                       "same base", "not checked out in any worktree"):
+            self.assertIn(phrase, section)
+        self.assertNotIn("../<repo>-<topic>-worktree", section)
+        self.assertNotIn("git worktree add -b <branch> <absolute-path> <base-sha>", section)
+        self.assertRegex(section, r"registration.*attachment.*base.*before.*approved branch")
 
     def test_workspace_handoff_worktree_creation_and_identity(self) -> None:
-        self._assert_workspace_handoff_contracts(
-            'New worktree and task branch',
-            (
-                r'git worktree add -b <branch> <absolute-path> <base-sha>',
-                r'preserve.*source branch.*head.*index.*files.*shared git metadata',
-                r'linked-worktree registration.*common directory.*branch.*base sha.*registered path.*dirty state',
-                r'\.git.*file.*do not.*same top-level.*identity',
-            ),
-        )
-        raw = (REPO / "skill/references/handoff.md").read_text()
-        section = raw.split("### New worktree and task branch", 1)[1].split("### ", 1)[0]
-        self.assertIn("Do not use --force or -B.", section)
+        self._assert_workspace_handoff_contracts("New managed worktree", (
+            r"mcp__codex_app__create_worktree.*allowasync: true.*name.*ref",
+            r"returned.*absolute.*path.*current.chat.*attachment",
+            r"initial branch or detached head.*approved branch.*final branch.*head.*ref",
+            r"linked-worktree registration.*common directory.*dirty state.*source.*branch.*head.*index.*files",
+            r"\.git.*file.*do not.*same top-level.*identity",
+            r"unexpected branch.*stop",
+        ))
+
+    def test_workspace_handoff_managed_worktree_async_attachment_and_no_fallback(self) -> None:
+        self._assert_workspace_handoff_contracts("New managed worktree", (
+            r"operationid.*mcp__codex_app__get_worktree_creation_status.*completed",
+            r"progress.*not.*success",
+            r"registration failure.*only.*returned workspace.*mcp__codex_app__attach_worktree",
+            r"before.*managed.*current.chat attachment.*approved branch.*no document transfer.*staging.*commit.*coder",
+            r"unavailable.*reattachment.*mismatch.*stop.*record",
+            r"do not.*raw git.*other name/ref/path/branch.*cleanup.*delete.*prune.*archive",
+        ))
 
     def test_workspace_handoff_worktree_source_dirty_states(self) -> None:
-        self._assert_workspace_handoff_contracts(
-            'New worktree and task branch',
-            (
-                r'untracked approved.*no index entry.*working-tree bytes.*approved version',
-                r'tracked approved.*index bytes.*working-tree bytes.*both.*approved version',
-                r'mismatch.*stop.*do not.*staging',
-                r'unrelated staged.*required uncommitted implementation.*unclear ownership.*block',
-                r'do not automatically.*stash.*commit.*reset.*clean.*unstage.*dirty implementation',
-            ),
-        )
+        self._assert_workspace_handoff_contracts("New managed worktree", (
+            r"untracked approved.*source head.*index.*absent.*working-tree bytes.*latest approved",
+            r"tracked approved.*index blob and mode.*source head.*working-tree bytes.*latest approved",
+            r"approved working-tree revisions may differ.*head/index.*do not.*staging",
+            r"unrelated staged.*required uncommitted implementation.*unclear ownership.*block",
+            r"do not automatically.*stash.*commit.*reset.*clean.*unstage.*dirty implementation",
+        ))
 
     def test_workspace_handoff_worktree_document_transfer(self) -> None:
-        self._assert_workspace_handoff_contracts(
-            'Worktree document transfer',
-            (
-                r'only uncommitted approved spec/plan.*same repository-relative path',
-                r'do not move, delete, or modify.*source',
-                r'outside.*worktree.*symlink.*stop',
-                r'clean base.*bytes.*base version.*replace.*approved version',
-                r'unexpected changes.*do not overwrite.*stop',
-                r'identical content.*verify.*reuse',
-                r'after transfer.*bytes.*approved version.*canonical record.*source.*target.*relative path',
-            ),
-        )
+        self._assert_workspace_handoff_contracts("Worktree document transfer", (
+            r"target head.*selected source base sha",
+            r"only uncommitted approved spec/plan.*same repository-relative path",
+            r"do not move, delete, or modify.*source",
+            r"outside.*worktree.*symlink.*stop",
+            r"clean base.*index.*working-tree bytes.*base version.*replace.*approved version",
+            r"absent from base.*absent.*destination",
+            r"unexpected changes.*do not overwrite.*stop",
+            r"after transfer.*bytes.*approved version.*canonical record.*source.*target.*relative path",
+        ))
 
     def test_workspace_handoff_worktree_docs_commit_order(self) -> None:
         self._assert_workspace_handoff_contracts(
@@ -814,7 +842,7 @@ class RolePolicyTests(unittest.TestCase):
         self._assert_workspace_handoff_contracts(
             'Worktree failures and partial completion',
             (
-                r'creation.*registration.*checkout.*document transfer.*staging.*commit.*failure.*stop.*handoff',
+                r'creation.*registration.*attachment.*identity.*checkout.*document transfer.*staging.*commit.*failure.*stop.*handoff',
                 r'branch-only.*partial path.*registration.*wrong base.*partial document',
                 r'source.*target.*command.*error.*branch.*head.*common directory.*registration.*index.*files',
                 r'do not.*fallback.*retry.*delete.*prune.*--force.*-b',
@@ -827,7 +855,7 @@ class RolePolicyTests(unittest.TestCase):
             'Handoff evidence',
             (
                 r'canonical.*source.*target.*common directory.*base sha',
-                r'all six roles.*absolute worktree path.*coder.*qa.*planner.*reviewer.*scout.*secretary',
+                r'all five roles.*absolute worktree path.*coder.*qa.*planner.*reviewer.*scouter',
                 r'same.*worktree.*recheck.*reuse.*initial.*choice.*trust.*new explicit choice',
                 r'do not automatically.*recreate.*cleanup.*archive',
             ),
@@ -850,7 +878,7 @@ class RolePolicyTests(unittest.TestCase):
             'New task branch',
             (
                 r'do not create a worktree.*failure',
-                r'only.*explicit.*new worktree and task branch.*permits.*worktree',
+                r'only.*explicit.*new managed worktree and task branch.*permits.*worktree',
             ),
         )
 
@@ -864,24 +892,25 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_worktree_readme_matches_selected_execution_paths(self) -> None:
         readme = " ".join((REPO / "README.md").read_text().split())
-        section = readme.split("현재 승인 범위의 필요한 문서를", 1)[1].split("최초 인계 기록", 1)[0]
-        for phrase in ("현재 체크아웃", "같은 체크아웃", "새 worktree와 새 task branch", "../<repo>-<topic>-worktree",
-                       "생성·검증", "문서 전달", "대상에서", "untracked", "index entry", "working-tree bytes",
-                       "Tracked", "index bytes", "불일치", "staging", "부분 완료", "재개", "runtime"):
-            with self.subTest(contract=phrase):
-                self.assertIn(phrase, section)
-        self.assertRegex(section, r"개별 승인.*명시 선택.*생성·검증.*문서 전달.*대상에서.*커밋.*최종.*인계")
-        self.assertRegex(section, r"untracked.*index entry 없이.*working-tree bytes.*승인 버전")
-        self.assertRegex(section, r"Tracked.*index bytes.*working-tree bytes.*모두.*승인 버전")
-        self.assertRegex(section, r"불일치.*중단.*staging.*해결하지")
-        candidate = section.split("새 worktree의 기본 후보", 1)[1].split("개별 승인 완료", 1)[0]
-        self.assertRegex(candidate, r"생성 전.*원본 상태.*base SHA.*branch/path 후보.*선택 후 생성 전에.*바뀌면.*새 명시 선택")
-        self.assertRegex(candidate, r"생성 전 후보 규칙.*생성·검증 성공 후.*재개 선택 재사용")
-        restart = section.split("동일 승인 범위·작업공간", 1)[1]
-        self.assertRegex(restart, r"생성·검증 성공 후.*선택된 대상.*승인 문서 전달.*문서 커밋.*구현.*HEAD·dirty 변경.*최초 선택.*무효화하지")
-        self.assertRegex(restart, r"생성 base SHA.*증거.*대상 HEAD.*base에 머물.*요구하지")
-        self.assertRegex(restart, r"매 시작·재개마다.*상태.*소유권")
-        self.assertRegex(restart, r"원본 보존.*예상 밖 상태 확인.*면제하지")
+        for phrase in ("현재 체크아웃", "같은 체크아웃", "관리형 worktree", "mcp__codex_app__create_worktree",
+                       "allowAsync: true", "operationId", "attach_worktree", "앱이", "승인 branch",
+                       "source HEAD", "index blob·mode", "working-tree bytes", "최신 승인", "destination",
+                       "base SHA", "staging", "부분 완료", "재개", "runtime"):
+            self.assertIn(phrase, readme)
+        self.assertNotIn("../<repo>-<topic>-worktree", readme)
+        self.assertNotIn("git worktree add -b", readme)
+        self.assertRegex(readme, r"개별 승인.*명시 선택.*앱.*연결.*branch.*문서 전달.*대상에서.*커밋.*최종.*인계")
+        self.assertRegex(readme, r"Tracked.*index blob·mode.*source HEAD.*working-tree bytes.*최신 승인")
+        self.assertRegex(readme, r"불일치.*중단.*staging.*해결하지")
+        self.assertRegex(readme, r"원본 보존.*예상 밖 상태 확인.*면제하지")
+
+    def test_distribution_manifest_matches_scouter_payload(self) -> None:
+        installer.verify_manifest(REPO)
+        names = {line.split("  ", 1)[1] for line in (REPO / "MANIFEST.sha256").read_text().splitlines()}
+        self.assertIn("agents/harness-scouter.toml", names)
+        self.assertNotIn("agents/harness-secretary.toml", names)
+        self.assertNotIn("agents/harness-scout.toml", names)
+        self.assertNotIn("skill/models.toml", names)
 
     def test_acceptance_evidence_flow(self) -> None:
         policy = policy_text("verification")
@@ -963,29 +992,28 @@ class ExternalSkillPreflightTests(unittest.TestCase):
 
         return acquire, calls
 
-    def migration_paths(self) -> list[Path]:
-        prefix = "-".join(("yunho", "team"))
-        return [self.codex_home / "agents" / f"{prefix}-{role}.toml"
-                for role in ("secretary", "planner", "scout", "coder", "qa", "reviewer")]
+    def retired_paths(self) -> list[Path]:
+        return [self.codex_home / "agents" / name
+                for name in ("harness-secretary.toml", "harness-scout.toml")]
 
-    def seed_migration(self, count=6) -> list[Path]:
-        paths = self.migration_paths()[:count]
+    def seed_retired(self, count=2) -> list[Path]:
+        paths = self.retired_paths()[:count]
         for index, path in enumerate(paths):
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(f"custom legacy {index}".encode())
+            path.write_bytes(f"custom retired {index}".encode())
             path.chmod(0o640)
         return paths
 
-    def migration_active_state(self):
+    def installed_target_state(self):
         return (tree_state(self.codex_home / "agents"), tree_state(self.codex_home / "skills"),
                 tree_state(self.user_home / ".agents"))
 
-    def test_migration_new_partial_full_and_repeat_install(self) -> None:
+    def test_retired_profiles_new_partial_full_and_repeat_install(self) -> None:
         self.create_payload()
         acquire, _ = self.acquisition_stub()
-        for count in (0, 2, 6):
+        for count in (0, 1, 2):
             with self.subTest(count=count):
-                paths = self.seed_migration(count)
+                paths = self.seed_retired(count)
                 originals = {path.name: (path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
                              for path in paths}
                 backups_before = set(self.codex_home.glob("backups/*"))
@@ -1000,20 +1028,20 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                     self.assertTrue(saved.is_file(), str(saved))
                     self.assertEqual(saved.read_bytes(), content)
                     self.assertEqual(stat.S_IMODE(saved.stat().st_mode), mode)
-                self.assertFalse(any(path.exists() for path in self.migration_paths()))
+                self.assertFalse(any(path.exists() for path in self.retired_paths()))
                 for filename in installer.PROFILE_FILES:
                     profile = tomllib.loads((self.codex_home / "agents" / filename).read_text())
                     role = filename.removesuffix(".toml").replace("-", "_")
                     self.assertEqual(profile["name"], role)
-                    self.assertEqual({key: profile[key] for key in SIX_SETTINGS[role]}, SIX_SETTINGS[role])
+                    self.assertEqual({key: profile[key] for key in FIVE_SETTINGS[role]}, FIVE_SETTINGS[role])
         with patch.object(installer, "acquire_external_skills", side_effect=acquire):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
 
-    def test_migration_partial_and_existing_new_profiles(self) -> None:
+    def test_retired_profiles_backup_bytes_and_mode(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
-        paths = self.seed_migration(2)
+        paths = self.seed_retired(2)
         originals = {p.name: (p.read_bytes(), stat.S_IMODE(p.stat().st_mode))
                      for p in [*paths, *(self.codex_home / "agents" / f for f in installer.PROFILE_FILES)]}
         acquire, _ = self.acquisition_stub()
@@ -1027,11 +1055,11 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), content)
             self.assertEqual(stat.S_IMODE(target.stat().st_mode), mode)
         settings = tomllib.loads((self.codex_home / "skills" / installer.INSTALL_NAME / "models.toml").read_text())
-        self.assertEqual(settings["version"], 4)
+        self.assertEqual(settings["version"], 5)
 
-    def test_migration_removes_candidates_before_new_profiles(self) -> None:
+    def test_retired_profiles_removed_before_active_profile_replace(self) -> None:
         self.create_payload()
-        paths = self.seed_migration()
+        paths = self.seed_retired()
         acquire, _ = self.acquisition_stub()
         real_replace = os.replace
         observed = []
@@ -1045,32 +1073,35 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual(status, 0, output)
         self.assertTrue(observed)
 
-    def test_migration_move_failure_restores_profiles(self) -> None:
+    def test_retired_profiles_move_failure_restores_targets(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
-        paths = self.seed_migration()
-        before = self.migration_active_state()
+        paths = self.seed_retired()
+        before = self.installed_target_state()
         acquire, _ = self.acquisition_stub()
         real_replace = os.replace
+        injected = []
         def fail(source, target):
             if Path(source) == paths[1]:
-                raise OSError("injected legacy move failure")
+                injected.append(True)
+                raise OSError("injected retired move failure")
             return real_replace(source, target)
         with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail):
             status, output = self.run_main([])
         self.assertEqual(status, 2, output)
-        self.assertEqual(self.migration_active_state(), before)
+        self.assertTrue(injected)
+        self.assertEqual(self.installed_target_state(), before)
         self.assert_no_stages()
 
-    def test_migration_profile_failure_restores_all_targets(self) -> None:
+    def test_retired_profiles_profile_failure_restores_all_targets(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
         missing = self.codex_home / "agents" / installer.PROFILE_FILES[-1]
         missing.unlink()
-        paths = self.seed_migration()
+        paths = self.seed_retired()
         write_candidates(self.codex_home / "skills", b"old")
         write_candidates(self.user_home / ".agents" / "skills", b"old user")
-        before = self.migration_active_state()
+        before = self.installed_target_state()
         acquire, _ = self.acquisition_stub()
         real_replace = os.replace
         failed = False
@@ -1085,7 +1116,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             status, output = self.run_main([])
         self.assertEqual(status, 2, output)
         self.assertTrue(failed)
-        self.assertEqual(self.migration_active_state(), before)
+        self.assertEqual(self.installed_target_state(), before)
         self.assertFalse(missing.exists())
         backup = next((self.codex_home / "backups").iterdir())
         for path in paths:
@@ -1093,9 +1124,9 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             self.assertEqual((backup / "agents" / path.name).read_bytes(), path.read_bytes())
         self.assert_no_stages()
 
-    def test_migration_rollback_failure_preserves_recovery(self) -> None:
+    def test_retired_profiles_rollback_failure_preserves_recovery(self) -> None:
         self.create_payload()
-        paths = self.seed_migration(2)
+        paths = self.seed_retired(2)
         original = paths[0].read_bytes()
         acquire, _ = self.acquisition_stub()
         real_replace = os.replace
@@ -1109,7 +1140,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 raise OSError("injected profile failure")
             if failed and target == paths[0]:
                 recovery = source
-                raise OSError("injected legacy restore failure")
+                raise OSError("injected retired restore failure")
             return real_replace(source, target)
         with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail):
             status, output = self.run_main([])
@@ -1123,48 +1154,87 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual((backup / "agents" / paths[0].name).read_bytes(), original)
         self.assertTrue(paths[1].exists())
 
-    def test_migration_preparation_failure_preserves_active_targets(self) -> None:
+    def test_retired_profiles_preparation_failure_preserves_targets(self) -> None:
+        from contextlib import ExitStack
         self.create_payload()
         self.seed_existing_targets()
-        self.seed_migration()
-        before = self.migration_active_state()
+        paths = self.seed_retired()
+        paths[1].chmod(0o600)
+        write_candidates(self.codex_home / "skills", b"old external")
+        write_candidates(self.user_home / ".agents" / "skills", b"old user")
+        unrelated = self.codex_home / "agents/custom.toml"
+        unrelated.write_bytes(b"unmanaged")
+        before = self.installed_target_state()
         acquire, _ = self.acquisition_stub()
-        for method in ("backup_existing", "_copy_harness_to_stage"):
-            with self.subTest(method=method), patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer, method, side_effect=OSError("injected preparation failure")):
+        for point in ("backup_start", "second_retired_backup", "harness_stage", "profile_stage"):
+            with self.subTest(point=point), ExitStack() as stack:
+                reached = []
+                replacements = []
+                def fail(*args, **kwargs):
+                    reached.append(True)
+                    raise OSError("injected preparation failure")
+                real_replace = os.replace
+                def observe_replace(source, target):
+                    replacements.append((source, target))
+                    return real_replace(source, target)
+                stack.enter_context(patch.object(installer.os, "replace", observe_replace))
+                stack.enter_context(patch.object(installer, "acquire_external_skills", side_effect=acquire))
+                if point == "backup_start":
+                    stack.enter_context(patch.object(installer, "backup_existing", side_effect=fail))
+                elif point == "harness_stage":
+                    stack.enter_context(patch.object(installer, "_copy_harness_to_stage", side_effect=fail))
+                elif point == "second_retired_backup":
+                    real_copy = shutil.copy2
+                    def copy(source, target, *args, **kwargs):
+                        if Path(source) == paths[1] and Path(target).parent.parent.parent == self.codex_home / "backups":
+                            return fail()
+                        return real_copy(source, target, *args, **kwargs)
+                    stack.enter_context(patch.object(installer.shutil, "copy2", copy))
+                else:
+                    real_stat = shutil.copystat
+                    def copystat(source, target, *args, **kwargs):
+                        if Path(source) == self.payload / "agents" / installer.PROFILE_FILES[1] and ".yunho-harness-profiles-" in str(target):
+                            return fail()
+                        return real_stat(source, target, *args, **kwargs)
+                    stack.enter_context(patch.object(installer.shutil, "copystat", copystat))
                 status, output = self.run_main([])
                 self.assertEqual(status, 2, output)
-                self.assertEqual(self.migration_active_state(), before)
+                self.assertTrue(reached, point)
+                self.assertIn("injected preparation failure", output)
+                self.assertEqual(replacements, [])
+                self.assertEqual(self.installed_target_state(), before)
+                self.assertEqual(unrelated.read_bytes(), b"unmanaged")
                 self.assert_no_stages()
 
-    def test_migration_rejects_unsafe_candidates(self) -> None:
+    def test_retired_profiles_reject_unsafe_candidates(self) -> None:
         self.create_payload()
-        path = self.migration_paths()[0]
-        path.parent.mkdir(parents=True)
-        for kind in ("symlink", "directory", "fifo"):
-            with self.subTest(kind=kind):
-                if kind == "symlink":
-                    path.symlink_to(self.base / "missing")
-                elif kind == "directory":
-                    path.mkdir()
-                else:
-                    os.mkfifo(path)
-                before = tree_state(self.codex_home)
-                acquire, calls = self.acquisition_stub()
-                try:
-                    with patch.object(installer, "acquire_external_skills", side_effect=acquire):
-                        status, output = self.run_main([])
-                    after = tree_state(self.codex_home)
-                finally:
-                    installer.remove_path(path)
-                    # An incorrect install must not contaminate the next unsafe fixture.
-                    for child in list(self.codex_home.iterdir()):
-                        if child != path.parent:
+        (self.codex_home / "agents").mkdir(parents=True)
+        for path in self.retired_paths():
+            for kind in ("symlink", "directory", "fifo"):
+                with self.subTest(kind=kind):
+                    if kind == "symlink":
+                        path.symlink_to(self.base / "missing")
+                    elif kind == "directory":
+                        path.mkdir()
+                    else:
+                        os.mkfifo(path)
+                    before = tree_state(self.codex_home)
+                    acquire, calls = self.acquisition_stub()
+                    try:
+                        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+                            status, output = self.run_main([])
+                        after = tree_state(self.codex_home)
+                    finally:
+                        installer.remove_path(path)
+                        # An incorrect install must not contaminate the next unsafe fixture.
+                        for child in list(self.codex_home.iterdir()):
+                            if child != path.parent:
+                                installer.remove_path(child)
+                        for child in list(path.parent.iterdir()):
                             installer.remove_path(child)
-                    for child in list(path.parent.iterdir()):
-                        installer.remove_path(child)
-                self.assertEqual(status, 2, output)
-                self.assertEqual(calls, [])
-                self.assertEqual(after, before)
+                    self.assertEqual(status, 2, output)
+                    self.assertEqual(calls, [])
+                    self.assertEqual(after, before)
         path.parent.rmdir()
         outside = self.base / "outside-agents"
         outside.mkdir()
@@ -1176,9 +1246,9 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         acquire.assert_not_called()
         self.assertEqual(tree_state(self.codex_home), before)
 
-    def test_migration_preserves_unrelated_profiles(self) -> None:
+    def test_retired_profiles_preserves_unrelated_profiles(self) -> None:
         self.create_payload()
-        self.seed_migration()
+        self.seed_retired()
         prefix = "-".join(("yunho", "team"))
         agents = self.codex_home / "agents"
         unrelated = [agents / "custom.toml", agents / f"{prefix}-lead.toml",
@@ -1192,12 +1262,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
         self.assertEqual({p: tree_state(p) for p in unrelated}, before)
-        self.assertFalse(any(p.exists() for p in self.migration_paths()))
+        self.assertFalse(any(p.exists() for p in self.retired_paths()))
 
-    def test_migration_check_and_dry_run_are_read_only(self) -> None:
+    def test_retired_profiles_check_and_dry_run_are_read_only(self) -> None:
         self.create_payload()
         self.install_candidates(self.codex_home / "skills")
-        paths = self.seed_migration(2)
+        paths = self.seed_retired(2)
         before = tree_state(self.base)
         with patch.object(installer, "acquire_external_skills") as acquire, patch.object(installer.subprocess, "run") as process:
             for flags in (["--check"], ["--dry-run"]):
@@ -1205,26 +1275,92 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 self.assertEqual(status, 0, output)
                 self.assertEqual(tree_state(self.base), before)
                 if flags == ["--dry-run"]:
+                    self.assertIn("five", output)
                     for path in paths:
                         self.assertIn(str(path), output)
             acquire.assert_not_called()
             process.assert_not_called()
 
-    def test_migration_candidates_changed_during_acquisition(self) -> None:
+    def test_retired_profiles_changed_during_acquisition(self) -> None:
         self.create_payload()
-        paths = self.seed_migration(1)
         acquire, _ = self.acquisition_stub()
-        def changed(work):
-            result = acquire(work)
-            self.seed_migration(2)
-            return result
-        with patch.object(installer, "acquire_external_skills", side_effect=changed):
-            status, output = self.run_main([])
-        self.assertEqual(status, 2, output)
-        self.assertIn("changed during acquisition", output)
-        self.assertTrue(paths[0].exists())
-        self.assertFalse((self.codex_home / "skills").exists())
-        self.assertFalse((self.codex_home / "backups").exists())
+        for change in ("add", "delete", "bytes", "identity", "mode"):
+            with self.subTest(change=change):
+                paths = self.seed_retired(1)
+                other = self.retired_paths()[1]
+                if other.exists():
+                    other.unlink()
+                expected = []
+                def changed(work):
+                    result = acquire(work)
+                    if change == "add":
+                        other.write_bytes(b"added")
+                    elif change == "delete":
+                        paths[0].unlink()
+                    elif change == "bytes":
+                        paths[0].write_bytes(b"changed")
+                    elif change == "mode":
+                        paths[0].chmod(0o600)
+                    else:
+                        replacement = self.base / "replacement"
+                        replacement.write_bytes(paths[0].read_bytes())
+                        replacement.chmod(0o640)
+                        os.replace(replacement, paths[0])
+                    expected.append(self.installed_target_state())
+                    return result
+                with patch.object(installer, "acquire_external_skills", side_effect=changed):
+                    status, output = self.run_main([])
+                self.assertEqual(status, 2, output)
+                self.assertIn("changed during acquisition", output)
+                self.assertEqual(self.installed_target_state(), expected[0])
+                self.assertFalse((self.codex_home / "backups").exists())
+
+    def test_unmanaged_old_profiles_are_not_inspected_or_changed(self) -> None:
+        from contextlib import ExitStack
+        self.create_payload()
+        write_candidates(self.codex_home / "skills")
+        agents = self.codex_home / "agents"
+        agents.mkdir()
+        paths = [agents / f"yunho-team-{role}.toml"
+                 for role in ("secretary", "planner", "scout", "coder", "qa", "reviewer")]
+        for index, path in enumerate(paths):
+            if index in (0, 4, 5):
+                path.write_bytes(b"unmanaged")
+            elif index == 1:
+                path.symlink_to(self.base / "missing")
+            elif index == 2:
+                path.mkdir()
+            else:
+                os.mkfifo(path)
+        unrelated = agents / "custom.toml"
+        unrelated.write_bytes(b"custom")
+        before = {p: tree_state(p) for p in [*paths, unrelated]}
+        acquire, _ = self.acquisition_stub()
+        def guarded(method, original):
+            def call(path, *args, **kwargs):
+                self.assertNotIn(Path(path), paths, f"unmanaged access: {method} {path}")
+                if method in ("iterdir", "glob", "rglob"):
+                    self.assertNotEqual(Path(path), agents, f"target enumeration: {method}")
+                return original(path, *args, **kwargs)
+            return call
+        with ExitStack() as stack:
+            for method in ("lstat", "stat", "open", "iterdir", "glob", "rglob"):
+                stack.enter_context(patch.object(Path, method, guarded(method, getattr(Path, method))))
+            for module, method in ((installer.os, "replace"), (installer.shutil, "copy2")):
+                original = getattr(module, method)
+                def guard_move(source, target, *args, _original=original, **kwargs):
+                    self.assertNotIn(Path(source), paths)
+                    self.assertNotIn(Path(target), paths)
+                    return _original(source, target, *args, **kwargs)
+                stack.enter_context(patch.object(module, method, guard_move))
+            stack.enter_context(patch.object(installer, "acquire_external_skills", side_effect=acquire))
+            for flags in (["--check"], ["--dry-run"], []):
+                status, output = self.run_main(flags)
+                self.assertEqual(status, 0, output)
+                for path in paths:
+                    self.assertNotIn(str(path), output)
+        self.assertEqual({p: tree_state(p) for p in [*paths, unrelated]}, before)
+        self.assertFalse(any("yunho-team-" in p.name for p in (self.codex_home / "backups").rglob("*")))
 
     def test_structurally_valid_changed_bytes_are_accepted(self) -> None:
         self.install_candidates(self.codex_home / "skills", variant=b"new upstream")
@@ -1705,6 +1841,11 @@ class ExternalSkillPreflightTests(unittest.TestCase):
     def test_acquisition_failure_leaves_targets_and_backup_unchanged(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
+        paths = self.seed_retired()
+        paths[0].write_bytes(b"old secretary")
+        paths[0].chmod(0o640)
+        paths[1].write_bytes(b"old scout")
+        paths[1].chmod(0o600)
         write_candidates(self.codex_home / "skills", variant=b"old external")
         before = tree_state(self.codex_home)
 

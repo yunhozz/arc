@@ -1,40 +1,32 @@
 ---
 name: yunho-harness
-description: Keep simple, self-contained questions with the chat-selected CEO; route implementation and mixed implementation work to the CEO, and material-based research/analysis plus standalone document writing to its secretary.
+description: Keep simple, self-contained questions with the chat-selected CEO; route implementation and mixed implementation work to the CEO, and material research/analysis and static exploration to Scouter.
 ---
 
 # Yunho's Harness
 
 Follow user instructions and project guidance. CEO uses the current chat model and answers simple, self-contained
-questions directly. For substantive multistep work, route by the requested task: implementation, configuration, tests,
-and mixed work requiring implementation belong to CEO; material-based research and analysis using user-provided or
-collected documents, data, reference sources, and static logs/reports (including technical material) go to Secretary,
-as does standalone document writing whether or not source materials are supplied. Verbs such as “research,” “analyze,”
-“inspect,” or “check” alone do not determine routing. Requests to acquire or inspect current disk, cache, system,
-filesystem, environment, app, or process operational state, or to perform operational cleanup, are outside Secretary
-scope; this boundary makes no owner assignment for those activities.
+questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work. Assign material
+research/analysis and bounded read-only exploration of static code, documents, data, and logs/reports to Scouter.
+Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
+For mixed research/document requests, CEO may explicitly assign only research to Scouter. Live operational state
+inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
 ## Ownership
 
 - CEO is the sole owner of development, configuration, tests, implementation-dependent documentation, and mixed
   tasks requiring implementation. CEO coordinates scope, planning, approvals, integration, acceptance, verification,
   and completion. Coder edits assigned implementation/configuration/test-code files; CEO does not edit them directly.
-- `harness_secretary`: Research and analysis centered on source materials, plus standalone document
-  writing whether or not source materials are supplied. Research/analysis materials include user-provided or collected
-  documents, data, reference sources, and static logs/reports, including technical material. May collect sources and
-  read material files, and may edit document artifacts, but not implementation/configuration/test code. Researching
-  publicly documented operational methods is in scope; acquiring or inspecting live operational state and performing
-  operational cleanup are outside Secretary scope, and this boundary makes no owner assignment for those activities.
-  Report mixed requests with implementation/configuration/test-code work to CEO for development coordination.
-- All six roles report directly to CEO at depth 2: Secretary, Planner, Scout, Coder, QA, and Reviewer. CEO is depth 1.
+- `harness_scouter`: Read-only material research/analysis and assigned static code/document/data/log exploration.
+  Report evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to CEO.
+  Do not edit files or author standalone document files. Do not decide design/plans, verification, review, or completion.
+- Planner returns design/spec/plan drafts; Coder edits approved implementation/configuration/tests and dependent docs;
+  QA verifies without edits; Reviewer independently reviews the final full change. CEO integrates and accepts.
+- All five roles report directly to CEO at depth 2: Scouter, Planner, Coder, QA, and Reviewer. CEO is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
-- Aliases: Secretary=`harness_secretary`, Planner=`harness_planner`, Scout=`harness_scout`,
-  Coder=`harness_coder`, QA=`harness_qa`, Reviewer=`harness_reviewer`.
-- Across the full tree, allow at most four simultaneous subagents, including Secretary; there are no reserved slots.
+- Aliases: Scouter=`harness_scouter`, Planner=`harness_planner`, Coder=`harness_coder`, QA=`harness_qa`, Reviewer=`harness_reviewer`.
+- Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
-- Secretary owns assigned material/document scope, planning, integration, verification, acceptance, and completion.
-  When specialist support is needed, Secretary sends the question, material paths, and expected result to CEO.
-  CEO assigns specialist support and passes results back to Secretary; Secretary never delegates directly.
 
 ## Instruction and execution adapter
 
@@ -48,11 +40,9 @@ explicit Harness exception below. Adapt installed `brainstorming` role, save, an
 Harness Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
 missing non-executor skills before dependent work.
 
-Planner, Reviewer, and Scout return findings, relevant questions, next actions, and workspace/path issues to the
+Planner, Reviewer, and Scouter return findings, relevant questions, next actions, and workspace/path issues to the
 CEO. Planner preserves complete requested drafts. CEO integrates results, routes decisions and required approvals,
-and owns development acceptance and completion. Specialist reporting does not transfer Secretary material/document
-duties to development roles. For development work, design/planning approvals, Coder/QA
-coordination, implementation acceptance, and completion remain with CEO. Coder implements assigned files; QA checks
+and owns development acceptance and completion. For development work, design/planning approvals, Coder/QA coordination, implementation acceptance, and completion remain with CEO. Coder implements assigned files; QA checks
 without edits; Reviewer reads independently. CEO coordinates dependent implementation tasks sequentially and may reuse
 Coder while the approved scope, workspace, ownership, and relevant context remain valid. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
@@ -86,7 +76,9 @@ execution-target choice or verified valid reuse, accessible intended repository/
 HEAD, staged/unstaged/untracked state, preservation/ownership, approved document commits or valid absence, and final
 state without unresolved failure/partial completion. Coder independently checks before editing; missing evidence,
 mismatches, unclear ownership or unresolved preparation block edits and require CEO resolution and full revalidation.
-For a selected worktree, verify common directory, registration, and source preservation under handoff.
+For a selected worktree, verify common directory, registration, app-managed current-chat attachment, approved branch,
+and source preservation under handoff. Use mcp__codex_app__create_worktree with allowAsync: true, descriptive name and
+explicit verified source HEAD ref; verify asynchronous completion and actual returned path before branch/document work.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
 Coder cannot repair preparation by commits, permission changes, lock deletion, sandbox bypass or reset/stash/clean.
 The canonical record, delta restart brief, choice lifetime, branch protection and docs-commit order are in handoff.
@@ -174,13 +166,13 @@ rules.
 
 ## Models
 
-`models.toml` beside this skill is the source for the six role model IDs and reasoning-effort selections; CEO uses
+`models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections; CEO uses
 the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not
 prove server support, account access, or current availability. Use configured settings without substitution and report
 unavailable settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
-show the updates. The `install.py` installer renders settings into all six profiles during installation. New
+show the updates. The `install.py` installer renders settings into all five profiles during installation. New
 sessions reload profiles; running agents retain their current settings and parent relationships. These policy changes
 do not automatically reparent running agents or prove runtime parent behavior.

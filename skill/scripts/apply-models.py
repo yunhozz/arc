@@ -180,23 +180,23 @@ def main(argv: list[str] | None = None) -> int:
                 for path in updates:
                     print(f"out of sync: {path}")
                 return 1
-            print("all six agent profiles match models.toml")
+            print("all five agent profiles match models.toml")
             return 0
         if args.dry_run:
             if updates:
-                print("checking six agent profiles; planned updates:")
+                print("checking five agent profiles; planned updates:")
                 for path in updates:
                     print(f"would update: {path}")
             else:
-                print("all six agent profiles already match models.toml")
+                print("all five agent profiles already match models.toml")
             return 0
         if updates:
             apply_updates(updates)
-            print("applied settings across six agent profiles")
+            print("applied settings across five agent profiles")
             for path in updates:
                 print(f"updated: {path}")
         else:
-            print("all six agent profiles already match models.toml")
+            print("all five agent profiles already match models.toml")
         return 0
     except ValidationError as exc:
         print(f"error: {exc}", file=sys.stderr)
