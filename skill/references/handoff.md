@@ -245,6 +245,12 @@ CEO before dependent work. Roles do not independently create or switch workspace
 
 ### Choice lifetime and restart record
 
+Normal accepted task commits do not by themselves invalidate the initial choice for the same approved scope,
+workspace, repository and execution target. Link the approved plan version, task ID and commit SHA/content/validity
+with current Git state and edit ownership in the restart brief; retain the full handoff gate and independent checks.
+Verify/reuse successful task commits without duplication and keep planning-document preparation evidence distinct.
+Task commits do not require repeating valid document preparation or asking again for a still-valid initial choice.
+
 After successful worktree creation and verification, normal changes in the selected target are governed by this
 reuse rule: authorized HEAD and dirty-state changes, including approved document transfer, docs commits, and
 implementation, do not by themselves invalidate the initial choice. The creation base SHA remains evidence;

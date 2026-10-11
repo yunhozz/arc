@@ -59,6 +59,27 @@ evidence invalidate reuse for affected requirements. Record which
 requirements each check or review satisfies. Resolve or explicitly disposition findings and confirm acceptance
 evidence before completion; claim checks only with verified output.
 
+## Task acceptance and final plan acceptance
+
+Task-local acceptance is distinct from overall final plan verification and acceptance. CEO connects each task's
+acceptance criteria to actual evidence, currently required checks/reviews and findings before accepting it; checkbox
+completion, a Coder report or passing commands alone do not establish acceptance. Accepted approved top-level tasks
+receive their focused local commit under core policy without additional user commit approval.
+
+Do not add QA or Reviewer calls solely because a task boundary exists. Preserve existing risk requirements, risky
+dependency checks and specifically approved obligations. For an independently acceptable task, do not delay its
+acceptance/commit solely for later final plan verification. If the approved plan names a review as a task acceptance
+prerequisite, wait for that review before accepting and committing the task. Currently required task checks must not be
+deferred to final verification to accept early. State the scope and timing of final-only integration criteria in the plan.
+Significant work retains its required final whole-change review after QA at the final relevant state.
+
+A task commit record does not mark unperformed final verification complete. CEO still decides final plan acceptance
+using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
+Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
+rules. If final findings affect already committed work, CEO manages a follow-up task, applicable planning/approvals,
+correction and required rechecks/review before a new focused commit; do not automatically amend/reset or duplicate the
+original task commit. Failed required checks and unmet criteria cannot be waived to commit.
+
 ### UI browser acceptance checks
 
 Only when assigned UI acceptance criteria and the brief supplies the workspace, existing launch command or URL,

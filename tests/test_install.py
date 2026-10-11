@@ -352,6 +352,142 @@ def policy_text(name: str) -> str:
     return " ".join(path.read_text().lower().split())
 
 
+class TaskCommitPolicyTests(unittest.TestCase):
+    # TASK-01's user-approved structural exception: RED/GREEN checks of the
+    # written contract only, not consuming-agent runtime compliance.
+    def section(self, name: str, heading: str) -> str:
+        text = policy_text(name)
+        self.assertIn(heading, text)
+        section = text.split(heading, 1)[1]
+        for boundary in (" ## ", " ### "):
+            section = section.split(boundary, 1)[0]
+        return section
+
+    def contracts(self, text: str, patterns: tuple[str, ...]) -> None:
+        for pattern in patterns:
+            with self.subTest(contract=pattern):
+                self.assertRegex(text, pattern)
+
+    def test_ceo_commits_accepted_top_level_task_without_user_approval(self) -> None:
+        core = policy_text("core")
+        self.assertRegex(core, r"ceo.*accept.*task.*commit")
+        self.assertRegex(core, r"without.*(?:additional|separate).*user.*commit.*approval")
+        self.assertRegex(core, r"top.level task.*commit")
+        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        self.contracts(commit, (
+            r"ceo verifies.*acceptance criteria.*required checks.*findings.*accepts.*task.*immediately.*local.*commit",
+            r"one approved top-level task.*one focused implementation commit",
+            r"immediately means.*next action.*git.*checks.*staging.*commit",
+            r"plan.skip.*no new plan obligation",
+        ))
+        self.assertNotIn("optionally create", commit)
+
+    def test_planner_groups_inseparable_changes_and_defines_task_gates(self) -> None:
+        planning = self.section("planning", "## top-level plan tasks")
+        profile = tomllib.loads((REPO / "agents/harness-planner.toml").read_text())
+        self.assertEqual(profile["sandbox_mode"], "read-only")
+        planner = " ".join(profile["developer_instructions"].lower().split())
+        self.assertIn("for each top-level task", planner)
+        task_draft = planner.split("for each top-level task", 1)[1].split("for a genuinely visual", 1)[0]
+        for artifact, text in (("planning", planning), ("planner", task_draft)):
+            with self.subTest(artifact=artifact):
+                self.contracts(text, (
+                    r"id.*title.*scope.*files.*dependencies.*acceptance criteria.*required checks.*review.*evidence.*hold conditions",
+                    r"cannot be independently verified.*one top-level task",
+                    r"substeps.*checkboxes.*not.*commit units",
+                    r"ceo.*accept.*without.*additional user commit approval",
+                    r"final.*plan.*verification.*task.*prerequisites",
+                ))
+
+    def test_substeps_and_reports_do_not_replace_acceptance(self) -> None:
+        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        self.contracts(commit, (
+            r"substeps.*checkboxes.*not.*commit units",
+            r"checkbox completion.*coder reports.*passing checks.*do not.*task acceptance",
+            r"criteria.*conditions.*expected results.*actual evidence",
+        ))
+
+    def test_task_and_final_plan_verification_remain_distinct(self) -> None:
+        verify = self.section("verification", "## task acceptance and final plan acceptance")
+        self.contracts(verify, (
+            r"task-local acceptance.*distinct from.*final plan.*acceptance",
+            r"do not add.*qa.*reviewer.*solely.*task boundary",
+            r"independently acceptable task.*do not delay.*later final plan verification",
+            r"plan.*review.*task acceptance prerequisite.*wait.*before.*accept.*commit",
+            r"required.*task.*checks.*must not.*deferred",
+            r"significant.*final whole-change review.*after qa.*final relevant state",
+            r"task commit.*does not.*unperformed.*verification.*complete",
+        ))
+
+    def test_commit_blocks_on_scope_checks_findings_and_git_state(self) -> None:
+        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        hold = commit.split("hold the task commit", 1)[-1].split("for a no-change task", 1)[0]
+        self.contracts(hold, (
+            r"unmet.*criteria.*required checks.*failed.*not run.*unresolved findings.*evidence gaps",
+            r"scope expansion.*ownership.*staged.*mismatch.*workspace.*branch.*head.*git state",
+            r"failure.*partial completion.*record.*reason.*next action",
+            r"do not waive.*criteria.*required checks.*commit",
+            r"disposition.*does not.*unverified.*proven",
+            r"git failure.*actual branch.*head.*index.*working tree.*before retrying",
+        ))
+        self.contracts(commit, (
+            r"same file.*other tasks.*user changes.*safe separation.*before committing",
+            r"unrelated staged.*stop.*do not.*unstage.*stash/reset/clean",
+        ))
+
+    def test_commit_evidence_no_change_and_resume_are_explicit(self) -> None:
+        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        self.contracts(commit, (
+            r"before committing.*approved plan.*task id.*absolute workspace.*repository.*branch.*head.*staged/unstaged/untracked.*ownership",
+            r"staged paths.*content.*finalized.*message",
+            r"after committing.*sha.*actual message.*included paths.*content.*post-commit head.*branch.*remaining.*staged/unstaged/untracked",
+            r"canonical record.*plan.*version.*task id.*acceptance evidence.*required checks.*findings.*commit.*remaining final plan verification",
+            r"no-change task.*no empty commit.*acceptance evidence.*no change",
+            r"resume.*verify.*sha.*content.*validity.*reuse.*do not duplicate",
+            r"missing record.*actual result.*before.*retry",
+        ))
+        restart = self.section("handoff", "### choice lifetime and restart record")
+        self.assertRegex(restart, r"normal accepted task commits.*do not.*invalidate.*initial choice")
+        self.assertRegex(restart, r"task id.*commit sha.*current git state.*full handoff gate")
+
+    def test_final_findings_use_followup_task_without_rewriting_commit(self) -> None:
+        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        followup = commit.split("if final qa/reviewer findings", 1)[-1].split("this local", 1)[0]
+        self.contracts(followup, (
+            r"already committed.*ceo.*follow-up task.*required planning.*approvals.*correction.*reverification.*new focused commit",
+            r"do not automatically amend/reset.*rerun.*original task.*duplicate commit",
+        ))
+
+    def test_document_batch_and_external_action_boundaries_remain(self) -> None:
+        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        planning = self.section("planning", "### complete planning-document set")
+        self.contracts(planning, (
+            r"normal order: design approval.*written-spec approval.*individual approvals.*complete applicable set.*explicit execution-target choice.*batch commit.*final git verification.*coder handoff",
+            r"while documents.*do not.*stage documents.*commit planning documents",
+        ))
+        self.contracts(commit, (
+            r"local.*does not authorize early planning-document commits.*pre-coder.*batch.*unchanged",
+            r"push.*merge.*publish.*deploy.*install.*separate.*approval",
+            r"conventional commits.*korean description.*trailing period.*lowercase.*scope",
+            r"historical spec/plan.*not.*retroactively",
+            r"structural checks.*do not prove.*agent runtime",
+        ))
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertIn("## 계획 task 수락과 자동 커밋", readme)
+        task_help = readme.split("## 계획 task 수락과 자동 커밋", 1)[1].split("## ", 1)[0]
+        self.contracts(task_help, (
+            r"최상위 task.*커밋.*단위",
+            r"CEO.*수락 기준.*필수 검사.*findings.*수락.*추가 사용자 커밋 승인 없이.*로컬 커밋",
+            r"하위 체크박스.*Coder 보고.*검사 통과.*수락.*대신하지",
+            r"보류.*변경 없음.*빈 커밋.*재개.*중복",
+            r"최종.*QA.*Reviewer.*구분",
+            r"문서.*명시.*선택.*일괄.*조기.*커밋",
+            r"push.*merge.*publish.*deploy.*install.*별도.*승인",
+            r"Conventional Commits.*한국어.*마침표",
+            r"구조 검사.*runtime.*입증하지",
+        ))
+
+
 class ConditionalReferenceTests(unittest.TestCase):
     # User-approved static contract exception for this change only.
     # These checks do not establish consuming-agent runtime compliance.

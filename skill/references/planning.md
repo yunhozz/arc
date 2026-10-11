@@ -46,6 +46,25 @@ CEO must not substitute an independently authored spec for Planner's complete dr
 omissions, return them to Planner for completion. A user may explicitly change the writing responsibility; record
 that change and its evidence in the brief. Design approval alone does not change ownership.
 
+## Top-level plan tasks
+
+For each top-level task, Planner specifies ID and title, implementation goal/scope and target files, preceding tasks
+and dependencies, acceptance criteria, required checks/reviews and evidence before acceptance, and hold conditions.
+Make each task independently implementable, verifiable and acceptable. Changes that cannot be independently verified
+belong in one top-level task from the outset, including policy/profile/tests/manifest when they share one contract.
+Do not combine different approved tasks into one commit during execution; if inseparability appears later, stop affected
+work and have CEO handle revised scope, planning and applicable approvals.
+
+Substeps and checkboxes express implementation/check progress, not separate commit units; RED/GREEN and individual
+commands do not create commit units. One approved top-level task is one focused implementation commit. CEO verifies
+criteria, required checks/reviews and findings, accepts the task, then commits without additional user commit approval.
+Coder reports and passing checks do not replace CEO acceptance. State final overall plan QA/Reviewer/integration verification
+separately from task acceptance prerequisites, stating scope and timing. Keep task-required checks before acceptance;
+later final checks alone do not delay an independently acceptable task. If a final review is expressly a task
+prerequisite, complete it before acceptance/commit. Task boundaries alone add no QA/Reviewer gates; preserve risk and
+dependency requirements and specific approved obligations. No-change, hold and resume processing follow core policy.
+These requirements apply to required plans; existing plan-omission paths gain no new plan obligation.
+
 ### Document-save evidence gates
 
 Before the first architectural spec save, first required Bounded written spec save, or first plan save, read this
