@@ -739,6 +739,40 @@ class HarnessPreactionGateTests(unittest.TestCase):
         self.assertRegex(handoff, r"do not automatically unstage, reset, stash, clean, or discard")
 
 
+class TokenDisciplineTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_core_waits_without_polling_and_batches_messages(self) -> None:
+        tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
+        for contract in (
+            r"wait_agent.*maximum supported timeout.*until.*completes",
+            r"timeout.*not a reason to poll",
+            r"do not poll.*list_agents.*sleep.*repeated short waits",
+            r"list_agents`? only.*unknown agent",
+            r"one complete brief.*batch related.*one message",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(tokens, contract)
+
+    def test_core_reads_targeted_ranges_without_weakening_references(self) -> None:
+        tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
+        for contract in (
+            r"read only the needed ranges.*rg -n.*sed -n",
+            r"cap long command output",
+            r"do not re-read.*unchanged",
+            r"mandatory reference.*already read in this context.*unchanged.*need not be re-read",
+            r"does not shorten.*triggered mandatory reference",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(tokens, contract)
+
+    def test_role_profiles_read_targeted_ranges(self) -> None:
+        for role in ("scouter", "planner", "coder", "qa", "reviewer"):
+            with self.subTest(role=role):
+                text = " ".join(tomllib.loads((REPO / f"agents/harness-{role}.toml").read_text())
+                                ["developer_instructions"].lower().split())
+                self.assertRegex(text, r"read only needed file ranges.*keep command output short.*do not re-read unchanged files")
+
+
 class RolePolicyTests(unittest.TestCase):
     # Approved package-consistency checks; these do not execute agent runtime behavior.
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:
