@@ -7,7 +7,8 @@ Visual companion design discussion is distinct from QA UI acceptance.
 ## Risk-scaled execution
 
 CEO identifies affected behavior, risk, and smallest meaningful verification. Product/test edits belong exclusively to
-Coder with assigned file ownership; CEO may inspect/run checks but routes code corrections to Coder.
+Coder with assigned file ownership except under the CEO direct path in core policy; otherwise CEO may inspect/run checks
+but routes code corrections to Coder.
 
 Determine the minimum flow from risk requirements and any specific applicable instruction or approved commitment.
 The risk table is the baseline; do not add automatic per-task checkpoints. A check or review may satisfy overlapping

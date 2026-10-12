@@ -739,6 +739,74 @@ class HarnessPreactionGateTests(unittest.TestCase):
         self.assertRegex(handoff, r"do not automatically unstage, reset, stash, clean, or discard")
 
 
+class CeoDirectPathTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def direct(self) -> str:
+        core = policy_text("core")
+        self.assertIn("## ceo direct path for small tasks", core)
+        return core.split("## ceo direct path for small tasks", 1)[1].split(" ## ", 1)[0]
+
+    def test_direct_path_eligibility_is_small_low_risk_and_plan_skip(self) -> None:
+        for contract in (
+            r"without planner brainstorming or coder",
+            r"every small, low-risk criterion.*narrow, understood, readily reversible.*focused checks",
+            r"every plan-skip criterion.*one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
+            r"no significant-risk trigger",
+            r"spike, architectural, ordinary-behavior, significant/high-risk, unclear-risk.*not eligible",
+            r"overlapping.*coder.*not eligible",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(self.direct(), contract)
+
+    def test_direct_path_keeps_approval_handoff_tdd_and_verification(self) -> None:
+        for contract in (
+            r"before editing.*records.*scope.*files.*why every criterion holds.*acceptance criteria.*focused verification",
+            r"presents.*short design.*user.*explicit approval",
+            r"silence.*not approval",
+            r"handoff gate conditions.*coder first start.*explicit execution-target choice or valid reuse.*workspace.*branch.*head.*staged/unstaged/untracked.*ownership.*before the first edit",
+            r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",
+            r"records the changed files",
+            r"corrections for a failed focused check or a qa finding stay within the approved files",
+            r"coder tdd rules.*waiver.*explicit.*tdd request.*test-driven-development",
+            r"do not claim tdd",
+            r"focused checks.*each acceptance criterion.*evidence.*unverified scope",
+            r"not independent of its own edit",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(self.direct(), contract)
+
+    def test_direct_path_stops_and_reclassifies_without_reverting(self) -> None:
+        for contract in (
+            r"scope expands.*risk becomes unclear.*criterion stops holding.*stops editing.*records the changes.*reclassif",
+            r"normal planner/coder flow.*coder owning subsequent edits",
+            r"do not automatically revert, reset, stash, or clean",
+            r"no automatic task commit.*applicable guidance and user requests",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(self.direct(), contract)
+
+    def test_ownership_and_flows_name_the_direct_path_exception(self) -> None:
+        core = policy_text("core")
+        ownership = core.split("## ownership", 1)[1].split("## instruction", 1)[0]
+        self.assertRegex(ownership, r"ceo does not edit them directly except under the ceo direct path")
+        self.assertRegex(core, r"ceo assigns edits exclusively to coder except under the ceo direct path")
+        row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+                   if line.startswith("| small, low risk"))
+        self.assertIn("ceo direct path", row)
+        gate = core.split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
+        self.assertRegex(gate, r"same conditions.*before a ceo direct edit")
+        planning = policy_text("planning")
+        self.assertRegex(planning, r"never runs brainstorming itself except under the ceo direct path")
+        self.assertRegex(planning, r"approve a short design before coder or a ceo direct edit")
+        self.assertRegex(policy_text("verification"), r"exclusively to coder.*except under the ceo direct path")
+        self.assertRegex(policy_text("handoff"), r"ceo direct edit.*same.*conditions")
+        handoff_row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+                           if "references/handoff.md" in line)
+        self.assertIn("ceo direct edit", handoff_row)
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertRegex(readme, r"CEO 직접 경로")
+
+
 class TokenDisciplineTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_core_waits_without_polling_and_batches_messages(self) -> None:

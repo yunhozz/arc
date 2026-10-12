@@ -16,7 +16,8 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 
 - CEO is the sole owner of development, configuration, tests, implementation-dependent documentation, and mixed
   tasks requiring implementation. CEO coordinates scope, planning, approvals, integration, acceptance, verification,
-  and completion. Coder edits assigned implementation/configuration/test-code files; CEO does not edit them directly.
+  and completion. Coder edits assigned implementation/configuration/test-code files; CEO does not edit them directly except under the
+  CEO direct path for small tasks.
 - `harness_scouter`: Read-only material research/analysis and assigned static code/document/data/log exploration.
   Report evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to CEO.
   Do not edit files or author standalone document files. Do not decide design/plans, verification, review, or completion.
@@ -59,7 +60,7 @@ references must be reported to CEO; stop dependent work until resolved. Do not l
 | Reference | Required before |
 |---|---|
 | [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval, first spec/plan save |
-| [handoff](references/handoff.md) | Every Coder first start/restart preparation by CEO; Coder's independent checkout verification uses its profile and only brief-cited sections |
+| [handoff](references/handoff.md) | Every Coder first start/restart preparation by CEO, and before each CEO direct edit's first edit; Coder's independent checkout verification uses its profile and only brief-cited sections |
 | [handoff-prep](references/handoff-prep.md) | Execution-target choice request, each preparation Git mutation (branch creation/switch, staging, commit) |
 | [handoff-worktree](references/handoff-worktree.md) | Execution-target choice request (the new managed worktree option's selection target), and after explicit new managed worktree selection before its creation, branch work or document transfer |
 | [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
@@ -83,7 +84,8 @@ For a selected worktree, verify common directory, registration, app-managed curr
 and source preservation under handoff.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
 Worktree creation, the canonical record, delta restart brief, choice lifetime and reuse, branch protection, docs-commit
-order and Coder repair limits are in handoff.
+order and Coder repair limits are in handoff. The same conditions apply before a CEO direct edit, without the Coder's
+independent check.
 
 ## Coder TDD and constraints
 
@@ -102,11 +104,12 @@ generalize it to behavior work.
 
 ## Risk-scaled execution
 
-CEO assigns edits exclusively to Coder and determines affected behavior, risk, and smallest meaningful verification.
+CEO assigns edits exclusively to Coder except under the CEO direct path below, and determines affected behavior, risk,
+and smallest meaningful verification.
 
 | Risk | Minimum flow |
 |---|---|
-| Small, low risk | Coder → CEO's focused checks → acceptance |
+| Small, low risk | Coder, or CEO direct path → CEO's focused checks → acceptance |
 | Ordinary behavior | Coder → independent QA → acceptance |
 | Significant/high risk | Coder → QA → independent Reviewer of the full change → acceptance |
 
@@ -120,10 +123,39 @@ Do not add per-task gates automatically. Preserve specific approved obligations 
 before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
 QA checks independently without edits; Reviewer independently reads the final full change after QA for significant
-work, without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder, obtains affected QA
-rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
+work, without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder (or corrects them
+within an eligible CEO direct path), obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
 Criterion verdicts must preserve unverified scope; passing runs or disposition cannot substitute for proof.
 Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
+
+## CEO direct path for small tasks
+
+CEO may make a task's edits directly, without Planner brainstorming or Coder, only when every small, low-risk criterion
+holds (narrow, understood, readily reversible, and verifiable through focused checks), every plan-skip criterion holds
+(one local change, no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns, and one
+focused verification path), and no significant-risk trigger applies. Spike, architectural, ordinary-behavior,
+significant/high-risk, unclear-risk work, and edits overlapping files assigned to a running Coder are not eligible.
+
+Before editing, CEO records in the brief the scope and files, why every criterion holds, acceptance criteria, and
+focused verification, presents that short design to the user, and obtains explicit approval; silence, an ambiguous
+response, or approval of other work is not approval. CEO then verifies the handoff gate conditions that precede a Coder
+first start (explicit execution-target choice or valid reuse, accessible intended workspace and repository, branch or
+detached HEAD, HEAD, staged/unstaged/untracked state, preservation and ownership, and no unresolved failure or partial
+completion) before the first edit. CEO edits only the approved files, preserves others' edits, makes surgical edits in
+the local style without unrelated refactoring or speculative additions, and does not install dependencies without
+authorization.
+
+Behavior edits follow the Coder TDD rules: the waiver applies when its criteria hold unless an explicit user or
+task-specific TDD request applies, in which case CEO follows installed `test-driven-development`; do not claim TDD was
+followed when waived.
+After editing, CEO records the changed files, runs the focused checks, connects each acceptance criterion to evidence,
+and preserves unverified scope. CEO is not independent of its own edit; assign QA when the evidence is incomplete.
+Corrections for a failed focused check or a QA finding stay within the approved files and are rechecked.
+
+If scope expands, risk becomes unclear, or a criterion stops holding, CEO stops editing, records the changes already
+made, and reclassifies; further work follows the normal Planner/Coder flow with Coder owning subsequent edits. Do not
+automatically revert, reset, stash, or clean those changes. Like other plan-skip paths, there is no automatic task
+commit; commits follow applicable guidance and user requests.
 
 ## Automatic commit after plan-task acceptance
 

@@ -40,6 +40,9 @@ CEO may start or restart Coder only after all of these conditions are verified:
    failure or partial completion.
 7. The brief includes these preparation and final-verification facts and evidence.
 
+Before a CEO direct edit, CEO verifies the same conditions, with the approved short design as the applicable approval,
+and records them in the brief; no Coder independent check applies.
+
 Any missing or failed condition blocks handoff. CEO may continue read-only investigation and authorized preparation
 or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
 HEAD, or relevant state changes. Coder independently checks the brief and actual checkout before editing on every

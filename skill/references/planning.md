@@ -18,10 +18,11 @@ design path or plan approval gates.
 1. Before software feature, design, or behavior changes, CEO assigns Planner the installed `brainstorming` skill with
    the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
    trade-offs, acceptance criteria, assumptions, and focused questions. CEO integrates, announces scope, routes user
-   answers/revisions back, and obtains approvals; CEO never runs brainstorming itself.
+   answers/revisions back, and obtains approvals; CEO never runs brainstorming itself except under the CEO direct path
+   in core policy, where CEO presents the short design itself.
 2. Spike: approve the feasibility question/probe before execution, report findings, then obtain a new design/approval
-   for implementation. Bounded: approve a short design before Coder. Architectural: approve design, then Planner returns
-   complete spec draft and self-review findings; CEO integrates, saves, self-reviews, and obtains written-spec approval
+   for implementation. Bounded: approve a short design before Coder or a CEO direct edit. Architectural: approve
+   design, then Planner returns complete spec draft and self-review findings; CEO integrates, saves, self-reviews, and obtains written-spec approval
    before implementation planning. Planner is read-only and cannot request approval.
 3. After approved design/spec and before Coder, CEO assesses plan depth separately from file count, LOC, or bounded
    scope. Architectural work always uses installed `writing-plans` and requires written plan approval, regardless of
@@ -35,6 +36,7 @@ design path or plan approval gates.
 5. Every Coder first start and restart requires all applicable design/spec/plan approvals and the complete
    `Workspace handoff` gate below, with approved artifacts, brief, and relevant findings. Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
+   A CEO direct edit requires its approved short design and the same gate conditions before the first edit.
    Standalone document writing has no specialist auto-route.
 
 When a Bounded written spec is required by the existing CEO depth judgment, record that necessity and scope and
