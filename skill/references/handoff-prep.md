@@ -1,0 +1,113 @@
+# Handoff preparation contract
+
+CEO reads before an execution-target choice request and each preparation Git mutation (branch creation/switch,
+staging, commit). For the choice request also read [handoff-worktree.md](handoff-worktree.md) for the new managed
+worktree option's selection target. The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](handoff.md).
+
+## Workspace handoff
+
+### Execution-target request gate
+
+Before requesting the user's execution-target choice, CEO verifies and records the complete document list, absolute
+paths and scope coverage, approved versions and individual approval evidence, plan dependencies and execution order,
+and no unfinished applicable documents or unresolved scope/dependency decisions requiring another document.
+The set contains required artifacts, not a spec on every path; use planning depth and valid omission rationales.
+Unfinished documents or missing approval evidence stop the choice request and preparation. Read-only state checks
+are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate.
+Present the verified workspace, current branch or detached HEAD, HEAD, and any validated new-branch candidate under
+Checkout approval in handoff.md. Planning approval, silence, or ambiguous responses never constitute target choice.
+
+### Git mutation evidence gate
+
+Before each preparation Git mutation—branch creation/switch, worktree creation, approved-document staging, or commit—read this
+reference and recheck the complete approved document set and approval evidence; explicit execution-target choice
+or verified valid reuse; absolute workspace and intended repository; current branch or detached HEAD and HEAD;
+staged/unstaged/untracked changes, preservation and edit ownership; and the exact command, target paths, and
+approved scope. Confirm no unresolved failure or partial completion. Record these facts in the canonical handoff
+record/shared brief before the action. Missing or mismatched evidence stops that mutation until CEO resolves it.
+Read-only Git checks remain allowed. Do not infer execution authority from an external skill's early commit step.
+
+Before committing, also verify staged paths/content and the finalized message under Planning document commit.
+After every branch or commit operation, verify actual path, branch, HEAD, preserved changes, and result before the
+next dependent action. After staging, verify the actual index paths and diff before commit. Preserve unrelated
+changes and stop on unrelated staged files; do not automatically unstage, reset, stash, clean, or discard them.
+Reverify affected evidence after changes or failures; do not retroactively approve an action taken before its gate.
+
+### New task branch
+
+With explicit user approval for the execution target, prepare the new task branch in the existing checkout.
+Choose a valid Git branch name in the form `<type>/<short-kebab-case-topic>`. Use a lowercase prefix for the task's
+main purpose and a short, specific lowercase kebab-case topic with no spaces. For mixed tasks, choose the main purpose.
+
+| Prefix | Purpose |
+|--------|---------|
+| feat/ | Add a feature |
+| fix/ | Fix a bug |
+| refactor/ | Improve code structure while preserving behavior |
+| docs/ | Change documentation |
+| test/ | Add or change tests |
+| build/ | Change build, packaging, or dependencies |
+| ci/ | Change CI configuration |
+| perf/ | Improve performance |
+| style/ | Change formatting or style without behavior changes |
+| chore/ | Change operational policy, tools, or maintenance |
+| revert/ | Revert a prior change |
+
+Validate the name and check for collisions before creation. If the base name exists, append `-2`, `-3`, and increasing
+numeric suffixes to the topic, choosing the first unused name. Never reuse, delete, or overwrite an existing branch.
+Distinguish a lookup error from a missing branch. For example: `chore/branch-workspace-policy`, then
+`chore/branch-workspace-policy-2`.
+Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate before execution. If the approval
+target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
+collision, obtain approval for that candidate before creating or switching; without that approval, block handoff.
+Use the current checkout only after the user explicitly selects it for this handoff. A failure during creation remains
+an operational failure subject to the stop rule below.
+
+Create and switch to the approved new branch from the confirmed base HEAD in the current checkout, for example with
+`git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and included in the approval target.
+After success, confirm the actual current branch matches the approved candidate, HEAD matches the recorded base, the
+checkout absolute path is unchanged, and existing changes are preserved. Do not create a worktree or fall back to
+worktree provisioning on failure. Only explicit selection of New managed worktree and task branch permits worktree creation.
+
+### Current checkout
+
+Only after the user explicitly selects the current checkout for this handoff, or valid reuse is verified, confirm the absolute workspace,
+current branch or detached HEAD, HEAD, and existing changes with their preservation and edit ownership. Record this
+state and the choice evidence in the brief. Missing choice, unconfirmed state, or unclear ownership blocks handoff.
+
+### Planning document commit
+
+Begin only after all applicable specs/plans are written, individually approved, and the document set is complete.
+On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
+changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
+On the new worktree path, verify the created app-managed worktree, current-chat attachment, identity/base, approved
+branch and document transfer before any target docs commit.
+At the target, commit only remaining approved documents once; do not automatically make a source document commit.
+Record the selected base SHA and post-commit HEAD.
+CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
+content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting them.
+
+For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
+Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
+before handoff. Batch all remaining uncommitted approved documents together in that single commit, including all specs
+and plans when none are committed. If only some remain, verify/reuse existing commits and commit the remainder once.
+If all are validly committed, verify only; do not create duplicate or empty commits. Do not amend, reset, or recommit
+past commits merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved documents. If unrelated staged
+files exist, preserve them and stop; do not automatically unstage, reset, stash, clean, or discard them. Never include
+implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
+repair it. A separately needed amend requires rechecking its approval scope, current HEAD, and publication state.
+
+If the docs commit fails or staged content differs, stop handoff and inspect actual branch, HEAD, index, and partial
+completion. Resolve the issue before resuming; do not commit implementation instead. After success verify SHA, actual
+message, included paths/content, post-commit HEAD, final branch, and staged/unstaged/untracked state in the brief.
+A successful command exit alone does not prove preparation complete. This commit is not implementation acceptance
+or push approval; do not push without a separate explicit user request.
+
+Skip this commit only when no planning documents were required and none were produced under the design/plan depth
+rules; record that fact and the applicable depth rationale. Uncommitted documents cannot be treated as absent.
+This does not require new documents or bypass checkout choice or any other handoff-gate condition.
+
+### Recovery prerequisite
+
+On branch collisions, Git preparation failures, partial completion, or metadata write denial, read
+[git-recovery.md](git-recovery.md) before dependent recovery. Its stop and preservation rules are mandatory.

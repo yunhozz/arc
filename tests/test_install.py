@@ -344,12 +344,16 @@ class ApplyModelsTests(unittest.TestCase):
         self.assertEqual(tree_state(self.base), before)
 
 
-REFERENCE_NAMES = ("planning", "handoff", "verification", "git-recovery", "visual-companion")
+REFERENCE_NAMES = ("planning", "handoff", "handoff-prep", "handoff-worktree", "verification", "git-recovery",
+                   "visual-companion", "commit")
+HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree")
 
 
 def policy_text(name: str) -> str:
-    path = REPO / "skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
-    return " ".join(path.read_text().lower().split())
+    # "handoff" covers the whole handoff contract, which is split by trigger across HANDOFF_FILES.
+    names = HANDOFF_FILES if name == "handoff" else (name,)
+    paths = [REPO / "skill" / ("SKILL.md" if n == "core" else f"references/{n}.md") for n in names]
+    return " ".join(" ".join(path.read_text().lower().split()) for path in paths)
 
 
 class TaskCommitPolicyTests(unittest.TestCase):
@@ -373,7 +377,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         self.assertRegex(core, r"ceo.*accept.*task.*commit")
         self.assertRegex(core, r"without.*(?:additional|separate).*user.*commit.*approval")
         self.assertRegex(core, r"top.level task.*commit")
-        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
         self.contracts(commit, (
             r"ceo verifies.*acceptance criteria.*required checks.*findings.*accepts.*task.*immediately.*local.*commit",
             r"one approved top-level task.*one focused implementation commit",
@@ -400,7 +404,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
                 ))
 
     def test_substeps_and_reports_do_not_replace_acceptance(self) -> None:
-        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
         self.contracts(commit, (
             r"substeps.*checkboxes.*not.*commit units",
             r"checkbox completion.*coder reports.*passing checks.*do not.*task acceptance",
@@ -420,7 +424,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
 
     def test_commit_blocks_on_scope_checks_findings_and_git_state(self) -> None:
-        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
         hold = commit.split("hold the task commit", 1)[-1].split("for a no-change task", 1)[0]
         self.contracts(hold, (
             r"unmet.*criteria.*required checks.*failed.*not run.*unresolved findings.*evidence gaps",
@@ -436,7 +440,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
 
     def test_commit_evidence_no_change_and_resume_are_explicit(self) -> None:
-        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
         self.contracts(commit, (
             r"before committing.*approved plan.*task id.*absolute workspace.*repository.*branch.*head.*staged/unstaged/untracked.*ownership",
             r"staged paths.*content.*finalized.*message",
@@ -451,7 +455,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         self.assertRegex(restart, r"task id.*commit sha.*current git state.*full handoff gate")
 
     def test_final_findings_use_followup_task_without_rewriting_commit(self) -> None:
-        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
         followup = commit.split("if final qa/reviewer findings", 1)[-1].split("this local", 1)[0]
         self.contracts(followup, (
             r"already committed.*ceo.*follow-up task.*required planning.*approvals.*correction.*reverification.*new focused commit",
@@ -459,7 +463,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
 
     def test_document_batch_and_external_action_boundaries_remain(self) -> None:
-        commit = self.section("core", "## automatic commit after plan-task acceptance")
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
         planning = self.section("planning", "### complete planning-document set")
         self.contracts(planning, (
             r"normal order: design approval.*written-spec approval.*individual approvals.*complete applicable set.*explicit execution-target choice.*batch commit.*final git verification.*coder handoff",
@@ -509,6 +513,9 @@ class ConditionalReferenceTests(unittest.TestCase):
             ("verification", r"verification design.*qa/reviewer.*correction rechecks.*ui acceptance"),
             ("git-recovery", r"branch collision.*git preparation failure.*partial completion.*metadata write denial"),
             ("visual-companion", r"visual companion offer or operation"),
+            ("commit", r"plan-task acceptance.*focused commit"),
+            ("handoff-prep", r"execution-target choice request.*each preparation git mutation"),
+            ("handoff-worktree", r"execution-target choice request.*selection target.*explicit new managed worktree selection.*before its creation"),
         ):
             with self.subTest(reference=name):
                 row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
@@ -568,6 +575,40 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertRegex(coder, r"reuse.*initial explicit choice")
         self.assertRegex(coder, r"every first start or restart.*independently verify")
         self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
+
+    def test_coder_profile_holds_handoff_check_without_full_reference_read(self) -> None:
+        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+                         ["developer_instructions"].lower().split())
+        self.assertRegex(coder, r"profile is the complete coder handoff check.*handoff.md.*only.*brief explicitly cites")
+        self.assertNotRegex(coder, r"before every first start or restart, read")
+        for phrase in ("unrelated staged files", "git common directory", "do not repair preparation"):
+            self.assertIn(phrase, coder)
+        self.assertRegex(policy_text("handoff"), r"coder's independent checkout check.*coder profile.*brief explicitly cites")
+
+    def test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections(self) -> None:
+        def headings(name: str) -> list[str]:
+            return [line[4:].strip().lower() for line in (REPO / f"skill/references/{name}.md").read_text().splitlines()
+                    if line.startswith("### ")]
+        self.assertEqual(headings("handoff"), ["checkout approval", "coder handoff gate", "handoff evidence",
+                                               "choice lifetime and restart record"])
+        self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
+                                                    "new task branch", "current checkout", "planning document commit",
+                                                    "recovery prerequisite"])
+        self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer"])
+        core = (REPO / "skill/references/handoff.md").read_text().lower()
+        self.assertIn("handoff-prep.md", core)
+        self.assertIn("handoff-worktree.md", core)
+
+    def test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read(self) -> None:
+        for role in ("qa", "reviewer"):
+            with self.subTest(role=role):
+                text = " ".join(tomllib.loads((REPO / f"agents/harness-{role}.toml").read_text())
+                                ["developer_instructions"].lower().split())
+                self.assertRegex(text, rf"profile is the complete {role} contract.*verification.md.*only.*brief explicitly cites")
+        self.assertRegex(policy_text("verification"), r"qa and reviewer contracts.*profiles.*brief explicitly cites")
+        reviewer = " ".join(tomllib.loads((REPO / "agents/harness-reviewer.toml").read_text())
+                            ["developer_instructions"].lower().split())
+        self.assertRegex(reviewer, r"significant/high-risk.*final full change after qa")
 
     def test_restart_choice_lifetime_and_evidence(self) -> None:
         path = REPO / "skill/references/handoff.md"
@@ -653,7 +694,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
     def test_preaction_reference_and_choice_order(self) -> None:
         rows = (REPO / "skill/SKILL.md").read_text().lower().splitlines()
         planning = next(row for row in rows if "references/planning.md" in row)
-        handoff = next(row for row in rows if "references/handoff.md" in row)
+        handoff = next(row for row in rows if "references/handoff-prep.md" in row)
         self.assertIn("first spec/plan save", planning)
         for trigger in ("execution-target choice request", "each preparation git mutation"):
             self.assertIn(trigger, handoff)
@@ -669,7 +710,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
     def test_preaction_git_evidence_and_batch_order(self) -> None:
         handoff = policy_text("handoff")
         self.assertIn("### git mutation evidence gate", handoff)
-        gate = handoff.split("### git mutation evidence gate")[1].split("### checkout approval")[0]
+        gate = handoff.split("### git mutation evidence gate")[1].split("### ", 1)[0]
         for phrase in ("before each", "branch creation/switch", "worktree creation", "staging", "commit", "complete approved document set",
                        "explicit execution-target choice", "absolute workspace", "repository", "branch or detached head",
                        "staged/unstaged/untracked", "preservation", "ownership", "command", "target paths",
