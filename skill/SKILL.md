@@ -14,15 +14,17 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 
 ## Ownership
 
-- CEO is the sole owner of development, configuration, tests, implementation-dependent documentation, and mixed
-  tasks requiring implementation. CEO coordinates scope, planning, approvals, integration, acceptance, verification,
-  and completion. Coder edits assigned implementation/configuration/test-code files; CEO does not edit them directly except under the
-  CEO direct path for small tasks.
-- `harness_scouter`: Read-only material research/analysis and assigned static code/document/data/log exploration.
-  Report evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to CEO.
-  Do not edit files or author standalone document files. Do not decide design/plans, verification, review, or completion.
-- Planner returns design/spec/plan drafts; Coder edits approved implementation/configuration/tests and dependent docs;
-  QA verifies without edits; Reviewer independently reviews the final full change. CEO integrates and accepts.
+- CEO: sole owner of development, configuration, tests, implementation-dependent documentation, and mixed tasks
+  requiring implementation. Coordinates scope, planning, approvals, integration, acceptance, verification, and
+  completion.
+- Scouter: read-only material research/analysis and assigned static code/document/data/log exploration. Reports
+  evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to CEO. Does not edit
+  files or author standalone document files, and does not decide design/plans, verification, review, or completion.
+- Planner: returns design/spec/plan drafts.
+- Coder: edits assigned, approved implementation/configuration/test-code files and dependent docs. CEO does not edit
+  them directly except under the CEO direct path for small tasks.
+- QA: verifies without edits.
+- Reviewer: independently reviews the final full change.
 - All five roles report directly to CEO at depth 2: Scouter, Planner, Coder, QA, and Reviewer. CEO is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
 - Aliases: Scouter=`harness_scouter`, Planner=`harness_planner`, Coder=`harness_coder`, QA=`harness_qa`, Reviewer=`harness_reviewer`.
