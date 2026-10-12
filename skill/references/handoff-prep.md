@@ -87,6 +87,12 @@ Record the selected base SHA and post-commit HEAD.
 CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
 content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting them.
 
+Record approval evidence, the execution target, planning-document commit SHA and actual message, and current Git
+state in the canonical handoff record/shared brief. Preserve the approved spec/plan as the implementation baseline;
+do not modify it or create a second docs commit or amend an existing docs commit merely to record or update these
+operational facts. Substantive document changes, such as scope, acceptance criteria, or required verification, require
+approval of the revised document and the applicable preparation gates before handoff.
+
 For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
 Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
 before handoff. Batch all remaining uncommitted approved documents together in that single commit, including all specs

@@ -49,6 +49,12 @@ preparation and passes the gate again before Coder resumes.
 
 ### Handoff evidence
 
+Use the canonical handoff record/shared brief to record approval evidence, the execution target, planning-document
+commit SHA and actual message, and current Git state. Updating these operational facts does not justify modifying
+an approved spec/plan, creating a second docs commit, or amending an existing docs commit; preserve the approved
+version as the implementation baseline. Substantive changes to scope, acceptance criteria, or required verification
+require approval of the revised document and the applicable preparation gates under handoff-prep.md.
+
 For the worktree path the canonical record maps source and target absolute paths, Git common directory, base SHA,
 selected branch, descriptive name, returned actual path, app-managed current-chat attachment, operationId/result,
 registration and preservation checks, and document transfer evidence. Give all five roles the

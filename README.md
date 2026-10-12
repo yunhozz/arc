@@ -92,6 +92,9 @@ CEO는 Planner 초안을 대체하는 독립 명세 초안을 작성하지 않�
 선택 요청 전에 선택 증거를 요구하지 않습니다. 누락·불일치·실패는 해당 행동을 멈추고 CEO가 해결합니다.
 기존 유효 문서 커밋은 검증해 재사용하고 남은 승인 문서만 한 번에 준비하며 스테이징된 경로·차이·커밋 메시지와 사후 상태를 확인합니다.
 이 증거는 기존 정본에 기록하며 과거 조기 저장·커밋을 소급 승인하지 않습니다.
+승인 증거·실행 대상·계획 문서 커밋 SHA와 실제 메시지·현재 Git 상태는 기존 canonical handoff record/shared brief(정본 인계 기록/공유 요약)에 기록합니다.
+승인된 spec/plan은 구현 기준으로 유지하며, 이 운영 기록만 갱신하려고 승인 문서를 수정하거나 두 번째 docs commit 또는 기존 docs commit amend를 만들지 않습니다.
+범위·수락 기준·필수 검증 등 실질적인 문서 변경에는 수정본 승인과 해당 준비 gate를 적용합니다.
 
 새 관리형 worktree는 `mcp__codex_app__create_worktree`로 생성합니다. 앱이 실제 경로를 결정하며 목적지 path·branch 인자를 받지 않습니다.
 설명용 `name`과 검증된 source HEAD 전체 SHA인 `ref`, `allowAsync: true`를 사용합니다. Remote/default base 대체와 자동 fetch는 하지 않습니다.
