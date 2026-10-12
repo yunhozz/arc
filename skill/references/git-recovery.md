@@ -1,7 +1,7 @@
 # Git recovery contract
 
 Read on branch collision, Git preparation failure, partial completion, or metadata write denial.
-Use [handoff.md](handoff.md) for approved branch selection and the complete restart gate.
+Use [handoff-prep.md](handoff-prep.md) for approved branch selection, [handoff-worktree.md](handoff-worktree.md) for the managed worktree path, and [handoff.md](handoff.md) for the complete restart gate.
 
 ### Git metadata write denial
 

@@ -1,6 +1,7 @@
 # Verification contract
 
-Read before verification design, QA/Reviewer, correction rechecks, or UI acceptance checks.
+CEO reads before verification design, QA/Reviewer assignment, correction rechecks, or UI acceptance checks. QA and
+Reviewer contracts are in their profiles; they read this file only for sections the brief explicitly cites.
 Visual companion design discussion is distinct from QA UI acceptance.
 
 ## Risk-scaled execution

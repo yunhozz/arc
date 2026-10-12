@@ -63,8 +63,11 @@ CEO는 배정 역할의 작업 요약에 접근 가능한 참조 경로를 전�
 | 참조 | 필수 시점 |
 |---|---|
 | [계획](skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
-| [인계](skill/references/handoff.md) | 실행 대상 선택 요청, 각 준비 Git 변경, Coder 최초 시작·재개 준비와 독립 확인 전 |
-| [검증](skill/references/verification.md) | 검증 설계, QA/Reviewer, 수정 재확인, UI 수락 검사 전 |
+| [인계](skill/references/handoff.md) | CEO의 Coder 최초 시작·재개 준비 전 (Coder의 독립 확인은 Coder 프로필에 있고, 인계 문서는 brief가 지정한 섹션만 읽음) |
+| [인계 준비](skill/references/handoff-prep.md) | 실행 대상 선택 요청, 각 준비 Git 변경(브랜치 생성·전환, 스테이징, 커밋) 전 |
+| [관리형 worktree](skill/references/handoff-worktree.md) | 실행 대상 선택 요청(worktree 선택지의 입력 항목) 전, 그리고 명시 선택 뒤 생성·branch 작업·문서 전달 전 |
+| [커밋](skill/references/commit.md) | 계획 task 수락과 focused 커밋, 커밋 결과가 불명확한 task 재개 전 |
+| [검증](skill/references/verification.md) | CEO의 검증 설계, QA/Reviewer 배정, 수정 재확인, UI 수락 검사 전 (QA·Reviewer는 각자 프로필을 쓰고 brief가 지정한 섹션만 읽음) |
 | [Git 복구](skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, 메타데이터 쓰기 거부 시 |
 | [Visual companion](skill/references/visual-companion.md) | 시각 자료 제안·시각 보조 도구 운영 전 |
 
@@ -172,8 +175,8 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 설치 후 적용할 `AGENTS.md`에 아래 안내를 추가하고 Codex를 다시 시작하거나 새 세션을 엽니다.
 
 ```markdown
-여러 단계의 조사, 분석, 문서 작성 또는 구현이 필요한 요청에는
-`~/.codex/skills/yunho-harness/SKILL.md`를 읽고 따른다.
+여러 단계의 조사·분석 또는 구현·설정·테스트가 필요한 요청에는
+`~/.codex/skills/yunho-harness/SKILL.md`를 읽고 따른다. 문서 작성만 하는 요청에는 적용하지 않는다.
 같은 대화의 관련 후속 요청에도 적용한다.
 `~`는 현재 사용자의 홈 디렉터리로 해석한다.
 ```

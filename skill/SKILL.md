@@ -59,8 +59,11 @@ references must be reported to CEO; stop dependent work until resolved. Do not l
 | Reference | Required before |
 |---|---|
 | [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval, first spec/plan save |
-| [handoff](references/handoff.md) | Execution-target choice request, each preparation Git mutation, every Coder first start/restart preparation or independent checkout verification |
-| [verification](references/verification.md) | Verification design, QA/Reviewer, correction rechecks, UI acceptance checks |
+| [handoff](references/handoff.md) | Every Coder first start/restart preparation by CEO; Coder's independent checkout verification uses its profile and only brief-cited sections |
+| [handoff-prep](references/handoff-prep.md) | Execution-target choice request, each preparation Git mutation (branch creation/switch, staging, commit) |
+| [handoff-worktree](references/handoff-worktree.md) | Execution-target choice request (the new managed worktree option's selection target), and after explicit new managed worktree selection before its creation, branch work or document transfer |
+| [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
+| [verification](references/verification.md) | CEO's verification design, QA/Reviewer assignment, correction rechecks, UI acceptance checks; QA and Reviewer use their profiles and only brief-cited sections |
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
@@ -77,35 +80,25 @@ HEAD, staged/unstaged/untracked state, preservation/ownership, approved document
 state without unresolved failure/partial completion. Coder independently checks before editing; missing evidence,
 mismatches, unclear ownership or unresolved preparation block edits and require CEO resolution and full revalidation.
 For a selected worktree, verify common directory, registration, app-managed current-chat attachment, approved branch,
-and source preservation under handoff. Use mcp__codex_app__create_worktree with allowAsync: true, descriptive name and
-explicit verified source HEAD ref; verify asynchronous completion and actual returned path before branch/document work.
+and source preservation under handoff.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
-Coder cannot repair preparation by commits, permission changes, lock deletion, sandbox bypass or reset/stash/clean.
-The canonical record, delta restart brief, choice lifetime, branch protection and docs-commit order are in handoff.
-Same approved scope/workspace/repository/target restarts retain a valid initial choice with fresh state checks;
-changed scope/target/candidate or a failure invalidating target trust requires a fresh explicit choice.
+Worktree creation, the canonical record, delta restart brief, choice lifetime and reuse, branch protection, docs-commit
+order and Coder repair limits are in handoff.
 
 ## Coder TDD and constraints
 
 Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
-Harness exception applies. TDD is waived only when all small, low-risk criteria hold (narrow, understood, readily
-reversible, and verifiable through focused checks) and all plan-skip criteria hold (one local change, no dependent
-stages, cross-component shared state, lifecycle, or integration-order concerns, and one focused verification path).
-Before Coder starts, CEO records the scope, why every criterion is met, acceptance criteria, and focused verification
-in the brief. An explicit user or task-specific TDD request overrides this waiver. For qualifying tasks only, this
-approved Harness exception takes precedence over the generic trigger in the installed `test-driven-development`
-skill; do not change that skill.
-
-The waiver skips only failure-first/RED-GREEN TDD steps. Focused checks, evidence and limits reporting, and
-risk-appropriate QA/Reviewer remain required; do not claim TDD was followed. If risk is unclear or scope expands,
-Coder stops and asks CEO to reclassify. Ordinary multi-step or significant/high-risk work is not eligible; behavior
-edits outside this exception still require TDD.
-
-If an unavoidable constraint blocks a required TDD step, Coder pauses before editing and gives CEO the scope, exact
-constraint and evidence, required TDD steps, alternatives, uncertainty, and approval needed. CEO records the decision
-in the brief/plan and obtains any required human approval; internal approval is not a substitute. Non-behavior
-documentation/configuration may use only a specifically authorized exception recorded in the brief; run approved
-structural checks, state their limits, and do not claim TDD or generalize that exception to behavior work.
+Harness exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when all small, low-risk
+criteria hold (narrow, understood, readily reversible, and verifiable through focused checks) and all plan-skip
+criteria hold (one local change, no dependent stages, cross-component shared state, lifecycle, or integration-order
+concerns, and one focused verification path). Before Coder starts, CEO records the scope, why every criterion is met,
+acceptance criteria, and focused verification in the brief. An explicit user or task-specific TDD request overrides
+this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the installed skill;
+do not change that skill. Ordinary multi-step or significant/high-risk work is not eligible. The waiver skips only
+RED-GREEN steps; focused checks and risk-appropriate QA/Reviewer remain, and do not claim TDD was followed. If a constraint blocks a required TDD step, CEO records the
+decision in the brief/plan and obtains any required human approval; internal approval is not a substitute.
+Non-behavior documentation/configuration uses only a specifically authorized exception recorded in the brief; do not
+generalize it to behavior work.
 
 ## Risk-scaled execution
 
@@ -134,50 +127,9 @@ Read verification for evidence fields, failure/finding flow, UI permissions, cle
 
 ## Automatic commit after plan-task acceptance
 
-One approved top-level task is the unit of one focused implementation commit. CEO verifies the task's acceptance
-criteria, currently required checks/reviews, and findings, accepts the task by its own judgment, then immediately
-creates its focused local Git commit without additional user commit approval. Immediately means the next action is
-the required Git state/scope checks, staging, and commit, rather than an unexplained wait until the plan ends.
-Substeps and checkboxes are progress records, not separate commit units. Checkbox completion, Coder reports, and
-passing checks alone do not establish task acceptance: connect criteria's conditions and expected results to actual
-evidence. Existing plan-skip paths have no new plan obligation; their commits follow applicable guidance and user requests.
-
-Before committing, CEO verifies the approved plan version, task ID and accepted scope, actual absolute workspace,
-repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state and edit ownership. Verify staged paths and
-content match only that task, and verify the finalized commit message. If the same file contains other tasks or user
-changes, prove safe separation before committing. Preserve unrelated staged changes and stop; do not automatically
-unstage them or use stash/reset/clean to clear user changes. After committing, verify SHA, actual message, included
-paths and content, post-commit HEAD, actual branch and remaining staged/unstaged/untracked state. Command exit success
-alone does not establish completion. In the accessible canonical record link plan path/version, task ID, acceptance
-evidence and CEO judgment, required checks/reviews and findings, commit results and state, hold/no-change/reuse reasons,
-and remaining final plan verification.
-
-Hold the task commit for unmet or unresolved criteria, required checks/reviews that failed or were not run,
-unresolved findings or evidence gaps without disposition, scope expansion or revised-plan needs, ownership or staged
-scope/content mismatch, unexpected workspace, branch, HEAD or Git state, or Git failure/partial completion. Record the
-reason and required next action. Do not waive unmet criteria or required checks to commit. Explicit disposition follows
-existing policy and does not turn unverified into proven. After a Git failure inspect actual branch, HEAD, index,
-working tree and partial completion before retrying; if commit creation is unclear, stop rather than retry immediately.
-CEO follows git-recovery and reverifies affected evidence after resolving the failure.
-
-For a no-change task, make no empty commit; record acceptance evidence and no change. On resume, verify the same task's
-existing commit SHA, content and validity, then reuse it; do not duplicate a successful task commit. For a missing record,
-inspect the actual result before any retry. Normal accepted task commits retain valid choice reuse under handoff, with
-fresh state and ownership checks. Task acceptance/commit is distinct from final plan acceptance; remaining final
-QA/Reviewer/integration checks still apply. Follow verification for their timing: later final verification alone does
-not delay an independently acceptable task, but any review designated as its acceptance prerequisite must finish first.
-
-If final QA/Reviewer findings require changing already committed work, CEO defines a follow-up task with required
-planning and approvals, correction and reverification, then a new focused commit. Do not automatically amend/reset
-the existing commit or rerun the original task to produce a duplicate commit.
-
-This local commit authority does not authorize early planning-document commits: pre-Coder document approvals,
-explicit execution-target choice and batch preparation remain unchanged. Historical spec/plan records are not changed
-retroactively. Structural checks of this contract do not prove actual agent runtime compliance.
-Follow Conventional Commits with the message form
-`<type>(<scope>): <description>`. Use a concise, specific Korean description without a trailing period, a lowercase
-scope when useful, one top-level task's logical change per commit, and body/footer only when needed while preserving
-Git trailer syntax. Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
+CEO accepts each approved top-level task by its own judgment and immediately creates one focused local commit for that
+task without additional user commit approval. Read [commit](references/commit.md) before the acceptance and commit.
+Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
 
 ## Token discipline and handoffs
 
