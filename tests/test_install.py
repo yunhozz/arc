@@ -825,9 +825,15 @@ class CoderBriefAndReuseTests(unittest.TestCase):
         self.assertRegex(coder, r"read plan/spec documents only in the sections the brief cites")
 
     def test_loader_keeps_subagents_on_profiles(self) -> None:
-        readme = " ".join((REPO / "README.md").read_text().split())
-        loader = readme.split("## 🔌 수동 활성화", 1)[1].split("## ", 1)[0]
-        self.assertRegex(loader, r"하네스 하위 에이전트.*프로필과 brief.*SKILL.md.*읽지 않")
+        body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
+        self.assertIn("Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
+        readme = (REPO / "README.md").read_text()
+        section = readme.split("## 🔌 전역 설정 자동 반영", 1)[1].split("\n## ⚙️", 1)[0]
+        self.assertIn(f"## Yunho's Harness\n\n{body}```", section)
+        for phrase in ("--skip-global", "backups/<timestamp>/global/", "min_wait_timeout_ms = 120000",
+                       "default_wait_timeout_ms = 300000", "Yunho's Harness"):
+            self.assertIn(phrase, section)
+        self.assertNotIn("설치기는 전역 설정과 `AGENTS.md`를 수정하지 않습니다", readme)
 
 
 class TokenDisciplineTests(unittest.TestCase):
@@ -1227,6 +1233,122 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(policy, contract)
 
 
+class GlobalSettingsTests(unittest.TestCase):
+    BODY = "- managed rule one\n- managed rule two\n"
+    OLD = (
+        "# AGENTS.md\n\n## 1. Yunho's Harness\n\n- CEO must not edit files directly.\n\n"
+        "## 2. Git Commit Message Guidelines\n\nkeep me\n"
+    )
+
+    def render_agents(self, text):
+        return installer.render_agents_md(text, self.BODY, Path("AGENTS.md"))
+
+    def test_agents_md_created_when_missing(self) -> None:
+        text, action = self.render_agents(None)
+        self.assertIn(installer.GLOBAL_BEGIN, text)
+        self.assertIn(installer.GLOBAL_END, text)
+        self.assertIn("## Yunho's Harness", text)
+        self.assertIn(self.BODY, text)
+        self.assertIn("create", action)
+
+    def test_agents_md_replaces_unmanaged_section_and_keeps_others(self) -> None:
+        text, action = self.render_agents(self.OLD)
+        self.assertIn("replace", action)
+        self.assertNotIn("CEO must not edit files directly.", text)
+        self.assertIn("## 1. Yunho's Harness", text.split(installer.GLOBAL_BEGIN, 1)[1].split(installer.GLOBAL_END, 1)[0])
+        self.assertTrue(text.startswith("# AGENTS.md\n\n" + installer.GLOBAL_BEGIN))
+        self.assertIn(installer.GLOBAL_END + "\n\n## 2. Git Commit Message Guidelines\n\nkeep me\n", text)
+        again, action = self.render_agents(text)
+        self.assertEqual(again, text)
+
+    def test_agents_md_updates_only_the_managed_block(self) -> None:
+        stale = f"intro\n\n{installer.GLOBAL_BEGIN}\n## 1. Yunho's Harness\n\n- stale\n{installer.GLOBAL_END}\n\noutro\n"
+        text, action = self.render_agents(stale)
+        self.assertIn("update managed", action)
+        self.assertNotIn("- stale", text)
+        self.assertTrue(text.startswith("intro\n\n"))
+        self.assertTrue(text.endswith(installer.GLOBAL_END + "\n\noutro\n"))
+        self.assertIn("## 1. Yunho's Harness", text)
+
+    def test_agents_md_appends_when_no_section_exists(self) -> None:
+        text, action = self.render_agents("# AGENTS.md\n\n## Other\n\nkeep\n")
+        self.assertTrue(text.startswith("# AGENTS.md\n\n## Other\n\nkeep\n\n" + installer.GLOBAL_BEGIN))
+        self.assertIn("append", action)
+
+    def test_agents_md_rejects_malformed_markers_and_duplicates(self) -> None:
+        for bad in (f"{installer.GLOBAL_BEGIN}\nno end\n",
+                    f"{installer.GLOBAL_END}\n{installer.GLOBAL_BEGIN}\n",
+                    f"{installer.GLOBAL_BEGIN}\n{installer.GLOBAL_END}\n{installer.GLOBAL_BEGIN}\n{installer.GLOBAL_END}\n",
+                    "## Yunho's Harness\n\na\n\n## Yunho's Harness\n\nb\n"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(installer.InstallerError):
+                    self.render_agents(bad)
+
+    def test_agents_md_handles_crlf_sections(self) -> None:
+        text, action = self.render_agents(self.OLD.replace("\n", "\r\n"))
+        self.assertIn("replace", action)
+        self.assertNotIn("CEO must not edit files directly.", text)
+        self.assertEqual(text.count("Yunho's Harness"), 1)
+
+    def test_non_utf8_global_file_is_reported_not_crashed(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as directory:
+            home = Path(directory)
+            (home / "AGENTS.md").write_bytes(b"\xff\xfe broken")
+            with self.assertRaises(installer.InstallerError):
+                installer.plan_global_updates(home, home)
+
+    def test_agents_body_carries_harness_rules(self) -> None:
+        body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
+        self.assertIn("`~/.codex/skills/yunho-harness/SKILL.md`", body)
+        self.assertIn("Resolve `~` to the current user's home directory.", body)
+        self.assertIn("Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
+        self.assertIn("except under the Harness CEO direct path for small, low-risk tasks", body)
+        self.assertIn("(not standalone document writing)", body)
+        other = installer.agents_block_body(Path("/opt/codex"), Path("/home/u"))
+        self.assertIn("`/opt/codex/skills/yunho-harness/SKILL.md`", other)
+        self.assertNotIn("Resolve `~`", other)
+
+    def render_config(self, text):
+        return installer.render_config_toml(text, Path("config.toml"))
+
+    def wait(self, text):
+        return tomllib.loads(text)["features"]["multi_agent_v2"]
+
+    def test_config_created_or_appended_when_missing(self) -> None:
+        for source in (None, "", 'model = "x"\n', 'model = "x"'):
+            with self.subTest(source=source):
+                text, action = self.render_config(source)
+                self.assertEqual(self.wait(text), {"min_wait_timeout_ms": 120000, "default_wait_timeout_ms": 300000})
+                if source:
+                    self.assertEqual(tomllib.loads(text)["model"], "x")
+
+    def test_config_overwrites_values_and_keeps_other_keys(self) -> None:
+        source = ("[features]\nhooks = true\n\n[features.multi_agent_v2]\nmin_wait_timeout_ms = 1000\n"
+                  "max_concurrent_threads_per_session = 3\n\n[mcp_servers.x]\ncommand = \"y\"\n")
+        text, action = self.render_config(source)
+        self.assertEqual(self.wait(text), {"min_wait_timeout_ms": 120000, "max_concurrent_threads_per_session": 3,
+                                           "default_wait_timeout_ms": 300000})
+        data = tomllib.loads(text)
+        self.assertEqual(data["features"]["hooks"], True)
+        self.assertEqual(data["mcp_servers"]["x"]["command"], "y")
+        again, action = self.render_config(text)
+        self.assertEqual(again, text)
+        self.assertIn("unchanged", action)
+
+    def test_config_skips_non_table_feature_forms(self) -> None:
+        for source in ("[features]\nmulti_agent_v2 = true\n",
+                       "[features]\nmulti_agent_v2 = { min_wait_timeout_ms = 1 }\n",
+                       "features = { multi_agent_v2 = true }\n"):
+            with self.subTest(source=source):
+                text, action = self.render_config(source)
+                self.assertIsNone(text)
+                self.assertIn("skip", action)
+
+    def test_config_rejects_invalid_toml(self) -> None:
+        with self.assertRaises(installer.InstallerError):
+            self.render_config("[features\n")
+
+
 class ExternalSkillPreflightTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
@@ -1279,6 +1401,112 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         agents.mkdir(parents=True)
         for filename in installer.PROFILE_FILES:
             (agents / filename).write_bytes(b"previous profile")
+
+    GLOBAL_OLD_AGENTS = (
+        "# AGENTS.md\n\n## 1. Yunho's Harness\n\n- CEO must not edit files directly.\n\n"
+        "## 2. Git Commit Message Guidelines\n\nkeep me\n"
+    )
+    GLOBAL_OLD_CONFIG = 'model = "m"\n\n[features.multi_agent_v2]\nmin_wait_timeout_ms = 1000\n'
+
+    def seed_global(self) -> tuple[Path, Path]:
+        self.codex_home.mkdir(parents=True, exist_ok=True)
+        agents, config = self.codex_home / "AGENTS.md", self.codex_home / "config.toml"
+        agents.write_text(self.GLOBAL_OLD_AGENTS)
+        config.write_text(self.GLOBAL_OLD_CONFIG)
+        config.chmod(0o600)
+        return agents, config
+
+    def test_install_updates_global_files_with_backup(self) -> None:
+        self.create_payload()
+        agents, config = self.seed_global()
+        acquire, _ = self.acquisition_stub()
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+        self.assertEqual(status, 0, output)
+        text = agents.read_text()
+        self.assertIn(installer.GLOBAL_BEGIN, text)
+        self.assertNotIn("CEO must not edit files directly.", text)
+        self.assertIn("do not load `SKILL.md`", text)
+        self.assertIn("## 2. Git Commit Message Guidelines\n\nkeep me\n", text)
+        data = tomllib.loads(config.read_text())
+        self.assertEqual(data["model"], "m")
+        self.assertEqual(data["features"]["multi_agent_v2"], {"min_wait_timeout_ms": 120000, "default_wait_timeout_ms": 300000})
+        self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o600)
+        backup = next((self.codex_home / "backups").iterdir())
+        self.assertEqual((backup / "global" / "AGENTS.md").read_text(), self.GLOBAL_OLD_AGENTS)
+        self.assertEqual((backup / "global" / "config.toml").read_text(), self.GLOBAL_OLD_CONFIG)
+        self.assert_no_stages()
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+        self.assertEqual(status, 0, output)
+        self.assertEqual(agents.read_text(), text)
+
+    def test_install_creates_missing_global_files(self) -> None:
+        self.create_payload()
+        acquire, _ = self.acquisition_stub()
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+        self.assertEqual(status, 0, output)
+        self.assertIn(installer.GLOBAL_BEGIN, (self.codex_home / "AGENTS.md").read_text())
+        self.assertIn("multi_agent_v2", tomllib.loads((self.codex_home / "config.toml").read_text())["features"])
+
+    def test_skip_global_leaves_global_files_untouched(self) -> None:
+        self.create_payload()
+        agents, config = self.seed_global()
+        acquire, _ = self.acquisition_stub()
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main(["--skip-global"])
+        self.assertEqual(status, 0, output)
+        self.assertEqual(agents.read_text(), self.GLOBAL_OLD_AGENTS)
+        self.assertEqual(config.read_text(), self.GLOBAL_OLD_CONFIG)
+
+    def test_global_replace_failure_restores_all_targets(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        agents, config = self.seed_global()
+        before = (self.installed_target_state(), agents.read_bytes(), config.read_bytes())
+        acquire, _ = self.acquisition_stub()
+        real_replace = os.replace
+        injected = []
+        def fail(source, target):
+            if Path(target) == config and Path(source).name == "config.toml" and ".yunho-harness-global-" in str(source):
+                injected.append(True)
+                raise OSError("injected global replace failure")
+            return real_replace(source, target)
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail):
+            status, output = self.run_main([])
+        self.assertEqual(status, 2, output)
+        self.assertTrue(injected)
+        self.assertEqual((self.installed_target_state(), agents.read_bytes(), config.read_bytes()), before)
+        self.assert_no_stages()
+
+    def test_dry_run_and_check_report_global_changes_without_writing(self) -> None:
+        self.create_payload()
+        self.install_candidates(self.user_home / ".agents" / "skills")
+        self.seed_existing_targets()
+        self.seed_global()
+        before = tree_state(self.codex_home), tree_state(self.user_home)
+        status, output = self.run_main(["--dry-run"])
+        self.assertEqual(status, 0, output)
+        self.assertIn("Would update global file", output)
+        self.assertIn("AGENTS.md", output)
+        self.assertIn("config.toml", output)
+        status, output = self.run_main(["--check"])
+        self.assertEqual(status, 0, output)
+        self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
+
+    def test_invalid_global_config_blocks_install_before_changes(self) -> None:
+        self.create_payload()
+        self.seed_existing_targets()
+        agents, config = self.seed_global()
+        config.write_text("[features\n")
+        before = (self.installed_target_state(), agents.read_bytes(), config.read_bytes())
+        acquire, calls = self.acquisition_stub()
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+        self.assertEqual(status, 2, output)
+        self.assertEqual(calls, [])
+        self.assertEqual((self.installed_target_state(), agents.read_bytes(), config.read_bytes()), before)
 
     def assert_no_stages(self) -> None:
         self.assertEqual(list(self.codex_home.glob("**/.yunho-harness-*-*")), [])

@@ -160,6 +160,8 @@ brainstorming · writing-plans · test-driven-development
 | `<CODEX_HOME>/skills/` | 외부 스킬 세 개와 `yunho-harness` |
 | `<CODEX_HOME>/agents/` | Harness 역할 프로필 다섯 개 |
 | `~/.agents/skills/` | 설치 시작 시 이미 존재하는 외부 스킬 후보만 |
+| `<CODEX_HOME>/AGENTS.md` | Harness 관리 구간만 (아래 전역 설정 자동 반영, `--skip-global`로 제외) |
+| `<CODEX_HOME>/config.toml` | `[features.multi_agent_v2]` 대기 설정 두 키만 (`--skip-global`로 제외) |
 
 외부 스킬 취득은 임시 환경에서 실행하며 사용자 npm/Git 설정·자격 증명·프록시 환경 변수를 이어받지 않습니다. 해당 설정에 의존하는 네트워크에서는 설치가 실패할 수 있습니다. Node.js 최소 버전은 이 저장소에서 고정하지 않습니다.
 
@@ -170,21 +172,29 @@ python3 install.py --check    # 로컬 파일·설정·경로 검사
 python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 ```
 
+`--check`는 `AGENTS.md`·`config.toml`을 고칠 수 있는지도 검사하고, `--dry-run`은 바뀔 전역 파일과 내용을 함께 표시합니다.
+
 두 옵션은 파일을 수정하거나 캐시·백업을 만들지 않고, 하위 프로세스·`npx`·네트워크도 실행하지 않습니다. Node.js/npm·Git 없이 사용할 수 있습니다. 현재 외부 스킬의 필수 파일 구조를 검사하지만, 최신 원본 저장소나 설치된 프로필과 모델 설정의 일치 여부를 확인하지는 않습니다. 설치기 오류의 종료 코드는 `2`입니다.
 
-## 🔌 수동 활성화
+## 🔌 전역 설정 자동 반영
 
-설치 후 적용할 `AGENTS.md`에 아래 안내를 추가하고 Codex를 다시 시작하거나 새 세션을 엽니다.
+`install.command`(또는 `python3 install.py`)는 하네스 스킬·프로필과 함께 Codex 홈의 전역 파일 두 개를 갱신합니다. 반영하지 않으려면 `--skip-global`을 붙입니다.
+
+| 파일 | 설치기가 하는 일 |
+|---|---|
+| `AGENTS.md` | `<!-- yunho-harness:begin … -->`부터 `<!-- yunho-harness:end -->`까지의 관리 구간만 최신 Harness 규칙으로 바꿉니다. 관리 구간이 없고 표시 없는 `Yunho's Harness` 제목의 섹션이 있으면 그 섹션(다음 같은 수준 제목 전까지)을 관리 구간으로 교체하고 제목은 유지합니다. 둘 다 없으면 파일 끝에 추가하고, 파일이 없으면 만듭니다. 관리 구간 밖의 내용은 그대로 둡니다. |
+| `config.toml` | `[features.multi_agent_v2]`의 `min_wait_timeout_ms = 120000`, `default_wait_timeout_ms = 300000`을 설정합니다. 다른 값이 있으면 이 값으로 덮어쓰고 같은 표의 다른 키와 나머지 설정은 유지합니다. `multi_agent_v2`가 불리언·인라인 표처럼 자체 표가 아니거나 편집 결과를 검증하지 못하면 건드리지 않고 직접 설정하라고 안내합니다. |
+
+관리 구간에 들어가는 규칙은 아래와 같습니다. 경로는 실제 설치 위치로 채워지며, `CODEX_HOME`이 홈 디렉터리 밖이면 절대 경로가 들어갑니다.
 
 ```markdown
-여러 단계의 조사·분석 또는 구현·설정·테스트가 필요한 요청에는
-`~/.codex/skills/yunho-harness/SKILL.md`를 읽고 따른다. 문서 작성만 하는 요청에는 적용하지 않는다.
-하네스 하위 에이전트(depth 2)는 자신의 프로필과 brief를 따르고 SKILL.md를 읽지 않는다.
-같은 대화의 관련 후속 요청에도 적용한다.
-`~`는 현재 사용자의 홈 디렉터리로 해석한다.
+## Yunho's Harness
+
+- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test work (not standalone document writing), load and follow `~/.codex/skills/yunho-harness/SKILL.md`, including relevant follow-up turns in the same chat. Resolve `~` to the current user's home directory. Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.
+- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the Harness CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
 ```
 
-`CODEX_HOME`을 지정했다면 위 경로를 실제 설치 위치로 바꿉니다. 설치기는 전역 설정과 `AGENTS.md`를 수정하지 않습니다. 저장소의 `config.toml`은 선택 참고 예시이며 자동 설치·병합하지 않습니다.
+두 파일은 고치기 전에 이번 설치의 `backups/<timestamp>/global/`에 원본을 보관하고, 하네스 파일과 같은 거래에서 교체하므로 실패하면 함께 되돌립니다. `config.toml`을 읽을 수 없거나 관리 표시가 깨졌거나 `Yunho's Harness` 섹션이 여러 개면 외부 스킬을 받기 전에 중단하고 아무것도 바꾸지 않습니다. 설치 후 Codex를 다시 시작하거나 새 세션을 엽니다. 저장소의 `config.toml`은 `[agents]` 설정의 선택 참고 예시이며 자동 병합하지 않습니다.
 
 새 세션은 설치된 프로필과 새 역할 ID를 읽습니다. 사용자 작성 외부 설정·스크립트·문서의 역할 참조는 새 `harness_<role>` ID와 `harness-<role>.toml` 파일명으로 직접 수정해야 합니다. 과거 계획·명세·요약 문서의 명칭도 현재 체계로 정규화했으며, 날짜·승인 사실·폐기 역할의 당시 의미는 유지합니다.
 

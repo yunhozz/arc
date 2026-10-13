@@ -21,6 +21,8 @@ import signal
 import stat
 import subprocess
 import tempfile
+import tomllib
+from copy import deepcopy
 from datetime import datetime, timezone
 from dataclasses import dataclass
 from types import ModuleType
@@ -55,6 +57,13 @@ MANIFEST_LINE = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
 EXTERNAL_SOURCE = "https://github.com/obra/superpowers"
 EXTERNAL_FETCH_TIMEOUT_SECONDS = 300
 EXTERNAL_TERMINATION_GRACE_SECONDS = 5
+
+
+GLOBAL_BEGIN = "<!-- yunho-harness:begin (managed by install.py; content between these markers is replaced on install) -->"
+GLOBAL_END = "<!-- yunho-harness:end -->"
+HARNESS_HEADING = "## Yunho's Harness"
+HARNESS_SECTION = re.compile(r"(?im)^(#{1,6})[ \t]+(?:\d+\.[ \t]*)?yunho'?s harness[ \t]*\r?$")
+WAIT_SETTINGS = (("min_wait_timeout_ms", 120000), ("default_wait_timeout_ms", 300000))
 
 
 class InstallerError(Exception):
@@ -900,6 +909,138 @@ def install_plan(
     return skills_dir, agents_dir, backups_dir, profile_targets
 
 
+def agents_block_body(home: Path, user_home: Path) -> str:
+    """Harness rules for the managed AGENTS.md block, pointing at this install's SKILL.md."""
+    skill = home / "skills" / INSTALL_NAME / "SKILL.md"
+    try:
+        shown = "~/" + skill.relative_to(user_home).as_posix()
+        resolve = " Resolve `~` to the current user's home directory."
+    except ValueError:
+        shown, resolve = skill.as_posix(), ""
+    return (
+        "- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test "
+        f"work (not standalone document writing), load and follow `{shown}`, including relevant follow-up turns in the "
+        f"same chat.{resolve} Harness subagents (depth 2) follow their role profile and brief instead and do not load "
+        "`SKILL.md`.\n"
+        "- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file "
+        "edits and other work to the other roles according to their defined responsibilities. CEO must not edit "
+        "implementation, configuration, or test-code files directly, except under the Harness CEO direct path for "
+        "small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.\n"
+    )
+
+
+def _agents_block(heading: str, body: str) -> str:
+    return f"{GLOBAL_BEGIN}\n{heading}\n\n{body}{GLOBAL_END}\n"
+
+
+def render_agents_md(text: str | None, body: str, path: Path) -> tuple[str, str]:
+    """Return AGENTS.md text with the managed Harness block and a short description of the change."""
+    if text is None:
+        return _agents_block(HARNESS_HEADING, body), "create with managed Harness block"
+    begins, ends = text.count(GLOBAL_BEGIN), text.count(GLOBAL_END)
+    if begins or ends:
+        if begins != 1 or ends != 1 or text.index(GLOBAL_BEGIN) > text.index(GLOBAL_END):
+            raise InstallerError(f"malformed yunho-harness markers in {path}; fix or remove them and retry")
+        start = text.index(GLOBAL_BEGIN)
+        stop = text.index(GLOBAL_END) + len(GLOBAL_END)
+        if text[stop:stop + 1] == "\n":
+            stop += 1
+        heading = HARNESS_SECTION.search(text[start:stop])
+        block = _agents_block(heading.group(0).strip() if heading else HARNESS_HEADING, body)
+        return text[:start] + block + text[stop:], "update managed Harness block"
+    matches = list(HARNESS_SECTION.finditer(text))
+    if len(matches) > 1:
+        raise InstallerError(f"multiple Yunho's Harness sections in {path}; merge them into one and retry")
+    if matches:
+        found = matches[0]
+        following = re.compile(rf"(?m)^#{{1,{len(found.group(1))}}}[ \t]+\S").search(text, found.end())
+        stop = following.start() if following else len(text)
+        tail = text[stop:]
+        block = _agents_block(found.group(0).strip(), body)
+        return text[:found.start()] + block + ("\n" if tail else "") + tail, "replace unmanaged Harness section"
+    separator = "" if not text or text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
+    return text + separator + _agents_block(HARNESS_HEADING, body), "append managed Harness block"
+
+
+def render_config_toml(text: str | None, path: Path) -> tuple[str | None, str]:
+    """Return config.toml text with the Harness wait settings, or None with a reason when it must be set manually."""
+    text = "" if text is None else text
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise InstallerError(f"cannot parse {path}: {exc}") from exc
+    wanted = dict(WAIT_SETTINGS)
+    features = data.get("features", {})
+    current = features.get("multi_agent_v2") if isinstance(features, dict) else None
+    if isinstance(current, dict) and all(current.get(key) == value for key, value in wanted.items()):
+        return text, "unchanged"
+    manual = "skip: set [features.multi_agent_v2] wait settings manually"
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    header = re.compile(r"^\s*\[\s*features\s*\.\s*multi_agent_v2\s*\]\s*(?:#.*)?$")
+    index = next((i for i, line in enumerate(lines) if header.match(line.rstrip("\r\n"))), None)
+    if not isinstance(features, dict) or (current is not None and (not isinstance(current, dict) or index is None)):
+        return None, f"{manual} (features.multi_agent_v2 is not its own table)"
+    if index is None:
+        prefix = "".join(lines)
+        if prefix and not prefix.endswith("\n\n"):
+            prefix += "\n"
+        updated = prefix + "[features.multi_agent_v2]\n" + "".join(f"{key} = {value}\n" for key, value in WAIT_SETTINGS)
+    else:
+        end = next((j for j in range(index + 1, len(lines)) if re.match(r"^\s*\[", lines[j])), len(lines))
+        section = lines[index + 1:end]
+        remaining = dict(wanted)
+        for position, line in enumerate(section):
+            key = re.match(r"^(\s*)([A-Za-z0-9_-]+)\s*=", line)
+            if key and key.group(2) in remaining:
+                section[position] = f"{key.group(1)}{key.group(2)} = {remaining.pop(key.group(2))}\n"
+        insert = len(section)
+        while insert and not section[insert - 1].strip():
+            insert -= 1
+        section[insert:insert] = [f"{key} = {value}\n" for key, value in remaining.items()]
+        updated = "".join(lines[:index + 1] + section + lines[end:])
+    expected = deepcopy(data)
+    expected.setdefault("features", {}).setdefault("multi_agent_v2", {}).update(wanted)
+    try:
+        verified = tomllib.loads(updated) == expected
+    except tomllib.TOMLDecodeError:
+        verified = False
+    if not verified:
+        return None, f"{manual} (automatic edit could not be verified)"
+    return updated, "set Harness wait settings"
+
+
+def plan_global_updates(home: Path, user_home: Path) -> tuple[list[tuple[Path, bytes, str]], list[str]]:
+    """Plan AGENTS.md and config.toml updates without writing; return changes and notes."""
+    updates: list[tuple[Path, bytes, str]] = []
+    notes: list[str] = []
+    agents, config = home / "AGENTS.md", home / "config.toml"
+    for path in (agents, config):
+        reject_symlink_components(path)
+        check_file_or_missing(path)
+
+    def read(path: Path) -> str | None:
+        if not path.exists():
+            return None
+        try:
+            return path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise InstallerError(f"{path} is not UTF-8 text; fix it or use --skip-global: {exc}") from exc
+
+    current = read(agents)
+    rendered, action = render_agents_md(current, agents_block_body(home, user_home), agents)
+    if rendered != current:
+        updates.append((agents, rendered.encode("utf-8"), action))
+    current = read(config)
+    rendered, action = render_config_toml(current, config)
+    if rendered is None:
+        notes.append(f"{config}: {action}")
+    elif rendered != (current or "") or current is None:
+        updates.append((config, rendered.encode("utf-8"), action))
+    return updates, notes
+
+
 def make_backup_directory(parent: Path) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     for suffix in range(1000):
@@ -920,7 +1061,14 @@ def backup_existing(
     external_targets: dict[str, tuple[Path, ...]],
     *,
     retired_targets: dict[str, Path],
+    global_targets: tuple[Path, ...] = (),
 ) -> None:
+    for source in global_targets:
+        if os.path.lexists(source):
+            require_regular_file(source)
+            target = backup_root / "global" / source.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
     if harness_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1008,6 +1156,7 @@ def _transactional_install(
     profile_targets: dict[str, Path],
     *,
     retired_targets: dict[str, Path],
+    global_updates: list[tuple[Path, bytes, str]] = (),
 ) -> Path:
     harness_target = skills_dir / INSTALL_NAME
     directories = {home, skills_dir, agents_dir, backups_dir}
@@ -1018,7 +1167,14 @@ def _transactional_install(
         reject_symlink_components(directory)
 
     backup_root = make_backup_directory(backups_dir)
-    backup_existing(harness_target, profile_targets, backup_root, external_targets, retired_targets=retired_targets)
+    backup_existing(
+        harness_target,
+        profile_targets,
+        backup_root,
+        external_targets,
+        retired_targets=retired_targets,
+        global_targets=tuple(target for target, _, _ in global_updates),
+    )
 
     stage_areas: list[Path] = []
     staged_targets: list[tuple[Path, Path, Path]] = []
@@ -1057,6 +1213,20 @@ def _transactional_install(
             except OSError as exc:
                 raise InstallerError(f"cannot stage generated profile {filename}: {exc}") from exc
             staged_targets.append((profile_targets[filename], staged, profile_stage_area))
+
+        if global_updates:
+            global_stage_area = create_stage_area(home, "global")
+            stage_areas.append(global_stage_area)
+            for target, content, _ in global_updates:
+                staged = global_stage_area / target.name
+                try:
+                    with staged.open("xb") as handle:
+                        handle.write(content)
+                    if target.exists():
+                        shutil.copystat(target, staged)
+                except OSError as exc:
+                    raise InstallerError(f"cannot stage global file {target.name}: {exc}") from exc
+                staged_targets.append((target, staged, global_stage_area))
 
         actions: list[dict[str, object]] = []
         target_changes_started = True
@@ -1135,6 +1305,7 @@ def perform_install(
     dry_run: bool = False,
     *,
     user_home: Path | None = None,
+    skip_global: bool = False,
 ) -> None:
     user_home = absolute(Path.home() if user_home is None else user_home)
     skills_dir, agents_dir, backups_dir, profile_targets = install_plan(
@@ -1143,6 +1314,7 @@ def perform_install(
         user_home=user_home,
         validate_external=dry_run,
     )
+    global_updates, global_notes = ([], []) if skip_global else plan_global_updates(home, user_home)
     retired_snapshot = retired_profile_snapshot(home)
     retired_targets = {name: snapshot.path for name, snapshot in retired_snapshot.items()}
     external_targets = (
@@ -1157,6 +1329,10 @@ def perform_install(
         print(f"Would install five profiles: {agents_dir}")
         for target in retired_targets.values():
             print(f"Would back up and remove prior profile: {target}")
+        for target, _, action in global_updates:
+            print(f"Would update global file {target}: {action}")
+        for note in global_notes:
+            print(f"Global file note: {note}")
         return
 
     with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
@@ -1165,6 +1341,8 @@ def perform_install(
             raise InstallerError("external skill targets changed during acquisition; refusing to install")
         if retired_profile_snapshot(home) != retired_snapshot:
             raise InstallerError("retired profile candidates changed during acquisition; refusing to install")
+        if not skip_global and plan_global_updates(home, user_home) != (global_updates, global_notes):
+            raise InstallerError("AGENTS.md or config.toml changed during acquisition; refusing to install")
         backup_root = _transactional_install(
             root,
             home,
@@ -1176,13 +1354,23 @@ def perform_install(
             backups_dir,
             profile_targets,
             retired_targets=retired_targets,
+            global_updates=global_updates,
         )
 
     print(f"Installed three external skills, Harness skill and profiles under: {home}")
     print(f"Backups: {backup_root}")
     print(f"설치 안내: {root / 'README.md'}")
     print(f"설치된 Harness skill: {skills_dir / INSTALL_NAME / 'SKILL.md'}")
-    print("수동 활성화: README.md의 loader를 해당 AGENTS.md에 추가하고 Codex를 다시 시작하세요.")
+    if skip_global:
+        print("전역 파일 건너뜀(--skip-global): README.md의 전역 설정을 직접 반영하세요.")
+    else:
+        for target, _, action in global_updates:
+            print(f"전역 파일 갱신: {target} ({action})")
+        if not global_updates:
+            print("전역 파일: AGENTS.md와 config.toml이 이미 최신입니다.")
+    for note in global_notes:
+        print(f"전역 파일 확인 필요: {note}")
+    print("Codex를 다시 시작하거나 새 세션을 열어 적용하세요.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1190,6 +1378,7 @@ def build_parser() -> argparse.ArgumentParser:
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--check", action="store_true", help="validate the staged manifest and all five profiles without installing")
     action.add_argument("--dry-run", action="store_true", help="show planned targets without writing files")
+    parser.add_argument("--skip-global", action="store_true", help="do not update AGENTS.md and config.toml in the Codex home")
     return parser
 
 
@@ -1203,9 +1392,11 @@ def main(argv: list[str] | None = None) -> int:
         home = codex_home()
         if args.check:
             install_plan(root, home)
+            if not args.skip_global:
+                plan_global_updates(home, absolute(Path.home()))
             print("Installer payload preflight passed.")
             return 0
-        perform_install(root, home, rendered_profiles, dry_run=args.dry_run)
+        perform_install(root, home, rendered_profiles, dry_run=args.dry_run, skip_global=args.skip_global)
         return 0
     except (InstallerError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
