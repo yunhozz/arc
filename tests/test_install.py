@@ -836,6 +836,21 @@ class CoderBriefAndReuseTests(unittest.TestCase):
         self.assertNotIn("설치기는 전역 설정과 `AGENTS.md`를 수정하지 않습니다", readme)
 
 
+class LongTaskTokenTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_plan_amendment_restarts_coder(self) -> None:
+        self.assertRegex(policy_text("core"), r"after an approved plan or acceptance-criteria amendment, start a fresh coder for the remaining work even within the same task.*restart under handoff.*delta brief")
+
+    def test_long_running_commands_are_not_polled_with_sleep(self) -> None:
+        self.assertRegex(policy_text("core"), r"do not poll long-running commands with repeated `sleep`.*single blocking wait")
+        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+                         ["developer_instructions"].lower().split())
+        self.assertRegex(coder, r"do not poll long-running commands with repeated `sleep`.*single blocking wait.*longest.*report.*ceo")
+
+    def test_ceo_recommends_new_session_per_plan(self) -> None:
+        self.assertRegex(policy_text("core"), r"when a plan completes or before starting another plan.*records the canonical handoff state.*recommends.*new session")
+
+
 class TokenDisciplineTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_core_waits_without_polling_and_batches_messages(self) -> None:

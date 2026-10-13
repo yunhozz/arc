@@ -50,7 +50,8 @@ without edits; Reviewer reads independently. CEO coordinates dependent implement
 each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same task while the
 approved scope, workspace, ownership, and relevant context remain valid. A fresh Coder for the next task in the same
 approved scope is a restart under handoff: it reuses a still-valid initial execution-target choice with fresh state
-checks and a delta-only restart brief. Do not add per-task QA or
+checks and a delta-only restart brief. After an approved plan or acceptance-criteria amendment, start a fresh Coder for
+the remaining work even within the same task; it is also a restart under handoff with a delta brief. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
 next task depends on a still-unverified risky contract, complete applicable QA/review at that dependency boundary and
 resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
@@ -191,10 +192,13 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 - Wait for a specialist with `wait_agent` using the maximum supported timeout, repeating only until it completes; a
   timeout is not a reason to poll or check status in between. Do not poll with `list_agents`, `sleep`, or repeated short
   waits; use `list_agents` only to resolve an unknown agent name or state. Send each specialist one complete brief per
-  objective and batch related corrections or follow-ups into one message.
+  objective and batch related corrections or follow-ups into one message. Do not poll long-running commands with
+  repeated `sleep` or short status checks; use a single blocking wait with the tool's longest yield.
 - Read only the needed ranges of files and outputs (for example `rg -n`, `sed -n`, `head`/`tail`) and cap long command
   output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in
   this context and unchanged need not be re-read; this does not shorten any triggered mandatory reference read.
+- When a plan completes or before starting another plan in a session with long history, CEO records the canonical
+  handoff state and recommends that the user continue in a new session.
 - Before handoff, post one short update with role/objective/expected output; after return, combine findings and next
   stage concisely. CEO may reuse it. Do not expose hidden reasoning or raw prompts.
 
