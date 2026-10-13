@@ -1251,57 +1251,51 @@ class GlobalSettingsTests(unittest.TestCase):
         self.assertIn(self.BODY, text)
         self.assertIn("create", action)
 
-    def test_agents_md_replaces_unmanaged_section_and_keeps_others(self) -> None:
-        text, action = self.render_agents(self.OLD)
-        self.assertIn("replace", action)
-        self.assertNotIn("CEO must not edit files directly.", text)
-        self.assertIn("## Yunho's Harness\n", text.split(installer.GLOBAL_BEGIN, 1)[1].split(installer.GLOBAL_END, 1)[0])
-        self.assertNotIn("## 1.", text)
-        self.assertTrue(text.startswith("# AGENTS.md\n\n" + installer.GLOBAL_BEGIN))
-        self.assertIn(installer.GLOBAL_END + "\n\n## Git Commit Message Guidelines\n\nkeep me\n", text)
-        again, action = self.render_agents(text)
-        self.assertEqual(again, text)
+    def block(self) -> str:
+        return f"{installer.GLOBAL_BEGIN}\n## Yunho's Harness\n\n{self.BODY}{installer.GLOBAL_END}\n"
 
-    def test_agents_md_updates_only_the_managed_block(self) -> None:
+    def test_agents_md_keeps_existing_content_and_appends_block_at_end(self) -> None:
+        text, action = self.render_agents(self.OLD)
+        self.assertEqual(text, self.OLD + "\n" + self.block())
+        self.assertIn("append", action)
+        self.assertEqual(self.render_agents(text)[0], text)
+
+    def test_agents_md_moves_managed_block_to_the_end(self) -> None:
         stale = f"intro\n\n{installer.GLOBAL_BEGIN}\n## 1. Yunho's Harness\n\n- stale\n{installer.GLOBAL_END}\n\noutro\n"
         text, action = self.render_agents(stale)
-        self.assertIn("update managed", action)
-        self.assertNotIn("- stale", text)
-        self.assertTrue(text.startswith("intro\n\n"))
-        self.assertTrue(text.endswith(installer.GLOBAL_END + "\n\noutro\n"))
-        self.assertIn("## Yunho's Harness\n", text)
-        self.assertNotIn("## 1.", text)
+        self.assertEqual(text, "intro\n\noutro\n\n" + self.block())
+        self.assertIn("managed", action)
+        self.assertEqual(self.render_agents(text)[0], text)
 
     def test_agents_md_appends_when_no_section_exists(self) -> None:
         text, action = self.render_agents("# AGENTS.md\n\n## Other\n\nkeep\n")
-        self.assertTrue(text.startswith("# AGENTS.md\n\n## Other\n\nkeep\n\n" + installer.GLOBAL_BEGIN))
+        self.assertEqual(text, "# AGENTS.md\n\n## Other\n\nkeep\n\n" + self.block())
         self.assertIn("append", action)
+        text, _ = self.render_agents("no trailing newline")
+        self.assertEqual(text, "no trailing newline\n\n" + self.block())
 
-    def test_agents_md_rejects_malformed_markers_and_duplicates(self) -> None:
+    def test_agents_md_rejects_malformed_markers(self) -> None:
         for bad in (f"{installer.GLOBAL_BEGIN}\nno end\n",
                     f"{installer.GLOBAL_END}\n{installer.GLOBAL_BEGIN}\n",
-                    f"{installer.GLOBAL_BEGIN}\n{installer.GLOBAL_END}\n{installer.GLOBAL_BEGIN}\n{installer.GLOBAL_END}\n",
-                    "## Yunho's Harness\n\na\n\n## Yunho's Harness\n\nb\n"):
+                    f"{installer.GLOBAL_BEGIN}\n{installer.GLOBAL_END}\n{installer.GLOBAL_BEGIN}\n{installer.GLOBAL_END}\n"):
             with self.subTest(bad=bad):
                 with self.assertRaises(installer.InstallerError):
                     self.render_agents(bad)
 
-    def test_agents_md_removes_heading_numbers_outside_code_blocks(self) -> None:
-        source = ("# AGENTS.md\n\n## 1. Yunho's Harness\n\n- old\n\n## 2. Git Commit Message Guidelines\n\n"
-                  "1. keep numbered list\n\n```text\n## 3. keep inside fence\n```\n\n### 10. Deep Topic\r\nbody\n")
+    def test_agents_md_keeps_numbers_fences_crlf_and_duplicate_sections_verbatim(self) -> None:
+        source = ("# AGENTS.md\r\n\r\n## 1. Yunho's Harness\r\n\r\na\r\n\r\n## Yunho's Harness\r\n\r\nb\r\n\r\n"
+                  "## 2. Git Commit Message Guidelines\r\n\r\n```text\r\n## 3. fenced\r\n```\r\n")
         text, action = self.render_agents(source)
-        self.assertIn("\n## Git Commit Message Guidelines\n", text)
-        self.assertIn("\n### Deep Topic\r\n", text)
-        self.assertIn("\n1. keep numbered list\n", text)
-        self.assertIn("\n## 3. keep inside fence\n", text)
-        self.assertIn("heading numbers", action)
-        self.assertEqual(self.render_agents(text)[0], text)
+        self.assertTrue(text.startswith(source))
+        self.assertTrue(text.endswith(self.block()))
 
-    def test_agents_md_handles_crlf_sections(self) -> None:
-        text, action = self.render_agents(self.OLD.replace("\n", "\r\n"))
-        self.assertIn("replace", action)
-        self.assertNotIn("CEO must not edit files directly.", text)
-        self.assertEqual(text.count("Yunho's Harness"), 1)
+    def test_unmanaged_harness_section_is_kept_and_reported(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as directory:
+            home = Path(directory)
+            (home / "AGENTS.md").write_text(self.OLD)
+            updates, notes = installer.plan_global_updates(home, home)
+            self.assertTrue(updates[0][1].decode().startswith(self.OLD))
+            self.assertTrue(any("Yunho's Harness" in note and "AGENTS.md" in note for note in notes))
 
     def test_non_utf8_global_file_is_reported_not_crashed(self) -> None:
         with tempfile.TemporaryDirectory(dir="/private/tmp") as directory:
@@ -1437,12 +1431,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
         text = agents.read_text()
-        self.assertIn(installer.GLOBAL_BEGIN, text)
-        self.assertNotIn("CEO must not edit files directly.", text)
+        self.assertTrue(text.startswith(self.GLOBAL_OLD_AGENTS + "\n" + installer.GLOBAL_BEGIN))
+        self.assertTrue(text.endswith(installer.GLOBAL_END + "\n"))
         self.assertIn("do not load `SKILL.md`", text)
-        self.assertIn("## Git Commit Message Guidelines\n\nkeep me\n", text)
-        self.assertNotIn("## 1.", text)
-        self.assertNotIn("## 2.", text)
+        self.assertIn("Yunho's Harness", output)
         data = tomllib.loads(config.read_text())
         self.assertEqual(data["model"], "m")
         self.assertEqual(data["features"]["multi_agent_v2"], {"min_wait_timeout_ms": 120000, "default_wait_timeout_ms": 300000})

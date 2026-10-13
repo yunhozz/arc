@@ -933,57 +933,33 @@ def _agents_block(heading: str, body: str) -> str:
     return f"{GLOBAL_BEGIN}\n{heading}\n\n{body}{GLOBAL_END}\n"
 
 
-NUMBERED_HEADING = re.compile(r"^(#{1,6})[ \t]+\d+\.[ \t]*(?=\S)")
-FENCE = re.compile(r"^[ \t]{0,3}(```|~~~)")
-
-
-def _strip_heading_numbers(text: str) -> str:
-    """Drop leading `N.` numbers from Markdown headings, leaving fenced code untouched."""
-    lines = text.splitlines(keepends=True)
-    fence = None
-    for index, line in enumerate(lines):
-        marker = FENCE.match(line)
-        if marker:
-            fence = None if fence == marker.group(1) else (fence or marker.group(1))
-            continue
-        if fence is None:
-            lines[index] = NUMBERED_HEADING.sub(r"\1 ", line, count=1)
-    return "".join(lines)
+def _remove_managed_block(text: str, path: Path) -> tuple[str, bool]:
+    """Remove an existing managed block and the blank line it was separated by; other text stays verbatim."""
+    begins, ends = text.count(GLOBAL_BEGIN), text.count(GLOBAL_END)
+    if not begins and not ends:
+        return text, False
+    if begins != 1 or ends != 1 or text.index(GLOBAL_BEGIN) > text.index(GLOBAL_END):
+        raise InstallerError(f"malformed yunho-harness markers in {path}; fix or remove them and retry")
+    start = text.index(GLOBAL_BEGIN)
+    stop = text.index(GLOBAL_END) + len(GLOBAL_END)
+    if text[stop:stop + 1] == "\n":
+        stop += 1
+    before, after = text[:start], text[stop:]
+    if before.endswith("\n\n") and after.startswith("\n"):
+        after = after[1:]
+    return before + after, True
 
 
 def render_agents_md(text: str | None, body: str, path: Path) -> tuple[str, str]:
-    """Return AGENTS.md text with the managed Harness block and unnumbered headings, plus a change description."""
-    rendered, action = _place_agents_block(text, body, path)
-    unnumbered = _strip_heading_numbers(rendered)
-    if unnumbered != rendered:
-        action += "; remove heading numbers"
-    return unnumbered, action
-
-
-def _place_agents_block(text: str | None, body: str, path: Path) -> tuple[str, str]:
+    """Return AGENTS.md text with the managed Harness block at the end; content outside the block is kept verbatim."""
+    block = _agents_block(HARNESS_HEADING, body)
     if text is None:
-        return _agents_block(HARNESS_HEADING, body), "create with managed Harness block"
-    begins, ends = text.count(GLOBAL_BEGIN), text.count(GLOBAL_END)
-    if begins or ends:
-        if begins != 1 or ends != 1 or text.index(GLOBAL_BEGIN) > text.index(GLOBAL_END):
-            raise InstallerError(f"malformed yunho-harness markers in {path}; fix or remove them and retry")
-        start = text.index(GLOBAL_BEGIN)
-        stop = text.index(GLOBAL_END) + len(GLOBAL_END)
-        if text[stop:stop + 1] == "\n":
-            stop += 1
-        return text[:start] + _agents_block(HARNESS_HEADING, body) + text[stop:], "update managed Harness block"
-    matches = list(HARNESS_SECTION.finditer(text))
-    if len(matches) > 1:
-        raise InstallerError(f"multiple Yunho's Harness sections in {path}; merge them into one and retry")
-    if matches:
-        found = matches[0]
-        following = re.compile(rf"(?m)^#{{1,{len(found.group(1))}}}[ \t]+\S").search(text, found.end())
-        stop = following.start() if following else len(text)
-        tail = text[stop:]
-        block = _agents_block(HARNESS_HEADING, body)
-        return text[:found.start()] + block + ("\n" if tail else "") + tail, "replace unmanaged Harness section"
-    separator = "" if not text or text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
-    return text + separator + _agents_block(HARNESS_HEADING, body), "append managed Harness block"
+        return block, "create with managed Harness block"
+    rest, had_block = _remove_managed_block(text, path)
+    if rest and not rest.endswith("\n"):
+        rest += "\n"
+    separator = "" if not rest or rest.endswith("\n\n") else "\n"
+    return rest + separator + block, ("update managed Harness block at the end" if had_block else "append managed Harness block")
 
 
 def render_config_toml(text: str | None, path: Path) -> tuple[str | None, str]:
@@ -1056,6 +1032,9 @@ def plan_global_updates(home: Path, user_home: Path) -> tuple[list[tuple[Path, b
     rendered, action = render_agents_md(current, agents_block_body(home, user_home), agents)
     if rendered != current:
         updates.append((agents, rendered.encode("utf-8"), action))
+    if current is not None and HARNESS_SECTION.search(_remove_managed_block(current, agents)[0]):
+        notes.append(f"{agents}: an existing Yunho's Harness section outside the managed block was kept; "
+                     "remove it if its rules overlap the managed block")
     current = read(config)
     rendered, action = render_config_toml(current, config)
     if rendered is None:
