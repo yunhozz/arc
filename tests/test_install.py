@@ -1255,9 +1255,10 @@ class GlobalSettingsTests(unittest.TestCase):
         text, action = self.render_agents(self.OLD)
         self.assertIn("replace", action)
         self.assertNotIn("CEO must not edit files directly.", text)
-        self.assertIn("## 1. Yunho's Harness", text.split(installer.GLOBAL_BEGIN, 1)[1].split(installer.GLOBAL_END, 1)[0])
+        self.assertIn("## Yunho's Harness\n", text.split(installer.GLOBAL_BEGIN, 1)[1].split(installer.GLOBAL_END, 1)[0])
+        self.assertNotIn("## 1.", text)
         self.assertTrue(text.startswith("# AGENTS.md\n\n" + installer.GLOBAL_BEGIN))
-        self.assertIn(installer.GLOBAL_END + "\n\n## 2. Git Commit Message Guidelines\n\nkeep me\n", text)
+        self.assertIn(installer.GLOBAL_END + "\n\n## Git Commit Message Guidelines\n\nkeep me\n", text)
         again, action = self.render_agents(text)
         self.assertEqual(again, text)
 
@@ -1268,7 +1269,8 @@ class GlobalSettingsTests(unittest.TestCase):
         self.assertNotIn("- stale", text)
         self.assertTrue(text.startswith("intro\n\n"))
         self.assertTrue(text.endswith(installer.GLOBAL_END + "\n\noutro\n"))
-        self.assertIn("## 1. Yunho's Harness", text)
+        self.assertIn("## Yunho's Harness\n", text)
+        self.assertNotIn("## 1.", text)
 
     def test_agents_md_appends_when_no_section_exists(self) -> None:
         text, action = self.render_agents("# AGENTS.md\n\n## Other\n\nkeep\n")
@@ -1283,6 +1285,17 @@ class GlobalSettingsTests(unittest.TestCase):
             with self.subTest(bad=bad):
                 with self.assertRaises(installer.InstallerError):
                     self.render_agents(bad)
+
+    def test_agents_md_removes_heading_numbers_outside_code_blocks(self) -> None:
+        source = ("# AGENTS.md\n\n## 1. Yunho's Harness\n\n- old\n\n## 2. Git Commit Message Guidelines\n\n"
+                  "1. keep numbered list\n\n```text\n## 3. keep inside fence\n```\n\n### 10. Deep Topic\r\nbody\n")
+        text, action = self.render_agents(source)
+        self.assertIn("\n## Git Commit Message Guidelines\n", text)
+        self.assertIn("\n### Deep Topic\r\n", text)
+        self.assertIn("\n1. keep numbered list\n", text)
+        self.assertIn("\n## 3. keep inside fence\n", text)
+        self.assertIn("heading numbers", action)
+        self.assertEqual(self.render_agents(text)[0], text)
 
     def test_agents_md_handles_crlf_sections(self) -> None:
         text, action = self.render_agents(self.OLD.replace("\n", "\r\n"))
@@ -1427,7 +1440,9 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertIn(installer.GLOBAL_BEGIN, text)
         self.assertNotIn("CEO must not edit files directly.", text)
         self.assertIn("do not load `SKILL.md`", text)
-        self.assertIn("## 2. Git Commit Message Guidelines\n\nkeep me\n", text)
+        self.assertIn("## Git Commit Message Guidelines\n\nkeep me\n", text)
+        self.assertNotIn("## 1.", text)
+        self.assertNotIn("## 2.", text)
         data = tomllib.loads(config.read_text())
         self.assertEqual(data["model"], "m")
         self.assertEqual(data["features"]["multi_agent_v2"], {"min_wait_timeout_ms": 120000, "default_wait_timeout_ms": 300000})

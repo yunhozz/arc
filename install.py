@@ -933,8 +933,34 @@ def _agents_block(heading: str, body: str) -> str:
     return f"{GLOBAL_BEGIN}\n{heading}\n\n{body}{GLOBAL_END}\n"
 
 
+NUMBERED_HEADING = re.compile(r"^(#{1,6})[ \t]+\d+\.[ \t]*(?=\S)")
+FENCE = re.compile(r"^[ \t]{0,3}(```|~~~)")
+
+
+def _strip_heading_numbers(text: str) -> str:
+    """Drop leading `N.` numbers from Markdown headings, leaving fenced code untouched."""
+    lines = text.splitlines(keepends=True)
+    fence = None
+    for index, line in enumerate(lines):
+        marker = FENCE.match(line)
+        if marker:
+            fence = None if fence == marker.group(1) else (fence or marker.group(1))
+            continue
+        if fence is None:
+            lines[index] = NUMBERED_HEADING.sub(r"\1 ", line, count=1)
+    return "".join(lines)
+
+
 def render_agents_md(text: str | None, body: str, path: Path) -> tuple[str, str]:
-    """Return AGENTS.md text with the managed Harness block and a short description of the change."""
+    """Return AGENTS.md text with the managed Harness block and unnumbered headings, plus a change description."""
+    rendered, action = _place_agents_block(text, body, path)
+    unnumbered = _strip_heading_numbers(rendered)
+    if unnumbered != rendered:
+        action += "; remove heading numbers"
+    return unnumbered, action
+
+
+def _place_agents_block(text: str | None, body: str, path: Path) -> tuple[str, str]:
     if text is None:
         return _agents_block(HARNESS_HEADING, body), "create with managed Harness block"
     begins, ends = text.count(GLOBAL_BEGIN), text.count(GLOBAL_END)
@@ -945,9 +971,7 @@ def render_agents_md(text: str | None, body: str, path: Path) -> tuple[str, str]
         stop = text.index(GLOBAL_END) + len(GLOBAL_END)
         if text[stop:stop + 1] == "\n":
             stop += 1
-        heading = HARNESS_SECTION.search(text[start:stop])
-        block = _agents_block(heading.group(0).strip() if heading else HARNESS_HEADING, body)
-        return text[:start] + block + text[stop:], "update managed Harness block"
+        return text[:start] + _agents_block(HARNESS_HEADING, body) + text[stop:], "update managed Harness block"
     matches = list(HARNESS_SECTION.finditer(text))
     if len(matches) > 1:
         raise InstallerError(f"multiple Yunho's Harness sections in {path}; merge them into one and retry")
@@ -956,7 +980,7 @@ def render_agents_md(text: str | None, body: str, path: Path) -> tuple[str, str]
         following = re.compile(rf"(?m)^#{{1,{len(found.group(1))}}}[ \t]+\S").search(text, found.end())
         stop = following.start() if following else len(text)
         tail = text[stop:]
-        block = _agents_block(found.group(0).strip(), body)
+        block = _agents_block(HARNESS_HEADING, body)
         return text[:found.start()] + block + ("\n" if tail else "") + tail, "replace unmanaged Harness section"
     separator = "" if not text or text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
     return text + separator + _agents_block(HARNESS_HEADING, body), "append managed Harness block"
