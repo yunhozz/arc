@@ -46,8 +46,11 @@ missing non-executor skills before dependent work.
 Planner, Reviewer, and Scouter return findings, relevant questions, next actions, and workspace/path issues to the
 CEO. Planner preserves complete requested drafts. CEO integrates results, routes decisions and required approvals,
 and owns development acceptance and completion. For development work, design/planning approvals, Coder/QA coordination, implementation acceptance, and completion remain with CEO. Coder implements assigned files; QA checks
-without edits; Reviewer reads independently. CEO coordinates dependent implementation tasks sequentially and may reuse
-Coder while the approved scope, workspace, ownership, and relevant context remain valid. Do not add per-task QA or
+without edits; Reviewer reads independently. CEO coordinates dependent implementation tasks sequentially and starts a fresh Coder for
+each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same task while the
+approved scope, workspace, ownership, and relevant context remain valid. A fresh Coder for the next task in the same
+approved scope is a restart under handoff: it reuses a still-valid initial execution-target choice with fresh state
+checks and a delta-only restart brief. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
 next task depends on a still-unverified risky contract, complete applicable QA/review at that dependency boundary and
 resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
@@ -176,7 +179,9 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   omit full history, repeated instructions, and raw logs.
 - When supported, start specialists without inherited conversation history (for example `fork_turns="none"`) and supply
   that brief. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
-  remains relevant; start fresh for unrelated or bloated context.
+  remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
+- In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
+  acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
 - Before optional calls, name the unresolved question and expected artifact; skip calls already resolved by available
   evidence/direct inspection. Preserve required planning and risk-scaled QA/review. Do not call every role
   automatically, add redundant scripts, or repeat audits when direct tools/evidence suffice.

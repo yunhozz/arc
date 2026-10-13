@@ -807,6 +807,29 @@ class CeoDirectPathTests(unittest.TestCase):
         self.assertRegex(readme, r"CEO 직접 경로")
 
 
+class CoderBriefAndReuseTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_fresh_coder_per_top_level_task(self) -> None:
+        core = policy_text("core")
+        self.assertRegex(core, r"starts? a fresh coder for\s*each top-level task")
+        self.assertRegex(core, r"reuse the current coder only for corrections, rework, or rechecks of the same task")
+        self.assertNotRegex(core, r"may reuse coder while the approved scope")
+        self.assertRegex(core, r"coder reuse follows the per-task rule")
+        self.assertRegex(core, r"fresh coder for the next task in the same approved scope is a restart under handoff.*reuses a still-valid initial execution-target choice.*fresh state checks.*delta-only restart brief")
+
+    def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
+        core = policy_text("core")
+        self.assertRegex(core, r"coder briefs.*plan/spec path.*task section's line range.*needed excerpts.*do not ask coder to read whole plans or specs")
+        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+                         ["developer_instructions"].lower().split())
+        self.assertRegex(coder, r"read plan/spec documents only in the sections the brief cites")
+
+    def test_loader_keeps_subagents_on_profiles(self) -> None:
+        readme = " ".join((REPO / "README.md").read_text().split())
+        loader = readme.split("## 🔌 수동 활성화", 1)[1].split("## ", 1)[0]
+        self.assertRegex(loader, r"하네스 하위 에이전트.*프로필과 brief.*SKILL.md.*읽지 않")
+
+
 class TokenDisciplineTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_core_waits_without_polling_and_batches_messages(self) -> None:
