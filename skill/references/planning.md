@@ -36,7 +36,7 @@ approved obligations separately.
    CEO integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
    then obtains plan approval before Coder. Planner cannot save, implement, or request approval.
 5. Every Coder first start and restart requires all applicable design/spec/plan approvals and the complete
-   `Workspace handoff` gate below, with approved artifacts, brief, and relevant findings. Non-behavior
+   the common handoff gate in core and handoff.md, with approved artifacts, brief, and relevant findings. Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
    A CEO direct edit requires its approved short design and the same gate conditions before the first edit.
 

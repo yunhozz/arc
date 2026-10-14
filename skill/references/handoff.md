@@ -99,11 +99,11 @@ unless it invalidates the old target. Do not fall back automatically; apply the 
 
 Keep one canonical initial handoff record accessible to each assigned role, containing the approved scope/version,
 repository/workspace identity, and the Handoff evidence fields above; do not create a separate storage service. CEO writes it as a
-Markdown file at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` (slug unique to the plan, e.g. the dated plan filename stem; never overwrite another plan's record; resolve with
+Markdown file at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` (slug unique to the plan, the dated plan filename stem, or a spec/task slug when no plan exists; never overwrite another plan's record; resolve with
 `git rev-parse --path-format=absolute --git-common-dir`; outside the working tree and shared by linked worktrees; not a
 Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and delta restart
 briefs cite it. If
-the write is denied or unavailable, carry the full record in the brief and state why. Do not delete it automatically.
+the write is denied or unavailable, every Coder brief carries the full record inline (no delta, no record-file `unchanged`) and states why; that inline record satisfies the accessible record requirement. Do not delete it automatically.
 
 Use a delta-only restart brief (delta relative to the record file the fresh Coder reads; every other brief field in full): initial record location, next objective and edit ownership, changed decisions,
 approvals, documents and scope (or explicit no-change confirmation), current Git state and differences, choice

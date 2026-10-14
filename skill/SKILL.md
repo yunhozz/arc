@@ -77,7 +77,7 @@ paths, and state checks still apply.
 ## Mandatory task references
 
 CEO and each assigned role must read the applicable references before dependent decisions or actions, and CEO must
-include their accessible paths in the role brief. Resolve paths relative to this installed skill directory.
+include in the role brief the accessible path and section name of each reference section the role must read. Resolve paths relative to this installed skill directory.
 These contracts are conditional on the trigger, mandatory when triggered. Missing, inaccessible, or conflicting
 references must be reported to CEO; stop dependent work until resolved. Do not load all references on every task.
 
@@ -133,7 +133,7 @@ and smallest meaningful verification.
 |---|---|
 | Small, low risk | Coder, or CEO direct path → CEO's focused checks → acceptance |
 | Ordinary behavior | Coder → independent QA → acceptance |
-| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task risk-scaled Coder → QA or CEO focused checks → acceptance/commit, then independent Reviewer once on the final full change after all plan tasks |
+| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task risk-scaled Coder → QA or CEO focused checks → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
 
 Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
 fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
@@ -142,7 +142,7 @@ installation/deployment/rollback. Substantial behavior or contract changes are s
 investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
 Do not add per-task gates automatically. Reviewer is never a plan-task acceptance prerequisite; for significant work with a
-plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan
+plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any QA recheck at the final relevant state; significant work without a plan
 keeps Reviewer after QA before acceptance. Preserve specific approved obligations and complete risky dependency checks
 before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
@@ -193,7 +193,7 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   `<role>_<short_task>` (for example `planner_scope_review` or `qa_installer_checks`). Do not use arbitrary or random
   names. `task_name` identifies the run; `agent_type` and its configured profile determine the role and model.
 
-- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, branch or detached HEAD and HEAD, handoff record path, files);
+- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, branch or detached HEAD and HEAD, handoff record path, when one exists, files);
   Constraints/decisions; Evidence (paths/lines, commands, artifact links); Prior findings; Exact next objective (one
   bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups and
   restarts send only changed fields and mark the rest `unchanged`; `unchanged` means unchanged relative to a cited artifact the recipient can read (the handoff record file or a brief it received); a fresh specialist, including a fresh restart Coder, gets every other field in full. Send only the

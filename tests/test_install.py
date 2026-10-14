@@ -421,9 +421,9 @@ class TaskCommitPolicyTests(unittest.TestCase):
             r"reviewer is never a task acceptance prerequisite",
             r"do not add qa calls solely.*task boundary",
             r"independently acceptable task.*do not delay.*later final plan verification",
-            r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan keeps reviewer after qa before acceptance",
+            r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance",
             r"required.*task.*checks.*must not.*deferred",
-            r"significant.*final whole-change review.*after qa.*final relevant state",
+            r"significant.*final whole-change review.*after the required qa/focused checks and any qa recheck.*final relevant state",
             r"task commit.*does not.*unperformed.*verification.*complete",
         ))
 
@@ -548,7 +548,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertRegex(policy_text("handoff"), r"new managed worktree and task branch \(selection target under handoff-prep\.md; contract in handoff-worktree\.md after selection\)")
         self.assertRegex(policy_text("planning").split("### managed worktree preparation", 1)[1], r"see \[handoff-worktree\.md\]\(handoff-worktree\.md\)")
         self.assertRegex(core, r"ceo.*each assigned role.*must read")
-        self.assertRegex(core, r"ceo must.*accessible paths.*role brief")
+        self.assertRegex(core, r"ceo must include in the role brief the accessible path and section name of each reference section")
 
     def test_planning_order_and_recovery_protections_remain(self) -> None:
         planning = policy_text("planning")
@@ -656,7 +656,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertRegex(policy_text("verification"), r"qa and reviewer contracts.*profiles.*brief explicitly cites")
         reviewer = " ".join(tomllib.loads((REPO / "agents/harness-reviewer.toml").read_text())
                             ["developer_instructions"].lower().split())
-        self.assertRegex(reviewer, r"significant/high-risk.*final full change after qa")
+        self.assertRegex(reviewer, r"significant/high-risk.*final full change after the required qa/focused checks and any qa recheck")
 
     def test_restart_choice_lifetime_and_evidence(self) -> None:
         path = REPO / "skill/references/handoff.md"
@@ -685,8 +685,8 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
     def test_final_single_reviewer_is_explicit(self) -> None:
         readme = " ".join((REPO / "README.md").read_text().split())
         for name, text, contract in (
-            ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan keeps reviewer after qa before acceptance"),
-            ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan keeps reviewer after qa before acceptance"),
+            ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
+            ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
             ("planning", policy_text("planning"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
             ("commit", policy_text("commit"), r"final reviewer is plan-level, never a task prerequisite"),
             ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
@@ -696,7 +696,7 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
                 self.assertRegex(text, contract)
         row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
                    if line.startswith("| significant/high risk"))
-        self.assertRegex(row, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit, then independent reviewer once on the final full change after all plan tasks")
+        self.assertRegex(row, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
 
     def test_no_per_task_reviewer_wording(self) -> None:
         paths = [*(REPO / "skill").rglob("*.md"), *(REPO / "agents").glob("*.toml"), REPO / "README.md"]
@@ -749,7 +749,7 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
 
     def test_brief_template_field_order_and_delta(self) -> None:
         tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
-        self.assertRegex(tokens, r"goal; criteria \(ids\); exact scope/ownership \(absolute workspace, branch or detached head and head, handoff record path, files\); constraints/decisions; evidence \(paths/lines, commands, artifact links\); prior findings; exact next objective \(one bounded objective\); return format")
+        self.assertRegex(tokens, r"goal; criteria \(ids\); exact scope/ownership \(absolute workspace, branch or detached head and head, handoff record path, when one exists, files\); constraints/decisions; evidence \(paths/lines, commands, artifact links\); prior findings; exact next objective \(one bounded objective\); return format")
         self.assertRegex(tokens, r"follow-ups and restarts send only changed fields and mark the rest `unchanged`")
         self.assertRegex(tokens, r"`unchanged` means unchanged relative to a cited artifact the recipient can read \(the handoff record file or a brief it received\); a fresh specialist, including a fresh restart coder, gets every other field in full")
         for kept in (r"self-contained subset.*omit full history, repeated instructions, and raw logs",
@@ -769,8 +769,8 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             r"`git rev-parse --path-format=absolute --git-common-dir`.*outside the working tree.*shared by linked worktrees",
             r"not a git mutation, never staged or committed.*no secrets",
             r"absolute path in every brief.*delta restart briefs cite it",
-            r"slug unique to the plan.*dated plan filename stem.*never overwrite another plan's record",
-            r"write is denied or unavailable.*carry the full record in the brief and state why",
+            r"slug unique to the plan.*dated plan filename stem, or a spec/task slug when no plan exists.*never overwrite another plan's record",
+            r"write is denied or unavailable, every coder brief carries the full record inline \(no delta, no record-file `unchanged`\) and states why; that inline record satisfies the accessible record requirement",
             r"do not delete it automatically",
             r"do not create a separate storage service",
         ):
@@ -814,14 +814,14 @@ def profile_text(role: str) -> str:
 
 
 POLICY_WORD_CEILINGS = {
-    "skill/SKILL.md": 2950,
+    "skill/SKILL.md": 3000,
     "skill/references/commit.md": 650,
     "skill/references/git-recovery.md": 700,
     "skill/references/handoff-prep.md": 1400,
     "skill/references/handoff-worktree.md": 850,
-    "skill/references/handoff.md": 1350,
+    "skill/references/handoff.md": 1400,
     "skill/references/planning.md": 1950,
-    "skill/references/verification.md": 1300,
+    "skill/references/verification.md": 1350,
     "skill/references/visual-companion.md": 200,
     "agents/harness-coder.toml": 700,
     "agents/harness-planner.toml": 600,
@@ -829,7 +829,7 @@ POLICY_WORD_CEILINGS = {
     "agents/harness-reviewer.toml": 250,
     "agents/harness-scouter.toml": 250,
 }
-POLICY_WORD_TOTAL_CEILING = 13200
+POLICY_WORD_TOTAL_CEILING = 13300
 
 
 def policy_word_counts(root: Path) -> dict[str, int]:
@@ -841,6 +841,39 @@ def policy_word_counts(root: Path) -> dict[str, int]:
              else path.read_text()).split())
         for path in paths
     }
+
+
+class WholeSystemReviewFollowUpTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_plan_case_qa_requirement_is_satisfied_by_task_checks(self) -> None:
+        core = policy_text("core")
+        self.assertRegex(core, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step")
+        verification = policy_text("verification")
+        self.assertRegex(verification, r"significant/high-risk work requires independent review of the full change at the final relevant state after the required qa/focused checks and any qa recheck")
+        self.assertNotIn("requires qa followed by independent review", verification)
+        self.assertRegex(profile_text("reviewer"), r"review the final full change after the required qa/focused checks and any qa recheck")
+
+    def test_planning_points_to_common_handoff_gate(self) -> None:
+        planning = policy_text("planning")
+        self.assertIn("the common handoff gate in core and handoff.md", planning)
+        self.assertNotIn("`workspace handoff` gate below", planning)
+
+    def test_config_comment_matches_subagent_limit(self) -> None:
+        config = (REPO / "config.toml").read_text()
+        self.assertIn("at most four simultaneous subagents", config)
+        self.assertNotIn("one owner plus three specialists", config)
+
+    def test_reviewer_description_has_no_team_name(self) -> None:
+        description = tomllib.loads((REPO / "agents/harness-reviewer.toml").read_text())["description"]
+        self.assertNotIn("Yunho Team", description)
+
+    def test_fallback_record_inline_and_slug(self) -> None:
+        handoff = policy_text("handoff")
+        self.assertRegex(handoff, r"no delta, no record-file `unchanged`")
+        self.assertRegex(handoff, r"or a spec/task slug when no plan exists")
+
+    def test_coder_reads_record_for_unchanged_fields(self) -> None:
+        self.assertRegex(profile_text("coder"), r"read the cited handoff record file for fields marked `unchanged`")
 
 
 class PolicyWordBudgetTests(unittest.TestCase):

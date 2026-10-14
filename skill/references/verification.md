@@ -14,7 +14,7 @@ approved commitment, and record which requirements each check or review satisfie
 
 For small, low-risk work, CEO's focused checks are sufficient when scope and acceptance evidence are clear and no
 specific instruction or approved commitment requires more; do not call QA or Reviewer automatically. Significant/high-risk
-work requires QA followed by independent review of the full change at the final relevant state.
+work requires independent review of the full change at the final relevant state after the required QA/focused checks and any QA recheck.
 
 Significant risk means material changes to the core-listed contracts and areas. Numerous known metadata files are not
 significant solely because there are many, and a one-file permission or data-loss rule may be. If scope or risk is
@@ -48,9 +48,9 @@ Reviewer is never a task acceptance prerequisite. Do not add QA calls solely bec
 existing risk requirements, risky dependency QA checks and specifically approved obligations. For an independently
 acceptable task, do not delay its acceptance/commit solely for later final plan verification. Currently required task
 checks must not be deferred to final verification to accept early. State the scope and timing of final-only integration
-criteria in the plan. Significant work retains its required final whole-change review after QA at the final relevant
+criteria in the plan. Significant work retains its required final whole-change review after the required QA/focused checks and any QA recheck at the final relevant
 state, as final plan verification when a plan exists. Reviewer is never a plan-task acceptance prerequisite; for
-significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks;
+significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any QA recheck at the final relevant state;
 significant work without a plan keeps Reviewer after QA before acceptance.
 
 A task commit record does not mark unperformed final verification complete. CEO still decides final plan acceptance

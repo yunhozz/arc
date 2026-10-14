@@ -1,4 +1,4 @@
 # Merge into ~/.codex/config.toml without duplicating an existing [agents] table.
-# Runtime capacity is separate from the Harness limit of one owner plus three specialists.
+# Runtime capacity is separate from the Harness limit of at most four simultaneous subagents.
 [agents]
 max_concurrent_threads_per_session = 100
