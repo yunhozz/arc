@@ -808,6 +808,51 @@ def profile_text(role: str) -> str:
                     ["developer_instructions"].lower().split())
 
 
+POLICY_WORD_CEILINGS = {
+    "skill/SKILL.md": 2900,
+    "skill/references/commit.md": 650,
+    "skill/references/git-recovery.md": 700,
+    "skill/references/handoff-prep.md": 1400,
+    "skill/references/handoff-worktree.md": 850,
+    "skill/references/handoff.md": 1350,
+    "skill/references/planning.md": 1950,
+    "skill/references/verification.md": 1300,
+    "skill/references/visual-companion.md": 200,
+    "agents/harness-coder.toml": 700,
+    "agents/harness-planner.toml": 600,
+    "agents/harness-qa.toml": 350,
+    "agents/harness-reviewer.toml": 250,
+    "agents/harness-scouter.toml": 250,
+}
+POLICY_WORD_TOTAL_CEILING = 13100
+
+
+def policy_word_counts(root: Path) -> dict[str, int]:
+    paths = [root / "skill/SKILL.md", *sorted((root / "skill/references").glob("*.md")),
+             *sorted((root / "agents").glob("*.toml"))]
+    return {
+        str(path.relative_to(root)): len(
+            (tomllib.loads(path.read_text())["developer_instructions"] if path.suffix == ".toml"
+             else path.read_text()).split())
+        for path in paths
+    }
+
+
+class PolicyWordBudgetTests(unittest.TestCase):
+    def test_policy_text_stays_within_word_budget(self) -> None:
+        counts = policy_word_counts(REPO)
+        self.assertEqual(sorted(counts), sorted(POLICY_WORD_CEILINGS),
+                         "every policy file needs a word ceiling in POLICY_WORD_CEILINGS")
+        advice = "raise the ceiling only deliberately in the same change that justifies the growth"
+        for name, words in counts.items():
+            with self.subTest(file=name):
+                self.assertLessEqual(words, POLICY_WORD_CEILINGS[name],
+                                     f"{name}: {words} words exceeds ceiling {POLICY_WORD_CEILINGS[name]}; {advice}")
+        total = sum(counts.values())
+        self.assertLessEqual(total, POLICY_WORD_TOTAL_CEILING,
+                             f"total: {total} words exceeds ceiling {POLICY_WORD_TOTAL_CEILING}; {advice}")
+
+
 class SharedTermsTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_core_defines_shared_terms(self) -> None:
@@ -845,10 +890,6 @@ class SharedTermsTests(unittest.TestCase):
         reviewer = profile_text("reviewer")
         self.assertIn("for development work, functional and test verification belongs to qa and completion remains with "
                       "ceo; ceo decides overall completion within its assigned scope", reviewer)
-
-    def test_coder_profile_is_compact(self) -> None:
-        # Target was 560; mandated term definitions and QA-restored clauses keep the profile above it.
-        self.assertLessEqual(len((REPO / "agents/harness-coder.toml").read_text().split()), 710)
 
     def test_term_usage_sites(self) -> None:
         for name, heading, term in (
