@@ -68,7 +68,7 @@ references must be reported to CEO; stop dependent work until resolved. Do not l
 | [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval, first spec/plan save |
 | [handoff](references/handoff.md) | Every Coder first start/restart preparation by CEO, and before each CEO direct edit's first edit; Coder's independent checkout verification uses its profile and only brief-cited sections |
 | [handoff-prep](references/handoff-prep.md) | Execution-target choice request, each preparation Git mutation (branch creation/switch, staging, commit) |
-| [handoff-worktree](references/handoff-worktree.md) | Execution-target choice request (the new managed worktree option's selection target), and after explicit new managed worktree selection before its creation, branch work or document transfer |
+| [handoff-worktree](references/handoff-worktree.md) | After explicit new managed worktree selection, before its creation, branch work or document transfer |
 | [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
 | [verification](references/verification.md) | CEO's verification design, QA/Reviewer assignment, correction rechecks, UI acceptance checks; QA and Reviewer use their profiles and only brief-cited sections |
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |

@@ -1,19 +1,18 @@
 # Managed worktree handoff contract
 
-CEO reads before an execution-target choice request, to present this option's selection target, and after the user
-explicitly selects a new managed worktree and task branch, before its creation, branch work or document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](handoff.md) gates as well.
+CEO reads after the user explicitly selects the new managed worktree option, before its creation, branch work or
+document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](handoff.md) gates as well.
 
 ## Workspace handoff
 
 ### New managed worktree
 
-Only an explicit user choice of this third path authorizes preparation. The selection target includes the
-source absolute path, intended repository and Git common directory, source branch or detached HEAD, verified full
-source HEAD SHA, approved branch candidate and collision status, descriptive name, and approved document transfer/commit scope.
+Only an explicit user choice of this third path authorizes preparation. Its selection target is the one verified
+under the Execution-target request gate in handoff-prep.md.
 The app determines the actual destination path; do not propose a sibling path or require a user-specified path candidate.
 Use the verified source HEAD full SHA as the base; do not substitute remote HEAD or a default branch or fetch automatically.
 Recheck approved source state, base SHA, approved branch candidate/collision status, name and approved document scope
-before and after choice and immediately before the tool call. After selection and before creation, any changes require
+after choice and immediately before the tool call. After selection and before creation, any changes require
 a fresh explicit choice for the updated inputs. This is the pre-creation candidate rule. After successful creation
 and verification, apply Choice lifetime and restart record in handoff.md.
 
@@ -48,7 +47,7 @@ Verify registration, attachment and base before creating/checking out the approv
 use `git switch -c <approved-branch> <ref>`; if the existing approved branch has the same base and is not checked out
 in any worktree, use `git switch <approved-branch>`. Do not move a branch pointer, choose another branch or use --force or -B.
 If the app initially returns the approved branch, verify it and its base rather than repeating completed work.
-Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before document transfer.
+Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before document transfer, the batch docs commit, final Git verification and Coder handoff.
 
 The tool does not copy uncommitted changes. For untracked approved documents, source HEAD and index paths must be
 absent and source working-tree bytes must match the latest approved version. For tracked approved documents, source

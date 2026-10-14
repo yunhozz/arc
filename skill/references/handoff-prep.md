@@ -1,8 +1,8 @@
 # Handoff preparation contract
 
 CEO reads before an execution-target choice request and each preparation Git mutation (branch creation/switch,
-staging, commit). For the choice request also read [handoff-worktree.md](handoff-worktree.md) for the new managed
-worktree option's selection target. The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](handoff.md).
+staging, commit). The new managed worktree option's selection target is listed in the Execution-target request gate.
+The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](handoff.md).
 
 ## Workspace handoff
 
@@ -16,6 +16,14 @@ Unfinished documents or missing approval evidence stop the choice request and pr
 are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate.
 Present the verified workspace, current branch or detached HEAD, HEAD, and any validated new-branch candidate under
 Checkout approval in handoff.md. Planning approval, silence, or ambiguous responses never constitute target choice.
+When offering the new managed worktree option, CEO first verifies and then presents its selection target (source absolute
+path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
+approved branch candidate and collision status, descriptive name, approved document transfer/commit scope). Verification
+validates the approved branch candidate and collision status under New task branch naming rules and checks source state
+(unrelated staged changes; approved document HEAD/index/working-tree state) before offering. The app chooses the actual
+destination path: do not ask the user for a destination path or propose one, and do not fetch or substitute a remote HEAD
+or default branch for the base. Read [handoff-worktree.md](handoff-worktree.md) only after the user
+explicitly selects that option and before its creation, branch work, or document transfer.
 
 ### Git mutation evidence gate
 

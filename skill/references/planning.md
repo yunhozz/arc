@@ -154,12 +154,4 @@ compliance unverified. Do not add runtime infrastructure or modify external skil
 
 ### Managed worktree preparation
 
-For the third execution path, use mcp__codex_app__create_worktree with allowAsync: true, descriptive name and verified
-full source HEAD ref after explicit choice. The app selects the actual destination path. Verify asynchronous completion,
-app-managed current-chat attachment, linked registration, common directory and base before creating/checking out the
-approved branch. Recheck the final approved branch/HEAD before approved-document transfer, batch docs commit, final
-Git verification and Coder handoff. No raw Git worktree creation or automatic alternate-input retry is permitted.
-Source tracked docs require index blob/mode equal to HEAD and working-tree bytes equal to the latest approved version;
-source untracked docs require HEAD/index absence and approved bytes. Do not stage source revisions. Verify destination
-HEAD equals selected base and base-clean destination bytes before replacement; absent base documents must remain
-absent until approved transfer. See handoff-worktree.md for the complete inputs, collision/reuse rules and failure gates.
+See [handoff-worktree.md](handoff-worktree.md) for the third-path managed worktree contract.

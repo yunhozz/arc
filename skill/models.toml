@@ -16,7 +16,7 @@ model_reasoning_effort = "low"
 
 [roles.harness_qa]
 model = "gpt-6-luna"
-model_reasoning_effort = "max"
+model_reasoning_effort = "high"
 
 [roles.harness_reviewer]
 model = "gpt-6.1-sol"

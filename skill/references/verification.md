@@ -93,6 +93,7 @@ unverified. For each criterion record the command or URL, test state and viewpor
 expected and observed results, and accessible evidence. App startup, page load, and static checks alone do not prove
 complete UI behavior. For unavailable test environment or browser tools, report the exact limitation and affected
 unverified criteria. Clean up only QA-created processes and sessions; preserve existing shared services and sessions.
+When assigning UI acceptance criteria, CEO cites this section with its accessible path in the QA brief.
 
 ### Criterion evidence and finding handoff
 

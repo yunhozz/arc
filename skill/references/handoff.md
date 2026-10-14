@@ -17,7 +17,7 @@ cannot be resolved. Do not initialize Git or switch to another repository automa
 Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
 After applicable design/spec/plan approvals, obtain and record an explicit user choice for the first start: use the
 current checkout, create a new task branch from the verified base HEAD in that same checkout, or create a
-new managed worktree and task branch under handoff-worktree.md. Present the absolute
+new managed worktree and task branch (selection target under handoff-prep.md; contract in handoff-worktree.md after selection). Present the absolute
 workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Planning
 approval alone, no response, refusal of a new branch alone, or an unclear response does not select the current
 checkout. Without an explicit execution-target choice or verified valid reuse under the choice-lifetime rules below, wait and do not start or restart Coder.

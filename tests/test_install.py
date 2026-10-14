@@ -101,7 +101,7 @@ FIVE_SETTINGS = {
     "harness_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
     "harness_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
     "harness_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
-    "harness_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
+    "harness_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "harness_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }
 
@@ -515,12 +515,31 @@ class ConditionalReferenceTests(unittest.TestCase):
             ("visual-companion", r"visual companion offer or operation"),
             ("commit", r"plan-task acceptance.*focused commit"),
             ("handoff-prep", r"execution-target choice request.*each preparation git mutation"),
-            ("handoff-worktree", r"execution-target choice request.*selection target.*explicit new managed worktree selection.*before its creation"),
+            ("handoff-worktree", r"^[^|]*\|[^|]*\|\s*after explicit new managed worktree selection, before its creation, branch work or document transfer\s*\|?$"),
         ):
             with self.subTest(reference=name):
                 row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
                            if f"references/{name}.md" in line)
                 self.assertRegex(row, trigger)
+        worktree_row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+                            if "references/handoff-worktree.md" in line)
+        self.assertNotIn("choice request", worktree_row)
+        self.assertNotIn("selection target", worktree_row)
+        gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
+        self.assertRegex(gate, r"new managed worktree.*selection target.*source absolute path.*repository.*git common directory.*branch or detached head.*verified full source head sha.*approved branch candidate.*collision status.*descriptive name.*approved document transfer/commit scope")
+        self.assertRegex(gate, r"app chooses the actual destination path: do not ask the user for a destination path or propose one")
+        self.assertRegex(gate, r"read \[handoff-worktree\.md\]\(handoff-worktree\.md\) only after the user explicitly selects that option and before its creation, branch work, or document transfer")
+        self.assertNotRegex(policy_text("handoff-prep").split("## workspace handoff", 1)[0], r"choice request also read")
+        self.assertRegex(policy_text("handoff-worktree").split("## workspace handoff", 1)[0], r"reads after the user explicitly selects the new managed worktree option, before its creation, branch work or document transfer")
+        self.assertNotIn("before an execution-target choice request", policy_text("handoff-worktree").split("## workspace handoff", 1)[0])
+        readme_row = next(line for line in (REPO / "README.md").read_text().splitlines()
+                          if "references/handoff-worktree.md" in line)
+        self.assertIn("명시 선택 뒤 생성·branch 작업·문서 전달 전", readme_row)
+        self.assertNotIn("실행 대상 선택 요청", readme_row)
+        self.assertRegex(policy_text("handoff-worktree"),
+                         r"verify final approved branch and head before document transfer, the batch docs commit, final git verification and coder handoff")
+        self.assertRegex(policy_text("handoff"), r"new managed worktree and task branch \(selection target under handoff-prep\.md; contract in handoff-worktree\.md after selection\)")
+        self.assertRegex(policy_text("planning").split("### managed worktree preparation", 1)[1], r"see \[handoff-worktree\.md\]\(handoff-worktree\.md\)")
         self.assertRegex(core, r"ceo.*each assigned role.*must read")
         self.assertRegex(core, r"ceo must.*accessible paths.*role brief")
 
@@ -928,22 +947,33 @@ class RolePolicyTests(unittest.TestCase):
             (REPO / "agents/harness-qa.toml").read_text()
         )["developer_instructions"].lower().split())
         policy = policy_text("verification")
-        for artifact, text in (("qa", qa), ("policy", policy)):
-            for contract in (
-                r"only when.*assigned ui.*brief.*workspace.*existing launch command or url.*account.*test.data.*permitted interactions",
-                r"approved test environment.*launch.*open.*approved browser tools",
-                r"tool instructions.*applicable installed browser skill",
-                r"does not authorize.*editing.*dependencies.*environment configuration",
-                r"missing prerequisites.*ceo.*unverified",
-                r"command or url.*test state.*viewport.*not applicable.*interaction steps.*expected.*observed.*accessible evidence",
-                r"startup.*page load.*static checks.*do not prove.*ui behavior",
-                r"unavailable.*environment.*browser tools.*exact limitation.*unverified",
-                r"clean up only.*created.*processes.*sessions.*preserve.*shared",
-            ):
-                with self.subTest(artifact=artifact, contract=contract):
-                    self.assertRegex(text, contract)
+        ui_section = policy.split("### ui browser acceptance checks", 1)[1].split("###", 1)[0]
+        for contract in (
+            r"only when.*assigned ui.*brief.*workspace.*existing launch command or url.*account.*test.data.*permitted interactions",
+            r"approved test environment.*launch.*open.*approved browser tools",
+            r"tool instructions.*applicable installed browser skill",
+            r"does not authorize.*editing.*dependencies.*environment configuration",
+            r"missing prerequisites.*ceo.*unverified",
+            r"command or url.*test state.*viewport.*not applicable.*interaction steps.*expected.*observed.*accessible evidence",
+            r"startup.*page load.*static checks.*do not prove.*ui behavior",
+            r"unavailable.*environment.*browser tools.*exact limitation.*unverified",
+            r"clean up only.*created.*processes.*sessions.*preserve.*shared",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(ui_section, contract)
+        self.assertRegex(ui_section, r"when assigning ui acceptance criteria, ceo cites this section with its accessible path in the qa brief")
+        for contract in (
+            r"only when assigned ui acceptance criteria and the brief cites the `ui browser acceptance checks` section of the installed harness `references/verification\.md`, read that section and follow it before launching an app or using browser tools",
+            r"otherwise do not launch apps or operate browsers for ui acceptance",
+            r"report the missing citation/prerequisites to ceo.*affected criteria unverified",
+        ):
+            with self.subTest(qa_contract=contract):
+                self.assertRegex(qa, contract)
+        for removed in ("viewport", "interaction steps", "clean up only"):
+            self.assertNotIn(removed, qa)
         self.assertRegex(policy, r"visual companion.*design discussion.*distinct from.*qa.*ui acceptance")
         readme = (REPO / "README.md").read_text()
+        self.assertIn("작업 요약이 검증 참조의 UI 브라우저 수락 검사 섹션을 지정하고", readme)
         for term in ("UI 수락 기준", "브라우저", "화면 표시 영역", "공유", "Visual companion"):
             with self.subTest(readme_term=term):
                 self.assertIn(term, readme)
@@ -1092,12 +1122,19 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(handoff, contract)
 
     def test_workspace_handoff_worktree_scoped_choice_and_base(self) -> None:
+        gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
+        self.assertRegex(gate, r"selection target.*source absolute path.*repository.*common directory.*branch or detached head.*full.*sha.*approved branch candidate.*collision.*name.*approved document")
+        self.assertRegex(gate, r"verif.*validates the approved branch candidate and collision status.*new task branch naming rules.*unrelated staged changes.*head/index/working-tree state.*before offering")
+        self.assertRegex(gate, r"do not ask the user for a destination path.*do not fetch or substitute a remote head or default branch")
         self._assert_workspace_handoff_contracts("New managed worktree", (
-            r"selection target.*source absolute path.*repository.*common directory.*branch or detached head.*full.*sha.*approved branch candidate.*collision.*name.*approved document",
+            r"selection target is the one verified under the execution-target request gate in handoff-prep\.md",
             r"verified source head.*do not.*remote.*default branch.*fetch",
-            r"recheck.*source state.*base sha.*approved branch.*name.*before.*after.*choice",
+            r"recheck.*source state.*base sha.*approved branch.*name.*after choice.*immediately before the tool call",
             r"after selection and before creation.*changes.*fresh explicit choice",
         ))
+        section = self._workspace_handoff_section("New managed worktree")
+        self.assertNotIn("before and after choice", section)
+        self.assertNotIn("descriptive name, and approved document transfer/commit scope", section)
 
     def test_workspace_handoff_managed_worktree_inputs_and_results(self) -> None:
         section = self._workspace_handoff_section("New managed worktree")
