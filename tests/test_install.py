@@ -48,11 +48,11 @@ def write_candidates(base: Path, variant: bytes = b"A") -> dict[str, Path]:
 
 def refresh_manifest(root: Path) -> None:
     names = {"install.py", "install.command", "README.md"}
-    for directory in ("codex/skill", "codex/agents"):
+    for directory in ("codex/skill", "codex/agents", "claude/skill", "claude/agents"):
         for path in (root / directory).rglob("*"):
             if path.is_file() and path.name != ".DS_Store":
                 name = path.relative_to(root).as_posix()
-                if name != "codex/skill/models.toml":
+                if name not in {"codex/skill/models.toml", "claude/skill/models.toml"}:
                     names.add(name)
     contents = "\n".join(
         f"{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}"
@@ -63,7 +63,7 @@ def refresh_manifest(root: Path) -> None:
 
 def installer_payload(base: Path) -> Path:
     root = base / "payload"
-    for directory in ("codex/skill", "codex/agents"):
+    for directory in ("codex/skill", "codex/agents", "claude/skill", "claude/agents"):
         shutil.copytree(REPO / directory, root / directory, ignore=shutil.ignore_patterns(".DS_Store"))
     for filename in ("install.py", "install.command", "README.md"):
         shutil.copy2(REPO / filename, root / filename)
@@ -1751,7 +1751,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             redirect_stdout(stdout),
             redirect_stderr(stderr),
         ):
-            status = installer.main(argv)
+            status = installer.main(["--target", "codex", *argv])
         return status, stdout.getvalue() + stderr.getvalue()
 
     def create_payload(self) -> Path:
@@ -3644,7 +3644,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             redirect_stdout(stdout),
             redirect_stderr(stderr),
         ):
-            status = installer.main([])
+            status = installer.main(["--target", "codex"])
 
         self.assertEqual(status, 2, stdout.getvalue() + stderr.getvalue())
         self.assertIn("CODEX_HOME is set but empty", stderr.getvalue())

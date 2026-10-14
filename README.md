@@ -1,6 +1,6 @@
 # Yunho Harness
 
-이 Harness는 Codex의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, 다섯 전문 역할이 배정된 작업을 수행합니다.
+이 Harness는 Codex와 Claude Code의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, 다섯 전문 역할이 배정된 작업을 수행합니다.
 
 ## 👥 역할과 작업 흐름
 
@@ -141,10 +141,11 @@ Git 복구에서는 잠금 파일 삭제·chmod/chown·권한 우회·작업공�
 
 **준비물:** Python 3.11 이상, Node.js/npm의 `npx`, Git, GitHub·npm에 접근할 네트워크, 전체 저장소.
 
-저장소 루트에서 실행합니다.
+저장소 루트에서 대상 하나를 명시해 실행합니다. `--target codex|claude`는 필수이며, 생략·잘못된 값·중복 지정은 파일 검사나 취득 전에 종료 코드 `2`로 거부합니다. `--help`는 대상 없이 사용할 수 있습니다. 진입점은 `install.command` 하나이며 `python3 install.py --target codex`처럼 Python으로 직접 실행할 수도 있습니다.
 
 ```sh
-python3 install.py
+./install.command --target codex
+./install.command --target claude
 ```
 
 설치기는 내부 파일·모델 설정·프로필을 검사한 뒤, [obra/superpowers](https://github.com/obra/superpowers)에서 다음 세 스킬을 매번 `skills@latest`로 새로 가져옵니다. 별도 수동 설치는 필요하지 않습니다.
@@ -153,7 +154,7 @@ python3 install.py
 brainstorming · writing-plans · test-driven-development
 ```
 
-취득 결과를 검증한 뒤 외부 스킬, Harness, 다섯 역할 프로필을 백업하고 갱신합니다. 기본 설치 위치는 `~/.codex`이며, 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다.
+취득 결과를 검증한 뒤 선택한 대상의 외부 스킬, Harness, 다섯 역할 프로필을 백업하고 갱신합니다. Codex 기본 위치는 `~/.codex`이며 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다. Claude 위치는 `~/.claude`로 고정합니다. `CLAUDE_CONFIG_DIR`는 홈 표기 확장과 문자열 경로 정규화 후 기본 위치와 같을 때만 허용하며 빈 값·상대 경로·비기본 경로는 취득·쓰기 전에 거부합니다. symlink를 따라 기본 위치로 해석하지 않습니다. 각 대상은 상대 플랫폼의 환경 변수와 사용자 설치 경로를 검사하거나 변경하지 않습니다.
 
 선택한 Codex 홈의 `agents/` 바로 아래 정확한 두 관리 프로필 `harness-secretary.toml`, `harness-scout.toml`만 폐기합니다. 후보와 상위 경로의 안전성을 검사하며 symlink·디렉터리·특수 파일은 변경 전에 거부합니다. 취득 전후에 후보의 목록·내용·metadata·identity를 비교해 변경 시 중단합니다. 원본 bytes와 mode를 `backups/<timestamp>/agents/`에 백업하고, 모든 백업·staging 준비 뒤 거래에서 두 폐기 파일을 먼저 복구 가능한 위치로 이동합니다. 이어서 다섯 활성 프로필을 교체하며 실패 시 함께 복구합니다. 복구 실패 시 백업과 복구 자료의 절대 경로를 보고하고 자료를 보존합니다. `yunho-team-*` 경로는 비관리 사용자 파일이므로 탐색·검사·백업·삭제하지 않습니다. 다른 사용자 프로필도 보존합니다. dry-run은 다섯 활성 프로필과 발견된 폐기 경로를 표시하며 파일을 변경하지 않습니다.
 
@@ -170,17 +171,17 @@ brainstorming · writing-plans · test-driven-development
 ### 설치 전 확인
 
 ```sh
-python3 install.py --check    # 로컬 파일·설정·경로 검사
-python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
+./install.command --target codex --check    # 로컬 파일·설정·경로 검사
+./install.command --target claude --dry-run # 같은 검사와 갱신 대상 표시
 ```
 
-`--check`는 `AGENTS.md`·`config.toml`을 고칠 수 있는지도 검사하고, `--dry-run`은 바뀔 전역 파일과 내용을 함께 표시합니다.
+`--check`는 선택한 대상의 전역 파일을 고칠 수 있는지도 검사하고, `--dry-run`은 취득 예정 명령과 갱신 대상을 표시합니다. Codex는 `AGENTS.md`·`config.toml`, Claude는 `CLAUDE.md`만 전역 갱신 대상으로 사용합니다.
 
 두 옵션은 파일을 수정하거나 캐시·백업을 만들지 않고, 하위 프로세스·`npx`·네트워크도 실행하지 않습니다. Node.js/npm·Git 없이 사용할 수 있습니다. 현재 외부 스킬의 필수 파일 구조를 검사하지만, 최신 원본 저장소나 설치된 프로필과 모델 설정의 일치 여부를 확인하지는 않습니다. 설치기 오류의 종료 코드는 `2`입니다.
 
 ## 🔌 전역 설정 자동 반영
 
-`install.command`(또는 `python3 install.py`)는 하네스 스킬·프로필과 함께 Codex 홈의 전역 파일 두 개를 갱신합니다. 반영하지 않으려면 `--skip-global`을 붙입니다.
+`install.command --target codex`(또는 `python3 install.py --target codex`)는 하네스 스킬·프로필과 함께 Codex 홈의 전역 파일 두 개를 갱신합니다. 반영하지 않으려면 `--skip-global`을 붙입니다.
 
 | 파일 | 설치기가 하는 일 |
 |---|---|
@@ -236,7 +237,11 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 
 ## Claude Code payload
 
-Claude 전용 소스는 `claude/agents/`와 `claude/skill/`에 있습니다. 공통 설치 진입점의 대상 선택 지원은 installer 통합 단계에서 제공됩니다. Claude CEO는 현재 세션 모델을 유지하고, 역할은 다음 선언을 사용합니다.
+Claude 전용 소스는 `claude/agents/`와 `claude/skill/`에 있습니다. `./install.command --target claude`로 설치합니다. Claude 설치는 `~/.claude/skills/{yunho-harness,brainstorming,writing-plans,test-driven-development}/`와 `~/.claude/agents/harness-*.md`를 갱신합니다. 공유 `~/.agents/skills/`와 Codex 폐기 프로필은 접근하지 않습니다. `~/.claude/CLAUDE.md`의 Harness 관리 구간만 갱신하고 관리 구간 밖 사용자 내용을 보존합니다. `settings.json`, `AGENTS.md`, `config.toml`은 Claude 전역 갱신 대상이 아닙니다. `--skip-global`은 `CLAUDE.md`를 그대로 두고 수동 반영 안내를 출력합니다.
+
+두 대상 모두 백업과 staging을 마친 뒤 교체하며, 취득 중 관리 대상 변경이 감지되면 교체 전에 중단합니다. 교체 실패는 기존 bytes와 mode로 복구하고, 복구 자체가 실패하면 백업과 복구 자료의 절대 경로를 출력하며 자료를 남깁니다. 해당 경로를 보존한 뒤 원인을 해결하고 수동 복구 상태를 확인하세요.
+
+Claude CEO는 현재 세션 모델을 유지하고, 역할은 다음 선언을 사용합니다.
 
 | 역할 | 모델 | effort |
 |---|---|---|
