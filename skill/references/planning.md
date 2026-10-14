@@ -64,7 +64,7 @@ criteria, required checks and findings, accepts the task, then commits without a
 Coder reports and passing checks do not replace CEO acceptance. Never list Reviewer as a per-task required check;
 Reviewer is never a task acceptance prerequisite. State final overall plan QA/integration verification separately from
 task acceptance prerequisites, stating scope and timing; for significant/high-risk work, final plan verification lists the
-single independent Reviewer review of the final full change after all tasks are accepted and QA'd. Keep task-required
+single independent Reviewer review of the final full change after all tasks are accepted with their risk-scaled checks. Keep task-required
 checks before acceptance; later final checks alone do not delay an independently acceptable task. Task boundaries alone
 add no QA gates; preserve risk requirements, QA at a risky dependency boundary and specific approved obligations. No-change, hold and resume processing follow core policy.
 These requirements apply to required plans; existing plan-omission paths gain no new plan obligation.

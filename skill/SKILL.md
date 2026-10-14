@@ -50,9 +50,9 @@ Planner, Reviewer, and Scouter return findings, relevant questions, next actions
 CEO. Planner preserves complete requested drafts. CEO integrates results, routes decisions and required approvals,
 and owns development acceptance and completion. CEO coordinates dependent implementation tasks sequentially and starts
 a fresh Coder for each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same task while the
-approved scope, workspace, ownership, and relevant context remain valid. A fresh Coder for the next task in the same
+approved scope, workspace, ownership, and relevant context remain valid; before sending corrections or rework to a reused Coder, CEO rechecks workspace, branch/HEAD and change state against the brief. A fresh Coder for the next task in the same
 approved scope is a restart under handoff: it reuses a still-valid initial execution-target choice with fresh state
-checks and a delta-only restart brief. After an approved plan or acceptance-criteria amendment, start a fresh Coder for
+checks and a delta-only restart brief (delta relative to the record file the fresh Coder reads; every other brief field in full). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
 the remaining work even within the same task; it is also a restart under handoff with a delta brief. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
 next task depends on a still-unverified risky contract, complete applicable QA at that dependency boundary and
@@ -133,7 +133,7 @@ and smallest meaningful verification.
 |---|---|
 | Small, low risk | Coder, or CEO direct path → CEO's focused checks → acceptance |
 | Ordinary behavior | Coder → independent QA → acceptance |
-| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Coder → QA → acceptance/commit, then independent Reviewer once on the final full change after all plan tasks |
+| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task risk-scaled Coder → QA or CEO focused checks → acceptance/commit, then independent Reviewer once on the final full change after all plan tasks |
 
 Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
 fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
@@ -142,7 +142,7 @@ installation/deployment/rollback. Substantial behavior or contract changes are s
 investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
 Do not add per-task gates automatically. Reviewer is never a plan-task acceptance prerequisite; for significant work with a
-plan, it reviews the final full change once after all plan tasks are accepted and QA'd; significant work without a plan
+plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan
 keeps Reviewer after QA before acceptance. Preserve specific approved obligations and complete risky dependency checks
 before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
@@ -193,11 +193,10 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   `<role>_<short_task>` (for example `planner_scope_review` or `qa_installer_checks`). Do not use arbitrary or random
   names. `task_name` identifies the run; `agent_type` and its configured profile determine the role and model.
 
-- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, files);
+- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, branch or detached HEAD and HEAD, handoff record path, files);
   Constraints/decisions; Evidence (paths/lines, commands, artifact links); Prior findings; Exact next objective (one
   bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups and
-  restarts send only changed fields and mark the rest `unchanged`; `unchanged` means unchanged relative to the cited
-  prior brief or handoff record; a fresh specialist without that context gets the complete brief. Send only the
+  restarts send only changed fields and mark the rest `unchanged`; `unchanged` means unchanged relative to a cited artifact the recipient can read (the handoff record file or a brief it received); a fresh specialist, including a fresh restart Coder, gets every other field in full. Send only the
   self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
   instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.

@@ -17,14 +17,14 @@
 - 독립 문서 작성은 전문 역할에 자동 배정하지 않습니다. Scouter는 파일을 편집하거나 독립 문서 파일을 작성하지 않습니다. Planner는 설계·명세·계획 초안, Coder는 구현 종속 문서를 담당합니다.
 - Scouter는 문서·데이터·정적 로그 등의 자료를 다룹니다. 공개 문서에 기록된 운영 방법 조사도 담당 범위에 포함됩니다. 현재 시스템·앱·프로세스 상태의 확인과 운영 정리는 담당 범위 밖이며, 이 경계가 다른 담당자를 자동으로 지정하지는 않습니다.
 - 조사 라우팅: 필요한 자료가 이미 CEO 컨텍스트에 있거나 알려진 몇 개 파일을 빠르게 읽는 확인은 CEO가 직접 처리합니다. 경로가 알려진 한정 조회(특정 사실의 위치 확인·추출, 종합 없음)는 아래 모델 변경의 낮은 추론 강도로 Scouter에 맡기고, 본격 조사·종합·넓은 탐색은 Scouter의 설정값을 씁니다. 불확실하면 설정값을 씁니다.
-- 작업 요약(brief)은 Goal; Criteria(ID); Scope/ownership(절대 workspace·파일); Constraints/decisions; Evidence(경로/줄·명령·산출물 링크); Prior findings; Next objective; Return format 순서를 고정합니다. 후속·재개 때는 바뀐 필드만 보내고 나머지는 `unchanged`로 표시합니다.
+- 작업 요약(brief)은 Goal; Criteria(ID); Scope/ownership(절대 workspace·branch 또는 detached HEAD와 HEAD·인계 기록 경로·파일); Constraints/decisions; Evidence(경로/줄·명령·산출물 링크); Prior findings; Next objective; Return format 순서를 고정합니다. 후속·재개 때는 바뀐 필드만 보내고 나머지는 `unchanged`로 표시하되, 수신자가 읽을 수 있는 산출물(인계 기록 파일 또는 받은 brief)만 인용할 수 있고 새 specialist(새 재시작 Coder 포함)에는 나머지 필드를 모두 전달합니다.
 - 다섯 역할은 모두 CEO에게 직접 보고하며, 에이전트를 만들거나 다른 역할에 직접 위임할 수 없습니다. 전체 트리에서 Scouter를 포함해 하위 에이전트는 최대 네 개까지 동시에 실행합니다. 독립적인 작업만 병렬로 처리하고, 종속 작업은 순서대로 수행합니다.
 
 | 변경 위험 | 최소 검증 흐름 |
 |---|---|
 | 작은 저위험 변경 | Coder 또는 CEO 직접 경로 → CEO 집중 확인 → 수락 |
 | 일반 행동 변경 | Coder → 독립 QA → 수락 |
-| 중요하거나 위험이 큰 변경 | Coder → QA → 최종 전체 변경의 독립 검토 → 수락 (plan이 있으면 task마다 Coder → QA → 수락/커밋, 모든 plan task 뒤 Reviewer 한 번) |
+| 중요하거나 위험이 큰 변경 | Coder → QA → 최종 전체 변경의 독립 검토 → 수락 (plan이 있으면 task마다 위험 수준에 맞는 Coder → QA 또는 CEO 집중 확인 → 수락/커밋, 모든 plan task 뒤 Reviewer 한 번) |
 
 QA는 모든 수락 기준에 확인 방법·범위, 실행 결과, 근거, 기준 판단과 미검증 사유를 연결합니다. 검사 실행 통과는 기준 입증과 구분하며, 일부 확인·검사 부재·환경 차단의 공백은 미검증으로 남깁니다. 구조 검사는 실제 행동·설치·실행 중인 에이전트의 준수를 입증하지 않습니다. 저위험 변경의 CEO 집중 확인에도 같은 근거 구분을 적용합니다.
 
@@ -50,7 +50,7 @@ CEO는 커밋 전에 승인 plan 버전·task ID·절대 workspace·저장소·b
 Git 실패나 기록 누락 때는 실제 branch·HEAD·index·작업 트리와 커밋 생성 여부부터 확인하며 결과가 불명확하면 바로 재시도하지 않습니다.
 커밋 후 SHA·실제 메시지·포함 경로/내용·post-commit HEAD·남은 상태를 확인하고 수락 근거·필수 검사·findings·남은 최종 검증과 정본에 연결합니다.
 
-task 수락/커밋과 전체 plan의 최종 QA·Reviewer·통합 수락을 구분합니다. task 수락과 커밋에는 위험 수준에 맞는 Coder/QA(또는 CEO 집중 확인)만 필요하며, 나중의 최종 검증만으로 독립 수락 가능한 task 커밋을 미루지 않습니다. Reviewer는 task 수락 선행 조건이 아니며, 중요·고위험 plan은 모든 task가 수락·QA된 뒤 최종 전체 변경을 한 번 검토합니다.
+task 수락/커밋과 전체 plan의 최종 QA·Reviewer·통합 수락을 구분합니다. task 수락과 커밋에는 위험 수준에 맞는 Coder/QA(또는 CEO 집중 확인)만 필요하며, 나중의 최종 검증만으로 독립 수락 가능한 task 커밋을 미루지 않습니다. Reviewer는 task 수락 선행 조건이 아니며, 중요·고위험 plan은 모든 task가 수락되고 위험 수준에 맞는 QA·확인을 마친 뒤 최종 전체 변경을 한 번 검토합니다.
 task 경계만으로 QA를 추가하지 않으며, 기존 위험 요구·위험한 의존 경계의 QA와 승인 의무를 유지합니다. plan이 없는 중요 변경의 최종 전체 검토는 QA 뒤 최종 관련 상태에서 수행합니다.
 최종 findings로 이미 커밋한 변경을 수정해야 하면 CEO가 필요한 계획·승인을 거친 후속 task로 수정·QA 재확인하고 새 focused 커밋을 만든 뒤, Reviewer는 필요할 때 영향받은 findings만 재확인합니다. 자동 amend/reset이나 원 task 중복 커밋은 하지 않습니다.
 
@@ -128,7 +128,7 @@ CEO는 매 시작·재개마다 실제 브랜치 또는 detached HEAD·HEAD·스
 범위·작업공간·저장소·대상·승인 브랜치 후보가 바뀌거나 실패 때문에 기존 대상을 신뢰할 수 없으면 새 명시 선택을 받습니다.
 정상 승인 작업의 HEAD·작업 트리 변경만으로 선택이 무효화되지는 않습니다. 상태 불일치·미해결 실패·누락 증거는 편집을 차단합니다.
 
-최초 인계 기록은 하나의 접근 가능한 정본으로 보존하며, CEO가 `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` Markdown 파일로 작성합니다(`git rev-parse --path-format=absolute --git-common-dir`로 확인, 작업 트리 밖이며 연결 worktree가 공유, Git 변경이 아니므로 스테이징·커밋하지 않고 비밀 정보 없음). 모든 작업 요약에 절대 경로를 적고, 쓰기가 거부되거나 불가하면 전체 기록을 작업 요약에 싣고 이유를 밝히며, 자동 삭제하지 않습니다. 재개 작업 요약에는 그 위치, 다음 목표·소유권,
+최초 인계 기록은 하나의 접근 가능한 정본으로 보존하며, CEO가 `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` Markdown 파일로 작성합니다(slug는 plan마다 고유하게, 예: 날짜가 붙은 plan 파일명 stem이며 다른 plan의 기록을 덮어쓰지 않음, `git rev-parse --path-format=absolute --git-common-dir`로 확인, 작업 트리 밖이며 연결 worktree가 공유, Git 변경이 아니므로 스테이징·커밋하지 않고 비밀 정보 없음). 모든 작업 요약에 절대 경로를 적고, 쓰기가 거부되거나 불가하면 전체 기록을 작업 요약에 싣고 이유를 밝히며, 자동 삭제하지 않습니다. 재개 작업 요약은 새 Coder가 읽는 기록 파일 대비 변경분만 담고 나머지 필드는 모두 전달하며, 그 위치, 다음 목표·소유권,
 승인·문서·범위 변경분, 최신 Git 상태·차이, 선택 유효성·재사용 검증, CEO 최종 확인과 남은 문제를 전달합니다.
 이전 대화나 접근 불가 링크로 증거를 대신하지 않습니다. 상세 승인 순서·문서 커밋·브랜치 보호와 기록 필드는 인계 참조를 따릅니다.
 Git 복구에서는 잠금 파일 삭제·chmod/chown·권한 우회·작업공간 이동·자동 reset/stash/clean을 하지 않습니다.

@@ -398,7 +398,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
                 self.contracts(text, (
                     r"id.*title.*scope.*files.*dependencies.*acceptance criteria.*required qa/focused checks.*evidence.*hold conditions",
                     r"never list reviewer as a per-task required check",
-                    r"final.*plan verification.*single independent reviewer review of the final full change after all tasks",
+                    r"final.*plan verification.*single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks",
                     r"cannot be independently verified.*one top-level task",
                     r"substeps.*checkboxes.*not.*commit units",
                     r"ceo.*accept.*without.*additional user commit approval",
@@ -421,7 +421,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
             r"reviewer is never a task acceptance prerequisite",
             r"do not add qa calls solely.*task boundary",
             r"independently acceptable task.*do not delay.*later final plan verification",
-            r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted and qa'd; significant work without a plan keeps reviewer after qa before acceptance",
+            r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan keeps reviewer after qa before acceptance",
             r"required.*task.*checks.*must not.*deferred",
             r"significant.*final whole-change review.*after qa.*final relevant state",
             r"task commit.*does not.*unperformed.*verification.*complete",
@@ -670,7 +670,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             "invalidating failure": r"failure.*old target cannot be trusted.*fresh explicit choice",
             "normal work": r"normal.*head.*dirty.*do not.*invalidate",
             "record": r"one canonical initial handoff record.*accessible",
-            "delta": r"delta-only restart brief.*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
+            "delta": r"delta-only restart brief \(delta relative to the record file the fresh coder reads; every other brief field in full\).*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
             "block": r"inaccessible.*record.*missing evidence.*unclear ownership.*block",
         }
         for case, contract in cases.items():
@@ -685,26 +685,30 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
     def test_final_single_reviewer_is_explicit(self) -> None:
         readme = " ".join((REPO / "README.md").read_text().split())
         for name, text, contract in (
-            ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted and qa'd; significant work without a plan keeps reviewer after qa before acceptance"),
-            ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted and qa'd; significant work without a plan keeps reviewer after qa before acceptance"),
-            ("planning", policy_text("planning"), r"single independent reviewer review of the final full change after all tasks"),
+            ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan keeps reviewer after qa before acceptance"),
+            ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks; significant work without a plan keeps reviewer after qa before acceptance"),
+            ("planning", policy_text("planning"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
             ("commit", policy_text("commit"), r"final reviewer is plan-level, never a task prerequisite"),
-            ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks"),
-            ("readme", readme, r"Reviewer는 task 수락 선행 조건이 아니며.*plan.*모든 task.*수락.*QA.*최종 전체 변경.*한 번.*plan이 없는"),
+            ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
+            ("readme", readme, r"Reviewer는 task 수락 선행 조건이 아니며.*plan.*모든 task.*수락.*위험 수준에 맞는 QA.*최종 전체 변경.*한 번.*plan이 없는"),
         ):
             with self.subTest(artifact=name):
                 self.assertRegex(text, contract)
         row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
                    if line.startswith("| significant/high risk"))
-        self.assertRegex(row, r"with a plan, each plan task coder → qa → acceptance/commit.*reviewer once.*final full change.*after all plan tasks")
+        self.assertRegex(row, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit, then independent reviewer once on the final full change after all plan tasks")
 
     def test_no_per_task_reviewer_wording(self) -> None:
         paths = [*(REPO / "skill").rglob("*.md"), *(REPO / "agents").glob("*.toml"), REPO / "README.md"]
         for path in paths:
             text = " ".join(path.read_text().lower().split())
-            for absent in (r"checks/reviews", r"review[^.]{0,60}(?:expressly|designated|names?)[^.]{0,40}prerequisite",
+            with self.subTest(file=path.name, absent="accepted and qa'd"):
+                self.assertNotIn("accepted and qa'd", text)
+                self.assertNotIn("수락·QA된".lower(), text)
+            for absent in (r"checks/reviews", r"in a multi-task plan", r"review as a task acceptance prerequisite",
+                           r"expressly a task prerequisite", r"designated as that task's prerequisite",
                            r"qa/review at that dependency boundary", r"new reviewer for each task unless",
-                           r"선행 조건으로 지정", r"검사/검토", r"multi-task", r"다중 task"):
+                           r"선행 조건으로 지정", r"검사/검토"):
                 with self.subTest(file=path.name, absent=absent):
                     self.assertNotRegex(text, absent)
 
@@ -745,9 +749,9 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
 
     def test_brief_template_field_order_and_delta(self) -> None:
         tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
-        self.assertRegex(tokens, r"goal; criteria \(ids\); exact scope/ownership \(absolute workspace, files\); constraints/decisions; evidence \(paths/lines, commands, artifact links\); prior findings; exact next objective \(one bounded objective\); return format")
+        self.assertRegex(tokens, r"goal; criteria \(ids\); exact scope/ownership \(absolute workspace, branch or detached head and head, handoff record path, files\); constraints/decisions; evidence \(paths/lines, commands, artifact links\); prior findings; exact next objective \(one bounded objective\); return format")
         self.assertRegex(tokens, r"follow-ups and restarts send only changed fields and mark the rest `unchanged`")
-        self.assertRegex(tokens, r"`unchanged` means unchanged relative to the cited prior brief or handoff record; a fresh specialist without that context gets the complete brief")
+        self.assertRegex(tokens, r"`unchanged` means unchanged relative to a cited artifact the recipient can read \(the handoff record file or a brief it received\); a fresh specialist, including a fresh restart coder, gets every other field in full")
         for kept in (r"self-contained subset.*omit full history, repeated instructions, and raw logs",
                      r"one bounded objective",
                      r"conclusion, evidence locations, unresolved points, next step",
@@ -765,6 +769,7 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             r"`git rev-parse --path-format=absolute --git-common-dir`.*outside the working tree.*shared by linked worktrees",
             r"not a git mutation, never staged or committed.*no secrets",
             r"absolute path in every brief.*delta restart briefs cite it",
+            r"slug unique to the plan.*dated plan filename stem.*never overwrite another plan's record",
             r"write is denied or unavailable.*carry the full record in the brief and state why",
             r"do not delete it automatically",
             r"do not create a separate storage service",
@@ -809,7 +814,7 @@ def profile_text(role: str) -> str:
 
 
 POLICY_WORD_CEILINGS = {
-    "skill/SKILL.md": 2900,
+    "skill/SKILL.md": 2950,
     "skill/references/commit.md": 650,
     "skill/references/git-recovery.md": 700,
     "skill/references/handoff-prep.md": 1400,
@@ -824,7 +829,7 @@ POLICY_WORD_CEILINGS = {
     "agents/harness-reviewer.toml": 250,
     "agents/harness-scouter.toml": 250,
 }
-POLICY_WORD_TOTAL_CEILING = 13100
+POLICY_WORD_TOTAL_CEILING = 13200
 
 
 def policy_word_counts(root: Path) -> dict[str, int]:
@@ -1099,7 +1104,8 @@ class CoderBriefAndReuseTests(unittest.TestCase):
         self.assertRegex(core, r"reuse the current coder only for corrections, rework, or rechecks of the same task")
         self.assertNotRegex(core, r"may reuse coder while the approved scope")
         self.assertRegex(core, r"coder reuse follows the per-task rule")
-        self.assertRegex(core, r"fresh coder for the next task in the same approved scope is a restart under handoff.*reuses a still-valid initial execution-target choice.*fresh state checks.*delta-only restart brief")
+        self.assertRegex(core, r"fresh coder for the next task in the same approved scope is a restart under handoff.*reuses a still-valid initial execution-target choice.*fresh state checks.*delta-only restart brief \(delta relative to the record file the fresh coder reads; every other brief field in full\)")
+        self.assertRegex(core, r"before sending corrections or rework to a reused coder, ceo rechecks workspace, branch/head and change state against the brief")
 
     def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
         core = policy_text("core")

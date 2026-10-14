@@ -50,7 +50,7 @@ acceptable task, do not delay its acceptance/commit solely for later final plan 
 checks must not be deferred to final verification to accept early. State the scope and timing of final-only integration
 criteria in the plan. Significant work retains its required final whole-change review after QA at the final relevant
 state, as final plan verification when a plan exists. Reviewer is never a plan-task acceptance prerequisite; for
-significant work with a plan, it reviews the final full change once after all plan tasks are accepted and QA'd;
+significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks;
 significant work without a plan keeps Reviewer after QA before acceptance.
 
 A task commit record does not mark unperformed final verification complete. CEO still decides final plan acceptance
