@@ -1,6 +1,6 @@
 # Coder handoff
 
-CEO verifies the absolute workspace/repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state, ownership, document approvals and committed planning documents before first start and restart. The approved execution target must remain valid. Claude v1 supports current checkout execution and does not support Harness-managed worktrees or Codex attachment contracts.
+CEO verifies the absolute workspace/repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state, ownership, document approvals and committed planning documents before first start and restart. The approved execution target must remain valid. Claude v1 supports current checkout execution and does not support Harness-managed worktrees.
 
 Resolve the Git common directory and keep one canonical initial record at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md`, outside the working tree. Never stage it or store secrets there. Record approved document paths/versions/coverage/dependencies and approval evidence; explicit target choice; prior and resulting Git state; document commit SHA/subject/files; task scope, ownership, checks and limits. If a gate or record was late, record actual order and resolve forward; never claim retroactive compliance.
 

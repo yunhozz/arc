@@ -191,21 +191,21 @@ Models
 
 ### 구현·검증 단계
 
-- [ ] **1. 정책 회귀 테스트를 먼저 추가한다.** `tests/test_claude_payload.py`에 다음을 둔다.
+- [x] **1. 정책 회귀 테스트를 먼저 추가한다.** `tests/test_claude_payload.py`에 다음을 둔다.
   - `test_claude_shared_policy_sections_and_contracts_are_complete`: 위의 11개 section 순서와 소유권·approval·handoff·TDD·위험 flow·commit의 핵심 clause를 검사한다. 본문 전체 byte 비교는 하지 않는다.
   - `test_claude_native_adapter_matches_shipped_profiles_and_scripts`: native frontmatter name과 underscore 설정 key를 구분하고, 설정·스크립트 옵션·7개 reference 및 current checkout 정책을 확인한다.
   - `test_claude_skill_markdown_has_no_foreign_platform_contracts`: `claude/skill` Markdown 전체에 제품명, 전용 API·경로 등 다른 플랫폼 계약이 남지 않았는지 검사한다. 일반 Git의 `worktree` 단어와 Claude 모델 설정 key는 허용한다.
 
-- [ ] **2. 새로운 계약이 실패하는지 확인한다.** 테스트가 구조 문서/미지원 호출 내용 때문에 실패해야 하며 import·fixture 오류는 RED로 인정하지 않는다.
+- [x] **2. 새로운 계약이 실패하는지 확인한다.** 테스트가 구조 문서/미지원 호출 내용 때문에 실패해야 하며 import·fixture 오류는 RED로 인정하지 않는다.
 
 ```sh
 PYTHONPATH=tests python3 -m unittest test_claude_payload.ClaudePayloadTests.test_claude_shared_policy_sections_and_contracts_are_complete test_claude_payload.ClaudePayloadTests.test_claude_skill_markdown_has_no_foreign_platform_contracts -v
 ```
 
-- [ ] **3. `claude/skill/SKILL.md`를 기준 section 및 공통 정책에 맞게 정렬하고 위 Claude adapter 계약을 적용한다.** role native names만 실행에 사용하고 `models.toml`의 설정 key를 바꾸지 않는다.
-- [ ] **4. 연결 reference 세 곳을 정리한다.** `handoff.md`, `handoff-prep.md`, `visual-companion.md`에서 다른 플랫폼 이름·API·경로를 빼고 current-checkout·실제 capability 경계를 유지한다.
-- [ ] **5. 수용 검토 자료를 마련한다.** Coder 보고에 기준 section → Claude 위치 → 공통 policy/adapter 차이 → 근거·검증 상태의 정렬표를 넣는다. 동등성·실행 지원을 확인할 수 없는 지점은 unverified로 보고한다.
-- [ ] **6. manifest를 갱신하고 Claude 계약 및 전체 회귀를 확인한다.**
+- [x] **3. `claude/skill/SKILL.md`를 기준 section 및 공통 정책에 맞게 정렬하고 위 Claude adapter 계약을 적용한다.** role native names만 실행에 사용하고 `models.toml`의 설정 key를 바꾸지 않는다.
+- [x] **4. 연결 reference 세 곳을 정리한다.** `handoff.md`, `handoff-prep.md`, `visual-companion.md`에서 다른 플랫폼 이름·API·경로를 빼고 current-checkout·실제 capability 경계를 유지한다.
+- [x] **5. 수용 검토 자료를 마련한다.** Coder 보고에 기준 section → Claude 위치 → 공통 policy/adapter 차이 → 근거·검증 상태의 정렬표를 넣는다. 동등성·실행 지원을 확인할 수 없는 지점은 unverified로 보고한다.
+- [x] **6. manifest를 갱신하고 Claude 계약 및 전체 회귀를 확인한다.**
 
 ```sh
 PYTHONPATH=tests python3 -c 'from pathlib import Path; from test_install import refresh_manifest; refresh_manifest(Path.cwd())'
@@ -215,6 +215,8 @@ git diff --check
 ```
 
 **T2 수용 기준:** 11개 공통 policy section이 순서대로 있고 핵심 승인·소유권·TDD·위험·수용 계약이 보존된다. native role name·모델 설정·실행 대상·참조가 배포 구성과 일치하고 Claude 배포 Markdown에 다른 플랫폼 계약이 없다. Claude payload focused 검사, manifest와 `git diff --check`가 통과하고 전체 suite는 위 승인 기준선 대비 신규 실패·오류가 없다. 독립 QA가 정렬표를 기준으로 의미 누락·adapter 충돌을 검토한다. 실제 provider runtime 적용은 로컬 검사로 검증했다고 표현하지 않는다. CEO는 수용 후 별도 focused commit을 한다.
+
+**T2 CEO 수용:** 2026-10-15. 독립 QA가 공통 정책, native adapter, references 및 visual capability 경계를 계획에 따라 확인했다. Claude payload 15개 테스트와 manifest·format 검사가 통과했고 전체 suite는 승인 기준선과 동일한 11개 실패·2개 오류만 남았다. Provider/runtime 적용은 미검증으로 유지한다. Plan progress와 수용 기록은 T2 focused commit에 포함한다.
 
 **보류 조건:** source 정책과 native 지원 경계가 충돌해 새 행동 결정이 필요하거나, per-call effort·fresh context·완료 대기 실행 기능을 필수로 약속해야 하거나, 지원되지 않는 worktree·API가 있어야 계약이 성립하는 경우 중단해 CEO에게 근거와 선택지를 보고한다. profile·모델·script 변경이나 공유 정책의 의미 변경도 재승인 없이 진행하지 않는다.
 
