@@ -48,11 +48,11 @@ def write_candidates(base: Path, variant: bytes = b"A") -> dict[str, Path]:
 
 def refresh_manifest(root: Path) -> None:
     names = {"install.py", "install.command", "README.md"}
-    for directory in ("skill", "agents"):
+    for directory in ("codex/skill", "codex/agents", "claude/skill", "claude/agents"):
         for path in (root / directory).rglob("*"):
             if path.is_file() and path.name != ".DS_Store":
                 name = path.relative_to(root).as_posix()
-                if name != "skill/models.toml":
+                if name not in {"codex/skill/models.toml", "claude/skill/models.toml"}:
                     names.add(name)
     contents = "\n".join(
         f"{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}"
@@ -63,7 +63,7 @@ def refresh_manifest(root: Path) -> None:
 
 def installer_payload(base: Path) -> Path:
     root = base / "payload"
-    for directory in ("skill", "agents"):
+    for directory in ("codex/skill", "codex/agents", "claude/skill", "claude/agents"):
         shutil.copytree(REPO / directory, root / directory, ignore=shutil.ignore_patterns(".DS_Store"))
     for filename in ("install.py", "install.command", "README.md"):
         shutil.copy2(REPO / filename, root / filename)
@@ -133,7 +133,7 @@ class ModelSettingsTests(unittest.TestCase):
             self.fail(f"standard five-role settings must be accepted: {exc}")
         self.assertEqual(settings, FIVE_SETTINGS)
         self.assertEqual(set(self.module.ROLE_FILES), set(FIVE_SETTINGS))
-        self.assertEqual(self.module.load_settings(REPO / "skill/models.toml"), FIVE_SETTINGS)
+        self.assertEqual(self.module.load_settings(REPO / "codex/skill/models.toml"), FIVE_SETTINGS)
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
         for roles in ({**FIVE_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
@@ -152,7 +152,7 @@ class ModelSettingsTests(unittest.TestCase):
         filenames = {f"{role.replace('_', '-')}.toml" for role in FIVE_SETTINGS}
         self.assertEqual(set(self.module.ROLE_FILES.values()), filenames)
         self.assertEqual(set(installer.PROFILE_FILES), filenames)
-        self.assertEqual({p.name for p in (REPO / "agents").glob("*.toml")}, filenames)
+        self.assertEqual({p.name for p in (REPO / "codex/agents").glob("*.toml")}, filenames)
 
     def test_naming_v5_settings_and_serialization(self) -> None:
         try:
@@ -211,12 +211,12 @@ class ModelSettingsTests(unittest.TestCase):
         }
         self.assertEqual(self.module.ROLE_FILES, expected)
         self.assertEqual(set(installer.PROFILE_FILES), set(expected.values()))
-        self.assertEqual({p.name for p in (REPO / "agents").glob("*.toml")}, set(expected.values()))
+        self.assertEqual({p.name for p in (REPO / "codex/agents").glob("*.toml")}, set(expected.values()))
         for role, filename in expected.items():
-            profile = tomllib.loads((REPO / "agents" / filename).read_text())
+            profile = tomllib.loads((REPO / "codex/agents" / filename).read_text())
             self.assertEqual(profile["name"], role)
-            rendered = self.module.render_profile((REPO / "agents" / filename).read_bytes(),
-                                                  role, FIVE_SETTINGS[role], REPO / "agents" / filename)
+            rendered = self.module.render_profile((REPO / "codex/agents" / filename).read_bytes(),
+                                                  role, FIVE_SETTINGS[role], REPO / "codex/agents" / filename)
             effective = tomllib.loads(rendered.decode())
             self.assertEqual({key: effective[key] for key in FIVE_SETTINGS[role]}, FIVE_SETTINGS[role])
 
@@ -247,7 +247,7 @@ class ApplyModelsTests(unittest.TestCase):
 
     def cli(self, *flags):
         return subprocess.run(
-            [sys.executable, "-B", str(REPO / "skill/scripts/apply-models.py"),
+            [sys.executable, "-B", str(REPO / "codex/skill/scripts/apply-models.py"),
              "--config", str(self.config), "--agents-dir", str(self.agents), *flags],
             capture_output=True, text=True, check=False,
         )
@@ -320,7 +320,7 @@ class ApplyModelsTests(unittest.TestCase):
             path.chmod(0o600 if index % 2 else 0o640)
         before = tree_state(self.base)
         import importlib.util
-        spec = importlib.util.spec_from_file_location("apply_models_test", REPO / "skill/scripts/apply-models.py")
+        spec = importlib.util.spec_from_file_location("apply_models_test", REPO / "codex/skill/scripts/apply-models.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         replacements = 0
@@ -352,7 +352,7 @@ HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree")
 def policy_text(name: str) -> str:
     # "handoff" covers the whole handoff contract, which is split by trigger across HANDOFF_FILES.
     names = HANDOFF_FILES if name == "handoff" else (name,)
-    paths = [REPO / "skill" / ("SKILL.md" if n == "core" else f"references/{n}.md") for n in names]
+    paths = [REPO / "codex/skill" / ("SKILL.md" if n == "core" else f"references/{n}.md") for n in names]
     return " ".join(" ".join(path.read_text().lower().split()) for path in paths)
 
 
@@ -388,7 +388,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
 
     def test_planner_groups_inseparable_changes_and_defines_task_gates(self) -> None:
         planning = self.section("planning", "## top-level plan tasks")
-        profile = tomllib.loads((REPO / "agents/harness-planner.toml").read_text())
+        profile = tomllib.loads((REPO / "codex/agents/harness-planner.toml").read_text())
         self.assertEqual(profile["sandbox_mode"], "read-only")
         planner = " ".join(profile["developer_instructions"].lower().split())
         self.assertIn("for each top-level task", planner)
@@ -509,7 +509,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         for name in REFERENCE_NAMES:
             with self.subTest(reference=name):
                 self.assertIn(f"references/{name}.md", core)
-                self.assertTrue((REPO / f"skill/references/{name}.md").is_file())
+                self.assertTrue((REPO / f"codex/skill/references/{name}.md").is_file())
         self.assertRegex(core, r"do not load all references")
 
     def test_reference_triggers_cover_dependent_stages(self) -> None:
@@ -525,10 +525,10 @@ class ConditionalReferenceTests(unittest.TestCase):
             ("handoff-worktree", r"^[^|]*\|[^|]*\|\s*after explicit new managed worktree selection, before its creation, branch work or document transfer\s*\|?$"),
         ):
             with self.subTest(reference=name):
-                row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+                row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                            if f"references/{name}.md" in line)
                 self.assertRegex(row, trigger)
-        worktree_row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+        worktree_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                             if "references/handoff-worktree.md" in line)
         self.assertNotIn("choice request", worktree_row)
         self.assertNotIn("selection target", worktree_row)
@@ -582,7 +582,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             "visual-companion": ("complete keyed url", "terminal text as primary", "waits for acceptance"),
         }
         for name, phrases in contracts.items():
-            path = REPO / f"skill/references/{name}.md"
+            path = REPO / f"codex/skill/references/{name}.md"
             self.assertTrue(path.is_file(), name)
             for phrase in phrases:
                 with self.subTest(reference=name, contract=phrase):
@@ -597,7 +597,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             self.assertRegex(core, contract)
 
     def test_coder_trusts_ceo_verified_brief(self) -> None:
-        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         for contract in (
             r"trust the ceo-verified workspace, branch/head, approvals.*document-commit and handoff facts in the brief.*start editing",
@@ -614,7 +614,7 @@ class ConditionalReferenceTests(unittest.TestCase):
                 self.assertNotRegex(coder, absent)
 
     def test_coder_profile_holds_handoff_contract_without_full_reference_read(self) -> None:
-        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(coder, r"profile is the complete coder handoff contract.*handoff.md.*only.*brief explicitly cites")
         self.assertNotRegex(coder, r"before every first start or restart, read")
@@ -622,7 +622,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             self.assertIn(phrase, coder)
         self.assertRegex(policy_text("handoff"), r"coder trusts the ceo-verified facts in the brief.*coder profile.*brief explicitly cites")
         texts = {path.name: " ".join(path.read_text().lower().split()) for path in
-                 [*(REPO / "skill").rglob("*.md"), *(REPO / "agents").glob("*.toml")]}
+                 [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]}
         for name, text in texts.items():
             for absent in (r"coder independently", r"coder's independent", r"coder independent check",
                            r"ceo and coder independently", r"independent checkout"):
@@ -635,7 +635,7 @@ class ConditionalReferenceTests(unittest.TestCase):
 
     def test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections(self) -> None:
         def headings(name: str) -> list[str]:
-            return [line[4:].strip().lower() for line in (REPO / f"skill/references/{name}.md").read_text().splitlines()
+            return [line[4:].strip().lower() for line in (REPO / f"codex/skill/references/{name}.md").read_text().splitlines()
                     if line.startswith("### ")]
         self.assertEqual(headings("handoff"), ["checkout approval", "coder handoff gate", "handoff evidence",
                                                "choice lifetime and restart record"])
@@ -643,23 +643,23 @@ class ConditionalReferenceTests(unittest.TestCase):
                                                     "new task branch", "current checkout", "planning document commit",
                                                     "recovery prerequisite"])
         self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer"])
-        core = (REPO / "skill/references/handoff.md").read_text().lower()
+        core = (REPO / "codex/skill/references/handoff.md").read_text().lower()
         self.assertIn("handoff-prep.md", core)
         self.assertIn("handoff-worktree.md", core)
 
     def test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read(self) -> None:
         for role in ("qa", "reviewer"):
             with self.subTest(role=role):
-                text = " ".join(tomllib.loads((REPO / f"agents/harness-{role}.toml").read_text())
+                text = " ".join(tomllib.loads((REPO / f"codex/agents/harness-{role}.toml").read_text())
                                 ["developer_instructions"].lower().split())
                 self.assertRegex(text, rf"profile is the complete {role} contract.*verification.md.*only.*brief explicitly cites")
         self.assertRegex(policy_text("verification"), r"qa and reviewer contracts.*profiles.*brief explicitly cites")
-        reviewer = " ".join(tomllib.loads((REPO / "agents/harness-reviewer.toml").read_text())
+        reviewer = " ".join(tomllib.loads((REPO / "codex/agents/harness-reviewer.toml").read_text())
                             ["developer_instructions"].lower().split())
         self.assertRegex(reviewer, r"significant/high-risk.*final full change after the required qa/focused checks and any qa recheck")
 
     def test_restart_choice_lifetime_and_evidence(self) -> None:
-        path = REPO / "skill/references/handoff.md"
+        path = REPO / "codex/skill/references/handoff.md"
         self.assertTrue(path.is_file())
         handoff = policy_text("handoff")
         cases = {
@@ -694,12 +694,12 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
         ):
             with self.subTest(artifact=name):
                 self.assertRegex(text, contract)
-        row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+        row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                    if line.startswith("| significant/high risk"))
         self.assertRegex(row, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
 
     def test_no_per_task_reviewer_wording(self) -> None:
-        paths = [*(REPO / "skill").rglob("*.md"), *(REPO / "agents").glob("*.toml"), REPO / "README.md"]
+        paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml"), REPO / "README.md"]
         for path in paths:
             text = " ".join(path.read_text().lower().split())
             with self.subTest(file=path.name, absent="accepted and qa'd"):
@@ -804,37 +804,37 @@ def assert_term_defined(case: unittest.TestCase, term: str, profile: str | None 
 
 
 def raw_policy_text(name: str) -> str:
-    path = REPO / "skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
+    path = REPO / "codex/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
     return " ".join(path.read_text().split())
 
 
 def profile_text(role: str) -> str:
-    return " ".join(tomllib.loads((REPO / f"agents/harness-{role}.toml").read_text())
+    return " ".join(tomllib.loads((REPO / f"codex/agents/harness-{role}.toml").read_text())
                     ["developer_instructions"].lower().split())
 
 
 POLICY_WORD_CEILINGS = {
-    "skill/SKILL.md": 3000,
-    "skill/references/commit.md": 650,
-    "skill/references/git-recovery.md": 700,
-    "skill/references/handoff-prep.md": 1400,
-    "skill/references/handoff-worktree.md": 850,
-    "skill/references/handoff.md": 1400,
-    "skill/references/planning.md": 1950,
-    "skill/references/verification.md": 1350,
-    "skill/references/visual-companion.md": 200,
-    "agents/harness-coder.toml": 700,
-    "agents/harness-planner.toml": 600,
-    "agents/harness-qa.toml": 350,
-    "agents/harness-reviewer.toml": 250,
-    "agents/harness-scouter.toml": 250,
+    "codex/skill/SKILL.md": 3000,
+    "codex/skill/references/commit.md": 650,
+    "codex/skill/references/git-recovery.md": 700,
+    "codex/skill/references/handoff-prep.md": 1400,
+    "codex/skill/references/handoff-worktree.md": 850,
+    "codex/skill/references/handoff.md": 1400,
+    "codex/skill/references/planning.md": 1950,
+    "codex/skill/references/verification.md": 1350,
+    "codex/skill/references/visual-companion.md": 200,
+    "codex/agents/harness-coder.toml": 700,
+    "codex/agents/harness-planner.toml": 600,
+    "codex/agents/harness-qa.toml": 350,
+    "codex/agents/harness-reviewer.toml": 250,
+    "codex/agents/harness-scouter.toml": 250,
 }
 POLICY_WORD_TOTAL_CEILING = 13300
 
 
 def policy_word_counts(root: Path) -> dict[str, int]:
-    paths = [root / "skill/SKILL.md", *sorted((root / "skill/references").glob("*.md")),
-             *sorted((root / "agents").glob("*.toml"))]
+    paths = [root / "codex/skill/SKILL.md", *sorted((root / "codex/skill/references").glob("*.md")),
+             *sorted((root / "codex/agents").glob("*.toml"))]
     return {
         str(path.relative_to(root)): len(
             (tomllib.loads(path.read_text())["developer_instructions"] if path.suffix == ".toml"
@@ -859,12 +859,12 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertNotIn("`workspace handoff` gate below", planning)
 
     def test_config_comment_matches_subagent_limit(self) -> None:
-        config = (REPO / "config.toml").read_text()
+        config = (REPO / "codex/config.toml").read_text()
         self.assertIn("at most four simultaneous subagents", config)
         self.assertNotIn("one owner plus three specialists", config)
 
     def test_reviewer_description_has_no_team_name(self) -> None:
-        description = tomllib.loads((REPO / "agents/harness-reviewer.toml").read_text())["description"]
+        description = tomllib.loads((REPO / "codex/agents/harness-reviewer.toml").read_text())["description"]
         self.assertNotIn("Yunho Team", description)
 
     def test_fallback_record_inline_and_slug(self) -> None:
@@ -962,7 +962,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
         self.assertIn("ceo must not substitute an independently authored spec", planning)
         self.assertRegex(planning, r"planner.*complete spec draft and self-review.*ceo integrates, saves, self-reviews")
         self.assertRegex(planning, r"bounded written spec.*existing ceo depth judgment.*planner.*proportional complete spec draft.*self-review.*ceo.*individual written-spec approval")
-        planner = " ".join(tomllib.loads((REPO / "agents/harness-planner.toml").read_text())
+        planner = " ".join(tomllib.loads((REPO / "codex/agents/harness-planner.toml").read_text())
                            ["developer_instructions"].lower().split())
         self.assertRegex(planner, r"complete spec draft and self-review.*ceo integrates/saves/self-reviews")
 
@@ -990,7 +990,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
             self.assertIn("does not require written-spec approval or execution-target choice", spec)
         complete = planning.split("### complete planning-document set")[1].split("### evidence refresh and limits")[0]
         rows = {line.split("|")[1].strip().lower(): " ".join(line.lower().split())
-                for line in (REPO / "skill/references/planning.md").read_text().splitlines()
+                for line in (REPO / "codex/skill/references/planning.md").read_text().splitlines()
                 if line.startswith("| ") and len(line.split("|")) >= 4}
         with self.subTest(path="bounded_plan_required_without_spec"):
             self.assertIn("a required plan does not itself require a written spec", complete)
@@ -1010,7 +1010,7 @@ class HarnessPreactionGateTests(unittest.TestCase):
             self.assertRegex(plan, r"missing.*mismatched.*stop.*save.*ceo")
 
     def test_preaction_reference_and_choice_order(self) -> None:
-        rows = (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+        rows = (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
         planning = next(row for row in rows if "references/planning.md" in row)
         handoff = next(row for row in rows if "references/handoff-prep.md" in row)
         self.assertIn("first spec/plan save", planning)
@@ -1112,7 +1112,7 @@ class CeoDirectPathTests(unittest.TestCase):
         ownership = core.split("## ownership", 1)[1].split("## instruction", 1)[0]
         self.assertRegex(ownership, r"ceo does not edit them directly except under the ceo direct path")
         self.assertRegex(core, r"ceo assigns edits exclusively to coder except under the ceo direct path")
-        row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+        row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                    if line.startswith("| small, low risk"))
         self.assertIn("ceo direct path", row)
         gate = core.split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
@@ -1122,7 +1122,7 @@ class CeoDirectPathTests(unittest.TestCase):
         self.assertRegex(planning, r"approve a short design before coder or a ceo direct edit")
         self.assertRegex(policy_text("verification"), r"exclusively to coder.*except under the ceo direct path")
         self.assertRegex(policy_text("handoff"), r"ceo direct edit.*same.*conditions")
-        handoff_row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+        handoff_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                            if "references/handoff.md" in line)
         self.assertIn("ceo direct edit", handoff_row)
         readme = " ".join((REPO / "README.md").read_text().split())
@@ -1143,7 +1143,7 @@ class CoderBriefAndReuseTests(unittest.TestCase):
     def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
         core = policy_text("core")
         self.assertRegex(core, r"coder briefs.*plan/spec path.*task section's line range.*needed excerpts.*do not ask coder to read whole plans or specs")
-        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(coder, r"read plan/spec documents only in the sections the brief cites")
 
@@ -1166,7 +1166,7 @@ class LongTaskTokenTests(unittest.TestCase):
 
     def test_long_running_commands_are_not_polled_with_sleep(self) -> None:
         self.assertRegex(policy_text("core"), r"do not poll long-running commands with repeated `sleep`.*single blocking wait")
-        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(coder, r"do not poll long-running commands with repeated `sleep`.*single blocking wait.*longest.*report.*ceo")
 
@@ -1203,7 +1203,7 @@ class TokenDisciplineTests(unittest.TestCase):
     def test_role_profiles_read_targeted_ranges(self) -> None:
         for role in ("scouter", "planner", "coder", "qa", "reviewer"):
             with self.subTest(role=role):
-                text = " ".join(tomllib.loads((REPO / f"agents/harness-{role}.toml").read_text())
+                text = " ".join(tomllib.loads((REPO / f"codex/agents/harness-{role}.toml").read_text())
                                 ["developer_instructions"].lower().split())
                 self.assertRegex(text, r"read only needed file ranges.*keep command output short.*do not re-read unchanged files")
 
@@ -1213,14 +1213,14 @@ class RolePolicyTests(unittest.TestCase):
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:
         for role in ("scouter", "planner", "coder", "qa", "reviewer"):
             with self.subTest(role=role):
-                profile = tomllib.loads((REPO / "agents" / f"harness-{role}.toml").read_text())
+                profile = tomllib.loads((REPO / "codex/agents" / f"harness-{role}.toml").read_text())
                 self.assertEqual(profile["name"], f"harness_{role}")
                 instructions = " ".join(profile["developer_instructions"].lower().split())
                 self.assertRegex(instructions, r"report(?:s)? directly to (?:the )?ceo")
                 self.assertRegex(instructions, r"(?:do not|never|cannot) (?:create|spawn) (?:agents|subagents)")
                 self.assertRegex(instructions, r"(?:do not|never|cannot) (?:delegate|assign) (?:work|tasks)")
     def test_role_policy_assigns_development_to_ceo(self) -> None:
-        policy = " ".join((REPO / "skill/SKILL.md").read_text().lower().split())
+        policy = " ".join((REPO / "codex/skill/SKILL.md").read_text().lower().split())
         ownership = policy.split("## ownership", 1)[1].split("## instruction", 1)[0]
         self.assertRegex(ownership, r"ceo.*sole owner.*development, configuration, tests")
         self.assertRegex(ownership, r"coder.*(?:edits|implements).*assigned.*files")
@@ -1229,7 +1229,7 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(ownership, r"scouter.*read.only")
 
     def test_scouter_read_only_scope_and_reporting(self) -> None:
-        profile = tomllib.loads((REPO / "agents/harness-scouter.toml").read_text())
+        profile = tomllib.loads((REPO / "codex/agents/harness-scouter.toml").read_text())
         self.assertEqual(profile["name"], "harness_scouter")
         self.assertEqual(profile["sandbox_mode"], "read-only")
         instructions = " ".join(profile["developer_instructions"].lower().split())
@@ -1248,7 +1248,7 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_qa_ui_browser_acceptance_contract(self) -> None:
         qa = " ".join(tomllib.loads(
-            (REPO / "agents/harness-qa.toml").read_text()
+            (REPO / "codex/agents/harness-qa.toml").read_text()
         )["developer_instructions"].lower().split())
         policy = policy_text("verification")
         ui_section = policy.split("### ui browser acceptance checks", 1)[1].split("###", 1)[0]
@@ -1284,7 +1284,7 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_qa_reporting_contract(self) -> None:
         instructions = " ".join(tomllib.loads(
-            (REPO / "agents/harness-qa.toml").read_text()
+            (REPO / "codex/agents/harness-qa.toml").read_text()
         )["developer_instructions"].lower().split())
         for contract in (
             r"every acceptance criterion.*identifier.*original wording",
@@ -1300,7 +1300,7 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_reviewer_finding_handoff(self) -> None:
         instructions = " ".join(tomllib.loads(
-            (REPO / "agents/harness-reviewer.toml").read_text()
+            (REPO / "codex/agents/harness-reviewer.toml").read_text()
         )["developer_instructions"].lower().split())
         for contract in (
             r"behavior.*finding.*criterion.*expected behavior.*observed problem.*source.*reproduction conditions.*steps.*evidence",
@@ -1573,10 +1573,10 @@ class RolePolicyTests(unittest.TestCase):
     def test_distribution_manifest_matches_scouter_payload(self) -> None:
         installer.verify_manifest(REPO)
         names = {line.split("  ", 1)[1] for line in (REPO / "MANIFEST.sha256").read_text().splitlines()}
-        self.assertIn("agents/harness-scouter.toml", names)
-        self.assertNotIn("agents/harness-secretary.toml", names)
-        self.assertNotIn("agents/harness-scout.toml", names)
-        self.assertNotIn("skill/models.toml", names)
+        self.assertIn("codex/agents/harness-scouter.toml", names)
+        self.assertNotIn("codex/agents/harness-secretary.toml", names)
+        self.assertNotIn("codex/agents/harness-scout.toml", names)
+        self.assertNotIn("codex/skill/models.toml", names)
 
     def test_acceptance_evidence_flow(self) -> None:
         policy = policy_text("verification")
@@ -1751,7 +1751,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             redirect_stdout(stdout),
             redirect_stderr(stderr),
         ):
-            status = installer.main(argv)
+            status = installer.main(["--target", "codex", *argv])
         return status, stdout.getvalue() + stderr.getvalue()
 
     def create_payload(self) -> Path:
@@ -2088,7 +2088,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 else:
                     real_stat = shutil.copystat
                     def copystat(source, target, *args, **kwargs):
-                        if Path(source) == self.payload / "agents" / installer.PROFILE_FILES[1] and ".yunho-harness-profiles-" in str(target):
+                        if Path(source) == self.payload / "codex/agents" / installer.PROFILE_FILES[1] and ".yunho-harness-profiles-" in str(target):
                             return fail()
                         return real_stat(source, target, *args, **kwargs)
                     stack.enter_context(patch.object(installer.shutil, "copystat", copystat))
@@ -2541,7 +2541,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertIn(
             "npx --yes skills@latest add https://github.com/obra/superpowers --skill "
             "brainstorming writing-plans test-driven-development "
-            "--agent codex --yes --copy --json",
+            "--agent universal --yes --copy --json",
             output,
         )
         self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
@@ -2562,12 +2562,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.create_payload()
         for name in REFERENCE_NAMES:
             with self.subTest(reference=name):
-                path = self.payload / f"skill/references/{name}.md"
+                path = self.payload / f"codex/skill/references/{name}.md"
                 self.assertTrue(path.is_file(), str(path))
                 refresh_manifest(self.payload)
                 manifest = self.payload / "MANIFEST.sha256"
                 manifest.write_text("".join(line for line in manifest.read_text().splitlines(True)
-                                            if not line.endswith(f"  skill/references/{name}.md\n")))
+                                            if not line.endswith(f"  codex/skill/references/{name}.md\n")))
                 with self.assertRaisesRegex(installer.InstallerError, "does not cover.*references"):
                     installer.verify_manifest(self.payload)
 
@@ -2575,7 +2575,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.create_payload()
         for name in REFERENCE_NAMES:
             with self.subTest(reference=name):
-                path = self.payload / f"skill/references/{name}.md"
+                path = self.payload / f"codex/skill/references/{name}.md"
                 self.assertTrue(path.is_file(), str(path))
                 refresh_manifest(self.payload)
                 original = path.read_bytes()
@@ -2583,6 +2583,24 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 with self.assertRaisesRegex(installer.InstallerError, "SHA-256 mismatch.*references"):
                     installer.verify_manifest(self.payload)
                 path.write_bytes(original)
+
+    def test_codex_repository_layout_preserves_installed_destinations(self) -> None:
+        # A source move must not leak the repository namespace into CODEX_HOME.
+        for relative in ("agents/harness-coder.toml", "skill/SKILL.md",
+                         "skill/scripts/apply-models.py", "skill/references/handoff.md",
+                         "skill/models.toml", "config.toml", "tools/codex_token_usage.py"):
+            self.assertTrue((REPO / "codex" / relative).is_file(), relative)
+        for old in ("agents", "skill", "config.toml", "tools/codex_token_usage.py"):
+            self.assertFalse((REPO / old).exists(), old)
+        self.create_payload()
+        self.install_candidates(self.user_home / ".agents" / "skills")
+        acquire, _calls = self.acquisition_stub((b"current upstream",))
+        with patch.object(installer, "acquire_external_skills", side_effect=acquire):
+            status, output = self.run_main([])
+        self.assertEqual(status, 0, output)
+        self.assertTrue((self.codex_home / "skills/yunho-harness/SKILL.md").is_file())
+        self.assertTrue((self.codex_home / "agents/harness-coder.toml").is_file())
+        self.assertFalse((self.codex_home / "codex").exists())
 
     def test_install_writes_harness_profiles_and_three_external_skills(self) -> None:
         self.create_payload()
@@ -2605,14 +2623,14 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             set(installer.PROFILE_FILES),
         )
         harness = self.codex_home / "skills" / installer.INSTALL_NAME
-        self.assertEqual(tree_state(harness), tree_state(self.payload / "skill"))
+        self.assertEqual(tree_state(harness), tree_state(self.payload / "codex/skill"))
         for name in REFERENCE_NAMES:
             relative = f"references/{name}.md"
             self.assertTrue((harness / relative).is_file(), relative)
-            self.assertEqual((harness / relative).read_bytes(), (self.payload / "skill" / relative).read_bytes())
+            self.assertEqual((harness / relative).read_bytes(), (self.payload / "codex/skill" / relative).read_bytes())
         for filename, expected in expected_profiles.items():
             target = self.codex_home / "agents" / filename
-            source = self.payload / "agents" / filename
+            source = self.payload / "codex/agents" / filename
             self.assertEqual(target.read_bytes(), expected)
             self.assertEqual(stat.S_IMODE(target.stat().st_mode), stat.S_IMODE(source.stat().st_mode))
         for skill in FILES:
@@ -3183,7 +3201,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
                 "ref": None,
                 "path": path_overrides.get(skill, str(work / ".agents" / "skills" / skill)),
                 "scope": "project",
-                "agents": ["Codex"],
+                "agents": ["Universal"],
                 "mode": "copy",
             }
             for skill in selected_names
@@ -3255,7 +3273,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             [
                 "npx", "--yes", "skills@latest", "add", "https://github.com/obra/superpowers",
                 "--skill", "brainstorming", "writing-plans", "test-driven-development",
-                "--agent", "codex", "--yes", "--copy", "--json",
+                "--agent", "universal", "--yes", "--copy", "--json",
             ],
         )
         self.assertEqual(kwargs["cwd"], work)
@@ -3367,7 +3385,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
                 "source": "obra/superpowers",
                 "ref": None,
                 "scope": "project",
-                "agents": ["Codex"],
+                "agents": ["Universal"],
                 "mode": "copy",
                 "path": str(work / ".agents" / "skills" / skill),
             }
@@ -3385,6 +3403,14 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             acquired,
             {skill: work / ".agents" / "skills" / skill for skill in FILES},
         )
+
+    def test_acquisition_rejects_platform_specific_agent_records(self) -> None:
+        work = self.base / "platform-record"
+        rows = json.loads(self.records(work))
+        for row in rows:
+            row["agents"] = ["Codex"]
+        with self.assertRaises(installer.InstallerError):
+            installer._validate_acquisition_records(json.dumps(rows), work)
 
     def test_acquisition_rejects_unexpected_source_or_pinned_ref(self) -> None:
         work = self.base / "wrong-source"
@@ -3626,7 +3652,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             redirect_stdout(stdout),
             redirect_stderr(stderr),
         ):
-            status = installer.main([])
+            status = installer.main(["--target", "codex"])
 
         self.assertEqual(status, 2, stdout.getvalue() + stderr.getvalue())
         self.assertIn("CODEX_HOME is set but empty", stderr.getvalue())

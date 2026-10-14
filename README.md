@@ -1,6 +1,6 @@
 # Yunho Harness
 
-이 Harness는 Codex의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, 다섯 전문 역할이 배정된 작업을 수행합니다.
+이 Harness는 Codex와 Claude Code의 조사·문서 작성·개발을 역할별로 조율합니다. CEO가 개발을 조율하고, 다섯 전문 역할이 배정된 작업을 수행합니다.
 
 ## 👥 역할과 작업 흐름
 
@@ -34,7 +34,7 @@ UI 수락 기준이 배정되고 작업 요약이 검증 참조의 UI 브라우�
 
 **CEO 직접 경로**: 작은 저위험 조건과 계획 생략 조건을 모두 만족하고 중요 위험 요인이 없는 작업만 CEO가 Planner brainstorming과 Coder 없이 직접 수정합니다. 수정 전에 범위·파일·조건 충족 근거·수락 기준·집중 검증을 짧은 설계로 제시해 사용자의 명시 승인을 받고, Coder 인계 게이트와 같은 실행 대상 선택·Git 상태 확인을 거칩니다. TDD 규칙은 Coder와 같으며, 수정 후 집중 확인으로 기준별 근거를 연결합니다. CEO는 자기 수정에 독립적이지 않으므로 근거가 부족하면 QA를 배정합니다. 범위가 커지거나 위험이 불분명해지면 수정을 멈추고 변경 내용을 기록한 뒤 재분류하며, 이후 수정은 일반 Planner/Coder 흐름의 Coder가 맡습니다. 자동 되돌리기는 하지 않습니다.
 
-설계·계획 깊이와 검증 위험도는 별도로 판단합니다. 행동 변경에는 기본적으로 TDD를 적용하며, 조건을 모두 만족하는 단일 국소 변경만 CEO가 근거를 기록해 실패 우선 절차를 면제할 수 있습니다. 상세 정책은 [Harness 지침](skill/SKILL.md)을 따릅니다.
+설계·계획 깊이와 검증 위험도는 별도로 판단합니다. 행동 변경에는 기본적으로 TDD를 적용하며, 조건을 모두 만족하는 단일 국소 변경만 CEO가 근거를 기록해 실패 우선 절차를 면제할 수 있습니다. 상세 정책은 [Harness 지침](codex/skill/SKILL.md)을 따릅니다.
 
 ## 계획 task 수락과 자동 커밋
 
@@ -60,27 +60,27 @@ plan 생략 가능 경로에 새 계획 의무를 추가하지 않습니다. his
 
 ## 조건별 필수 참조와 Coder 인계
 
-CEO는 핵심 [Harness 지침](skill/SKILL.md)을 읽고, CEO와 각 역할은 아래 조건이 발생하면 해당 참조를 종속 행동 전에 반드시 읽습니다. 하위 역할은 SKILL.md 대신 자신의 프로필과 brief를 따릅니다.
+CEO는 핵심 [Harness 지침](codex/skill/SKILL.md)을 읽고, CEO와 각 역할은 아래 조건이 발생하면 해당 참조를 종속 행동 전에 반드시 읽습니다. 하위 역할은 SKILL.md 대신 자신의 프로필과 brief를 따릅니다.
 CEO는 배정 역할의 작업 요약에 읽어야 할 각 참조 섹션의 접근 가능한 경로와 섹션 이름을 전달합니다. 참조 누락·접근 불가·충돌 시 CEO에게 보고하고 해당 작업을 멈춥니다.
-매 작업에 모든 참조를 읽을 필요는 없습니다. 설치기는 `skill/references/`도 재귀 복사하며 무결성 목록으로 검사합니다.
+매 작업에 모든 참조를 읽을 필요는 없습니다. 설치기는 `codex/skill/references/`도 재귀 복사하며 무결성 목록으로 검사합니다.
 
 | 참조 | 필수 시점 |
 |---|---|
-| [계획](skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
-| [인계](skill/references/handoff.md) | CEO의 Coder 최초 시작·재개 준비 전 (Coder는 CEO가 검증한 brief를 신뢰하고 Coder 프로필을 따르며, 인계 문서는 brief가 지정한 섹션만 읽음) |
-| [인계 준비](skill/references/handoff-prep.md) | 실행 대상 선택 요청, 각 준비 Git 변경(브랜치 생성·전환, 스테이징, 커밋) 전 |
-| [관리형 worktree](skill/references/handoff-worktree.md) | 명시 선택 뒤 생성·branch 작업·문서 전달 전 |
-| [커밋](skill/references/commit.md) | 계획 task 수락과 focused 커밋, 커밋 결과가 불명확한 task 재개 전 |
-| [검증](skill/references/verification.md) | CEO의 검증 설계, QA/Reviewer 배정, 수정 재확인, UI 수락 검사 전 (QA·Reviewer는 각자 프로필을 쓰고 brief가 지정한 섹션만 읽음) |
-| [Git 복구](skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, 메타데이터 쓰기 거부 시 |
-| [Visual companion](skill/references/visual-companion.md) | 시각 자료 제안·시각 보조 도구 운영 전 |
+| [계획](codex/skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
+| [인계](codex/skill/references/handoff.md) | CEO의 Coder 최초 시작·재개 준비 전 (Coder는 CEO가 검증한 brief를 신뢰하고 Coder 프로필을 따르며, 인계 문서는 brief가 지정한 섹션만 읽음) |
+| [인계 준비](codex/skill/references/handoff-prep.md) | 실행 대상 선택 요청, 각 준비 Git 변경(브랜치 생성·전환, 스테이징, 커밋) 전 |
+| [관리형 worktree](codex/skill/references/handoff-worktree.md) | 명시 선택 뒤 생성·branch 작업·문서 전달 전 |
+| [커밋](codex/skill/references/commit.md) | 계획 task 수락과 focused 커밋, 커밋 결과가 불명확한 task 재개 전 |
+| [검증](codex/skill/references/verification.md) | CEO의 검증 설계, QA/Reviewer 배정, 수정 재확인, UI 수락 검사 전 (QA·Reviewer는 각자 프로필을 쓰고 brief가 지정한 섹션만 읽음) |
+| [Git 복구](codex/skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, 메타데이터 쓰기 거부 시 |
+| [Visual companion](codex/skill/references/visual-companion.md) | 시각 자료 제안·시각 보조 도구 운영 전 |
 
 아키텍처 수준(Architectural) 명세의 전체 초안과 자체 검토는 Planner가 반환하고 CEO가 통합·저장·검토한 뒤 서면 명세 승인을 받습니다.
 범위가 제한된(Bounded) 서면 명세는 기존 CEO의 깊이 판단이 요구할 때만 같은 작성·저장·개별 승인 절차를 적용합니다.
 승인된 짧은 설계와 필수 명세를 구별하며, 짧은 설계 저장·승인이 필수 명세 승인을 대신하지 않습니다.
 필요한 명세의 승인 버전을 문서 집합에 포함하고 종속 계획 작성·실행 준비 전에 승인을 완료합니다.
 계획이 필요하다는 이유만으로 명세를 요구하지 않으며, 탐색(Spike)·범위 제한 계획 생략(Bounded plan-skip)·비행동 변경(non-behavior) 경로에 새 명세 의무를 추가하지 않습니다.
-상세 적용 조건과 생략 근거는 [계획 참조](skill/references/planning.md)를 따릅니다.
+상세 적용 조건과 생략 근거는 [계획 참조](codex/skill/references/planning.md)를 따릅니다.
 CEO는 Planner 초안을 대체하는 독립 명세 초안을 작성하지 않으며, 실질적인 누락은 Planner에게 보완 요청합니다.
 최초 명세·계획 저장 전에는 역할·승인 범위·초안과 자체 검토·절대 저장 경로 증거를 확인합니다.
 명세 저장에는 아직 존재하지 않는 서면 명세 승인이나 실행 대상 선택을 요구하지 않습니다.
@@ -141,10 +141,11 @@ Git 복구에서는 잠금 파일 삭제·chmod/chown·권한 우회·작업공�
 
 **준비물:** Python 3.11 이상, Node.js/npm의 `npx`, Git, GitHub·npm에 접근할 네트워크, 전체 저장소.
 
-저장소 루트에서 실행합니다.
+저장소 루트에서 대상 하나를 명시해 실행합니다. `--target codex|claude`는 필수이며, 생략·잘못된 값·중복 지정은 파일 검사나 취득 전에 종료 코드 `2`로 거부합니다. `--help`는 대상 없이 사용할 수 있습니다. 진입점은 `install.command` 하나이며 `python3 install.py --target codex`처럼 Python으로 직접 실행할 수도 있습니다.
 
 ```sh
-python3 install.py
+./install.command --target codex
+./install.command --target claude
 ```
 
 설치기는 내부 파일·모델 설정·프로필을 검사한 뒤, [obra/superpowers](https://github.com/obra/superpowers)에서 다음 세 스킬을 매번 `skills@latest`로 새로 가져옵니다. 별도 수동 설치는 필요하지 않습니다.
@@ -153,7 +154,7 @@ python3 install.py
 brainstorming · writing-plans · test-driven-development
 ```
 
-취득 결과를 검증한 뒤 외부 스킬, Harness, 다섯 역할 프로필을 백업하고 갱신합니다. 기본 설치 위치는 `~/.codex`이며, 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다.
+취득 결과를 검증한 뒤 선택한 대상의 외부 스킬, Harness, 다섯 역할 프로필을 백업하고 갱신합니다. Codex 기본 위치는 `~/.codex`이며 다른 위치는 `CODEX_HOME`으로 지정합니다. 빈 `CODEX_HOME`은 오류입니다. Claude 위치는 `~/.claude`로 고정합니다. `CLAUDE_CONFIG_DIR`는 홈 표기 확장과 문자열 경로 정규화 후 기본 위치와 같을 때만 허용하며 빈 값·상대 경로·비기본 경로는 취득·쓰기 전에 거부합니다. symlink를 따라 기본 위치로 해석하지 않습니다. 각 대상은 상대 플랫폼의 환경 변수와 사용자 설치 경로를 검사하거나 변경하지 않습니다.
 
 선택한 Codex 홈의 `agents/` 바로 아래 정확한 두 관리 프로필 `harness-secretary.toml`, `harness-scout.toml`만 폐기합니다. 후보와 상위 경로의 안전성을 검사하며 symlink·디렉터리·특수 파일은 변경 전에 거부합니다. 취득 전후에 후보의 목록·내용·metadata·identity를 비교해 변경 시 중단합니다. 원본 bytes와 mode를 `backups/<timestamp>/agents/`에 백업하고, 모든 백업·staging 준비 뒤 거래에서 두 폐기 파일을 먼저 복구 가능한 위치로 이동합니다. 이어서 다섯 활성 프로필을 교체하며 실패 시 함께 복구합니다. 복구 실패 시 백업과 복구 자료의 절대 경로를 보고하고 자료를 보존합니다. `yunho-team-*` 경로는 비관리 사용자 파일이므로 탐색·검사·백업·삭제하지 않습니다. 다른 사용자 프로필도 보존합니다. dry-run은 다섯 활성 프로필과 발견된 폐기 경로를 표시하며 파일을 변경하지 않습니다.
 
@@ -170,17 +171,17 @@ brainstorming · writing-plans · test-driven-development
 ### 설치 전 확인
 
 ```sh
-python3 install.py --check    # 로컬 파일·설정·경로 검사
-python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
+./install.command --target codex --check    # 로컬 파일·설정·경로 검사
+./install.command --target claude --dry-run # 같은 검사와 갱신 대상 표시
 ```
 
-`--check`는 `AGENTS.md`·`config.toml`을 고칠 수 있는지도 검사하고, `--dry-run`은 바뀔 전역 파일과 내용을 함께 표시합니다.
+`--check`는 선택한 대상의 전역 파일을 고칠 수 있는지도 검사하고, `--dry-run`은 취득 예정 명령과 갱신 대상을 표시합니다. Codex는 `AGENTS.md`·`config.toml`, Claude는 `CLAUDE.md`만 전역 갱신 대상으로 사용합니다.
 
 두 옵션은 파일을 수정하거나 캐시·백업을 만들지 않고, 하위 프로세스·`npx`·네트워크도 실행하지 않습니다. Node.js/npm·Git 없이 사용할 수 있습니다. 현재 외부 스킬의 필수 파일 구조를 검사하지만, 최신 원본 저장소나 설치된 프로필과 모델 설정의 일치 여부를 확인하지는 않습니다. 설치기 오류의 종료 코드는 `2`입니다.
 
 ## 🔌 전역 설정 자동 반영
 
-`install.command`(또는 `python3 install.py`)는 하네스 스킬·프로필과 함께 Codex 홈의 전역 파일 두 개를 갱신합니다. 반영하지 않으려면 `--skip-global`을 붙입니다.
+`install.command --target codex`(또는 `python3 install.py --target codex`)는 하네스 스킬·프로필과 함께 Codex 홈의 전역 파일 두 개를 갱신합니다. 반영하지 않으려면 `--skip-global`을 붙입니다.
 
 | 파일 | 설치기가 하는 일 |
 |---|---|
@@ -196,7 +197,7 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 - For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the Harness CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
 ```
 
-두 파일은 고치기 전에 이번 설치의 `backups/<timestamp>/global/`에 원본을 보관하고, 하네스 파일과 같은 거래에서 교체하므로 실패하면 함께 되돌립니다. `config.toml`을 읽을 수 없거나 관리 표시가 깨졌거나 UTF-8 파일이 아니면 외부 스킬을 받기 전에 중단하고 아무것도 바꾸지 않습니다. 설치 후 Codex를 다시 시작하거나 새 세션을 엽니다. 저장소의 `config.toml`은 `[agents]` 설정의 선택 참고 예시이며 자동 병합하지 않습니다.
+두 파일은 고치기 전에 이번 설치의 `backups/<timestamp>/global/`에 원본을 보관하고, 하네스 파일과 같은 거래에서 교체하므로 실패하면 함께 되돌립니다. `config.toml`을 읽을 수 없거나 관리 표시가 깨졌거나 UTF-8 파일이 아니면 외부 스킬을 받기 전에 중단하고 아무것도 바꾸지 않습니다. 설치 후 Codex를 다시 시작하거나 새 세션을 엽니다. 저장소의 `codex/config.toml`은 `[agents]` 설정의 선택 참고 예시이며 자동 병합하지 않습니다.
 
 새 세션은 설치된 프로필과 새 역할 ID를 읽습니다. 사용자 작성 외부 설정·스크립트·문서의 역할 참조는 새 `harness_<role>` ID와 `harness-<role>.toml` 파일명으로 직접 수정해야 합니다. 과거 계획·명세·요약 문서의 명칭도 현재 체계로 정규화했으며, 날짜·승인 사실·폐기 역할의 당시 의미는 유지합니다.
 
@@ -204,7 +205,7 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 
 ## ⚙️ 모델 변경
 
-[skill/models.toml](skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다. 한정 Scouter 조회에만 CEO가 `fork_turns="none"`과 `reasoning_effort="medium"`으로 Scouter를 시작하고 선택과 이유를 brief에 기록하며, 그 밖에는 설정값을 대체 없이 사용합니다.
+[codex/skill/models.toml](codex/skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다. 한정 Scouter 조회에만 CEO가 `fork_turns="none"`과 `reasoning_effort="medium"`으로 Scouter를 시작하고 선택과 이유를 brief에 기록하며, 그 밖에는 설정값을 대체 없이 사용합니다.
 
 ```toml
 version = 5
@@ -231,5 +232,31 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 - 기존 대상은 선택한 Codex 홈의 `backups/<timestamp>/`에 보존합니다. 외부 스킬은 전체 트리를 교체하므로 개인 수정과 원본 저장소에서 삭제된 파일은 설치 위치에서 사라집니다. 이전 내용은 백업에서 직접 복원하세요.
 - 취득·검증을 마친 뒤 설치 대상을 교체하며, 중간 오류에서는 완료된 교체를 역순으로 복구합니다. 전체 파일시스템에 걸친 원자성은 보장하지 않습니다. 복구 실패 시 출력된 백업·복구 데이터(recovery) 경로를 보존해 수동 복구에 사용하세요.
 - 외부 스킬 후보와 상위 경로의 심볼릭 링크는 일반 설치에서 거부합니다. 취득한 트리는 내부의 유효한 링크만 허용하고, 외부로 나가는 링크·끊어진 링크·순환 링크·특수 파일은 거부합니다.
-- `MANIFEST.sha256`은 설치기·README·선택된 내부 스킬 및 프로필 파일의 무결성을 검사합니다. 편집 가능한 `skill/models.toml`은 제외하고 별도로 설정 형식을 검사합니다. `skill/`, `agents/` 아래 일반 파일인 `.DS_Store`는 제외하며 같은 이름의 다른 항목 유형은 오류입니다.
+- `MANIFEST.sha256`은 설치기·README·선택된 내부 스킬 및 프로필 파일의 무결성을 검사합니다. 편집 가능한 `codex/skill/models.toml`은 제외하고 별도로 설정 형식을 검사합니다. `codex/skill/`, `codex/agents/` 아래 일반 파일인 `.DS_Store`는 제외하며 같은 이름의 다른 항목 유형은 오류입니다.
 - 외부 스킬은 특정 버전이나 해시로 고정하지 않습니다. CLI 결과와 트리 구조를 검증하지만 원격 출처를 독립적으로 암호학적 인증하지는 않습니다. 내부 무결성 목록 역시 자체 진위나 원격 모델 지원을 증명하지 않습니다.
+
+## Claude Code payload
+
+Claude 전용 소스는 `claude/agents/`와 `claude/skill/`에 있습니다. `./install.command --target claude`로 설치합니다. Claude 설치는 `~/.claude/skills/{yunho-harness,brainstorming,writing-plans,test-driven-development}/`와 `~/.claude/agents/harness-*.md`를 갱신합니다. 공유 `~/.agents/skills/`와 Codex 폐기 프로필은 접근하지 않습니다. `~/.claude/CLAUDE.md`의 Harness 관리 구간만 갱신하고 관리 구간 밖 사용자 내용을 보존합니다. `settings.json`, `AGENTS.md`, `config.toml`은 Claude 전역 갱신 대상이 아닙니다. `--skip-global`은 `CLAUDE.md`를 그대로 두고 수동 반영 안내를 출력합니다.
+
+두 대상 모두 백업과 staging을 마친 뒤 교체하며, 취득 중 관리 대상 변경이 감지되면 교체 전에 중단합니다. 교체 실패는 기존 bytes와 mode로 복구하고, 복구 자체가 실패하면 백업과 복구 자료의 절대 경로를 출력하며 자료를 남깁니다. 해당 경로를 보존한 뒤 원인을 해결하고 수동 복구 상태를 확인하세요.
+
+Claude CEO는 현재 세션 모델을 유지하고, 역할은 다음 선언을 사용합니다.
+
+| 역할 | 모델 | effort |
+|---|---|---|
+| Scouter | haiku | max |
+| Planner | sonnet | medium |
+| Coder | sonnet | low |
+| QA | haiku | high |
+| Reviewer | sonnet | medium |
+
+설치 후 `~/.claude/skills/yunho-harness/models.toml`을 수정하고 다음 명령으로 Claude 프로필 다섯 개에 재적용할 수 있습니다.
+
+```sh
+python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py
+```
+
+`--config`, `--agents-dir`, `--check`, `--dry-run`을 지원합니다. 읽기 전용 옵션은 파일을 변경하지 않습니다. 전체 설정과 프로필을 검증한 뒤 교체하며, 부분 실패 시 기존 bytes와 mode를 복구합니다. Codex 설정과 프로필은 별도입니다. 모델·effort는 제공자 간 근사 매핑이며 가용성·계정 권한·실제 effort 적용은 로컬 검사로 보장하지 않습니다.
+
+Claude v1은 현재 checkout 실행을 지원하며, Harness 관리 worktree 실행은 지원하지 않습니다. CEO는 사용자에게 checkout·branch 선택을 명시적으로 확인하고 승인된 문서·파일 소유권·검증 범위를 역할에 전달합니다. 동시 subagent는 최대 네 개이고 모든 역할은 CEO에게 직접 보고합니다. Coder·QA의 Bash 권한은 정책 제약을 따르며 파일시스템 sandbox를 뜻하지 않습니다.

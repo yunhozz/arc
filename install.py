@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the staged Yunho Harness files into a Codex home."""
+"""Install staged Yunho Harness files into an explicitly selected platform home."""
 
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ REQUIRED_EXTERNAL_FILES = {
     "writing-plans": ("SKILL.md",),
     "test-driven-development": ("SKILL.md", "writing-good-tests.md"),
 }
-MANIFEST_REQUIRED_ROOTS = ("skill", "agents")
+MANIFEST_REQUIRED_ROOTS = ("codex/skill", "codex/agents", "claude/skill", "claude/agents")
 MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md")
-MUTABLE_PAYLOAD_FILES = {"skill/models.toml"}
+MUTABLE_PAYLOAD_FILES = {"codex/skill/models.toml", "claude/skill/models.toml"}
 MANIFEST_LINE = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
 EXTERNAL_SOURCE = "https://github.com/obra/superpowers"
 EXTERNAL_FETCH_TIMEOUT_SECONDS = 300
@@ -64,6 +64,33 @@ GLOBAL_END = "<!-- yunho-harness:end -->"
 HARNESS_HEADING = "## Yunho's Harness"
 HARNESS_SECTION = re.compile(r"(?im)^(#{1,6})[ \t]+(?:\d+\.[ \t]*)?yunho'?s harness[ \t]*\r?$")
 WAIT_SETTINGS = (("min_wait_timeout_ms", 120000), ("default_wait_timeout_ms", 300000))
+
+
+@dataclass(frozen=True)
+class TargetSpec:
+    name: str
+    payload_root: Path
+    home: Path
+    profile_files: tuple[str, ...]
+
+
+def resolve_target(name: str, root: Path, user_home: Path | None = None) -> TargetSpec:
+    user_home = absolute(Path.home() if user_home is None else user_home)
+    if name == "codex":
+        return TargetSpec(name, root / name, codex_home(), PROFILE_FILES)
+    if name != "claude":
+        raise InstallerError("target must be codex or claude")
+    home = user_home / ".claude"
+    if "CLAUDE_CONFIG_DIR" in os.environ:
+        raw = os.environ["CLAUDE_CONFIG_DIR"]
+        expanded = Path(raw).expanduser()
+        if not raw.strip() or not expanded.is_absolute() or absolute(expanded) != home:
+            raise InstallerError("nondefault, relative, or empty CLAUDE_CONFIG_DIR is unsupported; use ~/.claude")
+    return TargetSpec(name, root / name, home, tuple(name.replace(".toml", ".md") for name in PROFILE_FILES))
+
+
+def _selected(root: Path, home: Path, target: TargetSpec | None) -> TargetSpec:
+    return target if target is not None else TargetSpec("codex", root / "codex", home, PROFILE_FILES)
 
 
 class InstallerError(Exception):
@@ -139,10 +166,12 @@ def validate_required_external_files(root: Path, required_files: tuple[str, ...]
         raise InstallerError("\n".join(errors))
 
 
-def validate_external_skills(home: Path, user_home: Path) -> None:
+def validate_external_skills(home: Path, user_home: Path, *, include_shared: bool = True) -> None:
     """Read-only validation of required files in supported external skill locations."""
     errors: list[str] = []
-    bases = (absolute(home / "skills"), absolute(user_home / ".agents" / "skills"))
+    bases = (absolute(home / "skills"),)
+    if include_shared:
+        bases += (absolute(user_home / ".agents" / "skills"),)
     for skill, required_files in REQUIRED_EXTERNAL_FILES.items():
         found = False
         seen: set[Path] = set()
@@ -191,7 +220,7 @@ def _validate_backupable_tree(root: Path) -> None:
                 raise InstallerError(f"existing external skill tree contains a special file: {entry}")
 
 
-def external_candidate_paths(home: Path, user_home: Path) -> dict[str, tuple[Path, ...]]:
+def external_candidate_paths(home: Path, user_home: Path, *, include_shared: bool = True) -> dict[str, tuple[Path, ...]]:
     """List selected and existing legacy paths for read-only dry-run reporting."""
     home = absolute(home)
     user_home = absolute(user_home)
@@ -199,14 +228,15 @@ def external_candidate_paths(home: Path, user_home: Path) -> dict[str, tuple[Pat
     for skill in REQUIRED_EXTERNAL_FILES:
         selected = home / "skills" / skill
         paths = [selected]
-        legacy = user_home / ".agents" / "skills" / skill
-        if os.path.lexists(legacy):
-            paths.append(legacy)
+        if include_shared:
+            legacy = user_home / ".agents" / "skills" / skill
+            if os.path.lexists(legacy):
+                paths.append(legacy)
         targets[skill] = tuple(paths)
     return targets
 
 
-def external_write_targets(home: Path, user_home: Path) -> dict[str, tuple[Path, ...]]:
+def external_write_targets(home: Path, user_home: Path, *, include_shared: bool = True) -> dict[str, tuple[Path, ...]]:
     """Resolve safe selected-home targets and existing legacy targets without writing."""
     home = absolute(home)
     user_home = absolute(user_home)
@@ -239,10 +269,11 @@ def external_write_targets(home: Path, user_home: Path) -> dict[str, tuple[Path,
         selected = home / "skills" / skill
         paths = [selected]
         validate_target(selected)
-        legacy = user_home / ".agents" / "skills" / skill
-        if os.path.lexists(legacy):
-            validate_target(legacy)
-            paths.append(legacy)
+        if include_shared:
+            legacy = user_home / ".agents" / "skills" / skill
+            if os.path.lexists(legacy):
+                validate_target(legacy)
+                paths.append(legacy)
         targets[skill] = tuple(dict.fromkeys(paths))
     return targets
 
@@ -457,7 +488,7 @@ def _validate_acquisition_records(stdout: str, work: Path) -> None:
             or "ref" not in record
             or record["ref"] is not None
             or record.get("scope") != "project"
-            or record.get("agents") != ["Codex"]
+            or record.get("agents") != ["Universal"]
             or record.get("mode") != "copy"
         ):
             raise InstallerError(f"external skill CLI did not install {skill} in the required mode")
@@ -492,7 +523,7 @@ def external_acquisition_command() -> list[str]:
     return [
         "npx", "--yes", "skills@latest", "add", EXTERNAL_SOURCE,
         "--skill", *REQUIRED_EXTERNAL_FILES,
-        "--agent", "codex", "--yes", "--copy", "--json",
+        "--agent", "universal", "--yes", "--copy", "--json",
     ]
 
 
@@ -683,13 +714,16 @@ def staged_root() -> Path:
     reject_symlink_components(script)
     require_regular_file(script)
     root = script.parent
-    selected_tree_files(root / "skill")
-    selected_tree_files(root / "agents")
-    require_regular_file(root / "skill" / "models.toml")
-    require_regular_file(root / "skill" / "scripts" / "apply-models.py")
-    require_regular_file(root / "skill" / "scripts" / "model_config.py")
-    for filename in PROFILE_FILES:
-        require_regular_file(root / "agents" / filename)
+    for name in ("codex", "claude"):
+        payload = root / name
+        selected_tree_files(payload / "skill")
+        selected_tree_files(payload / "agents")
+        require_regular_file(payload / "skill" / "models.toml")
+        require_regular_file(payload / "skill" / "scripts" / "apply-models.py")
+        require_regular_file(payload / "skill" / "scripts" / "model_config.py")
+        suffix = ".toml" if name == "codex" else ".md"
+        for filename in PROFILE_FILES:
+            require_regular_file(payload / "agents" / filename.replace(".toml", suffix))
     for filename in MANIFEST_REQUIRED_FILES:
         require_regular_file(root / filename)
     return root
@@ -748,8 +782,9 @@ def verify_manifest(root: Path) -> None:
     print(f"Immutable payload manifest verified ({len(listed)} files).")
 
 
-def load_model_module(root: Path) -> ModuleType:
-    module_path = absolute(root / "skill" / "scripts" / "model_config.py")
+def load_model_module(root: Path, target: TargetSpec | None = None) -> ModuleType:
+    payload = root / "codex" if target is None else target.payload_root
+    module_path = absolute(payload / "skill" / "scripts" / "model_config.py")
     try:
         spec = importlib.util.spec_from_file_location("_yunho_harness_model_config", module_path)
         if spec is None or spec.loader is None:
@@ -773,8 +808,9 @@ def load_model_module(root: Path) -> ModuleType:
     return module
 
 
-def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
-    config_path = root / "skill" / "models.toml"
+def preflight_profiles(root: Path, module: ModuleType, target: TargetSpec | None = None) -> dict[str, bytes]:
+    payload = root / "codex" if target is None else target.payload_root
+    config_path = payload / "skill" / "models.toml"
     try:
         settings = module.load_settings(config_path)
     except module.ValidationError as exc:
@@ -782,17 +818,22 @@ def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
 
     rendered: dict[str, bytes] = {}
     for role, filename in module.ROLE_FILES.items():
-        source = root / "agents" / filename
+        source = payload / "agents" / filename
         try:
             require_regular_file(source)
             content = source.read_bytes()
-            module.validate_template(content, role, source)
-            rendered[filename] = module.render_profile(content, role, settings[role], source)
+            if target is not None and target.name == "claude":
+                if module.parse_profile(content)["name"] != filename[:-3]:
+                    raise InstallerError(f"profile name does not match filename: {source}")
+                rendered[filename] = module.render_profile(content, settings[role])
+            else:
+                module.validate_template(content, role, source)
+                rendered[filename] = module.render_profile(content, role, settings[role], source)
         except module.ValidationError as exc:
             raise InstallerError(str(exc)) from exc
         except OSError as exc:
             raise InstallerError(f"cannot read source profile {source}: {exc}") from exc
-    if set(rendered) != set(PROFILE_FILES):
+    if set(rendered) != set(PROFILE_FILES if target is None else target.profile_files):
         raise InstallerError("shared model configuration does not define exactly the five profile files")
     return rendered
 
@@ -885,13 +926,15 @@ def install_plan(
     *,
     user_home: Path | None = None,
     validate_external: bool = True,
+    target: TargetSpec | None = None,
 ) -> tuple[Path, Path, Path, dict[str, Path]]:
+    target = _selected(root, home, target)
     user_home = absolute(Path.home() if user_home is None else user_home)
     skills_dir = home / "skills"
     agents_dir = home / "agents"
     backups_dir = home / "backups"
     harness_target = skills_dir / INSTALL_NAME
-    profile_targets = {filename: agents_dir / filename for filename in PROFILE_FILES}
+    profile_targets = {filename: agents_dir / filename for filename in target.profile_files}
 
     for path in (home, skills_dir, agents_dir, backups_dir, harness_target, *profile_targets.values()):
         reject_symlink_components(path)
@@ -903,9 +946,13 @@ def install_plan(
     if harness_target.exists():
         reject_symlinks_in_tree(harness_target)
 
-    retired_profile_targets(home)
+    if target.name == "codex":
+        retired_profile_targets(home)
     if validate_external:
-        validate_external_skills(home, user_home)
+        if target.name == "codex":
+            validate_external_skills(home, user_home)
+        else:
+            validate_external_skills(home, user_home, include_shared=False)
     return skills_dir, agents_dir, backups_dir, profile_targets
 
 
@@ -1011,12 +1058,13 @@ def render_config_toml(text: str | None, path: Path) -> tuple[str | None, str]:
     return updated, "set Harness wait settings"
 
 
-def plan_global_updates(home: Path, user_home: Path) -> tuple[list[tuple[Path, bytes, str]], list[str]]:
+def plan_global_updates(home: Path, user_home: Path, target: TargetSpec | None = None) -> tuple[list[tuple[Path, bytes, str]], list[str]]:
     """Plan AGENTS.md and config.toml updates without writing; return changes and notes."""
     updates: list[tuple[Path, bytes, str]] = []
     notes: list[str] = []
-    agents, config = home / "AGENTS.md", home / "config.toml"
-    for path in (agents, config):
+    claude = target is not None and target.name == "claude"
+    agents, config = home / ("CLAUDE.md" if claude else "AGENTS.md"), home / "config.toml"
+    for path in ((agents,) if claude else (agents, config)):
         reject_symlink_components(path)
         check_file_or_missing(path)
 
@@ -1035,6 +1083,8 @@ def plan_global_updates(home: Path, user_home: Path) -> tuple[list[tuple[Path, b
     if current is not None and HARNESS_SECTION.search(_remove_managed_block(current, agents)[0]):
         notes.append(f"{agents}: an existing Yunho's Harness section outside the managed block was kept; "
                      "remove it if its rules overlap the managed block")
+    if claude:
+        return updates, notes
     current = read(config)
     rendered, action = render_config_toml(current, config)
     if rendered is None:
@@ -1160,7 +1210,10 @@ def _transactional_install(
     *,
     retired_targets: dict[str, Path],
     global_updates: list[tuple[Path, bytes, str]] = (),
+    target: TargetSpec | None = None,
 ) -> Path:
+    selected_target = _selected(root, home, target)
+    payload = selected_target.payload_root
     harness_target = skills_dir / INSTALL_NAME
     directories = {home, skills_dir, agents_dir, backups_dir}
     directories.update(target.parent for paths in external_targets.values() for target in paths)
@@ -1195,19 +1248,20 @@ def _transactional_install(
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
         staged_harness = skill_stage_area / INSTALL_NAME
-        _copy_harness_to_stage(root / "skill", staged_harness)
-        model_config = load_model_module(root)
+        _copy_harness_to_stage(payload / "skill", staged_harness)
+        model_config = load_model_module(root, selected_target)
         try:
-            settings = model_config.load_settings(root / "skill" / "models.toml")
-            (staged_harness / "models.toml").write_bytes(model_config.serialize_settings(settings))
+            settings = model_config.load_settings(payload / "skill" / "models.toml")
+            if selected_target.name == "codex":
+                (staged_harness / "models.toml").write_bytes(model_config.serialize_settings(settings))
         except model_config.ValidationError as exc:
             raise InstallerError(str(exc)) from exc
         staged_targets.append((harness_target, staged_harness, skill_stage_area))
 
         profile_stage_area = create_stage_area(agents_dir, "profiles")
         stage_areas.append(profile_stage_area)
-        for filename in PROFILE_FILES:
-            source = root / "agents" / filename
+        for filename in selected_target.profile_files:
+            source = payload / "agents" / filename
             staged = profile_stage_area / filename
             try:
                 with staged.open("xb") as handle:
@@ -1301,6 +1355,71 @@ def _transactional_install(
     return backup_root
 
 
+def snapshot_managed_targets(paths: tuple[Path, ...]) -> tuple:
+    """Read selected entries through no-follow descriptors, including every ancestor."""
+    records = []
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+    def metadata(info: os.stat_result) -> tuple:
+        return (info.st_mode, info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def visit(name: str, parent_fd: int, path: Path) -> None:
+        try:
+            info = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            records.append((path, None))
+            return
+        before = metadata(info)
+        if stat.S_ISLNK(info.st_mode):
+            content = os.readlink(name, dir_fd=parent_fd)
+        elif stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode):
+            directory = stat.S_ISDIR(info.st_mode)
+            flags = directory_flags if directory else os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+            descriptor = os.open(name, flags, dir_fd=parent_fd)
+            try:
+                if metadata(os.fstat(descriptor)) != before:
+                    raise InstallerError(f"managed target changed during snapshot: {path}")
+                if directory:
+                    content = None
+                    for child in sorted(os.listdir(descriptor)):
+                        visit(child, descriptor, path / child)
+                else:
+                    digest = hashlib.sha256()
+                    while chunk := os.read(descriptor, 1024 * 1024):
+                        digest.update(chunk)
+                    content = digest.digest()
+                if metadata(os.fstat(descriptor)) != before:
+                    raise InstallerError(f"managed target changed during snapshot: {path}")
+            finally:
+                os.close(descriptor)
+        else:
+            raise InstallerError(f"special entry in managed install target: {path}")
+        if metadata(os.stat(name, dir_fd=parent_fd, follow_symlinks=False)) != before:
+            raise InstallerError(f"managed target changed during snapshot: {path}")
+        records.append((path, before, content))
+
+    for raw_path in paths:
+        path = absolute(raw_path)
+        parent_fd = os.open(path.anchor, directory_flags)
+        try:
+            missing = False
+            for component in path.parts[1:-1]:
+                try:
+                    child_fd = os.open(component, directory_flags, dir_fd=parent_fd)
+                except FileNotFoundError:
+                    missing = True
+                    break
+                os.close(parent_fd)
+                parent_fd = child_fd
+            if missing:
+                records.append((path, None))
+            else:
+                visit(path.name, parent_fd, path)
+        finally:
+            os.close(parent_fd)
+    return tuple(records)
+
+
 def perform_install(
     root: Path,
     home: Path,
@@ -1309,22 +1428,27 @@ def perform_install(
     *,
     user_home: Path | None = None,
     skip_global: bool = False,
+    target: TargetSpec | None = None,
 ) -> None:
+    target = _selected(root, home, target)
+    runtime_name = "Codex" if target.name == "codex" else "Claude Code"
     user_home = absolute(Path.home() if user_home is None else user_home)
     skills_dir, agents_dir, backups_dir, profile_targets = install_plan(
         root,
         home,
         user_home=user_home,
         validate_external=dry_run,
+        target=target,
     )
-    global_updates, global_notes = ([], []) if skip_global else plan_global_updates(home, user_home)
-    retired_snapshot = retired_profile_snapshot(home)
+    global_updates, global_notes = ([], []) if skip_global else plan_global_updates(home, user_home, target)
+    retired_snapshot = retired_profile_snapshot(home) if target.name == "codex" else {}
     retired_targets = {name: snapshot.path for name, snapshot in retired_snapshot.items()}
-    external_targets = (
-        external_candidate_paths(home, user_home)
-        if dry_run
-        else external_write_targets(home, user_home)
-    )
+    def selected_external_targets():
+        function = external_candidate_paths if dry_run else external_write_targets
+        if target.name == "codex":
+            return function(home, user_home)
+        return function(home, user_home, include_shared=False)
+    external_targets = selected_external_targets()
     if dry_run:
         print(f"Would acquire with: {shlex.join(external_acquisition_command())}")
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
@@ -1338,14 +1462,23 @@ def perform_install(
             print(f"Global file note: {note}")
         return
 
+    managed_paths = (
+        skills_dir / INSTALL_NAME,
+        *profile_targets.values(),
+        *(path for paths in external_targets.values() for path in paths),
+    )
+    managed_snapshot = snapshot_managed_targets(managed_paths)
     with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
         acquired = acquire_external_skills(Path(temporary))
-        if external_write_targets(home, user_home) != external_targets:
+        if selected_external_targets() != external_targets:
             raise InstallerError("external skill targets changed during acquisition; refusing to install")
-        if retired_profile_snapshot(home) != retired_snapshot:
+        if target.name == "codex" and retired_profile_snapshot(home) != retired_snapshot:
             raise InstallerError("retired profile candidates changed during acquisition; refusing to install")
-        if not skip_global and plan_global_updates(home, user_home) != (global_updates, global_notes):
-            raise InstallerError("AGENTS.md or config.toml changed during acquisition; refusing to install")
+        if not skip_global and plan_global_updates(home, user_home, target) != (global_updates, global_notes):
+            files = "CLAUDE.md" if target.name == "claude" else "AGENTS.md or config.toml"
+            raise InstallerError(f"{files} changed during acquisition; refusing to install")
+        if snapshot_managed_targets(managed_paths) != managed_snapshot:
+            raise InstallerError("managed install targets changed during acquisition; refusing to install")
         backup_root = _transactional_install(
             root,
             home,
@@ -1358,6 +1491,7 @@ def perform_install(
             profile_targets,
             retired_targets=retired_targets,
             global_updates=global_updates,
+            target=target,
         )
 
     print(f"Installed three external skills, Harness skill and profiles under: {home}")
@@ -1370,36 +1504,47 @@ def perform_install(
         for target, _, action in global_updates:
             print(f"전역 파일 갱신: {target} ({action})")
         if not global_updates:
-            print("전역 파일: AGENTS.md와 config.toml이 이미 최신입니다.")
+            print("전역 파일이 이미 최신입니다.")
     for note in global_notes:
         print(f"전역 파일 확인 필요: {note}")
-    print("Codex를 다시 시작하거나 새 세션을 열어 적용하세요.")
+    print(f"{runtime_name}를 다시 시작하거나 새 세션을 열어 적용하세요.")
+
+
+class SingleTarget(argparse.Action):
+    def __call__(self, parser, namespace, value, option_string=None):
+        if getattr(namespace, self.dest, None) is not None:
+            parser.error("--target must be specified exactly once")
+        setattr(namespace, self.dest, value)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Install the staged Yunho Harness into a Codex home.")
+    parser = argparse.ArgumentParser(description="Install Yunho Harness for Codex or Claude Code.", allow_abbrev=False)
+    parser.add_argument("--target", required=True, choices=("codex", "claude"), action=SingleTarget,
+                        help="required installation platform (specify exactly once)")
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--check", action="store_true", help="validate the staged manifest and all five profiles without installing")
     action.add_argument("--dry-run", action="store_true", help="show planned targets without writing files")
-    parser.add_argument("--skip-global", action="store_true", help="do not update AGENTS.md and config.toml in the Codex home")
+    parser.add_argument("--skip-global", action="store_true", help="skip selected-platform global instructions/config updates")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        # Resolve platform environment before touching the distribution or user files.
+        target = resolve_target(args.target, absolute(Path(__file__)).parent)
         root = staged_root()
         verify_manifest(root)
-        model_config = load_model_module(root)
-        rendered_profiles = preflight_profiles(root, model_config)
-        home = codex_home()
+        model_config = load_model_module(root, target)
+        rendered_profiles = preflight_profiles(root, model_config, target)
+        home = target.home
         if args.check:
-            install_plan(root, home)
+            install_plan(root, home, target=target)
             if not args.skip_global:
-                plan_global_updates(home, absolute(Path.home()))
+                plan_global_updates(home, absolute(Path.home()), target)
             print("Installer payload preflight passed.")
             return 0
-        perform_install(root, home, rendered_profiles, dry_run=args.dry_run, skip_global=args.skip_global)
+        perform_install(root, home, rendered_profiles, dry_run=args.dry_run, skip_global=args.skip_global, target=target)
         return 0
     except (InstallerError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)

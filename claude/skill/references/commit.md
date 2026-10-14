@@ -1,0 +1,5 @@
+# Focused commits
+
+CEO reviews task evidence and accepts the approved task before committing. Verify approved plan/task, absolute workspace, branch/HEAD, index/worktree/untracked state and ownership. Stage exactly the accepted task paths; inspect staged scope and content to exclude unrelated changes. Commit one logical task promptly, using Conventional Commits and a concise Korean description when repository instructions require it. Planning documents have their own batch docs commit before Coder handoff.
+
+After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state. Preserve unrelated changes; never automatically unstage, amend, reset, clean, stash, or delete branches. On failure stop dependent work and report actual state and completed steps. Do not blindly repeat a commit or staging command. Push, publication and merge require user authorization. A role may commit only when CEO explicitly assigns that action; CEO retains acceptance authority.

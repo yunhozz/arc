@@ -1,0 +1,21 @@
+version = 1
+
+[roles.harness_scouter]
+model = "haiku"
+effort = "max"
+
+[roles.harness_planner]
+model = "sonnet"
+effort = "medium"
+
+[roles.harness_coder]
+model = "sonnet"
+effort = "low"
+
+[roles.harness_qa]
+model = "haiku"
+effort = "high"
+
+[roles.harness_reviewer]
+model = "sonnet"
+effort = "medium"

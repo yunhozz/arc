@@ -12,7 +12,7 @@ import unittest
 from unittest import mock
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "tools" / "codex_token_usage.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "codex" / "tools" / "codex_token_usage.py"
 
 
 def load_module():
