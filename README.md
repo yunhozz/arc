@@ -34,7 +34,7 @@ UI 수락 기준이 배정되고 작업 요약이 검증 참조의 UI 브라우�
 
 **CEO 직접 경로**: 작은 저위험 조건과 계획 생략 조건을 모두 만족하고 중요 위험 요인이 없는 작업만 CEO가 Planner brainstorming과 Coder 없이 직접 수정합니다. 수정 전에 범위·파일·조건 충족 근거·수락 기준·집중 검증을 짧은 설계로 제시해 사용자의 명시 승인을 받고, Coder 인계 게이트와 같은 실행 대상 선택·Git 상태 확인을 거칩니다. TDD 규칙은 Coder와 같으며, 수정 후 집중 확인으로 기준별 근거를 연결합니다. CEO는 자기 수정에 독립적이지 않으므로 근거가 부족하면 QA를 배정합니다. 범위가 커지거나 위험이 불분명해지면 수정을 멈추고 변경 내용을 기록한 뒤 재분류하며, 이후 수정은 일반 Planner/Coder 흐름의 Coder가 맡습니다. 자동 되돌리기는 하지 않습니다.
 
-설계·계획 깊이와 검증 위험도는 별도로 판단합니다. 행동 변경에는 기본적으로 TDD를 적용하며, 조건을 모두 만족하는 단일 국소 변경만 CEO가 근거를 기록해 실패 우선 절차를 면제할 수 있습니다. 상세 정책은 [Harness 지침](skill/SKILL.md)을 따릅니다.
+설계·계획 깊이와 검증 위험도는 별도로 판단합니다. 행동 변경에는 기본적으로 TDD를 적용하며, 조건을 모두 만족하는 단일 국소 변경만 CEO가 근거를 기록해 실패 우선 절차를 면제할 수 있습니다. 상세 정책은 [Harness 지침](codex/skill/SKILL.md)을 따릅니다.
 
 ## 계획 task 수락과 자동 커밋
 
@@ -60,27 +60,27 @@ plan 생략 가능 경로에 새 계획 의무를 추가하지 않습니다. his
 
 ## 조건별 필수 참조와 Coder 인계
 
-CEO는 핵심 [Harness 지침](skill/SKILL.md)을 읽고, CEO와 각 역할은 아래 조건이 발생하면 해당 참조를 종속 행동 전에 반드시 읽습니다. 하위 역할은 SKILL.md 대신 자신의 프로필과 brief를 따릅니다.
+CEO는 핵심 [Harness 지침](codex/skill/SKILL.md)을 읽고, CEO와 각 역할은 아래 조건이 발생하면 해당 참조를 종속 행동 전에 반드시 읽습니다. 하위 역할은 SKILL.md 대신 자신의 프로필과 brief를 따릅니다.
 CEO는 배정 역할의 작업 요약에 읽어야 할 각 참조 섹션의 접근 가능한 경로와 섹션 이름을 전달합니다. 참조 누락·접근 불가·충돌 시 CEO에게 보고하고 해당 작업을 멈춥니다.
-매 작업에 모든 참조를 읽을 필요는 없습니다. 설치기는 `skill/references/`도 재귀 복사하며 무결성 목록으로 검사합니다.
+매 작업에 모든 참조를 읽을 필요는 없습니다. 설치기는 `codex/skill/references/`도 재귀 복사하며 무결성 목록으로 검사합니다.
 
 | 참조 | 필수 시점 |
 |---|---|
-| [계획](skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
-| [인계](skill/references/handoff.md) | CEO의 Coder 최초 시작·재개 준비 전 (Coder는 CEO가 검증한 brief를 신뢰하고 Coder 프로필을 따르며, 인계 문서는 brief가 지정한 섹션만 읽음) |
-| [인계 준비](skill/references/handoff-prep.md) | 실행 대상 선택 요청, 각 준비 Git 변경(브랜치 생성·전환, 스테이징, 커밋) 전 |
-| [관리형 worktree](skill/references/handoff-worktree.md) | 명시 선택 뒤 생성·branch 작업·문서 전달 전 |
-| [커밋](skill/references/commit.md) | 계획 task 수락과 focused 커밋, 커밋 결과가 불명확한 task 재개 전 |
-| [검증](skill/references/verification.md) | CEO의 검증 설계, QA/Reviewer 배정, 수정 재확인, UI 수락 검사 전 (QA·Reviewer는 각자 프로필을 쓰고 brief가 지정한 섹션만 읽음) |
-| [Git 복구](skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, 메타데이터 쓰기 거부 시 |
-| [Visual companion](skill/references/visual-companion.md) | 시각 자료 제안·시각 보조 도구 운영 전 |
+| [계획](codex/skill/references/planning.md) | 설계/계획 깊이 판단, spec/plan 작성·승인과 최초 저장 전 |
+| [인계](codex/skill/references/handoff.md) | CEO의 Coder 최초 시작·재개 준비 전 (Coder는 CEO가 검증한 brief를 신뢰하고 Coder 프로필을 따르며, 인계 문서는 brief가 지정한 섹션만 읽음) |
+| [인계 준비](codex/skill/references/handoff-prep.md) | 실행 대상 선택 요청, 각 준비 Git 변경(브랜치 생성·전환, 스테이징, 커밋) 전 |
+| [관리형 worktree](codex/skill/references/handoff-worktree.md) | 명시 선택 뒤 생성·branch 작업·문서 전달 전 |
+| [커밋](codex/skill/references/commit.md) | 계획 task 수락과 focused 커밋, 커밋 결과가 불명확한 task 재개 전 |
+| [검증](codex/skill/references/verification.md) | CEO의 검증 설계, QA/Reviewer 배정, 수정 재확인, UI 수락 검사 전 (QA·Reviewer는 각자 프로필을 쓰고 brief가 지정한 섹션만 읽음) |
+| [Git 복구](codex/skill/references/git-recovery.md) | 브랜치 충돌, 준비 실패, 부분 완료, 메타데이터 쓰기 거부 시 |
+| [Visual companion](codex/skill/references/visual-companion.md) | 시각 자료 제안·시각 보조 도구 운영 전 |
 
 아키텍처 수준(Architectural) 명세의 전체 초안과 자체 검토는 Planner가 반환하고 CEO가 통합·저장·검토한 뒤 서면 명세 승인을 받습니다.
 범위가 제한된(Bounded) 서면 명세는 기존 CEO의 깊이 판단이 요구할 때만 같은 작성·저장·개별 승인 절차를 적용합니다.
 승인된 짧은 설계와 필수 명세를 구별하며, 짧은 설계 저장·승인이 필수 명세 승인을 대신하지 않습니다.
 필요한 명세의 승인 버전을 문서 집합에 포함하고 종속 계획 작성·실행 준비 전에 승인을 완료합니다.
 계획이 필요하다는 이유만으로 명세를 요구하지 않으며, 탐색(Spike)·범위 제한 계획 생략(Bounded plan-skip)·비행동 변경(non-behavior) 경로에 새 명세 의무를 추가하지 않습니다.
-상세 적용 조건과 생략 근거는 [계획 참조](skill/references/planning.md)를 따릅니다.
+상세 적용 조건과 생략 근거는 [계획 참조](codex/skill/references/planning.md)를 따릅니다.
 CEO는 Planner 초안을 대체하는 독립 명세 초안을 작성하지 않으며, 실질적인 누락은 Planner에게 보완 요청합니다.
 최초 명세·계획 저장 전에는 역할·승인 범위·초안과 자체 검토·절대 저장 경로 증거를 확인합니다.
 명세 저장에는 아직 존재하지 않는 서면 명세 승인이나 실행 대상 선택을 요구하지 않습니다.
@@ -196,7 +196,7 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 - For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the Harness CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
 ```
 
-두 파일은 고치기 전에 이번 설치의 `backups/<timestamp>/global/`에 원본을 보관하고, 하네스 파일과 같은 거래에서 교체하므로 실패하면 함께 되돌립니다. `config.toml`을 읽을 수 없거나 관리 표시가 깨졌거나 UTF-8 파일이 아니면 외부 스킬을 받기 전에 중단하고 아무것도 바꾸지 않습니다. 설치 후 Codex를 다시 시작하거나 새 세션을 엽니다. 저장소의 `config.toml`은 `[agents]` 설정의 선택 참고 예시이며 자동 병합하지 않습니다.
+두 파일은 고치기 전에 이번 설치의 `backups/<timestamp>/global/`에 원본을 보관하고, 하네스 파일과 같은 거래에서 교체하므로 실패하면 함께 되돌립니다. `config.toml`을 읽을 수 없거나 관리 표시가 깨졌거나 UTF-8 파일이 아니면 외부 스킬을 받기 전에 중단하고 아무것도 바꾸지 않습니다. 설치 후 Codex를 다시 시작하거나 새 세션을 엽니다. 저장소의 `codex/config.toml`은 `[agents]` 설정의 선택 참고 예시이며 자동 병합하지 않습니다.
 
 새 세션은 설치된 프로필과 새 역할 ID를 읽습니다. 사용자 작성 외부 설정·스크립트·문서의 역할 참조는 새 `harness_<role>` ID와 `harness-<role>.toml` 파일명으로 직접 수정해야 합니다. 과거 계획·명세·요약 문서의 명칭도 현재 체계로 정규화했으며, 날짜·승인 사실·폐기 역할의 당시 의미는 유지합니다.
 
@@ -204,7 +204,7 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 
 ## ⚙️ 모델 변경
 
-[skill/models.toml](skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다. 한정 Scouter 조회에만 CEO가 `fork_turns="none"`과 `reasoning_effort="medium"`으로 Scouter를 시작하고 선택과 이유를 brief에 기록하며, 그 밖에는 설정값을 대체 없이 사용합니다.
+[codex/skill/models.toml](codex/skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다. 한정 Scouter 조회에만 CEO가 `fork_turns="none"`과 `reasoning_effort="medium"`으로 Scouter를 시작하고 선택과 이유를 brief에 기록하며, 그 밖에는 설정값을 대체 없이 사용합니다.
 
 ```toml
 version = 5
@@ -231,5 +231,5 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 - 기존 대상은 선택한 Codex 홈의 `backups/<timestamp>/`에 보존합니다. 외부 스킬은 전체 트리를 교체하므로 개인 수정과 원본 저장소에서 삭제된 파일은 설치 위치에서 사라집니다. 이전 내용은 백업에서 직접 복원하세요.
 - 취득·검증을 마친 뒤 설치 대상을 교체하며, 중간 오류에서는 완료된 교체를 역순으로 복구합니다. 전체 파일시스템에 걸친 원자성은 보장하지 않습니다. 복구 실패 시 출력된 백업·복구 데이터(recovery) 경로를 보존해 수동 복구에 사용하세요.
 - 외부 스킬 후보와 상위 경로의 심볼릭 링크는 일반 설치에서 거부합니다. 취득한 트리는 내부의 유효한 링크만 허용하고, 외부로 나가는 링크·끊어진 링크·순환 링크·특수 파일은 거부합니다.
-- `MANIFEST.sha256`은 설치기·README·선택된 내부 스킬 및 프로필 파일의 무결성을 검사합니다. 편집 가능한 `skill/models.toml`은 제외하고 별도로 설정 형식을 검사합니다. `skill/`, `agents/` 아래 일반 파일인 `.DS_Store`는 제외하며 같은 이름의 다른 항목 유형은 오류입니다.
+- `MANIFEST.sha256`은 설치기·README·선택된 내부 스킬 및 프로필 파일의 무결성을 검사합니다. 편집 가능한 `codex/skill/models.toml`은 제외하고 별도로 설정 형식을 검사합니다. `codex/skill/`, `codex/agents/` 아래 일반 파일인 `.DS_Store`는 제외하며 같은 이름의 다른 항목 유형은 오류입니다.
 - 외부 스킬은 특정 버전이나 해시로 고정하지 않습니다. CLI 결과와 트리 구조를 검증하지만 원격 출처를 독립적으로 암호학적 인증하지는 않습니다. 내부 무결성 목록 역시 자체 진위나 원격 모델 지원을 증명하지 않습니다.

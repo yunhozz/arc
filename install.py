@@ -50,9 +50,9 @@ REQUIRED_EXTERNAL_FILES = {
     "writing-plans": ("SKILL.md",),
     "test-driven-development": ("SKILL.md", "writing-good-tests.md"),
 }
-MANIFEST_REQUIRED_ROOTS = ("skill", "agents")
+MANIFEST_REQUIRED_ROOTS = ("codex/skill", "codex/agents")
 MANIFEST_REQUIRED_FILES = ("install.py", "install.command", "README.md")
-MUTABLE_PAYLOAD_FILES = {"skill/models.toml"}
+MUTABLE_PAYLOAD_FILES = {"codex/skill/models.toml"}
 MANIFEST_LINE = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
 EXTERNAL_SOURCE = "https://github.com/obra/superpowers"
 EXTERNAL_FETCH_TIMEOUT_SECONDS = 300
@@ -683,13 +683,13 @@ def staged_root() -> Path:
     reject_symlink_components(script)
     require_regular_file(script)
     root = script.parent
-    selected_tree_files(root / "skill")
-    selected_tree_files(root / "agents")
-    require_regular_file(root / "skill" / "models.toml")
-    require_regular_file(root / "skill" / "scripts" / "apply-models.py")
-    require_regular_file(root / "skill" / "scripts" / "model_config.py")
+    selected_tree_files(root / "codex/skill")
+    selected_tree_files(root / "codex/agents")
+    require_regular_file(root / "codex/skill" / "models.toml")
+    require_regular_file(root / "codex/skill" / "scripts" / "apply-models.py")
+    require_regular_file(root / "codex/skill" / "scripts" / "model_config.py")
     for filename in PROFILE_FILES:
-        require_regular_file(root / "agents" / filename)
+        require_regular_file(root / "codex/agents" / filename)
     for filename in MANIFEST_REQUIRED_FILES:
         require_regular_file(root / filename)
     return root
@@ -749,7 +749,7 @@ def verify_manifest(root: Path) -> None:
 
 
 def load_model_module(root: Path) -> ModuleType:
-    module_path = absolute(root / "skill" / "scripts" / "model_config.py")
+    module_path = absolute(root / "codex/skill" / "scripts" / "model_config.py")
     try:
         spec = importlib.util.spec_from_file_location("_yunho_harness_model_config", module_path)
         if spec is None or spec.loader is None:
@@ -774,7 +774,7 @@ def load_model_module(root: Path) -> ModuleType:
 
 
 def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
-    config_path = root / "skill" / "models.toml"
+    config_path = root / "codex/skill" / "models.toml"
     try:
         settings = module.load_settings(config_path)
     except module.ValidationError as exc:
@@ -782,7 +782,7 @@ def preflight_profiles(root: Path, module: ModuleType) -> dict[str, bytes]:
 
     rendered: dict[str, bytes] = {}
     for role, filename in module.ROLE_FILES.items():
-        source = root / "agents" / filename
+        source = root / "codex/agents" / filename
         try:
             require_regular_file(source)
             content = source.read_bytes()
@@ -1195,10 +1195,10 @@ def _transactional_install(
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
         staged_harness = skill_stage_area / INSTALL_NAME
-        _copy_harness_to_stage(root / "skill", staged_harness)
+        _copy_harness_to_stage(root / "codex/skill", staged_harness)
         model_config = load_model_module(root)
         try:
-            settings = model_config.load_settings(root / "skill" / "models.toml")
+            settings = model_config.load_settings(root / "codex/skill" / "models.toml")
             (staged_harness / "models.toml").write_bytes(model_config.serialize_settings(settings))
         except model_config.ValidationError as exc:
             raise InstallerError(str(exc)) from exc
@@ -1207,7 +1207,7 @@ def _transactional_install(
         profile_stage_area = create_stage_area(agents_dir, "profiles")
         stage_areas.append(profile_stage_area)
         for filename in PROFILE_FILES:
-            source = root / "agents" / filename
+            source = root / "codex/agents" / filename
             staged = profile_stage_area / filename
             try:
                 with staged.open("xb") as handle:
