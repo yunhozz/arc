@@ -55,7 +55,7 @@ approved scope is a restart under handoff: it reuses a still-valid initial execu
 checks and a delta-only restart brief. After an approved plan or acceptance-criteria amendment, start a fresh Coder for
 the remaining work even within the same task; it is also a restart under handoff with a delta brief. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
-next task depends on a still-unverified risky contract, complete applicable QA/review at that dependency boundary and
+next task depends on a still-unverified risky contract, complete applicable QA at that dependency boundary and
 resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
 
 ## Shared terms
@@ -84,7 +84,7 @@ references must be reported to CEO; stop dependent work until resolved. Do not l
 | Reference | Required before |
 |---|---|
 | [planning](references/planning.md) | Design/plan-depth judgments, spec/plan drafting or approval, first spec/plan save |
-| [handoff](references/handoff.md) | Every Coder first start/restart preparation by CEO, and before each CEO direct edit's first edit; Coder's independent checkout verification uses its profile and only brief-cited sections |
+| [handoff](references/handoff.md) | Every Coder first start/restart preparation by CEO, and before each CEO direct edit's first edit; Coder trusts the CEO-verified brief under its profile and reads only brief-cited sections |
 | [handoff-prep](references/handoff-prep.md) | Execution-target choice request, each preparation Git mutation (branch creation/switch, staging, commit) |
 | [handoff-worktree](references/handoff-worktree.md) | After explicit new managed worktree selection, before its creation, branch work or document transfer |
 | [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
@@ -102,14 +102,14 @@ execution-target selection and document commit preparation. A missing required s
 Before every Coder first start/restart, CEO verifies applicable approvals/artifacts or valid omissions, explicit initial
 execution-target choice or verified valid reuse, accessible intended repository/workspace, actual branch/detached HEAD,
 HEAD, staged/unstaged/untracked state, preservation/ownership, approved document commits or valid absence, and final
-state without unresolved failure/partial completion. Coder independently checks before editing; missing evidence,
-mismatches, unclear ownership or unresolved preparation block edits and require CEO resolution and full revalidation.
+state without unresolved failure/partial completion. Missing evidence, mismatches, unclear ownership or unresolved
+preparation block handoff and require CEO resolution and full revalidation. Coder trusts these CEO-verified brief
+facts without re-verifying them or asking CEO to reconfirm them, and reports only conflicts it actually hits while working.
 For a selected worktree, verify common directory, registration, app-managed current-chat attachment, approved branch,
 and source preservation under handoff.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
 Worktree creation, the canonical record, delta restart brief, choice lifetime and reuse, branch protection, docs-commit
-order are in handoff; Coder repair limits are in the Coder profile. The same conditions apply before a CEO direct edit, without the Coder's
-independent check.
+order are in handoff; Coder repair limits are in the Coder profile. The same conditions apply before a CEO direct edit.
 
 ## Coder TDD and constraints
 
@@ -133,7 +133,7 @@ and smallest meaningful verification.
 |---|---|
 | Small, low risk | Coder, or CEO direct path → CEO's focused checks → acceptance |
 | Ordinary behavior | Coder → independent QA → acceptance |
-| Significant/high risk | Coder → QA → independent Reviewer of the full change → acceptance |
+| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Coder → QA → acceptance/commit, then independent Reviewer once on the final full change after all plan tasks |
 
 Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
 fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
@@ -141,7 +141,9 @@ shared state, lifecycle/integration order, security/permissions, data loss/migra
 installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count. Unclear risk requires
 investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
-Do not add per-task gates automatically. Preserve specific approved obligations and complete risky dependency checks
+Do not add per-task gates automatically. Reviewer is never a plan-task acceptance prerequisite; for significant work with a
+plan, it reviews the final full change once after all plan tasks are accepted and QA'd; significant work without a plan
+keeps Reviewer after QA before acceptance. Preserve specific approved obligations and complete risky dependency checks
 before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
 QA checks independently without edits; Reviewer independently reads the final full change after QA for significant

@@ -1,7 +1,7 @@
 # Handoff contract
 
-CEO reads before every Coder first start or restart preparation. Coder's independent checkout check is defined in the
-Coder profile; Coder reads this file only for sections the brief explicitly cites. First-start preparation
+CEO reads before every Coder first start or restart preparation. Coder trusts the CEO-verified facts in the brief under
+the Coder profile and reads this file only for sections the brief explicitly cites. First-start preparation
 (execution-target choice request, preparation Git mutations, planning-document commit) is in
 [handoff-prep.md](handoff-prep.md); the new managed worktree path is in [handoff-worktree.md](handoff-worktree.md).
 
@@ -40,11 +40,11 @@ CEO may start or restart Coder only after all of these conditions are verified:
 7. The brief includes these preparation and final-verification facts and evidence.
 
 Before a CEO direct edit, CEO verifies the same conditions, with the approved short design as the applicable approval,
-and records them in the brief; no Coder independent check applies.
+and records them in the brief.
 
 Any missing or failed condition blocks handoff. CEO may continue read-only investigation and authorized preparation
 or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
-HEAD, or relevant state changes. Coder's independent check, blocking report and repair limits are in its profile; CEO
+HEAD, or relevant state changes. Coder's conflict reporting and repair limits are in its profile; CEO
 resolves preparation and passes the gate again before Coder resumes.
 
 ### Handoff evidence
@@ -74,7 +74,7 @@ CEO before dependent work, and does not create or switch workspaces or branches.
 
 Normal accepted task commits do not by themselves invalidate the initial choice for the same approved scope,
 workspace, repository and execution target. Link the approved plan version, task ID and commit SHA/content/validity
-with current Git state and edit ownership in the restart brief; retain the full handoff gate and independent checks.
+with current Git state and edit ownership in the restart brief; retain CEO's full handoff gate.
 Verify/reuse successful task commits without duplication and keep planning-document preparation evidence distinct;
 task commits do not require repeating valid document preparation.
 
@@ -83,7 +83,7 @@ reuse rule: authorized HEAD and dirty-state changes, including approved document
 implementation, do not by themselves invalidate the initial choice. The creation base SHA remains evidence;
 target HEAD need not remain at that base. This does not waive source preservation or unexpected-state checks.
 
-On every first start and restart, CEO and Coder independently recheck actual Git state against the current brief:
+On every first start and restart, CEO rechecks actual Git state against the current brief:
 absolute workspace and repository identity, branch or detached HEAD, HEAD, staged/unstaged/untracked changes,
 preservation and edit ownership, applicable approvals and artifacts, planning-document SHA/message/paths/content
 or valid no-document rationale, and CEO's final state verification. A reused choice never waives any gate.

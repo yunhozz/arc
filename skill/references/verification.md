@@ -33,29 +33,32 @@ all Coder/QA work. Specialists report unresolved questions to CEO, who assigns s
 QA runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
 configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. After a
 behavior fix QA reruns affected checks, and Reviewer rechecks only when warranted. Reuse a Reviewer only when
-independent of the work and self-review and when evidence meets required scope and freshness; do not require a new
-Reviewer for each task unless a separate instruction requires it. Resolve or explicitly disposition findings and confirm
+independent of the work and self-review and when evidence meets required scope and freshness; never call
+Reviewer per plan task. Resolve or explicitly disposition findings and confirm
 acceptance evidence before completion; claim checks only with verified output.
 
 ## Task acceptance and final plan acceptance
 
 Task-local acceptance is distinct from overall final plan verification and acceptance. CEO connects each task's
-acceptance criteria to actual evidence, currently required checks/reviews and findings before accepting it; checkbox
+acceptance criteria to actual evidence, currently required checks and findings before accepting it; checkbox
 completion, a Coder report or passing commands alone do not establish acceptance.
 
-Do not add QA or Reviewer calls solely because a task boundary exists. Preserve existing risk requirements, risky
-dependency checks and specifically approved obligations. For an independently acceptable task, do not delay its
-acceptance/commit solely for later final plan verification. If the approved plan names a review as a task acceptance
-prerequisite, wait for that review before accepting and committing the task. Currently required task checks must not be
-deferred to final verification to accept early. State the scope and timing of final-only integration criteria in the plan.
-Significant work retains its required final whole-change review after QA at the final relevant state.
+Task acceptance and its focused commit require only the task's risk-scaled Coder/QA evidence or CEO focused checks;
+Reviewer is never a task acceptance prerequisite. Do not add QA calls solely because a task boundary exists. Preserve
+existing risk requirements, risky dependency QA checks and specifically approved obligations. For an independently
+acceptable task, do not delay its acceptance/commit solely for later final plan verification. Currently required task
+checks must not be deferred to final verification to accept early. State the scope and timing of final-only integration
+criteria in the plan. Significant work retains its required final whole-change review after QA at the final relevant
+state, as final plan verification when a plan exists. Reviewer is never a plan-task acceptance prerequisite; for
+significant work with a plan, it reviews the final full change once after all plan tasks are accepted and QA'd;
+significant work without a plan keeps Reviewer after QA before acceptance.
 
 A task commit record does not mark unperformed final verification complete. CEO still decides final plan acceptance
 using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
 Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
 rules. If final findings affect already committed work, CEO manages a follow-up task, applicable planning/approvals,
-correction and required rechecks/review before a new focused commit; do not automatically amend/reset or duplicate the
-original task commit. Failed required checks and unmet criteria cannot be waived to commit.
+correction and QA recheck before a new focused commit; Reviewer then rechecks only the affected findings when
+warranted. Do not automatically amend/reset or duplicate the original task commit. Failed required checks and unmet criteria cannot be waived to commit.
 
 ### UI browser acceptance checks
 
@@ -91,7 +94,8 @@ substituting Reviewer review for QA evidence.
 For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
 source, reproduction conditions and steps, and evidence to CEO, distinguishing source-inferred reproduction from
 execution-observed results without running QA tests. CEO routes it to Coder correction and QA post-fix recheck.
-For significant/high-risk work, Reviewer then reviews the final full change after QA recheck. Reviewer continues handling
+For significant/high-risk work, Reviewer then reviews the final full change after QA recheck, or, for already committed
+plan work, rechecks only the affected findings when warranted. Reviewer continues handling
 structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
 issues may require both QA verification and Reviewer source review.
 

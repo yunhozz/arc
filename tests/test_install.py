@@ -396,7 +396,9 @@ class TaskCommitPolicyTests(unittest.TestCase):
         for artifact, text in (("planning", planning), ("planner", task_draft)):
             with self.subTest(artifact=artifact):
                 self.contracts(text, (
-                    r"id.*title.*scope.*files.*dependencies.*acceptance criteria.*required checks.*review.*evidence.*hold conditions",
+                    r"id.*title.*scope.*files.*dependencies.*acceptance criteria.*required qa/focused checks.*evidence.*hold conditions",
+                    r"never list reviewer as a per-task required check",
+                    r"final.*plan verification.*single independent reviewer review of the final full change after all tasks",
                     r"cannot be independently verified.*one top-level task",
                     r"substeps.*checkboxes.*not.*commit units",
                     r"ceo.*accept.*without.*additional user commit approval",
@@ -415,9 +417,11 @@ class TaskCommitPolicyTests(unittest.TestCase):
         verify = self.section("verification", "## task acceptance and final plan acceptance")
         self.contracts(verify, (
             r"task-local acceptance.*distinct from.*final plan.*acceptance",
-            r"do not add.*qa.*reviewer.*solely.*task boundary",
+            r"task acceptance and its focused commit require only.*risk-scaled coder/qa.*ceo focused checks",
+            r"reviewer is never a task acceptance prerequisite",
+            r"do not add qa calls solely.*task boundary",
             r"independently acceptable task.*do not delay.*later final plan verification",
-            r"plan.*review.*task acceptance prerequisite.*wait.*before.*accept.*commit",
+            r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted and qa'd; significant work without a plan keeps reviewer after qa before acceptance",
             r"required.*task.*checks.*must not.*deferred",
             r"significant.*final whole-change review.*after qa.*final relevant state",
             r"task commit.*does not.*unperformed.*verification.*complete",
@@ -460,7 +464,8 @@ class TaskCommitPolicyTests(unittest.TestCase):
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
         followup = commit.split("if final qa/reviewer findings", 1)[-1].split("this local", 1)[0]
         self.contracts(followup, (
-            r"already committed.*ceo.*follow-up task.*required planning.*approvals.*correction.*reverification.*new focused commit",
+            r"already committed.*ceo.*follow-up task.*required planning.*approvals.*correction.*qa reverification.*new focused commit",
+            r"reviewer then rechecks only the affected findings when warranted",
             r"do not automatically amend/reset.*rerun.*original task.*duplicate commit",
         ))
 
@@ -511,7 +516,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         core = policy_text("core")
         for name, trigger in (
             ("planning", r"design/plan-depth judgments.*spec/plan drafting or approval"),
-            ("handoff", r"every coder first start/restart.*independent checkout verification"),
+            ("handoff", r"every coder first start/restart.*coder trusts the ceo-verified brief.*only brief-cited sections"),
             ("verification", r"verification design.*qa/reviewer.*correction rechecks.*ui acceptance"),
             ("git-recovery", r"branch collision.*git preparation failure.*partial completion.*metadata write denial"),
             ("visual-companion", r"visual companion offer or operation"),
@@ -591,21 +596,42 @@ class ConditionalReferenceTests(unittest.TestCase):
                          r"explicit user or task-specific tdd request overrides"):
             self.assertRegex(core, contract)
 
-    def test_coder_reuses_choice_but_rechecks_state(self) -> None:
+    def test_coder_trusts_ceo_verified_brief(self) -> None:
         coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
-        self.assertRegex(coder, r"reuse.*initial explicit choice")
-        self.assertRegex(coder, r"every first start or restart.*independently verify")
-        self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
+        for contract in (
+            r"trust the ceo-verified workspace, branch/head, approvals.*document-commit and handoff facts in the brief.*start editing",
+            r"do not independently re-verify checkout, branch, head, approval, or document evidence or ask ceo to reconfirm them",
+            r"supplied absolute workspace.*never create or switch workspaces or branches.*apply the preservation rule",
+            r"report to ceo only a conflict you actually hit while working.*assigned file has unexpected changes you did not make"
+            r".*path is missing or inaccessible.*git or tool command fails.*git output shows a branch or state different from the brief",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(coder, contract)
+        for absent in (r"independently verify", r"git common directory", r"every first start or restart",
+                       r"fresh explicit choice", r"reuse the initial explicit choice", r"revalidates the full handoff gate"):
+            with self.subTest(absent=absent):
+                self.assertNotRegex(coder, absent)
 
-    def test_coder_profile_holds_handoff_check_without_full_reference_read(self) -> None:
+    def test_coder_profile_holds_handoff_contract_without_full_reference_read(self) -> None:
         coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
-        self.assertRegex(coder, r"profile is the complete coder handoff check.*handoff.md.*only.*brief explicitly cites")
+        self.assertRegex(coder, r"profile is the complete coder handoff contract.*handoff.md.*only.*brief explicitly cites")
         self.assertNotRegex(coder, r"before every first start or restart, read")
-        for phrase in ("unrelated staged files", "git common directory", "do not repair preparation"):
+        for phrase in ("trust the ceo-verified", "do not repair preparation"):
             self.assertIn(phrase, coder)
-        self.assertRegex(policy_text("handoff"), r"coder's independent checkout check.*coder profile.*brief explicitly cites")
+        self.assertRegex(policy_text("handoff"), r"coder trusts the ceo-verified facts in the brief.*coder profile.*brief explicitly cites")
+        texts = {path.name: " ".join(path.read_text().lower().split()) for path in
+                 [*(REPO / "skill").rglob("*.md"), *(REPO / "agents").glob("*.toml")]}
+        for name, text in texts.items():
+            for absent in (r"coder independently", r"coder's independent", r"coder independent check",
+                           r"ceo and coder independently", r"independent checkout"):
+                with self.subTest(file=name, absent=absent):
+                    self.assertNotRegex(text, absent)
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertIn("Coder는 CEO가 검증한 brief", readme)
+        for absent in ("Coder의 독립 확인", "CEO와 Coder는 매 시작"):
+            self.assertNotIn(absent, readme)
 
     def test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections(self) -> None:
         def headings(name: str) -> list[str]:
@@ -639,7 +665,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         cases = {
             "first start": r"first start.*explicit user choice",
             "same target": r"same approved scope.*workspace.*repository.*execution target.*reuse.*initial explicit choice",
-            "fresh state": r"every first start and restart.*ceo.*coder.*actual.*git state",
+            "fresh state": r"every first start and restart, ceo rechecks actual git state",
             "changed target": r"scope.*workspace.*repository.*target.*approved branch candidate.*changes.*fresh explicit choice",
             "invalidating failure": r"failure.*old target cannot be trusted.*fresh explicit choice",
             "normal work": r"normal.*head.*dirty.*do not.*invalidate",
@@ -650,11 +676,48 @@ class ConditionalReferenceTests(unittest.TestCase):
         for case, contract in cases.items():
             with self.subTest(case=case):
                 self.assertRegex(handoff, contract)
-        coder = " ".join(tomllib.loads((REPO / "agents/harness-coder.toml").read_text())
-                         ["developer_instructions"].lower().split())
-        self.assertRegex(coder, r"reuse.*initial explicit choice")
-        self.assertRegex(coder, r"every first start or restart.*independently verify")
-        self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
+        self.assertNotRegex(handoff, r"ceo and coder independently recheck")
+        self.assertNotRegex(handoff, r"full handoff gate and independent checks")
+
+
+class ReviewerOncePerPlanTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_final_single_reviewer_is_explicit(self) -> None:
+        readme = " ".join((REPO / "README.md").read_text().split())
+        for name, text, contract in (
+            ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted and qa'd; significant work without a plan keeps reviewer after qa before acceptance"),
+            ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted and qa'd; significant work without a plan keeps reviewer after qa before acceptance"),
+            ("planning", policy_text("planning"), r"single independent reviewer review of the final full change after all tasks"),
+            ("commit", policy_text("commit"), r"final reviewer is plan-level, never a task prerequisite"),
+            ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks"),
+            ("readme", readme, r"Reviewer는 task 수락 선행 조건이 아니며.*plan.*모든 task.*수락.*QA.*최종 전체 변경.*한 번.*plan이 없는"),
+        ):
+            with self.subTest(artifact=name):
+                self.assertRegex(text, contract)
+        row = next(line for line in (REPO / "skill/SKILL.md").read_text().lower().splitlines()
+                   if line.startswith("| significant/high risk"))
+        self.assertRegex(row, r"with a plan, each plan task coder → qa → acceptance/commit.*reviewer once.*final full change.*after all plan tasks")
+
+    def test_no_per_task_reviewer_wording(self) -> None:
+        paths = [*(REPO / "skill").rglob("*.md"), *(REPO / "agents").glob("*.toml"), REPO / "README.md"]
+        for path in paths:
+            text = " ".join(path.read_text().lower().split())
+            for absent in (r"checks/reviews", r"review[^.]{0,60}(?:expressly|designated|names?)[^.]{0,40}prerequisite",
+                           r"qa/review at that dependency boundary", r"new reviewer for each task unless",
+                           r"선행 조건으로 지정", r"검사/검토", r"multi-task", r"다중 task"):
+                with self.subTest(file=path.name, absent=absent):
+                    self.assertNotRegex(text, absent)
+
+    def test_dependency_boundary_is_qa_only(self) -> None:
+        core = policy_text("core")
+        self.assertRegex(core, r"depends on a still-unverified risky contract, complete applicable qa at that dependency boundary")
+        self.assertNotRegex(core, r"qa/review at that dependency boundary")
+
+    def test_final_reviewer_findings_on_committed_work(self) -> None:
+        for name in ("verification", "commit"):
+            with self.subTest(reference=name):
+                self.assertRegex(policy_text(name), r"follow-up task.*correction.*qa re(?:check|verification).*new focused commit"
+                                                    r".*reviewer then rechecks only the affected findings when warranted")
 
 
 class ResearchRoutingAndBriefTests(unittest.TestCase):
@@ -772,7 +835,7 @@ class SharedTermsTests(unittest.TestCase):
         for phrase in ("do not repair preparation by changing permissions, deleting locks, bypassing the sandbox, "
                        "committing, creating/switching branches, or moving workspaces",
                        "if risk is or becomes unclear or scope expands, stop and ask ceo to reclassify",
-                       "report inaccessible or conflicting paths to ceo before dependent work"):
+                       "stop dependent work and report the observed state and required next action to ceo"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, coder)
         core = policy_text("core")
@@ -785,7 +848,7 @@ class SharedTermsTests(unittest.TestCase):
 
     def test_coder_profile_is_compact(self) -> None:
         # Target was 560; mandated term definitions and QA-restored clauses keep the profile above it.
-        self.assertLessEqual(len((REPO / "agents/harness-coder.toml").read_text().split()), 790)
+        self.assertLessEqual(len((REPO / "agents/harness-coder.toml").read_text().split()), 710)
 
     def test_term_usage_sites(self) -> None:
         for name, heading, term in (

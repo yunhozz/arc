@@ -6,7 +6,7 @@ a task whose commit result is unclear.
 ## Automatic commit after plan-task acceptance
 
 One approved top-level task is the unit of one focused implementation commit. CEO verifies the task's acceptance
-criteria, currently required checks/reviews, and findings, accepts the task by its own judgment, then immediately
+criteria, currently required checks (the final Reviewer is plan-level, never a task prerequisite), and findings, accepts the task by its own judgment, then immediately
 creates its focused local Git commit without additional user commit approval. Immediately means the next action is
 the required Git state/scope checks, staging, and commit, rather than an unexplained wait until the plan ends.
 Substeps and checkboxes are progress records, not separate commit units. Checkbox completion, Coder reports, and
@@ -20,10 +20,10 @@ changes, prove safe separation before committing. Unrelated staged changes stop 
 rule. After committing, verify SHA, actual message, included
 paths and content, post-commit HEAD, actual branch and remaining staged/unstaged/untracked state. Command exit success
 alone does not establish completion. In the accessible canonical record link plan path/version, task ID, acceptance
-evidence and CEO judgment, required checks/reviews and findings, commit results and state, hold/no-change/reuse reasons,
+evidence and CEO judgment, required checks and findings, commit results and state, hold/no-change/reuse reasons,
 and remaining final plan verification.
 
-Hold the task commit for unmet or unresolved criteria, required checks/reviews that failed or were not run,
+Hold the task commit for unmet or unresolved criteria, required checks that failed or were not run,
 unresolved findings or evidence gaps without disposition, scope expansion or revised-plan needs, ownership or staged
 scope/content mismatch, unexpected workspace, branch, HEAD or Git state, or Git failure/partial completion. Record the
 reason and required next action. Do not waive unmet criteria or required checks to commit. Explicit disposition follows
@@ -38,7 +38,8 @@ fresh state and ownership checks. Task acceptance/commit is distinct from final 
 QA/Reviewer/integration checks still apply with the timing in verification.
 
 If final QA/Reviewer findings require changing already committed work, CEO defines a follow-up task with required
-planning and approvals, correction and reverification, then a new focused commit. Do not automatically amend/reset
+planning and approvals, correction and QA reverification, then a new focused commit; Reviewer then rechecks only the
+affected findings when warranted. Do not automatically amend/reset
 the existing commit or rerun the original task to produce a duplicate commit.
 
 This local commit authority does not authorize early planning-document commits: pre-Coder document approvals,

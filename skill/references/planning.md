@@ -52,7 +52,7 @@ that change and its evidence in the brief. Design approval alone does not change
 ## Top-level plan tasks
 
 For each top-level task, Planner specifies ID and title, implementation goal/scope and target files, preceding tasks
-and dependencies, acceptance criteria, required checks/reviews and evidence before acceptance, and hold conditions.
+and dependencies, acceptance criteria, required QA/focused checks and evidence before acceptance, and hold conditions.
 Make each task independently implementable, verifiable and acceptable. Changes that cannot be independently verified
 belong in one top-level task from the outset, including policy/profile/tests/manifest when they share one contract.
 Do not combine different approved tasks into one commit during execution; if inseparability appears later, stop affected
@@ -60,12 +60,13 @@ work and have CEO handle revised scope, planning and applicable approvals.
 
 Substeps and checkboxes express implementation/check progress, not separate commit units; RED/GREEN and individual
 commands do not create commit units. One approved top-level task is one focused implementation commit. CEO verifies
-criteria, required checks/reviews and findings, accepts the task, then commits without additional user commit approval.
-Coder reports and passing checks do not replace CEO acceptance. State final overall plan QA/Reviewer/integration verification
-separately from task acceptance prerequisites, stating scope and timing. Keep task-required checks before acceptance;
-later final checks alone do not delay an independently acceptable task. If a final review is expressly a task
-prerequisite, complete it before acceptance/commit. Task boundaries alone add no QA/Reviewer gates; preserve risk and
-dependency requirements and specific approved obligations. No-change, hold and resume processing follow core policy.
+criteria, required checks and findings, accepts the task, then commits without additional user commit approval.
+Coder reports and passing checks do not replace CEO acceptance. Never list Reviewer as a per-task required check;
+Reviewer is never a task acceptance prerequisite. State final overall plan QA/integration verification separately from
+task acceptance prerequisites, stating scope and timing; for significant/high-risk work, final plan verification lists the
+single independent Reviewer review of the final full change after all tasks are accepted and QA'd. Keep task-required
+checks before acceptance; later final checks alone do not delay an independently acceptable task. Task boundaries alone
+add no QA gates; preserve risk requirements, QA at a risky dependency boundary and specific approved obligations. No-change, hold and resume processing follow core policy.
 These requirements apply to required plans; existing plan-omission paths gain no new plan obligation.
 
 ### Document-save evidence gates
