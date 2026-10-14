@@ -488,7 +488,7 @@ def _validate_acquisition_records(stdout: str, work: Path) -> None:
             or "ref" not in record
             or record["ref"] is not None
             or record.get("scope") != "project"
-            or record.get("agents") != ["Codex"]
+            or record.get("agents") != ["Universal"]
             or record.get("mode") != "copy"
         ):
             raise InstallerError(f"external skill CLI did not install {skill} in the required mode")
@@ -523,7 +523,7 @@ def external_acquisition_command() -> list[str]:
     return [
         "npx", "--yes", "skills@latest", "add", EXTERNAL_SOURCE,
         "--skill", *REQUIRED_EXTERNAL_FILES,
-        "--agent", "codex", "--yes", "--copy", "--json",
+        "--agent", "universal", "--yes", "--copy", "--json",
     ]
 
 

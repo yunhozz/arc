@@ -191,6 +191,18 @@ class TargetInstallTests(unittest.TestCase):
             status, output = self.run_main(['--target',target,'--check'], {variable: ''})
             self.assertEqual(status, 0, output)
 
+    def test_both_dry_runs_show_target_neutral_temporary_acquisition(self):
+        for target in ('codex', 'claude'):
+            write_candidates(self.home(target) / 'skills')
+            before = tree_state(self.base)
+            status, output = self.run_main(['--target', target, '--dry-run'])
+            self.assertEqual(status, 0, output)
+            command = next(line for line in output.splitlines() if line.startswith('Would acquire with:'))
+            self.assertIn('--agent universal ', command)
+            self.assertNotIn('--agent codex', command)
+            self.assertNotIn('--agent claude', command)
+            self.assertEqual(tree_state(self.base), before)
+
     def test_read_only_modes_spawn_nothing_and_change_nothing(self):
         for target in ('codex','claude'):
             write_candidates(self.home(target) / 'skills')

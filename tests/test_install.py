@@ -2541,7 +2541,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertIn(
             "npx --yes skills@latest add https://github.com/obra/superpowers --skill "
             "brainstorming writing-plans test-driven-development "
-            "--agent codex --yes --copy --json",
+            "--agent universal --yes --copy --json",
             output,
         )
         self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
@@ -3201,7 +3201,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
                 "ref": None,
                 "path": path_overrides.get(skill, str(work / ".agents" / "skills" / skill)),
                 "scope": "project",
-                "agents": ["Codex"],
+                "agents": ["Universal"],
                 "mode": "copy",
             }
             for skill in selected_names
@@ -3273,7 +3273,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             [
                 "npx", "--yes", "skills@latest", "add", "https://github.com/obra/superpowers",
                 "--skill", "brainstorming", "writing-plans", "test-driven-development",
-                "--agent", "codex", "--yes", "--copy", "--json",
+                "--agent", "universal", "--yes", "--copy", "--json",
             ],
         )
         self.assertEqual(kwargs["cwd"], work)
@@ -3385,7 +3385,7 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
                 "source": "obra/superpowers",
                 "ref": None,
                 "scope": "project",
-                "agents": ["Codex"],
+                "agents": ["Universal"],
                 "mode": "copy",
                 "path": str(work / ".agents" / "skills" / skill),
             }
@@ -3403,6 +3403,14 @@ class ExternalSkillAcquisitionTests(unittest.TestCase):
             acquired,
             {skill: work / ".agents" / "skills" / skill for skill in FILES},
         )
+
+    def test_acquisition_rejects_platform_specific_agent_records(self) -> None:
+        work = self.base / "platform-record"
+        rows = json.loads(self.records(work))
+        for row in rows:
+            row["agents"] = ["Codex"]
+        with self.assertRaises(installer.InstallerError):
+            installer._validate_acquisition_records(json.dumps(rows), work)
 
     def test_acquisition_rejects_unexpected_source_or_pinned_ref(self) -> None:
         work = self.base / "wrong-source"
