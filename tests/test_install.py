@@ -654,6 +654,62 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertRegex(coder, r"scope.*workspace.*repository.*target.*candidate.*changes.*fresh explicit choice")
 
 
+class ResearchRoutingAndBriefTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_research_routing_tiers(self) -> None:
+        opening = policy_text("core").split("## ownership", 1)[0]
+        self.assertRegex(opening, r"quick read of a few known files.*bounded lookup.*known paths.*no synthesis.*scouter.*lighter effort under models.*material research, synthesis, or broad exploration.*configured settings.*when unsure, use configured settings")
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertRegex(readme, r"조사 라우팅.*이미 CEO 컨텍스트.*한정 조회.*낮은 추론 강도.*본격 조사.*종합.*넓은 탐색.*설정값.*불확실하면 설정값")
+
+    def test_models_scouter_lookup_exception(self) -> None:
+        models = policy_text("core").split("## models", 1)[1].split("after editing", 1)[0]
+        self.assertRegex(models, r"use configured settings without substitution, except that for a bounded scouter lookup ceo spawns scouter with `fork_turns=\"none\"` and `reasoning_effort=\"medium\"` and records the choice and reason in the brief; report unavailable settings")
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertRegex(readme, r"한정 Scouter 조회.*`fork_turns=\"none\"`.*`reasoning_effort=\"medium\"`.*brief에 기록.*대체 없이")
+
+    def test_skill_not_reread_and_agents_body_wording(self) -> None:
+        tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
+        self.assertRegex(tokens, r"this skill file, once read in this context and unchanged, is not re-read on follow-up turns")
+        body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
+        self.assertIn("keep following it in relevant follow-up turns of the same chat without re-reading it unless it changed", body)
+        self.assertNotIn("including relevant follow-up turns", body)
+        readme = (REPO / "README.md").read_text()
+        self.assertIn(body.splitlines()[0], readme)
+
+    def test_brief_template_field_order_and_delta(self) -> None:
+        tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
+        self.assertRegex(tokens, r"goal; criteria \(ids\); exact scope/ownership \(absolute workspace, files\); constraints/decisions; evidence \(paths/lines, commands, artifact links\); prior findings; exact next objective \(one bounded objective\); return format")
+        self.assertRegex(tokens, r"follow-ups and restarts send only changed fields and mark the rest `unchanged`")
+        self.assertRegex(tokens, r"`unchanged` means unchanged relative to the cited prior brief or handoff record; a fresh specialist without that context gets the complete brief")
+        for kept in (r"self-contained subset.*omit full history, repeated instructions, and raw logs",
+                     r"one bounded objective",
+                     r"conclusion, evidence locations, unresolved points, next step",
+                     r"no findings may be brief; requested deliverables such as complete plan drafts remain complete",
+                     r"cite paths/lines/pages/commands/links instead of logs; investigate gaps only"):
+            with self.subTest(kept=kept):
+                self.assertRegex(tokens, kept)
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertRegex(readme, r"Goal; Criteria.*Scope/ownership.*Constraints/decisions.*Evidence.*Prior findings.*Next objective.*Return format.*바뀐 필드만.*`unchanged`")
+
+    def test_handoff_record_file_location(self) -> None:
+        handoff = policy_text("handoff")
+        for contract in (
+            r"ceo writes it as a markdown file at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>\.md`",
+            r"`git rev-parse --path-format=absolute --git-common-dir`.*outside the working tree.*shared by linked worktrees",
+            r"not a git mutation, never staged or committed.*no secrets",
+            r"absolute path in every brief.*delta restart briefs cite it",
+            r"write is denied or unavailable.*carry the full record in the brief and state why",
+            r"do not delete it automatically",
+            r"do not create a separate storage service",
+        ):
+            with self.subTest(contract=contract):
+                self.assertRegex(handoff, contract)
+        self.assertRegex(policy_text("core"), r"records the canonical handoff state in the handoff record file")
+        readme = " ".join((REPO / "README.md").read_text().split())
+        self.assertRegex(readme, r"<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>\.md.*스테이징·커밋하지 않고.*절대 경로.*쓰기가 거부되거나 불가하면.*자동 삭제하지 않습니다")
+
+
 class HarnessPreactionGateTests(unittest.TestCase):
     # Specifically approved structural contract checks, not consuming-agent runtime tests.
     def test_preaction_role_precedence(self) -> None:

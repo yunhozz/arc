@@ -919,9 +919,9 @@ def agents_block_body(home: Path, user_home: Path) -> str:
         shown, resolve = skill.as_posix(), ""
     return (
         "- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test "
-        f"work (not standalone document writing), load and follow `{shown}`, including relevant follow-up turns in the "
-        f"same chat.{resolve} Harness subagents (depth 2) follow their role profile and brief instead and do not load "
-        "`SKILL.md`.\n"
+        f"work (not standalone document writing), load and follow `{shown}`; keep following it in relevant follow-up "
+        f"turns of the same chat without re-reading it unless it changed.{resolve} Harness subagents (depth 2) follow "
+        "their role profile and brief instead and do not load `SKILL.md`.\n"
         "- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file "
         "edits and other work to the other roles according to their defined responsibilities. CEO must not edit "
         "implementation, configuration, or test-code files directly, except under the Harness CEO direct path for "

@@ -8,7 +8,10 @@ description: Keep simple, self-contained questions with the chat-selected CEO; r
 Follow user instructions and project guidance. CEO uses the current chat model and answers simple, self-contained
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work. Assign material
 research/analysis and bounded read-only exploration of static code, documents, data, and logs/reports to Scouter.
-Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
+CEO handles research directly when the needed material is already in its context or the check is a quick read of a few known
+files; a bounded lookup (known paths, locating or extracting specific facts, no synthesis) goes to Scouter at the lighter
+effort under Models; material research, synthesis, or broad exploration uses Scouter's configured settings; when unsure,
+use configured settings. Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
 For mixed research/document requests, CEO may explicitly assign only research to Scouter. Live operational state
 inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
@@ -175,9 +178,14 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   `<role>_<short_task>` (for example `planner_scope_review` or `qa_installer_checks`). Do not use arbitrary or random
   names. `task_name` identifies the run; `agent_type` and its configured profile determine the role and model.
 
-- Keep one shared brief: goal, acceptance criteria, constraints/decisions, relevant paths/evidence, prior findings,
-  exact next objective. Send only the self-contained subset needed by the next role and links to accessible artifacts;
-  omit full history, repeated instructions, and raw logs.
+- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, files);
+  Constraints/decisions; Evidence (paths/lines, commands, artifact links); Prior findings; Exact next objective (one
+  bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups and
+  restarts send only changed fields and mark the rest `unchanged`; `unchanged` means unchanged relative to the cited
+  prior brief or handoff record; a fresh specialist without that context gets the complete brief. Send only the
+  self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
+  instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
+  complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
 - When supported, start specialists without inherited conversation history (for example `fork_turns="none"`) and supply
   that brief. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
   remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
@@ -186,9 +194,6 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 - Before optional calls, name the unresolved question and expected artifact; skip calls already resolved by available
   evidence/direct inspection. Preserve required planning and risk-scaled QA/review. Do not call every role
   automatically, add redundant scripts, or repeat audits when direct tools/evidence suffice.
-- Give one bounded objective, exact scope/ownership, constraints, and return format: conclusion, evidence locations,
-  unresolved points, next step. No findings may be brief; requested deliverables such as complete plan drafts remain
-  complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
 - Wait for a specialist with `wait_agent` using the maximum supported timeout, repeating only until it completes; a
   timeout is not a reason to poll or check status in between. Do not poll with `list_agents`, `sleep`, or repeated short
   waits; use `list_agents` only to resolve an unknown agent name or state. Send each specialist one complete brief per
@@ -196,9 +201,10 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   repeated `sleep` or short status checks; use a single blocking wait with the tool's longest yield.
 - Read only the needed ranges of files and outputs (for example `rg -n`, `sed -n`, `head`/`tail`) and cap long command
   output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in
-  this context and unchanged need not be re-read; this does not shorten any triggered mandatory reference read.
+  this context and unchanged need not be re-read, and this skill file, once read in this context and unchanged, is not re-read on follow-up turns;
+  this does not shorten any triggered mandatory reference read.
 - When a plan completes or before starting another plan in a session with long history, CEO records the canonical
-  handoff state and recommends that the user continue in a new session.
+  handoff state in the handoff record file and recommends that the user continue in a new session.
 - Before handoff, post one short update with role/objective/expected output; after return, combine findings and next
   stage concisely. CEO may reuse it. Do not expose hidden reasoning or raw prompts.
 
@@ -206,8 +212,9 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 
 `models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections; CEO uses
 the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not
-prove server support, account access, or current availability. Use configured settings without substitution and report
-unavailable settings.
+prove server support, account access, or current availability. Use configured settings without substitution, except that for a bounded Scouter lookup CEO spawns Scouter with
+`fork_turns="none"` and `reasoning_effort="medium"` and records the choice and reason in the brief; report unavailable
+settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to

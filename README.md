@@ -16,6 +16,8 @@
 - 개발·설정·테스트·구현 의존 문서와 구현이 섞인 작업은 CEO가 책임지고, 코드 편집은 Coder에게 맡깁니다. 예외는 아래 CEO 직접 경로입니다.
 - 독립 문서 작성은 전문 역할에 자동 배정하지 않습니다. Scouter는 파일을 편집하거나 독립 문서 파일을 작성하지 않습니다. Planner는 설계·명세·계획 초안, Coder는 구현 종속 문서를 담당합니다.
 - Scouter는 문서·데이터·정적 로그 등의 자료를 다룹니다. 공개 문서에 기록된 운영 방법 조사도 담당 범위에 포함됩니다. 현재 시스템·앱·프로세스 상태의 확인과 운영 정리는 담당 범위 밖이며, 이 경계가 다른 담당자를 자동으로 지정하지는 않습니다.
+- 조사 라우팅: 필요한 자료가 이미 CEO 컨텍스트에 있거나 알려진 몇 개 파일을 빠르게 읽는 확인은 CEO가 직접 처리합니다. 경로가 알려진 한정 조회(특정 사실의 위치 확인·추출, 종합 없음)는 아래 모델 변경의 낮은 추론 강도로 Scouter에 맡기고, 본격 조사·종합·넓은 탐색은 Scouter의 설정값을 씁니다. 불확실하면 설정값을 씁니다.
+- 작업 요약(brief)은 Goal; Criteria(ID); Scope/ownership(절대 workspace·파일); Constraints/decisions; Evidence(경로/줄·명령·산출물 링크); Prior findings; Next objective; Return format 순서를 고정합니다. 후속·재개 때는 바뀐 필드만 보내고 나머지는 `unchanged`로 표시합니다.
 - 다섯 역할은 모두 CEO에게 직접 보고하며, 에이전트를 만들거나 다른 역할에 직접 위임할 수 없습니다. 전체 트리에서 Scouter를 포함해 하위 에이전트는 최대 네 개까지 동시에 실행합니다. 독립적인 작업만 병렬로 처리하고, 종속 작업은 순서대로 수행합니다.
 
 | 변경 위험 | 최소 검증 흐름 |
@@ -126,7 +128,7 @@ CEO와 Coder는 매 시작·재개마다 실제 브랜치 또는 detached HEAD·
 범위·작업공간·저장소·대상·승인 브랜치 후보가 바뀌거나 실패 때문에 기존 대상을 신뢰할 수 없으면 새 명시 선택을 받습니다.
 정상 승인 작업의 HEAD·작업 트리 변경만으로 선택이 무효화되지는 않습니다. 상태 불일치·미해결 실패·누락 증거는 편집을 차단합니다.
 
-최초 인계 기록은 하나의 접근 가능한 정본으로 보존하고 재개 작업 요약에는 그 위치, 다음 목표·소유권,
+최초 인계 기록은 하나의 접근 가능한 정본으로 보존하며, CEO가 `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` Markdown 파일로 작성합니다(`git rev-parse --path-format=absolute --git-common-dir`로 확인, 작업 트리 밖이며 연결 worktree가 공유, Git 변경이 아니므로 스테이징·커밋하지 않고 비밀 정보 없음). 모든 작업 요약에 절대 경로를 적고, 쓰기가 거부되거나 불가하면 전체 기록을 작업 요약에 싣고 이유를 밝히며, 자동 삭제하지 않습니다. 재개 작업 요약에는 그 위치, 다음 목표·소유권,
 승인·문서·범위 변경분, 최신 Git 상태·차이, 선택 유효성·재사용 검증, CEO 최종 확인과 남은 문제를 전달합니다.
 이전 대화나 접근 불가 링크로 증거를 대신하지 않습니다. 상세 승인 순서·문서 커밋·브랜치 보호와 기록 필드는 인계 참조를 따릅니다.
 Git 복구에서는 잠금 파일 삭제·chmod/chown·권한 우회·작업공간 이동·자동 reset/stash/clean을 하지 않습니다.
@@ -190,7 +192,7 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 ```markdown
 ## Yunho's Harness
 
-- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test work (not standalone document writing), load and follow `~/.codex/skills/yunho-harness/SKILL.md`, including relevant follow-up turns in the same chat. Resolve `~` to the current user's home directory. Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.
+- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test work (not standalone document writing), load and follow `~/.codex/skills/yunho-harness/SKILL.md`; keep following it in relevant follow-up turns of the same chat without re-reading it unless it changed. Resolve `~` to the current user's home directory. Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.
 - For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the Harness CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
 ```
 
@@ -202,7 +204,7 @@ python3 install.py --dry-run  # 같은 검사와 갱신 대상 표시
 
 ## ⚙️ 모델 변경
 
-[skill/models.toml](skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다.
+[skill/models.toml](skill/models.toml)이 다섯 역할의 모델과 추론 강도 설정 원본입니다. CEO는 현재 채팅 모델을 사용합니다. 한정 Scouter 조회에만 CEO가 `fork_turns="none"`과 `reasoning_effort="medium"`으로 Scouter를 시작하고 선택과 이유를 brief에 기록하며, 그 밖에는 설정값을 대체 없이 사용합니다.
 
 ```toml
 version = 5
