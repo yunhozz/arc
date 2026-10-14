@@ -418,3 +418,8 @@ isolation과 배포 CLI 일치는 실행 단계 확인사항이며 확인된 사
 - 취득·복구 관련 위험한 의존 경계와 최종 significant 흐름을 기록했다.
 - 한국어 설명을 유지하고 API·명령·literal identifier는 원문을 보존했다.
 - 계획 작성 중 코드·테스트·설치·worktree 작업은 하지 않았다. 이번 문서는 승인 대기 초안이다.
+# 2026-10-15 Claude leaf-link 예외 addendum
+
+기존 Codex 링크 거부 계약은 유지한다. Claude 설치만 세 필수 skill의 마지막 링크가 정확히 같은 이름의 기본 `~/.codex/skills/<name>` 실제 디렉터리를 가리킬 때 독립 upstream 취득본으로 전환한다. Claude 부모·중간 경로 링크, 다른 목적지·이름, dangling·cycle·file 목적지와 Codex 목적지 경로의 링크는 취득 전에 거부한다.
+
+Codex tree와 사용자 수정은 변경하거나 Claude로 복사하지 않는다. 원래 링크 항목은 문자열 그대로 백업하고 실패 시 복원하며, 상대 링크 백업은 원래 위치로 되돌릴 때만 사용한다. 백업 위치에서는 역참조하지 않는다. 복구 실패 자료는 절대 recovery 경로와 함께 보존·보고한다. `--check`와 `--dry-run`은 쓰기·취득을 하지 않으며 dry-run은 허용 링크의 독립 디렉터리 전환을 알린다.

@@ -72,11 +72,11 @@ T1은 보안·파일시스템 경계와 transaction 복구를 변경하고, T2�
 
 ### 진행 단계
 
-- [ ] **1. 전환·거부 테스트를 먼저 작성한다.**
+- [x] **1. 전환·거부 테스트를 먼저 작성한다.**
   - `test_claude_skill_links_convert_to_independent_upstream_copies`: 세 필수 skill의 절대·상대 link fixture를 섞어 설치한다. Claude 경로가 실제 directory이고 `SKILL.md`가 mocked upstream bytes인지, backup symlink의 `readlink` 문자열이 보존되는지, Codex `tree_state()`가 설치 전후 동일한지 확인한다.
   - `test_claude_skill_links_reject_unsafe_targets_before_acquisition`: 다른 목적지·이름, Claude 부모 link, Codex skill-root link, dangling·cycle·file target을 subtest로 둔다. status 2, acquisition 미호출, target·sentinel 불변을 확인한다.
 
-- [ ] **2. 성공 경로의 RED를 확인한다.**
+- [x] **2. 성공 경로의 RED를 확인한다.**
 
 ```sh
 PYTHONPATH=tests python3 -m unittest test_target_install.TargetInstallTests.test_claude_skill_links_convert_to_independent_upstream_copies -v
@@ -84,37 +84,43 @@ PYTHONPATH=tests python3 -m unittest test_target_install.TargetInstallTests.test
 
 기대 결과는 현재 symlink guard에 따른 실패다. import나 fixture 오류는 RED로 인정하지 않는다.
 
-- [ ] **3. 제한된 분류와 link-entry transaction을 구현한다.** Claude 분기에서만 exact same-name Codex destination을 허용한다. `backup_existing()`은 link text를 읽어 symlink 자체를 backup하고, transaction은 link를 previous로 옮긴 뒤 validated staged directory를 설치한다. Codex 내용을 읽어 복사하지 않는다.
+- [x] **3. 제한된 분류와 link-entry transaction을 구현한다.** Claude 분기에서만 exact same-name Codex destination을 허용한다. `backup_existing()`은 link text를 읽어 symlink 자체를 backup하고, transaction은 link를 previous로 옮긴 뒤 validated staged directory를 설치한다. Codex 내용을 읽어 복사하지 않는다.
 
-- [ ] **4. 성공·거부 테스트를 GREEN으로 만들고 acquisition 경합 테스트를 추가한다.**
+- [x] **4. 성공·거부 테스트를 GREEN으로 만들고 acquisition 경합 테스트를 추가한다.**
   - `test_claude_skill_links_changed_during_acquisition_abort`: retarget, unlink, directory replacement, 같은 목적지의 새 link를 acquisition 중 주입한다. transaction 전에 중단하고 사용자 변경을 보존한다.
   - status, transaction 호출 여부와 sentinel·Codex tree를 확인한다. 이미 기존 검사로 통과하는 subcase는 회귀 증거로 기록한다.
 
-- [ ] **5. 교체·rollback 경계 테스트를 추가하고 구현한다.**
+- [x] **5. 교체·rollback 경계 테스트를 추가하고 구현한다.**
   - `test_claude_skill_link_backup_and_rollback_never_follow_target`: link root에 `copytree()`가 호출되지 않으며, 이동 직후 및 후속 profile 교체 실패에서 원래 link와 이전 관리 파일이 복구되는지 확인한다.
   - `test_claude_skill_link_rollback_failure_preserves_recovery`: 복원 실패 뒤 previous link가 `lexists()`이고 원본 문자열을 유지하며 절대 recovery path가 출력되는지 확인한다.
   - 부모 swap 경계에서 no-follow 동작과 외부 sentinel 불변을 확인한다. 기존 `rollback()` action 구조를 확장하고, 실패한 복구 자료는 삭제하지 않는다.
 
-- [ ] **6. 읽기 전용·출력 회귀를 추가한다.** `test_claude_skill_link_readonly_modes_and_conversion_output`에서 `--check`와 `--dry-run` 전후 tree가 같고 acquisition·transaction·staging이 호출되지 않는지 확인한다. dry-run은 허용 link가 독립 directory로 바뀔 예정임을 표시하고 금지 link는 오류로 알린다. 실제 설치 출력은 backup 위치를 포함한다.
+- [x] **6. 읽기 전용·출력 회귀를 추가한다.** `test_claude_skill_link_readonly_modes_and_conversion_output`에서 `--check`와 `--dry-run` 전후 tree가 같고 acquisition·transaction·staging이 호출되지 않는지 확인한다. dry-run은 허용 link가 독립 directory로 바뀔 예정임을 표시하고 금지 link는 오류로 알린다. 실제 설치 출력은 backup 위치를 포함한다.
 
-- [ ] **7. README와 동기화 계약을 갱신한다.** 정확한 Claude leaf link만 upstream 복사본으로 전환하고 Codex 사용자 수정은 이전하지 않는다는 점, 실패 시 원래 link를 복원한다는 점, 부모·다른 목적지·dangling link 거부, dry-run 동작을 설명한다. 상대 link backup은 원래 위치로 되돌릴 때 쓰며 backup 위치에서 역참조하지 않는다고 적는다. 과거 계획은 그대로 보존하고 날짜 있는 addendum만 추가한다.
+- [x] **7. README와 동기화 계약을 갱신한다.** 정확한 Claude leaf link만 upstream 복사본으로 전환하고 Codex 사용자 수정은 이전하지 않는다는 점, 실패 시 원래 link를 복원한다는 점, 부모·다른 목적지·dangling link 거부, dry-run 동작을 설명한다. 상대 link backup은 원래 위치로 되돌릴 때 쓰며 backup 위치에서 역참조하지 않는다고 적는다. 과거 계획은 그대로 보존하고 날짜 있는 addendum만 추가한다.
 
-- [ ] **8. manifest를 갱신한다.** 다음 명령은 구현 단계에서만 실행하고 변경된 payload hash를 확인한다.
+- [x] **8. manifest를 갱신한다.** 다음 명령은 구현 단계에서만 실행하고 변경된 payload hash를 확인한다.
 
 ```sh
 PYTHONPATH=tests python3 -c 'from pathlib import Path; from test_install import refresh_manifest; refresh_manifest(Path.cwd())'
 ```
 
-- [ ] **9. focused regression과 전체 suite를 실행한다.**
+- [x] **9. focused regression과 전체 suite를 실행한다.**
 
 ```sh
-PYTHONPATH=tests python3 -m unittest test_target_install -v
-PYTHONPATH=tests python3 -m unittest test_install.ExternalSkillPreflightTests test_install.AcquiredTreeValidationTests test_install.ExternalSkillAcquisitionTests -v
-python3 -m unittest discover -s tests -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests python3 -B -m unittest test_target_install -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests python3 -B -m unittest test_install.ExternalSkillPreflightTests test_install.AcquiredTreeValidationTests test_install.ExternalSkillAcquisitionTests -v
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests -v
 git diff --check
 ```
 
-기대 결과: 모든 unittest `OK`, manifest 일치, `git diff --check` 출력 없음. 기존 Codex symlink strict 테스트(`test_write_targets_reject_root_alias_without_touching_target`, `test_install_rejects_candidate_root_alias_before_acquisition`)와 `test_claude_root_symlink_is_rejected_without_following`를 보존한다.
+기대 결과: focused suites와 manifest 검증 통과, `git diff --check` 출력 없음. 전체 suite는 아래에서 승인된 기준선과 비교한다. 기존 Codex symlink strict 테스트(`test_write_targets_reject_root_alias_without_touching_target`, `test_install_rejects_candidate_root_alias_before_acquisition`)와 `test_claude_root_symlink_is_rejected_without_following`를 보존한다.
+
+### 승인된 전체 suite 기준선 예외 (2026-10-15)
+
+구현 전 기준선은 `89e6eee1f2434f58665b5482dab0d9e65776e24a`이며, 깨끗한 임시 복사본에서 전체 suite를 실행하면 250개 중 기존 README 정책 계약 검사 11개 실패와 오류 2개가 발생한다. 사용자 승인에 따라 T1·T2·최종 수용은 이 기준선 대비 신규 실패·오류가 없는 것으로 판정한다. 현재 T1 변경도 생성된 Python cache를 격리하고 bytecode 생성을 끈 상태에서 258개 중 동일한 11개 실패와 2개 오류만 발생했다.
+
+기준선의 오류는 `test_loader_keeps_subagents_on_profiles`, `test_reference_triggers_cover_dependent_stages`다. 실패는 `test_ownership_and_flows_name_the_direct_path_exception`, `test_coder_profile_holds_handoff_contract_without_full_reference_read`, `test_brief_template_field_order_and_delta`, `test_handoff_record_file_location`, `test_models_scouter_lookup_exception`, `test_research_routing_tiers`, `test_skill_not_reread_and_agents_body_wording`, `test_final_single_reviewer_is_explicit`(README subtest), `test_qa_ui_browser_acceptance_contract`, `test_worktree_readme_matches_selected_execution_paths`, `test_document_batch_and_external_action_boundaries_remain`이다. 이 실패들은 구현 전 기준선의 README 기대값 불일치다. 새 payload 검증에 Python bytecode cache가 들어가지 않도록 `PYTHONDONTWRITEBYTECODE=1`을 사용하고, 기존 테스트 생성 cache는 격리한 뒤 복원한다.
 
 ### T1 수용 기준
 
@@ -122,9 +128,11 @@ git diff --check
 - 허용 범위 밖 symlink는 acquisition 전에 거부된다.
 - acquisition 경합은 transaction 전에 감지되고 사용자 변경이 보존된다.
 - link backup과 rollback은 원본 문자열을 보존하며 rollback 실패 자료를 보존·보고한다.
-- `--check`와 `--dry-run`의 read-only 성질, dry-run 안내, manifest 및 전체 회귀가 통과한다.
+- `--check`와 `--dry-run`의 read-only 성질, dry-run 안내, manifest 및 focused regression이 통과하고 전체 suite가 승인 기준선 대비 신규 실패·오류가 없다.
 - 독립 QA가 임시 fixture에서 위 기준의 명령·결과·검증 상태를 보고한다. 실제 사용자 install은 수행하지 않는다.
 - CEO가 QA 결과와 findings를 검토해 수용한 뒤 focused implementation commit을 만든다. 권장 메시지: `fix(installer): Claude 스킬 링크를 독립 복사본으로 전환`.
+
+**T1 CEO 수용:** 2026-10-15. 독립 QA가 Claude 전환·거부·경합·rollback·read-only 경계와 기존 외부 스킬 회귀를 통과시켰다. 전체 suite는 사용자 승인 기준선과 같은 11개 실패·2개 오류만 남았고 manifest 및 formatting 검사가 통과했다. Plan progress와 수용 기록은 T1 focused commit에 포함한다.
 
 ### 보류 조건
 
@@ -206,7 +214,7 @@ python3 -m unittest discover -s tests -v
 git diff --check
 ```
 
-**T2 수용 기준:** 11개 공통 policy section이 순서대로 있고 핵심 승인·소유권·TDD·위험·수용 계약이 보존된다. native role name·모델 설정·실행 대상·참조가 배포 구성과 일치하고 Claude 배포 Markdown에 다른 플랫폼 계약이 없다. 모든 검사 `OK`; 독립 QA가 정렬표를 기준으로 의미 누락·adapter 충돌을 검토한다. 실제 provider runtime 적용은 로컬 검사로 검증했다고 표현하지 않는다. CEO는 수용 후 별도 focused commit을 한다.
+**T2 수용 기준:** 11개 공통 policy section이 순서대로 있고 핵심 승인·소유권·TDD·위험·수용 계약이 보존된다. native role name·모델 설정·실행 대상·참조가 배포 구성과 일치하고 Claude 배포 Markdown에 다른 플랫폼 계약이 없다. Claude payload focused 검사, manifest와 `git diff --check`가 통과하고 전체 suite는 위 승인 기준선 대비 신규 실패·오류가 없다. 독립 QA가 정렬표를 기준으로 의미 누락·adapter 충돌을 검토한다. 실제 provider runtime 적용은 로컬 검사로 검증했다고 표현하지 않는다. CEO는 수용 후 별도 focused commit을 한다.
 
 **보류 조건:** source 정책과 native 지원 경계가 충돌해 새 행동 결정이 필요하거나, per-call effort·fresh context·완료 대기 실행 기능을 필수로 약속해야 하거나, 지원되지 않는 worktree·API가 있어야 계약이 성립하는 경우 중단해 CEO에게 근거와 선택지를 보고한다. profile·모델·script 변경이나 공유 정책의 의미 변경도 재승인 없이 진행하지 않는다.
 
@@ -214,7 +222,7 @@ git diff --check
 
 ## 최종 전체 검증
 
-T1·T2 각각의 QA·CEO 수용·focused commit 이후, 독립 Reviewer가 최종 전체 변경을 한 번 검토한다. 초점은 정확한 경로 예외, backup의 no-follow 성질, descriptor 이동·복원, 경합·rollback/recovery, 공통 정책 정렬, Claude execution adapter, README·기존 sync plan·reference·manifest 정합성이다. Reviewer는 task 수용의 선행조건이 아니다. 수정 시 영향 테스트와 QA를 다시 수행하고 최종 전체 diff를 재검토한다.
+T1·T2 각각의 QA·CEO 수용·focused commit 이후, 독립 Reviewer가 최종 전체 변경을 한 번 검토한다. 초점은 정확한 경로 예외, backup의 no-follow 성질, descriptor 이동·복원, 경합·rollback/recovery, 공통 정책 정렬, Claude execution adapter, README·기존 sync plan·reference·manifest 정합성이다. Reviewer는 task 수용의 선행조건이 아니다. 최종 전체 suite는 위 사용자 승인 기준선과 비교해 신규 실패·오류가 없어야 하며, feature-focused 검사와 manifest는 통과해야 한다. 수정 시 영향 테스트와 QA를 다시 수행하고 최종 전체 diff를 재검토한다.
 
 ## 계획 자체 검토
 
