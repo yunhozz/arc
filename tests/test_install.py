@@ -431,13 +431,15 @@ class TaskCommitPolicyTests(unittest.TestCase):
             r"scope expansion.*ownership.*staged.*mismatch.*workspace.*branch.*head.*git state",
             r"failure.*partial completion.*record.*reason.*next action",
             r"do not waive.*criteria.*required checks.*commit",
-            r"disposition.*does not.*unverified.*proven",
+            r"explicit disposition follows existing policy and the evidence verdict",
             r"git failure.*actual branch.*head.*index.*working tree.*before retrying",
         ))
         self.contracts(commit, (
             r"same file.*other tasks.*user changes.*safe separation.*before committing",
-            r"unrelated staged.*stop.*do not.*unstage.*stash/reset/clean",
+            r"unrelated staged changes stop the commit under the preservation rule",
         ))
+        assert_term_defined(self, "evidence verdict")
+        assert_term_defined(self, "preservation rule")
 
     def test_commit_evidence_no_change_and_resume_are_explicit(self) -> None:
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
@@ -558,12 +560,13 @@ class ConditionalReferenceTests(unittest.TestCase):
         recovery = policy_text("git-recovery")
         for contract in (
             r"denial of lock creation alone does not prove a stale lock",
-            r"do not delete lock files.*chmod.*chown.*bypass the sandbox.*move to another workspace.*reset/stash/clean",
+            r"apply the preservation rule: do not delete lock files, use `chmod` or `chown`, bypass the sandbox, or move to another workspace",
             r"minimum escalation.*exact single git command and workspace.*never broad git access",
             r"before retrying.*branch.*head.*index.*partial completion",
             r"both operational failure and missing execution-target choice block handoff",
         ):
             self.assertRegex(recovery, contract)
+        assert_term_defined(self, "preservation rule", "coder")
 
     def test_references_preserve_policy_contracts(self) -> None:
         contracts = {
@@ -710,6 +713,104 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
         self.assertRegex(readme, r"<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>\.md.*스테이징·커밋하지 않고.*절대 경로.*쓰기가 거부되거나 불가하면.*자동 삭제하지 않습니다")
 
 
+SHARED_TERMS = {
+    "preservation rule": "preserve unrelated staged, unstaged, and untracked changes and edit ownership; never "
+                         "automatically stash, reset, clean, unstage, discard, amend, or delete branches/worktrees; "
+                         "never change permissions, delete locks, or bypass the sandbox to proceed; stop and report to "
+                         "ceo (ceo reports to the user)",
+    "explicit choice": "only a clear user selection counts; planning approval, silence, refusal of another option, or "
+                       "an ambiguous reply never does",
+    "stop and inspect": "on failure or partial completion, stop dependent work; inspect and record the actual path, "
+                        "branch or detached head, head, index, files, and completed steps; do not retry, fall back, or "
+                        "repeat completed work automatically; revalidate affected gates after resolution",
+    "evidence verdict": "each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never "
+                        "turn unverified into proven; reports keep unverified scope visible",
+}
+
+
+def assert_term_defined(case: unittest.TestCase, term: str, profile: str | None = None) -> None:
+    # A replaced restatement is pinned by its term usage plus the term's full definition.
+    case.assertIn(f"{term}: {SHARED_TERMS[term]}", policy_text("core").replace("*", ""))
+    if profile:
+        case.assertIn(f"{term}: {SHARED_TERMS[term]}", profile_text(profile))
+
+
+def raw_policy_text(name: str) -> str:
+    path = REPO / "skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
+    return " ".join(path.read_text().split())
+
+
+def profile_text(role: str) -> str:
+    return " ".join(tomllib.loads((REPO / f"agents/harness-{role}.toml").read_text())
+                    ["developer_instructions"].lower().split())
+
+
+class SharedTermsTests(unittest.TestCase):
+    # Structural checks of the written contract only, not consuming-agent runtime compliance.
+    def test_core_defines_shared_terms(self) -> None:
+        core = policy_text("core").replace("*", "")
+        self.assertIn("## shared terms", core)
+        terms = core.split("## shared terms", 1)[1].split(" ## ", 1)[0]
+        for term, body in SHARED_TERMS.items():
+            with self.subTest(term=term):
+                self.assertIn(f"{term}: {body}", terms)
+
+    def test_profiles_carry_terms_used_in_citable_sections(self) -> None:
+        for role, terms in (("coder", ("preservation rule", "explicit choice", "stop and inspect")),):
+            for term in terms:
+                with self.subTest(role=role, term=term):
+                    self.assertIn(f"{term}: {SHARED_TERMS[term]}", profile_text(role))
+        # QA/Reviewer (verification) and Planner (planning) profiles do not define the terms, so those
+        # references must not use them.
+        for name in ("verification", "planning"):
+            for term in SHARED_TERMS:
+                with self.subTest(reference=name, term=term):
+                    self.assertNotIn(term.capitalize(), raw_policy_text(name))
+
+    def test_qa_fix_restorations(self) -> None:
+        coder = profile_text("coder")
+        for phrase in ("do not repair preparation by changing permissions, deleting locks, bypassing the sandbox, "
+                       "committing, creating/switching branches, or moving workspaces",
+                       "if risk is or becomes unclear or scope expands, stop and ask ceo to reclassify",
+                       "report inaccessible or conflicting paths to ceo before dependent work"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, coder)
+        core = policy_text("core")
+        self.assertIn("substantial behavior or contract changes are significant regardless of file count", core)
+        self.assertIn("coder repair limits are in the coder profile", core)
+        self.assertRegex(policy_text("handoff"), r"one canonical initial handoff record.*repository/workspace identity")
+        reviewer = profile_text("reviewer")
+        self.assertIn("for development work, functional and test verification belongs to qa and completion remains with "
+                      "ceo; ceo decides overall completion within its assigned scope", reviewer)
+
+    def test_coder_profile_is_compact(self) -> None:
+        # Target was 560; mandated term definitions and QA-restored clauses keep the profile above it.
+        self.assertLessEqual(len((REPO / "agents/harness-coder.toml").read_text().split()), 790)
+
+    def test_term_usage_sites(self) -> None:
+        for name, heading, term in (
+            ("handoff", "### checkout approval", "explicit choice"),
+            ("handoff-prep", "### execution-target request gate", "explicit choice"),
+            ("handoff-prep", "### git mutation evidence gate", "preservation rule"),
+            ("handoff-prep", "### planning document commit", "preservation rule"),
+            ("handoff-prep", "### planning document commit", "stop and inspect"),
+            ("git-recovery", "### git metadata write denial", "preservation rule"),
+            ("git-recovery", "### existing changes and failures", "preservation rule"),
+            ("git-recovery", "### worktree failures and partial completion", "preservation rule"),
+            ("git-recovery", "### worktree failures and partial completion", "stop and inspect"),
+            ("commit", "## automatic commit after plan-task acceptance", "preservation rule"),
+            ("commit", "## automatic commit after plan-task acceptance", "evidence verdict"),
+            ("core", "## risk-scaled execution", "evidence verdict"),
+        ):
+            with self.subTest(reference=name, section=heading, term=term):
+                text = raw_policy_text(name)
+                self.assertIn(heading, text.lower())
+                section = text[text.lower().index(heading) + len(heading):]
+                for boundary in (" ## ", " ### "):
+                    section = section.split(boundary, 1)[0]
+                self.assertIn(f"the {term.capitalize()}", section)
+
+
 class HarnessPreactionGateTests(unittest.TestCase):
     # Specifically approved structural contract checks, not consuming-agent runtime tests.
     def test_preaction_role_precedence(self) -> None:
@@ -811,7 +912,11 @@ class HarnessPreactionGateTests(unittest.TestCase):
         self.assertIn("do not modify external skills", planning)
         handoff = policy_text("handoff")
         self.assertRegex(handoff, r"unrelated staged files.*preserved.*block handoff")
-        self.assertRegex(handoff, r"do not automatically unstage, reset, stash, clean, or discard")
+        gate = handoff.split("### git mutation evidence gate", 1)[1].split("### ", 1)[0]
+        self.assertIn("apply the preservation rule; unrelated staged files stop the mutation", gate)
+        docs = handoff.split("### planning document commit", 1)[1].split("### ", 1)[0]
+        self.assertIn("unrelated staged files stop the commit under the preservation rule", docs)
+        assert_term_defined(self, "preservation rule", "coder")
 
 
 class CeoDirectPathTests(unittest.TestCase):
@@ -1084,9 +1189,10 @@ class RolePolicyTests(unittest.TestCase):
                 r"before every coder first start and restart",
                 r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch.*new managed worktree and task branch",
                 r"present.*absolute workspace.*current branch.*detached head.*base head.*validated candidate",
-                r"planning approval alone, no response, refusal of a new branch alone, or an unclear response.*does not select.*current checkout",
+                r"explicit user choice for the first start under the explicit choice rule: use the current checkout",
             ),
         )
+        assert_term_defined(self, "explicit choice", "coder")
 
     def test_workspace_handoff_current_checkout_requires_explicit_choice(self) -> None:
         self._assert_workspace_handoff_contracts(
@@ -1135,11 +1241,12 @@ class RolePolicyTests(unittest.TestCase):
             "Existing changes and failures",
             (
                 r"existing staged, unstaged, and untracked changes.*preservation and edit ownership.*brief",
-                r"do not automatically stash, commit, reset, clean, or delete changes",
+                r"apply the preservation rule and do not automatically commit or delete changes",
                 r"only the approved docs commit.*all three paths.*exception.*preserve all unrelated dirty files",
                 r"existing changes prevent switching.*stop handoff until ceo resolves the state and scope",
             ),
         )
+        assert_term_defined(self, "preservation rule")
 
     def test_workspace_handoff_failures_do_not_fallback(self) -> None:
         self._assert_workspace_handoff_contracts(

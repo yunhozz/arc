@@ -13,9 +13,9 @@ paths and scope coverage, approved versions and individual approval evidence, pl
 and no unfinished applicable documents or unresolved scope/dependency decisions requiring another document.
 The set contains required artifacts, not a spec on every path; use planning depth and valid omission rationales.
 Unfinished documents or missing approval evidence stop the choice request and preparation. Read-only state checks
-are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate.
-Present the verified workspace, current branch or detached HEAD, HEAD, and any validated new-branch candidate under
-Checkout approval in handoff.md. Planning approval, silence, or ambiguous responses never constitute target choice.
+are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate
+under the Explicit choice rule. Present the verified workspace, current branch or detached HEAD, HEAD, and any validated
+new-branch candidate under Checkout approval in handoff.md.
 When offering the new managed worktree option, CEO first verifies and then presents its selection target (source absolute
 path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
 approved branch candidate and collision status, descriptive name, approved document transfer/commit scope). Verification
@@ -37,8 +37,8 @@ Read-only Git checks remain allowed. Do not infer execution authority from an ex
 
 Before committing, also verify staged paths/content and the finalized message under Planning document commit.
 After every branch or commit operation, verify actual path, branch, HEAD, preserved changes, and result before the
-next dependent action. After staging, verify the actual index paths and diff before commit. Preserve unrelated
-changes and stop on unrelated staged files; do not automatically unstage, reset, stash, clean, or discard them.
+next dependent action. After staging, verify the actual index paths and diff before commit. Apply the Preservation
+rule; unrelated staged files stop the mutation.
 Reverify affected evidence after changes or failures; do not retroactively approve an action taken before its gate.
 
 ### New task branch
@@ -100,13 +100,12 @@ Conventional Commit message before the first commit, and stages only those docum
 before handoff. Batch all remaining uncommitted approved documents together in that single commit, including all specs
 and plans when none are committed. If only some remain, verify/reuse existing commits and commit the remainder once.
 If all are validly committed, verify only; do not create duplicate or empty commits. Do not amend, reset, or recommit
-past commits merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved documents. If unrelated staged
-files exist, preserve them and stop; do not automatically unstage, reset, stash, clean, or discard them. Never include
-implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
+past commits merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved
+documents; unrelated staged files stop the commit under the Preservation rule. Never include implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
 repair it. A separately needed amend requires rechecking its approval scope, current HEAD, and publication state.
 
-If the docs commit fails or staged content differs, stop handoff and inspect actual branch, HEAD, index, and partial
-completion. Resolve the issue before resuming; do not commit implementation instead. After success verify SHA, actual
+If the docs commit fails or staged content differs, stop handoff and apply the Stop and inspect rule to the actual
+branch, HEAD, index, and partial completion. Resolve the issue before resuming; do not commit implementation instead. After success verify SHA, actual
 message, included paths/content, post-commit HEAD, final branch, and staged/unstaged/untracked state in the brief.
 A successful command exit alone does not prove preparation complete. This commit is not implementation acceptance
 or push approval; do not push without a separate explicit user request.

@@ -15,12 +15,11 @@ unstaged, and untracked changes. Stop if the workspace is inaccessible, is not t
 cannot be resolved. Do not initialize Git or switch to another repository automatically.
 
 Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
-After applicable design/spec/plan approvals, obtain and record an explicit user choice for the first start: use the
-current checkout, create a new task branch from the verified base HEAD in that same checkout, or create a
-new managed worktree and task branch (selection target under handoff-prep.md; contract in handoff-worktree.md after selection). Present the absolute
-workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Planning
-approval alone, no response, refusal of a new branch alone, or an unclear response does not select the current
-checkout. Without an explicit execution-target choice or verified valid reuse under the choice-lifetime rules below, wait and do not start or restart Coder.
+After applicable design/spec/plan approvals, obtain and record an explicit user choice for the first start under the
+Explicit choice rule: use the current checkout, create a new task branch from the verified base HEAD in that same
+checkout, or create a new managed worktree and task branch (selection target under handoff-prep.md; contract in handoff-worktree.md after selection). Present the absolute
+workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Without an
+explicit execution-target choice or verified valid reuse under the choice-lifetime rules below, wait and do not start or restart Coder.
 
 ### Coder handoff gate
 
@@ -45,10 +44,8 @@ and records them in the brief; no Coder independent check applies.
 
 Any missing or failed condition blocks handoff. CEO may continue read-only investigation and authorized preparation
 or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
-HEAD, or relevant state changes. Coder independently checks the brief and actual checkout before editing on every
-start or restart; missing evidence, mismatched state, or unclear ownership requires a report to CEO and no edits.
-Coder does not repair preparation through commits, branch creation/switching, or Git permission changes. CEO resolves
-preparation and passes the gate again before Coder resumes.
+HEAD, or relevant state changes. Coder's independent check, blocking report and repair limits are in its profile; CEO
+resolves preparation and passes the gate again before Coder resumes.
 
 ### Handoff evidence
 
@@ -57,31 +54,29 @@ selected branch, descriptive name, returned actual path, app-managed current-cha
 registration and preservation checks, and document transfer evidence. Give all five roles the
 selected absolute worktree path: Coder, QA, Planner, Reviewer, Scouter. On the same approved worktree,
 recheck actual state before reuse of the initial explicit choice; loss of target trust requires a new explicit choice.
-Do not automatically recreate, cleanup, or archive a worktree. Each role stays in the supplied workspace.
+Do not automatically recreate, cleanup, or archive a worktree.
 
-Include accessible Planner spec/plan drafts and self-review findings, CEO integration/save/review responsibility,
-approval versions/evidence, absolute save paths, document-save gate results, execution-target request readiness,
-and each preparation Git mutation's pre-action evidence and post-action result in the same canonical record.
+Include the document-save gate evidence and results from planning.md, execution-target request readiness, and each
+preparation Git mutation's pre-action evidence and post-action result in the same canonical record.
 Record the actual absolute workspace, prior branch or detached HEAD and base HEAD, prior change state and preservation
 and edit scope, checkout approval result and evidence, selected execution path, final branch or detached HEAD,
 creation/switch result if attempted, and post-selection branch/path/HEAD/change checks in the brief. Include the docs
 commit SHA, actual message, included paths, approved-content verification or valid no-document depth rationale,
 final verification, and any failure/partial completion and recovery evidence, plus absolute approved artifact paths.
-Record the complete current-scope document list, absolute paths/coverage, approved versions/status, plan dependencies
-and execution order, skipped-stage reasons, and confirmation that no applicable document awaits writing/approval.
+Record the Complete planning-document set fields from planning.md, confirming no applicable document awaits writing/approval.
 Distinguish reused existing commits from the batch preparation commit, or record valid document absence.
 Record applicable approvals and the initial explicit execution-target choice or verified reuse for each first start or restart. Give all five
-roles the same actual workspace, selected execution checkout, preparation evidence, and absolute artifact paths. Coder and QA work only in the supplied workspace; Planner, Reviewer, and Scouter use
-that same workspace. Every role reports missing, inaccessible, or conflicting paths and unexpected branch state to
-CEO before dependent work. Roles do not independently create or switch workspaces or branches.
+roles the same actual workspace, selected execution checkout, preparation evidence, and absolute artifact paths. Each
+role stays in the supplied workspace, reports missing, inaccessible, or conflicting paths and unexpected branch state to
+CEO before dependent work, and does not create or switch workspaces or branches.
 
 ### Choice lifetime and restart record
 
 Normal accepted task commits do not by themselves invalidate the initial choice for the same approved scope,
 workspace, repository and execution target. Link the approved plan version, task ID and commit SHA/content/validity
 with current Git state and edit ownership in the restart brief; retain the full handoff gate and independent checks.
-Verify/reuse successful task commits without duplication and keep planning-document preparation evidence distinct.
-Task commits do not require repeating valid document preparation or asking again for a still-valid initial choice.
+Verify/reuse successful task commits without duplication and keep planning-document preparation evidence distinct;
+task commits do not require repeating valid document preparation.
 
 After successful worktree creation and verification, normal changes in the selected target are governed by this
 reuse rule: authorized HEAD and dirty-state changes, including approved document transfer, docs commits, and
@@ -100,13 +95,10 @@ failure means the old target cannot be trusted, obtain a fresh explicit choice a
 Normal authorized HEAD and dirty-state changes do not by themselves invalidate the choice; record them and verify
 that they match approved work, ownership, and the intended target. State mismatches and unresolved failures block
 editing until CEO resolves and revalidates the full gate; resolution does not automatically require a new choice
-unless it invalidates the old target. Do not fall back automatically or infer approval from silence or plan approval.
+unless it invalidates the old target. Do not fall back automatically; apply the Explicit choice rule.
 
 Keep one canonical initial handoff record accessible to each assigned role, containing the approved scope/version,
-applicable approvals and absolute approved artifact paths, repository/workspace identity, explicit choice evidence and
-selected target, prior/final Git state, preservation/ownership, complete document set/dependencies/order and omissions,
-verified existing or batch docs commits, final verification, and failure/partial-completion/recovery evidence.
-The Handoff evidence fields above define this record; do not create a separate storage service. CEO writes it as a
+repository/workspace identity, and the Handoff evidence fields above; do not create a separate storage service. CEO writes it as a
 Markdown file at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` (resolve with
 `git rev-parse --path-format=absolute --git-common-dir`; outside the working tree and shared by linked worktrees; not a
 Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and delta restart

@@ -16,8 +16,8 @@ evidence. Existing plan-skip paths have no new plan obligation; their commits fo
 Before committing, CEO verifies the approved plan version, task ID and accepted scope, actual absolute workspace,
 repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state and edit ownership. Verify staged paths and
 content match only that task, and verify the finalized commit message. If the same file contains other tasks or user
-changes, prove safe separation before committing. Preserve unrelated staged changes and stop; do not automatically
-unstage them or use stash/reset/clean to clear user changes. After committing, verify SHA, actual message, included
+changes, prove safe separation before committing. Unrelated staged changes stop the commit under the Preservation
+rule. After committing, verify SHA, actual message, included
 paths and content, post-commit HEAD, actual branch and remaining staged/unstaged/untracked state. Command exit success
 alone does not establish completion. In the accessible canonical record link plan path/version, task ID, acceptance
 evidence and CEO judgment, required checks/reviews and findings, commit results and state, hold/no-change/reuse reasons,
@@ -27,7 +27,7 @@ Hold the task commit for unmet or unresolved criteria, required checks/reviews t
 unresolved findings or evidence gaps without disposition, scope expansion or revised-plan needs, ownership or staged
 scope/content mismatch, unexpected workspace, branch, HEAD or Git state, or Git failure/partial completion. Record the
 reason and required next action. Do not waive unmet criteria or required checks to commit. Explicit disposition follows
-existing policy and does not turn unverified into proven. After a Git failure inspect actual branch, HEAD, index,
+existing policy and the Evidence verdict. After a Git failure inspect actual branch, HEAD, index,
 working tree and partial completion before retrying; if commit creation is unclear, stop rather than retry immediately.
 CEO follows git-recovery and reverifies affected evidence after resolving the failure.
 
@@ -35,8 +35,7 @@ For a no-change task, make no empty commit; record acceptance evidence and no ch
 existing commit SHA, content and validity, then reuse it; do not duplicate a successful task commit. For a missing record,
 inspect the actual result before any retry. Normal accepted task commits retain valid choice reuse under handoff, with
 fresh state and ownership checks. Task acceptance/commit is distinct from final plan acceptance; remaining final
-QA/Reviewer/integration checks still apply. Follow verification for their timing: later final verification alone does
-not delay an independently acceptable task, but any review designated as its acceptance prerequisite must finish first.
+QA/Reviewer/integration checks still apply with the timing in verification.
 
 If final QA/Reviewer findings require changing already committed work, CEO defines a follow-up task with required
 planning and approvals, correction and reverification, then a new focused commit. Do not automatically amend/reset

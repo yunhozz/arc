@@ -12,8 +12,10 @@ When the request or task brief is in Korean, Planner writes spec and plan titles
 the user explicitly requests another language. Preserve identifiers, skill/API names, code, paths, commands, and
 literal values exactly. CEO preserves the agreed language when saving and integrating Planner output.
 
-Assess design and plan depth separately from verification risk; risk determines the required checks and review, not the
-design path or plan approval gates.
+Assess and record design and plan depth separately from verification risk; risk determines the required checks and
+review, not the design path or plan approval gates. Bounded or document omission does not imply low risk, and
+architectural depth does not add QA/Reviewer at every stage; apply existing risk-scaled QA/Reviewer and specific
+approved obligations separately.
 
 1. Before software feature, design, or behavior changes, CEO assigns Planner the installed `brainstorming` skill with
    the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
@@ -37,7 +39,6 @@ design path or plan approval gates.
    `Workspace handoff` gate below, with approved artifacts, brief, and relevant findings. Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
    A CEO direct edit requires its approved short design and the same gate conditions before the first edit.
-   Standalone document writing has no specialist auto-route.
 
 When a Bounded written spec is required by the existing CEO depth judgment, record that necessity and scope and
 use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
@@ -79,14 +80,13 @@ spec-necessity rationale and scope, and Planner's proportional complete draft an
 the short design does not replace the required spec's drafting, self-review, or individual approval.
 Architectural and required Bounded specs enter as approved versions in the applicable document set; complete
 individual written-spec approval before dependent plan drafting and execution preparation. This gate
-permits saving for review and does not require written-spec approval or execution-target choice. CEO integrates,
-saves, and self-reviews before requesting written-spec approval. Do not describe an uncommitted file as committed.
+permits saving for review and does not require written-spec approval or execution-target choice. Do not describe an
+uncommitted file as committed.
 
 **Plan save:** Verify the approved design and, when required, approved written-spec version and approval evidence,
 CEO's plan-depth judgment, applicable plan list and dependencies, accessible Planner's complete plan draft and
 self-review findings, CEO's integration/save/review responsibility, and intended absolute save path.
 If evidence is missing or mismatched in either gate, stop the affected save and report to CEO for resolution.
-Revised approved documents require approval of their revised versions.
 
 ### Complete planning-document set
 
@@ -114,8 +114,7 @@ handoff; approval of some plans does not permit starting their Coder work ahead 
 
 This Harness explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
 save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
-all applicable plans. Commit the spec only in the final batch preparation. Do not describe an uncommitted spec as
-committed in approval requests. Do not modify external skills. `writing-plans` implementation-step commit instructions
+all applicable plans. Commit the spec only in the final batch preparation. Do not modify external skills. `writing-plans` implementation-step commit instructions
 are not permission for document commits during planning or for starting Coder.
 
 | Path | Applicable approvals and preparation |
@@ -129,9 +128,7 @@ are not permission for document commits during planning or for starting Coder.
 Spike probe and subsequent implementation are separate approval scopes. Report probe findings, reassess implementation
 design/plan depth, and approve its required spec and all plans before its preparation batch. Probe approval or code
 does not approve later implementation. Document omission skips only document obligations, never explicit execution-target
-choice, Git state/ownership checks, or handoff evidence. Record design/plan depth and verification risk independently;
-bounded or document omission does not imply low risk, and architectural depth does not add QA/Reviewer at every stage.
-Apply existing risk-scaled QA/Reviewer and specific approved obligations separately.
+choice, Git state/ownership checks, or handoff evidence.
 
 If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
 before preparation. Changed approved documents require approval of the revised version. If implementation reveals new

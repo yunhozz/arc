@@ -48,9 +48,8 @@ missing non-executor skills before dependent work.
 
 Planner, Reviewer, and Scouter return findings, relevant questions, next actions, and workspace/path issues to the
 CEO. Planner preserves complete requested drafts. CEO integrates results, routes decisions and required approvals,
-and owns development acceptance and completion. For development work, design/planning approvals, Coder/QA coordination, implementation acceptance, and completion remain with CEO. Coder implements assigned files; QA checks
-without edits; Reviewer reads independently. CEO coordinates dependent implementation tasks sequentially and starts a fresh Coder for
-each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same task while the
+and owns development acceptance and completion. CEO coordinates dependent implementation tasks sequentially and starts
+a fresh Coder for each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same task while the
 approved scope, workspace, ownership, and relevant context remain valid. A fresh Coder for the next task in the same
 approved scope is a restart under handoff: it reuses a still-valid initial execution-target choice with fresh state
 checks and a delta-only restart brief. After an approved plan or acceptance-criteria amendment, start a fresh Coder for
@@ -58,6 +57,22 @@ the remaining work even within the same task; it is also a restart under handoff
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
 next task depends on a still-unverified risky contract, complete applicable QA/review at that dependency boundary and
 resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
+
+## Shared terms
+
+The handoff, git-recovery, and commit references and the Coder profile use these terms; context-specific commands,
+paths, and state checks still apply.
+
+- **Preservation rule**: preserve unrelated staged, unstaged, and untracked changes and edit ownership; never
+  automatically stash, reset, clean, unstage, discard, amend, or delete branches/worktrees; never change permissions,
+  delete locks, or bypass the sandbox to proceed; stop and report to CEO (CEO reports to the user).
+- **Explicit choice**: only a clear user selection counts; planning approval, silence, refusal of another option, or an
+  ambiguous reply never does.
+- **Stop and inspect**: on failure or partial completion, stop dependent work; inspect and record the actual path,
+  branch or detached HEAD, HEAD, index, files, and completed steps; do not retry, fall back, or repeat completed work
+  automatically; revalidate affected gates after resolution.
+- **Evidence verdict**: each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never
+  turn unverified into proven; reports keep unverified scope visible.
 
 ## Mandatory task references
 
@@ -93,17 +108,15 @@ For a selected worktree, verify common directory, registration, app-managed curr
 and source preservation under handoff.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
 Worktree creation, the canonical record, delta restart brief, choice lifetime and reuse, branch protection, docs-commit
-order and Coder repair limits are in handoff. The same conditions apply before a CEO direct edit, without the Coder's
+order are in handoff; Coder repair limits are in the Coder profile. The same conditions apply before a CEO direct edit, without the Coder's
 independent check.
 
 ## Coder TDD and constraints
 
 Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
-Harness exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when all small, low-risk
-criteria hold (narrow, understood, readily reversible, and verifiable through focused checks) and all plan-skip
-criteria hold (one local change, no dependent stages, cross-component shared state, lifecycle, or integration-order
-concerns, and one focused verification path). Before Coder starts, CEO records the scope, why every criterion is met,
-acceptance criteria, and focused verification in the brief. An explicit user or task-specific TDD request overrides
+Harness exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
+low-risk criterion (Risk-scaled execution) and every plan-skip criterion (CEO direct path) holds. Before Coder starts,
+CEO records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief. An explicit user or task-specific TDD request overrides
 this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the installed skill;
 do not change that skill. Ordinary multi-step or significant/high-risk work is not eligible. The waiver skips only
 RED-GREEN steps; focused checks and risk-appropriate QA/Reviewer remain, and do not claim TDD was followed. If a constraint blocks a required TDD step, CEO records the
@@ -125,7 +138,7 @@ and smallest meaningful verification.
 Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
 fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
 shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
-installation/deployment/rollback. Substantial contracts are significant regardless of file count. Unclear risk requires
+installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count. Unclear risk requires
 investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
 Do not add per-task gates automatically. Preserve specific approved obligations and complete risky dependency checks
@@ -134,7 +147,7 @@ position satisfy each covered requirement; changes, failures, or missing/conflic
 QA checks independently without edits; Reviewer independently reads the final full change after QA for significant
 work, without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder (or corrects them
 within an eligible CEO direct path), obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
-Criterion verdicts must preserve unverified scope; passing runs or disposition cannot substitute for proof.
+Criterion verdicts follow the Evidence verdict.
 Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
 
 ## CEO direct path for small tasks
