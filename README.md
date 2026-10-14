@@ -233,3 +233,25 @@ python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
 - 외부 스킬 후보와 상위 경로의 심볼릭 링크는 일반 설치에서 거부합니다. 취득한 트리는 내부의 유효한 링크만 허용하고, 외부로 나가는 링크·끊어진 링크·순환 링크·특수 파일은 거부합니다.
 - `MANIFEST.sha256`은 설치기·README·선택된 내부 스킬 및 프로필 파일의 무결성을 검사합니다. 편집 가능한 `codex/skill/models.toml`은 제외하고 별도로 설정 형식을 검사합니다. `codex/skill/`, `codex/agents/` 아래 일반 파일인 `.DS_Store`는 제외하며 같은 이름의 다른 항목 유형은 오류입니다.
 - 외부 스킬은 특정 버전이나 해시로 고정하지 않습니다. CLI 결과와 트리 구조를 검증하지만 원격 출처를 독립적으로 암호학적 인증하지는 않습니다. 내부 무결성 목록 역시 자체 진위나 원격 모델 지원을 증명하지 않습니다.
+
+## Claude Code payload
+
+Claude 전용 소스는 `claude/agents/`와 `claude/skill/`에 있습니다. 공통 설치 진입점의 대상 선택 지원은 installer 통합 단계에서 제공됩니다. Claude CEO는 현재 세션 모델을 유지하고, 역할은 다음 선언을 사용합니다.
+
+| 역할 | 모델 | effort |
+|---|---|---|
+| Scouter | haiku | max |
+| Planner | sonnet | medium |
+| Coder | sonnet | low |
+| QA | haiku | high |
+| Reviewer | sonnet | medium |
+
+설치 후 `~/.claude/skills/yunho-harness/models.toml`을 수정하고 다음 명령으로 Claude 프로필 다섯 개에 재적용할 수 있습니다.
+
+```sh
+python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py
+```
+
+`--config`, `--agents-dir`, `--check`, `--dry-run`을 지원합니다. 읽기 전용 옵션은 파일을 변경하지 않습니다. 전체 설정과 프로필을 검증한 뒤 교체하며, 부분 실패 시 기존 bytes와 mode를 복구합니다. Codex 설정과 프로필은 별도입니다. 모델·effort는 제공자 간 근사 매핑이며 가용성·계정 권한·실제 effort 적용은 로컬 검사로 보장하지 않습니다.
+
+Claude v1은 현재 checkout 실행을 지원하며, Harness 관리 worktree 실행은 지원하지 않습니다. CEO는 사용자에게 checkout·branch 선택을 명시적으로 확인하고 승인된 문서·파일 소유권·검증 범위를 역할에 전달합니다. 동시 subagent는 최대 네 개이고 모든 역할은 CEO에게 직접 보고합니다. Coder·QA의 Bash 권한은 정책 제약을 따르며 파일시스템 sandbox를 뜻하지 않습니다.

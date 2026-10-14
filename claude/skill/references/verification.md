@@ -1,0 +1,7 @@
+# Verification and acceptance
+
+Define observable checks from acceptance criteria. For feature/behavior implementation use test-driven-development: meaningful test first, observed expected failure, minimal implementation, focused success, then the project suite. A required skill or test constraint must be reported before dependent edits. A waiver needs a precise CEO record of narrow scope, understood/reversible risk, no dependent stages or cross-component lifecycle, and one focused verification path; a documentation exception authorizes only its named structural checks. Neither is a claim of TDD.
+
+QA runs approved checks without editing source and returns commands, results, failures, evidence and limitations. Report verification side effects within approved scope. Do not broaden tests, repair failures or claim acceptance independently. Reviewer independently reads the final complete diff for correctness, security and policy consistency; request runtime checks through CEO because Reviewer has no Bash tool.
+
+CEO inspects results, resolves findings and decides acceptance. Passing local tests does not establish remote model availability or actual provider effort application. Policy prose requires independent role/approval review; text presence alone cannot establish agent compliance. Distinguish tested behavior from unverified runtime assumptions. Unexpected failures trigger diagnosis and stop dependent work; expected failure-first RED does not authorize unrelated repairs.

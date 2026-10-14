@@ -1,0 +1,167 @@
+"""Strict Claude Harness settings, frontmatter rendering and transactional updates."""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import re
+import stat
+import tempfile
+import tomllib
+
+ROLE_FILES = {f'harness_{role}': f'harness-{role}.md' for role in ('scouter', 'planner', 'coder', 'qa', 'reviewer')}
+ROLE_TOOLS = {
+    'scouter': ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'],
+    'planner': ['Read', 'Grep', 'Glob'],
+    'coder': ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'],
+    'qa': ['Read', 'Grep', 'Glob', 'Bash'],
+    'reviewer': ['Read', 'Grep', 'Glob'],
+}
+EFFORTS = {'low', 'medium', 'high', 'xhigh', 'max'}
+MODEL = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:/@+\-]*\Z')
+
+
+class ValidationError(ValueError):
+    """Invalid local settings, profile or target path."""
+
+
+def validate_settings(data: dict) -> dict:
+    if not isinstance(data, dict) or set(data) != {'version', 'roles'} or type(data['version']) is not int or data['version'] != 1:
+        raise ValidationError('settings require version = 1 and roles only')
+    roles = data['roles']
+    if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
+        raise ValidationError('settings require exactly the five Harness roles')
+    result = {}
+    for name, settings in roles.items():
+        if not isinstance(settings, dict) or set(settings) != {'model', 'effort'}:
+            raise ValidationError(f'{name}: require model and effort only')
+        model, effort = settings['model'], settings['effort']
+        if not isinstance(model, str) or MODEL.fullmatch(model) is None:
+            raise ValidationError(f'{name}: model must be a nonempty plain model identifier')
+        if not isinstance(effort, str) or effort not in EFFORTS:
+            raise ValidationError(f'{name}: unsupported effort')
+        result[name] = dict(settings)
+    return result
+
+
+def require_regular(path: Path) -> None:
+    # Inspect every existing component without resolving symlinks.
+    path = Path(os.path.abspath(path))
+    for component in (path, *path.parents):
+        if component.is_symlink():
+            raise ValidationError(f'symlink is not supported: {component}')
+    if not path.is_file():
+        raise ValidationError(f'expected regular file: {path}')
+
+
+def load_settings(path: Path) -> dict:
+    require_regular(path)
+    try:
+        return validate_settings(tomllib.loads(path.read_text(encoding='utf-8')))
+    except (UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise ValidationError(f'{path}: invalid TOML: {exc}') from exc
+
+
+def _profile(content: bytes) -> tuple[list[str], dict, dict]:
+    try:
+        lines = content.decode('utf-8').splitlines(keepends=True)
+    except UnicodeError as exc:
+        raise ValidationError('profile must be UTF-8') from exc
+    if not lines or lines[0].rstrip('\r\n') != '---':
+        raise ValidationError('missing opening frontmatter delimiter')
+    fields, indices = {}, {}
+    current = None
+    closed = False
+    for index, line in enumerate(lines[1:], 1):
+        text = line.rstrip('\r\n')
+        if text == '---':
+            closed = True
+            break
+        item = re.fullmatch(r'  - ([A-Za-z][A-Za-z0-9]*)', text)
+        if item and current == 'tools':
+            fields['tools'].append(item[1])
+            continue
+        match = re.fullmatch(r'([a-z][a-zA-Z0-9_-]*):(?: (.+))?', text)
+        if not match or match[1] in fields:
+            raise ValidationError('malformed or duplicate frontmatter field')
+        key, value = match.groups()
+        current = key
+        indices[key] = index
+        if key == 'tools':
+            if value is not None:
+                raise ValidationError('tools must be an explicit YAML list')
+            fields[key] = []
+        else:
+            if value is None or value != value.strip() or any(c in value for c in '\t\x00{}[]#&*!|>\"\'') or ': ' in value:
+                raise ValidationError(f'{key}: expected a plain YAML scalar')
+            fields[key] = value
+    if not closed or not {'name', 'description', 'model', 'effort', 'tools'} <= set(fields):
+        raise ValidationError('incomplete frontmatter')
+    name = fields['name']
+    role = name.removeprefix('harness-')
+    if name != f'harness-{role}' or role not in ROLE_TOOLS or fields['tools'] != ROLE_TOOLS[role]:
+        raise ValidationError('invalid native name or role tool allowlist')
+    if MODEL.fullmatch(fields['model']) is None or fields['effort'] not in EFFORTS:
+        raise ValidationError('invalid model or effort declaration')
+    return lines, fields, indices
+
+
+def parse_profile(content: bytes) -> dict:
+    return _profile(content)[1]
+
+
+def render_profile(content: bytes, settings: dict) -> bytes:
+    validated = validate_settings({'version': 1, 'roles': {role: dict(settings) for role in ROLE_FILES}})
+    lines, _, indices = _profile(content)
+    for field, value in validated['harness_coder'].items():
+        index = indices[field]
+        newline = '\r\n' if lines[index].endswith('\r\n') else '\n' if lines[index].endswith('\n') else ''
+        lines[index] = f'{field}: {value}{newline}'
+    return ''.join(lines).encode('utf-8')
+
+
+def apply_models(settings: dict, agents_dir: Path, *, check: bool = False, dry_run: bool = False) -> list[Path]:
+    settings = validate_settings({'version': 1, 'roles': settings})
+    plans = []
+    for role, filename in ROLE_FILES.items():
+        path = agents_dir / filename
+        require_regular(path)
+        content = path.read_bytes()
+        if parse_profile(content)['name'] != filename[:-3]:
+            raise ValidationError(f'{path}: name does not match filename')
+        updated = render_profile(content, settings[role])
+        plans.append((path, content, updated, stat.S_IMODE(path.stat().st_mode)))
+    changed = [path for path, old, new, _ in plans if old != new]
+    if check or dry_run or not changed:
+        return changed
+    # Stage *all* new and rollback files before replacing any destination.
+    staged, backups, replaced = {}, {}, []
+    try:
+        for path, old, new, mode in plans:
+            if old == new:
+                continue
+            for data, bucket in ((new, staged), (old, backups)):
+                fd, temporary = tempfile.mkstemp(prefix='.harness-models-', dir=agents_dir)
+                temporary = Path(temporary)
+                bucket[path] = temporary
+                with os.fdopen(fd, 'wb') as stream:
+                    stream.write(data)
+                    os.fchmod(stream.fileno(), mode)
+        for path in staged:
+            os.replace(staged[path], path)
+            replaced.append(path)
+    except BaseException as exc:
+        failures = []
+        for path in reversed(replaced):
+            try:
+                os.replace(backups[path], path)
+            except OSError as recovery:
+                failures.append(f'{path}: {recovery}; recovery file {backups[path]}')
+        if failures:
+            # Keep every available backup for manual recovery.
+            backups = {}
+            raise OSError(f'model update failed ({exc}); rollback failed: ' + '; '.join(failures)) from exc
+        raise
+    finally:
+        for temporary in (*staged.values(), *backups.values()):
+            temporary.unlink(missing_ok=True)
+    return changed
