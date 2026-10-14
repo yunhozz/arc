@@ -151,6 +151,35 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
         # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
 
+    def test_ceo_direct_path_requires_pre_edit_approval_and_handoff_gates(self):
+        # Static regression for the reviewed approval contract; does not prove agent compliance.
+        core = (PAYLOAD / 'skill/SKILL.md').read_text()
+        self.assertIn('## CEO direct path for small tasks', core)
+        direct = core.split('## CEO direct path for small tasks', 1)[1].split('\n## ', 1)[0]
+        for clause in (
+            r'Before editing.*short design.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
+            r'presents.*user.*obtains explicit approval.*before the first edit',
+            r'Silence.*ambiguous.*approval of other work.*not approval',
+            r'execution-target choice or valid reuse.*workspace and repository.*branch or detached HEAD.*HEAD.*staged/unstaged/untracked.*preservation and ownership.*unresolved failure or partial completion',
+            r'only the approved files.*preserves.*edits',
+            r'After editing.*changed files.*focused checks.*acceptance criterion.*evidence',
+        ):
+            self.assertRegex(' '.join(direct.split()), clause)
+        planning = ' '.join((PAYLOAD / 'skill/references/planning.md').read_text().split())
+        self.assertRegex(planning, r'direct path.*short design.*explicit user approval before.*edit')
+        self.assertRegex(planning, r'handoff.*execution target.*Git state.*approved files.*focused checks')
+
+    def test_ceo_direct_path_excludes_every_significant_risk_trigger(self):
+        # Reviewed policy structure only; runtime compliance requires separate evidence.
+        for relative in ('SKILL.md', 'references/planning.md'):
+            text = ' '.join((PAYLOAD / 'skill' / relative).read_text().split())
+            with self.subTest(relative=relative):
+                for trigger in ('shared role/behavior contracts', 'shared state', 'lifecycle/integration order', 'security/permissions', 'data loss/migration', 'public interfaces', 'costly installation/deployment/rollback'):
+                    self.assertIn(trigger, text)
+                self.assertRegex(text, r'Significant risk.*excludes?')
+                self.assertIn('Substantial behavior or contract changes are significant regardless of file count', text)
+                self.assertIn('Unclear risk requires investigation or the higher flow', text)
+
     def test_manifest_covers_immutable_claude_payload(self):
         entries = dict(line.split('  ', 1)[::-1] for line in (ROOT / 'MANIFEST.sha256').read_text().splitlines())
         files = [p for p in PAYLOAD.rglob('*') if p.is_file()]
