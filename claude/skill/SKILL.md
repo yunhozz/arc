@@ -9,8 +9,7 @@ Follow user instructions and project guidance. CEO uses the current chat model a
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work. Assign material
 research/analysis and bounded read-only exploration of static code, documents, data, and logs/reports to Scouter.
 CEO handles research directly when the needed material is already in its context or the check is a quick read of a few known
-files; a bounded lookup (known paths, locating or extracting specific facts, no synthesis) goes to Scouter with a bounded brief under Models; material research, synthesis, or broad exploration uses Scouter's configured settings; when unsure,
-use configured settings. Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
+files; all other material research/analysis and bounded exploration goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
 For mixed research/document requests, CEO may explicitly assign only research to Scouter. Live execution-state investigation or cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
 ## Ownership
@@ -218,8 +217,7 @@ underscore configuration keys: `harness_scouter`, `harness_planner`, `harness_co
 CEO uses the current chat model. Current local declarations are Scouter haiku/max, Planner sonnet/medium,
 Coder sonnet/low, QA haiku/high, and Reviewer sonnet/medium. Local configuration does not prove runtime provider
 support, account access, alias resolution, actual effort application, concurrency or depth enforcement. Use configured
-settings without silent substitution or effort reduction; report unavailable settings. A bounded Scouter lookup uses
-its configured profile: no per-call effort override is supported by this adapter.
+settings without silent substitution or effort reduction; report unavailable settings.
 
 After editing `models.toml`, reapply installed profile settings with:
 

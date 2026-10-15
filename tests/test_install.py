@@ -721,11 +721,20 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_research_routing_tiers(self) -> None:
         opening = policy_text("core").split("## ownership", 1)[0]
-        self.assertRegex(opening, r"quick read of a few known files.*bounded lookup.*known paths.*no synthesis.*scouter.*lighter effort under models.*material research, synthesis, or broad exploration.*configured settings.*when unsure, use configured settings")
+        self.assertRegex(opening, r"quick read of a few known files.*all other material research/analysis and bounded exploration goes to scouter with its configured settings.*narrow brief.*known paths.*specific facts.*no synthesis")
+        for gone in ("lighter effort", "when unsure", "under models"):
+            self.assertNotIn(gone, opening)
+        claude = " ".join((REPO / "claude/skill/SKILL.md").read_text().lower().split()).split("## ownership", 1)[0]
+        self.assertRegex(claude, r"quick read of a few known files.*narrow brief.*known paths.*specific facts.*no synthesis")
+        for gone in ("when unsure", "under models"):
+            self.assertNotIn(gone, claude)
 
     def test_models_scouter_lookup_exception(self) -> None:
         models = policy_text("core").split("## models", 1)[1].split("after editing", 1)[0]
-        self.assertRegex(models, r"use configured settings without substitution, except that for a bounded scouter lookup ceo spawns scouter with `fork_turns=\"none\"` and `reasoning_effort=\"medium\"` and records the choice and reason in the brief; report unavailable settings")
+        self.assertIn("use configured settings without substitution; report unavailable settings", models)
+        self.assertNotIn("reasoning_effort", models)
+        self.assertNotIn("bounded scouter lookup", models)
+        self.assertNotIn('reasoning_effort="medium"', policy_text("core"))
 
     def test_skill_not_reread_and_agents_body_wording(self) -> None:
         tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]

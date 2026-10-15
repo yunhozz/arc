@@ -9,9 +9,7 @@ Follow user instructions and project guidance. CEO uses the current chat model a
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work. Assign material
 research/analysis and bounded read-only exploration of static code, documents, data, and logs/reports to Scouter.
 CEO handles research directly when the needed material is already in its context or the check is a quick read of a few known
-files; a bounded lookup (known paths, locating or extracting specific facts, no synthesis) goes to Scouter at the lighter
-effort under Models; material research, synthesis, or broad exploration uses Scouter's configured settings; when unsure,
-use configured settings. Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
+files; all other material research/analysis and bounded exploration goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
 For mixed research/document requests, CEO may explicitly assign only research to Scouter. Live operational state
 inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
@@ -226,8 +224,7 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 
 `models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections; CEO uses
 the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not
-prove server support, account access, or current availability. Use configured settings without substitution, except that for a bounded Scouter lookup CEO spawns Scouter with
-`fork_turns="none"` and `reasoning_effort="medium"` and records the choice and reason in the brief; report unavailable
+prove server support, account access, or current availability. Use configured settings without substitution; report unavailable
 settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
