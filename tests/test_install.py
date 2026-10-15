@@ -100,7 +100,7 @@ def tree_state(root: Path):
 FIVE_SETTINGS = {
     "harness_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "harness_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
-    "harness_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
+    "harness_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
     "harness_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "harness_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }

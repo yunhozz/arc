@@ -17,7 +17,7 @@ PAYLOAD = ROOT / 'claude'
 EXPECTED = {
     'scouter': ('haiku', 'high', ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']),
     'planner': ('sonnet', 'medium', ['Read', 'Grep', 'Glob']),
-    'coder': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit']),
+    'coder': ('sonnet', 'low', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit']),
     'qa': ('haiku', 'high', ['Read', 'Grep', 'Glob', 'Bash']),
     'reviewer': ('sonnet', 'medium', ['Read', 'Grep', 'Glob']),
 }
@@ -82,7 +82,7 @@ class ClaudePayloadTests(unittest.TestCase):
         module = self.module()
         original = (PAYLOAD / 'agents/harness-coder.md').read_bytes().replace(b'\n', b'\r\n')
         updated = module.render_profile(original, {'model': 'opus', 'effort': 'xhigh'})
-        self.assertEqual(updated, original.replace(b'model: sonnet', b'model: opus').replace(b'effort: medium', b'effort: xhigh'))
+        self.assertEqual(updated, original.replace(b'model: sonnet', b'model: opus').replace(b'effort: low', b'effort: xhigh'))
 
     def test_renderer_rejects_duplicate_or_malformed_frontmatter(self):
         module = self.module()

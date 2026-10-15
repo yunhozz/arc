@@ -2,7 +2,7 @@
 name: harness-coder
 description: Implement approved scoped changes and focused verification
 model: sonnet
-effort: medium
+effort: low
 tools:
   - Read
   - Grep

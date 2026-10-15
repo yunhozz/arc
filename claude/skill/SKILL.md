@@ -215,7 +215,7 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 underscore configuration keys: `harness_scouter`, `harness_planner`, `harness_coder`, `harness_qa`, and
 `harness_reviewer`. These keys map to the hyphenated native profile names in Ownership and are not invocation names.
 CEO uses the current chat model. Current local declarations are Scouter haiku/high, Planner sonnet/medium,
-Coder sonnet/medium, QA haiku/high, and Reviewer sonnet/medium. Local configuration does not prove runtime provider
+Coder sonnet/low, QA haiku/high, and Reviewer sonnet/medium. Local configuration does not prove runtime provider
 support, account access, alias resolution, actual effort application, concurrency or depth enforcement. Use configured
 settings without silent substitution or effort reduction; report unavailable settings.
 

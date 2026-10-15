@@ -10,7 +10,7 @@ effort = "medium"
 
 [roles.harness_coder]
 model = "sonnet"
-effort = "medium"
+effort = "low"
 
 [roles.harness_qa]
 model = "haiku"
