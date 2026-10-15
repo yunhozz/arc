@@ -244,7 +244,17 @@ def replaceable_claude_skill_link(path: Path, user_home: Path, skill: str) -> st
         return None
     text = os.readlink(path)
     expected = absolute(user_home / '.codex' / 'skills' / skill)
-    if absolute(path.parent / text) != expected:
+    target = path.parent / text
+    try:
+        resolved = target.resolve(strict=True)
+        current = Path(target.anchor)
+        for component in target.parts[1:]:
+            current /= component
+            if stat.S_ISLNK(current.lstat().st_mode):
+                raise InstallerError(f"symlink path is unsafe: {current}")
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise InstallerError(f"cannot resolve external skill link {path}: {exc}") from exc
+    if resolved != expected:
         raise InstallerError(f"symlink path is unsafe: {path}")
     require_directory(expected)
     return text

@@ -226,6 +226,8 @@ git diff --check
 
 T1·T2 각각의 QA·CEO 수용·focused commit 이후, 독립 Reviewer가 최종 전체 변경을 한 번 검토한다. 초점은 정확한 경로 예외, backup의 no-follow 성질, descriptor 이동·복원, 경합·rollback/recovery, 공통 정책 정렬, Claude execution adapter, README·기존 sync plan·reference·manifest 정합성이다. Reviewer는 task 수용의 선행조건이 아니다. 최종 전체 suite는 위 사용자 승인 기준선과 비교해 신규 실패·오류가 없어야 하며, feature-focused 검사와 manifest는 통과해야 한다. 수정 시 영향 테스트와 QA를 다시 수행하고 최종 전체 diff를 재검토한다.
 
+**최종 검증 기록 (2026-10-15):** 최종 Reviewer가 symlink target의 `..` 앞 누락 경로·중간 symlink 검증 우회를 발견했다. 원래 target 경로를 strict resolution하고 구성요소 symlink를 각각 확인하도록 보정했으며, 두 우회 사례의 회귀 테스트를 추가했다. Reviewer 재검토에서 finding 종결과 추가 정적 finding 없음이 확인됐고, 독립 QA에서 `test_target_install` 29개 및 관련 회귀·read-only 테스트 3개가 통과했다. SHA-256 manifest 34개와 `git diff --check`가 통과했으며, bytecode cache를 임시 격리한 `python3 -B install.py --target claude --check`도 통과했다. 최종 전체 suite는 263개 중 기준선과 같은 실패 11개·오류 2개였고 신규 실패·오류는 없었다. cache 디렉터리 5개는 삭제하지 않고 원위치로 복원했다. 실제 사용자 설치와 Claude provider/runtime 검증은 수행하지 않았다.
+
 ## 계획 자체 검토
 
 - 승인 범위의 분류·독립 취득·Codex 불변·backup·rollback·read-only 정책을 T1에 연결했다.

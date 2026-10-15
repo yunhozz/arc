@@ -209,6 +209,24 @@ class TargetInstallTests(unittest.TestCase):
                     canonical.unlink()
                     canonical.with_name('saved').rename(canonical)
 
+    def test_claude_skill_links_reject_components_hidden_by_parent_traversal(self):
+        self.seed_claude_links()
+        victim = self.home('claude') / 'skills/brainstorming'
+        canonical = self.home('codex') / 'skills/brainstorming'
+        intermediate = canonical.parent / 'intermediate'
+        intermediate.symlink_to(canonical, target_is_directory=True)
+        for component in ('missing', 'intermediate'):
+            with self.subTest(component=component):
+                victim.unlink()
+                victim.symlink_to(str(canonical.parent / component) + '/../brainstorming')
+                before = tree_state(self.user)
+                with self.assertRaises(installer.InstallerError):
+                    installer.external_write_targets(
+                        self.home('claude'), self.user,
+                        include_shared=False, allow_claude_skill_links=True,
+                    )
+                self.assertEqual(tree_state(self.user), before)
+
     def test_claude_skill_links_changed_during_acquisition_abort(self):
         self.seed_claude_links()
         victim = self.home('claude') / 'skills/brainstorming'
