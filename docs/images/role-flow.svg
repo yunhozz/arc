@@ -1,105 +1,118 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 650" role="img" aria-labelledby="title description">
-  <title id="title">Yunho Harness 역할 흐름</title>
-  <desc id="description">작업 요청을 CEO가 조율해 Scouter, Planner, Coder에게 배정합니다. 필요에 따라 QA와 Reviewer를 거쳐 CEO가 결과를 통합합니다.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 680" width="1560" height="680" role="img" aria-labelledby="title description">
+  <title id="title">Yunho Harness 작업 흐름</title>
+  <desc id="description">CEO가 요청을 설계 깊이(Spike, Bounded, Architectural)와 위험도(작음·저위험, 일반, 중대·고위험)로 판단합니다. 설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정하고, CEO가 결과를 수락하고 커밋합니다.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 1 Q 5 5 0 9 L 10 5 Z" fill="#687781"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#6b7780"/>
     </marker>
-    <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%">
-      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#25323b" flood-opacity=".09"/>
-    </filter>
+    <marker id="arrow-s" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#9aa4ab"/>
+    </marker>
     <style>
-      text { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; fill: #25323b; }
-      .title { font-size: 34px; font-weight: 750; letter-spacing: -.5px; }
-      .subtitle { font-size: 17px; fill: #65737c; }
-      .label { font-size: 20px; font-weight: 700; }
-      .detail { font-size: 15px; fill: #65737c; }
-      .ceo-title { font-size: 24px; font-weight: 750; fill: #ffffff; }
-      .ceo-detail { font-size: 16px; fill: #e8eff0; }
-      .node { stroke: #d9dedb; stroke-width: 1.5; }
-      .connector { fill: none; stroke: #687781; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
-      .optional { fill: none; stroke: #98a2a5; stroke-width: 2; stroke-dasharray: 6 7; stroke-linecap: round; marker-end: url(#arrow); }
+      text { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif; fill: #1f2a33; }
+      .title { font-size: 30px; font-weight: 800; letter-spacing: -0.4px; }
+      .sub { font-size: 16px; fill: #5f6b73; }
+      .ph { font-size: 19px; font-weight: 800; }
+      .phs { font-size: 14px; fill: #6b7780; }
+      .rl { font-size: 17px; font-weight: 800; }
+      .rd { font-size: 13.5px; fill: #5f6b73; }
+      .chip { font-size: 14px; font-weight: 650; }
+      .box-t { font-size: 20px; font-weight: 800; }
+      .box-d { font-size: 14px; fill: #5f6b73; }
+      .ceo-t { font-size: 22px; font-weight: 800; fill: #ffffff; }
+      .ceo-d { font-size: 14.5px; fill: #d7e1e6; }
+      .note { font-size: 14.5px; fill: #5f6b73; }
+      .flow { fill: none; stroke: #6b7780; stroke-width: 2.5; marker-end: url(#arrow); }
+      .step { fill: none; stroke: #9aa4ab; stroke-width: 1.6; marker-end: url(#arrow-s); }
     </style>
   </defs>
-
-  <rect width="1480" height="650" rx="28" fill="#f8f6f1"/>
-  <circle cx="1385" cy="74" r="42" fill="#f0dfc9" opacity=".55"/>
-  <circle cx="1335" cy="95" r="15" fill="#b6d0c4" opacity=".65"/>
-
-  <text class="title" x="56" y="62">필요한 역할을 골라, CEO가 결과를 통합합니다</text>
-  <text class="subtitle" x="57" y="94">조사·설계·편집은 작업에 맞춰 배정하고, 검증은 변경 위험에 따라 진행합니다.</text>
-
-  <g class="connector">
-    <path d="M 207 326 C 230 326 244 326 270 326"/>
-    <path d="M 490 326 C 530 326 526 164 560 164"/>
-    <path d="M 490 326 C 525 326 526 326 560 326"/>
-    <path d="M 490 326 C 530 326 526 488 560 488"/>
-    <path d="M 805 164 C 892 164 914 270 1030 270"/>
-    <path d="M 805 326 C 888 326 925 310 1030 310"/>
-    <path class="optional" d="M 805 460 C 858 405 923 389 1030 345"/>
-    <path d="M 805 488 C 825 488 830 488 850 488"/>
-    <path d="M 1030 488 C 1044 488 1052 488 1070 488"/>
-    <path d="M 1270 488 C 1334 464 1322 395 1245 370"/>
-    <path d="M 1250 300 C 1273 300 1292 300 1320 300"/>
-  </g>
-
-  <g filter="url(#shadow)">
-    <rect class="node" x="57" y="275" width="150" height="102" rx="24" fill="#ffffff"/>
-    <circle cx="91" cy="326" r="13" fill="#e6b36d"/>
-    <path d="M86 326h10M91 321v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-    <text class="label" x="113" y="322">요청</text>
-    <text class="detail" x="113" y="347">작업 목표</text>
-
-    <rect x="270" y="251" width="220" height="150" rx="27" fill="#314958" stroke="#314958" stroke-width="1.5"/>
-    <circle cx="309" cy="299" r="17" fill="#e8b86f"/>
-    <path d="M302 299l5 5 10-11" fill="none" stroke="#314958" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="ceo-title" x="338" y="306">CEO 조율</text>
-    <text class="ceo-detail" x="295" y="345">범위 · 승인 · 역할 배정</text>
-    <text class="ceo-detail" x="295" y="372">통합 · 수락</text>
-
-    <rect class="node" x="560" y="119" width="245" height="90" rx="22" fill="#e9f0ec"/>
-    <circle cx="596" cy="164" r="18" fill="#9ec3ae"/>
-    <circle cx="594" cy="162" r="8" fill="none" stroke="#fff" stroke-width="2.5"/>
-    <path d="M600 168l7 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-    <text class="label" x="627" y="160">Scouter</text>
-    <text class="detail" x="627" y="184">읽기 전용 조사</text>
-
-    <rect class="node" x="560" y="281" width="245" height="90" rx="22" fill="#f5eadb"/>
-    <circle cx="596" cy="326" r="18" fill="#e4b570"/>
-    <path d="M589 332l2-7 11-11 5 5-11 11zM600 315l5 5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
-    <text class="label" x="627" y="322">Planner</text>
-    <text class="detail" x="627" y="346">설계와 계획</text>
-
-    <rect class="node" x="560" y="443" width="245" height="90" rx="22" fill="#e8edf4"/>
-    <circle cx="596" cy="488" r="18" fill="#91a9c4"/>
-    <path d="M590 482l-6 6 6 6M602 482l6 6-6 6M599 479l-6 18" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="label" x="627" y="484">Coder</text>
-    <text class="detail" x="627" y="508">승인된 범위 편집</text>
-
-    <rect class="node" x="850" y="443" width="180" height="90" rx="22" fill="#f7e5dd"/>
-    <circle cx="883" cy="488" r="17" fill="#d98d72"/>
-    <path d="M875 488l6 6 11-13" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="label" x="911" y="484">QA</text>
-    <text class="detail" x="911" y="508">필요한 검증</text>
-
-    <rect class="node" x="1070" y="443" width="200" height="90" rx="22" fill="#eee8f4"/>
-    <circle cx="1104" cy="488" r="17" fill="#a898bd"/>
-    <path d="M1097 482h14v12h-14zM1100 478h8v4h-8zM1100 486h8M1100 490h6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="label" x="1132" y="484">Reviewer</text>
-    <text class="detail" x="1132" y="508">중요 변경 검토</text>
-
-    <rect class="node" x="1030" y="230" width="220" height="140" rx="26" fill="#ffffff"/>
-    <circle cx="1070" cy="277" r="17" fill="#9ec3ae"/>
-    <path d="M1063 277l5 5 10-11" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="label" x="1098" y="284">CEO 통합</text>
-    <text class="detail" x="1056" y="319">결과와 검증 근거를</text>
-    <text class="detail" x="1056" y="342">확인해 마무리</text>
-
-    <rect class="node" x="1320" y="250" width="112" height="100" rx="24" fill="#f0dfc9"/>
-    <path d="M1353 298l13 13 32-34" fill="none" stroke="#a8783c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="label" x="1376" y="337" text-anchor="middle">결과</text>
-  </g>
-
-  <text class="detail" x="830" y="401">저위험 · CEO 확인</text>
-  <text class="detail" x="58" y="598">저위험 변경은 CEO가 집중 확인할 수 있습니다. QA는 위험도에 따라, Reviewer는 중요 변경에 적용합니다.</text>
+  <rect width="1560" height="680" rx="22" fill="#f7f6f2"/>
+  <text class="title" x="48" y="62">설계 깊이와 위험도를 따로 판단합니다</text>
+  <text class="sub" x="48" y="94">설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정합니다. CEO가 모든 결과를 수락합니다.</text>
+  <rect x="40" y="312" width="120" height="80" rx="16" fill="#ffffff" stroke="#dcdfda" stroke-width="1.5"/>
+  <text class="box-t" x="100" y="348" text-anchor="middle">요청</text>
+  <text class="box-d" x="100" y="372" text-anchor="middle">작업 목표</text>
+  <path class="flow" d="M160 352 H192"/>
+  <rect x="198" y="260" width="184" height="184" rx="20" fill="#2c4250"/>
+  <text class="ceo-t" x="290" y="306" text-anchor="middle">CEO 판단</text>
+  <text class="ceo-d" x="290" y="342" text-anchor="middle">설계 깊이 결정</text>
+  <text class="ceo-d" x="290" y="366" text-anchor="middle">위험도 결정</text>
+  <text class="ceo-d" x="290" y="390" text-anchor="middle">역할 배정 · 승인 요청</text>
+  <text class="ceo-d" x="290" y="414" text-anchor="middle">브랜치 선택 확인</text>
+  <rect x="198" y="480" width="184" height="64" rx="14" fill="#ffffff" stroke="#9fc4b0" stroke-width="1.6" stroke-dasharray="6 5"/>
+  <text class="chip" x="290" y="508" text-anchor="middle">Scouter</text>
+  <text class="rd" x="290" y="530" text-anchor="middle">필요할 때 조사·탐색</text>
+  <path d="M290 444 V478" stroke="#9fc4b0" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+  <path class="flow" d="M382 352 H418"/>
+  <rect x="424" y="128" width="440" height="470" rx="20" fill="#ffffff" stroke="#e1e3de" stroke-width="1.5"/>
+  <text class="ph" x="446" y="164">① 설계 깊이</text>
+  <text class="phs" x="446" y="188">Planner 초안 → 단계마다 사용자 승인</text>
+  <rect x="438" y="206" width="412" height="122" rx="14" fill="#fbf1e1"/>
+  <text class="rl" x="454" y="236">Spike</text>
+  <text class="rd" x="454" y="258">가능한지 먼저 확인 · 구현은 다시 승인</text>
+  <rect x="454.0" y="274" width="109.3" height="38" rx="10" fill="#ffffff" stroke="#e3b877" stroke-width="1.5"/>
+  <text class="chip" x="508.7" y="298" text-anchor="middle">질문·방법 승인</text>
+  <path class="step" d="M566.3 293 H585.3"/>
+  <rect x="589.3" y="274" width="109.3" height="38" rx="10" fill="#ffffff" stroke="#e3b877" stroke-width="1.5"/>
+  <text class="chip" x="644.0" y="298" text-anchor="middle">탐색</text>
+  <path class="step" d="M701.7 293 H720.7"/>
+  <rect x="724.7" y="274" width="109.3" height="38" rx="10" fill="#ffffff" stroke="#e3b877" stroke-width="1.5"/>
+  <text class="chip" x="779.3" y="298" text-anchor="middle">결과 보고</text>
+  <rect x="438" y="340" width="412" height="122" rx="14" fill="#e8f2ec"/>
+  <text class="rl" x="454" y="370">Bounded</text>
+  <text class="rd" x="454" y="392">범위가 분명한 변경</text>
+  <rect x="454.0" y="408" width="177.0" height="38" rx="10" fill="#ffffff" stroke="#8fbea3" stroke-width="1.5"/>
+  <text class="chip" x="542.5" y="432" text-anchor="middle">짧은 설계 승인</text>
+  <path class="step" d="M634.0 427 H653.0"/>
+  <rect x="657.0" y="408" width="177.0" height="38" rx="10" fill="#ffffff" stroke="#8fbea3" stroke-width="1.5"/>
+  <text class="chip" x="745.5" y="432" text-anchor="middle">계획 승인 (필요 시)</text>
+  <rect x="438" y="474" width="412" height="122" rx="14" fill="#ecebf7"/>
+  <text class="rl" x="454" y="504">Architectural</text>
+  <text class="rd" x="454" y="526">구조·계약을 바꾸는 변경</text>
+  <rect x="454.0" y="542" width="109.3" height="38" rx="10" fill="#ffffff" stroke="#a29ad1" stroke-width="1.5"/>
+  <text class="chip" x="508.7" y="566" text-anchor="middle">설계 승인</text>
+  <path class="step" d="M566.3 561 H585.3"/>
+  <rect x="589.3" y="542" width="109.3" height="38" rx="10" fill="#ffffff" stroke="#a29ad1" stroke-width="1.5"/>
+  <text class="chip" x="644.0" y="566" text-anchor="middle">스펙 승인</text>
+  <path class="step" d="M701.7 561 H720.7"/>
+  <rect x="724.7" y="542" width="109.3" height="38" rx="10" fill="#ffffff" stroke="#a29ad1" stroke-width="1.5"/>
+  <text class="chip" x="779.3" y="566" text-anchor="middle">계획 승인</text>
+  <path class="flow" d="M864 352 H908"/>
+  <rect x="914" y="128" width="400" height="470" rx="20" fill="#ffffff" stroke="#e1e3de" stroke-width="1.5"/>
+  <text class="ph" x="936" y="164">② 실행과 검증</text>
+  <text class="phs" x="936" y="188">위험도에 따라 검증 역할 추가</text>
+  <rect x="928" y="206" width="372" height="122" rx="14" fill="#e8f2ec"/>
+  <text class="rl" x="944" y="236">작음 · 저위험</text>
+  <text class="rd" x="944" y="258">좁고, 되돌리기 쉬움</text>
+  <rect x="944.0" y="274" width="157.0" height="38" rx="10" fill="#ffffff" stroke="#8fbea3" stroke-width="1.5"/>
+  <text class="chip" x="1022.5" y="298" text-anchor="middle">Coder 또는 CEO</text>
+  <path class="step" d="M1104.0 293 H1123.0"/>
+  <rect x="1127.0" y="274" width="157.0" height="38" rx="10" fill="#ffffff" stroke="#8fbea3" stroke-width="1.5"/>
+  <text class="chip" x="1205.5" y="298" text-anchor="middle">CEO 집중 확인</text>
+  <rect x="928" y="340" width="372" height="122" rx="14" fill="#e6eef7"/>
+  <text class="rl" x="944" y="370">일반</text>
+  <text class="rd" x="944" y="392">동작이 바뀌는 변경</text>
+  <rect x="944.0" y="408" width="157.0" height="38" rx="10" fill="#ffffff" stroke="#8eaed3" stroke-width="1.5"/>
+  <text class="chip" x="1022.5" y="432" text-anchor="middle">Coder</text>
+  <path class="step" d="M1104.0 427 H1123.0"/>
+  <rect x="1127.0" y="408" width="157.0" height="38" rx="10" fill="#ffffff" stroke="#8eaed3" stroke-width="1.5"/>
+  <text class="chip" x="1205.5" y="432" text-anchor="middle">QA</text>
+  <rect x="928" y="474" width="372" height="122" rx="14" fill="#f9e9e5"/>
+  <text class="rl" x="944" y="504">중대 · 고위험</text>
+  <text class="rd" x="944" y="526">공유 계약 · 보안 · 데이터 · 배포</text>
+  <rect x="944.0" y="542" width="96.0" height="38" rx="10" fill="#ffffff" stroke="#df9a88" stroke-width="1.5"/>
+  <text class="chip" x="992.0" y="566" text-anchor="middle">Coder</text>
+  <path class="step" d="M1043.0 561 H1062.0"/>
+  <rect x="1066.0" y="542" width="96.0" height="38" rx="10" fill="#ffffff" stroke="#df9a88" stroke-width="1.5"/>
+  <text class="chip" x="1114.0" y="566" text-anchor="middle">QA</text>
+  <path class="step" d="M1165.0 561 H1184.0"/>
+  <rect x="1188.0" y="542" width="96.0" height="38" rx="10" fill="#ffffff" stroke="#df9a88" stroke-width="1.5"/>
+  <text class="chip" x="1236.0" y="566" text-anchor="middle">Reviewer</text>
+  <path class="flow" d="M1314 352 H1348"/>
+  <rect x="1354" y="290" width="166" height="124" rx="18" fill="#2c4250"/>
+  <text class="ceo-t" x="1437.0" y="336" text-anchor="middle">CEO 수락</text>
+  <text class="ceo-d" x="1437.0" y="366" text-anchor="middle">작업마다 커밋</text>
+  <text class="ceo-d" x="1437.0" y="390" text-anchor="middle">push는 별도 승인</text>
+  <text class="note" x="48" y="632">· 두 기준은 독립적입니다. Architectural이라고 단계마다 QA·Reviewer를 더하지 않고, Bounded라고 위험이 낮다는 뜻은 아닙니다.</text>
+  <text class="note" x="48" y="656">· 계획이 있으면 Reviewer는 모든 작업을 수락한 뒤 최종 전체 변경을 한 번 검토합니다.</text>
 </svg>
