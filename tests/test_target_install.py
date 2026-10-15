@@ -72,6 +72,31 @@ class TargetInstallTests(unittest.TestCase):
             self.assertEqual(status, 0, output)
             self.assertIn(shown + '를 다시 시작하거나 새 세션을 열어 적용하세요.', output)
 
+    def test_read_only_modes_pass_without_external_skills(self):
+        for target in ('codex', 'claude'):
+            for flag in ('--check', '--dry-run'):
+                with self.subTest(target=target, flag=flag):
+                    before = tree_state(self.user)
+                    status, output = self.run_main(['--target', target, flag])
+                    self.assertEqual(status, 0, output)
+                    self.assertEqual(tree_state(self.user), before)
+
+    def test_read_only_modes_still_reject_unsafe_external_target(self):
+        for target in ('codex', 'claude'):
+            for flag in ('--check', '--dry-run'):
+                with self.subTest(target=target, flag=flag):
+                    skills = self.home(target) / 'skills'
+                    skills.mkdir(parents=True, exist_ok=True)
+                    outside = self.base / 'outside'
+                    outside.mkdir(exist_ok=True)
+                    link = skills / 'brainstorming'
+                    if link.is_symlink() or link.exists():
+                        link.unlink()
+                    link.symlink_to(outside)
+                    status, output = self.run_main(['--target', target, flag])
+                    self.assertEqual(status, 2, output)
+                    link.unlink()
+
     def snapshot_swap_case(self, directory):
         import io
         import stat

@@ -220,22 +220,6 @@ def _validate_backupable_tree(root: Path) -> None:
                 raise InstallerError(f"existing external skill tree contains a special file: {entry}")
 
 
-def external_candidate_paths(home: Path, user_home: Path, *, include_shared: bool = True) -> dict[str, tuple[Path, ...]]:
-    """List selected and existing legacy paths for read-only dry-run reporting."""
-    home = absolute(home)
-    user_home = absolute(user_home)
-    targets: dict[str, tuple[Path, ...]] = {}
-    for skill in REQUIRED_EXTERNAL_FILES:
-        selected = home / "skills" / skill
-        paths = [selected]
-        if include_shared:
-            legacy = user_home / ".agents" / "skills" / skill
-            if os.path.lexists(legacy):
-                paths.append(legacy)
-        targets[skill] = tuple(paths)
-    return targets
-
-
 def replaceable_claude_skill_link(path: Path, user_home: Path, skill: str) -> str | None:
     """Allow only a leaf link to the same default Codex skill directory."""
     path = absolute(path)
@@ -1518,16 +1502,15 @@ def perform_install(
         root,
         home,
         user_home=user_home,
-        validate_external=dry_run,
+        validate_external=False,
         target=target,
     )
     global_updates, global_notes = ([], []) if skip_global else plan_global_updates(home, user_home, target)
     retired_snapshot = retired_profile_snapshot(home) if target.name == "codex" else {}
     retired_targets = {name: snapshot.path for name, snapshot in retired_snapshot.items()}
     def selected_external_targets():
-        function = external_candidate_paths if dry_run else external_write_targets
         if target.name == "codex":
-            return function(home, user_home)
+            return external_write_targets(home, user_home)
         return external_write_targets(home, user_home, include_shared=False, allow_claude_skill_links=True)
     external_targets = selected_external_targets()
     claude_skill_links = {}
@@ -1632,7 +1615,11 @@ def main(argv: list[str] | None = None) -> int:
         rendered_profiles = preflight_profiles(root, model_config, target)
         home = target.home
         if args.check:
-            install_plan(root, home, target=target)
+            install_plan(root, home, validate_external=False, target=target)
+            if target.name == "codex":
+                external_write_targets(home, absolute(Path.home()))
+            else:
+                external_write_targets(home, absolute(Path.home()), include_shared=False, allow_claude_skill_links=True)
             if not args.skip_global:
                 plan_global_updates(home, absolute(Path.home()), target)
             print("Installer payload preflight passed.")

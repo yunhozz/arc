@@ -2427,10 +2427,11 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             self.assertEqual(paths, (self.codex_home / "skills" / skill,))
         self.assertFalse((self.user_home / ".agents").exists())
 
-    def seed_alias_with_unrelated_fifo(self, alias_kind: str) -> tuple[Path, ...]:
+    def seed_alias_with_unrelated_fifo(self, alias_kind: str, fifo: bool = True) -> tuple[Path, ...]:
         self.create_payload()
         selected = self.install_candidates(self.codex_home / "skills")
-        os.mkfifo(selected["writing-plans"] / "extra.fifo")
+        if fifo:
+            os.mkfifo(selected["writing-plans"] / "extra.fifo")
         state_roots = [
             self.codex_home,
             self.user_home,
@@ -2452,37 +2453,29 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             raise AssertionError(f"unexpected alias kind: {alias_kind}")
         return tuple(state_roots)
 
-    def assert_readonly_main_accepts_alias(self, argv: list[str], alias_kind: str) -> None:
-        state_roots = self.seed_alias_with_unrelated_fifo(alias_kind)
+    def assert_readonly_main_rejects_alias(self, argv: list[str], alias_kind: str) -> None:
+        # Read-only modes skip content validation but keep external write-target path safety.
+        state_roots = self.seed_alias_with_unrelated_fifo(alias_kind, fifo=False)
         before = tuple(tree_state(path) for path in state_roots)
         with patch.object(installer, "acquire_external_skills") as acquire:
             status, output = self.run_main(argv)
-        self.assertEqual(status, 0, output)
-        if argv == ["--check"]:
-            self.assertIn("Installer payload preflight passed.", output)
-        else:
-            self.assertIn("Would update external skills:", output)
-            self.assertIn(str(self.codex_home / "skills" / "brainstorming"), output)
-            if alias_kind == "legacy-parent":
-                self.assertIn(
-                    str(self.user_home / ".agents" / "skills" / "brainstorming"),
-                    output,
-                )
+        self.assertEqual(status, 2, output)
+        self.assertIn("symlink", output)
         acquire.assert_not_called()
         self.assertEqual(tuple(tree_state(path) for path in state_roots), before)
         self.assert_no_stages()
 
-    def test_check_accepts_required_files_through_candidate_root_alias_with_fifo(self) -> None:
-        self.assert_readonly_main_accepts_alias(["--check"], "candidate-root")
+    def test_check_rejects_alias_through_candidate_root_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_rejects_alias(["--check"], "candidate-root")
 
-    def test_check_accepts_required_files_through_legacy_parent_alias_with_fifo(self) -> None:
-        self.assert_readonly_main_accepts_alias(["--check"], "legacy-parent")
+    def test_check_rejects_alias_through_legacy_parent_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_rejects_alias(["--check"], "legacy-parent")
 
-    def test_dry_run_accepts_required_files_through_candidate_root_alias_with_fifo(self) -> None:
-        self.assert_readonly_main_accepts_alias(["--dry-run"], "candidate-root")
+    def test_dry_run_rejects_alias_through_candidate_root_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_rejects_alias(["--dry-run"], "candidate-root")
 
-    def test_dry_run_accepts_required_files_through_legacy_parent_alias_with_fifo(self) -> None:
-        self.assert_readonly_main_accepts_alias(["--dry-run"], "legacy-parent")
+    def test_dry_run_rejects_alias_through_legacy_parent_alias_with_fifo(self) -> None:
+        self.assert_readonly_main_rejects_alias(["--dry-run"], "legacy-parent")
 
     def test_install_rejects_candidate_root_alias_before_acquisition(self) -> None:
         self.create_payload()
@@ -2544,15 +2537,14 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
         self.assert_no_stages()
 
-    def test_check_and_dry_run_reject_missing_candidates_without_writes(self) -> None:
+    def test_check_and_dry_run_accept_missing_external_skills_without_writes(self) -> None:
         self.create_payload()
         before = tree_state(self.codex_home), tree_state(self.user_home)
 
         for argv in (["--check"], ["--dry-run"]):
             with self.subTest(argv=argv):
                 status, output = self.run_main(list(argv))
-                self.assertEqual(status, 2, output)
-                self.assertIn("필수 외부 스킬 누락", output)
+                self.assertEqual(status, 0, output)
                 self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
 
     def test_manifest_rejects_missing_reference_entry(self) -> None:

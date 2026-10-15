@@ -48,8 +48,40 @@ Claude의 세 필수 외부 스킬이 각각 정확히 같은 이름의 기본 `
 ./install.command --target codex --dry-run
 ```
 
-`--check`는 설치 파일과 경로를 검사하고, `--dry-run`은 변경 대상을 보여줍니다. 둘 다 파일을 바꾸거나 네트워크에 접속하지 않습니다.
+`--check`는 배포 파일(MANIFEST)과 설치 경로를 검사하고, `--dry-run`은 변경 대상을 보여줍니다. 둘 다 파일을 바꾸거나 네트워크에 접속하지 않으며, 외부 스킬이 아직 없는 새 환경에서도 통과합니다(외부 스킬 존재·내용 검증은 실제 설치 때 수행). 외부 스킬 경로 안전성은 실제 설치와 같은 기준으로 검사하므로(예: 심볼릭 링크된 외부 스킬 디렉터리는 거부) 결과가 실제 설치를 예측합니다.
 Claude 대상의 `--dry-run`은 허용 링크의 독립 upstream 디렉터리 전환 예정도 표시하며 금지 링크는 오류로 알립니다.
+
+## 🛠 설치가 바꾸는 것
+
+- 전역 지침: Codex는 `AGENTS.md`, Claude는 `CLAUDE.md` 끝에 `yunho-harness:begin`/`yunho-harness:end` 표식 사이의 관리 블록을 추가하거나 갱신합니다. 표식 밖의 내용은 그대로 둡니다.
+- Codex `config.toml`에는 `[features.multi_agent_v2]`의 `min_wait_timeout_ms = 120000`, `default_wait_timeout_ms = 300000`만 설정합니다. `features.multi_agent_v2`가 독립 테이블이 아니면 수정하지 않고 수동 설정 안내를 출력합니다.
+- 백업은 `<home>/backups/yunho-harness-<UTC시각>/`에 저장합니다(`<home>`은 `~/.codex` 또는 `~/.claude`). 설치할 때마다 만들어지며 새 설치에서는 비어 있을 수 있습니다.
+- Codex 설치는 폐기된 프로필 `harness-secretary.toml`, `harness-scout.toml`이 있으면 백업 후 제거하고, `~/.agents/skills/<스킬>`에 기존 복사본이 있으면 백업 후 갱신합니다.
+- Claude는 기본값이 아니거나 비었거나 상대 경로인 `CLAUDE_CONFIG_DIR`을 거부합니다. `~/.claude`를 사용하세요.
+- 재설치하면 설치된 `models.toml`이 배포 기본값으로 덮어써집니다(이전 파일은 백업에 남음). 설치된 `models.toml`을 고친 뒤에는 해당 스킬의 `scripts/apply-models.py`를 실행해 프로필에 반영하세요.
+- 외부 스킬은 고정되지 않은 `skills@latest`로 가져오므로 설치 시점마다 upstream 내용이 달라질 수 있습니다.
+- 배포 파일을 고치면 `MANIFEST.sha256`을 갱신해야 합니다(`models.toml`은 제외).
+
+### `--skip-global` 수동 반영
+
+`--skip-global`을 쓰면 위 전역 파일을 건드리지 않습니다. 직접 반영하려면 대상 파일(`AGENTS.md` 또는 `CLAUDE.md`) 끝에 아래 블록을 붙이세요. `<SKILL>`은 Codex `~/.codex/skills/yunho-harness/SKILL.md`, Claude `~/.claude/skills/yunho-harness/SKILL.md`입니다.
+
+````md
+<!-- yunho-harness:begin (managed by install.py; content between these markers is replaced on install) -->
+## Yunho's Harness
+
+- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test work (not standalone document writing), load and follow `<SKILL>`; keep following it in relevant follow-up turns of the same chat without re-reading it unless it changed. Resolve `~` to the current user's home directory. Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.
+- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the Harness CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
+<!-- yunho-harness:end -->
+````
+
+Codex는 `~/.codex/config.toml`에 다음도 추가합니다.
+
+```toml
+[features.multi_agent_v2]
+min_wait_timeout_ms = 120000
+default_wait_timeout_ms = 300000
+```
 
 ## ⚙️ 모델 설정
 
@@ -58,4 +90,6 @@ Claude 대상의 `--dry-run`은 허용 링크의 독립 upstream 디렉터리 �
 ## 📚 자세히 보기
 
 - [Codex 운영 지침](codex/skill/SKILL.md) · [Claude Code 운영 지침](claude/skill/SKILL.md)
-- [계획](codex/skill/references/planning.md) · [작업 인계](codex/skill/references/handoff.md) · [검증](codex/skill/references/verification.md)
+- Codex: [계획](codex/skill/references/planning.md) · [작업 인계](codex/skill/references/handoff.md) · [검증](codex/skill/references/verification.md)
+- Claude Code: [계획](claude/skill/references/planning.md) · [작업 인계](claude/skill/references/handoff.md) · [검증](claude/skill/references/verification.md)
+- 선택 도구(설치되지 않음): Codex 역할별 토큰 사용량 집계 `python3 codex/tools/codex_token_usage.py --since YYYY-MM-DD`
