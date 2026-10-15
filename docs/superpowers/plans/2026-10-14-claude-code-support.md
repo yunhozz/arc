@@ -7,7 +7,7 @@
 
 ## 목표와 구조
 
-공통 install.command --target codex|claude에서 두 플랫폼의 Harness를 안전하게 설치하고, Codex 전용 저장소 소스를 codex/ 아래로 정리한다.
+공통 install.command --target codex|claude에서 두 플랫폼의 ARC를 안전하게 설치하고, Codex 전용 저장소 소스를 codex/ 아래로 정리한다.
 
 설치·취득·백업·복구 엔진은 루트 install.py에서 공유한다. 플랫폼별 agent·skill·모델 설정은 codex/와 claude/로 구분한다. Claude 실행 정책은 별도 adapter와 참조로 제공한다. 저장소 소스 이동은 사용자 설치 경로를 바꾸지 않는다.
 
@@ -47,7 +47,7 @@
 | codex/skill/ | 기존 skill 전체·모델·scripts·references | T1 |
 | codex/config.toml | 기존 Codex 예시 설정 | T1 |
 | codex/tools/codex_token_usage.py | 기존 Codex 전용 유틸리티 | T1 |
-| claude/agents/harness-*.md | Claude 프로필 다섯 개 | T2 |
+| claude/agents/arc-*.md | Claude 프로필 다섯 개 | T2 |
 | claude/skill/SKILL.md | Claude CEO adapter | T2 |
 | claude/skill/references/ | 역할·승인·인계·검증 참조 | T2 |
 | claude/skill/models.toml | Claude 모델·effort 설정 | T2 |
@@ -120,7 +120,7 @@ CEO는 이동 diff와 집중 검증 근거를 검토해 수락한다. task 경�
 
 **대상 파일**
 
-- 생성: claude/agents/harness-{scouter,planner,coder,qa,reviewer}.md
+- 생성: claude/agents/arc-{scouter,planner,coder,qa,reviewer}.md
 - 생성: claude/skill/SKILL.md, claude/skill/models.toml
 - 생성: claude/skill/references/{planning,handoff,handoff-prep,commit,verification,git-recovery,visual-companion}.md
 - 생성: claude/skill/scripts/{model_config.py,apply-models.py}
@@ -284,7 +284,7 @@ T1–T3의 필수 확인과 CEO 수락이 끝난 후 수행한다. 최종 검증
 
 계획과 필요한 문서 집합은 승인되었다. 계획 문서의 batch commit과 canonical handoff record를 완료한 뒤 다음 Coder task를 시작한다.
 
-각 Coder의 첫 시작·재시작마다 Harness common handoff gate를 적용한다. task 수락은 Coder 보고나 테스트 통과만으로 대체하지 않는다.
+각 Coder의 첫 시작·재시작마다 ARC common handoff gate를 적용한다. task 수락은 Coder 보고나 테스트 통과만으로 대체하지 않는다.
 
 ## 자기 검토
 

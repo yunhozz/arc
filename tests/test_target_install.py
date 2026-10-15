@@ -45,14 +45,14 @@ class TargetInstallTests(unittest.TestCase):
     def seed(self, target):
         home = self.home(target)
         write_candidates(home / 'skills', b'old')
-        harness = home / 'skills/yunho-harness'
-        harness.mkdir()
-        (harness / 'keep.txt').write_bytes(b'previous harness')
+        arc = home / 'skills/arc'
+        arc.mkdir()
+        (arc / 'keep.txt').write_bytes(b'previous arc')
         agents = home / 'agents'
         agents.mkdir()
         suffix = 'toml' if target == 'codex' else 'md'
         for role in ('scouter', 'planner', 'coder', 'qa', 'reviewer'):
-            path = agents / f'harness-{role}.{suffix}'
+            path = agents / f'arc-{role}.{suffix}'
             path.write_bytes(b'previous profile')
             path.chmod(0o640)
         global_file = home / ('AGENTS.md' if target == 'codex' else 'CLAUDE.md')
@@ -63,7 +63,7 @@ class TargetInstallTests(unittest.TestCase):
         return home
 
     def target_snapshot(self, home):
-        return {p.relative_to(home).as_posix(): (p.read_bytes(), p.stat().st_mode & 0o777) for p in home.rglob('*') if p.is_file() and 'backups' not in p.relative_to(home).parts and not any(part.startswith('.yunho-harness-') for part in p.relative_to(home).parts)}
+        return {p.relative_to(home).as_posix(): (p.read_bytes(), p.stat().st_mode & 0o777) for p in home.rglob('*') if p.is_file() and 'backups' not in p.relative_to(home).parts and not any(part.startswith('.arc-') for part in p.relative_to(home).parts)}
 
     def test_successful_install_reports_selected_runtime(self):
         for target, shown in (('codex', 'Codex'), ('claude', 'Claude Code')):
@@ -155,7 +155,7 @@ class TargetInstallTests(unittest.TestCase):
             selected = installer.resolve_target('claude', self.payload)
         self.assertEqual(selected.payload_root, self.payload / 'claude')
         self.assertEqual(selected.home, self.home('claude'))
-        self.assertEqual(set(selected.profile_files), {'harness-scouter.md', 'harness-planner.md', 'harness-coder.md', 'harness-qa.md', 'harness-reviewer.md'})
+        self.assertEqual(set(selected.profile_files), {'arc-scouter.md', 'arc-planner.md', 'arc-coder.md', 'arc-qa.md', 'arc-reviewer.md'})
         with self.assertRaises(FrozenInstanceError):
             selected.name = 'codex'
 
@@ -302,7 +302,7 @@ class TargetInstallTests(unittest.TestCase):
             self.assertFalse(Path(source).is_symlink(), 'backup followed a link root')
             return copytree(source, *args, **kwargs)
         def fail(source, destination):
-            if source.name == 'brainstorming' and source.parent.name.startswith('.yunho-harness-external-'):
+            if source.name == 'brainstorming' and source.parent.name.startswith('.arc-external-'):
                 raise OSError('injected install failure after original link move')
             return replace(source, destination)
         with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer.shutil, 'copytree', side_effect=copy), patch.object(installer, '_replace_claude_skill_leaf', side_effect=fail):
@@ -318,14 +318,14 @@ class TargetInstallTests(unittest.TestCase):
         links = self.seed_claude_links()
         replace = installer._replace_claude_skill_leaf
         def fail(source, destination):
-            if source.parent.name.startswith('.yunho-harness-external-'):
+            if source.parent.name.startswith('.arc-external-'):
                 raise OSError('injected install or rollback failure')
             return replace(source, destination)
         with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer, '_replace_claude_skill_leaf', side_effect=fail):
             status, output = self.run_main(['--target', 'claude'])
         self.assertEqual(status, 2, output)
         self.assertIn('recovery data preserved at:', output)
-        recovery = next((self.home('claude') / 'skills').glob('.yunho-harness-external-*/previous-brainstorming'))
+        recovery = next((self.home('claude') / 'skills').glob('.arc-external-*/previous-brainstorming'))
         self.assertTrue(os.path.lexists(recovery))
         self.assertEqual(os.readlink(recovery), links['brainstorming'])
         self.assertIn(str(recovery), output)
@@ -337,7 +337,7 @@ class TargetInstallTests(unittest.TestCase):
         before = self.target_snapshot(self.home('claude'))
         original = os.replace
         def fail(source, destination, **kwargs):
-            if Path(source).name == 'harness-coder.md' and Path(source).parent.name.startswith('.yunho-harness-profiles-'):
+            if Path(source).name == 'arc-coder.md' and Path(source).parent.name.startswith('.arc-profiles-'):
                 raise OSError('injected later profile failure')
             return original(source, destination, **kwargs)
         with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer.os, 'replace', side_effect=fail):
@@ -367,7 +367,7 @@ class TargetInstallTests(unittest.TestCase):
         self.assertIn('recovery data preserved at:', output)
         self.assertEqual(tree_state(victim), installed_state[0])
         self.assertEqual((victim / 'SKILL.md').read_bytes(), b'new:SKILL.md')
-        recovery = next(victim.parent.glob('.yunho-harness-external-*/previous-brainstorming'))
+        recovery = next(victim.parent.glob('.arc-external-*/previous-brainstorming'))
         self.assertTrue(recovery.is_absolute())
         self.assertTrue(os.path.lexists(recovery))
         self.assertEqual(os.readlink(recovery), links['brainstorming'])
@@ -518,7 +518,7 @@ class TargetInstallTests(unittest.TestCase):
         for target in ('codex', 'claude'):
             home = self.seed(target)
             suffix = 'toml' if target == 'codex' else 'md'
-            for relative in ('skills/writing-plans/SKILL.md', f'agents/harness-coder.{suffix}', 'skills/yunho-harness/keep.txt'):
+            for relative in ('skills/writing-plans/SKILL.md', f'agents/arc-coder.{suffix}', 'skills/arc/keep.txt'):
                 path = home / relative
                 previous = path.read_bytes()
                 def mutate(work):
@@ -538,14 +538,14 @@ class TargetInstallTests(unittest.TestCase):
             home = self.seed(target)
             before = self.target_snapshot(home)
             suffix = 'toml' if target == 'codex' else 'md'
-            names = ['brainstorming','writing-plans','test-driven-development','yunho-harness'] + [f'harness-{role}.{suffix}' for role in ('scouter','planner','coder','qa','reviewer')] + (['AGENTS.md','config.toml'] if target == 'codex' else ['CLAUDE.md'])
+            names = ['brainstorming','writing-plans','test-driven-development','arc'] + [f'arc-{role}.{suffix}' for role in ('scouter','planner','coder','qa','reviewer')] + (['AGENTS.md','config.toml'] if target == 'codex' else ['CLAUDE.md'])
             for name in names:
                 injected = False
                 real = os.replace
                 def fail(src, dst):
                     nonlocal injected
                     src, dst = Path(src), Path(dst)
-                    if not injected and dst.name == name and src.name == name and src.parent.name.startswith('.yunho-harness-'):
+                    if not injected and dst.name == name and src.name == name and src.parent.name.startswith('.arc-'):
                         injected = True
                         raise OSError('injected selected replacement failure')
                     return real(src, dst)
@@ -555,7 +555,7 @@ class TargetInstallTests(unittest.TestCase):
                     self.assertEqual(status, 2, output)
                     self.assertEqual(self.target_snapshot(home), before)
                     self.assertTrue(list((home / 'backups').glob('*')))
-                    self.assertFalse(list(home.rglob('.yunho-harness-*')))
+                    self.assertFalse(list(home.rglob('.arc-*')))
             shutil.rmtree(home)
 
     def test_rollback_failure_retains_recovery_and_reports_absolute_paths(self):
@@ -567,7 +567,7 @@ class TargetInstallTests(unittest.TestCase):
             def fail(src, dst):
                 nonlocal failed
                 src, dst = Path(src), Path(dst)
-                if not failed and dst.name.startswith('harness-planner.') and src.name == dst.name:
+                if not failed and dst.name.startswith('arc-planner.') and src.name == dst.name:
                     failed = True
                     raise OSError('injected install failure')
                 if failed and src.name == 'previous-writing-plans':

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 680" width="1560" height="680" role="img" aria-labelledby="title description">
-  <title id="title">Yunho Harness 작업 흐름</title>
+  <title id="title">ARC 작업 흐름</title>
   <desc id="description">CEO가 요청을 설계 깊이(Spike, Bounded, Architectural)와 위험도(작음·저위험, 일반, 중대·고위험)로 판단합니다. 설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정하고, CEO가 결과를 수락하고 커밋합니다.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">

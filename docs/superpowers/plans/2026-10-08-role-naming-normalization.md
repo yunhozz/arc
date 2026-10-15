@@ -1,6 +1,6 @@
 # 역할 이름 정규화와 README 한국어화 구현 계획
 
-> **작업 역할 안내:** `writing-plans`의 실행자 지시는 Harness의 CEO 순차 조율 방식으로 적용한다. Coder와 Secretary는 배정된 범위만 편집하고 QA와 Reviewer는 읽기 전용으로 검증한다. 별도 실행 방식 선택이나 역할의 재위임은 하지 않는다.
+> **작업 역할 안내:** `writing-plans`의 실행자 지시는 ARC의 CEO 순차 조율 방식으로 적용한다. Coder와 Secretary는 배정된 범위만 편집하고 QA와 Reviewer는 읽기 전용으로 검증한다. 별도 실행 방식 선택이나 역할의 재위임은 하지 않는다.
 
 **목표:** 역할 이름과 모델 설정을 새 체계로 바꾸고 기존 설치 프로필을 안전하게 이전하며 README 설명을 한국어로 정리한다.
 
@@ -8,16 +8,16 @@
 
 **기술:** Python 3.11 이상, 표준 라이브러리 `unittest`, `tomllib`, `pathlib`, `hashlib`, TOML, Markdown.
 
-**설계 명세:** `/Users/yunho/.codex/worktrees/cd32/yunho-harness/docs/superpowers/specs/2026-10-08-role-naming-normalization-design.md`
+**설계 명세:** `/Users/yunho/.codex/worktrees/cd32/arc/docs/superpowers/specs/2026-10-08-role-naming-normalization-design.md`
 
-**작업공간:** `/Users/yunho/.codex/worktrees/cd32/yunho-harness`
+**작업공간:** `/Users/yunho/.codex/worktrees/cd32/arc`
 
-**계획 저장 경로:** `/Users/yunho/.codex/worktrees/cd32/yunho-harness/docs/superpowers/plans/2026-10-08-role-naming-normalization.md`
+**계획 저장 경로:** `/Users/yunho/.codex/worktrees/cd32/arc/docs/superpowers/plans/2026-10-08-role-naming-normalization.md`
 
 ## 공통 제약
 
 - 역할 suffix는 `secretary`, `planner`, `scout`, `coder`, `qa`, `reviewer` 여섯 개다.
-- 역할 ID는 `harness_<role>`, 프로필 파일은 `agents/harness-<role>.toml`이다.
+- 역할 ID는 `arc_<role>`, 프로필 파일은 `agents/arc-<role>.toml`이다.
 - 모델 설정은 `version = 4`다. 버전 `1`, `2`, `3`은 자동 변환하지 않는다.
 - 모델 ID·추론 강도·역할 책임·권한·보고 관계는 기존 값을 유지한다.
 - 이전 접두사는 `("_".join(("yunho", "team")), "-".join(("yunho", "team")))`로 구성한다. 저장소 파일 내용과 경로에 두 연속 문자열을 남기지 않는다.
@@ -56,7 +56,7 @@ Coder는 구현·설정·테스트·manifest와 `skill/SKILL.md`를 소유한다
 
 **파일:**
 
-- 이름 변경: `agents/`의 이전 프로필 여섯 개 → `agents/harness-<role>.toml`
+- 이름 변경: `agents/`의 이전 프로필 여섯 개 → `agents/arc-<role>.toml`
 - 수정: `install.py`
 - 수정: `skill/models.toml`
 - 수정: `skill/scripts/model_config.py`
@@ -90,7 +90,7 @@ Coder는 구현·설정·테스트·manifest와 `skill/SKILL.md`를 소유한다
 
 ```python
 roles = ("secretary", "planner", "scout", "coder", "qa", "reviewer")
-expected = {f"harness_{role}": f"harness-{role}.toml" for role in roles}
+expected = {f"arc_{role}": f"arc-{role}.toml" for role in roles}
 self.assertEqual(self.module.ROLE_FILES, expected)
 self.assertEqual(set(installer.PROFILE_FILES), set(expected.values()))
 self.assertEqual(tomllib.loads(serialized.decode())["version"], 4)
@@ -158,7 +158,7 @@ python3 -B -m unittest discover -s tests -p test_install.py -k ApplyModelsTests 
 | `test_migration_partial_and_existing_new_profiles` | 이전 후보와 새 대상의 원본 bytes·mode가 각각 백업되고 설정 버전은 `4` |
 | `test_migration_removes_candidates_before_new_profiles` | 첫 새 프로필 설치 시 기존 후보가 모두 활성 위치에서 사라짐 |
 | `test_migration_move_failure_restores_profiles` | 두 번째 후보 이동 오류 시 status `2`, 후보·새 대상 원상 복구 |
-| `test_migration_profile_failure_restores_all_targets` | 새 프로필 교체 실패 시 후보·Harness·외부 스킬·기존 새 대상 복구, 원래 없던 대상은 부재 |
+| `test_migration_profile_failure_restores_all_targets` | 새 프로필 교체 실패 시 후보·ARC·외부 스킬·기존 새 대상 복구, 원래 없던 대상은 부재 |
 | `test_migration_rollback_failure_preserves_recovery` | 교체 뒤 후보 복구도 실패하면 status `2`, recovery 원본과 백업 보존, 출력에 recovery 절대 경로 포함 |
 | `test_migration_preparation_failure_preserves_active_targets` | 백업 또는 staging 오류 시 활성 대상 불변 |
 | `test_migration_rejects_unsafe_candidates` | symlink·디렉터리·FIFO·symlink 상위 경로 거부, 취득 미호출, 대상 불변 |
@@ -178,7 +178,7 @@ python3 -B -m unittest discover -s tests -p test_install.py -k migration -v
 
 - [ ] **3. 후보 검사·백업·이동·복구를 구현한다.**
 
-백업과 staging 준비 후 후보를 같은 파일시스템의 profile staging area로 이동한다. 이동 전에 action을 기록한다. 이후 기존 외부 스킬·Harness·새 프로필 교체를 수행한다.
+백업과 staging 준비 후 후보를 같은 파일시스템의 profile staging area로 이동한다. 이동 전에 action을 기록한다. 이후 기존 외부 스킬·ARC·새 프로필 교체를 수행한다.
 
 성공 시 staging을 정리한다. 복구 실패 시 원본이 든 area를 보존하고 기존 recovery 보고 체계에 포함한다. 거래 밖 삭제나 광범위한 glob 삭제를 추가하지 않는다.
 
@@ -239,7 +239,7 @@ PY
 
 - [ ] **3. 과거 문서의 명칭과 경로를 정규화한다.**
 
-날짜·승인 사실·당시 범위를 보존한다. 폐기 역할은 `harness_lead`와 `harness-lead.toml`로 표기하며 현재 역할로 추가하지 않는다.
+날짜·승인 사실·당시 범위를 보존한다. 폐기 역할은 `arc_lead`와 `arc-lead.toml`로 표기하며 현재 역할로 추가하지 않는다.
 
 - [ ] **4. 수동 대조와 결과를 반환한다.**
 
@@ -360,7 +360,7 @@ CEO가 해당 소유 역할에 수정을 배정하고 QA가 영향받는 기준�
 staged diff가 수락 범위만 포함하는지 확인한다. 권장 메시지:
 
 ```text
-feat(harness): 역할 이름 정규화와 설치 마이그레이션 적용
+feat(arc): 역할 이름 정규화와 설치 마이그레이션 적용
 ```
 
 push·merge·실제 사용자 설치는 별도 범위다.

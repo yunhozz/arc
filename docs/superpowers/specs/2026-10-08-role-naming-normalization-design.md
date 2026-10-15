@@ -3,11 +3,11 @@
 **상태:** 승인된 설계를 반영한 written-spec 초안
 **작성 책임:** Planner
 **통합·저장·검토·승인 책임:** CEO
-**작업공간:** `/Users/yunho/.codex/worktrees/cd32/yunho-harness`
+**작업공간:** `/Users/yunho/.codex/worktrees/cd32/arc`
 
 ## 1. 목적과 승인 범위
 
-저장소의 역할 이름을 일관된 `harness` 명명 체계로 변경하고, 기존 설치에서 이전 역할 프로필이 중복 노출되지 않도록 안전하게 이전한다. README의 영어 설명 문장은 한국어로 번역한다.
+저장소의 역할 이름을 일관된 `arc` 명명 체계로 변경하고, 기존 설치에서 이전 역할 프로필이 중복 노출되지 않도록 안전하게 이전한다. README의 영어 설명 문장은 한국어로 번역한다.
 
 변경 대상은 현재 저장소의 소스·설정·테스트·manifest·README·과거 계획 및 명세 문서와 파일명이다. Git 과거 객체를 재작성하거나 실제 사용자 홈을 변경하지 않는다. 설치 검증은 임시 환경에서 수행한다.
 
@@ -19,16 +19,16 @@
 
 | 역할 | 역할 ID 및 모델 설정 키 | 저장소 프로필 경로 |
 |---|---|---|
-| Secretary | `harness_secretary` | `agents/harness-secretary.toml` |
-| Planner | `harness_planner` | `agents/harness-planner.toml` |
-| Scout | `harness_scout` | `agents/harness-scout.toml` |
-| Coder | `harness_coder` | `agents/harness-coder.toml` |
-| QA | `harness_qa` | `agents/harness-qa.toml` |
-| Reviewer | `harness_reviewer` | `agents/harness-reviewer.toml` |
+| Secretary | `arc_secretary` | `agents/arc-secretary.toml` |
+| Planner | `arc_planner` | `agents/arc-planner.toml` |
+| Scout | `arc_scout` | `agents/arc-scout.toml` |
+| Coder | `arc_coder` | `agents/arc-coder.toml` |
+| QA | `arc_qa` | `agents/arc-qa.toml` |
+| Reviewer | `arc_reviewer` | `agents/arc-reviewer.toml` |
 
 각 프로필의 `name`, `ROLE_FILES` 키, `models.toml`의 역할 키, 설치기의 `PROFILE_FILES`, 테스트 기대값, 문서 참조를 이 표에 맞춘다. 모델 ID, 추론 강도, 역할 책임, 권한, 보고 관계는 기존 값을 유지한다.
 
-과거 문서에 기록된 폐기 역할은 `harness_lead`와 `harness-lead.toml` 표기로 정규화한다. 이 역할을 현재 역할이나 설치 대상으로 다시 추가하지 않는다.
+과거 문서에 기록된 폐기 역할은 `arc_lead`와 `arc-lead.toml` 표기로 정규화한다. 이 역할을 현재 역할이나 설치 대상으로 다시 추가하지 않는다.
 
 요청된 옛 접두사는 구성 요소 `("yunho", "team")`를 `_` 또는 `-`로 연결해 계산한다. 이 호환 처리와 검사 코드를 포함해 현재 저장소의 파일 내용과 경로에 해당 접두사가 연속된 문자열로 남지 않게 한다.
 
@@ -40,7 +40,7 @@
 
 버전 `1`, `2`, `3`은 자동 변환하지 않는다. 이전 형식 또는 새 버전에 이전 역할 키를 넣은 설정은 명확한 검증 오류를 반환하고 파일을 변경하지 않는다. 오류 안내는 새 설정 형식과 업데이트 필요성을 설명한다.
 
-새 설치는 저장소 설정을 사용한다. 기존 사용자 모델 설정을 자동 병합하지 않으며, 기존 Harness 백업에서 원래 설정을 복원하거나 참고할 수 있다. 원격 모델 지원이나 계정 접근 여부를 검증한다고 주장하지 않는다.
+새 설치는 저장소 설정을 사용한다. 기존 사용자 모델 설정을 자동 병합하지 않으며, 기존 ARC 백업에서 원래 설정을 복원하거나 참고할 수 있다. 원격 모델 지원이나 계정 접근 여부를 검증한다고 주장하지 않는다.
 
 ## 4. 이전 설치 후보와 보존 범위
 
@@ -69,10 +69,10 @@ reviewer
 
 1. 내부 payload, manifest, 모델 설정, 새 프로필, 설치 대상과 이전 후보를 검사한다.
 2. 외부 스킬을 기존 취득·검증 계약대로 준비한다.
-3. 기존 Harness, 외부 스킬 대상, 새 프로필 대상, 존재하는 이전 후보를 기존 timestamp 백업 아래 보존한다.
+3. 기존 ARC, 외부 스킬 대상, 새 프로필 대상, 존재하는 이전 후보를 기존 timestamp 백업 아래 보존한다.
 4. 교체할 payload와 새 프로필을 staging에 준비한다.
 5. 존재하는 이전 후보를 거래용 보존 위치로 이동한다.
-6. 외부 스킬, Harness, 새 프로필을 기존 거래 체계 안에서 설치한다.
+6. 외부 스킬, ARC, 새 프로필을 기존 거래 체계 안에서 설치한다.
 7. 성공하면 거래용 임시 데이터를 정리하고 영구 백업 위치를 보고한다.
 
 이전 후보 제거는 새 프로필 설치보다 먼저 수행한다. 복구 가능한 이동으로 구현하고 기존 거래 action 기록에 포함한다.
@@ -82,7 +82,7 @@ reviewer
 - 원래 있던 이전 후보의 내용과 경로
 - 원래 있던 새 이름 대상의 내용과 경로
 - 원래 없던 새 대상의 부재
-- 거래 중 변경된 Harness와 외부 스킬의 이전 상태
+- 거래 중 변경된 ARC와 외부 스킬의 이전 상태
 
 복구 자체가 실패하면 기존 오류 보고 계약대로 백업과 필요한 recovery 데이터를 보존하고 경로를 보고한다. 전체 파일시스템에 걸친 원자성을 보장한다고 설명하지 않는다.
 

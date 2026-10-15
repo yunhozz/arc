@@ -117,7 +117,7 @@ Coder는 구조 회귀 검사를 먼저 추가·수정해 관련 unittest를 실
 
 - 승인 주체는 사용자이며, CEO가 실행 전 상태 확인과 승인 확인을 담당한다.
 - checkout 승인이 없으면 현재 checkout 경로에서 문서 commit과 작업을 계속하는 것은 사용자가 직접 정한 대체 경로다.
-- 실제 작업 workspace는 `/Users/yunho/Desktop/project/yunho-harness`이며 branch/HEAD/dirty state는 handoff 직전에 다시 확인한다.
+- 실제 작업 workspace는 `/Users/yunho/Desktop/project/arc`이며 branch/HEAD/dirty state는 handoff 직전에 다시 확인한다.
 - 테스트 변경은 `tests/test_install.py`의 관련 구조 회귀 검사에 한정한다. 설치기, README, 역사적 spec/plan은 현재 변경 범위에 포함하지 않는다.
 
 자체 검토에서 checkout 승인 여부와 문서 승인을 분리했고, 승인 없는 경로에서도 docs commit과 Coder handoff가 가능하도록 명시했다. branch 생성·전환 오류는 승인 부재와 분리해 자동 fallback하지 않는다. 두 경로의 docs-only staging, 기존 변경 보존, 문서 없는 경로 및 handoff 기록을 동일하게 유지한다.

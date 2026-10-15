@@ -1,21 +1,21 @@
-# Harness 실행 전 증거 게이트 구현 계획
+# ARC 실행 전 증거 게이트 구현 계획
 
 **상태:** 수정본 사용자 plan 승인 대기
 **날짜:** 2026-10-07
 
-> 실행은 Harness adapter에 따라 CEO가 순차 조정한다. Coder가 지정 파일을 편집하고, QA와 Reviewer는 위험에 맞는 독립 확인을 맡는다. 외부 executor 지침은 별도 실행 방식이나 추가 역할을 요구하지 않는다.
+> 실행은 ARC adapter에 따라 CEO가 순차 조정한다. Coder가 지정 파일을 편집하고, QA와 Reviewer는 위험에 맞는 독립 확인을 맡는다. 외부 executor 지침은 별도 실행 방식이나 추가 역할을 요구하지 않는다.
 
-**Goal:** 문서 저장과 실행 준비 Git 변경 전에 Harness의 작성 책임·승인 순서·증거 확인을 적용하고, 기존 깊이 판단으로 필요한 Bounded written spec에도 같은 저장·승인 게이트를 적용한다.
+**Goal:** 문서 저장과 실행 준비 Git 변경 전에 ARC의 작성 책임·승인 순서·증거 확인을 적용하고, 기존 깊이 판단으로 필요한 Bounded written spec에도 같은 저장·승인 게이트를 적용한다.
 
 **Architecture:** 루트 skill은 지침 우선순위와 필수 참조 시점을 연결한다. Planning과 handoff 참조는 문서 저장·대상 선택·Git 변경별 증거와 중단 조건을 정의하고, 기존 정책 텍스트 검사에 회귀 사례를 추가한다. Bounded spec의 필요성은 기존 CEO 깊이 판단을 따르며 README와 manifest를 변경 사항에 맞춘다. Runtime 차단기나 별도 기록 서비스를 추가하지 않는다.
 
 **Tech Stack:** Markdown, Python unittest, 기존 `policy_text()` helper, SHA-256 manifest, Git 상태·diff 확인.
 
-**Spec:** `/Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-07-harness-preaction-gates-design.md`
+**Spec:** `/Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-07-arc-preaction-gates-design.md`
 
 ## Global Constraints
 
-- Workspace는 `/Users/yunho/Desktop/project/yunho-harness`다. 실행 대상은 문서 승인 완료 후 사용자가 명시 선택한다.
+- Workspace는 `/Users/yunho/Desktop/project/arc`다. 실행 대상은 문서 승인 완료 후 사용자가 명시 선택한다.
 - 이 변경의 설계 깊이는 Architectural, 검증 위험은 significant/high다.
 - Architectural은 전체 Planner spec 초안·자체 검토, CEO 통합·저장·자체 검토, written-spec 승인 경로를 유지한다.
 - Bounded는 보통 승인된 짧은 설계로 진행한다. 기존 CEO 깊이 판단이 written spec을 요구할 때만 required Bounded spec에 같은 저장 증거·작성 책임·개별 승인 게이트를 적용한다.
@@ -23,7 +23,7 @@
 - Spike, Bounded plan-skip, non-behavior docs/config 경로에 새 spec 의무를 추가하지 않는다. Plan이 필요하다는 사실만으로 Bounded spec을 요구하지 않는다.
 - Coder만 구현·설정·테스트 파일을 수정한다. CEO는 조정·승인·통합·검증·수락을 맡는다.
 - 외부 skills, 설치된 사본, 모델, 권한 설정은 수정하지 않는다.
-- `agents/harness-planner.toml`의 기존 책임 문구는 만족하므로 수정하지 않는다.
+- `agents/arc-planner.toml`의 기존 책임 문구는 만족하므로 수정하지 않는다.
 - 적용 문서 전체 승인 전 대상 선택 요청, branch 변경, staging, 문서 commit을 하지 않는다.
 - 승인 문서 준비 commit과 수락 후 선택적 구현 commit을 구분한다. Push는 포함하지 않는다.
 - 기존 staged/unstaged/untracked 변경과 소유권을 보존한다. 자동 stash/reset/clean을 하지 않는다.
@@ -58,14 +58,14 @@
 
 **Files:**
 
-- `/Users/yunho/Desktop/project/yunho-harness/tests/test_install.py`
-- `/Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md`
-- `/Users/yunho/Desktop/project/yunho-harness/skill/references/planning.md`
-- `/Users/yunho/Desktop/project/yunho-harness/skill/references/handoff.md`
-- `/Users/yunho/Desktop/project/yunho-harness/README.md`
-- 읽기 전용: `/Users/yunho/Desktop/project/yunho-harness/agents/harness-planner.toml`
+- `/Users/yunho/Desktop/project/arc/tests/test_install.py`
+- `/Users/yunho/Desktop/project/arc/skill/SKILL.md`
+- `/Users/yunho/Desktop/project/arc/skill/references/planning.md`
+- `/Users/yunho/Desktop/project/arc/skill/references/handoff.md`
+- `/Users/yunho/Desktop/project/arc/README.md`
+- 읽기 전용: `/Users/yunho/Desktop/project/arc/agents/arc-planner.toml`
 
-**Interfaces:** 기존 `policy_text(name: str) -> str`, `REPO`, `tomllib`, `unittest`를 사용한다. `HarnessPreactionGateTests`의 기존 다섯 검사 이름을 유지하여 필요한 assertion을 추가·확장한다. 기존 `ConditionalReferenceTests`, `RolePolicyTests`, handoff 계약을 유지한다. 검사는 문서 구조만 확인하며 live Git 또는 agent runtime을 실행하지 않는다.
+**Interfaces:** 기존 `policy_text(name: str) -> str`, `REPO`, `tomllib`, `unittest`를 사용한다. `ARCPreactionGateTests`의 기존 다섯 검사 이름을 유지하여 필요한 assertion을 추가·확장한다. 기존 `ConditionalReferenceTests`, `RolePolicyTests`, handoff 계약을 유지한다. 검사는 문서 구조만 확인하며 live Git 또는 agent runtime을 실행하지 않는다.
 
 **AC:** AC-1–AC-10.
 
@@ -76,7 +76,7 @@
 
 | 검사 | 확인할 계약 |
 |---|---|
-| `test_preaction_role_precedence` | Harness 우선순위, Architectural과 required Bounded spec의 완전한 Planner 초안/self-review, CEO 통합·저장·검토·개별 승인 조율, CEO 독립 초안 대체 금지, 기존 Planner profile 일치 |
+| `test_preaction_role_precedence` | ARC 우선순위, Architectural과 required Bounded spec의 완전한 Planner 초안/self-review, CEO 통합·저장·검토·개별 승인 조율, CEO 독립 초안 대체 금지, 기존 Planner profile 일치 |
 | `test_preaction_document_save_evidence` | 아래 경로별 subcase와 spec/plan 저장 증거, 승인 순서, 누락 시 중단 |
 | `test_preaction_reference_and_choice_order` | Planning/handoff 참조 trigger, 적용 문서 완결 전 선택 요청 금지, 요청 전에 선택 증거를 요구하지 않음 |
 | `test_preaction_git_evidence_and_batch_order` | Git 변경 전 승인·선택·repo/branch/HEAD/dirty 상태·보존·소유권, required spec에 대한 조기 commit 유예, 적용 문서 일괄 commit, staged 대상과 사후 확인 |
@@ -112,7 +112,7 @@ python3 -B -m unittest discover -s tests -p test_install.py -k preaction -v
 
 ### Step 3: 최소 정책 변경
 
-- [ ] 루트 adapter에 설치된 brainstorming의 역할·저장·조기 commit 지시를 Harness에 맞춰 적용한다고 명시한다.
+- [ ] 루트 adapter에 설치된 brainstorming의 역할·저장·조기 commit 지시를 ARC에 맞춰 적용한다고 명시한다.
 - [ ] Mandatory reference 표에서 planning의 최초 적용 spec/plan 저장 trigger와 handoff의 대상 선택 요청·준비 Git 변경 trigger를 보완한다.
 - [ ] Planning의 저장 게이트 적용 문구를 Architectural spec과 **기존 CEO 깊이 판단으로 필요한 Bounded written spec**으로 확장한다.
 - [ ] Bounded spec 필요 판단·범위와 승인된 짧은 설계를 저장 전 증거에 포함한다. Spec 필요성을 판정하는 새 기준은 만들지 않는다.
@@ -151,7 +151,7 @@ python3 -B -m unittest discover -s tests -p test_install.py -v
 
 ## Task 2: Manifest 갱신과 전체 검증
 
-**Files:** `/Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256` 수정. Task 1 최종 변경 전체 확인.
+**Files:** `/Users/yunho/Desktop/project/arc/MANIFEST.sha256` 수정. Task 1 최종 변경 전체 확인.
 
 **AC:** AC-1, AC-7–AC-10. 수정 AC-2·AC-3의 구조 검사는 전체 suite에서 재확인한다.
 

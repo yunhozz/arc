@@ -178,7 +178,7 @@ MANIFEST.sha256는 최종 파일 내용에 맞춰 갱신한다. 현재 manifest�
 
 ## 10. 가정과 남은 결정
 
-- 현재 제공된 구현 workspace는 /Users/yunho/Desktop/project/yunho-harness이다.
+- 현재 제공된 구현 workspace는 /Users/yunho/Desktop/project/arc이다.
 - CEO가 확인한 현재 상태는 master, clean이다. 실제 구현 직전 상태는 다시 확인한다.
 - 브랜치 생성·전환은 하네스 운영 지침 변경이며 새로운 설치기 기능이 아니다.
 - 필수 외부 스킬 집합 변경은 기존 mapping 기반 흐름을 사용한다.

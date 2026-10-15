@@ -1,13 +1,13 @@
-# Harness 작성 책임과 실행 전 증거 게이트 설계 명세
+# ARC 작성 책임과 실행 전 증거 게이트 설계 명세
 
 **상태:** 수정본 사용자 승인 완료
 **날짜:** 2026-10-07
 
 ## 1. 목적
 
-설치된 `brainstorming`의 architectural 경로는 실행 주체가 spec을 작성하고 written-spec 검토 전에 커밋하도록 지시한다. Harness는 Planner가 완전한 spec 초안과 자체 검토를 반환하고 CEO가 통합·저장·자체 검토한 뒤 승인을 받도록 정하며, 모든 spec과 plan의 개별 승인과 실행 대상 선택이 끝난 뒤 문서 커밋을 준비하도록 한다.
+설치된 `brainstorming`의 architectural 경로는 실행 주체가 spec을 작성하고 written-spec 검토 전에 커밋하도록 지시한다. ARC는 Planner가 완전한 spec 초안과 자체 검토를 반환하고 CEO가 통합·저장·자체 검토한 뒤 승인을 받도록 정하며, 모든 spec과 plan의 개별 승인과 실행 대상 선택이 끝난 뒤 문서 커밋을 준비하도록 한다.
 
-참조 task에서는 CEO가 spec을 직접 작성해 현재 `master`에 커밋한 후 사용자가 새 브랜치를 선택했다. 이 명세는 이처럼 외부 지침과 Harness 계약이 충돌할 때 작업 초반부터 Harness 순서와 역할을 적용하고, 문서 저장 및 Git 변경 직전에 필요한 증거를 확인하도록 보완한다.
+참조 task에서는 CEO가 spec을 직접 작성해 현재 `master`에 커밋한 후 사용자가 새 브랜치를 선택했다. 이 명세는 이처럼 외부 지침과 ARC 계약이 충돌할 때 작업 초반부터 ARC 순서와 역할을 적용하고, 문서 저장 및 Git 변경 직전에 필요한 증거를 확인하도록 보완한다.
 
 ## 2. 목표와 비목표
 
@@ -28,7 +28,7 @@
 
 ## 3. 범위와 용어
 
-대상은 Harness가 조정하는 개발 작업의 spec/plan 작성·승인, 실행 대상 선택, branch 준비, 승인 문서 staging·commit 및 Coder 인계다.
+대상은 ARC가 조정하는 개발 작업의 spec/plan 작성·승인, 실행 대상 선택, branch 준비, 승인 문서 staging·commit 및 Coder 인계다.
 
 - **적용 문서 집합:** 현재 승인된 실행 범위에 필요한 모든 spec과 plan 및 각 승인 버전.
 - **집합 완결:** 필요한 문서가 모두 작성·개별 승인됐고, 추가 문서가 필요한 미해결 범위·의존성 결정이 없는 상태.
@@ -44,7 +44,7 @@ Architectural은 전체 spec·자체 검토·written-spec 승인 경로를 유�
 
 ## 4. 지침 우선순위와 역할
 
-플랫폼·사용자·프로젝트 지침을 적용한 뒤 Harness의 소유권·승인·실행 순서를 설치된 skill보다 우선 적용한다. 설치된 skill의 호출은 역할이나 Git 권한을 추가하지 않는다. 충돌하는 외부 지침은 그대로 실행하지 않고 Harness 절차에 맞춰 해석한다. 외부 skill 파일은 수정하지 않는다.
+플랫폼·사용자·프로젝트 지침을 적용한 뒤 ARC의 소유권·승인·실행 순서를 설치된 skill보다 우선 적용한다. 설치된 skill의 호출은 역할이나 Git 권한을 추가하지 않는다. 충돌하는 외부 지침은 그대로 실행하지 않고 ARC 절차에 맞춰 해석한다. 외부 skill 파일은 수정하지 않는다.
 
 Architectural 개발 작업의 spec 책임:
 
@@ -151,7 +151,7 @@ Branch 변경이나 commit 이후 실제 path·branch·HEAD·staged/unstaged/unt
 
 | ID | 수용 기준 |
 |---|---|
-| AC-1 | Harness 역할·순서가 충돌하는 installed skill 지침보다 우선하며 외부 skill 파일은 수정하지 않는다. |
+| AC-1 | ARC 역할·순서가 충돌하는 installed skill 지침보다 우선하며 외부 skill 파일은 수정하지 않는다. |
 | AC-2 | Architectural spec과 깊이 판단으로 필요한 Bounded written spec의 전체 초안·자체 검토는 Planner가 반환하고 CEO가 통합·저장·검토·개별 승인을 조율한다. |
 | AC-3 | Architectural spec, 깊이 판단으로 필요한 Bounded written spec, 적용 plan의 최초 저장 전 역할·범위·초안·자체 검토·승인·경로 증거를 확인한다. Required Bounded spec은 승인된 짧은 설계와 구별하고 종속 plan 작성·실행 준비 전에 개별 승인한다. Spec 저장에는 그 spec의 written approval이나 실행 대상 선택을 요구하지 않으며, spec이 불필요한 경로에 새 문서 의무를 추가하지 않는다. |
 | AC-4 | 대상 선택을 요청하기 전에 적용 문서 집합 완결과 승인 근거를 확인하며, 문서 미완료 시 요청·준비를 중단한다. |

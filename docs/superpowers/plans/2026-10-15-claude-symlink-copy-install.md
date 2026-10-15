@@ -1,9 +1,9 @@
-# Claude 독립 스킬 설치와 Harness 정책 정렬 구현 계획
+# Claude 독립 스킬 설치와 ARC 정책 정렬 구현 계획
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` 또는 `superpowers:executing-plans`. 단계는 체크박스로 기록한다.
-> Harness에 따라 CEO가 순차 조정하고 Coder가 구현한다. 별도 실행 방식 선택이나 Coder 커밋은 요구하지 않는다.
+> ARC에 따라 CEO가 순차 조정하고 Coder가 구현한다. 별도 실행 방식 선택이나 Coder 커밋은 요구하지 않는다.
 
-**Goal:** Codex를 보존하면서 Claude 스킬 링크를 독립 upstream 복사본으로 전환하고, Claude 배포의 공통 Harness 정책을 기준 문서와 정렬한다.
+**Goal:** Codex를 보존하면서 Claude 스킬 링크를 독립 upstream 복사본으로 전환하고, Claude 배포의 공통 ARC 정책을 기준 문서와 정렬한다.
 
 **Architecture:** T1은 Claude의 정확한 마지막 링크만 안전하게 백업·교체·복구한다. T2는 공통 정책의 내용·섹션 순서를 기준 문서와 정렬하고 실제 Claude native 역할·모델·스크립트·지원 경로에 맞게 adapter를 적용한다. 두 작업을 각각 검증·수용·커밋한다.
 
@@ -138,7 +138,7 @@ git diff --check
 
 허용 경로 확대, Codex tree 수정·복사, 전역 transaction 재설계, 또는 실패 뒤 사용자 변경을 보존할 수 없는 경우 중단해 범위·계획 승인을 다시 받는다. Codex 불변성과 recovery 보존을 임시 fixture로 입증하지 못해도 수용하지 않는다.
 
-## T2 — Claude Harness 공통 정책과 native adapter 정렬
+## T2 — Claude ARC 공통 정책과 native adapter 정렬
 
 **선행 조건:** T1 위험 조건 QA, CEO 수용·focused commit 및 새 handoff. T2는 T1 이후 HEAD를 기준으로 시작한다.
 
@@ -166,7 +166,7 @@ Models
 
 - CEO와 역할의 소유권·위임 경계, depth 2 직접 보고, 최대 네 역할 동시 진행, 독립 작업만 병렬화.
 - Scouter의 조사 범위와 실행 상태 조사·정리 제외, 읽기 전용 역할의 편집·실행·저장 금지.
-- 플랫폼 지침 → Harness 정책 → 역할 지정 skill 우선순위, 설치 skill의 executor·초기 spec commit 절차 adapter.
+- 플랫폼 지침 → ARC 정책 → 역할 지정 skill 우선순위, 설치 skill의 executor·초기 spec commit 절차 adapter.
 - task마다 새 Coder, 같은 task 재작업 reuse 조건, 승인된 변경 뒤 fresh Coder 재시작과 전체 handoff 확인.
 - preservation rule, explicit choice, stop and inspect, evidence verdict.
 - 설계 깊이와 검증 위험의 분리, 적용 가능한 문서 세트·승인·실행 대상·커밋 선행순서.
@@ -180,11 +180,11 @@ Models
 
 | 구분 | 계약 |
 |---|---|
-| Native 역할 | `harness-scouter`, `harness-planner`, `harness-coder`, `harness-qa`, `harness-reviewer`; 실행 이름은 하이픈, `models.toml` key는 underscore 그대로 유지 |
+| Native 역할 | `arc-scouter`, `arc-planner`, `arc-coder`, `arc-qa`, `arc-reviewer`; 실행 이름은 하이픈, `models.toml` key는 underscore 그대로 유지 |
 | Native 실행 | Claude subagent 기능으로 지정된 역할을 호출하고 완료 결과를 받는다. Codex 전용 함수·인자·앱/API를 계약으로 복사하지 않는다. |
 | 설정과 모델 | `claude/skill/models.toml`과 `model_config.py` 형식을 따른다. 현재 local 모델 별칭·effort를 표시하되 선언이 실제 provider 적용 증거라고 주장하지 않는다. |
-| 설정 재적용 | 설치 경로 `python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py`; 현 스크립트의 실제 옵션 `--config`, `--agents-dir`, `--check`, `--dry-run`만 안내한다. |
-| 실행 대상 | Claude v1은 현재 checkout에서만 실행한다. 사용자가 현재 branch 재사용 또는 task branch를 명시 선택하게 하고, Harness-managed worktree 선택은 지원하지 않는다. |
+| 설정 재적용 | 설치 경로 `python3 ~/.claude/skills/arc/scripts/apply-models.py`; 현 스크립트의 실제 옵션 `--config`, `--agents-dir`, `--check`, `--dry-run`만 안내한다. |
+| 실행 대상 | Claude v1은 현재 checkout에서만 실행한다. 사용자가 현재 branch 재사용 또는 task branch를 명시 선택하게 하고, ARC-managed worktree 선택은 지원하지 않는다. |
 | 필수 참조 | 실제 존재하는 Claude references 7개만 연결한다. `handoff-worktree`나 app attachment 절차를 요구하지 않는다. |
 | visual capability | `visual-companion`의 capability와 각 role allowlist 범위 안에서만 사용한다. 불가하면 보고하고 시각 검증을 주장하지 않는다. |
 | native 한계 | 모델 가용성·계정 권한·provider alias·실제 effort·동시성·깊이 2 실행을 정적으로 입증했다고 표현하지 않는다. tool list는 filesystem sandbox가 아니다. |
@@ -220,7 +220,7 @@ git diff --check
 
 **보류 조건:** source 정책과 native 지원 경계가 충돌해 새 행동 결정이 필요하거나, per-call effort·fresh context·완료 대기 실행 기능을 필수로 약속해야 하거나, 지원되지 않는 worktree·API가 있어야 계약이 성립하는 경우 중단해 CEO에게 근거와 선택지를 보고한다. profile·모델·script 변경이나 공유 정책의 의미 변경도 재승인 없이 진행하지 않는다.
 
-**권장 커밋:** `docs(claude): 공통 Harness 정책과 네이티브 실행 안내 정렬`
+**권장 커밋:** `docs(claude): 공통 ARC 정책과 네이티브 실행 안내 정렬`
 
 ## 최종 전체 검증
 

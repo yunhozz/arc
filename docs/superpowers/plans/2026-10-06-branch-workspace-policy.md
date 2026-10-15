@@ -1,6 +1,6 @@
 # 브랜치 작업 흐름과 필수 설치 스킬 변경 Implementation Plan
 
-> **For agentic workers:** REQUIRED 실행 방식은 Yunho Harness의 CEO 순차 조정이다. CEO가 승인·순서·handoff·수용을 조정하고 Coder가 지정 파일을 수정한다. QA는 독립 검증을 수행하며 Reviewer는 QA 이후 최종 전체 변경을 검토한다. Executor subskill의 위임 방식과 별도 실행 방식 선택은 Harness adapter로 대체한다. 단계는 checkbox로 추적한다.
+> **For agentic workers:** REQUIRED 실행 방식은 ARC의 CEO 순차 조정이다. CEO가 승인·순서·handoff·수용을 조정하고 Coder가 지정 파일을 수정한다. QA는 독립 검증을 수행하며 Reviewer는 QA 이후 최종 전체 변경을 검토한다. Executor subskill의 위임 방식과 별도 실행 방식 선택은 ARC adapter로 대체한다. 단계는 checkbox로 추적한다.
 
 **Goal:** 현재 checkout에서 구현 전 작업 브랜치를 생성·전환하도록 하네스 계약을 변경하고, 필수 외부 설치 스킬을 세 개로 줄인다.
 
@@ -8,11 +8,11 @@
 
 **Tech Stack:** Python 3, unittest, Git, Markdown, SHA-256 manifest.
 
-**Spec:** /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md
+**Spec:** /Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md
 
 ## Global Constraints
 
-- 구현 workspace는 /Users/yunho/Desktop/project/yunho-harness이다.
+- 구현 workspace는 /Users/yunho/Desktop/project/arc이다.
 - 필요한 설계·명세·계획 승인이 완료된 뒤 Coder 시작 전에 CEO가 새 브랜치를 생성하고 전환한다.
 - 브랜치는 확인한 현재 HEAD에서 생성하며 기존 checkout 절대 경로를 유지한다.
 - worktree를 생성하지 않는다.
@@ -51,13 +51,13 @@
 
 | 파일 | 담당·책임 |
 |---|---|
-| /Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md | Coder: workspace handoff 계약 |
-| /Users/yunho/Desktop/project/yunho-harness/install.py | Coder: 필수 집합과 설치 완료 문구 |
-| /Users/yunho/Desktop/project/yunho-harness/tests/test_install.py | 승인 후 Coder: fixture·기대값·회귀 검증 |
-| /Users/yunho/Desktop/project/yunho-harness/README.md | Coder: 설치 집합과 브랜치 운영 설명 |
-| /Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256 | Coder: 최종 파일 checksum |
-| /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md | CEO: 승인 설계 문서; 작성된 경우 branch 전환 후 단독 staging 대상 |
-| /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/plans/2026-10-06-branch-workspace-policy.md | CEO: 승인 구현 계획; 작성된 경우 branch 전환 후 단독 staging 대상 |
+| /Users/yunho/Desktop/project/arc/skill/SKILL.md | Coder: workspace handoff 계약 |
+| /Users/yunho/Desktop/project/arc/install.py | Coder: 필수 집합과 설치 완료 문구 |
+| /Users/yunho/Desktop/project/arc/tests/test_install.py | 승인 후 Coder: fixture·기대값·회귀 검증 |
+| /Users/yunho/Desktop/project/arc/README.md | Coder: 설치 집합과 브랜치 운영 설명 |
+| /Users/yunho/Desktop/project/arc/MANIFEST.sha256 | Coder: 최종 파일 checksum |
+| /Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md | CEO: 승인 설계 문서; 작성된 경우 branch 전환 후 단독 staging 대상 |
+| /Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-06-branch-workspace-policy.md | CEO: 승인 구현 계획; 작성된 경우 branch 전환 후 단독 staging 대상 |
 
 CEO는 구현·설정·테스트 파일을 직접 수정하지 않는다. CEO는 실제 작성된 승인 기획 문서를 통합·갱신하고 브랜치 전환 후 해당 문서만 커밋한다. 기획 문서가 없는 허용 경로에서는 생략 사실을 기록한다. Coder는 다른 작업자의 변경을 되돌리지 않고 지정한 범위에서 기존 구조를 유지한다.
 
@@ -65,8 +65,8 @@ CEO는 구현·설정·테스트 파일을 직접 수정하지 않는다. CEO는
 
 **Files**
 
-- Read: /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md
-- Read: /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/plans/2026-10-06-branch-workspace-policy.md
+- Read: /Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-06-branch-workspace-policy-design.md
+- Read: /Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-06-branch-workspace-policy.md
 - Modify: 없음. 현재 checkout의 Git 브랜치 상태만 변경한다.
 
 **Interfaces**
@@ -134,8 +134,8 @@ checkout 경로, 현재 브랜치, 기준 HEAD 및 기존 변경 보존을 확�
 
 **Files**
 
-- Modify: /Users/yunho/Desktop/project/yunho-harness/install.py
-- Test: /Users/yunho/Desktop/project/yunho-harness/tests/test_install.py
+- Modify: /Users/yunho/Desktop/project/arc/install.py
+- Test: /Users/yunho/Desktop/project/arc/tests/test_install.py
 
 **Interfaces**
 
@@ -159,7 +159,7 @@ checkout 경로, 현재 브랜치, 기준 HEAD 및 기존 변경 보존을 확�
 기존 테스트 이름과 기대값을 다음처럼 바꾼다.
 
 - test_acquisition_uses_exact_four_skill_command → test_acquisition_uses_exact_three_skill_command
-- test_install_writes_harness_profiles_and_four_external_skills → test_install_writes_harness_profiles_and_three_external_skills
+- test_install_writes_arc_profiles_and_four_external_skills → test_install_writes_arc_profiles_and_three_external_skills
 - test_install_syncs_all_four_on_every_run → test_install_syncs_all_three_on_every_run
 - test_dry_run_validates_structure_and_does_not_write의 CLI 문자열에서 using-git-worktrees를 제외한다.
 
@@ -219,9 +219,9 @@ Step 3의 동일한 세 명령을 다시 실행한다. 각 명령의 정상 종�
 
 **Files**
 
-- Modify: /Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md
-- Modify: /Users/yunho/Desktop/project/yunho-harness/README.md
-- Test: /Users/yunho/Desktop/project/yunho-harness/tests/test_install.py
+- Modify: /Users/yunho/Desktop/project/arc/skill/SKILL.md
+- Modify: /Users/yunho/Desktop/project/arc/README.md
+- Test: /Users/yunho/Desktop/project/arc/tests/test_install.py
 
 **Interfaces**
 
@@ -289,7 +289,7 @@ Non-Git workspace, 생성·전환 실패·부분 완료·기대 브랜치 불일
 
 **Files**
 
-- Modify: /Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256
+- Modify: /Users/yunho/Desktop/project/arc/MANIFEST.sha256
 - Read/Verify: Task 2–3의 최종 파일 및 승인 명세·계획
 
 **Interfaces**

@@ -1,8 +1,8 @@
 # 계획 문서 승인 후 일괄 실행 준비 구현 계획
 
-> **실행 역할 안내:** Yunho Harness의 기존 역할 경로를 따른다. CEO가 승인·준비·인계·수락을 소유하고 Coder가 지정 파일을 편집한다. `writing-plans`의 별도 실행자 선택이나 추가 실행 스킬 지시는 Harness 규칙으로 대체한다.
+> **실행 역할 안내:** ARC의 기존 역할 경로를 따른다. CEO가 승인·준비·인계·수락을 소유하고 Coder가 지정 파일을 편집한다. `writing-plans`의 별도 실행자 선택이나 추가 실행 스킬 지시는 ARC 규칙으로 대체한다.
 
-**목표:** 현재 승인 범위에 필요한 문서를 모두 작성·승인한 뒤 체크아웃을 선택하고 미커밋 승인 문서를 한 번에 커밋하도록 Harness 계약을 명확히 한다.
+**목표:** 현재 승인 범위에 필요한 문서를 모두 작성·승인한 뒤 체크아웃을 선택하고 미커밋 승인 문서를 한 번에 커밋하도록 ARC 계약을 명확히 한다.
 
 **구조:** `skill/SKILL.md`에 문서 집합 완결과 준비 순서를 정의하고 README를 동기화한다. 기존 Coder 독립 확인·Git 실패 복구 계약은 보존하며 manifest 해시를 갱신한다.
 
@@ -12,9 +12,9 @@
 
 ## 공통 제약과 소유권
 
-- 작업공간은 `/Users/ma-24-007/Desktop/workspace/yunho-harness`다.
+- 작업공간은 `/Users/ma-24-007/Desktop/workspace/arc`다.
 - Coder는 `skill/SKILL.md`, `README.md`, `MANIFEST.sha256`만 편집한다.
-- `agents/harness-coder.toml`, `tests/test_install.py`는 읽기 전용으로 대조한다.
+- `agents/arc-coder.toml`, `tests/test_install.py`는 읽기 전용으로 대조한다.
 - 테스트를 추가·수정·실행하지 않는다. TDD와 설치 검사 실행도 포함하지 않는다.
 - 추가 파일 수정이 필요하면 편집 전에 CEO에게 보고하고 범위 승인을 받는다.
 - 승인된 spec·plan과 shared brief는 CEO가 통합·저장한다.
@@ -25,7 +25,7 @@
 
 ## 검토 초점
 
-1. 외부 brainstorming의 조기 spec 커밋 지시가 Harness에서 명시적으로 이연되는가.
+1. 외부 brainstorming의 조기 spec 커밋 지시가 ARC에서 명시적으로 이연되는가.
 2. 필요한 plan 일부가 미승인인데 실행 준비나 Coder 시작을 허용하는가.
 3. Spike와 문서 없는 bounded 경로에서 불필요한 문서를 강제하거나 공통 게이트를 생략하는가.
 4. 기존 커밋·재개를 이유로 중복 커밋하거나 새 승인 범위를 과거 승인으로 처리하는가.
@@ -50,14 +50,14 @@
 권고 문서 커밋 메시지:
 
 ```text
-docs(harness): 계획 문서 일괄 준비 설계와 구현 계획 정리
+docs(arc): 계획 문서 일괄 준비 설계와 구현 계획 정리
 ```
 
 **완료 조건:** 계획·문서 승인 중 준비 작업을 하지 않았고, 모든 적용 승인과 필요한 Git 준비 증거가 완결됐다.
 
 ## 작업 1: 공통 문서 집합과 준비 순서 수정
 
-**파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/skill/SKILL.md`<br>
+**파일:** `/Users/ma-24-007/Desktop/workspace/arc/skill/SKILL.md`<br>
 **담당:** Coder<br>
 **출력:** README와 인계가 따를 공통 계약
 
@@ -93,8 +93,8 @@ docs(harness): 계획 문서 일괄 준비 설계와 구현 계획 정리
 
 ## 작업 2: README 동기화와 기존 계약 대조
 
-**편집 파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/README.md`<br>
-**읽기 전용 파일:** `agents/harness-coder.toml`, `tests/test_install.py`<br>
+**편집 파일:** `/Users/ma-24-007/Desktop/workspace/arc/README.md`<br>
+**읽기 전용 파일:** `agents/arc-coder.toml`, `tests/test_install.py`<br>
 **담당:** Coder
 
 - [ ] `Coder 인계와 Git 준비`에 모든 적용 spec·plan의 작성과 개별 승인 후 한 번 준비하는 순서를 설명한다.
@@ -109,7 +109,7 @@ docs(harness): 계획 문서 일괄 준비 설계와 구현 계획 정리
 
 ## 작업 3: Manifest와 정적 확인
 
-**파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/MANIFEST.sha256`<br>
+**파일:** `/Users/ma-24-007/Desktop/workspace/arc/MANIFEST.sha256`<br>
 **담당:** Coder
 
 - [ ] `skill/SKILL.md`, `README.md`의 SHA-256을 계산한다.
@@ -148,7 +148,7 @@ shasum -a 256 -c MANIFEST.sha256
 권고 구현 커밋 메시지:
 
 ```text
-fix(harness): 계획 문서 승인 후 일괄 실행 준비 순서 명확화
+fix(arc): 계획 문서 승인 후 일괄 실행 준비 순서 명확화
 ```
 
 ## 기준별 담당 작업

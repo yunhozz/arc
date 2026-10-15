@@ -1,6 +1,6 @@
 # Prepare the current checkout
 
-Claude v1 supports the current checkout only; Harness-managed worktree execution is unsupported. Do not create or attach worktrees as a fallback. Report unsupported requests before dependent work.
+Claude v1 supports the current checkout only; ARC-managed worktree execution is unsupported. Do not create or attach worktrees as a fallback. Report unsupported requests before dependent work.
 
 Before each preparation Git mutation, confirm the approved document set, absolute repository/workspace, branch or detached HEAD, HEAD commit, index, worktree/untracked files, and ownership. Present this state and obtain an explicit user choice to reuse the current branch or create a task branch. Before creating a branch, present its exact candidate name and base. Planning approval or silence does not select a branch. Preserve all unrelated changes; if they block preparation, stop and report rather than stashing, resetting or cleaning.
 

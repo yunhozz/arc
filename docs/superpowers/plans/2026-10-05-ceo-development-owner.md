@@ -4,15 +4,15 @@
 
 **Goal:** CEO를 단일 개발 소유자로 전환하고 여섯 직속 역할, 제한된 legacy 모델 호환 및 기존 Lead 프로필의 안전한 설치 퇴역을 구현한다.
 
-**Architecture:** 기존 Harness의 개발 소유자 책임을 CEO로 옮기고 Secretary와 개발 specialist의 보고 경로를 CEO 직속으로 통일한다. 모델 로더는 정확히 알려진 legacy Lead 항목만 검증 후 제외한다. 설치기는 기존 transaction에 Lead 백업·퇴역·복원을 포함한다.
+**Architecture:** 기존 ARC의 개발 소유자 책임을 CEO로 옮기고 Secretary와 개발 specialist의 보고 경로를 CEO 직속으로 통일한다. 모델 로더는 정확히 알려진 legacy Lead 항목만 검증 후 제외한다. 설치기는 기존 transaction에 Lead 백업·퇴역·복원을 포함한다.
 
 **Tech Stack:** Python 3.11 이상, unittest, tomllib, TOML agent profiles, Markdown 정책·문서, SHA-256 manifest.
 
-**Spec:** /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-05-ceo-development-owner-design.md
+**Spec:** /Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-05-ceo-development-owner-design.md
 
 ## Global Constraints
 
-- 작업 공간은 /Users/yunho/Desktop/project/yunho-harness이며, 사용자가 기존 master checkout을 사용하라고 명시했다. workspace를 생성하거나 변경하지 않는다.
+- 작업 공간은 /Users/yunho/Desktop/project/arc이며, 사용자가 기존 master checkout을 사용하라고 명시했다. workspace를 생성하거나 변경하지 않는다.
 - 확인 근거: branch master, git-dir=git-common-dir=.git, submodule 및 linked worktree가 아님. baseline python3 -m unittest discover -s tests -v는 67 tests, 0 failures였다.
 - 승인된 spec은 같은 workspace의 untracked artifact이다. 보존하고 관련 없는 변경을 덮어쓰지 않는다.
 - CEO는 depth 1, Secretary 및 다섯 개발 specialist는 depth 2이다. depth 2 역할은 agent를 생성하거나 직접 위임하지 않는다.
@@ -21,7 +21,7 @@
 - version = 3을 유지하고 CEO profile/model을 추가하지 않는다. 기존 여섯 specialist의 model·effort 값을 변경하지 않는다.
 - 행동 및 설정 동작 변경은 failing test → failure 확인 → 최소 구현 → pass 확인 순서를 따른다. policy/profile routing도 agent behavior 계약이므로 구조 검사를 먼저 실패시킨 후 policy를 고친다.
 - Human-approved TDD exception (Task 1 only): 사용자가 승인한 plan에는 profile/policy source의 의미상 CEO 보고·no-nesting·Secretary scope 일관성을 확인하는 두 구조 테스트가 포함되어 있다. 해당 승인으로 이 좁은 configuration/policy consistency 검사를 허용한다. 테스트는 정확한 prose나 넓은 문자열 부재를 고정하지 않고, runtime parent behavior의 증거라고 주장하지 않는다. Role routing 외의 model normalization 및 installer 동작은 모두 genuine failing-first tests를 거친다. README와 최종 manifest 정렬은 비행동 문서/package metadata 단계다.
-- 설계/spec/plan 승인, TDD, workspace, 위험별 QA·Reviewer, completion 및 adapter gate를 보존한다. Plan header의 executor 요청은 활성 Harness adapter에 따라 CEO의 순차 Coder 조율과 위험별 검증에 대응한다. 별도 execution-method 선택 질문이나 추가 agent를 요구하지 않는다.
+- 설계/spec/plan 승인, TDD, workspace, 위험별 QA·Reviewer, completion 및 adapter gate를 보존한다. Plan header의 executor 요청은 활성 ARC adapter에 따라 CEO의 순차 Coder 조율과 위험별 검증에 대응한다. 별도 execution-method 선택 질문이나 추가 agent를 요구하지 않는다.
 - 필수 검증 후 independent Reviewer가 최종 전체 변경을 검토한다.
 - 실제 사용자 Codex home에는 설치하지 않는다. Installer는 기존 temporary fixture와 acquisition stub으로 검증한다.
 - 구조 검사는 정책·package 계약의 일관성 근거이며 runtime 부모 관계를 실행으로 증명한 것으로 보고하지 않는다.
@@ -40,8 +40,8 @@
 | 파일 | 책임 |
 |---|---|
 | skill/SKILL.md | CEO 개발 소유권, 라우팅·직접 보고·동시성·승인·검증 계약 |
-| agents/harness-secretary.toml 및 다섯 specialist 프로필 | 역할별 scope와 CEO 직접 보고 |
-| agents/harness-lead.toml | 작업 2에서 제거 |
+| agents/arc-secretary.toml 및 다섯 specialist 프로필 | 역할별 scope와 CEO 직접 보고 |
+| agents/arc-lead.toml | 작업 2에서 제거 |
 | skill/models.toml | 표준 여섯 역할 및 기존 선택 |
 | skill/scripts/model_config.py | 여섯 역할 매핑과 제한된 legacy 호환 |
 | skill/scripts/apply-models.py | 여섯 프로필 적용 및 출력 |
@@ -59,12 +59,12 @@
 **Files:**
 
 - Modify: skill/SKILL.md
-- Modify: agents/harness-secretary.toml
-- Modify: agents/harness-planner.toml
-- Modify: agents/harness-scout.toml
-- Modify: agents/harness-coder.toml
-- Modify: agents/harness-qa.toml
-- Modify: agents/harness-reviewer.toml
+- Modify: agents/arc-secretary.toml
+- Modify: agents/arc-planner.toml
+- Modify: agents/arc-scout.toml
+- Modify: agents/arc-coder.toml
+- Modify: agents/arc-qa.toml
+- Modify: agents/arc-reviewer.toml
 - Test: tests/test_install.py
 
 **Interfaces:**
@@ -113,7 +113,7 @@
 - Modify: skill/scripts/model_config.py
 - Modify: skill/scripts/apply-models.py
 - Modify: install.py의 PROFILE_FILES, staged model settings normalization, preflight 오류 및 profile-count 출력
-- Delete: agents/harness-lead.toml
+- Delete: agents/arc-lead.toml
 - Test: tests/test_install.py
 
 **Interfaces:**
@@ -128,7 +128,7 @@
 
 - [ ] **Step 1: 표준·legacy model 입력의 failing tests를 추가한다.**
 
-  tests/test_install.py의 기존 installer 테스트 harness를 사용하고 test_model_ 접두사 tests를 추가한다. tomllib과 model configuration module을 기존 test helper 방식으로 load한다. 기대 역할은 다음 여섯 개다: harness_secretary, harness_planner, harness_scout, harness_coder, harness_qa, harness_reviewer.
+  tests/test_install.py의 기존 installer 테스트 arc를 사용하고 test_model_ 접두사 tests를 추가한다. tomllib과 model configuration module을 기존 test helper 방식으로 load한다. 기대 역할은 다음 여섯 개다: arc_secretary, arc_planner, arc_scout, arc_coder, arc_qa, arc_reviewer.
 
   추가할 test와 assertion:
 
@@ -137,7 +137,7 @@
   - test_model_legacy_lead_requires_valid_fields: legacy Lead 항목의 missing field, extra field, empty string, wrong type 각각은 ValidationError다.
   - test_model_rejects_unknown_missing_or_invalid_version: unknown extra role, missing specialist, version 1·2·bool 및 malformed structure는 오류다.
   - test_model_profile_sets_match_six_roles: model mapping, installer profile 목록과 source files가 정확히 여섯이다.
-  - test_model_install_normalizes_legacy_settings: 유효한 legacy payload를 설치하면 staged Harness models.toml에는 Lead가 없고 나머지 여섯 model/effort가 유지된다. 입력 payload bytes는 바뀌지 않는다.
+  - test_model_install_normalizes_legacy_settings: 유효한 legacy payload를 설치하면 staged ARC models.toml에는 Lead가 없고 나머지 여섯 model/effort가 유지된다. 입력 payload bytes는 바뀌지 않는다.
 
   기존 create_payload helper와 temp fixture를 사용한다. Source config를 직접 수정하지 말고 temporary config bytes로 모든 경우를 만든다. Installer normalization test는 temporary payload 안의 models.toml을 legacy version 3 bytes로 바꾸고 기존 acquisition stub으로 설치한다. Installed models.toml을 tomllib으로 읽어 역할 집합과 여섯 선택을 비교하고 payload source bytes가 그대로인지 확인한다.
 
@@ -151,7 +151,7 @@
 
   model_config.py의 ROLE_FILES, models.toml, install.py의 active PROFILE_FILES에서 Lead를 제거한다. 기존 여섯 role의 model/effort 값을 보존하고 CEO용 항목은 만들지 않는다. version 3 입력 roles는 정확한 표준 여섯 또는 정확한 표준 여섯+known Lead 하나만 허용한다. 모든 role의 필드를 기존 규칙으로 검증한 뒤 effective result를 여섯으로 구성한다. legacy Lead 제외 사실은 간결한 stderr 안내로 알리고 config 파일은 쓰지 않는다. install.py의 seven-profile diagnostic을 six-profile 기준으로 수정한다.
 
-  serialize_settings는 effective settings만 직렬화한다. Installer는 staged Harness copy의 models.toml을 이 정규화 결과로 대체하되 source payload 파일은 수정하지 않는다. 이전 installed Harness의 사용자 model settings를 새 payload 위로 자동 merge하지 않는다.
+  serialize_settings는 effective settings만 직렬화한다. Installer는 staged ARC copy의 models.toml을 이 정규화 결과로 대체하되 source payload 파일은 수정하지 않는다. 이전 installed ARC의 사용자 model settings를 새 payload 위로 자동 merge하지 않는다.
 
 - [ ] **Step 4: model tests가 통과하는지 확인한다.**
 
@@ -193,7 +193,7 @@
 **Interfaces:**
 
 - Consumes: Task 2의 six-role PROFILE_FILES와 normalized settings.
-- Add: RETIRED_PROFILE_FILES = ("harness-lead.toml",).
+- Add: RETIRED_PROFILE_FILES = ("arc-lead.toml",).
 - Add: retired_profile_targets(home: Path) -> dict[str, Path], 선택한 home 아래의 정확한 retired path만 반환.
 - Preserve: install_plan의 기존 반환 tuple 및 호출자. Retired path 검증은 추가한다.
 - Extend: backup_existing(..., retired_targets: dict[str, Path] | None = None) -> None. 존재하는 retired 일반 file을 기존 backup tree에 보존한다.
@@ -229,7 +229,7 @@
 
 - [ ] **Step 4: retirement를 기존 action journal에 통합한다.**
 
-  외부 target 적용 뒤, Harness 및 active profile 교체 전에 retired file을 동일 filesystem의 recovery stage로 이동한다. Retirement action을 journal에 기록하고 이전 Lead 위치를 rollback source로 보존한다. 정상 종료 시 recovery stage 정리는 기존 staging cleanup에서 담당하며 permanent backup은 남긴다. 실패 시 기존 역순 rollback, retained-stage, recovery-report 흐름을 사용한다.
+  외부 target 적용 뒤, ARC 및 active profile 교체 전에 retired file을 동일 filesystem의 recovery stage로 이동한다. Retirement action을 journal에 기록하고 이전 Lead 위치를 rollback source로 보존한다. 정상 종료 시 recovery stage 정리는 기존 staging cleanup에서 담당하며 permanent backup은 남긴다. 실패 시 기존 역순 rollback, retained-stage, recovery-report 흐름을 사용한다.
 
 - [ ] **Step 5: --check 및 --dry-run 동작을 구현한다.**
 
@@ -273,7 +273,7 @@
 
     git diff --check
     python3 -B -c 'from pathlib import Path; import install; install.verify_manifest(Path.cwd()); print("manifest valid")'
-    rg -n 'Lead|lead|harness_lead|seven|일곱' README.md skill agents install.py
+    rg -n 'Lead|lead|arc_lead|seven|일곱' README.md skill agents install.py
     git status --short
 
   기대: whitespace와 manifest 검사가 통과한다. 남은 Lead 언급은 legacy validator, retired target, migration 안내에만 있고 활성 routing/model/profile mapping에는 없다. 검색 결과는 승인 spec과 대조하고 문자열 하나만으로 판정하지 않는다.
@@ -322,7 +322,7 @@
 - 승인 spec의 계약을 따른다. Installer는 staged copy의 models.toml을 effective six-role settings로 정규화하고 source payload는 그대로 둔다. 기존 installed model settings를 새 payload에 자동 merge하지 않는다. apply-models.py는 source config를 재작성하지 않는다.
 - 정상 legacy 입력 안내는 stderr로 출력해 기존 반환 type과 CLI status 계약을 유지한다.
 - tests/test_install.py의 fixture와 unittest를 재사용하며 test framework나 별도 test 파일을 추가하지 않는다.
-- Retirement 순서는 외부 target 적용 후, Harness·active profile 교체 전으로 두어 앞선 실패와 후속 실패 양쪽 rollback을 검증한다.
+- Retirement 순서는 외부 target 적용 후, ARC·active profile 교체 전으로 두어 앞선 실패와 후속 실패 양쪽 rollback을 검증한다.
 - 사용자가 기존 master checkout 사용과 worktree 미생성을 명시했으므로 추가 workspace 선택은 없다.
 - 실제 실행에서 TDD 또는 환경 검증 단계가 막히면 정확한 blocker/evidence를 CEO에게 반환하고 관련 approval gate를 따른다.
 

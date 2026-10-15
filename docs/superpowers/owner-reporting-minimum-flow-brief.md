@@ -6,7 +6,7 @@
 
 ## 범위와 결정
 
-- 수정 payload: `skill/SKILL.md`, `agents/harness-planner.toml`, `agents/harness-reviewer.toml`, `agents/harness-scout.toml`, `agents/harness-lead.toml`, `MANIFEST.sha256`.
+- 수정 payload: `skill/SKILL.md`, `agents/arc-planner.toml`, `agents/arc-reviewer.toml`, `agents/arc-scout.toml`, `agents/arc-lead.toml`, `MANIFEST.sha256`.
 - README, 기타 프로필, dependency, installer, 모델은 제외한다. 사용자 지정 보호 영역은 시작 시점 바이트 그대로 보존한다.
 - CEO가 user의 짧은 설계 및 Native 승인을 전달했다. 계획 승인은 아직 없다.
 - 정책 문서 명확화이며 실행 코드·테스트 수정은 없다. TOML 파싱, 문서 사례·diff 확인, installer `--check`만 계획한다. 테스트·dependency 설치 금지. TDD 주장은 하지 않는다.
@@ -14,8 +14,8 @@
 
 ## 경로와 근거
 
-- 계획 작성 경로: `/Users/yunho/Desktop/project/yunho-harness`.
-- 계획: `/Users/yunho/Desktop/project/yunho-harness/docs/superpowers/plans/2026-10-04-owner-reporting-minimum-flow.md`.
+- 계획 작성 경로: `/Users/yunho/Desktop/project/arc`.
+- 계획: `/Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-04-owner-reporting-minimum-flow.md`.
 - 설치된 brainstorming/writing-plans/using-git-worktrees를 적용한다. Planner는 read-only 초안을 반환했고 Lead가 한국어로 통합했다.
 - 현재 `git-dir`/`git-common-dir`는 `.git`, superproject 출력 없음, branch `master`. native `list_artifacts`는 빈 목록. 일반 checkout이며 현행 workspace 선호·consent는 미확정이다.
 - 과거 brief의 in-place 기록은 이번 승인 근거로 사용하지 않는다. 구현 전 using-git-worktrees Step 0의 workspace 동의를 받아야 한다.
@@ -23,7 +23,7 @@
 
 ## 정확한 다음 단계
 
-CEO가 user의 계획 및 새 managed worktree 승인을 전달했다. Native 유지. native create_worktree가 `master`에서 `/Users/yunho/.codex/worktrees/owner-reporting-flow/yunho-harness`를 생성·등록했다. 해당 경로의 git-dir/common-dir는 서로 다르고 superproject 출력 없음; 시작 상태 clean. `python3 install.py --check` 종료 코드 0, manifest 22개 및 preflight 통과. baseline은 `/private/tmp/owner-reporting-flow-baseline.json`이다. 계획·brief는 원래 경로에 보존하며 자동 복사를 가정하지 않는다. 테스트 및 dependency 설치는 수행하지 않았다.
+CEO가 user의 계획 및 새 managed worktree 승인을 전달했다. Native 유지. native create_worktree가 `master`에서 `/Users/yunho/.codex/worktrees/owner-reporting-flow/arc`를 생성·등록했다. 해당 경로의 git-dir/common-dir는 서로 다르고 superproject 출력 없음; 시작 상태 clean. `python3 install.py --check` 종료 코드 0, manifest 22개 및 preflight 통과. baseline은 `/private/tmp/owner-reporting-flow-baseline.json`이다. 계획·brief는 원래 경로에 보존하며 자동 복사를 가정하지 않는다. 테스트 및 dependency 설치는 수행하지 않았다.
 
 Coder → QA → fresh 전체 Reviewer 순서로 위 실제 workspace의 여섯 파일만 진행한다. 보호 영역은 baseline의 skill 첫 소개 문단 전체 및 Ownership의 Secretary 항목 전체, Secretary 프로필 전체로 지정한다. 다른 payload와 모델·dependency도 baseline hash로 보존 여부를 확인한다.
 
@@ -35,7 +35,7 @@ Coder는 설치된 `/Users/yunho/.agents/skills/test-driven-development/SKILL.md
 
 ## 인간 결정과 재개
 
-CEO가 user의 직접 결정 `여섯 파일 한정 TDD 예외 승인`을 전달했다. 예외는 `skill/SKILL.md`, `agents/harness-planner.toml`, `agents/harness-reviewer.toml`, `agents/harness-scout.toml`, `agents/harness-lead.toml`, `MANIFEST.sha256`의 승인된 두 명확화만 적용한다. TOML 파싱, 정책 사례·보호 영역·diff 확인, `python3 install.py --check`, 독립 QA 및 fresh 전체 Reviewer를 수행한다. failing-first와 테스트 suite 실행은 하지 않으며 TDD를 수행했다고 주장하지 않는다. 구현 범위·보호 영역·향후 작업의 TDD 요구는 확대하거나 변경하지 않는다. 기존 managed worktree에서 Coder를 재개한다.
+CEO가 user의 직접 결정 `여섯 파일 한정 TDD 예외 승인`을 전달했다. 예외는 `skill/SKILL.md`, `agents/arc-planner.toml`, `agents/arc-reviewer.toml`, `agents/arc-scout.toml`, `agents/arc-lead.toml`, `MANIFEST.sha256`의 승인된 두 명확화만 적용한다. TOML 파싱, 정책 사례·보호 영역·diff 확인, `python3 install.py --check`, 독립 QA 및 fresh 전체 Reviewer를 수행한다. failing-first와 테스트 suite 실행은 하지 않으며 TDD를 수행했다고 주장하지 않는다. 구현 범위·보호 영역·향후 작업의 TDD 요구는 확대하거나 변경하지 않는다. 기존 managed worktree에서 Coder를 재개한다.
 
 ## 구현 결과와 다음 gate
 
@@ -47,4 +47,4 @@ Coder가 지정 여섯 파일을 완료했다. 공통 보고 경로·최소 검�
 
 Fresh independent Reviewer가 QA 이후 지정 여섯 파일 전체 diff를 검토했고 정확성·사실성·보안의 실질적 발견 사항 및 미해결 사항이 없다고 반환했다. 변경 상태와 전체 범위·독립성·freshness·시점 조건을 유지했으므로 이 리뷰가 Native 최종 checkpoint와 해당 위험도 리뷰 요구를 함께 충족한다. Lead의 최종 hash 비교는 정확히 승인 여섯 파일만 변경되고 비대상 35개 파일이 동일함을 확인했다. 최종 `git diff --check` 종료 코드 0, git status도 여섯 파일만 표시한다.
 
-Lead acceptance 완료. 근거 `/private/tmp/owner-reporting-flow-acceptance.json`, baseline `/private/tmp/owner-reporting-flow-baseline.json`, QA/Reviewer의 해당 task 반환 결과. 수정은 managed worktree `/Users/yunho/.codex/worktrees/owner-reporting-flow/yunho-harness`에 남겨 두며 연결 artifact를 보존한다. 계획·brief는 원래 checkout에 있다. 테스트·failing-first·suite·runtime compliance·설치·커밋·merge는 수행하지 않았고 해당 claim을 하지 않는다. 다음 단계는 CEO에게 결과와 경로를 보고하는 것이다.
+Lead acceptance 완료. 근거 `/private/tmp/owner-reporting-flow-acceptance.json`, baseline `/private/tmp/owner-reporting-flow-baseline.json`, QA/Reviewer의 해당 task 반환 결과. 수정은 managed worktree `/Users/yunho/.codex/worktrees/owner-reporting-flow/arc`에 남겨 두며 연결 artifact를 보존한다. 계획·brief는 원래 checkout에 있다. 테스트·failing-first·suite·runtime compliance·설치·커밋·merge는 수행하지 않았고 해당 claim을 하지 않는다. 다음 단계는 CEO에게 결과와 경로를 보고하는 것이다.

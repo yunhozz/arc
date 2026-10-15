@@ -1,16 +1,16 @@
 # 계획 task 수락 후 CEO 자동 커밋 구현 계획
 
-> **에이전트 작업 지침:** Harness adapter에 따라 CEO가 순차 조율한다. Coder는 승인된 구현·정책·설정·테스트 파일만 편집한다. QA는 독립 검증하고 Reviewer는 QA 이후 최종 전체 변경을 독립 검토한다. CEO가 task를 수락하고 커밋한다. 하위 체크박스는 진행 기록이며 커밋 단위가 아니다. written-plan 승인과 기존 실행 준비·인계 게이트를 완료하기 전에는 Coder를 시작하지 않는다.
+> **에이전트 작업 지침:** ARC adapter에 따라 CEO가 순차 조율한다. Coder는 승인된 구현·정책·설정·테스트 파일만 편집한다. QA는 독립 검증하고 Reviewer는 QA 이후 최종 전체 변경을 독립 검토한다. CEO가 task를 수락하고 커밋한다. 하위 체크박스는 진행 기록이며 커밋 단위가 아니다. written-plan 승인과 기존 실행 준비·인계 게이트를 완료하기 전에는 Coder를 시작하지 않는다.
 
-**목표:** 승인된 plan의 최상위 task가 수락되면 CEO가 추가 사용자 커밋 승인 없이 focused 로컬 Git 커밋을 진행하도록 Harness 계약을 변경한다.
+**목표:** 승인된 plan의 최상위 task가 수락되면 CEO가 추가 사용자 커밋 승인 없이 focused 로컬 Git 커밋을 진행하도록 ARC 계약을 변경한다.
 
 **구조:** 핵심 정책·계획 참조·검증 참조·인계 참조·Planner 프로필·README·구조 회귀 테스트·manifest를 하나의 최상위 task에서 일관되게 변경한다. 이번 Significant 변경에서는 독립 QA와 최종 전체 Reviewer를 task 수락의 선행 조건으로 지정한다. 해당 확인이 완료되면 CEO가 task를 수락·커밋하고 전체 plan의 최종 수락도 완료한다.
 
 **기술:** Python 3.11 이상, unittest, TOML, Markdown 정책, SHA-256 manifest, Git.
 
-**승인 명세:** /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-12-plan-task-auto-commit-design.md
+**승인 명세:** /Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-12-plan-task-auto-commit-design.md
 
-**CEO 저장 예정 경로:** /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/plans/2026-10-12-plan-task-auto-commit.md
+**CEO 저장 예정 경로:** /Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-12-plan-task-auto-commit.md
 
 ## 공통 제약
 
@@ -70,7 +70,7 @@ QA와 Reviewer는 이번 작업의 위험도에 따른 필수 조건이며, task
 
 **task ID:** TASK-01
 
-**독립 산출물:** 승인 spec AC-01~AC-12를 일관되게 표현하는 배포 가능한 Harness 정책 묶음과 구조 회귀 검사.
+**독립 산출물:** 승인 spec AC-01~AC-12를 일관되게 표현하는 배포 가능한 ARC 정책 묶음과 구조 회귀 검사.
 
 **파일 — Coder 편집 소유**
 
@@ -78,7 +78,7 @@ QA와 Reviewer는 이번 작업의 위험도에 따른 필수 조건이며, task
 - 수정: skill/references/planning.md
 - 수정: skill/references/verification.md
 - 수정: skill/references/handoff.md
-- 수정: agents/harness-planner.toml
+- 수정: agents/arc-planner.toml
 - 수정: README.md
 - 수정: tests/test_install.py
 - 수정: MANIFEST.sha256
@@ -152,7 +152,7 @@ ImportError·문법 오류·잘못된 파일 경로는 RED 근거로 인정하�
 ### 1.4 Coder: Planner 계획 작성 계약 반영
 
 - [ ] skill/references/planning.md에 최상위 task 구성·수락·검증·커밋 처리 요구를 추가한다.
-- [ ] agents/harness-planner.toml에 그 내용을 완전한 plan 초안에 포함하는 Planner 책임을 반영한다.
+- [ ] agents/arc-planner.toml에 그 내용을 완전한 plan 초안에 포함하는 Planner 책임을 반영한다.
 
 각 task의 ID·범위·의존성·수락 기준·필수 검사·보류 조건을 요구한다. 분리 검증 불가능한 변경은 한 task로 작성하고 하위 체크박스는 커밋 단위가 아니라고 명시한다. Planner의 read-only·승인 요청 금지·CEO 보고 계약은 유지한다.
 
@@ -175,7 +175,7 @@ ImportError·문법 오류·잘못된 파일 경로는 RED 근거로 인정하�
 
 - [ ] 새 검사와 영향받은 기존 정책 검사를 실행한다.
 
-    PYTHONPATH=tests python3 -B -m unittest test_install.TaskCommitPolicyTests test_install.ConditionalReferenceTests test_install.HarnessPreactionGateTests test_install.RolePolicyTests -v
+    PYTHONPATH=tests python3 -B -m unittest test_install.TaskCommitPolicyTests test_install.ConditionalReferenceTests test_install.ARCPreactionGateTests test_install.RolePolicyTests -v
 
 **기대 결과:** 모든 검사 통과. 새 동작과 기존 역할·TDD·승인 문서 준비·실행 대상·재개·finding 계약이 공존한다.
 
@@ -185,7 +185,7 @@ ImportError·문법 오류·잘못된 파일 경로는 RED 근거로 인정하�
 
 - [ ] MANIFEST.sha256의 기존 경로 목록·순서를 유지하고 실제 변경된 대상 파일의 SHA-256을 갱신한다.
 
-대상은 변경된 README.md, agents/harness-planner.toml, skill/SKILL.md, skill/references/planning.md, skill/references/verification.md, skill/references/handoff.md다. 수정하지 않은 항목은 보존한다. 기존 manifest 대상 집합에 없는 test/spec/plan을 새로 추가하지 않는다.
+대상은 변경된 README.md, agents/arc-planner.toml, skill/SKILL.md, skill/references/planning.md, skill/references/verification.md, skill/references/handoff.md다. 수정하지 않은 항목은 보존한다. 기존 manifest 대상 집합에 없는 test/spec/plan을 새로 추가하지 않는다.
 
 ### 1.9 Coder: 전체·배포 무결성 확인
 
@@ -240,7 +240,7 @@ Reviewer는 테스트를 실행하거나 파일을 편집하지 않는다. findi
 - [ ] CEO가 추가 사용자 커밋 승인 요청 없이 최신 실제 workspace·branch·HEAD·상태·소유권·커밋 범위를 확인한다.
 - [ ] CEO가 다음 TASK-01 파일만 stage하고 staged 경로·내용을 확인한다.
 
-    git add skill/SKILL.md skill/references/planning.md skill/references/verification.md skill/references/handoff.md agents/harness-planner.toml README.md tests/test_install.py MANIFEST.sha256
+    git add skill/SKILL.md skill/references/planning.md skill/references/verification.md skill/references/handoff.md agents/arc-planner.toml README.md tests/test_install.py MANIFEST.sha256
     git diff --cached --name-only
     git diff --cached
     git diff --cached --check

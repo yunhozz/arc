@@ -98,11 +98,11 @@ def tree_state(root: Path):
 
 
 FIVE_SETTINGS = {
-    "harness_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
-    "harness_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
-    "harness_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
-    "harness_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
-    "harness_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
+    "arc_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
+    "arc_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
+    "arc_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
+    "arc_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
+    "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }
 
 
@@ -141,7 +141,7 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
         for roles in ({**FIVE_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
-                      {role: fields for role, fields in FIVE_SETTINGS.items() if role != "harness_coder"}):
+                      {role: fields for role, fields in FIVE_SETTINGS.items() if role != "arc_coder"}):
             with self.subTest(roles=roles), self.assertRaises(self.module.ValidationError):
                 self.load(roles)
         for version in (1, 2, 3, 4, True, "5"):
@@ -171,7 +171,7 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_naming_rejects_old_versions_and_keys(self) -> None:
         legacy_prefix = "_".join(("yunho", "team"))
-        legacy_roles = {legacy_prefix + role.removeprefix("harness"): fields
+        legacy_roles = {legacy_prefix + role.removeprefix("arc"): fields
                         for role, fields in FIVE_SETTINGS.items()}
         for version, roles in ((1, FIVE_SETTINGS), (2, FIVE_SETTINGS), (3, legacy_roles),
                                (True, FIVE_SETTINGS), (4, legacy_roles)):
@@ -183,9 +183,9 @@ class ModelSettingsTests(unittest.TestCase):
                 self.assertEqual(self.config.read_bytes(), original)
 
     def test_model_rejects_old_role_ids_and_invalid_fields_without_writes(self) -> None:
-        for old in ("harness_secretary", "harness_scout"):
+        for old in ("arc_secretary", "arc_scout"):
             roles = {key: dict(value) for key, value in FIVE_SETTINGS.items()}
-            roles[old] = roles.pop("harness_scouter")
+            roles[old] = roles.pop("arc_scouter")
             original = settings_bytes(roles)
             self.config.write_bytes(original)
             with self.assertRaises(self.module.ValidationError):
@@ -195,7 +195,7 @@ class ModelSettingsTests(unittest.TestCase):
                       {"model": "x\n", "model_reasoning_effort": "low"},
                       {"model": " x", "model_reasoning_effort": "low"},
                       {"model": "x", "model_reasoning_effort": True}):
-            roles = {**FIVE_SETTINGS, "harness_scouter": value}
+            roles = {**FIVE_SETTINGS, "arc_scouter": value}
             original = settings_bytes(roles)
             self.config.write_bytes(original)
             with self.assertRaises(self.module.ValidationError):
@@ -207,11 +207,11 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_naming_profile_identity_and_mapping(self) -> None:
         expected = {
-            "harness_scouter": "harness-scouter.toml",
-            "harness_planner": "harness-planner.toml",
-            "harness_coder": "harness-coder.toml",
-            "harness_qa": "harness-qa.toml",
-            "harness_reviewer": "harness-reviewer.toml",
+            "arc_scouter": "arc-scouter.toml",
+            "arc_planner": "arc-planner.toml",
+            "arc_coder": "arc-coder.toml",
+            "arc_qa": "arc-qa.toml",
+            "arc_reviewer": "arc-reviewer.toml",
         }
         self.assertEqual(self.module.ROLE_FILES, expected)
         self.assertEqual(set(installer.PROFILE_FILES), set(expected.values()))
@@ -226,7 +226,7 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_naming_rejects_profile_name_mismatch(self) -> None:
         with self.assertRaises(self.module.ValidationError):
-            self.module.validate_template(b'name = "unrelated"\n', "harness_coder", self.config)
+            self.module.validate_template(b'name = "unrelated"\n', "arc_coder", self.config)
 
 
 class ApplyModelsTests(unittest.TestCase):
@@ -392,7 +392,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
 
     def test_planner_groups_inseparable_changes_and_defines_task_gates(self) -> None:
         planning = self.section("planning", "## top-level plan tasks")
-        profile = tomllib.loads((REPO / "codex/agents/harness-planner.toml").read_text())
+        profile = tomllib.loads((REPO / "codex/agents/arc-planner.toml").read_text())
         self.assertEqual(profile["sandbox_mode"], "read-only")
         planner = " ".join(profile["developer_instructions"].lower().split())
         self.assertIn("for each top-level task", planner)
@@ -605,7 +605,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             self.assertRegex(core, contract)
 
     def test_coder_trusts_ceo_verified_brief(self) -> None:
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         for contract in (
             r"trust the ceo-verified workspace, branch/head, approvals.*document-commit and handoff facts in the brief.*start editing",
@@ -622,7 +622,7 @@ class ConditionalReferenceTests(unittest.TestCase):
                 self.assertNotRegex(coder, absent)
 
     def test_coder_profile_holds_handoff_contract_without_full_reference_read(self) -> None:
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(coder, r"profile is the complete coder handoff contract.*handoff.md.*only.*brief explicitly cites")
         self.assertNotRegex(coder, r"before every first start or restart, read")
@@ -654,11 +654,11 @@ class ConditionalReferenceTests(unittest.TestCase):
     def test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read(self) -> None:
         for role in ("qa", "reviewer"):
             with self.subTest(role=role):
-                text = " ".join(tomllib.loads((REPO / f"codex/agents/harness-{role}.toml").read_text())
+                text = " ".join(tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())
                                 ["developer_instructions"].lower().split())
                 self.assertRegex(text, rf"profile is the complete {role} contract.*verification.md.*only.*brief explicitly cites")
         self.assertRegex(policy_text("verification"), r"qa and reviewer contracts.*profiles.*brief explicitly cites")
-        reviewer = " ".join(tomllib.loads((REPO / "codex/agents/harness-reviewer.toml").read_text())
+        reviewer = " ".join(tomllib.loads((REPO / "codex/agents/arc-reviewer.toml").read_text())
                             ["developer_instructions"].lower().split())
         self.assertRegex(reviewer, r"significant/high-risk.*final full change after the required qa/focused checks and any qa recheck")
 
@@ -738,7 +738,7 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
 
     def test_claude_native_role_and_ask_user_question_policy(self) -> None:
         skill = " ".join((REPO / "claude/skill/SKILL.md").read_text().split())
-        self.assertIn("Always start a Harness role by its installed native name (`harness-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for a Harness role", skill)
+        self.assertIn("Always start an ARC role by its installed native name (`arc-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for an ARC role", skill)
         self.assertIn("do not claim fresh context isolation without evidence", skill)
         self.assertNotIn("When supported, start specialists", skill)
         self.assertIn("`AskUserQuestion` questions use only `question`, a `header` of at most 12 characters, 2-4 `options` each with `label` and `description`, and `multiSelect`", skill)
@@ -784,7 +784,7 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_handoff_record_file_location(self) -> None:
         handoff = policy_text("handoff")
         for contract in (
-            r"ceo writes it as a markdown file at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>\.md`",
+            r"ceo writes it as a markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>\.md`",
             r"`git rev-parse --path-format=absolute --git-common-dir`.*outside the working tree.*shared by linked worktrees",
             r"not a git mutation, never staged or committed.*no secrets",
             r"absolute path in every brief.*delta restart briefs cite it",
@@ -826,7 +826,7 @@ def raw_policy_text(name: str) -> str:
 
 
 def profile_text(role: str) -> str:
-    return " ".join(tomllib.loads((REPO / f"codex/agents/harness-{role}.toml").read_text())
+    return " ".join(tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())
                     ["developer_instructions"].lower().split())
 
 
@@ -840,11 +840,11 @@ POLICY_WORD_CEILINGS = {
     "codex/skill/references/planning.md": 1850,
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
-    "codex/agents/harness-coder.toml": 700,
-    "codex/agents/harness-planner.toml": 600,
-    "codex/agents/harness-qa.toml": 350,
-    "codex/agents/harness-reviewer.toml": 250,
-    "codex/agents/harness-scouter.toml": 250,
+    "codex/agents/arc-coder.toml": 700,
+    "codex/agents/arc-planner.toml": 600,
+    "codex/agents/arc-qa.toml": 350,
+    "codex/agents/arc-reviewer.toml": 250,
+    "codex/agents/arc-scouter.toml": 250,
     "claude/skill/SKILL.md": 3300,
     "claude/skill/references/commit.md": 350,
     "claude/skill/references/git-recovery.md": 500,
@@ -853,11 +853,11 @@ POLICY_WORD_CEILINGS = {
     "claude/skill/references/planning.md": 1500,
     "claude/skill/references/verification.md": 850,
     "claude/skill/references/visual-companion.md": 150,
-    "claude/agents/harness-coder.md": 400,
-    "claude/agents/harness-planner.md": 400,
-    "claude/agents/harness-qa.md": 450,
-    "claude/agents/harness-reviewer.md": 350,
-    "claude/agents/harness-scouter.md": 300,
+    "claude/agents/arc-coder.md": 400,
+    "claude/agents/arc-planner.md": 400,
+    "claude/agents/arc-qa.md": 450,
+    "claude/agents/arc-reviewer.md": 350,
+    "claude/agents/arc-scouter.md": 300,
 }
 POLICY_WORD_TOTAL_CEILING = 12750
 CLAUDE_POLICY_WORD_TOTAL_CEILING = 9250
@@ -901,7 +901,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertNotIn("one owner plus three specialists", config)
 
     def test_reviewer_description_has_no_team_name(self) -> None:
-        description = tomllib.loads((REPO / "codex/agents/harness-reviewer.toml").read_text())["description"]
+        description = tomllib.loads((REPO / "codex/agents/arc-reviewer.toml").read_text())["description"]
         self.assertNotIn("Yunho Team", description)
 
     def test_fallback_record_inline_and_slug(self) -> None:
@@ -991,16 +991,16 @@ class SharedTermsTests(unittest.TestCase):
                 self.assertIn(f"the {term.capitalize()}", section)
 
 
-class HarnessPreactionGateTests(unittest.TestCase):
+class ARCPreactionGateTests(unittest.TestCase):
     # Specifically approved structural contract checks, not consuming-agent runtime tests.
     def test_preaction_role_precedence(self) -> None:
         core = policy_text("core").split("## instruction and execution adapter")[1].split("## mandatory task references")[0]
-        self.assertRegex(core, r"brainstorming.*role.*save.*early.*commit.*harness")
+        self.assertRegex(core, r"brainstorming.*role.*save.*early.*commit.*arc")
         planning = policy_text("planning").split("### document-save evidence gates")[0]
         self.assertIn("ceo must not substitute an independently authored spec", planning)
         self.assertRegex(planning, r"planner.*complete spec draft and self-review.*ceo integrates, saves, self-reviews")
         self.assertRegex(planning, r"bounded written spec.*existing ceo depth judgment.*planner.*proportional complete spec draft.*self-review.*ceo.*individual written-spec approval")
-        planner = " ".join(tomllib.loads((REPO / "codex/agents/harness-planner.toml").read_text())
+        planner = " ".join(tomllib.loads((REPO / "codex/agents/arc-planner.toml").read_text())
                            ["developer_instructions"].lower().split())
         self.assertRegex(planner, r"complete spec draft and self-review.*ceo integrates/saves/self-reviews")
 
@@ -1182,13 +1182,13 @@ class CoderBriefAndReuseTests(unittest.TestCase):
     def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
         core = policy_text("core")
         self.assertRegex(core, r"coder briefs.*plan/spec path.*task section's line range.*needed excerpts.*do not ask coder to read whole plans or specs")
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(coder, r"read plan/spec documents only in the sections the brief cites")
 
     def test_loader_keeps_subagents_on_profiles(self) -> None:
         body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
-        self.assertIn("Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
+        self.assertIn("ARC subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
 
 
 class LongTaskTokenTests(unittest.TestCase):
@@ -1198,7 +1198,7 @@ class LongTaskTokenTests(unittest.TestCase):
 
     def test_long_running_commands_are_not_polled_with_sleep(self) -> None:
         self.assertRegex(policy_text("core"), r"do not poll long-running commands with repeated `sleep`.*single blocking wait")
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/harness-coder.toml").read_text())
+        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(coder, r"do not poll long-running commands with repeated `sleep`.*single blocking wait.*longest.*report.*ceo")
 
@@ -1235,7 +1235,7 @@ class TokenDisciplineTests(unittest.TestCase):
     def test_role_profiles_read_targeted_ranges(self) -> None:
         for role in ("scouter", "planner", "coder", "qa", "reviewer"):
             with self.subTest(role=role):
-                text = " ".join(tomllib.loads((REPO / f"codex/agents/harness-{role}.toml").read_text())
+                text = " ".join(tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())
                                 ["developer_instructions"].lower().split())
                 self.assertRegex(text, r"read only needed file ranges.*keep command output short.*do not re-read unchanged files")
 
@@ -1245,8 +1245,8 @@ class RolePolicyTests(unittest.TestCase):
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:
         for role in ("scouter", "planner", "coder", "qa", "reviewer"):
             with self.subTest(role=role):
-                profile = tomllib.loads((REPO / "codex/agents" / f"harness-{role}.toml").read_text())
-                self.assertEqual(profile["name"], f"harness_{role}")
+                profile = tomllib.loads((REPO / "codex/agents" / f"arc-{role}.toml").read_text())
+                self.assertEqual(profile["name"], f"arc_{role}")
                 instructions = " ".join(profile["developer_instructions"].lower().split())
                 self.assertRegex(instructions, r"report(?:s)? directly to (?:the )?ceo")
                 self.assertRegex(instructions, r"(?:do not|never|cannot) (?:create|spawn) (?:agents|subagents)")
@@ -1261,8 +1261,8 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(ownership, r"scouter.*read.only")
 
     def test_scouter_read_only_scope_and_reporting(self) -> None:
-        profile = tomllib.loads((REPO / "codex/agents/harness-scouter.toml").read_text())
-        self.assertEqual(profile["name"], "harness_scouter")
+        profile = tomllib.loads((REPO / "codex/agents/arc-scouter.toml").read_text())
+        self.assertEqual(profile["name"], "arc_scouter")
         self.assertEqual(profile["sandbox_mode"], "read-only")
         instructions = " ".join(profile["developer_instructions"].lower().split())
         for phrase in ("research", "analysis", "static", "code", "documents", "data", "evidence",
@@ -1275,12 +1275,12 @@ class RolePolicyTests(unittest.TestCase):
     def test_active_references_use_five_role_contract(self) -> None:
         for name in ("core", "handoff", "planning", "verification"):
             text = policy_text(name)
-            for old in ("harness_secretary", "harness_scout`", "secretary", "all six roles"):
+            for old in ("arc_secretary", "arc_scout`", "secretary", "all six roles"):
                 self.assertNotIn(old, text)
 
     def test_qa_ui_browser_acceptance_contract(self) -> None:
         qa = " ".join(tomllib.loads(
-            (REPO / "codex/agents/harness-qa.toml").read_text()
+            (REPO / "codex/agents/arc-qa.toml").read_text()
         )["developer_instructions"].lower().split())
         policy = policy_text("verification")
         ui_section = policy.split("### ui browser acceptance checks", 1)[1].split("###", 1)[0]
@@ -1299,7 +1299,7 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertRegex(ui_section, contract)
         self.assertRegex(ui_section, r"when assigning ui acceptance criteria, ceo cites this section with its accessible path in the qa brief")
         for contract in (
-            r"only when assigned ui acceptance criteria and the brief cites the `ui browser acceptance checks` section of the installed harness `references/verification\.md`, read that section and follow it before launching an app or using browser tools",
+            r"only when assigned ui acceptance criteria and the brief cites the `ui browser acceptance checks` section of the installed arc `references/verification\.md`, read that section and follow it before launching an app or using browser tools",
             r"otherwise do not launch apps or operate browsers for ui acceptance",
             r"report the missing citation/prerequisites to ceo.*affected criteria unverified",
         ):
@@ -1311,7 +1311,7 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_qa_reporting_contract(self) -> None:
         instructions = " ".join(tomllib.loads(
-            (REPO / "codex/agents/harness-qa.toml").read_text()
+            (REPO / "codex/agents/arc-qa.toml").read_text()
         )["developer_instructions"].lower().split())
         for contract in (
             r"every acceptance criterion.*identifier.*original wording",
@@ -1327,7 +1327,7 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_reviewer_finding_handoff(self) -> None:
         instructions = " ".join(tomllib.loads(
-            (REPO / "codex/agents/harness-reviewer.toml").read_text()
+            (REPO / "codex/agents/arc-reviewer.toml").read_text()
         )["developer_instructions"].lower().split())
         for contract in (
             r"behavior.*finding.*criterion.*expected behavior.*observed problem.*source.*reproduction conditions.*steps.*evidence",
@@ -1603,9 +1603,9 @@ class RolePolicyTests(unittest.TestCase):
     def test_distribution_manifest_matches_scouter_payload(self) -> None:
         installer.verify_manifest(REPO)
         names = {line.split("  ", 1)[1] for line in (REPO / "MANIFEST.sha256").read_text().splitlines()}
-        self.assertIn("codex/agents/harness-scouter.toml", names)
-        self.assertNotIn("codex/agents/harness-secretary.toml", names)
-        self.assertNotIn("codex/agents/harness-scout.toml", names)
+        self.assertIn("codex/agents/arc-scouter.toml", names)
+        self.assertNotIn("codex/agents/user-notes.toml", names)
+        self.assertNotIn("codex/agents/user-research.toml", names)
         self.assertNotIn("codex/skill/models.toml", names)
 
     def test_acceptance_evidence_flow(self) -> None:
@@ -1624,7 +1624,7 @@ class RolePolicyTests(unittest.TestCase):
 class GlobalSettingsTests(unittest.TestCase):
     BODY = "- managed rule one\n- managed rule two\n"
     OLD = (
-        "# AGENTS.md\n\n## 1. Yunho's Harness\n\n- CEO must not edit files directly.\n\n"
+        "# AGENTS.md\n\n## 1. ARC\n\n- CEO must not edit files directly.\n\n"
         "## 2. Git Commit Message Guidelines\n\nkeep me\n"
     )
 
@@ -1635,12 +1635,12 @@ class GlobalSettingsTests(unittest.TestCase):
         text, action = self.render_agents(None)
         self.assertIn(installer.GLOBAL_BEGIN, text)
         self.assertIn(installer.GLOBAL_END, text)
-        self.assertIn("## Yunho's Harness", text)
+        self.assertIn("## Agent Role Coordination", text)
         self.assertIn(self.BODY, text)
         self.assertIn("create", action)
 
     def block(self) -> str:
-        return f"{installer.GLOBAL_BEGIN}\n## Yunho's Harness\n\n{self.BODY}{installer.GLOBAL_END}\n"
+        return f"{installer.GLOBAL_BEGIN}\n## Agent Role Coordination\n\n{self.BODY}{installer.GLOBAL_END}\n"
 
     def test_agents_md_keeps_existing_content_and_appends_block_at_end(self) -> None:
         text, action = self.render_agents(self.OLD)
@@ -1649,7 +1649,7 @@ class GlobalSettingsTests(unittest.TestCase):
         self.assertEqual(self.render_agents(text)[0], text)
 
     def test_agents_md_moves_managed_block_to_the_end(self) -> None:
-        stale = f"intro\n\n{installer.GLOBAL_BEGIN}\n## 1. Yunho's Harness\n\n- stale\n{installer.GLOBAL_END}\n\noutro\n"
+        stale = f"intro\n\n{installer.GLOBAL_BEGIN}\n## 1. ARC\n\n- stale\n{installer.GLOBAL_END}\n\noutro\n"
         text, action = self.render_agents(stale)
         self.assertEqual(text, "intro\n\noutro\n\n" + self.block())
         self.assertIn("managed", action)
@@ -1671,19 +1671,19 @@ class GlobalSettingsTests(unittest.TestCase):
                     self.render_agents(bad)
 
     def test_agents_md_keeps_numbers_fences_crlf_and_duplicate_sections_verbatim(self) -> None:
-        source = ("# AGENTS.md\r\n\r\n## 1. Yunho's Harness\r\n\r\na\r\n\r\n## Yunho's Harness\r\n\r\nb\r\n\r\n"
+        source = ("# AGENTS.md\r\n\r\n## 1. ARC\r\n\r\na\r\n\r\n## ARC\r\n\r\nb\r\n\r\n"
                   "## 2. Git Commit Message Guidelines\r\n\r\n```text\r\n## 3. fenced\r\n```\r\n")
         text, action = self.render_agents(source)
         self.assertTrue(text.startswith(source))
         self.assertTrue(text.endswith(self.block()))
 
-    def test_unmanaged_harness_section_is_kept_and_reported(self) -> None:
+    def test_unmanaged_arc_section_is_kept_and_reported(self) -> None:
         with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
             home = Path(directory)
             (home / "AGENTS.md").write_text(self.OLD)
             updates, notes = installer.plan_global_updates(home, home)
             self.assertTrue(updates[0][1].decode().startswith(self.OLD))
-            self.assertTrue(any("Yunho's Harness" in note and "AGENTS.md" in note for note in notes))
+            self.assertTrue(any("ARC" in note and "AGENTS.md" in note for note in notes))
 
     def test_non_utf8_global_file_is_reported_not_crashed(self) -> None:
         with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
@@ -1692,15 +1692,15 @@ class GlobalSettingsTests(unittest.TestCase):
             with self.assertRaises(installer.InstallerError):
                 installer.plan_global_updates(home, home)
 
-    def test_agents_body_carries_harness_rules(self) -> None:
+    def test_agents_body_carries_arc_rules(self) -> None:
         body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
-        self.assertIn("`~/.codex/skills/yunho-harness/SKILL.md`", body)
+        self.assertIn("`~/.codex/skills/arc/SKILL.md`", body)
         self.assertIn("Resolve `~` to the current user's home directory.", body)
-        self.assertIn("Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
-        self.assertIn("except under the Harness CEO direct path for small, low-risk tasks", body)
+        self.assertIn("ARC subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
+        self.assertIn("except under the ARC CEO direct path for small, low-risk tasks", body)
         self.assertIn("(not standalone document writing)", body)
         other = installer.agents_block_body(Path("/opt/codex"), Path("/home/u"))
-        self.assertIn("`/opt/codex/skills/yunho-harness/SKILL.md`", other)
+        self.assertIn("`/opt/codex/skills/arc/SKILL.md`", other)
         self.assertNotIn("Resolve `~`", other)
 
     def render_config(self, text):
@@ -1789,16 +1789,16 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         return self.payload
 
     def seed_existing_targets(self) -> None:
-        harness = self.codex_home / "skills" / installer.INSTALL_NAME
-        harness.mkdir(parents=True)
-        (harness / "SKILL.md").write_bytes(b"previous harness")
+        arc = self.codex_home / "skills" / installer.INSTALL_NAME
+        arc.mkdir(parents=True)
+        (arc / "SKILL.md").write_bytes(b"previous arc")
         agents = self.codex_home / "agents"
         agents.mkdir(parents=True)
         for filename in installer.PROFILE_FILES:
             (agents / filename).write_bytes(b"previous profile")
 
     GLOBAL_OLD_AGENTS = (
-        "# AGENTS.md\n\n## 1. Yunho's Harness\n\n- CEO must not edit files directly.\n\n"
+        "# AGENTS.md\n\n## 1. ARC\n\n- CEO must not edit files directly.\n\n"
         "## 2. Git Commit Message Guidelines\n\nkeep me\n"
     )
     GLOBAL_OLD_CONFIG = 'model = "m"\n\n[features.multi_agent_v2]\nmin_wait_timeout_ms = 1000\n'
@@ -1822,7 +1822,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertTrue(text.startswith(self.GLOBAL_OLD_AGENTS + "\n" + installer.GLOBAL_BEGIN))
         self.assertTrue(text.endswith(installer.GLOBAL_END + "\n"))
         self.assertIn("do not load `SKILL.md`", text)
-        self.assertIn("Yunho's Harness", output)
+        self.assertIn("ARC", output)
         data = tomllib.loads(config.read_text())
         self.assertEqual(data["model"], "m")
         self.assertEqual(data["features"]["multi_agent_v2"], {"min_wait_timeout_ms": 120000, "default_wait_timeout_ms": 300000})
@@ -1864,7 +1864,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         real_replace = os.replace
         injected = []
         def fail(source, target):
-            if Path(target) == config and Path(source).name == "config.toml" and ".yunho-harness-global-" in str(source):
+            if Path(target) == config and Path(source).name == "config.toml" and ".arc-global-" in str(source):
                 injected.append(True)
                 raise OSError("injected global replace failure")
             return real_replace(source, target)
@@ -1904,7 +1904,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertEqual((self.installed_target_state(), agents.read_bytes(), config.read_bytes()), before)
 
     def assert_no_stages(self) -> None:
-        self.assertEqual(list(self.codex_home.glob("**/.yunho-harness-*-*")), [])
+        self.assertEqual(list(self.codex_home.glob("**/.arc-*-*")), [])
 
     def acquisition_stub(self, variants: tuple[bytes, ...] = (b"latest",)):
         calls: list[Path] = []
@@ -1919,7 +1919,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
 
     def retired_paths(self) -> list[Path]:
         return [self.codex_home / "agents" / name
-                for name in ("harness-secretary.toml", "harness-scout.toml")]
+                for name in ("user-notes.toml", "user-research.toml")]
 
     def seed_retired(self, count=2) -> list[Path]:
         paths = self.retired_paths()[:count]
@@ -1933,7 +1933,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         return (tree_state(self.codex_home / "agents"), tree_state(self.codex_home / "skills"),
                 tree_state(self.user_home / ".agents"))
 
-    def test_retired_profiles_new_partial_full_and_repeat_install(self) -> None:
+    def test_user_profiles_preserved_on_new_partial_full_and_repeat_install(self) -> None:
         self.create_payload()
         acquire, _ = self.acquisition_stub()
         for count in (0, 1, 2):
@@ -1949,11 +1949,11 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 self.assertEqual(len(new_backups), 1)
                 backup = new_backups.pop()
                 for filename, (content, mode) in originals.items():
-                    saved = backup / "agents" / filename
+                    saved = self.codex_home / "agents" / filename
                     self.assertTrue(saved.is_file(), str(saved))
                     self.assertEqual(saved.read_bytes(), content)
                     self.assertEqual(stat.S_IMODE(saved.stat().st_mode), mode)
-                self.assertFalse(any(path.exists() for path in self.retired_paths()))
+                self.assertTrue(all(path.exists() for path in paths))
                 for filename in installer.PROFILE_FILES:
                     profile = tomllib.loads((self.codex_home / "agents" / filename).read_text())
                     role = filename.removesuffix(".toml").replace("-", "_")
@@ -1963,12 +1963,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
 
-    def test_retired_profiles_backup_bytes_and_mode(self) -> None:
+    def test_active_profiles_backup_bytes_and_mode_preserves_user_profiles(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
         paths = self.seed_retired(2)
         originals = {p.name: (p.read_bytes(), stat.S_IMODE(p.stat().st_mode))
-                     for p in [*paths, *(self.codex_home / "agents" / f for f in installer.PROFILE_FILES)]}
+                     for p in (self.codex_home / "agents" / f for f in installer.PROFILE_FILES)}
         acquire, _ = self.acquisition_stub()
         with patch.object(installer, "acquire_external_skills", side_effect=acquire):
             status, output = self.run_main([])
@@ -1982,7 +1982,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         settings = tomllib.loads((self.codex_home / "skills" / installer.INSTALL_NAME / "models.toml").read_text())
         self.assertEqual(settings["version"], 5)
 
-    def test_retired_profiles_removed_before_active_profile_replace(self) -> None:
+    def test_user_profiles_preserved_during_active_profile_replace(self) -> None:
         self.create_payload()
         paths = self.seed_retired()
         acquire, _ = self.acquisition_stub()
@@ -1991,18 +1991,18 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         def observe(source, target):
             if Path(target).name in installer.PROFILE_FILES:
                 observed.append(True)
-                self.assertFalse(any(p.exists() for p in paths))
+                self.assertTrue(all(p.exists() for p in paths))
             return real_replace(source, target)
         with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", observe):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
         self.assertTrue(observed)
 
-    def test_retired_profiles_move_failure_restores_targets(self) -> None:
+    def test_user_profiles_not_moved_during_install(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
         paths = self.seed_retired()
-        before = self.installed_target_state()
+        before = {p: tree_state(p) for p in paths}
         acquire, _ = self.acquisition_stub()
         real_replace = os.replace
         injected = []
@@ -2013,12 +2013,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             return real_replace(source, target)
         with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail):
             status, output = self.run_main([])
-        self.assertEqual(status, 2, output)
-        self.assertTrue(injected)
-        self.assertEqual(self.installed_target_state(), before)
+        self.assertEqual(status, 0, output)
+        self.assertFalse(injected)
+        self.assertEqual({p: tree_state(p) for p in paths}, before)
         self.assert_no_stages()
 
-    def test_retired_profiles_profile_failure_restores_all_targets(self) -> None:
+    def test_profile_failure_restores_targets_and_preserves_user_profiles(self) -> None:
         self.create_payload()
         self.seed_existing_targets()
         missing = self.codex_home / "agents" / installer.PROFILE_FILES[-1]
@@ -2034,7 +2034,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             nonlocal failed
             if not failed and Path(target).name == installer.PROFILE_FILES[1]:
                 failed = True
-                self.assertFalse(any(p.exists() for p in paths))
+                self.assertTrue(all(p.exists() for p in paths))
                 raise OSError("injected new profile failure")
             return real_replace(source, target)
         with patch.object(installer, "acquire_external_skills", side_effect=acquire), patch.object(installer.os, "replace", fail):
@@ -2045,14 +2045,16 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertFalse(missing.exists())
         backup = next((self.codex_home / "backups").iterdir())
         for path in paths:
-            self.assertTrue((backup / "agents" / path.name).is_file())
-            self.assertEqual((backup / "agents" / path.name).read_bytes(), path.read_bytes())
+            self.assertFalse((backup / "agents" / path.name).exists())
+            self.assertEqual(path.read_bytes(), f"custom retired {paths.index(path)}".encode())
         self.assert_no_stages()
 
-    def test_retired_profiles_rollback_failure_preserves_recovery(self) -> None:
+    def test_active_profile_rollback_failure_preserves_recovery_and_user_profiles(self) -> None:
         self.create_payload()
+        self.seed_existing_targets()
         paths = self.seed_retired(2)
-        original = paths[0].read_bytes()
+        active = self.codex_home / "agents" / installer.PROFILE_FILES[0]
+        original = active.read_bytes()
         acquire, _ = self.acquisition_stub()
         real_replace = os.replace
         failed = False
@@ -2063,7 +2065,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             if not failed and target.name == installer.PROFILE_FILES[1]:
                 failed = True
                 raise OSError("injected profile failure")
-            if failed and target == paths[0]:
+            if failed and target == active:
                 recovery = source
                 raise OSError("injected retired restore failure")
             return real_replace(source, target)
@@ -2076,10 +2078,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertIn(str(recovery), output)
         self.assertIn("rollback failed", output)
         backup = next((self.codex_home / "backups").iterdir())
-        self.assertEqual((backup / "agents" / paths[0].name).read_bytes(), original)
+        self.assertEqual((backup / "agents" / active.name).read_bytes(), original)
         self.assertTrue(paths[1].exists())
 
-    def test_retired_profiles_preparation_failure_preserves_targets(self) -> None:
+    def test_preparation_failure_preserves_user_profiles_and_targets(self) -> None:
         from contextlib import ExitStack
         self.create_payload()
         self.seed_existing_targets()
@@ -2091,7 +2093,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         unrelated.write_bytes(b"unmanaged")
         before = self.installed_target_state()
         acquire, _ = self.acquisition_stub()
-        for point in ("backup_start", "second_retired_backup", "harness_stage", "profile_stage"):
+        for point in ("backup_start", "arc_stage", "profile_stage"):
             with self.subTest(point=point), ExitStack() as stack:
                 reached = []
                 replacements = []
@@ -2106,19 +2108,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 stack.enter_context(patch.object(installer, "acquire_external_skills", side_effect=acquire))
                 if point == "backup_start":
                     stack.enter_context(patch.object(installer, "backup_existing", side_effect=fail))
-                elif point == "harness_stage":
-                    stack.enter_context(patch.object(installer, "_copy_harness_to_stage", side_effect=fail))
-                elif point == "second_retired_backup":
-                    real_copy = shutil.copy2
-                    def copy(source, target, *args, **kwargs):
-                        if Path(source) == paths[1] and Path(target).parent.parent.parent == self.codex_home / "backups":
-                            return fail()
-                        return real_copy(source, target, *args, **kwargs)
-                    stack.enter_context(patch.object(installer.shutil, "copy2", copy))
+                elif point == "arc_stage":
+                    stack.enter_context(patch.object(installer, "_copy_arc_to_stage", side_effect=fail))
                 else:
                     real_stat = shutil.copystat
                     def copystat(source, target, *args, **kwargs):
-                        if Path(source) == self.payload / "codex/agents" / installer.PROFILE_FILES[1] and ".yunho-harness-profiles-" in str(target):
+                        if Path(source) == self.payload / "codex/agents" / installer.PROFILE_FILES[1] and ".arc-profiles-" in str(target):
                             return fail()
                         return real_stat(source, target, *args, **kwargs)
                     stack.enter_context(patch.object(installer.shutil, "copystat", copystat))
@@ -2131,7 +2126,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 self.assertEqual(unrelated.read_bytes(), b"unmanaged")
                 self.assert_no_stages()
 
-    def test_retired_profiles_reject_unsafe_candidates(self) -> None:
+    def test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected(self) -> None:
         self.create_payload()
         (self.codex_home / "agents").mkdir(parents=True)
         for path in self.retired_paths():
@@ -2143,12 +2138,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                         path.mkdir()
                     else:
                         os.mkfifo(path)
-                    before = tree_state(self.codex_home)
+                    before = tree_state(path)
                     acquire, calls = self.acquisition_stub()
                     try:
                         with patch.object(installer, "acquire_external_skills", side_effect=acquire):
                             status, output = self.run_main([])
-                        after = tree_state(self.codex_home)
+                        after = tree_state(path)
                     finally:
                         installer.remove_path(path)
                         # An incorrect install must not contaminate the next unsafe fixture.
@@ -2157,8 +2152,8 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                                 installer.remove_path(child)
                         for child in list(path.parent.iterdir()):
                             installer.remove_path(child)
-                    self.assertEqual(status, 2, output)
-                    self.assertEqual(calls, [])
+                    self.assertEqual(status, 0, output)
+                    self.assertEqual(len(calls), 1)
                     self.assertEqual(after, before)
         path.parent.rmdir()
         outside = self.base / "outside-agents"
@@ -2171,13 +2166,13 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         acquire.assert_not_called()
         self.assertEqual(tree_state(self.codex_home), before)
 
-    def test_retired_profiles_preserves_unrelated_profiles(self) -> None:
+    def test_user_profiles_and_other_unrelated_profiles_preserved(self) -> None:
         self.create_payload()
         self.seed_retired()
         prefix = "-".join(("yunho", "team"))
         agents = self.codex_home / "agents"
         unrelated = [agents / "custom.toml", agents / f"{prefix}-lead.toml",
-                     agents / f"{prefix}-coder-extra.toml", agents / "harness-lead.toml"]
+                     agents / f"{prefix}-coder-extra.toml", agents / "arc-lead.toml"]
         for path in unrelated:
             path.write_bytes(b"unrelated")
             path.chmod(0o600)
@@ -2187,9 +2182,9 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
         self.assertEqual({p: tree_state(p) for p in unrelated}, before)
-        self.assertFalse(any(p.exists() for p in self.retired_paths()))
+        self.assertTrue(all(p.exists() for p in self.retired_paths()))
 
-    def test_retired_profiles_check_and_dry_run_are_read_only(self) -> None:
+    def test_user_profiles_check_and_dry_run_are_read_only(self) -> None:
         self.create_payload()
         self.install_candidates(self.codex_home / "skills")
         paths = self.seed_retired(2)
@@ -2202,11 +2197,11 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 if flags == ["--dry-run"]:
                     self.assertIn("five", output)
                     for path in paths:
-                        self.assertIn(str(path), output)
+                        self.assertNotIn(str(path), output)
             acquire.assert_not_called()
             process.assert_not_called()
 
-    def test_retired_profiles_changed_during_acquisition(self) -> None:
+    def test_user_profile_changes_during_acquisition_preserved(self) -> None:
         self.create_payload()
         acquire, _ = self.acquisition_stub()
         for change in ("add", "delete", "bytes", "identity", "mode"):
@@ -2231,14 +2226,14 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                         replacement.write_bytes(paths[0].read_bytes())
                         replacement.chmod(0o640)
                         os.replace(replacement, paths[0])
-                    expected.append(self.installed_target_state())
+                    expected.append({p: tree_state(p) for p in self.retired_paths()})
                     return result
                 with patch.object(installer, "acquire_external_skills", side_effect=changed):
                     status, output = self.run_main([])
-                self.assertEqual(status, 2, output)
-                self.assertIn("changed during acquisition", output)
-                self.assertEqual(self.installed_target_state(), expected[0])
-                self.assertFalse((self.codex_home / "backups").exists())
+                self.assertEqual(status, 0, output)
+                self.assertNotIn("changed during acquisition", output)
+                self.assertEqual({p: tree_state(p) for p in self.retired_paths()}, expected[0])
+                self.assertTrue((self.codex_home / "backups").exists())
 
     def test_unmanaged_old_profiles_are_not_inspected_or_changed(self) -> None:
         from contextlib import ExitStack
@@ -2608,7 +2603,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
 
     def test_codex_repository_layout_preserves_installed_destinations(self) -> None:
         # A source move must not leak the repository namespace into CODEX_HOME.
-        for relative in ("agents/harness-coder.toml", "skill/SKILL.md",
+        for relative in ("agents/arc-coder.toml", "skill/SKILL.md",
                          "skill/scripts/apply-models.py", "skill/references/handoff.md",
                          "skill/models.toml", "config.toml", "tools/codex_token_usage.py"):
             self.assertTrue((REPO / "codex" / relative).is_file(), relative)
@@ -2620,11 +2615,11 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         with patch.object(installer, "acquire_external_skills", side_effect=acquire):
             status, output = self.run_main([])
         self.assertEqual(status, 0, output)
-        self.assertTrue((self.codex_home / "skills/yunho-harness/SKILL.md").is_file())
-        self.assertTrue((self.codex_home / "agents/harness-coder.toml").is_file())
+        self.assertTrue((self.codex_home / "skills/arc/SKILL.md").is_file())
+        self.assertTrue((self.codex_home / "agents/arc-coder.toml").is_file())
         self.assertFalse((self.codex_home / "codex").exists())
 
-    def test_install_writes_harness_profiles_and_three_external_skills(self) -> None:
+    def test_install_writes_arc_profiles_and_three_external_skills(self) -> None:
         self.create_payload()
         candidates = self.install_candidates(self.user_home / ".agents" / "skills")
         acquire, _calls = self.acquisition_stub((b"current upstream",))
@@ -2644,12 +2639,12 @@ class ExternalSkillPreflightTests(unittest.TestCase):
             {path.name for path in (self.codex_home / "agents").iterdir()},
             set(installer.PROFILE_FILES),
         )
-        harness = self.codex_home / "skills" / installer.INSTALL_NAME
-        self.assertEqual(tree_state(harness), tree_state(self.payload / "codex/skill"))
+        arc = self.codex_home / "skills" / installer.INSTALL_NAME
+        self.assertEqual(tree_state(arc), tree_state(self.payload / "codex/skill"))
         for name in REFERENCE_NAMES:
             relative = f"references/{name}.md"
-            self.assertTrue((harness / relative).is_file(), relative)
-            self.assertEqual((harness / relative).read_bytes(), (self.payload / "codex/skill" / relative).read_bytes())
+            self.assertTrue((arc / relative).is_file(), relative)
+            self.assertEqual((arc / relative).read_bytes(), (self.payload / "codex/skill" / relative).read_bytes())
         for filename, expected in expected_profiles.items():
             target = self.codex_home / "agents" / filename
             source = self.payload / "codex/agents" / filename
@@ -2804,7 +2799,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         external_before = {
             skill: tree_state(self.codex_home / "skills" / skill) for skill in FILES
         }
-        harness_before = tree_state(self.codex_home / "skills" / installer.INSTALL_NAME)
+        arc_before = tree_state(self.codex_home / "skills" / installer.INSTALL_NAME)
         profiles_before = {
             filename: tree_state(self.codex_home / "agents" / filename)
             for filename in installer.PROFILE_FILES
@@ -2836,7 +2831,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         )
         self.assertEqual(
             tree_state(self.codex_home / "skills" / installer.INSTALL_NAME),
-            harness_before,
+            arc_before,
         )
         for filename in installer.PROFILE_FILES:
             self.assertEqual(
@@ -2891,7 +2886,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         external_before = {
             skill: tree_state(self.codex_home / "skills" / skill) for skill in FILES
         }
-        harness_before = tree_state(self.codex_home / "skills" / installer.INSTALL_NAME)
+        arc_before = tree_state(self.codex_home / "skills" / installer.INSTALL_NAME)
         profiles_before = {
             filename: tree_state(self.codex_home / "agents" / filename)
             for filename in installer.PROFILE_FILES
@@ -2924,7 +2919,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         )
         self.assertEqual(
             tree_state(self.codex_home / "skills" / installer.INSTALL_NAME),
-            harness_before,
+            arc_before,
         )
         for filename in installer.PROFILE_FILES:
             self.assertEqual(
@@ -3006,10 +3001,10 @@ class ExternalSkillPreflightTests(unittest.TestCase):
     def test_replace_failure_restores_targets_and_keeps_backup(self) -> None:
         self.create_payload()
         self.install_candidates(self.user_home / ".agents" / "skills")
-        harness = self.codex_home / "skills" / installer.INSTALL_NAME
+        arc = self.codex_home / "skills" / installer.INSTALL_NAME
         self.seed_existing_targets()
         agents = self.codex_home / "agents"
-        harness_before = tree_state(harness)
+        arc_before = tree_state(arc)
         profiles_before = {filename: tree_state(agents / filename) for filename in installer.PROFILE_FILES}
         acquire, _calls = self.acquisition_stub((b"current upstream",))
         failed_name = installer.PROFILE_FILES[1]
@@ -3023,7 +3018,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                 not injected
                 and target == agents / failed_name
                 and source.name == failed_name
-                and source.parent.name.startswith(".yunho-harness-profiles-")
+                and source.parent.name.startswith(".arc-profiles-")
             ):
                 injected = True
                 raise OSError("fixture replacement failure")
@@ -3038,13 +3033,13 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         self.assertTrue(injected)
         self.assertEqual(status, 2, output)
         self.assertIn("fixture replacement failure", output)
-        self.assertEqual(tree_state(harness), harness_before)
+        self.assertEqual(tree_state(arc), arc_before)
         for filename, before in profiles_before.items():
             self.assertEqual(tree_state(agents / filename), before)
         backups = list(self.codex_home.glob("backups/*"))
         self.assertEqual(len(backups), 1)
         backup = backups[0]
-        self.assertEqual(tree_state(backup / "skills" / installer.INSTALL_NAME), harness_before)
+        self.assertEqual(tree_state(backup / "skills" / installer.INSTALL_NAME), arc_before)
         for filename, before in profiles_before.items():
             self.assertEqual(tree_state(backup / "agents" / filename), before)
         self.assert_no_stages()

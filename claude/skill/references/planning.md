@@ -1,6 +1,6 @@
 # Planning and approval
 
-CEO classifies scope before implementation. The CEO direct path for small tasks is defined only in SKILL.md ("CEO direct path for small tasks"); follow it there and stop and reclassify if scope or risk changes. Everything else follows this reference. Brainstorming and writing-plans are instructions for existing roles, not extra agents; Harness routing and approval gates apply even if a skill names another executor. Report a missing required skill before its stage.
+CEO classifies scope before implementation. The CEO direct path for small tasks is defined only in SKILL.md ("CEO direct path for small tasks"); follow it there and stop and reclassify if scope or risk changes. Everything else follows this reference. Brainstorming and writing-plans are instructions for existing roles, not extra agents; ARC routing and approval gates apply even if a skill names another executor. Report a missing required skill before its stage.
 
 Significant risk includes shared role/behavior contracts, shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly installation/deployment/rollback, and excludes work from the CEO direct path. Substantial behavior or contract changes are significant regardless of file count. Unclear risk requires investigation or the higher flow.
 
@@ -42,7 +42,7 @@ The applicable set means all specs and plans required for the current approved e
 
 Normal order (current checkout only): design approval, required spec writing/saving/self-review and written-spec approval, required plans likewise, complete set, explicit execution-target choice (reuse the current branch or approved task branch), existing-commit verification and one batch commit of remaining approved documents, final Git verification, Coder handoff. Written-spec approval precedes implementation planning. While documents are written or approved, do not request target choice, create or switch branches, stage, or commit planning documents; read-only inspection is allowed. An incomplete set or missing approval blocks preparation; approving some plans does not start their Coder work early.
 
-This Harness defers the installed brainstorming early spec commit: save and self-review the spec, obtain written-spec approval without committing, then write and approve all plans; commit the spec only in the final batch. `writing-plans` commit steps do not permit document commits during planning or start Coder. Do not modify external skills.
+This ARC defers the installed brainstorming early spec commit: save and self-review the spec, obtain written-spec approval without committing, then write and approve all plans; commit the spec only in the final batch. `writing-plans` commit steps do not permit document commits during planning or start Coder. Do not modify external skills.
 
 | Path | Approvals and preparation |
 |---|---|

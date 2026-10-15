@@ -2,7 +2,7 @@
 
 ## 목적
 
-저장소의 `dependencies/` 번들을 제거하고, 설치 전에 Harness가 직접 요구하는 외부 스킬이 설치되어 있으며 검토된 파일 snapshot과 일치하는지 확인한다. 설치기는 외부 스킬을 내려받거나 설치·복사·수정하지 않는다. 필수 스킬의 존재와 호환성이 확인되지 않으면 Harness 설치 대상에 쓰기 작업을 시작하기 전에 종료한다.
+저장소의 `dependencies/` 번들을 제거하고, 설치 전에 ARC가 직접 요구하는 외부 스킬이 설치되어 있으며 검토된 파일 snapshot과 일치하는지 확인한다. 설치기는 외부 스킬을 내려받거나 설치·복사·수정하지 않는다. 필수 스킬의 존재와 호환성이 확인되지 않으면 ARC 설치 대상에 쓰기 작업을 시작하기 전에 종료한다.
 
 이 변경은 설치 패키지와 installer 동작을 바꾸는 architectural 작업이다. 이 설계의 서면 승인을 받은 뒤 구현 계획을 작성하며, 계획 승인 후 구현한다.
 
@@ -16,11 +16,11 @@
 | `README.md` | 선행 설치, 검사, 오류 및 snapshot 유지보수 안내 |
 | `MANIFEST.sha256` | 번들 항목 제거, lock 파일과 변경 payload 반영 |
 
-기존 Python 3.11 요구, 모델 설정 검증, 일곱 프로필 생성, 설치 대상 경로 안전성, Harness·프로필의 backup·staging·교체·rollback, 읽기 전용 `--check`·`--dry-run`, 수동 활성화와 현재 Harness 실행 정책은 유지한다. 이미 설치된 외부 스킬 및 과거 brief·spec·plan은 이 변경으로 삭제하거나 수정하지 않는다.
+기존 Python 3.11 요구, 모델 설정 검증, 일곱 프로필 생성, 설치 대상 경로 안전성, ARC·프로필의 backup·staging·교체·rollback, 읽기 전용 `--check`·`--dry-run`, 수동 활성화와 현재 ARC 실행 정책은 유지한다. 이미 설치된 외부 스킬 및 과거 brief·spec·plan은 이 변경으로 삭제하거나 수정하지 않는다.
 
 ## 필수 외부 스킬
 
-현재 Harness가 직접 사용을 요구하는 다음 네 스킬을 일반 설치의 선행 조건으로 둔다.
+현재 ARC가 직접 사용을 요구하는 다음 네 스킬을 일반 설치의 선행 조건으로 둔다.
 
 ```text
 brainstorming
@@ -29,7 +29,7 @@ test-driven-development
 using-git-worktrees
 ```
 
-필수 목록은 installer와 lock 계약에서 동일하게 고정한다. executor 관련 요청은 현재 Harness 정책이 처리하므로 추가 executor 스킬을 설치 전제에 넣지 않는다. 작업별 조건부 스킬은 기존 missing non-executor skill 정책에 따라 해당 작업에서 다룬다.
+필수 목록은 installer와 lock 계약에서 동일하게 고정한다. executor 관련 요청은 현재 ARC 정책이 처리하므로 추가 executor 스킬을 설치 전제에 넣지 않는다. 작업별 조건부 스킬은 기존 missing non-executor skill 정책에 따라 해당 작업에서 다룬다.
 
 ## 검색 위치 및 후보 처리
 
@@ -52,7 +52,7 @@ using-git-worktrees
 
 외부 skill은 읽기 전용 입력이다. 후보 root 자체 또는 상위 경로의 symlink는 strict resolution으로 실제 디렉터리에 해석할 수 있다. Resolution 실패, dangling link, cycle 또는 디렉터리가 아닌 root는 오류다.
 
-Lock이 지정하는 필수 상대 파일은 실제 skill root 안에서 해석되어야 한다. 필수 경로 요소의 symlink는 최종 해석 경로가 실제 root 내부에 있고 일반 파일로 읽을 수 있을 때 허용한다. root 밖으로 나가는 참조, 특수 파일, 순회 또는 읽기 실패는 오류다. 이 검사는 고정된 필수 파일만 읽으며 skill 전체를 재귀 탐색하지 않는다. 기존 Harness·프로필 쓰기 대상의 symlink 금지 정책은 완화하지 않는다.
+Lock이 지정하는 필수 상대 파일은 실제 skill root 안에서 해석되어야 한다. 필수 경로 요소의 symlink는 최종 해석 경로가 실제 root 내부에 있고 일반 파일로 읽을 수 있을 때 허용한다. root 밖으로 나가는 참조, 특수 파일, 순회 또는 읽기 실패는 오류다. 이 검사는 고정된 필수 파일만 읽으며 skill 전체를 재귀 탐색하지 않는다. 기존 ARC·프로필 쓰기 대상의 symlink 금지 정책은 완화하지 않는다.
 
 ## 호환성 lock 및 snapshot
 
@@ -71,7 +71,7 @@ Lock이 지정하는 필수 상대 파일은 실제 skill root 안에서 해석�
 
 각 후보의 모든 필수 파일은 하나의 동일한 snapshot과 일치해야 한다. 서로 다른 snapshot에서 일부 파일씩 가져와 통과시키지 않는다. 필수 목록 밖의 추가 파일은 비교 대상이 아니며 자체로 실패 사유가 아니다. Snapshot 불일치는 의미상 비호환의 증명이 아니라 “호환성이 확인되지 않음”으로 안내한다.
 
-최초 snapshot ID는 `local-reviewed-2026-10-04`이며, 해당 파일은 2026-10-04에 이 PC의 `~/.agents/skills`에서 읽고 Harness adapter와의 문서 호환성을 검토했다. 이는 upstream release나 작성자를 인증하지 않으며, 선택적 companion runtime의 실행 검증을 의미하지 않는다. 초기 고정 파일과 SHA-256은 다음과 같다.
+최초 snapshot ID는 `local-reviewed-2026-10-04`이며, 해당 파일은 2026-10-04에 이 PC의 `~/.agents/skills`에서 읽고 ARC adapter와의 문서 호환성을 검토했다. 이는 upstream release나 작성자를 인증하지 않으며, 선택적 companion runtime의 실행 검증을 의미하지 않는다. 초기 고정 파일과 SHA-256은 다음과 같다.
 
 | 스킬 | 상대 경로 | SHA-256 |
 |---|---|---|
@@ -87,7 +87,7 @@ Lock이 지정하는 필수 상대 파일은 실제 skill root 안에서 해석�
 | `test-driven-development` | `writing-good-tests.md` | `51471c853306ff92ca8bb41dcaea05f31c0e46b03651f8f3c99754b7172f4ae1` |
 | `using-git-worktrees` | `SKILL.md` | `8cfb86f121269e8f7f12361e6795c4f6738828340e28964c9229d365666c9edd` |
 
-이 기준은 검토한 snapshot을 고정한다. 새 snapshot은 파일 변경을 검토하고 현재 Harness 정책과의 호환성을 판단한 뒤 명시적으로 추가한다. 설치 중 현재 값을 자동 승인하지 않는다.
+이 기준은 검토한 snapshot을 고정한다. 새 snapshot은 파일 변경을 검토하고 현재 ARC 정책과의 호환성을 판단한 뒤 명시적으로 추가한다. 설치 중 현재 값을 자동 승인하지 않는다.
 
 ## 공통 사전 검사와 실패 동작
 
@@ -99,7 +99,7 @@ Lock이 지정하는 필수 상대 파일은 실제 skill root 안에서 해석�
 
 ## 설치 transaction과 문서
 
-`dependencies/` 검증, 열거, 누락분 설치 계획, staging, 복사·교체 및 dependency 전용 rollback을 제거한다. 일반 설치는 기존 Harness skill과 일곱 프로필만 설치하며 기존 backup·rollback 동작을 유지한다. 외부 스킬은 backup, staging, 복사, 교체, 삭제, 권한 변경 또는 rollback 대상이 아니다. 사전 검사 이후 다른 프로세스가 외부 파일을 바꾸는 경우까지 막지는 않는다.
+`dependencies/` 검증, 열거, 누락분 설치 계획, staging, 복사·교체 및 dependency 전용 rollback을 제거한다. 일반 설치는 기존 ARC skill과 일곱 프로필만 설치하며 기존 backup·rollback 동작을 유지한다. 외부 스킬은 backup, staging, 복사, 교체, 삭제, 권한 변경 또는 rollback 대상이 아니다. 사전 검사 이후 다른 프로세스가 외부 파일을 바꾸는 경우까지 막지는 않는다.
 
 README는 필수 스킬 네 개, 검색 위치, 모든 후보를 검사한다는 규칙, 11개 필수 파일 snapshot, 추가 파일의 처리, symlink 정책, 세 실행 옵션의 공통 검사, 실패 전 무변경, lock 갱신 절차와 검사의 한계를 설명한다. 번들 설치·보존 설명은 외부 선행 조건 설명으로 교체한다. Manifest에서는 `dependencies/`를 required root 및 payload 목록에서 빼고 `external-skills.toml`과 변경된 installer·README의 digest를 기록한다. `skill/models.toml`의 mutable 예외는 유지한다.
 
@@ -115,18 +115,18 @@ README는 필수 스킬 네 개, 검색 위치, 모든 후보를 검사한다는
 4. 모든 존재 후보가 검증되며, 승인되지 않은 중복 후보가 있으면 실패한다.
 5. 같은 실제 root의 alias는 중복 검사하지 않고, 허용된 내부 파일 alias는 실제 root 경계 안에서만 읽는다.
 6. 서로 다른 snapshot의 혼합은 통과하지 않으며, 필수 목록 밖의 추가 파일은 판정에 영향을 주지 않는다.
-7. 외부 검사 실패 시 Harness·프로필·외부 스킬이 변경되지 않고 새 디렉터리, backup 또는 staging이 생성되지 않는다.
+7. 외부 검사 실패 시 ARC·프로필·외부 스킬이 변경되지 않고 새 디렉터리, backup 또는 staging이 생성되지 않는다.
 8. `--check`와 `--dry-run`은 성공해도 파일을 생성하거나 수정하지 않는다.
-9. 정상 설치는 Harness와 일곱 프로필만 설치하고 기존 backup·rollback을 유지한다.
+9. 정상 설치는 ARC와 일곱 프로필만 설치하고 기존 backup·rollback을 유지한다.
 10. README와 manifest의 설명 및 포함 범위가 구현과 일치한다.
-11. 현재 Harness 정책 및 실행 흐름은 변경되지 않는다.
+11. 현재 ARC 정책 및 실행 흐름은 변경되지 않는다.
 
 ## 자체 검토
 
 - **범위:** 외부 스킬의 선행 조건과 호환성 사전 검사에 한정했다. 외부 스킬 설치, 갱신기, 새로운 검색 경로 또는 우회 기능은 포함하지 않는다.
 - **정확성:** 이름만으로 통과하지 않고, 필수 참조 파일 전체가 하나의 snapshot과 일치하도록 했다.
 - **안전성:** 모든 검색 후보를 확인하고 읽기·경로 문제를 누락으로 취급하지 않는다. 실패는 설치 쓰기보다 앞선다.
-- **호환성:** 현재 Harness adapter를 기준으로 snapshot 문서를 검토했으며 hash 일치가 runtime 검증은 아님을 분리했다.
+- **호환성:** 현재 ARC adapter를 기준으로 snapshot 문서를 검토했으며 hash 일치가 runtime 검증은 아님을 분리했다.
 - **유지보수:** 검토 없이 현재 hash를 자동 승인하지 않으며 lock과 manifest를 함께 갱신한다.
 - **미결 결정:** 설계 단계의 미결 사항은 없다. 구현 계획에는 test-first 확인, 오류 사례, manifest 갱신과 risk-scaled QA·독립 review를 포함한다.
 - **현재 상태:** 이 설계 문서 외에는 아직 payload, 설치 환경 또는 테스트를 수정하지 않았다.

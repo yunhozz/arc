@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reapply installed Claude Harness models without invoking a provider."""
+"""Reapply installed Claude ARC models without invoking a provider."""
 import sys
 sys.dont_write_bytecode = True
 import argparse

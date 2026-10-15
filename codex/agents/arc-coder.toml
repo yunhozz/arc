@@ -1,4 +1,4 @@
-name = "harness_coder"
+name = "arc_coder"
 description = "Write scoped code changes using the Coder role's configured model and reasoning effort under the CEO's direction."
 developer_instructions = """
 Report directly to CEO at depth 2. Do not spawn agents. Do not delegate tasks to other roles.

@@ -12,13 +12,13 @@
 
 현재 Secretary는 자료 기반 조사·분석과 독립 문서 작성을 담당하고, Scout는 제한된 코드·자료 탐색을 담당한다. 둘 다 CEO에게 직접 보고한다.
 
-- 기존 Secretary 정책: agents/harness-secretary.toml
-- 기존 Scout 정책: agents/harness-scout.toml
+- 기존 Secretary 정책: agents/arc-secretary.toml
+- 기존 Scout 정책: agents/arc-scout.toml
 - 공통 라우팅 및 소유권: skill/SKILL.md
 - 현재 모델 스키마: version 4, 여섯 역할
 - 현재 새 worktree 준비 절차는 `git worktree add`로 Git worktree만 생성하며 Codex 앱 관리형 등록·대화 연결을 보장하지 않는다.
 
-목표 역할 ID는 harness_scouter이며, 프로필 파일은 agents/harness-scouter.toml이다. 사용자 지시에 따라 Scouter는 gpt-6-luna 모델과 max 추론 강도를 사용한다. 기존 Secretary와 Scout의 모델 설정은 계승하지 않는다. 활성 Scout 별칭과 Secretary 역할 ID는 남기지 않는다.
+목표 역할 ID는 arc_scouter이며, 프로필 파일은 agents/arc-scouter.toml이다. 사용자 지시에 따라 Scouter는 gpt-6-luna 모델과 max 추론 강도를 사용한다. 기존 Secretary와 Scout의 모델 설정은 계승하지 않는다. 활성 Scout 별칭과 Secretary 역할 ID는 남기지 않는다.
 
 ## 3. 역할 및 책임 경계
 
@@ -60,11 +60,11 @@ skill/models.toml을 version 5로 올리고 정확히 다음 다섯 ID를 허용
 
 | ID | model | model_reasoning_effort |
 |---|---|---|
-| harness_scouter | gpt-6-luna | max |
-| harness_planner | gpt-6.1-sol | medium |
-| harness_coder | gpt-6.1-sol | low |
-| harness_qa | gpt-6-luna | max |
-| harness_reviewer | gpt-6.1-sol | medium |
+| arc_scouter | gpt-6-luna | max |
+| arc_planner | gpt-6.1-sol | medium |
+| arc_coder | gpt-6.1-sol | low |
+| arc_qa | gpt-6-luna | max |
+| arc_reviewer | gpt-6.1-sol | medium |
 
 model_config.py의 역할 매핑·로더·직렬화·오류 안내와 apply-models.py의 검사·적용 출력을 동일한 다섯 역할 계약으로 맞춘다. 버전은 정수 5여야 하며 누락·추가 역할, 잘못된 역할 필드, version 1–4를 거부하고 version 5 형식으로 갱신하라고 안내한다. 자동 변환은 추가하지 않는다. 검증 실패는 설정 파일과 프로필을 변경하지 않는다.
 
@@ -74,11 +74,11 @@ model_config.py의 역할 매핑·로더·직렬화·오류 안내와 apply-mode
 
 install.py는 다음 프로필만 검증·생성·설치한다.
 
-- harness-scouter.toml
-- harness-planner.toml
-- harness-coder.toml
-- harness-qa.toml
-- harness-reviewer.toml
+- arc-scouter.toml
+- arc-planner.toml
+- arc-coder.toml
+- arc-qa.toml
+- arc-reviewer.toml
 
 설치기와 모델 적용 도구의 check·dry-run·오류·성공 출력은 다섯 역할과 일치해야 한다. 새 설치와 반복 설치에서 폐기 역할을 생성하지 않는다.
 
@@ -86,10 +86,10 @@ install.py는 다음 프로필만 검증·생성·설치한다.
 
 선택한 Codex 홈의 agents/ 바로 아래 정확한 두 경로를 폐기 대상으로 처리한다.
 
-- harness-secretary.toml
-- harness-scout.toml
+- arc-secretary.toml
+- arc-scout.toml
 
-대상이 존재하면 변경 전 안전성 검사와 영구 백업을 하고, 설치 거래 중 복구 가능한 위치로 이동해 제거한다. 기존 harness-scouter.toml은 활성 프로필과 동일한 교체·백업 흐름을 따른다.
+대상이 존재하면 변경 전 안전성 검사와 영구 백업을 하고, 설치 거래 중 복구 가능한 위치로 이동해 제거한다. 기존 arc-scouter.toml은 활성 프로필과 동일한 교체·백업 흐름을 따른다.
 
 설치기는 yunho-team-* 이름의 구형 프로필 경로를 탐색·검사·백업·삭제하지 않는다. 기존 파일은 설치기의 관리 대상이 아닌 사용자 파일로 그대로 둔다. 그 밖의 대상이 아닌 사용자 프로필도 보존한다.
 
@@ -108,9 +108,9 @@ install.py는 다음 프로필만 검증·생성·설치한다.
 | 파일 | 책임 |
 |---|---|
 | skill/SKILL.md | 라우팅, 다섯 역할·별칭, Scouter 범위, 문서 제외, 보고·모델 계약 |
-| agents/harness-scouter.toml | 새 읽기 전용 조사·탐색 프로필 |
-| agents/harness-secretary.toml, agents/harness-scout.toml | 저장소의 활성 프로필에서 제거 |
-| agents/harness-planner.toml | 이전 Secretary 문서 책임을 전제로 한 잔여 문구 정리 |
+| agents/arc-scouter.toml | 새 읽기 전용 조사·탐색 프로필 |
+| agents/arc-secretary.toml, agents/arc-scout.toml | 저장소의 활성 프로필에서 제거 |
+| agents/arc-planner.toml | 이전 Secretary 문서 책임을 전제로 한 잔여 문구 정리 |
 | skill/models.toml | version 5와 다섯 모델 항목 |
 | skill/scripts/model_config.py | ID 매핑, 버전·필드 검증, 직렬화 |
 | skill/scripts/apply-models.py | 다섯 프로필 check·dry-run·적용 출력 |
@@ -130,7 +130,7 @@ config.toml은 런타임 수용량 예시만 담고 현재 다섯 역할 ID를 �
 | ID | 기준 |
 |---|---|
 | AC-01 | 활성 식별자·프로필·모델 설정이 Scouter, Planner, Coder, QA, Reviewer의 정확히 다섯 개다 |
-| AC-02 | Scouter는 harness_scouter, agents/harness-scouter.toml, sandbox_mode = read-only, gpt-6-luna/max 설정을 사용한다 |
+| AC-02 | Scouter는 arc_scouter, agents/arc-scouter.toml, sandbox_mode = read-only, gpt-6-luna/max 설정을 사용한다 |
 | AC-03 | Scouter가 할당된 자료 분석과 정적 코드·문서·데이터 탐색을 읽기 전용으로 수행하고 근거·미해결 사항을 CEO에게 보고한다 |
 | AC-04 | Scouter의 파일 편집·독립 문서 파일 작성·직접 위임을 금지하고 운영 상태 조사·정리 제외를 유지한다 |
 | AC-05 | 독립 문서 작성 요청을 어떤 전문 역할에도 자동 배정하지 않는다 |

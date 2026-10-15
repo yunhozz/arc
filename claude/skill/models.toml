@@ -1,21 +1,21 @@
 version = 1
 
-[roles.harness_scouter]
+[roles.arc_scouter]
 model = "haiku"
 effort = "high"
 
-[roles.harness_planner]
+[roles.arc_planner]
 model = "sonnet"
 effort = "medium"
 
-[roles.harness_coder]
+[roles.arc_coder]
 model = "sonnet"
 effort = "low"
 
-[roles.harness_qa]
+[roles.arc_qa]
 model = "haiku"
 effort = "high"
 
-[roles.harness_reviewer]
+[roles.arc_reviewer]
 model = "sonnet"
 effort = "medium"
