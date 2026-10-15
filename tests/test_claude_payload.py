@@ -3,6 +3,7 @@ import copy
 import hashlib
 import importlib.util
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -179,6 +180,52 @@ class ClaudePayloadTests(unittest.TestCase):
                 self.assertRegex(text, r'Significant risk.*excludes?')
                 self.assertIn('Substantial behavior or contract changes are significant regardless of file count', text)
                 self.assertIn('Unclear risk requires investigation or the higher flow', text)
+
+    def test_claude_shared_policy_sections_and_contracts_are_complete(self):
+        # Approved structural contract only; independent review assesses meaning and runtime compliance.
+        core = (PAYLOAD / 'skill/SKILL.md').read_text()
+        sections = re.findall(r'^## (.+)$', core, re.M)
+        self.assertEqual(sections, [
+            'Ownership', 'Instruction and execution adapter', 'Shared terms',
+            'Mandatory task references', 'Common handoff gate', 'Coder TDD and constraints',
+            'Risk-scaled execution', 'CEO direct path for small tasks',
+            'Automatic commit after plan-task acceptance', 'Token discipline and handoffs', 'Models',
+        ])
+        for clause in ('fresh Coder for each top-level task', 'After an approved plan or acceptance-criteria amendment',
+                       'Preservation rule', 'Explicit choice', 'Stop and inspect', 'Evidence verdict',
+                       'Design and plan depth are independent of verification risk', 'RED-GREEN',
+                       'one focused local commit', 'final full change once', 'canonical handoff record',
+                       'Goal; Criteria', 'current checkout only', 'execution-state investigation or cleanup'):
+            with self.subTest(clause=clause):
+                self.assertIn(clause, ' '.join(core.split()))
+
+    def test_claude_native_adapter_matches_shipped_profiles_and_scripts(self):
+        core = (PAYLOAD / 'skill/SKILL.md').read_text()
+        module = self.module()
+        settings = module.load_settings(PAYLOAD / 'skill/models.toml')
+        for role in EXPECTED:
+            fields = module.parse_profile((PAYLOAD / f'agents/harness-{role}.md').read_bytes())
+            self.assertIn('`' + fields['name'] + '`', core)
+            self.assertIn('`harness_' + role + '`', core)
+            self.assertIn('harness_' + role, settings)
+        links = set(re.findall(r'references/([a-z-]+)\.md', core))
+        self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion'})
+        for name in links:
+            self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
+        self.assertIn('python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py', core)
+        self.assertEqual(set(re.findall(r'`(--[a-z-]+)`', core)), {'--config', '--agents-dir', '--check', '--dry-run'})
+        result = subprocess.run([sys.executable, '-B', str(PAYLOAD / 'skill/scripts/apply-models.py'), '--help'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for flag in ('--config', '--agents-dir', '--check', '--dry-run'):
+            self.assertIn(flag, result.stdout)
+        for boundary in ('current checkout only', 'not a filesystem sandbox', 'does not prove runtime', 'Claude native subagent'):
+            self.assertIn(boundary, core)
+
+    def test_claude_skill_markdown_has_no_foreign_platform_contracts(self):
+        forbidden = r'(?i)codex|spawn_agent|wait_agent|fork_turns|reasoning_effort|mcp__codex|/\.codex/'
+        for path in (PAYLOAD / 'skill').rglob('*.md'):
+            with self.subTest(path=path.relative_to(PAYLOAD)):
+                self.assertNotRegex(path.read_text(), forbidden)
 
     def test_manifest_covers_immutable_claude_payload(self):
         entries = dict(line.split('  ', 1)[::-1] for line in (ROOT / 'MANIFEST.sha256').read_text().splitlines())

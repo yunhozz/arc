@@ -236,13 +236,39 @@ def external_candidate_paths(home: Path, user_home: Path, *, include_shared: boo
     return targets
 
 
-def external_write_targets(home: Path, user_home: Path, *, include_shared: bool = True) -> dict[str, tuple[Path, ...]]:
+def replaceable_claude_skill_link(path: Path, user_home: Path, skill: str) -> str | None:
+    """Allow only a leaf link to the same default Codex skill directory."""
+    path = absolute(path)
+    reject_symlink_components(path.parent)
+    if not path.is_symlink():
+        return None
+    text = os.readlink(path)
+    expected = absolute(user_home / '.codex' / 'skills' / skill)
+    target = path.parent / text
+    try:
+        resolved = target.resolve(strict=True)
+        current = Path(target.anchor)
+        for component in target.parts[1:]:
+            current /= component
+            if stat.S_ISLNK(current.lstat().st_mode):
+                raise InstallerError(f"symlink path is unsafe: {current}")
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise InstallerError(f"cannot resolve external skill link {path}: {exc}") from exc
+    if resolved != expected:
+        raise InstallerError(f"symlink path is unsafe: {path}")
+    require_directory(expected)
+    return text
+
+
+def external_write_targets(home: Path, user_home: Path, *, include_shared: bool = True, allow_claude_skill_links: bool = False) -> dict[str, tuple[Path, ...]]:
     """Resolve safe selected-home targets and existing legacy targets without writing."""
     home = absolute(home)
     user_home = absolute(user_home)
 
     def validate_target(path: Path) -> bool:
         path = absolute(path)
+        if allow_claude_skill_links and replaceable_claude_skill_link(path, user_home, path.name) is not None:
+            return True
         reject_symlink_components(path)
         for parent in reversed(path.parents):
             try:
@@ -952,6 +978,7 @@ def install_plan(
         if target.name == "codex":
             validate_external_skills(home, user_home)
         else:
+            external_write_targets(home, user_home, include_shared=False, allow_claude_skill_links=True)
             validate_external_skills(home, user_home, include_shared=False)
     return skills_dir, agents_dir, backups_dir, profile_targets
 
@@ -1115,6 +1142,7 @@ def backup_existing(
     *,
     retired_targets: dict[str, Path],
     global_targets: tuple[Path, ...] = (),
+    claude_skill_links: dict[Path, str] | None = None,
 ) -> None:
     for source in global_targets:
         if os.path.lexists(source):
@@ -1133,7 +1161,10 @@ def backup_existing(
             group = "skills" if source.parent == harness_target.parent else "legacy-agents-skills"
             target = backup_root / group / skill
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
+            if source in (claude_skill_links or {}):
+                target.symlink_to(claude_skill_links[source])
+            else:
+                shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
     for filename, source in {**profile_targets, **retired_targets}.items():
         if os.path.lexists(source):
             require_regular_file(source)
@@ -1155,6 +1186,32 @@ def remove_path(path: Path) -> None:
         path.unlink()
 
 
+def _open_directory_nofollow(path: Path) -> int:
+    path = absolute(path)
+    descriptor = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for component in path.parts[1:]:
+            child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _replace_claude_skill_leaf(source: Path, destination: Path) -> None:
+    source_fd = _open_directory_nofollow(source.parent)
+    try:
+        destination_fd = _open_directory_nofollow(destination.parent)
+        try:
+            os.replace(source.name, destination.name, src_dir_fd=source_fd, dst_dir_fd=destination_fd)
+        finally:
+            os.close(destination_fd)
+    finally:
+        os.close(source_fd)
+
+
 def rollback(actions: list[dict[str, object]]) -> list[str]:
     errors: list[str] = []
     for action in reversed(actions):
@@ -1165,11 +1222,21 @@ def rollback(actions: list[dict[str, object]]) -> list[str]:
         assert previous is None or isinstance(previous, Path)
         action["rollback_failed"] = False
         try:
+            if action.get('claude_link'):
+                reject_symlink_components(target.parent)
+                if installed:
+                    if snapshot_managed_targets((target,)) != action.get('installed_snapshot'):
+                        raise InstallerError(f"managed target changed before rollback: {target}")
             if installed:
                 remove_path(target)
             if previous is not None and os.path.lexists(previous):
-                os.replace(previous, target)
-        except OSError as exc:
+                if action.get('claude_link'):
+                    if os.path.lexists(target):
+                        raise InstallerError(f"target appeared before rollback: {target}")
+                    _replace_claude_skill_leaf(previous, target)
+                else:
+                    os.replace(previous, target)
+        except (OSError, InstallerError) as exc:
             action["rollback_failed"] = True
             errors.append(f"{target}: {exc}")
     return errors
@@ -1181,10 +1248,11 @@ def _remove_stage_areas(stage_areas: list[Path], retained: set[Path] | None = No
         if area in retained:
             continue
         try:
+            reject_symlink_components(area.parent)
             shutil.rmtree(area)
         except FileNotFoundError:
             pass
-        except OSError as exc:
+        except (OSError, InstallerError) as exc:
             print(f"Could not remove temporary staging directory {area}: {exc}", file=sys.stderr)
 
 
@@ -1211,6 +1279,8 @@ def _transactional_install(
     retired_targets: dict[str, Path],
     global_updates: list[tuple[Path, bytes, str]] = (),
     target: TargetSpec | None = None,
+    claude_skill_links: dict[Path, str] | None = None,
+    managed_snapshot: tuple | None = None,
 ) -> Path:
     selected_target = _selected(root, home, target)
     payload = selected_target.payload_root
@@ -1230,6 +1300,7 @@ def _transactional_install(
         external_targets,
         retired_targets=retired_targets,
         global_targets=tuple(target for target, _, _ in global_updates),
+        claude_skill_links=claude_skill_links,
     )
 
     stage_areas: list[Path] = []
@@ -1286,6 +1357,11 @@ def _transactional_install(
                 staged_targets.append((target, staged, global_stage_area))
 
         actions: list[dict[str, object]] = []
+        if managed_snapshot is not None:
+            paths = (skills_dir / INSTALL_NAME, *profile_targets.values(),
+                     *(path for paths in external_targets.values() for path in paths))
+            if snapshot_managed_targets(paths) != managed_snapshot:
+                raise InstallerError('managed install targets changed during staging; refusing to install')
         target_changes_started = True
         try:
             for filename, target in retired_targets.items():
@@ -1300,20 +1376,25 @@ def _transactional_install(
                 require_regular_file(target)
                 os.replace(target, previous)
             for target, staged, area in staged_targets:
+                claude_link = target in (claude_skill_links or {})
+                replace = _replace_claude_skill_leaf if claude_link else os.replace
                 action: dict[str, object] = {
                     "target": target,
                     "previous": None,
                     "installed": False,
                     "area": area,
                     "rollback_failed": False,
+                    "claude_link": claude_link,
                 }
                 actions.append(action)
                 if os.path.lexists(target):
                     previous = area / f"previous-{target.name}"
                     action["previous"] = previous
-                    os.replace(target, previous)
-                os.replace(staged, target)
+                    replace(target, previous)
+                replace(staged, target)
                 action["installed"] = True
+                if claude_link:
+                    action['installed_snapshot'] = snapshot_managed_targets((target,))
         except BaseException as exc:
             rollback_errors = rollback(actions)
             retained_areas: set[Path] = set()
@@ -1447,9 +1528,18 @@ def perform_install(
         function = external_candidate_paths if dry_run else external_write_targets
         if target.name == "codex":
             return function(home, user_home)
-        return function(home, user_home, include_shared=False)
+        return external_write_targets(home, user_home, include_shared=False, allow_claude_skill_links=True)
     external_targets = selected_external_targets()
+    claude_skill_links = {}
+    if target.name == 'claude':
+        for skill, paths in external_targets.items():
+            for path in paths:
+                text = replaceable_claude_skill_link(path, user_home, skill)
+                if text is not None:
+                    claude_skill_links[path] = text
     if dry_run:
+        for path in claude_skill_links:
+            print(f'Would convert Claude skill link to independent upstream directory: {path}')
         print(f"Would acquire with: {shlex.join(external_acquisition_command())}")
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
         print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
@@ -1479,6 +1569,8 @@ def perform_install(
             raise InstallerError(f"{files} changed during acquisition; refusing to install")
         if snapshot_managed_targets(managed_paths) != managed_snapshot:
             raise InstallerError("managed install targets changed during acquisition; refusing to install")
+        link_options = ({'claude_skill_links': claude_skill_links, 'managed_snapshot': managed_snapshot}
+                        if claude_skill_links else {})
         backup_root = _transactional_install(
             root,
             home,
@@ -1492,6 +1584,7 @@ def perform_install(
             retired_targets=retired_targets,
             global_updates=global_updates,
             target=target,
+            **link_options,
         )
 
     print(f"Installed three external skills, Harness skill and profiles under: {home}")

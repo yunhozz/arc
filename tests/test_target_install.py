@@ -146,6 +146,224 @@ class TargetInstallTests(unittest.TestCase):
                 self.assertIn('symlink', output)
         self.assertEqual(tree_state(outside), before)
 
+    def seed_claude_links(self):
+        roots = write_candidates(self.home('codex') / 'skills', b'codex user bytes')
+        skills = self.home('claude') / 'skills'
+        skills.mkdir(parents=True)
+        links = {}
+        for index, (name, source) in enumerate(roots.items()):
+            text = str(source) if index == 0 else os.path.relpath(source, skills)
+            (skills / name).symlink_to(text)
+            links[name] = text
+        return links
+
+    def test_claude_skill_links_convert_to_independent_upstream_copies(self):
+        links = self.seed_claude_links()
+        before = tree_state(self.home('codex'))
+        with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire):
+            status, output = self.run_main(['--target', 'claude'])
+        self.assertEqual(status, 0, output)
+        for name, text in links.items():
+            installed = self.home('claude') / 'skills' / name
+            self.assertFalse(installed.is_symlink())
+            self.assertEqual((installed / 'SKILL.md').read_bytes(), b'new:SKILL.md')
+            backup = next((self.home('claude') / 'backups').glob('*/skills/' + name))
+            self.assertTrue(backup.is_symlink())
+            self.assertEqual(os.readlink(backup), text)
+        self.assertEqual(tree_state(self.home('codex')), before)
+
+    def test_claude_skill_links_reject_unsafe_targets_before_acquisition(self):
+        self.seed_claude_links()
+        victim = self.home('claude') / 'skills/brainstorming'
+        outside = self.base / 'outside'
+        outside.mkdir()
+        (outside / 'sentinel').write_bytes(b'keep')
+        canonical = self.home('codex') / 'skills/brainstorming'
+        for case in ('outside', 'wrong-name', 'dangling', 'cycle', 'file', 'codex-root', 'claude-parent'):
+            with self.subTest(case=case):
+                victim.unlink()
+                target = canonical
+                if case == 'outside': target = outside
+                if case == 'wrong-name': target = canonical.parent / 'writing-plans'
+                if case == 'dangling': target = self.base / 'missing'
+                if case == 'cycle': target = victim
+                if case == 'file':
+                    canonical.rename(canonical.with_name('saved'))
+                    canonical.write_bytes(b'file')
+                if case == 'codex-root':
+                    canonical.rename(canonical.with_name('saved'))
+                    canonical.symlink_to(outside)
+                victim.symlink_to(target)
+                if case == 'claude-parent':
+                    victim.parent.rename(victim.parent.with_name('saved-skills'))
+                    victim.parent.symlink_to(outside)
+                before = tree_state(self.user), tree_state(outside)
+                with patch.object(installer, 'acquire_external_skills', side_effect=AssertionError('acquisition')):
+                    status, output = self.run_main(['--target', 'claude'])
+                self.assertEqual(status, 2, output)
+                self.assertEqual((tree_state(self.user), tree_state(outside)), before)
+                if case == 'claude-parent':
+                    victim.parent.unlink()
+                    victim.parent.with_name('saved-skills').rename(victim.parent)
+                if case in ('file', 'codex-root'):
+                    canonical.unlink()
+                    canonical.with_name('saved').rename(canonical)
+
+    def test_claude_skill_links_reject_components_hidden_by_parent_traversal(self):
+        self.seed_claude_links()
+        victim = self.home('claude') / 'skills/brainstorming'
+        canonical = self.home('codex') / 'skills/brainstorming'
+        intermediate = canonical.parent / 'intermediate'
+        intermediate.symlink_to(canonical, target_is_directory=True)
+        for component in ('missing', 'intermediate'):
+            with self.subTest(component=component):
+                victim.unlink()
+                victim.symlink_to(str(canonical.parent / component) + '/../brainstorming')
+                before = tree_state(self.user)
+                with self.assertRaises(installer.InstallerError):
+                    installer.external_write_targets(
+                        self.home('claude'), self.user,
+                        include_shared=False, allow_claude_skill_links=True,
+                    )
+                self.assertEqual(tree_state(self.user), before)
+
+    def test_claude_skill_links_changed_during_acquisition_abort(self):
+        self.seed_claude_links()
+        victim = self.home('claude') / 'skills/brainstorming'
+        text = os.readlink(victim)
+        codex_before = tree_state(self.home('codex'))
+        for case in ('retarget', 'unlink', 'directory', 'same-link'):
+            with self.subTest(case=case):
+                if os.path.lexists(victim):
+                    installer.remove_path(victim)
+                victim.symlink_to(text)
+                changed = []
+                def acquire(work):
+                    acquired = self.acquire(work)
+                    victim.unlink()
+                    if case == 'retarget': victim.symlink_to(self.base / 'missing')
+                    if case == 'directory':
+                        victim.mkdir()
+                        (victim / 'user').write_bytes(b'new user data')
+                    if case == 'same-link': victim.symlink_to(text)
+                    changed.append(tree_state(victim))
+                    return acquired
+                with patch.object(installer, 'acquire_external_skills', side_effect=acquire), patch.object(installer, '_transactional_install', side_effect=AssertionError('transaction')):
+                    status, output = self.run_main(['--target', 'claude'])
+                self.assertEqual(status, 2, output)
+                self.assertEqual(tree_state(victim), changed[0])
+                self.assertEqual(tree_state(self.home('codex')), codex_before)
+
+    def test_claude_skill_link_readonly_modes_and_conversion_output(self):
+        self.seed_claude_links()
+        for flag in ('--check', '--dry-run'):
+            before = tree_state(self.base)
+            with patch.object(installer, 'acquire_external_skills', side_effect=AssertionError('acquisition')), patch.object(installer, '_transactional_install', side_effect=AssertionError('transaction')), patch.object(installer, 'create_stage_area', side_effect=AssertionError('stage')):
+                status, output = self.run_main(['--target', 'claude', flag])
+            self.assertEqual(status, 0, output)
+            self.assertEqual(tree_state(self.base), before)
+            if flag == '--dry-run':
+                self.assertIn('independent upstream directory', output)
+
+    def test_claude_skill_link_backup_and_rollback_never_follow_target(self):
+        self.seed('claude')
+        shutil.rmtree(self.home('claude') / 'skills')
+        links = self.seed_claude_links()
+        before = self.target_snapshot(self.home('claude'))
+        codex_before = tree_state(self.home('codex'))
+        replace = installer._replace_claude_skill_leaf
+        copytree = shutil.copytree
+        def copy(source, *args, **kwargs):
+            self.assertFalse(Path(source).is_symlink(), 'backup followed a link root')
+            return copytree(source, *args, **kwargs)
+        def fail(source, destination):
+            if source.name == 'brainstorming' and source.parent.name.startswith('.yunho-harness-external-'):
+                raise OSError('injected install failure after original link move')
+            return replace(source, destination)
+        with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer.shutil, 'copytree', side_effect=copy), patch.object(installer, '_replace_claude_skill_leaf', side_effect=fail):
+            status, output = self.run_main(['--target', 'claude'])
+        self.assertEqual(status, 2, output)
+        self.assertIn('prior files were restored', output)
+        self.assertEqual(self.target_snapshot(self.home('claude')), before)
+        self.assertEqual(tree_state(self.home('codex')), codex_before)
+        for name, text in links.items():
+            self.assertEqual(os.readlink(self.home('claude') / 'skills' / name), text)
+
+    def test_claude_skill_link_rollback_failure_preserves_recovery(self):
+        links = self.seed_claude_links()
+        replace = installer._replace_claude_skill_leaf
+        def fail(source, destination):
+            if source.parent.name.startswith('.yunho-harness-external-'):
+                raise OSError('injected install or rollback failure')
+            return replace(source, destination)
+        with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer, '_replace_claude_skill_leaf', side_effect=fail):
+            status, output = self.run_main(['--target', 'claude'])
+        self.assertEqual(status, 2, output)
+        self.assertIn('recovery data preserved at:', output)
+        recovery = next((self.home('claude') / 'skills').glob('.yunho-harness-external-*/previous-brainstorming'))
+        self.assertTrue(os.path.lexists(recovery))
+        self.assertEqual(os.readlink(recovery), links['brainstorming'])
+        self.assertIn(str(recovery), output)
+
+    def test_claude_link_profile_failure_restores_original_entries(self):
+        self.seed('claude')
+        shutil.rmtree(self.home('claude') / 'skills')
+        links = self.seed_claude_links()
+        before = self.target_snapshot(self.home('claude'))
+        original = os.replace
+        def fail(source, destination, **kwargs):
+            if Path(source).name == 'harness-coder.md' and Path(source).parent.name.startswith('.yunho-harness-profiles-'):
+                raise OSError('injected later profile failure')
+            return original(source, destination, **kwargs)
+        with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer.os, 'replace', side_effect=fail):
+            status, output = self.run_main(['--target', 'claude'])
+        self.assertEqual(status, 2, output)
+        self.assertIn('prior files were restored', output)
+        self.assertEqual(self.target_snapshot(self.home('claude')), before)
+        for name, text in links.items():
+            self.assertEqual(os.readlink(self.home('claude') / 'skills' / name), text)
+
+    def test_claude_post_install_snapshot_failure_preserves_unverified_target(self):
+        links = self.seed_claude_links()
+        victim = self.home('claude') / 'skills/brainstorming'
+        codex_before = tree_state(self.home('codex'))
+        snapshot = installer.snapshot_managed_targets
+        installed_state = []
+        def fail_once(paths):
+            result = snapshot(paths)
+            if paths == (victim,) and not victim.is_symlink() and not installed_state:
+                installed_state.append(tree_state(victim))
+                raise installer.InstallerError('injected post-install snapshot failure')
+            return result
+        with patch.object(installer, 'acquire_external_skills', side_effect=self.acquire), patch.object(installer, 'snapshot_managed_targets', side_effect=fail_once):
+            status, output = self.run_main(['--target', 'claude'])
+        self.assertEqual(status, 2, output)
+        self.assertIn('rollback failed:', output)
+        self.assertIn('recovery data preserved at:', output)
+        self.assertEqual(tree_state(victim), installed_state[0])
+        self.assertEqual((victim / 'SKILL.md').read_bytes(), b'new:SKILL.md')
+        recovery = next(victim.parent.glob('.yunho-harness-external-*/previous-brainstorming'))
+        self.assertTrue(recovery.is_absolute())
+        self.assertTrue(os.path.lexists(recovery))
+        self.assertEqual(os.readlink(recovery), links['brainstorming'])
+        self.assertIn(str(recovery), output)
+        self.assertEqual(tree_state(self.home('codex')), codex_before)
+
+    def test_claude_leaf_move_rejects_swapped_intermediate_parent(self):
+        outside = self.base / 'outside'
+        outside.mkdir()
+        (outside / 'sentinel').write_bytes(b'keep')
+        parent = self.base / 'parent'
+        parent.mkdir()
+        (parent / 'leaf').symlink_to('../outside')
+        parent.rename(self.base / 'previous-parent')
+        parent.symlink_to(outside)
+        before = tree_state(outside)
+        with self.assertRaises(OSError):
+            installer._replace_claude_skill_leaf(parent / 'leaf', self.base / 'destination')
+        self.assertEqual(tree_state(outside), before)
+        self.assertTrue((self.base / 'previous-parent/leaf').is_symlink())
+
     def test_target_errors_precede_manifest_acquisition_and_writes(self):
         for flags in ([], ['--target', 'other'], ['--target','codex','--target','codex'], ['--target=claude','--target','codex'], ['--target=claude','--target=claude']):
             with self.subTest(flags=flags), patch.object(installer, 'verify_manifest', side_effect=AssertionError('manifest called')), patch.object(installer, 'acquire_external_skills', side_effect=AssertionError('acquisition called')), patch.object(installer, 'perform_install', side_effect=AssertionError('write called')):
