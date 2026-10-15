@@ -1953,7 +1953,7 @@ class ExternalSkillPreflightTests(unittest.TestCase):
                     self.assertTrue(saved.is_file(), str(saved))
                     self.assertEqual(saved.read_bytes(), content)
                     self.assertEqual(stat.S_IMODE(saved.stat().st_mode), mode)
-                self.assertTrue(all(path.exists() for path in self.retired_paths()))
+                self.assertTrue(all(path.exists() for path in paths))
                 for filename in installer.PROFILE_FILES:
                     profile = tomllib.loads((self.codex_home / "agents" / filename).read_text())
                     role = filename.removesuffix(".toml").replace("-", "_")
@@ -2051,8 +2051,8 @@ class ExternalSkillPreflightTests(unittest.TestCase):
 
     def test_active_profile_rollback_failure_preserves_recovery_and_user_profiles(self) -> None:
         self.create_payload()
-        paths = self.seed_retired(2)
         self.seed_existing_targets()
+        paths = self.seed_retired(2)
         active = self.codex_home / "agents" / installer.PROFILE_FILES[0]
         original = active.read_bytes()
         acquire, _ = self.acquisition_stub()
