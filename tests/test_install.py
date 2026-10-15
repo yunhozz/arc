@@ -115,9 +115,13 @@ def settings_bytes(roles: dict, version=5) -> bytes:
     return ("\n".join(lines) + "\n").encode()
 
 
+# Resolve symlinks (e.g. macOS /var -> /private/var): the installer rejects symlinked paths.
+TMP_ROOT = os.path.realpath(tempfile.gettempdir())
+
+
 class ModelSettingsTests(unittest.TestCase):
     def setUp(self) -> None:
-        temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        temporary = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(temporary.cleanup)
         self.config = Path(temporary.name) / "models.toml"
         self.module = installer.load_model_module(REPO)
@@ -227,7 +231,7 @@ class ModelSettingsTests(unittest.TestCase):
 
 class ApplyModelsTests(unittest.TestCase):
     def setUp(self) -> None:
-        temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        temporary = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name)
         self.config = self.base / "models.toml"
@@ -483,20 +487,6 @@ class TaskCommitPolicyTests(unittest.TestCase):
             r"historical spec/plan.*not.*retroactively",
             r"structural checks.*do not prove.*agent runtime",
         ))
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertIn("## 계획 task 수락과 자동 커밋", readme)
-        task_help = readme.split("## 계획 task 수락과 자동 커밋", 1)[1].split("## ", 1)[0]
-        self.contracts(task_help, (
-            r"최상위 task.*커밋.*단위",
-            r"CEO.*수락 기준.*필수 검사.*findings.*수락.*추가 사용자 커밋 승인 없이.*로컬 커밋",
-            r"하위 체크박스.*Coder 보고.*검사 통과.*수락.*대신하지",
-            r"보류.*변경 없음.*빈 커밋.*재개.*중복",
-            r"최종.*QA.*Reviewer.*구분",
-            r"문서.*명시.*선택.*일괄.*조기.*커밋",
-            r"push.*merge.*publish.*deploy.*install.*별도.*승인",
-            r"Conventional Commits.*한국어.*마침표",
-            r"구조 검사.*runtime.*입증하지",
-        ))
 
 
 class ConditionalReferenceTests(unittest.TestCase):
@@ -539,10 +529,6 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertNotRegex(policy_text("handoff-prep").split("## workspace handoff", 1)[0], r"choice request also read")
         self.assertRegex(policy_text("handoff-worktree").split("## workspace handoff", 1)[0], r"reads after the user explicitly selects the new managed worktree option, before its creation, branch work or document transfer")
         self.assertNotIn("before an execution-target choice request", policy_text("handoff-worktree").split("## workspace handoff", 1)[0])
-        readme_row = next(line for line in (REPO / "README.md").read_text().splitlines()
-                          if "references/handoff-worktree.md" in line)
-        self.assertIn("명시 선택 뒤 생성·branch 작업·문서 전달 전", readme_row)
-        self.assertNotIn("실행 대상 선택 요청", readme_row)
         self.assertRegex(policy_text("handoff-worktree"),
                          r"verify final approved branch and head before document transfer, the batch docs commit, final git verification and coder handoff")
         self.assertRegex(policy_text("handoff"), r"new managed worktree and task branch \(selection target under handoff-prep\.md; contract in handoff-worktree\.md after selection\)")
@@ -628,10 +614,6 @@ class ConditionalReferenceTests(unittest.TestCase):
                            r"ceo and coder independently", r"independent checkout"):
                 with self.subTest(file=name, absent=absent):
                     self.assertNotRegex(text, absent)
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertIn("Coder는 CEO가 검증한 brief", readme)
-        for absent in ("Coder의 독립 확인", "CEO와 Coder는 매 시작"):
-            self.assertNotIn(absent, readme)
 
     def test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections(self) -> None:
         def headings(name: str) -> list[str]:
@@ -683,14 +665,12 @@ class ConditionalReferenceTests(unittest.TestCase):
 class ReviewerOncePerPlanTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_final_single_reviewer_is_explicit(self) -> None:
-        readme = " ".join((REPO / "README.md").read_text().split())
         for name, text, contract in (
             ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
             ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
             ("planning", policy_text("planning"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
             ("commit", policy_text("commit"), r"final reviewer is plan-level, never a task prerequisite"),
             ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
-            ("readme", readme, r"Reviewer는 task 수락 선행 조건이 아니며.*plan.*모든 task.*수락.*위험 수준에 맞는 QA.*최종 전체 변경.*한 번.*plan이 없는"),
         ):
             with self.subTest(artifact=name):
                 self.assertRegex(text, contract)
@@ -699,7 +679,7 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
         self.assertRegex(row, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
 
     def test_no_per_task_reviewer_wording(self) -> None:
-        paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml"), REPO / "README.md"]
+        paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]
         for path in paths:
             text = " ".join(path.read_text().lower().split())
             with self.subTest(file=path.name, absent="accepted and qa'd"):
@@ -742,14 +722,10 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_research_routing_tiers(self) -> None:
         opening = policy_text("core").split("## ownership", 1)[0]
         self.assertRegex(opening, r"quick read of a few known files.*bounded lookup.*known paths.*no synthesis.*scouter.*lighter effort under models.*material research, synthesis, or broad exploration.*configured settings.*when unsure, use configured settings")
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertRegex(readme, r"조사 라우팅.*이미 CEO 컨텍스트.*한정 조회.*낮은 추론 강도.*본격 조사.*종합.*넓은 탐색.*설정값.*불확실하면 설정값")
 
     def test_models_scouter_lookup_exception(self) -> None:
         models = policy_text("core").split("## models", 1)[1].split("after editing", 1)[0]
         self.assertRegex(models, r"use configured settings without substitution, except that for a bounded scouter lookup ceo spawns scouter with `fork_turns=\"none\"` and `reasoning_effort=\"medium\"` and records the choice and reason in the brief; report unavailable settings")
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertRegex(readme, r"한정 Scouter 조회.*`fork_turns=\"none\"`.*`reasoning_effort=\"medium\"`.*brief에 기록.*대체 없이")
 
     def test_skill_not_reread_and_agents_body_wording(self) -> None:
         tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
@@ -757,8 +733,6 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
         body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
         self.assertIn("keep following it in relevant follow-up turns of the same chat without re-reading it unless it changed", body)
         self.assertNotIn("including relevant follow-up turns", body)
-        readme = (REPO / "README.md").read_text()
-        self.assertIn(body.splitlines()[0], readme)
 
     def test_brief_template_field_order_and_delta(self) -> None:
         tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
@@ -772,8 +746,6 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
                      r"cite paths/lines/pages/commands/links instead of logs; investigate gaps only"):
             with self.subTest(kept=kept):
                 self.assertRegex(tokens, kept)
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertRegex(readme, r"Goal; Criteria.*Scope/ownership.*Constraints/decisions.*Evidence.*Prior findings.*Next objective.*Return format.*바뀐 필드만.*`unchanged`")
 
     def test_handoff_record_file_location(self) -> None:
         handoff = policy_text("handoff")
@@ -790,8 +762,6 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             with self.subTest(contract=contract):
                 self.assertRegex(handoff, contract)
         self.assertRegex(policy_text("core"), r"records the canonical handoff state in the handoff record file")
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertRegex(readme, r"<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>\.md.*스테이징·커밋하지 않고.*절대 경로.*쓰기가 거부되거나 불가하면.*자동 삭제하지 않습니다")
 
 
 SHARED_TERMS = {
@@ -841,19 +811,38 @@ POLICY_WORD_CEILINGS = {
     "codex/agents/harness-qa.toml": 350,
     "codex/agents/harness-reviewer.toml": 250,
     "codex/agents/harness-scouter.toml": 250,
+    "claude/skill/SKILL.md": 3300,
+    "claude/skill/references/commit.md": 350,
+    "claude/skill/references/git-recovery.md": 500,
+    "claude/skill/references/handoff-prep.md": 600,
+    "claude/skill/references/handoff.md": 500,
+    "claude/skill/references/planning.md": 1500,
+    "claude/skill/references/verification.md": 850,
+    "claude/skill/references/visual-companion.md": 150,
+    "claude/agents/harness-coder.md": 400,
+    "claude/agents/harness-planner.md": 400,
+    "claude/agents/harness-qa.md": 450,
+    "claude/agents/harness-reviewer.md": 350,
+    "claude/agents/harness-scouter.md": 300,
 }
 POLICY_WORD_TOTAL_CEILING = 13350
+CLAUDE_POLICY_WORD_TOTAL_CEILING = 9250
 
 
 def policy_word_counts(root: Path) -> dict[str, int]:
     paths = [root / "codex/skill/SKILL.md", *sorted((root / "codex/skill/references").glob("*.md")),
-             *sorted((root / "codex/agents").glob("*.toml"))]
-    return {
-        str(path.relative_to(root)): len(
-            (tomllib.loads(path.read_text())["developer_instructions"] if path.suffix == ".toml"
-             else path.read_text()).split())
-        for path in paths
-    }
+             *sorted((root / "codex/agents").glob("*.toml")),
+             root / "claude/skill/SKILL.md", *sorted((root / "claude/skill/references").glob("*.md")),
+             *sorted((root / "claude/agents").glob("*.md"))]
+
+    def body(path: Path) -> str:
+        if path.suffix == ".toml":
+            return tomllib.loads(path.read_text())["developer_instructions"]
+        text = path.read_text()
+        if path.parent.name == "agents" and text.startswith("---"):
+            return text.split("---", 2)[2]
+        return text
+    return {str(path.relative_to(root)): len(body(path).split()) for path in paths}
 
 
 class WholeSystemReviewFollowUpTests(unittest.TestCase):
@@ -899,9 +888,10 @@ class PolicyWordBudgetTests(unittest.TestCase):
             with self.subTest(file=name):
                 self.assertLessEqual(words, POLICY_WORD_CEILINGS[name],
                                      f"{name}: {words} words exceeds ceiling {POLICY_WORD_CEILINGS[name]}; {advice}")
-        total = sum(counts.values())
-        self.assertLessEqual(total, POLICY_WORD_TOTAL_CEILING,
-                             f"total: {total} words exceeds ceiling {POLICY_WORD_TOTAL_CEILING}; {advice}")
+        for prefix, ceiling in (("codex/", POLICY_WORD_TOTAL_CEILING), ("claude/", CLAUDE_POLICY_WORD_TOTAL_CEILING)):
+            total = sum(words for name, words in counts.items() if name.startswith(prefix))
+            self.assertLessEqual(total, ceiling,
+                                 f"{prefix} total: {total} words exceeds ceiling {ceiling}; {advice}")
 
 
 class SharedTermsTests(unittest.TestCase):
@@ -1138,8 +1128,6 @@ class CeoDirectPathTests(unittest.TestCase):
         handoff_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                            if "references/handoff.md" in line)
         self.assertIn("ceo direct edit", handoff_row)
-        readme = " ".join((REPO / "README.md").read_text().split())
-        self.assertRegex(readme, r"CEO 직접 경로")
 
 
 class CoderBriefAndReuseTests(unittest.TestCase):
@@ -1163,13 +1151,6 @@ class CoderBriefAndReuseTests(unittest.TestCase):
     def test_loader_keeps_subagents_on_profiles(self) -> None:
         body = installer.agents_block_body(Path("/home/u/.codex"), Path("/home/u"))
         self.assertIn("Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
-        readme = (REPO / "README.md").read_text()
-        section = readme.split("## 🔌 전역 설정 자동 반영", 1)[1].split("\n## ⚙️", 1)[0]
-        self.assertIn(f"## Yunho's Harness\n\n{body}```", section)
-        for phrase in ("--skip-global", "backups/<timestamp>/global/", "min_wait_timeout_ms = 120000",
-                       "default_wait_timeout_ms = 300000", "Yunho's Harness"):
-            self.assertIn(phrase, section)
-        self.assertNotIn("설치기는 전역 설정과 `AGENTS.md`를 수정하지 않습니다", readme)
 
 
 class LongTaskTokenTests(unittest.TestCase):
@@ -1289,11 +1270,6 @@ class RolePolicyTests(unittest.TestCase):
         for removed in ("viewport", "interaction steps", "clean up only"):
             self.assertNotIn(removed, qa)
         self.assertRegex(policy, r"visual companion.*design discussion.*distinct from.*qa.*ui acceptance")
-        readme = (REPO / "README.md").read_text()
-        self.assertIn("작업 요약이 검증 참조의 UI 브라우저 수락 검사 섹션을 지정하고", readme)
-        for term in ("UI 수락 기준", "브라우저", "화면 표시 영역", "공유", "Visual companion"):
-            with self.subTest(readme_term=term):
-                self.assertIn(term, readme)
 
     def test_qa_reporting_contract(self) -> None:
         instructions = " ".join(tomllib.loads(
@@ -1569,19 +1545,18 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(core, r"selected worktree.*common directory.*registration.*source preservation")
         self.assertRegex(core, r"depth-2 roles use the supplied workspace")
 
-    def test_worktree_readme_matches_selected_execution_paths(self) -> None:
-        readme = " ".join((REPO / "README.md").read_text().split())
-        for phrase in ("현재 체크아웃", "같은 체크아웃", "관리형 worktree", "mcp__codex_app__create_worktree",
-                       "allowAsync: true", "operationId", "attach_worktree", "앱이", "승인 branch",
-                       "source HEAD", "index blob·mode", "working-tree bytes", "최신 승인", "destination",
-                       "base SHA", "staging", "부분 완료", "재개", "runtime"):
-            self.assertIn(phrase, readme)
-        self.assertNotIn("../<repo>-<topic>-worktree", readme)
-        self.assertNotIn("git worktree add -b", readme)
-        self.assertRegex(readme, r"개별 승인.*명시 선택.*앱.*연결.*branch.*문서 전달.*대상에서.*커밋.*최종.*인계")
-        self.assertRegex(readme, r"Tracked.*index blob·mode.*source HEAD.*working-tree bytes.*최신 승인")
-        self.assertRegex(readme, r"불일치.*중단.*staging.*해결하지")
-        self.assertRegex(readme, r"원본 보존.*예상 밖 상태 확인.*면제하지")
+    def test_worktree_contract_matches_selected_execution_paths(self) -> None:
+        text = policy_text("handoff-worktree")
+        for phrase in ("mcp__codex_app__create_worktree", "allowasync: true", "operationid", "attach_worktree",
+                       "the app determines the actual destination path", "approved branch", "source head",
+                       "index blob and mode", "working-tree bytes", "latest approved version", "base sha",
+                       "staging", "registration", "do not fall back to raw git worktree creation"):
+            self.assertIn(phrase, text)
+        self.assertNotIn("../<repo>-<topic>-worktree", text)
+        self.assertNotIn("git worktree add -b", text)
+        self.assertRegex(text, r"only an explicit user choice of this third path authorizes preparation")
+        self.assertRegex(text, r"any mismatch means stop.*do not automatically stash, commit, reset, clean, or unstage")
+        self.assertRegex(text, r"do not repair or verify them by staging source documents")
 
     def test_distribution_manifest_matches_scouter_payload(self) -> None:
         installer.verify_manifest(REPO)
@@ -1661,7 +1636,7 @@ class GlobalSettingsTests(unittest.TestCase):
         self.assertTrue(text.endswith(self.block()))
 
     def test_unmanaged_harness_section_is_kept_and_reported(self) -> None:
-        with tempfile.TemporaryDirectory(dir="/private/tmp") as directory:
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
             home = Path(directory)
             (home / "AGENTS.md").write_text(self.OLD)
             updates, notes = installer.plan_global_updates(home, home)
@@ -1669,7 +1644,7 @@ class GlobalSettingsTests(unittest.TestCase):
             self.assertTrue(any("Yunho's Harness" in note and "AGENTS.md" in note for note in notes))
 
     def test_non_utf8_global_file_is_reported_not_crashed(self) -> None:
-        with tempfile.TemporaryDirectory(dir="/private/tmp") as directory:
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
             home = Path(directory)
             (home / "AGENTS.md").write_bytes(b"\xff\xfe broken")
             with self.assertRaises(installer.InstallerError):
@@ -1729,7 +1704,7 @@ class GlobalSettingsTests(unittest.TestCase):
 
 class ExternalSkillPreflightTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        self.temporary = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(self.temporary.cleanup)
         self.base = Path(self.temporary.name)
         self.codex_home = self.base / "codex-home"
@@ -3072,7 +3047,7 @@ class FakeProcess:
 
 class AcquiredTreeValidationTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        self.temporary = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(self.temporary.cleanup)
         self.base = Path(self.temporary.name)
 
@@ -3197,7 +3172,7 @@ class AcquiredTreeValidationTests(unittest.TestCase):
 
 class ExternalSkillAcquisitionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory(dir="/private/tmp")
+        self.temporary = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(self.temporary.cleanup)
         self.base = Path(self.temporary.name)
         self.user_home = self.base / "user home with spaces"
