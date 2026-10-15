@@ -5,3 +5,27 @@ Claude v1 supports the current checkout only; Harness-managed worktree execution
 Before each preparation Git mutation, confirm the approved document set, absolute repository/workspace, branch or detached HEAD, HEAD commit, index, worktree/untracked files, and ownership. Present this state and obtain an explicit user choice to reuse the current branch or create a task branch. Before creating a branch, present its exact candidate name and base. Planning approval or silence does not select a branch. Preserve all unrelated changes; if they block preparation, stop and report rather than stashing, resetting or cleaning.
 
 Batch-commit all remaining approved planning documents together in one focused docs commit before the first Coder handoff. Stage only those document paths and verify the staged content and scope. Verify the resulting SHA, subject, paths, branch, HEAD and remaining state. Already committed approved documents need no duplicate commit. Record actual preparation order and any deviation honestly, then complete the handoff gate before the next Coder start. User authorization persists for the unchanged approved target and scope; do not repeatedly ask for the same choice.
+
+## New task branch naming
+
+With explicit user approval of the exact candidate and base, create the branch in the current checkout (for example `git switch -c <branch>`; detached HEAD is acceptable when HEAD is resolved and in the approval target). Name it `<type>/<short-kebab-case-topic>`: a lowercase prefix for the task's main purpose and a short, specific lowercase kebab-case topic without spaces.
+
+| Prefix | Purpose |
+|---|---|
+| feat/ | Add a feature |
+| fix/ | Fix a bug |
+| refactor/ | Restructure preserving behavior |
+| docs/ | Change documentation |
+| test/ | Add or change tests |
+| build/ | Build, packaging, dependencies |
+| ci/ | CI configuration |
+| perf/ | Improve performance |
+| style/ | Formatting or style only |
+| chore/ | Operational policy, tools, maintenance |
+| revert/ | Revert a prior change |
+
+Validate the name and check collisions before creation. If the base name exists, append `-2`, `-3`, and so on to the topic, choosing the first unused name (`chore/branch-policy`, then `chore/branch-policy-2`). Never reuse, delete, or overwrite an existing branch. Distinguish a lookup error from a missing branch; a lookup error blocks handoff and goes to git-recovery. Recheck workspace, branch or detached HEAD, base HEAD, and candidate before execution. If the target changes or a new collision changes the candidate, present it and obtain new explicit approval before creating or switching; without it, block handoff. After success confirm the branch matches the candidate, HEAD matches the base, the path is unchanged, and existing changes are preserved.
+
+## Planning document commit
+
+Begin only when all applicable documents are written, individually approved, and the set is complete. Verify already committed approved documents by SHA, message, paths, and content and reuse them; batch all remaining approved documents into one focused docs commit, staging only those paths and verifying staged paths and diff. Finalize the Korean Conventional Commit message before the first commit; no temporary message then amend. Never amend, reset, or recommit past commits to merge them. Skip the commit only when no documents were required or produced, recording the depth rationale; uncommitted documents are not absent. Never include implementation files. After success verify SHA, message, paths, HEAD, branch, and remaining state; the commit is not push approval.

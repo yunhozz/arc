@@ -192,15 +192,14 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 - `AskUserQuestion` questions use only `question`, a `header` of at most 12 characters, 2-4 `options` each with `label` and `description`, and `multiSelect`.
 - Always start a Harness role by its installed native name (`harness-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for a Harness role; do not claim fresh context isolation without evidence. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
   remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
+- Cite in the brief the absolute path of each required external skill's SKILL.md (`test-driven-development` for Coder, `brainstorming`/`writing-plans` for Planner); the role Reads it before dependent work.
+- For Reviewer, CEO writes the final base..HEAD diff plus changed-file list to `<git-common-dir>/yunho-harness/review/<slug>.diff` (same slug as the handoff record; base is the approved base HEAD recorded at handoff; inline when small or write denied) and cites its absolute path in the brief; Reviewer reads it and states limits. See verification.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
 - Before optional calls, name the unresolved question and expected artifact; skip calls already resolved by available
   evidence/direct inspection. Preserve required planning and risk-scaled QA/review. Do not call every role
   automatically, add redundant scripts, or repeat audits when direct tools/evidence suffice.
-- Receive the Claude native subagent completion result before a dependent handoff; report unavailable completion
-  or waiting capabilities to CEO rather than inventing an API. Do not poll status with repeated short waits or shell
-  loops. Send one complete brief per objective and batch related corrections. For long-running commands use a single
-  blocking wait with the tool's longest supported yield; do not repeatedly poll with sleep or short status checks.
+- Run each Harness role as a foreground Agent call and use its returned result, or run it in the background and wait for the completion notification; report unavailable execution to CEO rather than inventing an API. Do not poll status in loops; never sleep-poll. A timeout or delay is not a reason to poll or check status in between. Send one complete brief per objective and batch related corrections. For long Bash commands set a sufficient `timeout` or use `run_in_background` and wait for its completion notification.
 
 - Read only the needed ranges of files and outputs (for example `rg -n`, `sed -n`, `head`/`tail`) and cap long command
   output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in

@@ -167,8 +167,8 @@ class ClaudePayloadTests(unittest.TestCase):
         ):
             self.assertRegex(' '.join(direct.split()), clause)
         planning = ' '.join((PAYLOAD / 'skill/references/planning.md').read_text().split())
-        self.assertRegex(planning, r'direct path.*short design.*explicit user approval before.*edit')
-        self.assertRegex(planning, r'handoff.*execution target.*Git state.*approved files.*focused checks')
+        self.assertRegex(planning, r'direct path.*defined only in SKILL\.md')
+        self.assertNotIn('Edit only approved files', planning)
 
     def test_ceo_direct_path_excludes_every_significant_risk_trigger(self):
         # Reviewed policy structure only; runtime compliance requires separate evidence.
@@ -223,9 +223,101 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_skill_markdown_has_no_foreign_platform_contracts(self):
         forbidden = r'(?i)codex|spawn_agent|wait_agent|fork_turns|reasoning_effort|mcp__codex|/\.codex/'
-        for path in (PAYLOAD / 'skill').rglob('*.md'):
+        for path in list((PAYLOAD / 'skill').rglob('*.md')) + list((PAYLOAD / 'agents').glob('*.md')):
             with self.subTest(path=path.relative_to(PAYLOAD)):
                 self.assertNotRegex(path.read_text(), forbidden)
+
+    def read_claude(self, *parts):
+        return (PAYLOAD.joinpath(*parts)).read_text()
+
+    def assert_all(self, text, needles):
+        for needle in needles:
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+
+    def test_claude_verification_ui_criterion_and_reviewer_rules(self):
+        text = self.read_claude('skill/references/verification.md')
+        self.assert_all(text, (
+            '### UI browser acceptance checks', 'QA-created processes', 'cites this section with its path',
+            'not proof', 'unavailable', '### Criterion evidence and finding handoff',
+            'passed, failed, not run, or environment blocked', 'proven, unmet, or unverified',
+            'PASS, if used, means only run status', 'Structural checks prove structure only',
+            'source-inferred', 'execution-observed', 'never a plan-task acceptance prerequisite',
+            'once on the final full change after all plan tasks', 'follow-up task',
+            'CEO decides when a Reviewer recheck is warranted',
+            '<git-common-dir>/yunho-harness/review/<slug>.diff', 'changed-file list',
+            'same slug as the handoff record', 'approved base HEAD recorded at handoff',
+            'installed browser skill', 'existing approved test environment', 'exact limitation',
+        ))
+
+    def test_claude_agent_profiles_hold_acceptance_contracts(self):
+        qa = self.read_claude('agents/harness-qa.md')
+        self.assert_all(qa, ('UI browser acceptance checks', 'cites', 'unverified', 'environment blocked',
+                             'proven, unmet, or unverified', 'only run status'))
+        rev = self.read_claude('agents/harness-reviewer.md')
+        self.assert_all(rev, ('source-inferred', 'execution-observed', 'criterion, expected behavior',
+                              'after the required QA', 'diff artifact', 'limits'))
+        plan = self.read_claude('agents/harness-planner.md')
+        self.assert_all(plan, ('Korean', 'ID and title', 'hold conditions', 'one focused implementation commit',
+                               'never Reviewer as a per-task', 'single independent Reviewer', 'complete drafts'))
+        sc = self.read_claude('agents/harness-scouter.md')
+        self.assert_all(sc, ('live operational state', 'cleanup', 'Report mixed implementation work'))
+        for role in ('scouter', 'planner', 'reviewer'):
+            body = self.read_claude(f'agents/harness-{role}.md')
+            with self.subTest(role=role):
+                self.assertNotIn('Expected TDD RED', body)
+                self.assertNotIn('do not poll long commands', body)
+
+    def test_claude_planning_reference_ports_paths_and_gates(self):
+        text = self.read_claude('skill/references/planning.md')
+        self.assert_all(text, ('Spike', 'Bounded', 'Architectural', 'plan depth', 'must not substitute',
+                               'Spec save', 'Plan save', 'Complete planning-document set', 'Normal order',
+                               'current checkout', 'early spec commit', 'Evidence refresh', 'Top-level plan tasks',
+                               'Korean'))
+        self.assertNotIn('Edit only approved files', text)
+
+    def test_claude_handoff_prep_branch_naming_and_collisions(self):
+        text = self.read_claude('skill/references/handoff-prep.md')
+        self.assert_all(text, ('<type>/<short-kebab-case-topic>', '| feat/ |', '| fix/ |', '| chore/ |', '| revert/ |',
+                               '`-2`', '`-3`', 'lookup error', 'missing branch', 'explicit approval'))
+
+    def test_claude_handoff_record_slug_fallback_and_reuse(self):
+        text = self.read_claude('skill/references/handoff.md')
+        self.assert_all(text, ('unique per plan', 'dated plan filename stem', 'spec/task slug',
+                               'never overwrite another plan', 'after each accepted task commit',
+                               'full record inline in every Coder brief', 'no delta', 'Choice lifetime',
+                               'approved branch candidate'))
+
+    def test_claude_commit_and_recovery_rules(self):
+        commit = self.read_claude('skill/references/commit.md')
+        self.assert_all(commit, ('Hold the task commit', 'no empty commit', 'existing commit', 'follow-up task',
+                                 '<type>(<scope>): <description>', 'Korean description',
+                                 'remaining final verification', 'hold/no-change/reuse reasons'))
+        self.assertNotIn('when repository instructions require', commit)
+        prep = self.read_claude('skill/references/handoff-prep.md')
+        self.assert_all(prep, ('before the first commit', 'temporary message', 'uncommitted documents are not absent'))
+        hand = self.read_claude('skill/references/handoff.md')
+        self.assert_all(hand, ('after applicable approvals and document completeness', 'never fall back automatically'))
+        plan = self.read_claude('skill/references/planning.md')
+        self.assert_all(plan, ('Administrative status updates must accurately describe actual progress',
+                               'before Coder or a CEO direct edit', 'regardless of locality, risk, or size',
+                               'does not require written-spec approval or execution-target choice',
+                               'leave runtime compliance unverified', 'stops before edits dependent on new plans'))
+        rec = self.read_claude('skill/references/git-recovery.md')
+        self.assert_all(rec, ('never broad Git access', 'concurrent Git activity', 'remaining uncertainty'))
+        rec = self.read_claude('skill/references/git-recovery.md')
+        self.assert_all(rec, ('Branch collision', 'Git metadata write denial', 'lock', 'permission system',
+                              'exact command', 'handoff record', 'inline'))
+
+    def test_claude_skill_brief_requires_review_artifact_external_skills_and_waits(self):
+        core = self.read_claude('skill/SKILL.md')
+        self.assert_all(core, ('<git-common-dir>/yunho-harness/review/<slug>.diff', 'absolute path of each required external skill',
+                               'foreground Agent call', 'run_in_background', 'never sleep-poll',
+                               'not a reason to poll', 'same slug as the handoff record'))
+        self.assertIn('inline diff', self.read_claude('agents/harness-reviewer.md'))
+        for stale in ('single blocking wait', 'yield', 'repeated short waits'):
+            with self.subTest(stale=stale):
+                self.assertNotIn(stale, core)
 
     def test_manifest_covers_immutable_claude_payload(self):
         entries = dict(line.split('  ', 1)[::-1] for line in (ROOT / 'MANIFEST.sha256').read_text().splitlines())
