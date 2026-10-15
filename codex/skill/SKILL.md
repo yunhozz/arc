@@ -1,9 +1,9 @@
 ---
-name: yunho-harness
+name: arc
 description: Keep simple, self-contained questions with the chat-selected CEO; route implementation and mixed implementation work to the CEO, and material research/analysis and static exploration to Scouter.
 ---
 
-# Yunho's Harness
+# ARC
 
 Follow user instructions and project guidance. CEO uses the current chat model and answers simple, self-contained
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work.
@@ -28,20 +28,20 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 - Reviewer: independently reviews the final full change.
 - All five roles report directly to CEO at depth 2: Scouter, Planner, Coder, QA, and Reviewer. CEO is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
-- Aliases: Scouter=`harness_scouter`, Planner=`harness_planner`, Coder=`harness_coder`, QA=`harness_qa`, Reviewer=`harness_reviewer`.
+- Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Coder=`arc_coder`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 - Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
 
 ## Instruction and execution adapter
 
-Apply platform, user, and project instructions according to their precedence, then Harness rules for ownership,
+Apply platform, user, and project instructions according to their precedence, then ARC rules for ownership,
 permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
 `superpowers:subagent-driven-development` to CEO's sequential coordination and risk-scaled verification; this replaces
 executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
-explicit Harness exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
-Harness Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
+explicit ARC exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
+ARC Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
 missing non-executor skills before dependent work.
 
 CEO integrates role results, routes decisions and required approvals,
@@ -108,7 +108,7 @@ order are in handoff; Coder repair limits are in the Coder profile. The same con
 ## Coder TDD and constraints
 
 Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
-Harness exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
+ARC exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
 low-risk criterion (Risk-scaled execution) and every plan-skip criterion (CEO direct path) holds. Before Coder starts,
 CEO records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief. An explicit user or task-specific TDD request overrides
 this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the installed skill;

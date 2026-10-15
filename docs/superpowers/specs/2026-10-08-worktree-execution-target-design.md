@@ -7,7 +7,7 @@
 
 ## 1. 목적과 승인 범위
 
-Harness의 실행 대상 선택에 세 번째 경로를 추가한다.
+ARC의 실행 대상 선택에 세 번째 경로를 추가한다.
 
 > 새 worktree와 새 task branch를 함께 만들고, 생성한 worktree를 역할들의 실행 workspace로 사용한다.
 
@@ -15,9 +15,9 @@ Harness의 실행 대상 선택에 세 번째 경로를 추가한다.
 
 ## 2. 현재 계약 및 승인 순서
 
-현재 [handoff 계약](/Users/ma-24-007/Desktop/workspace/yunho-harness/skill/references/handoff.md:42)은 현재 checkout 또는 같은 checkout의 새 branch만 허용한다. `New task branch`의 worktree 생성/fallback 금지는 그 기존 선택지에 계속 적용한다. 새 worktree는 새 선택지에서 명시 선택된 경우에만 허용한다. 세 선택지 모두 실패 후 자동 fallback을 금지한다.
+현재 [handoff 계약](/Users/ma-24-007/Desktop/workspace/arc/skill/references/handoff.md:42)은 현재 checkout 또는 같은 checkout의 새 branch만 허용한다. `New task branch`의 worktree 생성/fallback 금지는 그 기존 선택지에 계속 적용한다. 새 worktree는 새 선택지에서 명시 선택된 경우에만 허용한다. 세 선택지 모두 실패 후 자동 fallback을 금지한다.
 
-적용 spec/plan 전체가 작성·개별 승인되고 문서 집합이 완결되기 전에는 실행 대상 선택과 Git 준비를 하지 않는다. Planning, [공통 handoff gate](/Users/ma-24-007/Desktop/workspace/yunho-harness/skill/SKILL.md:82), change preservation 및 choice lifetime 규칙을 유지한다. 이 작업은 workspace·shared Git state·handoff lifecycle을 바꾸므로 Architectural이며 written spec과 plan 승인이 필요하다.
+적용 spec/plan 전체가 작성·개별 승인되고 문서 집합이 완결되기 전에는 실행 대상 선택과 Git 준비를 하지 않는다. Planning, [공통 handoff gate](/Users/ma-24-007/Desktop/workspace/arc/skill/SKILL.md:82), change preservation 및 choice lifetime 규칙을 유지한다. 이 작업은 workspace·shared Git state·handoff lifecycle을 바꾸므로 Architectural이며 written spec과 plan 승인이 필요하다.
 
 ## 3. 선택 대상과 후보
 
@@ -81,7 +81,7 @@ Canonical record에는 각 문서의 승인 버전·근거, 원본/대상 absolu
 
 CEO는 첫 commit 전 구체적인 한국어 Conventional Commit message를 정한다. 대상에서 승인 문서만 stage하고 staged paths/diff가 정확히 일치하는지 확인한다. 무관 staged 변경이 있으면 보존하고 중단한다. 유효한 기존 commit은 재commit하지 않는다. 모두 commit됐으면 검증만 한다. 문서가 필요하지 않고 생성되지 않은 경로만 기존 depth 근거를 기록하고 commit을 생략한다. Commit 후 SHA·message·paths·승인 내용·branch·HEAD·dirty state를 확인한다. 원본 문서는 원본에서 자동 commit하지 않으며 push 권한은 추가하지 않는다.
 
-Worktree 생성·등록·checkout, 문서 전달, staging, commit 실패 시 실제 상태를 기록하고 dependent work와 handoff를 중단한다. 부분 완료에는 branch만 생성, 일부 path 생성, 등록/실제 경로 불일치, 잘못된 base/branch, 일부 문서만 전달 등이 포함된다. 원본·대상의 정확한 명령/오류, branch·HEAD·common directory·등록·index·파일 상태를 확인하고 [git-recovery.md](/Users/ma-24-007/Desktop/workspace/yunho-harness/skill/references/git-recovery.md)를 적용한다.
+Worktree 생성·등록·checkout, 문서 전달, staging, commit 실패 시 실제 상태를 기록하고 dependent work와 handoff를 중단한다. 부분 완료에는 branch만 생성, 일부 path 생성, 등록/실제 경로 불일치, 잘못된 base/branch, 일부 문서만 전달 등이 포함된다. 원본·대상의 정확한 명령/오류, branch·HEAD·common directory·등록·index·파일 상태를 확인하고 [git-recovery.md](/Users/ma-24-007/Desktop/workspace/arc/skill/references/git-recovery.md)를 적용한다.
 
 자동 fallback, 다른 path/branch 재시도, branch/path/worktree 삭제, 강제 remove, `git worktree prune`, `--force`, `-B`, lock 삭제, 권한 변경, reset/stash/clean 및 상태 확인 없는 재실행을 금지한다. 승인된 worktree 경로는 recovery의 임의 workspace 이동 금지와 구분한다. 대상 신뢰가 무효화되거나 변경되면 새 선택을 받는다.
 
@@ -121,13 +121,13 @@ Worktree 생성·등록·checkout, 문서 전달, staging, commit 실패 시 실
 설계 시점 workspace 근거:
 
 ```text
-/Users/ma-24-007/Desktop/workspace/yunho-harness
+/Users/ma-24-007/Desktop/workspace/arc
 branch: master
 HEAD: bf04e4b0c546a46974f693311eb6c9b26c42d4cb
 state: clean
 ```
 
-Spec/plan 작성으로 상태가 바뀌었으므로 실행 준비 직전에 다시 확인한다. 과거 문서의 `/Users/yunho/Desktop/project/yunho-harness`는 역사적 경로다.
+Spec/plan 작성으로 상태가 바뀌었으므로 실행 준비 직전에 다시 확인한다. 과거 문서의 `/Users/yunho/Desktop/project/arc`는 역사적 경로다.
 
 자체 검토: 원본 HEAD SHA와 branch/path 후보 및 재승인 조건을 고정했다. 기존 worktree 금지는 현재 checkout의 새 branch 경로에 유지하고 명시 worktree 선택만 추가한다. Untracked 승인 문서의 index entry 부재와 tracked 문서의 index/working-tree 일치를 구분했다. 원본 보존, 승인 문서의 제한적 전달, target docs commit, 실패 중단과 역할 재개가 수용 기준에 포함됐다. Placeholder와 미결 설계 결정은 없다. 실제 branch/path 값은 승인 후 collision 확인 및 명시 선택으로 확정한다.
 

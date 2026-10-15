@@ -1,6 +1,6 @@
-"""Aggregate Codex rollout token usage by Harness role.
+"""Aggregate Codex rollout token usage by ARC role.
 
-Compare harness_* rows across runs; main includes all Codex sessions in the window
+Compare arc_* rows across runs; main includes all Codex sessions in the window
 and guardian is approval-review threads. Session dates are local dates.
 """
 

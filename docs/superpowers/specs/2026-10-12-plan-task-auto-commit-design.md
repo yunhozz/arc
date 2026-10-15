@@ -16,7 +16,7 @@ skill/SKILL.md의 Optional commit after acceptance는 적용되는 검사·검�
 
 현행 정책은 task 경계만으로 QA·Reviewer 게이트를 추가하지 않는다. 따라서 task 범위의 수락과 전체 plan의 최종 QA·Reviewer·통합 수락을 구분한다. 분리 검증이 불가능한 변경은 계획 단계에서 하나의 최상위 task로 묶어 불완전한 변경을 task 완료로 처리하지 않는다.
 
-관련 근거는 skill/SKILL.md, skill/references/planning.md, skill/references/verification.md, skill/references/handoff.md, agents/harness-planner.toml, tests/test_install.py, README.md, MANIFEST.sha256이다. 특히 현행 커밋은 선택 사항이며, 기존 테스트는 수락 뒤 task 자동 커밋 계약을 직접 확인하지 않는다. Planning-document 사전 커밋은 별도 흐름이다.
+관련 근거는 skill/SKILL.md, skill/references/planning.md, skill/references/verification.md, skill/references/handoff.md, agents/arc-planner.toml, tests/test_install.py, README.md, MANIFEST.sha256이다. 특히 현행 커밋은 선택 사항이며, 기존 테스트는 수락 뒤 task 자동 커밋 계약을 직접 확인하지 않는다. Planning-document 사전 커밋은 별도 흐름이다.
 
 ## 3. 범위와 적용 경계
 
@@ -134,7 +134,7 @@ task 자동 커밋은 문서 작성·승인 중 조기 커밋 권한을 부여�
 
 ## 10. 구현 영향 범위
 
-모든 경로는 /Users/yunho/Desktop/project/yunho-harness를 기준으로 한다.
+모든 경로는 /Users/yunho/Desktop/project/arc를 기준으로 한다.
 
 | 경로 | 반영 내용 |
 |---|---|
@@ -142,7 +142,7 @@ task 자동 커밋은 문서 작성·승인 중 조기 커밋 권한을 부여�
 | skill/references/planning.md | 최상위 task 구성·수락 기준·검증 시점·커밋 단위를 명시한다. |
 | skill/references/verification.md | task 범위 수락과 전체 plan 최종 수락을 구분하고 필수 검증 흐름을 보존한다. |
 | skill/references/handoff.md | 기존 문서 준비 순서와 task 커밋 후 재개 상태의 정합성을 필요한 범위에서 명확히 한다. |
-| agents/harness-planner.toml | plan 초안에 task 단위와 수락·검증·커밋 처리를 포함하도록 작성 책임을 반영한다. |
+| agents/arc-planner.toml | plan 초안에 task 단위와 수락·검증·커밋 처리를 포함하도록 작성 책임을 반영한다. |
 | README.md | 별도 커밋 승인 없이 CEO 판단에 따른 커밋 흐름을 안내한다. |
 | tests/test_install.py | 새 계약과 기존 승인·검증·문서 준비 계약의 공존을 확인한다. |
 | MANIFEST.sha256 | 실제 변경된 manifest 대상 파일의 해시를 갱신한다. |

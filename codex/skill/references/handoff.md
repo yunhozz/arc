@@ -93,7 +93,7 @@ unless it invalidates the old target. Do not fall back automatically; apply the 
 
 Keep one canonical initial handoff record accessible to each assigned role, containing the approved scope/version,
 repository/workspace identity, and the Handoff evidence fields above; do not create a separate storage service. CEO writes it as a
-Markdown file at `<git-common-dir>/yunho-harness/handoff/<plan-or-task-slug>.md` (slug unique to the plan, the dated plan filename stem, or a spec/task slug when no plan exists; never overwrite another plan's record; resolve with
+Markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` (slug unique to the plan, the dated plan filename stem, or a spec/task slug when no plan exists; never overwrite another plan's record; resolve with
 `git rev-parse --path-format=absolute --git-common-dir`; outside the working tree and shared by linked worktrees; not a
 Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and delta restart
 briefs cite it. If

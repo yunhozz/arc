@@ -2,7 +2,7 @@
 
 ## 1. 목적과 승인된 방향
 
-Harness의 두 실행 모드 정의와 모드 선택 의무를 제거한다. 새 실행 모드 이름을 만들지 않는다.
+ARC의 두 실행 모드 정의와 모드 선택 의무를 제거한다. 새 실행 모드 이름을 만들지 않는다.
 
 Lead는 종속 구현 작업을 순차 조율한다. Coder는 관련 맥락이 유효하면 재사용한다. 작업에 필요한 설계·계획 깊이와 검증 위험도를 별도로 판단하여 불필요한 specialist 호출과 중복 검토를 줄인다.
 
@@ -20,9 +20,9 @@ Lead는 종속 구현 작업을 순차 조율한다. Coder는 관련 맥락이 �
 
 ## 2. 현재 문제와 근거
 
-`skill/SKILL.md:49-61`과 `agents/harness-lead.toml:10-17`은 위험도와 별개로 실행 모드 checkpoint를 요구한다. 따라서 `skill/SKILL.md:117`의 저위험 “QA optional” 규칙만으로 QA·최종 Reviewer를 생략할 수 없다.
+`skill/SKILL.md:49-61`과 `agents/arc-lead.toml:10-17`은 위험도와 별개로 실행 모드 checkpoint를 요구한다. 따라서 `skill/SKILL.md:117`의 저위험 “QA optional” 규칙만으로 QA·최종 Reviewer를 생략할 수 없다.
 
-`agents/harness-planner.toml:10`은 계획과 실행 모드 승인을 연결하고, `agents/harness-coder.toml:6`도 execution mode를 TDD 조건 설명에 포함한다.
+`agents/arc-planner.toml:10`은 계획과 실행 모드 승인을 연결하고, `agents/arc-coder.toml:6`도 execution mode를 TDD 조건 설명에 포함한다.
 
 `dependencies/writing-plans/SKILL.md:46-53`은 task 경계를 fresh reviewer gate로 설명하며, `:202-236`은 두 실행 방법 선택을 요청한다. `dependencies/brainstorming/SKILL.md:46-48`에도 architectural 계획 승인과 실행 방법 선택이 연결되어 있다.
 
@@ -30,7 +30,7 @@ Lead는 종속 구현 작업을 순차 조율한다. Coder는 관련 맥락이 �
 
 `a9d46b6`는 metadata 정리 외에 brief·계획 추가를 포함한 혼합 commit이다. commit 전체를 단순 정리의 저위험 사례로 취급하지 않는다.
 
-조사 workspace는 `/Users/yunho/Desktop/project/yunho-harness`이며 설계 시작 시 `master...origin/master`, HEAD `a9d46b6`, 작업트리 clean이었다. git-dir/common-dir는 모두 `.git`, superproject 출력은 없었다. 기본 checkout이며 구현 isolation·동의는 아직 결정하지 않았다.
+조사 workspace는 `/Users/yunho/Desktop/project/arc`이며 설계 시작 시 `master...origin/master`, HEAD `a9d46b6`, 작업트리 clean이었다. git-dir/common-dir는 모두 `.git`, superproject 출력은 없었다. 기본 checkout이며 구현 isolation·동의는 아직 결정하지 않았다.
 
 ## 3. 분류와 선택 근거
 
@@ -212,7 +212,7 @@ Bundled writing-plans의 task 경계 표현은 의미 있는 deliverable·의존
 
 Bundled brainstorming은 architectural의 written spec·written plan 승인을 유지하면서 실행 방법 선택 참조만 정리한다.
 
-Installer는 기존 dependency를 보존하며 버전 호환성을 검사하지 않는다. 따라서 bundled 문서 수정이 설치된 skill의 자동 갱신을 뜻하지 않는다. Harness adapter는 보존된 dependency의 기존 executor 선택 요구에도 위 대응을 적용해야 한다.
+Installer는 기존 dependency를 보존하며 버전 호환성을 검사하지 않는다. 따라서 bundled 문서 수정이 설치된 skill의 자동 갱신을 뜻하지 않는다. ARC adapter는 보존된 dependency의 기존 executor 선택 요구에도 위 대응을 적용해야 한다.
 
 설치본 직접 수정·전역 덮어쓰기·재설치는 자동 수행하지 않는다. 새 세션이 설치된 프로필을 읽고 실행 중 agent는 자동 reload되지 않는다는 적용 한계를 안내한다.
 
@@ -228,16 +228,16 @@ Installer는 기존 dependency를 보존하며 버전 호환성을 검사하지 
 
 | 절대 경로 | 변경 책임 |
 |---|---|
-| `/Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md` | 실행 모드 제거, 순차 조율, 위험 정의·최소 흐름·생략·재사용·adapter, 수락 후 선택적 focused commit |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-lead.toml` | 모드 승인 제거, 계획·검증 조율, 순차 작업과 위험 판단, 수락·범위 확인 후 커밋 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-planner.toml` | 계획과 실행 모드 승인 연결 제거, 기존 산출물·owner gate 유지 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-coder.toml` | execution mode 관련 TDD 표현 정리, 기존 제한 유지 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-qa.toml` | 적용 가능한 구조·정합성 확인과 행동 확인의 범위 명확화 |
-| `/Users/yunho/Desktop/project/yunho-harness/dependencies/writing-plans/SKILL.md` | task별 fresh review 인상과 두 실행 방법 선택 제거, 계획 승인 유지 |
-| `/Users/yunho/Desktop/project/yunho-harness/dependencies/brainstorming/SKILL.md` | architectural 실행 방법 선택 참조 정리 |
-| `/Users/yunho/Desktop/project/yunho-harness/README.md` | 현재 흐름과 기존 dependency·실행 세션의 적용 한계 안내 |
-| `/Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256` | 실제 변경 payload digest 동기화 |
-| `/Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-04-실행-흐름-간소화-design.md` | 승인된 설계·기준·전환 기록 |
+| `/Users/yunho/Desktop/project/arc/skill/SKILL.md` | 실행 모드 제거, 순차 조율, 위험 정의·최소 흐름·생략·재사용·adapter, 수락 후 선택적 focused commit |
+| `/Users/yunho/Desktop/project/arc/agents/arc-lead.toml` | 모드 승인 제거, 계획·검증 조율, 순차 작업과 위험 판단, 수락·범위 확인 후 커밋 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-planner.toml` | 계획과 실행 모드 승인 연결 제거, 기존 산출물·owner gate 유지 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-coder.toml` | execution mode 관련 TDD 표현 정리, 기존 제한 유지 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-qa.toml` | 적용 가능한 구조·정합성 확인과 행동 확인의 범위 명확화 |
+| `/Users/yunho/Desktop/project/arc/dependencies/writing-plans/SKILL.md` | task별 fresh review 인상과 두 실행 방법 선택 제거, 계획 승인 유지 |
+| `/Users/yunho/Desktop/project/arc/dependencies/brainstorming/SKILL.md` | architectural 실행 방법 선택 참조 정리 |
+| `/Users/yunho/Desktop/project/arc/README.md` | 현재 흐름과 기존 dependency·실행 세션의 적용 한계 안내 |
+| `/Users/yunho/Desktop/project/arc/MANIFEST.sha256` | 실제 변경 payload digest 동기화 |
+| `/Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-04-execution-flow-simplification-design.md` | 승인된 설계·기준·전환 기록 |
 
 Reviewer·Scout·Secretary 프로필, 모델 설정, installer source 및 역사 문서는 보존한다. 동기화는 정책 → 관련 프로필·dependency·README → manifest의 정합성을 가진 하나의 변경으로 다룬다.
 

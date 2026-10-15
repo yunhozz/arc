@@ -2,13 +2,13 @@
 
 > **For agentic workers:** 승인된 계획을 task 단위로 진행한다. Lead가 순차 조율하고 Coder가 지정 파일을 수정한다. 진행 상태는 체크박스로 기록한다.
 
-**목표:** `dependencies/` 번들을 제거하고, 검토된 외부 스킬 snapshot 검사에 통과한 경우에만 Harness와 일곱 프로필을 설치한다.
+**목표:** `dependencies/` 번들을 제거하고, 검토된 외부 스킬 snapshot 검사에 통과한 경우에만 ARC와 일곱 프로필을 설치한다.
 
-**구조:** `install.py`에 lock 파서와 외부 스킬 검사 함수를 추가한다. Manifest를 확인한 뒤 lock을 파싱하고, 설치 대상에 쓰기 전에 모든 외부 후보를 검사한다. 기존 Harness·프로필 transaction에서 dependency 전용 동작만 제거한다.
+**구조:** `install.py`에 lock 파서와 외부 스킬 검사 함수를 추가한다. Manifest를 확인한 뒤 lock을 파싱하고, 설치 대상에 쓰기 전에 모든 외부 후보를 검사한다. 기존 ARC·프로필 transaction에서 dependency 전용 동작만 제거한다.
 
 **기술:** Python 3.11 이상, `tomllib`, `hashlib`, `pathlib`, 표준 라이브러리 `unittest`, `unittest.mock`, `tempfile`.
 
-**Spec:** `/Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-04-external-skills-removal-design.md`
+**Spec:** `/Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-04-external-skills-removal-design.md`
 
 ## Global Constraints
 
@@ -32,7 +32,7 @@
 **최종 수락 기록:** 2026-10-04 Coder는 누락 회귀 → parser → validator → dependency 없는 payload integration → production lock 계약의 실제 RED/GREEN을 기록했다. 전체 `python3 -B -m unittest discover -s tests -v`는 35개 통과(exit 0)했고, 독립 QA가 같은 suite와 최종 `--check`·`--dry-run`·`git diff --check`를 모두 exit 0으로 확인했다. 임시 home 정상 설치, 신규/기존 대상의 18개 무변경 실패 조합, 교체 실패 rollback·backup 유지·stage cleanup·외부 불변 검증이 통과했다. 11개 lock 항목은 spec과 정확히 같고 최종 14개 manifest hash가 일치하며 `skill/`·`agents/`·model policy는 baseline 그대로다. README의 총 11개 표현과 lock 변경 후 manifest 갱신 안내를 보정하고 QA가 최종 문서/hash 상태를 재확인했다. QA 이후 fresh 독립 Reviewer가 설치기·README·manifest·새 lock/tests·bundle 전체 제거·승인 문서를 검토해 substantive finding 없음을 반환했다. 이 review는 significant risk 전체 독립 review와 이번 승인된 최종 fresh review의 범위·증거·최종 관련 상태·독립성·freshness·QA 이후 위치를 모두 충족했다. Lead가 spec 수락 기준 1–11을 확인하여 수락한다. CRLF 한 사례만 사용하는 raw-byte mutation 테스트의 작은 coverage 한계는 직접 `read_bytes()` hash와 독립 검토를 근거로 비차단으로 disposition했다. 초기 baseline은 기존 tests 부재로 0 tests/exit 5였으며 통과로 주장하지 않는다. 실제 사용자 일반 설치와 push는 수행하지 않았다. 증거: `/private/tmp/external-preflight-coder-evidence.txt`, `/private/tmp/external-preflight-qa-evidence.txt`, `/private/tmp/external-preflight-review-evidence.txt`. 수락 후 승인된 하나의 focused commit을 만든다.
 
 - **목표·수락 기준:** 승인된 spec의 수락 기준 1–11을 구현한다. 이 작업은 설치 transaction과 선행 조건을 함께 바꾸는 architectural 작업이므로 서면 계획과 승인이 필요하다. 한 구현 task 안에서 parser → 후보 검증 → 세 진입점 통합 → bundle·manifest·README 정리의 의존 순서를 지킨다.
-- **작업공간 근거:** 2026-10-04 읽기 전용 확인 결과 절대 작업공간은 `/Users/yunho/Desktop/project/yunho-harness`, branch는 `master`, HEAD는 `2ea36bf95f33d400743dcf1fe47ebfa2a541514c`다. absolute git dir와 common dir는 모두 `/Users/yunho/Desktop/project/yunho-harness/.git`이며 `git rev-parse --show-superproject-working-tree` 출력은 비어 있다. 따라서 submodule이나 linked worktree가 아닌 기존 checkout이다. 사용자가 이미 승인한 in-place 선호를 유지한다. 새 worktree를 만들지 않았다.
+- **작업공간 근거:** 2026-10-04 읽기 전용 확인 결과 절대 작업공간은 `/Users/yunho/Desktop/project/arc`, branch는 `master`, HEAD는 `2ea36bf95f33d400743dcf1fe47ebfa2a541514c`다. absolute git dir와 common dir는 모두 `/Users/yunho/Desktop/project/arc/.git`이며 `git rev-parse --show-superproject-working-tree` 출력은 비어 있다. 따라서 submodule이나 linked worktree가 아닌 기존 checkout이다. 사용자가 이미 승인한 in-place 선호를 유지한다. 새 worktree를 만들지 않았다.
 - **시작 상태:** `git status --short`에는 이 plan과 spec 두 untracked 파일만 있었다. 구현·test·README·manifest·dependencies 변경은 없었다. 패키지 setup 대상 `package.json`, `requirements.txt`, `pyproject.toml`, `Cargo.toml`, `go.mod`는 없었다. baseline test는 아래 제약으로 실행하지 않았다.
 - **정확한 제약:** 상위 개발 지침은 “Do not add or run tests unless the user asks you to test or verify implementation.”라고 규정한다. 사용자의 “ㅇㅇ 진행해”는 변경 범위 승인이며 현재 전달된 근거에는 테스트 작성·실행의 명시 요청이 없다. 설치 동작 변경에는 `/Users/yunho/.agents/skills/test-driven-development/SKILL.md`의 “NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST”와 RED/GREEN 및 전체 suite 확인이 적용된다. 상위 지침이 우선하므로 테스트·production code의 편집/실행을 시작할 수 없다. using-git-worktrees의 baseline test 요구도 같은 이유로 보류한다.
 - **선택과 불확실성:** 권장 결정은 사용자가 이 계획을 검토하고 계획된 테스트 작성·실행 및 독립 QA 검증을 명시 요청하는 것이다. 그러면 Coder가 실패 먼저 확인하고 구현한다. 테스트 없는 진행은 자동 예외가 아니며 TDD를 수행했다고 주장할 수 없다. 이를 선택하려면 별도 인간 예외 결정과 범위·잔여 위험을 다시 기록해야 하고, 상위 테스트 금지 자체를 내부 승인으로 해제할 수 없다. 이 작업을 문서/configuration 예외로 취급하지 않는다.
@@ -47,18 +47,18 @@
 2. 누락 경로, dangling link, cycle을 같은 경우로 조용히 처리하지 않는다.
 3. 필수 파일 symlink는 실제 root 안에서만 허용하고, root 밖 참조·디렉터리·특수 파일은 읽기 전에 거부한다.
 4. 파일 한 개라도 snapshot을 섞거나 raw bytes를 바꾸면 실패한다.
-5. 외부 preflight 실패가 새 대상과 기존 Harness·프로필을 모두 그대로 둔다.
+5. 외부 preflight 실패가 새 대상과 기존 ARC·프로필을 모두 그대로 둔다.
 
 ## Task 1: Snapshot 검사로 설치 계약 전환
 
 **Files:**
 
-- Modify: `/Users/yunho/Desktop/project/yunho-harness/install.py` — lock schema, 후보·파일 안전성, snapshot 비교, 공통 preflight, dependency transaction 제거.
-- Create: `/Users/yunho/Desktop/project/yunho-harness/external-skills.toml` — 승인된 네 스킬의 11개 파일 snapshot.
-- Create: `/Users/yunho/Desktop/project/yunho-harness/tests/test_install.py` — parser, snapshot, no-write와 설치 회귀 확인.
-- Modify: `/Users/yunho/Desktop/project/yunho-harness/README.md` — 외부 선행 조건, 검증 범위, 오류·유지보수·한계.
-- Modify: `/Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256` — lock 추가, dependency 항목 제거, 변경 파일 hash 반영.
-- Delete: `/Users/yunho/Desktop/project/yunho-harness/dependencies/` — 번들 전체.
+- Modify: `/Users/yunho/Desktop/project/arc/install.py` — lock schema, 후보·파일 안전성, snapshot 비교, 공통 preflight, dependency transaction 제거.
+- Create: `/Users/yunho/Desktop/project/arc/external-skills.toml` — 승인된 네 스킬의 11개 파일 snapshot.
+- Create: `/Users/yunho/Desktop/project/arc/tests/test_install.py` — parser, snapshot, no-write와 설치 회귀 확인.
+- Modify: `/Users/yunho/Desktop/project/arc/README.md` — 외부 선행 조건, 검증 범위, 오류·유지보수·한계.
+- Modify: `/Users/yunho/Desktop/project/arc/MANIFEST.sha256` — lock 추가, dependency 항목 제거, 변경 파일 hash 반영.
+- Delete: `/Users/yunho/Desktop/project/arc/dependencies/` — 번들 전체.
 - Include in the final focused commit: 이 계획과 승인된 spec. 두 문서는 installer payload manifest에 넣지 않는다.
 
 `skill/`, `agents/`, `install.command`, `config.toml`은 구현 변경 대상이 아니다.
@@ -235,9 +235,9 @@ class ExternalSkillPreflightTests(unittest.TestCase):
         return status, stdout.getvalue() + stderr.getvalue()
 
     def seed_existing_targets(self):
-        harness = self.codex_home / "skills" / installer.INSTALL_NAME
-        harness.mkdir(parents=True)
-        (harness / "SKILL.md").write_bytes(b"previous harness")
+        arc = self.codex_home / "skills" / installer.INSTALL_NAME
+        arc.mkdir(parents=True)
+        (arc / "SKILL.md").write_bytes(b"previous arc")
         agents = self.codex_home / "agents"
         agents.mkdir(parents=True)
         for filename in installer.PROFILE_FILES:
@@ -265,7 +265,7 @@ def test_missing_external_skill_fails_install_plan(self):
 - [ ] 다음 명령으로 의도한 실패를 확인한다.
 
 ```sh
-cd /Users/yunho/Desktop/project/yunho-harness
+cd /Users/yunho/Desktop/project/arc
 python3 -B -m unittest discover -s tests -p 'test_install.py' -v
 ```
 
@@ -510,15 +510,15 @@ def test_external_preflight_failure_does_not_write(self):
                 (tree_state(self.codex_home), tree_state(self.user_home)),
             )
             self.assertFalse(any(self.codex_home.glob("backups/*")))
-            self.assertFalse(any(self.codex_home.glob("**/.yunho-harness-*-*")))
+            self.assertFalse(any(self.codex_home.glob("**/.arc-*-*")))
 ```
 
 - [ ] 위 `tree_state`는 상대 경로별 mode, file bytes 또는 symlink target을 기록한다. `run_main`은 fixture payload로 root를 고정하고 `Path.home()`, `CODEX_HOME`, stdout/stderr만 격리하며 실제 manifest·model·profile preflight와 `installer.main(argv)`를 실행한다.
-- [ ] 기존 Harness·일곱 profile sentinel을 포함한 경우와 home이 없는 경우를 각각 실행한다.
+- [ ] 기존 ARC·일곱 profile sentinel을 포함한 경우와 home이 없는 경우를 각각 실행한다.
 - [ ] manifest에서 lock digest가 틀린 경우 `load_external_snapshots`가 호출되지 않는지 확인한다.
-- [ ] `--check`, `--dry-run`의 유효 경로는 시작 전후 tree가 같아야 한다. 일반 설치의 성공 사례는 임시 Codex home에만 실행하고 결과가 Harness skill 하나와 일곱 profile이며 외부 스킬 bytes·mode가 바뀌지 않는지 확인한다.
-- [ ] 기존 Harness/profile 교체 중 하나가 실패하는 상황을 임시 root에서 재현해 이전 bytes 복원, stage cleanup, backup 유지, 외부 skill 불변을 확인한다.
-- [ ] `install_plan`의 5개 반환 원소를 4개로 줄이고 `perform_install`의 staging·rollback에서 dependency source, dependency target, dependency 전용 메시지를 제거한다. 기존 Harness/profile backup·rollback은 보존한다.
+- [ ] `--check`, `--dry-run`의 유효 경로는 시작 전후 tree가 같아야 한다. 일반 설치의 성공 사례는 임시 Codex home에만 실행하고 결과가 ARC skill 하나와 일곱 profile이며 외부 스킬 bytes·mode가 바뀌지 않는지 확인한다.
+- [ ] 기존 ARC/profile 교체 중 하나가 실패하는 상황을 임시 root에서 재현해 이전 bytes 복원, stage cleanup, backup 유지, 외부 skill 불변을 확인한다.
+- [ ] `install_plan`의 5개 반환 원소를 4개로 줄이고 `perform_install`의 staging·rollback에서 dependency source, dependency target, dependency 전용 메시지를 제거한다. 기존 ARC/profile backup·rollback은 보존한다.
 - [ ] `MANIFEST_REQUIRED_ROOTS`를 `("skill", "agents")`로 바꾸고 `external-skills.toml`을 필수 immutable 파일로 둔다. `staged_root`는 bundle을 요구하지 않아야 한다.
 - [ ] `dependency_sources`, dependency enumeration/copy/replace/rollback 호출을 제거하고 테스트가 통과하는지 확인한다.
 
@@ -542,7 +542,7 @@ python3 -B -m unittest discover -s tests -v
 - [ ] 외부 설치본이 현재 승인 snapshot이면 다음 읽기 전용 검사를 실행한다. 사용자의 Codex home에 일반 설치를 실행하지 않는다.
 
 ```sh
-cd /Users/yunho/Desktop/project/yunho-harness
+cd /Users/yunho/Desktop/project/arc
 python3 install.py --check
 python3 install.py --dry-run
 git diff --check
@@ -591,7 +591,7 @@ feat(installer): 외부 스킬 snapshot 사전 검사 전환
 - **Review focus:** 다섯 위험 입력을 해당 테스트와 Reviewer checklist에 직접 연결했다.
 - **Test-first:** 기존 bundle 동작 때문에 새 API 부재를 AttributeError로 확인하지 않는다. 첫 회귀 테스트가 현 동작의 부적절한 통과를 assertion failure로 보여 준다.
 - **Type consistency:** `SnapshotMap`, parser·validator 시그니처, `install_plan` 반환 구조를 설치 호출부와 일치시켰다.
-- **Scope:** 새 외부 검색 위치, bypass, 자동 설치, 설치된 Harness 정책 변경은 포함하지 않는다.
+- **Scope:** 새 외부 검색 위치, bypass, 자동 설치, 설치된 ARC 정책 변경은 포함하지 않는다.
 - **Evidence limits:** Hash 일치, 표준 라이브러리 테스트, `--check`는 runtime 전체 동작이나 검사 이후 외부 파일 불변성을 증명하지 않는다.
 - **Approval:** 이 계획 자체와 실행 절차는 승인 전이다. 테스트 작성·실행 허가는 계획 승인과 분리해 확인한다. 현재까지 테스트·구현은 하지 않았다.
 
@@ -990,7 +990,7 @@ def external_state(self):
         for skill in FILES}
 
 def assert_no_stages(self):
-    self.assertEqual(list(self.codex_home.glob("**/.yunho-harness-*-*")), [])
+    self.assertEqual(list(self.codex_home.glob("**/.arc-*-*")), [])
 ```
 
 다음 테스트를 class에 추가한다. malformed lock은 manifest를 재생성해 parser의 거부를 확인하고, manifest 손상은 parser보다 앞서 거부되는지 별도로 확인한다.
@@ -1052,7 +1052,7 @@ def test_manifest_failure_precedes_lock_parsing(self):
     parser.assert_not_called()
     self.assertEqual((tree_state(self.codex_home), tree_state(self.user_home)), before)
 
-def test_install_writes_only_harness_and_seven_profiles(self):
+def test_install_writes_only_arc_and_seven_profiles(self):
     self.install_candidates(self.user_home / ".agents" / "skills")
     external_before = self.external_state()
     user_before = tree_state(self.user_home)
@@ -1064,8 +1064,8 @@ def test_install_writes_only_harness_and_seven_profiles(self):
                      {installer.INSTALL_NAME})
     self.assertEqual({path.name for path in (self.codex_home / "agents").iterdir()},
                      set(installer.PROFILE_FILES))
-    harness = self.codex_home / "skills" / installer.INSTALL_NAME
-    self.assertEqual(tree_state(harness), tree_state(self.payload / "skill"))
+    arc = self.codex_home / "skills" / installer.INSTALL_NAME
+    self.assertEqual(tree_state(arc), tree_state(self.payload / "skill"))
     for filename, expected in expected_profiles.items():
         target = self.codex_home / "agents" / filename
         source = self.payload / "agents" / filename
@@ -1079,9 +1079,9 @@ def test_install_writes_only_harness_and_seven_profiles(self):
 def test_replace_failure_restores_targets_and_keeps_backup(self):
     self.install_candidates(self.user_home / ".agents" / "skills")
     self.seed_existing_targets()
-    harness = self.codex_home / "skills" / installer.INSTALL_NAME
+    arc = self.codex_home / "skills" / installer.INSTALL_NAME
     agents = self.codex_home / "agents"
-    harness_before = tree_state(harness)
+    arc_before = tree_state(arc)
     profiles_before = {filename: tree_state(agents / filename) for filename in installer.PROFILE_FILES}
     external_before = self.external_state()
     user_before = tree_state(self.user_home)
@@ -1092,7 +1092,7 @@ def test_replace_failure_restores_targets_and_keeps_backup(self):
         nonlocal injected
         source, target = Path(source), Path(target)
         if (not injected and target == agents / failed_name and source.name == failed_name
-                and source.parent.name.startswith(".yunho-harness-profiles-")):
+                and source.parent.name.startswith(".arc-profiles-")):
             injected = True
             raise OSError("fixture replacement failure")
         return real_replace(source, target, *args, **kwargs)
@@ -1101,7 +1101,7 @@ def test_replace_failure_restores_targets_and_keeps_backup(self):
     self.assertTrue(injected)
     self.assertEqual(status, 2, output)
     self.assertIn("fixture replacement failure", output)
-    self.assertEqual(tree_state(harness), harness_before)
+    self.assertEqual(tree_state(arc), arc_before)
     for filename, before in profiles_before.items():
         self.assertEqual(tree_state(agents / filename), before)
     self.assertEqual(self.external_state(), external_before)
@@ -1109,7 +1109,7 @@ def test_replace_failure_restores_targets_and_keeps_backup(self):
     backups = list(self.codex_home.glob("backups/*"))
     self.assertEqual(len(backups), 1)
     backup = backups[0]
-    self.assertEqual(tree_state(backup / "skills" / installer.INSTALL_NAME), harness_before)
+    self.assertEqual(tree_state(backup / "skills" / installer.INSTALL_NAME), arc_before)
     for filename, before in profiles_before.items():
         self.assertEqual(tree_state(backup / "agents" / filename), before)
     self.assert_no_stages()
@@ -1143,7 +1143,7 @@ skills_dir, agents_dir, backups_dir, profile_targets = install_plan(root, home)
 ```
 
 - [ ] dry-run의 dependency 출력 loop, `dependency_stages` 선언·staging block, profile replacement 뒤 dependency replacement loop를 삭제한다.
-- [ ] Harness·profile action 기록, `rollback`, backup, stage cleanup은 보존한다.
+- [ ] ARC·profile action 기록, `rollback`, backup, stage cleanup은 보존한다.
 - [ ] D와 기존 Step 3–4 테스트를 GREEN으로 확인한다. Step 5의 실제 lock·README·manifest·bundle 제거를 완료하고 전체 suite를 실행한다.
 
 ### 통합 자체 검토

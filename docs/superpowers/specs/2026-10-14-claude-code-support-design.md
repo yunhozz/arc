@@ -1,13 +1,13 @@
-# Codex와 Claude Code를 선택하여 설치하는 Harness 지원 명세
+# Codex와 Claude Code를 선택하여 설치하는 ARC 지원 명세
 
 작성일: 2026-10-14  
-예정 경로: /Users/yunho/Desktop/project/yunho-harness/docs/superpowers/specs/2026-10-14-claude-code-support-design.md  
+예정 경로: /Users/yunho/Desktop/project/arc/docs/superpowers/specs/2026-10-14-claude-code-support-design.md\
 상태: 명세·계획 승인, T1 완료  
 설계 깊이: Architectural
 
 ## 1. 목적과 승인된 범위
 
-현재 Codex 전용 Harness 설치기를 확장하여, 사용자가 Codex 또는 Claude Code를 선택해 전역 사용자 환경에 설치할 수 있도록 한다.
+현재 Codex 전용 ARC 설치기를 확장하여, 사용자가 Codex 또는 Claude Code를 선택해 전역 사용자 환경에 설치할 수 있도록 한다.
 
 두 플랫폼에서 CEO와 Scouter·Planner·Coder·QA·Reviewer의 책임, 승인 절차, 소유권, 검증 및 완료 책임을 유지한다. 프로필 형식, agent 실행 방식, 모델 설정 및 작업 공간 기능의 차이는 플랫폼별 adapter로 처리한다.
 
@@ -18,7 +18,7 @@
 - Codex 전용 설치 payload·예시 설정·유틸리티 소스를 저장소의 codex/ 아래로 이동
 - Claude Code 전역 사용자 설치
 - Claude native Markdown subagent 프로필 다섯 개
-- Claude 전용 Harness skill·참조·실행 adapter
+- Claude 전용 ARC skill·참조·실행 adapter
 - 외부 스킬 세 개 설치
 - 역할별 Haiku·Sonnet 모델 및 effort 설정
 - Claude에서 현재 checkout 및 명시 승인 branch 흐름 지원
@@ -97,9 +97,9 @@ v1의 Claude 설치 루트는 현재 사용자의 ~/.claude로 고정한다.
 
 | 내용 | 설치 위치 |
 |---|---|
-| Harness | ~/.claude/skills/yunho-harness/ |
+| ARC | ~/.claude/skills/arc/ |
 | 외부 스킬 | ~/.claude/skills/{brainstorming,writing-plans,test-driven-development}/ |
-| 역할 프로필 | ~/.claude/agents/harness-*.md |
+| 역할 프로필 | ~/.claude/agents/arc-*.md |
 | 전역 안내 | ~/.claude/CLAUDE.md |
 | 설치 백업 | ~/.claude/backups/<timestamp>/ |
 
@@ -154,7 +154,7 @@ Claude 프로필은 claude/agents/의 Markdown 파일을 사용한다. Claude �
 
 설치 후 Claude 모델 변경 재적용 명령은 다음과 같다.
 
-    python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py
+    python3 ~/.claude/skills/arc/scripts/apply-models.py
 
 이 명령은 인접한 Claude models.toml을 읽어 Claude 관리 프로필 다섯 개만 갱신한다. Codex 모델 설정이나 프로필은 변경하지 않는다.
 
@@ -164,19 +164,19 @@ Claude 프로필은 claude/agents/의 Markdown 파일을 사용한다. Claude �
 
 ## 6. 전역 CLAUDE.md
 
-Claude 설치는 CLAUDE.md의 Harness 관리 구간만 갱신한다. 기존 관리 마커 체계를 사용한다.
+Claude 설치는 CLAUDE.md의 ARC 관리 구간만 갱신한다. 기존 관리 마커 체계를 사용한다.
 
 보장 사항은 다음과 같다.
 
 - 관리 구간 밖 사용자 내용 보존
 - 재설치 시 관리 구간 중복 생성 방지
 - 손상되거나 모호한 관리 마커 안전 거부
-- 실제 설치 위치의 Harness SKILL.md 안내
+- 실제 설치 위치의 ARC SKILL.md 안내
 - CEO와 depth 2 역할의 소유권 및 지침 로딩 경계 안내
 
-전역 파일은 CEO가 Harness를 적용하도록 연결하는 진입 지침이며, 전체 정책을 복제하지 않는다.
+전역 파일은 CEO가 ARC를 적용하도록 연결하는 진입 지침이며, 전체 정책을 복제하지 않는다.
 
-Claude subagent가 CLAUDE.md를 상속하더라도 depth 2 역할은 CEO용 전체 Harness를 다시 로드하지 않는다. 역할 프로필·brief·필수 참조를 따른다.
+Claude subagent가 CLAUDE.md를 상속하더라도 depth 2 역할은 CEO용 전체 ARC를 다시 로드하지 않는다. 역할 프로필·brief·필수 참조를 따른다.
 
 --skip-global이면 CLAUDE.md를 변경하지 않고 수동 적용 안내를 출력한다. skill과 agent 설치는 수행한다.
 
@@ -188,13 +188,13 @@ Claude 설치는 Codex config.toml의 대기 설정을 만들지 않으며 Claud
 
 | 역할 | 파일 및 native name |
 |---|---|
-| Scouter | harness-scouter.md / harness-scouter |
-| Planner | harness-planner.md / harness-planner |
-| Coder | harness-coder.md / harness-coder |
-| QA | harness-qa.md / harness-qa |
-| Reviewer | harness-reviewer.md / harness-reviewer |
+| Scouter | arc-scouter.md / arc-scouter |
+| Planner | arc-planner.md / arc-planner |
+| Coder | arc-coder.md / arc-coder |
+| QA | arc-qa.md / arc-qa |
+| Reviewer | arc-reviewer.md / arc-reviewer |
 
-Codex의 기존 harness_scouter 등 별칭과 Claude native 이름의 대응은 adapter에 명시한다. 실제 호출 식별자는 해당 플랫폼의 설치된 이름과 일치해야 한다.
+Codex의 기존 arc_scouter 등 별칭과 Claude native 이름의 대응은 adapter에 명시한다. 실제 호출 식별자는 해당 플랫폼의 설치된 이름과 일치해야 한다.
 
 각 프로필은 공식 Markdown frontmatter 형식을 사용하며 name, description, model, effort, tools를 명시한다. tools는 YAML list로 출력한다. [Claude Code 서브에이전트 문서](https://code.claude.com/docs/en/sub-agents)
 
@@ -270,9 +270,9 @@ Claude 실행 경로에서 다음 Codex 전용 요소를 요구하지 않는다.
 
 Claude subagent가 부모의 이전 skill 실행 내용을 상속한다고 가정하지 않는다. CEO는 필요한 skill의 경로·적용 섹션·관련 근거를 brief에 포함한다.
 
-각 역할은 필요한 installed skill을 직접 읽는다. 기본 프로필은 CEO용 전체 Harness를 skills:로 preload하지 않는다.
+각 역할은 필요한 installed skill을 직접 읽는다. 기본 프로필은 CEO용 전체 ARC를 skills:로 preload하지 않는다.
 
-Planner의 brainstorming과 승인 후 writing-plans, Coder의 적용 가능한 TDD는 기존 소유권·승인 게이트 안에서 수행한다. 외부 skill이 추가 agent·직접 저장·조기 commit을 요구하면 Harness adapter의 역할 경계와 승인 계약을 유지한다. 외부 skill 원문은 수정하지 않는다.
+Planner의 brainstorming과 승인 후 writing-plans, Coder의 적용 가능한 TDD는 기존 소유권·승인 게이트 안에서 수행한다. 외부 skill이 추가 agent·직접 저장·조기 commit을 요구하면 ARC adapter의 역할 경계와 승인 계약을 유지한다. 외부 skill 원문은 수정하지 않는다.
 
 capability가 없는 작업은 성공한 것으로 취급하거나 다른 경로로 자동 대체하지 않고 CEO에게 보고한다.
 
@@ -301,7 +301,7 @@ Claude native worktree 또는 raw Git worktree로 자동 전환하지 않는다.
 
 검증된 트리를 사용자 설치 대상에 반영하며, 취득·검증 실패 시 사용자 설치 대상 교체를 시작하지 않는다.
 
-외부 skill은 원문을 유지하고 플랫폼 차이는 Harness adapter가 처리한다.
+외부 skill은 원문을 유지하고 플랫폼 차이는 ARC adapter가 처리한다.
 
 전체 트리 교체 방식과 사용자 수정의 backup 보존을 문서화한다. --check·--dry-run은 로컬 필수 구조만 검사하며 최신 원격 source와의 일치를 확인하지 않는다.
 
@@ -356,7 +356,7 @@ Claude 첫 설치는 Codex 설치를 이동하거나 가져오지 않는다. Cla
 문서와 완료 출력에는 다음을 포함한다.
 
 - 선택한 플랫폼과 실제 설치 루트
-- 설치한 Harness·외부 skill·agent
+- 설치한 ARC·외부 skill·agent
 - backup 경로
 - 전역 지침 갱신 또는 생략 결과
 - 플랫폼별 모델 설정 및 재적용 명령
@@ -372,7 +372,7 @@ Claude 첫 설치는 Codex 설치를 이동하거나 가져오지 않는다. Cla
 | AC1 | backend·공통 진입점이 대상 누락·잘못된 값·중복을 취득·쓰기 전에 종료 코드 2로 거부 | CLI 오류·부수 효과 확인 |
 | AC2 | 공통 install.command가 backend에 전달한 --target과 나머지 인수를 보존 | Codex·Claude 인수 전달 확인 |
 | AC3 | --target codex가 대상 필수 변경 외 기존 동작을 보존 | 기존 installer 회귀 검증 |
-| AC4 | Claude native agent 다섯 개·Harness·외부 스킬·전역 관리 구간 설치 | 결과 파일·frontmatter 구조 확인 |
+| AC4 | Claude native agent 다섯 개·ARC·외부 스킬·전역 관리 구간 설치 | 결과 파일·frontmatter 구조 확인 |
 | AC5 | Claude 모델·effort가 별도 설정과 일치하고 재적용이 Codex를 변경하지 않음 | 설정·renderer·재적용 확인 |
 | AC6 | 역할별 정확한 tools allowlist와 중첩 위임 금지 적용 | frontmatter·정책·대표 역할 확인 |
 | AC7 | Claude adapter가 Codex 전용 API·worktree 계약을 실행 요구로 남기지 않음 | 설치된 전체 Claude payload 검토 |

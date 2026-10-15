@@ -12,7 +12,7 @@ Task acceptance and its focused commit need only the task's risk-scaled Coder/QA
 
 If final findings affect committed work, CEO manages a follow-up task (planning/approvals as needed), Coder correction and QA recheck before a new focused commit; never amend/reset or duplicate the original commit. CEO decides when a Reviewer recheck is warranted; it covers only the affected findings. Failed required checks and unmet criteria cannot be waived to commit.
 
-CEO writes the final base..HEAD diff plus changed-file list to `<git-common-dir>/yunho-harness/review/<slug>.diff` (same slug as the handoff record; base is the approved base HEAD recorded at handoff; inline when small or write denied) and cites its absolute path in the Reviewer brief. Reviewer reads that artifact, not Git commands, and states review limits.
+CEO writes the final base..HEAD diff plus changed-file list to `<git-common-dir>/arc/review/<slug>.diff` (same slug as the handoff record; base is the approved base HEAD recorded at handoff; inline when small or write denied) and cites its absolute path in the Reviewer brief. Reviewer reads that artifact, not Git commands, and states review limits.
 
 ### UI browser acceptance checks
 

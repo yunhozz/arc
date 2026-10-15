@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> Yunho Harness adapter에 따라 실행 요청을 Lead의 순차 조정으로 적용한다. 별도 실행 방식 선택이나 추가 agent를 만들지 않는다. Coder가 지정 파일을 수정하며 설계·계획 승인, TDD, QA, 독립 리뷰 요구를 유지한다.
+> ARC adapter에 따라 실행 요청을 Lead의 순차 조정으로 적용한다. 별도 실행 방식 선택이나 추가 agent를 만들지 않는다. Coder가 지정 파일을 수정하며 설계·계획 승인, TDD, QA, 독립 리뷰 요구를 유지한다.
 
 **Goal:** 일반 설치마다 네 필수 외부 스킬을 `obra/superpowers` 최신 upstream으로 동기화하고, 취득·설치 실패에서 이전 설치와 복구 자료를 보존한다.
 
-**Architecture:** Python 설치기가 임시 project에서 `npx skills@latest add`로 네 스킬을 함께 취득한다. 취득 결과를 검증한 뒤 선택 `CODEX_HOME`과 이미 존재하는 사용자 `.agents` 후보, Harness, 일곱 프로필을 하나의 백업·교체·복구 transaction으로 반영한다. 읽기 전용 옵션은 네트워크와 subprocess를 실행하지 않는다.
+**Architecture:** Python 설치기가 임시 project에서 `npx skills@latest add`로 네 스킬을 함께 취득한다. 취득 결과를 검증한 뒤 선택 `CODEX_HOME`과 이미 존재하는 사용자 `.agents` 후보, ARC, 일곱 프로필을 하나의 백업·교체·복구 transaction으로 반영한다. 읽기 전용 옵션은 네트워크와 subprocess를 실행하지 않는다.
 
 **Tech Stack:** Python 3.11 이상, 표준 라이브러리 `unittest`, `subprocess`, `pathlib`, `tempfile`, `shutil`, Node.js/npm의 `npx`, Git, Bash wrapper.
 
@@ -34,7 +34,7 @@ npx --yes skills@latest add https://github.com/obra/superpowers \
 
 - Python version floor는 `3.11`이다. `CODEX_HOME`이 빈 값이면 종료 코드 `2`로 실패한다.
 - 내부 manifest·모델·일곱 프로필 생성·설치 경로 검증은 upstream 취득보다 먼저 수행한다.
-- 외부 snapshot hash 비교와 pin을 제거한다. CLI의 임시 hash metadata나 npm package integrity를 Harness의 외부 승인 검증으로 사용하지 않는다.
+- 외부 snapshot hash 비교와 pin을 제거한다. CLI의 임시 hash metadata나 npm package integrity를 ARC의 외부 승인 검증으로 사용하지 않는다.
 - 일반 실행의 취득 단계에는 별도 임시 영역 쓰기만 허용한다. 네 결과 검증 전 실제 설치 파일·백업·target 옆 staging을 생성하거나 변경하지 않는다.
 - 기존 외부 내용의 변경·필수 파일 누락은 일반 sync로 복구할 수 있다. 취득 전에는 경로·entry type·백업 가능성을 검사한다.
 - 취득 tree는 필수 파일 11개뿐 아니라 전체 entry type과 containment를 검사한다. 읽기 전용 기존 후보 검사는 필수 파일만 확인한다.
@@ -51,7 +51,7 @@ npx --yes skills@latest add https://github.com/obra/superpowers \
 - **승인:** 2026-10-04 사용자가 CEO의 직전 설계와 TDD 테스트 작업을 함께 승인하는 질문에 `ㅇ`로 답했다. 테스트 추가·RED/GREEN 실행·전체 suite·독립 QA를 수행할 수 있다. 이 구현 계획은 아직 승인되지 않았다.
 - **계획 깊이:** bounded 설계지만 취득 → 검증 → 백업 → 여러 대상 교체 → rollback의 단계 의존성과 lifecycle·integration order가 있으므로 written plan이 필요하다.
 - **위험:** 설치 경로·공유 스킬 상태·백업·복구 계약 변경으로 significant다.
-- **현재 절대 작업공간:** `/Users/yunho/Desktop/project/yunho-harness`. 계획 작성 시 `git status --short` 출력은 비어 있었다. 코드·테스트 수정·실행과 worktree 생성은 하지 않았다.
+- **현재 절대 작업공간:** `/Users/yunho/Desktop/project/arc`. 계획 작성 시 `git status --short` 출력은 비어 있었다. 코드·테스트 수정·실행과 worktree 생성은 하지 않았다.
 - **isolation 상태:** 이번 실행을 위한 worktree/submodule/preference/consent/setup 검증은 아직 수행하지 않았다. 계획 승인 후 Coder 전에 Lead가 installed `using-git-worktrees`를 적용한다. 기존 문서의 과거 in-place 선택을 이번 실행 근거로 자동 재사용하지 않는다.
 - **경로 전달:** 실제 isolation 경로가 바뀌면 Lead가 본 문서의 workspace prefix와 모든 specialist brief를 동일한 절대 경로로 갱신한다. 사용자 요청에 따라 이번 계획 단계에서는 작업공간을 생성·전환하지 않는다.
 - **다음 목표:** CEO에게 저장된 계획을 보고하고 계획 승인을 기다린다. 승인 전 구현·테스트 실행·worktree 생성은 시작하지 않는다.
@@ -281,7 +281,7 @@ python3 -B -m unittest discover -s tests -p test_install.py -k staging -v
 
 **Consumes:** 작업 1·2의 검증된 API, 기존 `backup_existing`, `create_stage_area`, `rollback`.
 
-**Produces:** 일반 sync, read-only 옵션, 외부/Harness/profile 통합 rollback, recovery 보존, 정확한 README와 내부 manifest.
+**Produces:** 일반 sync, read-only 옵션, 외부/ARC/profile 통합 rollback, recovery 보존, 정확한 README와 내부 manifest.
 
 - [ ] **1. 통합 failing tests 작성.** lock 없는 payload fixture와 fake 취득을 사용한다. `test_install_syncs_all_four_on_every_run`는 두 번 일반 설치 각각에서 취득 호출과 네 대상 최신 bytes를 확인한다. `test_install_updates_existing_legacy_only`는 존재하던 legacy만 갱신되고 나머지는 생기지 않음을 확인한다. `test_sync_removes_deleted_upstream_files`는 기존 obsolete file 제거를 확인한다.
 
@@ -319,7 +319,7 @@ payload manifest / models / profiles preflight
 → 별도 임시 취득 + 네 source 구조 검증
 → 백업 / target filesystem별 stage 준비
 → 네 외부 스킬 및 기존 legacy 대상 교체
-→ Harness / 일곱 profiles 교체
+→ ARC / 일곱 profiles 교체
 → 성공 또는 역순 rollback
 → 복구 완료 자료만 cleanup
 ```
@@ -329,13 +329,13 @@ payload manifest / models / profiles preflight
 ```text
 backups/<stamp>/skills/<name>
 backups/<stamp>/legacy-agents-skills/<name>
-backups/<stamp>/skills/yunho-harness
+backups/<stamp>/skills/arc
 backups/<stamp>/agents/<profile>
 ```
 
 모든 백업과 stage 준비가 성공한 뒤 첫 target 교체를 시작한다. 각 target parent filesystem에 stage/previous를 준비하고 기존 target 이동 전에 action을 journal에 등록한다. 원래 없던 target도 실패 시 제거한다. stage helper의 destination parent를 준비하고 stale 파일 없이 전체 tree를 교체한다.
 
-- [ ] **4. rollback/recovery RED 작성 및 실행.** 기존 os.replace 실패 주입 방식을 재사용해 `test_external_replace_failure_restores_all_targets`, `test_profile_failure_restores_external_targets_too`, `test_failed_install_removes_new_external_targets`를 만든다. 이전 external/Harness/profile bytes와 상태 복원을 확인한다.
+- [ ] **4. rollback/recovery RED 작성 및 실행.** 기존 os.replace 실패 주입 방식을 재사용해 `test_external_replace_failure_restores_all_targets`, `test_profile_failure_restores_external_targets_too`, `test_failed_install_removes_new_external_targets`를 만든다. 이전 external/ARC/profile bytes와 상태 복원을 확인한다.
 
 `test_rollback_failure_preserves_previous_and_reports_recovery_path`는 설치 replace와 해당 previous 복원을 별개로 실패시킨다. 보고된 절대 recovery 경로가 존재하고 old bytes가 남는지 확인한다.
 

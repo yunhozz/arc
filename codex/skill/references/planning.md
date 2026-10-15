@@ -4,7 +4,7 @@ Read before design/plan-depth decisions, spec/plan drafting and approval, and th
 
 ## Design and planning
 
-`brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This Harness controls
+`brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls
 routing/approval gates even if a called skill names another executor. Follow installed instructions and user
 constraints; report missing required skills before that stage.
 
@@ -107,7 +107,7 @@ branches, perform worktree creation, stage documents, or commit planning documen
 repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
 handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
 
-This Harness explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
+This ARC explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
 save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
 all applicable plans. Commit the spec only in the final batch preparation. Do not modify external skills. `writing-plans` implementation-step commit instructions
 are not permission for document commits during planning or for starting Coder.

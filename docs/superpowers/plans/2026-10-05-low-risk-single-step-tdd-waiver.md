@@ -1,10 +1,10 @@
 # 저위험 단일 단계 TDD 예외 구현 계획
 
-> **실행 지침:** 승인된 범위에서 Coder가 Harness 원본 지침과 프로필을 편집한다. CEO가 README 및 설치본 정합성을 조율하고, QA 뒤 독립 Reviewer가 최종 변경을 확인한다.
+> **실행 지침:** 승인된 범위에서 Coder가 ARC 원본 지침과 프로필을 편집한다. CEO가 README 및 설치본 정합성을 조율하고, QA 뒤 독립 Reviewer가 최종 변경을 확인한다.
 
 **목표:** 기존 `small, low-risk`와 단일 로컬 변경 기준을 모두 충족하는 Coder 작업에만 TDD 면제를 허용하고, 집중 검증·근거 보고·수용 의무는 유지한다.
 
-**구조:** Harness 원본, Coder 프로필, README, manifest를 함께 정리한 뒤 현재 설치본 두 파일에 반영한다. 일반 `test-driven-development` 스킬 자체는 수정하지 않으며, Harness의 좁은 예외가 해당 작업에서는 일반 적용 조건보다 우선한다고 명시한다.
+**구조:** ARC 원본, Coder 프로필, README, manifest를 함께 정리한 뒤 현재 설치본 두 파일에 반영한다. 일반 `test-driven-development` 스킬 자체는 수정하지 않으며, ARC의 좁은 예외가 해당 작업에서는 일반 적용 조건보다 우선한다고 명시한다.
 
 **기술:** Markdown, TOML, SHA-256 manifest, Python 3.11 이상.
 
@@ -17,10 +17,10 @@
 - 불명확한 위험이나 작업 중 범위 확대가 생기면 Coder는 편집을 멈추고 CEO에게 재분류를 요청한다. Significant/high-risk 작업은 면제 대상이 아니다.
 - 면제는 TDD의 실패 우선 및 RED/GREEN 절차만 생략한다. 요구되는 검사, 증거, 한계 보고, QA/Reviewer 흐름은 그대로 적용한다. 면제 작업을 TDD로 수행했다고 주장하지 않는다.
 - 일반 행동 변경은 TDD를 유지한다. 순수 문서·비행동 설정은 기존 승인된 구조 검증 예외를 유지한다.
-- `test-driven-development`의 일반 적용 문구는 수정하지 않는다. Harness와 Coder 지침이 자격을 충족한 경우의 명시적 예외임을 분명히 한다.
-- Coder 소유 원본: `skill/SKILL.md`, `agents/harness-coder.toml`, `MANIFEST.sha256`.
+- `test-driven-development`의 일반 적용 문구는 수정하지 않는다. ARC와 Coder 지침이 자격을 충족한 경우의 명시적 예외임을 분명히 한다.
+- Coder 소유 원본: `skill/SKILL.md`, `agents/arc-coder.toml`, `MANIFEST.sha256`.
 - CEO 소유 문서 정합성: `README.md`의 행동 변경/TDD 설명 한 곳을 예외와 맞춘다.
-- CEO가 설치본을 반영할 때 Harness skill은 원본과 동일하게 복사하고, Coder profile은 `developer_instructions`만 갱신하며 설치된 `model`과 `model_reasoning_effort` 설정을 보존한다.
+- CEO가 설치본을 반영할 때 ARC skill은 원본과 동일하게 복사하고, Coder profile은 `developer_instructions`만 갱신하며 설치된 `model`과 `model_reasoning_effort` 설정을 보존한다.
 - 설치본 변경은 두 지정 파일로 제한한다. 전체 installer 실행과 외부 skill 취득은 범위 밖이다.
 - `tests/test_install.py`는 수정하지 않고 테스트 suite도 실행하지 않는다. 구조·일관성 확인만 수행한다.
 - 사용자 승인 뒤 Coder 실행 전에 `using-git-worktrees`의 격리 동의와 workspace 확정을 완료한다.
@@ -47,12 +47,12 @@
 
 ## 작업 2: 원본 정책과 문서 정합성 갱신
 
-**담당:** Coder가 Harness 원본과 프로필 편집; CEO가 README의 implementation-dependent 문구를 반영.
+**담당:** Coder가 ARC 원본과 프로필 편집; CEO가 README의 implementation-dependent 문구를 반영.
 
-**파일:** `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`.
+**파일:** `skill/SKILL.md`, `agents/arc-coder.toml`, `README.md`.
 
-- [ ] Harness adapter의 TDD 요구를 적용 가능한 요구로 표현하고, 자격 조건을 모두 만족하는 경우에는 일반 TDD skill trigger를 덮는 명시적 Harness 예외를 둔다.
-- [ ] Harness TDD 단락과 Coder profile에 동일한 자격·기록·우선순위·중단 기준을 둔다.
+- [ ] ARC adapter의 TDD 요구를 적용 가능한 요구로 표현하고, 자격 조건을 모두 만족하는 경우에는 일반 TDD skill trigger를 덮는 명시적 ARC 예외를 둔다.
+- [ ] ARC TDD 단락과 Coder profile에 동일한 자격·기록·우선순위·중단 기준을 둔다.
 - [ ] 두 문서에 면제가 실패 우선 및 RED/GREEN 절차에만 해당하며 집중 검증과 보고는 유지된다고 적는다.
 - [ ] README의 행동 변경/TDD 문장을 동일한 예외 조건에 맞춘다.
 - [ ] `test-driven-development` skill 자체와 `tests/test_install.py`는 수정하지 않는다.
@@ -63,10 +63,10 @@
 
 **담당:** Coder가 manifest를 갱신; CEO가 지정 설치본만 동기화.
 
-**파일:** `MANIFEST.sha256`, `/Users/yunho/.codex/skills/yunho-harness/SKILL.md`, `/Users/yunho/.codex/agents/harness-coder.toml`.
+**파일:** `MANIFEST.sha256`, `/Users/yunho/.codex/skills/arc/SKILL.md`, `/Users/yunho/.codex/agents/arc-coder.toml`.
 
-- [ ] 변경된 원본 `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`의 manifest 해시만 갱신한다.
-- [ ] 설치 Harness skill을 원본과 동일한 bytes로 반영한다.
+- [ ] 변경된 원본 `skill/SKILL.md`, `agents/arc-coder.toml`, `README.md`의 manifest 해시만 갱신한다.
+- [ ] 설치 ARC skill을 원본과 동일한 bytes로 반영한다.
 - [ ] 설치 Coder profile은 `developer_instructions`만 원본과 맞추고 모델 설정과 나머지 필드를 보존한다.
 - [ ] 설치 후 TOML 구문을 파싱하고 원본/설치본 정책 일치와 모델 필드 보존을 확인한다.
 
@@ -95,4 +95,4 @@
 
 ## 자체 검토
 
-README의 현행 문장은 모든 행동 변경에 TDD가 필요하다고 포괄적으로 말하므로 직접 연관된 정합성 범위에 포함했다. 계획은 generic TDD skill과 테스트 suite를 건드리지 않고, Harness/Coder 예외와 active install만 갱신한다. 설치본의 모델 설정 보존, 명시적인 TDD 요구 우선, 범위 확대 시 중단, QA 후 Reviewer 순서를 수용 기준과 작업에 모두 반영했다.
+README의 현행 문장은 모든 행동 변경에 TDD가 필요하다고 포괄적으로 말하므로 직접 연관된 정합성 범위에 포함했다. 계획은 generic TDD skill과 테스트 suite를 건드리지 않고, ARC/Coder 예외와 active install만 갱신한다. 설치본의 모델 설정 보존, 명시적인 TDD 요구 우선, 범위 확대 시 중단, QA 후 Reviewer 순서를 수용 기준과 작업에 모두 반영했다.

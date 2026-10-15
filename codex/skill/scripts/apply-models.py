@@ -21,7 +21,7 @@ def load_model_module() -> ModuleType:
     """Load the shared implementation from this script's resolved directory."""
     module_path = Path(__file__).resolve().with_name("model_config.py")
     try:
-        spec = importlib.util.spec_from_file_location("_yunho_harness_model_config", module_path)
+        spec = importlib.util.spec_from_file_location("_arc_model_config", module_path)
         if spec is None or spec.loader is None:
             raise ValidationError(f"cannot load shared model configuration module: {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -161,7 +161,7 @@ def apply_updates(updates: dict[Path, tuple[bytes, bytes, int]]) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     default_config = Path(__file__).resolve().parent.parent / "models.toml"
-    parser = argparse.ArgumentParser(description="Validate and apply Harness model settings to Codex agent profiles.")
+    parser = argparse.ArgumentParser(description="Validate and apply ARC model settings to Codex agent profiles.")
     parser.add_argument("--config", type=Path, default=default_config, help=f"TOML settings file (default: {default_config})")
     parser.add_argument("--agents-dir", type=Path, help="Codex agent profile directory")
     action = parser.add_mutually_exclusive_group()

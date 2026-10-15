@@ -1,6 +1,6 @@
 # Coder 인계 게이트와 Git 권한 복구 구현 계획
 
-> **실행 역할:** CEO가 승인·인계·수락을 조율하고 Coder가 지정 파일을 편집한다. 설치된 실행자 스킬의 별도 위임 방식은 Harness의 CEO 순차 조율로 대체한다.
+> **실행 역할:** CEO가 승인·인계·수락을 조율하고 Coder가 지정 파일을 편집한다. 설치된 실행자 스킬의 별도 위임 방식은 ARC의 CEO 순차 조율로 대체한다.
 
 **목표:** Coder 시작·재개 전에 명시적 체크아웃 선택, 승인 문서 커밋, 최종 Git 상태 확인을 강제하고, Git 쓰기 거부를 안전하게 처리한다.
 
@@ -8,20 +8,20 @@
 
 **기술:** Markdown, TOML, Git, SHA-256. 실행 기능이나 새 의존성은 추가하지 않는다.
 
-**승인 명세:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/docs/superpowers/specs/2026-10-07-coder-handoff-git-policy-design.md`
+**승인 명세:** `/Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/specs/2026-10-07-coder-handoff-git-policy-design.md`
 
-**계획 경로:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/docs/superpowers/plans/2026-10-07-coder-handoff-git-policy.md`
+**계획 경로:** `/Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/plans/2026-10-07-coder-handoff-git-policy.md`
 
 ## 공통 제약
 
-- 작업공간은 `/Users/ma-24-007/Desktop/workspace/yunho-harness`로 고정한다.
-- Coder 편집 범위는 `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`, `MANIFEST.sha256`뿐이다.
+- 작업공간은 `/Users/ma-24-007/Desktop/workspace/arc`로 고정한다.
+- Coder 편집 범위는 `skill/SKILL.md`, `agents/arc-coder.toml`, `README.md`, `MANIFEST.sha256`뿐이다.
 - 추가 파일이 필요하면 Coder는 편집 전에 CEO에게 범위 변경을 보고한다.
 - 테스트 코드를 추가하거나 테스트를 실행하지 않는다. 사용자가 테스트를 요청하지 않았다. 설치·실제 런타임 에이전트 준수도 확인했다고 주장하지 않는다.
 - CEO는 구현·프로필 파일을 직접 편집하지 않는다. 기존 무관한 변경은 보존한다.
 - 기존 변경을 자동 unstage, reset, stash, clean, 삭제하지 않는다.
 - 계획 문서 준비 커밋과 구현 완료 후 선택할 수 있는 커밋은 분리한다. Push·merge·배포는 범위 밖이다.
-- 설치된 Harness 사본과 `token-planet` 저장소를 수정하거나 OS 소유권·ACL·샌드박스 정책을 바꾸지 않는다.
+- 설치된 ARC 사본과 `token-planet` 저장소를 수정하거나 OS 소유권·ACL·샌드박스 정책을 바꾸지 않는다.
 
 ## 검토 초점
 
@@ -45,7 +45,7 @@
 권고 메시지:
 
 ```text
-docs(harness): Coder 인계 게이트 구현 계획 정리
+docs(arc): Coder 인계 게이트 구현 계획 정리
 ```
 
 5. stage된 경로와 diff가 승인 문서에만 일치하는지 확인한다. 승인된 spec이 이미 유효하게 커밋돼 있으므로 중복 커밋하지 않는다. 아직 커밋되지 않은 승인 plan만 필요하면 그것만 포함한다.
@@ -57,7 +57,7 @@ docs(harness): Coder 인계 게이트 구현 계획 정리
 
 ## 작업 1: 공통 인계·Git 복구 계약
 
-**파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/skill/SKILL.md`
+**파일:** `/Users/ma-24-007/Desktop/workspace/arc/skill/SKILL.md`
 **담당:** Coder
 
 1. 편집 전에 brief의 승인·체크아웃·Git 상태·문서 커밋 증거를 읽기 전용으로 대조한다. 누락·불일치 시 CEO에 반환하고 편집하지 않는다.
@@ -77,8 +77,8 @@ docs(harness): Coder 인계 게이트 구현 계획 정리
 
 **파일:**
 
-- `/Users/ma-24-007/Desktop/workspace/yunho-harness/agents/harness-coder.toml`
-- `/Users/ma-24-007/Desktop/workspace/yunho-harness/README.md`
+- `/Users/ma-24-007/Desktop/workspace/arc/agents/arc-coder.toml`
+- `/Users/ma-24-007/Desktop/workspace/arc/README.md`
 
 **담당:** Coder
 
@@ -93,10 +93,10 @@ docs(harness): Coder 인계 게이트 구현 계획 정리
 
 ## 작업 3: Manifest와 비테스트 무결성 확인
 
-**파일:** `/Users/ma-24-007/Desktop/workspace/yunho-harness/MANIFEST.sha256`
+**파일:** `/Users/ma-24-007/Desktop/workspace/arc/MANIFEST.sha256`
 **담당:** Coder
 
-1. 확정된 `skill/SKILL.md`, `agents/harness-coder.toml`, `README.md`의 SHA-256을 계산한다.
+1. 확정된 `skill/SKILL.md`, `agents/arc-coder.toml`, `README.md`의 SHA-256을 계산한다.
 2. manifest에서 해당 세 경로의 해시만 갱신하고 기존 경로·정렬·다른 해시를 보존한다.
 3. manifest 해시 대조와 `git diff --check`를 실행해 무결성·공백 오류를 확인한다. 이들은 텍스트/해시 확인이며 테스트 실행이 아니다.
 4. 변경 파일 목록과 실제 diff를 확인해 구현 편집이 승인된 네 파일에 한정되는지 대조한다. spec·plan은 CEO가 작성한 문서로 분리해 기록한다.
@@ -118,7 +118,7 @@ docs(harness): Coder 인계 게이트 구현 계획 정리
 권고 메시지:
 
 ```text
-fix(harness): Coder 인계 게이트와 Git 권한 복구 절차 보완
+fix(arc): Coder 인계 게이트와 Git 권한 복구 절차 보완
 ```
 
 ## 의존성·가정·미해결 사항
@@ -127,7 +127,7 @@ fix(harness): Coder 인계 게이트와 Git 권한 복구 절차 보완
 - 공통 정책은 `skill/SKILL.md`를 기준으로 한다. README와 Coder 프로필은 이 기준에 맞춘다.
 - 테스트 추가·실행은 사용자 요청이 없으므로 계획하지 않는다. 따라서 실제 런타임 에이전트 준수는 검증 완료라고 주장하지 않는다.
 - 실제 `token-planet` 권한 문제는 별도 저장소의 승인된 Git 쓰기와 결과 근거가 있어야 해결 완료로 본다. 이 계획은 해당 저장소나 ACL을 변경하지 않는다.
-- 설치된 Harness 사본은 이번 저장소 편집만으로 갱신됐다고 주장하지 않는다.
+- 설치된 ARC 사본은 이번 저장소 편집만으로 갱신됐다고 주장하지 않는다.
 - 계획된 파일 외 변경이 꼭 필요하면 구현 전에 CEO가 수정 범위와 이유를 제시하고 승인을 받는다.
 
 ## 자체 검토

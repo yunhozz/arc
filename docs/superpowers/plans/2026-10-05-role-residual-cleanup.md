@@ -1,6 +1,6 @@
 # 팀장 잔여 코드 제거 구현 계획
 
-> **작업자 안내:** 구현은 승인된 범위에서 Coder가 맡고 CEO가 순차적으로 조율한다. Harness 지침에 따라 별도의 실행 방식 선택이나 작업별 리뷰 gate를 추가하지 않는다.
+> **작업자 안내:** 구현은 승인된 범위에서 Coder가 맡고 CEO가 순차적으로 조율한다. ARC 지침에 따라 별도의 실행 방식 선택이나 작업별 리뷰 gate를 추가하지 않는다.
 
 **목표:** 활성 코드, README, 테스트 소스에서 Lead 모델 호환성과 구형 프로필 퇴역 처리를 제거하고, 여섯 역할만 관리한다.
 
@@ -12,7 +12,7 @@
 
 ## 전체 제약
 
-- 작업 공간: `/Users/yunho/Desktop/project/yunho-harness`; 사용자가 현재 `master`에서 진행하도록 지정했다.
+- 작업 공간: `/Users/yunho/Desktop/project/arc`; 사용자가 현재 `master`에서 진행하도록 지정했다.
 - 제품 변경 파일: `install.py`, `skill/scripts/model_config.py`, `README.md`, `tests/test_install.py`, `MANIFEST.sha256`.
 - `docs/`의 과거 spec·plan·brief는 보존한다.
 - 설치된 `CODEX_HOME`을 직접 변경하거나 설치를 실행하지 않는다.
@@ -70,7 +70,7 @@
 **인터페이스**
 
 - 제거: `RETIRED_PROFILE_FILES`, `retired_profile_targets(home)`.
-- 변경: `backup_existing(harness_target, profile_targets, backup_root, external_targets)`는 활성 profile target만 백업한다.
+- 변경: `backup_existing(arc_target, profile_targets, backup_root, external_targets)`는 활성 profile target만 백업한다.
 - 유지: `install_plan()` 반환값과 `_transactional_install()` 인자·반환값.
 - 내부 타입 변경: `staged_targets`의 모든 staged 경로는 실제 교체 대상이며 `None` 삭제 staging이 없다.
 - 의존성: 작업 1의 엄격한 여섯 역할 loader.
@@ -92,7 +92,7 @@
 
 - [x] README의 모델 설정 설명을 정확히 여섯 역할만 허용하는 내용으로 간결화한다.
 - [x] stale 구형 profile 설명, 백업 목록 항목 및 퇴역 전용 문단을 제거한다.
-- [x] 일반 transaction 설명은 외부 스킬·Harness·활성 profile 교체와 rollback 중심으로 유지한다.
+- [x] 일반 transaction 설명은 외부 스킬·ARC·활성 profile 교체와 rollback 중심으로 유지한다.
 - [x] 최종 `README.md`, `install.py`, `skill/scripts/model_config.py` bytes에 대한 manifest SHA-256만 갱신한다. 나머지 manifest entry를 보존한다.
 
 ## 작업 4: 최종 구조 검증과 독립 검토

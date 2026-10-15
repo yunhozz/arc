@@ -1,7 +1,7 @@
 # 모델 설정 단일 소스 Implementation Plan
 
 > **For agentic workers:** `writing-plans`가 권장하는 `superpowers:subagent-driven-development`와
-> `superpowers:executing-plans`는 현재 제공된 스킬 목록에 없다. 실행은 Yunho Harness의 역할·소유권·승인 규칙을 따른다. 제품 편집은 한 Coder가 담당하며 checkbox
+> `superpowers:executing-plans`는 현재 제공된 스킬 목록에 없다. 실행은 ARC의 역할·소유권·승인 규칙을 따른다. 제품 편집은 한 Coder가 담당하며 checkbox
 > 순서대로 진행한다.
 
 **Goal:** `models.toml`만으로 역할 모델과 로컬 effort 정책을 관리하고 번들 `install.py` 한 번으로 프로필을 생성·설치한다.
@@ -47,13 +47,13 @@ preflight·backup·staging·promotion 순서로 동작한다.
 | `skill/models.toml`                | version 2 matrix와 역할 값                     |
 | `skill/scripts/model_config.py`    | 새 공통 검증·bytes rendering                   |
 | `skill/scripts/apply-models.py`    | 설치 프로필 CLI·파일 transaction               |
-| `agents/harness-lead.toml`      | Lead 템플릿                                    |
-| `agents/harness-secretary.toml` | Secretary 템플릿                               |
-| `agents/harness-planner.toml`   | Planner 템플릿                                 |
-| `agents/harness-scout.toml`     | Scout 템플릿                                   |
-| `agents/harness-coder.toml`     | Coder 템플릿                                   |
-| `agents/harness-qa.toml`        | QA 템플릿                                      |
-| `agents/harness-reviewer.toml`  | Reviewer 템플릿                                |
+| `agents/arc-lead.toml`      | Lead 템플릿                                    |
+| `agents/arc-secretary.toml` | Secretary 템플릿                               |
+| `agents/arc-planner.toml`   | Planner 템플릿                                 |
+| `agents/arc-scout.toml`     | Scout 템플릿                                   |
+| `agents/arc-coder.toml`     | Coder 템플릿                                   |
+| `agents/arc-qa.toml`        | QA 템플릿                                      |
+| `agents/arc-reviewer.toml`  | Reviewer 템플릿                                |
 | `install.py`                       | payload 선택·manifest·모듈 load·설치 lifecycle |
 | `skill/SKILL.md`                   | 모델 설정·적용 workflow                        |
 | `config.toml`                      | 모델 주석 제거·수동 concurrency 예시           |
@@ -173,9 +173,9 @@ for role, filename in module.ROLE_FILES.items():
 - [ ] **4. 대상 preflight·read-only 분기 연결.** payload safety → manifest → 설정·템플릿·생성 → dependency·대상 검사 순서다. `--check`도
   입력·대상 경로 preflight를 마친 뒤 생성 검증 성공을 출력한다. `--dry-run`은 같은 검증과 대상·retention 결정을 출력한다. 두 분기 모두 mkdir·backup·stage에 도달하지
   않는다.
-- [ ] **5. 생성 프로필·필터 tree staging.** 소스 프로필 직접 복사 대신 생성 bytes를 stage에 기록한다. Harness·dependency copy는 사전 검증된 `.DS_Store`만
+- [ ] **5. 생성 프로필·필터 tree staging.** 소스 프로필 직접 복사 대신 생성 bytes를 stage에 기록한다. ARC·dependency copy는 사전 검증된 `.DS_Store`만
   같은 정책으로 제외한다. copy ignore가 unsafe type을 숨기지 않도록 검사와 제외 책임을 구분한다.
-- [ ] **6. lifecycle 유지.** 모든 preflight 후 대상·backup 생성, 기존 Harness·프로필 backup, 모든 staging 후 Harness → 프로필 → dependency
+- [ ] **6. lifecycle 유지.** 모든 preflight 후 대상·backup 생성, 기존 ARC·프로필 backup, 모든 staging 후 ARC → 프로필 → dependency
   promotion을 수행한다. 각 mutation action과 reverse rollback, 중간에 나타난 dependency target 거부, cleanup·rollback 오류 보고를 유지한다. 기존
   dependency는 보존하고 버전 호환성을 보장하지 않는다.
 - [ ] **7. 소스·diff 검토.** manifest-before-import, preflight-before-mutation, staging-before-promotion, action 기록·역순
@@ -195,13 +195,13 @@ for role, filename in module.ROLE_FILES.items():
 
 ```markdown
 여러 단계의 조사, 분석, 문서 작성 또는 구현이 필요한 요청에는
-`~/.codex/skills/yunho-harness/SKILL.md`를 읽고 따른다.
+`~/.codex/skills/arc/SKILL.md`를 읽고 따른다.
 같은 대화의 관련 후속 요청에도 적용한다.
 `~`는 현재 사용자의 홈 디렉터리로 해석한다.
 ```
 
 - [ ] **2. skill·config·완료 안내 동기화.** 고정 Sol cap을 matrix 검증 설명으로 바꾸고 설정 적용·새 session reload를 안내한다. config 모델 주석만 제거하고
-  concurrency 예시는 유지한다. 완료 안내는 실제 번들 README·설치 skill 경로를 출력하며 없는 `AGENTS.harness.md` 참조를 제거한다.
+  concurrency 예시는 유지한다. 완료 안내는 실제 번들 README·설치 skill 경로를 출력하며 없는 `AGENTS.arc.md` 참조를 제거한다.
 - [ ] **3. 최종 immutable bytes로 manifest 제작.** 제품 파일 확정 후 SHA-256을 계산하여 artifact를 쓴다. 이는 payload 제작이며 runtime 검증이 아니다.
   installer·apply·컴파일·검증 script를 실행하지 않는다. installer/wrapper/README, 선택 skill (설정 제외), 일곱 템플릿, dependency를 포함하고 설정·
   `.DS_Store`·manifest·spec/plan은 제외한다.
@@ -249,10 +249,10 @@ custom 경로, staging·promotion failure와 rollback을 검증한다. 현재 �
 Lead는 승인 spec의 13개 criteria coverage, placeholder, 인터페이스 이름·타입, 다섯 Review Focus의 작업 배정을 확인했다. 공통 signature와 호출자가 일치하며
 `.DS_Store` type 검사는 제외 전, import는 manifest 후다. source/diff-only 제약과 한국어 README를 반영했다. 열린 설계 결정은 없다.
 
-**추천은 Harness로 조정한 subagent-driven 실행이다.** 한 Coder가 순차 작업하고 Lead가 Task 1 공통 인터페이스와 Task 3 설치 lifecycle의 산출물을 확인한다. 최종
+**추천은 ARC로 조정한 subagent-driven 실행이다.** 한 Coder가 순차 작업하고 Lead가 Task 1 공통 인터페이스와 Task 3 설치 lifecycle의 산출물을 확인한다. 최종
 QA와 독립 Reviewer를 사용한다. 공유 인터페이스와 rollback 순서가 후속 작업에 영향을 주므로 두 중간 확인 지점이 유용하다.
 
-Native를 선택해도 Harness 소유권에 따라 한 Coder가 모든 작업을 연속 수행하며 Lead는 제품 코드를 수정하지 않는다. 최종 QA·Reviewer는 유지한다. 어느 방식도 task마다 fresh
+Native를 선택해도 ARC 소유권에 따라 한 Coder가 모든 작업을 연속 수행하며 Lead는 제품 코드를 수정하지 않는다. 최종 QA·Reviewer는 유지한다. 어느 방식도 task마다 fresh
 agent를 자동 생성하거나 중복 검토를 요구하지 않는다. 관련 session을 재사용하고 한 owner·최대 세 leaf 제한을 따른다.
 
 다음 단계는 사용자 계획 검토·승인과 실행 방식 선택이다. 그 전에는 Coder·구현을 시작하지 않는다.

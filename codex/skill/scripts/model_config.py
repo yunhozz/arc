@@ -1,4 +1,4 @@
-"""Load Harness model settings and render model fields into TOML profiles."""
+"""Load ARC model settings and render model fields into TOML profiles."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from typing import TypedDict
 
 
 ROLE_FILES: dict[str, str] = {
-    "harness_scouter": "harness-scouter.toml",
-    "harness_planner": "harness-planner.toml",
-    "harness_coder": "harness-coder.toml",
-    "harness_qa": "harness-qa.toml",
-    "harness_reviewer": "harness-reviewer.toml",
+    "arc_scouter": "arc-scouter.toml",
+    "arc_planner": "arc-planner.toml",
+    "arc_coder": "arc-coder.toml",
+    "arc_qa": "arc-qa.toml",
+    "arc_reviewer": "arc-reviewer.toml",
 }
 
 
@@ -99,7 +99,7 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
         actual_roles = set(roles) if isinstance(roles, dict) else set()
         missing = sorted(set(ROLE_FILES) - actual_roles)
         extra = sorted(actual_roles - set(ROLE_FILES))
-        raise _error(config_path, "roles", f"must define exactly the five Harness roles (missing={missing}, extra={extra})")
+        raise _error(config_path, "roles", f"must define exactly the five ARC roles (missing={missing}, extra={extra})")
 
     result: dict[str, RoleSettings] = {}
     for role in roles:
@@ -121,7 +121,7 @@ def serialize_settings(settings: dict[str, RoleSettings]) -> bytes:
     """Serialize effective settings as canonical version 5 five-role TOML."""
     path = Path("models.toml")
     if set(settings) != set(ROLE_FILES):
-        raise _error(path, "roles", "must define exactly the five Harness roles")
+        raise _error(path, "roles", "must define exactly the five ARC roles")
     lines = [
         "# Single source for each role's exact model ID and reasoning-effort selection.",
         "# Each role is applied directly; model availability is not validated here.",
@@ -284,7 +284,7 @@ def _scan_root(text: str) -> tuple[dict[str, list[int]], int | None]:
 
 def _profile_parts(profile_bytes: bytes, role: str, source_path: Path) -> tuple[str, dict, dict[str, list[int]], int | None, list[tuple[str, int]]]:
     if role not in ROLE_FILES:
-        raise _error(source_path, "role", f"unknown Harness role {role!r}")
+        raise _error(source_path, "role", f"unknown ARC role {role!r}")
     text, profile = _decode_toml(profile_bytes, source_path, "profile")
     if profile.get("name") != role:
         raise _error(source_path, "name", f"expected profile name {role!r}, found {profile.get('name')!r}")

@@ -1,9 +1,9 @@
 ---
-name: yunho-harness
+name: arc
 description: Coordinate scoped research planning implementation verification and review using Claude native roles
 ---
 
-# Yunho Harness for Claude Code
+# ARC for Claude Code
 
 Follow user instructions and project guidance. CEO uses the current chat model and answers simple, self-contained
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work. Assign material
@@ -27,24 +27,24 @@ For mixed research/document requests, CEO may explicitly assign only research to
 - Reviewer: independently reviews the final full change.
 - All five roles report directly to CEO at depth 2: Scouter, Planner, Coder, QA, and Reviewer. CEO is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
-- Claude native subagent names: Scouter=`harness-scouter`, Planner=`harness-planner`, Coder=`harness-coder`, QA=`harness-qa`, Reviewer=`harness-reviewer`.
+- Claude native subagent names: Scouter=`arc-scouter`, Planner=`arc-planner`, Coder=`arc-coder`, QA=`arc-qa`, Reviewer=`arc-reviewer`.
 - Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap. These are
-  Harness limits, not verified runtime concurrency or depth capabilities. Use Claude native subagent execution with
+  ARC limits, not verified runtime concurrency or depth capabilities. Use Claude native subagent execution with
   the installed native name and receive its completion result; report unavailable execution capabilities to CEO.
 - Scouter, Planner, and Reviewer do not edit, execute commands, or save standalone documents; QA verifies without edits.
   Each role stays within its shipped tool allowlist; a tool list is not a filesystem sandbox.
 
 ## Instruction and execution adapter
 
-Apply platform, user, and project instructions according to their precedence, then Harness rules for ownership,
+Apply platform, user, and project instructions according to their precedence, then ARC rules for ownership,
 permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
 `superpowers:subagent-driven-development` to CEO's sequential coordination and risk-scaled verification; this replaces
 executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
-explicit Harness exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
-Harness Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
+explicit ARC exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
+ARC Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
 missing non-executor skills before dependent work.
 
 Planner, Reviewer, and Scouter return findings, relevant questions, next actions, and workspace/path issues to the
@@ -112,14 +112,14 @@ order are in handoff; Coder repair limits are in the Coder profile. The same con
 Claude v1 supports the current checkout only. Present the actual workspace, branch/HEAD and exact proposed branch
 name/base, and obtain an explicit choice to reuse the current branch or create a task branch before preparation.
 Commit the approved planning documents together before Coder starts. Keep the canonical handoff record outside the
-working tree under the Git common directory. Harness-managed worktree execution is unsupported; report an isolated
+working tree under the Git common directory. ARC-managed worktree execution is unsupported; report an isolated
 worktree request before dependent work and obtain an approved supported target. Do not create, move, restore,
 archive or attach worktrees as a fallback; preserve existing user checkouts.
 
 ## Coder TDD and constraints
 
 Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
-Harness exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
+ARC exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
 low-risk criterion (Risk-scaled execution) and every plan-skip criterion (CEO direct path) holds. Before Coder starts,
 CEO records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief. An explicit user or task-specific TDD request overrides
 this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the installed skill;
@@ -189,16 +189,16 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
 - `AskUserQuestion` questions use only `question`, a `header` of at most 12 characters, 2-4 `options` each with `label` and `description`, and `multiSelect`.
-- Always start a Harness role by its installed native name (`harness-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for a Harness role; do not claim fresh context isolation without evidence. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
+- Always start an ARC role by its installed native name (`arc-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for an ARC role; do not claim fresh context isolation without evidence. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
   remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
 - Cite in the brief the absolute path of each required external skill's SKILL.md (`test-driven-development` for Coder, `brainstorming`/`writing-plans` for Planner); the role Reads it before dependent work.
-- For Reviewer, CEO writes the final base..HEAD diff plus changed-file list to `<git-common-dir>/yunho-harness/review/<slug>.diff` (same slug as the handoff record; base is the approved base HEAD recorded at handoff; inline when small or write denied) and cites its absolute path in the brief; Reviewer reads it and states limits. See verification.
+- For Reviewer, CEO writes the final base..HEAD diff plus changed-file list to `<git-common-dir>/arc/review/<slug>.diff` (same slug as the handoff record; base is the approved base HEAD recorded at handoff; inline when small or write denied) and cites its absolute path in the brief; Reviewer reads it and states limits. See verification.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
 - Before optional calls, name the unresolved question and expected artifact; skip calls already resolved by available
   evidence/direct inspection. Preserve required planning and risk-scaled QA/review. Do not call every role
   automatically, add redundant scripts, or repeat audits when direct tools/evidence suffice.
-- Run each Harness role as a foreground Agent call and use its returned result, or run it in the background and wait for the completion notification; report unavailable execution to CEO rather than inventing an API. Do not poll status in loops; never sleep-poll. A timeout or delay is not a reason to poll or check status in between. Send one complete brief per objective and batch related corrections. For long Bash commands set a sufficient `timeout` or use `run_in_background` and wait for its completion notification.
+- Run each ARC role as a foreground Agent call and use its returned result, or run it in the background and wait for the completion notification; report unavailable execution to CEO rather than inventing an API. Do not poll status in loops; never sleep-poll. A timeout or delay is not a reason to poll or check status in between. Send one complete brief per objective and batch related corrections. For long Bash commands set a sufficient `timeout` or use `run_in_background` and wait for its completion notification.
 
 - Read only the needed ranges of files and outputs (for example `rg -n`, `sed -n`, `head`/`tail`) and cap long command
   output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in
@@ -212,8 +212,8 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 ## Models
 
 `models.toml` beside this skill is the local source of truth; `scripts/model_config.py` validates exactly five
-underscore configuration keys: `harness_scouter`, `harness_planner`, `harness_coder`, `harness_qa`, and
-`harness_reviewer`. These keys map to the hyphenated native profile names in Ownership and are not invocation names.
+underscore configuration keys: `arc_scouter`, `arc_planner`, `arc_coder`, `arc_qa`, and
+`arc_reviewer`. These keys map to the hyphenated native profile names in Ownership and are not invocation names.
 CEO uses the current chat model. Current local declarations are Scouter haiku/high, Planner sonnet/medium,
 Coder sonnet/low, QA haiku/high, and Reviewer sonnet/medium. Local configuration does not prove runtime provider
 support, account access, alias resolution, actual effort application, concurrency or depth enforcement. Use configured
@@ -222,7 +222,7 @@ settings without silent substitution or effort reduction; report unavailable set
 After editing `models.toml`, reapply installed profile settings with:
 
 ```sh
-python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py
+python3 ~/.claude/skills/arc/scripts/apply-models.py
 ```
 
 The supported options are `--config`, `--agents-dir`, `--check`, and `--dry-run`. Check and dry-run validate local

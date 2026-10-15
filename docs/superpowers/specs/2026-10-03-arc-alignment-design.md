@@ -1,4 +1,4 @@
-# Superpowers–Harness 작업 흐름 정합성 설계
+# Superpowers–ARC 작업 흐름 정합성 설계
 
 날짜: 2026-10-03
 상태: 기존 여섯 계약의 서면 spec은 사용자 “ㅇㅇ” 승인. 한국어 출력 정책은 “planner 지침 적용해”로 승인. 전체 구현 계획 승인은 대기 중.
@@ -6,7 +6,7 @@
 
 ## 1. 목표
 
-Harness 계층에서 감사된 여섯 차이를 해결한다: 계획 없는 bounded 작업에도 Coder TDD 적용, 외부 executor 대응, architectural 계획 의무화, bounded 계획 깊이 독립 판단, Lead 작업 공간·절대 경로 인계, 읽기 전용 Planner 출력과 Lead visual companion 운영.
+ARC 계층에서 감사된 여섯 차이를 해결한다: 계획 없는 bounded 작업에도 Coder TDD 적용, 외부 executor 대응, architectural 계획 의무화, bounded 계획 깊이 독립 판단, Lead 작업 공간·절대 경로 인계, 읽기 전용 Planner 출력과 Lead visual companion 운영.
 
 추가로 한국어 사용자·작업의 spec·계획 제목과 설명을 한국어로 작성하고 Lead가 보존한다. 모든 계약은 skill·관련 프로필에서 일치해야 한다. Dependencies는 바이트 단위로 보존하고 installer가 변경 payload·manifest를 검증해야 한다.
 
@@ -15,10 +15,10 @@ Harness 계층에서 감사된 여섯 차이를 해결한다: 계획 없는 boun
 | 파일 | 책임 |
 |---|---|
 | `skill/SKILL.md` | 중앙 우선순위·승인·TDD·작업 공간·시각화·언어 정책 |
-| `agents/harness-lead.toml` | 집행·예외 기록·실행 대응·작업 공간·runtime·언어 보존 |
-| `agents/harness-planner.toml` | 읽기 전용 초안·계획 판단·시각화 인계·언어 정책 |
-| `agents/harness-coder.toml` | 설치 TDD·할당 수정·예외 보고·전달된 작업 공간 사용 |
-| `MANIFEST.sha256` | 실제 변경된 Harness payload의 해시만 갱신 |
+| `agents/arc-lead.toml` | 집행·예외 기록·실행 대응·작업 공간·runtime·언어 보존 |
+| `agents/arc-planner.toml` | 읽기 전용 초안·계획 판단·시각화 인계·언어 정책 |
+| `agents/arc-coder.toml` | 설치 TDD·할당 수정·예외 보고·전달된 작업 공간 사용 |
+| `MANIFEST.sha256` | 실제 변경된 ARC payload의 해시만 갱신 |
 
 QA·Reviewer·Scout·Secretary의 현재 책임은 충분하다. Dependencies·installer 코드·모델·무관한 파일은 변경하지 않는다. 실제 설치·브라우저·서버는 검증에 필요하지 않다. Spec·계획은 Lead가 통합·저장·자체 검토한다. 구현 작업 공간은 7절을 따른다.
 
@@ -26,7 +26,7 @@ QA·Reviewer·Scout·Secretary의 현재 책임은 충분하다. Dependencies·i
 
 ## 3. Adapter 우선순위
 
-적용되는 platform·사용자·프로젝트 지침, Harness의 책임·권한·모델·동시 실행·routing·승인, 역할에 대응된 설치 skill 순으로 적용한다. 설계·spec·계획 검토, TDD, 작업 공간 동의, 실행 순서·독립 검토를 보존한다. 호출 skill은 agent·권한을 추가하지 않는다.
+적용되는 platform·사용자·프로젝트 지침, ARC의 책임·권한·모델·동시 실행·routing·승인, 역할에 대응된 설치 skill 순으로 적용한다. 설계·spec·계획 검토, TDD, 작업 공간 동의, 실행 순서·독립 검토를 보존한다. 호출 skill은 agent·권한을 추가하지 않는다.
 
 쓰기·저장·commit·승인·구현 요구는 권한 있는 역할로 대응한다: Planner는 완전한 초안·검토·다음 행동; Lead는 통합·저장·자체 검토·사용자 결정; Coder는 할당 구현·테스트; QA는 수정 없는 검증; Reviewer는 독립 읽기; Lead는 수용·완료. 양립 불가한 명시 지시·제약은 종속 행동 전에 알린다. 실행 방식 이름은 권한을 바꾸지 않는다.
 
@@ -36,7 +36,7 @@ QA·Reviewer·Scout·Secretary의 현재 책임은 충분하다. Dependencies·i
 
 기존 지정 방식은 보존한다. 미지정이면 설치 writing-plans에 따라 서면 계획 검토와 함께 결정한다.
 
-| 방식 | Harness 동작 |
+| 방식 | ARC 동작 |
 |---|---|
 | Native | Lead가 Coder 단계별 구현을 조정하고 관련 Coder를 재사용할 수 있다. 해당 QA 후 새 독립 Reviewer가 전체 변경을 완료 전에 검토한다. |
 | Fresh-agent / Subagent-driven | Task별 새 Coder와 새 독립 Reviewer. 필요한 QA가 검토에 앞서고 다음 종속 task 전에 검토한다. 마지막에 전체 범위를 검토한다. |
@@ -55,7 +55,7 @@ Freshness는 Coder·Reviewer task context이며 새 owner·위임 권한이 아�
 
 Architectural 계획은 locality·파일 수·LOC·낮은 위험·작은 구현과 무관하게 필수다. 승인은 제시 단계만 포함하며 없는 문서까지 승인하지 않는다.
 
-Bounded는 짧은 설계 승인 후 계획 깊이를 별도 판단한다. “no plan document”·“implementation proceeds directly”는 Harness 판단을 우회하지 않는다. 로컬 변경이며 종속 단계·공유 상태·수명주기·통합 순서가 없고 한 검증 경로일 때만 writing-plans 생략; 아니면 초안·검토·승인한다.
+Bounded는 짧은 설계 승인 후 계획 깊이를 별도 판단한다. “no plan document”·“implementation proceeds directly”는 ARC 판단을 우회하지 않는다. 로컬 변경이며 종속 단계·공유 상태·수명주기·통합 순서가 없고 한 검증 경로일 때만 writing-plans 생략; 아니면 초안·검토·승인한다.
 
 Spike는 probe 승인·결과 보고를 유지한다. 결과 유지·구현은 별도 분류·승인한다.
 
@@ -106,7 +106,7 @@ Lead는 독립적인 just-in-time 제안·응답·guide·요구 option 시작·s
 
 ## 11. 검증
 
-전체 TOML, 비설치 `--check`·`--dry-run`, 실제 Harness manifest 변경, 수정 전 dependency 해시 비교, 여섯 계약·언어 독립 시나리오 검토, 발견 해결/처리 후 완료한다. 설정·서면 계약을 검증하며 모델 준수는 증명하지 않는다. 설치·브라우저·서버는 제외, 구현 공간은 7절이다.
+전체 TOML, 비설치 `--check`·`--dry-run`, 실제 ARC manifest 변경, 수정 전 dependency 해시 비교, 여섯 계약·언어 독립 시나리오 검토, 발견 해결/처리 후 완료한다. 설정·서면 계약을 검증하며 모델 준수는 증명하지 않는다. 설치·브라우저·서버는 제외, 구현 공간은 7절이다.
 
 ## 12. 가정·의존성
 

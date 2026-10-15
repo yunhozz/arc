@@ -1,4 +1,4 @@
-# Yunho Harness
+# ARC (Agent Role Coordination)
 
 Codex와 Claude Code에서 조사·설계·구현·검증을 역할별로 나눕니다. CEO가 작업을 판단하고 조율하며, 결과를 수락합니다.
 
@@ -84,10 +84,10 @@ Planner가 경로와 초안을 제안하고, CEO가 통합해 사용자 승인�
 
 ### 설치가 바꾸는 것
 
-- **전역 지침:** `AGENTS.md`(Codex) 또는 `CLAUDE.md`(Claude) 끝에 `yunho-harness:begin`/`yunho-harness:end` 표식 사이의 관리 블록을 추가하거나 갱신합니다. 표식 밖 내용은 그대로 둡니다.
+- **전역 지침:** `AGENTS.md`(Codex) 또는 `CLAUDE.md`(Claude) 끝에 `arc:begin`/`arc:end` 표식 사이의 관리 블록을 추가하거나 갱신합니다. 표식 밖 내용은 그대로 둡니다. 이전 설명형 관리 표식이 있으면 자동 이전하지 않고 쓰기 전에 거부합니다.
 - **Codex `config.toml`:** `[features.multi_agent_v2]`의 `min_wait_timeout_ms = 120000`, `default_wait_timeout_ms = 300000`만 설정합니다. 이 항목이 독립 테이블이 아니면 수정하지 않고 수동 설정 안내를 출력합니다.
-- **백업:** 기존 관리 파일은 `<home>/backups/yunho-harness-<UTC시각>/`에 백업한 뒤 갱신합니다(`<home>`은 `~/.codex` 또는 `~/.claude`). 새 설치에서는 백업 폴더가 비어 있을 수 있습니다.
-- **Codex 정리:** 폐기된 프로필 `harness-secretary.toml`, `harness-scout.toml`은 백업 후 제거합니다. `~/.agents/skills/<스킬>`의 기존 복사본은 백업 후 갱신합니다.
+- **백업:** 기존 관리 파일은 `<home>/backups/arc-<UTC시각>/`에 백업한 뒤 갱신합니다(`<home>`은 `~/.codex` 또는 `~/.claude`). 새 설치에서는 백업 폴더가 비어 있을 수 있습니다.
+- **Codex 외부 스킬:** `~/.agents/skills/<스킬>`의 기존 복사본은 백업 후 갱신합니다. 설치 대상이 아닌 사용자 프로필은 변경하지 않습니다.
 - **Claude 경로:** 기본값이 아니거나 비었거나 상대 경로인 `CLAUDE_CONFIG_DIR`은 거부합니다. `~/.claude`를 사용하세요.
 - **Claude 외부 스킬 링크:** 세 외부 스킬이 같은 이름의 `~/.codex/skills/<name>` 디렉터리를 가리키는 심볼릭 링크라면, 검증된 upstream 내용으로 된 독립 Claude 디렉터리로 바꿉니다. Codex 쪽 파일과 사용자 수정은 그대로 둡니다. 그 밖의 링크(부모·중간 경로 링크, 다른 목적지나 이름, 끊어진 링크, 순환 링크, 파일 목적지, Codex 목적지 경로 안의 링크)는 거부합니다. 원래 링크는 `~/.claude/backups/`에 백업하고 설치가 실패하면 복원합니다. 복구마저 실패하면 출력된 recovery 경로의 자료를 보존하세요.
 - **`models.toml`:** 재설치하면 배포 기본값으로 덮어씁니다(이전 파일은 백업에 남음).
@@ -96,15 +96,15 @@ Planner가 경로와 초안을 제안하고, CEO가 통합해 사용자 승인�
 
 ### `--skip-global` 수동 반영
 
-대상 파일(`AGENTS.md` 또는 `CLAUDE.md`) 끝에 아래 블록을 붙이세요. `<SKILL>`은 Codex `~/.codex/skills/yunho-harness/SKILL.md`, Claude `~/.claude/skills/yunho-harness/SKILL.md`입니다.
+대상 파일(`AGENTS.md` 또는 `CLAUDE.md`) 끝에 아래 블록을 붙이세요. `<SKILL>`은 Codex `~/.codex/skills/arc/SKILL.md`, Claude `~/.claude/skills/arc/SKILL.md`입니다.
 
 ````md
-<!-- yunho-harness:begin (managed by install.py; content between these markers is replaced on install) -->
-## Yunho's Harness
+<!-- arc:begin -->
+## Agent Role Coordination
 
-- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test work (not standalone document writing), load and follow `<SKILL>`; keep following it in relevant follow-up turns of the same chat without re-reading it unless it changed. Resolve `~` to the current user's home directory. Harness subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.
-- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the Harness CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
-<!-- yunho-harness:end -->
+- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test work (not standalone document writing), load and follow `<SKILL>`; keep following it in relevant follow-up turns of the same chat without re-reading it unless it changed. Resolve `~` to the current user's home directory. ARC subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.
+- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities. CEO must not edit implementation, configuration, or test-code files directly, except under the ARC CEO direct path for small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.
+<!-- arc:end -->
 ````
 
 Codex는 `~/.codex/config.toml`에 다음도 추가합니다.
@@ -122,8 +122,8 @@ default_wait_timeout_ms = 300000
 설치된 `models.toml`을 고친 뒤에는 해당 스킬의 `scripts/apply-models.py`를 실행해 역할 프로필에 반영하세요.
 
 ```sh
-python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py
-python3 ~/.codex/skills/yunho-harness/scripts/apply-models.py
+python3 ~/.claude/skills/arc/scripts/apply-models.py
+python3 ~/.codex/skills/arc/scripts/apply-models.py
 ```
 
 ## 🧑‍💻 개발

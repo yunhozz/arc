@@ -1,6 +1,6 @@
 # 하네스 핵심 지침 축소와 재개 인계 개선 구현 계획
 
-> **For agentic workers:** 이 Harness는 단계별 소유권과 위험 기반 QA/Reviewer를 사용한다. CEO가 순차 조율하고, Coder가 할당 파일을 편집하며, QA와 Reviewer는 각각 독립 검증·검토한다.
+> **For agentic workers:** 이 ARC는 단계별 소유권과 위험 기반 QA/Reviewer를 사용한다. CEO가 순차 조율하고, Coder가 할당 파일을 편집하며, QA와 Reviewer는 각각 독립 검증·검토한다.
 
 **Goal (목표):** 여섯 역할과 안전 게이트를 유지하면서 핵심 `skill/SKILL.md`를 `wc -w` 기준 5,577단어에서 2,788단어 이하로 줄이고, 같은 승인 범위의 Coder 재개에서 유효한 최초 실행 대상 선택을 재사용한다.
 
@@ -8,11 +8,11 @@
 
 **Tech Stack (기술):** Markdown, TOML, Python 3.11 이상, 표준 `unittest`, SHA-256 manifest. 새 의존성은 추가하지 않는다.
 
-**Spec:** [승인 설계](2026-10-07-token-efficient-harness.md#승인-설계)는 2026-10-07 사용자 승인 bounded 설계를 이 계획 안에 기록한다. 이 범위 깊이에서는 별도 spec이 필요하지 않다.
+**Spec:** [승인 설계](2026-10-07-token-efficient-arc.md#승인-설계)는 2026-10-07 사용자 승인 bounded 설계를 이 계획 안에 기록한다. 이 범위 깊이에서는 별도 spec이 필요하지 않다.
 
 ## 공통 제약
 
-- 작업공간: `/Users/ma-24-007/Desktop/workspace/yunho-harness`. 기준 상태는 `master`, HEAD `6ca5407922cff27235aaca204bca43aad969e535`, clean이며 Coder 준비 전에 다시 확인한다.
+- 작업공간: `/Users/ma-24-007/Desktop/workspace/arc`. 기준 상태는 `master`, HEAD `6ca5407922cff27235aaca204bca43aad969e535`, clean이며 Coder 준비 전에 다시 확인한다.
 - 여섯 역할, CEO 직속 구조, 권한·파일 소유권, 하위 에이전트 최대 4개, TDD, 위험별 검증, 승인 문서와 Git 보호 규칙을 유지한다.
 - 핵심 지침에는 조건에 맞는 참조를 종속 행동 전에 읽도록 명시한다. 참조 누락·충돌은 CEO에게 보고하고 해당 작업을 중단한다.
 - 최초 Coder 시작에는 실행 대상의 명시적 사용자 선택이 필요하다. 같은 승인 범위·작업공간·저장소·대상의 재개는 그 선택을 유지하되 CEO와 Coder가 실제 Git 상태를 재확인한다.
@@ -44,7 +44,7 @@
 |---|---|
 | `skill/SKILL.md` | 상시 정책, 필수 참조 트리거, 공통 게이트, 위험별 기본 흐름 |
 | `skill/references/*.md` | 계획, handoff, 검증/UI, Git 복구, Visual companion 상세 계약 |
-| `agents/harness-coder.toml` | Coder의 최초/재개 독립 확인과 편집 차단 조건 |
+| `agents/arc-coder.toml` | Coder의 최초/재개 독립 확인과 편집 차단 조건 |
 | `tests/test_install.py` | 정책 계약, 설치 참조·manifest, 변경된 선택 수명 검증 |
 | `README.md` | 설치된 참조 로딩과 최초/재개 사용자 안내 |
 | `MANIFEST.sha256` | 변경 payload와 다섯 신규 참조의 해시 |
@@ -71,7 +71,7 @@
 
 ## Task 2: Coder 최초 선택과 재개 계약
 
-**Files:** `skill/SKILL.md`, `skill/references/{planning,handoff,git-recovery}.md`, `agents/harness-coder.toml`, `tests/test_install.py`
+**Files:** `skill/SKILL.md`, `skill/references/{planning,handoff,git-recovery}.md`, `agents/arc-coder.toml`, `tests/test_install.py`
 
 - [ ] 다음 사례를 테스트한다: 최초 선택 누락/계획 승인만 있음은 차단; 명시적 최초 선택과 모든 게이트 충족은 허용; 동일 범위 재개는 선택 유지; 모든 재개는 실제 Git 상태 확인; 범위·작업공간·저장소·대상·branch 후보 변경과 무효화 실패는 새 선택 요구; 기록 접근 불가·증거 누락·소유권 불명·무관한 staged 변경은 편집 차단.
 - [ ] 테스트가 현재의 “매 재개 새 선택” 정책과 새 계약의 차이로 실패하는지 확인한다.

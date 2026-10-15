@@ -1,8 +1,8 @@
-# Harness 정합성 구현 계획
+# ARC 정합성 구현 계획
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> **Harness adapter:** Native의 Lead → Coder → QA → 새 독립 Reviewer 승인 완료. REQUIRED 이름은 승인된 adapter로 대응한다. Lead는 구현하지 않고 specialist는 agent를 생성하지 않는다.
+> **ARC adapter:** Native의 Lead → Coder → QA → 새 독립 Reviewer 승인 완료. REQUIRED 이름은 승인된 adapter로 대응한다. Lead는 구현하지 않고 specialist는 agent를 생성하지 않는다.
 
 **목표:** Dependencies를 보존하면서 여섯 계약과 한국어 산출물 정책을 정렬한다.
 
@@ -10,12 +10,12 @@
 
 **기술:** Markdown, TOML, 기존 Python installer·SHA-256.
 
-**Spec:** `docs/superpowers/specs/2026-10-03-harness-alignment-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-03-arc-alignment-design.md`
 
 ## 공통 제약
 
 - Dependencies·installer·모델·무관 파일 변경 금지, 바이트 보존, 기존 `.DS_Store`·`.idea/` 유지.
-- 허용: `skill/SKILL.md`, `agents/harness-lead.toml`, `agents/harness-planner.toml`, `agents/harness-coder.toml`, 대응 `MANIFEST.sha256`.
+- 허용: `skill/SKILL.md`, `agents/arc-lead.toml`, `agents/arc-planner.toml`, `agents/arc-coder.toml`, 대응 `MANIFEST.sha256`.
 - Architectural 계획 필수. Planner 읽기 전용·승인/agent 불가. Lead 승인·통합·공간·완료. Coder 수정, QA 수정 없는 검증, Reviewer QA/수정 없는 독립 검토.
 - 모델·동시 실행·승인 유지. 설치·브라우저·서버 검증 제외. 공간은 설치 using-git-worktrees·필요 동의.
 - 한국어 제목·설명, 명시 다른 언어 우선, 식별자·skill/API·코드·경로·명령·literal 보존, Lead 언어 유지.
@@ -66,7 +66,7 @@ Git 경로 해석 후 비교·submodule guard. 기존 baseline은 `master`, 두 
 - [ ] 기록·인계:
 
 ```text
-Method: Native Harness Coder (if approved)
+Method: Native ARC Coder (if approved)
 Risk: significant contract risk
 Workspace: actual absolute chosen path
 Evidence: isolation/preference/consent/setup or permitted fallback
@@ -76,7 +76,7 @@ Allowed edits: five scoped files
 Checks: baseline, structure, contracts, fresh review
 ```
 
-경로 문제는 종속 작업 전 Lead. 계획 승인 때 `/Users/yunho/Desktop/project/yunho-harness` in-place를 명시 선택하면 추가 동의 질문 없이 선호 기록 가능.
+경로 문제는 종속 작업 전 Lead. 계획 승인 때 `/Users/yunho/Desktop/project/arc` in-place를 명시 선택하면 추가 동의 질문 없이 선호 기록 가능.
 
 ## Task 1: 계약·Payload 정렬
 
@@ -124,7 +124,7 @@ PY
 
 구체 필수 내용:
 
-- Platform/user/project 우선·Harness 책임/권한/모델/제한/gate.
+- Platform/user/project 우선·ARC 책임/권한/모델/제한/gate.
 - Executor/runtime 권한 역할 대응, REQUIRED 두 executor만 대체·non-executor 누락 보고.
 - Native Coder·해당 QA·fresh 최종 Reviewer; fresh task Coder/Reviewer·QA 앞선 review·다음 종속 task 전·최종 review.
 - 지정 방식 유지·미지정 계획 검토 결정.
@@ -157,8 +157,8 @@ Spec 역할/skill 이름 유지. 언어 선행 권한을 전체 계약 권한으
 python3 -B - <<'PY'
 from pathlib import Path
 import hashlib
-for name in ('skill/SKILL.md', 'agents/harness-lead.toml',
-             'agents/harness-planner.toml', 'agents/harness-coder.toml'):
+for name in ('skill/SKILL.md', 'agents/arc-lead.toml',
+             'agents/arc-planner.toml', 'agents/arc-coder.toml'):
     print(f'{hashlib.sha256(Path(name).read_bytes()).hexdigest()}  {name}')
 PY
 ```
@@ -231,7 +231,7 @@ QA 읽기 전용, Task1 의존.
 Commit 권한이 있으면 다섯 구현만 stage:
 
 ```text
-fix(harness): 스킬 실행과 역할 인계 계약 정합성 보완
+fix(arc): 스킬 실행과 역할 인계 계약 정합성 보완
 ```
 
 계획은 publication/installation/commit 권한을 추가하지 않는다. 별도 언어 commit은 해당 범위만 포함·한국어 Conventional Commit.

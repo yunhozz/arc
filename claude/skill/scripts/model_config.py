@@ -1,4 +1,4 @@
-"""Strict Claude Harness settings, frontmatter rendering and transactional updates."""
+"""Strict Claude ARC settings, frontmatter rendering and transactional updates."""
 from __future__ import annotations
 
 import os
@@ -8,7 +8,7 @@ import stat
 import tempfile
 import tomllib
 
-ROLE_FILES = {f'harness_{role}': f'harness-{role}.md' for role in ('scouter', 'planner', 'coder', 'qa', 'reviewer')}
+ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'coder', 'qa', 'reviewer')}
 ROLE_TOOLS = {
     'scouter': ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'],
     'planner': ['Read', 'Grep', 'Glob'],
@@ -29,7 +29,7 @@ def validate_settings(data: dict) -> dict:
         raise ValidationError('settings require version = 1 and roles only')
     roles = data['roles']
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
-        raise ValidationError('settings require exactly the five Harness roles')
+        raise ValidationError('settings require exactly the five ARC roles')
     result = {}
     for name, settings in roles.items():
         if not isinstance(settings, dict) or set(settings) != {'model', 'effort'}:
@@ -97,8 +97,8 @@ def _profile(content: bytes) -> tuple[list[str], dict, dict]:
     if not closed or not {'name', 'description', 'model', 'effort', 'tools'} <= set(fields):
         raise ValidationError('incomplete frontmatter')
     name = fields['name']
-    role = name.removeprefix('harness-')
-    if name != f'harness-{role}' or role not in ROLE_TOOLS or fields['tools'] != ROLE_TOOLS[role]:
+    role = name.removeprefix('arc-')
+    if name != f'arc-{role}' or role not in ROLE_TOOLS or fields['tools'] != ROLE_TOOLS[role]:
         raise ValidationError('invalid native name or role tool allowlist')
     if MODEL.fullmatch(fields['model']) is None or fields['effort'] not in EFFORTS:
         raise ValidationError('invalid model or effort declaration')
@@ -112,7 +112,7 @@ def parse_profile(content: bytes) -> dict:
 def render_profile(content: bytes, settings: dict) -> bytes:
     validated = validate_settings({'version': 1, 'roles': {role: dict(settings) for role in ROLE_FILES}})
     lines, _, indices = _profile(content)
-    for field, value in validated['harness_coder'].items():
+    for field, value in validated['arc_coder'].items():
         index = indices[field]
         newline = '\r\n' if lines[index].endswith('\r\n') else '\n' if lines[index].endswith('\n') else ''
         lines[index] = f'{field}: {value}{newline}'
@@ -140,7 +140,7 @@ def apply_models(settings: dict, agents_dir: Path, *, check: bool = False, dry_r
             if old == new:
                 continue
             for data, bucket in ((new, staged), (old, backups)):
-                fd, temporary = tempfile.mkstemp(prefix='.harness-models-', dir=agents_dir)
+                fd, temporary = tempfile.mkstemp(prefix='.arc-models-', dir=agents_dir)
                 temporary = Path(temporary)
                 bucket[path] = temporary
                 with os.fdopen(fd, 'wb') as stream:

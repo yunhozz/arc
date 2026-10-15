@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 실제 workspace: `/Users/yunho/Desktop/project/yunho-harness`.
+- 실제 workspace: `/Users/yunho/Desktop/project/arc`.
 - Coder 수정 범위는 다음 세 파일로 한정한다.
   - `tests/test_install.py`
   - `skill/SKILL.md`
@@ -63,7 +63,7 @@
 
 - [ ] Coder는 승인된 명세와 계획을 읽고 CEO brief의 workspace, branch/HEAD, 변경 소유 범위와 실제 상태가 일치하는지 확인한다.
 
-실행 위치: `/Users/yunho/Desktop/project/yunho-harness`
+실행 위치: `/Users/yunho/Desktop/project/arc`
 
 ```bash
 git status --short

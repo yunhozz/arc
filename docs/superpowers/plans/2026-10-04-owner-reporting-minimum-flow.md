@@ -4,7 +4,7 @@
 
 **목표:** 공통 역할의 보고 대상을 호출 owner로 정리하고, 위험도와 실행 모드가 함께 결정하는 최소 검증 흐름 및 리뷰 중복 충족 조건을 명시한다.
 
-**구조:** `skill/SKILL.md`를 공통 정책으로 유지하면서 관련 네 프로필의 지침을 동기화한다. 기존 역할·권한·승인 gate를 유지하고, 마지막에 변경 파일의 manifest hash를 갱신한다. 위 executor 지침은 Harness adapter에 따라 승인된 **Native**로 실행하며, Lead가 조율하고 Coder가 지정 파일을 수정한다.
+**구조:** `skill/SKILL.md`를 공통 정책으로 유지하면서 관련 네 프로필의 지침을 동기화한다. 기존 역할·권한·승인 gate를 유지하고, 마지막에 변경 파일의 manifest hash를 갱신한다. 위 executor 지침은 ARC adapter에 따라 승인된 **Native**로 실행하며, Lead가 조율하고 Coder가 지정 파일을 수정한다.
 
 **기술:** Markdown, TOML, Python 3.11 이상, SHA-256 manifest.
 
@@ -12,7 +12,7 @@
 
 ## 공통 제약
 
-- 계획 작성 workspace는 `/Users/yunho/Desktop/project/yunho-harness`이다. 실행 전 isolation과 실제 실행 경로는 Lead가 확인한다.
+- 계획 작성 workspace는 `/Users/yunho/Desktop/project/arc`이다. 실행 전 isolation과 실제 실행 경로는 Lead가 확인한다.
 - 수정 파일은 아래 여섯 파일로 한정한다. README, 다른 프로필, installer source, dependency, 모델 설정은 수정하지 않는다.
 - 사용자 지정 보호 정책 영역은 바이트 단위로 보존한다. 해당 영역의 주체를 지정하거나 경계를 변경하지 않는다.
 - 공통 역할의 보고 대상 정리가 owner별 권한 이동으로 이어져서는 안 된다.
@@ -41,12 +41,12 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 
 | 파일 | 변경 책임 |
 |---|---|
-| `/Users/yunho/Desktop/project/yunho-harness/skill/SKILL.md` | 공통 보고 규칙, 위험도와 모드 결합, 중복 충족 및 재사용 조건 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-planner.toml` | 공통 보고 대상과 개발 전용 절차 구분 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-reviewer.toml` | 보고 대상과 owner의 완료 판단 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-scout.toml` | owner 보고와 다음 역할용 결과 형식 구분 |
-| `/Users/yunho/Desktop/project/yunho-harness/agents/harness-lead.toml` | 최소 검증 흐름, 리뷰 중복 충족 조건 |
-| `/Users/yunho/Desktop/project/yunho-harness/MANIFEST.sha256` | 위 다섯 payload 파일의 변경된 hash |
+| `/Users/yunho/Desktop/project/arc/skill/SKILL.md` | 공통 보고 규칙, 위험도와 모드 결합, 중복 충족 및 재사용 조건 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-planner.toml` | 공통 보고 대상과 개발 전용 절차 구분 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-reviewer.toml` | 보고 대상과 owner의 완료 판단 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-scout.toml` | owner 보고와 다음 역할용 결과 형식 구분 |
+| `/Users/yunho/Desktop/project/arc/agents/arc-lead.toml` | 최소 검증 흐름, 리뷰 중복 충족 조건 |
+| `/Users/yunho/Desktop/project/arc/MANIFEST.sha256` | 위 다섯 payload 파일의 변경된 hash |
 
 정책과 프로필은 함께 승인·검토할 하나의 변경 단위다. 문구 확정 → 프로필 동기화 → manifest 갱신 → 구조 검증 → QA → fresh 전체 Reviewer → Lead acceptance 순서로 진행한다. 여러 파일의 의미와 manifest가 종속되어 no-plan 조건에 해당하지 않는다.
 
@@ -58,11 +58,11 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 - [ ] 기존 isolation과 submodule 여부를 먼저 확인한다.
 
   ```sh
-  git -C /Users/yunho/Desktop/project/yunho-harness rev-parse --git-dir
-  git -C /Users/yunho/Desktop/project/yunho-harness rev-parse --git-common-dir
-  git -C /Users/yunho/Desktop/project/yunho-harness rev-parse --show-superproject-working-tree
-  git -C /Users/yunho/Desktop/project/yunho-harness branch --show-current
-  git -C /Users/yunho/Desktop/project/yunho-harness status --short
+  git -C /Users/yunho/Desktop/project/arc rev-parse --git-dir
+  git -C /Users/yunho/Desktop/project/arc rev-parse --git-common-dir
+  git -C /Users/yunho/Desktop/project/arc rev-parse --show-superproject-working-tree
+  git -C /Users/yunho/Desktop/project/arc branch --show-current
+  git -C /Users/yunho/Desktop/project/arc status --short
   ```
 
   `git-dir`와 `git-common-dir`를 절대 경로로 해석한 뒤 비교한다. 서로 다르더라도 superproject 경로가 있으면 linked worktree라고 판단하지 않는다. 계획 작성 시 두 값은 `.git`, superproject 출력은 없으며 branch는 `master`였다. native `list_artifacts`는 빈 목록이었다.
@@ -154,10 +154,10 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
   import tomllib
 
   paths = [
-      Path("agents/harness-planner.toml"),
-      Path("agents/harness-reviewer.toml"),
-      Path("agents/harness-scout.toml"),
-      Path("agents/harness-lead.toml"),
+      Path("agents/arc-planner.toml"),
+      Path("agents/arc-reviewer.toml"),
+      Path("agents/arc-scout.toml"),
+      Path("agents/arc-lead.toml"),
   ]
   for path in paths:
       data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -196,10 +196,10 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 
   selected = {
       "skill/SKILL.md",
-      "agents/harness-planner.toml",
-      "agents/harness-reviewer.toml",
-      "agents/harness-scout.toml",
-      "agents/harness-lead.toml",
+      "agents/arc-planner.toml",
+      "agents/arc-reviewer.toml",
+      "agents/arc-scout.toml",
+      "agents/arc-lead.toml",
   }
   manifest = Path("MANIFEST.sha256")
   lines = manifest.read_bytes().splitlines(keepends=True)
@@ -246,7 +246,7 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 - [ ] QA 후 fresh independent Reviewer가 여섯 파일의 전체 변경을 검토한다. 위험도 리뷰도 충족한다면 범위·증거·상태·독립성·freshness·시점을 확인하고 충족 요구를 기록한다.
 - [ ] 발견 사항은 Lead가 Coder에게 전달한다. 수정 후 영향받는 구조 확인과 QA를 반복하고, 리뷰 증거가 무효화된 범위는 다시 검토한다.
 - [ ] Lead가 승인 설계와 수락 기준, 보호 영역 보존, manifest·생성 결과 정합성, 발견 사항 처리와 근거를 확인한 뒤 완료를 판단한다.
-- [ ] 커밋이 별도 승인 범위에 포함된 경우만 여섯 파일을 명시적으로 stage하고 한 논리적 변경으로 묶는다. 메시지 후보: `docs(harness): 공통 역할 보고와 최소 검증 흐름 명확화`.
+- [ ] 커밋이 별도 승인 범위에 포함된 경우만 여섯 파일을 명시적으로 stage하고 한 논리적 변경으로 묶는다. 메시지 후보: `docs(arc): 공통 역할 보고와 최소 검증 흐름 명확화`.
 
 ## 가정과 미확정 사항
 
@@ -268,4 +268,4 @@ User가 `여섯 파일 한정 TDD 예외 승인`으로 직접 승인했고 CEO�
 
 ## 실행 결과
 
-계획·Native·managed worktree 및 여섯 파일 TDD 예외 승인 후 `/Users/yunho/.codex/worktrees/owner-reporting-flow/yunho-harness`에서 Coder → QA → fresh 전체 Reviewer를 완료했다. Coder의 잔여 Planner 경로 보고를 수정한 뒤 QA가 모든 구조 확인·보호 영역·manifest·정책 사례를 통과했고 Reviewer가 실질적 발견 사항 없음으로 반환했다. Lead 최종 비교는 여섯 지정 변경과 35개 비대상 baseline 파일 보존을 확인했다. Acceptance 완료, 근거 `/private/tmp/owner-reporting-flow-acceptance.json`. 테스트·TDD 수행·runtime 준수·설치·커밋·merge를 주장하지 않는다. 작업 변경은 연결된 managed worktree에 보존한다.
+계획·Native·managed worktree 및 여섯 파일 TDD 예외 승인 후 `/Users/yunho/.codex/worktrees/owner-reporting-flow/arc`에서 Coder → QA → fresh 전체 Reviewer를 완료했다. Coder의 잔여 Planner 경로 보고를 수정한 뒤 QA가 모든 구조 확인·보호 영역·manifest·정책 사례를 통과했고 Reviewer가 실질적 발견 사항 없음으로 반환했다. Lead 최종 비교는 여섯 지정 변경과 35개 비대상 baseline 파일 보존을 확인했다. Acceptance 완료, 근거 `/private/tmp/owner-reporting-flow-acceptance.json`. 테스트·TDD 수행·runtime 준수·설치·커밋·merge를 주장하지 않는다. 작업 변경은 연결된 managed worktree에 보존한다.

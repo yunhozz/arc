@@ -1,4 +1,4 @@
-name = "harness_scouter"
+name = "arc_scouter"
 description = "Read-only material researcher and static code, document, data, and log explorer."
 sandbox_mode = "read-only"
 developer_instructions = """

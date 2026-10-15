@@ -2,26 +2,26 @@
 
 ## 목적과 승인된 결정
 
-CEO를 개발의 유일한 소유자로 지정하고 별도 harness_lead 역할을 폐기한다. CEO는 현재 chat model을 사용하며 전용 CEO agent 프로필이나 모델 항목을 추가하지 않는다.
+CEO를 개발의 유일한 소유자로 지정하고 별도 arc_lead 역할을 폐기한다. CEO는 현재 chat model을 사용하며 전용 CEO agent 프로필이나 모델 항목을 추가하지 않는다.
 
 CEO는 depth 1이며 아래 여섯 역할은 모두 CEO 직속 depth 2다.
 
-- harness_secretary
-- harness_planner
-- harness_scout
-- harness_coder
-- harness_qa
-- harness_reviewer
+- arc_secretary
+- arc_planner
+- arc_scout
+- arc_coder
+- arc_qa
+- arc_reviewer
 
 전체 트리에서 동시에 활성화할 수 있는 subagent는 최대 4개다. depth 2 역할은 agent를 만들거나 다른 역할에 직접 일을 위임하지 않는다.
 
 CEO는 개발 조율, 승인, 통합, 수락, 완료를 담당한다. 실제 구현·설정·test-code 파일 수정은 기존처럼 Coder가 수행한다. Secretary의 자료 중심 조사·분석과 독립 문서 작성 범위를 보존한다.
 
-기존 설치의 정확한 agents/harness-lead.toml 대상은 설치 transaction 안에서 백업 후 퇴역시키며, 실패하면 원래 상태로 복원한다. 정확한 legacy version 3 모델 설정에서 알려진 harness_lead 항목만 정규화 결과에서 제외하고 나머지 여섯 역할의 model과 effort 선택은 보존한다.
+기존 설치의 정확한 agents/arc-lead.toml 대상은 설치 transaction 안에서 백업 후 퇴역시키며, 실패하면 원래 상태로 복원한다. 정확한 legacy version 3 모델 설정에서 알려진 arc_lead 항목만 정규화 결과에서 제외하고 나머지 여섯 역할의 model과 effort 선택은 보존한다.
 
 ## 범위와 제외 사항
 
-변경 범위는 Harness 정책, agent 프로필, 모델 설정 계약, 설치 및 모델 적용 동작, 관련 검증, README와 manifest다. 이 문서는 역할·보고 경로, 여섯 역할의 모델 매핑, legacy 설정 입력, 이전 설치에서의 Lead 프로필 퇴역, 그리고 승인·검증 gate를 한 계약으로 정의한다.
+변경 범위는 ARC 정책, agent 프로필, 모델 설정 계약, 설치 및 모델 적용 동작, 관련 검증, README와 manifest다. 이 문서는 역할·보고 경로, 여섯 역할의 모델 매핑, legacy 설정 입력, 이전 설치에서의 Lead 프로필 퇴역, 그리고 승인·검증 gate를 한 계약으로 정의한다.
 
 외부 skill 취득 방식, model ID와 reasoning-effort 값, 설치 대상 선택 규칙, runtime concurrent-thread 설정은 목적에 필요한 경우 외에는 변경하지 않는다. Lead 언급이 승인된 역사 기록에만 남는 것은 활성 Lead 역할로 간주하지 않는다.
 
@@ -59,7 +59,7 @@ Secretary는 CEO에게 직접 보고하는 자료 조사·분석 및 독립 문�
 
 활성 subagent의 전체 상한은 4개이며 Secretary를 포함한다. 별도의 예약 slot을 두지 않는다. 모든 agent는 depth 2에서 끝나며 depth 3을 만들지 않는다. 종속 handoff는 순차 진행하고, 독립 작업만 병렬화하며, 편집 scope를 겹치지 않게 할당한다. 불필요하게 모든 specialist를 호출하지 않고 scope·state·independence·freshness·흐름상 위치가 유효한 확인 결과를 재사용한다.
 
-설명적인 lowercase snake_case task name 규칙과 runtime capacity와 Harness limit을 분리하는 정책은 유지한다. 이미 실행 중인 agent의 부모 관계나 지침이 자동 변경된다고 주장하지 않는다. 새 지침은 새 세션 또는 새 profile load 이후 적용된다.
+설명적인 lowercase snake_case task name 규칙과 runtime capacity와 ARC limit을 분리하는 정책은 유지한다. 이미 실행 중인 agent의 부모 관계나 지침이 자동 변경된다고 주장하지 않는다. 새 지침은 새 세션 또는 새 profile load 이후 적용된다.
 
 ## 개발 소유자의 필수 gate
 
@@ -107,15 +107,15 @@ Planner는 시각 질문, 시각화가 돕는 이유, 선택지, 완전한 conte
 
 Version 3을 유지한다. 표준 roles 집합은 다음 여섯 역할과 정확히 일치해야 한다.
 
-harness_secretary, harness_planner, harness_scout, harness_coder, harness_qa, harness_reviewer
+arc_secretary, arc_planner, arc_scout, arc_coder, arc_qa, arc_reviewer
 
 각 역할은 기존처럼 nonempty model과 model_reasoning_effort 문자열을 갖는다. 여섯 specialist 각각의 현재 model ID와 effort 값은 바꾸지 않는다. CEO용 model/profile을 만들지 않고 Lead 모델 값을 CEO로 옮기지 않는다. 모델 ID, effort, server support, account access, current availability 검증은 현재 범위를 유지한다.
 
-skill/scripts/model_config.py의 ROLE_FILES, install.py의 PROFILE_FILES, package의 agents/ 템플릿 및 skill/models.toml은 동일한 여섯 역할 집합과 일치해야 한다. source의 agents/harness-lead.toml 및 role mapping은 제거한다.
+skill/scripts/model_config.py의 ROLE_FILES, install.py의 PROFILE_FILES, package의 agents/ 템플릿 및 skill/models.toml은 동일한 여섯 역할 집합과 일치해야 한다. source의 agents/arc-lead.toml 및 role mapping은 제거한다.
 
 ### 제한된 legacy 모델 입력
 
-읽기 전용 loader는 표준 여섯 역할에 더해 알려진 harness_lead 하나만 포함한 기존 version 3 입력을 호환 처리한다.
+읽기 전용 loader는 표준 여섯 역할에 더해 알려진 arc_lead 하나만 포함한 기존 version 3 입력을 호환 처리한다.
 
 - 여섯 역할의 유효한 model과 model_reasoning_effort 값은 그대로 반환한다.
 - 알려진 Lead 항목은 effective settings에서 제외하고, 그 사실을 간결하게 알린다.
@@ -125,7 +125,7 @@ skill/scripts/model_config.py의 ROLE_FILES, install.py의 PROFILE_FILES, packag
 
 apply-models.py는 effective six-role settings만 이용해 현재 여섯 profile을 검증·적용한다. --check와 --dry-run은 파일을 바꾸지 않는다. 이 도구는 retired Lead profile을 제거하지 않는다. profile 퇴역은 installer가 담당한다.
 
-일반 install은 package의 표준 skill/models.toml로 여섯 profile을 렌더링한다. 설치된 이전 Harness tree는 기존과 같이 backup되어 새 payload로 교체된다. 이 변경은 기존 installed 모델 값을 payload 위로 자동 merge하는 새 정책을 추가하지 않는다. 이전 설정은 이미 정의된 Harness backup 안에 남는다. package의 models.toml은 편집 가능하므로 이를 편집해도 manifest 갱신은 필요하지 않다.
+일반 install은 package의 표준 skill/models.toml로 여섯 profile을 렌더링한다. 설치된 이전 ARC tree는 기존과 같이 backup되어 새 payload로 교체된다. 이 변경은 기존 installed 모델 값을 payload 위로 자동 merge하는 새 정책을 추가하지 않는다. 이전 설정은 이미 정의된 ARC backup 안에 남는다. package의 models.toml은 편집 가능하므로 이를 편집해도 manifest 갱신은 필요하지 않다.
 
 ## 설치 대상과 Lead 프로필 퇴역
 
@@ -133,7 +133,7 @@ apply-models.py는 effective six-role settings만 이용해 현재 여섯 profil
 
 신규 활성 프로필 target은 여섯 개다. 유일한 retired-profile 대상은 현재 선택된 Codex home 아래의 정확한 다음 path다.
 
-<selected CODEX_HOME>/agents/harness-lead.toml
+<selected CODEX_HOME>/agents/arc-lead.toml
 
 다른 홈·경로의 lead 파일을 검색·삭제하지 않는다. 퇴역 target과 상위 경로를 기존 안전 검사에 포함한다. target이 없으면 no-op이다. 경로 구성 요소나 target이 symlink, directory 또는 special file이면 target mutation 전 오류 처리한다.
 
@@ -141,18 +141,18 @@ apply-models.py는 effective six-role settings만 이용해 현재 여섯 profil
 
 ### 백업, 적용, rollback
 
-존재하는 retired Lead 일반 파일을 기존 backup tree의 agents/harness-lead.toml 경로에 보존한다. 백업을 만들거나 검증하지 못하면 어떤 live target도 변경하지 않는다. 성공한 설치 뒤에도 백업은 유지한다.
+존재하는 retired Lead 일반 파일을 기존 backup tree의 agents/arc-lead.toml 경로에 보존한다. 백업을 만들거나 검증하지 못하면 어떤 live target도 변경하지 않는다. 성공한 설치 뒤에도 백업은 유지한다.
 
-Lead retirement를 Harness skill, 외부 skill, 여섯 active profile과 동일한 transaction/journal/rollback 범위에 포함한다. 성공 시 live retired path가 없다. Retirement 이후 다른 action이 실패하면 기존 Lead file을 정확히 복원한다. Retirement action 자체가 실패하면 앞서 바뀐 target도 rollback한다. 기존 Lead가 없었으면 rollback 후에도 없다. Rollback이 실패하면 복구 데이터와 backup을 보존하고 실패 대상·복구 경로를 출력한다. 이런 실패를 성공 설치로 보고하지 않는다.
+Lead retirement를 ARC skill, 외부 skill, 여섯 active profile과 동일한 transaction/journal/rollback 범위에 포함한다. 성공 시 live retired path가 없다. Retirement 이후 다른 action이 실패하면 기존 Lead file을 정확히 복원한다. Retirement action 자체가 실패하면 앞서 바뀐 target도 rollback한다. 기존 Lead가 없었으면 rollback 후에도 없다. Rollback이 실패하면 복구 데이터와 backup을 보존하고 실패 대상·복구 경로를 출력한다. 이런 실패를 성공 설치로 보고하지 않는다.
 
 구현 순서는 자유롭게 선택할 수 있으나, preflight와 backup이 끝나기 전에 live target 변경이 없어야 하고 위 결과를 test로 검증한다.
 
 ## 파일별 책임
 
 - skill/SKILL.md: CEO 소유권·보고 구조·Secretary scope·4-subagent cap·approval/TDD/risk/workspace/commit/adapter/visual 계약
-- agents/harness-lead.toml: 제거
-- agents/harness-secretary.toml: Secretary의 기존 scope 및 경계를 보존하고 CEO 직속·no-delegation 흐름 반영
-- agents/harness-planner.toml, -scout.toml, -coder.toml, -qa.toml, -reviewer.toml: CEO 직접 보고 및 역할별 read/write/approval 경계 반영
+- agents/arc-lead.toml: 제거
+- agents/arc-secretary.toml: Secretary의 기존 scope 및 경계를 보존하고 CEO 직속·no-delegation 흐름 반영
+- agents/arc-planner.toml, -scout.toml, -coder.toml, -qa.toml, -reviewer.toml: CEO 직접 보고 및 역할별 read/write/approval 경계 반영
 - skill/models.toml: version 3의 표준 여섯 역할, 기존 여섯 선택 유지
 - skill/scripts/model_config.py: 여섯 역할 매핑 및 제한된 legacy 7-role reader 정규화
 - skill/scripts/apply-models.py: six-role 적용·검사·출력 및 non-mutating compatibility handling
@@ -161,13 +161,13 @@ Lead retirement를 Harness skill, 외부 skill, 여섯 active profile과 동일�
 - README.md: 여섯 역할, 보고 흐름, migration·rollback·dry-run, 모델 설정, 세션 reload 안내
 - MANIFEST.sha256: 최종 packaged files와 제거된 Lead source 반영
 
-config.toml의 runtime concurrent thread 수는 Harness의 4-subagent cap과 다른 설정이므로 변경하지 않는다. 계획·brief·historical docs에서 당시 Lead 역할을 기록한 것은 활성 profile에서의 Lead 지원을 의미하지 않는다. 구현 중 발견하는 현재 활성 계약은 위 책임 파일과 함께 정렬한다.
+config.toml의 runtime concurrent thread 수는 ARC의 4-subagent cap과 다른 설정이므로 변경하지 않는다. 계획·brief·historical docs에서 당시 Lead 역할을 기록한 것은 활성 profile에서의 Lead 지원을 의미하지 않는다. 구현 중 발견하는 현재 활성 계약은 위 책임 파일과 함께 정렬한다.
 
 ## Acceptance criteria 및 검증 증거
 
 ### 역할 정책
 
-1. 활성 개발 owner와 개발 승인·통합·완료 책임은 CEO 하나다. 별도 harness_lead owner/호출 경로가 없다.
+1. 활성 개발 owner와 개발 승인·통합·완료 책임은 CEO 하나다. 별도 arc_lead owner/호출 경로가 없다.
 2. Secretary와 다섯 development specialist는 CEO의 direct report이며 depth 3 경로가 금지된다.
 3. Secretary의 material-based 조사·분석, standalone document scope, live operational boundary가 유지된다.
 4. Secretary가 specialist 지원을 필요로 하면 CEO에 요청하고 specialist 결과도 CEO 경유로 받는다.
@@ -184,7 +184,7 @@ config.toml의 runtime concurrent thread 수는 Harness의 4-subagent cap과 다
 
 ### Installer
 
-12. Fresh install은 Harness skill과 정확히 여섯 active profiles를 설치하고 Lead profile을 만들지 않는다.
+12. Fresh install은 ARC skill과 정확히 여섯 active profiles를 설치하고 Lead profile을 만들지 않는다.
 13. Upgrade는 기존 Lead file을 transaction backup에 보존하고 선택된 Codex home의 정확한 retired path에서 제거한다.
 14. Retired profile이 없는 upgrade는 정상 진행하고 불필요한 profile을 생성하지 않는다.
 15. Preflight/backup/action failure와 retirement 이후 rollback 시 pre-install tree가 spec대로 복원된다.

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Install staged Yunho Harness files into an explicitly selected platform home."""
+"""Install staged ARC files into an explicitly selected platform home."""
 
 from __future__ import annotations
 
 import sys
 
 if sys.version_info < (3, 11):
-    print("Yunho Harness installer requires Python 3.11 or newer.", file=sys.stderr)
+    print("ARC installer requires Python 3.11 or newer.", file=sys.stderr)
     raise SystemExit(2)
 
 import argparse
@@ -29,13 +29,13 @@ from types import ModuleType
 from pathlib import Path, PurePosixPath
 
 
-INSTALL_NAME = "yunho-harness"
+INSTALL_NAME = "arc"
 PROFILE_FILES = (
-    "harness-scouter.toml",
-    "harness-planner.toml",
-    "harness-coder.toml",
-    "harness-qa.toml",
-    "harness-reviewer.toml",
+    "arc-scouter.toml",
+    "arc-planner.toml",
+    "arc-coder.toml",
+    "arc-qa.toml",
+    "arc-reviewer.toml",
 )
 REQUIRED_EXTERNAL_FILES = {
     "brainstorming": (
@@ -59,10 +59,10 @@ EXTERNAL_FETCH_TIMEOUT_SECONDS = 300
 EXTERNAL_TERMINATION_GRACE_SECONDS = 5
 
 
-GLOBAL_BEGIN = "<!-- yunho-harness:begin (managed by install.py; content between these markers is replaced on install) -->"
-GLOBAL_END = "<!-- yunho-harness:end -->"
-HARNESS_HEADING = "## Yunho's Harness"
-HARNESS_SECTION = re.compile(r"(?im)^(#{1,6})[ \t]+(?:\d+\.[ \t]*)?yunho'?s harness[ \t]*\r?$")
+GLOBAL_BEGIN = "<!-- arc:begin -->"
+GLOBAL_END = "<!-- arc:end -->"
+ARC_HEADING = "## Agent Role Coordination"
+ARC_SECTION = re.compile(r"(?im)^(#{1,6})[ \t]+(?:\d+\.[ \t]*)?(?:ARC|Agent Role Coordination)[ \t]*\r?$")
 WAIT_SETTINGS = (("min_wait_timeout_ms", 120000), ("default_wait_timeout_ms", 300000))
 
 
@@ -653,7 +653,7 @@ def reject_symlinks_in_tree(root: Path) -> None:
         for name in (*names, *files):
             path = Path(directory) / name
             if path.is_symlink():
-                raise InstallerError(f"symlink in payload or existing Harness directory is unsafe: {path}")
+                raise InstallerError(f"symlink in payload or existing ARC directory is unsafe: {path}")
 
 
 def require_regular_file(path: Path) -> None:
@@ -796,7 +796,7 @@ def load_model_module(root: Path, target: TargetSpec | None = None) -> ModuleTyp
     payload = root / "codex" if target is None else target.payload_root
     module_path = absolute(payload / "skill" / "scripts" / "model_config.py")
     try:
-        spec = importlib.util.spec_from_file_location("_yunho_harness_model_config", module_path)
+        spec = importlib.util.spec_from_file_location("_arc_model_config", module_path)
         if spec is None or spec.loader is None:
             raise InstallerError(f"cannot load shared model configuration module: {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -892,44 +892,6 @@ def check_file_or_missing(path: Path) -> bool:
     return True
 
 
-RETIRED_PROFILE_FILES = (
-    "harness-secretary.toml",
-    "harness-scout.toml",
-)
-
-
-def retired_profile_targets(home: Path) -> dict[str, Path]:
-    """Validate only the two managed retired profiles; never enumerate agents/."""
-    targets: dict[str, Path] = {}
-    for filename in RETIRED_PROFILE_FILES:
-        path = home / "agents" / filename
-        if check_file_or_missing(path):
-            targets[filename] = path
-    return targets
-
-
-@dataclass(frozen=True)
-class RetiredProfileSnapshot:
-    path: Path
-    content: bytes
-    mode: int
-    device: int
-    inode: int
-    mtime_ns: int
-    ctime_ns: int
-
-
-def retired_profile_snapshot(home: Path) -> dict[str, RetiredProfileSnapshot]:
-    snapshots: dict[str, RetiredProfileSnapshot] = {}
-    for filename, path in retired_profile_targets(home).items():
-        metadata = path.lstat()
-        snapshots[filename] = RetiredProfileSnapshot(
-            path, path.read_bytes(), metadata.st_mode, metadata.st_dev, metadata.st_ino,
-            metadata.st_mtime_ns, metadata.st_ctime_ns,
-        )
-    return snapshots
-
-
 def install_plan(
     root: Path,
     home: Path,
@@ -943,21 +905,19 @@ def install_plan(
     skills_dir = home / "skills"
     agents_dir = home / "agents"
     backups_dir = home / "backups"
-    harness_target = skills_dir / INSTALL_NAME
+    arc_target = skills_dir / INSTALL_NAME
     profile_targets = {filename: agents_dir / filename for filename in target.profile_files}
 
-    for path in (home, skills_dir, agents_dir, backups_dir, harness_target, *profile_targets.values()):
+    for path in (home, skills_dir, agents_dir, backups_dir, arc_target, *profile_targets.values()):
         reject_symlink_components(path)
     for path in (home, skills_dir, agents_dir, backups_dir):
         check_directory_or_missing(path)
-    check_directory_or_missing(harness_target)
+    check_directory_or_missing(arc_target)
     for path in profile_targets.values():
         check_file_or_missing(path)
-    if harness_target.exists():
-        reject_symlinks_in_tree(harness_target)
+    if arc_target.exists():
+        reject_symlinks_in_tree(arc_target)
 
-    if target.name == "codex":
-        retired_profile_targets(home)
     if validate_external:
         if target.name == "codex":
             validate_external_skills(home, user_home)
@@ -968,7 +928,7 @@ def install_plan(
 
 
 def agents_block_body(home: Path, user_home: Path) -> str:
-    """Harness rules for the managed AGENTS.md block, pointing at this install's SKILL.md."""
+    """ARC rules for the managed AGENTS.md block, pointing at this install's SKILL.md."""
     skill = home / "skills" / INSTALL_NAME / "SKILL.md"
     try:
         shown = "~/" + skill.relative_to(user_home).as_posix()
@@ -978,11 +938,11 @@ def agents_block_body(home: Path, user_home: Path) -> str:
     return (
         "- For requests requiring substantive multi-step research, analysis, or implementation, configuration, or test "
         f"work (not standalone document writing), load and follow `{shown}`; keep following it in relevant follow-up "
-        f"turns of the same chat without re-reading it unless it changed.{resolve} Harness subagents (depth 2) follow "
+        f"turns of the same chat without re-reading it unless it changed.{resolve} ARC subagents (depth 2) follow "
         "their role profile and brief instead and do not load `SKILL.md`.\n"
         "- For repository implementation, configuration, or test work, CEO owns coordination and acceptance; assign file "
         "edits and other work to the other roles according to their defined responsibilities. CEO must not edit "
-        "implementation, configuration, or test-code files directly, except under the Harness CEO direct path for "
+        "implementation, configuration, or test-code files directly, except under the ARC CEO direct path for "
         "small, low-risk tasks. The other roles stay within their assigned scopes and report to CEO.\n"
     )
 
@@ -993,11 +953,24 @@ def _agents_block(heading: str, body: str) -> str:
 
 def _remove_managed_block(text: str, path: Path) -> tuple[str, bool]:
     """Remove an existing managed block and the blank line it was separated by; other text stays verbatim."""
+    # Explanatory namespace markers belong to an older installation contract.
+    # Reject even truncated pairs before planning any writes; never migrate them.
+    explanatory = re.search(
+        r"<!--\s*[A-Za-z0-9_-]+\s*:\s*begin\b[^\r\n]*managed\s+by\s+install\.py",
+        text,
+        re.IGNORECASE,
+    )
+    foreign_marker = re.search(r"<!--\s*(?!arc\s*:)[A-Za-z0-9_-]+\s*:\s*(?:begin|end)\b", text, re.IGNORECASE)
+    if explanatory or foreign_marker:
+        raise InstallerError(f"unsupported prior managed markers in {path}; automatic migration is not supported")
+    marker_starts = list(re.finditer(r"<!--\s*arc\b", text, re.IGNORECASE))
     begins, ends = text.count(GLOBAL_BEGIN), text.count(GLOBAL_END)
+    if len(marker_starts) != begins + ends:
+        raise InstallerError(f"malformed arc markers in {path}; fix or remove them and retry")
     if not begins and not ends:
         return text, False
     if begins != 1 or ends != 1 or text.index(GLOBAL_BEGIN) > text.index(GLOBAL_END):
-        raise InstallerError(f"malformed yunho-harness markers in {path}; fix or remove them and retry")
+        raise InstallerError(f"malformed arc markers in {path}; fix or remove them and retry")
     start = text.index(GLOBAL_BEGIN)
     stop = text.index(GLOBAL_END) + len(GLOBAL_END)
     if text[stop:stop + 1] == "\n":
@@ -1009,19 +982,19 @@ def _remove_managed_block(text: str, path: Path) -> tuple[str, bool]:
 
 
 def render_agents_md(text: str | None, body: str, path: Path) -> tuple[str, str]:
-    """Return AGENTS.md text with the managed Harness block at the end; content outside the block is kept verbatim."""
-    block = _agents_block(HARNESS_HEADING, body)
+    """Return AGENTS.md text with the managed ARC block at the end; content outside the block is kept verbatim."""
+    block = _agents_block(ARC_HEADING, body)
     if text is None:
-        return block, "create with managed Harness block"
+        return block, "create with managed ARC block"
     rest, had_block = _remove_managed_block(text, path)
     if rest and not rest.endswith("\n"):
         rest += "\n"
     separator = "" if not rest or rest.endswith("\n\n") else "\n"
-    return rest + separator + block, ("update managed Harness block at the end" if had_block else "append managed Harness block")
+    return rest + separator + block, ("update managed ARC block at the end" if had_block else "append managed ARC block")
 
 
 def render_config_toml(text: str | None, path: Path) -> tuple[str | None, str]:
-    """Return config.toml text with the Harness wait settings, or None with a reason when it must be set manually."""
+    """Return config.toml text with the ARC wait settings, or None with a reason when it must be set manually."""
     text = "" if text is None else text
     try:
         data = tomllib.loads(text)
@@ -1066,7 +1039,7 @@ def render_config_toml(text: str | None, path: Path) -> tuple[str | None, str]:
         verified = False
     if not verified:
         return None, f"{manual} (automatic edit could not be verified)"
-    return updated, "set Harness wait settings"
+    return updated, "set ARC wait settings"
 
 
 def plan_global_updates(home: Path, user_home: Path, target: TargetSpec | None = None) -> tuple[list[tuple[Path, bytes, str]], list[str]]:
@@ -1091,8 +1064,8 @@ def plan_global_updates(home: Path, user_home: Path, target: TargetSpec | None =
     rendered, action = render_agents_md(current, agents_block_body(home, user_home), agents)
     if rendered != current:
         updates.append((agents, rendered.encode("utf-8"), action))
-    if current is not None and HARNESS_SECTION.search(_remove_managed_block(current, agents)[0]):
-        notes.append(f"{agents}: an existing Yunho's Harness section outside the managed block was kept; "
+    if current is not None and ARC_SECTION.search(_remove_managed_block(current, agents)[0]):
+        notes.append(f"{agents}: an existing ARC section outside the managed block was kept; "
                      "remove it if its rules overlap the managed block")
     if claude:
         return updates, notes
@@ -1108,7 +1081,7 @@ def plan_global_updates(home: Path, user_home: Path, target: TargetSpec | None =
 def make_backup_directory(parent: Path) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     for suffix in range(1000):
-        name = f"yunho-harness-{stamp}" + (f"-{suffix}" if suffix else "")
+        name = f"arc-{stamp}" + (f"-{suffix}" if suffix else "")
         candidate = parent / name
         try:
             candidate.mkdir()
@@ -1119,12 +1092,11 @@ def make_backup_directory(parent: Path) -> Path:
 
 
 def backup_existing(
-    harness_target: Path,
+    arc_target: Path,
     profile_targets: dict[str, Path],
     backup_root: Path,
     external_targets: dict[str, tuple[Path, ...]],
     *,
-    retired_targets: dict[str, Path],
     global_targets: tuple[Path, ...] = (),
     claude_skill_links: dict[Path, str] | None = None,
 ) -> None:
@@ -1134,22 +1106,22 @@ def backup_existing(
             target = backup_root / "global" / source.name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-    if harness_target.exists():
+    if arc_target.exists():
         target = backup_root / "skills" / INSTALL_NAME
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(harness_target, target, symlinks=True, copy_function=shutil.copy2)
+        shutil.copytree(arc_target, target, symlinks=True, copy_function=shutil.copy2)
     for skill, paths in external_targets.items():
         for source in paths:
             if not os.path.lexists(source):
                 continue
-            group = "skills" if source.parent == harness_target.parent else "legacy-agents-skills"
+            group = "skills" if source.parent == arc_target.parent else "legacy-agents-skills"
             target = backup_root / group / skill
             target.parent.mkdir(parents=True, exist_ok=True)
             if source in (claude_skill_links or {}):
                 target.symlink_to(claude_skill_links[source])
             else:
                 shutil.copytree(source, target, symlinks=True, copy_function=shutil.copy2)
-    for filename, source in {**profile_targets, **retired_targets}.items():
+    for filename, source in profile_targets.items():
         if os.path.lexists(source):
             require_regular_file(source)
             target = backup_root / "agents" / filename
@@ -1158,7 +1130,7 @@ def backup_existing(
 
 
 def create_stage_area(parent: Path, label: str) -> Path:
-    return Path(tempfile.mkdtemp(prefix=f".yunho-harness-{label}-", dir=parent))
+    return Path(tempfile.mkdtemp(prefix=f".arc-{label}-", dir=parent))
 
 
 def remove_path(path: Path) -> None:
@@ -1240,7 +1212,7 @@ def _remove_stage_areas(stage_areas: list[Path], retained: set[Path] | None = No
             print(f"Could not remove temporary staging directory {area}: {exc}", file=sys.stderr)
 
 
-def _copy_harness_to_stage(source: Path, destination: Path) -> None:
+def _copy_arc_to_stage(source: Path, destination: Path) -> None:
     shutil.copytree(
         source,
         destination,
@@ -1260,7 +1232,6 @@ def _transactional_install(
     backups_dir: Path,
     profile_targets: dict[str, Path],
     *,
-    retired_targets: dict[str, Path],
     global_updates: list[tuple[Path, bytes, str]] = (),
     target: TargetSpec | None = None,
     claude_skill_links: dict[Path, str] | None = None,
@@ -1268,7 +1239,7 @@ def _transactional_install(
 ) -> Path:
     selected_target = _selected(root, home, target)
     payload = selected_target.payload_root
-    harness_target = skills_dir / INSTALL_NAME
+    arc_target = skills_dir / INSTALL_NAME
     directories = {home, skills_dir, agents_dir, backups_dir}
     directories.update(target.parent for paths in external_targets.values() for target in paths)
     for directory in sorted(directories, key=os.fspath):
@@ -1278,11 +1249,10 @@ def _transactional_install(
 
     backup_root = make_backup_directory(backups_dir)
     backup_existing(
-        harness_target,
+        arc_target,
         profile_targets,
         backup_root,
         external_targets,
-        retired_targets=retired_targets,
         global_targets=tuple(target for target, _, _ in global_updates),
         claude_skill_links=claude_skill_links,
     )
@@ -1302,16 +1272,16 @@ def _transactional_install(
 
         skill_stage_area = create_stage_area(skills_dir, "stage")
         stage_areas.append(skill_stage_area)
-        staged_harness = skill_stage_area / INSTALL_NAME
-        _copy_harness_to_stage(payload / "skill", staged_harness)
+        staged_arc = skill_stage_area / INSTALL_NAME
+        _copy_arc_to_stage(payload / "skill", staged_arc)
         model_config = load_model_module(root, selected_target)
         try:
             settings = model_config.load_settings(payload / "skill" / "models.toml")
             if selected_target.name == "codex":
-                (staged_harness / "models.toml").write_bytes(model_config.serialize_settings(settings))
+                (staged_arc / "models.toml").write_bytes(model_config.serialize_settings(settings))
         except model_config.ValidationError as exc:
             raise InstallerError(str(exc)) from exc
-        staged_targets.append((harness_target, staged_harness, skill_stage_area))
+        staged_targets.append((arc_target, staged_arc, skill_stage_area))
 
         profile_stage_area = create_stage_area(agents_dir, "profiles")
         stage_areas.append(profile_stage_area)
@@ -1348,17 +1318,6 @@ def _transactional_install(
                 raise InstallerError('managed install targets changed during staging; refusing to install')
         target_changes_started = True
         try:
-            for filename, target in retired_targets.items():
-                previous = profile_stage_area / f"previous-{filename}"
-                actions.append({
-                    "target": target,
-                    "previous": previous,
-                    "installed": False,
-                    "area": profile_stage_area,
-                    "rollback_failed": False,
-                })
-                require_regular_file(target)
-                os.replace(target, previous)
             for target, staged, area in staged_targets:
                 claude_link = target in (claude_skill_links or {})
                 replace = _replace_claude_skill_leaf if claude_link else os.replace
@@ -1506,8 +1465,6 @@ def perform_install(
         target=target,
     )
     global_updates, global_notes = ([], []) if skip_global else plan_global_updates(home, user_home, target)
-    retired_snapshot = retired_profile_snapshot(home) if target.name == "codex" else {}
-    retired_targets = {name: snapshot.path for name, snapshot in retired_snapshot.items()}
     def selected_external_targets():
         if target.name == "codex":
             return external_write_targets(home, user_home)
@@ -1525,10 +1482,8 @@ def perform_install(
             print(f'Would convert Claude skill link to independent upstream directory: {path}')
         print(f"Would acquire with: {shlex.join(external_acquisition_command())}")
         print(f"Would update external skills: {', '.join(str(path) for paths in external_targets.values() for path in paths)}")
-        print(f"Would install Harness skill: {skills_dir / INSTALL_NAME}")
+        print(f"Would install ARC skill: {skills_dir / INSTALL_NAME}")
         print(f"Would install five profiles: {agents_dir}")
-        for target in retired_targets.values():
-            print(f"Would back up and remove prior profile: {target}")
         for target, _, action in global_updates:
             print(f"Would update global file {target}: {action}")
         for note in global_notes:
@@ -1541,12 +1496,10 @@ def perform_install(
         *(path for paths in external_targets.values() for path in paths),
     )
     managed_snapshot = snapshot_managed_targets(managed_paths)
-    with tempfile.TemporaryDirectory(prefix="yunho-harness-acquire-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="arc-acquire-") as temporary:
         acquired = acquire_external_skills(Path(temporary))
         if selected_external_targets() != external_targets:
             raise InstallerError("external skill targets changed during acquisition; refusing to install")
-        if target.name == "codex" and retired_profile_snapshot(home) != retired_snapshot:
-            raise InstallerError("retired profile candidates changed during acquisition; refusing to install")
         if not skip_global and plan_global_updates(home, user_home, target) != (global_updates, global_notes):
             files = "CLAUDE.md" if target.name == "claude" else "AGENTS.md or config.toml"
             raise InstallerError(f"{files} changed during acquisition; refusing to install")
@@ -1564,16 +1517,15 @@ def perform_install(
             agents_dir,
             backups_dir,
             profile_targets,
-            retired_targets=retired_targets,
-            global_updates=global_updates,
+                global_updates=global_updates,
             target=target,
             **link_options,
         )
 
-    print(f"Installed three external skills, Harness skill and profiles under: {home}")
+    print(f"Installed three external skills, ARC skill and profiles under: {home}")
     print(f"Backups: {backup_root}")
     print(f"설치 안내: {root / 'README.md'}")
-    print(f"설치된 Harness skill: {skills_dir / INSTALL_NAME / 'SKILL.md'}")
+    print(f"설치된 ARC skill: {skills_dir / INSTALL_NAME / 'SKILL.md'}")
     if skip_global:
         print("전역 파일 건너뜀(--skip-global): README.md의 전역 설정을 직접 반영하세요.")
     else:
@@ -1594,7 +1546,7 @@ class SingleTarget(argparse.Action):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Install Yunho Harness for Codex or Claude Code.", allow_abbrev=False)
+    parser = argparse.ArgumentParser(description="Install ARC for Codex or Claude Code.", allow_abbrev=False)
     parser.add_argument("--target", required=True, choices=("codex", "claude"), action=SingleTarget,
                         help="required installation platform (specify exactly once)")
     action = parser.add_mutually_exclusive_group()

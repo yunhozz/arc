@@ -34,17 +34,17 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def fixture(self, root):
         target = root / '.claude'
-        shutil.copytree(PAYLOAD / 'skill', target / 'skills/yunho-harness')
+        shutil.copytree(PAYLOAD / 'skill', target / 'skills/arc')
         shutil.copytree(PAYLOAD / 'agents', target / 'agents')
         return target
 
     def test_exact_roles_models_efforts_and_tools(self):
         module = self.module()
         settings = module.load_settings(PAYLOAD / 'skill/models.toml')
-        self.assertEqual(set(settings), {'harness_' + role for role in EXPECTED})
+        self.assertEqual(set(settings), {'arc_' + role for role in EXPECTED})
         for role, (model, effort, tools) in EXPECTED.items():
-            self.assertEqual(settings['harness_' + role], {'model': model, 'effort': effort})
-            fields = module.parse_profile((PAYLOAD / f'agents/harness-{role}.md').read_bytes())
+            self.assertEqual(settings['arc_' + role], {'model': model, 'effort': effort})
+            fields = module.parse_profile((PAYLOAD / f'agents/arc-{role}.md').read_bytes())
             self.assertEqual(fields['tools'], tools)
             self.assertEqual((fields['model'], fields['effort']), (model, effort))
 
@@ -54,14 +54,14 @@ class ClaudePayloadTests(unittest.TestCase):
         valid = tomllib.loads((PAYLOAD / 'skill/models.toml').read_text())
         variants = []
         for mutate in (
-            lambda d: d['roles'].pop('harness_qa'),
+            lambda d: d['roles'].pop('arc_qa'),
             lambda d: d['roles'].update(extra={'model': 'sonnet', 'effort': 'low'}),
             lambda d: d.update(version=True),
             lambda d: d.update(extra=1),
-            lambda d: d['roles']['harness_qa'].update(effort='extreme'),
-            lambda d: d['roles']['harness_qa'].update(model=2),
-            lambda d: d['roles']['harness_qa'].update(model='bad\nmodel'),
-            lambda d: d['roles']['harness_qa'].update(extra=1),
+            lambda d: d['roles']['arc_qa'].update(effort='extreme'),
+            lambda d: d['roles']['arc_qa'].update(model=2),
+            lambda d: d['roles']['arc_qa'].update(model='bad\nmodel'),
+            lambda d: d['roles']['arc_qa'].update(extra=1),
         ):
             data = copy.deepcopy(valid)
             mutate(data)
@@ -73,20 +73,20 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_frontmatter_names_and_required_fields(self):
         module = self.module()
         for role in EXPECTED:
-            fields = module.parse_profile((PAYLOAD / f'agents/harness-{role}.md').read_bytes())
-            self.assertEqual(fields['name'], 'harness-' + role)
+            fields = module.parse_profile((PAYLOAD / f'agents/arc-{role}.md').read_bytes())
+            self.assertEqual(fields['name'], 'arc-' + role)
             self.assertTrue(fields['description'])
             self.assertEqual(set(fields), {'name', 'description', 'model', 'effort', 'tools'})
 
     def test_renderer_preserves_body_and_non_model_fields(self):
         module = self.module()
-        original = (PAYLOAD / 'agents/harness-coder.md').read_bytes().replace(b'\n', b'\r\n')
+        original = (PAYLOAD / 'agents/arc-coder.md').read_bytes().replace(b'\n', b'\r\n')
         updated = module.render_profile(original, {'model': 'opus', 'effort': 'xhigh'})
         self.assertEqual(updated, original.replace(b'model: sonnet', b'model: opus').replace(b'effort: low', b'effort: xhigh'))
 
     def test_renderer_rejects_duplicate_or_malformed_frontmatter(self):
         module = self.module()
-        original = (PAYLOAD / 'agents/harness-coder.md').read_bytes()
+        original = (PAYLOAD / 'agents/arc-coder.md').read_bytes()
         for bad in (original.replace(b'model: sonnet', b'model: sonnet\nmodel: haiku'), original[4:], original.replace(b'---\n\n', b'\n\n', 1), original.replace(b'model: sonnet', b'model: [sonnet]'), original.replace(b'  - Bash', b'  - Agent')):
             with self.subTest(bad=bad), self.assertRaises(module.ValidationError):
                 module.render_profile(bad, {'model': 'opus', 'effort': 'high'})
@@ -95,11 +95,11 @@ class ClaudePayloadTests(unittest.TestCase):
         self.module()
         with tempfile.TemporaryDirectory() as tmp:
             target = self.fixture(Path(tmp).resolve())
-            config = target / 'skills/yunho-harness/models.toml'
+            config = target / 'skills/arc/models.toml'
             config.write_text(config.read_text().replace('model = "sonnet"', 'model = "opus"'))
             before = {p.relative_to(target): (p.read_bytes(), p.stat().st_mode) for p in target.rglob('*') if p.is_file()}
             for flag in ('--check', '--dry-run'):
-                result = subprocess.run([sys.executable, '-B', str(target / 'skills/yunho-harness/scripts/apply-models.py'), flag], capture_output=True, text=True)
+                result = subprocess.run([sys.executable, '-B', str(target / 'skills/arc/scripts/apply-models.py'), flag], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(before, {p.relative_to(target): (p.read_bytes(), p.stat().st_mode) for p in target.rglob('*') if p.is_file()})
 
@@ -111,24 +111,24 @@ class ClaudePayloadTests(unittest.TestCase):
             codex = base / '.codex/agents/untouched.toml'
             codex.parent.mkdir(parents=True)
             codex.write_bytes(b'unchanged')
-            config = target / 'skills/yunho-harness/models.toml'
+            config = target / 'skills/arc/models.toml'
             config.write_text(config.read_text().replace('model = "sonnet"', 'model = "opus"'))
             profiles = list((target / 'agents').glob('*.md'))
             for profile in profiles:
                 profile.chmod(0o640)
-            result = subprocess.run([sys.executable, '-B', str(target / 'skills/yunho-harness/scripts/apply-models.py'), '--config', str(config), '--agents-dir', str(target / 'agents')], capture_output=True, text=True)
+            result = subprocess.run([sys.executable, '-B', str(target / 'skills/arc/scripts/apply-models.py'), '--config', str(config), '--agents-dir', str(target / 'agents')], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(codex.read_bytes(), b'unchanged')
             for profile in profiles:
                 self.assertEqual(profile.stat().st_mode & 0o777, 0o640)
-                if profile.name not in ('harness-scouter.md', 'harness-qa.md'):
+                if profile.name not in ('arc-scouter.md', 'arc-qa.md'):
                     self.assertIn(b'model: opus', profile.read_bytes())
 
     def test_apply_models_failure_restores_all_prior_profiles(self):
         module = self.module()
         with tempfile.TemporaryDirectory() as tmp:
             target = self.fixture(Path(tmp).resolve())
-            settings = module.load_settings(target / 'skills/yunho-harness/models.toml')
+            settings = module.load_settings(target / 'skills/arc/models.toml')
             for setting in settings.values():
                 setting['model'] = 'opus'
             before = {p: (p.read_bytes(), p.stat().st_mode) for p in (target / 'agents').glob('*.md')}
@@ -204,15 +204,15 @@ class ClaudePayloadTests(unittest.TestCase):
         module = self.module()
         settings = module.load_settings(PAYLOAD / 'skill/models.toml')
         for role in EXPECTED:
-            fields = module.parse_profile((PAYLOAD / f'agents/harness-{role}.md').read_bytes())
+            fields = module.parse_profile((PAYLOAD / f'agents/arc-{role}.md').read_bytes())
             self.assertIn('`' + fields['name'] + '`', core)
-            self.assertIn('`harness_' + role + '`', core)
-            self.assertIn('harness_' + role, settings)
+            self.assertIn('`arc_' + role + '`', core)
+            self.assertIn('arc_' + role, settings)
         links = set(re.findall(r'references/([a-z-]+)\.md', core))
         self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
-        self.assertIn('python3 ~/.claude/skills/yunho-harness/scripts/apply-models.py', core)
+        self.assertIn('python3 ~/.claude/skills/arc/scripts/apply-models.py', core)
         self.assertEqual(set(re.findall(r'`(--[a-z-]+)`', core)), {'--config', '--agents-dir', '--check', '--dry-run'})
         result = subprocess.run([sys.executable, '-B', str(PAYLOAD / 'skill/scripts/apply-models.py'), '--help'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -245,25 +245,25 @@ class ClaudePayloadTests(unittest.TestCase):
             'source-inferred', 'execution-observed', 'never a plan-task acceptance prerequisite',
             'once on the final full change after all plan tasks', 'follow-up task',
             'CEO decides when a Reviewer recheck is warranted',
-            '<git-common-dir>/yunho-harness/review/<slug>.diff', 'changed-file list',
+            '<git-common-dir>/arc/review/<slug>.diff', 'changed-file list',
             'same slug as the handoff record', 'approved base HEAD recorded at handoff',
             'installed browser skill', 'existing approved test environment', 'exact limitation',
         ))
 
     def test_claude_agent_profiles_hold_acceptance_contracts(self):
-        qa = self.read_claude('agents/harness-qa.md')
+        qa = self.read_claude('agents/arc-qa.md')
         self.assert_all(qa, ('UI browser acceptance checks', 'cites', 'unverified', 'environment blocked',
                              'proven, unmet, or unverified', 'only run status'))
-        rev = self.read_claude('agents/harness-reviewer.md')
+        rev = self.read_claude('agents/arc-reviewer.md')
         self.assert_all(rev, ('source-inferred', 'execution-observed', 'criterion, expected behavior',
                               'after the required QA', 'diff artifact', 'limits'))
-        plan = self.read_claude('agents/harness-planner.md')
+        plan = self.read_claude('agents/arc-planner.md')
         self.assert_all(plan, ('Korean', 'ID and title', 'hold conditions', 'one focused implementation commit',
                                'never Reviewer as a per-task', 'single independent Reviewer', 'complete drafts'))
-        sc = self.read_claude('agents/harness-scouter.md')
+        sc = self.read_claude('agents/arc-scouter.md')
         self.assert_all(sc, ('live operational state', 'cleanup', 'Report mixed implementation work'))
         for role in ('scouter', 'planner', 'reviewer'):
-            body = self.read_claude(f'agents/harness-{role}.md')
+            body = self.read_claude(f'agents/arc-{role}.md')
             with self.subTest(role=role):
                 self.assertNotIn('Expected TDD RED', body)
                 self.assertNotIn('do not poll long commands', body)
@@ -311,10 +311,10 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_skill_brief_requires_review_artifact_external_skills_and_waits(self):
         core = self.read_claude('skill/SKILL.md')
-        self.assert_all(core, ('<git-common-dir>/yunho-harness/review/<slug>.diff', 'absolute path of each required external skill',
+        self.assert_all(core, ('<git-common-dir>/arc/review/<slug>.diff', 'absolute path of each required external skill',
                                'foreground Agent call', 'run_in_background', 'never sleep-poll',
                                'not a reason to poll', 'same slug as the handoff record'))
-        self.assertIn('inline diff', self.read_claude('agents/harness-reviewer.md'))
+        self.assertIn('inline diff', self.read_claude('agents/arc-reviewer.md'))
         for stale in ('single blocking wait', 'yield', 'repeated short waits'):
             with self.subTest(stale=stale):
                 self.assertNotIn(stale, core)

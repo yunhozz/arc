@@ -73,10 +73,10 @@ class TokenUsageTest(unittest.TestCase):
     def test_role_classification(self):
         cases = {
             "main": {"thread_source": "user", "source": "vscode"},
-            "harness_coder": {"thread_source": "subagent", "agent_role": "harness_coder"},
-            "harness_qa": {
+            "arc_coder": {"thread_source": "subagent", "agent_role": "arc_coder"},
+            "arc_qa": {
                 "thread_source": "subagent",
-                "source": {"subagent": {"thread_spawn": {"agent_role": "harness_qa"}}},
+                "source": {"subagent": {"thread_spawn": {"agent_role": "arc_qa"}}},
             },
             "guardian": {"source": {"subagent": {"other": "guardian"}}},
             "subagent": {"thread_source": "subagent", "source": {"subagent": {"thread_spawn": {}}}},
@@ -115,12 +115,12 @@ class TokenUsageTest(unittest.TestCase):
         for i in range(2):
             self.write(
                 f"c{i}.jsonl",
-                [self.meta(agent_role="harness_coder"), token_line(usage(50, 0, 1, 0))],
+                [self.meta(agent_role="arc_coder"), token_line(usage(50, 0, 1, 0))],
             )
         _, out, _ = self.run_cli("--sessions-dir", str(self.root))
         rows = [line.split()[0] for line in out.splitlines()]
-        self.assertLess(rows.index("harness_coder"), rows.index("main"))
-        self.assertRegex(out, r"harness_coder\s+2\s+100\b")
+        self.assertLess(rows.index("arc_coder"), rows.index("main"))
+        self.assertRegex(out, r"arc_coder\s+2\s+100\b")
         self.assertRegex(out, r"TOTAL\s+3\s+110\b")
 
     def test_non_numeric_token_value_skips_file(self):
@@ -199,7 +199,7 @@ class TokenUsageTest(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit):
             self.mod.main(["--help"])
         self.assertIn("guardian", out.getvalue())
-        self.assertIn("harness_*", out.getvalue())
+        self.assertIn("arc_*", out.getvalue())
 
     def test_since_until_inclusive(self):
         for day in ("2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"):

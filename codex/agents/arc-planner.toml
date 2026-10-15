@@ -1,4 +1,4 @@
-name = "harness_planner"
+name = "arc_planner"
 description = "Read-only planner for non-trivial design, sequencing, and acceptance criteria."
 sandbox_mode = "read-only"
 developer_instructions = """

@@ -1,6 +1,6 @@
 # 워크트리 실행 선택지 구현 계획
 
-> **For agentic workers:** REQUIRED 실행 방식은 Yunho Harness의 CEO 순차 조정이다. Coder가 지정 파일을 수정하고, 독립 QA 이후 Reviewer가 최종 전체 변경을 검토한다. Executor subskill의 위임 방식과 별도 실행 방식 선택은 Harness adapter로 대체한다. 단계는 checkbox로 추적한다.
+> **For agentic workers:** REQUIRED 실행 방식은 ARC의 CEO 순차 조정이다. Coder가 지정 파일을 수정하고, 독립 QA 이후 Reviewer가 최종 전체 변경을 검토한다. Executor subskill의 위임 방식과 별도 실행 방식 선택은 ARC adapter로 대체한다. 단계는 checkbox로 추적한다.
 
 **Goal:** 실행 대상에 새 worktree와 새 task branch 생성 경로를 추가하고 승인·문서 전달·복구·역할 인계 계약과 구조 검사를 일치시킨다.
 
@@ -8,13 +8,13 @@
 
 **Tech Stack:** Markdown 정책, Python 3 unittest, SHA-256 manifest.
 
-**Spec:** /Users/ma-24-007/Desktop/workspace/yunho-harness/docs/superpowers/specs/2026-10-08-worktree-execution-target-design.md
+**Spec:** /Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/specs/2026-10-08-worktree-execution-target-design.md
 
 ## Global Constraints
 
 - Architectural 경로다. 승인된 보완 written spec을 기준으로 이 계획도 별도 승인받는다.
 - 사용자는 필요한 structural test 추가·수정·실행을 승인했다. Test-first RED/GREEN을 따른다.
-- 조사 workspace는 /Users/ma-24-007/Desktop/workspace/yunho-harness다. Coder는 CEO가 최종 handoff에 공급한 절대 workspace에서만 수정한다.
+- 조사 workspace는 /Users/ma-24-007/Desktop/workspace/arc다. Coder는 CEO가 최종 handoff에 공급한 절대 workspace에서만 수정한다.
 - 마지막 제공 상태는 master, bf04e4b0c546a46974f693311eb6c9b26c42d4cb, 승인된 spec 하나만 untracked다. 계획 저장 후 실행 준비 직전에 재확인한다.
 - 세 선택지는 현재 checkout, 같은 checkout의 새 task branch, 새 worktree와 새 task branch다.
 - Base는 source checkout의 검증된 현재 HEAD SHA다. Remote/default branch 대체·자동 fetch를 하지 않는다.
@@ -55,7 +55,7 @@
 
 **Files:**
 
-- Modify: tests/test_install.py — RolePolicyTests, HarnessPreactionGateTests
+- Modify: tests/test_install.py — RolePolicyTests, ARCPreactionGateTests
 - Modify: skill/references/handoff.md
 - Modify: skill/references/git-recovery.md
 
@@ -71,7 +71,7 @@
 - [ ] RolePolicyTests.test_workspace_handoff_requires_scoped_checkout_approval에 세 번째 경로 phrase를 추가한다: explicit user choice.*current checkout.*new task branch.*new worktree and task branch
 - [ ] test_workspace_handoff_preserves_existing_changes의 “either path” assertion을 세 경로 기준으로 교체한다: only the approved docs commit.*all three paths.*exception.*preserve all unrelated dirty files
 - [ ] test_workspace_handoff_commits_approved_plan_docs_before_coder에 worktree 검증과 문서 전달이 commit보다 앞서는 assertion을 추가한다.
-- [ ] HarnessPreactionGateTests.test_preaction_git_evidence_and_batch_order의 Git mutation evidence gate 필수 phrase tuple에 worktree creation을 추가한다.
+- [ ] ARCPreactionGateTests.test_preaction_git_evidence_and_batch_order의 Git mutation evidence gate 필수 phrase tuple에 worktree creation을 추가한다.
 - [ ] 기존 current-checkout 명시 선택, branch collision·재승인, no-fallback, docs-only commit assertion을 유지한다.
 
 ### Step 2: 신규 절별 검사 추가

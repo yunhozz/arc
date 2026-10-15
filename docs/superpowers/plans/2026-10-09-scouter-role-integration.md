@@ -1,6 +1,6 @@
 # Scouter 역할 통합 및 관리형 worktree 인계 구현 계획
 
-> **에이전트 작업 지침:** Harness adapter에 따라 CEO가 순차 조율하고 위험도에 맞게 검증한다. Coder는 승인된 파일만 편집하며 에이전트를 직접 생성·위임하지 않는다. 체크박스는 진행 상태를 기록한다.
+> **에이전트 작업 지침:** ARC adapter에 따라 CEO가 순차 조율하고 위험도에 맞게 검증한다. Coder는 승인된 파일만 편집하며 에이전트를 직접 생성·위임하지 않는다. 체크박스는 진행 상태를 기록한다.
 
 **목표:** Secretary와 Scout를 읽기 전용 Scouter로 통합하고, version 5의 다섯 역할 계약과 현재 관리 프로필의 안전한 폐기를 구현한다. 새 worktree 실행 대상 준비 지침을 Codex 앱 관리형 생성·현재 대화 연결·결과 검증 계약으로 전환한다.
 
@@ -12,14 +12,14 @@
 
 ## 공통 제약
 
-- 활성 역할: harness_scouter, harness_planner, harness_coder, harness_qa, harness_reviewer.
+- 활성 역할: arc_scouter, arc_planner, arc_coder, arc_qa, arc_reviewer.
 - Scouter 모델: gpt-6-luna, reasoning effort: max.
 - 나머지 네 역할의 모델·effort는 명세 값을 유지한다.
 - 모델 설정은 정수 version = 5이며 자동 변환하지 않는다.
 - Scouter는 읽기 전용 조사·탐색만 수행한다.
 - 독립 문서 작성 요청을 전문 역할에 자동 배정하지 않는다.
 - depth 2, CEO 직접 보고, 직접 위임 금지, 동시 하위 에이전트 최대 네 개를 유지한다.
-- 설치 폐기 대상은 harness-secretary.toml, harness-scout.toml 두 개뿐이다.
+- 설치 폐기 대상은 arc-secretary.toml, arc-scout.toml 두 개뿐이다.
 - yunho-team-* 경로를 탐색·검사·백업·삭제하지 않는다.
 - config.toml, 과거 spec/plan, 외부 skills는 변경하지 않는다.
 - 확인된 test_core_word_count_meets_budget의 2788단어 상한 테스트를 텍스트 길이 제한으로 처리해 제거한다. _validated_string의 제어문자·문자열 안전 검증은 유지한다.
@@ -30,7 +30,7 @@
 - 실제 사용자 Codex 홈 설치, push·merge·배포는 수행하지 않는다.
 - 모든 구현·설정·테스트 코드 편집은 Coder 소유이며, CEO는 승인·인계·통합·수락을 담당한다.
 
-모든 상대 경로와 명령은 CEO가 인계한 실행 작업공간을 기준으로 한다. 현재 관리형 실행 작업공간은 /Users/yunho/.codex/worktrees/scouter-role-integration/yunho-harness다.
+모든 상대 경로와 명령은 CEO가 인계한 실행 작업공간을 기준으로 한다. 현재 관리형 실행 작업공간은 /Users/yunho/.codex/worktrees/scouter-role-integration/arc다.
 
 ## 검토 중점
 
@@ -56,15 +56,15 @@
 
 **파일**
 
-- 생성: agents/harness-scouter.toml
-- 삭제: agents/harness-secretary.toml, agents/harness-scout.toml
+- 생성: agents/arc-scouter.toml
+- 삭제: agents/arc-secretary.toml, agents/arc-scout.toml
 - 수정:
   - skill/models.toml
   - skill/scripts/model_config.py
   - skill/scripts/apply-models.py
   - install.py의 PROFILE_FILES 및 프로필 개수 안내
   - skill/SKILL.md
-  - agents/harness-planner.toml
+  - agents/arc-planner.toml
   - skill/references/handoff.md
   - skill/references/planning.md
   - skill/references/verification.md
@@ -81,30 +81,30 @@
 
 ROLE_FILES와 PROFILE_FILES의 활성 파일 집합:
 
-    harness-scouter.toml
-    harness-planner.toml
-    harness-coder.toml
-    harness-qa.toml
-    harness-reviewer.toml
+    arc-scouter.toml
+    arc-planner.toml
+    arc-coder.toml
+    arc-qa.toml
+    arc-reviewer.toml
 
 ### 1.1 실패 테스트 작성
 
 - [ ] SIX_SETTINGS 정상 fixture를 FIVE_SETTINGS로 교체한다. settings_bytes()와 ModelSettingsTests.load() 기본 버전을 5로 바꾼다.
 
     FIVE_SETTINGS = {
-        "harness_scouter": {
+        "arc_scouter": {
             "model": "gpt-6-luna", "model_reasoning_effort": "max",
         },
-        "harness_planner": {
+        "arc_planner": {
             "model": "gpt-6.1-sol", "model_reasoning_effort": "medium",
         },
-        "harness_coder": {
+        "arc_coder": {
             "model": "gpt-6.1-sol", "model_reasoning_effort": "low",
         },
-        "harness_qa": {
+        "arc_qa": {
             "model": "gpt-6-luna", "model_reasoning_effort": "max",
         },
-        "harness_reviewer": {
+        "arc_reviewer": {
             "model": "gpt-6.1-sol", "model_reasoning_effort": "medium",
         },
     }
@@ -142,9 +142,9 @@ ROLE_FILES와 PROFILE_FILES의 활성 파일 집합:
     test_standalone_document_writing_has_no_specialist_auto_route
     test_active_references_use_five_role_contract
 
-Scouter TOML에서 name == harness_scouter와 sandbox_mode == read-only를 검증한다. 정책·정규화된 지침에서는 자료 분석, 정적 코드·문서·데이터 탐색, CEO 직접 보고, 근거·미해결 사항 보고, 편집·독립 문서 파일 작성·직접 위임 금지, 운영 상태 조사·정리 제외를 확인한다. Planner·Coder·QA·Reviewer 경계를 지워 테스트를 통과시키지 않는다.
+Scouter TOML에서 name == arc_scouter와 sandbox_mode == read-only를 검증한다. 정책·정규화된 지침에서는 자료 분석, 정적 코드·문서·데이터 탐색, CEO 직접 보고, 근거·미해결 사항 보고, 편집·독립 문서 파일 작성·직접 위임 금지, 운영 상태 조사·정리 제외를 확인한다. Planner·Coder·QA·Reviewer 경계를 지워 테스트를 통과시키지 않는다.
 
-현재 여섯 역할을 강제하는 ConditionalReferenceTests, HarnessPreactionGateTests, RolePolicyTests의 assertion을 모두 갱신한다.
+현재 여섯 역할을 강제하는 ConditionalReferenceTests, ARCPreactionGateTests, RolePolicyTests의 assertion을 모두 갱신한다.
 
 ### 1.2 RED 확인
 
@@ -167,7 +167,7 @@ Scouter TOML에서 name == harness_scouter와 sandbox_mode == read-only를 검�
 
 - [ ] 실행한다.
 
-    PYTHONPATH=tests python3 -B -m unittest test_install.ModelSettingsTests test_install.ApplyModelsTests test_install.ConditionalReferenceTests test_install.HarnessPreactionGateTests test_install.RolePolicyTests -v
+    PYTHONPATH=tests python3 -B -m unittest test_install.ModelSettingsTests test_install.ApplyModelsTests test_install.ConditionalReferenceTests test_install.ARCPreactionGateTests test_install.RolePolicyTests -v
 
 예상: 전부 통과. 이 결과는 정책·모델 도구 계약만 입증하며 agent runtime 준수는 입증하지 않는다.
 
@@ -194,8 +194,8 @@ Scouter TOML에서 name == harness_scouter와 sandbox_mode == read-only를 검�
 다음 상수와 후보 수집을 추가한다.
 
     RETIRED_PROFILE_FILES = (
-        "harness-secretary.toml",
-        "harness-scout.toml",
+        "arc-secretary.toml",
+        "arc-scout.toml",
     )
 
     def retired_profile_targets(home: Path) -> dict[str, Path]:
@@ -239,7 +239,7 @@ backup_existing()와 _transactional_install()의 legacy_targets 인자는 retire
 | test_unmanaged_old_profiles_are_not_inspected_or_changed | yunho-team-* 이름의 파일·특수 항목을 검사·열거·읽기·백업·이동하지 않음; 설치·check·dry-run 성공 및 상태 보존 |
 | test_retired_profiles_move_failure_restores_targets | 두 번째 폐기 파일 이동 실패 시 상태 2; 먼저 이동한 폐기 파일과 활성·외부 대상 원상 복구 |
 | test_retired_profiles_profile_failure_restores_all_targets | 폐기 이동 후 두 번째 활성 프로필 교체 실패 시 전체 대상 복구; 원래 없던 활성 파일은 없음 |
-| test_retired_profiles_preparation_failure_preserves_targets | 두 폐기 프로필과 기존 활성·외부 대상을 준비하고 백업 시작·두 번째 폐기 파일 백업·Harness staging·활성 프로필 staging 실패를 각각 주입; 상태 2, 주입 지점 도달, 폐기 이동·대상 교체 없음, 기존 대상 bytes·mode 보존, 임시 staging 정리 |
+| test_retired_profiles_preparation_failure_preserves_targets | 두 폐기 프로필과 기존 활성·외부 대상을 준비하고 백업 시작·두 번째 폐기 파일 백업·ARC staging·활성 프로필 staging 실패를 각각 주입; 상태 2, 주입 지점 도달, 폐기 이동·대상 교체 없음, 기존 대상 bytes·mode 보존, 임시 staging 정리 |
 | test_retired_profiles_rollback_failure_preserves_recovery | 활성 교체 실패 후 폐기 프로필 복구도 실패하면 상태 2; 오류·백업·복구 절대 경로 보고, 복구 bytes 보존 |
 
 test_unmanaged_old_profiles_are_not_inspected_or_changed는 단순 파일 보존에 그치지 않는다.
@@ -253,7 +253,7 @@ test_unmanaged_old_profiles_are_not_inspected_or_changed는 단순 파일 보존
 - [ ] migration_paths, seed_migration, migration_active_state와 test_migration_*를 제거한다. 신규 폐기 및 비관리 경로 테스트가 필요한 보호를 담당한다. 구형 model ID/version 거부는 별도 입력 호환성 검사이므로 유지한다.
 - [ ] 오류 주입 테스트마다 주입 지점에 도달했음을 별도로 검증한다. 폐기 기능 부재로 주입되지 않은 상황을 복구 성공으로 인정하지 않는다.
 - [ ] 기존 test_acquisition_failure_leaves_targets_and_backup_unchanged에 두 폐기 프로필을 서로 다른 bytes·mode로 추가한다. 전체 Codex 홈 상태 불변, 취득 호출, staging 부재 assertion을 유지하며 별도 acquisition 실패 테스트는 추가하지 않는다.
-- [ ] test_retired_profiles_preparation_failure_preserves_targets를 폐기·백업·거래 행동 구현 전에 작성한다. 백업 시작, 두 번째 폐기 프로필 백업, _copy_harness_to_stage(), 활성 프로필 staging의 shutil.copystat() 실패를 각각 독립적으로 실행한다.
+- [ ] test_retired_profiles_preparation_failure_preserves_targets를 폐기·백업·거래 행동 구현 전에 작성한다. 백업 시작, 두 번째 폐기 프로필 백업, _copy_arc_to_stage(), 활성 프로필 staging의 shutil.copystat() 실패를 각각 독립적으로 실행한다.
 - [ ] 각 실패 주입은 정확한 함수 또는 source·target 조건으로 제한하고 해당 지점에 도달했는지 확인한다. os.replace 호출을 관찰해 폐기 파일 이동과 실제 설치 대상 교체가 시작되지 않았음을 검증한다.
 - [ ] 준비 실패 검사는 기존 활성·폐기·외부 대상과 비관리 파일 상태를 각각 비교하고 assert_no_stages()를 확인한다. 백업 도중 실패하면 부분 백업 디렉터리가 남을 수 있으므로 전체 Codex 홈 불변은 요구하지 않는다.
 
@@ -382,7 +382,7 @@ test_unmanaged_old_profiles_are_not_inspected_or_changed는 단순 파일 보존
 - [ ] 3.2의 세 명령을 다시 실행한다.
 - [ ] 전체 정책 회귀를 실행한다.
 
-    PYTHONPATH=tests python3 -B -m unittest test_install.ConditionalReferenceTests test_install.HarnessPreactionGateTests test_install.RolePolicyTests -v
+    PYTHONPATH=tests python3 -B -m unittest test_install.ConditionalReferenceTests test_install.ARCPreactionGateTests test_install.RolePolicyTests -v
 
 예상: 관리형 계약과 기존 승인·보존·인계 계약이 함께 통과한다. 구조 검사만으로 실제 앱 도구 provisioning·연결을 입증했다고 말하지 않는다.
 
@@ -406,7 +406,7 @@ test_unmanaged_old_profiles_are_not_inspected_or_changed는 단순 파일 보존
 
     installer.verify_manifest(REPO)
 
-manifest에는 agents/harness-scouter.toml이 있고 두 폐기 프로필은 없어야 한다. 기존 정책대로 skill/models.toml은 해시 고정에서 제외한다.
+manifest에는 agents/arc-scouter.toml이 있고 두 폐기 프로필은 없어야 한다. 기존 정책대로 skill/models.toml은 해시 고정에서 제외한다.
 
 - [ ] 갱신 전 실행한다.
 
