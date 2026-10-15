@@ -725,6 +725,19 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
 
 
 class ResearchRoutingAndBriefTests(unittest.TestCase):
+    def test_codex_spawn_fork_and_user_input_policy(self) -> None:
+        skill = " ".join((REPO / "codex/skill/SKILL.md").read_text().split())
+        self.assertRegex(skill, r"Every specialist spawn sets `fork_turns=\"none\"`; full-history forks are not allowed")
+        self.assertNotIn("When supported, start specialists", skill)
+        self.assertIn("`request_user_input` questions use only `title` and `options` fields, never `question`", skill)
+
+    def test_claude_native_role_and_ask_user_question_policy(self) -> None:
+        skill = " ".join((REPO / "claude/skill/SKILL.md").read_text().split())
+        self.assertIn("Always start a Harness role by its installed native name (`harness-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for a Harness role", skill)
+        self.assertIn("do not claim fresh context isolation without evidence", skill)
+        self.assertNotIn("When supported, start specialists", skill)
+        self.assertIn("`AskUserQuestion` questions use only `question`, a `header` of at most 12 characters, 2-4 `options` each with `label` and `description`, and `multiSelect`", skill)
+
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_research_routing_tiers(self) -> None:
         opening = policy_text("core").split("## ownership", 1)[0]
@@ -829,7 +842,7 @@ POLICY_WORD_CEILINGS = {
     "codex/agents/harness-reviewer.toml": 250,
     "codex/agents/harness-scouter.toml": 250,
 }
-POLICY_WORD_TOTAL_CEILING = 13300
+POLICY_WORD_TOTAL_CEILING = 13350
 
 
 def policy_word_counts(root: Path) -> dict[str, int]:

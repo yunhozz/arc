@@ -200,9 +200,9 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
   instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
-- When supported, start specialists without inherited conversation history (for example `fork_turns="none"`) and supply
-  that brief. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
+- Every specialist spawn sets `fork_turns="none"`; full-history forks are not allowed. Supply that brief. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
   remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
+- `request_user_input` questions use only `title` and `options` fields, never `question`.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
 - Before optional calls, name the unresolved question and expected artifact; skip calls already resolved by available

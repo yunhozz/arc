@@ -189,7 +189,8 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
   instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
-- When supported, start specialists with only the supplied scoped brief; do not claim fresh context isolation without evidence. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
+- `AskUserQuestion` questions use only `question`, a `header` of at most 12 characters, 2-4 `options` each with `label` and `description`, and `multiSelect`.
+- Always start a Harness role by its installed native name (`harness-*`) with only the supplied scoped brief; never use a context-inheriting fork (such as the `fork` subagent type) for a Harness role; do not claim fresh context isolation without evidence. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
   remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
