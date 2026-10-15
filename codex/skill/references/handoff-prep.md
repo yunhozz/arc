@@ -14,8 +14,8 @@ and no unfinished applicable documents or unresolved scope/dependency decisions 
 The set contains required artifacts, not a spec on every path; use planning depth and valid omission rationales.
 Unfinished documents or missing approval evidence stop the choice request and preparation. Read-only state checks
 are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate
-under the Explicit choice rule. Present the verified workspace, current branch or detached HEAD, HEAD, and any validated
-new-branch candidate under Checkout approval in handoff.md.
+under the Explicit choice rule. Present the verified absolute workspace, current branch or detached HEAD, base HEAD, and any validated
+new-branch candidate.
 When offering the new managed worktree option, CEO first verifies and then presents its selection target (source absolute
 path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
 approved branch candidate and collision status, descriptive name, approved document transfer/commit scope). Verification
@@ -69,7 +69,7 @@ Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate
 target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
 collision, obtain approval for that candidate before creating or switching; without that approval, block handoff.
 Use the current checkout only after the user explicitly selects it for this handoff. A failure during creation remains
-an operational failure subject to the stop rule below.
+an operational failure subject to Stop and inspect (SKILL.md) and Recovery prerequisite below.
 
 Create and switch to the approved new branch from the confirmed base HEAD in the current checkout, for example with
 `git switch -c <branch>`. Detached HEAD is acceptable when HEAD is resolved and included in the approval target.
@@ -85,8 +85,7 @@ state and the choice evidence in the brief. Missing choice, unconfirmed state, o
 
 ### Planning document commit
 
-Begin only after all applicable specs/plans are written, individually approved, and the document set is complete.
-On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
+Begin only after the Execution-target request gate holds and the choice is made. On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
 changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
 On the new worktree path, verify the created app-managed worktree, current-chat attachment, identity/base, approved
 branch and document transfer before any target docs commit.
@@ -97,10 +96,9 @@ content matching the approved version and validity in the selected checkout; reu
 
 For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
 Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
-before handoff. Batch all remaining uncommitted approved documents together in that single commit, including all specs
-and plans when none are committed. If only some remain, verify/reuse existing commits and commit the remainder once.
-If all are validly committed, verify only; do not create duplicate or empty commits. Do not amend, reset, or recommit
-past commits merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved
+before handoff. Batch all remaining uncommitted approved documents together in that single commit. If all are
+validly committed, verify only; do not create duplicate or empty commits, or amend, reset, or recommit past commits
+merely to combine them into one SHA. Verify both staged paths and staged diff match exactly the approved
 documents; unrelated staged files stop the commit under the Preservation rule. Never include implementation files. Do not first commit a generic temporary message and routinely use `git commit --amend` to
 repair it. A separately needed amend requires rechecking its approval scope, current HEAD, and publication state.
 

@@ -6,25 +6,20 @@ Visual companion design discussion is distinct from QA UI acceptance.
 
 ## Risk-scaled execution
 
-Core Risk-scaled execution holds the risk table, risk definitions, evidence-reuse rule, and role order. CEO identifies
-affected behavior, risk, and smallest meaningful verification. Product/test edits belong exclusively to Coder with
-assigned file ownership except under the CEO direct path in core policy; otherwise CEO may inspect/run checks but routes
-code corrections to Coder. Determine the minimum flow from risk requirements and any specific applicable instruction or
-approved commitment, and record which requirements each check or review satisfies.
+SKILL.md Risk-scaled execution holds the risk table, risk definitions, evidence-reuse rule, and role order,
+including Reviewer timing. Product/test edits belong exclusively to Coder except under the CEO direct path; CEO may inspect/run checks but
+routes code corrections to Coder. Determine the minimum
+flow from risk and any specific instruction or approved commitment, and record which requirements each check or review
+satisfies. For small, low-risk work with clear scope and acceptance evidence and no such requirement, CEO's focused
+checks suffice; do not call QA or Reviewer automatically. Significant/high-risk work requires independent review of the
+full change at the final relevant state after the required QA/focused checks and any QA recheck.
 
-For small, low-risk work, CEO's focused checks are sufficient when scope and acceptance evidence are clear and no
-specific instruction or approved commitment requires more; do not call QA or Reviewer automatically. Significant/high-risk
-work requires independent review of the full change at the final relevant state after the required QA/focused checks and any QA recheck.
-
-Significant risk means material changes to the core-listed contracts and areas. Numerous known metadata files are not
-significant solely because there are many, and a one-file permission or data-loss rule may be. If scope or risk is
-unclear, do not use the low-risk flow. An environment failure is distinct from a code failure; it does not by itself
-change design depth or waive a required check. Report the exact limitation and any remaining evidence gap to CEO.
-
-For a verified `.gitignore` and IDE/macOS metadata cleanup, confirm the listed targets are unused, required project
-materials are unaffected, ignore patterns cover only intended paths, and the diff matches the approved scope. CEO can
-then complete focused checks without automatically calling QA or Reviewer. A vague request to delete unnecessary files
-does not establish low risk; reclassify when installer, manifest, or other contracts are affected.
+Many known metadata files are not significant solely because there are many, and a one-file permission or data-loss
+rule may be. A vague request to delete unnecessary files does not establish low risk; reclassify when installer,
+manifest, or other contracts are affected. For a verified ignore-pattern or metadata cleanup, confirm the targets are
+unused, required project materials are unaffected, ignore patterns cover only intended paths, and the diff matches the
+approved scope; CEO's focused checks then suffice without automatically calling QA or Reviewer. An environment failure
+is distinct from a code failure; report the exact limitation and any remaining evidence gap to CEO.
 
 Use additional Planner/Scouter only for unresolved planning/discovery questions. Reviewer covers substantial changes and
 correctness, factual, security, data, or interface risks. CEO may use Planner/Scouter/Reviewer when justified and assigns
@@ -33,8 +28,7 @@ all Coder/QA work. Specialists report unresolved questions to CEO, who assigns s
 QA runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
 configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. After a
 behavior fix QA reruns affected checks, and Reviewer rechecks only when warranted. Reuse a Reviewer only when
-independent of the work and self-review and when evidence meets required scope and freshness; never call
-Reviewer per plan task. Resolve or explicitly disposition findings and confirm
+independent of the work and self-review and when evidence meets required scope and freshness. Resolve or explicitly disposition findings and confirm
 acceptance evidence before completion; claim checks only with verified output.
 
 ## Task acceptance and final plan acceptance
@@ -44,21 +38,17 @@ acceptance criteria to actual evidence, currently required checks and findings b
 completion, a Coder report or passing commands alone do not establish acceptance.
 
 Task acceptance and its focused commit require only the task's risk-scaled Coder/QA evidence or CEO focused checks;
-Reviewer is never a task acceptance prerequisite. Do not add QA calls solely because a task boundary exists. Preserve
-existing risk requirements, risky dependency QA checks and specifically approved obligations. For an independently
-acceptable task, do not delay its acceptance/commit solely for later final plan verification. Currently required task
-checks must not be deferred to final verification to accept early. State the scope and timing of final-only integration
-criteria in the plan. Significant work retains its required final whole-change review after the required QA/focused checks and any QA recheck at the final relevant
-state, as final plan verification when a plan exists. Reviewer is never a plan-task acceptance prerequisite; for
-significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any QA recheck at the final relevant state;
-significant work without a plan keeps Reviewer after QA before acceptance.
+Reviewer timing and task-boundary gates follow SKILL.md Risk-scaled execution. For an independently acceptable task,
+do not delay its acceptance/commit solely for later final plan verification. Currently required task checks must not
+be deferred to final verification to accept early. State the scope and timing of final-only integration criteria in
+the plan; with a plan, the required final whole-change review is final plan verification.
 
 A task commit record does not mark unperformed final verification complete. CEO still decides final plan acceptance
 using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
 Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
 rules. If final findings affect already committed work, CEO manages a follow-up task, applicable planning/approvals,
 correction and QA recheck before a new focused commit; Reviewer then rechecks only the affected findings when
-warranted. Do not automatically amend/reset or duplicate the original task commit. Failed required checks and unmet criteria cannot be waived to commit.
+warranted. Do not automatically amend/reset or duplicate the original task commit.
 
 ### UI browser acceptance checks
 
@@ -101,6 +91,6 @@ issues may require both QA verification and Reviewer source review.
 
 CEO accepts using criterion verdicts, findings, recheck evidence, and remaining gaps, rather than an overall run result.
 Explicit disposition does not convert unverified to proven; completion reports preserve remaining unverified scope.
-For low-risk work without a QA agent, CEO's focused checks likewise connect each criterion to evidence and preserve
-unverified scope. Existing risk tiers and role-call requirements remain in force.
+For low-risk work without a QA agent, CEO's focused checks likewise
+connect each criterion to evidence.
 

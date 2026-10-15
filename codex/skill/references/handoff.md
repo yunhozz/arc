@@ -17,8 +17,7 @@ cannot be resolved. Do not initialize Git or switch to another repository automa
 Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
 After applicable design/spec/plan approvals, obtain and record an explicit user choice for the first start under the
 Explicit choice rule: use the current checkout, create a new task branch from the verified base HEAD in that same
-checkout, or create a new managed worktree and task branch (selection target under handoff-prep.md; contract in handoff-worktree.md after selection). Present the absolute
-workspace, current branch or detached HEAD, base HEAD, and validated candidate when offering a new branch. Without an
+checkout, or create a new managed worktree and task branch (selection target under handoff-prep.md; contract in handoff-worktree.md after selection). Without an
 explicit execution-target choice or verified valid reuse under the choice-lifetime rules below, wait and do not start or restart Coder.
 
 ### Coder handoff gate
@@ -51,10 +50,8 @@ resolves preparation and passes the gate again before Coder resumes.
 
 For the worktree path the canonical record maps source and target absolute paths, Git common directory, base SHA,
 selected branch, descriptive name, returned actual path, app-managed current-chat attachment, operationId/result,
-registration and preservation checks, and document transfer evidence. Give all five roles the
-selected absolute worktree path: Coder, QA, Planner, Reviewer, Scouter. On the same approved worktree,
-recheck actual state before reuse of the initial explicit choice; loss of target trust requires a new explicit choice.
-Do not automatically recreate, cleanup, or archive a worktree.
+registration and preservation checks, and document transfer evidence. Do not automatically recreate, cleanup, or
+archive a worktree.
 
 Include the document-save gate evidence and results from planning.md, execution-target request readiness, and each
 preparation Git mutation's pre-action evidence and post-action result in the same canonical record.
@@ -66,34 +63,31 @@ final verification, and any failure/partial completion and recovery evidence, pl
 Record the Complete planning-document set fields from planning.md, confirming no applicable document awaits writing/approval.
 Distinguish reused existing commits from the batch preparation commit, or record valid document absence.
 Record applicable approvals and the initial explicit execution-target choice or verified reuse for each first start or restart. Give all five
-roles the same actual workspace, selected execution checkout, preparation evidence, and absolute artifact paths. Each
+roles (Coder, QA, Planner, Reviewer, Scouter) the same actual workspace and selected execution checkout or absolute worktree path, preparation
+evidence, and absolute artifact paths. Each
 role stays in the supplied workspace, reports missing, inaccessible, or conflicting paths and unexpected branch state to
 CEO before dependent work, and does not create or switch workspaces or branches.
 
 ### Choice lifetime and restart record
 
-Normal accepted task commits do not by themselves invalidate the initial choice for the same approved scope,
-workspace, repository and execution target. Link the approved plan version, task ID and commit SHA/content/validity
-with current Git state and edit ownership in the restart brief; retain CEO's full handoff gate.
-Verify/reuse successful task commits without duplication and keep planning-document preparation evidence distinct;
-task commits do not require repeating valid document preparation.
-
-After successful worktree creation and verification, normal changes in the selected target are governed by this
-reuse rule: authorized HEAD and dirty-state changes, including approved document transfer, docs commits, and
-implementation, do not by themselves invalidate the initial choice. The creation base SHA remains evidence;
-target HEAD need not remain at that base. This does not waive source preservation or unexpected-state checks.
-
-On every first start and restart, CEO rechecks actual Git state against the current brief:
-absolute workspace and repository identity, branch or detached HEAD, HEAD, staged/unstaged/untracked changes,
-preservation and edit ownership, applicable approvals and artifacts, planning-document SHA/message/paths/content
-or valid no-document rationale, and CEO's final state verification. A reused choice never waives any gate.
-
 For the same approved scope, workspace, repository, and execution target, reuse the initial explicit choice only
-when its evidence is accessible and still valid. If scope, workspace, repository, target, or approved branch candidate
-changes, obtain a fresh explicit choice after applicable approvals and document completeness. If an invalidating
-failure means the old target cannot be trusted, obtain a fresh explicit choice after CEO resolves preparation.
-Normal authorized HEAD and dirty-state changes do not by themselves invalidate the choice; record them and verify
-that they match approved work, ownership, and the intended target. State mismatches and unresolved failures block
+when its evidence is accessible and still valid. On every first start and restart, CEO rechecks actual Git state
+against the current brief: absolute workspace and repository identity, branch or detached HEAD, HEAD,
+staged/unstaged/untracked changes, preservation and edit ownership, applicable approvals and artifacts,
+planning-document SHA/message/paths/content or valid no-document rationale, and CEO's final state verification
+(Coder handoff gate items 1-7); a reused choice never waives any gate. A restart without document changes reuses
+verified valid planning-document commits without recommitting them and a still-valid initial choice, with fresh
+actual-state checks. Normal authorized HEAD and dirty-state changes, including accepted task commits, docs commits,
+implementation, and approved worktree document transfer, do not by themselves invalidate the choice; record them and
+verify that they match approved work, ownership, and the intended target. A worktree's creation base SHA remains
+evidence; target HEAD need not remain at that base; source preservation and unexpected-state checks still apply.
+Link the approved plan version, task ID and commit SHA/content/validity with current Git state and edit ownership in
+the restart brief under CEO's full handoff gate. Verify/reuse successful task commits without duplication and keep planning-document preparation
+evidence distinct; task commits do not require repeating valid document preparation.
+
+If scope, workspace, repository, target, or approved branch candidate changes, obtain a fresh explicit choice after
+applicable approvals and document completeness. If an invalidating failure means the old target cannot be trusted,
+obtain a fresh explicit choice after CEO resolves preparation. State mismatches and unresolved failures block
 editing until CEO resolves and revalidates the full gate; resolution does not automatically require a new choice
 unless it invalidates the old target. Do not fall back automatically; apply the Explicit choice rule.
 

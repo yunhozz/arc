@@ -21,7 +21,7 @@ approved obligations separately.
    the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
    trade-offs, acceptance criteria, assumptions, and focused questions. CEO integrates, announces scope, routes user
    answers/revisions back, and obtains approvals; CEO never runs brainstorming itself except under the CEO direct path
-   in core policy, where CEO presents the short design itself.
+   in SKILL.md, where CEO presents the short design itself.
 2. Spike: approve the feasibility question/probe before execution, report findings, then obtain a new design/approval
    for implementation. Bounded: approve a short design before Coder or a CEO direct edit. Architectural: approve
    design, then Planner returns complete spec draft and self-review findings; CEO integrates, saves, self-reviews, and obtains written-spec approval
@@ -35,8 +35,8 @@ approved obligations separately.
    returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
    CEO integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
    then obtains plan approval before Coder. Planner cannot save, implement, or request approval.
-5. Every Coder first start and restart requires all applicable design/spec/plan approvals and the complete
-   the common handoff gate in core and handoff.md, with approved artifacts, brief, and relevant findings. Non-behavior
+5. Every Coder first start and restart requires all applicable design/spec/plan approvals and passing
+   the common handoff gate in SKILL.md and handoff.md, with approved artifacts, brief, and relevant findings. Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
    A CEO direct edit requires its approved short design and the same gate conditions before the first edit.
 
@@ -51,23 +51,17 @@ that change and its evidence in the brief. Design approval alone does not change
 
 ## Top-level plan tasks
 
-For each top-level task, Planner specifies ID and title, implementation goal/scope and target files, preceding tasks
-and dependencies, acceptance criteria, required QA/focused checks and evidence before acceptance, and hold conditions.
-Make each task independently implementable, verifiable and acceptable. Changes that cannot be independently verified
-belong in one top-level task from the outset, including policy/profile/tests/manifest when they share one contract.
-Do not combine different approved tasks into one commit during execution; if inseparability appears later, stop affected
-work and have CEO handle revised scope, planning and applicable approvals.
-
-Substeps and checkboxes express implementation/check progress, not separate commit units; RED/GREEN and individual
-commands do not create commit units. One approved top-level task is one focused implementation commit. CEO verifies
-criteria, required checks and findings, accepts the task, then commits without additional user commit approval.
-Coder reports and passing checks do not replace CEO acceptance. Never list Reviewer as a per-task required check;
-Reviewer is never a task acceptance prerequisite. State final overall plan QA/integration verification separately from
-task acceptance prerequisites, stating scope and timing; for significant/high-risk work, final plan verification lists the
-single independent Reviewer review of the final full change after all tasks are accepted with their risk-scaled checks. Keep task-required
-checks before acceptance; later final checks alone do not delay an independently acceptable task. Task boundaries alone
-add no QA gates; preserve risk requirements, QA at a risky dependency boundary and specific approved obligations. No-change, hold and resume processing follow core policy.
-These requirements apply to required plans; existing plan-omission paths gain no new plan obligation.
+The Planner profile holds the full top-level task rules. CEO checks each plan draft for: per task ID and title,
+implementation goal/scope and target files, preceding tasks and dependencies, acceptance criteria, required QA/focused
+checks and evidence before acceptance, and hold conditions; each task independently implementable, verifiable and
+acceptable, with changes that cannot be independently verified (including policy/profile/tests/manifest sharing one
+contract) in one task from the outset; and final overall plan verification stated separately from task acceptance
+prerequisites, with scope and timing. Never list Reviewer as a per-task required check (Reviewer timing: SKILL.md
+Risk-scaled execution). RED/GREEN and individual
+commands do not create commit units; one task is one focused commit under commit.md, which also covers no-change, hold
+and resume. Do not combine different approved tasks into one commit during execution; if inseparability appears later,
+stop affected work and have CEO handle revised scope, planning and applicable approvals. These requirements apply to
+required plans; existing plan-omission paths gain no new plan obligation.
 
 ### Document-save evidence gates
 
@@ -135,8 +129,8 @@ If planning reveals new scope, reassess the list, depth, and dependencies and ob
 before preparation. Changed approved documents require approval of the revised version. If implementation reveals new
 scope, stop affected execution until that scope's documents, approvals, and preparation are complete. Do not amend old
 commits to retroactively include it. An already-running Coder must stop before edits dependent on new plans; inspect
-current changes/Git state and do not retroactively claim preparation. A restart without document changes reuses verified
-valid commits and a still-valid initial execution-target choice under [handoff.md](handoff.md), with fresh actual-state checks.
+current changes/Git state and do not retroactively claim preparation. A restart without document changes follows Choice
+lifetime and restart record in [handoff.md](handoff.md).
 
 ### Evidence refresh and limits
 

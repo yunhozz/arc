@@ -6,7 +6,7 @@ a task whose commit result is unclear.
 ## Automatic commit after plan-task acceptance
 
 One approved top-level task is the unit of one focused implementation commit. CEO verifies the task's acceptance
-criteria, currently required checks (the final Reviewer is plan-level, never a task prerequisite), and findings, accepts the task by its own judgment, then immediately
+criteria, currently required checks (Reviewer timing: SKILL.md Risk-scaled execution), and findings, accepts the task by its own judgment, then immediately
 creates its focused local Git commit without additional user commit approval. Immediately means the next action is
 the required Git state/scope checks, staging, and commit, rather than an unexplained wait until the plan ends.
 Substeps and checkboxes are progress records, not separate commit units. Checkbox completion, Coder reports, and
@@ -48,4 +48,4 @@ retroactively. Structural checks of this contract do not prove actual agent runt
 Follow Conventional Commits with the message form
 `<type>(<scope>): <description>`. Use a concise, specific Korean description without a trailing period, a lowercase
 scope when useful, one top-level task's logical change per commit, and body/footer only when needed while preserving
-Git trailer syntax. Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
+Git trailer syntax.

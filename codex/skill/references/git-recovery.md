@@ -13,7 +13,9 @@ causes and remaining uncertainty; denial of lock creation alone does not prove a
 
 Apply the Preservation rule: do not delete lock files, use `chmod` or `chown`, bypass the sandbox, or move to another
 workspace. If
-evidence confirms sandbox denial of an already authorized operation, request the tool-supported minimum escalation for only the exact single Git command and workspace, never broad Git access. Before retrying,
+evidence confirms sandbox denial of an already authorized operation, request through the permission system only (not
+a sandbox bypass) the tool-supported minimum escalation for only the exact single Git command and workspace, never
+broad Git access. Before retrying,
 recheck branch, HEAD, index, and partial completion; do not repeat work already completed. After success verify the
 commit or branch result and final state, then reevaluate the entire handoff gate. Denied escalation or unresolved OS
 permission/ACL problems keep handoff blocked; report the reason and actual state to CEO/user. Choosing the final
@@ -46,8 +48,8 @@ completed actions.
 Do not automatically fallback, retry another path/branch, delete paths, prune registrations with `git worktree prune`,
 or use `--force` or `-B`; apply the Preservation rule.
 Normal worktree preparation after explicit third-path selection is permitted under handoff; moving to an arbitrary
-workspace during recovery remains prohibited. Resolve preparation and revalidate the full gate; if target trust is
-invalidated or the target changes, obtain a new explicit choice. No automatic cleanup/archive is authorized.
+workspace during recovery remains prohibited. Resolve preparation and revalidate the full gate; a new explicit choice
+follows Choice lifetime and restart record in handoff.md. No automatic cleanup/archive is authorized.
 
 For managed worktree failures record tool inputs, operationId, result/error, returned actual path, app-managed
 registration and current-chat attachment, initial/final branch, base/ref SHA, source/target HEAD/index/files and ownership.

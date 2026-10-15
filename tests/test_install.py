@@ -397,7 +397,19 @@ class TaskCommitPolicyTests(unittest.TestCase):
         planner = " ".join(profile["developer_instructions"].lower().split())
         self.assertIn("for each top-level task", planner)
         task_draft = planner.split("for each top-level task", 1)[1].split("for a genuinely visual", 1)[0]
-        for artifact, text in (("planning", planning), ("planner", task_draft)):
+        self.contracts(planning, (
+            r"planner profile holds the full top-level task rules",
+            r"id.*title.*scope.*files.*dependencies.*acceptance criteria.*required qa/focused checks.*evidence.*hold conditions",
+            r"never list reviewer as a per-task required check",
+            r"cannot be independently verified.*one task from the outset",
+            r"final overall plan verification stated separately from task acceptance prerequisites",
+        ))
+        commit = self.section("commit", "## automatic commit after plan-task acceptance")
+        self.contracts(commit, (
+            r"substeps.*checkboxes.*not.*commit units",
+            r"ceo.*accept.*without.*additional user commit approval",
+        ))
+        for artifact, text in (("planner", task_draft),):
             with self.subTest(artifact=artifact):
                 self.contracts(text, (
                     r"id.*title.*scope.*files.*dependencies.*acceptance criteria.*required qa/focused checks.*evidence.*hold conditions",
@@ -422,14 +434,13 @@ class TaskCommitPolicyTests(unittest.TestCase):
         self.contracts(verify, (
             r"task-local acceptance.*distinct from.*final plan.*acceptance",
             r"task acceptance and its focused commit require only.*risk-scaled coder/qa.*ceo focused checks",
-            r"reviewer is never a task acceptance prerequisite",
-            r"do not add qa calls solely.*task boundary",
+            r"reviewer timing and task-boundary gates follow skill\.md risk-scaled execution",
             r"independently acceptable task.*do not delay.*later final plan verification",
-            r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance",
             r"required.*task.*checks.*must not.*deferred",
-            r"significant.*final whole-change review.*after the required qa/focused checks and any qa recheck.*final relevant state",
+            r"with a plan, the required final whole-change review is final plan verification",
             r"task commit.*does not.*unperformed.*verification.*complete",
         ))
+        self.assertRegex(policy_text("core"), r"do not add per-task qa or review gates solely because a task boundary exists")
 
     def test_commit_blocks_on_scope_checks_findings_and_git_state(self) -> None:
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
@@ -461,7 +472,17 @@ class TaskCommitPolicyTests(unittest.TestCase):
             r"missing record.*actual result.*before.*retry",
         ))
         restart = self.section("handoff", "### choice lifetime and restart record")
-        self.assertRegex(restart, r"normal accepted task commits.*do not.*invalidate.*initial choice")
+        self.assertRegex(restart, r"normal authorized head and dirty-state changes, including accepted task commits.*do not by themselves invalidate the choice")
+        gate = policy_text("handoff").split("### coder handoff gate", 1)[1].split("### handoff evidence", 1)[0]
+        for item in (r"1\. all applicable design/spec/plan approvals are recorded",
+                     r"2\. the user explicitly selected the execution target initially",
+                     r"3\. the accessible absolute workspace is the intended git repository",
+                     r"4\. actual branch or detached head, head, staged/unstaged/untracked state, preservation, and edit ownership are known",
+                     r"5\. approved planning-document commits are verified",
+                     r"6\. after any commit or branch operation, final path, branch, head, and change state are rechecked",
+                     r"7\. the brief includes these preparation and final-verification facts"):
+            with self.subTest(gate_item=item):
+                self.assertRegex(gate, item)
         self.assertRegex(restart, r"task id.*commit sha.*current git state.*full handoff gate")
 
     def test_final_findings_use_followup_task_without_rewriting_commit(self) -> None:
@@ -482,11 +503,12 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
         self.contracts(commit, (
             r"local.*does not authorize early planning-document commits.*pre-coder.*batch.*unchanged",
-            r"push.*merge.*publish.*deploy.*install.*separate.*approval",
             r"conventional commits.*korean description.*trailing period.*lowercase.*scope",
             r"historical spec/plan.*not.*retroactively",
             r"structural checks.*do not prove.*agent runtime",
         ))
+        core = self.section("core", "## automatic commit after plan-task acceptance")
+        self.assertRegex(core, r"push.*merge.*publish.*deploy.*install.*separate.*approval")
 
 
 class ConditionalReferenceTests(unittest.TestCase):
@@ -667,9 +689,12 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
     def test_final_single_reviewer_is_explicit(self) -> None:
         for name, text, contract in (
             ("core", policy_text("core"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
-            ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
-            ("planning", policy_text("planning"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
-            ("commit", policy_text("commit"), r"final reviewer is plan-level, never a task prerequisite"),
+            ("verification", policy_text("verification"), r"reviewer timing and task-boundary gates follow skill\.md risk-scaled execution"),
+            ("verification-cleanup", policy_text("verification"), r"verified ignore-pattern or metadata cleanup.*targets are unused.*required project materials are unaffected.*ignore patterns cover only intended paths.*diff matches the approved scope.*focused checks then suffice without automatically calling qa or reviewer"),
+            ("verification-env", policy_text("verification"), r"an environment failure is distinct from a code failure.*report the exact limitation"),
+            ("verification-pointer", policy_text("verification"), r"skill\.md risk-scaled execution holds the risk table, risk definitions, evidence-reuse rule, and role order"),
+            ("planning", policy_text("planning"), r"never list reviewer as a per-task required check \(reviewer timing: skill\.md risk-scaled execution\)"),
+            ("commit", policy_text("commit"), r"reviewer timing: skill\.md risk-scaled execution"),
             ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
         ):
             with self.subTest(artifact=name):
@@ -721,7 +746,7 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_research_routing_tiers(self) -> None:
         opening = policy_text("core").split("## ownership", 1)[0]
-        self.assertRegex(opening, r"quick read of a few known files.*all other material research/analysis and bounded exploration goes to scouter with its configured settings.*narrow brief.*known paths.*specific facts.*no synthesis")
+        self.assertRegex(opening, r"quick read of a few known files.*all other material research/analysis and bounded exploration \(read-only, of static code, documents, data, and logs/reports\) goes to scouter with its configured settings.*narrow brief.*known paths.*specific facts.*no synthesis")
         for gone in ("lighter effort", "when unsure", "under models"):
             self.assertNotIn(gone, opening)
         claude = " ".join((REPO / "claude/skill/SKILL.md").read_text().lower().split()).split("## ownership", 1)[0]
@@ -806,14 +831,14 @@ def profile_text(role: str) -> str:
 
 
 POLICY_WORD_CEILINGS = {
-    "codex/skill/SKILL.md": 3000,
-    "codex/skill/references/commit.md": 650,
+    "codex/skill/SKILL.md": 2850,
+    "codex/skill/references/commit.md": 600,
     "codex/skill/references/git-recovery.md": 700,
-    "codex/skill/references/handoff-prep.md": 1400,
+    "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
-    "codex/skill/references/handoff.md": 1400,
-    "codex/skill/references/planning.md": 1950,
-    "codex/skill/references/verification.md": 1350,
+    "codex/skill/references/handoff.md": 1300,
+    "codex/skill/references/planning.md": 1850,
+    "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
     "codex/agents/harness-coder.toml": 700,
     "codex/agents/harness-planner.toml": 600,
@@ -834,7 +859,7 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/harness-reviewer.md": 350,
     "claude/agents/harness-scouter.md": 300,
 }
-POLICY_WORD_TOTAL_CEILING = 13350
+POLICY_WORD_TOTAL_CEILING = 12750
 CLAUDE_POLICY_WORD_TOTAL_CEILING = 9250
 
 
@@ -866,7 +891,8 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
 
     def test_planning_points_to_common_handoff_gate(self) -> None:
         planning = policy_text("planning")
-        self.assertIn("the common handoff gate in core and handoff.md", planning)
+        self.assertIn("the common handoff gate in skill.md and handoff.md", planning)
+        self.assertNotIn("the complete the common handoff gate", planning)
         self.assertNotIn("`workspace handoff` gate below", planning)
 
     def test_config_comment_matches_subagent_limit(self) -> None:
@@ -1083,7 +1109,7 @@ class CeoDirectPathTests(unittest.TestCase):
     def test_direct_path_eligibility_is_small_low_risk_and_plan_skip(self) -> None:
         for contract in (
             r"without planner brainstorming or coder",
-            r"every small, low-risk criterion.*narrow, understood, readily reversible.*focused checks",
+            r"every small, low-risk criterion holds",
             r"every plan-skip criterion.*one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
             r"no significant-risk trigger",
             r"spike, architectural, ordinary-behavior, significant/high-risk, unclear-risk.*not eligible",
@@ -1091,23 +1117,26 @@ class CeoDirectPathTests(unittest.TestCase):
         ):
             with self.subTest(contract=contract):
                 self.assertRegex(self.direct(), contract)
+        self.assertRegex(policy_text("core"), r"small, low risk means narrow, understood, readily reversible, and verifiable by focused checks")
 
     def test_direct_path_keeps_approval_handoff_tdd_and_verification(self) -> None:
         for contract in (
             r"before editing.*records.*scope.*files.*why every criterion holds.*acceptance criteria.*focused verification",
             r"presents.*short design.*user.*explicit approval",
             r"silence.*not approval",
-            r"handoff gate conditions.*coder first start.*explicit execution-target choice or valid reuse.*workspace.*branch.*head.*staged/unstaged/untracked.*ownership.*before the first edit",
+            r"passes the coder handoff gate in handoff, with the approved short design as the applicable approval, before the first edit",
             r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",
             r"records the changed files",
             r"corrections for a failed focused check or a qa finding stay within the approved files",
-            r"coder tdd rules.*waiver.*explicit.*tdd request.*test-driven-development",
-            r"do not claim tdd",
+            r"behavior edits follow coder tdd and constraints; when tdd applies, ceo follows installed `test-driven-development`",
             r"focused checks.*each acceptance criterion.*evidence.*unverified scope",
             r"not independent of its own edit",
         ):
             with self.subTest(contract=contract):
                 self.assertRegex(self.direct(), contract)
+        tdd = policy_text("core").split("## coder tdd and constraints", 1)[1].split(" ## ", 1)[0]
+        self.assertRegex(tdd, r"explicit user or task-specific tdd request overrides this waiver.*do not claim tdd was followed")
+        self.assertRegex(policy_text("handoff"), r"before a ceo direct edit, ceo verifies the same conditions, with the approved short design as the applicable approval")
 
     def test_direct_path_stops_and_reclassifies_without_reverting(self) -> None:
         for contract in (
@@ -1329,11 +1358,13 @@ class RolePolicyTests(unittest.TestCase):
             (
                 r"before every coder first start and restart",
                 r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch.*new managed worktree and task branch",
-                r"present.*absolute workspace.*current branch.*detached head.*base head.*validated candidate",
                 r"explicit user choice for the first start under the explicit choice rule: use the current checkout",
             ),
         )
         assert_term_defined(self, "explicit choice", "coder")
+        self.assertRegex(policy_text("handoff"), r"\(selection target under handoff-prep\.md;")
+        gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
+        self.assertRegex(gate, r"present the verified absolute workspace, current branch or detached head, base head, and any validated new-branch candidate")
 
     def test_workspace_handoff_current_checkout_requires_explicit_choice(self) -> None:
         self._assert_workspace_handoff_contracts(
@@ -1519,8 +1550,7 @@ class RolePolicyTests(unittest.TestCase):
             'Handoff evidence',
             (
                 r'canonical.*source.*target.*common directory.*base sha',
-                r'all five roles.*absolute worktree path.*coder.*qa.*planner.*reviewer.*scouter',
-                r'same.*worktree.*recheck.*reuse.*initial.*choice.*trust.*new explicit choice',
+                r'all five roles \(coder, qa, planner, reviewer, scouter\).*selected execution checkout or absolute worktree path',
                 r'do not automatically.*recreate.*cleanup.*archive',
             ),
         )
@@ -1528,12 +1558,15 @@ class RolePolicyTests(unittest.TestCase):
         self._assert_workspace_handoff_contracts(
             'Choice lifetime and restart record',
             (
-                r'after successful worktree creation and verification.*selected target.*authorized head and dirty-state changes.*approved document transfer.*docs commits.*implementation.*do not.*invalidate.*initial choice',
+                r'reuse the initial explicit choice only when.*still valid.*rechecks actual git state.*old target cannot be trusted.*fresh explicit choice',
+                r'normal authorized head and dirty-state changes, including accepted task commits, docs commits, implementation, and approved worktree document transfer, do not by themselves invalidate the choice',
+                r'rechecks actual git state against the current brief: absolute workspace and repository identity, branch or detached head, head, staged/unstaged/untracked changes, preservation and edit ownership, applicable approvals and artifacts, planning-document sha/message/paths/content or valid no-document rationale, and ceo.s final state verification',
+                r'restart without document changes reuses verified valid planning-document commits without recommitting them and a still-valid initial choice, with fresh actual-state checks',
                 r'creation base sha.*evidence.*target head need not remain.*base',
                 r'every first start and restart.*recheck.*actual git state.*ownership',
                 r'scope, workspace, repository, target, or approved branch candidate.*changes.*fresh explicit choice',
                 r'state mismatches and unresolved failures block.*editing',
-                r'does not waive source preservation or unexpected-state checks',
+                r'source preservation and unexpected-state checks still apply',
             ),
         )
 
