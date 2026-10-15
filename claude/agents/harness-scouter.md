@@ -2,7 +2,7 @@
 name: harness-scouter
 description: Research evidence and inspect assigned static source
 model: haiku
-effort: max
+effort: high
 tools:
   - Read
   - Grep

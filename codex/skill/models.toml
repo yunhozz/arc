@@ -4,7 +4,7 @@ version = 5
 
 [roles.harness_scouter]
 model = "gpt-6-luna"
-model_reasoning_effort = "max"
+model_reasoning_effort = "high"
 
 [roles.harness_planner]
 model = "gpt-6.1-sol"
@@ -12,7 +12,7 @@ model_reasoning_effort = "medium"
 
 [roles.harness_coder]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "low"
+model_reasoning_effort = "medium"
 
 [roles.harness_qa]
 model = "gpt-6-luna"

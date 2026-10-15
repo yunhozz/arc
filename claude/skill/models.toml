@@ -2,7 +2,7 @@ version = 1
 
 [roles.harness_scouter]
 model = "haiku"
-effort = "max"
+effort = "high"
 
 [roles.harness_planner]
 model = "sonnet"
@@ -10,7 +10,7 @@ effort = "medium"
 
 [roles.harness_coder]
 model = "sonnet"
-effort = "low"
+effort = "medium"
 
 [roles.harness_qa]
 model = "haiku"
