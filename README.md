@@ -62,10 +62,10 @@ The two axes are independent. Architectural does not add QA or Reviewer at every
 
 Supported environments are macOS 13 or later (arm64/x64) and Linux with glibc 2.28 or later (arm64/x64). Windows and musl Linux are not supported. An unsupported environment, or a missing or tampered native file, fails before any file is changed.
 
-Install the `arc` command globally, then apply ARC settings with `arc install`:
+The `@yunhozz/arc` registry package is not published yet. After publication, install the `arc` command globally, then apply ARC settings with `arc install`:
 
 ```sh
-npm i -g github:yunhozz/arc
+npm i -g @yunhozz/arc
 arc install
 arc install --target codex --preset balanced
 arc install --target all --preset smart --check
@@ -210,6 +210,6 @@ For manual permanent activation, add that command to the startup file your zsh a
 
 Registration uses the same managed block as `arc install`. Reinstallation keeps one block and preserves outside bytes, BOM, line endings, and existing file mode. Invalid UTF-8, malformed markers, symlinks, unsafe types, insufficient permissions, and concurrent changes prevent unsafe writes. The transaction and temporary-stage rules above apply; no persistent backup or recovery files are created.
 
-Completion registration failure does not fail npm installation. The hook reports registration, skip, or failure and manual activation guidance, but npm may hide this output. To see diagnostics, use `npm i -g --foreground-scripts github:yunhozz/arc`. Any reported `Residual path:` requires attention.
+Completion registration failure does not fail npm installation. The hook reports registration, skip, or failure and manual activation guidance, but npm may hide this output. To see diagnostics, use `npm i -g --foreground-scripts @yunhozz/arc`. Any reported `Residual path:` requires attention.
 
-`arc install --skip-global` skips `.zshrc` access only for that invocation; it does not undo the npm hook. `--check` and `--dry-run` leave startup files unchanged. `arc uninstall` and `npm uninstall -g arc-harness` retain the shared managed block. There is no npm removal hook; the managed block checks that `arc` exists before loading completion.
+`arc install --skip-global` skips `.zshrc` access only for that invocation; it does not undo the npm hook. `--check` and `--dry-run` leave startup files unchanged. `arc uninstall` and `npm uninstall -g @yunhozz/arc` retain the shared managed block. There is no npm removal hook; the managed block checks that `arc` exists before loading completion.

@@ -1,7 +1,10 @@
 {
-  "name": "arc-harness",
+  "name": "@yunhozz/arc",
   "version": "0.1.0",
-  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

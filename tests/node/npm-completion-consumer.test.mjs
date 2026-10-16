@@ -7,11 +7,12 @@ test('packed global npm installation registers once and local/scripts-disabled i
  t.after(()=>{assert.deepEqual(fs.existsSync(realStartup)?fs.readFileSync(realStartup):null,realBefore);});
  const home=root+'/home',prefix=root+'/prefix',cache=root+'/cache';fs.mkdirSync(home);const preload=root+'/identity.mjs';
  fs.writeFileSync(preload,`import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';const original=os.userInfo;os.userInfo=(...args)=>({...original(...args),homedir:process.env.HOME});syncBuiltinESMExports();`);
- const env={...process.env,HOME:home,SHELL:'/bin/zsh',ZDOTDIR:home,npm_config_cache:cache,NODE_OPTIONS:`--import=${preload}`};for(const key of ['SUDO_UID','SUDO_USER','SUDO_COMMAND'])delete env[key];
+ const env={PATH:process.env.PATH,TERM:process.env.TERM??'xterm',LANG:process.env.LANG??'en_US.UTF-8',npm_config_userconfig:root+'/user.npmrc',npm_config_globalconfig:root+'/global.npmrc',npm_config_offline:'true',HOME:home,SHELL:'/bin/zsh',ZDOTDIR:home,npm_config_cache:cache,NODE_OPTIONS:`--import=${preload}`};for(const key of ['SUDO_UID','SUDO_USER','SUDO_COMMAND'])delete env[key];
  function npm(args,cwd=root){const r=spawnSync('npm',args,{cwd,env,encoding:'utf8',timeout:120000});if(r.status!==0){failed=true;t.diagnostic('npm failure cwd='+cwd+' args='+JSON.stringify(args)+' stdout='+r.stdout+' stderr='+r.stderr);}assert.equal(r.status,0,r.stderr+'\n'+r.stdout);return r;}
  const packed=npm(['pack',process.cwd(),'--json','--ignore-scripts']);const tarball=root+'/'+JSON.parse(packed.stdout)[0].filename;
  npm(['install','-g','--prefix',prefix,'--foreground-scripts',tarball]);const filename=home+'/.zshrc';assert.ok(fs.existsSync(filename),'global install registers completion');const first=fs.readFileSync(filename);assert.equal((first.toString().match(/# >>> arc completion >>>/g)??[]).length,1);
- assert.equal(fs.realpathSync(prefix+'/bin/arc'),prefix+'/lib/node_modules/arc-harness/bin/arc.mjs');
+ assert.equal(fs.realpathSync(prefix+'/bin/arc'),prefix+'/lib/node_modules/@yunhozz/arc/bin/arc.mjs');
+ const version=spawnSync(prefix+'/bin/arc',['--version'],{env,encoding:'utf8'});assert.equal(version.status,0,version.stderr);assert.equal(version.stdout.trim(),'0.1.0');
  const pty=spawnSync('python3',['-c',String.raw`import os,pty,select,time,signal
 pid,fd=pty.fork()
 if pid==0: os.execvpe('zsh',['zsh','-i'],os.environ)
@@ -31,7 +32,7 @@ os.waitpid(pid,0)
 print(output.decode(errors='replace'))`],{env:{...env,NODE_OPTIONS:'',PATH:prefix+'/bin:'+env.PATH},encoding:'utf8',timeout:10000});
  t.diagnostic('zsh PTY: '+JSON.stringify(pty.stdout));assert.equal(pty.status,0,pty.stderr);for(const command of ['install','uninstall','completion'])assert.ok(pty.stdout.includes(command),pty.stdout);
  npm(['install','-g','--prefix',prefix,'--force',tarball]);assert.deepEqual(fs.readFileSync(filename),first);
- npm(['uninstall','-g','--prefix',prefix,'arc-harness']);assert.deepEqual(fs.readFileSync(filename),first);
+ npm(['uninstall','-g','--prefix',prefix,'@yunhozz/arc']);assert.deepEqual(fs.readFileSync(filename),first);
  fs.unlinkSync(filename);npm(['install','-g','--prefix',prefix,'--ignore-scripts',tarball]);assert.equal(fs.existsSync(filename),false);
  const local=root+'/local';fs.mkdirSync(local);fs.writeFileSync(local+'/package.json','{"private":true}');npm(['install',tarball],local);assert.equal(fs.existsSync(filename),false);
  const executed=npm(['exec','--yes','--package='+tarball,'--','arc','--version']);assert.match(executed.stdout,/0\.1\.0/);assert.equal(fs.existsSync(filename),false);
