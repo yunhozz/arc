@@ -36,5 +36,9 @@
     "claude/agents/",
     "MANIFEST.sha256",
     "install.command"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yunhozz/arc.git"
+  }
 }

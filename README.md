@@ -62,7 +62,7 @@ The two axes are independent. Architectural does not add QA or Reviewer at every
 
 Supported environments are macOS 13 or later (arm64/x64) and Linux with glibc 2.28 or later (arm64/x64). Windows and musl Linux are not supported. An unsupported environment, or a missing or tampered native file, fails before any file is changed.
 
-The `@yunhozz/arc` registry package is not published yet. After publication, install the `arc` command globally, then apply ARC settings with `arc install`:
+After the first npm publication described below, install the `arc` command globally, then apply ARC settings with `arc install`:
 
 ```sh
 npm i -g @yunhozz/arc
@@ -213,3 +213,16 @@ Registration uses the same managed block as `arc install`. Reinstallation keeps 
 Completion registration failure does not fail npm installation. The hook reports registration, skip, or failure and manual activation guidance, but npm may hide this output. To see diagnostics, use `npm i -g --foreground-scripts @yunhozz/arc`. Any reported `Residual path:` requires attention.
 
 `arc install --skip-global` skips `.zshrc` access only for that invocation; it does not undo the npm hook. `--check` and `--dry-run` leave startup files unchanged. `arc uninstall` and `npm uninstall -g @yunhozz/arc` retain the shared managed block. There is no npm removal hook; the managed block checks that `arc` exists before loading completion.
+
+### Publishing to npm
+
+The `npm-publish.yml` workflow publishes a new stable version when a push to `master` changes the version in `package.json`. It skips versions already on npm and rejects versions below `latest`. Registry errors stop publication. Publishing stays disabled until the repository variable `NPM_PUBLISH_ENABLED` is `true`.
+
+Set up publishing in this order:
+
+1. From the intended release checkout, sign in to npm with permission for `@yunhozz`, then run `npm publish --access public` once to create the package. Local npm login does not authenticate GitHub Actions.
+2. On npm, open `@yunhozz/arc` → Settings → Trusted publishing. Add GitHub Actions with owner `yunhozz`, repository `arc`, and workflow filename `npm-publish.yml`. Leave the environment field empty. Under Allowed actions, enable direct `npm publish`; new configurations may default to staging only.
+3. Set the GitHub repository Actions variable `NPM_PUBLISH_ENABLED` to `true`. No npm token secret is needed.
+4. Bump the stable version in `package.json` and `package-lock.json`, refresh `MANIFEST.sha256`, and merge to `master`. Complete this first successful trusted publication within two days of adding the trusted publisher; otherwise configure the publisher again.
+
+For later releases, repeat step 4. The workflow uses npm Trusted Publishing through GitHub OIDC and includes provenance. It does not publish prereleases or create version bumps. See [npm Trusted publishing](https://docs.npmjs.com/trusted-publishers/).
