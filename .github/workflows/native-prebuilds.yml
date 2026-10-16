@@ -66,10 +66,9 @@ jobs:
           image_digest=$(docker image inspect "$BUILD_IMAGE" --format '{{index .RepoDigests 0}}')
           node_home=$(dirname "$(dirname "$(command -v node)")")
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -v "$node_home:/opt/node:ro" -w /work \
-            -e PATH=/opt/node/bin:/opt/python/cp311-cp311/bin:/usr/local/bin:/usr/bin:/bin \
             -e PYTHON=/opt/python/cp311-cp311/bin/python3 -e ARC_BUILD_IMAGE="$image_digest" \
             -e BUILD_TUPLE="$BUILD_TUPLE" "$image_digest" /bin/bash -c \
-            'git config --global --add safe.directory /work && npm ci --ignore-scripts && node scripts/build-native.mjs --tuple "$BUILD_TUPLE" --output "build/native/$BUILD_TUPLE" && node --test tests/node/safe-fs.test.mjs tests/node/native-loader.test.mjs'
+            'export PATH="/opt/node/bin:/opt/python/cp311-cp311/bin:$PATH" && git config --global --add safe.directory /work && npm ci --ignore-scripts && node scripts/build-native.mjs --tuple "$BUILD_TUPLE" --output "build/native/$BUILD_TUPLE" && node --test tests/node/safe-fs.test.mjs tests/node/native-loader.test.mjs'
       - uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.tuple }}
