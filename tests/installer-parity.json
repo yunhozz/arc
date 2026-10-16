@@ -1,0 +1,2129 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_model_standard_five_roles",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_model_standard_five_roles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_model_rejects_unknown_missing_or_invalid_version",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_model_rejects_unknown_missing_or_invalid_version"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_model_profile_sets_match_five_roles",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_model_profile_sets_match_five_roles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_naming_v5_settings_and_serialization",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_naming_v5_settings_and_serialization"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_naming_rejects_old_versions_and_keys",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_naming_rejects_old_versions_and_keys"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_model_rejects_old_role_ids_and_invalid_fields_without_writes",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_model_rejects_old_role_ids_and_invalid_fields_without_writes"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_naming_profile_identity_and_mapping",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_naming_profile_identity_and_mapping"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ModelSettingsTests::test_naming_rejects_profile_name_mismatch",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_naming_rejects_profile_name_mismatch"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ApplyModelsTests::test_apply_models_check_standard",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_apply_models_check_standard"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ApplyModelsTests::test_apply_models_dry_run_preserves_config_profiles",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_apply_models_dry_run_preserves_config_profiles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ApplyModelsTests::test_apply_models_applies_five_profiles_without_mutating_config",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_apply_models_applies_five_profiles_without_mutating_config"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ApplyModelsTests::test_naming_apply_models_v5_contract",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_naming_apply_models_v5_contract"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ApplyModelsTests::test_naming_apply_models_failure_restores_profiles",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_codex_models.py",
+        "test": "test_naming_apply_models_failure_restores_profiles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_ceo_commits_accepted_top_level_task_without_user_approval",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_ceo_commits_accepted_top_level_task_without_user_approval"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_planner_groups_inseparable_changes_and_defines_task_gates",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_planner_groups_inseparable_changes_and_defines_task_gates"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_substeps_and_reports_do_not_replace_acceptance",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_substeps_and_reports_do_not_replace_acceptance"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_task_and_final_plan_verification_remain_distinct",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_task_and_final_plan_verification_remain_distinct"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_commit_blocks_on_scope_checks_findings_and_git_state",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_commit_blocks_on_scope_checks_findings_and_git_state"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_commit_evidence_no_change_and_resume_are_explicit",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_commit_evidence_no_change_and_resume_are_explicit"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_final_findings_use_followup_task_without_rewriting_commit",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_final_findings_use_followup_task_without_rewriting_commit"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TaskCommitPolicyTests::test_document_batch_and_external_action_boundaries_remain",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_document_batch_and_external_action_boundaries_remain"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_core_requires_task_scoped_references",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_core_requires_task_scoped_references"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_reference_triggers_cover_dependent_stages",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_reference_triggers_cover_dependent_stages"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_planning_order_and_recovery_protections_remain",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_planning_order_and_recovery_protections_remain"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_references_preserve_policy_contracts",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_references_preserve_policy_contracts"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_core_preserves_role_and_risk_gates",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_core_preserves_role_and_risk_gates"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_coder_trusts_ceo_verified_brief",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_coder_trusts_ceo_verified_brief"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_coder_profile_holds_handoff_contract_without_full_reference_read",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_coder_profile_holds_handoff_contract_without_full_reference_read"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ConditionalReferenceTests::test_restart_choice_lifetime_and_evidence",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_restart_choice_lifetime_and_evidence"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_final_single_reviewer_is_explicit",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_final_single_reviewer_is_explicit"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_no_per_task_reviewer_wording",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_no_per_task_reviewer_wording"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_dependency_boundary_is_qa_only",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_dependency_boundary_is_qa_only"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_final_reviewer_findings_on_committed_work",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_final_reviewer_findings_on_committed_work"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_codex_spawn_fork_and_user_input_policy",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_codex_spawn_fork_and_user_input_policy"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_claude_native_role_and_ask_user_question_policy",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_native_role_and_ask_user_question_policy"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_research_routing_tiers",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_research_routing_tiers"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_models_scouter_lookup_exception",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_models_scouter_lookup_exception"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_skill_not_reread_and_agents_body_wording",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_skill_not_reread_and_agents_body_wording"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_brief_template_field_order_and_delta",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_brief_template_field_order_and_delta"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_handoff_record_file_location",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_handoff_record_file_location"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_plan_case_qa_requirement_is_satisfied_by_task_checks",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_plan_case_qa_requirement_is_satisfied_by_task_checks"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_planning_points_to_common_handoff_gate",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_planning_points_to_common_handoff_gate"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_config_comment_matches_subagent_limit",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_config_comment_matches_subagent_limit"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_reviewer_description_has_no_team_name",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_reviewer_description_has_no_team_name"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_fallback_record_inline_and_slug",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_fallback_record_inline_and_slug"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_coder_reads_record_for_unchanged_fields",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_coder_reads_record_for_unchanged_fields"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::PolicyWordBudgetTests::test_policy_text_stays_within_word_budget",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_policy_text_stays_within_word_budget"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::SharedTermsTests::test_core_defines_shared_terms",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_core_defines_shared_terms"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::SharedTermsTests::test_profiles_carry_terms_used_in_citable_sections",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_profiles_carry_terms_used_in_citable_sections"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::SharedTermsTests::test_qa_fix_restorations",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_qa_fix_restorations"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::SharedTermsTests::test_term_usage_sites",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_term_usage_sites"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_role_precedence",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_preaction_role_precedence"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_document_save_evidence",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_preaction_document_save_evidence"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_reference_and_choice_order",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_preaction_reference_and_choice_order"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_git_evidence_and_batch_order",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_preaction_git_evidence_and_batch_order"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_stop_and_runtime_limits",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_preaction_stop_and_runtime_limits"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CeoDirectPathTests::test_direct_path_eligibility_is_small_low_risk_and_plan_skip",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_direct_path_eligibility_is_small_low_risk_and_plan_skip"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CeoDirectPathTests::test_direct_path_keeps_approval_handoff_tdd_and_verification",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_direct_path_keeps_approval_handoff_tdd_and_verification"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CeoDirectPathTests::test_direct_path_stops_and_reclassifies_without_reverting",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_direct_path_stops_and_reclassifies_without_reverting"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CeoDirectPathTests::test_ownership_and_flows_name_the_direct_path_exception",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_ownership_and_flows_name_the_direct_path_exception"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_fresh_coder_per_top_level_task",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_fresh_coder_per_top_level_task"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_coder_briefs_cite_sections_instead_of_whole_documents",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_coder_briefs_cite_sections_instead_of_whole_documents"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_loader_keeps_subagents_on_profiles",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_loader_keeps_subagents_on_profiles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::LongTaskTokenTests::test_plan_amendment_restarts_coder",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_plan_amendment_restarts_coder"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::LongTaskTokenTests::test_long_running_commands_are_not_polled_with_sleep",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_long_running_commands_are_not_polled_with_sleep"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::LongTaskTokenTests::test_ceo_recommends_new_session_per_plan",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_ceo_recommends_new_session_per_plan"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TokenDisciplineTests::test_core_waits_without_polling_and_batches_messages",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_core_waits_without_polling_and_batches_messages"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TokenDisciplineTests::test_core_reads_targeted_ranges_without_weakening_references",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_core_reads_targeted_ranges_without_weakening_references"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::TokenDisciplineTests::test_role_profiles_read_targeted_ranges",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_role_profiles_read_targeted_ranges"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_role_profiles_report_to_ceo_without_nested_delegation",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_role_profiles_report_to_ceo_without_nested_delegation"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_role_policy_assigns_development_to_ceo",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_role_policy_assigns_development_to_ceo"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_scouter_read_only_scope_and_reporting",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_scouter_read_only_scope_and_reporting"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_standalone_document_writing_has_no_specialist_auto_route",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_standalone_document_writing_has_no_specialist_auto_route"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_active_references_use_five_role_contract",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_active_references_use_five_role_contract"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_qa_ui_browser_acceptance_contract",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_qa_ui_browser_acceptance_contract"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_qa_reporting_contract",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_qa_reporting_contract"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_reviewer_finding_handoff",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_reviewer_finding_handoff"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_requires_scoped_checkout_approval",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_requires_scoped_checkout_approval"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_current_checkout_requires_explicit_choice",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_current_checkout_requires_explicit_choice"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_reapproves_changed_targets",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_reapproves_changed_targets"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_preserves_branch_collision_rules",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_preserves_branch_collision_rules"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_managed_branch_selection_order_and_collision_reuse",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_managed_branch_selection_order_and_collision_reuse"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_preserves_existing_changes",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_preserves_existing_changes"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_failures_do_not_fallback",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_failures_do_not_fallback"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_commits_approved_plan_docs_before_coder",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_commits_approved_plan_docs_before_coder"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_scoped_choice_and_base",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_scoped_choice_and_base"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_managed_worktree_inputs_and_results",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_managed_worktree_inputs_and_results"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_creation_and_identity",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_creation_and_identity"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_managed_worktree_async_attachment_and_no_fallback",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_managed_worktree_async_attachment_and_no_fallback"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_source_dirty_states",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_source_dirty_states"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_document_transfer",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_document_transfer"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_docs_commit_order",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_docs_commit_order"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_partial_completion",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_partial_completion"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_roles_and_restart",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_roles_and_restart"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_workspace_handoff_worktree_keeps_in_place_prohibition",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_workspace_handoff_worktree_keeps_in_place_prohibition"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_worktree_planning_and_core_preparation_gates",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_worktree_planning_and_core_preparation_gates"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_worktree_contract_matches_selected_execution_paths",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_worktree_contract_matches_selected_execution_paths"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_distribution_manifest_matches_scouter_payload",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_distribution_manifest_matches_scouter_payload"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::RolePolicyTests::test_acceptance_evidence_flow",
+      "task": "T7",
+      "status": "pending",
+      "destination": {
+        "file": "tests/test_arc_policy.py",
+        "test": "test_acceptance_evidence_flow"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_created_when_missing",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_md_created_when_missing"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_keeps_existing_content_and_appends_block_at_end",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_md_keeps_existing_content_and_appends_block_at_end"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_moves_managed_block_to_the_end",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_md_moves_managed_block_to_the_end"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_appends_when_no_section_exists",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_md_appends_when_no_section_exists"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_rejects_malformed_markers",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_md_rejects_malformed_markers"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_keeps_numbers_fences_crlf_and_duplicate_sections_verbatim",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_md_keeps_numbers_fences_crlf_and_duplicate_sections_verbatim"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_unmanaged_arc_section_is_kept_and_reported",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_unmanaged_arc_section_is_kept_and_reported"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_non_utf8_global_file_is_reported_not_crashed",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_non_utf8_global_file_is_reported_not_crashed"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_body_carries_arc_rules",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_agents_body_carries_arc_rules"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_created_or_appended_when_missing",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_config_created_or_appended_when_missing"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_overwrites_values_and_keeps_other_keys",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_config_overwrites_values_and_keeps_other_keys"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_skips_non_table_feature_forms",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_config_skips_non_table_feature_forms"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_rejects_invalid_toml",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_config_rejects_invalid_toml"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_updates_global_files_with_backup",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_install_updates_global_files_with_backup"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_creates_missing_global_files",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_install_creates_missing_global_files"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_skip_global_leaves_global_files_untouched",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_skip_global_leaves_global_files_untouched"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_global_replace_failure_restores_all_targets",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_global_replace_failure_restores_all_targets"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_and_check_report_global_changes_without_writing",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_dry_run_and_check_report_global_changes_without_writing"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_invalid_global_config_blocks_install_before_changes",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_invalid_global_config_blocks_install_before_changes"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_preserved_on_new_partial_full_and_repeat_install",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_user_profiles_preserved_on_new_partial_full_and_repeat_install"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_active_profiles_backup_bytes_and_mode_preserves_user_profiles",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_active_profiles_backup_bytes_and_mode_preserves_user_profiles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_preserved_during_active_profile_replace",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_user_profiles_preserved_during_active_profile_replace"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_not_moved_during_install",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_user_profiles_not_moved_during_install"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_targets_and_preserves_user_profiles",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_profile_failure_restores_targets_and_preserves_user_profiles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_active_profile_rollback_failure_preserves_recovery_and_user_profiles",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_active_profile_rollback_failure_preserves_recovery_and_user_profiles"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_preparation_failure_preserves_user_profiles_and_targets",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_preparation_failure_preserves_user_profiles_and_targets"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_and_other_unrelated_profiles_preserved",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_user_profiles_and_other_unrelated_profiles_preserved"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_check_and_dry_run_are_read_only",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_user_profiles_check_and_dry_run_are_read_only"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profile_changes_during_acquisition_preserved",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_user_profile_changes_during_acquisition_preserved"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_unmanaged_old_profiles_are_not_inspected_or_changed",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_unmanaged_old_profiles_are_not_inspected_or_changed"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_structurally_valid_changed_bytes_are_accepted",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_structurally_valid_changed_bytes_are_accepted"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_only_validation_ignores_unrelated_special_entries",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_required_only_validation_ignores_unrelated_special_entries"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_missing_required_file_is_rejected",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_missing_required_file_is_rejected"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_internal_file_symlink_is_accepted",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_required_internal_file_symlink_is_accepted"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_external_file_symlink_is_rejected",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_required_external_file_symlink_is_rejected"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_fifo_is_rejected_without_reading_it",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_required_fifo_is_rejected_without_reading_it"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_missing_skill_reports_both_absolute_candidates",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_missing_skill_reports_both_absolute_candidates"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_readonly_validation_accepts_candidate_root_alias",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_readonly_validation_accepts_candidate_root_alias"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_readonly_validation_accepts_parent_alias",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_readonly_validation_accepts_parent_alias"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_root_alias_without_touching_target",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_reject_root_alias_without_touching_target"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_parent_alias_without_touching_target",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_reject_parent_alias_without_touching_target"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_regular_file_root",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_reject_regular_file_root"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_special_tree_entries",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_reject_special_tree_entries"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_allow_backupable_internal_links",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_allow_backupable_internal_links"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_include_existing_legacy_candidates",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_include_existing_legacy_candidates"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_do_not_create_missing_legacy_candidates",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_write_targets_do_not_create_missing_legacy_candidates"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_rejects_alias_through_candidate_root_alias_with_fifo",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_check_rejects_alias_through_candidate_root_alias_with_fifo"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_rejects_alias_through_legacy_parent_alias_with_fifo",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_check_rejects_alias_through_legacy_parent_alias_with_fifo"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_rejects_alias_through_candidate_root_alias_with_fifo",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_dry_run_rejects_alias_through_candidate_root_alias_with_fifo"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_rejects_alias_through_legacy_parent_alias_with_fifo",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_dry_run_rejects_alias_through_legacy_parent_alias_with_fifo"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_rejects_candidate_root_alias_before_acquisition",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_install_rejects_candidate_root_alias_before_acquisition"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_rejects_unrelated_special_entry_before_acquisition",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_install_rejects_unrelated_special_entry_before_acquisition"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_validates_structure_and_does_not_write",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_check_validates_structure_and_does_not_write"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_validates_structure_and_does_not_write",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_dry_run_validates_structure_and_does_not_write"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_and_dry_run_accept_missing_external_skills_without_writes",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_check_and_dry_run_accept_missing_external_skills_without_writes"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_rejects_missing_reference_entry",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_manifest_rejects_missing_reference_entry"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_rejects_reference_hash_mismatch",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_manifest_rejects_reference_hash_mismatch"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_codex_repository_layout_preserves_installed_destinations",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_codex_repository_layout_preserves_installed_destinations"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_writes_arc_profiles_and_three_external_skills",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_install_writes_arc_profiles_and_three_external_skills"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_preserves_existing_using_git_worktrees",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_install_preserves_existing_using_git_worktrees"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_syncs_all_three_on_every_run",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_install_syncs_all_three_on_every_run"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_updates_existing_legacy_only",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_install_updates_existing_legacy_only"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_sync_removes_deleted_upstream_files",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_sync_removes_deleted_upstream_files"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_read_only_options_never_acquire_or_write",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_read_only_options_never_acquire_or_write"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_preflight_fails_before_acquisition",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_manifest_preflight_fails_before_acquisition"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_acquisition_failure_leaves_targets_and_backup_unchanged",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_failure_leaves_targets_and_backup_unchanged"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_external_replace_failure_restores_all_targets",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_external_replace_failure_restores_all_targets"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_successful_sync_backs_up_selected_and_legacy_external_trees",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_successful_sync_backs_up_selected_and_legacy_external_trees"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_external_targets_too",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_profile_failure_restores_external_targets_too"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_failed_install_removes_new_external_targets",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_failed_install_removes_new_external_targets"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_rollback_failure_preserves_previous_and_reports_recovery_path",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_rollback_failure_preserves_previous_and_reports_recovery_path"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_replace_failure_restores_targets_and_keeps_backup",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_replace_failure_restores_targets_and_keeps_backup"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_accepts_required_files_and_unrelated_regular_files",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_accepts_required_files_and_unrelated_regular_files"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_accepts_absolute_internal_file_link",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_accepts_absolute_internal_file_link"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_accepts_internal_directory_link",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_accepts_internal_directory_link"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_link_outside_root",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_link_outside_root"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_dangling_and_cyclic_links",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_dangling_and_cyclic_links"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_directory_link_cycle",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_directory_link_cycle"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_sibling_directory_link_cycle",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_sibling_directory_link_cycle"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_root_symlink",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_root_symlink"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_fifo_and_socket_entries",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_fifo_and_socket_entries"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_missing_required_file",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_acquired_tree_rejects_missing_required_file"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_uses_exact_three_skill_command",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_acquisition_uses_exact_three_skill_command"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_passes_only_isolated_nonsecret_environment",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_passes_only_isolated_nonsecret_environment"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_accepts_deployed_cli_record_shape",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_accepts_deployed_cli_record_shape"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_platform_specific_agent_records",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_platform_specific_agent_records"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_unexpected_source_or_pinned_ref",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_acquisition_rejects_unexpected_source_or_pinned_ref"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_missing_ref_field",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_missing_ref_field"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_unrequested_using_git_worktrees_result",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_unrequested_using_git_worktrees_result"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_partial_json",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_partial_json"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_failed_or_skipped_results",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_failed_or_skipped_results"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_missing_required_file",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_missing_required_file"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_path_mismatch_and_duplicate_names",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_path_mismatch_and_duplicate_names"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_malformed_json",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_malformed_json"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_nonzero_exit",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_rejects_nonzero_exit"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_reports_missing_npx",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_acquisition_reports_missing_npx"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_timeout_terminates_process_group_and_cleans_work",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_timeout_terminates_process_group_and_cleans_work"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_interrupt_terminates_process_group_and_cleans_work",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_acquisition_interrupt_terminates_process_group_and_cleans_work"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_rewrites_absolute_internal_link",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_staging_rewrites_absolute_internal_link"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_preserves_internal_directory_link_as_relative",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_staging_preserves_internal_directory_link_as_relative"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_rejects_escape_link_before_copy",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_staging_rejects_escape_link_before_copy"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_rejects_existing_destination",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_staging_rejects_existing_destination"
+      }
+    },
+    {
+      "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_blank_codex_home_fails_before_acquisition",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_blank_codex_home_fails_before_acquisition"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_successful_install_reports_selected_runtime",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_successful_install_reports_selected_runtime"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_pass_without_external_skills",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_read_only_modes_pass_without_external_skills"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_still_reject_unsafe_external_target",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_read_only_modes_still_reject_unsafe_external_target"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_snapshot_file_swap_never_reads_outside_bytes",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_snapshot_file_swap_never_reads_outside_bytes"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_snapshot_directory_swap_never_traverses_outside_tree",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_snapshot_directory_swap_never_traverses_outside_tree"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_spec_is_immutable_and_selects_exact_payload",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_target_spec_is_immutable_and_selects_exact_payload"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_root_symlink_is_rejected_without_following",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_root_symlink_is_rejected_without_following"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_convert_to_independent_upstream_copies",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_skill_links_convert_to_independent_upstream_copies"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_reject_unsafe_targets_before_acquisition",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_claude_skill_links_reject_unsafe_targets_before_acquisition"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_reject_components_hidden_by_parent_traversal",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_skill_links_reject_components_hidden_by_parent_traversal"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_changed_during_acquisition_abort",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_claude_skill_links_changed_during_acquisition_abort"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_readonly_modes_and_conversion_output",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_claude_skill_link_readonly_modes_and_conversion_output"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_backup_and_rollback_never_follow_target",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_skill_link_backup_and_rollback_never_follow_target"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_rollback_failure_preserves_recovery",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_skill_link_rollback_failure_preserves_recovery"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_link_profile_failure_restores_original_entries",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_claude_link_profile_failure_restores_original_entries"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_post_install_snapshot_failure_preserves_unverified_target",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_post_install_snapshot_failure_preserves_unverified_target"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_leaf_move_rejects_swapped_intermediate_parent",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_leaf_move_rejects_swapped_intermediate_parent"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_errors_precede_manifest_acquisition_and_writes",
+      "task": "T3",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/manifest.test.mjs",
+        "test": "test_target_errors_precede_manifest_acquisition_and_writes"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_help_works_without_target",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_help_works_without_target"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_install_command_preserves_target_and_other_arguments",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_install_command_preserves_target_and_other_arguments"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_config_dir_default_equivalent_and_rejected_values",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_config_dir_default_equivalent_and_rejected_values"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_ignores_other_platform_environment",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_target_ignores_other_platform_environment"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_both_dry_runs_show_target_neutral_temporary_acquisition",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_both_dry_runs_show_target_neutral_temporary_acquisition"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_spawn_nothing_and_change_nothing",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_read_only_modes_spawn_nothing_and_change_nothing"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_install_never_inspects_other_platform_candidates",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_target_install_never_inspects_other_platform_candidates"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_global_block_preserves_user_bytes_and_is_idempotent",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_claude_global_block_preserves_user_bytes_and_is_idempotent"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_skip_global_leaves_claude_global_files_untouched",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_skip_global_leaves_claude_global_files_untouched"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_acquisition_change_detection_stops_before_replacement",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_claude_acquisition_change_detection_stops_before_replacement"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_managed_content_changes_during_acquisition_stop_before_replacement",
+      "task": "T4",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/acquire.test.mjs",
+        "test": "test_managed_content_changes_during_acquisition_stop_before_replacement"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_each_replacement_failure_rolls_back_selected_target",
+      "task": "T5",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/transaction.test.mjs",
+        "test": "test_each_replacement_failure_rolls_back_selected_target"
+      }
+    },
+    {
+      "legacy": "tests/test_target_install.py::TargetInstallTests::test_rollback_failure_retains_recovery_and_reports_absolute_paths",
+      "task": "T6",
+      "status": "pending",
+      "destination": {
+        "file": "tests/node/cli.test.mjs",
+        "test": "test_rollback_failure_retains_recovery_and_reports_absolute_paths"
+      }
+    }
+  ]
+}
