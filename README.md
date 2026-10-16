@@ -106,6 +106,23 @@ The installer fetches the external skills `brainstorming`, `writing-plans`, and 
 - Neither changes files or uses subprocesses or the network. Both pass even in a fresh environment without the external skills. The existence and content of the external skills are verified at actual install time.
 - Safety of the external skill paths is checked by the same rules as a real install, so the result predicts the real install result.
 
+### Remove ARC
+
+```sh
+arc-uninstall
+arc-uninstall --target codex
+arc-uninstall --target all --dry-run
+arc-uninstall --target claude --skip-global
+```
+
+With no target, a TTY menu offers **Claude**, **Codex**, **All** in that order; Claude is initially selected. Use Up/Down (wrapping) and Enter. No preset is requested. An explicit `--target` skips the menu; non-interactive execution requires it. EOF or Ctrl-C cancels with exit code 130. `--preset` is not accepted. `--help` and `--version` need no native binary or target selection.
+
+Uninstall removes only the selected target's `skills/arc` directory, its five `agents/arc-{scouter,planner,coder,qa,reviewer}` role files (`.toml` for Codex, `.md` for Claude), and the unique well-formed ARC marker block in `AGENTS.md` or `CLAUDE.md`. Edited ARC files are included and their exact bytes are backed up under `<target>/backups/arc-<UUID>/` before removal. The global file remains present, even if empty; bytes outside the block, including BOM and line endings, are preserved. Unmarked global files remain unchanged. `--skip-global` does not access the global instruction file.
+
+Shared skills, `.agents/skills`, other profiles, old backups/recovery, and Codex `config.toml` wait settings are preserved. Wait settings cannot be automatically restored because no previous-value record exists. Custom `CODEX_HOME` is respected. Unsafe types, symlinks (including within the ARC tree), and malformed, duplicate, or reversed markers fail before removal. Missing ARC entries are successful no-ops and create no empty backup.
+
+All selected targets are inspected before removal. Each target has its own transaction: an earlier success remains committed if a later target fails. Output reports each target's status, rollback, `Backup:` and `Recovery:` paths. Failure exits 1, including cross-target overlap rejected during selected-set preflight and reported as per-target failures. Input/runtime errors and single-target configuration errors that abort during plan construction exit 2. Rollback never overwrites a newly created user entry; preserve reported recovery material if rollback conflicts. A changing uninstall reuses the stage recovery rules below; `--dry-run` reads only and performs no backup, recovery, or removal. Uninstall performs no preset processing, acquisition, npx, or network access. Concurrent install, uninstall, or recovery against the same target is unsupported.
+
 ### What the install changes
 
 - **Global instructions:** adds or updates a managed block between `arc:begin`/`arc:end` markers at the end of `AGENTS.md` (Codex) or `CLAUDE.md` (Claude). Content outside the markers is left as is. Older descriptive managed markers are not migrated automatically and are rejected before any write.
@@ -115,7 +132,7 @@ The installer fetches the external skills `brainstorming`, `writing-plans`, and 
 - **Claude path:** a `CLAUDE_CONFIG_DIR` that is non-default, empty, or relative is rejected. Use `~/.claude`.
 - **Claude external skill links:** if all three external skills are symlinks to same-named `~/.codex/skills/<name>` directories, they are replaced with independent Claude directories holding verified upstream content. Codex-side files and user edits are left alone. Any other link (parent or intermediate path links, a different destination or name, broken links, circular links, file destinations, links inside the Codex destination path) is rejected. The original links are backed up under `~/.claude/backups/` and restored if the install fails. If recovery itself fails, preserve the material at the printed recovery path.
 - **`models.toml`:** reinstalling updates the settings and the five role profiles together with the selected Economy/Balanced/Smart preset (the previous file stays in the backup).
-- **Recovery material:** `Backup:` in the output is the backup of previous managed files, and `Recovery:` is a separate recovery location. A private `0700` `.arc-stage-*` directory is created per target parent and is kept after success, after a restored rollback, and after failure. Reruns do not delete these directories automatically, so they accumulate. Check the install result and the backup and recovery contents yourself, and manually remove only directories you no longer need. If recovery fails, preserve the material first. If a parent path was moved or replaced, the printed path is the last location confirmed, so you may need to search manually.
+- **Recovery material:** `Backup:` is the backup of previous managed files; `Recovery:` reports preserved staging material. On normal success or rollback, every private `0700` `.arc-stage-*` directory created by that transaction is moved intact to `<target>/backups/arc-UUID/recovery/<unique-name>`, with a same-parent `.arc-recovery-UUID` fallback when the preferred move cannot safely complete. Unknown files, modes, and symlinks are retained; stage contents are never recursively deleted. After preflight succeeds, the next changing install also recovers stale `.arc-stage-*` directories directly inside the selected target’s `skills` and `agents`. This stale scan excludes target-home globals, shared skill parents, and nested directories. `--check` and `--dry-run` perform no recovery writes. A failed move or sync reports an error and the source or preserved recovery path; a cleanup failure after commit leaves the installed files in place and the command exits unsuccessfully. If a parent namespace changed, reported paths are last-known locations. Preserve the material and inspect the reported error before further action. Concurrent install, uninstall, or recovery against the same target is unsupported.
 
 `--skip-global` leaves the global instructions and the Codex `config.toml` untouched.
 
