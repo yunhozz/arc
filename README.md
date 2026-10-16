@@ -84,7 +84,7 @@ arc-install --target claude --preset economy --dry-run
 
 `arc-install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Run without flags in a terminal, it prompts interactively as described below.
 
-An interactive run, when stdin and stdout are both TTYs, asks only for the missing values, in English. The first prompt is `Select an installation target:`; choose directly among `Claude`, `Codex`, and `All` (there is no default target). The next is `Select a performance preset:`; choose among `Economy`, `Balanced (default)`, and `Smart`. Pressing Enter at the preset prompt applies Balanced. Invalid input is asked again, and there is no separate confirmation prompt. A non-interactive run must pass both `--target` and `--preset`.
+An interactive run, when stdin and stdout are both TTYs, asks only for the missing values, in English. Use Up/Down to move the selection and Enter to confirm; navigation wraps at either end. The first prompt is `Select an installation target:` with `Claude`, `Codex`, and `All`; Claude is initially selected. The next is `Select a performance preset:` with `Economy`, `Balanced`, and `Smart`; Balanced is initially selected, so Enter applies Balanced. There is no separate confirmation prompt. A non-interactive run must pass both `--target` and `--preset`.
 
 `All` runs both preflight checks, then installs Codex and Claude independently in that order. If Claude fails after Codex succeeds, the Codex success is kept and only Claude is recovered. Check the printed per-platform status and the `Backup:`/`Recovery:` paths, then rerun only the failed target with the same preset.
 
