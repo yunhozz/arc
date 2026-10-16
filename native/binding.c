@@ -120,9 +120,14 @@ static napi_value list(napi_env e,napi_callback_info info) {
   napi_value a[1],result; size_t n=1; napi_get_cb_info(e,info,&n,a,NULL,NULL);
   int fd=openat(integer(e,a[0]),".",O_RDONLY|O_DIRECTORY|O_CLOEXEC); if(fd<0)return fail(e,"read directory");
   DIR *d=fdopendir(fd); if(!d) { close(fd); return fail(e,"read directory"); }
-  napi_create_array(e,&result); unsigned i=0; struct dirent *entry; errno=0;
-  while((entry=readdir(d))) { if(!strcmp(entry->d_name,".")||!strcmp(entry->d_name,".."))continue; napi_value v; napi_create_string_utf8(e,entry->d_name,NAPI_AUTO_LENGTH,&v); napi_set_element(e,result,i++,v); }
-  int saved=errno; closedir(d); if(saved) { errno=saved; return fail(e,"read directory"); } return result;
+  napi_create_array(e,&result); unsigned i=0; struct dirent *entry; int saved=0;
+  for(;;) {
+    /* N-API conversion may change errno. Only readdir's EOF/error owns it. */
+    errno=0; entry=readdir(d); if(!entry) { saved=errno; break; }
+    if(!strcmp(entry->d_name,".")||!strcmp(entry->d_name,".."))continue;
+    napi_value v; napi_create_string_utf8(e,entry->d_name,NAPI_AUTO_LENGTH,&v); napi_set_element(e,result,i++,v);
+  }
+  closedir(d); if(saved) { errno=saved; return fail(e,"read directory"); } return result;
 }
 static napi_value stat_at(napi_env e,napi_callback_info info) {
   napi_value a[2],o; size_t n=2; napi_get_cb_info(e,info,&n,a,NULL,NULL); char *s=component(e,a[1]); if(!s)return NULL;
