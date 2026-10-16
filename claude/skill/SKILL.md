@@ -5,12 +5,12 @@ description: Coordinate scoped research planning implementation verification and
 
 # ARC for Claude Code
 
-Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc-planner`); CEO MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool. If either auto-triggers in CEO context, CEO stops and routes to Planner, citing that skill's SKILL.md path in the brief. A user request to skip questions never waives design or approval gates; Planner returns questions to CEO. Each top-level task gets a FRESH Coder, and each task that needs QA (risk-scaled, unchanged) gets a FRESH QA, never one reused from another task; same-task rechecks may reuse.
+Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc-planner`); CEO MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool. If either auto-triggers in CEO context, CEO stops and routes to Planner, citing that skill's SKILL.md path in the brief. A user request to skip questions never waives design or approval gates; Planner returns questions to CEO. Each top-level task (a plan task, or the whole request without a plan) gets a FRESH Coder, and each task that needs QA (risk-scaled, unchanged) gets a FRESH QA, never one reused from another task; same-task rechecks may reuse.
 
 Follow user instructions and project guidance. CEO uses the current chat model and answers a simple, self-contained question (answerable from context or one quick read, no edits) directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work. Assign material
 research/analysis and bounded read-only exploration of static code, documents, data, and logs/reports to Scouter.
 CEO handles research directly when the needed material is already in its context or the check is a quick read of a few known
-files; all other material research/analysis and bounded exploration goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
+files; all other material research/analysis and bounded exploration goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route. Design, spec, plan, and brainstorming drafts are not standalone document writing (see Role gate).
 For mixed research/document requests, CEO may explicitly assign only research to Scouter. Live execution-state investigation or cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
 ## Ownership
@@ -149,8 +149,7 @@ keeps Reviewer after QA before acceptance. Preserve specific approved obligation
 before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
 QA checks independently without edits; Reviewer independently reads the final full change after QA for significant
-work, without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder (or corrects them
-within an eligible CEO direct path), obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
+work, without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder, obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
 Criterion verdicts follow the Evidence verdict.
 Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
 
@@ -162,7 +161,7 @@ Significant risk is defined in Risk-scaled execution and excludes work from the 
 
 Before editing, CEO records a scope record (not a brainstorming design) with scope and files, why every criterion holds, acceptance criteria, and focused verification; presents it to the user and obtains explicit approval before the first edit. Silence, an ambiguous response, or approval of other work is not approval. CEO then verifies the same handoff gate as a Coder first start: explicit execution-target choice or valid reuse, accessible intended workspace and repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state, preservation and ownership, and no unresolved failure or partial completion. Read the [handoff](references/handoff.md) and [handoff preparation](references/handoff-prep.md) references before checking this gate.
 
-CEO edits only the approved files, preserves others' edits, and makes surgical changes without unrelated refactoring or unapproved dependencies. Behavior edits follow the Coder TDD rules and applicable recorded waiver criteria; an explicit user or task-specific TDD request still requires test-driven-development. Do not claim TDD under a waiver. After editing, CEO records changed files, runs focused checks, connects each acceptance criterion to evidence, and reports unverified scope. CEO is not an independent reviewer of its own edits; assign QA when evidence is incomplete. Recheck any approved-file correction. If scope expands, risk becomes unclear, or any criterion fails, stop editing, record completed changes, and return subsequent edits to the normal Planner/Coder flow.
+CEO edits only the approved files, preserves others' edits, and makes surgical changes without unrelated refactoring or unapproved dependencies. Behavior edits follow the Coder TDD rules and applicable recorded waiver criteria; an explicit user or task-specific TDD request still requires test-driven-development. Do not claim TDD under a waiver. After editing, CEO records changed files, runs focused checks, connects each acceptance criterion to evidence, and reports unverified scope. CEO is not an independent reviewer of its own edits; assign QA when evidence is incomplete. If scope expands, risk becomes unclear, or any criterion fails, stop editing, record completed changes, and return subsequent edits to the normal Planner/Coder flow. A failed focused check or a QA finding routes the correction to Coder, and it is rechecked; CEO does not self-correct.
 
 Like other plan-skip
 paths, there is no automatic task commit; commits follow applicable guidance and user requests.

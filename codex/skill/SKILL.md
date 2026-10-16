@@ -11,7 +11,7 @@ Follow user instructions and project guidance. CEO uses the current chat model a
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work.
 CEO handles research directly when the needed material is already in its context or the check is a quick read of a few known
 files; all other material research/analysis and bounded exploration (read-only, of static code, documents, data, and
-logs/reports) goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route.
+logs/reports) goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route. Design, spec, plan, and brainstorming drafts are not standalone document writing (see Role gate).
 For mixed research/document requests, CEO may explicitly assign only research to Scouter. Live operational state
 inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
@@ -33,7 +33,7 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 - Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Coder=`arc_coder`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 - Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
-- After each read-only role returns (Scouter, Planner, Reviewer), CEO checks `git status` for unexpected changes; on any change CEO stops and reports under the Preservation rule. Their read-only status rests on prompt-level guards, not sandbox enforcement.
+- After each read-only role returns (Scouter, Planner, Reviewer), CEO checks `git status` against a pre-spawn snapshot for unexpected changes; on any change CEO stops and reports under the Preservation rule. Limit: concurrent Coder edits and ignored or out-of-repo paths are not attributable/detectable. Their read-only status rests on prompt-level guards, not sandbox enforcement.
 
 ## Instruction and execution adapter
 

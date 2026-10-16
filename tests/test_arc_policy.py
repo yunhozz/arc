@@ -483,6 +483,16 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
     def test_coder_reads_record_for_unchanged_fields(self) -> None:
         self.assertRegex(profile_text("coder"), r"read the cited handoff record file for fields marked `unchanged`")
 
+    def test_task4_bounded_direct_edit_uses_scope_record(self) -> None:
+        self.assertIn("a direct edit uses only an approved scope record", policy_text("planning"))
+
+    def test_task4_codex_wording(self) -> None:
+        core = policy_text("core")
+        self.assertIn("standalone document writing has no specialist auto-route. design, spec, plan, and brainstorming drafts are not standalone document writing (see role gate)", core)
+        self.assertRegex(core, r"git status` against a pre-spawn snapshot.*concurrent coder edits.*ignored or out-of-repo paths.*not (?:attributable|detectable)")
+        self.assertIn("after a failed focused check or a qa finding, ceo routes the correction to coder", core)
+
+
 class PolicyWordBudgetTests(unittest.TestCase):
     def test_policy_text_stays_within_word_budget(self) -> None:
         counts = policy_word_counts(REPO)
@@ -1238,13 +1248,13 @@ SHARED_TERMS = {
 }
 
 POLICY_WORD_CEILINGS = {
-    "codex/skill/SKILL.md": 2920,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup)
+    "codex/skill/SKILL.md": 2950,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
     "codex/skill/references/commit.md": 600,
     "codex/skill/references/git-recovery.md": 700,
     "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
     "codex/skill/references/handoff.md": 1310,  # Task 2: inline-record vs restart-brief unification
-    "codex/skill/references/planning.md": 1875,  # Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
+    "codex/skill/references/planning.md": 1890,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
     "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
@@ -1267,8 +1277,8 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/arc-scouter.md": 300,
 }
 
-POLICY_WORD_TOTAL_CEILING = 13025  # Task 2: actual codex total 13021 after QA-fix additions (plan-depth definition, Environment-failure sentence); below the per-file ceiling sum (user-approved)
-CLAUDE_POLICY_WORD_TOTAL_CEILING = 9250
+POLICY_WORD_TOTAL_CEILING = 13070  # Task 4: +45 words for F3/F4/C (remaining shortfall); Task 2: actual codex total 13021 after QA-fix additions (plan-depth definition, Environment-failure sentence); below the per-file ceiling sum (user-approved)
+CLAUDE_POLICY_WORD_TOTAL_CEILING = 9315  # Task 4: +~65 words for F1/F3/F5/F6/B/C (remaining shortfall after trimming)
 
 
 class CodexRoleHardeningTests(unittest.TestCase):

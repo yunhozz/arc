@@ -19,8 +19,8 @@ ARC splits research, design, implementation, and verification across roles in Co
 - At most 4 subagents run concurrently. Dependent work runs in order.
 - Simple questions, or checks that need only a few already-known files, are handled by the CEO directly.
 - **Role gate:** design, spec, plan, and brainstorming drafts are authored ONLY by the Planner. The CEO never authors them and never invokes `brainstorming` or `writing-plans` through its own Skill tool. If one auto-triggers, the CEO stops and routes to the Planner. A request to skip questions does not waive the design and approval gates.
-- **Freshness:** each plan task starts a FRESH Coder, and each task that needs QA gets a FRESH QA. A Coder or QA is reused only for corrections or rechecks of the same task.
-- **Codex read-only roles:** Scouter, Planner, and Reviewer are read-only by prompt-level guards, not sandbox enforcement (no `sandbox_mode`). After each of them returns, the CEO checks `git status` for unexpected changes.
+- **Freshness:** each top-level task (a plan task, or the whole request without a plan) starts a FRESH Coder, and each task that needs QA gets a FRESH QA. A Coder or QA is reused only for corrections or rechecks of the same task.
+- **Codex read-only roles:** Scouter, Planner, and Reviewer are read-only by prompt-level guards, not sandbox enforcement (no `sandbox_mode`). After each of them returns, the CEO checks `git status` against a pre-spawn snapshot for unexpected changes.
 
 ## 🧭 Task flow
 
@@ -51,7 +51,7 @@ The Planner proposes the path and drafts; the CEO integrates them and obtains us
 - If the risk is unclear, investigate first or follow the higher flow.
 - With a plan, each top-level task is one commit. The CEO verifies, accepts, and then commits each task, with a FRESH Coder per task and a FRESH QA for each task that needs QA.
 - The Reviewer does not take part in each task. After all tasks are accepted, the Reviewer reviews the full final change once.
-- A CEO direct edit is allowed only for small, low-risk work that needs no plan. Show the user a short design and get approval first.
+- A CEO direct edit is allowed only for small, low-risk work that needs no plan. Record scope, files, criteria, and focused checks, and get user approval before the first edit.
 - Coders follow TDD for feature and behavior changes. TDD may be skipped only for small, low-risk work that needs no plan.
 
 The two axes are independent. Architectural does not add QA or Reviewer at every step, and Bounded does not mean low risk. Push, merge, and deployment always need separate approval.

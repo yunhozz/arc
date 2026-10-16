@@ -23,7 +23,7 @@ approved obligations separately.
    answers/revisions back, and obtains approvals; CEO never runs brainstorming or writing-plans itself (SKILL.md Role gate);
    the direct path uses only a scope record.
 2. Spike: approve the feasibility question/probe before execution, report findings, then obtain a new design/approval
-   for implementation. Bounded: approve a short design before Coder or a CEO direct edit. Architectural: approve
+   for implementation. Bounded: approve a short design before Coder or a CEO direct edit (Planner's design before Coder; a direct edit uses only an approved scope record). Architectural: approve
    design, then Planner returns complete spec draft and self-review findings; CEO integrates, saves, self-reviews, and obtains written-spec approval
    before implementation planning. Planner is read-only and cannot request approval.
 3. After approved design/spec and before Coder, CEO assesses plan depth separately from file count, LOC, or bounded

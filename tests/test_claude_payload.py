@@ -403,5 +403,34 @@ class RoleHardeningTests(unittest.TestCase):
         self.assertIn('its named research skills', self.text('agents/arc-scouter.md'))
 
 
+class Task4FollowUpTests(unittest.TestCase):
+    """Static wording checks for the Task 4 reviewer findings."""
+
+    def text(self, *parts):
+        return ' '.join((PAYLOAD.joinpath(*parts)).read_text().split())
+
+    def test_failed_check_or_qa_finding_routes_to_coder(self):
+        core = self.text('skill/SKILL.md')
+        self.assertNotIn('or corrects them within an eligible CEO direct path', core)
+        self.assertRegex(core, r'failed focused check or a QA finding routes the correction to Coder')
+
+    def test_design_drafts_are_not_standalone_document_writing(self):
+        self.assertRegex(self.text('skill/SKILL.md'), r'Standalone document writing has no specialist auto-route\. Design, spec, plan, and brainstorming drafts are not standalone document writing \(see Role gate\)')
+
+    def test_top_level_task_definition_in_role_gate(self):
+        self.assertIn('top-level task (a plan task, or the whole request without a plan)', self.text('skill/SKILL.md'))
+
+    def test_corrections_go_to_coder_and_bounded_uses_scope_record(self):
+        core = self.text('skill/SKILL.md')
+        self.assertNotIn('Recheck any approved-file correction', core)
+        self.assertIn('routes the correction to Coder, and it is rechecked; CEO does not self-correct', core)
+        self.assertIn('a direct edit uses only an approved scope record', self.text('skill/references/planning.md'))
+
+    def test_plan_depth_judgment_defined_once(self):
+        planning = self.text('skill/references/planning.md')
+        self.assertEqual(planning.count('means this assessment'), 1)
+        self.assertRegex(planning, r"3\. .*CEO's recorded plan-depth judgment. means this assessment")
+
+
 if __name__ == '__main__':
     unittest.main()
