@@ -115,7 +115,7 @@ Core interfaces:
 - DirectoryHandle operations stay relative to held descriptors. FileHandle operations verify regular-file type and identity.
 - Open file operations must not block on a swapped FIFO; combine non-following/nonblocking open flags with fstat validation.
 - Reject unsupported behavior instead of falling back to path-based JavaScript operations.
-- Native bootstrap checks Node version, OS, CPU, libc, binary type, and expected hash before loading. If the package directory can be concurrently written, verify and load from a private process-owned copy; do not hash one mutable path and then load a different unchecked file.
+- Native bootstrap checks Node version, OS, CPU, libc, binary type, and expected hash before loading the packaged addon directly. Check and dry-run create no temporary copies or other files. Treat package code as the process trust boundary; this check detects a preexisting mismatch but does not claim atomic protection against a concurrent rewrite of the package itself. Managed target paths still require the full descriptor-based race protection below.
 - Payload descriptor verification occurs after native load. Treat the package code trust boundary separately from user target-directory race protection.
 - Add exact node-gyp dev dependency and lockfile in this task. No npm lifecycle hooks.
 - Build workflow records binary hash, source commit, native input digest, Node-API version, compiler, headers, and sysroot. Build Linux against glibc 2.28 and macOS with deployment target 13.0. Do not push merely to trigger the workflow.
