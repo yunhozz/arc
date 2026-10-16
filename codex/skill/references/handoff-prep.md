@@ -61,10 +61,8 @@ main purpose and a short, specific lowercase kebab-case topic with no spaces. Fo
 | chore/ | Change operational policy, tools, or maintenance |
 | revert/ | Revert a prior change |
 
-Validate the name and check for collisions before creation. If the base name exists, append `-2`, `-3`, and increasing
-numeric suffixes to the topic, choosing the first unused name. Never reuse, delete, or overwrite an existing branch.
-Distinguish a lookup error from a missing branch. For example: `chore/branch-workspace-policy`, then
-`chore/branch-workspace-policy-2`.
+Validate the name and check for collisions before creation. If the base name exists, never automatically substitute a suffix; present a new candidate for explicit approval. Never reuse, delete, or overwrite an existing branch.
+Distinguish a lookup error from a missing branch.
 Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate before execution. If the approval
 target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
 collision, obtain approval for that candidate before creating or switching; without that approval, block handoff.

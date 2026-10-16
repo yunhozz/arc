@@ -5,6 +5,8 @@ description: Keep simple, self-contained questions with the chat-selected CEO; r
 
 # ARC
 
+Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc_planner`); CEO MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool. If either auto-triggers in CEO context, CEO stops and routes to Planner, citing that skill's SKILL.md path in the brief. A user request to skip questions never waives design or approval gates; Planner returns questions to CEO. Each top-level task (a plan task, or the whole request without a plan) gets a FRESH Coder, and each task that needs QA (risk-scaled, unchanged) gets a FRESH QA, never one reused from another task; same-task rechecks may reuse.
+
 Follow user instructions and project guidance. CEO uses the current chat model and answers simple, self-contained
 questions directly. For substantive multistep work, CEO coordinates implementation, configuration, tests, and mixed work.
 CEO handles research directly when the needed material is already in its context or the check is a quick read of a few known
@@ -16,13 +18,13 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 ## Ownership
 
 - CEO: sole owner of development, configuration, tests, implementation-dependent documentation, and mixed tasks
-  requiring implementation. Coordinates scope, planning, approvals, integration, acceptance, verification, and
-  completion.
+  requiring implementation, assigning their edits to Coder. Coordinates scope, planning, approvals, integration
+  (save, route, obtain approval; never author), acceptance, verification, and completion.
 - Scouter: read-only material research/analysis and assigned static code/document/data/log exploration. Reports
   evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to CEO. Does not edit
   files or author standalone document files, and does not decide design/plans, verification, review, or completion.
 - Planner: returns design/spec/plan drafts.
-- Coder: edits assigned, approved implementation/configuration/test-code files and dependent docs. CEO does not edit
+- Coder: edits assigned, approved implementation/configuration/test-code files and assigned dependent docs. CEO does not edit
   them directly except under the CEO direct path for small tasks.
 - QA: verifies without edits.
 - Reviewer: independently reviews the final full change.
@@ -31,6 +33,7 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 - Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Coder=`arc_coder`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 - Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
+- After each read-only role returns (Scouter, Planner, Reviewer), CEO checks `git status` for unexpected changes; on any change CEO stops and reports under the Preservation rule. Their read-only status rests on prompt-level guards, not sandbox enforcement.
 
 ## Instruction and execution adapter
 
@@ -46,11 +49,9 @@ missing non-executor skills before dependent work.
 
 CEO integrates role results, routes decisions and required approvals,
 and owns development acceptance and completion. CEO coordinates dependent implementation tasks sequentially and starts
-a fresh Coder for each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same task while the
-approved scope, workspace, ownership, and relevant context remain valid; before sending corrections or rework to a reused Coder, CEO rechecks workspace, branch/HEAD and change state against the brief. A fresh Coder for the next task in the same
-approved scope is a restart under handoff: it reuses a still-valid initial execution-target choice with fresh state
-checks and a delta-only restart brief (delta relative to the record file the fresh Coder reads; every other brief field in full). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
-the remaining work even within the same task; it is also a restart under handoff with a delta brief. Task-boundary gates
+a fresh Coder for each top-level task (Role gate); reuse the current Coder only for corrections, rework, or rechecks of the same task while the
+approved scope, workspace, ownership, and relevant context remain valid; before sending corrections or rework to a reused Coder, CEO rechecks workspace, branch/HEAD and change state against the brief. A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are there). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
+the remaining work even within the same task; it is also a restart under handoff. Task-boundary gates
 follow Risk-scaled execution.
 
 ## Shared terms
@@ -87,9 +88,9 @@ references must be reported to CEO; stop dependent work until resolved. Do not l
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
-Design and plan depth are independent of verification risk. Planner uses installed brainstorming/writing-plans;
+Design and plan depth are independent of verification risk. Planner alone uses installed brainstorming/writing-plans (Role gate); Planner proposes, CEO decides the path and plan depth;
 CEO integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
-required by the existing CEO depth judgment use planning save gates; a required plan alone does not require a spec. Complete all current-scope approved documents before
+required by CEO's recorded plan-depth judgment (planning item 3) use planning save gates; a required plan alone does not require a spec. Complete all current-scope approved documents before
 execution-target selection and document commit preparation. A missing required skill blocks its stage.
 
 ## Common handoff gate
@@ -102,8 +103,8 @@ facts without re-verifying them or asking CEO to reconfirm them, and reports onl
 For a selected worktree, verify common directory, registration, app-managed current-chat attachment, approved branch,
 and source preservation under handoff.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
-Worktree creation, the canonical record, delta restart brief, choice lifetime and reuse, branch protection, docs-commit
-order are in handoff; Coder repair limits are in the Coder profile. The same conditions apply before a CEO direct edit.
+The canonical record, restart brief, choice lifetime and reuse, and docs-commit
+order are in handoff. The same conditions apply before a CEO direct edit.
 
 ## Coder TDD and constraints
 
@@ -127,9 +128,9 @@ and smallest meaningful verification.
 |---|---|
 | Small, low risk | Coder, or CEO direct path → CEO's focused checks → acceptance |
 | Ordinary behavior | Coder → independent QA → acceptance |
-| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task risk-scaled Coder → QA or CEO focused checks → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
+| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Coder → FRESH QA → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
 
-Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
+Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on CEO focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
 fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
 shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
 installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count. Unclear risk requires
@@ -142,10 +143,9 @@ state; significant work without a plan keeps Reviewer after QA before acceptance
 obligations. If the next task depends on a still-unverified risky contract, complete applicable QA at that dependency
 boundary and resolve or explicitly disposition findings before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
-QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder (or corrects them
-within an eligible CEO direct path), obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
+QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion decisions. CEO routes fixes to Coder (a failed direct-path check returns to the normal flow), obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
 Criterion verdicts follow the Evidence verdict.
-Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
+
 
 ## CEO direct path for small tasks
 
@@ -156,16 +156,16 @@ focused verification path), and no significant-risk trigger applies. Spike, arch
 significant/high-risk, unclear-risk work, and edits overlapping files assigned to a running Coder are not eligible.
 
 Before editing, CEO records in the brief the scope and files, why every criterion holds, acceptance criteria, and
-focused verification, presents that short design to the user, and obtains explicit approval; silence, an ambiguous
+focused verification, presents that scope record (not a brainstorming design) to the user, and obtains explicit approval; silence, an ambiguous
 response, or approval of other work is not approval. CEO then passes the Coder handoff gate in handoff, with the
-approved short design as the applicable approval, before the first edit. CEO edits only the approved files, preserves others' edits, makes surgical edits in
+approved scope record as the applicable approval, before the first edit. CEO edits only the approved files, preserves others' edits, makes surgical edits in
 the local style without unrelated refactoring or speculative additions, and does not install dependencies without
 authorization.
 
 Behavior edits follow Coder TDD and constraints; when TDD applies, CEO follows installed `test-driven-development`.
 After editing, CEO records the changed files, runs the focused checks, connects each acceptance criterion to evidence,
 and preserves unverified scope. CEO is not independent of its own edit; assign QA when the evidence is incomplete.
-Corrections for a failed focused check or a QA finding stay within the approved files and are rechecked.
+After a failed focused check or a QA finding, CEO routes the correction to Coder and obtains a recheck.
 
 If scope expands, risk becomes unclear, or a criterion stops holding, CEO stops editing, records the changes already
 made, and reclassifies; further work follows the normal Planner/Coder flow with Coder owning subsequent edits. Do not
@@ -186,19 +186,18 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 
 - Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, branch or detached HEAD and HEAD, handoff record path, when one exists, files);
   Constraints/decisions; Evidence (paths/lines, commands, artifact links); Prior findings; Exact next objective (one
-  bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups and
-  restarts send only changed fields and mark the rest `unchanged`; `unchanged` means unchanged relative to a cited artifact the recipient can read (the handoff record file or a brief it received); a fresh specialist, including a fresh restart Coder, gets every other field in full. Send only the
+  bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups
+  send only changed fields and mark the rest `unchanged` (relative to a brief the recipient received); restart briefs follow handoff; a fresh specialist gets every other field in full. Send only the
   self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
   instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
 - Every specialist spawn sets `fork_turns="none"`; full-history forks are not allowed. Supply that brief. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
-  remains relevant; start fresh for unrelated or bloated context. Coder reuse follows the per-task rule above.
+  remains relevant; start fresh for unrelated or bloated context. Coder and QA freshness follow the Role gate.
 - `request_user_input` questions use only `title` and `options` fields, never `question`.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
 - Before optional calls, name the unresolved question and expected artifact; skip calls already resolved by available
-  evidence/direct inspection. Preserve required planning and risk-scaled QA/review. Do not call every role
-  automatically, add redundant scripts, or repeat audits when direct tools/evidence suffice.
+  evidence/direct inspection.
 - Wait for a specialist with `wait_agent` using the maximum supported timeout, repeating only until it completes; a
   timeout is not a reason to poll or check status in between. Do not poll with `list_agents`, `sleep`, or repeated short
   waits; use `list_agents` only to resolve an unknown agent name or state. Send each specialist one complete brief per
@@ -211,7 +210,7 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 - When a plan completes or before starting another plan in a session with long history, CEO records the canonical
   handoff state in the handoff record file and recommends that the user continue in a new session.
 - Before handoff, post one short update with role/objective/expected output; after return, combine findings and next
-  stage concisely. CEO may reuse it. Do not expose hidden reasoning or raw prompts.
+  stage concisely. Do not expose hidden reasoning or raw prompts.
 
 ## Models
 
@@ -222,6 +221,6 @@ settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
-show the updates. The `install.py` installer renders settings into all five profiles during installation. New
+show the updates. The npm installer (`npx --yes github:yunhozz/arc --target codex --preset economy|balanced|smart`) writes `models.toml` from the preset and renders all five profiles. New
 sessions reload profiles; running agents retain their current settings and parent relationships. These policy changes
 do not automatically reparent running agents or prove runtime parent behavior.

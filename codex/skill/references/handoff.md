@@ -38,12 +38,12 @@ CEO may start or restart Coder only after all of these conditions are verified:
    failure or partial completion.
 7. The brief includes these preparation and final-verification facts and evidence.
 
-Before a CEO direct edit, CEO verifies the same conditions, with the approved short design as the applicable approval,
+Before a CEO direct edit, CEO verifies the same conditions, with the approved scope record as the applicable approval,
 and records them in the brief.
 
 Any missing or failed condition blocks handoff. CEO may continue read-only investigation and authorized preparation
 or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
-HEAD, or relevant state changes. Coder's conflict reporting and repair limits are in its profile; CEO
+HEAD, or relevant state changes. Coder's conflict reporting is in its profile; CEO
 resolves preparation and passes the gate again before Coder resumes.
 
 ### Handoff evidence
@@ -95,11 +95,11 @@ Keep one canonical initial handoff record accessible to each assigned role, cont
 repository/workspace identity, and the Handoff evidence fields above; do not create a separate storage service. CEO writes it as a
 Markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` (slug unique to the plan, the dated plan filename stem, or a spec/task slug when no plan exists; never overwrite another plan's record; resolve with
 `git rev-parse --path-format=absolute --git-common-dir`; outside the working tree and shared by linked worktrees; not a
-Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and delta restart
+Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and restart
 briefs cite it. If
-the write is denied or unavailable, every Coder brief carries the full record inline (no delta, no record-file `unchanged`) and states why; that inline record satisfies the accessible record requirement. Do not delete it automatically.
+the write is denied or unavailable, each Coder brief states why and includes the full record inline, with no delta; that inline record satisfies the accessible record requirement. Do not delete it automatically.
 
-Use a delta-only restart brief (delta relative to the record file the fresh Coder reads; every other brief field in full): initial record location, next objective and edit ownership, changed decisions,
+Restart brief: supply only verified deltas and mark unchanged fields; `unchanged` means unchanged relative to the record file the fresh Coder reads, and every other brief field is in full. Include: initial record location, next objective and edit ownership, changed decisions,
 approvals, documents and scope (or explicit no-change confirmation), current Git state and differences, choice
 validity and reuse verification, refreshed commit/artifact checks, CEO final verification, and remaining issues.
 An inaccessible initial record, missing evidence, or unclear ownership blocks editing; a prior conversation or

@@ -16,5 +16,6 @@ Terms. Preservation rule: preserve unrelated staged, unstaged, and untracked cha
 11. A waiver skips only failure-first/RED-GREEN steps; focused checks, evidence and limits reporting, and risk-appropriate QA/Reviewer remain. If risk is or becomes unclear or scope expands, stop and ask CEO to reclassify.
 12. Non-behavior documentation/configuration may use only a specifically authorized brief-recorded exception: run approved structural checks, state their limits, never generalize it to behavior work. Never claim TDD under a waiver or exception.
 13. If an unavoidable constraint blocks a required TDD step, stop before editing; report intended scope, exact constraint and evidence, required TDD steps, alternatives, uncertainty, and approval needed; resume only after the authorized human's decision and precise scope are recorded.
-14. Final report: changed files, focused checks and evidence, unresolved issues, precise QA/Reviewer follow-up.
+14. Stay in your role: ONLY implement assigned changes and report; NEVER plan, design, QA, or review your own work.
+15. Final report: changed files, focused checks and evidence, unresolved issues, precise QA/Reviewer follow-up.
 """

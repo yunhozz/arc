@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, json, os, shutil, signal, subprocess, stat, sys, tempfile, tomllib, unittest
+import hashlib, json, os, re, shutil, signal, subprocess, stat, sys, tempfile, tomllib, unittest
 from pathlib import Path
 from unittest.mock import patch
 REPO = Path(__file__).resolve().parents[1]
@@ -48,8 +48,9 @@ class TaskCommitPolicyTests(unittest.TestCase):
     def test_planner_groups_inseparable_changes_and_defines_task_gates(self) -> None:
         planning = self.section("planning", "## top-level plan tasks")
         profile = tomllib.loads((REPO / "codex/agents/arc-planner.toml").read_text())
-        self.assertEqual(profile["sandbox_mode"], "read-only")
+        self.assertNotIn("sandbox_mode", profile)  # user decision H1: read-only is a prompt-level guard
         planner = " ".join(profile["developer_instructions"].lower().split())
+        self.assertIn("must not edit files; never run commands that change state", planner)
         self.assertIn("for each top-level task", planner)
         task_draft = planner.split("for each top-level task", 1)[1].split("for a genuinely visual", 1)[0]
         self.contracts(planning, (
@@ -88,7 +89,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         verify = self.section("verification", "## task acceptance and final plan acceptance")
         self.contracts(verify, (
             r"task-local acceptance.*distinct from.*final plan.*acceptance",
-            r"task acceptance and its focused commit require only.*risk-scaled coder/qa.*ceo focused checks",
+            r"task acceptance and its focused commit require only.*risk-scaled evidence.*fresh qa instance per task that needs qa.*ceo focused checks",
             r"reviewer timing and task-boundary gates follow skill\.md risk-scaled execution",
             r"independently acceptable task.*do not delay.*later final plan verification",
             r"required.*task.*checks.*must not.*deferred",
@@ -328,7 +329,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             "invalidating failure": r"failure.*old target cannot be trusted.*fresh explicit choice",
             "normal work": r"normal.*head.*dirty.*do not.*invalidate",
             "record": r"one canonical initial handoff record.*accessible",
-            "delta": r"delta-only restart brief \(delta relative to the record file the fresh coder reads; every other brief field in full\).*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
+            "delta": r"restart brief: supply only verified deltas.*`unchanged` means unchanged relative to the record file the fresh coder reads.*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
             "block": r"inaccessible.*record.*missing evidence.*unclear ownership.*block",
         }
         for case, contract in cases.items():
@@ -354,7 +355,7 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
                 self.assertRegex(text, contract)
         row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                    if line.startswith("| significant/high risk"))
-        self.assertRegex(row, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
+        self.assertRegex(row, r"with a plan, each plan task coder → fresh qa → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
 
     def test_no_per_task_reviewer_wording(self) -> None:
         paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]
@@ -423,8 +424,8 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_brief_template_field_order_and_delta(self) -> None:
         tokens = policy_text("core").split("## token discipline and handoffs", 1)[1].split("## models", 1)[0]
         self.assertRegex(tokens, r"goal; criteria \(ids\); exact scope/ownership \(absolute workspace, branch or detached head and head, handoff record path, when one exists, files\); constraints/decisions; evidence \(paths/lines, commands, artifact links\); prior findings; exact next objective \(one bounded objective\); return format")
-        self.assertRegex(tokens, r"follow-ups and restarts send only changed fields and mark the rest `unchanged`")
-        self.assertRegex(tokens, r"`unchanged` means unchanged relative to a cited artifact the recipient can read \(the handoff record file or a brief it received\); a fresh specialist, including a fresh restart coder, gets every other field in full")
+        self.assertRegex(tokens, r"follow-ups send only changed fields and mark the rest `unchanged`")
+        self.assertRegex(tokens, r"`unchanged` \(relative to a brief the recipient received\); restart briefs follow handoff; a fresh specialist gets every other field in full")
         for kept in (r"self-contained subset.*omit full history, repeated instructions, and raw logs",
                      r"one bounded objective",
                      r"conclusion, evidence locations, unresolved points, next step",
@@ -439,9 +440,9 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             r"ceo writes it as a markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>\.md`",
             r"`git rev-parse --path-format=absolute --git-common-dir`.*outside the working tree.*shared by linked worktrees",
             r"not a git mutation, never staged or committed.*no secrets",
-            r"absolute path in every brief.*delta restart briefs cite it",
+            r"absolute path in every brief.*restart briefs cite it",
             r"slug unique to the plan.*dated plan filename stem, or a spec/task slug when no plan exists.*never overwrite another plan's record",
-            r"write is denied or unavailable, every coder brief carries the full record inline \(no delta, no record-file `unchanged`\) and states why; that inline record satisfies the accessible record requirement",
+            r"write is denied or unavailable, each coder brief states why and includes the full record inline, with no delta; that inline record satisfies the accessible record requirement",
             r"do not delete it automatically",
             r"do not create a separate storage service",
         ):
@@ -453,7 +454,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_plan_case_qa_requirement_is_satisfied_by_task_checks(self) -> None:
         core = policy_text("core")
-        self.assertRegex(core, r"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step")
+        self.assertRegex(core, r"with a plan, each plan task coder → fresh qa → acceptance/commit satisfies the qa step")
         verification = policy_text("verification")
         self.assertRegex(verification, r"significant/high-risk work requires independent review of the full change at the final relevant state after the required qa/focused checks and any qa recheck")
         self.assertNotIn("requires qa followed by independent review", verification)
@@ -476,7 +477,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
 
     def test_fallback_record_inline_and_slug(self) -> None:
         handoff = policy_text("handoff")
-        self.assertRegex(handoff, r"no delta, no record-file `unchanged`")
+        self.assertRegex(handoff, r"includes the full record inline, with no delta")
         self.assertRegex(handoff, r"or a spec/task slug when no plan exists")
 
     def test_coder_reads_record_for_unchanged_fields(self) -> None:
@@ -529,7 +530,9 @@ class SharedTermsTests(unittest.TestCase):
                 self.assertIn(phrase, coder)
         core = policy_text("core")
         self.assertIn("substantial behavior or contract changes are significant regardless of file count", core)
-        self.assertIn("coder repair limits are in the coder profile", core)
+        self.assertNotIn("coder repair limits", core)  # dangling reference removed (M10)
+        self.assertNotIn("repair limits", policy_text("handoff"))
+        self.assertIn("coder's conflict reporting is in its profile", policy_text("handoff"))
         self.assertRegex(policy_text("handoff"), r"one canonical initial handoff record.*repository/workspace identity")
         reviewer = profile_text("reviewer")
         self.assertIn("for development work, functional and test verification belongs to qa and completion remains with "
@@ -566,7 +569,7 @@ class ARCPreactionGateTests(unittest.TestCase):
         planning = policy_text("planning").split("### document-save evidence gates")[0]
         self.assertIn("ceo must not substitute an independently authored spec", planning)
         self.assertRegex(planning, r"planner.*complete spec draft and self-review.*ceo integrates, saves, self-reviews")
-        self.assertRegex(planning, r"bounded written spec.*existing ceo depth judgment.*planner.*proportional complete spec draft.*self-review.*ceo.*individual written-spec approval")
+        self.assertRegex(planning, r"bounded written spec.*ceo's recorded plan-depth judgment.*planner.*proportional complete spec draft.*self-review.*ceo.*individual written-spec approval")
         planner = " ".join(tomllib.loads((REPO / "codex/agents/arc-planner.toml").read_text())
                            ["developer_instructions"].lower().split())
         self.assertRegex(planner, r"complete spec draft and self-review.*ceo integrates/saves/self-reviews")
@@ -582,7 +585,7 @@ class ARCPreactionGateTests(unittest.TestCase):
                            "self-review", "ceo's integration/save/review responsibility", "absolute save path"):
                 self.assertIn(phrase, spec)
         with self.subTest(path="bounded_required_spec"):
-            for phrase in ("first required bounded written spec save", "existing ceo depth judgment",
+            for phrase in ("first required bounded written spec save", "ceo's recorded plan-depth judgment",
                            "approved short design", "spec-necessity rationale and scope", "proportional complete draft",
                            "self-review", "ceo's integration/save/review responsibility", "individual written-spec approval"):
                 self.assertIn(phrase, spec)
@@ -599,7 +602,7 @@ class ARCPreactionGateTests(unittest.TestCase):
                 if line.startswith("| ") and len(line.split("|")) >= 4}
         with self.subTest(path="bounded_plan_required_without_spec"):
             self.assertIn("a required plan does not itself require a written spec", complete)
-            self.assertIn("only when the existing ceo depth judgment requires it", rows["bounded, plan required"])
+            self.assertIn("only when ceo's recorded plan-depth judgment requires it", rows["bounded, plan required"])
         for path, row, contract in (
             ("spike", "spike probe", "do not force specs/plans for still-unknown implementation"),
             ("bounded_plan_skip", "bounded, plan skipped", "approve the short design"),
@@ -688,12 +691,12 @@ class CeoDirectPathTests(unittest.TestCase):
     def test_direct_path_keeps_approval_handoff_tdd_and_verification(self) -> None:
         for contract in (
             r"before editing.*records.*scope.*files.*why every criterion holds.*acceptance criteria.*focused verification",
-            r"presents.*short design.*user.*explicit approval",
+            r"presents.*scope record.*user.*explicit approval",
             r"silence.*not approval",
-            r"passes the coder handoff gate in handoff, with the approved short design as the applicable approval, before the first edit",
+            r"passes the coder handoff gate in handoff, with the approved scope record as the applicable approval, before the first edit",
             r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",
             r"records the changed files",
-            r"corrections for a failed focused check or a qa finding stay within the approved files",
+            r"after a failed focused check or a qa finding, ceo routes the correction to coder",
             r"behavior edits follow coder tdd and constraints; when tdd applies, ceo follows installed `test-driven-development`",
             r"focused checks.*each acceptance criterion.*evidence.*unverified scope",
             r"not independent of its own edit",
@@ -702,7 +705,7 @@ class CeoDirectPathTests(unittest.TestCase):
                 self.assertRegex(self.direct(), contract)
         tdd = policy_text("core").split("## coder tdd and constraints", 1)[1].split(" ## ", 1)[0]
         self.assertRegex(tdd, r"explicit user or task-specific tdd request overrides this waiver.*do not claim tdd was followed")
-        self.assertRegex(policy_text("handoff"), r"before a ceo direct edit, ceo verifies the same conditions, with the approved short design as the applicable approval")
+        self.assertRegex(policy_text("handoff"), r"before a ceo direct edit, ceo verifies the same conditions, with the approved scope record as the applicable approval")
 
     def test_direct_path_stops_and_reclassifies_without_reverting(self) -> None:
         for contract in (
@@ -725,7 +728,7 @@ class CeoDirectPathTests(unittest.TestCase):
         gate = core.split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
         self.assertRegex(gate, r"same conditions.*before a ceo direct edit")
         planning = policy_text("planning")
-        self.assertRegex(planning, r"never runs brainstorming itself except under the ceo direct path")
+        self.assertRegex(planning, r"never runs brainstorming or writing-plans itself.*the direct path uses only a scope record")
         self.assertRegex(planning, r"approve a short design before coder or a ceo direct edit")
         self.assertRegex(policy_text("verification"), r"exclusively to coder.*except under the ceo direct path")
         self.assertRegex(policy_text("handoff"), r"ceo direct edit.*same.*conditions")
@@ -740,8 +743,9 @@ class CoderBriefAndReuseTests(unittest.TestCase):
         self.assertRegex(core, r"starts? a fresh coder for\s*each top-level task")
         self.assertRegex(core, r"reuse the current coder only for corrections, rework, or rechecks of the same task")
         self.assertNotRegex(core, r"may reuse coder while the approved scope")
-        self.assertRegex(core, r"coder reuse follows the per-task rule")
-        self.assertRegex(core, r"fresh coder for the next task in the same approved scope is a restart under handoff.*reuses a still-valid initial execution-target choice.*fresh state checks.*delta-only restart brief \(delta relative to the record file the fresh coder reads; every other brief field in full\)")
+        self.assertRegex(core, r"coder and qa freshness follow the role gate")
+        self.assertRegex(core, r"fresh coder for the next task is a restart under handoff \(choice reuse and restart brief rules are there\)")
+        self.assertRegex(policy_text("handoff"), r"restart brief: supply only verified deltas.*every other brief field is in full")
         self.assertRegex(core, r"before sending corrections or rework to a reused coder, ceo rechecks workspace, branch/head and change state against the brief")
 
     def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
@@ -758,7 +762,7 @@ class CoderBriefAndReuseTests(unittest.TestCase):
 class LongTaskTokenTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_plan_amendment_restarts_coder(self) -> None:
-        self.assertRegex(policy_text("core"), r"after an approved plan or acceptance-criteria amendment, start a fresh coder for the remaining work even within the same task.*restart under handoff.*delta brief")
+        self.assertRegex(policy_text("core"), r"after an approved plan or acceptance-criteria amendment, start a fresh coder for the remaining work even within the same task; it is also a restart under handoff")
 
     def test_long_running_commands_are_not_polled_with_sleep(self) -> None:
         self.assertRegex(policy_text("core"), r"do not poll long-running commands with repeated `sleep`.*single blocking wait")
@@ -825,10 +829,11 @@ class RolePolicyTests(unittest.TestCase):
     def test_scouter_read_only_scope_and_reporting(self) -> None:
         profile = tomllib.loads((REPO / "codex/agents/arc-scouter.toml").read_text())
         self.assertEqual(profile["name"], "arc_scouter")
-        self.assertEqual(profile["sandbox_mode"], "read-only")
+        self.assertNotIn("sandbox_mode", profile)  # user decision H1: read-only is a prompt-level guard
         instructions = " ".join(profile["developer_instructions"].lower().split())
+        self.assertIn("must not edit files; never run commands that change state", instructions)
         for phrase in ("research", "analysis", "static", "code", "documents", "data", "evidence",
-                       "unresolved", "do not edit files", "standalone document", "operational cleanup"):
+                       "unresolved", "standalone document", "operational cleanup"):
             self.assertIn(phrase, instructions)
 
     def test_standalone_document_writing_has_no_specialist_auto_route(self) -> None:
@@ -958,7 +963,7 @@ class RolePolicyTests(unittest.TestCase):
                 r"valid git branch name.*`<type>/<short-kebab-case-topic>`",
                 r"lowercase prefix.*lowercase kebab-case topic with no spaces",
                 r"validate the name.*check for collisions before creation",
-                r"base name exists.*append `-2`, `-3`.*increasing numeric suffixes.*first unused name",
+                r"base name exists.*never automatically substitute a suffix.*new candidate.*explicit approval",
                 r"never reuse, delete, or overwrite an existing branch",
             ),
         )
@@ -1233,20 +1238,20 @@ SHARED_TERMS = {
 }
 
 POLICY_WORD_CEILINGS = {
-    "codex/skill/SKILL.md": 2850,
+    "codex/skill/SKILL.md": 2920,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup)
     "codex/skill/references/commit.md": 600,
     "codex/skill/references/git-recovery.md": 700,
     "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
-    "codex/skill/references/handoff.md": 1300,
-    "codex/skill/references/planning.md": 1850,
+    "codex/skill/references/handoff.md": 1310,  # Task 2: inline-record vs restart-brief unification
+    "codex/skill/references/planning.md": 1875,  # Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
-    "codex/agents/arc-coder.toml": 700,
+    "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
     "codex/agents/arc-planner.toml": 600,
-    "codex/agents/arc-qa.toml": 350,
-    "codex/agents/arc-reviewer.toml": 250,
-    "codex/agents/arc-scouter.toml": 250,
+    "codex/agents/arc-qa.toml": 360,  # Task 2: stay-in-role line
+    "codex/agents/arc-reviewer.toml": 270,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
+    "codex/agents/arc-scouter.toml": 265,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
     "claude/skill/SKILL.md": 3300,
     "claude/skill/references/commit.md": 350,
     "claude/skill/references/git-recovery.md": 500,
@@ -1262,5 +1267,86 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/arc-scouter.md": 300,
 }
 
-POLICY_WORD_TOTAL_CEILING = 12750
+POLICY_WORD_TOTAL_CEILING = 13025  # Task 2: actual codex total 13021 after QA-fix additions (plan-depth definition, Environment-failure sentence); below the per-file ceiling sum (user-approved)
 CLAUDE_POLICY_WORD_TOTAL_CEILING = 9250
+
+
+class CodexRoleHardeningTests(unittest.TestCase):
+    """Static checks of the written Codex role-boundary contract; not runtime agent compliance."""
+
+    def skill(self) -> str:
+        return " ".join((REPO / "codex/skill/SKILL.md").read_text().split())
+
+    def raw(self, name: str) -> str:
+        return raw_policy_text(name)
+
+    def test_role_gate_planner_only_ceo_skill_ban_and_routing(self) -> None:
+        text = (REPO / "codex/skill/SKILL.md").read_text()
+        gate = next((p for p in text.split("\n\n") if p.startswith("Role gate:")), "")
+        self.assertLessEqual(len(re.findall(r"[.!?](?:\s|$)", gate)), 5)
+        for needle in ("ONLY by Planner (`arc_planner`)", "CEO MUST NEVER author them",
+                       "MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool",
+                       "auto-triggers in CEO context, CEO stops and routes to Planner", "that skill's SKILL.md path",
+                       "skip questions", "never waives design or approval gates", "returns questions to CEO",
+                       "FRESH Coder", "FRESH QA", "same-task rechecks may reuse"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, " ".join(gate.split()))
+        self.assertIn("Integrate means save, route, and obtain approval; never author", self.raw("planning"))
+        self.assertIn("if Planner fails or is unavailable, stop and report, never draft instead", self.raw("planning"))
+
+    def test_every_profile_has_stay_in_role_line(self) -> None:
+        for role in ("planner", "scouter", "coder", "qa", "reviewer"):
+            with self.subTest(role=role):
+                body = tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())["developer_instructions"]
+                self.assertRegex(" ".join(body.split()), r"Stay in your role: ONLY [^;]+; NEVER [^.]+\.")
+
+    def test_qa_freshness_and_no_contradictory_substitution(self) -> None:
+        core, verification = self.skill(), self.raw("verification")
+        for text in (core, verification):
+            self.assertNotIn("QA or CEO focused checks", text)
+        self.assertRegex(core, r"Ordinary and significant plan tasks.*FRESH QA")
+        self.assertRegex(core, r"only small, low-risk tasks.*CEO focused checks")
+        self.assertIn("FRESH QA instance per task that needs QA", verification)
+        self.assertIn("the same Reviewer rechecks the same scope after a fix", verification)
+
+    def test_restart_brief_rule_lives_in_handoff_only(self) -> None:
+        core, handoff = self.skill(), self.raw("handoff")
+        self.assertNotIn("delta-only restart brief", core)
+        self.assertNotIn("`unchanged` means unchanged relative to", core)
+        self.assertIn("`unchanged` means unchanged relative to the record file", handoff)
+        self.assertNotIn("carries the full record inline (no delta", handoff)
+        self.assertEqual(handoff.count("full record inline"), 1)
+
+    def test_read_only_roles_drop_sandbox_mode_and_use_prompt_guards(self) -> None:
+        for role in ("planner", "scouter", "reviewer"):
+            with self.subTest(role=role):
+                path = REPO / f"codex/agents/arc-{role}.toml"
+                self.assertNotIn("sandbox_mode", tomllib.loads(path.read_text()))
+                self.assertIn("MUST NOT edit files; NEVER run commands that change state",
+                              " ".join(tomllib.loads(path.read_text())["developer_instructions"].split()))
+        core = self.skill()
+        self.assertRegex(core, r"After each read-only role returns \(Scouter, Planner, Reviewer\), CEO checks `git status`.*stops and reports under the Preservation rule")
+        self.assertIn("prompt-level guards, not sandbox enforcement", core)
+
+    def test_dangling_references_removed_and_install_path_real(self) -> None:
+        core = self.skill()
+        for gone in ("branch protection", "Coder repair limits", "existing CEO depth judgment", "install.py",
+                     "short design"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, core)
+        self.assertIn("scope record", core)
+        self.assertIn("Environment failure does not waive checks or determine design depth", core)
+        self.assertIn("means this assessment", self.raw("planning"))
+        self.assertIn("npm", core)
+        self.assertIn("Planner proposes, CEO decides", core)
+        self.assertIn("routes the correction to Coder", core)
+
+    def test_worktree_branch_collision_never_auto_suffixes(self) -> None:
+        self.assertNotIn("append `-2`", self.raw("handoff-prep"))
+        self.assertIn("never automatically substitute a suffix", self.raw("handoff-prep"))
+
+    def test_config_toml_comments_state_prompt_only_limits(self) -> None:
+        text = (REPO / "codex/config.toml").read_text()
+        comments = " ".join(l for l in text.splitlines() if l.lstrip().startswith("#"))
+        self.assertRegex(comments, r"prompt-only")
+        self.assertRegex(comments, r"not enforced")

@@ -27,7 +27,7 @@ authorized writes and verified results establish recovery.
 A branch does not isolate uncommitted changes into a separate directory as a worktree does. Record how existing staged,
 unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Apply the
 Preservation rule and do not automatically commit or delete changes to prepare the checkout. Only the
-approved docs commit on all three paths is an exception to the preparation commit prohibition; preserve all unrelated dirty files.
+approved docs commit on all three paths is an exception to that no-commit rule; preserve all unrelated dirty files.
 If existing changes prevent switching or ownership is unclear, stop handoff until CEO resolves the state and scope.
 
 For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and

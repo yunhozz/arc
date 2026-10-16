@@ -6,7 +6,7 @@ Read before design/plan-depth decisions, spec/plan drafting and approval, and th
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls
 routing/approval gates even if a called skill names another executor. Follow installed instructions and user
-constraints; report missing required skills before that stage.
+constraints; report missing required skills before that stage. Integrate means save, route, and obtain approval; never author.
 
 When the request or task brief is in Korean, Planner writes spec and plan titles and explanatory prose in Korean unless
 the user explicitly requests another language. Preserve identifiers, skill/API names, code, paths, commands, and
@@ -18,10 +18,10 @@ architectural depth does not add QA/Reviewer at every stage; apply existing risk
 approved obligations separately.
 
 1. Before software feature, design, or behavior changes, CEO assigns Planner the installed `brainstorming` skill with
-   the brief/evidence. Planner explores context and returns spike/bounded/architectural path, design/options,
+   the brief/evidence. Planner explores context and proposes the spike/bounded/architectural path (CEO decides), design/options,
    trade-offs, acceptance criteria, assumptions, and focused questions. CEO integrates, announces scope, routes user
-   answers/revisions back, and obtains approvals; CEO never runs brainstorming itself except under the CEO direct path
-   in SKILL.md, where CEO presents the short design itself.
+   answers/revisions back, and obtains approvals; CEO never runs brainstorming or writing-plans itself (SKILL.md Role gate);
+   the direct path uses only a scope record.
 2. Spike: approve the feasibility question/probe before execution, report findings, then obtain a new design/approval
    for implementation. Bounded: approve a short design before Coder or a CEO direct edit. Architectural: approve
    design, then Planner returns complete spec draft and self-review findings; CEO integrates, saves, self-reviews, and obtains written-spec approval
@@ -30,23 +30,23 @@ approved obligations separately.
    scope. Architectural work always uses installed `writing-plans` and requires written plan approval, regardless of
    locality, risk, or size. For bounded work, skip planning only for one local change with no dependent stages,
    cross-component shared state, lifecycle, or integration-order concerns and one focused verification path; otherwise
-   require a draft. A bounded label or “no plan” request does not bypass this judgment.
+   require a draft. A bounded label or “no plan” request does not bypass this judgment. “CEO's recorded plan-depth judgment” means this assessment, including whether a Bounded written spec is required, recorded in the brief/handoff record.
 4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows installed `writing-plans`,
    returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
    CEO integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
-   then obtains plan approval before Coder. Planner cannot save, implement, or request approval.
+   then obtains plan approval before Coder.
 5. Every Coder first start and restart requires all applicable design/spec/plan approvals and passing
    the common handoff gate in SKILL.md and handoff.md, with approved artifacts, brief, and relevant findings. Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
-   A CEO direct edit requires its approved short design and the same gate conditions before the first edit.
+   A CEO direct edit requires its approved scope record and the same gate conditions before the first edit.
 
-When a Bounded written spec is required by the existing CEO depth judgment, record that necessity and scope and
+When a Bounded written spec is required by CEO's recorded plan-depth judgment, record that necessity and scope and
 use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
 CEO integrates, saves, self-reviews, and obtains individual written-spec approval before dependent plan drafting
-and execution preparation. This applies the existing depth judgment, not a new spec-necessity rule.
+and execution preparation. This applies that judgment, not a new spec-necessity rule.
 
-CEO must not substitute an independently authored spec for Planner's complete draft. If the draft has substantive
-omissions, return them to Planner for completion. A user may explicitly change the writing responsibility; record
+CEO must not substitute an independently authored spec or plan for Planner's complete draft. If the draft has substantive
+omissions, return them to Planner for completion; if Planner fails or is unavailable, stop and report, never draft instead. A user may explicitly change the writing responsibility; record
 that change and its evidence in the brief. Design approval alone does not change ownership.
 
 ## Top-level plan tasks
@@ -70,7 +70,7 @@ reference and record accessible evidence in the shared brief/canonical handoff r
 
 **Spec save:** Verify the approved design scope and approval evidence, accessible Planner's complete spec draft and
 self-review findings, CEO's integration/save/review responsibility, and intended absolute save path.
-For a required Bounded written spec, also verify the existing CEO depth judgment, approved short design,
+For a required Bounded written spec, also verify CEO's recorded plan-depth judgment, approved short design,
 spec-necessity rationale and scope, and Planner's proportional complete draft and self-review. Saving or approving
 the short design does not replace the required spec's drafting, self-review, or individual approval.
 Architectural and required Bounded specs enter as approved versions in the applicable document set; complete
@@ -91,7 +91,7 @@ plan dependencies and execution order, skipped stages with rationale, and docume
 in the shared brief. The set is complete only when every required document is written and individually approved and
 no unresolved scope or dependency decision requires another document. Do not omit required documents from the list.
 
-A required plan does not itself require a written spec. Bounded uses the existing CEO depth judgment to determine
+A required plan does not itself require a written spec. Bounded uses CEO's recorded plan-depth judgment to determine
 whether a written spec is required; do not infer one from plan necessity. Spec steps apply only to Architectural and
 required Bounded specs, and plan steps only to required plans. These gates add no new spec obligation to Spike,
 Bounded plan-skip, or non-behavior documentation/configuration paths; preserve existing omission rationales.
@@ -116,7 +116,7 @@ are not permission for document commits during planning or for starting Coder.
 |------|--------------------------------------|
 | Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation; no new spec obligation is added by this gate. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only CEO/Planner investigation without Coder does not trigger that gate. |
 | Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale; this gate adds no new spec obligation. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
-| Bounded, plan required | Approve the short design and every required plan; write a spec only when the existing CEO depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting and preparation. Complete all applicable artifacts before one preparation batch and the common gate. |
+| Bounded, plan required | Approve the short design and every required plan; write a spec only when CEO's recorded plan-depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting and preparation. Complete all applicable artifacts before one preparation batch and the common gate. |
 | Architectural | Approve design, then written spec, then every required plan using `writing-plans`; complete the document set before target selection, batch preparation, final verification, and the common gate. |
 | Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; this gate adds no new spec obligation. Still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
 

@@ -37,7 +37,7 @@ Task-local acceptance is distinct from overall final plan verification and accep
 acceptance criteria to actual evidence, currently required checks and findings before accepting it; checkbox
 completion, a Coder report or passing commands alone do not establish acceptance.
 
-Task acceptance and its focused commit require only the task's risk-scaled Coder/QA evidence or CEO focused checks;
+Task acceptance and its focused commit require only the task's risk-scaled evidence: a FRESH QA instance per task that needs QA (same-task rechecks may reuse), or CEO focused checks for small, low-risk tasks;
 Reviewer timing and task-boundary gates follow SKILL.md Risk-scaled execution. For an independently acceptable task,
 do not delay its acceptance/commit solely for later final plan verification. Currently required task checks must not
 be deferred to final verification to accept early. State the scope and timing of final-only integration criteria in
@@ -84,7 +84,7 @@ substituting Reviewer review for QA evidence.
 For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
 source, reproduction conditions and steps, and evidence to CEO, distinguishing source-inferred reproduction from
 execution-observed results without running QA tests. CEO routes it to Coder correction and QA post-fix recheck.
-For significant/high-risk work, Reviewer then reviews the final full change after QA recheck, or, for already committed
+For significant/high-risk work, Reviewer then reviews the final full change once after QA recheck (the same Reviewer rechecks the same scope after a fix), or, for already committed
 plan work, rechecks only the affected findings when warranted. Reviewer continues handling
 structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
 issues may require both QA verification and Reviewer source review.
