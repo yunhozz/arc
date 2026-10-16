@@ -90,6 +90,91 @@ bash 완성은 arc completion bash로 제공하고 등록 방법을 문서화한
 
 --target all에서는 공용 shell 파일을 중복 갱신하지 않는다. 설치 orchestration이 공용 변경을 한 번만 소유하고, 기존 target 간 경로 충돌 검증을 약화하지 않는다.
 
+### npm 전역 설치 시 zsh 완성 자동 등록
+
+사용자가 `npm i -g github:yunhozz/arc`로 ARC 명령을 설치하면, 지원되는 zsh 사용자 환경에서 `arc install`을 별도로 실행하지 않아도 `~/.zshrc`에 ARC 완성 관리 블록을 등록한다. 이후 새 interactive zsh 세션에서 `arc <Tab>`은 `install`, `uninstall`, `completion`을 제공한다.
+
+#### 자동 등록 조건
+
+npm `postinstall`에서 다음 조건을 모두 확인한 경우에만 자동 등록한다.
+
+- npm이 전역 설치로 실행되었고, ARC가 최종 전역 패키지 위치에 설치되어 있다.
+- macOS 또는 Linux의 일반 사용자 실행이며, 사용자의 shell을 나타내는 `SHELL`의 파일명이 `zsh`이다.
+- 현재 실행 사용자의 home을 확인할 수 있다.
+- `ZDOTDIR`가 설정되지 않았거나 해당 home을 가리킨다.
+- 기존 descriptor 기반 파일 안전성에 필요한 runtime을 사용할 수 있다.
+
+로컬 dependency 설치, 저장소 개발 설치, npx 임시 설치, Git 설치 준비용 임시 checkout에서는 home dotfile을 변경하지 않는다. npm 전역 설정만을 근거로 Git 임시 checkout을 최종 전역 설치로 간주하지 않는다.
+
+비-zsh 또는 shell을 확인할 수 없는 환경, 별도 `ZDOTDIR`, root·상승 권한 등 사용자의 home을 안전하게 특정할 수 없는 환경에서는 자동 등록을 건너뛴다. 다른 사용자의 home을 추측하거나 bash 시작 파일을 자동 변경하지 않는다.
+
+#### 관리 블록과 파일 보존
+
+기존 `arc install`과 동일한 marker 및 완성 로딩 내용을 사용한다.
+
+```zsh
+# >>> arc completion >>>
+if command -v arc >/dev/null 2>&1; then
+  eval "$(arc completion zsh)"
+fi
+# <<< arc completion <<<
+```
+
+- 파일이 없으면 안전하게 생성한다.
+- 동일한 블록이 이미 있으면 중복을 만들거나 파일을 다시 쓰지 않는다.
+- 기존 블록을 갱신할 때 블록 밖 bytes와 기존 파일 mode를 보존한다.
+- 최초 추가 시 기존 bytes를 그대로 유지하며 필요한 구분 newline과 관리 블록만 추가한다.
+- BOM, 기존 줄바꿈, 마지막 newline이 없는 사용자 내용도 보존한다.
+- 잘못된 UTF-8, 중복·역순·불완전 marker, symlink, 비정상 파일, 쓰기 권한 부족, 동시 변경을 발견하면 안전성 검증을 완화하여 쓰지 않는다.
+- 기존 snapshot·descriptor transaction·rollback 보호를 사용한다. 충돌 시 사용자 변경을 덮어쓰는 자동 재시도는 하지 않는다.
+
+반복 전역 설치와 이후 `arc install`을 조합해도 ARC 관리 블록은 하나만 존재해야 한다.
+
+영구 backup/recovery 파일은 만들지 않는다. 실행 중 기존 transaction 소유의 private stage는 허용하며 정상 성공 또는 정상 rollback 후 정리한다. 복구 충돌이나 정리 실패에서는 사용자 데이터를 임의 삭제하지 않고 기존 계약에 따라 residual path를 보고한다. 강제 종료까지 포함한 임시 잔여물 부재는 보장하지 않는다.
+
+#### 실패 및 안내
+
+완성 자동 등록은 패키지 설치에 부가되는 동작이다. 등록 조건을 충족하지 못하거나 등록에 실패하더라도 해당 이유로 npm 패키지 설치를 실패시키지 않는다.
+
+hook이 실행된 경우 등록 결과 또는 건너뜀·실패 원인과 수동 활성화 방법을 진단 출력으로 제공한다. 파일 변경 실패에서는 가능한 경우 원본을 복구하며, 복구 충돌·정리 실패의 정보도 숨기지 않는다. 안전한 native runtime을 사용할 수 없으면 파일을 변경하지 않으며, 이를 해결하기 위한 native build나 외부 획득을 hook에서 실행하지 않는다.
+
+npm의 기본 출력 정책에 따라 hook 안내가 화면에 보이지 않을 수 있다. README에 등록 조건·예외·수동 활성화 방법을 명시하고, 진단이 필요할 때 `--foreground-scripts`를 사용할 수 있음을 안내한다.
+
+`--ignore-scripts` 또는 npm의 script 실행 정책으로 hook이 실행되지 않으면 자동 등록도 수행되지 않는다. 이 경우 ARC 자체 안내 출력도 보장할 수 없다.
+
+#### 현재 세션과 수동 활성화
+
+설치 프로세스는 이미 실행 중인 부모 zsh의 상태를 바꿀 수 없다. 자동 등록 성공은 새 zsh 세션에서 활성화됨을 의미한다. 새 세션은 시작 파일을 정상적으로 읽고 PATH에서 `arc`를 찾을 수 있어야 한다.
+
+이미 열린 zsh에서는 다음 명령으로 활성화한다.
+
+```zsh
+eval "$(arc completion zsh)"
+```
+
+자동 등록을 건너뛴 환경이나 scripts를 비활성화한 환경에서는 실제 사용하는 zsh 시작 파일에 위 명령을 추가하여 영구 활성화할 수 있다. bash는 기존 `arc completion bash`와 수동 등록 경로를 유지한다.
+
+#### 기존 명령 및 제거와의 관계
+
+- 기존 `arc install`의 완성 등록 동작을 유지한다.
+- `arc install --skip-global`은 해당 명령에서 `.zshrc`를 접근·변경하지 않는다. 앞선 npm 설치가 등록한 블록을 제거하거나 npm 단계에 소급 적용하지 않는다.
+- 기존 `--check`, `--dry-run`의 무변경 계약을 유지한다.
+- `arc uninstall`은 기존 계약대로 공용 완성 블록을 유지한다.
+- `npm uninstall -g arc-harness`에서도 블록을 자동 제거하지 않는다. 제거 후 새 shell에서 `arc`가 없으면 기존 `command -v arc` guard가 로딩을 건너뛴다.
+- npm uninstall lifecycle hook은 추가하지 않는다.
+
+#### 수용 기준
+
+| ID | 기준 |
+|---|---|
+| NPM-C1 | 지원되는 일반 zsh 사용자 환경에서 실제 전역 npm 설치 후 관리 블록 하나가 등록되고, 새 interactive zsh의 Tab 완성이 세 하위 명령을 제공한다. |
+| NPM-C2 | 로컬 dependency·개발 설치·npx 임시 설치·Git 준비 checkout에서는 home dotfile이 생성되거나 변경되지 않는다. |
+| NPM-C3 | 반복 전역 설치 및 기존 `arc install`과의 조합이 멱등적이며, 블록 밖 bytes와 기존 mode를 보존한다. marker 오류·symlink·권한·drift에서는 안전하게 중단한다. |
+| NPM-C4 | 기존 explicit install·skip/check/dry-run·제거 계약을 유지하고 영구 backup/recovery 파일을 추가하지 않는다. 정상 성공·rollback 후 transaction stage를 정리한다. |
+| NPM-C5 | 비-zsh·미확인 환경·별도 `ZDOTDIR`·scripts 차단·runtime 또는 등록 실패가 명세대로 처리된다. 등록 실패만으로 npm 설치를 실패시키지 않으며, 현재 세션 제한과 수동 활성화 방법을 문서화한다. |
+
+검증은 실제 사용자 home 대신 격리된 home·npm prefix·cache를 사용한다. 실제 npm 설치 경로와 새 interactive zsh의 Tab 동작을 확인해야 하며, 완성 스크립트 문자열 검사만으로 NPM-C1을 충족했다고 판단하지 않는다.
+
 ## 5. 통합 모델 설정 스키마
 
 Claude와 Codex 각각의 배포 원본과 설치본에 models.toml 하나를 둔다. presets.toml은 배포·설치·필수 asset 목록에서 제거한다.

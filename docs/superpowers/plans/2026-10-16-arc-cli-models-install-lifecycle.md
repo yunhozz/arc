@@ -9,6 +9,14 @@ ARC에 단일 arc 명령, shell 완성, 통합 모델 설정, 영구 백업 없�
 - 저장소: /Users/yunho/Desktop/project/arc
 - 기준: master, 460975714ad5f6cb48c17a674a497fdd93917d9c. 승인 명세 외 변경은 없다.
 
+## 현재 상태 및 후속 승인 범위
+
+- 위 기준 정보는 T1–T4 구현을 시작하기 전의 계획 기록이다. 해당 네 작업은 이미 구현·검증되어 현재 master에 병합됐다. 현재 HEAD는 5140c416434e6b1d8f7fb8c2d92eaf7a8f5b8d76이다.
+- 이번 계획 수정은 T1–T4를 다시 열지 않는다. 아래 T5만 새로 승인받아 실행한다.
+- 사용자는 명세 §4의 상세 npm 전역 설치 동작을 승인했다. 이 내용은 축약하지 않는다.
+- 현재 작업공간에서 사용자가 소유한 bin/arc.mjs 실행 권한 변경(100644 → 100755)은 보존하고 T5 범위에 포함하지 않는다.
+- 현재 요청은 T5 구현 계획 승인 단계다. 승인 후 실행 위치를 별도로 선택한다.
+
 ## 공통 제약
 
 - Architectural 작업이며 이 계획도 개별 승인 대상이다.
@@ -226,3 +234,109 @@ CEO는 criterion을 실제 evidence와 연결해 task별 수용 여부를 정하
 - 작업별 QA와 최종 전체 검사, 마지막 독립 Reviewer timing을 구분했다.
 - 임시 home 검증과 휴지통 미변경을 명시했다.
 - 계획 수준에서 남은 설계 질문은 없다. 실제 shell/native 환경 검사를 못 하면 해당 criterion을 unverified로 남기고 task acceptance를 보류한다.
+
+## T5. 전역 npm 완성 등록과 README 전체 정리
+
+### 목표와 범위
+
+전역 npm 설치가 지원되는 zsh 사용자 환경에서 완성을 자동 등록하고, README 전체를 실제 동작에 맞게 명확하고 간결하게 정리한다. README의 기존 영어와 기술적 의미를 유지하면서 중복, 모호함, 용어·명령 불일치, 오래된 설명을 바로잡는다. Shell completion 절만 편집하는 것으로 범위를 제한하지 않는다.
+
+기존 T1–T4의 승인된 구현과 명세 §4를 전제로 한다. T1–T4 구현·commit은 완료됐으며 이 후속 작업에서 다시 수행하거나 합치지 않는다. 명세 §4 자체는 변경하지 않는다.
+
+### 공통 제약
+
+- npm 전역 lifecycle과 최종 전역 패키지 위치가 확인된 경우에만 자동 등록을 고려한다.
+- 로컬 dependency, 저장소 개발 설치, npx 임시 설치, Git 설치 준비 checkout은 사용자 home dotfile에 접근하거나 이를 바꾸지 않는다.
+- 일반 사용자 zsh 환경만 지원한다. bash, 불명확한 사용자·shell·경로, 별도 ZDOTDIR, root·상승 권한에서는 등록을 건너뛴다.
+- 조건을 확인하기 전에 native runtime을 불러오거나 home dotfile을 읽지 않는다.
+- 기존 marker, UTF-8 검증, 사용자 bytes와 mode 보존, symlink·drift 보호, descriptor transaction과 rollback을 유지한다.
+- 등록 실패가 npm 패키지 설치를 실패시키지 않게 한다. 영구 backup/recovery 파일, native build hook, uninstall hook, 새 runtime dependency를 추가하지 않는다.
+- 검증은 격리된 home, npm prefix, cache, fixture를 사용한다.
+- README 이외 문서의 포괄적인 문장 정리는 범위에 넣지 않는다. README 문구 assertion은 의미와 계약을 검사하도록 조정하되 기존 기술 검사를 약화하지 않는다.
+
+### 대상 파일
+
+| 구분 | 파일 | 책임 |
+|---|---|---|
+| 신규 | scripts/npm-postinstall.mjs | postinstall 진입점과 오류 경계 |
+| 신규 | lib/installer/npm-completion.mjs | 자동 등록 조건과 실행 조정 |
+| 신규 | tests/node/npm-completion.test.mjs | 환경 경계, 등록 결과, 실패 처리 |
+| 신규 | tests/node/npm-completion-consumer.test.mjs | 격리된 실제 npm 설치와 새 zsh 완성 |
+| 수정 | package.json | postinstall 선언 |
+| 수정 | package-lock.json | lifecycle metadata 동기화 |
+| 수정 | lib/installer/shell-completion.mjs | 완성 전용 등록 진입점 |
+| 수정 | lib/installer/transaction.mjs | 선택적 specs 입력 지원 |
+| 수정 | tests/node/package.test.mjs | hook, 포장, README 계약 |
+| 수정 | tests/node/shell-completion.test.mjs | 완성 전용 transaction 안전성 |
+| 수정 | README.md | 전체 절 명확성·간결성·정확성 |
+| 수정 | MANIFEST.sha256 | 보호 payload hash |
+
+이 목록 외 구현 파일이나 native API 변경이 필요하면 CEO에게 보고하고 작업을 멈춘다.
+
+### 구현 결정
+
+- getNpmCompletionContext({env, platform, packageRoot, uid, home})는 eligible과 userHome 또는 안전한 제외 사유를 반환한다. 전역 여부와 최종 설치 위치, 지원 플랫폼, SHELL, 사용자 정체성·home, ZDOTDIR를 판별한다. npm_config_global_prefix를 우선하고, 없으면 절대 경로 npm_config_prefix를 사용한다. Git 준비 checkout을 전역 설치로 오인하지 않는다.
+- registerShellCompletion(userHome, {safeFs, hooks})는 기존 attachShellCompletion 경로로 완성 전용 plan을 실행한다. 무변경, 성공, 실패 결과를 구분하고 기존 안전 오류·rollback·residual 정보를 보존한다.
+- runNpmCompletionPostinstall({env, platform, packageRoot, uid, home, register, stderr})는 안전 조건을 확인한 다음에만 runtime과 등록 구현을 준비한다. 제외·등록·무변경·실패 상태를 진단하며 실패해도 hook 종료는 성공으로 유지한다.
+- applyTransaction(plan, {safeFs, acquired, signal, hooks, specs})는 specs 생략 시 기존 install/uninstall 동작을 유지하고, 완성 등록에서는 .zshrc 하나의 명시 입력만 적용한다. 기존 snapshot·publish·rollback·stage cleanup을 사용하며 uninstallSpecs에 완성을 넣지 않는다.
+- package.json lifecycle은 다음 postinstall 하나만 추가한다. preinstall, install, prepare, native build, npm uninstall hook은 추가하지 않는다.
+
+    postinstall: node scripts/npm-postinstall.mjs
+
+### 구현 및 확인 순서
+
+1. 환경 경계 테스트를 추가한다: 지원되는 전역 zsh, 로컬·개발·npx 설치, 전역 설정을 상속한 Git 준비 checkout, 불명확한 prefix, 비-zsh 또는 빈 SHELL, 별도 ZDOTDIR, root·상승 권한. 제외 경로에서는 등록 함수 호출과 dotfile 접근이 없어야 한다.
+2. 등록 및 파일 보존 테스트를 추가한다: 파일 없음, 사용자 내용, BOM, CRLF, 마지막 newline 부재, mode, 재등록, 기존 arc install과 조합. 동일한 파일에서는 쓰기와 stage 생성을 생략한다.
+3. 실패 테스트를 추가한다: invalid UTF-8, marker 오류, symlink, 비정상 파일, 읽기 전용, native 실패, publish 전 drift, 동시 최초 등록, publish 후 rollback. 사용자 변경을 덮어쓰지 않으며 등록 실패만으로 hook이 nonzero 종료하지 않아야 한다.
+4. 신규 테스트의 RED를 확인한 후 인터페이스를 구현한다. package의 lifecycle 금지 검사는 정확한 postinstall 허용 조건으로 바꾸고 다른 install lifecycle과 native build hook 금지는 유지한다.
+5. 격리된 home·prefix·cache에서 packed package의 실제 전역 설치, 로컬 설치, scripts 비활성화, 재설치, npm 제거를 검사한다. 임시 local Git fixture를 사용해 설치 준비 경로와 최종 전역 설치를 구분한다.
+6. 새 interactive zsh PTY에서 시작 파일을 읽고 PATH에서 설치된 arc를 찾은 뒤 실제 Tab으로 install, uninstall, completion 후보를 확인한다. zsh -f나 문자열 검사만으로 대체하지 않는다.
+7. README의 Roles, Task flow와 하위 절, Installation과 하위 절, Model settings, Development, Learn more, Shell completion 및 나머지 기존 절을 모두 점검한다. 절별로 수정 또는 유지 이유를 기록하고 명령 예시를 실제 공개 CLI에 대조한다.
+8. README에서 전역 npm 명령 설치와 arc install의 역할, 전역 설치 없는 npx 사용법, 개발용 local dependency를 구분한다. 자동 등록 조건·예외, 현재 세션 명령, 실패·출력·skip·제거 계약도 명확히 설명한다.
+9. 문구에 종속된 검사는 확인하려는 동작 계약을 유지하는 의미 중심 검사로 고친다. manifest를 갱신하고 아래 검사를 실행한다.
+
+    node --test tests/node/npm-completion.test.mjs tests/node/shell-completion.test.mjs tests/node/completion.test.mjs
+    node --test tests/node/npm-completion-consumer.test.mjs tests/node/package.test.mjs
+    node --test tests/node/transaction.test.mjs tests/node/transaction-drift.test.mjs tests/node/recovery.test.mjs tests/node/transaction-readonly.test.mjs
+    node --test tests/node/cli-dry-run.test.mjs tests/node/uninstall.test.mjs
+    node scripts/update-manifest.mjs
+    npm run check:manifest
+
+### 수용 기준
+
+| ID | 기준 |
+|---|---|
+| C1 | 지원되는 일반 zsh 사용자 환경의 실제 전역 npm 설치 후 관리 블록 하나가 등록되고 새 interactive zsh의 Tab이 세 하위 명령을 제공한다. |
+| C2 | 로컬·개발·npx 임시 설치와 Git 준비 checkout은 home dotfile에 접근하거나 이를 변경하지 않는다. |
+| C3 | 재설치와 기존 arc install 조합은 멱등적이고 사용자 bytes·mode를 보존한다. marker·UTF-8·경로·권한·drift 오류를 안전하게 처리한다. |
+| C4 | 기존 explicit install·skip/check/dry-run·제거 계약과 stage 정리를 유지하고 영구 backup/recovery 파일을 추가하지 않는다. |
+| C5 | 미지원 환경, scripts 차단, runtime 또는 등록 실패를 승인 명세대로 처리한다. 등록 실패만으로 npm 설치를 실패시키지 않는다. |
+| R1 | README의 모든 절을 점검한다. 영어와 기술적 의미를 유지하고 중복·모호함·불일치·오래된 설명을 정리한다. 절별 수정·유지 근거를 제시한다. |
+| R2 | 전역 명령 설치, arc install 설정 적용, 전역 설치 없는 npx 실행, 개발용 로컬 설치를 구분하고 예시를 공개 CLI와 일치시킨다. |
+| R3 | 자동 등록 조건과 비-zsh·불명확한 shell·별도 ZDOTDIR·권한·runtime 예외 및 --ignore-scripts 영향을 설명한다. |
+| R4 | 새 세션 적용 조건, 현재 세션의 eval 명령, zsh 수동 영구 활성화와 bash 수동 등록을 안내한다. |
+| R5 | 등록 실패가 npm 설치를 실패시키지 않고 hook 출력이 숨겨질 수 있음을 설명하며 --foreground-scripts 진단 방법을 제공한다. |
+| R6 | --skip-global의 범위, arc uninstall과 npm 제거 후 블록 유지, npm 제거 시 자동 정리 없음, 기존 check/dry-run 계약을 명시한다. |
+| R7 | transaction 및 파일 안전 계약을 문장 정리 과정에서 왜곡하거나 삭제하지 않는다. 기존 기술 assertion의 검증력을 유지한다. |
+
+### 필수 QA 증거
+
+신선한 QA는 C1–C5 및 R1–R7을 독립 확인한다. 보고에는 Node/npm/zsh 버전, 실제 격리 설치·제거 명령과 종료 코드, 새 zsh PTY Tab 출력, block 개수, 재설치 전후 bytes·mode, stage 정리, 실패·복구 결과를 포함한다. README는 절별 점검표와 R2–R7 각각에 대응하는 문서 위치·구현·검사 근거를 제출한다. 실제 GitHub URL이 후보 변경을 포함하지 않으면 local fixture 검사로 구분하고 원격 검증을 주장하지 않는다.
+
+### 보류 조건
+
+전역 설치와 최종 패키지 위치를 안정적으로 구분할 수 없음, 실제 npm과 zsh PTY 검증 환경 부재, descriptor 보호나 승인 계약 완화 필요, native API·영구 복구 파일 필요, README에서 승인 명세와 실질 충돌 발견, 사용자 파일 보존을 입증할 수 없음 중 하나라도 있으면 CEO에게 보고한다.
+
+### 수용과 commit
+
+CEO는 C1–C5, R1–R7, 필수 검사와 QA 발견 사항을 확인해 T5를 수용한다. 수용 후 하나의 구현 commit으로 기록한다.
+
+    feat: 전역 npm 설치에 zsh 완성 등록 및 README 정리
+
+기존 bin/arc.mjs 사용자 소유 mode 변경은 보존하고 T5 구현 commit에 포함하지 않는다. commit에 앞서 사용자의 별도 승인을 다시 요청하지 않는다.
+
+## T5 이후 전체 검증과 실행 준비
+
+T1–T4는 현재 기준에 이미 포함된 작업이다. T5 수용 후 npm test, 전체 Python unittest, npm run check:manifest와 격리된 전역 npm 설치·zsh Tab 흐름을 최종 검증한다. 모든 승인 작업 수용 후 독립 Reviewer가 전체 변경을 한 번 검토한다. README 전체 정리, 명세 §4, package lifecycle, 사용자 파일 보존, transaction cleanup을 포함한다.
+
+T5 계획 승인 전에는 실행 위치 선택, branch/worktree 준비, 문서 commit, Coder 시작을 하지 않는다. 승인 후 사용자가 실행 위치를 선택하면, CEO는 Git 상태와 변경 소유권 및 문서 승인 상태를 확인하고 우선 승인된 spec/plan 문서만 commit한 뒤 fresh Coder에게 T5를 배정한다. 사용자 소유 mode 변경은 해당 문서 commit에서 제외한다.
