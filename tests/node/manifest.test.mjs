@@ -17,11 +17,11 @@ for(const [label,change] of [
  ['symlink',r=>{fs.unlinkSync(`${r}/README.md`);fs.symlinkSync('/etc/passwd',`${r}/README.md`);}],
  ['mutable model listed',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  codex/skill/models.toml\n`)],
  ['invalid mutable model',r=>fs.writeFileSync(`${r}/claude/skill/models.toml`,'version = 99')],
- ['unsafe mutable exception',r=>fs.writeFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n').filter(l=>!l.endsWith('  codex/skill/presets.toml')).join('\n'))],
+ ['unsafe mutable exception',r=>fs.writeFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n').filter(l=>!l.endsWith('  codex/skill/scripts/model_config.py')).join('\n'))],
  ['missing runtime asset',r=>{fs.unlinkSync(`${r}/bin/arc-install.mjs`);refresh(r);}],
  ['missing installer module',r=>{fs.unlinkSync(`${r}/lib/installer/plan.mjs`);refresh(r);} ],
  ['special payload file',r=>{fs.unlinkSync(`${r}/README.md`);assert.equal(spawnSync('mkfifo',[`${r}/README.md`]).status,0);}],
- ['DS_Store directory',r=>fs.mkdirSync(`${r}/codex/skill/.DS_Store`)],
+ ['DS_Store directory',r=>{fs.rmSync(`${r}/codex/skill/.DS_Store`,{force:true});fs.mkdirSync(`${r}/codex/skill/.DS_Store`);}],
 ])test(`payload rejects ${label}`,t=>{const root=fixture(t);change(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});
 test('mutable models may change only within their validated schemas',t=>{const root=fixture(t);const file=`${root}/codex/skill/models.toml`;fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('gpt-6-luna','custom/model'));assert.match(verify(root).modelInputs.codex.models.toString(),/custom\/model/);});
 test('manifest reference coverage rejects missing entries and changed hashes',t=>{const root=fixture(t);const manifest=`${root}/MANIFEST.sha256`,originalManifest=fs.readFileSync(manifest);for(const name of fs.readdirSync(`${root}/codex/skill/references`).filter(n=>n.endsWith('.md'))){const relative=`codex/skill/references/${name}`,file=`${root}/${relative}`,original=fs.readFileSync(file);fs.writeFileSync(manifest,originalManifest.toString().split('\n').filter(line=>!line.endsWith('  '+relative)).join('\n'));assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});fs.writeFileSync(manifest,originalManifest);fs.appendFileSync(file,'changed');assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});fs.writeFileSync(file,original);}});

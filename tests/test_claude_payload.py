@@ -15,11 +15,11 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 PAYLOAD = ROOT / 'claude'
 EXPECTED = {
-    'scouter': ('haiku', 'high', ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']),
-    'planner': ('sonnet', 'medium', ['Read', 'Grep', 'Glob']),
-    'coder': ('sonnet', 'low', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit']),
-    'qa': ('haiku', 'high', ['Read', 'Grep', 'Glob', 'Bash']),
-    'reviewer': ('sonnet', 'medium', ['Read', 'Grep', 'Glob']),
+    'scouter': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']),
+    'planner': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
+    'coder': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit']),
+    'qa': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash']),
+    'reviewer': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
 }
 
 
@@ -58,10 +58,14 @@ class ClaudePayloadTests(unittest.TestCase):
             lambda d: d['roles'].update(extra={'model': 'sonnet', 'effort': 'low'}),
             lambda d: d.update(version=True),
             lambda d: d.update(extra=1),
-            lambda d: d['roles']['arc_qa'].update(effort='extreme'),
-            lambda d: d['roles']['arc_qa'].update(model=2),
-            lambda d: d['roles']['arc_qa'].update(model='bad\nmodel'),
-            lambda d: d['roles']['arc_qa'].update(extra=1),
+            lambda d: d.pop('preset'),
+            lambda d: d.update(preset='fast'),
+            lambda d: d['roles']['arc_qa'].pop('smart'),
+            lambda d: d['roles']['arc_qa'].update(extra={}),
+            lambda d: d['roles']['arc_qa']['economy'].update(effort='extreme'),
+            lambda d: d['roles']['arc_qa']['economy'].update(model=2),
+            lambda d: d['roles']['arc_qa']['economy'].update(model='bad\nmodel'),
+            lambda d: d['roles']['arc_qa']['economy'].update(extra=1),
         ):
             data = copy.deepcopy(valid)
             mutate(data)
@@ -82,7 +86,7 @@ class ClaudePayloadTests(unittest.TestCase):
         module = self.module()
         original = (PAYLOAD / 'agents/arc-coder.md').read_bytes().replace(b'\n', b'\r\n')
         updated = module.render_profile(original, {'model': 'opus', 'effort': 'xhigh'})
-        self.assertEqual(updated, original.replace(b'model: sonnet', b'model: opus').replace(b'effort: low', b'effort: xhigh'))
+        self.assertEqual(updated, original.replace(b'model: sonnet', b'model: opus').replace(b'effort: medium', b'effort: xhigh'))
 
     def test_renderer_rejects_duplicate_or_malformed_frontmatter(self):
         module = self.module()
@@ -102,6 +106,37 @@ class ClaudePayloadTests(unittest.TestCase):
                 result = subprocess.run([sys.executable, '-B', str(target / 'skills/arc/scripts/apply-models.py'), flag], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(before, {p.relative_to(target): (p.read_bytes(), p.stat().st_mode) for p in target.rglob('*') if p.is_file()})
+
+    def test_all_presets_apply_check_dry_run_and_invalid_input_without_writes(self):
+        import tomllib
+        module = self.module()
+        source = (PAYLOAD / 'skill/models.toml').read_text()
+        config = tomllib.loads(source)
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self.fixture(Path(tmp).resolve())
+            config_path = target / 'skills/arc/models.toml'
+            command = [sys.executable, '-B', str(target / 'skills/arc/scripts/apply-models.py'), '--config', str(config_path), '--agents-dir', str(target / 'agents')]
+            snapshot = lambda: {p.relative_to(target): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+            for preset in ('economy', 'balanced', 'smart'):
+                config_path.write_text(source.replace('preset = "balanced"', f'preset = "{preset}"'))
+                before = snapshot()
+                result = subprocess.run(command + ['--dry-run'], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(snapshot(), before)
+                result = subprocess.run(command, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(subprocess.run(command + ['--check'], capture_output=True).returncode, 0)
+                for role, variants in config['roles'].items():
+                    profile = module.parse_profile((target / 'agents' / (role.replace('_', '-') + '.md')).read_bytes())
+                    self.assertEqual({key: profile[key] for key in variants[preset]}, variants[preset])
+            legacy = 'version = 1\n' + '\n'.join(f'[roles.{role}]\nmodel = "sonnet"\neffort = "low"' for role in config['roles'])
+            for text in (legacy, source.replace('model = "haiku"', 'model = 3', 1)):
+                config_path.write_text(text)
+                before = snapshot()
+                for flags in ([], ['--check'], ['--dry-run']):
+                    result = subprocess.run(command + flags, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertEqual(snapshot(), before)
 
     def test_apply_models_updates_only_claude_profiles(self):
         self.module()

@@ -24,22 +24,34 @@ class ValidationError(ValueError):
     """Invalid local settings, profile or target path."""
 
 
+PRESETS = ('economy', 'balanced', 'smart')
+
+
+def _validate_role(settings: dict, name: str) -> dict:
+    if not isinstance(settings, dict) or set(settings) != {'model', 'effort'}:
+        raise ValidationError(f'{name}: require model and effort only')
+    model, effort = settings['model'], settings['effort']
+    if not isinstance(model, str) or MODEL.fullmatch(model) is None:
+        raise ValidationError(f'{name}: model must be a nonempty plain model identifier')
+    if not isinstance(effort, str) or effort not in EFFORTS:
+        raise ValidationError(f'{name}: unsupported effort')
+    return dict(settings)
+
+
 def validate_settings(data: dict) -> dict:
-    if not isinstance(data, dict) or set(data) != {'version', 'roles'} or type(data['version']) is not int or data['version'] != 1:
-        raise ValidationError('settings require version = 1 and roles only')
+    if not isinstance(data, dict) or set(data) != {'version', 'preset', 'roles'} or type(data['version']) is not int or data['version'] != 1:
+        raise ValidationError('update to version 1 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
+    if not isinstance(data['preset'], str) or data['preset'] not in PRESETS:
+        raise ValidationError('preset must be economy, balanced or smart')
     roles = data['roles']
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
         raise ValidationError('settings require exactly the five ARC roles')
     result = {}
-    for name, settings in roles.items():
-        if not isinstance(settings, dict) or set(settings) != {'model', 'effort'}:
-            raise ValidationError(f'{name}: require model and effort only')
-        model, effort = settings['model'], settings['effort']
-        if not isinstance(model, str) or MODEL.fullmatch(model) is None:
-            raise ValidationError(f'{name}: model must be a nonempty plain model identifier')
-        if not isinstance(effort, str) or effort not in EFFORTS:
-            raise ValidationError(f'{name}: unsupported effort')
-        result[name] = dict(settings)
+    for name, variants in roles.items():
+        if not isinstance(variants, dict) or set(variants) != set(PRESETS):
+            raise ValidationError(f'{name}: require exactly economy, balanced and smart')
+        validated = {preset: _validate_role(settings, f'{name}.{preset}') for preset, settings in variants.items()}
+        result[name] = validated[data['preset']]
     return result
 
 
@@ -110,9 +122,9 @@ def parse_profile(content: bytes) -> dict:
 
 
 def render_profile(content: bytes, settings: dict) -> bytes:
-    validated = validate_settings({'version': 1, 'roles': {role: dict(settings) for role in ROLE_FILES}})
+    validated = _validate_role(settings, 'profile')
     lines, _, indices = _profile(content)
-    for field, value in validated['arc_coder'].items():
+    for field, value in validated.items():
         index = indices[field]
         newline = '\r\n' if lines[index].endswith('\r\n') else '\n' if lines[index].endswith('\n') else ''
         lines[index] = f'{field}: {value}{newline}'
@@ -120,7 +132,9 @@ def render_profile(content: bytes, settings: dict) -> bytes:
 
 
 def apply_models(settings: dict, agents_dir: Path, *, check: bool = False, dry_run: bool = False) -> list[Path]:
-    settings = validate_settings({'version': 1, 'roles': settings})
+    if not isinstance(settings, dict) or set(settings) != set(ROLE_FILES):
+        raise ValidationError('settings require exactly the five ARC roles')
+    settings = {role: _validate_role(values, role) for role, values in settings.items()}
     plans = []
     for role, filename in ROLE_FILES.items():
         path = agents_dir / filename

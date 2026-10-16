@@ -1,8 +1,8 @@
 ---
 name: arc-scouter
 description: Research evidence and inspect assigned static source
-model: haiku
-effort: high
+model: sonnet
+effort: medium
 tools:
   - Read
   - Grep

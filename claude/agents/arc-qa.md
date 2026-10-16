@@ -1,8 +1,8 @@
 ---
 name: arc-qa
 description: Execute approved focused verification and report evidence
-model: haiku
-effort: high
+model: sonnet
+effort: medium
 tools:
   - Read
   - Grep

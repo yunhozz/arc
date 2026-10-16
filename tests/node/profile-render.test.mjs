@@ -7,7 +7,7 @@ import os from 'node:os';
 const api = await import('../../lib/models/index.mjs').catch(() => ({}));
 const roles = ['scouter', 'planner', 'coder', 'qa', 'reviewer'];
 function profiles(platform, eol = '\n') { return Object.fromEntries(roles.map(role => { const name = `arc-${role}.${platform === 'codex' ? 'toml' : 'md'}`; return [name, Buffer.from(fs.readFileSync(new URL(`../../${platform}/agents/${name}`, import.meta.url), 'utf8').replace(/\r?\n/g, eol))]; })); }
-function settings(platform) { return api.applyPreset(api.loadModelConfig(fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8'), platform), 'smart', fs.readFileSync(new URL(`../../${platform}/skill/presets.toml`, import.meta.url), 'utf8')); }
+function settings(platform) { return api.resolveModelSettings(api.applyPreset(api.loadModelConfig(fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8'), platform), 'smart')); }
 for (const platform of ['codex', 'claude']) for (const eol of ['\n','\r\n']) test(`${platform} renderer preserves non-model bytes with ${JSON.stringify(eol)}`, () => {
   const input = profiles(platform, eol); const config = settings(platform); const result = api.renderProfiles(input, config);
   for (const [name, original] of Object.entries(input)) {
@@ -44,7 +44,7 @@ test('manifest generator protects vendored runtime files and license', t => {
 });
 test('public renderProfiles returns a Map of profile names to buffers', () => {
   const config=api.loadModelConfig(fs.readFileSync(new URL('../../codex/skill/models.toml',import.meta.url),'utf8'),'codex');
-  const rendered=api.renderProfiles(profiles('codex'),config); assert.ok(rendered instanceof Map); assert.ok(Buffer.isBuffer(rendered.get('arc-coder.toml')));
+  const rendered=api.renderProfiles(profiles('codex'),api.resolveModelSettings(config)); assert.ok(rendered instanceof Map); assert.ok(Buffer.isBuffer(rendered.get('arc-coder.toml')));
 });
 for (const platform of ['codex','claude']) test(`${platform} rejects a BOM instead of silently removing non-model bytes`, () => {
   const input=profiles(platform); const name=Object.keys(input)[0]; input[name]=Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),input[name]]);

@@ -2,7 +2,7 @@
 name: arc-planner
 description: Draft scoped designs and implementation plans for CEO
 model: sonnet
-effort: medium
+effort: high
 tools:
   - Read
   - Grep
