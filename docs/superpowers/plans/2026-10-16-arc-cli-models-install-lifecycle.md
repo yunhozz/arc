@@ -131,19 +131,20 @@ T1 → T2 → T3 → T4. T1은 모델 계약, T2는 transaction 수명, T3은 di
 
 **대상 삭제:** bin/arc-install.mjs, bin/arc-uninstall.mjs.
 
-**대상 수정:** package.json, install.command, lib/cli/index.mjs, lib/cli/uninstall.mjs, lib/installer/manifest.mjs, README.md, MANIFEST.sha256, tests/node/package.test.mjs, tests/node/cli.test.mjs, tests/node/cli-dry-run.test.mjs, tests/node/cli-pty.test.mjs, tests/node/uninstall-cli.test.mjs, tests/node/uninstall-pty.test.mjs, tests/node/consumer.test.mjs, tests/node/fixtures/packed-consumer.mjs, tests/node/manifest.test.mjs.
+**대상 수정:** package.json, package-lock.json, install.command, lib/cli/index.mjs, lib/cli/uninstall.mjs, lib/installer/manifest.mjs, README.md, codex/skill/SKILL.md, MANIFEST.sha256, tests/node/package.test.mjs, tests/node/cli.test.mjs, tests/node/cli-dry-run.test.mjs, tests/node/cli-pty.test.mjs, tests/node/uninstall-cli.test.mjs, tests/node/uninstall-pty.test.mjs, tests/node/consumer.test.mjs, tests/node/fixtures/packed-consumer.mjs, tests/node/manifest.test.mjs.
 
 **계약:**
 
 - root help/version/completion은 native loader/installer import 전에 실행하며 install/uninstall은 해당 CLI로 지연 dispatch한다.
 - completion renderer는 zsh/bash script만 출력한다. 완료 실행은 install·network·native runtime 부작용이 없어야 한다.
+- package.json과 package-lock.json의 공개 bin은 `{ "arc": "bin/arc.mjs" }`로 일치해야 한다. README와 Codex skill의 npx 설치 예시는 `arc install` 하위 명령을 포함하며, packed root dispatcher가 그 인수를 실제 install CLI로 전달한다.
 - .zshrc 관리 block의 바깥 bytes와 newline을 보존한다. 재설치는 멱등적이다. 중복/역순 marker, symlink, permission, drift는 변경 전에 실패한다.
 - 설치 시 공용 .zshrc 변경은 첫 plan에 한 번만 붙인다. target overlap 검사 완화 금지.
 - --skip-global/check/dry-run은 .zshrc를 변경하지 않는다. uninstall은 공용 completion block을 유지한다.
 
 **구현 및 확인 순서:**
 
-1. root 명령, 종료 코드, 인수 전달, package bin 하나, 위치별 completion 후보를 검사한다. arc의 root 후보는 install/uninstall/completion, target은 claude/codex/all, preset은 economy/balanced/smart, completion shell은 zsh/bash다.
+1. root 명령, 종료 코드, 인수 전달, package와 lockfile의 단일 bin, 위치별 completion 후보를 검사한다. README/Codex skill npx 설치 예시에 `install`이 포함되고, packed root에 `install --target codex --preset balanced --check`를 전달하면 성공하며 구형 flags-only 호출은 exit 2인지 확인한다. arc의 root 후보는 install/uninstall/completion, target은 claude/codex/all, preset은 economy/balanced/smart, completion shell은 zsh/bash다.
 2. .zshrc 없음, 사용자 내용, CRLF, 마지막 newline 부재, 재설치, marker 오류, symlink, 권한, drift를 검사한다. all target은 단일 변경이어야 한다.
 3. 신규 계약의 RED를 확인한다.
 
