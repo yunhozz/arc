@@ -3,7 +3,7 @@ import {openRoot} from '../../lib/safe-fs/index.mjs'; import {loadNative} from '
 const api=await import('../../lib/installer/manifest.mjs').catch(()=>({}));
 const native=loadNative({artifactDirectory:'build/native'}); const safeFs={openRoot:p=>openRoot(p,{native})};
 const source=new URL('../../',import.meta.url).pathname;
-function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','package.json','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});fs.mkdirSync(`${root}/bin`);fs.writeFileSync(`${root}/bin/arc-install.mjs`,'// entrypoint\n');fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
+function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','package.json','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});fs.mkdirSync(`${root}/bin`);fs.writeFileSync(`${root}/bin/arc.mjs`,'// entrypoint\n');fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
 function refresh(root){const r=spawnSync(process.execPath,[`${source}/scripts/update-manifest.mjs`,'--root',root],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);}
 function verify(root){return api.verifyPayload({packageRoot:root,safeFs});}
 test('descriptor-verifies bytes and mutable model inputs',t=>{const root=fixture(t);assert.equal(typeof api.verifyPayload,'function');const p=verify(root);assert.ok(p.files instanceof Map);assert.deepEqual(p.modelInputs.codex.models,fs.readFileSync(`${root}/codex/skill/models.toml`));assert.equal(p.modelInputs.claude.profiles.size,5);});
@@ -18,7 +18,7 @@ for(const [label,change] of [
  ['mutable model listed',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  codex/skill/models.toml\n`)],
  ['invalid mutable model',r=>fs.writeFileSync(`${r}/claude/skill/models.toml`,'version = 99')],
  ['unsafe mutable exception',r=>fs.writeFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n').filter(l=>!l.endsWith('  codex/skill/scripts/model_config.py')).join('\n'))],
- ['missing runtime asset',r=>{fs.unlinkSync(`${r}/bin/arc-install.mjs`);refresh(r);}],
+ ['missing runtime asset',r=>{fs.unlinkSync(`${r}/bin/arc.mjs`);refresh(r);}],
  ['missing installer module',r=>{fs.unlinkSync(`${r}/lib/installer/plan.mjs`);refresh(r);} ],
  ['special payload file',r=>{fs.unlinkSync(`${r}/README.md`);assert.equal(spawnSync('mkfifo',[`${r}/README.md`]).status,0);}],
  ['DS_Store directory',r=>{fs.rmSync(`${r}/codex/skill/.DS_Store`,{force:true});fs.mkdirSync(`${r}/codex/skill/.DS_Store`);}],

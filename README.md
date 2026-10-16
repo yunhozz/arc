@@ -65,24 +65,24 @@ Supported environments are macOS 13 or later (arm64/x64) and Linux with glibc 2.
 Run without a repository checkout, install the command globally with npm, or use the shell entry point at the repository root.
 
 ```sh
-npx --yes github:yunhozz/arc
-npx --yes github:yunhozz/arc --target codex --preset balanced
+npx --yes github:yunhozz/arc install
+npx --yes github:yunhozz/arc install --target codex --preset balanced
 ./install.command
 ./install.command --target claude --preset smart
 ./install.command --target all --preset economy
 ```
 
-Alternatively, install the `arc-install` command globally with npm (Node.js 22 or later), then run it. The flags are the same as above.
+Alternatively, install the `arc install` command globally with npm (Node.js 22 or later), then run it. The flags are the same as above.
 
 ```sh
 npm i -g github:yunhozz/arc
-arc-install
-arc-install --target codex --preset balanced
-arc-install --target all --preset smart --check
-arc-install --target claude --preset economy --dry-run
+arc install
+arc install --target codex --preset balanced
+arc install --target all --preset smart --check
+arc install --target claude --preset economy --dry-run
 ```
 
-`arc-install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Run without flags in a terminal, it prompts interactively as described below.
+`arc install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Run without flags in a terminal, it prompts interactively as described below.
 
 An interactive run, when stdin and stdout are both TTYs, asks only for the missing values, in English. Use Up/Down to move the selection and Enter to confirm; navigation wraps at either end. The first prompt is `Select an installation target:` with `Claude`, `Codex`, and `All`; Claude is initially selected. The next is `Select a performance preset:` with `Economy`, `Balanced`, and `Smart`; Balanced is initially selected, so Enter applies Balanced. There is no separate confirmation prompt. A non-interactive run must pass both `--target` and `--preset`.
 
@@ -109,10 +109,10 @@ The installer fetches the external skills `brainstorming`, `writing-plans`, and 
 ### Remove ARC
 
 ```sh
-arc-uninstall
-arc-uninstall --target codex
-arc-uninstall --target all --dry-run
-arc-uninstall --target claude --skip-global
+arc uninstall
+arc uninstall --target codex
+arc uninstall --target all --dry-run
+arc uninstall --target claude --skip-global
 ```
 
 With no target, a TTY menu offers **Claude**, **Codex**, **All** in that order; Claude is initially selected. Use Up/Down (wrapping) and Enter. No preset is requested. An explicit `--target` skips the menu; non-interactive execution requires it. EOF or Ctrl-C cancels with exit code 130. `--preset` is not accepted. `--help` and `--version` need no native binary or target selection.
@@ -185,3 +185,11 @@ python3 ~/.codex/skills/arc/scripts/apply-models.py
 - Codex: [Planning](codex/skill/references/planning.md) · [Handoff](codex/skill/references/handoff.md) · [Verification](codex/skill/references/verification.md)
 - Claude Code: [Planning](claude/skill/references/planning.md) · [Handoff](claude/skill/references/handoff.md) · [Verification](claude/skill/references/verification.md)
 - Optional tool (not installed): per-role Codex token usage report `python3 codex/tools/codex_token_usage.py --since YYYY-MM-DD`
+
+### Shell completion
+
+The public executable is now `arc`; use `arc install` and `arc uninstall` in place of the old commands. `arc completion zsh` and `arc completion bash` print completion scripts.
+
+Installation registers a managed block in `~/.zshrc`. It activates in a new zsh session. To activate it now, run `eval "$(arc completion zsh)"`. For bash, add `eval "$(arc completion bash)"` to your bash startup file.
+
+`arc <Tab>` offers subcommands; subsequent positions offer command options, targets, presets, and shells. `--skip-global` skips shell registration; check and dry-run leave the file unchanged. Uninstall retains the shared completion block.

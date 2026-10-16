@@ -22,14 +22,14 @@ test('real PTY selects Codex with Down and Balanced with Enter',async t=>{
  const driver=process.platform==='darwin'?'expect':'script';
  const command=process.platform==='darwin'?['-c',`set timeout 5
 expect_before timeout {exit 124}
-spawn -noecho {${process.execPath}} bin/arc-install.mjs --check
+spawn -noecho {${process.execPath}} bin/arc.mjs install --check
 expect -exact {Use Up/Down and Enter.}
 send -- "\\033\\133B\\r"
 expect -exact {Select a performance preset:}
 send -- "\\r"
 expect eof
 set result [wait]
-exit [lindex $result 3]`]:['-qec',`${process.execPath} bin/arc-install.mjs --check`,'/dev/null'];
+exit [lindex $result 3]`]:['-qec',`${process.execPath} bin/arc.mjs install --check`,'/dev/null'];
  const child=spawn(driver,command,{env:{...process.env,HOME:home,CODEX_HOME:home+'/.codex',CLAUDE_CONFIG_DIR:home+'/.claude'},stdio:['pipe','pipe','pipe']});let text='',stage=0;const timer=setTimeout(()=>child.kill('SIGKILL'),15000);t.after(()=>clearTimeout(timer));child.stdout.on('data',chunk=>{text+=chunk;if(driver==='expect')return;if(stage===0&&text.includes('Use Up/Down and Enter.')){stage++;child.stdin.write('\x1b[B\r');}else if(stage===1&&text.includes('Select a performance preset:')){stage++;child.stdin.write('\r');}});child.stderr.on('data',chunk=>{text+=chunk;});const status=await new Promise(resolve=>child.on('close',resolve));assert.equal(status,0,text);assert.match(text,/Target: codex; preset: balanced/);assert.match(text,/Check completed/);assert.deepEqual(fs.readdirSync(home),[]);
 });
 test('interactive EOF returns cancellation exit code',async()=>{const {runCli}=await import('../../lib/cli/index.mjs');const io=terminal([]);assert.equal(await runCli([],{...io,error:io.output}),130);assert.match(io.text(),/Installation cancelled/);});
