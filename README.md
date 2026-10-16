@@ -1,6 +1,6 @@
 # ARC (Agent Role Coordination)
 
-ARC splits research, design, implementation, and verification across roles in Codex and Claude Code. The CEO judges and coordinates the work, then accepts the result.
+ARC coordinates research, design, implementation, and verification in Codex and Claude Code. The CEO assigns the work and accepts the result.
 
 ![Task flow diagram](docs/images/role-flow.svg)
 
@@ -24,7 +24,7 @@ ARC splits research, design, implementation, and verification across roles in Co
 
 ## 🧭 Task flow
 
-The CEO judges a request on two separate axes: **design depth** and **risk**. Design depth sets the approval steps before execution; risk sets the verification strength after execution.
+The CEO assesses **design depth** to set approval steps and **risk** to set verification strength.
 
 ### Design depth
 
@@ -62,17 +62,7 @@ The two axes are independent. Architectural does not add QA or Reviewer at every
 
 Supported environments are macOS 13 or later (arm64/x64) and Linux with glibc 2.28 or later (arm64/x64). Windows and musl Linux are not supported. An unsupported environment, or a missing or tampered native file, fails before any file is changed.
 
-Run without a repository checkout, install the command globally with npm, or use the shell entry point at the repository root.
-
-```sh
-npx --yes github:yunhozz/arc install
-npx --yes github:yunhozz/arc install --target codex --preset balanced
-./install.command
-./install.command --target claude --preset smart
-./install.command --target all --preset economy
-```
-
-Alternatively, install the `arc install` command globally with npm (Node.js 22 or later), then run it. The flags are the same as above.
+Install the `arc` command globally, then apply ARC settings with `arc install`:
 
 ```sh
 npm i -g github:yunhozz/arc
@@ -82,9 +72,21 @@ arc install --target all --preset smart --check
 arc install --target claude --preset economy --dry-run
 ```
 
-`arc install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Run without flags in a terminal, it prompts interactively as described below.
+Global npm installation makes the CLI available and registers zsh completion when supported (see [Shell completion](#shell-completion)). `arc install` installs the selected role profiles, skills, and settings.
 
-An interactive run, when stdin and stdout are both TTYs, asks only for the missing values, in English. Use Up/Down to move the selection and Enter to confirm; navigation wraps at either end. The first prompt is `Select an installation target:` with `Claude`, `Codex`, and `All`; Claude is initially selected. The next is `Select a performance preset:` with `Economy`, `Balanced`, and `Smart`; Balanced is initially selected, so Enter applies Balanced. There is no separate confirmation prompt. After the final choice, a spinner shows `Installing ARC…` while installation is in progress. Check and dry-run show `Checking ARC…` and `Preparing ARC dry run…`; non-interactive output prints the status once without animation. A non-interactive run must pass both `--target` and `--preset`.
+To apply ARC without installing a global command, use `npx`. From a repository checkout, use `install.command`; both accept the same installation flags.
+
+```sh
+npx --yes github:yunhozz/arc install
+npx --yes github:yunhozz/arc install --target codex --preset balanced
+./install.command
+./install.command --target claude --preset smart
+./install.command --target all --preset economy
+```
+
+`arc install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Without flags in a terminal, it prompts for the missing choices.
+
+Interactive runs require both stdin and stdout to be TTYs. English menus ask for missing values: target (`Claude`, `Codex`, `All`; default Claude), then preset (`Economy`, `Balanced`, `Smart`; default Balanced). Use Up/Down to move, wrapping at either end, and Enter to select. There is no additional confirmation. After the final choice, a spinner shows `Installing ARC…` while installation is in progress. Check and dry-run show `Checking ARC…` and `Preparing ARC dry run…`; non-interactive output prints the status once without animation. A non-interactive run must pass both `--target` and `--preset`.
 
 `All` runs both preflight checks, then installs Codex and Claude independently in that order. If Claude fails after Codex succeeds, the Codex success is kept and only Claude is rolled back. Check the printed per-platform status and any `Residual path:` lines, then rerun only the failed target with the same preset.
 
@@ -134,7 +136,7 @@ All selected targets are inspected before removal. Each target has its own trans
 - **`models.toml`:** reinstalling updates the settings and the five role profiles together with the selected Economy/Balanced/Smart preset (reinstallation replaces local model edits).
 - **Temporary stages:** transaction-owned private `0700` `.arc-stage-*` directories live beside managed targets during installation or removal. Normal success and completed rollback delete the known staged items and stages through held directory handles, checking identity and snapshots without following links. Unknown entries, unsafe types, metadata/content drift, or replaced namespaces are preserved and reported with `Residual path:` and an error. A cleanup failure after publication keeps the installed/removed state and exits unsuccessfully; it does not roll back after original deletion starts. Old backups, recovery paths and stale stages are never automatically moved or removed. Forced termination, power loss or filesystem errors can leave stages requiring manual inspection. Paths under a replaced parent are last-known locations. Concurrent install or uninstall against the same target is unsupported.
 
-`--skip-global` leaves the global instructions and the Codex `config.toml` untouched.
+`arc install --skip-global` skips global instructions, Codex `config.toml`, and `.zshrc` access for that invocation. It does not undo completion registered by npm.
 
 ### Manual setup with `--skip-global`
 
@@ -164,7 +166,7 @@ Per-role models and reasoning effort live in `models.toml` for [Codex](codex/ski
 
 Legacy Codex version 5 and Claude role-only version 1 files are rejected by the manual tool before any profile is changed. Reinstall ARC or rewrite the file using the unified schema; reinstallation replaces local model edits.
 
-Only if you edit an installed `models.toml` by hand can you apply it to the role profiles with the optional tool `apply-models.py` (shipped at `claude/skill/scripts/` and `codex/skill/scripts/`, and installed under `~/.claude/skills/arc/scripts/` and `~/.codex/skills/arc/scripts/`). This manual tool needs Python 3.11 or later and is not a dependency of the npm install or preset application. The old `python3 install.py` entry point has been removed.
+After editing an installed `models.toml`, apply it to the role profiles with the optional `apply-models.py` tool (shipped at `claude/skill/scripts/` and `codex/skill/scripts/`, and installed under `~/.claude/skills/arc/scripts/` and `~/.codex/skills/arc/scripts/`). This manual tool needs Python 3.11 or later and is not a dependency of the npm install or preset application. The old `python3 install.py` entry point has been removed.
 
 ```sh
 python3 ~/.claude/skills/arc/scripts/apply-models.py
@@ -174,7 +176,7 @@ python3 ~/.codex/skills/arc/scripts/apply-models.py
 ## 🧑‍💻 Development
 
 - When you change a distributed file, update `MANIFEST.sha256` (`models.toml` is excluded).
-- Node tests: `npm ci --ignore-scripts`, prepare the verified native test fixture for your host, then `npm test`.
+- Install local development dependencies with `npm ci --ignore-scripts`; this does not install the global CLI or apply ARC settings. Prepare the verified native test fixture for your host, then run `npm test`.
 - Maintenance Python regression tests: `python3 -B -m unittest discover -s tests` (for the optional tool, policy, and payload checks).
 - Parity check: `node scripts/check-installer-parity.mjs --complete`; manifest check: `node scripts/update-manifest.mjs --check`.
 - Isolated check against real upstream: `node tests/node/live-upstream.mjs`. A network failure is reported as an unverified result. The regular `npm test` replaces only the external npx with a deterministic fixture.
@@ -188,8 +190,26 @@ python3 ~/.codex/skills/arc/scripts/apply-models.py
 
 ### Shell completion
 
-The public executable is now `arc`; use `arc install` and `arc uninstall` in place of the old commands. `arc completion zsh` and `arc completion bash` print completion scripts.
+`arc <Tab>` offers `install`, `uninstall`, and `completion`. Later positions offer options, targets, presets, and shells. `arc completion zsh` and `arc completion bash` print the scripts.
 
-Installation registers a managed block in `~/.zshrc`. It activates in a new zsh session. To activate it now, run `eval "$(arc completion zsh)"`. For bash, add `eval "$(arc completion bash)"` to your bash startup file.
+Global npm installation automatically adds the ARC managed block to `~/.zshrc` only when all of these conditions hold:
 
-`arc <Tab>` offers subcommands; subsequent positions offer command options, targets, presets, and shells. `--skip-global` skips shell registration; check and dry-run leave the file unchanged. Uninstall retains the shared completion block.
+- The package is at npm's final global install location on macOS or Linux.
+- An identifiable, ordinary user runs zsh (`SHELL` names zsh), and `ZDOTDIR` is unset or points to that user's home.
+- The bundled native runtime is available and the startup file passes safety checks.
+
+Local dependency installs, development installs, npx temporary installs, and Git preparation checkouts do not access home startup files. Automatic registration is skipped for other or unknown shells, a separate `ZDOTDIR`, root/elevated or unknown users, and unsupported runtimes. `--ignore-scripts` or npm script policy prevents the hook from running.
+
+Completion starts in a **new interactive zsh session** that reads its startup files and can find `arc` on PATH. Activate it in the current session with:
+
+```zsh
+eval "$(arc completion zsh)"
+```
+
+For manual permanent activation, add that command to the startup file your zsh actually reads. For bash, add `eval "$(arc completion bash)"` to your bash startup file.
+
+Registration uses the same managed block as `arc install`. Reinstallation keeps one block and preserves outside bytes, BOM, line endings, and existing file mode. Invalid UTF-8, malformed markers, symlinks, unsafe types, insufficient permissions, and concurrent changes prevent unsafe writes. The transaction and temporary-stage rules above apply; no persistent backup or recovery files are created.
+
+Completion registration failure does not fail npm installation. The hook reports registration, skip, or failure and manual activation guidance, but npm may hide this output. To see diagnostics, use `npm i -g --foreground-scripts github:yunhozz/arc`. Any reported `Residual path:` requires attention.
+
+`arc install --skip-global` skips `.zshrc` access only for that invocation; it does not undo the npm hook. `--check` and `--dry-run` leave startup files unchanged. `arc uninstall` and `npm uninstall -g arc-harness` retain the shared managed block. There is no npm removal hook; the managed block checks that `arc` exists before loading completion.
