@@ -1,21 +1,64 @@
+# Single source for all role model and effort presets.
+# Use configured settings without substitution; report unavailable settings.
 version = 1
+preset = "balanced"
 
-[roles.arc_scouter]
+[roles.arc_scouter.economy]
 model = "haiku"
 effort = "high"
 
-[roles.arc_planner]
+[roles.arc_scouter.balanced]
 model = "sonnet"
 effort = "medium"
 
-[roles.arc_coder]
+[roles.arc_scouter.smart]
+model = "sonnet"
+effort = "high"
+
+[roles.arc_planner.economy]
+model = "sonnet"
+effort = "medium"
+
+[roles.arc_planner.balanced]
+model = "sonnet"
+effort = "high"
+
+[roles.arc_planner.smart]
+model = "opus"
+effort = "high"
+
+[roles.arc_coder.economy]
 model = "sonnet"
 effort = "low"
 
-[roles.arc_qa]
+[roles.arc_coder.balanced]
+model = "sonnet"
+effort = "medium"
+
+[roles.arc_coder.smart]
+model = "opus"
+effort = "high"
+
+[roles.arc_qa.economy]
 model = "haiku"
 effort = "high"
 
-[roles.arc_reviewer]
+[roles.arc_qa.balanced]
 model = "sonnet"
 effort = "medium"
+
+[roles.arc_qa.smart]
+model = "sonnet"
+effort = "high"
+
+[roles.arc_reviewer.economy]
+model = "sonnet"
+effort = "medium"
+
+[roles.arc_reviewer.balanced]
+model = "sonnet"
+effort = "high"
+
+[roles.arc_reviewer.smart]
+model = "opus"
+effort = "high"

@@ -37,12 +37,21 @@ FIVE_SETTINGS = {
     "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }
 
-def settings_bytes(roles: dict, version=5) -> bytes:
+BALANCED_SETTINGS = {
+    role: {"model": "gpt-6.1-sol", "model_reasoning_effort": "high" if role in ("arc_planner", "arc_reviewer") else "medium"}
+    for role in FIVE_SETTINGS
+}
+
+def settings_bytes(roles: dict, version=1, *, legacy=False) -> bytes:
     lines = [f"version = {json.dumps(version)}"]
+    if not legacy:
+        lines.append('preset = "economy"')
     for role, fields in roles.items():
-        lines.append(f"[roles.{role}]")
-        for key, value in fields.items():
-            lines.append(f"{key} = {json.dumps(value)}")
+        for preset in ((None,) if legacy else ('economy', 'balanced', 'smart')):
+            lines.append(f"[roles.{role}" + (f".{preset}]" if preset else "]"))
+            if isinstance(fields, dict):
+                for key, value in fields.items():
+                    lines.append(f"{key} = {json.dumps(value)}")
     return ("\n".join(lines) + "\n").encode()
 
 class ModelSettingsTests(unittest.TestCase):
@@ -52,7 +61,7 @@ class ModelSettingsTests(unittest.TestCase):
         self.config = Path(temporary.name) / "models.toml"
         self.module = load_model_module()
 
-    def load(self, roles: dict, version=5):
+    def load(self, roles: dict, version=1):
         self.config.write_bytes(settings_bytes(roles, version))
         return self.module.load_settings(self.config)
 
@@ -63,20 +72,34 @@ class ModelSettingsTests(unittest.TestCase):
             self.fail(f"standard five-role settings must be accepted: {exc}")
         self.assertEqual(settings, FIVE_SETTINGS)
         self.assertEqual(set(self.module.ROLE_FILES), set(FIVE_SETTINGS))
-        self.assertEqual(self.module.load_settings(REPO / "codex/skill/models.toml"), FIVE_SETTINGS)
+        self.assertEqual(self.module.load_settings(REPO / "codex/skill/models.toml"), BALANCED_SETTINGS)
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
         for roles in ({**FIVE_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
                       {role: fields for role, fields in FIVE_SETTINGS.items() if role != "arc_coder"}):
             with self.subTest(roles=roles), self.assertRaises(self.module.ValidationError):
                 self.load(roles)
-        for version in (1, 2, 3, 4, True, "5"):
+        for version in (2, 3, 4, 5, True, "1"):
             with self.subTest(version=version), self.assertRaises(self.module.ValidationError):
                 self.load(FIVE_SETTINGS, version)
         for content in (b'version = 4\nroles = "invalid"\n', b'version = 4\n[roles', b'roles = {}\n'):
             self.config.write_bytes(content)
             with self.subTest(content=content), self.assertRaises(self.module.ValidationError):
                 self.module.load_settings(self.config)
+
+    def test_unified_presets_and_legacy_rejection(self):
+        source = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
+        for preset in ('economy', 'balanced', 'smart'):
+            source['preset'] = preset
+            self.config.write_bytes(self.module.serialize_settings(source))
+            self.assertEqual(self.module.load_settings(self.config), {role: variants[preset] for role, variants in source['roles'].items()})
+        for version in (1, 5):
+            self.config.write_bytes(settings_bytes(FIVE_SETTINGS, version, legacy=True))
+            with self.assertRaisesRegex(self.module.ValidationError, 'reinstall'):
+                self.module.load_settings(self.config)
+        source['roles']['arc_coder']['economy']['model'] = 5
+        with self.assertRaises(self.module.ValidationError):
+            self.module.validate_config(source, self.config)
 
     def test_model_profile_sets_match_five_roles(self) -> None:
         filenames = {f"{role.replace('_', '-')}.toml" for role in FIVE_SETTINGS}
@@ -88,10 +111,10 @@ class ModelSettingsTests(unittest.TestCase):
         try:
             loaded = self.load(FIVE_SETTINGS)
         except self.module.ValidationError as exc:
-            self.fail(f"version 5 settings must be accepted: {exc}")
+            self.fail(f"unified version 1 settings must be accepted: {exc}")
         self.assertEqual(loaded, FIVE_SETTINGS)
-        serialized = self.module.serialize_settings(loaded)
-        self.assertEqual(tomllib.loads(serialized.decode())["version"], 5)
+        serialized = self.module.serialize_settings(tomllib.loads(self.config.read_text()))
+        self.assertEqual(tomllib.loads(serialized.decode())["version"], 1)
         self.config.write_bytes(serialized)
         self.assertEqual(self.module.load_settings(self.config), FIVE_SETTINGS)
 
@@ -99,7 +122,7 @@ class ModelSettingsTests(unittest.TestCase):
         legacy_prefix = "_".join(("yunho", "team"))
         legacy_roles = {legacy_prefix + role.removeprefix("arc"): fields
                         for role, fields in FIVE_SETTINGS.items()}
-        for version, roles in ((1, FIVE_SETTINGS), (2, FIVE_SETTINGS), (3, legacy_roles),
+        for version, roles in ((5, FIVE_SETTINGS), (2, FIVE_SETTINGS), (3, legacy_roles),
                                (True, FIVE_SETTINGS), (4, legacy_roles)):
             with self.subTest(version=version):
                 original = settings_bytes(roles, version)
@@ -127,8 +150,8 @@ class ModelSettingsTests(unittest.TestCase):
             with self.assertRaises(self.module.ValidationError):
                 self.module.load_settings(self.config)
             self.assertEqual(self.config.read_bytes(), original)
-        for version in (1, 2, 3, 4):
-            with self.assertRaisesRegex(self.module.ValidationError, "update.*version 5"):
+        for version in (2, 3, 4, 5):
+            with self.assertRaisesRegex(self.module.ValidationError, "update.*version 1"):
                 self.load(FIVE_SETTINGS, version)
 
     def test_naming_profile_identity_and_mapping(self) -> None:
@@ -237,11 +260,34 @@ class ApplyModelsTests(unittest.TestCase):
         self.assertEqual(self.cli().returncode, 0)
         self.assertEqual(self.cli("--check").returncode, 0)
         self.assertEqual(self.config.read_bytes(), config_before)
-        for version in (1, 2, 3, 4):
+        for version in (2, 3, 4, 5):
             self.config.write_bytes(settings_bytes(FIVE_SETTINGS, version))
             before = tree_state(self.base)
             self.assertEqual(self.cli().returncode, 2)
             self.assertEqual(tree_state(self.base), before)
+
+    def test_all_presets_apply_check_dry_run_and_invalid_input_without_writes(self):
+        source = (REPO / 'codex/skill/models.toml').read_text()
+        config = tomllib.loads(source)
+        for preset in ('economy', 'balanced', 'smart'):
+            self.fixture()
+            self.config.write_text(source.replace('preset = "balanced"', f'preset = "{preset}"'))
+            before = tree_state(self.base)
+            self.assertEqual(self.cli('--dry-run').returncode, 0)
+            self.assertEqual(tree_state(self.base), before)
+            result = self.cli()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(self.cli('--check').returncode, 0)
+            for role, variants in config['roles'].items():
+                profile = tomllib.loads((self.agents / (role.replace('_', '-') + '.toml')).read_text())
+                self.assertEqual({key: profile[key] for key in variants[preset]}, variants[preset])
+        for text in (settings_bytes(FIVE_SETTINGS, legacy=True).decode(), settings_bytes(FIVE_SETTINGS, 5, legacy=True).decode(),
+                     source.replace('model = "gpt-6-luna"', 'model = 3', 1)):
+            self.config.write_text(text)
+            before = tree_state(self.base)
+            for flags in ((), ('--check',), ('--dry-run',)):
+                self.assertEqual(self.cli(*flags).returncode, 2)
+                self.assertEqual(tree_state(self.base), before)
 
     def test_naming_apply_models_failure_restores_profiles(self) -> None:
         self.fixture()

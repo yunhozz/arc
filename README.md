@@ -65,28 +65,28 @@ Supported environments are macOS 13 or later (arm64/x64) and Linux with glibc 2.
 Run without a repository checkout, install the command globally with npm, or use the shell entry point at the repository root.
 
 ```sh
-npx --yes github:yunhozz/arc
-npx --yes github:yunhozz/arc --target codex --preset balanced
+npx --yes github:yunhozz/arc install
+npx --yes github:yunhozz/arc install --target codex --preset balanced
 ./install.command
 ./install.command --target claude --preset smart
 ./install.command --target all --preset economy
 ```
 
-Alternatively, install the `arc-install` command globally with npm (Node.js 22 or later), then run it. The flags are the same as above.
+Alternatively, install the `arc install` command globally with npm (Node.js 22 or later), then run it. The flags are the same as above.
 
 ```sh
 npm i -g github:yunhozz/arc
-arc-install
-arc-install --target codex --preset balanced
-arc-install --target all --preset smart --check
-arc-install --target claude --preset economy --dry-run
+arc install
+arc install --target codex --preset balanced
+arc install --target all --preset smart --check
+arc install --target claude --preset economy --dry-run
 ```
 
-`arc-install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Run without flags in a terminal, it prompts interactively as described below.
+`arc install` accepts `--target <claude|codex|all>`, `--preset <economy|balanced|smart>`, `--check` or `--dry-run`, `--skip-global`, `--help`, and `--version`. Run without flags in a terminal, it prompts interactively as described below.
 
-An interactive run, when stdin and stdout are both TTYs, asks only for the missing values, in English. Use Up/Down to move the selection and Enter to confirm; navigation wraps at either end. The first prompt is `Select an installation target:` with `Claude`, `Codex`, and `All`; Claude is initially selected. The next is `Select a performance preset:` with `Economy`, `Balanced`, and `Smart`; Balanced is initially selected, so Enter applies Balanced. There is no separate confirmation prompt. A non-interactive run must pass both `--target` and `--preset`.
+An interactive run, when stdin and stdout are both TTYs, asks only for the missing values, in English. Use Up/Down to move the selection and Enter to confirm; navigation wraps at either end. The first prompt is `Select an installation target:` with `Claude`, `Codex`, and `All`; Claude is initially selected. The next is `Select a performance preset:` with `Economy`, `Balanced`, and `Smart`; Balanced is initially selected, so Enter applies Balanced. There is no separate confirmation prompt. After the final choice, a spinner shows `Installing ARC…` while installation is in progress. Check and dry-run show `Checking ARC…` and `Preparing ARC dry run…`; non-interactive output prints the status once without animation. A non-interactive run must pass both `--target` and `--preset`.
 
-`All` runs both preflight checks, then installs Codex and Claude independently in that order. If Claude fails after Codex succeeds, the Codex success is kept and only Claude is recovered. Check the printed per-platform status and the `Backup:`/`Recovery:` paths, then rerun only the failed target with the same preset.
+`All` runs both preflight checks, then installs Codex and Claude independently in that order. If Claude fails after Codex succeeds, the Codex success is kept and only Claude is rolled back. Check the printed per-platform status and any `Residual path:` lines, then rerun only the failed target with the same preset.
 
 | Target | Install location |
 |---|---|
@@ -109,30 +109,30 @@ The installer fetches the external skills `brainstorming`, `writing-plans`, and 
 ### Remove ARC
 
 ```sh
-arc-uninstall
-arc-uninstall --target codex
-arc-uninstall --target all --dry-run
-arc-uninstall --target claude --skip-global
+arc uninstall
+arc uninstall --target codex
+arc uninstall --target all --dry-run
+arc uninstall --target claude --skip-global
 ```
 
 With no target, a TTY menu offers **Claude**, **Codex**, **All** in that order; Claude is initially selected. Use Up/Down (wrapping) and Enter. No preset is requested. An explicit `--target` skips the menu; non-interactive execution requires it. EOF or Ctrl-C cancels with exit code 130. `--preset` is not accepted. `--help` and `--version` need no native binary or target selection.
 
-Uninstall removes only the selected target's `skills/arc` directory, its five `agents/arc-{scouter,planner,coder,qa,reviewer}` role files (`.toml` for Codex, `.md` for Claude), and the unique well-formed ARC marker block in `AGENTS.md` or `CLAUDE.md`. Edited ARC files are included and their exact bytes are backed up under `<target>/backups/arc-<UUID>/` before removal. The global file remains present, even if empty; bytes outside the block, including BOM and line endings, are preserved. Unmarked global files remain unchanged. `--skip-global` does not access the global instruction file.
+Uninstall removes only the selected target's `skills/arc` directory, its five `agents/arc-{scouter,planner,coder,qa,reviewer}` role files (`.toml` for Codex, `.md` for Claude), and the unique well-formed ARC marker block in `AGENTS.md` or `CLAUDE.md`. Edited ARC files are included. Previous bytes are held only in transaction-owned temporary stages until removal commits, then deleted; no persistent backup is created. The global file remains present, even if empty; bytes outside the block, including BOM and line endings, are preserved. Unmarked global files remain unchanged. `--skip-global` does not access the global instruction file.
 
-Shared skills, `.agents/skills`, other profiles, old backups/recovery, and Codex `config.toml` wait settings are preserved. Wait settings cannot be automatically restored because no previous-value record exists. Custom `CODEX_HOME` is respected. Unsafe types, symlinks (including within the ARC tree), and malformed, duplicate, or reversed markers fail before removal. Missing ARC entries are successful no-ops and create no empty backup.
+Shared skills, `.agents/skills`, other profiles, old backups/recovery, and Codex `config.toml` wait settings are preserved. Wait settings cannot be automatically restored because no previous-value record exists. Custom `CODEX_HOME` is respected. Unsafe types, symlinks (including within the ARC tree), and malformed, duplicate, or reversed markers fail before removal. Missing ARC entries are successful no-ops.
 
-All selected targets are inspected before removal. Each target has its own transaction: an earlier success remains committed if a later target fails. Output reports each target's status, rollback, `Backup:` and `Recovery:` paths. Failure exits 1, including cross-target overlap rejected during selected-set preflight and reported as per-target failures. Input/runtime errors and single-target configuration errors that abort during plan construction exit 2. Rollback never overwrites a newly created user entry; preserve reported recovery material if rollback conflicts. A changing uninstall reuses the stage recovery rules below; `--dry-run` reads only and performs no backup, recovery, or removal. Uninstall performs no preset processing, acquisition, npx, or network access. Concurrent install, uninstall, or recovery against the same target is unsupported.
+All selected targets are inspected before removal. Each target has its own transaction: an earlier success remains committed if a later target fails. Output reports each target's status, rollback, and any `Residual path:` requiring attention. Failure exits 1, including cross-target overlap rejected during selected-set preflight and reported as per-target failures. Input/runtime errors and single-target configuration errors that abort during plan construction exit 2. Rollback never overwrites a newly created user entry; preserve reported residual material if rollback conflicts. A changing uninstall uses the stage cleanup rules below; `--dry-run` reads only and performs no cleanup or removal. Uninstall performs no preset processing, acquisition, npx, or network access. Concurrent install or uninstall against the same target is unsupported.
 
 ### What the install changes
 
 - **Global instructions:** adds or updates a managed block between `arc:begin`/`arc:end` markers at the end of `AGENTS.md` (Codex) or `CLAUDE.md` (Claude). Content outside the markers is left as is. Older descriptive managed markers are not migrated automatically and are rejected before any write.
 - **Codex `config.toml`:** sets only `min_wait_timeout_ms = 120000` and `default_wait_timeout_ms = 300000` under `[features.multi_agent_v2]`. If that entry is not its own table, nothing is modified and manual setup instructions are printed.
-- **Backups:** existing managed files are backed up to `<home>/backups/arc-<UUID>/` before being updated (`<home>` is `~/.codex` or `~/.claude`). On a fresh install the backup folder may be empty.
-- **Codex external skills:** existing copies under `~/.agents/skills/<skill>` are backed up and then updated. User profiles that are not install targets are not changed.
+- **Previous files:** installation and removal create no persistent backup or recovery files. Reinstall replaces local edits to managed files, including model settings. Previous originals are retained only during the transaction for rollback and deleted after publication succeeds.
+- **Codex external skills:** existing copies under `~/.agents/skills/<skill>` are install targets replaced with verified upstream copies. Previous originals are held only in the private transaction stage for rollback and deleted after publication succeeds. Any reported `Residual path:` requires manual attention. User profiles that are not install targets are not changed.
 - **Claude path:** a `CLAUDE_CONFIG_DIR` that is non-default, empty, or relative is rejected. Use `~/.claude`.
-- **Claude external skill links:** if all three external skills are symlinks to same-named `~/.codex/skills/<name>` directories, they are replaced with independent Claude directories holding verified upstream content. Codex-side files and user edits are left alone. Any other link (parent or intermediate path links, a different destination or name, broken links, circular links, file destinations, links inside the Codex destination path) is rejected. The original links are backed up under `~/.claude/backups/` and restored if the install fails. If recovery itself fails, preserve the material at the printed recovery path.
-- **`models.toml`:** reinstalling updates the settings and the five role profiles together with the selected Economy/Balanced/Smart preset (the previous file stays in the backup).
-- **Recovery material:** `Backup:` is the backup of previous managed files; `Recovery:` reports preserved staging material. On normal success or rollback, every private `0700` `.arc-stage-*` directory created by that transaction is moved intact to `<target>/backups/arc-UUID/recovery/<unique-name>`, with a same-parent `.arc-recovery-UUID` fallback when the preferred move cannot safely complete. Unknown files, modes, and symlinks are retained; stage contents are never recursively deleted. After preflight succeeds, the next changing install also recovers stale `.arc-stage-*` directories directly inside the selected target’s `skills` and `agents`. This stale scan excludes target-home globals, shared skill parents, and nested directories. `--check` and `--dry-run` perform no recovery writes. A failed move or sync reports an error and the source or preserved recovery path; a cleanup failure after commit leaves the installed files in place and the command exits unsuccessfully. If a parent namespace changed, reported paths are last-known locations. Preserve the material and inspect the reported error before further action. Concurrent install, uninstall, or recovery against the same target is unsupported.
+- **Claude external skill links:** if all three external skills are symlinks to same-named `~/.codex/skills/<name>` directories, they are replaced with independent Claude directories holding verified upstream content. Codex-side files and user edits are left alone. Any other link (parent or intermediate path links, a different destination or name, broken links, circular links, file destinations, links inside the Codex destination path) is rejected. Original links are held in temporary stages and restored if installation fails before cleanup. If rollback conflicts, preserve the material at the printed residual path.
+- **`models.toml`:** reinstalling updates the settings and the five role profiles together with the selected Economy/Balanced/Smart preset (reinstallation replaces local model edits).
+- **Temporary stages:** transaction-owned private `0700` `.arc-stage-*` directories live beside managed targets during installation or removal. Normal success and completed rollback delete the known staged items and stages through held directory handles, checking identity and snapshots without following links. Unknown entries, unsafe types, metadata/content drift, or replaced namespaces are preserved and reported with `Residual path:` and an error. A cleanup failure after publication keeps the installed/removed state and exits unsuccessfully; it does not roll back after original deletion starts. Old backups, recovery paths and stale stages are never automatically moved or removed. Forced termination, power loss or filesystem errors can leave stages requiring manual inspection. Paths under a replaced parent are last-known locations. Concurrent install or uninstall against the same target is unsupported.
 
 `--skip-global` leaves the global instructions and the Codex `config.toml` untouched.
 
@@ -160,7 +160,9 @@ default_wait_timeout_ms = 300000
 
 ## ⚙️ Model settings
 
-Per-role models and reasoning effort live in `models.toml` for [Codex](codex/skill/models.toml) and [Claude Code](claude/skill/models.toml). The CEO uses the model of the current conversation.
+Per-role models and reasoning effort live in `models.toml` for [Codex](codex/skill/models.toml) and [Claude Code](claude/skill/models.toml). The CEO uses the model of the current conversation. Each file uses integer `version = 1`, a root `preset = "balanced"`, and settings under `roles.<role>.economy`, `roles.<role>.balanced`, and `roles.<role>.smart`. All three variants are retained when installation selects a preset; change `preset` to switch the active variant. Claude entries contain `model` and `effort`; Codex entries contain `model` and `model_reasoning_effort`. Every variant is validated, including inactive ones. The former `presets.toml` overlay is removed.
+
+Legacy Codex version 5 and Claude role-only version 1 files are rejected by the manual tool before any profile is changed. Reinstall ARC or rewrite the file using the unified schema; reinstallation replaces local model edits.
 
 Only if you edit an installed `models.toml` by hand can you apply it to the role profiles with the optional tool `apply-models.py` (shipped at `claude/skill/scripts/` and `codex/skill/scripts/`, and installed under `~/.claude/skills/arc/scripts/` and `~/.codex/skills/arc/scripts/`). This manual tool needs Python 3.11 or later and is not a dependency of the npm install or preset application. The old `python3 install.py` entry point has been removed.
 
@@ -183,3 +185,11 @@ python3 ~/.codex/skills/arc/scripts/apply-models.py
 - Codex: [Planning](codex/skill/references/planning.md) · [Handoff](codex/skill/references/handoff.md) · [Verification](codex/skill/references/verification.md)
 - Claude Code: [Planning](claude/skill/references/planning.md) · [Handoff](claude/skill/references/handoff.md) · [Verification](claude/skill/references/verification.md)
 - Optional tool (not installed): per-role Codex token usage report `python3 codex/tools/codex_token_usage.py --since YYYY-MM-DD`
+
+### Shell completion
+
+The public executable is now `arc`; use `arc install` and `arc uninstall` in place of the old commands. `arc completion zsh` and `arc completion bash` print completion scripts.
+
+Installation registers a managed block in `~/.zshrc`. It activates in a new zsh session. To activate it now, run `eval "$(arc completion zsh)"`. For bash, add `eval "$(arc completion bash)"` to your bash startup file.
+
+`arc <Tab>` offers subcommands; subsequent positions offer command options, targets, presets, and shells. `--skip-global` skips shell registration; check and dry-run leave the file unchanged. Uninstall retains the shared completion block.

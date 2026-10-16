@@ -2,7 +2,7 @@
 name: arc-coder
 description: Implement approved scoped changes and focused verification
 model: sonnet
-effort: low
+effort: medium
 tools:
   - Read
   - Grep

@@ -18,41 +18,34 @@ const expected = {
 for (const platform of ['codex', 'claude']) {
   const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
   const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
-  test(`${platform} validates existing schema and round trips all settings`, () => {
-    assert.equal(typeof api.loadModelConfig, 'function'); const config = api.loadModelConfig(source, platform);
-    assert.equal(config.version, platform === 'codex' ? 5 : 1); assert.deepEqual(Object.keys(config.roles).sort(), [...roles].sort());
+  test(`${platform} unified config preserves every role and preset and round trips`, () => {
+    const config = api.loadModelConfig(source, platform);
+    assert.equal(config.version, 1); assert.equal(config.preset, 'balanced');
     assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(config), platform), config);
+    for (const preset of ['economy', 'balanced', 'smart']) {
+      const before = structuredClone(config), selected = api.applyPreset(config, preset);
+      assert.equal(selected.preset, preset); assert.deepEqual(selected.roles, config.roles);
+      const effective = api.resolveModelSettings(selected);
+      assert.deepEqual(Object.keys(effective.roles).sort(), [...roles].sort());
+      roles.forEach((role, i) => assert.deepEqual([effective.roles[role].model, effective.roles[role][effort]], expected[platform][preset][i]));
+      assert.deepEqual(config, before);
+      assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(selected), platform), selected);
+    }
   });
-  for (const preset of ['economy', 'balanced', 'smart']) test(`${platform} ${preset} applies five approved role settings without changing source`, () => {
-    const config = api.loadModelConfig(source, platform); const original = structuredClone(config);
-    const overlay = preset === 'economy' ? undefined : fs.readFileSync(new URL(`../../${platform}/skill/presets.toml`, import.meta.url), 'utf8');
-    const selected = api.applyPreset(config, preset, overlay);
-    roles.forEach((role, i) => assert.deepEqual([selected.roles[role].model, selected.roles[role][effort]], expected[platform][preset][i]));
-    assert.deepEqual(config, original); if (preset === 'economy') assert.deepEqual(selected, config);
-    assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(selected), platform), selected);
-  });
-  test(`${platform} Economy preserves custom source models exactly`, () => {
-    const custom = source.replace(/model = "[^"]+"/, 'model = "custom/provider-v1"'); const config = api.loadModelConfig(custom, platform);
-    assert.deepEqual(api.applyPreset(config, 'economy'), config);
-  });
-  const invalid = [
-    ['malformed TOML', 'version = ['], ['duplicate keys', source + '\nversion = 5\nversion = 5'],
-    ['duplicate role', source + '\n[roles.arc_scouter]\nmodel = "x"'],
-    ['wrong version', source.replace(/version = \d/, 'version = 99')],
-    ['float version', source.replace(/version = \d/, `version = ${platform === 'codex' ? '5.0' : '1.0'}`)],
-    ['missing role', source.replace(/\[roles.arc_reviewer\][\s\S]*/, '')],
-    ['unknown role', source.replaceAll('arc_qa', 'arc_unknown')],
-    ['unknown field', source + '\nextra = true'],
-    ['wrong model type', source.replace(/model = "[^"]+"/, 'model = 5')],
-    ['blank effort', source.replace(new RegExp(`${effort} = "[^"]+"`), `${effort} = ""`)],
-    ['surrounding whitespace', source.replace(/model = "[^"]+"/, 'model = " bad "')],
-    ['control character', source.replace(/model = "[^"]+"/, 'model = "bad\\u0001id"')],
-  ];
-  for (const [label, text] of invalid) test(`${platform} rejects ${label}`, () => assert.throws(() => api.loadModelConfig(text, platform), { code: 'ARC_MODEL_VALIDATION' }));
-  test(`${platform} rejects unsupported presets and malformed overlays`, () => {
-    const config = api.loadModelConfig(source, platform); assert.throws(() => api.applyPreset(config, 'fast'), /preset/i);
-    assert.throws(() => api.applyPreset(config, 'balanced', {}), /preset/i);
-    assert.throws(() => api.loadPresets('version = 1\n[presets.balanced.roles]', platform), /preset/i);
+  test(`${platform} rejects invalid inactive presets and exact schema violations`, () => {
+    const valid = api.loadModelConfig(source, platform);
+    const mutations = [c => c.version = 5, c => c.preset = 'fast', c => delete c.preset,
+      c => c.extra = true, c => delete c.roles.arc_qa, c => c.roles.extra = {},
+      c => delete c.roles.arc_qa.smart, c => c.roles.arc_qa.extra = {},
+      c => c.roles.arc_qa.smart.model = 5, c => c.roles.arc_qa.smart[effort] = '',
+      c => c.roles.arc_qa.smart.model = ' bad ', c => c.roles.arc_qa.smart.extra = true];
+    for (const mutate of mutations) { const value = structuredClone(valid); mutate(value); assert.throws(() => api.serializeModelConfig(value), {code: 'ARC_MODEL_VALIDATION'}); }
+    for (const version of [1, 5]) {
+      const legacy = `version = ${version}\n` + roles.map(role => `[roles.${role}]\nmodel = "old"\n${effort} = "low"\n`).join('');
+      assert.throws(() => api.loadModelConfig(legacy, platform), {code: 'ARC_MODEL_VALIDATION'});
+    }
+    for (const text of ['version = [', source + '\nversion = 1', source.replace('version = 1', 'version = 1.0')]) assert.throws(() => api.loadModelConfig(text, platform), {code: 'ARC_MODEL_VALIDATION'});
+    assert.throws(() => api.applyPreset(valid, 'fast'), /preset/i);
   });
 }
 test('unknown platform is rejected', () => assert.throws(() => api.loadModelConfig('', 'other'), { code: 'ARC_MODEL_VALIDATION' }));
@@ -77,11 +70,6 @@ test('public ModelConfig includes platform while TOML remains platform field-fre
     assert.doesNotMatch(api.serializeModelConfig(config),/^platform\s*=/m);
     assert.throws(()=>api.serializeModelConfig({...config,platform:platform==='codex'?'claude':'codex'}),{code:'ARC_MODEL_VALIDATION'});
   }
-});
-test('applyPreset consumes verified overlay text directly', () => {
-  const config=api.loadModelConfig(fs.readFileSync(new URL('../../codex/skill/models.toml',import.meta.url),'utf8'),'codex');
-  const overlayText=fs.readFileSync(new URL('../../codex/skill/presets.toml',import.meta.url),'utf8');
-  const smart=api.applyPreset(config,'smart',overlayText); assert.equal(smart.roles.arc_coder.model,'gpt-6-astra'); assert.equal(smart.platform,'codex');
 });
 test('vendor generator normalizes only trailing horizontal JS whitespace and records the rule', t => {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'arc-vendor-normalize-')); t.after(()=>fs.rmSync(root,{recursive:true,force:true}));

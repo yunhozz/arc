@@ -2,7 +2,7 @@
 name: arc-reviewer
 description: Independently review correctness security and policy consistency
 model: sonnet
-effort: medium
+effort: high
 tools:
   - Read
   - Grep
