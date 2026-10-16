@@ -2215,6 +2215,17 @@
         "timeout/cancellation process-group termination with bounded TERM/KILL and ESRCH confirmation"
       ],
       "t6RequiredCheckCase": "Read-only check must reject existing external required-file links escaping their skill root; this is distinct from acquisition output validation."
+    },
+    "T1": {
+      "atomicNoReplaceRename": {
+        "nodeTests": [
+          "tests/node/safe-fs.test.mjs",
+          "tests/node/transaction.test.mjs"
+        ],
+        "api": "DirectoryHandle.renameNoReplaceTo(name, destination, newName)",
+        "scope": "Atomic destination exclusion via native platform syscall; existing source identity must still be checked by T5 before cleanup.",
+        "hostEvidence": "darwin-arm64; Linux primitive source implemented but not executed on this host"
+      }
     }
   }
 }

@@ -82,7 +82,7 @@ Economy reads each platform's existing models.toml; the table is a regression ex
 
 Core interfaces:
 
-- Safe filesystem: openRoot(path) returns DirectoryHandle; handles expose stat, readDir, lstat, readlink, openDir, openFile, mkdir, renameTo, unlink, rmdir, chmod, setTimes, sync where applicable, and close.
+- Safe filesystem: openRoot(path) returns DirectoryHandle; handles expose stat, readDir, lstat, readlink, openDir, openFile, mkdir, renameTo, atomic renameNoReplaceTo, unlink, rmdir, chmod, setTimes, sync where applicable, and close.
 - Handle names are one path component only; reject empty, dot, dot-dot, slash, and NUL.
 - Model layer: loadModelConfig(text, platform), applyPreset(config, preset, overlay), serializeModelConfig(config), renderProfiles(profileBuffers, config).
 - Installer layer: verifyPayload({packageRoot, safeFs}), resolveTarget(platform, {userHome, env, cwd}), buildInstallPlan({payload, target, preset, skipGlobal, safeFs}), validatePlanSet(plans), acquireExternalSkills(inputs), installTargets(plans, dependencies).
@@ -117,6 +117,7 @@ Core interfaces:
 
 - openRoot traverses from the filesystem root without following symlink components.
 - DirectoryHandle operations stay relative to held descriptors. FileHandle operations verify regular-file type and identity.
+- `renameNoReplaceTo` uses descriptor-relative OS primitives that atomically fail when the destination name is occupied (`renameat2(RENAME_NOREPLACE)` on Linux and `renameatx_np(RENAME_EXCL)` on macOS). Unsupported platforms/filesystems fail closed; there is no check-then-rename or path-based fallback. Source identity remains separately verified around transaction moves.
 - Open file operations must not block on a swapped FIFO; combine non-following/nonblocking open flags with fstat validation.
 - Reject unsupported behavior instead of falling back to path-based JavaScript operations.
 - Native bootstrap checks Node version, OS, CPU, libc, binary type, and expected hash before loading the packaged addon directly. Check and dry-run create no temporary copies or other files. Treat package code as the process trust boundary; this check detects a preexisting mismatch but does not claim atomic protection against a concurrent rewrite of the package itself. Managed target paths still require the full descriptor-based race protection below.
@@ -263,6 +264,7 @@ Focused checks:
 
 1. Add failing snapshot, same-filesystem staging, backup-bytes/metadata, normal install, and rollback tests; confirm RED.
 2. Implement each filesystem action through safe-fs handles and record an action log.
+   Use atomic no-replace rename for publishing into vacant names, preserving prior entries, and rollback/recovery moves; on a destination conflict, preserve the source/recovery material and report it rather than deleting the occupant.
 3. Add fault injection before and after every mutation boundary. Verify prior content is restored, new targets are removed only when identity is known, and user-owned profiles remain unchanged.
 4. Add Claude link tests for the single allowed leaf-link pattern, preservation of original link text, independent copy, and rollback restoration.
 5. Add drift tests for target/global/link changes during acquisition and immediately before replacement.

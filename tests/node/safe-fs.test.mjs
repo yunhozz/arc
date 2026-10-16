@@ -109,3 +109,18 @@ test('setTimes accepts metadata nanoseconds without losing precision', t => {
   d.setTimes(times); assert.equal(d.stat().mtimeNs, times.mtimeNs); assert.equal(d.stat().atimeNs, times.atimeNs);
   assert.throws(() => f.setTimes({ atimeNs: 1700000000, mtimeNs: 1700000000 }), /BigInt/);
 });
+test('atomic no-replace rename preserves occupied files directories and links',t=>{
+ const p=fixture(t),d=api.openRoot(p);t.after(()=>d.close());
+ for(const type of ['file','directory','symlink']){
+  fs.writeFileSync(`${p}/source`,'prepared');
+  if(type==='file')fs.writeFileSync(`${p}/occupied`,'user');
+  else if(type==='directory')fs.mkdirSync(`${p}/occupied`);
+  else fs.symlinkSync('source',`${p}/occupied`);
+  assert.throws(()=>d.renameNoReplaceTo('source',d,'occupied'),{code:'EEXIST'});
+  assert.equal(fs.readFileSync(`${p}/source`,'utf8'),'prepared');
+  if(type==='file')assert.equal(fs.readFileSync(`${p}/occupied`,'utf8'),'user');
+  if(type==='directory')fs.rmdirSync(`${p}/occupied`);else fs.unlinkSync(`${p}/occupied`);
+  fs.unlinkSync(`${p}/source`);
+ }
+ fs.mkdirSync(`${p}/sub`);const sub=d.openDir('sub');try{fs.writeFileSync(`${p}/source`,'value');d.renameNoReplaceTo('source',sub,'new');assert.equal(fs.existsSync(`${p}/source`),false);assert.equal(fs.readFileSync(`${p}/sub/new`,'utf8'),'value');}finally{sub.close();}
+});

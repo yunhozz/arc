@@ -8,6 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#ifdef __linux__
+#include <sys/syscall.h>
+#include <linux/fs.h>
+#endif
 
 static napi_value fail(napi_env e, const char *what) {
   char msg[256]; snprintf(msg,sizeof(msg),"%s: %s",what,strerror(errno));
@@ -67,6 +71,23 @@ static napi_value mutate(napi_env e,napi_callback_info info) {
   else { char *dest=component(e,a[3]); if(!dest) { free(name); return NULL; } rc=renameat(fd,name,integer(e,a[2]),dest); free(dest); }
   int saved=errno; free(name); if(rc<0) { errno=saved; return fail(e,"relative mutation"); } return number(e,0);
 }
+static napi_value rename_exclusive(napi_env e,napi_callback_info info) {
+  napi_value a[4]; size_t n=4; napi_get_cb_info(e,info,&n,a,NULL,NULL);
+  if(n!=4) { napi_throw_type_error(e,NULL,"Expected source and destination handles and names"); return NULL; }
+  char *source=component(e,a[1]); if(!source)return NULL;
+  char *destination=component(e,a[3]); if(!destination) { free(source); return NULL; }
+  int rc;
+#ifdef __APPLE__
+  rc=renameatx_np(integer(e,a[0]),source,integer(e,a[2]),destination,RENAME_EXCL);
+#elif defined(__linux__) && defined(SYS_renameat2)
+  rc=(int)syscall(SYS_renameat2,integer(e,a[0]),source,integer(e,a[2]),destination,RENAME_NOREPLACE);
+#else
+  errno=ENOTSUP; rc=-1;
+#endif
+  int saved=errno; free(source); free(destination);
+  if(rc<0) { errno=saved; return fail(e,"atomic no-replace rename"); }
+  return number(e,0);
+}
 static napi_value set_times(napi_env e,napi_callback_info info) {
   napi_value a[3]; size_t n=3; napi_get_cb_info(e,info,&n,a,NULL,NULL);
   if(n<3) { napi_throw_type_error(e,NULL,"Expected descriptor and nanosecond times"); return NULL; }
@@ -125,7 +146,7 @@ static napi_value stat_at(napi_env e,napi_callback_info info) {
   return o;
 }
 static napi_value init(napi_env e,napi_value exports) {
-  struct { const char *name; napi_callback cb; intptr_t data; } f[]={ {"openRoot",open_root,0},{"openAt",open_at,0},{"mkdir",mutate,0},{"unlink",mutate,1},{"rmdir",mutate,2},{"rename",mutate,3},{"setTimes",set_times,0},{"symlink",symlink_at,0},{"readlink",read_link,0},{"readDir",list,0},{"lstat",stat_at,0} };
+  struct { const char *name; napi_callback cb; intptr_t data; } f[]={ {"openRoot",open_root,0},{"openAt",open_at,0},{"mkdir",mutate,0},{"unlink",mutate,1},{"rmdir",mutate,2},{"rename",mutate,3},{"renameExclusive",rename_exclusive,0},{"setTimes",set_times,0},{"symlink",symlink_at,0},{"readlink",read_link,0},{"readDir",list,0},{"lstat",stat_at,0} };
   for(unsigned i=0;i<sizeof(f)/sizeof(f[0]);i++) { napi_value v; napi_create_function(e,f[i].name,NAPI_AUTO_LENGTH,f[i].cb,(void*)f[i].data,&v); napi_set_named_property(e,exports,f[i].name,v); } return exports;
 }
 NAPI_MODULE(NODE_GYP_MODULE_NAME,init)
