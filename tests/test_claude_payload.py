@@ -158,7 +158,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertIn('## CEO direct path for small tasks', core)
         direct = core.split('## CEO direct path for small tasks', 1)[1].split('\n## ', 1)[0]
         for clause in (
-            r'Before editing.*short design.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
+            r'Before editing.*scope record.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
             r'presents.*user.*obtains explicit approval.*before the first edit',
             r'Silence.*ambiguous.*approval of other work.*not approval',
             r'execution-target choice or valid reuse.*workspace and repository.*branch or detached HEAD.*HEAD.*staged/unstaged/untracked.*preservation and ownership.*unresolved failure or partial completion',
@@ -172,7 +172,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_ceo_direct_path_excludes_every_significant_risk_trigger(self):
         # Reviewed policy structure only; runtime compliance requires separate evidence.
-        for relative in ('SKILL.md', 'references/planning.md'):
+        for relative in ('SKILL.md',):  # the definition lives once in SKILL.md; planning.md points to it
             text = ' '.join((PAYLOAD / 'skill' / relative).read_text().split())
             with self.subTest(relative=relative):
                 for trigger in ('shared role/behavior contracts', 'shared state', 'lifecycle/integration order', 'security/permissions', 'data loss/migration', 'public interfaces', 'costly installation/deployment/rollback'):
@@ -329,6 +329,78 @@ class ClaudePayloadTests(unittest.TestCase):
                 self.assertNotIn(relative, entries)
             else:
                 self.assertEqual(entries.get(relative), hashlib.sha256(path.read_bytes()).hexdigest())
+
+
+class RoleHardeningTests(unittest.TestCase):
+    """Static checks of the written role-boundary contract; not runtime agent compliance."""
+
+    def text(self, *parts):
+        return ' '.join((PAYLOAD.joinpath(*parts)).read_text().split())
+
+    def test_role_gate_planner_only_and_ceo_skill_ban(self):
+        core = self.text('skill/SKILL.md')
+        gate = next(p for p in (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n') if p.startswith('Role gate:'))
+        self.assertLessEqual(len(re.findall(r'[.!?](?:\s|$)', gate)), 5)
+        for needle in ('ONLY by Planner (`arc-planner`)', 'CEO MUST NEVER author them',
+                       'MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool',
+                       'auto-triggers in CEO context, CEO stops and routes to Planner', "that skill's SKILL.md path",
+                       'skip questions', 'never waives design or approval gates', 'returns questions to CEO',
+                       'FRESH Coder', 'FRESH QA'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, gate)
+        self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
+        self.assertIn('same-task rechecks may reuse', gate)
+        self.assertIn('Coder and QA freshness follow the Role gate', core)
+
+    def test_every_profile_has_stay_in_role_line(self):
+        for role in EXPECTED:
+            with self.subTest(role=role):
+                body = self.text(f'agents/arc-{role}.md')
+                self.assertRegex(body, r'Stay in your role: ONLY [^;]+; NEVER [^.]+\.')
+
+    def test_qa_freshness_and_no_contradictory_substitution(self):
+        core = self.text('skill/SKILL.md')
+        self.assertNotIn('QA or CEO focused checks', core)
+        self.assertRegex(core, r'Ordinary and significant plan tasks.*FRESH QA')
+        self.assertRegex(core, r'small, low-risk tasks.*CEO focused checks')
+        verification = self.text('skill/references/verification.md')
+        self.assertNotIn('QA or CEO focused checks', verification)
+        self.assertIn('FRESH QA instance per task that needs QA', verification)
+
+    def test_restart_brief_rule_lives_in_handoff_only(self):
+        core = self.text('skill/SKILL.md')
+        self.assertNotIn('delta-only restart brief', core)
+        self.assertNotIn('unchanged` means unchanged relative to', core)
+        handoff = self.text('skill/references/handoff.md')
+        self.assertIn('Restart brief:', handoff)
+        self.assertIn('`unchanged` means unchanged relative to the record file', handoff)
+        self.assertEqual(handoff.count('full record inline'), 1)
+        self.assertNotIn('full record inline', self.text('skill/references/git-recovery.md'))
+
+    def test_dangling_references_removed_and_terms_defined(self):
+        core = self.text('skill/SKILL.md')
+        for gone in ('branch protection', 'Coder repair limits', 'existing CEO depth judgment', 'short design', 'QA or CEO'):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, core)
+        direct = core.split('## CEO direct path for small tasks', 1)[1].split('## Automatic', 1)[0]
+        self.assertIn('scope record', direct)
+        self.assertIn('not a brainstorming design', direct)
+        self.assertIn('Significant risk is defined in Risk-scaled execution', direct)
+        self.assertNotIn('Significant risk includes', self.text('skill/references/planning.md'))
+        self.assertIn('simple, self-contained question', core)
+        self.assertIn('and assigned dependent docs', core)
+
+    def test_qa_browser_instructions_match_allowlist(self):
+        for text in (self.text('skill/references/verification.md'), self.text('agents/arc-qa.md')):
+            self.assertNotIn('allowlisted browser tools', text)
+            self.assertNotIn('Use browsers', text)
+        self.assertIn('through Bash only', self.text('skill/references/verification.md'))
+
+    def test_ownership_and_prep_consistency(self):
+        self.assertNotIn('detached HEAD is acceptable', self.text('skill/references/handoff-prep.md'))
+        self.assertIn('CEO performs read-only inspection of related processes and ACLs', self.text('skill/references/git-recovery.md'))
+        self.assertIn('read the brief-cited test-driven-development SKILL.md path', self.text('agents/arc-coder.md'))
+        self.assertIn('its named research skills', self.text('agents/arc-scouter.md'))
 
 
 if __name__ == '__main__':
