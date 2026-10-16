@@ -1,9 +1,9 @@
 {
   "artifacts": {
     "darwin-arm64": {
-      "sha256": "3bf77474d6cedf21bf58256a20057080c4e34e4dc4ccf9a052645ab4c7002837",
-      "sourceCommit": "33b2c6db6362ed0ebd698eba6ea6f9ef7d8f099c",
-      "nativeInputDigest": "59bd4e95d3d3bc8809cfbd39c8f5de93b00c7d7d76d12972059118d42a200686",
+      "sha256": "208c65cfde244d39ce45c3cf1b0acb128f04d21199b6b3fb5466e62db5b64af9",
+      "sourceCommit": "f4386726e133922676aeb2f8d9d73b2b87afbf96",
+      "nativeInputDigest": "831a685a17634789f84f9f16077e2f0ce28f79e99714d54b7bc122b40b5139cf",
       "napi": 8,
       "nodeHeaders": "22.23.2",
       "nodeHeadersDigest": "6f8b5e0047e9d15a28da9aead4236cebf5171031359b2f6a1d9fdf05f8f04bf3",
@@ -16,9 +16,9 @@
       "tuple": "darwin-arm64"
     },
     "darwin-x64": {
-      "sha256": "460de9a401c002acc906312fb921ac879b71f42c468118ba24178d1ad572b203",
-      "sourceCommit": "33b2c6db6362ed0ebd698eba6ea6f9ef7d8f099c",
-      "nativeInputDigest": "59bd4e95d3d3bc8809cfbd39c8f5de93b00c7d7d76d12972059118d42a200686",
+      "sha256": "572887ac794d10a8b921d8168ea2328e31f05b45987611ff02c83114dba901af",
+      "sourceCommit": "f4386726e133922676aeb2f8d9d73b2b87afbf96",
+      "nativeInputDigest": "831a685a17634789f84f9f16077e2f0ce28f79e99714d54b7bc122b40b5139cf",
       "napi": 8,
       "nodeHeaders": "22.23.2",
       "nodeHeadersDigest": "6f8b5e0047e9d15a28da9aead4236cebf5171031359b2f6a1d9fdf05f8f04bf3",
@@ -30,25 +30,10 @@
       "deploymentTarget": "13.0",
       "tuple": "darwin-x64"
     },
-    "linux-x64-gnu": {
-      "sha256": "1c30c457b456ca6bcf9aa739c5921a22b8968ec31a1e22404591594d63a60e67",
-      "sourceCommit": "33b2c6db6362ed0ebd698eba6ea6f9ef7d8f099c",
-      "nativeInputDigest": "59bd4e95d3d3bc8809cfbd39c8f5de93b00c7d7d76d12972059118d42a200686",
-      "napi": 8,
-      "nodeHeaders": "22.23.3",
-      "nodeHeadersDigest": "b1c10d710bb872f0d5d9f53756bb0c6cebe4b6441722268a7a2d0889e1df59ce",
-      "sourceDirty": false,
-      "buildImage": "quay.io/pypa/manylinux_2_28_x86_64@sha256:4131ddd7acb9c6c966af02fe7e71edc51e078c2d41f475966697676430bfa2ae",
-      "libc": "glibc 2.28",
-      "compiler": "cc (GCC) 14.2.1 20250110 (Red Hat 14.2.1-11)\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
-      "sysroot": "/",
-      "deploymentTarget": "glibc-2.28",
-      "tuple": "linux-x64-gnu"
-    },
     "linux-arm64-gnu": {
-      "sha256": "85b74819aea4e28a936f0474eed3e956b6dc77d50a93c6635c2b04078bcd2793",
-      "sourceCommit": "33b2c6db6362ed0ebd698eba6ea6f9ef7d8f099c",
-      "nativeInputDigest": "59bd4e95d3d3bc8809cfbd39c8f5de93b00c7d7d76d12972059118d42a200686",
+      "sha256": "b98bb4ac757ebd6e8f8fc1eb7a6a4389e3a8199984baf6bb1c327a6f952c2c0d",
+      "sourceCommit": "f4386726e133922676aeb2f8d9d73b2b87afbf96",
+      "nativeInputDigest": "831a685a17634789f84f9f16077e2f0ce28f79e99714d54b7bc122b40b5139cf",
       "napi": 8,
       "nodeHeaders": "22.23.3",
       "nodeHeadersDigest": "b1c10d710bb872f0d5d9f53756bb0c6cebe4b6441722268a7a2d0889e1df59ce",
@@ -59,6 +44,21 @@
       "sysroot": "/",
       "deploymentTarget": "glibc-2.28",
       "tuple": "linux-arm64-gnu"
+    },
+    "linux-x64-gnu": {
+      "sha256": "9f8c2c1e328ee287355bc36afc3173c00ed062611fbd1262e4d30fca83e979dc",
+      "sourceCommit": "f4386726e133922676aeb2f8d9d73b2b87afbf96",
+      "nativeInputDigest": "831a685a17634789f84f9f16077e2f0ce28f79e99714d54b7bc122b40b5139cf",
+      "napi": 8,
+      "nodeHeaders": "22.23.3",
+      "nodeHeadersDigest": "b1c10d710bb872f0d5d9f53756bb0c6cebe4b6441722268a7a2d0889e1df59ce",
+      "sourceDirty": false,
+      "buildImage": "quay.io/pypa/manylinux_2_28_x86_64@sha256:4131ddd7acb9c6c966af02fe7e71edc51e078c2d41f475966697676430bfa2ae",
+      "libc": "glibc 2.28",
+      "compiler": "cc (GCC) 14.2.1 20250110 (Red Hat 14.2.1-11)\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+      "sysroot": "/",
+      "deploymentTarget": "glibc-2.28",
+      "tuple": "linux-x64-gnu"
     }
   }
 }

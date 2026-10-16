@@ -17,7 +17,7 @@ function visit(relative) {
   } else if (stat.isFile() && !mutable.has(relative)) files.add(relative);
   else if (!stat.isFile()) throw new Error(`Protected payload is not regular: ${relative}`);
 }
-for (const entry of ['README.md', 'install.py', 'install.command', 'package.json', 'package-lock.json', 'bin', 'lib', 'native/binding.c', 'native/binding.gyp', 'scripts', 'vendor', 'prebuilds', 'codex/skill', 'codex/agents', 'claude/skill', 'claude/agents']) visit(entry);
+for (const entry of ['README.md', 'install.command', 'package.json', 'bin', 'lib', 'native/binding.c', 'native/binding.gyp', 'scripts', 'vendor', 'prebuilds', 'codex/skill', 'codex/agents', 'claude/skill', 'claude/agents']) visit(entry);
 const content = [...files].sort().map(name => `${crypto.createHash('sha256').update(fs.readFileSync(path.join(root, name))).digest('hex')}  ${name}\n`).join('');
 const manifest = path.join(root, 'MANIFEST.sha256');
 if (process.argv.includes('--check')) {

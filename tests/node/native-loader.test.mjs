@@ -66,10 +66,11 @@ test('manifest checker detects protected payload drift', t => {
 });
 test('parity checker detects removal of a legacy assertion', t => {
   const p = fixture(t); fs.mkdirSync(`${p}/tests`);
-  fs.writeFileSync(`${p}/tests/test_install.py`, 'class Example:\n    def test_one(self): pass\n'); fs.writeFileSync(`${p}/tests/test_target_install.py`, '');
-  fs.writeFileSync(`${p}/tests/installer-parity.json`, JSON.stringify({ entries: [] }));
+  const ledger = JSON.parse(fs.readFileSync(`${root}/tests/installer-parity.json`, 'utf8'));
+  ledger.entries.pop();
+  fs.writeFileSync(`${p}/tests/installer-parity.json`, JSON.stringify(ledger));
   const run = spawnSync(process.execPath, [`${root}/scripts/check-installer-parity.mjs`, '--root', p, '--task', 'T1'], { encoding: 'utf8' });
-  assert.equal(run.status, 1); assert.match(run.stderr, /Missing legacy assertion/);
+  assert.equal(run.status, 1); assert.match(run.stderr, /Original inventory ID count changed/);
 });
 test('macOS before 13 is rejected before loading', () => {
   assert.throws(() => api.loadNative({ root: '/nonexistent', runtime: { platform: 'darwin', arch: 'arm64', node: '22.0.0', release: '21.6.0' } }), /macOS 13/);

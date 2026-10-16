@@ -31,7 +31,6 @@
     "claude/skill/",
     "claude/agents/",
     "MANIFEST.sha256",
-    "package-lock.json",
     "install.command"
   ]
 }
