@@ -40,9 +40,22 @@ test('tampered bytes and wrong binary type fail without modifying package', t =>
 });
 test('valid host artifact loads without creating temporary files', t => {
   const { p, base, bytes } = artifact(t);
-  const before = fs.readdirSync(os.tmpdir()).sort(); const native = api.loadNative({ root: p });
-  assert.equal(typeof native.openRoot, 'function'); assert.deepEqual(fs.readFileSync(`${base}/${tuple}/arc_safe_fs.node`), bytes);
-  assert.deepEqual(fs.readdirSync(os.tmpdir()).sort(), before);
+  const temporary = path.join(p, 'temporary'); fs.mkdirSync(temporary);
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import fs from 'node:fs';
+    import os from 'node:os';
+    import assert from 'node:assert/strict';
+    import { pathToFileURL } from 'node:url';
+    const { loadNative } = await import(pathToFileURL(process.argv[1]));
+    const before = fs.readdirSync(os.tmpdir()).sort();
+    const native = loadNative({ root: process.argv[2] });
+    assert.equal(typeof native.openRoot, 'function');
+    assert.deepEqual(fs.readdirSync(os.tmpdir()).sort(), before);
+  `, path.join(root, 'lib/safe-fs/native.mjs'), p], {
+    encoding: 'utf8', env: { ...process.env, TMPDIR: temporary, TMP: temporary, TEMP: temporary },
+  });
+  assert.equal(child.status, 0, child.stderr);
+  assert.deepEqual(fs.readFileSync(`${base}/${tuple}/arc_safe_fs.node`), bytes);
 });
 import { spawnSync } from 'node:child_process';
 test('manifest checker detects protected payload drift', t => {
