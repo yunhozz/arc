@@ -271,3 +271,72 @@ npm run check:manifest
 - 계획 작성 승인과 구현 진행 승인을 구분했다.
 - commit·push·publish는 별도 사용자 요청 전까지 수행하지 않는다.
 - 파일은 저장하지 않았고 코드·구성·테스트 변경도 수행하지 않았다.
+
+## 보완: 공통 packed fixture와 전체 검증 환경
+
+**적용 우선순위:** 이 절은 기존 계획과 충돌하는 **8개 구현 파일 목록, 검사 순서, 환경 요구사항, 승인·commit 조건**을 대체한다. 그 밖의 승인된 제품 동작과 범위는 유지한다. 현재 기준은 `master`, HEAD `a35085bc5558ae0d053d13a02065a9698ba04f00`이며 기존 8개 구현 파일의 unstaged 변경을 보존한다.
+
+### 근거와 범위
+
+전체 `npm test`는 **165개 중 141개 통과, 24개 실패**였다.
+
+| 구분 | 확인된 원인 | 보완 |
+|---|---|---|
+| 공통 fixture | `tests/node/fixtures/packed-consumer.mjs:15`가 `node_modules/arc-harness`를 고정 참조 | packed metadata의 `name`으로 설치 root 계산 |
+| native 환경 | `build/native/index.json`과 host `.node` artifact 부재로 관련 15개 검사 실패 | host 테스트 fixture 생성 |
+| TOML 환경 | devDependency `smol-toml` 부재 | lockfile dependency 설치 |
+
+기존 8개에 **`/Users/yunho/Desktop/project/arc/tests/node/fixtures/packed-consumer.mjs`만 아홉 번째 구현 파일로 추가**한다. 기존 helper 인터페이스를 유지하면서 후보 이름 `@yunhozz/arc`로 scoped root를 계산하며, unscoped fallback을 추가하지 않는다.
+
+`scripts/npm-postinstall.mjs`와 production behavior는 변경하지 않는다. `npm-completion.test.mjs`의 intentional `arc-harness` rejection과 README·기존 lifecycle 문서의 historical 또는 별도 uninstall 계약 참조도 유지한다. 최초 실패 전체가 위 원인만으로 설명된다고 가정하지 않는다.
+
+### 승인과 handoff
+
+새 helper 수정과 dependency 설치·native build·정리는 **수정안 승인 전 수행하지 않는다**.
+
+CEO는 실행 승인 prompt에서 **이 수정안과 동일 계획 파일 하나의 후속 plan-only docs commit을 함께** 확인받는다. 승인 후 다음 파일만 staging·commit한다.
+
+`/Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-16-arc-scoped-npm-package.md`
+
+기존 `a35085b...` 계획 commit은 유지하고, 해당 파일만 담은 **두 번째 docs commit 하나**를 추가한다. 다른 staged 변경이 있으면 보류한다. 구현 파일 staging·commit, push, publish는 허용하지 않는다.
+
+### 실행 순서
+
+1. **시작 기록:** 기존 8개 diff와 `/Users/yunho/Desktop/project/arc/{node_modules,build,native/build}` 각각의 존재·타입·무시 여부·경로 정체성·실제 포함 관계를 기록한다. 사전 삭제로 환경을 비우지 않는다.
+2. **격리 준비:** 임시 npm user/global config·cache와 필요한 환경만 사용한다. 사용자 credentials·실제 npm 설정을 전달하지 않고 공개 registry dependency 다운로드만 허용한다.
+
+   ```sh
+   npm ci --ignore-scripts
+   npm run build:native
+   ```
+
+   `smol-toml`, `build/native/index.json`, host `.node` artifact를 확인한다. 설치/build 실패 시 원인을 보고하고 의존 검사를 보류한다.
+3. **helper RED와 수정:** `node --test tests/node/consumer.test.mjs`로 고정 root 실패를 확인한 뒤 metadata 기반 root로 수정한다.
+4. **검증:** 기존 scoped package·완성 계약과 실제 packed 설치·제거·새 interactive zsh Tab을 확인한다.
+
+   ```sh
+   node --test tests/node/consumer.test.mjs
+   node --test tests/node/npm-completion.test.mjs tests/node/package.test.mjs tests/node/npm-completion-consumer.test.mjs
+   node --test tests/node/completion.test.mjs tests/node/shell-completion.test.mjs
+   npm run check:manifest
+   npm test
+   ```
+
+   보호 payload가 실제 변경된 경우에만 기존 manifest 갱신 절차를 적용한다. 남은 실패를 개별 판정한다.
+5. **QA 후 정리:** 시작 시 없었고 이번 실행이 생성한 것으로 확인된 무시 대상만 정리한다. 직전에 타입·정체성·포함 관계를 재확인한다. 광범위한 clean, symlink 추적, 중복 삭제를 금지한다. 대상들이 중첩되면 그 ancestor를 삭제하지 않고 안전하게 처리할 수 없는 경로를 보고한다. 임시 npm 설정·cache도 실행 소유 경로만 정리한다.
+6. **인계:** 최종 9-file 구현 범위·기존 diff 보존·환경 복원을 확인한다. 구현 변경은 unstaged로 사용자에게 돌려준다. 정리 후 전체 suite 재실행에는 환경 준비가 다시 필요함을 명시한다.
+
+### 수용·QA·보류
+
+| 항목 | 필수 기준과 증거 |
+|---|---|
+| 범위 | 기존 8개와 helper 하나만 구현 변경. negative control·historical 참조·제품 계약 보존 |
+| 환경 | 시작 상태, 인증 격리, 설치/build 종료 결과, 생성 artifact 증거 |
+| 동작 | helper 전후 실패·성공, scoped root·bin, 실제 zsh Tab, 재설치·제거·차단 결과 |
+| 전체 검사 | 최초 24개 실패의 해소 내역, focused·manifest·전체 suite 결과. 전체 suite 통과 |
+| 정리 | 생성 주체·무시 여부·정체성·중첩 확인과 정리/보류 결과, 초기 상태 복원 |
+| handoff | 공동 승인 근거, 계획 파일 하나의 후속 docs commit, 구현 unstaged 보존 |
+
+fresh QA 증거를 바탕으로 CEO가 수용한다. **공동 승인 부재, 예상 밖 변경·staged 파일, 설치/build 실패, 추가 제품 수정 필요, 검사 증거 부족, 안전한 정리 조건 미충족** 시 해당 작업을 보류하고 CEO에게 보고한다. 기존 변경과 불명확한 생성물은 보존한다.
+
+**자체 점검:** 기존 제품 범위는 유지하고 공통 helper와 검증 준비만 보완했다. 승인·문서 commit·구현 변경을 구분했으며, 검증 후 실행 소유 생성물만 정리하도록 제한했다. 이 초안 작성 중 저장·편집·검증·staging·commit·push·publish는 수행하지 않았다.
