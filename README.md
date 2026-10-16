@@ -106,6 +106,23 @@ The installer fetches the external skills `brainstorming`, `writing-plans`, and 
 - Neither changes files or uses subprocesses or the network. Both pass even in a fresh environment without the external skills. The existence and content of the external skills are verified at actual install time.
 - Safety of the external skill paths is checked by the same rules as a real install, so the result predicts the real install result.
 
+### Remove ARC
+
+```sh
+arc-uninstall
+arc-uninstall --target codex
+arc-uninstall --target all --dry-run
+arc-uninstall --target claude --skip-global
+```
+
+With no target, a TTY menu offers **Claude**, **Codex**, **All** in that order; Claude is initially selected. Use Up/Down (wrapping) and Enter. No preset is requested. An explicit `--target` skips the menu; non-interactive execution requires it. EOF or Ctrl-C cancels with exit code 130. `--preset` is not accepted. `--help` and `--version` need no native binary or target selection.
+
+Uninstall removes only the selected target's `skills/arc` directory, its five `agents/arc-{scouter,planner,coder,qa,reviewer}` role files (`.toml` for Codex, `.md` for Claude), and the unique well-formed ARC marker block in `AGENTS.md` or `CLAUDE.md`. Edited ARC files are included and their exact bytes are backed up under `<target>/backups/arc-<UUID>/` before removal. The global file remains present, even if empty; bytes outside the block, including BOM and line endings, are preserved. Unmarked global files remain unchanged. `--skip-global` does not access the global instruction file.
+
+Shared skills, `.agents/skills`, other profiles, old backups/recovery, and Codex `config.toml` wait settings are preserved. Wait settings cannot be automatically restored because no previous-value record exists. Custom `CODEX_HOME` is respected. Unsafe types, symlinks (including within the ARC tree), and malformed, duplicate, or reversed markers fail before removal. Missing ARC entries are successful no-ops and create no empty backup.
+
+All selected targets are inspected before removal. Each target has its own transaction: an earlier success remains committed if a later target fails. Output reports each target's status, rollback, `Backup:` and `Recovery:` paths. Failure exits 1, including cross-target overlap rejected during selected-set preflight and reported as per-target failures. Input/runtime errors and single-target configuration errors that abort during plan construction exit 2. Rollback never overwrites a newly created user entry; preserve reported recovery material if rollback conflicts. A changing uninstall reuses the stage recovery rules below; `--dry-run` reads only and performs no backup, recovery, or removal. Uninstall performs no preset processing, acquisition, npx, or network access. Concurrent install, uninstall, or recovery against the same target is unsupported.
+
 ### What the install changes
 
 - **Global instructions:** adds or updates a managed block between `arc:begin`/`arc:end` markers at the end of `AGENTS.md` (Codex) or `CLAUDE.md` (Claude). Content outside the markers is left as is. Older descriptive managed markers are not migrated automatically and are rejected before any write.

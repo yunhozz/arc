@@ -16,7 +16,8 @@
     "smol-toml": "1.9.1"
   },
   "bin": {
-    "arc-install": "bin/arc-install.mjs"
+    "arc-install": "bin/arc-install.mjs",
+    "arc-uninstall": "bin/arc-uninstall.mjs"
   },
   "files": [
     "bin/",
