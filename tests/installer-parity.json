@@ -1244,12 +1244,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_external_file_symlink_is_rejected",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_required_external_file_symlink_is_rejected"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_fifo_is_rejected_without_reading_it",
@@ -1388,21 +1389,23 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_rejects_candidate_root_alias_before_acquisition",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_install_rejects_candidate_root_alias_before_acquisition"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_rejects_unrelated_special_entry_before_acquisition",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_install_rejects_unrelated_special_entry_before_acquisition"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_validates_structure_and_does_not_write",
@@ -1525,30 +1528,33 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_acquisition_failure_leaves_targets_and_backup_unchanged",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_acquisition_failure_leaves_targets_and_backup_unchanged"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_external_replace_failure_restores_all_targets",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_external_replace_failure_restores_all_targets"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_successful_sync_backs_up_selected_and_legacy_external_trees",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_successful_sync_backs_up_selected_and_legacy_external_trees"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_external_targets_too",
@@ -1562,12 +1568,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_failed_install_removes_new_external_targets",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_failed_install_removes_new_external_targets"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_rollback_failure_preserves_previous_and_reports_recovery_path",
@@ -1689,110 +1696,116 @@
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_passes_only_isolated_nonsecret_environment",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_passes_only_isolated_nonsecret_environment"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "acquires exactly three verified skill snapshots using exact argv and isolated environment"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_accepts_deployed_cli_record_shape",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_accepts_deployed_cli_record_shape"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "acquires exactly three verified skill snapshots using exact argv and isolated environment"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_platform_specific_agent_records",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_platform_specific_agent_records"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects wrong-agents and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_unexpected_source_or_pinned_ref",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/acquisition.test.mjs",
-        "test": "test_acquisition_rejects_unexpected_source_or_pinned_ref"
+        "test": "rejects wrong-source and empties only work"
       },
-      "reclassification": "Acquisition result source/ref validation belongs to T4."
+      "reclassification": "Acquisition result source/ref validation belongs to T4.",
+      "additionalCoverage": [
+        "rejects wrong-ref and empties only work"
+      ]
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_missing_ref_field",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_missing_ref_field"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects omit-ref and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_unrequested_using_git_worktrees_result",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_unrequested_using_git_worktrees_result"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects extra and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_partial_json",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_partial_json"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects missing and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_failed_or_skipped_results",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_failed_or_skipped_results"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects wrong-status and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_missing_required_file",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_missing_required_file"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects missing-file and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_path_mismatch_and_duplicate_names",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_path_mismatch_and_duplicate_names"
-      }
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects wrong-path and empties only work"
+      },
+      "additionalCoverage": [
+        "rejects duplicate and empties only work"
+      ]
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_malformed_json",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_malformed_json"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects malformed and empties only work"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_nonzero_exit",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_rejects_nonzero_exit"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "rejects nonzero and empties only work"
       }
     },
     {
@@ -1807,19 +1820,19 @@
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_timeout_terminates_process_group_and_cleans_work",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_timeout_terminates_process_group_and_cleans_work"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "timeout sends TERM then KILL and removes descendants before cleanup"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_interrupt_terminates_process_group_and_cleans_work",
       "task": "T4",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
-        "test": "test_acquisition_interrupt_terminates_process_group_and_cleans_work"
+        "file": "tests/node/acquisition.test.mjs",
+        "test": "abort cancels process group and cleans work"
       }
     },
     {
@@ -1860,12 +1873,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_blank_codex_home_fails_before_acquisition",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_blank_codex_home_fails_before_acquisition"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_successful_install_reports_selected_runtime",
@@ -1878,21 +1892,23 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_pass_without_external_skills",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_read_only_modes_pass_without_external_skills"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_still_reject_unsafe_external_target",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_read_only_modes_still_reject_unsafe_external_target"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_snapshot_file_swap_never_reads_outside_bytes",
@@ -1941,12 +1957,13 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_reject_unsafe_targets_before_acquisition",
-      "task": "T4",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_claude_skill_links_reject_unsafe_targets_before_acquisition"
-      }
+      },
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_reject_components_hidden_by_parent_traversal",
@@ -1959,12 +1976,13 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_changed_during_acquisition_abort",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_skill_links_changed_during_acquisition_abort"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_readonly_modes_and_conversion_output",
@@ -2114,21 +2132,23 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_acquisition_change_detection_stops_before_replacement",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_acquisition_change_detection_stops_before_replacement"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_managed_content_changes_during_acquisition_stop_before_replacement",
-      "task": "T4",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/acquire.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_managed_content_changes_during_acquisition_stop_before_replacement"
-      }
+      },
+      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_each_replacement_failure_rolls_back_selected_target",
@@ -2182,6 +2202,19 @@
         "read-only snapshots and cross-target write collision rejection"
       ],
       "t5RequiredDriftCase": "All with an allowed Claude skill link reads a default Codex skill that the first Codex target intentionally replaces; distinguish approved first-target changes from external acquisition-time drift."
+    },
+    "T4": {
+      "nodeTests": [
+        "tests/node/acquisition.test.mjs"
+      ],
+      "scope": [
+        "exact npx argv and isolated nonsecret environment",
+        "required record field values and exact three skills",
+        "descriptor-only tree validation and held-work cleanup",
+        "canonical internal links, containment, cycles and special-file rejection",
+        "timeout/cancellation process-group termination with bounded TERM/KILL and ESRCH confirmation"
+      ],
+      "t6RequiredCheckCase": "Read-only check must reject existing external required-file links escaping their skill root; this is distinct from acquisition output validation."
     }
   }
 }
