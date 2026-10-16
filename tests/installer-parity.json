@@ -246,12 +246,13 @@
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_coder_profile_holds_handoff_contract_without_full_reference_read",
-      "task": "T3",
+      "task": "T7",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/test_arc_policy.py",
         "test": "test_coder_profile_holds_handoff_contract_without_full_reference_read"
-      }
+      },
+      "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections",
@@ -264,12 +265,13 @@
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read",
-      "task": "T3",
+      "task": "T7",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/test_arc_policy.py",
         "test": "test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read"
-      }
+      },
+      "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_restart_choice_lifetime_and_evidence",
@@ -453,12 +455,13 @@
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_profiles_carry_terms_used_in_citable_sections",
-      "task": "T3",
+      "task": "T7",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/test_arc_policy.py",
         "test": "test_profiles_carry_terms_used_in_citable_sections"
-      }
+      },
+      "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation."
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_qa_fix_restorations",
@@ -579,12 +582,13 @@
     },
     {
       "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_loader_keeps_subagents_on_profiles",
-      "task": "T3",
+      "task": "T7",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/test_arc_policy.py",
         "test": "test_loader_keeps_subagents_on_profiles"
-      }
+      },
+      "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation."
     },
     {
       "legacy": "tests/test_install.py::LongTaskTokenTests::test_plan_amendment_restarts_coder",
@@ -633,12 +637,13 @@
     },
     {
       "legacy": "tests/test_install.py::TokenDisciplineTests::test_role_profiles_read_targeted_ranges",
-      "task": "T3",
+      "task": "T7",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/test_arc_policy.py",
         "test": "test_role_profiles_read_targeted_ranges"
-      }
+      },
+      "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation."
     },
     {
       "legacy": "tests/test_install.py::RolePolicyTests::test_role_profiles_report_to_ceo_without_nested_delegation",
@@ -1083,111 +1088,123 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_preserved_on_new_partial_full_and_repeat_install",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_preserved_on_new_partial_full_and_repeat_install"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_active_profiles_backup_bytes_and_mode_preserves_user_profiles",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_active_profiles_backup_bytes_and_mode_preserves_user_profiles"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_preserved_during_active_profile_replace",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_preserved_during_active_profile_replace"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_not_moved_during_install",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_not_moved_during_install"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_targets_and_preserves_user_profiles",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_profile_failure_restores_targets_and_preserves_user_profiles"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_active_profile_rollback_failure_preserves_recovery_and_user_profiles",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_active_profile_rollback_failure_preserves_recovery_and_user_profiles"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_preparation_failure_preserves_user_profiles_and_targets",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_preparation_failure_preserves_user_profiles_and_targets"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_and_other_unrelated_profiles_preserved",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_and_other_unrelated_profiles_preserved"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_check_and_dry_run_are_read_only",
-      "task": "T3",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_user_profiles_check_and_dry_run_are_read_only"
-      }
+      },
+      "reclassification": "CLI mode/pipeline ordering requires the T6 public entrypoint."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profile_changes_during_acquisition_preserved",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profile_changes_during_acquisition_preserved"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_unmanaged_old_profiles_are_not_inspected_or_changed",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_unmanaged_old_profiles_are_not_inspected_or_changed"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_structurally_valid_changed_bytes_are_accepted",
@@ -1417,19 +1434,19 @@
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_rejects_missing_reference_entry",
       "task": "T3",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/manifest.test.mjs",
-        "test": "test_manifest_rejects_missing_reference_entry"
+        "test": "manifest reference coverage rejects missing entries and changed hashes"
       }
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_rejects_reference_hash_mismatch",
       "task": "T3",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/manifest.test.mjs",
-        "test": "test_manifest_rejects_reference_hash_mismatch"
+        "test": "manifest reference coverage rejects missing entries and changed hashes"
       }
     },
     {
@@ -1443,12 +1460,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_writes_arc_profiles_and_three_external_skills",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_install_writes_arc_profiles_and_three_external_skills"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_preserves_existing_using_git_worktrees",
@@ -1497,12 +1515,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_preflight_fails_before_acquisition",
-      "task": "T3",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_manifest_preflight_fails_before_acquisition"
-      }
+      },
+      "reclassification": "CLI mode/pipeline ordering requires the T6 public entrypoint."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_acquisition_failure_leaves_targets_and_backup_unchanged",
@@ -1533,12 +1552,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_external_targets_too",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_profile_failure_restores_external_targets_too"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_failed_install_removes_new_external_targets",
@@ -1695,12 +1715,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_unexpected_source_or_pinned_ref",
-      "task": "T3",
+      "task": "T4",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/acquisition.test.mjs",
         "test": "test_acquisition_rejects_unexpected_source_or_pinned_ref"
-      }
+      },
+      "reclassification": "Acquisition result source/ref validation belongs to T4."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_rejects_missing_ref_field",
@@ -1894,10 +1915,10 @@
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_spec_is_immutable_and_selects_exact_payload",
       "task": "T3",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
-        "test": "test_target_spec_is_immutable_and_selects_exact_payload"
+        "file": "tests/node/targets.test.mjs",
+        "test": "target carries profile/global/external policy and rejects root or unknown platforms"
       }
     },
     {
@@ -1974,12 +1995,13 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_link_profile_failure_restores_original_entries",
-      "task": "T3",
+      "task": "T5",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_link_profile_failure_restores_original_entries"
-      }
+      },
+      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_post_install_snapshot_failure_preserves_unverified_target",
@@ -2001,12 +2023,13 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_errors_precede_manifest_acquisition_and_writes",
-      "task": "T3",
+      "task": "T6",
       "status": "pending",
       "destination": {
-        "file": "tests/node/manifest.test.mjs",
+        "file": "tests/node/cli.test.mjs",
         "test": "test_target_errors_precede_manifest_acquisition_and_writes"
-      }
+      },
+      "reclassification": "CLI mode/pipeline ordering requires the T6 public entrypoint."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_help_works_without_target",
@@ -2144,6 +2167,21 @@
         "ApplyModelsTests"
       ],
       "note": "Optional Python model helpers retain their existing assertions for T7 relocation; Node preset/render coverage supplements them."
+    },
+    "T3": {
+      "nodeTests": [
+        "tests/node/manifest.test.mjs",
+        "tests/node/targets.test.mjs",
+        "tests/node/global-config.test.mjs",
+        "tests/node/plan.test.mjs"
+      ],
+      "scope": [
+        "descriptor-verified protected and mutable payload bytes",
+        "isolated target resolution",
+        "byte-preserving managed global configuration and Codex wait settings",
+        "read-only snapshots and cross-target write collision rejection"
+      ],
+      "t5RequiredDriftCase": "All with an allowed Claude skill link reads a default Codex skill that the first Codex target intentionally replaces; distinguish approved first-target changes from external acquisition-time drift."
     }
   }
 }

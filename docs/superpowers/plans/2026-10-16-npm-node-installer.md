@@ -85,7 +85,11 @@ Core interfaces:
 - Safe filesystem: openRoot(path) returns DirectoryHandle; handles expose stat, readDir, lstat, readlink, openDir, openFile, mkdir, renameTo, unlink, rmdir, chmod, setTimes, sync where applicable, and close.
 - Handle names are one path component only; reject empty, dot, dot-dot, slash, and NUL.
 - Model layer: loadModelConfig(text, platform), applyPreset(config, preset, overlay), serializeModelConfig(config), renderProfiles(profileBuffers, config).
-- Installer layer: verifyPayload(packageRoot, safeFs), resolveTarget(platform, environment), buildInstallPlan(inputs), validatePlanSet(plans), acquireExternalSkills(inputs), installTargets(plans, dependencies).
+- Installer layer: verifyPayload({packageRoot, safeFs}), resolveTarget(platform, {userHome, env, cwd}), buildInstallPlan({payload, target, preset, skipGlobal, safeFs}), validatePlanSet(plans), acquireExternalSkills(inputs), installTargets(plans, dependencies).
+- Verified payload shape: package-root-relative POSIX file names map to verified `Buffer` values; model inputs and package snapshot metadata are derived from those same bytes.
+- Target shape: platform, absolute home and user home, payload prefix, profile names, global paths, and external-skill policy. Target snapshots are separate and keyed by absolute target paths.
+- Installation plan shape: target, preset, skip-global choice, generated model/profile/skill buffers, global changes, managed and external paths, target snapshot, and summary.
+- `resolveTarget` receives `userHome` separately from the environment; it reads only `CODEX_HOME` for Codex or `CLAUDE_CONFIG_DIR` for Claude, and resolves a relative Codex home against the supplied `cwd`.
 - CLI layer: runCli(argv, injectedIOAndEnvironment) returns the approved exit code.
 - Renderers consume verified original buffers rather than reopening profile paths.
 - Snapshot device, inode, size, mode, and timestamp metadata needed for comparisons.
@@ -186,6 +190,10 @@ Focused checks:
 **Files:** Create manifest, targets, global-config, and plan modules with corresponding Node tests. Update manifest and parity ledger.
 
 **Depends on:** T1 and T2.
+
+**Stable shapes:** `verifyPayload({packageRoot, safeFs})` returns `{packageRoot, files, modelInputs, snapshot}`. `files` maps package-root-relative POSIX paths to verified buffers, including mutable model inputs after schema validation. `TargetSpec` carries platform, absolute home/userHome, payload prefix, profile names, global paths, and external policy. `buildInstallPlan({payload, target, preset, skipGlobal, safeFs})` returns target/preset/skipGlobal, generated model/profile/skill buffers, global changes, managed/external paths, an absolute-path target snapshot, and summary. Package and target snapshots remain distinct.
+
+`resolveTarget(platform, {userHome, env, cwd})` validates `userHome` independently of `env`, reads only the selected platform's environment variable, and uses `cwd` for a relative `CODEX_HOME`.
 
 **TDD steps:**
 

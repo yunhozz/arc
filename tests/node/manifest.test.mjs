@@ -1,0 +1,31 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import {spawnSync} from 'node:child_process';
+import {openRoot} from '../../lib/safe-fs/index.mjs'; import {loadNative} from '../../lib/safe-fs/native.mjs';
+const api=await import('../../lib/installer/manifest.mjs').catch(()=>({}));
+const native=loadNative({artifactDirectory:'build/native'}); const safeFs={openRoot:p=>openRoot(p,{native})};
+const source=new URL('../../',import.meta.url).pathname;
+function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','install.py','package.json','package-lock.json','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});fs.mkdirSync(`${root}/bin`);fs.writeFileSync(`${root}/bin/arc-install.mjs`,'// entrypoint\n');fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
+function refresh(root){const r=spawnSync(process.execPath,[`${source}/scripts/update-manifest.mjs`,'--root',root],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);}
+function verify(root){return api.verifyPayload({packageRoot:root,safeFs});}
+test('descriptor-verifies bytes and mutable model inputs',t=>{const root=fixture(t);assert.equal(typeof api.verifyPayload,'function');const p=verify(root);assert.ok(p.files instanceof Map);assert.deepEqual(p.modelInputs.codex.models,fs.readFileSync(`${root}/codex/skill/models.toml`));assert.equal(p.modelInputs.claude.profiles.size,5);});
+for(const [label,change] of [
+ ['escape',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  ../outside\n`)],
+ ['duplicate',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n')[0]+'\n')],
+ ['missing',r=>fs.writeFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n').filter(l=>!l.endsWith('  README.md')).join('\n'))],
+ ['extra',r=>{fs.writeFileSync(`${r}/extra.txt`,'extra');fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  extra.txt\n`);}],
+ ['unlisted payload',r=>fs.writeFileSync(`${r}/codex/skill/unlisted.txt`,'unlisted')],
+ ['hash',r=>fs.appendFileSync(`${r}/README.md`,'changed')],
+ ['symlink',r=>{fs.unlinkSync(`${r}/README.md`);fs.symlinkSync('/etc/passwd',`${r}/README.md`);}],
+ ['mutable model listed',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  codex/skill/models.toml\n`)],
+ ['invalid mutable model',r=>fs.writeFileSync(`${r}/claude/skill/models.toml`,'version = 99')],
+ ['unsafe mutable exception',r=>fs.writeFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n').filter(l=>!l.endsWith('  codex/skill/presets.toml')).join('\n'))],
+ ['missing runtime asset',r=>{fs.unlinkSync(`${r}/bin/arc-install.mjs`);refresh(r);}],
+ ['missing installer module',r=>{fs.unlinkSync(`${r}/lib/installer/plan.mjs`);refresh(r);} ],
+ ['special payload file',r=>{fs.unlinkSync(`${r}/README.md`);assert.equal(spawnSync('mkfifo',[`${r}/README.md`]).status,0);}],
+ ['DS_Store directory',r=>fs.mkdirSync(`${r}/codex/skill/.DS_Store`)],
+])test(`payload rejects ${label}`,t=>{const root=fixture(t);change(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});
+test('mutable models may change only within their validated schemas',t=>{const root=fixture(t);const file=`${root}/codex/skill/models.toml`;fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('gpt-6-luna','custom/model'));assert.match(verify(root).modelInputs.codex.models.toString(),/custom\/model/);});
+test('manifest reference coverage rejects missing entries and changed hashes',t=>{const root=fixture(t);const manifest=`${root}/MANIFEST.sha256`,originalManifest=fs.readFileSync(manifest);for(const name of fs.readdirSync(`${root}/codex/skill/references`).filter(n=>n.endsWith('.md'))){const relative=`codex/skill/references/${name}`,file=`${root}/${relative}`,original=fs.readFileSync(file);fs.writeFileSync(manifest,originalManifest.toString().split('\n').filter(line=>!line.endsWith('  '+relative)).join('\n'));assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});fs.writeFileSync(manifest,originalManifest);fs.appendFileSync(file,'changed');assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});fs.writeFileSync(file,original);}});
+test('payload leaf replacement cannot read an outside regular-file sentinel',t=>{const root=fixture(t),outside=`${root}-outside`;fs.writeFileSync(outside,'private sentinel');t.after(()=>fs.rmSync(outside,{force:true}));const identity=fs.statSync(outside,{bigint:true});let swapped=false,readOutside=false;
+ function wrap(handle){return new Proxy(handle,{get(target,key){if(key==='openDir')return name=>wrap(target.openDir(name));if(key==='openFile')return(name,options)=>{if(name==='README.md'&&!swapped){swapped=true;fs.unlinkSync(`${root}/README.md`);fs.linkSync(outside,`${root}/README.md`);}return wrap(target.openFile(name,options));};if(key==='readAll')return()=>{const current=target.stat();if(current.dev===identity.dev&&current.ino===identity.ino)readOutside=true;return target.readAll();};const member=target[key];return typeof member==='function'?member.bind(target):member;}});}
+ assert.throws(()=>api.verifyPayload({packageRoot:root,safeFs:{openRoot:p=>wrap(safeFs.openRoot(p))}}),{code:'ARC_PAYLOAD_VALIDATION'});assert.equal(swapped,true);assert.equal(readOutside,false);
+});
