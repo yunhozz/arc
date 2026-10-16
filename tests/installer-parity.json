@@ -2125,5 +2125,25 @@
         "test": "test_rollback_failure_retains_recovery_and_reports_absolute_paths"
       }
     }
-  ]
+  ],
+  "taskCoverage": {
+    "T2": {
+      "nodeTests": [
+        "tests/node/models.test.mjs",
+        "tests/node/profile-render.test.mjs"
+      ],
+      "scope": [
+        "platform schema validation",
+        "30 approved role model/effort pairs",
+        "Economy source equivalence",
+        "non-model profile bytes and line endings",
+        "vendored TOML runtime integrity"
+      ],
+      "preservedPython": [
+        "ModelSettingsTests",
+        "ApplyModelsTests"
+      ],
+      "note": "Optional Python model helpers retain their existing assertions for T7 relocation; Node preset/render coverage supplements them."
+    }
+  }
 }

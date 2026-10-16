@@ -6,7 +6,7 @@
 
 **Architecture:** JavaScript ESM owns the CLI, model configuration, presets, and install orchestration. A prebuilt Node-API addon provides descriptor-relative filesystem operations. The npm package includes the runtime code, platform payload, license files, and supported native prebuilds.
 
-**Tech Stack:** Node.js >=22, npm, JavaScript ESM, Node-API C addon, node:test, locked smol-toml runtime dependency. node-gyp, Python, and a compiler are permitted only in maintainer or CI native-build environments.
+**Tech Stack:** Node.js >=22, npm, JavaScript ESM, Node-API C addon, node:test, exact-pinned and vendored smol-toml runtime. node-gyp, Python, and a compiler are permitted only in maintainer or CI native-build environments.
 
 **Spec:** /Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/specs/2026-10-16-npm-node-installer-design.md
 
@@ -153,21 +153,22 @@ Focused checks:
 
 **Depends on:** T1 package skeleton and lockfile.
 
-**Runtime dependency:** Add an exact smol-toml dependency and lock it in T2. Confirm the packed package obtains the dependency through the normal npm dependency path without Python or compilation.
+**Runtime packaging:** Pin smol-toml as an exact development dependency and lock it in T2. Vendor its runtime JavaScript and license, record the source integrity and file hashes, and import only the vendored entry at runtime. Confirm the packed package runs without development `node_modules`, Python, compilation, or a runtime download.
 
 **TDD steps:**
 
-1. Add failing tests for valid platform schemas, malformed TOML, duplicate keys/roles, wrong versions, missing/unknown roles, invalid model/effort fields, and unsupported presets.
+1. Add failing tests for valid platform schemas, malformed TOML, duplicate keys/roles, wrong versions, missing/unknown roles, invalid model/effort fields, unsupported presets, vendor drift, and vendor manifest coverage.
 2. Run the focused model test and confirm RED.
 3. Implement platform validation and preset overlay. Economy loads from the existing models.toml; store only Balanced and Smart overlays.
 4. Add table-driven assertions for all 30 approved values and exact Economy equivalence.
 5. Add renderer tests proving only model/effort fields change and descriptions, tools, body text, and line endings remain intact.
 6. Reparse generated model and profile output and verify it represents the selected preset.
-7. Run model/profile tests, update the manifest and parity ledger.
+7. Run model/profile tests and the vendor regeneration check; update the manifest and parity ledger.
 
 Focused checks:
 
     node --test tests/node/models.test.mjs tests/node/profile-render.test.mjs
+    node scripts/vendor-toml.mjs --check
     node scripts/check-installer-parity.mjs --task T2
     node scripts/update-manifest.mjs --check
     git diff --check
@@ -296,7 +297,7 @@ Focused checks:
 3. Add PTY tests for exact English prompts, no target default, Balanced-on-Enter, retry, cancellation, summary, and approved exit codes.
 4. Verify --help and --version work without loading native code; unsupported platform errors occur before writes.
 5. Implement check/dry-run with proof of no writes, subprocess, or network.
-6. Set engines.node >=22, bin.arc-install, explicit files, locked smol-toml and node-gyp dependencies, npm scripts, and maintainer-only native build scripts. Do not add install lifecycle hooks.
+6. Set engines.node >=22, bin.arc-install, explicit files, locked smol-toml and node-gyp development dependencies, npm scripts, and maintainer-only native build scripts. Include the vendored TOML runtime and license in the tarball. Do not add install lifecycle hooks.
 7. Verify npm pack contents include runtime, payload, licenses, manifest, and all four binaries; exclude tests, build output, Git metadata, and install.py.
 8. Change install.command to forward args and exit status to the Node bin.
 
@@ -379,7 +380,7 @@ After T1 through T7 are accepted:
 
 - The approved labels are Economy, Balanced (default), and Smart. No additional “current configuration” wording is shown in the CLI.
 - All 30 platform/role/model/effort combinations are covered, and Economy remains sourced from existing models.toml.
-- T1 creates package/lock infrastructure; T2 adds the TOML dependency; T6 consumes native artifacts; T7 handles Python parity and consumer proof.
+- T1 creates package/lock infrastructure; T2 pins and vendors the TOML runtime; T6 consumes native artifacts; T7 handles Python parity and consumer proof.
 - TDD red/green steps precede behavior implementation in each task.
 - Mixed tests are separated and preserved before deleting installer-only files.
 - Local host validation, artifact acquisition, and final four-platform execution are distinct gates.

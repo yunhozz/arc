@@ -1,0 +1,41 @@
+version = 1
+
+[presets.balanced.roles.arc_scouter]
+model = "sonnet"
+effort = "medium"
+
+[presets.balanced.roles.arc_planner]
+model = "sonnet"
+effort = "high"
+
+[presets.balanced.roles.arc_coder]
+model = "sonnet"
+effort = "medium"
+
+[presets.balanced.roles.arc_qa]
+model = "sonnet"
+effort = "medium"
+
+[presets.balanced.roles.arc_reviewer]
+model = "sonnet"
+effort = "high"
+
+[presets.smart.roles.arc_scouter]
+model = "sonnet"
+effort = "high"
+
+[presets.smart.roles.arc_planner]
+model = "opus"
+effort = "high"
+
+[presets.smart.roles.arc_coder]
+model = "opus"
+effort = "high"
+
+[presets.smart.roles.arc_qa]
+model = "sonnet"
+effort = "high"
+
+[presets.smart.roles.arc_reviewer]
+model = "opus"
+effort = "high"

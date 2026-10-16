@@ -1,0 +1,35 @@
+{
+  "name": "smol-toml",
+  "version": "1.9.1",
+  "normalization": {
+    "javascript": "strip-trailing-horizontal-whitespace-v1",
+    "pattern": "[ \\t]+(?=\\r?$)",
+    "flags": "gm",
+    "preserveLineEndings": true
+  },
+  "sourceFiles": {
+    "dist/date.js": "ef924a2a42c7f16761e7098c3ed8e04195ecbcb02d5c369db0aee76f251a409c",
+    "dist/error.js": "76f8e47f5fc57273748242d59570656d7c921a80bceb2291ca5a4d7a723e9f29",
+    "dist/extract.js": "3e6f1e5764a091acf2df6a3f257d0467c37a2b9dbfecab1573f17a6489349c90",
+    "dist/index.js": "dc8e0afc74477e514f5cb8492b587560c1d7d68cec03a994cc8bc4af99c8da2a",
+    "dist/parse.js": "195e33ea068bf6f3acb5b3342792ac4aa954bba7e751519ba869c00da395ecdb",
+    "dist/primitive.js": "be47fe90bf9a410af0b9204b6b34617f4b38e57f08198b10cb024a0272eb5936",
+    "dist/stringify.js": "c717d95456426dc8a0b07c9d03a4e434d5dea8254fca24e5fd93a22de3bcd44c",
+    "dist/struct.js": "736742cfa645bbd08bc5396c5f7ddbea5c3b7ac5d61fe86031846f5769131deb",
+    "dist/util.js": "6327e40efd957128da15867c3a32293950a925570b457b1b78c735452cebc08e"
+  },
+  "integrity": "sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==",
+  "files": {
+    "dist/date.js": "ef924a2a42c7f16761e7098c3ed8e04195ecbcb02d5c369db0aee76f251a409c",
+    "dist/error.js": "76f8e47f5fc57273748242d59570656d7c921a80bceb2291ca5a4d7a723e9f29",
+    "dist/extract.js": "3e6f1e5764a091acf2df6a3f257d0467c37a2b9dbfecab1573f17a6489349c90",
+    "dist/index.js": "dc8e0afc74477e514f5cb8492b587560c1d7d68cec03a994cc8bc4af99c8da2a",
+    "dist/parse.js": "195e33ea068bf6f3acb5b3342792ac4aa954bba7e751519ba869c00da395ecdb",
+    "dist/primitive.js": "f8e9faf39bf0eb96ae74ec2e30fecb206b5f8ec11a63f5814685a15205eb7418",
+    "dist/stringify.js": "c717d95456426dc8a0b07c9d03a4e434d5dea8254fca24e5fd93a22de3bcd44c",
+    "dist/struct.js": "736742cfa645bbd08bc5396c5f7ddbea5c3b7ac5d61fe86031846f5769131deb",
+    "dist/util.js": "6327e40efd957128da15867c3a32293950a925570b457b1b78c735452cebc08e",
+    "LICENSE": "fa5659948374d4f555594f47f6da073b40dc503e921aeeece30df4362b3051a5",
+    "package.json": "24a396a27462e43554cd8c9f79ba7655f7f9bffb22f9a88264bf09557cf435eb"
+  }
+}

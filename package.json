@@ -3,7 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
-  "scripts": { "test": "node --test tests/node/*.test.mjs", "build:native": "node scripts/build-native.mjs" },
-  "devDependencies": { "node-gyp": "11.5.0" }
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests/node/*.test.mjs",
+    "build:native": "node scripts/build-native.mjs"
+  },
+  "devDependencies": {
+    "node-gyp": "11.5.0",
+    "smol-toml": "1.9.1"
+  }
 }
