@@ -192,57 +192,63 @@
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_core_requires_task_scoped_references",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_core_requires_task_scoped_references"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_reference_triggers_cover_dependent_stages",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_reference_triggers_cover_dependent_stages"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_planning_order_and_recovery_protections_remain",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_planning_order_and_recovery_protections_remain"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_references_preserve_policy_contracts",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_references_preserve_policy_contracts"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_core_preserves_role_and_risk_gates",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_core_preserves_role_and_risk_gates"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_coder_trusts_ceo_verified_brief",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_coder_trusts_ceo_verified_brief"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_coder_profile_holds_handoff_contract_without_full_reference_read",
@@ -256,12 +262,13 @@
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read",
@@ -275,111 +282,123 @@
     },
     {
       "legacy": "tests/test_install.py::ConditionalReferenceTests::test_restart_choice_lifetime_and_evidence",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_restart_choice_lifetime_and_evidence"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_final_single_reviewer_is_explicit",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_final_single_reviewer_is_explicit"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_no_per_task_reviewer_wording",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_no_per_task_reviewer_wording"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_dependency_boundary_is_qa_only",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_dependency_boundary_is_qa_only"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ReviewerOncePerPlanTests::test_final_reviewer_findings_on_committed_work",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_final_reviewer_findings_on_committed_work"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_codex_spawn_fork_and_user_input_policy",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_codex_spawn_fork_and_user_input_policy"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_claude_native_role_and_ask_user_question_policy",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_native_role_and_ask_user_question_policy"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_research_routing_tiers",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_research_routing_tiers"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_models_scouter_lookup_exception",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_models_scouter_lookup_exception"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_skill_not_reread_and_agents_body_wording",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_skill_not_reread_and_agents_body_wording"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_brief_template_field_order_and_delta",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_brief_template_field_order_and_delta"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ResearchRoutingAndBriefTests::test_handoff_record_file_location",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_handoff_record_file_location"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_plan_case_qa_requirement_is_satisfied_by_task_checks",
@@ -392,48 +411,53 @@
     },
     {
       "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_planning_points_to_common_handoff_gate",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_planning_points_to_common_handoff_gate"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_config_comment_matches_subagent_limit",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_config_comment_matches_subagent_limit"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_reviewer_description_has_no_team_name",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_reviewer_description_has_no_team_name"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_fallback_record_inline_and_slug",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_fallback_record_inline_and_slug"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::WholeSystemReviewFollowUpTests::test_coder_reads_record_for_unchanged_fields",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_coder_reads_record_for_unchanged_fields"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::PolicyWordBudgetTests::test_policy_text_stays_within_word_budget",
@@ -446,12 +470,13 @@
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_core_defines_shared_terms",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_core_defines_shared_terms"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_profiles_carry_terms_used_in_citable_sections",
@@ -465,120 +490,133 @@
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_qa_fix_restorations",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_qa_fix_restorations"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_term_usage_sites",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_term_usage_sites"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_role_precedence",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_preaction_role_precedence"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_document_save_evidence",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_preaction_document_save_evidence"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_reference_and_choice_order",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_preaction_reference_and_choice_order"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_git_evidence_and_batch_order",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_preaction_git_evidence_and_batch_order"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ARCPreactionGateTests::test_preaction_stop_and_runtime_limits",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_preaction_stop_and_runtime_limits"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CeoDirectPathTests::test_direct_path_eligibility_is_small_low_risk_and_plan_skip",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_direct_path_eligibility_is_small_low_risk_and_plan_skip"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CeoDirectPathTests::test_direct_path_keeps_approval_handoff_tdd_and_verification",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_direct_path_keeps_approval_handoff_tdd_and_verification"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CeoDirectPathTests::test_direct_path_stops_and_reclassifies_without_reverting",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_direct_path_stops_and_reclassifies_without_reverting"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CeoDirectPathTests::test_ownership_and_flows_name_the_direct_path_exception",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_ownership_and_flows_name_the_direct_path_exception"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_fresh_coder_per_top_level_task",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_fresh_coder_per_top_level_task"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_coder_briefs_cite_sections_instead_of_whole_documents",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_coder_briefs_cite_sections_instead_of_whole_documents"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::CoderBriefAndReuseTests::test_loader_keeps_subagents_on_profiles",
@@ -592,12 +630,13 @@
     },
     {
       "legacy": "tests/test_install.py::LongTaskTokenTests::test_plan_amendment_restarts_coder",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_plan_amendment_restarts_coder"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::LongTaskTokenTests::test_long_running_commands_are_not_polled_with_sleep",
@@ -610,30 +649,33 @@
     },
     {
       "legacy": "tests/test_install.py::LongTaskTokenTests::test_ceo_recommends_new_session_per_plan",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_ceo_recommends_new_session_per_plan"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::TokenDisciplineTests::test_core_waits_without_polling_and_batches_messages",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_core_waits_without_polling_and_batches_messages"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::TokenDisciplineTests::test_core_reads_targeted_ranges_without_weakening_references",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_core_reads_targeted_ranges_without_weakening_references"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::TokenDisciplineTests::test_role_profiles_read_targeted_ranges",
@@ -917,156 +959,173 @@
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_created_when_missing",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_md_created_when_missing"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_keeps_existing_content_and_appends_block_at_end",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_md_keeps_existing_content_and_appends_block_at_end"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_moves_managed_block_to_the_end",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_md_moves_managed_block_to_the_end"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_appends_when_no_section_exists",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_md_appends_when_no_section_exists"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_rejects_malformed_markers",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_md_rejects_malformed_markers"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_md_keeps_numbers_fences_crlf_and_duplicate_sections_verbatim",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_md_keeps_numbers_fences_crlf_and_duplicate_sections_verbatim"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_unmanaged_arc_section_is_kept_and_reported",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_unmanaged_arc_section_is_kept_and_reported"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_non_utf8_global_file_is_reported_not_crashed",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_non_utf8_global_file_is_reported_not_crashed"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_agents_body_carries_arc_rules",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_agents_body_carries_arc_rules"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_created_or_appended_when_missing",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_config_created_or_appended_when_missing"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_overwrites_values_and_keeps_other_keys",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_config_overwrites_values_and_keeps_other_keys"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_skips_non_table_feature_forms",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_config_skips_non_table_feature_forms"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::GlobalSettingsTests::test_config_rejects_invalid_toml",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_config_rejects_invalid_toml"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_updates_global_files_with_backup",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_install_updates_global_files_with_backup"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_creates_missing_global_files",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_install_creates_missing_global_files"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_skip_global_leaves_global_files_untouched",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_skip_global_leaves_global_files_untouched"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_global_replace_failure_restores_all_targets",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_global_replace_failure_restores_all_targets"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_and_check_report_global_changes_without_writing",
@@ -1079,100 +1138,101 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_invalid_global_config_blocks_install_before_changes",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_invalid_global_config_blocks_install_before_changes"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_preserved_on_new_partial_full_and_repeat_install",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_preserved_on_new_partial_full_and_repeat_install"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_active_profiles_backup_bytes_and_mode_preserves_user_profiles",
       "task": "T5",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_active_profiles_backup_bytes_and_mode_preserves_user_profiles"
+        "test": "transaction publishes verified buffers and preserves durable backups and user profiles"
       },
       "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_preserved_during_active_profile_replace",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_preserved_during_active_profile_replace"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_not_moved_during_install",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profiles_not_moved_during_install"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_targets_and_preserves_user_profiles",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_profile_failure_restores_targets_and_preserves_user_profiles"
+        "test": "fault after publish rolls back prior bytes and metadata"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "T5 focused tests cover related lower-level behavior, but not every assertion/target variant in this legacy integration case. Preserve original Python assertion and migrate exactly in T7."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_active_profile_rollback_failure_preserves_recovery_and_user_profiles",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_active_profile_rollback_failure_preserves_recovery_and_user_profiles"
+        "test": "rollback conflict retains new user content and reports absolute recovery paths"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "T5 focused tests cover related lower-level behavior, but not every assertion/target variant in this legacy integration case. Preserve original Python assertion and migrate exactly in T7."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_preparation_failure_preserves_user_profiles_and_targets",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_preparation_failure_preserves_user_profiles_and_targets"
+        "test": "drift injected before staging is rejected before replacing user bytes"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "T5 focused tests cover related lower-level behavior, but not every assertion/target variant in this legacy integration case. Preserve original Python assertion and migrate exactly in T7."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_unmanaged_user_profile_leaves_preserved_and_unsafe_parent_rejected"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profiles_and_other_unrelated_profiles_preserved",
       "task": "T5",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_user_profiles_and_other_unrelated_profiles_preserved"
+        "test": "transaction publishes verified buffers and preserves durable backups and user profiles"
       },
       "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
@@ -1188,59 +1248,63 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_user_profile_changes_during_acquisition_preserved",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_user_profile_changes_during_acquisition_preserved"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_unmanaged_old_profiles_are_not_inspected_or_changed",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_unmanaged_old_profiles_are_not_inspected_or_changed"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_structurally_valid_changed_bytes_are_accepted",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_structurally_valid_changed_bytes_are_accepted"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_only_validation_ignores_unrelated_special_entries",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_required_only_validation_ignores_unrelated_special_entries"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_missing_required_file_is_rejected",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_missing_required_file_is_rejected"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_internal_file_symlink_is_accepted",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_required_internal_file_symlink_is_accepted"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_external_file_symlink_is_rejected",
@@ -1254,12 +1318,13 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_required_fifo_is_rejected_without_reading_it",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_required_fifo_is_rejected_without_reading_it"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_missing_skill_reports_both_absolute_candidates",
@@ -1272,84 +1337,93 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_readonly_validation_accepts_candidate_root_alias",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_readonly_validation_accepts_candidate_root_alias"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_readonly_validation_accepts_parent_alias",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_readonly_validation_accepts_parent_alias"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_root_alias_without_touching_target",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_reject_root_alias_without_touching_target"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_parent_alias_without_touching_target",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_reject_parent_alias_without_touching_target"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_regular_file_root",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_reject_regular_file_root"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_reject_special_tree_entries",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_reject_special_tree_entries"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_allow_backupable_internal_links",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_allow_backupable_internal_links"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_include_existing_legacy_candidates",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_include_existing_legacy_candidates"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_write_targets_do_not_create_missing_legacy_candidates",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_write_targets_do_not_create_missing_legacy_candidates"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_rejects_alias_through_candidate_root_alias_with_fifo",
@@ -1454,67 +1528,73 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_codex_repository_layout_preserves_installed_destinations",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_codex_repository_layout_preserves_installed_destinations"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_writes_arc_profiles_and_three_external_skills",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_install_writes_arc_profiles_and_three_external_skills"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_preserves_existing_using_git_worktrees",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_install_preserves_existing_using_git_worktrees"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_syncs_all_three_on_every_run",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_install_syncs_all_three_on_every_run"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_updates_existing_legacy_only",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_install_updates_existing_legacy_only"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_sync_removes_deleted_upstream_files",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_sync_removes_deleted_upstream_files"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_read_only_options_never_acquire_or_write",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_read_only_options_never_acquire_or_write"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_preflight_fails_before_acquisition",
@@ -1528,53 +1608,53 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_acquisition_failure_leaves_targets_and_backup_unchanged",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
-        "file": "tests/node/transaction.test.mjs",
-        "test": "test_acquisition_failure_leaves_targets_and_backup_unchanged"
+        "file": "tests/node/install.test.mjs",
+        "test": "acquisition failure leaves target absent"
       },
-      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
+      "reclassification": "T5 focused tests cover related lower-level behavior, but not every assertion/target variant in this legacy integration case. Preserve original Python assertion and migrate exactly in T7."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_external_replace_failure_restores_all_targets",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_external_replace_failure_restores_all_targets"
       },
-      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_successful_sync_backs_up_selected_and_legacy_external_trees",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_successful_sync_backs_up_selected_and_legacy_external_trees"
       },
-      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_profile_failure_restores_external_targets_too",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_profile_failure_restores_external_targets_too"
       },
-      "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_failed_install_removes_new_external_targets",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_failed_install_removes_new_external_targets"
+        "test": "new targets are removed from their public names after rollback"
       },
-      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
+      "reclassification": "T5 focused tests cover related lower-level behavior, but not every assertion/target variant in this legacy integration case. Preserve original Python assertion and migrate exactly in T7."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_rollback_failure_preserves_previous_and_reports_recovery_path",
@@ -1587,102 +1667,113 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_replace_failure_restores_targets_and_keeps_backup",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_replace_failure_restores_targets_and_keeps_backup"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_accepts_required_files_and_unrelated_regular_files",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_accepts_required_files_and_unrelated_regular_files"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_accepts_absolute_internal_file_link",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_accepts_absolute_internal_file_link"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_accepts_internal_directory_link",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_accepts_internal_directory_link"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_link_outside_root",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_link_outside_root"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_dangling_and_cyclic_links",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_dangling_and_cyclic_links"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_directory_link_cycle",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_directory_link_cycle"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_sibling_directory_link_cycle",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_sibling_directory_link_cycle"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_root_symlink",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_root_symlink"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_fifo_and_socket_entries",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_fifo_and_socket_entries"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::AcquiredTreeValidationTests::test_acquired_tree_rejects_missing_required_file",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_acquired_tree_rejects_missing_required_file"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_acquisition_uses_exact_three_skill_command",
@@ -1837,39 +1928,43 @@
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_rewrites_absolute_internal_link",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_staging_rewrites_absolute_internal_link"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_preserves_internal_directory_link_as_relative",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_staging_preserves_internal_directory_link_as_relative"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_rejects_escape_link_before_copy",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_staging_rejects_escape_link_before_copy"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_staging_rejects_existing_destination",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_staging_rejects_existing_destination"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillAcquisitionTests::test_blank_codex_home_fails_before_acquisition",
@@ -1912,21 +2007,23 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_snapshot_file_swap_never_reads_outside_bytes",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_snapshot_file_swap_never_reads_outside_bytes"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_snapshot_directory_swap_never_traverses_outside_tree",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_snapshot_directory_swap_never_traverses_outside_tree"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_spec_is_immutable_and_selects_exact_payload",
@@ -1939,20 +2036,21 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_root_symlink_is_rejected_without_following",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_root_symlink_is_rejected_without_following"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_convert_to_independent_upstream_copies",
       "task": "T5",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_claude_skill_links_convert_to_independent_upstream_copies"
+        "test": "Claude allowed external skill link becomes independent and rollback restores original literal link"
       }
     },
     {
@@ -1967,22 +2065,23 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_reject_components_hidden_by_parent_traversal",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_skill_links_reject_components_hidden_by_parent_traversal"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_links_changed_during_acquisition_abort",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_skill_links_changed_during_acquisition_abort"
       },
-      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_readonly_modes_and_conversion_output",
@@ -1996,48 +2095,51 @@
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_backup_and_rollback_never_follow_target",
       "task": "T5",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_claude_skill_link_backup_and_rollback_never_follow_target"
+        "test": "Claude allowed external skill link becomes independent and rollback restores original literal link"
       }
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_rollback_failure_preserves_recovery",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_skill_link_rollback_failure_preserves_recovery"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_link_profile_failure_restores_original_entries",
       "task": "T5",
-      "status": "pending",
+      "status": "verified",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
-        "test": "test_claude_link_profile_failure_restores_original_entries"
+        "test": "Claude allowed external skill link becomes independent and rollback restores original literal link"
       },
       "reclassification": "Transactional replacement, backup, rollback or user-profile preservation belongs to T5, not read-only preflight."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_post_install_snapshot_failure_preserves_unverified_target",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_post_install_snapshot_failure_preserves_unverified_target"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_leaf_move_rejects_swapped_intermediate_parent",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_leaf_move_rejects_swapped_intermediate_parent"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_errors_precede_manifest_acquisition_and_writes",
@@ -2069,21 +2171,23 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_config_dir_default_equivalent_and_rejected_values",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_config_dir_default_equivalent_and_rejected_values"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_ignores_other_platform_environment",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_target_ignores_other_platform_environment"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_both_dry_runs_show_target_neutral_temporary_acquisition",
@@ -2096,68 +2200,73 @@
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_spawn_nothing_and_change_nothing",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_read_only_modes_spawn_nothing_and_change_nothing"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_target_install_never_inspects_other_platform_candidates",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_target_install_never_inspects_other_platform_candidates"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_global_block_preserves_user_bytes_and_is_idempotent",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_global_block_preserves_user_bytes_and_is_idempotent"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_skip_global_leaves_claude_global_files_untouched",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_skip_global_leaves_claude_global_files_untouched"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_acquisition_change_detection_stops_before_replacement",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_claude_acquisition_change_detection_stops_before_replacement"
       },
-      "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_managed_content_changes_during_acquisition_stop_before_replacement",
       "task": "T5",
-      "status": "pending",
+      "status": "verified",
       "destination": {
-        "file": "tests/node/transaction.test.mjs",
-        "test": "test_managed_content_changes_during_acquisition_stop_before_replacement"
+        "file": "tests/node/install.test.mjs",
+        "test": "acquisition-time drift fails before transaction writes"
       },
       "reclassification": "Target replacement, backup/rollback, and acquisition-time drift belong to T5."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_each_replacement_failure_rolls_back_selected_target",
-      "task": "T5",
+      "task": "T7",
       "status": "pending",
       "destination": {
         "file": "tests/node/transaction.test.mjs",
         "test": "test_each_replacement_failure_rolls_back_selected_target"
-      }
+      },
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_rollback_failure_retains_recovery_and_reports_absolute_paths",
@@ -2226,6 +2335,24 @@
         "scope": "Atomic destination exclusion via native platform syscall; existing source identity must still be checked by T5 before cleanup.",
         "hostEvidence": "darwin-arm64; Linux primitive source implemented but not executed on this host"
       }
+    },
+    "T5": {
+      "nodeTests": [
+        "tests/node/transaction.test.mjs",
+        "tests/node/install.test.mjs",
+        "tests/node/all-targets.test.mjs"
+      ],
+      "scope": [
+        "descriptor-only same-filesystem staging and durable byte/mode backups",
+        "no-replace preservation/publication/rollback with source identity validation",
+        "acquisition-time and staging-time drift rejection",
+        "Codex-first All ordering and independent target rollback",
+        "Claude leaf-link conversion and literal-link restoration",
+        "no-delete retained private stages grouped per destination parent"
+      ],
+      "retention": "Success and restored rollback retain all target-adjacent stage material and report its absolute paths in recoveryPaths. Ordinary backupRoot remains the durable backup. No automatic target-stage unlink/rmdir cleanup is performed.",
+      "acquisitionLifetime": "AcquiredSkills.dispose closes/clears only the held private caller-created temporary work root; target-adjacent stages are outside that trust boundary.",
+      "remainingMigration": "Unmapped legacy assertion IDs remain pending T7 with original Python coverage intact."
     }
   }
 }

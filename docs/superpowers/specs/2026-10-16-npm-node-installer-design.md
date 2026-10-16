@@ -145,6 +145,8 @@ Windows, musl Linux 및 나머지 CPU는 초기 지원에서 제외한다. 지�
 - 설치 전후 metadata와 identity를 비교해 경합 중 외부 파일을 읽거나 바꾸지 않는다.
 - 검사 후 대상 drift 또는 복구 실패 시 확인 없이 삭제하지 않고 recovery 자료를 보존한다.
 - staging은 대상과 같은 파일시스템에 두고 action 기록을 통해 역순 복구한다.
+- 대상 인접 stage는 충돌 없는 비공개 이름과 `0700` 권한으로 만들고 transaction이 끝난 뒤에도 삭제하지 않는다. 생성된 stage의 절대 경로는 성공·복구 결과의 `recoveryPaths`에 표시하고, 기존 파일 백업 경로인 `backupPath`와 구분한다. 후속 실행도 stage를 자동 정리하지 않는다.
+- 부모 경로가 transaction 중 교체·이동되어 이전 항목을 원래 namespace에 복원할 수 없으면 held descriptor로 자료를 보존하고 복구 실패로 보고한다. `detachedParents`와 recovery 경로는 마지막으로 확인한 위치이며, 부모가 이동된 뒤에도 그 경로가 유효하다고 보장하지 않는다.
 - 외부 스킬 획득은 기존 `npx skills@latest` 명령, 격리 환경, 정확한 결과 검증과 timeout 계약을 유지한다.
 
 Codex와 Claude 단독 설치는 각자의 기존 home·전역 설정·외부 스킬 경계만 변경한다. 사용자 소유 내용 및 `arc:begin`/`arc:end` 관리 블록 밖의 내용은 보존한다. Codex의 기존 `~/.agents/skills` 갱신 범위와 Claude의 허용된 link 처리도 유지한다.

@@ -265,11 +265,11 @@ Focused checks:
 1. Add failing snapshot, same-filesystem staging, backup-bytes/metadata, normal install, and rollback tests; confirm RED.
 2. Implement each filesystem action through safe-fs handles and record an action log.
    Use atomic no-replace rename for publishing into vacant names, preserving prior entries, and rollback/recovery moves; on a destination conflict, preserve the source/recovery material and report it rather than deleting the occupant.
-3. Add fault injection before and after every mutation boundary. Verify prior content is restored, new targets are removed only when identity is known, and user-owned profiles remain unchanged.
+3. Add fault injection before and after every mutation boundary. Verify prior content is restored while the original parent namespace remains available; if that namespace is detached, preserve the old entry through held descriptors and report recovery required. Move new targets into retained stage storage instead of deleting entries after a separate identity check. Verify user-owned profiles remain unchanged.
 4. Add Claude link tests for the single allowed leaf-link pattern, preservation of original link text, independent copy, and rollback restoration.
 5. Add drift tests for target/global/link changes during acquisition and immediately before replacement.
 6. Add All preflight failure, Codex-first success, first-target failure, and Claude failure tests. A second-target failure must not roll back Codex.
-7. Add recovery-failure tests proving staged/backup material remains and absolute recovery paths are reported.
+7. Add recovery-failure tests proving staged/backup material remains and absolute recovery paths are reported. Use one exclusively-created `0700` stage directory per exact target parent. Never unlink or recursively clean target-adjacent stage directories: portable POSIX APIs cannot atomically unlink only the inode previously inspected. Retain each created stage after success and restored rollback as well as failure, return its absolute path in `recoveryPaths`, and keep the ordinary prior-file snapshot under the separate `backupPath`. A transaction with no stage work may return no recovery paths. No later run automatically cleans these directories; T7 must explain their accumulation and safe manual-cleanup responsibility to users.
 8. Run focused tests with the real native layer and fault injection.
 
 Focused checks:
@@ -279,7 +279,7 @@ Focused checks:
     node scripts/update-manifest.mjs --check
     git diff --check
 
-**Acceptance and QA:** No mutation uses unchecked multi-component paths; drift fails closed; target backups/rollback are independent; partial All status and recovery information are accurate.
+**Acceptance and QA:** No mutation uses unchecked multi-component paths; drift fails closed; target backups/rollback are independent; partial All status and recovery information are accurate. Success and restored rollback may include retained stage paths without indicating failure. A detached-parent rollback reports `ARC_INSTALL_RECOVERY`, includes last-known `detachedParents` and `recoveryPaths`, and preserves the previous entry without restoring it into a replacement namespace.
 
 **Stop if:** Any uncertain target is deleted, a first-target success is rolled back due to second-target failure, or safe-fs is bypassed.
 
@@ -350,7 +350,7 @@ Focused checks:
 3. Use the actual Node installer/native layer and real temporary target homes. Fake only the external npx acquisition in deterministic tests.
 4. Exercise help, check, dry-run, each target/preset combination, All, rollback, and no-write boundaries. Use absolute real npm for outer package installation so the fake npx is limited to skill acquisition.
 5. Add a separate live upstream smoke check for Python-free execution. A network failure is reported as unverified, not passed.
-6. Update README with npm and shell commands, English choices, Balanced default, supported OS/CPU/libc, Python-free installer requirements, optional Python helper requirements, backups, and recovery.
+6. Update README with npm and shell commands, English choices, Balanced default, supported OS/CPU/libc, Python-free installer requirements, optional Python helper requirements, backups, recovery, and retained stage directories (their success/rollback behavior, accumulation, and manual cleanup responsibility).
 7. Regenerate and check MANIFEST.sha256 after removing install.py and adding runtime artifacts.
 
 Focused checks:
