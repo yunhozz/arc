@@ -8,10 +8,30 @@
   },
   "scripts": {
     "test": "node --test tests/node/*.test.mjs",
-    "build:native": "node scripts/build-native.mjs"
+    "build:native": "node scripts/build-native.mjs",
+    "check:manifest": "node scripts/update-manifest.mjs --check"
   },
   "devDependencies": {
     "node-gyp": "11.5.0",
     "smol-toml": "1.9.1"
-  }
+  },
+  "bin": {
+    "arc-install": "bin/arc-install.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "scripts/",
+    "vendor/",
+    "prebuilds/",
+    "native/binding.c",
+    "native/binding.gyp",
+    "codex/skill/",
+    "codex/agents/",
+    "claude/skill/",
+    "claude/agents/",
+    "MANIFEST.sha256",
+    "package-lock.json",
+    "install.command"
+  ]
 }
