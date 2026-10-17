@@ -317,8 +317,9 @@ settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
-show the updates. The npm installer
-(`npx --yes github:yunhozz/arc install --target codex --preset economy|balanced|smart`) writes `models.toml` from the
-preset and renders all five profiles. New
+show the updates. To select an installed variant without reinstalling, use
+`arc preset economy|balanced|smart --target codex` (or `--target all`). This validates all variants and
+updates only the active preset and role model fields, preserving custom variants, instructions, language,
+limits, and global configuration. `--check` and `--dry-run` do not write. New
 sessions reload profiles; running agents retain their current settings and parent relationships. These policy changes
 do not automatically reparent running agents or prove runtime parent behavior.

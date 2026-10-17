@@ -161,6 +161,19 @@ Both use `version = 1`, a root `preset`, and `roles.<role>.economy`, `.balanced`
 Installation retains all three variants and selects the requested preset. Codex entries use `model` and
 `model_reasoning_effort`; Claude entries use `model` and `effort`. All variants are validated, including inactive ones.
 
+Change the installed preset without reinstalling:
+
+```sh
+arc preset smart --target codex
+arc preset balanced --target all --check
+arc preset economy --target claude --dry-run
+```
+
+Omit the preset or target in a terminal to choose it with arrow keys. Non-interactive runs require both.
+Preset switching preserves custom model variants, profile instructions, language, limits, and global settings.
+All selected targets are checked before writing; each target updates atomically in Codex → Claude order.
+A later target failure keeps earlier successful changes. Open a new session to load changed profiles.
+
 After editing the installed file, apply it with the optional Python 3.11+ tool:
 
 ```sh

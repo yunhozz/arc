@@ -334,7 +334,10 @@ python3 ~/.claude/skills/arc/scripts/apply-models.py
 The supported options are `--config`, `--agents-dir`, `--check`, and `--dry-run`. Check and dry-run validate local
 inputs without writing or invoking a provider. Reapplication validates all five profiles before replacements and
 restores prior bytes and modes on partial failure; only the five Claude profiles are targets. Installation renders
-settings into all five profiles. New sessions reload profiles; running agents retain their current settings and parent
+settings into all five profiles. To select an installed variant without reinstalling, use
+`arc preset economy|balanced|smart --target claude` (or `--target all`). This validates all variants and
+updates only the active preset and role model fields, preserving custom variants, instructions, language,
+limits, and global configuration. `--check` and `--dry-run` do not write. New sessions reload profiles; running agents retain their current settings and parent
 relationships. These declarations and local checks do not prove runtime model/effort application or parent behavior.
 
 For browser visualization needs read [visual-companion](references/visual-companion.md). Use only capabilities
