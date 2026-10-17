@@ -21,12 +21,12 @@ The five installed roles are Scouter, Planner, Coder, QA, and Reviewer. The Orch
 
 Installation preserves content outside the `arc:begin` / `arc:end` block. Codex wait settings are merged for a supported standalone `[features.multi_agent_v2]` table; unsupported structure produces manual guidance. Native concurrency is written to Codex `[agents].max_concurrent_threads_per_session` as an integer and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
 
-ARC's local upstream reference tree contains brainstorming, writing-plans, test-driven-development, companion files, license, and provenance. Existing shared/global upstream skills and links remain separate. Shell completion is shared CLI support: npm postinstall attempts zsh registration on supported configurations, and completion commands print zsh/bash scripts. Registration is best-effort. See [installation commands](../README.md#-install), [model settings](../README.md#-model-settings), and [shell completion](../README.md#-shell-completion).
+ARC's local upstream reference tree contains brainstorming, writing-plans, test-driven-development, companion files, license, and provenance. Existing shared/global upstream skills and links remain separate. npm installation places the CLI and bundled files only; it does not acquire references or edit shell configuration. Harness installation adds zsh completion registration to its installation plan unless `--skip-global` is set; completion commands print zsh/bash scripts. See [installation commands](../README.md#-install-and-manage-arc), [model settings](../README.md#-models-and-presets), and [shell completion](../README.md#-shell-completion).
 
 ## Installation and refresh lifecycle
 
-1. The CLI parses target, preset, mode, and positive safe integer limits. Interactive selection fills omitted choices; non-interactive installation requires target and preset.
-2. It verifies the distributed payload, reads target state, resolves preserved/default limits, builds plans, and validates conflicting paths and configuration.
+1. The CLI parses target, preset, mode, and positive safe integer limits. Interactive selection fills omitted choices; non-interactive installation requires target, preset, and output language.
+2. It verifies the distributed payload, reads target state, resolves preserved/default limits, builds plans including shared zsh completion registration unless `--skip-global` is set, and validates conflicting paths and configuration.
 3. `--check` and `--dry-run` validate local included references and plans, then exit without applying installation changes or refreshing upstream. Dry run also prints proposed writes. Neither mode proves upstream freshness.
 4. Actual installation acquires a fresh shallow default-branch snapshot from obra/superpowers for each target. Upstream scripts and hooks are not executed during collection. The installer snapshots skill content and validates required files, contained relative links, license, and provenance.
 5. It revalidates the target snapshot before and after acquisition, applies the target transaction, disposes acquisition work, and reports per-target status, rollback outcome, and any `Residual path:`. Cleanup errors remain failures even when installation content was applied.
@@ -35,10 +35,10 @@ There are two distinct transaction scopes:
 
 | Operation | Publication and recovery boundary |
 |---|---|
-| npm `postinstall` package reference refresh | One acquired revision updates **both package reference trees** together. On transaction publication failure, restore the prior trees; cleanup can still report residual work. Completion registration follows required refresh and is best-effort. |
-| `arc install --target all` | Codex then Claude are **independent target transactions**. A later target failure keeps earlier success; it does not roll back the successful Codex installation. Remaining targets may be not-started. Inspect each target's status and residual paths before resolving the failure. |
+| Manual package reference refresh: `node scripts/update-superpowers.mjs` | One acquired revision updates **both package reference trees** together. On transaction publication failure, restore the prior trees; cleanup can still report residual work. This maintenance operation does not register shell completion. |
+| `arc --target all` | Codex then Claude are **independent target transactions**. A later target failure keeps earlier success; it does not roll back the successful Codex installation. Remaining targets may be not-started. Inspect each target's status and residual paths before resolving the failure. |
 
-`provenance.json` records revision, collection time, file hashes, and relative links. This provenance provides local consistency evidence; it does not authenticate upstream or a malicious local rewrite. Acquisition needs Git and network access. `npm --ignore-scripts`, a ZIP download, or a plain clone does not run npm postinstall; the next actual install still acquires fresh references. Actual installation stages references separately and can use a read-only package. Concurrent package refreshes or installation/removal against the same target are unsupported.
+`provenance.json` records revision, collection time, file hashes, and relative links. This provenance provides local consistency evidence; it does not authenticate upstream or a malicious local rewrite. Acquisition needs Git and network access. The package has no npm lifecycle scripts. npm installation, including `npm --ignore-scripts`, a ZIP download, and a plain clone do not refresh upstream references; actual harness installation fetches fresh references. Actual installation stages references separately and can use a read-only package. Concurrent package refreshes or installation/removal against the same target are unsupported.
 
 Reinstallation replaces managed ARC files, including edited role profiles and local model edits. It creates no persistent backup. Omitted limits preserve valid existing ARC policy, otherwise use initial defaults (100 total, 5 concurrent). Interactive Enter preserves each target's value; an explicit value applies to every selected target. Malformed policy/configuration stops installation. Existing native concurrency that differs from stored ARC concurrency requires explicit concurrency selection (flag or interactive confirmation) before replacement. `--skip-global` skips instruction/native configuration and shell access for that invocation; it does not undo earlier writes.
 
@@ -116,7 +116,7 @@ Maintenance actions have distinct effects:
 - **Harness removal:** `arc uninstall` removes the selected ARC skill, five role profiles, and managed instruction block, including edited ARC files. External skills/profiles, Codex wait settings, native concurrency keys, and shared shell completion registration remain. `--skip-global` preserves the instruction block for that invocation. Removal has its own dry run and transaction reporting.
 - **CLI package removal:** `npm uninstall -g @yunhozz/arc` removes the CLI package separately; installed harness configuration and shared shell completion remain.
 
-Use the existing [maintenance commands](../README.md#-maintenance), [model commands](../README.md#-model-settings), and [removal commands](../README.md#-remove-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
+Use the existing [maintenance commands](../README.md#-maintenance), [model commands](../README.md#-models-and-presets), and [removal commands](../README.md#-remove-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
 
 ## Source map
 
@@ -130,7 +130,7 @@ Use the existing [maintenance commands](../README.md#-maintenance), [model comma
 | Target paths, plans, and native configuration | [Targets](../lib/installer/targets.mjs), [plans](../lib/installer/plan.mjs), [runtime merge](../lib/installer/runtime-config.mjs) |
 | Independent target installation and removal | [Install coordinator](../lib/installer/install.mjs), [uninstall coordinator](../lib/installer/uninstall.mjs) |
 | Filesystem publication/rollback | [Transactions](../lib/installer/transaction.mjs) |
-| Package refresh and collection | [Postinstall](../scripts/npm-postinstall.mjs), [package references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [bundle validation](../lib/installer/superpowers.mjs) |
+| Package refresh and collection | [Manual reference updater](../scripts/update-superpowers.mjs), [package references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [bundle validation](../lib/installer/superpowers.mjs) |
 | Completion | [Registration](../lib/installer/shell-completion.mjs), [script generation](../lib/cli/completion.mjs) |
 | Structural contracts and regressions | [Harness contracts](../tests/test_harness_contract.py), [Python tests](../tests), [Node tests](../tests/node) |
 | Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#-maintenance) |

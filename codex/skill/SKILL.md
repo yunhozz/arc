@@ -59,7 +59,7 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 
 ## Instruction and execution adapter
 
-Native Codex profiles are TOML; installation renders the `model_reasoning_effort` field.
+Native Codex profiles are TOML with the `model_reasoning_effort` field.
 The native `[agents].max_concurrent_threads_per_session` value is an integer, distinct from ARC's ledger limits.
 These local declarations do not prove runtime enforcement.
 
@@ -308,22 +308,10 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 
 ## Models
 
-Install or refresh the Codex harness with `npx --yes github:yunhozz/arc --target codex`.
-In a terminal, it prompts for omitted preset, limits, and finally output language.
-
-
-`models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections;
-Orchestrator uses
-the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not
-prove server support, account access, or current availability. Use configured settings without substitution;
-report unavailable
-settings.
-
-After editing `models.toml`, apply the settings to installed profiles with
-`python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
-show the updates. To select an installed variant without reinstalling, use
-`arc preset economy|balanced|smart --target codex` (or `--target all`). This validates all variants and
-updates only the active preset and role model fields, preserving custom variants, instructions, language,
-limits, and global configuration. `--check` and `--dry-run` do not write. New
-sessions reload profiles; running agents retain their current settings and parent relationships. These policy changes
-do not automatically reparent running agents or prove runtime parent behavior.
+`models.toml` beside this skill is the source of truth for role model and reasoning-effort settings.
+Orchestrator uses the current conversation model. Use configured role settings without substitution or effort
+reduction; report unavailable settings.
+Local declarations do not prove runtime provider support, account access, alias resolution, actual model or effort
+application, concurrency or depth enforcement.
+New sessions reload profiles; running agents retain their current settings and parent relationships. Configuration
+changes do not automatically reparent running agents or prove runtime parent behavior.

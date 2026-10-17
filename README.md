@@ -1,4 +1,4 @@
-# ARC (Agent Role Coordination)
+# 🤖 ARC (Agent Role Coordination)
 
 ARC coordinates research, design, implementation, and verification in Codex and Claude Code.
 The Orchestrator assigns work and accepts results.
@@ -10,39 +10,40 @@ The Orchestrator assigns work and accepts results.
 Start interactive installation without a global CLI:
 
 ```sh
-npx --yes github:yunhozz/arc
+npx --yes @yunhozz/arc
 ```
 
 Choose target → preset → total limit → concurrent limit → output language with Up/Down and Enter.
 For non-interactive installation, supply target, preset, and language:
 
 ```sh
-npx --yes github:yunhozz/arc --target codex --preset balanced --language ko
+npx --yes @yunhozz/arc --target codex --preset balanced --language ko
 ```
 
 The same package can manage an existing installation:
 
 ```sh
-npx --yes github:yunhozz/arc preset smart --target codex
-npx --yes github:yunhozz/arc uninstall --target codex
+npx --yes @yunhozz/arc preset smart --target codex
+npx --yes @yunhozz/arc uninstall --target codex
 ```
 
 These npx commands do not install a global `arc` executable. To install the CLI globally:
 
 ```sh
-npm i -g github:yunhozz/arc
+npm i -g @yunhozz/arc
 arc
 arc preset smart --target codex
 arc uninstall --target codex
 ```
 
 The npm command installs the CLI only. Run bare `arc` to install the harness and register zsh
-completion. For the current shell, run `eval "$(arc completion zsh)"` after harness installation.
+completion. For the current shell, run `eval "$(arc completion zsh)"`; for bash, use
+`eval "$(arc completion bash)"`.
 
 Bare `arc` starts installation; the `install` subcommand has been removed. A repository checkout
 also supports `./install.command` with the same installation options.
 
-### Requirements and options
+### 🧰 Requirements and options
 
 | Requirement | Supported |
 |---|---|
@@ -69,11 +70,11 @@ Check and dry-run validate included references locally, without network access o
 For example:
 
 ```sh
-npx --yes github:yunhozz/arc --target all --preset smart --language en --check
+npx --yes @yunhozz/arc --target all --preset smart --language en --check
 ./install.command --target claude --preset economy --language ko --dry-run
 ```
 
-### Output language
+### 🌐 Output language
 
 Each target stores `en` or `ko` in `skills/arc/settings.toml`. The language applies to the Orchestrator
 and all five roles, including progress, reports, and planning documents. An explicit user language request
@@ -83,7 +84,7 @@ literals, quotations, and actual tool output retain their original form. Open a 
 For `all`, one selection applies to both targets. A common existing language is preselected; otherwise English
 is selected. `--skip-global` omits the global instruction block while retaining skill and role language policies.
 
-### Installed files and refreshes
+### 📁 Installed files and refreshes
 
 | Target | Location and managed files |
 |---|---|
@@ -150,25 +151,39 @@ python3 ~/.claude/skills/arc/scripts/apply-models.py
 python3 ~/.codex/skills/arc/scripts/apply-models.py
 ```
 
-## Subagent limits
+## 👥 Subagent limits
 
-TTY installation asks for omitted limits even when target and preset are supplied. Enter preserves each
-target's existing value or its initial default; typed values apply to every selected target.
-Non-interactive installation preserves omitted limits. Both values must be positive safe ASCII decimal integers;
-total and concurrent limits are independent.
+TTY installation prompts for omitted limits. Enter keeps each target's current value (or the initial defaults:
+100 total and 5 concurrent); a typed value applies to all selected targets. Non-interactive installation
+preserves omitted values.
 
-The installer writes `skills/arc/limits.toml` and merges native concurrency into Codex
-`[agents].max_concurrent_threads_per_session` as an integer and Claude
-`settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
-Native drift requires explicit concurrency selection through the flag or TTY confirmation.
-Malformed configuration stops installation. Check and dry-run preview policy/native changes;
-`--skip-global` writes only ARC policy and skips global instruction, native configuration, and shell access.
+The ARC policy counts every created agent in one session/tree, including completed agents. Reuse does not count;
+fresh replacements do. This is prompt-level policy, not a hard runtime limit, and actual platform capacity may be
+lower. New settings apply to new sessions. See the operating guides for platform-specific configuration details.
 
-The cumulative limit counts all created descendants in an ARC session/tree, including completed agents.
-Reusing an instance adds no creation; fresh replacements do. Reservations and the ledger are prompt-level
-policy: ARC does not intercept spawn calls or enforce a hard cumulative runtime limit. Lower runtime capacity
-still applies. Independent sessions, platforms, and accounts have separate budgets. New settings apply to
-new sessions; configuration writes do not demonstrate runtime support in the current process.
+## 👥 Roles and workflow
+
+Read [How the ARC harness operates](docs/harness-operation.md) for responsibilities, approval and preparation,
+dependency scheduling, verification, commits, refresh boundaries, and recovery.
+
+ARC scales the workflow to each task's depth and risk:
+
+| Task depth and difficulty | Workflow |
+|---|---|
+| Simple, low risk: narrow scope and clear checks | When eligible, the Orchestrator handles the change directly and runs focused checks; otherwise, a Coder makes the change and the Orchestrator verifies it. |
+| Ordinary implementation or behavior change | Approve any required design or plan documents, then assign a fresh Coder followed by fresh QA. The Orchestrator reviews the evidence and accepts the result. |
+| Complex or significant risk: shared contracts, state or lifecycle; security; data loss; public interfaces; costly installation or deployment | Approve required documents and preparation. For planned work, each task follows Coder → fresh QA → acceptance and commit, followed by an independent Reviewer on the full change. For unplanned work, use Coder → fresh QA → Reviewer → acceptance. |
+
+Design depth (Spike, Bounded, Architectural) determines which design documents are needed; task risk determines
+verification strength. Ready independent tasks may run in parallel within policy and runtime capacity. Coder
+completion alone does not release dependents. Codex supports managed worktrees; Claude v1 uses the current checkout.
+
+## 📚 Operating guides
+
+| Environment | Guide | References |
+|---|---|---|
+| Codex | [Operating guide](codex/skill/SKILL.md) | [Planning](codex/skill/references/planning.md) · [Handoff](codex/skill/references/handoff.md) · [Verification](codex/skill/references/verification.md) |
+| Claude Code | [Operating guide](claude/skill/SKILL.md) | [Planning](claude/skill/references/planning.md) · [Handoff](claude/skill/references/handoff.md) · [Verification](claude/skill/references/verification.md) |
 
 ## 🗑️ Remove ARC
 
@@ -192,75 +207,3 @@ npm uninstall -g @yunhozz/arc
 
 npm package removal leaves the installed harness configuration and shared completion block in place.
 `uninstall` remains available to remove that deployed configuration.
-
-## ⌨️ Shell completion
-
-Global npm installation registers completion for supported ordinary zsh users. Start a new interactive
-shell or activate it now:
-
-```zsh
-eval "$(arc completion zsh)"
-```
-
-For permanent manual activation, add the command to your zsh startup file. For bash, use
-`eval "$(arc completion bash)"`. Direct `completion zsh` and `completion bash` calls print the scripts.
-At the first empty command position, Tab suggests only `preset` and `uninstall`; option prefixes offer
-installation options. The setup-only `completion` command remains callable by name.
-
-Automatic registration may be skipped by shell, runtime, permissions, `ZDOTDIR`, or npm script policy.
-Use `npm i -g --foreground-scripts @yunhozz/arc` for hook diagnostics. Completion failure does not fail npm
-installation. `--skip-global` does not undo existing registration, and both forms of uninstall retain it.
-
-## 👥 Roles and workflow
-
-Read [How the ARC harness operates](docs/harness-operation.md) for responsibilities, approval and preparation,
-dependency scheduling, verification, commits, refresh boundaries, and recovery.
-
-The Orchestrator answers simple questions, routes research to Scouter and design/spec/plan drafts to Planner,
-and assigns implementation to a fresh Coder. Independent QA supplies evidence for acceptance. Significant
-planned work receives a final Reviewer pass after task acceptances; significant unplanned work receives review
-before acceptance. Accepted plan tasks get focused commits; tasks with no changes get records.
-
-Design depth (Spike, Bounded, Architectural) and verification risk are separate. Approved documents and explicit
-platform preparation precede implementation. Ready independent tasks may run within policy and runtime capacity;
-Coder completion alone never releases dependents. Codex supports managed worktrees; Claude v1 uses the current
-checkout. Structural tests do not prove live runtime compliance with scheduling or limits.
-
-## 🧑‍💻 Maintenance
-
-Refresh `MANIFEST.sha256` after changing distributed files (`models.toml` is excluded).
-Run `npm ci --ignore-scripts`, then prepare the verified native test fixture for your host before `npm test`.
-
-| Check | Command |
-|---|---|
-| Node regression suite | `npm test` |
-| Python tool, policy, and payload checks | `python3 -B -m unittest discover -s tests` |
-| Installer parity | `node scripts/check-installer-parity.mjs --complete` |
-| Manifest | `node scripts/update-manifest.mjs --check` |
-| Real upstream integration | `node tests/node/live-upstream.mjs` |
-| Optional Codex token report (not installed) | `python3 codex/tools/codex_token_usage.py --since YYYY-MM-DD` |
-
-The Node suite uses a deterministic Git snapshot fixture. The upstream check requires network access;
-network failure leaves that result unverified.
-
-### 📦 Publish to npm
-
-The `npm-publish.yml` workflow publishes stable version changes pushed to `master` when repository variable
-`NPM_PUBLISH_ENABLED` is `true`. It skips published versions, rejects versions below `latest`, and stops on registry errors.
-
-1. Publish once from a release checkout with npm permission for `@yunhozz`: `npm publish --access public`.
-2. Configure npm GitHub Actions Trusted publishing: owner `yunhozz`, repository `arc`, workflow `npm-publish.yml`,
-   empty environment. Allow direct `npm publish`.
-3. Set repository Actions variable `NPM_PUBLISH_ENABLED=true`; no npm token secret is needed.
-4. Bump stable versions in `package.json` and `package-lock.json`, refresh the manifest, and merge to `master`.
-
-Complete the first trusted publication within two days of configuration, or configure the publisher again.
-Later releases repeat step 4. The workflow uses OIDC and provenance; it does not bump versions or publish prereleases.
-See [npm Trusted publishing](https://docs.npmjs.com/trusted-publishers/).
-
-## 📚 Operating guides
-
-| Environment | Guide | References |
-|---|---|---|
-| Codex | [Operating guide](codex/skill/SKILL.md) | [Planning](codex/skill/references/planning.md) · [Handoff](codex/skill/references/handoff.md) · [Verification](codex/skill/references/verification.md) |
-| Claude Code | [Operating guide](claude/skill/SKILL.md) | [Planning](claude/skill/references/planning.md) · [Handoff](claude/skill/references/handoff.md) · [Verification](claude/skill/references/verification.md) |

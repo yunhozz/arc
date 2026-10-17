@@ -36,4 +36,4 @@ test('language is validated and required for non-interactive installation',()=>{
  const r=spawnSync(process.execPath,['bin/arc.mjs','--target','codex','--preset','balanced','--check'],{encoding:'utf8'});assert.equal(r.status,2);assert.match(r.stderr,/--language/);
 });
 
-test('removed install command returns usage error and new syntax guidance',()=>{const r=spawnSync(process.execPath,['bin/arc.mjs','install'],{encoding:'utf8'});assert.equal(r.status,2);assert.match(r.stderr,/npx --yes github:yunhozz\/arc/);});
+test('removed install command returns usage error and new syntax guidance',()=>{const r=spawnSync(process.execPath,['bin/arc.mjs','install'],{encoding:'utf8'});assert.equal(r.status,2);assert.match(r.stderr,/npx --yes @yunhozz\/arc/);});
