@@ -16,7 +16,7 @@ Orchestrator preserves that language when saving.
 Record design and plan depth separately from verification risk. Risk determines checks and review, not the design path;
 a bounded path or document omission does not imply low risk, and architectural depth adds no QA/Reviewer at every stage.
 
-1. Before feature, design, or behavior changes, Orchestrator assigns Planner the installed `brainstorming` skill with
+1. Before feature, design, or behavior changes, Orchestrator assigns Planner the local `brainstorming` skill with
    the brief and evidence. Planner returns the path (Spike, Bounded, or Architectural), design/options, trade-offs,
    acceptance criteria, assumptions, and focused questions. Orchestrator integrates, announces scope, routes
    answers/revisions, and obtains approvals; Orchestrator never runs brainstorming or writing-plans itself (SKILL.md
@@ -119,7 +119,7 @@ do not request target choice, create or switch branches, stage, or commit planni
 allowed. An incomplete set or missing approval blocks preparation; approving some plans does not start their Coder work
 early.
 
-This ARC defers the installed brainstorming early spec commit: save and self-review the spec, obtain written-spec
+This ARC defers the local brainstorming early spec commit: save and self-review the spec, obtain written-spec
 approval without committing, then write and approve all plans; commit the spec only in the final batch.
 `writing-plans` commit steps do not permit document commits during planning or start Coder.
 Do not modify external skills.
@@ -149,3 +149,9 @@ satisfying a gate or as approval; record the actual order and gaps. Structural c
 not agent runtime compliance; without execution records for role returns, approvals, saves, and Git actions,
 leave runtime compliance unverified. Administrative status updates must accurately describe actual progress.
 Return scope changes and unresolved decisions to the user through Orchestrator.
+
+## Local planning references
+
+Orchestrator briefs absolute ARC paths `references/superpowers/brainstorming/SKILL.md` and
+`references/superpowers/writing-plans/SKILL.md`. Planner reads them directly; resolve relative references within each
+skill. Missing files stop the stage; report paths without global fallback. Keep ARC approval and ownership gates.

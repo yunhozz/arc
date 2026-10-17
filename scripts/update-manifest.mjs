@@ -1,3 +1,4 @@
+import {isDynamicReferencePath} from '../lib/installer/superpowers.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -8,6 +9,7 @@ const mutable = new Set(['codex/skill/models.toml', 'claude/skill/models.toml'])
 const excluded = new Set(['.DS_Store', '__pycache__', 'build']);
 const files = new Set();
 function visit(relative) {
+  if(isDynamicReferencePath(relative)) return;
   const filename = path.join(root, relative);
   if (!fs.existsSync(filename)) return;
   const stat = fs.lstatSync(filename);

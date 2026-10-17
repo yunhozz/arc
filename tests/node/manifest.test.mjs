@@ -30,3 +30,13 @@ test('payload leaf replacement cannot read an outside regular-file sentinel',t=>
  assert.throws(()=>api.verifyPayload({packageRoot:root,safeFs:{openRoot:p=>wrap(safeFs.openRoot(p))}}),{code:'ARC_PAYLOAD_VALIDATION'});assert.equal(swapped,true);assert.equal(readOutside,false);
 });
 test('current payload rejects legacy installer entries and every missing protected runtime file',t=>{const root=fixture(t),manifest=`${root}/MANIFEST.sha256`,original=fs.readFileSync(manifest);assert.ok(verify(root).files instanceof Map);fs.appendFileSync(manifest,`${'0'.repeat(64)}  install.py\n`);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});fs.writeFileSync(manifest,original);for(const line of original.toString().trim().split('\n')){const name=line.slice(66),file=`${root}/${name}`,bytes=fs.readFileSync(file);fs.unlinkSync(file);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'},name);fs.writeFileSync(file,bytes);}});
+import {refreshPackageReferences} from '../../lib/installer/package-references.mjs';import {referenceFixture} from './fixtures/fake-git.mjs';
+test('dynamic refresh verifies its own inventory while adjacent ARC policy stays protected',async t=>{const root=fixture(t);await refreshPackageReferences({packageRoot:root,safeFs,acquisition:async()=>({references:referenceFixture('B')})});const result=verify(root);assert.equal(result.referenceTrees.codex.provenance.revision,'b'.repeat(40));assert.equal(result.files.has('codex/skill/references/superpowers/LICENSE'),false);fs.appendFileSync(root+'/codex/skill/references/planning.md','changed');assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});
+for(const[label,change]of [
+ ['unlisted dynamic file',root=>fs.writeFileSync(root+'/codex/skill/references/superpowers/brainstorming/unlisted','bad')],
+ ['changed dynamic bytes',root=>fs.appendFileSync(root+'/codex/skill/references/superpowers/brainstorming/SKILL.md','bad')],
+ ['missing license',root=>fs.unlinkSync(root+'/codex/skill/references/superpowers/LICENSE')],
+ ['unknown skill',root=>fs.mkdirSync(root+'/codex/skill/references/superpowers/unknown')],
+ ['malformed provenance',root=>fs.writeFileSync(root+'/codex/skill/references/superpowers/provenance.json','{}')],
+ ['escaping reference link',root=>fs.symlinkSync('/etc/passwd',root+'/codex/skill/references/superpowers/brainstorming/escape')],
+])test(`dynamic payload rejects ${label}`,t=>{const root=fixture(t);change(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});

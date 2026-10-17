@@ -7,7 +7,8 @@ test('packed global npm installation registers once and local/scripts-disabled i
  t.after(()=>{assert.deepEqual(fs.existsSync(realStartup)?fs.readFileSync(realStartup):null,realBefore);});
  const home=root+'/home',prefix=root+'/prefix',cache=root+'/cache';fs.mkdirSync(home);const preload=root+'/identity.mjs';
  fs.writeFileSync(preload,`import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';const original=os.userInfo;os.userInfo=(...args)=>({...original(...args),homedir:process.env.HOME});syncBuiltinESMExports();`);
- const env={PATH:process.env.PATH,TERM:process.env.TERM??'xterm',LANG:process.env.LANG??'en_US.UTF-8',npm_config_userconfig:root+'/user.npmrc',npm_config_globalconfig:root+'/global.npmrc',npm_config_offline:'true',HOME:home,SHELL:'/bin/zsh',ZDOTDIR:home,npm_config_cache:cache,NODE_OPTIONS:`--import=${preload}`};for(const key of ['SUDO_UID','SUDO_USER','SUDO_COMMAND'])delete env[key];
+ const bin=root+'/bin';fs.mkdirSync(bin);const realGit=spawnSync('/bin/sh',['-c','command -v git'],{encoding:'utf8'}).stdout.trim();const fakeGit=root+'/fake-git.mjs';fs.copyFileSync(new URL('./fixtures/fake-git.mjs',import.meta.url),fakeGit);fs.writeFileSync(bin+'/git',`#!/bin/sh\nexec '${process.execPath}' '${fakeGit}' valid "$@"\n`,{mode:0o755});
+ const env={PATH:bin+':'+process.env.PATH,TERM:process.env.TERM??'xterm',LANG:process.env.LANG??'en_US.UTF-8',npm_config_userconfig:root+'/user.npmrc',npm_config_globalconfig:root+'/global.npmrc',npm_config_offline:'true',HOME:home,SHELL:'/bin/zsh',ZDOTDIR:home,npm_config_cache:cache,NODE_OPTIONS:`--import=${preload}`};for(const key of ['SUDO_UID','SUDO_USER','SUDO_COMMAND'])delete env[key];
  function npm(args,cwd=root){const r=spawnSync('npm',args,{cwd,env,encoding:'utf8',timeout:120000});if(r.status!==0){failed=true;t.diagnostic('npm failure cwd='+cwd+' args='+JSON.stringify(args)+' stdout='+r.stdout+' stderr='+r.stderr);}assert.equal(r.status,0,r.stderr+'\n'+r.stdout);return r;}
  const packed=npm(['pack',process.cwd(),'--json','--ignore-scripts']);const tarball=root+'/'+JSON.parse(packed.stdout)[0].filename;
  npm(['install','-g','--prefix',prefix,'--foreground-scripts',tarball]);const filename=home+'/.zshrc';assert.ok(fs.existsSync(filename),'global install registers completion');const first=fs.readFileSync(filename);assert.equal((first.toString().match(/# >>> arc completion >>>/g)??[]).length,1);
@@ -38,9 +39,9 @@ print(output.decode(errors='replace'))`],{env:{...env,NODE_OPTIONS:'',PATH:prefi
  const executed=npm(['exec','--yes','--package='+tarball,'--','arc','--version']);assert.match(executed.stdout,/0\.1\.0/);assert.equal(fs.existsSync(filename),false);
  const gitRoot=root+'/git-source';fs.mkdirSync(gitRoot);
  function command(name,args,cwd=gitRoot,extraEnv={}){const result=spawnSync(name,args,{cwd,env:{...env,...extraEnv},encoding:'utf8',timeout:120000});assert.equal(result.status,0,result.stderr+'\n'+result.stdout);return result;}
- command('tar',['-xf',tarball,'--strip-components=1']);command('git',['init','--quiet']);command('git',['add','.']);command('git',['-c','user.name=ARC Test','-c','user.email=arc@example.invalid','commit','--quiet','-m','local consumer fixture']);
+ command('tar',['-xf',tarball,'--strip-components=1']);command(realGit,['init','--quiet']);command(realGit,['add','.']);command(realGit,['-c','user.name=ARC Test','-c','user.email=arc@example.invalid','commit','--quiet','-m','local consumer fixture']);
  const preparation=command(process.execPath,['scripts/npm-postinstall.mjs'],gitRoot,{npm_config_global:'true',npm_lifecycle_event:'postinstall',npm_config_prefix:prefix});assert.match(preparation.stderr,/not the final global package location/);assert.equal(fs.existsSync(filename),false);
- t.diagnostic('Git fixture root: '+gitRoot+'; tracked hook: '+command('git',['ls-files','scripts/npm-postinstall.mjs']).stdout);
+ t.diagnostic('Git fixture root: '+gitRoot+'; tracked hook: '+command(realGit,['ls-files','scripts/npm-postinstall.mjs']).stdout);
  assert.equal(fs.existsSync(filename),false);
  assert.deepEqual(fs.readdirSync(home).filter(name=>name.startsWith('.arc-stage-')),[]);
  t.diagnostic('local fixture only; global install/reinstall/uninstall, --ignore-scripts, local dependency, npx/npm exec, and inherited-global Git preparation all exit 0; final local Git URL and remote T5 not verified');

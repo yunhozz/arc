@@ -5,8 +5,8 @@ Read before design/plan-depth decisions, spec/plan drafting and approval, and th
 ## Design and planning
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls
-routing/approval gates even if a called skill names another executor. Follow installed instructions and user
-constraints; report missing required skills before that stage. Integrate means save, route, and obtain approval;
+routing/approval gates even if a called skill names another executor. Follow local ARC reference instructions and user
+constraints; report missing required local references before that stage. Integrate means save, route, and obtain approval;
 never author.
 
 When the request or task brief is in Korean, Planner writes spec and plan titles and explanatory prose in Korean unless
@@ -18,7 +18,7 @@ review, not the design path or plan approval gates. Bounded or document omission
 architectural depth does not add QA/Reviewer at every stage; apply existing risk-scaled QA/Reviewer and specific
 approved obligations separately.
 
-1. Before software feature, design, or behavior changes, Orchestrator assigns Planner the installed `brainstorming`
+1. Before software feature, design, or behavior changes, Orchestrator assigns Planner the local `brainstorming`
    skill with
    the brief/evidence. Planner explores context and proposes the spike/bounded/architectural path (Orchestrator
    decides), design/options,
@@ -35,13 +35,13 @@ approved obligations separately.
    before implementation planning. Planner is read-only and cannot request approval.
 3. After approved design/spec and before Coder, Orchestrator assesses plan depth separately from file count, LOC,
    or bounded
-   scope. Architectural work always uses installed `writing-plans` and requires written plan approval, regardless of
+   scope. Architectural work always uses local `writing-plans` and requires written plan approval, regardless of
    locality, risk, or size. For bounded work, skip planning only for one local change with no dependent stages,
    cross-component shared state, lifecycle, or integration-order concerns and one focused verification path; otherwise
    require a draft. A bounded label or “no plan” request does not bypass this judgment.
    “Orchestrator's recorded plan-depth judgment” means this assessment, including whether a Bounded written spec is
    required, recorded in the brief/handoff record.
-4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows installed `writing-plans`,
+4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows local `writing-plans`,
    returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
    Orchestrator integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`,
    self-reviews,
@@ -153,7 +153,7 @@ preparation. Read-only workspace,
 repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
 handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
 
-This ARC explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
+This ARC explicitly defers the local `brainstorming` instruction to commit the spec before written-spec review:
 save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
 all applicable plans. Commit the spec only in the final batch preparation. Do not modify external skills.
 `writing-plans` implementation-step commit instructions
@@ -196,3 +196,9 @@ compliance unverified. Do not add runtime infrastructure or modify external skil
 ### Managed worktree preparation
 
 See [handoff-worktree.md](handoff-worktree.md) for the third-path managed worktree contract.
+
+## Local planning references
+
+Orchestrator briefs absolute ARC paths `references/superpowers/brainstorming/SKILL.md` and
+`references/superpowers/writing-plans/SKILL.md`. Planner reads them directly; resolve relative references within each
+skill. Missing files stop the stage; report paths without global fallback. Keep ARC approval and ownership gates.
