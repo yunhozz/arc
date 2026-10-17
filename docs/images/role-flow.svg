@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 680" width="1560" height="680" role="img" aria-labelledby="title description">
   <title id="title">ARC 작업 흐름</title>
-  <desc id="description">CEO가 요청을 설계 깊이(Spike, Bounded, Architectural)와 위험도(작음·저위험, 일반, 중대·고위험)로 판단합니다. 설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정하고, CEO가 결과를 수락하고 커밋합니다.</desc>
+  <desc id="description">Orchestrator가 요청을 설계 깊이(Spike, Bounded, Architectural)와 위험도(작음·저위험, 일반, 중대·고위험)로 판단합니다. 설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정하고, Orchestrator가 결과를 수락하고 커밋합니다.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
       <path d="M0 0 L10 5 L0 10 Z" fill="#6b7780"/>
@@ -19,8 +19,8 @@
       .chip { font-size: 14px; font-weight: 650; }
       .box-t { font-size: 20px; font-weight: 800; }
       .box-d { font-size: 14px; fill: #5f6b73; }
-      .ceo-t { font-size: 22px; font-weight: 800; fill: #ffffff; }
-      .ceo-d { font-size: 14.5px; fill: #d7e1e6; }
+      .orchestrator-t { font-size: 22px; font-weight: 800; fill: #ffffff; }
+      .orchestrator-d { font-size: 14.5px; fill: #d7e1e6; }
       .note { font-size: 14.5px; fill: #5f6b73; }
       .flow { fill: none; stroke: #6b7780; stroke-width: 2.5; marker-end: url(#arrow); }
       .step { fill: none; stroke: #9aa4ab; stroke-width: 1.6; marker-end: url(#arrow-s); }
@@ -28,17 +28,18 @@
   </defs>
   <rect width="1560" height="680" rx="22" fill="#f7f6f2"/>
   <text class="title" x="48" y="62">설계 깊이와 위험도를 따로 판단합니다</text>
-  <text class="sub" x="48" y="94">설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정합니다. CEO가 모든 결과를 수락합니다.</text>
+  <text class="sub" x="48" y="94">설계 깊이는 실행 전 승인 단계를, 위험도는 실행 후 검증 역할을 정합니다. Orchestrator가 모든 결과를 수락합니다.</text>
   <rect x="40" y="312" width="120" height="80" rx="16" fill="#ffffff" stroke="#dcdfda" stroke-width="1.5"/>
   <text class="box-t" x="100" y="348" text-anchor="middle">요청</text>
   <text class="box-d" x="100" y="372" text-anchor="middle">작업 목표</text>
   <path class="flow" d="M160 352 H192"/>
   <rect x="198" y="260" width="184" height="184" rx="20" fill="#2c4250"/>
-  <text class="ceo-t" x="290" y="306" text-anchor="middle">CEO 판단</text>
-  <text class="ceo-d" x="290" y="342" text-anchor="middle">설계 깊이 결정</text>
-  <text class="ceo-d" x="290" y="366" text-anchor="middle">위험도 결정</text>
-  <text class="ceo-d" x="290" y="390" text-anchor="middle">역할 배정 · 승인 요청</text>
-  <text class="ceo-d" x="290" y="414" text-anchor="middle">브랜치 선택 확인</text>
+  <text class="orchestrator-t" x="290" y="292" text-anchor="middle">Orchestrator</text>
+  <text class="orchestrator-t" x="290" y="318" text-anchor="middle">판단</text>
+  <text class="orchestrator-d" x="290" y="342" text-anchor="middle">설계 깊이 결정</text>
+  <text class="orchestrator-d" x="290" y="366" text-anchor="middle">위험도 결정</text>
+  <text class="orchestrator-d" x="290" y="390" text-anchor="middle">역할 배정 · 승인 요청</text>
+  <text class="orchestrator-d" x="290" y="414" text-anchor="middle">브랜치 선택 확인</text>
   <rect x="198" y="480" width="184" height="64" rx="14" fill="#ffffff" stroke="#9fc4b0" stroke-width="1.6" stroke-dasharray="6 5"/>
   <text class="chip" x="290" y="508" text-anchor="middle">Scouter</text>
   <text class="rd" x="290" y="530" text-anchor="middle">필요할 때 조사·탐색</text>
@@ -85,10 +86,12 @@
   <text class="rl" x="944" y="236">작음 · 저위험</text>
   <text class="rd" x="944" y="258">좁고, 되돌리기 쉬움</text>
   <rect x="944.0" y="274" width="157.0" height="38" rx="10" fill="#ffffff" stroke="#8fbea3" stroke-width="1.5"/>
-  <text class="chip" x="1022.5" y="298" text-anchor="middle">Coder 또는 CEO</text>
+  <text class="chip" x="1022.5" y="290" text-anchor="middle">Coder 또는</text>
+  <text class="chip" x="1022.5" y="308" text-anchor="middle">Orchestrator</text>
   <path class="step" d="M1104.0 293 H1123.0"/>
   <rect x="1127.0" y="274" width="157.0" height="38" rx="10" fill="#ffffff" stroke="#8fbea3" stroke-width="1.5"/>
-  <text class="chip" x="1205.5" y="298" text-anchor="middle">CEO 집중 확인</text>
+  <text class="chip" x="1205.5" y="290" text-anchor="middle">Orchestrator</text>
+  <text class="chip" x="1205.5" y="308" text-anchor="middle">집중 확인</text>
   <rect x="928" y="340" width="372" height="122" rx="14" fill="#e6eef7"/>
   <text class="rl" x="944" y="370">일반</text>
   <text class="rd" x="944" y="392">동작이 바뀌는 변경</text>
@@ -110,9 +113,10 @@
   <text class="chip" x="1236.0" y="566" text-anchor="middle">Reviewer</text>
   <path class="flow" d="M1314 352 H1348"/>
   <rect x="1354" y="290" width="166" height="124" rx="18" fill="#2c4250"/>
-  <text class="ceo-t" x="1437.0" y="336" text-anchor="middle">CEO 수락</text>
-  <text class="ceo-d" x="1437.0" y="366" text-anchor="middle">작업마다 커밋</text>
-  <text class="ceo-d" x="1437.0" y="390" text-anchor="middle">push는 별도 승인</text>
+  <text class="orchestrator-t" x="1437.0" y="310" text-anchor="middle">Orchestrator</text>
+  <text class="orchestrator-t" x="1437.0" y="338" text-anchor="middle">수락</text>
+  <text class="orchestrator-d" x="1437.0" y="366" text-anchor="middle">작업마다 커밋</text>
+  <text class="orchestrator-d" x="1437.0" y="390" text-anchor="middle">push는 별도 승인</text>
   <text class="note" x="48" y="632">· 두 기준은 독립적입니다. Architectural이라고 단계마다 QA·Reviewer를 더하지 않고, Bounded라고 위험이 낮다는 뜻은 아닙니다.</text>
   <text class="note" x="48" y="656">· 계획이 있으면 Reviewer는 모든 작업을 수락한 뒤 최종 전체 변경을 한 번 검토합니다.</text>
 </svg>

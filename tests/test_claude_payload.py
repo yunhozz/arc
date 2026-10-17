@@ -190,8 +190,8 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_ceo_direct_path_requires_pre_edit_approval_and_handoff_gates(self):
         # Static regression for the reviewed approval contract; does not prove agent compliance.
         core = (PAYLOAD / 'skill/SKILL.md').read_text()
-        self.assertIn('## CEO direct path for small tasks', core)
-        direct = core.split('## CEO direct path for small tasks', 1)[1].split('\n## ', 1)[0]
+        self.assertIn('## Orchestrator direct path for small tasks', core)
+        direct = core.split('## Orchestrator direct path for small tasks', 1)[1].split('\n## ', 1)[0]
         for clause in (
             r'Before editing.*scope record.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
             r'presents.*user.*obtains explicit approval.*before the first edit',
@@ -223,7 +223,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertEqual(sections, [
             'Ownership', 'Instruction and execution adapter', 'Shared terms',
             'Mandatory task references', 'Common handoff gate', 'Coder TDD and constraints',
-            'Risk-scaled execution', 'CEO direct path for small tasks',
+            'Risk-scaled execution', 'Orchestrator direct path for small tasks',
             'Automatic commit after plan-task acceptance', 'Token discipline and handoffs', 'Models',
         ])
         for clause in ('fresh Coder for each top-level task', 'After an approved plan or acceptance-criteria amendment',
@@ -279,7 +279,7 @@ class ClaudePayloadTests(unittest.TestCase):
             'PASS, if used, means only run status', 'Structural checks prove structure only',
             'source-inferred', 'execution-observed', 'never a plan-task acceptance prerequisite',
             'once on the final full change after all plan tasks', 'follow-up task',
-            'CEO decides when a Reviewer recheck is warranted',
+            'Orchestrator decides when a Reviewer recheck is warranted',
             '<git-common-dir>/arc/review/<slug>.diff', 'changed-file list',
             'same slug as the handoff record', 'approved base HEAD recorded at handoff',
             'installed browser skill', 'existing approved test environment', 'exact limitation',
@@ -335,7 +335,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assert_all(hand, ('after applicable approvals and document completeness', 'never fall back automatically'))
         plan = self.read_claude('skill/references/planning.md')
         self.assert_all(plan, ('Administrative status updates must accurately describe actual progress',
-                               'before Coder or a CEO direct edit', 'regardless of locality, risk, or size',
+                               'before Coder or a Orchestrator direct edit', 'regardless of locality, risk, or size',
                                'does not require written-spec approval or execution-target choice',
                                'leave runtime compliance unverified', 'stops before edits dependent on new plans'))
         rec = self.read_claude('skill/references/git-recovery.md')
@@ -376,10 +376,10 @@ class RoleHardeningTests(unittest.TestCase):
         core = self.text('skill/SKILL.md')
         gate = next(p for p in (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n') if p.startswith('Role gate:'))
         self.assertLessEqual(len(re.findall(r'[.!?](?:\s|$)', gate)), 5)
-        for needle in ('ONLY by Planner (`arc-planner`)', 'CEO MUST NEVER author them',
+        for needle in ('ONLY by Planner (`arc-planner`)', 'Orchestrator MUST NEVER author them',
                        'MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool',
-                       'auto-triggers in CEO context, CEO stops and routes to Planner', "that skill's SKILL.md path",
-                       'skip questions', 'never waives design or approval gates', 'returns questions to CEO',
+                       'auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner', "that skill's SKILL.md path",
+                       'skip questions', 'never waives design or approval gates', 'returns questions to Orchestrator',
                        'FRESH Coder', 'FRESH QA'):
             with self.subTest(needle=needle):
                 self.assertIn(needle, gate)
@@ -395,11 +395,11 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_qa_freshness_and_no_contradictory_substitution(self):
         core = self.text('skill/SKILL.md')
-        self.assertNotIn('QA or CEO focused checks', core)
+        self.assertNotIn('QA or Orchestrator focused checks', core)
         self.assertRegex(core, r'Ordinary and significant plan tasks.*FRESH QA')
-        self.assertRegex(core, r'small, low-risk tasks.*CEO focused checks')
+        self.assertRegex(core, r'small, low-risk tasks.*Orchestrator focused checks')
         verification = self.text('skill/references/verification.md')
-        self.assertNotIn('QA or CEO focused checks', verification)
+        self.assertNotIn('QA or Orchestrator focused checks', verification)
         self.assertIn('FRESH QA instance per task that needs QA', verification)
 
     def test_restart_brief_rule_lives_in_handoff_only(self):
@@ -414,10 +414,10 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_dangling_references_removed_and_terms_defined(self):
         core = self.text('skill/SKILL.md')
-        for gone in ('branch protection', 'Coder repair limits', 'existing CEO depth judgment', 'short design', 'QA or CEO'):
+        for gone in ('branch protection', 'Coder repair limits', 'existing CEO depth judgment', 'short design', 'QA or Orchestrator'):
             with self.subTest(gone=gone):
                 self.assertNotIn(gone, core)
-        direct = core.split('## CEO direct path for small tasks', 1)[1].split('## Automatic', 1)[0]
+        direct = core.split('## Orchestrator direct path for small tasks', 1)[1].split('## Automatic', 1)[0]
         self.assertIn('scope record', direct)
         self.assertIn('not a brainstorming design', direct)
         self.assertIn('Significant risk is defined in Risk-scaled execution', direct)
@@ -433,7 +433,7 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_ownership_and_prep_consistency(self):
         self.assertNotIn('detached HEAD is acceptable', self.text('skill/references/handoff-prep.md'))
-        self.assertIn('CEO performs read-only inspection of related processes and ACLs', self.text('skill/references/git-recovery.md'))
+        self.assertIn('Orchestrator performs read-only inspection of related processes and ACLs', self.text('skill/references/git-recovery.md'))
         self.assertIn('read the brief-cited test-driven-development SKILL.md path', self.text('agents/arc-coder.md'))
         self.assertIn('its named research skills', self.text('agents/arc-scouter.md'))
 
@@ -446,7 +446,7 @@ class Task4FollowUpTests(unittest.TestCase):
 
     def test_failed_check_or_qa_finding_routes_to_coder(self):
         core = self.text('skill/SKILL.md')
-        self.assertNotIn('or corrects them within an eligible CEO direct path', core)
+        self.assertNotIn('or corrects them within an eligible Orchestrator direct path', core)
         self.assertRegex(core, r'failed focused check or a QA finding routes the correction to Coder')
 
     def test_design_drafts_are_not_standalone_document_writing(self):
@@ -458,13 +458,13 @@ class Task4FollowUpTests(unittest.TestCase):
     def test_corrections_go_to_coder_and_bounded_uses_scope_record(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('Recheck any approved-file correction', core)
-        self.assertIn('routes the correction to Coder, and it is rechecked; CEO does not self-correct', core)
+        self.assertIn('routes the correction to Coder, and it is rechecked; Orchestrator does not self-correct', core)
         self.assertIn('a direct edit uses only an approved scope record', self.text('skill/references/planning.md'))
 
     def test_plan_depth_judgment_defined_once(self):
         planning = self.text('skill/references/planning.md')
         self.assertEqual(planning.count('means this assessment'), 1)
-        self.assertRegex(planning, r"3\. .*CEO's recorded plan-depth judgment. means this assessment")
+        self.assertRegex(planning, r"3\. .*Orchestrator's recorded plan-depth judgment. means this assessment")
 
 
 if __name__ == '__main__':
