@@ -208,5 +208,117 @@ class PolicyContractTests(unittest.TestCase):
             self.assertTrue(any(failure.startswith(f"NATIVE_ADAPTERS: {path}:") for failure in failures))
 
 
+class DocumentationContractTests(unittest.TestCase):
+    """Approved artifact contracts; source review and rendering remain necessary."""
+
+    def guide(self) -> str:
+        path = REPO / "docs/harness-operation.md"
+        self.assertTrue(path.is_file(), "The operation guide must exist")
+        return path.read_text()
+
+    def svg(self) -> str:
+        return (REPO / "docs/images/role-flow.svg").read_text()
+
+    def test_operation_guide_covers_required_sections(self) -> None:
+        guide = self.guide()
+        for heading in (
+            "What ARC installs", "Installation and refresh lifecycle",
+            "Request routing and role responsibilities", "Design and preparation",
+            "Scheduling and limits", "Verification, acceptance, and commits",
+            "Failure, resume, and maintenance", "Source map",
+        ):
+            with self.subTest(heading=heading):
+                self.assertIn("## " + heading, guide)
+
+    def test_operation_guide_distinguishes_transaction_scopes(self) -> None:
+        guide = " ".join(self.guide().lower().split())
+        for pattern in (
+            r"postinstall.*both.*trees.*restore",
+            r"--target all.*independent.*earlier success",
+            r"residual path", r"scripts and hooks.*not executed",
+            r"provenance.*consistency.*not authenticate",
+        ):
+            self.assertRegex(guide, pattern)
+
+    def test_operation_guide_distinguishes_policy_from_runtime(self) -> None:
+        guide = " ".join(self.guide().lower().split())
+        for pattern in (r"prompt-level policy", r"native.*concurrency", r"structural.*do not prove.*runtime", r"new session"):
+            self.assertRegex(guide, pattern)
+
+    def test_maintained_local_links_resolve(self) -> None:
+        paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
+        for platform in PLATFORMS:
+            paths.append(REPO / platform / "skill/SKILL.md")
+            paths.extend((REPO / platform / "skill/references").glob("*.md"))
+        self.assertTrue(paths[1].exists(), "Guide links must be checked")
+        from urllib.parse import unquote
+        for path in paths:
+            for target in re.findall(r"(?<!!)\[[^\]]+\]\(([^)]+)\)", path.read_text()):
+                if re.match(r"[a-z]+:", target):
+                    continue
+                filename, _, anchor = unquote(target).partition("#")
+                resolved = path.parent / filename if filename else path
+                with self.subTest(source=str(path.relative_to(REPO)), target=target):
+                    self.assertTrue(resolved.exists(), f"Missing local link: {target}")
+                    if anchor and resolved.suffix == ".md":
+                        headings = re.findall(r"^#{1,6} (.+)$", resolved.read_text(), re.M)
+                        anchors = {re.sub(r"[^\w -]", "", h.lower()).replace(" ", "-") for h in headings}
+                        self.assertIn(anchor, anchors)
+
+    def test_svg_contains_required_english_flow_labels(self) -> None:
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(self.svg())
+        ns = {"s": "http://www.w3.org/2000/svg"}
+        self.assertEqual(root.attrib.get("role"), "img")
+        # ImageIO must receive visible geometry, not unsupported marker styling.
+        connectors = root.findall("s:g[@class='connector']", ns)
+        self.assertEqual(len(connectors), 10)
+        for connector in connectors:
+            self.assertIsNotNone(connector.find("s:path", ns))
+            arrowhead = connector.find("s:polygon", ns)
+            self.assertIsNotNone(arrowhead, "Each connector needs an explicit arrowhead")
+            self.assertEqual(arrowhead.attrib.get("fill"), "#526675")
+        for name in ("title", "desc"):
+            self.assertTrue(root.find("s:" + name, ns).text.strip())
+        text = " ".join(root.itertext())
+        for label in (
+            "Design depth and verification risk are separate",
+            "Approved documents → platform preparation → handoff",
+            "Ready independent tasks", "Required checks → Orchestrator acceptance",
+            "Plan task: focused commit; no change: record only",
+            "Failure: hold affected work, inspect, resolve, revalidate",
+            "Codex: managed worktree option. Claude v1: current checkout.",
+        ):
+            self.assertIn(label, text)
+
+    def test_svg_and_guide_preserve_acceptance_commit_review_distinctions(self) -> None:
+        for name, text in (("guide", self.guide()), ("svg", self.svg())):
+            text = " ".join(text.lower().split())
+            with self.subTest(artifact=name):
+                self.assertRegex(text, r"no.change.*record")
+                self.assertRegex(text, r"significant planned.*final.*review")
+                self.assertRegex(text, r"significant unplanned.*before acceptance")
+
+    def test_readme_uses_maintained_svg_and_links_operation_guide(self) -> None:
+        readme = (REPO / "README.md").read_text()
+        self.assertRegex(readme, r"!\[[^\]]+\]\(docs/images/role-flow\.svg\)")
+        self.assertRegex(readme, r"\[[^\]]+\]\(docs/harness-operation\.md\)")
+
+    def test_stale_png_is_absent_and_unreferenced(self) -> None:
+        self.assertFalse((REPO / "docs/images/role-flow.png").exists())
+        paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
+        for platform in PLATFORMS:
+            paths.extend((REPO / platform / "skill").rglob("*.md"))
+            paths.extend((REPO / platform / "agents").iterdir())
+        for path in paths:
+            if path.is_file():
+                with self.subTest(path=str(path.relative_to(REPO))):
+                    self.assertNotIn("role-flow.png", path.read_text())
+
+    def test_guide_and_svg_use_english_wording(self) -> None:
+        for text in (self.guide(), self.svg()):
+            self.assertNotRegex(text, r"[\uac00-\ud7a3]")
+
+
 if __name__ == "__main__":
     unittest.main()
