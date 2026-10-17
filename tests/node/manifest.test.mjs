@@ -30,3 +30,7 @@ test('payload leaf replacement cannot read an outside regular-file sentinel',t=>
  assert.throws(()=>api.verifyPayload({packageRoot:root,safeFs:{openRoot:p=>wrap(safeFs.openRoot(p))}}),{code:'ARC_PAYLOAD_VALIDATION'});assert.equal(swapped,true);assert.equal(readOutside,false);
 });
 test('current payload rejects legacy installer entries and every missing protected runtime file',t=>{const root=fixture(t),manifest=`${root}/MANIFEST.sha256`,original=fs.readFileSync(manifest);assert.ok(verify(root).files instanceof Map);fs.appendFileSync(manifest,`${'0'.repeat(64)}  install.py\n`);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});fs.writeFileSync(manifest,original);for(const line of original.toString().trim().split('\n')){const name=line.slice(66),file=`${root}/${name}`,bytes=fs.readFileSync(file);fs.unlinkSync(file);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'},name);fs.writeFileSync(file,bytes);}});
+for(const name of ['lib/limits.mjs','lib/installer/limits.mjs','lib/installer/runtime-config.mjs'])test(`payload requires ${name} even with a regenerated manifest`,t=>{
+ const root=fixture(t);fs.unlinkSync(`${root}/${name}`);refresh(root);
+ assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});
+});
