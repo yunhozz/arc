@@ -29,6 +29,23 @@ The Planner authors design, spec, plan, and brainstorming drafts. The Orchestrat
 
 A Bounded change can omit the plan only for one local change with no dependent stages, shared state, or integration-order concerns and one verification path. Approved planning documents are committed together before implementation; the user explicitly chooses the execution checkout or branch.
 
+### 🔀 Task dependencies and parallel work
+
+Before the first Coder assignment for an approved plan, the Orchestrator records each task's explicit/implicit
+dependencies, inputs/outputs/shared contracts, file/resource ownership and conflicts, readiness/hold reasons and initial
+ready batch. Different files alone do not prove independence; unresolved shared contracts and same-file concurrent
+Coder edits block affected tasks. After all approval/preparation gates pass, start ready independent tasks with fresh
+Coders concurrently within the four-subagent total shared by all roles and any lower actual runtime limit; report
+limits and serialization reasons. Plan listing order alone does not serialize work.
+
+The flow is dependency analysis → ready-task dispatch → required checks and Orchestrator acceptance/commit → readiness
+reassessment. Coder completion alone does not release dependents; accepted no-change tasks need no empty commit.
+Reassess on completion, evidence, acceptance, commit, slot return or new conflict. With A → B → C and independent D
+and two slots, start A and D, then start B after A's acceptance/commit while D continues. If A fails, hold B/C while
+unaffected D may continue. Preserve risk checks, execution-target restrictions (Claude v1: current checkout only),
+and unfinished work; serialize shared Git mutations, commit only accepted scope, and refresh HEAD/brief evidence
+without waiting for unrelated batch members. Unexpected state/ownership changes stop affected work for resolution.
+
 ### 🔍 Verification by risk
 
 | Risk | Verification |

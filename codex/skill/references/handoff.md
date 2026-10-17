@@ -68,6 +68,23 @@ evidence, and absolute artifact paths. Each
 role stays in the supplied workspace, reports missing, inaccessible, or conflicting paths and unexpected branch state to
 Orchestrator before dependent work, and does not create or switch workspaces or branches.
 
+### Task readiness at every assignment
+
+Before each first start or restart, link the approved plan's current dependency/readiness record (planning.md) in the
+canonical record and brief. Verify all applicable document approvals and execution preparation, required inputs and
+settled shared contracts, required predecessor checks, Orchestrator acceptance and verified focused commits, or
+accepted no-change evidence without an empty commit. A Coder completion report alone is insufficient. Verify owned
+files and shared resources have no conflict with running work; same-file concurrent Coder edits are forbidden even
+on different lines. Uncertain dependencies or unresolved contracts hold affected tasks only. Verify the task's
+required check/QA path and capacity under the full-tree four-subagent cap and any lower runtime limit; report limits.
+The readiness record supplements every existing handoff gate and execution-target restriction; it never waives one.
+
+Reassess on completion/evidence/acceptance/commit/slot return/new conflict and start ready independent tasks without
+waiting for unrelated batch members. For normal authorized commits from independent tasks, record the resulting
+HEAD and preserved in-progress ownership/state, refresh canonical evidence and affected briefs, and revalidate affected
+gates before further edits or dispatch; valid choice reuse still applies. Unexpected HEAD or ownership changes stop
+affected work for Orchestrator resolution and revalidation under the existing failure rules.
+
 ### Choice lifetime and restart record
 
 For the same approved scope, workspace, repository, and execution target, reuse the initial explicit choice only

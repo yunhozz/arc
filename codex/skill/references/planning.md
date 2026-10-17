@@ -63,6 +63,29 @@ and resume. Do not combine different approved tasks into one commit during execu
 stop affected work and have Orchestrator handle revised scope, planning and applicable approvals. These requirements apply to
 required plans; existing plan-omission paths gain no new plan obligation.
 
+### Dependency and readiness record
+
+After plan approval and before the first Coder assignment, Orchestrator records all top-level task IDs in the
+accessible canonical handoff record, linked to the approved plan version. For each task record explicit and implicit
+predecessors, required inputs, outputs and shared contracts, owned files, conflicting shared resources, required
+checks/QA path, ready/held status and reasons. Record the initial ready batch and capacity/serialization reasons.
+Analyze shared APIs, contracts, generated artifacts and resources even when tasks edit different files. Unresolved
+shared contracts or insufficient dependency information block the affected tasks; same-file concurrent Coder edits
+are blocked even for different lines. Do not infer independence from file separation or plan listing order.
+
+A task is ready only when all applicable approvals and execution preparation are complete, required inputs/contracts
+are available and settled, predecessors have required evidence and Orchestrator acceptance plus verified focused
+commits (or accepted no-change records), ownership/resources do not conflict, its required check/QA path is available,
+and a subagent slot exists under both the ARC full-tree cap of four shared by all roles and any lower actual runtime
+limit. Report runtime limits. Start all ready independent tasks with fresh Coders concurrently within capacity;
+record each hold or serialization reason instead of silently following list order. Preserve existing risk gates.
+
+Update the map on completion, check evidence, acceptance, commit, slot return and new conflicts. Completion reports
+alone do not release dependents. Reevaluate newly ready tasks immediately without waiting for unrelated batch members;
+failed or ambiguous predecessors hold their dependent chain, while unaffected ready tasks may proceed. Dispatch still
+passes handoff.md for each task; commits and shared Git mutations follow commit.md. This record does not authorize
+Orchestrator to rewrite Planner's approved task boundaries or waive approvals.
+
 ### Document-save evidence gates
 
 Before the first architectural spec save, first required Bounded written spec save, or first plan save, read this

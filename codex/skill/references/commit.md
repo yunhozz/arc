@@ -49,3 +49,18 @@ Follow Conventional Commits with the message form
 `<type>(<scope>): <description>`. Use a concise, specific Korean description without a trailing period, a lowercase
 scope when useful, one top-level task's logical change per commit, and body/footer only when needed while preserving
 Git trailer syntax.
+
+## Shared-checkout coordination
+
+Orchestrator serializes shared-checkout Git mutations, including index/staging and commits, across concurrent tasks;
+parallel Coders do not operate competing Git transactions. Preserve every other task's unfinished staged, unstaged
+and untracked changes and ownership. Commit only the accepted task after scope/content verification; unrelated staged
+changes block the commit under the Preservation rule. Do not require unrelated unstaged work to finish or include it
+in the accepted task's commit. Unclear separation or ownership holds affected work for resolution.
+
+After each normal independent task commit, verify and record SHA/content/HEAD and remaining state, update the canonical
+record and affected briefs, revalidate affected gates and reevaluate task readiness immediately. An authorized HEAD
+change alone does not invalidate execution-target choice or require waiting for an unrelated batch. A predecessor
+releases dependents only after required checks, Orchestrator acceptance and verified commit; accepted no-change evidence
+replaces a commit for a no-change task, never an empty commit. Unexpected HEAD/ownership changes or Git failures stop
+affected work until Orchestrator resolves and revalidates; existing recovery and approval rules remain in force.

@@ -40,7 +40,7 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 Apply platform, user, and project instructions according to their precedence, then ARC rules for ownership,
 permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
-`superpowers:subagent-driven-development` to Orchestrator's sequential coordination and risk-scaled verification; this replaces
+`superpowers:subagent-driven-development` to Orchestrator's dependency-aware coordination and risk-scaled verification; this replaces
 executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
 explicit ARC exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
@@ -53,6 +53,25 @@ a fresh Coder for each top-level task (Role gate); reuse the current Coder only 
 approved scope, workspace, ownership, and relevant context remain valid; before sending corrections or rework to a reused Coder, Orchestrator rechecks workspace, branch/HEAD and change state against the brief. A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are there). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
 the remaining work even within the same task; it is also a restart under handoff. Task-boundary gates
 follow Risk-scaled execution.
+
+## Dependency analysis and parallel dispatch
+
+Before the first Coder assignment for an approved plan, Orchestrator records the dependency/readiness map and
+initial ready batch under planning.md. File separation alone never proves independence: analyze shared inputs,
+outputs, contracts and resources. Pass the complete approval/preparation and handoff gates for every assignment.
+Start all ready independent tasks concurrently with fresh Coders within available capacity; plan listing order alone
+never justifies serialization. Same-file concurrent Coder edits are prohibited, even on different lines.
+All roles share the full-tree maximum of four simultaneous subagents; obey any lower actual runtime limit and
+record/report capacity limits and serialization reasons. ARC's cap is not a claim of runtime capability.
+
+Reassess readiness after completion reports, new check evidence, acceptance, commit, slot return, or a new conflict.
+Coder completion alone does not release dependents: require predecessor checks, Orchestrator acceptance and verified
+focused commit, or accepted no-change evidence under commit.md. Start newly ready tasks without waiting for unrelated
+batch members. With A → B → C and independent D and two slots, start A and D; after A's checks, acceptance and commit,
+start B while D continues if capacity and gates allow. If A fails, hold B and C; D may continue if unaffected.
+Unclear dependencies, unresolved shared contracts or resource conflicts hold only affected tasks until resolved.
+Preserve risk-scaled QA/Reviewer timing, execution-target constraints, ownership and shared-checkout Git safeguards;
+record the map and refreshed state/brief evidence under planning.md, handoff.md and commit.md.
 
 ## Shared terms
 
