@@ -15,6 +15,7 @@ try{
  if(crypto.createHash('sha256').update(JSON.stringify(inventory)).digest('hex')!==inventorySha)throw Error('Original assertion inventory changed');
  if(inventory.tests.length!==236||inventory.tests.reduce((n,t)=>n+t.assertions.length,0)!==739||inventory.helpers.reduce((n,t)=>n+t.assertions.length,0)!==14)throw Error('Original assertion inventory count changed');
  const entryIds=ledger.entries.map(e=>e.legacy);if(new Set(entryIds).size!==entryIds.length)throw Error('Duplicate legacy assertion ID');if(entryIds.length!==236)throw Error('Original inventory ID count changed');
+ let retiredIds=0,retiredAssertions=0;
  const original=new Map(inventory.tests.map(t=>[t.id,t])),seen=new Set(),destinations=new Map();
  const addDestination=(destination,owner)=>{
   if(!/^tests\/(?:node\/[^/]+\.test\.mjs|test_[a-z_]+\.py)$/.test(destination?.file)||typeof destination.test!=='string'||!destination.test.trim())throw Error(`Invalid destination: ${owner}`);
@@ -24,6 +25,11 @@ try{
  for(const entry of ledger.entries){
   if(seen.has(entry.legacy))throw Error(`Duplicate legacy assertion: ${entry.legacy}`);seen.add(entry.legacy);
   const before=original.get(entry.legacy);if(!before)throw Error(`Unknown original inventory ID: ${entry.legacy}`);
+  if(entry.status==='retired'){
+   if(entry.legacy!=='tests/test_install.py::PolicyWordBudgetTests::test_policy_text_stays_within_word_budget'||entry.approvedPlan!=='docs/superpowers/plans/2026-10-17-arc-harness-refactor-plan.md'||!fs.existsSync(path.join(root,entry.approvedPlan))||typeof entry.retirementReason!=='string'||!entry.retirementReason.trim()||!Array.isArray(entry.destinations)||entry.destinations.length||Object.hasOwn(entry,'destination'))throw Error(`Invalid retired legacy assertion: ${entry.legacy}`);
+   if(JSON.stringify(entry.assertionLines)!==JSON.stringify(before.assertions.map(a=>a.line)))throw Error(`Changed retired assertion coverage: ${entry.legacy}`);
+   retiredIds++;retiredAssertions+=before.assertions.length;continue;
+  }
   if(entry.status!=='verified')throw Error(`Unverified legacy assertion: ${entry.legacy}`);
   const coverage=entry.assertionLines;if(!coverage||coverage.length!==before.assertions.length||!entry.destinations?.length)throw Error(`Incomplete assertion coverage: ${entry.legacy}`);
   for(const assertion of before.assertions)if(!coverage.includes(assertion.line))throw Error(`Missing assertion destination: ${entry.legacy}:${assertion.line}`);
@@ -49,5 +55,5 @@ try{
   const pythonFiles=[...new Set(all.filter(d=>d.file.endsWith('.py')).map(d=>d.file))];
   for(const file of pythonFiles){const result=spawnSync('python3',['-B','-m','unittest','discover','-v','-s','tests','-p',path.basename(file)],{cwd:root,encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});if(result.status!==0)throw Error(`Preserved Python suite failed: ${file}\n${result.stderr}`);for(const d of all.filter(d=>d.file===file))if(!result.stderr.includes(`.${d.class}.${d.test}) ... ok`))throw Error(`Preserved destination did not execute: ${file}: ${d.class}.${d.test}`);}
  }
- console.log(`Parity verified: 236 original test IDs, 739 test assertions, 14 helper assertions${complete?'; every mapped Node and preserved Python test passed':''}`);
+ console.log(`Parity verified: 236 original test IDs (${236-retiredIds} verified + ${retiredIds} retired), 739 test assertions (${739-retiredAssertions} verified + ${retiredAssertions} retired), 14 helper assertions${complete?'; all active mappings ran; every mapped Node and preserved Python test passed':''}`);
 }catch(error){console.error(error.message);process.exitCode=1;}
