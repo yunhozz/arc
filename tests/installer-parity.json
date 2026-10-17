@@ -1017,15 +1017,19 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_config_comment_matches_subagent_limit",
+        "test": "test_installed_limits_policy_replaces_manual_config",
         "class": "WholeSystemReviewFollowUpTests"
       },
-      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
+      "reclassification": "The former fixed manual-config comment is replaced by installed limits policy. Python verifies the policy contract; Node verifies defaults, reinstall preservation, native drift, and explicit override.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_config_comment_matches_subagent_limit",
+          "test": "test_installed_limits_policy_replaces_manual_config",
           "class": "WholeSystemReviewFollowUpTests"
+        },
+        {
+          "file": "tests/node/plan.test.mjs",
+          "test": "limits policy defaults, reinstall preservation, native drift and explicit override"
         }
       ],
       "assertionLines": [
@@ -1100,24 +1104,15 @@
     {
       "legacy": "tests/test_install.py::PolicyWordBudgetTests::test_policy_text_stays_within_word_budget",
       "task": "T7",
-      "status": "verified",
-      "destination": {
-        "file": "tests/test_arc_policy.py",
-        "test": "test_policy_text_stays_within_word_budget",
-        "class": "PolicyWordBudgetTests"
-      },
-      "destinations": [
-        {
-          "file": "tests/test_arc_policy.py",
-          "test": "test_policy_text_stays_within_word_budget",
-          "class": "PolicyWordBudgetTests"
-        }
-      ],
+      "status": "retired",
+      "destinations": [],
       "assertionLines": [
         919,
         928,
         924
-      ]
+      ],
+      "retirementReason": "The approved harness refactor plan intentionally removes this legacy word-budget policy test without replacement.",
+      "approvedPlan": "docs/superpowers/plans/2026-10-17-arc-harness-refactor-plan.md"
     },
     {
       "legacy": "tests/test_install.py::SharedTermsTests::test_core_defines_shared_terms",
@@ -10711,7 +10706,7 @@
       "assertions": [
         {
           "line": 704,
-          "expression": "self.assertRegex(row, r\"with a plan, each plan task risk-scaled coder \u2192 qa or ceo focused checks \u2192 acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks\")"
+          "expression": "self.assertRegex(row, r\"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks\")"
         },
         {
           "line": 701,
@@ -10729,7 +10724,7 @@
         },
         {
           "line": 712,
-          "expression": "self.assertNotIn(\"\uc218\ub77d\u00b7QA\ub41c\".lower(), text)"
+          "expression": "self.assertNotIn(\"수락·QA된\".lower(), text)"
         },
         {
           "line": 718,
@@ -10905,7 +10900,7 @@
       "assertions": [
         {
           "line": 886,
-          "expression": "self.assertRegex(core, r\"with a plan, each plan task risk-scaled coder \u2192 qa or ceo focused checks \u2192 acceptance/commit satisfies the qa step\")"
+          "expression": "self.assertRegex(core, r\"with a plan, each plan task risk-scaled coder → qa or ceo focused checks → acceptance/commit satisfies the qa step\")"
         },
         {
           "line": 888,
@@ -12602,7 +12597,7 @@
       "assertions": [
         {
           "line": 2330,
-          "expression": "self.assertIn(\"root \uc678\ubd80 \ucc38\uc870\", str(caught.exception))"
+          "expression": "self.assertIn(\"root 외부 참조\", str(caught.exception))"
         },
         {
           "line": 2327,
@@ -12616,7 +12611,7 @@
       "assertions": [
         {
           "line": 2341,
-          "expression": "self.assertIn(\"\uc77c\ubc18 \ud30c\uc77c\uc774 \uc544\ub2d8\", str(caught.exception))"
+          "expression": "self.assertIn(\"일반 파일이 아님\", str(caught.exception))"
         },
         {
           "line": 2342,
@@ -13830,7 +13825,7 @@
         },
         {
           "line": 73,
-          "expression": "self.assertIn(shown + '\ub97c \ub2e4\uc2dc \uc2dc\uc791\ud558\uac70\ub098 \uc0c8 \uc138\uc158\uc744 \uc5f4\uc5b4 \uc801\uc6a9\ud558\uc138\uc694.', output)"
+          "expression": "self.assertIn(shown + '를 다시 시작하거나 새 세션을 열어 적용하세요.', output)"
         }
       ]
     },
@@ -15299,5 +15294,5 @@
       ]
     }
   ],
-  "coverageRule": "Every assertion line in an entry maps to its listed destinations; immutable original expressions are in legacyInventory. Helper assertion destinations are listed on each legacyHelpers record."
+  "coverageRule": "Every assertion line in a verified entry maps to its listed destinations, which must execute in complete mode. An explicitly authorized retired entry preserves its original assertion lines, has no destinations, and records a retirement reason and approved plan. Immutable original expressions are in legacyInventory. Helper assertion destinations are listed on each legacyHelpers record."
 }

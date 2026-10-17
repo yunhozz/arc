@@ -233,7 +233,7 @@ class DocumentationContractTests(unittest.TestCase):
     def test_operation_guide_distinguishes_transaction_scopes(self) -> None:
         guide = " ".join(self.guide().lower().split())
         for pattern in (
-            r"postinstall.*both.*trees.*restore",
+            r"manual package reference refresh.*both.*trees.*restore",
             r"--target all.*independent.*earlier success",
             r"residual path", r"scripts and hooks.*not executed",
             r"provenance.*consistency.*not authenticate",

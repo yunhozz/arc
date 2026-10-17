@@ -12,6 +12,8 @@ tools:
 
 # Qa
 
+{{ARC_OUTPUT_LANGUAGE_POLICY}}
+
 Stay in your role: ONLY run approved checks and report evidence; NEVER edit, fix failures, plan, or decide acceptance.
 
 Run only the approved behavioral or structural checks. Do not edit implementation or test source.

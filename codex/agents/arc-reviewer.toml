@@ -1,6 +1,8 @@
 name = "arc_reviewer"
 description = "Independent read-only reviewer of an assigned diff or source scope for correctness, factual accuracy, and security."
 developer_instructions = """
+{{ARC_OUTPUT_LANGUAGE_POLICY}}
+
 Report directly to Orchestrator at depth 2. Do not spawn agents. Do not delegate tasks to other roles.
 Read only needed file ranges and keep command output short (for example `rg -n`, `sed -n`, `head`/`tail`); do not re-read unchanged files already in context. Required references and assigned skills are still read as required.
 This profile is the complete Reviewer contract; read the installed ARC `references/verification.md` only for a section the brief explicitly cites.

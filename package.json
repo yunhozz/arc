@@ -12,8 +12,7 @@
   "scripts": {
     "test": "node --test tests/node/*.test.mjs",
     "build:native": "node scripts/build-native.mjs",
-    "check:manifest": "node scripts/update-manifest.mjs --check",
-    "postinstall": "node scripts/npm-postinstall.mjs"
+    "check:manifest": "node scripts/update-manifest.mjs --check"
   },
   "devDependencies": {
     "node-gyp": "11.5.0",

@@ -408,10 +408,18 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             self.assertNotIn(gone, claude)
 
     def test_models_scouter_lookup_exception(self) -> None:
-        models = policy_text("core").split("## models", 1)[1].split("after editing", 1)[0]
-        self.assertIn("use configured settings without substitution; report unavailable settings", models)
-        self.assertNotIn("reasoning_effort", models)
-        self.assertNotIn("bounded scouter lookup", models)
+        for platform in ("codex", "claude"):
+            text = (REPO / platform / "skill/SKILL.md").read_text().lower()
+            models = " ".join(text.split("## models", 1)[1].split("\n## ", 1)[0].split())
+            with self.subTest(platform=platform):
+                self.assertIn("`models.toml` beside this skill", models)
+                self.assertRegex(models, r"orchestrator uses the current (chat|conversation) model")
+                self.assertIn("without substitution or effort reduction", models)
+                self.assertIn("report unavailable settings", models)
+                self.assertNotIn("reasoning_effort", models)
+                self.assertNotIn("bounded scouter lookup", models)
+                for command in ("npx", "npm i", "apply-models.py", "arc preset"):
+                    self.assertNotIn(command, text)
         self.assertNotIn('reasoning_effort="medium"', policy_text("core"))
 
     def test_skill_not_reread_and_agents_body_wording(self) -> None:
@@ -1285,7 +1293,6 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertIn("scope record", core)
         self.assertIn("Environment failure does not waive checks or determine design depth", core)
         self.assertIn("means this assessment", self.raw("planning"))
-        self.assertIn("npm", core)
         self.assertIn("Planner proposes, Orchestrator decides", core)
         self.assertIn("routes the correction to Coder", core)
 

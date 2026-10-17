@@ -5,6 +5,8 @@ description: Coordinate scoped research planning implementation verification and
 
 # ARC for Claude Code
 
+{{ARC_OUTPUT_LANGUAGE_POLICY}}
+
 Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc-planner`);
 Orchestrator MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool.
 If either auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner, citing that skill's SKILL.md
@@ -314,26 +316,13 @@ ARC approval, ownership, TDD exceptions and executor adapters still apply.
 
 ## Models
 
-`models.toml` beside this skill is the local source of truth; `scripts/model_config.py` validates exactly five
-underscore configuration keys: `arc_scouter`, `arc_planner`, `arc_coder`, `arc_qa`, and
-`arc_reviewer`. These keys map to the hyphenated native profile names in Ownership and are not invocation names.
-Orchestrator uses the current chat model. Current local declarations are Scouter haiku/high, Planner sonnet/medium,
-Coder sonnet/low, QA haiku/high, and Reviewer sonnet/medium. Installation presets (economy, balanced,
-smart) write `models.toml`. Local configuration does not prove runtime provider
-support, account access, alias resolution, actual effort application, concurrency or depth enforcement. Use configured
-settings without silent substitution or effort reduction; report unavailable settings.
-
-After editing `models.toml`, reapply installed profile settings with:
-
-```sh
-python3 ~/.claude/skills/arc/scripts/apply-models.py
-```
-
-The supported options are `--config`, `--agents-dir`, `--check`, and `--dry-run`. Check and dry-run validate local
-inputs without writing or invoking a provider. Reapplication validates all five profiles before replacements and
-restores prior bytes and modes on partial failure; only the five Claude profiles are targets. Installation renders
-settings into all five profiles. New sessions reload profiles; running agents retain their current settings and parent
-relationships. These declarations and local checks do not prove runtime model/effort application or parent behavior.
+`models.toml` beside this skill is the source of truth for role model and reasoning-effort settings.
+Orchestrator uses the current conversation model. Use configured role settings without substitution or effort
+reduction; report unavailable settings.
+Local declarations do not prove runtime provider support, account access, alias resolution, actual model or effort
+application, concurrency or depth enforcement.
+New sessions reload profiles; running agents retain their current settings and parent relationships. Configuration
+changes do not automatically reparent running agents or prove runtime parent behavior.
 
 For browser visualization needs read [visual-companion](references/visual-companion.md). Use only capabilities
 available within each role's exact allowlist; report unavailable capabilities and preserve unverified visual scope.
