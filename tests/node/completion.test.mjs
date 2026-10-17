@@ -18,3 +18,12 @@ set result [wait]
 exit [lindex $result 3]`;const r=spawnSync('expect',['-c',driver],{encoding:'utf8',timeout:15000,env:{...process.env,HOME:home,ZDOTDIR:home,TERM:'xterm'}});assert.equal(r.status,0,r.stdout+r.stderr);});
 
 for(const [words,index,want]of [[['arc','--language',''],2,['en','ko']],[['arc','preset',''],2,['economy','balanced','smart']]])test('bash new context '+words.join(' '),()=>{const r=spawnSync('bash',['--noprofile','--norc','-c',api.renderCompletion('bash')+`\nCOMP_WORDS=(${words.map(w=>"'"+w+"'").join(' ')}); COMP_CWORD=${index}; _arc; printf '%s\\n' "\${COMPREPLY[@]}"`],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);assert.deepEqual(r.stdout.trim().split('\n'),want);});
+
+for(const shell of ['bash','zsh'])test(shell+' preset completion excludes unsupported version while root retains it',()=>{
+ const complete=words=>{
+  const setup=shell==='bash'?`COMP_WORDS=(${words.map(word=>"'"+word+"'").join(' ')}); COMP_CWORD=${words.length-1}; _arc; printf '%s\\n' "\${COMPREPLY[@]}"`:`compadd() { local candidate; for candidate in "\${candidates[@]}"; do [[ $candidate == \${words[CURRENT]}* ]] && print -r -- "$candidate"; done; return 0; }; words=(${words.map(word=>"'"+word+"'").join(' ')}); CURRENT=${words.length}; _arc`;
+  const result=spawnSync(shell,[...(shell==='bash'?['--noprofile','--norc']:['-f']),'-c',api.renderCompletion(shell)+'\n'+setup],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);return result.stdout.trim();
+ };
+ assert.equal(complete(['arc','preset','smart','--v']),'');
+ assert.equal(complete(['arc','--v']),'--version');
+});
