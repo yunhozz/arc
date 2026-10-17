@@ -27,15 +27,17 @@ npx --yes github:yunhozz/arc preset smart --target codex
 npx --yes github:yunhozz/arc uninstall --target codex
 ```
 
-These npx commands do not install a global `arc` executable. After the first npm publication,
-you can install the CLI globally and use the shorter commands:
+These npx commands do not install a global `arc` executable. To install the CLI globally:
 
 ```sh
-npm i -g @yunhozz/arc
+npm i -g github:yunhozz/arc
 arc
 arc preset smart --target codex
 arc uninstall --target codex
 ```
+
+The npm command installs the CLI only. Run bare `arc` to install the harness and register zsh
+completion. For the current shell, run `eval "$(arc completion zsh)"` after harness installation.
 
 Bare `arc` starts installation; the `install` subcommand has been removed. A repository checkout
 also supports `./install.command` with the same installation options.
@@ -93,20 +95,18 @@ For Codex, it sets `min_wait_timeout_ms = 120000` and `default_wait_timeout_ms =
 `[features.multi_agent_v2]` is a standalone table; otherwise it prints manual guidance.
 Claude requires the default `~/.claude` configuration directory.
 
-Each npm `postinstall` refreshes both package reference trees at `codex/skill/references/superpowers/`
-and `claude/skill/references/superpowers/` from one fresh shallow clone of the
-[obra/superpowers](https://github.com/obra/superpowers) default branch. Every actual harness installation
-fetches again per target and publishes full `brainstorming`, `writing-plans`, and `test-driven-development`
-trees under `skills/arc/references/superpowers/`. Roles read this local Markdown and its companion files.
+Every harness installation fetches fresh references per target from the
+[obra/superpowers](https://github.com/obra/superpowers) default branch and publishes full
+`brainstorming`, `writing-plans`, and `test-driven-development` trees under
+`skills/arc/references/superpowers/`. Roles read this local Markdown and its companion files.
 Existing global/shared copies and links remain untouched.
 
-Git and network access are required for refreshes; collection never executes upstream scripts or hooks.
-`npm --ignore-scripts`, Git clone, and ZIP downloads skip postinstall, but the next harness installation
-still fetches fresh references. Harness installation stages references without rewriting package files,
-so read-only packages work. Concurrent refreshes of the same package are unsupported.
+Git and network access are required for harness installation; collection never executes upstream
+scripts or hooks. npm installation has no lifecycle hooks and does not fetch references or edit shell
+configuration. Harness installation stages references without rewriting package files, so read-only
+packages work. Collection or publication failure fails the target installation.
 
-Collection or publication failure fails the operation. A two-platform package reference publication failure
-restores both prior trees; completion registration is best-effort. Bundled references retain their
+Bundled references retain their
 [MIT license](https://github.com/obra/superpowers/blob/main/LICENSE), including Jesse Vincent's notice.
 `provenance.json` records revision, timestamp, hashes, and relative links for local consistency checks;
 it does not authenticate upstream or a malicious local rewrite.
