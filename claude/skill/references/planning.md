@@ -86,6 +86,10 @@ failed or ambiguous predecessors hold their dependent chain, while unaffected re
 passes handoff.md for each task; commits and shared Git mutations follow commit.md. This record does not authorize
 Orchestrator to rewrite Planner's approved task boundaries or waive approvals.
 
+For example, with A → B → C and independent D and two slots, start A and D. After A's required checks,
+Orchestrator acceptance and verified commit, start B while D continues if capacity and gates allow.
+If A fails, hold B and C; D may continue if unaffected.
+
 ## Document-save evidence gates
 
 Before the first Architectural spec save, first required Bounded spec save, or first plan save, read this reference and

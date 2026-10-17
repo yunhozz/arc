@@ -86,19 +86,14 @@ plan or map solely to satisfy this linking duty; record the applicable omission 
 canonical record and brief. Plan absence alone does not qualify for omission, and an unapproved required plan
 cannot bypass its approval gate.
 
-Verify all applicable document approvals and execution preparation, required inputs and
-settled shared contracts, required predecessor checks, Orchestrator acceptance and verified focused commits, or
-accepted no-change evidence without an empty commit. A Coder completion report alone is insufficient. Verify owned
-files and shared resources have no conflict with running work; same-file concurrent Coder edits are forbidden even
-on different lines. Uncertain dependencies or unresolved contracts hold affected tasks only. Verify the task's
-required check/QA path and capacity under the configured full-tree subagent cap and any lower runtime limit; report limits.
-The readiness record supplements every existing handoff gate and execution-target restriction; it never waives one.
-
-Reassess on completion/evidence/acceptance/commit/slot return/new conflict and start ready independent tasks without
-waiting for unrelated batch members. For normal authorized commits from independent tasks, record the resulting
-HEAD and preserved in-progress ownership/state, refresh canonical evidence and affected briefs, and revalidate affected
-gates before further edits or dispatch; valid choice reuse still applies. Unexpected HEAD or ownership changes stop
-affected work for Orchestrator resolution and revalidation under the existing failure rules.
+Before assignment, apply every readiness condition in
+[planning.md, Dependency and readiness record](planning.md#dependency-and-readiness-record), including predecessor
+checks, Orchestrator acceptance and verified focused commit or accepted no-change evidence. A Coder completion report
+alone is insufficient. Verify the linked record is current and capacity and file ownership permit assignment.
+Readiness supplements the full handoff gate and execution-target restrictions; it never waives them.
+For authorized HEAD or state changes, refresh this record and affected briefs, verify preservation and ownership,
+revalidate affected gates, and reassess readiness under planning.md and [commit.md](commit.md#shared-checkout-coordination).
+Unexpected HEAD or ownership changes stop affected work for Orchestrator resolution and revalidation.
 
 ### Choice lifetime and restart record
 

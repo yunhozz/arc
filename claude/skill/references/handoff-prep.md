@@ -50,7 +50,7 @@ the candidate, HEAD matches the base, the path is unchanged, and existing change
 Begin only when all applicable documents are written, individually approved, and the set is complete.
 Verify already committed approved documents by SHA, message, paths, and content and reuse them; batch all remaining
 approved documents into one focused docs commit, staging only those paths and verifying staged paths and diff.
-Finalize the Korean Conventional Commit message before the first commit; no temporary message then amend.
+Finalize the English Conventional Commit message before the first commit; no temporary message then amend.
 Never amend, reset, or recommit past commits to merge them. Skip the commit only when no documents were required or
 produced, recording the depth rationale; uncommitted documents are not absent. Never include implementation files.
 After success verify SHA, message, paths, HEAD, branch, and remaining state; the commit is not push approval.

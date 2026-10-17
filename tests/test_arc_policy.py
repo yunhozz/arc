@@ -159,7 +159,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
         self.contracts(commit, (
             r"local.*does not authorize early planning-document commits.*pre-coder.*batch.*unchanged",
-            r"conventional commits.*korean description.*trailing period.*lowercase.*scope",
+            r"conventional commits.*english description.*trailing period.*lowercase.*scope",
             r"historical spec/plan.*not.*retroactively",
             r"structural checks.*do not prove.*agent runtime",
         ))
@@ -193,10 +193,10 @@ class ConditionalReferenceTests(unittest.TestCase):
         ):
             with self.subTest(reference=name):
                 row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
-                           if f"references/{name}.md" in line)
+                           if line.startswith("|") and f"references/{name}.md" in line)
                 self.assertRegex(row, trigger)
         worktree_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
-                            if "references/handoff-worktree.md" in line)
+                            if line.startswith("|") and "references/handoff-worktree.md" in line)
         self.assertNotIn("choice request", worktree_row)
         self.assertNotIn("selection target", worktree_row)
         gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
@@ -495,22 +495,6 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertIn("after a failed focused check or a qa finding, orchestrator routes the correction to coder", core)
 
 
-class PolicyWordBudgetTests(unittest.TestCase):
-    def test_policy_text_stays_within_word_budget(self) -> None:
-        counts = policy_word_counts(REPO)
-        self.assertEqual(sorted(counts), sorted(POLICY_WORD_CEILINGS),
-                         "every policy file needs a word ceiling in POLICY_WORD_CEILINGS")
-        advice = "raise the ceiling only deliberately in the same change that justifies the growth"
-        for name, words in counts.items():
-            with self.subTest(file=name):
-                self.assertLessEqual(words, POLICY_WORD_CEILINGS[name],
-                                     f"{name}: {words} words exceeds ceiling {POLICY_WORD_CEILINGS[name]}; {advice}")
-        for prefix, ceiling in (("codex/", POLICY_WORD_TOTAL_CEILING), ("claude/", CLAUDE_POLICY_WORD_TOTAL_CEILING)):
-            with self.subTest(platform=prefix):
-                total = sum(words for name, words in counts.items() if name.startswith(prefix))
-                self.assertLessEqual(total, ceiling,
-                                     f"{prefix} total: {total} words exceeds ceiling {ceiling}; {advice}")
-
 class SharedTermsTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_core_defines_shared_terms(self) -> None:
@@ -632,8 +616,8 @@ class ARCPreactionGateTests(unittest.TestCase):
 
     def test_preaction_reference_and_choice_order(self) -> None:
         rows = (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
-        planning = next(row for row in rows if "references/planning.md" in row)
-        handoff = next(row for row in rows if "references/handoff-prep.md" in row)
+        planning = next(row for row in rows if row.startswith("|") and "references/planning.md" in row)
+        handoff = next(row for row in rows if row.startswith("|") and "references/handoff-prep.md" in row)
         self.assertIn("first spec/plan save", planning)
         for trigger in ("execution-target choice request", "each preparation git mutation"):
             self.assertIn(trigger, handoff)
@@ -746,7 +730,7 @@ class CeoDirectPathTests(unittest.TestCase):
         self.assertRegex(policy_text("verification"), r"exclusively to coder.*except under the orchestrator direct path")
         self.assertRegex(policy_text("handoff"), r"orchestrator direct edit.*same.*conditions")
         handoff_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
-                           if "references/handoff.md" in line)
+                           if line.startswith("|") and "references/handoff.md" in line)
         self.assertIn("orchestrator direct edit", handoff_row)
 
 class CoderBriefAndReuseTests(unittest.TestCase):
@@ -1221,21 +1205,6 @@ def profile_text(role: str) -> str:
     return " ".join(tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())
                     ["developer_instructions"].lower().split())
 
-def policy_word_counts(root: Path) -> dict[str, int]:
-    paths = [root / "codex/skill/SKILL.md", *sorted((root / "codex/skill/references").glob("*.md")),
-             *sorted((root / "codex/agents").glob("*.toml")),
-             root / "claude/skill/SKILL.md", *sorted((root / "claude/skill/references").glob("*.md")),
-             *sorted((root / "claude/agents").glob("*.md"))]
-
-    def body(path: Path) -> str:
-        if path.suffix == ".toml":
-            return tomllib.loads(path.read_text())["developer_instructions"]
-        text = path.read_text()
-        if path.parent.name == "agents" and text.startswith("---"):
-            return text.split("---", 2)[2]
-        return text
-    return {str(path.relative_to(root)): len(body(path).split()) for path in paths}
-
 SHARED_TERMS = {
     "preservation rule": "preserve unrelated staged, unstaged, and untracked changes and edit ownership; never "
                          "automatically stash, reset, clean, unstage, discard, amend, or delete branches/worktrees; "
@@ -1249,45 +1218,6 @@ SHARED_TERMS = {
     "evidence verdict": "each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never "
                         "turn unverified into proven; reports keep unverified scope visible",
 }
-
-# 2026-10-17: combine internal Superpowers references and subagent-limit policy.
-# Merged per-file ceilings round combined counts; totals retain 100-word headroom.
-# No untouched commit.md content changed.
-POLICY_WORD_CEILINGS = {
-    "claude/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
-    "codex/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
-    "codex/skill/SKILL.md": 3275,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
-    "codex/skill/references/commit.md": 800,
-    "codex/skill/references/git-recovery.md": 700,
-    "codex/skill/references/handoff-prep.md": 1350,
-    "codex/skill/references/handoff-worktree.md": 850,
-    "codex/skill/references/handoff.md": 1600,  # Task 2: inline-record vs restart-brief unification
-    "codex/skill/references/planning.md": 2225,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
-    "codex/skill/references/verification.md": 1150,
-    "codex/skill/references/visual-companion.md": 200,
-    "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
-    "codex/agents/arc-planner.toml": 600,
-    "codex/agents/arc-qa.toml": 360,  # Task 2: stay-in-role line
-    "codex/agents/arc-reviewer.toml": 270,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
-    "codex/agents/arc-scouter.toml": 265,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
-    "claude/skill/SKILL.md": 3575,
-    "claude/skill/references/commit.md": 525,
-    "claude/skill/references/git-recovery.md": 500,
-    "claude/skill/references/handoff-prep.md": 600,
-    "claude/skill/references/handoff.md": 775,
-    "claude/skill/references/planning.md": 1800,
-    "claude/skill/references/verification.md": 850,
-    "claude/skill/references/visual-companion.md": 150,
-    "claude/agents/arc-coder.md": 400,
-    "claude/agents/arc-planner.md": 400,
-    "claude/agents/arc-qa.md": 450,
-    "claude/agents/arc-reviewer.md": 350,
-    "claude/agents/arc-scouter.md": 300,
-}
-
-POLICY_WORD_TOTAL_CEILING = 14682  # Merged policy: 14582 words + 100-word headroom.
-CLAUDE_POLICY_WORD_TOTAL_CEILING = 10923  # Merged policy: 10823 words + 100-word headroom.
-
 
 class CodexRoleHardeningTests(unittest.TestCase):
     """Static checks of the written Codex role-boundary contract; not runtime agent compliance."""

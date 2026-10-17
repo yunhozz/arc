@@ -105,7 +105,7 @@ content matching the approved version and validity in the selected checkout; reu
 them.
 
 For approved documents still uncommitted, Orchestrator records the approved versions and paths, finalizes the specific
-Korean
+English
 Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
 before handoff. Batch all remaining uncommitted approved documents together in that single commit. If all are
 validly committed, verify only; do not create duplicate or empty commits, or amend, reset, or recommit past commits

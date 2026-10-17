@@ -57,6 +57,10 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
 
 ## Instruction and execution adapter
 
+Native Codex profiles are TOML; installation renders the `model_reasoning_effort` field.
+The native `[agents].max_concurrent_threads_per_session` value is an integer, distinct from ARC's ledger limits.
+These local declarations do not prove runtime enforcement.
+
 Apply platform, user, and project instructions according to their precedence, then ARC rules for ownership,
 permissions, models, concurrency, routing, and approvals, then the local ARC reference assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
@@ -92,22 +96,20 @@ follow Risk-scaled execution.
 
 ## Dependency analysis and parallel dispatch
 
-Before the first Coder assignment for an approved plan, Orchestrator records the dependency/readiness map and
-initial ready batch under planning.md. File separation alone never proves independence: analyze shared inputs,
-outputs, contracts and resources. Pass the complete approval/preparation and handoff gates for every assignment.
-Start all ready independent tasks concurrently with fresh Coders within available capacity; plan listing order alone
-never justifies serialization. Same-file concurrent Coder edits are prohibited, even on different lines.
-All roles share the configured full-tree subagent limits in `limits.toml`; obey any lower actual runtime limit and
-record/report capacity limits and serialization reasons. ARC's cap is not a claim of runtime capability.
+Before the first Coder assignment for an approved plan, Orchestrator records its dependency/readiness map and
+initial ready batch under [planning](references/planning.md), which owns record fields and readiness conditions.
+File separation alone never proves independence. Pass the full approval/preparation and handoff gates for every
+assignment; unresolved dependencies, shared contracts, or ownership conflicts hold affected work.
+Start all ready independent tasks concurrently with fresh Coders within capacity under [limits](references/limits.md)
+and any lower actual runtime limit; record capacity and serialization reasons. Same-file concurrent Coder edits are
+prohibited, even on different lines. ARC's cap is not a claim of runtime capability.
 
 Reassess readiness after completion reports, new check evidence, acceptance, commit, slot return, or a new conflict.
 Coder completion alone does not release dependents: require predecessor checks, Orchestrator acceptance and verified
-focused commit, or accepted no-change evidence under commit.md. Start newly ready tasks without waiting for unrelated
-batch members. With A → B → C and independent D and two slots, start A and D; after A's checks, acceptance and commit,
-start B while D continues if capacity and gates allow. If A fails, hold B and C; D may continue if unaffected.
-Unclear dependencies, unresolved shared contracts or resource conflicts hold only affected tasks until resolved.
-Preserve risk-scaled QA/Reviewer timing, execution-target constraints, ownership and shared-checkout Git safeguards;
-record the map and refreshed state/brief evidence under planning.md, handoff.md and commit.md.
+focused commit, or accepted no-change evidence under [commit](references/commit.md). Start newly ready tasks without
+waiting for unrelated batch members; failures hold affected dependents while unaffected ready work may continue.
+Preserve risk-scaled QA/Reviewer timing and execution-target restrictions. Shared-checkout Git coordination belongs to
+commit.md; refresh assignment evidence under [handoff](references/handoff.md).
 
 ## Shared terms
 
@@ -155,21 +157,18 @@ execution-target selection and document commit preparation. A missing required s
 
 ## Common handoff gate
 
-Before every Coder first start/restart, Orchestrator passes the Coder handoff gate in handoff (approvals/artifacts or
-valid
-omissions, explicit execution-target choice or verified reuse, intended repository/workspace, branch/HEAD, change state,
-preservation/ownership, document commits or valid absence, no unresolved failure/partial completion).
-Missing evidence, mismatches, unclear ownership or unresolved
-preparation block handoff and require Orchestrator resolution and full revalidation.
-Coder trusts these Orchestrator-verified brief
-facts without re-verifying them or asking Orchestrator to reconfirm them, and reports only conflicts it actually hits
-while working.
-For a selected worktree, verify common directory, registration, app-managed current-chat attachment, approved branch,
-and source preservation under handoff.
+Before every Coder first start/restart, Orchestrator passes the full gate in
+[handoff](references/handoff.md): applicable approvals/artifacts or valid omissions, explicit execution-target choice
+or verified reuse, intended accessible repository/workspace, actual Git identity/state, preservation/ownership,
+verified document commits or valid absence, and no unresolved failure/partial completion.
+Missing evidence, mismatches, unclear ownership or unresolved preparation block handoff and require Orchestrator
+resolution and full revalidation. Handoff owns the evidence fields, canonical handoff record, restart brief, choice lifetime
+and reuse. Coder trusts the Orchestrator-verified brief and reports actual conflicts under its self-contained profile;
+never replace its local guards with a requirement to load Orchestrator procedures.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or
-branches.
-The canonical record, restart brief, choice lifetime and reuse, and docs-commit
-order are in handoff. The same conditions apply before a Orchestrator direct edit.
+branches. The same conditions apply before a Orchestrator direct edit.
+For a selected worktree, handoff requires common directory, registration, app-managed current-chat attachment,
+approved branch, and source preservation; prepare only through the selected managed-worktree contract.
 
 ## Coder TDD and constraints
 

@@ -3,7 +3,9 @@
 Orchestrator reviews task evidence and accepts the approved task before committing.
 Verify approved plan/task, absolute workspace, branch/HEAD, index/worktree/untracked state and ownership.
 Stage exactly the accepted task paths; inspect staged scope and content to exclude unrelated changes.
-Commit one logical task promptly, using Conventional Commits with a concise Korean description.
+After acceptance, Orchestrator creates the focused local commit without additional user commit approval.
+Existing plan-skip paths have no new automatic commit obligation; their commits follow applicable guidance and user requests.
+Commit one logical task promptly, using Conventional Commits with a concise English description.
 Planning documents have their own batch docs commit before Coder handoff.
 
 After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state.
@@ -23,7 +25,7 @@ task commit. If final findings affect committed work, Orchestrator defines a fol
 correction and QA recheck, then a new focused commit; never amend/reset the existing commit.
 Task acceptance is distinct from final plan acceptance; final checks still apply.
 
-Commit message form: `<type>(<scope>): <description>` (Conventional Commits) with a concise, specific Korean description
+Commit message form: `<type>(<scope>): <description>` (Conventional Commits) with a concise, specific English description
 without trailing period, lowercase scope when useful, one top-level task per commit, body/footer only when needed.
 
 In the accessible canonical record link plan path/version, task ID, acceptance evidence and Orchestrator judgment,
