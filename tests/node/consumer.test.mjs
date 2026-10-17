@@ -8,3 +8,32 @@ test('packed reinstalls synchronize managed trees, preserve unrelated content wi
 test('live upstream launcher forwards npx arguments before network smoke',async t=>{const {spawnSync}=await import('node:child_process');const f=fixture(t,{live:true});const result=spawnSync(path.join(f.environments.traps.PATH,'npx'),['--version'],{encoding:'utf8',timeout:10000,cwd:f.base,env:{PATH:f.environments.traps.PATH,HOME:f.base,npm_config_cache:path.join(f.base,'cache')}});assert.equal(result.status,0,result.stderr);assert.match(result.stdout.trim(),/^\d+\.\d+\.\d+$/);assert.equal(fs.existsSync(f.environments.traps.marker),false);});
 test('packed standalone uninstall handles every target and custom CODEX_HOME without acquisition',t=>{const f=fixture(t);for(const target of ['codex','claude','all'])for(const custom of [false,true]){const home=fs.mkdtempSync(path.join(f.base,'uninstall home ')),codex=custom?path.join(home,'custom codex'):path.join(home,'.codex');for(const platform of target==='all'?['codex','claude']:[target]){const root=platform==='codex'?codex:path.join(home,'.claude');fs.mkdirSync(root+'/skills/arc',{recursive:true});fs.mkdirSync(root+'/skills/brainstorming');fs.mkdirSync(root+'/agents');fs.writeFileSync(root+'/skills/arc/SKILL.md','edited');fs.writeFileSync(root+'/agents/arc-coder.'+(platform==='codex'?'toml':'md'),'role');fs.writeFileSync(root+'/skills/brainstorming/user','keep');fs.writeFileSync(root+'/'+(platform==='codex'?'AGENTS.md':'CLAUDE.md'),'mine\n<!-- arc:begin -->\nx\n<!-- arc:end -->\n');}const result=f.run('traps',['--target',target],{home,command:'uninstall',env:{HOME:home,CODEX_HOME:codex,CLAUDE_CONFIG_DIR:home+'/.claude',PATH:f.environments.traps.PATH,TMPDIR:f.base}});assert.equal(result.status,0,result.stderr);for(const platform of target==='all'?['codex','claude']:[target]){const root=platform==='codex'?codex:path.join(home,'.claude');assert.match(result.stdout,new RegExp(platform+': uninstalled'));assert.equal(fs.existsSync(root+'/skills/arc'),false);assert.equal(fs.readFileSync(root+'/skills/brainstorming/user','utf8'),'keep');assert.equal(fs.readFileSync(root+'/'+(platform==='codex'?'AGENTS.md':'CLAUDE.md'),'utf8'),'mine\n\n');}assert.equal(fs.existsSync(path.join(f.base,'acquisition-audit')),false);}});
 test('packed root accepts explicit install arguments and rejects legacy flags-only calls',t=>{const f=fixture(t),entry=path.join(f.root,'bin/arc.mjs');const result=f.run('traps',['install','--target','codex','--preset','balanced','--check'],{entry});assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/Target: codex; preset: balanced/);assert.match(result.stdout,/Check completed/);assert.deepEqual(fs.readdirSync(result.home),[]);const legacy=f.run('traps',['--target','codex','--preset','balanced','--check'],{entry});assert.equal(legacy.status,2,legacy.stderr);assert.match(legacy.stderr,/Unknown command/);assert.deepEqual(fs.readdirSync(legacy.home),[]);assert.equal(fs.existsSync(path.join(f.base,'acquisition-audit')),false);});
+test('packed temporary-HOME limit install, reinstall, drift selection and uninstall preserve native keys',t=>{
+ const f=fixture(t);let r=f.run('traps',['--target','all','--preset','balanced','--max-total-subagents','27','--max-concurrent-subagents','3']);assert.equal(r.status,0,r.stderr);const home=r.home;
+ for(const platform of ['codex','claude']){const policy=fs.readFileSync(`${home}/.${platform}/skills/arc/limits.toml`,'utf8');assert.match(policy,/max_total_subagents = 27/);assert.match(policy,/max_concurrent_subagents = 3/);}
+ r=f.run('traps',['--target','all','--preset','smart'],{home});assert.equal(r.status,0,r.stderr);assert.match(fs.readFileSync(`${home}/.claude/skills/arc/limits.toml`,'utf8'),/max_total_subagents = 27/);
+ const settingsPath=`${home}/.claude/settings.json`,data=JSON.parse(fs.readFileSync(settingsPath));data.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS='8';data.userSetting=true;fs.writeFileSync(settingsPath,JSON.stringify(data));
+ r=f.run('traps',['--target','claude','--preset','balanced'],{home});assert.equal(r.status,2,r.stderr);assert.match(r.stderr,/drift/);assert.equal(JSON.parse(fs.readFileSync(settingsPath)).env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS,'8');
+ r=f.run('traps',['--target','claude','--preset','balanced','--max-concurrent-subagents','4'],{home});assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(fs.readFileSync(settingsPath)).userSetting,true);
+ const codex=fs.readFileSync(`${home}/.codex/config.toml`),claude=fs.readFileSync(settingsPath);
+ r=f.run('traps',['--target','all'],{home,command:'uninstall'});assert.equal(r.status,0,r.stderr);assert.match(r.stdout,/native concurrency key.*preserved/);
+ for(const platform of ['codex','claude'])assert.equal(fs.existsSync(`${home}/.${platform}/skills/arc`),false);
+ assert.deepEqual(fs.readFileSync(`${home}/.codex/config.toml`),codex);assert.deepEqual(fs.readFileSync(settingsPath),claude);
+});
+test('packed all-target install preserves distinct omitted platform limits independently',t=>{
+ const f=fixture(t),home=fs.mkdtempSync(path.join(f.base,'distinct limits home '));
+ const expected={codex:{total:23,concurrent:2},claude:{total:47,concurrent:7}};
+ for(const[platform,limits]of Object.entries(expected)){
+  const root=path.join(home,'.'+platform);fs.mkdirSync(path.join(root,'skills/arc'),{recursive:true});
+  fs.writeFileSync(path.join(root,'skills/arc/limits.toml'),`version = 1\nmax_total_subagents = ${limits.total}\nmax_concurrent_subagents = ${limits.concurrent}\n`);
+  fs.writeFileSync(path.join(root,platform==='codex'?'config.toml':'settings.json'),platform==='codex'?`[agents]\nmax_concurrent_threads_per_session = ${limits.concurrent}\n`:JSON.stringify({env:{CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:String(limits.concurrent)}}));
+ }
+ const result=f.run('traps',['--target','all','--preset','balanced'],{home});assert.equal(result.status,0,result.stderr);
+ for(const[platform,limits]of Object.entries(expected)){
+  const policy=parseToml(fs.readFileSync(path.join(home,'.'+platform,'skills/arc/limits.toml'),'utf8'));
+  assert.equal(policy.max_total_subagents,BigInt(limits.total));assert.equal(policy.max_concurrent_subagents,BigInt(limits.concurrent));
+ }
+ const codex=parseToml(fs.readFileSync(path.join(home,'.codex/config.toml'),'utf8'));
+ const claude=JSON.parse(fs.readFileSync(path.join(home,'.claude/settings.json'),'utf8'));
+ assert.equal(codex.agents.max_concurrent_threads_per_session,2n);assert.equal(claude.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS,'7');
+});

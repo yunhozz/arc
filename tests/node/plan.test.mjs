@@ -13,3 +13,40 @@ test('plan construction performs no writes, temp allocation, locks, child proces
 function guard(handle){return new Proxy(handle,{get(target,key){if(['mkdir','unlink','rmdir','renameTo','symlink','chmod','setTimes','sync','write','writeAll'].includes(key))return reject;if(key==='openDir')return name=>guard(target.openDir(name));if(key==='openFile')return(name,options)=>{if(options?.create||options?.createExclusive||options?.read===false)reject();return guard(target.openFile(name,options));};const member=target[key];return typeof member==='function'?member.bind(target):member;}});}input.safeFs={openRoot:p=>guard(safeFs.openRoot(p))};
 try{for(const name of ['writeFileSync','mkdirSync','mkdtempSync','renameSync','unlinkSync','rmSync','appendFileSync'])replace(fs,name);for(const name of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork'])replace(cp,name);replace(globalThis,'fetch');syncBuiltinESMExports();assert.equal(api.buildInstallPlan(input).target.platform,'codex');}finally{for(const[o,k,v]of originals)o[k]=v;syncBuiltinESMExports();}assert.deepEqual(fs.readdirSync(home),[]);});
 test('Claude skill link exception is limited to the same default Codex skill directory',t=>{const home=fixture(t);fs.mkdirSync(`${home}/.claude/skills`,{recursive:true});fs.mkdirSync(`${home}/.codex/skills/brainstorming`,{recursive:true});fs.symlinkSync('../../.codex/skills/brainstorming',`${home}/.claude/skills/brainstorming`);assert.equal(plan(home,'claude').target.platform,'claude');fs.unlinkSync(`${home}/.claude/skills/brainstorming`);fs.symlinkSync('/tmp',`${home}/.claude/skills/brainstorming`);assert.throws(()=>plan(home,'claude'),{code:'ARC_TARGET_CONFIGURATION'});});
+test('limits policy defaults, reinstall preservation, native drift and explicit override',t=>{
+ const home=fixture(t);const first=plan(home);assert.match(first.generated.skill.get('limits.toml').toString(),/max_total_subagents = 100\nmax_concurrent_subagents = 5/);
+ assert.match(first.globalChanges.find(c=>c.path.endsWith('config.toml')).content.toString(),/max_concurrent_threads_per_session = 5/);
+ fs.mkdirSync(`${home}/.codex/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.codex/skills/arc/limits.toml`,'version = 1\nmax_total_subagents = 37\nmax_concurrent_subagents = 3\n');
+ fs.writeFileSync(`${home}/.codex/config.toml`,'[agents]\nmax_concurrent_threads_per_session = 9\n');
+ assert.throws(()=>plan(home),/drift/i);
+ const explicit=plan(home,'codex',{limits:{version:1,max_total_subagents:37,max_concurrent_subagents:3},concurrentExplicit:true});
+ assert.match(explicit.generated.skill.get('limits.toml').toString(),/max_total_subagents = 37/);
+ assert.match(explicit.globalChanges.find(c=>c.path.endsWith('config.toml')).content.toString(),/max_concurrent_threads_per_session = 3/);
+ const skipped=plan(home,'codex',{skipGlobal:true});assert.match(skipped.generated.skill.get('limits.toml').toString(),/max_concurrent_subagents = 3/);
+});
+test('Claude settings concurrency is a string and preserves unrelated data',t=>{
+ const home=fixture(t);fs.mkdirSync(`${home}/.claude`);fs.writeFileSync(`${home}/.claude/settings.json`,JSON.stringify({env:{KEEP:'yes'},permissions:{allow:[]}}));
+ const result=plan(home,'claude');const settings=JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content);
+ assert.deepEqual(settings,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'5'},permissions:{allow:[]}});
+});
+test('preview evidence detects changed or newly appearing limits and unsafe replacements',t=>{
+ const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home,env:{}});
+ const preview=api.previewLimits({target,safeFs});fs.mkdirSync(`${home}/.codex/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.codex/skills/arc/limits.toml`,'version = 1\nmax_total_subagents = 4\nmax_concurrent_subagents = 2\n');
+ assert.throws(()=>plan(home,'codex',{limitsPreview:preview}),{code:'ARC_INSTALL_DRIFT'});
+ const existing=api.previewLimits({target,safeFs});fs.writeFileSync(`${home}/.codex/skills/arc/limits.toml`,'version = 1\nmax_total_subagents = 6\nmax_concurrent_subagents = 2\n');assert.throws(()=>plan(home,'codex',{limitsPreview:existing}),{code:'ARC_INSTALL_DRIFT'});
+ fs.unlinkSync(`${home}/.codex/skills/arc/limits.toml`);fs.symlinkSync('/outside',`${home}/.codex/skills/arc/limits.toml`);assert.throws(()=>api.previewLimits({target,safeFs}),{code:'ARC_TARGET_CONFIGURATION'});
+});
+test('all targets retain different existing limits and partial overrides remain independent',t=>{
+ const home=fixture(t);for(const[platform,total,concurrent]of[['codex',20,2],['claude',30,3]]){fs.mkdirSync(`${home}/.${platform}/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.${platform}/skills/arc/limits.toml`,`version = 1\nmax_total_subagents = ${total}\nmax_concurrent_subagents = ${concurrent}\n`);const p=plan(home,platform,{limits:{max_total_subagents:40}});assert.equal(p.limits.max_total_subagents,40);assert.equal(p.limits.max_concurrent_subagents,concurrent);}
+});
+test('corrupt policy stops even explicit reinstall and skip-global never opens native symlinks',t=>{
+ const home=fixture(t);fs.mkdirSync(`${home}/.claude/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.claude/skills/arc/limits.toml`,'version = 9');assert.throws(()=>plan(home,'claude',{limits:{max_total_subagents:9,max_concurrent_subagents:9}}),/Invalid ARC limits/);
+ fs.unlinkSync(`${home}/.claude/skills/arc/limits.toml`);fs.symlinkSync('/outside',`${home}/.claude/settings.json`);assert.equal(plan(home,'claude',{skipGlobal:true}).globalChanges.length,0);
+});
+for(const platform of ['codex','claude'])for(const phase of ['before-publish','after-publish'])test(`${platform} policy and native configuration rollback at ${phase}`,async t=>{
+ const home=fixture(t),root=`${home}/.${platform}`,nativePath=`${root}/${platform==='codex'?'config.toml':'settings.json'}`;fs.mkdirSync(`${root}/skills/arc`,{recursive:true});
+ const old='version = 1\nmax_total_subagents = 40\nmax_concurrent_subagents = 4\n';fs.writeFileSync(`${root}/skills/arc/limits.toml`,old);const nativeBytes=platform==='codex'?'[agents]\nmax_concurrent_threads_per_session = 4\n':'{"env":{"CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS":"4"}}\n';fs.writeFileSync(nativePath,nativeBytes);
+ const p=plan(home,platform,{limits:{max_total_subagents:50,max_concurrent_subagents:5},concurrentExplicit:true});p.externalPaths=[];
+ const{applyTransaction}=await import('../../lib/installer/transaction.mjs');assert.throws(()=>applyTransaction(p,{safeFs,acquired:{skills:new Map()},hooks:{fault(event){if(event.phase===phase&&event.path===nativePath)throw Error('native publication failure');}}}));
+ assert.equal(fs.readFileSync(nativePath,'utf8'),nativeBytes);assert.equal(fs.readFileSync(`${root}/skills/arc/limits.toml`,'utf8'),old);
+});

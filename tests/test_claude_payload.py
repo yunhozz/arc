@@ -183,7 +183,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_policy_preserves_role_and_approval_contracts(self):
         self.assertTrue((PAYLOAD / 'skill/SKILL.md').is_file(), 'Claude CEO adapter must be shipped')
-        required = {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion'}
+        required = {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'}
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
         # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
 
@@ -221,7 +221,7 @@ class ClaudePayloadTests(unittest.TestCase):
         core = (PAYLOAD / 'skill/SKILL.md').read_text()
         sections = re.findall(r'^## (.+)$', core, re.M)
         self.assertEqual(sections, [
-            'Ownership', 'Instruction and execution adapter', 'Shared terms',
+            'Ownership', 'Instruction and execution adapter', 'Dependency analysis and parallel dispatch', 'Shared terms',
             'Mandatory task references', 'Common handoff gate', 'Coder TDD and constraints',
             'Risk-scaled execution', 'Orchestrator direct path for small tasks',
             'Automatic commit after plan-task acceptance', 'Token discipline and handoffs', 'Models',
@@ -244,7 +244,7 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertIn('`arc_' + role + '`', core)
             self.assertIn('arc_' + role, settings)
         links = set(re.findall(r'references/([a-z-]+)\.md', core))
-        self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion'})
+        self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
         self.assertIn('python3 ~/.claude/skills/arc/scripts/apply-models.py', core)
@@ -268,7 +268,7 @@ class ClaudePayloadTests(unittest.TestCase):
     def assert_all(self, text, needles):
         for needle in needles:
             with self.subTest(needle=needle):
-                self.assertIn(needle, text)
+                self.assertIn(' '.join(needle.split()), ' '.join(text.split()))
 
     def test_claude_verification_ui_criterion_and_reviewer_rules(self):
         text = self.read_claude('skill/references/verification.md')
@@ -356,7 +356,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_manifest_covers_immutable_claude_payload(self):
         entries = dict(line.split('  ', 1)[::-1] for line in (ROOT / 'MANIFEST.sha256').read_text().splitlines())
-        files = [p for p in PAYLOAD.rglob('*') if p.is_file()]
+        files = [p for p in PAYLOAD.rglob('*') if p.is_file() and '__pycache__' not in p.parts]
         self.assertTrue(files, 'Claude payload must be shipped')
         for path in files:
             relative = path.relative_to(ROOT).as_posix()
@@ -382,7 +382,7 @@ class RoleHardeningTests(unittest.TestCase):
                        'skip questions', 'never waives design or approval gates', 'returns questions to Orchestrator',
                        'FRESH Coder', 'FRESH QA'):
             with self.subTest(needle=needle):
-                self.assertIn(needle, gate)
+                self.assertIn(' '.join(needle.split()), ' '.join(gate.split()))
         self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
         self.assertIn('same-task rechecks may reuse', gate)
         self.assertIn('Coder and QA freshness follow the Role gate', core)

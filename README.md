@@ -16,7 +16,7 @@ The Orchestrator assigns work and accepts the result.
 | QA | Independent checks against acceptance criteria; no edits |
 | Reviewer | Final independent review of significant changes; no edits |
 
-All roles report directly to the Orchestrator; subagents never delegate. At most four subagents run concurrently.
+All roles report directly to the Orchestrator; subagents never delegate. The default session limits are 100 total created subagents and 5 concurrent subagents.
 Each top-level task starts a fresh Coder and, when needed, fresh QA. Simple questions stay with the Orchestrator.
 
 ### 🧭 Design and approval
@@ -40,7 +40,7 @@ Before the first Coder assignment for an approved plan, the Orchestrator records
 dependencies, inputs/outputs/shared contracts, file/resource ownership and conflicts, readiness/hold reasons and initial
 ready batch. Different files alone do not prove independence; unresolved shared contracts and same-file concurrent
 Coder edits block affected tasks. After all approval/preparation gates pass, start ready independent tasks with fresh
-Coders concurrently within the four-subagent total shared by all roles and any lower actual runtime limit; report
+Coders concurrently within the configured subagent limit shared by all roles and any lower actual runtime limit; report
 limits and serialization reasons. Plan listing order alone does not serialize work.
 
 The flow is dependency analysis → ready-task dispatch → required checks and Orchestrator acceptance/commit → readiness
@@ -90,7 +90,14 @@ arc install --target all --preset smart --check
 arc install --target claude --preset economy --dry-run
 ```
 
-Alternatively, install from GitHub or a repository checkout:
+Alternatively, install from GitHub or a repository checkout. Interactive setup prompts for target, preset,
+and omitted limits (initial defaults: total 100, concurrent 5):
+
+```sh
+npx --yes github:yunhozz/arc install
+```
+
+For explicit target/preset selection (non-interactive execution preserves omitted limits):
 
 ```sh
 npx --yes github:yunhozz/arc install --target codex --preset balanced
@@ -114,7 +121,7 @@ Check and dry-run use no network and do not verify external skill content; actua
 | Target | Location and managed files |
 |---|---|
 | Codex | `~/.codex` (or `CODEX_HOME`): `skills/`, `agents/`, `AGENTS.md`, `config.toml` |
-| Claude Code | `~/.claude`: `skills/`, `agents/`, `CLAUDE.md` |
+| Claude Code | `~/.claude`: `skills/`, `agents/`, `CLAUDE.md`, `settings.json` |
 
 Installation adds a managed `arc:begin`/`arc:end` instruction block, preserving surrounding content.
 Codex also sets `min_wait_timeout_ms = 120000` and `default_wait_timeout_ms = 300000` under `[features.multi_agent_v2]`
@@ -140,7 +147,7 @@ arc uninstall --target claude --skip-global
 
 Without a target, `arc uninstall` prompts in a terminal; non-interactive removal requires `--target`.
 It removes the selected ARC skill, five role profiles, and managed instruction block, including edited ARC files.
-Shared external skills, other profiles, Codex wait settings, and shell completion registration remain.
+Shared external skills, other profiles, Codex wait settings, both native concurrency keys, and shell completion registration remain.
 No persistent backup is created.
 
 ### ⌨️ Shell completion
@@ -217,3 +224,32 @@ prereleases. See [npm Trusted publishing](https://docs.npmjs.com/trusted-publish
 |---|---|---|
 | Codex | [Operating guide](codex/skill/SKILL.md) | [Planning](codex/skill/references/planning.md) · [Handoff](codex/skill/references/handoff.md) · [Verification](codex/skill/references/verification.md) |
 | Claude Code | [Operating guide](claude/skill/SKILL.md) | [Planning](claude/skill/references/planning.md) · [Handoff](claude/skill/references/handoff.md) · [Verification](claude/skill/references/verification.md) |
+
+
+### Subagent limits
+
+`arc install --target all --preset balanced --max-total-subagents 100 --max-concurrent-subagents 5`
+sets the maximum created subagents (default **100**) and simultaneous subagents (default **5**).
+TTY installation asks for omitted values even when target/preset are supplied. Enter preserves each
+target's existing value, or its initial default; a typed value applies to every selected target.
+Non-interactive installs require target/preset; omitted limits preserve existing policy or use defaults.
+Positive safe ASCII decimal integers are required. Total and concurrent limits are independent.
+
+The installer writes `skills/arc/limits.toml` and merges native concurrency into Codex
+`[agents].max_concurrent_threads_per_session` as an integer and Claude
+`settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
+Reinstallation preserves ARC limits; native concurrency drift requires an explicit concurrency
+selection (the flag or TTY confirmation). Malformed configuration stops installation.
+`--check` and `--dry-run` show policy/native changes without applying them.
+`--skip-global` installs ARC policy only and skips global instruction, native config and shell access.
+
+The cumulative limit counts created descendants in one ARC coordination session/tree, including
+completed agents. Reusing the same instance costs no additional creation; fresh replacements do.
+ARC maintains reservations and a ledger using prompt-level instructions; it does not intercept spawn
+calls or provide hard cumulative runtime enforcement. Lower runtime capacity still applies.
+Independent sessions/platforms/accounts have separate budgets. New settings apply to new sessions;
+writing configuration does not demonstrate runtime support in the current process.
+Uninstall removes ARC policy with the skill but preserves both native concurrency keys and Codex wait
+settings. Remove the CLI separately with `npm uninstall -g @yunhozz/arc`.
+
+- **Codex external skills:** install targets are replaced with verified upstream copies; previous copies remain in a private transaction stage for rollback and are deleted after publication succeeds. A reported `Residual path:` requires manual attention.

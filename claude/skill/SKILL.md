@@ -48,7 +48,8 @@ Live execution-state investigation or cleanup are outside Scouter scope and this
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
 - Claude native subagent names: Scouter=`arc-scouter`, Planner=`arc-planner`, Coder=`arc-coder`, QA=`arc-qa`,
   Reviewer=`arc-reviewer`.
-- Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
+- Across the full tree, obey configured limits for simultaneous subagents, including Scouter; there are no reserved slots.
+  Before first creation, read `references/limits.md` and installed `limits.toml`; maintain its cumulative ledger and reservations.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap. These are
   ARC limits, not verified runtime concurrency or depth capabilities. Use Claude native subagent execution with
   the installed native name and receive its completion result; report unavailable execution capabilities to
@@ -91,7 +92,7 @@ initial ready batch under planning.md. File separation alone never proves indepe
 outputs, contracts and resources. Pass the complete approval/preparation and handoff gates for every assignment.
 Start all ready independent tasks concurrently with fresh Coders within available capacity; plan listing order alone
 never justifies serialization. Same-file concurrent Coder edits are prohibited, even on different lines.
-All roles share the full-tree maximum of four simultaneous subagents; obey any lower actual runtime limit and
+All roles share the configured full-tree subagent limits in `limits.toml`; obey any lower actual runtime limit and
 record/report capacity limits and serialization reasons. ARC's cap is not a claim of runtime capability.
 
 Reassess readiness after completion reports, new check evidence, acceptance, commit, slot return, or a new conflict.

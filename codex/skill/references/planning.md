@@ -93,7 +93,7 @@ are blocked even for different lines. Do not infer independence from file separa
 A task is ready only when all applicable approvals and execution preparation are complete, required inputs/contracts
 are available and settled, predecessors have required evidence and Orchestrator acceptance plus verified focused
 commits (or accepted no-change records), ownership/resources do not conflict, its required check/QA path is available,
-and a subagent slot exists under both the ARC full-tree cap of four shared by all roles and any lower actual runtime
+and a subagent slot exists under both the configured ARC full-tree cap shared by all roles and any lower actual runtime
 limit. Report runtime limits. Start all ready independent tasks with fresh Coders concurrently within capacity;
 record each hold or serialization reason instead of silently following list order. Preserve existing risk gates.
 

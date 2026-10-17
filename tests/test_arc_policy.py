@@ -297,7 +297,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             return [line[4:].strip().lower() for line in (REPO / f"codex/skill/references/{name}.md").read_text().splitlines()
                     if line.startswith("### ")]
         self.assertEqual(headings("handoff"), ["checkout approval", "coder handoff gate", "handoff evidence",
-                                               "choice lifetime and restart record"])
+                                               "task readiness at every assignment", "choice lifetime and restart record"])
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
                                                     "recovery prerequisite"])
@@ -466,10 +466,12 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertNotIn("the complete the common handoff gate", planning)
         self.assertNotIn("`workspace handoff` gate below", planning)
 
-    def test_config_comment_matches_subagent_limit(self) -> None:
-        config = (REPO / "codex/config.toml").read_text()
-        self.assertIn("at most four simultaneous subagents", config)
-        self.assertNotIn("one owner plus three specialists", config)
+    def test_installed_limits_policy_replaces_manual_config(self) -> None:
+        self.assertFalse((REPO / "codex/config.toml").exists())
+        for platform in ("codex", "claude"):
+            text = (REPO / platform / "skill/references/limits.md").read_text()
+            for phrase in ("max_total_subagents", "max_concurrent_subagents", "100", "5", "completed", "same instance", "descendants", "reservation", "uncertain", "ledger", "QA", "Reviewer", "prompt-level"):
+                self.assertIn(phrase, text)
 
     def test_reviewer_description_has_no_team_name(self) -> None:
         description = tomllib.loads((REPO / "codex/agents/arc-reviewer.toml").read_text())["description"]
@@ -833,7 +835,7 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(ownership, r"orchestrator.*sole owner.*development, configuration, tests")
         self.assertRegex(ownership, r"coder.*(?:edits|implements).*assigned.*files")
         self.assertRegex(ownership, r"all five roles.*directly to orchestrator.*depth 2")
-        self.assertRegex(ownership, r"at most four.*subagents.*including scouter")
+        self.assertRegex(ownership, r"configured.*subagents.*including scouter")
         self.assertRegex(ownership, r"scouter.*read.only")
 
     def test_scouter_read_only_scope_and_reporting(self) -> None:
@@ -1247,14 +1249,18 @@ SHARED_TERMS = {
                         "turn unverified into proven; reports keep unverified scope visible",
 }
 
+# 2026-10-17: refreshed existing dependency/readiness text ceilings and new limits policy.
+# No untouched commit.md content changed; ceilings round observed counts with modest headroom.
 POLICY_WORD_CEILINGS = {
-    "codex/skill/SKILL.md": 2950,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
-    "codex/skill/references/commit.md": 600,
+    "claude/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
+    "codex/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
+    "codex/skill/SKILL.md": 3225,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
+    "codex/skill/references/commit.md": 800,
     "codex/skill/references/git-recovery.md": 700,
     "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
-    "codex/skill/references/handoff.md": 1310,  # Task 2: inline-record vs restart-brief unification
-    "codex/skill/references/planning.md": 1890,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
+    "codex/skill/references/handoff.md": 1600,  # Task 2: inline-record vs restart-brief unification
+    "codex/skill/references/planning.md": 2200,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
     "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
@@ -1262,12 +1268,12 @@ POLICY_WORD_CEILINGS = {
     "codex/agents/arc-qa.toml": 360,  # Task 2: stay-in-role line
     "codex/agents/arc-reviewer.toml": 270,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
     "codex/agents/arc-scouter.toml": 265,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
-    "claude/skill/SKILL.md": 3300,
-    "claude/skill/references/commit.md": 350,
+    "claude/skill/SKILL.md": 3525,
+    "claude/skill/references/commit.md": 525,
     "claude/skill/references/git-recovery.md": 500,
     "claude/skill/references/handoff-prep.md": 600,
-    "claude/skill/references/handoff.md": 500,
-    "claude/skill/references/planning.md": 1500,
+    "claude/skill/references/handoff.md": 775,
+    "claude/skill/references/planning.md": 1800,
     "claude/skill/references/verification.md": 850,
     "claude/skill/references/visual-companion.md": 150,
     "claude/agents/arc-coder.md": 400,
@@ -1277,8 +1283,8 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/arc-scouter.md": 300,
 }
 
-POLICY_WORD_TOTAL_CEILING = 13070  # Task 4: +45 words for F3/F4/C (remaining shortfall); Task 2: actual codex total 13021 after QA-fix additions (plan-depth definition, Environment-failure sentence); below the per-file ceiling sum (user-approved)
-CLAUDE_POLICY_WORD_TOTAL_CEILING = 9315  # Task 4: +~65 words for F1/F3/F5/F6/B/C (remaining shortfall after trimming)
+POLICY_WORD_TOTAL_CEILING = 14600  # Current policy including the limit ledger; 100-word headroom.
+CLAUDE_POLICY_WORD_TOTAL_CEILING = 10800  # Current policy including the limit ledger; 100-word headroom.
 
 
 class CodexRoleHardeningTests(unittest.TestCase):
@@ -1355,8 +1361,6 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertNotIn("append `-2`", self.raw("handoff-prep"))
         self.assertIn("never automatically substitute a suffix", self.raw("handoff-prep"))
 
-    def test_config_toml_comments_state_prompt_only_limits(self) -> None:
-        text = (REPO / "codex/config.toml").read_text()
-        comments = " ".join(l for l in text.splitlines() if l.lstrip().startswith("#"))
-        self.assertRegex(comments, r"prompt-only")
-        self.assertRegex(comments, r"not enforced")
+    def test_limits_policy_is_not_hard_runtime_enforcement(self) -> None:
+        text = (REPO / "codex/skill/references/limits.md").read_text()
+        self.assertIn("not hard runtime enforcement", text)
