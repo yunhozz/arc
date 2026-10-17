@@ -1,6 +1,6 @@
 # Managed worktree handoff contract
 
-CEO reads after the user explicitly selects the new managed worktree option, before its creation, branch work or
+Orchestrator reads after the user explicitly selects the new managed worktree option, before its creation, branch work or
 document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](handoff.md) gates as well.
 
 ## Workspace handoff

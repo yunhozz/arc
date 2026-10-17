@@ -1,6 +1,6 @@
 # Handoff preparation contract
 
-CEO reads before an execution-target choice request and each preparation Git mutation (branch creation/switch,
+Orchestrator reads before an execution-target choice request and each preparation Git mutation (branch creation/switch,
 staging, commit). The new managed worktree option's selection target is listed in the Execution-target request gate.
 The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](handoff.md).
 
@@ -8,7 +8,7 @@ The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](h
 
 ### Execution-target request gate
 
-Before requesting the user's execution-target choice, CEO verifies and records the complete document list, absolute
+Before requesting the user's execution-target choice, Orchestrator verifies and records the complete document list, absolute
 paths and scope coverage, approved versions and individual approval evidence, plan dependencies and execution order,
 and no unfinished applicable documents or unresolved scope/dependency decisions requiring another document.
 The set contains required artifacts, not a spec on every path; use planning depth and valid omission rationales.
@@ -16,7 +16,7 @@ Unfinished documents or missing approval evidence stop the choice request and pr
 are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate
 under the Explicit choice rule. Present the verified absolute workspace, current branch or detached HEAD, base HEAD, and any validated
 new-branch candidate.
-When offering the new managed worktree option, CEO first verifies and then presents its selection target (source absolute
+When offering the new managed worktree option, Orchestrator first verifies and then presents its selection target (source absolute
 path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
 approved branch candidate and collision status, descriptive name, approved document transfer/commit scope). Verification
 validates the approved branch candidate and collision status under New task branch naming rules and checks source state
@@ -32,7 +32,7 @@ reference and recheck the complete approved document set and approval evidence; 
 or verified valid reuse; absolute workspace and intended repository; current branch or detached HEAD and HEAD;
 staged/unstaged/untracked changes, preservation and edit ownership; and the exact command, target paths, and
 approved scope. Confirm no unresolved failure or partial completion. Record these facts in the canonical handoff
-record/shared brief before the action. Missing or mismatched evidence stops that mutation until CEO resolves it.
+record/shared brief before the action. Missing or mismatched evidence stops that mutation until Orchestrator resolves it.
 Read-only Git checks remain allowed. Do not infer execution authority from an external skill's early commit step.
 
 Before committing, also verify staged paths/content and the finalized message under Planning document commit.
@@ -89,10 +89,10 @@ On the new worktree path, verify the created app-managed worktree, current-chat 
 branch and document transfer before any target docs commit.
 At the target, commit only remaining approved documents once; do not automatically make a source document commit.
 Record the selected base SHA and post-commit HEAD.
-CEO verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
+Orchestrator verifies each approved spec/plan already committed for this task by SHA, actual message, included paths, and
 content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting them.
 
-For approved documents still uncommitted, CEO records the approved versions and paths, finalizes the specific Korean
+For approved documents still uncommitted, Orchestrator records the approved versions and paths, finalizes the specific Korean
 Conventional Commit message before the first commit, and stages only those documents for one focused docs commit
 before handoff. Batch all remaining uncommitted approved documents together in that single commit. If all are
 validly committed, verify only; do not create duplicate or empty commits, or amend, reset, or recommit past commits

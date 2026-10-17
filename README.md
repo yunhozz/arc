@@ -1,6 +1,6 @@
 # ARC (Agent Role Coordination)
 
-ARC coordinates research, design, implementation, and verification in Codex and Claude Code. The CEO assigns work and accepts the result.
+ARC coordinates research, design, implementation, and verification in Codex and Claude Code. The Orchestrator assigns work and accepts the result.
 
 ![Task flow diagram](docs/images/role-flow.svg)
 
@@ -8,18 +8,18 @@ ARC coordinates research, design, implementation, and verification in Codex and 
 
 | Role | Responsibility |
 |---|---|
-| CEO | Assigns work, obtains approvals, integrates, accepts, and commits |
+| Orchestrator | Assigns work, obtains approvals, integrates, accepts, and commits |
 | Scouter | Research and static exploration; no edits |
 | Planner | Design, spec, and plan drafts; no repository edits |
 | Coder | Implementation, configuration, and tests in assigned files |
 | QA | Independent checks against acceptance criteria; no edits |
 | Reviewer | Final independent review of significant changes; no edits |
 
-All roles report directly to the CEO; subagents never delegate. At most four subagents run concurrently. Each top-level task starts a fresh Coder and, when needed, fresh QA. Simple questions stay with the CEO.
+All roles report directly to the Orchestrator; subagents never delegate. At most four subagents run concurrently. Each top-level task starts a fresh Coder and, when needed, fresh QA. Simple questions stay with the Orchestrator.
 
 ### 🧭 Design and approval
 
-The Planner authors design, spec, plan, and brainstorming drafts. The CEO obtains user approval before implementation.
+The Planner authors design, spec, plan, and brainstorming drafts. The Orchestrator obtains user approval before implementation.
 
 | Path | Use for | Approval sequence |
 |---|---|---|
@@ -33,11 +33,11 @@ A Bounded change can omit the plan only for one local change with no dependent s
 
 | Risk | Verification |
 |---|---|
-| Small, low risk: narrow, understood, reversible, focused checks suffice | Coder or approved CEO direct edit → CEO checks |
+| Small, low risk: narrow, understood, reversible, focused checks suffice | Coder or approved Orchestrator direct edit → Orchestrator checks |
 | Ordinary behavior change | Coder → fresh QA |
 | Significant: shared contracts/state, lifecycle, security, data loss, public interfaces, costly installation/deployment | Coder → fresh QA → final Reviewer |
 
-Design depth and risk are independent. Unclear risk requires investigation or stronger verification. Feature and behavior edits follow TDD; only small, low-risk work needing no plan can qualify for an approved exception. With a plan, the CEO accepts and commits each top-level task; the Reviewer checks the complete significant change once. Push, merge, and deployment need separate approval.
+Design depth and risk are independent. Unclear risk requires investigation or stronger verification. Feature and behavior edits follow TDD; only small, low-risk work needing no plan can qualify for an approved exception. With a plan, the Orchestrator accepts and commits each top-level task; the Reviewer checks the complete significant change once. Push, merge, and deployment need separate approval.
 
 ## 🚀 Install
 
@@ -120,7 +120,7 @@ Automatic registration may be skipped by shell, runtime, permissions, `ZDOTDIR`,
 
 ## ⚙️ Model settings
 
-The CEO uses the current conversation's model. Other roles use `models.toml`: [Codex](codex/skill/models.toml) · [Claude Code](claude/skill/models.toml).
+The Orchestrator uses the current conversation's model. Other roles use `models.toml`: [Codex](codex/skill/models.toml) · [Claude Code](claude/skill/models.toml).
 
 Both use `version = 1`, a root `preset`, and `roles.<role>.economy`, `.balanced`, and `.smart` variants. Installation retains all three variants and selects the requested preset. Codex entries use `model` and `model_reasoning_effort`; Claude entries use `model` and `effort`. All variants are validated, including inactive ones.
 
