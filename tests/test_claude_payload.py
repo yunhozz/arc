@@ -183,7 +183,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_policy_preserves_role_and_approval_contracts(self):
         self.assertTrue((PAYLOAD / 'skill/SKILL.md').is_file(), 'Claude CEO adapter must be shipped')
-        required = {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion'}
+        required = {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'}
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
         # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
 
@@ -244,7 +244,7 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertIn('`arc_' + role + '`', core)
             self.assertIn('arc_' + role, settings)
         links = set(re.findall(r'references/([a-z-]+)\.md', core))
-        self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion'})
+        self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
         self.assertIn('python3 ~/.claude/skills/arc/scripts/apply-models.py', core)
@@ -359,7 +359,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_manifest_covers_immutable_claude_payload(self):
         entries = dict(line.split('  ', 1)[::-1] for line in (ROOT / 'MANIFEST.sha256').read_text().splitlines())
-        files = [p for p in PAYLOAD.rglob('*') if p.is_file()]
+        files = [p for p in PAYLOAD.rglob('*') if p.is_file() and '__pycache__' not in p.parts]
         self.assertTrue(files, 'Claude payload must be shipped')
         for path in files:
             relative = path.relative_to(ROOT).as_posix()
@@ -386,7 +386,7 @@ class RoleHardeningTests(unittest.TestCase):
                        'skip questions', 'never waives design or approval gates', 'returns questions to Orchestrator',
                        'FRESH Coder', 'FRESH QA'):
             with self.subTest(needle=needle):
-                self.assertIn(needle, gate)
+                self.assertIn(' '.join(needle.split()), ' '.join(gate.split()))
         self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
         self.assertIn('same-task rechecks may reuse', gate)
         self.assertIn('Coder and QA freshness follow the Role gate', core)

@@ -42,7 +42,7 @@ settled shared contracts, required predecessor checks, Orchestrator acceptance a
 accepted no-change evidence without an empty commit. A Coder completion report alone is insufficient. Verify owned
 files and shared resources have no conflict with running work; same-file concurrent Coder edits are forbidden even
 on different lines. Uncertain dependencies or unresolved contracts hold affected tasks only. Verify the task's
-required check/QA path and capacity under the full-tree four-subagent cap and any lower runtime limit; report limits.
+required check/QA path and capacity under the configured full-tree subagent cap and any lower runtime limit; report limits.
 The readiness record supplements every existing handoff gate and execution-target restriction; it never waives one.
 
 Reassess on completion/evidence/acceptance/commit/slot return/new conflict and start ready independent tasks without

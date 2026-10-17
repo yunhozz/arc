@@ -1,6 +1,0 @@
-# Merge into ~/.codex/config.toml without duplicating an existing [agents] table.
-# Runtime capacity is separate from the ARC limit of at most four simultaneous subagents.
-# The four-subagent cap and the depth-2 role limit are prompt-only ARC rules; this file does not enforce them and they are not enforced by any setting here.
-# Read-only roles (Scouter, Planner, Reviewer) likewise rely on prompt-level guards, not sandbox settings.
-[agents]
-max_concurrent_threads_per_session = 100

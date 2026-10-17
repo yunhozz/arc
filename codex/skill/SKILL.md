@@ -47,7 +47,8 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
   Orchestrator is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
 - Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Coder=`arc_coder`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
-- Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
+- Across the full tree, obey configured limits for simultaneous subagents, including Scouter; there are no reserved slots.
+  Before first creation, read `references/limits.md` and installed `limits.toml`; maintain its cumulative ledger and reservations.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
 - After each read-only role returns (Scouter, Planner, Reviewer), Orchestrator checks `git status` against a pre-spawn
   snapshot for unexpected changes; on any change Orchestrator stops and reports under the Preservation rule.
@@ -96,7 +97,7 @@ initial ready batch under planning.md. File separation alone never proves indepe
 outputs, contracts and resources. Pass the complete approval/preparation and handoff gates for every assignment.
 Start all ready independent tasks concurrently with fresh Coders within available capacity; plan listing order alone
 never justifies serialization. Same-file concurrent Coder edits are prohibited, even on different lines.
-All roles share the full-tree maximum of four simultaneous subagents; obey any lower actual runtime limit and
+All roles share the configured full-tree subagent limits in `limits.toml`; obey any lower actual runtime limit and
 record/report capacity limits and serialization reasons. ARC's cap is not a claim of runtime capability.
 
 Reassess readiness after completion reports, new check evidence, acceptance, commit, slot return, or a new conflict.

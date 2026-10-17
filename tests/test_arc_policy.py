@@ -466,10 +466,12 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertNotIn("the complete the common handoff gate", planning)
         self.assertNotIn("`workspace handoff` gate below", planning)
 
-    def test_config_comment_matches_subagent_limit(self) -> None:
-        config = (REPO / "codex/config.toml").read_text()
-        self.assertIn("at most four simultaneous subagents", config)
-        self.assertNotIn("one owner plus three specialists", config)
+    def test_installed_limits_policy_replaces_manual_config(self) -> None:
+        self.assertFalse((REPO / "codex/config.toml").exists())
+        for platform in ("codex", "claude"):
+            text = (REPO / platform / "skill/references/limits.md").read_text()
+            for phrase in ("max_total_subagents", "max_concurrent_subagents", "100", "5", "completed", "same instance", "descendants", "reservation", "uncertain", "ledger", "QA", "Reviewer", "prompt-level"):
+                self.assertIn(phrase, text)
 
     def test_reviewer_description_has_no_team_name(self) -> None:
         description = tomllib.loads((REPO / "codex/agents/arc-reviewer.toml").read_text())["description"]
@@ -834,7 +836,7 @@ class RolePolicyTests(unittest.TestCase):
         self.assertRegex(ownership, r"orchestrator.*sole owner.*development, configuration, tests")
         self.assertRegex(ownership, r"coder.*(?:edits|implements).*assigned.*files")
         self.assertRegex(ownership, r"all five roles.*directly to orchestrator.*depth 2")
-        self.assertRegex(ownership, r"at most four.*subagents.*including scouter")
+        self.assertRegex(ownership, r"configured.*subagents.*including scouter")
         self.assertRegex(ownership, r"scouter.*read.only")
 
     def test_scouter_read_only_scope_and_reporting(self) -> None:
@@ -1248,14 +1250,19 @@ SHARED_TERMS = {
                         "turn unverified into proven; reports keep unverified scope visible",
 }
 
+# 2026-10-17: combine internal Superpowers references and subagent-limit policy.
+# Merged per-file ceilings round combined counts; totals retain 100-word headroom.
+# No untouched commit.md content changed.
 POLICY_WORD_CEILINGS = {
-    "codex/skill/SKILL.md": 3254,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
-    "codex/skill/references/commit.md": 772,
+    "claude/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
+    "codex/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
+    "codex/skill/SKILL.md": 3275,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
+    "codex/skill/references/commit.md": 800,
     "codex/skill/references/git-recovery.md": 700,
     "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
-    "codex/skill/references/handoff.md": 1553,  # Task 2: inline-record vs restart-brief unification
-    "codex/skill/references/planning.md": 2212,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
+    "codex/skill/references/handoff.md": 1600,  # Task 2: inline-record vs restart-brief unification
+    "codex/skill/references/planning.md": 2225,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
     "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
@@ -1263,12 +1270,12 @@ POLICY_WORD_CEILINGS = {
     "codex/agents/arc-qa.toml": 360,  # Task 2: stay-in-role line
     "codex/agents/arc-reviewer.toml": 270,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
     "codex/agents/arc-scouter.toml": 265,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
-    "claude/skill/SKILL.md": 3545,
-    "claude/skill/references/commit.md": 498,
+    "claude/skill/SKILL.md": 3575,
+    "claude/skill/references/commit.md": 525,
     "claude/skill/references/git-recovery.md": 500,
     "claude/skill/references/handoff-prep.md": 600,
-    "claude/skill/references/handoff.md": 735,
-    "claude/skill/references/planning.md": 1790,
+    "claude/skill/references/handoff.md": 775,
+    "claude/skill/references/planning.md": 1800,
     "claude/skill/references/verification.md": 850,
     "claude/skill/references/visual-companion.md": 150,
     "claude/agents/arc-coder.md": 400,
@@ -1278,9 +1285,8 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/arc-scouter.md": 300,
 }
 
-# Approved baseline alignment: Codex 14015 (+945 preexisting) +141 T1; Claude 10262 (+947 preexisting) +140 T1.
-POLICY_WORD_TOTAL_CEILING = 14156
-CLAUDE_POLICY_WORD_TOTAL_CEILING = 10402
+POLICY_WORD_TOTAL_CEILING = 14682  # Merged policy: 14582 words + 100-word headroom.
+CLAUDE_POLICY_WORD_TOTAL_CEILING = 10923  # Merged policy: 10823 words + 100-word headroom.
 
 
 class CodexRoleHardeningTests(unittest.TestCase):
@@ -1357,12 +1363,9 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertNotIn("append `-2`", self.raw("handoff-prep"))
         self.assertIn("never automatically substitute a suffix", self.raw("handoff-prep"))
 
-    def test_config_toml_comments_state_prompt_only_limits(self) -> None:
-        text = (REPO / "codex/config.toml").read_text()
-        comments = " ".join(l for l in text.splitlines() if l.lstrip().startswith("#"))
-        self.assertRegex(comments, r"prompt-only")
-        self.assertRegex(comments, r"not enforced")
-
+    def test_limits_policy_is_not_hard_runtime_enforcement(self) -> None:
+        text = (REPO / "codex/skill/references/limits.md").read_text()
+        self.assertIn("not hard runtime enforcement", text)
 class InternalSuperpowersContractTests(unittest.TestCase):
     def test_internal_superpowers_paths_and_runtime_boundaries(self):
         core = (REPO / 'codex/skill/SKILL.md').read_text()
