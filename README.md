@@ -114,7 +114,7 @@ npx --yes github:yunhozz/arc install --target codex --preset balanced
 | `--help`, `--version` | Show usage or version |
 
 Without choices, a terminal prompts for target and preset. Non-interactive runs require both.
-Check and dry-run use no network and do not verify external skill content; actual installation does.
+Check and dry-run validate the included references locally without network access or checking upstream freshness.
 
 ### 📁 Installed files
 
@@ -129,9 +129,23 @@ when that entry is a standalone table; otherwise manual guidance is printed. Cla
 configuration directory.
 
 The installer fetches `brainstorming`, `writing-plans`, and `test-driven-development` from
-[obra/superpowers](https://github.com/obra/superpowers) using unpinned `skills@latest`.
-Reinstallation replaces managed files and local model edits, and may replace existing external skill copies.
-No persistent backup is created.
+[obra/superpowers](https://github.com/obra/superpowers) from a fresh shallow clone of its default branch.
+Each npm `postinstall` refreshes both package trees at `codex/skill/references/superpowers/` and
+`claude/skill/references/superpowers/` from one revision. Every actual `arc install` fetches again for each target,
+publishing full skill trees under `skills/arc/references/superpowers/` together with ARC. Existing global/shared
+superpowers copies and links are untouched; roles read ARC's local Markdown and companion files directly.
+Reinstallation replaces managed ARC files and local model edits. No persistent backup is created.
+
+Git and network access are required for each refresh; upstream scripts and hooks are never executed during collection.
+Collection or publication failure fails installation; a two-platform publication failure restores both prior trees. Completion registration remains best-effort. Inspect any reported `Residual path:` before recovery.
+`npm --ignore-scripts`, Git clone and ZIP downloads do not run postinstall automatically; the next actual `arc install`
+still fetches the latest snapshot. Actual ARC installation stages new references without rewriting package files,
+so a read-only package is supported. Concurrent refreshes of the same package are unsupported.
+
+The bundled upstream material retains its [MIT license](https://github.com/obra/superpowers/blob/main/LICENSE),
+including the Jesse Vincent copyright notice, in each `references/superpowers/LICENSE`.
+`provenance.json` records the collected revision, timestamp, hashes and relative links for local consistency checks;
+it does not authenticate upstream or a malicious local rewrite.
 
 With `--target all`, targets install independently: Codex succeeds before Claude runs, and a later failure keeps the
 earlier success. Inspect per-target status and any `Residual path:` output before retrying only the failed target.
@@ -145,9 +159,18 @@ arc uninstall --target all --dry-run
 arc uninstall --target claude --skip-global
 ```
 
+To remove the globally installed npm package:
+
+```sh
+npm uninstall -g @yunhozz/arc
+```
+
+`arc uninstall --target ...` removes installed harness configuration. npm package removal leaves that
+configuration and shared shell completion registration in place.
+
 Without a target, `arc uninstall` prompts in a terminal; non-interactive removal requires `--target`.
 It removes the selected ARC skill, five role profiles, and managed instruction block, including edited ARC files.
-Shared external skills, other profiles, Codex wait settings, both native concurrency keys, and shell completion registration remain.
+Existing external skills, other profiles, Codex wait settings, both native concurrency keys, and shell completion registration remain.
 No persistent backup is created.
 
 ### ⌨️ Shell completion
@@ -199,7 +222,7 @@ host before running `npm test`.
 | Real upstream integration | `node tests/node/live-upstream.mjs` |
 | Optional Codex token report (not installed) | `python3 codex/tools/codex_token_usage.py --since YYYY-MM-DD` |
 
-The regular Node suite uses a deterministic external-npx fixture. The real-upstream check needs network access;
+The regular Node suite uses a deterministic Git snapshot fixture. The real-upstream check needs network access;
 network failure leaves that result unverified.
 
 ### 📦 Publish to npm
@@ -252,4 +275,4 @@ writing configuration does not demonstrate runtime support in the current proces
 Uninstall removes ARC policy with the skill but preserves both native concurrency keys and Codex wait
 settings. Remove the CLI separately with `npm uninstall -g @yunhozz/arc`.
 
-- **Codex external skills:** install targets are replaced with verified upstream copies; previous copies remain in a private transaction stage for rollback and are deleted after publication succeeds. A reported `Residual path:` requires manual attention.
+- **Internal Superpowers references:** installation refreshes ARC's managed references under `skills/arc/references/superpowers`. Existing global/shared skill copies and links remain untouched. A reported `Residual path:` requires manual attention.

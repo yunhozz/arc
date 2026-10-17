@@ -506,9 +506,10 @@ class PolicyWordBudgetTests(unittest.TestCase):
                 self.assertLessEqual(words, POLICY_WORD_CEILINGS[name],
                                      f"{name}: {words} words exceeds ceiling {POLICY_WORD_CEILINGS[name]}; {advice}")
         for prefix, ceiling in (("codex/", POLICY_WORD_TOTAL_CEILING), ("claude/", CLAUDE_POLICY_WORD_TOTAL_CEILING)):
-            total = sum(words for name, words in counts.items() if name.startswith(prefix))
-            self.assertLessEqual(total, ceiling,
-                                 f"{prefix} total: {total} words exceeds ceiling {ceiling}; {advice}")
+            with self.subTest(platform=prefix):
+                total = sum(words for name, words in counts.items() if name.startswith(prefix))
+                self.assertLessEqual(total, ceiling,
+                                     f"{prefix} total: {total} words exceeds ceiling {ceiling}; {advice}")
 
 class SharedTermsTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
@@ -709,7 +710,7 @@ class CeoDirectPathTests(unittest.TestCase):
             r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",
             r"records the changed files",
             r"after a failed focused check or a qa finding, orchestrator routes the correction to coder",
-            r"behavior edits follow coder tdd and constraints; when tdd applies, orchestrator follows installed `test-driven-development`",
+            r"behavior edits follow coder tdd and constraints; when tdd applies, orchestrator follows local `test-driven-development`",
             r"focused checks.*each acceptance criterion.*evidence.*unverified scope",
             r"not independent of its own edit",
         ):
@@ -1249,18 +1250,19 @@ SHARED_TERMS = {
                         "turn unverified into proven; reports keep unverified scope visible",
 }
 
-# 2026-10-17: refreshed existing dependency/readiness text ceilings and new limits policy.
-# No untouched commit.md content changed; ceilings round observed counts with modest headroom.
+# 2026-10-17: combine internal Superpowers references and subagent-limit policy.
+# Merged per-file ceilings round combined counts; totals retain 100-word headroom.
+# No untouched commit.md content changed.
 POLICY_WORD_CEILINGS = {
     "claude/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
     "codex/skill/references/limits.md": 450,  # Installed limit ledger and counting rules.
-    "codex/skill/SKILL.md": 3225,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
+    "codex/skill/SKILL.md": 3275,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
     "codex/skill/references/commit.md": 800,
     "codex/skill/references/git-recovery.md": 700,
     "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
     "codex/skill/references/handoff.md": 1600,  # Task 2: inline-record vs restart-brief unification
-    "codex/skill/references/planning.md": 2200,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
+    "codex/skill/references/planning.md": 2225,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
     "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
@@ -1268,7 +1270,7 @@ POLICY_WORD_CEILINGS = {
     "codex/agents/arc-qa.toml": 360,  # Task 2: stay-in-role line
     "codex/agents/arc-reviewer.toml": 270,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
     "codex/agents/arc-scouter.toml": 265,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
-    "claude/skill/SKILL.md": 3525,
+    "claude/skill/SKILL.md": 3575,
     "claude/skill/references/commit.md": 525,
     "claude/skill/references/git-recovery.md": 500,
     "claude/skill/references/handoff-prep.md": 600,
@@ -1283,8 +1285,8 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/arc-scouter.md": 300,
 }
 
-POLICY_WORD_TOTAL_CEILING = 14600  # Current policy including the limit ledger; 100-word headroom.
-CLAUDE_POLICY_WORD_TOTAL_CEILING = 10800  # Current policy including the limit ledger; 100-word headroom.
+POLICY_WORD_TOTAL_CEILING = 14682  # Merged policy: 14582 words + 100-word headroom.
+CLAUDE_POLICY_WORD_TOTAL_CEILING = 10923  # Merged policy: 10823 words + 100-word headroom.
 
 
 class CodexRoleHardeningTests(unittest.TestCase):
@@ -1364,3 +1366,13 @@ class CodexRoleHardeningTests(unittest.TestCase):
     def test_limits_policy_is_not_hard_runtime_enforcement(self) -> None:
         text = (REPO / "codex/skill/references/limits.md").read_text()
         self.assertIn("not hard runtime enforcement", text)
+class InternalSuperpowersContractTests(unittest.TestCase):
+    def test_internal_superpowers_paths_and_runtime_boundaries(self):
+        core = (REPO / 'codex/skill/SKILL.md').read_text()
+        for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
+            self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
+        for role, names in [('planner', ('brainstorming', 'writing-plans')), ('coder', ('test-driven-development',))]:
+            text = (REPO / f'codex/agents/arc-{role}.toml').read_text()
+            for name in names:
+                self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
+        self.assertIn('no global discovery, external Skill invocation, or automatic download', core)

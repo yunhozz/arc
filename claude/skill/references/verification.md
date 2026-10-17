@@ -73,3 +73,5 @@ factual, and security findings; observable security/interface issues may need bo
 Orchestrator accepts using verdicts, findings, rechecks, and remaining gaps, not an overall run result;
 disposition never turns unverified into proven. Low-risk work without QA likewise links each criterion to Orchestrator
 focused-check evidence.
+
+Read brief-cited `references/superpowers/test-driven-development/SKILL.md`; preserve ARC TDD exceptions.
