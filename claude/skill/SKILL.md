@@ -59,15 +59,15 @@ Live execution-state investigation or cleanup are outside Scouter scope and this
 ## Instruction and execution adapter
 
 Apply platform, user, and project instructions according to their precedence, then ARC rules for ownership,
-permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
+permissions, models, concurrency, routing, and approvals, then the local ARC reference assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
 `superpowers:subagent-driven-development` to Orchestrator's dependency-aware coordination and risk-scaled verification;
 this replaces
-executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
+executor mechanics and any separate execution-method choice, including prompts in an existing local reference.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
-explicit ARC exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
-ARC Planner ownership and evidence gates in planning/handoff; do not modify external skills. Report conflicts or
-missing non-executor skills before dependent work.
+explicit ARC exception below. Adapt local `brainstorming` role, save, and early spec commit instructions to
+ARC Planner ownership and evidence gates in planning/handoff; preserve upstream reference content. Report conflicts or
+missing required local references before dependent work.
 
 Planner, Reviewer, and Scouter return findings, relevant questions, next actions, and workspace/path issues to the
 Orchestrator. Planner preserves complete requested drafts. Orchestrator integrates results (save, route,
@@ -139,7 +139,7 @@ Do not load all references on every task.
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
-Design and plan depth are independent of verification risk. Planner alone uses installed brainstorming/writing-plans
+Design and plan depth are independent of verification risk. Planner alone uses local brainstorming/writing-plans
 (Role gate);
 Orchestrator integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
 required by Orchestrator's recorded plan-depth judgment use planning save gates; a required plan alone does not require
@@ -170,13 +170,13 @@ worktree request before dependent work.
 
 ## Coder TDD and constraints
 
-Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
+Before feature, bug-fix, or behavior edits, Coder follows local `test-driven-development` unless the explicit
 ARC exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
 low-risk criterion (Risk-scaled execution) and every plan-skip criterion (Orchestrator direct path) holds.
 Before Coder starts,
 Orchestrator records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief.
 An explicit user or task-specific TDD request overrides
-this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the installed skill;
+this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the local reference;
 do not change that skill. Ordinary multi-step or significant/high-risk work is not eligible. The waiver skips only
 RED-GREEN steps; focused checks and risk-appropriate QA/Reviewer remain, and do not claim TDD was followed.
 If a constraint blocks a required TDD step, Orchestrator records the
@@ -279,7 +279,7 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   isolation without evidence. Reuse an existing specialist for related follow-up with only changed facts/objective when
   its context
   remains relevant; start fresh for unrelated or bloated context. Coder and QA freshness follow the Role gate.
-- Cite in the brief the absolute path of each required external skill's SKILL.md (`test-driven-development` for Coder,
+- Cite in the brief the absolute path of each required local ARC reference's SKILL.md (`test-driven-development` for Coder,
   `brainstorming`/`writing-plans` for Planner); the role Reads it before dependent work.
 - For Reviewer, Orchestrator writes the final base..HEAD diff plus changed-file list to
   `<git-common-dir>/arc/review/<slug>.diff` (same slug as the handoff record; base is the approved base HEAD recorded at
@@ -305,6 +305,15 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   handoff state in the handoff record file and recommends that the user continue in a new session.
 - Before handoff, post one short update with role/objective/expected output; after return, combine findings and next
   stage concisely. Do not expose hidden reasoning or raw prompts.
+
+### Local superpowers references
+
+Orchestrator briefs absolute paths under the selected installed ARC directory: Planner reads
+`references/superpowers/brainstorming/SKILL.md` and `references/superpowers/writing-plans/SKILL.md`;
+Coder reads `references/superpowers/test-driven-development/SKILL.md`, including required relative references.
+Resolve paths within each skill directory. Runtime needs no global discovery, external Skill invocation, or automatic download.
+Missing/damaged local files stop dependent work: report exact paths to Orchestrator, without global fallback.
+ARC approval, ownership, TDD exceptions and executor adapters still apply.
 
 ## Models
 

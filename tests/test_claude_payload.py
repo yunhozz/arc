@@ -221,7 +221,7 @@ class ClaudePayloadTests(unittest.TestCase):
         core = (PAYLOAD / 'skill/SKILL.md').read_text()
         sections = re.findall(r'^## (.+)$', core, re.M)
         self.assertEqual(sections, [
-            'Ownership', 'Instruction and execution adapter', 'Shared terms',
+            'Ownership', 'Instruction and execution adapter', 'Dependency analysis and parallel dispatch', 'Shared terms',
             'Mandatory task references', 'Common handoff gate', 'Coder TDD and constraints',
             'Risk-scaled execution', 'Orchestrator direct path for small tasks',
             'Automatic commit after plan-task acceptance', 'Token discipline and handoffs', 'Models',
@@ -259,6 +259,8 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_claude_skill_markdown_has_no_foreign_platform_contracts(self):
         forbidden = r'(?i)codex|spawn_agent|wait_agent|fork_turns|reasoning_effort|mcp__codex|/\.codex/'
         for path in list((PAYLOAD / 'skill').rglob('*.md')) + list((PAYLOAD / 'agents').glob('*.md')):
+            if 'superpowers' in path.relative_to(PAYLOAD).parts:
+                continue
             with self.subTest(path=path.relative_to(PAYLOAD)):
                 self.assertNotRegex(path.read_text(), forbidden)
 
@@ -266,9 +268,10 @@ class ClaudePayloadTests(unittest.TestCase):
         return (PAYLOAD.joinpath(*parts)).read_text()
 
     def assert_all(self, text, needles):
+        text = ' '.join(text.split())
         for needle in needles:
             with self.subTest(needle=needle):
-                self.assertIn(needle, text)
+                self.assertIn(' '.join(needle.split()), text)
 
     def test_claude_verification_ui_criterion_and_reviewer_rules(self):
         text = self.read_claude('skill/references/verification.md')
@@ -346,7 +349,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_skill_brief_requires_review_artifact_external_skills_and_waits(self):
         core = self.read_claude('skill/SKILL.md')
-        self.assert_all(core, ('<git-common-dir>/arc/review/<slug>.diff', 'absolute path of each required external skill',
+        self.assert_all(core, ('<git-common-dir>/arc/review/<slug>.diff', 'absolute path of each required local ARC reference',
                                'foreground Agent call', 'run_in_background', 'never sleep-poll',
                                'not a reason to poll', 'same slug as the handoff record'))
         self.assertIn('inline diff', self.read_claude('agents/arc-reviewer.md'))
@@ -360,7 +363,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertTrue(files, 'Claude payload must be shipped')
         for path in files:
             relative = path.relative_to(ROOT).as_posix()
-            if relative == 'claude/skill/models.toml':
+            if relative == 'claude/skill/models.toml' or relative.startswith('claude/skill/references/superpowers/'):
                 self.assertNotIn(relative, entries)
             else:
                 self.assertEqual(entries.get(relative), hashlib.sha256(path.read_bytes()).hexdigest())
@@ -375,6 +378,7 @@ class RoleHardeningTests(unittest.TestCase):
     def test_role_gate_planner_only_and_ceo_skill_ban(self):
         core = self.text('skill/SKILL.md')
         gate = next(p for p in (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n') if p.startswith('Role gate:'))
+        gate = ' '.join(gate.split())
         self.assertLessEqual(len(re.findall(r'[.!?](?:\s|$)', gate)), 5)
         for needle in ('ONLY by Planner (`arc-planner`)', 'Orchestrator MUST NEVER author them',
                        'MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool',
@@ -434,7 +438,7 @@ class RoleHardeningTests(unittest.TestCase):
     def test_ownership_and_prep_consistency(self):
         self.assertNotIn('detached HEAD is acceptable', self.text('skill/references/handoff-prep.md'))
         self.assertIn('Orchestrator performs read-only inspection of related processes and ACLs', self.text('skill/references/git-recovery.md'))
-        self.assertIn('read the brief-cited test-driven-development SKILL.md path', self.text('agents/arc-coder.md'))
+        self.assertIn('read the brief-cited `references/superpowers/test-driven-development/SKILL.md` path', self.text('agents/arc-coder.md'))
         self.assertIn('its named research skills', self.text('agents/arc-scouter.md'))
 
 
@@ -466,6 +470,18 @@ class Task4FollowUpTests(unittest.TestCase):
         self.assertEqual(planning.count('means this assessment'), 1)
         self.assertRegex(planning, r"3\. .*Orchestrator's recorded plan-depth judgment. means this assessment")
 
+
+
+class InternalSuperpowersContractTests(unittest.TestCase):
+    def test_local_superpowers_contract(self):
+        core = (PAYLOAD / 'skill/SKILL.md').read_text()
+        for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
+            self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
+        self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
+        for role, names in [('planner', ('brainstorming', 'writing-plans')), ('coder', ('test-driven-development',))]:
+            text = (PAYLOAD / f'agents/arc-{role}.md').read_text()
+            for name in names:
+                self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
 
 if __name__ == '__main__':
     unittest.main()

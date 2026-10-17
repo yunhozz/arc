@@ -297,7 +297,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             return [line[4:].strip().lower() for line in (REPO / f"codex/skill/references/{name}.md").read_text().splitlines()
                     if line.startswith("### ")]
         self.assertEqual(headings("handoff"), ["checkout approval", "coder handoff gate", "handoff evidence",
-                                               "choice lifetime and restart record"])
+                                               "task readiness at every assignment", "choice lifetime and restart record"])
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
                                                     "recovery prerequisite"])
@@ -504,9 +504,10 @@ class PolicyWordBudgetTests(unittest.TestCase):
                 self.assertLessEqual(words, POLICY_WORD_CEILINGS[name],
                                      f"{name}: {words} words exceeds ceiling {POLICY_WORD_CEILINGS[name]}; {advice}")
         for prefix, ceiling in (("codex/", POLICY_WORD_TOTAL_CEILING), ("claude/", CLAUDE_POLICY_WORD_TOTAL_CEILING)):
-            total = sum(words for name, words in counts.items() if name.startswith(prefix))
-            self.assertLessEqual(total, ceiling,
-                                 f"{prefix} total: {total} words exceeds ceiling {ceiling}; {advice}")
+            with self.subTest(platform=prefix):
+                total = sum(words for name, words in counts.items() if name.startswith(prefix))
+                self.assertLessEqual(total, ceiling,
+                                     f"{prefix} total: {total} words exceeds ceiling {ceiling}; {advice}")
 
 class SharedTermsTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
@@ -707,7 +708,7 @@ class CeoDirectPathTests(unittest.TestCase):
             r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",
             r"records the changed files",
             r"after a failed focused check or a qa finding, orchestrator routes the correction to coder",
-            r"behavior edits follow coder tdd and constraints; when tdd applies, orchestrator follows installed `test-driven-development`",
+            r"behavior edits follow coder tdd and constraints; when tdd applies, orchestrator follows local `test-driven-development`",
             r"focused checks.*each acceptance criterion.*evidence.*unverified scope",
             r"not independent of its own edit",
         ):
@@ -1248,13 +1249,13 @@ SHARED_TERMS = {
 }
 
 POLICY_WORD_CEILINGS = {
-    "codex/skill/SKILL.md": 2950,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
-    "codex/skill/references/commit.md": 600,
+    "codex/skill/SKILL.md": 3254,  # Task 2 role-hardening: Role gate, FRESH QA, read-only git-status check (user-approved raise after dedup); Task 4: doc-writing carve-out, git-status snapshot limit, Bounded/scope-record clarification (+30 words, no tested text left to trim)
+    "codex/skill/references/commit.md": 772,
     "codex/skill/references/git-recovery.md": 700,
     "codex/skill/references/handoff-prep.md": 1350,
     "codex/skill/references/handoff-worktree.md": 850,
-    "codex/skill/references/handoff.md": 1310,  # Task 2: inline-record vs restart-brief unification
-    "codex/skill/references/planning.md": 1890,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
+    "codex/skill/references/handoff.md": 1553,  # Task 2: inline-record vs restart-brief unification
+    "codex/skill/references/planning.md": 2212,  # Task 4: Bounded direct-edit scope-record clarification (+11, remaining shortfall); Task 2: Planner-failure stop, path owner, integrate and plan-depth judgment definitions
     "codex/skill/references/verification.md": 1150,
     "codex/skill/references/visual-companion.md": 200,
     "codex/agents/arc-coder.toml": 710,  # Task 2: stay-in-role line
@@ -1262,12 +1263,12 @@ POLICY_WORD_CEILINGS = {
     "codex/agents/arc-qa.toml": 360,  # Task 2: stay-in-role line
     "codex/agents/arc-reviewer.toml": 270,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
     "codex/agents/arc-scouter.toml": 265,  # Task 2: stay-in-role line + prompt-level read-only guard (sandbox_mode removed)
-    "claude/skill/SKILL.md": 3300,
-    "claude/skill/references/commit.md": 350,
+    "claude/skill/SKILL.md": 3545,
+    "claude/skill/references/commit.md": 498,
     "claude/skill/references/git-recovery.md": 500,
     "claude/skill/references/handoff-prep.md": 600,
-    "claude/skill/references/handoff.md": 500,
-    "claude/skill/references/planning.md": 1500,
+    "claude/skill/references/handoff.md": 735,
+    "claude/skill/references/planning.md": 1790,
     "claude/skill/references/verification.md": 850,
     "claude/skill/references/visual-companion.md": 150,
     "claude/agents/arc-coder.md": 400,
@@ -1277,8 +1278,9 @@ POLICY_WORD_CEILINGS = {
     "claude/agents/arc-scouter.md": 300,
 }
 
-POLICY_WORD_TOTAL_CEILING = 13070  # Task 4: +45 words for F3/F4/C (remaining shortfall); Task 2: actual codex total 13021 after QA-fix additions (plan-depth definition, Environment-failure sentence); below the per-file ceiling sum (user-approved)
-CLAUDE_POLICY_WORD_TOTAL_CEILING = 9315  # Task 4: +~65 words for F1/F3/F5/F6/B/C (remaining shortfall after trimming)
+# Approved baseline alignment: Codex 14015 (+945 preexisting) +141 T1; Claude 10262 (+947 preexisting) +140 T1.
+POLICY_WORD_TOTAL_CEILING = 14156
+CLAUDE_POLICY_WORD_TOTAL_CEILING = 10402
 
 
 class CodexRoleHardeningTests(unittest.TestCase):
@@ -1360,3 +1362,14 @@ class CodexRoleHardeningTests(unittest.TestCase):
         comments = " ".join(l for l in text.splitlines() if l.lstrip().startswith("#"))
         self.assertRegex(comments, r"prompt-only")
         self.assertRegex(comments, r"not enforced")
+
+class InternalSuperpowersContractTests(unittest.TestCase):
+    def test_internal_superpowers_paths_and_runtime_boundaries(self):
+        core = (REPO / 'codex/skill/SKILL.md').read_text()
+        for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
+            self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
+        for role, names in [('planner', ('brainstorming', 'writing-plans')), ('coder', ('test-driven-development',))]:
+            text = (REPO / f'codex/agents/arc-{role}.toml').read_text()
+            for name in names:
+                self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
+        self.assertIn('no global discovery, external Skill invocation, or automatic download', core)

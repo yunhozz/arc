@@ -112,3 +112,5 @@ Explicit disposition does not convert unverified to proven; completion reports p
 For low-risk work without a QA agent, Orchestrator's focused checks likewise
 connect each criterion to evidence.
 
+
+Read brief-cited `references/superpowers/test-driven-development/SKILL.md`; retain ARC exceptions.

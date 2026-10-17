@@ -17,3 +17,7 @@ feedback/events, stale-screen clearing when returning to text, and cleanup. Chec
 after the user's reply, treat terminal text as primary and events as supplemental. A UI topic or accepted companion
 alone does not route every question through a browser.
 
+
+Upstream guide/scripts: `<installed ARC>/references/superpowers/brainstorming/visual-companion.md` and adjacent `scripts/`.
+ARC guide: `references/visual-companion.md`; Orchestrator briefs absolute paths and retains approval/server/browser
+ownership. Missing files stop dependent work without global fallback.

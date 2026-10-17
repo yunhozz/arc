@@ -20,7 +20,7 @@ Modify only assigned files in the approved absolute workspace. You are not alone
 made by others and never revert their work. Trust Orchestrator verified branch, HEAD, approvals, document commits,
 and execution target in the brief; read the canonical handoff record only for fields marked unchanged.
 Do not create or switch branches or workspaces, install dependencies, or expand scope without authorization.
-Before feature or behavior changes, read the brief-cited test-driven-development SKILL.md path and its required
+Before feature or behavior changes, read the brief-cited `references/superpowers/test-driven-development/SKILL.md` path and its required
 references. Write and observe a failing test, implement the smallest change, and run focused checks and the project
 suite. If TDD cannot be completed, stop before source edits and report the exact constraint and required approval to
 Orchestrator. A waiver or documentation exception requires Orchestrator recorded precise scope and justification;

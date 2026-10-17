@@ -2,8 +2,10 @@ import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {runNpmCompletionPostinstall} from '../lib/installer/npm-completion.mjs';
 
-// Completion is additive. Even an unavailable user identity must leave npm's
-// package installation successful; no native build or acquisition is attempted.
+import {refreshPackageReferences} from '../lib/installer/package-references.mjs';
+
+// Reference refresh is required; completion remains best-effort.
+await refreshPackageReferences({packageRoot:fileURLToPath(new URL('../',import.meta.url))});
 try{
  const user=os.userInfo();
  await runNpmCompletionPostinstall({env:process.env,platform:process.platform,packageRoot:fileURLToPath(new URL('../',import.meta.url)),uid:user.uid,home:user.homedir});
