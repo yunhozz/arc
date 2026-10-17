@@ -6,7 +6,8 @@ Read before design/plan-depth decisions, spec/plan drafting and approval, and th
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls
 routing/approval gates even if a called skill names another executor. Follow installed instructions and user
-constraints; report missing required skills before that stage. Integrate means save, route, and obtain approval; never author.
+constraints; report missing required skills before that stage. Integrate means save, route, and obtain approval;
+never author.
 
 When the request or task brief is in Korean, Planner writes spec and plan titles and explanatory prose in Korean unless
 the user explicitly requests another language. Preserve identifiers, skill/API names, code, paths, commands, and
@@ -17,36 +18,51 @@ review, not the design path or plan approval gates. Bounded or document omission
 architectural depth does not add QA/Reviewer at every stage; apply existing risk-scaled QA/Reviewer and specific
 approved obligations separately.
 
-1. Before software feature, design, or behavior changes, Orchestrator assigns Planner the installed `brainstorming` skill with
-   the brief/evidence. Planner explores context and proposes the spike/bounded/architectural path (Orchestrator decides), design/options,
-   trade-offs, acceptance criteria, assumptions, and focused questions. Orchestrator integrates, announces scope, routes user
-   answers/revisions back, and obtains approvals; Orchestrator never runs brainstorming or writing-plans itself (SKILL.md Role gate);
+1. Before software feature, design, or behavior changes, Orchestrator assigns Planner the installed `brainstorming`
+   skill with
+   the brief/evidence. Planner explores context and proposes the spike/bounded/architectural path (Orchestrator
+   decides), design/options,
+   trade-offs, acceptance criteria, assumptions, and focused questions. Orchestrator integrates, announces scope,
+   routes user
+   answers/revisions back, and obtains approvals; Orchestrator never runs brainstorming or writing-plans itself
+   (SKILL.md Role gate);
    the direct path uses only a scope record.
 2. Spike: approve the feasibility question/probe before execution, report findings, then obtain a new design/approval
-   for implementation. Bounded: approve a short design before Coder or a Orchestrator direct edit (Planner's design before Coder; a direct edit uses only an approved scope record). Architectural: approve
-   design, then Planner returns complete spec draft and self-review findings; Orchestrator integrates, saves, self-reviews, and obtains written-spec approval
+   for implementation. Bounded: approve a short design before Coder or a Orchestrator direct edit (Planner's design
+   before Coder; a direct edit uses only an approved scope record). Architectural: approve
+   design, then Planner returns complete spec draft and self-review findings; Orchestrator integrates, saves,
+   self-reviews, and obtains written-spec approval
    before implementation planning. Planner is read-only and cannot request approval.
-3. After approved design/spec and before Coder, Orchestrator assesses plan depth separately from file count, LOC, or bounded
+3. After approved design/spec and before Coder, Orchestrator assesses plan depth separately from file count, LOC,
+   or bounded
    scope. Architectural work always uses installed `writing-plans` and requires written plan approval, regardless of
    locality, risk, or size. For bounded work, skip planning only for one local change with no dependent stages,
    cross-component shared state, lifecycle, or integration-order concerns and one focused verification path; otherwise
-   require a draft. A bounded label or “no plan” request does not bypass this judgment. “Orchestrator's recorded plan-depth judgment” means this assessment, including whether a Bounded written spec is required, recorded in the brief/handoff record.
+   require a draft. A bounded label or “no plan” request does not bypass this judgment.
+   “Orchestrator's recorded plan-depth judgment” means this assessment, including whether a Bounded written spec is
+   required, recorded in the brief/handoff record.
 4. Record dependencies and any bounded plan-depth rationale in the brief. Planner follows installed `writing-plans`,
    returning its complete proportional draft, assumptions/open decisions, verification requirements, and self-review.
-   Orchestrator integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews,
+   Orchestrator integrates, saves to the user's path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`,
+   self-reviews,
    then obtains plan approval before Coder.
 5. Every Coder first start and restart requires all applicable design/spec/plan approvals and passing
-   the common handoff gate in SKILL.md and handoff.md, with approved artifacts, brief, and relevant findings. Non-behavior
+   the common handoff gate in SKILL.md and handoff.md, with approved artifacts, brief, and relevant findings.
+   Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
    A Orchestrator direct edit requires its approved scope record and the same gate conditions before the first edit.
 
-When a Bounded written spec is required by Orchestrator's recorded plan-depth judgment, record that necessity and scope and
+When a Bounded written spec is required by Orchestrator's recorded plan-depth judgment, record that necessity and scope
+and
 use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
-Orchestrator integrates, saves, self-reviews, and obtains individual written-spec approval before dependent plan drafting
+Orchestrator integrates, saves, self-reviews, and obtains individual written-spec approval before dependent plan
+drafting
 and execution preparation. This applies that judgment, not a new spec-necessity rule.
 
-Orchestrator must not substitute an independently authored spec or plan for Planner's complete draft. If the draft has substantive
-omissions, return them to Planner for completion; if Planner fails or is unavailable, stop and report, never draft instead. A user may explicitly change the writing responsibility; record
+Orchestrator must not substitute an independently authored spec or plan for Planner's complete draft.
+If the draft has substantive
+omissions, return them to Planner for completion; if Planner fails or is unavailable, stop and report,
+never draft instead. A user may explicitly change the writing responsibility; record
 that change and its evidence in the brief. Design approval alone does not change ownership.
 
 ## Top-level plan tasks
@@ -60,7 +76,8 @@ prerequisites, with scope and timing. Never list Reviewer as a per-task required
 Risk-scaled execution). RED/GREEN and individual
 commands do not create commit units; one task is one focused commit under commit.md, which also covers no-change, hold
 and resume. Do not combine different approved tasks into one commit during execution; if inseparability appears later,
-stop affected work and have Orchestrator handle revised scope, planning and applicable approvals. These requirements apply to
+stop affected work and have Orchestrator handle revised scope, planning and applicable approvals.
+These requirements apply to
 required plans; existing plan-omission paths gain no new plan obligation.
 
 ### Dependency and readiness record
@@ -89,7 +106,8 @@ Orchestrator to rewrite Planner's approved task boundaries or waive approvals.
 ### Document-save evidence gates
 
 Before the first architectural spec save, first required Bounded written spec save, or first plan save, read this
-reference and record accessible evidence in the shared brief/canonical handoff record. Saving creates a reviewable file; it is not approval or a Git commit.
+reference and record accessible evidence in the shared brief/canonical handoff record.
+Saving creates a reviewable file; it is not approval or a Git commit.
 
 **Spec save:** Verify the approved design scope and approval evidence, accessible Planner's complete spec draft and
 self-review findings, Orchestrator's integration/save/review responsibility, and intended absolute save path.
@@ -109,30 +127,36 @@ If evidence is missing or mismatched in either gate, stop the affected save and 
 ### Complete planning-document set
 
 The applicable document set means all specs and plans required for the current approved execution scope, not future
-project work. Orchestrator records scope, design/plan depth, absolute document paths and coverage, approved versions/status,
+project work. Orchestrator records scope, design/plan depth, absolute document paths and coverage, approved
+versions/status,
 plan dependencies and execution order, skipped stages with rationale, and documents still awaiting writing or approval
 in the shared brief. The set is complete only when every required document is written and individually approved and
 no unresolved scope or dependency decision requires another document. Do not omit required documents from the list.
 
-A required plan does not itself require a written spec. Bounded uses Orchestrator's recorded plan-depth judgment to determine
+A required plan does not itself require a written spec. Bounded uses Orchestrator's recorded plan-depth judgment to
+determine
 whether a written spec is required; do not infer one from plan necessity. Spec steps apply only to Architectural and
 required Bounded specs, and plan steps only to required plans. These gates add no new spec obligation to Spike,
 Bounded plan-skip, or non-behavior documentation/configuration paths; preserve existing omission rationales.
 
 Normal order: design approval → required spec writing/saving/self-review and written-spec approval → required plans
 writing/saving/self-review and individual approvals → complete applicable set → explicit execution-target choice and
-any approved branch switch or worktree creation → existing-commit verification and one batch commit of remaining approved documents →
+any approved branch switch or worktree creation → existing-commit verification and one batch commit of remaining
+approved documents →
 final Git verification → Coder handoff. For the selected worktree path, creation/identity verification and
-approved-document transfer precede the target batch docs commit; preserve source changes under handoff. Written-spec approval still precedes implementation planning.
+approved-document transfer precede the target batch docs commit; preserve source changes under handoff.
+Written-spec approval still precedes implementation planning.
 
 While documents are being written, reviewed, or approved, do not request execution-checkout selection, create/switch
-branches, perform worktree creation, stage documents, or commit planning documents for this task's execution preparation. Read-only workspace,
+branches, perform worktree creation, stage documents, or commit planning documents for this task's execution
+preparation. Read-only workspace,
 repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
 handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
 
 This ARC explicitly defers the installed `brainstorming` instruction to commit the spec before written-spec review:
 save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
-all applicable plans. Commit the spec only in the final batch preparation. Do not modify external skills. `writing-plans` implementation-step commit instructions
+all applicable plans. Commit the spec only in the final batch preparation. Do not modify external skills.
+`writing-plans` implementation-step commit instructions
 are not permission for document commits during planning or for starting Coder.
 
 | Path | Applicable approvals and preparation |
@@ -145,7 +169,8 @@ are not permission for document commits during planning or for starting Coder.
 
 Spike probe and subsequent implementation are separate approval scopes. Report probe findings, reassess implementation
 design/plan depth, and approve its required spec and all plans before its preparation batch. Probe approval or code
-does not approve later implementation. Document omission skips only document obligations, never explicit execution-target
+does not approve later implementation. Document omission skips only document obligations, never explicit
+execution-target
 choice, Git state/ownership checks, or handoff evidence.
 
 If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
@@ -158,7 +183,8 @@ lifetime and restart record in [handoff.md](handoff.md).
 ### Evidence refresh and limits
 
 Missing or mismatched evidence, unfinished approvals, unclear ownership, or unresolved failure blocks the affected
-save, execution-target request, Git mutation, or Coder handoff: stop and report to Orchestrator. Orchestrator resolves the issue and
+save, execution-target request, Git mutation, or Coder handoff: stop and report to Orchestrator.
+Orchestrator resolves the issue and
 reverifies affected evidence before resumption. Reverify evidence when scope, approved versions, paths, target, or
 relevant Git state changes. Preserve unrelated changes under handoff rules; read-only investigation remains allowed.
 

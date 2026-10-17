@@ -5,14 +5,27 @@ description: Keep simple, self-contained questions with the chat-selected Orches
 
 # ARC
 
-Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc_planner`); Orchestrator MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool. If either auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner, citing that skill's SKILL.md path in the brief. A user request to skip questions never waives design or approval gates; Planner returns questions to Orchestrator. Each top-level task (a plan task, or the whole request without a plan) gets a FRESH Coder, and each task that needs QA (risk-scaled, unchanged) gets a FRESH QA, never one reused from another task; same-task rechecks may reuse.
+Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc_planner`);
+Orchestrator MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool.
+If either auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner, citing that skill's SKILL.md
+path in the brief. A user request to skip questions never waives design or approval gates; Planner returns questions to
+Orchestrator. Each top-level task (a plan task, or the whole request without a plan) gets a FRESH Coder,
+and each task that needs QA (risk-scaled, unchanged) gets a FRESH QA, never one reused from another task;
+same-task rechecks may reuse.
 
-Follow user instructions and project guidance. Orchestrator uses the current chat model and answers simple, self-contained
-questions directly. For substantive multistep work, Orchestrator coordinates implementation, configuration, tests, and mixed work.
-Orchestrator handles research directly when the needed material is already in its context or the check is a quick read of a few known
+Follow user instructions and project guidance. Orchestrator uses the current chat model and answers simple,
+self-contained
+questions directly. For substantive multistep work, Orchestrator coordinates implementation, configuration, tests,
+and mixed work.
+Orchestrator handles research directly when the needed material is already in its context or the check is a quick read
+of a few known
 files; all other material research/analysis and bounded exploration (read-only, of static code, documents, data, and
-logs/reports) goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths, specific facts, no synthesis). Route by object and deliverable, not verbs alone. Standalone document writing has no specialist auto-route. Design, spec, plan, and brainstorming drafts are not standalone document writing (see Role gate).
-For mixed research/document requests, Orchestrator may explicitly assign only research to Scouter. Live operational state
+logs/reports) goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths,
+specific facts, no synthesis). Route by object and deliverable, not verbs alone.
+Standalone document writing has no specialist auto-route. Design, spec, plan, and brainstorming drafts are not
+standalone document writing (see Role gate).
+For mixed research/document requests, Orchestrator may explicitly assign only research to Scouter.
+Live operational state
 inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
 ## Ownership
@@ -21,26 +34,33 @@ inspection and operational cleanup are outside Scouter scope and this boundary m
   requiring implementation, assigning their edits to Coder. Coordinates scope, planning, approvals, integration
   (save, route, obtain approval; never author), acceptance, verification, and completion.
 - Scouter: read-only material research/analysis and assigned static code/document/data/log exploration. Reports
-  evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to Orchestrator. Does not edit
+  evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to Orchestrator.
+  Does not edit
   files or author standalone document files, and does not decide design/plans, verification, review, or completion.
 - Planner: returns design/spec/plan drafts.
-- Coder: edits assigned, approved implementation/configuration/test-code files and assigned dependent docs. Orchestrator does not edit
+- Coder: edits assigned, approved implementation/configuration/test-code files and assigned dependent docs.
+  Orchestrator does not edit
   them directly except under the Orchestrator direct path for small tasks.
 - QA: verifies without edits.
 - Reviewer: independently reviews the final full change.
-- All five roles report directly to Orchestrator at depth 2: Scouter, Planner, Coder, QA, and Reviewer. Orchestrator is depth 1.
+- All five roles report directly to Orchestrator at depth 2: Scouter, Planner, Coder, QA, and Reviewer.
+  Orchestrator is depth 1.
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
 - Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Coder=`arc_coder`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 - Across the full tree, allow at most four simultaneous subagents, including Scouter; there are no reserved slots.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
-- After each read-only role returns (Scouter, Planner, Reviewer), Orchestrator checks `git status` against a pre-spawn snapshot for unexpected changes; on any change Orchestrator stops and reports under the Preservation rule. Limit: concurrent Coder edits and ignored or out-of-repo paths are not attributable/detectable. Their read-only status rests on prompt-level guards, not sandbox enforcement.
+- After each read-only role returns (Scouter, Planner, Reviewer), Orchestrator checks `git status` against a pre-spawn
+  snapshot for unexpected changes; on any change Orchestrator stops and reports under the Preservation rule.
+  Limit: concurrent Coder edits and ignored or out-of-repo paths are not attributable/detectable.
+  Their read-only status rests on prompt-level guards, not sandbox enforcement.
 
 ## Instruction and execution adapter
 
 Apply platform, user, and project instructions according to their precedence, then ARC rules for ownership,
 permissions, models, concurrency, routing, and approvals, then the installed skill assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
-`superpowers:subagent-driven-development` to Orchestrator's dependency-aware coordination and risk-scaled verification; this replaces
+`superpowers:subagent-driven-development` to Orchestrator's dependency-aware coordination and risk-scaled verification;
+this replaces
 executor mechanics and any separate execution-method choice, including prompts in an existing installed dependency.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
 explicit ARC exception below. Adapt installed `brainstorming` role, save, and early spec commit instructions to
@@ -48,9 +68,14 @@ ARC Planner ownership and evidence gates in planning/handoff; do not modify exte
 missing non-executor skills before dependent work.
 
 Orchestrator integrates role results, routes decisions and required approvals,
-and owns development acceptance and completion. Orchestrator coordinates dependent implementation tasks sequentially and starts
-a fresh Coder for each top-level task (Role gate); reuse the current Coder only for corrections, rework, or rechecks of the same task while the
-approved scope, workspace, ownership, and relevant context remain valid; before sending corrections or rework to a reused Coder, Orchestrator rechecks workspace, branch/HEAD and change state against the brief. A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are there). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
+and owns development acceptance and completion. Orchestrator coordinates dependent implementation tasks sequentially and
+starts
+a fresh Coder for each top-level task (Role gate); reuse the current Coder only for corrections, rework,
+or rechecks of the same task while the
+approved scope, workspace, ownership, and relevant context remain valid; before sending corrections or rework to a
+reused Coder, Orchestrator rechecks workspace, branch/HEAD and change state against the brief.
+A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are there).
+After an approved plan or acceptance-criteria amendment, start a fresh Coder for
 the remaining work even within the same task; it is also a restart under handoff. Task-boundary gates
 follow Risk-scaled execution.
 
@@ -91,10 +116,13 @@ paths, and state checks still apply.
 
 ## Mandatory task references
 
-Orchestrator and each assigned role must read the applicable references before dependent decisions or actions, and Orchestrator must
-include in the role brief the accessible path and section name of each reference section the role must read. Resolve paths relative to this installed skill directory.
+Orchestrator and each assigned role must read the applicable references before dependent decisions or actions,
+and Orchestrator must
+include in the role brief the accessible path and section name of each reference section the role must read.
+Resolve paths relative to this installed skill directory.
 These contracts are conditional on the trigger, mandatory when triggered. Missing, inaccessible, or conflicting
-references must be reported to Orchestrator; stop dependent work until resolved. Do not load all references on every task.
+references must be reported to Orchestrator; stop dependent work until resolved.
+Do not load all references on every task.
 
 | Reference | Required before |
 |---|---|
@@ -107,21 +135,28 @@ references must be reported to Orchestrator; stop dependent work until resolved.
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
-Design and plan depth are independent of verification risk. Planner alone uses installed brainstorming/writing-plans (Role gate); Planner proposes, Orchestrator decides the path and plan depth;
+Design and plan depth are independent of verification risk. Planner alone uses installed brainstorming/writing-plans
+(Role gate); Planner proposes, Orchestrator decides the path and plan depth;
 Orchestrator integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
-required by Orchestrator's recorded plan-depth judgment (planning item 3) use planning save gates; a required plan alone does not require a spec. Complete all current-scope approved documents before
+required by Orchestrator's recorded plan-depth judgment (planning item 3) use planning save gates; a required plan alone
+does not require a spec. Complete all current-scope approved documents before
 execution-target selection and document commit preparation. A missing required skill blocks its stage.
 
 ## Common handoff gate
 
-Before every Coder first start/restart, Orchestrator passes the Coder handoff gate in handoff (approvals/artifacts or valid
+Before every Coder first start/restart, Orchestrator passes the Coder handoff gate in handoff (approvals/artifacts or
+valid
 omissions, explicit execution-target choice or verified reuse, intended repository/workspace, branch/HEAD, change state,
-preservation/ownership, document commits or valid absence, no unresolved failure/partial completion). Missing evidence, mismatches, unclear ownership or unresolved
-preparation block handoff and require Orchestrator resolution and full revalidation. Coder trusts these Orchestrator-verified brief
-facts without re-verifying them or asking Orchestrator to reconfirm them, and reports only conflicts it actually hits while working.
+preservation/ownership, document commits or valid absence, no unresolved failure/partial completion).
+Missing evidence, mismatches, unclear ownership or unresolved
+preparation block handoff and require Orchestrator resolution and full revalidation.
+Coder trusts these Orchestrator-verified brief
+facts without re-verifying them or asking Orchestrator to reconfirm them, and reports only conflicts it actually hits
+while working.
 For a selected worktree, verify common directory, registration, app-managed current-chat attachment, approved branch,
 and source preservation under handoff.
-Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or branches.
+Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or
+branches.
 The canonical record, restart brief, choice lifetime and reuse, and docs-commit
 order are in handoff. The same conditions apply before a Orchestrator direct edit.
 
@@ -129,18 +164,22 @@ order are in handoff. The same conditions apply before a Orchestrator direct edi
 
 Before feature, bug-fix, or behavior edits, Coder follows installed `test-driven-development` unless the explicit
 ARC exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
-low-risk criterion (Risk-scaled execution) and every plan-skip criterion (Orchestrator direct path) holds. Before Coder starts,
-Orchestrator records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief. An explicit user or task-specific TDD request overrides
+low-risk criterion (Risk-scaled execution) and every plan-skip criterion (Orchestrator direct path) holds.
+Before Coder starts,
+Orchestrator records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief.
+An explicit user or task-specific TDD request overrides
 this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the installed skill;
 do not change that skill. Ordinary multi-step or significant/high-risk work is not eligible. The waiver skips only
-RED-GREEN steps; focused checks and risk-appropriate QA/Reviewer remain, and do not claim TDD was followed. If a constraint blocks a required TDD step, Orchestrator records the
+RED-GREEN steps; focused checks and risk-appropriate QA/Reviewer remain, and do not claim TDD was followed.
+If a constraint blocks a required TDD step, Orchestrator records the
 decision in the brief/plan and obtains any required human approval; internal approval is not a substitute.
 Non-behavior documentation/configuration uses only a specifically authorized exception recorded in the brief; do not
 generalize it to behavior work.
 
 ## Risk-scaled execution
 
-Orchestrator assigns edits exclusively to Coder except under the Orchestrator direct path below, and determines affected behavior, risk,
+Orchestrator assigns edits exclusively to Coder except under the Orchestrator direct path below, and determines affected
+behavior, risk,
 and smallest meaningful verification.
 
 | Risk | Minimum flow |
@@ -149,10 +188,13 @@ and smallest meaningful verification.
 | Ordinary behavior | Coder → independent QA → acceptance |
 | Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Coder → FRESH QA → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
 
-Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused checks. Ordinary behavior
+Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on
+Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused
+checks. Ordinary behavior
 fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
 shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
-installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count. Unclear risk requires
+installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count.
+Unclear risk requires
 investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
 Do not add per-task QA or review gates solely because a task boundary exists. Reviewer is never a plan-task acceptance
@@ -160,57 +202,76 @@ prerequisite; for significant work with a plan, it reviews the final full change
 with their risk-scaled checks, following the last plan task's required checks and any QA recheck at the final relevant
 state; significant work without a plan keeps Reviewer after QA before acceptance. Preserve specific approved
 obligations. If the next task depends on a still-unverified risky contract, complete applicable QA at that dependency
-boundary and resolve or explicitly disposition findings before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
+boundary and resolve or explicitly disposition findings before dependent implementation.
+Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
-QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion decisions. Orchestrator routes fixes to Coder (a failed direct-path check returns to the normal flow), obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or explicitly dispositioned.
+QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion
+decisions. Orchestrator routes fixes to Coder (a failed direct-path check returns to the normal flow),
+obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or
+explicitly dispositioned.
 Criterion verdicts follow the Evidence verdict.
 
 
 ## Orchestrator direct path for small tasks
 
-Orchestrator may make a task's edits directly, without Planner brainstorming or Coder, only when every small, low-risk criterion
+Orchestrator may make a task's edits directly, without Planner brainstorming or Coder, only when every small,
+low-risk criterion
 holds, every plan-skip criterion holds
-(one local change, no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns, and one
+(one local change, no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns,
+and one
 focused verification path), and no significant-risk trigger applies. Spike, architectural, ordinary-behavior,
 significant/high-risk, unclear-risk work, and edits overlapping files assigned to a running Coder are not eligible.
 
-Before editing, Orchestrator records in the brief the scope and files, why every criterion holds, acceptance criteria, and
-focused verification, presents that scope record (not a brainstorming design) to the user, and obtains explicit approval; silence, an ambiguous
-response, or approval of other work is not approval. Orchestrator then passes the Coder handoff gate in handoff, with the
-approved scope record as the applicable approval, before the first edit. Orchestrator edits only the approved files, preserves others' edits, makes surgical edits in
+Before editing, Orchestrator records in the brief the scope and files, why every criterion holds, acceptance criteria,
+and
+focused verification, presents that scope record (not a brainstorming design) to the user, and obtains explicit
+approval; silence, an ambiguous
+response, or approval of other work is not approval. Orchestrator then passes the Coder handoff gate in handoff,
+with the
+approved scope record as the applicable approval, before the first edit. Orchestrator edits only the approved files,
+preserves others' edits, makes surgical edits in
 the local style without unrelated refactoring or speculative additions, and does not install dependencies without
 authorization.
 
-Behavior edits follow Coder TDD and constraints; when TDD applies, Orchestrator follows installed `test-driven-development`.
-After editing, Orchestrator records the changed files, runs the focused checks, connects each acceptance criterion to evidence,
-and preserves unverified scope. Orchestrator is not independent of its own edit; assign QA when the evidence is incomplete.
+Behavior edits follow Coder TDD and constraints; when TDD applies, Orchestrator follows installed
+`test-driven-development`.
+After editing, Orchestrator records the changed files, runs the focused checks, connects each acceptance criterion to
+evidence,
+and preserves unverified scope. Orchestrator is not independent of its own edit; assign QA when the evidence is
+incomplete.
 After a failed focused check or a QA finding, Orchestrator routes the correction to Coder and obtains a recheck.
 
-If scope expands, risk becomes unclear, or a criterion stops holding, Orchestrator stops editing, records the changes already
+If scope expands, risk becomes unclear, or a criterion stops holding, Orchestrator stops editing, records the changes
+already
 made, and reclassifies; further work follows the normal Planner/Coder flow with Coder owning subsequent edits. Do not
 automatically revert, reset, stash, or clean those changes. Like other plan-skip paths, there is no automatic task
 commit; commits follow applicable guidance and user requests.
 
 ## Automatic commit after plan-task acceptance
 
-Orchestrator accepts each approved top-level task by its own judgment and immediately creates one focused local commit for that
+Orchestrator accepts each approved top-level task by its own judgment and immediately creates one focused local commit
+for that
 task without additional user commit approval. Read [commit](references/commit.md) before the acceptance and commit.
 Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
 
 ## Token discipline and handoffs
 
-- Only Orchestrator calls agents or assigns specialist tasks. Every `spawn_agent` call must explicitly set a descriptive lowercase snake_case `task_name` in the form
+- Only Orchestrator calls agents or assigns specialist tasks. Every `spawn_agent` call must explicitly set a descriptive
+  lowercase snake_case `task_name` in the form
   `<role>_<short_task>` (for example `planner_scope_review` or `qa_installer_checks`). Do not use arbitrary or random
   names. `task_name` identifies the run; `agent_type` and its configured profile determine the role and model.
 
-- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace, branch or detached HEAD and HEAD, handoff record path, when one exists, files);
+- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace,
+  branch or detached HEAD and HEAD, handoff record path, when one exists, files);
   Constraints/decisions; Evidence (paths/lines, commands, artifact links); Prior findings; Exact next objective (one
   bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups
-  send only changed fields and mark the rest `unchanged` (relative to a brief the recipient received); restart briefs follow handoff; a fresh specialist gets every other field in full. Send only the
+  send only changed fields and mark the rest `unchanged` (relative to a brief the recipient received);
+  restart briefs follow handoff; a fresh specialist gets every other field in full. Send only the
   self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
   instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
-- Every specialist spawn sets `fork_turns="none"`; full-history forks are not allowed. Supply that brief. Reuse an existing specialist for related follow-up with only changed facts/objective when its context
+- Every specialist spawn sets `fork_turns="none"`; full-history forks are not allowed. Supply that brief.
+  Reuse an existing specialist for related follow-up with only changed facts/objective when its context
   remains relevant; start fresh for unrelated or bloated context. Coder and QA freshness follow the Role gate.
 - `request_user_input` questions use only `title` and `options` fields, never `question`.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
@@ -224,22 +285,28 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
   repeated `sleep` or short status checks; use a single blocking wait with the tool's longest yield.
 - Read only the needed ranges of files and outputs (for example `rg -n`, `sed -n`, `head`/`tail`) and cap long command
   output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in
-  this context and unchanged need not be re-read, and this skill file, once read in this context and unchanged, is not re-read on follow-up turns;
+  this context and unchanged need not be re-read, and this skill file, once read in this context and unchanged,
+  is not re-read on follow-up turns;
   this does not shorten any triggered mandatory reference read.
-- When a plan completes or before starting another plan in a session with long history, Orchestrator records the canonical
+- When a plan completes or before starting another plan in a session with long history, Orchestrator records the
+  canonical
   handoff state in the handoff record file and recommends that the user continue in a new session.
 - Before handoff, post one short update with role/objective/expected output; after return, combine findings and next
   stage concisely. Do not expose hidden reasoning or raw prompts.
 
 ## Models
 
-`models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections; Orchestrator uses
+`models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections;
+Orchestrator uses
 the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not
-prove server support, account access, or current availability. Use configured settings without substitution; report unavailable
+prove server support, account access, or current availability. Use configured settings without substitution;
+report unavailable
 settings.
 
 After editing `models.toml`, apply the settings to installed profiles with
 `python3 <skill-directory>/scripts/apply-models.py`. Use `--check` to report drift without writing, or `--dry-run` to
-show the updates. The npm installer (`npx --yes github:yunhozz/arc install --target codex --preset economy|balanced|smart`) writes `models.toml` from the preset and renders all five profiles. New
+show the updates. The npm installer
+(`npx --yes github:yunhozz/arc install --target codex --preset economy|balanced|smart`) writes `models.toml` from the
+preset and renders all five profiles. New
 sessions reload profiles; running agents retain their current settings and parent relationships. These policy changes
 do not automatically reparent running agents or prove runtime parent behavior.
