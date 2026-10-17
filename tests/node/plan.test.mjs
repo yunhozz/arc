@@ -50,3 +50,10 @@ for(const platform of ['codex','claude'])for(const phase of ['before-publish','a
  const{applyTransaction}=await import('../../lib/installer/transaction.mjs');assert.throws(()=>applyTransaction(p,{safeFs,acquired:{skills:new Map()},hooks:{fault(event){if(event.phase===phase&&event.path===nativePath)throw Error('native publication failure');}}}));
  assert.equal(fs.readFileSync(nativePath,'utf8'),nativeBytes);assert.equal(fs.readFileSync(`${root}/skills/arc/limits.toml`,'utf8'),old);
 });
+test('concurrency above total keeps configured values and explains effective fresh-session capacity',t=>{
+ const result=plan(fixture(t),'codex',{limits:{max_total_subagents:2,max_concurrent_subagents:9},concurrentExplicit:true});
+ assert.equal(result.limits.max_total_subagents,2);assert.equal(result.limits.max_concurrent_subagents,9);
+ assert.match(result.generated.skill.get('limits.toml').toString(),/max_total_subagents = 2\nmax_concurrent_subagents = 9/);
+ assert.match(result.globalChanges.find(change=>change.path.endsWith('config.toml')).content.toString(),/max_concurrent_threads_per_session = 9/);
+ assert.ok(result.summary.some(note=>/effective concurrency.*at most 2.*fresh ARC session.*lower.*cumulative use.*native capacity/i.test(note)),result.summary.join('\n'));
+});
