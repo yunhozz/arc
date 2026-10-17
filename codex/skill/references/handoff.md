@@ -70,8 +70,13 @@ Orchestrator before dependent work, and does not create or switch workspaces or 
 
 ### Task readiness at every assignment
 
-Before each first start or restart, link the approved plan's current dependency/readiness record (planning.md) in the
-canonical record and brief. Verify all applicable document approvals and execution preparation, required inputs and
+Before each first start or restart, if an approved plan exists, link its current dependency/readiness record
+(planning.md) in the canonical record and brief. Where plan omission is valid under existing rules, do not create a
+plan or map solely to satisfy this linking duty; record the applicable omission judgment and rationale in the
+canonical record and brief. Plan absence alone does not qualify for omission, and an unapproved required plan
+cannot bypass its approval gate.
+
+Verify all applicable document approvals and execution preparation, required inputs and
 settled shared contracts, required predecessor checks, Orchestrator acceptance and verified focused commits, or
 accepted no-change evidence without an empty commit. A Coder completion report alone is insufficient. Verify owned
 files and shared resources have no conflict with running work; same-file concurrent Coder edits are forbidden even
