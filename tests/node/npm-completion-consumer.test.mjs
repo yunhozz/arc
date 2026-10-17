@@ -31,7 +31,7 @@ os.write(fd,b'\x03exit\n')
 output+=read_for(0.2)
 os.waitpid(pid,0)
 print(output.decode(errors='replace'))`],{env:{...env,NODE_OPTIONS:'',PATH:prefix+'/bin:'+env.PATH},encoding:'utf8',timeout:10000});
- t.diagnostic('zsh PTY: '+JSON.stringify(pty.stdout));assert.equal(pty.status,0,pty.stderr);for(const command of ['install','uninstall','completion'])assert.ok(pty.stdout.includes(command),pty.stdout);
+ t.diagnostic('zsh PTY: '+JSON.stringify(pty.stdout));assert.equal(pty.status,0,pty.stderr);for(const command of ['preset','uninstall'])assert.ok(pty.stdout.includes(command),pty.stdout);
  npm(['install','-g','--prefix',prefix,'--force',tarball]);assert.deepEqual(fs.readFileSync(filename),first);
  npm(['uninstall','-g','--prefix',prefix,'@yunhozz/arc']);assert.deepEqual(fs.readFileSync(filename),first);
  fs.unlinkSync(filename);npm(['install','-g','--prefix',prefix,'--ignore-scripts',tarball]);assert.equal(fs.existsSync(filename),false);
