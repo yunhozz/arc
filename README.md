@@ -42,13 +42,13 @@ arc install
 Use explicit choices for non-interactive installation:
 
 ```sh
-arc install --target codex --preset balanced
-arc install --target all --preset smart --check
-arc install --target claude --preset economy --dry-run
+arc install --target codex --preset balanced --language en
+arc install --target all --preset smart --language en --check
+arc install --target claude --preset economy --language en --dry-run
 ```
 
 Alternatively, install from GitHub or a repository checkout. Interactive setup prompts for target, preset,
-and omitted limits (initial defaults: total 100, concurrent 5):
+omitted limits (initial defaults: total 100, concurrent 5), then output language:
 
 ```sh
 npx --yes github:yunhozz/arc install
@@ -57,20 +57,26 @@ npx --yes github:yunhozz/arc install
 For explicit target/preset selection (non-interactive execution preserves omitted limits):
 
 ```sh
-npx --yes github:yunhozz/arc install --target codex --preset balanced
-./install.command --target claude --preset smart
+npx --yes github:yunhozz/arc install --target codex --preset balanced --language en
+./install.command --target claude --preset smart --language en
 ```
 
 | Option | Purpose |
 |---|---|
 | `--target` | Select `claude`, `codex`, or `all`; interactive default: Claude |
 | `--preset` | Select `economy`, `balanced`, or `smart`; interactive default: Balanced |
+| `--language` | Select `en` (English) or `ko` (한국어); this is the final interactive question |
 | `--check` | Validate distributed files and install paths without changes |
 | `--dry-run` | Preview changes without writing |
 | `--skip-global` | Skip global instructions, Codex config, and `.zshrc` access for this invocation |
 | `--help`, `--version` | Show usage or version |
 
-Without choices, a terminal prompts for target and preset. Non-interactive runs require both.
+Without choices, a terminal prompts for target, preset, total limit, concurrent limit, then language.
+Use Up/Down and Enter to select English or 한국어. Non-interactive runs require `--target`, `--preset`, and `--language`.
+For `all`, one language applies to both targets. A shared existing language is preselected; otherwise English is selected.
+Each target stores the choice in `skills/arc/settings.toml`. The installed default applies to Orchestrator and all five roles,
+including progress updates, reports, and planning documents. Explicit user language requests override it.
+`--skip-global` omits the global instructions block; installed skill and role policies still use the selected language.
 Check and dry-run validate the included references locally without network access or checking upstream freshness.
 
 ### 📁 Installed files
@@ -208,7 +214,7 @@ prereleases. See [npm Trusted publishing](https://docs.npmjs.com/trusted-publish
 
 ### Subagent limits
 
-`arc install --target all --preset balanced --max-total-subagents 100 --max-concurrent-subagents 5`
+`arc install --target all --preset balanced --language en --max-total-subagents 100 --max-concurrent-subagents 5`
 sets the maximum created subagents (default **100**) and simultaneous subagents (default **5**).
 TTY installation asks for omitted values even when target/preset are supplied. Enter preserves each
 target's existing value, or its initial default; a typed value applies to every selected target.

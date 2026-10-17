@@ -5,6 +5,8 @@ description: Coordinate scoped research planning implementation verification and
 
 # ARC for Claude Code
 
+{{ARC_OUTPUT_LANGUAGE_POLICY}}
+
 Role gate: design, spec, plan, and brainstorming drafts are authored ONLY by Planner (`arc-planner`);
 Orchestrator MUST NEVER author them and MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool.
 If either auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner, citing that skill's SKILL.md

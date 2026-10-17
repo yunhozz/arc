@@ -11,6 +11,8 @@ tools:
 
 # Reviewer
 
+{{ARC_OUTPUT_LANGUAGE_POLICY}}
+
 Stay in your role: ONLY review the final diff and report findings; NEVER edit, run QA checks, plan, or decide
 acceptance.
 

@@ -31,10 +31,12 @@ expect -exact {Maximum total subagents}
 send -- "\\r"
 expect -exact {Maximum concurrent subagents}
 send -- "\\r"
+expect -exact {Select an output language:}
+send -- "\\r"
 expect eof
 set result [wait]
 exit [lindex $result 3]`]:['-qec',`${process.execPath} bin/arc.mjs install --check`,'/dev/null'];
- const child=spawn(driver,command,{env:{...process.env,HOME:home,CODEX_HOME:home+'/.codex',CLAUDE_CONFIG_DIR:home+'/.claude'},stdio:['pipe','pipe','pipe']});let text='',stage=0;const timer=setTimeout(()=>child.kill('SIGKILL'),15000);t.after(()=>clearTimeout(timer));child.stdout.on('data',chunk=>{text+=chunk;if(driver==='expect')return;if(stage===0&&text.includes('Use Up/Down and Enter.')){stage++;child.stdin.write('\x1b[B\r');}else if(stage===1&&text.includes('Select a performance preset:')){stage++;child.stdin.write('\r');}else if(stage===2&&text.includes('Maximum total subagents')){stage++;child.stdin.write('\r');}else if(stage===3&&text.includes('Maximum concurrent subagents')){stage++;child.stdin.write('\r');}});child.stderr.on('data',chunk=>{text+=chunk;});const status=await new Promise(resolve=>child.on('close',resolve));assert.equal(status,0,text);assert.match(text,/Target: codex; preset: balanced/);assert.match(text,/Check completed/);assert.deepEqual(fs.readdirSync(home),[]);
+ const child=spawn(driver,command,{env:{...process.env,HOME:home,CODEX_HOME:home+'/.codex',CLAUDE_CONFIG_DIR:home+'/.claude'},stdio:['pipe','pipe','pipe']});let text='',stage=0;const timer=setTimeout(()=>child.kill('SIGKILL'),15000);t.after(()=>clearTimeout(timer));child.stdout.on('data',chunk=>{text+=chunk;if(driver==='expect')return;if(stage===0&&text.includes('Use Up/Down and Enter.')){stage++;child.stdin.write('\x1b[B\r');}else if(stage===1&&text.includes('Select a performance preset:')){stage++;child.stdin.write('\r');}else if(stage===2&&text.includes('Maximum total subagents')){stage++;child.stdin.write('\r');}else if(stage===3&&text.includes('Maximum concurrent subagents')){stage++;child.stdin.write('\r');}else if(stage===4&&text.includes('Select an output language:')){stage++;child.stdin.write('\r');}});child.stderr.on('data',chunk=>{text+=chunk;});const status=await new Promise(resolve=>child.on('close',resolve));assert.equal(status,0,text);assert.match(text,/Target: codex; preset: balanced/);assert.match(text,/Check completed/);assert.deepEqual(fs.readdirSync(home),[]);
 });
 test('interactive EOF returns cancellation exit code',async()=>{const {runCli}=await import('../../lib/cli/index.mjs');const io=terminal([]);assert.equal(await runCli([],{...io,error:io.output}),130);assert.match(io.text(),/Installation cancelled/);});
 test('provided choices are preserved and only missing preset is prompted',async()=>{const io=terminal(['\x1b[B\r']);assert.deepEqual(await api.selectChoices({target:'claude'},io),{target:'claude',preset:'smart'});assert.ok(!io.text().includes('installation target'));});
@@ -53,7 +55,7 @@ test('progress starts after final choice, advances during acquisition and cleans
   let release,entered;const barrier=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;});
   globalThis.arcProgressInstall=async(plans,{signal})=>{entered();await barrier;if(mode==='acquisition')throw Error('acquisition failed');if(mode==='cancel'){assert.equal(signal.aborted,true);return{interrupted:true,results:[{platform:'codex',status:'failed',rollback:'completed',residualPaths:[],error:Error('cancelled')}]};}return{results:[{platform:'codex',status:mode==='transaction'?'failed':'installed',rollback:mode==='transaction'?'completed':'not-needed',residualPaths:mode==='cleanup'?['retained-stage']:[],error:['transaction','cleanup'].includes(mode)?Error(mode+' failed'):undefined}]};};
   const input=new PassThrough();input.isTTY=true;const io=terminal([]);const before=process.listenerCount('SIGINT');const running=api.runCli([],{input,output:io.output,error:io.output});
-  await new Promise(resolve=>setImmediate(resolve));assert.doesNotMatch(io.text(),/Installing ARC/);input.write('\x1b[B\r');await new Promise(resolve=>setImmediate(resolve));assert.doesNotMatch(io.text(),/Installing ARC/);input.write('\r');const deadline=Date.now()+5000;while(!io.text().includes('Maximum total subagents')){assert.ok(Date.now()<deadline,io.text());await new Promise(resolve=>setImmediate(resolve));}input.write('\r\r');await started;
+  await new Promise(resolve=>setImmediate(resolve));assert.doesNotMatch(io.text(),/Installing ARC/);input.write('\x1b[B\r');await new Promise(resolve=>setImmediate(resolve));assert.doesNotMatch(io.text(),/Installing ARC/);input.write('\r');const deadline=Date.now()+5000;while(!io.text().includes('Maximum total subagents')){assert.ok(Date.now()<deadline,io.text());await new Promise(resolve=>setImmediate(resolve));}input.write('\r\r');while(!io.text().includes('Select an output language:')){assert.ok(Date.now()<deadline,io.text());await new Promise(resolve=>setImmediate(resolve));}input.write('\r');await started;
   assert.match(io.text(),/Installing ARC…/);const frame=io.text();tick();assert.notEqual(io.text(),frame);if(mode==='cancel')process.emit('SIGINT');release();assert.equal(await running,mode==='success'?0:mode==='cancel'?130:1);assert.equal(active,0);assert.equal(process.listenerCount('SIGINT'),before);assert.match(io.text(),mode==='acquisition'?/acquisition failed/:/codex: (installed|failed)/);if(mode==='cleanup')assert.match(io.text(),/Residual path: retained-stage/);
  }
 });
@@ -74,7 +76,7 @@ test('payload validation failure stops progress and preserves the error and exit
  }});
  globalThis.payloadProgressStarted=()=>started;
  const before=process.listenerCount('SIGINT');
- const status=await runCli(['--target','codex','--preset','balanced'],{output,error:output});
+ const status=await runCli(['--target','codex','--preset','balanced','--language','en'],{output,error:output});
  hook.deregister();
  assert.equal(status,1);
  assert.equal(started,true);
@@ -96,4 +98,13 @@ test('numeric defaults and EOF restore raw mode and existing data listeners',asy
  for(const lines of [['\r\r'],[]]){const io=terminal(lines);io.input.isRaw=true;const modes=[];io.input.setRawMode=value=>{modes.push(value);io.input.isRaw=value;};const existing=()=>{};io.input.on('data',existing);const before=io.input.listeners('data');const options={};const selection=[{target:{platform:'codex'},preview:{existing:null}}];
  if(lines.length){await selectLimits(options,selection,io);assert.equal(options.concurrentSelected,true);assert.equal(options.maxTotalSubagents,undefined);assert.match(io.text(),/codex=100/);assert.match(io.text(),/codex=5/);}else await assert.rejects(selectLimits(options,selection,io),{code:'ARC_CANCELLED'});
  assert.equal(io.input.isRaw,true);assert.deepEqual(io.input.listeners('data'),before);assert.deepEqual(modes,[true,true]);}
+});
+test('language menu wraps two choices and restores raw mode and listeners on selection or cancellation',async()=>{
+ const choices=await import('../../lib/cli/choices.mjs');assert.equal(typeof choices.selectLanguage,'function');
+ for(const [lines,want]of [[['\x1b[A\r'],'ko'],[['\x1b[B\x1b[B\r'],'en'],[[] ,null],[['\x03'],null]]){const io=terminal(lines);io.input.isRaw=false;io.input.setRawMode=value=>{io.input.isRaw=value;};const before=process.listenerCount('SIGINT'),options={};if(want){await choices.selectLanguage(options,'en',io);assert.equal(options.language,want);}else await assert.rejects(choices.selectLanguage(options,'en',io),{code:'ARC_CANCELLED'});assert.equal(io.input.isRaw,false);assert.equal(process.listenerCount('SIGINT'),before);}
+});
+test('a second menu decodes keys on the same input after first-menu cleanup',async()=>{
+ const{PassThrough}=await import('node:stream');const{selectLanguage}=await import('../../lib/cli/choices.mjs');const io=terminal([]);io.input=new PassThrough();io.input.isTTY=true;
+ const first=selectLanguage({},'en',io);io.input.write('\r');await first;assert.equal(io.input.listenerCount('data'),0);
+ const selected={};const second=selectLanguage(selected,'en',io);io.input.write('\x1b[B\r');let timer;try{assert.equal(await Promise.race([second.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),100);})]),true);}finally{clearTimeout(timer);io.input.end();await second.catch(()=>{});}assert.equal(selected.language,'ko');assert.equal(io.input.listenerCount('data'),0);
 });

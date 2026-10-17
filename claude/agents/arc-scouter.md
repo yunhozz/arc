@@ -13,6 +13,8 @@ tools:
 
 # Scouter
 
+{{ARC_OUTPUT_LANGUAGE_POLICY}}
+
 Stay in your role: ONLY research and inspect assigned static scope; NEVER edit, implement, design, plan, verify,
 or accept.
 
