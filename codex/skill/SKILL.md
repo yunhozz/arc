@@ -308,6 +308,10 @@ Push, merge, publish, deploy, and install still follow their separate guidance a
 
 ## Models
 
+Install or refresh the Codex harness with `npx --yes github:yunhozz/arc --target codex`.
+In a terminal, it prompts for omitted preset, limits, and finally output language.
+
+
 `models.toml` beside this skill is the source for the five role model IDs and reasoning-effort selections;
 Orchestrator uses
 the chat model. Each role directly declares its model and effort in `[roles.<role>]`. The local configuration does not

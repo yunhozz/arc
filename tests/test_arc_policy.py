@@ -1285,7 +1285,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertIn("scope record", core)
         self.assertIn("Environment failure does not waive checks or determine design depth", core)
         self.assertIn("means this assessment", self.raw("planning"))
-        self.assertIn("npm", core)
+        self.assertIn("npx --yes github:yunhozz/arc --target codex", core)
         self.assertIn("Planner proposes, Orchestrator decides", core)
         self.assertIn("routes the correction to Coder", core)
 
