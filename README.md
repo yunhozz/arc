@@ -7,62 +7,19 @@ The Orchestrator assigns work and accepts the result.
 
 ## 👥 Roles and workflow
 
-| Role | Responsibility |
-|---|---|
-| Orchestrator | Assigns work, obtains approvals, integrates, accepts, and commits |
-| Scouter | Research and static exploration; no edits |
-| Planner | Design, spec, and plan drafts; no repository edits |
-| Coder | Implementation, configuration, and tests in assigned files |
-| QA | Independent checks against acceptance criteria; no edits |
-| Reviewer | Final independent review of significant changes; no edits |
+Read [How the ARC harness operates](docs/harness-operation.md) for installation/refresh boundaries,
+role responsibilities, approval and preparation, dependency scheduling, verification, commits, and recovery.
 
-All roles report directly to the Orchestrator; subagents never delegate. The default session limits are 100 total created subagents and 5 concurrent subagents.
-Each top-level task starts a fresh Coder and, when needed, fresh QA. Simple questions stay with the Orchestrator.
+The Orchestrator routes simple questions directly, research to Scouter, design/spec/plan drafts to Planner,
+and implementation to a fresh Coder. QA supplies independent criterion evidence; the Orchestrator accepts results.
+Significant planned work receives final whole-change Reviewer review after task acceptances; significant unplanned
+work receives review before acceptance. Accepted plan tasks get focused commits; no-change tasks get records.
 
-### 🧭 Design and approval
-
-The Planner authors design, spec, plan, and brainstorming drafts. The Orchestrator obtains user approval before
-implementation.
-
-| Path | Use for | Approval sequence |
-|---|---|---|
-| Spike | Feasibility questions | Question and method → findings → reassess implementation |
-| Bounded | Clear, limited scope | Short design → plan if needed → implementation |
-| Architectural | Structural or contract changes | Design → spec → plan → implementation |
-
-A Bounded change can omit the plan only for one local change with no dependent stages, shared state,
-or integration-order concerns and one verification path. Approved planning documents are committed together before
-implementation; the user explicitly chooses the execution checkout or branch.
-
-### 🔀 Task dependencies and parallel work
-
-Before the first Coder assignment for an approved plan, the Orchestrator records each task's explicit/implicit
-dependencies, inputs/outputs/shared contracts, file/resource ownership and conflicts, readiness/hold reasons and initial
-ready batch. Different files alone do not prove independence; unresolved shared contracts and same-file concurrent
-Coder edits block affected tasks. After all approval/preparation gates pass, start ready independent tasks with fresh
-Coders concurrently within the configured subagent limit shared by all roles and any lower actual runtime limit; report
-limits and serialization reasons. Plan listing order alone does not serialize work.
-
-The flow is dependency analysis → ready-task dispatch → required checks and Orchestrator acceptance/commit → readiness
-reassessment. Coder completion alone does not release dependents; accepted no-change tasks need no empty commit.
-Reassess on completion, evidence, acceptance, commit, slot return or new conflict. With A → B → C and independent D
-and two slots, start A and D, then start B after A's acceptance/commit while D continues. If A fails, hold B/C while
-unaffected D may continue. Preserve risk checks, execution-target restrictions (Claude v1: current checkout only),
-and unfinished work; serialize shared Git mutations, commit only accepted scope, and refresh HEAD/brief evidence
-without waiting for unrelated batch members. Unexpected state/ownership changes stop affected work for resolution.
-
-### 🔍 Verification by risk
-
-| Risk | Verification |
-|---|---|
-| Small, low risk: narrow, understood, reversible, focused checks suffice | Coder or approved Orchestrator direct edit → Orchestrator checks |
-| Ordinary behavior change | Coder → fresh QA |
-| Significant: shared contracts/state, lifecycle, security, data loss, public interfaces, costly installation/deployment | Coder → fresh QA → final Reviewer |
-
-Design depth and risk are independent. Unclear risk requires investigation or stronger verification.
-Feature and behavior edits follow TDD; only small, low-risk work needing no plan can qualify for an approved exception.
-With a plan, the Orchestrator accepts and commits each top-level task; the Reviewer checks the complete significant
-change once. Push, merge, and deployment need separate approval.
+Design depth (Spike, Bounded, Architectural) and verification risk are separate. Approved documents and explicit
+platform preparation precede implementation. Ready independent tasks may run within policy and runtime capacity;
+Coder completion alone never releases dependents. Codex supports a managed worktree option; Claude v1 uses the
+current checkout. The default limits are 100 created and 5 concurrent subagents per ARC session/tree.
+Scheduling and cumulative limits are prompt-level policy; structural tests do not prove live runtime compliance.
 
 ## 🚀 Install
 

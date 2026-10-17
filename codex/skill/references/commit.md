@@ -53,7 +53,7 @@ This local commit authority does not authorize early planning-document commits: 
 explicit execution-target choice and batch preparation remain unchanged. Historical spec/plan records are not changed
 retroactively. Structural checks of this contract do not prove actual agent runtime compliance.
 Follow Conventional Commits with the message form
-`<type>(<scope>): <description>`. Use a concise, specific Korean description without a trailing period, a lowercase
+`<type>(<scope>): <description>`. Use a concise, specific English description without a trailing period, a lowercase
 scope when useful, one top-level task's logical change per commit, and body/footer only when needed while preserving
 Git trailer syntax.
 
