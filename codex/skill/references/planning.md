@@ -69,11 +69,11 @@ Orchestrator integrates, saves, self-reviews, and obtains individual written-spe
 drafting
 and execution preparation. This applies that judgment, not a new spec-necessity rule.
 
+Design, spec, plan, and brainstorming drafts are authored only by Planner.
 Orchestrator must not substitute an independently authored spec or plan for Planner's complete draft.
 If the draft has substantive
 omissions, return them to Planner for completion; if Planner fails or is unavailable, stop and report,
-never draft instead. A user may explicitly change the writing responsibility; record
-that change and its evidence in the brief. Design approval alone does not change ownership.
+never draft instead. Design approval alone does not change ownership.
 
 ## Top-level plan tasks
 

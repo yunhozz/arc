@@ -55,9 +55,9 @@ use the approved short design as its basis, and have Planner return a proportion
 Orchestrator integrates, saves, self-reviews, and obtains individual written-spec approval before dependent plan
 drafting. This applies that judgment, not a new spec rule. A required plan alone does not require a spec.
 
+Design, spec, plan, and brainstorming drafts are authored only by Planner.
 Orchestrator must not substitute its own spec for Planner's complete draft; return substantive omissions to Planner;
-if Planner fails or is unavailable, stop and report, never draft instead. A user may explicitly change writing
-responsibility; record that change and its evidence. Design approval alone does not.
+if Planner fails or is unavailable, stop and report, never draft instead. Design approval alone does not change ownership.
 
 ## Top-level plan tasks
 
