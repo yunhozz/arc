@@ -14,13 +14,15 @@
 
 **S0/F08 반영 수정 명세 SHA-256:** `7f8f92bde8d7b4af763508426fc5f9800c896286c296004315c88b1c906f523e`
 
-**계획 상태:** F08 반영 개정 초안. 별도 사용자 계획 승인 전.
+**계획 상태:** F08 반영 계획은 승인되어 통합 문서 커밋 `b400e694dbe3819d5ab156cade6ef172818302fb`에 기록되었다. 아래 BQ01 개정은 별도 사용자 승인 전이며, 승인 전 문서 커밋·Coder 착수를 허용하지 않는다.
 
-수정 명세는 승인되었다. 기존 계획 SHA-256 `a2331f8e889b0c81a0059953af1a252787053d4337b0e97e0ea95672173d47e3`에는 F08이 포함되지 않았으므로 이 개정본 승인이 별도로 필요하다.
+F08 반영 계획 SHA-256 `b333f5c4004d28af5460457f0347c12e723e01d6d134686ee1cb0e21ae0f8ff0`는 사용자 승인을 받았으며, 현재 문서 상태는 통합 커밋 `b400e694dbe3819d5ab156cade6ef172818302fb`에 기록되어 있다.
 
-**예정 저장 경로:** `/Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-19-arc-instruction-audit.md`
+초기 계획 SHA-256 `a2331f8e889b0c81a0059953af1a252787053d4337b0e97e0ea95672173d47e3`는 F01/F02만 포함했던 과거 승인 버전이다. 이후 F08을 반영한 계획이 별도로 승인되었으므로 초기 버전의 승인 대기 표현은 현재 상태에 적용하지 않는다.
 
-초기 계획 SHA-256 `a2331f8e889b0c81a0059953af1a252787053d4337b0e97e0ea95672173d47e3`는 F01/F02만 포함한 승인 버전이다. 이 개정은 승인된 수정 명세와 사용자 F08 결정에 맞춰 T2 파일·검사·수락 범위를 넓힌 초안이며 별도 승인이 필요하다.
+현재 승인 대기 대상은 아래에 추가된 BQ01 개정뿐이다. 이 개정을 포함한 새 계획 버전의 별도 사용자 승인 전에는 해당 문서 갱신 커밋이나 Coder 착수를 진행하지 않는다.
+
+**현재 저장 경로:** `/Users/yunho/Desktop/project/arc/docs/superpowers/plans/2026-10-19-arc-instruction-audit.md`
 
 ## 1. 전역 제약
 
@@ -552,3 +554,176 @@ F03·F04·F06·F07·F09·F10·F11은 S0에서 검토를 완료했다. 계획 범
 - **범위:** F07/F10은 현행 보존·변경 보류, F09/F11은 미검증·보류로 유지했습니다. 기존 docs·superpowers는 조사 대상에 포함하지 않습니다.
 - **준비 순서:** 완료된 S0와 승인된 수정 명세 이후 개정 계획 승인, 문서 갱신 commit, baseline QA·handoff를 거친 다음에만 Coder를 허용합니다.
 - **수행 상태:** 계획 개정 초안만 반환했습니다. 파일 저장·테스트 실행·Coder 배정은 하지 않았습니다.
+## BQ01 개정 — 승인된 문서 순서의 지원 검사 정합화
+
+### 기준과 우선 적용 범위
+
+- 개정 기준 계획 SHA-256: `b333f5c4004d28af5460457f0347c12e723e01d6d134686ee1cb0e21ae0f8ff0`
+- 승인 명세 SHA-256: `7f8f92bde8d7b4af763508426fc5f9800c896286c296004315c88b1c906f523e`
+- 실행 경로: `/Users/yunho/Desktop/project/arc`
+- branch: `chore/planner-workspace-before-documents`
+- 현재 기준 HEAD·통합 문서 커밋: `b400e694dbe3819d5ab156cade6ef172818302fb`
+- 근거 기록: `/Users/yunho/Desktop/project/arc/.git/arc/handoff/harness-instructions-audit.md`의 “Baseline QA blocker…”, “Scouter analysis…” 및 BQ03 보충 기록.
+
+초기 문서 기록과 후속 개정 기록은 사용자 요청으로 위 통합 커밋에 합쳐졌다. 과거 `4adcb488`·`67b49de7`은 현재 branch에서 도달 가능한 실행 기준으로 사용하지 않는다.
+
+이 개정은 기존 4절의 예상 밖 baseline 실패 처리와 Coder 착수 조건, 6절 T1의 목표·검사·수락·보류 조건, 7절 T2의 선행 게이트를 아래 범위에서 우선 적용한다. 관련 9절 최종 검증과 11절 실행 전 확인에도 같은 조건을 적용한다. 나머지 승인 내용은 유지한다.
+
+F01/F02/F08, T2의 다섯 파일 범위, 사용자 선택 checkout, 감사 제외 범위, F07/F09/F10/F11 disposition은 변경하지 않는다.
+
+### BQ01의 관찰 결과와 분석
+
+QA 실행 결과:
+
+| 검사 | 실제 결과 |
+|---|---|
+| `python3 -B tests/test_harness_contract.py PolicyContractTests -v` | 8개 실행, 7개 통과·1개 실패, exit 1 |
+| 실패 테스트 | `test_common_contracts_have_platform_owners` |
+| 실패 내용 | 양쪽 planning 소유 경로의 `DOCUMENT_ORDER` 실패 |
+| `test_arc_policy.py` | 105/105, exit 0 |
+| `test_claude_payload.py` | 43개 실행, 정확히 BL1·BL2 실패, exit 1 |
+| `global-config.test.mjs` | 34/34, exit 0 |
+| manifest 검사 | 보호 파일 90개 확인, exit 0 |
+
+BQ01은 미해결 관찰 실패다. 실패한 baseline을 통과로 표현하거나 허용된 영구 실패로 편입하지 않는다.
+
+Scouter의 정적 분석에 따르면 `tests/test_harness_contract.py:23-26`의 checker는 문서 세트 완성 후 실행 대상 선택을 요구한다. 실패 assertion은 같은 파일 `158-159`다. 현재 양쪽 지침은 실행 대상 선택·준비 후 공식 문서를 작성하도록 명시한다.
+
+- Codex: `codex/skill/references/planning.md:156-166`
+- Claude: `claude/skill/references/planning.md:133-143`
+
+이는 checker false positive로 추정되는 정적 분석이며 실제 수정·검사 통과 증거를 대신하지 않는다.
+
+### Claude baseline 보존
+
+허용되는 기존 Claude 실패는 다음 두 건뿐이다.
+
+- BL1: `ClaudePayloadTests.test_claude_agent_profiles_hold_acceptance_contracts` — literal `Korean` 기대와 `{{ARC_OUTPUT_LANGUAGE_POLICY}}` 사용 차이.
+- BL2: `ClaudePayloadTests.test_claude_native_adapter_matches_shipped_profiles_and_scripts` — `arc_scouter` 기대와 `arc-scouter` 사용 차이. focused 재확인 근거는 `tests/test_claude_payload.py:244`.
+
+이전 실행 근거는 `/Users/yunho/Desktop/project/arc/.git/arc/handoff/planner-workspace-selection-before-documents.md`에도 연결한다.
+
+전체 Claude 모듈은 43개 실행·BL1/BL2 실패·실제 exit 1로 보고하며 통과로 표현하지 않는다. 두 assertions와 F09 full-project-suite 요구는 수정하지 않는다. 추가 실패·기존 실패 근거 변경·예상과 다른 테스트 수나 결과는 계속 보류 조건이다.
+
+### 승인·문서 준비와 T1 제한 착수
+
+이 개정은 supporting validation을 승인된 정책에 맞추는 것으로, 명세의 F05·AC07–AC09 범위 안에 있다. 사용자 정책·감사 범위를 변경하지 않으므로 실질적인 명세 개정은 필요하지 않다. 승인 명세 해시는 유지한다.
+
+새 계획 버전은 별도 사용자 승인을 받아야 한다. 승인 전에는 이 개정의 문서 커밋이나 Coder 착수를 하지 않는다. 승인 후에는 기존 명세·문서 기록을 확인하고 남은 승인 계획 변경만 새 문서 갱신 커밋으로 기록한다. 기존 통합 커밋을 amend하지 않는다.
+
+기존 “BL1/BL2 외 baseline 실패는 Coder를 막는다”는 조건은 다음의 BQ01 수정 목적에 한해서만 대체한다.
+
+1. 새 계획 승인, 문서 준비, 실제 Git 상태·소유권·인계 조건을 충족한다.
+2. BQ01의 실패 양상이 위 관찰과 같고 다른 검사 결과가 유효한 baseline과 일치한다.
+3. T1에 한해 F01·BQ01 수정 목적의 Coder 착수를 허용한다.
+4. BQ01을 통과·면제·완료로 처리하지 않는다.
+5. T1 수락·커밋과 T2 착수 전에는 BQ01의 실제 해소가 필수다.
+
+다른 예상 밖 실패는 여전히 Coder 착수를 막는다. 승인 버전·소스·환경·관련 Git 상태가 바뀌면 영향받는 증거를 갱신한다. 문서만 바뀌었다면 기존 실행 증거의 유효성을 확인해 재사용할 수 있으며, 불확실하면 관련 baseline을 재실행한다.
+
+### T1 범위와 검사 추가
+
+T1 제목·목표를 **“planning 작성 책임과 문서 순서 검사 정합화”**로 확장한다. 기존 F01 작업에 BQ01 checker 수정을 포함하며 소유 파일은 그대로다.
+
+- `codex/skill/references/planning.md`
+- `claude/skill/references/planning.md`
+- `tests/test_harness_contract.py`
+- `MANIFEST.sha256`
+
+양쪽 planning reference는 F01 작성 책임 예외만 정리한다. BQ01을 통과시키기 위해 승인된 choice-before-writing 순서 문구를 수정하지 않는다.
+
+기존 `policy_contract_failures(texts: Mapping[str, str]) -> list[str]`와 계약 ID `DOCUMENT_ORDER`를 유지한다. 해당 소유 경로는 양쪽 `skill/references/planning.md`다. stale pattern을 현재 순서 검사로 바꾸되 기존 명세 승인 선행·bounded 적용·문서 생략 경로 보호를 유지한다. skip·xfail이나 광범위한 검사 삭제는 금지한다.
+
+기존 T1 작성 책임 검사와 함께 다음 검사를 추가한다.
+
+| 테스트명 | 필수 단언 |
+|---|---|
+| `test_document_order_accepts_choice_before_writing` | 현재 양쪽 소유 문서의 `DOCUMENT_ORDER` 실패 없음 |
+| `test_document_order_rejects_documents_before_target_choice` | 순서 문단을 과거 문서 완성 후 대상 선택 순서로 바꾸면 해당 경로 실패 |
+| `test_document_order_rejects_missing_required_gates` | 준비·검증, 명세 승인, 계획 승인, 완전한 세트, batch docs commit, 최종 확인, Coder 인계를 각각 누락하면 해당 경로 실패 |
+| `test_document_order_rejects_conflicting_reverse_order` | 올바른 순서가 남아 있어도 대상 선택 전 공식 문서 작성 요구를 추가하면 해당 경로 실패 |
+
+각 플랫폼의 `DOCUMENT_ORDER`·소유 경로를 직접 단언한다. 다른 계약 실패로 검출을 대신하지 않는다.
+
+긍정 fixture는 실제 `Normal order:` 구간의 다음 순서를 사용한다.
+
+`initial design approval → execution-target choice → target preparation and verification → formal spec drafting (when required), saving and self-review → written-spec approval → formal plan drafting (when required), saving and self-review → individual plan approvals → complete applicable set → existing-commit verification and one batch docs commit of remaining approved documents → final Git verification → Coder handoff`
+
+역순 fixture는 같은 구간을 다음 의미로 교체한다.
+
+`initial design approval → formal spec drafting → written-spec approval → formal plan drafting → individual plan approvals → complete applicable set → execution-target choice → target preparation and verification → existing-commit verification and one batch docs commit → final Git verification → Coder handoff`
+
+공존 충돌 fixture는 올바른 순서를 남기고 `Formal spec and plan drafting must precede execution-target choice.`를 추가한다.
+
+공백·줄바꿈은 정규화하되 순서를 보존한다. 순서 검사는 `Normal order:` 절차 구간을 대상으로 하며 다른 문단의 단어로 잘못 통과하지 않게 한다.
+
+실행 순서는 다음과 같다.
+
+- [ ] 기존 BQ01 실패를 재현하거나 유효한 실행 증거를 연결한다.
+- [ ] 새 긍정 검사가 stale checker 때문에 실패하는 red를 확인한다.
+- [ ] `DOCUMENT_ORDER` 검사와 관련 충돌·누락 검사를 구현한다.
+- [ ] 기존 T1의 F01 작성 책임 red→수정을 수행한다.
+- [ ] 아래 집중·회귀·manifest 검사를 완료한다.
+- [ ] QA와 Orchestrator 수락 뒤 T1 하나의 집중 커밋으로 기록한다.
+
+T1의 BQ01·F01 단계는 별도 커밋 단위가 아니다.
+
+### 필수 명령과 QA
+
+BQ01 재현:
+
+    python3 -B tests/test_harness_contract.py PolicyContractTests.test_common_contracts_have_platform_owners -v
+
+순서 집중 검사:
+
+    python3 -B tests/test_harness_contract.py PolicyContractTests.test_document_order_accepts_choice_before_writing PolicyContractTests.test_document_order_rejects_documents_before_target_choice PolicyContractTests.test_document_order_rejects_missing_required_gates PolicyContractTests.test_document_order_rejects_conflicting_reverse_order -v
+
+T1 수락 전 공통·회귀 검사:
+
+    python3 -B tests/test_harness_contract.py PolicyContractTests -v
+    python3 -B -m unittest discover -v -s tests -p test_arc_policy.py
+    python3 -B -m unittest discover -v -s tests -p test_claude_payload.py
+
+무결성·공백 검사:
+
+    node scripts/update-manifest.mjs
+    node scripts/update-manifest.mjs --check
+    git diff --check
+
+증거 갱신이 필요한 baseline에서는 위 공통·플랫폼·manifest 검사와 함께 다음을 사용한다.
+
+    node --test tests/node/global-config.test.mjs
+
+`DocumentationContractTests`는 실행하지 않는다. 새로운 테스트 추가 후 실제 검사 수를 기록한다.
+
+QA는 BQ01 실패→수정→해소, 두 planning 순서 구간 비변경, F01·사용자 선호·역할 보호, BL1/BL2·F09 비변경, diff·manifest 범위를 확인한다. 보고·passing checks만으로 Orchestrator 수락을 대신하지 않는다.
+
+### 수락·보류·커밋과 T2 게이트
+
+기존 T1 수락 기준에 다음을 추가한다.
+
+- BQ01이 실제 공통 검사 통과로 해소된다.
+- 현재 순서는 통과하고 역순·필수 게이트 누락·공존 충돌은 검출된다.
+- 양쪽 planning reference의 승인된 순서는 유지된다.
+- F01과 기존 보호·사용자 선호 요구가 충족된다.
+- 공통·Codex·manifest·공백 검사가 통과한다.
+- Claude 전체는 변경되지 않은 BL1/BL2만의 실제 exit 1로 기록된다.
+- 지정 네 파일 범위를 준수한다.
+
+기존 보류 조건에 BQ01의 다른 실패 양상, 정책 순서 변경 필요, checker 약화, 추가 파일 필요, 새 실패·근거 변경을 추가한다. 관련 필수 검사 미실행·실패와 기존 보호 손실도 계속 보류한다.
+
+T1 예정 subject를 다음으로 교체한다.
+
+`fix(arc): planning 작성 책임과 순서 검사 정합화`
+
+Orchestrator가 T1을 수락한 후 필요한 Git 확인·staging·커밋을 직접 수행하고 SHA·내용·남은 상태를 확인한다.
+
+T2의 정책·파일·검사·수락·커밋 후보는 유지한다. 단, T1의 BQ01/F01 해결, 필수 QA, Orchestrator 수락과 검증된 집중 커밋이 모두 있어야 T2를 시작한다. 공유 검사 파일·manifest 때문에 순차 실행하며 동시 편집하지 않는다. T2에서도 공통 검사로 BQ01 회귀가 없는지 확인한다.
+
+### 최종 검증과 남은 승인
+
+기존 최종 검증에 BQ01의 관찰 실패와 T1 이후 해소 증거 추적을 추가한다. T1·T2 수락·커밋 뒤 최종 전체 변경에 대한 독립 Reviewer 검토를 한 번 수행한다. 작업별 Reviewer 게이트를 추가하지 않는다.
+
+정적 검사 통과를 실제 agent 런타임 준수로 표현하지 않는다. 예상 밖 최종 실패는 전체 수락을 막는다.
+
+새 정책 질문은 없다. 이 BQ01 개정을 포함한 새 계획 버전의 별도 사용자 승인과 문서 준비·인계 확인이 필요하다.
