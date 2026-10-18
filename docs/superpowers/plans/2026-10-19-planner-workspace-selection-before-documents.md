@@ -401,7 +401,7 @@ T1의 필수 검사·QA·Orchestrator 수용과 구현 커밋 후 수행한다.
 - 기존 test 식별자를 유지하므로 parity metadata 수정은 기본적으로 불필요하다.
 - 새 검사 이름은 두 파일에 동일하게 추가하며 별도 helper 모듈은 만들지 않는다.
 - 구현 단계의 실제 Git 상태와 문서 커밋 SHA는 Orchestrator가 갱신한다.
-- 사용자는 BL1·BL2를 범위 밖 baseline으로 disposition하는 경로를 선택했다. 수정된 계획은 별도 사용자 승인이 필요하며, 승인 전 disposition 적용·T1 수용·구현 커밋은 보류한다.
+- T1의 BL1·BL2 disposition plan은 별도 승인되었고 T1은 수용·커밋되었다. 이 T2 follow-up plan은 별도 사용자 승인을 기다리며, 승인 전 T2 Coder 배정과 구현 커밋은 보류한다.
 - 소스·테스트 assertion 수정 권한은 추가되지 않았다. 새로운 범위 요구가 발견되면 Orchestrator로 되돌린다.
 
 ## Planner self-review
@@ -414,15 +414,11 @@ T1의 필수 검사·QA·Orchestrator 수용과 구현 커밋 후 수행한다.
 - 실행 제한: 계획 초안만 반환했습니다. 파일 저장·수정, 검사·manifest 갱신·Git 명령 실행, Coder 시작은 하지 않았습니다.
 - 남은 차단 결정: 없습니다. 계획 승인과 실행 준비는 Orchestrator가 조율해야 합니다.
 
-## 수정안 기록 — baseline disposition (사용자 승인 대기)
+## T1 disposition record — baseline disposition approved
 
-이 revised plan version은 T1의 Section 6 검사 기대, T1 수용 기준 6·8·9, 보류 조건, 최종 Reviewer 범위를 위에 통합한대로 수정한다. 기존 plan의 상충 문구는 수정된 계약을 따른다.
+T1의 baseline disposition 승인 기록은 통합 문서 커밋 `1a1867a7cbdf54302163095ac0b4d4415a07e9cc`에 포함되어 있다. QA 증거의 HEAD `f3514128836e684ca20ac33706026c02ee4bfe14`는 실제 QA 수행 당시의 참조이므로 유지한다. 현재 수용된 T1 구현 커밋이자 T2의 선행 커밋은 `43277ce6bbf15899ae1934163df9ca622f20b956`이다.
 
-사용자는 “Baseline 실패 disposition 후 진행” 경로를 선택했다. 이 선택은 수정안을 작성하는 근거이며, 이 revised plan version의 개별 승인을 대신하지 않는다. 수정 계획이 승인되기 전에는 두 실패의 disposition을 적용하지 않고 T1을 수용하거나 구현 커밋하지 않는다.
-
-수정안은 BL1·BL2의 범위 밖 expectation 불일치만 다루며, T1 구현 목표, AC1–AC13, 14개 파일 범위, T1 task·commit 단위는 유지한다. 해당 두 assertion/source literal은 수정하지 않는다. 깨끗한 baseline checkout에서 전체 Claude 모듈을 실행했다고 주장하지 않는다. QA의 baseline 결론은 source-inferred이며 현재 suite 실패는 execution-observed로 기록한다.
-
-QA가 이 수정안 승인 후 실행할 전체 Claude 모듈에서 추가 실패가 나오거나, 근거가 바뀌거나, disposition 조건을 충족하지 못하면 T1을 보류한다. 코드 수정이 필요해지면 수정 plan 승인 후 fresh Coder를 배정한다. 현재 수정안에는 추가 코드 작업이 없다.
+T1은 AC1–AC13의 정책 구조 기준, QA 및 Orchestrator 수용을 완료했고 commit 43277ce6bbf15899ae1934163df9ca622f20b956로 구현 변경을 기록했다. BL1/BL2는 승인된 조건 아래 범위 밖 source-inferred baseline expectation mismatch로 disposition됐다. 전체 Claude module은 두 실패로 종료된 상태를 정확히 보고한다.
 
 ## Planner self-review of amendment
 
@@ -433,3 +429,233 @@ QA가 이 수정안 승인 후 실행할 전체 Claude 모듈에서 추가 실�
 - Reviewer timing을 기존 Coder → QA → Orchestrator 수용·commit → Reviewer 흐름으로 유지했다.
 - 수정 plan approval 전에는 disposition·수용·구현 commit이 진행되지 않는다고 명시했다.
 - 두 test assertion이나 source literal 수정은 추가하지 않았다.
+
+## T2 — 실행 대상 선택 전 예정 문서 정보 제시 보완 (계획 승인 대기)
+
+기존 계획에 추가하는 AC3 후속 과제 초안이다. T1은 이미 수용·커밋되었고, 그 commit을 수정하지 않는다. 이 T2 계획은 별도로 사용자 승인을 받아야 한다.
+
+### 목표와 Reviewer finding
+
+승인 spec §6 및 AC3에 따라 모든 지원 실행 대상 선택 전에 예정 문서 정보를 사용자에게 제시하도록 명시한다.
+
+Reviewer가 확인한 P2는 source-inferred이며 실제 agent 실행에서 관찰된 finding은 아니다. Codex와 Claude의 handoff-prep은 예정 문서 범위를 내부에 기록하도록 하지만 current checkout/new branch 선택에서는 사용자에게 보여주도록 요구하지 않는다. Codex managed worktree 선택지만 별도 planned-scope 문구가 있다.
+
+- Codex handoff-prep: selection gate lines 11–17.
+- Claude handoff-prep: selection gate lines 8–14.
+- 기존 구조 검사는 tests/test_arc_policy.py:1335 및 tests/test_claude_payload.py:507 부근에서 문자열 존재만 확인해 일반 선택지 제시를 보장하지 않는다.
+
+이 finding은 기존 AC3을 빠짐없이 구현하는 수정이므로 새 spec이 필요하지 않다.
+
+### 선행 과제와 실행 대상
+
+- 선행 과제 T1: accepted commit 43277ce6bbf15899ae1934163df9ca622f20b956.
+- workspace/repository: /Users/yunho/Desktop/project/arc.
+- selected branch: chore/planner-workspace-before-documents.
+- 기준 시점의 HEAD: 43277ce6bbf15899ae1934163df9ca622f20b956; 작업 트리는 clean.
+- 범위·workspace·repository·target이 바뀌지 않으면 사용자의 기존 명시적 선택을 재사용한다. 실제 Git 상태와 ownership은 handoff 전에 다시 확인한다.
+- 새 workspace나 branch를 만들거나 전환하지 않는다.
+
+이 T2 계획의 개별 승인은 Coder 배정 전 필요하다. 승인 뒤 fresh Coder와 fresh QA를 사용한다. T2 plan/version, ownership과 dependency readiness를 canonical record에 추가한다.
+
+### 담당 파일
+
+아래 경로는 모두 /Users/yunho/Desktop/project/arc/ 기준이다.
+
+| 파일 | 변경 |
+|---|---|
+| codex/skill/references/handoff-prep.md | 모든 지원 선택지에 대한 공통 user-facing planned-doc block |
+| claude/skill/references/handoff-prep.md | current checkout/new branch 선택 전에 예정 문서를 사용자에게 제시 |
+| tests/test_arc_policy.py | Codex common block 구조 검사 보강 |
+| tests/test_claude_payload.py | Claude request gate 구조 검사 보강 |
+| MANIFEST.sha256 | 두 보호 payload 변경의 hash 갱신 |
+
+다른 policy/profile/runtime 파일, 범위 밖 검사, tests/installer-parity.json 및 BL1/BL2 assertion/source literal은 수정하지 않는다. 새로운 API나 helper module을 만들지 않는다.
+
+### T2 구현 단계
+
+#### 1. 선택 요청 구조 검사의 RED
+
+두 기존 WorkspaceBeforeDocumentsTests.test_choice_request_uses_planned_documents_and_verified_target 검사를 강화한다.
+
+- 양쪽 테스트는 Execution-target request gate부터 다음 Git mutation evidence gate 바로 전까지 텍스트를 분리한다.
+- Codex는 이 request gate에서 when offering the new managed worktree option 앞의 공통 제시 블록만 검사한다.
+- Claude는 request gate 전체를 common block으로 검사한다. Claude test는 managed-worktree marker를 요구하거나 분할자로 사용하지 않는다.
+- 두 테스트는 common block 안의 present to the user subsection에 planned-document 목록과 verified target 정보를 요구한다.
+- subsection은 explicit choice instruction보다 앞에 있어야 한다.
+- 내부 기록 문구나 Codex의 worktree 전용 문구만 있어서는 통과하지 않는다.
+
+공통 정책 문구:
+
+```text
+For every supported execution-target option, before obtaining the user's
+choice, present to the user:
+```
+
+그 아래 사용자에게 보여줄 목록:
+
+- planned document list.
+- 문서별 scope와 coverage.
+- repository-relative expected paths.
+- dependencies와 order.
+- 아직 writing/approval을 기다리는 pending 상태.
+- verified absolute workspace, repository, current branch/detached HEAD와 base HEAD.
+- 새 branch candidate와 충돌 상태(선택지로 제시할 때).
+- staged/unstaged/untracked changes, preservation, edit ownership.
+
+이 블록 뒤에 Obtain explicit choice 지시가 있어야 한다. Existing managed-worktree paragraph continues to provide Codex-specific source/repository/common-directory/base/branch/name information; app-determined actual destination path stays unchanged.
+
+테스트 helper 요점:
+
+```python
+text = self.text("handoff-prep")
+request_heading = "### execution-target request gate"
+mutation_heading = "### git mutation evidence gate"
+self.assertIn(request_heading, text)
+self.assertIn(mutation_heading, text)
+gate = text.split(request_heading, 1)[1].split(mutation_heading, 1)[0]
+# In the Codex test, exclude only the worktree-specific subsection:
+marker = "when offering the new managed worktree option"
+self.assertIn(marker, gate)
+common = gate.split(marker, 1)[0]
+
+# In the Claude test, the whole request gate is the common block:
+common = gate
+
+self.assertIn(
+    "for every supported execution-target option, before obtaining the user's choice, "
+    "present to the user:",
+    common,
+)
+presentation = common.split("present to the user:", 1)[1].split(
+    "obtain explicit choice", 1
+)[0]
+for phrase in (
+    "planned document list",
+    "scope and coverage",
+    "repository-relative expected paths",
+    "dependencies and order",
+    "pending writing and approval status",
+    "verified absolute workspace",
+    "current branch or detached head",
+    "base head",
+    "staged/unstaged/untracked changes",
+    "preservation and edit ownership",
+):
+    self.assertIn(phrase, presentation)
+self.assertIn("does not require completed documents or individual approvals", gate)
+```
+
+- [ ] 실행 전에 current tests가 이 프롬프트 제시 조건을 보장하지 않는지를 확인한다.
+
+Focused command:
+
+```sh
+cd /Users/yunho/Desktop/project/arc/tests
+python3 -B -m unittest -v test_arc_policy.WorkspaceBeforeDocumentsTests.test_choice_request_uses_planned_documents_and_verified_target test_claude_payload.WorkspaceBeforeDocumentsTests.test_choice_request_uses_planned_documents_and_verified_target
+```
+
+유효한 RED는 두 선택 gate의 user-facing planned-doc block 누락 assertion이다. 수집/import 오류는 유효한 RED가 아니다.
+
+#### 2. 양쪽 handoff-prep gate 수정과 GREEN
+
+- [ ] Codex와 Claude의 execution-target request gate에 모든 지원 선택지 전에 예정 문서 정보를 사용자에게 제시하도록 명시한다.
+- [ ] 문서 목록·scope/coverage·repository-relative 예상 경로·dependency/order·pending status를 common presentation block에 넣는다.
+- [ ] verified target inputs를 같은 block에서 계속 제시한다.
+- [ ] 내부 확인·기록 의무와 문서 미완성/미승인만으로 choice를 막지 않는 규칙을 보존한다.
+- [ ] 현재 checkout·new branch 양쪽에 공통 block을 적용한다. Codex worktree는 그 아래에서 기존 source/base/branch/name details를 유지한다.
+- [ ] Claude의 managed-worktree 미지원과 app-determined path rules를 유지한다.
+- [ ] 두 focused tests를 다시 실행해 PASS를 확인한다.
+
+#### 3. Manifest 갱신
+
+- [ ] 두 T2 policy 파일의 보호 payload hash가 바뀐 뒤 manifest를 갱신한다.
+
+후보 명령:
+
+```sh
+cd /Users/yunho/Desktop/project/arc
+node scripts/update-manifest.mjs
+```
+
+예상 변경은 두 handoff-prep policy hashes다. 추가 경로나 삭제가 보이면 멈추고 조사한다.
+
+### 필수 QA와 BL1/BL2 disposition
+
+Fresh QA는 T2 focused tests와 다음 명령을 실행한다.
+
+```sh
+cd /Users/yunho/Desktop/project/arc
+python3 -B -m unittest discover -v -s tests -p test_arc_policy.py
+python3 -B -m unittest discover -v -s tests -p test_claude_payload.py
+node scripts/check-installer-parity.mjs
+node scripts/update-manifest.mjs --check
+git diff --check
+```
+
+기대 결과:
+
+- T2 focused tests PASS; existing 14 T1 structural tests PASS.
+- 전체 Codex module PASS.
+- 전체 Claude module 실행. 기존 BL1/BL2만 approved disposition에 따라 남을 수 있고 추가 실패/오류는 보류.
+- parity, manifest --check, diff check PASS.
+- test method names와 mapping은 유지한다. tests/installer-parity.json을 수정하지 않는다.
+
+기존 BL1/BL2 disposition은 별도 승인된 plan section에 따른다. QA는 canonical record의 baseline source comparison 증거를 연결하고 T2가 그 test assertions/source literals를 변경하지 않았음을 확인한다. Baseline 결론은 source-inferred, 현재 full-suite failures는 execution-observed로 보고하며, Claude module을 PASS라고 하지 않는다.
+
+QA evidence에는 다음을 남긴다.
+
+- branch/HEAD/current diff와 T1 predecessor commit.
+- 두 focused checks와 두 full module results.
+- prompt block의 정확한 common-request-gate 범위와 assertion.
+- Codex에서 worktree-only 문구가 common assertion 범위에서 제외된 근거.
+- user-facing planned-doc list와 verified-target list를 같은 pre-choice block에서 검사한 증거.
+- BL1/BL2 disposition과 추가 failure 부재.
+- manifest, parity, whitespace checks.
+- AC3에 대한 판정 및 기존 T1 AC1–AC13 regression 결과.
+
+### T2 수용 기준
+
+1. 양쪽 common request gate가 모든 지원 선택지에 대해 선택 전에 사용자 제시를 요구한다.
+2. 사용자 제시 블록에 문서 list, scope/coverage, repository-relative path, dependency/order, pending status가 있다.
+3. 같은 블록에 verified target inputs가 계속 제시된다.
+4. 검사는 internal recording이나 Codex worktree-only paragraph만으로 통과하지 않는다.
+5. 두 T2 focused tests, full Codex module, parity, manifest check와 diff check가 통과한다.
+6. Full Claude module 결과는 approved BL1/BL2 disposition만 포함한다. 추가 failure는 보류다.
+7. T1의 나머지 AC1–AC13, role/approval/handoff contracts, target/worktree rules가 유지된다.
+8. QA evidence와 finding을 확인한 Orchestrator가 T2를 수용한다.
+
+### T2 보류 조건
+
+- T2 plan approval, accepted T1 predecessor commit, current branch/target evidence, handoff record 누락.
+- 실제 작업 공간·branch·ownership·Git 상태 불일치.
+- 사용자 제시 정보가 내부 기록 또는 worktree 전용 문단에만 존재.
+- 필요한 검사 실패·미실행·environment block.
+- BL1·BL2 외 추가 실패 또는 해당 assertion/source 변경.
+- 예상하지 않은 manifest diff, parity inventory 변경, five-file scope expansion.
+- unclear ownership, unrelated staged files, unexpected branch/HEAD, partial failure.
+
+문제 해결을 위해 T1을 amend하거나 BL1/BL2를 임의 수정하지 않는다.
+
+### T2 수용·커밋과 Reviewer 재확인
+
+Fresh QA 통과 후 Orchestrator가 T2를 수용하고 T2 담당 다섯 파일만 별도 focused commit으로 만든다.
+
+Korean commit message candidate:
+
+```text
+fix(arc): 사용자 선택 전에 예정 문서 제시
+```
+
+T2 stage paths/content, commit SHA/message, final branch/HEAD/status를 검증해 canonical record에 기록한다. T1 commit 43277ce6bbf15899ae1934163df9ca622f20b956는 변경하지 않는다.
+
+T2 commit 뒤 기존 independent Reviewer에게 P2와 AC3 user-facing selection path만 재확인 요청한다. 전체 review를 반복하지 않는다. P2 resolution, QA, targeted Reviewer, final clean Git verification 전에는 overall completion을 선언하지 않는다.
+
+### T2 self-review
+
+- T2는 승인 spec AC3와 Reviewer finding만 해결한다; T1은 수용·커밋 상태로 보존한다.
+- 두 runtime의 common request gate를 검사하고 Claude에서 worktree 분기자를 요구하지 않는다.
+- 문서 정보가 사용자에게 실제로 제시되어야 검사 통과하도록 했다.
+- repository-relative planned paths와 verified absolute target, app-determined worktree path 규칙을 구분했다.
+- 기존 baseline failures, target choice reuse, branch/worktree safety와 T1 contracts는 그대로 유지한다.
+- New spec, runtime API, unrelated test cleanup, parity inventory change는 필요 없다.
+- No file was saved or edited. A separate user plan approval is required before T2 Coder assignment.
