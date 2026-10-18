@@ -154,8 +154,8 @@ Design and plan depth are independent of verification risk. Planner alone uses l
 (Role gate); Planner proposes, Orchestrator decides the path and plan depth;
 Orchestrator integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
 required by Orchestrator's recorded plan-depth judgment (planning item 3) use planning save gates; a required plan alone
-does not require a spec. Complete all current-scope approved documents before
-execution-target selection and document commit preparation. A missing required skill blocks its stage.
+does not require a spec. Obtain explicit execution-target choice and verify actual target preparation before formal drafting
+and saving. Complete all current-scope individual document approvals before the batch docs commit. A missing required skill blocks its stage.
 
 ## Common handoff gate
 

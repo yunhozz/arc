@@ -4,6 +4,9 @@ Orchestrator reviews task evidence and accepts the approved task before committi
 Verify approved plan/task, absolute workspace, branch/HEAD, index/worktree/untracked state and ownership.
 Stage exactly the accepted task paths; inspect staged scope and content to exclude unrelated changes.
 After acceptance, Orchestrator creates the focused local commit without additional user commit approval.
+After Orchestrator accepts a task, the next action is the required Git state/scope checks, staging, and focused commit.
+Do not commit before task acceptance or defer the task commit until the plan ends.
+Only Orchestrator accepts the task and executes its focused commit; Coder completion does not replace acceptance.
 Existing plan-skip paths have no new automatic commit obligation; their commits follow applicable guidance and user requests.
 Commit one logical task promptly, using Conventional Commits with a concise English description.
 Planning documents have their own batch docs commit before Coder handoff.
@@ -11,8 +14,7 @@ Planning documents have their own batch docs commit before Coder handoff.
 After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state.
 Preserve unrelated changes; never automatically unstage, amend, reset, clean, stash, or delete branches.
 On failure stop dependent work and report actual state and completed steps. Do not blindly repeat a commit or staging
-command. Push, publication and merge require user authorization. A role may commit only when Orchestrator explicitly
-assigns that action; Orchestrator retains acceptance authority.
+command. Push, publication and merge require user authorization. Coder must not commit, even when explicitly assigned.
 
 Hold the task commit for unmet or unresolved criteria, failed or not-run required checks, undispositioned findings or
 evidence gaps, scope expansion, ownership or staged scope/content mismatch, unexpected workspace/branch/HEAD/Git state,

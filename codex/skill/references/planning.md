@@ -2,6 +2,16 @@
 
 Read before design/plan-depth decisions, spec/plan drafting and approval, and the first spec/plan save.
 
+## Formal drafting boundary
+
+Initial design proposals and brainstorming may precede execution-target choice. Formal spec or plan drafting includes a
+complete draft before saving, even when returned only in chat. Before formal drafting and saving, Orchestrator supplies
+and records the actual absolute workspace/repository, branch or detached HEAD, HEAD, changes and ownership,
+explicit choice and preparation evidence, and absolute document paths inside that target. Planner drafts for that
+verified workspace; Orchestrator saves directly in the selected target. Missing or mismatched evidence stops the
+affected drafting or save and is reported to Orchestrator. Planned scope and intended paths are not actual preparation.
+Initial target preparation does not authorize Coder; the complete handoff gate still applies.
+
 ## Design and planning
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls
@@ -59,11 +69,11 @@ Orchestrator integrates, saves, self-reviews, and obtains individual written-spe
 drafting
 and execution preparation. This applies that judgment, not a new spec-necessity rule.
 
+Design, spec, plan, and brainstorming drafts are authored only by Planner.
 Orchestrator must not substitute an independently authored spec or plan for Planner's complete draft.
 If the draft has substantive
 omissions, return them to Planner for completion; if Planner fails or is unavailable, stop and report,
-never draft instead. A user may explicitly change the writing responsibility; record
-that change and its evidence in the brief. Design approval alone does not change ownership.
+never draft instead. Design approval alone does not change ownership.
 
 ## Top-level plan tasks
 
@@ -119,8 +129,8 @@ For a required Bounded written spec, also verify Orchestrator's recorded plan-de
 spec-necessity rationale and scope, and Planner's proportional complete draft and self-review. Saving or approving
 the short design does not replace the required spec's drafting, self-review, or individual approval.
 Architectural and required Bounded specs enter as approved versions in the applicable document set; complete
-individual written-spec approval before dependent plan drafting and execution preparation. This gate
-permits saving for review and does not require written-spec approval or execution-target choice. Do not describe an
+individual written-spec approval before dependent plan drafting. This gate
+permits saving for review and does not require written-spec approval; it requires valid execution-target choice and actual preparation. Do not describe an
 uncommitted file as committed.
 
 **Plan save:** Verify the approved design and, when required, approved written-spec version and approval evidence,
@@ -143,19 +153,17 @@ whether a written spec is required; do not infer one from plan necessity. Spec s
 required Bounded specs, and plan steps only to required plans. These gates add no new spec obligation to Spike,
 Bounded plan-skip, or non-behavior documentation/configuration paths; preserve existing omission rationales.
 
-Normal order: design approval → required spec writing/saving/self-review and written-spec approval → required plans
-writing/saving/self-review and individual approvals → complete applicable set → explicit execution-target choice and
-any approved branch switch or worktree creation → existing-commit verification and one batch commit of remaining
-approved documents →
-final Git verification → Coder handoff. For the selected worktree path, creation/identity verification and
-approved-document transfer precede the target batch docs commit; preserve source changes under handoff.
-Written-spec approval still precedes implementation planning.
+Normal order: initial design approval → execution-target choice → target preparation and verification →
+formal spec drafting (when required), saving and self-review → written-spec approval → formal plan drafting
+(when required), saving and self-review → individual plan approvals → complete applicable set → existing-commit
+verification and one batch docs commit of remaining approved documents → final Git verification → Coder handoff.
+Written-spec approval precedes dependent plan drafting. On document-omission paths skip only the inapplicable document
+steps; preserve target choice, preparation, state/ownership checks and Coder gates.
 
-While documents are being written, reviewed, or approved, do not request execution-checkout selection, create/switch
-branches, perform worktree creation, stage documents, or commit planning documents for this task's execution
-preparation. Read-only workspace,
-repository, and Git-state inspection is allowed. An incomplete set or any missing approval blocks preparation and
-handoff; approval of some plans does not permit starting their Coder work ahead of the remaining applicable plans.
+While documents are being written, reviewed, or approved, do not stage documents or commit planning documents.
+Selection and initial target preparation happen before formal drafting; document completion is a staging/commit gate,
+not an initial preparation gate. An incomplete set or missing applicable approval blocks document commit and Coder,
+not the initial choice request. No early Coder work is authorized by approval of only some documents.
 
 This ARC explicitly defers the local `brainstorming` instruction to commit the spec before written-spec review:
 save and self-review the spec, obtain written-spec approval without committing it, then write and obtain approval for
@@ -167,8 +175,8 @@ are not permission for document commits during planning or for starting Coder.
 |------|--------------------------------------|
 | Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation; no new spec obligation is added by this gate. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only Orchestrator/Planner investigation without Coder does not trigger that gate. |
 | Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale; this gate adds no new spec obligation. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
-| Bounded, plan required | Approve the short design and every required plan; write a spec only when Orchestrator's recorded plan-depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting and preparation. Complete all applicable artifacts before one preparation batch and the common gate. |
-| Architectural | Approve design, then written spec, then every required plan using `writing-plans`; complete the document set before target selection, batch preparation, final verification, and the common gate. |
+| Bounded, plan required | Approve the short design and every required plan; write a spec only when Orchestrator's recorded plan-depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting. Select and prepare the target before formal drafting; complete all applicable artifacts before one docs batch and the common gate. |
+| Architectural | Approve design, then written spec, then every required plan using `writing-plans`; select and prepare the target before formal drafting; complete the document set before batch preparation, final verification, and the common gate. |
 | Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; this gate adds no new spec obligation. Still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
 
 Spike probe and subsequent implementation are separate approval scopes. Report probe findings, reassess implementation
@@ -178,7 +186,7 @@ execution-target
 choice, Git state/ownership checks, or handoff evidence.
 
 If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
-before preparation. Changed approved documents require approval of the revised version. If implementation reveals new
+before dependent drafting or commit. Changed approved documents require approval of the revised version. If implementation reveals new
 scope, stop affected execution until that scope's documents, approvals, and preparation are complete. Do not amend old
 commits to retroactively include it. An already-running Coder must stop before edits dependent on new plans; inspect
 current changes/Git state and do not retroactively claim preparation. A restart without document changes follows Choice

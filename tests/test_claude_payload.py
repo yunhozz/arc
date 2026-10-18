@@ -335,11 +335,11 @@ class ClaudePayloadTests(unittest.TestCase):
         prep = self.read_claude('skill/references/handoff-prep.md')
         self.assert_all(prep, ('before the first commit', 'temporary message', 'uncommitted documents are not absent'))
         hand = self.read_claude('skill/references/handoff.md')
-        self.assert_all(hand, ('after applicable approvals and document completeness', 'never fall back automatically'))
+        self.assert_all(hand, ('before dependent drafting or preparation; reselection does not require document completion', 'never fall back automatically'))
         plan = self.read_claude('skill/references/planning.md')
         self.assert_all(plan, ('Administrative status updates must accurately describe actual progress',
                                'before Coder or a Orchestrator direct edit', 'regardless of locality, risk, or size',
-                               'does not require written-spec approval or execution-target choice',
+                               'does not require written-spec approval; it requires valid execution-target choice and actual preparation',
                                'leave runtime compliance unverified', 'stops before edits dependent on new plans'))
         rec = self.read_claude('skill/references/git-recovery.md')
         self.assert_all(rec, ('never broad Git access', 'concurrent Git activity', 'remaining uncertainty'))
@@ -485,3 +485,82 @@ class InternalSuperpowersContractTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WorkspaceBeforeDocumentsTests(unittest.TestCase):
+    # Approved T1 structural checks; consuming-agent runtime compliance is unverified.
+    def text(self, name):
+        return " ".join((ROOT / "claude/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")).read_text().lower().split())
+
+    def test_normal_order_selects_and_prepares_before_formal_drafting(self):
+        planning = self.text("planning")
+        self.assertIn("normal order:", planning)
+        order = planning.split("normal order:", 1)[1].split("coder handoff", 1)[0]
+        cursor = 0
+        for marker in ("initial design approval", "execution-target choice", "target preparation and verification",
+                       "formal spec drafting", "written-spec approval", "formal plan drafting", "individual plan approvals",
+                       "complete applicable set", "batch docs commit", "final git verification"):
+            found = order.find(marker, cursor)
+            self.assertGreaterEqual(found, cursor, marker)
+            cursor = found + len(marker)
+
+    def test_choice_request_uses_planned_documents_and_verified_target(self):
+        text = self.text("handoff-prep")
+        request_heading = "### execution-target request gate"
+        mutation_heading = "### git mutation evidence gate"
+        self.assertIn(request_heading, text)
+        self.assertIn(mutation_heading, text)
+        gate = text.split(request_heading, 1)[1].split(mutation_heading, 1)[0]
+        common = gate
+        self.assertIn(
+            "for every supported execution-target option, before obtaining the user's choice, "
+            "present to the user:",
+            common,
+        )
+        self.assertIn("obtain explicit choice", common)
+        self.assertLess(common.index("present to the user:"), common.index("obtain explicit choice"))
+        presentation = common.split("present to the user:", 1)[1].split("obtain explicit choice", 1)[0]
+        for phrase in ("planned document list", "scope and coverage", "repository-relative expected paths",
+                       "dependencies and order", "pending writing and approval status", "verified absolute workspace",
+                       "repository", "current branch or detached head", "base head", "new-branch candidate",
+                       "collision status", "staged/unstaged/untracked changes", "preservation and edit ownership"):
+            self.assertIn(phrase, presentation)
+        self.assertIn("does not require completed documents or individual approvals", gate)
+
+    def test_formal_drafting_and_save_require_prepared_target(self):
+        text = self.text("planning")
+        for phrase in ("complete draft before saving", "initial design proposals", "before formal drafting and saving",
+                       "actual absolute workspace", "choice and preparation evidence", "directly in the selected target"):
+            self.assertIn(phrase, text)
+        profile = " ".join((ROOT / "claude/agents/arc-planner.md").read_text().lower().split())
+        for phrase in ("before formal drafting", "actual absolute workspace", "choice and preparation evidence", "document paths",
+                       "initial design proposals"):
+            self.assertIn(phrase, profile)
+        self.assertIn("before formal drafting", self.text("core"))
+
+    def test_phase_specific_git_and_batch_gates(self):
+        text = self.text("handoff-prep")
+        for phrase in ("initial target preparation", "does not require the complete approved document set",
+                       "staging and commit", "complete approved document set", "index", "ownership"):
+            self.assertIn(phrase, text)
+        self.assertIn("initial target preparation does not authorize coder", self.text("handoff"))
+
+    def test_platform_targets_and_legacy_transfer_boundaries(self):
+        text = self.text("handoff-prep")
+        self.assertIn("current checkout", text)
+        self.assertIn("task branch", text)
+        self.assertIn("arc-managed worktree execution is unsupported", text)
+        self.assertNotIn("mcp__codex_app__create_worktree", text)
+
+    def test_choice_reuse_and_reselection_before_documents(self):
+        text = self.text("handoff")
+        for phrase in ("formal drafting", "authorized head", "fresh explicit choice", "before dependent drafting",
+                       "does not require document completion"):
+            self.assertIn(phrase, text)
+
+    def test_document_omissions_and_coder_gate_remain(self):
+        text = self.text("planning")
+        for phrase in ("a required plan does not itself require a written spec", "spike", "bounded", "non-behavior",
+                       "no new spec obligation"):
+            self.assertIn(phrase, text)
+        self.assertIn("coder", self.text("handoff"))

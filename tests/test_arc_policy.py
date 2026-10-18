@@ -154,7 +154,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
         planning = self.section("planning", "### complete planning-document set")
         self.contracts(planning, (
-            r"normal order: design approval.*written-spec approval.*individual approvals.*complete applicable set.*explicit execution-target choice.*batch commit.*final git verification.*coder handoff",
+            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*coder handoff",
             r"while documents.*do not.*stage documents.*commit planning documents",
         ))
         self.contracts(commit, (
@@ -200,14 +200,14 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertNotIn("choice request", worktree_row)
         self.assertNotIn("selection target", worktree_row)
         gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
-        self.assertRegex(gate, r"new managed worktree.*selection target.*source absolute path.*repository.*git common directory.*branch or detached head.*verified full source head sha.*approved branch candidate.*collision status.*descriptive name.*approved document transfer/commit scope")
+        self.assertRegex(gate, r"new managed worktree.*selection target.*source absolute path.*repository.*git common directory.*branch or detached head.*verified full source head sha.*approved branch candidate.*collision status.*descriptive name.*planned document scope.*existing approved document transfer/commit scope")
         self.assertRegex(gate, r"app chooses the actual destination path: do not ask the user for a destination path or propose one")
         self.assertRegex(gate, r"read \[handoff-worktree\.md\]\(handoff-worktree\.md\) only after the user explicitly selects that option and before its creation, branch work, or document transfer")
         self.assertNotRegex(policy_text("handoff-prep").split("## workspace handoff", 1)[0], r"choice request also read")
         self.assertRegex(policy_text("handoff-worktree").split("## workspace handoff", 1)[0], r"reads after the user explicitly selects the new managed worktree option, before its creation, branch work or document transfer")
         self.assertNotIn("before an execution-target choice request", policy_text("handoff-worktree").split("## workspace handoff", 1)[0])
         self.assertRegex(policy_text("handoff-worktree"),
-                         r"verify final approved branch and head before document transfer, the batch docs commit, final git verification and coder handoff")
+                         r"verify final approved branch and head before formal drafting, saving, document transfer, the batch docs commit, final git verification and coder handoff")
         self.assertRegex(policy_text("handoff"), r"new managed worktree and task branch \(selection target under handoff-prep\.md; contract in handoff-worktree\.md after selection\)")
         self.assertRegex(policy_text("planning").split("### managed worktree preparation", 1)[1], r"see \[handoff-worktree\.md\]\(handoff-worktree\.md\)")
         self.assertRegex(core, r"orchestrator.*each assigned role.*must read")
@@ -216,13 +216,13 @@ class ConditionalReferenceTests(unittest.TestCase):
     def test_planning_order_and_recovery_protections_remain(self) -> None:
         planning = policy_text("planning")
         for contract in (
-            r"normal order: design approval.*written-spec approval.*individual approvals.*complete applicable set.*explicit execution-target choice.*batch commit.*final git verification.*coder handoff",
-            r"while documents.*do not request execution-checkout selection.*stage documents.*commit planning documents",
+            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*coder handoff",
+            r"while documents.*do not stage documents or commit planning documents",
             r"architectural work always.*writing-plans.*written plan approval",
             r"skip planning only for one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
             r"changed approved documents require approval of the revised version",
-            r"while documents.*do not.*worktree creation.*stage documents.*commit planning documents",
-            r"normal order:.*complete applicable set.*explicit execution-target choice.*approved branch switch or worktree creation.*batch commit.*final git verification",
+            r"while documents.*do not.*stage documents.*commit planning documents",
+            r"normal order:.*execution-target choice.*target preparation and verification.*formal spec drafting.*complete applicable set.*batch docs commit.*final git verification",
         ):
             self.assertRegex(planning, contract)
         recovery = policy_text("git-recovery")
@@ -598,9 +598,9 @@ class ARCPreactionGateTests(unittest.TestCase):
             self.assertRegex(spec, r"saving or approving the short design does not replace.*required spec.*drafting.*self-review.*individual approval")
         with self.subTest(path="spec_approval_order"):
             self.assertRegex(spec, r"architectural and required bounded specs.*approved versions.*applicable document set")
-            self.assertRegex(spec, r"written-spec approval.*before dependent plan drafting and execution preparation")
+            self.assertRegex(spec, r"written-spec approval.*before dependent plan drafting")
         with self.subTest(path="save_without_circular_approval"):
-            self.assertIn("does not require written-spec approval or execution-target choice", spec)
+            self.assertIn("does not require written-spec approval; it requires valid execution-target choice and actual preparation", spec)
         complete = planning.split("### complete planning-document set")[1].split("### evidence refresh and limits")[0]
         rows = {line.split("|")[1].strip().lower(): " ".join(line.lower().split())
                 for line in (REPO / "codex/skill/references/planning.md").read_text().splitlines()
@@ -631,10 +631,10 @@ class ARCPreactionGateTests(unittest.TestCase):
             self.assertIn(trigger, handoff)
         self.assertIn("### execution-target request gate", policy_text("handoff"))
         choice = policy_text("handoff").split("### execution-target request gate")[1].split("### git mutation evidence gate")[0]
-        for phrase in ("complete document list", "absolute paths", "approved versions", "individual approval evidence",
-                       "dependencies", "no unfinished applicable documents"):
+        for phrase in ("planned document scope", "absolute paths", "design/plan depth", "valid omissions",
+                       "dependencies", "changes", "ownership"):
             self.assertIn(phrase, choice)
-        self.assertRegex(choice, r"unfinished.*missing approval.*stop.*request")
+        self.assertIn("does not require completed documents or individual approvals", choice)
         self.assertIn("do not require choice evidence before asking for that choice", choice)
         self.assertIn("required artifacts, not a spec on every path", choice)
 
@@ -929,14 +929,21 @@ class RolePolicyTests(unittest.TestCase):
             "Checkout approval",
             (
                 r"before every coder first start and restart",
-                r"after applicable design/spec/plan approvals.*explicit user choice.*current checkout.*new task branch.*new managed worktree and task branch",
+                r"after initial design approval.*explicit user choice.*current checkout.*new task branch.*new managed worktree and task branch",
                 r"explicit user choice for the first start under the explicit choice rule: use the current checkout",
             ),
         )
         assert_term_defined(self, "explicit choice", "coder")
         self.assertRegex(policy_text("handoff"), r"\(selection target under handoff-prep\.md;")
         gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
-        self.assertRegex(gate, r"present the verified absolute workspace, current branch or detached head, base head, and any validated new-branch candidate")
+        common = gate.split("when offering the new managed worktree option", 1)[0]
+        self.assertIn("present to the user:", common)
+        self.assertIn("obtain explicit choice", common)
+        self.assertLess(common.index("present to the user:"), common.index("obtain explicit choice"))
+        presentation = common.split("present to the user:", 1)[1].split("obtain explicit choice", 1)[0]
+        for phrase in ("verified absolute workspace", "intended repository", "current branch or detached head",
+                       "base head", "validated new-branch candidate", "collision status"):
+            self.assertIn(phrase, presentation)
 
     def test_workspace_handoff_current_checkout_requires_explicit_choice(self) -> None:
         self._assert_workspace_handoff_contracts(
@@ -1030,7 +1037,7 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_workspace_handoff_worktree_scoped_choice_and_base(self) -> None:
         gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
-        self.assertRegex(gate, r"selection target.*source absolute path.*repository.*common directory.*branch or detached head.*full.*sha.*approved branch candidate.*collision.*name.*approved document")
+        self.assertRegex(gate, r"selection target.*source absolute path.*repository.*common directory.*branch or detached head.*full.*sha.*approved branch candidate.*collision.*name.*planned document scope")
         self.assertRegex(gate, r"verif.*validates the approved branch candidate and collision status.*new task branch naming rules.*unrelated staged changes.*head/index/working-tree state.*before offering")
         self.assertRegex(gate, r"do not ask the user for a destination path.*do not fetch or substitute a remote head or default branch")
         self._assert_workspace_handoff_contracts("New managed worktree", (
@@ -1069,7 +1076,7 @@ class RolePolicyTests(unittest.TestCase):
             r"operationid.*mcp__codex_app__get_worktree_creation_status.*completed",
             r"progress.*not.*success",
             r"registration failure.*only.*returned workspace.*mcp__codex_app__attach_worktree",
-            r"before.*managed.*current.chat attachment.*approved branch.*no document transfer.*staging.*commit.*coder",
+            r"before.*managed.*current.chat attachment.*approved branch.*no formal drafting.*saving.*document transfer.*staging.*commit.*coder",
             r"unavailable.*reattachment.*mismatch.*stop.*record",
             r"do not.*raw git.*other name/ref/path/branch.*cleanup.*delete.*prune.*archive",
         ))
@@ -1153,8 +1160,8 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_worktree_planning_and_core_preparation_gates(self) -> None:
         planning = policy_text("planning").split("### complete planning-document set", 1)[1].split("### evidence refresh", 1)[0]
-        self.assertRegex(planning, r"while documents.*do not.*worktree creation.*stage documents.*commit planning documents")
-        self.assertRegex(planning, r"normal order:.*complete applicable set.*explicit execution-target choice.*approved branch switch or worktree creation.*batch commit")
+        self.assertRegex(planning, r"while documents.*do not.*stage documents.*commit planning documents")
+        self.assertRegex(planning, r"normal order:.*execution-target choice.*target preparation and verification.*formal spec drafting.*complete applicable set.*batch docs commit")
         core = policy_text("core").split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
         self.assertRegex(core, r"selected worktree.*common directory.*registration.*source preservation")
         self.assertRegex(core, r"depth-2 roles use the supplied workspace")
@@ -1313,3 +1320,85 @@ class InternalSuperpowersContractTests(unittest.TestCase):
             for name in names:
                 self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
         self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
+
+
+class WorkspaceBeforeDocumentsTests(unittest.TestCase):
+    # Approved T1 structural checks; consuming-agent runtime compliance is unverified.
+    def text(self, name):
+        return " ".join((REPO / "codex/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")).read_text().lower().split())
+
+    def test_normal_order_selects_and_prepares_before_formal_drafting(self):
+        planning = self.text("planning")
+        self.assertIn("normal order:", planning)
+        order = planning.split("normal order:", 1)[1].split("coder handoff", 1)[0]
+        cursor = 0
+        for marker in ("initial design approval", "execution-target choice", "target preparation and verification",
+                       "formal spec drafting", "written-spec approval", "formal plan drafting", "individual plan approvals",
+                       "complete applicable set", "batch docs commit", "final git verification"):
+            found = order.find(marker, cursor)
+            self.assertGreaterEqual(found, cursor, marker)
+            cursor = found + len(marker)
+
+    def test_choice_request_uses_planned_documents_and_verified_target(self):
+        text = self.text("handoff-prep")
+        request_heading = "### execution-target request gate"
+        mutation_heading = "### git mutation evidence gate"
+        self.assertIn(request_heading, text)
+        self.assertIn(mutation_heading, text)
+        gate = text.split(request_heading, 1)[1].split(mutation_heading, 1)[0]
+        marker = "when offering the new managed worktree option"
+        self.assertIn(marker, gate)
+        common = gate.split(marker, 1)[0]
+        self.assertIn(
+            "for every supported execution-target option, before obtaining the user's choice, "
+            "present to the user:",
+            common,
+        )
+        self.assertIn("obtain explicit choice", common)
+        self.assertLess(common.index("present to the user:"), common.index("obtain explicit choice"))
+        presentation = common.split("present to the user:", 1)[1].split("obtain explicit choice", 1)[0]
+        for phrase in ("planned document list", "scope and coverage", "repository-relative expected paths",
+                       "dependencies and order", "pending writing and approval status", "verified absolute workspace",
+                       "repository", "current branch or detached head", "base head", "new-branch candidate",
+                       "collision status", "staged/unstaged/untracked changes", "preservation and edit ownership"):
+            self.assertIn(phrase, presentation)
+        self.assertIn("does not require completed documents or individual approvals", gate)
+
+    def test_formal_drafting_and_save_require_prepared_target(self):
+        text = self.text("planning")
+        for phrase in ("complete draft before saving", "initial design proposals", "before formal drafting and saving",
+                       "actual absolute workspace", "choice and preparation evidence", "directly in the selected target"):
+            self.assertIn(phrase, text)
+        profile = " ".join((REPO / "codex/agents/arc-planner.toml").read_text().lower().split())
+        for phrase in ("before formal drafting", "actual absolute workspace", "choice and preparation evidence", "document paths",
+                       "initial design proposals"):
+            self.assertIn(phrase, profile)
+        self.assertIn("before formal drafting", self.text("core"))
+
+    def test_phase_specific_git_and_batch_gates(self):
+        text = self.text("handoff-prep")
+        for phrase in ("initial target preparation", "does not require the complete approved document set",
+                       "staging and commit", "complete approved document set", "index", "ownership"):
+            self.assertIn(phrase, text)
+        self.assertIn("initial target preparation does not authorize coder", self.text("handoff"))
+
+    def test_platform_targets_and_legacy_transfer_boundaries(self):
+        text = self.text("handoff-prep")
+        self.assertIn("current checkout", text)
+        self.assertIn("task branch", text)
+        worktree = self.text("handoff-worktree")
+        for phrase in ("before formal drafting", "registration", "current-chat attachment", "common directory", "approved branch", "legacy or restart", "do not move, delete, or modify the source documents"):
+            self.assertIn(phrase, worktree)
+
+    def test_choice_reuse_and_reselection_before_documents(self):
+        text = self.text("handoff")
+        for phrase in ("formal drafting", "authorized head", "fresh explicit choice", "before dependent drafting",
+                       "does not require document completion"):
+            self.assertIn(phrase, text)
+
+    def test_document_omissions_and_coder_gate_remain(self):
+        text = self.text("planning")
+        for phrase in ("a required plan does not itself require a written spec", "spike", "bounded", "non-behavior",
+                       "no new spec obligation"):
+            self.assertIn(phrase, text)
+        self.assertIn("coder", self.text("handoff"))

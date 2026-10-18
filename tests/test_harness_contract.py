@@ -22,8 +22,13 @@ COMMON_CONTRACTS = {
     )),
     "DOCUMENT_ORDER": ("references/planning.md", (
         r"written-spec approval.*before.*(?:implementation planning|dependent plan)",
-        r"complete.*(?:set|documents).*explicit execution-target choice.*batch commit.*final git verification.*coder handoff",
         r"bounded.*spec only when|bounded written spec.*required by orchestrator",
+    )),
+    "AUTHORING_EXCLUSIVITY": ("references/planning.md", (
+        r"drafts are authored only by planner",
+        r"orchestrator must not substitute.*planner.s complete draft",
+        r"(?:return.*planner.*(?:omissions|completion)|return substantive omissions to planner)",
+        r"if planner fails or is unavailable, stop and report.*never draft instead",
     )),
     "HANDOFF_GATE": ("references/handoff.md", (
         r"before.*first start.*restart",
@@ -39,6 +44,12 @@ COMMON_CONTRACTS = {
         r"ownership/resources do not conflict.*check/qa path.*slot.*runtime limit",
         r"completion reports alone do not release dependents",
         r"same-file concurrent coder edits.*(?:blocked|forbidden)",
+    )),
+    "COMMIT_NEXT_ACTION": ("references/commit.md", (
+        r"after orchestrator accepts a task, the next action is the required git state/scope checks, staging, and focused commit",
+    )),
+    "COMMIT_AUTHORITY": ("references/commit.md", (
+        r"only orchestrator accepts the task and executes its focused commit",
     )),
     "COMMIT_BOUNDARY": ("references/commit.md", (
         r"(?:one approved top-level task.*one focused implementation commit|commit one logical task promptly)",
@@ -93,7 +104,7 @@ NATIVE_ADAPTERS = {
     ),
 }
 
-# This test-only table names all nine contracts and each platform's owner.
+# This test-only table names the contracts and each platform's owner.
 POLICY_CONTRACTS = {
     contract: {
         platform: (f"{platform}/skill/{owner}", patterns)
@@ -109,6 +120,10 @@ POLICY_CONTRACTS["NATIVE_ADAPTERS"] = {
     platform: (f"{platform}/skill/SKILL.md", NATIVE_ADAPTERS[platform])
     for platform in PLATFORMS
 }
+
+POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-coder"] = (
+    "claude/agents/arc-coder.md", (r"coder must not commit, even when explicitly assigned",)
+)
 
 
 def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
@@ -127,6 +142,41 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     for contract, owners in POLICY_CONTRACTS.items():
         for path, patterns in owners.values():
             require(contract, path, patterns)
+    for contract, patterns in {
+        "COMMIT_NEXT_ACTION": (
+            r"the task may be committed before orchestrator acceptance",
+            r"the task commit may wait until the plan ends",
+        ),
+        "COMMIT_AUTHORITY": (
+            r"coder may commit when orchestrator explicitly assigns that action",
+            r"a role may commit only when orchestrator explicitly assigns that action",
+            r"do not stage, commit, push, or merge unless orchestrator explicitly assigns that action",
+        ),
+    }.items():
+        for path, _ in POLICY_CONTRACTS[contract].values():
+            text = " ".join(texts.get(path, "").lower().split())
+            for pattern in patterns:
+                if re.search(pattern, text):
+                    failures.append(f"{contract}: {path}: conflicting {pattern}")
+    for platform in PLATFORMS:
+        path = f"{platform}/skill/references/planning.md"
+        if path not in texts:
+            continue
+        text = " ".join(texts[path].lower().split())
+        order = re.search(r"normal order:(.*?)(?:\.(?: |$)|$)", text)
+        sequence = (
+            "initial design approval", "execution-target choice", "target preparation and verification",
+            "formal spec drafting", "written-spec approval", "formal plan drafting",
+            "individual plan approvals", "complete applicable set",
+            "existing-commit verification and one batch docs commit of remaining approved documents",
+            "final git verification", "coder handoff",
+        )
+        if not order or not re.search(".*".join(map(re.escape, sequence)), order.group(1)):
+            failures.append(f"DOCUMENT_ORDER: {path}: missing or reversed Normal order gates")
+        if re.search(r"formal spec and plan drafting must precede execution-target choice", text):
+            failures.append(f"DOCUMENT_ORDER: {path}: conflicting reverse order")
+        if re.search(r"a user may explicitly change (?:the )?writing responsibility", text):
+            failures.append(f"AUTHORING_EXCLUSIVITY: {path}: conflicting user writing override")
     for platform in PLATFORMS:
         root = f"{platform}/skill"
         require("HANDOFF_GATE", f"{root}/SKILL.md", (
@@ -158,6 +208,73 @@ class PolicyContractTests(unittest.TestCase):
     def test_common_contracts_have_platform_owners(self) -> None:
         self.assertEqual(policy_contract_failures(self.texts), [])
 
+    def contract_failures_at(self, contract: str, path: str, text: str) -> list[str]:
+        return [failure for failure in policy_contract_failures({**self.texts, path: text})
+                if failure.startswith(f"{contract}: {path}:")]
+
+    def test_document_order_accepts_choice_before_writing(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/planning.md"
+            with self.subTest(path=path):
+                self.assertEqual(self.contract_failures_at("DOCUMENT_ORDER", path, self.texts[path]), [])
+
+    def test_document_order_rejects_documents_before_target_choice(self) -> None:
+        reverse = ("Normal order: initial design approval → formal spec drafting → written-spec approval → "
+                   "formal plan drafting → individual plan approvals → complete applicable set → "
+                   "execution-target choice → target preparation and verification → existing-commit verification "
+                   "and one batch docs commit → final Git verification → Coder handoff.")
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/planning.md"
+            fixture = re.sub(r"Normal order:.*?Coder handoff\.", reverse, self.texts[path], flags=re.S)
+            with self.subTest(path=path):
+                self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
+
+    def test_document_order_rejects_missing_required_gates(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/planning.md"
+            text = " ".join(self.texts[path].split())
+            order = re.search(r"Normal order:.*?Coder handoff\.", text).group()
+            for gate in ("target preparation and verification", "written-spec approval",
+                         "individual plan approvals", "complete applicable set",
+                         "existing-commit verification and one batch docs commit of remaining approved documents",
+                         "final Git verification", "Coder handoff"):
+                with self.subTest(path=path, gate=gate):
+                    self.assertIn(gate, order)
+                    fixture = text.replace(order, order.replace(gate, "omitted"))
+                    self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
+
+    def test_document_order_rejects_conflicting_reverse_order(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/planning.md"
+            fixture = self.texts[path] + "\nFormal spec and plan drafting must precede execution-target choice."
+            with self.subTest(path=path):
+                self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
+
+    def test_planner_authorship_contract(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/planning.md"
+            with self.subTest(path=path):
+                self.assertIn("AUTHORING_EXCLUSIVITY", POLICY_CONTRACTS)
+                self.assertEqual(self.contract_failures_at("AUTHORING_EXCLUSIVITY", path, self.texts[path]), [])
+
+    def test_planner_authorship_rejects_conflicting_user_override(self) -> None:
+        for platform, override in (
+            ("codex", "A user may explicitly change the writing responsibility"),
+            ("claude", "A user may explicitly change writing responsibility"),
+        ):
+            path = f"{platform}/skill/references/planning.md"
+            with self.subTest(path=path):
+                self.assertTrue(self.contract_failures_at("AUTHORING_EXCLUSIVITY", path,
+                                                        self.texts[path] + "\n" + override))
+
+    def test_planner_authorship_allows_user_preferences(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/planning.md"
+            fixture = self.texts[path] + "\nA user may explicitly change language, output path, and task scope."
+            with self.subTest(path=path):
+                self.assertIn("AUTHORING_EXCLUSIVITY", POLICY_CONTRACTS)
+                self.assertEqual(self.contract_failures_at("AUTHORING_EXCLUSIVITY", path, fixture), [])
+
     def test_handoff_and_role_local_guards_remain_accessible(self) -> None:
         self.assert_contracts("HANDOFF_GATE", "ROLE_LOCAL")
 
@@ -166,6 +283,50 @@ class PolicyContractTests(unittest.TestCase):
 
     def test_commit_contract_distinguishes_plan_skip_and_no_change(self) -> None:
         self.assert_contracts("COMMIT_BOUNDARY")
+
+    def test_commit_requires_next_action_after_acceptance(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/commit.md"
+            with self.subTest(path=path):
+                self.assertEqual(self.contract_failures_at("COMMIT_NEXT_ACTION", path, self.texts[path]), [])
+
+    def test_commit_checker_rejects_deferred_or_preacceptance_commit(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/commit.md"
+            for conflict in ("The task may be committed before Orchestrator acceptance.",
+                             "The task commit may wait until the plan ends."):
+                with self.subTest(path=path, conflict=conflict):
+                    self.assertTrue(self.contract_failures_at("COMMIT_NEXT_ACTION", path,
+                                                            self.texts[path] + "\n" + conflict))
+
+    def test_commit_authority_is_orchestrator_only(self) -> None:
+        for path, _ in POLICY_CONTRACTS["COMMIT_AUTHORITY"].values():
+            with self.subTest(path=path):
+                self.assertEqual(self.contract_failures_at("COMMIT_AUTHORITY", path, self.texts[path]), [])
+
+    def test_commit_authority_rejects_delegated_coder_exception(self) -> None:
+        for path, _ in POLICY_CONTRACTS["COMMIT_AUTHORITY"].values():
+            with self.subTest(path=path):
+                self.assertTrue(self.contract_failures_at(
+                    "COMMIT_AUTHORITY", path,
+                    self.texts[path] + "\nCoder may commit when Orchestrator explicitly assigns that action."))
+        for path, legacy in (
+            ("claude/skill/references/commit.md",
+             "A role may commit only when Orchestrator explicitly assigns that action; Orchestrator retains acceptance authority."),
+            ("claude/agents/arc-coder.md",
+             "Do not stage, commit, push, or merge unless Orchestrator explicitly assigns that action."),
+        ):
+            with self.subTest(path=path, legacy=True):
+                failures = self.contract_failures_at("COMMIT_AUTHORITY", path, self.texts[path] + "\n" + legacy)
+                self.assertTrue(any(": conflicting " in failure for failure in failures))
+
+    def test_commit_checker_preserves_hold_and_reuse_contracts(self) -> None:
+        self.assert_contracts("COMMIT_NEXT_ACTION", "COMMIT_AUTHORITY", "COMMIT_BOUNDARY")
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/commit.md"
+            for required in ("Hold the task commit", "Git failure/partial completion"):
+                with self.subTest(path=path, guard=required):
+                    self.assertIn(required, self.texts[path])
 
     def test_native_adapters_remain_explicit(self) -> None:
         self.assert_contracts("NATIVE_ADAPTERS")

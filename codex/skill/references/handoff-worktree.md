@@ -8,6 +8,11 @@ document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](han
 
 ### New managed worktree
 
+Before formal drafting and saving, complete actual creation, managed registration, current-chat attachment,
+repository/common directory and base verification, approved branch verification, and source preservation checks below.
+The normal new-document path drafts and saves directly in the verified target. Planned destination paths are not
+preparation evidence. Initial preparation does not authorize Coder or a document commit.
+
 Only an explicit user choice of this third path authorizes preparation. Its selection target is the one verified
 under the Execution-target request gate in handoff-prep.md.
 The app determines the actual destination path; do not propose a sibling path or require a user-specified path
@@ -39,7 +44,7 @@ Pass ref explicitly as the full SHA; do not omit it or rely on a remote default.
 use mcp__codex_app__get_worktree_creation_status until completed. Preparing/creating/registering progress is not
 success.
 For registration failure only, retry the returned workspace with mcp__codex_app__attach_worktree. Before completed
-managed registration, current-chat attachment and approved branch verification, perform no document transfer, staging,
+managed registration, current-chat attachment and approved branch verification, perform no formal drafting, saving, document transfer, staging,
 commit or Coder start. If tools are unavailable, reattachment fails or results mismatch, stop and record actual state.
 Do not fall back to raw Git worktree creation, automatically retry other name/ref/path/branch inputs,
 or perform automatic
@@ -57,19 +62,22 @@ use `git switch -c <approved-branch> <ref>`; if the existing approved branch has
 in any worktree, use `git switch <approved-branch>`. Do not move a branch pointer, choose another branch or use --force
 or -B.
 If the app initially returns the approved branch, verify it and its base rather than repeating completed work.
-Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before document transfer,
+Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before formal drafting, saving, document transfer,
 the batch docs commit, final Git verification and Coder handoff.
 
-The tool does not copy uncommitted changes. For untracked approved documents, source HEAD and index paths must be
+The tool does not copy uncommitted changes. The following transfer rules apply only to legacy or restart cases
+with existing approved documents (including an explicitly selected target change), not the normal new-document path. For untracked approved documents, source HEAD and index paths must be
 absent and source working-tree bytes must match the latest approved version. For tracked approved documents, source
 index blob and mode must equal source HEAD, while source working-tree bytes must match the latest approved version.
 Approved working-tree revisions may differ from HEAD/index; do not repair or verify them by staging source documents.
 Any mismatch means stop. Unrelated staged changes, required uncommitted implementation/configuration/test changes,
 and unclear ownership block preparation. Clearly unrelated unstaged/untracked changes remain in source.
 Do not automatically stash, commit, reset, clean, or unstage; do not transfer dirty implementation files.
-Use Worktree document transfer before target docs preparation.
+For those existing approved documents, use Worktree document transfer before target docs preparation.
 
 ### Worktree document transfer
+
+Use only for existing approved documents in legacy or restart/target-change cases.
 
 Verify existing approved commits by SHA, message, paths and approved content valid at base and target; reuse them.
 Copy only uncommitted approved spec/plan documents to the target at the same repository-relative path.

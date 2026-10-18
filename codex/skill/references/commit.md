@@ -9,8 +9,12 @@ One approved top-level task is the unit of one focused implementation commit. Or
 acceptance
 criteria, currently required checks (Reviewer timing: SKILL.md Risk-scaled execution), and findings,
 accepts the task by its own judgment, then immediately
-creates its focused local Git commit without additional user commit approval. Immediately means the next action is
-the required Git state/scope checks, staging, and commit, rather than an unexplained wait until the plan ends.
+creates its focused local Git commit without additional user commit approval.
+After Orchestrator accepts a task, the next action is the required Git state/scope checks, staging, and focused commit.
+Immediately means the next action is the required Git state/scope checks, staging, and focused commit,
+without an unexplained wait until the plan ends.
+Do not commit before task acceptance or defer the task commit until the plan ends.
+Only Orchestrator accepts the task and executes its focused commit; Coder completion does not replace acceptance.
 Substeps and checkboxes are progress records, not separate commit units. Checkbox completion, Coder reports, and
 passing checks alone do not establish task acceptance: connect criteria's conditions and expected results to actual
 evidence. Existing plan-skip paths have no new plan obligation; their commits follow applicable guidance and user
