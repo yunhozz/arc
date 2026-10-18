@@ -45,6 +45,12 @@ COMMON_CONTRACTS = {
         r"completion reports alone do not release dependents",
         r"same-file concurrent coder edits.*(?:blocked|forbidden)",
     )),
+    "COMMIT_NEXT_ACTION": ("references/commit.md", (
+        r"after orchestrator accepts a task, the next action is the required git state/scope checks, staging, and focused commit",
+    )),
+    "COMMIT_AUTHORITY": ("references/commit.md", (
+        r"only orchestrator accepts the task and executes its focused commit",
+    )),
     "COMMIT_BOUNDARY": ("references/commit.md", (
         r"(?:one approved top-level task.*one focused implementation commit|commit one logical task promptly)",
         r"without additional user commit approval",
@@ -115,6 +121,10 @@ POLICY_CONTRACTS["NATIVE_ADAPTERS"] = {
     for platform in PLATFORMS
 }
 
+POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-coder"] = (
+    "claude/agents/arc-coder.md", (r"coder must not commit, even when explicitly assigned",)
+)
+
 
 def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     """Return contract IDs and owner paths for supplied text, without file I/O."""
@@ -132,6 +142,22 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     for contract, owners in POLICY_CONTRACTS.items():
         for path, patterns in owners.values():
             require(contract, path, patterns)
+    for contract, patterns in {
+        "COMMIT_NEXT_ACTION": (
+            r"the task may be committed before orchestrator acceptance",
+            r"the task commit may wait until the plan ends",
+        ),
+        "COMMIT_AUTHORITY": (
+            r"coder may commit when orchestrator explicitly assigns that action",
+            r"a role may commit only when orchestrator explicitly assigns that action",
+            r"do not stage, commit, push, or merge unless orchestrator explicitly assigns that action",
+        ),
+    }.items():
+        for path, _ in POLICY_CONTRACTS[contract].values():
+            text = " ".join(texts.get(path, "").lower().split())
+            for pattern in patterns:
+                if re.search(pattern, text):
+                    failures.append(f"{contract}: {path}: conflicting {pattern}")
     for platform in PLATFORMS:
         path = f"{platform}/skill/references/planning.md"
         if path not in texts:
@@ -257,6 +283,50 @@ class PolicyContractTests(unittest.TestCase):
 
     def test_commit_contract_distinguishes_plan_skip_and_no_change(self) -> None:
         self.assert_contracts("COMMIT_BOUNDARY")
+
+    def test_commit_requires_next_action_after_acceptance(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/commit.md"
+            with self.subTest(path=path):
+                self.assertEqual(self.contract_failures_at("COMMIT_NEXT_ACTION", path, self.texts[path]), [])
+
+    def test_commit_checker_rejects_deferred_or_preacceptance_commit(self) -> None:
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/commit.md"
+            for conflict in ("The task may be committed before Orchestrator acceptance.",
+                             "The task commit may wait until the plan ends."):
+                with self.subTest(path=path, conflict=conflict):
+                    self.assertTrue(self.contract_failures_at("COMMIT_NEXT_ACTION", path,
+                                                            self.texts[path] + "\n" + conflict))
+
+    def test_commit_authority_is_orchestrator_only(self) -> None:
+        for path, _ in POLICY_CONTRACTS["COMMIT_AUTHORITY"].values():
+            with self.subTest(path=path):
+                self.assertEqual(self.contract_failures_at("COMMIT_AUTHORITY", path, self.texts[path]), [])
+
+    def test_commit_authority_rejects_delegated_coder_exception(self) -> None:
+        for path, _ in POLICY_CONTRACTS["COMMIT_AUTHORITY"].values():
+            with self.subTest(path=path):
+                self.assertTrue(self.contract_failures_at(
+                    "COMMIT_AUTHORITY", path,
+                    self.texts[path] + "\nCoder may commit when Orchestrator explicitly assigns that action."))
+        for path, legacy in (
+            ("claude/skill/references/commit.md",
+             "A role may commit only when Orchestrator explicitly assigns that action; Orchestrator retains acceptance authority."),
+            ("claude/agents/arc-coder.md",
+             "Do not stage, commit, push, or merge unless Orchestrator explicitly assigns that action."),
+        ):
+            with self.subTest(path=path, legacy=True):
+                failures = self.contract_failures_at("COMMIT_AUTHORITY", path, self.texts[path] + "\n" + legacy)
+                self.assertTrue(any(": conflicting " in failure for failure in failures))
+
+    def test_commit_checker_preserves_hold_and_reuse_contracts(self) -> None:
+        self.assert_contracts("COMMIT_NEXT_ACTION", "COMMIT_AUTHORITY", "COMMIT_BOUNDARY")
+        for platform in PLATFORMS:
+            path = f"{platform}/skill/references/commit.md"
+            for required in ("Hold the task commit", "Git failure/partial completion"):
+                with self.subTest(path=path, guard=required):
+                    self.assertIn(required, self.texts[path])
 
     def test_native_adapters_remain_explicit(self) -> None:
         self.assert_contracts("NATIVE_ADAPTERS")

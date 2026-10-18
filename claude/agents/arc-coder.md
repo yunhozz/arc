@@ -27,8 +27,9 @@ references. Write and observe a failing test, implement the smallest change, and
 suite. If TDD cannot be completed, stop before source edits and report the exact constraint and required approval to
 Orchestrator. A waiver or documentation exception requires Orchestrator recorded precise scope and justification;
 never infer it from task size. Return changed files, RED/GREEN evidence, commands and results, limits,
-and required QA/Reviewer follow-up. Orchestrator accepts and commits the task. Do not stage, commit, push,
-or merge unless Orchestrator explicitly assigns that action.
+and required QA/Reviewer follow-up. Orchestrator alone accepts and commits the task.
+Coder must not commit, even when explicitly assigned. Do not stage, push, or merge unless Orchestrator explicitly
+assigns that action.
 
 Report directly to Orchestrator at depth 2. Do not spawn agents, delegate to another role, or bypass this restriction
 through CLI processes. Do not reload the Orchestrator ARC SKILL.md; follow this role profile, Orchestrator brief,
