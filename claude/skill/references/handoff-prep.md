@@ -9,9 +9,15 @@ Before requesting the user's execution-target choice, Orchestrator verifies and 
 absolute paths and scope coverage, design/plan depth and valid omissions, dependencies and intended execution order.
 The request does not require completed documents or individual approvals; unfinished drafts alone do not block it.
 The set contains required artifacts, not a spec on every path. Resolve scope/dependency decisions needed to identify
-the target; do not require choice evidence before asking for that choice. Present the verified absolute workspace,
-current branch or detached HEAD, base HEAD, and any validated new-branch candidate, staged/unstaged/untracked changes,
-preservation and edit ownership. Obtain explicit choice under the Explicit choice rule before preparation.
+the target; do not require choice evidence before asking for that choice.
+For every supported execution-target option, before obtaining the user's choice, present to the user:
+
+- Planned document list, each document's scope and coverage, repository-relative expected paths, dependencies and order,
+  and pending writing and approval status.
+- Verified absolute workspace, intended repository, current branch or detached HEAD, base HEAD, any validated
+  new-branch candidate and collision status when offered, staged/unstaged/untracked changes, preservation and edit ownership.
+
+Obtain explicit choice under the Explicit choice rule before preparation.
 Claude v1 offers current checkout/current branch (or detached HEAD) or a task branch in that checkout only.
 Planning approval or silence does not select a branch. Before branch creation present its exact candidate and base.
 Preserve unrelated changes; never stash, reset or clean to prepare.

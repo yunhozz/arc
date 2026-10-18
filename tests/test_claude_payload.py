@@ -506,11 +506,26 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
 
     def test_choice_request_uses_planned_documents_and_verified_target(self):
         text = self.text("handoff-prep")
-        self.assertIn("### execution-target request gate", text)
-        gate = text.split("### execution-target request gate", 1)[1].split("git mutation evidence gate", 1)[0]
-        for phrase in ("planned document scope", "absolute paths", "dependencies", "branch or detached head", "base head",
-                       "changes", "ownership", "does not require completed documents or individual approvals"):
-            self.assertIn(phrase, gate)
+        request_heading = "### execution-target request gate"
+        mutation_heading = "### git mutation evidence gate"
+        self.assertIn(request_heading, text)
+        self.assertIn(mutation_heading, text)
+        gate = text.split(request_heading, 1)[1].split(mutation_heading, 1)[0]
+        common = gate
+        self.assertIn(
+            "for every supported execution-target option, before obtaining the user's choice, "
+            "present to the user:",
+            common,
+        )
+        self.assertIn("obtain explicit choice", common)
+        self.assertLess(common.index("present to the user:"), common.index("obtain explicit choice"))
+        presentation = common.split("present to the user:", 1)[1].split("obtain explicit choice", 1)[0]
+        for phrase in ("planned document list", "scope and coverage", "repository-relative expected paths",
+                       "dependencies and order", "pending writing and approval status", "verified absolute workspace",
+                       "repository", "current branch or detached head", "base head", "new-branch candidate",
+                       "collision status", "staged/unstaged/untracked changes", "preservation and edit ownership"):
+            self.assertIn(phrase, presentation)
+        self.assertIn("does not require completed documents or individual approvals", gate)
 
     def test_formal_drafting_and_save_require_prepared_target(self):
         text = self.text("planning")
