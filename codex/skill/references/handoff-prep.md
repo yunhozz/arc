@@ -8,22 +8,19 @@ The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](h
 
 ### Execution-target request gate
 
-Before requesting the user's execution-target choice, Orchestrator verifies and records the complete document list,
-absolute
-paths and scope coverage, approved versions and individual approval evidence, plan dependencies and execution order,
-and no unfinished applicable documents or unresolved scope/dependency decisions requiring another document.
-The set contains required artifacts, not a spec on every path; use planning depth and valid omission rationales.
-Unfinished documents or missing approval evidence stop the choice request and preparation. Read-only state checks
-are allowed. Do not require choice evidence before asking for that choice: the user's actual choice follows this gate
-under the Explicit choice rule. Present the verified absolute workspace, current branch or detached HEAD, base HEAD,
-and any validated
-new-branch candidate.
+Before requesting the user's execution-target choice, Orchestrator verifies and records planned document scope,
+absolute paths and scope coverage, design/plan depth and valid omissions, dependencies and intended execution order.
+The request does not require completed documents or individual approvals; unfinished drafts alone do not block it.
+The set contains required artifacts, not a spec on every path. Resolve scope/dependency decisions needed to identify
+the target; do not require choice evidence before asking for that choice. Present the verified absolute workspace,
+current branch or detached HEAD, base HEAD, and any validated new-branch candidate, staged/unstaged/untracked changes,
+preservation and edit ownership. Obtain explicit choice under the Explicit choice rule before preparation.
 When offering the new managed worktree option, Orchestrator first verifies and then presents its selection target
 (source absolute
 path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
-approved branch candidate and collision status, descriptive name, approved document transfer/commit scope). Verification
+approved branch candidate and collision status, descriptive name, planned document scope and any existing approved document transfer/commit scope). Verification
 validates the approved branch candidate and collision status under New task branch naming rules and checks source state
-(unrelated staged changes; approved document HEAD/index/working-tree state) before offering. The app chooses the actual
+(unrelated staged changes; existing approved document HEAD/index/working-tree state) before offering. The app chooses the actual
 destination path: do not ask the user for a destination path or propose one, and do not fetch or substitute a remote
 HEAD
 or default branch for the base. Read [handoff-worktree.md](handoff-worktree.md) only after the user
@@ -32,14 +29,14 @@ explicitly selects that option and before its creation, branch work, or document
 ### Git mutation evidence gate
 
 Before each preparation Git mutation—branch creation/switch, worktree creation, approved-document staging,
-or commit—read this
-reference and recheck the complete approved document set and approval evidence; explicit execution-target choice
-or verified valid reuse; absolute workspace and intended repository; current branch or detached HEAD and HEAD;
-staged/unstaged/untracked changes, preservation and edit ownership; and the exact command, target paths, and
-approved scope. Confirm no unresolved failure or partial completion. Record these facts in the canonical handoff
-record/shared brief before the action. Missing or mismatched evidence stops that mutation until Orchestrator resolves
-it.
-Read-only Git checks remain allowed. Do not infer execution authority from an external skill's early commit step.
+or commit—read this reference and recheck explicit execution-target choice or verified valid reuse; absolute workspace
+and intended repository; current branch or detached HEAD and HEAD; staged/unstaged/untracked changes, preservation and
+edit ownership; and the exact command, target paths, and approved scope. Confirm no unresolved failure or partial
+completion. Record these facts before the action. Missing or mismatched evidence stops that mutation.
+Initial target preparation does not require the complete approved document set: verify planned scope and target inputs.
+For approved-document staging and commit, also verify the complete approved document set and individual approval
+evidence, approved versions, dependencies, and actual index. Read-only Git checks remain allowed.
+Do not infer execution authority from an external skill's early commit step.
 
 Before committing, also verify staged paths/content and the finalized message under Planning document commit.
 After every branch or commit operation, verify actual path, branch, HEAD, preserved changes, and result before the
@@ -92,11 +89,12 @@ state and the choice evidence in the brief. Missing choice, unconfirmed state, o
 
 ### Planning document commit
 
-Begin only after the Execution-target request gate holds and the choice is made.
+Begin only after target preparation and the complete applicable set is written and individually approved.
+Verify complete approved document set, approval evidence and versions before staging or commit.
 On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
 changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
 On the new worktree path, verify the created app-managed worktree, current-chat attachment, identity/base, approved
-branch and document transfer before any target docs commit.
+branch and direct target documents (or protected legacy/restart document transfer) before any target docs commit.
 At the target, commit only remaining approved documents once; do not automatically make a source document commit.
 Record the selected base SHA and post-commit HEAD.
 Orchestrator verifies each approved spec/plan already committed for this task by SHA, actual message, included paths,

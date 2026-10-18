@@ -1,5 +1,15 @@
 # Planning and approval
 
+## Formal drafting boundary
+
+Initial design proposals and brainstorming may precede execution-target choice. Formal spec or plan drafting includes a
+complete draft before saving, even when returned only in chat. Before formal drafting and saving, Orchestrator supplies
+and records the actual absolute workspace/repository, branch or detached HEAD, HEAD, changes and ownership,
+explicit choice and preparation evidence, and absolute document paths inside that target. Planner drafts for that
+verified workspace; Orchestrator saves directly in the selected target. Missing or mismatched evidence stops the
+affected drafting or save and is reported to Orchestrator. Planned scope and intended paths are not actual preparation.
+Initial target preparation does not authorize Coder; the complete handoff gate still applies.
+
 Orchestrator classifies scope before implementation. The Orchestrator direct path for small tasks is defined only in
 SKILL.md ("Orchestrator direct path for small tasks"); follow it there and stop and reclassify if scope or risk changes.
 Everything else follows this reference. Brainstorming and writing-plans are instructions for existing roles,
@@ -94,7 +104,7 @@ If A fails, hold B and C; D may continue if unaffected.
 
 Before the first Architectural spec save, first required Bounded spec save, or first plan save, read this reference and
 record accessible evidence in the brief or handoff record. Saving creates a reviewable file and does not require
-written-spec approval or execution-target choice; it is not approval or a commit, and an uncommitted file is never
+written-spec approval; it requires valid execution-target choice and actual preparation; it is not approval or a commit, and an uncommitted file is never
 described as committed.
 
 **Spec save:** verify the approved design scope and approval evidence, Planner's complete spec draft and self-review,
@@ -115,13 +125,22 @@ Record scope, depth, absolute paths and coverage, approved versions, dependencie
 rationale, and documents awaiting writing or approval. The set is complete only when every required document is written
 and individually approved and no unresolved decision needs another document.
 
-Normal order (current checkout only): design approval, required spec writing/saving/self-review and written-spec
-approval, required plans likewise, complete set, explicit execution-target choice (reuse the current branch or approved
-task branch), existing-commit verification and one batch commit of remaining approved documents, final Git verification,
-Coder handoff. Written-spec approval precedes implementation planning. While documents are written or approved,
-do not request target choice, create or switch branches, stage, or commit planning documents; read-only inspection is
-allowed. An incomplete set or missing approval blocks preparation; approving some plans does not start their Coder work
-early.
+A required plan does not itself require a written spec. Bounded uses Orchestrator's recorded plan-depth judgment;
+spec steps apply only to Architectural and required Bounded specs. Preserve existing document omission rationales.
+
+Claude v1 uses the current checkout or an approved task branch there; managed worktrees remain unsupported.
+
+Normal order: initial design approval → execution-target choice → target preparation and verification →
+formal spec drafting (when required), saving and self-review → written-spec approval → formal plan drafting
+(when required), saving and self-review → individual plan approvals → complete applicable set → existing-commit
+verification and one batch docs commit of remaining approved documents → final Git verification → Coder handoff.
+Written-spec approval precedes dependent plan drafting. On document-omission paths skip only the inapplicable document
+steps; preserve target choice, preparation, state/ownership checks and Coder gates.
+
+While documents are being written, reviewed, or approved, do not stage documents or commit planning documents.
+Selection and initial target preparation happen before formal drafting; document completion is a staging/commit gate,
+not an initial preparation gate. An incomplete set or missing applicable approval blocks document commit and Coder,
+not the initial choice request. No early Coder work is authorized by approval of only some documents.
 
 This ARC defers the local brainstorming early spec commit: save and self-review the spec, obtain written-spec
 approval without committing, then write and approve all plans; commit the spec only in the final batch.
@@ -133,14 +152,13 @@ Do not modify external skills.
 | Spike probe | Approve question, method/scope, criteria, constraints; no spec/plan forced. If Coder runs the probe, pass the common gate after approval. Read-only investigation needs no gate. |
 | Bounded, plan skipped | Approve the short design and record plan-skip criteria; select target, prepare any documents or record absence, pass the gate. |
 | Bounded, plan required | Approve short design and every required plan; a spec only when the depth judgment requires it, approved before dependent plans. One preparation batch, then the gate. |
-| Architectural | Approve design, then spec, then every plan; complete the set before target selection, batch commit, final verification, and the gate. |
+| Architectural | Approve design, then spec, then every plan; select and prepare the target before formal drafting; complete the set before batch commit, final verification, and the gate. |
 | Non-behavior documentation/configuration | Record scope, criteria, and why design/planning is inapplicable; still select the target, verify Git state, prepare documents or record absence, pass the gate. |
 
 Spike probe and implementation are separate approval scopes: report findings, reassess depth, and approve required specs
 and plans before implementation preparation. These gates add no new spec obligation for Spike, Bounded plan-skip,
 or non-behavior paths. Document omission skips only document obligations, never target choice, Git/ownership checks,
-or handoff evidence. New scope found in planning requires reassessing the list and additional approvals before
-preparation; revised approved documents need renewed approval. New scope found during implementation stops dependent
+or handoff evidence. New scope found in planning requires reassessing the list and additional approvals before dependent drafting or commit; revised approved documents need renewed approval. New scope found during implementation stops dependent
 execution (a running Coder stops before edits dependent on new plans) until its documents, approvals,
 and preparation are complete; do not amend old commits to cover it.
 

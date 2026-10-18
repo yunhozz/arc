@@ -3,12 +3,34 @@
 Claude v1 supports the current checkout only; ARC-managed worktree execution is unsupported.
 Do not create or attach worktrees as a fallback. Report unsupported requests before dependent work.
 
-Before each preparation Git mutation, confirm the approved document set, absolute repository/workspace,
-branch or detached HEAD, HEAD commit, index, worktree/untracked files, and ownership.
-Present this state and obtain an explicit user choice to reuse the current branch (or current detached HEAD) or create a
-task branch. Before creating a branch, present its exact candidate name and base.
-Planning approval or silence does not select a branch. Preserve all unrelated changes; if they block preparation,
-stop and report rather than stashing, resetting or cleaning.
+### Execution-target request gate
+
+Before requesting the user's execution-target choice, Orchestrator verifies and records planned document scope,
+absolute paths and scope coverage, design/plan depth and valid omissions, dependencies and intended execution order.
+The request does not require completed documents or individual approvals; unfinished drafts alone do not block it.
+The set contains required artifacts, not a spec on every path. Resolve scope/dependency decisions needed to identify
+the target; do not require choice evidence before asking for that choice. Present the verified absolute workspace,
+current branch or detached HEAD, base HEAD, and any validated new-branch candidate, staged/unstaged/untracked changes,
+preservation and edit ownership. Obtain explicit choice under the Explicit choice rule before preparation.
+Claude v1 offers current checkout/current branch (or detached HEAD) or a task branch in that checkout only.
+Planning approval or silence does not select a branch. Before branch creation present its exact candidate and base.
+Preserve unrelated changes; never stash, reset or clean to prepare.
+
+### Git mutation evidence gate
+
+Before each preparation Git mutation—branch creation/switch, approved-document staging,
+or commit—read this reference and recheck explicit execution-target choice or verified valid reuse; absolute workspace
+and intended repository; current branch or detached HEAD and HEAD; staged/unstaged/untracked changes, preservation and
+edit ownership; and the exact command, target paths, and approved scope. Confirm no unresolved failure or partial
+completion. Record these facts before the action. Missing or mismatched evidence stops that mutation.
+Initial target preparation does not require the complete approved document set: verify planned scope and target inputs.
+For approved-document staging and commit, also verify the complete approved document set and individual approval
+evidence, approved versions, dependencies, and actual index. Read-only Git checks remain allowed.
+Do not infer execution authority from an external skill's early commit step.
+
+After branch creation/switch verify actual absolute path, branch, HEAD and preserved state before dependent drafting.
+After staging verify index paths and diff before commit; unrelated staged files block the mutation. Stop and inspect
+on failure or partial completion, record actual state and completed steps, and revalidate affected gates after resolution.
 
 Batch-commit all remaining approved planning documents together in one focused docs commit before the first Coder
 handoff. Stage only those document paths and verify the staged content and scope.

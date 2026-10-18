@@ -16,8 +16,16 @@ to the intended Git repository; record its actual absolute path, current branch 
 unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the intended repository, or HEAD
 cannot be resolved. Do not initialize Git or switch to another repository automatically.
 
-Only after the complete applicable document set and its approved versions are verified, begin execution preparation.
-After applicable design/spec/plan approvals, obtain and record an explicit user choice for the first start under the
+Execution-target choice and actual preparation precede formal drafting and saving of required specs/plans.
+Initial design proposals may precede choice. Initial target preparation does not authorize Coder; all applicable
+approvals, complete documents, verified batch docs commits or valid absence, and final Git verification remain required.
+Record planned document scope/paths and actual preparation separately, followed by actual drafting/save/approval and
+commit results; preserve actual order and evidence gaps. Reuse a valid choice during document drafting and subsequent
+implementation while scope and target remain unchanged. Authorized HEAD and dirty-state changes alone do not invalidate
+choice; verify preservation and ownership. A changed scope or target requires fresh explicit choice before dependent
+drafting or preparation and does not require document completion. Never fall back automatically.
+
+After initial design approval, obtain and record an explicit user choice for the first start under the
 Explicit choice rule: use the current checkout, create a new task branch from the verified base HEAD in that same
 checkout, or create a new managed worktree and task branch (selection target under handoff-prep.md; contract in
 handoff-worktree.md after selection). Without an
@@ -114,8 +122,7 @@ the restart brief under Orchestrator's full handoff gate. Verify/reuse successfu
 keep planning-document preparation
 evidence distinct; task commits do not require repeating valid document preparation.
 
-If scope, workspace, repository, target, or approved branch candidate changes, obtain a fresh explicit choice after
-applicable approvals and document completeness. If an invalidating failure means the old target cannot be trusted,
+If scope, workspace, repository, target, or approved branch candidate changes, obtain a fresh explicit choice before dependent drafting or preparation; reselection does not require document completion. If an invalidating failure means the old target cannot be trusted,
 obtain a fresh explicit choice after Orchestrator resolves preparation. State mismatches and unresolved failures block
 editing until Orchestrator resolves and revalidates the full gate; resolution does not automatically require a new
 choice

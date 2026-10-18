@@ -5,6 +5,15 @@ ownership, document approvals and committed planning documents before first star
 The approved execution target must remain valid. Claude v1 supports current checkout execution and does not support
 ARC-managed worktrees.
 
+Execution-target choice and actual preparation precede formal drafting and saving of required specs/plans.
+Initial design proposals may precede choice. Initial target preparation does not authorize Coder; all applicable
+approvals, complete documents, verified batch docs commits or valid absence, and final Git verification remain required.
+Record planned document scope/paths and actual preparation separately, followed by actual drafting/save/approval and
+commit results; preserve actual order and evidence gaps. Reuse a valid choice during document drafting and subsequent
+implementation while scope and target remain unchanged. Authorized HEAD and dirty-state changes alone do not invalidate
+choice; verify preservation and ownership. A changed scope or target requires fresh explicit choice before dependent
+drafting or preparation and does not require document completion. Never fall back automatically.
+
 Resolve the Git common directory (`git rev-parse --path-format=absolute --git-common-dir`) and keep one canonical record
 at `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md`, outside the working tree.
 The slug is unique per plan: the dated plan filename stem, or a spec/task slug when no plan exists; never overwrite
@@ -54,7 +63,7 @@ On every first start and restart recheck actual state against the brief (workspa
 branch or detached HEAD, HEAD, changes, ownership, approvals, document commits or valid absence); reuse never waives a
 gate. Reuse the choice only while its evidence is accessible and valid. If scope, workspace, repository, target,
 or approved branch candidate changes, or a failure means the old target cannot be trusted, obtain a fresh explicit
-choice after applicable approvals and document completeness. Authorized HEAD and dirty-state changes alone do not
+choice before dependent drafting or preparation; reselection does not require document completion. Authorized HEAD and dirty-state changes alone do not
 invalidate it; record them and verify they match approved work. State mismatches block editing until Orchestrator
 revalidates the gate; resolution does not by itself require a new choice unless it invalidates the old target;
 never fall back automatically (apply the Explicit choice rule). Inaccessible records or unclear ownership block editing;
