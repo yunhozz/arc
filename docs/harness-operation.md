@@ -21,7 +21,7 @@ The five installed roles are Scouter, Planner, Coder, QA, and Reviewer. The Orch
 
 Installation preserves content outside the `arc:begin` / `arc:end` block. Codex wait settings are merged for a supported standalone `[features.multi_agent_v2]` table; unsupported structure produces manual guidance. Native concurrency is written to Codex `[agents].max_concurrent_threads_per_session` as an integer and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
 
-ARC's local upstream reference tree contains brainstorming, writing-plans, test-driven-development, companion files, license, and provenance. Existing shared/global upstream skills and links remain separate. npm installation places the CLI and bundled files only; it does not acquire references or edit shell configuration. Harness installation adds zsh completion registration to its installation plan unless `--skip-global` is set; completion commands print zsh/bash scripts. See [installation commands](../README.md#-install-and-manage-arc), [model settings](../README.md#-models-and-presets), and [shell completion](../README.md#-shell-completion).
+ARC's local upstream reference tree contains brainstorming, writing-plans, test-driven-development, companion files, license, and provenance. Existing shared/global upstream skills and links remain separate. npm installation places the CLI and bundled files only; it does not acquire references or edit shell configuration. Harness installation adds zsh completion registration to its installation plan unless `--skip-global` is set; completion commands print zsh/bash scripts. See [installation commands](../README.md#-install-and-manage-arc), [model settings](../README.md#-models-and-presets), and [shell completion](../README.md#-install-and-manage-arc).
 
 ## Installation and refresh lifecycle
 
@@ -62,15 +62,23 @@ Design depth and verification risk are separate decisions. Unclear risk requires
 
 | Design path | Documents and approval sequence |
 |---|---|
-| Spike | Approve question and method, perform bounded exploration, report findings, then reassess implementation and required documents |
+| Spike | Approve the probe question, method/scope, criteria and constraints; distinguish probe-only from a sufficiently specified combined probe and implementation request |
 | Bounded | Approve short design; add written spec if required and implementation plan when the scope requires one |
 | Architectural | Approve design direction, then written spec, then implementation plan |
 
-Planner authors each applicable document; Orchestrator obtains approval before the next dependent stage. Plan omission requires one local change, no dependent stages, shared-state/lifecycle/integration-order concerns, and one focused verification path. It is not a blanket shortcut for small-looking changes.
+Planner authors each applicable document; Orchestrator obtains approval before the next dependent stage. Plan omission requires one local change, no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns, and one focused verification path. It is not a blanket shortcut for small-looking changes.
 
-Before implementation, complete and approve the entire required document set. Then obtain the user's explicit execution-target choice, prepare that target, verify or create the required batch document commit, inspect final actual repository state, and hand off. Planning approval does not select an execution target. Preserve unrelated staged, unstaged, and untracked files and edit ownership throughout.
+초기 설계 승인 → 명시적 실행 대상 선택 → 대상 준비·검증 → 필요한 정식 spec 작성·저장·자체 점검·개별 승인 → 필요한 plan 작성·저장·자체 점검·개별 승인 → 전체 필수 문서 집합 완료 → 기존 문서 커밋 검증과 남은 승인 문서의 한 번의 batch commit → 최종 Git 검증 → Coder 인계 순서입니다. 필요한 written spec 승인은 의존 plan 작성보다 먼저입니다. 문서 생략 경로는 해당하지 않는 문서 단계만 생략하고 유효한 문서 부재를 기록합니다. 문서 완성은 staging/commit과 Coder 시작의 조건이며 초기 대상 준비의 조건은 아닙니다. 계획 승인은 실행 대상 선택을 대신하지 않습니다.
 
-**Approved documents → platform preparation → handoff.** Codex can use the current checkout, a new branch there, or a managed worktree as permitted by its handoff contract. Claude v1 executes in the current checkout only; ARC-managed worktrees are unsupported. A branch shares checkout files; it is not directory isolation. A managed worktree is a separate directory with verified repository/common-directory identity, registration, source preservation, and document transfer evidence.
+**Approved documents → platform preparation → handoff.** 이 도식의 요약은 위 세부 순서를 대체하지 않습니다. Codex는 계약에 따라 현재 checkout, 그 checkout의 새 branch, managed worktree를 선택할 수 있습니다. Claude v1은 현재 checkout만 사용합니다. branch는 같은 파일을 공유하고 managed worktree는 별도 디렉터리이며 repository/common-directory identity, 등록, 원본 보존과 문서 이전 증거를 확인합니다. 관련 없는 staged·unstaged·untracked 변경과 편집 소유권을 보존합니다.
+
+### 승인 재사용과 완료 연속성
+
+충분히 구체적인 실행 요청 자체가 해당 범위의 승인일 수 있습니다. 요청 또는 사용자가 명시적으로 참조한 설명에서 결과·제약·문서 깊이·검증 위험을 확인하고 승인 근거와 기준을 기록합니다. 같은 범위의 재서술·역할 인계·재시작은 추가 승인을 만들지 않습니다. 침묵, 모호한 동의, 다른 작업의 승인, 범위가 불명확한 일괄 개선 요청은 승인 근거가 아닙니다. 필요한 written spec과 plan의 개별 승인은 유지합니다.
+
+probe-only는 승인된 질문에 대한 findings·evidence·limits·remaining uncertainty로 끝납니다. 근거 있는 불가능 판정도 완료일 수 있으며 제품 유지나 후속 구현 권한은 포함하지 않습니다. probe+implementation을 명시적으로 함께 요청하고 전체 범위가 충분히 구체적이며 Bounded 조건을 충족하면 조사는 내부 단계입니다. 조사 보고 자체는 새 승인 경계가 아니므로 승인된 구현까지 계속합니다. 알려지지 않은 구현 전체가 자동 승인되지는 않습니다.
+
+중대한 범위·방법·위험 변경, 미해결 새 결정, 대상 변경, 불명확한 소유권, 예상 밖 상태, 미해결 실패, 필수 입력 부재는 영향을 받는 작업을 보류하는 이유입니다. 기존 범위의 통상 수정과 재검증은 중복 승인을 요구하지 않습니다. 해결 후 영향받은 조건을 재검증합니다. 적용되는 승인·문서 깊이·대상·인계 조건이 충족되면 실행 → 수정 → 재검증 → 위험별 QA/Reviewer → findings 처리 → Orchestrator 수락 → 결과 보고까지 이어갑니다. 역할 완료 알림·조사 결과·명령 성공만으로 남은 승인 작업을 완료 처리하지 않습니다.
 
 The canonical handoff records approved versions, actual absolute path, branch or detached HEAD, HEAD, index/worktree/untracked state, ownership, execution-target choice, document commit evidence, readiness, and checks. The assigned Coder trusts verified preparation facts and reads cited unchanged fields from that record; an inaccessible record or actual conflicting state blocks affected work. See [Codex handoff](../codex/skill/references/handoff.md), [worktree preparation](../codex/skill/references/handoff-worktree.md), and [Claude handoff](../claude/skill/references/handoff.md).
 
@@ -100,7 +108,11 @@ QA reports each criterion's method/scope, run status, evidence, verdict (proven,
 
 **Required checks → Orchestrator acceptance.** For each accepted top-level plan task, create one focused commit promptly without another commit approval, then verify its SHA/content and remaining state. A no-change task gets a record only, never an empty commit. Keep unrelated changes out and do not combine different approved tasks. Resume verifies and reuses valid existing commits rather than duplicating them.
 
-Significant planned work receives one final whole-change review after all task acceptances and required QA/checks. Reviewer is not a prerequisite for every task commit. Significant unplanned work receives independent review before acceptance. Plan-skip paths do not gain a new commit obligation merely from the planned-task rule. Task acceptance/commit is distinct from final plan verification and final acceptance; final findings can require a scoped correction, QA recheck, and new focused commit. Push, merge, publication, and deployment require separate authorization. See platform [verification](../codex/skill/references/verification.md) and [commit](../codex/skill/references/commit.md) contracts, with [Claude verification](../claude/skill/references/verification.md) and [commit](../claude/skill/references/commit.md).
+Significant planned work receives one final whole-change review after all task acceptances and required QA/checks. Reviewer is not a prerequisite for every task commit. Significant unplanned work receives independent review before acceptance. Plan-skip paths do not gain a new commit obligation merely from the planned-task rule. Task acceptance/commit is distinct from final plan verification and final acceptance; final findings follow the correction paths below. Push, merge, publication, and deployment require separate authorization. See platform [verification](../codex/skill/references/verification.md) and [commit](../codex/skill/references/commit.md) contracts, with [Claude verification](../claude/skill/references/verification.md) and [commit](../claude/skill/references/commit.md).
+
+최종 전체 plan Reviewer 진입 전 QA의 실행 실패나 미충족 기준은 Coder 수정 → QA 재검증을 거칩니다. 이미 커밋된 plan의 최종 전체 Reviewer findings는 동작 문제를 포함해 Coder → Reviewer 재검토로 반복하며 QA를 재배정하지 않습니다. Orchestrator는 후속 task와 필요한 계획·승인을 정하고, 수정은 재검토 동안 uncommitted로 두며 최신 committed 상태·uncommitted diff·변경 파일 목록을 Reviewer에 제공합니다. 해결 후 수락하고 하나의 focused follow-up commit을 만듭니다. 최종 QA findings는 Coder 수정 → QA 재검증 경로를 유지합니다. 이 예외는 plan의 최종 전체 Reviewer findings에만 적용되며 원래 커밋의 자동 amend/reset이나 중복 커밋을 허용하지 않습니다.
+
+커밋은 Conventional Commits 형식과 적용되는 사용자·저장소 지시를 따릅니다. 이 저장소는 설명을 구체적인 한국어 구절로 작성합니다. upstream의 일반 영문 기본 안내로 사용자 지정 규칙을 덮어쓰지 않습니다.
 
 ## Failure, resume, and maintenance
 
@@ -116,7 +128,7 @@ Maintenance actions have distinct effects:
 - **Harness removal:** `arc uninstall` removes the selected ARC skill, five role profiles, and managed instruction block, including edited ARC files. External skills/profiles, Codex wait settings, native concurrency keys, and shared shell completion registration remain. `--skip-global` preserves the instruction block for that invocation. Removal has its own dry run and transaction reporting.
 - **CLI package removal:** `npm uninstall -g @yunhozz/arc` removes the CLI package separately; installed harness configuration and shared shell completion remain.
 
-Use the existing [maintenance commands](../README.md#-maintenance), [model commands](../README.md#-models-and-presets), and [removal commands](../README.md#-remove-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
+Use the existing [maintenance commands](../README.md#-installed-files-and-refreshes), [model commands](../README.md#-models-and-presets), and [removal commands](../README.md#-remove-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
 
 ## Source map
 
@@ -133,6 +145,27 @@ Use the existing [maintenance commands](../README.md#-maintenance), [model comma
 | Package refresh and collection | [Manual reference updater](../scripts/update-superpowers.mjs), [package references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [bundle validation](../lib/installer/superpowers.mjs) |
 | Completion | [Registration](../lib/installer/shell-completion.mjs), [script generation](../lib/cli/completion.mjs) |
 | Structural contracts and regressions | [Harness contracts](../tests/test_harness_contract.py), [Python tests](../tests), [Node tests](../tests/node) |
-| Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#-maintenance) |
+| Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#-installed-files-and-refreshes) |
 
 The [flow diagram](images/role-flow.svg) summarizes routing and order. Follow the platform sources for full normative gates and intentional platform differences.
+
+### 파일별 책임 점검 범위
+
+T1은 아래 비-superpowers runtime 지침 파일 29개(공통 core 2, Codex references 9, Claude references 8, 역할 profile 10)를 대조했습니다. 대칭 파일은 같은 책임을 공유하되 플랫폼 adapter 차이는 각 원본이 소유합니다. 정책 의미의 중복은 책임 원본과 링크로 정리하고 역할별 로컬 안전 계약은 유지했습니다.
+
+| 유지·축약·이관·수정 책임 | 점검한 원본 |
+|---|---|
+| 라우팅·위험·승인 연속성 요약을 유지하고 상세 책임을 references로 연결 | 양 플랫폼 `skill/SKILL.md` |
+| 승인·probe·문서 깊이·의존성과 정식 작성 순서 | 양 플랫폼 `skill/references/planning.md` |
+| 공통 인계와 준비·문서 커밋 증거 | 양 플랫폼 `skill/references/handoff.md`, `handoff-prep.md` |
+| Codex worktree 대상 준비의 고유 계약 유지 | [Codex handoff-worktree](../codex/skill/references/handoff-worktree.md) |
+| 누적·동시 한도와 플랫폼 adapter 유지 | 양 플랫폼 `skill/references/limits.md` |
+| 위험별 검사·수락·최종 수정 경로와 완료 연속성 | 양 플랫폼 `skill/references/verification.md` |
+| task commit·no-change·수정 커밋 책임 | 양 플랫폼 `skill/references/commit.md` |
+| 실패·부분 완료의 상태 점검과 재개 | 양 플랫폼 `skill/references/git-recovery.md` |
+| 시각 도구의 기존 책임 유지 | 양 플랫폼 `skill/references/visual-companion.md` |
+| 각 역할의 범위·보고·위임 금지·검증 책임 유지 | `codex/agents/arc-{scouter,planner,coder,qa,reviewer}.toml`, `claude/agents/arc-{scouter,planner,coder,qa,reviewer}.md` |
+
+T2의 [global configuration](../lib/installer/global-config.mjs)은 bootstrap 역할 라우팅을 책임 원본과 맞췄습니다. [language](../lib/installer/language.mjs), [installation plan](../lib/installer/plan.mjs), [profile rendering](../lib/models/profiles.mjs), [manifest validation](../lib/installer/manifest.mjs), [package metadata](../package.json), [manifest updater](../scripts/update-manifest.mjs)는 기존 인터페이스·언어·marker 밖 bytes·패키지/라이선스 계약의 호환성 점검 대상입니다. 모델 설정·apply-models 스크립트는 기존 책임을 유지하며 [모델 안내](../README.md#-models-and-presets)에서 연결합니다. T3는 README·이 운영 설명·문서 계약 검사를 이 책임에 정합화합니다. runtime superpowers bundle은 이번 리팩토링 대상에서 제외됩니다.
+
+이 source map과 구조·package·manifest 검사는 작성된 파일과 패키지의 일관성 증거입니다. 실제 세션에서 승인 연속성을 지켰는지, 설치한 native 설정이 적용됐는지, 시각 결과를 읽을 수 있는지는 별도 관찰 없이는 미검증입니다. 참고 대화의 내용이나 중단 재현도 이 문서의 검증 근거로 단정하지 않습니다.

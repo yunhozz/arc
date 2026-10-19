@@ -1,5 +1,38 @@
 # Planning and approval
 
+## Authorization and scope
+
+An explicit execution request is authorization only for its sufficiently specified scope. Confirm execution intent,
+expected outcome, constraints, document depth, and verification risk, with no unresolved material behavior, method,
+or risk decision requiring the user. The request itself or a description explicitly referenced by the user must
+supply that scope. Record authorization evidence, scope, acceptance criteria, constraints, and depth in the brief or
+canonical record. Routine execution and check choices may be recorded by Orchestrator; added product behavior or
+material scope cannot be claimed as already approved. A restatement, role handoff, or restart does not create an
+approval requirement for the same scope.
+
+Silence, ambiguous assent, approval of other work, and unspecified blanket improvement requests are not authorization.
+Planner's new material choices are not automatically approved. Ask for the missing material decision; roles route
+questions to Orchestrator. Required written specs and plans still require their individual approval in the order below.
+
+For material changes to scope, method, or risk, hold affected work and explain the missing decision or evidence and
+remaining work. Target changes, unclear ownership, unexpected state, unresolved failures, or missing required inputs
+also hold affected work under [handoff](handoff.md) and [git-recovery](git-recovery.md). Distinguish new authorization
+needs from execution issues within existing scope: ordinary corrections and reverification do not require duplicate
+approval after failure. Revalidate affected gates after resolution.
+
+### Probe scope
+
+A probe-only scope completes with findings, evidence, limits, and remaining uncertainty answering the approved question;
+a well-supported infeasibility result can complete it. Probe-only authorization does not authorize product retention
+or subsequent implementation. Record question, method/scope, criteria, and constraints; a sufficiently specific probe
+request can supply that approval. Match checks to probe purpose/risk and do not report probe evidence as product proof.
+
+If the user explicitly requests both a probe and implementation and the whole scope is sufficiently specified,
+classify the entire scope. When the entire scope meets Bounded conditions, the probe is an internal investigation
+with no new approval boundary at its report. Unknown implementation is not blanket authorization: hold affected
+implementation if findings materially change scope, method, or risk, or leave a new material decision. Reassess depth
+and obtain any required design/spec/plan approvals before that implementation. A probe-only request remains separate.
+
 ## Formal drafting boundary
 
 Initial design proposals and brainstorming may precede execution-target choice. Formal spec or plan drafting includes a
@@ -51,8 +84,8 @@ a bounded path or document omission does not imply low risk, and architectural d
    acceptance criteria, assumptions, and focused questions. Orchestrator integrates, announces scope, routes
    answers/revisions, and obtains approvals; Orchestrator never runs brainstorming or writing-plans itself (SKILL.md
    Role gate); the direct path uses only a scope record.
-2. Spike: approve the feasibility question/probe first, report findings, then obtain a new design and approval for
-   implementation. Bounded: approve a short design before Coder or a Orchestrator direct edit (Planner's design before
+2. Spike: apply Probe scope above; distinguish probe-only authorization from a sufficiently specified combined scope.
+   Bounded: approve a short design before Coder or a Orchestrator direct edit (Planner's design before
    Coder; a direct edit uses only an approved scope record). Architectural: approve the design, then Planner returns a
    complete spec draft and self-review; Orchestrator integrates, saves (user's path or
    `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`), self-reviews, and obtains written-spec approval before
@@ -175,9 +208,9 @@ Do not modify external skills.
 | Architectural | Approve design, then spec, then every plan; select and prepare the target before formal drafting; complete the set before batch commit, final verification, and the gate. |
 | Non-behavior documentation/configuration | Record scope, criteria, and why design/planning is inapplicable; still select the target, verify Git state, prepare documents or record absence, pass the gate. |
 
-Spike probe and implementation are separate approval scopes: report findings, reassess depth, and approve required specs
-and plans before implementation preparation. These gates add no new spec obligation for Spike, Bounded plan-skip,
-or non-behavior paths. Document omission skips only document obligations, never target choice, Git/ownership checks,
+Apply Authorization and scope above to probe-only and combined requests; preserve required design/spec/plan gates.
+These gates add no new spec obligation for Spike, Bounded plan-skip, or non-behavior documentation/configuration paths.
+Document omission skips only document obligations, never target choice, Git/ownership checks,
 or handoff evidence. New scope found in planning requires reassessing the list and additional approvals before dependent drafting or commit; revised approved documents need renewed approval. New scope found during implementation stops dependent
 execution (a running Coder stops before edits dependent on new plans) until its documents, approvals,
 and preparation are complete; do not amend old commits to cover it.

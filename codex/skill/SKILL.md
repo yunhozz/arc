@@ -239,6 +239,11 @@ report only checks actually performed, their actor, target state, results and re
 
 
 
+Authorization evidence and probe/combined scope are owned by [planning](references/planning.md#authorization-and-scope);
+valid reuse and actual-state refresh by [handoff](references/handoff.md#authorization-continuity).
+After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
+[verification](references/verification.md#completion-continuity); a role report alone does not complete the work.
+
 ## Orchestrator direct path for small tasks
 
 Orchestrator may make a task's edits directly, without Planner brainstorming or Coder, only when every small,
@@ -249,11 +254,12 @@ and one
 focused verification path), and no significant-risk trigger applies. Spike, architectural, ordinary-behavior,
 significant/high-risk, unclear-risk work, and edits overlapping files assigned to a running Coder are not eligible.
 
-Before editing, Orchestrator records in the brief the scope and files, why every criterion holds, acceptance criteria,
-and
-focused verification, presents that scope record (not a brainstorming design) to the user, and obtains explicit
-approval; silence, an ambiguous
-response, or approval of other work is not approval. Orchestrator then passes the Coder handoff gate in handoff,
+Before editing, Orchestrator records a scope record (not a brainstorming design) with scope and files,
+why every criterion holds, acceptance criteria, and focused verification. Apply authorization in
+[planning](references/planning.md#authorization-and-scope): an existing sufficiently specific user request can approve
+that scope; no duplicate approval is needed. Otherwise present the scope record to the user and obtain explicit
+approval before editing. Silence, an ambiguous response, or approval of other work is not approval.
+Orchestrator then passes the Coder handoff gate in handoff,
 with the
 approved scope record as the applicable approval, before the first edit. Orchestrator edits only the approved files,
 preserves others' edits, makes surgical edits in

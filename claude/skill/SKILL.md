@@ -234,6 +234,11 @@ report only checks actually performed, their actor, target state, results and re
 
 Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
 
+Authorization evidence and probe/combined scope are owned by [planning](references/planning.md#authorization-and-scope);
+valid reuse and actual-state refresh by [handoff](references/handoff.md#authorization-continuity).
+After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
+[verification](references/verification.md#completion-continuity); a role report alone does not complete the work.
+
 ## Orchestrator direct path for small tasks
 
 Orchestrator may edit directly only when every small, low-risk criterion (Risk-scaled execution) holds.
@@ -245,8 +250,10 @@ Significant risk is defined in Risk-scaled execution and excludes work from the 
 do not infer eligibility from a small file count.
 
 Before editing, Orchestrator records a scope record (not a brainstorming design) with scope and files,
-why every criterion holds, acceptance criteria, and focused verification; presents it to the user and obtains explicit
-approval before the first edit. Silence, an ambiguous response, or approval of other work is not approval.
+why every criterion holds, acceptance criteria, and focused verification. Apply authorization in
+[planning](references/planning.md#authorization-and-scope): an existing sufficiently specific user request can approve
+that scope; no duplicate approval is needed. Otherwise present the scope record to the user and obtain explicit
+approval before editing. Silence, an ambiguous response, or approval of other work is not approval.
 Orchestrator then verifies the same handoff gate as a Coder first start: explicit execution-target choice or valid
 reuse, accessible intended workspace and repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state,
 preservation and ownership, and no unresolved failure or partial completion. Read the [handoff](references/handoff.md)
@@ -332,6 +339,8 @@ ARC approval, ownership, TDD exceptions and executor adapters still apply.
 ## Models
 
 `models.toml` beside this skill is the source of truth for role model and reasoning-effort settings.
+Configuration keys `arc_scouter`, `arc_planner`, `arc_coder`, `arc_qa`, and `arc_reviewer` map to the hyphenated
+Claude native subagent names above; they are not tool-call names.
 Orchestrator uses the current conversation model. Use configured role settings without substitution or effort
 reduction; report unavailable settings.
 Local declarations do not prove runtime provider support, account access, alias resolution, actual model or effort

@@ -40,7 +40,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         self.contracts(commit, (
             r"orchestrator verifies.*acceptance criteria.*required checks.*findings.*accepts.*task.*immediately.*local.*commit",
             r"one approved top-level task.*one focused implementation commit",
-            r"immediately means.*next action.*git.*checks.*staging.*commit",
+            r"after orchestrator accepts a task, the next action is.*git.*checks.*staging.*commit",
             r"plan.skip.*no new plan obligation",
         ))
         self.assertNotIn("optionally create", commit)
@@ -754,7 +754,7 @@ class CeoDirectPathTests(unittest.TestCase):
     def test_direct_path_keeps_approval_handoff_tdd_and_verification(self) -> None:
         for contract in (
             r"before editing.*records.*scope.*files.*why every criterion holds.*acceptance criteria.*focused verification",
-            r"presents.*scope record.*user.*explicit approval",
+            r"authorization.*planning.*existing.*request.*no duplicate approval",
             r"silence.*not approval",
             r"passes the coder handoff gate in handoff, with the approved scope record as the applicable approval, before the first edit",
             r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",

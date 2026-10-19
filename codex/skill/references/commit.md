@@ -11,8 +11,6 @@ criteria, currently required checks (Reviewer timing: SKILL.md Risk-scaled execu
 accepts the task by its own judgment, then immediately
 creates its focused local Git commit without additional user commit approval.
 After Orchestrator accepts a task, the next action is the required Git state/scope checks, staging, and focused commit.
-Immediately means the next action is the required Git state/scope checks, staging, and focused commit,
-without an unexplained wait until the plan ends.
 Do not commit before task acceptance or defer the task commit until the plan ends.
 Only Orchestrator accepts the task and executes its focused commit; Coder completion does not replace acceptance.
 Substeps and checkboxes are progress records, not separate commit units. Checkbox completion, Coder reports, and
@@ -78,3 +76,7 @@ change alone does not invalidate execution-target choice or require waiting for 
 releases dependents only after required checks, Orchestrator acceptance and verified commit; accepted no-change evidence
 replaces a commit for a no-change task, never an empty commit. Unexpected HEAD/ownership changes or Git failures stop
 affected work until Orchestrator resolves and revalidates; existing recovery and approval rules remain in force.
+
+Approval scope and continuity are defined in [planning](planning.md#authorization-and-scope); completion and evidence
+limits are defined in [verification](verification.md#completion-continuity). This plan-task commit contract adds no
+commit obligation to no-plan work and does not turn a local commit into overall completion.

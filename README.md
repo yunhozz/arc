@@ -178,6 +178,16 @@ Design depth (Spike, Bounded, Architectural) determines which design documents a
 verification strength. Ready independent tasks may run in parallel within policy and runtime capacity. Coder
 completion alone does not release dependents. Codex supports managed worktrees; Claude v1 uses the current checkout.
 
+승인된 범위의 실행 요청은 같은 범위의 인계·재시작에도 유효합니다. Spike가 조사만 요청된 경우에는
+질문에 대한 증거·한계·불확실성을 보고하면 완료됩니다. 조사와 구현을 함께 요청했고 전체 범위가 충분히
+구체적인 경우에는 조사 결과 이후에도 승인된 구현, 필요한 검증, 수락, 결과 보고까지 진행합니다.
+중대한 범위·방법·위험 변경이나 새로운 결정이 생기면 영향을 받는 작업을 보류합니다.
+
+Bounded의 spec/plan 생략은 검증 위험이나 완료 책임을 줄이지 않습니다. 단일 로컬 변경, 의존 단계와
+공유 상태·수명주기·통합 순서 문제가 없음, 하나의 집중 검증 경로라는 plan 생략 조건을 기록합니다.
+필요한 문서·대상 준비·인계 조건을 충족한 뒤에는 승인된 남은 작업을 사용자에게 다시 제안만 하고 멈추지 않습니다.
+자세한 승인·완료 계약과 플랫폼별 책임 위치는 운영 문서에서 확인할 수 있습니다.
+
 ## 📚 Operating guides
 
 | Environment | Guide | References |

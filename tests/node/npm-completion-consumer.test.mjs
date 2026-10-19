@@ -9,10 +9,11 @@ test('Git global install and reinstall preserve an executable CLI with inherited
  const home=root+'/home',prefix=root+'/prefix',cache=root+'/cache',gitRoot=root+'/git-source';for(const dir of [home,gitRoot])fs.mkdirSync(dir);
  const env={PATH:process.env.PATH,HOME:home,SHELL:'/bin/zsh',ZDOTDIR:home,npm_config_cache:cache,npm_config_userconfig:root+'/user.npmrc',npm_config_globalconfig:root+'/global.npmrc',npm_config_offline:'true',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:root+'/gitconfig'};
  function command(name,args,cwd=root,extra={}){const result=spawnSync(name,args,{cwd,env:{...env,...extra},encoding:'utf8',timeout:120000});assert.equal(result.status,0,result.stderr+'\n'+result.stdout);return result.stdout;}
- const packed=JSON.parse(command('npm',['pack',path.resolve('.'),'--json','--ignore-scripts']));
- command('tar',['-xf',root+'/'+packed[0].filename,'--strip-components=1'],gitRoot);
+ const result=JSON.parse(command('npm',['pack',path.resolve('.'),'--json','--ignore-scripts']));
+ const packed=Array.isArray(result)?result[0]:result[pkg.name];
+ command('tar',['-xf',root+'/'+packed.filename,'--strip-components=1'],gitRoot);
  command('git',['init','--quiet'],gitRoot);command('git',['add','.'],gitRoot);command('git',['-c','user.name=ARC Test','-c','user.email=arc@example.invalid','commit','--quiet','-m','consumer fixture'],gitRoot);
- const install=['install','-g','--prefix',prefix,'--no-audit','--no-fund','git+file://'+gitRoot];
+ const install=['install','-g','--allow-git=all','--prefix',prefix,'--no-audit','--no-fund','git+file://'+gitRoot];
  for(let attempt=0;attempt<2;attempt++){
   command('npm',install,root,{npm_config_global:'true'});
   const executable=prefix+'/bin/arc';assert.ok(fs.statSync(fs.realpathSync(executable)).isFile());
