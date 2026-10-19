@@ -60,3 +60,10 @@ test('model changes preserve policy blocks and Codex feature settings together',
  const end=original.toString().indexOf('[ARC role policy: contract end]')+'[ARC role policy: contract end]'.length;
  assert.ok(start>=0); assert.ok(rendered.includes(original.toString().slice(start,end)));
 });
+import {hookFrontmatter} from '../../lib/policy/claude-hook.mjs';
+test('Claude model rendering preserves the managed hook and rejects unsupported hook structures',()=>{
+ const input=profiles('claude'),name='arc-coder.md';const text=input[name].toString();
+ const hook=hookFrontmatter();input[name]=Buffer.from(text);
+ const result=api.renderProfiles(input,settings('claude')).get(name).toString();assert.ok(result.includes(hook));
+ const bad={...input,[name]:Buffer.from(input[name].toString().replace('matcher: Bash','matcher: Read'))};assert.throws(()=>api.renderProfiles(bad,settings('claude')));
+});

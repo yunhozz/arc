@@ -65,3 +65,14 @@ test('CLI check is read-only and validation failure leaves every target unchange
   const last=path.join(temp,names.at(-1)); fs.writeFileSync(last,'missing markers'); const invalid=snapshot();
   assert.equal(run([]).status,1); assert.deepEqual(snapshot(),invalid);
 });
+test('Git query policy is generated from the common source and rejects malformed rules',()=>{
+ const p=policy();const inputs=new Map(api.POLICY_TARGETS.map(({path:name})=>[name,fs.readFileSync(new URL(name,root))]));
+ const output=api.buildPolicyOutputs(inputs,p);assert.ok(output.has('claude/skill/hooks/git-policy.json'),'common policy must generate installed JSON');
+ assert.deepEqual(JSON.parse(output.get('claude/skill/hooks/git-policy.json')),p.git);
+ delete p.git.commands.status.flags;assert.throws(()=>api.validateRolePolicy(p),/policy/i);
+});
+test('generation restores missing Claude specialist hook wiring and check detects its removal',()=>{
+ const inputs=new Map(api.POLICY_TARGETS.map(({path:name})=>[name,fs.readFileSync(new URL(name,root))]));
+ const name='claude/agents/arc-coder.md';inputs.set(name,Buffer.from(inputs.get(name).toString().replace(/^hooks:\n(?: .+\n){5}/m,'')));
+ const rendered=api.buildPolicyOutputs(inputs,policy()).get(name).toString();assert.match(rendered,/^hooks:\n  PreToolUse:/m);
+});

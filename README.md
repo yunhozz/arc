@@ -241,8 +241,26 @@ push·merge·deploy·publish·외부 메시지는 해당 행위·범위·대상�
 
 Codex의 역할 제한은 prompt 수준 계약이며 완전한 sandbox가 아닙니다. 역할별 Git hook이나 일반적인
 custom-agent 도구 allowlist를 제공한다고 가정하지 않습니다. shell 축소 후 정적 읽기 유지가 검증되지
-않았으므로 기존 shell 기능을 보존합니다. Claude는 기존 역할별 tools allowlist를 유지하며,
-이 공통 정책 생성 단계만으로 Claude Git hook 보호가 설치됐다고 간주하지 않습니다.
+않았으므로 기존 shell 기능을 보존합니다. Claude는 기존 역할별 tools allowlist와 다섯 전문 프로필의
+`PreToolUse` hook을 함께 사용합니다. hook은 Orchestrator 전역 설정에 추가하지 않습니다.
+설치된 `skills/arc/hooks/git-policy.json`은 공통 정책에서 생성되며 패키지 manifest와 필수 자산 검사에
+포함됩니다. installer가 hook을 최종 설치 절대경로로 연결하므로 현재 작업 디렉터리에 의존하지 않습니다.
+모델·effort를 다시 적용해도 hook과 도구 목록은 보존됩니다.
+
+Claude hook 실행 환경의 `PATH`에 Node.js 22+가 있어야 합니다. 직접 Git 호출, `git -C`, `--git-dir`,
+경로로 지정한 Git 실행 파일, `sh -c`·`bash -c`, `&&`·`||`·`;`·pipeline 조합을 문자열로 분류합니다.
+허용된 조회 옵션만 통과하며 알 수 없는 Git subcommand·옵션, 지원하지 않는 shell 구문은 거부합니다.
+조회 목록은 status, diff, log, show, rev-parse, ls-files, ls-tree, branch 조회, config 조회,
+worktree list, remote 조회입니다. Git 변경이나 연결 명령의 일부가 금지되면 전체 shell 요청을 거부합니다.
+검사 실행(`npm test` 등)은 그대로 허용됩니다.
+
+이 guard는 임의 프로그램의 효과를 판정하는 sandbox가 아닙니다. alias, 함수, 변수 확장, 동적 코드,
+다른 프로그램이나 스크립트 내부에서 실행하는 Git을 완전히 분석하지 않습니다. 기존 Git 설정의 외부
+프로그램 실행 효과도 판정하지 않습니다. 간접 실행으로 역할 금지를 우회해서는 안 됩니다.
+잘못된 stdin·누락 command·정책 읽기 오류는 `PreToolUse` deny 응답을 반환합니다. bootstrap 로드 실패는
+종료 코드 2로 차단을 요청합니다. Node 자체 실행 실패나 Claude의 hook 실행 오류 처리는 플랫폼 동작에
+의존하므로 모든 오류에서 fail-closed라고 보장하지 않습니다. hook 오류나 정상 검사 차단은 우회하지 말고
+Orchestrator에게 보고하세요. [Claude hook 문서](https://code.claude.com/docs/en/hooks)를 참고하세요.
 설치·업데이트된 프로필은 새 에이전트를 시작할 때 적용됩니다. 이미 실행 중인 에이전트가 정책을
 자동으로 다시 읽거나 강제 적용받는다고 보장하지 않습니다. native 플랫폼에서의 실제 준수 여부는
 생성 일관성·프로필 파싱 같은 구조 검사와 구분해야 합니다.
