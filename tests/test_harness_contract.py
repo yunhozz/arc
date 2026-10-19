@@ -481,6 +481,19 @@ class DocumentationContractTests(unittest.TestCase):
         for pattern in (r"prompt-level policy", r"native.*concurrency", r"structural.*do not prove.*runtime", r"new session"):
             self.assertRegex(guide, pattern)
 
+    def test_guide_covers_authorization_completion_and_correction_boundaries(self) -> None:
+        guide = self.guide()
+        for contract in (
+            "probe-only", "probe+implementation", "같은 범위", "중대한 범위·방법·위험 변경",
+            "문서 생략 경로", "Coder → Reviewer",
+            "QA를 재배정하지 않습니다", "최종 QA findings", "한국어 구절",
+            "파일별 책임 점검 범위", "29개", "미검증",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, guide)
+        self.assertRegex(guide, r"Coder\s+수정\s*→\s*QA\s+재검증")
+        self.assertRegex(guide, r"Plan omission requires.*no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns")
+
     def test_maintained_local_links_resolve(self) -> None:
         paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
         for platform in PLATFORMS:
@@ -551,9 +564,8 @@ class DocumentationContractTests(unittest.TestCase):
                 with self.subTest(path=str(path.relative_to(REPO))):
                     self.assertNotIn("role-flow.png", path.read_text())
 
-    def test_guide_and_svg_use_english_wording(self) -> None:
-        for text in (self.guide(), self.svg()):
-            self.assertNotRegex(text, r"[\uac00-\ud7a3]")
+    def test_svg_uses_english_wording(self) -> None:
+        self.assertNotRegex(self.svg(), r"[\uac00-\ud7a3]")
 
 
 if __name__ == "__main__":
