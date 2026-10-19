@@ -9,7 +9,8 @@ const npm=fs.realpathSync(spawnSync('/bin/sh',['-c','command -v npm'],{encoding:
 function command(executable,args,options={}){const result=spawnSync(executable,args,{encoding:'utf8',timeout:120000,...options});assert.equal(result.status,0,result.stderr||result.stdout);return result;}
 export function fixture(t,{live=false}={}){
  const base=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc packed consumer ')));t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
- const packed=JSON.parse(command(process.execPath,[npm,'pack','--json','--pack-destination',base],{cwd:source,env:{...process.env,HOME:base,npm_config_cache:path.join(base,'npm-cache'),NODE_PATH:'',NODE_OPTIONS:''}}).stdout)[0];
+ const result=JSON.parse(command(process.execPath,[npm,'pack','--json','--pack-destination',base],{cwd:source,env:{...process.env,HOME:base,npm_config_cache:path.join(base,'npm-cache'),NODE_PATH:'',NODE_OPTIONS:''}}).stdout);
+ const packed=Array.isArray(result)?result[0]:result['@yunhozz/arc'];
  const consumer=path.join(base,'consumer installation');fs.mkdirSync(consumer);fs.writeFileSync(path.join(consumer,'package.json'),'{"private":true}');
  command(process.execPath,[npm,'install','--ignore-scripts','--omit=dev','--no-audit','--no-fund',path.join(base,packed.filename)],{cwd:consumer,env:{...process.env,HOME:base,npm_config_cache:path.join(base,'npm-cache'),NODE_PATH:'',NODE_OPTIONS:''}});
  const root=path.join(consumer,'node_modules',packed.name);
