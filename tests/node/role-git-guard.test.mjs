@@ -51,3 +51,13 @@ test('missing hook module requests a blocking exit code instead of success',()=>
  const command=hookApi.buildClaudeHookCommand(path.join(os.tmpdir(),'arc-nonexistent/hooks/role-git-guard.mjs'));
  const result=spawnSync(command,{shell:true,encoding:'utf8'});assert.equal(result.status,2);assert.match(result.stderr,/ARC Git guard failed to load/);
 });
+// Bash removes backslash-LF before tokenization. Build literal bytes explicitly;
+// these classifier inputs must never be passed to a shell.
+for (const lineBreak of ['\n','\r\n']) for (const quoted of [false,true]) {
+ const escapedBreak = '\\' + lineBreak;
+ const command = quoted ? '"gi' + escapedBreak + 't" push' : 'gi' + escapedBreak + 't push';
+ test(`denies escaped ${JSON.stringify(lineBreak)} in ${quoted?'quoted':'unquoted'} executable`,()=>{
+  assert.ok(command.includes('\\'+lineBreak));
+  assert.equal(api.classifyGitCommand(command,policy).allowed,false);
+ });
+}

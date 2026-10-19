@@ -15,6 +15,7 @@ function tokenize(command) {
   const tokens=[]; let word='', started=false, quote=null;
   for(let i=0;i<command.length;i++) {
     const char=command[i];
+    if(char==='\\' && /[\r\n]/.test(command[i+1]??'')) throw Error('Escaped line terminator');
     if(quote) {
       if(char===quote){quote=null;continue;}
       if(quote==='"' && /[$`]/.test(char)) throw Error('Dynamic shell syntax');
