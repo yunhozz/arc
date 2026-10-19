@@ -143,11 +143,14 @@ class TaskCommitPolicyTests(unittest.TestCase):
 
     def test_final_findings_use_followup_task_without_rewriting_commit(self) -> None:
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
-        followup = commit.split("if final qa/reviewer findings", 1)[-1].split("this local", 1)[0]
+        followup = commit.split("for final reviewer findings", 1)[1].split("this local", 1)[0]
         self.contracts(followup, (
-            r"already committed.*orchestrator.*follow-up task.*required planning.*approvals.*correction.*qa reverification.*new focused commit",
-            r"reviewer then rechecks only the affected findings when warranted",
-            r"do not automatically amend/reset.*rerun.*original task.*duplicate commit",
+            r"already committed plan work.*orchestrator.*follow-up task.*required planning/approvals",
+            r"coder leaves corrections uncommitted during rechecks.*latest committed state plus uncommitted diff.*reviewer artifact/brief",
+            r"reuse an independent reviewer or assign another independent reviewer",
+            r"repeat coder → reviewer without qa reassignment until findings are resolved.*orchestrator then accepts.*one focused follow-up commit",
+            r"final qa findings.*coder correction and qa recheck before a new focused commit",
+            r"do not automatically amend/reset or duplicate the original task commit",
         ))
 
     def test_document_batch_and_external_action_boundaries_remain(self) -> None:
@@ -376,11 +379,66 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
         self.assertRegex(core, r"depends on a still-unverified risky contract, complete applicable qa at that dependency boundary")
         self.assertNotRegex(core, r"qa/review at that dependency boundary")
 
+    def platform_texts(self, suffix):
+        for platform in ("codex", "claude"):
+            path = REPO / platform / suffix
+            yield platform, " ".join(path.read_text().lower().split())
+
+    def test_final_plan_reviewer_corrections_skip_qa(self) -> None:
+        for suffix in ("skill/SKILL.md", "skill/references/verification.md"):
+            for platform, text in self.platform_texts(suffix):
+                with self.subTest(platform=platform, artifact=suffix):
+                    self.assertRegex(text, r"final.*reviewer findings.*including behavior findings.*coder.*reviewer.*(?:no qa|without.*qa|do not.*qa)")
+                    self.assertRegex(text, r"repeat.*until.*resolved")
+        for platform, suffix in (("codex", "agents/arc-reviewer.toml"), ("claude", "agents/arc-reviewer.md")):
+            text = " ".join((REPO / platform / suffix).read_text().lower().split())
+            self.assertRegex(text, r"final.*reviewer findings.*including behavior findings.*coder.*reviewer.*no qa")
+            self.assertRegex(text, r"repeat.*until.*resolved")
+
+    def test_pre_final_qa_failures_keep_qa_recheck(self) -> None:
+        for platform, text in self.platform_texts("skill/references/verification.md"):
+            with self.subTest(platform=platform):
+                self.assertRegex(text, r"before.*initial final.*reviewer.*qa.*failures.*coder.*qa recheck")
+
     def test_final_reviewer_findings_on_committed_work(self) -> None:
-        for name in ("verification", "commit"):
-            with self.subTest(reference=name):
-                self.assertRegex(policy_text(name), r"follow-up task.*correction.*qa re(?:check|verification).*new focused commit"
-                                                    r".*reviewer then rechecks only the affected findings when warranted")
+        for suffix in ("skill/references/verification.md", "skill/references/commit.md"):
+            for platform, text in self.platform_texts(suffix):
+                with self.subTest(platform=platform, artifact=suffix):
+                    self.assertRegex(text, r"final reviewer findings.*follow-up task.*approvals.*uncommitted.*latest.*diff.*resolved.*orchestrator.*accept.*one focused follow-up commit")
+                    self.assertRegex(text, r"final qa findings.*qa re(?:check|verification)")
+                    self.assertRegex(text, r"(?:never|do not).*amend/reset.*duplicate")
+
+    def test_final_review_exception_preserves_scope_and_roles(self) -> None:
+        for platform, text in self.platform_texts("skill/references/verification.md"):
+            with self.subTest(platform=platform):
+                self.assertRegex(text, r"without a plan.*existing.*flow")
+                self.assertRegex(text, r"scope expansion.*separate.*mandatory.*obligations.*evidence gaps.*hold.*orchestrator")
+                self.assertRegex(text, r"reviewer.*read.only.*(?:no qa|must not run qa).*acceptance")
+                self.assertRegex(text, r"previous qa.*(?:not|never).*post.fix")
+        for platform, suffix in (("codex", "agents/arc-planner.toml"), ("claude", "agents/arc-planner.md")):
+            text = " ".join((REPO / platform / suffix).read_text().lower().split())
+            self.assertRegex(text, r"initial.*(?:single|once).*review.*necessary.*rechecks")
+
+class PlannerDraftingDisciplineTests(unittest.TestCase):
+    # Approved structural contract checks; no consuming-agent runtime claim.
+    def contracts(self, patterns):
+        for platform in ("codex", "claude"):
+            text = " ".join((REPO / platform / "skill/references/planning.md").read_text().lower().split())
+            for pattern in patterns:
+                with self.subTest(platform=platform, contract=pattern):
+                    self.assertRegex(text, pattern)
+
+    def test_planner_drafting_preflight_requires_complete_brief(self):
+        self.contracts((r"before formal drafting.*preflight.*policy.*reference.*profile.*test.*parity.*manifest", r"complete brief.*workspace.*branch.*head.*ownership.*scope.*dependencies.*acceptance criteria.*checks.*hold"))
+
+    def test_planner_returns_complete_draft_and_self_review(self):
+        self.contracts((r"planner.*complete proportional draft.*self.review", r"orchestrator.*integrates.*saves.*reviews.*approval"))
+
+    def test_planner_followup_batches_substantive_omissions(self):
+        self.contracts((r"fixed checklist.*scope.*ownership.*conflicts.*dependencies.*evidence.*approval.*completeness", r"substantive omissions.*one consolidated follow.up request", r"do not split.*omission"))
+
+    def test_planner_turn_minimization_preserves_approval_gates(self):
+        self.contracts((r"initial design.*spec approval.*formal plan.*separate.*stages", r"additional planner calls.*substantive omissions.*user.approved.*(?:scope|evidence)", r"no fixed call cap.*never accept an incomplete draft"))
 
 class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_codex_spawn_fork_and_user_input_policy(self) -> None:

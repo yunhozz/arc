@@ -31,7 +31,7 @@ and assigns
 all Coder/QA work. Specialists report unresolved questions to Orchestrator, who assigns support only when needed.
 
 QA runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
-configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. After a
+configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. Outside the final plan Reviewer correction exception, after a
 behavior fix QA reruns affected checks, and Reviewer rechecks only when warranted. Reuse a Reviewer only when
 independent of the work and self-review and when evidence meets required scope and freshness.
 Resolve or explicitly disposition findings and confirm
@@ -54,10 +54,14 @@ A task commit record does not mark unperformed final verification complete. Orch
 acceptance
 using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
 Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
-rules. If final findings affect already committed work, Orchestrator manages a follow-up task, applicable
-planning/approvals,
-correction and QA recheck before a new focused commit; Reviewer then rechecks only the affected findings when
-warranted. Do not automatically amend/reset or duplicate the original task commit.
+rules. For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
+planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
+state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
+assign another independent Reviewer as needed. Repeat Coder → Reviewer without QA reassignment until findings are
+resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
+Final QA findings retain Coder correction and QA recheck before a new focused commit.
+Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
+planning and approval obligations.
 
 ### UI browser acceptance checks
 
@@ -99,8 +103,8 @@ substituting Reviewer review for QA evidence.
 For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
 source, reproduction conditions and steps, and evidence to Orchestrator, distinguishing source-inferred reproduction
 from
-execution-observed results without running QA tests. Orchestrator routes it to Coder correction and QA post-fix recheck.
-For significant/high-risk work, Reviewer then reviews the final full change once after QA recheck (the same Reviewer
+execution-observed results without running QA tests. Outside the final plan Reviewer correction exception, Orchestrator routes it to Coder correction and QA post-fix recheck.
+Outside that exception, for significant/high-risk work, Reviewer then reviews the final full change once after QA recheck (the same Reviewer
 rechecks the same scope after a fix), or, for already committed
 plan work, rechecks only the affected findings when warranted. Reviewer continues handling
 structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
@@ -114,3 +118,17 @@ connect each criterion to evidence.
 
 
 Read brief-cited `references/superpowers/test-driven-development/SKILL.md`; retain ARC exceptions.
+
+
+### Final plan Reviewer correction loop
+
+For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
+Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
+the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
+risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
+This exception applies only to findings from the final overall Reviewer of work with a plan.
+Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
+or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
+Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
+checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
+report only checks actually performed, their actor, target state, results and remaining limits.

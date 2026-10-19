@@ -219,9 +219,24 @@ Reuse evidence only when scope, relevant state, independence, freshness, and flo
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
 QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion
 decisions. Orchestrator routes fixes to Coder (a failed direct-path check returns to the normal flow),
-obtains affected QA rechecks and required final review, and accepts after findings/evidence gaps are resolved or
+obtains affected QA rechecks outside the final plan Reviewer correction exception and required final review, and accepts after findings/evidence gaps are resolved or
 explicitly dispositioned.
+
 Criterion verdicts follow the Evidence verdict.
+
+### Final plan Reviewer correction loop
+
+For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
+Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
+the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
+risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
+This exception applies only to findings from the final overall Reviewer of work with a plan.
+Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
+or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
+Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
+checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
+report only checks actually performed, their actor, target state, results and remaining limits.
+
 
 
 ## Orchestrator direct path for small tasks
