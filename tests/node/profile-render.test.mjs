@@ -50,3 +50,20 @@ for (const platform of ['codex','claude']) test(`${platform} rejects a BOM inste
   const input=profiles(platform); const name=Object.keys(input)[0]; input[name]=Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),input[name]]);
   assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});
 });
+test('model changes preserve policy blocks and Codex feature settings together',()=>{
+ const input=profiles('codex');
+ const original=input['arc-coder.toml'];
+ input['arc-coder.toml']=Buffer.concat([original,Buffer.from('\n[features]\nshell_tool = true\n')]);
+ const rendered=api.renderProfiles(input,settings('codex')).get('arc-coder.toml').toString();
+ assert.ok(rendered.endsWith('[features]\nshell_tool = true\n'));
+ const start=original.toString().indexOf('[ARC role policy: contract begin]');
+ const end=original.toString().indexOf('[ARC role policy: contract end]')+'[ARC role policy: contract end]'.length;
+ assert.ok(start>=0); assert.ok(rendered.includes(original.toString().slice(start,end)));
+});
+import {hookFrontmatter} from '../../lib/policy/claude-hook.mjs';
+test('Claude model rendering preserves the managed hook and rejects unsupported hook structures',()=>{
+ const input=profiles('claude'),name='arc-coder.md';const text=input[name].toString();
+ const hook=hookFrontmatter();input[name]=Buffer.from(text);
+ const result=api.renderProfiles(input,settings('claude')).get(name).toString();assert.ok(result.includes(hook));
+ const bad={...input,[name]:Buffer.from(input[name].toString().replace('matcher: Bash','matcher: Read'))};assert.throws(()=>api.renderProfiles(bad,settings('claude')));
+});

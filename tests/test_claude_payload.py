@@ -48,6 +48,17 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertEqual(fields['tools'], tools)
             self.assertEqual((fields['model'], fields['effort']), (model, effort))
 
+    def test_managed_hook_survives_model_render_and_rejects_other_yaml(self):
+        module = self.module()
+        content = (PAYLOAD / 'agents/arc-coder.md').read_bytes()
+        fields = module.parse_profile(content)
+        self.assertIn('hooks', fields)
+        rendered = module.render_profile(content, {'model': 'opus', 'effort': 'high'})
+        self.assertEqual(module.parse_profile(rendered)['hooks'], fields['hooks'])
+        for old, new in ((b'matcher: Bash', b'matcher: Read'), (b'type: command', b'type: prompt')):
+            with self.assertRaises(module.ValidationError):
+                module.parse_profile(content.replace(old, new))
+
     def test_rejects_missing_extra_roles_and_invalid_settings(self):
         module = self.module()
         import tomllib
@@ -80,7 +91,7 @@ class ClaudePayloadTests(unittest.TestCase):
             fields = module.parse_profile((PAYLOAD / f'agents/arc-{role}.md').read_bytes())
             self.assertEqual(fields['name'], 'arc-' + role)
             self.assertTrue(fields['description'])
-            self.assertEqual(set(fields), {'name', 'description', 'model', 'effort', 'tools'})
+            self.assertEqual(set(fields), {'name', 'description', 'model', 'effort', 'tools', 'hooks'})
 
     def test_renderer_preserves_body_and_non_model_fields(self):
         module = self.module()

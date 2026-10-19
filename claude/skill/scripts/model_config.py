@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import os
+import json
+import base64
+from urllib.parse import urlparse
 from pathlib import Path
 import re
 import stat
@@ -83,11 +86,38 @@ def _profile(content: bytes) -> tuple[list[str], dict, dict]:
     fields, indices = {}, {}
     current = None
     closed = False
+    skip_until = 0
     for index, line in enumerate(lines[1:], 1):
+        if index < skip_until:
+            continue
         text = line.rstrip('\r\n')
         if text == '---':
             closed = True
             break
+        if text == 'hooks:':
+            if 'hooks' in fields:
+                raise ValidationError('duplicate managed hooks')
+            raw = [item.rstrip('\r\n') for item in lines[index:index + 6]]
+            expected = ['hooks:', '  PreToolUse:', '    - matcher: Bash', '      hooks:', '        - type: command']
+            try:
+                if len(raw) != 6 or raw[:5] != expected or not raw[5].startswith('          command: '):
+                    raise ValueError('unsupported hook structure')
+                command = json.loads(raw[5][19:])
+                match = re.fullmatch(r'''node -e "eval\(Buffer\.from\('([A-Za-z0-9+/]+={0,2})','base64'\)\.toString\('utf8'\)\)" "([A-Za-z0-9+/]+={0,2})"''', command)
+                if not match:
+                    raise ValueError('unmanaged command')
+                bootstrap = base64.b64decode(match[1], validate=True).decode('utf-8')
+                expected_bootstrap = "import(Buffer.from(process.argv[1],'base64').toString('utf8')).then(module=>module.runHook()).catch(()=>{process.stderr.write('ARC Git guard failed to load\\n');process.exitCode=2;});"
+                url = urlparse(base64.b64decode(match[2], validate=True).decode('utf-8'))
+                if bootstrap != expected_bootstrap or url.scheme != 'file' or url.netloc or not url.path.endswith('/hooks/role-git-guard.mjs') or url.query or url.fragment:
+                    raise ValueError('invalid managed hook URL')
+            except (ValueError, TypeError, UnicodeError) as exc:
+                raise ValidationError('unsupported managed hooks') from exc
+            fields['hooks'] = command
+            indices['hooks'] = index
+            skip_until = index + 6
+            current = 'hooks'
+            continue
         item = re.fullmatch(r'  - ([A-Za-z][A-Za-z0-9]*)', text)
         if item and current == 'tools':
             fields['tools'].append(item[1])
@@ -106,7 +136,7 @@ def _profile(content: bytes) -> tuple[list[str], dict, dict]:
             if value is None or value != value.strip() or any(c in value for c in '\t\x00{}[]#&*!|>\"\'') or ': ' in value:
                 raise ValidationError(f'{key}: expected a plain YAML scalar')
             fields[key] = value
-    if not closed or not {'name', 'description', 'model', 'effort', 'tools'} <= set(fields):
+    if not closed or not {'name', 'description', 'model', 'effort', 'tools', 'hooks'} <= set(fields):
         raise ValidationError('incomplete frontmatter')
     name = fields['name']
     role = name.removeprefix('arc-')

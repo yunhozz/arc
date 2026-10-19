@@ -15,3 +15,23 @@ for(const text of ['<!-- arc:begin -->','<!-- arc:end --><!-- arc:begin -->','<!
 test('install and remove cycles do not accumulate terminal newlines',()=>{let content=Buffer.alloc(0);const first=api.renderManagedBlock(content,body).content;for(let cycle=0;cycle<3;cycle++){content=api.renderManagedBlock(content,body).content;assert.deepEqual(content,first);content=api.removeManagedBlock(content).content;assert.deepEqual(content,Buffer.alloc(0));}});
 for(const [suffix,want]of [['\n',''],['\r\n',''],['\n\n','\n'],['\r\n\r\n','\r\n'],['\r\n\n','\n'],['\n\r\n','\r\n']])test('remove terminal block consumes only its first ending '+JSON.stringify(suffix),()=>{const prefix='\ufeff \n\n';assert.deepEqual(api.removeManagedBlock(Buffer.from(prefix+'<!-- arc:begin -->\nx\n<!-- arc:end -->'+suffix)).content,Buffer.from(prefix+want));});
 for(const suffix of ['\nuser suffix\n','\r\n\r\nafter\r\n','\n ','\r','\n\r','\n\0'])test('remove block preserves nonterminal suffix bytes '+JSON.stringify(suffix),()=>{assert.deepEqual(api.removeManagedBlock(Buffer.from('before\n<!-- arc:begin -->\nx\n<!-- arc:end -->'+suffix)).content,Buffer.from('before\n'+suffix));});
+
+test('generated global policy survives install update/remove while preserving user text and language',()=>{
+ const body=api.agentsBlockBody('/Users/u/custom arc','/Users/u','ko');
+ assert.match(body,/git.orchestrator-accept-commit/);
+ assert.match(body,/review.significant-no-plan/); assert.match(body,/review.significant-plan/);
+ assert.match(body,/Use Korean by default/);
+ const original=Buffer.from('user instructions\r\n');
+ const installed=api.renderManagedBlock(original,body).content;
+ assert.deepEqual(api.renderManagedBlock(installed,body).content,installed);
+ assert.deepEqual(api.removeManagedBlock(installed).content,Buffer.from('user instructions\r\n\r\n'));
+ assert.match(body,/`~\/custom arc\/skills\/arc\/SKILL.md`/);
+});
+
+for(const platform of ['codex','claude'])test(`global policy renders only ${platform} platform notice`,()=>{
+ const text=api.agentsBlockBody('/Users/u/custom arc','/Users/u','ko',platform);
+ assert.ok(text.includes(`[platform.${platform}]`));
+ const other=platform==='codex'?'claude':'codex'; assert.ok(!text.includes(`[platform.${other}]`));
+ assert.equal(text.includes('No documented role-specific Git hook'),platform==='codex');
+ assert.equal(text.includes('Existing per-role tool allowlists reduce available tools'),platform==='claude');
+});

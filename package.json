@@ -12,7 +12,9 @@
   "scripts": {
     "test": "node --test tests/node/*.test.mjs",
     "build:native": "node scripts/build-native.mjs",
-    "check:manifest": "node scripts/update-manifest.mjs --check"
+    "check:manifest": "node scripts/update-manifest.mjs --check",
+    "update:role-policy": "node scripts/update-role-policy.mjs",
+    "check:role-policy": "node scripts/update-role-policy.mjs --check"
   },
   "devDependencies": {
     "node-gyp": "11.5.0",

@@ -217,3 +217,50 @@ npm uninstall -g @yunhozz/arc
 
 npm package removal leaves the installed harness configuration and shared completion block in place.
 `uninstall` remains available to remove that deployed configuration.
+
+
+## 역할 정책과 권한 경계
+
+ARC는 Orchestrator, Scouter, Planner, Coder, QA, Reviewer의 여섯 역할군을 정의합니다.
+배포되는 전문 에이전트 프로필은 기존 다섯 개이며, Orchestrator는 최상위 세션 역할입니다.
+`lib/policy/role-policy.json`이 공통 정책 원천입니다. `npm run update:role-policy`로 양 플랫폼의
+관리 영역을 생성하고 `npm run check:role-policy`로 오래된 산출물을 확인합니다. 관리 영역 밖의
+절차와 모델 설정은 보존하며, 모델 렌더러는 모델 관련 필드만 변경합니다.
+
+전문 역할은 정상 작업과 복구 중에도 stage, commit, push, merge, rebase, reset, branch 생성·전환,
+worktree 생성·제거를 실행할 수 없습니다. Orchestrator의 위임도 이 권한을 확대하지 않습니다.
+Scouter는 정적 조사, Planner는 응답으로 초안 반환, Coder는 배정 파일 구현과 집중 검사,
+QA는 승인된 검사와 제한된 임시 산출물, Reviewer는 독립적인 정적 검토를 담당합니다.
+Orchestrator가 검사 증거와 기준을 확인해 수락하고 작업별 집중 커밋을 생성합니다.
+push·merge·deploy·publish·외부 메시지는 해당 행위·범위·대상에 대한 명시적인 사용자 권한이 필요합니다.
+
+유의미하거나 위험도가 높은 작업에 계획이 없으면 Coder → QA → 최종 전체 Reviewer → Orchestrator 수락을
+따릅니다. 계획이 있으면 각 작업을 Coder → 필요한 fresh QA → Orchestrator 수락·커밋으로 진행하고,
+모든 작업과 필요한 QA가 끝난 뒤 Reviewer가 최종 전체 변경을 한 번 검토합니다. Reviewer는 매 커밋의
+필수 게이트가 아닙니다. 최종 계획 Reviewer 발견 사항은 Coder → Reviewer로 재검토합니다.
+
+Codex의 역할 제한은 prompt 수준 계약이며 완전한 sandbox가 아닙니다. 역할별 Git hook이나 일반적인
+custom-agent 도구 allowlist를 제공한다고 가정하지 않습니다. shell 축소 후 정적 읽기 유지가 검증되지
+않았으므로 기존 shell 기능을 보존합니다. Claude는 기존 역할별 tools allowlist와 다섯 전문 프로필의
+`PreToolUse` hook을 함께 사용합니다. hook은 Orchestrator 전역 설정에 추가하지 않습니다.
+설치된 `skills/arc/hooks/git-policy.json`은 공통 정책에서 생성되며 패키지 manifest와 필수 자산 검사에
+포함됩니다. installer가 hook을 최종 설치 절대경로로 연결하므로 현재 작업 디렉터리에 의존하지 않습니다.
+모델·effort를 다시 적용해도 hook과 도구 목록은 보존됩니다.
+
+Claude hook 실행 환경의 `PATH`에 Node.js 22+가 있어야 합니다. 직접 Git 호출, `git -C`, `--git-dir`,
+경로로 지정한 Git 실행 파일, `sh -c`·`bash -c`, `&&`·`||`·`;`·pipeline 조합을 문자열로 분류합니다.
+허용된 조회 옵션만 통과하며 알 수 없는 Git subcommand·옵션, 지원하지 않는 shell 구문은 거부합니다.
+조회 목록은 status, diff, log, show, rev-parse, ls-files, ls-tree, branch 조회, config 조회,
+worktree list, remote 조회입니다. Git 변경이나 연결 명령의 일부가 금지되면 전체 shell 요청을 거부합니다.
+검사 실행(`npm test` 등)은 그대로 허용됩니다.
+
+이 guard는 임의 프로그램의 효과를 판정하는 sandbox가 아닙니다. alias, 함수, 변수 확장, 동적 코드,
+다른 프로그램이나 스크립트 내부에서 실행하는 Git을 완전히 분석하지 않습니다. 기존 Git 설정의 외부
+프로그램 실행 효과도 판정하지 않습니다. 간접 실행으로 역할 금지를 우회해서는 안 됩니다.
+잘못된 stdin·누락 command·정책 읽기 오류는 `PreToolUse` deny 응답을 반환합니다. bootstrap 로드 실패는
+종료 코드 2로 차단을 요청합니다. Node 자체 실행 실패나 Claude의 hook 실행 오류 처리는 플랫폼 동작에
+의존하므로 모든 오류에서 fail-closed라고 보장하지 않습니다. hook 오류나 정상 검사 차단은 우회하지 말고
+Orchestrator에게 보고하세요. [Claude hook 문서](https://code.claude.com/docs/en/hooks)를 참고하세요.
+설치·업데이트된 프로필은 새 에이전트를 시작할 때 적용됩니다. 이미 실행 중인 에이전트가 정책을
+자동으로 다시 읽거나 강제 적용받는다고 보장하지 않습니다. native 플랫폼에서의 실제 준수 여부는
+생성 일관성·프로필 파싱 같은 구조 검사와 구분해야 합니다.

@@ -3,7 +3,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','coder','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}return{packageRoot:'/verified-package',files,modelInputs,snapshot:new Map()};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','coder','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}for(const name of ['role-git-guard.mjs','git-policy.json'])files.set(`claude/skill/hooks/${name}`,fs.readFileSync(new URL(`../../claude/skill/hooks/${name}`,import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),preset:'balanced',safeFs,...extra});}
 test('plan generates buffers and snapshots while optional external skills are absent',t=>{const home=fixture(t);assert.equal(typeof api.buildInstallPlan,'function');const p=plan(home);assert.equal(p.target.platform,'codex');assert.ok(p.generated.profiles instanceof Map);assert.match(p.generated.models.toString(),/version = 1/);assert.equal(p.globalChanges.length,2);assert.equal(p.externalPaths.length,0);assert.ok(p.snapshot instanceof Map);assert.deepEqual(fs.readdirSync(home),[]);});
 test('single-target plan never inspects another platform home',t=>{const home=fixture(t);fs.symlinkSync('/outside',`${home}/.claude`);assert.equal(plan(home).target.platform,'codex');fs.unlinkSync(`${home}/.claude`);fs.symlinkSync('/outside',`${home}/.codex`);assert.equal(plan(home,'claude').target.platform,'claude');});
@@ -78,4 +78,42 @@ for(const platform of ['codex','claude'])test(`${platform} language settings and
 test('invalid existing language blocks explicit reinstall and skip-global still generates local policies',t=>{
  const home=fixture(t),root=home+'/.claude';fs.mkdirSync(root+'/skills/arc',{recursive:true});fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "fr"\n');assert.throws(()=>plan(home,'claude',{language:'ko',skipGlobal:true}),/Invalid ARC language settings/);
  fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "en"\n');const next=plan(home,'claude',{language:'ko',skipGlobal:true});assert.deepEqual(next.globalChanges,[]);assert.match(next.generated.skill.get('SKILL.md').toString(),/Korean/);for(const bytes of next.generated.profiles.values())assert.match(bytes.toString(),/Korean/);
+});
+for(const platform of ['codex','claude'])test(`install plan passes ${platform} to global policy renderer`,t=>{
+ const result=plan(fixture(t),platform);
+ const change=result.globalChanges.find(c=>c.path===result.target.instructionPath);
+ assert.ok(change); const text=change.content.toString();
+ assert.ok(text.includes(`[platform.${platform}]`));
+ assert.ok(!text.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
+});
+import {validateClaudeHookCommand} from '../../lib/policy/claude-hook.mjs';
+test('Claude plan installs each hook against the final skill path and no global hook',t=>{
+ const home=fixture(t),result=plan(home,'claude');
+ for(const bytes of result.generated.profiles.values()) {
+  const command=JSON.parse(/^          command: (.+)$/m.exec(bytes.toString())[1]);validateClaudeHookCommand(command);
+  const encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(command)[1];const url=Buffer.from(encoded,'base64').toString();
+  assert.ok(url.includes('/.claude/skills/arc/hooks/role-git-guard.mjs'),url);assert.ok(!url.includes('__ARC_INSTALLED_SKILL__'));
+ }
+ assert.ok(!result.globalChanges.some(x=>x.content.toString().includes('PreToolUse')));
+});
+test('Claude plan rejects missing or stale Git guard policy before writing',t=>{
+ const home=fixture(t),input=payload();input.files.delete('claude/skill/hooks/git-policy.json');
+ assert.throws(()=>api.buildInstallPlan({payload:input,target:targets.resolveTarget('claude',{userHome:home,env:{}}),preset:'balanced',safeFs}),/Git guard/);
+ assert.deepEqual(fs.readdirSync(home),[]);
+});
+import {spawnSync} from 'node:child_process';
+test('Claude installed hook survives model update and is removed with managed assets only',async t=>{
+ const home=fixture(t),first=plan(home,'claude');const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
+ const {buildUninstallPlan,uninstallTargets}=await import('../../lib/installer/uninstall.mjs');
+ fs.mkdirSync(`${home}/.claude/agents`,{recursive:true});fs.writeFileSync(`${home}/.claude/agents/user-agent.md`,'preserve');
+ // Refresh the initial snapshot after preparing an unrelated user file.
+ const initial=plan(home,'claude');applyTransaction(initial,{safeFs,acquired:{references:referenceFixture()}});
+ const run=command=>{const profile=fs.readFileSync(`${home}/.claude/agents/arc-coder.md`,'utf8');const hook=JSON.parse(/^          command: (.+)$/m.exec(profile)[1]);return spawnSync(hook,{shell:true,cwd:os.tmpdir(),input:JSON.stringify({hook_event_name:'PreToolUse',tool_name:'Bash',tool_input:{command}}),encoding:'utf8'});};
+ for(const [command,decision]of [['git status --short',undefined],['git push','deny']]){const result=run(command);assert.equal(result.status,0,result.stderr);assert.equal(JSON.parse(result.stdout).hookSpecificOutput?.permissionDecision,decision);}
+ const next=plan(home,'claude',{preset:'smart'});applyTransaction(next,{safeFs,acquired:{references:referenceFixture()}});
+ assert.equal(JSON.parse(run('git commit -m never-executed').stdout).hookSpecificOutput.permissionDecision,'deny');
+ const drift=plan(home,'claude');fs.appendFileSync(`${home}/.claude/agents/arc-coder.md`,'\nuser edit');assert.throws(()=>applyTransaction(drift,{safeFs,acquired:{references:referenceFixture()}}));
+ assert.ok(fs.readFileSync(`${home}/.claude/agents/arc-coder.md`,'utf8').endsWith('user edit'));
+ const result=await uninstallTargets([buildUninstallPlan({target:first.target,safeFs})],{safeFs});assert.equal(result.results[0].status,'uninstalled');
+ assert.equal(fs.existsSync(`${home}/.claude/skills/arc/hooks`),false);assert.equal(fs.readFileSync(`${home}/.claude/agents/user-agent.md`,'utf8'),'preserve');
 });
