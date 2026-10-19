@@ -29,10 +29,14 @@ Reviewer reviews once on the final full change after all plan tasks are accepted
 QA recheck at the final relevant state; without a plan, Reviewer follows QA before acceptance.
 A task commit does not mark unperformed final verification complete.
 
-If final findings affect committed work, Orchestrator manages a follow-up task (planning/approvals as needed),
-Coder correction and QA recheck before a new focused commit; never amend/reset or duplicate the original commit.
-Orchestrator decides when a Reviewer recheck is warranted; it covers only the affected findings.
-Failed required checks and unmet criteria cannot be waived to commit.
+For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
+planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
+state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
+assign another independent Reviewer as needed. Repeat Coder → Reviewer without QA reassignment until findings are
+resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
+Final QA findings retain Coder correction and QA recheck before a new focused commit.
+Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
+planning and approval obligations.
 
 Orchestrator writes the final base..HEAD diff plus changed-file list to `<git-common-dir>/arc/review/<slug>.diff` (same
 slug as the handoff record; base is the approved base HEAD recorded at handoff; inline when small or write denied) and
@@ -67,7 +71,7 @@ Reviewer does not substitute for QA evidence.
 
 For an acceptance-linked finding Reviewer reports criterion, expected behavior, observed problem, related source,
 reproduction conditions and steps, and evidence, labeling each source-inferred or execution-observed,
-without running QA tests. Orchestrator routes it to Coder and QA recheck. Reviewer still handles structure, design,
+without running QA tests. Outside the final plan Reviewer correction exception, Orchestrator routes it to Coder and QA recheck. Reviewer still handles structure, design,
 factual, and security findings; observable security/interface issues may need both QA and Reviewer.
 
 Orchestrator accepts using verdicts, findings, rechecks, and remaining gaps, not an overall run result;
@@ -75,3 +79,17 @@ disposition never turns unverified into proven. Low-risk work without QA likewis
 focused-check evidence.
 
 Read brief-cited `references/superpowers/test-driven-development/SKILL.md`; preserve ARC TDD exceptions.
+
+
+### Final plan Reviewer correction loop
+
+For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
+Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
+the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
+risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
+This exception applies only to findings from the final overall Reviewer of work with a plan.
+Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
+or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
+Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
+checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
+report only checks actually performed, their actor, target state, results and remaining limits.

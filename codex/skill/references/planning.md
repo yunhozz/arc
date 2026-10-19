@@ -12,6 +12,26 @@ verified workspace; Orchestrator saves directly in the selected target. Missing 
 affected drafting or save and is reported to Orchestrator. Planned scope and intended paths are not actual preparation.
 Initial target preparation does not authorize Coder; the complete handoff gate still applies.
 
+
+## Planner drafting preparation and consolidated feedback
+
+Before formal drafting, Orchestrator performs a preflight of relevant policy, reference, profile, test, parity and
+manifest surfaces and conflicts. Provide one complete brief with actual absolute workspace/repository, branch or
+detached HEAD, HEAD, change state and ownership, explicit target choice and preparation evidence, approved preceding
+design/spec/plan versions, scope and exclusions, design/plan depth, dependencies and shared contracts, acceptance
+criteria, required QA/focused checks and evidence, hold conditions and open decisions. Resolve missing or conflicting
+required evidence first or hold that stage.
+
+Planner returns a complete proportional draft and self-review for the current approval stage. Orchestrator integrates,
+saves, reviews and obtains approval. Orchestrator checks once with a fixed checklist: scope and evidence; targets,
+ownership and paths; policy surfaces and conflicts; task boundaries, dependencies and acceptance criteria; checks,
+evidence and holds; roles, approval and commit boundaries; draft completeness. Gather all substantive omissions into
+one consolidated follow-up request to Planner. Do not split requests by omission or author the missing plan yourself.
+
+Initial design, required spec approval, and formal plan drafting/approval remain separate ordered stages.
+Allow additional Planner calls for substantive omissions or user-approved scope/evidence changes. There is no fixed
+call cap; never accept an incomplete draft to minimize calls. Do not add call-count conditions to Planner profiles.
+
 ## Design and planning
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls

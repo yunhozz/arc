@@ -47,11 +47,14 @@ inspect the actual result before any retry. Normal accepted task commits retain 
 fresh state and ownership checks. Task acceptance/commit is distinct from final plan acceptance; remaining final
 QA/Reviewer/integration checks still apply with the timing in verification.
 
-If final QA/Reviewer findings require changing already committed work, Orchestrator defines a follow-up task with
-required
-planning and approvals, correction and QA reverification, then a new focused commit; Reviewer then rechecks only the
-affected findings when warranted. Do not automatically amend/reset
-the existing commit or rerun the original task to produce a duplicate commit.
+For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
+planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
+state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
+assign another independent Reviewer as needed. Repeat Coder → Reviewer without QA reassignment until findings are
+resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
+Final QA findings retain Coder correction and QA recheck before a new focused commit.
+Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
+planning and approval obligations.
 
 This local commit authority does not authorize early planning-document commits: pre-Coder document approvals,
 explicit execution-target choice and batch preparation remain unchanged. Historical spec/plan records are not changed

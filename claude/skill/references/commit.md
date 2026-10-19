@@ -23,9 +23,14 @@ commit. If commit creation is unclear, stop and inspect before any retry (see gi
 
 For a no-change task make no empty commit; record acceptance evidence and no change.
 On resume verify the same task's existing commit SHA, content, and validity and reuse it; never duplicate a successful
-task commit. If final findings affect committed work, Orchestrator defines a follow-up task with required approvals,
-correction and QA recheck, then a new focused commit; never amend/reset the existing commit.
-Task acceptance is distinct from final plan acceptance; final checks still apply.
+task commit. For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
+planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
+state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
+assign another independent Reviewer as needed. Repeat Coder → Reviewer without QA reassignment until findings are
+resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
+Final QA findings retain Coder correction and QA recheck before a new focused commit.
+Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
+planning and approval obligations.
 
 Commit message form: `<type>(<scope>): <description>` (Conventional Commits) with a concise, specific English description
 without trailing period, lowercase scope when useful, one top-level task per commit, body/footer only when needed.
