@@ -171,7 +171,7 @@ Coder가 다음을 소유한다.
 Workspace에서 실행한다.
 
 ```text
-python3 tests/test_harness_contract.py
+python3 tests/test_harness_contract.py PolicyContractTests
 python3 tests/test_arc_policy.py
 python3 tests/test_claude_payload.py
 python3 tests/test_codex_models.py
@@ -179,6 +179,12 @@ node --test tests/node/profile-render.test.mjs
 node scripts/update-manifest.mjs --check
 git diff --check
 ```
+
+`PolicyContractTests`를 T1의 runtime 계약 검사 범위로 실행한다. T1에서 추가한 AUTH 계약의 예상 RED를 확인한 뒤 runtime 지침을 구현하고, 이 class와 다른 필수 T1 검사를 GREEN으로 만든다. 독립 QA도 동일한 T1 검사 범위와 수용 기준을 확인한다.
+
+기존 전체 파일 실행에서 관찰한 `DocumentationContractTests.test_maintained_local_links_resolve`의 3개 subtest 실패는 T3 소유 문서의 기준 상태 불일치로 기록한다. T1은 해당 문서를 수정하거나 문서 검사를 삭제·skip·완화하지 않는다. 전체 파일의 GREEN은 T3의 링크 복구 이후 요구한다.
+
+이 구분은 확인된 기존 문서 실패에만 적용한다. 새로운 실패, T1 변경으로 발생한 회귀, 원인이 확인되지 않은 실패는 기준 상태 문제로 간주하지 않고 Orchestrator에 보고한다. T1 필수 검사·TDD·독립 QA·수락 조건은 유지한다.
 
 manifest 갱신은 Coder가 다음 기존 도구로 수행한다.
 
@@ -200,7 +206,7 @@ git diff --exit-code f39fc3e763ba0b519984b876c78ab1b75520f6f1 -- codex/skill/ref
 - Codex worktree와 Claude current-checkout-only 차이가 유지된다.
 - 전체 runtime 파일의 점검 결과와 책임 이동을 설명할 수 있다.
 - 역할별 완전성과 상대 참조가 유효하다.
-- 위 검사와 독립 QA의 기준별 판정이 제출된다.
+- `PolicyContractTests`와 다른 필수 T1 검사, 독립 QA의 기준별 판정이 제출된다. 예상 AUTH RED와 이후 GREEN을 구별하고, 기존 문서 링크 실패는 T3의 미해결 항목으로 추적한다. T1 수락을 전체 문서 검사 통과로 보고하지 않는다.
 - superpowers 불변과 manifest 정합성이 확인된다.
 
 Orchestrator는 이 증거와 지적 처분을 확인해 T1을 수락하고 집중 커밋한다. 최종 전체 Reviewer를 기다리는 것을 T1 수락의 추가 조건으로 만들지 않는다.
@@ -349,7 +355,7 @@ Coder가 다음을 소유한다.
 - [ ] Codex/Claude 차이, 문서·대상 준비 순서, 위험별 QA/Reviewer와 task·최종 수락 차이를 정합화한다.
 - [ ] 기존 final plan Reviewer 수정 경로와 그 이전 QA 재검증을 정확히 구별한다.
 - [ ] 구조 검사·package 무결성과 실제 runtime 관찰의 한계를 명시한다.
-- [ ] 관련 source map과 로컬 링크·anchor를 갱신한다.
+- [ ] 관련 source map과 로컬 링크·anchor를 갱신한다. 기존 `docs/harness-operation.md`의 `README.md#-shell-completion`, `README.md#-maintenance` 참조가 실제로 존재하며 의미가 맞는 목적지에 연결되도록 README 목적 heading 또는 운영 문서의 참조를 복구한다. 링크 검사 삭제·skip·완화로 실패를 숨기지 않는다.
 - [ ] 영문 문장 고정 검사와 의미 계약을 구분해 문서 검사를 조정한다.
 - [ ] 전체 점검 목록에서 누락된 파일·책임 계약이 없는지 확인한다.
 - [ ] manifest를 갱신하고 Orchestrator 집중 검사에 증거를 제공한다.
@@ -375,6 +381,8 @@ node scripts/update-manifest.mjs --check
 git diff --check
 ```
 
+T3는 `python3 tests/test_harness_contract.py`를 class selector 없이 실행하여 `PolicyContractTests`와 `DocumentationContractTests` 전체를 확인한다. T1에서 분리 추적한 기존 링크 실패 3개 subtest를 포함해 전체 파일이 통과해야 한다. 목적 heading 또는 참조가 실제로 존재하고 내용상 올바른지도 Orchestrator가 확인한다.
+
 Orchestrator는 내용과 링크를 직접 읽고 기준별 증거를 확인한다. 이 task가 정의한 저위험 범위를 유지하면 task 경계만을 이유로 QA·Reviewer를 추가하지 않는다.
 
 ### 수용 기준·증거
@@ -382,7 +390,7 @@ Orchestrator는 내용과 링크를 직접 읽고 기준별 증거를 확인한�
 - 운영 설명이 수락된 정책·설치 동작과 일치한다.
 - 운영 문서 자체가 승인·선택·검증 gate를 추가하지 않는다.
 - 전체 점검 대상의 유지·축약·이관·수정 결과가 식별된다.
-- 기존 링크·anchor와 package·manifest 정합성이 확인된다.
+- 기준 상태에서 발견된 README 목적지 불일치를 포함해 기존 링크·anchor가 복구되고, 전체 `tests/test_harness_contract.py` 및 package·manifest 검사가 통과한다. 기존 실패의 해결 결과를 T1에서 남긴 추적 기록과 연결한다.
 - 참고 스레드를 no-doc 중단 재현 증거로 단정하지 않는다.
 - 실행하지 않은 runtime 관찰은 미검증으로 설명한다.
 - Orchestrator의 문서 내용·링크 집중 판정이 제출된다.
