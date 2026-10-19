@@ -68,3 +68,15 @@ invalidate it; record them and verify they match approved work. State mismatches
 revalidates the gate; resolution does not by itself require a new choice unless it invalidates the old target;
 never fall back automatically (apply the Explicit choice rule). Inaccessible records or unclear ownership block editing;
 prior conversation cannot substitute for evidence.
+
+## Authorization continuity
+
+Use [planning](planning.md#authorization-and-scope) for approval evidence and scope classification. Record that evidence,
+its scope, criteria, constraints, and valid document-depth omissions alongside execution-target choice and preparation.
+Reuse valid authorization for the same approved scope and target. A restart or new role assignment does not require
+repeat approval. Reuse never waives verification of actual workspace/repository, branch or detached HEAD, HEAD,
+changes, preservation, ownership, applicable documents, and preparation evidence by Orchestrator. Refresh actual state
+and affected briefs for authorized changes; they alone do not invalidate approval. Coder trusts the verified brief
+under its profile. Material scope/method/risk changes and invalid target evidence hold affected work; resolve using
+planning and the choice-lifetime rules above. Report the missing condition and resume evidence rather than asking
+for an approval already valid for that scope.

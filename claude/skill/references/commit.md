@@ -9,6 +9,7 @@ Do not commit before task acceptance or defer the task commit until the plan end
 Only Orchestrator accepts the task and executes its focused commit; Coder completion does not replace acceptance.
 Existing plan-skip paths have no new automatic commit obligation; their commits follow applicable guidance and user requests.
 Commit one logical task promptly, using Conventional Commits with a concise English description.
+Task acceptance/commit is distinct from final plan acceptance; remaining final checks and Reviewer timing follow verification.
 Planning documents have their own batch docs commit before Coder handoff.
 
 After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state.
@@ -52,3 +53,7 @@ change alone does not invalidate execution-target choice or require waiting for 
 releases dependents only after required checks, Orchestrator acceptance and verified commit; accepted no-change evidence
 replaces a commit for a no-change task, never an empty commit. Unexpected HEAD/ownership changes or Git failures stop
 affected work until Orchestrator resolves and revalidates; existing recovery and approval rules remain in force.
+
+Approval scope and continuity are defined in [planning](planning.md#authorization-and-scope); completion and evidence
+limits are defined in [verification](verification.md#completion-continuity). This plan-task commit contract adds no
+commit obligation to no-plan work and does not turn a local commit into overall completion.

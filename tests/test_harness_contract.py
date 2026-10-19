@@ -13,6 +13,34 @@ PLATFORMS = ("codex", "claude")
 # Missing gates, acceptance boundaries, and adapter conflation are the breaks
 # these checks catch; wording outside these obligations is free to change.
 COMMON_CONTRACTS = {
+    "SCOPED_AUTHORIZATION": ("references/planning.md", (
+        r"explicit execution request.*authorization.*sufficiently specified scope",
+        r"execution intent.*expected outcome.*constraints.*document depth.*verification risk",
+        r"no unresolved material.*(?:behavior|method|risk).*decision",
+        r"record.*authorization evidence.*scope.*acceptance criteria.*constraints.*depth",
+    )),
+    "AUTHORIZATION_HOLDS": ("references/planning.md", (
+        r"silence.*ambiguous assent.*other work.*not authorization",
+        r"planner.*new material choices.*not.*approved",
+        r"material.*scope.*method.*risk.*hold affected work",
+    )),
+    "COMPLETION_CONTINUITY": ("references/verification.md", (
+        r"approved scope.*continue.*execution.*correction.*reverification.*qa.*reviewer.*orchestrator acceptance.*report",
+        r"role completion report.*probe findings.*passing commands.*not.*overall completion",
+        r"remaining approved execution.*not.*optional.*user response",
+    )),
+    "PROBE_SCOPE": ("references/planning.md", (
+        r"probe-only.*findings.*evidence.*limits.*uncertainty",
+        r"probe-only authorization does not authorize.*implementation",
+        r"explicitly requests both.*probe.*implementation.*sufficiently specified",
+        r"entire scope.*bounded.*internal investigation.*no new approval boundary",
+        r"unknown implementation.*not.*blanket authorization",
+    )),
+    "AUTHORIZATION_REUSE": ("references/handoff.md", (
+        r"reuse.*valid authorization.*same approved scope.*target",
+        r"restart.*new role assignment.*not.*repeat approval",
+        r"reuse.*never waives.*actual.*workspace.*branch.*head.*changes.*ownership",
+    )),
     "OWNERSHIP": ("SKILL.md", (
         r"drafts are authored only by planner",
         r"qa: verifies without edits",
@@ -143,6 +171,10 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
         for path, patterns in owners.values():
             require(contract, path, patterns)
     for contract, patterns in {
+        "AUTHORIZATION_HOLDS": (r"silence is authorization",),
+        "PROBE_SCOPE": (r"probe-only authorization authorizes implementation",),
+        "COMPLETION_CONTINUITY": (r"a role completion report establishes overall completion",),
+        "AUTHORIZATION_REUSE": (r"authorization reuse waives actual state verification",),
         "COMMIT_NEXT_ACTION": (
             r"the task may be committed before orchestrator acceptance",
             r"the task commit may wait until the plan ends",
@@ -204,6 +236,49 @@ class PolicyContractTests(unittest.TestCase):
     def assert_contracts(self, *contracts: str) -> None:
         failures = policy_contract_failures(self.texts)
         self.assertEqual([failure for failure in failures if failure.split(":", 1)[0] in contracts], [])
+
+    def test_explicit_request_authorization_has_scoped_conditions(self) -> None:
+        self.assert_contracts("SCOPED_AUTHORIZATION")
+
+    def test_authorization_rejects_silence_and_scope_expansion(self) -> None:
+        self.assert_contracts("AUTHORIZATION_HOLDS")
+
+    def test_approved_no_document_scope_requires_completion(self) -> None:
+        self.assert_contracts("COMPLETION_CONTINUITY")
+
+    def test_probe_and_combined_bounded_scope_remain_distinct(self) -> None:
+        self.assert_contracts("PROBE_SCOPE")
+
+    def test_authorization_reuse_preserves_target_and_state_gates(self) -> None:
+        self.assert_contracts("AUTHORIZATION_REUSE")
+
+    def test_contract_mutations_reject_removed_holds_and_role_guards(self) -> None:
+        # A missing hold, completion step or role boundary is a contract regression.
+        for contract in ("SCOPED_AUTHORIZATION", "AUTHORIZATION_HOLDS", "COMPLETION_CONTINUITY",
+                         "PROBE_SCOPE", "AUTHORIZATION_REUSE", "ROLE_LOCAL", "NATIVE_ADAPTERS"):
+            for path, patterns in POLICY_CONTRACTS[contract].values():
+                fixture = " ".join(self.texts[path].lower().replace("**", "").split())
+                for pattern in patterns:
+                    match = re.search(pattern, fixture)
+                    with self.subTest(contract=contract, path=path, pattern=pattern):
+                        self.assertIsNotNone(match, "The original required contract must exist")
+                        changed = re.sub(pattern, " [removed obligation] ", fixture)
+                        self.assertTrue(self.contract_failures_at(contract, path, changed))
+
+    def test_authorization_checker_rejects_scope_and_completion_overrides(self) -> None:
+        # Contradictory permissions must not pass just because the required prose remains.
+        cases = (
+            ("AUTHORIZATION_HOLDS", "planning.md", "Silence is authorization."),
+            ("PROBE_SCOPE", "planning.md", "Probe-only authorization authorizes implementation."),
+            ("COMPLETION_CONTINUITY", "verification.md", "A role completion report establishes overall completion."),
+            ("AUTHORIZATION_REUSE", "handoff.md", "Authorization reuse waives actual state verification."),
+        )
+        for platform in PLATFORMS:
+            for contract, owner, override in cases:
+                path = f"{platform}/skill/references/{owner}"
+                with self.subTest(platform=platform, contract=contract):
+                    failures = self.contract_failures_at(contract, path, self.texts[path] + "\n" + override)
+                    self.assertTrue(any(": conflicting " in failure for failure in failures))
 
     def test_common_contracts_have_platform_owners(self) -> None:
         self.assertEqual(policy_contract_failures(self.texts), [])

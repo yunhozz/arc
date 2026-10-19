@@ -132,3 +132,14 @@ or unresolved evidence gaps hold affected work for Orchestrator to resolve and o
 Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
 checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
 report only checks actually performed, their actor, target state, results and remaining limits.
+
+## Completion continuity
+
+Once applicable authorization, document-depth, execution-target, and handoff conditions hold for the approved scope,
+continue through execution, correction, reverification, required QA and Reviewer, findings disposition, Orchestrator
+acceptance, and the result report. Apply risk-scaled timing above; this adds no per-task Reviewer or new QA obligation.
+A role completion report, probe findings, or passing commands are not overall completion when approved work remains.
+Remaining approved execution is not an optional suggestion waiting for a user response. A probe-only scope
+ends at its approved question's evidence and limits; a combined scope continues under planning's scope rules.
+Document omission changes neither verification risk nor acceptance responsibility. Hold only affected work for an
+actual unmet condition and report what is needed to resume. Structural evidence does not prove live agent compliance.

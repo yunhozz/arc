@@ -194,7 +194,7 @@ class ClaudePayloadTests(unittest.TestCase):
         direct = core.split('## Orchestrator direct path for small tasks', 1)[1].split('\n## ', 1)[0]
         for clause in (
             r'Before editing.*scope record.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
-            r'presents.*user.*obtains explicit approval.*before the first edit',
+            r'authorization.*planning.*existing.*request.*no duplicate approval',
             r'Silence.*ambiguous.*approval of other work.*not approval',
             r'execution-target choice or valid reuse.*workspace and repository.*branch or detached HEAD.*HEAD.*staged/unstaged/untracked.*preservation and ownership.*unresolved failure or partial completion',
             r'only the approved files.*preserves.*edits',
@@ -247,14 +247,14 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
-        self.assertIn('python3 ~/.claude/skills/arc/scripts/apply-models.py', core)
-        self.assertEqual(set(re.findall(r'`(--[a-z-]+)`', core)), {'--config', '--agents-dir', '--check', '--dry-run'})
+        self.assertTrue((PAYLOAD / 'skill/scripts/apply-models.py').is_file())
         result = subprocess.run([sys.executable, '-B', str(PAYLOAD / 'skill/scripts/apply-models.py'), '--help'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         for flag in ('--config', '--agents-dir', '--check', '--dry-run'):
             self.assertIn(flag, result.stdout)
-        for boundary in ('current checkout only', 'not a filesystem sandbox', 'does not prove runtime', 'Claude native subagent'):
+        for boundary in ('current checkout only', 'not a filesystem sandbox', 'Claude native subagent'):
             self.assertIn(boundary, core)
+        self.assertRegex(core, r'do(?:es)? not prove runtime.*provider support')
 
     def test_claude_skill_markdown_has_no_foreign_platform_contracts(self):
         forbidden = r'(?i)codex|spawn_agent|wait_agent|fork_turns|reasoning_effort|mcp__codex|/\.codex/'
@@ -266,6 +266,16 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def read_claude(self, *parts):
         return (PAYLOAD.joinpath(*parts)).read_text()
+
+    def korean_policy(self, text):
+        # Check the installed language contract, not an obsolete literal in templates.
+        result = subprocess.run(
+            ["node", "--input-type=module", "-e",
+             "import {renderLanguagePolicy} from './lib/installer/language.mjs';"
+             "import fs from 'node:fs';process.stdout.write(renderLanguagePolicy(fs.readFileSync(0),'ko'));"],
+            input=text, capture_output=True, text=True, cwd=ROOT)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout
 
     def assert_all(self, text, needles):
         text = ' '.join(text.split())
@@ -295,7 +305,7 @@ class ClaudePayloadTests(unittest.TestCase):
         rev = self.read_claude('agents/arc-reviewer.md')
         self.assert_all(rev, ('source-inferred', 'execution-observed', 'criterion, expected behavior',
                               'after the required QA', 'diff artifact', 'limits'))
-        plan = self.read_claude('agents/arc-planner.md')
+        plan = self.korean_policy(self.read_claude('agents/arc-planner.md'))
         self.assert_all(plan, ('Korean', 'ID and title', 'hold conditions', 'one focused implementation commit',
                                'never Reviewer as a per-task', 'single independent Reviewer', 'complete drafts'))
         sc = self.read_claude('agents/arc-scouter.md')
@@ -311,7 +321,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assert_all(text, ('Spike', 'Bounded', 'Architectural', 'plan depth', 'must not substitute',
                                'Spec save', 'Plan save', 'Complete planning-document set', 'Normal order',
                                'current checkout', 'early spec commit', 'Evidence refresh', 'Top-level plan tasks',
-                               'Korean'))
+                               'Orchestrator preserves that language when saving'))
         self.assertNotIn('Edit only approved files', text)
 
     def test_claude_handoff_prep_branch_naming_and_collisions(self):
