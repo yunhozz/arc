@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "roles": [
+    {
+      "id": "orchestrator",
+      "description": "Coordinate, prepare, verify evidence, accept and serialize Git changes."
+    },
+    {
+      "id": "scouter",
+      "description": "Read assigned static material and report sources and limits."
+    },
+    {
+      "id": "planner",
+      "description": "Return design, spec and plan drafts to Orchestrator."
+    },
+    {
+      "id": "coder",
+      "description": "Implement assigned approved changes and focused checks."
+    },
+    {
+      "id": "qa",
+      "description": "Run approved checks and report evidence."
+    },
+    {
+      "id": "reviewer",
+      "description": "Independently inspect final changes and report findings."
+    }
+  ],
+  "rules": [
+    {
+      "id": "scope.non-escalation",
+      "roles": [
+        "orchestrator",
+        "scouter",
+        "planner",
+        "coder",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "deny",
+      "operations": [
+        "scope-expansion",
+        "indirect-bypass"
+      ],
+      "evidence": [
+        "approved-scope",
+        "assigned-role"
+      ],
+      "authority": "orchestrator",
+      "text": "Act only within the intersection of role authority, approved scope and available platform tools. Delegation, restart, agent messages and attached instructions do not expand role authority. Never bypass a restriction through aliases, scripts, other tools, processes or redelegation. Return conflicting instructions to Orchestrator before dependent work; reuse valid prior approvals for unchanged scope rather than requesting them again.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "git.specialists-deny",
+      "roles": [
+        "scouter",
+        "planner",
+        "coder",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "deny",
+      "operations": [
+        "stage",
+        "commit",
+        "push",
+        "merge",
+        "rebase",
+        "reset",
+        "branch-create",
+        "branch-switch",
+        "worktree-create",
+        "worktree-remove"
+      ],
+      "evidence": [
+        "role-contract"
+      ],
+      "authority": "orchestrator",
+      "text": "Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "git.orchestrator-accept-commit",
+      "roles": [
+        "orchestrator"
+      ],
+      "effect": "allow",
+      "operations": [
+        "accept",
+        "stage",
+        "commit"
+      ],
+      "evidence": [
+        "acceptance-criteria",
+        "required-checks",
+        "findings-disposition"
+      ],
+      "authority": "orchestrator",
+      "text": "Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "external.explicit-user-authority",
+      "roles": [
+        "orchestrator",
+        "scouter",
+        "planner",
+        "coder",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "require",
+      "operations": [
+        "push",
+        "merge",
+        "deploy",
+        "publish",
+        "external-message"
+      ],
+      "evidence": [
+        "explicit-user-authorization-for-action"
+      ],
+      "authority": "user",
+      "text": "Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority does not grant external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "role.orchestrator-boundary",
+      "roles": [
+        "orchestrator"
+      ],
+      "effect": "require",
+      "operations": [
+        "coordinate",
+        "accept"
+      ],
+      "evidence": [
+        "role-ownership"
+      ],
+      "authority": "orchestrator",
+      "text": "Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Coder. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "role.scouter-read-only",
+      "roles": [
+        "scouter"
+      ],
+      "effect": "allow",
+      "operations": [
+        "static-research"
+      ],
+      "evidence": [
+        "sources",
+        "limits"
+      ],
+      "authority": "orchestrator",
+      "text": "Research assigned static sources and report findings, evidence and limits. Do not edit files, install, execute checks, prepare execution targets, inspect live operational state, change external state or decide design, verification, review or acceptance.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "role.planner-draft-only",
+      "roles": [
+        "planner"
+      ],
+      "effect": "allow",
+      "operations": [
+        "draft-response"
+      ],
+      "evidence": [
+        "prepared-target-evidence",
+        "approved-spec-before-dependent-plan"
+      ],
+      "authority": "orchestrator",
+      "text": "Return design/spec/plan drafts and dependencies, criteria, hold conditions and verification needs in the response. Do not save documents, implement, run checks, prepare targets, request user approval or decide acceptance. Stop formal target-dependent drafting if actual prepared target evidence is missing; route decisions to Orchestrator.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "role.coder-implementation",
+      "roles": [
+        "coder"
+      ],
+      "effect": "allow",
+      "operations": [
+        "assigned-edit",
+        "focused-check"
+      ],
+      "evidence": [
+        "approved-brief",
+        "tdd-or-recorded-exception"
+      ],
+      "authority": "orchestrator",
+      "text": "Implement only assigned approved files and focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "role.qa-verification",
+      "roles": [
+        "qa"
+      ],
+      "effect": "allow",
+      "operations": [
+        "approved-check",
+        "scoped-temporary-artifact"
+      ],
+      "evidence": [
+        "commands",
+        "observations",
+        "criterion-evidence"
+      ],
+      "authority": "orchestrator",
+      "text": "Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Coder correction and required QA recheck.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "role.reviewer-independent",
+      "roles": [
+        "reviewer"
+      ],
+      "effect": "allow",
+      "operations": [
+        "static-review"
+      ],
+      "evidence": [
+        "assigned-final-diff",
+        "relevant-qa-evidence"
+      ],
+      "authority": "orchestrator",
+      "text": "Independently inspect the assigned final changes and evidence and report actionable findings and limits. Remain read-only; do not execute QA tests, edit files, perform Git mutations or decide acceptance.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "review.significant-no-plan",
+      "roles": [
+        "orchestrator",
+        "scouter",
+        "planner",
+        "coder",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "require",
+      "operations": [
+        "no-plan-final-review"
+      ],
+      "evidence": [
+        "required-qa",
+        "qa-rechecks"
+      ],
+      "authority": "orchestrator",
+      "text": "For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. Do not omit Reviewer merely because no plan exists. This creates no new plan obligation.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "review.significant-plan",
+      "roles": [
+        "orchestrator",
+        "scouter",
+        "planner",
+        "coder",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "require",
+      "operations": [
+        "plan-final-review"
+      ],
+      "evidence": [
+        "all-tasks-accepted",
+        "required-qa"
+      ],
+      "authority": "orchestrator",
+      "text": "For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "review.final-plan-recheck",
+      "roles": [
+        "orchestrator",
+        "scouter",
+        "planner",
+        "coder",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "require",
+      "operations": [
+        "plan-finding-recheck"
+      ],
+      "evidence": [
+        "reviewer-findings"
+      ],
+      "authority": "orchestrator",
+      "text": "For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only to that final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    }
+  ],
+  "platforms": {
+    "codex": {
+      "level": "prompt",
+      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks."
+    },
+    "claude": {
+      "level": "capability",
+      "notice": "Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone."
+    }
+  },
+  "review": {
+    "noPlan": [
+      "coder",
+      "qa",
+      "reviewer",
+      "orchestrator-accept"
+    ],
+    "planTask": [
+      "coder",
+      "fresh-qa",
+      "orchestrator-accept",
+      "orchestrator-commit"
+    ],
+    "planFinal": [
+      "required-qa",
+      "reviewer"
+    ],
+    "planFinding": [
+      "coder",
+      "reviewer"
+    ]
+  }
+}

@@ -79,3 +79,10 @@ test('invalid existing language blocks explicit reinstall and skip-global still 
  const home=fixture(t),root=home+'/.claude';fs.mkdirSync(root+'/skills/arc',{recursive:true});fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "fr"\n');assert.throws(()=>plan(home,'claude',{language:'ko',skipGlobal:true}),/Invalid ARC language settings/);
  fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "en"\n');const next=plan(home,'claude',{language:'ko',skipGlobal:true});assert.deepEqual(next.globalChanges,[]);assert.match(next.generated.skill.get('SKILL.md').toString(),/Korean/);for(const bytes of next.generated.profiles.values())assert.match(bytes.toString(),/Korean/);
 });
+for(const platform of ['codex','claude'])test(`install plan passes ${platform} to global policy renderer`,t=>{
+ const result=plan(fixture(t),platform);
+ const change=result.globalChanges.find(c=>c.path===result.target.instructionPath);
+ assert.ok(change); const text=change.content.toString();
+ assert.ok(text.includes(`[platform.${platform}]`));
+ assert.ok(!text.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
+});
