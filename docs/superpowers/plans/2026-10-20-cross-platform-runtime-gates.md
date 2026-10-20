@@ -4,7 +4,7 @@
 >
 > 실행 역할·배정·검토·커밋에는 ARC 계약을 우선 적용한다. Orchestrator가 조정하고 각 최상위 task에 새 Coder를 배정한다. Reviewer는 매 task에 배정하지 않는다.
 
-**상태:** 사용자 수정안 승인 완료; T4 계약 재검증 진행 중
+**상태:** T5 범위 수정안 승인 완료; T5 회귀 재작업 진행 중
 
 **저장 경로:** `/Users/ma-24-007/.codex/worktrees/arc-runtime-gates/arc/docs/superpowers/plans/2026-10-20-cross-platform-runtime-gates.md`
 
@@ -811,3 +811,49 @@ T7은 T6의 연결과 관측 근거를 재사용·대조하여 기존 12개 조�
 custom host·SDK를 도입하거나 존재한다고 가정하지 않는다. 역할 추정·사용자 trust 변경으로 연결 문제를 해결하지 않는다. 미지원 follow-up·기존 shell 입력·specialized path·hook 비활성·시작 실패·timeout·skip까지 차단한다고 주장하지 않는다.
 
 최상위 task마다 별도 Coder identity를 사용한다. 같은 미수락 task의 수정·재작업은 유효한 범위·대상·소유권을 재확인한 뒤 기존 Coder를 재사용할 수 있다. task 수락·집중 커밋은 Orchestrator가 수행하며, 한 task의 미수락 변경을 다음 task에 흡수하지 않는다.
+
+---
+
+## 승인된 T5 수정안: Claude 복수 managed hook의 profile renderer 호환성
+
+이번 사용자 승인 수정안은 T5의 소유 파일·인터페이스·검증 기준에서 아래와 충돌하는 부분만 대체한다. T5의 현재 작업 경계, 선행 task acceptance·commit 순서, T6 native-context 통합 hold와 그 밖의 승인된 계획 기준은 유지한다. 기존 계획 수정안의 “기존 소유 파일 유지” 문구는 이 T5 파일 추가 범위에 한해 대체한다. T5 변경은 아직 미수락 상태이며 이 수정안은 acceptance를 의미하지 않는다.
+
+### 목표·소유 파일·의존성
+
+T5가 생성하는 `runtime-gate`와 `role-git-guard` 두 managed `PreToolUse` 항목을 기존 Claude profile renderer가 손실 없이 처리하도록 한다. 다음 파일을 T5 소유권에 추가한다. 경로는 `/Users/ma-24-007/.codex/worktrees/arc-runtime-gates/arc` 기준이다.
+
+- 수정: `lib/models/profiles.mjs`
+- 수정: `tests/node/profile-render.test.mjs`
+
+기존 T5 hook generator 출력을 소비하고 generator·renderer·회귀 검증을 동일 T5 안에서 완성한다. 별도 최상위 task나 커밋 단위를 만들지 않는다.
+
+### 인터페이스·수락 기준
+
+- `renderClaude`는 generator가 생성하는 두 managed hook의 구조·matcher·명령·개수를 파싱하고 검증한다.
+- 정상 managed block은 모델 설정을 렌더링한 뒤에도 정확히 보존한다.
+- 비관리 frontmatter와 비관리 hook은 기존 동작에 따라 보존한다. 비관리 항목을 managed 항목으로 해석하거나 삭제·재작성하지 않는다.
+- malformed managed wiring과 중복 managed wiring은 명시적으로 거부한다. 임의 hook 구조를 포괄적으로 허용하는 방식으로 검증을 완화하지 않는다.
+- 기존 LF·CRLF 렌더링 동작을 유지한다.
+
+### 필수 검증
+
+`tests/node/profile-render.test.mjs`에 다음 회귀 사례를 추가한다.
+
+- generator의 두 managed hook block을 입력한 정확한 round trip.
+- 비관리 frontmatter·hook 보존.
+- malformed·duplicate managed wiring 거부.
+- LF·CRLF 각각의 렌더링과 managed block 보존.
+
+T5의 기존 focused RED/GREEN 및 QA 명령에 다음 테스트를 추가한다.
+
+```bash
+node --test tests/node/runtime-claude.test.mjs tests/node/role-git-guard.test.mjs tests/node/role-policy.test.mjs tests/node/profile-render.test.mjs
+```
+
+기존 policy·runtime payload·manifest 갱신과 검사 의무는 유지한다. fresh QA는 실제 generator 출력이 profile renderer를 통과하고 위 보존·거부 기준을 충족하는지 확인한다.
+
+### 보류 조건
+
+정상 두 managed hook을 renderer가 거부하거나, managed block·비관리 항목·개행 동작을 손상하거나, malformed·duplicate wiring 검증을 완화해야 통과하면 T5를 보류한다. 필요한 변경이 위 파일과 기존 T5 소유 범위를 넘어가면 영향을 받는 작업을 멈추고 Orchestrator에 반환한다.
+
+이 수정은 profile 소비 호환성에 한정한다. native provider·identity provenance·설치 entrypoint 연결을 입증하지 않으며, T6·T7·전체 완료의 기존 hold를 해제하지 않는다.
