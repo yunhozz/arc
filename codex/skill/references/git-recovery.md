@@ -61,4 +61,4 @@ registration and current-chat attachment, initial/final branch, base/ref SHA, so
 ownership.
 The completion, attach-retry and no-fallback limits of New managed worktree in handoff-worktree.md apply; after an
 attach retry check completion and current-chat attachment again; if it still fails or results cannot be verified, stop
-and report actual state. Never treat a directory as proof of app management.
+and report actual state. A directory alone does not prove app management.

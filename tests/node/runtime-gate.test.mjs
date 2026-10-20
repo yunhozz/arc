@@ -72,3 +72,5 @@ for(const [name,mutate] of [
  assert.equal(typeof api.runGate,'function');const f=reconciliation();mutate(f);const before=structuredClone(f.state);const result=await api.runGate(f);
  assert.equal(result.decision,'hold');assert.equal(result.proposedTransition,null);assert.deepEqual(f.state,before);assert.equal(result.retry,undefined);assert.equal(result.command,undefined);
 });
+
+test('reconciled commit records retain schema preflight fields',async()=>{const f=reconciliation();const d=await api.runGate(f);const c=d.proposedTransition.commits[0];assert.equal(c.purpose,'task');assert.equal(c.expectedParent,sha('a'));assert.equal(c.expectedTree,sha('b'));});

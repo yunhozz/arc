@@ -39,7 +39,7 @@ Create using only the app tool:
       ref: "<verified-source-head-full-sha>"
     })
 
-The name is descriptive and does not guarantee a path or branch. There are no destination path or branch arguments.
+The name describes the work; it guarantees neither a path nor a branch. There are no destination path or branch arguments.
 Pass ref explicitly as the full SHA; do not omit it or rely on a remote default. If an operationId is returned,
 use mcp__codex_app__get_worktree_creation_status until completed. Preparing/creating/registering progress is not
 success.

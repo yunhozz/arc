@@ -80,15 +80,10 @@ for(const eol of ['\n','\r\n'])test(`Claude generated two-gate model round-trip 
  assert.equal(mask(result.toString()),mask(original));assert.ok(result.toString().includes(custom));
  assert.deepEqual(api.renderProfiles({...input,[name]:result},settings('claude')).get(name),result);
 });
-test('Claude consumer rejects missing duplicated malformed and mismatched managed gates',()=>{
+test('Claude consumer requires one strict Bash guard and rejects active runtime wiring',()=>{
  const input=profiles('claude'),name='arc-coder.md',original=input[name].toString();
- const managed=hookFrontmatter().split('\n').slice(2).join('\n');
- const runtime=managed.split('\n').slice(0,5).join('\n');
- const guard=managed.split('\n').slice(5).join('\n');
- const installed=hookFrontmatter(buildClaudeHookCommand('/tmp/other/hooks/role-git-guard.mjs')).split('\n').slice(7).join('\n');
- for(const changed of [original.replace(guard,installed),original.replace(runtime+'\n',''),original.replace(guard+'\n',''),original.replace(runtime,runtime+'\n'+runtime),original.replace(guard,guard+'\n'+guard),original.replace('onFailure: block','onFailure: ignore'),original.replace('matcher: "*"','matcher: Read'),original.replace('        - type: command','        - type: prompt')]){
-  assert.throws(()=>api.renderProfiles({...input,[name]:Buffer.from(changed)},settings('claude')),{code:'ARC_MODEL_VALIDATION'});
- }
+ const guard=hookFrontmatter().split('\n').slice(2).join('\n');
+ for(const changed of [original.replace(guard,''),original.replace(guard,guard+'\n'+guard),original.replace('onFailure: block','onFailure: ignore'),original.replace('matcher: Bash','matcher: Read'),original.replace('        - type: command','        - type: prompt')])assert.throws(()=>api.renderProfiles({...input,[name]:Buffer.from(changed)},settings('claude')),{code:'ARC_MODEL_VALIDATION'});
 });
 
 for(const [command,failure] of [['node -e "Buffer.from(\'data\')"',undefined],['echo preserved','continue'],['echo preserved','block']])test(`Claude preserves custom command ${JSON.stringify(command)} with failure ${failure??'default'}`,()=>{

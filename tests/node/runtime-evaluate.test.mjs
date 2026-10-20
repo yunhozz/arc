@@ -34,7 +34,7 @@ test('identity never rebinds another task or revives a retired lease',()=>{
 function fact(a,kind,data){a.e.facts=[{kind,workflowId:a.s.workflowId,revision:a.s.revision,target:a.s.target,policyHash:a.s.versions.policyHash,sourceRef:'obs',data}];}
 test('Orchestrator acceptance and Git allow only exact observed registered evidence',()=>{
  const a=setup('orchestrator','accept');a.s.tasks[0].criteria=['criterion'];a.s.tasks[0].requiredChecks=['check'];a.s.identities.push({actorRef:'qa-agent',role:'qa',taskId:'T1',observationRef:'qa-obs'});a.s.checks=[{id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'qa-agent',resultRef:'obs'}];a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};fact(a,'acceptance',a.r.descriptor);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
- const b=setup('orchestrator','commit');b.s.acceptances=[{taskId:'T1',actorRef:'actor',fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]}];b.s.tasks[0].status='accepted';b.r.descriptor={fingerprint:'diff',parent:'head',indexTree:'tree',paths:['/workspace/file']};fact(b,'git-index',b.r.descriptor);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'allow');b.e.facts[0].revision=9;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');
+ const b=setup('orchestrator','commit');b.s.acceptances=[{taskId:'T1',actorRef:'actor',fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]}];b.s.tasks[0].status='accepted';b.r.descriptor={fingerprint:'diff',parent:'head',indexTree:'tree',kind:'task',paths:['file']};fact(b,'git-index',b.r.descriptor);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'allow');b.e.facts[0].revision=9;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');
 });
 test('first Coder assignment needs complete document hashes approvals and docs-only Git fact',()=>{
  const a=assign();assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
@@ -79,4 +79,22 @@ test('assignment correlation provenance verification must reference its exact pl
  a.e.facts.find(f=>f.kind==='assignment-correlation').sourceRef=unrelated.id;
  const decision=api.evaluate(policy,a.s,a.r,a.e);
  assert.equal(decision.decision,'hold');assert.equal(decision.proposedTransition,null);
+});
+
+test('docs preflight precedes implementation acceptance and rejects unsafe or mixed paths',()=>{
+ const a=setup('orchestrator','commit');a.s.documents=['spec','plan'].map(kind=>({kind,path:`/workspace/${kind}.md`,gitPath:`${kind}.md`,contentHash:'sha256:'+'a'.repeat(64),approvalRef:'approval'}));
+ a.r.paths=a.s.documents.map(d=>d.path);a.s.assignments[0].paths=['/workspace'];a.s.approvals[0].scope.paths=['/workspace'];a.e.resolvedPaths.push(...a.r.paths.map(p=>({path:p,realpath:p})));
+ a.r.descriptor={kind:'documents',parent:'head',indexTree:'tree',fingerprint:'diff',paths:['spec.md','plan.md']};fact(a,'git-index',a.r.descriptor);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
+ for(const paths of [['spec.md','file'],['../spec.md','plan.md'],['/workspace/spec.md','plan.md']]){a.r.descriptor.paths=paths;assert.notEqual(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');}
+});
+
+test('durable replay uses current evaluator lease task policy scope and evidence',async t=>{
+ const fsp=await import('node:fs/promises');const os=await import('node:os');const path=await import('node:path');const {transactWorkflow,fingerprintRequest}=await import('../../lib/runtime/store.mjs');
+ const dir=await fsp.mkdtemp(path.join(os.tmpdir(),'arc-authority-replay-'));t.after(()=>fsp.rm(dir,{recursive:true,force:true}));
+ for(const [name,mutate] of [['retired',a=>a.s.leases[0].status='retired'],['accepted task',a=>a.s.tasks[0].status='accepted'],['policy',a=>a.p={runtime:{schemaVersion:2}}],['scope',a=>a.s.approvals[0].scope.paths=['/workspace/other']],['evidence',a=>a.e.provenance=[]]]){
+  const a=setup('coder','write');a.p=policy;const statePath=path.join(dir,name+'.json');await fsp.writeFile(statePath,JSON.stringify(a.s));
+  const args={statePath,expectedRevision:0,requestId:a.r.requestId,request:a.r,requestFingerprint:fingerprintRequest(a.r),decide:s=>api.evaluate(a.p,s,a.r,{...a.e,target:s.target,revision:s.revision,versions:s.versions})};
+  assert.equal((await transactWorkflow(args)).decision.decision,'allow');a.s=JSON.parse(await fsp.readFile(statePath));mutate(a);await fsp.writeFile(statePath,JSON.stringify(a.s));const before=await fsp.readFile(statePath,'utf8');
+  const replay=await transactWorkflow(args);assert.notEqual(replay.decision.decision,'allow',name);assert.equal(replay.replayed,true);assert.equal(await fsp.readFile(statePath,'utf8'),before);
+ }
 });

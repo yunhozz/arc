@@ -87,10 +87,10 @@ test('managed hooks preserve user hooks and frontmatter while adding failure blo
  const original='---\nname: custom\nhooks:\n  PreToolUse:\n'+user+'\n  PostToolUse:\n    - matcher: Bash\n      hooks: []\n---\nbody\n';
  const output=hooks.renderSourceClaudeHook(original);
  assert.ok(output.includes(user));assert.ok(output.includes('  PostToolUse:\n    - matcher: Bash\n      hooks: []'));assert.ok(output.endsWith('---\nbody\n'));
- assert.equal((output.match(/onFailure: block/g)||[]).length,2);
+ assert.equal((output.match(/onFailure: block/g)||[]).length,1);
  assert.equal(hooks.renderSourceClaudeHook(output),output);
  const installed=hooks.installClaudeHook(Buffer.from(output),'/tmp/한 글 \" special').toString();
- assert.equal((installed.match(/onFailure: block/g)||[]).length,2);assert.ok(installed.includes(user));
+ assert.equal((installed.match(/onFailure: block/g)||[]).length,1);assert.ok(installed.includes(user));
 });
 test('malformed and duplicate managed hooks fail without overwriting user bytes',()=>{
  const good='---\nname: custom\n'+hooks.hookFrontmatter()+'\n---\nbody';

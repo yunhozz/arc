@@ -1,5 +1,5 @@
-# Single source for all role model and effort presets.
-# Use configured settings without substitution; report unavailable settings.
+# Canonical source for every role model and effort preset.
+# Use configured settings as specified. Report unavailable settings.
 version = 1
 preset = "balanced"
 

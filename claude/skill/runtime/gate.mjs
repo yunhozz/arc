@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+const reconciliations=new WeakMap();
+export function verifiedReconciliation(decision,state,next,expectedCommit){const proof=reconciliations.get(decision);return !!proof&&proof.before===JSON.stringify(state)&&proof.after===JSON.stringify(next)&&(expectedCommit===undefined||proof.expected===JSON.stringify(expectedCommit));}
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const oid=value=>typeof value==='string'&&/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
 const hash=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.test(value);
@@ -59,9 +61,11 @@ export async function runGate({phase,state,request,gitEvidence,expectedCommit,re
   if(result.remainingPaths.some(file=>scopedPaths.some(base=>within(base,path.join(state.target.realpath,...file.split('/'))))))return hold('Committed task still has remaining changes');
   if(expected.remainingPaths!==undefined&&!samePaths(result.remainingPaths,expected.remainingPaths))return hold('Remaining changes differ from preflight observation');
   const next=structuredClone(state);next.target.head=result.commit;
-  next.commits=[...state.commits??[],{requestId:request.requestId,taskId:task.id,kind:d.kind,commit:result.commit,parent:result.parent,tree:result.tree,paths:[...result.paths],fingerprint:d.fingerprint,actorRef:request.actorRef}];
+  next.commits=[...state.commits??[],{requestId:request.requestId,taskId:task.id,kind:d.kind,purpose:d.kind,expectedParent:expected.parent,expectedTree:expected.tree,commit:result.commit,parent:result.parent,tree:result.tree,paths:[...result.paths],fingerprint:d.fingerprint,actorRef:request.actorRef}];
   if(d.kind==='task')next.tasks.find(t=>t.id===task.id).status='committed';
   else for(const document of next.documents)document.commit=result.commit;
-  return allow('Observed commit matches preflight',{proposedTransition:next});
+  const decision=allow('Observed commit matches preflight',{proposedTransition:next});
+  reconciliations.set(decision,{before:JSON.stringify(state),after:JSON.stringify(next),expected:JSON.stringify(expected)});
+  return decision;
  }catch(error){return hold('Git validation failed: '+error.message);}
 }

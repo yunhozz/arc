@@ -76,6 +76,79 @@ def load_settings(path: Path) -> dict:
         raise ValidationError(f'{path}: invalid TOML: {exc}') from exc
 
 
+def _managed_hook(command: str) -> bool:
+    match = re.fullmatch(r'''node -e "eval\(Buffer\.from\('([A-Za-z0-9+/]+={0,2})','base64'\)\.toString\('utf8'\)\)" "([A-Za-z0-9+/]+={0,2})"''', command)
+    if not match:
+        return False
+    try:
+        bootstrap = base64.b64decode(match[1], validate=True).decode('utf-8')
+        decoded = base64.b64decode(match[2], validate=True)
+        url = urlparse(decoded.decode('utf-8'))
+        expected = "import(Buffer.from(process.argv[1],'base64').toString('utf8')).then(module=>module.runHook()).catch(()=>{process.stderr.write('ARC Git guard failed to load\\n');process.exitCode=2;});"
+        return (bootstrap == expected and base64.b64encode(decoded).decode() == match[2]
+                and url.scheme == 'file' and not url.netloc
+                and url.path.endswith('/hooks/role-git-guard.mjs') and not url.query and not url.fragment)
+    except (ValueError, UnicodeError):
+        return False
+
+
+def _looks_managed_hook(command: str) -> bool:
+    # Decode only data for recognition; arbitrary user commands are never executed.
+    candidates = [command]
+    for token in re.findall(r"[\"']([A-Za-z0-9+/]+={0,2})[\"']", command):
+        try:
+            candidates.append(base64.b64decode(token, validate=True).decode('utf-8'))
+        except (ValueError, UnicodeError):
+            continue
+    return any(re.search(r'role-git-guard\.mjs|runtime-gate\.mjs|ARC Git guard failed to load', value)
+               for value in candidates)
+
+
+def _validate_hooks(lines: list[str]) -> str:
+    events, managed = set(), []
+    event = None
+    index = 1
+    while index < len(lines):
+        heading = re.fullmatch(r'  (PreToolUse|PostToolUse|SubagentStart):', lines[index])
+        if heading:
+            event = heading[1]
+            if event in events:
+                raise ValidationError('duplicate hook event')
+            events.add(event)
+            index += 1
+            continue
+        try:
+            matcher = re.fullmatch(r'    - matcher: (.+)', lines[index])
+            if event is None or matcher is None:
+                raise ValueError('missing hook event or matcher')
+            raw_matcher = matcher[1]
+            parsed = json.loads(raw_matcher) if raw_matcher.startswith('"') else raw_matcher
+            if (not isinstance(parsed, str) or not parsed or any(c in parsed for c in '\r\n\x00')
+                    or (not raw_matcher.startswith('"') and re.fullmatch(r'[A-Za-z][A-Za-z0-9_|]*', parsed) is None)):
+                raise ValueError('invalid matcher')
+            if lines[index + 1:index + 3] != ['      hooks:', '        - type: command'] or not lines[index + 3].startswith('          command: '):
+                raise ValueError('unsupported command entry')
+            command = json.loads(lines[index + 3][19:])
+            if not isinstance(command, str) or not command or any(c in command for c in '\r\n\x00'):
+                raise ValueError('invalid command')
+            failure = lines[index + 4] if index + 4 < len(lines) and lines[index + 4].startswith('          onFailure:') else None
+            if _managed_hook(command):
+                if event != 'PreToolUse' or raw_matcher != 'Bash' or failure != '          onFailure: block' or managed:
+                    raise ValueError('malformed or duplicate managed guard')
+                managed.append(command)
+            else:
+                # Encoded ARC commands with forged paths/bootstrap must never become user data.
+                if (_looks_managed_hook(command)
+                        or failure not in (None, '          onFailure: continue', '          onFailure: block')):
+                    raise ValueError('unrecognized managed hook command')
+            index += 5 if failure is not None else 4
+        except (ValueError, TypeError, IndexError) as exc:
+            raise ValidationError('unsupported managed hooks') from exc
+    if len(managed) != 1:
+        raise ValidationError('missing managed guard')
+    return managed[0]
+
+
 def _profile(content: bytes) -> tuple[list[str], dict, dict]:
     try:
         lines = content.decode('utf-8').splitlines(keepends=True)
@@ -97,25 +170,12 @@ def _profile(content: bytes) -> tuple[list[str], dict, dict]:
         if text == 'hooks:':
             if 'hooks' in fields:
                 raise ValidationError('duplicate managed hooks')
-            raw = [item.rstrip('\r\n') for item in lines[index:index + 6]]
-            expected = ['hooks:', '  PreToolUse:', '    - matcher: Bash', '      hooks:', '        - type: command']
-            try:
-                if len(raw) != 6 or raw[:5] != expected or not raw[5].startswith('          command: '):
-                    raise ValueError('unsupported hook structure')
-                command = json.loads(raw[5][19:])
-                match = re.fullmatch(r'''node -e "eval\(Buffer\.from\('([A-Za-z0-9+/]+={0,2})','base64'\)\.toString\('utf8'\)\)" "([A-Za-z0-9+/]+={0,2})"''', command)
-                if not match:
-                    raise ValueError('unmanaged command')
-                bootstrap = base64.b64decode(match[1], validate=True).decode('utf-8')
-                expected_bootstrap = "import(Buffer.from(process.argv[1],'base64').toString('utf8')).then(module=>module.runHook()).catch(()=>{process.stderr.write('ARC Git guard failed to load\\n');process.exitCode=2;});"
-                url = urlparse(base64.b64decode(match[2], validate=True).decode('utf-8'))
-                if bootstrap != expected_bootstrap or url.scheme != 'file' or url.netloc or not url.path.endswith('/hooks/role-git-guard.mjs') or url.query or url.fragment:
-                    raise ValueError('invalid managed hook URL')
-            except (ValueError, TypeError, UnicodeError) as exc:
-                raise ValidationError('unsupported managed hooks') from exc
-            fields['hooks'] = command
+            end = index + 1
+            while end < len(lines) and lines[end].startswith((' ', '\t')):
+                end += 1
+            fields['hooks'] = _validate_hooks([item.rstrip('\r\n') for item in lines[index:end]])
             indices['hooks'] = index
-            skip_until = index + 6
+            skip_until = end
             current = 'hooks'
             continue
         item = re.fullmatch(r'  - ([A-Za-z][A-Za-z0-9]*)', text)

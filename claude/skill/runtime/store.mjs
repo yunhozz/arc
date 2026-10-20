@@ -1,3 +1,4 @@
+import {verifiedReconciliation} from './gate.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -26,16 +27,28 @@ export async function transactWorkflow({statePath,expectedRevision,requestId,req
   const stat=await fs.lstat(statePath);if(!stat.isFile()||stat.isSymbolicLink())throw Error('State must be regular file');
   const state=validateWorkflowState(JSON.parse(await fs.readFile(statePath,'utf8')));
   const prior=state.requests.find(r=>r.requestId===requestId);
-  if(prior){if(prior.requestFingerprint!==requestFingerprint)throw Error('Request fingerprint conflict');return {state,decision:prior.decision,replayed:true};}
+  let decision;
+  if(prior){
+   if(prior.requestFingerprint!==requestFingerprint)throw Error('Request fingerprint conflict');
+   const current=await decide(structuredClone(state));
+   if(!current||!['allow','deny','hold'].includes(current.decision))throw Error('Invalid replay decision');
+   const completing=normalized.operation==='commit'&&prior.decision.decision==='allow'&&prior.decision.expectedCommit&&current.decision==='allow'&&current.proposedTransition&&verifiedReconciliation(current,state,current.proposedTransition,prior.decision.expectedCommit)&&!state.commits.some(c=>c.requestId===requestId);
+   if(completing)decision=current;
+   else{
+    const replay={...current,proposedTransition:null};
+    if(current.decision==='allow'&&(current.proposedTransition||!['read','draft','review'].includes(normalized.operation))){replay.decision='hold';replay.reason='Replay cannot authorize repeated state or external effects';}
+    return {state,decision:replay,replayed:true};
+   }
+  }
   if(state.revision!==expectedRevision)throw Error('Stale revision');
-  const decision=await decide(structuredClone(state));
+  decision??=await decide(structuredClone(state));
   if(!decision||!['allow','deny','hold'].includes(decision.decision))throw Error('Invalid decision');
   const next=decision.proposedTransition?structuredClone(decision.proposedTransition):structuredClone(state);
   if(decision.decision!=='allow'&&decision.proposedTransition)throw Error('Denied transition');
-  if(next.workflowId!==state.workflowId||JSON.stringify(next.target)!==JSON.stringify(state.target))throw Error('Transaction target mismatch');
+  if(next.workflowId!==state.workflowId||(JSON.stringify(next.target)!==JSON.stringify(state.target)&&!verifiedReconciliation(decision,state,next)))throw Error('Transaction target mismatch');
   for(const old of state.identities){const current=next.identities.find(i=>i.actorRef===old.actorRef);if(!current||current.taskId!==old.taskId||current.role!==old.role)throw Error('Identity rebind forbidden');}
   for(const old of state.leases){const current=next.leases.find(l=>l.actorRef===old.actorRef);if(old.status==='retired'&&(!current||current.status!=='retired'||current.taskId!==old.taskId))throw Error('Retired lease revival forbidden');}
-  next.revision=state.revision+1;next.requests=[...state.requests,{requestId,requestFingerprint,decision}];
+  next.revision=state.revision+1;next.requests=prior?state.requests.map(r=>r.requestId===requestId?{requestId,requestFingerprint,decision}:r):[...state.requests,{requestId,requestFingerprint,decision}];
   next.audit=[...state.audit,{requestId,revision:next.revision,decision:decision.decision,ruleIds:decision.ruleIds??[],result:'pending'}];
   validateWorkflowState(next);
   temporary=path.join(parent,`.${path.basename(statePath)}.${crypto.randomUUID()}.tmp`);
