@@ -9,10 +9,16 @@ tools:
   - Glob
 hooks:
   PreToolUse:
+    - matcher: "*"
+      hooks:
+        - type: command
+          command: "node -e \"eval(Buffer.from('aW1wb3J0KEJ1ZmZlci5mcm9tKHByb2Nlc3MuYXJndlsxXSwnYmFzZTY0JykudG9TdHJpbmcoJ3V0ZjgnKSkudGhlbihtb2R1bGU9Pm1vZHVsZS5ydW5Ib29rKCkpLmNhdGNoKCgpPT57cHJvY2Vzcy5zdGRlcnIud3JpdGUoJ0FSQyBHaXQgZ3VhcmQgZmFpbGVkIHRvIGxvYWRcbicpO3Byb2Nlc3MuZXhpdENvZGU9Mjt9KTs=','base64').toString('utf8'))\" \"ZmlsZTovLy9fX0FSQ19JTlNUQUxMRURfU0tJTExfXy9ob29rcy9ydW50aW1lLWdhdGUubWpz\""
+          onFailure: block
     - matcher: Bash
       hooks:
         - type: command
           command: "node -e \"eval(Buffer.from('aW1wb3J0KEJ1ZmZlci5mcm9tKHByb2Nlc3MuYXJndlsxXSwnYmFzZTY0JykudG9TdHJpbmcoJ3V0ZjgnKSkudGhlbihtb2R1bGU9Pm1vZHVsZS5ydW5Ib29rKCkpLmNhdGNoKCgpPT57cHJvY2Vzcy5zdGRlcnIud3JpdGUoJ0FSQyBHaXQgZ3VhcmQgZmFpbGVkIHRvIGxvYWRcbicpO3Byb2Nlc3MuZXhpdENvZGU9Mjt9KTs=','base64').toString('utf8'))\" \"ZmlsZTovLy9fX0FSQ19JTlNUQUxMRURfU0tJTExfXy9ob29rcy9yb2xlLWdpdC1ndWFyZC5tanM=\""
+          onFailure: block
 ---
 
 # Reviewer

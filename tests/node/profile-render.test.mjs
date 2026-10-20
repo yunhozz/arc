@@ -60,10 +60,49 @@ test('model changes preserve policy blocks and Codex feature settings together',
  const end=original.toString().indexOf('[ARC role policy: contract end]')+'[ARC role policy: contract end]'.length;
  assert.ok(start>=0); assert.ok(rendered.includes(original.toString().slice(start,end)));
 });
-import {hookFrontmatter} from '../../lib/policy/claude-hook.mjs';
+import {hookFrontmatter,buildClaudeHookCommand} from '../../lib/policy/claude-hook.mjs';
 test('Claude model rendering preserves the managed hook and rejects unsupported hook structures',()=>{
  const input=profiles('claude'),name='arc-coder.md';const text=input[name].toString();
  const hook=hookFrontmatter();input[name]=Buffer.from(text);
  const result=api.renderProfiles(input,settings('claude')).get(name).toString();assert.ok(result.includes(hook));
  const bad={...input,[name]:Buffer.from(input[name].toString().replace('matcher: Bash','matcher: Read'))};assert.throws(()=>api.renderProfiles(bad,settings('claude')));
+});
+
+// Removing either managed entry validation must fail these consumer boundary cases.
+for(const eol of ['\n','\r\n'])test(`Claude generated two-gate model round-trip preserves custom frontmatter and hooks with ${JSON.stringify(eol)}`,()=>{
+ const input=profiles('claude',eol),name='arc-coder.md';
+ const custom=['    - matcher: Custom','      hooks:','        - type: command','          command: "echo preserved"'].join(eol);
+ const post=['  PostToolUse:','    - matcher: Custom','      hooks:','        - type: command','          command: \"echo observed\"'].join(eol);
+ const original=input[name].toString().replace(eol+'---'+eol,eol+post+eol+'---'+eol).replace('hooks:'+eol,'custom: preserved'+eol+'hooks:'+eol).replace('  PreToolUse:'+eol,'  PreToolUse:'+eol+custom+eol);
+ input[name]=Buffer.from(original);
+ const result=api.renderProfiles(input,settings('claude')).get(name);
+ const mask=text=>text.replace(/^(model|effort):[^\r\n]*/gm,'$1: MASK');
+ assert.equal(mask(result.toString()),mask(original));assert.ok(result.toString().includes(custom));
+ assert.deepEqual(api.renderProfiles({...input,[name]:result},settings('claude')).get(name),result);
+});
+test('Claude consumer rejects missing duplicated malformed and mismatched managed gates',()=>{
+ const input=profiles('claude'),name='arc-coder.md',original=input[name].toString();
+ const managed=hookFrontmatter().split('\n').slice(2).join('\n');
+ const runtime=managed.split('\n').slice(0,5).join('\n');
+ const guard=managed.split('\n').slice(5).join('\n');
+ const installed=hookFrontmatter(buildClaudeHookCommand('/tmp/other/hooks/role-git-guard.mjs')).split('\n').slice(7).join('\n');
+ for(const changed of [original.replace(guard,installed),original.replace(runtime+'\n',''),original.replace(guard+'\n',''),original.replace(runtime,runtime+'\n'+runtime),original.replace(guard,guard+'\n'+guard),original.replace('onFailure: block','onFailure: ignore'),original.replace('matcher: "*"','matcher: Read'),original.replace('        - type: command','        - type: prompt')]){
+  assert.throws(()=>api.renderProfiles({...input,[name]:Buffer.from(changed)},settings('claude')),{code:'ARC_MODEL_VALIDATION'});
+ }
+});
+
+for(const [command,failure] of [['node -e "Buffer.from(\'data\')"',undefined],['echo preserved','continue'],['echo preserved','block']])test(`Claude preserves custom command ${JSON.stringify(command)} with failure ${failure??'default'}`,()=>{
+ const input=profiles('claude'),name='arc-coder.md';
+ const custom=['    - matcher: Custom','      hooks:','        - type: command',`          command: ${JSON.stringify(command)}`,...(failure?[`          onFailure: ${failure}`]:[])].join('\n');
+ const original=input[name].toString().replace('  PreToolUse:\n','  PreToolUse:\n'+custom+'\n');input[name]=Buffer.from(original);
+ const rendered=api.renderProfiles(input,settings('claude')).get(name).toString();
+ const mask=text=>text.replace(/^(model|effort):[^\r\n]*/gm,'$1: MASK');assert.equal(mask(rendered),mask(original));
+});
+test('Claude rejects invalid custom failure behavior and fake ARC managed paths',()=>{
+ const input=profiles('claude'),name='arc-coder.md';
+ for(const [command,failure] of [['echo preserved','ignore'],['node /tmp/hooks/runtime-gate.mjs','block'],['node /tmp/hooks/role-git-guard.mjs','continue']]){
+  const custom=['    - matcher: Custom','      hooks:','        - type: command',`          command: ${JSON.stringify(command)}`,`          onFailure: ${failure}`].join('\n');
+  const text=input[name].toString().replace('  PreToolUse:\n','  PreToolUse:\n'+custom+'\n');
+  assert.throws(()=>api.renderProfiles({...input,[name]:Buffer.from(text)},settings('claude')),{code:'ARC_MODEL_VALIDATION'});
+ }
 });
