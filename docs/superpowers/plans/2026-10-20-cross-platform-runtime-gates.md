@@ -4,7 +4,7 @@
 >
 > 실행 역할·배정·검토·커밋에는 ARC 계약을 우선 적용한다. Orchestrator가 조정하고 각 최상위 task에 새 Coder를 배정한다. Reviewer는 매 task에 배정하지 않는다.
 
-**상태:** 사용자 plan 승인 대기
+**상태:** 사용자 수정안 승인 완료; T4 계약 재검증 진행 중
 
 **저장 경로:** `/Users/ma-24-007/.codex/worktrees/arc-runtime-gates/arc/docs/superpowers/plans/2026-10-20-cross-platform-runtime-gates.md`
 
@@ -738,3 +738,76 @@ npm run check:manifest
 - 후속 구현이 필요한 확정되지 않은 아키텍처 결정은 없다. 플랫폼별 실환경 관측은 T1과 설치 진단의 근거 조건으로 남긴다.
 
 **이 계획은 저장 및 사용자 plan 승인 전까지 구현을 시작하지 않는다.**
+
+
+---
+
+## 계획 수정안: 어댑터 계약과 필수 native 통합의 책임 구분
+
+이 수정안은 사용자 승인 후 §§3–7의 T4·T5·T6·T7 및 최종 검증 기준 중 아래 내용과 충돌하는 부분을 대체한다. 그 밖의 승인된 범위·역할 권한·검증 의무·작업 순서는 유지한다. 이 수정안 자체는 task acceptance나 구현 완료 증거가 아니다.
+
+### T4·T5: 독립적인 어댑터 계약
+
+T4 Codex와 T5 Claude의 수락 범위는 **명시적으로 제공된 검증 context를 소비하는 어댑터 계약**이다. 기존 소유 파일·선행 task·집중 커밋 경계는 유지한다.
+
+각 task는 fresh QA를 통해 다음을 확인한 후 Orchestrator가 수락한다.
+
+- 유효한 context가 있을 때 정상 요청을 허용하고 금지 요청을 거부한다.
+- context 누락·위조·불충분 identity에서 지원되는 사전 실행 요청을 거부한다. 모든 요청을 거부하는 구현만으로 충족하지 않는다.
+- 여섯 역할의 변환·권한 계약과 해당 플랫폼의 생명주기 계약을 검사한다.
+- T4는 `SubagentStart`를 관측으로만 처리하고 retired identity 재사용을 거부한다. T5는 기존 Git guard 제한과 `onFailure: "block"` 생성 계약을 보존한다.
+- fixture context 주입, 생성된 설정, context 없는 entrypoint의 거부를 installed/native enforcement 증거로 표시하지 않는다.
+
+T4·T5의 native provider 미연결은 T6가 해결할 필수 통합 hold로 기록한다. 어댑터 자체가 context 없이 허용하거나 identity를 추정하면 해당 T4·T5를 보류한다.
+
+### T6: native provider·entrypoint·설치 통합
+
+T6는 기존 소유 파일에 다음 파일을 추가로 소유한다. 모든 경로는 `/Users/ma-24-007/.codex/worktrees/arc-runtime-gates/arc`를 기준으로 한다.
+
+- 생성: `lib/runtime/native-context.mjs`
+- 생성: `lib/runtime/adapters/codex-context.mjs`
+- 생성: `lib/runtime/adapters/claude-context.mjs`
+- 생성: `tests/node/runtime-context.test.mjs`
+- 수정: `codex/skill/hooks/runtime-gate.mjs`
+- 수정: `claude/skill/hooks/runtime-gate.mjs`
+- 갱신: 위 canonical runtime 변경에 대응하는 `codex/skill/runtime/`, `claude/skill/runtime/` 생성물과 `MANIFEST.sha256`
+
+설치된 두 entrypoint는 고정 resolver를 직접 호출하여 검증된 context를 구성하고 adapter에 전달해야 한다. context를 테스트에서만 주입하거나 stdin만 처리하는 entrypoint를 남기면 T6는 미완료다.
+
+resolver는 다음을 실제로 연결하고 출처·버전·상관관계를 검증한다.
+
+- 설치 identity·runtime/policy 버전, 승인 대상에 결합된 durable state와 canonical policy.
+- 사용자 승인 provenance를 포함한 evidence와 실제 Git evidence.
+- 현재 session·actor·task 및 request/tool-use 매핑.
+- 지원 도구의 전체 인수를 보수적으로 해석하는 `describeTool`.
+- spawn 예약과 실제 agent identity를 대조하는 `observeAgent` 및 관측 저장.
+
+stdin의 provider 경로를 import하거나 역할 인수·프롬프트·부모 session ID만으로 specialist identity를 추정하지 않는다. 관측 누락·중복·불일치에서는 lease를 활성화하지 않는다. 필요한 context를 확보하지 못하면 `hold`로 판정하고 지원되는 `PreToolUse`에서 유효한 거부 응답으로 변환한다. 시작 관측 실패를 agent 생성 차단으로 표현하지 않는다.
+
+### T6의 필수 검증과 수락 증거
+
+fresh QA는 전용 임시 home에서 설치된 실제 entrypoint를 실행하여 **이벤트 입력 → 고정 resolver → state/policy/evidence·identity → adapter → 응답·상태 저장**을 검사한다. callback fixture 주입만으로 이 검사를 대신하지 않는다. 기존 focused checks에 `node --test tests/node/runtime-context.test.mjs`를 추가한다.
+
+다음 결과와 근거를 모두 확보해야 한다.
+
+- Codex·Claude 각각 Orchestrator·Scouter·Planner·Coder·QA·Reviewer의 12개 조합별 정상 허용·금지 거부·근거 부족·identity 불명 결과.
+- 다른 workspace·stale session·위조 역할·provider 경로·잘못된 request/tool-use 상관관계의 거부.
+- spawn 예약·시작 관측·관측 저장·lease 활성화·retirement 및 누락·중복·불일치 처리.
+- R1: 필수 승인 문서 커밋 전 Coder 배정과 문서·구현 혼합 커밋을 거부하고 올바른 문서 준비 후 진행을 허용.
+- R2: 동일 task 재작업은 허용하고, 수락 후 retired Coder의 다른 task 재바인딩과 지원 도구 사용은 거부하며, 선행 조건을 충족한 fresh Coder는 허용.
+- 설치 subprocess 검사와 별도로, 실제 지원 플랫폼 경로에서 현재 세션·버전의 hook 실행·거부 및 identity 연결 관측.
+- Codex의 명시적 deny와 hook 시작 실패·timeout·skip을 구분한 결과, Claude의 지원 버전·`onFailure: "block"` 적용 및 실패 차단 결과.
+
+Git 변경·실제 agent 배정·native canary probe는 Orchestrator가 승인된 scratch 환경에서 수행하고 QA는 근거를 검사한다. 실제 사용자 설정이나 trust를 변경하지 않는다.
+
+### T7·최종 완료의 필수 gate
+
+순서는 `T3 → T4 → T5 → T6 → T7 → 최종 전체 검증·Reviewer`로 유지한다. T4·T5 계약 acceptance만으로 T6의 native 연결을 충족하거나 T7을 시작할 수 없다.
+
+고정 provider·실제 entrypoint·필수 evidence 또는 지원되는 session/actor/task identity provenance를 확보하지 못하면 **T6 acceptance·commit, T7 시작·수락 및 전체 완료를 보류한다.** 필수 native 관측이 불가능하거나 그 근거가 무효화된 경우도 동일하다. fixture 통과, 모든 요청 거부, 생성된 설정, 수동 절차 안내, 확인 불가 사유 기록만으로 hold를 해제하지 않는다.
+
+T7은 T6의 연결과 관측 근거를 재사용·대조하여 기존 12개 조합·R1/R2·parity를 확인한다. 최종 전체 검증과 독립 Reviewer review는 유지하며, T6의 필수 통합을 최종 검증으로 미루지 않는다.
+
+custom host·SDK를 도입하거나 존재한다고 가정하지 않는다. 역할 추정·사용자 trust 변경으로 연결 문제를 해결하지 않는다. 미지원 follow-up·기존 shell 입력·specialized path·hook 비활성·시작 실패·timeout·skip까지 차단한다고 주장하지 않는다.
+
+최상위 task마다 별도 Coder identity를 사용한다. 같은 미수락 task의 수정·재작업은 유효한 범위·대상·소유권을 재확인한 뒤 기존 Coder를 재사용할 수 있다. task 수락·집중 커밋은 Orchestrator가 수행하며, 한 task의 미수락 변경을 다음 task에 흡수하지 않는다.
