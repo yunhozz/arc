@@ -8,9 +8,8 @@ Other depth 2 roles must stay within their exact allowlists and may not delegate
 Determine actual available browser and preview capabilities before use; do not assume managed preview tools exist.
 Use an available authorized local/browser workflow only when scoped by Orchestrator.
 Keep preview artifacts separate from user files, record generated side effects, preserve unrelated work,
-and report unavailable capabilities without claiming visual verification. Never expose secrets or publish a preview
-without authorization.
+and report unavailable capabilities without claiming visual verification. MUST NOT expose secrets or publish a preview without authorization.
 
 Upstream guide/scripts: `<installed ARC>/references/superpowers/brainstorming/visual-companion.md` and adjacent `scripts/`.
 ARC guide: `references/visual-companion.md`; Orchestrator briefs absolute paths and retains approval/server/browser
-ownership. Missing files stop dependent work without global fallback.
+ownership. Missing files stop dependent work. MUST NOT use a global fallback.

@@ -5,8 +5,8 @@ const api = await import('../../claude/skill/hooks/role-git-guard.mjs').catch(()
 const policy = JSON.parse(fs.readFileSync(new URL('../../lib/policy/role-policy.json', import.meta.url))).git;
 // These cases catch accidental mutation allowance; inputs are never executed.
 for (const [command, allowed] of [
- ['git status --short',true],['git diff --check',true],['git -C "/tmp/a b" log -5 --oneline',true],
- ['git --git-dir=/tmp/repo show HEAD',true],['/usr/bin/git status',true],['"C:\\Program Files\\Git\\bin\\git.exe" status',true],
+ ['git status --short',true],['git diff --check',true],['git -C "/tmp/a b" log -5 --oneline',false],
+ ['git --git-dir=/tmp/repo show HEAD',false],['/usr/bin/git status',true],['"C:\\Program Files\\Git\\bin\\git.exe" status',true],
  ['git branch --list',true],['git config --get user.name',true],['npm test',true],
  ['git commit -m x',false],['git push',false],['git branch new',false],['git branch -D old',false],['git config user.name x',false],
  ['git status && git add .',false],['git status || git reset --hard',false],['git status; git push',false],['git status | git commit -F -',false],
@@ -27,7 +27,7 @@ const hookApi=await import('../../lib/policy/claude-hook.mjs').catch(()=>({}));
 test('installed hook uses safe absolute assets from any cwd and denies bad policy/input',t=>{
  assert.equal(typeof hookApi.buildClaudeHookCommand,'function','installed hook builder is required');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),`arc hook 한글 ' " `));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- fs.mkdirSync(path.join(root,'hooks'));fs.copyFileSync(new URL('../../claude/skill/hooks/role-git-guard.mjs',import.meta.url),path.join(root,'hooks/role-git-guard.mjs'));fs.writeFileSync(path.join(root,'hooks/git-policy.json'),JSON.stringify(policy));
+ fs.mkdirSync(path.join(root,'runtime'));fs.copyFileSync(new URL('../../lib/runtime/git-query.mjs',import.meta.url),path.join(root,'runtime/git-query.mjs'));fs.mkdirSync(path.join(root,'hooks'));fs.copyFileSync(new URL('../../claude/skill/hooks/role-git-guard.mjs',import.meta.url),path.join(root,'hooks/role-git-guard.mjs'));fs.writeFileSync(path.join(root,'hooks/git-policy.json'),JSON.stringify(policy));
  const command=hookApi.buildClaudeHookCommand(path.join(root,'hooks/role-git-guard.mjs'));
  const run=(input,cwd=os.tmpdir())=>spawnSync(command,{shell:true,cwd,input:typeof input==='string'?input:JSON.stringify(input),encoding:'utf8'});
  for(const cwd of [root,os.tmpdir()])for(const [command,allowed]of [['git diff --check',true],['git commit -m x',false]]){
@@ -61,3 +61,5 @@ for (const lineBreak of ['\n','\r\n']) for (const quoted of [false,true]) {
   assert.equal(api.classifyGitCommand(command,policy).allowed,false);
  });
 }
+
+for(const command of ['git diff --no-index a b','git show ../outside','git diff -- /absolute','git --work-tree=/tmp status','git --namespace=other status'])test(`shared query target restriction denies ${command}`,()=>assert.equal(api.classifyGitCommand(command,policy).allowed,false));

@@ -1,0 +1,1 @@
+[{"source":"synthetic","platform":"codex","platformVersion":"fixture","sessionRef":"current","toolPath":"spawn_agent","event":"PreToolUse","kind":"host-result","decision":"deny","toolExecuted":false,"success":true}]

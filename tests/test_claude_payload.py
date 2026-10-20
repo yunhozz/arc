@@ -48,6 +48,92 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertEqual(fields['tools'], tools)
             self.assertEqual((fields['model'], fields['effort']), (model, effort))
 
+    def test_generated_single_guard_profiles_parse_render_apply(self):
+        module = self.module()
+        settings = {f'arc_{role}': {'model': 'opus', 'effort': 'high'} for role in EXPECTED}
+        with tempfile.TemporaryDirectory() as tmp:
+            agents = Path(tmp).resolve() / 'agents'
+            shutil.copytree(PAYLOAD / 'agents', agents)
+            for role in EXPECTED:
+                original = (agents / f'arc-{role}.md').read_bytes()
+                try:
+                    fields = module.parse_profile(original)
+                except module.ValidationError as exc:
+                    self.fail(f'generated single guard profile must parse: {exc}')
+                self.assertEqual(fields['name'], f'arc-{role}')
+                self.assertEqual(module.parse_profile(module.render_profile(original, settings[f'arc_{role}']))['model'], 'opus')
+            before = {p: p.read_bytes() for p in agents.iterdir()}
+            self.assertTrue(module.apply_models(settings, agents, check=True))
+            self.assertTrue(module.apply_models(settings, agents, dry_run=True))
+            self.assertEqual(before, {p: p.read_bytes() for p in agents.iterdir()})
+            module.apply_models(settings, agents)
+            self.assertEqual(module.apply_models(settings, agents, check=True), [])
+            for profile in agents.iterdir():
+                self.assertEqual(module.parse_profile(profile.read_bytes())['model'], 'opus')
+
+    def test_hook_subset_preserves_unmanaged_data_and_rejects_managed_mutations(self):
+        module = self.module()
+        original = (PAYLOAD / 'agents/arc-coder.md').read_bytes()
+        user = b'  PostToolUse:\n    - matcher: "Write|Edit"\n      hooks:\n        - type: command\n          command: "echo user"\n          onFailure: continue\n'
+        enriched = original.replace(b'hooks:\n  PreToolUse:', b'extra: preserved\nhooks:\n' + user + b'  PreToolUse:', 1)
+        for failure in (b'continue', b'block'):
+            variant = enriched.replace(b'onFailure: continue', b'onFailure: ' + failure)
+            for content in (variant, variant.replace(b'\n', b'\r\n')):
+                with self.subTest(failure=failure, crlf=b'\r\n' in content):
+                    try:
+                        rendered = module.render_profile(content, {'model': 'opus', 'effort': 'high'})
+                    except module.ValidationError as exc:
+                        self.fail(f'supported unmanaged hooks must parse: {exc}')
+                    self.assertEqual(rendered, content.replace(b'model: sonnet', b'model: opus').replace(b'effort: medium', b'effort: high'))
+        import json
+        custom = enriched.replace(b'command: "echo user"', b'command: ' + json.dumps("node -e \"Buffer.from('data')\"").encode())
+        try:
+            module.parse_profile(custom)
+        except module.ValidationError as exc:
+            self.fail(f'ordinary user Buffer command must remain data: {exc}')
+        ordinary = "node -e \"eval(Buffer.from('Y29uc29sZS5sb2coMSk=','base64').toString('utf8'))\""
+        custom_eval = enriched.replace(b'command: "echo user"', b'command: ' + json.dumps(ordinary).encode())
+        for failure in (b'continue', b'block'):
+            variant = custom_eval.replace(b'onFailure: continue', b'onFailure: ' + failure)
+            for content in (variant, variant.replace(b'\n', b'\r\n')):
+                with self.subTest(command=ordinary, failure=failure, crlf=b'\r\n' in content):
+                    try:
+                        module.parse_profile(content)
+                        rendered = module.render_profile(content, {'model': 'opus', 'effort': 'high'})
+                    except module.ValidationError as exc:
+                        self.fail(f'ordinary eval Buffer command must remain data: {exc}')
+                    self.assertEqual(rendered, content.replace(b'model: sonnet', b'model: opus').replace(b'effort: medium', b'effort: high'))
+        start = original.index(b'    - matcher: Bash')
+        end = original.index(b'          onFailure: block', start) + len(b'          onFailure: block\n')
+        guard = original[start:end]
+        mutations = [
+            original[:end] + guard + original[end:],
+            original.replace(b'  PreToolUse:', b'  PreToolUse:\n  PreToolUse:', 1),
+            original.replace(b'hooks:\n', b'hooks:\nhooks:\n', 1),
+            original.replace(b'onFailure: block', b'onFailure: continue'),
+            original.replace(b'          onFailure: block\n', b''),
+            original.replace(b'matcher: Bash', b'matcher: Read'),
+            original.replace(b'type: command', b'type: prompt'),
+            original.replace(b'node -e ', b'fake -e '),
+        ]
+        import base64
+        import json
+        command_line = next(line for line in original.splitlines() if line.startswith(b'          command: '))
+        command = json.loads(command_line[19:])
+        encoded = re.search(r'"([A-Za-z0-9+/]+={0,2})"$', command)[1]
+        url = base64.b64decode(encoded).decode()
+        for bad_url in (url.replace('/hooks/', '/wrong/'), url.replace('role-git-guard.mjs', 'runtime-gate.mjs')):
+            forged = command.replace(encoded, base64.b64encode(bad_url.encode()).decode())
+            mutations.append(original.replace(command_line, b'          command: ' + json.dumps(forged).encode()))
+            # Keep the valid guard too: a forged extra entry must not pass as user data.
+            mutations.append(original.replace(b'  PreToolUse:', b'  PreToolUse:\n' + guard.replace(command_line, b'          command: ' + json.dumps(forged).encode()), 1))
+        bootstrap = re.search(r"Buffer.from\('([^']+)'", command)[1]
+        forged = command.replace(bootstrap, base64.b64encode(b'console.log(1)').decode())
+        mutations.append(original.replace(b'  PreToolUse:', b'  PreToolUse:\n' + guard.replace(command_line, b'          command: ' + json.dumps(forged).encode()), 1))
+        for content in mutations:
+            with self.subTest(content=content), self.assertRaises(module.ValidationError):
+                module.parse_profile(content)
+
     def test_managed_hook_survives_model_render_and_rejects_other_yaml(self):
         module = self.module()
         content = (PAYLOAD / 'agents/arc-coder.md').read_bytes()

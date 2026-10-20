@@ -1,0 +1,19 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const args=process.argv.slice(2);const i=args.indexOf('--root');
+const root=i<0?fileURLToPath(new URL('../',import.meta.url)):path.resolve(args[i+1]);
+const check=args.includes('--check');
+function safe(filename,directory=false){
+ const relative=path.relative(root,filename);if(relative.startsWith('..')||path.isAbsolute(relative))throw Error('Payload outside root');
+ let cursor=root;for(const part of relative.split(path.sep).filter(Boolean)){cursor=path.join(cursor,part);let stat;try{stat=fs.lstatSync(cursor);}catch(error){if(error.code==='ENOENT')continue;throw error;}if(stat.isSymbolicLink()||(!stat.isFile()&&!stat.isDirectory()))throw Error(`Unsafe runtime asset: ${cursor}`);}
+ if(fs.existsSync(filename)){const s=fs.lstatSync(filename);if(directory?!s.isDirectory():!s.isFile())throw Error(`Unexpected runtime asset type: ${filename}`);}
+}
+function sources(relative){const dir=path.join(root,relative);safe(dir,true);const result=[];for(const entry of fs.readdirSync(dir).sort()){const rel=path.join(relative,entry);const file=path.join(root,rel);safe(file,fs.lstatSync(file).isDirectory());if(fs.lstatSync(file).isDirectory())result.push(...sources(rel));else if(entry.endsWith('.mjs'))result.push(rel);else throw Error(`Unexpected canonical runtime file: ${rel}`);}return result;}
+try{
+ safe(root,true);const entries=sources('lib/runtime').map(name=>[path.relative('lib/runtime',name),fs.readFileSync(path.join(root,name))]);
+ const policy=path.join(root,'lib/policy/role-policy.json');safe(policy);entries.push(['role-policy.json',fs.readFileSync(policy)]);
+ const outputs=[];for(const platform of ['codex','claude'])for(const [name,bytes]of entries){const filename=path.join(root,platform,'skill/runtime',name);safe(filename);outputs.push({filename,bytes});}
+ let drift=false;for(const {filename,bytes}of outputs){if(!fs.existsSync(filename)||!fs.readFileSync(filename).equals(bytes)){drift=true;if(!check){fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,bytes);}}}
+ if(check&&drift){console.error('Runtime payload drift');process.exitCode=1;}else console.log(`Runtime payload ${check?'verified':'generated'} (${outputs.length} files)`);
+}catch(error){console.error(error.message);process.exitCode=1;}

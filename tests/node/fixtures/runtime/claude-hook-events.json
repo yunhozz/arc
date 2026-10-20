@@ -1,0 +1,1 @@
+[{"source":"synthetic","platform":"claude","platformVersion":"fixture","sessionRef":"current","toolPath":"Agent","event":"PreToolUse","kind":"host-result","decision":"deny","toolExecuted":false,"success":true}]
