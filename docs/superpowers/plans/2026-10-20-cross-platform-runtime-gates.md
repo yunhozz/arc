@@ -4,7 +4,7 @@
 >
 > 실행 역할·배정·검토·커밋에는 ARC 계약을 우선 적용한다. Orchestrator가 조정하고 각 최상위 task에 새 Coder를 배정한다. Reviewer는 매 task에 배정하지 않는다.
 
-**상태:** T5 범위 수정안 승인 완료; T5 회귀 재작업 진행 중
+**상태:** T5 수락 완료, T6 준비 중. T6 native-context 통합·필수 검증과 후속 작업은 미완료.
 
 **저장 경로:** `/Users/ma-24-007/.codex/worktrees/arc-runtime-gates/arc/docs/superpowers/plans/2026-10-20-cross-platform-runtime-gates.md`
 
@@ -857,3 +857,31 @@ node --test tests/node/runtime-claude.test.mjs tests/node/role-git-guard.test.mj
 정상 두 managed hook을 renderer가 거부하거나, managed block·비관리 항목·개행 동작을 손상하거나, malformed·duplicate wiring 검증을 완화해야 통과하면 T5를 보류한다. 필요한 변경이 위 파일과 기존 T5 소유 범위를 넘어가면 영향을 받는 작업을 멈추고 Orchestrator에 반환한다.
 
 이 수정은 profile 소비 호환성에 한정한다. native provider·identity provenance·설치 entrypoint 연결을 입증하지 않으며, T6·T7·전체 완료의 기존 hold를 해제하지 않는다.
+
+---
+
+## 사용자 지시에 따른 T6 수정: README.md 변경 제외와 CLI 안내 위치
+
+사용자의 명시적 지시 `README.md`를 수정하지 말 것에 따라 T6 소유 파일의 `수정: README.md` 항목과 README 편집을 요구하는 안내·수락 문구는 이 수정안으로 대체한다. 신규 파일이나 작업 범위는 추가하지 않는다.
+
+### 의존성과 안내 위치
+
+T5 acceptance·commit을 T6 선행 조건으로 유지한다. CLI 사용법과 runtime 경계 안내는 기존 T6 소유 파일에 반영한다.
+
+- `lib/cli/root.mjs`: runtime 명령과 하위 명령의 help 출력.
+- `codex/skill/SKILL.md`, `claude/skill/SKILL.md`: 플랫폼별 운영 안내.
+- 기존 T6 소유 reference 문서: 관련 handoff·준비·검증 절차와 보장 한계.
+- `tests/node/runtime-cli.test.mjs`: CLI help·동작·플랫폼 경계 안내의 회귀 검증.
+
+### 수락 기준과 필수 검증
+
+- CLI help에서 승인된 `doctor`, `preflight`, `transition` 명령의 사용법과 필수 인수를 확인할 수 있다.
+- `runtime-cli.test.mjs`는 help 출력, 기존 명령 동작과 exit code, 플랫폼 경계 안내를 검증한다.
+- help와 기존 운영 문서는 생성·설치·설정·신뢰·실제 관측을 구분하고, 지원 hook 경로의 보장 범위와 미지원·미확인 경로의 한계를 일치되게 설명한다.
+- `README.md` 편집은 T6 수락 조건이 아니다. `README.md`에 대한 T6 변경이 없어야 한다.
+
+기존 T6 focused 명령에는 이미 `tests/node/runtime-cli.test.mjs`가 포함되어 있으므로 명령 변경은 필요 없다. 기존 checks·fresh QA·나머지 파일 소유권·native-context 요구사항과 hold·후속 작업 순서는 유지한다.
+
+### 보류 조건
+
+필수 CLI 안내를 찾을 수 없거나 help·문서·실제 판정의 보장 범위가 다르면 T6를 보류한다. 이를 해결하려면 README 편집이나 추가 파일이 필요하다고 판단되는 경우 해당 변경을 수행하지 않고 Orchestrator에 반환한다. 이 수정은 T6 native-context 연결·identity provenance·실제 관측의 기존 hold를 해제하지 않는다.
