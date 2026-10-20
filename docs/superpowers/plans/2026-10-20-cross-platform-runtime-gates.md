@@ -1,5 +1,7 @@
 # Codex·Claude 실행 게이트 구현 계획
 
+> **현행 범위 수정:** 사용자 승인에 따라 [T5 종료 범위 수정안](2026-10-20-t5-terminal-revision.md)이 이 계획의 현행 종료 범위를 대체한다. 기존 승인·수락 기록은 유지하며, T6·T7과 그에 종속된 작업은 현재 실행 범위에 포함되지 않는다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > 실행 역할·배정·검토·커밋에는 ARC 계약을 우선 적용한다. Orchestrator가 조정하고 각 최상위 task에 새 Coder를 배정한다. Reviewer는 매 task에 배정하지 않는다.
