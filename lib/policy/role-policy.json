@@ -278,7 +278,7 @@
         "qa-rechecks"
       ],
       "authority": "orchestrator",
-      "text": "For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. Do not omit Reviewer merely because no plan exists. This creates no new plan obligation.",
+      "text": "For significant/high-risk work without a plan: Coder \u2192 QA and required QA rechecks \u2192 Reviewer of the final full change \u2192 Orchestrator acceptance. Do not omit Reviewer merely because no plan exists. This creates no new plan obligation.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -303,7 +303,7 @@
         "required-qa"
       ],
       "authority": "orchestrator",
-      "text": "For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.",
+      "text": "For significant/high-risk plan work: each task uses Coder \u2192 fresh QA as required \u2192 Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -327,7 +327,7 @@
         "reviewer-findings"
       ],
       "authority": "orchestrator",
-      "text": "For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only to that final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.",
+      "text": "For final overall Reviewer findings on plan work, including behavior findings, use Coder \u2192 Reviewer without QA reassignment; repeat until resolved. This exception applies only to that final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -573,5 +573,35 @@
         "positionals": "any"
       }
     }
+  },
+  "runtime": {
+    "schemaVersion": 1,
+    "roles": [
+      "orchestrator",
+      "scouter",
+      "planner",
+      "coder",
+      "qa",
+      "reviewer"
+    ],
+    "requiredEvidence": [
+      "platform-identity",
+      "user-approval",
+      "current-target-versions",
+      "resolved-paths"
+    ],
+    "ruleIds": [
+      "runtime.schema",
+      "runtime.policy",
+      "runtime.identity",
+      "runtime.target",
+      "runtime.assignment",
+      "runtime.approval",
+      "runtime.paths",
+      "runtime.docs-commit",
+      "runtime.mode",
+      "runtime.transition"
+    ],
+    "status": "decision-only"
   }
 }

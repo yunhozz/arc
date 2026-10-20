@@ -76,3 +76,7 @@ test('generation restores missing Claude specialist hook wiring and check detect
  const name='claude/agents/arc-coder.md';inputs.set(name,Buffer.from(inputs.get(name).toString().replace(/^hooks:\n(?: .+\n){5}/m,'')));
  const rendered=api.buildPolicyOutputs(inputs,policy()).get(name).toString();assert.match(rendered,/^hooks:\n  PreToolUse:/m);
 });
+test('runtime evidence policy rejects missing roles rules and evidence requirements',()=>{
+ const p=policy();assert.equal(p.runtime.schemaVersion,1);
+ for(const mutate of [p=>delete p.runtime,p=>p.runtime.roles.reverse(),p=>p.runtime.ruleIds=[],p=>p.runtime.requiredEvidence=[]]){const bad=policy();mutate(bad);assert.throws(()=>api.validateRolePolicy(bad),/runtime/i);}
+});
