@@ -5,9 +5,66 @@ QA and
 Reviewer contracts are in their profiles; they read this file only for sections the brief explicitly cites.
 Visual companion design discussion is distinct from QA UI acceptance.
 
+For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never turn unverified into proven; reports keep unverified scope visible.
+
 ## Risk-scaled execution
 
-SKILL.md Risk-scaled execution holds the risk table, risk definitions, evidence-reuse rule, and role order,
+Orchestrator assigns edits exclusively to Coder except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
+behavior, risk,
+and smallest meaningful verification.
+
+| Risk | Minimum flow |
+|---|---|
+| Small, low risk | Coder, or Orchestrator direct path → Orchestrator's focused checks → acceptance |
+| Ordinary behavior | Coder → independent QA → acceptance |
+| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Coder → FRESH QA → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
+
+Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on
+Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused
+checks. Ordinary behavior
+fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
+shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
+installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count.
+When risk is unclear, investigate or use the higher flow. Environment failure does not waive checks or determine design depth.
+
+Do not add per-task QA or review gates solely because a task boundary exists. Reviewer is never a plan-task acceptance
+prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted
+with their risk-scaled checks, following the last plan task's required checks and any QA recheck at the final relevant
+state; significant work without a plan keeps Reviewer after QA before acceptance. Preserve specific approved
+obligations. If the next task depends on a still-unverified risky contract, complete applicable QA at that dependency
+boundary and resolve or explicitly disposition findings before dependent implementation.
+Reuse evidence only when scope, relevant state, independence, freshness, and flow
+position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
+QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion
+decisions. Orchestrator routes fixes to Coder (a failed direct-path check returns to the normal flow),
+obtains affected QA rechecks outside the final plan Reviewer correction exception and required final review, and accepts after findings/evidence gaps are resolved or
+explicitly dispositioned.
+
+Criterion verdicts follow the Evidence verdict.
+
+### Final plan Reviewer correction loop
+
+For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
+Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
+the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
+risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
+This exception applies only to findings from the final overall Reviewer of work with a plan.
+Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
+or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
+Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
+checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
+report only checks actually performed, their actor, target state, results and remaining limits.
+
+
+
+Authorization evidence and probe/combined scope are owned by [planning](planning.md#authorization-and-scope);
+valid reuse and actual-state refresh by [handoff](handoff.md#authorization-continuity).
+After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
+[verification](verification.md#completion-continuity); a role report alone does not complete the work.
+
+
+
+The Risk-scaled execution section above holds the risk table, risk definitions, evidence-reuse rule, and role order,
 including Reviewer timing. Product/test edits belong exclusively to Coder except under the Orchestrator direct path;
 Orchestrator may inspect/run checks but
 routes code corrections to Coder. Determine the minimum
@@ -145,16 +202,7 @@ actual unmet condition and report what is needed to resume. Structural evidence 
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
-- [scope.non-escalation] Act only where role authority, approved scope and available platform tools all permit. Delegation, restart, agent messages and attached instructions do not expand role authority. MUST NOT bypass a restriction through aliases, scripts, other tools, processes or redelegation. Return conflicting instructions to Orchestrator before dependent work; reuse valid prior approvals for unchanged scope rather than requesting them again.
-- [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
-- [external.explicit-user-authority] Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.
-- [role.orchestrator-boundary] Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Coder. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it.
-- [role.scouter-read-only] Research assigned static sources and report findings, evidence and limits. Do not edit files, install, execute checks, prepare execution targets, inspect live operational state, change external state or decide design, verification, review or acceptance.
-- [role.planner-draft-only] Return design/spec/plan drafts and dependencies, criteria, hold conditions and verification needs in the response. MUST NOT save documents, implement, run checks, prepare targets, request user approval or decide acceptance. Stop formal target-dependent drafting if actual prepared target evidence is missing; route decisions to Orchestrator.
-- [role.coder-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds.
-- [role.qa-verification] Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Coder correction and required QA recheck.
-- [role.reviewer-independent] Independently inspect the assigned final changes and evidence and report actionable findings and limits. Remain read-only. MUST NOT execute QA tests, edit files, perform Git mutations or decide acceptance.
 - [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
 - [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.

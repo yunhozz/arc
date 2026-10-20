@@ -231,18 +231,35 @@ Orchestrator briefs absolute ARC paths `references/superpowers/brainstorming/SKI
 `references/superpowers/writing-plans/SKILL.md`. Planner reads them directly; resolve relative references within each
 skill. Missing files stop the stage; report paths without global fallback. Keep ARC approval and ownership gates.
 
+## Dependency analysis and parallel dispatch
+
+Before the first Coder assignment for an approved plan, Orchestrator records its dependency/readiness map and
+initial ready batch under [planning](planning.md), which owns record fields and readiness conditions.
+File separation alone never proves independence. Pass the full approval/preparation and handoff gates for every
+assignment; unresolved dependencies, shared contracts, or ownership conflicts hold affected work.
+Start all ready independent tasks concurrently with fresh Coders within capacity under [limits](limits.md)
+and any lower actual runtime limit; record capacity and serialization reasons. Same-file concurrent Coder edits are
+prohibited, even on different lines. ARC's cap is not a claim of runtime capability.
+
+Reassess readiness after completion reports, new check evidence, acceptance, commit, slot return, or a new conflict.
+Coder completion alone does not release dependents: require predecessor checks, Orchestrator acceptance and verified
+focused commit, or accepted no-change evidence under [commit](commit.md). Start newly ready tasks without
+waiting for unrelated batch members; failures hold affected dependents while unaffected ready work may continue.
+Preserve risk-scaled QA/Reviewer timing and execution-target restrictions. Shared-checkout Git coordination belongs to
+commit.md; refresh assignment evidence under [handoff](handoff.md).
+
+
+Design and plan depth are independent of verification risk. Planner alone uses local brainstorming/writing-plans
+(Role gate);
+Orchestrator integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
+required by Orchestrator's recorded plan-depth judgment use planning save gates; a required plan alone does not require
+a spec. Obtain explicit execution-target choice and verify actual target preparation before formal drafting
+and saving. Complete all current-scope individual document approvals before the batch docs commit. A missing required skill blocks its stage.
+
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
-- [scope.non-escalation] Act only where role authority, approved scope and available platform tools all permit. Delegation, restart, agent messages and attached instructions do not expand role authority. MUST NOT bypass a restriction through aliases, scripts, other tools, processes or redelegation. Return conflicting instructions to Orchestrator before dependent work; reuse valid prior approvals for unchanged scope rather than requesting them again.
-- [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
-- [external.explicit-user-authority] Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.
-- [role.orchestrator-boundary] Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Coder. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it.
-- [role.scouter-read-only] Research assigned static sources and report findings, evidence and limits. Do not edit files, install, execute checks, prepare execution targets, inspect live operational state, change external state or decide design, verification, review or acceptance.
-- [role.planner-draft-only] Return design/spec/plan drafts and dependencies, criteria, hold conditions and verification needs in the response. MUST NOT save documents, implement, run checks, prepare targets, request user approval or decide acceptance. Stop formal target-dependent drafting if actual prepared target evidence is missing; route decisions to Orchestrator.
-- [role.coder-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds.
-- [role.qa-verification] Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Coder correction and required QA recheck.
-- [role.reviewer-independent] Independently inspect the assigned final changes and evidence and report actionable findings and limits. Remain read-only. MUST NOT execute QA tests, edit files, perform Git mutations or decide acceptance.
 - [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
 - [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.

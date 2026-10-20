@@ -161,3 +161,11 @@ test('malformed and duplicate managed hooks fail without overwriting user bytes'
  const good='---\nname: custom\n'+hooks.hookFrontmatter()+'\n---\nbody';
  for(const bad of [good.replace('onFailure: block','onFailure: ignore'),good.replace('        - type: command','        - type: malformed'),good.replace('---\nbody',hooks.hookFrontmatter()+'\n---\nbody')])assert.throws(()=>hooks.renderSourceClaudeHook(bad));
 });
+
+test('instruction policy targets use the approved action projections',()=>{
+ const placements={'SKILL':'core',coordination:'assignment',planning:'planning',handoff:'handoff','handoff-prep':'preparation',verification:'verification',commit:'commit'};
+ for(const platform of ['codex','claude'])for(const[name,projection]of Object.entries(placements)){
+  const target=api.POLICY_TARGETS.find(t=>t.path===`${platform}/skill/${name==='SKILL'?'SKILL.md':`references/${name}.md`}`);
+  assert.ok(target,`${platform}/${name}`);assert.equal(target.projection,projection);
+ }
+});
