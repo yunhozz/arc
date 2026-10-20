@@ -40,3 +40,17 @@ test('packed all-target install preserves distinct omitted platform limits indep
 test('scripts-disabled packed install reacquires into custom CODEX_HOME without rewriting readonly package',t=>{const f=fixture(t),home=fs.mkdtempSync(path.join(f.base,'custom home ')),codex=home+'/custom codex',before=fs.readFileSync(f.root+'/codex/skill/references/superpowers/provenance.json');const launcher=f.environments.traps.PATH+'/git';fs.writeFileSync(launcher,fs.readFileSync(launcher,'utf8').replace(' valid ',' snapshot-b '));const directories=[];function protect(root){for(const name of fs.readdirSync(root)){const p=root+'/'+name;if(fs.lstatSync(p).isDirectory())protect(p);}directories.push([root,fs.statSync(root).mode&0o777]);fs.chmodSync(root,0o555);}protect(f.root);try{const result=f.run('traps',['--target','codex','--preset','balanced','--language','en','--skip-global'],{home,env:{HOME:home,CODEX_HOME:codex,PATH:f.environments.traps.PATH,TMPDIR:f.base}});assert.equal(result.status,0,result.stderr);assert.equal(JSON.parse(fs.readFileSync(codex+'/skills/arc/references/superpowers/provenance.json')).revision,'b'.repeat(40));assert.deepEqual(fs.readFileSync(f.root+'/codex/skill/references/superpowers/provenance.json'),before);}finally{for(const[p,mode]of directories.reverse())fs.chmodSync(p,mode);}});
 
 test('packed bare entry installs, switches preset and removes without a global arc',t=>{const f=fixture(t);assert.equal(fs.existsSync(path.join(f.environments.traps.PATH,'arc')),false);for(const target of ['codex','claude']){const first=f.run('traps',['--target',target,'--preset','economy','--language','ko']);assert.equal(first.status,0,first.stderr);const changed=f.run('traps',['smart','--target',target],{home:first.home,command:'preset'});assert.equal(changed.status,0,changed.stderr);assert.equal(loadModelConfig(fs.readFileSync(path.join(first.home,'.'+target,'skills/arc/models.toml')),target).preset,'smart');const removed=f.run('traps',['--target',target],{home:first.home,command:'uninstall'});assert.equal(removed.status,0,removed.stderr);assert.equal(fs.existsSync(path.join(first.home,'.'+target,'skills/arc')),false);}});
+
+test('packed instruction references install with valid links for both platforms in custom spaced homes',t=>{
+ const f=fixture(t),home=fs.mkdtempSync(path.join(f.base,'instruction home ')),codex=home+'/custom codex',claude=home+'/.claude';
+ for(const[dir,name]of [[codex,'AGENTS.md'],[claude,'CLAUDE.md']]){fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,name),'사용자 지침\r\n');}
+ const result=f.run('traps',['--target','all','--preset','balanced','--language','ko'],{home,env:{HOME:home,CODEX_HOME:codex,CLAUDE_CONFIG_DIR:claude,PATH:f.environments.traps.PATH,TMPDIR:f.base}});
+ assert.equal(result.status,0,result.stderr);
+ for(const[platform,dir,name]of [['codex',codex,'AGENTS.md'],['claude',claude,'CLAUDE.md']]){
+  const skillRoot=path.join(dir,'skills/arc'),core=fs.readFileSync(path.join(skillRoot,'SKILL.md'),'utf8');assert.match(core,/Use Korean by default/);
+  assert.ok(fs.existsSync(path.join(skillRoot,'references/coordination.md')));
+  for(const link of core.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(path.join(skillRoot,link[1])),`${platform}/${link[1]}`);
+  assert.match(fs.readFileSync(path.join(skillRoot,'references/coordination.md'),'utf8'),/\[role.coder-implementation\]/);
+  const global=fs.readFileSync(path.join(dir,name),'utf8');assert.ok(global.startsWith('사용자 지침\r\n'));assert.doesNotMatch(global,/\[ARC role policy:/);
+ }
+});

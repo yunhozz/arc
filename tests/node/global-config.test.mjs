@@ -18,8 +18,8 @@ for(const suffix of ['\nuser suffix\n','\r\n\r\nafter\r\n','\n ','\r','\n\r','\n
 
 test('generated global policy survives install update/remove while preserving user text and language',()=>{
  const body=api.agentsBlockBody('/Users/u/custom arc','/Users/u','ko');
- assert.match(body,/git.orchestrator-accept-commit/);
- assert.match(body,/review.significant-no-plan/); assert.match(body,/review.significant-plan/);
+ assert.doesNotMatch(body,/\[ARC role policy:|\[git\.|\[review\./);
+ assert.match(body,/load and follow/);
  assert.match(body,/Use Korean by default/);
  const original=Buffer.from('user instructions\r\n');
  const installed=api.renderManagedBlock(original,body).content;
@@ -28,10 +28,8 @@ test('generated global policy survives install update/remove while preserving us
  assert.match(body,/`~\/custom arc\/skills\/arc\/SKILL.md`/);
 });
 
-for(const platform of ['codex','claude'])test(`global policy renders only ${platform} platform notice`,()=>{
+for(const platform of ['codex','claude'])test(`global bootstrap defers ${platform} policy to its installed skill`,()=>{
  const text=api.agentsBlockBody('/Users/u/custom arc','/Users/u','ko',platform);
- assert.ok(text.includes(`[platform.${platform}]`));
- const other=platform==='codex'?'claude':'codex'; assert.ok(!text.includes(`[platform.${other}]`));
- assert.equal(text.includes('No documented role-specific Git hook'),platform==='codex');
- assert.equal(text.includes('Existing per-role tool allowlists reduce available tools'),platform==='claude');
+ assert.doesNotMatch(text,/\[platform\.|Generated from lib\/policy/);
+ assert.ok(text.includes('`~/custom arc/skills/arc/SKILL.md`'));
 });

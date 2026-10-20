@@ -5,9 +5,74 @@ import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 const api = await import('../../lib/policy/render.mjs').catch(() => ({}));
+const placement = await import('../../lib/policy/placement.mjs').catch(() => ({}));
 const root = new URL('../../', import.meta.url);
 const policy = () => JSON.parse(fs.readFileSync(new URL('lib/policy/role-policy.json', root)));
 const block = body => `[ARC role policy: contract begin]\n${body}\n[ARC role policy: contract end]`;
+// Broken placement validation would silently drop rules or render ambiguous contracts.
+test('policy projections reject unknown duplicate and uncovered rules', () => {
+  assert.equal(typeof placement.validatePolicyProjections, 'function');
+  const p = policy();
+  assert.doesNotThrow(() => placement.validatePolicyProjections(p));
+  const copy = () => structuredClone(placement.POLICY_PROJECTIONS);
+  const unknown = copy(); unknown.core.push('unknown.rule');
+  assert.throws(() => placement.validatePolicyProjections(p, unknown), /unknown.*unknown.rule/i);
+  const duplicate = copy(); duplicate.core.push('scope.non-escalation');
+  assert.throws(() => placement.validatePolicyProjections(p, duplicate), /duplicate.*scope.non-escalation/i);
+  const uncovered = copy();
+  for (const ids of Object.values(uncovered)) {
+    const index = ids.indexOf('scope.non-escalation'); if (index !== -1) ids.splice(index, 1);
+  }
+  assert.throws(() => placement.validatePolicyProjections(p, uncovered), /uncovered.*scope.non-escalation/i);
+  const extended = policy(); extended.rules.push({...extended.rules[0], id:'future.rule'});
+  assert.throws(() => placement.validatePolicyProjections(extended), /uncovered.*future.rule/i);
+});
+// Selecting the wrong subset or sorting by the placement table would change emitted authority.
+test('orchestrator projections preserve canonical text and order', () => {
+  const expected = {
+    core: ['scope.non-escalation', 'external.explicit-user-authority', 'role.orchestrator-boundary'],
+    assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.coder-implementation', 'role.qa-verification', 'role.reviewer-independent'],
+    planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
+    handoff: ['git.specialists-deny', 'role.coder-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
+    preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority'],
+    verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
+    commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority'],
+  };
+  const p = policy();
+  for (const platform of ['codex', 'claude']) for (const [projection, ids] of Object.entries(expected)) {
+    const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection, skillPath:'/tmp/한 글/SKILL.md'});
+    const lines = output.split('\n');
+    assert.deepEqual(lines.slice(1, -2), ids.map(id => `- [${id}] ${p.rules.find(rule => rule.id === id).text}`));
+    assert.equal(lines.at(-2), `- [platform.${platform}] ${p.platforms[platform].notice}`);
+    assert.equal(lines.at(-1), '- Policy details: `/tmp/한 글/SKILL.md`.');
+  }
+  const reversed = policy(); reversed.rules.reverse();
+  const reversedOutput = api.renderPolicySection(reversed, {platform:'codex', audience:'orchestrator', projection:'core', section:'global'});
+  assert.deepEqual([...reversedOutput.matchAll(/^- \[([^\]]+)\]/gm)].map(match => match[1]), [...expected.core].reverse());
+  assert.throws(() => api.renderPolicySection(p, {platform:'codex', audience:'orchestrator', projection:'unknown'}), /unknown.*projection/i);
+});
+// Adding projections must not change existing installed contracts or global-section filtering.
+test('default policy rendering preserves complete existing contracts', () => {
+  const p = policy();
+  for (const platform of ['codex', 'claude']) for (const {id:audience} of p.roles) for (const section of ['contract', 'global']) {
+    const options = {platform, audience, section, skillPath:'~/.arc/SKILL.md'};
+    const expectedRules = p.rules.filter(rule => section === 'global' || audience === 'orchestrator' || rule.roles.includes(audience));
+    const expected = ['Generated from lib/policy/role-policy.json; do not edit this managed section manually.',
+      ...expectedRules.map(rule => `- [${rule.id}] ${rule.text}`),
+      ...(section === 'global' ? [] : [`- [platform.${platform}] ${p.platforms[platform].notice}`]),
+      '- Policy details: `~/.arc/SKILL.md`.'].join('\n');
+    assert.equal(api.renderPolicySection(p, options), expected);
+    assert.equal(api.renderPolicySection(p, {...options, projection:'full'}), expected);
+  }
+  const inputs = new Map(api.POLICY_TARGETS.map(({path:name}) => [name, fs.readFileSync(new URL(name, root))]));
+  assert.deepEqual(api.buildPolicyOutputs(inputs, p), inputs);
+});
+// A caller must not accidentally replace a specialist's complete role contract with a subset.
+test('specialist rendering rejects partial projections', () => {
+  for (const platform of ['codex', 'claude']) for (const audience of ['scouter', 'planner', 'coder', 'qa', 'reviewer']) for (const section of ['contract', 'global']) {
+    assert.throws(() => api.renderPolicySection(policy(), {platform, audience, section, projection:'core'}), /specialist.*projection/i);
+  }
+});
 // Removing validation would permit an unrecognized role/control or ambiguous rule to grant authority.
 test('policy rejects unknown roles, duplicate IDs and unsupported controls', () => {
   assert.equal(typeof api.validateRolePolicy, 'function');
@@ -95,4 +160,12 @@ test('managed hooks preserve user hooks and frontmatter while adding failure blo
 test('malformed and duplicate managed hooks fail without overwriting user bytes',()=>{
  const good='---\nname: custom\n'+hooks.hookFrontmatter()+'\n---\nbody';
  for(const bad of [good.replace('onFailure: block','onFailure: ignore'),good.replace('        - type: command','        - type: malformed'),good.replace('---\nbody',hooks.hookFrontmatter()+'\n---\nbody')])assert.throws(()=>hooks.renderSourceClaudeHook(bad));
+});
+
+test('instruction policy targets use the approved action projections',()=>{
+ const placements={'SKILL':'core',coordination:'assignment',planning:'planning',handoff:'handoff','handoff-prep':'preparation',verification:'verification',commit:'commit'};
+ for(const platform of ['codex','claude'])for(const[name,projection]of Object.entries(placements)){
+  const target=api.POLICY_TARGETS.find(t=>t.path===`${platform}/skill/${name==='SKILL'?'SKILL.md':`references/${name}.md`}`);
+  assert.ok(target,`${platform}/${name}`);assert.equal(target.projection,projection);
+ }
 });

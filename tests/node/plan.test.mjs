@@ -79,12 +79,15 @@ test('invalid existing language blocks explicit reinstall and skip-global still 
  const home=fixture(t),root=home+'/.claude';fs.mkdirSync(root+'/skills/arc',{recursive:true});fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "fr"\n');assert.throws(()=>plan(home,'claude',{language:'ko',skipGlobal:true}),/Invalid ARC language settings/);
  fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "en"\n');const next=plan(home,'claude',{language:'ko',skipGlobal:true});assert.deepEqual(next.globalChanges,[]);assert.match(next.generated.skill.get('SKILL.md').toString(),/Korean/);for(const bytes of next.generated.profiles.values())assert.match(bytes.toString(),/Korean/);
 });
-for(const platform of ['codex','claude'])test(`install plan passes ${platform} to global policy renderer`,t=>{
- const result=plan(fixture(t),platform);
+for(const platform of ['codex','claude'])test(`install plan preserves ${platform} notice in the skill and defers the global contract`,t=>{
+ const home=fixture(t),input=payload();input.files.set(`${platform}/skill/SKILL.md`,fs.readFileSync(new URL(`../../${platform}/skill/SKILL.md`,import.meta.url)));
+ const result=api.buildInstallPlan({payload:input,target:targets.resolveTarget(platform,{userHome:home,env:{},cwd:home}),preset:'balanced',safeFs});
  const change=result.globalChanges.find(c=>c.path===result.target.instructionPath);
- assert.ok(change); const text=change.content.toString();
- assert.ok(text.includes(`[platform.${platform}]`));
- assert.ok(!text.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
+ assert.ok(change);assert.doesNotMatch(change.content.toString(),/\[platform\.|\[ARC role policy:/);
+ const skill=result.generated.skill.get('SKILL.md').toString();
+ const contract=skill.split('[ARC role policy: contract begin]')[1].split('[ARC role policy: contract end]')[0];
+ assert.ok(contract.includes(`[platform.${platform}]`));
+ assert.ok(!contract.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
 });
 import {validateClaudeHookCommand} from '../../lib/policy/claude-hook.mjs';
 test('Claude plan installs each hook against the final skill path and no global hook',t=>{
@@ -116,4 +119,22 @@ test('Claude installed hook survives model update and is removed with managed as
  assert.ok(fs.readFileSync(`${home}/.claude/agents/arc-coder.md`,'utf8').endsWith('user edit'));
  const result=await uninstallTargets([buildUninstallPlan({target:first.target,safeFs})],{safeFs});assert.equal(result.results[0].status,'uninstalled');
  assert.equal(fs.existsSync(`${home}/.claude/skills/arc/hooks`),false);assert.equal(fs.readFileSync(`${home}/.claude/agents/user-agent.md`,'utf8'),'preserve');
+});
+for(const platform of ['codex','claude'])test(`${platform} installs instruction references into a custom spaced home and preserves globals on reinstall`,async t=>{
+ // Claude keeps its supported default directory under the spaced temporary HOME; only Codex supports a custom agent home.
+ const home=fixture(t),custom=platform==='codex'?home+'/custom agent home':home+'/.claude',environment=platform==='codex'?{CODEX_HOME:custom}:{};
+ const input=payload();
+ const core=fs.readFileSync(new URL(`../../${platform}/skill/SKILL.md`,import.meta.url),'utf8');const names=['SKILL.md',...[...core.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g)].map(match=>match[1])];
+ for(const name of new Set(names))input.files.set(`${platform}/skill/${name}`,fs.readFileSync(new URL(`../../${platform}/skill/${name}`,import.meta.url)));
+ const target=targets.resolveTarget(platform,{userHome:home,env:environment,cwd:home});
+ const make=extra=>api.buildInstallPlan({payload:input,target,preset:'balanced',language:'ko',safeFs,...extra});
+ const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
+ const globals=target.instructionPath;fs.mkdirSync(path.dirname(globals),{recursive:true});fs.writeFileSync(globals,'사용자 지침\r\n');
+ applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});
+ const installed=fs.readFileSync(custom+'/skills/arc/SKILL.md','utf8');assert.match(installed,/Use Korean by default/);
+ for(const match of installed.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(custom+'/skills/arc/'+match[1]),match[1]);
+ assert.match(fs.readFileSync(custom+'/skills/arc/references/coordination.md','utf8'),/\[role.coder-implementation\]/);
+ assert.ok(fs.readFileSync(globals,'utf8').startsWith('사용자 지침\r\n'));
+ const before=fs.readFileSync(globals);applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
+ applyTransaction(make({skipGlobal:true}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
 });

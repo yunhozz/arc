@@ -49,3 +49,14 @@ test('payload rejects invalid shared policy after refreshed manifest',t=>{const 
 test('payload rejects stale generated policy even when hashes match',t=>{const root=fixture(t);const name=`${root}/codex/agents/arc-coder.toml`;fs.writeFileSync(name,fs.readFileSync(name,'utf8').replace('Generated from lib/policy/role-policy.json','Stale source'));refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION' && /Stale role policy output/.test(error.message));});
 
 test('payload rejects stale Git query policy even after manifest refresh',t=>{const root=fixture(t),name=`${root}/claude/skill/hooks/git-policy.json`;const changed=JSON.parse(fs.readFileSync(name));changed.commands.status.flags.push('--unknown');fs.writeFileSync(name,JSON.stringify(changed));refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION' && /Stale role policy output/.test(error.message));});
+for(const platform of ['codex','claude']){
+ const name=`${platform}/skill/references/coordination.md`;
+ test(`payload requires ${name} after manifest refresh`,t=>{
+  const root=fixture(t);assert.ok(verify(root).files.has(name));fs.unlinkSync(path.join(root,name));refresh(root);
+  assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes(`missing target ${name}`));
+ });
+ test(`payload rejects stale ${name} after manifest refresh`,t=>{
+  const root=fixture(t),file=path.join(root,name);fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('- [git.specialists-deny]','- [stale.rule]'));refresh(root);
+  assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes(`Stale role policy output: ${name}`));
+ });
+}
