@@ -8,12 +8,12 @@ model = "gpt-6-luna"
 model_reasoning_effort = "high"
 
 [roles.arc_scouter.balanced]
-model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
+model = "gpt-6-luna"
+model_reasoning_effort = "high"
 
 [roles.arc_scouter.smart]
-model = "gpt-6.1-sol"
-model_reasoning_effort = "high"
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
 
 [roles.arc_planner.economy]
 model = "gpt-6.1-sol"
@@ -29,11 +29,11 @@ model_reasoning_effort = "high"
 
 [roles.arc_coder.economy]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "low"
+model_reasoning_effort = "medium"
 
 [roles.arc_coder.balanced]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 [roles.arc_coder.smart]
 model = "gpt-6-astra"
@@ -44,12 +44,12 @@ model = "gpt-6-luna"
 model_reasoning_effort = "high"
 
 [roles.arc_qa.balanced]
-model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
 
 [roles.arc_qa.smart]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 [roles.arc_reviewer.economy]
 model = "gpt-6.1-sol"
