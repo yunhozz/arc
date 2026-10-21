@@ -53,6 +53,17 @@ npx --yes @yunhozz/arc preset smart --target codex
 npx --yes @yunhozz/arc uninstall --target codex
 ```
 
+## 🧰 Optional: use the global CLI
+
+If you run ARC management commands regularly, you can install the CLI globally and keep using the `arc` command:
+
+```sh
+npm i -g @yunhozz/arc
+arc
+```
+
+The first command installs the CLI. Run `arc` to install the ARC harness. Afterward, use `arc preset` or `arc uninstall` to manage it. `arc uninstall` removes the harness; `npm uninstall -g @yunhozz/arc` removes the CLI and leaves the harness installed.
+
 ## 🎛️ Models and language
 
 The Orchestrator uses the current conversation's model. The five specialist roles use the selected preset from their platform model file: [Codex](codex/skill/models.toml) · [Claude Code](claude/skill/models.toml). The configured language applies across ARC; an explicit user language request takes precedence.
