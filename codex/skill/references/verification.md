@@ -60,7 +60,7 @@ report only checks actually performed, their actor, target state, results and re
 Authorization evidence and probe/combined scope are owned by [planning](planning.md#authorization-and-scope);
 valid reuse and actual-state refresh by [handoff](handoff.md#authorization-continuity).
 After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
-[verification](verification.md#completion-continuity); a role report alone does not complete the work.
+Completion continuity below; a role report alone does not complete the work.
 
 
 
@@ -147,11 +147,10 @@ verdicts.
 Structural checks prove structural criteria only; they do not prove actual behavior, installation, or live agent runtime
 compliance.
 
-For QA execution failure or an unmet criterion, Orchestrator assigns Coder correction and obtains a QA recheck before
-Reviewer.
-Do not enter Reviewer until QA reports the finding as resolved, unresolved, or unverified with evidence; unresolved
-execution failures or unmet criteria require correction and another QA recheck before that stage. QA rechecks the defect
-reproduction path and related checks invalidated by the fix. Environment blocks, missing checks, and out-of-scope
+For QA execution failure or an unmet criterion, Orchestrator assigns Coder correction and a QA recheck of the
+reproduction path and invalidated related checks before Reviewer; QA reports the prior finding resolved, unresolved, or
+unverified with evidence. An unresolved finding returns to Coder correction and another QA recheck before Reviewer.
+Environment blocks, missing checks, and out-of-scope
 criteria
 are evidence gaps, not presumed code defects; Orchestrator handles those gaps under the existing disposition policy
 without
@@ -161,9 +160,8 @@ For an acceptance-linked behavior finding, Reviewer reports the criterion, expec
 source, reproduction conditions and steps, and evidence to Orchestrator, distinguishing source-inferred reproduction
 from
 execution-observed results without running QA tests. Outside the final plan Reviewer correction exception, Orchestrator routes it to Coder correction and QA post-fix recheck.
-Outside that exception, for significant/high-risk work, Reviewer then reviews the final full change once after QA recheck (the same Reviewer
-rechecks the same scope after a fix), or, for already committed
-plan work, rechecks only the affected findings when warranted. Reviewer continues handling
+Outside the required final plan correction loop, Orchestrator decides when a Reviewer recheck is warranted by the
+changed scope and independence. Reviewer continues handling
 structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
 issues may require both QA verification and Reviewer source review.
 
@@ -175,19 +173,6 @@ For low-risk work without QA, Orchestrator's focused checks likewise connect eac
 
 Read brief-cited `references/superpowers/test-driven-development/SKILL.md`; retain ARC exceptions.
 
-
-### Final plan Reviewer correction loop
-
-For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
-Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
-the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
-risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
-This exception applies only to findings from the final overall Reviewer of work with a plan.
-Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
-or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
-Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
-checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
-report only checks actually performed, their actor, target state, results and remaining limits.
 
 ## Completion continuity
 

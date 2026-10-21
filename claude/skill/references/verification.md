@@ -144,25 +144,10 @@ explicitly dispositioned.
 
 Criterion verdicts follow the Evidence verdict.
 
-### Final plan Reviewer correction loop
-
-For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
-Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
-the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
-risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
-This exception applies only to findings from the final overall Reviewer of work with a plan.
-Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
-or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
-Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
-checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
-report only checks actually performed, their actor, target state, results and remaining limits.
-
-Read verification for evidence fields, failure/finding flow, UI permissions, cleanup and acceptance reporting.
-
 Authorization evidence and probe/combined scope are owned by [planning](planning.md#authorization-and-scope);
 valid reuse and actual-state refresh by [handoff](handoff.md#authorization-continuity).
 After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
-[verification](verification.md#completion-continuity); a role report alone does not complete the work.
+Completion continuity above; a role report alone does not complete the work.
 
 
 [ARC role policy: contract begin]

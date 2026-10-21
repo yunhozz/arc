@@ -44,11 +44,11 @@ affected drafting or save and is reported to Orchestrator. Planned scope and pat
 Initial target preparation does not authorize Coder; the complete handoff gate still applies.
 
 Orchestrator classifies scope before implementation. The Orchestrator direct path for small tasks is defined only in
-SKILL.md ("Orchestrator direct path for small tasks"); follow it there and stop and reclassify if scope or risk changes.
+[handoff](handoff.md#orchestrator-direct-path-for-small-tasks); follow it there and stop and reclassify if scope or risk changes.
 Everything else follows this reference. Brainstorming and writing-plans are instructions for existing roles,
 not extra agents; ARC routing and approval gates apply even if a skill names another executor.
-Report a missing required skill before its stage. Integrate means save, route, and obtain approval; never author.
-Significant risk is defined in SKILL.md Risk-scaled execution.
+Report a missing required skill before its stage; it blocks that stage. Integrate means save, route, and obtain approval; never author.
+Significant risk is defined in [verification](verification.md#risk-scaled-execution).
 
 When the request or brief is in Korean, Planner writes spec and plan titles and prose in Korean unless the user asks
 otherwise, preserving identifiers, skill/API names, code, paths, commands, and literal values.
@@ -140,13 +140,16 @@ A task is ready only when all applicable approvals and execution preparation are
 are available and settled, predecessors have required evidence and Orchestrator acceptance plus verified focused
 commits (or accepted no-change records), ownership/resources do not conflict, its required check/QA path is available,
 and a subagent slot exists under both the configured ARC full-tree cap shared by all roles and any lower actual runtime
-limit. Report runtime limits. Start all ready independent tasks with fresh Coders concurrently within capacity;
-record each hold or serialization reason instead of silently following list order. Preserve existing risk gates.
+limit (see [limits](limits.md)). Report runtime limits; ARC's cap is not a claim of runtime capability. Start all ready
+independent tasks with fresh Coders concurrently within capacity; record each hold or serialization reason instead of
+silently following list order. Preserve existing risk gates, risk-scaled QA/Reviewer timing and execution-target
+restrictions.
 
 Update the map on completion, check evidence, acceptance, commit, slot return and new conflicts. Completion reports
 alone do not release dependents. Reevaluate newly ready tasks immediately without waiting for unrelated batch members;
 failed or ambiguous predecessors hold their dependent chain, while unaffected ready tasks may proceed. Dispatch still
-passes handoff.md for each task; commits and shared Git mutations follow commit.md. This record does not authorize
+passes [handoff](handoff.md) for each task, refreshing assignment evidence there; commits, shared-checkout Git
+coordination and shared Git mutations follow [commit](commit.md). This record does not authorize
 Orchestrator to rewrite Planner's approved task boundaries or waive approvals.
 
 For example, with A → B → C and independent D and two slots, start A and D. After A's required checks,
@@ -230,31 +233,6 @@ Return scope changes and unresolved decisions to the user through Orchestrator.
 Orchestrator briefs absolute ARC paths `references/superpowers/brainstorming/SKILL.md` and
 `references/superpowers/writing-plans/SKILL.md`. Planner reads them directly; resolve relative references within each
 skill. Missing files stop the stage; report paths without global fallback. Keep ARC approval and ownership gates.
-
-## Dependency analysis and parallel dispatch
-
-Before the first Coder assignment for an approved plan, Orchestrator records its dependency/readiness map and
-initial ready batch under [planning](planning.md), which owns record fields and readiness conditions.
-File separation alone never proves independence. Pass the full approval/preparation and handoff gates for every
-assignment; unresolved dependencies, shared contracts, or ownership conflicts hold affected work.
-Start all ready independent tasks concurrently with fresh Coders within capacity under [limits](limits.md)
-and any lower actual runtime limit; record capacity and serialization reasons. Same-file concurrent Coder edits are
-prohibited, even on different lines. ARC's cap is not a claim of runtime capability.
-
-Reassess readiness after completion reports, new check evidence, acceptance, commit, slot return, or a new conflict.
-Coder completion alone does not release dependents: require predecessor checks, Orchestrator acceptance and verified
-focused commit, or accepted no-change evidence under [commit](commit.md). Start newly ready tasks without
-waiting for unrelated batch members; failures hold affected dependents while unaffected ready work may continue.
-Preserve risk-scaled QA/Reviewer timing and execution-target restrictions. Shared-checkout Git coordination belongs to
-commit.md; refresh assignment evidence under [handoff](handoff.md).
-
-
-Design and plan depth are independent of verification risk. Planner alone uses local brainstorming/writing-plans
-(Role gate);
-Orchestrator integrates complete drafts and obtains applicable approvals. Architectural specs and Bounded written specs
-required by Orchestrator's recorded plan-depth judgment use planning save gates; a required plan alone does not require
-a spec. Obtain explicit execution-target choice and verify actual target preparation before formal drafting
-and saving. Complete all current-scope individual document approvals before the batch docs commit. A missing required skill blocks its stage.
 
 
 [ARC role policy: contract begin]

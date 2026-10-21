@@ -166,8 +166,8 @@ Before any exception judgment, Orchestrator reads [Risk-scaled execution](verifi
 
 ## Common handoff gate
 
-Before every Coder first start/restart, Orchestrator passes the full gate in
-[handoff](handoff.md): applicable approvals/artifacts or valid omissions, explicit execution-target choice
+Before every Coder first start/restart, Orchestrator passes the full gate:
+applicable approvals/artifacts or valid omissions, explicit execution-target choice
 or verified reuse, intended accessible repository/workspace, actual Git identity/state, preservation/ownership,
 verified document commits or valid absence, and no unresolved failure/partial completion.
 Missing evidence, mismatches, unclear ownership or unresolved preparation block handoff and require Orchestrator

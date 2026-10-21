@@ -1252,7 +1252,8 @@ class RolePolicyTests(unittest.TestCase):
         policy = policy_text("verification")
         for contract in (
             r"qa.*failure.*orchestrator.*coder.*correction.*qa recheck.*before reviewer",
-            r"do not enter reviewer.*qa.*resolved.*unresolved.*unverified",
+            r"a qa recheck of the reproduction path and invalidated related checks before reviewer; qa reports the prior finding resolved, unresolved, or unverified with evidence",
+            r"an unresolved finding returns to coder correction and another qa recheck before reviewer",
             r"disposition.*does not.*unverified.*proven",
             r"low.risk.*orchestrator.*criterion.*evidence.*unverified",
             r"structural checks.*do not prove.*runtime",
@@ -1331,7 +1332,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertRegex(core, r"Ordinary and significant plan tasks.*FRESH QA")
         self.assertRegex(core, r"only small, low-risk tasks.*Orchestrator focused checks")
         self.assertIn("FRESH QA instance per task that needs QA", verification)
-        self.assertIn("the same Reviewer rechecks the same scope after a fix", verification)
+        self.assertIn("Outside the required final plan correction loop, Orchestrator decides when a Reviewer recheck is warranted", verification)
 
     def test_restart_brief_rule_lives_in_handoff_only(self) -> None:
         core, handoff = self.skill(), self.raw("handoff")

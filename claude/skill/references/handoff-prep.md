@@ -65,8 +65,8 @@ the task's main purpose and a short, specific lowercase kebab-case topic without
 | chore/ | Operational policy, tools, maintenance |
 | revert/ | Revert a prior change |
 
-Validate the name and check collisions before creation. If the base name exists, append `-2`, `-3`, and so on to the
-topic, choosing the first unused name (`chore/branch-policy`, then `chore/branch-policy-2`).
+Validate the name and check collisions before creation. If the base name exists, never automatically substitute a
+suffix; present a new candidate for explicit approval and use it only after the user approves it.
 Never reuse, delete, or overwrite an existing branch. Distinguish a lookup error from a missing branch;
 a lookup error blocks handoff and goes to git-recovery. Recheck workspace, branch or detached HEAD, base HEAD,
 and candidate before execution. If the target changes or a new collision changes the candidate, present it and obtain

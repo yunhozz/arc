@@ -16,7 +16,7 @@ Only Orchestrator accepts the task and executes its focused commit; Coder comple
 Substeps and checkboxes are progress records, not separate commit units. Checkbox completion, Coder reports, and
 passing checks alone do not establish task acceptance: connect criteria's conditions and expected results to actual
 evidence. Existing plan-skip paths have no new plan obligation; their commits follow applicable guidance and user
-requests.
+requests. Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
 
 Before committing, Orchestrator verifies the approved plan version, task ID and accepted scope, actual absolute
 workspace,
@@ -80,13 +80,6 @@ affected work until Orchestrator resolves and revalidates; existing recovery and
 Approval scope and continuity are defined in [planning](planning.md#authorization-and-scope); completion and evidence
 limits are defined in [verification](verification.md#completion-continuity). This plan-task commit contract adds no
 commit obligation to no-plan work and does not turn a local commit into overall completion.
-
-## Automatic commit after plan-task acceptance
-
-Orchestrator accepts each approved top-level task by its own judgment and immediately creates one focused local commit
-for that
-task without additional user commit approval. Read [commit](commit.md) before the acceptance and commit.
-Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
 
 
 [ARC role policy: contract begin]

@@ -1,6 +1,6 @@
 # Git recovery contract
 
-Read on branch collision, Git preparation failure, partial completion, or metadata write denial.
+Read on branch collision, Git preparation failure, partial completion, metadata write denial, or handoff record write denial.
 Use [handoff-prep.md](handoff-prep.md) for approved branch selection, [handoff-worktree.md](handoff-worktree.md) for the
 managed worktree path, and [handoff.md](handoff.md) for the complete restart gate.
 
@@ -24,6 +24,12 @@ permission/ACL problems keep handoff blocked; report the reason and actual state
 Choosing the final
 message in advance prevents unnecessary amend but does not repair required Git write access; only successful
 authorized writes and verified results establish recovery.
+
+### Handoff record write denial
+
+If writing the canonical handoff record is denied or unavailable, stop that write, report the path and error to
+Orchestrator, and do not change permissions or bypass the sandbox. Use the inline-record fallback in
+[handoff.md](handoff.md).
 
 ### Existing changes and failures
 

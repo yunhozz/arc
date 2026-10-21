@@ -41,8 +41,7 @@ COMMON_CONTRACTS = {
         r"restart.*new role assignment.*not.*repeat approval",
         r"reuse.*never waives.*actual.*workspace.*branch.*head.*changes.*ownership",
     )),
-    "OWNERSHIP": ("SKILL.md", (
-        r"drafts are authored only by planner",
+    "OWNERSHIP": ("references/coordination.md", (
         r"qa: verifies without edits",
         r"reviewer: independently reviews the final full change",
         r"depth-2 roles cannot create agents or delegate",
@@ -112,12 +111,13 @@ ROLE_LOCAL = (
     r"expected tdd red.*not an operational failure",
 )
 
+# Adapter names, execution calls, settings and guard limits live in coordination.md;
+# worktree support lives in handoff.md.
 NATIVE_ADAPTERS = {
     "codex": (
         r"scouter=`arc_scouter`.*planner=`arc_planner`.*coder=`arc_coder`",
         r"spawn_agent.*agent_type",
         r"wait_agent",
-        r"selected worktree.*common directory.*registration.*source preservation",
         r"model_reasoning_effort",
         r"max_concurrent_threads_per_session.*integer",
         r"prompt-level guards, not sandbox enforcement",
@@ -125,11 +125,14 @@ NATIVE_ADAPTERS = {
     "claude": (
         r"scouter=`arc-scouter`.*planner=`arc-planner`.*coder=`arc-coder`",
         r"foreground agent call.*background.*completion notification",
-        r"arc-managed worktree execution is unsupported",
         r"`effort`",
         r"claude_code_max_concurrent_subagents.*string",
         r"(?:not a filesystem sandbox|not sandbox enforcement)",
     ),
+}
+NATIVE_WORKTREE = {
+    "codex": (r"selected worktree.*common directory.*registration.*source preservation",),
+    "claude": (r"arc-managed worktree execution is unsupported",),
 }
 
 # This test-only table names the contracts and each platform's owner.
@@ -145,9 +148,17 @@ POLICY_CONTRACTS["ROLE_LOCAL"] = {
     for platform in PLATFORMS
 }
 POLICY_CONTRACTS["NATIVE_ADAPTERS"] = {
-    platform: (f"{platform}/skill/SKILL.md", NATIVE_ADAPTERS[platform])
+    platform: (f"{platform}/skill/references/coordination.md", NATIVE_ADAPTERS[platform])
     for platform in PLATFORMS
 }
+POLICY_CONTRACTS["NATIVE_ADAPTERS"].update({
+    f"{platform}-worktree": (f"{platform}/skill/references/handoff.md", NATIVE_WORKTREE[platform])
+    for platform in PLATFORMS
+})
+POLICY_CONTRACTS["OWNERSHIP"].update({
+    f"{platform}-role-gate": (f"{platform}/skill/SKILL.md", (r"drafts are authored only by planner",))
+    for platform in PLATFORMS
+})
 
 POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-coder"] = (
     "claude/agents/arc-coder.md", (r"coder must not commit, even when explicitly assigned",)
@@ -212,9 +223,12 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     for platform in PLATFORMS:
         root = f"{platform}/skill"
         require("HANDOFF_GATE", f"{root}/SKILL.md", (
+            r"before every coder first start/restart",
+            r"references/handoff.md",
+        ))
+        require("HANDOFF_GATE", f"{root}/references/handoff.md", (
             r"before every coder first start/restart.*handoff",
             r"missing evidence.*block handoff",
-            r"references/handoff.md",
             r"same conditions.*before a orchestrator direct edit",
         ))
         for owner in ("references/commit.md", "references/handoff-prep.md"):
@@ -435,11 +449,13 @@ class PolicyContractTests(unittest.TestCase):
                     self.assertTrue(any(failure.startswith(f"{contract}: {path}:") for failure in policy_contract_failures(changed)))
 
     def test_policy_contract_checker_rejects_adapter_conflation(self) -> None:
-        path = "claude/skill/SKILL.md"
-        for changed_text in (
-            self.texts[path].replace("ARC-managed worktree execution is unsupported", "ARC-managed worktree execution is supported"),
-            self.texts[path].replace("arc-coder", "arc_coder"),
+        for path, old, new in (
+            ("claude/skill/references/handoff.md",
+             "ARC-managed worktree execution is unsupported", "ARC-managed worktree execution is supported"),
+            ("claude/skill/references/coordination.md", "arc-coder", "arc_coder"),
         ):
+            changed_text = self.texts[path].replace(old, new)
+            self.assertNotEqual(changed_text, self.texts[path])
             failures = policy_contract_failures({**self.texts, path: changed_text})
             self.assertTrue(any(failure.startswith(f"NATIVE_ADAPTERS: {path}:") for failure in failures))
 

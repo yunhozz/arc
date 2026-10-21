@@ -1,6 +1,6 @@
 # Preserve state after failure
 
-Read on branch collision, Git preparation failure, partial completion, or Git metadata write denial.
+Read on branch collision, Git preparation failure, partial completion, Git metadata write denial, or handoff record write denial.
 
 On an actual failed Git/tool command, partial completion, unexpected branch/HEAD, missing assigned path,
 or conflicting edit, stop dependent work. Inspect and record the actual absolute path, branch or detached HEAD, HEAD,
@@ -43,4 +43,5 @@ report the actual state.
 ## Handoff record write denial
 
 If writing the canonical handoff record is denied or unavailable, stop that write, report the path and error to
-Orchestrator, and do not change permissions or bypass the sandbox. Use the inline-record fallback in handoff.
+Orchestrator, and do not change permissions or bypass the sandbox. Use the inline-record fallback in
+[handoff.md](handoff.md).

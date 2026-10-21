@@ -30,7 +30,7 @@ Live execution-state investigation or cleanup are outside Scouter scope and this
 
 ## Shared terms
 
-The handoff, git-recovery, and commit references and the Coder profile use these terms; context-specific commands,
+The handoff, handoff-prep, verification, and commit references use these terms; context-specific commands,
 paths, and state checks still apply.
 
 - **Preservation rule**: preserve unrelated staged, unstaged, and untracked changes and edit ownership; never
@@ -63,7 +63,7 @@ Do not load all references on every task.
 | [handoff-prep](references/handoff-prep.md) | Execution-target choice request, each preparation Git mutation (branch creation/switch, staging, commit) |
 | [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
 | [verification](references/verification.md) | Orchestrator's verification design, QA/Reviewer assignment, correction rechecks, UI acceptance checks, risk classification, acceptance and completion;  QA and Reviewer use their profiles and only brief-cited sections |
-| [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial recovery |
+| [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial, handoff record write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 
 Before classifying a small-task, plan-omission, or TDD exception, read the full conditions in [handoff](references/handoff.md), including Coder TDD and constraints and Orchestrator direct path for small tasks; read [planning](references/planning.md) for design/plan-depth judgments and [verification](references/verification.md) for the full risk criteria before deciding eligibility. An exception name or this index alone never establishes eligibility.

@@ -21,7 +21,7 @@ The five installed roles are Scouter, Planner, Coder, QA, and Reviewer. The Orch
 
 Installation preserves content outside the `arc:begin` / `arc:end` block. Codex wait settings are merged for a supported standalone `[features.multi_agent_v2]` table; unsupported structure produces manual guidance. Native concurrency is written to Codex `[agents].max_concurrent_threads_per_session` as an integer and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
 
-ARC's local upstream reference tree contains brainstorming, writing-plans, test-driven-development, companion files, license, and provenance. Existing shared/global upstream skills and links remain separate. npm installation places the CLI and bundled files only; it does not acquire references or edit shell configuration. Harness installation adds zsh completion registration to its installation plan unless `--skip-global` is set; completion commands print zsh/bash scripts. See [installation commands](../README.md#-install-and-manage-arc), [model settings](../README.md#-models-and-presets), and [shell completion](../README.md#-install-and-manage-arc).
+ARC's local upstream reference tree contains brainstorming, writing-plans, test-driven-development, companion files, license, and provenance. Existing shared/global upstream skills and links remain separate. npm installation places the CLI and bundled files only; it does not acquire references or edit shell configuration. Harness installation adds zsh completion registration to its installation plan unless `--skip-global` is set; completion commands print zsh/bash scripts. See [installation commands](../README.md#-manage-arc), [model settings](../README.md#-models-and-language), and [shell completion](../README.md#-manage-arc).
 
 ## Installation and refresh lifecycle
 
@@ -128,7 +128,7 @@ Maintenance actions have distinct effects:
 - **Harness removal:** `arc uninstall` removes the selected ARC skill, five role profiles, and managed instruction block, including edited ARC files. External skills/profiles, Codex wait settings, native concurrency keys, and shared shell completion registration remain. `--skip-global` preserves the instruction block for that invocation. Removal has its own dry run and transaction reporting.
 - **CLI package removal:** `npm uninstall -g @yunhozz/arc` removes the CLI package separately; installed harness configuration and shared shell completion remain.
 
-Use the existing [maintenance commands](../README.md#-installed-files-and-refreshes), [model commands](../README.md#-models-and-presets), and [removal commands](../README.md#-remove-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
+Use the existing [maintenance commands](../README.md#-manage-arc), [model commands](../README.md#-models-and-language), and [removal commands](../README.md#-manage-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
 
 ## Source map
 
@@ -145,7 +145,7 @@ Use the existing [maintenance commands](../README.md#-installed-files-and-refres
 | Package refresh and collection | [Manual reference updater](../scripts/update-superpowers.mjs), [package references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [bundle validation](../lib/installer/superpowers.mjs) |
 | Completion | [Registration](../lib/installer/shell-completion.mjs), [script generation](../lib/cli/completion.mjs) |
 | Structural contracts and regressions | [Harness contracts](../tests/test_harness_contract.py), [Python tests](../tests), [Node tests](../tests/node) |
-| Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#-installed-files-and-refreshes) |
+| Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#-manage-arc) |
 
 The [flow diagram](images/role-flow.svg) summarizes routing and order. Follow the platform sources for full normative gates and intentional platform differences.
 
@@ -166,6 +166,6 @@ T1은 아래 비-superpowers runtime 지침 파일 29개(공통 core 2, Codex re
 | 시각 도구의 기존 책임 유지 | 양 플랫폼 `skill/references/visual-companion.md` |
 | 각 역할의 범위·보고·위임 금지·검증 책임 유지 | `codex/agents/arc-{scouter,planner,coder,qa,reviewer}.toml`, `claude/agents/arc-{scouter,planner,coder,qa,reviewer}.md` |
 
-T2의 [global configuration](../lib/installer/global-config.mjs)은 bootstrap 역할 라우팅을 책임 원본과 맞췄습니다. [language](../lib/installer/language.mjs), [installation plan](../lib/installer/plan.mjs), [profile rendering](../lib/models/profiles.mjs), [manifest validation](../lib/installer/manifest.mjs), [package metadata](../package.json), [manifest updater](../scripts/update-manifest.mjs)는 기존 인터페이스·언어·marker 밖 bytes·패키지/라이선스 계약의 호환성 점검 대상입니다. 모델 설정·apply-models 스크립트는 기존 책임을 유지하며 [모델 안내](../README.md#-models-and-presets)에서 연결합니다. T3는 README·이 운영 설명·문서 계약 검사를 이 책임에 정합화합니다. runtime superpowers bundle은 이번 리팩토링 대상에서 제외됩니다.
+T2의 [global configuration](../lib/installer/global-config.mjs)은 bootstrap 역할 라우팅을 책임 원본과 맞췄습니다. [language](../lib/installer/language.mjs), [installation plan](../lib/installer/plan.mjs), [profile rendering](../lib/models/profiles.mjs), [manifest validation](../lib/installer/manifest.mjs), [package metadata](../package.json), [manifest updater](../scripts/update-manifest.mjs)는 기존 인터페이스·언어·marker 밖 bytes·패키지/라이선스 계약의 호환성 점검 대상입니다. 모델 설정·apply-models 스크립트는 기존 책임을 유지하며 [모델 안내](../README.md#-models-and-language)에서 연결합니다. T3는 README·이 운영 설명·문서 계약 검사를 이 책임에 정합화합니다. runtime superpowers bundle은 이번 리팩토링 대상에서 제외됩니다.
 
 이 source map과 구조·package·manifest 검사는 작성된 파일과 패키지의 일관성 증거입니다. 실제 세션에서 승인 연속성을 지켰는지, 설치한 native 설정이 적용됐는지, 시각 결과를 읽을 수 있는지는 별도 관찰 없이는 미검증입니다. 참고 대화의 내용이나 중단 재현도 이 문서의 검증 근거로 단정하지 않습니다.

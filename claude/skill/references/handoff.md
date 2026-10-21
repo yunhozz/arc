@@ -85,8 +85,8 @@ Before any exception judgment, Orchestrator reads [Risk-scaled execution](verifi
 
 ## Common handoff gate
 
-Before every Coder first start/restart, Orchestrator passes the full gate in
-[handoff](handoff.md): applicable approvals/artifacts or valid omissions, explicit execution-target choice
+Before every Coder first start/restart, Orchestrator passes the full gate:
+applicable approvals/artifacts or valid omissions, explicit execution-target choice
 or verified reuse, intended accessible repository/workspace, actual Git identity/state, preservation/ownership,
 verified document commits or valid absence, and no unresolved failure/partial completion.
 Missing evidence, mismatches, unclear ownership or unresolved preparation block handoff and require Orchestrator
@@ -134,8 +134,8 @@ that scope; no duplicate approval is needed. Otherwise present the scope record 
 approval before editing. Silence, an ambiguous response, or approval of other work is not approval.
 Orchestrator then verifies the same handoff gate as a Coder first start: explicit execution-target choice or valid
 reuse, accessible intended workspace and repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state,
-preservation and ownership, and no unresolved failure or partial completion. Read the [handoff](handoff.md)
-and [handoff preparation](handoff-prep.md) references before checking this gate.
+preservation and ownership, and no unresolved failure or partial completion. Read this reference
+and [handoff preparation](handoff-prep.md) before checking this gate.
 
 Orchestrator edits only the approved files, preserves others' edits, and makes surgical changes without unrelated
 refactoring or unapproved dependencies. Behavior edits follow the Coder TDD rules and applicable recorded waiver

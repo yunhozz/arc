@@ -21,6 +21,14 @@ EXPECTED = {
     'qa': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash']),
     'reviewer': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
 }
+# models.toml selects the "balanced" preset; shipped profiles keep their own defaults until apply-models renders the preset.
+BALANCED_PRESET = {
+    'scouter': ('haiku', 'high'),
+    'planner': ('sonnet', 'high'),
+    'coder': ('sonnet', 'high'),
+    'qa': ('haiku', 'max'),
+    'reviewer': ('sonnet', 'high'),
+}
 
 
 class ClaudePayloadTests(unittest.TestCase):
@@ -43,7 +51,8 @@ class ClaudePayloadTests(unittest.TestCase):
         settings = module.load_settings(PAYLOAD / 'skill/models.toml')
         self.assertEqual(set(settings), {'arc_' + role for role in EXPECTED})
         for role, (model, effort, tools) in EXPECTED.items():
-            self.assertEqual(settings['arc_' + role], {'model': model, 'effort': effort})
+            preset_model, preset_effort = BALANCED_PRESET[role]
+            self.assertEqual(settings['arc_' + role], {'model': preset_model, 'effort': preset_effort})
             fields = module.parse_profile((PAYLOAD / f'agents/arc-{role}.md').read_bytes())
             self.assertEqual(fields['tools'], tools)
             self.assertEqual((fields['model'], fields['effort']), (model, effort))
@@ -280,15 +289,15 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_policy_preserves_role_and_approval_contracts(self):
         self.assertTrue((PAYLOAD / 'skill/SKILL.md').is_file(), 'Claude CEO adapter must be shipped')
-        required = {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'}
+        required = {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'}
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
         # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
 
     def test_ceo_direct_path_requires_pre_edit_approval_and_handoff_gates(self):
         # Static regression for the reviewed approval contract; does not prove agent compliance.
-        core = (PAYLOAD / 'skill/SKILL.md').read_text()
-        self.assertIn('## Orchestrator direct path for small tasks', core)
-        direct = core.split('## Orchestrator direct path for small tasks', 1)[1].split('\n## ', 1)[0]
+        handoff = (PAYLOAD / 'skill/references/handoff.md').read_text()  # the definition lives once in handoff.md
+        self.assertIn('## Orchestrator direct path for small tasks', handoff)
+        direct = handoff.split('## Orchestrator direct path for small tasks', 1)[1].split('\n## ', 1)[0]
         for clause in (
             r'Before editing.*scope record.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
             r'authorization.*planning.*existing.*request.*no duplicate approval',
@@ -299,40 +308,63 @@ class ClaudePayloadTests(unittest.TestCase):
         ):
             self.assertRegex(' '.join(direct.split()), clause)
         planning = ' '.join((PAYLOAD / 'skill/references/planning.md').read_text().split())
-        self.assertRegex(planning, r'direct path.*defined only in SKILL\.md')
+        self.assertRegex(planning, r'direct path for small tasks is defined only in \[handoff\]\(handoff\.md#orchestrator-direct-path-for-small-tasks\)')
         self.assertNotIn('Edit only approved files', planning)
 
     def test_ceo_direct_path_excludes_every_significant_risk_trigger(self):
         # Reviewed policy structure only; runtime compliance requires separate evidence.
-        for relative in ('SKILL.md',):  # the definition lives once in SKILL.md; planning.md points to it
-            text = ' '.join((PAYLOAD / 'skill' / relative).read_text().split())
-            with self.subTest(relative=relative):
-                for trigger in ('shared role/behavior contracts', 'shared state', 'lifecycle/integration order', 'security/permissions', 'data loss/migration', 'public interfaces', 'costly installation/deployment/rollback'):
-                    self.assertIn(trigger, text)
-                self.assertRegex(text, r'Significant risk.*excludes?')
-                self.assertIn('Substantial behavior or contract changes are significant regardless of file count', text)
-                self.assertIn('Unclear risk requires investigation or the higher flow', text)
+        # Triggers are defined once in verification.md; the direct path in handoff.md excludes them and planning.md points to them.
+        text = ' '.join((PAYLOAD / 'skill/references/verification.md').read_text().split())
+        for trigger in ('shared role/behavior contracts', 'shared state', 'lifecycle/integration order', 'security/permissions', 'data loss/migration', 'public interfaces', 'costly installation/deployment/rollback'):
+            with self.subTest(trigger=trigger):
+                self.assertIn(trigger, text)
+        self.assertIn('Substantial behavior or contract changes are significant regardless of file count', text)
+        self.assertIn('Unclear risk requires investigation or the higher flow', text)
+        handoff = ' '.join((PAYLOAD / 'skill/references/handoff.md').read_text().split())
+        self.assertRegex(handoff, r'Significant risk is defined in Risk-scaled execution and excludes')
 
     def test_claude_shared_policy_sections_and_contracts_are_complete(self):
         # Approved structural contract only; independent review assesses meaning and runtime compliance.
-        core = (PAYLOAD / 'skill/SKILL.md').read_text()
-        sections = re.findall(r'^## (.+)$', core, re.M)
-        self.assertEqual(sections, [
-            'Ownership', 'Instruction and execution adapter', 'Dependency analysis and parallel dispatch', 'Shared terms',
-            'Mandatory task references', 'Common handoff gate', 'Coder TDD and constraints',
-            'Risk-scaled execution', 'Orchestrator direct path for small tasks',
-            'Automatic commit after plan-task acceptance', 'Token discipline and handoffs', 'Models',
+        # The sections are split by trigger: SKILL.md keeps terms, the reference index and pointers; references hold the rest.
+        def sections(*parts):
+            return re.findall(r'^## (.+)$', (PAYLOAD.joinpath(*parts)).read_text(), re.M)
+        self.assertEqual(sections('skill/SKILL.md'), [
+            'Shared terms', 'Mandatory task references', 'Ownership', 'Risk-scaled execution', 'Common handoff gate',
         ])
-        for clause in ('fresh Coder for each top-level task', 'After an approved plan or acceptance-criteria amendment',
-                       'Preservation rule', 'Explicit choice', 'Stop and inspect', 'Evidence verdict',
-                       'Design and plan depth are independent of verification risk', 'RED-GREEN',
-                       'one focused local commit', 'final full change once', 'canonical handoff record',
-                       'Goal; Criteria', 'current checkout only', 'execution-state investigation or cleanup'):
-            with self.subTest(clause=clause):
-                self.assertIn(clause, ' '.join(core.split()))
+        self.assertEqual(sections('skill/references/coordination.md'), [
+            'Ownership', 'Instruction and execution adapter', 'Token discipline and handoffs', 'Models',
+        ])
+        self.assertEqual(sections('skill/references/handoff.md'), [
+            'Task readiness at every assignment', 'Choice lifetime and reuse', 'Authorization continuity',
+            'Common handoff gate', 'Coder TDD and constraints', 'Orchestrator direct path for small tasks',
+        ])
+        self.assertIn('Risk-scaled execution', sections('skill/references/verification.md'))
+        self.assertIn('Dependency and readiness record', sections('skill/references/planning.md'))
+        texts = {name: ' '.join((PAYLOAD / 'skill' / name).read_text().split())
+                 for name in ('SKILL.md', 'references/coordination.md', 'references/handoff.md',
+                              'references/planning.md', 'references/commit.md', 'references/verification.md')}
+        for name, clause in (
+                ('references/coordination.md', 'fresh Coder for each top-level task'),
+                ('references/coordination.md', 'After an approved plan or acceptance-criteria amendment'),
+                ('SKILL.md', 'Preservation rule'), ('SKILL.md', 'Explicit choice'),
+                ('SKILL.md', 'Stop and inspect'), ('SKILL.md', 'Evidence verdict'),
+                ('references/planning.md', 'Record design and plan depth separately from verification risk'),
+                ('references/handoff.md', 'RED-GREEN'),
+                ('references/commit.md', 'Orchestrator creates the focused local commit without additional user commit approval'),
+                ('references/planning.md', 'one approved top-level task is one focused commit'),
+                ('references/verification.md', 'final full change once'),
+                ('references/handoff.md', 'canonical handoff record'),
+                ('references/coordination.md', 'Goal; Criteria'),
+                ('references/handoff.md', 'current checkout only'),
+                ('SKILL.md', 'execution-state investigation or cleanup')):
+            with self.subTest(file=name, clause=clause):
+                self.assertIn(clause, texts[name])
 
     def test_claude_native_adapter_matches_shipped_profiles_and_scripts(self):
-        core = (PAYLOAD / 'skill/SKILL.md').read_text()
+        skill = (PAYLOAD / 'skill/SKILL.md').read_text()
+        # Native names, settings keys and adapter boundaries live in coordination.md and handoff.md; SKILL.md indexes them.
+        core = (PAYLOAD / 'skill/references/coordination.md').read_text()
+        handoff = (PAYLOAD / 'skill/references/handoff.md').read_text()
         module = self.module()
         settings = module.load_settings(PAYLOAD / 'skill/models.toml')
         for role in EXPECTED:
@@ -340,8 +372,8 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertIn('`' + fields['name'] + '`', core)
             self.assertIn('`arc_' + role + '`', core)
             self.assertIn('arc_' + role, settings)
-        links = set(re.findall(r'references/([a-z-]+)\.md', core))
-        self.assertEqual(links, {'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
+        links = set(re.findall(r'references/([a-z-]+)\.md', skill))
+        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
         self.assertTrue((PAYLOAD / 'skill/scripts/apply-models.py').is_file())
@@ -349,8 +381,9 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for flag in ('--config', '--agents-dir', '--check', '--dry-run'):
             self.assertIn(flag, result.stdout)
-        for boundary in ('current checkout only', 'not a filesystem sandbox', 'Claude native subagent'):
-            self.assertIn(boundary, core)
+        self.assertIn('current checkout only', ' '.join(handoff.split()))
+        for boundary in ('not a filesystem sandbox', 'Claude native subagent'):
+            self.assertIn(boundary, ' '.join(core.split()))
         self.assertRegex(core, r'do(?:es)? not prove runtime.*provider support')
 
     def test_claude_skill_markdown_has_no_foreign_platform_contracts(self):
@@ -424,7 +457,11 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_claude_handoff_prep_branch_naming_and_collisions(self):
         text = self.read_claude('skill/references/handoff-prep.md')
         self.assert_all(text, ('<type>/<short-kebab-case-topic>', '| feat/ |', '| fix/ |', '| chore/ |', '| revert/ |',
-                               '`-2`', '`-3`', 'lookup error', 'missing branch', 'explicit approval'))
+                               'never automatically substitute a suffix', 'present a new candidate for explicit approval',
+                               'lookup error', 'missing branch', 'explicit approval'))
+        self.assertNotIn('`-2`', ' '.join(text.split()))
+        self.assertIn('A new collision suffix requires fresh user approval of the candidate',
+                      ' '.join(self.read_claude('skill/references/git-recovery.md').split()))
 
     def test_claude_handoff_record_slug_fallback_and_reuse(self):
         text = self.read_claude('skill/references/handoff.md')
@@ -455,14 +492,15 @@ class ClaudePayloadTests(unittest.TestCase):
                               'exact command', 'handoff record', 'inline'))
 
     def test_claude_skill_brief_requires_review_artifact_external_skills_and_waits(self):
-        core = self.read_claude('skill/SKILL.md')
+        core = self.read_claude('skill/references/coordination.md')  # briefing and wait rules live here; SKILL.md indexes them
         self.assert_all(core, ('<git-common-dir>/arc/review/<slug>.diff', 'absolute path of each required local ARC reference',
                                'foreground Agent call', 'run_in_background', 'never sleep-poll',
                                'not a reason to poll', 'same slug as the handoff record'))
         self.assertIn('inline diff', self.read_claude('agents/arc-reviewer.md'))
         for stale in ('single blocking wait', 'yield', 'repeated short waits'):
-            with self.subTest(stale=stale):
-                self.assertNotIn(stale, core)
+            for relative in ('skill/SKILL.md', 'skill/references/coordination.md'):
+                with self.subTest(stale=stale, relative=relative):
+                    self.assertNotIn(stale, self.read_claude(relative))
 
     def test_manifest_covers_immutable_claude_payload(self):
         entries = dict(line.split('  ', 1)[::-1] for line in (ROOT / 'MANIFEST.sha256').read_text().splitlines())
@@ -496,7 +534,7 @@ class RoleHardeningTests(unittest.TestCase):
                 self.assertIn(' '.join(needle.split()), ' '.join(gate.split()))
         self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
         self.assertIn('same-task rechecks may reuse', gate)
-        self.assertIn('Coder and QA freshness follow the Role gate', core)
+        self.assertIn('Coder and QA freshness follow the Role gate', self.text('skill/references/coordination.md'))
 
     def test_every_profile_has_stay_in_role_line(self):
         for role in EXPECTED:
@@ -507,9 +545,9 @@ class RoleHardeningTests(unittest.TestCase):
     def test_qa_freshness_and_no_contradictory_substitution(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('QA or Orchestrator focused checks', core)
-        self.assertRegex(core, r'Ordinary and significant plan tasks.*FRESH QA')
-        self.assertRegex(core, r'small, low-risk tasks.*Orchestrator focused checks')
-        verification = self.text('skill/references/verification.md')
+        verification = self.text('skill/references/verification.md')  # the risk table and freshness rule live here
+        self.assertRegex(verification, r'Ordinary and significant plan tasks.*FRESH QA')
+        self.assertRegex(verification, r'small, low-risk tasks.*Orchestrator focused checks')
         self.assertNotIn('QA or Orchestrator focused checks', verification)
         self.assertIn('FRESH QA instance per task that needs QA', verification)
 
@@ -521,20 +559,26 @@ class RoleHardeningTests(unittest.TestCase):
         self.assertIn('Restart brief:', handoff)
         self.assertIn('`unchanged` means unchanged relative to the record file', handoff)
         self.assertEqual(handoff.count('full record inline'), 1)
-        self.assertNotIn('full record inline', self.text('skill/references/git-recovery.md'))
+        # git-recovery.md only points to the handoff.md fallback; it holds no delta/unchanged restart rule of its own.
+        recovery = self.text('skill/references/git-recovery.md')
+        self.assertIn('Use the inline-record fallback in [handoff.md](handoff.md)', recovery)
+        self.assertNotIn('full record inline', recovery)
+        self.assertNotIn('no delta', recovery)
+        self.assertNotIn('Restart brief:', recovery)
 
     def test_dangling_references_removed_and_terms_defined(self):
         core = self.text('skill/SKILL.md')
         for gone in ('branch protection', 'Coder repair limits', 'existing CEO depth judgment', 'short design', 'QA or Orchestrator'):
             with self.subTest(gone=gone):
                 self.assertNotIn(gone, core)
-        direct = core.split('## Orchestrator direct path for small tasks', 1)[1].split('## Automatic', 1)[0]
+        handoff = (PAYLOAD / 'skill/references/handoff.md').read_text()
+        direct = ' '.join(handoff.split('## Orchestrator direct path for small tasks', 1)[1].split('[ARC role policy: contract begin]', 1)[0].split())
         self.assertIn('scope record', direct)
         self.assertIn('not a brainstorming design', direct)
         self.assertIn('Significant risk is defined in Risk-scaled execution', direct)
         self.assertNotIn('Significant risk includes', self.text('skill/references/planning.md'))
         self.assertIn('simple, self-contained question', core)
-        self.assertIn('and assigned dependent docs', core)
+        self.assertIn('and assigned dependent docs', self.text('skill/references/coordination.md'))
 
     def test_qa_browser_instructions_match_allowlist(self):
         for text in (self.text('skill/references/verification.md'), self.text('agents/arc-qa.md')):
@@ -558,7 +602,8 @@ class Task4FollowUpTests(unittest.TestCase):
     def test_failed_check_or_qa_finding_routes_to_coder(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', core)
-        self.assertRegex(core, r'failed focused check or a QA finding routes the correction to Coder')
+        self.assertNotIn('or corrects them within an eligible Orchestrator direct path', self.text('skill/references/handoff.md'))
+        self.assertRegex(self.text('skill/references/handoff.md'), r'failed focused check or a QA finding routes the correction to Coder')
 
     def test_design_drafts_are_not_standalone_document_writing(self):
         self.assertRegex(self.text('skill/SKILL.md'), r'Standalone document writing has no specialist auto-route\. Design, spec, plan, and brainstorming drafts are not standalone document writing \(see Role gate\)')
@@ -569,7 +614,8 @@ class Task4FollowUpTests(unittest.TestCase):
     def test_corrections_go_to_coder_and_bounded_uses_scope_record(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('Recheck any approved-file correction', core)
-        self.assertIn('routes the correction to Coder, and it is rechecked; Orchestrator does not self-correct', core)
+        self.assertIn('routes the correction to Coder, and it is rechecked; Orchestrator does not self-correct',
+                      self.text('skill/references/handoff.md'))
         self.assertIn('a direct edit uses only an approved scope record', self.text('skill/references/planning.md'))
 
     def test_plan_depth_judgment_defined_once(self):
@@ -581,7 +627,7 @@ class Task4FollowUpTests(unittest.TestCase):
 
 class InternalSuperpowersContractTests(unittest.TestCase):
     def test_local_superpowers_contract(self):
-        core = (PAYLOAD / 'skill/SKILL.md').read_text()
+        core = ' '.join((PAYLOAD / 'skill/references/coordination.md').read_text().split())  # "Local superpowers references"
         for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
             self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
         self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
@@ -643,7 +689,8 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         for phrase in ("before formal drafting", "actual absolute workspace", "choice and preparation evidence", "document paths",
                        "initial design proposals"):
             self.assertIn(phrase, profile)
-        self.assertIn("before formal drafting", self.text("core"))
+        self.assertIn("selection and initial target preparation happen before formal drafting", text)
+        self.assertIn("execution-target choice and actual preparation precede formal drafting and saving", self.text("handoff"))
 
     def test_phase_specific_git_and_batch_gates(self):
         text = self.text("handoff-prep")

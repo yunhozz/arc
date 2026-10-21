@@ -27,6 +27,7 @@ and verification, apply Choice lifetime and restart record in handoff.md.
 Before calling mcp__codex_app__create_worktree, validate the approved branch candidate and collision state with
 New task branch naming rules in handoff-prep.md. A collision requires a new explicit choice; never automatically
 substitute a suffix.
+Default is the prohibition on reusing an existing branch in handoff-prep.md; only this narrow exception applies.
 Exception for this managed path: an existing approved branch at the same base and not checked out in any worktree
 may be reused; verify both conditions before reuse. An unexpected branch, different base or lookup uncertainty means
 stop.
@@ -59,7 +60,8 @@ authorized.
 Linked worktree .git may be a file; do not require the same top-level path or a .git directory for repository identity.
 Verify registration, attachment and base before creating/checking out the approved branch. If initially detached,
 use `git switch -c <approved-branch> <ref>`; if the existing approved branch has the same base and is not checked out
-in any worktree, use `git switch <approved-branch>`. Do not move a branch pointer, choose another branch or use --force
+in any worktree, use `git switch <approved-branch>` (the exception above to the default no-reuse rule in
+handoff-prep.md). Do not move a branch pointer, choose another branch or use --force
 or -B.
 If the app initially returns the approved branch, verify it and its base rather than repeating completed work.
 Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before formal drafting, saving, document transfer,

@@ -14,7 +14,7 @@ Planning documents have their own batch docs commit before Coder handoff.
 
 After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state.
 Preserve unrelated changes; never automatically unstage, amend, reset, clean, stash, or delete branches.
-On failure, stop dependent work and report actual state and completed steps. MUST NOT blindly repeat a commit or staging command. Push, publication and merge require user authorization. Coder must not commit, even when explicitly assigned.
+On failure, stop dependent work and report actual state and completed steps. MUST NOT blindly repeat a commit or staging command. Push, merge, publish, deploy, and install still follow their separate guidance and approval rules; push, publication and merge require user authorization. Coder must not commit, even when explicitly assigned.
 
 Hold the task commit for unmet or unresolved criteria, failed or not-run required checks, undispositioned findings or
 evidence gaps, scope expansion, ownership or staged scope/content mismatch, unexpected workspace/branch/HEAD/Git state,
@@ -56,13 +56,6 @@ affected work until Orchestrator resolves and revalidates; existing recovery and
 Approval scope and continuity are defined in [planning](planning.md#authorization-and-scope); completion and evidence
 limits are defined in [verification](verification.md#completion-continuity). This plan-task commit contract adds no
 commit obligation to no-plan work and does not turn a local commit into overall completion.
-
-## Automatic commit after plan-task acceptance
-
-Orchestrator accepts each approved top-level task by its own judgment and immediately creates one focused local commit
-for that
-task without additional user commit approval. Read [commit](commit.md) before the acceptance and commit.
-Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
 
 
 [ARC role policy: contract begin]
