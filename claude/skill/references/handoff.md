@@ -94,7 +94,7 @@ resolution and full revalidation. Handoff owns the evidence fields, canonical ha
 and reuse. Coder trusts the Orchestrator-verified brief and reports actual conflicts under its self-contained profile;
 never replace its local guards with a requirement to load Orchestrator procedures.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or
-branches. The same conditions apply before a Orchestrator direct edit.
+branches. The same conditions apply before an Orchestrator direct edit.
 Claude v1 supports the current checkout only; obtain the explicit current-branch or task-branch choice and complete
 approved document preparation under [handoff-prep](handoff-prep.md).
 ARC-managed worktree execution is unsupported; report an isolated worktree request before dependent work.
@@ -147,8 +147,7 @@ or any criterion fails, stop editing, record completed changes, and return subse
 flow. A failed focused check or a QA finding routes the correction to Coder, and it is rechecked; Orchestrator does not
 self-correct.
 
-Like other plan-skip
-paths, there is no automatic task commit; commits follow applicable guidance and user requests.
+Like other plan-skip paths, there is no automatic task commit; commits follow applicable guidance and user requests.
 
 
 [ARC role policy: contract begin]

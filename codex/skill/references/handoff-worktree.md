@@ -1,8 +1,7 @@
 # Managed worktree handoff contract
 
 Orchestrator reads after the user explicitly selects the new managed worktree option, before its creation,
-branch work or
-document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](handoff.md) gates as well.
+branch work or document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](handoff.md) gates as well.
 
 ## Workspace handoff
 
@@ -48,14 +47,12 @@ For registration failure only, retry the returned workspace with mcp__codex_app_
 managed registration, current-chat attachment and approved branch verification, perform no formal drafting, saving, document transfer, staging,
 commit or Coder start. If tools are unavailable, reattachment fails or results mismatch, stop and record actual state.
 Do not fall back to raw Git worktree creation, automatically retry other name/ref/path/branch inputs,
-or perform automatic
-cleanup, delete, prune or archive. See git-recovery.md before dependent recovery.
+or perform automatic cleanup, delete, prune or archive. See git-recovery.md before dependent recovery.
 
 Verify the returned actual absolute worktree path and app-managed current-chat attachment using app artifacts.
 Record initial branch or detached HEAD, approved branch candidate, final branch, and target HEAD equal to approved ref.
 Verify linked-worktree registration and source/target Git common directory identity, registered path,
-target dirty state,
-and source branch, HEAD, index and files preservation; shared Git metadata additions for the approved target are
+target dirty state, and source branch, HEAD, index and files preservation; shared Git metadata additions for the approved target are
 authorized.
 Linked worktree .git may be a file; do not require the same top-level path or a .git directory for repository identity.
 Verify registration, attachment and base before creating/checking out the approved branch. If initially detached,
@@ -79,16 +76,15 @@ For those existing approved documents, use Worktree document transfer before tar
 
 ### Worktree document transfer
 
-Use only for existing approved documents in legacy or restart/target-change cases.
+Use only for existing approved documents in pre-existing-document or restart/target-change cases.
 
 Verify existing approved commits by SHA, message, paths and approved content valid at base and target; reuse them.
 Copy only uncommitted approved spec/plan documents to the target at the same repository-relative path.
 Do not move, delete, or modify the source documents. If a destination resolves outside the worktree, including through
 an escaping symlink, stop. Before transfer verify target HEAD equals the selected source base SHA.
-Before replacing an existing destination,
-prove its clean base state with no staged/unstaged changes and index and working-tree bytes matching the base version;
-then replace with the approved version. A document absent from base must also be absent at the destination.
-For unexpected changes, do not overwrite; stop.
+Before replacing an existing destination, prove its clean base state with no staged/unstaged changes and index and
+working-tree bytes matching the base version; then replace with the approved version. A document absent from base must
+also be absent at the destination. For unexpected changes, do not overwrite; stop.
 For identical content, verify approved bytes before reuse. After transfer verify bytes match the approved version.
 The canonical record includes each document approval/version/evidence, source and target absolute paths and the common
 relative path plus content verification. Changed content or approval scope requires approval of the revised version.

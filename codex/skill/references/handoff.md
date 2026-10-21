@@ -1,8 +1,7 @@
 # Handoff contract
 
 Orchestrator reads before every Coder first start or restart preparation. Coder trusts the Orchestrator-verified facts
-in the brief under
-the Coder profile and reads this file only for sections the brief explicitly cites. First-start preparation
+in the brief under the Coder profile and reads this file only for sections the brief explicitly cites. First-start preparation
 (execution-target choice request, preparation Git mutations, planning-document commit) is in
 [handoff-prep.md](handoff-prep.md); the new managed worktree path is in [handoff-worktree.md](handoff-worktree.md).
 
@@ -11,8 +10,7 @@ the Coder profile and reads this file only for sections the brief explicitly cit
 ### Checkout approval
 
 Before every Coder first start and restart, Orchestrator confirms the supplied absolute workspace is accessible and
-belongs
-to the intended Git repository; record its actual absolute path, current branch or detached HEAD, HEAD, and staged,
+belongs to the intended Git repository; record its actual absolute path, current branch or detached HEAD, HEAD, and staged,
 unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the intended repository, or HEAD
 cannot be resolved. Do not initialize Git or switch to another repository automatically.
 
@@ -28,9 +26,8 @@ drafting or preparation and does not require document completion. Never fall bac
 After initial design approval, obtain and record an explicit user choice for the first start under the
 Explicit choice rule: use the current checkout, create a new task branch from the verified base HEAD in that same
 checkout, or create a new managed worktree and task branch (selection target under handoff-prep.md; contract in
-handoff-worktree.md after selection). Without an
-explicit execution-target choice or verified valid reuse under the choice-lifetime rules below, wait and do not start or
-restart Coder.
+handoff-worktree.md after selection). Without an explicit execution-target choice or verified valid reuse under the
+choice-lifetime rules below, wait and do not start or restart Coder.
 
 ### Coder handoff gate
 
@@ -51,13 +48,11 @@ Orchestrator may start or restart Coder only after all of these conditions are v
    failure or partial completion.
 7. The brief includes these preparation and final-verification facts and evidence.
 
-Before a Orchestrator direct edit, Orchestrator verifies the same conditions, with the approved scope record as the
-applicable approval,
-and records them in the brief.
+Before an Orchestrator direct edit, Orchestrator verifies the same conditions, with the approved scope record as the
+applicable approval, and records them in the brief.
 
 A missing or failed condition blocks handoff. Orchestrator may continue read-only investigation and authorized
-preparation
-or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
+preparation or recovery, but cannot start Coder early. Reverify affected evidence when approved content, execution target, branch,
 HEAD, or relevant state changes. Coder's conflict reporting is in its profile; Orchestrator
 resolves preparation and passes the gate again before Coder resumes.
 
@@ -79,12 +74,10 @@ Record the Complete planning-document set fields from planning.md, confirming no
 writing/approval.
 Distinguish reused commits from the batch preparation commit, or record valid document absence.
 Record applicable approvals and the initial explicit execution-target choice or verified reuse for each first start or
-restart. Give all five
-roles (Coder, QA, Planner, Reviewer, Scouter) the same actual workspace and selected execution checkout or absolute
-worktree path, preparation
-evidence, and absolute artifact paths. Each
-role stays in the supplied workspace, reports missing, inaccessible, or conflicting paths and unexpected branch state to
-Orchestrator before dependent work, and does not create or switch workspaces or branches.
+restart. Give all five roles (Coder, QA, Planner, Reviewer, Scouter) the same actual workspace and selected execution checkout or absolute
+worktree path, preparation evidence, and absolute artifact paths. Each role stays in the supplied workspace, reports
+missing, inaccessible, or conflicting paths and unexpected branch state to Orchestrator before dependent work, and does
+not create or switch workspaces or branches.
 
 ### Task readiness at every assignment
 
@@ -107,8 +100,7 @@ Unexpected HEAD or ownership changes stop affected work for Orchestrator resolut
 
 For the same approved scope, workspace, repository, and execution target, reuse the initial explicit choice only
 when its evidence is accessible and still valid. On every first start and restart, Orchestrator rechecks actual Git
-state
-against the current brief: absolute workspace and repository identity, branch or detached HEAD, HEAD,
+state against the current brief: absolute workspace and repository identity, branch or detached HEAD, HEAD,
 staged/unstaged/untracked changes, preservation and edit ownership, applicable approvals and artifacts,
 planning-document SHA/message/paths/content or valid no-document rationale, and Orchestrator's final state verification
 (Coder handoff gate items 1-7); a reused choice never waives any gate. A restart without document changes reuses
@@ -119,14 +111,12 @@ verify that they match approved work, ownership, and the intended target. A work
 evidence; target HEAD need not remain at that base; source preservation and unexpected-state checks still apply.
 Link the approved plan version, task ID and commit SHA/content/validity with current Git state and edit ownership in
 the restart brief under Orchestrator's full handoff gate. Verify/reuse successful task commits without duplication and
-keep planning-document preparation
-evidence distinct; task commits do not require repeating valid document preparation.
+keep planning-document preparation evidence distinct; task commits do not require repeating valid document preparation.
 
 If scope, workspace, repository, target, or approved branch candidate changes, obtain a fresh explicit choice before dependent drafting or preparation; reselection does not require document completion. If an invalidating failure means the old target cannot be trusted,
 obtain a fresh explicit choice after Orchestrator resolves preparation. State mismatches and unresolved failures block
 editing until Orchestrator resolves and revalidates the full gate; resolution does not automatically require a new
-choice
-unless it invalidates the old target. Do not fall back automatically; apply the Explicit choice rule.
+choice unless it invalidates the old target. Do not fall back automatically; apply the Explicit choice rule.
 
 Keep one canonical initial handoff record accessible to each assigned role, containing the approved scope/version,
 repository/workspace identity, and the Handoff evidence fields above; do not create a separate storage service.
@@ -135,8 +125,7 @@ Markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` (slug uni
 stem, or a spec/task slug when no plan exists; never overwrite another plan's record; resolve with
 `git rev-parse --path-format=absolute --git-common-dir`; outside the working tree and shared by linked worktrees; not a
 Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and restart
-briefs cite it. If
-the write is denied or unavailable, each Coder brief states why and includes the full record inline, with no delta;
+briefs cite it. If the write is denied or unavailable, each Coder brief states why and includes the full record inline, with no delta;
 that inline record satisfies the accessible record requirement. Do not delete it automatically.
 
 Restart brief: supply only verified deltas and mark unchanged fields; `unchanged` means unchanged relative to the record
@@ -175,7 +164,7 @@ resolution and full revalidation. Handoff owns the evidence fields, canonical ha
 and reuse. Coder trusts the Orchestrator-verified brief and reports actual conflicts under its self-contained profile;
 never replace its local guards with a requirement to load Orchestrator procedures.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or
-branches. The same conditions apply before a Orchestrator direct edit.
+branches. The same conditions apply before an Orchestrator direct edit.
 For a selected worktree, handoff requires common directory, registration, app-managed current-chat attachment,
 approved branch, and source preservation; prepare only through the selected managed-worktree contract.
 
@@ -200,12 +189,10 @@ generalize it to behavior work.
 ## Orchestrator direct path for small tasks
 
 Orchestrator may make a task's edits directly, without Planner brainstorming or Coder, only when every small,
-low-risk criterion
-holds, every plan-skip criterion holds
-(one local change, no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns,
-and one
-focused verification path), and no significant-risk trigger applies. Spike, architectural, ordinary-behavior,
-significant/high-risk, unclear-risk work, and edits overlapping files assigned to a running Coder are not eligible.
+low-risk criterion holds, every plan-skip criterion holds (one local change, no dependent stages, no cross-component shared state,
+lifecycle, or integration-order concerns, and one focused verification path), and no significant-risk trigger applies.
+Spike, architectural, ordinary-behavior, significant/high-risk, unclear-risk work, and edits overlapping files assigned
+to a running Coder are not eligible.
 
 Before editing, Orchestrator records a scope record (not a brainstorming design) with scope and files,
 why every criterion holds, acceptance criteria, and focused verification. Apply authorization in
@@ -213,23 +200,19 @@ why every criterion holds, acceptance criteria, and focused verification. Apply 
 that scope; no duplicate approval is needed. Otherwise present the scope record to the user and obtain explicit
 approval before editing. Silence, an ambiguous response, or approval of other work is not approval.
 Orchestrator then passes the Coder handoff gate in handoff,
-with the
-approved scope record as the applicable approval, before the first edit. Orchestrator edits only the approved files,
-preserves others' edits, makes surgical edits in
-the local style without unrelated refactoring or speculative additions, and does not install dependencies without
-authorization.
+with the approved scope record as the applicable approval, before the first edit. Orchestrator edits only the approved files,
+preserves others' edits, makes surgical edits in the local style without unrelated refactoring or speculative additions,
+and does not install dependencies without authorization.
 
 Behavior edits follow Coder TDD and constraints; when TDD applies, Orchestrator follows local
 `test-driven-development`.
 After editing, Orchestrator records the changed files, runs the focused checks, connects each acceptance criterion to
-evidence,
-and preserves unverified scope. Orchestrator is not independent of its own edit; assign QA when the evidence is
+evidence, and preserves unverified scope. Orchestrator is not independent of its own edit; assign QA when the evidence is
 incomplete.
 After a failed focused check or a QA finding, Orchestrator routes the correction to Coder and obtains a recheck.
 
 If scope expands, risk becomes unclear, or a criterion stops holding, Orchestrator stops editing, records the changes
-already
-made, and reclassifies; further work follows the normal Planner/Coder flow with Coder owning subsequent edits. Do not
+already made, and reclassifies; further work follows the normal Planner/Coder flow with Coder owning subsequent edits. Do not
 automatically revert, reset, stash, or clean those changes. Like other plan-skip paths, there is no automatic task
 commit; commits follow applicable guidance and user requests.
 

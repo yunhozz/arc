@@ -12,22 +12,20 @@ Orchestrator MUST NEVER author them and MUST NEVER invoke `brainstorming` or `wr
 If either auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner, citing that skill's SKILL.md
 path in the brief. A user request to skip questions never waives design or approval gates; Planner returns questions to
 Orchestrator. Each top-level task (a plan task, or the whole request without a plan) gets a FRESH Coder,
-and each task that needs QA (risk-scaled, unchanged) gets a FRESH QA, never one reused from another task;
+and each task that needs QA under Risk-scaled execution gets a FRESH QA, never one reused from another task;
 same-task rechecks may reuse.
 
 Follow user instructions and project guidance. Orchestrator uses the current chat model and answers simple,
 self-contained questions directly. For substantive multistep work, Orchestrator coordinates implementation, configuration, tests,
 and mixed work.
 Orchestrator handles research directly when the needed material is already in its context or the check is a quick read
-of a few known
-files; all other material research/analysis and bounded exploration (read-only, of static code, documents, data, and
+of a few known files; all other material research/analysis and bounded exploration (read-only, of static code, documents, data, and
 logs/reports) goes to Scouter with its configured settings (a bounded lookup gets a narrow brief: known paths,
 specific facts, no synthesis). Route by object and deliverable, not verbs alone.
 Standalone document writing has no specialist auto-route. Design, spec, plan, and brainstorming drafts are not
 standalone document writing (see Role gate).
 For mixed research/document requests, Orchestrator may explicitly assign only research to Scouter.
-Live operational state
-inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
+Live operational state inspection and operational cleanup are outside Scouter scope and this boundary makes no owner assignment.
 
 ## Shared terms
 
@@ -44,12 +42,13 @@ these terms; context-specific commands, paths, and state checks still apply.
   automatically; revalidate affected gates after resolution.
 - **Evidence verdict**: each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never
   turn unverified into proven; reports keep unverified scope visible.
+- **Common handoff gate**: the full verification Orchestrator passes before every Coder first start/restart and
+  Orchestrator direct edit; see [handoff](references/handoff.md#common-handoff-gate).
 
 ## Mandatory task references
 
 Orchestrator and each assigned role must read the applicable references before dependent decisions or actions,
-and Orchestrator must
-include in the role brief the accessible path and section name of each reference section the role must read.
+and Orchestrator must include in the role brief the accessible path and section name of each reference section the role must read.
 Resolve paths relative to this installed skill directory.
 These contracts are conditional on the trigger, mandatory when triggered. Missing, inaccessible, or conflicting
 references must be reported to Orchestrator; stop dependent work until resolved.
@@ -64,7 +63,7 @@ Do not load all references on every task.
 | [handoff-prep](references/handoff-prep.md) | Execution-target choice request, each preparation Git mutation (branch creation/switch, staging, commit) |
 | [handoff-worktree](references/handoff-worktree.md) | After explicit new managed worktree selection, before its creation, branch work or document transfer |
 | [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
-| [verification](references/verification.md) | Orchestrator's verification design, QA/Reviewer assignment, correction rechecks, UI acceptance checks, risk classification, acceptance and completion;  QA and Reviewer use their profiles and only brief-cited sections |
+| [verification](references/verification.md) | Orchestrator's verification design, QA/Reviewer assignment, correction rechecks, UI acceptance checks, risk classification, acceptance and completion; QA and Reviewer use their profiles and only brief-cited sections |
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial, handoff record write denial recovery |
 | [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
 

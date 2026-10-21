@@ -27,11 +27,12 @@ a well-supported infeasibility result can complete it. Probe-only authorization 
 or subsequent implementation. Record question, method/scope, criteria, and constraints; a sufficiently specific probe
 request can supply that approval. Match checks to probe purpose/risk and do not report probe evidence as product proof.
 
-If the user explicitly requests both a probe and implementation and the whole scope is sufficiently specified,
-classify the entire scope. When the entire scope meets Bounded conditions, the probe is an internal investigation
-with no new approval boundary at its report. Unknown implementation is not blanket authorization: hold affected
-implementation if findings materially change scope, method, or risk, or leave a new material decision. Reassess depth
-and obtain any required design/spec/plan approvals before that implementation. A probe-only request remains separate.
+If the user explicitly requests both a probe and implementation and the whole scope is sufficiently specified, classify
+the entire scope. When the entire scope meets the Bounded path criteria in Design path and plan depth, the probe is an
+internal investigation with no new approval boundary at its report. Unknown implementation is not blanket authorization:
+hold affected implementation if findings materially change scope, method, or risk, or leave a new material decision.
+Reassess depth and obtain any required design/spec/plan approvals before that implementation. A probe-only request
+remains separate.
 
 ## Formal drafting boundary
 
@@ -85,7 +86,7 @@ a bounded path or document omission does not imply low risk, and architectural d
    answers/revisions, and obtains approvals; Orchestrator never runs brainstorming or writing-plans itself (SKILL.md
    Role gate); the direct path uses only a scope record.
 2. Spike: apply Probe scope above; distinguish probe-only authorization from a sufficiently specified combined scope.
-   Bounded: approve a short design before Coder or a Orchestrator direct edit (Planner's design before
+   Bounded: approve a short design before Coder or an Orchestrator direct edit (Planner's design before
    Coder; a direct edit uses only an approved scope record). Architectural: approve the design, then Planner returns a
    complete spec draft and self-review; Orchestrator integrates, saves (user's path or
    `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`), self-reviews, and obtains written-spec approval before
@@ -100,7 +101,7 @@ a bounded path or document omission does not imply low risk, and architectural d
    assumptions/open decisions, verification requirements, and self-review. Orchestrator integrates, saves to the user's
    path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews, and obtains plan approval before Coder.
    Planner cannot save, implement, or request approval.
-5. Every Coder first start and restart requires all applicable approvals and the common handoff gate (SKILL.md,
+5. Every Coder first start and restart requires all applicable approvals and the Common handoff gate (SKILL.md,
    handoff). Non-behavior configuration/documentation may skip inapplicable design/planning stages but not the gate.
 
 When Orchestrator's recorded plan-depth judgment requires a Bounded written spec, record that and its scope,
@@ -124,7 +125,7 @@ Substeps and checkboxes are progress, not commit units: one approved top-level t
 Orchestrator acceptance. Never list Reviewer as a per-task check. State final plan QA/integration verification
 separately with scope and timing; for significant work it lists the single independent Reviewer of the final full change
 after all tasks are accepted. Task boundaries add no QA gates; keep risk requirements, risky-dependency QA,
-and approved obligations. No-change, hold, and resume follow commit.
+and approved obligations. No-change, hold, and resume follow [commit](commit.md).
 
 ## Dependency and readiness record
 
@@ -205,7 +206,7 @@ Do not modify external skills.
 
 | Path | Approvals and preparation |
 |---|---|
-| Spike probe | Approve question, method/scope, criteria, constraints; no spec/plan forced. If Coder runs the probe, pass the common gate after approval. Read-only investigation needs no gate. |
+| Spike probe | Approve question, method/scope, criteria, constraints; no spec/plan forced. If Coder runs the probe, pass the Common handoff gate after approval. Read-only investigation needs no gate. |
 | Bounded, plan skipped | Approve the short design and record plan-skip criteria; select target, prepare any documents or record absence, pass the gate. |
 | Bounded, plan required | Approve short design and every required plan; a spec only when the depth judgment requires it, approved before dependent plans. One preparation batch, then the gate. |
 | Architectural | Approve design, then spec, then every plan; select and prepare the target before formal drafting; complete the set before batch commit, final verification, and the gate. |

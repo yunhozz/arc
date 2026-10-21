@@ -90,7 +90,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         self.contracts(verify, (
             r"task-local acceptance.*distinct from.*final plan.*acceptance",
             r"task acceptance and its focused commit require only.*risk-scaled evidence.*fresh qa instance per task that needs qa.*orchestrator focused checks",
-            r"reviewer timing and task-boundary gates follow skill\.md risk-scaled execution",
+            r"reviewer timing and task-boundary gates follow the risk-scaled execution section above",
             r"independently acceptable task.*do not delay.*later final plan verification",
             r"required.*task.*checks.*must not.*deferred",
             r"with a plan, the required final whole-change review is final plan verification",
@@ -346,12 +346,12 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
     def test_final_single_reviewer_is_explicit(self) -> None:
         for name, text, contract in (
             ("verification", policy_text("verification"), r"reviewer is never a plan-task acceptance prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks, following the last plan task's required checks and any qa recheck at the final relevant state; significant work without a plan keeps reviewer after qa before acceptance"),
-            ("verification", policy_text("verification"), r"reviewer timing and task-boundary gates follow skill\.md risk-scaled execution"),
+            ("verification", policy_text("verification"), r"reviewer timing and task-boundary gates follow the risk-scaled execution section above"),
             ("verification-cleanup", policy_text("verification"), r"verified ignore-pattern or metadata cleanup.*targets are unused.*required project materials are unaffected.*ignore patterns cover only intended paths.*diff matches the approved scope.*focused checks then suffice without automatically calling qa or reviewer"),
             ("verification-env", policy_text("verification"), r"an environment failure is distinct from a code failure.*report the exact limitation"),
             ("verification-pointer", policy_text("verification"), r"the risk-scaled execution section above holds the risk table, risk definitions, evidence-reuse rule, and role order"),
-            ("planning", policy_text("planning"), r"never list reviewer as a per-task required check \(reviewer timing: skill\.md risk-scaled execution\)"),
-            ("commit", policy_text("commit"), r"reviewer timing: skill\.md risk-scaled execution"),
+            ("planning", policy_text("planning"), r"never list reviewer as a per-task required check \(reviewer timing: \[risk-scaled execution\]\(verification\.md#risk-scaled-execution\)\)"),
+            ("commit", policy_text("commit"), r"reviewer timing: \[risk-scaled execution\]\(verification\.md#risk-scaled-execution\)"),
             ("planner", profile_text("planner"), r"single independent reviewer review of the final full change after all tasks are accepted with their risk-scaled checks"),
         ):
             with self.subTest(artifact=name):
@@ -771,7 +771,7 @@ class CeoDirectPathTests(unittest.TestCase):
                 self.assertRegex(self.direct(), contract)
         tdd = policy_text("handoff").split("## coder tdd and constraints", 1)[1].split(" ## ", 1)[0]
         self.assertRegex(tdd, r"explicit user or task-specific tdd request overrides this waiver.*do not claim tdd was followed")
-        self.assertRegex(policy_text("handoff"), r"before a orchestrator direct edit, orchestrator verifies the same conditions, with the approved scope record as the applicable approval")
+        self.assertRegex(policy_text("handoff"), r"before an orchestrator direct edit, orchestrator verifies the same conditions, with the approved scope record as the applicable approval")
 
     def test_direct_path_stops_and_reclassifies_without_reverting(self) -> None:
         for contract in (
@@ -792,10 +792,10 @@ class CeoDirectPathTests(unittest.TestCase):
                    if line.startswith("| small, low risk"))
         self.assertIn("orchestrator direct path", row)
         gate = policy_text("handoff").split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
-        self.assertRegex(gate, r"same conditions.*before a orchestrator direct edit")
+        self.assertRegex(gate, r"same conditions.*before an orchestrator direct edit")
         planning = policy_text("planning")
         self.assertRegex(planning, r"never runs brainstorming or writing-plans itself.*the direct path uses only a scope record")
-        self.assertRegex(planning, r"approve a short design before coder or a orchestrator direct edit")
+        self.assertRegex(planning, r"approve a short design before coder or an orchestrator direct edit")
         self.assertRegex(policy_text("verification"), r"exclusively to coder.*except under the orchestrator direct path")
         self.assertRegex(policy_text("handoff"), r"orchestrator direct edit.*same.*conditions")
         handoff_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
@@ -810,7 +810,7 @@ class CoderBriefAndReuseTests(unittest.TestCase):
         self.assertRegex(core, r"reuse the current coder only for corrections, rework, or rechecks of the same task")
         self.assertNotRegex(core, r"may reuse coder while the approved scope")
         self.assertRegex(core, r"coder and qa freshness follow the role gate")
-        self.assertRegex(core, r"fresh coder for the next task is a restart under handoff \(choice reuse and restart brief rules are there\)")
+        self.assertRegex(core, r"fresh coder for the next task is a restart under handoff \(choice reuse and restart brief rules are in handoff\)")
         self.assertRegex(policy_text("handoff"), r"restart brief: supply only verified deltas.*every other brief field is in full")
         self.assertRegex(core, r"before sending corrections or rework to a reused coder, orchestrator rechecks workspace, branch/head and change state against the brief")
 

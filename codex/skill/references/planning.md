@@ -29,11 +29,12 @@ a well-supported infeasibility result can complete it. Probe-only authorization 
 or subsequent implementation. Record question, method/scope, criteria, and constraints; a sufficiently specific probe
 request can supply that approval. Match checks to probe purpose/risk and do not report probe evidence as product proof.
 
-If the user explicitly requests both a probe and implementation and the whole scope is sufficiently specified,
-classify the entire scope. When the entire scope meets Bounded conditions, the probe is an internal investigation
-with no new approval boundary at its report. Unknown implementation is not blanket authorization: hold affected
-implementation if findings materially change scope, method, or risk, or leave a new material decision. Reassess depth
-and obtain any required design/spec/plan approvals before that implementation. A probe-only request remains separate.
+If the user explicitly requests both a probe and implementation and the whole scope is sufficiently specified, classify
+the entire scope. When the entire scope meets the Bounded path criteria in Design path and plan depth, the probe is an
+internal investigation with no new approval boundary at its report. Unknown implementation is not blanket authorization:
+hold affected implementation if findings materially change scope, method, or risk, or leave a new material decision.
+Reassess depth and obtain any required design/spec/plan approvals before that implementation. A probe-only request
+remains separate.
 
 ## Formal drafting boundary
 
@@ -91,7 +92,7 @@ approved obligations separately.
    (SKILL.md Role gate);
    the direct path uses only a scope record.
 2. Spike: apply Probe scope above; distinguish probe-only authorization from a sufficiently specified combined scope.
-   Bounded: approve a short design before Coder or a Orchestrator direct edit (Planner's design
+   Bounded: approve a short design before Coder or an Orchestrator direct edit (Planner's design
    before Coder; a direct edit uses only an approved scope record). Architectural: approve
    design, then Planner returns complete spec draft and self-review findings; Orchestrator integrates, saves,
    self-reviews, and obtains written-spec approval
@@ -110,17 +111,15 @@ approved obligations separately.
    self-reviews,
    then obtains plan approval before Coder.
 5. Every Coder first start and restart requires all applicable design/spec/plan approvals and passing
-   the common handoff gate in SKILL.md and handoff.md, with approved artifacts, brief, and relevant findings.
+   the Common handoff gate in SKILL.md and handoff.md, with approved artifacts, brief, and relevant findings.
    Non-behavior
    configuration/documentation may skip inapplicable design/planning stages, but still requires the handoff gate.
-   A Orchestrator direct edit requires its approved scope record and the same gate conditions before the first edit.
+   An Orchestrator direct edit requires its approved scope record and the same gate conditions before the first edit.
 
 When a Bounded written spec is required by Orchestrator's recorded plan-depth judgment, record that necessity and scope
-and
-use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
+and use the approved short design as its basis. Planner returns a proportional complete spec draft and self-review;
 Orchestrator integrates, saves, self-reviews, and obtains individual written-spec approval before dependent plan
-drafting
-and execution preparation. This applies that judgment, not a new spec-necessity rule.
+drafting and execution preparation. This applies that judgment, not a new spec-necessity rule.
 
 Design, spec, plan, and brainstorming drafts are authored only by Planner.
 Orchestrator must not substitute an independently authored spec or plan for Planner's complete draft.
@@ -134,13 +133,11 @@ implementation goal/scope and target files, preceding tasks and dependencies, ac
 checks and evidence before acceptance, and hold conditions; each task independently implementable, verifiable and
 acceptable, with changes that cannot be independently verified (including policy/profile/tests/manifest sharing one
 contract) in one task from the outset; and final overall plan verification stated separately from task acceptance
-prerequisites, with scope and timing. Never list Reviewer as a per-task required check (Reviewer timing: SKILL.md
-Risk-scaled execution). RED/GREEN and individual
+prerequisites, with scope and timing. Never list Reviewer as a per-task required check (Reviewer timing: [Risk-scaled execution](verification.md#risk-scaled-execution)). RED/GREEN and individual
 commands do not create commit units; one task is one focused commit under commit.md, which also covers no-change, hold
 and resume. Do not combine different approved tasks into one commit during execution; if inseparability appears later,
 stop affected work and have Orchestrator handle revised scope, planning and applicable approvals.
-These requirements apply to
-required plans; existing plan-omission paths gain no new plan obligation.
+These requirements apply to required plans; existing plan-omission paths gain no new plan obligation.
 
 ### Dependency and readiness record
 
@@ -197,14 +194,12 @@ If evidence is missing or mismatched in either gate, stop the affected save and 
 
 The applicable document set means all specs and plans required for the current approved execution scope, not future
 project work. Orchestrator records scope, design/plan depth, absolute document paths and coverage, approved
-versions/status,
-plan dependencies and execution order, skipped stages with rationale, and documents still awaiting writing or approval
+versions/status, plan dependencies and execution order, skipped stages with rationale, and documents still awaiting writing or approval
 in the shared brief. The set is complete only when every required document is written and individually approved and
 no unresolved scope or dependency decision requires another document. Do not omit required documents from the list.
 
 A required plan does not itself require a written spec. Bounded uses Orchestrator's recorded plan-depth judgment to
-determine
-whether a written spec is required; do not infer one from plan necessity. Spec steps apply only to Architectural and
+determine whether a written spec is required; do not infer one from plan necessity. Spec steps apply only to Architectural and
 required Bounded specs, and plan steps only to required plans. These gates add no new spec obligation to Spike,
 Bounded plan-skip, or non-behavior documentation/configuration paths; preserve existing omission rationales.
 
@@ -228,17 +223,16 @@ are not permission for document commits during planning or for starting Coder.
 
 | Path | Applicable approvals and preparation |
 |------|--------------------------------------|
-| Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation; no new spec obligation is added by this gate. If Coder executes the probe, pass the common handoff gate after probe approval. Read-only Orchestrator/Planner investigation without Coder does not trigger that gate. |
-| Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale; this gate adds no new spec obligation. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the common gate. |
-| Bounded, plan required | Approve the short design and every required plan; write a spec only when Orchestrator's recorded plan-depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting. Select and prepare the target before formal drafting; complete all applicable artifacts before one docs batch and the common gate. |
-| Architectural | Approve design, then written spec, then every required plan using `writing-plans`; select and prepare the target before formal drafting; complete the document set before batch preparation, final verification, and the common gate. |
-| Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; this gate adds no new spec obligation. Still select the target, verify Git state, prepare actual approved documents or record absence, and pass the common gate. |
+| Spike probe | Approve the feasibility question, probe method/scope, acceptance criteria, and constraints. Do not force specs/plans for still-unknown implementation; no new spec obligation is added by this gate. If Coder executes the probe, pass the Common handoff gate after probe approval. Read-only Orchestrator/Planner investigation without Coder does not trigger that gate. |
+| Bounded, plan skipped | Approve the short design and record the existing plan-skip criteria/rationale; this gate adds no new spec obligation. Complete applicable approvals, select the target, prepare any actual approved documents, or record valid document absence, then pass the Common handoff gate. |
+| Bounded, plan required | Approve the short design and every required plan; write a spec only when Orchestrator's recorded plan-depth judgment requires it, then obtain its individual written-spec approval before dependent plan drafting. Select and prepare the target before formal drafting; complete all applicable artifacts before one docs batch and the Common handoff gate. |
+| Architectural | Approve design, then written spec, then every required plan using `writing-plans`; select and prepare the target before formal drafting; complete the document set before batch preparation, final verification, and the Common handoff gate. |
+| Non-behavior documentation/configuration | Record scope, acceptance criteria, and why design/planning stages are inapplicable; this gate adds no new spec obligation. Still select the target, verify Git state, prepare actual approved documents or record absence, and pass the Common handoff gate. |
 
 Apply Authorization and scope above to probe-only and combined requests; preserve required design/spec/plan gates.
 These gates add no new spec obligation for Spike, Bounded plan-skip, or non-behavior documentation/configuration paths.
 Document omission skips only document obligations, never explicit
-execution-target
-choice, Git state/ownership checks, or handoff evidence.
+execution-target choice, Git state/ownership checks, or handoff evidence.
 
 If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
 before dependent drafting or commit. Changed approved documents require approval of the revised version. If implementation reveals new
@@ -251,9 +245,9 @@ lifetime and restart record in [handoff.md](handoff.md).
 
 Missing or mismatched evidence, unfinished approvals, unclear ownership, or unresolved failure blocks the affected
 save, execution-target request, Git mutation, or Coder handoff: stop and report to Orchestrator.
-Orchestrator resolves the issue and
-reverifies affected evidence before resumption. Reverify evidence when scope, approved versions, paths, target, or
-relevant Git state changes. Preserve unrelated changes under handoff rules; read-only investigation remains allowed.
+Orchestrator resolves the issue and reverifies affected evidence before resumption. Reverify evidence when scope,
+approved versions, paths, target, or relevant Git state changes. Preserve unrelated changes under handoff rules;
+read-only investigation remains allowed.
 
 Do not retroactively treat an early save or commit as satisfying these gates or as user approval. Record the actual
 order and any evidence gap. Structural checks prove only the repository's written policy contract, not consuming-agent
@@ -262,7 +256,7 @@ compliance unverified. Do not add runtime infrastructure or modify external skil
 
 ### Managed worktree preparation
 
-See [handoff-worktree.md](handoff-worktree.md) for the third-path managed worktree contract.
+See [handoff-worktree.md](handoff-worktree.md) for the managed worktree contract.
 
 ## Local planning references
 

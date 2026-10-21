@@ -6,9 +6,8 @@ a task whose commit result is unclear.
 ## Automatic commit after plan-task acceptance
 
 One approved top-level task is the unit of one focused implementation commit. Orchestrator verifies the task's
-acceptance
-criteria, currently required checks (Reviewer timing: SKILL.md Risk-scaled execution), and findings,
-accepts the task by its own judgment, then immediately
+acceptance criteria, currently required checks (Reviewer timing:
+[Risk-scaled execution](verification.md#risk-scaled-execution)), and findings, accepts the task by its own judgment, then immediately
 creates its focused local Git commit without additional user commit approval.
 After Orchestrator accepts a task, the next action is the required Git state/scope checks, staging, and focused commit.
 Do not commit before task acceptance or defer the task commit until the plan ends.
@@ -19,16 +18,14 @@ evidence. Existing plan-skip paths have no new plan obligation; their commits fo
 requests. Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
 
 Before committing, Orchestrator verifies the approved plan version, task ID and accepted scope, actual absolute
-workspace,
-repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state and edit ownership. Verify staged paths and
+workspace, repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state and edit ownership. Verify staged paths and
 content match only that task, and verify the finalized commit message. If the same file contains other tasks or user
 changes, prove safe separation before committing. Unrelated staged changes stop the commit under the Preservation
 rule. After committing, verify SHA, actual message, included
 paths and content, post-commit HEAD, actual branch and remaining staged/unstaged/untracked state. A successful command exit
 alone does not establish completion. In the accessible canonical record link plan path/version, task ID, acceptance
 evidence and Orchestrator judgment, required checks and findings, commit results and state, hold/no-change/reuse
-reasons,
-and remaining final plan verification.
+reasons, and remaining final plan verification.
 
 Hold the task commit for unmet or unresolved criteria, required checks that failed or were not run,
 unresolved findings or evidence gaps without disposition, scope expansion or revised-plan needs, ownership or staged
@@ -40,8 +37,7 @@ Orchestrator follows git-recovery and reverifies affected evidence after resolvi
 
 For a no-change task, make no empty commit; record acceptance evidence and no change. On resume, verify the same task's
 existing commit SHA, content and validity, then reuse it; do not duplicate a successful task commit.
-For a missing record,
-inspect the actual result before any retry. Normal accepted task commits retain valid choice reuse under handoff, with
+For a missing record, inspect the actual result before any retry. Normal accepted task commits retain valid choice reuse under handoff, with
 fresh state and ownership checks. Task acceptance/commit is distinct from final plan acceptance; remaining final
 QA/Reviewer/integration checks still apply with the timing in verification.
 
@@ -57,10 +53,9 @@ planning and approval obligations.
 Local commit authority does not authorize early planning-document commits: pre-Coder document approvals,
 explicit execution-target choice and batch preparation remain unchanged. Historical spec/plan records are not changed
 retroactively. Structural checks of this contract do not prove actual agent runtime compliance.
-Follow Conventional Commits with the message form
-`<type>(<scope>): <description>`. Use a concise, specific English description without a trailing period, a lowercase
-scope when useful, one top-level task's logical change per commit, and body/footer only when needed while preserving
-Git trailer syntax.
+Follow Conventional Commits with the message form `<type>(<scope>): <description>`. Use a concise, specific English
+description without a trailing period, a lowercase scope when useful, one top-level task's logical change per commit,
+and body/footer only when needed while preserving Git trailer syntax.
 
 ## Shared-checkout coordination
 

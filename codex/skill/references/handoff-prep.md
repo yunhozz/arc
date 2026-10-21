@@ -2,7 +2,7 @@
 
 Orchestrator reads before an execution-target choice request and each preparation Git mutation (branch creation/switch,
 staging, commit). The new managed worktree option's selection target is listed in the Execution-target request gate.
-The Coder start gate, handoff evidence and choice lifetime are in [handoff.md](handoff.md).
+The [Coder handoff gate](handoff.md#coder-handoff-gate), handoff evidence and choice lifetime are in [handoff.md](handoff.md).
 
 ## Workspace handoff
 
@@ -22,14 +22,12 @@ For every supported execution-target option, before obtaining the user's choice,
 
 Obtain explicit choice under the Explicit choice rule before preparation.
 When offering the new managed worktree option, Orchestrator first verifies and then presents its selection target
-(source absolute
-path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
+(source absolute path, intended repository and Git common directory, source branch or detached HEAD, verified full source HEAD SHA,
 approved branch candidate and collision status, descriptive name, planned document scope and any existing approved document transfer/commit scope). Verification
 validates the approved branch candidate and collision status under New task branch naming rules and checks source state
 (unrelated staged changes; existing approved document HEAD/index/working-tree state) before offering. The app chooses the actual
 destination path: do not ask the user for a destination path or propose one, and do not fetch or substitute a remote
-HEAD
-or default branch for the base. Read [handoff-worktree.md](handoff-worktree.md) only after the user
+HEAD or default branch for the base. Read [handoff-worktree.md](handoff-worktree.md) only after the user
 explicitly selects that option and before its creation, branch work, or document transfer.
 
 ### Git mutation evidence gate
@@ -71,8 +69,9 @@ main purpose and a short, specific lowercase kebab-case topic with no spaces. Fo
 | revert/ | Revert a prior change |
 
 Validate the name and check for collisions before creation. If the base name exists, never automatically substitute a
-suffix; present a new candidate for explicit approval. Never reuse, delete, or overwrite an existing branch, except that reuse of an approved existing branch on the managed
-worktree path follows the conditions in [handoff-worktree.md](handoff-worktree.md) (Exception for this managed path).
+suffix; present a new candidate for explicit approval. Never reuse, delete, or overwrite an existing branch, except
+that reuse of an approved existing branch on the managed worktree path follows the conditions in
+[handoff-worktree.md](handoff-worktree.md) (Exception for this managed path).
 Distinguish a lookup error from a missing branch.
 Recheck the workspace, current branch or detached HEAD, base HEAD, and candidate before execution. If the approval
 target changes, present the new target and obtain explicit user approval. If the candidate changes because of a new
@@ -90,9 +89,9 @@ creation.
 ### Current checkout
 
 Only after the user explicitly selects the current checkout for this handoff, or valid reuse is verified,
-confirm the absolute workspace,
-current branch or detached HEAD, HEAD, and existing changes with their preservation and edit ownership. Record this
-state and the choice evidence in the brief. Missing choice, unconfirmed state, or unclear ownership blocks handoff.
+confirm the absolute workspace, current branch or detached HEAD, HEAD, and existing changes with their preservation and
+edit ownership. Record this state and the choice evidence in the brief. Missing choice, unconfirmed state, or unclear
+ownership blocks handoff.
 
 ### Planning document commit
 
@@ -101,12 +100,11 @@ Verify complete approved document set, approval evidence and versions before sta
 On the new task branch path, verify the successful switch, actual branch, unchanged checkout path, and preserved
 changes first. On the current checkout path, verify the selected branch or detached HEAD, path, and existing changes.
 On the new worktree path, verify the created app-managed worktree, current-chat attachment, identity/base, approved
-branch and direct target documents (or protected legacy/restart document transfer) before any target docs commit.
+branch and direct target documents (or protected pre-existing/restart document transfer) before any target docs commit.
 At the target, commit only remaining approved documents once; do not automatically make a source document commit.
 Record the selected base SHA and post-commit HEAD.
 Orchestrator verifies each approved spec/plan already committed for this task by SHA, actual message, included paths,
-and
-content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting
+and content matching the approved version and validity in the selected checkout; reuse valid commits without recommitting
 them.
 
 For approved documents still uncommitted, Orchestrator records the approved versions and paths, finalizes the specific
@@ -120,10 +118,9 @@ MUST NOT commit a generic temporary message and routinely repair it with `git co
 
 If the docs commit fails or staged content differs, stop handoff and apply the Stop and inspect rule to the actual
 branch, HEAD, index, and partial completion. Resolve the issue before resuming; do not commit implementation instead.
-After success verify SHA, actual
-message, included paths/content, post-commit HEAD, final branch, and staged/unstaged/untracked state in the brief.
-A successful command exit alone does not prove preparation complete. This commit is not implementation acceptance
-or push approval; do not push without a separate explicit user request.
+After success verify SHA, actual message, included paths/content, post-commit HEAD, final branch, and
+staged/unstaged/untracked state in the brief. A successful command exit alone does not prove preparation complete. This
+commit is not implementation acceptance or push approval; do not push without a separate explicit user request.
 
 Skip this commit only when no planning documents were required and none were produced under the design/plan depth
 rules; record that fact and the applicable depth rationale. Uncommitted documents cannot be treated as absent.

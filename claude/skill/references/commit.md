@@ -14,7 +14,10 @@ Planning documents have their own batch docs commit before Coder handoff.
 
 After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state.
 Preserve unrelated changes; never automatically unstage, amend, reset, clean, stash, or delete branches.
-On failure, stop dependent work and report actual state and completed steps. MUST NOT blindly repeat a commit or staging command. Push, merge, publish, deploy, and install still follow their separate guidance and approval rules; push, publication and merge require user authorization. Coder must not commit, even when explicitly assigned.
+On failure, stop dependent work and report actual state and completed steps.
+MUST NOT blindly repeat a commit or staging command.
+Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
+Coder must not commit, even when explicitly assigned.
 
 Hold the task commit for unmet or unresolved criteria, failed or not-run required checks, undispositioned findings or
 evidence gaps, scope expansion, ownership or staged scope/content mismatch, unexpected workspace/branch/HEAD/Git state,

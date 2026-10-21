@@ -482,7 +482,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assert_all(hand, ('before dependent drafting or preparation; reselection does not require document completion', 'never fall back automatically'))
         plan = self.read_claude('skill/references/planning.md')
         self.assert_all(plan, ('Administrative status updates must accurately describe actual progress',
-                               'before Coder or a Orchestrator direct edit', 'regardless of locality, risk, or size',
+                               'before Coder or an Orchestrator direct edit', 'regardless of locality, risk, or size',
                                'does not require written-spec approval; it requires valid execution-target choice and actual preparation',
                                'leave runtime compliance unverified', 'stops before edits dependent on new plans'))
         rec = self.read_claude('skill/references/git-recovery.md')

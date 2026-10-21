@@ -3,6 +3,8 @@
 Claude v1 supports the current checkout only; ARC-managed worktree execution is unsupported.
 Do not create or attach worktrees as a fallback. Report unsupported requests before dependent work.
 
+## Execution-target and Git evidence gates
+
 ### Execution-target request gate
 
 Before requesting the user's execution-target choice, Orchestrator verifies and records planned document scope,

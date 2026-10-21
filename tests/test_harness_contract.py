@@ -229,7 +229,7 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
         require("HANDOFF_GATE", f"{root}/references/handoff.md", (
             r"before every coder first start/restart.*handoff",
             r"missing evidence.*block handoff",
-            r"same conditions.*before a orchestrator direct edit",
+            r"same conditions.*before an orchestrator direct edit",
         ))
         for owner in ("references/commit.md", "references/handoff-prep.md"):
             require("COMMIT_BOUNDARY", f"{root}/{owner}", (r"(?:specific |concise |specific, |concise, )*english (?:description|conventional commit)",))

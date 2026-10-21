@@ -5,7 +5,7 @@ capability and consent required by the actual tool. Planner returns visualizatio
 tools are read-only file inspection; do not invent browser or shell access for it.
 Other depth 2 roles must stay within their exact allowlists and may not delegate visualization to another agent.
 
-Determine actual available browser and preview capabilities before use; do not assume managed preview tools exist.
+Determine actual available browser and preview capabilities before use; do not assume the platform provides a preview tool.
 Use an available authorized local/browser workflow only when scoped by Orchestrator.
 Keep preview artifacts separate from user files, record generated side effects, preserve unrelated work,
 and report unavailable capabilities without claiming visual verification. MUST NOT expose secrets or publish a preview without authorization.

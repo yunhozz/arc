@@ -10,8 +10,7 @@ For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unve
 ## Risk-scaled execution
 
 Orchestrator assigns edits exclusively to Coder except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
-behavior, risk,
-and smallest meaningful verification.
+behavior, risk, and smallest meaningful verification.
 
 | Risk | Minimum flow |
 |---|---|
@@ -21,9 +20,8 @@ and smallest meaningful verification.
 
 Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on
 Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused
-checks. Ordinary behavior
-fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
-shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
+checks. Ordinary behavior fails those conditions without a significant-risk trigger. Significant risk includes shared
+role/behavior contracts, shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
 installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count.
 When risk is unclear, investigate or use the higher flow. Environment failure does not waive checks or determine design depth.
 
@@ -59,33 +57,29 @@ report only checks actually performed, their actor, target state, results and re
 
 Authorization evidence and probe/combined scope are owned by [planning](planning.md#authorization-and-scope);
 valid reuse and actual-state refresh by [handoff](handoff.md#authorization-continuity).
-After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
+After gates hold, continue approved scope without saved documents through required checks and Orchestrator acceptance under
 Completion continuity below; a role report alone does not complete the work.
 
 
 
 The Risk-scaled execution section above holds the risk table, risk definitions, evidence-reuse rule, and role order,
 including Reviewer timing. Product/test edits belong exclusively to Coder except under the Orchestrator direct path;
-Orchestrator may inspect/run checks but
-routes code corrections to Coder. Determine the minimum
+Orchestrator may inspect/run checks but routes code corrections to Coder. Determine the minimum
 flow from risk and any specific instruction or approved commitment, and record which requirements each check or review
 satisfies. For small, low-risk work with clear scope and acceptance evidence and no such requirement,
-Orchestrator's focused
-checks suffice; do not call QA or Reviewer automatically. Significant/high-risk work requires independent review of the
-full change at the final relevant state after the required QA/focused checks and any QA recheck.
+Orchestrator's focused checks suffice; do not call QA or Reviewer automatically. Significant/high-risk work requires
+independent review of the full change at the final relevant state after the required QA/focused checks and any QA recheck.
 
 Many known metadata files are not significant solely because there are many, and a one-file permission or data-loss
 rule may be. A vague request to delete unnecessary files does not establish low risk; reclassify when installer,
 manifest, or other contracts are affected. For a verified ignore-pattern or metadata cleanup, confirm the targets are
 unused, required project materials are unaffected, ignore patterns cover only intended paths, and the diff matches the
 approved scope; Orchestrator's focused checks then suffice without automatically calling QA or Reviewer.
-An environment failure
-is distinct from a code failure; report the exact limitation and any remaining evidence gap to Orchestrator.
+An environment failure is distinct from a code failure; report the exact limitation and any remaining evidence gap to Orchestrator.
 
 Use additional Planner/Scouter only for unresolved planning/discovery questions. Reviewer covers substantial changes and
 correctness, factual, security, data, or interface risks. Orchestrator may use Planner/Scouter/Reviewer when justified
-and assigns
-all Coder/QA work. Specialists report unresolved questions to Orchestrator, who assigns support only when needed.
+and assigns all Coder/QA work. Specialists report unresolved questions to Orchestrator, who assigns support only when needed.
 
 QA runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
 configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. Outside the final plan Reviewer correction exception, after a
@@ -102,14 +96,13 @@ completion, a Coder report or passing commands alone do not establish acceptance
 
 Task acceptance and its focused commit require only the task's risk-scaled evidence: a FRESH QA instance per task that
 needs QA (same-task rechecks may reuse), or Orchestrator focused checks for small, low-risk tasks;
-Reviewer timing and task-boundary gates follow SKILL.md Risk-scaled execution. For an independently acceptable task,
+Reviewer timing and task-boundary gates follow the Risk-scaled execution section above. For an independently acceptable task,
 do not delay its acceptance/commit solely for later final plan verification. Currently required task checks must not
 be deferred to final verification to accept early. State the scope and timing of final-only integration criteria in
 the plan; with a plan, the required final whole-change review is final plan verification.
 
 A task commit record does not mark unperformed final verification complete. Orchestrator still decides final plan
-acceptance
-using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
+acceptance using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
 Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
 rules. For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
 planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
@@ -127,10 +120,8 @@ required account and test-data scope, and permitted interactions, QA may use the
 to launch the app or open the URL with available approved browser tools. Follow tool instructions and any applicable
 installed browser skill. This permission does not authorize source/document/test/configuration editing, installing
 dependencies, or changing environment configuration. Report missing prerequisites to Orchestrator and leave affected
-criteria
-unverified. For each criterion record the command or URL, test state and viewport (or not applicable),
-interaction steps,
-expected and observed results, and accessible evidence. App startup, page load, and static checks alone do not prove
+criteria unverified. For each criterion record the command or URL, test state and viewport (or not applicable),
+interaction steps, expected and observed results, and accessible evidence. App startup, page load, and static checks alone do not prove
 complete UI behavior. For unavailable test environment or browser tools, report the exact limitation and affected
 unverified criteria. Clean up only QA-created processes and sessions; preserve existing shared services and sessions.
 When assigning UI acceptance criteria, Orchestrator cites this section with its accessible path in the QA brief.
@@ -150,18 +141,14 @@ compliance.
 For QA execution failure or an unmet criterion, Orchestrator assigns Coder correction and a QA recheck of the
 reproduction path and invalidated related checks before Reviewer; QA reports the prior finding resolved, unresolved, or
 unverified with evidence. An unresolved finding returns to Coder correction and another QA recheck before Reviewer.
-Environment blocks, missing checks, and out-of-scope
-criteria
-are evidence gaps, not presumed code defects; Orchestrator handles those gaps under the existing disposition policy
-without
-substituting Reviewer review for QA evidence.
+Environment blocks, missing checks, and out-of-scope criteria are evidence gaps, not presumed code defects; Orchestrator
+handles those gaps under the existing disposition policy without substituting Reviewer review for QA evidence.
 
 For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
 source, reproduction conditions and steps, and evidence to Orchestrator, distinguishing source-inferred reproduction
-from
-execution-observed results without running QA tests. Outside the final plan Reviewer correction exception, Orchestrator routes it to Coder correction and QA post-fix recheck.
-Outside the required final plan correction loop, Orchestrator decides when a Reviewer recheck is warranted by the
-changed scope and independence. Reviewer continues handling
+from execution-observed results without running QA tests. Outside the final plan Reviewer correction exception,
+Orchestrator routes it to Coder correction and QA post-fix recheck. Outside the required final plan correction loop,
+Orchestrator decides when a Reviewer recheck is warranted by the changed scope and independence. Reviewer continues handling
 structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
 issues may require both QA verification and Reviewer source review.
 

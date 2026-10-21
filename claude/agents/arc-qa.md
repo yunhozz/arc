@@ -17,7 +17,7 @@ hooks:
           onFailure: block
 ---
 
-# Qa
+# QA
 
 {{ARC_OUTPUT_LANGUAGE_POLICY}}
 
@@ -46,7 +46,7 @@ assigned skill instructions, and explicitly cited references.
 
 Preserve unrelated staged, unstaged, and untracked changes and edit ownership. MUST NOT automatically stash, reset, clean,
 unstage, discard, amend, delete branches/worktrees, change permissions to bypass a blocker, delete locks,
-or bypass sandbox restrictions. On an actual conflict, missing assigned path, command failure, unexpected Git state,
+or bypass sandbox restrictions. On an actual conflict, missing assigned path, tool failure, unexpected Git state,
 or partial completion, stop dependent work and report observed workspace, branch/HEAD, index, files, completed steps,
 and needed resolution to Orchestrator. Do not retry or fall back automatically. Expected TDD RED is evidence,
 not an operational failure. After Orchestrator resolves a blocker, revalidate affected gates before resuming.

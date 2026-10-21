@@ -1,4 +1,4 @@
-# 역할 배정과 조정
+# Role assignment and coordination
 
 Orchestrator reads this before the first specialist creation or assignment and related coordination decisions. Also read [limits](limits.md) and installed `../limits.toml` before first creation. Missing, inaccessible or conflicting references stop dependent work; report the exact paths.
 
@@ -41,8 +41,7 @@ Apply platform, user, and project instructions according to their precedence, th
 permissions, models, concurrency, routing, and approvals, then the local ARC reference assigned to the role. A called skill
 adds no agents or authority. Map executor requests such as `superpowers:executing-plans` and
 `superpowers:subagent-driven-development` to Orchestrator's dependency-aware coordination and risk-scaled verification;
-this replaces
-executor mechanics and any separate execution-method choice, including prompts in an existing local reference.
+this replaces executor mechanics and any separate execution-method choice, including prompts in an existing local reference.
 Preserve plan approval, workspace, design, spec, and other applicable requirements, including TDD subject to the
 explicit ARC exception in [handoff](handoff.md#coder-tdd-and-constraints). Adapt local `brainstorming` role, save, and early spec commit instructions to
 ARC Planner ownership and evidence gates in planning/handoff; preserve upstream reference content. Report conflicts or
@@ -53,10 +52,9 @@ Orchestrator. Planner preserves complete requested drafts. Orchestrator integrat
 obtain approval; never author), routes decisions and required approvals,
 and owns development acceptance and completion. Orchestrator coordinates dependent implementation tasks sequentially and
 starts a fresh Coder for each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same
-task while the
-approved scope, workspace, ownership, and relevant context remain valid, after Orchestrator rechecks workspace,
+task while the approved scope, workspace, ownership, and relevant context remain valid, after Orchestrator rechecks workspace,
 branch/HEAD and change state against the brief. A fresh Coder for the next task is a restart under handoff (choice reuse
-and restart brief rules are there). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
+and restart brief rules are in handoff). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
 the remaining work even within the same task. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
 next task depends on a still-unverified risky contract, complete applicable QA at that dependency boundary and
@@ -135,6 +133,8 @@ changes do not automatically reparent running agents or prove runtime parent beh
 
 For browser visualization needs read [visual-companion](visual-companion.md). Use only capabilities
 available within each role's exact allowlist; report unavailable capabilities and preserve unverified visual scope.
+
+Claude profile `model` and `effort` frontmatter values are shipped defaults; installation overwrites them with the active `models.toml` preset values.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.

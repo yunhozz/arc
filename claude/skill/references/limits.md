@@ -30,7 +30,7 @@ Serialize work when a batch does not fit. There are no reserved role slots.
 
 Preserve the ledger through continuation, resume and context compaction; reconcile actual instance
 IDs before dispatch. Ledger loss must never reset counters to zero. If reconstruction is incomplete,
-hold creation and report the unknown budget; use a conservative bound only with sufficient evidence.
+hold creation and report the unknown budget; use a conservative upper bound only when the reconstructed records support it.
 Completion frees confirmed active capacity; it does not restore the total-created budget. Exhaustion holds new
 creation and requires reporting remaining work and budgets. It does not authorize skipping required
 QA or Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.

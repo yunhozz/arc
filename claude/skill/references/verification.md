@@ -111,8 +111,7 @@ For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unve
 ## Risk-scaled execution
 
 Orchestrator assigns edits exclusively to Coder except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
-behavior, risk,
-and smallest meaningful verification.
+behavior, risk, and smallest meaningful verification.
 
 | Risk | Minimum flow |
 |---|---|
@@ -122,19 +121,15 @@ and smallest meaningful verification.
 
 Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on
 Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused
-checks. Ordinary behavior
-fails those conditions without a significant-risk trigger. Significant risk includes shared role/behavior contracts,
-shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
+checks. Ordinary behavior fails those conditions without a significant-risk trigger. Significant risk includes shared
+role/behavior contracts, shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
 installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count.
-Unclear risk requires
-investigation or the higher flow. Environment failure does not waive checks or determine design depth.
+Unclear risk requires investigation or the higher flow. Environment failure does not waive checks or determine design depth.
 
 Do not add per-task gates automatically. Reviewer is never a plan-task acceptance prerequisite; for significant work
-with a
-plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks,
+with a plan, it reviews the final full change once after all plan tasks are accepted with their risk-scaled checks,
 following the last plan task's required checks and any QA recheck at the final relevant state; significant work without
-a plan
-keeps Reviewer after QA before acceptance. Preserve specific approved obligations and complete risky dependency checks
+a plan keeps Reviewer after QA before acceptance. Preserve specific approved obligations and complete risky dependency checks
 before dependent implementation. Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
 QA checks independently without edits; Reviewer independently reads the final full change after QA for significant
@@ -146,7 +141,7 @@ Criterion verdicts follow the Evidence verdict.
 
 Authorization evidence and probe/combined scope are owned by [planning](planning.md#authorization-and-scope);
 valid reuse and actual-state refresh by [handoff](handoff.md#authorization-continuity).
-After gates hold, continue approved no-doc scope through required checks and Orchestrator acceptance under
+After gates hold, continue approved scope without saved documents through required checks and Orchestrator acceptance under
 Completion continuity above; a role report alone does not complete the work.
 
 
