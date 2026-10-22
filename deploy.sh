@@ -6,4 +6,4 @@ git add package.json package-lock.json MANIFEST.sha256 &&
 git commit -m "v$VERSION" &&
 git tag "v$VERSION" &&
 npm pack --dry-run &&
-npm publish --access public
+npm publish --access public --browser=false --loglevel verbose
