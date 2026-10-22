@@ -20,5 +20,12 @@ test('private child receives JSON through stdin and reports failures and cancell
  const entry=root+'/child.mjs';fs.writeFileSync(entry,"let text='';for await(const chunk of process.stdin)text+=chunk;const request=JSON.parse(text);process.stdout.write(request.expectedVersion);process.stderr.write('child detail');process.exitCode=request.protocol===1?0:7;");
  let result=await api.runUpgradeChild({entryPath:entry,request:{protocol:1,expectedVersion:'1.2.3'},cwd:root,env:process.env});assert.equal(result.code,0);assert.equal(result.stdout,'1.2.3');assert.equal(result.stderr,'child detail');
  result=await api.runUpgradeChild({entryPath:entry,request:{protocol:0,expectedVersion:'1.2.3'},cwd:root,env:process.env});assert.equal(result.code,7);
- fs.writeFileSync(entry,"setInterval(()=>{},1000)");const controller=new AbortController(),pending=api.runUpgradeChild({entryPath:entry,request:{},cwd:root,env:process.env,signal:controller.signal});setTimeout(()=>controller.abort(),50);await assert.rejects(pending,{code:'ARC_CANCELLED'});
+ const controller=new AbortController();controller.abort();await assert.rejects(api.runUpgradeChild({entryPath:entry,request:{},cwd:root,env:process.env,signal:controller.signal}),{code:'ARC_CANCELLED'});
+});
+test('parent cancellation preserves completed target and final rollback residual output',async t=>{
+ const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc child cancellation ')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const entry=root+'/child.mjs',ready=root+'/ready';
+ fs.writeFileSync(entry,"import fs from 'node:fs';const timer=setInterval(()=>{},1000);process.on('SIGTERM',()=>{process.stdout.write('claude: interrupted; rollback: restored\\n');process.stderr.write('Residual path: /recovery/claude-stage\\n');clearInterval(timer);process.exitCode=130;});process.stdout.write('codex: installed; rollback: not-needed\\n');fs.writeFileSync("+JSON.stringify(ready)+",'ready');");
+ const controller=new AbortController(),watcher=fs.watch(root,()=>{if(fs.existsSync(ready))controller.abort();}),timer=setTimeout(()=>controller.abort(),5000);let result;
+ try{result=await api.runUpgradeChild({entryPath:entry,request:{},cwd:root,env:process.env,signal:controller.signal});}finally{clearTimeout(timer);watcher.close();}
+ assert.equal(result.code,130);assert.equal(result.stdout,'codex: installed; rollback: not-needed\nclaude: interrupted; rollback: restored\n');assert.equal(result.stderr,'Residual path: /recovery/claude-stage\n');
 });
