@@ -1,6 +1,21 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import crypto from 'node:crypto';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';
-function pack(){const root=fs.mkdtempSync(path.join(os.tmpdir(),'arc-package-'));try{return spawnSync('npm',['pack','--dry-run','--json','--ignore-scripts','--offline'],{encoding:'utf8',env:{PATH:process.env.PATH,HOME:root,npm_config_userconfig:path.join(root,'user.npmrc'),npm_config_globalconfig:path.join(root,'global.npmrc'),npm_config_cache:path.join(root,'cache')}});}finally{fs.rmSync(root,{recursive:true,force:true});}}
+function pack(cwd=process.cwd()){const root=fs.mkdtempSync(path.join(os.tmpdir(),'arc-package-'));try{return spawnSync('npm',['pack','--dry-run','--json','--ignore-scripts','--offline'],{cwd,encoding:'utf8',env:{PATH:process.env.PATH,HOME:root,npm_config_userconfig:path.join(root,'user.npmrc'),npm_config_globalconfig:path.join(root,'global.npmrc'),npm_config_cache:path.join(root,'cache')}});}finally{fs.rmSync(root,{recursive:true,force:true});}}
 function packRecord(stdout){const result=JSON.parse(stdout);return Array.isArray(result)?result[0]:result['@yunhozz/arc'];}
+test('npm pack excludes Python caches and preserves runtime files',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'arc-package-cache-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const pkg=JSON.parse(fs.readFileSync('package.json'));
+ for(const name of new Set(['package.json',...pkg.files.filter(name=>!name.startsWith('!'))]))fs.cpSync(name,path.join(root,name),{recursive:true});
+ const caches=['codex/skill/scripts/nested/__pycache__/sentinel.pyc','claude/skill/scripts/nested/__pycache__/sentinel.cache','lib/nested/__pycache__/sentinel.pyc','codex/skill/scripts/outside.pyc','claude/skill/scripts/outside.pyc','lib/outside.pyc'];
+ const ordinary=['codex/skill/scripts/nested/ordinary.mjs','claude/skill/scripts/nested/ordinary.mjs','lib/nested/ordinary.mjs'];
+ for(const name of [...caches,...ordinary]){const filename=path.join(root,name);fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'sentinel\n');}
+ const result=pack(root);assert.equal(result.status,0,result.stderr);const files=packRecord(result.stdout).files.map(item=>item.path);
+ assert.ok(!files.some(name=>name.split('/').includes('__pycache__')||name.endsWith('.pyc')),'Python caches must not be published');
+ for(const name of [...ordinary,'bin/arc.mjs','MANIFEST.sha256','codex/skill/SKILL.md','claude/skill/SKILL.md'])assert.ok(files.includes(name),name);
+});
+test('patch metadata agrees at version 0.1.8',()=>{
+ const pkg=JSON.parse(fs.readFileSync('package.json')),lock=JSON.parse(fs.readFileSync('package-lock.json'));
+ assert.equal(pkg.version,'0.1.8');assert.equal(lock.version,'0.1.8');assert.equal(lock.packages[''].version,'0.1.8');
+});
 // Wrong package identity or private metadata prevents consumers from installing the public scoped candidate.
 test('scoped public candidate metadata and lockfile agree',()=>{const pkg=JSON.parse(fs.readFileSync('package.json')),lock=JSON.parse(fs.readFileSync('package-lock.json'));assert.equal(pkg.name,'@yunhozz/arc');assert.match(pkg.version,/^\d+\.\d+\.\d+$/);assert.equal(Object.hasOwn(pkg,'private'),false);assert.deepEqual(pkg.publishConfig,{access:'public',registry:'https://registry.npmjs.org/'});assert.equal(lock.name,pkg.name);assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].name,pkg.name);assert.equal(lock.packages[''].version,pkg.version);assert.deepEqual(lock.packages[''].bin,{arc:'bin/arc.mjs'});assert.equal(lock.packages[''].hasInstallScript,undefined);});
 test('packed package contains complete internal references and license for both platforms',()=>{const result=pack();assert.equal(result.status,0,result.stderr);const files=packRecord(result.stdout).files.map(f=>f.path);for(const platform of ['codex','claude']){for(const name of ['SKILL.md','references/planning.md','references/handoff.md','references/verification.md','references/commit.md'])assert.ok(files.includes(platform+'/skill/'+name),platform+'/'+name);for(const name of ['LICENSE','provenance.json','brainstorming/SKILL.md','brainstorming/visual-companion.md','brainstorming/scripts/start-server.sh','writing-plans/SKILL.md','test-driven-development/SKILL.md','test-driven-development/writing-good-tests.md'])assert.ok(files.includes(platform+'/skill/references/superpowers/'+name),platform+'/'+name);}});

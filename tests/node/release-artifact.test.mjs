@@ -23,6 +23,23 @@ function copy(t){
 function bytes(input){return Object.fromEntries(['package.json','package-lock.json','MANIFEST.sha256','README.md'].map(name=>[name,fs.readFileSync(input+'/'+name).toString('base64')]));}
 function extract(tarball,destination){fs.mkdirSync(destination);const result=spawnSync('tar',['-xf',tarball,'--strip-components=1','-C',destination],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);return JSON.parse(fs.readFileSync(destination+'/package.json'));}
 function ready(){assert.equal(typeof api.buildReleaseArtifact,'function','release artifact API must exist');}
+test('release accepts only approved package exclusions',async t=>{
+ for(const extra of [null,'!lib/','lib/**/*.mjs'])await t.test(extra===null?'approved exclusions':'rejects '+extra,async t=>{
+  const f=copy(t),filename=f.input+'/package.json',pkg=JSON.parse(fs.readFileSync(filename));
+  pkg.files=[...pkg.files.filter(name=>!name.startsWith('!')),'!**/__pycache__/**','!**/*.pyc',...(extra===null?[]:[extra])];
+  fs.writeFileSync(filename,JSON.stringify(pkg,null,2)+'\n');
+  const updated=spawnSync(process.execPath,[source+'/scripts/update-manifest.mjs','--root',f.input],{encoding:'utf8'});assert.equal(updated.status,0,updated.stderr);
+  if(extra!==null){await assert.rejects(api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli}),/Unsupported package files entry/);return;}
+  await api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli});
+  const receipt=await api.verifyReleaseArtifact({outDir:f.outDir,expectedName:'@yunhozz/arc',expectedVersion:f.version});assert.equal(receipt.verified,true);
+ });
+});
+test('cached source is rejected before pack',async t=>{
+ const f=copy(t),filename=f.input+'/codex/skill/scripts/__pycache__/sentinel.pyc';fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'cache');
+ let packed=0;
+ await assert.rejects(api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli,deps:{pack:async()=>{packed++;throw Error('pack must not run');}}}),/Payload verification failed/);
+ assert.equal(packed,0);
+});
 test('source remains lifecycle-free',()=>{
  const pkg=JSON.parse(fs.readFileSync(source+'/package.json')),lock=JSON.parse(fs.readFileSync(source+'/package-lock.json'));
  for(const hook of hooks)assert.equal(pkg.scripts[hook],undefined,hook);assert.equal(lock.packages[''].hasInstallScript,undefined);

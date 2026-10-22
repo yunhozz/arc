@@ -1,6 +1,6 @@
 {
   "name": "@yunhozz/arc",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -37,7 +37,9 @@
     "claude/skill/",
     "claude/agents/",
     "MANIFEST.sha256",
-    "install.command"
+    "install.command",
+    "!**/__pycache__/**",
+    "!**/*.pyc"
   ],
   "repository": {
     "type": "git",
