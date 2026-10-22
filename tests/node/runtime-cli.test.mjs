@@ -62,3 +62,7 @@ test('workflow CLI cannot accept a passing report without exact current task evi
  r=run(['prepare',...base,'--input','-'],JSON.stringify({requestId:'accept',expectedRevision:1,actor,operation:'accept',taskId:'T1',arguments:{messageRef:'accepted',criteria:['works'],checkIds:[],findingIds:[],changeFingerprint:'sha256:'+'a'.repeat(64)}}));assert.equal(r.status,3,r.stdout);
  r=run(['status',...base]);const state=JSON.parse(r.stdout).state;assert.equal(state.acceptances.length,0);assert.equal(state.commits.length,0);assert.equal(state.intents.length,0);
 });
+test('workflow CLI refuses credential-bearing external approval before persistence',()=>{
+ const secret='https://user:private-value@example.com/repo';const r=run(['record','--cwd',process.cwd(),'--workflow','external-secret','--input','-'],JSON.stringify({requestId:'secret',expectedRevision:0,actor:{id:'operator',role:'orchestrator'},evidence:{kind:'external-approval',messageRef:'approval',data:{destination:secret}}}));
+ assert.equal(r.status,1);assert.match(JSON.parse(r.stdout).error,/Secret-free/);assert.ok(!r.stdout.includes('private-value'));assert.equal(r.stderr,'');
+});

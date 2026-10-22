@@ -1,3 +1,5 @@
+import {evaluateCooperativeExternal,reconcileCooperativeExternal,EXTERNAL_ACTIONS,unresolvedExternal} from './external.mjs';
+export {evaluateCooperativeExternal,reconcileCooperativeExternal};
 import {evaluateCooperativeAcceptance,prepareCooperativeCommit} from './acceptance.mjs';
 import {evaluateCooperativeVerification} from './verification.mjs';
 import {prepareCooperativeAssignment} from './assignment.mjs';
@@ -116,7 +118,10 @@ export function evaluateCooperative({policy,state,request,evidence}={}){
  if(!evidence||!same(evidence.target,state.target))return hold('cooperative.target','Observed target changed');
  if(!same(evidence.versions,state.versions))return hold('cooperative.versions','Policy or runtime changed');
  if(request.input&&request.input.expectedRevision!==state.revision)return hold('cooperative.revision','Stale revision');
+ if(request.command==='record'&&request.input.evidence.kind==='external-approval'&&request.input.actor.role!=='orchestrator')return hold('cooperative.external-approval','Orchestrator records explicit external approval');
  if(request.command==='prepare'){
+  if(unresolvedExternal(state))return hold('cooperative.external-unresolved','Investigate unresolved external effects before follow-up');
+  if(EXTERNAL_ACTIONS.includes(request.input.operation))return evaluateCooperativeExternal({state,request:request.input,approvalEvidence:state.records.findLast(r=>r.kind==='external-approval'&&r.messageRef===request.input.arguments?.approvalRef)});
   if(request.input.operation==='accept')return evaluateCooperativeAcceptance({state,request:request.input,evidence});
   if(request.input.operation==='commit')return prepareCooperativeCommit({state,request:request.input,evidence,gitEvidence:evidence.git});
   return request.input.operation==='assign-agent'?prepareCooperativeAssignment({policy,state,request:request.input,observations:{target:evidence.target,git:evidence.git}}):evaluateCooperativeVerification({state,request:request.input,evidence});

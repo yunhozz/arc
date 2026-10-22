@@ -1,3 +1,4 @@
+import {assertSecretFree} from './external.mjs';
 import {object,text} from './schema.mjs';
 import {absolute,validateWorkflowId} from './scope.mjs';
 const fail=message=>{throw Error('Cooperative schema: '+message);};
@@ -8,7 +9,7 @@ const statement=value=>object(value)&&text(value.messageRef)&&object(value.data)
 function fields(value,allowed){if(!object(value)||Object.keys(value).some(k=>!allowed.includes(k)))fail('unexpected input field');}
 function json(value){try{const encoded=JSON.stringify(value);if(encoded===undefined)fail('JSON input');}catch{fail('JSON input');}}
 export function validateCooperativeCommand(command){
- fields(command,['command','input']);const {input,command:name}=command;
+ assertSecretFree(command);fields(command,['command','input']);const {input,command:name}=command;
  if(!['init','record','status','reconcile','prepare','result'].includes(name))fail('command');
  if(name==='status'){if(input!==undefined)fail('status takes no input');return command;}
  const resultStatement=name==='reconcile'||name==='result'&&input?.operation===undefined;
@@ -23,7 +24,7 @@ export function validateCooperativeCommand(command){
  if(name==='record'){
   fields(input.evidence,['kind','messageRef','data']);
   if(input.evidence?.data?.affectedTaskIds!==undefined&&(!Array.isArray(input.evidence.data.affectedTaskIds)||!input.evidence.data.affectedTaskIds.every(text)||new Set(input.evidence.data.affectedTaskIds).size!==input.evidence.data.affectedTaskIds.length))fail('affected task IDs');
-  if(!statement(input.evidence)||!['note','approval','document','scope','check','finding','review','acceptance-evidence'].includes(input.evidence.kind))fail('evidence');
+  if(!statement(input.evidence)||!['note','approval','external-approval','document','scope','check','finding','review','acceptance-evidence'].includes(input.evidence.kind))fail('evidence');
  }
  if(resultStatement){
   fields(input.result,['status','messageRef','data','notExecutedEvidence']);
@@ -49,5 +50,5 @@ export function validateCooperativeState(state){
  if(state.requests.some(r=>!text(r.requestId)||!hash(r.requestFingerprint)||!object(r.decision))||new Set(state.requests.map(r=>r.requestId)).size!==state.requests.length)fail('request replay');
  if(state.intents.some(i=>!text(i.requestId)||!['prepared','succeeded','failed','unknown','mismatch','cancelled'].includes(i.status)||!hash(i.fingerprint))||new Set(state.intents.map(i=>i.requestId)).size!==state.intents.length)fail('intents');
  if(state.results.some(r=>!text(r.requestId)||!['succeeded','failed','unknown','mismatch','cancelled'].includes(r.status)||r.source!=='operator-attested'||!object(r.data)))fail('results');
- json(state);return state;
+ assertSecretFree(state);json(state);return state;
 }

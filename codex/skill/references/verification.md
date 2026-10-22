@@ -269,3 +269,47 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]
+
+
+## 협력 CLI의 외부 작업과 복구
+
+세 phase는 상태·문서·배정, scope·검증·수용 및 집중 commit, 외부 승인·결과·audit 복구를 지원한다.
+`status.support`에서 아홉 영역과 한계를 조회한다. 지원 mode는 spec+plan의 `plan`이며 no-plan·생략은
+unsupported다. CLI는 native/provider 호출이나 push·merge·deploy·publish를 실행하지 않는다.
+운영자가 확인한 사용자 승인과 실행 결과는 `operator-attested`, `nativeVerified: false`,
+`remoteVerified: false`다. CLI 밖 직접 호출 차단과 원격 독립 검증은 제공하지 않는다.
+
+Orchestrator는 이미 확인한 명시 승인을 `record`의
+`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`로 기록한다.
+`scope`는 checkout 안의 중복 없는 절대 경로 배열이다. 로컬 commit 승인은 외부 작업 승인이 아니다.
+승인에 정확한 action·scope·대상을 포함하고 다음 descriptor 필드를 빠짐없이 기록한다.
+
+| operation | descriptor 필드 |
+|---|---|
+| push | repository, destination, refspec, sourceOid, expectedRemoteOid |
+| merge | repository, changeRef, targetRef, expectedTargetOid |
+| deploy | service, project, environment, artifactId, destination |
+| publish | service, namespace, name, version, artifactHash, destination |
+
+Git OID는 전체 40/64자리 소문자 hex, artifactHash는 `sha256:<64-hex>`다. 원격 관찰이 없는 OID는
+사용자가 진술한 기대값이며 검증된 원격 상태가 아니다. destination은 비밀정보 없는 식별자여야 한다.
+URL userinfo·query·fragment와 password·token·credential 등 인증정보를 입력하지 않는다.
+CLI는 인식한 credential 입력을 저장 전에 거부하지만 모든 임의 문자열의 비밀 여부를 판별할 수는 없다.
+
+`prepare`에 `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
+arguments: {approvalRef, scope, descriptor}}`를 전달한다. approvalRef는 외부 승인 messageRef와 같다.
+정확한 승인·scope/target 버전·runtime 버전이 맞고 미해결 효과가 없을 때만 intent를 저장한다.
+`allow`와 `persisted: true`를 확인한 후 실제 외부 수행은 별도 승인 범위에서 Orchestrator가 담당한다.
+이 CLI는 그 실행 권한을 확대하지 않는다.
+
+`result`/`reconcile`은 `{requestId, expectedRevision, actor, intentId,
+result: {status, messageRef, data: {operation, scope, descriptor}}}`를 받는다. intentId는 prepare requestId다.
+대상 불일치·unknown·stale 결과는 hold이며 과거 진술을 보존한다. 중단 후 `status`로 intent와
+`state.requests`·`state.audit`·`state.results`를 조회하고 실제 발생 여부를 조사한다. 새 prepare나 같은
+승인으로 재실행하지 말고 같은 intent에 조사 결과를 `reconcile`한다. 취소에는 실행하지 않았다는
+`notExecutedEvidence: {messageRef}` 진술이 추가로 필요하다. 취소 뒤에도 해당 승인은 소모된 기록으로 남는다.
+버전 drift는 자동 갱신·migration·재허가로 해소하지 않는다. hold 원인을 Orchestrator에게 보고한다.
+
+결과가 succeeded여도 운영자의 결과 진술이며 독립 remote verification이 아니다. `audit`에는
+request→decision→intent→result→resolution의 연결이 남지만 로컬 수정 가능한 기록이며 변조 불가능한
+보안 증거가 아니다. 실제 외부 결과가 불확실하면 재시도하지 않는다.

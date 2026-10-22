@@ -112,3 +112,7 @@ test('cooperative evaluator does not accept free-form check/review claims or bro
  }
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });
+test('cooperative external authorization never changes trusted external provenance requirements',()=>{
+ const a=setup('orchestrator','push');a.r.descriptor={repository:'repo',destination:'origin'};a.s.records=[{kind:'external-approval',source:'operator-attested',messageRef:'operator',data:{operation:'push'}}];
+ assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');
+});

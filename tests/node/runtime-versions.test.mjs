@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 
-// Independent T4 contract: omission, reordering or unhashed gate bytes must fail.
+// Independent T5 contract: omission, reordering or unhashed gate bytes must fail.
 const expectedModules = [
  'bootstrap.mjs', 'cooperative-schema.mjs', 'cooperative.mjs', 'evaluate.mjs',
- 'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs'
+ 'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs', 'external.mjs'
 ];
 for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/runtime/']) {
- test(`${runtime} freezes the ordered T4 inventory and hashes every raw module Buffer`, async () => {
+ test(`${runtime} freezes the ordered T5 inventory and hashes every raw module Buffer`, async () => {
   const directory = new URL('../../' + runtime, import.meta.url);
   const api = await import(new URL('bootstrap.mjs', directory));
   assert.deepEqual(api.COOPERATIVE_RUNTIME_MODULES, expectedModules);
