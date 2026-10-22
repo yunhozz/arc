@@ -393,3 +393,323 @@ Bash는 생성되는 completion script와 동작을 검증한다. Bash 시작 �
 - 안전한 private handoff의 전송 형태.
 - 설정 snapshot과 결과를 내부에서 표현하는 자료형.
 - 성공 문구 외의 세부 진단 문장과 테스트 fixture 구성.
+
+---
+
+## Amendment 1 — 2026-10-22
+
+# 배포 artifact 전용 설치 hook 개정안
+
+이 개정은 `/Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/specs/2026-10-21-npm-global-install-upgrade-completion-design.md`의 설치 hook 배치·package 생성·배포 workflow 계약을 변경한다. 아래에서 변경한 사항 외에는 기존 승인 spec을 유지한다.
+
+## 1. 개정 근거와 대상 상태
+
+사용자는 registry 배포 artifact에만 설치 hook을 포함하는 A안을 선택했다.
+
+기존 source `package.json`에 `postinstall`을 등록하는 방식은 npm 10.9.4의 Git 전역 설치·재설치에서 회귀를 일으켰다. npm의 Git preparation이 상속된 global 설정으로 중첩 설치를 수행하면서 최종 CLI가 임시 clone을 가리키고, clone 정리 후 executable이 사라지는 문제가 재현되었다. hook 본문에서 실행 조건을 검사하는 것으로는 이 준비 단계를 막을 수 없다.
+
+로컬 npm 10.9.4 source와 Orchestrator의 실험으로 다음을 확인했다.
+
+- GitFetcher는 `postinstall`, `build`, `preinstall`, `install`, `prepack`, `prepare` 등의 존재를 preparation 조건으로 검사한다.
+- directory publish에서는 `prepublishOnly`와 pack lifecycle을 실행한다.
+- publish는 pack과 `postpack` 이후 directory의 package metadata를 다시 읽는다.
+- 따라서 source에 임시로 hook을 주입하고 `postpack`에서 복원하면 tarball과 registry metadata가 서로 달라질 수 있다.
+- tarball publish는 tarball 자체에서 metadata를 읽고 source directory의 `prepublishOnly`를 실행하지 않는다.
+- 기록된 배포 경로인 `.github/workflows/npm-publish.yml`은 현재 root directory의 `npm publish`를 실행한다.
+
+개정 대상은 다음과 같다.
+
+| 항목 | 상태 |
+|---|---|
+| Repository | `/Users/ma-24-007/Desktop/workspace/arc` |
+| Branch | `feat/arc-install-upgrade-completion` |
+| 현재 HEAD | `70865bbf0854cde38e9c7532b2045af7ce438188` — T1 commit |
+| 기존 승인 문서 기록 | `95d3b09` |
+| 구현 상태 | T2 변경은 미수용·uncommitted이며 새 Coder가 조정할 예정 |
+| README | 변경 없음, 계속 수정 제외 |
+
+현재 미수용 source `postinstall` 등록은 개정 계약에 맞춰 수정해야 한다. 이를 기존 Git 지원 중단의 승인으로 해석하지 않는다.
+
+## 2. 기존 spec에서 변경되는 사항
+
+| 기존 계약 | 개정 계약 |
+|---|---|
+| source `package.json`에 설치 postinstall 등록 | source에는 lifecycle hook을 등록하지 않음 |
+| source package와 registry package가 같은 metadata를 사용 | 생성한 registry artifact에만 postinstall 및 그에 맞는 metadata·manifest 포함 |
+| root package를 그대로 배포 | 명시적인 staging generator로 검증된 `.tgz` 생성 |
+| workflow의 root `npm publish` | 같은 배포 guard를 유지하고 생성한 `.tgz`만 publish |
+| package 테스트가 하나의 형태를 검사 | Git source package와 registry artifact의 계약을 각각 검사 |
+| hook 조건으로 Git preparation 보호 | source hook 부재로 preparation 회귀를 피하고 실제 Git consumer로 검증 |
+
+사용자 설치 명령과 기존 chooser·upgrade·completion의 목표는 변경하지 않는다.
+
+```sh
+npm i -g @yunhozz/arc
+```
+
+위 명령이 받는 registry artifact에는 설치 hook이 있으므로 승인된 대화형 설치를 수행한다.
+
+Git URL 전역 설치는 기존처럼 CLI를 설치하며 자동 harness 설치 hook을 실행하지 않는다. 설치·재설치 후 executable이 유지되어야 한다.
+
+## 3. Git source package 계약
+
+source checkout의 `package.json`에는 다음 lifecycle hook을 추가하지 않는다.
+
+```text
+preinstall
+install
+postinstall
+prepublish
+prepare
+prepublishOnly
+prepack
+postpack
+publish
+postpublish
+preuninstall
+uninstall
+postuninstall
+```
+
+GitFetcher preparation을 유발하는 일반 `build` script나 `workspaces`도 이번 변경에서 추가하지 않는다. 기존 `build:native` 등 명시적으로 호출하는 script는 유지한다.
+
+release artifact 생성용 일반 script는 추가할 수 있다.
+
+```sh
+npm run pack:release -- --out-dir <absolute-output-directory>
+```
+
+이는 npm lifecycle hook이 아니다. Git 설치 과정에서 자동 실행되지 않는다.
+
+`scripts/postinstall.mjs`와 지원 모듈은 source에 존재할 수 있으나 source package의 install lifecycle에는 연결하지 않는다.
+
+source `package-lock.json`의 root package metadata에는 `hasInstallScript`를 추가하지 않는다. source package의 name·version·bin·dependencies 등 기존 일치 계약은 유지한다.
+
+## 4. package 전용 staging 모델
+
+### 4.1 생성 명령과 산출물
+
+generator는 명시적인 절대 output directory를 받아 다음을 생성한다.
+
+```text
+<output-directory>/arc-release.tgz
+<output-directory>/arc-release.json
+```
+
+receipt에는 최소한 다음을 기록한다.
+
+- package name과 version.
+- 완성 tarball의 절대 경로.
+- tarball의 검증용 digest.
+- source snapshot 또는 revision을 식별할 근거.
+- 생성 및 최종 artifact 검증 결과.
+
+receipt와 임시 staging 정보는 package 내부에 넣지 않는다. 인증 정보·전체 환경·사용자 설정을 저장하지 않는다.
+
+output directory는 source repository 바깥에 있어야 한다. source 내부나 source로 연결되는 symlink 경로는 거부한다.
+
+### 4.2 source 무변경
+
+generator는 source를 입력으로만 읽는다.
+
+- source `package.json`, `package-lock.json`, `MANIFEST.sha256`를 임시로도 수정하지 않는다.
+- `prepublishOnly` 주입과 `postpack` 복구 방식을 사용하지 않는다.
+- README를 수정하지 않는다.
+- Git 상태를 변경하지 않는다.
+- generator가 처리하는 source 입력은 기존 manifest 및 package 일관성 검증을 통과해야 한다.
+- 필요한 파일을 독립된 staging 디렉터리로 복사하고, 변환은 복사본에서만 수행한다.
+- staging 디렉터리가 source 파일을 hardlink 또는 symlink로 공유해 변환이 source에 전파되지 않게 한다.
+
+생성 과정에서 source 입력이 달라진 것이 발견되면 결과를 승인된 release artifact로 내보내지 않는다.
+
+### 4.3 staging package 변환
+
+staging package는 source의 package identity·version·bin·런타임 dependency·공개 배포 설정을 유지한다.
+
+staging `package.json`에만 다음을 등록한다.
+
+```json
+{
+  "scripts": {
+    "postinstall": "node scripts/postinstall.mjs"
+  }
+}
+```
+
+위 표기는 추가할 lifecycle 항목을 나타낸다. 필요한 기존 일반 script를 모두 삭제한다는 의미는 아니다.
+
+그 외 lifecycle hook은 추가하지 않는다. generator가 install·publish를 재귀 호출하지 않도록 한다.
+
+staging lock metadata는 변환된 package에 맞춘다.
+
+- root package의 `hasInstallScript`는 true이다.
+- name·version·bin·dependency 정보는 staging package와 일치한다.
+- source lockfile은 변경되지 않는다.
+- 새 dependency를 설치하거나 network로 lockfile을 재해결하지 않는다.
+
+npm이 `package-lock.json`을 일반 tarball에서 제외하는 기존 동작을 바꾸지 않는다. staging lock 검증과 실제 설치 consumer가 생성한 lock metadata 검증을 구분한다.
+
+### 4.4 manifest와 완성 tarball 검증
+
+staging package 변환을 완료한 후 기존 manifest generator를 사용해 **staging 전용 `MANIFEST.sha256`**를 생성한다.
+
+- source manifest를 그대로 재사용하지 않는다.
+- artifact의 `package.json` hash는 postinstall이 포함된 실제 artifact bytes와 일치해야 한다.
+- lifecycle 진입점·지원 모듈·기존 native artifact가 포함되어야 한다.
+- 기존 payload 검증과 보호 대상 정책을 완화하지 않는다.
+- README는 source와 같은 내용으로 포함한다.
+- 임시 backup·journal·receipt·staging 경로는 tarball에 포함하지 않는다.
+
+staging을 npm으로 pack할 때 lifecycle을 억제한다. source 또는 staging에서 install·prepare·publish 작업을 실행하지 않는다.
+
+완성된 tarball을 별도 검증 디렉터리에서 검사하여 다음을 확인한 후에만 최종 산출물로 인정한다.
+
+1. 실제 tarball의 package identity·version·postinstall.
+2. 필요한 파일과 안전한 archive 경로.
+3. 실제 tarball bytes를 기준으로 한 manifest 검증.
+4. staging package/lock과의 metadata 일치.
+5. source package와 달라져야 하는 항목 및 유지되어야 하는 항목.
+6. source 파일이 변경되지 않았다는 근거.
+
+npm pack의 metadata 정규화로 hash가 달라지면 검증을 건너뛰지 않는다. source를 수정하지 않는 범위에서 staging 생성 방법을 고쳐야 한다.
+
+## 5. 오류·중단·복구
+
+source 파일을 변경하지 않으므로 성공·실패·취소 뒤 source 복구를 위한 lifecycle에 의존하지 않는다.
+
+| 상황 | 계약 |
+|---|---|
+| 정상 생성 | 검증된 tarball과 receipt 제공, source 불변 |
+| 변환·pack·검증 실패 | 실패 종료, 해당 결과를 release-ready로 표시하지 않음 |
+| 처리 가능한 signal·예외 | 소유한 staging을 정리하고 실패·취소 보고 |
+| SIGKILL·프로세스 crash | source 불변. 남은 staging·부분 산출물은 미완성 상태 |
+| 다음 생성 | 미완성 결과를 자동 재사용하지 않고 새 생성·검증 수행 |
+| output 충돌·동시 실행 | 서로의 산출물을 덮어쓰거나 정리하지 않음 |
+
+정리는 generator가 소유한 것으로 확인된 임시 경로에 한정한다. 임의 output directory 전체를 삭제하지 않는다.
+
+부분 파일을 완성 tarball로 오인하지 않도록 임시 이름과 최종 이름을 구분한다. 최종 tarball과 receipt의 digest가 일치하지 않으면 실패로 처리한다.
+
+기존 미수용 T2 작업으로 source에 등록된 postinstall을 제거하는 것은 구현 수정이다. generator 실행 중 source를 주입·복구하는 기능으로 구현하지 않는다.
+
+## 6. GitHub Actions release 경로 변경
+
+`.github/workflows/npm-publish.yml`을 개정 범위에 포함한다.
+
+기존 eligibility·version·latest·출처 확인 및 provenance 관련 guard를 유지한다. trigger, 승인 조건, identity, 권한 또는 registry 범위를 packaging 변경을 이유로 확대하지 않는다.
+
+release job은 다음 흐름을 사용한다.
+
+1. 기존 release eligibility·version·latest guard 실행.
+2. source package가 lifecycle-free이고 source manifest가 유효한지 확인.
+3. runner 임시 디렉터리에 release artifact 생성.
+4. receipt·tarball의 name·version·digest와 배포 대상 version 일치 확인.
+5. 생성한 tarball만 기존 registry·access·provenance 조건으로 publish.
+
+향후 workflow의 게시 대상은 다음 형태다.
+
+```sh
+npm publish "$RUNNER_TEMP/arc-release/arc-release.tgz" --access public --provenance --registry <existing-registry>
+```
+
+`<existing-registry>`는 기존 workflow 값을 유지한다. 실제 YAML은 기존 guard와 명령 옵션을 보존해 작성한다.
+
+root `npm publish`로 되돌아가는 fallback을 두지 않는다. artifact 생성이나 검증이 실패하면 publish 단계로 진행하지 않는다.
+
+이 변경은 **향후 automation 파일을 수정하는 작업**이다. 이번 작업에서 workflow dispatch, 실제 publish, push, release 생성 또는 registry 변경은 수행하지 않는다.
+
+## 7. 설치·upgrade·completion과의 관계
+
+### registry artifact
+
+postinstall이 포함된 생성 artifact에 기존 승인 spec의 대화형 설치 계약을 적용한다.
+
+- macOS/Linux에서 허용된 global lifecycle과 터미널 조건을 확인한다.
+- 기본 npm stdio가 TTY가 아니면 `/dev/tty`를 사용한다.
+- 기존 chooser와 설치기를 실행한다.
+- 성공 시 실제 package 버전을 표시한다.
+- no-terminal·CI·local/npx preparation 및 script 차단 조건을 유지한다.
+
+### Git source
+
+source Git 설치에는 install lifecycle hook이 없으므로 자동 chooser를 실행하지 않는다.
+
+상속된 global 설정 아래 실제 Git 설치·재설치에서 CLI executable, `--version`, completion이 유지되어야 한다. global prefix 조작이나 GitFetcher 내부 환경 변경으로 회귀를 감추지 않는다.
+
+### upgrade
+
+전역 upgrade가 registry에서 받는 package는 생성 artifact와 같은 배포 형태여야 한다. 기존 승인대로 내부 package 교체에서는 `--ignore-scripts`를 적용하고 새 CLI가 harness 갱신을 수행한다.
+
+npx의 harness-only 의미, 설정 보존, 부분 실패·재실행 복구, completion 동작은 변경하지 않는다.
+
+## 8. 검증 범위와 publish 금지
+
+이번 개정 검증에서 `npm publish`를 실제 실행하지 않는다. `npm publish --dry-run`도 필수 검증 수단으로 사용하지 않는다. publish lifecycle 순서에 관한 기존 실험은 근거로 보존한다.
+
+필요한 검증은 다음과 같다.
+
+- staging generator의 변환·오류·취소·crash 테스트.
+- source와 완성 tarball의 metadata·manifest 검사.
+- 생성 tarball의 실제 npm install consumer 및 PTY 검증.
+- source Git 설치·재설치의 실제 consumer 검증.
+- workflow가 검증된 tarball만 게시 대상으로 삼고 기존 guard·provenance 조건을 유지하는지 확인.
+
+실제 npm 설치 테스트는 임시 HOME·prefix·cache·npmrc에서 수행한다. 생성 tarball의 offline 설치와 통제된 외부 skill fixture를 사용해 외부 registry 접속 없이 검증한다. registry metadata 기반 consumer가 필요하면 격리된 로컬 fixture만 사용하며, 실제 registry에는 연결하지 않는다.
+
+자동화의 실제 registry publish와 provenance 생성 성공은 이번 검증에서 입증되지 않는 범위로 남긴다. workflow 구조 검사가 실제 게시 성공을 증명한다고 보고하지 않는다.
+
+## 9. 수용 기준 변경·추가
+
+기존 AC-01~15는 유지하되, registry 설치 검증에는 **생성한 release artifact**를 사용한다. Git source 설치는 별도의 보호 계약으로 확인한다.
+
+기존 AC-16을 다음으로 교체한다.
+
+| ID | 기준 |
+|---|---|
+| AC-16 | source와 release artifact 각각의 package·lock metadata·manifest가 해당 형태에 맞고, 필요한 파일이 tarball에 포함되며 README 내용 변경 없음 |
+
+다음 기준을 추가한다.
+
+| ID | 기준 |
+|---|---|
+| AC-17 | source package에는 lifecycle hook 및 새 Git preparation trigger가 없고, 실제 Git global 설치·재설치 후 CLI와 version/completion이 유지됨 |
+| AC-18 | 생성 artifact에만 승인한 postinstall이 존재하고, 실제 tarball package bytes로 manifest 검증 통과 |
+| AC-19 | 생성 성공·실패·취소·강제 중단에서 source `package.json`, lockfile, manifest 및 README 불변 |
+| AC-20 | 미완성·충돌·digest 불일치 산출물을 release-ready로 사용하지 않고, 재실행과 소유 staging 정리가 안전함 |
+| AC-21 | 생성 artifact의 macOS/Linux 실제 npm lifecycle PTY 설치가 기존 대화형 설치·취소·복구 기준을 충족 |
+| AC-22 | workflow가 기존 eligibility·version·latest·provenance·registry guard를 유지하고, 생성·검증한 `.tgz`만 publish 대상으로 사용 |
+| AC-23 | 이번 구현·검증에서 실제 publish·workflow 실행·외부 registry 변경·push·README 수정 없음 |
+
+Linux 도구나 runner가 없으면 AC-21의 Linux 부분은 미검증으로 기록한다. source/Git 통과 또는 macOS 통과로 대체하지 않는다.
+
+## 10. 영향 파일과 소유권
+
+기존 T2의 package·lifecycle·consumer 변경에 다음 책임이 추가된다.
+
+- source와 artifact metadata 분리.
+- 명시적 release artifact generator.
+- staging·manifest·source 불변·오류 복구 테스트.
+- generated artifact 기반 npm consumer/PTY fixture.
+- `.github/workflows/npm-publish.yml`의 tarball 대상 전환.
+
+T1의 수용된 실행 문맥·설정 보존 API는 유지한다. T3는 generated artifact를 소비하도록 fixture 의존성이 변경되지만 upgrade의 제품 의미는 바꾸지 않는다.
+
+현재 미수용 T2 변경 전체는 fresh Coder가 조정한다. 기존 변경 목록에 포함된 `tests/node/fixtures/instruction-contracts.json`은 이 개정으로 자동 승인되는 변경이 아니다. 직접 관련성을 확인하고 불필요한 변경을 남기지 않는다.
+
+정확한 파일 분리·task 소유권·명령·QA gate는 이 spec amendment 승인 후 plan amendment에서 확정한다.
+
+## 11. 남은 위험과 보류 조건
+
+- 최종 tarball 정규화 때문에 manifest가 실제 bytes와 맞지 않으면 생성 완료로 처리하지 않는다.
+- 생성 artifact의 hook 또는 `hasInstallScript` 정보가 실제 npm consumer에서 기대대로 취급되지 않으면 중단한다.
+- Git source 설치 회귀가 남으면 환경 변수를 조작해 통과시키지 않는다.
+- workflow 전환이 기존 release guard나 provenance identity를 약화해야 한다면 Orchestrator에게 반환한다.
+- source 파일 임시 변경 없이는 생성할 수 없는 구현으로 바뀌면 이 개정의 핵심 계약과 충돌하므로 중단한다.
+- 실제 publish·외부 접속이 필요하다는 검증 요구가 발생하면 이번 승인 범위를 넘어선다.
+- 자동 생성 artifact와 기존 registry 배포물의 일치 여부는 실제 publish 없이 확인한 범위까지만 보고한다.
+
+이 개정은 spec 변경이다. 저장된 개정 spec의 사용자 승인, 후속 plan amendment 작성·승인 및 필요한 문서 gate를 마친 뒤 구현을 재개한다.
+
+### 승인 상태
+
+사용자가 2026-10-22에 배포 artifact 전용 설치 hook 개정안을 승인했다.

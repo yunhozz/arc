@@ -662,3 +662,246 @@ runUpgradeChild({entryPath, request, env, cwd, signal})
 - AC별 `proven / unmet / unverified`.
 - QA finding과 수정·재검증 결과.
 - 보류 조건 발생 여부.
+## 구현 계획 개정 1 — 배포 artifact 전용 설치 hook
+
+이 절은 기존 **T2·T3와 최종 검증 절을 대체**한다. 승인 spec의 `Amendment 1 — 2026-10-22`가 우선하며, T1은 `70865bbf0854cde38e9c7532b2045af7ce438188`에서 수용·commit된 상태로 유지한다.
+
+대상은 `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치는 `feat/arc-install-upgrade-completion`이다. 현재 T2 변경은 모두 미수용이다. 새 Coder는 기준 HEAD와 대조해 조정하며, 기존 변경이나 과거 PTY 통과를 승인·회귀 해소 근거로 간주하지 않는다.
+
+### 공통 gate와 제약
+
+- 개정 plan의 저장·검토·사용자 승인, 승인 문서 batch commit과 공통 handoff gate 완료 전 구현을 재개하지 않는다.
+- source는 lifecycle-free이며 새 `build`·`workspaces`도 추가하지 않는다. source lock root의 `hasInstallScript`는 부재한다.
+- artifact에만 `postinstall: "node scripts/postinstall.mjs"`와 일치하는 metadata·manifest를 포함한다.
+- README, package version, T1의 수용된 구현을 임의로 변경하지 않는다.
+- 실제 publish와 publish dry-run, workflow dispatch, 외부 network·registry 접속, push·merge·release 생성을 실행하지 않는다. consumer registry는 loopback fixture만 사용한다.
+- macOS/Linux 실제 PTY가 필요하다. mock·skip·과거 결과로 대체하지 않는다.
+- task별 fresh Coder → fresh QA → Orchestrator 수용·focused commit을 적용한다. Reviewer는 최종 전체 변경에 한 번만 배정한다.
+- `MANIFEST.sha256`는 T2에서 T3로 순차 독점 인수한다. T2와 T3는 병렬 실행하지 않는다.
+
+## T2. source 보존형 artifact와 대화형 npm 설치
+
+**목표:** Git source 설치를 유지하고, 생성 artifact의 대화형 lifecycle·metadata·manifest·배포 workflow를 하나의 검증 가능한 계약으로 완성한다.
+
+**선행:** T1 수용·commit. **위험:** significant. **commit 단위:** 아래 전체를 한 task로 수용한다.
+
+### 파일 소유권
+
+현재 미수용 변경을 인수·조정한다.
+
+```text
+MANIFEST.sha256
+package.json
+package-lock.json
+lib/cli/choices.mjs
+lib/cli/index.mjs
+lib/cli/postinstall.mjs
+lib/cli/terminal.mjs
+scripts/postinstall.mjs
+tests/node/cli-pty.test.mjs
+tests/node/consumer.test.mjs
+tests/node/fixtures/instruction-contracts.json
+tests/node/fixtures/npm-sandbox.mjs
+tests/node/npm-completion-consumer.test.mjs
+tests/node/package.test.mjs
+tests/node/npm-lifecycle-pty.test.mjs
+tests/node/npm-lifecycle.test.mjs
+tests/node/terminal.test.mjs
+```
+
+추가 소유 파일:
+
+```text
+lib/release/artifact.mjs
+scripts/pack-release.mjs
+scripts/verify-release.mjs
+tests/node/release-artifact.test.mjs
+tests/node/release-artifact-process.test.mjs
+tests/node/npm-publish-workflow.test.mjs
+.github/workflows/npm-publish.yml
+```
+
+source-root hook을 제거하고 관련 없는 fixture/hash 변경은 남기지 않는다. `instruction-contracts.json` 변경은 직접 필요성을 입증해야 한다. 다른 소유자의 변경은 임의로 되돌리지 않는다.
+
+### 인터페이스와 생성 계약
+
+일반 script만 추가한다.
+
+```sh
+npm run pack:release -- --out-dir <absolute-output-directory>
+node scripts/verify-release.mjs --out-dir <absolute-output-directory> --name @yunhozz/arc --version <expected-version>
+```
+
+산출물은 `arc-release.tgz`, `arc-release.json`이다.
+
+```text
+buildReleaseArtifact({sourceRoot,outDir,npmCli,signal,deps})
+ -> {tarballPath,receiptPath,name,version,sha512,sourceSnapshot}
+
+verifyReleaseArtifact({outDir,expectedName,expectedVersion})
+ -> verified receipt
+```
+
+receipt는 `schema:1`, name·version·tarballPath·소문자 hex sha512·sourceSnapshot·`verified:true`를 기록한다. verifier는 receipt flag를 신뢰하지 않고 tarball을 다시 검사한다.
+
+- source manifest·package·lock을 먼저 검증한다.
+- repository 밖 private staging에 실제 복사한다. hardlink·symlink 공유와 source 임시 변경을 금지한다.
+- staging package에만 정확한 postinstall을 등록하고 staging lock root는 `hasInstallScript=true`로 맞춘다. dependency 설치·network 재해결은 하지 않는다.
+- staging manifest를 재생성하고 lifecycle·network를 억제해 pack한다.
+- 별도 extraction에서 archive 경로·package bytes·payload manifest·필수 파일을 검증한다. tarball에서 제외되는 lock과 staging lock 검사는 구분한다.
+- 관련 source bytes의 정렬된 snapshot을 전후 대조한다. HEAD만으로 불변을 판단하지 않는다.
+- 검증 후 tarball을 확정하고 receipt를 마지막에 기록한다.
+- source 내부·상대·symlink output, 기존 최종 파일, 소유권 충돌을 거부한다.
+- 실패·취소는 소유 staging만 정리한다. SIGKILL 잔여물과 receipt 없는 결과는 미완성으로 남기며 자동 재사용·임의 삭제하지 않는다.
+
+### TDD와 구현 순서
+
+- [ ] **RED:** source hook/flag 부재, artifact의 정확한 hook, staging lock·실제 tarball manifest 일치, 변조·pack 정규화 검출을 작성한다.
+- [ ] **RED:** source 변경 race, pack/검증 실패, SIGINT·SIGKILL, 동시 실행·output 충돌, 재실행·source 불변을 작성한다.
+- [ ] 신규 동작 부재 실패를 기록한다.
+
+```sh
+node --test tests/node/release-artifact.test.mjs tests/node/release-artifact-process.test.mjs
+```
+
+- [ ] generator·verifier를 구현하고 source/package 테스트를 source와 artifact로 분리한다.
+- [ ] `0.1.0` 고정 기대 drift는 별도 기록 후 package/lock 일치 계약으로 조정한다. package version을 올리지 않는다.
+- [ ] 기존 terminal·postinstall은 artifact에서만 연결한다. chooser 순서·defaults·limits, 상대 `CODEX_HOME`, CI/no-terminal/Windows/local/npx 준비 분기, 실제 버전 성공 문구를 유지한다.
+- [ ] EOF·Ctrl+C·단절·오류에서 raw mode·descriptor·listener를 복원하고 부분 실패를 성공으로 숨기지 않는다.
+
+fixture는 다음 두 경로를 구분한다.
+
+```text
+packSourceFixture(sourceRoot,options) -> lifecycle-free source tarball
+packReleaseFixture(sourceRoot,options) -> generated tarball/metadata/receipt
+```
+
+테스트용 version·extra file 변경은 임시 source 복사본에서 package/lock·source manifest를 함께 맞춘 뒤 generator에 전달한다. registry fixture metadata는 실제 tarball에서 읽는다.
+
+### workflow 계약
+
+기존 `master`/package 경로 trigger, enable 변수, concurrency, previous-version·stable·lock·latest·이미 게시됨 guard, checkout credential 비저장, Node/npm setup과 `contents:read`·`id-token:write`를 유지한다.
+
+source manifest 검사 → `$RUNNER_TEMP/arc-release` 생성 → expected name/version/digest 검증 → tarball publish 순서로 변경한다. 향후 workflow에만 다음 명령을 기록한다.
+
+```sh
+npm publish "$RUNNER_TEMP/arc-release/arc-release.tgz" --access public --provenance --registry https://registry.npmjs.org/
+```
+
+root publish fallback은 없다. 로컬 테스트는 YAML guard·권한·순서와 검증 실패 시 게시 단계 미진입을 검사하며 publish는 호출하지 않는다.
+
+workflow의 npm 11 실행은 npm 10.9.4 증거로 입증하지 않는다. 기존 로컬 npm 11이 있으면 offline pack/consumer를 확인하고, 없으면 실제 npm 11 실행은 미검증으로 보고한다. 외부 설치는 하지 않는다.
+
+### 실제 consumer·PTY
+
+**Git 회귀:** 실제 source `git+file:` global install을 상속된 `npm_config_global=true`에서 두 번 실행한다. 각 설치·clone 정리 후 executable 실경로·`--version`·completion을 확인한다. dangling symlink와 재설치 `ENOTDIR`가 없어야 하며 chooser·HOME 변경도 없어야 한다. global 경로나 GitFetcher 환경 조작으로 우회하지 않는다.
+
+테스트용 Git 생성·commit이 specialist Git 금지와 충돌하면 Orchestrator가 fixture를 준비해 전달한다. handoff 전에 방법을 확정한다.
+
+**Artifact:** 생성 tarball을 loopback registry에 제공하고 기본 `npm i -g @yunhozz/arc`를 실행한다. foreground flag 없이 설치·재설치, 실제 선택·버전·파일·중복 없는 completion, local consumer lock flag, CI/no-terminal/script 차단·npx 준비를 확인한다.
+
+**PTY:** macOS/expect와 Linux/script에서 전체 선택, 공백·상대 경로, Ctrl+C·EOF·단절·설치 실패와 terminal 복원을 검증한다. artifact digest·OS/arch·Node/npm·driver를 보고한다.
+
+### T2 checks·수용
+
+Coder만 source manifest를 갱신하고 QA는 검사만 실행한다.
+
+```sh
+node scripts/update-manifest.mjs
+node --test tests/node/release-artifact.test.mjs tests/node/release-artifact-process.test.mjs tests/node/npm-publish-workflow.test.mjs tests/node/package.test.mjs
+node --test tests/node/terminal.test.mjs tests/node/npm-lifecycle.test.mjs tests/node/npm-completion-consumer.test.mjs tests/node/cli-pty.test.mjs tests/node/consumer.test.mjs tests/node/cli-dry-run.test.mjs
+npm run check:manifest
+node --test tests/node/manifest.test.mjs
+ARC_TEST_REQUIRE_PTY=1 node --test tests/node/npm-lifecycle-pty.test.mjs
+```
+
+AC-01~06、AC-16~23의 T2 범위, 실제 Git 재설치·양 플랫폼 artifact PTY, source 불변·crash/output safety, workflow guard와 README 무변경 근거를 fresh QA가 보고한다. required driver 부재는 skip 통과가 아니다.
+
+Git 회귀, Linux 미검증, metadata/manifest 불일치, source 임시변경 필요, guard 약화, 외부 접속 필요는 보류 조건이다. Orchestrator 수용 전 T3를 시작하지 않는다.
+
+## T3. generated artifact 기반 upgrade와 completion
+
+**선행:** T2 QA·수용·commit. **위험:** significant. fresh Coder·fresh QA를 배정한다.
+
+### 파일 소유권
+
+신규:
+
+```text
+lib/cli/upgrade.mjs
+lib/npm/upgrade.mjs
+bin/arc-upgrade.mjs
+tests/node/upgrade-cli.test.mjs
+tests/node/upgrade-process.test.mjs
+tests/node/npm-upgrade-consumer.test.mjs
+```
+
+수정:
+
+```text
+lib/cli/root.mjs
+lib/cli/completion.mjs
+tests/node/completion.test.mjs
+tests/node/shell-completion.test.mjs
+MANIFEST.sha256
+```
+
+T1/T2 API·generator·fixture·workflow는 읽기 전용이다. 수정 필요 시 Orchestrator에 반환한다.
+
+### TDD·구현·증거
+
+- [ ] **RED:** `--help`만 허용하며 native/network 없는 help, unsupported·미설치·손상 상태는 쓰기 전 실패.
+- [ ] **RED:** latest 한 번 조회 → exact version·같은 prefix 교체·내부 `--ignore-scripts` → 새 CLI 실행 순서.
+- [ ] **RED:** identity/version 오류·snapshot 변경·package/child/target 실패·취소·부분 성공·재실행 복구.
+- [ ] **RED:** npx는 호출 package로 harness만 갱신하고 global install/latest 재조회 없음.
+
+```sh
+node --test tests/node/upgrade-cli.test.mjs tests/node/upgrade-process.test.mjs
+```
+
+- [ ] T1 context/state/upgrade API를 사용해 구현한다. old/new module 혼합을 피하고 private child는 `{protocol:1,expectedVersion,invocationCwd,expectedStateToken}`를 검증·재수집한다.
+- [ ] 같은 CLI version에서도 harness를 갱신하고 target·언어·전체 모델/effort·limits·native/global 범위를 보존한다.
+- [ ] `packReleaseFixture`의 A/B로 actual global upgrade를 검증한다. artifact hook의 chooser가 재등장하지 않아야 한다.
+- [ ] 설정 변경 race·부분 실패 후 재시도, 실제 npx 호출·global prefix 불변, 가짜 `_npx` local 경로 거부를 검사한다.
+- [ ] Bash/Zsh completion RED/GREEN: root 명령은 `preset uninstall completion upgrade`, root option 전체·`--max-`·`--v`, `upgrade --`는 `--help`, completion shell은 `zsh bash`.
+- [ ] 기존 option 값·preset/uninstall·compinit 전후 및 generated artifact로 설치한 새 Zsh의 실제 Tab을 확인한다.
+
+```sh
+node scripts/update-manifest.mjs
+node --test tests/node/upgrade-cli.test.mjs tests/node/upgrade-process.test.mjs tests/node/npm-upgrade-consumer.test.mjs
+node --test tests/node/completion.test.mjs tests/node/shell-completion.test.mjs tests/node/preset-cli.test.mjs tests/node/uninstall-cli.test.mjs
+npm run check:manifest
+```
+
+QA는 manifest 갱신을 제외한 checks를 독립 수행한다. AC-07~15와 영향받는 AC-16~23, actual global/npx consumer·부분 복구·새 세션 증거를 확인한 후 Orchestrator가 수용·focused commit한다. 설정 migration·새 option·경로 추정·안전성 완화가 필요하면 보류한다.
+
+## 최종 검증·Reviewer·완료
+
+task 수용과 별도로 최종 내용에서 실행한다.
+
+```sh
+npm test
+npm run check:manifest
+npm run check:role-policy
+node --test tests/node/release-artifact.test.mjs tests/node/release-artifact-process.test.mjs tests/node/npm-publish-workflow.test.mjs
+node --test tests/node/npm-completion-consumer.test.mjs tests/node/npm-upgrade-consumer.test.mjs
+npm pack --dry-run --json --ignore-scripts --offline
+ARC_TEST_REQUIRE_PTY=1 node --test tests/node/npm-lifecycle-pty.test.mjs
+```
+
+양 플랫폼 PTY와 generator/verifier smoke는 별도 증거로 보존한다. source 일반 pack이 generated artifact 검증을 대신하지 않는다.
+
+이전 실패 구현의 `712 total / 705 pass / 5 fail / 2 skip`, 양 플랫폼 PTY `7/7`은 과거 기록이다. 새 Git 회귀는 반드시 해결한다. 나머지 baseline 네 건—Claude installed hook, preset 기대 두 건, uninstall PTY timeout—은 정확한 test name·재현·영향 관계와 disposition을 기록한다. 통과로 숨기거나 무단 수정하지 않는다.
+
+모든 task의 QA·필요한 재검증·수용·commit 후 **독립 Reviewer가 최종 전체 diff를 한 번 검토**한다. 원본·개정 spec/plan, 기준/최종 HEAD, 파일 목록, baseline 판정, actual Git/artifact/PTY 결과와 workflow 한계를 전달한다. 최종 finding은 Coder → Reviewer로 해결하며 이 단계에는 QA를 재배정하지 않는다. 최종 수용은 Orchestrator가 결정한다.
+
+실제 registry 게시·workflow 실행·provenance 생성 성공은 미검증 외부 동작이다. 필수 Linux PTY나 Git 회귀가 남으면 완료로 선언하지 않는다.
+
+### 자체 검토
+
+- T1 완료 상태와 미수용 T2 reconciliation을 구분했다.
+- indivisible package·manifest·workflow 계약을 T2 하나로 유지했다.
+- 일반 파일 소유권은 분리하고 manifest는 순차 인수한다.
+- Git 재설치·artifact 실제 PTY·crash/source 불변·npm 11 한계를 보존했다.
+- 새 사용자 제품 결정은 없다. Git fixture 준비 방식은 handoff 전 Orchestrator가 확정한다.
+- 개정 plan 승인·문서 gate 전 구현 재개는 금지한다.
