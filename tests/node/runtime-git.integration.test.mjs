@@ -132,3 +132,64 @@ test('cooperative CLI verifies exact approved document commit before durable ass
  await cli('mixed','init',init);await cli('mixed','record',approval(mixedDocuments));assert.equal((await cli('mixed','prepare',assignment('mixed-intent',1,mixedDocuments))).decision,'hold');
  t.diagnostic(JSON.stringify({executor:'orchestrator',root,base,docsCommit,documents,intentRequestId:intent.requestId,intentRevision:intent.revision,mixedCommit:mixed,head:git('rev-parse','HEAD')}));
 });
+
+test('cooperative acceptance reconciles actual focused Git commit and preserves mismatched history for independent inspection',{skip:process.env.ARC_RUN_GIT_INTEGRATION!=='1'},async t=>{
+ const {runCli}=await import('../../lib/cli/workflow.mjs');
+ const retainedRoot=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-cooperative-acceptance-'))),retained=[];
+ t.after(async()=>{if(process.env.ARC_KEEP_GIT_INTEGRATION_FIXTURE==='1')t.diagnostic(JSON.stringify({retained:true,root:retainedRoot,fixtures:retained}));else await fs.rm(retainedRoot,{recursive:true,force:true});});
+ const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.toUpperCase().startsWith('GIT_')));
+ Object.assign(env,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:process.platform==='win32'?'NUL':'/dev/null',GIT_AUTHOR_NAME:'ARC fixture',GIT_AUTHOR_EMAIL:'fixture@example.invalid',GIT_COMMITTER_NAME:'ARC fixture',GIT_COMMITTER_EMAIL:'fixture@example.invalid'});
+ for(const scenario of ['valid','mismatch']){
+  const root=path.join(retainedRoot,scenario);await fs.mkdir(root);
+  const git=(...args)=>{const r=spawnSync('git',args,{cwd:root,env,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
+  const workflow='T4',actor={id:'operator',role:'orchestrator'};let revision=0;
+  const cli=async(command,input,want=0)=>{let output='';const code=await runCli([command,'--cwd',root,'--workflow',workflow,...(input===undefined?[]:['--input','-'])],{input:JSON.stringify(input),output:{write:s=>output+=s}});assert.equal(code,want,output);return JSON.parse(output);};
+  const mutate=async(command,input,want=0)=>{const out=await cli(command,{requestId:'r'+revision,expectedRevision:revision,actor,...input},want);revision=out.revision;return out;};
+  git('init','--initial-branch=fixture');git('config','core.hooksPath',path.join(root,'no-hooks'));git('config','commit.gpgsign','false');
+  await fs.writeFile(path.join(root,'code.mjs'),'one');await fs.writeFile(path.join(root,'other.mjs'),'other base');git('add','--','code.mjs','other.mjs');git('commit','-m','base');
+  const parent=git('rev-parse','HEAD'),gitDir=git('rev-parse','--absolute-git-dir'),statePath=path.join(gitDir,'arc','workflows',workflow,'state.json');
+  const diagnostic={scenario,root,gitDir,workflowStatePath:statePath,parent};retained.push(diagnostic);
+  await cli('init',{mode:'plan',actor,selection:{messageRef:'target:explicit',contentHash:hash('target')}});
+  await mutate('record',{evidence:{kind:'approval',messageRef:'approved',data:{approvalVersion:1,documentVersion:1}}});
+  const descriptor={executable:process.execPath,args:['--version'],cwd:root,env:{},outputs:[]};
+  for(const [id,file] of [['T1','code.mjs'],['T2','other.mjs']])await mutate('record',{evidence:{kind:'acceptance-evidence',messageRef:'task:'+id,data:{kind:'task',task:{id,paths:[path.join(root,file)],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1}}}});
+  await fs.writeFile(path.join(root,'code.mjs'),'two');git('add','--','code.mjs');
+  const changes=(await cli('status')).changeFingerprints,changeFingerprint=changes.tasks.T1;
+  const qa={id:'fresh-qa',role:'qa'},checkId='r'+revision;
+  await mutate('prepare',{operation:'check',taskId:'T1',arguments:{scope:'task',actor:qa,descriptor,changeFingerprint}});
+  const check=spawnSync(process.execPath,['--version'],{cwd:root,env:descriptor.env,encoding:'utf8'});assert.equal(check.status,0,check.stderr);
+  await mutate('result',{intentId:checkId,result:{status:'succeeded',messageRef:'qa:actual-node-version',data:{actor:qa,descriptor,scope:'task',taskId:'T1',changeFingerprint,verdict:'proven'}}});
+  const args={messageRef:'operator:criterion-evidence',criteria:['works'],checkIds:[checkId],findingIds:[],changeFingerprint};
+  // Unstaged task bytes and another task's staged change both hold before mutation.
+  await fs.writeFile(path.join(root,'code.mjs'),'unstaged');await mutate('prepare',{operation:'accept',taskId:'T1',arguments:args},3);await fs.writeFile(path.join(root,'code.mjs'),'two');
+  await fs.writeFile(path.join(root,'other.mjs'),'other task change');git('add','--','other.mjs');await mutate('prepare',{operation:'accept',taskId:'T1',arguments:args},3);
+  git('restore','--staged','--','other.mjs'); // Isolated Orchestrator fixture preparation only.
+  const acceptanceId='r'+revision;const acceptance=await mutate('prepare',{operation:'accept',taskId:'T1',arguments:args});assert.match(acceptance.semanticLimit,/same file/i);
+  let stored=JSON.parse(await fs.readFile(statePath));assert.equal(stored.tasks[0].status,'accepted');assert.equal(stored.commits.length,0);
+  await fs.writeFile(path.join(root,'code.mjs'),'different index');git('add','--','code.mjs');await mutate('prepare',{operation:'commit',taskId:'T1',arguments:{acceptanceId}},3);
+  await fs.writeFile(path.join(root,'code.mjs'),'two');git('add','--','code.mjs');
+  const intentId='r'+revision;const prepared=await mutate('prepare',{operation:'commit',taskId:'T1',arguments:{acceptanceId}}),expected=prepared.proposedTransition.intent.expected;
+  Object.assign(diagnostic,{intentId,acceptanceId,expected});assert.deepEqual(expected.paths,['code.mjs']);assert.deepEqual(expected.remainingPaths,['other.mjs']);assert.equal(git('rev-parse','HEAD'),parent);
+  if(scenario==='mismatch')git('add','--','other.mjs');
+  git('commit','-m',scenario==='valid'?'focused T1':'unexpected mixed T1');
+  const commit=git('rev-parse','HEAD'),tree=git('rev-parse','HEAD^{tree}'),actualParent=git('rev-parse','HEAD^'),paths=git('diff-tree','--no-commit-id','--name-only','-r','HEAD').split('\n');
+  Object.assign(diagnostic,{commit,tree,actualParent,paths});assert.equal(actualParent,parent);
+  const result={status:'succeeded',messageRef:'operator:actual-commit',data:{commit}};
+  if(scenario==='mismatch'){
+   await mutate('reconcile',{intentId,result},3);stored=JSON.parse(await fs.readFile(statePath));
+   assert.equal(stored.target.head,parent);assert.equal(stored.tasks[0].status,'accepted');assert.equal(stored.commits.length,0);assert.equal(stored.results.at(-1).status,'mismatch');
+   assert.equal(stored.commitObservations.at(-1).observation.commit.commit,commit);assert.equal(stored.commitObservations.at(-1).observation.commit.tree,tree);assert.notEqual(tree,expected.tree);assert.deepEqual(paths,['code.mjs','other.mjs']);
+  }else{
+   assert.equal(tree,expected.tree);assert.deepEqual(paths,['code.mjs']);
+   await mutate('reconcile',{intentId,result:{...result,status:'unknown'}},3);assert.equal(JSON.parse(await fs.readFile(statePath)).target.head,parent);
+   const requestId='r'+revision;await mutate('reconcile',{intentId,result});stored=JSON.parse(await fs.readFile(statePath));
+   assert.equal(stored.target.head,commit);assert.equal(stored.tasks[0].status,'committed');assert.equal(stored.commits.length,1);assert.equal(stored.commits[0].commit,commit);assert.equal(stored.checks[0].changeFingerprint,changeFingerprint);
+   assert.equal((await cli('status')).state.tasks[0].status,'committed');
+   await cli('reconcile',{requestId,expectedRevision:revision-1,actor,intentId,result},3);await mutate('reconcile',{intentId,result},3);
+   assert.equal(JSON.parse(await fs.readFile(statePath)).commits.length,1);
+  }
+  assert.equal(git('rev-parse','HEAD'),commit);assert.equal(git('diff','--cached','--name-only'),'');
+  diagnostic.remainingPaths=git('diff','--name-only').split('\n').filter(Boolean);assert.deepEqual(diagnostic.remainingPaths,scenario==='valid'?['other.mjs']:[]);
+  t.diagnostic(JSON.stringify({executor:'orchestrator',...diagnostic}));
+ }
+});

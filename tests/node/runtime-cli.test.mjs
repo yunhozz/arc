@@ -51,3 +51,14 @@ test('workflow CLI persists task check failure correction and fresh recheck; sco
  status=invoke('status',undefined,3);assert.equal(status.state.tasks[0].status,'held');assert.equal(status.state.checks[0].stale,true);assert.equal(status.state.records.find(r=>r.kind==='approval').scopeVersion,0);
  mutate('prepare',{operation:'check',taskId:'T1',arguments:arguments_},3);
 });
+
+test('workflow CLI cannot accept a passing report without exact current task evidence and staged index',async t=>{
+ const fs=await import('node:fs/promises'),path=await import('node:path');
+ const common=spawnSync('git',['rev-parse','--path-format=absolute','--git-common-dir'],{encoding:'utf8'}).stdout.trim();
+ const workflow='acceptance-cli-'+process.pid;t.after(()=>fs.rm(path.join(common,'arc','workflows',workflow),{recursive:true,force:true}));
+ const cwd=await fs.realpath(process.cwd()),base=['--cwd',cwd,'--workflow',workflow],actor={id:'operator',role:'orchestrator'};
+ let r=run(['init',...base,'--input','-'],JSON.stringify({mode:'plan',actor,selection:{messageRef:'target',contentHash:'sha256:'+'a'.repeat(64)}}));assert.equal(r.status,0,r.stdout);
+ r=run(['record',...base,'--input','-'],JSON.stringify({requestId:'report',expectedRevision:0,actor,evidence:{kind:'note',messageRef:'coder:passed',data:{status:'passed'}}}));assert.equal(r.status,0,r.stdout);
+ r=run(['prepare',...base,'--input','-'],JSON.stringify({requestId:'accept',expectedRevision:1,actor,operation:'accept',taskId:'T1',arguments:{messageRef:'accepted',criteria:['works'],checkIds:[],findingIds:[],changeFingerprint:'sha256:'+'a'.repeat(64)}}));assert.equal(r.status,3,r.stdout);
+ r=run(['status',...base]);const state=JSON.parse(r.stdout).state;assert.equal(state.acceptances.length,0);assert.equal(state.commits.length,0);assert.equal(state.intents.length,0);
+});

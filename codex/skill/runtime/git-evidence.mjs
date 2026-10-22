@@ -126,3 +126,35 @@ export async function readAssignmentGitEvidence({target,documents}){
  }
  return evidence;
 }
+
+/** Cooperative observations come only from local read-only Git queries. */
+export async function readCooperativeCommitGitEvidence({target,commit,gitRunner=defaultRunner}){
+ if(commit!==undefined&&!oid(commit))throw Error('Invalid commit object ID');
+ const evidence=await readGitEvidence({target,gitRunner});
+ if(commit===undefined)return evidence;
+ const run=async args=>{const r=await gitRunner({args,cwd:target.realpath});if(r?.status!==0||r.error||!(Buffer.isBuffer(r.stdout)||typeof r.stdout==='string'))throw Error('Commit evidence query failed');return Buffer.from(r.stdout);};
+ const metadata=text(await run(['show','--no-patch','--format=%H%n%P%n%T',commit])).trimEnd().split('\n');
+ if(metadata.length!==3||metadata[0]!==commit||!metadata.every(oid))throw Error('Expected exact single-parent commit');
+ const committedPaths=paths(await run(['diff-tree','--no-commit-id','--name-only','-r','-z',commit,'--']));
+ // Reobserve both HEAD and index after metadata so a concurrent mutation holds.
+ const after=await readGitEvidence({target,gitRunner});
+ if(!equal(evidence,after))throw Error('Git changed during commit observation');
+ return {...evidence,commit:{commit,parent:metadata[1],tree:metadata[2],paths:committedPaths,head:target.head}};
+}
+
+const validGitPaths=values=>Array.isArray(values)&&values.every(gitPath)&&unique(values);
+const within=(base,file)=>{const relative=path.relative(base,file);return relative===''||!path.isAbsolute(relative)&&relative!=='..'&&!relative.startsWith('..'+path.sep);};
+/** Provenance-neutral Git checks shared by trusted and cooperative callers.
+ * The caller must establish role, approval and acceptance separately. */
+export function validateGitPreflight({target,descriptor:d,scope,gitEvidence:g}){
+ if(!g||!equal(g.target,target)||!oid(d?.parent)||d.parent!==target.head||!oid(d.indexTree)||!/^sha256:[a-f0-9]{64}$/.test(d.fingerprint)||!validGitPaths(d.paths)||!d.paths.length||g.indexTree!==d.indexTree||g.stagedFingerprint!==d.fingerprint||!samePaths(g.stagedPaths,d.paths)||!validGitPaths(g.workingPaths)||!validGitPaths(g.untrackedPaths))return 'Actual Git target index diff and exact paths required';
+ if(d.paths.some(file=>!scope.some(base=>within(base,path.join(target.realpath,...file.split('/'))))))return 'Commit contains another task or unrelated changes';
+ if([...g.workingPaths,...g.untrackedPaths].some(file=>scope.some(base=>within(base,path.join(target.realpath,...file.split('/'))))))return 'Unstaged or untracked task changes invalidate acceptance';
+ return null;
+}
+export function validateGitCommitResult({target,expected,result,scope}){
+ if(!result||!oid(result.commit)||result.commit===expected.parent||result.commit.length!==expected.parent.length||result.parent!==expected.parent||result.tree!==expected.tree||!samePaths(result.paths,expected.paths)||result.head!==result.commit||!equal(result.target,{...target,head:result.commit})||!validGitPaths(result.remainingPaths))return 'Commit result unavailable or differs from expected parent tree paths and HEAD';
+ if(result.remainingPaths.some(file=>scope.some(base=>within(base,path.join(target.realpath,...file.split('/'))))))return 'Committed task still has remaining changes';
+ if(expected.remainingPaths!==undefined&&!samePaths(result.remainingPaths,expected.remainingPaths))return 'Remaining changes differ from preflight observation';
+ return null;
+}

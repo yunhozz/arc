@@ -76,3 +76,11 @@ test('current authority cannot reauthorize a repeated side-effecting request',as
   assert.equal(checks,2,operation+' authority must still be checked');assert.equal(replay.decision.decision,'hold',operation);assert.equal(replay.decision.proposedTransition,null);assert.equal(await fs.readFile(statePath,'utf8'),before);
  }
 });
+
+test('cooperative store rejects target mutation without a verified reconciliation decision',async()=>{
+ const {applyCooperativeCommitTransition}=await import('../../lib/runtime/store.mjs');
+ assert.equal(typeof applyCooperativeCommitTransition,'function');
+ const before={target:{head:'a'.repeat(40)},tasks:[],commits:[]};
+ assert.throws(()=>applyCooperativeCommitTransition({state:before,decision:{decision:'allow',proposedTransition:{target:{head:'b'.repeat(40)},commit:{commit:'b'.repeat(40)}}}}),/verified/i);
+ assert.equal(before.target.head,'a'.repeat(40));
+});

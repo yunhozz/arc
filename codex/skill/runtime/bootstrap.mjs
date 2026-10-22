@@ -6,7 +6,7 @@ import {observeCooperativeTarget,validateObservedTarget,validateWorkflowId,workf
 import {saveDurableState} from './store.mjs';
 export const COOPERATIVE_RUNTIME_MODULES=Object.freeze([
  'bootstrap.mjs','cooperative-schema.mjs','cooperative.mjs','evaluate.mjs',
- 'scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs'
+ 'scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs'
 ]);
 export const cooperativeCoverage=()=>({enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false});
 export function commandResult({workflowId,state,input,decision='allow',ruleId='cooperative.recorded',persisted=false,...extra}){

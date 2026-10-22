@@ -230,6 +230,37 @@ scope·document·approval 변경 기록은 과거 기록을 덮어쓰지 않는�
 새 승인 기록과 task 계약 갱신으로 다시 준비해야 하며, 과거 승인으로 되살릴 수 없다. 새 check/review와 finding
 재검증도 필요하다. 최신 근거는 과거 실패를 삭제하지 않고 대체하며, 수용·commit·최종 완료 판단은 Orchestrator에게 남는다.
 
+### 협력 CLI의 task 수용과 집중 commit 대조
+
+현재 plan mode의 `prepare`는 `operation: "accept"`와 `operation: "commit"`을 지원한다.
+수용은 Orchestrator가 `actor.role: "orchestrator"`, `taskId`, 그리고 `arguments`의
+`messageRef`, task와 동일한 `criteria`, 현재 필수 QA의 정확한 `checkIds`, 해당 task의 전체
+`findingIds`, 현재 `changeFingerprint`를 명시하는 진술이다. 필수 descriptor별 최신 QA 결과가
+passed/proven이어야 하며, finding은 Coder 수정과 QA 재확인을 거쳐 closed여야 한다.
+이 진술이 통과하면 accepted가 되며, passing command나 Coder 보고만으로는 수용되지 않는다.
+기록의 출처는 `operator-attested`이며 criterion의 의미적 충족과 actor 신원은 운영자가 확인한다.
+
+수용 시 code는 실제 index tree·staged diff·경로와 task fingerprint를 함께 고정한다. Orchestrator는
+그 전에 승인된 task 경로만 stage하고, 해당 index 상태에 대해 필수 QA를 확인한다. 무관 경로·다른
+등록 task의 변경 혼입·scope 안의 unstaged/untracked 변경은 hold다. 같은 파일 내부의 의미상 무관한
+hunk를 code가 자동 구분할 수는 없으므로 Orchestrator가 실제 diff를 읽어 확인한다.
+
+`prepare`의 `operation: "commit"`은 `arguments: {"acceptanceId": "수용 requestId"}`로 정확한
+수용을 참조한다. code는 최신 승인·task 계약·QA·finding·index가 수용 당시와 같은지 확인하고,
+예상 parent·tree·paths·잔여 경로를 담은 durable intent를 저장한다. CLI는 stage나 commit을 실행하지
+않는다. Orchestrator가 이 기대값에 맞춰 하나의 집중 implementation commit을 수행한다.
+
+이후 `reconcile` 또는 result 형식의 `result`에 `intentId`, `actor.role: "orchestrator"`,
+`result: {"status": "succeeded", "messageRef": "실제 결과 근거", "data": {"commit": "전체 OID"}}`를
+제출한다. CLI는 로컬 Git에서 실제 commit 객체·parent·tree·paths·HEAD·index·잔여 변경을 다시 읽는다.
+기대값이 모두 맞을 때만 target HEAD와 task를 committed로 바꾼다. 실패·unknown·mismatch의 관찰과 실제
+이력은 보존되며 target을 임의로 갱신하지 않는다. 같은 request 또는 완료된 intent의 재사용은 두 번째
+효과를 허가하지 않는다. 실패 후에는 실제 상태를 읽고 원인을 해결한 뒤 기존 intent를 대조해야 한다.
+
+정상 commit 뒤에도 과거 QA의 fingerprint를 새 값으로 바꾸지 않는다. 별도의 post-commit 파일·index
+관찰값이 후속 변경을 감지하며, final review는 기존 규칙대로 현재 task 근거와 final fingerprint를
+요구한다. runtimeHash가 달라지면 기존 stale/hold 규칙이 적용되고 저장된 버전은 자동 갱신되지 않는다.
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.

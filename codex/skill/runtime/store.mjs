@@ -1,3 +1,4 @@
+import {verifiedCooperativeReconciliation} from './acceptance.mjs';
 import {verifiedReconciliation} from './gate.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -71,4 +72,13 @@ export async function saveDurableState({statePath,state,create=false,storage={}}
   exists=false;
   const directory=await fs.open(parent,'r');try{await directory.sync();}finally{await directory.close();}
  }finally{if(exists)await fs.unlink(temporary).catch(()=>{});}
+}
+
+/** Only a locally verified cooperative commit may advance the stored target. */
+export function applyCooperativeCommitTransition({state,decision}){
+ if(decision?.decision!=='allow'||!verifiedCooperativeReconciliation(decision,state)||!decision.proposedTransition?.commit)throw Error('Verified cooperative reconciliation required');
+ const next=structuredClone(state),transition=decision.proposedTransition;
+ next.targetHistory.push({target:structuredClone(state.target),revision:state.revision+1,source:'local-observation',kind:'verified-commit-parent'});
+ next.target=structuredClone(transition.target);next.commits.push(structuredClone(transition.commit));next.tasks.find(t=>t.id===transition.commit.taskId).status='committed';
+ return next;
 }

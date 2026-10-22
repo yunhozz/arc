@@ -1,3 +1,5 @@
+import {validateGitPreflight,validateGitCommitResult} from './git-evidence.mjs';
+export {validateGitPreflight,validateGitCommitResult} from './git-evidence.mjs';
 import path from 'node:path';
 
 const reconciliations=new WeakMap();
@@ -44,10 +46,10 @@ export async function runGate({phase,state,request,gitEvidence,expectedCommit,re
   }
   if(phase==='preflight'){
    const g=gitEvidence;
-   if(!g||!same(g.target,state.target)||g.indexTree!==d.indexTree||g.stagedFingerprint!==d.fingerprint||!samePaths(g.stagedPaths,d.paths)||!validPaths(g.workingPaths)||!validPaths(g.untrackedPaths))return hold('Actual Git target index diff and exact paths required');
-   const dirty=[...g.workingPaths,...g.untrackedPaths];
+   const dirty=[...g?.workingPaths??[],...g?.untrackedPaths??[]];
    const scope=d.kind==='documents'?state.documents.map(x=>x.path):task.paths;
-   if(dirty.some(file=>scope.some(base=>within(base,path.join(state.target.realpath,...file.split('/'))))))return hold('Unstaged or untracked task changes invalidate acceptance');
+   const invalid=validateGitPreflight({target:state.target,descriptor:d,scope,gitEvidence:g});
+   if(invalid)return hold(invalid);
    if(d.kind==='documents'){
     if(!Array.isArray(g.documents)||!samePaths(g.documents.map(x=>x.gitPath),d.paths)||state.documents.some(document=>!g.documents.some(observed=>observed.gitPath===document.gitPath&&observed.path===document.path&&observed.contentHash===document.contentHash&&observed.observedHash===document.contentHash)))return hold('Observed document bytes differ from approved hashes','runtime.docs-commit');
    }
@@ -56,10 +58,8 @@ export async function runGate({phase,state,request,gitEvidence,expectedCommit,re
   if(phase!=='reconcile')return hold('Unknown Git gate phase');
   const expected=expectedCommit;
   if(!expected||expected.requestId!==request.requestId||expected.taskId!==task.id||expected.parent!==d.parent||expected.tree!==d.indexTree||expected.fingerprint!==d.fingerprint||!samePaths(expected.paths,d.paths)||expected.kind!==undefined&&expected.kind!==d.kind||expected.target!==undefined&&!same(expected.target,state.target))return hold('Preflight correlation unavailable');
-  if(!result||!oid(result.commit)||result.commit===expected.parent||result.commit.length!==expected.parent.length||result.parent!==expected.parent||result.tree!==expected.tree||!samePaths(result.paths,expected.paths)||result.head!==result.commit||!same(result.target,{...state.target,head:result.commit})||!validPaths(result.remainingPaths))return hold('Commit result unavailable or differs from expected parent tree paths and HEAD');
-  const scopedPaths=d.kind==='documents'?state.documents.map(x=>x.path):task.paths;
-  if(result.remainingPaths.some(file=>scopedPaths.some(base=>within(base,path.join(state.target.realpath,...file.split('/'))))))return hold('Committed task still has remaining changes');
-  if(expected.remainingPaths!==undefined&&!samePaths(result.remainingPaths,expected.remainingPaths))return hold('Remaining changes differ from preflight observation');
+  const invalid=validateGitCommitResult({target:state.target,expected,result,scope:d.kind==='documents'?state.documents.map(x=>x.path):task.paths});
+  if(invalid)return hold(invalid);
   const next=structuredClone(state);next.target.head=result.commit;
   next.commits=[...state.commits??[],{requestId:request.requestId,taskId:task.id,kind:d.kind,purpose:d.kind,expectedParent:expected.parent,expectedTree:expected.tree,commit:result.commit,parent:result.parent,tree:result.tree,paths:[...result.paths],fingerprint:d.fingerprint,actorRef:request.actorRef}];
   if(d.kind==='task')next.tasks.find(t=>t.id===task.id).status='committed';
