@@ -51,11 +51,14 @@ Planner, Reviewer, and Scouter return findings, relevant questions, next actions
 Orchestrator. Planner preserves complete requested drafts. Orchestrator integrates results (save, route,
 obtain approval; never author), routes decisions and required approvals,
 and owns development acceptance and completion. Orchestrator coordinates dependent implementation tasks sequentially and
-starts a fresh Coder for each top-level task; reuse the current Coder only for corrections, rework, or rechecks of the same
-task while the approved scope, workspace, ownership, and relevant context remain valid, after Orchestrator rechecks workspace,
-branch/HEAD and change state against the brief. A fresh Coder for the next task is a restart under handoff (choice reuse
-and restart brief rules are in handoff). After an approved plan or acceptance-criteria amendment, start a fresh Coder for
-the remaining work even within the same task. Do not add per-task QA or
+starts a fresh Coder for each top-level task (Role gate); reuse the current Coder only for corrections, rework,
+or rechecks of the same task while the approved scope, workspace, ownership, and relevant assignment context remain valid;
+default to the current Coder for same-task QA corrections. A QA finding within the current task does not itself create
+a new task. Before sending corrections or rework to a reused Coder, Orchestrator rechecks workspace, branch/HEAD and change state against the brief.
+Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes, subject to the
+amendment exception below. A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are in handoff).
+After an approved plan or acceptance-criteria amendment, start a fresh Coder for
+the remaining work even within the same task; it is also a restart under handoff. Do not add per-task QA or
 review gates solely because a task boundary exists; apply risk requirements and specific approved obligations. If the
 next task depends on a still-unverified risky contract, complete applicable QA at that dependency boundary and
 resolve or explicitly disposition findings before dependent implementation. This does not create a gate for every task.
