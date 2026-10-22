@@ -23,6 +23,7 @@ test('workflow CLI initializes records queries and holds unsupported actions wit
  r=run(['record',...base,'--input','-'],JSON.stringify({requestId:'record1',expectedRevision:0,actor:{id:'operator'},evidence:{kind:'note',messageRef:'note',data:{value:1}}}));assert.equal(r.status,0,r.stdout);assert.equal(JSON.parse(r.stdout).revision,1);
  r=run(['status',...base]);assert.equal(r.status,0,r.stdout);assert.ok(JSON.parse(r.stdout).state,'status must return stored state');assert.equal(JSON.parse(r.stdout).state.records[0].source,'operator-attested');
  r=run(['prepare',...base,'--input','-'],JSON.stringify({requestId:'unsupported',expectedRevision:1,actor:{id:'operator'},operation:'assign-agent'}));assert.equal(r.status,3,r.stdout);assert.equal(JSON.parse(r.stdout).persisted,true);
+ r=run(['result',...base,'--input','-'],JSON.stringify({requestId:'unsupported-result',expectedRevision:2,actor:{id:'operator'},operation:'unsupported'}));assert.equal(r.status,3,r.stdout);
  r=run(['init',...base,'--input','-'],JSON.stringify(input));assert.equal(r.status,1,r.stdout);assert.equal(JSON.parse(r.stdout).persisted,false);
  assert.equal(git(['rev-parse','HEAD']),before.head);assert.equal(git(['branch','--show-current']),before.branch);assert.deepEqual(await fs.readFile(path.join(common,'index')),before.index);
 });

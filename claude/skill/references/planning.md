@@ -244,3 +244,14 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]
+
+## 승인된 저장소 내부 협력 실행 경로
+
+명시적으로 승인된 이 저장소의 `arc workflow` CLI는 plan mode에서 문서 커밋과 최초 Coder 배정을 연결한다.
+범위는 저장소 내부 협력 경로의 판정·기록이다. native hook/provider/installer 설치나 직접 도구 호출 차단 권한은 추가하지 않는다.
+`no-plan`/omission은 이 CLI에서 unsupported이며 Phase 2·3에서도 이 경계를 유지한다. 이는 omission 정책 위반이나 새 문서 작성 의무를 뜻하지 않는다.
+
+Orchestrator는 사용자가 승인한 spec·plan의 SHA-256, 같은 docs-only commit, 문서 버전 및 승인 버전을 기록한다.
+CLI는 실제 Git 객체의 정확한 변경 경로와 현재 문서 바이트를 확인한 후 배정 intent를 저장한다.
+새 workflow나 늦은 문서 커밋은 이전 실행을 준수한 실행으로 증명하지 못한다. 이전 agent 이력과 경로 밖 실행은 unverified로 남긴다.
+승인 진술과 native 반환은 `operator-attested`이며 agent ID는 인증된 신원이 아니다.

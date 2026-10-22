@@ -11,7 +11,8 @@ export function validateCooperativeCommand(command){
  fields(command,['command','input']);const {input,command:name}=command;
  if(!['init','record','status','reconcile','prepare','result'].includes(name))fail('command');
  if(name==='status'){if(input!==undefined)fail('status takes no input');return command;}
- const allowed=name==='init'?['mode','actor','selection']:name==='record'?['requestId','expectedRevision','actor','evidence']:name==='reconcile'?['requestId','expectedRevision','actor','intentId','result']:['requestId','expectedRevision','actor','operation','taskId','arguments'];
+ const resultStatement=name==='reconcile'||name==='result'&&input?.operation===undefined;
+ const allowed=name==='init'?['mode','actor','selection']:name==='record'?['requestId','expectedRevision','actor','evidence']:resultStatement?['requestId','expectedRevision','actor','intentId','result']:['requestId','expectedRevision','actor','operation','taskId','arguments'];
  fields(input,allowed);json(input);
  if(!actor(input.actor))fail('actor attestation');
  if(name==='init'){
@@ -23,12 +24,12 @@ export function validateCooperativeCommand(command){
   fields(input.evidence,['kind','messageRef','data']);
   if(!statement(input.evidence)||!['note','approval','document','scope','check','finding','review','acceptance-evidence'].includes(input.evidence.kind))fail('evidence');
  }
- if(name==='reconcile'){
+ if(resultStatement){
   fields(input.result,['status','messageRef','data','notExecutedEvidence']);
   if(!text(input.intentId)||!statement(input.result)||!['succeeded','failed','unknown','mismatch','cancelled'].includes(input.result.status))fail('result evidence');
   if(input.result.status==='cancelled'&&(!object(input.result.notExecutedEvidence)||!text(input.result.notExecutedEvidence.messageRef)))fail('cancel requires not-executed evidence');
  }
- if(['prepare','result'].includes(name)&&!text(input.operation))fail('operation');
+ if((name==='prepare'||name==='result'&&!resultStatement)&&!text(input.operation))fail('operation');
  return command;
 }
 export function validateCooperativeState(state){

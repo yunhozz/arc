@@ -1,3 +1,4 @@
+import {prepareCooperativeAssignment} from './assignment.mjs';
 /**
  * @typedef {object} GateDecision
  * @property {'allow'|'deny'|'hold'} decision
@@ -109,10 +110,11 @@ export function evaluateCooperative({policy,state,request,evidence}={}){
  const hold=(id,reason)=>({...base,decision:'hold',ruleIds:[id],reason,requiredEvidence:[],nextActions:[],proposedTransition:null});
  try{validateCooperativeState(state);validateCooperativeCommand(request);}catch(error){return hold('cooperative.schema',error.message);}
  if(policy!==undefined&&policy.workflowKind!=='cooperative')return hold('cooperative.contract','Explicit cooperative policy required');
- if(state.mode!=='plan'||['prepare','result'].includes(request.command))return hold('cooperative.unsupported','Operation is not supported in this CLI phase');
+ if(state.mode!=='plan'||request.command==='result')return hold('cooperative.unsupported','Operation is not supported in this CLI phase');
  if(!evidence||!same(evidence.target,state.target))return hold('cooperative.target','Observed target changed');
  if(!same(evidence.versions,state.versions))return hold('cooperative.versions','Policy or runtime changed');
  if(request.input&&request.input.expectedRevision!==state.revision)return hold('cooperative.revision','Stale revision');
+ if(request.command==='prepare')return request.input.operation==='assign-agent'?prepareCooperativeAssignment({policy,state,request:request.input,observations:{target:evidence.target,git:evidence.git}}):hold('cooperative.unsupported','Unsupported operation');
  return {...base,decision:'allow',ruleIds:['cooperative.recorded'],requiredEvidence:[],nextActions:[],proposedTransition:null};
 }
 

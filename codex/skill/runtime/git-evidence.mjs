@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import {inspectPath} from './scope.mjs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -111,4 +113,16 @@ export async function readGitEvidence({target,documents=[],gitRunner=defaultRunn
 function pathsForTree(bytes){
  const output=text(bytes);if(!output||!output.endsWith('\0'))throw Error('Invalid document tree');
  return output.slice(0,-1).split('\0').map(entry=>{const match=/^(\d+) (blob|tree|commit) ([a-f0-9]+)\t([\s\S]+)$/.exec(entry);if(!match||!oid(match[3])||!gitPath(match[4]))throw Error('Invalid document tree entry');return {mode:match[1],type:match[2],path:match[4]};});
+}
+
+/** Assignment observation additionally compares regular current files to Git objects.
+ * No Git facts or transport override are accepted from workflow command JSON. */
+export async function readAssignmentGitEvidence({target,documents}){
+ const evidence=await readGitEvidence({target,documents});
+ for(const document of evidence.documents){
+  await inspectPath(document.path);
+  document.currentHash=hash(await fs.readFile(document.path));
+  if(document.currentHash!==document.contentHash)throw Error('Current approved document hash mismatch');
+ }
+ return evidence;
 }

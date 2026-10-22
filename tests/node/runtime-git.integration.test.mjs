@@ -93,3 +93,42 @@ test('canonical document object evidence ignores repository-local replace refs',
  assert.equal(observed.indexTree,originalTree);assert.deepEqual(observed.stagedPaths,[]);assert.equal(git('rev-parse','HEAD'),original);
  t.diagnostic(JSON.stringify({executor:'orchestrator',original,originalParent:base,originalTree,alternate,alternateParent,alternateTree,replaceRef:'refs/replace/'+original}));
 });
+
+test('cooperative CLI verifies exact approved document commit before durable assignment intent',{skip:process.env.ARC_RUN_GIT_INTEGRATION!=='1'},async t=>{
+ const {runCli}=await import('../../lib/cli/workflow.mjs');
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-cooperative-docs-')));
+ const keepFixture=process.env.ARC_KEEP_GIT_INTEGRATION_FIXTURE==='1';
+ t.after(async()=>{
+  if(keepFixture)t.diagnostic(JSON.stringify({retained:true,root,gitDir:path.join(root,'.git'),workflowId:'valid',workflowStatePath:path.join(root,'.git','arc','workflows','valid','state.json')}));
+  else await fs.rm(root,{recursive:true,force:true});
+ });
+ const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.toUpperCase().startsWith('GIT_')));
+ Object.assign(env,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:process.platform==='win32'?'NUL':'/dev/null',GIT_AUTHOR_NAME:'ARC fixture',GIT_AUTHOR_EMAIL:'fixture@example.invalid',GIT_COMMITTER_NAME:'ARC fixture',GIT_COMMITTER_EMAIL:'fixture@example.invalid'});
+ const git=(...args)=>{const r=spawnSync('git',args,{cwd:root,env,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
+ const cli=async(workflow,command,input)=>{let output='';const code=await runCli([command,'--cwd',root,'--workflow',workflow,...(input===undefined?[]:['--input','-'])],{input:JSON.stringify(input),output:{write:s=>output+=s}});return {code,...JSON.parse(output)};};
+ const actor={id:'operator'},init={mode:'plan',actor,selection:{messageRef:'user:target',contentHash:hash('target')}};
+ git('init','--initial-branch=fixture');git('config','core.hooksPath',path.join(root,'no-hooks'));git('config','commit.gpgsign','false');
+ await fs.writeFile(path.join(root,'code.mjs'),'base');git('add','--','code.mjs');git('commit','-m','base');const base=git('rev-parse','HEAD');
+ let documents=['spec','plan'].map(kind=>({kind,path:path.join(root,kind+'.md'),gitPath:kind+'.md',contentHash:hash(kind),approvalRef:'approved'}));
+ for(const d of documents)await fs.writeFile(d.path,d.kind);
+ const assignment=(requestId,revision,docs=documents)=>({requestId,expectedRevision:revision,actor,operation:'assign-agent',taskId:'T1',arguments:{role:'coder',paths:[path.join(root,'code.mjs')],operations:['edit'],documents:docs,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'native:fixture'}});
+ const approval=docs=>({requestId:'approval',expectedRevision:0,actor,evidence:{kind:'approval',messageRef:'approved',data:{approvalVersion:1,documentVersion:1,documents:docs}}});
+ await cli('early','init',init);await cli('early','record',approval(documents));
+ assert.equal((await cli('early','prepare',assignment('before-docs',1))).decision,'hold');assert.equal(git('rev-parse','HEAD'),base);
+ git('add','--','spec.md','plan.md');git('commit','-m','approved spec and plan');const docsCommit=git('rev-parse','HEAD');documents=documents.map(d=>({...d,commit:docsCommit}));
+ const late=await cli('early','prepare',assignment('late-docs',2));assert.equal(late.decision,'hold');assert.ok(late.ruleIds.includes('cooperative.target'));
+ await cli('valid','init',init);await cli('valid','record',approval(documents));
+ const prepared=await cli('valid','prepare',assignment('first-intent',1));assert.equal(prepared.code,0,JSON.stringify(prepared));assert.equal(prepared.persisted,true);
+ let status=await cli('valid','status');const intent=status.state.intents[0];assert.equal(intent.docsCommit,docsCommit);assert.deepEqual(intent.documents,documents);assert.equal(intent.revision,2);assert.deepEqual(status.state.assignments,[]);
+ const result=await cli('valid','result',{requestId:'native-result',expectedRevision:2,actor,intentId:'first-intent',result:{status:'unknown',messageRef:'native:timeout',data:{taskId:'T1',correlation:'native:fixture'}}});assert.equal(result.decision,'hold');
+ assert.equal((await cli('valid','prepare',assignment('duplicate',3))).decision,'hold');
+ status=await cli('valid','status');assert.equal(status.state.intents.length,1);assert.equal(status.state.intents[0].status,'unknown');assert.equal(status.state.results[0].source,'operator-attested');
+ await fs.writeFile(documents[0].path,'changed current spec');await cli('tampered','init',init);await cli('tampered','record',approval(documents));
+ assert.equal((await cli('tampered','prepare',assignment('changed-file',1))).decision,'hold');await fs.writeFile(documents[0].path,'spec');
+ const fabricated=assignment('fake-git',2);fabricated.arguments.gitEvidence={docsCommit:{commit:docsCommit}};assert.equal((await cli('tampered','prepare',fabricated)).decision,'hold');
+ // A real commit that changes the document set plus product code is not docs-only.
+ await fs.writeFile(documents[0].path,'spec v2');await fs.writeFile(documents[1].path,'plan v2');await fs.writeFile(path.join(root,'code.mjs'),'mixed');git('add','--','spec.md','plan.md','code.mjs');git('commit','-m','mixed document and code');
+ const mixed=git('rev-parse','HEAD'),mixedDocuments=documents.map(d=>({...d,commit:mixed,contentHash:hash(d.kind+' v2')}));
+ await cli('mixed','init',init);await cli('mixed','record',approval(mixedDocuments));assert.equal((await cli('mixed','prepare',assignment('mixed-intent',1,mixedDocuments))).decision,'hold');
+ t.diagnostic(JSON.stringify({executor:'orchestrator',root,base,docsCommit,documents,intentRequestId:intent.requestId,intentRevision:intent.revision,mixedCommit:mixed,head:git('rev-parse','HEAD')}));
+});

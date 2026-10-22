@@ -159,3 +159,27 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]
+
+## 협력 CLI의 최초 Coder 배정
+
+승인된 plan mode에서 Orchestrator가 다음 순서를 수행한다. 모든 변경 명령은
+`arc workflow <command> --cwd <absolute-checkout> --workflow <id> --input -`로 JSON을 stdin에 전달한다.
+`status`는 `--input` 없이 조회한다.
+
+1. 승인된 spec·plan의 docs-only 커밋을 준비하고 정확한 문서 집합·객체·현재 파일을 검증한다.
+   사용자 승인이 문서 커밋 전에 이미 발생했더라도 `init`·승인 `record`·`prepare`는 이 커밋 검증 후에 수행한다.
+2. 문서 커밋 검증 후 최종 대상 HEAD에서 `init`에 `mode: "plan"`, `actor: {id: "operator"}`, `selection: {messageRef, contentHash}`를 전달한다.
+3. `record`로 이미 확인한 사용자 승인 진술을 저장한다. 입력은
+   `{requestId, expectedRevision, actor, evidence: {kind: "approval", messageRef, data: {approvalVersion, documentVersion, documents}}}`이다.
+   `documents`는 정확히 spec과 plan이며 각 항목은 `{kind, path, gitPath, contentHash, approvalRef, commit}`이다.
+   `contentHash`는 `sha256:<hex>`이고 `approvalRef`는 승인 `messageRef`와 일치해야 한다.
+   HEAD drift 시 과거 intent를 재연결하지 말고 대상 재관찰과 재승인을 기록한다.
+4. `prepare`에 `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "coder", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}`을 전달한다.
+   절대 경로 `paths`는 checkout 안에 있어야 한다. `allow`와 `persisted: true` 및 저장된 intent를 확인한다.
+5. 저장된 intent의 task·scope·correlation에 맞춰 native 배정을 호출한다.
+6. `result`에 `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {correlation, taskId, agentId}}}`를 전달한다.
+   `intentId`는 prepare의 requestId이다. 성공은 `succeeded`, 실패는 `failed`, 실행 여부 불명은 `unknown`, 응답 불일치는 `mismatch`로 구별한다.
+   성공에는 반환 agent ID가 필요하다. `unknown`/`mismatch`는 hold이며 중복 배정을 멈추고 실제 결과를 조사한다.
+
+이 경로의 승인·배정 결과는 `operator-attested` 진술이다. native 신원 인증이나 플랫폼 이벤트 검증을 뜻하지 않는다.
+CLI 밖 직접 호출을 막지 못하며, 생략된 과거 실행을 새 workflow로 정상화할 수 없다. 기존 trusted adapter의 provenance 조건은 유지한다.
