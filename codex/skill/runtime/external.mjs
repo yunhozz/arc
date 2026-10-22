@@ -33,7 +33,7 @@ export function evaluateCooperativeExternal({state,request,approvalEvidence}={})
  if(unresolvedExternal(state)||state.unresolved.some(u=>!u.resolvedBy)||state.intents.some(i=>i.requestId===request.requestId||EXTERNAL_ACTIONS.includes(i.operation)&&i.approvalRef===a.approvalRef))return decision(state,'Unresolved effects or consumed approval require investigation; never retry');
  return decision(state,'External intent only; operator execution is separate',{intent:{requestId:request.requestId,operation:request.operation,status:'prepared',scope:structuredClone(a.scope),descriptor:structuredClone(a.descriptor),approvalRef:a.approvalRef,approvalFingerprint:fingerprintRequest(approval),scopeVersion:state.scopeVersion,targetVersion:state.targetVersion,target:structuredClone(state.target),versions:structuredClone(state.versions),fingerprint:fingerprintRequest(request),source:'operator-attested'}},true);
 }
-export function reconcileCooperativeExternal({state,intent,result}={}){
+export function reconcileCooperativeExternal({state,intent,result,observations}={}){
  if(!intent||!EXTERNAL_ACTIONS.includes(intent.operation)||!['prepared','unknown','mismatch'].includes(intent.status))return decision(state,'Matching unresolved external intent required; replay cannot authorize another effect');
  try{assertSecretFree(result);}catch{return decision(state,'Secret-free result required');}
  const transition={result:{...structuredClone(result),status:'mismatch',messageRef:result?.messageRef??'invalid-result',data:{...structuredClone(result?.data??{}),remoteVerified:false},source:'operator-attested'}};
@@ -42,8 +42,9 @@ export function reconcileCooperativeExternal({state,intent,result}={}){
  if(!fields(result.data,['operation','scope','descriptor'])||result.data.operation!==intent.operation||!same(result.data.scope,intent.scope)||!same(result.data.descriptor,intent.descriptor))return reject('External result action, scope or target mismatch');
  transition.result={...structuredClone(result),data:{...structuredClone(result.data),remoteVerified:false},source:'operator-attested'};
  const approval=state.records.findLast(r=>r.kind==='external-approval'&&r.messageRef===intent.approvalRef);
- if(!approval||fingerprintRequest(approval)!==intent.approvalFingerprint||state.mode!=='plan'||!same(intent.target,state.target)||!same(intent.versions,state.versions)||intent.scopeVersion!==state.scopeVersion||intent.targetVersion!==state.targetVersion){transition.result.status='mismatch';return reject('Stale external approval, target or versions');}
+ if(!same(observations?.target,intent.target)||!approval||fingerprintRequest(approval)!==intent.approvalFingerprint||state.mode!=='plan'||!same(intent.target,state.target)||!same(intent.versions,state.versions)||intent.scopeVersion!==state.scopeVersion||intent.targetVersion!==state.targetVersion){transition.result.status='mismatch';return reject('Stale external approval, target or versions');}
  if(result.status==='succeeded')return decision(state,'Operator result recorded; no independent remote verification',transition,true);
+ if(result.status==='failed')return decision(state,'Operator confirms failure; approval remains consumed and no retry authorized',transition,true);
  if(result.status==='cancelled'&&text(result.notExecutedEvidence?.messageRef))return decision(state,'Operator attests no execution; approval remains consumed',transition,true);
  return reject('External effect unresolved or unsuccessful; investigate without retry');
 }

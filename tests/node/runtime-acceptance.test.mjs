@@ -77,3 +77,9 @@ test('commit observer reads exact real local commit objects and rejects caller o
  assert.equal(observed.commit.commit,expected[0]);assert.equal(observed.commit.parent,expected[1]);assert.equal(observed.commit.tree,expected[2]);assert.equal(observed.commit.head,target.head);
  await assert.rejects(readCooperativeCommitGitEvidence({target,commit:'HEAD^{tree}'}),/object ID/);
 });
+
+test('verified completed task does not own a subsequent task staged path forever',()=>{
+ const f=fixture();f.state.tasks.push({...structuredClone(f.state.tasks[0]),id:'T0',status:'committed'});f.state.commits.push({taskId:'T0',requestId:'commit0',observationSource:'local-git'});f.state.intents.push({requestId:'commit0',taskId:'T0',operation:'commit',status:'succeeded'});assert.equal(accept(f).decision,'allow');f.state.commits=[];assert.equal(accept(f).decision,'hold');
+});
+
+test('pending dependent task does not own paths before its predecessor finishes',()=>{const f=fixture();f.state.tasks.push({...structuredClone(f.state.tasks[0]),id:'T2',dependencies:['T1']});assert.equal(accept(f).decision,'allow');f.state.intents.push({operation:'assign-agent',taskId:'T2',status:'unknown'});assert.equal(accept(f).decision,'hold');});

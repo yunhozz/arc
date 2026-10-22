@@ -6,7 +6,7 @@ function fixture(){
  const target={realpath:'/workspace',gitCommonDir:'/common',gitDir:'/common',head:commit,branch:'main'};
  const documents=['spec','plan'].map(kind=>({kind,path:'/workspace/'+kind+'.md',gitPath:kind+'.md',contentHash:hash,approvalRef:'approved',commit}));
  const arguments_={role:'coder',paths:['/workspace/code.mjs'],operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'native:1'};
- const state={mode:'plan',target,targetVersion:1,scopeVersion:0,revision:1,intents:[],assignments:[],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',targetVersion:1,scopeVersion:0,data:{approvalVersion:1,documentVersion:1,documents}}]};
+ const state={mode:'plan',target,targetVersion:1,scopeVersion:0,revision:1,tasks:[{id:'T1',paths:['/workspace/code.mjs'],status:'pending',criteria:['works'],requiredChecks:[],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1}],intents:[],assignments:[],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',targetVersion:1,scopeVersion:0,data:{approvalVersion:1,documentVersion:1,documents}}]};
  const request={requestId:'assign1',expectedRevision:1,actor:{id:'operator'},operation:'assign-agent',taskId:'T1',arguments:arguments_};
  const observations={target,git:{target,documents:documents.map(d=>({...d,observedHash:hash,currentHash:hash})),docsCommit:{commit,paths:['spec.md','plan.md'],documents}}};
  return {state,request,observations};
@@ -28,9 +28,10 @@ test('durable command saves intent before native result and never accepts Git fa
  const cwd=path.join(dir,'workspace'),common=path.join(dir,'common');await fs.mkdir(cwd);await fs.mkdir(common);
  const f=fixture();f.state.target={...f.state.target,realpath:cwd,gitCommonDir:common,gitDir:common};
  f.request.arguments.paths=[path.join(cwd,'code.mjs')];for(const d of f.request.arguments.documents)d.path=path.join(cwd,d.gitPath);
- const observe=async()=>({...f.state.target}),args={cwd,workflowId:'assignment',observe};
+ const observe=async()=>({...f.state.target}),args={cwd,workflowId:'assignment',observe,readChanges:async()=>({tasks:{T1:hash},final:hash})};
  await initializeCooperativeWorkflow({...args,input:{mode:'plan',actor:{id:'operator'},selection:{messageRef:'target',contentHash:hash}}});
  await runCooperativeCommand({...args,command:'record',input:{requestId:'approval',expectedRevision:0,actor:{id:'operator'},evidence:{kind:'approval',messageRef:'approved',data:f.state.records[0].data}}});
+ const {workflowStatePath}=await import('../../lib/runtime/scope.mjs');const stateFile=await workflowStatePath(f.state.target,'assignment');const saved=JSON.parse(await fs.readFile(stateFile));saved.tasks=f.state.tasks; saved.tasks[0].paths=f.request.arguments.paths;await fs.writeFile(stateFile,JSON.stringify(saved));
  const readGit=async()=>({...f.observations.git,target:f.state.target,documents:f.request.arguments.documents.map(d=>({...d,observedHash:hash,currentHash:hash}))});
  let prepared=await runCooperativeCommand({...args,command:'prepare',input:f.request,readGit});assert.equal(prepared.decision,'allow');assert.equal(prepared.persisted,true);
  const status=await runCooperativeCommand({...args,command:'status',input:undefined});assert.equal(status.state.intents[0].status,'prepared');assert.deepEqual(status.state.assignments,[]);
@@ -84,4 +85,20 @@ test('unsupported cancellation cannot release a durable prepared assignment',asy
  const status=await runCooperativeCommand({...args,command:'status'});
  assert.equal(status.state.intents[0].status,'prepared');assert.deepEqual(status.state.assignments,[]);
  assert.equal(status.decision,'hold');
+});
+
+test('assignment paths must fit the approved task and recorded scope with component boundaries',()=>{
+ for(const outside of ['/workspace/other.mjs','/workspace/app-sibling/a']){const f=fixture();f.state.tasks=[{...f.state.tasks[0],paths:['/workspace/app']}];f.request.arguments.paths=[outside];assert.equal(prepare(f).decision,'hold');}
+ const f=fixture();f.state.tasks=[{...f.state.tasks[0],paths:['/workspace/app']}];f.request.arguments.paths=['/workspace/app/a'];f.state.scopes=[{scopeVersion:0,data:{paths:['/workspace/other']}}];assert.equal(prepare(f).decision,'hold');f.state.scopes[0].data.paths=['/workspace/app'];assert.equal(prepare(f).decision,'allow');f.state.tasks=[];assert.equal(prepare(f).decision,'hold');
+});
+
+test('verified committed predecessor releases paths but unresolved and merely succeeded assignments retain them',()=>{
+ const f=fixture();f.state.tasks.push({id:'T0',status:'committed',paths:f.request.arguments.paths});f.state.commits=[{taskId:'T0',observationSource:'local-git',requestId:'commit0'}];f.state.intents.push({operation:'commit',requestId:'commit0',status:'succeeded',taskId:'T0'},{operation:'assign-agent',taskId:'T0',status:'succeeded',correlation:'old',paths:f.request.arguments.paths});assert.equal(prepare(f).decision,'allow');f.state.commits=[];assert.equal(prepare(f).decision,'hold');f.state.commits=[{taskId:'T0',observationSource:'local-git',requestId:'commit0'}];f.state.intents[1].status='unknown';assert.equal(prepare(f).decision,'hold');
+});
+
+test('task-specific approval cannot authorize another task and contract versions bind assignment',()=>{
+ const f=fixture(),other=structuredClone(f.state.records[0]);other.messageRef='approved:T2';other.data.affectedTaskIds=['T2'];other.data.approvalVersion=2;other.data.documentVersion=2;other.data.documents.forEach(d=>d.approvalRef=other.messageRef);f.state.records.push(other);
+ f.request.arguments={...f.request.arguments,approvalRef:other.messageRef,approvalVersion:2,documentVersion:2,documents:structuredClone(other.data.documents)};f.observations.git.docsCommit.documents=structuredClone(other.data.documents);f.observations.git.documents=other.data.documents.map(d=>({...d,observedHash:hash,currentHash:hash}));assert.equal(prepare(f).decision,'hold');
+ const valid=fixture();valid.state.records.push(other);assert.equal(prepare(valid).decision,'allow','unrelated approval does not invalidate the task approval');
+ for(const key of ['approvalRef','approvalVersion','documentVersion','scopeVersion','targetVersion']){const f=fixture();f.state.tasks[0][key]=key==='approvalRef'?'other':9;assert.equal(prepare(f).decision,'hold',key);}
 });

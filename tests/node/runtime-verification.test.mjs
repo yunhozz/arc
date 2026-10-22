@@ -100,3 +100,8 @@ test('Coder native actor cannot reuse a recorded QA or Reviewer identity',async(
  assert.equal(recordCooperativeAssignmentResult({state:f.state,intent,result,observations:{target:f.state.target}}).decision,'hold');
 });
 test('a truthful result for a changed diff preserves execution status without granting fresh evidence',()=>{const f=fixture(),intent=prepared(f);f.evidence.changes.tasks.T1=other;const d=result(f,intent);assert.equal(d.decision,'hold');assert.equal(d.proposedTransition.result.status,'succeeded');assert.equal(d.proposedTransition.check.stale,true);assert.notEqual(d.proposedTransition.check.status,'passed');});
+
+test('task snapshot survives verified HEAD advancement but tracks branch and bytes',async t=>{
+ const fs=await import('node:fs/promises'),os=await import('node:os'),path=await import('node:path');const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-head-snapshot-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));await fs.writeFile(path.join(root,'a'),'one');const f=fixture();f.state.target.realpath=root;f.state.tasks[0].paths=[path.join(root,'a')];const gitRunner=({args})=>({status:0,stdout:Buffer.from(args.includes('--stage')?'':'a\0')});
+ const first=await api.readCooperativeChanges({state:f.state,gitRunner});f.state.target.head='b'.repeat(40);const advanced=await api.readCooperativeChanges({state:f.state,gitRunner});assert.equal(first.tasks.T1,advanced.tasks.T1);assert.notEqual(first.final,advanced.final);f.state.target.branch='other';assert.notEqual((await api.readCooperativeChanges({state:f.state,gitRunner})).tasks.T1,first.tasks.T1);
+});

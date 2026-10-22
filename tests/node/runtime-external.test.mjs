@@ -10,7 +10,7 @@ function fixture(operation='push'){
 }
 function prepare(f){assert.equal(typeof api.evaluateCooperativeExternal,'function','external gate required');return api.evaluateCooperativeExternal(f);}
 function ready(operation){const f=fixture(operation),d=prepare(f);assert.equal(d.decision,'allow',d.reason);f.intent=d.proposedTransition.intent;f.state.intents.push(f.intent);f.result={status:'succeeded',messageRef:'operator:observed',data:{operation:f.request.operation,scope:f.request.arguments.scope,descriptor:f.request.arguments.descriptor}};return f;}
-function reconcile(f){assert.equal(typeof api.reconcileCooperativeExternal,'function','external reconciliation required');return api.reconcileCooperativeExternal(f);}
+function reconcile(f){assert.equal(typeof api.reconcileCooperativeExternal,'function','external reconciliation required');return api.reconcileCooperativeExternal({...f,observations:{target:f.state.target}});}
 test('missingExactExternalApprovalHolds and localCommitApprovalCannotAuthorizePush',()=>{
  for(const mutate of [f=>f.state.records=[],f=>f.state.records[0].kind='approval',f=>f.state.records[0].data.operation='commit',f=>f.request.arguments.approvalRef='other',f=>f.request.actor.role='coder',f=>f.state.scopeVersion++,f=>f.state.mode='no-plan']){const f=fixture();mutate(f);assert.equal(prepare(f).decision,'hold');}
 });
