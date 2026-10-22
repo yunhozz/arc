@@ -155,6 +155,55 @@ After gates hold, continue approved scope without saved documents through requir
 Completion continuity above; a role report alone does not complete the work.
 
 
+## 협력 CLI의 검증 수명주기
+
+`workflow`의 지원 경로는 승인된 완전한 spec+plan이다. no-plan, small-task와 문서 생략 경로는 계속
+`cooperative.unsupported`이며, 이 결과는 기존 ARC 정책 위반이나 새 문서 작성 의무를 뜻하지 않는다.
+CLI는 check를 실행하거나 Reviewer를 호출하지 않는다. 모든 actor·결과·판정은 `operator-attested`이며 실제
+신원 인증, 독립성의 실재, 의미적 충분성이나 실행 강제를 증명하지 않는다.
+
+Orchestrator actor(`actor.role: "orchestrator"`)가 `record`의 `acceptance-evidence`에
+`data: {kind: "task", task: {...}}`를 기록해 검증 계약을 등록한다. task에는 `id`, 절대 경로 `paths`,
+`criteria`, `requiredChecks`, `dependencies`, `approvalRef`, `approvalVersion`, `documentVersion`,
+`scopeVersion`, `targetVersion`을 명시한다. task 상태는 pending만 등록할 수 있고, 이 기록은 수용·commit이 아니다.
+requiredChecks의 각 descriptor는 `{executable, args, cwd, env, outputs}`이며 executable·cwd·outputs는 절대 경로다.
+cwd와 outputs는 workspace 안에 있어야 한다. Reviewer를 task requiredChecks에 넣지 않는다.
+
+`status`의 `changeFingerprints.tasks[taskId]`와 `changeFingerprints.final`은 독립된 관찰 값이다.
+읽기 전용 Git inventory/index와 현재 regular file 바이트·mode·삭제를 포함하고, task는 소유 경로만,
+final은 저장소 전체 snapshot을 반영한다. symlink, submodule, unmerged index 등 지원하지 않는 관찰은 보류한다.
+관찰과 실행 사이를 원자적으로 잠그는 sandbox는 아니다. runtimeHash drift는 기존 버전을 자동 갱신하거나
+migration·재승인으로 바꾸지 않고 stale/hold로 남긴다.
+
+`prepare`의 `operation: "check"`는 `taskId`와
+`arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`를 받는다.
+actor ID 진술은 Coder·Orchestrator와 독립이어야 하고 task 간 QA/Coder 재사용을 거부한다. descriptor는 등록된
+requiredChecks와 정확히 같아야 한다. intent가 저장된 후 실제 실행은 기존 승인 범위의 담당자가 수행한다.
+`result` 또는 `reconcile`은 `intentId`와 `{status, messageRef, data}`를 기록한다. data에는 intent와 같은
+`actor`, `descriptor`, `scope`, task의 경우 `taskId`, `changeFingerprint`, 그리고
+`verdict: "proven" | "unmet" | "unverified"`를 명시한다. succeeded와 proven의 결합도 해당 변경 버전에만
+유효하다. 이는 운영자의 판정 기록이며 criterion의 의미적 입증이나 Orchestrator 수용을 대신하지 않는다.
+실패·unknown·mismatch·unverified는 통과 근거가 아니다. 이전 결과와 실패 기록을 보존한다.
+
+실패한 check/review는 open finding을 남긴다. 별도 finding은 `record`의
+`data: {action: "open", id, checkId, message}`로 기존 check/review에 연결한다. Coder 수정 후
+`data: {action: "resolve", id, actor: {id, role: "coder"}, changeFingerprint}`와 수정 근거 messageRef를
+기록한다. actor는 해당 task(전체 finding이면 관련 task)에 배정된 Coder여야 한다. 이 기록은 resolved이며,
+후속 prepare의 `findingIds`가 해당 finding을 포함하고 같은 변경 버전의 재검증이 통과해야 closed가 된다.
+그 이전 QA 실패는 Coder→QA 재확인을 유지한다.
+
+`operation: "review"`는 `scope: "final"`, `actor.role: "reviewer"`,
+`descriptor: {kind: "source-review", paths: [...]}`를 사용하고 taskId를 넣지 않는다. 최초 final review는 모든
+task가 수용되고 현재 필수 task QA 근거가 있을 때 가능하다. task 수용·집중 commit의 선행 gate로 Reviewer를
+요구하지 않는다. 지원하는 plan의 final Reviewer finding은 Coder 해결→Reviewer 재검증을 반복하며 QA 재배정을
+요구하지 않는다. 이전 QA 근거를 수정 후 실행 근거로 표시하지 않는다. 별도 미해결 QA 실패는 이 예외로 생략하지 않는다.
+
+scope·document·approval 변경 기록은 과거 기록을 덮어쓰지 않는다. `data.affectedTaskIds`를 지정하면 해당 task와
+의존 chain의 task·검증·수용 근거를 무효화하고, 생략하면 모든 task를 보류한다. final 근거도 stale이 된다.
+영향받지 않은 독립 task의 근거는 보존한다. 의미적 영향 범위는 Orchestrator가 판단한다. 영향 task는 현재 scope의
+새 승인 기록과 task 계약 갱신으로 다시 준비해야 하며, 과거 승인으로 되살릴 수 없다. 새 check/review와 finding
+재검증도 필요하다. 최신 근거는 과거 실패를 삭제하지 않고 대체하며, 수용·commit·최종 완료 판단은 Orchestrator에게 남는다.
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.

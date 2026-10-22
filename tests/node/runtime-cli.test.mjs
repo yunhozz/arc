@@ -27,3 +27,27 @@ test('workflow CLI initializes records queries and holds unsupported actions wit
  r=run(['init',...base,'--input','-'],JSON.stringify(input));assert.equal(r.status,1,r.stdout);assert.equal(JSON.parse(r.stdout).persisted,false);
  assert.equal(git(['rev-parse','HEAD']),before.head);assert.equal(git(['branch','--show-current']),before.branch);assert.deepEqual(await fs.readFile(path.join(common,'index')),before.index);
 });
+
+test('workflow CLI persists task check failure correction and fresh recheck; scope changes invalidate dependent evidence',async t=>{
+ const fs=await import('node:fs/promises'),path=await import('node:path');
+ const common=spawnSync('git',['rev-parse','--path-format=absolute','--git-common-dir'],{encoding:'utf8'}).stdout.trim();
+ const workflow='verification-cli-'+process.pid;t.after(()=>fs.rm(path.join(common,'arc','workflows',workflow),{recursive:true,force:true}));
+ const cwd=await fs.realpath(process.cwd()),base=['--cwd',cwd,'--workflow',workflow],actor={id:'operator',role:'orchestrator'};let revision=0;
+ const invoke=(command,input,want=0)=>{const r=run([command,...base,...(input?['--input','-']:[])],input?JSON.stringify(input):undefined);assert.equal(r.status,want,r.stdout);return JSON.parse(r.stdout);};
+ const mutate=(command,input,want=0)=>{const result=invoke(command,{requestId:'r'+revision,expectedRevision:revision,actor,...input},want);revision=result.revision;return result;};
+ invoke('init',{mode:'plan',actor,selection:{messageRef:'target',contentHash:'sha256:'+'a'.repeat(64)}});
+ mutate('record',{evidence:{kind:'approval',messageRef:'approved',data:{approvalVersion:1,documentVersion:1}}});
+ const descriptor={executable:'/usr/bin/true',args:[],cwd,env:{},outputs:[]};
+ const task={id:'T1',paths:[path.join(cwd,'bin/arc.mjs')],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1};
+ mutate('record',{evidence:{kind:'acceptance-evidence',messageRef:'task',data:{kind:'task',task}}});
+ let status=invoke('status');assert.equal(status.state.tasks.length,1);const fingerprint=status.changeFingerprints.tasks.T1;
+ const arguments_={scope:'task',actor:{id:'fresh-qa',role:'qa'},descriptor,changeFingerprint:fingerprint};
+ const intentId='r'+revision;mutate('prepare',{operation:'check',taskId:'T1',arguments:arguments_});
+ mutate('result',{intentId,result:{status:'failed',messageRef:'check:failed',data:{actor:arguments_.actor,scope:'task',taskId:'T1',descriptor,changeFingerprint:fingerprint,verdict:'unmet'}}},3);
+ status=invoke('status',undefined,3);assert.equal(status.state.findings[0].status,'open');assert.equal(status.state.checks[0].status,'failed');
+ // Resolution needs an actual assigned Coder statement, never an arbitrary actor.
+ mutate('record',{evidence:{kind:'finding',messageRef:'forged:fix',data:{action:'resolve',id:intentId+':failure',actor:{id:'unassigned',role:'coder'},changeFingerprint:fingerprint}}},3);
+ mutate('record',{evidence:{kind:'scope',messageRef:'expanded',data:{paths:[cwd],affectedTaskIds:['T1']}}});
+ status=invoke('status',undefined,3);assert.equal(status.state.tasks[0].status,'held');assert.equal(status.state.checks[0].stale,true);assert.equal(status.state.records.find(r=>r.kind==='approval').scopeVersion,0);
+ mutate('prepare',{operation:'check',taskId:'T1',arguments:arguments_},3);
+});

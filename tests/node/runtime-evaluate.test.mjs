@@ -98,3 +98,17 @@ test('durable replay uses current evaluator lease task policy scope and evidence
   const replay=await transactWorkflow(args);assert.notEqual(replay.decision.decision,'allow',name);assert.equal(replay.replayed,true);assert.equal(await fsp.readFile(statePath,'utf8'),before);
  }
 });
+
+test('cooperative evaluator does not accept free-form check/review claims or broaden omission support',async()=>{
+ const {initializeCooperativeWorkflow}=await import('../../lib/runtime/bootstrap.mjs');
+ const {runCooperativeCommand}=await import('../../lib/runtime/cooperative.mjs');
+ const fs=await import('node:fs/promises'),os=await import('node:os'),path=await import('node:path');
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-verification-evaluate-')));
+ try{const cwd=path.join(root,'workspace'),common=path.join(root,'common');await fs.mkdir(cwd);await fs.mkdir(common);
+ const target={realpath:cwd,gitCommonDir:common,gitDir:common,head:'a'.repeat(40),branch:'main'},args={cwd,workflowId:'claims',observe:async()=>target};
+ await initializeCooperativeWorkflow({...args,input:{mode:'plan',actor:{id:'operator'},selection:{messageRef:'target',contentHash:'sha256:'+'a'.repeat(64)}}});
+ for(const [index,kind] of ['check','review'].entries()){
+ const r=await runCooperativeCommand({...args,command:'record',input:{requestId:'claim'+index,expectedRevision:index,actor:{id:'operator',role:'orchestrator'},evidence:{kind,messageRef:'claim',data:{verdict:'proven'}}}});assert.equal(r.decision,'hold');assert.deepEqual(r.ruleIds,['cooperative.unsupported']);
+ }
+ }finally{await fs.rm(root,{recursive:true,force:true});}
+});

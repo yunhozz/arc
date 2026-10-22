@@ -22,6 +22,7 @@ export function validateCooperativeCommand(command){
  if(!text(input.requestId)||input.requestId.length>128||!revision(input.expectedRevision))fail('request identity or revision');
  if(name==='record'){
   fields(input.evidence,['kind','messageRef','data']);
+  if(input.evidence?.data?.affectedTaskIds!==undefined&&(!Array.isArray(input.evidence.data.affectedTaskIds)||!input.evidence.data.affectedTaskIds.every(text)||new Set(input.evidence.data.affectedTaskIds).size!==input.evidence.data.affectedTaskIds.length))fail('affected task IDs');
   if(!statement(input.evidence)||!['note','approval','document','scope','check','finding','review','acceptance-evidence'].includes(input.evidence.kind))fail('evidence');
  }
  if(resultStatement){
@@ -39,6 +40,7 @@ export function validateCooperativeState(state){
  if(!object(state.versions)||!text(state.versions.policy)||!text(state.versions.runtime)||!hash(state.versions.policyHash)||!hash(state.versions.runtimeHash))fail('versions');
  if(!object(state.coverage)||state.coverage.provenance!=='operator-attested'||state.coverage.nativeVerified!==false||state.coverage.enforcement!=='cooperative')fail('coverage');
  for(const key of ['actors','selections','assignments','identities','leases','scopes','approvals','documents','tasks','requests','intents','results','checks','findings','acceptances','commits','audit','unresolved','records','targetHistory'])if(!Array.isArray(state[key]))fail(key);
+ if(state.tasks.some(t=>!object(t)||!text(t.id)||!Array.isArray(t.paths)||!Array.isArray(t.criteria)||!Array.isArray(t.requiredChecks)||!Array.isArray(t.dependencies))||new Set(state.tasks.map(t=>t.id)).size!==state.tasks.length)fail('task contracts');
  if(!revision(state.scopeVersion)||!revision(state.targetVersion))fail('scope/target version');
  if(state.actors.some(a=>!actor(a.actor)||a.source!=='operator-attested')||state.selections.some(s=>s.source!=='operator-attested'||!text(s.messageRef)))fail('attestations');
  for(const key of ['scopes','approvals','documents','checks','findings','acceptances','commits'])if(state[key].some(entry=>!object(entry)||entry.source!=='operator-attested'))fail('attestation source');

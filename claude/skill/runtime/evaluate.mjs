@@ -1,3 +1,4 @@
+import {evaluateCooperativeVerification} from './verification.mjs';
 import {prepareCooperativeAssignment} from './assignment.mjs';
 /**
  * @typedef {object} GateDecision
@@ -114,7 +115,9 @@ export function evaluateCooperative({policy,state,request,evidence}={}){
  if(!evidence||!same(evidence.target,state.target))return hold('cooperative.target','Observed target changed');
  if(!same(evidence.versions,state.versions))return hold('cooperative.versions','Policy or runtime changed');
  if(request.input&&request.input.expectedRevision!==state.revision)return hold('cooperative.revision','Stale revision');
- if(request.command==='prepare')return request.input.operation==='assign-agent'?prepareCooperativeAssignment({policy,state,request:request.input,observations:{target:evidence.target,git:evidence.git}}):hold('cooperative.unsupported','Unsupported operation');
+ if(request.command==='prepare')return request.input.operation==='assign-agent'?prepareCooperativeAssignment({policy,state,request:request.input,observations:{target:evidence.target,git:evidence.git}}):evaluateCooperativeVerification({state,request:request.input,evidence});
+ if(request.command==='record'&&(['check','review','finding'].includes(request.input.evidence.kind)||request.input.evidence.kind==='acceptance-evidence'&&request.input.evidence.data.kind==='task'))return evaluateCooperativeVerification({state,request:{...request.input,operation:'verification-record'},evidence});
+ if(request.command==='status'&&(state.tasks.some(t=>t.invalidated)||state.findings.some(f=>f.status!=='closed')||state.checks.some((c,index)=>!state.checks.slice(index+1).some(next=>next.scope===c.scope&&next.taskId===c.taskId&&same(next.descriptor,c.descriptor))&&(c.stale||c.status!=='passed'||c.changeFingerprint!==(c.scope==='final'?evidence.changes?.final:evidence.changes?.tasks?.[c.taskId])))))return hold('cooperative.verification-stale','Verification or findings require current evidence');
  return {...base,decision:'allow',ruleIds:['cooperative.recorded'],requiredEvidence:[],nextActions:[],proposedTransition:null};
 }
 

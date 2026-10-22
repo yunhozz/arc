@@ -150,6 +150,20 @@ self-correct.
 Like other plan-skip paths, there is no automatic task commit; commits follow applicable guidance and user requests.
 
 
+## 협력 CLI 검증 인계
+
+지원하는 spec+plan 경로의 검증 인계에는 등록된 task 계약과 정확한 check descriptor, task/final 구분,
+`status.changeFingerprints`, 독립 actor 진술, intent ID, 결과 messageRef·verdict를 포함한다.
+check/review는 `prepare` 이후 외부의 승인된 역할이 수행하고 `result`로 실제 결과를 기록한다.
+CLI 기록은 신원 인증이나 실제 에이전트 정책 준수 증명이 아니다.
+
+scope·문서·승인 변경 시 `affectedTaskIds`와 의존 chain을 확인하고, 기존 승인·결과 기록을 보존한 채
+영향 task의 새 승인과 계약을 인계한다. 오래된 passing check는 다른 fingerprint에 재사용하지 않는다.
+실패 finding은 배정된 Coder의 해결 근거와 해당 변경 버전의 QA 재확인을 연결한다. final 전체 Reviewer
+finding만 Coder→Reviewer 재검증을 적용한다. Reviewer를 개별 task의 수용·commit 선행 조건으로 추가하지 않는다.
+자세한 필드와 보류 조건은 [verification.md](verification.md#협력-cli의-검증-수명주기)를 따른다.
+no-plan·생략 경로의 unsupported는 기존 정책 위반이나 문서 작성 요구로 바꾸지 않는다.
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
