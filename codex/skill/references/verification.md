@@ -181,6 +181,86 @@ ends at its approved question's evidence and limits; a combined scope continues 
 Document omission changes neither verification risk nor acceptance responsibility. Hold only affected work for an
 actual unmet condition and report what is needed to resume. Structural evidence does not prove live agent compliance.
 
+## Verification lifecycle in the cooperative CLI
+
+The supported `workflow` path is an approved complete spec+plan. No-plan, small-task and document omission paths remain
+`cooperative.unsupported`; this outcome does not imply a violation of existing ARC policy or a new obligation to write documents.
+The CLI does not execute checks or invoke Reviewer. All actors, results and verdicts are `operator-attested`; they do not prove
+identity, actual independence, semantic sufficiency or enforced execution.
+
+An Orchestrator actor (`actor.role: "orchestrator"`) registers a verification contract by recording
+`data: {kind: "task", task: {...}}` in `acceptance-evidence` through `record`. The task specifies `id`, absolute `paths`,
+`criteria`, `requiredChecks`, `dependencies`, `approvalRef`, `approvalVersion`, `documentVersion`,
+`scopeVersion` and `targetVersion`. Only pending tasks can be registered; this record is neither acceptance nor a commit.
+Each requiredChecks descriptor is `{executable, args, cwd, env, outputs}`; executable, cwd and outputs are absolute paths.
+cwd and outputs must be within the workspace. Do not include Reviewer in task requiredChecks.
+
+`changeFingerprints.tasks[taskId]` and `changeFingerprints.final` in `status` are independent observations.
+They include read-only Git inventory/index observations and current regular-file bytes, modes and deletions. Task fingerprints
+cover owned paths; the final fingerprint covers the whole repository snapshot. Unsupported observations such as symlinks,
+submodules and unmerged indexes cause a hold. This is not a sandbox that atomically locks observation and execution.
+Leave runtimeHash drift as stale/hold; do not automatically update the stored version or convert it through migration or renewed approval.
+
+`operation: "check"` in `prepare` accepts `taskId` and
+`arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`.
+Actor ID attestations must be independent of Coder and Orchestrator; QA/Coder reuse across tasks is rejected. The descriptor must
+exactly match the registered requiredChecks. After the intent is persisted, the responsible role executes within its existing approved scope.
+`result` or `reconcile` records `intentId` and `{status, messageRef, data}`. data specifies the same
+`actor`, `descriptor` and `scope` as the intent, `taskId` for tasks, `changeFingerprint`, and
+`verdict: "proven" | "unmet" | "unverified"`. Even a succeeded/proven result is valid only for that change version.
+This is an operator verdict record; it does not replace semantic proof of a criterion or Orchestrator acceptance.
+Failures, unknown, mismatch and unverified outcomes are not passing evidence. Preserve previous results and failure records.
+
+A failed check/review leaves an open finding. Link a separate finding to an existing check/review through `record` with
+`data: {action: "open", id, checkId, message}`. After a Coder fix, record
+`data: {action: "resolve", id, actor: {id, role: "coder"}, changeFingerprint}` and the fix evidence messageRef.
+The actor must be the Coder assigned to that task, or a relevant task for an overall finding. This marks the finding resolved;
+it becomes closed only when a subsequent prepare includes it in `findingIds` and revalidation passes for the same change version.
+Earlier QA failures retain the Coder→QA recheck requirement.
+
+`operation: "review"` uses `scope: "final"`, `actor.role: "reviewer"` and
+`descriptor: {kind: "source-review", paths: [...]}`, without taskId. The initial final review requires acceptance of all tasks
+and current required task QA evidence. Reviewer is not a prerequisite gate for task acceptance or focused commits.
+For final Reviewer findings in supported plan work, repeat Coder resolution→Reviewer revalidation without QA reassignment.
+Do not present earlier QA evidence as execution evidence for a subsequent fix. This exception does not omit separate unresolved QA failures.
+
+Scope, document and approval change records do not overwrite history. Specifying `data.affectedTaskIds` invalidates task,
+verification and acceptance evidence for those tasks and their dependency chain; omitting it holds all tasks. Final evidence also becomes stale.
+Preserve evidence for unaffected independent tasks. Orchestrator determines semantic impact. Affected tasks require a new approval record
+for the current scope and an updated task contract before preparation; earlier approvals cannot revive them. New checks/reviews and
+finding revalidation are also required. Current evidence supersedes earlier failures without deleting them; acceptance, commits and final completion remain Orchestrator decisions.
+
+### Task acceptance and focused commit reconciliation in the cooperative CLI
+
+In the current plan mode, `prepare` supports `operation: "accept"` and `operation: "commit"`.
+Acceptance is an Orchestrator attestation specifying `actor.role: "orchestrator"`, `taskId`, and, in `arguments`,
+`messageRef`, the same `criteria` as the task, exact `checkIds` for current required QA, all task
+`findingIds` and the current `changeFingerprint`. The latest QA result for each required descriptor must be
+passed/proven, and findings must be closed through Coder fixes and QA rechecks.
+A successful attestation marks the task accepted; passing commands or Coder reports alone do not constitute acceptance.
+The provenance is `operator-attested`; the operator confirms semantic criterion satisfaction and actor identities.
+
+At acceptance, the code pins the actual index tree, staged diff, paths and task fingerprint together. Orchestrator stages only
+approved task paths beforehand and confirms required QA for that index state. Unrelated paths, changes from another registered
+task, or unstaged/untracked changes within scope cause a hold. The code cannot automatically distinguish semantically unrelated
+hunks within the same file; Orchestrator reads the actual diff to confirm them.
+
+`operation: "commit"` in `prepare` references the exact acceptance through `arguments: {"acceptanceId": "acceptance requestId"}`.
+The code checks that the current approval, task contract, QA, findings and index match acceptance, then persists a durable intent
+with the expected parent, tree, paths and residual paths. The CLI does not stage or commit.
+Orchestrator creates one focused implementation commit matching these expectations.
+
+Then submit `intentId`, `actor.role: "orchestrator"`, and
+`result: {"status": "succeeded", "messageRef": "actual result evidence", "data": {"commit": "full OID"}}`
+through `reconcile` or result-form `result`. The CLI rereads the actual commit object, parent, tree, paths, HEAD, index and residual changes from local Git.
+Only a complete match updates target HEAD and marks the task committed. Failure, unknown and mismatch observations and actual
+history are preserved; the target is not updated arbitrarily. Reusing the same request or a completed intent does not authorize
+a second effect. After a failure, read the actual state, resolve the cause and reconcile the existing intent.
+
+Do not rewrite earlier QA fingerprints after a successful commit. Separate post-commit file/index observations detect subsequent
+changes. Under the existing rules, final review requires current task evidence and the final fingerprint.
+A changed runtimeHash follows the existing stale/hold rules; the stored version is not automatically updated.
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
@@ -189,3 +269,47 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]
+
+
+## External operations and recovery in the cooperative CLI
+
+The three phases support state, documents and assignment; scope, verification, acceptance and focused commits; and external approval, results and audit recovery.
+Use `status.support` to inspect all nine areas and their limits. The supported mode is `plan` with spec+plan; no-plan and omission are unsupported. The CLI does not execute native/provider calls or push, merge, deploy or publish.
+User approvals and execution results confirmed by the operator are `operator-attested`, with `nativeVerified: false` and
+`remoteVerified: false`. Blocking direct calls outside the CLI and independent remote verification are not provided.
+
+Orchestrator records an explicit approval it has already confirmed through `record` with
+`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`.
+`scope` is an array of unique absolute paths within the checkout. Local commit approval does not authorize external operations.
+Include the exact action, scope and target in the approval, and record every descriptor field below.
+
+| operation | descriptor fields |
+|---|---|
+| push | repository, destination, refspec, sourceOid, expectedRemoteOid |
+| merge | repository, changeRef, targetRef, expectedTargetOid |
+| deploy | service, project, environment, artifactId, destination |
+| publish | service, namespace, name, version, artifactHash, destination |
+
+Git OIDs are full 40/64-character lowercase hex values; artifactHash is `sha256:<64-hex>`. Without a remote observation,
+an OID is an expected value asserted by the user, not verified remote state. destination must be an identifier without secrets.
+Do not submit URL userinfo, query or fragment components, or authentication information such as passwords, tokens or credentials.
+The CLI rejects recognized credential inputs before persistence, but cannot determine whether every arbitrary string contains a secret.
+
+Pass `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
+arguments: {approvalRef, scope, descriptor}}` to `prepare`. approvalRef matches the external approval messageRef.
+An intent is persisted only when the exact approval, scope/target versions and runtime version match and no effect is unresolved.
+After confirming `allow` and `persisted: true`, Orchestrator performs the external operation within its separately approved scope.
+This CLI does not expand that execution authority.
+
+`result`/`reconcile` accepts `{requestId, expectedRevision, actor, intentId,
+result: {status, messageRef, data: {operation, scope, descriptor}}}`. intentId is the prepare requestId.
+Target mismatches, unknown outcomes and stale results cause a hold while preserving earlier attestations. After an interruption,
+use `status` to inspect the intent, `state.requests`, `state.audit` and `state.results`, and investigate whether the effect occurred.
+Reconcile the investigation result against the same intent rather than preparing again or reusing the same approval to execute again.
+Cancellation additionally requires a `notExecutedEvidence: {messageRef}` attestation that the operation was not executed.
+The approval remains consumed after cancellation. Do not resolve version drift through automatic updates, migration or renewed permission.
+Report the cause of the hold to Orchestrator.
+
+Even succeeded results are operator attestations, not independent remote verification. `audit` retains the
+request→decision→intent→result→resolution linkage, but is a locally editable record rather than tamper-proof security evidence.
+Do not retry while the actual external outcome is uncertain.

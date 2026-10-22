@@ -74,3 +74,10 @@ for(const [name,mutate] of [
 });
 
 test('reconciled commit records retain schema preflight fields',async()=>{const f=reconciliation();const d=await api.runGate(f);const c=d.proposedTransition.commits[0];assert.equal(c.purpose,'task');assert.equal(c.expectedParent,sha('a'));assert.equal(c.expectedTree,sha('b'));});
+
+test('shared Git snapshot checks reject unrelated scope without changing trusted role provenance',()=>{
+ const f=fixture();assert.equal(typeof api.validateGitPreflight,'function');
+ assert.equal(api.validateGitPreflight({target:f.state.target,descriptor:f.request.descriptor,scope:f.state.tasks[0].paths,gitEvidence:f.gitEvidence}),null);
+ f.request.descriptor.paths=['other.mjs'];f.gitEvidence.stagedPaths=['other.mjs'];
+ assert.match(api.validateGitPreflight({target:f.state.target,descriptor:f.request.descriptor,scope:f.state.tasks[0].paths,gitEvidence:f.gitEvidence}),/unrelated|another task/i);
+});

@@ -217,6 +217,20 @@ automatically revert, reset, stash, or clean those changes. Like other plan-skip
 commit; commits follow applicable guidance and user requests.
 
 
+## Cooperative CLI verification handoff
+
+For the supported spec+plan path, the verification handoff includes the registered task contract, exact check descriptor,
+task/final scope, `status.changeFingerprints`, independent actor attestations, intent ID, result messageRef and verdict.
+An externally authorized role performs each check/review after `prepare`, and records the actual result through `result`.
+CLI records do not authenticate identities or prove actual agent policy compliance.
+
+When scope, documents or approvals change, inspect `affectedTaskIds` and the dependency chain, preserve earlier approval and
+result records, and hand off new approvals and contracts for affected tasks. Do not reuse an old passing check for a different fingerprint.
+Link failed findings to the assigned Coder's resolution evidence and QA rechecks for that change version. Only final overall Reviewer
+findings use Coder→Reviewer revalidation. Do not add Reviewer as a prerequisite for individual task acceptance or commits.
+Follow [verification.md](verification.md#verification-lifecycle-in-the-cooperative-cli) for detailed fields and hold conditions.
+An unsupported no-plan/omission path does not imply a policy violation or a requirement to write documents.
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
@@ -226,3 +240,71 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]
+
+## Initial Coder assignment through the cooperative CLI
+
+In approved plan mode, Orchestrator performs the following sequence. All mutation commands pass JSON through stdin with
+`arc workflow <command> --cwd <absolute-checkout> --workflow <id> --input -`.
+Query `status` without `--input`.
+
+1. Prepare the docs-only commit of the approved spec and plan, and verify the exact document set, objects and current files.
+   Perform `init`, approval `record` and `prepare` only after this commit verification, even when user approval preceded the document commit.
+2. After document commit verification, pass `mode: "plan"`, `actor: {id: "operator"}` and `selection: {messageRef, contentHash}` to `init` at the final target HEAD.
+3. Use `record` to persist the user approval attestation already confirmed. The input is
+   `{requestId, expectedRevision, actor, evidence: {kind: "approval", messageRef, data: {approvalVersion, documentVersion, documents}}}`.
+   `documents` contains exactly the spec and plan, each with `{kind, path, gitPath, contentHash, approvalRef, commit}`.
+   `contentHash` is `sha256:<hex>`, and `approvalRef` must match the approval `messageRef`.
+   On HEAD drift, record a fresh target observation and renewed approval instead of reconnecting an earlier intent.
+4. Pass `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "coder", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}` to `prepare`.
+   Absolute `paths` must be inside the checkout. Confirm `allow`, `persisted: true` and the persisted intent.
+5. Invoke the native assignment with the task, scope and correlation from the persisted intent.
+6. Pass `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {correlation, taskId, agentId}}}` to `result`.
+   `intentId` is the prepare requestId. Distinguish success as `succeeded`, failure as `failed`, uncertain execution as `unknown` and a response mismatch as `mismatch`.
+   Success requires the returned agent ID. `unknown`/`mismatch` causes a hold; stop duplicate assignments and investigate the actual result.
+
+Approval and assignment results on this path are `operator-attested`. They do not authenticate native identities or verify platform events.
+The CLI cannot block direct calls outside it, and a new workflow cannot legitimize omitted past execution. Existing trusted adapter provenance requirements remain in force.
+
+
+## External operations and recovery in the cooperative CLI
+
+The three phases support state, documents and assignment; scope, verification, acceptance and focused commits; and external approval, results and audit recovery.
+Use `status.support` to inspect all nine areas and their limits. The supported mode is `plan` with spec+plan; no-plan and omission are unsupported. The CLI does not execute native/provider calls or push, merge, deploy or publish.
+User approvals and execution results confirmed by the operator are `operator-attested`, with `nativeVerified: false` and
+`remoteVerified: false`. Blocking direct calls outside the CLI and independent remote verification are not provided.
+
+Orchestrator records an explicit approval it has already confirmed through `record` with
+`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`.
+`scope` is an array of unique absolute paths within the checkout. Local commit approval does not authorize external operations.
+Include the exact action, scope and target in the approval, and record every descriptor field below.
+
+| operation | descriptor fields |
+|---|---|
+| push | repository, destination, refspec, sourceOid, expectedRemoteOid |
+| merge | repository, changeRef, targetRef, expectedTargetOid |
+| deploy | service, project, environment, artifactId, destination |
+| publish | service, namespace, name, version, artifactHash, destination |
+
+Git OIDs are full 40/64-character lowercase hex values; artifactHash is `sha256:<64-hex>`. Without a remote observation,
+an OID is an expected value asserted by the user, not verified remote state. destination must be an identifier without secrets.
+Do not submit URL userinfo, query or fragment components, or authentication information such as passwords, tokens or credentials.
+The CLI rejects recognized credential inputs before persistence, but cannot determine whether every arbitrary string contains a secret.
+
+Pass `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
+arguments: {approvalRef, scope, descriptor}}` to `prepare`. approvalRef matches the external approval messageRef.
+An intent is persisted only when the exact approval, scope/target versions and runtime version match and no effect is unresolved.
+After confirming `allow` and `persisted: true`, Orchestrator performs the external operation within its separately approved scope.
+This CLI does not expand that execution authority.
+
+`result`/`reconcile` accepts `{requestId, expectedRevision, actor, intentId,
+result: {status, messageRef, data: {operation, scope, descriptor}}}`. intentId is the prepare requestId.
+Target mismatches, unknown outcomes and stale results cause a hold while preserving earlier attestations. After an interruption,
+use `status` to inspect the intent, `state.requests`, `state.audit` and `state.results`, and investigate whether the effect occurred.
+Reconcile the investigation result against the same intent rather than preparing again or reusing the same approval to execute again.
+Cancellation additionally requires a `notExecutedEvidence: {messageRef}` attestation that the operation was not executed.
+The approval remains consumed after cancellation. Do not resolve version drift through automatic updates, migration or renewed permission.
+Report the cause of the hold to Orchestrator.
+
+Even succeeded results are operator attestations, not independent remote verification. `audit` retains the
+request→decision→intent→result→resolution linkage, but is a locally editable record rather than tamper-proof security evidence.
+Do not retry while the actual external outcome is uncertain.

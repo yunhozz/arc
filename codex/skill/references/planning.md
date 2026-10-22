@@ -253,6 +253,7 @@ Do not retroactively treat an early save or commit as satisfying these gates or 
 order and any evidence gap. Structural checks prove only the repository's written policy contract, not consuming-agent
 runtime compliance. Without execution records for role returns, approvals, saves, and Git actions, leave runtime
 compliance unverified. Do not add runtime infrastructure or modify external skills for these checks.
+The narrow exception below applies only to the explicitly approved cooperative CLI path within this repository.
 
 ### Managed worktree preparation
 
@@ -274,3 +275,14 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]
+
+## Approved cooperative execution path within the repository
+
+The explicitly approved `arc workflow` CLI in this repository connects document commits to the initial Coder assignment in plan mode.
+Its scope is decisions and records within the repository's cooperative path. It adds no authority to install native hooks/providers/installers or block direct tool calls.
+`no-plan`/omission is unsupported by this CLI, and this boundary remains in Phases 2 and 3. This does not imply an omission policy violation or a new obligation to write documents.
+
+Orchestrator records the SHA-256 values of the user-approved spec and plan, their shared docs-only commit, document version and approval version.
+The CLI verifies the exact changed paths in actual Git objects and the current document bytes before persisting an assignment intent.
+A new workflow or late document commit cannot prove earlier execution was compliant. Earlier agent history and execution outside this path remain unverified.
+Approval attestations and native returns are `operator-attested`; an agent ID is not an authenticated identity.
