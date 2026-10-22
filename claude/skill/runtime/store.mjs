@@ -51,13 +51,24 @@ export async function transactWorkflow({statePath,expectedRevision,requestId,req
   next.revision=state.revision+1;next.requests=prior?state.requests.map(r=>r.requestId===requestId?{requestId,requestFingerprint,decision}:r):[...state.requests,{requestId,requestFingerprint,decision}];
   next.audit=[...state.audit,{requestId,revision:next.revision,decision:decision.decision,ruleIds:decision.ruleIds??[],result:'pending'}];
   validateWorkflowState(next);
-  temporary=path.join(parent,`.${path.basename(statePath)}.${crypto.randomUUID()}.tmp`);
-  const handle=await fs.open(temporary,'wx',0o600);try{await handle.writeFile(JSON.stringify(next,null,2)+'\n');await handle.sync();}finally{await handle.close();}
-  await fs.rename(temporary,statePath);temporary=undefined;
-  const directory=await fs.open(parent,'r');try{await directory.sync();}finally{await directory.close();}
+  await saveDurableState({statePath,state:next});
   return {state:next,decision,replayed:false};
  }finally{
   if(temporary)await fs.unlink(temporary).catch(()=>{});
   if(lock){await lock.close();await fs.unlink(lockPath);}
  }
+}
+
+/** Shared durability primitive. A post-rename sync error is reported as failure;
+ * the caller must re-read rather than assume rollback or repeat an effect. */
+export async function saveDurableState({statePath,state,create=false,storage={}}){
+ const parent=path.dirname(statePath),temporary=path.join(parent,`.${path.basename(statePath)}.${crypto.randomUUID()}.tmp`);
+ let exists=false;
+ try{
+  const handle=await fs.open(temporary,'wx',0o600);exists=true;
+  try{await handle.writeFile(JSON.stringify(state,null,2)+'\n');await handle.sync();}finally{await handle.close();}
+  if(create){await (storage.link??fs.link)(temporary,statePath);await fs.unlink(temporary);}else await (storage.rename??fs.rename)(temporary,statePath);
+  exists=false;
+  const directory=await fs.open(parent,'r');try{await directory.sync();}finally{await directory.close();}
+ }finally{if(exists)await fs.unlink(temporary).catch(()=>{});}
 }

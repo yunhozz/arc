@@ -9,6 +9,7 @@
  * @property {object} coverage
  */
 import path from 'node:path';
+import {validateCooperativeState,validateCooperativeCommand} from './cooperative-schema.mjs';
 import {validateWorkflowState, validateRequest, validateEvidence} from './schema.mjs';
 import {ROLES, ROLE_OPERATIONS, GIT_OPERATIONS, EXTERNAL_OPERATIONS} from './operations.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -100,4 +101,24 @@ export function evaluate(policy, state, request, evidence){
  if(EXTERNAL_OPERATIONS.includes(request.operation))return result('hold','external.explicit-user-authority','explicit external target approval must be verified',['external-approval']);
  if(request.operation==='transition')return result('hold','runtime.transition','result confirmation required',['observed-result']);
  return result('allow',roleRule,'assigned operation with verified provenance');
+}
+
+/** Cooperative statements never enter provider validation or identity resolution. */
+export function evaluateCooperative({policy,state,request,evidence}={}){
+ const base={expectedRevision:state?.revision??0,coverage:{enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false}};
+ const hold=(id,reason)=>({...base,decision:'hold',ruleIds:[id],reason,requiredEvidence:[],nextActions:[],proposedTransition:null});
+ try{validateCooperativeState(state);validateCooperativeCommand(request);}catch(error){return hold('cooperative.schema',error.message);}
+ if(policy!==undefined&&policy.workflowKind!=='cooperative')return hold('cooperative.contract','Explicit cooperative policy required');
+ if(state.mode!=='plan'||['prepare','result'].includes(request.command))return hold('cooperative.unsupported','Operation is not supported in this CLI phase');
+ if(!evidence||!same(evidence.target,state.target))return hold('cooperative.target','Observed target changed');
+ if(!same(evidence.versions,state.versions))return hold('cooperative.versions','Policy or runtime changed');
+ if(request.input&&request.input.expectedRevision!==state.revision)return hold('cooperative.revision','Stale revision');
+ return {...base,decision:'allow',ruleIds:['cooperative.recorded'],requiredEvidence:[],nextActions:[],proposedTransition:null};
+}
+
+/** Result statements preserve uncertainty. They do not authenticate native events. */
+export function reconcileCooperativeResult({state,intent,result,observations}={}){
+ const base={expectedRevision:state?.revision??0,coverage:{enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false},requiredEvidence:[],nextActions:[],proposedTransition:null};
+ try{validateCooperativeState(state);}catch(error){return {...base,decision:'hold',ruleIds:['cooperative.schema'],reason:error.message};}
+ return {...base,decision:'hold',ruleIds:[!intent?'cooperative.intent':result?.status==='unknown'?'cooperative.unknown':'cooperative.reconciliation'],requiredEvidence:[],nextActions:[],proposedTransition:null,reason:!intent?'No matching durable intent':'Recorded operator statement requires reconciliation; no execution authorized'};
 }
