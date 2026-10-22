@@ -217,19 +217,19 @@ automatically revert, reset, stash, or clean those changes. Like other plan-skip
 commit; commits follow applicable guidance and user requests.
 
 
-## 협력 CLI 검증 인계
+## Cooperative CLI verification handoff
 
-지원하는 spec+plan 경로의 검증 인계에는 등록된 task 계약과 정확한 check descriptor, task/final 구분,
-`status.changeFingerprints`, 독립 actor 진술, intent ID, 결과 messageRef·verdict를 포함한다.
-check/review는 `prepare` 이후 외부의 승인된 역할이 수행하고 `result`로 실제 결과를 기록한다.
-CLI 기록은 신원 인증이나 실제 에이전트 정책 준수 증명이 아니다.
+For the supported spec+plan path, the verification handoff includes the registered task contract, exact check descriptor,
+task/final scope, `status.changeFingerprints`, independent actor attestations, intent ID, result messageRef and verdict.
+An externally authorized role performs each check/review after `prepare`, and records the actual result through `result`.
+CLI records do not authenticate identities or prove actual agent policy compliance.
 
-scope·문서·승인 변경 시 `affectedTaskIds`와 의존 chain을 확인하고, 기존 승인·결과 기록을 보존한 채
-영향 task의 새 승인과 계약을 인계한다. 오래된 passing check는 다른 fingerprint에 재사용하지 않는다.
-실패 finding은 배정된 Coder의 해결 근거와 해당 변경 버전의 QA 재확인을 연결한다. final 전체 Reviewer
-finding만 Coder→Reviewer 재검증을 적용한다. Reviewer를 개별 task의 수용·commit 선행 조건으로 추가하지 않는다.
-자세한 필드와 보류 조건은 [verification.md](verification.md#협력-cli의-검증-수명주기)를 따른다.
-no-plan·생략 경로의 unsupported는 기존 정책 위반이나 문서 작성 요구로 바꾸지 않는다.
+When scope, documents or approvals change, inspect `affectedTaskIds` and the dependency chain, preserve earlier approval and
+result records, and hand off new approvals and contracts for affected tasks. Do not reuse an old passing check for a different fingerprint.
+Link failed findings to the assigned Coder's resolution evidence and QA rechecks for that change version. Only final overall Reviewer
+findings use Coder→Reviewer revalidation. Do not add Reviewer as a prerequisite for individual task acceptance or commits.
+Follow [verification.md](verification.md#verification-lifecycle-in-the-cooperative-cli) for detailed fields and hold conditions.
+An unsupported no-plan/omission path does not imply a policy violation or a requirement to write documents.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
@@ -241,70 +241,70 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]
 
-## 협력 CLI의 최초 Coder 배정
+## Initial Coder assignment through the cooperative CLI
 
-승인된 plan mode에서 Orchestrator가 다음 순서를 수행한다. 모든 변경 명령은
-`arc workflow <command> --cwd <absolute-checkout> --workflow <id> --input -`로 JSON을 stdin에 전달한다.
-`status`는 `--input` 없이 조회한다.
+In approved plan mode, Orchestrator performs the following sequence. All mutation commands pass JSON through stdin with
+`arc workflow <command> --cwd <absolute-checkout> --workflow <id> --input -`.
+Query `status` without `--input`.
 
-1. 승인된 spec·plan의 docs-only 커밋을 준비하고 정확한 문서 집합·객체·현재 파일을 검증한다.
-   사용자 승인이 문서 커밋 전에 이미 발생했더라도 `init`·승인 `record`·`prepare`는 이 커밋 검증 후에 수행한다.
-2. 문서 커밋 검증 후 최종 대상 HEAD에서 `init`에 `mode: "plan"`, `actor: {id: "operator"}`, `selection: {messageRef, contentHash}`를 전달한다.
-3. `record`로 이미 확인한 사용자 승인 진술을 저장한다. 입력은
-   `{requestId, expectedRevision, actor, evidence: {kind: "approval", messageRef, data: {approvalVersion, documentVersion, documents}}}`이다.
-   `documents`는 정확히 spec과 plan이며 각 항목은 `{kind, path, gitPath, contentHash, approvalRef, commit}`이다.
-   `contentHash`는 `sha256:<hex>`이고 `approvalRef`는 승인 `messageRef`와 일치해야 한다.
-   HEAD drift 시 과거 intent를 재연결하지 말고 대상 재관찰과 재승인을 기록한다.
-4. `prepare`에 `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "coder", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}`을 전달한다.
-   절대 경로 `paths`는 checkout 안에 있어야 한다. `allow`와 `persisted: true` 및 저장된 intent를 확인한다.
-5. 저장된 intent의 task·scope·correlation에 맞춰 native 배정을 호출한다.
-6. `result`에 `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {correlation, taskId, agentId}}}`를 전달한다.
-   `intentId`는 prepare의 requestId이다. 성공은 `succeeded`, 실패는 `failed`, 실행 여부 불명은 `unknown`, 응답 불일치는 `mismatch`로 구별한다.
-   성공에는 반환 agent ID가 필요하다. `unknown`/`mismatch`는 hold이며 중복 배정을 멈추고 실제 결과를 조사한다.
+1. Prepare the docs-only commit of the approved spec and plan, and verify the exact document set, objects and current files.
+   Perform `init`, approval `record` and `prepare` only after this commit verification, even when user approval preceded the document commit.
+2. After document commit verification, pass `mode: "plan"`, `actor: {id: "operator"}` and `selection: {messageRef, contentHash}` to `init` at the final target HEAD.
+3. Use `record` to persist the user approval attestation already confirmed. The input is
+   `{requestId, expectedRevision, actor, evidence: {kind: "approval", messageRef, data: {approvalVersion, documentVersion, documents}}}`.
+   `documents` contains exactly the spec and plan, each with `{kind, path, gitPath, contentHash, approvalRef, commit}`.
+   `contentHash` is `sha256:<hex>`, and `approvalRef` must match the approval `messageRef`.
+   On HEAD drift, record a fresh target observation and renewed approval instead of reconnecting an earlier intent.
+4. Pass `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "coder", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}` to `prepare`.
+   Absolute `paths` must be inside the checkout. Confirm `allow`, `persisted: true` and the persisted intent.
+5. Invoke the native assignment with the task, scope and correlation from the persisted intent.
+6. Pass `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {correlation, taskId, agentId}}}` to `result`.
+   `intentId` is the prepare requestId. Distinguish success as `succeeded`, failure as `failed`, uncertain execution as `unknown` and a response mismatch as `mismatch`.
+   Success requires the returned agent ID. `unknown`/`mismatch` causes a hold; stop duplicate assignments and investigate the actual result.
 
-이 경로의 승인·배정 결과는 `operator-attested` 진술이다. native 신원 인증이나 플랫폼 이벤트 검증을 뜻하지 않는다.
-CLI 밖 직접 호출을 막지 못하며, 생략된 과거 실행을 새 workflow로 정상화할 수 없다. 기존 trusted adapter의 provenance 조건은 유지한다.
+Approval and assignment results on this path are `operator-attested`. They do not authenticate native identities or verify platform events.
+The CLI cannot block direct calls outside it, and a new workflow cannot legitimize omitted past execution. Existing trusted adapter provenance requirements remain in force.
 
 
-## 협력 CLI의 외부 작업과 복구
+## External operations and recovery in the cooperative CLI
 
-세 phase는 상태·문서·배정, scope·검증·수용 및 집중 commit, 외부 승인·결과·audit 복구를 지원한다.
-`status.support`에서 아홉 영역과 한계를 조회한다. 지원 mode는 spec+plan의 `plan`이며 no-plan·생략은
-unsupported다. CLI는 native/provider 호출이나 push·merge·deploy·publish를 실행하지 않는다.
-운영자가 확인한 사용자 승인과 실행 결과는 `operator-attested`, `nativeVerified: false`,
-`remoteVerified: false`다. CLI 밖 직접 호출 차단과 원격 독립 검증은 제공하지 않는다.
+The three phases support state, documents and assignment; scope, verification, acceptance and focused commits; and external approval, results and audit recovery.
+Use `status.support` to inspect all nine areas and their limits. The supported mode is `plan` with spec+plan; no-plan and omission are unsupported. The CLI does not execute native/provider calls or push, merge, deploy or publish.
+User approvals and execution results confirmed by the operator are `operator-attested`, with `nativeVerified: false` and
+`remoteVerified: false`. Blocking direct calls outside the CLI and independent remote verification are not provided.
 
-Orchestrator는 이미 확인한 명시 승인을 `record`의
-`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`로 기록한다.
-`scope`는 checkout 안의 중복 없는 절대 경로 배열이다. 로컬 commit 승인은 외부 작업 승인이 아니다.
-승인에 정확한 action·scope·대상을 포함하고 다음 descriptor 필드를 빠짐없이 기록한다.
+Orchestrator records an explicit approval it has already confirmed through `record` with
+`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`.
+`scope` is an array of unique absolute paths within the checkout. Local commit approval does not authorize external operations.
+Include the exact action, scope and target in the approval, and record every descriptor field below.
 
-| operation | descriptor 필드 |
+| operation | descriptor fields |
 |---|---|
 | push | repository, destination, refspec, sourceOid, expectedRemoteOid |
 | merge | repository, changeRef, targetRef, expectedTargetOid |
 | deploy | service, project, environment, artifactId, destination |
 | publish | service, namespace, name, version, artifactHash, destination |
 
-Git OID는 전체 40/64자리 소문자 hex, artifactHash는 `sha256:<64-hex>`다. 원격 관찰이 없는 OID는
-사용자가 진술한 기대값이며 검증된 원격 상태가 아니다. destination은 비밀정보 없는 식별자여야 한다.
-URL userinfo·query·fragment와 password·token·credential 등 인증정보를 입력하지 않는다.
-CLI는 인식한 credential 입력을 저장 전에 거부하지만 모든 임의 문자열의 비밀 여부를 판별할 수는 없다.
+Git OIDs are full 40/64-character lowercase hex values; artifactHash is `sha256:<64-hex>`. Without a remote observation,
+an OID is an expected value asserted by the user, not verified remote state. destination must be an identifier without secrets.
+Do not submit URL userinfo, query or fragment components, or authentication information such as passwords, tokens or credentials.
+The CLI rejects recognized credential inputs before persistence, but cannot determine whether every arbitrary string contains a secret.
 
-`prepare`에 `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
-arguments: {approvalRef, scope, descriptor}}`를 전달한다. approvalRef는 외부 승인 messageRef와 같다.
-정확한 승인·scope/target 버전·runtime 버전이 맞고 미해결 효과가 없을 때만 intent를 저장한다.
-`allow`와 `persisted: true`를 확인한 후 실제 외부 수행은 별도 승인 범위에서 Orchestrator가 담당한다.
-이 CLI는 그 실행 권한을 확대하지 않는다.
+Pass `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
+arguments: {approvalRef, scope, descriptor}}` to `prepare`. approvalRef matches the external approval messageRef.
+An intent is persisted only when the exact approval, scope/target versions and runtime version match and no effect is unresolved.
+After confirming `allow` and `persisted: true`, Orchestrator performs the external operation within its separately approved scope.
+This CLI does not expand that execution authority.
 
-`result`/`reconcile`은 `{requestId, expectedRevision, actor, intentId,
-result: {status, messageRef, data: {operation, scope, descriptor}}}`를 받는다. intentId는 prepare requestId다.
-대상 불일치·unknown·stale 결과는 hold이며 과거 진술을 보존한다. 중단 후 `status`로 intent와
-`state.requests`·`state.audit`·`state.results`를 조회하고 실제 발생 여부를 조사한다. 새 prepare나 같은
-승인으로 재실행하지 말고 같은 intent에 조사 결과를 `reconcile`한다. 취소에는 실행하지 않았다는
-`notExecutedEvidence: {messageRef}` 진술이 추가로 필요하다. 취소 뒤에도 해당 승인은 소모된 기록으로 남는다.
-버전 drift는 자동 갱신·migration·재허가로 해소하지 않는다. hold 원인을 Orchestrator에게 보고한다.
+`result`/`reconcile` accepts `{requestId, expectedRevision, actor, intentId,
+result: {status, messageRef, data: {operation, scope, descriptor}}}`. intentId is the prepare requestId.
+Target mismatches, unknown outcomes and stale results cause a hold while preserving earlier attestations. After an interruption,
+use `status` to inspect the intent, `state.requests`, `state.audit` and `state.results`, and investigate whether the effect occurred.
+Reconcile the investigation result against the same intent rather than preparing again or reusing the same approval to execute again.
+Cancellation additionally requires a `notExecutedEvidence: {messageRef}` attestation that the operation was not executed.
+The approval remains consumed after cancellation. Do not resolve version drift through automatic updates, migration or renewed permission.
+Report the cause of the hold to Orchestrator.
 
-결과가 succeeded여도 운영자의 결과 진술이며 독립 remote verification이 아니다. `audit`에는
-request→decision→intent→result→resolution의 연결이 남지만 로컬 수정 가능한 기록이며 변조 불가능한
-보안 증거가 아니다. 실제 외부 결과가 불확실하면 재시도하지 않는다.
+Even succeeded results are operator attestations, not independent remote verification. `audit` retains the
+request→decision→intent→result→resolution linkage, but is a locally editable record rather than tamper-proof security evidence.
+Do not retry while the actual external outcome is uncertain.

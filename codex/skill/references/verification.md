@@ -181,85 +181,85 @@ ends at its approved question's evidence and limits; a combined scope continues 
 Document omission changes neither verification risk nor acceptance responsibility. Hold only affected work for an
 actual unmet condition and report what is needed to resume. Structural evidence does not prove live agent compliance.
 
-## 협력 CLI의 검증 수명주기
+## Verification lifecycle in the cooperative CLI
 
-`workflow`의 지원 경로는 승인된 완전한 spec+plan이다. no-plan, small-task와 문서 생략 경로는 계속
-`cooperative.unsupported`이며, 이 결과는 기존 ARC 정책 위반이나 새 문서 작성 의무를 뜻하지 않는다.
-CLI는 check를 실행하거나 Reviewer를 호출하지 않는다. 모든 actor·결과·판정은 `operator-attested`이며 실제
-신원 인증, 독립성의 실재, 의미적 충분성이나 실행 강제를 증명하지 않는다.
+The supported `workflow` path is an approved complete spec+plan. No-plan, small-task and document omission paths remain
+`cooperative.unsupported`; this outcome does not imply a violation of existing ARC policy or a new obligation to write documents.
+The CLI does not execute checks or invoke Reviewer. All actors, results and verdicts are `operator-attested`; they do not prove
+identity, actual independence, semantic sufficiency or enforced execution.
 
-Orchestrator actor(`actor.role: "orchestrator"`)가 `record`의 `acceptance-evidence`에
-`data: {kind: "task", task: {...}}`를 기록해 검증 계약을 등록한다. task에는 `id`, 절대 경로 `paths`,
+An Orchestrator actor (`actor.role: "orchestrator"`) registers a verification contract by recording
+`data: {kind: "task", task: {...}}` in `acceptance-evidence` through `record`. The task specifies `id`, absolute `paths`,
 `criteria`, `requiredChecks`, `dependencies`, `approvalRef`, `approvalVersion`, `documentVersion`,
-`scopeVersion`, `targetVersion`을 명시한다. task 상태는 pending만 등록할 수 있고, 이 기록은 수용·commit이 아니다.
-requiredChecks의 각 descriptor는 `{executable, args, cwd, env, outputs}`이며 executable·cwd·outputs는 절대 경로다.
-cwd와 outputs는 workspace 안에 있어야 한다. Reviewer를 task requiredChecks에 넣지 않는다.
+`scopeVersion` and `targetVersion`. Only pending tasks can be registered; this record is neither acceptance nor a commit.
+Each requiredChecks descriptor is `{executable, args, cwd, env, outputs}`; executable, cwd and outputs are absolute paths.
+cwd and outputs must be within the workspace. Do not include Reviewer in task requiredChecks.
 
-`status`의 `changeFingerprints.tasks[taskId]`와 `changeFingerprints.final`은 독립된 관찰 값이다.
-읽기 전용 Git inventory/index와 현재 regular file 바이트·mode·삭제를 포함하고, task는 소유 경로만,
-final은 저장소 전체 snapshot을 반영한다. symlink, submodule, unmerged index 등 지원하지 않는 관찰은 보류한다.
-관찰과 실행 사이를 원자적으로 잠그는 sandbox는 아니다. runtimeHash drift는 기존 버전을 자동 갱신하거나
-migration·재승인으로 바꾸지 않고 stale/hold로 남긴다.
+`changeFingerprints.tasks[taskId]` and `changeFingerprints.final` in `status` are independent observations.
+They include read-only Git inventory/index observations and current regular-file bytes, modes and deletions. Task fingerprints
+cover owned paths; the final fingerprint covers the whole repository snapshot. Unsupported observations such as symlinks,
+submodules and unmerged indexes cause a hold. This is not a sandbox that atomically locks observation and execution.
+Leave runtimeHash drift as stale/hold; do not automatically update the stored version or convert it through migration or renewed approval.
 
-`prepare`의 `operation: "check"`는 `taskId`와
-`arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`를 받는다.
-actor ID 진술은 Coder·Orchestrator와 독립이어야 하고 task 간 QA/Coder 재사용을 거부한다. descriptor는 등록된
-requiredChecks와 정확히 같아야 한다. intent가 저장된 후 실제 실행은 기존 승인 범위의 담당자가 수행한다.
-`result` 또는 `reconcile`은 `intentId`와 `{status, messageRef, data}`를 기록한다. data에는 intent와 같은
-`actor`, `descriptor`, `scope`, task의 경우 `taskId`, `changeFingerprint`, 그리고
-`verdict: "proven" | "unmet" | "unverified"`를 명시한다. succeeded와 proven의 결합도 해당 변경 버전에만
-유효하다. 이는 운영자의 판정 기록이며 criterion의 의미적 입증이나 Orchestrator 수용을 대신하지 않는다.
-실패·unknown·mismatch·unverified는 통과 근거가 아니다. 이전 결과와 실패 기록을 보존한다.
+`operation: "check"` in `prepare` accepts `taskId` and
+`arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`.
+Actor ID attestations must be independent of Coder and Orchestrator; QA/Coder reuse across tasks is rejected. The descriptor must
+exactly match the registered requiredChecks. After the intent is persisted, the responsible role executes within its existing approved scope.
+`result` or `reconcile` records `intentId` and `{status, messageRef, data}`. data specifies the same
+`actor`, `descriptor` and `scope` as the intent, `taskId` for tasks, `changeFingerprint`, and
+`verdict: "proven" | "unmet" | "unverified"`. Even a succeeded/proven result is valid only for that change version.
+This is an operator verdict record; it does not replace semantic proof of a criterion or Orchestrator acceptance.
+Failures, unknown, mismatch and unverified outcomes are not passing evidence. Preserve previous results and failure records.
 
-실패한 check/review는 open finding을 남긴다. 별도 finding은 `record`의
-`data: {action: "open", id, checkId, message}`로 기존 check/review에 연결한다. Coder 수정 후
-`data: {action: "resolve", id, actor: {id, role: "coder"}, changeFingerprint}`와 수정 근거 messageRef를
-기록한다. actor는 해당 task(전체 finding이면 관련 task)에 배정된 Coder여야 한다. 이 기록은 resolved이며,
-후속 prepare의 `findingIds`가 해당 finding을 포함하고 같은 변경 버전의 재검증이 통과해야 closed가 된다.
-그 이전 QA 실패는 Coder→QA 재확인을 유지한다.
+A failed check/review leaves an open finding. Link a separate finding to an existing check/review through `record` with
+`data: {action: "open", id, checkId, message}`. After a Coder fix, record
+`data: {action: "resolve", id, actor: {id, role: "coder"}, changeFingerprint}` and the fix evidence messageRef.
+The actor must be the Coder assigned to that task, or a relevant task for an overall finding. This marks the finding resolved;
+it becomes closed only when a subsequent prepare includes it in `findingIds` and revalidation passes for the same change version.
+Earlier QA failures retain the Coder→QA recheck requirement.
 
-`operation: "review"`는 `scope: "final"`, `actor.role: "reviewer"`,
-`descriptor: {kind: "source-review", paths: [...]}`를 사용하고 taskId를 넣지 않는다. 최초 final review는 모든
-task가 수용되고 현재 필수 task QA 근거가 있을 때 가능하다. task 수용·집중 commit의 선행 gate로 Reviewer를
-요구하지 않는다. 지원하는 plan의 final Reviewer finding은 Coder 해결→Reviewer 재검증을 반복하며 QA 재배정을
-요구하지 않는다. 이전 QA 근거를 수정 후 실행 근거로 표시하지 않는다. 별도 미해결 QA 실패는 이 예외로 생략하지 않는다.
+`operation: "review"` uses `scope: "final"`, `actor.role: "reviewer"` and
+`descriptor: {kind: "source-review", paths: [...]}`, without taskId. The initial final review requires acceptance of all tasks
+and current required task QA evidence. Reviewer is not a prerequisite gate for task acceptance or focused commits.
+For final Reviewer findings in supported plan work, repeat Coder resolution→Reviewer revalidation without QA reassignment.
+Do not present earlier QA evidence as execution evidence for a subsequent fix. This exception does not omit separate unresolved QA failures.
 
-scope·document·approval 변경 기록은 과거 기록을 덮어쓰지 않는다. `data.affectedTaskIds`를 지정하면 해당 task와
-의존 chain의 task·검증·수용 근거를 무효화하고, 생략하면 모든 task를 보류한다. final 근거도 stale이 된다.
-영향받지 않은 독립 task의 근거는 보존한다. 의미적 영향 범위는 Orchestrator가 판단한다. 영향 task는 현재 scope의
-새 승인 기록과 task 계약 갱신으로 다시 준비해야 하며, 과거 승인으로 되살릴 수 없다. 새 check/review와 finding
-재검증도 필요하다. 최신 근거는 과거 실패를 삭제하지 않고 대체하며, 수용·commit·최종 완료 판단은 Orchestrator에게 남는다.
+Scope, document and approval change records do not overwrite history. Specifying `data.affectedTaskIds` invalidates task,
+verification and acceptance evidence for those tasks and their dependency chain; omitting it holds all tasks. Final evidence also becomes stale.
+Preserve evidence for unaffected independent tasks. Orchestrator determines semantic impact. Affected tasks require a new approval record
+for the current scope and an updated task contract before preparation; earlier approvals cannot revive them. New checks/reviews and
+finding revalidation are also required. Current evidence supersedes earlier failures without deleting them; acceptance, commits and final completion remain Orchestrator decisions.
 
-### 협력 CLI의 task 수용과 집중 commit 대조
+### Task acceptance and focused commit reconciliation in the cooperative CLI
 
-현재 plan mode의 `prepare`는 `operation: "accept"`와 `operation: "commit"`을 지원한다.
-수용은 Orchestrator가 `actor.role: "orchestrator"`, `taskId`, 그리고 `arguments`의
-`messageRef`, task와 동일한 `criteria`, 현재 필수 QA의 정확한 `checkIds`, 해당 task의 전체
-`findingIds`, 현재 `changeFingerprint`를 명시하는 진술이다. 필수 descriptor별 최신 QA 결과가
-passed/proven이어야 하며, finding은 Coder 수정과 QA 재확인을 거쳐 closed여야 한다.
-이 진술이 통과하면 accepted가 되며, passing command나 Coder 보고만으로는 수용되지 않는다.
-기록의 출처는 `operator-attested`이며 criterion의 의미적 충족과 actor 신원은 운영자가 확인한다.
+In the current plan mode, `prepare` supports `operation: "accept"` and `operation: "commit"`.
+Acceptance is an Orchestrator attestation specifying `actor.role: "orchestrator"`, `taskId`, and, in `arguments`,
+`messageRef`, the same `criteria` as the task, exact `checkIds` for current required QA, all task
+`findingIds` and the current `changeFingerprint`. The latest QA result for each required descriptor must be
+passed/proven, and findings must be closed through Coder fixes and QA rechecks.
+A successful attestation marks the task accepted; passing commands or Coder reports alone do not constitute acceptance.
+The provenance is `operator-attested`; the operator confirms semantic criterion satisfaction and actor identities.
 
-수용 시 code는 실제 index tree·staged diff·경로와 task fingerprint를 함께 고정한다. Orchestrator는
-그 전에 승인된 task 경로만 stage하고, 해당 index 상태에 대해 필수 QA를 확인한다. 무관 경로·다른
-등록 task의 변경 혼입·scope 안의 unstaged/untracked 변경은 hold다. 같은 파일 내부의 의미상 무관한
-hunk를 code가 자동 구분할 수는 없으므로 Orchestrator가 실제 diff를 읽어 확인한다.
+At acceptance, the code pins the actual index tree, staged diff, paths and task fingerprint together. Orchestrator stages only
+approved task paths beforehand and confirms required QA for that index state. Unrelated paths, changes from another registered
+task, or unstaged/untracked changes within scope cause a hold. The code cannot automatically distinguish semantically unrelated
+hunks within the same file; Orchestrator reads the actual diff to confirm them.
 
-`prepare`의 `operation: "commit"`은 `arguments: {"acceptanceId": "수용 requestId"}`로 정확한
-수용을 참조한다. code는 최신 승인·task 계약·QA·finding·index가 수용 당시와 같은지 확인하고,
-예상 parent·tree·paths·잔여 경로를 담은 durable intent를 저장한다. CLI는 stage나 commit을 실행하지
-않는다. Orchestrator가 이 기대값에 맞춰 하나의 집중 implementation commit을 수행한다.
+`operation: "commit"` in `prepare` references the exact acceptance through `arguments: {"acceptanceId": "acceptance requestId"}`.
+The code checks that the current approval, task contract, QA, findings and index match acceptance, then persists a durable intent
+with the expected parent, tree, paths and residual paths. The CLI does not stage or commit.
+Orchestrator creates one focused implementation commit matching these expectations.
 
-이후 `reconcile` 또는 result 형식의 `result`에 `intentId`, `actor.role: "orchestrator"`,
-`result: {"status": "succeeded", "messageRef": "실제 결과 근거", "data": {"commit": "전체 OID"}}`를
-제출한다. CLI는 로컬 Git에서 실제 commit 객체·parent·tree·paths·HEAD·index·잔여 변경을 다시 읽는다.
-기대값이 모두 맞을 때만 target HEAD와 task를 committed로 바꾼다. 실패·unknown·mismatch의 관찰과 실제
-이력은 보존되며 target을 임의로 갱신하지 않는다. 같은 request 또는 완료된 intent의 재사용은 두 번째
-효과를 허가하지 않는다. 실패 후에는 실제 상태를 읽고 원인을 해결한 뒤 기존 intent를 대조해야 한다.
+Then submit `intentId`, `actor.role: "orchestrator"`, and
+`result: {"status": "succeeded", "messageRef": "actual result evidence", "data": {"commit": "full OID"}}`
+through `reconcile` or result-form `result`. The CLI rereads the actual commit object, parent, tree, paths, HEAD, index and residual changes from local Git.
+Only a complete match updates target HEAD and marks the task committed. Failure, unknown and mismatch observations and actual
+history are preserved; the target is not updated arbitrarily. Reusing the same request or a completed intent does not authorize
+a second effect. After a failure, read the actual state, resolve the cause and reconcile the existing intent.
 
-정상 commit 뒤에도 과거 QA의 fingerprint를 새 값으로 바꾸지 않는다. 별도의 post-commit 파일·index
-관찰값이 후속 변경을 감지하며, final review는 기존 규칙대로 현재 task 근거와 final fingerprint를
-요구한다. runtimeHash가 달라지면 기존 stale/hold 규칙이 적용되고 저장된 버전은 자동 갱신되지 않는다.
+Do not rewrite earlier QA fingerprints after a successful commit. Separate post-commit file/index observations detect subsequent
+changes. Under the existing rules, final review requires current task evidence and the final fingerprint.
+A changed runtimeHash follows the existing stale/hold rules; the stored version is not automatically updated.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
@@ -271,45 +271,45 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 [ARC role policy: contract end]
 
 
-## 협력 CLI의 외부 작업과 복구
+## External operations and recovery in the cooperative CLI
 
-세 phase는 상태·문서·배정, scope·검증·수용 및 집중 commit, 외부 승인·결과·audit 복구를 지원한다.
-`status.support`에서 아홉 영역과 한계를 조회한다. 지원 mode는 spec+plan의 `plan`이며 no-plan·생략은
-unsupported다. CLI는 native/provider 호출이나 push·merge·deploy·publish를 실행하지 않는다.
-운영자가 확인한 사용자 승인과 실행 결과는 `operator-attested`, `nativeVerified: false`,
-`remoteVerified: false`다. CLI 밖 직접 호출 차단과 원격 독립 검증은 제공하지 않는다.
+The three phases support state, documents and assignment; scope, verification, acceptance and focused commits; and external approval, results and audit recovery.
+Use `status.support` to inspect all nine areas and their limits. The supported mode is `plan` with spec+plan; no-plan and omission are unsupported. The CLI does not execute native/provider calls or push, merge, deploy or publish.
+User approvals and execution results confirmed by the operator are `operator-attested`, with `nativeVerified: false` and
+`remoteVerified: false`. Blocking direct calls outside the CLI and independent remote verification are not provided.
 
-Orchestrator는 이미 확인한 명시 승인을 `record`의
-`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`로 기록한다.
-`scope`는 checkout 안의 중복 없는 절대 경로 배열이다. 로컬 commit 승인은 외부 작업 승인이 아니다.
-승인에 정확한 action·scope·대상을 포함하고 다음 descriptor 필드를 빠짐없이 기록한다.
+Orchestrator records an explicit approval it has already confirmed through `record` with
+`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`.
+`scope` is an array of unique absolute paths within the checkout. Local commit approval does not authorize external operations.
+Include the exact action, scope and target in the approval, and record every descriptor field below.
 
-| operation | descriptor 필드 |
+| operation | descriptor fields |
 |---|---|
 | push | repository, destination, refspec, sourceOid, expectedRemoteOid |
 | merge | repository, changeRef, targetRef, expectedTargetOid |
 | deploy | service, project, environment, artifactId, destination |
 | publish | service, namespace, name, version, artifactHash, destination |
 
-Git OID는 전체 40/64자리 소문자 hex, artifactHash는 `sha256:<64-hex>`다. 원격 관찰이 없는 OID는
-사용자가 진술한 기대값이며 검증된 원격 상태가 아니다. destination은 비밀정보 없는 식별자여야 한다.
-URL userinfo·query·fragment와 password·token·credential 등 인증정보를 입력하지 않는다.
-CLI는 인식한 credential 입력을 저장 전에 거부하지만 모든 임의 문자열의 비밀 여부를 판별할 수는 없다.
+Git OIDs are full 40/64-character lowercase hex values; artifactHash is `sha256:<64-hex>`. Without a remote observation,
+an OID is an expected value asserted by the user, not verified remote state. destination must be an identifier without secrets.
+Do not submit URL userinfo, query or fragment components, or authentication information such as passwords, tokens or credentials.
+The CLI rejects recognized credential inputs before persistence, but cannot determine whether every arbitrary string contains a secret.
 
-`prepare`에 `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
-arguments: {approvalRef, scope, descriptor}}`를 전달한다. approvalRef는 외부 승인 messageRef와 같다.
-정확한 승인·scope/target 버전·runtime 버전이 맞고 미해결 효과가 없을 때만 intent를 저장한다.
-`allow`와 `persisted: true`를 확인한 후 실제 외부 수행은 별도 승인 범위에서 Orchestrator가 담당한다.
-이 CLI는 그 실행 권한을 확대하지 않는다.
+Pass `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
+arguments: {approvalRef, scope, descriptor}}` to `prepare`. approvalRef matches the external approval messageRef.
+An intent is persisted only when the exact approval, scope/target versions and runtime version match and no effect is unresolved.
+After confirming `allow` and `persisted: true`, Orchestrator performs the external operation within its separately approved scope.
+This CLI does not expand that execution authority.
 
-`result`/`reconcile`은 `{requestId, expectedRevision, actor, intentId,
-result: {status, messageRef, data: {operation, scope, descriptor}}}`를 받는다. intentId는 prepare requestId다.
-대상 불일치·unknown·stale 결과는 hold이며 과거 진술을 보존한다. 중단 후 `status`로 intent와
-`state.requests`·`state.audit`·`state.results`를 조회하고 실제 발생 여부를 조사한다. 새 prepare나 같은
-승인으로 재실행하지 말고 같은 intent에 조사 결과를 `reconcile`한다. 취소에는 실행하지 않았다는
-`notExecutedEvidence: {messageRef}` 진술이 추가로 필요하다. 취소 뒤에도 해당 승인은 소모된 기록으로 남는다.
-버전 drift는 자동 갱신·migration·재허가로 해소하지 않는다. hold 원인을 Orchestrator에게 보고한다.
+`result`/`reconcile` accepts `{requestId, expectedRevision, actor, intentId,
+result: {status, messageRef, data: {operation, scope, descriptor}}}`. intentId is the prepare requestId.
+Target mismatches, unknown outcomes and stale results cause a hold while preserving earlier attestations. After an interruption,
+use `status` to inspect the intent, `state.requests`, `state.audit` and `state.results`, and investigate whether the effect occurred.
+Reconcile the investigation result against the same intent rather than preparing again or reusing the same approval to execute again.
+Cancellation additionally requires a `notExecutedEvidence: {messageRef}` attestation that the operation was not executed.
+The approval remains consumed after cancellation. Do not resolve version drift through automatic updates, migration or renewed permission.
+Report the cause of the hold to Orchestrator.
 
-결과가 succeeded여도 운영자의 결과 진술이며 독립 remote verification이 아니다. `audit`에는
-request→decision→intent→result→resolution의 연결이 남지만 로컬 수정 가능한 기록이며 변조 불가능한
-보안 증거가 아니다. 실제 외부 결과가 불확실하면 재시도하지 않는다.
+Even succeeded results are operator attestations, not independent remote verification. `audit` retains the
+request→decision→intent→result→resolution linkage, but is a locally editable record rather than tamper-proof security evidence.
+Do not retry while the actual external outcome is uncertain.
