@@ -138,3 +138,9 @@ for(const platform of ['codex','claude'])test(`${platform} installs instruction 
  const before=fs.readFileSync(globals);applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
  applyTransaction(make({skipGlobal:true}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
 });
+
+test('supplied complete model config renders custom models without resetting other presets',async t=>{
+ const {loadModelConfig}=await import('../../lib/models/index.mjs');const config=loadModelConfig(payload().modelInputs.codex.models,'codex');config.preset='smart';config.roles.arc_coder.smart.model='custom-model';config.roles.arc_qa.economy.model='preserve-other-preset';
+ const result=plan(fixture(t),'codex',{modelConfig:config,preset:'smart'});assert.deepEqual(loadModelConfig(result.generated.models,'codex'),config);assert.match(result.generated.profiles.get('arc-coder.toml').toString(),/custom-model/);
+ assert.throws(()=>plan(fixture(t),'claude',{modelConfig:config}),/platform/i);
+});

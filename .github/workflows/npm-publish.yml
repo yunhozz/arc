@@ -81,4 +81,11 @@ jobs:
           node-version: '24'
       - run: npm install --global npm@11
       - run: node scripts/update-manifest.mjs --check
-      - run: npm publish --access public --provenance --registry https://registry.npmjs.org/
+      - name: Build verified release artifact
+        run: npm run pack:release -- --out-dir "$RUNNER_TEMP/arc-release"
+      - name: Verify release artifact
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          node scripts/verify-release.mjs --out-dir "$RUNNER_TEMP/arc-release" --name @yunhozz/arc --version "$version"
+      - name: Publish release artifact
+        run: npm publish "$RUNNER_TEMP/arc-release/arc-release.tgz" --access public --provenance --registry https://registry.npmjs.org/
