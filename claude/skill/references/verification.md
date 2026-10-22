@@ -22,12 +22,18 @@ repairs.
 ## Reviewer timing and task acceptance
 
 Task acceptance and its focused commit need only the task's risk-scaled evidence: a FRESH QA instance per task that
-needs QA (same-task rechecks may reuse), or Orchestrator focused checks for small, low-risk tasks; Reviewer is never a
+needs QA (default to the current QA for post-fix rechecks of the same task while the approved scope, workspace,
+ownership, and relevant assignment context remain valid), or Orchestrator focused checks for small, low-risk tasks; Reviewer is never a
 plan-task acceptance prerequisite. Do not delay an independently acceptable task for final-only checks,
 and do not defer currently required task checks to final verification. For significant work with a plan,
 Reviewer reviews once on the final full change after all plan tasks are accepted with their risk-scaled checks and any
 QA recheck at the final relevant state; without a plan, Reviewer follows QA before acceptance.
 A task commit does not mark unperformed final verification complete.
+
+Fresh-per-task rules apply to Coder and QA, not Reviewer. Orchestrator may reuse a Reviewer only while independent
+of implementation and self-review, relevant assignment context remains valid, and refreshed review scope, target
+state, and evidence are provided; otherwise assign another independent Reviewer. Reusing a Reviewer does not reuse
+an earlier verdict or waive required review timing or coverage.
 
 For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
 planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
@@ -64,8 +70,12 @@ conditions and expected result to observations. Partial confirmation, out-of-sco
 environment-blocked gaps stay unverified; omit no criteria. PASS, if used, means only run status.
 Structural checks prove structure only, not behavior, installation, or live agent compliance.
 
-On QA execution failure or unmet criterion, Orchestrator assigns Coder correction and a QA recheck of the reproduction
-path and invalidated related checks before Reviewer; QA reports the prior finding resolved, unresolved, or unverified.
+For QA execution failure or an unmet criterion within the current task, Orchestrator defaults to the current Coder
+for correction and the current QA for a post-fix recheck, subject to the context, task-boundary and amendment rules in
+[coordination](coordination.md). The finding alone does not create a new task. QA reruns the
+reproduction path and invalidated related checks before Reviewer, reporting the actual actor, target state, outcomes, and limitations,
+and the prior finding resolved, unresolved, or unverified with evidence. Reusing QA does not reuse stale evidence.
+An unresolved finding returns to Coder correction and another QA recheck before Reviewer.
 Environment blocks, missing checks, and out-of-scope criteria are evidence gaps, not presumed defects;
 Reviewer does not substitute for QA evidence. Outside the required final plan correction loop,
 Orchestrator decides when a Reviewer recheck is warranted by the changed scope and independence.

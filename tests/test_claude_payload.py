@@ -533,7 +533,7 @@ class RoleHardeningTests(unittest.TestCase):
             with self.subTest(needle=needle):
                 self.assertIn(' '.join(needle.split()), ' '.join(gate.split()))
         self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
-        self.assertIn('same-task rechecks may reuse', gate)
+        self.assertIn('same-task corrections and rechecks default to the current Coder and QA', gate)
         self.assertIn('Coder and QA freshness follow the Role gate', self.text('skill/references/coordination.md'))
 
     def test_every_profile_has_stay_in_role_line(self):
@@ -550,6 +550,26 @@ class RoleHardeningTests(unittest.TestCase):
         self.assertRegex(verification, r'small, low-risk tasks.*Orchestrator focused checks')
         self.assertNotIn('QA or Orchestrator focused checks', verification)
         self.assertIn('FRESH QA instance per task that needs QA', verification)
+        self.assertIn('a QA finding within the current task does not itself create a new task', core)
+        coordination = self.text('skill/references/coordination.md')
+        self.assertIn('default to the current Coder for same-task QA corrections', coordination)
+        self.assertIn('Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes', coordination)
+        self.assertIn('default to the current QA for post-fix rechecks of the same task', verification)
+        self.assertIn('actual actor, target state, outcomes, and limitations', verification)
+        self.assertIn('Reusing QA does not reuse stale evidence', verification)
+
+    def test_reviewer_reuse_requires_independence_and_refreshed_context(self):
+        verification = self.text('skill/references/verification.md')
+        for phrase in (
+            'Fresh-per-task rules apply to Coder and QA, not Reviewer',
+            'Orchestrator may reuse a Reviewer only while independent of implementation and self-review',
+            'relevant assignment context remains valid',
+            'refreshed review scope, target state, and evidence are provided',
+            'otherwise assign another independent Reviewer',
+            'Reusing a Reviewer does not reuse an earlier verdict or waive required review timing or coverage',
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, verification)
 
     def test_restart_brief_rule_lives_in_handoff_only(self):
         core = self.text('skill/SKILL.md')

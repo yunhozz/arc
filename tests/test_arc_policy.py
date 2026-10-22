@@ -1252,7 +1252,7 @@ class RolePolicyTests(unittest.TestCase):
         policy = policy_text("verification")
         for contract in (
             r"qa.*failure.*orchestrator.*coder.*correction.*qa recheck.*before reviewer",
-            r"a qa recheck of the reproduction path and invalidated related checks before reviewer; qa reports the prior finding resolved, unresolved, or unverified with evidence",
+            r"qa reruns the reproduction path and invalidated related checks before reviewer.*actual actor, target state, outcomes, and limitations.*prior finding resolved, unresolved, or unverified with evidence",
             r"an unresolved finding returns to coder correction and another qa recheck before reviewer",
             r"disposition.*does not.*unverified.*proven",
             r"low.risk.*orchestrator.*criterion.*evidence.*unverified",
@@ -1313,7 +1313,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
                        "MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool",
                        "auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner", "that skill's SKILL.md path",
                        "skip questions", "never waives design or approval gates", "returns questions to Orchestrator",
-                       "FRESH Coder", "FRESH QA", "same-task rechecks may reuse"):
+                       "FRESH Coder", "FRESH QA", "same-task corrections and rechecks default to the current Coder and QA"):
             with self.subTest(needle=needle):
                 self.assertIn(needle, " ".join(gate.split()))
         self.assertIn("Integrate means save, route, and obtain approval; never author", self.raw("planning"))
@@ -1332,7 +1332,43 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertRegex(core, r"Ordinary and significant plan tasks.*FRESH QA")
         self.assertRegex(core, r"only small, low-risk tasks.*Orchestrator focused checks")
         self.assertIn("FRESH QA instance per task that needs QA", verification)
+        for platform in ("codex", "claude"):
+            with self.subTest(platform=platform):
+                root = REPO / platform / "skill"
+                gate = " ".join((root / "SKILL.md").read_text().split())
+                coordination = " ".join((root / "references/coordination.md").read_text().split())
+                verification = " ".join((root / "references/verification.md").read_text().split())
+                self.assertIn("a QA finding within the current task does not itself create a new task", gate)
+                self.assertIn("default to the current Coder for same-task QA corrections", coordination)
+                self.assertIn("Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes", coordination)
+                self.assertIn("approved scope, workspace, ownership, and relevant assignment context remain valid", coordination)
+                self.assertIn("Orchestrator rechecks workspace, branch/HEAD and change state against the brief", coordination)
+                self.assertIn("After an approved plan or acceptance-criteria amendment, start a fresh Coder", coordination)
+                self.assertIn("default to the current QA for post-fix rechecks of the same task", verification)
+                self.assertIn("reproduction path and invalidated related checks", verification)
+                self.assertIn("actual actor, target state, outcomes, and limitations", verification)
+                self.assertIn("Reusing QA does not reuse stale evidence", verification)
+        policy = json.loads((REPO / "lib/policy/role-policy.json").read_text())
+        boundary = next(rule for rule in policy["rules"] if rule["id"] == "role.orchestrator-boundary")
+        for needle in ("fresh Coder per top-level task", "fresh QA per top-level task that needs QA",
+                       "default same-task QA findings to the current Coder and post-fix rechecks to the current QA",
+                       "approved plan or acceptance-criteria amendment requires a fresh Coder",
+                       "QA findings alone do not create a new task"):
+            self.assertIn(needle, boundary["text"])
         self.assertIn("Outside the required final plan correction loop, Orchestrator decides when a Reviewer recheck is warranted", verification)
+
+    def test_reviewer_reuse_requires_independence_and_refreshed_context(self) -> None:
+        verification = " ".join(self.raw("verification").split())
+        for phrase in (
+            "Fresh-per-task rules apply to Coder and QA, not Reviewer",
+            "Orchestrator may reuse a Reviewer only while independent of implementation and self-review",
+            "relevant assignment context remains valid",
+            "refreshed review scope, target state, and evidence are provided",
+            "otherwise assign another independent Reviewer",
+            "Reusing a Reviewer does not reuse an earlier verdict or waive required review timing or coverage",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, verification)
 
     def test_restart_brief_rule_lives_in_handoff_only(self) -> None:
         core, handoff = self.skill(), self.raw("handoff")

@@ -150,7 +150,7 @@
         "role-ownership"
       ],
       "authority": "orchestrator",
-      "text": "Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Coder. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it.",
+      "text": "Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Coder. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it. Use a fresh Coder per top-level task and a fresh QA per top-level task that needs QA; QA findings alone do not create a new task. While approved scope, workspace, ownership and relevant assignment context remain valid, default same-task QA findings to the current Coder and post-fix rechecks to the current QA. Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes; an approved plan or acceptance-criteria amendment requires a fresh Coder even within the task. Before reusing Coder, refresh actual workspace, branch/HEAD and change state; QA reruns the reproduction path and invalidated related checks and reports actual actor, target state, outcomes and limitations. Preserve task-boundary acceptance and the final plan Reviewer correction exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"

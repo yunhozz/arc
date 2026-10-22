@@ -40,6 +40,11 @@ explicitly dispositioned.
 
 Criterion verdicts follow the Evidence verdict.
 
+Fresh-per-task rules apply to Coder and QA, not Reviewer. Orchestrator may reuse a Reviewer only while independent
+of implementation and self-review, relevant assignment context remains valid, and refreshed review scope, target
+state, and evidence are provided; otherwise assign another independent Reviewer. Reusing a Reviewer does not reuse
+an earlier verdict or waive required review timing or coverage.
+
 ### Final plan Reviewer correction loop
 
 For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
@@ -95,7 +100,8 @@ acceptance criteria to actual evidence, currently required checks and findings b
 completion, a Coder report or passing commands alone do not establish acceptance.
 
 Task acceptance and its focused commit require only the task's risk-scaled evidence: a FRESH QA instance per task that
-needs QA (same-task rechecks may reuse), or Orchestrator focused checks for small, low-risk tasks;
+needs QA (default to the current QA for post-fix rechecks of the same task while the approved scope, workspace,
+ownership, and relevant assignment context remain valid), or Orchestrator focused checks for small, low-risk tasks;
 Reviewer timing and task-boundary gates follow the Risk-scaled execution section above. For an independently acceptable task,
 do not delay its acceptance/commit solely for later final plan verification. Currently required task checks must not
 be deferred to final verification to accept early. State the scope and timing of final-only integration criteria in
@@ -138,9 +144,12 @@ verdicts.
 Structural checks prove structural criteria only; they do not prove actual behavior, installation, or live agent runtime
 compliance.
 
-For QA execution failure or an unmet criterion, Orchestrator assigns Coder correction and a QA recheck of the
-reproduction path and invalidated related checks before Reviewer; QA reports the prior finding resolved, unresolved, or
-unverified with evidence. An unresolved finding returns to Coder correction and another QA recheck before Reviewer.
+For QA execution failure or an unmet criterion within the current task, Orchestrator defaults to the current Coder
+for correction and the current QA for a post-fix recheck, subject to the context, task-boundary and amendment rules in
+[coordination](coordination.md). The finding alone does not create a new task. QA reruns the
+reproduction path and invalidated related checks before Reviewer, reporting the actual actor, target state, outcomes, and limitations,
+and the prior finding resolved, unresolved, or unverified with evidence. Reusing QA does not reuse stale evidence.
+An unresolved finding returns to Coder correction and another QA recheck before Reviewer.
 Environment blocks, missing checks, and out-of-scope criteria are evidence gaps, not presumed code defects; Orchestrator
 handles those gaps under the existing disposition policy without substituting Reviewer review for QA evidence.
 

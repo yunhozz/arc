@@ -58,9 +58,11 @@ ARC approval, ownership, TDD exceptions and executor adapters still apply.
 Orchestrator integrates role results, routes decisions and required approvals, and owns development acceptance
 and completion. Orchestrator coordinates dependent implementation tasks sequentially and
 starts a fresh Coder for each top-level task (Role gate); reuse the current Coder only for corrections, rework,
-or rechecks of the same task while the approved scope, workspace, ownership, and relevant context remain valid; before
-sending corrections or rework to a reused Coder, Orchestrator rechecks workspace, branch/HEAD and change state against the brief.
-A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are in handoff).
+or rechecks of the same task while the approved scope, workspace, ownership, and relevant assignment context remain valid;
+default to the current Coder for same-task QA corrections. A QA finding within the current task does not itself create
+a new task. Before sending corrections or rework to a reused Coder, Orchestrator rechecks workspace, branch/HEAD and change state against the brief.
+Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes, subject to the
+amendment exception below. A fresh Coder for the next task is a restart under handoff (choice reuse and restart brief rules are in handoff).
 After an approved plan or acceptance-criteria amendment, start a fresh Coder for
 the remaining work even within the same task; it is also a restart under handoff. Task-boundary gates
 follow [Risk-scaled execution](verification.md#risk-scaled-execution).
