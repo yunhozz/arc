@@ -146,31 +146,24 @@ test('supplied complete model config renders custom models without resetting oth
  assert.throws(()=>plan(fixture(t),'claude',{modelConfig:config}),/platform/i);
 });
 
-test('fresh installation observes legacy path absence and refuses to duplicate a legacy role',t=>{
- const home=fixture(t),legacy=home+'/.codex/agents/arc-coder.toml';
- const p=plan(home);assert.ok(p.snapshot.has(legacy));
- fs.mkdirSync(path.dirname(legacy),{recursive:true});fs.writeFileSync(legacy,'legacy user profile');
- assert.throws(()=>plan(home),/legacy.*upgrade/i);assert.equal(fs.readFileSync(legacy,'utf8'),'legacy user profile');
-});
-
-test('legacy role appearing during staging aborts installation before profile publication',async t=>{
- const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
- const home=fixture(t),p=plan(home),legacy=home+'/.codex/agents/arc-coder.toml';
- assert.throws(()=>applyTransaction(p,{safeFs,acquired:{references:referenceFixture()},hooks:{fault(event){if(event.phase==='after-stage'&&event.path.endsWith('/arc-implementer.toml')&&!fs.existsSync(legacy))fs.writeFileSync(legacy,'unexpected role');}}}),error=>error.code==='ARC_INSTALL_DRIFT');
- assert.equal(fs.existsSync(home+'/.codex/agents/arc-implementer.toml'),false);assert.equal(fs.readFileSync(legacy,'utf8'),'unexpected role');
+test('installation leaves unsupported profile paths unmanaged',t=>{
+ const home=fixture(t),unknown=home+'/.codex/agents/arc-unknown.toml';
+ fs.mkdirSync(path.dirname(unknown),{recursive:true});fs.writeFileSync(unknown,'user profile');
+ const p=plan(home);assert.equal(p.snapshot.has(unknown),false);assert.equal(p.managedPaths.includes(unknown),false);
+ assert.equal(fs.readFileSync(unknown,'utf8'),'user profile');
 });
 
 // Capture public output bytes and iteration order; normalize only the temporary
 // HOME and its encoded hook URL so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'1692570dd3496c2e95524a8d574aee9205c315770baf2304ba8e3cce336467e8',
- 'codex:en:true':'0634b2daf65d049e9097712c7b051999c51a141173c8a9c493aca8aa9abef1ff',
- 'codex:ko:false':'22d0313c41cc2c1039ae24c8dfb2ceb6473a71ae2dd32dd80a9757ca24cb91ed',
- 'codex:ko:true':'2f57f7ae78cfa92cfd89e8ff4bf9dc9f3361aabc43a22fd00bce7ccc70060447',
- 'claude:en:false':'153219374f8138403deb017722238bc537b888e1f3655d7b77b13af76fdcb9e9',
- 'claude:en:true':'181a8bb2fffa456f8d2054acdd885889e8502e11c482cea980c8d7e94b5a32e9',
- 'claude:ko:false':'4683f83b4efb210439b335c61352eb88e5a5b304c5c18b32064c4d7fd5d2e794',
- 'claude:ko:true':'9248f835a117492bba15097f0dc9c830426693a7c4149193b5ad1b5fc8a4b745',
+ 'codex:en:false':'515e0b188660bed06661a7ca16fb491af919a808fd2ecdbb297868b79f7e983b',
+ 'codex:en:true':'6e88b6fdd3d1a57ba98888336bf808f034e1af970389be8118db22208cfd417a',
+ 'codex:ko:false':'de8be58eecaaf00a2be533eeacb3ed84a8d8bbc781f9dd989b905cff977b0cbc',
+ 'codex:ko:true':'c21fc441a910bc71ac8f7c6db06f0ec8f4e72b197009920c1b7fe4e186bcaf46',
+ 'claude:en:false':'92f02d23ef7a5a5c4b8a11bb84ec6cb3aa9cea4e23f8b0d63a87fab42a62f884',
+ 'claude:en:true':'9d584f425fbb808563176d8c2f920d1d69ed66b931fde255fe92ad3babb12ab7',
+ 'claude:ko:false':'d3c494fcb0e1c6ad675c56cc142c7e49fcd7149a4c46be0b2520db215bb3e51e',
+ 'claude:ko:true':'455776f2344b54a0daa8bc9d312e91d8d434a8e9efded1e9bbe1fc47970be230',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});

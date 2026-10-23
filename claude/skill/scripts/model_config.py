@@ -27,18 +27,6 @@ class ValidationError(ValueError):
     """Invalid local settings, profile or target path."""
 
 
-def normalize_role_keys(roles):
-    if not isinstance(roles, dict):
-        raise ValidationError('roles must be a mapping')
-    result = dict(roles)
-    if 'arc_coder' in result:
-        if 'arc_implementer' in result and result['arc_coder'] != result['arc_implementer']:
-            raise ValidationError('conflicting legacy and canonical implementation settings')
-        result.setdefault('arc_implementer', result['arc_coder'])
-        del result['arc_coder']
-    return result
-
-
 PRESETS = ('economy', 'balanced', 'smart')
 
 
@@ -58,7 +46,7 @@ def validate_settings(data: dict) -> dict:
         raise ValidationError('update to version 1 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
     if not isinstance(data['preset'], str) or data['preset'] not in PRESETS:
         raise ValidationError('preset must be economy, balanced or smart')
-    roles = normalize_role_keys(data['roles'])
+    roles = data['roles']
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
         raise ValidationError('settings require exactly the five ARC roles')
     result = {}
@@ -234,7 +222,6 @@ def render_profile(content: bytes, settings: dict) -> bytes:
 
 
 def apply_models(settings: dict, agents_dir: Path, *, check: bool = False, dry_run: bool = False) -> list[Path]:
-    settings = normalize_role_keys(settings)
     if not isinstance(settings, dict) or set(settings) != set(ROLE_FILES):
         raise ValidationError('settings require exactly the five ARC roles')
     settings = {role: _validate_role(values, role) for role, values in settings.items()}

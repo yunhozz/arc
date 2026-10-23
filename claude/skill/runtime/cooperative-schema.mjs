@@ -1,11 +1,11 @@
-import {normalizeRole, ROLES} from './operations.mjs';
+import {ROLES} from './operations.mjs';
 import {assertSecretFree} from './external.mjs';
 import {object,text} from './schema.mjs';
 import {absolute,validateWorkflowId} from './scope.mjs';
 const fail=message=>{throw Error('Cooperative schema: '+message);};
 const hash=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.test(value);
 const revision=value=>Number.isSafeInteger(value)&&value>=0;
-const actor=value=>object(value)&&text(value.id)&&Object.keys(value).every(k=>['id','role'].includes(k))&&(value.role===undefined||ROLES.includes(normalizeRole(value.role)));
+const actor=value=>object(value)&&text(value.id)&&Object.keys(value).every(k=>['id','role'].includes(k))&&(value.role===undefined||ROLES.includes(value.role));
 const statement=value=>object(value)&&text(value.messageRef)&&object(value.data);
 function fields(value,allowed){if(!object(value)||Object.keys(value).some(k=>!allowed.includes(k)))fail('unexpected input field');}
 function json(value){try{const encoded=JSON.stringify(value);if(encoded===undefined)fail('JSON input');}catch{fail('JSON input');}}

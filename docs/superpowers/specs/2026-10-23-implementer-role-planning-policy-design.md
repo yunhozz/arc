@@ -323,6 +323,40 @@ Orchestrator가 관찰 상태·완료 부분·필요한 해결을 기록한다. 
 
 실행 중 plan 갱신의 이력 안전 조건이 성립하지 않으면 독립 문서 커밋으로 우회하지 않는다. runtime 자동 migration과 공유 이력 재작성은 별도 범위 결정 없이 진행하지 않는다.
 
+## 10. 후속 변경 — Implementer 단일 역할 계약
+
+### 10.1 사용자 결정과 적용 우선순위
+
+사용자는 정식 배포 전이므로 이전 Coder 설정과의 호환성을 제거하고, 코드에서도 역할 이름을 Implementer로 통일하도록 명시적으로 승인했다.
+
+이 절은 이후 변경에 대해 §5.1의 legacy 허용 문장, §5.2–§5.4의 호환 계약, §7의 legacy 의존성과 AC-08~AC-10을 대체한다. 기존 절과 완료된 task 기록은 이전 승인·구현 당시의 역사로 보존하며 새로운 입력 지원 계약으로 사용하지 않는다.
+
+정식 역할·모델 키·프로필은 각각 `implementer`, `arc_implementer`, `arc-implementer.*`만 지원한다. 기존 Coder 설정을 사용하려면 사용자가 정식 이름으로 수정해야 한다. 자동 전환은 제공하지 않는다.
+
+### 10.2 제거 범위와 유지할 검증
+
+- Node·Python 모델 설정 처리에서 이전 역할 키의 정규화·병합·충돌 처리를 제거한다. 정식 역할 키만 기존 strict 검증으로 허용한다.
+- 프로필 해석·upgrade 상태 수집·설치 계획·uninstall에서 이전 역할 프로필의 인식·전환·정리 처리를 제거한다. 정식 프로필 목록만 관리한다.
+- runtime의 이전 역할 alias와 해당 의미 정규화 연결을 제거한다. 정식 역할을 기존 schema·identity·assignment·정책 검증으로 판단한다.
+- 운영 source·활성 테스트 코드·실행 fixture·생성물 전역에서 이전 역할 이름의 참조를 제거한다. 역할 변수·함수·class·test 이름·assertion·기대값·설치 프로필 경로도 포함하며, 호환 성공 사례와 이름 치환으로 구 기대값을 통과시키는 보정 코드를 유지하지 않는다.
+- fixture의 포함·제외는 파일 위치나 `legacy`라는 명칭이 아니라 현재 소비 목적에 따라 결정한다. 현재 실행 입력·기대값·테스트 연결 정보는 정식 이름으로 갱신한다.
+- `tests/installer-parity.json`의 `destination(s)`와 helper `destinations`는 현재 테스트를 가리키므로 정식 이름으로 갱신한다. 연결된 Python class·test 이름 변경을 같은 task에서 반영한다.
+- 같은 parity fixture의 `legacyInventory`·`legacyHelpers`는 `scripts/check-installer-parity.mjs`가 SHA256으로 검증하는 고정된 역사 증거이므로 과거 ID·assertion 원문을 보존한다. 이 증거를 현행 역할 입력으로 재사용하지 않는다. digest를 바꾸거나 검증을 완화하여 이름 변경을 통과시키지 않는다.
+- strict unknown key·role 거부, 정식 입력의 model·effort 보존, 권한·승인·fingerprint·replay·drift·transaction·rollback 계약을 유지한다.
+- 이전 역할 프로필을 찾기 위한 별도 탐색이나 자동 삭제를 추가하지 않는다. 지원하지 않는 기존 설치의 자동 upgrade·uninstall 완결성은 보장하지 않는다.
+- 고정된 역사 문서·승인·audit·request·handoff와 위 parity 역사 증거는 일괄 치환하지 않는다. 외부 skill 원문과 `TextDecoder` 등 역할과 무관한 부분 문자열도 변경 대상에서 제외한다. 활성 테스트가 소비하는 fixture는 역사 디렉터리에 있거나 과거 내용을 담았다는 이유만으로 제외하지 않는다. 모든 제외는 경로·필드·소비 목적·보존 근거를 기록한다.
+
+### 10.3 후속 인수 기준
+
+| ID | 인수 기준 | 필요한 증거 |
+|---|---|---|
+| AC-13 | 모델 입력·직렬화와 두 플랫폼 설정 도구가 정식 역할 키만 지원한다 | 정식 설정 round-trip·값 보존·unknown key 거부 확인 |
+| AC-14 | 프로필·upgrade·uninstall이 정식 프로필만 관리하고 이전 이름 전용 경로가 없다 | 정식 설치·upgrade·uninstall과 drift·transaction·rollback 회귀 결과 |
+| AC-15 | runtime에 이전 역할 alias가 없으며 정식 역할과 기존 안전 제약을 검증한다 | assignment·evaluate·verification·workflow와 unknown role 거부 결과 |
+| AC-16 | 현재 운영 source·활성 테스트 코드·실행 fixture·생성물에서 이전 역할 참조가 제거되고 생성물·manifest·현행 parity 연결이 일치한다. 고정된 역사 증거의 원문·digest는 보존한다 | 대소문자를 구분하지 않는 역할 문자열 인벤토리와 일치별 분류, 활성 fixture 갱신·현행 destination 연결 검증, `legacyInventory`·`legacyHelpers` 원문·SHA256 보존 확인, 생성 검증 및 제외 근거 |
+
+기존 AC-01~AC-07·AC-11~AC-12는 유지한다. AC-08~AC-10은 이전 구현의 인수 기록으로 보존하며 후속 변경의 통과 조건으로 사용하지 않는다.
+
 ---
 
 자가 검토 결과:

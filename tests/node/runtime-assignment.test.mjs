@@ -103,7 +103,7 @@ test('task-specific approval cannot authorize another task and contract versions
  for(const key of ['approvalRef','approvalVersion','documentVersion','scopeVersion','targetVersion']){const f=fixture();f.state.tasks[0][key]=key==='approvalRef'?'other':9;assert.equal(prepare(f).decision,'hold',key);}
 });
 
-test('legacy dispatch produces a canonical intent without rewriting request fingerprint evidence',async()=>{
- const {fingerprintRequest}=await import('../../lib/runtime/store.mjs');const f=fixture();f.request.arguments.role='coder';const before=structuredClone(f.request);
- const d=prepare(f);assert.equal(d.decision,'allow');assert.equal(d.proposedTransition.intent.role,'implementer');assert.equal(d.proposedTransition.intent.fingerprint,fingerprintRequest(before));assert.deepEqual(f.request,before);
+test('unsupported dispatch role is held without changing request evidence',()=>{
+ const f=fixture();f.request.arguments.role='unknown';const before=structuredClone(f.request);
+ assert.equal(prepare(f).decision,'hold');assert.deepEqual(f.request,before);
 });

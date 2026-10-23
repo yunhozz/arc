@@ -1,4 +1,3 @@
-import {normalizeRole} from './operations.mjs';
 import path from 'node:path';
 import {fingerprintRequest} from './store.mjs';
 import {validateGitPreflight,validateGitCommitResult} from './git-evidence.mjs';
@@ -23,7 +22,7 @@ function checkEvidence(state,task,a,changes){
  const latest=task.requiredChecks.map(d=>checks.filter(c=>same(c.descriptor,d)).at(-1));
  if(!task.requiredChecks.length||latest.some(c=>!c||c.stale||c.status!=='passed'||c.verdict!=='proven'||!text(c.resultRef)||c.source!=='operator-attested'||c.verificationActor?.role!=='qa'||!text(c.verificationActor.id)||state.assignments.some(a=>a.agentId===c.verificationActor.id)||c.changeFingerprint!==a.changeFingerprint)||!exact(a.checkIds,latest.map(c=>c?.id)))return false;
  const findings=state.findings.filter(f=>f.scope==='task'&&f.taskId===task.id);
- return exact(a.findingIds,findings.map(f=>f.id))&&findings.every(f=>f.status==='closed'&&text(f.resolutionRef)&&text(f.recheckRef)&&normalizeRole(f.resolutionActor?.role)==='implementer'&&f.recheckActor?.role==='qa'&&f.changeFingerprint===a.changeFingerprint);
+ return exact(a.findingIds,findings.map(f=>f.id))&&findings.every(f=>f.status==='closed'&&text(f.resolutionRef)&&text(f.recheckRef)&&f.resolutionActor?.role==='implementer'&&f.recheckActor?.role==='qa'&&f.changeFingerprint===a.changeFingerprint);
 }
 function waitingFor(state,task,predecessor){
  if(task.status!=='pending'||state.intents.some(i=>i.taskId===task.id&&i.operation==='assign-agent'&&['prepared','unknown','mismatch','succeeded'].includes(i.status)))return false;

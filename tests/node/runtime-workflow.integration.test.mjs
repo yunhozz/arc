@@ -108,7 +108,7 @@ for(const unrelated of [false,true])test(`confirmed failed external reconciliati
  assert.equal((await f.invoke('prepare',{operation:'push',arguments:{approvalRef:'approve',scope,descriptor}})).decision,'hold');assert.equal((await f.invoke('reconcile',{intentId:p.requestId,result:{...failed,status:'succeeded'}})).decision,'hold');assert.equal(JSON.parse(await fs.readFile(f.file)).intents[0].status,'failed');
 });
 
-test('legacy assignment preserves durable request approval hashes and replay boundaries',async t=>{
+test('canonical assignment preserves durable request approval hashes and replay boundaries',async t=>{
  const {fingerprintRequest}=await import('../../lib/runtime/store.mjs');
  const f=await setup(t),documents=['spec','plan'].map(kind=>({kind,path:path.join(f.args.cwd,kind+'.md'),gitPath:kind+'.md',contentHash:hash,approvalRef:'approved',commit:f.target.head}));
  f.args.readGit=async()=>({target:f.target,documents:documents.map(d=>({...d,observedHash:hash,currentHash:hash})),docsCommit:{commit:f.target.head,paths:documents.map(d=>d.gitPath),documents}});
@@ -118,7 +118,7 @@ test('legacy assignment preserves durable request approval hashes and replay bou
  const task={id:'T1',paths:[path.join(f.args.cwd,'code.mjs')],criteria:['works'],requiredChecks:[{executable:'/usr/bin/true',args:[],cwd:f.args.cwd,env:{},outputs:[]}],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1};
  assert.equal((await f.invoke('record',{evidence:{kind:'acceptance-evidence',messageRef:'task',data:{kind:'task',task}}})).decision,'allow');
  const before=JSON.parse(await fs.readFile(f.file,'utf8'));
- const input={requestId:'legacy-assignment',expectedRevision:before.revision,actor:f.actor,operation:'assign-agent',taskId:'T1',arguments:{role:'coder',paths:task.paths,operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'legacy:assignment'}};
+ const input={requestId:'canonical-assignment',expectedRevision:before.revision,actor:f.actor,operation:'assign-agent',taskId:'T1',arguments:{role:'implementer',paths:task.paths,operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'canonical:assignment'}};
  const original=structuredClone({command:'prepare',input}),fingerprint=fingerprintRequest(original);
  const invoke=overrides=>runCooperativeCommand({...f.args,...structuredClone(original),...overrides});
  assert.equal((await invoke()).decision,'allow');
@@ -127,7 +127,7 @@ test('legacy assignment preserves durable request approval hashes and replay bou
  assert.equal(intent.approvalRef,approval.messageRef);assert.equal(intent.approvalVersion,approval.data.approvalVersion);assert.equal(intent.documentVersion,approval.data.documentVersion);assert.deepEqual(intent.documents,documents);
  assert.deepEqual(stored.versions,before.versions);assert.deepEqual(stored.records,before.records);assert.deepEqual(stored.approvals,before.approvals);assert.deepEqual(stored.documents,before.documents);
  const replay=await invoke();assert.equal(replay.decision,'hold');assert.equal(replay.replayed,true);assert.deepEqual(replay.ruleIds,['cooperative.replay']);assert.equal(await fs.readFile(f.file,'utf8'),bytes);
- const renamed=structuredClone(input);renamed.arguments.role='implementer';assert.notEqual(fingerprintRequest({command:'prepare',input:renamed}),fingerprint);
+ const renamed=structuredClone(input);renamed.arguments.role='unknown';assert.notEqual(fingerprintRequest({command:'prepare',input:renamed}),fingerprint);
  await assert.rejects(invoke({input:renamed}),/fingerprint conflict/i);assert.equal(await fs.readFile(f.file,'utf8'),bytes);
  for(const key of ['policyHash','runtimeHash']){
   const drift=structuredClone(stored);drift.versions[key]='sha256:'+'f'.repeat(64);const changed=JSON.stringify(drift);await fs.writeFile(f.file,changed);

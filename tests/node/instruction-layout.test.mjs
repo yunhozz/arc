@@ -8,7 +8,7 @@ import {agentsBlockBody} from '../../lib/installer/global-config.mjs';
 import {POLICY_TARGETS,defaultRolePolicy} from '../../lib/policy/render.mjs';
 const root=new URL('../../',import.meta.url).pathname;
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
-const normalize=text=>text.replaceAll('arc_coder','arc_implementer').replaceAll('arc-coder','arc-implementer').replaceAll('Coder','Implementer').replaceAll('coder','implementer').replaceAll('references/','').replace(/\s+/g,' ').trim();
+const normalize=text=>text.replaceAll('references/','').replace(/\s+/g,' ').trim();
 const file=(platform,name)=>`${platform}/skill/${name==='core'?'SKILL.md':`references/${name}.md`}`;
 const gates={coordination:'Before the first specialist creation or assignment and related coordination decisions',limits:'Before the first specialist creation',planning:'Design/plan-depth judgments',handoff:'Every Implementer first start/restart',verification:"Orchestrator's verification design",commit:'Plan-task acceptance', 'handoff-prep':'Execution-target choice request'};
 function checkLayout(platform,documents){
@@ -22,7 +22,7 @@ function checkLayout(platform,documents){
   assert.equal(contract.reader,'orchestrator');
   if(contract.destination!=='core'){
    const row=core.split('\n').find(line=>line.startsWith('|')&&line.includes(`references/${contract.destination}.md`));
-   assert.ok(row?.includes(contract.requiredBefore.replaceAll('Coder','Implementer')),`unreachable contract ${platform}/${contract.heading}`);
+   assert.ok(row?.includes(contract.requiredBefore),`unreachable contract ${platform}/${contract.heading}`);
   }
   let expected=contract.text;for(const[old,replacement]of Object.entries(fixture.relocations[contract.heading]??{}))expected=expected.replaceAll(old,replacement);
   assert.ok(normalize(documents.get(contract.destination)).includes(normalize(expected)),`missing baseline contract ${platform}/${contract.heading} in ${contract.destination}`);

@@ -102,11 +102,9 @@ test('Claude rejects invalid custom failure behavior and fake ARC managed paths'
  }
 });
 
-for(const platform of ['codex','claude'])test(`${platform} renders a legacy profile set and resolved model keys to canonical output`,()=>{
- const input=profiles(platform),ext=platform==='codex'?'toml':'md',old='arc-coder.'+ext,current='arc-implementer.'+ext;
- input[old]=Buffer.from(input[current].toString().replaceAll('arc_implementer','arc_coder').replaceAll('arc-implementer','arc-coder'));delete input[current];
- const config=settings(platform);config.roles.arc_coder=config.roles.arc_implementer;delete config.roles.arc_implementer;
- const before=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,Buffer.from(v)]));const result=api.renderProfiles(input,config);
- assert.ok(result.has(current));assert.equal(result.has(old),false);assert.deepEqual(input,before);
- const duplicate={...input,[current]:Buffer.from('ambiguous')};assert.throws(()=>api.renderProfiles(duplicate,config),{code:'ARC_MODEL_VALIDATION'});
+for(const platform of ['codex','claude'])test(`${platform} rejects unsupported profile names without changing inputs`,()=>{
+ const input=profiles(platform),ext=platform==='codex'?'toml':'md',old='arc-unknown.'+ext,current='arc-implementer.'+ext;
+ input[old]=Buffer.from(input[current].toString().replaceAll('arc_implementer','arc_unknown').replaceAll('arc-implementer','arc-unknown'));delete input[current];
+ const before=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,Buffer.from(v)]));
+ assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});assert.deepEqual(input,before);
 });

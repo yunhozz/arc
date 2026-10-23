@@ -10,10 +10,9 @@ test('ARC directory alone and symlink profile or global destination fail before 
 test('native and completion changes invalidate state token; malformed markers fail',t=>{const home=fixture(t),target=seed(home,'codex');const collect=()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});const before=collect().stateToken;fs.writeFileSync(target.runtimeConfigPath,'[agents]\nmax_concurrent_threads_per_session = 8\n');assert.notEqual(collect().stateToken,before);const native=collect().stateToken;fs.writeFileSync(home+'/.zshrc','# user setting\n');assert.notEqual(collect().stateToken,native);fs.writeFileSync(home+'/.zshrc','# >>> arc completion >>>\n');assert.throws(collect,/Malformed/);});
 test('malformed native configuration produces a target configuration diagnostic',t=>{const home=fixture(t),target=seed(home,'codex');fs.writeFileSync(target.runtimeConfigPath,'[agents');assert.throws(()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),{code:'ARC_TARGET_CONFIGURATION'});});
 
-for(const platform of ['codex','claude'])test(`${platform} collects legacy implementation profile and snapshots both names; ambiguous duplicates fail`,t=>{
- const home=fixture(t),target=seed(home,platform),ext=platform==='codex'?'toml':'md',canonical=target.home+'/agents/arc-implementer.'+ext,legacy=target.home+'/agents/arc-coder.'+ext;
- if(fs.existsSync(canonical))fs.renameSync(canonical,legacy);
- const collect=()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});const entry=collect().targets[0];
- assert.ok(entry.snapshot.has(canonical));assert.ok(entry.snapshot.has(legacy));assert.ok(entry.modelConfig.roles.arc_implementer);
- fs.writeFileSync(canonical,'ambiguous second profile');assert.throws(collect,/conflict|both|ambiguous/i);
+for(const platform of ['codex','claude'])test(`${platform} collection ignores unsupported profiles and requires canonical profiles`,t=>{
+ const home=fixture(t),target=seed(home,platform),ext=platform==='codex'?'toml':'md',canonical=target.home+'/agents/arc-implementer.'+ext,unknown=target.home+'/agents/arc-unknown.'+ext;
+ fs.writeFileSync(unknown,'unmanaged');const collect=()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
+ const entry=collect().targets[0];assert.equal(entry.snapshot.has(unknown),false);assert.ok(entry.snapshot.has(canonical));
+ fs.unlinkSync(canonical);assert.throws(collect,/missing profile/);assert.equal(fs.readFileSync(unknown,'utf8'),'unmanaged');
 });

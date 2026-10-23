@@ -619,7 +619,7 @@ class Task4FollowUpTests(unittest.TestCase):
     def text(self, *parts):
         return ' '.join((PAYLOAD.joinpath(*parts)).read_text().split())
 
-    def test_failed_check_or_qa_finding_routes_to_coder(self):
+    def test_failed_check_or_qa_finding_routes_to_implementer(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', core)
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', self.text('skill/references/handoff.md'))
@@ -631,7 +631,7 @@ class Task4FollowUpTests(unittest.TestCase):
     def test_top_level_task_definition_in_role_gate(self):
         self.assertIn('top-level task (a plan task, or the whole request without a plan)', self.text('skill/SKILL.md'))
 
-    def test_corrections_go_to_coder_and_bounded_uses_scope_record(self):
+    def test_corrections_go_to_implementer_and_bounded_uses_scope_record(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('Recheck any approved-file correction', core)
         self.assertIn('routes the correction to Implementer, and it is rechecked; Orchestrator does not self-correct',
@@ -732,25 +732,20 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
                        "does not require document completion"):
             self.assertIn(phrase, text)
 
-    def test_document_omissions_and_coder_gate_remain(self):
+    def test_document_omissions_and_implementer_gate_remain(self):
         text = self.text("planning")
         for phrase in ("a required plan does not itself require a written spec", "spike", "bounded", "non-behavior",
                        "no new spec obligation"):
             self.assertIn(phrase, text)
         self.assertIn("implementer", self.text("handoff"))
 
-class ClaudeLegacyRoleCompatibilityTests(unittest.TestCase):
-    def test_legacy_and_dual_model_keys_preserve_inputs_and_reject_conflicts(self):
+class ClaudeStrictRoleTests(unittest.TestCase):
+    def test_unsupported_model_key_is_rejected(self):
         import tomllib
         module = ClaudePayloadTests().module()
         config = tomllib.loads((PAYLOAD / 'skill/models.toml').read_text())
-        expected = module.validate_settings(config)
-        config['roles']['arc_coder'] = config['roles'].pop('arc_implementer')
+        config['roles']['arc_unknown'] = config['roles'].pop('arc_implementer')
         before = copy.deepcopy(config)
-        self.assertEqual(module.validate_settings(config), expected)
-        self.assertEqual(config, before)
-        config['roles']['arc_implementer'] = copy.deepcopy(config['roles']['arc_coder'])
-        self.assertEqual(module.validate_settings(config), expected)
-        config['roles']['arc_coder']['economy']['model'] = 'conflicting'
         with self.assertRaises(module.ValidationError):
             module.validate_settings(config)
+        self.assertEqual(config, before)

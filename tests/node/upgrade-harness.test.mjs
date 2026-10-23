@@ -58,32 +58,10 @@ test('failed default acquisition removes its empty private workspace and leaves 
  assert.equal(result.results[0].status,'failed');assert.deepEqual(fs.readFileSync(filename),before);assert.ok(work);assert.equal(fs.existsSync(work),false);
 });
 
-for(const platform of ['codex','claude'])for(const phase of ['success','after-publish'])test(`${platform} legacy upgrade ${phase} preserves settings and transactional recovery`,t=>{
- const home=fixture(t),old=seed(home,platform),ext=platform==='codex'?'toml':'md',current=old.target.home+'/agents/arc-implementer.'+ext,legacy=old.target.home+'/agents/arc-coder.'+ext;
- const bytes=fs.readFileSync(current,'utf8').replaceAll('arc_implementer','arc_coder').replaceAll('arc-implementer','arc-coder').replaceAll('Implementer','Coder');
- fs.writeFileSync(legacy,bytes);fs.unlinkSync(current);
- const models=old.target.home+'/skills/arc/models.toml';fs.writeFileSync(models,fs.readFileSync(models,'utf8').replaceAll('arc_implementer','arc_coder'));const priorModels=fs.readFileSync(models);
+for(const platform of ['codex','claude'])test(`${platform} canonical profile publication failure restores profiles and settings`,t=>{
+ const home=fixture(t),old=seed(home,platform),current=old.target.home+'/agents/arc-implementer.'+(platform==='codex'?'toml':'md'),models=old.target.home+'/skills/arc/models.toml';
+ const profileBytes=fs.readFileSync(current),modelBytes=fs.readFileSync(models);
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plan=api.buildUpgradePlans({payload:payload(),state,safeFs})[0];
- const options={safeFs,acquired:{references:referenceFixture()},hooks:{fault(event){if(phase!=='success'&&event.phase===phase&&event.path===legacy)throw Error('injected legacy cleanup failure');}}};
- if(phase==='success'){
-  applyTransaction(plan,options);assert.equal(fs.existsSync(legacy),false);assert.ok(fs.existsSync(current));assert.deepEqual(loadModelConfig(fs.readFileSync(models),platform),old.config);
- }else{
-  assert.throws(()=>applyTransaction(plan,options),error=>error.rollback==='restored');assert.equal(fs.existsSync(current),false);assert.equal(fs.readFileSync(legacy,'utf8'),bytes);assert.deepEqual(fs.readFileSync(models),priorModels);
- }
-});
-for(const damage of ['custom','symlink','drift'])test(`legacy profile ${damage} holds before writes`,t=>{
- const home=fixture(t),old=seed(home,'codex'),current=old.target.home+'/agents/arc-implementer.toml',legacy=old.target.home+'/agents/arc-coder.toml';
- fs.writeFileSync(legacy,fs.readFileSync(current,'utf8').replaceAll('arc_implementer','arc_coder').replaceAll('arc-implementer','arc-coder').replaceAll('Implementer','Coder'));fs.unlinkSync(current);
- if(damage==='custom')fs.appendFileSync(legacy,'\n# unknown user content\n');
- if(damage==='symlink'){fs.unlinkSync(legacy);fs.symlinkSync('/outside',legacy);assert.throws(()=>stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}));return;}
- const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
- if(damage==='drift')fs.appendFileSync(legacy,'\n# observed drift\n');
- assert.throws(()=>api.buildUpgradePlans({payload:payload(),state,safeFs}));assert.equal(fs.existsSync(current),false);assert.ok(fs.existsSync(legacy));
-});
-
-test('legacy profile model-line comments are preserved by refusing an unsupported migration',t=>{
- const home=fixture(t),old=seed(home,'codex'),current=old.target.home+'/agents/arc-implementer.toml',legacy=old.target.home+'/agents/arc-coder.toml';
- const original=fs.readFileSync(current,'utf8').replaceAll('arc_implementer','arc_coder').replaceAll('arc-implementer','arc-coder').replaceAll('Implementer','Coder').replace(/^model = (.*)$/m,'model = $1 # user note');
- fs.writeFileSync(legacy,original);fs.unlinkSync(current);const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
- assert.throws(()=>api.buildUpgradePlans({payload:payload(),state,safeFs}),/user changes/i);assert.equal(fs.readFileSync(legacy,'utf8'),original);
+ assert.throws(()=>applyTransaction(plan,{safeFs,acquired:{references:referenceFixture()},hooks:{fault(event){if(event.phase==='after-publish'&&event.path===current)throw Error('injected publication failure');}}}),error=>error.rollback==='restored');
+ assert.deepEqual(fs.readFileSync(current),profileBytes);assert.deepEqual(fs.readFileSync(models),modelBytes);
 });

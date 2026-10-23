@@ -262,7 +262,7 @@ class ConditionalReferenceTests(unittest.TestCase):
                                       ("handoff", r"explicit user or task-specific tdd request overrides")):
             self.assertRegex(policy_text(destination), contract)
 
-    def test_coder_trusts_ceo_verified_brief(self) -> None:
+    def test_implementer_trusts_ceo_verified_brief(self) -> None:
         implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
         for contract in (
@@ -279,7 +279,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             with self.subTest(absent=absent):
                 self.assertNotRegex(implementer, absent)
 
-    def test_coder_profile_holds_handoff_contract_without_full_reference_read(self) -> None:
+    def test_implementer_profile_holds_handoff_contract_without_full_reference_read(self) -> None:
         implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertRegex(implementer, r"profile is the complete implementer handoff contract.*handoff.md.*only.*brief explicitly cites")
@@ -295,7 +295,7 @@ class ConditionalReferenceTests(unittest.TestCase):
                 with self.subTest(file=name, absent=absent):
                     self.assertNotRegex(text, absent)
 
-    def test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections(self) -> None:
+    def test_handoff_split_keeps_implementer_start_file_to_start_and_restart_sections(self) -> None:
         def headings(name: str) -> list[str]:
             return [line[4:].strip().lower() for line in (REPO / f"codex/skill/references/{name}.md").read_text().splitlines()
                     if line.startswith("### ")]
@@ -548,7 +548,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertRegex(handoff, r"includes the full record inline, with no delta")
         self.assertRegex(handoff, r"or a spec/task slug when no plan exists")
 
-    def test_coder_reads_record_for_unchanged_fields(self) -> None:
+    def test_implementer_reads_record_for_unchanged_fields(self) -> None:
         self.assertRegex(profile_text("implementer"), r"read the cited handoff record file for fields marked `unchanged`")
 
     def test_task4_bounded_direct_edit_uses_scope_record(self) -> None:
@@ -804,7 +804,7 @@ class CeoDirectPathTests(unittest.TestCase):
 
 class ImplementerBriefAndReuseTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
-    def test_fresh_coder_per_top_level_task(self) -> None:
+    def test_fresh_implementer_per_top_level_task(self) -> None:
         core = policy_text("coordination")
         self.assertRegex(core, r"starts? a fresh implementer for\s*each top-level task")
         self.assertRegex(core, r"reuse the current implementer only for corrections, rework, or rechecks of the same task")
@@ -814,7 +814,7 @@ class ImplementerBriefAndReuseTests(unittest.TestCase):
         self.assertRegex(policy_text("handoff"), r"restart brief: supply only verified deltas.*every other brief field is in full")
         self.assertRegex(core, r"before sending corrections or rework to a reused implementer, orchestrator rechecks workspace, branch/head and change state against the brief")
 
-    def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
+    def test_implementer_briefs_cite_sections_instead_of_whole_documents(self) -> None:
         core = policy_text("coordination")
         self.assertRegex(core, r"implementer briefs.*plan/spec path.*task section's line range.*needed excerpts.*do not ask implementer to read whole plans or specs")
         implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
@@ -827,7 +827,7 @@ class ImplementerBriefAndReuseTests(unittest.TestCase):
 
 class LongTaskTokenTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
-    def test_plan_amendment_restarts_coder(self) -> None:
+    def test_plan_amendment_restarts_implementer(self) -> None:
         self.assertRegex(policy_text("coordination"), r"after an approved plan or acceptance-criteria amendment, start a fresh implementer for the remaining work even within the same task; it is also a restart under handoff")
 
     def test_long_running_commands_are_not_polled_with_sleep(self) -> None:
@@ -1072,7 +1072,7 @@ class RolePolicyTests(unittest.TestCase):
             ),
         )
 
-    def test_workspace_handoff_commits_approved_plan_docs_before_coder(self) -> None:
+    def test_workspace_handoff_commits_approved_plan_docs_before_implementer(self) -> None:
         handoff = policy_text("handoff") + " " + policy_text("git-recovery")
         self._assert_workspace_handoff_contracts(
             "Planning document commit",
@@ -1494,7 +1494,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
                        "does not require document completion"):
             self.assertIn(phrase, text)
 
-    def test_document_omissions_and_coder_gate_remain(self):
+    def test_document_omissions_and_implementer_gate_remain(self):
         text = self.text("planning")
         for phrase in ("a required plan does not itself require a written spec", "spike", "bounded", "non-behavior",
                        "no new spec obligation"):

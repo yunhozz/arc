@@ -330,18 +330,13 @@ def node_profile_files():
     result = subprocess.run(["node", "--input-type=module", "-e", "import {resolveTarget} from './lib/installer/targets.mjs';console.log(JSON.stringify(resolveTarget('codex',{userHome:'/home/u',env:{}}).profileNames));"], cwd=REPO, capture_output=True, text=True, check=True)
     return json.loads(result.stdout)
 
-class LegacyRoleCompatibilityTests(unittest.TestCase):
-    def test_legacy_and_dual_model_keys_are_canonical_and_conflicts_fail(self):
+class StrictRoleTests(unittest.TestCase):
+    def test_unsupported_model_key_is_rejected(self):
         import copy
         module = load_model_module()
         config = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
-        canonical = copy.deepcopy(config)
-        config['roles']['arc_coder'] = config['roles'].pop('arc_implementer')
+        config['roles']['arc_unknown'] = config['roles'].pop('arc_implementer')
         before = copy.deepcopy(config)
-        self.assertEqual(module.validate_config(config, Path('models.toml')), canonical)
-        self.assertEqual(config, before)
-        config['roles']['arc_implementer'] = copy.deepcopy(config['roles']['arc_coder'])
-        self.assertEqual(module.validate_config(config, Path('models.toml')), canonical)
-        config['roles']['arc_coder']['economy']['model'] = 'conflicting'
         with self.assertRaises(module.ValidationError):
-            module.serialize_settings(config)
+            module.validate_config(config, Path('models.toml'))
+        self.assertEqual(config, before)

@@ -426,7 +426,7 @@ class PolicyContractTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.contract_failures_at("COMMIT_AUTHORITY", path, self.texts[path]), [])
 
-    def test_commit_authority_rejects_delegated_coder_exception(self) -> None:
+    def test_commit_authority_rejects_delegated_implementer_exception(self) -> None:
         for path, _ in POLICY_CONTRACTS["COMMIT_AUTHORITY"].values():
             with self.subTest(path=path):
                 self.assertTrue(self.contract_failures_at(

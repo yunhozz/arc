@@ -117,17 +117,12 @@ test('cooperative external authorization never changes trusted external provenan
  assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');
 });
 
-test('legacy and canonical implementation identities have equal authority without rewriting stored evidence',()=>{
- for(const role of ['coder','implementer'])for(const [operation,decision] of [['write','allow'],['commit','deny'],['push','deny'],['external-message','deny']]){
-  const a=setup(role,operation),before=structuredClone(a.s);
-  a.s.assignments[0].role=role==='coder'?'implementer':'coder';before.assignments[0].role=a.s.assignments[0].role;
-  assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,decision,`${role} ${operation}`);assert.deepEqual(a.s,before);
- }
+test('unsupported implementation identity cannot gain authority',()=>{
+ const a=setup('unknown','write');const before=structuredClone(a.s);
+ assert.notEqual(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');assert.deepEqual(a.s,before);
 });
-test('canonical spawn can bind a legacy pending assignment without mutating the historical request',()=>{
- const a=assign(),pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;
- pending.assignments.at(-1).role='coder';
+test('unsupported pending assignment cannot bind a canonical identity',()=>{
+ const a=assign(),pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;pending.assignments.at(-1).role='unknown';
  const observation=observed();observation.role='implementer';const before=structuredClone(pending);
- const result=identity.registerAgentObservation(pending,observation);assert.equal(result.decision,'allow');assert.deepEqual(pending,before);
- assert.equal(result.state.identities.at(-1).role,'implementer');
+ assert.throws(()=>identity.registerAgentObservation(pending,observation),/Runtime schema: assignment/);assert.deepEqual(pending,before);
 });

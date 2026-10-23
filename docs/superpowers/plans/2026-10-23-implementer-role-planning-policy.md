@@ -2,7 +2,7 @@
 
 > **실행 역할 지침:** ARC 계약에 따라 Orchestrator가 조정·인수·Git 변경을 담당하고 Implementer가 구현한다. 체크박스는 진행 기록이며 커밋 단위가 아니다. TASK-03은 사용자가 승인한 task 한정 characterization 방식으로 진행한다.
 
-**목표:** 계획 운영 정책과 Planner 전달 계약을 보완하고, 기존 설정·설치·runtime 입력을 호환하며 Implementer로 전환한 뒤, 승인된 검증 방법에 따라 installer 계획 생성 코드를 정리한다.
+**목표:** 계획 운영 정책과 Planner 전달 계약을 보완하고 Implementer 역할 전환과 installer 리팩토링을 완료한다. 후속 사용자 결정에 따라 이전 역할 호환성을 제거하여 Implementer만 지원한다.
 
 **구조:** 정책 보완 → 역할 전환 → installer 리팩토링 순서로 진행한다. 역할 전환은 strict 역할 목록·프로필·모델·runtime·설치의 공유 계약을 하나의 task로 묶는다. 순수 리팩토링의 TDD 제약은 별도 결정 없이 완화하지 않는다.
 
@@ -10,7 +10,7 @@
 
 **승인 spec:** `/Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/specs/2026-10-23-implementer-role-planning-policy-design.md`
 
-**승인 spec SHA-256:** `e964189ba5648cab0b3ceccc8e125e8dd3a33f304d66730dd87553ded8adcb35`
+**승인 spec SHA-256:** `a81dedf977c57c29e6c44cf44397c762334cc5c3b75b2a06ffb2945dc96ef2fb`
 
 **plan 저장 대상:** `/Users/ma-24-007/Desktop/workspace/arc/docs/superpowers/plans/2026-10-23-implementer-role-planning-policy.md`
 
@@ -35,7 +35,7 @@
 - Git 변경과 task 인수는 Orchestrator만 수행한다.
 - 구현 역할은 배정된 파일만 수정하고 다른 역할의 변경을 되돌리지 않는다.
 - 역할 이름 변경으로 권한·승인·QA·Reviewer·검증 요건을 바꾸지 않는다.
-- legacy 모델 키 `arc_coder`와 runtime 역할 `coder`를 호환한다. 신규 출력은 정식 이름을 사용한다.
+- 후속 작업은 spec §10의 Implementer 단일 역할 계약을 따른다. TASK-02의 legacy 호환 계약과 완료 표시는 이전 승인·구현 당시 기록이다.
 - 과거 승인·audit·request·hash 근거의 원문을 보존한다.
 - source 변경과 해당 generated policy·runtime 복제본·`MANIFEST.sha256`를 같은 task에서 정합하게 갱신한다.
 - 역사적 spec·plan·실행 기록과 외부 플랫폼 고유 API를 일괄 치환하지 않는다.
@@ -415,6 +415,106 @@ baseline 실패·불충분, 테스트 후작성, TDD RED/GREEN으로 잘못 보�
 
 이 제목과 커밋은 task가 승인된 방법으로 실제 완료·인수된 경우에만 사용한다.
 
+## TASK-04 — 이전 역할 호환 제거와 Implementer 단일화
+
+**목표·범위**
+
+spec §10과 AC-13~AC-16을 구현한다. 모델·프로필·설치·runtime의 이전 역할 호환 경로와 관련 테스트를 하나의 공유 계약으로 제거한다. 새로운 migration·정리 기능이나 installer 재설계는 추가하지 않는다.
+
+사용자가 정식 배포 전이라는 이유로 이 범위를 명시적으로 승인했다. TASK-03의 characterization 방법 예외는 이 behavior 변경에 적용하지 않는다.
+
+**소유 대상 파일**
+
+- `lib/models/config.mjs`, `lib/models/profiles.mjs`.
+- `lib/installer/upgrade-state.mjs`, `lib/installer/uninstall.mjs`, `lib/installer/transaction.mjs`.
+- 실제 legacy 전환 소비자가 있는 기존 `lib/installer/` 연결부.
+- `lib/runtime/operations.mjs`와 이전 역할 정규화를 호출하는 기존 runtime 소비자.
+- `codex/skill/scripts/model_config.py`, `claude/skill/scripts/model_config.py`.
+- `tests/node/models.test.mjs`, `profile-render.test.mjs`, `upgrade-state.test.mjs`, `plan.test.mjs`, `uninstall.test.mjs`, `runtime-assignment.test.mjs`, `runtime-evaluate.test.mjs`, `runtime-verification.test.mjs`, `runtime-workflow.integration.test.mjs`, `upgrade-harness.test.mjs`.
+- `tests/test_codex_models.py`, `tests/test_claude_payload.py`와 위 검증의 기존 fixture.
+- `tests/node/instruction-layout.test.mjs`와 이 테스트가 소비하는 `tests/node/fixtures/instruction-contracts.json`.
+- `tests/test_arc_policy.py`, `tests/test_harness_contract.py`의 활성 역할 관련 class·test·변수·assertion.
+- `tests/installer-parity.json`의 현행 `destination(s)`와 helper `destinations`; 연결된 Python class·test 이름 변경을 같은 task에서 반영한다.
+- 해당 source의 runtime 생성 복제본과 `MANIFEST.sha256`.
+
+활성 테스트 코드와 실행 fixture는 위 목록에 한정하지 않고 전역 인벤토리로 확인한다. 추가 일치가 있으면 파일·소비 목적·필요한 변경을 Orchestrator에게 보고하여 소유권을 명확히 한다.
+
+fixture 갱신 대상은 현행 실행 입력·기대값·현행 테스트를 가리키는 연결 정보다. 제외 대상은 고정된 역사 문서·handoff와 SHA256으로 검증되는 parity 역사 증거의 원문 필드다. `legacyInventory`·`legacyHelpers`의 과거 ID·assertion을 변경하거나 digest·검증기를 완화하지 않는다. 외부 skill 원문과 역할과 무관한 부분 문자열도 일치별 근거를 남겨 제외한다.
+
+`tests/test_install.py`는 현재 파일이 아니며 parity fixture에 남은 과거 식별자의 일부다. 이 경로를 실제 수정·실행 대상으로 추가하지 않는다.
+
+**선행 task·의존성**
+
+TASK-01~TASK-03과 최종 발견 사항의 기존 인수·커밋 완료. 후속 spec 계약과 현재 branch/HEAD·소유권·문서 이력 처리 경계를 handoff에 연결한다.
+
+**입출력 계약**
+
+- 기존 공개 API의 인수·반환 구조는 유지한다.
+- 모델 설정은 `arc_implementer`를 사용하고 다른 역할 키는 기존 strict 검증으로 거부한다.
+- 프로필 관리 목록은 `arc-implementer.*`를 사용한다. 이전 역할 프로필의 탐색·변환·삭제 경로는 제거한다.
+- runtime은 `implementer`를 직접 검증한다. 이전 역할 alias나 이름을 분할·조합하여 유지하는 우회 처리를 두지 않는다.
+- 역사적 저장 상태를 이름 치환으로 다시 쓰지 않는다.
+
+**단계**
+
+- [x] 현재 source·테스트·fixture·생성물의 역할 문자열과 정규화 호출자를 확인하여 수정 인벤토리를 기록한다.
+- [x] unknown key·role에 대한 기존 strict 거부 시험을 재사용하고 필요한 경우 의미 있는 실패 시험을 먼저 확보한다. 현재 호환 경로 때문에 허용되는 입력의 거부를 RED 근거로 확인하고 정확한 원인을 기록한다.
+- [x] Node·Python 모델 정규화와 프로필 migration을 제거한다.
+- [x] upgrade·uninstall의 이전 프로필 전용 탐색·snapshot·정리와 transaction의 `legacyRemovals` 소비 경로를 제거한다. 정식 경로의 backup·drift·transaction·rollback 안전 검사는 유지한다.
+- [x] runtime 역할 alias와 불필요해진 정규화 연결을 제거한다.
+- [x] 활성 테스트 코드·실행 fixture 전역의 역할 이름·class·test·변수·assertion·기대값을 정식 이름으로 정리한다. 호환 성공 사례를 제거하고 일반 unknown 입력 거부 검증을 보존한다. instruction layout의 이전 이름 치환 보정을 제거한다.
+- [x] Python 테스트 이름과 parity fixture의 현행 `destination(s)`·helper `destinations`를 함께 갱신한다. `legacyInventory`·`legacyHelpers`의 과거 ID·assertion·SHA256은 보존하고 parity 검증으로 양쪽 경계를 확인한다.
+- [x] runtime 복제본과 manifest를 갱신한다.
+- [x] focused 확인과 전체 suite 결과를 확보하고 새 실패를 해결한다. 알려진 baseline 실패는 동일성 근거와 한계를 분리해 기록한다.
+- [x] fresh QA가 모델·설치·runtime의 새 계약과 안전 회귀를 확인한다.
+- [x] Orchestrator가 AC-13~AC-16과 필수 증거를 인수한 후 하나의 focused 구현 커밋으로 남긴다.
+
+**필수 focused 확인**
+
+```bash
+node --test tests/node/models.test.mjs tests/node/profile-render.test.mjs tests/node/upgrade-state.test.mjs tests/node/plan.test.mjs tests/node/uninstall.test.mjs tests/node/upgrade-harness.test.mjs
+node --test tests/node/runtime-assignment.test.mjs tests/node/runtime-evaluate.test.mjs tests/node/runtime-verification.test.mjs tests/node/runtime-workflow.integration.test.mjs
+node --test tests/node/instruction-layout.test.mjs
+python3 -m unittest discover -s tests -p 'test_codex_models.py'
+python3 -m unittest discover -s tests -p 'test_claude_payload.py'
+python3 -m unittest discover -s tests -p 'test_arc_policy.py'
+python3 -m unittest discover -s tests -p 'test_harness_contract.py'
+node scripts/check-installer-parity.mjs
+npm test
+npm run check:role-policy
+node scripts/update-runtime-assets.mjs --check
+npm run check:manifest
+```
+
+`lib/installer/transaction.mjs`를 변경하므로 기존 transaction·transaction-drift·transaction-readonly 시험과 정식 upgrade·uninstall 시험을 함께 확인한다. 알려진 Python baseline 실패는 현재 실패와 동일한지 근거를 연결하며 통과로 처리하지 않는다.
+
+**인수 기준·증거**
+
+- AC-13~AC-16 충족.
+- 정식 설정의 model·effort 값과 공개 API 구조 보존.
+- unknown key·role 거부와 runtime 권한·증거 검증 유지.
+- 정식 설치의 drift·transaction·rollback·uninstall 동작 보존.
+- 운영 source·활성 테스트 코드·실행 fixture·생성물의 이전 역할 참조가 없음. 전역 인벤토리의 모든 일치를 변경 대상·고정된 역사 증거·외부 원문·역할과 무관한 부분 문자열로 분류하고 제외 근거를 기록함.
+- parity fixture의 현행 destination이 실제 변경된 테스트를 가리킴. `legacyInventory`·`legacyHelpers`의 과거 ID·assertion 원문과 SHA256이 보존되며 parity 검증을 완화하지 않음.
+- 이름 치환 보정 없이 instruction layout과 활성 정책 테스트가 정식 역할을 확인함.
+- 실제 RED·수정 후 결과, focused·전체 suite 결과, fresh QA 및 한계를 기록함.
+
+**보류 조건**
+
+현재 작업 소유권 불일치, 필수 strict 검증 완화, 새 migration·자동 삭제 필요, 역사 기록 변경 필요, 생성물 불일치 또는 미해결 새 회귀가 발견되면 영향 작업을 보류한다.
+
+**커밋 제목 제안:** `refactor(roles): 이전 역할 호환 제거`
+
+### TASK-04 실행 결과
+
+- 역할 토큰 경계 검색은 `bin/`, `lib/`, `scripts/`, 활성 `tests/`, 양 플랫폼 `skill/`, `README.md`에서 이전 역할 참조 0건을 확인했다. 넓은 부분 문자열 검색의 `TextDecoder`는 역할명이 아닌 오탐이다. 활성 코드·설정·현재 테스트·실행 fixture는 `implementer`만 지원하며 자동 호환·migration 경로가 없다.
+- `tests/installer-parity.json`의 고정 `legacyInventory`·`legacyHelpers`와 historical assertion 원문에는 과거 이름이 남는다. 이는 실행 설정이 아닌 SHA256으로 보존되는 역사 감사 자료다. 역사 spec·plan·handoff와 외부 skill 원문도 그대로 두었다.
+- 구현 전 RED는 `/tmp/arc-task04-red-node.log`, `/tmp/arc-task04-red-boundaries.log`, `/tmp/arc-task04-red-codex.log`, `/tmp/arc-task04-red-claude.log`에서 확인했다. 이전 이름의 성공·migration 입력이 거부되지 않던 strict 테스트가 실패했으며, 수정 후 일반 unknown key·role 거부 테스트가 통과했다.
+- 새 런타임 원본·복제본은 서로 일치한다. parity 확인은 역사 ID 236개·assertion 739개·helper assertion 14개를 보존한 채 통과했다. 역할 정책 25개 대상, runtime asset 40개, manifest 176개 검증도 통과했다. `git diff --check` 통과.
+- fresh QA의 최종 focused Node 확인은 231개 중 225 통과, 기존 기준 실패 3개, skip 3개였다. 실패는 Claude runtime gate의 오래된 hash 기대값, Claude hook에서 ARC Git guard load 실패, upgrade wrapper의 package version 기대값(`0.1.5` 대 실제 `0.1.9`)이다. full `npm test`는 913개 중 896 통과, 같은 기존 실패 9개, skip 8개였고 `/tmp/arc-final-uninstall-npm.log` 기준과 일치했다. 신규 회귀는 확인되지 않았다.
+- Codex·Claude의 strict 역할 Python 테스트는 각각 1/1 통과했다. 전체 Python 파일에는 기존 기준 실패가 남아 clean 통과로 보고하지 않는다. QA 확인 시 Python bytecode 산출물은 만들어지지 않았다.
+- 독립 Reviewer는 최종 수정본에서 actionable finding을 보고하지 않았다. QA는 AC-13·AC-15·AC-16을 확인했고 AC-14의 end-to-end 증거는 기존 Claude hook·upgrade wrapper 실패 때문에 제한됨을 기록했다.
+
 ## 5. 실행 기록과 커밋 운영
 
 각 task는 필수 확인·필요 QA·finding 재검증 후 Orchestrator가 인수하고 커밋한다. 나중의 전체 검토만을 이유로 독립적으로 인수 가능한 task의 커밋을 미루지 않는다.
@@ -456,6 +556,16 @@ npm run check:manifest
 - [x] 독립 Reviewer가 **최종 전체 변경을 한 번** 검토한다. task별 Reviewer 관문은 추가하지 않는다.
 - [x] 최종 finding은 Implementer 수정 → Reviewer 재확인으로 해결한다. 이 단계에는 QA를 다시 배정하지 않는다. 필요한 focused 회귀 확인은 수행한다.
 - [x] Orchestrator가 AC-01~AC-12, 승인·검증·QA·최종 finding·남은 상태를 확인하고 전체 인수한다.
+
+### 후속 변경의 전체 검증과 인수
+
+기존 전체 검증 체크박스는 TASK-01~TASK-03 당시 결과로 보존한다. TASK-04는 다음 근거를 별도로 확보한다.
+
+- [x] TASK-04 인수·커밋과 fresh QA·필요한 실패 재검증을 완료한다.
+- [x] source·generated·manifest와 실제 QA 대상이 일치하는지 확인한다.
+- [x] 독립 Reviewer가 후속 변경을 포함한 최종 전체 변경을 검토한다.
+- [x] 최종 finding은 Implementer 수정 → Reviewer 재확인으로 해결한다. 이 최종 단계에는 QA를 다시 배정하지 않는다.
+- [x] Orchestrator가 유지되는 기존 기준과 AC-13~AC-16, 실제 증거·한계·남은 상태를 확인하여 후속 변경을 전체 인수한다.
 
 push·merge·배포·게시와 외부 메시지는 실행 범위가 아니다.
 
