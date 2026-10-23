@@ -58,3 +58,10 @@ test('pending reader receives EOF instead of Enter from the same shutdown chunk'
 test('EOF retains already consumed event order and discards later queued Enter',async t=>{
  const io=session(t);io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');io.send('\r');io.send('\x04');assert.equal((await io.session.nextEvent()).name,'eof');
 });
+
+test('viewport follows resize and only fixed home wordmark receives trusted colors',async t=>{
+ const io=session(t);assert.equal(typeof io.session.viewport,'function');assert.deepEqual(io.session.viewport(),{columns:80,rows:24});
+ io.session.render({title:'ARC',wordmark:true,rows:['Update\x1b[2J']});assert.match(io.text(),/\x1b\[37m/);assert.match(io.text(),/\x1b\[32m/);assert.match(io.text(),/Update\\x1b\[2J/);
+ io.resize(100,30);assert.equal((await io.session.nextEvent()).name,'resize');assert.deepEqual(io.session.viewport(),{columns:100,rows:30});
+ io.session.dispose();assert.match(io.text(),/\x1b\[0m\x1b\[\?2004l/);
+});
