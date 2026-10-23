@@ -95,7 +95,7 @@ test('canonical document object evidence ignores repository-local replace refs',
 });
 
 test('cooperative CLI verifies exact approved document commit before durable assignment intent',{skip:process.env.ARC_RUN_GIT_INTEGRATION!=='1'},async t=>{
- const {runCli}=await import('../../lib/cli/workflow.mjs');
+ const {runWorkflowCommand:runCli}=await import('../../lib/runtime/command.mjs');
  const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-cooperative-docs-')));
  const keepFixture=process.env.ARC_KEEP_GIT_INTEGRATION_FIXTURE==='1';
  t.after(async()=>{
@@ -134,7 +134,7 @@ test('cooperative CLI verifies exact approved document commit before durable ass
 });
 
 test('cooperative acceptance reconciles actual focused Git commit and preserves mismatched history for independent inspection',{skip:process.env.ARC_RUN_GIT_INTEGRATION!=='1'},async t=>{
- const {runCli}=await import('../../lib/cli/workflow.mjs');
+ const {runWorkflowCommand:runCli}=await import('../../lib/runtime/command.mjs');
  const retainedRoot=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-cooperative-acceptance-'))),retained=[];
  t.after(async()=>{if(process.env.ARC_KEEP_GIT_INTEGRATION_FIXTURE==='1')t.diagnostic(JSON.stringify({retained:true,root:retainedRoot,fixtures:retained}));else await fs.rm(retainedRoot,{recursive:true,force:true});});
  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.toUpperCase().startsWith('GIT_')));

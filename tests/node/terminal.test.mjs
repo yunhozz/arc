@@ -1,21 +1,8 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {PassThrough} from 'node:stream';
-const api=await import('../../lib/cli/terminal.mjs').catch(()=>({}));
-function streams(){const input=new PassThrough(),output=new PassThrough();input.isTTY=output.isTTY=true;input.isRaw=false;input.setRawMode=value=>{input.isRaw=value;};return{input,output,error:output};}
-test('terminal gating never opens a controlling tty for CI or unsupported systems',()=>{
- assert.equal(typeof api.openInstallerTerminal,'function');
- for(const options of [{platform:'win32',env:{}},{platform:'linux',env:{CI:'true'}},{platform:'darwin',env:{CONTINUOUS_INTEGRATION:'1'}}]){
-  const terminal=api.openInstallerTerminal({...options,...streams(),openTty(){throw Error('must not open');}});assert.equal(terminal.kind,'skip');
- }
+import test from 'node:test';import assert from 'node:assert/strict';import {spawnSync} from 'node:child_process';
+import {runRoot} from '../../lib/cli/root.mjs';
+for(const [inputTTY,outputTTY]of [[false,false],[true,false],[false,true]])test('root rejects missing terminal side without touching streams '+inputTTY+'/'+outputTTY,async()=>{
+ let error='';const deny=()=>assert.fail('terminal must not be opened');const code=await runRoot([],{input:{isTTY:inputTTY,on:deny,setRawMode:deny},output:{isTTY:outputTTY,write:deny,on:deny},error:{write:s=>error+=s}});assert.equal(code,2);assert.match(error,/interactive terminal/);
 });
-test('piped npm stdio uses an owned tty and disposes it once, restoring raw mode',()=>{
- for(const wasRaw of [false,true]){const io=streams();io.input.isRaw=wasRaw;let closed=0;
-  const terminal=api.openInstallerTerminal({platform:'linux',env:{},input:{},output:{},error:{},openTty:()=>({io,dispose(){closed++;}})});
-  assert.equal(terminal.kind,'interactive');assert.equal(terminal.io.input,io.input);io.input.setRawMode(!wasRaw);terminal.dispose();terminal.dispose();assert.equal(io.input.isRaw,wasRaw);assert.equal(closed,1);
- }
-});
-test('unavailable controlling terminal skips and reused streams stay open',()=>{
- assert.equal(api.openInstallerTerminal({platform:'linux',env:{},input:{},output:{},openTty(){throw Error('ENXIO');}}).kind,'skip');
- const io=streams(),terminal=api.openInstallerTerminal({platform:'linux',env:{},...io});terminal.dispose();assert.equal(io.input.destroyed,false);assert.equal(io.output.destroyed,false);
+test('non-TTY root never loads TUI native or installer',()=>{
+ const result=spawnSync(process.execPath,['--input-type=module','-e',`import{registerHooks}from'node:module';registerHooks({resolve(s,c,next){if(/tui|safe-fs|installer/.test(s))throw Error('Unexpected terminal dependency');return next(s,c);}});const{runRoot}=await import('./lib/cli/root.mjs');process.exitCode=await runRoot([]);`],{encoding:'utf8'});assert.equal(result.status,2,result.stderr);assert.match(result.stderr,/interactive terminal/);
 });
