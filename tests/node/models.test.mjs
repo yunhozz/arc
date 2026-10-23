@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const api = await import('../../lib/models/index.mjs').catch(() => ({}));
-const roles = ['arc_scouter', 'arc_planner', 'arc_coder', 'arc_qa', 'arc_reviewer'];
+const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
 const expected = {
   codex: {
     economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-sol','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
@@ -99,5 +99,17 @@ test('normalized vendored TOML preserves pinned upstream parser and serializer b
     const errorOf=parser=>{try{parser(text);}catch(error){return [error.name,error.message];} assert.fail('Invalid fixture must fail');};
     assert.deepEqual(errorOf(vendored.parse),errorOf(upstream.parse));
   }
-  const settings={version:5,roles:{arc_coder:{model:'gpt-6.1-sol',model_reasoning_effort:'medium'}}}; assert.equal(vendored.stringify(settings),upstream.stringify(settings));
+  const settings={version:5,roles:{arc_implementer:{model:'gpt-6.1-sol',model_reasoning_effort:'medium'}}}; assert.equal(vendored.stringify(settings),upstream.stringify(settings));
+});
+
+for (const platform of ['codex','claude']) test(`${platform} normalizes legacy implementation settings without mutation and rejects conflicting inactive presets`,()=>{
+ const text=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url),'utf8').replaceAll('arc_implementer','arc_coder');
+ const config=api.loadModelConfig(text,platform);
+ assert.ok(config.roles.arc_implementer);assert.equal(Object.hasOwn(config.roles,'arc_coder'),false);
+ const legacy=structuredClone(config);legacy.roles.arc_coder=legacy.roles.arc_implementer;delete legacy.roles.arc_implementer;
+ const before=structuredClone(legacy);assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(legacy),platform),config);assert.deepEqual(legacy,before);
+ const both=structuredClone(config);both.roles.arc_coder=Object.fromEntries(Object.entries(config.roles.arc_implementer).reverse());
+ assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(both),platform),config);
+ both.roles.arc_coder=structuredClone(both.roles.arc_coder);both.roles.arc_coder.economy.model='conflicting-model';
+ assert.throws(()=>api.serializeModelConfig(both),{code:'ARC_MODEL_VALIDATION'});
 });

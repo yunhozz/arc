@@ -5,7 +5,7 @@ const hash='sha256:'+'a'.repeat(64),commit='b'.repeat(40);
 function fixture(){
  const target={realpath:'/workspace',gitCommonDir:'/common',gitDir:'/common',head:commit,branch:'main'};
  const documents=['spec','plan'].map(kind=>({kind,path:'/workspace/'+kind+'.md',gitPath:kind+'.md',contentHash:hash,approvalRef:'approved',commit}));
- const arguments_={role:'coder',paths:['/workspace/code.mjs'],operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'native:1'};
+ const arguments_={role:'implementer',paths:['/workspace/code.mjs'],operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'native:1'};
  const state={mode:'plan',target,targetVersion:1,scopeVersion:0,revision:1,tasks:[{id:'T1',paths:['/workspace/code.mjs'],status:'pending',criteria:['works'],requiredChecks:[],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1}],intents:[],assignments:[],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',targetVersion:1,scopeVersion:0,data:{approvalVersion:1,documentVersion:1,documents}}]};
  const request={requestId:'assign1',expectedRevision:1,actor:{id:'operator'},operation:'assign-agent',taskId:'T1',arguments:arguments_};
  const observations={target,git:{target,documents:documents.map(d=>({...d,observedHash:hash,currentHash:hash})),docsCommit:{commit,paths:['spec.md','plan.md'],documents}}};
@@ -101,4 +101,9 @@ test('task-specific approval cannot authorize another task and contract versions
  f.request.arguments={...f.request.arguments,approvalRef:other.messageRef,approvalVersion:2,documentVersion:2,documents:structuredClone(other.data.documents)};f.observations.git.docsCommit.documents=structuredClone(other.data.documents);f.observations.git.documents=other.data.documents.map(d=>({...d,observedHash:hash,currentHash:hash}));assert.equal(prepare(f).decision,'hold');
  const valid=fixture();valid.state.records.push(other);assert.equal(prepare(valid).decision,'allow','unrelated approval does not invalidate the task approval');
  for(const key of ['approvalRef','approvalVersion','documentVersion','scopeVersion','targetVersion']){const f=fixture();f.state.tasks[0][key]=key==='approvalRef'?'other':9;assert.equal(prepare(f).decision,'hold',key);}
+});
+
+test('legacy dispatch produces a canonical intent without rewriting request fingerprint evidence',async()=>{
+ const {fingerprintRequest}=await import('../../lib/runtime/store.mjs');const f=fixture();f.request.arguments.role='coder';const before=structuredClone(f.request);
+ const d=prepare(f);assert.equal(d.decision,'allow');assert.equal(d.proposedTransition.intent.role,'implementer');assert.equal(d.proposedTransition.intent.fingerprint,fingerprintRequest(before));assert.deepEqual(f.request,before);
 });

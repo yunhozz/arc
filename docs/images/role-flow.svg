@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1100" width="1560" height="1100" role="img" aria-labelledby="title description">
 <title id="title">ARC request, preparation, and acceptance flow</title>
-<desc id="description">Orchestrator routes requests and optional Scouter findings, then chooses design depth independently of verification risk. Approved documents precede platform preparation and handoff. Ready independent tasks receive fresh Coders, required checks, Orchestrator acceptance, and plan task commits or no-change records. Significant planned work has final whole-change review after task acceptances; significant unplanned work has review before acceptance.</desc>
+<desc id="description">Orchestrator routes requests and optional Scouter findings, then chooses design depth independently of verification risk. Approved documents precede platform preparation and handoff. Ready independent tasks receive fresh Implementers, required checks, Orchestrator acceptance, and plan task commits or no-change records. Significant planned work has final whole-change review after task acceptances; significant unplanned work has review before acceptance.</desc>
 <defs>
 <style>text{font-family:Arial,Helvetica,sans-serif;fill:#203442} .heading{font-size:30px;font-weight:700} .label{font-size:25px;font-weight:700} .detail{font-size:22px} .note{font-size:21px} .flow{fill:none;stroke:#526675;stroke-width:3} .return{fill:none;stroke:#526675;stroke-width:2;stroke-dasharray:7 5} .card{fill:white;stroke:#b1c0c8;stroke-width:2}</style></defs>
 <rect width="1560" height="1100" rx="24" fill="#f4f6f5"/>
@@ -46,7 +46,7 @@
 <g class="connector"><path class="flow" d="M780 602 V632"/><polygon points="780,632 773,618 787,618" fill="#526675"/></g>
 <rect x="50" y="635" width="1460" height="110" rx="14" class="card"/>
 <text x="70" y="669" class="label">Ready independent tasks</text>
-<text x="70" y="700" class="detail">Fresh Coder per top-level task; ownership + inputs + accepted predecessors + capacity.</text>
+<text x="70" y="700" class="detail">Fresh Implementer per top-level task; ownership + inputs + accepted predecessors + capacity.</text>
 <text x="70" y="729" class="detail">Reserve slots; obey total/concurrent limits and lower runtime capacity. No same-file concurrent edits.</text>
 <g class="connector"><path class="flow" d="M780 745 V775"/><polygon points="780,775 773,761 787,761" fill="#526675"/></g>
 <rect x="50" y="778" width="1460" height="111" rx="14" class="card" style="fill:#e9f3ed"/>

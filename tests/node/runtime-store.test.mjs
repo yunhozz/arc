@@ -19,7 +19,7 @@ test('transactions serialize revisions replay safely survive restart and retain 
  assert.equal((await api.transactWorkflow({...args,...input('r')})).state.revision,1);
 });
 test('store rejects identity rebinding retired revival and failed serialization without partial writes',async t=>{
- const dir=await fs.mkdtemp(path.join(os.tmpdir(),'arc-store-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));const statePath=path.join(dir,'state.json');const s=state();s.identities=[{actorRef:'actor',role:'coder',taskId:'T1',observationRef:'obs'}];s.leases=[{actorRef:'actor',taskId:'T1',status:'retired'}];await fs.writeFile(statePath,JSON.stringify(s));const before=await fs.readFile(statePath,'utf8');
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'arc-store-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));const statePath=path.join(dir,'state.json');const s=state();s.identities=[{actorRef:'actor',role:'implementer',taskId:'T1',observationRef:'obs'}];s.leases=[{actorRef:'actor',taskId:'T1',status:'retired'}];await fs.writeFile(statePath,JSON.stringify(s));const before=await fs.readFile(statePath,'utf8');
  for(const change of [s=>s.identities[0].taskId='T2',s=>s.leases[0].status='active',s=>s.extra=1n]){await assert.rejects(api.transactWorkflow({statePath,expectedRevision:0,...input('bad'),decide:s=>{change(s);return {decision:'allow',proposedTransition:s};}}));assert.equal(await fs.readFile(statePath,'utf8'),before);}
 });
 

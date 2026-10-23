@@ -16,7 +16,7 @@ import {prepareCooperativeAssignment} from './assignment.mjs';
 import path from 'node:path';
 import {validateCooperativeState,validateCooperativeCommand} from './cooperative-schema.mjs';
 import {validateWorkflowState, validateRequest, validateEvidence} from './schema.mjs';
-import {ROLES, ROLE_OPERATIONS, GIT_OPERATIONS, EXTERNAL_OPERATIONS} from './operations.mjs';
+import {normalizeRole, ROLES, ROLE_OPERATIONS, GIT_OPERATIONS, EXTERNAL_OPERATIONS} from './operations.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const within=(base,file)=>{const relative=path.relative(base,file);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative));};
 /** Pure policy decision. Evidence is supplied by a trusted adapter/provider, never tool arguments. */
@@ -26,8 +26,8 @@ export function evaluate(policy, state, request, evidence){
  if(policy?.runtime?.schemaVersion!==1||!same(policy.runtime.roles,ROLES)||!Array.isArray(policy.runtime.ruleIds)||!Array.isArray(policy.runtime.requiredEvidence)||policy.runtime.status!=='decision-only')return result('hold','runtime.policy','runtime policy unavailable',['runtime-policy']);
  const actor=state.identities.find(i=>i.actorRef===request.actorRef);
  if(!actor)return result('hold','runtime.identity','platform identity unresolved',['platform-identity']);
- const role=actor.role;
- const roleRule={orchestrator:'role.orchestrator-boundary',scouter:'role.scouter-read-only',planner:'role.planner-draft-only',coder:'role.coder-implementation',qa:'role.qa-verification',reviewer:'role.reviewer-independent'}[role];
+ const role=normalizeRole(actor.role);
+ const roleRule={orchestrator:'role.orchestrator-boundary',scouter:'role.scouter-read-only',planner:'role.planner-draft-only',implementer:'role.implementer-implementation',qa:'role.qa-verification',reviewer:'role.reviewer-independent'}[role];
  if(!ROLE_OPERATIONS[role]?.includes(request.operation))return result('deny',GIT_OPERATIONS.includes(request.operation)?'git.specialists-deny':roleRule,'operation forbidden for assigned role');
  const lease=state.leases.find(l=>l.actorRef===actor.actorRef);
  if(lease?.status==='retired')return result('deny','runtime.identity','retired identity');
@@ -36,7 +36,7 @@ export function evaluate(policy, state, request, evidence){
  if(!observation)return result('hold','runtime.identity','platform observation unavailable',['platform-observation']);
  if(!same(evidence.target,state.target)||evidence.revision!==state.revision||!same(evidence.versions,state.versions))return result('hold','runtime.target','target revision or versions mismatch',['current-target-versions']);
  if(!within(state.target.realpath,request.cwd))return result('deny','scope.non-escalation','cwd outside workspace');
- const assignment=state.assignments.find(a=>a.actorRef===actor.actorRef&&a.taskId===request.taskId&&a.role===role);
+ const assignment=state.assignments.find(a=>a.actorRef===actor.actorRef&&a.taskId===request.taskId&&normalizeRole(a.role)===role);
  if(!assignment||!assignment.operations.includes(request.operation))return result('hold','runtime.assignment','approved operation assignment missing',['assignment']);
  const approval=state.approvals.find(a=>a.id===assignment.approvalRef);
  const proof=evidence.provenance.find(p=>p.id===approval?.id&&p.source===approval?.source&&p.messageRef===approval?.messageRef&&p.contentHash===approval?.contentHash&&p.verification.sourceRef===p.messageRef);
@@ -50,7 +50,7 @@ export function evaluate(policy, state, request, evidence){
  const fact=kind=>evidence.facts?.find(f=>f.kind===kind&&f.workflowId===state.workflowId&&f.revision===state.revision&&same(f.target,state.target)&&f.policyHash===state.versions.policyHash&&evidence.provenance.some(p=>p.id===f.sourceRef));
  const task=state.tasks.find(t=>t.id===request.taskId);
  if(!task)return result('hold','runtime.assignment','task unavailable',['task']);
- if(role==='coder'&&['accepted','committed'].includes(task.status))return result('deny','runtime.identity','task execution ended');
+ if(role==='implementer'&&['accepted','committed'].includes(task.status))return result('deny','runtime.identity','task execution ended');
  if(request.operation==='temporary-write'){
   const temporary=assignment.temporary;
   if(!temporary||temporary.cleanupOwner!==request.actorRef||!Number.isFinite(Date.parse(temporary.expiresAt))||!Number.isFinite(Date.parse(evidence.observedAt))||Date.parse(temporary.expiresAt)<=Date.parse(evidence.observedAt)||!request.paths.every(p=>temporary.paths?.some(base=>within(base,p))))return result('hold','role.qa-verification','temporary scope lifetime and cleanup ownership required',['temporary-assignment']);
@@ -61,10 +61,10 @@ export function evaluate(policy, state, request, evidence){
  if(role==='orchestrator'&&request.operation==='write'&&request.descriptor.kind!=='document')return result('hold','role.orchestrator-boundary','direct implementation requires reviewed small-task exception',['small-task-exception']);
  if(request.operation==='assign-agent'){
   const d=request.descriptor;
-  if(!ROLES.includes(d.role)||d.taskId!==request.taskId)return result('deny','runtime.identity','invalid assignment');
+  if(!ROLES.includes(normalizeRole(d.role))||d.taskId!==request.taskId)return result('deny','runtime.identity','invalid assignment');
   const previous=state.identities.find(i=>i.actorRef===d.actorRef);
   if(previous&&(previous.taskId!==d.taskId||state.leases.some(l=>l.actorRef===d.actorRef&&l.status==='retired')))return result('deny','runtime.identity','identity cannot cross tasks or revive');
-  if(d.role==='coder'){
+  if(normalizeRole(d.role)==='implementer'){
    if(state.mode==='plan'){
     // T3 supplies verified Git object evidence. Local assertions never satisfy this gate.
     if(!state.documents.some(d=>d.kind==='spec')||!state.documents.some(d=>d.kind==='plan'))return result('hold','runtime.docs-commit','approved complete spec and plan required',['approved-documents','docs-only-commit']);
@@ -78,11 +78,11 @@ export function evaluate(policy, state, request, evidence){
   const expected={requestId:request.requestId,platform:request.platform,...d};
   const correlationProof=evidence.provenance.find(p=>p.id===correlation?.sourceRef&&p.source==='platform-event'&&p.verification.sourceRef===p.eventRef&&p.platform===request.platform&&p.actorRef===request.actorRef&&p.correlationRef===d.correlationRef&&p.requestId===request.requestId);
   if(d.actorRef!==undefined||!d.correlationRef||!correlationProof||!same(correlation?.data,expected))return result('hold','runtime.identity','trusted platform request correlation required',['assignment-correlation']);
-  if(!Array.isArray(d.paths)||!d.paths.length||!same([...d.paths].sort(),[...request.paths].sort())||!Array.isArray(d.operations)||!d.operations.length||d.approvalRef!==approval.id||!approval.scope.roles?.includes(d.role)||d.paths.some(p=>!task.paths.some(base=>within(base,p)))||d.operations.some(op=>!ROLE_OPERATIONS[d.role].includes(op)||!approval.scope.operations.includes(op)))return result('hold','runtime.assignment','delegated role paths operations and approval must match',['delegated-scope']);
+  if(!Array.isArray(d.paths)||!d.paths.length||!same([...d.paths].sort(),[...request.paths].sort())||!Array.isArray(d.operations)||!d.operations.length||d.approvalRef!==approval.id||!approval.scope.roles?.some(role=>normalizeRole(role)===normalizeRole(d.role))||d.paths.some(p=>!task.paths.some(base=>within(base,p)))||d.operations.some(op=>!ROLE_OPERATIONS[normalizeRole(d.role)].includes(op)||!approval.scope.operations.includes(op)))return result('hold','runtime.assignment','delegated role paths operations and approval must match',['delegated-scope']);
   if(d.checks&&(!Array.isArray(approval.scope.checks)||d.checks.some(c=>!approval.scope.checks.some(approved=>same(approved,c)))))return result('hold','runtime.assignment','delegated checks not approved',['delegated-checks']);
   if(d.temporary&&!same(d.temporary,approval.scope.temporary))return result('hold','runtime.assignment','delegated temporary scope not approved',['delegated-temporary-scope']);
   if(state.assignments.some(a=>a.assignmentId===request.requestId||a.correlationRef===d.correlationRef))return result('hold','runtime.identity','assignment correlation already registered',['new-assignment-correlation']);
-  const next=structuredClone(state);next.assignments.push({assignmentId:request.requestId,requestId:request.requestId,requestedBy:request.actorRef,status:'pending',actorRef:null,platform:request.platform,correlationRef:d.correlationRef,role:d.role,taskId:d.taskId,paths:[...d.paths],operations:[...d.operations],approvalRef:d.approvalRef,...(d.checks?{checks:structuredClone(d.checks)}:{}),...(d.temporary?{temporary:structuredClone(d.temporary)}:{})});
+  const next=structuredClone(state);next.assignments.push({assignmentId:request.requestId,requestId:request.requestId,requestedBy:request.actorRef,status:'pending',actorRef:null,platform:request.platform,correlationRef:d.correlationRef,role:normalizeRole(d.role),taskId:d.taskId,paths:[...d.paths],operations:[...d.operations],approvalRef:d.approvalRef,...(d.checks?{checks:structuredClone(d.checks)}:{}),...(d.temporary?{temporary:structuredClone(d.temporary)}:{})});
   try{validateWorkflowState(next);}catch{return result('hold','runtime.assignment','invalid pending assignment scope',['valid-assignment']);}
   return {...result('allow','runtime.assignment','pending assignment authorized; observed spawn result still required'),proposedTransition:next};
  }

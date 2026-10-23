@@ -31,9 +31,9 @@ test('policy projections reject unknown duplicate and uncovered rules', () => {
 test('orchestrator projections preserve canonical text and order', () => {
   const expected = {
     core: ['scope.non-escalation', 'external.explicit-user-authority', 'role.orchestrator-boundary'],
-    assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.coder-implementation', 'role.qa-verification', 'role.reviewer-independent'],
+    assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.implementer-implementation', 'role.qa-verification', 'role.reviewer-independent'],
     planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-amend', 'planning.planner-brief'],
-    handoff: ['git.specialists-deny', 'role.coder-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
+    handoff: ['git.specialists-deny', 'role.implementer-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
     preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-amend'],
     verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-amend'],
     commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-amend'],
@@ -69,7 +69,7 @@ test('default policy rendering preserves complete existing contracts', () => {
 });
 // A caller must not accidentally replace a specialist's complete role contract with a subset.
 test('specialist rendering rejects partial projections', () => {
-  for (const platform of ['codex', 'claude']) for (const audience of ['scouter', 'planner', 'coder', 'qa', 'reviewer']) for (const section of ['contract', 'global']) {
+  for (const platform of ['codex', 'claude']) for (const audience of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) for (const section of ['contract', 'global']) {
     assert.throws(() => api.renderPolicySection(policy(), {platform, audience, section, projection:'core'}), /specialist.*projection/i);
   }
 });
@@ -107,10 +107,10 @@ test('generation is deterministic and preserves buffers when any target is malfo
 test('review routing keeps final review and its plan-only correction exception', () => {
   assert.equal(typeof api.validateRolePolicy,'function');
   const p=policy(); api.validateRolePolicy(p);
-  assert.deepEqual(p.review.noPlan,['coder','qa','reviewer','orchestrator-accept']);
-  assert.deepEqual(p.review.planTask,['coder','fresh-qa','orchestrator-accept','orchestrator-commit']);
+  assert.deepEqual(p.review.noPlan,['implementer','qa','reviewer','orchestrator-accept']);
+  assert.deepEqual(p.review.planTask,['implementer','fresh-qa','orchestrator-accept','orchestrator-commit']);
   assert.deepEqual(p.review.planFinal,['required-qa','reviewer']);
-  assert.deepEqual(p.review.planFinding,['coder','reviewer']);
+  assert.deepEqual(p.review.planFinding,['implementer','reviewer']);
   for(const mutate of [p=>p.review.noPlan.splice(2,1),p=>p.review.planTask.splice(2,0,'reviewer'),p=>p.review.planFinding.splice(1,0,'qa')]) {
     const bad=policy(); mutate(bad); assert.throws(()=>api.validateRolePolicy(bad),/policy/i);
   }
@@ -138,7 +138,7 @@ test('Git query policy is generated from the common source and rejects malformed
 });
 test('generation restores missing Claude specialist hook wiring and check detects its removal',()=>{
  const inputs=new Map(api.POLICY_TARGETS.map(({path:name})=>[name,fs.readFileSync(new URL(name,root))]));
- const name='claude/agents/arc-coder.md';inputs.set(name,Buffer.from(inputs.get(name).toString().replace(/^hooks:\n(?: .+\n|\s*#.*\n)+/m,'')));
+ const name='claude/agents/arc-implementer.md';inputs.set(name,Buffer.from(inputs.get(name).toString().replace(/^hooks:\n(?: .+\n|\s*#.*\n)+/m,'')));
  const rendered=api.buildPolicyOutputs(inputs,policy()).get(name).toString();assert.match(rendered,/^hooks:\n  PreToolUse:/m);
 });
 test('runtime evidence policy rejects missing roles rules and evidence requirements',()=>{

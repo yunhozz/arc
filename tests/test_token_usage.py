@@ -73,7 +73,7 @@ class TokenUsageTest(unittest.TestCase):
     def test_role_classification(self):
         cases = {
             "main": {"thread_source": "user", "source": "vscode"},
-            "arc_coder": {"thread_source": "subagent", "agent_role": "arc_coder"},
+            "arc_implementer": {"thread_source": "subagent", "agent_role": "arc_implementer"},
             "arc_qa": {
                 "thread_source": "subagent",
                 "source": {"subagent": {"thread_spawn": {"agent_role": "arc_qa"}}},
@@ -115,12 +115,12 @@ class TokenUsageTest(unittest.TestCase):
         for i in range(2):
             self.write(
                 f"c{i}.jsonl",
-                [self.meta(agent_role="arc_coder"), token_line(usage(50, 0, 1, 0))],
+                [self.meta(agent_role="arc_implementer"), token_line(usage(50, 0, 1, 0))],
             )
         _, out, _ = self.run_cli("--sessions-dir", str(self.root))
         rows = [line.split()[0] for line in out.splitlines()]
-        self.assertLess(rows.index("arc_coder"), rows.index("main"))
-        self.assertRegex(out, r"arc_coder\s+2\s+100\b")
+        self.assertLess(rows.index("arc_implementer"), rows.index("main"))
+        self.assertRegex(out, r"arc_implementer\s+2\s+100\b")
         self.assertRegex(out, r"TOTAL\s+3\s+110\b")
 
     def test_non_numeric_token_value_skips_file(self):

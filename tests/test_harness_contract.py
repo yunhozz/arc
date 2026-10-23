@@ -96,14 +96,14 @@ COMMON_CONTRACTS = {
         r"branch or detached head.*head.*staged/unstaged/untracked",
         r"approved.*document|document approvals",
         r"canonical.*record",
-        r"unchanged.*record file.*fresh coder reads",
+        r"unchanged.*record file.*fresh implementer reads",
         r"inaccessible.*(?:record|link).*evidence|inaccessible.*record.*block",
     )),
     "READINESS": ("references/planning.md", (
         r"a task is ready only when.*approvals.*preparation.*inputs/contracts.*predecessors.*required evidence.*orchestrator acceptance.*verified focused commits.*accepted no-change",
         r"ownership/resources do not conflict.*check/qa path.*slot.*runtime limit",
         r"completion reports alone do not release dependents",
-        r"same-file concurrent coder edits.*(?:blocked|forbidden)",
+        r"same-file concurrent implementer edits.*(?:blocked|forbidden)",
     )),
     "COMMIT_NEXT_ACTION": ("references/commit.md", (
         r"after orchestrator accepts a task, the next action is the required git state/scope checks, staging, and focused commit",
@@ -120,7 +120,7 @@ COMMON_CONTRACTS = {
         r"task acceptance(?:/commit)?.*distinct from final plan acceptance",
     )),
     "RECOVERY": ("references/git-recovery.md", (
-        r"stop.*(?:dependent work|coder handoff)",
+        r"stop.*(?:dependent work|implementer handoff)",
         r"actual.*branch.*head.*index.*(?:files|worktree|working tree|partial completion)",
         r"(?:do not|never).*retry.*(?:fall back|fallback|repeat)",
         r"(?:revalidat|reverif|reevaluat).*gate",
@@ -148,7 +148,7 @@ ROLE_LOCAL = (
 # worktree support lives in handoff.md.
 NATIVE_ADAPTERS = {
     "codex": (
-        r"scouter=`arc_scouter`.*planner=`arc_planner`.*coder=`arc_coder`",
+        r"scouter=`arc_scouter`.*planner=`arc_planner`.*implementer=`arc_implementer`",
         r"spawn_agent.*agent_type",
         r"wait_agent",
         r"model_reasoning_effort",
@@ -156,7 +156,7 @@ NATIVE_ADAPTERS = {
         r"prompt-level guards, not sandbox enforcement",
     ),
     "claude": (
-        r"scouter=`arc-scouter`.*planner=`arc-planner`.*coder=`arc-coder`",
+        r"scouter=`arc-scouter`.*planner=`arc-planner`.*implementer=`arc-implementer`",
         r"foreground agent call.*background.*completion notification",
         r"`effort`",
         r"claude_code_max_concurrent_subagents.*string",
@@ -177,7 +177,7 @@ POLICY_CONTRACTS = {
     for contract, (owner, patterns) in COMMON_CONTRACTS.items()
 }
 POLICY_CONTRACTS["ROLE_LOCAL"] = {
-    platform: (f"{platform}/agents/arc-coder.{'toml' if platform == 'codex' else 'md'}", ROLE_LOCAL)
+    platform: (f"{platform}/agents/arc-implementer.{'toml' if platform == 'codex' else 'md'}", ROLE_LOCAL)
     for platform in PLATFORMS
 }
 POLICY_CONTRACTS["NATIVE_ADAPTERS"] = {
@@ -193,8 +193,8 @@ POLICY_CONTRACTS["OWNERSHIP"].update({
     for platform in PLATFORMS
 })
 
-POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-coder"] = (
-    "claude/agents/arc-coder.md", (r"coder must not commit, even when explicitly assigned",)
+POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-implementer"] = (
+    "claude/agents/arc-implementer.md", (r"implementer must not commit, even when explicitly assigned",)
 )
 
 
@@ -224,7 +224,7 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
             r"the task commit may wait until the plan ends",
         ),
         "COMMIT_AUTHORITY": (
-            r"coder may commit when orchestrator explicitly assigns that action",
+            r"implementer may commit when orchestrator explicitly assigns that action",
             r"a role may commit only when orchestrator explicitly assigns that action",
             r"do not stage, commit, push, or merge unless orchestrator explicitly assigns that action",
         ),
@@ -245,7 +245,7 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
             "formal spec drafting", "written-spec approval", "formal plan drafting",
             "individual plan approvals", "complete applicable set",
             "existing-commit verification and one batch docs commit of remaining approved documents",
-            "final git verification", "coder handoff",
+            "final git verification", "implementer handoff",
         )
         if not order or not re.search(".*".join(map(re.escape, sequence)), order.group(1)):
             failures.append(f"DOCUMENT_ORDER: {path}: missing or reversed Normal order gates")
@@ -256,11 +256,11 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     for platform in PLATFORMS:
         root = f"{platform}/skill"
         require("HANDOFF_GATE", f"{root}/SKILL.md", (
-            r"before every coder first start/restart",
+            r"before every implementer first start/restart",
             r"references/handoff.md",
         ))
         require("HANDOFF_GATE", f"{root}/references/handoff.md", (
-            r"before every coder first start/restart.*handoff",
+            r"before every implementer first start/restart.*handoff",
             r"missing evidence.*block handoff",
             r"same conditions.*before an orchestrator direct edit",
         ))
@@ -344,10 +344,10 @@ class PolicyContractTests(unittest.TestCase):
         reverse = ("Normal order: initial design approval → formal spec drafting → written-spec approval → "
                    "formal plan drafting → individual plan approvals → complete applicable set → "
                    "execution-target choice → target preparation and verification → existing-commit verification "
-                   "and one batch docs commit → final Git verification → Coder handoff.")
+                   "and one batch docs commit → final Git verification → Implementer handoff.")
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
-            fixture = re.sub(r"Normal order:.*?Coder handoff\.", reverse, self.texts[path], flags=re.S)
+            fixture = re.sub(r"Normal order:.*?Implementer handoff\.", reverse, self.texts[path], flags=re.S)
             with self.subTest(path=path):
                 self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
 
@@ -355,11 +355,11 @@ class PolicyContractTests(unittest.TestCase):
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
             text = " ".join(self.texts[path].split())
-            order = re.search(r"Normal order:.*?Coder handoff\.", text).group()
+            order = re.search(r"Normal order:.*?Implementer handoff\.", text).group()
             for gate in ("target preparation and verification", "written-spec approval",
                          "individual plan approvals", "complete applicable set",
                          "existing-commit verification and one batch docs commit of remaining approved documents",
-                         "final Git verification", "Coder handoff"):
+                         "final Git verification", "Implementer handoff"):
                 with self.subTest(path=path, gate=gate):
                     self.assertIn(gate, order)
                     fixture = text.replace(order, order.replace(gate, "omitted"))
@@ -431,11 +431,11 @@ class PolicyContractTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertTrue(self.contract_failures_at(
                     "COMMIT_AUTHORITY", path,
-                    self.texts[path] + "\nCoder may commit when Orchestrator explicitly assigns that action."))
+                    self.texts[path] + "\nImplementer may commit when Orchestrator explicitly assigns that action."))
         for path, legacy in (
             ("claude/skill/references/commit.md",
              "A role may commit only when Orchestrator explicitly assigns that action; Orchestrator retains acceptance authority."),
-            ("claude/agents/arc-coder.md",
+            ("claude/agents/arc-implementer.md",
              "Do not stage, commit, push, or merge unless Orchestrator explicitly assigns that action."),
         ):
             with self.subTest(path=path, legacy=True):
@@ -470,7 +470,7 @@ class PolicyContractTests(unittest.TestCase):
                     self.assertIn(f"{contract}: {path}: missing owner", policy_contract_failures(changed))
         for platform in PLATFORMS:
             for contract, owner, old, new in (
-                ("READINESS", "planning.md", "Orchestrator acceptance", "Coder completion"),
+                ("READINESS", "planning.md", "Orchestrator acceptance", "Implementer completion"),
                 ("COMMIT_BOUNDARY", "commit.md", "no empty commit", "an empty commit"),
                 ("EVIDENCE_LIMITS", "verification.md", "proven, unmet, or unverified", "passed"),
             ):
@@ -485,7 +485,7 @@ class PolicyContractTests(unittest.TestCase):
         for path, old, new in (
             ("claude/skill/references/handoff.md",
              "ARC-managed worktree execution is unsupported", "ARC-managed worktree execution is supported"),
-            ("claude/skill/references/coordination.md", "arc-coder", "arc_coder"),
+            ("claude/skill/references/coordination.md", "arc-implementer", "arc_implementer"),
         ):
             changed_text = self.texts[path].replace(old, new)
             self.assertNotEqual(changed_text, self.texts[path])
@@ -534,13 +534,13 @@ class DocumentationContractTests(unittest.TestCase):
         guide = self.guide()
         for contract in (
             "probe-only", "probe+implementation", "같은 범위", "중대한 범위·방법·위험 변경",
-            "문서 생략 경로", "Coder → Reviewer",
+            "문서 생략 경로", "Implementer → Reviewer",
             "QA를 재배정하지 않습니다", "최종 QA findings", "한국어 구절",
             "파일별 책임 점검 범위", "29개", "미검증",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, guide)
-        self.assertRegex(guide, r"Coder\s+수정\s*→\s*QA\s+재검증")
+        self.assertRegex(guide, r"Implementer\s+수정\s*→\s*QA\s+재검증")
         self.assertRegex(guide, r"Plan omission requires.*no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns")
 
     def test_maintained_local_links_resolve(self) -> None:

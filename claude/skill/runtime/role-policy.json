@@ -14,7 +14,7 @@
       "description": "Return design, spec and plan drafts to Orchestrator."
     },
     {
-      "id": "coder",
+      "id": "implementer",
       "description": "Implement assigned approved changes and focused checks."
     },
     {
@@ -33,7 +33,7 @@
         "orchestrator",
         "scouter",
         "planner",
-        "coder",
+        "implementer",
         "qa",
         "reviewer"
       ],
@@ -58,7 +58,7 @@
       "roles": [
         "scouter",
         "planner",
-        "coder",
+        "implementer",
         "qa",
         "reviewer"
       ],
@@ -114,7 +114,7 @@
         "orchestrator",
         "scouter",
         "planner",
-        "coder",
+        "implementer",
         "qa",
         "reviewer"
       ],
@@ -150,7 +150,7 @@
         "role-ownership"
       ],
       "authority": "orchestrator",
-      "text": "Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Coder. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it. Use a fresh Coder per top-level task and a fresh QA per top-level task that needs QA; QA findings alone do not create a new task. While approved scope, workspace, ownership and relevant assignment context remain valid, default same-task QA findings to the current Coder and post-fix rechecks to the current QA. Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes; an approved plan or acceptance-criteria amendment requires a fresh Coder even within the task. Before reusing Coder, refresh actual workspace, branch/HEAD and change state; QA reruns the reproduction path and invalidated related checks and reports actual actor, target state, outcomes and limitations. Preserve task-boundary acceptance and the final plan Reviewer correction exception.",
+      "text": "Assign design/spec/plan/brainstorming drafts ONLY to Planner and implementation/configuration/test edits to Implementer. Orchestrator saves complete drafts and owns approval requests, preparation, scheduling, evidence, acceptance and completion. Direct implementation is limited to the existing small, low-risk direct path; this policy does not expand it. Use a fresh Implementer per top-level task and a fresh QA per top-level task that needs QA; QA findings alone do not create a new task. While approved scope, workspace, ownership and relevant assignment context remain valid, default same-task QA findings to the current Implementer and post-fix rechecks to the current QA. Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes; an approved plan or acceptance-criteria amendment requires a fresh Implementer even within the task. Before reusing Implementer, refresh actual workspace, branch/HEAD and change state; QA reruns the reproduction path and invalidated related checks and reports actual actor, target state, outcomes and limitations. Preserve task-boundary acceptance and the final plan Reviewer correction exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -197,9 +197,9 @@
       }
     },
     {
-      "id": "role.coder-implementation",
+      "id": "role.implementer-implementation",
       "roles": [
-        "coder"
+        "implementer"
       ],
       "effect": "allow",
       "operations": [
@@ -233,7 +233,7 @@
         "criterion-evidence"
       ],
       "authority": "orchestrator",
-      "text": "Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Coder correction and required QA recheck.",
+      "text": "Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Implementer correction and required QA recheck.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -265,7 +265,7 @@
         "orchestrator",
         "scouter",
         "planner",
-        "coder",
+        "implementer",
         "qa",
         "reviewer"
       ],
@@ -278,7 +278,7 @@
         "qa-rechecks"
       ],
       "authority": "orchestrator",
-      "text": "For significant/high-risk work without a plan: Coder \u2192 QA and required QA rechecks \u2192 Reviewer of the final full change \u2192 Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.",
+      "text": "For significant/high-risk work without a plan: Implementer \u2192 QA and required QA rechecks \u2192 Reviewer of the final full change \u2192 Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -290,7 +290,7 @@
         "orchestrator",
         "scouter",
         "planner",
-        "coder",
+        "implementer",
         "qa",
         "reviewer"
       ],
@@ -303,7 +303,7 @@
         "required-qa"
       ],
       "authority": "orchestrator",
-      "text": "For significant/high-risk plan work: each task uses Coder \u2192 fresh QA as required \u2192 Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.",
+      "text": "For significant/high-risk plan work: each task uses Implementer \u2192 fresh QA as required \u2192 Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -315,7 +315,7 @@
         "orchestrator",
         "scouter",
         "planner",
-        "coder",
+        "implementer",
         "qa",
         "reviewer"
       ],
@@ -327,7 +327,7 @@
         "reviewer-findings"
       ],
       "authority": "orchestrator",
-      "text": "For final overall Reviewer findings on plan work, including behavior findings, use Coder \u2192 Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.",
+      "text": "For final overall Reviewer findings on plan work, including behavior findings, use Implementer \u2192 Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -382,7 +382,7 @@
   "platforms": {
     "codex": {
       "level": "prompt",
-      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks."
+      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks."
     },
     "claude": {
       "level": "capability",
@@ -391,13 +391,13 @@
   },
   "review": {
     "noPlan": [
-      "coder",
+      "implementer",
       "qa",
       "reviewer",
       "orchestrator-accept"
     ],
     "planTask": [
-      "coder",
+      "implementer",
       "fresh-qa",
       "orchestrator-accept",
       "orchestrator-commit"
@@ -407,7 +407,7 @@
       "reviewer"
     ],
     "planFinding": [
-      "coder",
+      "implementer",
       "reviewer"
     ]
   },
@@ -625,7 +625,7 @@
       "orchestrator",
       "scouter",
       "planner",
-      "coder",
+      "implementer",
       "qa",
       "reviewer"
     ],

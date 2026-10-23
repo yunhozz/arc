@@ -1,5 +1,5 @@
 // Git mutations in this suite are executed ONLY by Orchestrator in an isolated
-// temporary repository. Coder authors this file but must not execute the suite.
+// temporary repository. Implementer authors this file but must not execute the suite.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -111,7 +111,7 @@ test('cooperative CLI verifies exact approved document commit before durable ass
  await fs.writeFile(path.join(root,'code.mjs'),'base');git('add','--','code.mjs');git('commit','-m','base');const base=git('rev-parse','HEAD');
  let documents=['spec','plan'].map(kind=>({kind,path:path.join(root,kind+'.md'),gitPath:kind+'.md',contentHash:hash(kind),approvalRef:'approved'}));
  for(const d of documents)await fs.writeFile(d.path,d.kind);
- const assignment=(requestId,revision,docs=documents)=>({requestId,expectedRevision:revision,actor,operation:'assign-agent',taskId:'T1',arguments:{role:'coder',paths:[path.join(root,'code.mjs')],operations:['edit'],documents:docs,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'native:fixture'}});
+ const assignment=(requestId,revision,docs=documents)=>({requestId,expectedRevision:revision,actor,operation:'assign-agent',taskId:'T1',arguments:{role:'implementer',paths:[path.join(root,'code.mjs')],operations:['edit'],documents:docs,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'native:fixture'}});
  const approval=docs=>({requestId:'approval',expectedRevision:0,actor,evidence:{kind:'approval',messageRef:'approved',data:{approvalVersion:1,documentVersion:1,documents:docs}}});
  await cli('early','init',init);await cli('early','record',approval(documents));
  assert.equal((await cli('early','prepare',assignment('before-docs',1))).decision,'hold');assert.equal(git('rev-parse','HEAD'),base);

@@ -25,7 +25,7 @@
  * @property {Array<object>} [facts] Provider-confirmed facts tied to state and source references.
  */
 import path from 'node:path';
-import {ROLES, OPERATIONS} from './operations.mjs';
+import {normalizeRole, ROLES, OPERATIONS} from './operations.mjs';
 const fail = message => {throw new Error(`Runtime schema: ${message}`);};
 export const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 export const text = value => typeof value === 'string' && value.length > 0;
@@ -45,9 +45,9 @@ export function validateWorkflowState(s){
  for(const k of ['documents','approvals','tasks','assignments','identities','leases','checks','findings','acceptances','commits','audit','capabilities','requests'])if(!Array.isArray(s[k]))fail(k);
  if(!unique(s.tasks,'id')||s.tasks.some(t=>!['pending','assigned','rework','verification','accepted','committed'].includes(t.status)||!strings(t.paths)||t.paths.some(p=>!absolute(p))||!strings(t.dependencies)||!text(t.baseCommit)||!strings(t.criteria)||!strings(t.requiredChecks)))fail('tasks');
  if(!unique(s.approvals,'id')||s.approvals.some(a=>!approval(a)))fail('approval provenance');
- if(!unique(s.identities,'actorRef')||s.identities.some(i=>!ROLES.includes(i.role)||!text(i.taskId)||!text(i.observationRef)))fail('identity');
+ if(!unique(s.identities,'actorRef')||s.identities.some(i=>!ROLES.includes(normalizeRole(i.role))||!text(i.taskId)||!text(i.observationRef)))fail('identity');
  if(!unique(s.leases,'actorRef')||s.leases.some(l=>!text(l.taskId)||!['active','suspended','retired'].includes(l.status)))fail('lease');
- if(s.assignments.some(a=>!object(a)||!((a.status==='pending'&&a.actorRef===null&&text(a.assignmentId)&&text(a.correlationRef)&&text(a.requestId)&&text(a.requestedBy)&&['codex','claude'].includes(a.platform))||text(a.actorRef))||!text(a.taskId)||!ROLES.includes(a.role)||!strings(a.paths)||a.paths.some(p=>!absolute(p))||!strings(a.operations)||a.operations.some(op=>!OPERATIONS.includes(op))||!text(a.approvalRef)))fail('assignment');
+ if(s.assignments.some(a=>!object(a)||!((a.status==='pending'&&a.actorRef===null&&text(a.assignmentId)&&text(a.correlationRef)&&text(a.requestId)&&text(a.requestedBy)&&['codex','claude'].includes(a.platform))||text(a.actorRef))||!text(a.taskId)||!ROLES.includes(normalizeRole(a.role))||!strings(a.paths)||a.paths.some(p=>!absolute(p))||!strings(a.operations)||a.operations.some(op=>!OPERATIONS.includes(op))||!text(a.approvalRef)))fail('assignment');
  for(const a of s.assignments){
   if(a.checks!==undefined&&(!Array.isArray(a.checks)||a.checks.some(c=>!object(c)||!absolute(c.executable)||!Array.isArray(c.args)||!c.args.every(x=>typeof x==='string')||!absolute(c.cwd)||!object(c.env)||!strings(c.outputs)||c.outputs.some(p=>!absolute(p)))))fail('check descriptor');
   if(a.temporary!==undefined&&(!object(a.temporary)||!strings(a.temporary.paths)||a.temporary.paths.some(p=>!absolute(p))||!text(a.temporary.cleanupOwner)||!Number.isFinite(Date.parse(a.temporary.expiresAt))))fail('temporary assignment');

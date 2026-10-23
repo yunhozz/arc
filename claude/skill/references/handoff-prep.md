@@ -40,11 +40,11 @@ After branch creation/switch verify actual absolute path, branch, HEAD and prese
 After staging verify index paths and diff before commit; unrelated staged files block the mutation. Stop and inspect
 on failure or partial completion, record actual state and completed steps, and revalidate affected gates after resolution.
 
-Batch-commit all remaining approved planning documents together in one focused docs commit before the first Coder
+Batch-commit all remaining approved planning documents together in one focused docs commit before the first Implementer
 handoff. Stage only those document paths and verify the staged content and scope.
 Verify the resulting SHA, subject, paths, branch, HEAD and remaining state. Already committed approved documents need no
 duplicate commit. Record the actual preparation order and deviations, then complete the handoff gate before the
-next Coder start. User authorization persists for the unchanged approved target and scope; do not repeatedly ask for the
+next Implementer start. User authorization persists for the unchanged approved target and scope; do not repeatedly ask for the
 same choice.
 
 ## New task branch naming

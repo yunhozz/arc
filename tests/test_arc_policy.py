@@ -81,7 +81,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
         self.contracts(commit, (
             r"substeps.*checkboxes.*not.*commit units",
-            r"checkbox completion.*coder reports.*passing checks.*do not.*task acceptance",
+            r"checkbox completion.*implementer reports.*passing checks.*do not.*task acceptance",
             r"criteria.*conditions.*expected results.*actual evidence",
         ))
 
@@ -129,7 +129,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
         restart = self.section("handoff", "### choice lifetime and restart record")
         self.assertRegex(restart, r"normal authorized head and dirty-state changes, including accepted task commits.*do not by themselves invalidate the choice")
-        gate = policy_text("handoff").split("### coder handoff gate", 1)[1].split("### handoff evidence", 1)[0]
+        gate = policy_text("handoff").split("### implementer handoff gate", 1)[1].split("### handoff evidence", 1)[0]
         for item in (r"1\. all applicable design/spec/plan approvals are recorded",
                      r"2\. the user explicitly selected the execution target initially",
                      r"3\. the accessible absolute workspace is the intended git repository",
@@ -146,10 +146,10 @@ class TaskCommitPolicyTests(unittest.TestCase):
         followup = commit.split("for final reviewer findings", 1)[1].split("this local", 1)[0]
         self.contracts(followup, (
             r"already committed plan work.*orchestrator.*follow-up task.*required planning/approvals",
-            r"coder leaves corrections uncommitted during rechecks.*latest committed state plus uncommitted diff.*reviewer artifact/brief",
+            r"implementer leaves corrections uncommitted during rechecks.*latest committed state plus uncommitted diff.*reviewer artifact/brief",
             r"reuse an independent reviewer or assign another independent reviewer",
-            r"repeat coder → reviewer without qa reassignment until findings are resolved.*orchestrator then accepts.*one focused follow-up commit",
-            r"final qa findings.*coder correction and qa recheck before a new focused commit",
+            r"repeat implementer → reviewer without qa reassignment until findings are resolved.*orchestrator then accepts.*one focused follow-up commit",
+            r"final qa findings.*implementer correction and qa recheck before a new focused commit",
             r"do not automatically amend/reset or duplicate the original task commit",
         ))
 
@@ -157,11 +157,11 @@ class TaskCommitPolicyTests(unittest.TestCase):
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
         planning = self.section("planning", "### complete planning-document set")
         self.contracts(planning, (
-            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*coder handoff",
+            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*implementer handoff",
             r"while documents.*do not.*stage documents.*commit planning documents",
         ))
         self.contracts(commit, (
-            r"local.*does not authorize early planning-document commits.*pre-coder.*batch.*unchanged",
+            r"local.*does not authorize early planning-document commits.*pre-implementer.*batch.*unchanged",
             r"conventional commits.*english description.*trailing period.*lowercase.*scope",
             r"historical spec/plan.*not.*retroactively",
             r"structural checks.*do not prove.*agent runtime",
@@ -186,7 +186,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         core = policy_text("core")
         for name, trigger in (
             ("planning", r"design/plan-depth judgments.*spec/plan drafting or approval"),
-            ("handoff", r"every coder first start/restart.*coder trusts the orchestrator-verified brief.*only brief-cited sections"),
+            ("handoff", r"every implementer first start/restart.*implementer trusts the orchestrator-verified brief.*only brief-cited sections"),
             ("verification", r"verification design.*qa/reviewer.*correction rechecks.*ui acceptance"),
             ("git-recovery", r"branch collision.*git preparation failure.*partial completion.*metadata write denial"),
             ("visual-companion", r"visual companion offer or operation"),
@@ -210,7 +210,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertRegex(policy_text("handoff-worktree").split("## workspace handoff", 1)[0], r"reads after the user explicitly selects the new managed worktree option, before its creation, branch work or document transfer")
         self.assertNotIn("before an execution-target choice request", policy_text("handoff-worktree").split("## workspace handoff", 1)[0])
         self.assertRegex(policy_text("handoff-worktree"),
-                         r"verify final approved branch and head before formal drafting, saving, document transfer, the batch docs commit, final git verification and coder handoff")
+                         r"verify final approved branch and head before formal drafting, saving, document transfer, the batch docs commit, final git verification and implementer handoff")
         self.assertRegex(policy_text("handoff"), r"new managed worktree and task branch \(selection target under handoff-prep\.md; contract in handoff-worktree\.md after selection\)")
         self.assertRegex(policy_text("planning").split("### managed worktree preparation", 1)[1], r"see \[handoff-worktree\.md\]\(handoff-worktree\.md\)")
         self.assertRegex(core, r"orchestrator.*each assigned role.*must read")
@@ -219,7 +219,7 @@ class ConditionalReferenceTests(unittest.TestCase):
     def test_planning_order_and_recovery_protections_remain(self) -> None:
         planning = policy_text("planning")
         for contract in (
-            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*coder handoff",
+            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*implementer handoff",
             r"while documents.*do not stage documents or commit planning documents",
             r"architectural work always.*writing-plans.*written plan approval",
             r"skip planning only for one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
@@ -237,7 +237,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             r"both operational failure and missing execution-target choice block handoff",
         ):
             self.assertRegex(recovery, contract)
-        assert_term_defined(self, "preservation rule", "coder")
+        assert_term_defined(self, "preservation rule", "implementer")
 
     def test_references_preserve_policy_contracts(self) -> None:
         contracts = {
@@ -256,14 +256,14 @@ class ConditionalReferenceTests(unittest.TestCase):
 
     def test_core_preserves_role_and_risk_gates(self) -> None:
         for destination, contract in (("coordination", r"all five roles.*directly to orchestrator.*depth 2"),
-                                      ("verification", r"coder.*independent qa"),
+                                      ("verification", r"implementer.*independent qa"),
                                       ("verification", r"qa.*independent reviewer.*full change"),
                                       ("handoff", r"ordinary.*significant/high-risk.*not eligible"),
                                       ("handoff", r"explicit user or task-specific tdd request overrides")):
             self.assertRegex(policy_text(destination), contract)
 
     def test_coder_trusts_ceo_verified_brief(self) -> None:
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
+        implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
         for contract in (
             r"trust the orchestrator-verified workspace, branch/head, approvals.*document-commit and handoff facts in the brief.*start editing",
@@ -273,25 +273,25 @@ class ConditionalReferenceTests(unittest.TestCase):
             r".*path is missing or inaccessible.*git or tool command fails.*git output shows a branch or state different from the brief",
         ):
             with self.subTest(contract=contract):
-                self.assertRegex(coder, contract)
+                self.assertRegex(implementer, contract)
         for absent in (r"independently verify", r"git common directory", r"every first start or restart",
                        r"fresh explicit choice", r"reuse the initial explicit choice", r"revalidates the full handoff gate"):
             with self.subTest(absent=absent):
-                self.assertNotRegex(coder, absent)
+                self.assertNotRegex(implementer, absent)
 
     def test_coder_profile_holds_handoff_contract_without_full_reference_read(self) -> None:
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
+        implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
-        self.assertRegex(coder, r"profile is the complete coder handoff contract.*handoff.md.*only.*brief explicitly cites")
-        self.assertNotRegex(coder, r"before every first start or restart, read")
+        self.assertRegex(implementer, r"profile is the complete implementer handoff contract.*handoff.md.*only.*brief explicitly cites")
+        self.assertNotRegex(implementer, r"before every first start or restart, read")
         for phrase in ("trust the orchestrator-verified", "do not repair preparation"):
-            self.assertIn(phrase, coder)
-        self.assertRegex(policy_text("handoff"), r"coder trusts the orchestrator-verified facts in the brief.*coder profile.*brief explicitly cites")
+            self.assertIn(phrase, implementer)
+        self.assertRegex(policy_text("handoff"), r"implementer trusts the orchestrator-verified facts in the brief.*implementer profile.*brief explicitly cites")
         texts = {path.name: " ".join(path.read_text().lower().split()) for path in
                  [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]}
         for name, text in texts.items():
-            for absent in (r"coder independently", r"coder's independent", r"coder independent check",
-                           r"orchestrator and coder independently", r"independent checkout"):
+            for absent in (r"implementer independently", r"implementer's independent", r"implementer independent check",
+                           r"orchestrator and implementer independently", r"independent checkout"):
                 with self.subTest(file=name, absent=absent):
                     self.assertNotRegex(text, absent)
 
@@ -299,7 +299,7 @@ class ConditionalReferenceTests(unittest.TestCase):
         def headings(name: str) -> list[str]:
             return [line[4:].strip().lower() for line in (REPO / f"codex/skill/references/{name}.md").read_text().splitlines()
                     if line.startswith("### ")]
-        self.assertEqual(headings("handoff"), ["checkout approval", "coder handoff gate", "handoff evidence",
+        self.assertEqual(headings("handoff"), ["checkout approval", "implementer handoff gate", "handoff evidence",
                                                "task readiness at every assignment", "choice lifetime and restart record"])
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
@@ -332,13 +332,13 @@ class ConditionalReferenceTests(unittest.TestCase):
             "invalidating failure": r"failure.*old target cannot be trusted.*fresh explicit choice",
             "normal work": r"normal.*head.*dirty.*do not.*invalidate",
             "record": r"one canonical initial handoff record.*accessible",
-            "delta": r"restart brief: supply only verified deltas.*`unchanged` means unchanged relative to the record file the fresh coder reads.*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
+            "delta": r"restart brief: supply only verified deltas.*`unchanged` means unchanged relative to the record file the fresh implementer reads.*initial record.*next objective.*ownership.*approvals.*documents.*current git state",
             "block": r"inaccessible.*record.*missing evidence.*unclear ownership.*block",
         }
         for case, contract in cases.items():
             with self.subTest(case=case):
                 self.assertRegex(handoff, contract)
-        self.assertNotRegex(handoff, r"orchestrator and coder independently recheck")
+        self.assertNotRegex(handoff, r"orchestrator and implementer independently recheck")
         self.assertNotRegex(handoff, r"full handoff gate and independent checks")
 
 class ReviewerOncePerPlanTests(unittest.TestCase):
@@ -358,7 +358,7 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
                 self.assertRegex(text, contract)
         row = next(line for line in (REPO / "codex/skill/references/verification.md").read_text().lower().splitlines()
                    if line.startswith("| significant/high risk"))
-        self.assertRegex(row, r"with a plan, each plan task coder → fresh qa → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
+        self.assertRegex(row, r"with a plan, each plan task implementer → fresh qa → acceptance/commit satisfies the qa step, then independent reviewer once on the final full change after all plan tasks")
 
     def test_no_per_task_reviewer_wording(self) -> None:
         paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]
@@ -388,17 +388,17 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
         for suffix in ("skill/references/verification.md",):
             for platform, text in self.platform_texts(suffix):
                 with self.subTest(platform=platform, artifact=suffix):
-                    self.assertRegex(text, r"final.*reviewer findings.*including behavior findings.*coder.*reviewer.*(?:no qa|without.*qa|do not.*qa)")
+                    self.assertRegex(text, r"final.*reviewer findings.*including behavior findings.*implementer.*reviewer.*(?:no qa|without.*qa|do not.*qa)")
                     self.assertRegex(text, r"repeat.*until.*resolved")
         for platform, suffix in (("codex", "agents/arc-reviewer.toml"), ("claude", "agents/arc-reviewer.md")):
             text = " ".join((REPO / platform / suffix).read_text().lower().split())
-            self.assertRegex(text, r"final.*reviewer findings.*including behavior findings.*coder.*reviewer.*no qa")
+            self.assertRegex(text, r"final.*reviewer findings.*including behavior findings.*implementer.*reviewer.*no qa")
             self.assertRegex(text, r"repeat.*until.*resolved")
 
     def test_pre_final_qa_failures_keep_qa_recheck(self) -> None:
         for platform, text in self.platform_texts("skill/references/verification.md"):
             with self.subTest(platform=platform):
-                self.assertRegex(text, r"before.*initial final.*reviewer.*qa.*failures.*coder.*qa recheck")
+                self.assertRegex(text, r"before.*initial final.*reviewer.*qa.*failures.*implementer.*qa recheck")
 
     def test_final_reviewer_findings_on_committed_work(self) -> None:
         for suffix in ("skill/references/verification.md", "skill/references/commit.md"):
@@ -508,7 +508,7 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             r"not a git mutation, never staged or committed.*no secrets",
             r"absolute path in every brief.*restart briefs cite it",
             r"slug unique to the plan.*dated plan filename stem, or a spec/task slug when no plan exists.*never overwrite another plan's record",
-            r"write is denied or unavailable, each coder brief states why and includes the full record inline, with no delta; that inline record satisfies the accessible record requirement",
+            r"write is denied or unavailable, each implementer brief states why and includes the full record inline, with no delta; that inline record satisfies the accessible record requirement",
             r"do not delete it automatically",
             r"do not create a separate storage service",
         ):
@@ -520,7 +520,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_plan_case_qa_requirement_is_satisfied_by_task_checks(self) -> None:
         core = policy_text("verification")
-        self.assertRegex(core, r"with a plan, each plan task coder → fresh qa → acceptance/commit satisfies the qa step")
+        self.assertRegex(core, r"with a plan, each plan task implementer → fresh qa → acceptance/commit satisfies the qa step")
         verification = policy_text("verification")
         self.assertRegex(verification, r"significant/high-risk work requires independent review of the full change at the final relevant state after the required qa/focused checks and any qa recheck")
         self.assertNotIn("requires qa followed by independent review", verification)
@@ -549,7 +549,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertRegex(handoff, r"or a spec/task slug when no plan exists")
 
     def test_coder_reads_record_for_unchanged_fields(self) -> None:
-        self.assertRegex(profile_text("coder"), r"read the cited handoff record file for fields marked `unchanged`")
+        self.assertRegex(profile_text("implementer"), r"read the cited handoff record file for fields marked `unchanged`")
 
     def test_task4_bounded_direct_edit_uses_scope_record(self) -> None:
         self.assertIn("a direct edit uses only an approved scope record", policy_text("planning"))
@@ -557,8 +557,8 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
     def test_task4_codex_wording(self) -> None:
         core = policy_text("core")
         self.assertIn("standalone document writing has no specialist auto-route. design, spec, plan, and brainstorming drafts are not standalone document writing (see role gate)", core)
-        self.assertRegex(policy_text("coordination"), r"git status` against a pre-spawn snapshot.*concurrent coder edits.*ignored or out-of-repo paths.*not (?:attributable|detectable)")
-        self.assertIn("after a failed focused check or a qa finding, orchestrator routes the correction to coder", policy_text("handoff"))
+        self.assertRegex(policy_text("coordination"), r"git status` against a pre-spawn snapshot.*concurrent implementer edits.*ignored or out-of-repo paths.*not (?:attributable|detectable)")
+        self.assertIn("after a failed focused check or a qa finding, orchestrator routes the correction to implementer", policy_text("handoff"))
 
 
 class SharedTermsTests(unittest.TestCase):
@@ -572,7 +572,7 @@ class SharedTermsTests(unittest.TestCase):
                 self.assertIn(f"{term}: {body}", terms)
 
     def test_profiles_carry_terms_used_in_citable_sections(self) -> None:
-        for role, terms in (("coder", ("preservation rule", "explicit choice", "stop and inspect")),):
+        for role, terms in (("implementer", ("preservation rule", "explicit choice", "stop and inspect")),):
             for term in terms:
                 with self.subTest(role=role, term=term):
                     self.assertIn(f"{term}: {SHARED_TERMS[term]}", profile_text(role))
@@ -587,18 +587,18 @@ class SharedTermsTests(unittest.TestCase):
                         self.assertNotIn(term.capitalize(), raw_policy_text(name))
 
     def test_qa_fix_restorations(self) -> None:
-        coder = profile_text("coder")
+        implementer = profile_text("implementer")
         for phrase in ("do not repair preparation by changing permissions, deleting locks, bypassing the sandbox, "
                        "committing, creating/switching branches, or moving workspaces",
                        "if risk is or becomes unclear or scope expands, stop and ask orchestrator to reclassify",
                        "stop dependent work and report the observed state and required next action to orchestrator"):
             with self.subTest(phrase=phrase):
-                self.assertIn(phrase, coder)
+                self.assertIn(phrase, implementer)
         core = policy_text("verification")
         self.assertIn("substantial behavior or contract changes are significant regardless of file count", core)
-        self.assertNotIn("coder repair limits", core)  # dangling reference removed (M10)
+        self.assertNotIn("implementer repair limits", core)  # dangling reference removed (M10)
         self.assertNotIn("repair limits", policy_text("handoff"))
-        self.assertIn("coder's conflict reporting is in its profile", policy_text("handoff"))
+        self.assertIn("implementer's conflict reporting is in its profile", policy_text("handoff"))
         self.assertRegex(policy_text("handoff"), r"one canonical initial handoff record.*repository/workspace identity")
         reviewer = profile_text("reviewer")
         self.assertIn("for development work, functional and test verification belongs to qa and completion remains with "
@@ -732,7 +732,7 @@ class ARCPreactionGateTests(unittest.TestCase):
         self.assertIn("apply the preservation rule; unrelated staged files stop the mutation", gate)
         docs = handoff.split("### planning document commit", 1)[1].split("### ", 1)[0]
         self.assertIn("unrelated staged files stop the commit under the preservation rule", docs)
-        assert_term_defined(self, "preservation rule", "coder")
+        assert_term_defined(self, "preservation rule", "implementer")
 
 class CeoDirectPathTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
@@ -743,12 +743,12 @@ class CeoDirectPathTests(unittest.TestCase):
 
     def test_direct_path_eligibility_is_small_low_risk_and_plan_skip(self) -> None:
         for contract in (
-            r"without planner brainstorming or coder",
+            r"without planner brainstorming or implementer",
             r"every small, low-risk criterion holds",
             r"every plan-skip criterion.*one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
             r"no significant-risk trigger",
             r"spike, architectural, ordinary-behavior, significant/high-risk, unclear-risk.*not eligible",
-            r"overlapping.*coder.*not eligible",
+            r"overlapping.*implementer.*not eligible",
         ):
             with self.subTest(contract=contract):
                 self.assertRegex(self.direct(), contract)
@@ -759,24 +759,24 @@ class CeoDirectPathTests(unittest.TestCase):
             r"before editing.*records.*scope.*files.*why every criterion holds.*acceptance criteria.*focused verification",
             r"authorization.*planning.*existing.*request.*no duplicate approval",
             r"silence.*not approval",
-            r"passes the coder handoff gate in handoff, with the approved scope record as the applicable approval, before the first edit",
+            r"passes the implementer handoff gate in handoff, with the approved scope record as the applicable approval, before the first edit",
             r"edits only the approved files, preserves others' edits.*surgical edits.*without unrelated refactoring.*does not install dependencies without authorization",
             r"records the changed files",
-            r"after a failed focused check or a qa finding, orchestrator routes the correction to coder",
-            r"behavior edits follow coder tdd and constraints; when tdd applies, orchestrator follows local `test-driven-development`",
+            r"after a failed focused check or a qa finding, orchestrator routes the correction to implementer",
+            r"behavior edits follow implementer tdd and constraints; when tdd applies, orchestrator follows local `test-driven-development`",
             r"focused checks.*each acceptance criterion.*evidence.*unverified scope",
             r"not independent of its own edit",
         ):
             with self.subTest(contract=contract):
                 self.assertRegex(self.direct(), contract)
-        tdd = policy_text("handoff").split("## coder tdd and constraints", 1)[1].split(" ## ", 1)[0]
+        tdd = policy_text("handoff").split("## implementer tdd and constraints", 1)[1].split(" ## ", 1)[0]
         self.assertRegex(tdd, r"explicit user or task-specific tdd request overrides this waiver.*do not claim tdd was followed")
         self.assertRegex(policy_text("handoff"), r"before an orchestrator direct edit, orchestrator verifies the same conditions, with the approved scope record as the applicable approval")
 
     def test_direct_path_stops_and_reclassifies_without_reverting(self) -> None:
         for contract in (
             r"scope expands.*risk becomes unclear.*criterion stops holding.*stops editing.*records the changes.*reclassif",
-            r"normal planner/coder flow.*coder owning subsequent edits",
+            r"normal planner/implementer flow.*implementer owning subsequent edits",
             r"do not automatically revert, reset, stash, or clean",
             r"no automatic task commit.*applicable guidance and user requests",
         ):
@@ -787,39 +787,39 @@ class CeoDirectPathTests(unittest.TestCase):
         core = policy_text("core")
         ownership = policy_text("coordination").split("## ownership", 1)[1].split("## instruction", 1)[0]
         self.assertRegex(ownership, r"orchestrator does not edit them directly except under the orchestrator direct path")
-        self.assertRegex(policy_text("verification"), r"orchestrator assigns edits exclusively to coder except under the orchestrator direct path")
+        self.assertRegex(policy_text("verification"), r"orchestrator assigns edits exclusively to implementer except under the orchestrator direct path")
         row = next(line for line in (REPO / "codex/skill/references/verification.md").read_text().lower().splitlines()
                    if line.startswith("| small, low risk"))
         self.assertIn("orchestrator direct path", row)
-        gate = policy_text("handoff").split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
+        gate = policy_text("handoff").split("## common handoff gate", 1)[1].split("## implementer tdd", 1)[0]
         self.assertRegex(gate, r"same conditions.*before an orchestrator direct edit")
         planning = policy_text("planning")
         self.assertRegex(planning, r"never runs brainstorming or writing-plans itself.*the direct path uses only a scope record")
-        self.assertRegex(planning, r"approve a short design before coder or an orchestrator direct edit")
-        self.assertRegex(policy_text("verification"), r"exclusively to coder.*except under the orchestrator direct path")
+        self.assertRegex(planning, r"approve a short design before implementer or an orchestrator direct edit")
+        self.assertRegex(policy_text("verification"), r"exclusively to implementer.*except under the orchestrator direct path")
         self.assertRegex(policy_text("handoff"), r"orchestrator direct edit.*same.*conditions")
         handoff_row = next(line for line in (REPO / "codex/skill/SKILL.md").read_text().lower().splitlines()
                            if line.startswith("|") and "references/handoff.md" in line)
         self.assertIn("orchestrator direct edit", handoff_row)
 
-class CoderBriefAndReuseTests(unittest.TestCase):
+class ImplementerBriefAndReuseTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_fresh_coder_per_top_level_task(self) -> None:
         core = policy_text("coordination")
-        self.assertRegex(core, r"starts? a fresh coder for\s*each top-level task")
-        self.assertRegex(core, r"reuse the current coder only for corrections, rework, or rechecks of the same task")
-        self.assertNotRegex(core, r"may reuse coder while the approved scope")
-        self.assertRegex(core, r"coder and qa freshness follow the role gate")
-        self.assertRegex(core, r"fresh coder for the next task is a restart under handoff \(choice reuse and restart brief rules are in handoff\)")
+        self.assertRegex(core, r"starts? a fresh implementer for\s*each top-level task")
+        self.assertRegex(core, r"reuse the current implementer only for corrections, rework, or rechecks of the same task")
+        self.assertNotRegex(core, r"may reuse implementer while the approved scope")
+        self.assertRegex(core, r"implementer and qa freshness follow the role gate")
+        self.assertRegex(core, r"fresh implementer for the next task is a restart under handoff \(choice reuse and restart brief rules are in handoff\)")
         self.assertRegex(policy_text("handoff"), r"restart brief: supply only verified deltas.*every other brief field is in full")
-        self.assertRegex(core, r"before sending corrections or rework to a reused coder, orchestrator rechecks workspace, branch/head and change state against the brief")
+        self.assertRegex(core, r"before sending corrections or rework to a reused implementer, orchestrator rechecks workspace, branch/head and change state against the brief")
 
     def test_coder_briefs_cite_sections_instead_of_whole_documents(self) -> None:
         core = policy_text("coordination")
-        self.assertRegex(core, r"coder briefs.*plan/spec path.*task section's line range.*needed excerpts.*do not ask coder to read whole plans or specs")
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
+        self.assertRegex(core, r"implementer briefs.*plan/spec path.*task section's line range.*needed excerpts.*do not ask implementer to read whole plans or specs")
+        implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
-        self.assertRegex(coder, r"read plan/spec documents only in the sections the brief cites")
+        self.assertRegex(implementer, r"read plan/spec documents only in the sections the brief cites")
 
     def test_loader_keeps_subagents_on_profiles(self) -> None:
         body = node_agents_block_body()
@@ -828,13 +828,13 @@ class CoderBriefAndReuseTests(unittest.TestCase):
 class LongTaskTokenTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
     def test_plan_amendment_restarts_coder(self) -> None:
-        self.assertRegex(policy_text("coordination"), r"after an approved plan or acceptance-criteria amendment, start a fresh coder for the remaining work even within the same task; it is also a restart under handoff")
+        self.assertRegex(policy_text("coordination"), r"after an approved plan or acceptance-criteria amendment, start a fresh implementer for the remaining work even within the same task; it is also a restart under handoff")
 
     def test_long_running_commands_are_not_polled_with_sleep(self) -> None:
         self.assertRegex(policy_text("coordination"), r"do not poll long-running commands with repeated `sleep`.*single blocking wait")
-        coder = " ".join(tomllib.loads((REPO / "codex/agents/arc-coder.toml").read_text())
+        implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
-        self.assertRegex(coder, r"do not poll long-running commands with repeated `sleep`.*single blocking wait.*longest.*report.*orchestrator")
+        self.assertRegex(implementer, r"do not poll long-running commands with repeated `sleep`.*single blocking wait.*longest.*report.*orchestrator")
 
     def test_ceo_recommends_new_session_per_plan(self) -> None:
         self.assertRegex(policy_text("coordination"), r"when a plan completes or before starting another plan.*records the canonical handoff state.*recommends.*new session")
@@ -866,7 +866,7 @@ class TokenDisciplineTests(unittest.TestCase):
                 self.assertRegex(tokens, contract)
 
     def test_role_profiles_read_targeted_ranges(self) -> None:
-        for role in ("scouter", "planner", "coder", "qa", "reviewer"):
+        for role in ("scouter", "planner", "implementer", "qa", "reviewer"):
             with self.subTest(role=role):
                 text = " ".join(tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())
                                 ["developer_instructions"].lower().split())
@@ -875,7 +875,7 @@ class TokenDisciplineTests(unittest.TestCase):
 class RolePolicyTests(unittest.TestCase):
     # Approved package-consistency checks; these do not execute agent runtime behavior.
     def test_role_profiles_report_to_ceo_without_nested_delegation(self) -> None:
-        for role in ("scouter", "planner", "coder", "qa", "reviewer"):
+        for role in ("scouter", "planner", "implementer", "qa", "reviewer"):
             with self.subTest(role=role):
                 profile = tomllib.loads((REPO / "codex/agents" / f"arc-{role}.toml").read_text())
                 self.assertEqual(profile["name"], f"arc_{role}")
@@ -887,7 +887,7 @@ class RolePolicyTests(unittest.TestCase):
         policy = " ".join((REPO / "codex/skill/references/coordination.md").read_text().lower().split())
         ownership = policy.split("## ownership", 1)[1].split("## instruction", 1)[0]
         self.assertRegex(ownership, r"orchestrator.*sole owner.*development, configuration, tests")
-        self.assertRegex(ownership, r"coder.*(?:edits|implements).*assigned.*files")
+        self.assertRegex(ownership, r"implementer.*(?:edits|implements).*assigned.*files")
         self.assertRegex(ownership, r"all five roles.*directly to orchestrator.*depth 2")
         self.assertRegex(ownership, r"configured.*subagents.*including scouter")
         self.assertRegex(ownership, r"scouter.*read.only")
@@ -965,7 +965,7 @@ class RolePolicyTests(unittest.TestCase):
         for contract in (
             r"behavior.*finding.*criterion.*expected behavior.*observed problem.*source.*reproduction conditions.*steps.*evidence",
             r"source.inferred.*execution.observed",
-            r"orchestrator.*coder.*qa.*recheck",
+            r"orchestrator.*implementer.*qa.*recheck",
             r"do not.*run qa tests",
             r"structure.*design.*factual.*security",
         ):
@@ -989,12 +989,12 @@ class RolePolicyTests(unittest.TestCase):
         self._assert_workspace_handoff_contracts(
             "Checkout approval",
             (
-                r"before every coder first start and restart",
+                r"before every implementer first start and restart",
                 r"after initial design approval.*explicit user choice.*current checkout.*new task branch.*new managed worktree and task branch",
                 r"explicit user choice for the first start under the explicit choice rule: use the current checkout",
             ),
         )
-        assert_term_defined(self, "explicit choice", "coder")
+        assert_term_defined(self, "explicit choice", "implementer")
         self.assertRegex(policy_text("handoff"), r"\(selection target under handoff-prep\.md;")
         gate = policy_text("handoff-prep").split("### execution-target request gate", 1)[1].split("###", 1)[0]
         common = gate.split("when offering the new managed worktree option", 1)[0]
@@ -1064,7 +1064,7 @@ class RolePolicyTests(unittest.TestCase):
         self._assert_workspace_handoff_contracts(
             "Existing changes and failures",
             (
-                r"branch creation.*switch.*failure.*actual git state.*stop coder handoff",
+                r"branch creation.*switch.*failure.*actual git state.*stop implementer handoff",
                 r"created.*without.*successful switch.*partial completion",
                 r"do not.*automatically.*(?:fall back|fallback).*current checkout",
                 r"both operational failure and missing execution-target choice block handoff",
@@ -1137,7 +1137,7 @@ class RolePolicyTests(unittest.TestCase):
             r"operationid.*mcp__codex_app__get_worktree_creation_status.*completed",
             r"progress.*not.*success",
             r"registration failure.*only.*returned workspace.*mcp__codex_app__attach_worktree",
-            r"before.*managed.*current.chat attachment.*approved branch.*no formal drafting.*saving.*document transfer.*staging.*commit.*coder",
+            r"before.*managed.*current.chat attachment.*approved branch.*no formal drafting.*saving.*document transfer.*staging.*commit.*implementer",
             r"unavailable.*reattachment.*mismatch.*stop.*record",
             r"do not.*raw git.*other name/ref/path/branch.*cleanup.*delete.*prune.*archive",
         ))
@@ -1190,7 +1190,7 @@ class RolePolicyTests(unittest.TestCase):
             'Handoff evidence',
             (
                 r'canonical.*source.*target.*common directory.*base sha',
-                r'all five roles \(coder, qa, planner, reviewer, scouter\).*selected execution checkout or absolute worktree path',
+                r'all five roles \(implementer, qa, planner, reviewer, scouter\).*selected execution checkout or absolute worktree path',
                 r'do not automatically.*recreate.*cleanup.*archive',
             ),
         )
@@ -1223,7 +1223,7 @@ class RolePolicyTests(unittest.TestCase):
         planning = policy_text("planning").split("### complete planning-document set", 1)[1].split("### evidence refresh", 1)[0]
         self.assertRegex(planning, r"while documents.*do not.*stage documents.*commit planning documents")
         self.assertRegex(planning, r"normal order:.*execution-target choice.*target preparation and verification.*formal spec drafting.*complete applicable set.*batch docs commit")
-        core = policy_text("handoff").split("## common handoff gate", 1)[1].split("## coder tdd", 1)[0]
+        core = policy_text("handoff").split("## common handoff gate", 1)[1].split("## implementer tdd", 1)[0]
         self.assertRegex(core, r"selected worktree.*common directory.*registration.*source preservation")
         self.assertRegex(core, r"depth-2 roles use the supplied workspace")
 
@@ -1251,9 +1251,9 @@ class RolePolicyTests(unittest.TestCase):
     def test_acceptance_evidence_flow(self) -> None:
         policy = policy_text("verification")
         for contract in (
-            r"qa.*failure.*orchestrator.*coder.*correction.*qa recheck.*before reviewer",
+            r"qa.*failure.*orchestrator.*implementer.*correction.*qa recheck.*before reviewer",
             r"qa reruns the reproduction path and invalidated related checks before reviewer.*actual actor, target state, outcomes, and limitations.*prior finding resolved, unresolved, or unverified with evidence",
-            r"an unresolved finding returns to coder correction and another qa recheck before reviewer",
+            r"an unresolved finding returns to implementer correction and another qa recheck before reviewer",
             r"disposition.*does not.*unverified.*proven",
             r"low.risk.*orchestrator.*criterion.*evidence.*unverified",
             r"structural checks.*do not prove.*runtime",
@@ -1313,14 +1313,14 @@ class CodexRoleHardeningTests(unittest.TestCase):
                        "MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool",
                        "auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner", "that skill's SKILL.md path",
                        "skip questions", "never waives design or approval gates", "returns questions to Orchestrator",
-                       "FRESH Coder", "FRESH QA", "same-task corrections and rechecks default to the current Coder and QA"):
+                       "FRESH Implementer", "FRESH QA", "same-task corrections and rechecks default to the current Implementer and QA"):
             with self.subTest(needle=needle):
                 self.assertIn(needle, " ".join(gate.split()))
         self.assertIn("Integrate means save, route, and obtain approval; never author", self.raw("planning"))
         self.assertIn("if Planner fails or is unavailable, stop and report, never draft instead", self.raw("planning"))
 
     def test_every_profile_has_stay_in_role_line(self) -> None:
-        for role in ("planner", "scouter", "coder", "qa", "reviewer"):
+        for role in ("planner", "scouter", "implementer", "qa", "reviewer"):
             with self.subTest(role=role):
                 body = tomllib.loads((REPO / f"codex/agents/arc-{role}.toml").read_text())["developer_instructions"]
                 self.assertRegex(" ".join(body.split()), r"Stay in your role: ONLY [^;]+; NEVER [^.]+\.")
@@ -1339,20 +1339,20 @@ class CodexRoleHardeningTests(unittest.TestCase):
                 coordination = " ".join((root / "references/coordination.md").read_text().split())
                 verification = " ".join((root / "references/verification.md").read_text().split())
                 self.assertIn("a QA finding within the current task does not itself create a new task", gate)
-                self.assertIn("default to the current Coder for same-task QA corrections", coordination)
+                self.assertIn("default to the current Implementer for same-task QA corrections", coordination)
                 self.assertIn("Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes", coordination)
                 self.assertIn("approved scope, workspace, ownership, and relevant assignment context remain valid", coordination)
                 self.assertIn("Orchestrator rechecks workspace, branch/HEAD and change state against the brief", coordination)
-                self.assertIn("After an approved plan or acceptance-criteria amendment, start a fresh Coder", coordination)
+                self.assertIn("After an approved plan or acceptance-criteria amendment, start a fresh Implementer", coordination)
                 self.assertIn("default to the current QA for post-fix rechecks of the same task", verification)
                 self.assertIn("reproduction path and invalidated related checks", verification)
                 self.assertIn("actual actor, target state, outcomes, and limitations", verification)
                 self.assertIn("Reusing QA does not reuse stale evidence", verification)
         policy = json.loads((REPO / "lib/policy/role-policy.json").read_text())
         boundary = next(rule for rule in policy["rules"] if rule["id"] == "role.orchestrator-boundary")
-        for needle in ("fresh Coder per top-level task", "fresh QA per top-level task that needs QA",
-                       "default same-task QA findings to the current Coder and post-fix rechecks to the current QA",
-                       "approved plan or acceptance-criteria amendment requires a fresh Coder",
+        for needle in ("fresh Implementer per top-level task", "fresh QA per top-level task that needs QA",
+                       "default same-task QA findings to the current Implementer and post-fix rechecks to the current QA",
+                       "approved plan or acceptance-criteria amendment requires a fresh Implementer",
                        "QA findings alone do not create a new task"):
             self.assertIn(needle, boundary["text"])
         self.assertIn("Outside the required final plan correction loop, Orchestrator decides when a Reviewer recheck is warranted", verification)
@@ -1360,7 +1360,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
     def test_reviewer_reuse_requires_independence_and_refreshed_context(self) -> None:
         verification = " ".join(self.raw("verification").split())
         for phrase in (
-            "Fresh-per-task rules apply to Coder and QA, not Reviewer",
+            "Fresh-per-task rules apply to Implementer and QA, not Reviewer",
             "Orchestrator may reuse a Reviewer only while independent of implementation and self-review",
             "relevant assignment context remains valid",
             "refreshed review scope, target state, and evidence are provided",
@@ -1391,7 +1391,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
 
     def test_dangling_references_removed_and_install_path_real(self) -> None:
         core = self.skill()
-        for gone in ("branch protection", "Coder repair limits", "existing CEO depth judgment", "install.py",
+        for gone in ("branch protection", "Implementer repair limits", "existing CEO depth judgment", "install.py",
                      "short design"):
             with self.subTest(gone=gone):
                 self.assertNotIn(gone, core)
@@ -1399,7 +1399,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertIn("Environment failure does not waive checks or determine design depth", self.raw("verification"))
         self.assertIn("means this assessment", self.raw("planning"))
         self.assertIn("Planner proposes, Orchestrator decides", self.raw("planning"))
-        self.assertIn("routes the correction to Coder", self.raw("handoff"))
+        self.assertIn("routes the correction to Implementer", self.raw("handoff"))
 
     def test_worktree_branch_collision_never_auto_suffixes(self) -> None:
         self.assertNotIn("append `-2`", self.raw("handoff-prep"))
@@ -1413,7 +1413,7 @@ class InternalSuperpowersContractTests(unittest.TestCase):
         core = (REPO / 'codex/skill/references/coordination.md').read_text()
         for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
             self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
-        for role, names in [('planner', ('brainstorming', 'writing-plans')), ('coder', ('test-driven-development',))]:
+        for role, names in [('planner', ('brainstorming', 'writing-plans')), ('implementer', ('test-driven-development',))]:
             text = (REPO / f'codex/agents/arc-{role}.toml').read_text()
             for name in names:
                 self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
@@ -1428,7 +1428,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
     def test_normal_order_selects_and_prepares_before_formal_drafting(self):
         planning = self.text("planning")
         self.assertIn("normal order:", planning)
-        order = planning.split("normal order:", 1)[1].split("coder handoff", 1)[0]
+        order = planning.split("normal order:", 1)[1].split("implementer handoff", 1)[0]
         cursor = 0
         for marker in ("initial design approval", "execution-target choice", "target preparation and verification",
                        "formal spec drafting", "written-spec approval", "formal plan drafting", "individual plan approvals",
@@ -1478,7 +1478,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         for phrase in ("initial target preparation", "does not require the complete approved document set",
                        "staging and commit", "complete approved document set", "index", "ownership"):
             self.assertIn(phrase, text)
-        self.assertIn("initial target preparation does not authorize coder", self.text("handoff"))
+        self.assertIn("initial target preparation does not authorize implementer", self.text("handoff"))
 
     def test_platform_targets_and_legacy_transfer_boundaries(self):
         text = self.text("handoff-prep")
@@ -1499,4 +1499,4 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         for phrase in ("a required plan does not itself require a written spec", "spike", "bounded", "non-behavior",
                        "no new spec obligation"):
             self.assertIn(phrase, text)
-        self.assertIn("coder", self.text("handoff"))
+        self.assertIn("implementer", self.text("handoff"))

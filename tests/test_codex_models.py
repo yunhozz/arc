@@ -32,7 +32,7 @@ def tree_state(root: Path):
 FIVE_SETTINGS = {
     "arc_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "arc_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
-    "arc_coder": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
+    "arc_implementer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "low"},
     "arc_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }
@@ -76,7 +76,7 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
         for roles in ({**FIVE_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},
-                      {role: fields for role, fields in FIVE_SETTINGS.items() if role != "arc_coder"}):
+                      {role: fields for role, fields in FIVE_SETTINGS.items() if role != "arc_implementer"}):
             with self.subTest(roles=roles), self.assertRaises(self.module.ValidationError):
                 self.load(roles)
         for version in (2, 3, 4, 5, True, "1"):
@@ -97,7 +97,7 @@ class ModelSettingsTests(unittest.TestCase):
             self.config.write_bytes(settings_bytes(FIVE_SETTINGS, version, legacy=True))
             with self.assertRaisesRegex(self.module.ValidationError, 'reinstall'):
                 self.module.load_settings(self.config)
-        source['roles']['arc_coder']['economy']['model'] = 5
+        source['roles']['arc_implementer']['economy']['model'] = 5
         with self.assertRaises(self.module.ValidationError):
             self.module.validate_config(source, self.config)
 
@@ -158,7 +158,7 @@ class ModelSettingsTests(unittest.TestCase):
         expected = {
             "arc_scouter": "arc-scouter.toml",
             "arc_planner": "arc-planner.toml",
-            "arc_coder": "arc-coder.toml",
+            "arc_implementer": "arc-implementer.toml",
             "arc_qa": "arc-qa.toml",
             "arc_reviewer": "arc-reviewer.toml",
         }
@@ -175,7 +175,7 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_naming_rejects_profile_name_mismatch(self) -> None:
         with self.assertRaises(self.module.ValidationError):
-            self.module.validate_template(b'name = "unrelated"\n', "arc_coder", self.config)
+            self.module.validate_template(b'name = "unrelated"\n', "arc_implementer", self.config)
 
 class ApplyModelsTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -329,3 +329,19 @@ def load_model_module():
 def node_profile_files():
     result = subprocess.run(["node", "--input-type=module", "-e", "import {resolveTarget} from './lib/installer/targets.mjs';console.log(JSON.stringify(resolveTarget('codex',{userHome:'/home/u',env:{}}).profileNames));"], cwd=REPO, capture_output=True, text=True, check=True)
     return json.loads(result.stdout)
+
+class LegacyRoleCompatibilityTests(unittest.TestCase):
+    def test_legacy_and_dual_model_keys_are_canonical_and_conflicts_fail(self):
+        import copy
+        module = load_model_module()
+        config = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
+        canonical = copy.deepcopy(config)
+        config['roles']['arc_coder'] = config['roles'].pop('arc_implementer')
+        before = copy.deepcopy(config)
+        self.assertEqual(module.validate_config(config, Path('models.toml')), canonical)
+        self.assertEqual(config, before)
+        config['roles']['arc_implementer'] = copy.deepcopy(config['roles']['arc_coder'])
+        self.assertEqual(module.validate_config(config, Path('models.toml')), canonical)
+        config['roles']['arc_coder']['economy']['model'] = 'conflicting'
+        with self.assertRaises(module.ValidationError):
+            module.serialize_settings(config)

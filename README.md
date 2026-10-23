@@ -11,7 +11,7 @@ ARC brings clear roles, scoped handoffs, and verification to work in Codex and C
 | Orchestrator | Routes work and accepts results |
 | Scouter | Researches and explores sources |
 | Planner | Drafts designs, specs, and plans |
-| Coder | Implements assigned changes |
+| Implementer | Implements assigned changes |
 | QA | Runs assigned verification |
 | Reviewer | Independently reviews changes |
 
