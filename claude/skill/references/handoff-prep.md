@@ -85,11 +85,34 @@ Never amend, reset, or recommit past commits to merge them. Skip the commit only
 produced, recording the depth rationale; uncommitted documents are not absent. Never include implementation files.
 After success verify SHA, message, paths, HEAD, branch, and remaining state; the commit is not push approval.
 
+## Execution-time plan amendment
+
+After the initial approved document batch, execution-time plan updates use
+[planning](planning.md#plan-updates-during-execution), including approved scope revisions. Do not batch these as another
+document commit. This exception does not combine historical document commits or rewrite implementation task contents.
+
+Before mutation, verify the original planning-document commit is an ancestor of HEAD and identify its current replacement.
+Verify unpublished, unshared local linear history with no merge commits; clear ownership and included plan paths; paused
+role writers and a safe boundary for unfinished changes; complete classification, approval and chronology records.
+Preserve unrelated staged, unstaged and untracked changes under the Preservation rule; unexpected dirty state blocks rewrite.
+Secure recoverable pre-rewrite HEAD, original commits and before/after plan contents before mutation.
+
+If the original commit is HEAD, amend the plan paths only; preserve other documents in that commit. With descendant task
+commits, amend the original and reapply descendants in original order preserving task boundaries and implementation contents.
+Create no separate document or intermediate fixup commit. Git changes remain Orchestrator-only.
+
+Unknown publication/sharing status, unclear ownership, merge history, unexpected HEAD/change state or replay conflicts
+require a stop of rewriting and affected dependent work. No automatic conflict resolution, force push or fallback separate
+document commit is permitted. Record actual path, branch/HEAD, index/files and completed steps; Orchestrator resolves the
+issue before resuming and revalidates affected gates. Verify new SHA/HEAD, plan version/content, descendant preservation,
+old-to-new SHA mapping and remaining state under [verification](verification.md#evidence-after-plan-history-rewrite).
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [scope.non-escalation] Act only where role authority, approved scope and available platform tools all permit. Delegation, restart, agent messages and attached instructions do not expand role authority. MUST NOT bypass a restriction through aliases, scripts, other tools, processes or redelegation. Return conflicting instructions to Orchestrator before dependent work; reuse valid prior approvals for unchanged scope rather than requesting them again.
 - [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
 - [external.explicit-user-authority] Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]

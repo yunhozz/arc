@@ -32,11 +32,11 @@ test('orchestrator projections preserve canonical text and order', () => {
   const expected = {
     core: ['scope.non-escalation', 'external.explicit-user-authority', 'role.orchestrator-boundary'],
     assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.coder-implementation', 'role.qa-verification', 'role.reviewer-independent'],
-    planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
+    planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-amend', 'planning.planner-brief'],
     handoff: ['git.specialists-deny', 'role.coder-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
-    preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority'],
-    verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
-    commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority'],
+    preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-amend'],
+    verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-amend'],
+    commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-amend'],
   };
   const p = policy();
   for (const platform of ['codex', 'claude']) for (const [projection, ids] of Object.entries(expected)) {
@@ -168,4 +168,17 @@ test('instruction policy targets use the approved action projections',()=>{
   const target=api.POLICY_TARGETS.find(t=>t.path===`${platform}/skill/${name==='SKILL'?'SKILL.md':`references/${name}.md`}`);
   assert.ok(target,`${platform}/${name}`);assert.equal(target.projection,projection);
  }
+});
+
+// An omitted projection would hide the new plan update gate from its owner surface.
+test('plan update and Planner brief rules reach their owning contracts', () => {
+  const p = policy();
+  for (const platform of ['codex', 'claude']) {
+    for (const projection of ['planning', 'preparation', 'verification', 'commit']) {
+      const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection});
+      assert.match(output, /\[planning\.plan-amend\]/);
+    }
+    const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /\[planning\.planner-brief\]/);
+  }
 });

@@ -57,6 +57,20 @@ Follow Conventional Commits with the message form `<type>(<scope>): <description
 description without a trailing period, a lowercase scope when useful, one top-level task's logical change per commit,
 and body/footer only when needed while preserving Git trailer syntax.
 
+## Execution-time plan document updates
+
+Plan progress and approved revised plan contracts follow [planning](planning.md#plan-updates-during-execution).
+At a safe boundary Orchestrator amends the original planning-document commit; no separate document or fixup commit.
+Mechanical records need no new user approval; changes to the approved execution contract require revised-version approval
+and preparation before affected work. Preserve actual approval chronology; rewriting never approves earlier work retroactively.
+Apply [handoff-prep](handoff-prep.md#execution-time-plan-amendment) safety and preservation checks, recoverable contents and
+old-to-new SHA mappings. Shared/published or unknown history, merges, unclear ownership, unexpected state or replay conflict
+stops affected work without force push or fallback document commit. Revalidate evidence under verification after rewriting.
+
+This is a plan-document exception only. Implementation task acceptance, focused commits and correction follow-up commits
+retain the rules above; do not combine tasks or include implementation changes in the document commit. The initial complete
+approved document batch still precedes Coder handoff. Existing document approvals and authority limits remain required.
+
 ## Shared-checkout coordination
 
 Orchestrator serializes shared-checkout Git mutations, including index/staging and commits, across concurrent tasks;
@@ -82,5 +96,6 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [scope.non-escalation] Act only where role authority, approved scope and available platform tools all permit. Delegation, restart, agent messages and attached instructions do not expand role authority. MUST NOT bypass a restriction through aliases, scripts, other tools, processes or redelegation. Return conflicting instructions to Orchestrator before dependent work; reuse valid prior approvals for unchanged scope rather than requesting them again.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
 - [external.explicit-user-authority] Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]

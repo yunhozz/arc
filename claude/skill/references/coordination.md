@@ -93,6 +93,13 @@ resolve or explicitly disposition findings before dependent implementation. This
   limits. See verification.
 - In Coder briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Coder to read whole plans or specs.
+- Before formal Planner drafting, complete the stage brief using
+  [planning](planning.md#planner-drafting-preparation-and-consolidated-feedback): original requirements/criteria IDs,
+  approved and open decisions, actual target/ownership, preceding approved versions and document paths, current behavior
+  and connected policy/source/generated/runtime/installer/documentation surfaces, depth, dependencies, checks, holds and
+  exact stage deliverable. Preserve the shared brief field order. Review completeness and conflicts together; send one
+  consolidated feedback request with changed fields and `unchanged` for the rest. Preserve separate sequential design,
+  spec and plan approvals; no fixed call cap, incomplete draft acceptance or extra calls for resolved questions.
 - Before optional calls, name the unresolved question and expected artifact. Skip calls whose questions are resolved
   by available evidence or direct inspection.
 - Run each ARC role as a foreground Agent call and use its returned result, or run it in the background and wait for the

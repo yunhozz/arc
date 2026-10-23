@@ -66,6 +66,14 @@ Initial design, required spec approval, and formal plan drafting/approval remain
 Allow additional Planner calls for substantive omissions or user-approved scope/evidence changes. There is no fixed
 call cap; never accept an incomplete draft to minimize calls. Do not add call-count conditions to Planner profiles.
 
+The complete initial brief identifies original user requirements, criteria IDs, approved decisions and open decisions;
+current behavior and connected source, generated, runtime, installer and documentation surfaces; conflicting rules and
+resolution direction; exact current-stage deliverable and absolute output path. Keep the shared brief's fixed field order
+in [coordination](coordination.md). Link accessible evidence and needed ranges instead of full dialogue or raw logs.
+Consolidated feedback contains changed fields only and marks remaining fields `unchanged` relative to the received brief.
+Do not call Planner again for already resolved questions. Missing target preparation or required decisions holds formal
+drafting; initial design proposals may still precede target selection. Written-spec approval precedes dependent plan drafting.
+
 ## Design and planning
 
 `brainstorming` and `writing-plans` are instructions for existing roles, not extra agents. This ARC controls
@@ -235,11 +243,42 @@ Document omission skips only document obligations, never explicit
 execution-target choice, Git state/ownership checks, or handoff evidence.
 
 If planning reveals new scope, reassess the list, depth, and dependencies and obtain additional required approvals
-before dependent drafting or commit. Changed approved documents require approval of the revised version. If implementation reveals new
-scope, stop affected execution until that scope's documents, approvals, and preparation are complete. Do not amend old
-commits to retroactively include it. An already-running Coder must stop before edits dependent on new plans; inspect
+before dependent drafting or commit. Changed approved document bodies require approval of the revised version, except
+mechanical execution records defined below. If implementation reveals new scope, stop affected execution until that
+scope's documents, approvals, and preparation are complete. Then reflect the approved plan version in its original
+planning-document commit under the update contract below; never retroactively authorize work before actual approval.
+An already-running Coder must stop before edits dependent on new plans; inspect
 current changes/Git state and do not retroactively claim preparation. A restart without document changes follows Choice
 lifetime and restart record in [handoff.md](handoff.md).
+
+## Plan updates during execution
+
+Mechanical execution records may be recorded without new user approval: checkbox completion, actual results, evidence
+links and task completion state that preserve the approved execution contract. Record their classification, reason and
+actual recording time in the canonical handoff record. Required checks' removal, invented success, unsupported acceptance
+or scope changes mixed with a completion mark are not mechanical records.
+
+Changes to goals, task scope or boundaries, acceptance criteria, method, risk, dependencies or required verification
+require revised-version approval before affected work. Hold affected execution, obtain necessary design/spec/plan approvals
+in order, and complete target, ownership, checks and handoff preparation before resuming. Other approved body corrections
+follow the document-version approval rules; classify typos, paths, commands and explanations by their semantic effect.
+
+Both mechanical records and approved contract revisions amend the original planning-document commit at a safe checkpoint.
+Make no separate document commit or fixup commit, including for newly approved scope. Preserve implementation task commits.
+This history update does not make actual approval time retroactive: the latest plan in the original commit is not evidence
+that its contents were approved from the outset. Never use rewritten history to justify work started before approval.
+
+In the canonical handoff record preserve plan absolute/Git paths; before and after content hashes and versions; prior and
+revised approval references and actual times; change reason and classification; affected tasks and hold/preparation/resume
+evidence. For mechanical records explain why no new approval is needed and record the time. Preserve recoverable document
+contents, not hashes alone, and each old-to-new SHA mapping for the original document commit and descendant task commits.
+Do not overwrite earlier approval references or the contents they approved.
+
+Orchestrator alone performs the safe rewrite in [handoff-prep](handoff-prep.md#execution-time-plan-amendment) and
+[commit](commit.md#execution-time-plan-document-updates). Shared/published or unknown history, merges, unclear ownership,
+unexpected HEAD/dirty state and replay conflicts stop affected work. No force push or fallback document commit.
+After rewriting, connect evidence to the new state under [verification](verification.md#evidence-after-plan-history-rewrite).
+This contract adds no Git automation, runtime enforcement, authority or exemption from required checks/QA/Reviewer gates.
 
 ### Evidence refresh and limits
 
@@ -273,6 +312,8 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
 - [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
+- [planning.planner-brief] Before formal drafting, Orchestrator supplies one complete stage-specific brief with original requirements and criteria IDs, approved/open decisions, verified target and ownership, document paths and preceding approved versions, current behavior and connected source/generated/runtime/installer/documentation surfaces, policy conflicts, depth, dependencies, checks, holds and exact deliverable. Preserve shared brief field order. Review the complete draft once and consolidate substantive feedback as changed fields with other fields marked unchanged. Preserve sequential design, spec and plan approvals; no fixed call cap or incomplete drafts, and no calls for already resolved questions.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
 [ARC role policy: contract end]
 

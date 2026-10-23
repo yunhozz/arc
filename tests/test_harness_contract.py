@@ -13,6 +13,39 @@ PLATFORMS = ("codex", "claude")
 # Missing gates, acceptance boundaries, and adapter conflation are the breaks
 # these checks catch; wording outside these obligations is free to change.
 COMMON_CONTRACTS = {
+    # Approved written-contract checks: losing these gates must fail both adapters.
+    "PLAN_UPDATE_CLASSIFICATION": ("references/planning.md", (
+        r"mechanical execution records.*without new user approval",
+        r"checkbox.*actual results.*evidence links.*completion state",
+        r"required checks.*removal.*not mechanical",
+        r"goals.*task scope.*boundaries.*acceptance criteria.*method.*risk.*dependencies.*required verification.*revised.*approval",
+        r"both.*mechanical.*approved.*original planning-document commit",
+        r"no separate.*document.*or fixup commit",
+        r"actual approval.*(?:time|chronology).*not.*retroactive",
+        r"before and after.*content hashes.*versions.*approval references.*times",
+        r"recoverable.*contents.*old.*new.*sha.*descendant",
+    )),
+    "PLAN_AMEND_SAFETY": ("references/handoff-prep.md", (
+        r"original.*ancestor.*head",
+        r"unpublished.*unshared.*local.*linear.*no merge",
+        r"unknown.*publication.*ownership.*conflict.*stop",
+        r"no.*force.push.*fallback.*document commit",
+        r"head.*amend.*plan paths only",
+        r"descendant.*reapply.*order.*task boundaries",
+    )),
+    "PLAN_AMEND_EVIDENCE": ("references/verification.md", (
+        r"rewrite.*new head.*approved.*plan.*sha mapping",
+        r"descendant.*content.*task boundaries.*remaining.*state",
+        r"sha change alone.*not.*invalidate",
+        r"cannot.*link.*affected.*repeat.*checks",
+    )),
+    "PLANNER_COMPLETE_BRIEF": ("references/planning.md", (
+        r"original user requirements.*criteria ids.*approved decisions.*open decisions",
+        r"current behavior.*source.*generated.*runtime.*installer.*documentation",
+        r"exact.*current.stage.*deliverable",
+        r"consolidated.*changed fields.*unchanged",
+        r"no fixed call cap",
+    )),
     "SCOPED_AUTHORIZATION": ("references/planning.md", (
         r"explicit execution request.*authorization.*sufficiently specified scope",
         r"execution intent.*expected outcome.*constraints.*document depth.*verification risk",

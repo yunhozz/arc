@@ -19,6 +19,19 @@ text presence alone cannot establish agent compliance. Distinguish tested behavi
 Unexpected failures trigger diagnosis and stop dependent work; expected failure-first RED does not authorize unrelated
 repairs.
 
+## Evidence after plan history rewrite
+
+After an approved execution-time plan rewrite, verify new HEAD, approved plan version/content and old-to-new SHA mapping;
+descendant implementation content and task boundaries; and remaining staged/unstaged/untracked state. Preserve the actual
+approval chronology and recoverable previous contents in the canonical handoff record. The latest version in the original
+commit does not establish approval before its actual approval time.
+
+SHA change alone does not invalidate all prior acceptance evidence. Check whether evidence bound to an exact HEAD,
+document or policy can be linked to the new state. If it cannot be linked, or its meaning is affected, repeat affected
+checks and required rechecks. Preserve existing runtime evidence invalidation and exact-state requirements; do not rewrite
+old fingerprints to imply a run against the new HEAD. Refresh affected briefs and gates before dependent work.
+Structural checks establish written-contract alignment, not live agent compliance or successful Git history replay.
+
 ## Reviewer timing and task acceptance
 
 Task acceptance and its focused commit need only the task's risk-scaled evidence: a FRESH QA instance per task that
@@ -241,6 +254,7 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
 - [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]
 

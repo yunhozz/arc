@@ -223,7 +223,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             r"while documents.*do not stage documents or commit planning documents",
             r"architectural work always.*writing-plans.*written plan approval",
             r"skip planning only for one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
-            r"changed approved documents require approval of the revised version",
+            r"changed approved document bodies require approval of the revised version, except mechanical execution records",
             r"while documents.*do not.*stage documents.*commit planning documents",
             r"normal order:.*execution-target choice.*target preparation and verification.*formal spec drafting.*complete applicable set.*batch docs commit.*final git verification",
         ):
@@ -303,7 +303,7 @@ class ConditionalReferenceTests(unittest.TestCase):
                                                "task readiness at every assignment", "choice lifetime and restart record"])
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
-                                                    "recovery prerequisite"])
+                                                    "execution-time plan amendment", "recovery prerequisite"])
         self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer"])
         core = (REPO / "codex/skill/references/handoff.md").read_text().lower()
         self.assertIn("handoff-prep.md", core)

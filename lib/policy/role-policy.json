@@ -332,6 +332,51 @@
         "codex": "prompt",
         "claude": "prompt"
       }
+    },
+    {
+      "id": "planning.plan-amend",
+      "roles": [
+        "orchestrator"
+      ],
+      "effect": "require",
+      "operations": [
+        "plan-update",
+        "plan-commit-amend"
+      ],
+      "evidence": [
+        "change-classification",
+        "actual-approval-chronology",
+        "rewrite-safety",
+        "sha-mapping"
+      ],
+      "authority": "orchestrator",
+      "text": "During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
+    },
+    {
+      "id": "planning.planner-brief",
+      "roles": [
+        "orchestrator"
+      ],
+      "effect": "require",
+      "operations": [
+        "planner-brief",
+        "planner-feedback"
+      ],
+      "evidence": [
+        "complete-stage-brief",
+        "prepared-target",
+        "preceding-approval"
+      ],
+      "authority": "orchestrator",
+      "text": "Before formal drafting, Orchestrator supplies one complete stage-specific brief with original requirements and criteria IDs, approved/open decisions, verified target and ownership, document paths and preceding approved versions, current behavior and connected source/generated/runtime/installer/documentation surfaces, policy conflicts, depth, dependencies, checks, holds and exact deliverable. Preserve shared brief field order. Review the complete draft once and consolidate substantive feedback as changed fields with other fields marked unchanged. Preserve sequential design, spec and plan approvals; no fixed call cap or incomplete drafts, and no calls for already resolved questions.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt"
+      }
     }
   ],
   "platforms": {
