@@ -29,3 +29,11 @@ test('Git global install and reinstall preserve an executable CLI with inherited
  }
  assert.equal(fs.existsSync(home+'/.codex'),false);assert.equal(fs.existsSync(home+'/.claude'),false);
 });
+
+test('install check and dry-run never register completion or create shell files',t=>{
+ const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-completion-preview-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));
+ for(const mode of ['--check','--dry-run']){
+  const result=spawnSync(process.execPath,['bin/arc.mjs','--target','all','--preset','balanced','--language','ko',mode],{cwd:path.resolve(import.meta.dirname,'../..'),env:{...process.env,HOME:home,CODEX_HOME:home+'/.codex'},encoding:'utf8',timeout:30000});
+  assert.equal(result.status,0,result.stderr);assert.doesNotMatch(result.stdout,/eval .*arc completion|Would .*\.zshrc/);assert.deepEqual(fs.readdirSync(home),[]);
+ }
+});

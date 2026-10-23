@@ -31,3 +31,9 @@ for(const platform of ['codex','claude'])test(`${platform} uninstall leaves unsu
  const plan=api.buildUninstallPlan({target,safeFs});assert.equal(plan.snapshot.has(unknown),false);assert.equal(plan.managedPaths.includes(unknown),false);
  const item=(await api.uninstallTargets([plan],{safeFs})).results[0];assert.equal(item.status,'uninstalled');assert.equal(fs.readFileSync(unknown,'utf8'),'user profile');
 });
+
+test('uninstall plans shell cleanup under skipGlobal and shares ownership before application',async t=>{
+ const first=fixture(t),second=resolveTarget('claude',{userHome:first.userHome}),filename=first.userHome+'/.zshrc',original=Buffer.from('mine\r\n# >>> arc completion >>>\r\nold\r\n# <<< arc completion <<<\r\ntail');fs.writeFileSync(filename,original);
+ const plans=[first,second].map(target=>api.buildUninstallPlan({target,safeFs,skipGlobal:true}));assert.deepEqual(fs.readFileSync(filename),original);assert.ok(plans[0].globalChanges.some(c=>c.path===filename));
+ const result=await api.uninstallTargets(plans,{safeFs});assert.deepEqual(result.results.map(r=>r.status),['uninstalled','uninstalled']);assert.equal(plans.filter(p=>p.managedPaths.includes(filename)).length,1);assert.equal(plans[1].snapshot.has(filename),false);assert.equal(fs.readFileSync(filename,'utf8'),'mine\r\ntail');
+});
