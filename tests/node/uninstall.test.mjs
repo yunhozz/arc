@@ -24,3 +24,37 @@ for(const platform of ['codex','claude'])test('uninstall leaves an empty global 
 for(const platform of ['codex','claude'])test(`uninstall removes ${platform} language settings while preserving user files`,async t=>{
  const base=fixture(t),target=platform==='codex'?base:resolveTarget(platform,{userHome:base.userHome});fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.writeFileSync(target.home+'/skills/arc/settings.toml','version = 1\nlanguage = "ko"\n');fs.mkdirSync(target.home+'/skills/user',{recursive:true});fs.writeFileSync(target.home+'/skills/user/keep','mine');const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs})],{safeFs});assert.equal(result.results[0].status,'uninstalled');assert.equal(fs.existsSync(target.home+'/skills/arc/settings.toml'),false);assert.equal(fs.readFileSync(target.home+'/skills/user/keep','utf8'),'mine');
 });
+
+function legacyFixture(t,platform){
+ const base=fixture(t),target=platform==='codex'?base:resolveTarget(platform,{userHome:base.userHome});
+ fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.writeFileSync(target.home+'/skills/arc/SKILL.md','legacy ARC');
+ fs.mkdirSync(target.home+'/agents',{recursive:true});
+ const canonical=target.home+'/agents/arc-implementer.'+(platform==='codex'?'toml':'md');if(fs.existsSync(canonical))fs.unlinkSync(canonical);
+ const legacy=target.home+'/agents/arc-coder.'+(platform==='codex'?'toml':'md');fs.writeFileSync(legacy,'legacy role bytes');
+ const user=target.home+'/agents/user-profile';fs.writeFileSync(user,'user bytes');return{target,legacy,user};
+}
+for(const platform of ['codex','claude']){
+ test(`${platform} uninstall removes the legacy ARC profile and reports no residual`,async t=>{
+  const{target,legacy,user}=legacyFixture(t,platform),plan=api.buildUninstallPlan({target,safeFs}),result=await api.uninstallTargets([plan],{safeFs}),item=result.results[0];
+  assert.equal(item.status,'uninstalled');assert.equal(fs.existsSync(legacy),false);assert.equal(fs.existsSync(target.home+'/skills/arc'),false);
+  assert.ok(plan.snapshot.has(legacy));assert.ok(plan.removals.includes(legacy));assert.deepEqual(item.residualPaths,[]);assert.equal(fs.readFileSync(user,'utf8'),'user bytes');assert.ok(target.profileNames.every(name=>!name.includes('coder')));
+ });
+ test(`${platform} legacy uninstall refuses profile drift before removing ARC`,async t=>{
+  const{target,legacy}=legacyFixture(t,platform),plan=api.buildUninstallPlan({target,safeFs});fs.writeFileSync(legacy,'changed after observation');
+  const item=(await api.uninstallTargets([plan],{safeFs})).results[0];assert.equal(item.status,'failed');assert.equal(item.error.code,'ARC_INSTALL_DRIFT');assert.equal(fs.readFileSync(legacy,'utf8'),'changed after observation');assert.equal(fs.existsSync(target.home+'/skills/arc'),true);assert.deepEqual(item.residualPaths,[]);
+ });
+ test(`${platform} legacy uninstall refuses a symlink profile before writes`,t=>{
+  const{target,legacy,user}=legacyFixture(t,platform);fs.unlinkSync(legacy);fs.symlinkSync(user,legacy);
+  assert.throws(()=>api.buildUninstallPlan({target,safeFs}),{code:'ARC_TARGET_CONFIGURATION'});assert.equal(fs.readFileSync(user,'utf8'),'user bytes');assert.equal(fs.existsSync(target.home+'/skills/arc'),true);
+ });
+ test(`${platform} legacy uninstall failure restores the original profile and ARC`,async t=>{
+  const{target,legacy,user}=legacyFixture(t,platform),plan=api.buildUninstallPlan({target,safeFs});
+  const item=(await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.path===legacy&&event.phase==='after-publish')throw Error('legacy removal failure');}}})).results[0];
+  assert.equal(item.status,'failed');assert.equal(item.rollback,'restored');assert.equal(fs.readFileSync(legacy,'utf8'),'legacy role bytes');assert.equal(fs.readFileSync(target.home+'/skills/arc/SKILL.md','utf8'),'legacy ARC');assert.equal(fs.readFileSync(user,'utf8'),'user bytes');assert.deepEqual(item.residualPaths,[]);
+ });
+ test(`${platform} legacy uninstall recovery conflict preserves user bytes and reports the residual path`,async t=>{
+  const{target,legacy}=legacyFixture(t,platform),plan=api.buildUninstallPlan({target,safeFs});
+  const item=(await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.path===legacy&&event.phase==='after-preserve'){fs.writeFileSync(legacy,'new user bytes');throw Error('legacy recovery conflict');}}}})).results[0];
+  assert.equal(item.status,'failed');assert.equal(item.rollback,'failed');assert.equal(fs.readFileSync(legacy,'utf8'),'new user bytes');assert.ok(item.residualPaths.includes(legacy));assert.ok(item.residualPaths.some(name=>name.includes('.arc-stage-')));
+ });
+}
