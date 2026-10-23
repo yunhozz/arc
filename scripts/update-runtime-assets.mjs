@@ -1,3 +1,4 @@
+import {RUNTIME_MODULE_PATHS} from '../lib/installer/runtime-assets.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -12,9 +13,10 @@ function safe(filename,directory=false){
 }
 function sources(relative){const dir=path.join(root,relative);safe(dir,true);const result=[];for(const entry of fs.readdirSync(dir).sort()){const rel=path.join(relative,entry);const file=path.join(root,rel);safe(file,fs.lstatSync(file).isDirectory());if(fs.lstatSync(file).isDirectory())result.push(...sources(rel));else if(entry.endsWith('.mjs'))result.push(rel);else throw Error(`Unexpected canonical runtime file: ${rel}`);}return result;}
 try{
- safe(root,true);const sourceNames=sources('lib/runtime');
- for(const name of COOPERATIVE_RUNTIME_MODULES)if(!sourceNames.includes(path.join('lib/runtime',name)))throw Error(`Missing runtime module: ${name}`);
- const entries=sourceNames.map(name=>[path.relative('lib/runtime',name),fs.readFileSync(path.join(root,name))]);
+ safe(root,true);const modules=sources('lib/runtime').map(name=>name.split(path.sep).join('/')).sort();
+ for(const name of COOPERATIVE_RUNTIME_MODULES)if(!modules.includes(`lib/runtime/${name}`))throw Error(`Missing runtime module: ${name}`);
+ if(modules.length!==RUNTIME_MODULE_PATHS.length||modules.some((name,index)=>name!==RUNTIME_MODULE_PATHS[index]))throw Error('Runtime asset inventory does not match canonical modules');
+ const entries=modules.map(name=>[name.slice('lib/runtime/'.length),fs.readFileSync(path.join(root,name))]);
  const policy=path.join(root,'lib/policy/role-policy.json');safe(policy);entries.push(['role-policy.json',fs.readFileSync(policy)]);
  const outputs=[];for(const platform of ['codex','claude'])for(const [name,bytes]of entries){const filename=path.join(root,platform,'skill/runtime',name);safe(filename);outputs.push({filename,bytes});}
  let drift=false;for(const {filename,bytes}of outputs){if(!fs.existsSync(filename)||!fs.readFileSync(filename).equals(bytes)){drift=true;if(!check){fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,bytes);}}}

@@ -61,10 +61,16 @@ for(const platform of ['codex','claude']){
  });
 }
 
-for(const platform of ['codex','claude'])for(const file of ['cli.mjs','command.mjs','bootstrap.mjs','cooperative-schema.mjs','cooperative.mjs','evaluate.mjs','scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs','external.mjs','role-policy.json']){
- const name=`${platform}/skill/runtime/${file}`;
- test(`payload requires installed workflow dependency ${name} after manifest refresh`,t=>{
-  const root=fixture(t);fs.rmSync(`${root}/${name}`,{force:true});refresh(root);
-  assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes(`Required runtime asset is missing: ${name}`));
- });
-}
+const requiredRuntimePaths = [
+ 'lib/runtime/acceptance.mjs','lib/runtime/adapters/claude.mjs','lib/runtime/adapters/codex.mjs',
+ 'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs','lib/runtime/cli.mjs','lib/runtime/command.mjs',
+ 'lib/runtime/cooperative-schema.mjs','lib/runtime/cooperative.mjs','lib/runtime/evaluate.mjs',
+ 'lib/runtime/external.mjs','lib/runtime/gate.mjs','lib/runtime/git-evidence.mjs',
+ 'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/operations.mjs',
+ 'lib/runtime/schema.mjs','lib/runtime/scope.mjs','lib/runtime/store.mjs','lib/runtime/verification.mjs'
+];
+test('regenerating the manifest cannot hide any required canonical or installed runtime asset',t=>{
+ const root=fixture(t);const required=['codex/skill/runtime/role-policy.json','claude/skill/runtime/role-policy.json',...requiredRuntimePaths,...['codex','claude'].flatMap(platform=>requiredRuntimePaths.map(name=>platform+'/skill/runtime/'+name.slice('lib/runtime/'.length))),'lib/installer/runtime-assets.mjs'];
+ for(const name of required){const file=path.join(root,name);assert.ok(fs.existsSync(file),name);const bytes=fs.readFileSync(file);fs.unlinkSync(file);refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes('Required runtime asset is missing: '+name),name);fs.writeFileSync(file,bytes);}
+ refresh(root);assert.ok(verify(root).files instanceof Map);
+});

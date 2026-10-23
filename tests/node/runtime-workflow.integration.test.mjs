@@ -136,3 +136,15 @@ test('canonical assignment preserves durable request approval hashes and replay 
  }
  assert.deepEqual({command:'prepare',input},original);
 });
+
+for(const drift of ['runtime','policy'])test(`actual isolated ${drift} bytes hold the workflow without durable writes`,async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-real-drift-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ for(const name of ['lib/runtime','lib/policy'])await fs.cp(new URL('../../'+name,import.meta.url),path.join(root,name),{recursive:true});
+ const {pathToFileURL}=await import('node:url');const bootstrap=await import(pathToFileURL(path.join(root,'lib/runtime/bootstrap.mjs')));const cooperative=await import(pathToFileURL(path.join(root,'lib/runtime/cooperative.mjs')));
+ const cwd=path.join(root,'workspace'),common=path.join(root,'common');await fs.mkdir(cwd);await fs.mkdir(common);const target={realpath:cwd,gitCommonDir:common,gitDir:common,head:'a'.repeat(40),branch:'main'};const args={cwd,workflowId:'drift',observe:async()=>target};
+ await bootstrap.initializeCooperativeWorkflow({...args,input:{mode:'plan',actor:{id:'operator',role:'orchestrator'},selection:{messageRef:'target',contentHash:hash}}});
+ const file=await workflowStatePath(target,'drift'),before=await fs.readFile(file),versions=await bootstrap.cooperativeVersions();
+ await fs.appendFile(path.join(root,drift==='runtime'?'lib/runtime/acceptance.mjs':'lib/policy/role-policy.json'),drift==='runtime'?'\n// real byte drift\n':'\n ');
+ const afterVersions=await bootstrap.cooperativeVersions();assert.notEqual(afterVersions[drift==='runtime'?'runtimeHash':'policyHash'],versions[drift==='runtime'?'runtimeHash':'policyHash']);
+ const out=await cooperative.runCooperativeCommand({...args,command:'status'});assert.equal(out.decision,'hold');assert.deepEqual(out.ruleIds,['cooperative.versions']);assert.deepEqual(await fs.readFile(file),before);
+});
