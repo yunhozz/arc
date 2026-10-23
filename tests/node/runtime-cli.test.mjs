@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-for(const entry of [['bin/arc.mjs','workflow'],['lib/runtime/cli.mjs']]){
+for(const entry of [['--input-type=module','-e',"import {runWorkflowCommand} from './lib/runtime/command.mjs';process.exitCode=await runWorkflowCommand(process.argv.slice(1));"],['lib/runtime/cli.mjs']]){
 const run=(args,input)=>spawnSync(process.execPath,[...entry,...args],{input,encoding:'utf8'});
 test('workflow CLI emits structured input errors with exit one',()=>{
  for(const [args,input] of [[[],undefined],[['status','--cwd','relative','--workflow','x'],undefined],[['record','--cwd',process.cwd(),'--workflow','x','--input','-'],'{'],[['status','--cwd',process.cwd(),'--workflow','../x'],undefined]]){
