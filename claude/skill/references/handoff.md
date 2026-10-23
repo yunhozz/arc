@@ -1,4 +1,4 @@
-# Coder handoff
+# Implementer handoff
 
 Orchestrator verifies the absolute workspace/repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state,
 ownership, document approvals and committed planning documents before first start and restart.
@@ -6,7 +6,7 @@ The approved execution target must remain valid. Claude v1 supports current chec
 ARC-managed worktrees.
 
 Execution-target choice and actual preparation precede formal drafting and saving of required specs/plans.
-Initial design proposals may precede choice. Initial target preparation does not authorize Coder; all applicable
+Initial design proposals may precede choice. Initial target preparation does not authorize Implementer; all applicable
 approvals, complete documents, verified batch docs commits or valid absence, and final Git verification remain required.
 Record planned document scope/paths and actual preparation separately, followed by actual drafting/save/approval and
 commit results; preserve actual order and evidence gaps. Reuse a valid choice during document drafting and subsequent
@@ -23,18 +23,18 @@ explicit target choice; prior and resulting Git state; document commit SHA/subje
 checks and limits. If a gate or record was late, record actual order and resolve forward; never claim retroactive
 compliance.
 
-The Coder brief supplies absolute workspace, verified branch/HEAD, canonical record path, approved task/criteria,
+The Implementer brief supplies absolute workspace, verified branch/HEAD, canonical record path, approved task/criteria,
 exact file ownership, expected tests, dependency limits and blocked conditions. Restart brief: supply only verified
-deltas and mark unchanged fields; `unchanged` means unchanged relative to the record file the fresh Coder reads,
-and every other brief field is in full. Coder trusts Orchestrator verified prep rather than independently repeating
+deltas and mark unchanged fields; `unchanged` means unchanged relative to the record file the fresh Implementer reads,
+and every other brief field is in full. Implementer trusts Orchestrator verified prep rather than independently repeating
 approval/Git evidence checks, reads fields marked unchanged, and stops on an actual observed conflict.
-Tell Coder that others share the repository and unrelated work MUST be preserved.
+Tell Implementer that others share the repository and unrelated work MUST be preserved.
 
 Roles report directly to Orchestrator. Do not delegate at depth 2. Orchestrator sequences dependent work,
 resolves actual blockers and revalidates affected gates before resume. No automatic retry after unexpected Git or tool
 failure.
 
-If the record write is denied or unavailable, Orchestrator carries the full record inline in every Coder brief (no
+If the record write is denied or unavailable, Orchestrator carries the full record inline in every Implementer brief (no
 delta, no record-file `unchanged`) and states why; that satisfies the accessible-record requirement.
 Do not delete it automatically.
 
@@ -48,7 +48,7 @@ cannot bypass its approval gate.
 
 Before assignment, apply every readiness condition in
 [planning.md, Dependency and readiness record](planning.md#dependency-and-readiness-record), including predecessor
-checks, Orchestrator acceptance and verified focused commit or accepted no-change evidence. A Coder completion report
+checks, Orchestrator acceptance and verified focused commit or accepted no-change evidence. A Implementer completion report
 alone is insufficient. Verify the linked record is current and capacity and file ownership permit assignment.
 Readiness supplements the full handoff gate and execution-target restrictions; it never waives them.
 For authorized HEAD or state changes, refresh this record and affected briefs, verify preservation and ownership,
@@ -76,7 +76,7 @@ its scope, criteria, constraints, and valid document-depth omissions alongside e
 Reuse valid authorization for the same approved scope and target. A restart or new role assignment does not require
 repeat approval. Reuse never waives verification of actual workspace/repository, branch or detached HEAD, HEAD,
 changes, preservation, ownership, applicable documents, and preparation evidence by Orchestrator. Refresh actual state
-and affected briefs for authorized changes; they alone do not invalidate approval. Coder trusts the verified brief
+and affected briefs for authorized changes; they alone do not invalidate approval. Implementer trusts the verified brief
 under its profile. Material scope/method/risk changes and invalid target evidence hold affected work; resolve using
 planning and the choice-lifetime rules above. Report the missing condition and resume evidence rather than asking
 for an approval already valid for that scope.
@@ -85,13 +85,13 @@ Before any exception judgment, Orchestrator reads [Risk-scaled execution](verifi
 
 ## Common handoff gate
 
-Before every Coder first start/restart, Orchestrator passes the full gate:
+Before every Implementer first start/restart, Orchestrator passes the full gate:
 applicable approvals/artifacts or valid omissions, explicit execution-target choice
 or verified reuse, intended accessible repository/workspace, actual Git identity/state, preservation/ownership,
 verified document commits or valid absence, and no unresolved failure/partial completion.
 Missing evidence, mismatches, unclear ownership or unresolved preparation block handoff and require Orchestrator
 resolution and full revalidation. Handoff owns the evidence fields, canonical handoff record, restart brief, choice lifetime
-and reuse. Coder trusts the Orchestrator-verified brief and reports actual conflicts under its self-contained profile;
+and reuse. Implementer trusts the Orchestrator-verified brief and reports actual conflicts under its self-contained profile;
 never replace its local guards with a requirement to load Orchestrator procedures.
 Depth-2 roles use the supplied workspace and report path/state conflicts; they cannot create/switch workspaces or
 branches. The same conditions apply before an Orchestrator direct edit.
@@ -100,12 +100,12 @@ approved document preparation under [handoff-prep](handoff-prep.md).
 ARC-managed worktree execution is unsupported; report an isolated worktree request before dependent work.
 
 
-## Coder TDD and constraints
+## Implementer TDD and constraints
 
-Before feature, bug-fix, or behavior edits, Coder follows local `test-driven-development` unless the explicit
-ARC exception applies; the Coder profile holds Coder's full TDD rules. TDD is waived only when every small,
+Before feature, bug-fix, or behavior edits, Implementer follows local `test-driven-development` unless the explicit
+ARC exception applies; the Implementer profile holds Implementer's full TDD rules. TDD is waived only when every small,
 low-risk criterion (Risk-scaled execution) and every plan-skip criterion (Orchestrator direct path) holds.
-Before Coder starts,
+Before Implementer starts,
 Orchestrator records the scope, why every criterion is met, acceptance criteria, and focused verification in the brief.
 An explicit user or task-specific TDD request overrides
 this waiver. For qualifying tasks only, this exception takes precedence over the generic trigger in the local reference;
@@ -122,7 +122,7 @@ generalize it to behavior work.
 Orchestrator may edit directly only when every small, low-risk criterion (Risk-scaled execution) holds.
 Every plan-skip criterion must also hold: one local change, no dependent stages, no cross-component shared state,
 lifecycle, or integration-order concerns, and one focused verification path. Significant, architectural,
-ordinary-behavior, unclear-risk work and edits overlapping a running Coder's assigned files are ineligible.
+ordinary-behavior, unclear-risk work and edits overlapping a running Implementer's assigned files are ineligible.
 
 Significant risk is defined in Risk-scaled execution and excludes work from the Orchestrator direct path;
 do not infer eligibility from a small file count.
@@ -132,19 +132,19 @@ why every criterion holds, acceptance criteria, and focused verification. Apply 
 [planning](planning.md#authorization-and-scope): an existing sufficiently specific user request can approve
 that scope; no duplicate approval is needed. Otherwise present the scope record to the user and obtain explicit
 approval before editing. Silence, an ambiguous response, or approval of other work is not approval.
-Orchestrator then verifies the same handoff gate as a Coder first start: explicit execution-target choice or valid
+Orchestrator then verifies the same handoff gate as a Implementer first start: explicit execution-target choice or valid
 reuse, accessible intended workspace and repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state,
 preservation and ownership, and no unresolved failure or partial completion. Read this reference
 and [handoff preparation](handoff-prep.md) before checking this gate.
 
 Orchestrator edits only the approved files, preserves others' edits, and makes surgical changes without unrelated
-refactoring or unapproved dependencies. Behavior edits follow the Coder TDD rules and applicable recorded waiver
+refactoring or unapproved dependencies. Behavior edits follow the Implementer TDD rules and applicable recorded waiver
 criteria; an explicit user or task-specific TDD request still requires test-driven-development.
 Do not claim TDD under a waiver. After editing, Orchestrator records changed files, runs focused checks,
 connects each acceptance criterion to evidence, and reports unverified scope. Orchestrator is not an independent
 reviewer of its own edits; assign QA when evidence is incomplete. If scope expands, risk becomes unclear,
-or any criterion fails, stop editing, record completed changes, and return subsequent edits to the normal Planner/Coder
-flow. A failed focused check or a QA finding routes the correction to Coder, and it is rechecked; Orchestrator does not
+or any criterion fails, stop editing, record completed changes, and return subsequent edits to the normal Planner/Implementer
+flow. A failed focused check or a QA finding routes the correction to Implementer, and it is rechecked; Orchestrator does not
 self-correct.
 
 Like other plan-skip paths, there is no automatic task commit; commits follow applicable guidance and user requests.
@@ -159,22 +159,22 @@ CLI records do not authenticate identities or prove actual agent policy complian
 
 When scope, documents or approvals change, inspect `affectedTaskIds` and the dependency chain, preserve earlier approval and
 result records, and hand off new approvals and contracts for affected tasks. Do not reuse an old passing check for a different fingerprint.
-Link failed findings to the assigned Coder's resolution evidence and QA rechecks for that change version. Only final overall Reviewer
-findings use Coder→Reviewer revalidation. Do not add Reviewer as a prerequisite for individual task acceptance or commits.
+Link failed findings to the assigned Implementer's resolution evidence and QA rechecks for that change version. Only final overall Reviewer
+findings use Implementer→Reviewer revalidation. Do not add Reviewer as a prerequisite for individual task acceptance or commits.
 Follow [verification.md](verification.md#verification-lifecycle-in-the-cooperative-cli) for detailed fields and hold conditions.
 An unsupported no-plan/omission path does not imply a policy violation or a requirement to write documents.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
-- [role.coder-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds.
-- [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
-- [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
-- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
+- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds.
+- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
+- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
+- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]
 
-## Initial Coder assignment through the cooperative CLI
+## Initial Implementer assignment through the cooperative CLI
 
 In approved plan mode, Orchestrator performs the following sequence. All mutation commands pass JSON through stdin with
 `arc workflow <command> --cwd <absolute-checkout> --workflow <id> --input -`.
@@ -188,7 +188,7 @@ Query `status` without `--input`.
    `documents` contains exactly the spec and plan, each with `{kind, path, gitPath, contentHash, approvalRef, commit}`.
    `contentHash` is `sha256:<hex>`, and `approvalRef` must match the approval `messageRef`.
    On HEAD drift, record a fresh target observation and renewed approval instead of reconnecting an earlier intent.
-4. Pass `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "coder", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}` to `prepare`.
+4. Pass `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "implementer", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}` to `prepare`.
    Absolute `paths` must be inside the checkout. Confirm `allow`, `persisted: true` and the persisted intent.
 5. Invoke the native assignment with the task, scope and correlation from the persisted intent.
 6. Pass `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {correlation, taskId, agentId}}}` to `result`.

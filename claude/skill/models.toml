@@ -27,15 +27,15 @@ effort = "high"
 model = "opus"
 effort = "high"
 
-[roles.arc_coder.economy]
+[roles.arc_implementer.economy]
 model = "sonnet"
 effort = "medium"
 
-[roles.arc_coder.balanced]
+[roles.arc_implementer.balanced]
 model = "sonnet"
 effort = "high"
 
-[roles.arc_coder.smart]
+[roles.arc_implementer.smart]
 model = "opus"
 effort = "high"
 

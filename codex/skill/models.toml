@@ -27,15 +27,15 @@ model_reasoning_effort = "high"
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 
-[roles.arc_coder.economy]
+[roles.arc_implementer.economy]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 
-[roles.arc_coder.balanced]
+[roles.arc_implementer.balanced]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 
-[roles.arc_coder.smart]
+[roles.arc_implementer.smart]
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 

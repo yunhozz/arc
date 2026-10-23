@@ -10,7 +10,7 @@ branch work or document transfer. Apply [handoff-prep.md](handoff-prep.md) and [
 Before formal drafting and saving, complete actual creation, managed registration, current-chat attachment,
 repository/common directory and base verification, approved branch verification, and source preservation checks below.
 The normal new-document path drafts and saves directly in the verified target. Planned destination paths are not
-preparation evidence. Initial preparation does not authorize Coder or a document commit.
+preparation evidence. Initial preparation does not authorize Implementer or a document commit.
 
 Only an explicit user choice of this third path authorizes preparation. Its selection target is the one verified
 under the Execution-target request gate in handoff-prep.md.
@@ -45,7 +45,7 @@ use mcp__codex_app__get_worktree_creation_status until completed. Preparing/crea
 success.
 For registration failure only, retry the returned workspace with mcp__codex_app__attach_worktree. Before completed
 managed registration, current-chat attachment and approved branch verification, perform no formal drafting, saving, document transfer, staging,
-commit or Coder start. If tools are unavailable, reattachment fails or results mismatch, stop and record actual state.
+commit or Implementer start. If tools are unavailable, reattachment fails or results mismatch, stop and record actual state.
 Do not fall back to raw Git worktree creation, automatically retry other name/ref/path/branch inputs,
 or perform automatic cleanup, delete, prune or archive. See git-recovery.md before dependent recovery.
 
@@ -62,7 +62,7 @@ handoff-prep.md). Do not move a branch pointer, choose another branch or use --f
 or -B.
 If the app initially returns the approved branch, verify it and its base rather than repeating completed work.
 Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before formal drafting, saving, document transfer,
-the batch docs commit, final Git verification and Coder handoff.
+the batch docs commit, final Git verification and Implementer handoff.
 
 The tool does not copy uncommitted changes. The following transfer rules apply only to legacy or restart cases
 with existing approved documents (including an explicitly selected target change), not the normal new-document path. For untracked approved documents, source HEAD and index paths must be
@@ -88,4 +88,4 @@ also be absent at the destination. For unexpected changes, do not overwrite; sto
 For identical content, verify approved bytes before reuse. After transfer verify bytes match the approved version.
 The canonical record includes each document approval/version/evidence, source and target absolute paths and the common
 relative path plus content verification. Changed content or approval scope requires approval of the revised version.
-Transfer no other files. Failure or partial transfer blocks all dependent staging, commit and Coder handoff.
+Transfer no other files. Failure or partial transfer blocks all dependent staging, commit and Implementer handoff.

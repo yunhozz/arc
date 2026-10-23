@@ -22,7 +22,7 @@ function descriptorValid(state,d,operation){
  if(operation==='review')return fields(d,['kind','paths'])&&d.kind==='source-review'&&list(d.paths)&&d.paths.length>0&&d.paths.every(p=>absolute(p)&&within(state.target.realpath,p));
  return fields(d,['executable','args','cwd','env','outputs'])&&absolute(d.executable)&&Array.isArray(d.args)&&d.args.every(v=>typeof v==='string')&&absolute(d.cwd)&&within(state.target.realpath,d.cwd)&&fields(d.env,Object.keys(d.env??{}))&&Object.values(d.env).every(v=>typeof v==='string')&&Array.isArray(d.outputs)&&d.outputs.every(p=>absolute(p)&&within(state.target.realpath,p));
 }
-const assignedCoder=(state,id,taskId)=>state.assignments.some(a=>a.agentId===id&&a.taskId===taskId&&a.status==='active');
+const assignedImplementer=(state,id,taskId)=>state.assignments.some(a=>a.agentId===id&&a.taskId===taskId&&a.status==='active');
 function independent(state,actor,taskId){
  if(!fields(actor,['id','role'])||!text(actor.id))return false;
  if(state.assignments.some(a=>a.agentId===actor.id))return false;
@@ -56,7 +56,7 @@ function record({state,request,evidence}){
  }
  const finding=state.findings.find(f=>f.id===d.id);
  const affected=finding?.scope==='final'?state.tasks.map(t=>t.id):[finding?.taskId];
- if(!fields(d,['action','id','actor','changeFingerprint'])||d.action!=='resolve'||!finding||finding.status==='closed'||!fields(d.actor,['id','role'])||d.actor.role!=='coder'||!affected.some(id=>assignedCoder(state,d.actor.id,id))||!hash(d.changeFingerprint)||d.changeFingerprint!==current(state,finding.scope,finding.taskId,evidence?.changes))return hold(state,'finding-resolution','Assigned Coder correction at the current fingerprint required');
+ if(!fields(d,['action','id','actor','changeFingerprint'])||d.action!=='resolve'||!finding||finding.status==='closed'||!fields(d.actor,['id','role'])||d.actor.role!=='implementer'||!affected.some(id=>assignedImplementer(state,d.actor.id,id))||!hash(d.changeFingerprint)||d.changeFingerprint!==current(state,finding.scope,finding.taskId,evidence?.changes))return hold(state,'finding-resolution','Assigned Implementer correction at the current fingerprint required');
  return allow(state,{finding:{...finding,status:'resolved',resolutionRef:entry.messageRef,resolutionActor:structuredClone(d.actor),changeFingerprint:d.changeFingerprint}});
 }
 /** Pure cooperative gate: verifies recorded consistency, never identity or semantic sufficiency. */
@@ -76,7 +76,7 @@ export function evaluateCooperativeVerification({state,request,evidence}={}){
  if(a.actor?.role!==(request.operation==='review'?'reviewer':'qa')||a.actor.id===request.actor.id||!independent(state,a.actor,request.taskId))return hold(state,'verification-independence','Independent actor statement and fresh task QA required');
  const findings=state.findings.filter(f=>f.status!=='closed'&&(a.scope==='final'||f.scope==='task'&&f.taskId===request.taskId));
  if(a.findingIds!==undefined&&(!list(a.findingIds)||a.findingIds.some(id=>!findings.some(f=>f.id===id))))return hold(state,'finding-recheck','Unknown finding recheck');
- if(findings.some(f=>f.status!=='resolved'||!text(f.resolutionRef)||f.resolutionActor?.role!=='coder'||f.changeFingerprint!==a.changeFingerprint||!a.findingIds?.includes(f.id)||f.origin==='final-review'&&request.operation!=='review'||f.origin!=='final-review'&&request.operation!=='check'))return hold(state,'finding-recheck','Coder resolution and the required QA or final Reviewer recheck required');
+ if(findings.some(f=>f.status!=='resolved'||!text(f.resolutionRef)||f.resolutionActor?.role!=='implementer'||f.changeFingerprint!==a.changeFingerprint||!a.findingIds?.includes(f.id)||f.origin==='final-review'&&request.operation!=='review'||f.origin!=='final-review'&&request.operation!=='check'))return hold(state,'finding-recheck','Implementer resolution and the required QA or final Reviewer recheck required');
  if(state.intents.some(i=>['check','review'].includes(i.operation)&&['prepared','unknown','mismatch'].includes(i.status)&&i.scope===a.scope&&i.taskId===request.taskId&&same(i.descriptor,a.descriptor)&&!i.stale))return hold(state,'verification-active','Reconcile the existing verification intent');
  const intent={requestId:request.requestId,operation:request.operation,status:'prepared',scope:a.scope,taskId:request.taskId,verificationActor:structuredClone(a.actor),descriptor:structuredClone(a.descriptor),changeFingerprint:a.changeFingerprint,findingIds:[...(a.findingIds??[])],scopeVersion:state.scopeVersion,targetVersion:state.targetVersion,versions:structuredClone(state.versions),target:structuredClone(state.target),approval:structuredClone(approval(state,request.taskId)),taskFingerprint:fingerprintRequest(a.scope==='final'?state.tasks:t),fingerprint:fingerprintRequest(request),source:'operator-attested'};
  return allow(state,{intent});

@@ -13,7 +13,7 @@ from typing import TypedDict
 ROLE_FILES: dict[str, str] = {
     "arc_scouter": "arc-scouter.toml",
     "arc_planner": "arc-planner.toml",
-    "arc_coder": "arc-coder.toml",
+    "arc_implementer": "arc-implementer.toml",
     "arc_qa": "arc-qa.toml",
     "arc_reviewer": "arc-reviewer.toml",
 }
@@ -95,13 +95,13 @@ def validate_config(config: dict, path: Path) -> dict:
 def load_settings(config_path: Path) -> dict[str, RoleSettings]:
     """Validate every preset and return the active role settings."""
     _, _, config = _parse_file(config_path, "settings")
-    validate_config(config, config_path)
+    config = validate_config(config, config_path)
     return {role: dict(variants[config["preset"]]) for role, variants in config["roles"].items()}
 
 
 def serialize_settings(config: dict) -> bytes:
     """Serialize a complete unified configuration without losing inactive presets."""
-    validate_config(config, Path("models.toml"))
+    config = validate_config(config, Path("models.toml"))
     lines = ["version = 1", f'preset = {json.dumps(config["preset"])}']
     for role in ROLE_FILES:
         for preset in PRESETS:

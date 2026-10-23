@@ -600,14 +600,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_coder_trusts_ceo_verified_brief",
+        "test": "test_implementer_trusts_ceo_verified_brief",
         "class": "ConditionalReferenceTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_coder_trusts_ceo_verified_brief",
+          "test": "test_implementer_trusts_ceo_verified_brief",
           "class": "ConditionalReferenceTests"
         }
       ],
@@ -622,14 +622,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_coder_profile_holds_handoff_contract_without_full_reference_read",
+        "test": "test_implementer_profile_holds_handoff_contract_without_full_reference_read",
         "class": "ConditionalReferenceTests"
       },
       "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_coder_profile_holds_handoff_contract_without_full_reference_read",
+          "test": "test_implementer_profile_holds_handoff_contract_without_full_reference_read",
           "class": "ConditionalReferenceTests"
         }
       ],
@@ -647,14 +647,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections",
+        "test": "test_handoff_split_keeps_implementer_start_file_to_start_and_restart_sections",
         "class": "ConditionalReferenceTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_handoff_split_keeps_coder_start_file_to_start_and_restart_sections",
+          "test": "test_handoff_split_keeps_implementer_start_file_to_start_and_restart_sections",
           "class": "ConditionalReferenceTests"
         }
       ],
@@ -1086,14 +1086,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_coder_reads_record_for_unchanged_fields",
+        "test": "test_implementer_reads_record_for_unchanged_fields",
         "class": "WholeSystemReviewFollowUpTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_coder_reads_record_for_unchanged_fields",
+          "test": "test_implementer_reads_record_for_unchanged_fields",
           "class": "WholeSystemReviewFollowUpTests"
         }
       ],
@@ -1443,15 +1443,15 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_fresh_coder_per_top_level_task",
-        "class": "CoderBriefAndReuseTests"
+        "test": "test_fresh_implementer_per_top_level_task",
+        "class": "ImplementerBriefAndReuseTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_fresh_coder_per_top_level_task",
-          "class": "CoderBriefAndReuseTests"
+          "test": "test_fresh_implementer_per_top_level_task",
+          "class": "ImplementerBriefAndReuseTests"
         }
       ],
       "assertionLines": [
@@ -1469,15 +1469,15 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_coder_briefs_cite_sections_instead_of_whole_documents",
-        "class": "CoderBriefAndReuseTests"
+        "test": "test_implementer_briefs_cite_sections_instead_of_whole_documents",
+        "class": "ImplementerBriefAndReuseTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_coder_briefs_cite_sections_instead_of_whole_documents",
-          "class": "CoderBriefAndReuseTests"
+          "test": "test_implementer_briefs_cite_sections_instead_of_whole_documents",
+          "class": "ImplementerBriefAndReuseTests"
         }
       ],
       "assertionLines": [
@@ -1492,14 +1492,14 @@
       "destination": {
         "file": "tests/test_arc_policy.py",
         "test": "test_loader_keeps_subagents_on_profiles",
-        "class": "CoderBriefAndReuseTests"
+        "class": "ImplementerBriefAndReuseTests"
       },
       "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
           "test": "test_loader_keeps_subagents_on_profiles",
-          "class": "CoderBriefAndReuseTests"
+          "class": "ImplementerBriefAndReuseTests"
         }
       ],
       "assertionLines": [
@@ -1512,14 +1512,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_plan_amendment_restarts_coder",
+        "test": "test_plan_amendment_restarts_implementer",
         "class": "LongTaskTokenTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_plan_amendment_restarts_coder",
+          "test": "test_plan_amendment_restarts_implementer",
           "class": "LongTaskTokenTests"
         }
       ],
@@ -1945,13 +1945,13 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_workspace_handoff_commits_approved_plan_docs_before_coder",
+        "test": "test_workspace_handoff_commits_approved_plan_docs_before_implementer",
         "class": "RolePolicyTests"
       },
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_workspace_handoff_commits_approved_plan_docs_before_coder",
+          "test": "test_workspace_handoff_commits_approved_plan_docs_before_implementer",
           "class": "RolePolicyTests"
         }
       ],
@@ -14636,7 +14636,7 @@
         },
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_workspace_handoff_commits_approved_plan_docs_before_coder",
+          "test": "test_workspace_handoff_commits_approved_plan_docs_before_implementer",
           "class": "RolePolicyTests"
         },
         {
@@ -14797,7 +14797,7 @@
         },
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_workspace_handoff_commits_approved_plan_docs_before_coder",
+          "test": "test_workspace_handoff_commits_approved_plan_docs_before_implementer",
           "class": "RolePolicyTests"
         },
         {

@@ -42,7 +42,7 @@ and records the actual absolute workspace/repository, branch or detached HEAD, H
 explicit choice and preparation evidence, and absolute document paths inside that target. Planner drafts for that
 verified workspace; Orchestrator saves directly in the selected target. Missing or mismatched evidence stops the
 affected drafting or save and is reported to Orchestrator. Planned scope and paths do not establish actual preparation.
-Initial target preparation does not authorize Coder; the complete handoff gate still applies.
+Initial target preparation does not authorize Implementer; the complete handoff gate still applies.
 
 Orchestrator classifies scope before implementation. The Orchestrator direct path for small tasks is defined only in
 [handoff](handoff.md#orchestrator-direct-path-for-small-tasks); follow it there and stop and reclassify if scope or risk changes.
@@ -75,6 +75,15 @@ Initial design, required spec approval, and formal plan drafting/approval remain
 Allow additional Planner calls for substantive omissions or user-approved scope/evidence changes. There is no fixed
 call cap; never accept an incomplete draft to minimize calls. Do not add call-count conditions to Planner profiles.
 
+The complete initial brief identifies original user requirements, criteria IDs, approved decisions and open decisions;
+current behavior and connected source, generated, runtime, installer and documentation surfaces; conflicting rules and
+resolution direction; exact current-stage deliverable and absolute output path. Keep the shared brief's fixed field order
+in [coordination](coordination.md). Link accessible evidence and needed ranges instead of full dialogue or raw logs.
+Consolidated feedback contains changed fields only and marks remaining fields `unchanged` relative to the received brief.
+Do not call Planner again for already resolved questions. Missing target preparation or required decisions holds formal
+drafting; initial design proposals may still precede target selection. Written-spec approval precedes dependent plan drafting.
+
+
 ## Design path and plan depth
 
 Record design and plan depth separately from verification risk. Risk determines checks and review, not the design path;
@@ -86,12 +95,12 @@ a bounded path or document omission does not imply low risk, and architectural d
    answers/revisions, and obtains approvals; Orchestrator never runs brainstorming or writing-plans itself (SKILL.md
    Role gate); the direct path uses only a scope record.
 2. Spike: apply Probe scope above; distinguish probe-only authorization from a sufficiently specified combined scope.
-   Bounded: approve a short design before Coder or an Orchestrator direct edit (Planner's design before
-   Coder; a direct edit uses only an approved scope record). Architectural: approve the design, then Planner returns a
+   Bounded: approve a short design before Implementer or an Orchestrator direct edit (Planner's design before
+   Implementer; a direct edit uses only an approved scope record). Architectural: approve the design, then Planner returns a
    complete spec draft and self-review; Orchestrator integrates, saves (user's path or
    `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`), self-reviews, and obtains written-spec approval before
    implementation planning. Planner is read-only and cannot request approval.
-3. After approved design/spec and before Coder, Orchestrator assesses plan depth separately from file count, LOC,
+3. After approved design/spec and before Implementer, Orchestrator assesses plan depth separately from file count, LOC,
    or bounded scope. Architectural work always uses `writing-plans` and a written plan approval, regardless of locality,
    risk, or size. For Bounded work skip the plan only for one local change with no dependent stages, cross-component
    shared state, lifecycle or integration-order concerns, and one focused verification path; otherwise require a draft.
@@ -99,9 +108,9 @@ a bounded path or document omission does not imply low risk, and architectural d
    this assessment, including any Bounded written spec requirement, recorded in the brief.
 4. Record dependencies and any plan-depth rationale in the brief. Planner returns the complete proportional plan,
    assumptions/open decisions, verification requirements, and self-review. Orchestrator integrates, saves to the user's
-   path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews, and obtains plan approval before Coder.
+   path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`, self-reviews, and obtains plan approval before Implementer.
    Planner cannot save, implement, or request approval.
-5. Every Coder first start and restart requires all applicable approvals and the Common handoff gate (SKILL.md,
+5. Every Implementer first start and restart requires all applicable approvals and the Common handoff gate (SKILL.md,
    handoff). Non-behavior configuration/documentation may skip inapplicable design/planning stages but not the gate.
 
 When Orchestrator's recorded plan-depth judgment requires a Bounded written spec, record that and its scope,
@@ -129,12 +138,12 @@ and approved obligations. No-change, hold, and resume follow [commit](commit.md)
 
 ## Dependency and readiness record
 
-After plan approval and before the first Coder assignment, Orchestrator records all top-level task IDs in the
+After plan approval and before the first Implementer assignment, Orchestrator records all top-level task IDs in the
 accessible canonical handoff record, linked to the approved plan version. For each task record explicit and implicit
 predecessors, required inputs, outputs and shared contracts, owned files, conflicting shared resources, required
 checks/QA path, ready/held status and reasons. Record the initial ready batch and capacity/serialization reasons.
 Analyze shared APIs, contracts, generated artifacts and resources even when tasks edit different files. Unresolved
-shared contracts or insufficient dependency information block the affected tasks; same-file concurrent Coder edits
+shared contracts or insufficient dependency information block the affected tasks; same-file concurrent Implementer edits
 are blocked even for different lines. Do not infer independence from file separation or plan listing order.
 
 A task is ready only when all applicable approvals and execution preparation are complete, required inputs/contracts
@@ -142,7 +151,7 @@ are available and settled, predecessors have required evidence and Orchestrator 
 commits (or accepted no-change records), ownership/resources do not conflict, its required check/QA path is available,
 and a subagent slot exists under both the configured ARC full-tree cap shared by all roles and any lower actual runtime
 limit (see [limits](limits.md)). Report runtime limits; ARC's cap is not a claim of runtime capability. Start all ready
-independent tasks with fresh Coders concurrently within capacity; record each hold or serialization reason instead of
+independent tasks with fresh Implementers concurrently within capacity; record each hold or serialization reason instead of
 silently following list order. Preserve existing risk gates, risk-scaled QA/Reviewer timing and execution-target
 restrictions.
 
@@ -190,23 +199,23 @@ Claude v1 uses the current checkout or an approved task branch there; managed wo
 Normal order: initial design approval → execution-target choice → target preparation and verification →
 formal spec drafting (when required), saving and self-review → written-spec approval → formal plan drafting
 (when required), saving and self-review → individual plan approvals → complete applicable set → existing-commit
-verification and one batch docs commit of remaining approved documents → final Git verification → Coder handoff.
+verification and one batch docs commit of remaining approved documents → final Git verification → Implementer handoff.
 Written-spec approval precedes dependent plan drafting. On document-omission paths skip only the inapplicable document
-steps; preserve target choice, preparation, state/ownership checks and Coder gates.
+steps; preserve target choice, preparation, state/ownership checks and Implementer gates.
 
 While documents are being written, reviewed, or approved, do not stage documents or commit planning documents.
 Selection and initial target preparation happen before formal drafting; document completion is a staging/commit gate,
-not an initial preparation gate. An incomplete set or missing applicable approval blocks document commit and Coder,
-not the initial choice request. No early Coder work is authorized by approval of only some documents.
+not an initial preparation gate. An incomplete set or missing applicable approval blocks document commit and Implementer,
+not the initial choice request. No early Implementer work is authorized by approval of only some documents.
 
 This ARC defers the local brainstorming early spec commit: save and self-review the spec, obtain written-spec
 approval without committing, then write and approve all plans; commit the spec only in the final batch.
-`writing-plans` commit steps do not permit document commits during planning or start Coder.
+`writing-plans` commit steps do not permit document commits during planning or start Implementer.
 Do not modify external skills.
 
 | Path | Approvals and preparation |
 |---|---|
-| Spike probe | Approve question, method/scope, criteria, constraints; no spec/plan forced. If Coder runs the probe, pass the Common handoff gate after approval. Read-only investigation needs no gate. |
+| Spike probe | Approve question, method/scope, criteria, constraints; no spec/plan forced. If Implementer runs the probe, pass the Common handoff gate after approval. Read-only investigation needs no gate. |
 | Bounded, plan skipped | Approve the short design and record plan-skip criteria; select target, prepare any documents or record absence, pass the gate. |
 | Bounded, plan required | Approve short design and every required plan; a spec only when the depth judgment requires it, approved before dependent plans. One preparation batch, then the gate. |
 | Architectural | Approve design, then spec, then every plan; select and prepare the target before formal drafting; complete the set before batch commit, final verification, and the gate. |
@@ -215,14 +224,43 @@ Do not modify external skills.
 Apply Authorization and scope above to probe-only and combined requests; preserve required design/spec/plan gates.
 These gates add no new spec obligation for Spike, Bounded plan-skip, or non-behavior documentation/configuration paths.
 Document omission skips only document obligations, never target choice, Git/ownership checks,
-or handoff evidence. New scope found in planning requires reassessing the list and additional approvals before dependent drafting or commit; revised approved documents need renewed approval. New scope found during implementation stops dependent
-execution (a running Coder stops before edits dependent on new plans) until its documents, approvals,
-and preparation are complete; do not amend old commits to cover it.
+or handoff evidence. New scope found in planning requires reassessing the list and additional approvals before dependent drafting or commit; revised approved document bodies need renewed approval except mechanical execution records defined below. New scope found during implementation stops dependent
+execution (a running Implementer stops before edits dependent on new plans) until its documents, approvals,
+and preparation are complete. Then reflect the approved plan version in its original planning-document commit under the update contract below; never retroactively authorize work before actual approval.
+
+## Plan updates during execution
+
+Mechanical execution records may be recorded without new user approval: checkbox completion, actual results, evidence
+links and task completion state that preserve the approved execution contract. Record their classification, reason and
+actual recording time in the canonical handoff record. Required checks' removal, invented success, unsupported acceptance
+or scope changes mixed with a completion mark are not mechanical records.
+
+Changes to goals, task scope or boundaries, acceptance criteria, method, risk, dependencies or required verification
+require revised-version approval before affected work. Hold affected execution, obtain necessary design/spec/plan approvals
+in order, and complete target, ownership, checks and handoff preparation before resuming. Other approved body corrections
+follow the document-version approval rules; classify typos, paths, commands and explanations by their semantic effect.
+
+Both mechanical records and approved contract revisions amend the original planning-document commit at a safe checkpoint.
+Make no separate document commit or fixup commit, including for newly approved scope. Preserve implementation task commits.
+This history update does not make actual approval time retroactive: the latest plan in the original commit is not evidence
+that its contents were approved from the outset. Never use rewritten history to justify work started before approval.
+
+In the canonical handoff record preserve plan absolute/Git paths; before and after content hashes and versions; prior and
+revised approval references and actual times; change reason and classification; affected tasks and hold/preparation/resume
+evidence. For mechanical records explain why no new approval is needed and record the time. Preserve recoverable document
+contents, not hashes alone, and each old-to-new SHA mapping for the original document commit and descendant task commits.
+Do not overwrite earlier approval references or the contents they approved.
+
+Orchestrator alone performs the safe rewrite in [handoff-prep](handoff-prep.md#execution-time-plan-amendment) and
+[commit](commit.md#execution-time-plan-document-updates). Shared/published or unknown history, merges, unclear ownership,
+unexpected HEAD/dirty state and replay conflicts stop affected work. No force push or fallback document commit.
+After rewriting, connect evidence to the new state under [verification](verification.md#evidence-after-plan-history-rewrite).
+This contract adds no Git automation, runtime enforcement, authority or exemption from required checks/QA/Reviewer gates.
 
 ## Evidence refresh and limits
 
 Missing or mismatched evidence, unfinished approvals, unclear ownership, or unresolved failure blocks the affected save,
-target request, Git mutation, or Coder handoff; Orchestrator resolves it and reverifies.
+target request, Git mutation, or Implementer handoff; Orchestrator resolves it and reverifies.
 Reverify when scope, approved versions, paths, target, or Git state changes. Never treat an early save or commit as
 satisfying a gate or as approval; record the actual order and gaps. Structural checks prove only the written policy,
 not agent runtime compliance; without execution records for role returns, approvals, saves, and Git actions,
@@ -239,15 +277,17 @@ skill. Missing files stop the stage; report paths without global fallback. Keep 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
-- [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
-- [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
-- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
+- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
+- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
+- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
+- [planning.planner-brief] Before formal drafting, Orchestrator supplies one complete stage-specific brief with original requirements and criteria IDs, approved/open decisions, verified target and ownership, document paths and preceding approved versions, current behavior and connected source/generated/runtime/installer/documentation surfaces, policy conflicts, depth, dependencies, checks, holds and exact deliverable. Preserve shared brief field order. Review the complete draft once and consolidate substantive feedback as changed fields with other fields marked unchanged. Preserve sequential design, spec and plan approvals; no fixed call cap or incomplete drafts, and no calls for already resolved questions.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]
 
 ## Approved cooperative execution path within the repository
 
-The explicitly approved `arc workflow` CLI in this repository connects document commits to the initial Coder assignment in plan mode.
+The explicitly approved `arc workflow` CLI in this repository connects document commits to the initial Implementer assignment in plan mode.
 Its scope is decisions and records within the repository's cooperative path. It adds no authority to install native hooks/providers/installers or block direct tool calls.
 `no-plan`/omission is unsupported by this CLI, and this boundary remains in Phases 2 and 3. This does not imply an omission policy violation or a new obligation to write documents.
 

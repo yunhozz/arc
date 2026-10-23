@@ -20,7 +20,7 @@ recovery material.
 ## Branch collision and invalid names
 
 For an invalid name, branch creation/switch failure, lookup error, or unexpected current branch, inspect and record the
-error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial completion:
+error and actual Git state, then stop Implementer handoff. A branch created without a successful switch is partial completion:
 report it, never delete it automatically, and do not treat preparation as complete.
 Do not fall back to another branch or checkout. A new collision suffix requires fresh user approval of the candidate
 (handoff-prep). Existing staged/unstaged/untracked changes stay preserved; if they block a switch or ownership is

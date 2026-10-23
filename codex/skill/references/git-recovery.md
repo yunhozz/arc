@@ -39,7 +39,7 @@ If existing changes prevent switching or ownership is unclear, stop handoff unti
 scope.
 
 For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
-record the error and actual Git state, then stop Coder handoff. A branch created without a successful switch is partial
+record the error and actual Git state, then stop Implementer handoff. A branch created without a successful switch is partial
 completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically
 fall back to the current checkout path after an operational failure. Both operational failure and missing
 execution-target choice block handoff. Orchestrator resolves the problem and rechecks preparation before handoff.
@@ -48,7 +48,7 @@ execution-target choice block handoff. Orchestrator resolves the problem and rec
 ### Worktree failures and partial completion
 
 Worktree creation, registration, attachment, identity/base verification, checkout, document transfer, staging,
-or commit failure means stop dependent work and Coder handoff. Partial completion includes branch-only creation, partial
+or commit failure means stop dependent work and Implementer handoff. Partial completion includes branch-only creation, partial
 path creation, registration/actual-path mismatch, wrong base or branch, and partial document transfer. Record source and
 target exact command, error, branch, HEAD, Git common directory, registration, index and files, including target dirty
 state and source preservation. Before any authorized retry, inspect actual state and completed work under the Stop and

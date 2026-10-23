@@ -2,7 +2,7 @@
 
 Orchestrator reads before an execution-target choice request and each preparation Git mutation (branch creation/switch,
 staging, commit). The new managed worktree option's selection target is listed in the Execution-target request gate.
-The [Coder handoff gate](handoff.md#coder-handoff-gate), handoff evidence and choice lifetime are in [handoff.md](handoff.md).
+The [Implementer handoff gate](handoff.md#implementer-handoff-gate), handoff evidence and choice lifetime are in [handoff.md](handoff.md).
 
 ## Workspace handoff
 
@@ -126,6 +126,28 @@ Skip this commit only when no planning documents were required and none were pro
 rules; record that fact and the applicable depth rationale. Uncommitted documents cannot be treated as absent.
 This does not require new documents or bypass checkout choice or any other handoff-gate condition.
 
+### Execution-time plan amendment
+
+After the initial approved document batch, execution-time plan updates use
+[planning](planning.md#plan-updates-during-execution), including approved scope revisions. Do not batch these as another
+document commit. This exception does not combine historical document commits or rewrite implementation task contents.
+
+Before mutation, verify the original planning-document commit is an ancestor of HEAD and identify its current replacement.
+Verify unpublished, unshared local linear history with no merge commits; clear ownership and included plan paths; paused
+role writers and a safe boundary for unfinished changes; complete classification, approval and chronology records.
+Preserve unrelated staged, unstaged and untracked changes under the Preservation rule; unexpected dirty state blocks rewrite.
+Secure recoverable pre-rewrite HEAD, original commits and before/after plan contents before mutation.
+
+If the original commit is HEAD, amend the plan paths only; preserve other documents in that commit. With descendant task
+commits, amend the original and reapply descendants in original order preserving task boundaries and implementation contents.
+Create no separate document or intermediate fixup commit. Git changes remain Orchestrator-only.
+
+Unknown publication/sharing status, unclear ownership, merge history, unexpected HEAD/change state or replay conflicts
+require a stop of rewriting and affected dependent work. No automatic conflict resolution, force push or fallback separate
+document commit is permitted. Record actual path, branch/HEAD, index/files and completed steps; Orchestrator resolves the
+issue before resuming and revalidates affected gates. Verify new SHA/HEAD, plan version/content, descendant preservation,
+old-to-new SHA mapping and remaining state under [verification](verification.md#evidence-after-plan-history-rewrite).
+
 ### Recovery prerequisite
 
 On branch collisions, Git preparation failures, partial completion, or metadata write denial, read
@@ -137,5 +159,6 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
 - [external.explicit-user-authority] Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.
-- [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
+- [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]

@@ -11,11 +11,11 @@ import stat
 import tempfile
 import tomllib
 
-ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'coder', 'qa', 'reviewer')}
+ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'implementer', 'qa', 'reviewer')}
 ROLE_TOOLS = {
     'scouter': ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'],
     'planner': ['Read', 'Grep', 'Glob'],
-    'coder': ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'],
+    'implementer': ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'],
     'qa': ['Read', 'Grep', 'Glob', 'Bash'],
     'reviewer': ['Read', 'Grep', 'Glob'],
 }

@@ -9,14 +9,14 @@ For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unve
 
 ## Risk-scaled execution
 
-Orchestrator assigns edits exclusively to Coder except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
+Orchestrator assigns edits exclusively to Implementer except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
 behavior, risk, and smallest meaningful verification.
 
 | Risk | Minimum flow |
 |---|---|
-| Small, low risk | Coder, or Orchestrator direct path → Orchestrator's focused checks → acceptance |
-| Ordinary behavior | Coder → independent QA → acceptance |
-| Significant/high risk | Coder → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Coder → FRESH QA → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
+| Small, low risk | Implementer, or Orchestrator direct path → Orchestrator's focused checks → acceptance |
+| Ordinary behavior | Implementer → independent QA → acceptance |
+| Significant/high risk | Implementer → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Implementer → FRESH QA → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
 
 Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on
 Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused
@@ -34,13 +34,13 @@ boundary and resolve or explicitly disposition findings before dependent impleme
 Reuse evidence only when scope, relevant state, independence, freshness, and flow
 position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
 QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion
-decisions. Orchestrator routes fixes to Coder (a failed direct-path check returns to the normal flow),
+decisions. Orchestrator routes fixes to Implementer (a failed direct-path check returns to the normal flow),
 obtains affected QA rechecks outside the final plan Reviewer correction exception and required final review, and accepts after findings/evidence gaps are resolved or
 explicitly dispositioned.
 
 Criterion verdicts follow the Evidence verdict.
 
-Fresh-per-task rules apply to Coder and QA, not Reviewer. Orchestrator may reuse a Reviewer only while independent
+Fresh-per-task rules apply to Implementer and QA, not Reviewer. Orchestrator may reuse a Reviewer only while independent
 of implementation and self-review, relevant assignment context remains valid, and refreshed review scope, target
 state, and evidence are provided; otherwise assign another independent Reviewer. Reusing a Reviewer does not reuse
 an earlier verdict or waive required review timing or coverage.
@@ -48,9 +48,9 @@ an earlier verdict or waive required review timing or coverage.
 ### Final plan Reviewer correction loop
 
 For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
-Coder → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
+Implementer → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
 the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
-risk-required checks and QA execution failures or unmet criteria still require Coder correction → QA recheck.
+risk-required checks and QA execution failures or unmet criteria still require Implementer correction → QA recheck.
 This exception applies only to findings from the final overall Reviewer of work with a plan.
 Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
 or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
@@ -68,8 +68,8 @@ Completion continuity below; a role report alone does not complete the work.
 
 
 The Risk-scaled execution section above holds the risk table, risk definitions, evidence-reuse rule, and role order,
-including Reviewer timing. Product/test edits belong exclusively to Coder except under the Orchestrator direct path;
-Orchestrator may inspect/run checks but routes code corrections to Coder. Determine the minimum
+including Reviewer timing. Product/test edits belong exclusively to Implementer except under the Orchestrator direct path;
+Orchestrator may inspect/run checks but routes code corrections to Implementer. Determine the minimum
 flow from risk and any specific instruction or approved commitment, and record which requirements each check or review
 satisfies. For small, low-risk work with clear scope and acceptance evidence and no such requirement,
 Orchestrator's focused checks suffice; do not call QA or Reviewer automatically. Significant/high-risk work requires
@@ -84,7 +84,7 @@ An environment failure is distinct from a code failure; report the exact limitat
 
 Use additional Planner/Scouter only for unresolved planning/discovery questions. Reviewer covers substantial changes and
 correctness, factual, security, data, or interface risks. Orchestrator may use Planner/Scouter/Reviewer when justified
-and assigns all Coder/QA work. Specialists report unresolved questions to Orchestrator, who assigns support only when needed.
+and assigns all Implementer/QA work. Specialists report unresolved questions to Orchestrator, who assigns support only when needed.
 
 QA runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
 configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. Outside the final plan Reviewer correction exception, after a
@@ -93,11 +93,24 @@ independent of the work and self-review and when evidence meets required scope a
 Before completion, resolve or explicitly disposition findings and confirm acceptance evidence. Claim checks only
 with verified output.
 
+## Evidence after plan history rewrite
+
+After an approved execution-time plan rewrite, verify new HEAD, approved plan version/content and old-to-new SHA mapping;
+descendant implementation content and task boundaries; and remaining staged/unstaged/untracked state. Preserve the actual
+approval chronology and recoverable previous contents in the canonical handoff record. The latest version in the original
+commit does not establish approval before its actual approval time.
+
+SHA change alone does not invalidate all prior acceptance evidence. Check whether evidence bound to an exact HEAD,
+document or policy can be linked to the new state. If it cannot be linked, or its meaning is affected, repeat affected
+checks and required rechecks. Preserve existing runtime evidence invalidation and exact-state requirements; do not rewrite
+old fingerprints to imply a run against the new HEAD. Refresh affected briefs and gates before dependent work.
+Structural checks establish written-contract alignment, not live agent compliance or successful Git history replay.
+
 ## Task acceptance and final plan acceptance
 
 Task-local acceptance is distinct from overall final plan verification and acceptance. Orchestrator connects each task's
 acceptance criteria to actual evidence, currently required checks and findings before accepting it; checkbox
-completion, a Coder report or passing commands alone do not establish acceptance.
+completion, a Implementer report or passing commands alone do not establish acceptance.
 
 Task acceptance and its focused commit require only the task's risk-scaled evidence: a FRESH QA instance per task that
 needs QA (default to the current QA for post-fix rechecks of the same task while the approved scope, workspace,
@@ -111,11 +124,11 @@ A task commit record does not mark unperformed final verification complete. Orch
 acceptance using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
 Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
 rules. For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
-planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
+planning/approvals. Implementer leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
 state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
-assign another independent Reviewer as needed. Repeat Coder → Reviewer without QA reassignment until findings are
+assign another independent Reviewer as needed. Repeat Implementer → Reviewer without QA reassignment until findings are
 resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
-Final QA findings retain Coder correction and QA recheck before a new focused commit.
+Final QA findings retain Implementer correction and QA recheck before a new focused commit.
 Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
 planning and approval obligations.
 
@@ -144,19 +157,19 @@ verdicts.
 Structural checks prove structural criteria only; they do not prove actual behavior, installation, or live agent runtime
 compliance.
 
-For QA execution failure or an unmet criterion within the current task, Orchestrator defaults to the current Coder
+For QA execution failure or an unmet criterion within the current task, Orchestrator defaults to the current Implementer
 for correction and the current QA for a post-fix recheck, subject to the context, task-boundary and amendment rules in
 [coordination](coordination.md). The finding alone does not create a new task. QA reruns the
 reproduction path and invalidated related checks before Reviewer, reporting the actual actor, target state, outcomes, and limitations,
 and the prior finding resolved, unresolved, or unverified with evidence. Reusing QA does not reuse stale evidence.
-An unresolved finding returns to Coder correction and another QA recheck before Reviewer.
+An unresolved finding returns to Implementer correction and another QA recheck before Reviewer.
 Environment blocks, missing checks, and out-of-scope criteria are evidence gaps, not presumed code defects; Orchestrator
 handles those gaps under the existing disposition policy without substituting Reviewer review for QA evidence.
 
 For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
 source, reproduction conditions and steps, and evidence to Orchestrator, distinguishing source-inferred reproduction
 from execution-observed results without running QA tests. Outside the final plan Reviewer correction exception,
-Orchestrator routes it to Coder correction and QA post-fix recheck. Outside the required final plan correction loop,
+Orchestrator routes it to Implementer correction and QA post-fix recheck. Outside the required final plan correction loop,
 Orchestrator decides when a Reviewer recheck is warranted by the changed scope and independence. Reviewer continues handling
 structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
 issues may require both QA verification and Reviewer source review.
@@ -203,7 +216,7 @@ Leave runtimeHash drift as stale/hold; do not automatically update the stored ve
 
 `operation: "check"` in `prepare` accepts `taskId` and
 `arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`.
-Actor ID attestations must be independent of Coder and Orchestrator; QA/Coder reuse across tasks is rejected. The descriptor must
+Actor ID attestations must be independent of Implementer and Orchestrator; QA/Implementer reuse across tasks is rejected. The descriptor must
 exactly match the registered requiredChecks. After the intent is persisted, the responsible role executes within its existing approved scope.
 `result` or `reconcile` records `intentId` and `{status, messageRef, data}`. data specifies the same
 `actor`, `descriptor` and `scope` as the intent, `taskId` for tasks, `changeFingerprint`, and
@@ -212,16 +225,16 @@ This is an operator verdict record; it does not replace semantic proof of a crit
 Failures, unknown, mismatch and unverified outcomes are not passing evidence. Preserve previous results and failure records.
 
 A failed check/review leaves an open finding. Link a separate finding to an existing check/review through `record` with
-`data: {action: "open", id, checkId, message}`. After a Coder fix, record
-`data: {action: "resolve", id, actor: {id, role: "coder"}, changeFingerprint}` and the fix evidence messageRef.
-The actor must be the Coder assigned to that task, or a relevant task for an overall finding. This marks the finding resolved;
+`data: {action: "open", id, checkId, message}`. After a Implementer fix, record
+`data: {action: "resolve", id, actor: {id, role: "implementer"}, changeFingerprint}` and the fix evidence messageRef.
+The actor must be the Implementer assigned to that task, or a relevant task for an overall finding. This marks the finding resolved;
 it becomes closed only when a subsequent prepare includes it in `findingIds` and revalidation passes for the same change version.
-Earlier QA failures retain the Coder→QA recheck requirement.
+Earlier QA failures retain the Implementer→QA recheck requirement.
 
 `operation: "review"` uses `scope: "final"`, `actor.role: "reviewer"` and
 `descriptor: {kind: "source-review", paths: [...]}`, without taskId. The initial final review requires acceptance of all tasks
 and current required task QA evidence. Reviewer is not a prerequisite gate for task acceptance or focused commits.
-For final Reviewer findings in supported plan work, repeat Coder resolution→Reviewer revalidation without QA reassignment.
+For final Reviewer findings in supported plan work, repeat Implementer resolution→Reviewer revalidation without QA reassignment.
 Do not present earlier QA evidence as execution evidence for a subsequent fix. This exception does not omit separate unresolved QA failures.
 
 Scope, document and approval change records do not overwrite history. Specifying `data.affectedTaskIds` invalidates task,
@@ -236,8 +249,8 @@ In the current plan mode, `prepare` supports `operation: "accept"` and `operatio
 Acceptance is an Orchestrator attestation specifying `actor.role: "orchestrator"`, `taskId`, and, in `arguments`,
 `messageRef`, the same `criteria` as the task, exact `checkIds` for current required QA, all task
 `findingIds` and the current `changeFingerprint`. The latest QA result for each required descriptor must be
-passed/proven, and findings must be closed through Coder fixes and QA rechecks.
-A successful attestation marks the task accepted; passing commands or Coder reports alone do not constitute acceptance.
+passed/proven, and findings must be closed through Implementer fixes and QA rechecks.
+A successful attestation marks the task accepted; passing commands or Implementer reports alone do not constitute acceptance.
 The provenance is `operator-attested`; the operator confirms semantic criterion satisfaction and actor identities.
 
 At acceptance, the code pins the actual index tree, staged diff, paths and task fingerprint together. Orchestrator stages only
@@ -264,10 +277,11 @@ A changed runtimeHash follows the existing stale/hold rules; the stored version 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
-- [review.significant-no-plan] For significant/high-risk work without a plan: Coder → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
-- [review.significant-plan] For significant/high-risk plan work: each task uses Coder → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
-- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Coder → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
-- [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Coder and QA need shell for approved checks.
+- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
+- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
+- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
+- [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]
 
 

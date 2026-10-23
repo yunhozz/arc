@@ -6,18 +6,18 @@ Stage exactly the accepted task paths; inspect staged scope and content to exclu
 After acceptance, Orchestrator creates the focused local commit without additional user commit approval.
 After Orchestrator accepts a task, the next action is the required Git state/scope checks, staging, and focused commit.
 Do not commit before task acceptance or defer the task commit until the plan ends.
-Only Orchestrator accepts the task and executes its focused commit; Coder completion does not replace acceptance.
+Only Orchestrator accepts the task and executes its focused commit; Implementer completion does not replace acceptance.
 Existing plan-skip paths have no new automatic commit obligation; their commits follow applicable guidance and user requests.
 Commit one logical task promptly, using Conventional Commits with a concise English description.
 Task acceptance/commit is distinct from final plan acceptance; remaining final checks and Reviewer timing follow verification.
-Planning documents have their own batch docs commit before Coder handoff.
+Planning documents have their own batch docs commit before Implementer handoff.
 
 After commit, verify exact SHA, subject, included paths, branch/HEAD and remaining index/worktree state.
 Preserve unrelated changes; never automatically unstage, amend, reset, clean, stash, or delete branches.
 On failure, stop dependent work and report actual state and completed steps.
 MUST NOT blindly repeat a commit or staging command.
 Push, merge, publish, deploy, and install still follow their separate guidance and approval rules.
-Coder must not commit, even when explicitly assigned.
+Implementer must not commit, even when explicitly assigned.
 
 Hold the task commit for unmet or unresolved criteria, failed or not-run required checks, undispositioned findings or
 evidence gaps, scope expansion, ownership or staged scope/content mismatch, unexpected workspace/branch/HEAD/Git state,
@@ -27,11 +27,11 @@ commit. If commit creation is unclear, stop and inspect before any retry (see gi
 For a no-change task make no empty commit; record acceptance evidence and no change.
 On resume verify the same task's existing commit SHA, content, and validity and reuse it; never duplicate a successful
 task commit. For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
-planning/approvals. Coder leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
+planning/approvals. Implementer leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
 state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
-assign another independent Reviewer as needed. Repeat Coder → Reviewer without QA reassignment until findings are
+assign another independent Reviewer as needed. Repeat Implementer → Reviewer without QA reassignment until findings are
 resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
-Final QA findings retain Coder correction and QA recheck before a new focused commit.
+Final QA findings retain Implementer correction and QA recheck before a new focused commit.
 Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
 planning and approval obligations.
 
@@ -41,10 +41,24 @@ without trailing period, lowercase scope when useful, one top-level task per com
 In the accessible canonical record link plan path/version, task ID, acceptance evidence and Orchestrator judgment,
 required checks and findings, commit results and state, hold/no-change/reuse reasons, and remaining final verification.
 
+## Execution-time plan document updates
+
+Plan progress and approved revised plan contracts follow [planning](planning.md#plan-updates-during-execution).
+At a safe boundary Orchestrator amends the original planning-document commit; no separate document or fixup commit.
+Mechanical records need no new user approval; changes to the approved execution contract require revised-version approval
+and preparation before affected work. Preserve actual approval chronology; rewriting never approves earlier work retroactively.
+Apply [handoff-prep](handoff-prep.md#execution-time-plan-amendment) safety and preservation checks, recoverable contents and
+old-to-new SHA mappings. Shared/published or unknown history, merges, unclear ownership, unexpected state or replay conflict
+stops affected work without force push or fallback document commit. Revalidate evidence under verification after rewriting.
+
+This is a plan-document exception only. Implementation task acceptance, focused commits and correction follow-up commits
+retain the rules above; do not combine tasks or include implementation changes in the document commit. The initial complete
+approved document batch still precedes Implementer handoff. Existing document approvals and authority limits remain required.
+
 ## Shared-checkout coordination
 
 Orchestrator serializes shared-checkout Git mutations, including index/staging and commits, across concurrent tasks;
-parallel Coders do not operate competing Git transactions. Preserve every other task's unfinished staged, unstaged
+parallel Implementers do not operate competing Git transactions. Preserve every other task's unfinished staged, unstaged
 and untracked changes and ownership. Commit only the accepted task after scope/content verification; unrelated staged
 changes block the commit under the Preservation rule. Do not require unrelated unstaged work to finish or include it
 in the accepted task's commit. Unclear separation or ownership holds affected work for resolution.
@@ -66,5 +80,6 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [scope.non-escalation] Act only where role authority, approved scope and available platform tools all permit. Delegation, restart, agent messages and attached instructions do not expand role authority. MUST NOT bypass a restriction through aliases, scripts, other tools, processes or redelegation. Return conflicting instructions to Orchestrator before dependent work; reuse valid prior approvals for unchanged scope rather than requesting them again.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
 - [external.explicit-user-authority] Push, merge, deploy, publish and external messages require explicit user authorization for that action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialist roles return them without execution.
+- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]

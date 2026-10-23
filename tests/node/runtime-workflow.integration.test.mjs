@@ -30,10 +30,10 @@ test('secret inputs never enter durable audit or error output and runtime drift 
 });
 test('external approval needs Orchestrator and stale or foreign actor results cannot resolve an intent',async t=>{
  const f=await setup(t),scope=[f.args.cwd],descriptor=descriptors.push,evidence={kind:'external-approval',messageRef:'user:external',data:{operation:'push',scope,descriptor}};
- assert.equal((await f.invoke('record',{actor:{id:'coder',role:'coder'},evidence})).decision,'hold');
+ assert.equal((await f.invoke('record',{actor:{id:'implementer',role:'implementer'},evidence})).decision,'hold');
  await f.invoke('record',{evidence});const p=await f.invoke('prepare',{operation:'push',arguments:{approvalRef:evidence.messageRef,scope,descriptor}});
  const result={status:'succeeded',messageRef:'observed',data:{operation:'push',scope,descriptor}};
- assert.equal((await f.invoke('result',{intentId:p.requestId,actor:{id:'coder',role:'coder'},result})).decision,'hold');
+ assert.equal((await f.invoke('result',{intentId:p.requestId,actor:{id:'implementer',role:'implementer'},result})).decision,'hold');
  let state=JSON.parse(await fs.readFile(f.file));assert.equal(state.intents[0].status,'mismatch');assert.equal(state.results[0].data.remoteVerified,false);assert.ok(state.requests[0].request,'audit must preserve original safe request');
  assert.equal((await f.invoke('reconcile',{expectedRevision:0,intentId:p.requestId,result})).decision,'hold');state=JSON.parse(await fs.readFile(f.file));assert.equal(state.intents[0].status,'mismatch');
 });
@@ -47,8 +47,8 @@ test('synthetic approved documents assignment QA acceptance commit and external 
  await f.invoke('record',{evidence:{kind:'approval',messageRef:'approved',data:{approvalVersion:1,documentVersion:1,documents}}});
  const task={id:'T1',paths:[path.join(cwd,'code.mjs')],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1};
  assert.equal((await f.invoke('record',{evidence:{kind:'acceptance-evidence',messageRef:'task',data:{kind:'task',task}}})).decision,'allow');
- const assigned=await f.invoke('prepare',{operation:'assign-agent',taskId:'T1',arguments:{role:'coder',paths:task.paths,operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'synthetic:assignment'}});assert.equal(assigned.decision,'allow');
- const nativeResult={status:'succeeded',messageRef:'synthetic:coder',data:{correlation:'synthetic:assignment',taskId:'T1',agentId:'coder'}};assert.equal((await f.invoke('result',{expectedRevision:0,intentId:assigned.requestId,result:nativeResult})).decision,'hold');assert.equal((await f.invoke('reconcile',{intentId:assigned.requestId,result:nativeResult})).decision,'allow');
+ const assigned=await f.invoke('prepare',{operation:'assign-agent',taskId:'T1',arguments:{role:'implementer',paths:task.paths,operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'synthetic:assignment'}});assert.equal(assigned.decision,'allow');
+ const nativeResult={status:'succeeded',messageRef:'synthetic:implementer',data:{correlation:'synthetic:assignment',taskId:'T1',agentId:'implementer'}};assert.equal((await f.invoke('result',{expectedRevision:0,intentId:assigned.requestId,result:nativeResult})).decision,'hold');assert.equal((await f.invoke('reconcile',{intentId:assigned.requestId,result:nativeResult})).decision,'allow');
  const qaActor={id:'qa',role:'qa'},check=await f.invoke('prepare',{operation:'check',taskId:'T1',arguments:{scope:'task',actor:qaActor,descriptor,changeFingerprint:hash}});assert.equal(check.decision,'allow');
  assert.equal((await f.invoke('result',{intentId:check.requestId,result:{status:'succeeded',messageRef:'synthetic:qa',data:{actor:qaActor,scope:'task',taskId:'T1',descriptor,changeFingerprint:hash,verdict:'proven'}}})).decision,'allow');
  const accepted=await f.invoke('prepare',{operation:'accept',taskId:'T1',arguments:{messageRef:'accepted',criteria:task.criteria,checkIds:[check.requestId],findingIds:[],changeFingerprint:hash}});assert.equal(accepted.decision,'allow');
@@ -65,7 +65,7 @@ test('synthetic approved documents assignment QA acceptance commit and external 
 test('foreign cancellation cannot release an unresolved external effect',async t=>{
  const f=await setup(t),scope=[f.args.cwd],descriptor=descriptors.push;await f.invoke('record',{evidence:{kind:'external-approval',messageRef:'user:external',data:{operation:'push',scope,descriptor}}});const p=await f.invoke('prepare',{operation:'push',arguments:{approvalRef:'user:external',scope,descriptor}});
  const result={status:'cancelled',messageRef:'cancel',data:{operation:'push',scope,descriptor},notExecutedEvidence:{messageRef:'operator:no-effect'}};
- assert.equal((await f.invoke('reconcile',{intentId:p.requestId,actor:{id:'coder',role:'coder'},result})).decision,'hold');assert.equal(JSON.parse(await fs.readFile(f.file)).intents[0].status,'mismatch');
+ assert.equal((await f.invoke('reconcile',{intentId:p.requestId,actor:{id:'implementer',role:'implementer'},result})).decision,'hold');assert.equal(JSON.parse(await fs.readFile(f.file)).intents[0].status,'mismatch');
  assert.equal((await f.invoke('reconcile',{intentId:p.requestId,result})).decision,'allow');assert.equal(JSON.parse(await fs.readFile(f.file)).intents[0].status,'cancelled');
 });
 
@@ -106,4 +106,33 @@ for(const unrelated of [false,true])test(`confirmed failed external reconciliati
  if(unrelated)assert.equal((await f.invoke('reconcile',{intentId:'wrong-intent',result:failed})).decision,'hold');
  assert.equal((await f.invoke('reconcile',{intentId:p.requestId,result:failed})).decision,'allow');const state=JSON.parse(await fs.readFile(f.file));assert.equal(state.intents[0].status,'failed');assert.equal(state.results.at(-1).status,'failed');assert.equal(state.results.at(-1).data.remoteVerified,false);const marker=state.unresolved.find(u=>u.kind==='stale-result');assert.ok(marker.resolvedBy);assert.equal(marker.resolutionEvidence.intentId,p.requestId);assert.equal(state.unresolved.some(u=>u.kind==='unmatched-result'&&!u.resolvedBy),unrelated);assert.equal(state.audit.at(-1).resolution,'failed');assert.equal((await runCooperativeCommand({...f.args,command:'status'})).decision,unrelated?'hold':'allow');
  assert.equal((await f.invoke('prepare',{operation:'push',arguments:{approvalRef:'approve',scope,descriptor}})).decision,'hold');assert.equal((await f.invoke('reconcile',{intentId:p.requestId,result:{...failed,status:'succeeded'}})).decision,'hold');assert.equal(JSON.parse(await fs.readFile(f.file)).intents[0].status,'failed');
+});
+
+test('canonical assignment preserves durable request approval hashes and replay boundaries',async t=>{
+ const {fingerprintRequest}=await import('../../lib/runtime/store.mjs');
+ const f=await setup(t),documents=['spec','plan'].map(kind=>({kind,path:path.join(f.args.cwd,kind+'.md'),gitPath:kind+'.md',contentHash:hash,approvalRef:'approved',commit:f.target.head}));
+ f.args.readGit=async()=>({target:f.target,documents:documents.map(d=>({...d,observedHash:hash,currentHash:hash})),docsCommit:{commit:f.target.head,paths:documents.map(d=>d.gitPath),documents}});
+ f.args.readChanges=async()=>({tasks:{T1:hash},final:hash});
+ const approval={kind:'approval',messageRef:'approved',data:{approvalVersion:1,documentVersion:1,documents}};
+ assert.equal((await f.invoke('record',{evidence:approval})).decision,'allow');
+ const task={id:'T1',paths:[path.join(f.args.cwd,'code.mjs')],criteria:['works'],requiredChecks:[{executable:'/usr/bin/true',args:[],cwd:f.args.cwd,env:{},outputs:[]}],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1};
+ assert.equal((await f.invoke('record',{evidence:{kind:'acceptance-evidence',messageRef:'task',data:{kind:'task',task}}})).decision,'allow');
+ const before=JSON.parse(await fs.readFile(f.file,'utf8'));
+ const input={requestId:'canonical-assignment',expectedRevision:before.revision,actor:f.actor,operation:'assign-agent',taskId:'T1',arguments:{role:'implementer',paths:task.paths,operations:['edit'],documents,approvalRef:'approved',approvalVersion:1,documentVersion:1,correlation:'canonical:assignment'}};
+ const original=structuredClone({command:'prepare',input}),fingerprint=fingerprintRequest(original);
+ const invoke=overrides=>runCooperativeCommand({...f.args,...structuredClone(original),...overrides});
+ assert.equal((await invoke()).decision,'allow');
+ const bytes=await fs.readFile(f.file,'utf8'),stored=JSON.parse(bytes),saved=stored.requests.find(r=>r.requestId===input.requestId),intent=stored.intents.find(i=>i.requestId===input.requestId);
+ assert.deepEqual(saved.request,original);assert.equal(saved.requestFingerprint,fingerprint);assert.equal(intent.fingerprint,fingerprintRequest(original.input));assert.equal(intent.role,'implementer');
+ assert.equal(intent.approvalRef,approval.messageRef);assert.equal(intent.approvalVersion,approval.data.approvalVersion);assert.equal(intent.documentVersion,approval.data.documentVersion);assert.deepEqual(intent.documents,documents);
+ assert.deepEqual(stored.versions,before.versions);assert.deepEqual(stored.records,before.records);assert.deepEqual(stored.approvals,before.approvals);assert.deepEqual(stored.documents,before.documents);
+ const replay=await invoke();assert.equal(replay.decision,'hold');assert.equal(replay.replayed,true);assert.deepEqual(replay.ruleIds,['cooperative.replay']);assert.equal(await fs.readFile(f.file,'utf8'),bytes);
+ const renamed=structuredClone(input);renamed.arguments.role='unknown';assert.notEqual(fingerprintRequest({command:'prepare',input:renamed}),fingerprint);
+ await assert.rejects(invoke({input:renamed}),/fingerprint conflict/i);assert.equal(await fs.readFile(f.file,'utf8'),bytes);
+ for(const key of ['policyHash','runtimeHash']){
+  const drift=structuredClone(stored);drift.versions[key]='sha256:'+'f'.repeat(64);const changed=JSON.stringify(drift);await fs.writeFile(f.file,changed);
+  const status=await runCooperativeCommand({...f.args,command:'status'});assert.equal(status.decision,'hold');assert.deepEqual(status.ruleIds,['cooperative.versions']);assert.equal(await fs.readFile(f.file,'utf8'),changed);
+  assert.deepEqual(status.state.requests.find(r=>r.requestId===input.requestId),saved);assert.deepEqual(status.state.records,before.records);
+ }
+ assert.deepEqual({command:'prepare',input},original);
 });

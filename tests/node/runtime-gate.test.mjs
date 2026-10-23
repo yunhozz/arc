@@ -50,7 +50,7 @@ for(const [name,mutate] of [
  ['stale expected tree',f=>{f.gitEvidence.indexTree=sha('f');}],
  ['HEAD drift',f=>{f.gitEvidence.target.head=sha('f');}],
  ['wrong worktree',f=>{f.gitEvidence.target.realpath='/other';}],
- ['specialist mutation',f=>{f.state.identities[0].role='coder';}],
+ ['specialist mutation',f=>{f.state.identities[0].role='implementer';}],
  ['retired actor',f=>{f.state.leases[0].status='retired';}],
 ])test(`task preflight holds or denies ${name} without transition`,async()=>{
  assert.equal(typeof api.runGate,'function');const f=fixture();mutate(f);const before=structuredClone(f.state);

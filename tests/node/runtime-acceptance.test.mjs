@@ -6,7 +6,7 @@ function fixture(){
  const target={realpath:'/workspace',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',branch:'main',head:oid('a')};
  const descriptor={executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]};
  const task={id:'T1',paths:['/workspace/code.mjs'],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1,status:'pending'};
- const state={mode:'plan',revision:1,target,targetVersion:1,scopeVersion:0,versions:{runtimeHash:hash('a')},tasks:[task],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',scopeVersion:0,targetVersion:1,data:{approvalVersion:1,documentVersion:1}}],assignments:[{taskId:'T1',agentId:'coder',status:'active'}],checks:[{id:'qa',scope:'task',taskId:'T1',operation:'check',descriptor,verificationActor:{id:'qa1',role:'qa'},status:'passed',verdict:'proven',changeFingerprint:hash('a'),resultRef:'qa:passed',source:'operator-attested'}],findings:[],acceptances:[],commits:[],intents:[],unresolved:[]};
+ const state={mode:'plan',revision:1,target,targetVersion:1,scopeVersion:0,versions:{runtimeHash:hash('a')},tasks:[task],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',scopeVersion:0,targetVersion:1,data:{approvalVersion:1,documentVersion:1}}],assignments:[{taskId:'T1',agentId:'implementer',status:'active'}],checks:[{id:'qa',scope:'task',taskId:'T1',operation:'check',descriptor,verificationActor:{id:'qa1',role:'qa'},status:'passed',verdict:'proven',changeFingerprint:hash('a'),resultRef:'qa:passed',source:'operator-attested'}],findings:[],acceptances:[],commits:[],intents:[],unresolved:[]};
  const request={requestId:'accept',expectedRevision:1,actor:{id:'operator',role:'orchestrator'},taskId:'T1',operation:'accept',arguments:{messageRef:'operator:accepted',criteria:['works'],checkIds:['qa'],findingIds:[],changeFingerprint:hash('a')}};
  const git={target,indexTree:oid('b'),stagedFingerprint:hash('b'),stagedPaths:['code.mjs'],workingPaths:[],untrackedPaths:[]};
  return {state,request,evidence:{changes:{tasks:{T1:hash('a')},final:hash('a')},git},gitEvidence:git};
@@ -18,7 +18,7 @@ function prepared(){const f=accepted(),d=prepare(f);assert.equal(d.decision,'all
 function reconcile(f){assert.equal(typeof api.reconcileCooperativeCommit,'function','commit reconciliation must exist');return api.reconcileCooperativeCommit(f);}
 test('acceptRequiresExactCriteriaChecksAndFindings',()=>{
  const f=fixture();assert.equal(accept(f).decision,'allow');assert.equal(f.state.tasks[0].status,'pending');
- for(const mutate of [f=>f.request.arguments.criteria=[],f=>f.request.arguments.checkIds=[],f=>f.state.checks[0].changeFingerprint=hash('d'),f=>f.state.checks[0].verificationActor.id='coder',f=>f.state.findings.push({id:'F',scope:'task',taskId:'T1',status:'open'}),f=>f.state.records[0].messageRef='changed',f=>f.request.actor.role='coder']){const f=fixture();mutate(f);assert.equal(accept(f).decision,'hold');}
+ for(const mutate of [f=>f.request.arguments.criteria=[],f=>f.request.arguments.checkIds=[],f=>f.state.checks[0].changeFingerprint=hash('d'),f=>f.state.checks[0].verificationActor.id='implementer',f=>f.state.findings.push({id:'F',scope:'task',taskId:'T1',status:'open'}),f=>f.state.records[0].messageRef='changed',f=>f.request.actor.role='implementer']){const f=fixture();mutate(f);assert.equal(accept(f).decision,'hold');}
 });
 test('acceptedFingerprintCannotCommitDifferentIndex',()=>{for(const mutate of [f=>f.gitEvidence.indexTree=oid('d'),f=>f.gitEvidence.stagedFingerprint=hash('d'),f=>f.evidence.changes.tasks.T1=hash('d'),f=>f.state.tasks[0].criteria=['changed']]){const f=accepted();mutate(f);assert.equal(prepare(f).decision,'hold');}});
 test('unrelatedStagedPathsHold',()=>{const f=fixture();f.gitEvidence.stagedPaths.push('other.mjs');assert.equal(accept(f).decision,'hold');const g=fixture();g.state.tasks.push({...g.state.tasks[0],id:'T2'});assert.equal(accept(g).decision,'hold','overlapping another task must hold');});
@@ -45,7 +45,7 @@ test('durable acceptance and reconciliation update target only from verified obs
  assert.equal((await invoke('prepare',{operation:'commit',taskId:'T1',arguments:{acceptanceId:'r0'}})).decision,'allow');
  target={...target,head:oid('c')};git={...git,target,indexTree:oid('b'),stagedPaths:[],commit:{commit:oid('c'),parent:oid('a'),tree:oid('b'),paths:['code.mjs'],head:oid('c')}};
  const result={status:'succeeded',messageRef:'actual commit',data:{commit:oid('c')}};
- assert.equal((await invoke('reconcile',{intentId:'r1',actor:{id:'coder',role:'coder'},result})).decision,'hold');
+ assert.equal((await invoke('reconcile',{intentId:'r1',actor:{id:'implementer',role:'implementer'},result})).decision,'hold');
  assert.equal(JSON.parse(await fs.readFile(file)).target.head,oid('a'));
  assert.equal((await invoke('reconcile',{intentId:'r1',result:{...result,status:'unknown'}})).decision,'hold');
  assert.equal(JSON.parse(await fs.readFile(file)).intents.find(i=>i.requestId==='r1').status,'unknown');
