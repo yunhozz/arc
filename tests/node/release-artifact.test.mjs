@@ -107,3 +107,8 @@ for(const filename of ['package.json','package-lock.json'])test('rejects '+filen
  await assert.rejects(api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli}),error=>{assert.doesNotMatch(error.message,/PRIVATE_EXTERNAL|SENTINEL_NOT_JSON/);assert.match(error.message,/regular|unsafe|symlink/i);return true;});
  assert.equal(fs.readFileSync(outside,'utf8'),'PRIVATE_EXTERNAL_SENTINEL_NOT_JSON');assert.equal(fs.existsSync(f.outDir+'/arc-release.json'),false);
 });
+test('release refuses a missing TUI dependency even with a refreshed manifest',async t=>{
+ const f=copy(t);fs.unlinkSync(f.input+'/lib/tui/setup.mjs');
+ const refreshed=spawnSync(process.execPath,[source+'/scripts/update-manifest.mjs','--root',f.input],{encoding:'utf8'});assert.equal(refreshed.status,0,refreshed.stderr);
+ await assert.rejects(api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli}),/missing|Payload/i);
+});

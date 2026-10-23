@@ -23,17 +23,16 @@ test('Git global install and reinstall preserve an executable CLI with inherited
   assert.doesNotMatch(installed.stdout+installed.stderr,/ENOTDIR|ARC version .* installed!|Select an installation/);
   assert.equal(installed.status,0,installed.stderr);assert.ok(fs.existsSync(executable),'Git installation must preserve its executable after npm cache clone cleanup');
   assert.ok(fs.statSync(fs.realpathSync(executable)).isFile());assert.equal(command(executable,['--version']).trim(),pkg.version);
-  const completion=command(executable,['completion','zsh']),probe=completion+'\ncompadd() { print -rl -- "${candidates[@]}"; }\nwords=(arc ""); CURRENT=2; _arc';
-  const candidates=command('zsh',['-f','-c',probe]).trim().split('\n');for(const name of ['preset','uninstall'])assert.ok(candidates.includes(name));
+  const completion=spawnSync(executable,['completion','zsh'],{cwd:root,env,encoding:'utf8'});assert.equal(completion.status,2);assert.match(completion.stderr,/Unsupported arguments/);
   assert.equal(fs.existsSync(home+'/.zshrc'),false);
  }
  assert.equal(fs.existsSync(home+'/.codex'),false);assert.equal(fs.existsSync(home+'/.claude'),false);
 });
 
-test('install check and dry-run never register completion or create shell files',t=>{
+test('removed install arguments fail without creating harness or shell files',t=>{
  const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-completion-preview-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));
- for(const mode of ['--check','--dry-run']){
-  const result=spawnSync(process.execPath,['bin/arc.mjs','--target','all','--preset','balanced','--language','ko',mode],{cwd:path.resolve(import.meta.dirname,'../..'),env:{...process.env,HOME:home,CODEX_HOME:home+'/.codex'},encoding:'utf8',timeout:30000});
-  assert.equal(result.status,0,result.stderr);assert.doesNotMatch(result.stdout,/eval .*arc completion|Would .*\.zshrc/);assert.deepEqual(fs.readdirSync(home),[]);
+ for(const args of [['completion','zsh'],['--check'],['--dry-run'],['--target','all']]){
+  const result=spawnSync(process.execPath,['bin/arc.mjs',...args],{cwd:path.resolve(import.meta.dirname,'../..'),env:{...process.env,HOME:home,CODEX_HOME:home+'/.codex'},encoding:'utf8',timeout:30000});
+  assert.equal(result.status,2,result.stderr);assert.match(result.stderr,/Unsupported arguments/);assert.deepEqual(fs.readdirSync(home),[]);
  }
 });
