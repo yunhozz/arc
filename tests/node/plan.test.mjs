@@ -1,4 +1,5 @@
 import{referenceFixture}from'./fixtures/fake-git.mjs';
+import {createHash} from 'node:crypto';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
@@ -12,7 +13,7 @@ test('skip-global does not read invalid global contents',t=>{const home=fixture(
 test('All rejects overlapping homes, external paths and managed destinations',t=>{const home=fixture(t);const codex=plan(home),claude=plan(home,'claude');assert.equal(api.validatePlanSet([codex,claude]),undefined);assert.throws(()=>api.validatePlanSet([codex,{...claude,managedPaths:[codex.managedPaths[0]]}]),{code:'ARC_TARGET_CONFIGURATION'});assert.throws(()=>api.validatePlanSet([codex,{...claude,externalPaths:[codex.managedPaths[0]]}]),{code:'ARC_TARGET_CONFIGURATION'});assert.throws(()=>api.validatePlanSet([codex,{...claude,target:{...claude.target,home:codex.target.home}}]),{code:'ARC_TARGET_CONFIGURATION'});});
 test('plan construction performs no writes, temp allocation, locks, child processes or network',t=>{const home=fixture(t),input={payload:payload(),target:targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),preset:'balanced',safeFs};const originals=[];const reject=()=>{throw Error('Forbidden side effect');};function replace(object,name,replacement=reject){originals.push([object,name,object[name]]);object[name]=replacement;}
 function guard(handle){return new Proxy(handle,{get(target,key){if(['mkdir','unlink','rmdir','renameTo','symlink','chmod','setTimes','sync','write','writeAll'].includes(key))return reject;if(key==='openDir')return name=>guard(target.openDir(name));if(key==='openFile')return(name,options)=>{if(options?.create||options?.createExclusive||options?.read===false)reject();return guard(target.openFile(name,options));};const member=target[key];return typeof member==='function'?member.bind(target):member;}});}input.safeFs={openRoot:p=>guard(safeFs.openRoot(p))};
-try{for(const name of ['writeFileSync','mkdirSync','mkdtempSync','renameSync','unlinkSync','rmSync','appendFileSync'])replace(fs,name);for(const name of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork'])replace(cp,name);replace(globalThis,'fetch');syncBuiltinESMExports();assert.equal(api.buildInstallPlan(input).target.platform,'codex');}finally{for(const[o,k,v]of originals)o[k]=v;syncBuiltinESMExports();}assert.deepEqual(fs.readdirSync(home),[]);});
+try{for(const name of ['writeFileSync','mkdirSync','mkdtempSync','renameSync','unlinkSync','rmSync','appendFileSync'])replace(fs,name);for(const name of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork'])replace(cp,name);replace(globalThis,'fetch');syncBuiltinESMExports();assert.equal(api.buildInstallPlan(input).target.platform,'codex');for(const platform of ['codex','claude']){const target=targets.resolveTarget(platform,{userHome:home,env:{}});assert.ok(api.previewLimits({target,safeFs:input.safeFs}).snapshot instanceof Map);assert.ok(api.previewLanguage({target,safeFs:input.safeFs}).snapshot instanceof Map);}}finally{for(const[o,k,v]of originals)o[k]=v;syncBuiltinESMExports();}assert.deepEqual(fs.readdirSync(home),[]);});
 test('Claude skill link exception is limited to the same default Codex skill directory',t=>{const home=fixture(t);fs.mkdirSync(`${home}/.claude/skills`,{recursive:true});fs.mkdirSync(`${home}/.codex/skills/brainstorming`,{recursive:true});fs.symlinkSync('../../.codex/skills/brainstorming',`${home}/.claude/skills/brainstorming`);assert.equal(plan(home,'claude').target.platform,'claude');fs.unlinkSync(`${home}/.claude/skills/brainstorming`);fs.symlinkSync('/tmp',`${home}/.claude/skills/brainstorming`);assert.equal(plan(home,'claude').externalPaths.length,0);assert.equal(fs.readlinkSync(`${home}/.claude/skills/brainstorming`),'/tmp');});
 
 test('plan ignores existing external special files and shared symlinks',t=>{const home=fixture(t);fs.mkdirSync(home+'/.codex/skills/brainstorming',{recursive:true});assert.equal(cp.spawnSync('mkfifo',[home+'/.codex/skills/brainstorming/pipe']).status,0);fs.mkdirSync(home+'/.agents/skills',{recursive:true});fs.symlinkSync('/unavailable',home+'/.agents/skills/brainstorming');const result=plan(home);assert.deepEqual(result.externalPaths,[]);assert.equal([...result.snapshot.keys()].some(p=>p.includes('/brainstorming')),false);});
@@ -157,4 +158,53 @@ test('legacy role appearing during staging aborts installation before profile pu
  const home=fixture(t),p=plan(home),legacy=home+'/.codex/agents/arc-coder.toml';
  assert.throws(()=>applyTransaction(p,{safeFs,acquired:{references:referenceFixture()},hooks:{fault(event){if(event.phase==='after-stage'&&event.path.endsWith('/arc-implementer.toml')&&!fs.existsSync(legacy))fs.writeFileSync(legacy,'unexpected role');}}}),error=>error.code==='ARC_INSTALL_DRIFT');
  assert.equal(fs.existsSync(home+'/.codex/agents/arc-implementer.toml'),false);assert.equal(fs.readFileSync(legacy,'utf8'),'unexpected role');
+});
+
+// Capture public output bytes and iteration order; normalize only the temporary
+// HOME and its encoded hook URL so the baseline is independent of the fixture.
+const renderingBaseline={
+ 'codex:en:false':'1692570dd3496c2e95524a8d574aee9205c315770baf2304ba8e3cce336467e8',
+ 'codex:en:true':'0634b2daf65d049e9097712c7b051999c51a141173c8a9c493aca8aa9abef1ff',
+ 'codex:ko:false':'22d0313c41cc2c1039ae24c8dfb2ceb6473a71ae2dd32dd80a9757ca24cb91ed',
+ 'codex:ko:true':'2f57f7ae78cfa92cfd89e8ff4bf9dc9f3361aabc43a22fd00bce7ccc70060447',
+ 'claude:en:false':'153219374f8138403deb017722238bc537b888e1f3655d7b77b13af76fdcb9e9',
+ 'claude:en:true':'181a8bb2fffa456f8d2054acdd885889e8502e11c482cea980c8d7e94b5a32e9',
+ 'claude:ko:false':'4683f83b4efb210439b335c61352eb88e5a5b304c5c18b32064c4d7fd5d2e794',
+ 'claude:ko:true':'9248f835a117492bba15097f0dc9c830426693a7c4149193b5ad1b5fc8a4b745',
+};
+for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
+ const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
+ const limitsPreview=api.previewLimits({target,safeFs}),languagePreview=api.previewLanguage({target,safeFs});
+ const result=plan(home,platform,{language,skipGlobal,limitsPreview,languagePreview,limits:{max_total_subagents:2,max_concurrent_subagents:9},concurrentExplicit:true});
+ const normalize=value=>value.replaceAll(home,'<HOME>').replace(/^          command: (.+)$/gm,(line,json)=>{
+  const command=JSON.parse(json),encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(command)[1];
+  const url=Buffer.from(encoded,'base64').toString().replaceAll(home,'<HOME>');
+  return '          command: '+JSON.stringify(command.replace(encoded,Buffer.from(url).toString('base64')));
+ });
+ const buffers=entries=>[...entries].map(([name,bytes])=>{assert.ok(Buffer.isBuffer(bytes),name);return[name,normalize(bytes.toString())];});
+ const observed={models:normalize(result.generated.models.toString()),profiles:buffers(result.generated.profiles),skill:buffers(result.generated.skill),
+  globalChanges:result.globalChanges.map(({path,original,content,action})=>({path:normalize(path),original,content:normalize(content.toString()),action})),
+  summary:result.summary.map(normalize),snapshot:[...result.snapshot].map(([name,metadata])=>[normalize(name),metadata]),
+  managedPaths:result.managedPaths.map(normalize),externalPaths:result.externalPaths};
+ const key=`${platform}:${language}:${skipGlobal}`,digest=createHash('sha256').update(JSON.stringify(observed)).digest('hex');
+ assert.equal(digest,renderingBaseline[key]);
+ assert.deepEqual(fs.readdirSync(home),[]);
+});
+test('public planning errors retain validation precedence for multiple invalid inputs',t=>{
+ const home=fixture(t),target=targets.resolveTarget('claude',{userHome:home,env:{}}),input=payload();
+ const invoke=extra=>api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,...extra});
+ const message=extra=>{try{invoke(extra);assert.fail('Expected planning rejection');}catch(error){return{code:error.code,message:error.message};}};
+ const invalidLanguage=message({language:'fr'});input.modelInputs.claude=undefined;
+ assert.deepEqual(message({language:'fr',limits:{max_total_subagents:0}}),invalidLanguage);
+ fs.mkdirSync(target.home+'/skills/arc',{recursive:true});
+ fs.writeFileSync(target.home+'/skills/arc/settings.toml','version = 9');
+ fs.writeFileSync(target.home+'/skills/arc/limits.toml','version = 9');
+ assert.match(message({}).message,/^Invalid ARC language settings:/);
+ fs.writeFileSync(target.home+'/skills/arc/settings.toml','version = 1\nlanguage = "en"\n');
+ assert.match(message({}).message,/^Invalid ARC limits:/);
+ fs.unlinkSync(target.home+'/skills/arc/limits.toml');
+ assert.deepEqual(message({}),{code:'ARC_TARGET_CONFIGURATION',message:'Selected payload platform is unavailable'});
+ input.modelInputs=payload().modelInputs;input.files.delete('claude/skill/hooks/git-policy.json');
+ fs.symlinkSync('/outside',target.instructionPath);
+ assert.deepEqual(message({}),{code:'ARC_TARGET_CONFIGURATION',message:'Invalid Claude Git guard: Missing hook assets'});
 });
