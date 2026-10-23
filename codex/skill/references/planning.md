@@ -319,7 +319,12 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 
 ## Approved cooperative execution path within the repository
 
-The explicitly approved `arc workflow` CLI in this repository connects document commits to the initial Implementer assignment in plan mode.
+The approved installed workflow entry connects document commits to the initial Implementer assignment in plan mode.
+Resolve `<target-home>/skills/arc/runtime/cli.mjs` from the actual loaded ARC skill location selected by the installation
+resolver, including custom homes. Invoke `node` with that path and command options as separate arguments; for shell
+calls use `node "$ARC_RUNTIME_ENTRY" <command> --cwd "$ARC_CHECKOUT" --workflow "$ARC_WORKFLOW_ID" --input -`
+with safely assigned, quoted values. See [handoff](handoff.md) for invocation and continuity requirements.
+An entry update does not migrate existing state or renew approvals; runtime/target drift still requires current evidence.
 Its scope is decisions and records within the repository's cooperative path. It adds no authority to install native hooks/providers/installers or block direct tool calls.
 `no-plan`/omission is unsupported by this CLI, and this boundary remains in Phases 2 and 3. This does not imply an omission policy violation or a new obligation to write documents.
 

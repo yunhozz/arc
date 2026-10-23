@@ -60,3 +60,11 @@ for(const platform of ['codex','claude']){
   assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes(`Stale role policy output: ${name}`));
  });
 }
+
+for(const platform of ['codex','claude'])for(const file of ['cli.mjs','command.mjs','bootstrap.mjs','cooperative-schema.mjs','cooperative.mjs','evaluate.mjs','scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs','external.mjs','role-policy.json']){
+ const name=`${platform}/skill/runtime/${file}`;
+ test(`payload requires installed workflow dependency ${name} after manifest refresh`,t=>{
+  const root=fixture(t);fs.rmSync(`${root}/${name}`,{force:true});refresh(root);
+  assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes(`Required runtime asset is missing: ${name}`));
+ });
+}
