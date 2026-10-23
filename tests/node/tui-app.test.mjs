@@ -28,3 +28,27 @@ test('mixed target result keeps success alongside failed rollback and residual p
  assert.match(rows,/fixture target failure/);
  assert.equal(code,1);
 });
+
+test('global update child diagnostics remain visible in the TUI result',async()=>{
+ const{runTui}=await load();const session=terminal([...down(3),enter,...down(2),enter]);
+ await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>({code:1,exitSession:true,results:[],stdout:'codex: installed; rollback: not-needed\nclaude: failed; rollback: failed\nResidual path: /tmp/recovery\n',stderr:'Error: restore failed; manual recovery required\n'})}});
+ const rows=session.screens.at(-1).rows.join('\n');assert.match(rows,/codex: installed/);assert.match(rows,/claude: failed; rollback: failed/);assert.match(rows,/Residual path: \/tmp\/recovery/);assert.match(rows,/manual recovery required/);
+});
+test('interrupted execution reports completed cleanup after terminal restoration for Ctrl+C and signals',async()=>{
+ const{EventEmitter}=await import('node:events');const{runTui}=await load();
+ for(const trigger of ['Ctrl+C','SIGINT','SIGTERM']){
+  const signals=new EventEmitter(),input=new EventEmitter(),session=terminal([...down(3),enter,...down(2),enter]);let output='';
+  const code=await runTui({signals,input,session,output:{write(text){assert.equal(session.closed,true);output+=text;}},context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async context=>{if(trigger==='Ctrl+C')input.emit('data',Buffer.from('\x03'));else signals.emit(trigger);assert.equal(context.signal.aborted,true);return{code:130,results:[{platform:'codex',status:'installed',rollback:'not-needed'},{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/cancel-recovery'],error:Error('cleanup failed')},{platform:'other',status:'not-started'}]};}}});
+  assert.equal(code,130);assert.match(output,/codex: installed/);assert.match(output,/claude: failed; rollback: failed/);assert.match(output,/Residual path: \/tmp\/cancel-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/other: not-started/);assert.match(output,/Exit code: 130/);
+ }
+});
+test('post-disposal reports escape terminal controls while retaining diagnostic rows',async()=>{
+ const{runTui}=await load();
+ for(const code of [1,130]){
+  const session=terminal([...down(3),enter,...down(2),enter]);let output='';
+  const actualCode=await runTui({session,output:{write(text){assert.equal(session.closed,true);output+=text;}},context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>({code,exitSession:true,stdout:'codex: installed\nchild: \x1b[2Jkeep\rdiagnostic\n',stderr:'Error: child\x07 failure\n',results:[{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/\x1b[31mrecovery\rpath'],error:Error('restore\x08 failed')}]})}});
+  assert.equal(actualCode,code);assert.ok(output.startsWith('codex: installed\nchild: \\x1b[2Jkeep\\x0ddiagnostic\nError: child\\x07 failure\n'));
+  assert.ok(output.includes('Residual path: /tmp/\\x1b[31mrecovery\\x0dpath\n'));assert.ok(output.includes('Error: restore\\x08 failed\n'));assert.ok(output.includes('Exit code: '+code+'\n'));
+  assert.doesNotMatch(output,/[\x00-\x09\x0b-\x1f\x7f]/);assert.ok(output.endsWith('\n'));
+ }
+});

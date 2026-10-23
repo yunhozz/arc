@@ -1,2 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 test('workflow init uses only entered actor and selection and fixed plan mode',async()=>{const{runWorkflow}=await import('../../lib/tui/workflow.mjs');let payload;const menuAnswers=[0,0,null,null],textAnswers=['demo','entered-actor','user:selection','sha256:'+'b'.repeat(64)];const ui={menu:async()=>menuAnswers.shift(),text:async()=>textAnswers.shift(),page:async()=>{},review:async()=>true};await runWorkflow({ui,cwd:'/workspace',services:{listWorkflows:async()=>[],observeWorkspace:async()=>({realpath:'/workspace',head:'a'.repeat(40),branch:'main'}),prepareWorkflow:async options=>{payload=options;return options;},executeWorkflow:async()=>({code:3,decision:'hold',ruleIds:['cooperative.versions'],nextActions:[]})},onResult:r=>assert.equal(r.code,3)});assert.deepEqual(payload.input,{mode:'plan',actor:{id:'entered-actor'},selection:{messageRef:'user:selection',contentHash:'sha256:'+'b'.repeat(64)}});});
+
+test('non-repository cwd can change workspace before workflow discovery',async()=>{
+ const{runWorkflow}=await import('../../lib/tui/workflow.mjs');const screens=[],answers=[1,0,null,null];let listed;
+ await runWorkflow({cwd:'/outside',ui:{menu:async(title,rows,options)=>{screens.push({title,rows,options});return answers.shift();},text:async()=>'/repository'},services:{observeWorkspace:async cwd=>{if(cwd==='/outside')throw Error('Not a Git repository');return{realpath:'/repository',branch:'main',head:'a'.repeat(40)};},listWorkflows:async cwd=>{listed=cwd;return[];}}});
+ assert.equal(listed,'/repository');assert.ok(screens[0].rows.includes('Change workspace'));assert.ok(screens.some(s=>s.options?.info?.includes('Workspace: /repository')));
+});
