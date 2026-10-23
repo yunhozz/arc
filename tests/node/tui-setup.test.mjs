@@ -13,3 +13,9 @@ test('returning to target selection retains selected target and canceled input r
  const ui={menu:async(title,rows,options)=>{if(title==='Install / Reconfigure')targets.push(options?.selected);return answers.shift();},text:async()=>null};
  await runSetup({ui,statuses:[],draft,kind:'install',prepare:async()=>assert.fail('no review')});assert.deepEqual(targets,[0,1,1]);assert.equal(draft.claude.maxTotalSubagents,100);
 });
+test('toggling global settings retains field 4 and Review Edit retains the review row',async()=>{
+ const{runSetup}=await import('../../lib/tui/setup.mjs');const answers=[0,4,5,5];const selected=[],globalLabels=[];let reviews=0;const draft={};
+ const ui={menu:async(title,rows,options)=>{if(title.startsWith('Settings — ')){selected.push(options?.selected??0);globalLabels.push(rows[4]);}return answers.shift()??null;},review:async()=>++reviews===1?'edit':'cancel'};
+ await runSetup({ui,statuses:[],draft,kind:'install',prepare:async options=>options});
+ assert.deepEqual(selected,[0,4,5]);assert.deepEqual(globalLabels,['Apply global settings: true','Apply global settings: false','Apply global settings: false']);assert.equal(draft.codex.skipGlobal,true);
+});
