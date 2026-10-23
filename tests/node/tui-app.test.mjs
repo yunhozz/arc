@@ -57,7 +57,7 @@ test('home has four actions, exits on Escape and never calls Workflow',async()=>
  const{runTui}=await load();const session=terminal([back]);let calls=0;
  const code=await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>{calls++;},executeOperation:async()=>{calls++;},listWorkflows:async()=>assert.fail('hidden Workflow must not run')}});
  assert.equal(code,0);assert.equal(calls,0);assert.equal(session.closed,true);assert.equal(session.screens.length,1);
- assert.deepEqual(session.screens[0].rows,['Configure','Update','Uninstall','Exit']);assert.match(session.screens[0].hint,/Esc: exit/);
+ assert.deepEqual(session.screens[0].rows,['Configure','Update','Uninstall','Exit']);assert.match(session.screens[0].hint,/Esc Exit/);
 });
 test('Configure Escape returns home before home Escape disposes',async()=>{
  const{runTui}=await load();const session=terminal([enter,back,back]);await runTui({session,context:{},services:{collectStatus:async()=>[]}});
@@ -122,4 +122,10 @@ test('review summary wraps at standard terminal width so Apply remains available
 test('review keeps package retention and preservation impacts visible for both targets',async()=>{
  const{createTuiInterface}=await load();const session=terminal([enter]);await createTuiInterface(session).review('Uninstall',{kind:'uninstall',options:{target:'all'},plans:['codex','claude'].map(platform=>({target:{platform,home:'/tmp/'+platform},removals:['/tmp/'+platform+'/arc'],globalChanges:[]}))});
  const rows=session.screens[0].rows;assert.ok(rows.includes('CLI npm package is retained.'));assert.ok(rows.includes('Preserve native concurrency, user files, other skills and workflow audit state.'));
+});
+test('all screen types use contextual compact hints while retaining existing navigation',async()=>{
+ const{createTuiInterface}=await load();const session=terminal([back,back,back,back,back]);const ui=createTuiInterface(session);
+ await ui.menu('Configure',['Install / Reconfigure','Change Preset']);await ui.text('Maximum total subagents','100');await ui.page('Result',['Exit code: 0']);await ui.page('Operation unavailable',['fixture failure']);await ui.review('Update',{kind:'update',plans:[]});await ui.busy(async()=>({code:0}));
+ const hints=Object.fromEntries(session.screens.map(screen=>[screen.title,screen.hint]));
+ assert.equal(hints.Configure,'↑/↓: Select · Enter Continue · Esc Back');assert.equal(hints['Maximum total subagents'],'Type/Paste Input · ← Delete · Enter Continue · Esc/Backspace Back');assert.equal(hints.Result,'↑/↓: Scroll · Enter Back · Esc Back');assert.equal(hints['Operation unavailable'],'↑/↓: Scroll · Enter Back · Esc Back');assert.equal(hints['Review Update'],'↑/↓: Select · Enter Continue · Esc Back');assert.equal(hints.Working,'Ctrl+C Interrupt');
 });

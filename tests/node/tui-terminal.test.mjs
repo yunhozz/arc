@@ -65,3 +65,10 @@ test('viewport follows resize and only fixed home wordmark receives trusted colo
  io.resize(100,30);assert.equal((await io.session.nextEvent()).name,'resize');assert.deepEqual(io.session.viewport(),{columns:100,rows:30});
  io.session.dispose();assert.match(io.text(),/\x1b\[0m\x1b\[\?2004l/);
 });
+
+test('home outline stays white while rule and selected action are green, with styles reset before other content',t=>{
+ const io=session(t);io.session.render({title:'ARC',wordmark:true,rows:['Codex: Installed','Configure','Update'],selected:1});
+ const text=io.text();assert.ok(text.includes('\x1b[37m╔════╗  ╦════╗  ╔════╗\x1b[0m'));assert.match(text,/\x1b\[32m─+\x1b\[0m/);
+ assert.match(text,/\x1b\[48;2;16;55;26m\x1b\[38;2;220;245;224m> Configure +\x1b\[0m/);assert.match(text,/\x1b\[2K  Update\n/);assert.doesNotMatch(text,/\nARC\n/);
+ io.resize(32,18);assert.match(io.text(),/> Configure/);io.session.dispose();assert.match(io.text(),/\x1b\[0m\x1b\[\?2004l/);
+});
