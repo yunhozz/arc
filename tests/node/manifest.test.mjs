@@ -60,3 +60,17 @@ for(const platform of ['codex','claude']){
   assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes(`Stale role policy output: ${name}`));
  });
 }
+
+const requiredRuntimePaths = [
+ 'lib/runtime/acceptance.mjs','lib/runtime/adapters/claude.mjs','lib/runtime/adapters/codex.mjs',
+ 'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs',
+ 'lib/runtime/cooperative-schema.mjs','lib/runtime/cooperative.mjs','lib/runtime/evaluate.mjs',
+ 'lib/runtime/external.mjs','lib/runtime/gate.mjs','lib/runtime/git-evidence.mjs',
+ 'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/operations.mjs',
+ 'lib/runtime/schema.mjs','lib/runtime/scope.mjs','lib/runtime/store.mjs','lib/runtime/verification.mjs'
+];
+test('regenerating the manifest cannot hide any required canonical or installed runtime asset',t=>{
+ const root=fixture(t);const required=['codex/skill/runtime/role-policy.json','claude/skill/runtime/role-policy.json',...requiredRuntimePaths,...['codex','claude'].flatMap(platform=>requiredRuntimePaths.map(name=>platform+'/skill/runtime/'+name.slice('lib/runtime/'.length))),'lib/installer/runtime-assets.mjs'];
+ for(const name of required){const file=path.join(root,name);assert.ok(fs.existsSync(file),name);const bytes=fs.readFileSync(file);fs.unlinkSync(file);refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes('Required runtime asset is missing: '+name),name);fs.writeFileSync(file,bytes);}
+ refresh(root);assert.ok(verify(root).files instanceof Map);
+});
