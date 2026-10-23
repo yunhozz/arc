@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-const run=(args,input)=>spawnSync(process.execPath,['bin/arc.mjs','workflow',...args],{input,encoding:'utf8'});
+for(const entry of [['--input-type=module','-e',"import {runWorkflowCommand} from './lib/runtime/command.mjs';process.exitCode=await runWorkflowCommand(process.argv.slice(1));"],['lib/runtime/cli.mjs']]){
+const run=(args,input)=>spawnSync(process.execPath,[...entry,...args],{input,encoding:'utf8'});
 test('workflow CLI emits structured input errors with exit one',()=>{
  for(const [args,input] of [[[],undefined],[['status','--cwd','relative','--workflow','x'],undefined],[['record','--cwd',process.cwd(),'--workflow','x','--input','-'],'{'],[['status','--cwd',process.cwd(),'--workflow','../x'],undefined]]){
   const r=run(args,input);assert.equal(r.status,1);const body=JSON.parse(r.stdout);assert.equal(body.persisted,false);assert.equal(body.decision,'hold');assert.ok(Array.isArray(body.ruleIds));assert.equal(r.stderr,'');
@@ -66,3 +67,5 @@ test('workflow CLI refuses credential-bearing external approval before persisten
  const secret='https://user:private-value@example.com/repo';const r=run(['record','--cwd',process.cwd(),'--workflow','external-secret','--input','-'],JSON.stringify({requestId:'secret',expectedRevision:0,actor:{id:'operator',role:'orchestrator'},evidence:{kind:'external-approval',messageRef:'approval',data:{destination:secret}}}));
  assert.equal(r.status,1);assert.match(JSON.parse(r.stdout).error,/Secret-free/);assert.ok(!r.stdout.includes('private-value'));assert.equal(r.stderr,'');
 });
+
+}

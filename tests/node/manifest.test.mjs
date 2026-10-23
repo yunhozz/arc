@@ -3,7 +3,7 @@ import {openRoot} from '../../lib/safe-fs/index.mjs'; import {loadNative} from '
 const api=await import('../../lib/installer/manifest.mjs').catch(()=>({}));
 const native=loadNative({artifactDirectory:'build/native'}); const safeFs={openRoot:p=>openRoot(p,{native})};
 const source=new URL('../../',import.meta.url).pathname;
-function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','package.json','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});fs.mkdirSync(`${root}/bin`);fs.writeFileSync(`${root}/bin/arc.mjs`,'// entrypoint\n');fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
+function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','package.json','bin','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
 function refresh(root){const r=spawnSync(process.execPath,[`${source}/scripts/update-manifest.mjs`,'--root',root],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);}
 function verify(root){return api.verifyPayload({packageRoot:root,safeFs});}
 test('descriptor-verifies bytes and mutable model inputs',t=>{const root=fixture(t);assert.equal(typeof api.verifyPayload,'function');const p=verify(root);assert.ok(p.files instanceof Map);assert.deepEqual(p.modelInputs.codex.models,fs.readFileSync(`${root}/codex/skill/models.toml`));assert.equal(p.modelInputs.claude.profiles.size,5);});
@@ -63,7 +63,7 @@ for(const platform of ['codex','claude']){
 
 const requiredRuntimePaths = [
  'lib/runtime/acceptance.mjs','lib/runtime/adapters/claude.mjs','lib/runtime/adapters/codex.mjs',
- 'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs',
+ 'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs','lib/runtime/cli.mjs','lib/runtime/command.mjs',
  'lib/runtime/cooperative-schema.mjs','lib/runtime/cooperative.mjs','lib/runtime/evaluate.mjs',
  'lib/runtime/external.mjs','lib/runtime/gate.mjs','lib/runtime/git-evidence.mjs',
  'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/operations.mjs',

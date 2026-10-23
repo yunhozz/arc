@@ -177,8 +177,18 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 ## Initial Implementer assignment through the cooperative CLI
 
 In approved plan mode, Orchestrator performs the following sequence. All mutation commands pass JSON through stdin with
-`arc workflow <command> --cwd <absolute-checkout> --workflow <id> --input -`.
+`node "$ARC_RUNTIME_ENTRY" <command> --cwd "$ARC_CHECKOUT" --workflow "$ARC_WORKFLOW_ID" --input -`.
+Resolve `ARC_RUNTIME_ENTRY` from the actual ARC skill directory selected by the installation resolver:
+`<target-home>/skills/arc/runtime/cli.mjs`. Use the loaded skill's location, including a custom target home;
+do not guess the default home or use a package, checkout or cache entry. Pass the resolved path, checkout and
+workflow ID as separate argv values when using a process API. In a shell, assign values safely and double-quote
+these variables; never interpolate paths into executable shell text or use `eval`.
 Query `status` without `--input`.
+
+The entry preserves the cooperative state path in the selected checkout's Git common directory. Installing or
+updating the entry does not migrate state or renew approvals. Runtime/hash, target, actor and revision checks still
+apply: runtime drift holds existing evidence; obtain the required current evidence and approval through the
+existing recovery procedure. A new workflow cannot retroactively validate earlier execution.
 
 1. Prepare the docs-only commit of the approved spec and plan, and verify the exact document set, objects and current files.
    Perform `init`, approval `record` and `prepare` only after this commit verification, even when user approval preceded the document commit.

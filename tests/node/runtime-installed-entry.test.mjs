@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {spawnSync,spawn} from 'node:child_process';
+
+for(const platform of ['codex','claude'])test(`${platform} installed endpoint preserves workflow guards without package dependencies`,async t=>{
+ const home=await fs.mkdtemp(path.join(os.tmpdir(),"arc home '$ (installed)-"));t.after(()=>fs.rm(home,{recursive:true,force:true}));
+ const runtime=path.join(home,'skills/arc/runtime');await fs.mkdir(path.dirname(runtime),{recursive:true});await fs.cp(`${platform}/skill/runtime`,runtime,{recursive:true});
+ const entry=path.join(runtime,'cli.mjs');assert.equal(await fs.stat(entry).then(s=>s.isFile()).catch(()=>false),true);
+ const run=(args,input)=>spawnSync(process.execPath,[entry,...args],{cwd:home,input,encoding:'utf8'});
+ const git=args=>{const r=spawnSync('git',args,{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
+ const common=git(['rev-parse','--path-format=absolute','--git-common-dir']);
+ const metadata=async()=>({head:git(['rev-parse','HEAD']),branch:git(['branch','--show-current']),index:await fs.readFile(path.join(common,'index'))});
+ const before=await metadata(),workflow=`installed-${platform}-${process.pid}`;t.after(()=>fs.rm(path.join(common,'arc/workflows',workflow),{recursive:true,force:true}));
+ const base=['--cwd',await fs.realpath(process.cwd()),'--workflow',workflow];
+ const invoke=(command,input,status)=>{const r=run([command,...base,...(input!==undefined?['--input','-']:[])],input);assert.equal(r.status,status,r.stdout+r.stderr);assert.equal(r.stderr,'');return JSON.parse(r.stdout);};
+ assert.equal(invoke('record','{',1).decision,'hold');
+ assert.equal(invoke('init',JSON.stringify({mode:'no-plan',actor:{id:'operator'},selection:{messageRef:'target',contentHash:'sha256:'+'a'.repeat(64)}}),3).persisted,false);
+ assert.equal(invoke('init',JSON.stringify({mode:'plan',actor:{id:'operator'},selection:{messageRef:'target',contentHash:'sha256:'+'a'.repeat(64)}}),0).persisted,true);
+ assert.equal(invoke('status',undefined,0).revision,0);
+ const record={requestId:'note',expectedRevision:0,actor:{id:'operator'},evidence:{kind:'note',messageRef:'note',data:{value:1}}};
+ assert.equal(invoke('record',JSON.stringify(record),0).revision,1);
+ assert.equal(invoke('record',JSON.stringify({...record,requestId:'stale'}),3).decision,'hold');
+ const secret='https://user:private-value@example.com/repo';
+ const rejected=invoke('record',JSON.stringify({...record,requestId:'secret',expectedRevision:1,evidence:{kind:'external-approval',messageRef:'approval',data:{destination:secret}}}),1);
+ assert.match(rejected.error,/Secret-free/);assert.ok(!JSON.stringify(rejected).includes('private-value'));
+ assert.equal(invoke('prepare',JSON.stringify({requestId:'unsupported',expectedRevision:1,actor:{id:'operator'},operation:'assign-agent'}),3).decision,'hold');
+ await fs.appendFile(path.join(runtime,'command.mjs'),'\n// runtime drift\n');
+ assert.equal(invoke('status',undefined,3).decision,'hold');
+ assert.deepEqual(await metadata(),before);
+ // Leave stdin open: an import must neither read it nor terminate the caller.
+ const child=spawn(process.execPath,['--input-type=module','-e',`await import(${JSON.stringify(pathToFileURL(entry).href)}); console.log('imported');`],{cwd:home,stdio:['pipe','pipe','pipe']});
+ t.after(()=>{child.stdin.destroy();child.kill();});let stdout='',stderr='';child.stdout.on('data',v=>stdout+=v);child.stderr.on('data',v=>stderr+=v);
+ const outcome=await Promise.race([new Promise(resolve=>child.on('close',code=>resolve({code}))),new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),2000))]);
+ assert.deepEqual(outcome,{code:0});assert.equal(stdout,'imported\n');assert.equal(stderr,'');
+});

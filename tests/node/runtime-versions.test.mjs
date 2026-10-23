@@ -6,11 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
-const baselineHash='sha256:3ae01bec5a119224455527da7a1061ce40661be68f36b61c37095c1d6a0f9ba4';
+const baselineHash='sha256:cf832e506cdc8606dab896665ea533b77689f0c88779ba3299376a963afa7faa';
 
 // Independent T5 contract: omission, reordering or unhashed gate bytes must fail.
 const expectedModules = [
- 'bootstrap.mjs', 'cooperative-schema.mjs', 'cooperative.mjs', 'evaluate.mjs',
+ 'cli.mjs', 'command.mjs', 'bootstrap.mjs', 'cooperative-schema.mjs', 'cooperative.mjs', 'evaluate.mjs',
  'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs', 'external.mjs'
 ];
 for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/runtime/']) {

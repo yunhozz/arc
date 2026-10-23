@@ -1,0 +1,54 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+const load=()=>import('../../lib/tui/app.mjs');
+function terminal(events){const screens=[];return{screens,render(s){screens.push(s);return{applyEnabled:true};},discardInput(){},setBusy(){},dispose(){this.closed=true;},async nextEvent(){return events.shift()??{name:'eof'};}};}
+const down=n=>Array.from({length:n},()=>({name:'down'})),enter={name:'enter'},back={name:'back'};
+test('home navigation never executes and retains failure until a new execution',async()=>{const{runTui}=await load();const session=terminal([...down(3),enter,...down(2),enter,enter,back,...down(2),enter]);let calls=0;const code=await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>{calls++;return{code:1,results:[{platform:'codex',status:'failed',rollback:'complete',residualPaths:['/tmp/remains']}]};}}});assert.equal(calls,1);assert.equal(code,1);assert.ok(session.screens.some(s=>s.rows.includes('Install / Reconfigure')));assert.ok(session.screens.some(s=>s.title==='Result'&&s.rows.some(r=>r.includes('rollback: complete'))));assert.equal(session.closed,true);});
+test('global replacement exits before rendering home again',async()=>{const{runTui}=await load();const session=terminal([...down(3),enter,...down(2),enter]);const code=await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>({code:0,exitSession:true,results:[]})}});assert.equal(code,0);assert.equal(session.screens.filter(s=>s.title==='ARC Management').length,4);assert.equal(session.screens.at(-1).title,'Result');});
+test('default review cancels and never calls execute',async()=>{const{runTui}=await load();const session=terminal([...down(3),enter,enter,...down(2),enter]);let calls=0;await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>{calls++;}}});assert.equal(calls,0);});
+test('review shows every prepared managed path before final apply',async()=>{const{createTuiInterface}=await load();const session=terminal([...down(2),enter,enter,enter,enter,...down(1),enter]);const ui=createTuiInterface(session);const result=await ui.review('Install / Reconfigure',{kind:'install',options:{target:'codex'},plans:[{target:{platform:'codex',home:'/tmp/home'},managedPaths:Array.from({length:12},(_,i)=>'/tmp/home/file'+i),globalChanges:[{path:'/tmp/home/.zshrc',action:'remove managed completion'}],summary:['global cleanup planned']}]});assert.equal(result,'apply');assert.ok(session.screens.some(s=>s.rows.some(r=>r.includes('/tmp/home/file11'))));assert.ok(session.screens.some(s=>s.rows.some(r=>r.includes('remove managed completion'))));});
+test('interrupt during workflow confirmation propagates exit 130',async()=>{const{runTui}=await load();const session=terminal([...down(2),enter,enter,enter,...Array.from({length:4},()=>enter),{name:'interrupt'}]);const code=await runTui({session,context:{cwd:'/workspace'},services:{collectStatus:async()=>[],observeWorkspace:async()=>({realpath:'/workspace',head:'a'.repeat(40),branch:'main'}),listWorkflows:async()=>[],prepareWorkflow:async o=>o}});assert.equal(code,130);});
+test('install applies chosen Korean harness policy through an English review',async()=>{const{runTui}=await load();const session=terminal([enter,enter,{name:'down'},enter,{name:'down'},enter,...down(5),enter,...down(2),enter,enter,...down(5),enter]);let preparedOptions;const code=await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async(c,o)=>{preparedOptions=o;return{kind:'install',options:o,plans:[]};},executeOperation:async()=>({code:0,results:[{platform:'codex',status:'installed'}]})}});assert.equal(preparedOptions.language,'ko');assert.equal(preparedOptions.maxTotalSubagents,100);assert.equal(preparedOptions.maxConcurrentSubagents,5);assert.equal(code,0);assert.ok(session.screens.some(s=>s.title==='Review Install / Reconfigure'));});
+test('preset and uninstall are reachable with explicit review',async()=>{const{runTui}=await load();for(const kind of ['preset','uninstall']){const sequence=kind==='preset'?[...down(1),enter,enter,...down(1),enter,...down(2),enter,enter]:[...down(4),enter,enter,enter,...down(2),enter,enter,enter,{name:'down'},enter,enter];const session=terminal(sequence);let executed;await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async(c,o)=>({kind:o.kind,options:o,plans:[]}),executeOperation:async(c,p)=>{executed=p.kind;return{code:0,results:[]};}}});assert.equal(executed,kind);assert.ok(session.screens.some(s=>s.title.startsWith('Review ')));}});
+test('Ctrl+C during asynchronous execution aborts the service and exits 130',async()=>{const{EventEmitter}=await import('node:events');const{runTui}=await load();const input=new EventEmitter(),session=terminal([...down(3),enter,...down(2),enter]);const code=await runTui({input,session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async context=>{const waiting=new Promise(resolve=>context.signal?.addEventListener('abort',()=>resolve({code:130,results:[]}),{once:true}));input.emit('data',Buffer.from('\x03'));return Promise.race([waiting,new Promise(resolve=>setTimeout(()=>resolve({code:0,results:[]}),50))]);}}});assert.equal(code,130);assert.equal(input.listenerCount('data'),0);});
+test('uninstall review reflects explicit preservation of global ARC blocks',async()=>{const{createTuiInterface}=await load();const session=terminal([enter]);await createTuiInterface(session).review('Uninstall Harness',{kind:'uninstall',options:{target:'codex',skipGlobal:true},plans:[]});const rows=session.screens[0].rows.join('\n');assert.match(rows,/Preserve ARC global instruction blocks/);assert.doesNotMatch(rows,/Remove selected ARC global instruction blocks/);});
+test('mixed target result keeps success alongside failed rollback and residual paths',async()=>{
+ const{runTui}=await load();
+ const session=terminal([...down(3),enter,...down(2),enter,enter,...down(2),enter]);
+ const code=await runTui({session,context:{},services:{
+  collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),
+  executeOperation:async()=>({code:1,exitSession:false,results:[
+   {platform:'codex',status:'installed',rollback:'not-needed',residualPaths:[]},
+   {platform:'claude',status:'failed',rollback:'complete',residualPaths:['/tmp/claude-residual'],error:Error('fixture target failure')}
+  ]})
+ }});
+ const rows=session.screens.filter(s=>s.title==='Result').flatMap(s=>s.rows).join('\n');
+ assert.match(rows,/codex: installed; rollback: not-needed/);
+ assert.match(rows,/claude: failed; rollback: complete/);
+ assert.match(rows,/Residual path: \/tmp\/claude-residual/);
+ assert.match(rows,/fixture target failure/);
+ assert.equal(code,1);
+});
+
+test('global update child diagnostics remain visible in the TUI result',async()=>{
+ const{runTui}=await load();const session=terminal([...down(3),enter,...down(2),enter]);
+ await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>({code:1,exitSession:true,results:[],stdout:'codex: installed; rollback: not-needed\nclaude: failed; rollback: failed\nResidual path: /tmp/recovery\n',stderr:'Error: restore failed; manual recovery required\n'})}});
+ const rows=session.screens.at(-1).rows.join('\n');assert.match(rows,/codex: installed/);assert.match(rows,/claude: failed; rollback: failed/);assert.match(rows,/Residual path: \/tmp\/recovery/);assert.match(rows,/manual recovery required/);
+});
+test('interrupted execution reports completed cleanup after terminal restoration for Ctrl+C and signals',async()=>{
+ const{EventEmitter}=await import('node:events');const{runTui}=await load();
+ for(const trigger of ['Ctrl+C','SIGINT','SIGTERM']){
+  const signals=new EventEmitter(),input=new EventEmitter(),session=terminal([...down(3),enter,...down(2),enter]);let output='';
+  const code=await runTui({signals,input,session,output:{write(text){assert.equal(session.closed,true);output+=text;}},context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async context=>{if(trigger==='Ctrl+C')input.emit('data',Buffer.from('\x03'));else signals.emit(trigger);assert.equal(context.signal.aborted,true);return{code:130,results:[{platform:'codex',status:'installed',rollback:'not-needed'},{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/cancel-recovery'],error:Error('cleanup failed')},{platform:'other',status:'not-started'}]};}}});
+  assert.equal(code,130);assert.match(output,/codex: installed/);assert.match(output,/claude: failed; rollback: failed/);assert.match(output,/Residual path: \/tmp\/cancel-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/other: not-started/);assert.match(output,/Exit code: 130/);
+ }
+});
+test('post-disposal reports escape terminal controls while retaining diagnostic rows',async()=>{
+ const{runTui}=await load();
+ for(const code of [1,130]){
+  const session=terminal([...down(3),enter,...down(2),enter]);let output='';
+  const actualCode=await runTui({session,output:{write(text){assert.equal(session.closed,true);output+=text;}},context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[]}),executeOperation:async()=>({code,exitSession:true,stdout:'codex: installed\nchild: \x1b[2Jkeep\rdiagnostic\n',stderr:'Error: child\x07 failure\n',results:[{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/\x1b[31mrecovery\rpath'],error:Error('restore\x08 failed')}]})}});
+  assert.equal(actualCode,code);assert.ok(output.startsWith('codex: installed\nchild: \\x1b[2Jkeep\\x0ddiagnostic\nError: child\\x07 failure\n'));
+  assert.ok(output.includes('Residual path: /tmp/\\x1b[31mrecovery\\x0dpath\n'));assert.ok(output.includes('Error: restore\\x08 failed\n'));assert.ok(output.includes('Exit code: '+code+'\n'));
+  assert.doesNotMatch(output,/[\x00-\x09\x0b-\x1f\x7f]/);assert.ok(output.endsWith('\n'));
+ }
+});

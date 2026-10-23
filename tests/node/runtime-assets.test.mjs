@@ -6,7 +6,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 const expectedPaths = [
  'lib/runtime/acceptance.mjs','lib/runtime/adapters/claude.mjs','lib/runtime/adapters/codex.mjs',
- 'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs',
+ 'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs','lib/runtime/cli.mjs','lib/runtime/command.mjs',
  'lib/runtime/cooperative-schema.mjs','lib/runtime/cooperative.mjs','lib/runtime/evaluate.mjs',
  'lib/runtime/external.mjs','lib/runtime/gate.mjs','lib/runtime/git-evidence.mjs',
  'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/operations.mjs',
@@ -14,7 +14,7 @@ const expectedPaths = [
 ];
 async function fixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'arc-assets-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
- for(const name of expectedPaths){await fs.mkdir(path.dirname(path.join(root,name)),{recursive:true});await fs.writeFile(path.join(root,name),'export const version=1;\n');}
+ await fs.cp(new URL('../../lib/runtime',import.meta.url),path.join(root,'lib/runtime'),{recursive:true});
  await fs.mkdir(path.join(root,'lib/policy'),{recursive:true});await fs.writeFile(path.join(root,'lib/policy/role-policy.json'),'{}\n');
  await fs.mkdir(path.join(root,'scripts'));await fs.copyFile(new URL('../../scripts/update-runtime-assets.mjs',import.meta.url),path.join(root,'scripts/update-runtime-assets.mjs'));
  await fs.mkdir(path.join(root,'lib/installer'));const inventory=paths=>fs.writeFile(path.join(root,'lib/installer/runtime-assets.mjs'),'export const RUNTIME_MODULE_PATHS = Object.freeze('+JSON.stringify(paths)+');\n');await inventory(expectedPaths);
@@ -38,8 +38,15 @@ for(const kind of ['canonical-only','inventory-only','duplicate'])test(`generato
 test('runtime generator copies inventory additions and preserves check-only symlink and unmanaged-file safety',async t=>{
  const {root,inventory,run}=await fixture(t);await fs.writeFile(path.join(root,'lib/runtime/install-only.mjs'),'export const install=1;\n');await inventory([...expectedPaths,'lib/runtime/install-only.mjs'].sort());
  assert.equal(run([]).status,0);for(const platform of ['codex','claude'])assert.equal(await fs.readFile(path.join(root,platform,'skill/runtime/install-only.mjs'),'utf8'),'export const install=1;\n');
- const target=path.join(root,'codex/skill/runtime/schema.mjs');assert.equal(await fs.readFile(target,'utf8'),'export const version=1;\n');assert.equal(run(['--check']).status,0);
+ const target=path.join(root,'codex/skill/runtime/schema.mjs');assert.deepEqual(await fs.readFile(target),await fs.readFile(path.join(root,'lib/runtime/schema.mjs')));assert.equal(run(['--check']).status,0);
  await fs.writeFile(target,'drift');assert.equal(run(['--check']).status,1);assert.equal(await fs.readFile(target,'utf8'),'drift');assert.equal(run([]).status,0);assert.equal(run(['--check']).status,0);
  const unmanaged=path.join(root,'codex/skill/runtime/user.txt');await fs.writeFile(unmanaged,'keep');assert.equal(run([]).status,0);assert.equal(await fs.readFile(unmanaged,'utf8'),'keep');
  await fs.unlink(target);await fs.symlink(unmanaged,target);assert.equal(run([]).status,1);assert.equal(await fs.readFile(unmanaged,'utf8'),'keep');
+});
+
+test('runtime generator rejects a missing installed command dependency',async t=>{
+ const {root,run}=await fixture(t);
+ await fs.rm(path.join(root,'lib/runtime/command.mjs'),{force:true});
+ const result=run([]);
+ assert.equal(result.status,1);assert.match(result.stderr,/command.mjs/);
 });
