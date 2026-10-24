@@ -28,7 +28,11 @@ Package installation provides the CLI, not the harness. Install or manage the ha
 
 ## Manage ARC
 
-Choose `Configure` to select Codex, Claude Code, or both, then set the model preset, agent limits, response language, and global settings. Review the planned changes before applying them. `Update` preserves installation settings. `Uninstall` removes the selected ARC harness and managed profiles but keeps the CLI; `npm uninstall -g @yunhozz/arc` removes only the CLI.
+Choose `Install / Update` to select Codex, Claude Code, or both, set the preset, limits, language, and global settings, then select `Execute` and press Enter. `Change Preset` edits a draft; select the focused `Apply` row and press Enter to apply it. The blank line above either action is not selectable. These actions run after validation without a review screen.
+
+`Check Version` shows the current and latest CLI versions. A selectable `Version Upgrade` appears only when a newer version is available. Enter applies that displayed version while preserving installed settings. Global upgrades replace the CLI and end the session; npx upgrades use the displayed payload without replacing the global CLI. Use `Install / Update` to reconfigure or refresh the same version.
+
+`Uninstall` retains target/global-instruction selection and review with `Edit` and `Cancel`. After every selected harness is removed successfully, it removes the verified global CLI, including from an npx session. Harness failures or interruptions skip CLI removal. Results distinguish partial harness removal and CLI failure. Unselected harnesses, user files, other npm packages, and shared npx cache remain. `npm uninstall -g @yunhozz/arc` removes only the CLI.
 
 The TUI requires a terminal with input and output. Its only commands are `arc`, `arc --help`, and `arc --version`; help and version also work without a TTY.
 
