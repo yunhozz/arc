@@ -3009,16 +3009,21 @@
       "status": "verified",
       "destination": {
         "file": "tests/node/cli-dry-run.test.mjs",
-        "test": "dry-run lists generated files and Codex/Claude global changes while check remains read-only"
+        "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
       },
       "destinations": [
         {
           "file": "tests/node/cli-dry-run.test.mjs",
-          "test": "dry-run lists generated files and Codex/Claude global changes while check remains read-only"
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "과거 --check/--dry-run 성공과 generated/global 변경 목록 출력은 f140b5 TUI-only 인터페이스로 대체됐다. 현행 매핑은 제거된 두 CLI 문법의 종료 코드 2 거부 및 harness/shell 무변경을 검증하며, 과거 Would update global file/AGENTS.md/config.toml 출력이 남아 있다고 주장하지 않는다."
       ],
       "assertionLines": [
         1885,
@@ -3027,7 +3032,8 @@
         1888,
         1890,
         1891
-      ]
+      ],
+      "reclassification": "과거 --check/--dry-run 성공과 generated/global 변경 목록 출력은 f140b5 TUI-only 인터페이스로 대체됐다. 현행 매핑은 제거된 두 CLI 문법의 종료 코드 2 거부 및 harness/shell 무변경을 검증하며, 과거 Would update global file/AGENTS.md/config.toml 출력이 남아 있다고 주장하지 않는다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_invalid_global_config_blocks_install_before_changes",
@@ -3693,7 +3699,7 @@
         "file": "tests/node/plan.test.mjs",
         "test": "plan generates buffers and snapshots while optional external skills are absent"
       },
-      "reclassification": "CLI mode/pipeline ordering requires the T6 public entrypoint.",
+      "reclassification": "CLI mode/pipeline ordering requires the T6 public entrypoint. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/plan.test.mjs",
@@ -3729,11 +3735,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/consumer.test.mjs",
@@ -3745,7 +3755,8 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2195,
@@ -4252,7 +4263,7 @@
         "file": "tests/node/plan.test.mjs",
         "test": "plan generates buffers and snapshots while optional external skills are absent"
       },
-      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/plan.test.mjs",
@@ -4288,11 +4299,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -4309,7 +4324,8 @@
       ],
       "notes": [
         "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
-        "Node preflight uses the approved stricter destination traversal/type contract; unsafe aliases/special entries fail closed before acquisition or writes."
+        "Node preflight uses the approved stricter destination traversal/type contract; unsafe aliases/special entries fail closed before acquisition or writes.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": []
     },
@@ -4321,7 +4337,7 @@
         "file": "tests/node/plan.test.mjs",
         "test": "plan generates buffers and snapshots while optional external skills are absent"
       },
-      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/plan.test.mjs",
@@ -4357,11 +4373,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -4378,7 +4398,8 @@
       ],
       "notes": [
         "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
-        "Node preflight uses the approved stricter destination traversal/type contract; unsafe aliases/special entries fail closed before acquisition or writes."
+        "Node preflight uses the approved stricter destination traversal/type contract; unsafe aliases/special entries fail closed before acquisition or writes.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": []
     },
@@ -4820,11 +4841,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -4840,11 +4865,13 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2497
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_rejects_alias_through_legacy_parent_alias_with_fifo",
@@ -4889,11 +4916,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -4909,11 +4940,13 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2500
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_rejects_alias_through_candidate_root_alias_with_fifo",
@@ -4958,11 +4991,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -4978,11 +5015,13 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2503
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_rejects_alias_through_legacy_parent_alias_with_fifo",
@@ -5027,11 +5066,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -5047,11 +5090,13 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2506
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_install_rejects_candidate_root_alias_before_acquisition",
@@ -5234,21 +5279,27 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2546,
         2547,
         2548
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_dry_run_validates_structure_and_does_not_write",
@@ -5293,22 +5344,28 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2558,
         2559,
         2565,
         2566
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_check_and_dry_run_accept_missing_external_skills_without_writes",
@@ -5353,20 +5410,26 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2575,
         2576
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_install.py::ExternalSkillPreflightTests::test_manifest_rejects_missing_reference_entry",
@@ -5772,7 +5835,7 @@
         "file": "tests/node/plan.test.mjs",
         "test": "plan generates buffers and snapshots while optional external skills are absent"
       },
-      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/plan.test.mjs",
@@ -5808,15 +5871,20 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         2757,
@@ -7878,7 +7946,7 @@
         "file": "tests/node/targets.test.mjs",
         "test": "Codex resolves default, tilde and relative CODEX_HOME"
       },
-      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs.",
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/targets.test.mjs",
@@ -7926,15 +7994,20 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         81,
@@ -7949,7 +8022,7 @@
         "file": "tests/node/targets.test.mjs",
         "test": "Codex resolves default, tilde and relative CODEX_HOME"
       },
-      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs.",
+      "reclassification": "Existing-target readonly validation or CLI pre-acquisition ordering belongs to T6; T4 verifies only newly acquired outputs. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/targets.test.mjs",
@@ -7997,15 +8070,20 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         97
@@ -8678,11 +8756,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/transaction.test.mjs",
@@ -8694,13 +8776,15 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         288,
         289,
         291
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_skill_link_backup_and_rollback_never_follow_target",
@@ -9127,21 +9211,23 @@
       "status": "verified",
       "destination": {
         "file": "tests/node/cli.test.mjs",
-        "test": "help and version run from a copy with no native loader or binaries"
+        "test": "help and version work from a package copy without TUI native or installer assets"
       },
       "destinations": [
         {
           "file": "tests/node/cli.test.mjs",
-          "test": "help and version run from a copy with no native loader or binaries"
+          "test": "help and version work from a package copy without TUI native or installer assets"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "현행 help/version은 TUI·native·installer 자산 없는 package copy에서 성공한다. 과거 help의 --target 안내 assertion은 f140b5 TUI-only 인터페이스로 대체됐으며 현재 안내에 남아 있다고 주장하지 않는다."
       ],
       "assertionLines": [
         403,
         404
-      ]
+      ],
+      "reclassification": "현행 help/version은 TUI·native·installer 자산 없는 package copy에서 성공한다. 과거 help의 --target 안내 assertion은 f140b5 TUI-only 인터페이스로 대체됐으며 현재 안내에 남아 있다고 주장하지 않는다."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_install_command_preserves_target_and_other_arguments",
@@ -9149,21 +9235,23 @@
       "status": "verified",
       "destination": {
         "file": "tests/node/cli.test.mjs",
-        "test": "shell wrapper forwards arguments and status"
+        "test": "shell wrapper forwards root status and output"
       },
       "destinations": [
         {
           "file": "tests/node/cli.test.mjs",
-          "test": "shell wrapper forwards arguments and status"
+          "test": "shell wrapper forwards root status and output"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "현행 shell wrapper 매핑은 --version 및 --bad에 대한 직접 root 실행과 wrapper의 종료 코드·stdout·stderr 일치만 검증한다. 과거 install.py argv 및 legacy target flag 성공 전달 assertion은 TUI-only 인터페이스로 대체됐으며 현행 테스트가 이를 검증한다고 주장하지 않는다."
       ],
       "assertionLines": [
         415,
         416
-      ]
+      ],
+      "reclassification": "현행 shell wrapper 매핑은 --version 및 --bad에 대한 직접 root 실행과 wrapper의 종료 코드·stdout·stderr 일치만 검증한다. 과거 install.py argv 및 legacy target flag 성공 전달 assertion은 TUI-only 인터페이스로 대체됐으며 현행 테스트가 이를 검증한다고 주장하지 않는다."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_claude_config_dir_default_equivalent_and_rejected_values",
@@ -9363,11 +9451,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/install.test.mjs",
@@ -9383,7 +9475,8 @@
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         442,
@@ -9391,7 +9484,8 @@
         445,
         446,
         447
-      ]
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다."
     },
     {
       "legacy": "tests/test_target_install.py::TargetInstallTests::test_read_only_modes_spawn_nothing_and_change_nothing",
@@ -9401,7 +9495,7 @@
         "file": "tests/node/targets.test.mjs",
         "test": "Codex resolves default, tilde and relative CODEX_HOME"
       },
-      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
+      "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage. f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
       "destinations": [
         {
           "file": "tests/node/targets.test.mjs",
@@ -9449,15 +9543,20 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         }
       ],
       "notes": [
-        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review."
+        "Node destinations exercise the runtime boundary; original assertion expressions remain below for independent semantic review.",
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ],
       "assertionLines": [
         456,
@@ -14931,11 +15030,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/consumer.test.mjs",
@@ -14997,6 +15100,10 @@
           "file": "tests/node/install.test.mjs",
           "test": "acquisition failure leaves target absent"
         }
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
+      "notes": [
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ]
     },
     {
@@ -15070,11 +15177,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/consumer.test.mjs",
@@ -15136,6 +15247,10 @@
           "file": "tests/node/install.test.mjs",
           "test": "acquisition failure leaves target absent"
         }
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다.",
+      "notes": [
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다."
       ]
     },
     {
@@ -15209,11 +15324,15 @@
         },
         {
           "file": "tests/node/consumer.test.mjs",
-          "test": "packed help/check/dry-run and failed preflight leave real homes untouched"
+          "test": "packed help, metadata and service preparation leave real homes untouched"
         },
         {
-          "file": "tests/node/cli.test.mjs",
-          "test": "check and dry-run inspect both targets without writes or external commands"
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --check"
+        },
+        {
+          "file": "tests/node/cli-dry-run.test.mjs",
+          "test": "removed public syntax rejects without changing harness:  --target all --preset balanced --language en --dry-run"
         },
         {
           "file": "tests/node/targets.test.mjs",
@@ -15269,11 +15388,11 @@
         },
         {
           "file": "tests/node/cli.test.mjs",
-          "test": "help and version run from a copy with no native loader or binaries"
+          "test": "help and version work from a package copy without TUI native or installer assets"
         },
         {
           "file": "tests/node/cli.test.mjs",
-          "test": "shell wrapper forwards arguments and status"
+          "test": "shell wrapper forwards root status and output"
         },
         {
           "file": "tests/node/global-config.test.mjs",
@@ -15291,6 +15410,12 @@
           "file": "tests/node/global-config.test.mjs",
           "test": "missing config can be generated while semantic non-table edits are skipped"
         }
+      ],
+      "reclassification": "f140b5의 TUI-only 공개 인터페이스가 레거시 --check/--dry-run 성공 및 CLI 출력 계약을 대체한다. 현재 CLI 매핑은 제거된 두 문법의 종료 코드 2 거부와 harness/shell 무변경을 검증하고, consumer 매핑은 help/version, 서비스 준비의 성공·무변경 및 unsafe preflight 거부를 검증한다. 레거시 npx skills --agent 출력, five 안내, independent upstream directory 변환 안내 또는 symlink 진단이 현재 CLI에 남아 있다고 주장하지 않는다. 기존 destinations의 대상·경로·transaction 안전성 검사는 유지하며, 원래 assertion 표현과 line ID는 frozen inventory에 보존한다. 현행 help/version은 TUI·native·installer 자산 없는 package copy에서 성공한다. 과거 help의 --target 안내 assertion은 f140b5 TUI-only 인터페이스로 대체됐으며 현재 안내에 남아 있다고 주장하지 않는다. 현행 shell wrapper 매핑은 --version 및 --bad에 대한 직접 root 실행과 wrapper의 종료 코드·stdout·stderr 일치만 검증한다. 과거 install.py argv 및 legacy target flag 성공 전달 assertion은 TUI-only 인터페이스로 대체됐으며 현행 테스트가 이를 검증한다고 주장하지 않는다.",
+      "notes": [
+        "TUI-only 전환에 따른 명시적 재분류이며, 과거 성공/출력 assertion의 현행 충족을 주장하는 매핑이나 새 retirement가 아니다.",
+        "현행 help/version은 TUI·native·installer 자산 없는 package copy에서 성공한다. 과거 help의 --target 안내 assertion은 f140b5 TUI-only 인터페이스로 대체됐으며 현재 안내에 남아 있다고 주장하지 않는다.",
+        "현행 shell wrapper 매핑은 --version 및 --bad에 대한 직접 root 실행과 wrapper의 종료 코드·stdout·stderr 일치만 검증한다. 과거 install.py argv 및 legacy target flag 성공 전달 assertion은 TUI-only 인터페이스로 대체됐으며 현행 테스트가 이를 검증한다고 주장하지 않는다."
       ]
     }
   ],

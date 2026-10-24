@@ -37,3 +37,22 @@ for(const mutation of ['authorized','unknown ID','missing plan','missing plan fi
  if(mutation==='authorized'){assert.match(result.stdout,/236 original test IDs.*235 verified.*1 retired/);assert.match(result.stdout,/739 test assertions.*736 verified.*3 retired/);assert.match(result.stdout,/14 helper assertions.*all active mappings ran/);}
  else assert.match(result.stderr,/retire|coverage/i);
 });
+
+// H5: inspect real generated delivery payloads, not only the frozen installer inventory.
+test('paired specialist payloads deliver the same bounded recovery and visual contracts', async () => {
+  const {buildPolicyOutputs, POLICY_TARGETS} = await import('../../lib/policy/render.mjs');
+  const policy = JSON.parse(fs.readFileSync('lib/policy/role-policy.json'));
+  const inputs = new Map(POLICY_TARGETS.map(({path: name}) => [name, fs.readFileSync(name)]));
+  const outputs = buildPolicyOutputs(inputs, policy);
+  for (const role of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
+    const contracts = ['codex', 'claude'].map(platform => {
+      const name = `${platform}/agents/arc-${role}.${platform === 'codex' ? 'toml' : 'md'}`;
+      const text = outputs.get(name).toString();
+      assert.match(text, /optional read method/i);
+      const body = text.split('[ARC role policy: contract begin]')[1].split('[ARC role policy: contract end]')[0];
+      return body.split('\n').filter(line => !line.startsWith('- [platform.')).join('\n');
+    });
+    assert.equal(contracts[0], contracts[1], role);
+  }
+  assert.deepEqual(JSON.parse(outputs.get('claude/skill/hooks/git-policy.json')), policy.git);
+});

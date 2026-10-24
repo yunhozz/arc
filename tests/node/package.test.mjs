@@ -12,9 +12,9 @@ test('npm pack excludes Python caches and preserves runtime files',t=>{
  assert.ok(!files.some(name=>name.split('/').includes('__pycache__')||name.endsWith('.pyc')),'Python caches must not be published');
  for(const name of [...ordinary,'bin/arc.mjs','MANIFEST.sha256','codex/skill/SKILL.md','claude/skill/SKILL.md'])assert.ok(files.includes(name),name);
 });
-test('patch metadata agrees at version 0.1.8',()=>{
+test('package metadata and lockfile versions agree',()=>{
  const pkg=JSON.parse(fs.readFileSync('package.json')),lock=JSON.parse(fs.readFileSync('package-lock.json'));
- assert.equal(pkg.version,'0.1.8');assert.equal(lock.version,'0.1.8');assert.equal(lock.packages[''].version,'0.1.8');
+ assert.match(pkg.version,/^\d+\.\d+\.\d+$/);assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
 });
 // Wrong package identity or private metadata prevents consumers from installing the public scoped candidate.
 test('scoped public candidate metadata and lockfile agree',()=>{const pkg=JSON.parse(fs.readFileSync('package.json')),lock=JSON.parse(fs.readFileSync('package-lock.json'));assert.equal(pkg.name,'@yunhozz/arc');assert.match(pkg.version,/^\d+\.\d+\.\d+$/);assert.equal(Object.hasOwn(pkg,'private'),false);assert.deepEqual(pkg.publishConfig,{access:'public',registry:'https://registry.npmjs.org/'});assert.equal(lock.name,pkg.name);assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].name,pkg.name);assert.equal(lock.packages[''].version,pkg.version);assert.deepEqual(lock.packages[''].bin,{arc:'bin/arc.mjs'});assert.equal(lock.packages[''].hasInstallScript,undefined);});

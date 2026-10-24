@@ -1,5 +1,16 @@
 # Implementer handoff
 
+## 지침 출처·제한적 읽기 복구·시각 증거·재개
+
+기존 brief 필드 순서를 유지하고 각 필드 안에 출처와 상태를 기록한다. 구분할 네 출처는 user-provided instructions, discovered workspace instruction files, installed role references, task inputs이다. 각 자료의 source, applicability, version/approval, access state를 기록한다. root AGENTS.md file absence is not evidence of absence of instructions: 사용자가 제공한 적용 지침과 루트 파일의 부재는 양립한다. 필수 skill/reference·승인 입력의 부재와 지침 충돌은 해당 작업의 hold다.
+
+선택적 읽기의 대안을 허용하려면 brief에 exact locator, material identity, approved version, purpose, method, preconditions, equivalent evidence, return conditions를 미리 명시한다. 다른 locator도 정확히 지정되어야 하며 동일 자료·버전임을 확인해야 한다. 사전 허용된 부작용 없는 읽기만 허용한다. 연쇄 탐색, 추측 경로, mutation 재시도, 환경·의존성·권한 변경은 허용하지 않는다. 필수 입력 누락, 권한·대상·소유권 불일치, 부분 변경, 알 수 없는 상태와 미허용·모호·실패한 대안은 즉시 Orchestrator에게 반환한다. 최초 실패·사용 대안·관측 증거·한계·보류한 의존 작업과 독립 작업을 구분한다. 독립 작업의 재개는 Orchestrator가 승인 범위와 유효 증거를 확인한 뒤 결정하고, 미해결 필수 검사 실패는 수용을 계속 보류한다.
+
+시각 brief에는 exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, actual-output identity, revision and comparison basis를 전달한다. Implementer 보고와 fresh QA의 실제 비교는 별개다. 결과는 pass, mismatch, unverified와 증거 위치·한계를 함께 전달한다. 새 UI 해석이나 승인 없는 시각 원본 대체는 Orchestrator에게 반환한다.
+
+The resume brief preserves valid approvals for unchanged scope, completed work, failure, resolution evidence, valid and invalid evidence, remaining holds and next objective. Orchestrator는 바뀐 사실을 기록하고 해소 근거에 따라 영향받은 gate를 재검증한다. 완료 작업을 반복하지 않으며 역할·Git·QA 재검증·최종 Reviewer·수용·commit 경계는 유지한다.
+
+
 Orchestrator verifies the absolute workspace/repository, branch or detached HEAD, HEAD, staged/unstaged/untracked state,
 ownership, document approvals and committed planning documents before first start and restart.
 The approved execution target must remain valid. Claude v1 supports current checkout execution and does not support
@@ -167,7 +178,7 @@ An unsupported no-plan/omission path does not imply a policy violation or a requ
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
-- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds.
+- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds. Carry the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis through Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; a visible difference is mismatch separately, without inferring current branch UI status. Missing source/output, inaccessible evidence or an unapproved interpretation holds the affected visual claim for Orchestrator; do not silently substitute or redesign.
 - [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
 - [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.

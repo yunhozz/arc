@@ -182,3 +182,55 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
     assert.match(output, /\[planning\.planner-brief\]/);
   }
 });
+
+// H1/H2/H4: emitted role contracts must not lose bounded recovery or provenance.
+// Approved structural checks; consuming-agent behavior is verified separately by fresh QA.
+test('bounded read recovery and provenance reach every role on both platforms', () => {
+  for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
+    const output = api.renderPolicySection(policy(), {platform, audience});
+    for (const required of [
+      /optional read method/i, /pre-authorized.*side-effect-free/i,
+      /positively identified material.*approved version.*purpose.*role authority/i,
+      /different locator.*exact locator.*brief/i, /equivalent evidence/i,
+      /required input.*authority.*target.*ownership.*partial mutation.*unknown state/i,
+      /alternative.*(?:unapproved|unauthorized).*ambiguous.*fails/i,
+      /no chained discovery.*guessed paths.*mutation retries/i,
+      /first failure.*alternative.*evidence.*limits.*dependent.*independent/i,
+      /user-provided instructions.*discovered workspace instruction files.*installed role references.*task inputs/i,
+      /root AGENTS\.md.*absence.*not.*absence of instructions/i,
+      /resume brief.*completed work.*failure.*resolution.*valid.*invalid.*evidence.*next objective/i,
+    ]) assert.match(output, required, `${platform}/${audience}: ${required}`);
+  }
+});
+// H3: losing source/output identity must fail before a visual claim is accepted.
+test('visual evidence is carried from implementation to fresh QA', () => {
+  for (const platform of ['codex', 'claude']) for (const audience of ['implementer', 'qa']) {
+    const output = api.renderPolicySection(policy(), {platform, audience});
+    for (const required of [/approved visual source.*version.*approval.*access/i,
+      /criterion IDs.*properties.*comparison method/i, /actual.output identity.*revision.*basis/i,
+      /pass.*mismatch.*unverified/, /fresh QA.*actual comparison/i,
+      /revision.*unverified.*visible.*mismatch/i]) assert.match(output, required);
+  }
+});
+
+// H1-04/H4-02: unrelated baseline failures must not stall approved independent work.
+// Written-contract sequence only; live release decisions remain Orchestrator's duty.
+test('failure disposition orders baseline evidence classification scoped holds and independent release', () => {
+  const sequence = [
+    /First, record the exact failed check.*baseline revision.*current revision/i,
+    /Second, classify each failure.*baseline or current.*affected scope.*dependency/i,
+    /Third, hold only affected or dependent tasks and checks.*unknown.*only work whose impact is unknown/i,
+    /Fourth, Orchestrator must release already-approved independent work without waiting for unrelated failures/i,
+    /Finally, keep acceptance held while any required check remains unresolved/i,
+  ];
+  for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
+    const output = api.renderPolicySection(policy(), {platform, audience});
+    let offset = 0;
+    for (const step of sequence) {
+      const found = step.exec(output.slice(offset));
+      assert.ok(found, `${platform}/${audience}: missing or out-of-order ${step}`);
+      offset += found.index + found[0].length;
+    }
+    assert.match(output, /Specialists report evidence.*must not self-authorize release/i);
+  }
+});

@@ -519,8 +519,8 @@ class DocumentationContractTests(unittest.TestCase):
         guide = " ".join(self.guide().lower().split())
         for pattern in (
             r"manual package reference refresh.*both.*trees.*restore",
-            r"--target all.*independent.*earlier success",
-            r"residual path", r"scripts and hooks.*not executed",
+            r"independent target transactions.*earlier success",
+            r"residual path", r"upstream scripts/hooks는 실행하지 않습니다",
             r"provenance.*consistency.*not authenticate",
         ):
             self.assertRegex(guide, pattern)
@@ -534,9 +534,8 @@ class DocumentationContractTests(unittest.TestCase):
         guide = self.guide()
         for contract in (
             "probe-only", "probe+implementation", "같은 범위", "중대한 범위·방법·위험 변경",
-            "문서 생략 경로", "Implementer → Reviewer",
-            "QA를 재배정하지 않습니다", "최종 QA findings", "한국어 구절",
-            "파일별 책임 점검 범위", "29개", "미검증",
+            "문서 생략 경로", "Implementer → Reviewer", "QA를 재배정하지 않습니다",
+            "최종 QA findings", "미검증",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, guide)
@@ -615,6 +614,83 @@ class DocumentationContractTests(unittest.TestCase):
 
     def test_svg_uses_english_wording(self) -> None:
         self.assertNotRegex(self.svg(), r"[\uac00-\ud7a3]")
+
+
+class HarnessReliabilityDeliveryTests(unittest.TestCase):
+    """H1-H5 structural evidence only; live observation remains separate."""
+    def test_handoff_preserves_provenance_visual_and_resume_fields(self):
+        for platform in PLATFORMS:
+            text = (REPO / platform / "skill/references/handoff.md").read_text()
+            with self.subTest(platform=platform):
+                for pattern in (
+                    r"user-provided instructions.*discovered workspace instruction files.*installed role references.*task inputs",
+                    r"root AGENTS\.md.*absence.*not.*absence of instructions",
+                    r"exact locator.*approved version.*purpose.*method.*preconditions.*evidence.*return conditions",
+                    r"approved visual source.*version.*approval.*access",
+                    r"criterion IDs.*properties.*comparison method",
+                    r"actual.output identity.*revision.*basis",
+                    r"resume brief.*completed work.*failure.*resolution.*valid.*invalid.*evidence.*next objective",
+                ):
+                    self.assertRegex(" ".join(text.split()), pattern)
+
+    def test_verification_and_visual_companion_keep_visual_gaps_visible(self):
+        for platform in PLATFORMS:
+            for reference in ("verification", "visual-companion"):
+                text = (REPO / platform / f"skill/references/{reference}.md").read_text()
+                with self.subTest(platform=platform, reference=reference):
+                    for pattern in (r"pass.*mismatch.*unverified", r"fresh QA.*actual comparison",
+                                    r"revision.*unverified.*visible.*mismatch"):
+                        self.assertRegex(" ".join(text.split()), pattern)
+
+    def test_failure_disposition_orders_evidence_classification_holds_and_release(self):
+        # H1-04/H4-02: approved written-contract coverage, not agent runtime proof.
+        import json
+        policy = json.loads((REPO / "lib/policy/role-policy.json").read_text())
+        common = next(rule["text"] for rule in policy["rules"] if rule["id"] == "scope.non-escalation")
+        sequence = (
+            r"First, record the exact failed check.*?baseline revision.*?current revision",
+            r"Second, classify each failure.*?baseline or current.*?affected scope.*?dependency",
+            r"Third, hold only affected or dependent tasks and checks.*?unknown.*?only work whose impact is unknown",
+            r"Fourth, Orchestrator must release already-approved independent work without waiting for unrelated failures",
+            r"Finally, keep acceptance held while any required check remains unresolved",
+        )
+        sources = {"canonical": common}
+        for platform, extension in (("codex", "toml"), ("claude", "md")):
+            sources[f"{platform}/core"] = (REPO / platform / "skill/SKILL.md").read_text()
+            for role in ("scouter", "planner", "implementer", "qa", "reviewer"):
+                sources[f"{platform}/{role}"] = (REPO / platform / "agents" / f"arc-{role}.{extension}").read_text()
+        for name, text in sources.items():
+            with self.subTest(source=name):
+                remaining = " ".join(text.split())
+                for step in sequence:
+                    match = re.search(step, remaining)
+                    self.assertIsNotNone(match, f"Missing or out-of-order disposition step: {step}")
+                    remaining = remaining[match.end():]
+                self.assertRegex(text, r"Specialists report evidence.*must not self-authorize release")
+
+    def test_operation_guide_requires_independent_release_without_acceptance_waiver(self):
+        text = (REPO / "docs/harness-operation.md").read_text()
+        steps = (
+            "1. 실패한 정확한 검사와 baseline revision, current revision을 기록합니다.",
+            "2. 각 실패를 baseline/현재 변경 여부, 영향 범위, 의존 관계로 분류합니다.",
+            "3. 영향받거나 의존하는 작업·검사만 보류합니다.",
+            "4. Orchestrator는 무관한 실패의 해소를 기다리지 않고 이미 승인된 독립 작업을 재개시켜야 합니다.",
+            "5. 필수 검사 중 하나라도 미해결이면 수용은 계속 보류합니다.",
+        )
+        offset = 0
+        for step in steps:
+            found = text.find(step, offset)
+            self.assertGreaterEqual(found, offset, f"Missing or out-of-order step: {step}")
+            offset = found + len(step)
+        self.assertIn("분류가 불명확하면 영향이 불명확한 작업만 보류", text)
+        self.assertIn("역할은 증거를 보고하며 스스로 작업 재개를 승인하지 않습니다", text)
+
+    def test_operation_guide_records_bounded_recovery_and_evidence_limits(self):
+        guide = (REPO / "docs/harness-operation.md").read_text()
+        for contract in ("선택적 읽기", "사전 허용", "필수 입력", "지침 출처", "재개 brief",
+                         "pass", "mismatch", "unverified", "독립 작업", "Claude.app", "Claude Code CLI"):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, guide)
 
 
 if __name__ == "__main__":

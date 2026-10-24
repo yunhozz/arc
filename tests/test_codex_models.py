@@ -38,8 +38,11 @@ FIVE_SETTINGS = {
 }
 
 BALANCED_SETTINGS = {
-    role: {"model": "gpt-6.1-sol", "model_reasoning_effort": "high" if role in ("arc_planner", "arc_reviewer") else "medium"}
-    for role in FIVE_SETTINGS
+    "arc_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
+    "arc_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
+    "arc_implementer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
+    "arc_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
+    "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
 }
 
 def settings_bytes(roles: dict, version=1, *, legacy=False) -> bytes:
