@@ -367,7 +367,7 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
             with self.subTest(file=path.name, absent="accepted and qa'd"):
                 self.assertNotIn("accepted and qa'd", text)
                 self.assertNotIn("수락·QA된".lower(), text)
-            for absent in (r"checks/reviews", r"in a multi-task plan", r"review as a task acceptance prerequisite",
+            for absent in (r"checks/reviews as a (?:per-task|task) (?:gate|prerequisite)", r"in a multi-task plan", r"review as a task acceptance prerequisite",
                            r"expressly a task prerequisite", r"designated as that task's prerequisite",
                            r"qa/review at that dependency boundary", r"new reviewer for each task unless",
                            r"선행 조건으로 지정", r"검사/검토"):
@@ -1500,3 +1500,28 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
                        "no new spec obligation"):
             self.assertIn(phrase, text)
         self.assertIn("implementer", self.text("handoff"))
+
+
+class HarnessReliabilityProfileTests(unittest.TestCase):
+    """Approved H1/H2/H3/H4 written-contract checks, not runtime evidence."""
+    def test_profiles_bound_recovery_without_relaxing_role_authority(self):
+        for platform, extension in (("codex", "toml"), ("claude", "md")):
+            for role in ("scouter", "planner", "implementer", "qa", "reviewer"):
+                path = REPO / platform / "agents" / f"arc-{role}.{extension}"
+                text = " ".join(path.read_text().split())
+                with self.subTest(path=str(path)):
+                    for pattern in (r"optional read method", r"pre-authorized.*side-effect-free",
+                                    r"required input.*authority.*target.*ownership.*partial mutation.*unknown state",
+                                    r"resume brief.*completed work.*failure.*resolution",
+                                    r"root AGENTS\.md.*absence.*not.*absence of instructions"):
+                        self.assertRegex(text, pattern)
+                    self.assertIn("Specialist roles MUST NOT change Git state", text)
+
+    def test_visual_roles_preserve_output_identity_and_verdict_limits(self):
+        for platform, extension in (("codex", "toml"), ("claude", "md")):
+            for role in ("implementer", "qa"):
+                text = (REPO / platform / "agents" / f"arc-{role}.{extension}").read_text()
+                with self.subTest(platform=platform, role=role):
+                    self.assertRegex(text, r"approved visual source.*version.*approval.*access")
+                    self.assertRegex(text, r"actual.output identity.*revision.*basis")
+                    self.assertRegex(text, r"pass.*mismatch.*unverified")

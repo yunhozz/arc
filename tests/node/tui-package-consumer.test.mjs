@@ -21,11 +21,11 @@ test('release consumer opens TUI only on explicit launch and installs independen
  assert.equal(artifact.metadata.scripts.postinstall,'node scripts/postinstall.mjs');
  const installed=await s.runNpm(['i','-g','@yunhozz/arc','--foreground-scripts']);
  assert.equal(installed.code,0,installed.stdout+installed.stderr);assert.match(installed.stdout,/Run arc to install or manage/);
- assert.doesNotMatch(installed.stdout,/ARC Management|\x1b\[\?1049h/);assert.deepEqual(fs.readdirSync(s.home),[]);
+ assert.doesNotMatch(installed.stdout,/Configure|\x1b\[\?1049h/);assert.deepEqual(fs.readdirSync(s.home),[]);
  const root=s.prefix+'/lib/node_modules/@yunhozz/arc',isolated=s.root+'/isolated package';fs.cpSync(root,isolated,{recursive:true});
  assert.equal(fs.existsSync(isolated+'/node_modules'),false);
  t.diagnostic('generated tarball '+artifact.tarball+' copied installed package '+isolated);
- const pty=await s.runPty(['exec','--offline','--','arc'],[{wait:'ARC Management',send:'\x03'}],{extraEnv:{PATH:s.prefix+'/bin'+path.delimiter+s.env.PATH}});
+ const pty=await s.runPty(['exec','--offline','--','arc'],[{wait:'Configure',send:'\x03'}],{extraEnv:{PATH:s.prefix+'/bin'+path.delimiter+s.env.PATH}});
  assert.equal(pty.code,130,pty.text);assert.match(pty.text,/ARC_TERMINAL_RESTORED/);assert.doesNotMatch(pty.text,/ARC_TERMINAL_CHANGED/);
  assert.deepEqual(fs.readdirSync(s.home),[]);
  const api=await import(pathToFileURL(isolated+'/lib/management/operations.mjs'));

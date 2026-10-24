@@ -28,7 +28,7 @@ test('second target publish failure restores prior bytes while first target stay
  assert.ok(rolledBack.includes(second.target.home+'/skills/arc'));assert.deepEqual(snapshot(second.target.home),before);
  assert.match(fs.readFileSync(first.target.home+'/skills/arc/SKILL.md','utf8'),/upgraded codex harness/);
 });
-test('upgrade wrapper verifies invoked payload and reports actual package version',async t=>{const home=fixture(t);seed(home,'codex');const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.equal(typeof api.upgradeInstalledTargets,'function');const result=await api.upgradeInstalledTargets({packageRoot:fs.realpathSync('.'),state,safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(result.version,'0.1.5');assert.equal(result.results[0].status,'installed');});
+test('upgrade wrapper verifies invoked payload and reports actual package version',async t=>{const home=fixture(t);seed(home,'codex');const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.equal(typeof api.upgradeInstalledTargets,'function');const result=await api.upgradeInstalledTargets({packageRoot:fs.realpathSync('.'),state,safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(result.version,JSON.parse(fs.readFileSync('package.json','utf8')).version);assert.equal(result.results[0].status,'installed');});
 test('unrecorded prior harness version stays absent while upgrade reports the invoked package version',async t=>{
  const home=fixture(t),old=seed(home,'codex'),arc=path.join(old.target.home,'skills/arc');
  const settings=new Map(['settings.toml','models.toml','limits.toml'].map(name=>[name,fs.readFileSync(path.join(arc,name))]));
@@ -46,7 +46,8 @@ test('unrecorded prior harness version stays absent while upgrade reports the in
  assert.deepEqual(Object.keys(result).filter(key=>/version/i.test(key)),['version']);
  for(const item of result.results)assert.deepEqual(Object.keys(item).filter(key=>/version/i.test(key)),[]);
  for(const [name,bytes]of settings)assert.deepEqual(fs.readFileSync(path.join(arc,name)),bytes);
- assert.deepEqual(fs.readdirSync(arc).sort(),[...new Set([...fs.readdirSync('codex/skill'),...settings.keys()])].sort());
+ const packagedRoots=fs.readFileSync('MANIFEST.sha256','utf8').split('\n').map(line=>/^[a-f0-9]{64}  codex\/skill\/(.+)$/.exec(line)?.[1]).filter(Boolean).map(name=>name.split('/')[0]);
+ assert.deepEqual(fs.readdirSync(arc).sort(),[...new Set([...packagedRoots,...settings.keys()])].sort());
  assertUnrecorded(stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}));
 });
 

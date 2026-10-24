@@ -14,7 +14,7 @@ test('lifecycle ignores missing invocation cwd and relative homes without touchi
 for(const event of ['end','close','error','SIGINT','SIGTERM'])test(`TUI ${event} restores raw mode and listeners`,async()=>{
  const streams=makeTerminal({raw:true}),events=['data','end','close','error'];const before=events.map(name=>streams.input.listenerCount(name));
  const pending=runTui({...streams,context:{},services:{collectStatus:async()=>[]}});const checked=event==='error'?assert.rejects(pending,/terminal error/):pending;
- await new Promise(resolve=>setImmediate(resolve));assert.match(streams.text(),/ARC Management/);
+ await new Promise(resolve=>setImmediate(resolve));assert.match(streams.text(),/> Configure/);assert.match(streams.text(),/Update/);assert.match(streams.text(),/Uninstall/);assert.match(streams.text(),/Exit/);
  if(event.startsWith('SIG'))streams.signals.emit(event);else streams.input.emit(event,...(event==='error'?[Error('terminal error')]:[]));
  if(event==='error')await checked;else assert.equal(await checked,event.startsWith('SIG')?130:0);
  assert.equal(streams.input.isRaw,true);assert.deepEqual(events.map(name=>streams.input.listenerCount(name)),before);assert.equal(streams.signals.listenerCount('SIGINT'),0);assert.equal(streams.signals.listenerCount('SIGTERM'),0);assert.equal(streams.output.listenerCount('resize'),0);

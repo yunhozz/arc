@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {makeTerminal} from './helpers/tui-terminal.mjs';
 const api=await import('../../lib/tui/terminal.mjs').catch(()=>({}));
-function session(t,options){assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal(options),session=api.createTerminalSession(io);t.after(()=>session.dispose());return{...io,session};}
+function session(t,options){assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal(options),session=api.createTerminalSession({...io,env:options?.env??{COLORTERM:'truecolor'}});t.after(()=>session.dispose());return{...io,session};}
 test('split-byte arrows, enter, back and EOF normalize in input order',async t=>{
  const io=session(t),events=[];for(const chunks of [['\x1b','[','B'],['\r'],['\x7f'],['\x04']]){for(const chunk of chunks)io.send(chunk);events.push(await io.session.nextEvent());}
  assert.deepEqual(events.map(event=>event.name),['down','enter','back','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
@@ -57,4 +57,36 @@ test('pending reader receives EOF instead of Enter from the same shutdown chunk'
 });
 test('EOF retains already consumed event order and discards later queued Enter',async t=>{
  const io=session(t);io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');io.send('\r');io.send('\x04');assert.equal((await io.session.nextEvent()).name,'eof');
+});
+
+test('viewport follows resize and only fixed home wordmark receives trusted colors',async t=>{
+ const io=session(t);assert.equal(typeof io.session.viewport,'function');assert.deepEqual(io.session.viewport(),{columns:80,rows:24});
+ io.session.render({title:'ARC',wordmark:true,rows:['Update\x1b[2J']});assert.match(io.text(),/\x1b\[38;2;183;228;199m█/);assert.match(io.text(),/\x1b\[32m/);assert.match(io.text(),/Update\\x1b\[2J/);
+ io.resize(100,30);assert.equal((await io.session.nextEvent()).name,'resize');assert.deepEqual(io.session.viewport(),{columns:100,rows:30});
+ io.session.dispose();assert.match(io.text(),/\x1b\[0m\x1b\[\?2004l/);
+});
+
+test('pixel logo uses gradient while rule and selected action are green, with styles reset before other content',t=>{
+ const io=session(t);io.session.render({title:'ARC',wordmark:true,rows:['Codex: Installed','Configure','Update'],selected:1});
+ const text=io.text();assert.match(text,/\x1b\[38;2;183;228;199m█/);assert.match(text,/\x1b\[32m─+\x1b\[0m/);
+ assert.match(text,/\x1b\[48;2;16;55;26m\x1b\[38;2;220;245;224m> Configure +\x1b\[0m/);assert.match(text,/\x1b\[2K  Update\n/);assert.doesNotMatch(text,/\nARC\n/);
+ io.resize(32,18);assert.match(io.text(),/> Configure/);io.session.dispose();assert.match(io.text(),/\x1b\[0m\x1b\[\?2004l/);
+});
+
+for(const [name,env,want] of [['basic',{TERM:'xterm'},'bright'],['NO_COLOR',{COLORTERM:'truecolor',NO_COLOR:''},'plain'],['dumb',{TERM:'dumb',COLORTERM:'truecolor'},'plain']])test('logo color fallback is safe for '+name,t=>{
+ const io=session(t,{env});io.session.render({title:'ARC',wordmark:true,rows:['Configure'],selected:0});const text=io.text();assert.doesNotMatch(text,/\x1b\[38;2/);assert.doesNotMatch(text,/\x1b\[48;2/);
+ if(want==='bright')assert.match(text,/\x1b\[92m/);else assert.doesNotMatch(text,/\x1b\[(?:3[0-9]|4[0-9]|9[0-9])m/);assert.match(text,/█/);
+});
+
+for(const [name,env] of [['Ghostty',{TERM_PROGRAM:'ghostty',TERM:'xterm-256color'}],['cmux',{TERM_PROGRAM:'cmux',COLORTERM:'unexpected',TERM:'xterm-256color'}]])test(name+' explicit identity enables RGB on all filled logo cells only',t=>{
+ const io=session(t,{env});io.session.render({title:'ARC',wordmark:true,rows:['Configure'],selected:0});const text=io.text();
+ for(const rgb of ['183;228;199','114;196;155','64;145;108'])assert.ok(text.includes('\x1b[38;2;'+rgb+'m█'));
+ assert.doesNotMatch(text,/\x1b\[38;2;[0-9;]+m /);const colored=[...text.matchAll(/\x1b\[38;2;[0-9;]+m█/g)].length;assert.equal(colored,[...text].filter(character=>character==='█').length);
+ assert.match(text,/\x1b\[32m─+\x1b\[0m/);
+});
+test('xterm-256color alone does not imply truecolor',t=>{
+ const io=session(t,{env:{TERM:'xterm-256color'}});io.session.render({title:'ARC',wordmark:true,rows:[]});assert.doesNotMatch(io.text(),/\x1b\[38;2/);assert.match(io.text(),/\x1b\[92m/);
+});
+for(const env of [{TERM_PROGRAM:'ghostty',NO_COLOR:''},{TERM_PROGRAM:'cmux',TERM:'dumb'}])test('explicit terminal identity respects color disable',t=>{
+ const io=session(t,{env});io.session.render({title:'ARC',wordmark:true,rows:['Configure'],selected:0});assert.doesNotMatch(io.text(),/\x1b\[(?:38;|48;|3[0-9]m|4[0-9]m|9[0-9]m)/);
 });

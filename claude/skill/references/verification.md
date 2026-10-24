@@ -131,6 +131,12 @@ actual unmet condition and report what is needed to resume. Structural evidence 
 
 For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never turn unverified into proven; reports keep unverified scope visible.
 
+## Visual Evidence and Adjudication
+
+Each visual criterion requires the exact location, version, approval, and access state of the approved visual source; criterion IDs, properties, and comparison method; and evidence linking the actual output to its revision. An Implementer report does not replace fresh QA's direct comparison. Record results as pass, mismatch, or unverified and connect them to the existing proven/unmet/unverified criterion verdicts. Use pass only when accessible evidence meets the visual criterion. Keep unsupported claims unverified. Missing output-to-revision linkage is unverified; a visible difference is a mismatch. Treat these as separate observations and do not infer the current branch UI state. Hold the comparison if the approved source or actual output is inaccessible or interpretation approval is missing.
+
+Static policy, generated-file, and manifest checks are structural evidence. They do not prove actual role behavior, an installed build, Claude Code CLI runtime compliance, or visual fidelity. Reports include actual changes and exclusion rationale, checks run and omitted, evidence and limits by criterion, and platform availability. Preserve existing baseline failures separately; progress on independent work does not relax required checks or acceptance criteria.
+
 ## Risk-scaled execution
 
 Orchestrator assigns edits exclusively to Implementer except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
