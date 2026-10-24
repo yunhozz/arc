@@ -129,3 +129,11 @@ test('all screen types use contextual compact hints while retaining existing nav
  const hints=Object.fromEntries(session.screens.map(screen=>[screen.title,screen.hint]));
  assert.equal(hints.Configure,'↑/↓: Select · Enter Continue · Esc Back');assert.equal(hints['Maximum total subagents'],'Type/Paste Input · ← Delete · Enter Continue · Esc/Backspace Back');assert.equal(hints.Result,'↑/↓: Scroll · Enter Back · Esc Back');assert.equal(hints['Operation unavailable'],'↑/↓: Scroll · Enter Back · Esc Back');assert.equal(hints['Review Update'],'↑/↓: Select · Enter Continue · Esc Back');assert.equal(hints.Working,'Ctrl+C Interrupt');
 });
+
+test('home status orders Claude then Codex on one line, preserves diagnostics and separates menu selection',async()=>{
+ const{runTui}=await load();const session=terminal([back]);await runTui({session,context:{},services:{collectStatus:async()=>[{platform:'codex',state:'incomplete',diagnostics:[Error('bad config\x1b[2J')]},{platform:'claude',state:'installed',diagnostics:[]}]}});
+ const home=session.screens[0];assert.equal(home.rows[0],'Claude: Installed / Codex: Incomplete');assert.match(home.rows[1],/Codex: bad config/);assert.equal(home.rows[home.selected-1],'');assert.equal(home.rows[home.selected],'Configure');assert.equal(home.selected,3);
+});
+test('home status with one collected target does not invent the missing target',async()=>{
+ const{runTui}=await load();const session=terminal([back]);await runTui({session,context:{},services:{collectStatus:async()=>[{platform:'codex',state:'absent',diagnostics:[]}]}});assert.deepEqual(session.screens[0].rows.slice(0,3),['Codex: Not installed','','Configure']);assert.equal(session.screens[0].selected,2);
+});
