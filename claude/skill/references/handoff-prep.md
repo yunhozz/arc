@@ -107,9 +107,9 @@ document commit is permitted. Record actual path, branch/HEAD, index/files and c
 issue before resuming and revalidates affected gates. Verify new SHA/HEAD, plan version/content, descendant preservation,
 old-to-new SHA mapping and remaining state under [verification](verification.md#evidence-after-plan-history-rewrite).
 
-## 지침과 입력의 전달
+## Instruction and Input Provenance
 
-준비 기록은 사용자 제공 지침, 발견된 지침 파일, 설치 reference와 작업 입력의 출처·버전/승인·접근 상태를 구분한다. 루트 AGENTS.md 부재만으로 제공된 지침의 부재를 선언하지 않는다. 선택적 읽기 대안은 [handoff](handoff.md#지침-출처제한적-읽기-복구시각-증거재개)의 사전 허용 조건 안에서만 가능하다. Git·생성·준비 작업 실패나 부분 변경에는 이 읽기 예외가 적용되지 않는다. 재개 전에 해소 근거와 영향받은 gate를 확인한다.
+Preparation records distinguish user-provided instructions, discovered instruction files, installed references, and task inputs by source, version or approval, and access state. The absence of a root AGENTS.md file alone does not mean that user-provided instructions are absent. Optional read alternatives are allowed only under the pre-authorized conditions in [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption). This read exception does not apply to Git, generation, or preparation failures, or partial changes. Check resolution evidence and affected gates before resuming.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.

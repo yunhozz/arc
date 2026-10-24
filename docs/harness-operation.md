@@ -21,30 +21,30 @@ The five installed roles are Scouter, Planner, Implementer, QA, and Reviewer. Th
 
 Installation preserves content outside the `arc:begin` / `arc:end` block. Codex wait settings are merged for a supported standalone `[features.multi_agent_v2]` table; unsupported structure produces manual guidance. Native concurrency is written to Codex `[agents].max_concurrent_threads_per_session` as an integer and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
 
-ARC의 upstream reference tree는 brainstorming, writing-plans, test-driven-development와 관련 파일·license·provenance를 포함합니다. 기존 shared/global skill과 링크는 별도로 유지합니다. 원본 package에는 npm 설치 hook이 없으며 배포 artifact에만 안내 전용 postinstall hook이 있습니다. npm 설치는 harness 다운로드·설치·TTY 연결·shell 설정 변경을 하지 않고 `Run arc to install or manage the ARC harness.`를 출력합니다.
+ARC's upstream reference tree includes brainstorming, writing-plans, test-driven-development, and related files, licenses, and provenance. Existing shared/global skills and links are preserved separately. The source package has no npm install hook; only the published artifact has an informational postinstall hook. npm installation does not download or install the harness, connect to a TTY, or change shell configuration. It prints `Run arc to install or manage the ARC harness.`
 
 ## Installation and refresh lifecycle
 
-1. `arc`는 입력·출력이 모두 TTY일 때 영어 관리 TUI를 엽니다. 공개 문법은 `arc`, `arc --help`, `arc --version`입니다. 무인자 비TTY 실행과 다른 명령·옵션은 종료 코드 2로 끝나며 제어 터미널에 재연결하지 않습니다. Help/version은 native installer 없이 동작합니다.
-2. `Install / Reconfigure`에서 대상, preset, agent 제한, harness 언어와 전역 설정을 선택합니다. 상태 조회·변경 준비·검증은 읽기만 수행하며, 검토 화면에서 `Apply`를 선택해야 실행합니다. `Edit`와 `Cancel`로 돌아갈 수 있습니다.
-3. 준비 단계는 payload·기존 설정·대상 경로를 검증하고 snapshot을 저장합니다. 실행은 검토한 snapshot을 재검증하며 변경되었으면 중단합니다. 준비 단계는 외부 reference의 최신 여부를 보장하지 않습니다.
-4. 실행 단계는 대상마다 obra/superpowers의 default branch에서 shallow snapshot을 가져옵니다. Upstream scripts/hooks는 실행하지 않습니다. 내용·상대 링크·license·provenance를 검증합니다.
-5. 대상별 transaction 결과, rollback 결과와 잔여 복구 경로를 표시합니다. 일부 대상 실패 후에도 먼저 성공한 대상은 유지됩니다. 변경한 harness 설정은 새 agent 세션에서 적용됩니다.
+1. `arc` opens the English management TUI when both input and output are TTYs. The public syntax is `arc`, `arc --help`, and `arc --version`. A no-argument non-TTY invocation and any other command or option exit with code 2; ARC does not reconnect to a controlling terminal. Help and version work without the native installer.
+2. In `Install / Reconfigure`, choose targets, a preset, agent limits, the harness language, and global settings. Status inspection, change preparation, and validation are read-only; execution starts only when `Apply` is selected on the review screen. Use `Edit` or `Cancel` to return.
+3. Preparation validates the payload, existing settings, and target paths, then saves a snapshot. Execution revalidates the reviewed snapshot and stops if it changed. Preparation does not guarantee that external references are current.
+4. Execution fetches a shallow snapshot of obra/superpowers' default branch for each target. Upstream scripts and hooks are not run. ARC validates content, relative links, licenses, and provenance.
+5. ARC reports per-target transaction and rollback results, including residual recovery paths. If one target fails, earlier successful targets remain installed. Changed harness settings apply in new agent sessions.
 
-TUI 언어는 영어이며 선택한 harness 언어와 별개입니다. `Workflow` 메뉴와 양 플랫폼 자동 workflow 연동은 동일한 내부 runtime endpoint를 사용합니다. TUI 확인은 workflow 승인 증거를 대신하지 않습니다. 전역 CLI 교체를 시작한 업데이트는 현재 TUI 세션을 종료합니다. 이후 `arc`를 다시 실행해 `Update Harness`에서 복구하며, CLI 실행이 불가능하면 `npx --yes @yunhozz/arc@latest`로 관리 화면을 엽니다. npx 업데이트는 전역 CLI를 교체하지 않습니다.
+The TUI is in English, independently of the selected harness language. The `Workflow` menu and automatic workflow integrations on both platforms use the same internal runtime endpoint. Inspecting the TUI does not prove workflow approval. An update that replaces the global CLI exits the current TUI session. Run `arc` again and choose `Update Harness` to resume; if the CLI cannot start, open the management TUI with `npx --yes @yunhozz/arc@latest`. An npx update does not replace the global CLI.
 
-기존 정상 ARC 관리 completion 블록은 설치·업데이트·제거 계획에서 정리하며 새 등록은 만들지 않습니다. 상태 조회는 shell 파일을 변경하지 않습니다. 사용자 작성 shell 설정과 ARC 블록 밖 내용은 보존합니다.
+Existing valid ARC management completion blocks are removed as part of install, update, and uninstall plans; ARC does not add new completion registrations. Status inspection does not modify shell files. User-authored shell settings and content outside ARC's block are preserved.
 
 There are two distinct transaction scopes:
 
 | Operation | Publication and recovery boundary |
 |---|---|
 | Manual package reference refresh: `node scripts/update-superpowers.mjs` | One acquired revision updates **both package reference trees** together. On transaction publication failure, restore the prior trees; cleanup can still report residual work. This maintenance operation does not register shell completion. |
-| TUI에서 두 대상 선택 | Codex then Claude are **independent target transactions**. A later target failure keeps earlier success; it does not roll back the successful Codex installation. Remaining targets may be not-started. Inspect each target's status and residual paths before resolving the failure. |
+| Select both targets in the TUI | Codex then Claude are **independent target transactions**. A later target failure keeps earlier success; it does not roll back the successful Codex installation. Remaining targets may be not-started. Inspect each target's status and residual paths before resolving the failure. |
 
-`provenance.json` records revision, collection time, file hashes, and relative links. This provenance provides local consistency evidence; it does not authenticate upstream or a malicious local rewrite. Acquisition needs Git and network access. 원본 package에는 npm lifecycle hook이 없고 배포 artifact의 postinstall은 안내만 출력합니다. npm installation, including `npm --ignore-scripts`, a ZIP download, and a plain clone do not refresh upstream references; actual harness installation fetches fresh references. Actual installation stages references separately and can use a read-only package. Concurrent package refreshes or installation/removal against the same target are unsupported.
+`provenance.json` records revision, collection time, file hashes, and relative links. This provenance provides local consistency evidence; it does not authenticate upstream or a malicious local rewrite. Acquisition needs Git and network access. The source package has no npm lifecycle hook, and the published artifact's postinstall only prints an informational message. npm installation, including `npm --ignore-scripts`, a ZIP download, and a plain clone do not refresh upstream references; actual harness installation fetches fresh references. Actual installation stages references separately and can use a read-only package. Concurrent package refreshes or installation/removal against the same target are unsupported.
 
-Reinstallation replaces managed ARC files, including edited role profiles and local model edits. It creates no persistent backup. Omitted limits preserve valid existing ARC policy, otherwise use initial defaults (100 total, 5 concurrent). TUI의 기본 선택은 각 대상의 기존 값을 보존하며 명시한 값은 선택 대상 모두에 적용합니다. Malformed policy/configuration stops installation. Existing native concurrency that differs from stored ARC concurrency requires explicit concurrency selection (TUI에서 명시적으로 선택) before replacement. TUI에서 전역 설정 적용을 건너뛰면 해당 작업의 지침·native 설정·shell 접근을 생략하며 이전 변경을 취소하지 않습니다.
+Reinstallation replaces managed ARC files, including edited role profiles and local model edits. It creates no persistent backup. Omitted limits preserve valid existing ARC policy; otherwise, initial defaults are used (100 total, 5 concurrent). By default, the TUI preserves each target's existing values; explicitly selected values apply to every selected target. Malformed policy or configuration stops installation. If existing native concurrency differs from the stored ARC concurrency, explicitly select a concurrency value in the TUI before replacement. Skipping global settings in the TUI omits instructions, native settings, and shell access for that operation; it does not undo earlier changes.
 
 ## Request routing and role responsibilities
 
@@ -76,13 +76,13 @@ Use this sequence: approve the initial design → explicitly select the executio
 
 **Approved documents → platform preparation → handoff.** This summary does not replace the detailed sequence above. Under the contract, Codex can use the current checkout, a new branch in that checkout, or a managed worktree. Claude v1 uses the current checkout only. A branch shares files with its checkout, while a managed worktree is a separate directory; verify repository/common-directory identity, registration, preservation of the source checkout, and evidence that planning documents were transferred. Preserve unrelated staged, unstaged, and untracked changes, along with edit ownership.
 
-### 지침 출처와 시각 증거
+### Instruction Provenance and Visual Evidence
 
-Brief는 지침 출처를 사용자 제공 지침, 발견된 workspace 지침 파일, 설치 role reference, 작업 입력으로 구분하고 각 source·적용 범위·버전/승인·접근 상태를 기록합니다. 루트 AGENTS.md가 없어도 사용자가 제공한 적용 지침은 유효합니다. 필수 skill/reference나 승인 입력이 없거나 지침이 충돌하면 의존 작업을 보류합니다.
+The brief distinguishes user-provided instructions, discovered workspace instruction files, installed role references, and task inputs, and records each source, applicability, version or approval, and access state. Applicable user-provided instructions remain valid even when no root AGENTS.md exists. Missing required skills, references, or approved inputs, and conflicting instructions, place dependent work on hold.
 
-시각자료를 사용할 때 승인 원본의 정확한 경로·버전·승인·접근 상태, 기준 ID·속성·비교 방법, 실제 출력의 식별자·revision·비교 근거를 Implementer와 fresh QA에 전달합니다. Implementer 자체 보고는 fresh QA의 실제 비교를 대신하지 않습니다. 증거가 기준을 충족하면 `pass`, 보이는 차이는 `mismatch`, 접근 불가나 revision 연결 부재는 `unverified`로 기록합니다. 과거 출력의 차이가 보이면 `mismatch`이고 revision 연결은 별도로 `unverified`입니다. 이를 현재 branch UI 판정으로 일반화하지 않습니다. 승인되지 않은 해석이나 원본 대체는 Orchestrator에게 반환합니다.
+For visual work, give the Implementer and fresh QA the approved source's exact path, version, approval and access state; criterion IDs, properties and comparison method; and the actual output's identity, revision and comparison basis. An Implementer's report does not replace fresh QA's direct comparison. Record `pass` when accessible evidence meets a criterion, `mismatch` for a visible difference, and `unverified` when access or output-to-revision linkage is missing. A visible difference in a past output is a `mismatch`; its revision linkage is separately `unverified`. Do not generalize it into a judgment about the current branch UI. Return unapproved interpretations or source substitutions to the Orchestrator.
 
-이번 하네스 신뢰성 관측에서 승인 TUI mockup과 기존 첨부는 과거 사례 비교 자료입니다. ARC mark의 시각 차이와 revision 연결 한계를 구분하고 UI 수정 권한으로 해석하지 않습니다. Codex/Claude 정적 전달 일치는 실행 증거와 별개입니다. `Claude.app`의 synthetic prompt 관측은 `Claude Code CLI` runtime 검증이 아니며, 실행 도구 부재나 관측하지 않은 행동은 미검증으로 남깁니다.
+In the harness reliability review, the approved TUI mockup and existing attachments are references for comparing past examples. Separate visual differences in the ARC mark from revision-linkage limits; neither grants authority to change the UI. Static parity between Codex and Claude instructions is separate from execution evidence. A synthetic-prompt observation in `Claude.app` is not runtime verification of the `Claude Code CLI`; unavailable execution tools and unobserved behavior remain unverified.
 
 ### Approval reuse and completion continuity
 
@@ -94,7 +94,7 @@ Major changes in scope, method, or risk; an unresolved new decision; a target ch
 
 The canonical handoff records approved versions, actual absolute path, branch or detached HEAD, HEAD, index/worktree/untracked state, ownership, execution-target choice, document commit evidence, readiness, and checks. The assigned Implementer trusts verified preparation facts and reads cited unchanged fields from that record; an inaccessible record or actual conflicting state blocks affected work. See [Codex handoff](../codex/skill/references/handoff.md), [worktree preparation](../codex/skill/references/handoff-worktree.md), and [Claude handoff](../claude/skill/references/handoff.md).
 
-같은 범위와 대상의 유효 승인은 역할 교체나 재개 때 재사용합니다. `probe-only` 승인은 구현 권한이 아니며, 충분히 특정된 `probe+implementation` 승인은 승인 범위 안의 조사와 후속 구현을 포함합니다. 문서 생략 경로도 적용 조건과 생략 근거를 기록합니다. 중대한 범위·방법·위험 변경은 영향받는 작업을 보류하고 필요한 변경 승인을 거칩니다.
+Reuse valid approvals for the same scope and target when replacing a role or resuming work. A `probe-only` approval does not grant implementation authority; a sufficiently specific `probe+implementation` approval covers research and follow-up implementation within its scope. Record the conditions and rationale when a document is omitted. A material change in scope, method, or risk holds affected work until the required revised approval is obtained.
 
 ## Scheduling and limits
 
@@ -128,25 +128,25 @@ Before the final overall Reviewer begins a plan review, QA execution failures an
 
 Use the Conventional Commits format and follow applicable user and repository instructions. This repository requires commit descriptions to be concise, specific Korean phrases. Do not let an upstream English default override a user-specific instruction.
 
-최종 전체 Reviewer findings는 Implementer → Reviewer 재검증으로 연결하며 QA를 재배정하지 않습니다. 초기 최종 검토 전의 QA 실패와 최종 QA findings는 Implementer 수정 → QA 재검증으로 연결합니다. 수용과 commit은 Orchestrator가 결정합니다.
+Findings from the final overall Reviewer go through Implementer correction → Reviewer recheck; do not reassign QA. QA failures before the initial final review and findings from final QA go through Implementer correction → QA recheck. The Orchestrator decides acceptance and commit.
 
 ## Failure, resume, and maintenance
 
 On failure or partial completion, hold affected work and inspect actual path, branch/detached HEAD, HEAD, index, files, and completed steps. Update the canonical record, resolve the observed blocker, and revalidate affected gates before resuming. Do not automatically retry, fall back, repeat completed work, stash/reset/clean, delete locks, change permissions, or bypass the sandbox. Preserve unrelated work and ownership. Reuse a still-valid explicit target choice and verified document/task commits; record only changed preparation facts on restart.
 
-선택적 읽기 방법이 실패하면 brief에서 사전 허용한 부작용 없는 읽기 대안만 사용할 수 있습니다. 동일하게 확인된 자료·승인 버전·목적·역할 권한과 동등한 증거 조건을 유지해야 하며, 다른 locator도 brief에서 정확히 지정해야 합니다. 예를 들어 사전에 승인된 동일 버전의 문서를 두 읽기 방법으로 접근하는 것은 허용될 수 있습니다. 필수 입력 부재, 권한·대상·소유권 불일치, 부분 변경, 불명 상태, 미허용·모호·실패한 대안은 즉시 Orchestrator에게 반환합니다. 추측 경로 탐색, 대안의 연쇄 시도, mutation 재시도, 환경·의존성·권한 변경은 허용하지 않습니다.
+When an optional read method fails, use only a side-effect-free alternative pre-authorized in the brief. Preserve the positively identified material, approved version, purpose, role authority, and equivalent evidence conditions; the brief must specify any alternate locator exactly. For example, two read methods for the same pre-approved document version may be allowed. Immediately return missing required inputs, permission/target/ownership mismatches, partial changes, unknown state, and unauthorized, ambiguous, or failed alternatives to the Orchestrator. Do not guess paths, chain alternatives, retry mutations, or change the environment, dependencies, or permissions.
 
-최초 실패·시도한 대안·증거·한계와 남은 작업을 보고한 뒤 다음 순서를 지켜야 합니다.
+After reporting the initial failure, any alternative attempted, evidence, limits, and remaining work, follow this sequence:
 
-1. 실패한 정확한 검사와 baseline revision, current revision을 기록합니다. 실제 결과·증거 위치와 현재 변경 상태를 함께 보존합니다.
-2. 각 실패를 baseline/현재 변경 여부, 영향 범위, 의존 관계로 분류합니다.
-3. 영향받거나 의존하는 작업·검사만 보류합니다. 분류가 불명확하면 영향이 불명확한 작업만 보류합니다.
-4. Orchestrator는 무관한 실패의 해소를 기다리지 않고 이미 승인된 독립 작업을 재개시켜야 합니다. 해당 작업의 권한·대상·입력·소유권과 gate가 유효한지 확인합니다.
-5. 필수 검사 중 하나라도 미해결이면 수용은 계속 보류합니다.
+1. Record the exact failed check, baseline revision, and current revision. Preserve the actual result, evidence location, and current change state.
+2. Classify each failure by whether it is baseline or current, its impact, and its dependencies.
+3. Hold only affected or dependent work and checks. If classification is unclear, hold only work whose impact is unclear.
+4. The Orchestrator resumes already-approved independent work without waiting for unrelated failures, after confirming that its authority, target, inputs, ownership, and gates remain valid.
+5. Keep acceptance on hold while any required check remains unresolved.
 
-역할은 증거를 보고하며 스스로 작업 재개를 승인하지 않습니다. 독립 작업 재개는 실패 검사 숨김, 범위 확대, 기준 변경 또는 필수 검증 면제를 허용하지 않습니다.
+Roles report evidence but do not authorize their own resumption. Resuming independent work does not permit hiding failed checks, expanding scope, changing criteria, or waiving required verification.
 
- 재개 brief는 기존 승인·완료 작업·실패·해소 근거·유효/무효 증거·잔여 hold·다음 목표를 전달합니다. 영향받은 gate를 재검증하고 완료 작업을 반복하지 않습니다. 새 역할 배정이나 재개는 새 권한을 만들지 않습니다.
+The resume brief preserves valid approvals, completed work, failures, resolution evidence, valid and invalid evidence, remaining holds, and the next objective. Revalidate affected gates and do not repeat completed work. A new role assignment or resumption does not grant new authority.
 
 Agent Git recovery governs checkout/index coordination. Installer rollback governs filesystem publication transactions and acquisition cleanup. A reported residual path is evidence requiring inspection; a rollback label is not proof that all cleanup succeeded. Neither mechanism promises a persistent backup. See [Codex recovery](../codex/skill/references/git-recovery.md) and [Claude recovery](../claude/skill/references/git-recovery.md).
 
@@ -155,7 +155,7 @@ Maintenance actions have distinct effects:
 - **Model reapplication:** edit installed `models.toml` and run the optional Python apply-models tool to validate/render profiles. This does not refresh ARC or upstream references.
 - **Manifest maintenance:** refresh `MANIFEST.sha256` after protected payload changes and check it. Models are intentionally excluded. Dynamic upstream trees carry their own provenance validation.
 - **Reinstallation:** refreshes managed ARC and upstream material and replaces local model edits; valid omitted ARC limits are preserved under the rules above.
-- **Harness 제거:** TUI의 `Uninstall Harness`는 선택한 ARC skill과 다섯 역할 profile, 관리 지침 블록을 제거하며 수정된 ARC 파일도 포함합니다. 다른 skill/profile, Codex wait 설정, native concurrency 키와 workflow 기록은 유지합니다. 전역 지침 보존을 선택할 수 있으며 제거 전 변경 내용을 검토합니다. 정상 ARC completion 블록은 정리하고 대상별 transaction 결과를 표시합니다.
+- **Harness removal:** In the TUI, `Uninstall Harness` removes the selected ARC skill, five role profiles, and managed instruction blocks, including edited ARC files. Other skills and profiles, Codex wait settings, native concurrency keys, and workflow records are preserved. You can choose to preserve global instructions and review changes before removal. Valid ARC completion blocks are cleaned up, and per-target transaction results are reported.
 - **CLI package removal:** `npm uninstall -g @yunhozz/arc` removes the CLI package separately; installed harness configuration remains.
 
 Use the existing [maintenance commands](../README.md#manage-arc), [model commands](../README.md#models-and-language), and [removal commands](../README.md#manage-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
@@ -173,7 +173,7 @@ Use the existing [maintenance commands](../README.md#manage-arc), [model command
 | Independent target installation and removal | [Install coordinator](../lib/installer/install.mjs), [uninstall coordinator](../lib/installer/uninstall.mjs) |
 | Filesystem publication/rollback | [Transactions](../lib/installer/transaction.mjs) |
 | Package refresh and collection | [Manual reference updater](../scripts/update-superpowers.mjs), [package references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [bundle validation](../lib/installer/superpowers.mjs) |
-| Completion | [관리 블록 정리](../lib/installer/shell-completion.mjs) |
+| Completion | [Completion block cleanup](../lib/installer/shell-completion.mjs) |
 | Structural contracts and regressions | [Harness contracts](../tests/test_harness_contract.py), [Python tests](../tests), [Node tests](../tests/node) |
 | Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#manage-arc) |
 

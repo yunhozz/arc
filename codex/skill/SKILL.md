@@ -46,7 +46,7 @@ these terms; context-specific commands, paths, and state checks still apply.
 - **Common handoff gate**: the full verification Orchestrator passes before every Implementer first start/restart and
   Orchestrator direct edit; see [handoff](references/handoff.md#common-handoff-gate).
 
-선택적 읽기 복구의 유일한 예외는 [scope.non-escalation]의 사전 허용 조건을 따릅니다. 역할 권한과 동등한 증거 조건을 유지하며 필수 입력·gate 또는 mutation 중단 조건을 우회하지 않습니다.
+The only exception for recovering from an optional read failure is the pre-authorized condition in [scope.non-escalation]. Preserve role permissions and equivalent evidence requirements; never bypass missing required inputs, gates, or mutation stop conditions.
 
 ## Mandatory task references
 

@@ -306,9 +306,9 @@ skill. Missing files stop the stage; report paths without global fallback. Keep 
 
 
 
-## 지침과 입력의 전달
+## Instruction and Input Provenance
 
-Planner에게 필요한 skill/reference의 정확한 경로와 접근 상태, 사용자 제공 지침 및 발견 파일의 차이, 승인된 입력 버전과 미결정 사항을 전달한다. 시각자료를 소비하는 기준은 승인 원본·버전·접근 상태·기준 ID·비교 방법을 연결한다. 누락된 필수 입력과 승인되지 않은 해석은 draft의 의존 부분을 보류하며, 선택적 읽기 대안은 [handoff](handoff.md#지침-출처제한적-읽기-복구시각-증거재개)의 사전 허용 조건을 만족해야 한다. Planner는 복구 과정에서도 draft-only 경계를 지킨다.
+Give the Planner the exact paths and access state for required skills and references, distinguish user-provided instructions from discovered files, and identify approved input versions and open questions. Criteria that use visual materials must link the approved source, version, access state, criterion IDs, and comparison method. Missing required inputs and unapproved interpretations hold dependent parts of the draft. Optional read alternatives must meet the pre-authorized conditions in [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption). The Planner remains draft-only during recovery.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.

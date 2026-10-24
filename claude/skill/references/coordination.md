@@ -146,9 +146,9 @@ available within each role's exact allowlist; report unavailable capabilities an
 
 Claude profile `model` and `effort` frontmatter values are shipped defaults; installation overwrites them with the active `models.toml` preset values.
 
-## 지침과 입력의 전달
+## Instruction and Input Provenance
 
-각 역할 brief는 사용자 제공 지침, 발견된 workspace 지침 파일, 설치 role reference, task input의 출처·적용 범위·버전/승인·접근 상태를 구분한다. 정책상 허용된 선택적 읽기 복구만 사용하고 최초 실패와 의존/독립 작업을 보고한다. 필요한 자료가 없으면 해석이나 권한을 만들어내지 않고 Orchestrator에게 반환한다. 자세한 필드는 [handoff](handoff.md#지침-출처제한적-읽기-복구시각-증거재개)를 따른다.
+Each role brief distinguishes user-provided instructions, discovered workspace instruction files, installed role references, and task inputs by source, applicability, version or approval, and access state. Use only policy-authorized recovery for optional reads, and report the initial failure and dependent or independent work. If required material is missing, return it to the Orchestrator without inventing an interpretation or authority. Follow [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption) for the full fields.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
