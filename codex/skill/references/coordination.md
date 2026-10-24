@@ -1,6 +1,6 @@
 # Role assignment and coordination
 
-Orchestrator reads this before the first specialist creation or assignment and related coordination decisions. Also read [limits](limits.md) and installed `../limits.toml` before first creation. Missing, inaccessible or conflicting references stop dependent work; report the exact paths.
+Orchestrator reads this before first creating or assigning a specialist and making related coordination decisions. Also read [limits](limits.md) and installed `../limits.toml` before first creation. Missing, inaccessible or conflicting references stop dependent work; report the exact paths.
 
 ## Ownership
 
@@ -9,11 +9,10 @@ Orchestrator reads this before the first specialist creation or assignment and r
   (save, route, obtain approval; never author), acceptance, verification, and completion.
 - Scouter: read-only material research/analysis and assigned static code/document/data/log exploration. Reports
   evidence, assumptions, unresolved questions, impact, next actions, and workspace/path issues to Orchestrator.
-  Does not edit files or author standalone document files, or decide design/plans, verification, review, or completion.
+  Does not edit files, author standalone documents, or decide design/plans, verification, review, or completion.
 - Planner: returns design/spec/plan drafts.
 - Implementer: edits assigned, approved implementation/configuration/test-code files and assigned dependent docs.
-  Orchestrator does not edit
-  them directly except under the Orchestrator direct path for small tasks.
+  Orchestrator does not edit them directly except under the Orchestrator direct path for small tasks.
 - QA: verifies without edits.
 - Reviewer: independently reviews the final full change.
 - All five roles report directly to Orchestrator at depth 2: Scouter, Planner, Implementer, QA, and Reviewer.
@@ -21,12 +20,12 @@ Orchestrator reads this before the first specialist creation or assignment and r
   Depth-2 roles cannot create agents or delegate tasks to another role. Reviewer remains independent.
 - Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Implementer=`arc_implementer`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 - Across the full tree, obey configured limits for simultaneous subagents, including Scouter; there are no reserved slots.
-  Before first creation, read `references/limits.md` and installed `limits.toml`; maintain its cumulative ledger and reservations.
+  Before first creating a subagent, read `references/limits.md` and installed `limits.toml`; maintain its cumulative ledger and reservations.
   Parallelize independent tasks only; dependent handoffs are sequential and editing scopes cannot overlap.
 - After each read-only role returns (Scouter, Planner, Reviewer), Orchestrator checks `git status` against a pre-spawn
   snapshot for unexpected changes; on any change Orchestrator stops and reports under the Preservation rule.
   Limit: concurrent Implementer edits and ignored or out-of-repo paths are not attributable/detectable.
-  Their read-only status rests on prompt-level guards, not sandbox enforcement.
+  Their read-only status relies on prompt-level guards, not sandbox enforcement.
 
 
 ## Instruction and execution adapter
@@ -56,11 +55,9 @@ Missing/damaged local files stop dependent work: report exact paths to Orchestra
 ARC approval, ownership, TDD exceptions and executor adapters still apply.
 
 Orchestrator integrates role results, routes decisions and required approvals, and owns development acceptance
-and completion. Orchestrator coordinates dependent implementation tasks sequentially and
-starts a fresh Implementer for each top-level task (Role gate); reuse the current Implementer only for corrections, rework,
+and completion. Orchestrator runs dependent implementation tasks sequentially and starts a fresh Implementer for each top-level task (Role gate); reuse the current Implementer only for corrections, rework,
 or rechecks of the same task while the approved scope, workspace, ownership, and relevant assignment context remain valid;
-default to the current Implementer for same-task QA corrections. A QA finding within the current task does not itself create
-a new task. Before sending corrections or rework to a reused Implementer, Orchestrator rechecks workspace, branch/HEAD and change state against the brief.
+default to the current Implementer for same-task QA corrections. A QA finding within the current task does not itself create a new task. Before sending corrections or rework to a reused Implementer, Orchestrator rechecks workspace, branch/HEAD and change state against the brief.
 Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes, subject to the
 amendment exception below. A fresh Implementer for the next task is a restart under handoff (choice reuse and restart brief rules are in handoff).
 After an approved plan or acceptance-criteria amendment, start a fresh Implementer for
@@ -71,18 +68,13 @@ follow [Risk-scaled execution](verification.md#risk-scaled-execution).
 ## Token discipline and handoffs
 
 - Only Orchestrator calls agents or assigns specialist tasks. Every `spawn_agent` call must explicitly set a descriptive
-  lowercase snake_case `task_name` in the form
-  `<role>_<short_task>` (for example `planner_scope_review` or `qa_installer_checks`). Do not use arbitrary or random
-  names. `task_name` identifies the run; `agent_type` and its configured profile determine the role and model.
+  lowercase snake_case `task_name` in the form `<role>_<short_task>` (for example `planner_scope_review` or `qa_installer_checks`). Do not use arbitrary or random names. `task_name` identifies the run; `agent_type` and its configured profile determine the role and model.
 
-- Keep one shared brief with fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace,
+- Keep one shared brief in this fixed field order: Goal; Criteria (IDs); Exact scope/ownership (absolute workspace,
   branch or detached HEAD and HEAD, handoff record path, when one exists, files);
   Constraints/decisions; Evidence (paths/lines, commands, artifact links); Prior findings; Exact next objective (one
-  bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups
-  send only changed fields and mark the rest `unchanged` (relative to a brief the recipient received);
-  restart briefs follow handoff; a fresh specialist gets every other field in full. Send only the
-  self-contained subset needed by the next role and links to accessible artifacts; omit full history, repeated
-  instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
+  bounded objective); Return format (conclusion, evidence locations, unresolved points, next step). On follow-ups send only changed fields and mark the rest `unchanged` (relative to a brief the recipient received);
+  restart briefs follow handoff; a fresh specialist gets every other field in full. Send only the self-contained subset the next role needs and links to accessible artifacts; omit full history, repeated instructions, and raw logs. No findings may be brief; requested deliverables such as complete plan drafts remain
   complete. Cite paths/lines/pages/commands/links instead of logs; investigate gaps only.
 - Every specialist spawn sets `fork_turns="none"`; full-history forks are not allowed. Supply that brief.
   Reuse an existing specialist for related follow-up with only changed facts/objective when its context
@@ -97,21 +89,15 @@ follow [Risk-scaled execution](verification.md#risk-scaled-execution).
   exact stage deliverable. Preserve the shared brief field order. Review completeness and conflicts together; send one
   consolidated feedback request with changed fields and `unchanged` for the rest. Preserve separate sequential design,
   spec and plan approvals; no fixed call cap, incomplete draft acceptance or extra calls for resolved questions.
-- Before optional calls, name the unresolved question and expected artifact. Skip calls whose questions are resolved
-  by available evidence or direct inspection.
+- Before optional calls, name the unresolved question and expected artifact. Skip calls for questions resolved by available evidence or direct inspection.
 - Wait for a specialist with `wait_agent` using the maximum supported timeout, repeating only until it completes; a
   timeout is not a reason to poll or check status in between. Do not poll with `list_agents`, `sleep`, or repeated short
   waits; use `list_agents` only to resolve an unknown agent name or state. Send each specialist one complete brief per
   objective and batch related corrections or follow-ups into one message. Do not poll long-running commands with
   repeated `sleep` or short status checks; use a single blocking wait with the tool's longest yield.
 - Read only the needed ranges of files and outputs (for example `rg -n`, `sed -n`, `head`/`tail`) and cap long command
-  output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in
-  this context and unchanged need not be re-read, and this skill file, once read in this context and unchanged,
-  is not re-read on follow-up turns;
-  this does not shorten any triggered mandatory reference read.
-- When a plan completes or before starting another plan in a session with long history, Orchestrator records the
-  canonical
-  handoff state in the handoff record file and recommends that the user continue in a new session.
+  output. Do not re-read files or outputs already in context unless they changed. A mandatory reference already read in this context and unchanged need not be re-read, and this skill file, once read in this context and unchanged, is not re-read on follow-up turns; this does not shorten any triggered mandatory reference read.
+- When a plan completes or before starting another plan in a session with long history, Orchestrator records the canonical handoff state in the handoff record file and recommends that the user continue in a new session.
 - Before handoff, post one short update with role/objective/expected output; after return, combine findings and next
   stage concisely. Do not expose hidden reasoning or raw prompts.
 
@@ -119,8 +105,7 @@ follow [Risk-scaled execution](verification.md#risk-scaled-execution).
 ## Models
 
 `models.toml` beside this skill is the source of truth for role model and reasoning-effort settings.
-Orchestrator uses the current conversation model. Use configured role settings without substitution or effort
-reduction; report unavailable settings.
+Orchestrator uses the current conversation model. Use configured role settings without substitution or effort reduction; report unavailable settings.
 Local declarations do not prove runtime provider support, account access, alias resolution, actual model or effort
 application, concurrency or depth enforcement.
 New sessions reload profiles; running agents retain their current settings and parent relationships. Configuration
@@ -128,15 +113,15 @@ changes do not automatically reparent running agents or prove runtime parent beh
 
 ## Instruction and Input Provenance
 
-Each role brief distinguishes user-provided instructions, discovered workspace instruction files, installed role references, and task inputs by source, applicability, version or approval, and access state. Use only policy-authorized recovery for optional reads, and report the initial failure and dependent or independent work. If required material is missing, return it to the Orchestrator without inventing an interpretation or authority. Follow [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption) for the full fields.
+Each role brief records the source, applicability, version or approval, and access state of user-provided instructions, discovered workspace instruction files, installed role references, and task inputs. Use only policy-authorized recovery for optional reads, and report the initial failure and dependent or independent work. If required material is missing, return it to the Orchestrator without inventing an interpretation or authority. Follow [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption) for the full fields.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
-- [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
+- [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. An explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
 - [role.scouter-read-only] Research assigned static sources and report findings, evidence and limits. Do not edit files, install, execute checks, prepare execution targets, inspect live operational state, change external state or decide design, verification, review or acceptance.
-- [role.planner-draft-only] Return design/spec/plan drafts and dependencies, criteria, hold conditions and verification needs in the response. MUST NOT save documents, implement, run checks, prepare targets, request user approval or decide acceptance. Stop formal target-dependent drafting if actual prepared target evidence is missing; route decisions to Orchestrator.
-- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds. Carry the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis through Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; a visible difference is mismatch separately, without inferring current branch UI status. Missing source/output, inaccessible evidence or an unapproved interpretation holds the affected visual claim for Orchestrator; do not silently substitute or redesign.
-- [role.qa-verification] Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Implementer correction and required QA recheck. Carry the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis through Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; a visible difference is mismatch separately, without inferring current branch UI status. Missing source/output, inaccessible evidence or an unapproved interpretation holds the affected visual claim for Orchestrator; do not silently substitute or redesign.
+- [role.planner-draft-only] Return design/spec/plan drafts with dependencies, criteria, hold conditions and verification needs in the response. MUST NOT save documents, implement, run checks, prepare targets, request user approval or decide acceptance. Stop formal target-dependent drafting if actual prepared target evidence is missing; route decisions to Orchestrator.
+- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds. Include the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis in Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; record a visible difference separately as mismatch, without inferring current branch UI status. Hold the affected visual claim for Orchestrator if source/output is missing, evidence is inaccessible or an interpretation is unapproved; do not silently substitute or redesign.
+- [role.qa-verification] Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports in the brief-authorized location and lifetime. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks require explicit scope and cleanup ownership. Return failures for Implementer correction and required QA recheck. Include the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis in Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; record a visible difference separately as mismatch, without inferring current branch UI status. Hold the affected visual claim for Orchestrator if source/output is missing, evidence is inaccessible or an interpretation is unapproved; do not silently substitute or redesign.
 - [role.reviewer-independent] Independently inspect the assigned final changes and evidence and report actionable findings and limits. Remain read-only. MUST NOT execute QA tests, edit files, perform Git mutations or decide acceptance.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]

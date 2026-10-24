@@ -12,10 +12,8 @@ repository/common directory and base verification, approved branch verification,
 The normal new-document path drafts and saves directly in the verified target. Planned destination paths are not
 preparation evidence. Initial preparation does not authorize Implementer or a document commit.
 
-Only an explicit user choice of this third path authorizes preparation. Its selection target is the one verified
-under the Execution-target request gate in handoff-prep.md.
-The app determines the actual destination path; do not propose a sibling path or require a user-specified path
-candidate.
+Only an explicit user choice of this third path authorizes preparation. Its selection target is the one verified under the Execution-target request gate in handoff-prep.md.
+The app determines the actual destination path; do not propose a sibling path or require a user-specified candidate.
 Use the verified source HEAD full SHA as the base; do not substitute remote HEAD or a default branch or fetch
 automatically.
 Recheck approved source state, base SHA, approved branch candidate/collision status, name and approved document scope
@@ -39,7 +37,7 @@ Create using only the app tool:
       ref: "<verified-source-head-full-sha>"
     })
 
-The name describes the work; it guarantees neither a path nor a branch. There are no destination path or branch arguments.
+The name describes the work without guaranteeing a path or branch. There are no destination path or branch arguments.
 Pass ref explicitly as the full SHA; do not omit it or rely on a remote default. If an operationId is returned,
 use mcp__codex_app__get_worktree_creation_status until completed. Preparing/creating/registering progress is not
 success.
@@ -64,8 +62,7 @@ If the app initially returns the approved branch, verify it and its base rather 
 Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before formal drafting, saving, document transfer,
 the batch docs commit, final Git verification and Implementer handoff.
 
-The tool does not copy uncommitted changes. The following transfer rules apply only to legacy or restart cases
-with existing approved documents (including an explicitly selected target change), not the normal new-document path. For untracked approved documents, source HEAD and index paths must be
+The tool does not copy uncommitted changes. These transfer rules apply only to legacy or restart cases with existing approved documents (including an explicitly selected target change), excluding the normal new-document path. For untracked approved documents, source HEAD and index paths must be
 absent and source working-tree bytes must match the latest approved version. For tracked approved documents, source
 index blob and mode must equal source HEAD, while source working-tree bytes must match the latest approved version.
 Approved working-tree revisions may differ from HEAD/index; do not repair or verify them by staging source documents.
@@ -82,8 +79,7 @@ Verify existing approved commits by SHA, message, paths and approved content val
 Copy only uncommitted approved spec/plan documents to the target at the same repository-relative path.
 Do not move, delete, or modify the source documents. If a destination resolves outside the worktree, including through
 an escaping symlink, stop. Before transfer verify target HEAD equals the selected source base SHA.
-Before replacing an existing destination, prove its clean base state with no staged/unstaged changes and index and
-working-tree bytes matching the base version; then replace with the approved version. A document absent from base must
+Before replacing an existing destination, prove its clean base state with no staged/unstaged changes and index and working-tree bytes matching the base version; then replace with the approved version. A document absent from base must
 also be absent at the destination. For unexpected changes, do not overwrite; stop.
 For identical content, verify approved bytes before reuse. After transfer verify bytes match the approved version.
 The canonical record includes each document approval/version/evidence, source and target absolute paths and the common

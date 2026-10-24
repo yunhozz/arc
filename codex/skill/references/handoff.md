@@ -7,20 +7,19 @@ in the brief under the Implementer profile and reads this file only for sections
 
 ## Instruction Sources, Bounded Read Recovery, Visual Evidence, and Resumption
 
-Keep the existing brief field order and record provenance and status within each field. Distinguish four sources: user-provided instructions, discovered workspace instruction files, installed role references, and task inputs. Record each source, applicability, version or approval, and access state. The absence of a root AGENTS.md file does not imply an absence of instructions; applicable user-provided instructions remain valid. Missing required skills, references, or approved inputs, and conflicting instructions, place dependent work on hold.
+Keep the existing brief field order and record provenance and status within each field. Distinguish four sources: user-provided instructions, discovered workspace instruction files, installed role references, and task inputs. Record each source, applicability, version or approval, and access state. A missing root AGENTS.md file does not imply missing instructions; applicable user-provided instructions remain valid. Missing required skills, references, or approved inputs and conflicting instructions hold dependent work.
 
-An alternative for an optional read is allowed only when the brief specifies its exact locator, material identity, approved version, purpose, method, preconditions, equivalent evidence, and return conditions in advance. Any alternate locator must also be explicit and verified to identify the same material and version. Only pre-authorized, side-effect-free reads are allowed. Do not chain searches, guess paths, retry mutations, or change the environment, dependencies, or permissions. Immediately return missing required inputs, permission/target/ownership mismatches, partial changes, unknown state, and unauthorized, ambiguous, or failed alternatives to the Orchestrator. Report the initial failure, any alternative used, observed evidence and limits, and the dependent and independent work placed on hold. The Orchestrator decides whether independent work may resume after checking scope and valid evidence; unresolved required check failures continue to block acceptance.
+An optional read alternative is allowed only when the brief specifies its exact locator, material identity, approved version, purpose, method, preconditions, equivalent evidence, and return conditions in advance. Any alternate locator must be explicit and verified as the same material and version. Only pre-authorized, side-effect-free reads are allowed. Do not chain searches, guess paths, retry mutations, or change the environment, dependencies, or permissions. Immediately return missing required inputs, permission/target/ownership mismatches, partial changes, unknown state, and unauthorized, ambiguous, or failed alternatives to the Orchestrator. Report the initial failure, any alternative used, observed evidence and limits, and the dependent and independent work placed on hold. Orchestrator checks scope and valid evidence before deciding whether independent work may resume; unresolved required check failures continue to block acceptance.
 
 A visual brief records the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, actual-output identity, revision, and comparison basis. An Implementer report is separate from a fresh QA comparison. Report each result as pass, mismatch, or unverified with evidence locations and limitations. Return new UI interpretations or unapproved substitutions for visual sources to the Orchestrator.
 
-The resume brief preserves valid approvals for unchanged scope, completed work, failures, resolution evidence, valid and invalid evidence, remaining holds, and the next objective. The Orchestrator records changed facts and revalidates affected gates based on resolution evidence. Do not repeat completed work. Preserve role, Git, QA revalidation, final Reviewer, acceptance, and commit boundaries.
+The resume brief preserves valid approvals for unchanged scope, completed work, failures, resolution evidence, valid and invalid evidence, remaining holds, and the next objective. The Orchestrator records changed facts and revalidates affected gates using resolution evidence. Do not repeat completed work. Preserve role, Git, QA revalidation, final Reviewer, acceptance, and commit boundaries.
 
 ## Workspace handoff
 
 ### Checkout approval
 
-Before every Implementer first start and restart, Orchestrator confirms the supplied absolute workspace is accessible and
-belongs to the intended Git repository; record its actual absolute path, current branch or detached HEAD, HEAD, and staged,
+Before every Implementer first start and restart, Orchestrator confirms the supplied absolute workspace is accessible and belongs to the intended Git repository; record its actual absolute path, current branch or detached HEAD, HEAD, and staged,
 unstaged, and untracked changes. Stop if the workspace is inaccessible, is not the intended repository, or HEAD
 cannot be resolved. Do not initialize Git or switch to another repository automatically.
 
@@ -44,7 +43,7 @@ choice-lifetime rules below, wait and do not start or restart Implementer.
 Orchestrator may start or restart Implementer only after all of these conditions are verified:
 
 1. All applicable design/spec/plan approvals are recorded with approved artifact paths or valid depth-omission reasons.
-   For a Implementer Spike probe, record its approved question, method/scope, acceptance criteria, and constraints.
+   For an Implementer Spike probe, record its approved question, method/scope, acceptance criteria, and constraints.
    The complete current-scope document list, approved versions, plan dependencies/order, and absence of unfinished
    applicable documents are verified. Future implementation artifacts are not part of the probe scope or approved by it.
 2. The user explicitly selected the execution target initially, or that initial choice remains valid under the restart
@@ -61,8 +60,7 @@ Orchestrator may start or restart Implementer only after all of these conditions
 Before an Orchestrator direct edit, Orchestrator verifies the same conditions, with the approved scope record as the
 applicable approval, and records them in the brief.
 
-A missing or failed condition blocks handoff. Orchestrator may continue read-only investigation and authorized
-preparation or recovery, but cannot start Implementer early. Reverify affected evidence when approved content, execution target, branch,
+Any missing or failed condition blocks handoff. Orchestrator may continue read-only investigation and authorized preparation or recovery, but must not start Implementer early. Reverify affected evidence when approved content, execution target, branch,
 HEAD, or relevant state changes. Implementer's conflict reporting is in its profile; Orchestrator
 resolves preparation and passes the gate again before Implementer resumes.
 
@@ -99,8 +97,7 @@ cannot bypass its approval gate.
 
 Before assignment, apply every readiness condition in
 [planning.md, Dependency and readiness record](planning.md#dependency-and-readiness-record), including predecessor
-checks, Orchestrator acceptance and verified focused commit or accepted no-change evidence. A Implementer completion report
-alone is insufficient. Verify the linked record is current and capacity and file ownership permit assignment.
+checks, Orchestrator acceptance and verified focused commit or accepted no-change evidence. An Implementer completion report alone is insufficient. Verify the linked record is current and capacity and file ownership permit assignment.
 Readiness supplements the full handoff gate and execution-target restrictions; it never waives them.
 For authorized HEAD or state changes, refresh this record and affected briefs, verify preservation and ownership,
 revalidate affected gates, and reassess readiness under planning.md and [commit.md](commit.md#shared-checkout-coordination).
@@ -130,8 +127,7 @@ choice unless it invalidates the old target. Do not fall back automatically; app
 
 Keep one canonical initial handoff record accessible to each assigned role, containing the approved scope/version,
 repository/workspace identity, and the Handoff evidence fields above; do not create a separate storage service.
-Orchestrator writes it as a
-Markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` (slug unique to the plan, the dated plan filename
+Orchestrator writes it as a Markdown file at `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` (slug unique to the plan, the dated plan filename
 stem, or a spec/task slug when no plan exists; never overwrite another plan's record; resolve with
 `git rev-parse --path-format=absolute --git-common-dir`; outside the working tree and shared by linked worktrees; not a
 Git mutation, never staged or committed; contains no secrets), gives its absolute path in every brief, and restart
@@ -144,8 +140,7 @@ next objective and edit ownership, changed decisions,
 approvals, documents and scope (or explicit no-change confirmation), current Git state and differences, choice
 validity and reuse verification, refreshed commit/artifact checks, Orchestrator final verification, and remaining
 issues.
-An inaccessible initial record, missing evidence, or unclear ownership blocks editing; a prior conversation or
-inaccessible link cannot substitute for evidence. Include material needed for a self-contained role handoff, with
+An inaccessible initial record, missing evidence, or unclear ownership blocks editing; prior conversation or inaccessible links cannot replace evidence. Include material needed for a self-contained role handoff, with
 accessible canonical evidence instead of repeated history. Reverify revised documents/approvals and current state;
 never retrospectively claim preparation of edits made before the gate passed.
 
@@ -198,6 +193,8 @@ generalize it to behavior work.
 
 ## Orchestrator direct path for small tasks
 
+This path does not waive explicit execution-target choice: before the first edit, record the user's choice or verified valid reuse. Approval of the edit scope alone does not select the execution target.
+
 Orchestrator may make a task's edits directly, without Planner brainstorming or Implementer, only when every small,
 low-risk criterion holds, every plan-skip criterion holds (one local change, no dependent stages, no cross-component shared state,
 lifecycle, or integration-order concerns, and one focused verification path), and no significant-risk trigger applies.
@@ -243,10 +240,10 @@ An unsupported no-plan/omission path does not imply a policy violation or a requ
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
-- [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. Even an explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
-- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds. Carry the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis through Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; a visible difference is mismatch separately, without inferring current branch UI status. Missing source/output, inaccessible evidence or an unapproved interpretation holds the affected visual claim for Orchestrator; do not silently substitute or redesign.
-- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
-- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
+- [git.specialists-deny] Specialist roles MUST NOT change Git state: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal, during normal implementation or recovery. An explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
+- [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or authorized exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git changes remain forbidden even when implementation succeeds. Include the exact approved visual source, version, approval and access state, criterion IDs, required properties and comparison method, and actual-output identity, revision and comparison basis in Implementer and fresh QA handoffs. Record each visual result as pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; record a visible difference separately as mismatch, without inferring current branch UI status. Hold the affected visual claim for Orchestrator if source/output is missing, evidence is inaccessible or an interpretation is unapproved; do not silently substitute or redesign.
+- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer because no plan exists. This creates no new plan obligation.
+- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. Reviewer reviews the final full change once after all tasks are accepted and required QA is complete. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]

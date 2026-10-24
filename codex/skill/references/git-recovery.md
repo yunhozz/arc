@@ -31,7 +31,7 @@ Orchestrator, and do not change permissions or bypass the sandbox. Use the inlin
 
 ### Existing changes and failures
 
-A branch does not isolate uncommitted changes into a separate directory as a worktree does. Record how existing staged,
+Unlike a worktree, a branch does not isolate uncommitted changes in a separate directory. Record how existing staged,
 unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Apply the
 Preservation rule and do not automatically commit or delete changes to prepare the checkout. Only the
 approved docs commit on all three paths is an exception to that no-commit rule; preserve all unrelated dirty files.
@@ -40,8 +40,7 @@ scope.
 
 For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
 record the error and actual Git state, then stop Implementer handoff. A branch created without a successful switch is partial
-completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically
-fall back to the current checkout path after an operational failure. Both operational failure and missing
+completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically fall back to the current checkout path after an operational failure. Both operational failure and missing
 execution-target choice block handoff. Orchestrator resolves the problem and rechecks preparation before handoff.
 
 

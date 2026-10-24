@@ -123,8 +123,8 @@ report only checks actually performed, their actor, target state, results and re
 Once applicable authorization, document-depth, execution-target, and handoff conditions hold for the approved scope,
 continue through execution, correction, reverification, required QA and Reviewer, findings disposition, Orchestrator
 acceptance, and the result report. Apply risk-scaled timing above; this adds no per-task Reviewer or new QA obligation.
-A role completion report, probe findings, or passing commands are not overall completion when approved work remains.
-Remaining approved execution is not an optional suggestion waiting for a user response. A probe-only scope
+Role reports, probe findings, or passing commands do not establish overall completion while approved work remains.
+Do not present remaining approved execution as an optional suggestion awaiting a user response. A probe-only scope
 ends at its approved question's evidence and limits; a combined scope continues under planning's scope rules.
 Document omission changes neither verification risk nor acceptance responsibility. Hold only affected work for an
 actual unmet condition and report what is needed to resume. Structural evidence does not prove live agent compliance.
@@ -133,9 +133,9 @@ For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unve
 
 ## Visual Evidence and Adjudication
 
-Each visual criterion requires the exact location, version, approval, and access state of the approved visual source; criterion IDs, properties, and comparison method; and evidence linking the actual output to its revision. An Implementer report does not replace fresh QA's direct comparison. Record results as pass, mismatch, or unverified and connect them to the existing proven/unmet/unverified criterion verdicts. Use pass only when accessible evidence meets the visual criterion. Keep unsupported claims unverified. Missing output-to-revision linkage is unverified; a visible difference is a mismatch. Treat these as separate observations and do not infer the current branch UI state. Hold the comparison if the approved source or actual output is inaccessible or interpretation approval is missing.
+Each visual criterion requires the exact location, version, approval, and access state of the approved visual source; criterion IDs, properties, and comparison method; and evidence linking the actual output to its revision. An Implementer report does not replace fresh QA's direct comparison. Record results as pass, mismatch, or unverified and connect them to the existing proven/unmet/unverified criterion verdicts. Use pass only when accessible evidence meets the visual criterion; keep unsupported claims unverified. Missing output-to-revision linkage is unverified; a visible difference is a mismatch. Record these separately; do not infer the current branch UI state. Hold the comparison if the approved source or actual output is inaccessible or interpretation approval is missing.
 
-Static policy, generated-file, and manifest checks are structural evidence. They do not prove actual role behavior, an installed build, Claude Code CLI runtime compliance, or visual fidelity. Reports include actual changes and exclusion rationale, checks run and omitted, evidence and limits by criterion, and platform availability. Preserve existing baseline failures separately; progress on independent work does not relax required checks or acceptance criteria.
+Static policy, generated-file, and manifest checks are structural evidence. They do not prove actual role behavior, an installed build, Claude Code CLI runtime compliance, or visual fidelity. Reports include actual changes, exclusion rationale, checks run and omitted, each criterion's evidence and limits, and platform availability. Keep baseline failures separate; progress on independent work does not relax required checks or acceptance criteria.
 
 ## Risk-scaled execution
 
@@ -205,7 +205,7 @@ This is an operator verdict record; it does not replace semantic proof of a crit
 Failures, unknown, mismatch and unverified outcomes are not passing evidence. Preserve previous results and failure records.
 
 A failed check/review leaves an open finding. Link a separate finding to an existing check/review through `record` with
-`data: {action: "open", id, checkId, message}`. After a Implementer fix, record
+`data: {action: "open", id, checkId, message}`. After an Implementer fix, record
 `data: {action: "resolve", id, actor: {id, role: "implementer"}, changeFingerprint}` and the fix evidence messageRef.
 The actor must be the Implementer assigned to that task, or a relevant task for an overall finding. This marks the finding resolved;
 it becomes closed only when a subsequent prepare includes it in `findingIds` and revalidation passes for the same change version.
@@ -257,8 +257,8 @@ A changed runtimeHash follows the existing stale/hold rules; the stored version 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
-- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer merely because no plan exists. This creates no new plan obligation.
-- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
+- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer because no plan exists. This creates no new plan obligation.
+- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. Reviewer reviews the final full change once after all tasks are accepted and required QA is complete. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
