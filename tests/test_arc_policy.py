@@ -421,6 +421,30 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
 
 class PlannerDraftingDisciplineTests(unittest.TestCase):
     # Approved structural contract checks; no consuming-agent runtime claim.
+    def test_planner_progress_preserves_complete_draft_contract(self):
+        rules = {rule["id"]: " ".join(rule["text"].lower().split())
+                 for rule in json.loads((REPO / "lib/policy/role-policy.json").read_text())["rules"]}
+        contracts = {
+            "role.planner-draft-only": (
+                r"report progress only to orchestrator.*initial drafting and revisions",
+                r"keep updates brief: stage, feedback being applied, actual blocker, or next step",
+                r"omit draft prose and excerpts",
+                r"return the complete draft and self.review to orchestrator for review and correction",
+                r"raw subagent responses may appear in app or tool surfaces.*prompt policy cannot hide them",
+            ),
+            "planning.planner-brief": (
+                r"allow the initial draft and one consolidated correction",
+                r"do not invoke planner only to reformat or re.express a draft, fix a save error, or fix a patch.application error.*orchestrator handles these operations",
+                r"evaluate separate substantive work under the normal planner gate",
+                r"keep user.facing progress brief and based on planner status.*do not relay draft content",
+                r"at approval, present the integrated, saved and reviewed markdown document without repeating its body in chat",
+            ),
+        }
+        for rule_id, patterns in contracts.items():
+            for pattern in patterns:
+                with self.subTest(rule=rule_id, contract=pattern):
+                    self.assertRegex(rules[rule_id], pattern)
+
     def contracts(self, patterns):
         for platform in ("codex", "claude"):
             text = " ".join((REPO / platform / "skill/references/planning.md").read_text().lower().split())
@@ -1307,7 +1331,7 @@ class CodexRoleHardeningTests(unittest.TestCase):
 
     def test_role_gate_planner_only_ceo_skill_ban_and_routing(self) -> None:
         text = (REPO / "codex/skill/SKILL.md").read_text()
-        gate = next((p for p in text.split("\n\n") if p.startswith("Role gate:")), "")
+        gate = next((p for p in text.split("\n\n") if p.startswith(("Role gate:", "**Role gate:**"))), "")
         self.assertLessEqual(len(re.findall(r"[.!?](?:\s|$)", gate)), 5)
         for needle in ("ONLY by Planner (`arc_planner`)", "Orchestrator MUST NEVER author them",
                        "MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool",

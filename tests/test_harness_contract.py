@@ -280,6 +280,31 @@ class PolicyContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.texts = policy_texts()
 
+    def test_planner_progress_and_saved_approval_contract(self) -> None:
+        # Approved written-contract checks; app visibility and runtime compliance are outside this test.
+        profile = " ".join((REPO / "codex/agents/arc-planner.toml").read_text().lower().split())
+        planning = " ".join(self.texts["codex/skill/references/planning.md"].lower().split())
+        coordination = " ".join((REPO / "codex/skill/references/coordination.md").read_text().lower().split())
+        for artifact, text in (("profile", profile), ("planning", planning), ("coordination", coordination)):
+            for pattern in (
+                r"report(?:s)? progress only to orchestrator.*initial drafting and revisions|initial drafting and revisions.*planner reports progress only to orchestrator",
+                r"keep updates brief: stage, feedback being applied, actual blocker, or next step",
+                r"omit draft prose.*excerpts",
+                r"return the complete draft and self.review to orchestrator for review and correction",
+                r"raw subagent responses may appear in app or tool surfaces.*prompt policy cannot hide them",
+            ):
+                with self.subTest(artifact=artifact, contract=pattern):
+                    self.assertRegex(text, pattern)
+        for pattern in (
+            r"allow the initial draft and one consolidated correction",
+            r"do not invoke planner only to reformat or re.express a draft, fix a save error, or fix a patch.application error.*orchestrator handles these operations",
+            r"evaluate separate substantive work under the normal planner gate",
+        ):
+            with self.subTest(artifact="planning", contract=pattern):
+                self.assertRegex(planning, pattern)
+        self.assertRegex(planning, r"orchestrator keeps user.facing progress brief and based on planner status.*do not relay draft content")
+        self.assertRegex(planning, r"at approval, present the integrated, saved and reviewed markdown document without repeating its body in chat")
+
     def assert_contracts(self, *contracts: str) -> None:
         failures = policy_contract_failures(self.texts)
         self.assertEqual([failure for failure in failures if failure.split(":", 1)[0] in contracts], [])
