@@ -7,6 +7,7 @@ import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
 import {validateCooperativeCommand,validateCooperativeState} from './cooperative-schema.mjs';
 import {observeCooperativeTarget,validateObservedTarget,validateWorkflowId,workflowStatePath,inspectPath,absolute,within} from './scope.mjs';
 import {fingerprintRequest,saveDurableState,applyCooperativeCommitTransition} from './store.mjs';
@@ -181,4 +182,45 @@ async function readPlannerHistory(state,statePath,documentPath){
   }
   return {plannerHistory};
  }catch(error){return {plannerHistory,plannerHistoryError:error.message};}
+}
+
+/** Unauthenticated hook observations are audit only. They never mutate workflows. */
+export async function recordPlannerHookObservation({cwd,input,platform,observe=observeHookTarget,storage={}}={}){
+ if(!['codex','claude'].includes(platform)||!input||input.cwd!==cwd||!absolute(cwd)||typeof input.session_id!=='string'||!input.session_id||!['PreToolUse','PostToolUse','SubagentStart'].includes(input.hook_event_name)||input.hook_event_name==='SubagentStart'&&(typeof input.agent_id!=='string'||!input.agent_id)||input.hook_event_name!=='SubagentStart'&&(!['Agent','spawn_agent'].includes(input.tool_name)||typeof input.tool_use_id!=='string'||!input.tool_use_id))throw Error('Complete supported observation event required');
+ const target=await observe(cwd);await validateObservedTarget(target.realpath,target);
+ if(!within(target.realpath,cwd))throw Error('Hook cwd escapes observed checkout');
+ const root=path.join(target.gitCommonDir,'arc'),directory=path.join(root,'planner-observations');await inspectPath(directory,{missing:true,directory:true});await fs.mkdir(directory,{recursive:true,mode:0o700});await inspectPath(directory,{directory:true});
+ const checkout={realpath:target.realpath,gitCommonDir:target.gitCommonDir,gitDir:target.gitDir},key=fingerprintRequest({platform,sessionRef:input.session_id,checkout}).slice(7),auditPath=path.join(directory,key+'.json'),lockPath=auditPath+'.lock';let lock;
+ try{
+  lock=await fs.open(lockPath,'wx',0o600);await inspectPath(auditPath,{missing:true});
+  let audit;try{audit=JSON.parse(await fs.readFile(auditPath,'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
+  audit??={version:1,platform,sessionRef:input.session_id,target:structuredClone(target),observations:[]};
+  if(audit.version!==1||audit.platform!==platform||audit.sessionRef!==input.session_id||!sameCheckout(audit.target,target)||!Array.isArray(audit.observations))throw Error('Observation audit identity mismatch');
+  const eventHash=fingerprintRequest(input),prior=audit.observations.find(o=>o.eventHash===eventHash);
+  if(prior)return {persisted:true,replayed:true,auditPath,observation:prior};
+  const stageCandidates=[],historyErrors=[],workflows=path.join(root,'workflows');
+  try{
+   await inspectPath(workflows,{directory:true});
+   for(const entry of await fs.readdir(workflows,{withFileTypes:true})){
+    try{
+     if(!entry.isDirectory()||entry.isSymbolicLink())throw Error('Unsafe workflow observation path');
+     const filename=path.join(workflows,entry.name,'state.json');await inspectPath(filename);const state=validateCooperativeState(JSON.parse(await fs.readFile(filename,'utf8')));
+     if(!sameCheckout(state.target,target))continue;
+     for(const stage of state.plannerLedger?.stages??[])if(stage.pending)stageCandidates.push({workflowId:state.workflowId,stageId:stage.id,requestId:stage.pending});
+    }catch(error){historyErrors.push({workflowId:entry.name,reason:error.message});}
+   }
+  }catch(error){if(error.code!=='ENOENT')historyErrors.push({reason:error.message});}
+  stageCandidates.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const observation={eventHash,event:input.hook_event_name,source:'hook-stdin',sessionRef:input.session_id,agentRef:typeof input.agent_id==='string'?input.agent_id:null,toolUseId:typeof input.tool_use_id==='string'?input.tool_use_id:null,claimedAgentType:typeof input.agent_type==='string'?input.agent_type:null,identityVerified:false,classification:historyErrors.length?'uncorrelated':stageCandidates.length?'uncorrelated':'unmatched',reason:historyErrors.length?'Workflow candidates could not be fully inspected':'Raw hook event has no verified assignment correlation',stageCandidates,historyErrors,deduplication:'content-hash-only; identical repeated events are indistinguishable',coverage:{enforcement:'observation-only',provenance:'hook-stdin-unverified',nativeVerified:false,prevention:false,followup_task:'unknown',specializedPaths:'unknown',hostedTools:'unsupported'}};
+  audit.observations.push(observation);await saveDurableState({statePath:auditPath,state:audit,create:!audit.observations.slice(0,-1).length&&!(await fs.stat(auditPath).catch(error=>{if(error.code==='ENOENT')return null;throw error;})),storage});
+  return {persisted:true,replayed:false,auditPath,observation};
+ }finally{if(lock){await lock.close();await fs.unlink(lockPath);}}
+}
+
+async function observeHookTarget(cwd){
+ await inspectPath(cwd,{directory:true});
+ const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.toUpperCase().startsWith('GIT_')));Object.assign(env,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:process.platform==='win32'?'NUL':'/dev/null',GIT_OPTIONAL_LOCKS:'0',GIT_NO_REPLACE_OBJECTS:'1',GIT_NO_LAZY_FETCH:'1',GIT_TERMINAL_PROMPT:'0'});
+ const result=spawnSync('git',['--no-pager','-c','core.fsmonitor=false','rev-parse','--show-toplevel'],{cwd,env,encoding:'utf8',timeout:10000,maxBuffer:1024*1024});
+ if(result.error||result.status!==0||!result.stdout.endsWith('\n')||result.stdout.slice(0,-1).includes('\n'))throw Error('Hook target observation unavailable');
+ return observeCooperativeTarget(result.stdout.slice(0,-1));
 }

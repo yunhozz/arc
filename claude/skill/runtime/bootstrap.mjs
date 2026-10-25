@@ -6,7 +6,7 @@ import {observeCooperativeTarget,validateObservedTarget,validateWorkflowId,workf
 import {saveDurableState} from './store.mjs';
 export const COOPERATIVE_RUNTIME_MODULES=Object.freeze([
  'cli.mjs','command.mjs','bootstrap.mjs','cooperative-schema.mjs','cooperative.mjs','evaluate.mjs',
- 'scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs','external.mjs','schema.mjs','operations.mjs','gate.mjs'
+ 'scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs','external.mjs','schema.mjs','operations.mjs','gate.mjs','adapters/codex.mjs','adapters/claude.mjs','capabilities.mjs','identity.mjs','git-query.mjs'
 ]);
 export const cooperativeCoverage=()=>({enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false});
 export function commandResult({workflowId,state,input,decision='allow',ruleId='cooperative.recorded',persisted=false,...extra}){
@@ -16,7 +16,7 @@ export async function cooperativeVersions(){
  const hash=bytes=>'sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
  let policy;try{policy=await fs.readFile(new URL('../policy/role-policy.json',import.meta.url));}catch(error){if(error.code!=='ENOENT')throw error;policy=await fs.readFile(new URL('./role-policy.json',import.meta.url));}
  const runtime=await Promise.all(COOPERATIVE_RUNTIME_MODULES.map(file=>fs.readFile(new URL(file,import.meta.url))));
- return {policy:'1',runtime:'cooperative-2',policyHash:hash(policy),runtimeHash:hash(Buffer.concat(runtime))};
+ return {policy:'1',runtime:'cooperative-4',policyHash:hash(policy),runtimeHash:hash(Buffer.concat(runtime))};
 }
 export async function initializeCooperativeWorkflow({cwd,workflowId,input,observe=observeCooperativeTarget,storage={}}){
  validateWorkflowId(workflowId);validateCooperativeCommand({command:'init',input});

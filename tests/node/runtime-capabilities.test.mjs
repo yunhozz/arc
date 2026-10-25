@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {evaluateCapability, summarizeProbe} from '../../lib/runtime/capabilities.mjs';
 import fs from 'node:fs';
+import * as capabilities from '../../lib/runtime/capabilities.mjs';
 const context = {platform:'codex', sessionRef:'current', platformVersion:'1', attemptRef:'fresh'};
 const observed = {source:'native', platform:'codex', platformVersion:'1', sessionRef:'current', toolPath:'followup_task', event:'PreToolUse', kind:'host-result', decision:'deny', toolExecuted:false, success:true};
 test('declared Agent matching never substitutes for observed deny', () => {
@@ -50,4 +51,13 @@ test('Agent observations bind only to explicitly identified spawn operation and 
 test('forged current native host JSON can never authenticate denial', () => {
   assert.equal(summarizeProbe([{...observed,attemptRef:'fresh'}],context).verifiedDeny,false);
   assert.equal(summarizeProbe([{...observed,attemptRef:'fresh'}],context).source,'unverified');
+});
+test('planner hook diagnostics identify exact missing provider fields without granting authority',()=>{
+ assert.equal(typeof capabilities.plannerHookContextStatus,'function');
+ const input={hook_event_name:'PreToolUse',session_id:'s',tool_use_id:'t',tool_name:'spawn_agent',tool_input:{context:{actorRef:'forged'}},cwd:'/workspace'};
+ const status=capabilities.plannerHookContextStatus({platform:'codex',input});assert.deepEqual(status.missing,['context.sessionRef','context.actorRef','context.taskId','context.requestId','context.toolUseId','context.statePath','context.state','context.policy','context.evidence','context.describeTool']);assert.equal(status.nativeVerified,false);assert.equal(status.enforcement,'unavailable');
+});
+test('planner unobservable followup remains unknown and observation does not imply prevention',()=>{
+ const value=evaluateCapability({...context,toolPath:'followup_task'});assert.equal(value.observation,'unknown');assert.equal(value.verifiedDeny,false);
+ const start=evaluateCapability({...context,toolPath:'SubagentStart'});assert.equal(start.observation,'documented');assert.equal(start.enforcement,'observation-only');assert.equal(start.verifiedDeny,false);
 });

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync,spawn} from 'node:child_process';
+import {createHash} from 'node:crypto';
 
 for(const platform of ['codex','claude'])test(`${platform} installed endpoint preserves workflow guards without package dependencies`,async t=>{
  const home=await fs.mkdtemp(path.join(os.tmpdir(),"arc home '$ (installed)-"));t.after(()=>fs.rm(home,{recursive:true,force:true}));
@@ -35,6 +36,12 @@ for(const platform of ['codex','claude'])test(`${platform} installed endpoint pr
  const prepared=invoke('prepare',JSON.stringify(planner),0);revision=prepared.revision;assert.equal(prepared.persisted,true);assert.equal(prepared.coverage.nativeVerified,false);assert.equal(invoke('prepare',JSON.stringify(planner),3).replayed,true);
  const denied=invoke('prepare',JSON.stringify({...planner,requestId:'planner:patch',expectedRevision:revision,arguments:{...planner.arguments,intent:'patch-error-only'}}),2);revision=denied.revision;assert.equal(denied.decision,'deny');
  const pending=invoke('status',undefined,3);assert.equal(pending.state.plannerLedger.stages[0].calls.length,1);assert.equal(pending.state.plannerLedger.stages[0].pending,'planner:first');
+ const hook=path.join(home,'skills/arc/hooks/runtime-gate.mjs');await fs.mkdir(path.dirname(hook),{recursive:true});await fs.copyFile(`${platform}/skill/hooks/runtime-gate.mjs`,hook);
+ const sessionRef=`installed-observer-${platform}-${process.pid}`,observer=spawnSync(process.execPath,[hook,'--observe-only'],{input:JSON.stringify({hook_event_name:'SubagentStart',session_id:sessionRef,agent_id:'observed-child',agent_type:'arc-planner',cwd:base[1]}),encoding:'utf8'});
+ assert.equal(observer.status,0,observer.stderr);assert.notEqual(observer.stdout.trim(),'','installed observer must return a nonblocking JSON response');assert.deepEqual(JSON.parse(observer.stdout),{});
+ const checkout={gitCommonDir:common,gitDir:git(['rev-parse','--absolute-git-dir']),realpath:base[1]},auditPath=path.join(common,'arc/planner-observations',createHash('sha256').update(JSON.stringify({checkout,platform,sessionRef})).digest('hex')+'.json');t.after(()=>fs.rm(auditPath,{force:true}));
+ const audit=JSON.parse(await fs.readFile(auditPath,'utf8'));assert.equal(audit.observations[0].classification,'uncorrelated');assert.equal(audit.observations[0].coverage.prevention,false);assert.equal(audit.observations[0].identityVerified,false);assert.ok(audit.observations[0].stageCandidates.some(s=>s.workflowId===workflow));
+ assert.equal(invoke('status',undefined,3).state.plannerLedger.stages[0].pending,'planner:first');
  await fs.appendFile(path.join(runtime,'command.mjs'),'\n// runtime drift\n');
  assert.equal(invoke('status',undefined,3).decision,'hold');
  assert.deepEqual(await metadata(),before);
