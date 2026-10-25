@@ -52,39 +52,43 @@ Orchestrator preserves that language when saving.
 
 ## Planner drafting preparation and consolidated feedback
 
-Before formal drafting, Orchestrator performs a preflight of relevant policy, reference, profile, test, parity and
-manifest surfaces and conflicts. Provide one complete initial brief with actual absolute workspace/repository,
-branch or detached HEAD, HEAD, change state and ownership, explicit target choice and preparation evidence,
-approved preceding design/spec/plan versions, scope and exclusions, design/plan depth, dependencies and shared
-contracts, acceptance criteria, required QA/focused checks and evidence, hold conditions and open decisions.
-Resolve missing or conflicting required evidence first or hold that stage.
+1. Before formal drafting, Orchestrator performs a preflight of relevant policy, reference, profile, test, parity
+   and manifest surfaces and conflicts. Apply the Formal drafting boundary above and coordination's instruction
+   provenance, input-state and local-skill rules, including required reference paths, authorized bounded read
+   alternatives and return conditions. Missing required inputs or unresolved conflicts hold dependent drafting;
+   Planner returns them to Orchestrator. Optional read recovery grants no preparation, verification, writing or
+   approval authority.
 
-Maintain a compact ledger of original user requirements, criteria IDs, approved decisions, open decisions,
-exclusions and scope deltas before each drafting stage. Merge intervening user changes into one delta for the next
-Planner brief. Distinguish user-approved decisions, verified source facts with exact paths and lines, assumptions
-and open decisions; never present unsupported claims as verified facts.
+2. Maintain a compact ledger of original requirements/criteria IDs, approved and open decisions, exclusions and
+   scope deltas; merge intervening user changes into one next-brief delta. Distinguish user-approved decisions,
+   verified source facts with exact paths and lines, assumptions and open decisions.
 
-Planner returns a complete proportional draft and self-review for the current approval stage. Orchestrator integrates,
-saves, reviews and obtains approval. Orchestrator checks once with a fixed checklist: scope and evidence; targets,
-ownership and paths; policy surfaces and conflicts; task boundaries, dependencies and acceptance criteria; checks,
-evidence and holds; roles, approval and commit boundaries; draft completeness. Gather all substantive omissions into
-one consolidated follow-up request to Planner. Do not split requests by omission or author the missing plan yourself.
-Consolidated feedback contains changed fields only and marks remaining fields `unchanged` relative to the received brief.
+3. Send one complete brief for the initial call of each stage, using coordination's shared fields and evidence-link
+   rules. Include the prepared workspace, branch or detached HEAD, HEAD and ownership; scope, exclusions, depth,
+   dependencies, shared contracts, acceptance criteria, required QA/focused checks, evidence and holds. Identify
+   preceding approved versions, document/output paths, current behavior and connected source, generated, runtime,
+   installer and documentation surfaces, policy conflicts and resolution direction, open decisions and the exact
+   stage deliverable. For visual work, include approved sources/versions, criteria and unresolved interpretations.
 
-Initial design, required spec approval, and formal plan drafting/approval remain separate ordered stages.
-Allow additional Planner calls only for user-approved material scope/evidence changes or concrete unmet checklist
-items after the consolidated correction. Each call must identify changed input, target criterion, expected artifact
-and expected progress, and require meaningful new input or criterion-state progress. If the same criterion remains
-unmet after correction without new input or evidence, hold the stage and report the criterion, observed evidence and
-exact input or decision needed to unblock it. Do not repeat resolved questions, reword the same request, or treat
-rewording or agent replacement as meaningful input. There is no fixed call cap; never accept an incomplete draft
-to reduce calls. Do not add call-count conditions to Planner profiles.
+4. Planner returns a complete proportional draft and self-review. Orchestrator integrates, saves, reviews and
+   obtains approval; never authors missing content. Review the complete draft once with this fixed checklist:
+   scope and evidence; targets, ownership and paths; policy surfaces and conflicts; task boundaries, dependencies
+   and acceptance criteria; checks, evidence and holds; roles, approval and commit boundaries; draft completeness.
+   Finish the checklist before sending all substantive omissions in one consolidated follow-up request.
+   Identify each criterion, defect, evidence and expected correction. Follow coordination's changed-fields-only
+   and `unchanged` rules. Do not split requests by omission.
 
-The complete initial brief identifies current behavior and connected source, generated, runtime, installer and
-documentation surfaces; conflicting rules and resolution direction; exact current-stage deliverable and absolute
-output path. Keep the shared brief's fixed field order in [coordination](coordination.md). Link accessible evidence
-and needed ranges instead of full dialogue or raw logs. Missing target preparation or required decisions holds formal
-drafting; initial design proposals may still precede target selection. Written-spec approval precedes dependent plan drafting.
+5. After that correction, additional Planner calls require user-approved material scope/evidence changes or
+   concrete unmet checklist items, plus meaningful new input or criterion-state progress. Identify changed input,
+   target criterion, expected artifact and expected progress. Distinguish approved scope changes from ordinary
+   omissions within existing scope; omissions require no renewed scope approval. If the same criterion remains
+   unmet without meaningful new input, evidence or progress, hold the stage and report the criterion, observed
+   evidence and exact unblock input or decision. Do not repeat resolved questions, reword the same request, or
+   count rewording or agent replacement as meaningful input or progress.
+
+Initial design, required spec approval, and formal plan drafting/approval remain separate ordered stages;
+written-spec approval precedes dependent plan drafting. No fixed call cap applies; never accept an incomplete draft
+to reduce calls or add call-count conditions to Planner profiles.
 
 ## Design path and plan depth
 
@@ -283,7 +287,7 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. Reviewer reviews the final full change once after all tasks are accepted and required QA is complete. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
-- [planning.planner-brief] Before formal drafting, Orchestrator maintains a compact ledger of original requirements/criteria IDs, approved and open decisions, exclusions and scope deltas; merge intervening user changes into one next-brief delta. Distinguish user-approved decisions, verified source facts with exact paths and lines, assumptions and open decisions; never present unsupported claims as verified facts. Supply one complete stage-specific initial brief with verified target and ownership, document paths and preceding approved versions, current behavior and connected source/generated/runtime/installer/documentation surfaces, policy conflicts, depth, dependencies, checks, holds and exact deliverable. Preserve shared brief field order. Review the complete draft once with the fixed checklist; consolidate all substantive omissions into one correction with changed fields and other fields unchanged. Further calls require user-approved material scope/evidence changes or concrete unmet checklist items after that correction; identify changed input, target criterion, expected artifact and expected progress. Every additional call requires meaningful new input or criterion-state progress. If the same criterion remains unmet after correction without new input or evidence, hold the stage and report the criterion, observed evidence and exact unblock input or decision. Do not split omissions, repeat resolved questions, reword the same request, or count rewording or agent replacement as meaningful input. Preserve sequential design, spec and plan approvals; no fixed call cap or incomplete draft acceptance. Do not add call-count conditions to Planner profiles. Include instruction provenance and input states, required skill/reference paths, bounded read alternatives and return conditions, approved visual sources/versions and criteria, and unresolved interpretation decisions before dependent drafting. Planner returns incomplete required inputs to Orchestrator; optional reading recovery never grants preparation, verification, writing or approval authority.
+- [planning.planner-brief] Follow planning.md's Planner drafting preparation and consolidated feedback procedure, including preflight, ledger, evidence classification, target preparation, preceding approvals, provenance and reference gates. Send one complete stage-specific initial brief. Planner returns a complete proportional draft and self-review; Orchestrator reviews once with the fixed checklist and sends one consolidated correction using changed fields only. Additional Planner calls require user-approved material scope/evidence changes or concrete unmet checklist items after correction, plus meaningful new input or criterion-state progress; state changed input, target criterion, expected artifact and expected progress. Hold repeated unmet criteria without new input, evidence or progress and report the criterion, observed evidence and exact unblock input or decision. Do not split omissions, repeat resolved items, or count rewording or agent replacement as progress. Preserve separate sequential design/spec/plan approvals; no fixed call cap, Planner-profile call-count conditions or incomplete draft acceptance.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
 [ARC role policy: contract end]
 

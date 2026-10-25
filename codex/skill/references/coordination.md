@@ -82,21 +82,9 @@ follow [Risk-scaled execution](verification.md#risk-scaled-execution).
 - `request_user_input` questions use only `title` and `options` fields, never `question`.
 - In Implementer briefs, cite the plan/spec path with the task section's line range and include only the needed excerpts,
   acceptance criteria, and constraints; do not ask Implementer to read whole plans or specs.
-- Before formal Planner drafting, complete the stage brief using
-  [planning](planning.md#planner-drafting-preparation-and-consolidated-feedback): original requirements/criteria IDs,
-  approved and open decisions, actual target/ownership, preceding approved versions and document paths, current behavior
-  and connected policy/source/generated/runtime/installer/documentation surfaces, depth, dependencies, checks, holds and
-  exact stage deliverable. Maintain the requirements/decisions/exclusions/scope-delta ledger and merge intervening user
-  changes into one next-brief delta. Distinguish user-approved decisions, verified source facts with exact paths and
-  lines, assumptions and open decisions; never present unsupported claims as verified facts. Preserve shared brief field
-  order. Send one complete initial brief, review the complete draft once with the fixed checklist, and consolidate all
-  substantive omissions into one correction with changed fields and `unchanged` for the rest. Additional calls require
-  user-approved material scope/evidence changes or concrete unmet checklist items after that correction; identify changed
-  input, target criterion, expected artifact and expected progress. Every additional call requires meaningful new input
-  or criterion-state progress. If the same criterion remains unmet after correction without new input or evidence, hold
-  the stage and report the criterion, observed evidence and exact unblock input or decision. Do not split omissions,
-  repeat resolved questions, reword the same request, or count rewording or agent replacement as meaningful input.
-  Preserve separate sequential design, spec and plan approvals; no fixed call cap or incomplete draft acceptance.
+- Follow [Planner drafting preparation and consolidated feedback](planning.md#planner-drafting-preparation-and-consolidated-feedback).
+  Complete the initial brief and whole-draft checklist before sending consolidated corrections. Gate further calls
+  on documented changes or criterion progress; hold repetition without progress.
 - Before optional calls, name the unresolved question and expected artifact. Skip calls for questions resolved by available evidence or direct inspection.
 - Wait for a specialist with `wait_agent` using the maximum supported timeout, repeating only until it completes; a
   timeout is not a reason to poll or check status in between. Do not poll with `list_agents`, `sleep`, or repeated short
