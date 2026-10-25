@@ -107,8 +107,8 @@ resolve or explicitly disposition findings before dependent implementation. This
 ### Local superpowers references
 
 Orchestrator briefs absolute paths under the selected installed ARC directory: Planner reads
-`references/superpowers/brainstorming/SKILL.md` and `references/superpowers/writing-plans/SKILL.md`;
-Implementer reads `references/superpowers/test-driven-development/SKILL.md`, including required relative references.
+`references/brainstorming.md` and `references/writing-plans.md`;
+Implementer reads `references/test-driven-development.md`, including required relative references.
 Resolve paths within each skill directory. Runtime needs no global discovery, external Skill invocation, or automatic download.
 Missing/damaged local files stop dependent work: report exact paths to Orchestrator, without global fallback.
 ARC approval, ownership, TDD exceptions and executor adapters still apply.
@@ -125,7 +125,7 @@ application, concurrency or depth enforcement.
 New sessions reload profiles; running agents retain their current settings and parent relationships. Configuration
 changes do not automatically reparent running agents or prove runtime parent behavior.
 
-For browser visualization needs read [visual-companion](visual-companion.md). Use only capabilities
+For browser visualization needs read [visual-companion](arc-visual-companion.md). Use only capabilities
 available within each role's exact allowlist; report unavailable capabilities and preserve unverified visual scope.
 
 Claude profile `model` and `effort` frontmatter values are shipped defaults; installation overwrites them with the active `models.toml` preset values.

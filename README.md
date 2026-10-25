@@ -28,13 +28,11 @@ Package installation provides the CLI, not the harness. Install or manage the ha
 
 ## Manage ARC
 
-Choose `Install / Update` to select Codex, Claude Code, or both, set the preset, limits, language, and global settings, then select `Execute` and press Enter. `Change Preset` edits a draft; select the focused `Apply` row and press Enter to apply it. The blank line above either action is not selectable. These actions run after validation without a review screen.
+- **Install or update:** Open `Install / Update`, choose Codex, Claude Code, or both, then set the preset, limits, language, and global settings. Select `Execute` and press Enter. To change only the preset, use `Change Preset`, select `Apply`, and press Enter. Blank lines are not selectable. ARC validates and executes these actions without a review screen.
+- **Check version:** `Check Version` shows the current and latest CLI versions. `Version Upgrade` appears only when a newer version is available. Enter applies that version and preserves installed settings. A global upgrade replaces the CLI and ends the session; an npx upgrade uses the displayed payload without replacing the global CLI. Use `Install / Update` to reconfigure the same version.
+- **Uninstall:** Choose the harness targets and global instructions, then review with `Edit` or `Cancel`. ARC removes the verified global CLI only after all selected harnesses are removed successfully, including in an npx session. A harness failure or interruption skips CLI removal. Results report partial removals and CLI failures. Unselected harnesses, user files, other npm packages, and the shared npx cache remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
 
-`Check Version` shows the current and latest CLI versions. A selectable `Version Upgrade` appears only when a newer version is available. Enter applies that displayed version while preserving installed settings. Global upgrades replace the CLI and end the session; npx upgrades use the displayed payload without replacing the global CLI. Use `Install / Update` to reconfigure or refresh the same version.
-
-`Uninstall` retains target/global-instruction selection and review with `Edit` and `Cancel`. After every selected harness is removed successfully, it removes the verified global CLI, including from an npx session. Harness failures or interruptions skip CLI removal. Results distinguish partial harness removal and CLI failure. Unselected harnesses, user files, other npm packages, and shared npx cache remain. `npm uninstall -g @yunhozz/arc` removes only the CLI.
-
-The TUI requires a terminal with input and output. Its only commands are `arc`, `arc --help`, and `arc --version`; help and version also work without a TTY.
+The TUI requires terminal input and output. It supports only `arc`, `arc --help`, and `arc --version`. Help and version also work without a TTY.
 
 ## Models and language
 

@@ -6,6 +6,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {flattenFixtureReferences} from './fixtures/static-references.mjs';
 const api=await import('../../lib/release/artifact.mjs').catch(()=>({}));
 const source=fileURLToPath(new URL('../../',import.meta.url));
 const npmCli=fs.realpathSync(spawnSync('/bin/sh',['-c','command -v npm'],{encoding:'utf8'}).stdout.trim());
@@ -14,7 +15,8 @@ function temp(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir()
 function copy(t){
  const root=temp(t),input=root+'/source';fs.mkdirSync(input);
  const pkg=JSON.parse(fs.readFileSync(source+'/package.json'));
- for(const name of new Set(['README.md','package.json','package-lock.json','MANIFEST.sha256',...pkg.files])){const from=source+'/'+name;if(fs.existsSync(from))fs.cpSync(from,input+'/'+name,{recursive:true});}
+ for(const name of new Set(['README.md','package.json','package-lock.json','MANIFEST.sha256',...pkg.files])){const from=source+'/'+name;if(fs.existsSync(from)){fs.mkdirSync(path.dirname(input+'/'+name),{recursive:true});fs.cpSync(from,input+'/'+name,{recursive:true});}}
+ flattenFixtureReferences(input);
  const next=JSON.parse(fs.readFileSync(input+'/package.json'));for(const hook of hooks)delete next.scripts[hook];fs.writeFileSync(input+'/package.json',JSON.stringify(next,null,2)+'\n');
  const lock=JSON.parse(fs.readFileSync(input+'/package-lock.json'));delete lock.packages[''].hasInstallScript;fs.writeFileSync(input+'/package-lock.json',JSON.stringify(lock,null,2)+'\n');
  const updated=spawnSync(process.execPath,[source+'/scripts/update-manifest.mjs','--root',input],{encoding:'utf8'});assert.equal(updated.status,0,updated.stderr);
@@ -112,3 +114,6 @@ test('release refuses a missing TUI dependency even with a refreshed manifest',a
  const refreshed=spawnSync(process.execPath,[source+'/scripts/update-manifest.mjs','--root',f.input],{encoding:'utf8'});assert.equal(refreshed.status,0,refreshed.stderr);
  await assert.rejects(api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli}),/missing|Payload/i);
 });
+test('release source excludes the local wrapper from staging and final tarball',async t=>{const f=copy(t),name='scripts/update-superpowers-local.sh';fs.writeFileSync(f.input+'/'+name,'#!/bin/sh\nexit 99\n');const updated=spawnSync(process.execPath,[source+'/scripts/update-manifest.mjs','--root',f.input],{encoding:'utf8'});assert.equal(updated.status,0,updated.stderr);const result=await api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli,deps:{onStaged({stagingRoot}){assert.equal(fs.existsSync(stagingRoot+'/'+name),false);for(const file of ['build-native.mjs','check-installer-parity.mjs','pack-release.mjs','postinstall.mjs','probe-runtime-hooks.mjs','update-manifest.mjs','update-role-policy.mjs','update-runtime-assets.mjs','update-superpowers.mjs','vendor-toml.mjs','verify-release.mjs'])assert.ok(fs.existsSync(stagingRoot+'/scripts/'+file),file);}}});extract(result.tarballPath,f.root+'/unpacked');assert.equal(fs.existsSync(f.root+'/unpacked/'+name),false);assert.equal(fs.readFileSync(f.input+'/'+name,'utf8'),'#!/bin/sh\nexit 99\n');});
+test('release rejects a wrapper introduced into staging before pack',async t=>{const f=copy(t);let packed=0;await assert.rejects(()=>api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli,deps:{onStaged({stagingRoot}){fs.writeFileSync(stagingRoot+'/scripts/update-superpowers-local.sh','sentinel');},pack:async()=>{packed++;throw Error('pack must not run');}}}),/wrapper|local updater/i);assert.equal(packed,0);});
+test('artifact verification rejects an injected local wrapper even with a matching receipt digest',async t=>{const f=copy(t);await api.buildReleaseArtifact({sourceRoot:f.input,outDir:f.outDir,npmCli});const receiptPath=f.outDir+'/arc-release.json',receipt=JSON.parse(fs.readFileSync(receiptPath)),work=f.root+'/tampered',unpacked=work+'/package';fs.mkdirSync(work);extract(receipt.tarballPath,unpacked);fs.writeFileSync(unpacked+'/scripts/update-superpowers-local.sh','sentinel');const archive=spawnSync('tar',['-czf',receipt.tarballPath,'-C',work,'package'],{encoding:'utf8',env:{...process.env,COPYFILE_DISABLE:'1'}});assert.equal(archive.status,0,archive.stderr);receipt.sha512=createHash('sha512').update(fs.readFileSync(receipt.tarballPath)).digest('hex');fs.writeFileSync(receiptPath,JSON.stringify(receipt));await assert.rejects(()=>api.verifyReleaseArtifact({outDir:f.outDir,expectedName:'@yunhozz/arc',expectedVersion:f.version}),/wrapper|local updater/i);});

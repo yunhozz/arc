@@ -102,7 +102,7 @@ Orchestrator accepts using verdicts, findings, rechecks, and remaining gaps, not
 disposition never turns unverified into proven. Low-risk work without QA likewise links each criterion to Orchestrator
 focused-check evidence.
 
-Read brief-cited `references/superpowers/test-driven-development/SKILL.md`; preserve ARC TDD exceptions.
+Read brief-cited `references/test-driven-development.md`; preserve ARC TDD exceptions.
 
 
 ### Final plan Reviewer correction loop
