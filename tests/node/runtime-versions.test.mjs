@@ -6,12 +6,13 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
-const baselineHash='sha256:cf832e506cdc8606dab896665ea533b77689f0c88779ba3299376a963afa7faa';
+const baselineHash='sha256:8cab6010f2a3ee6c226fca97b07cc8ca374ef6b26619ece14ab1629957ff3374';
 
 // Independent T5 contract: omission, reordering or unhashed gate bytes must fail.
 const expectedModules = [
  'cli.mjs', 'command.mjs', 'bootstrap.mjs', 'cooperative-schema.mjs', 'cooperative.mjs', 'evaluate.mjs',
- 'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs', 'external.mjs'
+ 'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs', 'external.mjs',
+ 'schema.mjs', 'operations.mjs', 'gate.mjs'
 ];
 for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/runtime/']) {
  test(`${runtime} freezes the ordered T5 inventory and hashes every raw module Buffer`, async () => {
@@ -21,7 +22,8 @@ for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/run
   assert.equal(Object.isFrozen(api.COOPERATIVE_RUNTIME_MODULES), true);
   const bytes = Buffer.concat(await Promise.all(expectedModules.map(file => readFile(new URL(file, directory)))));
   const expectedHash = 'sha256:' + createHash('sha256').update(bytes).digest('hex');
-  assert.equal((await api.cooperativeVersions()).runtimeHash, expectedHash);
+  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-2');
+  assert.equal(versions.runtimeHash, expectedHash);
   assert.equal(expectedHash, baselineHash);
  });
 }

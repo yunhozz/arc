@@ -27,7 +27,14 @@ for(const platform of ['codex','claude'])test(`${platform} installed endpoint pr
  const secret='https://user:private-value@example.com/repo';
  const rejected=invoke('record',JSON.stringify({...record,requestId:'secret',expectedRevision:1,evidence:{kind:'external-approval',messageRef:'approval',data:{destination:secret}}}),1);
  assert.match(rejected.error,/Secret-free/);assert.ok(!JSON.stringify(rejected).includes('private-value'));
- assert.equal(invoke('prepare',JSON.stringify({requestId:'unsupported',expectedRevision:1,actor:{id:'operator'},operation:'assign-agent'}),3).decision,'hold');
+ const unsupported=invoke('prepare',JSON.stringify({requestId:'unsupported',expectedRevision:1,actor:{id:'operator'},operation:'assign-agent'}),3);assert.equal(unsupported.decision,'hold');
+ let revision=unsupported.revision;const actor={id:'operator',role:'orchestrator'},contract={document:{path:path.join(await fs.realpath(process.cwd()),'README.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0};
+ const put=(kind,ref,data)=>{const r=invoke('record',JSON.stringify({requestId:ref,expectedRevision:revision,actor,evidence:{kind,messageRef:ref,data}}),0);revision=r.revision;return r;};
+ put('approval','planner:approval',{plannerStage:contract});put('planner-stage','planner:stage',{id:'stage',...contract,approvalRef:'planner:approval',criteria:[{id:'C1',status:'open',judgmentRef:'criterion'}]});
+ const planner={requestId:'planner:first',expectedRevision:revision,actor,operation:'planner-call',arguments:{stageId:'stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}};
+ const prepared=invoke('prepare',JSON.stringify(planner),0);revision=prepared.revision;assert.equal(prepared.persisted,true);assert.equal(prepared.coverage.nativeVerified,false);assert.equal(invoke('prepare',JSON.stringify(planner),3).replayed,true);
+ const denied=invoke('prepare',JSON.stringify({...planner,requestId:'planner:patch',expectedRevision:revision,arguments:{...planner.arguments,intent:'patch-error-only'}}),2);revision=denied.revision;assert.equal(denied.decision,'deny');
+ const pending=invoke('status',undefined,3);assert.equal(pending.state.plannerLedger.stages[0].calls.length,1);assert.equal(pending.state.plannerLedger.stages[0].pending,'planner:first');
  await fs.appendFile(path.join(runtime,'command.mjs'),'\n// runtime drift\n');
  assert.equal(invoke('status',undefined,3).decision,'hold');
  assert.deepEqual(await metadata(),before);

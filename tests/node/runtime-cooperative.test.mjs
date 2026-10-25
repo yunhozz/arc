@@ -105,3 +105,112 @@ test('cooperative evaluator exposes explicit coverage and revision without provi
  const result=evaluator.evaluateCooperative({state,request:{command:'prepare',input:{requestId:'unsupported',expectedRevision:0,actor:{id:'operator'},operation:'assign-agent'}},evidence:{target:state.target,versions:state.versions}});
  assert.equal(result.decision,'hold');assert.ok(result.coverage,'gate must expose cooperative coverage');assert.equal(result.coverage.provenance,'operator-attested');assert.equal(result.coverage.nativeVerified,false);assert.equal(result.expectedRevision,0);assert.equal(result.proposedTransition,null);
 });
+
+async function plannerStart(t){
+ const f=await start(t);f.call=async(command,input)=>api.runCooperativeCommand({...f.args,command,input});
+ f.send=async(kind,data,messageRef)=>{const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));return f.call('record',{requestId:'record:'+messageRef,expectedRevision:state.revision,actor:{id:'operator',role:'orchestrator'},evidence:{kind,messageRef,data}});};
+ const contract={document:{path:path.join(f.cwd,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0};
+ await f.send('approval',{plannerStage:contract},'approved:stage');
+ f.stage={id:'stage',...contract,approvalRef:'approved:stage',criteria:[{id:'C1',status:'open',judgmentRef:'criterion:1'}]};
+ const registered=await f.send('planner-stage',f.stage,'stage:registered').catch(error=>({decision:'hold',error:error.message}));
+ assert.equal(registered.decision,'allow',registered.error);return f;
+}
+async function plannerPrepare(f,id,kind='initial',extra={}){
+ const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ return f.call('prepare',{requestId:id,expectedRevision:s.revision,actor:{id:'operator',role:'orchestrator'},operation:'planner-call',arguments:{stageId:'stage',kind,intent:'substantive',criterionIds:[],evidenceRefs:[],...extra}});
+}
+async function plannerArtifact(f,ref,purpose,bytes='draft',semantic){
+ const filename=path.join(f.cwd,ref.replaceAll(':','-')+'.md');await fs.writeFile(filename,bytes);
+ return f.send('planner-evidence',{stageId:'stage',path:filename,purpose,criterionIds:['C1'],...(semantic?{semantic}: {})},ref);
+}
+async function plannerResult(f,requestId,{complete=false,status='succeeded'}={}){
+ await plannerArtifact(f,'draft:'+requestId,'draft','draft '+requestId);await plannerArtifact(f,'self:'+requestId,'self-review','self '+requestId);
+ assert.equal((await f.send('planner-result',{stageId:'stage',callRequestId:requestId,status,artifactRef:'draft:'+requestId,selfReviewRef:'self:'+requestId},'result:'+requestId)).decision,'allow');
+ return f.send('planner-review',{stageId:'stage',resultRef:'result:'+requestId,full:true,complete,criteria:[{id:'C1',status:complete?'resolved':'open',judgmentRef:'judgment:'+requestId}]},'review:'+requestId);
+}
+test('planner cooperative reserves before response and retains unknown results across restart',async t=>{
+ const f=await plannerStart(t);const d=await plannerPrepare(f,'first');assert.equal(d.decision,'allow');assert.equal(d.persisted,true);assert.equal(d.coverage.nativeVerified,false);
+ let s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].pending,'first');assert.equal(s.plannerLedger.stages[0].calls.length,1);
+ assert.equal((await plannerPrepare(f,'duplicate')).decision,'hold');
+ const unknown=await f.send('planner-result',{stageId:'stage',callRequestId:'first',status:'unknown'},'unknown:first');assert.equal(unknown.decision,'hold');
+ s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].pending,'first');assert.equal(s.plannerLedger.stages[0].calls[0].status,'unknown');assert.equal((await plannerPrepare(f,'after-restart')).decision,'hold');
+});
+test('planner cooperative verifies bytes preserves semantic provenance and refuses incomplete acceptance',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');await plannerResult(f,'first');
+ let s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].ready,false);
+ assert.equal((await plannerPrepare(f,'fix','correction',{reviewRef:'review:first'})).decision,'allow');await plannerResult(f,'fix');
+ const bytes='new substantive input',crypto=await import('node:crypto'),hash='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
+ assert.equal((await plannerArtifact(f,'new:input','input',bytes,{meaningful:true,judgmentRef:'review:new',targetHash:hash})).decision,'allow');
+ const args={reviewRef:'review:fix',criterionIds:['C1'],evidenceRefs:['new:input']};assert.equal((await plannerPrepare(f,'more','further',args)).decision,'allow');
+ s=JSON.parse(await fs.readFile(f.statePath,'utf8'));const artifact=s.plannerLedger.stages[0].artifacts.find(a=>a.ref==='new:input');assert.equal(artifact.hash,hash);assert.equal(artifact.semantic.source,'operator-attested');assert.equal(artifact.verification.source,'local-bytes');assert.equal(s.plannerLedger.stages[0].ready,false);
+});
+test('planner non-progress denial spends neither reservation nor consolidated correction',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');await plannerResult(f,'first');
+ for(const intent of ['format-only','re-expression-only','save-error-only','patch-error-only'])assert.equal((await plannerPrepare(f,'deny:'+intent,'correction',{intent,reviewRef:'review:first'})).decision,'deny');
+ const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].calls.length,1);assert.equal(s.plannerLedger.stages[0].pending,null);assert.equal(s.plannerLedger.stages[0].criteria[0].status,'open');assert.equal((await plannerPrepare(f,'real-correction','correction',{reviewRef:'review:first'})).decision,'allow');
+});
+test('planner existing workflows without ledger hold instead of resetting history',async t=>{
+ const f=await plannerStart(t),s=JSON.parse(await fs.readFile(f.statePath,'utf8'));delete s.plannerLedger;await fs.writeFile(f.statePath,JSON.stringify(s));const d=await plannerPrepare(f,'legacy');assert.equal(d.decision,'hold');assert.match(d.reason,/ledger|history/i);assert.equal(Object.hasOwn(JSON.parse(await fs.readFile(f.statePath,'utf8')),'plannerLedger'),false);
+});
+
+test('planner result and review cannot declare an incomplete draft ready',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');
+ assert.equal((await f.send('planner-result',{stageId:'stage',callRequestId:'first',status:'succeeded'},'missing-artifacts')).decision,'hold');
+ let s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].pending,'first');
+ await plannerResult(f,'first');
+ assert.equal((await f.send('planner-review',{stageId:'stage',resultRef:'result:first',full:true,complete:true,criteria:[{id:'C1',status:'open',judgmentRef:'still-open'}]},'incomplete:ready')).decision,'hold');
+ s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].ready,false);assert.equal(s.plannerLedger.stages[0].criteria[0].status,'open');
+});
+test('planner artifact drift and a new ref for used bytes do not authorize further work',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');await plannerResult(f,'first');await plannerPrepare(f,'fix','correction',{reviewRef:'review:first'});await plannerResult(f,'fix');
+ const crypto=await import('node:crypto'),bytes='new evidence',hash='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex'),semantic={meaningful:true,judgmentRef:'new:judgment',targetHash:hash};
+ await plannerArtifact(f,'input:one','input',bytes,semantic);await fs.writeFile(path.join(f.cwd,'input-one.md'),'changed');
+ const extra={reviewRef:'review:fix',criterionIds:['C1'],evidenceRefs:['input:one']};assert.equal((await plannerPrepare(f,'drift','further',extra)).decision,'hold');
+ await plannerArtifact(f,'input:two','input',bytes,semantic);extra.evidenceRefs=['input:two'];assert.equal((await plannerPrepare(f,'more','further',extra)).decision,'allow');await plannerResult(f,'more');
+ await plannerArtifact(f,'input:alias','input',bytes,semantic);assert.equal((await plannerPrepare(f,'repeat','further',{...extra,reviewRef:'review:more',evidenceRefs:['input:alias']})).decision,'deny');
+});
+test('planner plan drafting checks its spec prerequisite without requiring the future plan approval',async t=>{
+ const f=await start(t),contract={document:{path:path.join(f.cwd,'plan.md'),kind:'plan',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0};
+ const send=async(id,kind,data)=>{const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));return api.runCooperativeCommand({...f.args,command:'record',input:record(id,s.revision,{kind,messageRef:id,data})}).catch(error=>({decision:'hold',error:error.message}));};
+ // The role is an explicit cooperative attestation, never provider identity.
+ const actor={id:'operator',role:'orchestrator'};
+ const put=async(id,kind,data)=>{const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));return api.runCooperativeCommand({...f.args,command:'record',input:{...record(id,s.revision,{kind,messageRef:id,data}),actor}});};
+ await put('approve-plan-stage','approval',{plannerStage:contract});const stage={id:'plan-stage',...contract,approvalRef:'approve-plan-stage',criteria:[{id:'C1',status:'open',judgmentRef:'C1'}]};assert.equal((await put('no-prereq','planner-stage',stage)).decision,'hold');
+ await put('spec-approved','approval',{kind:'spec'});await put('approve-plan-stage-2','approval',{plannerStage:contract,prerequisiteRefs:['spec-approved']});stage.approvalRef='approve-plan-stage-2';assert.equal((await put('register-plan','planner-stage',stage)).decision,'allow');
+ const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal((await api.runCooperativeCommand({...f.args,command:'prepare',input:{requestId:'draft-plan',expectedRevision:s.revision,actor,operation:'planner-call',arguments:{stageId:'plan-stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}}})).decision,'allow');
+});
+test('planner new workflow and agent labels cannot reset the same recorded document stage',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');
+ const second={...f.args,workflowId:'another'};await bootstrap.initializeCooperativeWorkflow(second);
+ let s=JSON.parse(await fs.readFile(path.join(f.target.gitCommonDir,'arc/workflows/another/state.json'),'utf8'));
+ const contract={document:f.stage.document,inputVersion:1,criteriaVersion:1,scopeVersion:0},actor={id:'operator',role:'orchestrator'};
+ await api.runCooperativeCommand({...second,command:'record',input:{requestId:'approval',expectedRevision:s.revision,actor,evidence:{kind:'approval',messageRef:'other:approval',data:{plannerStage:contract}}}});
+ const d=await api.runCooperativeCommand({...second,command:'record',input:{requestId:'register',expectedRevision:1,actor,evidence:{kind:'planner-stage',messageRef:'other:stage',data:{...f.stage,id:'new-id',approvalRef:'other:approval',agentId:'fresh-agent'}}}});assert.equal(d.decision,'hold');assert.match(d.reason,/history|predecessor|scope/i);
+});
+
+test('planner generic result cannot clear an unresolved reservation or make status ready',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');let s=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ await f.call('result',{requestId:'untrusted-result',expectedRevision:s.revision,actor:{id:'operator',role:'orchestrator'},intentId:'first',result:{status:'succeeded',messageRef:'generic:claim',data:{}}});
+ const status=await f.call('status',undefined);assert.equal(status.decision,'hold');assert.equal(status.state.plannerLedger.stages[0].pending,'first');
+});
+test('planner schema rejects orphan reservations fabricated readiness and workflow rebinding',async t=>{
+ const f=await plannerStart(t),original=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ for(const mutate of [s=>s.plannerLedger.stages[0].ready=true,s=>delete s.plannerLedger.stages[0].artifacts,s=>s.plannerLedger.stages[0].ready='claimed',s=>s.plannerLedger.stages[0].workflowId='another',s=>s.plannerLedger.stages[0].calls.push({requestId:'orphan',kind:'initial',status:'reserved',evidenceHashes:[]})]){const s=structuredClone(original);mutate(s);assert.throws(()=>schema.validateCooperativeState(s),/Planner/);}
+});
+
+test('planner runtime version drift and stale revisions preserve call history without renewing authority',async t=>{
+ const f=await plannerStart(t),before=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ const stale=await f.call('prepare',{requestId:'stale',expectedRevision:0,actor:{id:'operator',role:'orchestrator'},operation:'planner-call',arguments:{stageId:'stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}});assert.equal(stale.decision,'hold');assert.equal(await fs.readFile(f.statePath,'utf8'),JSON.stringify(before,null,2)+'\n');
+ before.versions.runtimeHash='sha256:'+'0'.repeat(64);await fs.writeFile(f.statePath,JSON.stringify(before));const drift=await plannerPrepare(f,'drift');assert.equal(drift.decision,'hold');const after=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.deepEqual(after.versions,before.versions);assert.deepEqual(after.plannerLedger,before.plannerLedger);
+});
+test('planner confirmed failure can receive its consolidated correction without claiming a complete draft',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');assert.equal((await f.send('planner-result',{stageId:'stage',callRequestId:'first',status:'failed'},'failed:first')).decision,'allow');
+ assert.equal((await f.send('planner-review',{stageId:'stage',resultRef:'failed:first',full:true,complete:false,criteria:[{id:'C1',status:'open',judgmentRef:'missing-draft'}]},'review:failed')).decision,'allow');assert.equal((await plannerPrepare(f,'correction','correction',{reviewRef:'review:failed'})).decision,'allow');
+ assert.equal(JSON.parse(await fs.readFile(f.statePath,'utf8')).plannerLedger.stages[0].ready,false);
+});
+test('planner resolved criteria cannot reopen without new evidence and an explicit prior-judgment link',async t=>{
+ const f=await plannerStart(t);await plannerPrepare(f,'first');await plannerResult(f,'first',{complete:true});
+ const review={stageId:'stage',resultRef:'result:first',full:true,complete:false,criteria:[{id:'C1',status:'open',judgmentRef:'new-defect'}]};assert.equal((await f.send('planner-review',review,'reopen:unsupported')).decision,'hold');
+ const bytes='newly observed defect',crypto=await import('node:crypto'),hash='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');await plannerArtifact(f,'defect','finding',bytes,{meaningful:true,judgmentRef:'defect:review',targetHash:hash});
+ assert.equal((await f.send('planner-review',{...review,reassessments:[{criterionId:'C1',previousJudgmentRef:'judgment:first',newEvidenceRef:'defect',reasonRef:'defect:reason'}]},'reopen:linked')).decision,'allow');const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].criteria[0].status,'open');assert.equal(s.plannerLedger.stages[0].ready,false);
+});

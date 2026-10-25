@@ -84,3 +84,26 @@ test('cooperative store rejects target mutation without a verified reconciliatio
  assert.throws(()=>applyCooperativeCommitTransition({state:before,decision:{decision:'allow',proposedTransition:{target:{head:'b'.repeat(40)},commit:{commit:'b'.repeat(40)}}}}),/verified/i);
  assert.equal(before.target.head,'a'.repeat(40));
 });
+
+async function plannerStore(t){
+ const {initializeCooperativeWorkflow}=await import('../../lib/runtime/bootstrap.mjs'),{runCooperativeCommand}=await import('../../lib/runtime/cooperative.mjs');
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-planner-store-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));const cwd=path.join(root,'workspace'),common=path.join(root,'common');await fs.mkdir(cwd);await fs.mkdir(common);
+ const target={realpath:cwd,gitCommonDir:common,gitDir:common,head:'a'.repeat(40),branch:'main'},args={cwd,workflowId:'planner',observe:async()=>({...target})};
+ await initializeCooperativeWorkflow({...args,input:{mode:'plan',actor:{id:'operator'},selection:{messageRef:'target',contentHash:'sha256:'+'a'.repeat(64)}}});
+ const statePath=path.join(common,'arc/workflows/planner/state.json'),actor={id:'operator',role:'orchestrator'},contract={document:{path:path.join(cwd,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0};
+ for(const [revision,kind,ref,data] of [[0,'approval','approval',{plannerStage:contract}],[1,'planner-stage','stage',{id:'stage',...contract,approvalRef:'approval',criteria:[{id:'C1',status:'open',judgmentRef:'criterion'}]}]])assert.equal((await runCooperativeCommand({...args,command:'record',input:{requestId:ref,expectedRevision:revision,actor,evidence:{kind,messageRef:ref,data}}})).decision,'allow');
+ const prepare=id=>({requestId:id,expectedRevision:2,actor,operation:'planner-call',arguments:{stageId:'stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}});
+ return {args,statePath,run:runCooperativeCommand,prepare};
+}
+test('planner reservations serialize concurrency and exact replay never issues another permit',async t=>{
+ const f=await plannerStore(t),results=await Promise.allSettled(['one','two'].map(id=>f.run({...f.args,command:'prepare',input:f.prepare(id)})));
+ assert.equal(results.filter(r=>r.status==='fulfilled'&&r.value.decision==='allow').length,1);
+ const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].calls.length,1);const id=s.plannerLedger.stages[0].pending,before=await fs.readFile(f.statePath,'utf8');
+ const replay=await f.run({...f.args,command:'prepare',input:f.prepare(id)});assert.equal(replay.decision,'hold');assert.equal(replay.replayed,true);assert.equal(await fs.readFile(f.statePath,'utf8'),before);
+ await assert.rejects(f.run({...f.args,command:'prepare',input:{...f.prepare(id),arguments:{...f.prepare(id).arguments,intent:'format-only'}}}),/fingerprint conflict/);
+});
+test('planner write failure cannot return allow and a post-rename uncertainty survives restart',async t=>{
+ const f=await plannerStore(t),before=await fs.readFile(f.statePath,'utf8');await assert.rejects(f.run({...f.args,command:'prepare',input:f.prepare('failed-write'),storage:{rename:async()=>{throw Error('injected write failure');}}}),/write failure/);assert.equal(await fs.readFile(f.statePath,'utf8'),before);
+ await assert.rejects(f.run({...f.args,command:'prepare',input:f.prepare('uncertain'),storage:{rename:async(from,to)=>{await fs.rename(from,to);throw Error('post-rename uncertain');}}}),/post-rename/);
+ const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].pending,'uncertain');assert.equal((await f.run({...f.args,command:'prepare',input:f.prepare('uncertain')})).decision,'hold');
+});

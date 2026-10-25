@@ -50,3 +50,8 @@ test('runtime generator rejects a missing installed command dependency',async t=
  const result=run([]);
  assert.equal(result.status,1);assert.match(result.stderr,/command.mjs/);
 });
+
+test('cooperative runtime fingerprint changes when Planner transitive guard dependencies change',async t=>{
+ const {pathToFileURL}=await import('node:url'),f=await fixture(t),api=await import(pathToFileURL(path.join(f.root,'lib/runtime/bootstrap.mjs')));
+ for(const name of ['schema.mjs','operations.mjs','gate.mjs']){const before=await api.cooperativeVersions(),filename=path.join(f.root,'lib/runtime',name);await fs.appendFile(filename,'\n// dependency drift\n');const after=await api.cooperativeVersions();assert.notEqual(after.runtimeHash,before.runtimeHash,name);}
+});
