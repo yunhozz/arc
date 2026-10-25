@@ -4,3 +4,4 @@ node_modules/
 /build/
 /native/build/
 __pycache__/
+/scripts/update-superpowers-local.sh

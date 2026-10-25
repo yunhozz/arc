@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';import {fileURLToPath} from 'node:url';import fs from'node:fs';import path from'node:path';import{spawn,spawnSync}from'node:child_process';
-const required={brainstorming:['SKILL.md','visual-companion.md','scripts/start-server.sh','scripts/stop-server.sh','scripts/server.cjs','scripts/helper.js','scripts/frame-template.html'],'writing-plans':['SKILL.md'],'test-driven-development':['SKILL.md','writing-good-tests.md']};
+const required={brainstorming:['SKILL.md','visual-companion.md','builder-check-prompt.md','scripts/start-server.sh','scripts/stop-server.sh','scripts/server.cjs','scripts/helper.js','scripts/frame-template.html'],'writing-plans':['SKILL.md'],'test-driven-development':['SKILL.md','writing-good-tests.md']};
 export function referenceFixture(label='A'){
  const entries=new Map([['LICENSE',{type:'file',bytes:Buffer.from('MIT License\nCopyright (c) 2025 Jesse Vincent\n'),mode:0o644n}]]);
  for(const[skill,files]of Object.entries(required)){entries.set(skill,{type:'directory',mode:0o755n});for(const file of files){if(file.startsWith('scripts/'))entries.set(skill+'/scripts',{type:'directory',mode:0o755n});entries.set(skill+'/'+file,{type:'file',bytes:Buffer.from(label+' '+skill+'/'+file+'\n'),mode:file.endsWith('.sh')?0o755n:0o644n});}}

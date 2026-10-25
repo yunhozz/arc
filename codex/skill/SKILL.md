@@ -64,7 +64,7 @@ Do not load all references on every task.
 | [commit](references/commit.md) | Plan-task acceptance and its focused commit, resuming a task with an unclear commit result |
 | [verification](references/verification.md) | Orchestrator's verification design, QA/Reviewer assignment, correction rechecks, UI acceptance checks, risk classification, acceptance and completion; QA and Reviewer use their profiles and only brief-cited sections |
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure, partial completion, metadata write denial, handoff record write denial recovery |
-| [visual-companion](references/visual-companion.md) | Visual companion offer or operation |
+| [visual-companion](references/arc-visual-companion.md) | Visual companion offer or operation |
 
 Before deciding eligibility for a small-task, plan-omission, or TDD exception, read the full conditions in [handoff](references/handoff.md), including Implementer TDD and constraints and Orchestrator direct path for small tasks; read [planning](references/planning.md) for design/plan-depth judgments and [verification](references/verification.md) for the full risk criteria before deciding eligibility. An exception name or this index alone never proves eligibility.
 
