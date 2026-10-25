@@ -11,14 +11,23 @@ test('UTF-8 and bracketed paste stay text, including pasted confirmation charact
  for(const part of ['\x1b[20','0~yes\r','\x1b[B','\x1b[201~'])io.send(part);
  const event=await io.session.nextEvent();assert.equal(event.name,'paste');assert.equal(event.text,'yes\r\x1b[B');
 });
-test('busy input and queued enter never reach the next confirmation screen',async t=>{
+test('busy input and queued enter never reach the next selection screen',async t=>{
  const io=session(t);io.send('\r\r');assert.equal((await io.session.nextEvent()).name,'enter');io.session.setBusy(true);io.send('\r');io.session.setBusy(false);
- io.session.render({title:'Review',rows:['Apply'],requiresConfirmation:true});io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');
+ io.session.render({title:'Settings',rows:['Apply'],selected:0});io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');
 });
-test('small confirmation blocks enter and resize recalculates required visibility',async t=>{
- const io=session(t,{rows:3});const screen={title:'Review',rows:['Destination','Changes','Apply'],requiresConfirmation:true};io.session.render(screen);io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+test('hidden menu selection blocks Enter and resize recalculates visibility',async t=>{
+ const io=session(t,{rows:3});const screen={title:'Settings',rows:['Preset','Language','Apply'],selected:2};io.session.render(screen);io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
  io.resize(80,24);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
  io.resize(80,2);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+});
+test('text selections and page navigation refresh the Enter gate on every screen',async t=>{
+ const io=session(t,{rows:4});
+ io.session.render({title:'Maximum total subagents',mode:'text',rows:['100','Apply','Back'],selected:1});io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+ io.resize(80,24);assert.equal((await io.session.nextEvent()).name,'resize');
+ for(const selected of [1,2]){io.session.render({title:'Maximum total subagents',mode:'text',rows:['100','Apply','Back'],selected});io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');}
+ io.session.render({title:'Result',mode:'page',rows:['Installed']});io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
+ io.resize(80,3);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
+ io.session.render({title:'Settings',rows:['Apply'],selected:0});io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
 });
 for(const ending of ['end','close','SIGINT','SIGTERM','error','render-error','dispose'])test('restores raw mode, flow and owned listeners on '+ending,async t=>{
  assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal({raw:true});const existing=()=>{};io.input.on('data',existing);io.input.pause();
@@ -34,8 +43,8 @@ test('split CRLF is one enter, preventing a second unintended confirmation',asyn
 });
 test('output failure during display restores terminal before propagating the error',t=>{
  const io=session(t);const write=io.output.write.bind(io.output);let failed=false;
- io.output.write=chunk=>{if(!failed&&String(chunk).includes('Review')){failed=true;throw Error('output failed');}return write(chunk);};
- assert.throws(()=>io.session.render({title:'Review',rows:['Apply']}),/output failed/);assert.equal(io.input.isRaw,false);assert.equal(io.input.listenerCount('data'),0);assert.match(io.text(),/\x1b\[\?25h/);
+ io.output.write=chunk=>{if(!failed&&String(chunk).includes('Settings')){failed=true;throw Error('output failed');}return write(chunk);};
+ assert.throws(()=>io.session.render({title:'Settings',rows:['Apply'],selected:0}),/output failed/);assert.equal(io.input.isRaw,false);assert.equal(io.input.listenerCount('data'),0);assert.match(io.text(),/\x1b\[\?25h/);
 });
 test('output error events settle waiting readers and restore raw mode',async t=>{
  const io=session(t);const pending=io.session.nextEvent(),error=Error('write failed');io.output.emit('error',error);
