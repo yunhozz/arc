@@ -256,9 +256,9 @@ Return scope changes and unresolved decisions to the user through Orchestrator.
 
 ## Local planning references
 
-Orchestrator briefs absolute ARC paths `references/superpowers/brainstorming/SKILL.md` and
-`references/superpowers/writing-plans/SKILL.md`. Planner reads them directly; resolve relative references within each
-skill. Missing files stop the stage; report paths without global fallback. Keep ARC approval and ownership gates.
+Orchestrator briefs absolute ARC paths `references/brainstorming.md` and
+`references/writing-plans.md`. Planner reads them directly; resolve relative references from the installed
+`references/` directory. Missing files stop the stage; report paths without global fallback. Keep ARC approval and ownership gates.
 
 
 ## Instruction and Input Provenance

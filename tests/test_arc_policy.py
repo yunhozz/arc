@@ -5,7 +5,7 @@ from unittest.mock import patch
 REPO = Path(__file__).resolve().parents[1]
 TMP_ROOT = os.path.realpath(tempfile.gettempdir())
 REFERENCE_NAMES = ("planning", "handoff", "handoff-prep", "handoff-worktree", "verification", "git-recovery",
-                   "visual-companion", "commit")
+                   "arc-visual-companion", "commit")
 
 HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree")
 
@@ -189,7 +189,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             ("handoff", r"every implementer first start/restart.*implementer trusts the orchestrator-verified brief.*only brief-cited sections"),
             ("verification", r"verification design.*qa/reviewer.*correction rechecks.*ui acceptance"),
             ("git-recovery", r"branch collision.*git preparation failure.*partial completion.*metadata write denial"),
-            ("visual-companion", r"visual companion offer or operation"),
+            ("arc-visual-companion", r"visual companion offer or operation"),
             ("commit", r"plan-task acceptance.*focused commit"),
             ("handoff-prep", r"execution-target choice request.*each preparation git mutation"),
             ("handoff-worktree", r"^[^|]*\|[^|]*\|\s*after explicit new managed worktree selection, before its creation, branch work or document transfer\s*\|?$"),
@@ -245,7 +245,7 @@ class ConditionalReferenceTests(unittest.TestCase):
             "handoff": ("planning document commit", "unrelated staged", "approved-content verification"),
             "verification": ("criterion verdict", "ui browser acceptance checks", "whole-change review"),
             "git-recovery": ("git metadata write denial", "partial completion", "do not delete lock files"),
-            "visual-companion": ("complete keyed url", "terminal text as primary", "waits for acceptance"),
+            "arc-visual-companion": ("complete keyed url", "terminal text as primary", "waits for acceptance"),
         }
         for name, phrases in contracts.items():
             path = REPO / f"codex/skill/references/{name}.md"
@@ -1409,15 +1409,37 @@ class CodexRoleHardeningTests(unittest.TestCase):
         text = (REPO / "codex/skill/references/limits.md").read_text()
         self.assertIn("not hard runtime enforcement", text)
 class InternalSuperpowersContractTests(unittest.TestCase):
+    # Approved T1 structural contract; actual next-turn behavior needs separate evidence.
     def test_internal_superpowers_paths_and_runtime_boundaries(self):
-        core = (REPO / 'codex/skill/references/coordination.md').read_text()
-        for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
-            self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
-        for role, names in [('planner', ('brainstorming', 'writing-plans')), ('implementer', ('test-driven-development',))]:
-            text = (REPO / f'codex/agents/arc-{role}.toml').read_text()
-            for name in names:
-                self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
-        self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
+        for platform, extension in [('codex', 'toml'), ('claude', 'md')]:
+            core = (REPO / f'{platform}/skill/references/coordination.md').read_text()
+            for name in ('brainstorming', 'writing-plans', 'test-driven-development'):
+                self.assertIn(f'references/{name}.md', core)
+            for role, names in [('planner', ('brainstorming', 'writing-plans')), ('implementer', ('test-driven-development',))]:
+                text = (REPO / f'{platform}/agents/arc-{role}.{extension}').read_text()
+                for name in names:
+                    self.assertIn(f'references/{name}.md', text)
+            self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
+            self.assertIn('references/arc-visual-companion.md', (REPO / f'{platform}/skill/SKILL.md').read_text())
+            self.assertFalse((REPO / f'{platform}/skill/references/superpowers').exists())
+
+    def test_flat_imported_assets_match_original_provenance_and_both_platforms(self):
+        mapping = {'brainstorming/SKILL.md': 'brainstorming.md', 'writing-plans/SKILL.md': 'writing-plans.md',
+                   'test-driven-development/SKILL.md': 'test-driven-development.md',
+                   'brainstorming/visual-companion.md': 'visual-companion.md',
+                   'brainstorming/builder-check-prompt.md': 'builder-check-prompt.md',
+                   'test-driven-development/writing-good-tests.md': 'writing-good-tests.md', 'LICENSE': 'superpowers-LICENSE'}
+        mapping.update({f'brainstorming/scripts/{name}': f'scripts/{name}' for name in
+                        ('start-server.sh', 'stop-server.sh', 'server.cjs', 'helper.js', 'frame-template.html')})
+        for platform in ('codex', 'claude'):
+            base = REPO / f'{platform}/skill/references'
+            provenance = json.loads((base / 'superpowers-provenance.json').read_bytes())
+            self.assertEqual(set(provenance['files']), set(mapping))
+            for source, destination in mapping.items():
+                actual = (base / destination).read_bytes()
+                self.assertEqual(hashlib.sha256(actual).hexdigest(), provenance['files'][source])
+                self.assertEqual(actual, (REPO / f'codex/skill/references/{destination}').read_bytes())
+            self.assertNotEqual((base / 'arc-visual-companion.md').read_bytes(), (base / 'visual-companion.md').read_bytes())
 
 
 class WorkspaceBeforeDocumentsTests(unittest.TestCase):

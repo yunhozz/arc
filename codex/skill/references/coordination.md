@@ -48,8 +48,8 @@ missing required local references before dependent work.
 ### Local superpowers references
 
 Orchestrator briefs absolute paths under the selected installed ARC directory: Planner reads
-`references/superpowers/brainstorming/SKILL.md` and `references/superpowers/writing-plans/SKILL.md`;
-Implementer reads `references/superpowers/test-driven-development/SKILL.md`, including required relative references.
+`references/brainstorming.md` and `references/writing-plans.md`;
+Implementer reads `references/test-driven-development.md`, including required relative references.
 Resolve paths within each skill directory. Runtime needs no global discovery, external Skill invocation, or automatic download.
 Missing/damaged local files stop dependent work: report exact paths to Orchestrator, without global fallback.
 ARC approval, ownership, TDD exceptions and executor adapters still apply.
