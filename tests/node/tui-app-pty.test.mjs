@@ -21,10 +21,10 @@ test('install skips blank spacer and Apply runs once without review',{skip:!avai
  const output=await drive(t,'enter\nexpect -exact {Install / Update}\nenter\nexpect -exact {Settings}\ndown\ndown\ndown\ndown\ndown\nexpect -exact {> Apply}\nsend -- "\\r\\r\\r"\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Install|Confirm Install/);
 });
 test('preset chooser edits draft and returns focus to Apply without executing',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Change Preset}\nenter\nexpect -exact {> Apply}\nsend -- "\\033\\[A"\nafter 80\nenter\nexpect -exact {Performance preset}\ndown\nenter\nexpect -exact {Preset: Smart}\nexpect -exact {> Apply}\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Change Preset}\nenter\nexpect -exact {> Preset: Balanced}\nenter\nexpect -exact {Performance preset}\ndown\nenter\nexpect -exact {Preset: Smart}\nexpect -exact {> Apply}\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
 test('preset Apply needs its own Enter and runs once',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Change Preset}\nenter\nexpect -exact {> Apply}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Change Preset/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Change Preset}\nenter\nexpect -exact {> Preset: Balanced}\ndown\nexpect -exact {> Apply}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Change Preset/);
 });
 test('Check Version exposes a real selected upgrade row and applies once',{skip:!available},async t=>{
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {Current version: 1.9.0}\nexpect -exact {Latest version: 1.10.0}\nexpect -exact {Continue?}\nexpect -exact {> Version Upgrade}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Update|Confirm Update/);
