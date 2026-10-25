@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';import {referenceFixture} from './fixtures/fake-git.mjs';
-import {staticPackageFixture,refreshManifest} from './fixtures/static-references.mjs';import {verifyPayload} from '../../lib/installer/manifest.mjs';
+import {staticPackageFixture,refreshManifest,sourceRoot} from './fixtures/static-references.mjs';import {verifyPayload} from '../../lib/installer/manifest.mjs';
 const api=await import('../../lib/management/operations.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
 function context(t){const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-management-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));return{packageRoot:staticPackageFixture(t),userHome,cwd:userHome,env:{},safeFs,acquisition:async()=>assert.fail('automatic acquisition must not run')};}
 test('preparation performs no acquisition or writes and execution rejects the saved stale snapshot',async t=>{assert.equal(typeof api.prepareOperation,'function');const ctx=context(t);let acquisitions=0;ctx.acquisition=async()=>{acquisitions++;throw Error('must not acquire');};const prepared=await api.prepareOperation(ctx,{kind:'install',target:'codex',preset:'balanced',language:'ko',maxConcurrentSubagents:2});assert.equal(acquisitions,0);assert.deepEqual(fs.readdirSync(ctx.userHome),[]);fs.mkdirSync(ctx.userHome+'/.codex');const result=await api.executeOperation(ctx,prepared);assert.equal(result.code,1);assert.equal(result.exitSession,false);assert.equal(acquisitions,0);});
@@ -17,3 +17,21 @@ test('global identity validation failure blocks harness changes before uninstall
 test('global context drift after preparation blocks harness removal',async t=>{const ctx=context(t);await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'codex',preset:'balanced',language:'en'}));ctx.inspectGlobalArc=async()=>({kind:'global',prefix:'/before'});const prepared=await api.prepareOperation(ctx,{kind:'uninstall',target:'codex'});ctx.inspectGlobalArc=async()=>({kind:'global',prefix:'/after'});ctx.uninstallGlobal=async()=>assert.fail('must not mutate');const result=await api.executeOperation(ctx,prepared);assert.notEqual(result.code,0);assert.equal(result.cli.status,'skipped');assert.equal(fs.existsSync(ctx.userHome+'/.codex/skills/arc'),true);});
 
 test('all selected removals complete before CLI failure and keep their successful results',async t=>{const ctx=context(t);assert.equal((await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'all',preset:'balanced',language:'en'}))).code,0);ctx.inspectGlobalArc=async()=>({kind:'global',prefix:'/fixture'});ctx.uninstallGlobal=async()=>{for(const platform of ['codex','claude'])assert.equal(fs.existsSync(ctx.userHome+'/.'+platform+'/skills/arc'),false);return{packageStatus:'failed',code:7,started:true,stdout:'npm output',stderr:'npm failed',error:Error('fixture npm failure')};};const result=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:'all'}));assert.deepEqual(result.results.map(item=>item.status),['uninstalled','uninstalled']);assert.equal(result.cli.status,'failed');assert.equal(result.code,7);assert.equal(result.exitSession,true);assert.equal(result.stdout,'npm output');});
+
+const currentWrapper=sourceRoot+'/scripts/update-superpowers-local.sh';
+test('source auto install excludes the current worktree local wrapper',{skip:process.env.ARC_REQUIRE_LOCAL_UPDATER!=='1'&&!fs.existsSync(currentWrapper)?'worktree-local updater is not provided in this clone':false},async t=>{
+ assert.ok(fs.existsSync(currentWrapper),'required local updater is missing');
+ assert.ok(fs.lstatSync(currentWrapper).isFile());
+ const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc actual source install ')));
+ t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
+ const ctx={packageRoot:sourceRoot,userHome,cwd:userHome,env:{},safeFs,acquisition:async()=>assert.fail('automatic acquisition must not run')};
+ const wrapper=fs.readFileSync(currentWrapper),manifest=fs.readFileSync(sourceRoot+'/MANIFEST.sha256'),payload=verifyPayload(ctx);
+ assert.equal(payload.files.has('scripts/update-superpowers-local.sh'),false);
+ const result=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'codex',preset:'balanced',language:'en'}));
+ assert.equal(result.code,0);assert.equal(result.results[0].status,'installed');
+ const installed=userHome+'/.codex/skills/arc';
+ assert.deepEqual(fs.readFileSync(installed+'/references/brainstorming.md'),payload.files.get('codex/skill/references/brainstorming.md'));
+ assert.equal(fs.existsSync(installed+'/scripts/update-superpowers-local.sh'),false);
+ assert.deepEqual(fs.readFileSync(currentWrapper),wrapper);assert.deepEqual(fs.readFileSync(sourceRoot+'/MANIFEST.sha256'),manifest);
+ assert.deepEqual(verifyPayload(ctx).files,payload.files);
+});

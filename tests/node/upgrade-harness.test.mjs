@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';import {resolveTarget} from '../../lib/installer/targets.mjs';import {buildInstallPlan} from '../../lib/installer/plan.mjs';import {applyTransaction} from '../../lib/installer/transaction.mjs';import {loadModelConfig,serializeModelConfig} from '../../lib/models/index.mjs';import {referenceFixture} from './fixtures/fake-git.mjs';
-import {staticPackageFixture,refreshManifest} from './fixtures/static-references.mjs';import {verifyPayload} from '../../lib/installer/manifest.mjs';
+import {staticPackageFixture,refreshManifest,sourceRoot} from './fixtures/static-references.mjs';import {verifyPayload} from '../../lib/installer/manifest.mjs';
 const api=await import('../../lib/installer/upgrade.mjs').catch(()=>({})),stateApi=await import('../../lib/installer/upgrade-state.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-upgrade-harness-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
 function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(platform+'/skill/references/brainstorming.md',Buffer.from('package pinned'));modelInputs[platform]={models,profiles};}for(const name of ['role-git-guard.mjs','git-policy.json'])files.set('claude/skill/hooks/'+name,fs.readFileSync('claude/skill/hooks/'+name));return{files,modelInputs};}
@@ -67,4 +67,22 @@ for(const platform of ['codex','claude'])test(`${platform} canonical profile pub
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plan=api.buildUpgradePlans({payload:payload(),state,safeFs})[0];
  assert.throws(()=>applyTransaction(plan,{safeFs,acquired:{references:referenceFixture()},hooks:{fault(event){if(event.phase==='after-publish'&&event.path===current)throw Error('injected publication failure');}}}),error=>error.rollback==='restored');
  assert.deepEqual(fs.readFileSync(current),profileBytes);assert.deepEqual(fs.readFileSync(models),modelBytes);
+});
+
+const currentWrapper=sourceRoot+'/scripts/update-superpowers-local.sh';
+test('source auto upgrade excludes the current worktree local wrapper',{skip:process.env.ARC_REQUIRE_LOCAL_UPDATER!=='1'&&!fs.existsSync(currentWrapper)?'worktree-local updater is not provided in this clone':false},async t=>{
+ assert.ok(fs.existsSync(currentWrapper),'required local updater is missing');
+ assert.ok(fs.lstatSync(currentWrapper).isFile());
+ const home=fixture(t);seed(home,'codex');
+ const input={packageRoot:sourceRoot,safeFs},wrapper=fs.readFileSync(currentWrapper),manifest=fs.readFileSync(sourceRoot+'/MANIFEST.sha256'),payload=verifyPayload(input);
+ assert.equal(payload.files.has('scripts/update-superpowers-local.sh'),false);
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
+ const result=await api.upgradeInstalledTargets({...input,state});
+ assert.equal(result.results[0].status,'installed');
+ const installed=home+'/.codex/skills/arc';
+ assert.deepEqual(fs.readFileSync(installed+'/references/brainstorming.md'),payload.files.get('codex/skill/references/brainstorming.md'));
+ assert.equal(fs.existsSync(installed+'/scripts/update-superpowers-local.sh'),false);
+ assert.equal(fs.existsSync(installed+'/references/superpowers'),false);
+ assert.deepEqual(fs.readFileSync(currentWrapper),wrapper);assert.deepEqual(fs.readFileSync(sourceRoot+'/MANIFEST.sha256'),manifest);
+ assert.deepEqual(verifyPayload(input).files,payload.files);
 });
