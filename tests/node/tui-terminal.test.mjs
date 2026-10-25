@@ -4,21 +4,30 @@ const api=await import('../../lib/tui/terminal.mjs').catch(()=>({}));
 function session(t,options){assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal(options),session=api.createTerminalSession({...io,env:options?.env??{COLORTERM:'truecolor'}});t.after(()=>session.dispose());return{...io,session};}
 test('split-byte arrows, enter, back and EOF normalize in input order',async t=>{
  const io=session(t),events=[];for(const chunks of [['\x1b','[','B'],['\r'],['\x7f'],['\x04']]){for(const chunk of chunks)io.send(chunk);events.push(await io.session.nextEvent());}
- assert.deepEqual(events.map(event=>event.name),['down','enter','back','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
+ assert.deepEqual(events.map(event=>event.name),['down','enter','backspace','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
 });
 test('UTF-8 and bracketed paste stay text, including pasted confirmation characters',async t=>{
  const io=session(t);const bytes=Buffer.from('한');io.send(bytes.subarray(0,1));io.send(bytes.subarray(1));assert.deepEqual((await io.session.nextEvent()).text,'한');
  for(const part of ['\x1b[20','0~yes\r','\x1b[B','\x1b[201~'])io.send(part);
  const event=await io.session.nextEvent();assert.equal(event.name,'paste');assert.equal(event.text,'yes\r\x1b[B');
 });
-test('busy input and queued enter never reach the next confirmation screen',async t=>{
+test('busy input and queued enter never reach the next selection screen',async t=>{
  const io=session(t);io.send('\r\r');assert.equal((await io.session.nextEvent()).name,'enter');io.session.setBusy(true);io.send('\r');io.session.setBusy(false);
- io.session.render({title:'Review',rows:['Apply'],requiresConfirmation:true});io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');
+ io.session.render({title:'Settings',rows:['Apply'],selected:0});io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');
 });
-test('small confirmation blocks enter and resize recalculates required visibility',async t=>{
- const io=session(t,{rows:3});const screen={title:'Review',rows:['Destination','Changes','Apply'],requiresConfirmation:true};io.session.render(screen);io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+test('hidden menu selection blocks Enter and resize recalculates visibility',async t=>{
+ const io=session(t,{rows:3});const screen={title:'Settings',rows:['Preset','Language','Apply'],selected:2};io.session.render(screen);io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
  io.resize(80,24);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
  io.resize(80,2);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+});
+test('text selections and page navigation refresh the Enter gate on every screen',async t=>{
+ const io=session(t,{rows:4});
+ io.session.render({title:'Maximum total subagents',mode:'text',rows:['100','Apply','Back'],selected:1});io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+ io.resize(80,24);assert.equal((await io.session.nextEvent()).name,'resize');
+ for(const selected of [1,2]){io.session.render({title:'Maximum total subagents',mode:'text',rows:['100','Apply','Back'],selected});io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');}
+ io.session.render({title:'Result',mode:'page',rows:['Installed']});io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
+ io.resize(80,3);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
+ io.session.render({title:'Settings',rows:['Apply'],selected:0});io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
 });
 for(const ending of ['end','close','SIGINT','SIGTERM','error','render-error','dispose'])test('restores raw mode, flow and owned listeners on '+ending,async t=>{
  assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal({raw:true});const existing=()=>{};io.input.on('data',existing);io.input.pause();
@@ -27,15 +36,15 @@ for(const ending of ['end','close','SIGINT','SIGTERM','error','render-error','di
  session.dispose();session.dispose();assert.equal(io.input.isRaw,true);assert.equal(io.input.readableFlowing,false);assert.deepEqual(io.input.listeners('data'),before);assert.equal(io.signals.listenerCount('SIGINT'),0);assert.equal(io.signals.listenerCount('SIGTERM'),0);assert.equal(io.output.listenerCount('resize'),0);assert.match(io.text(),/\x1b\[\?25h/);
 });
 test('lone escape means back and dispose cancels its pending timer',async t=>{
- const io=session(t);io.send('\x1b');assert.equal((await io.session.nextEvent()).name,'back');io.send('\x1b');io.session.dispose();assert.equal((await io.session.nextEvent()).name,'eof');
+ const io=session(t);io.send('\x1b');assert.equal((await io.session.nextEvent()).name,'escape');io.send('\x1b');io.session.dispose();assert.equal((await io.session.nextEvent()).name,'eof');
 });
 test('split CRLF is one enter, preventing a second unintended confirmation',async t=>{
  const io=session(t);io.send('\r');io.send('\n');io.send('x');assert.equal((await io.session.nextEvent()).name,'enter');assert.deepEqual(await io.session.nextEvent(),{name:'text',text:'x',sequence:3});
 });
 test('output failure during display restores terminal before propagating the error',t=>{
  const io=session(t);const write=io.output.write.bind(io.output);let failed=false;
- io.output.write=chunk=>{if(!failed&&String(chunk).includes('Review')){failed=true;throw Error('output failed');}return write(chunk);};
- assert.throws(()=>io.session.render({title:'Review',rows:['Apply']}),/output failed/);assert.equal(io.input.isRaw,false);assert.equal(io.input.listenerCount('data'),0);assert.match(io.text(),/\x1b\[\?25h/);
+ io.output.write=chunk=>{if(!failed&&String(chunk).includes('Settings')){failed=true;throw Error('output failed');}return write(chunk);};
+ assert.throws(()=>io.session.render({title:'Settings',rows:['Apply'],selected:0}),/output failed/);assert.equal(io.input.isRaw,false);assert.equal(io.input.listenerCount('data'),0);assert.match(io.text(),/\x1b\[\?25h/);
 });
 test('output error events settle waiting readers and restore raw mode',async t=>{
  const io=session(t);const pending=io.session.nextEvent(),error=Error('write failed');io.output.emit('error',error);
@@ -90,3 +99,5 @@ test('xterm-256color alone does not imply truecolor',t=>{
 for(const env of [{TERM_PROGRAM:'ghostty',NO_COLOR:''},{TERM_PROGRAM:'cmux',TERM:'dumb'}])test('explicit terminal identity respects color disable',t=>{
  const io=session(t,{env});io.session.render({title:'ARC',wordmark:true,rows:['Configure'],selected:0});assert.doesNotMatch(io.text(),/\x1b\[(?:38;|48;|3[0-9]m|4[0-9]m|9[0-9]m)/);
 });
+
+test('escape and backspace have distinct events',async t=>{const io=session(t);for(const [bytes,want] of [['\x1b','escape'],['\x7f','backspace'],['\b','backspace']]){io.send(bytes);assert.equal((await io.session.nextEvent()).name,want);}});
