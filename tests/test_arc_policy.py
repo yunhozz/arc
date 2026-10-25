@@ -438,7 +438,7 @@ class PlannerDraftingDisciplineTests(unittest.TestCase):
         self.contracts((r"fixed checklist.*scope.*ownership.*conflicts.*dependencies.*evidence.*approval.*completeness", r"substantive omissions.*one consolidated follow.up request", r"do not split.*omission"))
 
     def test_planner_turn_minimization_preserves_approval_gates(self):
-        self.contracts((r"initial design.*spec approval.*formal plan.*separate.*stages", r"additional planner calls.*substantive omissions.*user.approved.*(?:scope|evidence)", r"no fixed call cap.*never accept an incomplete draft"))
+        self.contracts((r"initial design.*spec approval.*formal plan.*separate.*stages", r"additional planner calls.*user.approved.*(?:scope|evidence).*concrete unmet checklist", r"no fixed call cap.*never accept an incomplete draft"))
 
 class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_codex_spawn_fork_and_user_input_policy(self) -> None:
