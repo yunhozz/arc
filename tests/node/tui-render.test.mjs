@@ -18,12 +18,12 @@ test('required rows and clipped required text disable confirmation until resize 
 
 test('shared hints exactly describe menu, page, review, input and busy controls',()=>{
  assert.equal(typeof api.navigationHint,'function');
- assert.equal(api.navigationHint('menu'),'↑/↓: Select · Enter Continue · Esc Back');
+ assert.equal(api.navigationHint('menu'),'↑/↓: Select · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('menu',{backLabel:'exit'}),'↑/↓: Select · Enter Continue · Esc Exit');
- assert.equal(api.navigationHint('page'),'↑/↓: Scroll · Enter Back · Esc Back');
- assert.equal(api.navigationHint('reviewPage',{hasNext:true}),'↑/↓: Scroll · Enter Next · Esc Back');
- assert.equal(api.navigationHint('reviewPage'),'↑/↓: Scroll · Enter Continue · Esc Back');
- assert.equal(api.navigationHint('text'),'Type/Paste Input · ← Delete · Enter Continue · Esc/Backspace Back');
+ assert.equal(api.navigationHint('page'),'↑/↓: Scroll · Enter Back · Esc Home');
+ assert.equal(api.navigationHint('reviewPage',{hasNext:true}),'↑/↓: Scroll · Enter Next · Esc Home');
+ assert.equal(api.navigationHint('reviewPage'),'↑/↓: Scroll · Enter Continue · Esc Home');
+ assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');
 });
 test('home wordmark is compact, readable without ANSI and absent on inner screens',()=>{
@@ -45,7 +45,7 @@ test('outline and green rule do not falsely block confirmation after terminal gr
 
 test('five-row ARC home fits status and all four actions with footer in 24 rows',()=>{
  const screen={title:'ARC',wordmark:true,rows:['Codex: Installed','Claude: Not installed','Configure','Update','Uninstall','Exit'],selected:2,requiresConfirmation:true};
- const rendered=api.renderScreen(screen,{columns:80,rows:24});assert.equal(rendered.applyEnabled,true);assert.equal(rendered.text.split('\n').length,13);assert.match(rendered.text,/> Configure/);assert.match(rendered.text,/Exit/);assert.match(rendered.text,/Esc Back$/);
+ const rendered=api.renderScreen(screen,{columns:80,rows:24});assert.equal(rendered.applyEnabled,true);assert.equal(rendered.text.split('\n').length,15);assert.match(rendered.text,/> Configure/);assert.match(rendered.text,/Exit/);assert.match(rendered.text,/Esc Home$/);
 });
 
 test('pixel logo metadata colors only its visible filled cells and keeps gradient stops across its width',()=>{
@@ -63,3 +63,8 @@ test('filled logo uses single-column blocks and clipped metadata tracks only vis
  const clipped=api.renderScreen({...screen,requiresConfirmation:false},{columns:12,rows:24});const lines=clipped.text.split('\n');
  for(const style of clipped.styles.filter(style=>style.color==='logo')){assert.ok(lines[style.line].length<=11);assert.equal(style.cells.length,[...lines[style.line]].filter(character=>character==='█').length);assert.ok(style.cells.every(cell=>cell.column<11&&lines[style.line][cell.column]==='█'));}
 });
+
+test('responsive footer remains outside selectable rows',()=>{for(const columns of [40,80,120]){const screen={title:'Menu',rows:['One','Two'],selected:1};const result=api.renderScreen(screen,{columns,rows:24});const lines=result.text.split('\n');assert.equal(lines.at(-3),'');assert.equal(lines.at(-2),'─'.repeat(columns-1));assert.equal(screen.rows.length,2);assert.equal(result.selectionEnabled,true);}});
+test('footer reserves space and blocks hidden selected actions',()=>{assert.equal(api.renderScreen({title:'Menu',rows:['Apply'],selected:0},{columns:80,rows:4}).selectionEnabled,false);});
+
+test('small viewport pins footer without allowing hidden required information to apply',()=>{const result=api.renderScreen({title:'Menu',rows:['Required information','Apply'],selected:1,requiresConfirmation:true},{columns:100,rows:4});assert.equal(result.applyEnabled,false);assert.equal(result.selectionEnabled,false);assert.equal(result.text.split('\n').at(-1),'↑/↓: Select · Enter Continue · Esc Home');assert.equal(result.text.split('\n').at(-2),'─'.repeat(99));});

@@ -4,7 +4,7 @@ const api=await import('../../lib/tui/terminal.mjs').catch(()=>({}));
 function session(t,options){assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal(options),session=api.createTerminalSession({...io,env:options?.env??{COLORTERM:'truecolor'}});t.after(()=>session.dispose());return{...io,session};}
 test('split-byte arrows, enter, back and EOF normalize in input order',async t=>{
  const io=session(t),events=[];for(const chunks of [['\x1b','[','B'],['\r'],['\x7f'],['\x04']]){for(const chunk of chunks)io.send(chunk);events.push(await io.session.nextEvent());}
- assert.deepEqual(events.map(event=>event.name),['down','enter','back','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
+ assert.deepEqual(events.map(event=>event.name),['down','enter','backspace','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
 });
 test('UTF-8 and bracketed paste stay text, including pasted confirmation characters',async t=>{
  const io=session(t);const bytes=Buffer.from('한');io.send(bytes.subarray(0,1));io.send(bytes.subarray(1));assert.deepEqual((await io.session.nextEvent()).text,'한');
@@ -27,7 +27,7 @@ for(const ending of ['end','close','SIGINT','SIGTERM','error','render-error','di
  session.dispose();session.dispose();assert.equal(io.input.isRaw,true);assert.equal(io.input.readableFlowing,false);assert.deepEqual(io.input.listeners('data'),before);assert.equal(io.signals.listenerCount('SIGINT'),0);assert.equal(io.signals.listenerCount('SIGTERM'),0);assert.equal(io.output.listenerCount('resize'),0);assert.match(io.text(),/\x1b\[\?25h/);
 });
 test('lone escape means back and dispose cancels its pending timer',async t=>{
- const io=session(t);io.send('\x1b');assert.equal((await io.session.nextEvent()).name,'back');io.send('\x1b');io.session.dispose();assert.equal((await io.session.nextEvent()).name,'eof');
+ const io=session(t);io.send('\x1b');assert.equal((await io.session.nextEvent()).name,'escape');io.send('\x1b');io.session.dispose();assert.equal((await io.session.nextEvent()).name,'eof');
 });
 test('split CRLF is one enter, preventing a second unintended confirmation',async t=>{
  const io=session(t);io.send('\r');io.send('\n');io.send('x');assert.equal((await io.session.nextEvent()).name,'enter');assert.deepEqual(await io.session.nextEvent(),{name:'text',text:'x',sequence:3});
@@ -90,3 +90,5 @@ test('xterm-256color alone does not imply truecolor',t=>{
 for(const env of [{TERM_PROGRAM:'ghostty',NO_COLOR:''},{TERM_PROGRAM:'cmux',TERM:'dumb'}])test('explicit terminal identity respects color disable',t=>{
  const io=session(t,{env});io.session.render({title:'ARC',wordmark:true,rows:['Configure'],selected:0});assert.doesNotMatch(io.text(),/\x1b\[(?:38;|48;|3[0-9]m|4[0-9]m|9[0-9]m)/);
 });
+
+test('escape and backspace have distinct events',async t=>{const io=session(t);for(const [bytes,want] of [['\x1b','escape'],['\x7f','backspace'],['\b','backspace']]){io.send(bytes);assert.equal((await io.session.nextEvent()).name,want);}});
