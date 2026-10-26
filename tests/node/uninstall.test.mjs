@@ -37,3 +37,5 @@ test('uninstall plans shell cleanup under skipGlobal and shares ownership before
  const plans=[first,second].map(target=>api.buildUninstallPlan({target,safeFs,skipGlobal:true}));assert.deepEqual(fs.readFileSync(filename),original);assert.ok(plans[0].globalChanges.some(c=>c.path===filename));
  const result=await api.uninstallTargets(plans,{safeFs});assert.deepEqual(result.results.map(r=>r.status),['uninstalled','uninstalled']);assert.equal(plans.filter(p=>p.managedPaths.includes(filename)).length,1);assert.equal(plans[1].snapshot.has(filename),false);assert.equal(fs.readFileSync(filename,'utf8'),'mine\r\ntail');
 });
+
+test('settings-only uninstall opts out of shared completion cleanup without reading it',async t=>{const target=fixture(t),filename=target.userHome+'/.zshrc';fs.symlinkSync('/missing-shell',filename);const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});const result=await api.uninstallTargets([plan],{safeFs});assert.equal(result.results[0].status,'uninstalled');assert.equal(fs.readlinkSync(filename),'/missing-shell');assert.equal(fs.readFileSync(target.home+'/config.toml','utf8'),'unparsed wait settings');});

@@ -39,7 +39,6 @@ test('release consumer opens TUI only on explicit launch and installs independen
  const updated=await api.executeOperation(ctx,prepared);assert.equal(updated.code,0,JSON.stringify(updated));
  assert.equal(fs.readFileSync(s.home+'/.zshrc','utf8'),'export KEEP_ME=1\nexport AFTER=1\n');
  const {resultRows}=await import(pathToFileURL(isolated+'/lib/tui/app.mjs'));
- assert.match(resultRows(updated).join('\n'),/Open a new agent session/);
  await t.test('installed workflow status in Orchestrator-prepared isolated Git workspace',{skip:!workspace?'Set ARC_TEST_TUI_WORKSPACE to an Orchestrator-prepared Git fixture for endpoint acceptance':false},async()=>{
  for(const platform of ['codex','claude']){
   const runtime=s.home+'/.'+platform+'/skills/arc/runtime',entry=runtime+'/cli.mjs',workflow='consumer-'+platform+'-'+process.pid;
@@ -50,6 +49,8 @@ test('release consumer opens TUI only on explicit launch and installs independen
   const tampered=spawnSync(process.execPath,[entry,'status',...args],{...opts,encoding:'utf8'});assert.equal(tampered.status,3);assert.equal(JSON.parse(tampered.stdout).decision,'hold');
  }
  });
+ assert.deepEqual(resultRows(updated).slice(0,2),['ARC installed for Codex.','ARC installed for Claude.']);assert.doesNotMatch(resultRows(updated).join('\n'),/rollback|Open a new agent session/i);
+ const shellBefore=fs.readFileSync(s.home+'/.zshrc');ctx.inspectGlobalArc=async()=>assert.fail('Settings cannot inspect CLI');const settings=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:'codex',removeCli:false}));assert.equal(settings.code,0);assert.equal(fs.existsSync(s.home+'/.codex/skills/arc'),false);assert.equal(fs.existsSync(s.home+'/.claude/skills/arc'),true);assert.deepEqual(fs.readFileSync(s.home+'/.zshrc'),shellBefore);
  const {verifyPayload}=await import(pathToFileURL(isolated+'/lib/installer/manifest.mjs'));
  for(const name of ['codex/skill/runtime/cli.mjs','claude/skill/runtime/command.mjs','claude/skill/runtime/role-policy.json','lib/tui/setup.mjs','lib/management/workflow.mjs']){
   const filename=isolated+'/'+name,bytes=fs.readFileSync(filename),manifest=fs.readFileSync(isolated+'/MANIFEST.sha256');
