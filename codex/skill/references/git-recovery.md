@@ -1,66 +1,44 @@
+<a id="git-recovery-contract"></a>
 # Git recovery contract
 
-Read on branch collision, Git preparation failure, partial completion, metadata write denial, or handoff record write denial.
-Use [handoff-prep.md](handoff-prep.md) for approved branch selection, [handoff-worktree.md](handoff-worktree.md) for the
-managed worktree path, and [handoff.md](handoff.md) for the complete restart gate.
+Read on branch collision, Git preparation failure/partial completion, metadata or handoff-record write denial. Use [handoff-prep](handoff-prep.md) for branch selection and [handoff](handoff.md) for full restart gates.
 
+On actual Git/tool failure, partial completion, unexpected branch/HEAD, missing path or conflicting edit, stop dependent work. Record absolute path, branch or detached HEAD, HEAD, index, working-tree/untracked files, ownership and completed steps. Return the precise blocker/resolution to Orchestrator. Never automatically retry, fall back or repeat completed mutations.
+
+Apply Preservation rule: preserve unrelated work/recovery artifacts. No automatic stash/reset/clean/unstage/discard/amend, branch/worktree deletion, lock removal, permission changes or sandbox bypass. Orchestrator obtains needed human decisions, resolves within authority, revalidates gates and supplies a delta restart brief. Explicit choice is required where applicable; silence, planning approval and refusal of another option do not count.
+
+<a id="branch-collision-and-invalid-names"></a>
+## Branch collisions and invalid names
+
+Invalid names, creation/switch failures, lookup errors or unexpected branches require recorded errors/state and stopped handoff. Branch creation without switching is partial completion; report it without automatic deletion or success claims. No branch/checkout fallback. New collision suffixes need approval. Preserve staged/unstaged/untracked changes; blocked switching or unclear ownership waits for Orchestrator.
+
+<a id="git-metadata-write-denial"></a>
+## Git metadata write denial
+
+1. Denial of authorized stage/commit/branch creation/switch at `.git/index.lock` or other metadata blocks handoff.
+2. Inspect exact command/workspace/error/failed path, actual Git directory/branch/HEAD/index/partial completion read-only. Inspect lock existence, observable processes, sandbox limits, OS permissions/ACLs and concurrent Git activity. Record supported causes/uncertainty. Lock-creation denial alone proves no stale lock.
+3. Do not remove locks, `chmod`/`chown`, bypass sandbox or move workspaces. Only when evidence confirms that the sandbox denied an already authorized operation, request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access.
+4. Before authorized retry, recheck branch/HEAD/index/partial completion without repeating completed work. After success verify operation/final state and the entire handoff gate.
+5. Denied approval or unresolved OS/ACL issues keep handoff blocked; report actual state/cause. A finalized message avoids unnecessary amend but cannot repair write access. Only authorized successful writes plus verified results prove recovery.
+
+<a id="handoff-record-write-denial"></a>
+## Handoff record write denial
+
+If canonical-record writing is denied/unavailable, stop it and report path/error. Never change permissions or bypass sandbox. Use [handoff](handoff.md)'s inline fallback.
+
+<a id="recovery-cases"></a>
 ## Recovery cases
 
-### Git metadata write denial
-
-If authorized staging, committing, branch creation, or switching is denied while writing `.git/index.lock` or other
-Git metadata, Orchestrator blocks handoff and safely inspects the exact command, workspace, error, failed path,
-actual Git directory, branch, HEAD, index state, and partial completion. Read-only inspection includes lock existence and any
-observable related processes, sandbox restrictions, OS permissions/ACLs, and concurrent Git activity. Record supported
-causes and remaining uncertainty; denial of lock creation alone does not prove a stale lock.
-
-Apply the Preservation rule: do not delete lock files, use `chmod` or `chown`, bypass the sandbox, or move to another
-workspace. If evidence confirms sandbox denial of an already authorized operation, request through the permission system only (not
-a sandbox bypass) the tool-supported minimum escalation for only the exact single Git command and workspace, never
-broad Git access. Before retrying, recheck branch, HEAD, index, and partial completion; do not repeat work already
-completed. After success verify the commit or branch result and final state, then reevaluate the entire handoff gate.
-Denied escalation or unresolved OS permission/ACL problems keep handoff blocked; report the reason and actual state to Orchestrator/user.
-Choosing the final message in advance prevents unnecessary amend but does not repair required Git write access; only successful
-authorized writes and verified results establish recovery.
-
-### Handoff record write denial
-
-If writing the canonical handoff record is denied or unavailable, stop that write, report the path and error to
-Orchestrator, and do not change permissions or bypass the sandbox. Use the inline-record fallback in
-[handoff.md](handoff.md).
-
+<a id="existing-changes-and-failures"></a>
 ### Existing changes and failures
 
-Unlike a worktree, a branch does not isolate uncommitted changes in a separate directory. Record how existing staged,
-unstaged, and untracked changes relate to the task and their preservation and edit ownership in the brief. Apply the
-Preservation rule and do not automatically commit or delete changes to prepare the checkout. Only the
-approved docs commit on all three paths is an exception to that no-commit rule; preserve all unrelated dirty files.
-If existing changes prevent switching or ownership is unclear, stop handoff until Orchestrator resolves the state and
-scope.
+A branch does not isolate uncommitted changes in another directory. Record task relationship/preservation/ownership in the brief. Never automatically commit/delete changes to prepare. Approved docs commits on the three paths are the sole exception; preserve unrelated dirty files. Switching blocks or unclear ownership hold handoff until resolution. Both operational failure and missing target choice block handoff.
 
-For an invalid name, branch creation or switching failure, lookup error, or unexpected current branch, inspect and
-record the error and actual Git state, then stop Implementer handoff. A branch created without a successful switch is partial
-completion: report it, do not automatically delete it, and do not treat preparation as complete. Do not automatically fall back to the current checkout path after an operational failure. Both operational failure and missing
-execution-target choice block handoff. Orchestrator resolves the problem and rechecks preparation before handoff.
-
-
+<a id="worktree-failures-and-partial-completion"></a>
 ### Worktree failures and partial completion
 
-Worktree creation, registration, attachment, identity/base verification, checkout, document transfer, staging,
-or commit failure means stop dependent work and Implementer handoff. Partial completion includes branch-only creation, partial
-path creation, registration/actual-path mismatch, wrong base or branch, and partial document transfer. Record source and
-target exact command, error, branch, HEAD, Git common directory, registration, index and files, including target dirty
-state and source preservation. Before any authorized retry, inspect actual state and completed work under the Stop and
-inspect rule; do not repeat completed actions.
-Do not automatically fallback, retry another path/branch, delete paths, prune registrations with `git worktree prune`,
-or use `--force` or `-B`; apply the Preservation rule.
-Normal worktree preparation after explicit managed-worktree selection is permitted under handoff; moving to an arbitrary
-workspace during recovery remains prohibited. Resolve preparation and revalidate the full gate; a new explicit choice
-follows Choice lifetime and restart record in handoff.md. No automatic cleanup/archive is authorized.
+[Managed-worktree](handoff-worktree.md) creation/registration/attachment/identity/base/checkout/transfer/stage/commit failures stop dependent work/handoff. Branch-only or partial-path creation, registration/path mismatch, wrong base/branch and partial transfer count as partial completion.
 
-For managed worktree failures record tool inputs, operationId, result/error, returned actual path, app-managed
-registration and current-chat attachment, initial/final branch, base/ref SHA, source/target HEAD/index/files and
-ownership.
-The completion, attach-retry and no-fallback limits of New managed worktree in handoff-worktree.md apply; after an
-attach retry check completion and current-chat attachment again; if it still fails or results cannot be verified, stop
-and report actual state. A directory alone does not prove app management.
+Record source/target commands/errors/branch/HEAD/common directory/registration/index/files, target dirty state and source preservation. Include tool inputs/operationId/results/returned path, app management/current-chat attachment, initial/final branch, base/ref SHA and ownership. Inspect actual state/completed work before authorized retry.
+
+No automatic alternate path/branch, deletion, `git worktree prune`, `--force`/`-B`, cleanup or archive. Normal preparation after explicit managed selection is allowed; arbitrary recovery workspace moves are not. Resolve and revalidate the full gate; renewed choice follows handoff lifetime rules. Preserve completion/attach-retry/no-fallback limits. Recheck completion/current-chat attachment after attach retry; failure or unverifiable results stop with actual-state reporting. Directory existence does not prove app management.

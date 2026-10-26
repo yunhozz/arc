@@ -58,6 +58,16 @@ for(const platform of ['codex','claude']){
   }
  });
 }
+test('Codex document transfer includes legacy documents while excluding normal new documents',()=>{
+ const transfer=read('codex/skill/references/handoff-worktree.md').split('### Worktree document transfer')[1];
+ assert.match(transfer,/Only for existing approved documents in legacy\/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:/);
+});
+test('Codex Git escalation requires sandbox denial and stays limited to the exact command and workspace',()=>{
+ const recovery=read('codex/skill/references/git-recovery.md').split('## Git metadata write denial')[1].split('## Handoff record write denial')[0];
+ assert.match(recovery,/Only when evidence confirms that the sandbox denied an already authorized operation/);
+ assert.match(recovery,/request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access/);
+ assert.doesNotMatch(recovery,/evidence of permission-system denial/);
+});
 test('profile models, permissions, canonical policy and CLI/runtime bytes are preserved',()=>{
  for(const[name,hash]of Object.entries(fixture.protected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),hash,name);
 });

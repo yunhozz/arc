@@ -1,35 +1,20 @@
+<a id="managed-worktree-handoff-contract"></a>
 # Managed worktree handoff contract
 
-Orchestrator reads after the user explicitly selects the new managed worktree option, before its creation,
-branch work or document transfer. Apply [handoff-prep.md](handoff-prep.md) and [handoff.md](handoff.md) gates as well.
+After explicit new-managed-worktree selection, Orchestrator reads this before creation, branch work or document transfer. Also apply [handoff-prep](handoff-prep.md) and [handoff](handoff.md).
 
+<a id="workspace-handoff"></a>
 ## Workspace handoff
 
+<a id="new-managed-worktree"></a>
 ### New managed worktree
 
-Before formal drafting and saving, complete actual creation, managed registration, current-chat attachment,
-repository/common directory and base verification, approved branch verification, and source preservation checks below.
-The normal new-document path drafts and saves directly in the verified target. Planned destination paths are not
-preparation evidence. Initial preparation does not authorize Implementer or a document commit.
+Before formal drafting/saving, verify actual creation, managed registration, current-chat attachment, repository/common directory/base, approved branch and source preservation below. Draft/save new documents directly in the verified target. Planned paths prove no preparation; initial preparation authorizes neither Implementer nor document commits.
 
-Only an explicit user choice of this third path authorizes preparation. Its selection target is the one verified under the Execution-target request gate in handoff-prep.md.
-The app determines the actual destination path; do not propose a sibling path or require a user-specified candidate.
-Use the verified source HEAD full SHA as the base; do not substitute remote HEAD or a default branch or fetch
-automatically.
-Recheck approved source state, base SHA, approved branch candidate/collision status, name and approved document scope
-after choice and immediately before the tool call. After selection and before creation, any changes require
-a fresh explicit choice for the updated inputs. This is the pre-creation candidate rule. After successful creation
-and verification, apply Choice lifetime and restart record in handoff.md.
-
-Before calling mcp__codex_app__create_worktree, validate the approved branch candidate and collision state with
-New task branch naming rules in handoff-prep.md. A collision requires a new explicit choice; never automatically
-substitute a suffix.
-Default is the prohibition on reusing an existing branch in handoff-prep.md; only this narrow exception applies.
-Exception for this managed path: an existing approved branch at the same base and not checked out in any worktree
-may be reused; verify both conditions before reuse. An unexpected branch, different base or lookup uncertainty means
-stop.
-
-Create using only the app tool:
+1. Only explicit selection of this third path authorizes preparation. Use the selection target verified under handoff-prep's request gate. The app chooses the actual path; do not propose siblings or require user-specified paths. Use verified full source HEAD SHA as base, never remote HEAD/default branch or automatic fetch.
+2. After choice and immediately before the call, recheck source state, base SHA, approved candidate/collision, name and document scope. Changed pre-creation inputs require fresh explicit choice. After successful creation/verification, handoff lifetime/restart rules apply.
+3. Before `mcp__codex_app__create_worktree`, validate candidate/collision under handoff-prep. Collisions require new explicit choice, never automatic suffixes. Existing-branch reuse is forbidden by default. Only this managed path permits an approved existing branch at the same base and not checked out in any worktree, after both checks. Unexpected branch, different base or uncertain lookup stops work.
+4. Use only the app tool:
 
     mcp__codex_app__create_worktree({
       allowAsync: true,
@@ -37,51 +22,32 @@ Create using only the app tool:
       ref: "<verified-source-head-full-sha>"
     })
 
-The name describes the work without guaranteeing a path or branch. There are no destination path or branch arguments.
-Pass ref explicitly as the full SHA; do not omit it or rely on a remote default. If an operationId is returned,
-use mcp__codex_app__get_worktree_creation_status until completed. Preparing/creating/registering progress is not
-success.
-For registration failure only, retry the returned workspace with mcp__codex_app__attach_worktree. Before completed
-managed registration, current-chat attachment and approved branch verification, perform no formal drafting, saving, document transfer, staging,
-commit or Implementer start. If tools are unavailable, reattachment fails or results mismatch, stop and record actual state.
-Do not fall back to raw Git worktree creation, automatically retry other name/ref/path/branch inputs,
-or perform automatic cleanup, delete, prune or archive. See git-recovery.md before dependent recovery.
+The descriptive name guarantees no path/branch. There are no destination-path/branch arguments. Pass full SHA `ref` explicitly; never omit or rely on remote defaults. For `operationId`, use `mcp__codex_app__get_worktree_creation_status` until completed. Preparing/creating/registering is not success.
 
-Verify the returned actual absolute worktree path and app-managed current-chat attachment using app artifacts.
-Record initial branch or detached HEAD, approved branch candidate, final branch, and target HEAD equal to approved ref.
-Verify linked-worktree registration and source/target Git common directory identity, registered path,
-target dirty state, and source branch, HEAD, index and files preservation; shared Git metadata additions for the approved target are
-authorized.
-Linked worktree .git may be a file; do not require the same top-level path or a .git directory for repository identity.
-Verify registration, attachment and base before creating/checking out the approved branch. If initially detached,
-use `git switch -c <approved-branch> <ref>`; if the existing approved branch has the same base and is not checked out
-in any worktree, use `git switch <approved-branch>` (the exception above to the default no-reuse rule in
-handoff-prep.md). Do not move a branch pointer, choose another branch or use --force
-or -B.
-If the app initially returns the approved branch, verify it and its base rather than repeating completed work.
-Unexpected branch or mismatched HEAD means stop. Verify final approved branch and HEAD before formal drafting, saving, document transfer,
-the batch docs commit, final Git verification and Implementer handoff.
+Only registration failure permits reattachment of the returned workspace with `mcp__codex_app__attach_worktree`. No formal drafting/saving/transfer/staging/commit/Implementer before completed registration, current-chat attachment and branch verification. Missing tools, failed reattachment or mismatched results stop with actual-state reporting. No raw Git worktree fallback, alternate name/ref/path/branch retries or automatic cleanup/deletion/prune/archive. Read git-recovery before dependent recovery.
 
-The tool does not copy uncommitted changes. These transfer rules apply only to legacy or restart cases with existing approved documents (including an explicitly selected target change), excluding the normal new-document path. For untracked approved documents, source HEAD and index paths must be
-absent and source working-tree bytes must match the latest approved version. For tracked approved documents, source
-index blob and mode must equal source HEAD, while source working-tree bytes must match the latest approved version.
-Approved working-tree revisions may differ from HEAD/index; do not repair or verify them by staging source documents.
-Any mismatch means stop. Unrelated staged changes, required uncommitted implementation/configuration/test changes,
-and unclear ownership block preparation. Clearly unrelated unstaged/untracked changes remain in source.
-Do not automatically stash, commit, reset, clean, or unstage; do not transfer dirty implementation files.
-For those existing approved documents, use Worktree document transfer before target docs preparation.
+Verify creation in order:
 
+1. Verify returned absolute path and app-artifact management/current-chat attachment.
+2. Record initial branch or detached HEAD, approved candidate, final branch and target HEAD equal to approved ref.
+3. Verify linked registration, source/target common-directory identity, registered path and target dirty state. Verify source branch/HEAD/index/files preservation. Approved-target shared metadata additions are authorized. Linked `.git` may be a file; repository identity requires neither identical top-level path nor a `.git` directory.
+4. After registration/attachment/base checks, create/check out the approved branch: `git switch -c <approved-branch> <ref>` if detached, or `git switch <approved-branch>` under the existing-branch exception. No pointer moves, alternate branches, `--force` or `-B`. If the app already returned the approved branch, verify without repeating completed work.
+5. Unexpected branch/HEAD mismatch stops work. Verify final branch/HEAD before formal drafting, saving, transfer, batch docs commit, final Git checks and handoff.
+
+The tool copies no uncommitted changes. Transfer rules below apply only to existing approved documents in legacy/restart/explicit-target-change cases, not normal new documents.
+
+- Untracked approved documents must be absent from source HEAD/index, with working-tree bytes matching latest approval.
+- Tracked documents require source index blob/mode equal to HEAD and working-tree bytes equal to latest approval. Approved working revisions may differ from HEAD/index. Do not stage source documents to repair or verify them.
+- Mismatches, unrelated staged changes, required uncommitted implementation/configuration/test changes or unclear ownership block preparation. Clearly unrelated unstaged/untracked changes stay in source.
+- Never automatically stash/commit/reset/clean/unstage or transfer dirty implementation. Transfer existing approved documents below before target document preparation.
+
+<a id="worktree-document-transfer"></a>
 ### Worktree document transfer
 
-Use only for existing approved documents in pre-existing-document or restart/target-change cases.
+Only for existing approved documents in legacy/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:
 
-Verify existing approved commits by SHA, message, paths and approved content valid at base and target; reuse them.
-Copy only uncommitted approved spec/plan documents to the target at the same repository-relative path.
-Do not move, delete, or modify the source documents. If a destination resolves outside the worktree, including through
-an escaping symlink, stop. Before transfer verify target HEAD equals the selected source base SHA.
-Before replacing an existing destination, prove its clean base state with no staged/unstaged changes and index and working-tree bytes matching the base version; then replace with the approved version. A document absent from base must
-also be absent at the destination. For unexpected changes, do not overwrite; stop.
-For identical content, verify approved bytes before reuse. After transfer verify bytes match the approved version.
-The canonical record includes each document approval/version/evidence, source and target absolute paths and the common
-relative path plus content verification. Changed content or approval scope requires approval of the revised version.
-Transfer no other files. Failure or partial transfer blocks all dependent staging, commit and Implementer handoff.
+1. Verify existing approved commit SHA/message/paths/content and validity at base/target; reuse them.
+2. Copy only uncommitted approved spec/plan documents to the same relative paths. Never move/delete/modify source documents. Stop for destinations escaping the worktree, including symlinks. Target HEAD must equal selected source base SHA before transfer.
+3. Before replacing a destination, prove clean base state: no staged/unstaged changes, index/working bytes equal base. Documents absent from base must also be absent at destination. Never overwrite unexpected changes.
+4. Verify approved bytes before reusing identical content; verify approved bytes after transfer.
+5. Record approvals/versions/evidence, absolute source/target paths, common relative paths and content checks. Changed content/approval scope needs revised approval. Transfer nothing else. Failure/partial transfer blocks dependent staging, commits and Implementer handoff.
