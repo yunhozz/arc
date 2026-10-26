@@ -6,7 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
-const baselineHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
+const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
+const baselineHash='sha256:8be1db491aa12e4982e5d0dc9048d2b46717de133feb2d26f98b5301e086bb87';
 
 // Independent T5 contract: omission, reordering or unhashed gate bytes must fail.
 const expectedModules = [
@@ -44,4 +45,8 @@ test('cooperative hash changes when the Claude adapter Git query dependency chan
  for(const name of ['lib/runtime','lib/policy'])await cp(new URL('../../'+name,import.meta.url),path.join(root,name),{recursive:true});
  const api=await import(pathToFileURL(path.join(root,'lib/runtime/bootstrap.mjs'))),before=(await api.cooperativeVersions()).runtimeHash,filename=path.join(root,'lib/runtime/git-query.mjs');
  await writeFile(filename,Buffer.concat([await readFile(filename),Buffer.from('\n// transitive gate behavior changed\n')]));assert.notEqual((await api.cooperativeVersions()).runtimeHash,before);
+});
+
+test('HSR: canonical and deployed policy/runtime versions agree',async()=>{
+ assert.notEqual(baselineHash,historicalRuntimeHash);const versions=[];for(const runtime of ['lib/runtime/','codex/skill/runtime/','claude/skill/runtime/'])versions.push(await(await import(new URL('../../'+runtime+'bootstrap.mjs',import.meta.url))).cooperativeVersions());assert.deepEqual(versions[1],versions[0]);assert.deepEqual(versions[2],versions[0]);
 });

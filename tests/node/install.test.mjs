@@ -18,15 +18,10 @@ test('cleanup failure after commit keeps installed bytes and reports residuals',
 
 test('installs pinned static references without touching external sentinel',async t=>{const plan=fixture(t),outside=plan.target.home+'/skills/brainstorming';fs.mkdirSync(outside,{recursive:true});fs.writeFileSync(outside+'/sentinel','keep');capturePlanSnapshot(plan,{safeFs});const result=await api.installTargets([plan],{safeFs,acquisition});assert.equal(result.results[0].status,'installed');assert.equal(fs.readFileSync(plan.target.home+'/skills/arc/references/brainstorming.md','utf8'),'package pinned');assert.equal(fs.existsSync(plan.target.home+'/skills/arc/references/superpowers'),false);assert.equal(fs.readFileSync(outside+'/sentinel','utf8'),'keep');});
 
-for(const platform of ['codex','claude'])test(`${platform} managed Planner observer install update and removal preserve user hooks`,async t=>{
- const config=await import('../../lib/installer/global-config.mjs');assert.equal(typeof config.renderRuntimeObserverHooks,'function');
- const {parseToml}=await import('../../lib/models/config.mjs'),{buildUninstallPlan}=await import('../../lib/installer/uninstall.mjs');
- const plan=fixture(t,platform),home=plan.target.home;fs.mkdirSync(home,{recursive:true});
- const original=Buffer.from(platform==='codex'?'# user settings\nmodel = "user-model"\n[[hooks.PreToolUse]]\nmatcher = "Bash"\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "echo user"\n':JSON.stringify({env:{KEEP:'yes'},hooks:{PreToolUse:[{matcher:'Bash',hooks:[{type:'command',command:'echo user'}]}]}})+'\n');
- const filename=path.join(home,platform==='codex'?'config.toml':'settings.json'),skillPath=path.join(home,'skills/arc');
- const rendered=config.renderRuntimeObserverHooks({platform,original,skillPath});assert.equal(rendered.enforcement,'observation-only');assert.equal(rendered.nativeVerified,false);const parse=bytes=>platform==='codex'?parseToml(bytes.toString()):JSON.parse(bytes);
- const data=parse(rendered.content);assert.equal(data.hooks.PreToolUse[0].hooks[0].command,'echo user');assert.equal(data.hooks.PreToolUse.length,2);assert.equal(data.hooks.SubagentStart.length,1);assert.equal(data.hooks.PostToolUse.length,1);
- assert.deepEqual(config.renderRuntimeObserverHooks({platform,original:rendered.content,skillPath}).content,rendered.content);
- fs.writeFileSync(filename,rendered.content);plan.target.runtimeConfigPath=filename;plan.target.instructionPath=path.join(home,platform==='codex'?'AGENTS.md':'CLAUDE.md');plan.target.globalPaths=[plan.target.instructionPath,filename];plan.target.profileNames=[];
- const removed=buildUninstallPlan({target:plan.target,safeFs}).globalChanges.find(c=>c.path===filename);assert.ok(removed);assert.deepEqual(parse(removed.content),parse(original));
+for(const platform of ['codex','claude'])test(`HSR: ${platform} uninstall never manages native hook settings`,async t=>{
+ const p=fixture(t,platform),home=p.target.home;fs.mkdirSync(home,{recursive:true});const filename=path.join(home,platform==='codex'?'config.toml':'settings.json');
+ const original=platform==='codex'?'# arc:planner-observer:begin\n':'{"hooks":{"PreToolUse":"user shape"}}\n';fs.writeFileSync(filename,original);
+ p.target.runtimeConfigPath=filename;p.target.instructionPath=path.join(home,platform==='codex'?'AGENTS.md':'CLAUDE.md');p.target.globalPaths=[p.target.instructionPath,filename];p.target.profileNames=[];
+ const {buildUninstallPlan}=await import('../../lib/installer/uninstall.mjs');const result=buildUninstallPlan({target:p.target,safeFs,removeCompletion:false});
+ assert.equal(result.managedPaths.includes(filename),false);assert.equal(result.snapshot.has(filename),false);assert.equal(result.globalChanges.some(c=>c.path===filename),false);assert.equal(fs.readFileSync(filename,'utf8'),original);
 });

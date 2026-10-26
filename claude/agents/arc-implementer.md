@@ -10,13 +10,6 @@ tools:
   - Bash
   - Write
   - Edit
-hooks:
-  PreToolUse:
-    - matcher: Bash
-      hooks:
-        - type: command
-          command: "node -e \"eval(Buffer.from('aW1wb3J0KEJ1ZmZlci5mcm9tKHByb2Nlc3MuYXJndlsxXSwnYmFzZTY0JykudG9TdHJpbmcoJ3V0ZjgnKSkudGhlbihtb2R1bGU9Pm1vZHVsZS5ydW5Ib29rKCkpLmNhdGNoKCgpPT57cHJvY2Vzcy5zdGRlcnIud3JpdGUoJ0FSQyBHaXQgZ3VhcmQgZmFpbGVkIHRvIGxvYWRcbicpO3Byb2Nlc3MuZXhpdENvZGU9Mjt9KTs=','base64').toString('utf8'))\" \"ZmlsZTovLy9fX0FSQ19JTlNUQUxMRURfU0tJTExfXy9ob29rcy9yb2xlLWdpdC1ndWFyZC5tanM=\""
-          onFailure: block
 ---
 
 # Implementer
@@ -63,5 +56,5 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.significant-no-plan] Significant/high-risk work without a plan follows Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. Do not omit Reviewer because no plan exists. This adds no plan obligation.
 - [review.significant-plan] Significant/high-risk plan work follows Implementer → required fresh QA → Orchestrator acceptance and focused commit for each task. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is not a per-task or per-commit gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] Final overall Reviewer findings on plan work, including behavior findings, follow Implementer → Reviewer without QA reassignment until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before the initial final review and outside this exception.
-- [platform.claude] Existing per-role tool allowlists reduce available tools. Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration, not provided by these policy sections alone.
+- [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. ARC supplies no native observer hook or Bash Git guard; Git restrictions remain prompt-level role contracts.
 [ARC role policy: contract end]

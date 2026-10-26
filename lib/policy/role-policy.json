@@ -82,7 +82,7 @@
       "text": "Specialists must not change Git state during implementation or recovery: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal. Explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection within the assigned scope remains allowed.",
       "controls": {
         "codex": "prompt",
-        "claude": "hook"
+        "claude": "prompt"
       }
     },
     {
@@ -382,11 +382,11 @@
   "platforms": {
     "codex": {
       "level": "prompt",
-      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. Do not assume undocumented role-specific Git hooks or generic per-agent tool allowlists. Existing shell capabilities remain because static read access after shell reduction is unverified. Implementer and QA need shell for approved checks."
+      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. ARC supplies no native observer hook or role-specific Git guard. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks."
     },
     "claude": {
       "level": "capability",
-      "notice": "Existing per-role tool allowlists reduce available tools. Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration, not provided by these policy sections alone."
+      "notice": "Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. ARC supplies no native observer hook or Bash Git guard; Git restrictions remain prompt-level role contracts."
     }
   },
   "review": {

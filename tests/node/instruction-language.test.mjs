@@ -39,7 +39,6 @@ const instructionFiles = [
   'docs/harness-operation.md',
   'docs/runtime/planner-hook-context.md',
   'lib/policy/role-policy.json',
-  'claude/skill/hooks/git-policy.json',
 ];
 
 for (const file of instructionFiles) {

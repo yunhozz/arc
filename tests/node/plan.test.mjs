@@ -4,7 +4,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}for(const name of ['role-git-guard.mjs','git-policy.json'])files.set(`claude/skill/hooks/${name}`,fs.readFileSync(new URL(`../../claude/skill/hooks/${name}`,import.meta.url)));files.set('claude/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../claude/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,snapshot:new Map()};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('claude/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../claude/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),preset:'balanced',safeFs,...extra});}
 test('plan generates buffers and snapshots while optional external skills are absent',t=>{const home=fixture(t);assert.equal(typeof api.buildInstallPlan,'function');const p=plan(home);assert.equal(p.target.platform,'codex');assert.ok(p.generated.profiles instanceof Map);assert.match(p.generated.models.toString(),/version = 1/);assert.equal(p.globalChanges.length,2);assert.equal(p.externalPaths.length,0);assert.ok(p.snapshot instanceof Map);assert.deepEqual(fs.readdirSync(home),[]);});
 test('single-target plan never inspects another platform home',t=>{const home=fixture(t);fs.symlinkSync('/outside',`${home}/.claude`);assert.equal(plan(home).target.platform,'codex');fs.unlinkSync(`${home}/.claude`);fs.symlinkSync('/outside',`${home}/.codex`);assert.equal(plan(home,'claude').target.platform,'claude');});
@@ -32,7 +32,7 @@ test('limits policy defaults, reinstall preservation, native drift and explicit 
 test('Claude settings concurrency is a string and preserves unrelated data',t=>{
  const home=fixture(t);fs.mkdirSync(`${home}/.claude`);fs.writeFileSync(`${home}/.claude/settings.json`,JSON.stringify({env:{KEEP:'yes'},permissions:{allow:[]}}));
  const result=plan(home,'claude');const settings=JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content);
- const {hooks,...preserved}=settings;assert.deepEqual(preserved,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'5'},permissions:{allow:[]}});assert.deepEqual(Object.keys(hooks).sort(),['PostToolUse','PreToolUse','SubagentStart']);
+ assert.deepEqual(settings,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'5'},permissions:{allow:[]}});
 });
 test('preview evidence detects changed or newly appearing limits and unsafe replacements',t=>{
  const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home,env:{}});
@@ -90,33 +90,15 @@ for(const platform of ['codex','claude'])test(`install plan preserves ${platform
  assert.ok(contract.includes(`[platform.${platform}]`));
  assert.ok(!contract.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
 });
-import {validateClaudeHookCommand} from '../../lib/policy/claude-hook.mjs';
-test('Claude plan installs the Bash guard and observation-only global hooks against final skill paths',t=>{
- const home=fixture(t),result=plan(home,'claude');
- for(const bytes of result.generated.profiles.values()) {
-  const command=JSON.parse(/^          command: (.+)$/m.exec(bytes.toString())[1]);validateClaudeHookCommand(command);
-  const encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(command)[1];const url=Buffer.from(encoded,'base64').toString();
-  assert.ok(url.includes('/.claude/skills/arc/hooks/role-git-guard.mjs'),url);assert.ok(!url.includes('__ARC_INSTALLED_SKILL__'));
- }
- const settings=JSON.parse(result.globalChanges.find(x=>x.path.endsWith('settings.json')).content);
- for(const event of ['PreToolUse','PostToolUse','SubagentStart']){const handler=settings.hooks[event][0].hooks[0];assert.equal(handler.onFailure,'continue');const encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(handler.command)[1];assert.ok(Buffer.from(encoded,'base64').toString().includes('/.claude/skills/arc/hooks/runtime-gate.mjs'));}
-});
-test('Claude plan rejects missing or stale Git guard policy before writing',t=>{
- const home=fixture(t),input=payload();input.files.delete('claude/skill/hooks/git-policy.json');
- assert.throws(()=>api.buildInstallPlan({payload:input,target:targets.resolveTarget('claude',{userHome:home,env:{}}),preset:'balanced',safeFs}),/Git guard/);
- assert.deepEqual(fs.readdirSync(home),[]);
-});
-import {spawnSync} from 'node:child_process';
-test('Claude installed hook survives model update and is removed with managed assets only',async t=>{
+test('HSR: Claude model update and uninstall preserve unrelated assets',async t=>{
  const home=fixture(t),first=plan(home,'claude');const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
  const {buildUninstallPlan,uninstallTargets}=await import('../../lib/installer/uninstall.mjs');
  fs.mkdirSync(`${home}/.claude/agents`,{recursive:true});fs.writeFileSync(`${home}/.claude/agents/user-agent.md`,'preserve');
  // Refresh the initial snapshot after preparing an unrelated user file.
  const initial=plan(home,'claude');applyTransaction(initial,{safeFs,acquired:{references:referenceFixture()}});
- const run=command=>{const profile=fs.readFileSync(`${home}/.claude/agents/arc-implementer.md`,'utf8');const hook=JSON.parse(/^          command: (.+)$/m.exec(profile)[1]);return spawnSync(hook,{shell:true,cwd:os.tmpdir(),input:JSON.stringify({hook_event_name:'PreToolUse',tool_name:'Bash',tool_input:{command}}),encoding:'utf8'});};
- for(const [command,decision]of [['git status --short',undefined],['git push','deny']]){const result=run(command);assert.equal(result.status,0,result.stderr);assert.equal(JSON.parse(result.stdout).hookSpecificOutput?.permissionDecision,decision);}
+ for(const bytes of initial.generated.profiles.values())assert.doesNotMatch(bytes.toString(),/^hooks:/m);
  const next=plan(home,'claude',{preset:'smart'});applyTransaction(next,{safeFs,acquired:{references:referenceFixture()}});
- assert.equal(JSON.parse(run('git commit -m never-executed').stdout).hookSpecificOutput.permissionDecision,'deny');
+ for(const bytes of next.generated.profiles.values())assert.doesNotMatch(bytes.toString(),/^hooks:/m);
  const drift=plan(home,'claude');fs.appendFileSync(`${home}/.claude/agents/arc-implementer.md`,'\nuser edit');assert.throws(()=>applyTransaction(drift,{safeFs,acquired:{references:referenceFixture()}}));
  assert.ok(fs.readFileSync(`${home}/.claude/agents/arc-implementer.md`,'utf8').endsWith('user edit'));
  const result=await uninstallTargets([buildUninstallPlan({target:first.target,safeFs})],{safeFs});assert.equal(result.results[0].status,'uninstalled');
@@ -155,26 +137,22 @@ test('installation leaves unsupported profile paths unmanaged',t=>{
 });
 
 // Capture public output bytes and iteration order; normalize only the temporary
-// HOME and its encoded hook URL so the baseline is independent of the fixture.
+// HOME so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'83a009701c90a1749fff53b50f283623f0857dfbb46ad8ed6c046060393eff36',
- 'codex:en:true':'be36a1879dc675c06cb9b5ccd0a8db203b8a411c05bc0428b767bb43b6c385ae',
- 'codex:ko:false':'1e8d47d23a1bedb876433a77730bd86da04da8c7ae9e217030377302ddc909e9',
- 'codex:ko:true':'b8ed984832a0c5e4a11acc526d1fe6ec0bcdf9a6e10c4c0f25280ca2a22825f8',
- 'claude:en:false':'6ca5af037211d3692067e88ca3bddc17e4198aeb4ba38e5a8f16afd035d84a6f',
- 'claude:en:true':'24beb724b3237e75654772d61f4760649edcb1a084fd4f4620afd553132b451e',
- 'claude:ko:false':'20bbebb8a31942c2c513237b84cce81d61e2b6f20821cf0d0fac03718c0a259c',
- 'claude:ko:true':'5b72cd5c1bc089e8a1aab33716db27c2cccb3d4eac83e3bc5925d93ce593f3e4',
+ 'codex:en:false':'22b9ddc673ed99ae5a442c923ab1af7016e5cb53456546f7aaf6b45f1e2baa26',
+ 'codex:en:true':'66f23928b8567732b7b5f8fc8bf0b1aa62c8a13a1b3fc2eba3ef2e8e180d2643',
+ 'codex:ko:false':'040bec621e1a3f74e98cfec1ae5f6661528ee458bd7987302e5cf90ac4b95608',
+ 'codex:ko:true':'9a2acc070801da1ef0678f9e8d2506518b0205d7a144c89fb7ac5ae4a1a4718c',
+ 'claude:en:false':'a2e67b675eb62095704ad6a8228a75cd93bce0b3cecf3bcf8aa47035212ee0a1',
+ 'claude:en:true':'31be138ec7c5b812adfa85cbf6885004cd6266fe87a00ddd26ce48982134cabb',
+ 'claude:ko:false':'87da229555d6e5b19ca4fdd3418c208382a3e5a1b78e89e75acdfc54ab6b00c3',
+ 'claude:ko:true':'fd14ab957cb9f3ff80b661f4c1a43c7ec3b7cb25d6bbde0cc6195d9b29d094a8',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
  const limitsPreview=api.previewLimits({target,safeFs}),languagePreview=api.previewLanguage({target,safeFs});
  const result=plan(home,platform,{language,skipGlobal,limitsPreview,languagePreview,limits:{max_total_subagents:2,max_concurrent_subagents:9},concurrentExplicit:true});
- const normalize=value=>value.replaceAll(home,'<HOME>').replace(/^          command: (.+)$/gm,(line,json)=>{
-  const command=JSON.parse(json),encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(command)[1];
-  const url=Buffer.from(encoded,'base64').toString().replaceAll(home,'<HOME>');
-  return '          command: '+JSON.stringify(command.replace(encoded,Buffer.from(url).toString('base64')));
- });
+ const normalize=value=>value.replaceAll(home,'<HOME>');
  const buffers=entries=>[...entries].map(([name,bytes])=>{assert.ok(Buffer.isBuffer(bytes),name);return[name,normalize(bytes.toString())];});
  const observed={models:normalize(result.generated.models.toString()),profiles:buffers(result.generated.profiles),skill:buffers(result.generated.skill),
   globalChanges:result.globalChanges.map(({path,original,content,action})=>({path:normalize(path),original,content:normalize(content.toString()),action})),
@@ -198,7 +176,27 @@ test('public planning errors retain validation precedence for multiple invalid i
  assert.match(message({}).message,/^Invalid ARC limits:/);
  fs.unlinkSync(target.home+'/skills/arc/limits.toml');
  assert.deepEqual(message({}),{code:'ARC_TARGET_CONFIGURATION',message:'Selected payload platform is unavailable'});
- input.modelInputs=payload().modelInputs;input.files.delete('claude/skill/hooks/git-policy.json');
+ input.modelInputs=payload().modelInputs;
  fs.symlinkSync('/outside',target.instructionPath);
- assert.deepEqual(message({}),{code:'ARC_TARGET_CONFIGURATION',message:'Invalid Claude Git guard: Missing hook assets'});
+ assert.equal(message({}).code,'ARC_TARGET_CONFIGURATION');
+});
+
+for(const platform of ['codex','claude'])test(`HSR: ${platform} new plan creates no native observer`,t=>{
+ const home=fixture(t),result=plan(home,platform),config=result.globalChanges.find(c=>c.path===result.target.runtimeConfigPath).content.toString();
+ assert.equal(platform==='codex'?/\[\[hooks\./.test(config):Object.hasOwn(JSON.parse(config),'hooks'),false);
+ for(const bytes of result.generated.profiles.values())if(platform==='claude')assert.doesNotMatch(bytes.toString(),/^hooks:/m);
+});
+test('HSR: Codex observer trust tables survive real planning without marker ownership checks',t=>{
+ const home=fixture(t);fs.mkdirSync(home+'/.codex');
+ const events=['PreToolUse','PostToolUse','SubagentStart'],original='# arc:planner-observer:begin\n'+events.map(event=>`[[hooks.${event}]]\nmatcher = "*"\n[[hooks.${event}.hooks]]\ntype = "command"\ncommand = "echo legacy-observer"\n`).join('')+events.map(event=>`[hooks.state."/synthetic/observer:${event}:0:0"]\ntrusted_hash = "synthetic-hash"\n`).join('')+'# arc:planner-observer:end\n';
+ fs.writeFileSync(home+'/.codex/config.toml',original);const result=plan(home),content=result.globalChanges.find(c=>c.path===result.target.runtimeConfigPath).content.toString();
+ assert.ok(content.includes(original));assert.equal(fs.readFileSync(home+'/.codex/config.toml','utf8'),original);
+});
+test('HSR: valid Codex settings with incomplete observer markers remain ordinary data',t=>{
+ const home=fixture(t);fs.mkdirSync(home+'/.codex');const original='# arc:planner-observer:begin\nmodel = "user"\n';fs.writeFileSync(home+'/.codex/config.toml',original);
+ assert.ok(plan(home).globalChanges.find(c=>c.path.endsWith('config.toml')).content.toString().includes(original));
+});
+test('HSR: Claude planning preserves native user hooks without adding handlers',t=>{
+ const home=fixture(t);fs.mkdirSync(home+'/.claude');const hooks={PreToolUse:[{matcher:'Bash',hooks:[{type:'command',command:'echo user'}]}]};
+ fs.writeFileSync(home+'/.claude/settings.json',JSON.stringify({hooks}));const result=plan(home,'claude');assert.deepEqual(JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content).hooks,hooks);
 });

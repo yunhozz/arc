@@ -60,51 +60,16 @@ test('model changes preserve policy blocks and Codex feature settings together',
  const end=original.toString().indexOf('[ARC role policy: contract end]')+'[ARC role policy: contract end]'.length;
  assert.ok(start>=0); assert.ok(rendered.includes(original.toString().slice(start,end)));
 });
-import {hookFrontmatter,buildClaudeHookCommand} from '../../lib/policy/claude-hook.mjs';
-test('Claude model rendering preserves the managed hook and rejects unsupported hook structures',()=>{
- const input=profiles('claude'),name='arc-implementer.md';const text=input[name].toString();
- const hook=hookFrontmatter();input[name]=Buffer.from(text);
- const result=api.renderProfiles(input,settings('claude')).get(name).toString();assert.ok(result.includes(hook));
- const bad={...input,[name]:Buffer.from(input[name].toString().replace('matcher: Bash','matcher: Read'))};assert.throws(()=>api.renderProfiles(bad,settings('claude')));
-});
-
-// Removing either managed entry validation must fail these consumer boundary cases.
-for(const eol of ['\n','\r\n'])test(`Claude generated two-gate model round-trip preserves custom frontmatter and hooks with ${JSON.stringify(eol)}`,()=>{
- const input=profiles('claude',eol),name='arc-implementer.md';
- const custom=['    - matcher: Custom','      hooks:','        - type: command','          command: "echo preserved"'].join(eol);
- const post=['  PostToolUse:','    - matcher: Custom','      hooks:','        - type: command','          command: \"echo observed\"'].join(eol);
- const original=input[name].toString().replace(eol+'---'+eol,eol+post+eol+'---'+eol).replace('hooks:'+eol,'custom: preserved'+eol+'hooks:'+eol).replace('  PreToolUse:'+eol,'  PreToolUse:'+eol+custom+eol);
- input[name]=Buffer.from(original);
- const result=api.renderProfiles(input,settings('claude')).get(name);
- const mask=text=>text.replace(/^(model|effort):[^\r\n]*/gm,'$1: MASK');
- assert.equal(mask(result.toString()),mask(original));assert.ok(result.toString().includes(custom));
- assert.deepEqual(api.renderProfiles({...input,[name]:result},settings('claude')).get(name),result);
-});
-test('Claude consumer requires one strict Bash guard and rejects active runtime wiring',()=>{
- const input=profiles('claude'),name='arc-implementer.md',original=input[name].toString();
- const guard=hookFrontmatter().split('\n').slice(2).join('\n');
- for(const changed of [original.replace(guard,''),original.replace(guard,guard+'\n'+guard),original.replace('onFailure: block','onFailure: ignore'),original.replace('matcher: Bash','matcher: Read'),original.replace('        - type: command','        - type: prompt')])assert.throws(()=>api.renderProfiles({...input,[name]:Buffer.from(changed)},settings('claude')),{code:'ARC_MODEL_VALIDATION'});
-});
-
-for(const [command,failure] of [['node -e "Buffer.from(\'data\')"',undefined],['echo preserved','continue'],['echo preserved','block']])test(`Claude preserves custom command ${JSON.stringify(command)} with failure ${failure??'default'}`,()=>{
- const input=profiles('claude'),name='arc-implementer.md';
- const custom=['    - matcher: Custom','      hooks:','        - type: command',`          command: ${JSON.stringify(command)}`,...(failure?[`          onFailure: ${failure}`]:[])].join('\n');
- const original=input[name].toString().replace('  PreToolUse:\n','  PreToolUse:\n'+custom+'\n');input[name]=Buffer.from(original);
- const rendered=api.renderProfiles(input,settings('claude')).get(name).toString();
- const mask=text=>text.replace(/^(model|effort):[^\r\n]*/gm,'$1: MASK');assert.equal(mask(rendered),mask(original));
-});
-test('Claude rejects invalid custom failure behavior and fake ARC managed paths',()=>{
- const input=profiles('claude'),name='arc-implementer.md';
- for(const [command,failure] of [['echo preserved','ignore'],['node /tmp/hooks/runtime-gate.mjs','block'],['node /tmp/hooks/role-git-guard.mjs','continue']]){
-  const custom=['    - matcher: Custom','      hooks:','        - type: command',`          command: ${JSON.stringify(command)}`,`          onFailure: ${failure}`].join('\n');
-  const text=input[name].toString().replace('  PreToolUse:\n','  PreToolUse:\n'+custom+'\n');
-  assert.throws(()=>api.renderProfiles({...input,[name]:Buffer.from(text)},settings('claude')),{code:'ARC_MODEL_VALIDATION'});
- }
-});
-
 for(const platform of ['codex','claude'])test(`${platform} rejects unsupported profile names without changing inputs`,()=>{
  const input=profiles(platform),ext=platform==='codex'?'toml':'md',old='arc-unknown.'+ext,current='arc-implementer.'+ext;
  input[old]=Buffer.from(input[current].toString().replaceAll('arc_implementer','arc_unknown').replaceAll('arc-implementer','arc-unknown'));delete input[current];
  const before=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,Buffer.from(v)]));
  assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});assert.deepEqual(input,before);
+});
+
+for(const eol of ['\n','\r\n'])test(`HSR: Claude hook-free profiles and optional user frontmatter round-trip ${JSON.stringify(eol)}`,()=>{
+ const input=profiles('claude',eol);for(const name of Object.keys(input))input[name]=Buffer.from(input[name].toString().replace(/^hooks:\r?\n(?:[ \t].*(?:\r?\n|$))*/m,''));
+ const name='arc-implementer.md',optional=['hooks:','  FutureEvent:','    - matcher: Custom','      hooks:','        - type: command','          command: "echo custom"'].join(eol)+eol;
+ input[name]=Buffer.from(input[name].toString().replace(eol+'---'+eol,eol+optional+'---'+eol));const result=api.renderProfiles(input,settings('claude'));
+ const mask=bytes=>bytes.toString().replace(/^(model|effort):[^\r\n]*/gm,'$1: MASK');for(const [name,bytes]of result)assert.equal(mask(bytes),mask(input[name]));assert.ok(result.get(name).toString().includes(optional));
 });

@@ -68,6 +68,6 @@ test('Codex Git escalation requires sandbox denial and stays limited to the exac
  assert.match(recovery,/request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access/);
  assert.doesNotMatch(recovery,/evidence of permission-system denial/);
 });
-test('profile models, permissions, hooks, canonical policy and CLI/runtime bytes are preserved',()=>{
+test('profile models, permissions, canonical policy and CLI/runtime bytes are preserved',()=>{
  for(const[name,hash]of Object.entries(fixture.protected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),hash,name);
 });
