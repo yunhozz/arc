@@ -54,5 +54,5 @@ test('paired specialist payloads deliver the same bounded recovery and visual co
     });
     assert.equal(contracts[0], contracts[1], role);
   }
-  assert.deepEqual(JSON.parse(outputs.get('claude/skill/hooks/git-policy.json')), policy.git);
+  assert.equal(outputs.has('claude/skill/hooks/git-policy.json'), false);
 });

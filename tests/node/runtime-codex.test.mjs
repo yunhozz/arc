@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 const temporary=[];test.after(()=>{for(const dir of temporary)fs.rmSync(dir,{recursive:true,force:true});});
-import {spawnSync} from 'node:child_process';
 const api=await import('../../lib/runtime/adapters/codex.mjs').catch(()=>({}));
 const state = () => ({schemaVersion:1,workflowId:'workflow',revision:0,versions:{policy:'1',runtime:'1',adapter:'1',policyHash:'sha256:'+ 'a'.repeat(64),runtimeHash:'sha256:'+ 'b'.repeat(64),adapterHash:'sha256:'+ 'c'.repeat(64)},target:{realpath:'/workspace',repository:'repo',worktree:'wt',branch:'main',baseHead:'base',head:'head'},documents:[],approvals:[],tasks:[{id:'T1',status:'pending',paths:['/workspace/file'],dependencies:[],baseCommit:'head',criteria:['criterion'],requiredChecks:[]}],assignments:[],identities:[],leases:[],checks:[],findings:[],acceptances:[],commits:[],audit:[],capabilities:[],requests:[],mode:'plan'});
 const request = () => ({requestId:'request',platform:'codex',operation:'read',actorRef:'actor',taskId:'T1',cwd:'/workspace',toolName:'Read',arguments:{},paths:['/workspace/file'],descriptor:{}});
@@ -52,10 +51,7 @@ test('normalization rejects untrusted semantic mapping and mismatched session',(
  assert.throws(()=>api.normalizeCodexEvent(event(),c));
  assert.throws(()=>api.normalizeCodexEvent({...event(),session_id:'other'},context(a)));
 });
-test('CLI malformed input outputs only one native deny JSON',()=>{
- const result=spawnSync(process.execPath,['codex/skill/hooks/runtime-gate.mjs'],{input:'{broken',encoding:'utf8'});
- assert.equal(result.status,0);assert.equal(result.stderr,'');const out=JSON.parse(result.stdout);assert.equal(out.hookSpecificOutput.hookEventName,'PreToolUse');assert.equal(decision(out),'deny');
-});
+
 function assignment(){
  const a=setup('orchestrator','assign-agent');a.s.approvals[0].scope.operations.push('read','write');a.s.approvals[0].scope.roles=['implementer'];
  a.s.documents=['spec','plan'].map(kind=>({kind,path:`/workspace/${kind}.md`,gitPath:`${kind}.md`,contentHash:'sha256:'+'a'.repeat(64),approvalRef:'approval',commit:'docs'}));
@@ -71,10 +67,7 @@ test('authorized spawn persists pending assignment; mixed docs and reused identi
   const b=assignment();change(b);assert.equal(decision(await api.runCodexGate(event('Agent'),context(b))),'deny');
  }
 });
-test('valid CLI event cannot self supply trusted provider',()=>{
- const forged={...event(),context:context(setup('orchestrator','read'))};
- const result=spawnSync(process.execPath,['codex/skill/hooks/runtime-gate.mjs'],{input:JSON.stringify(forged),encoding:'utf8'});assert.equal(result.status,0);assert.equal(result.stderr,'');assert.equal(decision(JSON.parse(result.stdout)),'deny');
-});
+
 test('spawn observation uses approved assignment and native actor, not agent_type role',async()=>{
  const a=assignment();const c=context(a);await api.runCodexGate(event('Agent'),c);c.state=JSON.parse(fs.readFileSync(c.statePath));
  const observation={actorRef:'child',taskId:'T1',role:'implementer',platform:'codex',observationRef:'spawn-result',eventRef:'spawn-event',correlationRef:'platform-call',assignmentId:'request',paths:['/workspace/file'],operations:['read','write'],approvalRef:'approval',provenance:{source:'platform-event',eventRef:'spawn-event',actorRef:'child',platform:'codex',correlationRef:'platform-call',verification:{status:'verified',verifierRef:'native-provider',sourceRef:'spawn-event'}}};

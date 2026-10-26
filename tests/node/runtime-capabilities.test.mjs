@@ -61,3 +61,7 @@ test('planner unobservable followup remains unknown and observation does not imp
  const value=evaluateCapability({...context,toolPath:'followup_task'});assert.equal(value.observation,'unknown');assert.equal(value.verifiedDeny,false);
  const start=evaluateCapability({...context,toolPath:'SubagentStart'});assert.equal(start.observation,'documented');assert.equal(start.enforcement,'observation-only');assert.equal(start.verifiedDeny,false);
 });
+
+test('synthetic Claude receipt fixture remains unverified through the shared summary API',()=>{
+ const receipts=JSON.parse(fs.readFileSync(new URL('./fixtures/runtime/claude-hook-events.json',import.meta.url)));assert.equal(summarizeProbe(receipts,{platform:'claude',sessionRef:'current',platformVersion:'1',attemptRef:'fresh'}).verifiedDeny,false);
+});

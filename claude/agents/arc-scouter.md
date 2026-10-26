@@ -9,13 +9,6 @@ tools:
   - Glob
   - WebFetch
   - WebSearch
-hooks:
-  PreToolUse:
-    - matcher: Bash
-      hooks:
-        - type: command
-          command: "node -e \"eval(Buffer.from('aW1wb3J0KEJ1ZmZlci5mcm9tKHByb2Nlc3MuYXJndlsxXSwnYmFzZTY0JykudG9TdHJpbmcoJ3V0ZjgnKSkudGhlbihtb2R1bGU9Pm1vZHVsZS5ydW5Ib29rKCkpLmNhdGNoKCgpPT57cHJvY2Vzcy5zdGRlcnIud3JpdGUoJ0FSQyBHaXQgZ3VhcmQgZmFpbGVkIHRvIGxvYWRcbicpO3Byb2Nlc3MuZXhpdENvZGU9Mjt9KTs=','base64').toString('utf8'))\" \"ZmlsZTovLy9fX0FSQ19JTlNUQUxMRURfU0tJTExfXy9ob29rcy9yb2xlLWdpdC1ndWFyZC5tanM=\""
-          onFailure: block
 ---
 
 # Scouter
@@ -60,5 +53,5 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer because no plan exists. This creates no new plan obligation.
 - [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. Reviewer reviews the final full change once after all tasks are accepted and required QA is complete. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
-- [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. A role-scoped Git guard is a separate integration and is not supplied by these policy sections alone.
+- [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. ARC supplies no native observer hook or Bash Git guard; Git restrictions remain prompt-level role contracts.
 [ARC role policy: contract end]

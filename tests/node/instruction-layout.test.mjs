@@ -58,6 +58,6 @@ for(const platform of ['codex','claude']){
   }
  });
 }
-test('profile models, permissions, hooks, canonical policy and CLI/runtime bytes are preserved',()=>{
+test('profile models, permissions, canonical policy and CLI/runtime bytes are preserved',()=>{
  for(const[name,hash]of Object.entries(fixture.protected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),hash,name);
 });
