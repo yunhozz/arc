@@ -130,36 +130,12 @@ test('CLI check is read-only and validation failure leaves every target unchange
   const last=path.join(temp,names.at(-1)); fs.writeFileSync(last,'missing markers'); const invalid=snapshot();
   assert.equal(run([]).status,1); assert.deepEqual(snapshot(),invalid);
 });
-test('Git query policy is generated from the common source and rejects malformed rules',()=>{
- const p=policy();const inputs=new Map(api.POLICY_TARGETS.map(({path:name})=>[name,fs.readFileSync(new URL(name,root))]));
- const output=api.buildPolicyOutputs(inputs,p);assert.ok(output.has('claude/skill/hooks/git-policy.json'),'common policy must generate installed JSON');
- assert.deepEqual(JSON.parse(output.get('claude/skill/hooks/git-policy.json')),p.git);
- delete p.git.commands.status.flags;assert.throws(()=>api.validateRolePolicy(p),/policy/i);
-});
-test('generation restores missing Claude specialist hook wiring and check detects its removal',()=>{
- const inputs=new Map(api.POLICY_TARGETS.map(({path:name})=>[name,fs.readFileSync(new URL(name,root))]));
- const name='claude/agents/arc-implementer.md';inputs.set(name,Buffer.from(inputs.get(name).toString().replace(/^hooks:\n(?: .+\n|\s*#.*\n)+/m,'')));
- const rendered=api.buildPolicyOutputs(inputs,policy()).get(name).toString();assert.match(rendered,/^hooks:\n  PreToolUse:/m);
+test('Git query policy validation rejects malformed shared rules',()=>{
+ const p=policy();delete p.git.commands.status.flags;assert.throws(()=>api.validateRolePolicy(p),/policy/i);
 });
 test('runtime evidence policy rejects missing roles rules and evidence requirements',()=>{
  const p=policy();assert.equal(p.runtime.schemaVersion,1);
  for(const mutate of [p=>delete p.runtime,p=>p.runtime.roles.reverse(),p=>p.runtime.ruleIds=[],p=>p.runtime.requiredEvidence=[]]){const bad=policy();mutate(bad);assert.throws(()=>api.validateRolePolicy(bad),/runtime/i);}
-});
-
-import * as hooks from '../../lib/policy/claude-hook.mjs';
-test('managed hooks preserve user hooks and frontmatter while adding failure blocking to both gates',()=>{
- const user='    - matcher: Custom\n      hooks:\n        - type: command\n          command: "echo user"';
- const original='---\nname: custom\nhooks:\n  PreToolUse:\n'+user+'\n  PostToolUse:\n    - matcher: Bash\n      hooks: []\n---\nbody\n';
- const output=hooks.renderSourceClaudeHook(original);
- assert.ok(output.includes(user));assert.ok(output.includes('  PostToolUse:\n    - matcher: Bash\n      hooks: []'));assert.ok(output.endsWith('---\nbody\n'));
- assert.equal((output.match(/onFailure: block/g)||[]).length,1);
- assert.equal(hooks.renderSourceClaudeHook(output),output);
- const installed=hooks.installClaudeHook(Buffer.from(output),'/tmp/한 글 \" special').toString();
- assert.equal((installed.match(/onFailure: block/g)||[]).length,1);assert.ok(installed.includes(user));
-});
-test('malformed and duplicate managed hooks fail without overwriting user bytes',()=>{
- const good='---\nname: custom\n'+hooks.hookFrontmatter()+'\n---\nbody';
- for(const bad of [good.replace('onFailure: block','onFailure: ignore'),good.replace('        - type: command','        - type: malformed'),good.replace('---\nbody',hooks.hookFrontmatter()+'\n---\nbody')])assert.throws(()=>hooks.renderSourceClaudeHook(bad));
 });
 
 test('instruction policy targets use the approved action projections',()=>{
@@ -233,4 +209,11 @@ test('failure disposition orders baseline evidence classification scoped holds a
     }
     assert.match(output, /Specialists report evidence.*must not self-authorize release/i);
   }
+});
+
+test('HSR: policy generation leaves hook-free profiles and uses prompt Git control',()=>{
+ const p=policy();assert.equal(p.rules.find(r=>r.id==='git.specialists-deny').controls.claude,'prompt');
+ const inputs=new Map(api.POLICY_TARGETS.map(({path:name})=>[name,fs.readFileSync(new URL(name,root))]));
+ for(const [name,bytes]of inputs)if(name.startsWith('claude/agents/'))inputs.set(name,Buffer.from(bytes.toString().replace(/^hooks:\r?\n(?:[ \t].*(?:\r?\n|$))*/m,'')));
+ const output=api.buildPolicyOutputs(inputs,p);assert.equal(output.has('claude/skill/hooks/git-policy.json'),false);for(const [name,bytes]of output)if(name.startsWith('claude/agents/'))assert.doesNotMatch(bytes.toString(),/^hooks:/m);
 });

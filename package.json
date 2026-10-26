@@ -31,7 +31,6 @@
     "scripts/check-installer-parity.mjs",
     "scripts/pack-release.mjs",
     "scripts/postinstall.mjs",
-    "scripts/probe-runtime-hooks.mjs",
     "scripts/update-manifest.mjs",
     "scripts/update-role-policy.mjs",
     "scripts/update-runtime-assets.mjs",

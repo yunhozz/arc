@@ -215,28 +215,8 @@ test('planner resolved criteria cannot reopen without new evidence and an explic
  assert.equal((await f.send('planner-review',{...review,reassessments:[{criterionId:'C1',previousJudgmentRef:'judgment:first',newEvidenceRef:'defect',reasonRef:'defect:reason'}]},'reopen:linked')).decision,'allow');const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal(s.plannerLedger.stages[0].criteria[0].status,'open');assert.equal(s.plannerLedger.stages[0].ready,false);
 });
 
-test('planner hook observer persists unmatched and uncorrelated events without changing workflow authority',async t=>{
- const f=await plannerStart(t);assert.equal(typeof api.recordPlannerHookObservation,'function');
- const event={hook_event_name:'SubagentStart',session_id:'native-session',agent_id:'child',agent_type:'arc-planner',cwd:f.cwd};
- const before=await fs.readFile(f.statePath,'utf8');const unmatched=await api.recordPlannerHookObservation({cwd:f.cwd,platform:'codex',input:event,observe:f.observe});
- assert.equal(unmatched.observation.classification,'unmatched');assert.equal(unmatched.observation.coverage.enforcement,'observation-only');assert.equal(unmatched.observation.coverage.nativeVerified,false);assert.equal(await fs.readFile(f.statePath,'utf8'),before);
- await plannerPrepare(f,'first');const reserved=await fs.readFile(f.statePath,'utf8');
- const started=await api.recordPlannerHookObservation({cwd:f.cwd,platform:'codex',input:{...event,agent_id:'second'},observe:f.observe});assert.equal(started.observation.classification,'uncorrelated');assert.deepEqual(started.observation.stageCandidates,[{workflowId:'workflow',stageId:'stage',requestId:'first'}]);
- const replay=await api.recordPlannerHookObservation({cwd:f.cwd,platform:'codex',input:{...event,agent_id:'second'},observe:f.observe});assert.equal(replay.replayed,true);assert.equal(await fs.readFile(f.statePath,'utf8'),reserved);
- const audit=JSON.parse(await fs.readFile(started.auditPath,'utf8'));assert.equal(audit.observations.length,2);assert.equal(audit.observations[1].source,'hook-stdin');assert.equal(audit.observations[1].identityVerified,false);assert.match(audit.observations[1].deduplication,/content/);
-});
-test('planner hook observer retains ambiguous workflows and refuses unsafe audit destinations',async t=>{
- const f=await plannerStart(t);assert.equal(typeof api.recordPlannerHookObservation,'function');await plannerPrepare(f,'first');
- const other=structuredClone(JSON.parse(await fs.readFile(f.statePath,'utf8')));other.workflowId='other';other.plannerLedger.stages[0].workflowId='other';other.plannerLedger.stages[0].id='other-stage';const otherPath=path.join(f.target.gitCommonDir,'arc/workflows/other');await fs.mkdir(otherPath);await fs.writeFile(path.join(otherPath,'state.json'),JSON.stringify(other));
- const input={hook_event_name:'SubagentStart',session_id:'s',agent_id:'child',agent_type:'arc-planner',cwd:f.cwd};const result=await api.recordPlannerHookObservation({cwd:f.cwd,platform:'claude',input,observe:f.observe});assert.equal(result.observation.classification,'uncorrelated');assert.equal(result.observation.stageCandidates.length,2);assert.match(result.observation.reason,/correlation/);
- const auditRoot=path.dirname(result.auditPath);await fs.rename(auditRoot,auditRoot+'-saved');await fs.symlink(auditRoot+'-saved',auditRoot);await assert.rejects(api.recordPlannerHookObservation({cwd:f.cwd,platform:'claude',input,observe:f.observe}),/symlink|unsafe/i);
-});
-test('planner hook observer keeps one session audit independent for distinct checkout identities',async t=>{
- const f=await fixture(t),otherCwd=path.join(f.dir,'other-worktree'),otherGitDir=path.join(f.target.gitCommonDir,'worktrees','other');await fs.mkdir(otherCwd);await fs.mkdir(otherGitDir,{recursive:true});
- const otherTarget={...f.target,realpath:otherCwd,gitDir:otherGitDir},input={hook_event_name:'SubagentStart',session_id:'same-session',agent_id:'child',agent_type:'arc-planner',cwd:f.cwd};
- const first=await api.recordPlannerHookObservation({cwd:f.cwd,platform:'codex',input,observe:f.observe});
- const second=await api.recordPlannerHookObservation({cwd:otherCwd,platform:'codex',input:{...input,cwd:otherCwd},observe:async()=>otherTarget});
- assert.notEqual(first.auditPath,second.auditPath);const audits=await Promise.all([first,second].map(async result=>JSON.parse(await fs.readFile(result.auditPath,'utf8'))));for(const [index,target] of [f.target,otherTarget].entries()){const audit=audits[index];assert.equal(audit.target.realpath,target.realpath);assert.equal(audit.target.gitDir,target.gitDir);assert.equal(audit.observations.length,1);assert.equal(audit.observations[0].coverage.prevention,false);}
- assert.equal(audits[0].sessionRef,audits[1].sessionRef);assert.equal(audits[0].target.gitCommonDir,audits[1].target.gitCommonDir);assert.notEqual(audits[0].target.realpath,audits[1].target.realpath);assert.notEqual(audits[0].target.gitDir,audits[1].target.gitDir);
- assert.equal((await api.recordPlannerHookObservation({cwd:f.cwd,platform:'codex',input,observe:f.observe})).replayed,true);
+for(const [field,historical]of [['policyHash','sha256:f68a446ab11ded981019d25dc29e3e737a94ef299bb4ba282f4a0089a263ce36'],['runtimeHash','sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da']])test(`HSR: prior ${field} holds without rewriting versions or Planner ledger`,async t=>{
+ const f=await plannerStart(t);assert.notEqual((await bootstrap.cooperativeVersions())[field],historical);
+ const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));state.versions[field]=historical;const bytes=JSON.stringify(state,null,2)+'\n';await fs.writeFile(f.statePath,bytes);
+ const result=await plannerPrepare(f,'historical');assert.equal(result.decision,'hold');assert.deepEqual(result.ruleIds,['cooperative.versions']);const after=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.deepEqual(after.versions,state.versions);assert.deepEqual(after.plannerLedger,state.plannerLedger);
 });
