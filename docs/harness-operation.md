@@ -1,205 +1,209 @@
+<a id="how-the-arc-harness-operates"></a>
 # How the ARC harness operates
 
-ARC combines an installation package with instructions for coordinating agents. The normative platform guides are [Codex](../codex/skill/SKILL.md) and [Claude Code](../claude/skill/SKILL.md); their linked references and role profiles define the actual obligations. This document explains those contracts and the current installer implementation. It adds no approval gate.
+ARC combines an installation package and agent coordination instructions. Normative sources are [Codex](../codex/skill/SKILL.md), [Claude Code](../claude/skill/SKILL.md), linked references and role profiles. This guide explains contracts/current installer behavior without adding approval gates.
 
-ARC scheduling and cumulative limits are **prompt-level policy**, not a spawn interceptor or sandbox. Native settings control their own platform sessions. Structural package checks do not prove live agent runtime compliance; configuration writes do not demonstrate native support in the current process. Verify native application in a supported new session.
+Scheduling/cumulative limits are **prompt-level policy**, not a spawn interceptor/sandbox. Native settings constrain their own sessions. Structural checks prove neither live compliance nor native settings taking effect in the current process. Verify application separately in supported new sessions.
 
+<a id="what-arc-installs"></a>
 ## What ARC installs
 
-The Node.js CLI validates and installs files. The conversation's Orchestrator then uses those files to route requests, obtain approvals, assign scoped work, and accept evidence. Installation itself does not launch that coordination workflow.
+The Node.js CLI validates/installs files. The conversation Orchestrator then routes requests, obtains approvals, assigns scope and accepts evidence. Installation itself starts no coordination workflow.
 
 | Component | Codex | Claude Code |
 |---|---|---|
-| Installation root | `~/.codex`, or `CODEX_HOME` (relative values resolve against the CLI working directory) | Default `~/.claude`; a conflicting `CLAUDE_CONFIG_DIR` is rejected |
-| ARC skill | `skills/arc/` | `skills/arc/` |
-| Five specialist profiles | `agents/arc-*.toml` | `agents/arc-*.md` |
-| Model and limit policy | `skills/arc/models.toml`, `skills/arc/limits.toml` | Same relative paths |
-| Managed instruction block | `AGENTS.md` | `CLAUDE.md` |
+| Root | `~/.codex` or `CODEX_HOME`; relative values resolve from CLI cwd | Default `~/.claude`; conflicting `CLAUDE_CONFIG_DIR` rejected |
+| Skill | `skills/arc/` | `skills/arc/` |
+| Five profiles | `agents/arc-*.toml` | `agents/arc-*.md` |
+| Models/limits | `skills/arc/models.toml`, `skills/arc/limits.toml` | Same relative paths |
+| Managed instructions | `AGENTS.md` | `CLAUDE.md` |
 | Native configuration | `config.toml` | `settings.json` |
 
-The five installed roles are Scouter, Planner, Implementer, QA, and Reviewer. The Orchestrator is the current conversation, not a sixth installed profile. Models retain economy, balanced, and smart variants with one selected preset; Codex uses `model_reasoning_effort`, while Claude uses `effort`.
+Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
 
-Installation preserves content outside the `arc:begin` / `arc:end` block. Codex wait settings are merged for a supported standalone `[features.multi_agent_v2]` table; unsupported structure produces manual guidance. Native concurrency is written to Codex `[agents].max_concurrent_threads_per_session` as an integer and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` as a string, preserving unrelated settings.
+Installation preserves bytes outside `arc:begin` / `arc:end`. Codex wait settings merge into supported standalone `[features.multi_agent_v2]`; unsupported structure receives manual guidance. Native concurrency writes integer `[agents].max_concurrent_threads_per_session` for Codex and string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` for Claude, preserving unrelated settings.
 
-ARC's static package references include brainstorming, writing-plans, test-driven-development, related Markdown, mockup source files, license, and provenance. Markdown files live directly under each platform's `skill/references/`; mockup scripts and HTML live under `references/scripts/`. Existing shared/global skills and links are preserved separately. The source package has no npm install hook; only the published artifact has an informational postinstall hook. npm installation does not download or install the harness, connect to a TTY, or change shell configuration. It prints `Run arc to install or manage the ARC harness.`
+Static references include brainstorming/writing-plans/test-driven-development, related Markdown/mockups/license/provenance. Markdown lives in platform `skill/references/`, scripts/HTML in `references/scripts/`. Existing shared/global skills/links are separately preserved. Source packages have no npm install hook; published artifacts have informational postinstall only. npm installation neither downloads/installs the harness nor connects TTY/changes shell; it prints `Run arc to install or manage the ARC harness.`
 
+<a id="installation-and-refresh-lifecycle"></a>
 ## Installation and refresh lifecycle
 
-1. `arc` opens the English management TUI when both input and output are TTYs. The public syntax is `arc`, `arc --help`, and `arc --version`. A no-argument non-TTY invocation and any other command or option exit with code 2; ARC does not reconnect to a controlling terminal. Help and version work without the native installer.
-2. The home actions are `Install / Update`, `Change Preset`, `Check Version`, `Uninstall`, and `Exit`. In `Install / Update`, choose targets, a preset, limits, the harness language, and global settings. A nonselectable blank line separates the settings from `Execute`; Enter on that row validates and executes once, without review. `Change Preset` changes only the draft until Enter on the focused `Apply` row, separated by the same blank line. Other installed settings remain intact. Both targets require an explicit choice of common values when their settings differ.
-3. Preparation validates the payload, existing settings, and target paths, then saves a snapshot. Execution revalidates the prepared snapshot and stops if it changed. The selected ARC package determines the reference revision.
-4. Execution installs the verified platform-local reference bytes from that package. Installation, reinstallation, and harness upgrade do not collect Superpowers content, query its latest revision, or run the updater. Imported Markdown and mockup assets remain unchanged.
-5. ARC reports per-target transaction and rollback results, including residual recovery paths. If one target fails, earlier successful targets remain installed. Changed harness settings apply in new agent sessions.
+1. `arc` opens the English TUI when both streams are TTYs. Public syntax: `arc`, `arc --help`, `arc --version`. No-argument non-TTY and other commands/options exit 2 without controlling-terminal reconnection. Help/version require no native installer.
+2. Home actions: `Install / Update`, `Change Preset`, `Check Version`, `Uninstall`, `Exit`. Installation selects targets/preset/limits/language/global settings. A nonselectable blank line precedes `Execute`; Enter validates/executes once without review. `Change Preset` changes drafts until Enter on `Apply`, separated likewise. Preserve other settings; differing targets require explicit common values.
+3. Preparation validates payload/settings/paths and snapshots them. Execution revalidates and stops on drift. Selected package determines reference revision.
+4. Install verified platform-local bytes. Install/reinstall/upgrade never collects Superpowers, queries its latest revision or runs updater. Imported Markdown/mockups stay unchanged.
+5. Report target transaction/rollback/residual recovery paths. Later target failure preserves earlier success. Settings apply in new agent sessions.
 
-The TUI is in English, independently of the selected harness language. The `Workflow` menu and automatic workflow integrations on both platforms use the same internal runtime endpoint. Inspecting the TUI does not prove workflow approval. `Check Version` shows `Current version` and `Latest version`. Only a numerically newer version adds a selectable `Version Upgrade` row. Enter applies the exact displayed version after revalidating package identity, npm context, and installed state; execution does not query latest again. Equal, older, or unavailable versions have no upgrade action. Escape returns home. Global replacement ends the session; an npx upgrade runs the pinned payload without replacing the global CLI. Use `Install / Update` to refresh or reconfigure the same version. If the CLI cannot start, open the TUI with `npx --yes @yunhozz/arc@latest`.
+TUI stays English regardless of harness language. `Workflow`/automatic platform integration share the internal runtime endpoint. TUI inspection proves no workflow approval. `Check Version` displays `Current version`/`Latest version`. Only numerically newer versions offer `Version Upgrade`. Enter revalidates package identity/npm context/installed state then applies the exact displayed version without requerying latest. Equal/older/unavailable versions offer no upgrade. Escape returns home. Global replacement ends the session; npx runs pinned payload without replacing global CLI. Same-version refresh uses `Install / Update`. If CLI cannot start, run `npx --yes @yunhozz/arc@latest`.
 
-Existing valid ARC management completion blocks are removed as part of install, update, and uninstall plans; ARC does not add new completion registrations. Status inspection does not modify shell files. User-authored shell settings and content outside ARC's block are preserved.
+Install/update/uninstall remove valid old ARC management completion blocks and add no registrations. Status never edits shell files. Preserve user settings and block-external content.
 
-There are two distinct transaction scopes:
-
-| Operation | Publication and recovery boundary |
+| Operation | Publication/recovery boundary |
 |---|---|
-| Explicit local reference refresh: `bash scripts/update-superpowers-local.sh` | The ignored local wrapper calls tracked `node scripts/update-superpowers.mjs`. One acquired revision updates **both platforms' mapped files and the static manifest** together. Publication failure restores the prior files and manifest; cleanup can still report residual work. This maintenance operation does not register shell completion. |
-| Select both targets in the TUI | Codex then Claude are **independent target transactions**. A later target failure keeps earlier success; it does not roll back the successful Codex installation. Remaining targets may be not-started. Inspect each target's status and residual paths before resolving the failure. |
+| `bash scripts/update-superpowers-local.sh` | Ignored wrapper calls tracked `node scripts/update-superpowers.mjs`. One acquired revision updates both mapped platforms/static manifest together. Failure restores previous files/manifest; cleanup may report residuals. No completion registration |
+| Both TUI targets | Codex then Claude are independent transactions. Later failures preserve earlier success; remaining targets may be not-started. Inspect each status/residual |
 
-`superpowers-provenance.json` records revision, collection time, original-path file hashes, and relative links. This provenance provides local consistency evidence; it does not authenticate upstream or a malicious local rewrite. Git and network access are needed only when the maintainer explicitly runs the reference updater. npm installation, `npm --ignore-scripts`, ZIP downloads, plain clones, and actual harness install/upgrade all use the packaged static references. Harness installation can use a read-only package.
+`superpowers-provenance.json` records revision/time/original-path hashes/relative links. It proves local consistency, not upstream authenticity or protection from malicious local rewriting. Git/network are needed only for explicit maintainer updater use. npm/`npm --ignore-scripts`/ZIP/plain clones/harness install-upgrade use packaged static references. Read-only packages are supported.
 
-`scripts/update-superpowers-local.sh` is a current-worktree-only maintainer entrypoint ignored by the exact `/scripts/update-superpowers-local.sh` rule. It is not tracked or included in npm/release artifacts and is not automatically created in another clone or worktree. Its tracked Node updater owns acquisition, validation, flat mapping, publication, manifest update, and recovery. A verified source checkout can keep this exact regular local file while excluding it from the protected and installed payload; packaged artifacts reject it. Concurrent package refreshes or installation/removal against the same target are unsupported.
+`scripts/update-superpowers-local.sh` is current-worktree-only, ignored by exact `/scripts/update-superpowers-local.sh`, absent from Git/npm/releases and not created in other clones/worktrees. Tracked updater owns acquisition/validation/flat mapping/publication/manifest/recovery. Verified source checkouts may retain this exact local regular file outside protected/installed payload; packaged artifacts reject it. Concurrent refresh/install/remove against one target is unsupported.
 
-To manually collect the latest Superpowers into both platforms' vendored files and update the manifest in the current worktree, run the executable `./scripts/update-superpowers-local.sh`. It invokes the tracked updater beside the wrapper, so it can also be called by absolute path from another working directory, and forwards arguments, stdout, stderr, and the exit code unchanged. The wrapper is a local file excluded from Git, npm packages, and releases; prepare it separately in each clone or worktree.
+Use executable `./scripts/update-superpowers-local.sh` to refresh both vendored platforms/manifest. It calls the adjacent tracked updater, also works by absolute path elsewhere and forwards arguments/stdout/stderr/status unchanged. Prepare the wrapper separately per clone/worktree.
 
-Reinstallation replaces managed ARC files, including edited role profiles and local model edits. It creates no persistent backup. Omitted limits preserve valid existing ARC policy; otherwise, initial defaults are used (100 total, 5 concurrent). By default, the TUI preserves each target's existing values; explicitly selected values apply to every selected target. Malformed policy or configuration stops installation. If existing native concurrency differs from the stored ARC concurrency, explicitly select a concurrency value in the TUI before replacement. Skipping global settings in the TUI omits instructions, native settings, and shell access for that operation; it does not undo earlier changes.
+Reinstallation replaces managed profiles/local model edits without persistent backup. Omitted limits preserve valid policy or use 100 total/5 concurrent. TUI preserves each target by default; explicit values apply to all selected targets. Malformed policy/config stops installation. Native/stored concurrency mismatch needs explicit TUI selection before replacement. Skipping global settings omits instructions/native settings/shell access for that operation, not earlier changes.
 
+<a id="request-routing-and-role-responsibilities"></a>
 ## Request routing and role responsibilities
 
-Simple, self-contained questions stay with the Orchestrator. Material research or static repository exploration goes to Scouter. Design, spec, plan, and brainstorming drafts belong to Planner. Implementation, configuration, and test edits belong to Implementer, except the narrowly permitted small, low-risk Orchestrator direct path. Mixed implementation and supporting-document work follows implementation ownership. Standalone document writing does not automatically become design/spec/plan work.
+Simple questions stay with Orchestrator; material/static research goes to Scouter; design/spec/plan/brainstorming drafts to Planner; implementation/configuration/tests to Implementer except approved low-risk direct edits. Mixed dependent documentation follows implementation ownership. Standalone writing is not automatically design/spec/plan.
 
-| Role | Assigned output returned to Orchestrator |
+| Role | Return to Orchestrator |
 |---|---|
-| Scouter | Source findings, evidence, uncertainty; no edits |
-| Planner | Design/spec/plan drafts and acceptance criteria; no implementation edits |
-| Implementer | Scoped changes, focused check evidence, limitations; no self-acceptance |
-| QA | Independent criterion-by-criterion checks and remaining gaps; no edits |
-| Reviewer | Independent final source/diff findings for correctness, factual accuracy, and security; no edits |
+| Scouter | Sources/facts/evidence/uncertainty, no edits |
+| Planner | Complete drafts/criteria, no implementation |
+| Implementer | Scoped changes/checks/limits, no self-acceptance |
+| QA | Independent criterion evidence/gaps, no edits |
+| Reviewer | Final source/diff correctness/facts/security findings, no edits |
 
-Every specialist reports directly at depth 2 and cannot delegate. The Orchestrator keeps ownership of coordination, approval, integration, acceptance, and Git mutations. A role's return or completion notification is evidence to assess, not acceptance or permission to release a dependent task. Codex uses `arc_scouter` / `arc_planner` / `arc_implementer` / `arc_qa` / `arc_reviewer` native agent types and wait facilities. Claude uses hyphenated profile names and its foreground calls or background completion notifications; these adapters are intentionally distinct.
+Specialists report at depth 2 without delegation. Orchestrator owns coordination/approval/integration/acceptance/Git. Returns/notifications are evidence, not acceptance/dependency release. Codex uses `arc_scouter` / `arc_planner` / `arc_implementer` / `arc_qa` / `arc_reviewer` and native waits. Claude uses hyphenated names and foreground/background completion. These differences are intentional.
 
+<a id="design-and-preparation"></a>
 ## Design and preparation
 
-Design depth and verification risk are separate decisions. Unclear risk requires investigation or stronger verification.
+Depth and verification risk are separate. Unclear risk needs investigation/stronger checks.
 
-| Design path | Documents and approval sequence |
+| Path | Approval |
 |---|---|
-| Spike | Approve the probe question, method/scope, criteria and constraints; distinguish probe-only from a sufficiently specified combined probe and implementation request |
-| Bounded | Approve short design; add written spec if required and implementation plan when the scope requires one |
-| Architectural | Approve design direction, then written spec, then implementation plan |
+| Spike | Question/method/scope/criteria/constraints; separate probe-only from specified combined implementation |
+| Bounded | Short design, required spec by judgment, plan when scope needs it |
+| Architectural | Design → written spec → implementation plan |
 
-Planner authors each applicable document; Orchestrator obtains approval before the next dependent stage. Plan omission requires one local change, no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns, and one focused verification path. It is not a blanket shortcut for small-looking changes.
+Planner drafts, Orchestrator obtains approval before dependencies. Plan omission requires one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns and one focused path, not apparent smallness.
 
-Use this sequence: approve the initial design → explicitly select the execution target → prepare and verify the target → write, save, self-check, and separately approve each required formal spec → write, save, self-check, and separately approve each required plan → complete the full required document set → verify commits for existing documents and commit the remaining approved documents in one batch → perform final Git verification → hand off to the Implementer. Approve any required written spec before creating a plan that depends on it. The document-omission path skips only inapplicable document stages and records why each omitted document is not required. Completing the documents is a prerequisite for staging/committing them and for Implementer handoff, but not for initial target preparation. Plan approval does not replace explicit execution-target selection.
+Order: initial design approval → explicit target → preparation/verification → required spec draft/save/self-review/individual approval → required plan draft/save/review/individual approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer. Required specs precede dependent plans. Omissions skip inapplicable document stages only with reasons. Complete docs precede staging/commit/handoff, not initial preparation. Plan approval selects no target.
 
-**Approved documents → platform preparation → handoff.** This summary does not replace the detailed sequence above. Under the contract, Codex can use the current checkout, a new branch in that checkout, or a managed worktree. Claude v1 uses the current checkout only. A branch shares files with its checkout, while a managed worktree is a separate directory; verify repository/common-directory identity, registration, preservation of the source checkout, and evidence that planning documents were transferred. Preserve unrelated staged, unstaged, and untracked changes, along with edit ownership.
+Approved-documents/preparation/handoff summaries never replace this order. Codex supports current checkout/new branch/managed worktree; Claude v1 current checkout only. Branches share files, worktrees separate directories. Verify repository/common directory/registration/source preservation/transfer evidence. Preserve unrelated changes/ownership.
 
-### Instruction Provenance and Visual Evidence
+<a id="instruction-provenance-and-visual-evidence"></a>
+### Instruction provenance and visual evidence
 
-The brief distinguishes user-provided instructions, discovered workspace instruction files, installed role references, and task inputs, and records each source, applicability, version or approval, and access state. Applicable user-provided instructions remain valid even when no root AGENTS.md exists. Missing required skills, references, or approved inputs, and conflicting instructions, place dependent work on hold.
+Briefs separate user/discovered/installed/input sources, applicability/version-approval/access. Applicable user instructions remain valid without root AGENTS.md. Missing required material/conflicts hold dependencies.
 
-For visual work, give the Implementer and fresh QA the approved source's exact path, version, approval and access state; criterion IDs, properties and comparison method; and the actual output's identity, revision and comparison basis. An Implementer's report does not replace fresh QA's direct comparison. Record `pass` when accessible evidence meets a criterion, `mismatch` for a visible difference, and `unverified` when access or output-to-revision linkage is missing. A visible difference in a past output is a `mismatch`; its revision linkage is separately `unverified`. Do not generalize it into a judgment about the current branch UI. Return unapproved interpretations or source substitutions to the Orchestrator.
+Visual work gives Implementer/fresh QA exact approved source/version/approval/access, IDs/properties/method and actual output identity/revision/basis. Self-report never replaces comparison. Supported criteria are `pass`, visible differences `mismatch`, missing access/linkage `unverified`. Record historical differences/linkage separately without current-branch UI inference. Return unapproved interpretations/substitutions.
 
-In the harness reliability review, the approved TUI mockup and existing attachments are references for comparing past examples. Separate visual differences in the ARC mark from revision-linkage limits; neither grants authority to change the UI. Static parity between Codex and Claude instructions is separate from execution evidence. A synthetic-prompt observation in `Claude.app` is not runtime verification of the `Claude Code CLI`; unavailable execution tools and unobserved behavior remain unverified.
+Approved TUI mockups/attachments in reliability review compare past examples only. ARC-mark differences and linkage limits are separate, neither UI-change authority. Static instruction parity is not execution. Synthetic `Claude.app` prompt observation is not `Claude Code CLI` verification. Unavailable tools/unobserved behavior stay unverified.
 
+<a id="approval-reuse-and-completion-continuity"></a>
 ### Approval reuse and completion continuity
 
-An execution request that is specific enough may itself approve its stated scope. Confirm the outcomes, constraints, required document depth, and verification risk from the request or any explanation the user explicitly references, then record the approval basis and acceptance criteria. Restating the same scope, handing work to another role, or restarting it does not require another approval. Silence, ambiguous assent, approval for a different task, and a broad improvement request with unclear scope do not constitute approval. Keep any required written-spec and plan approvals separate.
+Specific requests may approve their scope. Confirm outcome/constraints/depth/risk from requests/explicitly referenced explanations; record basis/criteria. Restating/handoff/restart needs no duplicate. Silence/ambiguity/other-task/broad vague improvements are insufficient. Required spec/plan approvals remain separate.
 
-A probe-only task ends with findings, evidence, limits, and remaining uncertainty for the approved question. An evidence-backed conclusion that a probe is infeasible may count as completion; it does not authorize product maintenance or follow-up implementation. When the user explicitly asks for both a probe and implementation, the full scope is sufficiently specific, and the bounded path applies, investigation is an internal stage. The investigation report is not a new approval boundary, so continue through the implementation already approved. Unknown implementation work is not automatically approved.
+Probe-only ends with evidence/limits/uncertainty, including supported infeasibility, never product retention/implementation authority. Explicit specified Bounded probe+implementation uses internal investigation without new report-time approval; continue already approved work. Unknown implementation is not automatic authorization.
 
-Major changes in scope, method, or risk; an unresolved new decision; a target change; unclear ownership; unexpected state; an unresolved failure; or missing required input are reasons to hold the affected work. Routine corrections and re-verification within the approved scope do not require duplicate approval. After resolving a blocker, re-verify the affected conditions. Once applicable approval, document-depth, target, and handoff requirements are met, continue through execution → correction → re-verification → risk-based QA/Reviewer checks → finding disposition → Orchestrator acceptance → result report. A role completion notice, investigation result, or successful command alone does not mark remaining approved work complete.
+Material scope/method/risk changes/new decisions/target/ownership/state/failure/missing inputs hold affected work. Routine corrections need no duplicate approval. Revalidate then continue execution→correction→checks→risk-scaled QA/Reviewer→disposition→acceptance→report. Notifications/findings/passing commands alone never complete remaining scope.
 
-The canonical handoff records approved versions, actual absolute path, branch or detached HEAD, HEAD, index/worktree/untracked state, ownership, execution-target choice, document commit evidence, readiness, and checks. The assigned Implementer trusts verified preparation facts and reads cited unchanged fields from that record; an inaccessible record or actual conflicting state blocks affected work. See [Codex handoff](../codex/skill/references/handoff.md), [worktree preparation](../codex/skill/references/handoff-worktree.md), and [Claude handoff](../claude/skill/references/handoff.md).
+Canonical records include versions/path/branch-dettached HEAD/HEAD/index/worktree/untracked/ownership/choice/document commits/readiness/checks. Implementer trusts verified facts and reads `unchanged`; inaccessible records/actual conflicts block. Follow [Codex handoff](../codex/skill/references/handoff.md), [worktree](../codex/skill/references/handoff-worktree.md), [Claude handoff](../claude/skill/references/handoff.md). Reuse valid approvals/targets and record omissions. Material changes wait for revised approval.
 
-Reuse valid approvals for the same scope and target when replacing a role or resuming work. A `probe-only` approval does not grant implementation authority; a sufficiently specific `probe+implementation` approval covers research and follow-up implementation within its scope. Record the conditions and rationale when a document is omitted. A material change in scope, method, or risk holds affected work until the required revised approval is obtained.
-
+<a id="scheduling-and-limits"></a>
 ## Scheduling and limits
 
-Before first dispatch, record explicit and implicit dependencies, input/output contracts, resource/file ownership, conflicts, checks/QA path, initial ready batch, and hold reasons. Different filenames alone do not establish independence. A task is ready only with approvals and preparation complete, available inputs/contracts, accepted predecessors with required evidence and verified focused commits or accepted no-change records, nonconflicting ownership, a defined check path, and available policy/runtime capacity.
+Before dispatch record explicit/implicit dependencies, inputs/outputs/contracts/resources/files/conflicts/checks/ready batches/holds. File names prove no independence. Ready needs full approvals/preparation/inputs/contracts, predecessor evidence/acceptance/verified commit or no-change, ownership/check paths and policy/runtime capacity.
 
-For A → B → C plus independent D, two available slots allow A and D to start together. B becomes ready after A's required evidence, Orchestrator acceptance, and verified focused commit (or accepted no-change record); D may continue. C waits for B by the same rule. A failure holds B/C; unaffected D may continue. Implementer completion alone releases neither B nor C. Reassess on evidence, acceptance, commit verification, completion/slot return, or new conflict. Serialize shared Git mutations and same-file Implementer edits.
+For A→B→C plus D/two slots, start A/D. A evidence/acceptance/commit may release B while D runs; similarly C. A failure holds B/C, not D. Reports alone release nothing. Reassess evidence/acceptance/commit/slot/conflicts immediately. Serialize shared Git and same-file edits.
 
-The ledger covers one ARC coordination session/tree, excludes the Orchestrator, and counts all created descendants including non-ARC/nested instances. Completion frees confirmed active capacity but never refunds cumulative creation. Follow-up on the same instance costs no additional creation; replacement does. Waiting, blocked, or resumable idle instances still consume concurrency until completion/termination is confirmed.
+Ledger excludes Orchestrator but counts every nested/non-ARC descendant. Completion frees active, never cumulative budget. Same-instance follow-up adds none; replacement does. Waiting/blocked/resumable idle consume concurrency until completion/termination.
 
-Read and freeze valid installed limits before creation; missing/unreadable/malformed policy blocks creation. Reserve the entire proposed batch before dispatch against both total and concurrent limits and any lower actual runtime capacity. Convert confirmed creations to instance IDs; release reservations only when failure proves no creation occurred. Uncertain creation keeps capacity reserved until reconciled. There are no role-reserved slots. Preserve the ledger on resume/compaction; unknown budget must not reset to zero. Exhaustion holds new creation and reports remaining work; it never waives fresh-role, QA, Reviewer, ownership, or approval obligations.
+Read/freeze valid installed limits; missing/unreadable/malformed blocks creation. Reserve whole batches under cumulative/concurrent/lower actual limits. Convert successes to IDs; release only proved no-creation failures, holding uncertainty until reconciled. No role reserves. Preserve across resume/compaction; unknown is not zero. Exhaustion holds creation/reports work, never waives role freshness/QA/Reviewer/ownership/approval. Sessions/accounts/platforms share no ledger; Teams/hosted APIs are outside. Follow [Codex](../codex/skill/references/limits.md)/[Claude](../claude/skill/references/limits.md).
 
-Independent sessions, accounts, and platforms do not share the ledger. Native Agent Teams/hosted APIs are outside this contract. Consult [Codex limits](../codex/skill/references/limits.md) and [Claude limits](../claude/skill/references/limits.md).
+<a id="verification-acceptance-and-commits"></a>
+## Verification, acceptance and commits
 
-## Verification, acceptance, and commits
-
-| Verification risk | Required path |
+| Risk | Flow |
 |---|---|
-| Small, low risk: narrow, understood, readily reversible; focused checks suffice | Implementer or approved Orchestrator direct edit, then Orchestrator focused checks |
-| Ordinary behavior work | Implementer, then fresh QA |
-| Significant/high risk: contracts, shared state, lifecycle, security, data loss, public interfaces, costly installation/deployment | Implementer and fresh QA, plus independent full-change Reviewer at the applicable final stage |
+| Narrow/understood/reversible/focused-verifiable | Implementer or approved direct edit → focused checks |
+| Ordinary behavior | Implementer → fresh QA |
+| Significant contracts/state/lifecycle/security/loss/interfaces/costly deployment | Implementer/fresh QA and independent final whole-change Reviewer at applicable time |
 
-Each top-level task receives a fresh Implementer and, when required, fresh QA. Same-task correction rechecks may reuse QA. Feature/behavior work follows failure-first TDD. A narrowly recorded small, low-risk, plan-skip waiver only skips RED/GREEN and retains focused evidence and appropriate verification. A specifically recorded non-behavior documentation/configuration exception permits approved structural checks; it does not extend to behavior work.
+Each task gets fresh Implementer/required QA; same-task QA corrections may reuse. Behavior uses failure-first TDD. Recorded low-risk plan-skip waiver skips RED-GREEN only. Non-behavior exceptions permit named structural checks only.
 
-QA reports each criterion's method/scope, run status, evidence, verdict (proven, unmet, unverified), and remaining gaps. Structural checks prove authored package consistency; they do not prove actual agent runtime compliance, actual installation, or visual readability. Source comparison and rendered inspection cover different evidence needs. Orchestrator resolves findings and judges criteria, not just a passing command or Implementer report.
+QA reports every criterion's method/scope/run/evidence/verdict/gaps. Structure cannot prove compliance/installation/readability; source/render evidence differs. Orchestrator judges criteria/findings, not passes/self-report alone.
 
-**Required checks → Orchestrator acceptance.** For each accepted top-level plan task, create one focused commit promptly without another commit approval, then verify its SHA/content and remaining state. A no-change task gets a record only, never an empty commit. Keep unrelated changes out and do not combine different approved tasks. Resume verifies and reuses valid existing commits rather than duplicating them.
+After required checks/acceptance promptly commit one task without separate approval, verifying SHA/content/state. No-change records no empty commit. Exclude unrelated work and never combine approved tasks. Resume verifies/reuses commits.
 
-Significant planned work receives one final whole-change review after all task acceptances and required QA/checks. Reviewer is not a prerequisite for every task commit. Significant unplanned work receives independent review before acceptance. Plan-skip paths do not gain a new commit obligation merely from the planned-task rule. Task acceptance/commit is distinct from final plan verification and final acceptance; final findings follow the correction paths below. Push, merge, publication, and deployment require separate authorization. See platform [verification](../codex/skill/references/verification.md) and [commit](../codex/skill/references/commit.md) contracts, with [Claude verification](../claude/skill/references/verification.md) and [commit](../claude/skill/references/commit.md).
+Significant plans receive one final Reviewer after task acceptance/QA, never each commit. No-plan review precedes acceptance. Omission gains no automatic commits. Task/final acceptance differ. Push/merge/publish/deploy need separate approval. Follow [Codex verification](../codex/skill/references/verification.md)/[commit](../codex/skill/references/commit.md) and [Claude verification](../claude/skill/references/verification.md)/[commit](../claude/skill/references/commit.md).
 
-Before the final overall Reviewer begins a plan review, QA execution failures and unmet criteria must go through Implementer correction → QA recheck. For findings from the final overall Reviewer on an already-committed plan, including behavioral findings, repeat Implementer → Reviewer rechecks without reassigning QA. The Orchestrator defines a follow-up task and required planning/approvals; corrections remain uncommitted during rechecks, and the Reviewer receives the latest committed state, uncommitted diff, and changed-file list. Once findings are resolved, the Orchestrator accepts the corrections and creates one focused follow-up commit. Final QA findings continue through Implementer correction → QA recheck. This exception applies only to final overall Reviewer findings on plan work; it does not authorize automatically amending/resetting or duplicating the original commit.
+Before initial final plan review, QA failure/unmet criteria follow Implementer→QA. Final whole Reviewer findings, including behavior, repeat Implementer→Reviewer without QA reassignment. Define follow-up/approvals, keep fixes uncommitted and supply current committed state/diff/files, then accept/commit one follow-up. Final QA stays Implementer→QA. No automatic original amend/reset/duplication.
 
-Use the Conventional Commits format and follow applicable user and repository instructions. This repository requires commit descriptions to be concise, specific Korean phrases. Do not let an upstream English default override a user-specific instruction.
+Conventional Commits follow user/repository instructions. This repository requires concise, specific Korean descriptions; upstream English defaults do not override user instructions.
 
-Findings from the final overall Reviewer go through Implementer correction → Reviewer recheck; do not reassign QA. QA failures before the initial final review and findings from final QA go through Implementer correction → QA recheck. The Orchestrator decides acceptance and commit.
+<a id="failure-resume-and-maintenance"></a>
+## Failure, resume and maintenance
 
-## Failure, resume, and maintenance
+Failures/partial completion hold affected work while inspecting path/branch-dettached HEAD/HEAD/index/files/completed steps. Update record, resolve/revalidate then resume. No automatic retries/fallback/repeats/stash/reset/clean/lock deletion/permission changes/sandbox bypass. Preserve unrelated work; reuse valid choices/commits and record changed preparation only.
 
-On failure or partial completion, hold affected work and inspect actual path, branch/detached HEAD, HEAD, index, files, and completed steps. Update the canonical record, resolve the observed blocker, and revalidate affected gates before resuming. Do not automatically retry, fall back, repeat completed work, stash/reset/clean, delete locks, change permissions, or bypass the sandbox. Preserve unrelated work and ownership. Reuse a still-valid explicit target choice and verified document/task commits; record only changed preparation facts on restart.
+Optional failed reads permit only brief-preauthorized side-effect-free alternatives with exact locator/material/version/purpose/authority/equivalent evidence. Same-version read methods are an example. Return missing inputs/mismatches/partial changes/unknown/unauthorized-ambiguous-failed alternatives immediately. No guessed paths/chained alternatives/mutation retries/environment changes.
 
-When an optional read method fails, use only a side-effect-free alternative pre-authorized in the brief. Preserve the positively identified material, approved version, purpose, role authority, and equivalent evidence conditions; the brief must specify any alternate locator exactly. For example, two read methods for the same pre-approved document version may be allowed. Immediately return missing required inputs, permission/target/ownership mismatches, partial changes, unknown state, and unauthorized, ambiguous, or failed alternatives to the Orchestrator. Do not guess paths, chain alternatives, retry mutations, or change the environment, dependencies, or permissions.
+After first-failure/alternative/evidence/limits reporting:
 
-After reporting the initial failure, any alternative attempted, evidence, limits, and remaining work, follow this sequence:
+1. Record exact failed check, baseline/current revision, results/evidence/state.
+2. Classify baseline/current impact/dependencies.
+3. Hold affected/dependent or impact-unknown work only.
+4. Orchestrator validates authority/target/inputs/ownership/gates and releases approved independent work without unrelated delays.
+5. Keep acceptance held for required unresolved checks.
 
-1. Record the exact failed check, baseline revision, and current revision. Preserve the actual result, evidence location, and current change state.
-2. Classify each failure by whether it is baseline or current, its impact, and its dependencies.
-3. Hold only affected or dependent work and checks. If classification is unclear, hold only work whose impact is unclear.
-4. The Orchestrator resumes already-approved independent work without waiting for unrelated failures, after confirming that its authority, target, inputs, ownership, and gates remain valid.
-5. Keep acceptance on hold while any required check remains unresolved.
+Roles never self-authorize release or hide failures/change criteria/waive checks. Resume preserves approvals/completed work/failure/resolution/valid-invalid evidence/holds/next goal. Restart adds no authority.
 
-Roles report evidence but do not authorize their own resumption. Resuming independent work does not permit hiding failed checks, expanding scope, changing criteria, or waiving required verification.
+Agent Git recovery coordinates checkout/index; installer rollback handles publication/acquisition cleanup. Residual paths need inspection; rollback labels prove no cleanup. Neither guarantees persistent backup. Follow [Codex](../codex/skill/references/git-recovery.md)/[Claude](../claude/skill/references/git-recovery.md).
 
-The resume brief preserves valid approvals, completed work, failures, resolution evidence, valid and invalid evidence, remaining holds, and the next objective. Revalidate affected gates and do not repeat completed work. A new role assignment or resumption does not grant new authority.
+| Maintenance | Effect |
+|---|---|
+| Models | Edit installed `models.toml`, optional Python apply-models validation/render; no ARC/upstream refresh |
+| Manifest | Update/check `MANIFEST.sha256` after protected changes; models excluded, dynamic upstream has provenance |
+| Reinstall | Packaged static managed files replace local model edits; upstream needs explicit updater, valid omitted limits preserved |
+| Harness removal | Below |
+| CLI only | `npm uninstall -g @yunhozz/arc` leaves harness settings |
 
-Agent Git recovery governs checkout/index coordination. Installer rollback governs filesystem publication transactions and acquisition cleanup. A reported residual path is evidence requiring inspection; a rollback label is not proof that all cleanup succeeded. Neither mechanism promises a persistent backup. See [Codex recovery](../codex/skill/references/git-recovery.md) and [Claude recovery](../claude/skill/references/git-recovery.md).
+`Uninstall` removes selected skill/five profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
 
-Maintenance actions have distinct effects:
+Use [maintenance](../README.md#manage-arc)/[models](../README.md#models-and-language)/[removal](../README.md#manage-arc). New settings need new sessions; structure alone proves no support.
 
-- **Model reapplication:** edit installed `models.toml` and run the optional Python apply-models tool to validate/render profiles. This does not refresh ARC or upstream references.
-- **Manifest maintenance:** refresh `MANIFEST.sha256` after protected payload changes and check it. Models are intentionally excluded. Dynamic upstream trees carry their own provenance validation.
-- **Reinstallation:** reinstalls managed ARC using packaged static references and replaces local model edits; it does not refresh upstream material, which requires the explicit local updater. Valid omitted ARC limits are preserved under the rules above.
-- **Harness removal:** In the TUI, `Uninstall` removes the selected ARC skill, five role profiles, and managed instruction blocks, including edited ARC files. Other skills and profiles, Codex wait settings, native concurrency keys, and workflow records are preserved. You can choose to preserve global instructions and review changes before removal. Valid ARC completion blocks are cleaned up. Only after all selected harness removals succeed does ARC remove the verified global `@yunhozz/arc` package with npm, including when invoked through npx. A harness failure, cleanup error, or interruption skips CLI removal. Package identity/context failures block harness changes. Results report each harness and the CLI separately; CLI removal failures preserve the completed harness results. Once CLI removal starts, success, failure, and interruption end the session. Unselected harnesses, user files, other global packages, and shared npx cache are preserved.
-- **CLI package removal:** `npm uninstall -g @yunhozz/arc` removes the CLI package separately; installed harness configuration remains.
-
-Use the existing [maintenance commands](../README.md#manage-arc), [model commands](../README.md#models-and-language), and [removal commands](../README.md#manage-arc). New installed settings apply to new sessions; running structural checks alone cannot establish runtime support.
-
+<a id="source-map"></a>
 ## Source map
 
-| Concern | Maintained source |
+| Concern | Source |
 |---|---|
-| Platform rules and native role adapters | [Codex core](../codex/skill/SKILL.md), [Claude core](../claude/skill/SKILL.md) |
-| Planning and readiness | [Codex planning](../codex/skill/references/planning.md), [Claude planning](../claude/skill/references/planning.md) |
-| Preparation and document commits | [Codex preparation](../codex/skill/references/handoff-prep.md), [Claude preparation](../claude/skill/references/handoff-prep.md) |
-| Role-local safeguards | [Codex profiles](../codex/agents), [Claude profiles](../claude/agents) |
-| CLI parsing and lifecycle | [Root entrypoint](../lib/cli/root.mjs), [TUI](../lib/tui/app.mjs), [management services](../lib/management/operations.mjs) |
-| Target paths, plans, and native configuration | [Targets](../lib/installer/targets.mjs), [plans](../lib/installer/plan.mjs), [runtime merge](../lib/installer/runtime-config.mjs) |
-| Independent target installation and removal | [Install coordinator](../lib/installer/install.mjs), [uninstall coordinator](../lib/installer/uninstall.mjs) |
-| Filesystem publication/rollback | [Transactions](../lib/installer/transaction.mjs) |
-| Package refresh and collection | [Manual reference updater](../scripts/update-superpowers.mjs), [package references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [bundle validation](../lib/installer/superpowers.mjs) |
-| Completion | [Completion block cleanup](../lib/installer/shell-completion.mjs) |
-| Structural contracts and regressions | [Harness contracts](../tests/test_harness_contract.py), [Python tests](../tests), [Node tests](../tests/node) |
-| Maintenance | [Manifest updater](../scripts/update-manifest.mjs), [reference updater](../scripts/update-superpowers.mjs), [README commands](../README.md#manage-arc) |
+| Platform contracts | [Codex](../codex/skill/SKILL.md), [Claude](../claude/skill/SKILL.md) |
+| Planning/readiness | [Codex](../codex/skill/references/planning.md), [Claude](../claude/skill/references/planning.md) |
+| Preparation/docs commits | [Codex](../codex/skill/references/handoff-prep.md), [Claude](../claude/skill/references/handoff-prep.md) |
+| Profiles | [Codex](../codex/agents), [Claude](../claude/agents) |
+| CLI/lifecycle | [Root](../lib/cli/root.mjs), [TUI](../lib/tui/app.mjs), [management](../lib/management/operations.mjs) |
+| Paths/plans/settings | [Targets](../lib/installer/targets.mjs), [plans](../lib/installer/plan.mjs), [merge](../lib/installer/runtime-config.mjs) |
+| Install/remove | [Install](../lib/installer/install.mjs), [uninstall](../lib/installer/uninstall.mjs) |
+| Publication/rollback | [Transactions](../lib/installer/transaction.mjs) |
+| Refresh | [Updater](../scripts/update-superpowers.mjs), [references](../lib/installer/package-references.mjs), [acquisition](../lib/installer/acquisition.mjs), [validation](../lib/installer/superpowers.mjs) |
+| Completion | [Cleanup](../lib/installer/shell-completion.mjs) |
+| Structural regressions | [Harness](../tests/test_harness_contract.py), [Python](../tests), [Node](../tests/node) |
+| Maintenance | [Manifest](../scripts/update-manifest.mjs), [updater](../scripts/update-superpowers.mjs), [commands](../README.md#manage-arc) |
 
-The [flow diagram](images/role-flow.svg) summarizes routing and order. Follow the platform sources for full normative gates and intentional platform differences.
+The [flow diagram](images/role-flow.svg) summarizes routing/order; normative sources retain full gates/platform differences.
 
-### File-by-file scope of responsibility review
+<a id="file-by-file-scope-of-responsibility-review"></a>
+### File-by-file responsibility review
 
-T1 compared the following 29 non-Superpowers runtime guidance files (2 shared core files, 9 Codex references, 8 Claude references, and 10 role profiles). Paired files share responsibilities, while each source owns its platform-adapter differences. Repeated policy meaning was consolidated around its source of truth and links, while role-specific local safety contracts were preserved.
+Earlier T1 compared 29 non-Superpowers runtime guides (2 core, 9 Codex references, 8 Claude references, 10 profiles). Paired sources shared responsibilities while retaining adapter differences. Consolidation used sources/links without removing local safeguards.
 
-| Responsibilities retained, condensed, moved, or revised | Sources reviewed |
+| Responsibility | Reviewed source |
 |---|---|
-| Preserve routing, risk, and approval-continuity summaries; link to references for details | Both platforms' `skill/SKILL.md` |
-| Approval, probe, document depth, dependencies, and canonical writing order | Both platforms' `skill/references/planning.md` |
-| Common handoff and preparation/document-commit evidence | Both platforms' `skill/references/handoff.md`, `handoff-prep.md` |
-| Codex-specific worktree target-preparation contract | [Codex handoff-worktree](../codex/skill/references/handoff-worktree.md) |
-| Retain cumulative/concurrent limits and platform adapters | Both platforms' `skill/references/limits.md` |
-| Risk-based checks, acceptance, final correction paths, and completion continuity | Both platforms' `skill/references/verification.md` |
-| Task commits, no-change tasks, and correction-commit responsibilities | Both platforms' `skill/references/commit.md` |
-| Inspect and resume after failure or partial completion | Both platforms' `skill/references/git-recovery.md` |
-| Retain existing visual-tool responsibilities | Both platforms' `skill/references/arc-visual-companion.md`; imported guide at `references/visual-companion.md` |
-| Retain each role's scope, reporting, delegation prohibition, and verification responsibilities | `codex/agents/arc-{scouter,planner,implementer,qa,reviewer}.toml`, `claude/agents/arc-{scouter,planner,implementer,qa,reviewer}.md` |
+| Routing/risk/continuity/detail links | Both `skill/SKILL.md` |
+| Approvals/probes/depth/dependencies/order | Both `skill/references/planning.md` |
+| Handoff/preparation/commit evidence | Both `handoff.md`, `handoff-prep.md` |
+| Codex worktree preparation | [handoff-worktree](../codex/skill/references/handoff-worktree.md) |
+| Limits/adapters | Both `limits.md` |
+| Risk/acceptance/final corrections/continuity | Both `verification.md` |
+| Task/no-change/correction commits | Both `commit.md` |
+| Failure/partial-state recovery | Both `git-recovery.md` |
+| Visual tools | Both `arc-visual-companion.md`; imported `references/visual-companion.md` |
+| Scope/reporting/no-delegation/check duties | `codex/agents/arc-{scouter,planner,implementer,qa,reviewer}.toml`, `claude/agents/arc-{scouter,planner,implementer,qa,reviewer}.md` |
 
-T2 aligned bootstrap role routing in [global configuration](../lib/installer/global-config.mjs) with its source of truth. [language](../lib/installer/language.mjs), [installation plan](../lib/installer/plan.mjs), [profile rendering](../lib/models/profiles.mjs), [manifest validation](../lib/installer/manifest.mjs), [package metadata](../package.json), and [manifest updater](../scripts/update-manifest.mjs) were checked for compatibility with existing interfaces, language behavior, bytes outside markers, and package/license contracts. Model configuration and the apply-models script retain their existing responsibilities and are linked from the [model guide](../README.md#models-and-language). T3 aligned the README, this operations guide, and document contract checks with those responsibilities. The runtime Superpowers bundle remained outside this refactor.
+Earlier T2 aligned [bootstrap routing](../lib/installer/global-config.mjs). [Language](../lib/installer/language.mjs), [plans](../lib/installer/plan.mjs), [profiles](../lib/models/profiles.mjs), [manifest validation](../lib/installer/manifest.mjs), [metadata](../package.json), [manifest updater](../scripts/update-manifest.mjs) were checked for interface/language/marker-external/package-license compatibility. Models/apply-models retained responsibilities linked in [model guidance](../README.md#models-and-language). T3 aligned README/operations/document contracts. Runtime Superpowers remained excluded.
 
-This source map and the structural, package, and manifest checks provide evidence that authored files and package contents are consistent. Whether approval continuity was followed in a real session, whether installed native settings took effect, and whether visual output is readable remain unverified without direct observation. Content from reference conversations or reproduction of an interrupted run is not, by itself, evidence supporting this document's claims.
+Source maps and structural/package/manifest checks establish authored/package consistency only. Actual approval continuity/native application/visual readability need direct observation. Reference conversations or interrupted-run reproduction alone do not prove these claims.

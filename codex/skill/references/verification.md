@@ -1,305 +1,139 @@
+<a id="verification-contract"></a>
 # Verification contract
 
-Orchestrator reads before verification design, QA/Reviewer assignment, correction rechecks, or UI acceptance checks.
-QA and
-Reviewer contracts are in their profiles; they read this file only for sections the brief explicitly cites.
-Visual companion design discussion is distinct from QA UI acceptance.
+Read before verification design, QA/Reviewer assignment, correction rechecks or UI acceptance. QA/Reviewer use their profiles and brief-cited sections only. Design companions differ from UI acceptance.
 
-For Orchestrator, **Evidence verdict**: each criterion is proven, unmet, or unverified; passing runs, reports, or disposition never turn unverified into proven; reports keep unverified scope visible.
+**Evidence verdict:** Criteria are proven, unmet or unverified. Passing runs/reports/dispositions never convert unverified to proven; retain gaps.
 
-## Visual Evidence and Adjudication
+<a id="visual-evidence-and-adjudication"></a>
+## Visual evidence and adjudication
 
-Each visual criterion requires the exact location, version, approval, and access state of the approved visual source; criterion IDs, properties, and comparison method; and evidence linking the actual output to its revision. An Implementer report does not replace fresh QA's direct comparison. Record results as pass, mismatch, or unverified and connect them to the existing proven/unmet/unverified criterion verdicts. Use pass only when accessible evidence meets the visual criterion; keep unsupported claims unverified. Missing output-to-revision linkage is unverified; a visible difference is a mismatch. Record these separately; do not infer the current branch UI state. Hold the comparison if the approved source or actual output is inaccessible or interpretation approval is missing.
+Each criterion needs exact approved source/version/approval/access, IDs/properties/method and output-revision linkage. Implementer reporting does not replace fresh QA. Record pass/mismatch/unverified and connect to criterion verdicts; pass needs accessible supporting evidence. Missing linkage is unverified; visible difference is mismatch, separately, without inferring current branch UI. Inaccessible materials/missing interpretation approval hold comparison.
 
-Static policy, generated-file, and manifest checks are structural evidence. They do not prove actual role behavior, an installed build, Claude Code CLI runtime compliance, or visual fidelity. Reports include actual changes, exclusion rationale, checks run and omitted, each criterion's evidence and limits, and platform availability. Keep baseline failures separate; progress on independent work does not relax required checks or acceptance criteria.
+Policy/generated/manifest checks prove structure, not role behavior, installed builds, Claude Code CLI compliance or fidelity. Report changes/exclusions/run-omitted checks/criterion evidence-limits/platform availability. Separate baseline failures; independent progress relaxes no checks.
 
+<a id="risk-scaled-execution"></a>
 ## Risk-scaled execution
 
-Orchestrator assigns edits exclusively to Implementer except under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), and determines affected
-behavior, risk, and smallest meaningful verification.
+Edits belong to Implementer except the [small direct path](handoff.md#orchestrator-direct-path-for-small-tasks). Orchestrator determines behavior/risk/minimum meaningful checks.
 
 | Risk | Minimum flow |
 |---|---|
-| Small, low risk | Implementer, or Orchestrator direct path → Orchestrator's focused checks → acceptance |
+| Small, low risk | Implementer or direct edit → Orchestrator focused checks → acceptance |
 | Ordinary behavior | Implementer → independent QA → acceptance |
-| Significant/high risk | Implementer → QA → independent Reviewer of the final full change → acceptance; with a plan, each plan task Implementer → FRESH QA → acceptance/commit satisfies the QA step, then independent Reviewer once on the final full change after all plan tasks |
+| Significant/high risk, no plan | Implementer → QA/rechecks → final full-change Reviewer → acceptance |
+| Significant/high risk, plan | Per task Implementer → required fresh QA → acceptance/commit; final independent whole-change Reviewer once after all accepted tasks/required checks/rechecks |
 
-Ordinary and significant plan tasks need a FRESH QA before acceptance; only small, low-risk tasks may be accepted on
-Orchestrator focused checks. Small, low risk means narrow, understood, readily reversible, and verifiable by focused
-checks. Ordinary behavior fails those conditions without a significant-risk trigger. Significant risk includes shared
-role/behavior contracts, shared state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces, or costly
-installation/deployment/rollback. Substantial behavior or contract changes are significant regardless of file count.
-When risk is unclear, investigate or use the higher flow. Environment failure does not waive checks or determine design depth.
+Ordinary/significant tasks need fresh QA before acceptance. Low risk requires narrow/understood/reversible/focused-verifiable work. Ordinary behavior fails these without significant triggers. Shared role/behavior contracts/state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces and costly install/deploy/rollback are significant. Substantial behavior/contracts are significant regardless of file count. Unclear risk requires investigation/higher flow. Environment failure waives no check or depth judgment.
 
-Do not add per-task QA or review gates solely because a task boundary exists. Reviewer is never a plan-task acceptance
-prerequisite; for significant work with a plan, it reviews the final full change once after all plan tasks are accepted
-with their risk-scaled checks, following the last plan task's required checks and any QA recheck at the final relevant
-state; significant work without a plan keeps Reviewer after QA before acceptance. Preserve specific approved
-obligations. If the next task depends on a still-unverified risky contract, complete applicable QA at that dependency
-boundary and resolve or explicitly disposition findings before dependent implementation.
-Reuse evidence only when scope, relevant state, independence, freshness, and flow
-position satisfy each covered requirement; changes, failures, or missing/conflicting evidence invalidate affected reuse.
-QA checks independently without edits; Reviewer reviews without QA, planning, edits, delegation, or completion
-decisions. Orchestrator routes fixes to Implementer (a failed direct-path check returns to the normal flow),
-obtains affected QA rechecks outside the final plan Reviewer correction exception and required final review, and accepts after findings/evidence gaps are resolved or
-explicitly dispositioned.
+- Task boundaries alone add no QA/review. Reviewer is never a plan-task/commit prerequisite. Plans review once at final relevant state after task acceptances/checks; no-plan Reviewer follows QA before acceptance.
+- Preserve specific commitments. Risky unverified dependencies need QA/resolved or explicitly dispositioned findings before implementation.
+- Reuse evidence only for matching scope/state/independence/freshness/flow position. Changes/failures/missing-conflicting evidence invalidate affected reuse.
+- QA independently checks without edits. Reviewer performs no QA/planning/editing/delegation/completion decisions. Orchestrator routes fixes to Implementer and required QA rechecks; direct-check failures return to normal flow. Accept after findings/gaps resolved or dispositioned.
+- Fresh-per-task applies to Implementer/QA, not Reviewer. Reuse Reviewer only with independence, valid context and refreshed scope/target/evidence, never an old verdict or waived timing/coverage.
 
-Criterion verdicts follow the Evidence verdict.
+Record which risk/instruction/approved obligations each check satisfies. Do not automatically assign QA/Reviewer for clear low-risk scope with sufficient evidence and no requirement. Metadata counts alone prove no significance; one permission/loss rule may. Vague file deletion is not low-risk evidence; reclassify installer/manifest impacts. Confirm cleanup targets unused, required materials intact, ignore patterns scoped and diff approved before focused-check-only acceptance.
 
-Fresh-per-task rules apply to Implementer and QA, not Reviewer. Orchestrator may reuse a Reviewer only while independent
-of implementation and self-review, relevant assignment context remains valid, and refreshed review scope, target
-state, and evidence are provided; otherwise assign another independent Reviewer. Reusing a Reviewer does not reuse
-an earlier verdict or waive required review timing or coverage.
+Separate environment/code failure and report exact limits/gaps. Use Planner/Scouter only for unresolved planning/discovery. Reviewer covers substantial correctness/factual/security/data/interface risks. Orchestrator assigns support as needed. Claim only verified outputs. Read cited `references/test-driven-development.md`, preserving exceptions.
 
+<a id="final-plan-reviewer-correction-loop"></a>
 ### Final plan Reviewer correction loop
 
-For a plan's final overall Reviewer findings, including behavior findings, Orchestrator assigns
-Implementer → Reviewer recheck with no QA reassignment. Repeat corrections and Reviewer rechecks until findings are resolved;
-the initial single full review does not prohibit necessary rechecks. Before the initial final overall Reviewer,
-risk-required checks and QA execution failures or unmet criteria still require Implementer correction → QA recheck.
-This exception applies only to findings from the final overall Reviewer of work with a plan.
-Work without a plan retains its existing verification flow. Scope expansion, separate mandatory obligations,
-or unresolved evidence gaps hold affected work for Orchestrator to resolve and obtain required approvals.
-Orchestrator assigns corrections/rechecks and decides acceptance. Reviewer remains read-only, must not run QA
-checks or decide acceptance. Previous QA evidence must not be presented as post-fix execution evidence;
-report only checks actually performed, their actor, target state, results and remaining limits.
+Only final overall Reviewer findings on plan work, including behavior, follow Implementer → Reviewer without QA reassignment until resolved. One initial full review permits necessary rechecks. Before it, risk checks/QA failures/unmet criteria still need Implementer → QA. No-plan flow remains unchanged.
 
+Expanded scope/separate obligations/gaps hold affected work for resolution/approval. Orchestrator assigns/accepts; Reviewer stays read-only without QA/acceptance. Never present old QA as post-fix execution. Report actual actor/target/check/result/limits only.
 
-
-Authorization evidence and probe/combined scope are owned by [planning](planning.md#authorization-and-scope);
-valid reuse and actual-state refresh by [handoff](handoff.md#authorization-continuity).
-After gates hold, continue approved scope without saved documents through required checks and Orchestrator acceptance under
-Completion continuity below; a role report alone does not complete the work.
-
-
-
-The Risk-scaled execution section above holds the risk table, risk definitions, evidence-reuse rule, and role order,
-including Reviewer timing. Product/test edits belong exclusively to Implementer except under the Orchestrator direct path;
-Orchestrator may inspect/run checks but routes code corrections to Implementer. Determine the minimum
-flow from risk and any specific instruction or approved commitment, and record which requirements each check or review
-satisfies. For small, low-risk work with clear scope and acceptance evidence and no such requirement,
-Orchestrator's focused checks suffice; do not call QA or Reviewer automatically. Significant/high-risk work requires
-independent review of the full change at the final relevant state after the required QA/focused checks and any QA recheck.
-
-Metadata file count alone does not imply significant risk; a one-file permission or data-loss rule may. A vague request to delete unnecessary files does not establish low risk; reclassify when installer,
-manifest, or other contracts are affected. For a verified ignore-pattern or metadata cleanup, confirm the targets are
-unused, required project materials are unaffected, ignore patterns cover only intended paths, and the diff matches the
-approved scope; Orchestrator's focused checks then suffice without automatically calling QA or Reviewer.
-An environment failure is distinct from a code failure; report the exact limitation and any remaining evidence gap to Orchestrator.
-
-Use additional Planner/Scouter only for unresolved planning/discovery questions. Reviewer covers substantial changes and
-correctness, factual, security, data, or interface risks. Orchestrator may use Planner/Scouter/Reviewer when justified
-and assigns all Implementer/QA work. Specialists report unresolved questions to Orchestrator, who assigns support only when needed.
-
-QA runs applicable existing functional/test checks, or approved structural/consistency checks for policy and
-configuration changes. Reviewer reads the assigned diff/source for correctness, factual accuracy, and security. Outside the final plan Reviewer correction exception, after a
-behavior fix QA reruns affected checks, and Reviewer rechecks only when warranted. Reuse a Reviewer only when
-independent of the work and self-review and when evidence meets required scope and freshness.
-Before completion, resolve or explicitly disposition findings and confirm acceptance evidence. Claim checks only
-with verified output.
-
+<a id="evidence-after-plan-history-rewrite"></a>
 ## Evidence after plan history rewrite
 
-After an approved execution-time plan rewrite, verify new HEAD, approved plan version/content and old-to-new SHA mapping;
-descendant implementation content and task boundaries; and remaining staged/unstaged/untracked state. Preserve the actual
-approval chronology and recoverable previous contents in the canonical handoff record. The latest version in the original
-commit does not establish approval before its actual approval time.
+Verify new HEAD/approved plan content-version/old→new SHAs, descendant implementation/task boundaries and remaining staged/unstaged/untracked state. Preserve chronology/recoverable contents. New content in old commits proves no early approval.
 
-SHA change alone does not invalidate all prior acceptance evidence. Check whether evidence bound to an exact HEAD,
-document or policy can be linked to the new state. If it cannot be linked, or its meaning is affected, repeat affected
-checks and required rechecks. Preserve existing runtime evidence invalidation and exact-state requirements; do not rewrite
-old fingerprints to imply a run against the new HEAD. Refresh affected briefs and gates before dependent work.
-Structural checks establish written-contract alignment, not live agent compliance or successful Git history replay.
+SHA change alone invalidates no entire evidence set. Determine whether exact-HEAD/document/policy evidence links to new state. If not or semantically affected, repeat affected checks/rechecks. Preserve runtime/exact-state rules; never rewrite old fingerprints to suggest execution at new HEAD. Refresh briefs/gates before dependencies. Structure proves neither live compliance nor successful replay.
 
+<a id="task-acceptance-and-final-plan-acceptance"></a>
+<a id="reviewer-timing-and-task-acceptance"></a>
 ## Task acceptance and final plan acceptance
 
-Task-local acceptance is distinct from overall final plan verification and acceptance. Orchestrator connects each task's
-acceptance criteria to actual evidence, currently required checks and findings before accepting it; checkbox
-completion, an Implementer report or passing commands alone do not establish acceptance.
+Task acceptance differs from final verification/acceptance. Connect criteria/observations/current checks/findings, not checkboxes/reports/passing commands alone. Use fresh QA where required or low-risk focused checks. Same-task rechecks default to current QA while scope/workspace/ownership/context remain valid.
 
-Task acceptance and its focused commit require only the task's risk-scaled evidence: a FRESH QA instance per task that
-needs QA (default to the current QA for post-fix rechecks of the same task while the approved scope, workspace,
-ownership, and relevant assignment context remain valid), or Orchestrator focused checks for small, low-risk tasks;
-Reviewer timing and task-boundary gates follow the Risk-scaled execution section above. For an independently acceptable task,
-do not delay its acceptance/commit solely for later final plan verification. Currently required task checks must not
-be deferred to final verification to accept early. State the scope and timing of final-only integration criteria in
-the plan; with a plan, the required final whole-change review is final plan verification.
+Do not delay independently acceptable tasks solely for final-only checks or defer currently required checks to accept early. State final integration scope/timing separately. Whole-plan Reviewer is final verification; task commits prove no unperformed final checks. Orchestrator decides final acceptance with QA/Reviewer/integration evidence/findings and unverified/disposition records. Shared evidence must satisfy all reuse rules.
 
-A task commit record does not prove unperformed final verification complete. Orchestrator still decides final plan
-acceptance using final QA/Reviewer/integration evidence and findings, preserving unverified scope and explicit dispositions.
-Valid evidence may cover both task and plan requirements only under the existing scope/state/independence/freshness/flow
-rules. For final Reviewer findings on already committed plan work, Orchestrator defines a follow-up task and required
-planning/approvals. Implementer leaves corrections uncommitted during rechecks. Orchestrator refreshes the latest committed
-state plus uncommitted diff and changed-file list in the Reviewer artifact/brief. Reuse an independent Reviewer or
-assign another independent Reviewer as needed. Repeat Implementer → Reviewer without QA reassignment until findings are
-resolved; Orchestrator then accepts the corrections and creates one focused follow-up commit.
-Final QA findings retain Implementer correction and QA recheck before a new focused commit.
-Do not automatically amend/reset or duplicate the original task commit. Scope expansion keeps existing new
-planning and approval obligations.
+Committed-plan final Reviewer findings need a follow-up task/planning/approvals. Keep corrections uncommitted; refresh committed state plus uncommitted diff/files in Reviewer artifacts/briefs. Reuse/assign independent Reviewer and repeat Implementer → Reviewer until resolved, then accept/commit one focused follow-up. Final QA findings still use Implementer → QA. No automatic amend/reset/duplicate originals; scope growth retains planning/approvals.
 
+
+
+<a id="ui-browser-acceptance-checks"></a>
 ### UI browser acceptance checks
 
-Only when assigned UI acceptance criteria and the brief supplies the workspace, existing launch command or URL,
-required account and test-data scope, and permitted interactions, QA may use the existing approved test environment
-to launch the app or open the URL with available approved browser tools. Follow tool instructions and any applicable
-installed browser skill. This permission does not authorize source/document/test/configuration editing, installing
-dependencies, or changing environment configuration. Report missing prerequisites to Orchestrator and leave affected
-criteria unverified. For each criterion record the command or URL, test state and viewport (or not applicable),
-interaction steps, expected and observed results, and accessible evidence. App startup, page load, and static checks alone do not prove
-complete UI behavior. For unavailable test environment or browser tools, report the exact limitation and affected
-unverified criteria. Clean up only QA-created processes and sessions; preserve existing shared services and sessions.
-When assigning UI acceptance criteria, Orchestrator cites this section with its accessible path in the QA brief.
+With assigned criteria/cited prerequisites, QA may use available approved browser tools for apps/URLs.
 
+Briefs must supply workspace, existing launch command/URL, account/test-data scope, allowed interactions and this section's accessible citation. Use existing approved environment/tool/browser-skill instructions. No source/docs/tests/config edits, dependencies or environment changes. Missing prerequisites/tools/environment leave exact reported limits/unverified criteria.
+
+For each criterion record command/URL, test state/viewport or inapplicability, interactions, expected/observed results and evidence. Startup/page-load/static checks alone prove no complete UI. Clean only QA-created processes/sessions; preserve shared services/sessions.
+
+<a id="criterion-evidence-and-finding-handoff"></a>
 ### Criterion evidence and finding handoff
 
-QA reports every acceptance criterion from the brief by identifier, or original wording when no identifier exists.
-Each criterion records method and scope, run status, accessible evidence, criterion verdict, and unverified reason
-and remaining scope. Run status is passed, failed, not run, or environment blocked; criterion verdict is proven,
-unmet, or unverified. Passing a check alone does not prove a criterion: evidence must connect its conditions and
-expected result to actual observations. Preserve partial confirmation and out-of-scope, missing-check, or environment
-blocked gaps as unverified; omit no criteria. PASS, if used, means only run status and cannot replace criterion
-verdicts.
-Structural checks prove only structural criteria, not actual behavior, installation, or live agent runtime compliance.
+Report every criterion by ID or wording: method/scope, run status, evidence, verdict, unverified reason/remaining scope. Run status: passed/failed/not run/environment blocked. Verdict: proven/unmet/unverified. Connect conditions/expectations to actual observations; partial/out-of-scope/missing/environment gaps stay unverified. PASS means run status only. Structure proves structure only.
 
-For QA execution failure or an unmet criterion within the current task, Orchestrator defaults to the current Implementer
-for correction and the current QA for a post-fix recheck, subject to the context, task-boundary and amendment rules in
-[coordination](coordination.md). The finding alone does not create a new task. QA reruns the
-reproduction path and invalidated related checks before Reviewer, reporting the actual actor, target state, outcomes, and limitations,
-and the prior finding resolved, unresolved, or unverified with evidence. Reusing QA does not reuse stale evidence.
-An unresolved finding returns to Implementer correction and another QA recheck before Reviewer.
-Environment blocks, missing checks, and out-of-scope criteria are evidence gaps, not presumed code defects; Orchestrator
-handles those gaps under the existing disposition policy without substituting Reviewer review for QA evidence.
+Current-task failures/unmet criteria default to current Implementer/current QA under coordination context/boundary/amendment rules; findings alone create no task. Before Reviewer, rerun reproduction/invalidated checks, reporting actor/target/results/limits and prior finding resolved/unresolved/unverified with evidence. Repeat Implementer→QA if unresolved; QA reuse is no stale-evidence reuse. Environment/missing/out-of-scope are gaps, not presumed code defects; Reviewer cannot replace QA.
 
-For an acceptance-linked behavior finding, Reviewer reports the criterion, expected behavior, observed problem, related
-source, reproduction conditions and steps, and evidence to Orchestrator, distinguishing source-inferred reproduction
-from execution-observed results without running QA tests. Outside the final plan Reviewer correction exception,
-Orchestrator routes it to Implementer correction and QA post-fix recheck. Outside the required final plan correction loop,
-Orchestrator decides when a Reviewer recheck is warranted by the changed scope and independence. Reviewer continues handling
-structure, design, factual, and security findings that execution checks cannot settle; observable security/interface
-issues may require both QA verification and Reviewer source review.
+Reviewer behavior findings report criterion/expectation/problem/source/reproduction/evidence, separating source inference/execution. No QA execution. Outside final-plan exception route Implementer→QA; other Reviewer rechecks depend on scope/independence. Continue source review of structure/design/facts/security; observable security/interfaces may need both QA/Reviewer.
 
-Orchestrator accepts using criterion verdicts, findings, recheck evidence, and remaining gaps, rather than an overall
-run result.
-Explicit disposition does not turn unverified into proven; completion reports preserve remaining unverified scope.
-For low-risk work without QA, Orchestrator's focused checks likewise connect each criterion to evidence.
+Accept from criterion verdicts/findings/rechecks/gaps, not overall run status. Disposition never proves unverified. Low-risk work also links each criterion to focused evidence.
 
-
-Read brief-cited `references/test-driven-development.md`; retain ARC exceptions.
-
-
+<a id="completion-continuity"></a>
 ## Completion continuity
 
-Once applicable authorization, document-depth, execution-target, and handoff conditions hold for the approved scope,
-continue through execution, correction, reverification, required QA and Reviewer, findings disposition, Orchestrator
-acceptance, and the result report. Apply risk-scaled timing above; this adds no per-task Reviewer or new QA obligation.
-Role reports, probe findings, or passing commands do not establish overall completion while approved work remains.
-Do not present remaining approved execution as an optional suggestion awaiting a user response. A probe-only scope
-ends at its approved question's evidence and limits; a combined scope continues under planning's scope rules.
-Document omission changes neither verification risk nor acceptance responsibility. Hold only affected work for an
-actual unmet condition and report what is needed to resume. Structural evidence does not prove live agent compliance.
+Once approval/depth/target/handoff hold, continue execution/correction/reverification/required QA-Reviewer/disposition/acceptance/report. Preserve timing without new task-level gates. Reports/probes/commands never complete remaining approved scope. Do not make authorized execution an optional offer awaiting response. Probe-only ends at question/evidence/limits; combined work follows planning. Omission changes neither risk nor acceptance. Hold only actual affected conditions and report resume requirements. Structure proves no live compliance.
 
+<a id="verification-lifecycle-in-the-cooperative-cli"></a>
 ## Verification lifecycle in the cooperative CLI
 
-The supported `workflow` path is an approved complete spec+plan. No-plan, small-task and document omission paths remain
-`cooperative.unsupported`; this outcome does not imply a violation of existing ARC policy or a new obligation to write documents.
-The CLI does not execute checks or invoke Reviewer. All actors, results and verdicts are `operator-attested`; they do not prove
-identity, actual independence, semantic sufficiency or enforced execution.
+Supported `workflow` is approved complete spec+plan. No-plan/small-task/omission is `cooperative.unsupported`, not policy violation/new documents. CLI executes no checks/Reviewer. Actors/results/verdicts are `operator-attested`, not identity/independence/semantic/enforcement proof.
 
-An Orchestrator actor (`actor.role: "orchestrator"`) registers a verification contract by recording
-`data: {kind: "task", task: {...}}` in `acceptance-evidence` through `record`. The task specifies `id`, absolute `paths`,
-`criteria`, `requiredChecks`, `dependencies`, `approvalRef`, `approvalVersion`, `documentVersion`,
-`scopeVersion` and `targetVersion`. Only pending tasks can be registered; this record is neither acceptance nor a commit.
-Each requiredChecks descriptor is `{executable, args, cwd, env, outputs}`; executable, cwd and outputs are absolute paths.
-cwd and outputs must be within the workspace. Do not include Reviewer in task requiredChecks.
+1. Orchestrator (`actor.role: "orchestrator"`) registers through `record`/`acceptance-evidence` with `data: {kind: "task", task: {...}}`. Task includes `id`, absolute `paths`, `criteria`, `requiredChecks`, `dependencies`, `approvalRef`, `approvalVersion`, `documentVersion`, `scopeVersion`, `targetVersion`. Pending-only registration is not acceptance/commit. Descriptor: `{executable, args, cwd, env, outputs}`; executable/cwd/outputs absolute, cwd/outputs inside workspace. No Reviewer in task checks.
+2. `status` observes `changeFingerprints.tasks[taskId]`/`changeFingerprints.final` independently from read-only Git inventory/index and current regular-file bytes/modes/deletions. Task covers owned paths, final the repository. Symlinks/submodules/unmerged indexes hold. This is no atomic observation/execution sandbox. RuntimeHash drift stays stale/hold without automatic stored-version update/migration/reapproval.
+3. Check preparation: `operation: "check"`, `taskId`, `arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`. QA identity attestation must differ from Implementer/Orchestrator; cross-task QA/Implementer reuse is rejected. Descriptor exactly matches registration. After durable intent, execute only existing authorized scope.
+4. `result`/`reconcile` records `intentId`, `{status, messageRef, data}` with same actor/descriptor/scope, taskId where applicable, fingerprint and `verdict: "proven" | "unmet" | "unverified"`. Even succeeded/proven applies only to that version. It replaces neither semantic proof nor acceptance. Failed/unknown/mismatch/unverified is not passing evidence. Preserve history.
 
-`changeFingerprints.tasks[taskId]` and `changeFingerprints.final` in `status` are independent observations.
-They include read-only Git inventory/index observations and current regular-file bytes, modes and deletions. Task fingerprints
-cover owned paths; the final fingerprint covers the whole repository snapshot. Unsupported observations such as symlinks,
-submodules and unmerged indexes cause a hold. This is not a sandbox that atomically locks observation and execution.
-Leave runtimeHash drift as stale/hold; do not automatically update the stored version or convert it through migration or renewed approval.
+Failed checks/reviews leave findings. Open separately via `data: {action: "open", id, checkId, message}`. After fixes record `data: {action: "resolve", id, actor: {id, role: "implementer"}, changeFingerprint}` plus evidence messageRef. Actor must be assigned to the task or relevant overall task. Resolved becomes closed only after later prepare `findingIds` and same-version successful revalidation. Prior QA failures retain Implementer→QA.
 
-`operation: "check"` in `prepare` accepts `taskId` and
-`arguments: {scope: "task", actor: {id, role: "qa"}, descriptor, changeFingerprint, findingIds?}`.
-Actor ID attestations must be independent of Implementer and Orchestrator; QA/Implementer reuse across tasks is rejected. The descriptor must
-exactly match the registered requiredChecks. After the intent is persisted, the responsible role executes within its existing approved scope.
-`result` or `reconcile` records `intentId` and `{status, messageRef, data}`. data specifies the same
-`actor`, `descriptor` and `scope` as the intent, `taskId` for tasks, `changeFingerprint`, and
-`verdict: "proven" | "unmet" | "unverified"`. Even a succeeded/proven result is valid only for that change version.
-This is an operator verdict record; it does not replace semantic proof of a criterion or Orchestrator acceptance.
-Failures, unknown, mismatch and unverified outcomes are not passing evidence. Preserve previous results and failure records.
+Final review uses `operation: "review"`, `scope: "final"`, `actor.role: "reviewer"`, `descriptor: {kind: "source-review", paths: [...]}` without taskId. Initial final review needs all tasks accepted/current required QA, never task acceptance/commit prerequisite. Plan-final findings repeat Implementer resolution→Reviewer without QA reassignment; old QA is not subsequent-fix execution. Separate unresolved QA remains.
 
-A failed check/review leaves an open finding. Link a separate finding to an existing check/review through `record` with
-`data: {action: "open", id, checkId, message}`. After an Implementer fix, record
-`data: {action: "resolve", id, actor: {id, role: "implementer"}, changeFingerprint}` and the fix evidence messageRef.
-The actor must be the Implementer assigned to that task, or a relevant task for an overall finding. This marks the finding resolved;
-it becomes closed only when a subsequent prepare includes it in `findingIds` and revalidation passes for the same change version.
-Earlier QA failures retain the Implementer→QA recheck requirement.
+Scope/document/approval records preserve history. `data.affectedTaskIds` invalidates those tasks/dependents and task/check/acceptance evidence; omitted IDs hold all. Final evidence becomes stale. Preserve unaffected independent evidence. Orchestrator determines semantic impact. Affected tasks need new current-scope approval/contracts before preparation, not revived old approvals; fresh checks/reviews/revalidation too. Current evidence supersedes failures without deletion. Acceptance/commit/completion stay Orchestrator decisions.
 
-`operation: "review"` uses `scope: "final"`, `actor.role: "reviewer"` and
-`descriptor: {kind: "source-review", paths: [...]}`, without taskId. The initial final review requires acceptance of all tasks
-and current required task QA evidence. Reviewer is not a prerequisite gate for task acceptance or focused commits.
-For final Reviewer findings in supported plan work, repeat Implementer resolution→Reviewer revalidation without QA reassignment.
-Do not present earlier QA evidence as execution evidence for a subsequent fix. This exception does not omit separate unresolved QA failures.
-
-Scope, document and approval change records do not overwrite history. Specifying `data.affectedTaskIds` invalidates task,
-verification and acceptance evidence for those tasks and their dependency chain; omitting it holds all tasks. Final evidence also becomes stale.
-Preserve evidence for unaffected independent tasks. Orchestrator determines semantic impact. Affected tasks require a new approval record
-for the current scope and an updated task contract before preparation; earlier approvals cannot revive them. New checks/reviews and
-finding revalidation are also required. Current evidence supersedes earlier failures without deleting them; acceptance, commits and final completion remain Orchestrator decisions.
-
+<a id="task-acceptance-and-focused-commit-reconciliation-in-the-cooperative-cli"></a>
 ### Task acceptance and focused commit reconciliation in the cooperative CLI
 
-In the current plan mode, `prepare` supports `operation: "accept"` and `operation: "commit"`.
-Acceptance is an Orchestrator attestation specifying `actor.role: "orchestrator"`, `taskId`, and, in `arguments`,
-`messageRef`, the same `criteria` as the task, exact `checkIds` for current required QA, all task
-`findingIds` and the current `changeFingerprint`. The latest QA result for each required descriptor must be
-passed/proven, and findings must be closed through Implementer fixes and QA rechecks.
-A successful attestation marks the task accepted; passing commands or Implementer reports alone do not constitute acceptance.
-The provenance is `operator-attested`; the operator confirms semantic criterion satisfaction and actor identities.
+Plan-mode `prepare` supports `operation: "accept"`/`operation: "commit"`. Acceptance attests `actor.role: "orchestrator"`, taskId and arguments messageRef/same criteria/current exact QA checkIds/all findingIds/current fingerprint. Latest required descriptors must be passed/proven and findings closed by fixes/QA. Successful attestation marks accepted; reports/checks alone do not. `operator-attested` means operator confirms semantics/identity.
 
-At acceptance, the code pins the actual index tree, staged diff, paths and task fingerprint together. Orchestrator stages only
-approved task paths beforehand and confirms required QA for that index state. Unrelated paths, changes from another registered
-task, or unstaged/untracked changes within scope cause a hold. The code cannot automatically distinguish semantically unrelated
-hunks within the same file; Orchestrator reads the actual diff to confirm them.
+Acceptance pins actual index tree/staged diff/paths/fingerprint. Stage approved paths beforehand and confirm QA for that index. Unrelated/other-task paths or in-scope unstaged/untracked changes hold. Code cannot identify semantically unrelated same-file hunks; Orchestrator reads diff.
 
-`operation: "commit"` in `prepare` references the exact acceptance through `arguments: {"acceptanceId": "acceptance requestId"}`.
-The code checks that the current approval, task contract, QA, findings and index match acceptance, then persists a durable intent
-with the expected parent, tree, paths and residual paths. The CLI does not stage or commit.
-Orchestrator creates one focused implementation commit matching these expectations.
+Commit preparation references `arguments: {"acceptanceId": "acceptance requestId"}`. Check current approval/contract/QA/findings/index match acceptance and persist expected parent/tree/paths/residual paths. CLI stages/commits nothing. Orchestrator makes one matching focused commit.
 
-Then submit `intentId`, `actor.role: "orchestrator"`, and
-`result: {"status": "succeeded", "messageRef": "actual result evidence", "data": {"commit": "full OID"}}`
-through `reconcile` or result-form `result`. The CLI rereads the actual commit object, parent, tree, paths, HEAD, index and residual changes from local Git.
-Only a complete match updates target HEAD and marks the task committed. Failure, unknown and mismatch observations and actual
-history are preserved; the target is not updated arbitrarily. Reusing the same request or a completed intent does not authorize
-a second effect. After a failure, read the actual state, resolve the cause and reconcile the existing intent.
+Submit intentId/`actor.role: "orchestrator"` and `result: {"status": "succeeded", "messageRef": "actual result evidence", "data": {"commit": "full OID"}}` through reconcile/result. CLI rereads local object/parent/tree/paths/HEAD/index/residual changes. Only complete match updates target HEAD/committed. Preserve failed/unknown/mismatch/history; never arbitrary target updates. Same request/completed intent permits no repeated effect. Inspect/resolve/reconcile existing intent after failure.
 
-Do not rewrite earlier QA fingerprints after a successful commit. Separate post-commit file/index observations detect subsequent
-changes. Under the existing rules, final review requires current task evidence and the final fingerprint.
-A changed runtimeHash follows the existing stale/hold rules; the stored version is not automatically updated.
+Never rewrite QA fingerprints after commit. Separate post-commit observations detect changes. Final review needs current task evidence/final fingerprint. RuntimeHash drift keeps existing stale/hold without automatic version update.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
-- [git.orchestrator-accept-commit] Only Orchestrator accepts work and executes Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied; Orchestrator accepts then commits without additional user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership and verify the resulting SHA, included content, HEAD and remaining changes. Existing small-task direct and plan-omission paths are unchanged.
-- [review.significant-no-plan] For significant/high-risk work without a plan: Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. MUST NOT omit Reviewer because no plan exists. This creates no new plan obligation.
-- [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. Reviewer reviews the final full change once after all tasks are accepted and required QA is complete. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
-- [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
-- [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
-- [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
+- [git.orchestrator-accept-commit] Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.
+- [review.significant-no-plan] Significant/high-risk work without a plan follows Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. Do not omit Reviewer because no plan exists. This adds no plan obligation.
+- [review.significant-plan] Significant/high-risk plan work follows Implementer → required fresh QA → Orchestrator acceptance and focused commit for each task. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is not a per-task or per-commit gate. Preserve required checks and necessary finding rechecks.
+- [review.final-plan-recheck] Final overall Reviewer findings on plan work, including behavior findings, follow Implementer → Reviewer without QA reassignment until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before the initial final review and outside this exception.
+- [planning.plan-amend] Mechanical plan progress records during approved execution need no new user approval. Changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, with no separate document or fixup commit. Preserve actual approval chronology, recoverable old/new content, hashes, versions and SHA mappings; never authorize past work retroactively. Rewrite only unpublished, unshared local linear history with clear ownership and no merges. Unknown publication/ownership, unexpected state or replay conflicts stop rewriting; no force push or fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. Follow planning, handoff-prep, commit and verification for the full contract.
+- [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. Do not assume undocumented role-specific Git hooks or generic per-agent tool allowlists. Existing shell capabilities remain because static read access after shell reduction is unverified. Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]
 
-
+<a id="external-operations-and-recovery-in-the-cooperative-cli"></a>
 ## External operations and recovery in the cooperative CLI
 
-The three phases support state, documents and assignment; scope, verification, acceptance and focused commits; and external approval, results and audit recovery.
-Use `status.support` to inspect all nine areas and their limits. The supported mode is `plan` with spec+plan; no-plan and omission are unsupported. The CLI does not execute native/provider calls or push, merge, deploy or publish.
-User approvals and execution results confirmed by the operator are `operator-attested`, with `nativeVerified: false` and
-`remoteVerified: false`. Blocking direct calls outside the CLI and independent remote verification are not provided.
+Three phases cover state/documents/assignment; scope/verification/acceptance/focused commits; external approval/results/audit recovery. Inspect nine areas/limits with `status.support`. Support is spec+plan `plan`, not no-plan/omission. CLI executes no native/provider/push/merge/deploy/publish calls.
 
-Orchestrator records an explicit approval it has already confirmed through `record` with
-`evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`.
-`scope` is an array of unique absolute paths within the checkout. Local commit approval does not authorize external operations.
-Include the exact action, scope and target in the approval, and record every descriptor field below.
+Operator-confirmed approvals/results are `operator-attested`, `nativeVerified: false`, `remoteVerified: false`; no outside-call blocking or independent remote verification.
+
+Record already confirmed external approval using `evidence: {kind: "external-approval", messageRef, data: {operation, scope, descriptor}}`. `scope` is unique absolute checkout paths. Local commit approval grants no external approval. Record exact action/scope/target and all descriptor fields:
 
 | operation | descriptor fields |
 |---|---|
@@ -308,26 +142,10 @@ Include the exact action, scope and target in the approval, and record every des
 | deploy | service, project, environment, artifactId, destination |
 | publish | service, namespace, name, version, artifactHash, destination |
 
-Git OIDs are full 40/64-character lowercase hex values; artifactHash is `sha256:<64-hex>`. Without a remote observation,
-an OID is an expected value asserted by the user, not verified remote state. destination must be an identifier without secrets.
-Do not submit URL userinfo, query or fragment components, or authentication information such as passwords, tokens or credentials.
-The CLI rejects recognized credential inputs before persistence, but cannot determine whether every arbitrary string contains a secret.
+Git OIDs are full lowercase 40/64-character hex; artifactHash is `sha256:<64-hex>`. Without remote observation OIDs are asserted expectations, not verified state. Destination is secret-free. No URL userinfo/query/fragment/password/token/credentials. Recognized secrets are rejected before persistence, but arbitrary-string secrecy cannot be guaranteed.
 
-Pass `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation,
-arguments: {approvalRef, scope, descriptor}}` to `prepare`. approvalRef matches the external approval messageRef.
-An intent is persisted only when the exact approval, scope/target versions and runtime version match and no effect is unresolved.
-After confirming `allow` and `persisted: true`, Orchestrator performs the external operation within its separately approved scope.
-This CLI does not expand that execution authority.
+`prepare` accepts `{requestId, expectedRevision, actor: {id, role: "orchestrator"}, operation, arguments: {approvalRef, scope, descriptor}}`; approvalRef matches external approval messageRef. Persist only exact approval/scope/target/runtime versions with no unresolved effects. After `allow`/`persisted: true`, Orchestrator executes separately approved scope; CLI expands no authority.
 
-`result`/`reconcile` accepts `{requestId, expectedRevision, actor, intentId,
-result: {status, messageRef, data: {operation, scope, descriptor}}}`. intentId is the prepare requestId.
-Target mismatches, unknown outcomes and stale results cause a hold while preserving earlier attestations. After an interruption,
-use `status` to inspect the intent, `state.requests`, `state.audit` and `state.results`, and investigate whether the effect occurred.
-Reconcile the investigation result against the same intent rather than preparing again or reusing the same approval to execute again.
-Cancellation additionally requires a `notExecutedEvidence: {messageRef}` attestation that the operation was not executed.
-The approval remains consumed after cancellation. Do not resolve version drift through automatic updates, migration or renewed permission.
-Report the cause of the hold to Orchestrator.
+`result`/`reconcile` accept `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {operation, scope, descriptor}}}`, with prepare requestId as intentId. Mismatch/unknown/stale outcomes hold while preserving attestations. After interruption inspect intent/`state.requests`/`state.audit`/`state.results` through `status` and investigate actual effects. Reconcile that same intent, not fresh preparation or replayed approvals.
 
-Even succeeded results are operator attestations, not independent remote verification. `audit` retains the
-request→decision→intent→result→resolution linkage, but is a locally editable record rather than tamper-proof security evidence.
-Do not retry while the actual external outcome is uncertain.
+Cancellation also requires `notExecutedEvidence: {messageRef}`; approval remains consumed. No automatic update/migration/renewed permission to fix drift. Report holds. Succeeded results remain attestations, not remote proof. `audit` links request→decision→intent→result→resolution but is locally editable, not tamper-proof. Never retry uncertain external outcomes.
