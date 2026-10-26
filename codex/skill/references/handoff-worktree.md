@@ -44,7 +44,7 @@ The tool copies no uncommitted changes. Transfer rules below apply only to exist
 <a id="worktree-document-transfer"></a>
 ### Worktree document transfer
 
-Only for existing approved documents in restart/target-change cases:
+Only for existing approved documents in legacy/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:
 
 1. Verify existing approved commit SHA/message/paths/content and validity at base/target; reuse them.
 2. Copy only uncommitted approved spec/plan documents to the same relative paths. Never move/delete/modify source documents. Stop for destinations escaping the worktree, including symlinks. Target HEAD must equal selected source base SHA before transfer.

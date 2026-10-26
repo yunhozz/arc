@@ -17,7 +17,7 @@ Invalid names, creation/switch failures, lookup errors or unexpected branches re
 
 1. Denial of authorized stage/commit/branch creation/switch at `.git/index.lock` or other metadata blocks handoff.
 2. Inspect exact command/workspace/error/failed path, actual Git directory/branch/HEAD/index/partial completion read-only. Inspect lock existence, observable processes, sandbox limits, OS permissions/ACLs and concurrent Git activity. Record supported causes/uncertainty. Lock-creation denial alone proves no stale lock.
-3. Do not remove locks, `chmod`/`chown`, bypass sandbox or move workspaces. With evidence of permission-system denial of an already authorized operation, request only the supported minimum approval for that exact single command/workspace, never broad Git access.
+3. Do not remove locks, `chmod`/`chown`, bypass sandbox or move workspaces. Only when evidence confirms that the sandbox denied an already authorized operation, request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access.
 4. Before authorized retry, recheck branch/HEAD/index/partial completion without repeating completed work. After success verify operation/final state and the entire handoff gate.
 5. Denied approval or unresolved OS/ACL issues keep handoff blocked; report actual state/cause. A finalized message avoids unnecessary amend but cannot repair write access. Only authorized successful writes plus verified results prove recovery.
 
