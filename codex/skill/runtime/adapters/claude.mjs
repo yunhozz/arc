@@ -1,6 +1,6 @@
 import {evaluate} from '../evaluate.mjs';
-import {evaluateCapability} from '../capabilities.mjs';
-import {registerAgentObservation} from '../identity.mjs';
+import {evaluateCapability,plannerHookContextStatus} from '../capabilities.mjs';
+import {recordPlannerAgentObservation} from '../identity.mjs';
 import {transactWorkflow, fingerprintRequest} from '../store.mjs';
 import {runGate} from '../gate.mjs';
 import {classifyGitCommand} from '../git-query.mjs';
@@ -12,12 +12,15 @@ const deny=reason=>({decision:'deny',reason,ruleIds:['runtime.claude'],proposedT
 /** Host-verified support for this installed version is required. A config value
  * alone cannot establish hook failure blocking; provider wiring belongs to T6. */
 export function claudeFailureBlockingReady(support){
- return support?.status==='verified'&&support.onFailure==='block'&&text(support.platformVersion)&&text(support.verificationRef);
+ const version=/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(support?.platformVersion??'');
+ const supported=version&&(Number(version[1])>2||Number(version[1])===2&&(Number(version[2])>1||Number(version[2])===1&&Number(version[3])>=295));
+ return Boolean(supported&&support?.status==='verified'&&support.onFailure==='block'&&text(support.verificationRef));
 }
 /** Context is a trusted host dependency, never deserialized from stdin/tool_input.
  * describeTool must parse the complete tool invocation conservatively, and supply
  * semantic operation, paths and descriptor. No native provider is assumed here. */
 export function normalizeClaudeEvent(input,context={}){
+ const status=plannerHookContextStatus({platform:'claude',input,context});if(status.missing.length)throw Error('Missing trusted hook inputs: '+status.missing.join(', '));
  if(!object(input)||input.hook_event_name!=='PreToolUse'||!text(input.session_id)||input.session_id!==context.sessionRef||!text(context.actorRef)||!text(context.taskId)||!text(context.requestId)||!text(input.tool_use_id)||input.tool_use_id!==context.toolUseId||!text(input.tool_name)||!object(input.tool_input)||!text(input.cwd))throw Error('Verified session identity and complete PreToolUse event required');
  const toolPath=input.tool_name;
  const coverage={...evaluateCapability({platform:'claude',toolPath,sessionRef:context.sessionRef}),enforcement:'hook-response-only',nativeVerified:false,startupTimeout:'unknown',existingSessionInput:'unsupported',specializedPaths:'unknown',hostedTools:'unsupported'};
@@ -47,12 +50,10 @@ export async function runClaudeGate(input,context={}){
   // SubagentStart cannot prevent startup. Only a trusted provider can correlate
   // agent_id with a pending assignment; tool/event agent_type is not authority.
   try{
-   if(input.session_id===context.sessionRef&&text(input.agent_id)&&typeof context.observeAgent==='function'){
-    const observation=await context.observeAgent(structuredClone(input));
-    if(observation?.actorRef===input.agent_id&&observation.platform==='claude'){
-     const decision=registerAgentObservation(context.state,observation);
-     if(decision.decision==='allow'&&decision.proposedTransition&&typeof context.persistObservation==='function')await context.persistObservation(decision,observation);
-    }
+   if(input.session_id===context.sessionRef&&text(input.agent_id)&&text(context.statePath)){
+    let observation;try{if(typeof context.observeAgent==='function')observation=await context.observeAgent(structuredClone(input));}catch{}
+    const decision=await recordPlannerAgentObservation({statePath:context.statePath,expectedRevision:context.state?.revision,input,platform:'claude',sessionRef:context.sessionRef,observation});
+    if(decision.decision==='allow'&&decision.proposedTransition&&typeof context.persistObservation==='function')await context.persistObservation(decision,observation);
    }
   }catch{/* Observation failure never claims startup was blocked. */}
   return {};

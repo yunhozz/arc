@@ -1,6 +1,6 @@
 import {evaluate} from '../evaluate.mjs';
-import {evaluateCapability} from '../capabilities.mjs';
-import {registerAgentObservation} from '../identity.mjs';
+import {evaluateCapability,plannerHookContextStatus} from '../capabilities.mjs';
+import {recordPlannerAgentObservation} from '../identity.mjs';
 import {transactWorkflow, fingerprintRequest} from '../store.mjs';
 import {runGate} from '../gate.mjs';
 
@@ -12,6 +12,7 @@ const deny=reason=>({decision:'deny',reason,ruleIds:['runtime.codex'],proposedTr
  * describeTool must parse the complete tool invocation conservatively, and supply
  * semantic operation, paths and descriptor. No native provider is assumed here. */
 export function normalizeCodexEvent(input,context={}){
+ const status=plannerHookContextStatus({platform:'codex',input,context});if(status.missing.length)throw Error('Missing trusted hook inputs: '+status.missing.join(', '));
  if(!object(input)||input.hook_event_name!=='PreToolUse'||!text(input.session_id)||input.session_id!==context.sessionRef||!text(context.actorRef)||!text(context.taskId)||!text(context.requestId)||!text(input.tool_use_id)||input.tool_use_id!==context.toolUseId||!text(input.tool_name)||!object(input.tool_input)||!text(input.cwd))throw Error('Verified session identity and complete PreToolUse event required');
  const toolPath=['Agent','spawn_agent'].includes(input.tool_name)?'spawn_agent':input.tool_name;
  const coverage={...evaluateCapability({platform:'codex',toolPath,sessionRef:context.sessionRef}),enforcement:'hook-response-only',nativeVerified:false,startupTimeout:'unknown',existingSessionInput:'unsupported',specializedPaths:'unknown',hostedTools:'unsupported'};
@@ -34,12 +35,10 @@ export async function runCodexGate(input,context={}){
   // SubagentStart cannot prevent startup. Only a trusted provider can correlate
   // agent_id with a pending assignment; tool/event agent_type is not authority.
   try{
-   if(input.session_id===context.sessionRef&&text(input.agent_id)&&typeof context.observeAgent==='function'){
-    const observation=await context.observeAgent(structuredClone(input));
-    if(observation?.actorRef===input.agent_id&&observation.platform==='codex'){
-     const decision=registerAgentObservation(context.state,observation);
-     if(decision.decision==='allow'&&decision.proposedTransition&&typeof context.persistObservation==='function')await context.persistObservation(decision,observation);
-    }
+   if(input.session_id===context.sessionRef&&text(input.agent_id)&&text(context.statePath)){
+    let observation;try{if(typeof context.observeAgent==='function')observation=await context.observeAgent(structuredClone(input));}catch{}
+    const decision=await recordPlannerAgentObservation({statePath:context.statePath,expectedRevision:context.state?.revision,input,platform:'codex',sessionRef:context.sessionRef,observation});
+    if(decision.decision==='allow'&&decision.proposedTransition&&typeof context.persistObservation==='function')await context.persistObservation(decision,observation);
    }
   }catch{/* Observation failure never claims startup was blocked. */}
   return {};

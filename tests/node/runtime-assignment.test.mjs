@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+const plannerApi=await import('../../lib/runtime/evaluate.mjs');
 const api=await import('../../lib/runtime/assignment.mjs').catch(()=>({}));
 const hash='sha256:'+'a'.repeat(64),commit='b'.repeat(40);
 function fixture(){
@@ -106,4 +107,70 @@ test('task-specific approval cannot authorize another task and contract versions
 test('unsupported dispatch role is held without changing request evidence',()=>{
  const f=fixture();f.request.arguments.role='unknown';const before=structuredClone(f.request);
  assert.equal(prepare(f).decision,'hold');assert.deepEqual(f.request,before);
+});
+
+const plannerHash=c=>'sha256:'+c.repeat(64);
+function plannerFixture(){
+ const stage={id:'spec-stage',workflowId:'workflow',document:{path:'/workspace/spec.md',kind:'spec',phase:'draft'},inputVersion:1,scopeVersion:0,criteriaVersion:1,approvalRef:'approved',criteria:[{id:'C1',status:'open',judgmentRef:'criterion:1'}],calls:[],pending:null,result:null,review:null};
+ const request={requestId:'initial',stageId:stage.id,kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]};
+ return {stage,request,evidence:{artifacts:[],semanticProvenance:'operator-attested'}};
+}
+function plannerDecision(f){assert.equal(typeof plannerApi.evaluatePlannerCall,'function','Planner state gate must exist');return plannerApi.evaluatePlannerCall(f);}
+function completedPlanner(f,kind='initial',id=kind){
+ const call={requestId:id,kind,intent:'substantive',criterionIds:['C1'],evidenceHashes:[],status:'succeeded',resultRef:'result:'+id};
+ f.stage.calls.push(call);f.stage.pending=null;f.stage.result={ref:call.resultRef,requestId:id,status:'succeeded',artifactRef:'draft:'+id,selfReviewRef:'self:'+id};
+ f.stage.review={ref:'review:'+id,resultRef:call.resultRef,complete:false,full:true,criteriaVersion:1,source:'operator-attested'};return f;
+}
+function furtherPlanner(){
+ const f=completedPlanner(completedPlanner(plannerFixture()),'correction');
+ f.request={...f.request,requestId:'further',kind:'further',criterionIds:['C1'],reviewRef:'review:correction',evidenceRefs:['new-input']};
+ f.evidence.artifacts=[{ref:'new-input',purpose:'input',stageId:f.stage.id,criterionIds:['C1'],hash:plannerHash('c'),verification:{status:'verified',source:'local-bytes'},semantic:{meaningful:true,judgmentRef:'judgment:new',targetHash:plannerHash('c'),source:'operator-attested'}}];return f;
+}
+test('planner initial and one consolidated correction reserve separate durable opportunities',()=>{
+ const f=plannerFixture();let d=plannerDecision(f);assert.equal(d.decision,'allow');assert.equal(d.proposedTransition.pending,'initial');assert.equal(f.stage.calls.length,0);
+ f.stage=d.proposedTransition;assert.equal(plannerDecision({...f,request:{...f.request,requestId:'second'}}).decision,'hold');
+ const ready=completedPlanner(plannerFixture());ready.request={...ready.request,requestId:'correction',kind:'correction',reviewRef:'review:initial'};
+ assert.equal(plannerDecision(ready).decision,'allow');ready.stage.calls.push({requestId:'correction',kind:'correction',status:'succeeded',evidenceHashes:[]});ready.request.requestId='correction-again';ready.stage.result.requestId='correction';assert.equal(plannerDecision(ready).decision,'deny');
+});
+test('planner rejects format re-expression save and patch work at every call kind without consuming state',()=>{
+ for(const kind of ['initial','correction','further'])for(const intent of ['format-only','re-expression-only','save-error-only','patch-error-only']){
+  const f=plannerFixture();f.request={...f.request,kind,intent};const before=structuredClone(f.stage);const d=plannerDecision(f);assert.equal(d.decision,'deny',kind+'/'+intent);assert.equal(d.proposedTransition,null);assert.deepEqual(f.stage,before);
+ }
+});
+test('planner further requires open criteria new bytes and bound semantic judgment',()=>{
+ assert.equal(plannerDecision(furtherPlanner()).decision,'allow');
+ for(const change of [f=>f.request.criterionIds=[],f=>f.stage.criteria[0].status='resolved',f=>f.evidence.artifacts[0].stageId='another']){const f=furtherPlanner();change(f);assert.equal(plannerDecision(f).decision,'deny');}
+ for(const change of [f=>f.request.evidenceRefs=[],f=>f.evidence.artifacts[0].verification.status='unverified',f=>delete f.evidence.artifacts[0].semantic,f=>f.evidence.artifacts[0].semantic.targetHash=plannerHash('d')]){const f=furtherPlanner();change(f);assert.equal(plannerDecision(f).decision,'hold');}
+ const reused=furtherPlanner();reused.stage.calls[0].evidenceHashes=[plannerHash('c')];assert.equal(plannerDecision(reused).decision,'deny');
+});
+test('planner independent substantive criterion survives prior save or patch failure without using it as progress',()=>{
+ for(const intent of ['save-error-only','patch-error-only']){const f=furtherPlanner();f.stage.deliveryFailures=[{intent,ref:'save:failed'}];assert.equal(plannerDecision(f).decision,'allow');f.request.evidenceRefs=[];assert.equal(plannerDecision(f).decision,'hold');}
+});
+test('planner permits eligible further calls without a fixed call cap',()=>{
+ const f=furtherPlanner();for(let i=0;i<25;i++){f.request.requestId='more:'+i;f.evidence.artifacts[0].hash='sha256:'+i.toString(16).padStart(64,'0');f.evidence.artifacts[0].semantic.targetHash=f.evidence.artifacts[0].hash;const d=plannerDecision(f);assert.equal(d.decision,'allow');f.stage=d.proposedTransition;f.stage.pending=null;f.stage.calls.at(-1).status='succeeded';f.stage.result={...f.stage.result,requestId:f.request.requestId,ref:'result:'+i};f.stage.review={...f.stage.review,resultRef:f.stage.result.ref,ref:'review:'+i};f.request.reviewRef=f.stage.review.ref;}
+ assert.equal(f.stage.calls.length,27);
+});
+
+test('planner further cannot reuse a review from an earlier confirmed call',()=>{
+ const f=furtherPlanner();f.stage.calls.push({requestId:'previous-more',kind:'further',status:'succeeded',evidenceHashes:[]});assert.equal(plannerDecision(f).decision,'hold');
+});
+test('planner draft or delivery artifacts alone cannot become further-call input',()=>{
+ for(const purpose of ['draft','self-review','save-error','patch-error']){const f=furtherPlanner();f.evidence.artifacts[0].purpose=purpose;assert.equal(plannerDecision(f).decision,'hold');}
+});
+test('planner further rejects bytes already supplied to initial or consolidated correction',()=>{
+ const f=plannerFixture(),brief={ref:'brief',purpose:'input',stageId:f.stage.id,criterionIds:['C1'],hash:plannerHash('c'),verification:{status:'verified',source:'local-bytes'}};
+ f.request.evidenceRefs=['brief'];f.evidence.artifacts=[brief];let d=plannerDecision(f);assert.equal(d.decision,'allow');f.stage=d.proposedTransition;
+ const confirm=id=>{f.stage.calls.at(-1).status='succeeded';f.stage.pending=null;f.stage.result={ref:'result:'+id,requestId:id,status:'succeeded'};f.stage.review={ref:'review:'+id,resultRef:'result:'+id,full:true,complete:false,criteriaVersion:1,source:'operator-attested'};};
+ confirm('initial');f.request={...f.request,requestId:'correction',kind:'correction',reviewRef:'review:initial'};d=plannerDecision(f);assert.equal(d.decision,'allow');f.stage=d.proposedTransition;confirm('correction');
+ f.request={...f.request,requestId:'further',kind:'further',criterionIds:['C1'],reviewRef:'review:correction',evidenceRefs:['alias']};f.evidence.artifacts=[{...brief,ref:'alias',semantic:{meaningful:true,source:'operator-attested',judgmentRef:'new-label',targetHash:plannerHash('c')}}];
+ assert.equal(plannerDecision(f).decision,'deny');assert.deepEqual(f.stage.calls.map(call=>call.evidenceHashes),[[plannerHash('c')],[plannerHash('c')]]);
+ f.evidence.artifacts[0].hash=plannerHash('d');f.evidence.artifacts[0].semantic.targetHash=plannerHash('d');assert.equal(plannerDecision(f).decision,'allow');
+});
+test('planner initial and correction require verified bytes for every named evidence ref',()=>{
+ for(const kind of ['initial','correction'])for(const scenario of ['missing','unverified','invalid-hash','other-stage']){
+  const f=kind==='initial'?plannerFixture():completedPlanner(plannerFixture());f.request={...f.request,kind,requestId:kind,evidenceRefs:['brief'],...(kind==='correction'?{reviewRef:'review:initial'}:{})};
+  const artifact={ref:'brief',purpose:'input',stageId:f.stage.id,hash:plannerHash('c'),verification:{status:'verified',source:'local-bytes'}};f.evidence.artifacts=scenario==='missing'?[]:[artifact];
+  if(scenario==='unverified')artifact.verification.status='unverified';if(scenario==='invalid-hash')artifact.hash='claimed';if(scenario==='other-stage')artifact.stageId='other';
+  const before=structuredClone(f.stage),d=plannerDecision(f);assert.equal(d.decision,scenario==='other-stage'?'deny':'hold',kind+'/'+scenario);assert.equal(d.proposedTransition,null);assert.deepEqual(f.stage,before);
+ }
 });

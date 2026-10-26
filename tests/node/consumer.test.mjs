@@ -24,10 +24,16 @@ test('packed temporary-HOME limit install, reinstall, drift selection and uninst
  const settingsPath=`${home}/.claude/settings.json`,data=JSON.parse(fs.readFileSync(settingsPath));data.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS='8';data.userSetting=true;fs.writeFileSync(settingsPath,JSON.stringify(data));
  r=manage(f,'traps',{target:'claude',preset:'balanced',language:'en'},{home});assert.equal(r.status,2,r.stderr);assert.match(r.stderr,/drift/);assert.equal(JSON.parse(fs.readFileSync(settingsPath)).env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS,'8');
  r=manage(f,'traps',{target:'claude',preset:'balanced',language:'en',maxConcurrentSubagents:4},{home});assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(fs.readFileSync(settingsPath)).userSetting,true);
- const codex=fs.readFileSync(`${home}/.codex/config.toml`),claude=fs.readFileSync(settingsPath);
+ const codexPath=`${home}/.codex/config.toml`,userHook={matcher:'Bash',hooks:[{type:'command',command:'echo user-hook'}]};
+ fs.writeFileSync(codexPath,'model = "user-model"\n'+fs.readFileSync(codexPath,'utf8')+'\n[[hooks.PreToolUse]]\nmatcher = "Bash"\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "echo user-hook"\n');
+ const userSettings=JSON.parse(fs.readFileSync(settingsPath));userSettings.hooks.PreToolUse.push(userHook);fs.writeFileSync(settingsPath,JSON.stringify(userSettings));
+ const {hooks:codexInstalledHooks,...codexNative}=parseToml(fs.readFileSync(codexPath,'utf8')),{hooks:claudeInstalledHooks,...claudeNative}=JSON.parse(fs.readFileSync(settingsPath));assert.equal(codexInstalledHooks.PreToolUse.length,2);assert.equal(claudeInstalledHooks.PreToolUse.length,2);
  r=manage(f,'traps',{kind:'uninstall',target:'all'},{home});assert.equal(r.status,0,r.stderr);assert.match(r.stdout,/codex: uninstalled/);assert.match(r.stdout,/claude: uninstalled/);
  for(const platform of ['codex','claude'])assert.equal(fs.existsSync(`${home}/.${platform}/skills/arc`),false);
- assert.deepEqual(fs.readFileSync(`${home}/.codex/config.toml`),codex);assert.deepEqual(fs.readFileSync(settingsPath),claude);
+ const codexAfter=parseToml(fs.readFileSync(codexPath,'utf8')),claudeAfter=JSON.parse(fs.readFileSync(settingsPath));
+ const {hooks:codexHooks,...codexPreserved}=codexAfter,{hooks:claudeHooks,...claudePreserved}=claudeAfter;
+ assert.deepEqual(codexPreserved,codexNative);assert.deepEqual(claudePreserved,claudeNative);assert.equal(codexAfter.agents.max_concurrent_threads_per_session,3n);assert.equal(codexAfter.model,'user-model');assert.equal(claudeAfter.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS,'4');assert.equal(claudeAfter.userSetting,true);
+ assert.deepEqual(JSON.parse(JSON.stringify(codexHooks)),{PreToolUse:[userHook]});assert.deepEqual(claudeHooks,{PreToolUse:[userHook]});
 });
 test('packed all-target install preserves distinct omitted platform limits independently',t=>{
  const f=fixture(t),home=fs.mkdtempSync(path.join(f.base,'distinct limits home '));

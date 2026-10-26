@@ -43,6 +43,14 @@ Initial target preparation does not authorize Implementer; the complete handoff 
 
 ## Planner drafting preparation and consolidated feedback
 
+During initial drafting and revisions, Planner reports progress only to Orchestrator. Keep updates brief: stage,
+feedback being applied, actual blocker, or next step. Omit draft prose, long excerpts and incremental draft text.
+Return the complete draft and self-review to Orchestrator for review and correction. Raw subagent responses may
+appear in app or tool surfaces; prompt policy cannot hide them.
+
+Orchestrator keeps user-facing progress brief and based on Planner status; do not relay draft content.
+At approval, present the integrated, saved and reviewed Markdown document without repeating its body in chat.
+
 1. Before formal drafting, Orchestrator performs a preflight of relevant policy, reference, profile, test, parity
    and manifest surfaces and conflicts. Apply the Formal drafting boundary above and coordination's instruction
    provenance, input-state and local-skill rules, including required reference paths, authorized bounded read
@@ -76,6 +84,10 @@ Initial target preparation does not authorize Implementer; the complete handoff 
    unmet without meaningful new input, evidence or progress, hold the stage and report the criterion, observed
    evidence and exact unblock input or decision. Do not repeat resolved questions, reword the same request, or
    count rewording or agent replacement as meaningful input or progress.
+
+Allow the initial draft and one consolidated correction. Do not invoke Planner only to reformat or re-express a
+draft, fix a save error, or fix a patch-application error. Orchestrator handles these operations. Evaluate separate
+substantive work under the normal Planner gate.
 
 Initial design, required spec approval, and formal plan drafting/approval remain separate ordered stages;
 written-spec approval precedes dependent plan drafting. No fixed call cap applies; never accept an incomplete draft
@@ -318,7 +330,7 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [review.significant-plan] For significant/high-risk plan work: each task uses Implementer → fresh QA as required → Orchestrator acceptance and focused commit. Reviewer reviews the final full change once after all tasks are accepted and required QA is complete. Reviewer is NOT a per-task or per-commit required gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] For final overall Reviewer findings on plan work, including behavior findings, use Implementer → Reviewer without QA reassignment; repeat until resolved. This exception applies only at the final plan stage. Preserve required QA and QA failure rechecks before initial final review and outside this exception.
 - [planning.plan-amend] During approved task execution, mechanical plan progress records need no new user approval; changed goals, scope, criteria, method, risk, dependencies or required verification require revised-version approval and preparation before affected work. In both cases Orchestrator amends the original planning-document commit at a safe boundary, without a separate document or fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings; never retroactively authorize earlier work. Rewrite only unpublished, unshared local linear history with clear ownership and no merges; stop on unknown publication, ownership, unexpected state or replay conflicts, without force push or a fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. See planning, handoff-prep, commit and verification for the full contract.
-- [planning.planner-brief] Follow planning.md's Planner drafting preparation and consolidated feedback procedure, including preflight, ledger, evidence classification, target preparation, preceding approvals, provenance and reference gates. Send one complete stage-specific initial brief. Planner returns a complete proportional draft and self-review; Orchestrator reviews once with the fixed checklist and sends one consolidated correction using changed fields only. Additional Planner calls require user-approved material scope/evidence changes or concrete unmet checklist items after correction, plus meaningful new input or criterion-state progress; state changed input, target criterion, expected artifact and expected progress. Hold repeated unmet criteria without new input, evidence or progress and report the criterion, observed evidence and exact unblock input or decision. Do not split omissions, repeat resolved items, or count rewording or agent replacement as progress. Preserve separate sequential design/spec/plan approvals; no fixed call cap, Planner-profile call-count conditions or incomplete draft acceptance.
+- [planning.planner-brief] Follow planning.md's Planner drafting preparation and consolidated feedback procedure, including preflight, ledger, evidence classification, target preparation, preceding approvals, provenance and reference gates. Allow the initial draft and one consolidated correction. Send one complete stage-specific initial brief. Planner returns a complete proportional draft and self-review; Orchestrator reviews once with the fixed checklist and sends one consolidated correction using changed fields only. Additional Planner calls require user-approved material scope/evidence changes or concrete unmet checklist items after correction, plus meaningful new input or criterion-state progress; state changed input, target criterion, expected artifact and expected progress. Hold repeated unmet criteria without new input, evidence or progress and report the criterion, observed evidence and exact unblock input or decision. Do not split omissions, repeat resolved items, or count rewording or agent replacement as progress. Do not invoke Planner only to reformat or re-express a draft, fix a save error, or fix a patch-application error. Orchestrator handles these operations. Evaluate separate substantive work under the normal Planner gate. Preserve separate sequential design/spec/plan approvals; no fixed call cap, Planner-profile call-count conditions or incomplete draft acceptance. Keep user-facing progress brief and based on Planner status; do not relay draft content. At approval, present the integrated, saved and reviewed Markdown document without repeating its body in chat.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. No documented role-specific Git hook or generic per-agent tool allowlist is assumed. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]
 

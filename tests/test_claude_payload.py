@@ -397,6 +397,31 @@ class ClaudePayloadTests(unittest.TestCase):
     def read_claude(self, *parts):
         return (PAYLOAD.joinpath(*parts)).read_text()
 
+    def test_planner_progress_and_saved_approval_contract(self):
+        # Approved written-contract checks; app visibility and runtime compliance are outside this test.
+        profile = ' '.join(self.read_claude('agents/arc-planner.md').lower().split())
+        planning = ' '.join(self.read_claude('skill/references/planning.md').lower().split())
+        coordination = ' '.join(self.read_claude('skill/references/coordination.md').lower().split())
+        for artifact, text in (('profile', profile), ('planning', planning), ('coordination', coordination)):
+            for pattern in (
+                r'report(?:s)? progress only to orchestrator.*initial drafting and revisions|initial drafting and revisions.*planner reports progress only to orchestrator',
+                r'keep updates brief: stage, feedback being applied, actual blocker, or next step',
+                r'omit draft prose.*excerpts',
+                r'return the complete draft and self.review to orchestrator for review and correction',
+                r'raw subagent responses may appear in app or tool surfaces.*prompt policy cannot hide them',
+            ):
+                with self.subTest(artifact=artifact, contract=pattern):
+                    self.assertRegex(text, pattern)
+        for pattern in (
+            r'allow the initial draft and one consolidated correction',
+            r'do not invoke planner only to reformat or re.express a draft, fix a save error, or fix a patch.application error.*orchestrator handles these operations',
+            r'evaluate separate substantive work under the normal planner gate',
+        ):
+            with self.subTest(artifact='planning', contract=pattern):
+                self.assertRegex(planning, pattern)
+        self.assertRegex(planning, r'orchestrator keeps user.facing progress brief and based on planner status.*do not relay draft content')
+        self.assertRegex(planning, r'at approval, present the integrated, saved and reviewed markdown document without repeating its body in chat')
+
     def korean_policy(self, text):
         # Check the installed language contract, not an obsolete literal in templates.
         result = subprocess.run(
@@ -522,7 +547,7 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_role_gate_planner_only_and_ceo_skill_ban(self):
         core = self.text('skill/SKILL.md')
-        gate = next(p for p in (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n') if p.startswith('Role gate:'))
+        gate = next(p for p in (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n') if p.startswith(('Role gate:', '**Role gate:**')))
         gate = ' '.join(gate.split())
         self.assertLessEqual(len(re.findall(r'[.!?](?:\s|$)', gate)), 5)
         for needle in ('ONLY by Planner (`arc-planner`)', 'Orchestrator MUST NEVER author them',

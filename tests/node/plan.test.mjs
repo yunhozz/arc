@@ -32,7 +32,7 @@ test('limits policy defaults, reinstall preservation, native drift and explicit 
 test('Claude settings concurrency is a string and preserves unrelated data',t=>{
  const home=fixture(t);fs.mkdirSync(`${home}/.claude`);fs.writeFileSync(`${home}/.claude/settings.json`,JSON.stringify({env:{KEEP:'yes'},permissions:{allow:[]}}));
  const result=plan(home,'claude');const settings=JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content);
- assert.deepEqual(settings,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'5'},permissions:{allow:[]}});
+ const {hooks,...preserved}=settings;assert.deepEqual(preserved,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'5'},permissions:{allow:[]}});assert.deepEqual(Object.keys(hooks).sort(),['PostToolUse','PreToolUse','SubagentStart']);
 });
 test('preview evidence detects changed or newly appearing limits and unsafe replacements',t=>{
  const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home,env:{}});
@@ -91,14 +91,15 @@ for(const platform of ['codex','claude'])test(`install plan preserves ${platform
  assert.ok(!contract.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
 });
 import {validateClaudeHookCommand} from '../../lib/policy/claude-hook.mjs';
-test('Claude plan installs each hook against the final skill path and no global hook',t=>{
+test('Claude plan installs the Bash guard and observation-only global hooks against final skill paths',t=>{
  const home=fixture(t),result=plan(home,'claude');
  for(const bytes of result.generated.profiles.values()) {
   const command=JSON.parse(/^          command: (.+)$/m.exec(bytes.toString())[1]);validateClaudeHookCommand(command);
   const encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(command)[1];const url=Buffer.from(encoded,'base64').toString();
   assert.ok(url.includes('/.claude/skills/arc/hooks/role-git-guard.mjs'),url);assert.ok(!url.includes('__ARC_INSTALLED_SKILL__'));
  }
- assert.ok(!result.globalChanges.some(x=>x.content.toString().includes('PreToolUse')));
+ const settings=JSON.parse(result.globalChanges.find(x=>x.path.endsWith('settings.json')).content);
+ for(const event of ['PreToolUse','PostToolUse','SubagentStart']){const handler=settings.hooks[event][0].hooks[0];assert.equal(handler.onFailure,'continue');const encoded=/"([A-Za-z0-9+/]+=*)"$/.exec(handler.command)[1];assert.ok(Buffer.from(encoded,'base64').toString().includes('/.claude/skills/arc/hooks/runtime-gate.mjs'));}
 });
 test('Claude plan rejects missing or stale Git guard policy before writing',t=>{
  const home=fixture(t),input=payload();input.files.delete('claude/skill/hooks/git-policy.json');
