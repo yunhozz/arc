@@ -1,6 +1,44 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {initialSettings,setupOptions,runSetup} from '../../lib/tui/setup.mjs';
-const statuses=[{platform:'codex',settings:{language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2},modelConfig:{preset:'smart'}}},{platform:'claude',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:{preset:'balanced'}}}];
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import * as setup from '../../lib/tui/setup.mjs';
+import {loadModelConfig} from '../../lib/models/index.mjs';
+const {initialSettings,setupOptions}=setup;
+const packageRoot=fileURLToPath(new URL('../../',import.meta.url));
+const modelText=Object.fromEntries(['codex','claude'].map(platform=>[platform,readFileSync(new URL('../../'+platform+'/skill/models.toml',import.meta.url),'utf8')]));
+const models=Object.fromEntries(['codex','claude'].map(platform=>[platform,loadModelConfig(modelText[platform],platform)]));
+const runSetup=options=>setup.runSetup({...options,loadPreviewConfig:options.loadPreviewConfig??(target=>models[target])});
+const statuses=[{platform:'codex',settings:{language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2},modelConfig:{...models.codex,preset:'smart'}}},{platform:'claude',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models.claude}}];
+
+test('preset role preview resolves every platform and preset without changing the source',()=>{
+ assert.equal(typeof setup.presetRoleRows,'function');
+ const names=['Scouter','Planner','Implementer','QA','Reviewer'];
+ const expected={codex:{economy:[['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-sol','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],balanced:[['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','high'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],smart:[['gpt-6-luna','max'],['gpt-6-astra','high'],['gpt-6-astra','high'],['gpt-6.1-sol','medium'],['gpt-6-astra','high']]},claude:{economy:[['haiku','high'],['sonnet','medium'],['sonnet','medium'],['haiku','high'],['sonnet','medium']],balanced:[['haiku','high'],['sonnet','high'],['sonnet','high'],['haiku','max'],['sonnet','high']],smart:[['haiku','max'],['opus','high'],['opus','high'],['sonnet','medium'],['opus','high']]}};
+ for(const platform of ['codex','claude']){const before=structuredClone(models[platform]);for(const preset of ['economy','balanced','smart'])assert.deepEqual(setup.presetRoleRows(models[platform],preset),expected[platform][preset].map(([model,effort],index)=>({role:names[index],model,effort})));assert.deepEqual(models[platform],before);}
+});
+test('preview source matches install package defaults and preset installed settings',()=>{
+ assert.equal(typeof setup.loadPresetPreviewConfig,'function');
+ for(const target of ['codex','claude']){const installed=structuredClone(models[target]);installed.roles.arc_planner.smart.model='custom-model';const statuses=[{platform:target,settings:{modelConfig:installed}}];const selected=setup.loadPresetPreviewConfig({context:{packageRoot},statuses,kind:'preset',target,readText:()=>assert.fail('preset must not read package defaults')});assert.equal(selected.roles.arc_planner.smart.model,'custom-model');const bundled=setup.loadPresetPreviewConfig({context:{packageRoot},statuses,kind:'install',target});assert.equal(bundled.roles.arc_planner.smart.model,target==='codex'?'gpt-6-astra':'opus');}
+});
+test('preview rejects missing invalid or mismatched configuration instead of fallback',()=>{
+ assert.equal(typeof setup.loadPresetPreviewConfig,'function');
+ const invoke=options=>setup.loadPresetPreviewConfig({context:{packageRoot},statuses:[],kind:'preset',target:'codex',...options});
+ assert.throws(()=>invoke({}),/model config|configuration/i);
+ assert.throws(()=>invoke({kind:'install',readText:()=> 'not = [valid'}),{code:'ARC_MODEL_VALIDATION'});
+ for(const target of ['all','other',undefined])assert.throws(()=>invoke({target}),{code:'ARC_CLI_INPUT'});
+ assert.throws(()=>invoke({statuses:[{platform:'codex',settings:{modelConfig:models.claude}}]}),{code:'ARC_MODEL_VALIDATION'});
+});
+for(const kind of ['install','preset'])for(const target of ['codex','claude'])test(kind+' '+target+' preview follows hover without changing draft before Enter and Apply',async()=>{
+ const targetIndex=target==='codex'?0:1,answers=[targetIndex,0,2,kind==='install'?5:1],draft={},views=[];let prepares=0,loads=0;
+ const result=await runSetup({statuses,draft,kind,loadPreviewConfig:selected=>{assert.equal(selected,target);loads++;return models[target];},ui:{menu:async(title,rows,options)=>{if(title==='Performance preset'){assert.equal(typeof options.info,'function');assert.equal(options.selected,target==='codex'?2:1);const before=structuredClone(draft);for(const selected of [options.selected,0,1,2,3]){views.push(options.info({selected,columns:60,rows:18}));assert.deepEqual(draft,before);assert.equal(prepares,0);}assert.deepEqual(views.at(-1),views.at(-2));assert.match(views[1].join('\n'),/effort: medium/);assert.match(views[2].join('\n'),/effort: max/);assert.match(views[3].join('\n'),target==='codex'?/gpt-6-astra/:/opus/);assert.equal(options.backRow,true);}return answers.shift()??null;}},prepare:async settings=>{prepares++;return settings;}});
+ assert.equal(loads,1);assert.equal(prepares,1);assert.equal(result.preset,'smart');assert.equal(result.target,target);assert.equal(draft[target==='codex'?'claude':'codex'].preset,target==='codex'?'balanced':'smart');
+});
+test('hovering another preset then Back leaves the current draft selection intact',async()=>{
+ const answers=[0,0,null,null,null],draft={};await runSetup({statuses,draft,kind:'preset',ui:{menu:async(title,rows,options)=>{if(title==='Performance preset'){assert.equal(typeof options.info,'function');const economy=options.info({selected:0,columns:60,rows:18});assert.deepEqual(options.info({selected:3,columns:60,rows:18}),economy);}return answers.shift()??null;}},prepare:()=>assert.fail('Back cannot prepare')});assert.equal(draft.codex.preset,'smart');
+});
+test('preview retains long model values in compact rows and escapes terminal controls',()=>{
+ const rows=setup.presetRoleRows(models.codex,'balanced'),longModel='custom-model-with-a-name-longer-than-the-box';rows[0].model=longModel;let preview=setup.presetPreviewRows(rows,{columns:80,rows:24});assert.ok(preview.join('\n').includes(longModel));assert.ok(!preview.some(row=>row.includes('┌')));rows[0].model='unsafe\x1b[2Jmodel';preview=setup.presetPreviewRows(rows,{columns:80,rows:24});assert.ok(preview.join('\n').includes('unsafe\\x1b[2Jmodel'));for(const row of preview)assert.doesNotMatch(row,/[\p{Cc}\p{Cf}]/u);
+});
 test('install Apply alone prepares once with a display-only spacer and no review',async()=>{const answers=[0,0,2,1,1,4,5],screens=[];let prepares=0;const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});return answers.shift()??null;},review:async()=>assert.fail('install has no review')};const draft={};const prepared=await runSetup({ui,statuses:[],draft,kind:'install',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.skipGlobal,true);const screen=screens.filter(s=>s.title.startsWith('Settings')).at(-1);assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,5);assert.equal(screen.rows.includes(''),false);});
 test('preset chooser changes only draft, then focused Apply prepares exactly once preserving other settings',async()=>{const answers=[0,0,0,0,2,1],screens=[];let prepares=0;const draft={};const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});if(title==='Performance preset')assert.equal(prepares,0);return answers.shift()??null;},review:async()=>assert.fail('preset has no review')};const prepared=await runSetup({ui,statuses,draft,kind:'preset',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.maxConcurrentSubagents,2);assert.equal(draft.claude.preset,'balanced');const settings=screens.filter(s=>s.title.startsWith('Settings'));for(const screen of settings){assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,1);}assert.deepEqual(settings.map(screen=>screen.options.selected),[0,1,1]);});
 test('preset selection and canceled chooser never prepare before explicit Apply',async()=>{const answers=[0,0,2,null,null];const draft={};await runSetup({ui:{menu:async()=>answers.shift()??null},statuses:[],draft,kind:'preset',prepare:async()=>assert.fail('must not prepare')});assert.equal(draft.codex.preset,'smart');});
