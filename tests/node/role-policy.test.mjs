@@ -159,6 +159,17 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
   }
 });
 
+test('spec and plan revision ownership reaches both platform contracts', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /Planner returns a complete.*first draft and self-review/i);
+    assert.match(output, /Orchestrator reviews and directly revises the same spec or plan/i);
+    assert.match(output, /new product decisions.*outside approved scope.*user/i);
+    assert.match(output, /missing or failed first draft.*does not transfer initial authorship/i);
+    assert.doesNotMatch(output, /sends one consolidated correction/i);
+  }
+});
+
 // H1/H2/H4: emitted role contracts must not lose bounded recovery or provenance.
 // Approved structural checks; consuming-agent behavior is verified separately by fresh QA.
 test('bounded read recovery and provenance reach every role on both platforms', () => {
