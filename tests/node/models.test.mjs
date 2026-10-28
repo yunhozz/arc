@@ -5,13 +5,13 @@ const api = await import('../../lib/models/index.mjs').catch(() => ({}));
 const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
 const expected = {
   codex: {
-    economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-sol','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
-    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','high'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],
+    economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
+    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','medium'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],
     smart: [['gpt-6-luna','max'],['gpt-6-astra','high'],['gpt-6-astra','high'],['gpt-6.1-sol','medium'],['gpt-6-astra','high']],
   },
   claude: {
     economy: [['haiku','high'],['sonnet','medium'],['sonnet','medium'],['haiku','high'],['sonnet','medium']],
-    balanced: [['haiku','high'],['sonnet','high'],['sonnet','high'],['haiku','max'],['sonnet','high']],
+    balanced: [['haiku','high'],['sonnet','high'],['sonnet','medium'],['haiku','max'],['sonnet','high']],
     smart: [['haiku','max'],['opus','high'],['opus','high'],['sonnet','medium'],['opus','high']],
   },
 };

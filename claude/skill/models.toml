@@ -33,7 +33,7 @@ effort = "medium"
 
 [roles.arc_implementer.balanced]
 model = "sonnet"
-effort = "high"
+effort = "medium"
 
 [roles.arc_implementer.smart]
 model = "opus"
