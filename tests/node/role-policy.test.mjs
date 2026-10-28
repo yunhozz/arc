@@ -166,7 +166,40 @@ test('spec and plan revision ownership reaches both platform contracts', () => {
     assert.match(output, /Orchestrator reviews and directly revises the same spec or plan/i);
     assert.match(output, /new product decisions.*outside approved scope.*user/i);
     assert.match(output, /missing or failed first draft.*does not transfer initial authorship/i);
-    assert.doesNotMatch(output, /sends one consolidated correction/i);
+    const brief = output.split('\n').find(line => line.startsWith('- [planning.planner-brief]'));
+    assert.ok(brief, `${platform}: planning brief`);
+    const [specPlan, design] = brief.split('For design and brainstorming');
+    assert.ok(design, `${platform}: design boundary`);
+    assert.match(specPlan, /Orchestrator reviews and directly revises the same spec or plan/i);
+    assert.doesNotMatch(specPlan, /\b(?:send|return|route|request|ask|assign)\w*[^.]*\b(?:Planner|correction|revision)\b/i);
+    assert.doesNotMatch(specPlan, /\bPlanner\b[^.]*\b(?:revis(?:e|es|ion|ions)|correct(?:s|ion|ions)|amend(?:s|ment)?|rewrit(?:e|es))\b/i);
+  }
+});
+
+test('platform role gates preserve Planner first drafts and Orchestrator spec/plan revisions', () => {
+  for (const platform of ['codex', 'claude']) {
+    const skill = fs.readFileSync(new URL(`${platform}/skill/SKILL.md`, root), 'utf8');
+    const gate = skill.match(/^\*\*Role gate:\*\*.*$/m)?.[0];
+    assert.ok(gate, `${platform}: role gate`);
+    assert.match(gate, /Planner.*design\/brainstorming drafts and first complete spec\/plan drafts/i, platform);
+    assert.match(gate, /Orchestrator reviews and directly revises the same spec or plan/i, platform);
+    assert.doesNotMatch(gate, /Orchestrator never authors them/i, platform);
+  }
+});
+
+test('design and brainstorming retain consolidated Planner correction', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /design and brainstorming.*one consolidated correction/i, platform);
+    assert.match(output, /further calls.*(?:scope|evidence).*unmet checklist items.*new input.*criterion.*progress/i, platform);
+  }
+});
+
+test('design and brainstorming hold repeated unmet criteria without progress', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /repeated unmet criteria without new input, evidence or progress.*hold/i, platform);
+    assert.match(output, /do not.*count rewording.*agent replacement as progress/i, platform);
   }
 });
 
