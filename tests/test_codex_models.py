@@ -40,7 +40,7 @@ FIVE_SETTINGS = {
 BALANCED_SETTINGS = {
     "arc_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
     "arc_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
-    "arc_implementer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
+    "arc_implementer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
     "arc_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
     "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
 }
@@ -82,7 +82,7 @@ class ModelSettingsTests(unittest.TestCase):
                       {role: fields for role, fields in FIVE_SETTINGS.items() if role != "arc_implementer"}):
             with self.subTest(roles=roles), self.assertRaises(self.module.ValidationError):
                 self.load(roles)
-        for version in (2, 3, 4, 5, True, "1"):
+        for version in (3, 4, 5, True, "1"):
             with self.subTest(version=version), self.assertRaises(self.module.ValidationError):
                 self.load(FIVE_SETTINGS, version)
         for content in (b'version = 4\nroles = "invalid"\n', b'version = 4\n[roles', b'roles = {}\n'):
@@ -104,6 +104,37 @@ class ModelSettingsTests(unittest.TestCase):
         with self.assertRaises(self.module.ValidationError):
             self.module.validate_config(source, self.config)
 
+    def test_custom_roundtrip_and_validation(self):
+        import copy
+        source = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
+        self.assertEqual(self.module.validate_config(source, self.config)['version'], 2)
+        source['version'] = 2
+        source['custom'] = {role: {'model': f'custom-{index}', 'model_reasoning_effort': 'low'}
+                            for index, role in enumerate(FIVE_SETTINGS)}
+        before = copy.deepcopy(source)
+        self.config.write_bytes(self.module.serialize_settings(source))
+        self.assertEqual(self.module.load_settings(self.config), BALANCED_SETTINGS)
+        self.assertEqual(tomllib.loads(self.config.read_text())['custom'], source['custom'])
+        source['preset'] = 'custom'
+        self.config.write_bytes(self.module.serialize_settings(source))
+        content = self.config.read_bytes()
+        self.assertEqual(self.module.load_settings(self.config), source['custom'])
+        self.assertEqual(self.config.read_bytes(), content)
+        self.assertEqual(before['custom'], source['custom'])
+        for active in ('custom', 'balanced'):
+            for mutation in ('missing', 'extra', 'field'):
+                invalid = copy.deepcopy(source)
+                invalid['preset'] = active
+                if mutation == 'missing': invalid['custom'].pop('arc_qa')
+                if mutation == 'extra': invalid['custom']['extra'] = {}
+                if mutation == 'field': invalid['custom']['arc_qa']['model_reasoning_effort'] = ''
+                with self.subTest(active=active, mutation=mutation), self.assertRaises(self.module.ValidationError):
+                    self.module.validate_config(invalid, self.config)
+        invalid = copy.deepcopy(source); invalid.pop('custom')
+        with self.assertRaises(self.module.ValidationError): self.module.validate_config(invalid, self.config)
+        legacy = copy.deepcopy(source); legacy['version'] = 1
+        with self.assertRaises(self.module.ValidationError): self.module.validate_config(legacy, self.config)
+
     def test_model_profile_sets_match_five_roles(self) -> None:
         filenames = {f"{role.replace('_', '-')}.toml" for role in FIVE_SETTINGS}
         self.assertEqual(set(self.module.ROLE_FILES.values()), filenames)
@@ -117,7 +148,7 @@ class ModelSettingsTests(unittest.TestCase):
             self.fail(f"unified version 1 settings must be accepted: {exc}")
         self.assertEqual(loaded, FIVE_SETTINGS)
         serialized = self.module.serialize_settings(tomllib.loads(self.config.read_text()))
-        self.assertEqual(tomllib.loads(serialized.decode())["version"], 1)
+        self.assertEqual(tomllib.loads(serialized.decode())["version"], 2)
         self.config.write_bytes(serialized)
         self.assertEqual(self.module.load_settings(self.config), FIVE_SETTINGS)
 
@@ -125,7 +156,7 @@ class ModelSettingsTests(unittest.TestCase):
         legacy_prefix = "_".join(("yunho", "team"))
         legacy_roles = {legacy_prefix + role.removeprefix("arc"): fields
                         for role, fields in FIVE_SETTINGS.items()}
-        for version, roles in ((5, FIVE_SETTINGS), (2, FIVE_SETTINGS), (3, legacy_roles),
+        for version, roles in ((5, FIVE_SETTINGS), (3, legacy_roles),
                                (True, FIVE_SETTINGS), (4, legacy_roles)):
             with self.subTest(version=version):
                 original = settings_bytes(roles, version)
@@ -153,7 +184,7 @@ class ModelSettingsTests(unittest.TestCase):
             with self.assertRaises(self.module.ValidationError):
                 self.module.load_settings(self.config)
             self.assertEqual(self.config.read_bytes(), original)
-        for version in (2, 3, 4, 5):
+        for version in (3, 4, 5):
             with self.assertRaisesRegex(self.module.ValidationError, "update.*version 1"):
                 self.load(FIVE_SETTINGS, version)
 
@@ -263,7 +294,7 @@ class ApplyModelsTests(unittest.TestCase):
         self.assertEqual(self.cli().returncode, 0)
         self.assertEqual(self.cli("--check").returncode, 0)
         self.assertEqual(self.config.read_bytes(), config_before)
-        for version in (2, 3, 4, 5):
+        for version in (3, 4, 5):
             self.config.write_bytes(settings_bytes(FIVE_SETTINGS, version))
             before = tree_state(self.base)
             self.assertEqual(self.cli().returncode, 2)
