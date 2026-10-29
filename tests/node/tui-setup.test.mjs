@@ -154,3 +154,27 @@ test('applying an active saved Custom rechecks its catalog without entering edit
  const result=await runSetup({statuses:saved,draft,kind:'preset',loadPreviewConfig:()=>config,loadCatalog:async()=>{loads++;return{status:'ready',catalog:{platform:'codex',pairs:[{model:'saved-model',effort:'high'}]}};},ui:{busy:async action=>action(),menu:async(title)=>title==='Change Preset'?0:1,page:async()=>assert.fail('unexpected error')},prepare:async options=>options});
  assert.equal(loads,1);assert.deepEqual(result.customRoles,custom);assert.equal(result.preset,'custom');
 });
+
+test('completed Custom draft accompanies a subsequent built-in Apply with its catalog',async()=>{
+ const draft={},catalog={platform:'codex',pairs:[{model:'fixture-model',effort:'high'}]},answers=[0,0,3,0,0,1,0,2,0,3,0,4,0,5,0,0,0,1];let selections=0;
+ const result=await runSetup({statuses,draft,kind:'preset',loadCatalog:async()=>({status:'ready',catalog}),ui:{busy:async action=>action(),page:async()=>assert.fail('unexpected error'),menu:async(title)=>{if(title==='Custom preset'&&selections++<5)return selections-1;if(title==='Custom preset')return 5;if(title.startsWith('Select model'))return 0;if(title==='Change Preset')return 0;if(title.startsWith('Settings'))return selections>=6?(draft.codex.preset==='economy'?1:0):0;if(title==='Performance preset')return selections>=6?0:3;assert.fail(title);}},prepare:async options=>options});
+ assert.equal(result.preset,'economy');assert.deepEqual(result.verifiedCatalog,catalog);assert.equal(result.customRoles.arc_scouter.model,'fixture-model');
+});
+
+test('Codex catalog resolves relative CODEX_HOME against invocation cwd',async()=>{
+ const {loadCustomCatalog}=await import('../../lib/tui/custom-preset.mjs');const path=await import('node:path');let received;
+ const result=await loadCustomCatalog({platform:'codex',env:{CODEX_HOME:'relative-codex'},invocationCwd:'/fixture/project',userHome:'/fixture/home',listCodexModels:async options=>{received=options;return[{model:'fixture-model',efforts:['high']}];}});
+ assert.equal(result.status,'ready');assert.equal(received.env.CODEX_HOME,path.resolve('/fixture/project','relative-codex'));assert.notEqual(received.cwd,'/fixture/project');
+});
+
+test('built-in Apply does not load a catalog for an unchanged saved Custom',async()=>{
+ const custom=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'stale-model',model_reasoning_effort:'high'}])),config={...structuredClone(models.codex),custom},draft={};
+ const result=await runSetup({statuses:[{platform:'codex',settings:{modelConfig:config}}],draft,kind:'preset',loadPreviewConfig:()=>config,loadCatalog:async()=>assert.fail('unchanged inactive Custom must not load catalog'),ui:{menu:async(title)=>title==='Change Preset'?0:1},prepare:async options=>options});
+ assert.equal(result.preset,'balanced');assert.equal(result.customRoles,undefined);assert.equal(result.verifiedCatalog,undefined);
+});
+
+test('built-in Install carries the saved inactive Custom without catalog access',async()=>{
+ const custom=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'saved-model',model_reasoning_effort:'high'}])),config={...structuredClone(models.codex),custom},draft={};
+ const result=await runSetup({statuses:[{platform:'codex',settings:{modelConfig:config}}],draft,kind:'install',loadCatalog:async()=>assert.fail('saved inactive Custom must not load catalog'),ui:{menu:async title=>title==='Install / Update'?0:5},prepare:async options=>options});
+ assert.equal(result.preset,'balanced');assert.deepEqual(result.preservedCustomRoles,custom);assert.equal(result.verifiedCatalog,undefined);
+});

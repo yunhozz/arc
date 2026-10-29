@@ -37,3 +37,11 @@ test('Custom transaction failure restores original model and profile bytes',asyn
  const result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish')throw Error('fixture failure');}}});
  assert.equal(result.results[0].status,'failed');assert.equal(result.results[0].rollback,'restored');for(const[name,bytes]of before)assert.deepEqual(fs.readFileSync(name),bytes);
 });
+
+for(const platform of ['codex','claude'])test(platform+' built-in Apply persists an edited inactive Custom and validates its pairs',async t=>{
+ const target=install(fixture(t),platform),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]},file=target.home+'/skills/arc/models.toml';
+ assert.throws(()=>api.buildPresetPlan({target,preset:'smart',safeFs,customRoles:roles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
+ const plan=api.buildPresetPlan({target,preset:'smart',safeFs,customRoles:roles,verifiedCatalog:catalog});assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');
+ const saved=loadModelConfig(fs.readFileSync(file),platform);assert.equal(saved.preset,'smart');assert.deepEqual(saved.custom,roles);
+ assert.doesNotThrow(()=>api.buildPresetPlan({target,preset:'economy',safeFs}));
+});

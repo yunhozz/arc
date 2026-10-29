@@ -153,3 +153,12 @@ test('TUI Custom selection prepares only role pairs and keeps environment secret
  const code=await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),env:{ANTHROPIC_API_KEY:secret}},services:{collectStatus:async()=>[],loadCatalog:async platform=>{assert.equal(platform,'codex');return{status:'ready',catalog};},prepareOperation:async(_context,options)=>{prepared=options;return{kind:'install',plans:[]};},executeOperation:async()=>({code:0,results:[]})}});
  assert.equal(code,0);assert.equal(prepared.preset,'custom');assert.equal(Object.keys(prepared.customRoles).length,5);assert.doesNotMatch(JSON.stringify(prepared),/fixture-sensitive-key/);assert.doesNotMatch(JSON.stringify(session.screens),/fixture-sensitive-key/);
 });
+
+for(const firstCode of [0,1])test('Custom draft '+(firstCode?'survives failed execution':'is cleared after successful execution'),async()=>{
+ const {runTui}=await load(),events=[enter,enter,enter,...down(2),enter];for(let role=0;role<5;role++)events.push(...down(role===0?0:1),enter,enter);
+ events.push(...down(1),enter,...down(5),enter,enter,enter,enter,enter,...Array.from({length:3},()=>({name:'up'})),enter,...down(5),enter,enter,...down(4),enter);
+ const session=terminal(events),catalog={platform:'codex',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]},prepared=[];let catalogCalls=0,executed=0;
+ await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{collectStatus:async()=>[],loadCatalog:async()=>{catalogCalls++;return{status:'ready',catalog};},prepareOperation:async(_context,options)=>{prepared.push(options);return{kind:'install',plans:[{target:{platform:'codex'}}]};},executeOperation:async()=>({code:executed++===0?firstCode:0,results:[]})}});
+ assert.equal(prepared.length,2);assert.equal(prepared[1].preset,'economy');assert.equal(catalogCalls,firstCode?2:1);
+ if(firstCode){assert.equal(prepared[1].customRoles.arc_scouter.model,'fixture-model');assert.deepEqual(prepared[1].verifiedCatalog,catalog);}else assert.equal(prepared[1].customRoles,undefined);
+});

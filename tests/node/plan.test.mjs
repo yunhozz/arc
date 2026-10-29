@@ -210,3 +210,14 @@ for(const platform of ['codex','claude'])test(platform+' install renders the sel
  for(const bytes of result.generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);
  assert.throws(()=>plan(home,platform,{preset:'custom',customRoles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
 });
+
+for(const platform of ['codex','claude'])test(platform+' built-in install validates a newly edited inactive Custom',t=>{
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]};
+ assert.throws(()=>plan(home,platform,{preset:'economy',customRoles:roles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
+ const result=plan(home,platform,{preset:'economy',customRoles:roles,verifiedCatalog:catalog});assert.match(result.generated.models.toString(),/fixture-model/);
+});
+
+for(const platform of ['codex','claude'])test(platform+' built-in Install preserves saved inactive Custom without catalog',t=>{
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
+ const result=plan(home,platform,{preset:'economy',preservedCustomRoles:roles});const parsed=result.generated.models.toString();assert.match(parsed,/preset = "economy"/);assert.match(parsed,/saved-model/);
+});
