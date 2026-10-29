@@ -36,8 +36,30 @@ for(const kind of ['install','preset'])for(const target of ['codex','claude'])te
 test('hovering another preset then Back leaves the current draft selection intact',async()=>{
  const answers=[0,0,null,null,null],draft={};await runSetup({statuses,draft,kind:'preset',ui:{menu:async(title,rows,options)=>{if(title==='Performance preset'){assert.equal(typeof options.info,'function');const smart=options.info({selected:2,columns:80,rows:24});options.info({selected:0,columns:80,rows:24});assert.deepEqual(options.info({selected:3,columns:80,rows:24}),smart);}return answers.shift()??null;}},prepare:()=>assert.fail('Back cannot prepare')});assert.equal(draft.codex.preset,'smart');
 });
+
+test('Performance preset uses a compact diagram when the full diagram does not fit',async()=>{
+ let targetVisits=0,presetVisits=0,settingsVisits=0;
+ await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows,options)=>{
+  if(title==='Change Preset')return targetVisits++===0?0:null;
+  if(title==='Settings — codex')return settingsVisits++===0?0:null;
+  if(title==='Performance preset'){
+   const preview=options.info({selected:0,columns:60,rows:18}).join('\n');
+   assert.match(preview,/Scouter:/);assert.doesNotMatch(preview,/Orchestrator|[├└]─/);assert.match(preview,/Reviewer:/);assert.doesNotMatch(preview,/Diagram requires/);
+   presetVisits++;return null;
+  }
+  assert.fail(title);
+ },page:async()=>assert.fail('unexpected page')},prepare:async()=>assert.fail('Back cannot prepare')});
+ assert.equal(presetVisits,1);
+});
 test('preview retains long model values in compact rows and escapes terminal controls',()=>{
  const rows=setup.presetRoleRows(models.codex,'balanced'),longModel='custom-model-with-a-name-longer-than-the-box';rows[0].model=longModel;let preview=setup.presetPreviewRows(rows,{columns:200,rows:30});assert.ok(preview.join('\n').includes(longModel));assert.ok(preview.some(row=>row.includes('┌')));rows[0].model='unsafe\x1b[2Jmodel';preview=setup.presetPreviewRows(rows,{columns:200,rows:30});assert.ok(preview.join('\n').includes('unsafe\\x1b[2Jmodel'));for(const row of preview)assert.doesNotMatch(row,/[\p{Cc}\p{Cf}]/u);
+});
+test('compact preset preview shows all roles without hierarchy glyphs and keeps a blank row below',()=>{
+ const roleRows=[{role:'Scouter',model:'scouter-model',effort:'high'},{role:'Planner',model:'planner-model',effort:'medium'},{role:'Implementer',model:'implementer-model',effort:'medium'},{role:'QA',model:'qa-model',effort:'high'},{role:'Reviewer',model:'reviewer-model',effort:'medium'}];
+ assert.deepEqual(setup.presetPreviewRows(roleRows,{columns:60,rows:18,compact:true}),[
+  'Scouter: scouter-model / high','Planner: planner-model / medium','Implementer: implementer-model / medium',
+  'QA: qa-model / high','Reviewer: reviewer-model / medium','',
+ ]);
 });
 test('install Apply alone prepares once with a display-only spacer and no review',async()=>{const answers=[0,0,2,1,1,4,5],screens=[];let prepares=0;const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});return answers.shift()??null;},review:async()=>assert.fail('install has no review')};const draft={};const prepared=await runSetup({ui,statuses:[],draft,kind:'install',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.skipGlobal,true);const screen=screens.filter(s=>s.title.startsWith('Settings')).at(-1);assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,5);assert.equal(screen.rows.includes(''),false);});
 test('preset chooser changes only draft, then focused Apply prepares exactly once preserving other settings',async()=>{const answers=[0,0,0,0,2,1],screens=[];let prepares=0;const draft={};const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});if(title==='Performance preset')assert.equal(prepares,0);return answers.shift()??null;},review:async()=>assert.fail('preset has no review')};const prepared=await runSetup({ui,statuses,draft,kind:'preset',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.maxConcurrentSubagents,2);assert.equal(draft.claude.preset,'balanced');const settings=screens.filter(s=>s.title.startsWith('Settings'));for(const screen of settings){assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,1);}assert.deepEqual(settings.map(screen=>screen.options.selected),[0,1,1]);});
@@ -180,8 +202,8 @@ test('built-in Install carries the saved inactive Custom without catalog access'
  assert.equal(result.preset,'balanced');assert.deepEqual(result.preservedCustomRoles,custom);assert.equal(result.verifiedCatalog,undefined);
 });
 
-test('long role values require enough viewport for the full diagram',()=>{
+test('long role values use a compact preview when the full diagram does not fit',()=>{
  const roles=setup.presetRoleRows(models.codex,'balanced');roles[0].model='a-very-long-model-identifier-that-must-remain-visible';
- const small=setup.presetPreviewRows(roles,{columns:80,rows:24}).join('\n');assert.match(small,/requires.*columns/i);assert.doesNotMatch(small,/Scouter \/ /);
+ const small=setup.presetPreviewRows(roles,{columns:80,rows:24,compact:true}).join('\n');assert.doesNotMatch(small,/requires.*columns/i);assert.match(small,/Scouter:/);assert.match(small,/Reviewer:/);assert.doesNotMatch(small,/Orchestrator|[├└]─/);assert.ok(small.includes('a-very-long-model-identifier-that-must-remain-visible'));
  const large=setup.presetPreviewRows(roles,{columns:200,rows:30}).join('\n');assert.match(large,/┌/);assert.match(large,/a-very-long-model-identifier-that-must-remain-visible/);
 });

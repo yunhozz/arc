@@ -22,13 +22,30 @@ test('role editor presents the diagram with focus and preserves it after editing
  },page:async()=>{}}});
 });
 
-test('model details retain the full identifier and all supported efforts',async()=>{
+test('model picker shows the full identifier and all supported efforts',async()=>{
  const model='long-'+('x'.repeat(120)),pairs=[{model,effort:'high'},{model,effort:'medium'}];let visits=0;
  await editCustomPreset({config:{platform:'codex'},initialRoles:initial,catalog:{platform:'codex',pairs},ui:{menu:async(title,rows,options)=>{
   if(title==='Custom preset')return visits++?null:0;
-  if(title.startsWith('Select model')){const info=options.info({selected:0,columns:30,rows:24}).join('');assert.ok(info.includes(model));assert.match(info,/high.*medium/);return null;}
+  if(title.startsWith('Select model')){assert.deepEqual(rows,[model]);const info=options.info({selected:0,columns:30,rows:24}).join('');assert.ok(info.includes(model));assert.match(info,/high.*medium/);return null;}
   assert.fail(title);
  },page:async()=>{}}});
+});
+
+test('model and effort detail stays in place with placeholders on Back',async()=>{
+ let customVisits=0,modelVisits=0;
+ await editCustomPreset({config:{platform:'codex'},initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
+  if(title==='Custom preset')return customVisits++===0?0:null;
+  if(title==='Select model — Scouter'){
+   assert.deepEqual(options.info({selected:0,columns:100,rows:30}).slice(-3),['Model: model-a','Effort: high, medium','']);
+   assert.deepEqual(options.info({selected:rows.length,columns:100,rows:30}),['Model: -','Effort: -','']);
+   return modelVisits++===0?0:null;
+  }
+  if(title==='Select effort — Scouter'){
+   assert.deepEqual(options.info({selected:rows.length,columns:100,rows:30}),['Model: model-a','Effort: -','']);
+   return null;
+  }
+  assert.fail(title);
+ },page:async()=>assert.fail('unexpected unavailable')}});
 });
 
 test('diagram marks only the role whose current pair is unavailable',async()=>{
@@ -46,7 +63,7 @@ test('model detail resize guidance blocks Enter and retains role and model selec
  const session={viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);screens.push({screen,viewport:{...viewport},...result});return result;},nextEvent:async()=>{const event=events.shift();if(event?.viewport)viewport=event.viewport;return event??{name:'eof'};}};
  await assert.rejects(editCustomPreset({ui:createTuiInterface(session),config:{platform:'codex'},initialRoles:roles,catalog}),{code:'ARC_TUI_HOME'});
  const narrow=screens.filter(item=>item.screen.title==='Select model — Scouter'&&item.viewport.columns===40);assert.equal(narrow.length,2);assert.match(narrow[0].text,/requires/i);assert.equal(narrow[0].selectionEnabled,false);
- const wide=screens.find(item=>item.screen.title==='Select model — Scouter'&&item.viewport.columns===120);assert.ok(wide.text.replace(/\n  /g,'').includes(model));assert.match(wide.text,/high, low/);assert.equal(wide.selectionEnabled,true);
+ const wide=screens.find(item=>item.screen.title==='Select model — Scouter'&&item.viewport.columns===120);assert.ok(wide.screen.rows.slice(wide.screen.selected).join('').includes(model));assert.match(wide.text,/high, low/);assert.equal(wide.selectionEnabled,true);
  assert.ok(screens.some(item=>item.screen.title==='Select effort — Scouter'));assert.deepEqual(roles,initial);
 });
 
