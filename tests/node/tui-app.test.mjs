@@ -21,8 +21,8 @@ test('80 by 24 preset output matches the approved terminal diagram and footer sp
  const{createTuiInterface}=await load(),session=terminal([enter]),viewport={columns:80,rows:24};let output;session.viewport=()=>viewport;session.render=screen=>{session.screens.push(screen);output=renderScreen(screen,viewport);return output;};assert.equal(await createTuiInterface(session).menu('Performance preset',['Economy','Balanced','Smart'],{selected:1,backRow:true,info:state=>presetPreviewRows(presetRoleRows(previewConfig,'balanced'),state)}),1);
  const lines=output.text.split('\n');assert.equal(lines[0],'Performance preset');assert.equal(lines[1],'  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐');assert.equal(lines[2],'  │ Scouter              │  │ Planner              │  │ Implementer          │');assert.equal(lines[3],'  │ gpt-6-luna           │  │ gpt-6.1-sol          │  │ gpt-6.1-sol          │');assert.equal(lines[7].trim(),'Orchestrator');assert.match(lines[10],/QA.*Reviewer/);assert.match(lines[12],/effort: max.*effort: high/);assert.equal(lines[15].trimEnd(),'> Balanced');const backIndex=lines.findIndex(line=>line.trim()==='Back');assert.equal(lines[backIndex-1].trim(),'');assert.match(lines.at(-1),/↑\/↓: Select · Enter Continue · Esc Home/);assert.doesNotMatch(output.text,/Preview only|dispatch|return|Apply/);assert.equal(output.selectionEnabled,true);
 });
-for(const[columns,rows,mode]of [[80,24,'diagram'],[100,30,'diagram'],[72,23,'compact'],[60,18,'compact'],[40,12,'hidden'],[20,8,'hidden']])test('preset navigation remains visible at '+columns+' by '+rows,async()=>{
- const{createTuiInterface}=await load(),session=terminal([...down(2),enter]),outputs=[];session.viewport=()=>({columns,rows});session.render=screen=>{session.screens.push(screen);const result=renderScreen(screen,{columns,rows});outputs.push(result);return result;};assert.equal(await createTuiInterface(session).menu('Performance preset',['Economy','Balanced','Smart'],{backRow:true,info:state=>presetPreviewRows(presetRoleRows(previewConfig,'balanced'),state)}),2);assert.ok(outputs.every(output=>output.selectionEnabled));assert.ok(outputs.every(output=>output.text.split('\n').length<=rows&&output.text.split('\n').every(line=>[...line].length<=columns-1)));assert.ok(outputs.at(-1).text.includes('> Smart'));if(mode==='diagram')assert.match(outputs[0].text,/┌─/);else if(mode==='compact'){assert.doesNotMatch(outputs[0].text,/┌─/);assert.match(outputs[0].text,/Scouter \/ gpt-6-luna \/ effort: high/);}else assert.doesNotMatch(outputs[0].text,/Scouter|gpt-6/);
+for(const[columns,rows,mode]of [[80,24,'diagram'],[100,30,'diagram'],[72,23,'compact'],[60,18,'compact'],[40,12,'hidden']])test('preset navigation remains visible at '+columns+' by '+rows,async()=>{
+ const{createTuiInterface}=await load(),session=terminal([...down(2),enter]),outputs=[];session.viewport=()=>({columns,rows});session.render=screen=>{session.screens.push(screen);const result=renderScreen(screen,{columns,rows});outputs.push(result);return result;};assert.equal(await createTuiInterface(session).menu('Performance preset',['Economy','Balanced','Smart'],{backRow:true,info:state=>presetPreviewRows(presetRoleRows(previewConfig,'balanced'),state)}),2);assert.ok(outputs.every(output=>output.selectionEnabled));assert.ok(outputs.every(output=>output.text.split('\n').length<=rows&&output.text.split('\n').every(line=>[...line].length<=columns-1)));assert.ok(outputs.at(-1).text.includes('> Smart'));if(mode==='diagram')assert.match(outputs[0].text,/┌─/);else {assert.doesNotMatch(outputs[0].text,/┌─/);assert.match(outputs[0].text,/Diagram requires/);}
 });
 test('preset resize rebuilds the diagram without losing the selected preset',async()=>{
  const{createTuiInterface}=await load();let viewport={columns:80,rows:24};const events=[{name:'down'},{name:'resize',viewport:{columns:60,rows:18}},{name:'down'},{name:'resize',viewport:{columns:80,rows:24}},enter],session=terminal([]),outputs=[];session.viewport=()=>viewport;session.nextEvent=async()=>{const event=events.shift();if(event.viewport)viewport=event.viewport;return event;};session.render=screen=>{session.screens.push(screen);const result=renderScreen(screen,viewport);outputs.push(result);return result;};assert.equal(await createTuiInterface(session).menu('Performance preset',['Economy','Balanced','Smart'],{backRow:true,info:state=>presetPreviewRows(presetRoleRows(previewConfig,['economy','balanced','smart'][state.selected]),state)}),2);assert.match(outputs[0].text,/┌─/);assert.doesNotMatch(outputs[2].text,/┌─/);assert.match(outputs.at(-1).text,/┌─/);assert.match(outputs.at(-1).text,/gpt-6-astra/);assert.ok(outputs.at(-1).text.includes('> Smart'));
@@ -147,7 +147,7 @@ test('custom editor keeps long model choices selectable at 40 columns',async()=>
 
 test('TUI Custom selection prepares only role pairs and keeps environment secrets off screen',async()=>{
  const {runTui}=await load();const secret='fixture-sensitive-key',events=[enter,enter,enter,...down(2),enter];
- for(let role=0;role<5;role++)events.push(...down(role===0?0:1),enter,enter);
+ for(let role=0;role<5;role++)events.push(...down(role===0?0:1),enter,enter,enter);
  events.push(...down(1),enter,...down(5),enter,enter,...down(4),enter);
  const session=terminal(events),catalog={platform:'codex',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]};let prepared;
  const code=await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),env:{ANTHROPIC_API_KEY:secret}},services:{collectStatus:async()=>[],loadCatalog:async platform=>{assert.equal(platform,'codex');return{status:'ready',catalog};},prepareOperation:async(_context,options)=>{prepared=options;return{kind:'install',plans:[]};},executeOperation:async()=>({code:0,results:[]})}});
@@ -155,10 +155,29 @@ test('TUI Custom selection prepares only role pairs and keeps environment secret
 });
 
 for(const firstCode of [0,1])test('Custom draft '+(firstCode?'survives failed execution':'is cleared after successful execution'),async()=>{
- const {runTui}=await load(),events=[enter,enter,enter,...down(2),enter];for(let role=0;role<5;role++)events.push(...down(role===0?0:1),enter,enter);
+ const {runTui}=await load(),events=[enter,enter,enter,...down(2),enter];for(let role=0;role<5;role++)events.push(...down(role===0?0:1),enter,enter,enter);
  events.push(...down(1),enter,...down(5),enter,enter,enter,enter,enter,...Array.from({length:3},()=>({name:'up'})),enter,...down(5),enter,enter,...down(4),enter);
  const session=terminal(events),catalog={platform:'codex',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]},prepared=[];let catalogCalls=0,executed=0;
  await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{collectStatus:async()=>[],loadCatalog:async()=>{catalogCalls++;return{status:'ready',catalog};},prepareOperation:async(_context,options)=>{prepared.push(options);return{kind:'install',plans:[{target:{platform:'codex'}}]};},executeOperation:async()=>({code:executed++===0?firstCode:0,results:[]})}});
  assert.equal(prepared.length,2);assert.equal(prepared[1].preset,'economy');assert.equal(catalogCalls,firstCode?2:1);
  if(firstCode){assert.equal(prepared[1].customRoles.arc_scouter.model,'fixture-model');assert.deepEqual(prepared[1].verifiedCatalog,catalog);}else assert.equal(prepared[1].customRoles,undefined);
+});
+
+test('idle refresh redraws while retaining one pending input and stops after Enter',async()=>{
+ const {createTuiInterface}=await load();let resolveEvent,reads=0;const session=terminal([]);session.nextEvent=()=>{reads++;return new Promise(resolve=>{resolveEvent=resolve;});};
+ const result=createTuiInterface(session).menu('Blink',['role'],{refreshMs:15,renderBody:({selected,blink})=>({rows:[`${selected}:${blink}`],selected:0})});
+ await new Promise(resolve=>setTimeout(resolve,40));assert.ok(session.screens.length>=2);assert.equal(reads,1);assert.notEqual(session.screens[0].rows[0],session.screens[1].rows[0]);resolveEvent(enter);assert.equal(await result,0);const count=session.screens.length;await new Promise(resolve=>setTimeout(resolve,35));assert.equal(session.screens.length,count);
+});
+
+test('Custom idle frames blink only the focused border while keeping its marker',async()=>{
+ const {createTuiInterface}=await load(),{editCustomPreset}=await import('../../lib/tui/custom-preset.mjs');
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'model-a',model_reasoning_effort:'high'}]));
+ const catalog={platform:'codex',pairs:[{model:'model-a',effort:'high'}]},session=terminal([]),times=[];let resolveEvent;
+ session.nextEvent=()=>new Promise(resolve=>{resolveEvent=resolve;});session.render=screen=>{session.screens.push(screen);times.push(Date.now());return{selectionEnabled:true};};
+ const editing=editCustomPreset({ui:createTuiInterface(session),config:{platform:'codex'},initialRoles:roles,catalog});
+ await new Promise(resolve=>setTimeout(resolve,700));resolveEvent({name:'escape'});
+ await assert.rejects(editing,{code:'ARC_TUI_HOME'});assert.ok(session.screens.length>=2);assert.ok(times[1]-times[0]>=550&&times[1]-times[0]<1000);
+ const [first,second]=session.screens.map(screen=>screen.rows);assert.match(first[1],/> Scouter/);assert.match(second[1],/> Scouter/);
+ for(let index=0;index<first.length;index++){if(index<5){assert.equal(first[index].slice(26),second[index].slice(26));if(index===1)assert.equal(first[index].slice(2,23),second[index].slice(2,23));}else assert.equal(first[index],second[index]);}
+ assert.notEqual(first[0].slice(0,24),second[0].slice(0,24));assert.notEqual(first[4].slice(0,24),second[4].slice(0,24));
 });
