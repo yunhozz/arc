@@ -181,3 +181,15 @@ test('Custom idle frames blink only the focused border while keeping its marker'
  for(let index=0;index<first.length;index++){if(index<5){assert.equal(first[index].slice(26),second[index].slice(26));if(index===1)assert.equal(first[index].slice(2,23),second[index].slice(2,23));}else assert.equal(first[index],second[index]);}
  assert.notEqual(first[0].slice(0,24),second[0].slice(0,24));assert.notEqual(first[4].slice(0,24),second[4].slice(0,24));
 });
+
+test('Custom role focus hides the outer selection line but remains selectable',async()=>{
+ const {createTuiInterface}=await load(),{editCustomPreset}=await import('../../lib/tui/custom-preset.mjs');
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'model-a',model_reasoning_effort:'high'}]));
+ const catalog={platform:'codex',pairs:[{model:'model-a',effort:'high'}]},session=terminal([enter,back]);
+ session.render=screen=>{session.screens.push(screen);return renderScreen(screen,session.viewport());};
+ await assert.rejects(editCustomPreset({ui:createTuiInterface(session),config:{platform:'codex'},initialRoles:roles,catalog}),{code:'ARC_TUI_HOME'});
+ const screen=session.screens.find(item=>item.title==='Custom preset'),rendered=renderScreen(screen,session.viewport());
+ assert.equal(rendered.selectionEnabled,true);assert.ok(!rendered.styles.some(style=>style.color==='selected'));
+ assert.match(rendered.text,/│ > Scouter/);assert.doesNotMatch(rendered.text,/^> /m);
+ assert.ok(session.screens.some(item=>item.title==='Select model — Scouter'));
+});
