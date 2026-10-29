@@ -15,3 +15,25 @@ test('missing, unsafe and invalid inactive model inputs reject before writing',t
 test('same preset repairs active drift and exact noop performs no staging or writes',async t=>{const target=install(fixture(t),'claude'),file=target.home+'/agents/'+target.profileNames[2];fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace(/^model: .+$/m,'model: drifted'));let plan=api.buildPresetPlan({target,preset:'balanced',safeFs});assert.equal(plan.specs.length,1);let result=await api.switchPresetTargets([plan],{safeFs});assert.equal(result.results[0].status,'updated');assert.doesNotMatch(fs.readFileSync(file,'utf8'),/model: drifted/);plan=api.buildPresetPlan({target,preset:'balanced',safeFs});const before=plan.managedPaths.map(p=>fs.statSync(p,{bigint:true}));assert.equal(plan.specs.length,0);result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(){assert.fail('noop staged work');}}});assert.equal(result.results[0].status,'unchanged');for(const[i,p]of plan.managedPaths.entries()){const now=fs.statSync(p,{bigint:true});assert.equal(now.ino,before[i].ino);assert.equal(now.mtimeNs,before[i].mtimeNs);}});
 test('preset preserves language policy, limits, reference and global bytes',async t=>{const target=install(fixture(t),'claude'),paths=['skills/arc/settings.toml','skills/arc/limits.toml','skills/arc/SKILL.md','skills/arc/references/custom.md','CLAUDE.md','settings.json'];const before=new Map();for(const relative of paths){const p=target.home+'/'+relative;fs.mkdirSync(path.dirname(p),{recursive:true});const bytes=Buffer.from('preserved '+relative+'\r\nKorean policy\n');fs.writeFileSync(p,bytes);before.set(p,bytes);}const result=await api.switchPresetTargets([api.buildPresetPlan({target,preset:'smart',safeFs})],{safeFs});assert.equal(result.results[0].status,'updated');for(const[p,bytes]of before)assert.deepEqual(fs.readFileSync(p),bytes);});
 test('cleanup failure retains published files and reports residual staging path',async t=>{const target=install(fixture(t),'claude'),result=await api.switchPresetTargets([api.buildPresetPlan({target,preset:'smart',safeFs})],{safeFs,hooks:{fault(e){if(e.phase==='before-cleanup-item')throw Error('cleanup blocked');}}});assert.equal(result.results[0].status,'updated');assert.equal(result.results[0].error.code,'ARC_INSTALL_CLEANUP');assert.ok(result.results[0].residualPaths.length>0);assert.equal(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),'claude').preset,'smart');});
+
+for(const platform of ['codex','claude'])test(platform+' persists changed Custom roles and treats identical roles as noop',async t=>{
+ const target=install(fixture(t),platform),effort=platform==='codex'?'model_reasoning_effort':'effort';
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
+ const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'},{model:'other-model',effort:'medium'}],unavailable:[]};
+ let plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles,verifiedCatalog});
+ assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');
+ const modelPath=target.home+'/skills/arc/models.toml';assert.deepEqual(loadModelConfig(fs.readFileSync(modelPath),platform).custom,customRoles);
+ plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles,verifiedCatalog});assert.equal(plan.specs.length,0);
+ const reordered=Object.fromEntries(Object.entries(customRoles).reverse());plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles:reordered,verifiedCatalog});assert.equal(plan.specs.length,0);
+ const changed=structuredClone(customRoles);changed.arc_implementer={model:'other-model',[effort]:'medium'};
+ plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles:changed,verifiedCatalog});assert.ok(plan.specs.length>0);
+ assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');assert.deepEqual(loadModelConfig(fs.readFileSync(modelPath),platform).custom,changed);
+ assert.throws(()=>api.buildPresetPlan({target,preset:'custom',safeFs,customRoles:changed,verifiedCatalog:{platform,pairs:[{model:'fixture-model',effort:'high'}]}}),/catalog/i);
+});
+
+test('Custom transaction failure restores original model and profile bytes',async t=>{
+ const target=install(fixture(t),'codex'),customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',model_reasoning_effort:'high'}]));
+ const plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles,verifiedCatalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'}]}}),before=new Map(plan.managedPaths.map(name=>[name,fs.readFileSync(name)]));
+ const result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish')throw Error('fixture failure');}}});
+ assert.equal(result.results[0].status,'failed');assert.equal(result.results[0].rollback,'restored');for(const[name,bytes]of before)assert.deepEqual(fs.readFileSync(name),bytes);
+});

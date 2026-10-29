@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {loadModelConfig} from '../../lib/models/index.mjs';
 import {presetRoleRows,presetPreviewRows} from '../../lib/tui/setup.mjs';
 import {renderScreen} from '../../lib/tui/render.mjs';
@@ -135,3 +136,20 @@ for(const platform of [0,1])test('Settings target '+platform+' executes only set
 for(const cancel of [[enter],[back]])test('Remove CLI warning cancellation '+JSON.stringify(cancel)+' preserves selection without preparing',async()=>{const{runTui}=await load();const session=terminal([...down(3),enter,...down(1),enter,...cancel,back,back]);await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async()=>assert.fail('cancel cannot prepare'),executeOperation:async()=>assert.fail('cancel cannot execute')}});const warning=session.screens.find(s=>s.title==='Remove CLI');assert.ok(warning,'Remove CLI must show its warning');assert.deepEqual(warning.rows,['Removes ARC settings for Codex and Claude, then removes the ARC CLI.','','Continue','Back']);assert.equal(warning.rows[warning.selected],'Back');const menus=session.screens.filter(s=>s.title==='Uninstall');assert.equal(menus.at(-1).rows[menus.at(-1).selected],'Remove CLI');});
 test('Remove CLI Continue alone prepares all targets and executes identical snapshot once',async()=>{const{runTui}=await load();const session=terminal([...down(3),enter,...down(1),enter,{name:'up'},enter,enter,back]);const prepared={kind:'uninstall'};let preparations=0,executions=0;await runTui({session,context:{},services:{collectStatus:async()=>[],prepareOperation:async(c,o)=>{preparations++;assert.deepEqual(o,{kind:'uninstall',target:'all',removeCli:true});return prepared;},executeOperation:async(c,p)=>{executions++;assert.equal(p,prepared);return{code:0,results:[]};}}});assert.equal(preparations,1);assert.equal(executions,1);assert.ok(session.screens.filter(s=>s.title==='Remove CLI').every(s=>s.rows[s.selected]!==''));});
 test('concise lifecycle result rows preserve diagnostics without rollback',async()=>{const{resultRows}=await load();assert.deepEqual(resultRows({code:0,results:[{platform:'codex',status:'installed',rollback:'not-needed'}]}),['ARC installed for Codex.','Exit code: 0']);assert.deepEqual(resultRows({code:0,results:[{platform:'claude',status:'uninstalled',rollback:'restored'}]}),['Claude ARC settings removed.','Exit code: 0']);for(const [status,message]of [['removed','ARC settings and CLI removed.'],['absent','ARC settings removed. CLI is not installed.']]){const rows=resultRows({code:0,results:[{platform:'codex',status:'uninstalled'},{platform:'claude',status:'uninstalled'}],cli:{status},exitSession:status==='removed'});assert.ok(rows.includes(message));if(status==='removed')assert.ok(rows.includes('CLI removal ended this session.'));assert.doesNotMatch(rows.join('\n'),/rollback|Run arc again|Open a new agent/);}const rows=resultRows({code:7,stdout:'claude: failed; rollback: failed\nResidual path: /tmp/remains\n',results:[{platform:'claude',status:'failed',rollback:'failed',error:Error('failure'),residualPaths:['/tmp/remains']}]});assert.ok(rows.includes('claude: failed'));assert.ok(rows.includes('Error: failure'));assert.ok(rows.includes('Exit code: 7'));assert.doesNotMatch(rows.join('\n'),/rollback/);});
+
+test('custom editor keeps long model choices selectable at 40 columns',async()=>{
+ const {editCustomPreset}=await import('../../lib/tui/custom-preset.mjs');
+ const model='fixture-'+('x'.repeat(200)),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model,model_reasoning_effort:'medium'}]));
+ const catalog={platform:'codex',pairs:[{model,effort:'medium'}]};let calls=0;
+ await editCustomPreset({config:previewConfig,initialRoles:roles,catalog,ui:{menu:async(title,rows)=>{calls++;assert.equal(renderScreen({title,rows,selected:0},{columns:40,rows:18}).selectionEnabled,true);return calls===1?0:null;},page:async()=>{}}});
+ assert.equal(calls,3);
+});
+
+test('TUI Custom selection prepares only role pairs and keeps environment secrets off screen',async()=>{
+ const {runTui}=await load();const secret='fixture-sensitive-key',events=[enter,enter,enter,...down(2),enter];
+ for(let role=0;role<5;role++)events.push(...down(role===0?0:1),enter,enter);
+ events.push(...down(1),enter,...down(5),enter,enter,...down(4),enter);
+ const session=terminal(events),catalog={platform:'codex',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]};let prepared;
+ const code=await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),env:{ANTHROPIC_API_KEY:secret}},services:{collectStatus:async()=>[],loadCatalog:async platform=>{assert.equal(platform,'codex');return{status:'ready',catalog};},prepareOperation:async(_context,options)=>{prepared=options;return{kind:'install',plans:[]};},executeOperation:async()=>({code:0,results:[]})}});
+ assert.equal(code,0);assert.equal(prepared.preset,'custom');assert.equal(Object.keys(prepared.customRoles).length,5);assert.doesNotMatch(JSON.stringify(prepared),/fixture-sensitive-key/);assert.doesNotMatch(JSON.stringify(session.screens),/fixture-sensitive-key/);
+});

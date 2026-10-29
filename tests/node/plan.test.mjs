@@ -200,3 +200,13 @@ test('HSR: Claude planning preserves native user hooks without adding handlers',
  const home=fixture(t);fs.mkdirSync(home+'/.claude');const hooks={PreToolUse:[{matcher:'Bash',hooks:[{type:'command',command:'echo user'}]}]};
  fs.writeFileSync(home+'/.claude/settings.json',JSON.stringify({hooks}));const result=plan(home,'claude');assert.deepEqual(JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content).hooks,hooks);
 });
+
+for(const platform of ['codex','claude'])test(platform+' install renders the selected Custom roles and rejects absent catalog pairs',t=>{
+ const home=fixture(t),effort=platform==='codex'?'model_reasoning_effort':'effort';
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
+ const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]};
+ const result=plan(home,platform,{preset:'custom',customRoles,verifiedCatalog});
+ assert.match(result.generated.models.toString(),/preset = "custom"/);
+ for(const bytes of result.generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);
+ assert.throws(()=>plan(home,platform,{preset:'custom',customRoles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
+});

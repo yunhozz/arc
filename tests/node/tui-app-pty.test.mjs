@@ -2,8 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';import {spa
 const available=process.platform==='darwin'&&spawnSync('which',['expect']).status===0;
 const url=new URL('../../lib/tui/app.mjs',import.meta.url).href;
 const modelsUrl=new URL('../../lib/models/index.mjs',import.meta.url).href,packageUrl=new URL('../../',import.meta.url);
-async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true}={}){
- const program=`import {runTui} from ${JSON.stringify(url)};import {readFileSync} from 'node:fs';import {loadModelConfig} from ${JSON.stringify(modelsUrl)};const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',modelConfig:loadModelConfig(readFileSync(new URL(platform+'/skill/models.toml',${JSON.stringify(packageUrl.href)}),'utf8'),platform),limits:{max_total_subagents:100,max_concurrent_subagents:5}},diagnostics:[]}));${observe}let calls=0,prepares=0,preparedOptions;const before=process.stdin.isRaw;const code=await runTui({context:{packageRoot:${JSON.stringify(fileURLToPath(packageUrl))}},services:{collectStatus:async()=>statuses,prepareOperation:async(c,o)=>{prepares++;preparedOptions=o;return{kind:o.kind,options:o,plans:${plans},currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:${canUpgrade}};},executeOperation:async context=>{calls++;${execute}}}});console.log('OPTIONS='+JSON.stringify(preparedOptions));console.log('CODE='+code+' CALLS='+calls+' PREPARES='+prepares+' RESTORED='+(before===process.stdin.isRaw));`;
+async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true,catalog=null}={}){
+ const program=`import {runTui} from ${JSON.stringify(url)};import {readFileSync} from 'node:fs';import {loadModelConfig} from ${JSON.stringify(modelsUrl)};const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',modelConfig:loadModelConfig(readFileSync(new URL(platform+'/skill/models.toml',${JSON.stringify(packageUrl.href)}),'utf8'),platform),limits:{max_total_subagents:100,max_concurrent_subagents:5}},diagnostics:[]}));${observe}let calls=0,prepares=0,preparedOptions;const before=process.stdin.isRaw;const code=await runTui({context:{packageRoot:${JSON.stringify(fileURLToPath(packageUrl))}},services:{collectStatus:async()=>statuses,loadCatalog:async()=>(${JSON.stringify(catalog)}),prepareOperation:async(c,o)=>{prepares++;preparedOptions=o;return{kind:o.kind,options:o,plans:${plans},currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:${canUpgrade}};},executeOperation:async context=>{calls++;${execute}}}});console.log('OPTIONS='+JSON.stringify(preparedOptions));console.log('CODE='+code+' CALLS='+calls+' PREPARES='+prepares+' RESTORED='+(before===process.stdin.isRaw));`;
  const q=v=>"'"+v.replaceAll("'","'\\''")+"'";
  const command=`stty rows 40 cols 120; before=$(stty -g); ${q(process.execPath)} --input-type=module -e ${q(program)}; after=$(stty -g); test "$before" = "$after" && echo TERMIOS_RESTORED; stty -a`;
  // Drain completed frames between consecutive inputs so PTY output cannot block writes.
@@ -63,5 +63,66 @@ for(const [name,moves] of [['Install / Update',''],['Change Preset','down\n'],['
  const output=await drive(t,moves+'enter\nexpect -exact {'+name+'}\n'+ready+'send -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('Settings and chooser Back preserve Claude settings and target selection',{skip:!available},async t=>{
- const output=await drive(t,'enter\nexpect -exact {Install / Update}\ndown\nenter\nexpect -exact {Settings — claude}\nenter\nexpect -exact {Performance preset}\ndown\nexpect -exact {> Smart}\ndown\nexpect -exact {> Back}\nenter\nexpect -exact {Preset: Balanced}\ndown\nenter\nexpect -exact {Harness output language}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Harness language: EN}\nsend -- "\\033\\[A"\nafter 80\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Install / Update}\nexpect -exact {> Claude}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'enter\nexpect -exact {Install / Update}\ndown\nenter\nexpect -exact {Settings — claude}\nenter\nexpect -exact {Performance preset}\ndown\nexpect -exact {> Smart}\ndown\nexpect -exact {> Custom}\ndown\nexpect -exact {> Back}\nenter\nexpect -exact {Preset: Balanced}\ndown\nenter\nexpect -exact {Harness output language}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Harness language: EN}\nsend -- "\\033\\[A"\nafter 80\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Install / Update}\nexpect -exact {> Claude}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+});
+
+test('Custom role edits reach Settings but do not apply before Apply',{skip:!available},async t=>{
+ const catalog={status:'ready',catalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]}};
+ const output=await drive(t,`enter
+expect -exact {Install / Update}
+enter
+expect -exact {Settings}
+enter
+expect -exact {Performance preset}
+down
+expect -exact {> Smart}
+down
+expect -exact {> Custom}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+enter
+expect -exact {Select model}
+expect -exact {Esc Home}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+down
+expect -exact {> Planner}
+enter
+expect -exact {Select model}
+expect -exact {Esc Home}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+down
+expect -exact {> Implementer}
+enter
+expect -exact {Select model}
+expect -exact {Esc Home}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+down
+expect -exact {> QA}
+enter
+expect -exact {Select model}
+expect -exact {Esc Home}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+down
+expect -exact {> Reviewer}
+enter
+expect -exact {Select model}
+expect -exact {Esc Home}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+down
+expect -exact {> Done}
+enter
+expect -exact {Preset: Custom}
+send -- "\\003"`,{catalog});
+ assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);assert.doesNotMatch(output,/entitlement|permission.{0,30}(?:unverified|not verified)|(?:unverified|not verified).{0,30}permission/i);
 });
