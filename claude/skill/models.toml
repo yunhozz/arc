@@ -5,23 +5,23 @@ preset = "balanced"
 
 [roles.arc_scouter.economy]
 model = "haiku"
-effort = "high"
+effort = "medium"
 
 [roles.arc_scouter.balanced]
 model = "haiku"
 effort = "high"
 
 [roles.arc_scouter.smart]
-model = "haiku"
-effort = "max"
+model = "sonnet"
+effort = "high"
 
 [roles.arc_planner.economy]
 model = "sonnet"
-effort = "medium"
+effort = "high"
 
 [roles.arc_planner.balanced]
 model = "sonnet"
-effort = "high"
+effort = "xhigh"
 
 [roles.arc_planner.smart]
 model = "opus"
@@ -36,7 +36,7 @@ model = "sonnet"
 effort = "medium"
 
 [roles.arc_implementer.smart]
-model = "opus"
+model = "sonnet"
 effort = "high"
 
 [roles.arc_qa.economy]
@@ -45,11 +45,11 @@ effort = "high"
 
 [roles.arc_qa.balanced]
 model = "haiku"
-effort = "max"
+effort = "high"
 
 [roles.arc_qa.smart]
 model = "sonnet"
-effort = "medium"
+effort = "high"
 
 [roles.arc_reviewer.economy]
 model = "sonnet"
@@ -60,5 +60,5 @@ model = "sonnet"
 effort = "high"
 
 [roles.arc_reviewer.smart]
-model = "opus"
-effort = "high"
+model = "sonnet"
+effort = "xhigh"
