@@ -30,3 +30,9 @@ test('unsafe native configurations fail without mutating input bytes',async()=>{
   assert.throws(()=>api.readRuntimeConcurrency(platform,Buffer.from([255])));
  }
 });
+test('Claude settings parser returns unrelated settings and rejects duplicate keys',async()=>{
+ const {parseClaudeSettings}=await import('../../lib/installer/runtime-config.mjs');
+ const input='{"env":{"TOKEN":"fixture"},"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"fixture"}]}]},"permissions":{"allow":["Read"]}}';
+ assert.deepEqual(parseClaudeSettings(input),JSON.parse(input));
+ assert.throws(()=>parseClaudeSettings('{"hooks":{},"hooks":{}}'),/Duplicate Claude settings key/);
+});
