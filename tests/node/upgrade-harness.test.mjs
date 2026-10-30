@@ -93,3 +93,15 @@ for(const platform of ['codex','claude'])for(const active of [false,true])test(p
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),fetchBefore=globalThis.fetch;globalThis.fetch=async()=>assert.fail('offline upgrade fetched catalog');
  try{const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),config);if(active)for(const bytes of plans[0].generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);}finally{globalThis.fetch=fetchBefore;}
 });
+test('upgrade plans Codex diagnostic registration using the freshly detected CLI',t=>{
+ const home=fixture(t);seed(home,'codex',true);const input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync('codex/skill/runtime/native-hook.mjs'));
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};
+ const plan=api.buildUpgradePlans({payload:input,state,safeFs,nativeCli:cli,nodePath:'/fixture/node'})[0];
+ assert.equal(plan.nativeHooks.record.cli.version,'0.111.0');assert.match(plan.globalChanges.find(c=>c.path===plan.target.runtimeConfigPath).content.toString(),/\[\[hooks\.PreToolUse\]\]/);
+});
+test('upgrade execution detects Codex from the provided PATH and installs its hook',async t=>{
+ const home=fixture(t);seed(home,'codex',true);const bin=path.join(home,'bin');fs.mkdirSync(bin);fs.writeFileSync(path.join(bin,'codex'),'#!/bin/sh\nprintf "codex-cli 0.111.0\\n"\n',{mode:0o755});
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{PATH:bin},cwd:home});
+ const result=await api.upgradeInstalledTargets({packageRoot:staticPackageFixture(t),state,safeFs,env:{PATH:bin},cwd:home});
+ assert.equal(result.results[0].status,'installed');const record=JSON.parse(fs.readFileSync(path.join(home,'.codex/skills/arc/native-hooks.json')));assert.equal(record.cli.executablePath,path.join(bin,'codex'));assert.equal(record.cli.version,'0.111.0');
+});

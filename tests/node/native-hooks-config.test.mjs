@@ -88,3 +88,35 @@ test('hook commands preserve whitespace and shell-special path characters',async
  const run=spawnSync('/bin/sh',['-c',codex.group.hooks[0].command],{encoding:'utf8'});
  assert.equal(run.status,0); assert.equal(run.stdout,entryPoint); assert.equal(run.stderr,'');
 });
+test('Codex owned metadata refresh preserves config bytes and records selected CLI identity',async()=>{
+ const {buildNativeHookDefinitions,renderNativeHooks}=await load();const base={platform:'codex',entryPoint:'/arc/diag.mjs',nodePath:'/node',settingsPath:'/fixture/config.toml',cli:{status:'detected',executablePath:'/old/codex',realpath:'/old/real',version:'1.0.0'}};
+ const initial=renderNativeHooks({platform:'codex',original:Buffer.from('model="x"\n'),definitions:buildNativeHookDefinitions(base)});
+ const cli={...base.cli,executablePath:'/new/codex',realpath:'/new/real',version:'1.1.0'},definitions=buildNativeHookDefinitions({...base,cli});
+ const result=renderNativeHooks({platform:'codex',original:initial.content,definitions,previousRecord:initial.record});assert.equal(result.action,'updated');assert.deepEqual(result.content,initial.content);assert.deepEqual(result.record.cli,cli);assert.notEqual(result.record.hash,initial.record.hash);
+ const again=renderNativeHooks({platform:'codex',original:result.content,definitions,previousRecord:result.record});assert.equal(again.action,'unchanged');assert.deepEqual(again.content,result.content);
+});
+test('Codex replaces exact owned command in place, preserving user hooks before and after',async()=>{
+ const {buildNativeHookDefinitions,renderNativeHooks}=await load();const base={platform:'codex',entryPoint:'/arc/old.mjs',nodePath:'/node',settingsPath:'/fixture/config.toml',cli:{status:'detected',version:'1.0.0'}};
+ const userBefore='[[hooks.PreToolUse]]\nmatcher="Before"\nhooks=[{type="command",command="before"}]\n';const initial=renderNativeHooks({platform:'codex',original:Buffer.from(userBefore),definitions:buildNativeHookDefinitions(base)});
+ const userAfter='\n[[hooks.PreToolUse]]\nmatcher="After"\nhooks=[{type="command",command="after"}]\n';const before=Buffer.concat([initial.content,Buffer.from(userAfter)]);
+ const result=renderNativeHooks({platform:'codex',original:before,definitions:buildNativeHookDefinitions({...base,entryPoint:'/arc/new.mjs',nodePath:'/new node'}),previousRecord:initial.record});
+ assert.equal(result.action,'updated');const text=result.content.toString();assert.ok(text.startsWith(userBefore));assert.ok(text.endsWith(userAfter));assert.ok(text.indexOf('before')<text.indexOf('/arc/new.mjs'));assert.ok(text.indexOf('/arc/new.mjs')<text.indexOf('after'));assert.doesNotMatch(text,/\/arc\/old.mjs/);
+});
+test('Codex refresh rejects moved or edited owned blocks and ambiguous references',async()=>{
+ const {buildNativeHookDefinitions,renderNativeHooks}=await load();const base={platform:'codex',entryPoint:'/arc/diag.mjs',nodePath:'/node',settingsPath:'/fixture/config.toml',cli:{status:'detected',version:'1.0.0'}};const d=buildNativeHookDefinitions(base);
+ const initial=renderNativeHooks({platform:'codex',original:Buffer.from('model="x"\n'),definitions:d});const next=buildNativeHookDefinitions({...base,cli:{...base.cli,version:'1.1.0'}});
+ for(const input of [Buffer.from('[[hooks.PreToolUse]]\nmatcher="Other"\nhooks=[{type="command",command="user"}]\n'+initial.content.toString()),Buffer.from(initial.content.toString().replace('/node','/edited')),Buffer.concat([initial.content,Buffer.from(initial.record.block)])]) {
+  const result=renderNativeHooks({platform:'codex',original:input,definitions:next,previousRecord:initial.record});assert.equal(result.action,'conflict');assert.deepEqual(result.content,input);
+ }
+});
+test('Codex removal preserves hooks appended after the owned block',async()=>{
+ const {buildNativeHookDefinitions,renderNativeHooks,removeNativeHooks}=await load(),d=buildNativeHookDefinitions({platform:'codex',entryPoint:'/arc/diag.mjs',nodePath:'/node',settingsPath:'/fixture/config.toml',cli:{status:'detected',version:'1.0.0'}});
+ const prefix='model="x"\n',suffix='\n[[hooks.Stop]]\nhooks=[{type="command",command="user"}]\n',initial=renderNativeHooks({platform:'codex',original:Buffer.from(prefix),definitions:d}),result=removeNativeHooks({platform:'codex',original:Buffer.concat([initial.content,Buffer.from(suffix)]),record:initial.record});
+ assert.equal(result.removed,true);assert.equal(result.content.toString(),prefix+suffix);
+});
+
+test('Codex refresh allows unrelated settings inserted before the same owned hook index',async()=>{
+ const {buildNativeHookDefinitions,renderNativeHooks}=await load();const base={platform:'codex',entryPoint:'/arc/diag.mjs',nodePath:'/node',settingsPath:'/fixture/config.toml',cli:{status:'detected',version:'1.0.0'}};
+ const initial=renderNativeHooks({platform:'codex',original:Buffer.from('model="x"\n'),definitions:buildNativeHookDefinitions(base)});const shifted=Buffer.from('# user setting\n'+initial.content.toString());
+ const result=renderNativeHooks({platform:'codex',original:shifted,definitions:buildNativeHookDefinitions({...base,cli:{...base.cli,version:'1.1.0'}}),previousRecord:initial.record});assert.equal(result.action,'updated');assert.deepEqual(result.content,shifted);
+});

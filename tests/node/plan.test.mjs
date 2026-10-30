@@ -221,3 +221,89 @@ for(const platform of ['codex','claude'])test(platform+' built-in Install preser
  const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
  const result=plan(home,platform,{preset:'economy',preservedCustomRoles:roles});const parsed=result.generated.models.toString();assert.match(parsed,/preset = "economy"/);assert.match(parsed,/saved-model/);
 });
+test('Codex install plan registers the diagnostic hook and ownership record in one settings change',t=>{
+ const home=fixture(t),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};
+ const input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));
+ const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const p=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'});
+ const config=p.globalChanges.filter(change=>change.path===path.join(target.home,'config.toml'));
+ assert.equal(config.length,1);assert.match(config[0].content.toString(),/\[\[hooks\.PreToolUse\]\]/);
+ const record=JSON.parse(p.generated.skill.get('native-hooks.json'));assert.equal(record.mode,'diagnostic');assert.equal(record.cli.executablePath,'/fixture/codex');assert.equal(record.entryPoint,path.join(target.home,'skills/arc/runtime/native-hook.mjs'));assert.ok(p.nativeHooks);
+});
+test('Codex install rolls back when published diagnostic settings drift before verification',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));
+ const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};
+ const plan=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'});
+ const {installTargets}=await import('../../lib/installer/install.mjs');
+ const result=await installTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish'&&event.path===path.join(target.home,'config.toml'))fs.appendFileSync(event.path,'\n# drift\n');}}});
+ assert.equal(result.results[0].status,'failed');
+});
+test('skip-global reinstall preserves existing Codex hook ownership and runtime',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));
+ const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};
+ const first=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'});
+ const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets([first],{safeFs})).results[0].status,'installed');
+ const owner=path.join(target.home,'skills/arc/native-hooks.json'),before=fs.readFileSync(owner);
+ const next=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,skipGlobal:true});
+ assert.equal((await installTargets([next],{safeFs})).results[0].status,'installed');assert.deepEqual(fs.readFileSync(owner),before);
+});
+test('unknown Codex CLI leaves diagnostic hook unregistered and reports unsupported',t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));
+ const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const p=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:{status:'unknown',executablePath:null,realpath:null,version:null,failureBlocking:false},nodePath:'/fixture/node'});
+ assert.equal(p.nativeHooks.status,'unsupported');assert.equal(p.generated.skill.has('native-hooks.json'),false);assert.doesNotMatch(p.globalChanges.find(c=>c.path===target.runtimeConfigPath).content.toString(),/\[\[hooks\.PreToolUse\]\]/);
+});
+test('unknown Codex CLI still installs ARC without registering a hook',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));
+ const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});const plan=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:{status:'unknown',executablePath:null,realpath:null,version:null,failureBlocking:false}});
+ const {installTargets}=await import('../../lib/installer/install.mjs');const result=await installTargets([plan],{safeFs});assert.equal(result.results[0].status,'installed');
+});
+test('reinstall refreshes changed Codex CLI metadata without modifying owned hook',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const cli={status:'detected',executablePath:'/first/codex',realpath:'/first/codex',version:'0.111.0',failureBlocking:false};
+ const first=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'});const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets([first],{safeFs})).results[0].status,'installed');
+ const original=fs.readFileSync(target.runtimeConfigPath),owner=fs.readFileSync(path.join(target.home,'skills/arc/native-hooks.json'));
+ const newCli={...cli,executablePath:'/second/codex',realpath:'/second/real',version:'0.112.0'};const next=api.buildInstallPlan({payload:input,target,preset:'balanced',safeFs,nativeCli:newCli,nodePath:'/fixture/node'});assert.equal((await installTargets([next],{safeFs})).results[0].status,'installed');
+ assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),original);const updated=fs.readFileSync(path.join(target.home,'skills/arc/native-hooks.json'));assert.notDeepEqual(updated,owner);assert.deepEqual(JSON.parse(updated).cli,newCli);
+});
+test('reinstall refuses modified owned diagnostic runtime before replacing files',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};const args={payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'};
+ const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets([api.buildInstallPlan(args)],{safeFs})).results[0].status,'installed');
+ const runtime=path.join(target.home,'skills/arc/runtime/native-hook.mjs');fs.appendFileSync(runtime,'\n// modified\n');
+ assert.throws(()=>api.buildInstallPlan(args),/runtime.*drift/i);assert.match(fs.readFileSync(runtime,'utf8'),/modified/);
+});
+test('idempotent Codex reinstall verifies unchanged native settings before commit',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};const args={payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'};
+ const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets([api.buildInstallPlan(args)],{safeFs})).results[0].status,'installed');
+ const plan=api.buildInstallPlan(args);let injected=false;const result=await installTargets([plan],{safeFs,hooks:{fault(event){if(!injected&&event.phase==='after-publish'&&event.path===target.home+'/skills/arc'){injected=true;fs.appendFileSync(target.runtimeConfigPath,'\n# external drift\n');}}}});
+ assert.equal(result.results[0].status,'failed');
+});
+test('skip-global without native owner does not add an absent owner snapshot',t=>{
+ const home=fixture(t),p=plan(home,'codex',{skipGlobal:true});assert.equal(p.snapshot.has(path.join(p.target.home,'skills/arc/native-hooks.json')),false);
+});
+test('reinstall migrates exact owned legacy entrypoint within ARC to current diagnostic path',async t=>{
+ const home=fixture(t),input=payload(),runtimeBytes=fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url));input.files.set('codex/skill/runtime/native-hook.mjs',runtimeBytes);const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});const cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};const args={payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'};
+ const {installTargets}=await import('../../lib/installer/install.mjs'),{buildNativeHookDefinitions,renderNativeHooks,removeNativeHooks}=await import('../../lib/installer/native-hooks.mjs');assert.equal((await installTargets([api.buildInstallPlan(args)],{safeFs})).results[0].status,'installed');
+ const arc=path.join(target.home,'skills/arc'),ownerPath=path.join(arc,'native-hooks.json'),oldRecord=JSON.parse(fs.readFileSync(ownerPath)),old=removeNativeHooks({platform:'codex',original:fs.readFileSync(target.runtimeConfigPath),record:oldRecord});assert.equal(old.removed,true);
+ const legacy=path.join(arc,'runtime/legacy-hook.mjs');fs.renameSync(oldRecord.entryPoint,legacy);const def=buildNativeHookDefinitions({platform:'codex',entryPoint:legacy,nodePath:'/fixture/node',cli,settingsPath:target.runtimeConfigPath}),rendered=renderNativeHooks({platform:'codex',original:old.content,definitions:def});fs.writeFileSync(target.runtimeConfigPath,rendered.content);fs.writeFileSync(ownerPath,JSON.stringify({...rendered.record,runtimeHash:oldRecord.runtimeHash}));
+ const next=api.buildInstallPlan(args);assert.equal((await installTargets([next],{safeFs})).results[0].status,'installed');assert.equal(JSON.parse(fs.readFileSync(ownerPath)).entryPoint,path.join(arc,'runtime/native-hook.mjs'));assert.match(fs.readFileSync(target.runtimeConfigPath,'utf8'),/native-hook.mjs/);
+});
+test('failed diagnostic command replacement rolls back config and ownership together',async t=>{
+ const home=fixture(t),input=payload();input.files.set('codex/skill/runtime/native-hook.mjs',fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url)));const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false};
+ const {installTargets}=await import('../../lib/installer/install.mjs'),args={payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/old/node'};assert.equal((await installTargets([api.buildInstallPlan(args)],{safeFs})).results[0].status,'installed');const owner=path.join(target.home,'skills/arc/native-hooks.json'),config=fs.readFileSync(target.runtimeConfigPath),record=fs.readFileSync(owner),next=api.buildInstallPlan({...args,nodePath:'/new/node'});
+ const result=await installTargets([next],{safeFs,hooks:{fault(event){if(event.phase==='after-publish'&&event.path===target.runtimeConfigPath)throw Error('fixture');}}});assert.equal(result.results[0].status,'failed');assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),config);assert.deepEqual(fs.readFileSync(owner),record);
+});
+test('reinstall refreshes runtime hash when verified payload changes',async t=>{
+ const home=fixture(t),input=payload(),original=fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url));input.files.set('codex/skill/runtime/native-hook.mjs',original);const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false},args={payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'};
+ const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets([api.buildInstallPlan(args)],{safeFs})).results[0].status,'installed');const owner=path.join(target.home,'skills/arc/native-hooks.json'),prior=JSON.parse(fs.readFileSync(owner)),config=fs.readFileSync(target.runtimeConfigPath);
+ input.files.set('codex/skill/runtime/native-hook.mjs',Buffer.concat([original,Buffer.from('\n// new verified payload\n')]));const result=await installTargets([api.buildInstallPlan(args)],{safeFs});assert.equal(result.results[0].status,'installed');const current=JSON.parse(fs.readFileSync(owner));assert.notEqual(current.runtimeHash,prior.runtimeHash);assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),config);
+});
+test('published diagnostic runtime tampering fails verification and preserves external change for recovery',async t=>{
+ const home=fixture(t),input=payload(),original=fs.readFileSync(new URL('../../codex/skill/runtime/native-hook.mjs',import.meta.url));input.files.set('codex/skill/runtime/native-hook.mjs',original);const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),cli={status:'detected',executablePath:'/fixture/codex',realpath:'/fixture/codex',version:'0.111.0',failureBlocking:false},args={payload:input,target,preset:'balanced',safeFs,nativeCli:cli,nodePath:'/fixture/node'};
+ const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets([api.buildInstallPlan(args)],{safeFs})).results[0].status,'installed');
+ const arc=path.join(target.home,'skills/arc'),runtime=path.join(arc,'runtime/native-hook.mjs');input.files.set('codex/skill/runtime/native-hook.mjs',Buffer.concat([original,Buffer.from('\n// updated payload\n')]));let injected=false;
+ const result=await installTargets([api.buildInstallPlan(args)],{safeFs,hooks:{fault(event){if(!injected&&event.phase==='after-publish'&&event.path===arc){injected=true;fs.appendFileSync(runtime,'\n// external change\n');}}}});
+ const item=result.results[0];assert.equal(injected,true);assert.equal(item.status,'failed');assert.match(item.error.cause?.message??item.error.message,/Published native installation changed/);assert.equal(item.rollback,'failed');assert.ok(item.residualPaths.includes(arc));assert.match(fs.readFileSync(runtime,'utf8'),/external change/);
+});

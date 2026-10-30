@@ -15,12 +15,12 @@
 **설계 기준 HEAD:** 8c88952e9c0178fdb07ad521a51b6620e08503ea<br>
 **T3 보완 시작 HEAD:** 675e8ab095806ab80d524046ff59965974c98437
 
-상태: 사용자 승인으로 T1–T5 실행 중. 2026-10-31 보완 계획은 마지막 절에서 T3–T5, E1/E2 및 AC-07의 현재 기준을 정한다. 최신 절은 T3를 독립 수용 가능한 Codex T3a와 E1에 종속된 Claude T3b로 나눈다. 완료된 T1/T2의 승인·커밋은 유지한다.
+상태: 사용자 승인으로 T1–T5 실행 중. 2026-10-31 보완 절에서 T3를 Codex T3a와 E1에 종속된 Claude T3b로 나누고, T4를 독립 Codex T4a와 Claude T3b/E2에 종속된 T4b로 나눈다. 완료된 T1/T2/T3a 수용·커밋은 유지한다.
 
 ## 1. 전역 제약과 결정
 
 - 현재 checkout은 `/Users/yunho/Desktop/project/arc`의 `feat/codex-claude-runtime-gates`다. 초기 계획의 이전 workspace 경로를 실행 대상으로 사용하지 않는다.
-- T1·T2는 각각 `07c083b9`, `675e8ab`로 수용·커밋했다. Codex diagnostic-only T3a는 focused checks와 fresh QA를 통과해 source 범위에서 수용했다. 실제 Codex host 증거는 T5에 남는다. Claude T3b provider는 E1/E2가 미확인이라 구현·수용을 보류한다.
+- T1·T2·T3a는 각각 `07c083b9`, `675e8ab`, `7173d9b`로 수용·커밋했다. T3a는 focused checks와 fresh QA를 통과해 source 범위에서 수용했다. 실제 Codex host 증거는 T5에 남는다. Claude T3b provider는 E1/E2가 미확인이라 구현·수용을 보류한다.
 - 저장소 구현·fixture 검증 중 현재 사용자의 Codex/Claude 설정을 수정하지 않는다. 설치·제거와 실제 호스트 검증은 격리 fixture/환경에서만 수행한다.
 - 다른 사용자 훅과 순서를 보존하고, 소유권을 확인한 ARC 항목만 갱신·제거한다.
 - Codex exact-definition trust와 Claude plugin/workspace trust 및 managed settings를 우회하지 않는다.
@@ -75,10 +75,11 @@ E2가 없으면 실제 callback·trust·Claude 거부 적용·hook failure 처�
 | T2 | publish 후 검증, rollback, 안전한 제거 | transaction.mjs, uninstall.mjs |
 | T3a | Codex diagnostic-only callback, portable core 분리·생성물 | native diagnostic 모듈·tests; runtime core·asset generator·manifest |
 | T3b | Claude provider, resolver·검증 gate | Claude Mod source·portable core 연결; adapters·schema·capabilities |
-| T4 | 자동 설치·갱신·상태 진단 연결 | plan.mjs, install.mjs, upgrade.mjs, management status |
+| T4a | Codex 진단 훅 자동 설치·갱신·제거·상태 | plan.mjs, install.mjs, upgrade.mjs, management status |
+| T4b | Claude Mod lifecycle와 기존 gate 전환 | native-plugin.mjs, install/uninstall lifecycle, management status |
 | T5 | 실제 호스트·분배물·정책·문서 | probe, package tests, 정책·문서·manifest |
 
-의존성: T1 → T2, T1 → T3a → T3b, T1·T2·T3a·T3b → T4 → T5. T1·T2·T3a는 E1/E2와 독립적으로 수용할 수 있다. 같은 파일을 여러 작업이 변경하면 앞 작업 수용 후 순차 인계한다.
+의존성: T1 → T2, T1 → T3a → T3b, T1·T2·T3a → T4a, T3b·T4a → T4b, T3a·T3b·T4a·T4b → T5. T1·T2·T3a·T4a는 Claude E1/E2와 독립 수용할 수 있다. 같은 파일을 여러 작업이 변경하면 앞 작업 수용 후 순차 인계한다.
 
 ---
 
@@ -647,7 +648,7 @@ git diff --check
 
 **커밋:** `feat(runtime): Codex 진단 callback과 사용자 저장소 추가`
 
-**수용 기록:** 2026-10-31 fresh QA에서 지정 테스트 96/96 통과, runtime asset generator 54개 파일 일치, protected manifest 226개 파일 통과를 확인했다. portable policy core와 POSIX/Windows 경로 단위 검사 및 Codex allowlist/non-interference 테스트를 포함한다. 실제 Codex host callback/trust 증거는 T5 범위다.
+**수용 기록:** 2026-10-31 fresh QA에서 지정 테스트 96/96 통과, runtime asset generator 54개 파일 일치, protected manifest 226개 파일 통과를 확인했다. portable policy core와 POSIX/Windows 경로 단위 검사 및 Codex allowlist/non-interference 테스트를 포함한다. 실제 Codex host callback/trust 증거는 T5 범위다. T3a commit: `7173d9b`.
 
 ### T3b — Claude Mods provider와 verified binding gate
 
@@ -661,4 +662,75 @@ git diff --check
 
 **커밋:** `feat(runtime): Claude Mod provider와 검증 binding gate 추가`
 
-T3 전체 완료는 T3a와 T3b가 모두 수용된 경우에만 표시한다. 후속 의존성은 `T1 → T2`, `T1 → T3a → T3b`, `T1·T2·T3a·T3b → T4 → T5`다. 각 작업은 fresh QA와 필요한 재검증 이후 하나의 focused commit을 남긴다.
+T3 전체 완료는 T3a와 T3b가 모두 수용된 경우에만 표시한다. 각 작업은 fresh QA와 필요한 재검증 이후 하나의 focused commit을 남긴다.
+
+## 11. 2026-10-31 T4 실행 경계 분리 — Codex lifecycle 독립 수용
+
+이 절은 T4의 수용·커밋 경계를 나눈다. 기존 자동 설치·갱신·제거·보존·상태 보고 계약은 유지하며, 승인 범위의 기능이나 보안 보장을 바꾸지 않는다. 공유 installer 파일은 T4a 수용 후 T4b에 순차 인계한다.
+
+### T4a — Codex diagnostic hook 자동 관리와 상태 연결
+
+**목표:** T3a의 Codex diagnostic-only entrypoint를 설치·재설치·갱신·제거에 연결하고, 등록 상태와 실제 host 증거를 분리해 표시한다.
+
+**선행:** T1·T2·T3a 수용. T3a commit `7173d9b`. Claude E1/T3b와 독립이다.
+
+**파일 책임**
+
+- 수정: `lib/installer/plan.mjs`, `install.mjs`, `upgrade.mjs`, `lib/management/status.mjs`.
+- CLI 탐지는 async orchestration에서 계획에 입력으로 전달하므로 수정: `lib/management/operations.mjs`, `lib/management/update.mjs`, `lib/npm/upgrade.mjs` 및 관련 update child protocol.
+- 필요 시 수정: `lib/installer/native-hooks.mjs`, `native-cli.mjs`, `runtime-config.mjs`, `uninstall.mjs`, `lib/cli/root.mjs`, `lib/tui/render.mjs`.
+- 수정: `tests/node/plan.test.mjs`, `install.test.mjs`, `management-status.test.mjs`, `management-update.test.mjs`, `upgrade-harness.test.mjs`, `upgrade-process.test.mjs`, `npm-upgrade-consumer.test.mjs`, `uninstall.test.mjs`, `tui-app.test.mjs`.
+- 생성: `tests/node/native-hook-lifecycle.test.mjs`의 Codex 사례.
+- 필요할 때 생성물·manifest를 갱신한다. T3a runtime 계약을 보존한다.
+- Claude plugin 등록·bootstrap·native receipt·gate 활성화는 포함하지 않는다.
+
+**구현 기준**
+
+- `detectNativeCli`는 async management/upgrade caller에서 먼저 수행하고 결과를 순수한 `buildInstallPlan`/`buildUpgradePlans` 입력으로 전달한다. plan builder에서 subprocess, 네트워크 또는 user setting read를 실행하지 않는다. 기존 plan-purity 보장을 유지한다.
+- install plan은 감지한 Codex CLI 경로·버전, 실제 entrypoint/Node 경로, diagnostic mode, runtime hash를 기반으로 설정과 `native-hooks.json`을 함께 구성한다.
+- `plan.nativeHooks`에 예상 정의·소유 기록·post-publish validator 입력을 보관하고, T2의 `verifyPublished` 구간에서 설정을 재읽어 정의·경로를 확인한다.
+- instruction·concurrency·wait·hook 변경은 동일 설정 파일의 단일 transaction 변경으로 합성한다. 동일 정의를 불필요하게 재작성하지 않는다.
+- **재설치·갱신의 안전한 소유 기록 갱신:** 유효한 이전 소유 기록의 hash를 확인하고 기록된 설정 경로의 ARC 소유 정의가 실제 설정과 정확히 일치하며 중복·유사 참조가 없으면, CLI·runtime·entrypoint metadata 변경만으로 충돌 처리하지 않는다. 설정 경로가 동일하고 hook 정의가 같으면 설정 원본 bytes를 보존하며 감지한 CLI 경로·realpath·버전과 현재 runtime metadata로 소유 기록 및 hash만 갱신한다. hook command·정의가 바뀌면 정확히 확인한 ARC block만 같은 위치에서 교체하고 사용자 hook 순서와 관련 없는 설정 bytes를 보존한다. 설정 경로 변경, 손상·hash 불일치한 소유 기록, 실제 ARC block drift·이동·누락, 중복·모호한 정의 또는 유사 참조는 기존 conflict·보존 동작을 유지한다. 이 갱신은 T2 transaction과 rollback을 따른다.
+- CLI·runtime·entrypoint·정의가 바뀌면 과거 callback 또는 host 적용 evidence를 현재 성공으로 재사용하지 않는다. 현재 조건과 결합된 근거가 없으면 trust를 `unknown`으로 표시한다. 이는 host trust를 취소·변경했다는 뜻이 아니며, 동일 정의의 불필요한 재작성으로 새 trust 절차를 유발하지 않는다.
+- 제거는 T2의 소유권 검사, 설정 참조 재검증과 잔여 자산 보존을 따른다. `skipGlobal`, conflict, external drift, partial apply, rollback과 retained reference를 보고한다.
+- 상태에서 Codex 등록·entrypoint 연결·trust·callback-observed·diagnostic-only를 구분한다. 등록·진단 기록을 caller identity, ARC allow/deny 또는 도구 관리 보장으로 표시하지 않는다.
+- status는 전용 진단 JSONL의 안전하게 읽힌 allowlist record가 있을 때만 callback 기록을 `recorded`로 표시하고, 없거나 손상·접근 불가한 상태는 `unknown`으로 둔다. 이 기록은 host trust 또는 native policy 적용 증거가 아니다.
+- 공통 status schema는 Claude 상태를 성공으로 승격하지 않는다. Claude E1/T3b/T4b는 unsupported·unknown·pending 상태로 유지한다.
+
+**필수 focused checks와 fresh QA**
+
+```bash
+node --test tests/node/plan.test.mjs tests/node/install.test.mjs tests/node/management-status.test.mjs tests/node/management-update.test.mjs tests/node/native-hook-lifecycle.test.mjs tests/node/native-hooks-config.test.mjs tests/node/uninstall.test.mjs
+node --test tests/node/upgrade-harness.test.mjs tests/node/upgrade-process.test.mjs tests/node/npm-upgrade-consumer.test.mjs tests/node/tui-app.test.mjs
+node scripts/update-runtime-assets.mjs --check
+npm run check:manifest
+git diff --check
+```
+
+fresh QA는 임시 home에서 Codex 신규 설치·재설치·갱신·제거, 사용자 훅 보존, 특수문자 경로, `skipGlobal`, conflict·drift·검증 실패·rollback·잔여 참조를 확인한다. 설치된 entrypoint를 fixture subprocess로 실행해 설치 기록과 진단 저장소 연결을 검사한다. 공유 installer 변경의 Claude 회귀도 관련 검사로 확인한다. 관련 검사/QA finding 또는 미확인 영향이 남으면 수용을 보류한다.
+
+갱신 사례에는 이전 기록이 정확히 검증된 상태에서 CLI version/path/realpath만 변경될 때 재설치·upgrade 성공 및 설정 bytes 보존, metadata가 같을 때 완전한 idempotency, 정확한 ARC hook command 변경의 동일 위치 교체와 사용자 hook 순서 보존, 사용자 변경·위조 기록에 대한 conflict, metadata 변경 이후 과거 evidence 미승격을 포함한다. transaction 중 drift나 게시 후 검증 실패에서도 T2 rollback 및 외부 변경 보존을 확인한다.
+
+**수용:** Codex 자동 lifecycle, 설정·자산 보존, post-publish 검증, 상태 단계 구분이 focused checks와 fresh QA에서 확인된다. 실제 Codex host trust/callback 수용은 T5에 남기며 fixture를 대신으로 사용하지 않는다.
+
+**검증 기록 (2026-10-31):** fresh QA에서 §11.1 첫 그룹은 176개 중 167 통과·9 실패, 둘째 그룹은 84개 중 82 통과·2 실패였다. 11개 assertion 모두 T3a baseline archive에서 같은 실패로 재현되어 T4a 신규 회귀로 분류하지 않았다. `node scripts/update-runtime-assets.mjs --check`는 54개, `npm run check:manifest`는 226개를 통과했고 `git diff --check`도 통과했다. 메타데이터 refresh·제자리 command 교체·legacy entrypoint 이전·runtime drift·사용자 Stop hook 잔여 참조 보존은 fresh fixture QA에서 확인했다. 추가 post-publish runtime 변조 검사는 1/1 통과해 검증 실패, rollback 상태, residual 경로 및 외부 변경 보존을 확인했다. Orchestrator는 이 source 범위의 T4a를 수용한다. 11개 baseline 실패는 T5 전체 회귀에서 계속 추적한다. 이 검증은 실제 Codex host trust/callback을 증명하지 않으며, final Reviewer는 전체 계획 작업·필수 QA가 끝난 뒤 최종 변경을 검토한다.
+
+**보류:** 관련 check·QA finding·안전한 참조 정리가 미완이면 T4a 수용·커밋을 보류한다. Claude E1/T3b 미확인은 T4a를 막지 않는다.
+
+**커밋:** `feat(installer): Codex 진단 훅 자동 관리와 상태 연결`
+
+### T4b — Claude Mod plugin lifecycle와 기존 gate 전환
+
+**목표:** 기존 T4의 Claude plugin 설치·갱신·제거·상태 보고와 기존 ARC command gate의 안전한 전환을 수행한다.
+
+**선행:** T4a 및 T3b 수용, provider/UI/session/plugin-order 무결성의 E1/E2 증거. 최종 artifact의 전체 T5 검증은 이 선행 조건을 대체하지 않는다.
+
+**범위:** T4a가 수용한 공유 installer·management·CLI/TUI·test 파일을 순차 인계받는다. `lib/installer/native-plugin.mjs`, `tests/node/native-plugin.test.mjs`, Claude plugin assets·ownership·generator/manifest를 소유한다. `native-hook-lifecycle.test.mjs`에는 Claude 사례를 추가하고 Codex 회귀를 유지한다.
+
+**수용:** 기존 T4의 Claude Mod lifecycle·단일 gate 소유권·trust/managed 비우회·설정 및 자산 보존·상태 구분 검사와 fresh QA를 통과한다. 기존 command gate 제거가 검증되지 않으면 중복 구성을 수용하지 않는다. T4a Codex 계약을 회귀 검사한다.
+
+**현재 보류:** T3b와 approval/session/plugin-order E1/E2 증거가 미확인이다. 정적 `plugin validate`는 선행 조건이 아니다. 따라서 T4b 구현·수용·커밋을 보류한다.
+
+**커밋:** `feat(installer): Claude Mod 자동 관리와 기존 gate 전환`
+
+T4 전체 완료는 T4a와 T4b를 모두 수용한 경우에만 표시한다. 후속 의존성은 T4a: T1·T2·T3a 이후 진행, T4b: T4a·T3b·E1/E2 이후 진행, T5: T3a·T3b·T4a·T4b 이후 진행이다. T4a 커밋은 Claude provider 또는 전체 T4 완료를 뜻하지 않는다. T5의 전체 host·분배물·정책·문서 검증과 최종 Reviewer는 유지한다.

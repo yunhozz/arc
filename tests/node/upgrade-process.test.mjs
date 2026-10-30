@@ -29,3 +29,11 @@ test('parent cancellation preserves completed target and final rollback residual
  try{result=await api.runUpgradeChild({entryPath:entry,request:{},cwd:root,env:process.env,signal:controller.signal});}finally{clearTimeout(timer);watcher.close();}
  assert.equal(result.code,130);assert.equal(result.stdout,'codex: installed; rollback: not-needed\nclaude: interrupted; rollback: restored\n');assert.equal(result.stderr,'Residual path: /recovery/claude-stage\n');
 });
+test('npx upgrade detects native CLI using caller PATH rather than npm exec PATH',async t=>{
+ const {spawnSync}=await import('node:child_process');const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-npx-env-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ fs.mkdirSync(root+'/bin',{recursive:true});fs.mkdirSync(root+'/lib/management',{recursive:true});fs.writeFileSync(root+'/bin/arc.mjs','');fs.symlinkSync(root+'/bin/arc.mjs',root+'/bin/arc');fs.writeFileSync(root+'/package.json',JSON.stringify({name:'@yunhozz/arc',version:'1.2.3'}));
+ fs.writeFileSync(root+'/lib/management/update.mjs',`export async function runtime(){return {safeFs:{},inspectNpmContext:async()=>({kind:'npx',packageRoot:${JSON.stringify(root)}}),collectInstalledState:()=>({stateToken:'${'a'.repeat(64)}',targets:[{}]}),upgradeInstalledTargets:async({env,cwd})=>({env,cwd})}};export function report(result,out){out.write(JSON.stringify(result));return 0}`);
+ const callerPath='/fixture/caller',callerCwd=root;
+ const result=await api.runNpxUpgrade({context:{kind:'npx',npmCli:'/fixture/npm'},expectedVersion:'1.2.3',expectedStateToken:'a'.repeat(64),env:{PATH:callerPath},cwd:callerCwd,runNpm:async(_cli,args)=>{const run=spawnSync(process.execPath,['--input-type=module','-e',args.at(-1)],{cwd:root,env:{PATH:root+'/bin'}});return{code:run.status,stdout:run.stdout.toString(),stderr:run.stderr.toString()};}});
+ assert.equal(result.code,0,result.stderr);const received=JSON.parse(result.stdout);assert.equal(received.env.PATH,callerPath);assert.equal(received.cwd,callerCwd);
+});

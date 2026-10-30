@@ -194,3 +194,8 @@ test('Custom role focus hides the outer selection line but remains selectable',a
  assert.match(rendered.text,/│ > Scouter/);assert.doesNotMatch(rendered.text,/^> /m);
  assert.ok(session.screens.some(item=>item.title==='Select model — Scouter'));
 });
+test('home displays Codex diagnostic registration separately from trust and observed callbacks',async()=>{
+ const {runTui}=await load(),session=terminal([back]);
+ await runTui({session,context:{},services:{collectStatus:async()=>[{platform:'codex',state:'installed',nativeHooks:{registration:'registered',entrypoint:'connected',trust:'unknown',callbackObserved:'recorded',mode:'diagnostic-only'}}]}});
+ const rows=session.screens.find(s=>s.title==='ARC').rows.join('\n');assert.match(rows,/diagnostic-only/);assert.match(rows,/registered/);assert.match(rows,/connected/);assert.match(rows,/trust: unknown/);assert.match(rows,/callback: recorded/);
+});
