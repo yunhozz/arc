@@ -17,7 +17,7 @@ function visit(relative) {
   } else if (stat.isFile() && !mutable.has(relative)) files.set(relative,fs.readFileSync(filename));
   else if (!stat.isFile()) throw new Error(`Protected payload is not regular: ${relative}`);
 }
-for (const entry of ['README.md', 'install.command', 'package.json', 'bin', 'lib', 'native/binding.c', 'native/binding.gyp', 'scripts', 'vendor', 'prebuilds', 'codex/skill', 'codex/agents', 'claude/skill', 'claude/agents']) visit(entry);
+for (const entry of ['README.md', 'install.command', 'package.json', 'bin', 'lib', 'native/binding.c', 'native/binding.gyp', 'scripts', 'vendor', 'prebuilds', 'codex/skill', 'codex/agents', 'claude/skill', 'claude/agents', 'claude/plugin']) visit(entry);
 const content = renderManifest(files);
 const manifest = path.join(root, 'MANIFEST.sha256');
 if (process.argv.includes('--check')) {

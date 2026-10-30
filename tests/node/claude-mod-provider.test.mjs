@@ -1,0 +1,110 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const load=()=>import('../../claude/plugin/hooks/register.mjs').catch(()=>({}));
+test('official plugin hook module registers Claude command and host middleware events',async()=>{
+ assert.ok(fs.existsSync('claude/plugin/hooks/hooks.json'));const hooks=JSON.parse(fs.readFileSync('claude/plugin/hooks/hooks.json','utf8'));assert.deepEqual(hooks.modules,['./register.mjs']);const {register}=await load();assert.equal(typeof register,'function');
+ const entries=[];register((event,matcher,handler)=>{entries.push(event);return{catch(){}};});
+ for(const event of ['session.start','session.end','command.run','tool.check','agent.spawn'])assert.ok(entries.includes(event),event);
+});
+test('unverified provider refuses tool and agent authorization regardless of forged input',async()=>{
+ const {register}=await load();assert.equal(typeof register,'function');const entries=new Map();register((event,matcher,handler)=>{entries.set(event,typeof matcher==='function'?matcher:handler);return{catch(){}};},{verified:true});
+ const next=async()=>({decision:'allow'}),tool=await entries.get('tool.check')({}, {tool:'Bash',input:{command:'ls'},verified:true},next);assert.equal(tool.decision,'deny');
+ const child=await entries.get('agent.spawn')({}, {agent:'planner',verified:true},next);assert.ok(child.deny);
+});
+test('proposal captures canonical exact scope and detects replay, expiration and drift without issuing authority',async()=>{
+ const api=await import('../../claude/plugin/hooks/provider.mjs').catch(()=>({}));assert.equal(typeof api.createProposal,'function');
+ const scope={workflowId:'wf1',taskId:'task1',target:{realpath:'/repo',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',head:'a'.repeat(40),branch:'work'},documents:[{path:'/repo/spec.md',hash:'sha256:'+'1'.repeat(64)}],paths:['/repo/src'],operations:['read'],role:'implementer',parentBinding:'parent-1',assignment:'assignment-1',lease:'lease-1',revision:1,policyHash:'sha256:'+'2'.repeat(64)};
+ const proposal=await api.createProposal(scope,{now:1000,generation:'generation-1'});assert.equal(proposal.status,'proposed');assert.match(proposal.scopeHash,/^sha256:[a-f0-9]{64}$/);assert.ok(proposal.nonce);
+ assert.equal((await api.checkProposal(proposal,scope,{now:1001,generation:'generation-1'})).status,'valid');
+ assert.notEqual((await api.checkProposal(proposal,{...scope,revision:2},{now:1001,generation:'generation-1'})).status,'valid');
+ assert.notEqual((await api.checkProposal(proposal,scope,{now:999999,generation:'generation-1'})).status,'valid');
+ assert.notEqual((await api.checkProposal({...proposal,consumed:true},scope,{now:1001,generation:'generation-1'})).status,'valid');
+ assert.equal(api.providerStatus().activation,'unavailable');
+});
+test('child assignment requires exact parent, task, role, paths and operations',async()=>{
+ const api=await import('../../claude/plugin/hooks/provider.mjs');assert.equal(typeof api.checkChildAssignment,'function');
+ const parent={bindingId:'parent-1',taskId:'task-1',actorRef:'root',leaseId:'lease-1',status:'active',lease:{leaseId:'lease-1',taskId:'task-1',actorRef:'root',status:'active'}},assignment={parentBinding:'parent-1',parentActor:'root',parentLease:'lease-1',taskId:'task-1',role:'implementer',paths:['/repo/src'],operations:['read','write']};
+ assert.equal(api.checkChildAssignment(parent,assignment,{...assignment}).status,'matched');
+ for(const changed of [{role:'qa'},{taskId:'other'},{paths:['/repo']},{operations:['read']},{parentLease:'other'}])assert.notEqual(api.checkChildAssignment(parent,assignment,{...assignment,...changed}).status,'matched');
+ assert.notEqual(api.checkChildAssignment(null,assignment,assignment).status,'matched');
+ for(const changed of [{status:undefined},{status:'retired'},{lease:null},{lease:{...parent.lease,status:undefined}},{lease:{...parent.lease,status:'retired'}},{lease:{...parent.lease,leaseId:'other'}},{lease:{...parent.lease,taskId:'other'}},{lease:{...parent.lease,actorRef:'other'}}])assert.notEqual(api.checkChildAssignment({...parent,...changed},assignment,assignment).status,'matched');
+});
+test('confirmation consumes a scoped proposal once without creating active authority',async()=>{
+ const api=await import('../../claude/plugin/hooks/provider.mjs');assert.equal(typeof api.createProposalStore,'function');
+ const scope={workflowId:'wf1',taskId:'task1',target:{realpath:'/repo',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',head:'a'.repeat(40),branch:'work'},documents:[{path:'/repo/spec.md',hash:'sha256:'+'1'.repeat(64)}],paths:['/repo/src'],operations:['read'],role:'implementer',parentBinding:'parent-1',assignment:'assignment-1',lease:'lease-1',revision:1,policyHash:'sha256:'+'2'.repeat(64)};
+ const store=api.createProposalStore(),proposal=await store.propose(scope);const outcomes=await Promise.all([store.consume(proposal.nonce,scope),store.consume(proposal.nonce,scope)]);assert.deepEqual(outcomes.map(x=>x.status).sort(),['consumed-unverified','invalid']);assert.ok(outcomes.every(x=>!x.receipt&&!x.binding&&!x.identity&&!x.lease));
+});
+test('tool.check preserves host deny and ask while unverified allow is tightened',async()=>{
+ const {register}=await load();assert.equal(typeof register,'function');const entries=new Map();register((event,matcher,handler)=>{entries.set(event,typeof matcher==='function'?matcher:handler);return{catch(){}};});
+ for(const decision of ['deny','ask']){const result={decision,reason:'host rule'};assert.deepEqual(await entries.get('tool.check')({}, {tool:'Bash',input:{command:'echo hi'}},async()=>result),result);}
+ const result=await entries.get('tool.check')({}, {tool:'Write',input:{file_path:'/repo/a'}},async()=>({decision:'allow'}));assert.equal(result.decision,'deny');
+});
+test('portable Claude adapter preserves final tool input without promoting caller identity',async()=>{
+ const api=await import('../../claude/plugin/hooks/mod-adapter.mjs').catch(()=>({}));assert.equal(typeof api.normalizeToolCheck,'function');
+ const event={tool:'Write',input:{file_path:'/repo/a',content:'data'},agentId:'claimed-agent',verified:true};const result=api.normalizeToolCheck(event);
+ assert.equal(result.toolName,'Write');assert.deepEqual(result.arguments,{file_path:'/repo/a',content:'data'});assert.equal(result.actorRef,null);assert.equal(result.hostIntegrity,'unverified');assert.equal(result.activation,'unavailable');
+});
+function completeRootFixture(state){
+ const hash=state.versions.policyHash,target=state.target,documents=['spec','plan'].map(kind=>({kind,path:'/repo/'+kind+'.md',gitPath:kind+'.md',contentHash:hash,approvalRef:'approved',commit:target.head}));state.documents=[];Object.assign(state.tasks[0],{approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:1,targetVersion:1});state.records=[{kind:'approval',messageRef:'approved',actor:{id:'operator',role:'orchestrator'},source:'operator-attested',scopeVersion:1,targetVersion:1,data:{approvalVersion:1,documentVersion:1,documents}}];Object.assign(state.intents[0],{target,targetVersion:1,scopeVersion:1,approvalRef:'approved',approvalVersion:1,documentVersion:1,documents,correlation:'dispatch',docsCommit:target.head});return state;
+}
+test('root proposal projects validated cooperative task scope without any native parent or lease',async()=>{
+ const api=await import('../../claude/plugin/hooks/provider.mjs');assert.equal(typeof api.resolveRootProposalScope,'function');
+ const target={realpath:'/repo',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',head:'a'.repeat(40),branch:'work'},hash='sha256:'+'1'.repeat(64),state={workflowKind:'cooperative',contractVersion:1,schemaVersion:1,mode:'plan',workflowId:'wf1',revision:2,scopeVersion:1,targetVersion:1,target,versions:{policy:'1',runtime:'1',policyHash:hash,runtimeHash:hash},coverage:{provenance:'operator-attested',nativeVerified:false,enforcement:'cooperative'},actors:[],selections:[],assignments:[],identities:[],leases:[],approvals:[],requests:[],results:[],checks:[],findings:[],acceptances:[],commits:[],audit:[],unresolved:[],records:[],targetHistory:[],scopes:[{scopeVersion:1,source:'operator-attested',data:{paths:['/repo/src']}}],documents:[{source:'operator-attested',path:'/repo/spec.md',contentHash:hash}],tasks:[{id:'task1',paths:['/repo/src'],criteria:['ok'],requiredChecks:[],dependencies:[],status:'pending'}],intents:[{requestId:'assignment-1',taskId:'task1',operation:'assign-agent',status:'prepared',role:'implementer',paths:['/repo/src'],operations:['edit'],fingerprint:hash,source:'operator-attested'}]};
+ completeRootFixture(state);const scope=api.resolveRootProposalScope({workflowId:'wf1',taskId:'task1',state,target,documentHashes:{'/repo/spec.md':hash,'/repo/plan.md':hash}});assert.equal(scope.parentBinding,null);assert.equal(scope.parentLease,null);assert.deepEqual(scope.operations,['edit']);assert.equal(scope.source,'operator-attested-proposal');
+ assert.throws(()=>api.resolveRootProposalScope({workflowId:'wf1',taskId:'task1',state,target,documentHashes:{'/repo/spec.md':'sha256:'+'2'.repeat(64),'/repo/plan.md':hash}}));
+ assert.throws(()=>api.resolveRootProposalScope({workflowId:'wf1',taskId:'task1',state:{...state,workflowKind:'provider'},target,documentHashes:{'/repo/spec.md':hash,'/repo/plan.md':hash}}));
+});
+test('/arc-bind produces a read-only root proposal from cooperative state and current document bytes',async()=>{
+ const {register}=await load(),entries=new Map();register((event,matcher,handler)=>{entries.set(event,typeof matcher==='function'?matcher:handler);return{catch(){}};});
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('spec')),hash='sha256:'+Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join(''),target={realpath:'/repo',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',head:'a'.repeat(40),branch:'work'},state={workflowKind:'cooperative',contractVersion:1,schemaVersion:1,mode:'plan',workflowId:'wf1',revision:2,scopeVersion:1,targetVersion:1,target,versions:{policy:'1',runtime:'1',policyHash:hash,runtimeHash:hash},coverage:{provenance:'operator-attested',nativeVerified:false,enforcement:'cooperative'},actors:[],selections:[],assignments:[],identities:[],leases:[],approvals:[],requests:[],results:[],checks:[],findings:[],acceptances:[],commits:[],audit:[],unresolved:[],records:[],targetHistory:[],scopes:[{scopeVersion:1,source:'operator-attested',data:{paths:['/repo/src']}}],documents:[{source:'operator-attested',path:'/repo/spec.md',contentHash:hash}],tasks:[{id:'task1',paths:['/repo/src'],criteria:['ok'],requiredChecks:[],dependencies:[],status:'pending'}],intents:[{requestId:'assignment-1',taskId:'task1',operation:'assign-agent',status:'prepared',role:'implementer',paths:['/repo/src'],operations:['edit'],fingerprint:hash,source:'operator-attested'}]};
+ completeRootFixture(state);const replies=[target.realpath,target.gitCommonDir,target.gitDir,target.head,target.branch],opened=[];const $={process:{run:async()=>({exitCode:0,stdout:replies.shift()+'\n'})},fs:{stat:async name=>({kind:'file',isLink:false,realPath:name,size:4}),read:async(name,options)=>name.endsWith('/state.json')?JSON.stringify(state):['/repo/spec.md','/repo/plan.md'].includes(name)&&options?.as==='bytes'?{base64:btoa('spec')}:assert.fail('unexpected read')},ui:{open:async value=>opened.push(value),close:async()=>{},invalidate:()=>{},resolve:()=>({Box:props=>({type:'Box',...props}),Text:props=>({type:'Text',...props}),Button:props=>({type:'Button',...props})})}};
+ const result=await entries.get('command.run')($,{args:'wf1 task1',origin:{kind:'composer'}});assert.match(result.text,/Unverified ARC proposal/);assert.match(result.text,/"parentBinding":null/);assert.match(result.text,/"parentLease":null/);assert.doesNotMatch(result.text,/"receipt"/);
+ assert.equal(opened.length,1);assert.equal(typeof entries.get('ui.render'),'function');const pane=await entries.get('ui.render')($,{requestId:opened[0].id,component:'Pane',surface:'terminal'},async()=>({type:'host'}));const nodes=[];const visit=node=>{nodes.push(node);for(const child of node.children??[])if(typeof child==='object')visit(child);};visit(pane);const displayed=nodes.filter(node=>node.type==='Text').flatMap(node=>node.children??[]).join(' ');for(const value of ['wf1','task1','/repo/src','edit','spec.md','plan.md'])assert.ok(displayed.includes(value),value);const confirm=nodes.find(node=>node.type==='Button'&&node.key==='confirm'),cancel=nodes.find(node=>node.type==='Button'&&node.key==='cancel');assert.ok(confirm);assert.ok(cancel);await confirm.onPress({surface:'terminal'});const after=await entries.get('ui.render')($,{requestId:opened[0].id,component:'Pane',surface:'terminal'},async()=>({type:'host'}));assert.match(JSON.stringify(after),/unavailable/i);await cancel.onPress({surface:'terminal'});
+});
+test('/arc-bind rejects non-composer origins before observing the workflow',async()=>{
+ const {register}=await load(),entries=new Map();register((event,matcher,handler)=>{entries.set(event,typeof matcher==='function'?matcher:handler);return{catch(){}};});
+ for(const origin of [{kind:'plugin'},{kind:'sdk'},{kind:'unclassified'},undefined]){
+  let reads=0;const $={process:{run:async()=>{reads++;throw Error('unexpected process');}},fs:{read:async()=>{reads++;throw Error('unexpected file read');}}};
+  const result=await entries.get('command.run')($,{args:'wf1 task1',origin});assert.equal(reads,0);assert.match(result.text,/composer/i);
+ }
+});
+test('portable policy bridge reports unresolved identity rather than promoting event claims',async()=>{
+ const api=await import('../../claude/plugin/hooks/mod-adapter.mjs');assert.equal(typeof api.assessToolCheck,'function');
+ const result=api.assessToolCheck({tool:'Bash',input:{command:'ls'},agentId:'claimed',verified:true});assert.equal(result.decision,'hold');assert.equal(result.coverage.enforcement,'decision-only');assert.equal(result.activeBinding,null);
+});
+test('resolved tool scope uses portable policy for allowed read and forbidden write',async()=>{
+ const {assessToolCheck}=await import('../../claude/plugin/hooks/mod-adapter.mjs'),hash='sha256:'+'a'.repeat(64),target={realpath:'/workspace',repository:'repo',worktree:'wt',branch:'main',baseHead:'base',head:'head'},versions={policy:'1',runtime:'1',adapter:'1',policyHash:hash,runtimeHash:hash,adapterHash:hash};
+ const state={schemaVersion:1,workflowId:'workflow',revision:0,versions,target,mode:'plan',documents:[],tasks:[{id:'T1',status:'pending',paths:['/workspace/file'],dependencies:[],baseCommit:'head',criteria:['criterion'],requiredChecks:[]}],identities:[{actorRef:'actor',role:'qa',taskId:'T1',observationRef:'obs'}],leases:[{actorRef:'actor',taskId:'T1',leaseId:'lease',status:'active'}],assignments:[{actorRef:'actor',taskId:'T1',role:'qa',paths:['/workspace/file'],operations:['read','write'],approvalRef:'approval'}],approvals:[{id:'approval',source:'human-confirmation',messageRef:'confirmed',contentHash:hash,scope:{taskId:'T1',target:'/workspace',operations:['read','write'],paths:['/workspace/file']}}],checks:[],findings:[],acceptances:[],commits:[],audit:[],capabilities:[],requests:[]};
+ const evidence={observedAt:'2026-10-20T00:00:00Z',target,revision:0,versions,resolvedPaths:[{path:'/workspace',realpath:'/workspace'},{path:'/workspace/file',realpath:'/workspace/file'}],provenance:[{id:'obs',source:'platform-event',eventRef:'call',actorRef:'actor',platform:'claude',verification:{status:'verified',verifierRef:'platform-provider',sourceRef:'call'}},{id:'approval',source:'human-confirmation',messageRef:'confirmed',contentHash:hash,verification:{status:'verified',verifierRef:'host-confirmation',sourceRef:'confirmed'}}]};
+ const policy=JSON.parse(fs.readFileSync(new URL('../../lib/policy/role-policy.json',import.meta.url))),observation={sessionId:'session',cwd:'/workspace',agentId:null},binding={status:'active',sessionId:'session',agentId:null,actorRef:'actor',taskId:'T1',leaseId:'lease'},source={read:async()=>({integrity:'verified',binding,policy,state,evidence})},read={tool:'Read',tool_use_id:'call',input:{file_path:'/workspace/file'}},write={tool:'Write',tool_use_id:'call',input:{file_path:'/workspace/file',content:'x'}};
+ const {resolveToolBinding}=await import('../../claude/plugin/hooks/provider.mjs');
+ assert.equal(assessToolCheck(read,observation,await resolveToolBinding(observation,read,source)).decision,'allow');
+ assert.equal(assessToolCheck(write,observation,await resolveToolBinding(observation,write,source)).decision,'deny');
+ assert.notEqual(assessToolCheck(read,{...observation,sessionId:'other'},await resolveToolBinding({...observation,sessionId:'other'},read,source)).decision,'allow');
+ assert.notEqual((await resolveToolBinding(observation,{...read,tool_use_id:undefined},source)).status,'ready');
+ assert.notEqual((await resolveToolBinding(observation,read,{read:async()=>({integrity:'unverified',binding,policy,state,evidence})})).status,'ready');
+ const {handleToolCheck}=await import('../../claude/plugin/hooks/register.mjs'),$={session:{id:async()=>observation.sessionId,cwd:async()=>observation.cwd}};
+ assert.equal(typeof handleToolCheck,'function');
+ assert.equal((await handleToolCheck($,read,async()=>({decision:'allow'}),source)).decision,'allow');
+ assert.equal((await handleToolCheck($,write,async()=>({decision:'allow'}),source)).decision,'deny');
+ for(const decision of ['deny','ask'])assert.deepEqual(await handleToolCheck($,read,async()=>({decision,reason:'host rule'}),source),{decision,reason:'host rule'});
+ assert.equal((await handleToolCheck($,read,async()=>({decision:'allow'}))).decision,'deny');
+});
+test('release payload includes protected Claude Mod module and portable policy dependencies',async()=>{
+ const {createHash}=await import('node:crypto');const pkg=JSON.parse(fs.readFileSync('package.json','utf8')),manifest=fs.readFileSync('MANIFEST.sha256','utf8');assert.ok(pkg.files.includes('claude/plugin/'));
+ for(const name of ['claude/plugin/.claude-plugin/plugin.json','claude/plugin/hooks/hooks.json','claude/plugin/hooks/register.mjs','claude/plugin/hooks/provider.mjs','claude/plugin/hooks/mod-adapter.mjs','claude/plugin/hooks/runtime/policy-core.mjs','claude/plugin/hooks/runtime/cooperative-schema.mjs']){
+  const digest=createHash('sha256').update(fs.readFileSync(name)).digest('hex');assert.ok(manifest.includes(digest+'  '+name+'\n'),name);
+ }
+});
+test('portable cooperative source validator agrees with the canonical validator on malformed state',async()=>{
+ const portable=await import('../../claude/plugin/hooks/runtime/cooperative-schema.mjs'),canonical=await import('../../lib/runtime/cooperative-schema.mjs');
+ for(const state of [null,{}, {workflowKind:'cooperative',schemaVersion:1,contractVersion:1,mode:'plan',workflowId:'wf1',revision:0}]){assert.throws(()=>portable.validateCooperativeState(state));assert.throws(()=>canonical.validateCooperativeState(state));}
+});
+test('root scope rejects a prepared intent whose approval, target or document context drifted',async()=>{
+ const api=await import('../../claude/plugin/hooks/provider.mjs'),target={realpath:'/repo',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',head:'a'.repeat(40),branch:'work'},hash='sha256:'+'1'.repeat(64),documents=[{source:'operator-attested',kind:'spec',path:'/repo/spec.md',gitPath:'spec.md',contentHash:hash,approvalRef:'approved',commit:'a'.repeat(40)},{source:'operator-attested',kind:'plan',path:'/repo/plan.md',gitPath:'plan.md',contentHash:hash,approvalRef:'approved',commit:'a'.repeat(40)}],state={workflowKind:'cooperative',contractVersion:1,schemaVersion:1,mode:'plan',workflowId:'wf1',revision:2,scopeVersion:1,targetVersion:1,target,versions:{policy:'1',runtime:'1',policyHash:hash,runtimeHash:hash},coverage:{provenance:'operator-attested',nativeVerified:false,enforcement:'cooperative'},actors:[],selections:[],assignments:[],identities:[],leases:[],approvals:[],requests:[],results:[],checks:[],findings:[],acceptances:[],commits:[],audit:[],unresolved:[],targetHistory:[],scopes:[{scopeVersion:1,source:'operator-attested',data:{paths:['/repo/src']}}],documents:[],tasks:[{id:'task1',paths:['/repo/src'],criteria:['ok'],requiredChecks:[],dependencies:[],status:'pending',approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:1,targetVersion:1}],records:[{kind:'approval',messageRef:'approved',actor:{id:'operator',role:'orchestrator'},source:'operator-attested',scopeVersion:1,targetVersion:1,data:{approvalVersion:1,documentVersion:1,documents}}],intents:[{requestId:'assignment-1',taskId:'task1',operation:'assign-agent',status:'prepared',role:'implementer',paths:['/repo/src'],operations:['edit'],fingerprint:hash,source:'operator-attested',target,targetVersion:1,scopeVersion:1,approvalRef:'approved',approvalVersion:1,documentVersion:1,documents,correlation:'dispatch',docsCommit:target.head}]},documentHashes={'/repo/spec.md':hash,'/repo/plan.md':hash};
+ assert.equal(api.resolveRootProposalScope({workflowId:'wf1',taskId:'task1',state,target,documentHashes}).parentBinding,null);
+ for(const mutate of [s=>s.intents[0].approvalRef='other',s=>s.tasks[0].scopeVersion=0,s=>s.intents[0].target.head='b'.repeat(40),s=>s.records[0].data.documentVersion=2,s=>s.intents[0].paths=['/repo/src/../outside'],s=>s.intents[0].operations=['push']]){const changed=structuredClone(state);mutate(changed);assert.throws(()=>api.resolveRootProposalScope({workflowId:'wf1',taskId:'task1',state:changed,target,documentHashes}));}
+});
+test('proposal pane displays complete scope and confirm cannot activate unverified provider',async()=>{
+ const {register}=await load(),entries=new Map();register((event,matcher,handler)=>{entries.set(event,typeof matcher==='function'?matcher:handler);return{catch(){}};});assert.equal(typeof entries.get('ui.render'),'function');
+ const other={requestId:'other',component:'Pane',surface:'terminal'},next=async()=>({type:'host'});assert.deepEqual(await entries.get('ui.render')({ui:{resolve(){throw Error('must not resolve');}}},other,next),{type:'host'});
+});

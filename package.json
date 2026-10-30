@@ -45,6 +45,7 @@
     "codex/agents/",
     "claude/skill/",
     "claude/agents/",
+    "claude/plugin/",
     "MANIFEST.sha256",
     "install.command",
     "!**/__pycache__/**",

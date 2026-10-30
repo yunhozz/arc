@@ -19,6 +19,13 @@ try{
  const entries=modules.map(name=>[name.slice('lib/runtime/'.length),fs.readFileSync(path.join(root,name))]);
  const policy=path.join(root,'lib/policy/role-policy.json');safe(policy);entries.push(['role-policy.json',fs.readFileSync(policy)]);
  const outputs=[];for(const platform of ['codex','claude'])for(const [name,bytes]of entries){const filename=path.join(root,platform,'skill/runtime',name);safe(filename);outputs.push({filename,bytes});}
+ const portable=['operations.mjs','path-core.mjs','schema-core.mjs','policy-core.mjs'];
+ for(const name of portable)outputs.push({filename:path.join(root,'claude/plugin/hooks/runtime',name),bytes:fs.readFileSync(path.join(root,'lib/runtime',name))});
+ const cooperative=fs.readFileSync(path.join(root,'lib/runtime/cooperative-schema.mjs'),'utf8');
+ const sourceImports="import {assertSecretFree} from './external.mjs';\nimport {object,text,validatePlannerLedger} from './schema.mjs';\nimport {absolute,validateWorkflowId} from './scope.mjs';";
+ if(!cooperative.includes(sourceImports))throw Error('Portable cooperative schema imports changed');
+ const adapted=cooperative.replace(sourceImports,"import {assertSecretFree,object,text,validatePlannerLedger,absolute,validateWorkflowId} from './cooperative-compat.mjs';");
+ outputs.push({filename:path.join(root,'claude/plugin/hooks/runtime/cooperative-schema.mjs'),bytes:Buffer.from(adapted)});
  let drift=false;for(const {filename,bytes}of outputs){if(!fs.existsSync(filename)||!fs.readFileSync(filename).equals(bytes)){drift=true;if(!check){fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,bytes);}}}
  if(check&&drift){console.error('Runtime payload drift');process.exitCode=1;}else console.log(`Runtime payload ${check?'verified':'generated'} (${outputs.length} files)`);
 }catch(error){console.error(error.message);process.exitCode=1;}
