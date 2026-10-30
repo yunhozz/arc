@@ -1,8 +1,120 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';import {resolveTarget} from '../../lib/installer/targets.mjs';
 const api=await import('../../lib/installer/uninstall.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
-function fixture(t){const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-uninstall-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));const target=resolveTarget('codex',{userHome});fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.mkdirSync(target.home+'/agents');fs.writeFileSync(target.home+'/skills/arc/SKILL.md','edited ARC');fs.writeFileSync(target.home+'/agents/arc-implementer.toml','edited role');fs.writeFileSync(target.home+'/agents/user','keep');fs.writeFileSync(target.home+'/config.toml','unparsed wait settings');return target;}
-test('uninstall plan contains only ARC leaves and preserves unmarked global and wait settings',t=>{const target=fixture(t);fs.writeFileSync(target.home+'/AGENTS.md','mine');assert.equal(typeof api.buildUninstallPlan,'function');const plan=api.buildUninstallPlan({target,safeFs});assert.deepEqual(plan.removals,[target.home+'/skills/arc',target.home+'/agents/arc-implementer.toml']);assert.deepEqual(plan.globalChanges,[]);assert.equal(fs.readFileSync(target.home+'/config.toml','utf8'),'unparsed wait settings');});
+function fixture(t){const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-uninstall-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));const target=resolveTarget('codex',{userHome});fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.mkdirSync(target.home+'/agents');fs.writeFileSync(target.home+'/skills/arc/SKILL.md','edited ARC');fs.writeFileSync(target.home+'/agents/arc-implementer.toml','edited role');fs.writeFileSync(target.home+'/agents/user','keep');fs.writeFileSync(target.home+'/config.toml','wait = "preserved"\n');return target;}
+async function nativeHookFixture(t){
+ const base=fixture(t),target=resolveTarget('claude',{userHome:base.userHome}),arc=target.home+'/skills/arc';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});fs.writeFileSync(arc+'/SKILL.md','runtime asset');fs.writeFileSync(arc+'/gate.mjs','runtime entry');
+ const {buildNativeHookDefinitions,renderNativeHooks}=await import('../../lib/installer/native-hooks.mjs');
+ const definition=buildNativeHookDefinitions({platform:'claude',entryPoint:arc+'/gate.mjs',nodePath:'/usr/bin/node',settingsPath:target.runtimeConfigPath,cli:{status:'detected',version:'2.1.314',failureBlocking:true}});
+ const original=Buffer.from('{"hooks":{"PreToolUse":[{"matcher":"UserTool","hooks":[{"type":"command","command":"user-hook"}]}]}}');
+ const installed=renderNativeHooks({platform:'claude',original,definitions:definition});fs.writeFileSync(target.runtimeConfigPath,installed.content);fs.writeFileSync(arc+'/native-hooks.json',JSON.stringify(installed.record));return{target,arc,record:installed.record};
+}
+test('uninstall verifies native hook removal before removing ARC assets',async t=>{
+ const {target,arc}=await nativeHookFixture(t);let sawAssets=false;
+ const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});
+ const result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='before-preserve'&&event.path===arc){sawAssets=true;assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)).hooks.PreToolUse,[{matcher:'UserTool',hooks:[{type:'command',command:'user-hook'}]}]);}}}});
+ assert.equal(sawAssets,true);assert.equal(result.results[0].status,'uninstalled');assert.equal(fs.existsSync(arc),false);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)).hooks.PreToolUse,[{matcher:'UserTool',hooks:[{type:'command',command:'user-hook'}]}]);
+});
+test('uninstall retains ARC assets when ownership is changed',async t=>{
+ const {target,arc,record}=await nativeHookFixture(t),settings=JSON.parse(fs.readFileSync(target.runtimeConfigPath));settings.hooks.PreToolUse[1].hooks[0].command='edited';fs.writeFileSync(target.runtimeConfigPath,JSON.stringify(settings));
+ const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].retainedReferences.includes(record.entryPoint));assert.ok(result.results[0].residualPaths.includes(arc));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)),settings);
+});
+test('skipGlobal retains referenced ARC assets without accessing native settings',async t=>{
+ const {target,arc,record}=await nativeHookFixture(t);fs.unlinkSync(target.runtimeConfigPath);fs.symlinkSync('/missing-native-settings',target.runtimeConfigPath);
+ const plan=api.buildUninstallPlan({target,safeFs,skipGlobal:true,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].retainedReferences.includes(record.entryPoint));assert.ok(Array.isArray(result.results[0].retainedReasons));assert.ok(result.results[0].retainedReasons.some(reason=>/skipped/i.test(reason)));assert.ok(result.results[0].residualPaths.includes(arc));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.equal(fs.readlinkSync(target.runtimeConfigPath),'/missing-native-settings');
+});
+test('native settings cleanup failure retains referenced ARC assets',async t=>{
+ const {target,arc}=await nativeHookFixture(t),before=fs.readFileSync(target.runtimeConfigPath);const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});
+ const result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='before-publish'&&event.path===target.runtimeConfigPath)throw Error('native cleanup failure');}}});
+ assert.equal(result.results[0].status,'failed');assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),before);assert.equal(fs.existsSync(arc+'/SKILL.md'),true);
+});
+test('unowned hook pointing at an existing ARC entry point retains the ARC tree',async t=>{
+ const base=fixture(t),target=resolveTarget('claude',{userHome:base.userHome}),arc=target.home+'/skills/arc',entry=arc+'/gate.mjs';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});fs.writeFileSync(entry,'fixture');
+ const settings={hooks:{PreToolUse:[{hooks:[{type:'command',command:'/usr/bin/node',args:[entry]}]}]}};fs.writeFileSync(target.runtimeConfigPath,JSON.stringify(settings));
+ const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].retainedReferences.includes(entry));assert.ok(result.results[0].residualPaths.includes(arc));assert.equal(fs.readFileSync(entry,'utf8'),'fixture');assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)),settings);
+});
+test('corrupt ownership record reports a readable exact ARC hook reference',async t=>{
+ const {target,arc,record}=await nativeHookFixture(t);fs.writeFileSync(record.entryPoint,'fixture');fs.writeFileSync(arc+'/native-hooks.json','{broken');
+ const before=fs.readFileSync(target.runtimeConfigPath),plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].retainedReferences.includes(record.entryPoint));assert.ok(!result.results[0].retainedReferences.includes(arc));assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),before);assert.equal(fs.existsSync(record.entryPoint),true);
+});
+for(const variant of ['empty','platform','hash','settings path','outside entry'])test(`invalid ${variant} ownership scans settings for actual ARC references`,async t=>{
+ const {target,arc,record}=await nativeHookFixture(t),other=arc+'/other.mjs';fs.writeFileSync(other,'fixture');const settings=JSON.parse(fs.readFileSync(target.runtimeConfigPath));settings.hooks.PreToolUse.push({hooks:[{type:'command',command:'/usr/bin/node',args:[other]}]});fs.writeFileSync(target.runtimeConfigPath,JSON.stringify(settings));
+ const invalid=variant==='empty'?{}:{...record,...(variant==='platform'?{platform:'codex'}:variant==='hash'?{hash:'invalid'}:variant==='settings path'?{settingsPath:target.home+'/other.json'}:{entryPoint:target.home+'/outside.mjs'})};fs.writeFileSync(arc+'/native-hooks.json',JSON.stringify(invalid));
+ const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs,removeCompletion:false})],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.deepEqual([...result.results[0].retainedReferences].sort(),[record.entryPoint,other].sort());assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)),settings);assert.equal(fs.existsSync(record.entryPoint),true);
+});
+test('invalid parsed ownership and malformed settings report unknown references',async t=>{
+ const {target,arc}=await nativeHookFixture(t);fs.writeFileSync(arc+'/native-hooks.json','{}');const before=Buffer.from('{broken');fs.writeFileSync(target.runtimeConfigPath,before);
+ const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs,removeCompletion:false})],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.deepEqual(result.results[0].retainedReferences,[]);assert.ok(result.results[0].retainedReasons.some(reason=>/native settings.*(invalid|unparseable)/i.test(reason)));assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),before);
+});
+test('ownership record pointing outside the ARC tree cannot authorize hook removal',async t=>{
+ const base=fixture(t),target=resolveTarget('claude',{userHome:base.userHome}),arc=target.home+'/skills/arc';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});fs.writeFileSync(arc+'/SKILL.md','runtime asset');
+ const {buildNativeHookDefinitions,renderNativeHooks}=await import('../../lib/installer/native-hooks.mjs'),entry=target.home+'/user-hook.mjs',definition=buildNativeHookDefinitions({platform:'claude',entryPoint:entry,nodePath:'/usr/bin/node',settingsPath:target.runtimeConfigPath,cli:{status:'unknown'}}),installed=renderNativeHooks({platform:'claude',original:Buffer.from('{}'),definitions:definition});
+ fs.writeFileSync(target.runtimeConfigPath,installed.content);fs.writeFileSync(arc+'/native-hooks.json',JSON.stringify(installed.record));const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),installed.content);assert.equal(fs.existsSync(arc+'/SKILL.md'),true);
+});
+test('native reference drift during asset removal restores the ARC tree',async t=>{
+ const {target,arc,record}=await nativeHookFixture(t);let changed=false;
+ const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish'&&event.path===arc){changed=true;fs.writeFileSync(target.runtimeConfigPath,JSON.stringify({hooks:{PreToolUse:[{hooks:[{type:'command',command:'/usr/bin/node',args:[record.entryPoint]}]}]}}));}}}});
+ assert.equal(changed,true);assert.equal(result.results[0].status,'failed');assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.ok(result.results[0].residualPaths.includes(arc));assert.ok(result.results[0].retainedReferences.includes(record.entryPoint));assert.equal(JSON.parse(fs.readFileSync(target.runtimeConfigPath)).hooks.PreToolUse[0].hooks[0].args[0],record.entryPoint);
+});
+test('preflight settings drift reports the other ARC file actually referenced',async t=>{
+ const {target,arc}=await nativeHookFixture(t),other=arc+'/other.mjs';fs.writeFileSync(other,'fixture');const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),settings={hooks:{PreToolUse:[{hooks:[{type:'command',command:'/usr/bin/node',args:[other]}]}]}};fs.writeFileSync(target.runtimeConfigPath,JSON.stringify(settings));
+ const result=await api.uninstallTargets([plan],{safeFs});assert.equal(result.results[0].status,'failed');assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(result.results[0].retainedReferences,[other]);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)),settings);assert.equal(fs.existsSync(other),true);
+});
+test('asset phase settings drift reports the other ARC file actually referenced',async t=>{
+ const {target,arc}=await nativeHookFixture(t),other=arc+'/other.mjs';fs.writeFileSync(other,'fixture');const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),settings={hooks:{PreToolUse:[{hooks:[{type:'command',command:'/usr/bin/node',args:[other]}]}]}};let changed=false;
+ const result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish'&&event.path===arc){changed=true;fs.writeFileSync(target.runtimeConfigPath,JSON.stringify(settings));}}}});
+ assert.equal(changed,true);assert.equal(result.results[0].status,'failed');assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(result.results[0].retainedReferences,[other]);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)),settings);assert.equal(fs.existsSync(other),true);
+});
+test('native cleanup failure reports references actually present after rollback',async t=>{
+ const {target,arc}=await nativeHookFixture(t),other=arc+'/other.mjs';fs.writeFileSync(other,'fixture');const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),settings={hooks:{PreToolUse:[{hooks:[{type:'command',command:'/usr/bin/node',args:[other]}]}]}};let changed=false;
+ const result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish'&&event.path===target.runtimeConfigPath){changed=true;fs.writeFileSync(target.runtimeConfigPath,JSON.stringify(settings));throw Error('external change');}}}});
+ assert.equal(changed,true);assert.equal(result.results[0].status,'failed');assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(result.results[0].retainedReferences,[other]);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)),settings);assert.equal(fs.existsSync(other),true);
+});
+test('preflight malformed settings report unknown references and retain ARC tree',async t=>{
+ const {target,arc}=await nativeHookFixture(t),plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});fs.writeFileSync(target.runtimeConfigPath,'{broken');const result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'failed');assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(result.results[0].retainedReferences,[]);assert.ok(result.results[0].retainedReasons.some(reason=>/native settings.*(unverified|verify|recheck)/i.test(reason)));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);
+});
+test('native cleanup rollback with malformed settings leaves reference state unknown',async t=>{
+ const {target,arc}=await nativeHookFixture(t),plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});let changed=false;
+ const result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish'&&event.path===target.runtimeConfigPath){changed=true;fs.writeFileSync(target.runtimeConfigPath,'{broken');throw Error('external change');}}}});
+ assert.equal(changed,true);assert.equal(result.results[0].status,'failed');assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(result.results[0].retainedReferences,[]);assert.ok(result.results[0].retainedReasons.some(reason=>/native settings.*(unverified|verify|recheck)/i.test(reason)));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);
+});
+test('asset removal failure after verified native cleanup does not claim a retained hook',async t=>{
+ const {target,arc,record}=await nativeHookFixture(t);const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});
+ const result=await api.uninstallTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='before-preserve'&&event.path===arc)throw Error('asset removal failed');}}});
+ assert.equal(result.results[0].status,'failed');assert.ok(result.results[0].residualPaths.includes(arc));assert.ok(!result.results[0].retainedReferences.includes(record.entryPoint));assert.ok(result.results[0].retainedReasons.some(reason=>/asset removal/i.test(reason)));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)).hooks.PreToolUse,[{matcher:'UserTool',hooks:[{type:'command',command:'user-hook'}]}]);
+});
+test('malformed native settings without owner retain ARC assets as unverified',async t=>{
+ const target=fixture(t),arc=target.home+'/skills/arc',bytes=Buffer.from('[hooks\ninvalid');fs.writeFileSync(target.runtimeConfigPath,bytes);
+ const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false}),result=await api.uninstallTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].residualPaths.includes(arc));assert.deepEqual(result.results[0].retainedReferences,[]);assert.ok(result.results[0].retainedReasons.some(reason=>/native settings.*(invalid|unparseable)/i.test(reason)));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),bytes);
+});
+test('malformed native settings with corrupt owner retain ARC assets as unverified',async t=>{
+ const {target,arc}=await nativeHookFixture(t),bytes=Buffer.from('{broken');fs.writeFileSync(arc+'/native-hooks.json','{broken');fs.writeFileSync(target.runtimeConfigPath,bytes);
+ const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs,removeCompletion:false})],{safeFs});
+ assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].residualPaths.includes(arc));assert.ok(result.results[0].retainedReasons.some(reason=>/native settings.*(invalid|unparseable)/i.test(reason)));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),bytes);
+});
+test('stage cleanup failure reports verified hook removal and retained assets',async t=>{
+ const {target,arc,record}=await nativeHookFixture(t);let injected=false;
+ const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs,removeCompletion:false})],{safeFs,hooks:{fault(event){if(event.phase==='before-cleanup-item'){injected=true;throw Error('stage cleanup failed');}}}});
+ assert.equal(injected,true);assert.equal(result.results[0].status,'partial');assert.ok(result.results[0].residualPaths.includes(arc));assert.ok(!result.results[0].retainedReferences.includes(record.entryPoint));assert.ok(result.results[0].retainedReasons.some(reason=>/hook cleanup was verified.*stage cleanup failure/i.test(reason)));assert.equal(fs.existsSync(arc+'/SKILL.md'),true);assert.deepEqual(JSON.parse(fs.readFileSync(target.runtimeConfigPath)).hooks.PreToolUse,[{matcher:'UserTool',hooks:[{type:'command',command:'user-hook'}]}]);
+});
+test('Codex uninstall removes its TOML hook after preserving user hook order',async t=>{
+ const target=fixture(t),arc=target.home+'/skills/arc',entry=arc+'/diagnostic.mjs';fs.writeFileSync(entry,'fixture');
+ const original=Buffer.from('model = "fixture"\n[[hooks.PreToolUse]]\nmatcher = "Bash"\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "user-one"\n[[hooks.PreToolUse]]\nmatcher = "Read"\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "user-two"\n');
+ const {buildNativeHookDefinitions,renderNativeHooks}=await import('../../lib/installer/native-hooks.mjs'),definition=buildNativeHookDefinitions({platform:'codex',entryPoint:entry,nodePath:'/usr/bin/node',settingsPath:target.runtimeConfigPath,cli:{status:'detected',version:'0.111.0',failureBlocking:false}}),installed=renderNativeHooks({platform:'codex',original,definitions:definition});
+ fs.writeFileSync(target.runtimeConfigPath,installed.content);fs.writeFileSync(arc+'/native-hooks.json',JSON.stringify(installed.record));let checked=false;
+ const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs,removeCompletion:false})],{safeFs,hooks:{fault(event){if(event.phase==='before-preserve'&&event.path===arc){checked=true;assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),original);}}}});
+ assert.equal(checked,true);assert.equal(result.results[0].status,'uninstalled');assert.deepEqual(fs.readFileSync(target.runtimeConfigPath),original);assert.equal(fs.existsSync(arc),false);
+});
+test('uninstall plan contains only ARC leaves and preserves unmarked global and wait settings',t=>{const target=fixture(t);fs.writeFileSync(target.home+'/AGENTS.md','mine');assert.equal(typeof api.buildUninstallPlan,'function');const plan=api.buildUninstallPlan({target,safeFs});assert.deepEqual(plan.removals,[target.home+'/skills/arc',target.home+'/agents/arc-implementer.toml']);assert.deepEqual(plan.globalChanges,[]);assert.equal(fs.readFileSync(target.home+'/config.toml','utf8'),'wait = "preserved"\n');});
 for(const unsafe of ['leaf-link','nested-link','role-directory','malformed'])test(`preflight rejects ${unsafe} before writes`,t=>{const target=fixture(t);if(unsafe==='leaf-link'){fs.rmSync(target.home+'/skills/arc',{recursive:true});fs.symlinkSync('../elsewhere',target.home+'/skills/arc');}if(unsafe==='nested-link')fs.symlinkSync('/tmp',target.home+'/skills/arc/link');if(unsafe==='role-directory')fs.mkdirSync(target.home+'/agents/arc-qa.toml');if(unsafe==='malformed')fs.writeFileSync(target.home+'/AGENTS.md','<!-- arc:begin -->');assert.equal(typeof api.buildUninstallPlan,'function');assert.throws(()=>api.buildUninstallPlan({target,safeFs}));assert.equal(fs.existsSync(target.home+'/backups'),false);});
 test('skip-global never accesses an unsafe global path',t=>{const target=fixture(t);fs.symlinkSync('/missing',target.home+'/AGENTS.md');assert.equal(typeof api.buildUninstallPlan,'function');assert.doesNotThrow(()=>api.buildUninstallPlan({target,safeFs,skipGlobal:true}));});
 test('uninstall removes edited bytes without backups and removes only allowlisted entries idempotently',async t=>{const target=fixture(t);fs.writeFileSync(target.home+'/AGENTS.md','before\n<!-- arc:begin -->\nrules\n<!-- arc:end -->\nafter\n');assert.equal(typeof api.uninstallTargets,'function');const result=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs})],{safeFs});const item=result.results[0];assert.equal(item.status,'uninstalled');assert.equal(fs.existsSync(target.home+'/skills/arc'),false);assert.deepEqual(item.residualPaths,[]);assert.equal(fs.existsSync(target.home+'/backups'),false);assert.equal(fs.readFileSync(target.home+'/AGENTS.md','utf8'),'before\n\nafter\n');assert.equal(fs.readFileSync(target.home+'/agents/user','utf8'),'keep');const again=await api.uninstallTargets([api.buildUninstallPlan({target,safeFs})],{safeFs});assert.deepEqual(again.results[0].residualPaths,[]);assert.equal(fs.existsSync(target.home+'/backups'),false);});
@@ -38,4 +150,4 @@ test('uninstall plans shell cleanup under skipGlobal and shares ownership before
  const result=await api.uninstallTargets(plans,{safeFs});assert.deepEqual(result.results.map(r=>r.status),['uninstalled','uninstalled']);assert.equal(plans.filter(p=>p.managedPaths.includes(filename)).length,1);assert.equal(plans[1].snapshot.has(filename),false);assert.equal(fs.readFileSync(filename,'utf8'),'mine\r\ntail');
 });
 
-test('settings-only uninstall opts out of shared completion cleanup without reading it',async t=>{const target=fixture(t),filename=target.userHome+'/.zshrc';fs.symlinkSync('/missing-shell',filename);const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});const result=await api.uninstallTargets([plan],{safeFs});assert.equal(result.results[0].status,'uninstalled');assert.equal(fs.readlinkSync(filename),'/missing-shell');assert.equal(fs.readFileSync(target.home+'/config.toml','utf8'),'unparsed wait settings');});
+test('settings-only uninstall opts out of shared completion cleanup without reading it',async t=>{const target=fixture(t),filename=target.userHome+'/.zshrc';fs.symlinkSync('/missing-shell',filename);const plan=api.buildUninstallPlan({target,safeFs,removeCompletion:false});const result=await api.uninstallTargets([plan],{safeFs});assert.equal(result.results[0].status,'uninstalled');assert.equal(fs.readlinkSync(filename),'/missing-shell');assert.equal(fs.readFileSync(target.home+'/config.toml','utf8'),'wait = "preserved"\n');});

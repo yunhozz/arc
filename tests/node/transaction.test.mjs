@@ -31,6 +31,21 @@ export function transactionFixture(t,platform='codex'){
  const snapshot=new Map();return{userHome,home,target,snapshot};
 }
 function simplePlan(fixture){return{target:fixture.target,preset:'balanced',skipGlobal:true,generated:{skill:new Map([['SKILL.md',Buffer.from('new skill')]]),profiles:new Map([[fixture.target.profileNames[0],Buffer.from('new profile')]])},globalChanges:[],managedPaths:[fixture.home+'/skills/arc',fixture.home+'/agents/'+fixture.target.profileNames[0]],externalPaths:[],snapshot:fixture.snapshot,summary:[]};}
+test('published verification failure restores every original target',t=>{
+ const f=transactionFixture(t),plan=simplePlan(f);transaction.capturePlanSnapshot(plan,{safeFs});let invoked=false;
+ assert.throws(()=>transaction.applyTransaction(plan,{safeFs,verifyPublished(){invoked=true;assert.equal(fs.readFileSync(f.home+'/skills/arc/SKILL.md','utf8'),'new skill');assert.equal(fs.readFileSync(f.home+'/agents/'+f.target.profileNames[0],'utf8'),'new profile');throw Error('verification failed');}}),{code:'ARC_INSTALL_FAILED'});
+ assert.equal(invoked,true);assert.equal(fs.readFileSync(f.home+'/skills/arc/SKILL.md','utf8'),'old skill');assert.equal(fs.readFileSync(f.home+'/agents/'+f.target.profileNames[0],'utf8'),'old profile');
+});
+test('published verification drift preserves external bytes and reports recovery',t=>{
+ const f=transactionFixture(t),plan=simplePlan(f),profile=f.home+'/agents/'+f.target.profileNames[0];transaction.capturePlanSnapshot(plan,{safeFs});let failure;
+ try{transaction.applyTransaction(plan,{safeFs,verifyPublished(){fs.writeFileSync(profile,'external edit');throw Error('verification failed');}});}catch(error){failure=error;}
+ assert.equal(failure?.code,'ARC_INSTALL_RECOVERY');assert.equal(failure.rollback,'failed');assert.equal(fs.readFileSync(profile,'utf8'),'external edit');assert.ok(failure.residualPaths.some(p=>path.isAbsolute(p)&&fs.existsSync(p)));
+});
+test('asynchronous published verification is rejected and restores originals',t=>{
+ const f=transactionFixture(t),plan=simplePlan(f);transaction.capturePlanSnapshot(plan,{safeFs});
+ assert.throws(()=>transaction.applyTransaction(plan,{safeFs,verifyPublished:()=>({then(){}})}),{code:'ARC_INSTALL_FAILED'});
+ assert.equal(fs.readFileSync(f.home+'/skills/arc/SKILL.md','utf8'),'old skill');assert.equal(fs.readFileSync(f.home+'/agents/'+f.target.profileNames[0],'utf8'),'old profile');
+});
 test('transaction publishes verified buffers without persistent backups and preserves user profiles',t=>{
  const f=transactionFixture(t);assert.equal(typeof transaction.applyTransaction,'function');const plan=simplePlan(f);transaction.capturePlanSnapshot(plan,{safeFs});
  const result=transaction.applyTransaction(plan,{safeFs,acquired:{references:referenceFixture(),skills:new Map()}});
