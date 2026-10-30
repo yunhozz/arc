@@ -5,13 +5,13 @@ const api = await import('../../lib/models/index.mjs').catch(() => ({}));
 const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
 const expected = {
   codex: {
-    economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-sol','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
-    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','high'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],
+    economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
+    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','medium'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],
     smart: [['gpt-6-luna','max'],['gpt-6-astra','high'],['gpt-6-astra','high'],['gpt-6.1-sol','medium'],['gpt-6-astra','high']],
   },
   claude: {
     economy: [['haiku','high'],['sonnet','medium'],['sonnet','medium'],['haiku','high'],['sonnet','medium']],
-    balanced: [['haiku','high'],['sonnet','high'],['sonnet','high'],['haiku','max'],['sonnet','high']],
+    balanced: [['haiku','high'],['sonnet','high'],['sonnet','medium'],['haiku','max'],['sonnet','high']],
     smart: [['haiku','max'],['opus','high'],['opus','high'],['sonnet','medium'],['opus','high']],
   },
 };
@@ -20,7 +20,7 @@ for (const platform of ['codex', 'claude']) {
   const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
   test(`${platform} unified config preserves every role and preset and round trips`, () => {
     const config = api.loadModelConfig(source, platform);
-    assert.equal(config.version, 1); assert.equal(config.preset, 'balanced');
+    assert.equal(config.version, 2); assert.equal(config.preset, 'balanced');
     assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(config), platform), config);
     for (const preset of ['economy', 'balanced', 'smart']) {
       const before = structuredClone(config), selected = api.applyPreset(config, preset);
@@ -111,3 +111,61 @@ for (const platform of ['codex','claude']) test(`${platform} rejects unsupported
  assert.throws(()=>api.serializeModelConfig(invalid),{code:'ARC_MODEL_VALIDATION'});
  assert.deepEqual(config,before);
 });
+
+for (const platform of ['codex', 'claude']) {
+  test(`${platform} custom settings survive switching and render all role profiles`, () => {
+    const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
+    const config = api.loadModelConfig(source, platform), before = structuredClone(config);
+    const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
+    const custom = Object.fromEntries(roles.map((role, i) => [role, {model: `custom-${i}`, [effort]: 'low'}]));
+    const selected = api.applyCustomRoles(config, custom);
+    assert.equal(selected.preset, 'custom');
+    assert.deepEqual(api.resolveModelSettings(selected).roles, custom);
+    assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(selected), platform), selected);
+    const inactive = api.applyPreset(selected, 'economy');
+    assert.deepEqual(inactive.custom, custom);
+    assert.deepEqual(api.applyPreset(inactive, 'custom'), selected);
+    assert.deepEqual(config, before);
+    custom.arc_qa.model = 'changed';
+    assert.equal(selected.custom.arc_qa.model, 'custom-3');
+    const extension = platform === 'codex' ? 'toml' : 'md';
+    const buffers = Object.fromEntries(roles.map(role => {
+      const name = `${role.replace('_', '-')}.${extension}`;
+      return [name, fs.readFileSync(new URL(`../../${platform}/agents/${name}`, import.meta.url))];
+    }));
+    const rendered = api.renderProfiles(buffers, api.resolveModelSettings(selected));
+    for (const [name, bytes] of rendered) {
+      const role = name.replace('-', '_').replace(`.${extension}`, '');
+      const original = buffers[name].toString();
+      const text = bytes.toString();
+      if (platform === 'codex') {
+        assert.match(text, new RegExp(`^model = "${selected.custom[role].model}"$`, 'm'));
+        assert.match(text, /^model_reasoning_effort = "low"$/m);
+        const stripped = value => value.replace(/^model = .*\n?/m, '').replace(/^model_reasoning_effort = .*\n?/m, '');
+        assert.equal(stripped(text), stripped(original));
+      } else {
+        assert.match(text, new RegExp(`^model: ${selected.custom[role].model}$`, 'm'));
+        assert.match(text, /^effort: low$/m);
+        const stripped = value => value.replace(/^model: .*\n/m, '').replace(/^effort: .*\n/m, '');
+        assert.equal(stripped(text), stripped(original));
+      }
+    }
+  });
+  test(`${platform} rejects malformed active and inactive custom settings`, () => {
+    const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
+    const config = api.loadModelConfig(source, platform);
+    assert.throws(() => api.applyPreset(config, 'custom'), {code: 'ARC_MODEL_VALIDATION'});
+    const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
+    const custom = Object.fromEntries(roles.map(role => [role, {model: 'example', [effort]: 'high'}]));
+    const selected = api.applyCustomRoles(config, custom);
+    for (const mutate of [c => delete c.custom.arc_qa, c => c.custom.extra = {}, c => c.custom.arc_qa.extra = true,
+      c => c.custom.arc_qa[effort] = '', c => delete c.custom, c => c.version = 3]) {
+      const invalid = structuredClone(selected); mutate(invalid);
+      assert.throws(() => api.serializeModelConfig(invalid), {code: 'ARC_MODEL_VALIDATION'});
+    }
+    const inactive = api.applyPreset(selected, 'balanced');
+    inactive.custom.arc_qa.model = '';
+    assert.throws(() => api.serializeModelConfig(inactive), {code: 'ARC_MODEL_VALIDATION'});
+    assert.throws(() => api.loadModelConfig(source + '\n[custom.arc_qa]\nmodel = "x"\n', platform), {code: 'ARC_MODEL_VALIDATION'});
+  });
+}

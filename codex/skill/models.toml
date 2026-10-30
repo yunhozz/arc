@@ -5,38 +5,38 @@ preset = "balanced"
 
 [roles.arc_scouter.economy]
 model = "gpt-6-luna"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 [roles.arc_scouter.balanced]
 model = "gpt-6-luna"
 model_reasoning_effort = "high"
 
 [roles.arc_scouter.smart]
-model = "gpt-6-luna"
-model_reasoning_effort = "max"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
 
 [roles.arc_planner.economy]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 [roles.arc_planner.balanced]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "high"
+model_reasoning_effort = "xhigh"
 
 [roles.arc_planner.smart]
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 
 [roles.arc_implementer.economy]
-model = "gpt-6.1-sol"
+model = "gpt-6.1-terra"
 model_reasoning_effort = "medium"
 
 [roles.arc_implementer.balanced]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 [roles.arc_implementer.smart]
-model = "gpt-6-astra"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 
 [roles.arc_qa.economy]
@@ -44,12 +44,12 @@ model = "gpt-6-luna"
 model_reasoning_effort = "high"
 
 [roles.arc_qa.balanced]
-model = "gpt-6-luna"
-model_reasoning_effort = "max"
+model = "gpt-6.1-terra"
+model_reasoning_effort = "high"
 
 [roles.arc_qa.smart]
 model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 [roles.arc_reviewer.economy]
 model = "gpt-6.1-sol"
@@ -60,5 +60,5 @@ model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 
 [roles.arc_reviewer.smart]
-model = "gpt-6-astra"
-model_reasoning_effort = "high"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"

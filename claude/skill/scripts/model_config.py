@@ -39,10 +39,14 @@ def _validate_role(settings: dict, name: str) -> dict:
 
 
 def validate_settings(data: dict) -> dict:
-    if not isinstance(data, dict) or set(data) != {'version', 'preset', 'roles'} or type(data['version']) is not int or data['version'] != 1:
-        raise ValidationError('update to version 1 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
-    if not isinstance(data['preset'], str) or data['preset'] not in PRESETS:
-        raise ValidationError('preset must be economy, balanced or smart')
+    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] not in (1, 2):
+        raise ValidationError('update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
+    has_custom = 'custom' in data
+    allowed = {'version', 'preset', 'roles'} | ({'custom'} if data['version'] == 2 and has_custom else set())
+    if set(data) != allowed:
+        raise ValidationError('update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
+    if not isinstance(data['preset'], str) or data['preset'] not in (*PRESETS, 'custom') or (data['preset'] == 'custom' and not has_custom):
+        raise ValidationError('preset must select an available preset')
     roles = data['roles']
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
         raise ValidationError('settings require exactly the five ARC roles')
@@ -51,7 +55,15 @@ def validate_settings(data: dict) -> dict:
         if not isinstance(variants, dict) or set(variants) != set(PRESETS):
             raise ValidationError(f'{name}: require exactly economy, balanced and smart')
         validated = {preset: _validate_role(settings, f'{name}.{preset}') for preset, settings in variants.items()}
-        result[name] = validated[data['preset']]
+        if data['preset'] != 'custom':
+            result[name] = validated[data['preset']]
+    if has_custom:
+        custom = data['custom']
+        if not isinstance(custom, dict) or set(custom) != set(ROLE_FILES):
+            raise ValidationError('custom requires exactly the five ARC roles')
+        validated_custom = {name: _validate_role(settings, f'custom.{name}') for name, settings in custom.items()}
+        if data['preset'] == 'custom':
+            result = validated_custom
     return result
 
 

@@ -86,3 +86,10 @@ test('source auto upgrade excludes the current worktree local wrapper',{skip:pro
  assert.deepEqual(fs.readFileSync(currentWrapper),wrapper);assert.deepEqual(fs.readFileSync(sourceRoot+'/MANIFEST.sha256'),manifest);
  assert.deepEqual(verifyPayload(input).files,payload.files);
 });
+
+for(const platform of ['codex','claude'])for(const active of [false,true])test(platform+' offline upgrade preserves '+(active?'active':'inactive')+' Custom settings',t=>{
+ const home=fixture(t),old=seed(home,platform),filename=old.target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform),field=platform==='codex'?'model_reasoning_effort':'effort';
+ config.custom=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}]));if(active)config.preset='custom';fs.writeFileSync(filename,serializeModelConfig(config));
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),fetchBefore=globalThis.fetch;globalThis.fetch=async()=>assert.fail('offline upgrade fetched catalog');
+ try{const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),config);if(active)for(const bytes of plans[0].generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);}finally{globalThis.fetch=fetchBefore;}
+});

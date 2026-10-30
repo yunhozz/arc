@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import tomllib
@@ -77,10 +78,14 @@ PRESETS = ("economy", "balanced", "smart")
 
 
 def validate_config(config: dict, path: Path) -> dict:
-    if not isinstance(config, dict) or set(config) != {"version", "preset", "roles"} or type(config["version"]) is not int or config["version"] != 1:
-        raise _error(path, "settings", "update to version 1 unified presets; reinstall ARC or edit models.toml to include preset and all role presets")
-    if not isinstance(config["preset"], str) or config["preset"] not in PRESETS:
-        raise _error(path, "preset", "must be economy, balanced or smart")
+    if not isinstance(config, dict) or type(config.get("version")) is not int or config["version"] not in (1, 2):
+        raise _error(path, "settings", "update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets")
+    has_custom = "custom" in config
+    allowed = {"version", "preset", "roles"} | ({"custom"} if config["version"] == 2 and has_custom else set())
+    if set(config) != allowed:
+        raise _error(path, "settings", "update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets")
+    if not isinstance(config["preset"], str) or config["preset"] not in (*PRESETS, "custom") or (config["preset"] == "custom" and not has_custom):
+        raise _error(path, "preset", "must select an available preset")
     roles = config["roles"]
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
         raise _error(path, "roles", "must define exactly the five ARC roles")
@@ -89,24 +94,38 @@ def validate_config(config: dict, path: Path) -> dict:
             raise _error(path, f"roles.{role}", "must contain exactly economy, balanced and smart")
         for preset, values in variants.items():
             _settings_for_profile(values, f"{role}.{preset}", path)
-    return config
+    if has_custom:
+        custom = config["custom"]
+        if not isinstance(custom, dict) or set(custom) != set(ROLE_FILES):
+            raise _error(path, "custom", "must define exactly the five ARC roles")
+        for role, values in custom.items():
+            _settings_for_profile(values, f"custom.{role}", path)
+    result = copy.deepcopy(config)
+    result["version"] = 2
+    return result
 
 
 def load_settings(config_path: Path) -> dict[str, RoleSettings]:
     """Validate every preset and return the active role settings."""
     _, _, config = _parse_file(config_path, "settings")
     config = validate_config(config, config_path)
+    if config["preset"] == "custom":
+        return config["custom"]
     return {role: dict(variants[config["preset"]]) for role, variants in config["roles"].items()}
 
 
 def serialize_settings(config: dict) -> bytes:
     """Serialize a complete unified configuration without losing inactive presets."""
     config = validate_config(config, Path("models.toml"))
-    lines = ["version = 1", f'preset = {json.dumps(config["preset"])}']
+    lines = ["version = 2", f'preset = {json.dumps(config["preset"])}']
     for role in ROLE_FILES:
         for preset in PRESETS:
             lines.extend(["", f"[roles.{role}.{preset}]"])
             lines.extend(f"{key} = {json.dumps(config['roles'][role][preset][key], ensure_ascii=False)}" for key in _MODEL_FIELDS)
+    if "custom" in config:
+        for role in ROLE_FILES:
+            lines.extend(["", f"[custom.{role}]"])
+            lines.extend(f"{key} = {json.dumps(config['custom'][role][key], ensure_ascii=False)}" for key in _MODEL_FIELDS)
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 

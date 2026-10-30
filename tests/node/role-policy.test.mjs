@@ -159,6 +159,50 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
   }
 });
 
+test('spec and plan revision ownership reaches both platform contracts', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /Planner returns a complete.*first draft and self-review/i);
+    assert.match(output, /Orchestrator reviews and directly revises the same spec or plan/i);
+    assert.match(output, /new product decisions.*outside approved scope.*user/i);
+    assert.match(output, /missing or failed first draft.*does not transfer initial authorship/i);
+    const brief = output.split('\n').find(line => line.startsWith('- [planning.planner-brief]'));
+    assert.ok(brief, `${platform}: planning brief`);
+    const [specPlan, design] = brief.split('For design and brainstorming');
+    assert.ok(design, `${platform}: design boundary`);
+    assert.match(specPlan, /Orchestrator reviews and directly revises the same spec or plan/i);
+    assert.doesNotMatch(specPlan, /\b(?:send|return|route|request|ask|assign)\w*[^.]*\b(?:Planner|correction|revision)\b/i);
+    assert.doesNotMatch(specPlan, /\bPlanner\b[^.]*\b(?:revis(?:e|es|ion|ions)|correct(?:s|ion|ions)|amend(?:s|ment)?|rewrit(?:e|es))\b/i);
+  }
+});
+
+test('platform role gates preserve Planner first drafts and Orchestrator spec/plan revisions', () => {
+  for (const platform of ['codex', 'claude']) {
+    const skill = fs.readFileSync(new URL(`${platform}/skill/SKILL.md`, root), 'utf8');
+    const gate = skill.match(/^\*\*Role gate:\*\*.*$/m)?.[0];
+    assert.ok(gate, `${platform}: role gate`);
+    assert.match(gate, /Planner.*design\/brainstorming drafts and first complete spec\/plan drafts/i, platform);
+    assert.match(gate, /Orchestrator reviews and directly revises the same spec or plan/i, platform);
+    assert.doesNotMatch(gate, /Orchestrator never authors them/i, platform);
+  }
+});
+
+test('design and brainstorming retain consolidated Planner correction', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /design and brainstorming.*one consolidated correction/i, platform);
+    assert.match(output, /further calls.*(?:scope|evidence).*unmet checklist items.*new input.*criterion.*progress/i, platform);
+  }
+});
+
+test('design and brainstorming hold repeated unmet criteria without progress', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /repeated unmet criteria without new input, evidence or progress.*hold/i, platform);
+    assert.match(output, /do not.*count rewording.*agent replacement as progress/i, platform);
+  }
+});
+
 // H1/H2/H4: emitted role contracts must not lose bounded recovery or provenance.
 // Approved structural checks; consuming-agent behavior is verified separately by fresh QA.
 test('bounded read recovery and provenance reach every role on both platforms', () => {

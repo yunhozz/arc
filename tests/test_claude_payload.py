@@ -25,7 +25,7 @@ EXPECTED = {
 BALANCED_PRESET = {
     'scouter': ('haiku', 'high'),
     'planner': ('sonnet', 'high'),
-    'implementer': ('sonnet', 'high'),
+    'implementer': ('sonnet', 'medium'),
     'qa': ('haiku', 'max'),
     'reviewer': ('sonnet', 'high'),
 }
@@ -116,6 +116,32 @@ class ClaudePayloadTests(unittest.TestCase):
         for data in variants:
             with self.subTest(data=data), self.assertRaises(module.ValidationError):
                 module.validate_settings(data)
+        custom = {f'arc_{role}': {'model': f'custom-{role}', 'effort': 'low'} for role in EXPECTED}
+        selected = copy.deepcopy(valid)
+        selected.update(version=2, preset='custom', custom=custom)
+        before = copy.deepcopy(selected)
+        self.assertEqual(module.validate_settings(selected), custom)
+        self.assertEqual(selected, before)
+        inactive = copy.deepcopy(selected); inactive['preset'] = 'balanced'
+        self.assertEqual(module.validate_settings(inactive), module.validate_settings(valid))
+        for active in ('custom', 'balanced'):
+            for mutation in ('missing', 'extra', 'field'):
+                invalid = copy.deepcopy(selected); invalid['preset'] = active
+                if mutation == 'missing': invalid['custom'].pop('arc_qa')
+                if mutation == 'extra': invalid['custom']['extra'] = {}
+                if mutation == 'field': invalid['custom']['arc_qa']['effort'] = 'extreme'
+                with self.subTest(active=active, mutation=mutation), self.assertRaises(module.ValidationError):
+                    module.validate_settings(invalid)
+        invalid = copy.deepcopy(selected); invalid.pop('custom')
+        with self.assertRaises(module.ValidationError): module.validate_settings(invalid)
+        legacy = copy.deepcopy(selected); legacy['version'] = 1
+        with self.assertRaises(module.ValidationError): module.validate_settings(legacy)
+        source = (PAYLOAD / 'skill/models.toml').read_text().replace('version = 1', 'version = 2').replace('preset = "balanced"', 'preset = "custom"')
+        source += ''.join(f'\n[custom.{role}]\nmodel = "{values["model"]}"\neffort = "low"\n' for role, values in custom.items())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp).resolve() / 'models.toml'; path.write_text(source)
+            self.assertEqual(module.load_settings(path), custom)
+            self.assertEqual(path.read_text(), source)
 
     def test_frontmatter_names_and_required_fields(self):
         module = self.module()
