@@ -8,6 +8,14 @@ test('Codex install and uninstall preserve user hooks and remove owned runtime a
  let settingsRemovedFirst=false;ctx.hooks={fault(event){if(event.phase==='before-publish'&&event.path===arc){settingsRemovedFirst=!fs.readFileSync(config,'utf8').includes('native-hook.mjs');}}};
  const result=await executeOperation(ctx,await prepareOperation(ctx,{kind:'uninstall',target:'codex',removeCli:false}));assert.equal(result.code,0);assert.equal(settingsRemovedFirst,true);assert.equal(fs.existsSync(arc),false);assert.match(fs.readFileSync(config,'utf8'),/command = "user"/);assert.doesNotMatch(fs.readFileSync(config,'utf8'),/native-hook.mjs/);
 });
+test('Codex uninstall preserves an unrelated user hook with an integer timeout',async t=>{
+ const ctx=fixture(t);assert.equal((await executeOperation(ctx,await prepareOperation(ctx,{kind:'install',target:'codex',preset:'economy',language:'en'}))).code,0);
+ const arc=path.join(ctx.userHome,'.codex/skills/arc'),config=path.join(ctx.userHome,'.codex/config.toml');
+ const user='\n[[hooks.PreToolUse]]\nmatcher = "ArcPreservationFixtureNeverRun"\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "/usr/bin/true"\ntimeout = 1\n';fs.appendFileSync(config,user);
+ const result=await executeOperation(ctx,await prepareOperation(ctx,{kind:'uninstall',target:'codex',removeCli:false}));
+ assert.equal(result.code,0,result.results[0].retainedReasons.join('; '));assert.equal(fs.existsSync(arc),false);
+ const after=fs.readFileSync(config,'utf8');assert.ok(after.includes(user));assert.doesNotMatch(after,/native-hook\.mjs/);
+});
 test('uninstall retains ARC assets when another user hook references the diagnostic entrypoint',async t=>{
  const ctx=fixture(t),prepared=await prepareOperation(ctx,{kind:'install',target:'codex',preset:'economy',language:'en'});assert.equal((await executeOperation(ctx,prepared)).code,0);
  const arc=path.join(ctx.userHome,'.codex/skills/arc'),config=path.join(ctx.userHome,'.codex/config.toml'),entry=path.join(arc,'runtime/native-hook.mjs');
