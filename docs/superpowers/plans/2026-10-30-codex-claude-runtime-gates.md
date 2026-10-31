@@ -15,12 +15,12 @@
 **설계 기준 HEAD:** 8c88952e9c0178fdb07ad521a51b6620e08503ea<br>
 **T3 보완 시작 HEAD:** 675e8ab095806ab80d524046ff59965974c98437
 
-상태: 사용자 승인으로 T1–T5 실행 중. 2026-10-31 보완 절에서 T3를 Codex T3a와 E1에 종속된 Claude T3b로 나누고, T4를 독립 Codex T4a와 Claude T3b/E2에 종속된 T4b로 나눈다. 완료된 T1/T2/T3a 수용·커밋은 유지한다.
+상태: 사용자 승인으로 T1–T5 실행 중. 2026-10-31 보완 절에서 T3를 Codex T3a, fail-closed Claude source T3b1, E1/E2 host 검증·활성화 T3b2로 나누고, T4를 독립 Codex T4a와 Claude T3b2/E2에 종속된 T4b로 나눈다. 완료된 T1/T2/T3a/T4a 수용·커밋은 유지한다.
 
 ## 1. 전역 제약과 결정
 
 - 현재 checkout은 `/Users/yunho/Desktop/project/arc`의 `feat/codex-claude-runtime-gates`다. 초기 계획의 이전 workspace 경로를 실행 대상으로 사용하지 않는다.
-- T1·T2·T3a는 각각 `07c083b9`, `675e8ab`, `7173d9b`로 수용·커밋했다. T3a는 focused checks와 fresh QA를 통과해 source 범위에서 수용했다. 실제 Codex host 증거는 T5에 남는다. Claude T3b provider는 E1/E2가 미확인이라 구현·수용을 보류한다.
+- T1·T2·T3a·T4a는 각각 `07c083b9`, `675e8ab`, `7173d9b`, `3c780fd`로 source 범위에서 수용·커밋했다. 실제 Codex host 증거는 T5에 남는다. Claude source는 T3b1에서 fail-closed로 구현할 수 있지만 provider 활성화·host 수용은 E1/E2 이후 T3b2까지 보류한다.
 - 저장소 구현·fixture 검증 중 현재 사용자의 Codex/Claude 설정을 수정하지 않는다. 설치·제거와 실제 호스트 검증은 격리 fixture/환경에서만 수행한다.
 - 다른 사용자 훅과 순서를 보존하고, 소유권을 확인한 ARC 항목만 갱신·제거한다.
 - Codex exact-definition trust와 Claude plugin/workspace trust 및 managed settings를 우회하지 않는다.
@@ -74,12 +74,13 @@ E2가 없으면 실제 callback·trust·Claude 거부 적용·hook failure 처�
 | T1 | CLI 감지, hook 정의·소유권·안전한 병합 | 신규 lib/installer/native-cli.mjs, native-hooks.mjs; runtime-config.mjs |
 | T2 | publish 후 검증, rollback, 안전한 제거 | transaction.mjs, uninstall.mjs |
 | T3a | Codex diagnostic-only callback, portable core 분리·생성물 | native diagnostic 모듈·tests; runtime core·asset generator·manifest |
-| T3b | Claude provider, resolver·검증 gate | Claude Mod source·portable core 연결; adapters·schema·capabilities |
+| T3b1 | Claude Mods provider source와 fail-closed 경계 | Mod source·resolver·portable core 연결; adapters·schema·capabilities·tests |
+| T3b2 | Claude host 무결성 검증과 조건부 활성화 | 격리 host probes·adversarial tests·activation state |
 | T4a | Codex 진단 훅 자동 설치·갱신·제거·상태 | plan.mjs, install.mjs, upgrade.mjs, management status |
 | T4b | Claude Mod lifecycle와 기존 gate 전환 | native-plugin.mjs, install/uninstall lifecycle, management status |
 | T5 | 실제 호스트·분배물·정책·문서 | probe, package tests, 정책·문서·manifest |
 
-의존성: T1 → T2, T1 → T3a → T3b, T1·T2·T3a → T4a, T3b·T4a → T4b, T3a·T3b·T4a·T4b → T5. T1·T2·T3a·T4a는 Claude E1/E2와 독립 수용할 수 있다. 같은 파일을 여러 작업이 변경하면 앞 작업 수용 후 순차 인계한다.
+의존성: T1 → T2, T1 → T3a → T3b1 → T3b2, T1·T2·T3a → T4a, T3b2·T4a → T4b, T3a·T3b1·T3b2·T4a·T4b → T5. T1·T2·T3a·T3b1·T4a source 범위 수용은 Claude E1/E2와 독립이다. 같은 파일을 여러 작업이 변경하면 앞 작업 수용 후 순차 인계한다.
 
 ---
 
@@ -567,11 +568,11 @@ AC-07 현재 문구:
 
 ### E1 — source와 host 무결성
 
-E1 완료에는 provider source 구현뿐 아니라 그 source가 의존하는 실제 host provenance 경계의 무결성 증거가 필요하다. source 연결·unit test만 끝난 상태는 `source-implemented / host-integrity-unverified`다. fixture, 임의 `verified:true`, workflow JSON, prompt/transcript, `$.ui.ask()` 반환만으로 E1을 해제하지 않는다.
+E1 전체 완료에는 provider source 구현과 그 source가 의존하는 실제 host provenance 경계의 무결성 증거가 모두 필요하다. T3b1은 이 중 source 구현을 source 범위로 수용할 수 있지만 E1을 해제하지 않는다. 해당 상태는 `provider-source: implemented / host-integrity: unverified / provider-activation: unavailable`로 표시한다. fixture, 임의 `verified:true`, workflow JSON, prompt/transcript, `$.ui.ask()` 반환만으로 E1을 해제하지 않는다.
 
 검증 후보인 ARC Pane bootstrap은 다음 동작을 따른다.
 
-- `/arc-bind <workflowId> <taskId>`는 권한 없는 proposal만 만든다. proposal은 workflow/task, checkout/worktree/Git identity, 문서 path/hash, operations/paths, assignment/active lease, revision, provider generation과 canonical scope hash를 담는다.
+- `/arc-bind <workflowId> <taskId>`는 권한 없는 proposal만 만든다. proposal은 workflow/task, checkout/worktree/Git identity, 문서 path/hash, operations/paths, revision, provider generation과 canonical scope hash를 담는다. 최초 root proposal은 parent/lease가 없고, child proposal은 검증된 active parent assignment/lease를 담는다.
 - Pane은 위 제안 범위 전체와 동일 hash를 표시하고 Confirm/Cancel 버튼을 제공한다. 자동 focus, global hotkey, prompt 숫자 shortcut은 승인 입력으로 사용하지 않는다.
 - Confirm closure는 현재 Pane instance, 버튼, proposal nonce/generation, scope hash와 host identity를 다시 검증하고 proposal을 단 한 번 소비한다. 취소·중복·동시 press·만료·reload·문서/checkout/lease/revision/policy drift·IO 오류에서는 active receipt, binding, identity, lease를 만들지 않는다.
 - UI event의 ARC plugin·Pane requestId·component·element, handler closure, 최종 scope/label tree, 실제 surface press가 실행 host에서 변경 불가하게 연결되는지 확인한다. `ui.render`의 `await next(e)` 결과는 해당 hook 아래쪽 체인만 보여 주므로 ARC가 외곽 handler임과 최종 표시 결과를 검증할 수 있는 ordering이 입증되지 않으면 승인하지 않는다.
@@ -598,9 +599,9 @@ test-only `ui.press()` 및 mock engine은 event 위조 회귀용일 뿐 사람 �
 
 ### T3–T5 수용 기준 대체
 
-- T3는 Codex diagnostic-only 계약, portable runtime, Claude provider source, focused QA와 E1 host-integrity proof가 모두 있을 때 수용한다. 무결성을 증명하지 못하거나 위조로 active receipt를 만들 수 있으면 T3 전체 수용·커밋을 보류하고 Claude runtime을 unavailable/deny로 남긴다. source가 존재한다는 이유로 T3/AC 완료를 표시하지 않는다.
-- E2 선행 검증을 통과하기 전에는 T4의 Claude provider 자동 lifecycle 통합을 시작하지 않는다. T4는 이후 ARC 소유 legacy gate를 안전히 제거하고 단일 gate ownership·trust/load/settings 보존을 확인한다.
-- T5는 T4의 최종 생성·설치 자산에서 callback, exact approval source, session/tool-use/child mapping, 실제 allow/deny, host permission 보존, 오류 한계, 설치·제거와 배포물 일치를 추가 검증한다. E2/T5 근거 전에 T3/T5·AC-07/09/13 완료 또는 전체 완료를 표시하지 않는다.
+- T3 전체는 Codex diagnostic-only 계약, portable runtime, T3b1 source 연결·fail-closed 경계, T3b2의 E1/E2 host proof, 관련 focused QA가 모두 충족될 때만 수용한다. T3b1 단독 수용은 source artifact만을 뜻하며 Claude provider 또는 T3/AC 완료로 표시하지 않는다. 무결성을 증명하지 못하거나 위조로 active receipt를 만들 수 있으면 provider는 unavailable/deny로 남긴다.
+- E2 선행 검증을 통과하기 전에는 T4b Claude provider 자동 lifecycle 통합을 시작하지 않는다. T4b는 이후 ARC 소유 legacy gate를 안전히 제거하고 단일 gate ownership·trust/load/settings 보존을 확인한다.
+- T5는 T4b의 최종 생성·설치 자산에서 callback, exact approval source, session/tool-use/child mapping, 실제 allow/deny, host permission 보존, 오류 한계, 설치·제거와 배포물 일치를 추가 검증한다. T3b1의 source/fake-host 증거는 E1/E2나 T5 host 근거를 대신하지 않는다. host 근거 전에 T3/T5·AC-07/09/13 완료 또는 전체 완료를 표시하지 않는다.
 - AC-07에는 provider integrity unavailable 상태를 추가하고, 정상 deny·`.catch`·uncaught error/timeout·disabled/unloaded를 각각 기록한다.
 
 작업 경로는 현재 checkout `/Users/yunho/Desktop/project/arc`, branch `feat/codex-claude-runtime-gates`, T3 기준 HEAD `675e8ab095806ab80d524046ff59965974c98437`다. 작업 파일과 현재 사용자 settings를 수정하지 않는 격리 probe만 수행한다.
@@ -610,7 +611,10 @@ test-only `ui.press()` 및 mock engine은 event 위조 회귀용일 뿐 사람 �
 - candidate CLI `/Users/yunho/.nvm/versions/node/v22.18.0/bin/claude`는 `2.1.314`를 보고했다. `/tmp/arc-e2-probe-20261031`의 명시적 no-op plugin fixture에 `claude plugin validate --json` 정적 검증을 실행해 성공했다. 실제 session 또는 `CLAUDE_CONFIG_DIR`는 사용하지 않았다. 결과는 plugin manifest와 hook matcher의 parse/recognition만 증명한다.
 - CLI의 `claude plugin test --help`는 test module을 binary child에서 hook과 비슷한 환경으로 실행한다고 설명한다. help 확인만으로 실제 UI press나 사람 승인 provenance가 입증되지는 않는다.
 - 실제 session을 시작하지 않아 실행 버전 `/plugin-types`, 실제 Mod event 전달, UI/render ordering, press identity tamper 거부, `$.session.id()` 무결성은 관찰하지 못했다. API/model 요청, 사용자 입력, live `~/.claude` 설정·credentials 접근은 없었다.
-- 따라서 E2와 E1은 여전히 **미완료**다. static plugin validation 또는 test harness의 존재를 actual host proof로 승격하지 않는다. Claude T3b·T4·T5는 보류한다.
+- 사용자는 이 PC에 유료 Claude Code 계정이 없어 실제 session 기반 검증이 불가능하다고 확인했다. 계정·로그인·모델 요청 없이 가능한 정적 검증으로 고정 CLI `/Users/yunho/.nvm/versions/node/v22.18.0/bin/claude` (`2.1.314`)에서 임시 빈 `CLAUDE_CONFIG_DIR`와 현재 `claude/plugin` 경로를 사용해 `claude plugin validate ... --json`을 실행했다. manifest/hooks 검증은 `success: true`, errors 없음이었다. 같은 출력의 directory 평가에는 `LICENSE_MISSING` blocking finding과 `incomplete: true`, icon warning이 있었다. 이는 정적 parse/recognition과 directory metadata만 확인하며 실제 session/API/event/host integrity 증거가 아니다. 라이선스 종류는 임의 선택하지 않았다.
+- 따라서 E2와 E1은 여전히 **미완료**다. static plugin validation 또는 test harness의 존재를 actual host proof로 승격하지 않는다. T3b1 source 구현은 별도 fail-closed 경계에서 진행할 수 있지만 T3b2 활성화, T4b, T5 host 수용은 보류한다.
+
+**현재 환경 hold:** 유료 Claude Code 계정 부재로 실제 session 기반 E1/E2 probe를 진행할 수 없다는 사용자 제약을 반영해, 이 checkout에서는 host session을 시작하거나 계정·credentials 설정을 바꾸지 않는다. isolated host session을 사용할 수 있을 때까지 T3b2, T4b 및 이에 종속된 T5는 미완료로 유지한다. T3b1 source 수용 및 위 정적 검증은 이 hold를 해제하지 않는다.
 
 ## 10. 2026-10-31 T3 실행 경계 분리 — Codex 진단 독립 수용
 
@@ -650,19 +654,48 @@ git diff --check
 
 **수용 기록:** 2026-10-31 fresh QA에서 지정 테스트 96/96 통과, runtime asset generator 54개 파일 일치, protected manifest 226개 파일 통과를 확인했다. portable policy core와 POSIX/Windows 경로 단위 검사 및 Codex allowlist/non-interference 테스트를 포함한다. 실제 Codex host callback/trust 증거는 T5 범위다. T3a commit: `7173d9b`.
 
-### T3b — Claude Mods provider와 verified binding gate
+### T3b1 — Claude Mods provider source와 fail-closed 경계
 
-**목표:** 승인된 native provenance source, 고정 resolver, session-scoped native state·identity·lease·spawn 연결, portable policy gate와 Claude Mod payload를 구현한다.
+**목표:** 공식 Mods event/API를 소비하는 실제 Claude provider, 고정 resolver, portable policy 연결을 구현한다. host 무결성이 미검증일 때 native 권한 발급이나 gate 적용 성공을 허용하지 않는다.
 
-**선행:** T3a 수용·커밋. E1 source와 host provenance 경계의 무결성 증거, E2 approval UI/session identity/plugin ordering 검증.
+**선행:** T3a 수용·커밋. 이 source 범위는 E1/E2 host acceptance와 독립적으로 구현·검사할 수 있다. 실제 provider 활성화·Claude AC 수용에는 T3b2 증거가 여전히 필요하다.
 
-**수용 기준:** 기존 T3/E1의 실제 provenance·approval receipt lifecycle·normal allow/deny·orphan deny·host permission 보존·child spawn correlation 요구를 유지한다. source-only, fixture, 정적 `plugin validate`, 공개 declarations는 실제 approval/session provenance proof가 아니다.
+**파일 책임:** 기존 T3b의 Mod registration/provider, native context·binding·state, portable core·IO adapter, Claude adapter·capabilities, plugin assets, runtime generator/manifest와 관련 테스트를 소유한다. 설치 lifecycle은 T4b에 남긴다.
 
-**현재 보류:** 격리 CLI의 정적 plugin validation만 관찰됐다. 실제 UI press·session identity·plugin ordering 무결성은 미확인이다. 따라서 approval receipt·verified provider·Claude AC 완료를 표시하지 않는다. E1/E2와 필수 QA가 확보되기 전까지 T3b 수용·커밋을 보류한다.
+**필수 구현**
 
-**커밋:** `feat(runtime): Claude Mod provider와 검증 binding gate 추가`
+- 실제 `register(on)`이 공식 Mods event/API를 사용하고 고정 provider/resolver를 호출한다. command/tool-use/session/agent event의 정규화, 최종 도구 인수, 정책 입력 구성, host permission 결과 보존을 구현한다.
+- exact-scope proposal, nonce/generation·단일 소비·만료·drift 검증을 구현한다. child assignment에는 정확한 task·role·paths·operations와 parent binding을 요구한다.
+- 최초 root `/arc-bind`는 native parent binding/lease 없이 proposal을 만들 수 있다. fixed resolver는 현재 검증한 target의 `gitCommonDir/arc/workflows/<workflowId>/state.json`을 읽어 scope 제안 자료만 얻고, workflow ID·경로 안전성·checkout·문서 현재 hash·task/scope를 재검증한다. cooperative state는 별도 schema로 검증해 proposal에만 사용하며 approval·identity·lease·check provenance를 native state로 복사하거나 cooperative 파일을 수정하지 않는다. root proposal은 `parentBinding:null`이며 active authority가 아니다.
+- E1/E2 전에 production Confirm은 `unavailable`로 유지하고 native state를 쓰지 않는다. 향후 검증된 실제 Confirm은 fresh `human-confirmation` provenance를 만들고 별도 native state에 root session identity·lease를 발급한다. 이는 기존 cooperative approval을 native authority로 바꾸는 동작이 아니다. 자식 proposal에는 active native parent binding/lease가 필수다.
+- active binding·approval·identity·lease 발급은 현재 host provenance 무결성 조건이 확인된 경우에만 도달할 수 있다. 미확인 시 `unverified/unavailable`이고 active state를 만들지 않는다.
+- `/arc-bind`는 proposal·상태 안내까지만 수행한다. `$.ui.ask()` 반환, raw JSON, user option, 환경 변수, 자체 `verified:true`로 활성화하지 않는다.
+- test-only dependency injection은 harness에 한정하고, production entrypoint에는 provider 교체·검증 우회·강제 활성화 옵션을 노출하지 않는다. 오류·저장 실패가 권한을 확대하지 않는다.
+- source/정적 검증 상태와 실제 provider 활성 상태를 분리한다. T4b lifecycle은 구현하지 않는다.
 
-T3 전체 완료는 T3a와 T3b가 모두 수용된 경우에만 표시한다. 각 작업은 fresh QA와 필요한 재검증 이후 하나의 focused commit을 남긴다.
+**검사·fresh QA:** 실제 plugin module→고정 provider→resolver/policy→portable import 연결, 유효한 cooperative state에서 proposal을 만들되 원본 bytes와 별도 native store를 변경하지 않음, root proposal의 parent/lease 부재 허용, cooperative provenance만으로 activation 불가, child proposal은 active native parent lease 없으면 거부, proposal·drift·replay·동시 소비·child assignment의 허용/거부 분기, 기본 및 모든 공개 실행 경로의 host-integrity 미확인 상태에서 active state 발급 불가, 외부 JSON/환경/협력 상태로 authority를 만들지 못함, host permission 보존과 unavailable/error 동작을 확인한다. 기존 Codex/cooperative 회귀, generator·manifest도 검사한다. source/fixture positive branch는 실제 host 증거로 표시하지 않는다.
+
+**수용:** 연결된 실제 source와 fail-closed 경계가 focused QA에서 확인될 때 source 범위만 수용한다. host integrity 미확인 동안 production은 ARC-unbound/unverified 호출을 모두 deny한다. 이는 deny-only stub을 뜻하지 않는다. 실제 Mod callback→host 관찰→고정 resolver→권한 준비 상태 검사→portable policy core 경로가 연결되고, 같은 구현 경로의 정상·거부 policy 분기를 fixture에서 확인해야 한다. production-positive native allow는 T3b2 수용 대상이다. 상태는 `provider-source: implemented`, `host-integrity: unverified`, `provider-activation: unavailable`로 한정한다. 이는 E1/E2, Claude provider 완료, 관련 AC 완료 또는 T3 전체 완료를 뜻하지 않는다.
+
+**보류:** source 연결·필수 checks·fresh QA 또는 미확인 상태에서의 active state 차단에 finding이 남으면 수용·커밋을 보류한다.
+
+**커밋:** `feat(runtime): Claude Mod provider 소스와 비활성 경계 추가`
+
+**수용 기록 — 2026-10-31:** Fresh QA에서 확인된 child assignment active parent/lease 상태 누락과 `/arc-bind` composer-origin 확인 누락을 보완하고, fresh QA 재검사에서 해결을 확인했다. 지정 테스트 88/88, runtime asset 59개, protected manifest 237개 및 `git diff --check`가 통과했다. source task commit은 `8a720b5`이다. 상태는 `provider-source: implemented`, `host-integrity: unverified`, `provider-activation: unavailable`이며 실제 host와 E1/E2 근거는 없다.
+
+### T3b2 — Claude host 무결성 검증과 조건부 활성화
+
+**목표:** 실제 지원 host에서 승인 표시·사용자 동작·event identity·session API·plugin ordering 무결성을 입증하고, 증명된 실행 조건에서만 T3b1 provider를 활성화한다.
+
+**선행:** T3b1 수용, 격리 E2 환경과 실행 버전 declarations 확보. API/model request 없는 host probe를 우선하며 사용자 설정·credentials는 읽거나 바꾸지 않는다.
+
+**수용 기준:** ARC Pane의 exact-scope 표시와 Confirm/Cancel, press identity·handler 연결, session identity 및 plugin ordering이 실제 host에서 입증돼야 한다. 위조·drift·불명확한 조건에서 receipt가 발급되지 않고, 활성화는 실제 실행 시에도 해당 조건을 검사해야 한다. 실제 사용자 확인 → session-scoped root binding → 정상 allow/deny·orphan deny → exact child assignment/spawn 연결을 확인하며 ARC allow가 host deny/ask를 확대하지 않아야 한다. 오류·timeout·unloaded/disabled 한계를 분리한다.
+
+**보류:** UI·event·session·ordering integrity를 입증하지 못하면 provider는 unavailable/deny로 유지하며 T3b2 수용·커밋을 보류한다. T3b1 source 수용은 이 hold를 해제하지 않는다.
+
+**커밋:** `feat(runtime): Claude host 무결성 검증과 gate 활성화`
+
+T3 전체 완료는 T3a·T3b1·T3b2가 모두 수용된 경우에만 표시한다. T3b1 수용은 source 경계만 확정하며 T3b2 E1/E2 근거를 대신하지 않는다. 각 작업은 fresh QA와 필요한 재검증 이후 하나의 focused commit을 남긴다.
 
 ## 11. 2026-10-31 T4 실행 경계 분리 — Codex lifecycle 독립 수용
 
@@ -723,14 +756,14 @@ fresh QA는 임시 home에서 Codex 신규 설치·재설치·갱신·제거, �
 
 **목표:** 기존 T4의 Claude plugin 설치·갱신·제거·상태 보고와 기존 ARC command gate의 안전한 전환을 수행한다.
 
-**선행:** T4a 및 T3b 수용, provider/UI/session/plugin-order 무결성의 E1/E2 증거. 최종 artifact의 전체 T5 검증은 이 선행 조건을 대체하지 않는다.
+**선행:** T4a 및 T3b2 수용, provider/UI/session/plugin-order 무결성의 E1/E2 증거. 최종 artifact의 전체 T5 검증은 이 선행 조건을 대체하지 않는다.
 
 **범위:** T4a가 수용한 공유 installer·management·CLI/TUI·test 파일을 순차 인계받는다. `lib/installer/native-plugin.mjs`, `tests/node/native-plugin.test.mjs`, Claude plugin assets·ownership·generator/manifest를 소유한다. `native-hook-lifecycle.test.mjs`에는 Claude 사례를 추가하고 Codex 회귀를 유지한다.
 
 **수용:** 기존 T4의 Claude Mod lifecycle·단일 gate 소유권·trust/managed 비우회·설정 및 자산 보존·상태 구분 검사와 fresh QA를 통과한다. 기존 command gate 제거가 검증되지 않으면 중복 구성을 수용하지 않는다. T4a Codex 계약을 회귀 검사한다.
 
-**현재 보류:** T3b와 approval/session/plugin-order E1/E2 증거가 미확인이다. 정적 `plugin validate`는 선행 조건이 아니다. 따라서 T4b 구현·수용·커밋을 보류한다.
+**현재 보류:** T3b2와 approval/session/plugin-order E1/E2 증거가 미확인이다. 정적 `plugin validate`는 선행 조건이 아니다. 따라서 T4b 구현·수용·커밋을 보류한다.
 
 **커밋:** `feat(installer): Claude Mod 자동 관리와 기존 gate 전환`
 
-T4 전체 완료는 T4a와 T4b를 모두 수용한 경우에만 표시한다. 후속 의존성은 T4a: T1·T2·T3a 이후 진행, T4b: T4a·T3b·E1/E2 이후 진행, T5: T3a·T3b·T4a·T4b 이후 진행이다. T4a 커밋은 Claude provider 또는 전체 T4 완료를 뜻하지 않는다. T5의 전체 host·분배물·정책·문서 검증과 최종 Reviewer는 유지한다.
+T4 전체 완료는 T4a와 T4b를 모두 수용한 경우에만 표시한다. 후속 의존성은 T4a: T1·T2·T3a 이후 진행, T4b: T4a·T3b2·E1/E2 이후 진행, T5: T3a·T3b1·T3b2·T4a·T4b 이후 진행이다. T4a 커밋은 Claude provider 또는 전체 T4 완료를 뜻하지 않는다. T5의 전체 host·분배물·정책·문서 검증과 최종 Reviewer는 유지한다.
