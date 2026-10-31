@@ -18,10 +18,11 @@ test('cleanup failure after commit keeps installed bytes and reports residuals',
 
 test('installs pinned static references without touching external sentinel',async t=>{const plan=fixture(t),outside=plan.target.home+'/skills/brainstorming';fs.mkdirSync(outside,{recursive:true});fs.writeFileSync(outside+'/sentinel','keep');capturePlanSnapshot(plan,{safeFs});const result=await api.installTargets([plan],{safeFs,acquisition});assert.equal(result.results[0].status,'installed');assert.equal(fs.readFileSync(plan.target.home+'/skills/arc/references/brainstorming.md','utf8'),'package pinned');assert.equal(fs.existsSync(plan.target.home+'/skills/arc/references/superpowers'),false);assert.equal(fs.readFileSync(outside+'/sentinel','utf8'),'keep');});
 
-for(const platform of ['codex','claude'])test(`HSR: ${platform} uninstall never manages native hook settings`,async t=>{
+for(const platform of ['codex','claude'])test(`${platform} uninstall preserves an unowned user hook`,async t=>{
  const p=fixture(t,platform),home=p.target.home;fs.mkdirSync(home,{recursive:true});const filename=path.join(home,platform==='codex'?'config.toml':'settings.json');
- const original=platform==='codex'?'# arc:planner-observer:begin\n':'{"hooks":{"PreToolUse":"user shape"}}\n';fs.writeFileSync(filename,original);
+ const original=platform==='codex'?'[[hooks.PreToolUse]]\nmatcher = "Bash"\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "user"\n':'{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"user"}]}]}}\n';fs.writeFileSync(filename,original);
+ fs.mkdirSync(path.join(home,'skills/arc'),{recursive:true});fs.writeFileSync(path.join(home,'skills/arc/SKILL.md'),'installed');
  p.target.runtimeConfigPath=filename;p.target.instructionPath=path.join(home,platform==='codex'?'AGENTS.md':'CLAUDE.md');p.target.globalPaths=[p.target.instructionPath,filename];p.target.profileNames=[];
- const {buildUninstallPlan}=await import('../../lib/installer/uninstall.mjs');const result=buildUninstallPlan({target:p.target,safeFs,removeCompletion:false});
- assert.equal(result.managedPaths.includes(filename),false);assert.equal(result.snapshot.has(filename),false);assert.equal(result.globalChanges.some(c=>c.path===filename),false);assert.equal(fs.readFileSync(filename,'utf8'),original);
+ const {buildUninstallPlan,uninstallTargets}=await import('../../lib/installer/uninstall.mjs');const plan=buildUninstallPlan({target:p.target,safeFs,removeCompletion:false});
+ assert.equal(plan.globalChanges.some(c=>c.path===filename),false);const result=await uninstallTargets([plan],{safeFs});assert.equal(result.results[0].status,'uninstalled');assert.equal(fs.readFileSync(filename,'utf8'),original);
 });

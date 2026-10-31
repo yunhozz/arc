@@ -382,7 +382,7 @@
   "platforms": {
     "codex": {
       "level": "prompt",
-      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. ARC supplies no native observer hook or role-specific Git guard. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks."
+      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. ARC can register a Codex diagnostic-only hook that records limited metadata. The hook does not enforce role restrictions, tool allow/deny, or a role-specific Git guard. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks."
     },
     "claude": {
       "level": "capability",

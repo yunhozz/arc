@@ -261,3 +261,14 @@ test('HSR: policy generation leaves hook-free profiles and uses prompt Git contr
  for(const [name,bytes]of inputs)if(name.startsWith('claude/agents/'))inputs.set(name,Buffer.from(bytes.toString().replace(/^hooks:\r?\n(?:[ \t].*(?:\r?\n|$))*/m,'')));
  const output=api.buildPolicyOutputs(inputs,p);assert.equal(output.has('claude/skill/hooks/git-policy.json'),false);for(const [name,bytes]of output)if(name.startsWith('claude/agents/'))assert.doesNotMatch(bytes.toString(),/^hooks:/m);
 });
+
+// An agent must see the diagnostic hook without mistaking it for role enforcement.
+test('Codex role contracts describe diagnostic hooks without native enforcement',()=>{
+ const p=policy();assert.equal(p.platforms.codex.level,'prompt');
+ for(const {id:audience} of p.roles){
+  const output=api.renderPolicySection(p,{platform:'codex',audience});
+  assert.match(output,/Codex diagnostic-only hook/i,audience);
+  assert.match(output,/does not enforce role restrictions.*tool allow\/deny.*Git guard/i,audience);
+  assert.doesNotMatch(output,/no native observer hook/i,audience);
+ }
+});
