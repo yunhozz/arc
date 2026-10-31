@@ -767,3 +767,43 @@ fresh QA는 임시 home에서 Codex 신규 설치·재설치·갱신·제거, �
 **커밋:** `feat(installer): Claude Mod 자동 관리와 기존 gate 전환`
 
 T4 전체 완료는 T4a와 T4b를 모두 수용한 경우에만 표시한다. 후속 의존성은 T4a: T1·T2·T3a 이후 진행, T4b: T4a·T3b2·E1/E2 이후 진행, T5: T3a·T3b1·T3b2·T4a·T4b 이후 진행이다. T4a 커밋은 Claude provider 또는 전체 T4 완료를 뜻하지 않는다. T5의 전체 host·분배물·정책·문서 검증과 최종 Reviewer는 유지한다.
+
+## 12. 2026-10-31 사용자 요청 — Codex 범위 독립 완료
+
+사용자는 전체 플랫폼 작업이 아직 남아 있는 상태에서 Codex 범위만이라도 완성하기를 요청했다. 아래 T5a는 기존 T5의 Codex 진단 전용 범위를 독립 수용하는 실행 경계다. 이는 Codex allow/deny 기능 추가, T5 전체 완료, Claude 완료 또는 전체 plan 완료를 뜻하지 않는다. 전체 T5와 최종 Reviewer의 선행 조건은 유지한다.
+
+### T5a — Codex diagnostic-only probe와 분배물
+
+**선행:** T1, T2, T3a, T4a source 범위 수용. Claude E1/E2, T3b2, T4b와 독립이다. 실행 대상은 현재 사용자 설정과 분리한 임시 `HOME`·`CODEX_HOME`·workspace 및 명시적인 Codex CLI다.
+
+**범위:** Codex 전용 host probe와 probe 안전성 테스트, 설치/plan의 오래된 native-hook 부재 기대, package inventory 테스트, Codex diagnostic-only policy notice·README·runtime 문서, 역할 정책 생성물·manifest를 현재 구현과 일치시킨다. `scripts/probe-runtime-hooks.mjs`가 현재 사용자 홈/설정으로 fallback하거나 `--dangerously-bypass-hook-trust`를 사용할 수 없어야 한다. host trust는 실제 Codex `/hooks` exact-definition 검토 경로를 따른다. `tests/node/install.test.mjs`와 `tests/node/plan.test.mjs`는 Codex의 ARC 소유 진단 hook을 반영하면서 Claude의 no-hook 계약과 unowned user hook 보존을 유지한다.
+
+**source·fixture 수용:** probe는 명시적인 격리 CLI·home·workspace 없이 host 실행을 거부한다. probe test가 user-home fallback과 trust bypass를 거부함을 확인한다. Codex 진단 전용 policy notice·README·runtime 문서, package, 생성 정책·manifest를 검사한다. isolated fixture에서는 allowlist metadata, `runNativeHook()`의 `{}` 반환과 설치 entrypoint의 exit 0·빈 stdout 중립 응답, workflow policy state/identity/assignment/lease 무전이, 사용자 hook 보존과 제거 후 ARC 참조 정리를 확인한다. 이는 actual host callback/trust 증거가 아니다.
+
+**host 수용은 T5b:** 등록·entrypoint·trust·callback-observed를 각각 검증한다. host callback이 입증되지 않은 상태는 등록 상태를 callback 성공으로 승격하지 않고 test fixture를 actual host 증거로 사용하지 않는다.
+
+실제 `PreToolUse`를 발화하기 위한 tool call이 Codex 모델 요청을 요구하고 준비된 로컬 모델이 없다면, Codex plan usage를 소비하는 요청을 보내기 전에 멈춰 Orchestrator가 필요한 요청·예상 usage 범위를 알리고 사용자 승인을 받는다. API key나 pay-as-you-go credentials를 설정·사용하지 않는다. hook trust bypass는 금지한다.
+
+**focused checks:**
+
+```bash
+node --test tests/node/native-hook-probe.test.mjs tests/node/package.test.mjs tests/node/manifest.test.mjs tests/node/runtime-assets.test.mjs tests/node/role-policy.test.mjs tests/node/native-hook-lifecycle.test.mjs tests/node/runtime-native-hook.test.mjs tests/node/install.test.mjs tests/node/plan.test.mjs
+node scripts/update-runtime-assets.mjs --check
+npm run check:role-policy
+npm run check:manifest
+git diff --check
+```
+
+**T5a 수용:** source/docs·fixture와 fresh focused QA가 끝나면 `codex-source: complete`, `codex-host: unverified`로 수용할 수 있다. 이는 Codex slice 전체 완료가 아니다. `T5` 전체는 Claude host, lifecycle, distribution 조건과 final Reviewer가 끝날 때까지 미완료다.
+
+**2026-10-31 T5a source 수용 기록:** 독립 fresh QA에서 source/package/fixture 기준을 proven으로 확인했다. 지정 focused node suite 234/234 통과, runtime asset 59개, role-policy 24개 대상, manifest 238개 파일, `git diff --check` 통과. source 변경은 `88a6707497aef3fc7e98e44c22154006f43f34fd` (`feat(runtime): Codex 진단 훅 probe와 분배물 검증 추가`)로 커밋했다. 현재 상태는 `codex-source: complete`, `codex-host: unverified`, `codex-slice: incomplete`다. 실제 Codex session, `/hooks` trust, host callback 및 Codex plan/model 사용은 검증하지 않았다. 전체 T5와 final Reviewer는 계속 보류한다.
+
+### T5b — Codex isolated host trust와 callback 증거
+
+**선행:** T5a 수용, explicit isolated `HOME`/`CODEX_HOME`/workspace 및 Codex CLI 확보. 현재 CLI `/Users/yunho/.nvm/versions/node/v22.18.0/bin/codex`는 `0.166.0`으로 관찰했다. 사용자의 실제 config/auth를 복사하거나 읽지 않고, hook-trust bypass 옵션을 사용하지 않는다.
+
+**수용 기준:** 새 설정에서 trust 전 callback 미관찰, `/hooks`에서 exact definition 검토·trust 후 실제 `PreToolUse` callback, exit 0·빈 stdout의 중립 성공 응답(정책 decision JSON 없음), allowlist diagnostics만 기록, workflow policy state·lease 무전이, trust hash와 제거 후 ARC entry/user hook 보존을 입증한다. 이 증거는 Codex diagnostic-only 범위만 완성한다.
+
+**사용량 제약:** 이 PC에는 Ollama·LM Studio 실행 파일이 발견되지 않았다. 실제 `PreToolUse`를 일으키기 위해 모델 tool call이 필요하고 로컬 모델을 사용할 수 없다면, 사용자 Codex plan usage를 소비하는 요청을 하기 전에 정확한 행위와 예상 사용량 영향을 알리고 사용자 승인을 받는다. API key 또는 pay-as-you-go credentials는 설정·사용하지 않는다.
+
+**수용:** host evidence와 독립 QA가 통과할 때 `codex-slice: complete`로 수용한다. source/docs·fixture만 완료된 경우는 `codex-source: complete`, `codex-host: unverified`, `codex-slice: incomplete`를 유지한다. Claude와 전체 T5 완료 표시는 여전히 보류한다.
