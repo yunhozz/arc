@@ -20,18 +20,32 @@ EXPECTED = {
     'implementer': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit']),
     'qa': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash']),
     'reviewer': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
+    'orchestrator': ('claude-haiku-5-5', 'max', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit', 'Agent']),
 }
 # models.toml selects the "balanced" preset; shipped profiles keep their own defaults until apply-models renders the preset.
 BALANCED_PRESET = {
     'scouter': ('haiku', 'high'),
-    'planner': ('sonnet', 'high'),
+    'planner': ('sonnet', 'xhigh'),
     'implementer': ('sonnet', 'medium'),
-    'qa': ('haiku', 'max'),
+    'qa': ('haiku', 'high'),
     'reviewer': ('sonnet', 'high'),
+    'orchestrator': ('claude-haiku-5-5', 'max'),
 }
 
 
 class ClaudePayloadTests(unittest.TestCase):
+    def test_coordinator_native_and_settings_names_are_documented(self):
+        coordination = (PAYLOAD / 'skill/references/coordination.md').read_text()
+        self.assertIn('`arc-orchestrator`', coordination)
+        self.assertIn('`arc_orchestrator`', coordination)
+
+    def test_v3_coordinator_settings_and_legacy_rejection(self):
+        module = self.module()
+        settings = module.load_settings(PAYLOAD / 'skill/models.toml')
+        self.assertEqual(settings['arc_orchestrator'], {'model': 'claude-haiku-5-5', 'effort': 'max'})
+        with self.assertRaisesRegex(module.ValidationError, 'Install / Update first'):
+            module.validate_settings({'version': 2, 'preset': 'balanced', 'roles': {}})
+
     def module(self):
         path = PAYLOAD / 'skill/scripts/model_config.py'
         self.assertTrue(path.is_file(), 'Claude model module must be shipped')
@@ -118,7 +132,7 @@ class ClaudePayloadTests(unittest.TestCase):
                 module.validate_settings(data)
         custom = {f'arc_{role}': {'model': f'custom-{role}', 'effort': 'low'} for role in EXPECTED}
         selected = copy.deepcopy(valid)
-        selected.update(version=2, preset='custom', custom=custom)
+        selected.update(version=3, preset='custom', custom=custom)
         before = copy.deepcopy(selected)
         self.assertEqual(module.validate_settings(selected), custom)
         self.assertEqual(selected, before)
@@ -136,7 +150,7 @@ class ClaudePayloadTests(unittest.TestCase):
         with self.assertRaises(module.ValidationError): module.validate_settings(invalid)
         legacy = copy.deepcopy(selected); legacy['version'] = 1
         with self.assertRaises(module.ValidationError): module.validate_settings(legacy)
-        source = (PAYLOAD / 'skill/models.toml').read_text().replace('version = 1', 'version = 2').replace('preset = "balanced"', 'preset = "custom"')
+        source = (PAYLOAD / 'skill/models.toml').read_text().replace('preset = "balanced"', 'preset = "custom"')
         source += ''.join(f'\n[custom.{role}]\nmodel = "{values["model"]}"\neffort = "low"\n' for role, values in custom.items())
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp).resolve() / 'models.toml'; path.write_text(source)
@@ -163,6 +177,28 @@ class ClaudePayloadTests(unittest.TestCase):
         for bad in (original.replace(b'model: sonnet', b'model: sonnet\nmodel: haiku'), original[4:], original.replace(b'---\n\n', b'\n\n', 1), original.replace(b'model: sonnet', b'model: [sonnet]'), original.replace(b'  - Bash', b'  - Agent')):
             with self.subTest(bad=bad), self.assertRaises(module.ValidationError):
                 module.render_profile(bad, {'model': 'opus', 'effort': 'high'})
+
+    def test_missing_coordinator_requires_install_before_any_write(self):
+        module = self.module()
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self.fixture(Path(tmp).resolve())
+            settings = module.load_settings(target / 'skills/arc/models.toml')
+            agents = target / 'agents'
+            coordinator = agents / 'arc-orchestrator.md'
+            coordinator.unlink()
+            before = {p.name: p.read_bytes() for p in agents.iterdir()}
+            for flags in ({}, {'check': True}, {'dry_run': True}):
+                with self.subTest(flags=flags), self.assertRaisesRegex(module.ValidationError, 'Install / Update first'):
+                    module.apply_models(settings, agents, **flags)
+                self.assertEqual(before, {p.name: p.read_bytes() for p in agents.iterdir()})
+            coordinator.symlink_to(agents / 'arc-scouter.md')
+            with self.assertRaisesRegex(module.ValidationError, 'symlink is not supported'):
+                module.apply_models(settings, agents)
+            coordinator.unlink()
+            coordinator.mkdir()
+            with self.assertRaisesRegex(module.ValidationError, 'expected regular file'):
+                module.apply_models(settings, agents)
+            self.assertEqual(before, {p.name: p.read_bytes() for p in agents.iterdir() if p.is_file()})
 
     def test_apply_models_check_and_dry_run_do_not_write(self):
         self.module()
@@ -225,7 +261,7 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertEqual(codex.read_bytes(), b'unchanged')
             for profile in profiles:
                 self.assertEqual(profile.stat().st_mode & 0o777, 0o640)
-                if profile.name not in ('arc-scouter.md', 'arc-qa.md'):
+                if profile.name not in ('arc-scouter.md', 'arc-qa.md', 'arc-orchestrator.md'):
                     self.assertIn(b'model: opus', profile.read_bytes())
 
     def test_apply_models_failure_restores_all_prior_profiles(self):
@@ -336,7 +372,7 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertIn('`arc_' + role + '`', core)
             self.assertIn('arc_' + role, settings)
         links = set(re.findall(r'references/([a-z-]+)\.md', skill))
-        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
+        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'arc-visual-companion', 'limits'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
         self.assertTrue((PAYLOAD / 'skill/scripts/apply-models.py').is_file())

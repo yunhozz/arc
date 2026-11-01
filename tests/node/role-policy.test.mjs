@@ -9,6 +9,19 @@ const placement = await import('../../lib/policy/placement.mjs').catch(() => ({}
 const root = new URL('../../', import.meta.url);
 const policy = () => JSON.parse(fs.readFileSync(new URL('lib/policy/role-policy.json', root)));
 const block = body => `[ARC role policy: contract begin]\n${body}\n[ARC role policy: contract end]`;
+test('policy generator includes both coordinator profiles', () => {
+  for (const platform of ['codex', 'claude']) {
+    const ext = platform === 'codex' ? 'toml' : 'md';
+    const target = api.POLICY_TARGETS.find(item => item.path === `${platform}/agents/arc-orchestrator.${ext}`);
+    assert.equal(target?.audience, 'orchestrator');
+  }
+  assert.equal(api.POLICY_TARGETS.length, 26);
+});
+test('coordinator policy directs host approval relay and specialist coordination', () => {
+  const rendered = api.renderPolicySection(policy(), {platform:'codex', audience:'orchestrator'});
+  assert.match(rendered, /host.*relay.*approval/i);
+  assert.match(rendered, /coordinator.*specialist/i);
+});
 // Broken placement validation would silently drop rules or render ambiguous contracts.
 test('policy projections reject unknown duplicate and uncovered rules', () => {
   assert.equal(typeof placement.validatePolicyProjections, 'function');

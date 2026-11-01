@@ -211,7 +211,7 @@ test('Codex catalog de-duplicates a later confirmed model capability', async () 
 
 test('catalog rejects non-exact role pairs without mutating inputs', () => {
   assert.equal(typeof api.assertCatalogRoles, 'function');
-  const roles = Object.fromEntries(['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'].map(role => [role, { model: 'exec-a', model_reasoning_effort: 'high' }]));
+  const roles = Object.fromEntries(['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer', 'arc_orchestrator'].map(role => [role, { model: 'exec-a', model_reasoning_effort: 'high' }]));
   const catalog = { platform: 'codex', pairs: [{ model: 'exec-a', effort: 'high' }], unavailable: [] }, before = structuredClone({ roles, catalog });
   assert.doesNotThrow(() => api.assertCatalogRoles({ platform: 'codex', roles, catalog }));
   roles.arc_scouter.model = 'exec';

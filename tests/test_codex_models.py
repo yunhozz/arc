@@ -37,15 +37,18 @@ FIVE_SETTINGS = {
     "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
 }
 
+SIX_SETTINGS = {**FIVE_SETTINGS, "arc_orchestrator": {"model": "gpt-6-luna", "model_reasoning_effort": "max"}}
+
 BALANCED_SETTINGS = {
     "arc_scouter": {"model": "gpt-6-luna", "model_reasoning_effort": "high"},
-    "arc_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
+    "arc_planner": {"model": "gpt-6.1-sol", "model_reasoning_effort": "xhigh"},
     "arc_implementer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "medium"},
-    "arc_qa": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
+    "arc_qa": {"model": "gpt-6.1-terra", "model_reasoning_effort": "high"},
     "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
+    "arc_orchestrator": {"model": "gpt-6-luna", "model_reasoning_effort": "max"},
 }
 
-def settings_bytes(roles: dict, version=1, *, legacy=False) -> bytes:
+def settings_bytes(roles: dict, version=3, *, legacy=False) -> bytes:
     lines = [f"version = {json.dumps(version)}"]
     if not legacy:
         lines.append('preset = "economy"')
@@ -64,17 +67,23 @@ class ModelSettingsTests(unittest.TestCase):
         self.config = Path(temporary.name) / "models.toml"
         self.module = load_model_module()
 
-    def load(self, roles: dict, version=1):
+    def load(self, roles: dict, version=3):
         self.config.write_bytes(settings_bytes(roles, version))
         return self.module.load_settings(self.config)
 
+    def test_v3_settings_include_coordinator_and_reject_legacy(self):
+        roles = {**FIVE_SETTINGS, "arc_orchestrator": {"model": "gpt-6-luna", "model_reasoning_effort": "max"}}
+        self.assertEqual(self.load(roles, 3)["arc_orchestrator"], roles["arc_orchestrator"])
+        with self.assertRaisesRegex(self.module.ValidationError, "Install / Update first"):
+            self.load(FIVE_SETTINGS, 2)
+
     def test_model_standard_five_roles(self) -> None:
         try:
-            settings = self.load(FIVE_SETTINGS)
+            settings = self.load(SIX_SETTINGS)
         except self.module.ValidationError as exc:
             self.fail(f"standard five-role settings must be accepted: {exc}")
-        self.assertEqual(settings, FIVE_SETTINGS)
-        self.assertEqual(set(self.module.ROLE_FILES), set(FIVE_SETTINGS))
+        self.assertEqual(settings, SIX_SETTINGS)
+        self.assertEqual(set(self.module.ROLE_FILES), set(SIX_SETTINGS))
         self.assertEqual(self.module.load_settings(REPO / "codex/skill/models.toml"), BALANCED_SETTINGS)
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
@@ -98,7 +107,7 @@ class ModelSettingsTests(unittest.TestCase):
             self.assertEqual(self.module.load_settings(self.config), {role: variants[preset] for role, variants in source['roles'].items()})
         for version in (1, 5):
             self.config.write_bytes(settings_bytes(FIVE_SETTINGS, version, legacy=True))
-            with self.assertRaisesRegex(self.module.ValidationError, 'reinstall'):
+            with self.assertRaisesRegex(self.module.ValidationError, 'Install / Update first'):
                 self.module.load_settings(self.config)
         source['roles']['arc_implementer']['economy']['model'] = 5
         with self.assertRaises(self.module.ValidationError):
@@ -107,10 +116,10 @@ class ModelSettingsTests(unittest.TestCase):
     def test_custom_roundtrip_and_validation(self):
         import copy
         source = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
-        self.assertEqual(self.module.validate_config(source, self.config)['version'], 2)
-        source['version'] = 2
+        self.assertEqual(self.module.validate_config(source, self.config)['version'], 3)
+        source['version'] = 3
         source['custom'] = {role: {'model': f'custom-{index}', 'model_reasoning_effort': 'low'}
-                            for index, role in enumerate(FIVE_SETTINGS)}
+                            for index, role in enumerate(SIX_SETTINGS)}
         before = copy.deepcopy(source)
         self.config.write_bytes(self.module.serialize_settings(source))
         self.assertEqual(self.module.load_settings(self.config), BALANCED_SETTINGS)
@@ -136,21 +145,21 @@ class ModelSettingsTests(unittest.TestCase):
         with self.assertRaises(self.module.ValidationError): self.module.validate_config(legacy, self.config)
 
     def test_model_profile_sets_match_five_roles(self) -> None:
-        filenames = {f"{role.replace('_', '-')}.toml" for role in FIVE_SETTINGS}
+        filenames = {f"{role.replace('_', '-')}.toml" for role in SIX_SETTINGS}
         self.assertEqual(set(self.module.ROLE_FILES.values()), filenames)
         self.assertEqual(set(node_profile_files()), filenames)
         self.assertEqual({p.name for p in (REPO / "codex/agents").glob("*.toml")}, filenames)
 
     def test_naming_v5_settings_and_serialization(self) -> None:
         try:
-            loaded = self.load(FIVE_SETTINGS)
+            loaded = self.load(SIX_SETTINGS)
         except self.module.ValidationError as exc:
             self.fail(f"unified version 1 settings must be accepted: {exc}")
-        self.assertEqual(loaded, FIVE_SETTINGS)
+        self.assertEqual(loaded, SIX_SETTINGS)
         serialized = self.module.serialize_settings(tomllib.loads(self.config.read_text()))
-        self.assertEqual(tomllib.loads(serialized.decode())["version"], 2)
+        self.assertEqual(tomllib.loads(serialized.decode())["version"], 3)
         self.config.write_bytes(serialized)
-        self.assertEqual(self.module.load_settings(self.config), FIVE_SETTINGS)
+        self.assertEqual(self.module.load_settings(self.config), SIX_SETTINGS)
 
     def test_naming_rejects_old_versions_and_keys(self) -> None:
         legacy_prefix = "_".join(("yunho", "team"))
@@ -184,8 +193,8 @@ class ModelSettingsTests(unittest.TestCase):
             with self.assertRaises(self.module.ValidationError):
                 self.module.load_settings(self.config)
             self.assertEqual(self.config.read_bytes(), original)
-        for version in (3, 4, 5):
-            with self.assertRaisesRegex(self.module.ValidationError, "update.*version 1"):
+        for version in (1, 2, 4, 5):
+            with self.assertRaisesRegex(self.module.ValidationError, "Install / Update first"):
                 self.load(FIVE_SETTINGS, version)
 
     def test_naming_profile_identity_and_mapping(self) -> None:
@@ -195,6 +204,7 @@ class ModelSettingsTests(unittest.TestCase):
             "arc_implementer": "arc-implementer.toml",
             "arc_qa": "arc-qa.toml",
             "arc_reviewer": "arc-reviewer.toml",
+            "arc_orchestrator": "arc-orchestrator.toml",
         }
         self.assertEqual(self.module.ROLE_FILES, expected)
         self.assertEqual(set(node_profile_files()), set(expected.values()))
@@ -203,9 +213,9 @@ class ModelSettingsTests(unittest.TestCase):
             profile = tomllib.loads((REPO / "codex/agents" / filename).read_text())
             self.assertEqual(profile["name"], role)
             rendered = self.module.render_profile((REPO / "codex/agents" / filename).read_bytes(),
-                                                  role, FIVE_SETTINGS[role], REPO / "codex/agents" / filename)
+                                                  role, SIX_SETTINGS[role], REPO / "codex/agents" / filename)
             effective = tomllib.loads(rendered.decode())
-            self.assertEqual({key: effective[key] for key in FIVE_SETTINGS[role]}, FIVE_SETTINGS[role])
+            self.assertEqual({key: effective[key] for key in SIX_SETTINGS[role]}, SIX_SETTINGS[role])
 
     def test_naming_rejects_profile_name_mismatch(self) -> None:
         with self.assertRaises(self.module.ValidationError):
@@ -222,9 +232,9 @@ class ApplyModelsTests(unittest.TestCase):
         self.module = load_model_module()
 
     def fixture(self, matching=False) -> None:
-        roles = dict(FIVE_SETTINGS)
+        roles = dict(SIX_SETTINGS)
         self.config.write_bytes(settings_bytes(roles))
-        for role, settings in FIVE_SETTINGS.items():
+        for role, settings in SIX_SETTINGS.items():
             filename = role.replace("_", "-") + ".toml"
             fields = settings if matching else {"model": "old-model", "model_reasoning_effort": "low"}
             content = (f'name = "{role}"\n' + "".join(
@@ -238,12 +248,23 @@ class ApplyModelsTests(unittest.TestCase):
             capture_output=True, text=True, check=False,
         )
 
+    def test_missing_coordinator_rejects_before_any_write(self):
+        self.fixture()
+        (self.agents / 'arc-orchestrator.toml').unlink()
+        roles = {**FIVE_SETTINGS, 'arc_orchestrator': {'model': 'gpt-6-luna', 'model_reasoning_effort': 'max'}}
+        self.config.write_bytes(settings_bytes(roles, 3))
+        before = tree_state(self.base)
+        result = self.cli()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('Install / Update first', result.stderr)
+        self.assertEqual(tree_state(self.base), before)
+
     def test_apply_models_check_standard(self) -> None:
         self.fixture(matching=True)
         before = tree_state(self.base)
         result = self.cli("--check")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("five", result.stdout)
+        self.assertIn("six", result.stdout)
         self.assertNotIn("seven", result.stdout)
         self.assertEqual(tree_state(self.base), before)
         self.fixture()
@@ -262,7 +283,7 @@ class ApplyModelsTests(unittest.TestCase):
         result = self.cli("--dry-run")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(tree_state(self.base), before)
-        self.assertIn("five", result.stdout)
+        self.assertIn("six", result.stdout)
         self.assertNotIn("seven", result.stdout)
 
     def test_apply_models_applies_five_profiles_without_mutating_config(self) -> None:
@@ -270,15 +291,15 @@ class ApplyModelsTests(unittest.TestCase):
         config_before = self.config.read_bytes()
         result = self.cli()
         self.assertEqual(result.returncode, 0, result.stderr)
-        for role, settings in FIVE_SETTINGS.items():
+        for role, settings in SIX_SETTINGS.items():
             profile = tomllib.loads((self.agents / (role.replace("_", "-") + ".toml")).read_text())
             self.assertEqual({key: profile[key] for key in settings}, settings)
         self.assertEqual(self.config.read_bytes(), config_before)
-        self.assertIn("five", result.stdout)
+        self.assertIn("six", result.stdout)
         self.assertNotIn("seven", result.stdout)
         result = self.cli()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("five", result.stdout)
+        self.assertIn("six", result.stdout)
 
     def test_naming_apply_models_v5_contract(self) -> None:
         self.fixture(matching=True)

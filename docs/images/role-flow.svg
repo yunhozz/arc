@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1100" width="1560" height="1100" role="img" aria-labelledby="title description">
 <title id="title">ARC request, preparation, and acceptance flow</title>
-<desc id="description">Orchestrator routes requests and optional Scouter findings, then chooses design depth independently of verification risk. Approved documents precede platform preparation and handoff. Ready independent tasks receive fresh Implementers, required checks, Orchestrator acceptance, and plan task commits or no-change records. Significant planned work has final whole-change review after task acceptances; significant unplanned work has review before acceptance.</desc>
+<desc id="description">Host relays decisions to the configured Orchestrator, which routes requests and optional Scouter findings, then chooses design depth independently of verification risk. Approved documents precede platform preparation and handoff. Ready independent tasks receive fresh Implementers, required checks, Orchestrator acceptance, and plan task commits or no-change records. Significant planned work has final whole-change review after task acceptances; significant unplanned work has review before acceptance.</desc>
 <defs>
 <style>text{font-family:Arial,Helvetica,sans-serif;fill:#203442} .heading{font-size:30px;font-weight:700} .label{font-size:25px;font-weight:700} .detail{font-size:22px} .note{font-size:21px} .flow{fill:none;stroke:#526675;stroke-width:3} .return{fill:none;stroke:#526675;stroke-width:2;stroke-dasharray:7 5} .card{fill:white;stroke:#b1c0c8;stroke-width:2}</style></defs>
 <rect width="1560" height="1100" rx="24" fill="#f4f6f5"/>
 <text x="50" y="51" class="heading">Design depth and verification risk are separate</text>
-<text x="50" y="87" class="detail">Orchestrator owns routing, approvals, integration, acceptance, and commits.</text>
+<text x="50" y="87" class="detail">Host relays decisions; configured Orchestrator owns routing, acceptance, and permitted commits.</text>
 
 <rect x="50" y="115" width="230" height="105" rx="14" class="card"/>
-<text x="70" y="149" class="label">Request</text>
+<text x="70" y="149" class="label">Host / request</text>
 <text x="70" y="180" class="detail">Goal and constraints</text>
 <rect x="340" y="115" width="580" height="105" rx="14" class="card"/>
-<text x="360" y="149" class="label">Orchestrator</text>
-<text x="360" y="180" class="detail">Simple answers stay here; route scoped work.</text>
+<text x="360" y="149" class="label">Configured Orchestrator</text>
+<text x="360" y="180" class="detail">Coordinate specialists and return decisions.</text>
 <rect x="1000" y="115" width="510" height="105" rx="14" class="card"/>
 <text x="1020" y="149" class="label">Scouter (optional)</text>
 <text x="1020" y="180" class="detail">Research / static exploration; return findings</text>

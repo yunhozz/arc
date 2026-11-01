@@ -19,7 +19,7 @@ The Node.js CLI validates/installs files. The conversation Orchestrator then rou
 | Managed instructions | `AGENTS.md` | `CLAUDE.md` |
 | Native configuration | `config.toml` | `settings.json` |
 
-Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
+The host relays questions and approvals to the configured Orchestrator; Orchestrator coordinates the five installed specialist profiles and owns acceptance. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
 
 Installation preserves bytes outside `arc:begin` / `arc:end`. Codex wait settings merge into supported standalone `[features.multi_agent_v2]`; unsupported structure receives manual guidance. Native concurrency writes integer `[agents].max_concurrent_threads_per_session` for Codex and string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` for Claude, preserving unrelated settings.
 
@@ -49,7 +49,7 @@ Install/update/uninstall remove valid old ARC management completion blocks and a
 
 Use executable `./scripts/update-superpowers-local.sh` to refresh both vendored platforms/manifest. It calls the adjacent tracked updater, also works by absolute path elsewhere and forwards arguments/stdout/stderr/status unchanged. Prepare the wrapper separately per clone/worktree.
 
-Reinstallation replaces managed profiles/local model edits without persistent backup. Omitted limits preserve valid policy or use 100 total/5 concurrent. TUI preserves each target by default; explicit values apply to all selected targets. Malformed policy/config stops installation. Native/stored concurrency mismatch needs explicit TUI selection before replacement. Skipping global settings omits instructions/native settings/shell access for that operation, not earlier changes.
+Reinstallation replaces managed profiles/local model edits without persistent backup. Omitted limits preserve valid policy or use 100 total/10 concurrent. TUI preserves each target by default; explicit values apply to all selected targets. Malformed policy/config stops installation. Native/stored concurrency mismatch needs explicit TUI selection before replacement. Skipping global settings omits instructions/native settings/shell access for that operation, not earlier changes.
 
 <a id="request-routing-and-role-responsibilities"></a>
 ## Request routing and role responsibilities
@@ -110,7 +110,7 @@ Before dispatch record explicit/implicit dependencies, inputs/outputs/contracts/
 
 For A→B→C plus D/two slots, start A/D. A evidence/acceptance/commit may release B while D runs; similarly C. A failure holds B/C, not D. Reports alone release nothing. Reassess evidence/acceptance/commit/slot/conflicts immediately. Serialize shared Git and same-file edits.
 
-Ledger excludes Orchestrator but counts every nested/non-ARC descendant. Completion frees active, never cumulative budget. Same-instance follow-up adds none; replacement does. Waiting/blocked/resumable idle consume concurrency until completion/termination.
+Ledger excludes the host and counts the coordinator and every nested/non-ARC descendant. Coordinator and specialist work needs at least two active slots; the default leaves at most nine for specialists while the coordinator is active. If native nesting is unavailable, stop and report. Codex `[agents].max_depth` applies to V1 threads and is ignored by V2, so it is not a universal depth guarantee. Claude coordinator requires `Agent`. Completion frees active, never cumulative budget. Same-instance follow-up adds none; replacement does. Waiting/blocked/resumable idle consume concurrency until completion/termination.
 
 Read/freeze valid installed limits; missing/unreadable/malformed blocks creation. Reserve whole batches under cumulative/concurrent/lower actual limits. Convert successes to IDs; release only proved no-creation failures, holding uncertainty until reconciled. No role reserves. Preserve across resume/compaction; unknown is not zero. Exhaustion holds creation/reports work, never waives role freshness/QA/Reviewer/ownership/approval. Sessions/accounts/platforms share no ledger; Teams/hosted APIs are outside. Follow [Codex](../codex/skill/references/limits.md)/[Claude](../claude/skill/references/limits.md).
 
@@ -162,7 +162,7 @@ Agent Git recovery coordinates checkout/index; installer rollback handles public
 | Harness removal | Below |
 | CLI only | `npm uninstall -g @yunhozz/arc` leaves harness settings |
 
-`Uninstall` removes selected skill/five profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
+`Uninstall` removes selected skill/six profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
 
 Use [maintenance](../README.md#manage-arc)/[models](../README.md#models-and-language)/[removal](../README.md#manage-arc). New settings need new sessions; structure alone proves no support.
 

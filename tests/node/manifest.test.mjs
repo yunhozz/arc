@@ -7,7 +7,15 @@ const source=new URL('../../',import.meta.url).pathname;
 function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','package.json','package-lock.json','bin','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});flattenFixtureReferences(root);fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
 function refresh(root){const r=spawnSync(process.execPath,[`${source}/scripts/update-manifest.mjs`,'--root',root],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);}
 function verify(root){return api.verifyPayload({packageRoot:root,safeFs});}
-test('descriptor-verifies bytes and mutable model inputs',t=>{const root=fixture(t);assert.equal(typeof api.verifyPayload,'function');const p=verify(root);assert.ok(p.files instanceof Map);assert.deepEqual(p.modelInputs.codex.models,fs.readFileSync(`${root}/codex/skill/models.toml`));assert.equal(p.modelInputs.claude.profiles.size,5);});
+test('verified payload exposes all six profiles for both platforms',t=>{
+ const root=fixture(t);
+ for(const script of ['update-role-policy.mjs','update-runtime-assets.mjs','update-manifest.mjs']){
+  const run=spawnSync(process.execPath,[`${source}/scripts/${script}`,'--root',root],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);
+ }
+ const payload=verify(root);
+ for(const platform of ['codex','claude'])assert.ok(payload.modelInputs[platform].profiles.has(`arc-orchestrator.${platform==='codex'?'toml':'md'}`));
+});
+test('descriptor-verifies bytes and mutable model inputs',t=>{const root=fixture(t);assert.equal(typeof api.verifyPayload,'function');const p=verify(root);assert.ok(p.files instanceof Map);assert.deepEqual(p.modelInputs.codex.models,fs.readFileSync(`${root}/codex/skill/models.toml`));assert.equal(p.modelInputs.claude.profiles.size,6);});
 for(const [label,change] of [
  ['escape',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  ../outside\n`)],
  ['duplicate',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,fs.readFileSync(`${r}/MANIFEST.sha256`,'utf8').split('\n')[0]+'\n')],

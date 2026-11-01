@@ -16,6 +16,16 @@ def policy_text(name: str) -> str:
     return " ".join(" ".join(path.read_text().lower().split()) for path in paths)
 
 class TaskCommitPolicyTests(unittest.TestCase):
+    def test_host_routes_substantive_work_to_configured_coordinator(self):
+        for platform in ('codex', 'claude'):
+            core = ' '.join((REPO / platform / 'skill/SKILL.md').read_text().lower().split())
+            limits = ' '.join((REPO / platform / 'skill/references/limits.md').read_text().lower().split())
+            self.assertIn('host invokes configured', core)
+            self.assertIn('relay', core)
+            self.assertIn('count the coordinator', limits)
+            self.assertIn('100`/`10', limits)
+            self.assertIn('before invoking the coordinator', core)
+            self.assertIn('two active slots', core)
     # TASK-01's user-approved structural exception: RED/GREEN checks of the
     # written contract only, not consuming-agent runtime compliance.
     def section(self, name: str, heading: str) -> str:
@@ -494,10 +504,10 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
             text = (REPO / platform / "skill/references/coordination.md").read_text().lower()
             models = " ".join(text.split("## models", 1)[1].split("\n## ", 1)[0].split())
             with self.subTest(platform=platform):
-                self.assertIn("`models.toml` beside this skill", models)
-                self.assertRegex(models, r"orchestrator uses the current (chat|conversation) model")
-                self.assertIn("without substitution or effort reduction", models)
-                self.assertIn("report unavailable settings", models)
+                self.assertIn("`models.toml` is authoritative for role models/effort", models)
+                self.assertIn("configured `arc_orchestrator` uses its selected preset or custom model and effort", models)
+                self.assertIn("do not substitute settings or reduce effort", models)
+                self.assertIn("report unavailability", models)
                 self.assertNotIn("reasoning_effort", models)
                 self.assertNotIn("bounded scouter lookup", models)
                 for command in ("npx", "npm i", "apply-models.py", "arc preset"):
@@ -560,7 +570,7 @@ class WholeSystemReviewFollowUpTests(unittest.TestCase):
         self.assertFalse((REPO / "codex/config.toml").exists())
         for platform in ("codex", "claude"):
             text = (REPO / platform / "skill/references/limits.md").read_text()
-            for phrase in ("max_total_subagents", "max_concurrent_subagents", "100", "5", "completed", "same instance", "descendants", "reservation", "uncertain", "ledger", "QA", "Reviewer", "prompt-level"):
+            for phrase in ("max_total_subagents", "max_concurrent_subagents", "100", "10", "completed", "same instance", "descendants", "reservation", "uncertain", "ledger", "QA", "Reviewer", "prompt-level"):
                 self.assertIn(phrase, text)
 
     def test_reviewer_description_has_no_team_name(self) -> None:
@@ -910,10 +920,10 @@ class RolePolicyTests(unittest.TestCase):
     def test_role_policy_assigns_development_to_ceo(self) -> None:
         policy = " ".join((REPO / "codex/skill/references/coordination.md").read_text().lower().split())
         ownership = policy.split("## ownership", 1)[1].split("## instruction", 1)[0]
-        self.assertRegex(ownership, r"orchestrator.*sole owner.*development, configuration, tests")
-        self.assertRegex(ownership, r"implementer.*(?:edits|implements).*assigned.*files")
-        self.assertRegex(ownership, r"all five roles.*directly to orchestrator.*depth 2")
-        self.assertRegex(ownership, r"configured.*subagents.*including scouter")
+        self.assertRegex(ownership, r"orchestrator.*sole coordinator of development/configuration/tests")
+        self.assertRegex(ownership, r"implementer.*edits approved assigned implementation/configuration/tests")
+        self.assertRegex(ownership, r"configured orchestrator is depth 1.*all five specialists report directly at depth 2")
+        self.assertRegex(ownership, r"concurrency including scouter")
         self.assertRegex(ownership, r"scouter.*read.only")
 
     def test_scouter_read_only_scope_and_reporting(self) -> None:

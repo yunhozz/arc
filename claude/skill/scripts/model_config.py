@@ -8,13 +8,14 @@ import stat
 import tempfile
 import tomllib
 
-ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'implementer', 'qa', 'reviewer')}
+ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'implementer', 'qa', 'reviewer', 'orchestrator')}
 ROLE_TOOLS = {
     'scouter': ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'],
     'planner': ['Read', 'Grep', 'Glob'],
     'implementer': ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'],
     'qa': ['Read', 'Grep', 'Glob', 'Bash'],
     'reviewer': ['Read', 'Grep', 'Glob'],
+    'orchestrator': ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit', 'Agent'],
 }
 EFFORTS = {'low', 'medium', 'high', 'xhigh', 'max'}
 MODEL = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:/@+\-]*\Z')
@@ -39,17 +40,17 @@ def _validate_role(settings: dict, name: str) -> dict:
 
 
 def validate_settings(data: dict) -> dict:
-    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] not in (1, 2):
-        raise ValidationError('update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
+    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] != 3:
+        raise ValidationError('Install / Update first: version 3 unified presets required')
     has_custom = 'custom' in data
-    allowed = {'version', 'preset', 'roles'} | ({'custom'} if data['version'] == 2 and has_custom else set())
+    allowed = {'version', 'preset', 'roles'} | ({'custom'} if has_custom else set())
     if set(data) != allowed:
-        raise ValidationError('update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
+        raise ValidationError('Install / Update first: version 3 unified presets required')
     if not isinstance(data['preset'], str) or data['preset'] not in (*PRESETS, 'custom') or (data['preset'] == 'custom' and not has_custom):
         raise ValidationError('preset must select an available preset')
     roles = data['roles']
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
-        raise ValidationError('settings require exactly the five ARC roles')
+        raise ValidationError('settings require exactly the six ARC roles')
     result = {}
     for name, variants in roles.items():
         if not isinstance(variants, dict) or set(variants) != set(PRESETS):
@@ -60,7 +61,7 @@ def validate_settings(data: dict) -> dict:
     if has_custom:
         custom = data['custom']
         if not isinstance(custom, dict) or set(custom) != set(ROLE_FILES):
-            raise ValidationError('custom requires exactly the five ARC roles')
+            raise ValidationError('custom requires exactly the six ARC roles')
         validated_custom = {name: _validate_role(settings, f'custom.{name}') for name, settings in custom.items()}
         if data['preset'] == 'custom':
             result = validated_custom
@@ -159,12 +160,20 @@ def render_profile(content: bytes, settings: dict) -> bytes:
 
 def apply_models(settings: dict, agents_dir: Path, *, check: bool = False, dry_run: bool = False) -> list[Path]:
     if not isinstance(settings, dict) or set(settings) != set(ROLE_FILES):
-        raise ValidationError('settings require exactly the five ARC roles')
+        raise ValidationError('settings require exactly the six ARC roles')
     settings = {role: _validate_role(values, role) for role, values in settings.items()}
     plans = []
     for role, filename in ROLE_FILES.items():
         path = agents_dir / filename
-        require_regular(path)
+        try:
+            require_regular(path)
+        except ValidationError as exc:
+            if role == 'arc_orchestrator' and str(exc).startswith('expected regular file:'):
+                try:
+                    path.lstat()
+                except FileNotFoundError:
+                    raise ValidationError(f'Install / Update first: missing {path}') from exc
+            raise
         content = path.read_bytes()
         if parse_profile(content)['name'] != filename[:-3]:
             raise ValidationError(f'{path}: name does not match filename')
