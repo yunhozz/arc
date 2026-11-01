@@ -4,11 +4,14 @@ import { editCustomPreset } from '../../lib/tui/custom-preset.mjs';
 
 const initial=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'model-a',model_reasoning_effort:'high'}]));
 const catalog={platform:'codex',pairs:[{model:'model-a',effort:'high'},{model:'model-a',effort:'medium'},{model:'model-b',effort:'low'}]};
+test('custom editor lists roles in editing order with Orchestrator after Implementer',async()=>{
+ await editCustomPreset({config:{platform:'codex'},initialRoles:initial,catalog,ui:{menu:async(title,rows)=>{assert.deepEqual(rows.slice(0,6).map(row=>row.split(':')[0]),['Scouter','Planner','Implementer','Orchestrator','QA','Reviewer']);return null;}}});
+});
 test('custom editor focuses and saves coordinator independently',async()=>{
  const roles={...initial,arc_orchestrator:{model:'model-a',model_reasoning_effort:'high'}};let visits=0;
  const result=await editCustomPreset({config:{platform:'codex'},initialRoles:roles,catalog,ui:{menu:async(title,rows,options)=>{
   if(title==='Custom preset'){
-   if(visits++===0){const view=options.renderBody({selected:5,blink:true,columns:160,rows:30});assert.match(view.rows.join('\n'),/> Orchestrator/);return 5;}
+   if(visits++===0){const view=options.renderBody({selected:3,blink:true,columns:160,rows:30});assert.match(view.rows.join('\n'),/> Orchestrator/);return 3;}
    return 6;
   }
   if(title==='Select model — Orchestrator')return 1;
@@ -22,7 +25,7 @@ test('compact custom preview maps coordinator focus to its row',async()=>{
  const roles={...initial};
  await editCustomPreset({config:{platform:'codex'},initialRoles:roles,catalog,ui:{menu:async(title,rows,options)=>{
   for(const viewport of [{columns:60,rows:18},{columns:40,rows:12}]){
-   const body=options.renderBody({selected:5,blink:true,...viewport});
+   const body=options.renderBody({selected:3,blink:true,...viewport});
    assert.match(body.rows[body.selected],/> Orchestrator/);
   }
   return null;

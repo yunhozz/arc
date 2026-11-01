@@ -9,6 +9,11 @@ const modelText=Object.fromEntries(['codex','claude'].map(platform=>[platform,re
 const models=Object.fromEntries(['codex','claude'].map(platform=>[platform,loadModelConfig(modelText[platform],platform)]));
 const runSetup=options=>setup.runSetup({...options,loadPreviewConfig:options.loadPreviewConfig??(target=>models[target])});
 const statuses=[{platform:'codex',settings:{language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2},modelConfig:{...models.codex,preset:'smart'}}},{platform:'claude',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models.claude}}];
+for(const target of ['codex','claude'])test('Change Preset opens chooser immediately for '+target,async()=>{
+ const screens=[],draft={};let calls=0;
+ const result=await runSetup({statuses,draft,kind:'preset',ui:{menu:async title=>{screens.push(title);if(title==='Change Preset')return target==='codex'?0:1;if(title==='Performance preset')return 0;if(title.startsWith('Settings'))return 1;assert.fail(title);}},prepare:async options=>{calls++;return options;}});
+ assert.deepEqual(screens,['Change Preset','Performance preset','Settings — '+target]);assert.equal(result.preset,'economy');assert.equal(calls,1);
+});
 test('setup defaults and preview expose the configured coordinator',()=>{
  assert.equal(initialSettings([]).codex.maxConcurrentSubagents,10);
  const rows=setup.presetRoleRows(models.codex,'balanced');
@@ -42,19 +47,19 @@ test('preview rejects missing invalid or mismatched configuration instead of fal
  assert.throws(()=>invoke({statuses:[{platform:'codex',settings:{modelConfig:models.claude}}]}),{code:'ARC_MODEL_VALIDATION'});
 });
 for(const kind of ['install','preset'])for(const target of ['codex','claude'])test(kind+' '+target+' preview follows hover without changing draft before Enter and Apply',async()=>{
- const targetIndex=target==='codex'?0:1,answers=[targetIndex,0,2,kind==='install'?5:1],draft={},views=[];let prepares=0,loads=0;
+ const targetIndex=target==='codex'?0:1,answers=kind==='install'?[targetIndex,0,2,5]:[targetIndex,2,1],draft={},views=[];let prepares=0,loads=0;
  const result=await runSetup({statuses,draft,kind,loadPreviewConfig:selected=>{assert.equal(selected,target);loads++;return models[target];},ui:{menu:async(title,rows,options)=>{if(title==='Performance preset'){assert.equal(typeof options.info,'function');assert.equal(options.selected,target==='codex'?2:1);const before=structuredClone(draft);for(const selected of [options.selected,0,1,2,3]){views.push(options.info({selected,columns:120,rows:30}));assert.deepEqual(draft,before);assert.equal(prepares,0);}assert.deepEqual(views.at(-1),views[0]);assert.match(views[1].join('\n'),/effort: medium/);assert.match(views[2].join('\n'),/effort: max/);assert.match(views[3].join('\n'),target==='codex'?/gpt-6-astra/:/opus/);assert.equal(options.backRow,true);}return answers.shift()??null;}},prepare:async settings=>{prepares++;return settings;}});
  assert.equal(loads,1);assert.equal(prepares,1);assert.equal(result.preset,'smart');assert.equal(result.target,target);assert.equal(draft[target==='codex'?'claude':'codex'].preset,target==='codex'?'balanced':'smart');
 });
 test('hovering another preset then Back leaves the current draft selection intact',async()=>{
- const answers=[0,0,null,null,null],draft={};await runSetup({statuses,draft,kind:'preset',ui:{menu:async(title,rows,options)=>{if(title==='Performance preset'){assert.equal(typeof options.info,'function');const smart=options.info({selected:2,columns:80,rows:24});options.info({selected:0,columns:80,rows:24});assert.deepEqual(options.info({selected:3,columns:80,rows:24}),smart);}return answers.shift()??null;}},prepare:()=>assert.fail('Back cannot prepare')});assert.equal(draft.codex.preset,'smart');
+ const answers=[0,null,null,null],draft={};await runSetup({statuses,draft,kind:'preset',ui:{menu:async(title,rows,options)=>{if(title==='Performance preset'){assert.equal(typeof options.info,'function');const smart=options.info({selected:2,columns:80,rows:24});options.info({selected:0,columns:80,rows:24});assert.deepEqual(options.info({selected:3,columns:80,rows:24}),smart);}return answers.shift()??null;}},prepare:()=>assert.fail('Back cannot prepare')});assert.equal(draft.codex.preset,'smart');
 });
 
 test('Performance preset uses a compact diagram when the full diagram does not fit',async()=>{
  let targetVisits=0,presetVisits=0,settingsVisits=0;
  await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows,options)=>{
   if(title==='Change Preset')return targetVisits++===0?0:null;
-  if(title==='Settings — codex')return settingsVisits++===0?0:null;
+  if(title==='Settings — codex'){settingsVisits++;return null;}
   if(title==='Performance preset'){
    const preview=options.info({selected:0,columns:60,rows:18}).join('\n');
    assert.match(preview,/Scouter:/);assert.match(preview,/Orchestrator:/);assert.doesNotMatch(preview,/[├└]─/);assert.match(preview,/Reviewer:/);assert.doesNotMatch(preview,/Diagram requires/);
@@ -75,8 +80,8 @@ test('compact preset preview shows all roles without hierarchy glyphs and keeps 
  ]);
 });
 test('install Apply alone prepares once with a display-only spacer and no review',async()=>{const answers=[0,0,2,1,1,4,5],screens=[];let prepares=0;const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});return answers.shift()??null;},review:async()=>assert.fail('install has no review')};const draft={};const prepared=await runSetup({ui,statuses:[],draft,kind:'install',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.skipGlobal,true);const screen=screens.filter(s=>s.title.startsWith('Settings')).at(-1);assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,5);assert.equal(screen.rows.includes(''),false);});
-test('preset chooser changes only draft, then focused Apply prepares exactly once preserving other settings',async()=>{const answers=[0,0,0,0,2,1],screens=[];let prepares=0;const draft={};const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});if(title==='Performance preset')assert.equal(prepares,0);return answers.shift()??null;},review:async()=>assert.fail('preset has no review')};const prepared=await runSetup({ui,statuses,draft,kind:'preset',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.maxConcurrentSubagents,2);assert.equal(draft.claude.preset,'balanced');const settings=screens.filter(s=>s.title.startsWith('Settings'));for(const screen of settings){assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,1);}assert.deepEqual(settings.map(screen=>screen.options.selected),[0,1,1]);});
-test('preset selection and canceled chooser never prepare before explicit Apply',async()=>{const answers=[0,0,2,null,null];const draft={};await runSetup({ui:{menu:async()=>answers.shift()??null},statuses:[],draft,kind:'preset',prepare:async()=>assert.fail('must not prepare')});assert.equal(draft.codex.preset,'smart');});
+test('preset chooser changes only draft, then focused Apply prepares exactly once preserving other settings',async()=>{const answers=[0,0,0,2,1],screens=[];let prepares=0;const draft={};const ui={menu:async(title,rows,options)=>{screens.push({title,rows,options});if(title==='Performance preset')assert.equal(prepares,0);return answers.shift()??null;},review:async()=>assert.fail('preset has no review')};const prepared=await runSetup({ui,statuses,draft,kind:'preset',prepare:async options=>{prepares++;return options;}});assert.equal(prepares,1);assert.equal(prepared.preset,'smart');assert.equal(prepared.language,'ko');assert.equal(prepared.maxConcurrentSubagents,2);assert.equal(draft.claude.preset,'balanced');const settings=screens.filter(s=>s.title.startsWith('Settings'));for(const screen of settings){assert.deepEqual(screen.rows.slice(-2),['Apply','Back']);assert.equal(screen.options.separatorBefore,1);}assert.deepEqual(settings.map(screen=>screen.options.selected),[1,1]);});
+test('preset selection and canceled chooser never prepare before explicit Apply',async()=>{const answers=[0,2,null,null];const draft={};await runSetup({ui:{menu:async()=>answers.shift()??null},statuses:[],draft,kind:'preset',prepare:async()=>assert.fail('must not prepare')});assert.equal(draft.codex.preset,'smart');});
 test('back from install settings retains edits and target without preparing',async()=>{const answers=[1,0,2,null,1,2,null,null],targets=[];const draft={};await runSetup({ui:{menu:async(title,rows,options)=>{if(title==='Install / Update')targets.push(options.selected);return answers.shift()??null;},text:async()=>null},statuses:[],draft,kind:'install',prepare:async()=>assert.fail('no Apply')});assert.deepEqual(targets,[0,1,1]);assert.equal(draft.claude.preset,'smart');assert.equal(draft.claude.maxTotalSubagents,100);});
 
 test('input Save validates and stores before the outer Settings Apply prepares once',async()=>{const screens=[],answers=[0,2,5],values=['0','-1','１２','9007199254740992','42'],initials=[];let count=0;const draft={};const result=await runSetup({statuses,draft,kind:'install',ui:{menu:async(title,rows)=>{screens.push({title,rows});return answers.shift()??null;},text:async(title,initial)=>{initials.push(initial);return values.shift();},page:async()=>{}},prepare:async options=>{assert.ok(screens.filter(s=>s.title.startsWith('Settings')).length>=2);count++;return options;}});assert.equal(count,1);assert.equal(result.maxTotalSubagents,42);assert.equal(result.preset,'smart');assert.equal(result.language,'ko');assert.deepEqual(initials,['20','0','-1','１２','9007199254740992']);assert.ok(screens.some(s=>s.rows.includes('Preset: Smart')&&s.rows.includes('Harness language: KR')));assert.equal(draft.claude.maxTotalSubagents,100);});
@@ -128,7 +133,7 @@ test('Codex custom catalog uses a projectless temporary directory and removes it
 });
 
 test('malformed ready catalog leaves built-in presets usable',async()=>{
- const answers=[0,0,3,0,0,1],draft={};let notices=0;
+ const answers=[0,3,0,0,1],draft={};let notices=0;
  const result=await runSetup({statuses,draft,kind:'preset',loadCatalog:async()=>({status:'ready',catalog:{platform:'codex',pairs:[{}]}}),ui:{busy:async action=>action(),menu:async(title)=>{assert.notEqual(title,'Custom preset');return answers.shift()??null;},page:async()=>{notices++;}},prepare:async options=>options});
  assert.equal(notices,1);assert.equal(result.preset,'economy');
 });
@@ -180,14 +185,14 @@ test('Codex lookup refuses a project directory without starting a child',async()
 });
 
 test('Claude malformed later pair is rejected before editor and built-ins remain usable',async()=>{
- const answers=[1,0,3,0,0,1],draft={};let notices=0;
+ const answers=[1,3,0,0,1],draft={};let notices=0;
  const result=await runSetup({statuses,draft,kind:'preset',loadCatalog:async()=>({status:'ready',catalog:{platform:'claude',pairs:[{model:'claude-good',effort:'high'},{model:'bad model',effort:'unknown'}]}}),ui:{busy:async action=>action(),menu:async(title)=>{assert.notEqual(title,'Custom preset');return answers.shift()??null;},page:async()=>{notices++;}},prepare:async options=>options});
  assert.equal(notices,1);assert.equal(result.preset,'economy');
 });
 
 test('applying an active saved Custom rechecks its catalog without entering editor',async()=>{
  const custom=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'saved-model',model_reasoning_effort:'high'}])),config={...structuredClone(models.codex),preset:'custom',custom},saved=[{platform:'codex',settings:{modelConfig:config}}],draft={};let loads=0;
- const result=await runSetup({statuses:saved,draft,kind:'preset',loadPreviewConfig:()=>config,loadCatalog:async()=>{loads++;return{status:'ready',catalog:{platform:'codex',pairs:[{model:'saved-model',effort:'high'}]}};},ui:{busy:async action=>action(),menu:async(title)=>title==='Change Preset'?0:1,page:async()=>assert.fail('unexpected error')},prepare:async options=>options});
+ const result=await runSetup({statuses:saved,draft,kind:'preset',loadPreviewConfig:()=>config,loadCatalog:async()=>{loads++;return{status:'ready',catalog:{platform:'codex',pairs:[{model:'saved-model',effort:'high'}]}};},ui:{busy:async action=>action(),menu:async(title)=>title==='Change Preset'?0:title==='Performance preset'?null:1,page:async()=>assert.fail('unexpected error')},prepare:async options=>options});
  assert.equal(loads,1);assert.deepEqual(result.customRoles,custom);assert.equal(result.preset,'custom');
 });
 
