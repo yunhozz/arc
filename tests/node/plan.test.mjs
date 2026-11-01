@@ -4,9 +4,35 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('claude/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../claude/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,snapshot:new Map()};}
+test('installation targets include the configured coordinator profile', () => {
+ for (const platform of ['codex','claude']) {
+  const target=targets.resolveTarget(platform,{userHome:'/tmp/arc-target-test'});
+  assert.ok(target.profileNames.includes(`arc-orchestrator.${platform==='codex'?'toml':'md'}`));
+  assert.equal(target.profileNames.length,6);
+ }
+});
+test('install update preserves legacy inactive variants and uses package coordinator defaults',t=>{
+ const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home}),arc=target.home+'/skills/arc';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});
+ let legacy=fs.readFileSync('codex/skill/models.toml','utf8').replace('version = 3','version = 2').replace(/\n\[roles\.arc_orchestrator\.economy\][\s\S]*$/,'').replace('gpt-6-luna','preserved-variant');fs.writeFileSync(arc+'/models.toml',legacy);
+ for(const name of target.profileNames.slice(0,-1))fs.copyFileSync('codex/agents/'+name,target.home+'/agents/'+name);
+ const result=plan(home,'codex',{preset:'smart'});const generated=result.generated.models.toString();
+ assert.match(generated,/preserved-variant/);assert.match(generated,/\[roles\.arc_orchestrator\.balanced\][\s\S]*?model = "gpt-6-luna"/);
+});
+test('install update rejects a damaged existing profile before planning writes',t=>{
+ const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home}),arc=target.home+'/skills/arc';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});
+ fs.copyFileSync('codex/skill/models.toml',arc+'/models.toml');for(const name of target.profileNames)fs.copyFileSync('codex/agents/'+name,target.home+'/agents/'+name);
+ fs.writeFileSync(target.home+'/agents/arc-qa.toml','');
+ assert.throws(()=>plan(home,'codex'),/missing profile|incomplete/i);
+});
+test('install update rejects malformed installed profile content',t=>{
+ const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home}),arc=target.home+'/skills/arc';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});
+ fs.copyFileSync('codex/skill/models.toml',arc+'/models.toml');for(const name of target.profileNames)fs.copyFileSync('codex/agents/'+name,target.home+'/agents/'+name);
+ fs.writeFileSync(target.home+'/agents/arc-qa.toml','not = [');
+ assert.throws(()=>plan(home,'codex'),/invalid|profile/i);
+});
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer','orchestrator']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('claude/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../claude/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),preset:'balanced',safeFs,...extra});}
-test('plan generates buffers and snapshots while optional external skills are absent',t=>{const home=fixture(t);assert.equal(typeof api.buildInstallPlan,'function');const p=plan(home);assert.equal(p.target.platform,'codex');assert.ok(p.generated.profiles instanceof Map);assert.match(p.generated.models.toString(),/version = 1/);assert.equal(p.globalChanges.length,2);assert.equal(p.externalPaths.length,0);assert.ok(p.snapshot instanceof Map);assert.deepEqual(fs.readdirSync(home),[]);});
+test('plan generates buffers and snapshots while optional external skills are absent',t=>{const home=fixture(t);assert.equal(typeof api.buildInstallPlan,'function');const p=plan(home);assert.equal(p.target.platform,'codex');assert.ok(p.generated.profiles instanceof Map);assert.match(p.generated.models.toString(),/version = 3/);assert.equal(p.globalChanges.length,2);assert.equal(p.externalPaths.length,0);assert.ok(p.snapshot instanceof Map);assert.deepEqual(fs.readdirSync(home),[]);});
 test('single-target plan never inspects another platform home',t=>{const home=fixture(t);fs.symlinkSync('/outside',`${home}/.claude`);assert.equal(plan(home).target.platform,'codex');fs.unlinkSync(`${home}/.claude`);fs.symlinkSync('/outside',`${home}/.codex`);assert.equal(plan(home,'claude').target.platform,'claude');});
 for(const label of ['symlink parent','special profile','global invalid UTF8'])test(`plan rejects ${label} before writes`,t=>{const home=fixture(t);fs.mkdirSync(`${home}/.codex/agents`,{recursive:true});if(label==='symlink parent'){fs.rmSync(`${home}/.codex/agents`,{recursive:true});fs.symlinkSync('/tmp',`${home}/.codex/agents`);}if(label==='special profile')assert.equal(cp.spawnSync('mkfifo',[`${home}/.codex/agents/arc-implementer.toml`]).status,0);if(label==='special external tree'){fs.mkdirSync(`${home}/.codex/skills/brainstorming`,{recursive:true});assert.equal(cp.spawnSync('mkfifo',[`${home}/.codex/skills/brainstorming/pipe`]).status,0);}if(label==='global invalid UTF8')fs.writeFileSync(`${home}/.codex/AGENTS.md`,Buffer.from([255]));assert.throws(()=>plan(home),{code:label==='global invalid UTF8'?'ARC_GLOBAL_CONFIGURATION':'ARC_TARGET_CONFIGURATION'});});
 test('skip-global does not read invalid global contents',t=>{const home=fixture(t);fs.mkdirSync(`${home}/.codex`);fs.writeFileSync(`${home}/.codex/AGENTS.md`,Buffer.from([255]));assert.deepEqual(plan(home,'codex',{skipGlobal:true}).globalChanges,[]);});
@@ -19,8 +45,8 @@ test('Claude skill link exception is limited to the same default Codex skill dir
 test('plan ignores existing external special files and shared symlinks',t=>{const home=fixture(t);fs.mkdirSync(home+'/.codex/skills/brainstorming',{recursive:true});assert.equal(cp.spawnSync('mkfifo',[home+'/.codex/skills/brainstorming/pipe']).status,0);fs.mkdirSync(home+'/.agents/skills',{recursive:true});fs.symlinkSync('/unavailable',home+'/.agents/skills/brainstorming');const result=plan(home);assert.deepEqual(result.externalPaths,[]);assert.equal([...result.snapshot.keys()].some(p=>p.includes('/brainstorming')),false);});
 
 test('limits policy defaults, reinstall preservation, native drift and explicit override',t=>{
- const home=fixture(t);const first=plan(home);assert.match(first.generated.skill.get('limits.toml').toString(),/max_total_subagents = 100\nmax_concurrent_subagents = 5/);
- assert.match(first.globalChanges.find(c=>c.path.endsWith('config.toml')).content.toString(),/max_concurrent_threads_per_session = 5/);
+ const home=fixture(t);const first=plan(home);assert.match(first.generated.skill.get('limits.toml').toString(),/max_total_subagents = 100\nmax_concurrent_subagents = 10/);
+ assert.match(first.globalChanges.find(c=>c.path.endsWith('config.toml')).content.toString(),/max_concurrent_threads_per_session = 10/);
  fs.mkdirSync(`${home}/.codex/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.codex/skills/arc/limits.toml`,'version = 1\nmax_total_subagents = 37\nmax_concurrent_subagents = 3\n');
  fs.writeFileSync(`${home}/.codex/config.toml`,'[agents]\nmax_concurrent_threads_per_session = 9\n');
  assert.throws(()=>plan(home),/drift/i);
@@ -32,7 +58,7 @@ test('limits policy defaults, reinstall preservation, native drift and explicit 
 test('Claude settings concurrency is a string and preserves unrelated data',t=>{
  const home=fixture(t);fs.mkdirSync(`${home}/.claude`);fs.writeFileSync(`${home}/.claude/settings.json`,JSON.stringify({env:{KEEP:'yes'},permissions:{allow:[]}}));
  const result=plan(home,'claude');const settings=JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content);
- assert.deepEqual(settings,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'5'},permissions:{allow:[]}});
+ assert.deepEqual(settings,{env:{KEEP:'yes',CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:'10'},permissions:{allow:[]}});
 });
 test('preview evidence detects changed or newly appearing limits and unsafe replacements',t=>{
  const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home,env:{}});
@@ -139,14 +165,14 @@ test('installation leaves unsupported profile paths unmanaged',t=>{
 // Capture public output bytes and iteration order; normalize only the temporary
 // HOME so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'ba009696f6a00a30186931c01c38f6f40f0f70b9f46437dd4699c6d7447f218e',
- 'codex:en:true':'1f5930191ae8e8927430c0cc80630d01cc9698b9d201865a766f1533a28bf563',
- 'codex:ko:false':'62b683442f91c27cf82fbc5d89876aba8cdb15f5512181159ffdb671d6238a01',
- 'codex:ko:true':'ea8e873f20a74d43f656a1db28a560a1d408e792e44b709410e18eafb9b97ad4',
- 'claude:en:false':'629314509326882fb072c0252d1fb48833637975a8052aecf3d4676d806487ac',
- 'claude:en:true':'3fa8ca8c9f0c51c8fa4c832bbe629333acf7314cd927cf09f9b5e8718e52226d',
- 'claude:ko:false':'cb54e6b3371f78c442c81c2fcefcdbfebd0fd8a8235c2d06f61d68de343f6581',
- 'claude:ko:true':'e6c16ee89f410726b066f9ef81c731cbfa9584d57c6ca0f46de7f57c6ead30c6',
+ 'codex:en:false':'21329cceede8dbb621cf579460041aec7710bd1fcb00e004e5dfea79e2bccf03',
+ 'codex:en:true':'c1255205942cfe11db18a27525e9f99552d22c618924f4133bacb612d1691cd9',
+ 'codex:ko:false':'96b35527c7cd9a5cb46cec3fcf1ba95fbd1838124cdca6699e70602bf69769f7',
+ 'codex:ko:true':'38be7804b2bf71f389db6d86230dfd0f8318e103d0d33a9647d6e4c7e3fd5fac',
+ 'claude:en:false':'3a207a1051afcf307e39c1c4d61a67cd72e0ab8234c21a79b6e0a5012dd199f2',
+ 'claude:en:true':'4018fe6ce01a4d10c15d40edfdb15986a02ffb3ea0ca5a55e164789d161c2e0d',
+ 'claude:ko:false':'a26935ce478f15eccb4db1b9d9e7871bf29971a807eeabf7c536abc448258e18',
+ 'claude:ko:true':'eff3bbe65409fac0706149a70cf148461416beff39ba49f52b7f44a42b0766ff',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
@@ -203,7 +229,7 @@ test('HSR: Claude planning preserves native user hooks without adding handlers',
 
 for(const platform of ['codex','claude'])test(platform+' install renders the selected Custom roles and rejects absent catalog pairs',t=>{
  const home=fixture(t),effort=platform==='codex'?'model_reasoning_effort':'effort';
- const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
  const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]};
  const result=plan(home,platform,{preset:'custom',customRoles,verifiedCatalog});
  assert.match(result.generated.models.toString(),/preset = "custom"/);
@@ -212,12 +238,12 @@ for(const platform of ['codex','claude'])test(platform+' install renders the sel
 });
 
 for(const platform of ['codex','claude'])test(platform+' built-in install validates a newly edited inactive Custom',t=>{
- const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]};
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]};
  assert.throws(()=>plan(home,platform,{preset:'economy',customRoles:roles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
  const result=plan(home,platform,{preset:'economy',customRoles:roles,verifiedCatalog:catalog});assert.match(result.generated.models.toString(),/fixture-model/);
 });
 
 for(const platform of ['codex','claude'])test(platform+' built-in Install preserves saved inactive Custom without catalog',t=>{
- const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
  const result=plan(home,platform,{preset:'economy',preservedCustomRoles:roles});const parsed=result.generated.models.toString();assert.match(parsed,/preset = "economy"/);assert.match(parsed,/saved-model/);
 });

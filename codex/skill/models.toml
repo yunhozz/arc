@@ -1,6 +1,6 @@
 # Canonical source for every role model and effort preset.
 # Use configured settings as specified. Report unavailable settings.
-version = 1
+version = 3
 preset = "balanced"
 
 [roles.arc_scouter.economy]
@@ -62,3 +62,15 @@ model_reasoning_effort = "high"
 [roles.arc_reviewer.smart]
 model = "gpt-6.1-sol"
 model_reasoning_effort = "xhigh"
+
+[roles.arc_orchestrator.economy]
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
+
+[roles.arc_orchestrator.balanced]
+model = "gpt-6-luna"
+model_reasoning_effort = "max"
+
+[roles.arc_orchestrator.smart]
+model = "gpt-6-luna"
+model_reasoning_effort = "max"

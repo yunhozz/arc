@@ -17,6 +17,7 @@ ROLE_FILES: dict[str, str] = {
     "arc_implementer": "arc-implementer.toml",
     "arc_qa": "arc-qa.toml",
     "arc_reviewer": "arc-reviewer.toml",
+    "arc_orchestrator": "arc-orchestrator.toml",
 }
 
 
@@ -78,17 +79,17 @@ PRESETS = ("economy", "balanced", "smart")
 
 
 def validate_config(config: dict, path: Path) -> dict:
-    if not isinstance(config, dict) or type(config.get("version")) is not int or config["version"] not in (1, 2):
-        raise _error(path, "settings", "update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets")
+    if not isinstance(config, dict) or type(config.get("version")) is not int or config["version"] != 3:
+        raise _error(path, "settings", "Install / Update first: version 3 unified presets required")
     has_custom = "custom" in config
-    allowed = {"version", "preset", "roles"} | ({"custom"} if config["version"] == 2 and has_custom else set())
+    allowed = {"version", "preset", "roles"} | ({"custom"} if has_custom else set())
     if set(config) != allowed:
-        raise _error(path, "settings", "update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets")
+        raise _error(path, "settings", "Install / Update first: version 3 unified presets required")
     if not isinstance(config["preset"], str) or config["preset"] not in (*PRESETS, "custom") or (config["preset"] == "custom" and not has_custom):
         raise _error(path, "preset", "must select an available preset")
     roles = config["roles"]
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
-        raise _error(path, "roles", "must define exactly the five ARC roles")
+        raise _error(path, "roles", "must define exactly the six ARC roles")
     for role, variants in roles.items():
         if not isinstance(variants, dict) or set(variants) != set(PRESETS):
             raise _error(path, f"roles.{role}", "must contain exactly economy, balanced and smart")
@@ -97,11 +98,11 @@ def validate_config(config: dict, path: Path) -> dict:
     if has_custom:
         custom = config["custom"]
         if not isinstance(custom, dict) or set(custom) != set(ROLE_FILES):
-            raise _error(path, "custom", "must define exactly the five ARC roles")
+            raise _error(path, "custom", "must define exactly the six ARC roles")
         for role, values in custom.items():
             _settings_for_profile(values, f"custom.{role}", path)
     result = copy.deepcopy(config)
-    result["version"] = 2
+    result["version"] = 3
     return result
 
 
@@ -117,7 +118,7 @@ def load_settings(config_path: Path) -> dict[str, RoleSettings]:
 def serialize_settings(config: dict) -> bytes:
     """Serialize a complete unified configuration without losing inactive presets."""
     config = validate_config(config, Path("models.toml"))
-    lines = ["version = 2", f'preset = {json.dumps(config["preset"])}']
+    lines = ["version = 3", f'preset = {json.dumps(config["preset"])}']
     for role in ROLE_FILES:
         for preset in PRESETS:
             lines.extend(["", f"[roles.{role}.{preset}]"])

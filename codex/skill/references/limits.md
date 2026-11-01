@@ -1,12 +1,12 @@
 <a id="subagent-limits"></a>
 # Subagent limits
 
-Before first creation, Orchestrator reads this reference and adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`5`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
+Before first creation, Orchestrator reads this reference and adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`10`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
 
 <a id="counting-and-reservations"></a>
 ## Counting and reservations
 
-- Track instance IDs, parent IDs, pending reservations, creation outcomes and active/completed state in the session ledger. Exclude Orchestrator, but count every created descendant, including nested/non-ARC agents.
+- Track instance IDs, parent IDs, pending reservations, creation outcomes and active/completed state in the session ledger. Exclude the host; count the coordinator and every created descendant, including nested/non-ARC agents. Coordinator and specialist work needs at least two active slots; if unavailable, hold creation and report. With the default limit, at most nine slots remain while the coordinator is active.
 - Completion never refunds cumulative creation. Same-instance follow-up/resume adds nothing; fresh instances, new-instance retries and replacements increment the total.
 - Waiting, blocked, running and resumable idle instances consume concurrency until confirmed completion/termination. Obey lower actual runtime capacity, including native retention of completed instances. ARC counts do not prove free native slots.
 
@@ -25,5 +25,5 @@ Preserve the ledger across continuation/resume/compaction and reconcile actual I
 Completion frees confirmed active capacity only. Exhaustion holds creation and reports remaining work/budget; it never waives QA/Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.
 
 Cumulative limits and scheduling are prompt policy, not hard runtime controls. Text tests prove package consistency, not live compliance/native support.
-Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.
+Codex `[agents].max_depth` applies to V1 threads and is ignored by V2; it is not a universal depth guarantee. Claude coordinator requires the `Agent` tool. Stop and report if native nesting is unavailable. Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.
 Independent sessions/accounts/platforms do not share the ledger. Agent Teams and hosted APIs are outside this contract. Verify native application separately in a supported new session.

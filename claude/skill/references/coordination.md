@@ -15,9 +15,9 @@ Before first specialist creation/assignment and related decisions, Orchestrator 
 | QA | Verifies without editing |
 | Reviewer | Independently reviews the final full change |
 
-Orchestrator is depth 1. All five specialists report directly at depth 2 without creating agents/delegating. Reviewer stays independent.
+The host is outside the ARC tree and relays user questions and approvals. The configured Orchestrator is depth 1 and creates specialists, verifies work, accepts results and owns permitted local Git actions. If required native delegation is unavailable, stop and report. All five specialists report directly at depth 2 without creating agents/delegating. Reviewer stays independent.
 
-Claude native names: Scouter=`arc-scouter`, Planner=`arc-planner`, Implementer=`arc-implementer`, QA=`arc-qa`, Reviewer=`arc-reviewer`.
+Claude native names: Orchestrator=`arc-orchestrator`, Scouter=`arc-scouter`, Planner=`arc-planner`, Implementer=`arc-implementer`, QA=`arc-qa`, Reviewer=`arc-reviewer`.
 
 Across the tree, obey concurrency including Scouter. No reserved role slots. Read limits before first creation and maintain cumulative ledger/reservations. Parallelize independent tasks only; dependent handoffs are sequential and edit scopes never overlap.
 
@@ -26,7 +26,7 @@ ARC limits do not prove native concurrency/depth support. Invoke installed nativ
 <a id="instruction-and-execution-adapter"></a>
 ## Instruction and execution adapter
 
-Claude profiles use Markdown frontmatter with `effort`. Native `env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` is a string separate from the ARC ledger. Allowlists/prompts are not a filesystem sandbox; declarations prove no enforcement.
+Claude profiles use Markdown frontmatter with `effort`. Each Claude native subagent has a role-specific tool allowlist. These declarations do not prove runtime enforcement or provider support. Native `env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` is a string separate from the ARC ledger. Allowlists/prompts are not a filesystem sandbox; declarations prove no enforcement.
 
 Apply platform/user/project instructions by precedence, then ARC ownership/permissions/models/concurrency/routing/approval and role-local references. Skills add neither agents nor authority. Map `superpowers:executing-plans`/`superpowers:subagent-driven-development` to dependency-aware Orchestrator coordination and risk-scaled verification, replacing executor mechanics and separate execution-method prompts in existing references.
 
@@ -76,9 +76,9 @@ Use this fixed brief order:
 <a id="models"></a>
 ## Models
 
-Adjacent `models.toml` is authoritative for role models/effort. Orchestrator uses the current model. Do not substitute settings or reduce effort; report unavailability. Declarations prove no provider support/account access/alias resolution/actual model-effort application/concurrency/depth enforcement. New sessions reload profiles; running agents retain settings/parents. Changes do not automatically reparent or prove runtime parent behavior.
+Adjacent `models.toml` is authoritative for role models/effort. The configured `arc_orchestrator` uses its selected preset or Custom model and effort. Do not substitute settings or reduce effort; report unavailability. Declarations prove no provider support/account access/alias resolution/actual model-effort application/concurrency/depth enforcement. New sessions reload profiles; running agents retain settings/parents. Changes do not automatically reparent or prove runtime parent behavior.
 
-`arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, `arc_reviewer` settings map to hyphenated native names, not tool calls. For visualization read [visual companion](arc-visual-companion.md), use only actual allowlisted tools and report unavailable/unverified scope. Shipped `model`/`effort` defaults are replaced with active `models.toml` preset at installation.
+`arc_orchestrator`, `arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, `arc_reviewer` settings map to hyphenated native names, not tool calls. For visualization read [visual companion](arc-visual-companion.md), use only actual allowlisted tools and report unavailable/unverified scope. Shipped `model`/`effort` defaults are replaced with active `models.toml` preset at installation.
 
 <a id="instruction-and-input-provenance"></a>
 ## Instruction and input provenance

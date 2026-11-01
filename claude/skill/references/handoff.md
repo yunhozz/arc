@@ -54,7 +54,7 @@ One canonical record includes:
 - Final verification, failures/partial completion/recovery and each start/restart's approval/choice/reuse.
 
 
-Give all five roles the same actual workspace/selected checkout, preparation evidence and absolute artifacts. Roles stay there and report missing/inaccessible/conflicting paths/unexpected branches before dependent work, never create/switch workspaces/branches. Tell Implementer others share the repository and unrelated work must be preserved.
+Give all five specialist roles the same actual workspace/selected checkout, preparation evidence and absolute artifacts. Roles stay there and report missing/inaccessible/conflicting paths/unexpected branches before dependent work, never create/switch workspaces/branches. Tell Implementer others share the repository and unrelated work must be preserved.
 
 <a id="task-readiness-at-every-assignment"></a>
 ## Task readiness at every assignment

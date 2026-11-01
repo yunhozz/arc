@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-test('omitted limits resolve to total 100 and concurrent 5', async () => {
+test('omitted limits resolve to total 100 and concurrent 10', async () => {
  const api = await import('../../lib/limits.mjs').catch(() => ({}));
  assert.equal(typeof api.resolveLimits, 'function', 'limit resolver is available');
- assert.deepEqual(api.resolveLimits({existing:null,overrides:{}}), {version:1,max_total_subagents:100,max_concurrent_subagents:5});
+ assert.deepEqual(api.resolveLimits({existing:null,overrides:{}}), {version:1,max_total_subagents:100,max_concurrent_subagents:10});
 });
 test('limit input rejects non positive ASCII safe integers and preserves partial overrides', async () => {
  const api=await import('../../lib/limits.mjs');

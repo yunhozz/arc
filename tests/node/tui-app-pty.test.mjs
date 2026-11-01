@@ -135,6 +135,17 @@ enter
 expect -exact {Custom preset}
 expect -exact {Esc Home}
 down
+expect -exact {> Orchestrator}
+enter
+expect -exact {Select model}
+expect -exact {Esc Home}
+enter
+expect -exact {Select effort}
+expect -exact {Esc Home}
+enter
+expect -exact {Custom preset}
+expect -exact {Esc Home}
+down
 expect -exact {> Done}
 enter
 expect -exact {Preset: Custom}
@@ -142,7 +153,7 @@ send -- "\\003"`,{catalog});
  assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);assert.doesNotMatch(output,/entitlement|permission.{0,30}(?:unverified|not verified)|(?:unverified|not verified).{0,30}permission/i);
 });
 
-test('Custom resize blocks editing until diagram fits and retains focused pending pair',{skip:!available},async t=>{
+test('Custom resize keeps compact focus and retains focused pending pair',{skip:!available},async t=>{
  const catalog={status:'ready',catalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'},{model:'fixture-model',effort:'low'}],unavailable:[]}};
  const observe=`import {spawnSync} from 'node:child_process';let resized=false,effortResized=false;const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{const result=original(chunk,...args);if(!resized&&String(chunk).includes('> Planner')){resized=true;setTimeout(()=>{spawnSync('stty',['rows','23','cols','70'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');},100);setTimeout(()=>{spawnSync('stty',['rows','40','cols','120'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');},1200);}if(!effortResized&&String(chunk).includes('> low')){effortResized=true;setTimeout(()=>{spawnSync('stty',['rows','12','cols','40'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');original('EFFORT_NARROW\\n');},100);setTimeout(()=>{spawnSync('stty',['rows','40','cols','120'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');setTimeout(()=>original('EFFORT_WIDE\\n'),100);},600);}return result;};`;
  const output=await drive(t,`enter
@@ -159,9 +170,7 @@ enter
 expect -exact {Custom preset}
 expect -exact {Esc Home}
 down
-expect -exact {Diagram requires}
-enter
-expect -exact {> Planner}
+expect -exact {> Planner !:}
 enter
 expect -exact {Select model — Planner}
 enter

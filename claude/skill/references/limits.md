@@ -1,12 +1,12 @@
 <a id="subagent-limits"></a>
 # Subagent limits
 
-Before first creation, Orchestrator reads this reference and adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`5`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
+Before first creation, Orchestrator reads this reference and adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`10`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
 
 <a id="counting-and-reservations"></a>
 ## Counting and reservations
 
-- Track instance IDs, parent IDs, pending reservations, creation outcomes and active/completed state in the session ledger. Exclude Orchestrator, but count every created descendant, including nested/non-ARC agents.
+- Track instance IDs, parent IDs, pending reservations, creation outcomes and active/completed state in the session ledger. Exclude the host; count the coordinator and every created descendant, including nested/non-ARC agents. Coordinator and specialist work needs at least two active slots; if unavailable, hold creation and report. With the default limit, at most nine slots remain while the coordinator is active.
 - Completion never refunds cumulative creation. Same-instance follow-up/resume adds nothing; fresh instances, new-instance retries and replacements increment the total.
 - Waiting, blocked, running and resumable idle instances consume concurrency until confirmed completion/termination. Obey lower actual runtime capacity, including native retention of completed instances. ARC counts do not prove free native slots.
 

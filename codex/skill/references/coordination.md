@@ -15,7 +15,7 @@ Before first specialist creation/assignment and related decisions, Orchestrator 
 | QA | Verifies without editing |
 | Reviewer | Independently reviews the final full change |
 
-Orchestrator is depth 1. All five specialists report directly at depth 2 without creating agents/delegating. Reviewer stays independent.
+The host is outside the ARC tree and relays user questions and approvals. The configured Orchestrator is depth 1 and creates specialists, verifies work, accepts results and owns permitted local Git actions. If required native delegation is unavailable, stop and report. All five specialists report directly at depth 2 without creating agents/delegating. Reviewer stays independent.
 
 Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Implementer=`arc_implementer`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 
@@ -74,7 +74,7 @@ Use this fixed brief order:
 <a id="models"></a>
 ## Models
 
-Adjacent `models.toml` is authoritative for role models/effort. Orchestrator uses the current model. Do not substitute settings or reduce effort; report unavailability. Declarations prove no provider support/account access/alias resolution/actual model-effort application/concurrency/depth enforcement. New sessions reload profiles; running agents retain settings/parents. Changes do not automatically reparent or prove runtime parent behavior.
+Adjacent `models.toml` is authoritative for role models/effort. The configured `arc_orchestrator` uses its selected preset or Custom model and effort. Do not substitute settings or reduce effort; report unavailability. Declarations prove no provider support/account access/alias resolution/actual model-effort application/concurrency/depth enforcement. New sessions reload profiles; running agents retain settings/parents. Changes do not automatically reparent or prove runtime parent behavior.
 
 
 

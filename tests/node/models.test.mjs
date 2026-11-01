@@ -1,18 +1,71 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+test('canonical model configs resolve and round trip the configured coordinator', async () => {
+  const api = await import('../../lib/models/index.mjs');
+  for (const [platform, model, effort] of [['codex', 'gpt-6-luna', 'model_reasoning_effort'], ['claude', 'claude-haiku-5-5', 'effort']]) {
+    const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
+    const config = api.loadModelConfig(source, platform);
+    assert.equal(config.version, 3);
+    for (const preset of ['economy', 'balanced', 'smart']) {
+      assert.deepEqual(api.resolveModelSettings(api.applyPreset(config, preset)).roles.arc_orchestrator, { model, [effort]: 'max' });
+    }
+    assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(config), platform), config);
+  }
+});
+test('legacy five-role settings preserve custom values and use supplied canonical coordinator defaults', async () => {
+  const api = await import('../../lib/models/index.mjs');
+  const canonical = api.loadModelConfig(fs.readFileSync(new URL('../../codex/skill/models.toml', import.meta.url), 'utf8'), 'codex');
+  const legacy = structuredClone(canonical);
+  legacy.version = 2;
+  delete legacy.roles.arc_orchestrator;
+  legacy.custom = Object.fromEntries(Object.keys(legacy.roles).map(role => [role, {model: 'legacy-model', model_reasoning_effort: 'high'}]));
+  legacy.preset = 'custom';
+  const text = fs.readFileSync(new URL('../../codex/skill/models.toml', import.meta.url), 'utf8')
+    .replace('version = 3', 'version = 2').replace('preset = "balanced"', 'preset = "custom"')
+    .replace(/\n\[roles\.arc_orchestrator\.economy\][\s\S]*$/, '')
+    + Object.keys(legacy.custom).map(role => `\n[custom.${role}]\nmodel = "legacy-model"\nmodel_reasoning_effort = "high"\n`).join('');
+  const migrated = api.loadModelConfig(text, 'codex', canonical);
+  assert.equal(migrated.version, 3);
+  assert.deepEqual(migrated.roles.arc_orchestrator, canonical.roles.arc_orchestrator);
+  assert.deepEqual(migrated.custom.arc_orchestrator, canonical.roles.arc_orchestrator.balanced);
+  assert.deepEqual(migrated.custom.arc_qa, legacy.custom.arc_qa);
+});
+test('Claude renderer accepts a coordinator profile with delegation capability', async () => {
+  const api = await import('../../lib/models/index.mjs');
+  const config = api.loadModelConfig(fs.readFileSync(new URL('../../claude/skill/models.toml', import.meta.url)), 'claude');
+  const profiles = Object.fromEntries(['scouter','planner','implementer','qa','reviewer'].map(role => [`arc-${role}.md`, fs.readFileSync(new URL(`../../claude/agents/arc-${role}.md`, import.meta.url))]));
+  profiles['arc-orchestrator.md'] = Buffer.from('---\nname: arc-orchestrator\ndescription: Coordinator\nmodel: claude-haiku-5-5\neffort: max\ntools:\n  - Read\n  - Grep\n  - Glob\n  - Bash\n  - Write\n  - Edit\n  - Agent\n---\n');
+  const rendered = api.renderProfiles(profiles, api.resolveModelSettings(config));
+  assert.match(rendered.get('arc-orchestrator.md').toString(), /model: claude-haiku-5-5\neffort: max/);
+});
+test('both packaged coordinator profiles render with balanced settings', async () => {
+  const api = await import('../../lib/models/index.mjs');
+  for (const platform of ['codex', 'claude']) {
+    const ext = platform === 'codex' ? 'toml' : 'md';
+    const profiles = {};
+    for (const role of ['scouter','planner','implementer','qa','reviewer','orchestrator']) {
+      const name = `arc-${role}.${ext}`;
+      const file = new URL(`../../${platform}/agents/${name}`, import.meta.url);
+      assert.ok(fs.existsSync(file), `${platform} ${name} is required`);
+      profiles[name] = fs.readFileSync(file);
+    }
+    const config = api.loadModelConfig(fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url)), platform);
+    assert.equal(api.renderProfiles(profiles, api.resolveModelSettings(config)).size, 6);
+  }
+});
 const api = await import('../../lib/models/index.mjs').catch(() => ({}));
-const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
+const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer', 'arc_orchestrator'];
 const expected = {
   codex: {
-    economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
-    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','medium'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],
-    smart: [['gpt-6-luna','max'],['gpt-6-astra','high'],['gpt-6-astra','high'],['gpt-6.1-sol','medium'],['gpt-6-astra','high']],
+    economy: [['gpt-6-luna','medium'],['gpt-6.1-sol','high'],['gpt-6.1-terra','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6-luna','max']],
+    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','xhigh'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','high'],['gpt-6.1-sol','high'],['gpt-6-luna','max']],
+    smart: [['gpt-6.1-sol','high'],['gpt-6-astra','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','xhigh'],['gpt-6-luna','max']],
   },
   claude: {
-    economy: [['haiku','high'],['sonnet','medium'],['sonnet','medium'],['haiku','high'],['sonnet','medium']],
-    balanced: [['haiku','high'],['sonnet','high'],['sonnet','medium'],['haiku','max'],['sonnet','high']],
-    smart: [['haiku','max'],['opus','high'],['opus','high'],['sonnet','medium'],['opus','high']],
+    economy: [['haiku','medium'],['sonnet','high'],['sonnet','medium'],['haiku','high'],['sonnet','medium'],['claude-haiku-5-5','max']],
+    balanced: [['haiku','high'],['sonnet','xhigh'],['sonnet','medium'],['haiku','high'],['sonnet','high'],['claude-haiku-5-5','max']],
+    smart: [['sonnet','high'],['opus','high'],['sonnet','high'],['sonnet','high'],['sonnet','xhigh'],['claude-haiku-5-5','max']],
   },
 };
 for (const platform of ['codex', 'claude']) {
@@ -20,7 +73,7 @@ for (const platform of ['codex', 'claude']) {
   const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
   test(`${platform} unified config preserves every role and preset and round trips`, () => {
     const config = api.loadModelConfig(source, platform);
-    assert.equal(config.version, 2); assert.equal(config.preset, 'balanced');
+    assert.equal(config.version, 3); assert.equal(config.preset, 'balanced');
     assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(config), platform), config);
     for (const preset of ['economy', 'balanced', 'smart']) {
       const before = structuredClone(config), selected = api.applyPreset(config, preset);
@@ -44,7 +97,7 @@ for (const platform of ['codex', 'claude']) {
       const legacy = `version = ${version}\n` + roles.map(role => `[roles.${role}]\nmodel = "old"\n${effort} = "low"\n`).join('');
       assert.throws(() => api.loadModelConfig(legacy, platform), {code: 'ARC_MODEL_VALIDATION'});
     }
-    for (const text of ['version = [', source + '\nversion = 1', source.replace('version = 1', 'version = 1.0')]) assert.throws(() => api.loadModelConfig(text, platform), {code: 'ARC_MODEL_VALIDATION'});
+    for (const text of ['version = [', source + '\nversion = 1', source.replace('version = 3', 'version = 3.0')]) assert.throws(() => api.loadModelConfig(text, platform), {code: 'ARC_MODEL_VALIDATION'});
     assert.throws(() => api.applyPreset(valid, 'fast'), /preset/i);
   });
 }
@@ -159,7 +212,7 @@ for (const platform of ['codex', 'claude']) {
     const custom = Object.fromEntries(roles.map(role => [role, {model: 'example', [effort]: 'high'}]));
     const selected = api.applyCustomRoles(config, custom);
     for (const mutate of [c => delete c.custom.arc_qa, c => c.custom.extra = {}, c => c.custom.arc_qa.extra = true,
-      c => c.custom.arc_qa[effort] = '', c => delete c.custom, c => c.version = 3]) {
+      c => c.custom.arc_qa[effort] = '', c => delete c.custom, c => c.version = 4]) {
       const invalid = structuredClone(selected); mutate(invalid);
       assert.throws(() => api.serializeModelConfig(invalid), {code: 'ARC_MODEL_VALIDATION'});
     }

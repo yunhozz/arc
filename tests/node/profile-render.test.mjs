@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 const api = await import('../../lib/models/index.mjs').catch(() => ({}));
-const roles = ['scouter', 'planner', 'implementer', 'qa', 'reviewer'];
+const roles = ['scouter', 'planner', 'implementer', 'qa', 'reviewer', 'orchestrator'];
 function profiles(platform, eol = '\n') { return Object.fromEntries(roles.map(role => { const name = `arc-${role}.${platform === 'codex' ? 'toml' : 'md'}`; return [name, Buffer.from(fs.readFileSync(new URL(`../../${platform}/agents/${name}`, import.meta.url), 'utf8').replace(/\r?\n/g, eol))]; })); }
 function settings(platform) { return api.resolveModelSettings(api.applyPreset(api.loadModelConfig(fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8'), platform), 'smart')); }
 for (const platform of ['codex', 'claude']) for (const eol of ['\n','\r\n']) test(`${platform} renderer preserves non-model bytes with ${JSON.stringify(eol)}`, () => {
@@ -13,7 +13,7 @@ for (const platform of ['codex', 'claude']) for (const eol of ['\n','\r\n']) tes
   for (const [name, original] of Object.entries(input)) {
     assert.ok(Buffer.isBuffer(result.get(name))); const role = name.replace(/\.(toml|md)$/, '').replace('-', '_');
     if (platform === 'codex') {
-      const cleaned = result.get(name).toString().replace(/^model(?:_reasoning_effort)? = .*\r?\n/gm, ''); assert.equal(cleaned, original.toString());
+      const cleaned = result.get(name).toString().replace(/^model(?:_reasoning_effort)? = .*\r?\n/gm, ''); assert.equal(cleaned, original.toString().replace(/^model(?:_reasoning_effort)? = .*\r?\n/gm, ''));
       assert.match(result.get(name).toString(), new RegExp(`model = "${config.roles[role].model}"`));
     } else {
       const mask = bytes => bytes.toString().replace(/^(model|effort):[^\r\n]*/gm, '$1: MASK'); assert.equal(mask(result.get(name)), mask(original));
@@ -30,7 +30,7 @@ test('Codex model-looking text inside instructions is preserved', () => {
 test('Codex existing root field edits preserve indentation, comments and nested fields', () => {
   const input = profiles('codex'); input['arc-implementer.toml'] = Buffer.from('name = "arc_implementer"\nmodel = "old" # keep\n\t"model_reasoning_effort" = \'low\'  # keep too\n[nested]\nmodel = "nested"\n');
   const out = api.renderProfiles(input, settings('codex')).get('arc-implementer.toml').toString();
-  assert.ok(out.includes('model = "gpt-6-astra" # keep\n')); assert.ok(out.includes('\t"model_reasoning_effort" = "high"  # keep too\n')); assert.ok(out.endsWith('[nested]\nmodel = "nested"\n'));
+  assert.ok(out.includes('model = "gpt-6.1-sol" # keep\n')); assert.ok(out.includes('\t"model_reasoning_effort" = "high"  # keep too\n')); assert.ok(out.endsWith('[nested]\nmodel = "nested"\n'));
 });
 for (const platform of ['codex','claude']) test(`${platform} invalid/missing profile set fails without output`, () => {
   const input = profiles(platform); const name = Object.keys(input)[0]; delete input[name]; assert.throws(() => api.renderProfiles(input, settings(platform)), { code: 'ARC_MODEL_VALIDATION' });

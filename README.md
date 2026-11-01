@@ -36,7 +36,7 @@ The TUI requires terminal input and output. It supports only `arc`, `arc --help`
 
 ## Models and language
 
-The Orchestrator uses the current conversation model. Specialist roles use the selected preset in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
+The host handles simple questions and relays user decisions; substantive ARC work goes to the configured Orchestrator, which coordinates specialists and acceptance. All six roles use the selected preset in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
 
 ## Guides
 

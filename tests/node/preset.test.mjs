@@ -3,6 +3,14 @@ import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '.
 const api=await import('../../lib/installer/preset.mjs').catch(()=>({}));const native=loadNative(),safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-preset-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
 function install(home,platform){const target=resolveTarget(platform,{userHome:home,env:{}});fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.mkdirSync(target.home+'/agents');const config=loadModelConfig(fs.readFileSync(`${platform}/skill/models.toml`),platform);config.roles.arc_implementer.smart.model='custom-model';fs.writeFileSync(target.home+'/skills/arc/models.toml',serializeModelConfig(config));const profiles=new Map(target.profileNames.map(name=>[name,Buffer.from(platform==='codex'?fs.readFileSync(`${platform}/agents/${name}`,'utf8').replace('developer_instructions = """','developer_instructions = """\nUser body Korean policy'):fs.readFileSync(`${platform}/agents/${name}`,'utf8')+'\nUser body Korean policy\n')]));for(const[name,bytes]of (platform==='claude'?renderProfiles(profiles,resolveModelSettings(config)):profiles))fs.writeFileSync(target.home+'/agents/'+name,bytes);for(const name of ['settings.toml','limits.toml','SKILL.md'])fs.writeFileSync(target.home+'/skills/arc/'+name,'preserve '+name);return target;}
+test('legacy preset writes require coordinator profile before migration',t=>{
+ const target=install(fixture(t),'codex'),modelPath=target.home+'/skills/arc/models.toml';
+ const canonical=loadModelConfig(fs.readFileSync('codex/skill/models.toml'),'codex');
+ const legacy=fs.readFileSync('codex/skill/models.toml','utf8').replace('version = 3','version = 2').replace(/\n\[roles\.arc_orchestrator\.economy\][\s\S]*$/,'');
+ fs.writeFileSync(modelPath,legacy);fs.unlinkSync(target.home+'/agents/arc-orchestrator.toml');
+ assert.throws(()=>api.buildPresetPlan({target,preset:'balanced',safeFs,canonicalDefaults:canonical}),/Install \/ Update first/);
+ assert.equal(fs.readFileSync(modelPath,'utf8'),legacy);
+});
 for(const platform of ['codex','claude'])test(`${platform} switches installed custom variant and preserves unrelated bytes`,async t=>{assert.equal(typeof api.buildPresetPlan,'function');const target=install(fixture(t),platform),before=fs.readFileSync(target.home+'/skills/arc/settings.toml');const plan=api.buildPresetPlan({target,preset:'smart',safeFs});const result=await api.switchPresetTargets([plan],{safeFs});assert.equal(result.results[0].status,'updated');assert.equal(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),platform).preset,'smart');const body=fs.readFileSync(target.home+'/agents/'+target.profileNames[2],'utf8');assert.match(body,/custom-model/);assert.match(body,/User body Korean policy/);assert.deepEqual(fs.readFileSync(target.home+'/skills/arc/settings.toml'),before);assert.equal(api.buildPresetPlan({target,preset:'smart',safeFs}).specs.length,0);});
 test('all preflight blocks writes and second target failure preserves first success',async t=>{assert.equal(typeof api.buildPresetPlan,'function');const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p));let plans=targets.map(target=>api.buildPresetPlan({target,preset:'smart',safeFs}));fs.appendFileSync(targets[1].home+'/agents/'+targets[1].profileNames[0],'drift');let result=await api.switchPresetTargets(plans,{safeFs});assert.equal(result.results[0].status,'not-started');assert.equal(loadModelConfig(fs.readFileSync(targets[0].home+'/skills/arc/models.toml'),'codex').preset,'balanced');plans=targets.map(target=>api.buildPresetPlan({target,preset:'smart',safeFs}));result=await api.switchPresetTargets(plans,{safeFs,hooks:{fault(e){if(e.plan.target.platform==='claude'&&e.phase==='after-publish')throw Error('injected publish');}}});assert.equal(result.results[0].status,'updated');assert.equal(result.results[1].rollback,'restored');assert.equal(loadModelConfig(fs.readFileSync(targets[1].home+'/skills/arc/models.toml'),'claude').preset,'balanced');});
 
@@ -18,7 +26,7 @@ test('cleanup failure retains published files and reports residual staging path'
 
 for(const platform of ['codex','claude'])test(platform+' persists changed Custom roles and treats identical roles as noop',async t=>{
  const target=install(fixture(t),platform),effort=platform==='codex'?'model_reasoning_effort':'effort';
- const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
  const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'},{model:'other-model',effort:'medium'}],unavailable:[]};
  let plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles,verifiedCatalog});
  assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');
@@ -32,14 +40,14 @@ for(const platform of ['codex','claude'])test(platform+' persists changed Custom
 });
 
 test('Custom transaction failure restores original model and profile bytes',async t=>{
- const target=install(fixture(t),'codex'),customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',model_reasoning_effort:'high'}]));
+ const target=install(fixture(t),'codex'),customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'fixture-model',model_reasoning_effort:'high'}]));
  const plan=api.buildPresetPlan({target,preset:'custom',safeFs,customRoles,verifiedCatalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'}]}}),before=new Map(plan.managedPaths.map(name=>[name,fs.readFileSync(name)]));
  const result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish')throw Error('fixture failure');}}});
  assert.equal(result.results[0].status,'failed');assert.equal(result.results[0].rollback,'restored');for(const[name,bytes]of before)assert.deepEqual(fs.readFileSync(name),bytes);
 });
 
 for(const platform of ['codex','claude'])test(platform+' built-in Apply persists an edited inactive Custom and validates its pairs',async t=>{
- const target=install(fixture(t),platform),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]},file=target.home+'/skills/arc/models.toml';
+ const target=install(fixture(t),platform),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','arc_orchestrator'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]},file=target.home+'/skills/arc/models.toml';
  assert.throws(()=>api.buildPresetPlan({target,preset:'smart',safeFs,customRoles:roles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
  const plan=api.buildPresetPlan({target,preset:'smart',safeFs,customRoles:roles,verifiedCatalog:catalog});assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');
  const saved=loadModelConfig(fs.readFileSync(file),platform);assert.equal(saved.preset,'smart');assert.deepEqual(saved.custom,roles);
