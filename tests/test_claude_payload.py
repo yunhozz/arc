@@ -178,6 +178,28 @@ class ClaudePayloadTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(module.ValidationError):
                 module.render_profile(bad, {'model': 'opus', 'effort': 'high'})
 
+    def test_missing_coordinator_requires_install_before_any_write(self):
+        module = self.module()
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self.fixture(Path(tmp).resolve())
+            settings = module.load_settings(target / 'skills/arc/models.toml')
+            agents = target / 'agents'
+            coordinator = agents / 'arc-orchestrator.md'
+            coordinator.unlink()
+            before = {p.name: p.read_bytes() for p in agents.iterdir()}
+            for flags in ({}, {'check': True}, {'dry_run': True}):
+                with self.subTest(flags=flags), self.assertRaisesRegex(module.ValidationError, 'Install / Update first'):
+                    module.apply_models(settings, agents, **flags)
+                self.assertEqual(before, {p.name: p.read_bytes() for p in agents.iterdir()})
+            coordinator.symlink_to(agents / 'arc-scouter.md')
+            with self.assertRaisesRegex(module.ValidationError, 'symlink is not supported'):
+                module.apply_models(settings, agents)
+            coordinator.unlink()
+            coordinator.mkdir()
+            with self.assertRaisesRegex(module.ValidationError, 'expected regular file'):
+                module.apply_models(settings, agents)
+            self.assertEqual(before, {p.name: p.read_bytes() for p in agents.iterdir() if p.is_file()})
+
     def test_apply_models_check_and_dry_run_do_not_write(self):
         self.module()
         with tempfile.TemporaryDirectory() as tmp:

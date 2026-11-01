@@ -165,7 +165,15 @@ def apply_models(settings: dict, agents_dir: Path, *, check: bool = False, dry_r
     plans = []
     for role, filename in ROLE_FILES.items():
         path = agents_dir / filename
-        require_regular(path)
+        try:
+            require_regular(path)
+        except ValidationError as exc:
+            if role == 'arc_orchestrator' and str(exc).startswith('expected regular file:'):
+                try:
+                    path.lstat()
+                except FileNotFoundError:
+                    raise ValidationError(f'Install / Update first: missing {path}') from exc
+            raise
         content = path.read_bytes()
         if parse_profile(content)['name'] != filename[:-3]:
             raise ValidationError(f'{path}: name does not match filename')
