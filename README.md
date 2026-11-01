@@ -38,6 +38,8 @@ The TUI requires terminal input and output. It supports only `arc`, `arc --help`
 
 The host handles simple questions and relays user decisions; substantive ARC work goes to the configured Orchestrator, which coordinates specialists and acceptance. All six roles use the selected preset in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
 
+Before implementation, Orchestrator determines the required documents, verifies their approvals and commits, and records the conditions and evidence for any permitted omission.
+
 ## Guides
 
 [Harness operation](docs/harness-operation.md) · [Codex guide](codex/skill/SKILL.md) · [Claude Code guide](claude/skill/SKILL.md)

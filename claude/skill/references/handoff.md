@@ -6,7 +6,7 @@ Orchestrator reads before every first-start/restart preparation; Implementer tru
 <a id="instruction-sources-bounded-read-recovery-visual-evidence-and-resumption"></a>
 ## Instruction sources, bounded read recovery, visual evidence and resumption
 
-Keep shared brief field order, recording source/status within fields. Distinguish user instructions, discovered workspace instructions, installed references and inputs by source/applicability/version or approval/access. Missing root AGENTS.md does not negate user instructions. Missing required skills/references/approved inputs and conflicts hold dependent work.
+Keep shared brief field order, recording source/status within fields. Distinguish user-provided instructions, discovered workspace instruction files, installed role references and task inputs by source/applicability/version or approval/access. Missing root AGENTS.md does not negate user instructions. Missing required skills/references/approved inputs and conflicts hold dependent work.
 
 Optional alternatives need exact locator, material identity, approved version, purpose, method, preconditions, equivalent evidence and return conditions pre-authorized in the brief. Verify alternate locations identify the same material/version. Only side-effect-free reads; no chained search, guessed paths, mutation retries or environment/dependency/permission changes. Return required-input omissions, authority/target/ownership mismatches, partial changes, unknown states and unapproved/ambiguous/failed alternatives immediately. Report first failure/alternative/observations/limits and held dependent/independent work. Orchestrator validates scope/evidence before independent release; unresolved required checks still block acceptance.
 
@@ -29,7 +29,7 @@ After initial design approval record explicit selection: current checkout branch
 <a id="implementer-handoff-gate"></a>
 ### Implementer handoff gate
 
-Orchestrator verifies all before start/restart:
+Before every Implementer assignment or direct code edit, Orchestrator applies [planning readiness](planning.md#implementation-readiness), including depth, separate risk, required documents or ARC-backed omission conditions and evidence. Orchestrator verifies all before start/restart:
 
 1. Applicable design/spec/plan approvals/artifacts or valid omissions; for Spike, approved question/method/scope/criteria/constraints. Verify full current document set/versions/dependencies/order and no unfinished applicable documents. Future implementation artifacts are outside probe approval.
 2. Explicit initial choice or verified valid reuse.

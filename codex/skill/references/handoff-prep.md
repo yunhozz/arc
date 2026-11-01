@@ -83,7 +83,7 @@ Skip only when depth rules required no documents and none were created; record w
 
 After initial document batching, use [planning](planning.md#plan-updates-during-execution), including scope revisions. Never batch another document commit or combine historical commits/rewrite implementation contents under this exception.
 
-1. Verify original planning commit ancestry/current replacement, unpublished/unshared local linear history, no merges, clear ownership/plan paths, paused writers/safe unfinished-work boundary and complete classification/approval/chronology. Unexpected dirty state blocks rewrite.
+1. Verify the original planning commit's ancestry or current replacement. History must be local, linear, unpublished and unshared, with no merges. Verify clear ownership and plan paths. Pause writers at a safe boundary for unfinished work. Verify complete classification, approval and chronology. Unexpected dirty state blocks rewrite.
 2. Preserve recoverable old HEAD/commits and before/after plan contents, plus unrelated staged/unstaged/untracked work.
 3. If original commit is HEAD, amend only plan paths, preserving other documents. Otherwise amend original and replay descendants in order with task boundaries/implementation contents intact. No separate docs/intermediate fixup commit. Orchestrator alone mutates Git.
 4. Unknown publication/sharing/ownership, merges, unexpected HEAD/state or replay conflict stops rewrite/affected work. No automatic resolution, force push or fallback docs commit. Record actual path/branch/HEAD/index/files/completed steps.

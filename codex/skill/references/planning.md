@@ -53,9 +53,16 @@ Record depth separately from risk. Risk controls checks/review, not design paths
 4. Record dependencies/depth reasons. Planner returns complete plan/assumptions/open decisions/checks/self-review. Orchestrator saves/reviews/obtains approval before Implementer at user path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`. Default spec path is `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
 5. Every Implementer first start/restart needs applicable approvals/artifacts/brief/findings and full handoff. Non-behavior docs/config omit only inapplicable stages. Direct edits need approved scope record and same first-edit gates.
 
-If Bounded requires written spec, record necessity/scope using approved short design as basis. Planner returns proportional full spec/self-review; Orchestrator saves/reviews/obtains individual approval before dependent plan/preparation. Short design approval never substitutes. This applies recorded judgment, not new spec necessity. Required plans alone imply no written spec.
+If Bounded requires written spec, record necessity/scope using approved short design as basis. Planner returns proportional full spec/self-review; Orchestrator saves/reviews/obtains individual approval before dependent plan/preparation. Short design approval never substitutes. This applies recorded judgment, not new spec necessity. A required plan does not itself require a written spec.
 
 Only Planner authors the first complete spec or plan draft and self-review. Orchestrator reviews and directly revises the same document before approval. Unavailable/failed Planner stops first drafting rather than transferring authorship. Design approval does not transfer initial authorship.
+
+<a id="implementation-readiness"></a>
+### Implementation readiness
+
+Before every Implementer assignment or direct code edit, Orchestrator applies this checkpoint and the [handoff gate](handoff.md#implementer-handoff-gate). Record depth and risk separately, with rationale and required checks. In the canonical handoff and brief, record required documents and dependencies, their scope, paths, status and order, and the ARC omission conditions and evidence for each omitted stage.
+
+Record target choice or valid reuse and the actual absolute workspace, branch, HEAD, index, worktree, untracked changes and ownership. Verify individual approvals and versions. Require verified docs-only commit evidence: reuse valid existing commits or batch remaining approved documents. If depth requires no documents and none were created, record the conditions and evidence for their absence. Verify the final Git state after preparation. Missing evidence blocks affected implementation. This checkpoint does not require completed approvals before target preparation or review-draft saves.
 
 <a id="top-level-plan-tasks"></a>
 ## Top-level plan tasks
@@ -92,7 +99,7 @@ Saving for review does not require prior written-spec approval, but does require
 
 Include all current-scope required specs/plans, excluding future projects. Record scope/depth/absolute paths/coverage/versions/status/dependencies/order/omissions/reasons/pending drafting and approvals. Complete means every required document written/individually approved and no unresolved decision requiring another document. Omit no required artifact.
 
-A required plan implies no spec. Bounded follows recorded judgment; spec stages cover Architectural/required Bounded only, plan stages required plans only. Add no spec duty to Spike/plan-skip/non-behavior paths.
+A required plan does not itself require a written spec. Bounded follows recorded judgment; spec stages cover Architectural/required Bounded only, plan stages required plans only. Add no spec duty to Spike/plan-skip/non-behavior paths.
 
 Order: initial design approval → explicit target → actual preparation/verification → required spec drafting/save/self-review/individual approval → required plans drafting/save/review/individual approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer. Omission skips only inapplicable documents with rationale. Complete documents precede staging/commit/handoff, not initial preparation/choice request. Partial approvals authorize no early implementation.
 

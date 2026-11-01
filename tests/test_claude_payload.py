@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import workspace_document_contract as workspace_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 PAYLOAD = ROOT / 'claude'
@@ -297,17 +298,19 @@ class ClaudePayloadTests(unittest.TestCase):
         handoff = (PAYLOAD / 'skill/references/handoff.md').read_text()  # the definition lives once in handoff.md
         self.assertIn('## Orchestrator direct path for small tasks', handoff)
         direct = handoff.split('## Orchestrator direct path for small tasks', 1)[1].split('\n## ', 1)[0]
-        for clause in (
-            r'Before editing.*scope record.*scope and files.*why every criterion holds.*acceptance criteria.*focused verification',
-            r'authorization.*planning.*existing.*request.*no duplicate approval',
-            r'Silence.*ambiguous.*approval of other work.*not approval',
-            r'execution-target choice or valid reuse.*workspace and repository.*branch or detached HEAD.*HEAD.*staged/unstaged/untracked.*preservation and ownership.*unresolved failure or partial completion',
-            r'only the approved files.*preserves.*edits',
-            r'After editing.*changed files.*focused checks.*acceptance criterion.*evidence',
+        full = ' '.join(handoff.split())
+        direct = ' '.join(direct.split())
+        for source, clause in (
+            (direct, r'Record target choice/reuse before first edit.*Record scope/files, every condition\'s justification, criteria/checks'),
+            (full, r'(?=.*A specific existing request may authorize under \[planning\]\(planning\.md#authorization-and-scope\))(?=.*Reuse valid unchanged approvals across role restarts without duplicates)'),
+            (direct, r'Silence/ambiguity/other approvals are insufficient'),
+            (full, r'(?=.*pass full gate before edit)(?=.*Before every start/restart verify approvals/artifacts or omissions, explicit target/reuse, accessible intended repository/workspace, actual Git identity/state, preservation/ownership, docs commits or absence and no unresolved failure/partial completion)(?=.*Record actual path, branch/detached HEAD, HEAD and staged/unstaged/untracked state)'),
+            (direct, r'edit approved files surgically, preserving others\. No unrelated refactoring/unapproved dependencies'),
+            (full, r'(?=.*Follow Implementer TDD/recorded waivers; explicit TDD still requires local skill\. Record files/checks/criterion evidence/gaps\. Orchestrator is not independent; assign QA for incomplete evidence)(?=.*Failed checks/QA findings route to Implementer/recheck, never self-correction)(?=.*Waiver requires all low-risk and plan-skip/direct conditions, recorded scope/justification/criteria/checks before work)'),
         ):
-            self.assertRegex(' '.join(direct.split()), clause)
+            self.assertRegex(source, clause)
         planning = ' '.join((PAYLOAD / 'skill/references/planning.md').read_text().split())
-        self.assertRegex(planning, r'direct path for small tasks is defined only in \[handoff\]\(handoff\.md#orchestrator-direct-path-for-small-tasks\)')
+        self.assertRegex(planning, r'Small-task direct edits follow only \[handoff\]\(handoff\.md#orchestrator-direct-path-for-small-tasks\)')
         self.assertNotIn('Edit only approved files', planning)
 
     def test_ceo_direct_path_excludes_every_significant_risk_trigger(self):
@@ -472,10 +475,13 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_planning_reference_ports_paths_and_gates(self):
         text = self.read_claude('skill/references/planning.md')
-        self.assert_all(text, ('Spike', 'Bounded', 'Architectural', 'plan depth', 'must not substitute',
-                               'Spec save', 'Plan save', 'Complete planning-document set', 'Normal order',
+        self.assert_all(text, ('Spike', 'Bounded', 'Architectural', 'plan depth', 'Short design approval never substitutes',
+                               '| Spec | Approved design scope/evidence, complete Planner draft/self-review, Orchestrator integration/save/review ownership and absolute path. Required Bounded specs also need depth judgment, short design, necessity/scope |',
+                               '| Plan | Approved design and required approved spec/version/evidence, depth judgment, plan list/dependencies, complete Planner draft/self-review, ownership and absolute path |',
+                               'Complete planning-document set',
+                               'Order: initial design approval → explicit target → actual preparation/verification → required spec drafting/save/self-review/individual approval → required plans drafting/save/review/individual approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer.',
                                'current checkout', 'early spec commit', 'Evidence refresh', 'Top-level plan tasks',
-                               'Orchestrator preserves that language when saving'))
+                               'Orchestrator preserves agreed language when saving.'))
         self.assertNotIn('Edit only approved files', text)
 
     def test_claude_handoff_prep_branch_naming_and_collisions(self):
@@ -546,19 +552,30 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_role_gate_planner_only_and_ceo_skill_ban(self):
         core = self.text('skill/SKILL.md')
-        gate = next(p for p in (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n') if p.startswith(('Role gate:', '**Role gate:**')))
+        paragraphs = (PAYLOAD / 'skill/SKILL.md').read_text().split('\n\n')
+        gate = next(p for p in paragraphs if p.startswith(('Role gate:', '**Role gate:**')))
         gate = ' '.join(gate.split())
-        self.assertLessEqual(len(re.findall(r'[.!?](?:\s|$)', gate)), 5)
-        for needle in ('ONLY by Planner (`arc-planner`)', 'Orchestrator MUST NEVER author them',
-                       'MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool',
-                       'auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner', "that skill's SKILL.md path",
-                       'skip questions', 'never waives design or approval gates', 'returns questions to Orchestrator',
-                       'FRESH Implementer', 'FRESH QA'):
+        freshness = next(p for p in paragraphs if p.startswith('Each top-level task'))
+        for needle in ('Only Planner (`arc-planner`) authors design/brainstorming drafts and first complete spec/plan drafts',
+                       'Orchestrator reviews and directly revises the same spec or plan when needed',
+                       'missing or failed first drafts do not transfer initial authorship',
+                       'New product decisions outside approved scope require user input first',
+                       'Orchestrator never invokes `brainstorming`/`writing-plans` through its own Skill tool',
+                       'If auto-triggered, stop and route to Planner with that SKILL.md path in the brief',
+                       'questions never waives design/approval gates', 'Planner returns questions to Orchestrator'):
             with self.subTest(needle=needle):
-                self.assertIn(' '.join(needle.split()), ' '.join(gate.split()))
-        self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
-        self.assertIn('same-task corrections and rechecks default to the current Implementer and QA', gate)
-        self.assertIn('Implementer and QA freshness follow the Role gate', self.text('skill/references/coordination.md'))
+                self.assertIn(needle, gate)
+        for needle in ('Each top-level task (one plan task, or the entire request without a plan) receives a fresh Implementer',
+                       'Each task requiring QA receives fresh QA, never reused from another task',
+                       'Same-task corrections/rechecks default to current Implementer/QA while assignment remains valid'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, ' '.join(freshness.split()))
+        planning = self.text('skill/references/planning.md')
+        self.assertIn('Orchestrator selects path, integrates, announces scope, routes revisions and obtains approval', planning)
+        self.assertIn('Only Planner authors the first complete spec or plan draft and self-review', planning)
+        self.assertIn('Unavailable/failed Planner stops first drafting rather than transferring authorship', planning)
+        self.assertIn('Role gate governs Implementer/QA freshness', self.text('skill/references/coordination.md'))
+        self.assertLessEqual(len(re.findall(r'[.!?](?:\s|$)', gate)), 5)
 
     def test_every_profile_has_stay_in_role_line(self):
         for role in EXPECTED:
@@ -632,9 +649,9 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_ownership_and_prep_consistency(self):
         self.assertNotIn('detached HEAD is acceptable', self.text('skill/references/handoff-prep.md'))
-        self.assertIn('Orchestrator performs read-only inspection of related processes and ACLs', self.text('skill/references/git-recovery.md'))
-        self.assertIn('read the brief-cited `references/superpowers/test-driven-development/SKILL.md` path', self.text('agents/arc-implementer.md'))
-        self.assertIn('its named research skills', self.text('agents/arc-scouter.md'))
+        self.assertIn('Orchestrator inspects related processes/ACLs read-only itself or assigns QA; Scouter/Planner/Reviewer cannot execute commands', self.text('skill/references/git-recovery.md'))
+        self.assertIn('read brief-cited `references/test-driven-development.md` unless waived', self.text('agents/arc-implementer.md'))
+        self.assertIn('Read the brief and named research skills', self.text('agents/arc-scouter.md'))
 
 
 class Task4FollowUpTests(unittest.TestCase):
@@ -647,20 +664,20 @@ class Task4FollowUpTests(unittest.TestCase):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', core)
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', self.text('skill/references/handoff.md'))
-        self.assertRegex(self.text('skill/references/handoff.md'), r'failed focused check or a QA finding routes the correction to Implementer')
+        self.assertRegex(self.text('skill/references/handoff.md'), r'Failed checks/QA findings route to Implementer/recheck, never self-correction')
 
     def test_design_drafts_are_not_standalone_document_writing(self):
-        self.assertRegex(self.text('skill/SKILL.md'), r'Standalone document writing has no specialist auto-route\. Design, spec, plan, and brainstorming drafts are not standalone document writing \(see Role gate\)')
+        self.assertRegex(self.text('skill/SKILL.md'), r'Standalone document writing has no specialist auto-route\. Design/spec/plan/brainstorming drafts are not standalone writing')
 
     def test_top_level_task_definition_in_role_gate(self):
-        self.assertIn('top-level task (a plan task, or the whole request without a plan)', self.text('skill/SKILL.md'))
+        self.assertIn('top-level task (one plan task, or the entire request without a plan)', self.text('skill/SKILL.md'))
 
     def test_corrections_go_to_implementer_and_bounded_uses_scope_record(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('Recheck any approved-file correction', core)
-        self.assertIn('routes the correction to Implementer, and it is rechecked; Orchestrator does not self-correct',
+        self.assertIn('Failed checks/QA findings route to Implementer/recheck, never self-correction',
                       self.text('skill/references/handoff.md'))
-        self.assertIn('a direct edit uses only an approved scope record', self.text('skill/references/planning.md'))
+        self.assertRegex(self.text('skill/references/planning.md'), r'(?s)(?=.*Direct path uses scope record only)(?=.*direct edits use approved scope record)')
 
     def test_plan_depth_judgment_defined_once(self):
         planning = self.text('skill/references/planning.md')
@@ -690,16 +707,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         return " ".join((ROOT / "claude/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")).read_text().lower().split())
 
     def test_normal_order_selects_and_prepares_before_formal_drafting(self):
-        planning = self.text("planning")
-        self.assertIn("normal order:", planning)
-        order = planning.split("normal order:", 1)[1].split("implementer handoff", 1)[0]
-        cursor = 0
-        for marker in ("initial design approval", "execution-target choice", "target preparation and verification",
-                       "formal spec drafting", "written-spec approval", "formal plan drafting", "individual plan approvals",
-                       "complete applicable set", "batch docs commit", "final git verification"):
-            found = order.find(marker, cursor)
-            self.assertGreaterEqual(found, cursor, marker)
-            cursor = found + len(marker)
+        workspace_contract.normal_order(self)
 
     def test_choice_request_uses_planned_documents_and_verified_target(self):
         text = self.text("handoff-prep")
@@ -708,60 +716,31 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         self.assertIn(request_heading, text)
         self.assertIn(mutation_heading, text)
         gate = text.split(request_heading, 1)[1].split(mutation_heading, 1)[0]
-        common = gate
-        self.assertIn(
-            "for every supported execution-target option, before obtaining the user's choice, "
-            "present to the user:",
-            common,
-        )
-        self.assertIn("obtain explicit choice", common)
-        self.assertLess(common.index("present to the user:"), common.index("obtain explicit choice"))
-        presentation = common.split("present to the user:", 1)[1].split("obtain explicit choice", 1)[0]
-        for phrase in ("planned document list", "scope and coverage", "repository-relative expected paths",
-                       "dependencies and order", "pending writing and approval status", "verified absolute workspace",
-                       "repository", "current branch or detached head", "base head", "new-branch candidate",
-                       "collision status", "staged/unstaged/untracked changes", "preservation and edit ownership"):
-            self.assertIn(phrase, presentation)
-        self.assertIn("does not require completed documents or individual approvals", gate)
+        workspace_contract.choice_presentation(self, gate, gate)
 
     def test_formal_drafting_and_save_require_prepared_target(self):
         text = self.text("planning")
-        for phrase in ("complete draft before saving", "initial design proposals", "before formal drafting and saving",
-                       "actual absolute workspace", "choice and preparation evidence", "directly in the selected target"):
-            self.assertIn(phrase, text)
         profile = " ".join((ROOT / "claude/agents/arc-planner.md").read_text().lower().split())
-        for phrase in ("before formal drafting", "actual absolute workspace", "choice and preparation evidence", "document paths",
-                       "initial design proposals"):
-            self.assertIn(phrase, profile)
-        self.assertIn("selection and initial target preparation happen before formal drafting", text)
-        self.assertIn("execution-target choice and actual preparation precede formal drafting and saving", self.text("handoff"))
+        workspace_contract.formal_drafting(self, text, profile)
+        self.assertIn("explicit choice/preparation and in-target absolute document paths", text)
+        self.assertIn("formal spec/plan drafting/saving follows choice/actual preparation", self.text("handoff"))
 
     def test_phase_specific_git_and_batch_gates(self):
-        text = self.text("handoff-prep")
-        for phrase in ("initial target preparation", "does not require the complete approved document set",
-                       "staging and commit", "complete approved document set", "index", "ownership"):
-            self.assertIn(phrase, text)
-        self.assertIn("initial target preparation does not authorize implementer", self.text("handoff"))
+        workspace_contract.phase_specific(self)
 
     def test_platform_targets_and_legacy_transfer_boundaries(self):
         text = self.text("handoff-prep")
         self.assertIn("current checkout", text)
         self.assertIn("task branch", text)
-        self.assertIn("arc-managed worktree execution is unsupported", text)
+        self.assertIn("claude v1 supports current checkout only, not arc-managed worktree execution", text)
         self.assertNotIn("mcp__codex_app__create_worktree", text)
 
     def test_choice_reuse_and_reselection_before_documents(self):
-        text = self.text("handoff")
-        for phrase in ("formal drafting", "authorized head", "fresh explicit choice", "before dependent drafting",
-                       "does not require document completion"):
-            self.assertIn(phrase, text)
+        workspace_contract.choice_reuse(self)
 
     def test_document_omissions_and_implementer_gate_remain(self):
-        text = self.text("planning")
-        for phrase in ("a required plan does not itself require a written spec", "spike", "bounded", "non-behavior",
-                       "no new spec obligation"):
-            self.assertIn(phrase, text)
-        self.assertIn("implementer", self.text("handoff"))
+        workspace_contract.document_omissions(self)
+
 
 class ClaudeStrictRoleTests(unittest.TestCase):
     def test_unsupported_model_key_is_rejected(self):

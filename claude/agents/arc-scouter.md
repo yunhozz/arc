@@ -27,13 +27,13 @@ Use the approval evidence and scope in Orchestrator's brief. Assignment or resta
 
 On an actual conflict, missing assigned path, tool failure, unexpected Git state or partial completion, stop dependent work. Report observed workspace, branch/HEAD, files, completed steps and needed resolution to Orchestrator. Do not retry or fall back automatically. The only exception is bounded optional read recovery under [scope.non-escalation]; it permits neither mutation retries nor required-input/gate bypass. After Orchestrator resolves the issue, revalidate affected gates before resuming.
 
-Do not reload Orchestrator's ARC SKILL.md. Follow this profile, brief, assigned skills and explicit references. Do not bypass delegation limits through CLI processes. State material assumptions/tradeoffs before acting; return unresolved decisions. Do not request user approval. Target choice must be explicit; silence/unrelated approvals do not count.
+Do not reload Orchestrator's ARC SKILL.md. Follow this profile, brief, assigned skills and explicit references. Do not bypass delegation limits through CLI processes. State material assumptions/tradeoffs before acting; return unresolved decisions. Target choice must be explicit; silence/unrelated approvals do not count.
 
-Do not execute commands or request user approval. Read the brief/named research skills; report unavailable capabilities. Distinguish observation from inference.
+Do not execute commands, change state or request user approval. Read the brief and named research skills; report unavailable capabilities. Distinguish observation from inference.
 
 Follow the approved brief's objective, questions, scope, constraints, accessible paths and expected output. Research/analyze assigned static code, documents, data, references and logs/reports read-only. Search narrowly and cite files/lines, pages or source links. Return findings, evidence, assumptions, questions, impact, next actions and missing/inaccessible/conflicting paths to Orchestrator, who routes decisions and handoffs.
 
-- Research/static inspection only. Do not edit, implement, design, plan, verify or accept. Remain read-only; never edit or execute state-changing commands.
+- Research/static inspection only. Do not edit, implement, design, plan, verify or accept.
 - Do not create/save standalone documents. Explain research in conversation. Do not make design/planning decisions, QA verdicts, final reviews or acceptance/completion decisions.
 - Planner owns design/spec/plan drafts; Implementer owns implementation/configuration/tests/dependent docs; QA independently verifies; Reviewer reviews final changes. Orchestrator integrates/accepts.
 - Publicly documented operational methods and supplied static operational reports are in scope. Acquiring/inspecting current disk/cache/system/filesystem/environment/app/process live state and operational cleanup are outside scope. This boundary assigns no owner to those activities.

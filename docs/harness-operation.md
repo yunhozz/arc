@@ -54,7 +54,7 @@ Reinstallation replaces managed profiles/local model edits without persistent ba
 <a id="request-routing-and-role-responsibilities"></a>
 ## Request routing and role responsibilities
 
-Simple questions stay with Orchestrator; material/static research goes to Scouter; design/spec/plan/brainstorming drafts to Planner; implementation/configuration/tests to Implementer except approved low-risk direct edits. Mixed dependent documentation follows implementation ownership. Standalone writing is not automatically design/spec/plan.
+The host handles simple questions. Orchestrator routes material/static research to Scouter, design/spec/plan/brainstorming drafts to Planner, and implementation/configuration/tests to Implementer except approved low-risk direct edits. Mixed dependent documentation follows implementation ownership. Standalone writing is not automatically design/spec/plan.
 
 | Role | Return to Orchestrator |
 |---|---|
@@ -79,7 +79,9 @@ Depth and verification risk are separate. Unclear risk needs investigation/stron
 
 Planner drafts, Orchestrator obtains approval before dependencies. Plan omission requires one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns and one focused path, not apparent smallness.
 
-Order: initial design approval → explicit target → preparation/verification → required spec draft/save/self-review/individual approval → required plan draft/save/review/individual approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer. Required specs precede dependent plans. Omissions skip inapplicable document stages only with reasons. Complete docs precede staging/commit/handoff, not initial preparation. Plan approval selects no target.
+Order: initial design approval → explicit target → preparation/verification → required spec draft/save/self-review/individual approval → required plan draft/save/review/individual approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer. Required specs precede dependent plans. For each omission, record the ARC conditions, actual scope and evidence. Complete docs precede staging/commit/handoff, not initial preparation. Plan approval selects no target.
+
+Before every Implementer assignment or direct code edit, Orchestrator records depth and risk separately and verifies document requirements, approvals, commits, target and final state. Missing evidence holds affected implementation. See [Codex planning](../codex/skill/references/planning.md#implementation-readiness) or [Claude planning](../claude/skill/references/planning.md#implementation-readiness).
 
 Approved-documents/preparation/handoff summaries never replace this order. Codex supports current checkout/new branch/managed worktree; Claude v1 current checkout only. Branches share files, worktrees separate directories. Verify repository/common directory/registration/source preservation/transfer evidence. Preserve unrelated changes/ownership.
 

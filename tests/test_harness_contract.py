@@ -81,8 +81,9 @@ COMMON_CONTRACTS = {
         r"orchestrator.*acceptance.*completion",
     )),
     "DOCUMENT_ORDER": ("references/planning.md", (
-        r"written-spec approval.*before.*(?:implementation planning|dependent plan)",
-        r"bounded.*spec only when|bounded written spec.*required by orchestrator",
+        r"written-spec approval before planning",
+        r"bounded.*records bounded spec necessity",
+        r"if bounded requires written spec.*record necessity/scope.*approved short design",
     )),
     "AUTHORING_EXCLUSIVITY": ("references/planning.md", (
         r"drafts are authored only by planner",
@@ -100,10 +101,10 @@ COMMON_CONTRACTS = {
         r"inaccessible.*(?:record|link).*evidence|inaccessible.*record.*block",
     )),
     "READINESS": ("references/planning.md", (
-        r"a task is ready only when.*approvals.*preparation.*inputs/contracts.*predecessors.*required evidence.*orchestrator acceptance.*verified focused commits.*accepted no-change",
-        r"ownership/resources do not conflict.*check/qa path.*slot.*runtime limit",
-        r"completion reports alone do not release dependents",
-        r"same-file concurrent implementer edits.*(?:blocked|forbidden)",
+        r"ready requires approvals/preparation, settled inputs/contracts, predecessor checks/orchestrator acceptance/verified commits or accepted no-change",
+        r"nonconflicting ownership/resources, available checks/qa and slots under both full-tree arc and lower actual runtime limits",
+        r"completion alone releases no dependent",
+        r"same-file concurrent implementers are forbidden even on different lines",
     )),
     "COMMIT_NEXT_ACTION": ("references/commit.md", (
         r"after orchestrator accepts a task, the next action is the required git state/scope checks, staging, and focused commit",
@@ -239,16 +240,15 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
         if path not in texts:
             continue
         text = " ".join(texts[path].lower().split())
-        order = re.search(r"normal order:(.*?)(?:\.(?: |$)|$)", text)
+        order = re.search(r"order:(.*?)(?:\.(?: |$)|$)", text)
         sequence = (
-            "initial design approval", "execution-target choice", "target preparation and verification",
-            "formal spec drafting", "written-spec approval", "formal plan drafting",
-            "individual plan approvals", "complete applicable set",
-            "existing-commit verification and one batch docs commit of remaining approved documents",
-            "final git verification", "implementer handoff",
+            "initial design approval", "explicit target", "actual preparation/verification",
+            "required spec drafting/save/self-review/individual approval",
+            "required plans drafting/save/review/individual approval", "full set",
+            "verify existing commits/batch remaining approvals", "final git", "implementer",
         )
         if not order or not re.search(".*".join(map(re.escape, sequence)), order.group(1)):
-            failures.append(f"DOCUMENT_ORDER: {path}: missing or reversed Normal order gates")
+            failures.append(f"DOCUMENT_ORDER: {path}: missing or reversed order gates")
         if re.search(r"formal spec and plan drafting must precede execution-target choice", text):
             failures.append(f"DOCUMENT_ORDER: {path}: conflicting reverse order")
         if re.search(r"a user may explicitly change (?:the )?writing responsibility", text):
@@ -366,13 +366,12 @@ class PolicyContractTests(unittest.TestCase):
                 self.assertEqual(self.contract_failures_at("DOCUMENT_ORDER", path, self.texts[path]), [])
 
     def test_document_order_rejects_documents_before_target_choice(self) -> None:
-        reverse = ("Normal order: initial design approval → formal spec drafting → written-spec approval → "
-                   "formal plan drafting → individual plan approvals → complete applicable set → "
-                   "execution-target choice → target preparation and verification → existing-commit verification "
-                   "and one batch docs commit → final Git verification → Implementer handoff.")
+        reverse = ("Order: initial design approval → required spec drafting/save/self-review/individual approval → "
+                   "required plans drafting/save/review/individual approval → full set → explicit target → "
+                   "actual preparation/verification → verify existing commits/batch remaining approvals → final Git → Implementer.")
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
-            fixture = re.sub(r"Normal order:.*?Implementer handoff\.", reverse, self.texts[path], flags=re.S)
+            fixture = re.sub(r"Order:.*?→ Implementer\.", reverse, self.texts[path], flags=re.S)
             with self.subTest(path=path):
                 self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
 
@@ -380,14 +379,20 @@ class PolicyContractTests(unittest.TestCase):
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
             text = " ".join(self.texts[path].split())
-            order = re.search(r"Normal order:.*?Implementer handoff\.", text).group()
-            for gate in ("target preparation and verification", "written-spec approval",
-                         "individual plan approvals", "complete applicable set",
-                         "existing-commit verification and one batch docs commit of remaining approved documents",
-                         "final Git verification", "Implementer handoff"):
+            order = re.search(r"Order:.*?→ Implementer\.", text).group()
+            for gate, replacement in (
+                ("explicit target", "omitted"),
+                ("actual preparation/verification", "omitted"),
+                ("required spec drafting/save/self-review/individual approval", "required spec drafting/save/self-review/omitted"),
+                ("required plans drafting/save/review/individual approval", "required plans drafting/save/review/omitted"),
+                ("full set", "omitted"),
+                ("verify existing commits/batch remaining approvals", "omitted"),
+                ("final Git", "omitted"),
+                ("Implementer", "omitted"),
+            ):
                 with self.subTest(path=path, gate=gate):
                     self.assertIn(gate, order)
-                    fixture = text.replace(order, order.replace(gate, "omitted"))
+                    fixture = text.replace(order, order.replace(gate, replacement))
                     self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
 
     def test_document_order_rejects_conflicting_reverse_order(self) -> None:
@@ -534,17 +539,18 @@ class DocumentationContractTests(unittest.TestCase):
         for heading in (
             "What ARC installs", "Installation and refresh lifecycle",
             "Request routing and role responsibilities", "Design and preparation",
-            "Scheduling and limits", "Verification, acceptance, and commits",
-            "Failure, resume, and maintenance", "Source map",
+            "Scheduling and limits", "Verification, acceptance and commits",
+            "Failure, resume and maintenance", "Source map",
         ):
             with self.subTest(heading=heading):
                 self.assertIn("## " + heading, guide)
+        self.assertIn("The host handles simple questions", guide)
 
     def test_operation_guide_distinguishes_transaction_scopes(self) -> None:
         guide = " ".join(self.guide().lower().split())
         for pattern in (
-            r"manual package reference refresh.*both.*trees.*restore",
-            r"independent target transactions.*earlier success",
+            r"update-superpowers-local\.sh.*one acquired revision updates both mapped platforms/static manifest together.*failure restores previous files/manifest",
+            r"codex then claude are independent transactions.*later failures preserve earlier success",
             r"residual path", r"upstream scripts/hooks는 실행하지 않습니다",
             r"provenance.*consistency.*not authenticate",
         ):
@@ -552,20 +558,20 @@ class DocumentationContractTests(unittest.TestCase):
 
     def test_operation_guide_distinguishes_policy_from_runtime(self) -> None:
         guide = " ".join(self.guide().lower().split())
-        for pattern in (r"prompt-level policy", r"native.*concurrency", r"structural.*do not prove.*runtime", r"new session"):
+        for pattern in (r"prompt-level policy", r"native.*concurrency", r"structural checks prove neither live compliance nor native settings taking effect in the current process", r"new session"):
             self.assertRegex(guide, pattern)
 
     def test_guide_covers_authorization_completion_and_correction_boundaries(self) -> None:
         guide = self.guide()
         for contract in (
-            "probe-only", "probe+implementation", "같은 범위", "중대한 범위·방법·위험 변경",
-            "문서 생략 경로", "Implementer → Reviewer", "QA를 재배정하지 않습니다",
-            "최종 QA findings", "미검증",
+            "probe-only", "probe+implementation", "Reuse valid approvals/targets", "Material scope/method/risk changes",
+            "Plan omission requires", "Implementer→Reviewer", "without QA reassignment",
+            "Final QA stays Implementer→QA", "unverified",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, guide)
-        self.assertRegex(guide, r"Implementer\s+수정\s*→\s*QA\s+재검증")
-        self.assertRegex(guide, r"Plan omission requires.*no dependent stages, no cross-component shared state, lifecycle, or integration-order concerns")
+        self.assertIn("QA failure/unmet criteria follow Implementer→QA", guide)
+        self.assertRegex(guide, r"Plan omission requires one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns and one focused path")
 
     def test_maintained_local_links_resolve(self) -> None:
         paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
@@ -618,7 +624,7 @@ class DocumentationContractTests(unittest.TestCase):
             text = " ".join(text.lower().split())
             with self.subTest(artifact=name):
                 self.assertRegex(text, r"no.change.*record")
-                self.assertRegex(text, r"significant planned.*final.*review")
+                self.assertRegex(text, r"significant planned.*final.*review" if name == "svg" else r"significant plans.*final.*review")
                 self.assertRegex(text, r"significant unplanned.*before acceptance")
 
     def test_readme_uses_maintained_svg_and_links_operation_guide(self) -> None:
@@ -648,13 +654,13 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
             text = (REPO / platform / "skill/references/handoff.md").read_text()
             with self.subTest(platform=platform):
                 for pattern in (
-                    r"user-provided instructions.*discovered workspace instruction files.*installed role references.*task inputs",
-                    r"root AGENTS\.md.*absence.*not.*absence of instructions",
-                    r"exact locator.*approved version.*purpose.*method.*preconditions.*evidence.*return conditions",
-                    r"approved visual source.*version.*approval.*access",
-                    r"criterion IDs.*properties.*comparison method",
-                    r"actual.output identity.*revision.*basis",
-                    r"resume brief.*completed work.*failure.*resolution.*valid.*invalid.*evidence.*next objective",
+                    r"user-provided instructions, discovered workspace instruction files, installed role references and task inputs by source/applicability/version or approval/access",
+                    r"Missing root AGENTS\.md does not negate user instructions",
+                    r"Optional alternatives need exact locator, material identity, approved version, purpose, method, preconditions, equivalent evidence and return conditions pre-authorized in the brief",
+                    r"approved source/version/approval/access",
+                    r"criterion IDs/properties/method",
+                    r"actual-output identity/revision/basis",
+                    r"Resume briefs preserve valid unchanged-scope approval, completed work, failures/resolution, valid/invalid evidence, holds and next objective",
                 ):
                     self.assertRegex(" ".join(text.split()), pattern)
 
@@ -696,24 +702,25 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
     def test_operation_guide_requires_independent_release_without_acceptance_waiver(self):
         text = (REPO / "docs/harness-operation.md").read_text()
         steps = (
-            "1. 실패한 정확한 검사와 baseline revision, current revision을 기록합니다.",
-            "2. 각 실패를 baseline/현재 변경 여부, 영향 범위, 의존 관계로 분류합니다.",
-            "3. 영향받거나 의존하는 작업·검사만 보류합니다.",
-            "4. Orchestrator는 무관한 실패의 해소를 기다리지 않고 이미 승인된 독립 작업을 재개시켜야 합니다.",
-            "5. 필수 검사 중 하나라도 미해결이면 수용은 계속 보류합니다.",
+            "1. Record exact failed check, baseline/current revision, results/evidence/state.",
+            "2. Classify baseline/current impact/dependencies.",
+            "3. Hold affected/dependent or impact-unknown work only.",
+            "4. Orchestrator validates authority/target/inputs/ownership/gates and releases approved independent work without unrelated delays.",
+            "5. Keep acceptance held for required unresolved checks.",
         )
         offset = 0
         for step in steps:
             found = text.find(step, offset)
             self.assertGreaterEqual(found, offset, f"Missing or out-of-order step: {step}")
             offset = found + len(step)
-        self.assertIn("분류가 불명확하면 영향이 불명확한 작업만 보류", text)
-        self.assertIn("역할은 증거를 보고하며 스스로 작업 재개를 승인하지 않습니다", text)
+        self.assertIn("Hold affected/dependent or impact-unknown work only.", text)
+        self.assertRegex(" ".join(text.split()), r"(?=.*\| Role \| Return to Orchestrator \|)(?=.*Returns/notifications are evidence, not acceptance/dependency release)(?=.*Roles never self-authorize release)")
 
     def test_operation_guide_records_bounded_recovery_and_evidence_limits(self):
         guide = (REPO / "docs/harness-operation.md").read_text()
-        for contract in ("선택적 읽기", "사전 허용", "필수 입력", "지침 출처", "재개 brief",
-                         "pass", "mismatch", "unverified", "독립 작업", "Claude.app", "Claude Code CLI"):
+        for contract in ("Optional failed reads", "brief-preauthorized", "missing inputs", "Instruction provenance",
+                         "Resume preserves approvals/completed work/failure/resolution/valid-invalid evidence/holds/next goal",
+                         "pass", "mismatch", "unverified", "approved independent work", "Claude.app", "Claude Code CLI"):
             with self.subTest(contract=contract):
                 self.assertIn(contract, guide)
 
