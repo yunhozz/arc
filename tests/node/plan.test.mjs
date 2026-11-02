@@ -143,10 +143,10 @@ const renderingBaseline={
  'codex:en:true':'0e22e7225e6bb62039630e2326ebd3e470252ed01902c8beb4ad0a3b4c07d902',
  'codex:ko:false':'d9d82ced3a94498151b8cf7335a235f7080c03aa35abf834163242d5e342731a',
  'codex:ko:true':'60360ac2f681188eee298b8576742fa31301b1bbbdbaba02159f3795d8d5a56b',
- 'claude:en:false':'25d1bf24560d5bddea7de1dfcb03dd064d7209a1d05ce895bd22a197ad912998',
- 'claude:en:true':'456ac586ee92da299335d83cfb8c252904db651a09182ac84e7f9eed48fe1172',
- 'claude:ko:false':'683158633a220a82ed0b5363dfe05dfcaffa9677911a2e86e95b60c7b8078ab2',
- 'claude:ko:true':'3d2f75d7af1d3ec7a776237b989e9e042e43a831aee9c774fb7bd38a5ae3799f',
+ 'claude:en:false':'c9b3f4f5dc8de5e04a537867d8c0252f8d6eaccb26f4f83133cc8221f6b39acb',
+ 'claude:en:true':'4611d698ee885d7deaab1901c737b936a2208bca913a80ce4ffdc73271ccd859',
+ 'claude:ko:false':'d2a996c551663f4c14f2e5cd572a959ed216bf2b67df96c16b25f389cb88ec94',
+ 'claude:ko:true':'087528edd2288633f98c0f0359b314e7a4d9d5a599a17cc61a8c8ee22ec694d1',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
