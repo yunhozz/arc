@@ -8,14 +8,14 @@ Read before verification design, QA/Reviewer assignment, correction rechecks or 
 <a id="visual-evidence-and-adjudication"></a>
 ## Visual evidence and adjudication
 
-Each criterion needs exact approved source/version/approval/access, IDs/properties/method and output-revision linkage. Implementer reporting does not replace fresh QA. Record pass/mismatch/unverified and connect to criterion verdicts; pass needs accessible supporting evidence. Missing linkage is unverified; visible difference is mismatch, separately, without inferring current branch UI. Inaccessible materials/missing interpretation approval hold comparison.
+Each criterion needs the exact approved source, version, approval and access state; IDs, properties and comparison method; and a link between output and revision. Implementer reporting does not replace fresh QA. Record pass/mismatch/unverified and connect to criterion verdicts; pass needs accessible supporting evidence. Missing linkage is unverified; visible difference is mismatch, separately, without inferring current branch UI. Hold comparison when materials are inaccessible or interpretation approval is missing.
 
-Policy/generated/manifest checks prove structure, not role behavior, installed builds, Claude Code CLI compliance or fidelity. Report changes/exclusions/run-omitted checks/criterion evidence-limits/platform availability. Separate baseline failures; independent progress relaxes no checks.
+Policy, generated-file and manifest checks prove structure, not role behavior, installed builds, Claude Code CLI compliance or fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Report baseline failures separately; independent progress does not relax checks.
 
 <a id="risk-scaled-execution"></a>
 ## Risk-scaled execution
 
-Edits belong to Implementer except the [small direct path](handoff.md#orchestrator-direct-path-for-small-tasks). Orchestrator determines behavior/risk/minimum meaningful checks.
+Edits belong to Implementer except the [small direct path](handoff.md#orchestrator-direct-path-for-small-tasks). Orchestrator determines behavior, risk and minimum meaningful checks.
 
 | Risk | Minimum flow |
 |---|---|
@@ -34,7 +34,7 @@ Ordinary/significant tasks need fresh QA before acceptance. Low risk requires na
 
 Record which risk/instruction/approved obligations each check satisfies. Do not automatically assign QA/Reviewer for clear low-risk scope with sufficient evidence and no requirement. Metadata counts alone prove no significance; one permission/loss rule may. Vague file deletion is not low-risk evidence; reclassify installer/manifest impacts. Confirm cleanup targets unused, required materials intact, ignore patterns scoped and diff approved before focused-check-only acceptance.
 
-Separate environment/code failure and report exact limits/gaps. Use Planner/Scouter only for unresolved planning/discovery. Reviewer covers substantial correctness/factual/security/data/interface risks. Orchestrator assigns support as needed. Claim only verified outputs. Read cited `references/test-driven-development.md`, preserving exceptions.
+Distinguish environment failures from code failures and report exact limits and gaps. Use Planner/Scouter only for unresolved planning/discovery. Reviewer covers substantial correctness/factual/security/data/interface risks. Orchestrator assigns support as needed. Claim only verified outputs. Read cited `references/test-driven-development.md`, preserving exceptions.
 
 <a id="final-plan-reviewer-correction-loop"></a>
 ### Final plan Reviewer correction loop

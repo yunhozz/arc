@@ -3,9 +3,9 @@
 
 Read on branch collision, Git preparation failure/partial completion, metadata or handoff-record write denial. Use [handoff-prep](handoff-prep.md) for branch selection and [handoff](handoff.md) for full restart gates.
 
-On actual Git/tool failure, partial completion, unexpected branch/HEAD, missing path or conflicting edit, stop dependent work. Record absolute path, branch or detached HEAD, HEAD, index, working-tree/untracked files, ownership and completed steps. Return the precise blocker/resolution to Orchestrator. Never automatically retry, fall back or repeat completed mutations.
+On a Git or tool failure, partial completion, unexpected branch or HEAD, missing path or conflicting edit, stop dependent work. Record absolute path, branch or detached HEAD, HEAD, index, working-tree/untracked files, ownership and completed steps. Return the precise blocker/resolution to Orchestrator. Never automatically retry, fall back or repeat completed mutations.
 
-Apply Preservation rule: preserve unrelated work/recovery artifacts. No automatic stash/reset/clean/unstage/discard/amend, branch/worktree deletion, lock removal, permission changes or sandbox bypass. Orchestrator obtains needed human decisions, resolves within authority, revalidates gates and supplies a delta restart brief. Explicit choice is required where applicable; silence, planning approval and refusal of another option do not count.
+Apply the Preservation rule: preserve unrelated work and recovery artifacts. No automatic stash/reset/clean/unstage/discard/amend, branch/worktree deletion, lock removal, permission changes or sandbox bypass. Orchestrator obtains needed human decisions, resolves within authority, revalidates gates and supplies a delta restart brief. Explicit choice is required where applicable; silence, planning approval and refusal of another option do not count.
 
 <a id="branch-collision-and-invalid-names"></a>
 ## Branch collisions and invalid names

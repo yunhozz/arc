@@ -1,7 +1,7 @@
 <a id="planning-contract"></a>
 # Planning contract
 
-Read before depth judgments, spec/plan drafting/approval and first saves.
+Read before depth judgments, spec or plan drafting and approval, and first saves.
 
 <a id="authorization-and-scope"></a>
 ## Authorization and scope
@@ -10,7 +10,7 @@ An explicit execution request authorizes only sufficiently specified scope from 
 
 Silence, ambiguous assent, other-work approval and vague blanket improvements are insufficient. Planner's new material choices are not automatically approved. Request missing decisions through Orchestrator. Required specs/plans retain separate ordered approval.
 
-Material scope/method/risk changes hold affected work with missing decision/evidence/remaining scope reported. Target change, unclear ownership, unexpected state, unresolved failure or missing inputs also hold under [handoff](handoff.md)/[recovery](git-recovery.md). Distinguish new authorization from existing-scope execution issues; routine correction/reverification needs no duplicate approval. Revalidate after resolution.
+Hold affected work for material changes to scope, method or risk, and report the missing decision, evidence and remaining scope. Target change, unclear ownership, unexpected state, unresolved failure or missing inputs also hold under [handoff](handoff.md)/[recovery](git-recovery.md). Distinguish new authorization from existing-scope execution issues; routine correction/reverification needs no duplicate approval. Revalidate after resolution.
 
 <a id="probe-scope"></a>
 ### Probe scope
@@ -26,7 +26,7 @@ Initial design/brainstorming may precede target choice. Formal spec/plan include
 
 Small-task direct edits follow only [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), stopping/reclassifying changed scope/risk. Otherwise follow this reference. `brainstorming`/`writing-plans` instruct existing roles, not extra agents; ARC routing/approval overrides alternate executors. Missing required skills block their stage. Integration includes saving, reviewing and directly revising the same spec or plan after the complete Planner first draft; design/brainstorming retain their Planner drafting path.
 
-For Korean requests/briefs, Planner uses Korean titles/prose unless another language is requested, preserving identifiers, skill/API names, code, paths, commands and literals. Orchestrator preserves agreed language when saving.
+For Korean requests and briefs, Planner uses Korean titles and prose unless another language is requested, preserving identifiers, skill/API names, code, paths, commands and literals. Orchestrator preserves agreed language when saving.
 
 <a id="planner-drafting-preparation-and-consolidated-feedback"></a>
 ## Planner drafting preparation and consolidated feedback
@@ -39,7 +39,7 @@ Planner reports initial/revision progress only to Orchestrator: brief stage/feed
 4. Planner returns the complete proportional first draft and self-review. Orchestrator saves and reviews it against the fixed checklist: scope/evidence; targets/ownership/paths; policy/conflicts; task boundaries/dependencies/criteria; checks/evidence/holds; roles/approval/commit boundaries; completeness. For spec or plan, Orchestrator directly revises the same document, including substantive omissions, before requesting approval. New product decisions outside approved scope require user input first; Orchestrator then revises the document. Missing or failed first drafts stop the stage and do not transfer initial authorship.
 5. For design and brainstorming, finish the checklist before one consolidated correction covering every substantive omission with criterion/defect/evidence/expected fix. Use deltas/`unchanged`; never split by omission. Further calls after correction need approved material scope/evidence changes or concrete unmet checklist items plus meaningful new input/criterion progress. State changed input/target criterion/expected artifact/progress. Existing-scope omissions need no renewed scope approval. Repeated unmet criteria without new input/evidence/progress hold the stage; report criterion/observation/exact unblock decision. Do not repeat resolved questions or count rewording/agent replacement as progress.
 
-For design and brainstorming, allow initial draft and one consolidated correction. Reformatting/re-expression/save/patch errors belong to Orchestrator, not Planner calls. Separate substantive work uses normal gates. Design/spec/plan stages remain separately ordered; spec approval precedes dependent planning. Add no fixed call cap/profile count condition or incomplete-draft acceptance.
+For design and brainstorming, allow initial draft and one consolidated correction. Orchestrator handles reformatting, re-expression, save and patch errors without Planner calls. Separate substantive work uses normal gates. Design/spec/plan stages remain separately ordered; spec approval precedes dependent planning. Add no fixed call cap/profile count condition or incomplete-draft acceptance.
 
 <a id="design-and-planning"></a>
 <a id="design-path-and-plan-depth"></a>
@@ -85,7 +85,7 @@ Before first Architectural spec, required Bounded spec or plan save, read this a
 | Spec | Approved design scope/evidence, complete Planner draft/self-review, Orchestrator integration/save/review ownership and absolute path. Required Bounded specs also need depth judgment, short design, necessity/scope |
 | Plan | Approved design and required approved spec/version/evidence, depth judgment, plan list/dependencies, complete Planner draft/self-review, ownership and absolute path |
 
-Saving for review does not require prior written-spec approval, but does require valid target choice/actual preparation. Individually approved specs enter the document set before dependent planning. Never call uncommitted files committed. Missing/mismatched evidence stops the affected save.
+Saving for review does not require prior written-spec approval, but does require valid target choice/actual preparation. Individually approved specs enter the document set before dependent planning. Never call uncommitted files committed. Missing or mismatched evidence stops the affected save.
 
 <a id="complete-planning-document-set"></a>
 ## Complete planning-document set
@@ -113,7 +113,7 @@ New planning scope requires list/depth/dependency reassessment and approvals bef
 
 Mechanical checkboxes/results/evidence/completion preserving the approved contract need no new approval; record classification/reason/actual time. Removing checks, invented success, unsupported acceptance or mixed scope changes are not mechanical.
 
-Goal/task boundary/scope/criteria/method/risk/dependency/check changes require revised approval before affected work. Hold, obtain ordered design/spec/plan approvals and prepare target/ownership/checks/handoff. Other body corrections follow version approval; classify typos/paths/commands/explanations by semantic effect.
+Changes to goals, task boundaries, scope, criteria, method, risk, dependencies or checks require revised approval before affected work. Hold, obtain ordered design/spec/plan approvals and prepare target/ownership/checks/handoff. Other body corrections follow version approval; classify typos/paths/commands/explanations by semantic effect.
 
 Both kinds amend the original planning commit at safe boundaries, never separate docs/fixup commits, including new scope. Preserve implementation commits. Rewriting does not backdate approval; latest content in an old commit proves no earlier authorization.
 
