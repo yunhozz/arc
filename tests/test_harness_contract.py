@@ -15,23 +15,23 @@ PLATFORMS = ("codex", "claude")
 COMMON_CONTRACTS = {
     # Approved written-contract checks: losing these gates must fail both adapters.
     "PLAN_UPDATE_CLASSIFICATION": ("references/planning.md", (
-        r"mechanical execution records.*without new user approval",
+        r"mechanical plan progress records during approved execution need no new user approval",
         r"checkbox.*actual results.*evidence links.*completion state",
-        r"required checks.*removal.*not mechanical",
-        r"goals.*task scope.*boundaries.*acceptance criteria.*method.*risk.*dependencies.*required verification.*revised.*approval",
+        r"removing checks, invented success, unsupported acceptance or mixed scope changes are not mechanical",
+        r"goal/task boundary/scope/criteria/method/risk/dependency/check changes require revised approval before affected work",
         r"both.*mechanical.*approved.*original planning-document commit",
         r"no separate.*document.*or fixup commit",
-        r"actual approval.*(?:time|chronology).*not.*retroactive",
-        r"before and after.*content hashes.*versions.*approval references.*times",
-        r"recoverable.*contents.*old.*new.*sha.*descendant",
+        r"preserve actual approval chronology.*never authorize past work retroactively",
+        r"preserve absolute/git plan paths, old/new hashes/versions, prior/revised approval refs/actual times",
+        r"keep recoverable contents, not hashes only, and old→new mappings for original/descendant commits",
     )),
     "PLAN_AMEND_SAFETY": ("references/handoff-prep.md", (
-        r"original.*ancestor.*head",
+        r"verify the original planning commit.s ancestry or current replacement.*if original commit is head",
         r"unpublished.*unshared.*local.*linear.*no merge",
         r"unknown.*publication.*ownership.*conflict.*stop",
         r"no.*force.push.*fallback.*document commit",
-        r"head.*amend.*plan paths only",
-        r"descendant.*reapply.*order.*task boundaries",
+        r"if original commit is head, amend only plan paths",
+        r"replay descendants in order with task boundaries/implementation contents intact",
     )),
     "PLAN_AMEND_EVIDENCE": ("references/verification.md", (
         r"rewrite.*new head.*approved.*plan.*sha mapping",
@@ -41,43 +41,43 @@ COMMON_CONTRACTS = {
     )),
     "PLANNER_COMPLETE_BRIEF": ("references/planning.md", (
         r"original user requirements.*criteria ids.*approved decisions.*open decisions",
-        r"current behavior.*source.*generated.*runtime.*installer.*documentation",
-        r"exact.*current.stage.*deliverable",
+        r"current behavior and connected source/generated/runtime/installer/docs",
+        r"one complete stage-specific initial brief.*exact deliverable",
         r"consolidated.*changed fields.*unchanged",
         r"no fixed call cap",
     )),
     "SCOPED_AUTHORIZATION": ("references/planning.md", (
-        r"explicit execution request.*authorization.*sufficiently specified scope",
-        r"execution intent.*expected outcome.*constraints.*document depth.*verification risk",
+        r"explicit execution request authorizes only sufficiently specified scope",
+        r"confirm intent/outcome/constraints/document depth/verification risk",
         r"no unresolved material.*(?:behavior|method|risk).*decision",
-        r"record.*authorization evidence.*scope.*acceptance criteria.*constraints.*depth",
+        r"record approval evidence, scope, criteria, constraints and depth",
     )),
     "AUTHORIZATION_HOLDS": ("references/planning.md", (
-        r"silence.*ambiguous assent.*other work.*not authorization",
+        r"silence, ambiguous assent, other-work approval and vague blanket improvements are insufficient",
         r"planner.*new material choices.*not.*approved",
         r"material.*scope.*method.*risk.*hold affected work",
     )),
     "COMPLETION_CONTINUITY": ("references/verification.md", (
         r"approved scope.*continue.*execution.*correction.*reverification.*qa.*reviewer.*orchestrator acceptance.*report",
-        r"role completion report.*probe findings.*passing commands.*not.*overall completion",
-        r"remaining approved execution.*not.*optional.*user response",
+        r"reports/probes/commands never complete remaining approved scope",
+        r"do not make authorized execution an optional offer awaiting response",
     )),
     "PROBE_SCOPE": ("references/planning.md", (
         r"probe-only.*findings.*evidence.*limits.*uncertainty",
-        r"probe-only authorization does not authorize.*implementation",
-        r"explicitly requests both.*probe.*implementation.*sufficiently specified",
+        r"probe-only work ends with approved-question findings/evidence/limits/uncertainty, including well-supported infeasibility\. it authorizes neither product retention nor subsequent implementation",
+        r"if explicitly requested probe\+implementation is fully specified, classify the whole scope",
         r"entire scope.*bounded.*internal investigation.*no new approval boundary",
         r"unknown implementation.*not.*blanket authorization",
     )),
     "AUTHORIZATION_REUSE": ("references/handoff.md", (
-        r"reuse.*valid authorization.*same approved scope.*target",
-        r"restart.*new role assignment.*not.*repeat approval",
-        r"reuse.*never waives.*actual.*workspace.*branch.*head.*changes.*ownership",
+        r"reuse only for unchanged approved scope/workspace/repository/target with accessible valid evidence",
+        r"reuse valid unchanged approvals across role restarts without duplicates",
+        r"every start/restart compares actual identity/branch/detached head/head/changes/preservation/ownership, approvals/artifacts, document sha/message/paths/content or absence and final state with the brief\. reuse waives none of gates 1–7",
     )),
     "OWNERSHIP": ("references/coordination.md", (
-        r"qa: verifies without edits",
-        r"reviewer: independently reviews the final full change",
-        r"depth-2 roles cannot create agents or delegate",
+        r"\| qa \| verifies without editing \|",
+        r"\| reviewer \| independently reviews the final full change \|",
+        r"all five specialists report directly at depth 2 without creating agents/delegating",
         r"orchestrator.*acceptance.*completion",
     )),
     "DOCUMENT_ORDER": ("references/planning.md", (
@@ -87,17 +87,17 @@ COMMON_CONTRACTS = {
     )),
     "AUTHORING_EXCLUSIVITY": ("references/planning.md", (
         r"drafts are authored only by planner",
-        r"orchestrator must not substitute.*planner.s complete draft",
+        r"orchestrator reviews and directly revises the same document before approval",
         r"(?:return.*planner.*(?:omissions|completion)|return substantive omissions to planner)",
         r"if planner fails or is unavailable, stop and report.*never draft instead",
     )),
     "HANDOFF_GATE": ("references/handoff.md", (
-        r"before.*first start.*restart",
+        r"before every implementer start/restart",
         r"explicit.*(?:execution-target|target) choice",
-        r"branch or detached head.*head.*staged/unstaged/untracked",
+        r"record actual path, branch/detached head, head and staged/unstaged/untracked state",
         r"approved.*document|document approvals",
         r"canonical.*record",
-        r"unchanged.*record file.*fresh implementer reads",
+        r"record-relative `unchanged`; fresh implementer reads it",
         r"inaccessible.*(?:record|link).*evidence|inaccessible.*record.*block",
     )),
     "READINESS": ("references/planning.md", (
@@ -107,18 +107,18 @@ COMMON_CONTRACTS = {
         r"same-file concurrent implementers are forbidden even on different lines",
     )),
     "COMMIT_NEXT_ACTION": ("references/commit.md", (
-        r"after orchestrator accepts a task, the next action is the required git state/scope checks, staging, and focused commit",
+        r"one approved top-level task is one focused implementation commit.*orchestrator verifies criteria/current checks/findings, accepts by judgment, then immediately commits locally.*after acceptance, check git state/scope, stage and commit",
     )),
     "COMMIT_AUTHORITY": ("references/commit.md", (
-        r"only orchestrator accepts the task and executes its focused commit",
+        r"only orchestrator accepts work and performs git mutations\. one approved top-level plan task becomes one focused implementation commit",
     )),
     "COMMIT_BOUNDARY": ("references/commit.md", (
         r"(?:one approved top-level task.*one focused implementation commit|commit one logical task promptly)",
-        r"without additional user commit approval",
-        r"plan-skip paths.*no new.*(?:commit|plan) obligation",
-        r"no-change task.*no empty commit",
-        r"resume.*verify.*existing commit sha.*content.*validity.*reuse",
-        r"task acceptance(?:/commit)?.*distinct from final plan acceptance",
+        r"without separate user commit approval",
+        r"plan omission creates neither new plans nor automatic commits",
+        r"no-change tasks record acceptance/no change without empty commits",
+        r"resume verifies/reuses the same task.s sha/content/validity without duplication",
+        r"task acceptance/commit differs from final plan acceptance",
     )),
     "RECOVERY": ("references/git-recovery.md", (
         r"stop.*(?:dependent work|implementer handoff)",
@@ -130,17 +130,17 @@ COMMON_CONTRACTS = {
     "EVIDENCE_LIMITS": ("references/verification.md", (
         r"structural checks prove structur(?:e|al criteria) only",
         r"(?:do not prove.*runtime|text presence alone cannot establish agent compliance)",
-        r"proven, unmet, or unverified",
+        r"criteria are proven, unmet or unverified",
     )),
 }
 
 ROLE_LOCAL = (
     r"report directly to orchestrator at depth 2",
-    r"do not spawn agents",
-    r"trust.*orchestrator.verified.*branch.*head.*approvals",
+    r"do not create agents or delegate to another role",
+    r"trust orchestrator's verified workspace, branch/head, approvals",
     r"(?:actual.*conflict|conflict.*actually hit)",
     r"preserve unrelated staged, unstaged, and untracked changes and edit ownership",
-    r"(?:never|do not) create or switch.*(?:workspaces or branches|branches or workspaces)",
+    r"do not create/switch workspaces or branches",
     r"(?:never|do not).*delete locks|(?:never|do not).*remove locks",
     r"expected tdd red.*not an operational failure",
 )
@@ -190,12 +190,12 @@ POLICY_CONTRACTS["NATIVE_ADAPTERS"].update({
     for platform in PLATFORMS
 })
 POLICY_CONTRACTS["OWNERSHIP"].update({
-    f"{platform}-role-gate": (f"{platform}/skill/SKILL.md", (r"drafts are authored only by planner",))
+    f"{platform}-role-gate": (f"{platform}/skill/SKILL.md", (r"only planner \(`arc[_-]planner`\) authors design/brainstorming drafts and first complete spec/plan drafts",))
     for platform in PLATFORMS
 })
 
 POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-implementer"] = (
-    "claude/agents/arc-implementer.md", (r"implementer must not commit, even when explicitly assigned",)
+    "claude/agents/arc-implementer.md", (r"only orchestrator accepts/commits\. even explicit assignment forbids stage/commit/push/merge or other git mutations",)
 )
 
 
@@ -260,9 +260,9 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
             r"references/handoff.md",
         ))
         require("HANDOFF_GATE", f"{root}/references/handoff.md", (
-            r"before every implementer first start/restart.*handoff",
-            r"missing evidence.*block handoff",
-            r"same conditions.*before an orchestrator direct edit",
+            r"before every implementer start/restart verify supplied absolute workspace accessibility/intended repository",
+            r"(?=.*inaccessible records, missing evidence or unclear ownership block edits)any failure/missing condition blocks handoff",
+            r"(?=.*## orchestrator direct path for small tasks)direct edits use approved scope records and the same gates before first edit",
         ))
         for owner in ("references/commit.md", "references/handoff-prep.md"):
             require("COMMIT_BOUNDARY", f"{root}/{owner}", (r"(?:specific |concise |specific, |concise, )*english (?:description|conventional commit)",))
@@ -297,7 +297,7 @@ class PolicyContractTests(unittest.TestCase):
                     self.assertRegex(text, pattern)
         for pattern in (
             r"allow the initial draft and one consolidated correction",
-            r"do not invoke planner only to reformat or re.express a draft, fix a save error, or fix a patch.application error.*orchestrator handles these operations",
+            r"reformatting/re-expression/save/patch errors belong to orchestrator, not planner calls",
             r"evaluate separate substantive work under the normal planner gate",
         ):
             with self.subTest(artifact="planning", contract=pattern):
@@ -476,7 +476,7 @@ class PolicyContractTests(unittest.TestCase):
         self.assert_contracts("COMMIT_NEXT_ACTION", "COMMIT_AUTHORITY", "COMMIT_BOUNDARY")
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/commit.md"
-            for required in ("Hold the task commit", "Git failure/partial completion"):
+            for required in ("Hold commits for unmet/unresolved criteria, failed/not-run required checks, undispositioned findings/gaps, scope expansion/revised-plan needs, ownership/staged scope/content mismatch, unexpected workspace/branch/HEAD/Git state or failure/partial completion.", "Git failure/partial completion"):
                 with self.subTest(path=path, guard=required):
                     self.assertIn(required, self.texts[path])
 
@@ -625,7 +625,7 @@ class DocumentationContractTests(unittest.TestCase):
             with self.subTest(artifact=name):
                 self.assertRegex(text, r"no.change.*record")
                 self.assertRegex(text, r"significant planned.*final.*review" if name == "svg" else r"significant plans.*final.*review")
-                self.assertRegex(text, r"significant unplanned.*before acceptance")
+                self.assertRegex(text, r"significant unplanned.*before acceptance" if name == "svg" else r"for significant/high-risk work without a plan, follow implementer → qa and required qa rechecks → reviewer of the final full change → orchestrator acceptance; do not omit reviewer or create a plan obligation solely because no plan exists")
 
     def test_readme_uses_maintained_svg_and_links_operation_guide(self) -> None:
         readme = (REPO / "README.md").read_text()
