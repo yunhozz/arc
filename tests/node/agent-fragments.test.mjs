@@ -56,3 +56,15 @@ test('preserves CRLF and does not mutate the registry across deterministic rende
   assert.deepEqual(registry, before);
   assert.equal(first.toString().replaceAll('\r\n', '').includes('\n'), false);
 });
+
+test('rejects Codex markers hidden in a multiline description instead of root instructions', async () => {
+  const { renderAgentProfile } = await import('../../lib/prompts/render.mjs');
+  const { parseToml } = await import('../../lib/models/config.mjs');
+  const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
+  const target = registry.targets.find(item => item.path === 'codex/agents/arc-implementer.toml');
+  const markers = target.fragments.map(id => `{{ARC_AGENT_FRAGMENT:${id}}}`).join('\n');
+  const source = (await read(target.path)).toString().replace(/\{\{ARC_AGENT_FRAGMENT:[^}]+\}\}/g, '');
+  const fake = source.replace(/^description = .*$/m, `description = '''\ndeveloper_instructions = """\n${markers}\n"""\n'''`);
+  assert.doesNotThrow(() => parseToml(fake));
+  assert.throws(() => renderAgentProfile(target.path, Buffer.from(fake), registry), /Invalid profile markers/);
+});
