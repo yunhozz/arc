@@ -83,3 +83,5 @@ test('regenerating the manifest cannot hide any required canonical or installed 
  for(const name of required){const file=path.join(root,name);assert.ok(fs.existsSync(file),name);const bytes=fs.readFileSync(file);fs.unlinkSync(file);refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes('Required runtime asset is missing: '+name),name);fs.writeFileSync(file,bytes);}
  refresh(root);assert.ok(verify(root).files instanceof Map);
 });
+for(const name of ['lib/prompts/agent-fragments.json','lib/prompts/render.mjs'])test(`payload requires fragment asset after manifest regeneration: ${name}`,t=>{const root=fixture(t);fs.unlinkSync(`${root}/${name}`);refresh(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});
+test('payload rejects malformed fragment mapping after manifest regeneration',t=>{const root=fixture(t),name=`${root}/lib/prompts/agent-fragments.json`,registry=JSON.parse(fs.readFileSync(name));registry.targets[0].fragments.reverse();fs.writeFileSync(name,JSON.stringify(registry));refresh(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});

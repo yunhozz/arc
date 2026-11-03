@@ -253,11 +253,11 @@
     "lib/runtime/identity.mjs": "ccbc80b1ad9b8c51378f73b70d920ff902433115c121e74750bb34ecc500adc8",
     "lib/runtime/operations.mjs": "3e4eaac8ac1e71b6bd443afe5060cf1f7ad2f0d9eb3d961b2383452cdb69069f",
     "lib/runtime/schema.mjs": "260e3f202d39cc8cb87ae426a0578502e1c916e2890503b2e10bf8fb6541f721",
-    "claude/agents/arc-implementer.md": "822316ea2c63fa76a6bbadfa0467bd4e2a1b5be8e9c694ee3e33bd1cf606ae1a",
-    "claude/agents/arc-planner.md": "fe2c4795e8422928bfbfb41c7b37889ea9d3f0d22bb6f337ae76d269114f9146",
-    "claude/agents/arc-qa.md": "f813380fab9f7f7176eb2771a9a29bffba8ff5afb11c5753d88e0a98eea2dba5",
-    "claude/agents/arc-reviewer.md": "ad116e04bd372a55db3cb8c65b0fa84ee311584a8ccea5ab1d5efe3b8e4f0426",
-    "claude/agents/arc-scouter.md": "8157247c4457ea488650ae8a6be3b2e03e30fa4e2a112c8e12dd46ac82e5e148",
+    "claude/agents/arc-implementer.md": "2e97a928ec05595b5a2cad7fc0a6eaf075fc4ed3573b6a77122e6c31d83941a4",
+    "claude/agents/arc-planner.md": "6904ecc7fbb686a2e6206035af007813a44e53dc9b779d91ec5ca8e2413157a3",
+    "claude/agents/arc-qa.md": "2881263aa34a8ca37ea82529e395cfabece7a2c78e66f31ecfe5df2a7358c9b6",
+    "claude/agents/arc-reviewer.md": "d37646da46056d96d6c3cadc56540b132cda3f0a4f37943c7d6f6d6963623599",
+    "claude/agents/arc-scouter.md": "ae8b52a075267e53a47034810d57f3815603c999bc90f7be44115f9121f2c474",
     "claude/skill/models.toml": "9b849a8b6f966b1aafbccecd67045302f281f3f6c0c9fc6645ddc37ace9b70cb",
     "claude/skill/runtime/adapters/claude.mjs": "689f88987c997dcd7ba6e7de61b1b1b203976a418399cab4fa543df42e7ee7b0",
     "claude/skill/runtime/adapters/codex.mjs": "68bdeb2b3605dda663264b77047488046a62c7d7289f82d1ff9c09b2976d2e4a",
@@ -267,11 +267,11 @@
     "claude/skill/runtime/git-query.mjs": "494470cf70121ddac8d716586b0c05b1f0977f3eada8c0323ed34dc157b0db8e",
     "claude/skill/runtime/role-policy.json": "0d65201e253d4520254308505b3ee11fb1b747f553757b01292853c6aef1eb41",
     "claude/skill/runtime/store.mjs": "6c4c468cdd0a44ffc3e3c371dc432773b50094c6b87f71c1df47b99d7e28f3dd",
-    "codex/agents/arc-implementer.toml": "ee6c3e557ba240d72ca16320b9e8da2371deafbef88a023b00fc996de004b1bb",
-    "codex/agents/arc-planner.toml": "d0e20832324e794e9afd9a8d5658eec4e4c9cf035a4c8277efd3543dcc3cac46",
-    "codex/agents/arc-qa.toml": "d86ae0c61d3fae8bdd1798465d8bf9e51f4f4ab2b73b40ca94aab749557e8def",
-    "codex/agents/arc-reviewer.toml": "a0d4b5e3c04b0ac4ec34f8a791cec67b8525ba97766bed574214ff93adea53ac",
-    "codex/agents/arc-scouter.toml": "b8646433105b83fc7813ed76007cb42802b4d9cd1e7a1f117ddbe14153b0dd6a",
+    "codex/agents/arc-implementer.toml": "b07597323cbf5bdf1e494fa4ab3af7ec6ba7666e94c5084354078b8a81ae10b6",
+    "codex/agents/arc-planner.toml": "f38ca431b1c78216a6e06a8e70145c97a8a2c89bc437de293edc7f79586f1e5f",
+    "codex/agents/arc-qa.toml": "043727c3ec8e5a236fde82872e1624bdf80af13375a940ecdec3c74ce2e0f4dd",
+    "codex/agents/arc-reviewer.toml": "d7734d4907804c891d258f54fb9125b8b3c0001f856fb9131a78da59c3b245fd",
+    "codex/agents/arc-scouter.toml": "27ec318ae0a0b77f5221c9dc5eb6dc9fb69ea97de64322e5b303aa62436f56bd",
     "codex/skill/models.toml": "e788736ac2345ec234cd4582a3f4779f46ee5f1a5a12f2f0f4049c7699fe0f2b",
     "codex/skill/runtime/adapters/claude.mjs": "689f88987c997dcd7ba6e7de61b1b1b203976a418399cab4fa543df42e7ee7b0",
     "codex/skill/runtime/adapters/codex.mjs": "68bdeb2b3605dda663264b77047488046a62c7d7289f82d1ff9c09b2976d2e4a",
@@ -305,6 +305,21 @@
     },
     "Risk-scaled execution": {
       "under the Orchestrator direct path below,": "under the Orchestrator direct path in [handoff](handoff.md#orchestrator-direct-path-for-small-tasks),"
+    }
+  },
+  "agentProfileBaseline": {
+    "revision": "e112462fba82481b7891df8baf29a3729411b99a",
+    "profiles": {
+      "claude/agents/arc-implementer.md": "822316ea2c63fa76a6bbadfa0467bd4e2a1b5be8e9c694ee3e33bd1cf606ae1a",
+      "claude/agents/arc-planner.md": "fe2c4795e8422928bfbfb41c7b37889ea9d3f0d22bb6f337ae76d269114f9146",
+      "claude/agents/arc-qa.md": "f813380fab9f7f7176eb2771a9a29bffba8ff5afb11c5753d88e0a98eea2dba5",
+      "claude/agents/arc-reviewer.md": "ad116e04bd372a55db3cb8c65b0fa84ee311584a8ccea5ab1d5efe3b8e4f0426",
+      "claude/agents/arc-scouter.md": "8157247c4457ea488650ae8a6be3b2e03e30fa4e2a112c8e12dd46ac82e5e148",
+      "codex/agents/arc-implementer.toml": "ee6c3e557ba240d72ca16320b9e8da2371deafbef88a023b00fc996de004b1bb",
+      "codex/agents/arc-planner.toml": "d0e20832324e794e9afd9a8d5658eec4e4c9cf035a4c8277efd3543dcc3cac46",
+      "codex/agents/arc-qa.toml": "d86ae0c61d3fae8bdd1798465d8bf9e51f4f4ab2b73b40ca94aab749557e8def",
+      "codex/agents/arc-reviewer.toml": "a0d4b5e3c04b0ac4ec34f8a791cec67b8525ba97766bed574214ff93adea53ac",
+      "codex/agents/arc-scouter.toml": "b8646433105b83fc7813ed76007cb42802b4d9cd1e7a1f117ddbe14153b0dd6a"
     }
   }
 }
