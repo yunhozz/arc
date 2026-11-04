@@ -754,3 +754,11 @@ class ClaudeStrictRoleTests(unittest.TestCase):
         with self.assertRaises(module.ValidationError):
             module.validate_settings(config)
         self.assertEqual(config, before)
+
+
+class FastDirectProofTests(unittest.TestCase):
+    def test_fast_gate_retains_security_and_public_interface_exclusions(self):
+        text = (PAYLOAD / 'skill/references/handoff.md').read_text()
+        section = text.split('### Fast gate', 1)[1].split('### Instruction fingerprint', 1)[0]
+        self.assertRegex(section, r'(?i)security/permissions.*public-interface.*never eligible')
+        self.assertRegex(section, r'(?s)F1.*F2.*F3.*F4.*F5.*F6.*F7.*F8')

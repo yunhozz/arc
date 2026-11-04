@@ -71,6 +71,8 @@ Use this fixed brief order:
 - At plan completion or before another plan in a long session, record canonical handoff and recommend a new session.
 - Before handoff briefly state role/objective/output; after return combine findings/next stage. Never expose hidden reasoning/raw prompts.
 
+The [task envelope](handoff.md#orchestrator-direct-path-for-small-tasks) fits this fixed brief order: Goal carries task/path/outcome; Criteria carries IDs and checks; Exact scope/ownership carries target/state/ownership/record; Constraints/decisions carries approval, F1–F8, risk/depth and TDD; Evidence carries fingerprint and approval/check evidence; Prior findings carries changes, revalidation and holds; Exact next objective gives the bounded next goal; Return format requests evidence, limits and unresolved points. Give a new role its native profile and actual applicable instructions, not hash alone.
+
 <a id="models"></a>
 ## Models
 

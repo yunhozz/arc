@@ -6,6 +6,8 @@ Read before depth judgments, spec or plan drafting and approval, and first saves
 <a id="authorization-and-scope"></a>
 ## Authorization and scope
 
+Use the [fast gate and envelope](handoff.md#orchestrator-direct-path-for-small-tasks) alongside these existing scope and approval rules; reuse valid approvals and hold changed scope under these rules.
+
 An explicit execution request authorizes only sufficiently specified scope from that request or a description the user explicitly references. Confirm intent/outcome/constraints/document depth/verification risk and no unresolved material behavior/method/risk decision. Record approval evidence, scope, criteria, constraints and depth. Orchestrator may choose routine execution/check details, not unapproved product behavior/material scope. Restating/handoff/restart of unchanged scope needs no new approval.
 
 Silence, ambiguous assent, other-work approval and vague blanket improvements are insufficient. Planner's new material choices are not automatically approved. Request missing decisions through Orchestrator. Required specs/plans retain separate ordered approval.
@@ -56,6 +58,8 @@ Record depth separately from risk. Risk controls checks/review, not design paths
 If Bounded requires written spec, record necessity/scope using approved short design as basis. Planner returns proportional full spec/self-review; Orchestrator saves/reviews/obtains individual approval before dependent plan/preparation. Short design approval never substitutes. This applies recorded judgment, not new spec necessity. Required plans alone imply no written spec.
 
 Only Planner authors the first complete spec or plan draft and self-review. Orchestrator reviews and directly revises the same document before approval. Unavailable/failed Planner stops first drafting rather than transferring authorship. Design approval does not transfer initial authorship.
+
+For initial fast judgment apply the [fast gate](handoff.md#orchestrator-direct-path-for-small-tasks); its sufficient conditions do not change these depth decisions.
 
 <a id="top-level-plan-tasks"></a>
 ## Top-level plan tasks

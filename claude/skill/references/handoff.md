@@ -109,6 +109,58 @@ Record target choice/reuse before first edit; scope approval alone selects no ta
 
 Add no plans/automatic commits to omission paths; follow guidance/user requests.
 
+
+### Fast gate
+
+Select the existing direct path only when all eight conditions are `proven`. Record each as `proven`, `unmet`, or `unverified` with evidence; any `unmet`, `unverified`, missing or ambiguous condition requires full evaluation. Missing required inputs or operational failure also holds dependent work; full evaluation is no bypass.
+
+- **F1**: Scope authorization identifies outcome, scope, criteria and edit boundaries, with no unresolved material behavior, method or risk decision.
+- **F2**: One local, understood, reversible change with understood impact and outcome.
+- **F3**: No dependent stages, cross-component shared state, lifecycle or integration-order concerns.
+- **F4**: Meets [risk-scaled execution](verification.md#risk-scaled-execution) low-risk conditions and no existing direct-path exclusion applies.
+- **F5**: One focused verification path covers criteria and identifies required independent QA/Reviewer.
+- **F6**: Explicit target choice or valid reuse, current workspace and change state, preservation and no active ownership conflict are established.
+- **F7**: Applicable TDD is identified; any waiver or non-behavior exception meets existing conditions and is recorded beforehand. Explicit user/task TDD overrides waiver.
+- **F8**: Applicable instruction source-set and approval, target, criteria and verification evidence are accessible, consistent and unambiguous.
+
+Security/permissions and public-interface changes are never eligible under the existing significant-risk exclusions. File count, LOC and apparent simplicity prove none of F2–F5. This gate does not replace the first direct edit gate, Implementer start/restart gate, target choice, TDD, independent QA and Reviewer, acceptance or commit. Preserve all existing platform restrictions.
+
+### Instruction fingerprint
+
+Record the actual applicable source-set: platform ARC SKILL, these initial reference sections, applicable workspace instructions, and triggered references/skills; record user/platform messages by message and approval reference, not invented file hashes. Record native role profile source/version when assigned; a new role receives actual instructions, profile, needed paths and criteria, not merely a hash. Do not assume disk profile changes updated an active role.
+
+Distinguish user-provided instructions, workspace instructions, installed references and task inputs by source, applicability and access state: available, absent, inaccessible, conflicting or unverified. For every file record source kind, absolute and resolved path, read sections, available revision, SHA-256 of entire file bytes, access state, observation and read-context references. Neither HEAD nor installer manifest substitutes for actual installed-source hash. Use only already identified source paths; do not search or guess. An uncertain source-set makes F8 `unverified`.
+
+Reuse read content only for the same source-set, resolved paths, hashes, scope and same conversation context with meaning still available. New context, inaccessible record or context loss requires rereading; changed source/hash requires rereading and reassessing affected judgments. Verify the current source-set/hash at a new fast judgment, first-edit or assignment/restart/resumption gate, before acceptance, and on known source changes; reuse observations within the same gate. If hashing fails, do not reuse; follow existing read recovery and hold required inaccessible inputs. When Node is already available, batch identified absolute paths with built-in `node:fs` realpath/readFileSync and `node:crypto` SHA-256; install nothing and print no source content.
+
+
+For identified absolute sources only, when Node is already available, this read-only example prints paths and hashes, not contents:
+
+```sh
+node --input-type=module -e '
+import fs from "node:fs";
+import crypto from "node:crypto";
+const sources = process.argv.slice(1);
+if (!sources.length) throw new Error("No instruction sources");
+for (const source of sources) {
+  const resolvedPath = fs.realpathSync(source);
+  const contentHash = "sha256:" + crypto.createHash("sha256").update(fs.readFileSync(resolvedPath)).digest("hex");
+  process.stdout.write(JSON.stringify({source, resolvedPath, contentHash}) + "\n");
+}
+' -- '/absolute/identified/source-1' '/absolute/identified/source-2'
+```
+A new conversation or lost context requires reread; unchanged HEAD alone does not prove instruction, file or check evidence current.
+
+### Task envelope
+
+Place the compact envelope in the existing canonical handoff record or existing inline scope record, not a new file, store or API. Record task path and outcome; instructions; target; approval; scope and criteria; risk and depth; TDD; verification; refresh. Specifically include task ID/path, source fingerprint/read context, workspace/branch/HEAD/change state/preservation/ownership, scope approval and target choice, edit boundaries/criteria, F1–F8 evidence/risk/depth, TDD or recorded exception, criterion checks/QA/Reviewer/acceptance, and observations/changes/revalidation/holds. Link accessible records; inaccessible references do not replace required content. Embed it in the existing eight specialist brief fields in their fixed order, without a ninth field or full history.
+
+The nine fields are `task`, `instructions`, `target`, `authorization`, `scopeCriteria`, `riskDepth`, `tdd`, `verification`, and `refresh`; task records the task ID/path and selected path `fast-direct` or `full`, and verification includes criteria-specific checks and their evidence.
+
+### Evidence refresh
+
+Evaluate target choice validity separately from evidence validity. Approved HEAD or expected dirty changes do not invalidate target choice by themselves: record current state, preservation and ownership, and assess affected criteria/checks. Revalidate only affected evidence; a related file change after a check leaves that check unverified until repeated as needed. Changed instructions require reassessing linked fast/risk/TDD/authorization judgments. Preserve unaffected evidence and valid approvals. Unclear impact, missing or inaccessible evidence, ownership conflict, failure or partial/unknown state requires existing hold and recovery; workspace/target change or loss of trust follows target-choice rules. For a target change, obtain a new choice where required and state confirmation before dependent edit. Scope/criteria/method/risk changes follow existing approval and fresh-role rules. A failed direct check or QA finding returns to existing Implementer/recheck ownership.
+
 <a id="cooperative-cli-verification-handoff"></a>
 ## Cooperative CLI verification handoff
 

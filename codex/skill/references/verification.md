@@ -15,6 +15,8 @@ Policy, generated-file and manifest checks prove structure, not role behavior, i
 <a id="risk-scaled-execution"></a>
 ## Risk-scaled execution
 
+The [fast gate](handoff.md#orchestrator-direct-path-for-small-tasks) references this risk definition; refresh affected evidence when inputs change and preserve independent verification boundaries.
+
 Edits belong to Implementer except the [small direct path](handoff.md#orchestrator-direct-path-for-small-tasks). Orchestrator determines behavior, risk and minimum meaningful checks.
 
 | Risk | Minimum flow |
