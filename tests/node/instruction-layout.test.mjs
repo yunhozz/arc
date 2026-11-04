@@ -32,6 +32,29 @@ for (const platform of ['codex','claude']) for (const [contract,patterns] of Obj
  });
 }
 for (const platform of ['codex','claude']) {
+ test(`${platform} applies existing gates only when triggered without adding new obligations`,()=>{
+  const check=text=>{
+   assert.match(text,/first edit, target selection, TDD, role assignment, QA\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
+   assert.match(text,/fast path itself does not require untriggered role assignment, QA\/Reviewer, acceptance or commit/);
+  };
+  const core=read(file(platform,'core'));
+  check(core);
+  assert.throws(()=>check(core.replace('when their existing triggers are met','unconditionally')));
+  assert.throws(()=>check(core.replace('does not require untriggered','requires untriggered')));
+  const handoff=fastSections(read(file(platform,'handoff')));
+  assert.match(handoff,/existing triggers determine whether each gate applies/);
+  assert.match(handoff,/does not add untriggered role, QA\/Reviewer, acceptance or commit obligations/);
+ });
+ test(`${platform} reuse requires the same absolute locator even when resolved paths match`,()=>{
+  const check=text=>{
+   assert.match(text,/same source-set, absolute source locators, resolved paths, hashes, scope and same conversation context/);
+   assert.match(text,/Different absolute locators cannot be reused even if they resolve to the same path/);
+  };
+  const section=fastSections(read(file(platform,'handoff')));
+  check(section);
+  assert.throws(()=>check(section.replace('absolute source locators, ','')));
+  assert.throws(()=>check(section.replace('cannot be reused even if','can be reused if')));
+ });
  test(`${platform} fingerprint specifies batch hash and unchanged-evidence reuse`,()=>{
   const section=fastSections(read(file(platform,'handoff')));
   for(const pattern of [/node --input-type=module/, /realpathSync/, /createHash\("sha256"\)/, /new conversation.*reread/, /unchanged HEAD.*does not prove/]) assert.match(section,pattern);
