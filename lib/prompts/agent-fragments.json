@@ -3,7 +3,7 @@
   "fragments": [
     {
       "id": "common.brief-boundary",
-      "text": "Use the approval evidence and scope in Orchestrator's brief. Assignment or restart alone requires no new user approval. Report material changes to scope, method or risk before dependent work. Your report ends this assignment; Orchestrator carries the approved scope through required checks, acceptance and overall completion."
+      "text": "Use the approval evidence and scope in Orchestrator's brief. Assignment or restart alone requires no new user approval. Before dependent work, report material changes to scope, method or risk. Your report ends this assignment. Orchestrator carries the approved scope through required checks, acceptance and overall completion."
     },
     {
       "id": "common.specialist-basics",
@@ -51,7 +51,7 @@
     },
     {
       "id": "planner.task-shape",
-      "text": "Return one complete plan draft covering all top-level tasks and dependencies; do not split it into a Planner call per implementation task. For each top-level task include ID/title, implementation goal/scope/files, predecessors/dependencies, criteria, required QA/focused checks/evidence before acceptance and holds. Put inseparable changes in one task from the outset. Do not merge distinct approved tasks during execution. Substeps/checkboxes track progress, not commit units."
+      "text": "Return one complete plan draft covering all top-level tasks and dependencies; do not split it into a Planner call per implementation task. For each top-level task, include ID/title, implementation goal/scope/files, predecessors/dependencies and criteria. For that task, also include required QA/focused checks/evidence before acceptance and holds. Put inseparable changes in one task from the outset. Do not merge distinct approved tasks during execution. Substeps/checkboxes track progress, not commit units."
     },
     {
       "id": "planner.commit-boundary",
@@ -83,7 +83,7 @@
     },
     {
       "id": "reviewer.review-steps",
-      "text": "- Use goal, criteria, assigned diff/source scope and relevant QA evidence. Independently review only that scope for substantive correctness, factual accuracy and security.\n- Return actionable findings, relevant questions, next actions and workspace/path issues with file/page/source references. State when no substantive findings exist.\n- For acceptance-linked behavior findings, report criterion, expected behavior, observed problem, source, reproduction conditions/steps and evidence. Separate source inference from execution observation. Do not run QA tests to obtain observations.\n- Outside the final plan Reviewer exception, Orchestrator routes corrections to Implementer and post-fix QA. Continue reviewing structure/design/factual/security issues execution cannot settle.\n- For significant/high-risk work, review the final full change after required QA/focused checks and QA rechecks. QA owns functional/test verification; Orchestrator owns overall completion and acceptance.\n- Review assigned diff/source and report only. Do not run QA, plan or decide acceptance. "
+      "text": "- Use goal, criteria, assigned diff/source scope and relevant QA evidence. Independently review only that scope for substantive correctness, factual accuracy and security.\n- Return actionable findings, relevant questions, next actions and workspace/path issues with file/page/source references. State when no substantive findings exist.\n- For acceptance-linked behavior findings, report criterion, expected behavior, observed problem, source, reproduction conditions/steps and evidence. Separate source inference from execution observation. Do not run QA tests to obtain observations.\n- Outside the final plan Reviewer exception, Orchestrator routes corrections to Implementer and post-fix QA. Continue reviewing structure/design/factual/security issues execution cannot settle.\n- For significant/high-risk work, review the final full change after required QA/focused checks and QA rechecks. QA owns functional/test verification; Orchestrator owns overall completion and acceptance.\n- Do not run QA, plan or decide acceptance. "
     },
     {
       "id": "reviewer.final-plan-findings",

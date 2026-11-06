@@ -23,7 +23,7 @@ Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the
 
 Installation preserves bytes outside `arc:begin` / `arc:end`. Codex wait settings merge into supported standalone `[features.multi_agent_v2]`; unsupported structure receives manual guidance. Native concurrency writes integer `[agents].max_concurrent_threads_per_session` for Codex and string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` for Claude, preserving unrelated settings.
 
-Static references include brainstorming/writing-plans/test-driven-development, related Markdown/mockups/license/provenance. Markdown lives in platform `skill/references/`, scripts/HTML in `references/scripts/`. Existing shared/global skills/links are separately preserved. Source packages have no npm install hook; published artifacts have informational postinstall only. npm installation neither downloads/installs the harness nor connects TTY/changes shell; it prints `Run arc to install or manage the ARC harness.`
+Static references include brainstorming/writing-plans/test-driven-development, related Markdown/mockups/license/provenance. Markdown lives in platform `skill/references/`, scripts/HTML in `references/scripts/`. Existing shared/global skills/links are separately preserved. Source packages have no npm install hook. Published artifacts have informational postinstall only. npm installation neither downloads/installs the harness nor connects TTY/changes shell. It prints `Run arc to install or manage the ARC harness.`
 
 <a id="installation-and-refresh-lifecycle"></a>
 ## Installation and refresh lifecycle
