@@ -23,6 +23,8 @@ Claude v1 offers current branch/detached HEAD or a task branch in that checkout.
 <a id="git-mutation-evidence-gate"></a>
 ### Git mutation evidence gate
 
+Before branch preparation, obtain the complete first required draft and self-review and pass the focused source/intent/preservation check.
+
 Before every preparation mutation (branch creation/switch, approved-doc staging/commit), read this and record/recheck:
 
 1. Explicit choice or verified valid reuse.

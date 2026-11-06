@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/obra/superpowers",
-  "revision": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
-  "fetchedAt": "2026-10-29T17:10:27.098Z",
+  "revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+  "fetchedAt": "2026-11-06T16:48:59.704Z",
   "skills": [
     "brainstorming",
     "writing-plans",
@@ -10,12 +10,12 @@
   ],
   "files": {
     "LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
-    "brainstorming/SKILL.md": "61a7ef918652108c76a3fd01e02dd92d39996c6b46d4cb2819cbd03f6c45e46a",
+    "brainstorming/SKILL.md": "2c9ca71f94886f9ca9f4aef055f7cafb3e1a9bdf3aeebf8f4cb547c69405d207",
     "brainstorming/builder-check-prompt.md": "36d51a4723d6f0a3ce5811a0ea3b3a8424f07533947e1355f5d8cb8cce40c55e",
     "brainstorming/scripts/frame-template.html": "6a8a4e58bd6a44b904e2e3c57de774481d909204597e1498de53f1b2fecc4c4e",
     "brainstorming/scripts/helper.js": "43c6d69954a46ec34a2a262bcc62a9a7e83e839c739f199cb72646d397c686e3",
     "brainstorming/scripts/server.cjs": "763abf96510e0b892a1141397b31aa82ef900cf87ed34dde94bc8782baf4a7ca",
-    "brainstorming/scripts/start-server.sh": "a4e5ae84275bcaacd2f84345afeabe59cf7b00ba080e123da7cc1fb226f12847",
+    "brainstorming/scripts/start-server.sh": "314dd68dc00e8dd94c7491aca8a5f004c7fddffc161e2b07482f29f48d13659a",
     "brainstorming/scripts/stop-server.sh": "0b5ccbbd57f62d3ed88993f7940b5ee0e5c0fc9b21c550c623da4f6292e47daf",
     "brainstorming/visual-companion.md": "6ffcb038b53254bd31debaa15e12dcd4ff24bd63d690e0b644ac6396701cf2e2",
     "writing-plans/SKILL.md": "a6c67c1900064347c2a329990dd3c555657c51c3ec53b259a08aa01a2c26139a",

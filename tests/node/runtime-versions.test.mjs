@@ -8,13 +8,19 @@ import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
 const previousRuntimeHash='sha256:8be1db491aa12e4982e5d0dc9048d2b46717de133feb2d26f98b5301e086bb87';
-const baselineHash='sha256:2c708f0dec7f2da50b14fc710eee7886e78d6eb7cc28113d70b834e8d0732ec4';
+const baselineHash='sha256:1cfcfcd84024054f6ef655a97766304658126b62900e32422e488b45756ed9d8';
+
+test('target preparation is included in the current cooperative runtime contract',async()=>{
+ const api=await import('../../lib/runtime/bootstrap.mjs');
+ assert.equal((await api.cooperativeVersions()).runtime,'cooperative-6');
+ assert.ok(api.COOPERATIVE_RUNTIME_MODULES.includes('target-preparation.mjs'));
+});
 
 // Independent T5 contract: omission, reordering or unhashed gate bytes must fail.
 const expectedModules = [
  'cli.mjs', 'command.mjs', 'bootstrap.mjs', 'cooperative-schema.mjs', 'cooperative.mjs', 'evaluate.mjs',
  'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs', 'external.mjs',
- 'schema.mjs', 'operations.mjs', 'gate.mjs', 'adapters/codex.mjs', 'adapters/claude.mjs', 'capabilities.mjs', 'identity.mjs', 'git-query.mjs'
+ 'schema.mjs', 'operations.mjs', 'gate.mjs', 'adapters/codex.mjs', 'adapters/claude.mjs', 'capabilities.mjs', 'identity.mjs', 'git-query.mjs', 'target-preparation.mjs'
 ];
 for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/runtime/']) {
  test(`${runtime} freezes the ordered T5 inventory and hashes every raw module Buffer`, async () => {
@@ -24,7 +30,7 @@ for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/run
   assert.equal(Object.isFrozen(api.COOPERATIVE_RUNTIME_MODULES), true);
   const bytes = Buffer.concat(await Promise.all(expectedModules.map(file => readFile(new URL(file, directory)))));
   const expectedHash = 'sha256:' + createHash('sha256').update(bytes).digest('hex');
-  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-5');
+  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-6');
   assert.equal(versions.runtimeHash, expectedHash);
   assert.equal(expectedHash, baselineHash);
  });

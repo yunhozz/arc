@@ -22,7 +22,7 @@ Resume briefs preserve valid approval for unchanged scope, completed work, failu
 
 Before every Implementer start or restart, verify access to the supplied absolute workspace and its intended repository. Record the actual path, branch or detached HEAD, HEAD, and staged, unstaged and untracked state. An inaccessible or wrong repository or unresolved HEAD stops work; do not automatically initialize Git or switch repositories.
 
-Formal spec/plan drafting/saving follows choice/actual preparation; initial design may precede choice. Preparation alone authorizes no Implementer. All approvals/full documents/verified batch or valid absence/final Git checks remain. Separate planned scope/paths, actual preparation and drafting/save/approval/commit, recording chronology/gaps.
+The first required spec/plan draft follows choice and verified source evidence and precedes actual preparation; saving follows verified preparation. Initial design may precede choice. Preparation alone authorizes no Implementer. All approvals/full documents/verified batch or valid absence/final Git checks remain. Separate planned scope/paths, actual preparation and drafting/save/approval/commit, recording chronology/gaps.
 
 After initial design approval record explicit selection: current checkout, new task branch from verified base there, or managed worktree/task branch. Without choice/valid reuse, wait. Reuse through unchanged-scope/target drafting/implementation. Authorized HEAD/dirty changes alone do not invalidate choice; verify preservation/ownership. Changed scope/target requires fresh choice before dependent drafting/preparation without waiting for full documents. Never fall back automatically.
 
@@ -52,6 +52,7 @@ One canonical record includes:
 - Document SHA/message/paths/approved content; reused versus batch commits or valid absence/depth rationale.
 - Absolute approved artifacts, full set/versions/coverage/dependencies/order and no pending writing/approval.
 - Final verification, failures/partial completion/recovery and each start/restart's approval/choice/reuse.
+- Each plan task ID and current Implementer conversation ID, status, last result and reuse/replacement decision. Before same-task replacement, record the prior ID and status, allowed reason and supporting evidence; hold if the reason is not established. Record the returned ID after a successful initial or replacement call, and reconcile an uncertain call result before another assignment.
 - Worktree source/target paths/common directory/base/branch/name/returned path/app attachment/operationId/registration/source preservation/transfer evidence. No automatic recreation/cleanup/archive.
 
 Give all five roles the same actual workspace/selected checkout, preparation evidence and absolute artifacts. Roles stay there and report missing/inaccessible/conflicting paths/unexpected branches before dependent work, never create/switch workspaces/branches. Tell Implementer others share the repository and unrelated work must be preserved.

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {constants} from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
@@ -108,16 +109,17 @@ export async function readCooperativeChanges({state,gitRunner=defaultRunner}){
  if(raw&&!raw.endsWith('\0'))throw Error('Incomplete verification inventory');
  const index=await gitRunner({cwd:state.target.realpath,args:['ls-files','--stage','-z']});
  if(index?.status!==0||index.error||!Buffer.isBuffer(index.stdout))throw Error('Verification index query failed');
- const indexText=new TextDecoder('utf-8',{fatal:true}).decode(index.stdout),indexRows=[];
+ const indexText=new TextDecoder('utf-8',{fatal:true}).decode(index.stdout),indexRows=[],transitionIndex=[];
  if(indexText&&!indexText.endsWith('\0'))throw Error('Incomplete verification index');
- for(const entry of indexText?indexText.slice(0,-1).split('\0'):[]){const match=/^(100644|100755) ([a-f0-9]{40}|[a-f0-9]{64}) 0\t([\s\S]+)$/.exec(entry);if(!match)throw Error('Verification requires regular stage-0 index entries');indexRows.push({path:path.join(state.target.realpath,match[3]),entry});}
+ for(const entry of indexText?indexText.slice(0,-1).split('\0'):[]){const match=/^(100644|100755) ([a-f0-9]{40}|[a-f0-9]{64}) 0\t([\s\S]+)$/.exec(entry);if(!match||!match[3]||/[\\\x00\r\n:]/.test(match[3])||match[3].startsWith('/')||match[3].split('/').some(p=>!p||p==='.'||p==='..'))throw Error('Verification requires regular stage-0 index entries');indexRows.push({path:path.join(state.target.realpath,match[3]),entry});transitionIndex.push({path:match[3],mode:match[1],blob:match[2],stage:0});}
  const names=[...new Set(raw?raw.slice(0,-1).split('\0'):[])].sort(),rows=[];
  for(const name of names){
   if(!name||name.includes('\\')||name.includes('\n')||name.includes('\r')||path.isAbsolute(name)||name.split('/').some(p=>!p||p==='.'||p==='..'))throw Error('Invalid verification path');
   const file=path.join(state.target.realpath,...name.split('/'));
-  try{await inspectPath(file);const stat=await fs.lstat(file);if(!stat.isFile())throw Error('Verification requires regular files');rows.push({path:file,mode:stat.mode&0o777,hash:'sha256:'+createHash('sha256').update(await fs.readFile(file)).digest('hex')});}
+  try{await inspectPath(file);const handle=await fs.open(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);let stat,bytes;try{stat=await handle.stat();if(!stat.isFile())throw Error('Verification requires regular files');bytes=await handle.readFile();const after=await handle.stat(),named=await fs.lstat(file);if(stat.dev!==after.dev||stat.ino!==after.ino||stat.size!==after.size||stat.mtimeMs!==after.mtimeMs||stat.mode!==after.mode||after.dev!==named.dev||after.ino!==named.ino)throw Error('Verification file changed while reading');}finally{await handle.close();}await inspectPath(file);rows.push({path:file,mode:stat.mode&0o777,hash:'sha256:'+createHash('sha256').update(bytes).digest('hex')});}
   catch(error){if(error.code!=='ENOENT')throw error;rows.push({path:file,deleted:true});}
  }
  const tasks={},taskSnapshots={};for(const task of state.tasks){if(!list(task.paths)||!task.paths.every(p=>absolute(p)&&within(state.target.realpath,p)))throw Error('Invalid task paths');taskSnapshots[task.id]={scope:'task',taskId:task.id,target:Object.fromEntries(Object.entries(state.target).filter(([key])=>key!=='head')),paths:task.paths,index:indexRows.filter(row=>task.paths.some(p=>within(p,row.path))),rows:rows.filter(row=>task.paths.some(p=>within(p,row.path)))};tasks[task.id]=fingerprintRequest(taskSnapshots[task.id]);}
- return {tasks,taskSnapshots,final:fingerprintRequest({scope:'final',target:state.target,index:indexRows,rows})};
+ const transitionSnapshot={index:transitionIndex.sort((a,b)=>a.path.localeCompare(b.path)),files:rows.map(row=>({...row,path:path.relative(state.target.realpath,row.path).split(path.sep).join('/')}))};
+ return {tasks,taskSnapshots,final:fingerprintRequest({scope:'final',target:state.target,index:indexRows,rows}),transitionSnapshot};
 }

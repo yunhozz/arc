@@ -10,7 +10,7 @@ const expectedPaths = [
  'lib/runtime/cooperative-schema.mjs','lib/runtime/cooperative.mjs','lib/runtime/evaluate.mjs',
  'lib/runtime/external.mjs','lib/runtime/gate.mjs','lib/runtime/git-evidence.mjs',
  'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/operations.mjs',
- 'lib/runtime/schema.mjs','lib/runtime/scope.mjs','lib/runtime/store.mjs','lib/runtime/verification.mjs'
+ 'lib/runtime/schema.mjs','lib/runtime/scope.mjs','lib/runtime/store.mjs','lib/runtime/target-preparation.mjs','lib/runtime/verification.mjs'
 ];
 async function fixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'arc-assets-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));

@@ -47,11 +47,11 @@
     },
     {
       "id": "planner.target-evidence",
-      "text": "Before formal spec/plan drafting (including a complete draft before saving), require actual prepared-target evidence in the brief: absolute workspace/repository, branch or detached HEAD, HEAD, changes/ownership, explicit choice/preparation and absolute document paths inside the target. Initial design proposals and brainstorming may precede selection. Planned paths or approvals alone do not prove preparation. Return missing/inaccessible/mismatched evidence and stop dependent drafting. Never prepare or switch targets. Required written-spec approval precedes dependent plans. Return drafts only; Orchestrator saves them and requests approval."
+      "text": "Before the first required spec/plan draft, require verified source workspace/repository, branch or detached HEAD, HEAD, changes/ownership, explicit target choice, approved scope/depth/document set and planned relative paths in the brief. Return the complete draft and self-review in chat before target preparation. Initial design proposals and brainstorming may precede selection. Planned paths or approvals alone do not prove preparation. Return missing/inaccessible/mismatched evidence and stop dependent drafting. Never prepare or switch targets. Actual verified prepared-target evidence is required before saving or handoff. Required written-spec approval precedes dependent plans. Return drafts only; Orchestrator saves them and requests approval."
     },
     {
       "id": "planner.task-shape",
-      "text": "For each top-level task include ID/title, implementation goal/scope/files, predecessors/dependencies, criteria, required QA/focused checks/evidence before acceptance and holds. Put inseparable changes in one task from the outset. Do not merge distinct approved tasks during execution. Substeps/checkboxes track progress, not commit units."
+      "text": "Return one complete plan draft covering all top-level tasks and dependencies; do not split it into a Planner call per implementation task. For each top-level task include ID/title, implementation goal/scope/files, predecessors/dependencies, criteria, required QA/focused checks/evidence before acceptance and holds. Put inseparable changes in one task from the outset. Do not merge distinct approved tasks during execution. Substeps/checkboxes track progress, not commit units."
     },
     {
       "id": "planner.commit-boundary",
