@@ -1,7 +1,7 @@
 import {EXTERNAL_ACTIONS,reconcileCooperativeExternal,cooperativeSupport} from './external.mjs';
 import {reconcileCooperativeCommit} from './acceptance.mjs';
 import {evaluateCooperativeVerification,invalidateAffectedEvidence,readCooperativeChanges} from './verification.mjs';
-import {readAssignmentGitEvidence,readCooperativeCommitGitEvidence} from './git-evidence.mjs';
+import {readAssignmentGitEvidence,readCooperativeCommitGitEvidence,readPlanAmendGitEvidence} from './git-evidence.mjs';
 import {recordCooperativeAssignmentResult} from './assignment.mjs';
 import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
@@ -11,11 +11,11 @@ import {validateCooperativeCommand,validateCooperativeState} from './cooperative
 import {observeCooperativeTarget,validateObservedTarget,validateWorkflowId,workflowStatePath,inspectPath,absolute,within} from './scope.mjs';
 import {fingerprintRequest,saveDurableState,applyCooperativeCommitTransition} from './store.mjs';
 import {commandResult,cooperativeVersions} from './bootstrap.mjs';
-import {evaluateCooperative,reconcileCooperativeResult} from './evaluate.mjs';
+import {evaluateCooperative,reconcileCooperativeResult,reconcileCooperativePlanAmend} from './evaluate.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const sameCheckout=(a,b)=>['realpath','gitCommonDir','gitDir'].every(k=>a[k]===b[k]);
 /** Only trusted code may inject observation/storage. CLI JSON cannot set either. */
-export async function runCooperativeCommand({cwd,workflowId,command,input,observe=observeCooperativeTarget,storage={},readGit=readAssignmentGitEvidence,readChanges=readCooperativeChanges,readCommitGit=readCooperativeCommitGitEvidence}){
+export async function runCooperativeCommand({cwd,workflowId,command,input,observe=observeCooperativeTarget,storage={},readGit=readAssignmentGitEvidence,readChanges=readCooperativeChanges,readCommitGit=readCooperativeCommitGitEvidence,readPlanAmendGit=readPlanAmendGitEvidence,clock=Date.now}){
  validateWorkflowId(workflowId);validateCooperativeCommand({command,input});
  if(command==='init')throw Error('Use initializeCooperativeWorkflow for init');
  const target=await validateObservedTarget(cwd,await observe(cwd)),statePath=await workflowStatePath(target,workflowId);
@@ -26,7 +26,7 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
   if(!sameCheckout(state.target,target))return result(undefined,{decision:'hold',ruleIds:['cooperative.target']});
   const changes=state.tasks.length?await readChanges({state}):undefined;
   const evaluation=evaluateCooperative({state,request:{command,input},evidence:{target,versions:await cooperativeVersions(),changes}});
-  const unresolved=state.plannerLedger?.stages.some(s=>s.pending)||state.unresolved.some(entry=>!entry.resolvedBy)||state.intents.some(i=>['prepared','unknown','mismatch'].includes(i.status)&&!(['check','review'].includes(i.operation)&&i.stale));
+  const unresolved=state.plannerLedger?.stages.some(s=>s.pending)||state.unresolved.some(entry=>!entry.resolvedBy)||state.intents.some(i=>(['prepared','unknown','mismatch'].includes(i.status)||i.operation==='plan-amend'&&i.status==='failed')&&!(['check','review'].includes(i.operation)&&i.stale));
   return {...result(state,evaluation.decision==='allow'&&unresolved?{decision:'hold',ruleIds:['cooperative.unresolved']}:evaluation,{persisted:true}),state,support:cooperativeSupport(),...(changes?{changeFingerprints:changes}:{})};
  }
  let lock,plannerLock;
@@ -49,10 +49,16 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
   if(command==='prepare'&&['accept','commit'].includes(input.operation)||commitIntent){
    try{git=await readCommitGit({target:currentTarget,...(commitIntent&&input.result?.data?.commit?{commit:input.result.data.commit}:{})});}catch(error){gitError=error.message;}
   }
+  const planIntent=state.intents.find(i=>i.operation==='plan-amend'&&i.requestId===((command==='record'&&input.evidence.kind==='note'&&input.evidence.data?.type==='plan-amend-checkpoint')?input.evidence.data.intentId:['result','reconcile'].includes(command)?input.intentId:null));
+  const planArguments=command==='prepare'&&input.operation==='plan-amend'?input.arguments:planIntent?.arguments;
+  let now;
+  if(planArguments){
+   try{now=clock();if(!Number.isFinite(now))throw Error('Invalid observation clock');git=await readPlanAmendGit({target:currentTarget,arguments:planArguments,mapping:command==='reconcile'&&input.result?.status==='succeeded'?input.result.data?.mapping??[]:[]});}catch(error){gitError=error.message;}
+  }
   const changes=state.tasks.length?await readChanges({state}):undefined;
   const plannerArtifacts=plannerWork?await readPlannerArtifacts(state,command==='record'&&input.evidence.kind==='planner-evidence'?input.evidence:undefined):undefined;
   const plannerHistory=command==='record'&&input.evidence.kind==='planner-stage'?await readPlannerHistory(state,statePath,input.evidence.data.document?.path):{};
-  let decision=evaluateCooperative({state,request:{command,input},evidence:{target:currentTarget,versions,git,changes,requestFingerprint,plannerArtifacts,...plannerHistory}});
+  let decision=evaluateCooperative({state,request:{command,input},evidence:{target:currentTarget,versions,git,changes,requestFingerprint,plannerArtifacts,now,...plannerHistory}});
   if(gitError)decision={decision:'hold',ruleIds:[input.operation==='assign-agent'?'cooperative.documents':'cooperative.git-evidence'],reason:gitError};
   if(command==='prepare'&&decision.decision==='allow'){
    if(decision.proposedTransition?.plannerLedger)state.plannerLedger=decision.proposedTransition.plannerLedger;
@@ -62,10 +68,10 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
   if(['reconcile','result'].includes(command)&&input.result){
    if(input.expectedRevision!==state.revision)state.unresolved.push({kind:'stale-result',requestId:input.requestId,intentId:input.intentId,expectedRevision:input.expectedRevision,revision:state.revision+1});
    let intent=state.intents.find(i=>i.requestId===input.intentId);
-   decision=EXTERNAL_ACTIONS.includes(intent?.operation)?reconcileCooperativeExternal({state,intent,result:input.result,observations:{target:currentTarget}}):intent?.operation==='commit'?reconcileCooperativeCommit({state,intent,result:input.result,gitEvidence:git}):['check','review'].includes(intent?.operation)?evaluateCooperativeVerification({state,request:{...input,operation:'verification-result'},evidence:{changes}}):intent?.operation==='assign-agent'?recordCooperativeAssignmentResult({state,intent,result:input.result,observations:{target:currentTarget}}):reconcileCooperativeResult({state,intent,result:input.result,observations:{target:currentTarget}});
-   if(['assign-agent','check','review','commit',...EXTERNAL_ACTIONS].includes(intent?.operation)&&!same(versions,state.versions))decision={...decision,decision:'hold',ruleIds:['cooperative.versions']};
+   decision=EXTERNAL_ACTIONS.includes(intent?.operation)?reconcileCooperativeExternal({state,intent,result:input.result,observations:{target:currentTarget}}):intent?.operation==='commit'?reconcileCooperativeCommit({state,intent,result:input.result,gitEvidence:git}):intent?.operation==='plan-amend'?reconcileCooperativePlanAmend({state,intent,result:input.result,observations:{target:currentTarget,git},now}):['check','review'].includes(intent?.operation)?evaluateCooperativeVerification({state,request:{...input,operation:'verification-result'},evidence:{changes}}):intent?.operation==='assign-agent'?recordCooperativeAssignmentResult({state,intent,result:input.result,observations:{target:currentTarget}}):reconcileCooperativeResult({state,intent,result:input.result,observations:{target:currentTarget}});
+   if(['assign-agent','check','review','commit','plan-amend',...EXTERNAL_ACTIONS].includes(intent?.operation)&&!same(versions,state.versions))decision={...decision,decision:'hold',ruleIds:['cooperative.versions']};
    if(input.expectedRevision!==state.revision)decision={...decision,decision:'hold',ruleIds:['cooperative.revision']};
-   if((intent?.operation==='commit'||EXTERNAL_ACTIONS.includes(intent?.operation))&&input.actor.role!=='orchestrator')decision={...decision,decision:'hold',ruleIds:['cooperative.acceptance-actor']};
+   if((['commit','plan-amend'].includes(intent?.operation)||EXTERNAL_ACTIONS.includes(intent?.operation))&&input.actor.role!=='orchestrator')decision={...decision,decision:'hold',ruleIds:['cooperative.acceptance-actor']};
    if(['check','review'].includes(intent?.operation)&&!same(currentTarget,state.target))decision={...decision,decision:'hold',ruleIds:['cooperative.target']};
    if(intent?.operation==='commit'){
     const verified=decision.proposedTransition;
@@ -90,6 +96,20 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
     state.commitObservations??=[];state.commitObservations.push(observation);
     if(decision.decision!=='allow'&&verified?.result?.status==='succeeded')verified.result.status='mismatch';
    }
+   if(intent?.operation==='plan-amend'){
+    if(command!=='reconcile'||gitError||state.unresolved.some(u=>!u.resolvedBy&&!(u.intentId===input.intentId&&['target-changed','stale-result'].includes(u.kind))))decision={...decision,decision:'hold',ruleIds:['cooperative.plan-amend']};
+    if(decision.decision!=='allow'&&decision.proposedTransition?.result?.status==='succeeded')decision.proposedTransition.result.status='mismatch';
+    const observed={intentId:input.intentId,revision:state.revision+1,source:'local-git',target:currentTarget,observation:git??null,...(gitError?{error:gitError}:{})};
+    if(decision.decision==='allow'){
+     const previous=structuredClone(state.target),nextVersion=state.targetVersion+1,a=intent.arguments,transition=decision.proposedTransition;
+     state=invalidateAffectedEvidence({state,changedVersions:{targetVersion:nextVersion,documentVersion:a.plan.new.version},affectedTaskIds:a.affectedTaskIds});
+     state.targetHistory.push({target:previous,revision:state.revision+1,source:'local-observation',kind:'verified-plan-amend-parent',intentId:input.intentId});state.target=structuredClone(transition.target);state.targetVersion=nextVersion;
+     state.planAmendments??=[];state.planAmendments.push({intentId:input.intentId,path:a.plan.path,oldVersion:a.plan.old.version,newVersion:a.plan.new.version,oldHash:a.plan.old.hash,newHash:a.plan.new.hash,oldCommit:a.history.planCommit,newCommit:transition.mapping[0].new,mapping:structuredClone(transition.mapping),approvalRefs:structuredClone(a.approvals),source:'operator-attested',observationSource:'local-git'});
+     for(const u of state.unresolved)if(!u.resolvedBy&&u.intentId===input.intentId&&u.kind==='target-changed')u.resolvedBy=input.requestId;
+     intent=state.intents.find(i=>i.requestId===input.intentId);
+    }
+    state.planAmendObservations??=[];state.planAmendObservations.push(observed);
+   }
    const verification=decision.proposedTransition;
    if(verification?.check){
     if(decision.decision!=='allow'&&verification.check.status==='passed'){verification.check.status='unverified';verification.check.stale=true;verification.findings=[];verification.result.status='mismatch';}
@@ -100,10 +120,10 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
    if(decision.decision==='allow'&&input.expectedRevision===state.revision&&['succeeded','failed','cancelled'].includes(decision.proposedTransition?.result?.status))for(const entry of state.unresolved)if(entry.kind==='stale-result'&&entry.intentId===input.intentId&&!entry.resolvedBy){entry.resolvedBy=input.requestId;entry.resolutionEvidence={intentId:input.intentId,resultRef:input.result.messageRef,revision:state.revision};}
    const actualResult=decision.proposedTransition?.result??input.result;
    // Preserve actual statements even when runtime/HEAD changed, without rebinding target.
-   if(!same(currentTarget,state.target)){state.targetHistory.push({target:currentTarget,revision:state.revision+1,source:'local-observation'});state.unresolved.push({kind:'target-changed',...(intent?.operation==='commit'?{intentId:input.intentId}:{}),revision:state.revision+1});}
+   if(!same(currentTarget,state.target)){state.targetHistory.push({target:currentTarget,revision:state.revision+1,source:'local-observation'});state.unresolved.push({kind:'target-changed',...(['commit','plan-amend'].includes(intent?.operation)?{intentId:input.intentId}:{}),revision:state.revision+1});}
    if(!same(versions,state.versions))state.unresolved.push({kind:'versions-changed',revision:state.revision+1});
    state.results.push({...actualResult,requestId:input.intentId,recordRequestId:input.requestId,actor:input.actor,source:'operator-attested'});
-   if(intent&&(['assign-agent','check','review','commit',...EXTERNAL_ACTIONS].includes(intent.operation)?decision.proposedTransition?.result&&['prepared','unknown','mismatch'].includes(intent.status):true)){
+   if(intent&&(['assign-agent','check','review','commit','plan-amend',...EXTERNAL_ACTIONS].includes(intent.operation)?decision.proposedTransition?.result&&['prepared','unknown','mismatch'].includes(intent.status):true)){
     intent.status=actualResult.status;
     if(decision.decision==='allow'&&actualResult.status==='succeeded'&&intent.operation==='assign-agent')state.assignments.push({intentId:intent.requestId,taskId:intent.taskId,agentId:actualResult.data.agentId,status:'active',source:'operator-attested',identityVerified:false});
    }
@@ -119,6 +139,7 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
    }
   }else if(command==='record'&&decision.decision==='allow'){
    const entry={...input.evidence,actor:input.actor,source:'operator-attested',requestId:input.requestId,revision:state.revision+1,scopeVersion:state.scopeVersion,targetVersion:state.targetVersion};
+   if(decision.proposedTransition?.checkpoint){const intent=state.intents.find(i=>i.operation==='plan-amend'&&i.requestId===decision.proposedTransition.checkpoint.intentId);if(!intent)throw Error('Checkpoint intent unavailable');intent.checkpoint=structuredClone(decision.proposedTransition.checkpoint);}
    if(entry.kind==='scope'){
     if(!Array.isArray(entry.data.paths)||entry.data.paths.some(p=>!absolute(p)||!within(state.target.realpath,p)))throw Error('Scope paths must stay inside workspace');
     state=invalidateAffectedEvidence({state,changedVersions:{scopeVersion:state.scopeVersion+1},affectedTaskIds:entry.data.affectedTaskIds});entry.scopeVersion=state.scopeVersion;state.scopes.push(entry);
@@ -143,6 +164,8 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
     if(ready){marker.resolvedBy=input.requestId;marker.resolutionEvidence={taskIds:ids,contracts:proof,scopeVersion:state.scopeVersion};}
    }
   }
+  // The observed identifiers contain no URLs and do not verify remote state.
+  if(planArguments&&Array.isArray(git?.configuredRemotes)&&git.configuredRemotes.every(r=>r&&typeof r.name==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(r.name)&&/^sha256:[a-f0-9]{64}$/.test(r.identity??'')))decision={...decision,observedRemoteIdentities:{source:'local-git',remotes:git.configuredRemotes.map(r=>({name:r.name,identity:r.identity}))}};
   // A held request is durable audit, never an executable intent.
   state.revision++;
   const output=result(state,decision,{persisted:true});
