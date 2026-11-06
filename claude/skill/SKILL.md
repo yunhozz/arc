@@ -22,7 +22,7 @@ Standalone document writing has no specialist auto-route. Design, spec, plan and
 
 Apply these terms across references and the Implementer profile, preserving context-specific commands, paths and state checks.
 
-- **Preservation rule:** Preserve unrelated staged, unstaged and untracked changes and edit ownership. Never automatically stash, reset, clean, unstage, discard, amend or delete branches/worktrees. Never change permissions, delete locks or bypass the sandbox to proceed. Stop and report to Orchestrator, who reports to the user.
+- **Preservation rule:** Preserve unrelated staged, unstaged and untracked changes and edit ownership. Never automatically stash, reset, clean, unstage, discard, amend or delete branches/worktrees. This does not prohibit only Orchestrator’s original planning-document commit amendment under the existing execution-time plan update safety and approval process; it grants no authority to amend implementation commits or rewrite history generally. Never change permissions, delete locks or bypass the sandbox to proceed. Stop and report to Orchestrator, who reports to the user.
 - **Explicit choice:** Only clear user selection counts. Planning approval, silence, refusal of another option and ambiguous replies do not.
 - **Stop and inspect:** On failure or partial completion, stop dependent work. Record actual path, branch or detached HEAD, HEAD, index, files and completed steps. Never automatically retry, fall back or repeat completed work. Revalidate affected gates after resolution.
 - **Evidence verdict:** Each criterion is proven, unmet or unverified. Passing runs, reports and dispositions never turn unverified into proven. Keep unverified scope visible.

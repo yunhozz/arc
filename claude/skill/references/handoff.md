@@ -95,7 +95,7 @@ Claude v1 supports current checkout only. Explicitly select current/task branch 
 
 Before feature/bug/behavior edits use local `test-driven-development` except explicit ARC exceptions. Full rules live in the profile. Waiver requires all low-risk and plan-skip/direct conditions, recorded scope/justification/criteria/checks before work. User/task-specific TDD overrides it; only qualifying tasks override local generic triggers without changing skills. Ordinary multistep/significant/high-risk work is ineligible.
 
-Waiver skips RED-GREEN only, preserving focused checks/risk-scaled QA/Reviewer; never claim TDD. Blocked required steps need recorded decision/required human approval, not internal substitutes. Non-behavior docs/config use specifically approved exceptions only, never generalize to behavior.
+Waiver skips RED-GREEN only, preserving focused checks/risk-scaled QA/Reviewer; never claim TDD. Follow an applicable higher-priority prohibition on adding or running tests; when precedence and scope are clear, do not report a conflict on that basis or ask permission to violate it. TDD remains applicable to permitted test work. Record unperformed verification and its limits; if precedence or scope is genuinely unclear, or required verification is blocked, hold only affected work and acceptance and report the evidence. Other blocked required steps need recorded decision/required human approval, not internal substitutes. Non-behavior docs/config use specifically approved exceptions only, never generalize to behavior.
 
 <a id="orchestrator-direct-path-for-small-tasks"></a>
 ## Orchestrator direct path for small tasks
