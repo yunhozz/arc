@@ -73,6 +73,10 @@ Use this fixed brief order:
 
 The [task envelope](handoff.md#orchestrator-direct-path-for-small-tasks) fits this fixed brief order: Goal carries task/path/outcome; Criteria carries IDs and checks; Exact scope/ownership carries target/state/ownership/record; Constraints/decisions carries approval, F1–F8, risk/depth and TDD; Evidence carries fingerprint and approval/check evidence; Prior findings carries changes, revalidation and holds; Exact next objective gives the bounded next goal; Return format requests evidence, limits and unresolved points. Give a new role its native profile and actual applicable instructions, not hash alone.
 
+## Planner dispatch efficiency
+
+Before Planner dispatch, evaluate F1–F8 direct-path eligibility and Bounded plan-omission eligibility independently. Enter each path only when all of that path's existing conditions are proven; if neither path qualifies, use normal full evaluation. Orchestrator can read a few already identified files; route material research and broad static exploration to Scouter. Reuse relevant Planner context across stages only while role, source and context remain valid. Follow-up briefs cite an accessible prior brief for unchanged fields.
+
 <a id="models"></a>
 ## Models
 

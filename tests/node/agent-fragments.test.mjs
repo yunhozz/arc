@@ -6,6 +6,16 @@ import { createHash } from 'node:crypto';
 const root = new URL('../../', import.meta.url);
 const read = (path) => readFile(new URL(path, root));
 
+// Omitting the whole-plan instruction could split one approved plan into per-task drafts.
+test('planner profiles request one complete plan covering all top-level tasks', async () => {
+  const { renderAgentProfile } = await import('../../lib/prompts/render.mjs');
+  const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
+  for (const target of ['codex/agents/arc-planner.toml', 'claude/agents/arc-planner.md']) {
+    const rendered = renderAgentProfile(target, await read(target), registry).toString();
+    assert.ok(/one complete plan (?:draft )?(?:covering|containing) all top-level tasks/i.test(rendered), `${target} lacks the whole-plan instruction`);
+  }
+});
+
 test('expands all approved profile templates to their independently recorded original bytes', async () => {
   let renderer;
   try { renderer = await import('../../lib/prompts/render.mjs'); } catch (error) {

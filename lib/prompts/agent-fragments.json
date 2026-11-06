@@ -51,7 +51,7 @@
     },
     {
       "id": "planner.task-shape",
-      "text": "For each top-level task include ID/title, implementation goal/scope/files, predecessors/dependencies, criteria, required QA/focused checks/evidence before acceptance and holds. Put inseparable changes in one task from the outset. Do not merge distinct approved tasks during execution. Substeps/checkboxes track progress, not commit units."
+      "text": "Return one complete plan draft covering all top-level tasks and dependencies; do not split it into a Planner call per implementation task. For each top-level task include ID/title, implementation goal/scope/files, predecessors/dependencies, criteria, required QA/focused checks/evidence before acceptance and holds. Put inseparable changes in one task from the outset. Do not merge distinct approved tasks during execution. Substeps/checkboxes track progress, not commit units."
     },
     {
       "id": "planner.commit-boundary",

@@ -159,6 +159,27 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
   }
 });
 
+// Losing the reuse conditions would either repeat valid work or reuse stale inputs.
+test('planner brief projection preserves scoped context and evidence reuse', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /reuse.*Planner.*context.*valid/i, platform);
+    assert.match(output, /follow-up.*changed fields.*accessible.*prior brief/i, platform);
+    assert.match(output, /source set.*resolved path.*fingerprint.*purpose.*approval scope/i, platform);
+    assert.match(output, /changed.*(?:source|target|scope).*reconfirm/i, platform);
+  }
+});
+
+// Dispatch must not bypass either existing decision when a condition is unverified.
+test('planner brief projection preserves the existing dispatch gates', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
+    assert.match(output, /F1–F8 direct-path eligibility.*Bounded plan-omission eligibility independently/i, platform);
+    assert.match(output, /each path.*all.*existing conditions.*proven/i, platform);
+    assert.match(output, /neither path qualifies.*normal full evaluation/i, platform);
+  }
+});
+
 test('spec and plan revision ownership reaches both platform contracts', () => {
   for (const platform of ['codex', 'claude']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
