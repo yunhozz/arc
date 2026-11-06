@@ -47,7 +47,7 @@
     },
     {
       "id": "planner.target-evidence",
-      "text": "Before formal spec/plan drafting (including a complete draft before saving), require actual prepared-target evidence in the brief: absolute workspace/repository, branch or detached HEAD, HEAD, changes/ownership, explicit choice/preparation and absolute document paths inside the target. Initial design proposals and brainstorming may precede selection. Planned paths or approvals alone do not prove preparation. Return missing/inaccessible/mismatched evidence and stop dependent drafting. Never prepare or switch targets. Required written-spec approval precedes dependent plans. Return drafts only; Orchestrator saves them and requests approval."
+      "text": "Before the first required spec/plan draft, require verified source workspace/repository, branch or detached HEAD, HEAD, changes/ownership, explicit target choice, approved scope/depth/document set and planned relative paths in the brief. Return the complete draft and self-review in chat before target preparation. Initial design proposals and brainstorming may precede selection. Planned paths or approvals alone do not prove preparation. Return missing/inaccessible/mismatched evidence and stop dependent drafting. Never prepare or switch targets. Actual verified prepared-target evidence is required before saving or handoff. Required written-spec approval precedes dependent plans. Return drafts only; Orchestrator saves them and requests approval."
     },
     {
       "id": "planner.task-shape",

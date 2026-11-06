@@ -23,7 +23,7 @@ Before offering managed worktrees, verify/present source absolute path/repositor
 <a id="git-mutation-evidence-gate"></a>
 ### Git mutation evidence gate
 
-Before every preparation mutation (branch creation/switch, worktree creation, approved-doc staging/commit), read this and record/recheck:
+Before branch/worktree preparation, obtain the complete first required draft and self-review and pass the focused source/intent/preservation check. Before every preparation mutation (branch creation/switch, worktree creation, approved-doc staging/commit), read this and record/recheck:
 
 1. Explicit choice or verified valid reuse.
 2. Absolute workspace/intended repository, actual branch or detached HEAD and HEAD.

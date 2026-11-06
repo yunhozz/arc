@@ -9,7 +9,7 @@ After explicit new-managed-worktree selection, Orchestrator reads this before cr
 <a id="new-managed-worktree"></a>
 ### New managed worktree
 
-Before formal drafting or saving, verify actual creation, managed registration, current-chat attachment, repository, common directory, base, approved branch and source preservation below. Draft/save new documents directly in the verified target. Planned paths prove no preparation; initial preparation authorizes neither Implementer nor document commits.
+After the first required chat draft and focused preparation gate, verify actual creation, managed registration, current-chat attachment, repository, common directory, base, approved branch and source preservation below. Review and save new documents directly in the verified target. Planned paths prove no preparation; initial preparation authorizes neither Implementer nor document commits.
 
 1. Only explicit selection of this third path authorizes preparation. Use the selection target verified under handoff-prep's request gate. The app chooses the actual path; do not propose siblings or require user-specified paths. Use verified full source HEAD SHA as base, never remote HEAD/default branch or automatic fetch.
 2. After choice and immediately before the call, recheck source state, base SHA, approved candidate/collision, name and document scope. Changed pre-creation inputs require fresh explicit choice. After successful creation/verification, handoff lifetime/restart rules apply.
@@ -24,7 +24,7 @@ Before formal drafting or saving, verify actual creation, managed registration, 
 
 The descriptive name does not guarantee a path or branch. There are no destination-path/branch arguments. Pass full SHA `ref` explicitly; never omit or rely on remote defaults. For `operationId`, use `mcp__codex_app__get_worktree_creation_status` until completed. Preparing/creating/registering is not success.
 
-Only registration failure permits reattachment of the returned workspace with `mcp__codex_app__attach_worktree`. No formal drafting/saving/transfer/staging/commit/Implementer before completed registration, current-chat attachment and branch verification. Missing tools, failed reattachment or mismatched results stop with actual-state reporting. No raw Git worktree fallback, alternate name/ref/path/branch retries or automatic cleanup/deletion/prune/archive. Read git-recovery before dependent recovery.
+Only registration failure permits reattachment of the returned workspace with `mcp__codex_app__attach_worktree`. No saving/transfer/staging/commit/Implementer before completed registration, current-chat attachment and branch verification. Missing tools, failed reattachment or mismatched results stop with actual-state reporting. No raw Git worktree fallback, alternate name/ref/path/branch retries or automatic cleanup/deletion/prune/archive. Read git-recovery before dependent recovery.
 
 Verify creation in order:
 

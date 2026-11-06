@@ -171,6 +171,14 @@ test('planner brief projection preserves scoped context and evidence reuse', () 
 });
 
 // Dispatch must not bypass either existing decision when a condition is unverified.
+test('planner policy allows the first source draft before target preparation', () => {
+  for (const platform of ['codex', 'claude']) {
+    const output=api.renderPolicySection(policy(), {platform, audience:'planner', projection:'full'});
+    assert.match(output,/first required.*draft.*source.*before.*target preparation/i,platform);
+    assert.match(output,/prepared target.*before.*saving/i,platform);
+  }
+});
+
 test('planner brief projection preserves the existing dispatch gates', () => {
   for (const platform of ['codex', 'claude']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});

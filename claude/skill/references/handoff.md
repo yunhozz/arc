@@ -22,7 +22,7 @@ Resume briefs preserve valid approval for unchanged scope, completed work, failu
 
 Before every Implementer start or restart, verify access to the supplied absolute workspace and its intended repository. Record the actual path, branch or detached HEAD, HEAD, and staged, unstaged and untracked state. An inaccessible or wrong repository or unresolved HEAD stops work; do not automatically initialize Git or switch repositories.
 
-Formal spec/plan drafting/saving follows choice/actual preparation; initial design may precede choice. Preparation alone authorizes no Implementer. All approvals/full documents/verified batch or valid absence/final Git checks remain. Separate planned scope/paths, actual preparation and drafting/save/approval/commit, recording chronology/gaps.
+The first required spec/plan draft follows choice and verified source evidence and precedes actual preparation; saving follows verified preparation. Initial design may precede choice. Preparation alone authorizes no Implementer. All approvals/full documents/verified batch or valid absence/final Git checks remain. Separate planned scope/paths, actual preparation and drafting/save/approval/commit, recording chronology/gaps.
 
 After initial design approval record explicit selection: current checkout branch/detached HEAD or a task branch there. Without choice/valid reuse, wait. Reuse through unchanged-scope/target drafting/implementation. Authorized HEAD/dirty changes alone do not invalidate choice; verify preservation/ownership. Changed scope/target requires fresh choice before dependent drafting/preparation without waiting for full documents. Never fall back automatically.
 
