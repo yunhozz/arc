@@ -31,6 +31,23 @@ BALANCED_PRESET = {
 }
 
 
+def read_payload_text(path):
+    if path.parent == PAYLOAD / 'agents' and path.name in {f'arc-{role}.md' for role in EXPECTED}:
+        result = subprocess.run(
+            ['node', '--input-type=module', '-e',
+             "import fs from 'node:fs';"
+             "import {renderAgentProfile} from './lib/prompts/render.mjs';"
+             "const path=process.argv[1];"
+             "const registry=JSON.parse(fs.readFileSync('./lib/prompts/agent-fragments.json','utf8'));"
+             "process.stdout.write(renderAgentProfile(path,fs.readFileSync(path),registry));",
+             path.relative_to(ROOT).as_posix()],
+            cwd=ROOT, capture_output=True, encoding='utf-8')
+        if result.returncode:
+            raise RuntimeError(f'Could not expand {path}: {result.stderr}')
+        return result.stdout
+    return path.read_text()
+
+
 class ClaudePayloadTests(unittest.TestCase):
     def module(self):
         path = PAYLOAD / 'skill/scripts/model_config.py'
@@ -355,10 +372,10 @@ class ClaudePayloadTests(unittest.TestCase):
             if 'superpowers' in path.relative_to(PAYLOAD).parts:
                 continue
             with self.subTest(path=path.relative_to(PAYLOAD)):
-                self.assertNotRegex(path.read_text(), forbidden)
+                self.assertNotRegex(read_payload_text(path), forbidden)
 
     def read_claude(self, *parts):
-        return (PAYLOAD.joinpath(*parts)).read_text()
+        return read_payload_text(PAYLOAD.joinpath(*parts))
 
     def test_planner_progress_and_saved_approval_contract(self):
         # Approved written-contract checks; app visibility and runtime compliance are outside this test.
@@ -506,7 +523,7 @@ class RoleHardeningTests(unittest.TestCase):
     """Static checks of the written role-boundary contract; not runtime agent compliance."""
 
     def text(self, *parts):
-        return ' '.join((PAYLOAD.joinpath(*parts)).read_text().split())
+        return ' '.join(read_payload_text(PAYLOAD.joinpath(*parts)).split())
 
     def test_role_gate_planner_only_and_ceo_skill_ban(self):
         core = self.text('skill/SKILL.md')
@@ -640,7 +657,7 @@ class InternalSuperpowersContractTests(unittest.TestCase):
             self.assertIn(f'references/superpowers/{name}/SKILL.md', core)
         self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
         for role, names in [('planner', ('brainstorming', 'writing-plans')), ('implementer', ('test-driven-development',))]:
-            text = (PAYLOAD / f'agents/arc-{role}.md').read_text()
+            text = read_payload_text(PAYLOAD / f'agents/arc-{role}.md')
             for name in names:
                 self.assertIn(f'references/superpowers/{name}/SKILL.md', text)
 
@@ -693,7 +710,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         for phrase in ("complete draft before saving", "initial design proposals", "before formal drafting and saving",
                        "actual absolute workspace", "choice and preparation evidence", "directly in the selected target"):
             self.assertIn(phrase, text)
-        profile = " ".join((ROOT / "claude/agents/arc-planner.md").read_text().lower().split())
+        profile = " ".join(read_payload_text(ROOT / "claude/agents/arc-planner.md").lower().split())
         for phrase in ("before formal drafting", "actual absolute workspace", "choice and preparation evidence", "document paths",
                        "initial design proposals"):
             self.assertIn(phrase, profile)
@@ -737,3 +754,11 @@ class ClaudeStrictRoleTests(unittest.TestCase):
         with self.assertRaises(module.ValidationError):
             module.validate_settings(config)
         self.assertEqual(config, before)
+
+
+class FastDirectProofTests(unittest.TestCase):
+    def test_fast_gate_retains_security_and_public_interface_exclusions(self):
+        text = (PAYLOAD / 'skill/references/handoff.md').read_text()
+        section = text.split('### Fast gate', 1)[1].split('### Instruction fingerprint', 1)[0]
+        self.assertRegex(section, r'(?i)security/permissions.*public-interface.*never eligible')
+        self.assertRegex(section, r'(?s)F1.*F2.*F3.*F4.*F5.*F6.*F7.*F8')

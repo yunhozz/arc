@@ -207,3 +207,8 @@ Earlier T1 compared 29 non-Superpowers runtime guides (2 core, 9 Codex reference
 Earlier T2 aligned [bootstrap routing](../lib/installer/global-config.mjs). [Language](../lib/installer/language.mjs), [plans](../lib/installer/plan.mjs), [profiles](../lib/models/profiles.mjs), [manifest validation](../lib/installer/manifest.mjs), [metadata](../package.json), [manifest updater](../scripts/update-manifest.mjs) were checked for interface/language/marker-external/package-license compatibility. Models/apply-models retained responsibilities linked in [model guidance](../README.md#models-and-language). T3 aligned README/operations/document contracts. Runtime Superpowers remained excluded.
 
 Source maps and structural/package/manifest checks establish authored/package consistency only. Actual approval continuity/native application/visual readability need direct observation. Reference conversations or interrupted-run reproduction alone do not prove these claims.
+
+
+## Fast Path and task evidence
+
+Select the existing small direct path only when all F1–F8 in the platform handoff's `Orchestrator direct path for small tasks` are proven. Initial judgment reads the direct path, planning authorization and depth, and verification risk sections, plus the TDD section when applicable. All subsequent action gates remain in force. Reuse instruction reading only after verifying the actual source-set and hashes and the same conversation context; place the task envelope in the existing handoff or inline scope record. Approved HEAD or expected dirty changes alone do not invalidate target choice: separately refresh current state and affected evidence. Missing, conflicting, inaccessible or ambiguous evidence requires full evaluation and the existing hold procedure.

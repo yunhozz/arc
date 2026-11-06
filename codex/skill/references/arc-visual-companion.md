@@ -24,10 +24,10 @@ Upstream guide/scripts: `<installed ARC>/references/visual-companion.md` and adj
 <a id="follow-up-verification-of-approved-visual-sources"></a>
 ## Follow-up verification of approved visual sources
 
-Each visual criterion requires exact approved source location/version/approval/access state, criterion IDs/properties/comparison method and actual-output-to-revision evidence. Implementer reporting does not replace fresh QA comparison.
+Each visual criterion requires the exact approved source location, version, approval and access state; criterion IDs, properties and comparison method; and evidence linking the actual output to its revision. Implementer reporting does not replace fresh QA comparison.
 
 - Record pass/mismatch/unverified and connect to proven/unmet/unverified criterion verdicts. Pass requires accessible evidence meeting the criterion; unsupported claims remain unverified.
-- Missing revision linkage is unverified; visible difference is mismatch. Record separately without inferring current branch UI state.
+- A missing revision link is unverified; a visible difference is a mismatch. Record them separately without inferring the current branch UI state.
 - Hold comparison for inaccessible source/output or missing interpretation approval.
 
-Static policy/generated-file/manifest checks prove structure only, not actual role behavior, installed builds, Claude Code CLI compliance or visual fidelity. Report changes, exclusions, run/omitted checks, criterion evidence/limits and platform availability. Separate baseline failures. Independent progress never relaxes checks/criteria.
+Static checks of policy, generated files and the manifest prove structure only, not actual role behavior, installed builds, Claude Code CLI compliance or visual fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Separate baseline failures. Independent progress never relaxes checks or criteria.

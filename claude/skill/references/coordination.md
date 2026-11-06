@@ -1,7 +1,7 @@
 <a id="role-assignment-and-coordination"></a>
 # Role assignment and coordination
 
-Before first specialist creation/assignment and related decisions, Orchestrator reads this. Also read [limits](limits.md) and installed `../limits.toml` before creation. Report exact missing/inaccessible/conflicting paths; hold dependent work.
+Orchestrator reads this before the first specialist creation or assignment and related decisions. Also read [limits](limits.md) and installed `../limits.toml` before creation. Report exact missing, inaccessible or conflicting paths; hold dependent work.
 
 <a id="ownership"></a>
 ## Ownership
@@ -19,7 +19,7 @@ Orchestrator is depth 1. All five specialists report directly at depth 2 without
 
 Claude native names: Scouter=`arc-scouter`, Planner=`arc-planner`, Implementer=`arc-implementer`, QA=`arc-qa`, Reviewer=`arc-reviewer`.
 
-Across the tree, obey concurrency including Scouter. No reserved role slots. Read limits before first creation and maintain cumulative ledger/reservations. Parallelize independent tasks only; dependent handoffs are sequential and edit scopes never overlap.
+Obey concurrency limits across the tree, including Scouter. No reserved role slots. Read limits before first creation and maintain cumulative ledger/reservations. Parallelize independent tasks only; dependent handoffs are sequential and edit scopes never overlap.
 
 ARC limits do not prove native concurrency/depth support. Invoke installed native names and receive results; report unavailable execution. Scouter/Planner/Reviewer cannot edit, execute commands or save documents. QA verifies without edits. Stay within shipped allowlists, which are not filesystem sandboxes.
 
@@ -30,7 +30,7 @@ Claude profiles use Markdown frontmatter with `effort`. Native `env.CLAUDE_CODE_
 
 Apply platform/user/project instructions by precedence, then ARC ownership/permissions/models/concurrency/routing/approval and role-local references. Skills add neither agents nor authority. Map `superpowers:executing-plans`/`superpowers:subagent-driven-development` to dependency-aware Orchestrator coordination and risk-scaled verification, replacing executor mechanics and separate execution-method prompts in existing references.
 
-Preserve plan approval, workspace, design, spec and all applicable requirements. TDD uses only [handoff](handoff.md#implementer-tdd-and-constraints)'s explicit ARC exceptions. Adapt local `brainstorming` role/save/early-spec-commit instructions to Planner ownership and planning/handoff evidence gates, preserving upstream text. Report conflicts/missing required references before dependent work.
+Preserve plan approval, workspace, design, spec and all applicable requirements. TDD applies to permitted test work under [handoff](handoff.md#implementer-tdd-and-constraints)'s explicit ARC exceptions. Follow an applicable higher-priority prohibition on adding or running tests; when its precedence and scope are clear, neither report a conflict on that basis nor ask permission to violate it. Record unperformed verification; hold only affected work and acceptance when scope or precedence is genuinely unclear or required verification is blocked. Adapt local `brainstorming` role/save/early-spec-commit instructions to Planner ownership and planning/handoff evidence gates, preserving upstream text. Report conflicts/missing required references before dependent work.
 
 Orchestrator integrates results, routes decisions/approvals and owns acceptance/completion. Run dependent implementation sequentially with a fresh Implementer per top-level task. Reuse current Implementer only for same-task correction/rework/rechecks while scope/workspace/ownership/context remain valid. Default same-task QA corrections to it; findings alone create no new task. Before reuse, compare actual workspace, branch/HEAD and change state to the brief.
 
@@ -73,6 +73,8 @@ Use this fixed brief order:
 - At plan completion or before another plan in a long session, record canonical handoff and recommend a new session.
 - Before handoff briefly state role/objective/output; after return combine findings/next stage. Never expose hidden reasoning/raw prompts.
 
+The [task envelope](handoff.md#orchestrator-direct-path-for-small-tasks) fits this fixed brief order: Goal carries task/path/outcome; Criteria carries IDs and checks; Exact scope/ownership carries target/state/ownership/record; Constraints/decisions carries approval, F1–F8, risk/depth and TDD; Evidence carries fingerprint and approval/check evidence; Prior findings carries changes, revalidation and holds; Exact next objective gives the bounded next goal; Return format requests evidence, limits and unresolved points. Give a new role its native profile and actual applicable instructions, not hash alone.
+
 <a id="models"></a>
 ## Models
 
@@ -87,11 +89,11 @@ Briefs identify source/applicability/version or approval/access state for user i
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
-- [git.specialists-deny] Specialists must not change Git state during implementation or recovery: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal. Explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection within the assigned scope remains allowed.
+- [git.specialists-deny] Specialists must not change Git state during implementation or recovery: no stage, commit, push, merge, rebase, reset, branch creation/switching or worktree creation/removal. Explicit Orchestrator assignment cannot authorize these actions; return them to Orchestrator. Read-only Git inspection remains allowed within the assigned scope.
 - [role.scouter-read-only] Research assigned static sources and report findings, evidence and limits. Do not edit, install, execute checks, prepare targets, inspect live operational state or change external state. Do not decide design, verification, review or acceptance.
 - [role.planner-draft-only] Return design/brainstorming drafts and complete first spec/plan drafts with dependencies, criteria, holds and verification needs in the response. During initial drafting and revisions, report progress only to Orchestrator: briefly state the stage, feedback being applied, actual blocker or next step, without draft prose or excerpts. Return the complete first draft and self-review for Orchestrator review; Orchestrator directly revises the same spec or plan when needed. Raw responses may appear in app/tool surfaces; prompt policy cannot hide them. Do not save documents, implement, run checks, prepare targets, request user approval or decide acceptance. Stop formal target-dependent drafting when actual prepared-target evidence is missing. Route decisions to Orchestrator.
 - [role.implementer-implementation] Edit only assigned, approved files and run focused checks under the existing TDD contract. Report changed files, RED/GREEN or approved exception evidence, results, limits and follow-up. Do not plan, independently QA/review your own work, accept the task or declare overall completion. Git mutations remain forbidden after successful implementation. Implementer and fresh QA handoffs include the exact approved visual source, version, approval and access state; criterion IDs, required properties and comparison method; and actual-output identity, revision and comparison basis. Record pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; record a visible difference separately as mismatch without inferring current branch UI state. Missing source/output, inaccessible evidence or unapproved interpretation holds the affected visual claim for Orchestrator. Do not silently substitute or redesign.
 - [role.qa-verification] Run approved checks and report commands, observations, reproduction, evidence and limits. Create only essential temporary data/logs/reports within brief-authorized locations and lifetimes. Do not edit product source, tests, fixtures or configuration to pass checks, deploy or accept work. Persistent product-state checks need explicit scope and cleanup ownership. Return failures for Implementer correction and required QA recheck. Implementer and fresh QA handoffs include the exact approved visual source, version, approval and access state; criterion IDs, required properties and comparison method; and actual-output identity, revision and comparison basis. Record pass, mismatch or unverified with accessible evidence and limits. Implementer self-report does not replace fresh QA and its actual comparison. A missing output-to-revision link is unverified; record a visible difference separately as mismatch without inferring current branch UI state. Missing source/output, inaccessible evidence or unapproved interpretation holds the affected visual claim for Orchestrator. Do not silently substitute or redesign.
-- [role.reviewer-independent] Independently inspect assigned final changes and evidence; report actionable findings and limits. Remain read-only. Do not execute QA tests, edit files, perform Git mutations or decide acceptance.
+- [role.reviewer-independent] Independently inspect assigned final changes and evidence, and report actionable findings and limits. Remain read-only: do not execute QA tests, edit files, perform Git mutations or decide acceptance.
 - [platform.claude] Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. ARC supplies no native observer hook or Bash Git guard; Git restrictions remain prompt-level role contracts.
 [ARC role policy: contract end]

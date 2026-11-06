@@ -718,5 +718,15 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
                 self.assertIn(contract, guide)
 
 
+
+class EnvelopeRefreshTests(unittest.TestCase):
+    def test_envelope_fingerprint_distinguishes_source_access_states(self):
+        for platform in PLATFORMS:
+            text = (REPO / platform / 'skill/references/handoff.md').read_text()
+            section = text.split('### Instruction fingerprint', 1)[1].split('### Task envelope', 1)[0]
+            with self.subTest(platform=platform):
+                self.assertRegex(section, r'available.*absent.*inaccessible.*conflicting.*unverified')
+                self.assertRegex(section, r'user-provided.*workspace.*installed.*task inputs')
+
 if __name__ == "__main__":
     unittest.main()

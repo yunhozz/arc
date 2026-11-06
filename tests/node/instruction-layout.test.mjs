@@ -11,6 +11,70 @@ const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 const normalize=text=>text.replaceAll('references/','').replace(/\s+/g,' ').trim();
 const file=(platform,name)=>`${platform}/skill/${name==='core'?'SKILL.md':`references/${name}.md`}`;
 const gates={coordination:'Before the first specialist creation or assignment and related coordination decisions',limits:'Before the first specialist creation',planning:'Design/plan-depth judgments',handoff:'Every Implementer first start/restart',verification:"Orchestrator's verification design",commit:'Plan-task acceptance', 'handoff-prep':'Execution-target choice request'};
+const fastSections = text => text.split('## Orchestrator direct path for small tasks')[1]?.split('## Cooperative CLI verification handoff')[0] ?? '';
+const fastContracts = {
+ 'all-proven conditions': [/all eight conditions are `proven`/, ...Array.from({length:8},(_,i)=>new RegExp(`\\*\\*F${i+1}\\*\\*`)), /`unmet`.*`unverified`.*full evaluation/],
+ 'instruction fingerprint': [/Instruction fingerprint/, /resolved path/, /entire file bytes/, /same conversation context/, /HEAD.*manifest/, /new role.*actual instructions/],
+ 'task envelope': [/Task envelope/, /path.*outcome.*scope.*approval.*risk.*TDD.*verification.*refresh/s, /existing canonical handoff record.*inline scope record/, /eight.*brief.*order/],
+ 'target and evidence': [/target choice validity.*evidence validity/, /HEAD.*dirty.*do not invalidate/, /Revalidate only affected evidence/, /inaccessible.*hold/],
+ 'execution boundaries': [/first direct edit.*Implementer.*TDD.*QA.*Reviewer.*acceptance.*commit/s]
+};
+for (const platform of ['codex','claude']) for (const [contract,patterns] of Object.entries(fastContracts)) {
+ test(`${platform} fast path preserves ${contract}`,()=>{
+  const section=fastSections(read(file(platform,'handoff')));
+  for(const pattern of patterns) assert.match(section,pattern);
+  if(contract==='all-proven conditions') {
+   const check=text=>{ for(const pattern of patterns) assert.match(text,pattern); };
+   for(let i=1;i<=8;i++) assert.throws(()=>check(section.replace(`**F${i}**`,`F${i}`)));
+   assert.throws(()=>check(section.replace('all eight conditions are `proven`','any condition is `proven`')));
+   assert.throws(()=>check(section.replaceAll('`unverified`','`allowed`')));
+  }
+ });
+}
+for (const platform of ['codex','claude']) {
+ test(`${platform} applies existing gates only when triggered without adding new obligations`,()=>{
+  const check=text=>{
+   assert.match(text,/first edit, target selection, TDD, role assignment, QA\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
+   assert.match(text,/fast path itself does not require untriggered role assignment, QA\/Reviewer, acceptance or commit/);
+  };
+  const core=read(file(platform,'core'));
+  check(core);
+  assert.throws(()=>check(core.replace('when their existing triggers are met','unconditionally')));
+  assert.throws(()=>check(core.replace('does not require untriggered','requires untriggered')));
+  const handoff=fastSections(read(file(platform,'handoff')));
+  assert.match(handoff,/existing triggers determine whether each gate applies/);
+  assert.match(handoff,/does not add untriggered role, QA\/Reviewer, acceptance or commit obligations/);
+ });
+ test(`${platform} reuse requires the same absolute locator even when resolved paths match`,()=>{
+  const check=text=>{
+   assert.match(text,/same source-set, absolute source locators, resolved paths, hashes, scope and same conversation context/);
+   assert.match(text,/Different absolute locators cannot be reused even if they resolve to the same path/);
+  };
+  const section=fastSections(read(file(platform,'handoff')));
+  check(section);
+  assert.throws(()=>check(section.replace('absolute source locators, ','')));
+  assert.throws(()=>check(section.replace('cannot be reused even if','can be reused if')));
+ });
+ test(`${platform} fingerprint specifies batch hash and unchanged-evidence reuse`,()=>{
+  const section=fastSections(read(file(platform,'handoff')));
+  for(const pattern of [/node --input-type=module/, /realpathSync/, /createHash\("sha256"\)/, /new conversation.*reread/, /unchanged HEAD.*does not prove/]) assert.match(section,pattern);
+ });
+ test(`${platform} envelope records all nine fields and criteria-specific evidence`,()=>{
+  const section=fastSections(read(file(platform,'handoff')));
+  for(const field of ['task','instructions','target','authorization','scopeCriteria','riskDepth','tdd','verification','refresh']) assert.ok(section.includes('`'+field+'`'),field);
+  assert.match(section,/criteria-specific checks/);
+  assert.match(section,/task ID\/path.*`fast-direct` or `full`/);
+ });
+ test(`${platform} fast judgment reads initial sections and retains action gates`,()=>{
+  const core=read(file(platform,'core'));
+  for(const pattern of [/Orchestrator direct path for small tasks/, /Authorization and scope/, /Design path and plan depth/, /Risk-scaled execution/, /feature\/bug\/behavior.*Implementer TDD and constraints/, /full evaluation/, /before-action gates/]) assert.match(core,pattern);
+ });
+ test(`${platform} maps task envelope into fixed brief fields`,()=>{
+  const coordination=read(file(platform,'coordination'));
+  assert.match(coordination,/Goal.*Criteria.*Exact scope\/ownership.*Constraints\/decisions.*Evidence.*Prior findings.*Exact next objective.*Return format/s);
+  assert.match(coordination,/envelope.*Goal.*Criteria.*Exact scope\/ownership.*Constraints\/decisions.*Evidence.*Prior findings.*Exact next objective.*Return format/s);
+ });
+}
 function checkLayout(platform,documents){
  const core=documents.get('core');
  for(const[name,trigger]of Object.entries(gates)){

@@ -9,7 +9,7 @@ After explicit new-managed-worktree selection, Orchestrator reads this before cr
 <a id="new-managed-worktree"></a>
 ### New managed worktree
 
-Before formal drafting/saving, verify actual creation, managed registration, current-chat attachment, repository/common directory/base, approved branch and source preservation below. Draft/save new documents directly in the verified target. Planned paths prove no preparation; initial preparation authorizes neither Implementer nor document commits.
+Before formal drafting or saving, verify actual creation, managed registration, current-chat attachment, repository, common directory, base, approved branch and source preservation below. Draft/save new documents directly in the verified target. Planned paths prove no preparation; initial preparation authorizes neither Implementer nor document commits.
 
 1. Only explicit selection of this third path authorizes preparation. Use the selection target verified under handoff-prep's request gate. The app chooses the actual path; do not propose siblings or require user-specified paths. Use verified full source HEAD SHA as base, never remote HEAD/default branch or automatic fetch.
 2. After choice and immediately before the call, recheck source state, base SHA, approved candidate/collision, name and document scope. Changed pre-creation inputs require fresh explicit choice. After successful creation/verification, handoff lifetime/restart rules apply.
@@ -22,7 +22,7 @@ Before formal drafting/saving, verify actual creation, managed registration, cur
       ref: "<verified-source-head-full-sha>"
     })
 
-The descriptive name guarantees no path/branch. There are no destination-path/branch arguments. Pass full SHA `ref` explicitly; never omit or rely on remote defaults. For `operationId`, use `mcp__codex_app__get_worktree_creation_status` until completed. Preparing/creating/registering is not success.
+The descriptive name does not guarantee a path or branch. There are no destination-path/branch arguments. Pass full SHA `ref` explicitly; never omit or rely on remote defaults. For `operationId`, use `mcp__codex_app__get_worktree_creation_status` until completed. Preparing/creating/registering is not success.
 
 Only registration failure permits reattachment of the returned workspace with `mcp__codex_app__attach_worktree`. No formal drafting/saving/transfer/staging/commit/Implementer before completed registration, current-chat attachment and branch verification. Missing tools, failed reattachment or mismatched results stop with actual-state reporting. No raw Git worktree fallback, alternate name/ref/path/branch retries or automatic cleanup/deletion/prune/archive. Read git-recovery before dependent recovery.
 
@@ -50,4 +50,4 @@ Only for existing approved documents in legacy/pre-existing-document, restart, o
 2. Copy only uncommitted approved spec/plan documents to the same relative paths. Never move/delete/modify source documents. Stop for destinations escaping the worktree, including symlinks. Target HEAD must equal selected source base SHA before transfer.
 3. Before replacing a destination, prove clean base state: no staged/unstaged changes, index/working bytes equal base. Documents absent from base must also be absent at destination. Never overwrite unexpected changes.
 4. Verify approved bytes before reusing identical content; verify approved bytes after transfer.
-5. Record approvals/versions/evidence, absolute source/target paths, common relative paths and content checks. Changed content/approval scope needs revised approval. Transfer nothing else. Failure/partial transfer blocks dependent staging, commits and Implementer handoff.
+5. Record approvals, versions, evidence, absolute source and target paths, common relative paths and content checks. Changed content/approval scope needs revised approval. Transfer nothing else. Failure/partial transfer blocks dependent staging, commits and Implementer handoff.

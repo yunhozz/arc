@@ -1,14 +1,14 @@
 <a id="subagent-limits"></a>
 # Subagent limits
 
-Before first creation, Orchestrator reads this reference and adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`5`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
+Before the first creation, Orchestrator reads this reference and the adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`5`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
 
 <a id="counting-and-reservations"></a>
 ## Counting and reservations
 
 - Track instance IDs, parent IDs, pending reservations, creation outcomes and active/completed state in the session ledger. Exclude Orchestrator, but count every created descendant, including nested/non-ARC agents.
-- Completion never refunds cumulative creation. Same-instance follow-up/resume adds nothing; fresh instances, new-instance retries and replacements increment the total.
-- Waiting, blocked, running and resumable idle instances consume concurrency until confirmed completion/termination. Obey lower actual runtime capacity, including native retention of completed instances. ARC counts do not prove free native slots.
+- Completion never refunds cumulative creation. A follow-up or resume using the same instance adds nothing; fresh instances, new-instance retries and replacements increment the total.
+- Waiting, blocked, running and resumable idle instances consume concurrency until completion or termination is confirmed. Obey lower actual runtime capacity, including native retention of completed instances. ARC counts do not prove free native slots.
 
 Reserve the full proposed parallel batch before dispatch, satisfying both:
 
@@ -20,9 +20,9 @@ Reserve before each call. Confirmed creation becomes a created/active ID. Releas
 <a id="continuation-and-exhaustion"></a>
 ## Continuation and exhaustion
 
-Preserve the ledger across continuation/resume/compaction and reconcile actual IDs before dispatch. Never reset lost counters to zero. Incomplete reconstruction holds creation and reports unknown budget; use a conservative upper bound only when records support it.
+Preserve the ledger across continuation, resume and compaction, and reconcile actual IDs before dispatch. Never reset lost counters to zero. Incomplete reconstruction holds creation and reports unknown budget; use a conservative upper bound only when records support it.
 
-Completion frees confirmed active capacity only. Exhaustion holds creation and reports remaining work/budget; it never waives QA/Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.
+Confirmed completion or termination frees active capacity. Exhaustion holds creation and reports remaining work/budget; it never waives QA/Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.
 
 Cumulative limits and scheduling are prompt policy, not hard runtime controls. Text tests prove package consistency, not live compliance/native support.
 Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrains its native session.

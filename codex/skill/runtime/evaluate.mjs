@@ -14,11 +14,74 @@ import {prepareCooperativeAssignment} from './assignment.mjs';
  * @property {object} coverage
  */
 import path from 'node:path';
-import {validateCooperativeState,validateCooperativeCommand} from './cooperative-schema.mjs';
+import crypto from 'node:crypto';
+import {fingerprintRequest} from './store.mjs';
+import {validateCooperativeState,validateCooperativeCommand,validatePlanAmendArguments} from './cooperative-schema.mjs';
 import {validateWorkflowState, validateRequest, validateEvidence,validatePlannerStage} from './schema.mjs';
 import {ROLES, ROLE_OPERATIONS, GIT_OPERATIONS, EXTERNAL_OPERATIONS} from './operations.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const within=(base,file)=>{const relative=path.relative(base,file);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative));};
+const objectFields=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
+const hashBytes=value=>'sha256:'+crypto.createHash('sha256').update(value).digest('hex');
+const gitBlob=(value,length)=>crypto.createHash(length===64?'sha256':'sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
+const planCoverage={enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false,remoteVerified:false};
+const planDecision=(state,reason,transition=null,allow=false)=>({expectedRevision:state?.revision??0,decision:allow?'allow':'hold',ruleIds:['cooperative.plan-amend'],reason,coverage:{...planCoverage},requiredEvidence:[],nextActions:[],proposedTransition:transition});
+const unresolvedPlan=state=>state.intents.some(i=>i.operation==='plan-amend'&&['prepared','unknown','mismatch','failed'].includes(i.status));
+const remoteIdentities=remotes=>remotes.map(r=>r.name+'\0'+r.identity).sort();
+function remoteSnapshotValid(remotes,configured,at,protectedOids){
+ if(!Number.isFinite(at)||!Array.isArray(configured)||!Array.isArray(remotes)||configured.some(r=>!objectFields(r,['name','identity'])||typeof r.name!=='string'||!/^sha256:[a-f0-9]{64}$/.test(r.identity??''))||new Set(configured.map(r=>r.name)).size!==configured.length||!same(remoteIdentities(remotes),remoteIdentities(configured)))return false;
+ return remotes.every(r=>r.complete===true&&Number.isFinite(Date.parse(r.observedAt))&&at-Date.parse(r.observedAt)>=0&&at-Date.parse(r.observedAt)<=300000&&r.refs.every(ref=>ref.oid.length===protectedOids[0]?.length&&!protectedOids.includes(ref.oid)));
+}
+function planEntries(commit,length){
+ const validOid=value=>typeof value==='string'&&new RegExp(`^[a-f0-9]{${length}}$`).test(value);
+ return commit&&validOid(commit.oid)&&validOid(commit.parent)&&typeof commit.author==='string'&&typeof commit.authorDate==='string'&&typeof commit.message==='string'&&Array.isArray(commit.headerTemplate)&&commit.headerTemplate.every(header=>typeof header==='string')&&['tree','parent','committer'].every(name=>commit.headerTemplate.filter(header=>header===name).length===1)&&Array.isArray(commit.tree)&&new Set(commit.tree.map(row=>row.path)).size===commit.tree.length&&commit.tree.every(row=>objectFields(row,['path','mode','oid'])&&typeof row.path==='string'&&row.path.length>0&&!row.path.startsWith('/')&&!/[\\\x00\r\n:]/.test(row.path)&&!row.path.split('/').some(p=>!p||p==='.'||p==='..')&&['100644','100755','120000','160000'].includes(row.mode)&&validOid(row.oid));
+}
+function oldPlanObservation(a,g,target){
+ const h=g?.history,commits=h?.commits,length=target.head.length,oldBlob=gitBlob(a.plan.old.content,length);
+ if(!same(g?.target,target)||!g.index||!new RegExp(`^[a-f0-9]{${length}}$`).test(g.index.tree??'')||g.index.tree!==g.index.headTree||g.index.stagedPaths?.length!==0||g.worktree?.planClean!==true||!/^sha256:[a-f0-9]{64}$/.test(g.worktree?.nonPlanFingerprint??'')||g.plan?.path!==a.plan.path||g.plan.content!==a.plan.old.content||g.plan.hash!==a.plan.old.hash||g.plan.originalHash!==a.plan.old.hash||!h||h.base!==a.history.base||h.planCommit!==a.history.planCommit||h.head!==a.history.head||!Array.isArray(commits)||!commits.length||commits.length>256||commits.some(c=>!c)||commits[0].oid!==a.history.planCommit||commits.at(-1).oid!==a.history.head||new Set(commits.map(c=>c.oid)).size!==commits.length)return false;
+ const originalMode=commits[0].tree?.find(row=>row.path===a.plan.gitPath)?.mode;
+ return ['100644','100755'].includes(originalMode)&&g.plan.mode===originalMode&&commits.every((c,index)=>planEntries(c,length)&&c.parent===(index?commits[index-1].oid:a.history.base)&&c.tree.filter(row=>row.path===a.plan.gitPath).length===1&&c.tree.some(row=>row.path===a.plan.gitPath&&row.mode===originalMode&&row.oid===oldBlob));
+}
+function approvalRecord(state,a,approval){
+ const record=state.records.findLast(r=>r.kind==='approval'&&r.messageRef===approval.ref);
+ return record?.source==='operator-attested'&&record.actor?.role==='orchestrator'&&record.targetVersion===state.targetVersion&&record.scopeVersion===state.scopeVersion&&record.data?.kind==='plan'&&record.data.path===a.plan.path&&record.data.version===approval.version&&record.data.contentHash===approval.hash&&record.data.approvedAt===approval.approvedAt;
+}
+function planAuthorization(state,a,at){
+ if(!Number.isFinite(at)||a.ownership!=='exclusive'||a.publication!=='unpublished'||a.history.head!==state.target.head||a.history.branch!==state.target.branch||!state.target.branch||a.recovery.oid!==state.target.head||a.plan.path!==path.join(state.target.realpath,...a.plan.gitPath.split('/'))||a.plan.old.hash!==hashBytes(a.plan.old.content)||a.plan.new.hash!==hashBytes(a.plan.new.content)||a.plan.old.hash===a.plan.new.hash)return false;
+ const old=a.approvals.original,next=a.approvals.amendment,changed=Date.parse(a.changedAt);
+ if(old.version!==a.plan.old.version||old.hash!==a.plan.old.hash||Date.parse(old.approvedAt)>changed||changed>at||!approvalRecord(state,a,old))return false;
+ if(a.classification==='contract'&&!next||next&&(next.version!==a.plan.new.version||next.hash!==a.plan.new.hash||Date.parse(next.approvedAt)<changed||Date.parse(next.approvedAt)>at||!approvalRecord(state,a,next)))return false;
+ return a.writers.every(w=>Date.parse(w.stoppedAt)<=at&&state.records.some(r=>r.kind==='note'&&r.messageRef===w.evidenceRef&&r.source==='operator-attested'&&r.actor?.role==='orchestrator'&&r.targetVersion===state.targetVersion&&r.scopeVersion===state.scopeVersion&&r.data?.type==='writer-stopped'&&r.data.assignmentId===w.assignmentId&&r.data.stoppedAt===w.stoppedAt));
+}
+export function prepareCooperativePlanAmend({state,request,evidence}={}){
+ const a=request?.arguments,g=evidence?.git,at=evidence?.now;
+ try{validatePlanAmendArguments(a);}catch{return planDecision(state,'Exact plan-amend evidence required');}
+ if(request.actor?.role!=='orchestrator'||request.expectedRevision!==state.revision||state.unresolved.some(x=>!x.resolvedBy)||state.intents.some(i=>i.operation==='plan-amend'&&['prepared','unknown','mismatch','failed'].includes(i.status))||!planAuthorization(state,a,at)||!oldPlanObservation(a,g,state.target)||g.recoveryRef!==null||!remoteSnapshotValid(a.remotes,g.configuredRemotes,at,g.history.commits.map(c=>c.oid)))return planDecision(state,'Approval, stopped writers, clean index, local history and unpublished remote attestations required');
+ return planDecision(state,'Durable intent only; the operator performs any rewrite',{intent:{requestId:request.requestId,operation:'plan-amend',status:'prepared',arguments:structuredClone(a),target:structuredClone(state.target),versions:structuredClone(state.versions),scopeVersion:state.scopeVersion,targetVersion:state.targetVersion,observation:structuredClone(g),fingerprint:fingerprintRequest(request),source:'operator-attested'}},true);
+}
+export function checkpointCooperativePlanAmend({state,request,evidence}={}){
+ const d=request?.evidence?.data,intent=state.intents.find(i=>i.requestId===d?.intentId&&i.operation==='plan-amend'),a=intent?.arguments,g=evidence?.git;
+ if(request?.actor?.role!=='orchestrator'||!objectFields(d,['type','intentId'])||d.type!=='plan-amend-checkpoint'||!intent||intent.status!=='prepared'||intent.checkpoint||!same(intent.target,state.target)||!same(intent.versions,state.versions)||!planAuthorization(state,a,evidence?.now)||!oldPlanObservation(a,g,state.target)||!same(g.recoveryRef,{name:a.recovery.ref,oid:a.recovery.oid})||g.worktree.nonPlanFingerprint!==intent.observation.worktree.nonPlanFingerprint||g.index.tree!==intent.observation.index.tree||!same(g.history.commits,intent.observation.history.commits)||!remoteSnapshotValid(a.remotes,g.configuredRemotes,evidence.now,g.history.commits.map(c=>c.oid)))return planDecision(state,'Current prepared intent, recovery ref and pre-rewrite observation required');
+ return planDecision(state,'Pre-rewrite checkpoint recorded',{checkpoint:{intentId:intent.requestId,messageRef:request.evidence.messageRef,observedAt:new Date(evidence.now).toISOString(),observation:structuredClone(g)}},true);
+}
+export function reconcileCooperativePlanAmend({state,intent,result,observations,now}={}){
+ const transition={result:{...structuredClone(result),status:result?.status==='unknown'?'unknown':result?.status==='failed'?'failed':'mismatch',data:{...structuredClone(result?.data??{}),remoteVerified:false},source:'operator-attested'},observation:observations?.git??null};
+ const hold=reason=>planDecision(state,reason,transition);
+ if(!intent||intent.operation!=='plan-amend'||!['prepared','unknown','mismatch'].includes(intent.status)||!intent.checkpoint||!same(intent.target,state.target)||!same(intent.versions,state.versions)||intent.scopeVersion!==state.scopeVersion||intent.targetVersion!==state.targetVersion)return hold('Matching unresolved plan-amend intent and checkpoint required');
+ if(result?.status!=='succeeded')return hold('Rewrite did not establish a successful result');
+ const d=result.data,a=intent.arguments,g=observations?.git,target=observations?.target,mapping=d?.mapping,old=intent.observation.history.commits,next=g?.history?.newCommits;
+ try{validatePlanAmendArguments({...a,remotes:d?.remotes});}catch{return hold('Exact result and fresh remote attestations required');}
+ if(!objectFields(d,['head','mapping','remotes'])||!Array.isArray(mapping)||mapping.length!==old.length||!mapping.length||mapping.some(m=>!objectFields(m,['old','new']))||new Set(mapping.map(m=>m.old)).size!==mapping.length||new Set(mapping.map(m=>m.new)).size!==mapping.length||!Array.isArray(next)||next.length!==mapping.length||!target||target.realpath!==intent.target.realpath||target.gitCommonDir!==intent.target.gitCommonDir||target.gitDir!==intent.target.gitDir||target.branch!==intent.target.branch||target.head!==d.head||mapping.at(-1).new!==target.head||!same(g?.target,target)||g.index?.tree!==g.index?.headTree||g.index?.stagedPaths?.length!==0||g.worktree?.planClean!==true||g.worktree.nonPlanFingerprint!==intent.observation.worktree.nonPlanFingerprint||!same(g.recoveryRef,{name:a.recovery.ref,oid:a.recovery.oid})||g.plan?.path!==a.plan.path||g.plan.content!==a.plan.new.content||g.plan.hash!==a.plan.new.hash||g.plan.originalHash!==a.plan.old.hash||!same(g.history.commits,old)||!same(remoteIdentities(d.remotes),remoteIdentities(a.remotes))||!remoteSnapshotValid(d.remotes,g.configuredRemotes,now,[...old.map(c=>c.oid),...mapping.map(m=>m.new)]))return hold('Observed target, preservation, mapping, document or remote evidence differs');
+ const planOid=gitBlob(a.plan.new.content,target.head.length),originalMode=old[0].tree.find(row=>row.path===a.plan.gitPath)?.mode;if(g.plan.mode!==originalMode)return hold('Working plan mode differs');
+ for(let i=0;i<mapping.length;i++){
+  const before=old[i],after=next[i],m=mapping[i];
+  if(!planEntries(after,target.head.length)||m.old!==before.oid||m.new!==after.oid||after.parent!==(i?mapping[i-1].new:a.history.base)||after.author!==before.author||after.authorDate!==before.authorDate||after.message!==before.message||!same(after.headerTemplate,before.headerTemplate))return hold('Commit mapping or metadata differs');
+  const plan=after.tree.filter(row=>row.path===a.plan.gitPath),oldPlan=before.tree.find(row=>row.path===a.plan.gitPath);if(plan.length!==1||!oldPlan||plan[0].mode!==oldPlan.mode||plan[0].oid!==planOid)return hold('Unexpected plan bytes or mode in rewritten history');
+  const other=rows=>rows.filter(row=>row.path!==a.plan.gitPath).sort((x,y)=>x.path<y.path?-1:x.path>y.path?1:0);
+  if(!same(other([...before.tree]),other([...after.tree])))return hold('Non-plan tree changed');
+ }
+ transition.result.status='succeeded';transition.target=structuredClone(target);transition.mapping=structuredClone(mapping);return planDecision(state,'Locally observed same-intent amendment; remote claims remain operator-attested',transition,true);
+}
 /** Pure policy decision. Evidence is supplied by a trusted adapter/provider, never tool arguments. */
 export function evaluate(policy, state, request, evidence){
  const result=(decision,id,reason,requiredEvidence=[])=>({decision,ruleIds:[id],reason,requiredEvidence,expectedRevision:state?.revision??0,proposedTransition:null,coverage:{platform:request?.platform??'unknown',enforcement:'decision-only'}});
@@ -113,6 +176,7 @@ export function evaluate(policy, state, request, evidence){
    if(d.kind!=='task'||!accepted||task.status!=='accepted'||request.paths.some(p=>!task.paths.some(base=>within(base,p))))return result('hold','git.orchestrator-accept-commit','accepted task verification required',['git-evidence']);
   }
  }
+ if(request.operation==='plan-amend')return result('hold','runtime.plan-amend','Cooperative plan-amend requires its durable intent and local observer',['plan-amend-intent']);
  if(EXTERNAL_OPERATIONS.includes(request.operation))return result('hold','external.explicit-user-authority','explicit external target approval must be verified',['external-approval']);
  if(request.operation==='transition')return result('hold','runtime.transition','result confirmation required',['observed-result']);
  return result('allow',roleRule,'assigned operation with verified provenance');
@@ -128,11 +192,15 @@ export function evaluateCooperative({policy,state,request,evidence}={}){
  if(!evidence||!same(evidence.target,state.target))return hold('cooperative.target','Observed target changed');
  if(!same(evidence.versions,state.versions))return hold('cooperative.versions','Policy or runtime changed');
  if(request.input&&request.input.expectedRevision!==state.revision)return hold('cooperative.revision','Stale revision');
+ const checkpoint=request.command==='record'&&request.input.evidence.kind==='note'&&request.input.evidence.data?.type==='plan-amend-checkpoint';
+ if(unresolvedPlan(state)&&((request.command==='prepare')||(request.command==='record'&&!checkpoint)))return hold('cooperative.plan-amend-unresolved','Resolve the same plan-amend intent before further work');
+ if(checkpoint)return checkpointCooperativePlanAmend({state,request:request.input,evidence});
  if(request.command==='record'&&request.input.evidence.kind==='external-approval'&&request.input.actor.role!=='orchestrator')return hold('cooperative.external-approval','Orchestrator records explicit external approval');
  if(request.command==='record'&&request.input.evidence.kind.startsWith('planner-')||request.command==='prepare'&&request.input.operation==='planner-call')return evaluateCooperativePlanner({state,request,evidence});
  if(request.command==='prepare'){
   if(unresolvedExternal(state))return hold('cooperative.external-unresolved','Investigate unresolved external effects before follow-up');
   if(EXTERNAL_ACTIONS.includes(request.input.operation))return evaluateCooperativeExternal({state,request:request.input,approvalEvidence:state.records.findLast(r=>r.kind==='external-approval'&&r.messageRef===request.input.arguments?.approvalRef)});
+  if(request.input.operation==='plan-amend')return prepareCooperativePlanAmend({state,request:request.input,evidence});
   if(request.input.operation==='accept')return evaluateCooperativeAcceptance({state,request:request.input,evidence});
   if(request.input.operation==='commit')return prepareCooperativeCommit({state,request:request.input,evidence,gitEvidence:evidence.git});
   return request.input.operation==='assign-agent'?prepareCooperativeAssignment({policy,state,request:request.input,observations:{target:evidence.target,git:evidence.git}}):evaluateCooperativeVerification({state,request:request.input,evidence});

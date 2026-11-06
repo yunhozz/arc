@@ -1571,3 +1571,12 @@ class HarnessReliabilityProfileTests(unittest.TestCase):
                     self.assertRegex(text, r"approved visual source.*version.*approval.*access")
                     self.assertRegex(text, r"actual.output identity.*revision.*basis")
                     self.assertRegex(text, r"pass.*mismatch.*unverified")
+
+
+class FastEvidenceChoiceTests(unittest.TestCase):
+    def test_target_change_holds_edits_until_choice_and_state_confirmed(self):
+        for platform in ('codex', 'claude'):
+            text = (REPO / platform / 'skill/references/handoff.md').read_text()
+            section = text.split('### Evidence refresh', 1)[1].split('## Cooperative CLI', 1)[0]
+            with self.subTest(platform=platform):
+                self.assertRegex(section, r'target change.*new choice.*state confirmation.*dependent edit')

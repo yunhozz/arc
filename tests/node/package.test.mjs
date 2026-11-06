@@ -30,7 +30,7 @@ test('package ships shared policy source and generator with check/update entry p
  assert.equal(pkg.scripts['update:role-policy'],'node scripts/update-role-policy.mjs');
  assert.equal(pkg.scripts['check:role-policy'],'node scripts/update-role-policy.mjs --check');
  const result=pack(); assert.equal(result.status,0,result.stderr); const files=packRecord(result.stdout).files.map(x=>x.path);
- for(const name of ['lib/policy/role-policy.json','lib/policy/render.mjs','scripts/update-role-policy.mjs'])assert.ok(files.includes(name),name);
+ for(const name of ['lib/policy/role-policy.json','lib/policy/render.mjs','scripts/update-role-policy.mjs','lib/prompts/agent-fragments.json','lib/prompts/render.mjs'])assert.ok(files.includes(name),name);
 });
 
 test('HSR: packed payload omits native hook integrations and retains shared runtime APIs',()=>{
