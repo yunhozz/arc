@@ -52,6 +52,7 @@ One canonical record includes:
 - Document SHA/message/paths/approved content; reused versus batch commits or valid absence/depth rationale.
 - Absolute approved artifacts, full set/versions/coverage/dependencies/order and no pending writing/approval.
 - Final verification, failures/partial completion/recovery and each start/restart's approval/choice/reuse.
+- Each plan task ID and current Implementer conversation ID, status, last result and reuse/replacement decision. Before same-task replacement, record the prior ID and status, allowed reason and supporting evidence; hold if the reason is not established. Record the returned ID after a successful initial or replacement call, and reconcile an uncertain call result before another assignment.
 
 
 Give all five roles the same actual workspace/selected checkout, preparation evidence and absolute artifacts. Roles stay there and report missing/inaccessible/conflicting paths/unexpected branches before dependent work, never create/switch workspaces/branches. Tell Implementer others share the repository and unrelated work must be preserved.
