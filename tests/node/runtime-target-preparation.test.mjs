@@ -64,7 +64,10 @@ test('destination document requires observed bytes and current full review and a
  const request={type:'destination',intentId:'i',transitionRef:'transition',stageId:'s',resultRef:'result',selfReviewRef:'self',path:'spec.md',hash,mode:0o100644,reviewRef:'review',approvalRef:'approval',targetVersion:2};
  const state={target,targetVersion:2,targetIntents:[{id:'i',firstStageId:'s',documents:[{kind:'spec',path:'spec.md'}]}],targetCheckpoints:[{intentId:'i',messageRef:'checkpoint',stageId:'s',resultRef:'result',selfReviewRef:'self'}],targetTransitions:[{intentId:'i',checkpointRef:'checkpoint',messageRef:'transition',targetVersion:2,target}],plannerLedger:{stages:[{id:'s',targetIntentId:'i',criteria:[{id:'C1'}],result:{ref:'result',status:'succeeded',chatDraft:{intentId:'i',complete:true,selfReviewRef:'self'}}}]},records:[{kind:'planner-review',messageRef:'review',targetVersion:2,source:'operator-attested',data:{resultRef:'result',full:true,complete:true,hash,criteria:[{id:'C1',status:'resolved',judgmentRef:'judgment'}]}},{kind:'approval',messageRef:'approval',targetVersion:2,source:'operator-attested',data:{kind:'spec',contentHash:hash,path:'spec.md'}}]};
  const evidence={destination:{target,document:{path:'spec.md',hash,mode:0o100644,verification:{status:'verified',source:'local-bytes'}}}};
+ state.scopeVersion=0;state.records.forEach(r=>r.scopeVersion=0);state.plannerLedger.stages[0].scopeVersion=0;
  const decision=evaluateTargetPreparation({state,request,evidence});assert.equal(decision.decision,'allow');assert.equal(decision.proposedTransition.destination.sourceLink,'operator-attested');assert.equal(decision.proposedTransition.destination.bytesEqual,undefined);
+ const absoluteApproval=structuredClone(state);absoluteApproval.records[1].data.path='/dest/spec.md';assert.equal(evaluateTargetPreparation({state:absoluteApproval,request,evidence}).decision,'allow');
+ const staleScope=structuredClone(state);staleScope.scopeVersion=1;assert.equal(evaluateTargetPreparation({state:staleScope,request,evidence}).decision,'hold');
  for(const mutate of [e=>e.destination.document.hash='sha256:'+'b'.repeat(64),e=>e.destination.document.mode=0o100755,e=>e.destination.document.verification.status='unverified']){const copy=structuredClone(evidence);mutate(copy);assert.equal(evaluateTargetPreparation({state,request,evidence:copy}).decision,'hold');}
  for(const mutate of [s=>s.records[0].data.full=false,s=>s.records[1].targetVersion=1,s=>s.plannerLedger.stages[0].result.chatDraft.complete=false]){const copy=structuredClone(state);mutate(copy);assert.equal(evaluateTargetPreparation({state:copy,request,evidence}).decision,'hold');}
 });
@@ -297,6 +300,7 @@ test('current and managed worktree transitions require correct identity, registr
  const stale={...request,expectedRevision:3};assert.equal(evaluateTargetPreparation({state,request:stale,evidence}).decision,'hold');
  state.targetIntents[0].kind='worktree';state.targetIntents[0].candidate='feature';state.targetCheckpoints[0].candidate='feature';evidence.destination={target:destination,registered:true,attachmentRef:'attachment'};
  assert.equal(evaluateTargetPreparation({state,request,evidence}).decision,'allow');
+ const pendingTask=structuredClone(state);pendingTask.tasks=[{id:'pending',paths:['/source/file']}];assert.equal(evaluateTargetPreparation({state:pendingTask,request,evidence}).decision,'hold');
  for(const mutate of [e=>e.destination.registered=false,e=>delete e.destination.attachmentRef,e=>e.destination.target.gitCommonDir='/other',e=>e.destination.target.gitDir=source.gitDir,e=>e.destination.target.head='b'.repeat(40),e=>e.source.target.head='b'.repeat(40)]){const copy=structuredClone(evidence);mutate(copy);assert.equal(evaluateTargetPreparation({state,request,evidence:copy}).decision,'hold');}
 });
 test('target intent is recorded before a Planner stage without saving or approving a document',async t=>{
@@ -366,7 +370,7 @@ test('prepared destination review and approval bind observed file bytes without 
  assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'approval:before-review')).decision,'hold');
  const review={stageId:'stage',resultRef:'chat:result',full:true,complete:true,hash,criteria:[{id:'C1',status:'resolved',judgmentRef:'judgment'}]};
  assert.equal((await f.send('planner-review',review,'review:destination')).decision,'allow');
- assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'approval:destination')).decision,'allow');
+ assert.equal((await f.send('approval',{kind:'spec',path:path.join(f.cwd,'spec.md'),contentHash:hash},'approval:destination')).decision,'allow');
  const request={type:'destination',intentId:'intent-1',transitionRef:'transition:1',stageId:'stage',resultRef:'chat:result',selfReviewRef:'chat:review',path:'spec.md',hash,mode:0o100644,reviewRef:'review:destination',approvalRef:'approval:destination',targetVersion:2,destination:{realpath:f.cwd,path:'spec.md'}};
  const current=JSON.parse(await fs.readFile(f.statePath,'utf8'));
  const intent=current.targetIntents.find(i=>i.id===request.intentId);
@@ -394,6 +398,12 @@ test('prepared destination review and approval bind observed file bytes without 
  assert.equal((await f.send('approval',{kind:'plan',path:'wrong-plan.md',contentHash:planHash},'wrong-plan-approval')).decision,'hold');
  assert.equal((await f.send('approval',{kind:'plan',path:'plan.md',contentHash:'sha256:'+'0'.repeat(64)},'wrong-plan-hash')).decision,'hold');
  assert.equal((await f.send('approval',{kind:'plan',path:'plan.md',contentHash:planHash},'approved-plan')).decision,'allow');
+ await f.send('scope',{paths:[path.join(f.cwd,'changed')]},'new-scope');
+ assert.equal((await f.send('planner-review',review,'stale-review')).decision,'hold');
+ assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'stale-spec-approval')).decision,'hold');
+ assert.equal((await f.send('target-preparation',request,'stale-destination')).decision,'hold');
+ const nextPlan={...plan,scopeVersion:1};await f.send('approval',{plannerStage:nextPlan,prerequisiteRefs:['approval:destination']},'stale-prerequisite-approval');
+ assert.equal((await f.send('planner-stage',{id:'another-plan',...nextPlan,approvalRef:'stale-prerequisite-approval',criteria:[{id:'P1',status:'open',judgmentRef:'criterion'}]},'stale-prerequisite-stage')).decision,'hold');
 });
 
 test('incomplete chat self-review and unknown calls cannot establish a checkpoint',async t=>{

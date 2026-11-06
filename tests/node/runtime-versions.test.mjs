@@ -8,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
 const previousRuntimeHash='sha256:8be1db491aa12e4982e5d0dc9048d2b46717de133feb2d26f98b5301e086bb87';
-const baselineHash='sha256:222fd70a1776940a9ac882c20ca86e7826b887b61f5721548c3e7d676c51596b';
+const baselineHash='sha256:1cfcfcd84024054f6ef655a97766304658126b62900e32422e488b45756ed9d8';
 
 test('target preparation is included in the current cooperative runtime contract',async()=>{
  const api=await import('../../lib/runtime/bootstrap.mjs');
