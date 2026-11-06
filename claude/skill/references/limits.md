@@ -1,7 +1,7 @@
 <a id="subagent-limits"></a>
 # Subagent limits
 
-Before the first creation, Orchestrator reads this reference and the adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`5`. Missing, malformed or unreadable policy blocks creation; report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
+Before the first creation, Orchestrator reads this reference and the adjacent `../limits.toml` (installed at `skills/arc/limits.toml`). Require `version = 1` and positive safe-integer `max_total_subagents`/`max_concurrent_subagents`. Installation defaults are `100`/`5`. Missing, malformed or unreadable policy blocks creation. Report it without assuming defaults. Freeze settings for one ARC session/tree; reinstalling affects new sessions.
 
 <a id="counting-and-reservations"></a>
 ## Counting and reservations
