@@ -197,34 +197,46 @@ export async function readPlanAmendGitEvidence({target,arguments:a,mapping=[],gi
  const line=async args=>{const v=text(await run(args));if(!v.endsWith('\n')||v.slice(0,-1).includes('\n'))throw Error('Invalid Git scalar');return v.slice(0,-1);};
  const before=await readGitEvidence({target,gitRunner});
  const headTree=await line(['rev-parse','--verify',`${target.head}^{tree}`]);if(!oid(headTree))throw Error('Invalid HEAD tree');
- const remoteOutput=text(await run(['remote']));if(remoteOutput&&!remoteOutput.endsWith('\n'))throw Error('Incomplete remote list');
- const remoteNames=remoteOutput?remoteOutput.slice(0,-1).split('\n'):[];if(!unique(remoteNames)||remoteNames.some(name=>!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)))throw Error('Invalid configured remote');
- const configuredRemotes=[];for(const name of remoteNames){
-  const output=text(await run(['remote','get-url','--all',name]));if(!output||!output.endsWith('\n'))throw Error('Invalid remote identity');
-  const urls=output.slice(0,-1).split('\n').map(sanitizedFetchUrl),identities=[...new Set(urls)].sort();if(!identities.length)throw Error('Invalid remote identity');
-  configuredRemotes.push({name,identity:hash(Buffer.from(JSON.stringify(identities)))});
- }
+ const observeRemotes=async()=>{
+  const remoteOutput=text(await run(['remote']));if(remoteOutput&&!remoteOutput.endsWith('\n'))throw Error('Incomplete remote list');
+  const names=remoteOutput?remoteOutput.slice(0,-1).split('\n'):[];if(!unique(names)||names.some(name=>!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)))throw Error('Invalid configured remote');
+  const remotes=[];for(const name of names.sort()){
+   const output=text(await run(['remote','get-url','--all',name]));if(!output||!output.endsWith('\n'))throw Error('Invalid remote identity');
+   const urls=output.slice(0,-1).split('\n').map(sanitizedFetchUrl),identities=[...new Set(urls)].sort();if(!identities.length)throw Error('Invalid remote identity');
+   remotes.push({name,identity:hash(Buffer.from(JSON.stringify(identities)))});
+  }return remotes;
+ };
+ const observeRecoveryRef=async()=>{
+  const result=await gitRunner({args:['show-ref','--verify','--quiet',a.recovery.ref],cwd:target.realpath});
+  if(result?.status===0&&!result.error){const value=await line(['rev-parse','--verify',a.recovery.ref]);if(!oid(value))throw Error('Invalid recovery ref');return {name:a.recovery.ref,oid:value};}
+  if(result?.status!==1||result.error)throw Error('Recovery ref observation failed');return null;
+ };
+ const configuredRemotes=await observeRemotes();
  const list=text(await run(['rev-list','--reverse','--topo-order',`${a.history.base}..${a.history.head}`]));
  if(!list.endsWith('\n'))throw Error('Empty or incomplete history');const ids=list.slice(0,-1).split('\n');if(ids.length>256||!ids.every(oid)||!unique(ids))throw Error('Invalid history range');
  const commit=async id=>{
   const raw=await run(['cat-file','commit',id]),separator=raw.indexOf(Buffer.from('\n\n'));if(separator<0)throw Error('Malformed commit');
-  const headers=text(raw.subarray(0,separator)).split('\n'),tree=headers.find(x=>x.startsWith('tree '))?.slice(5),parents=headers.filter(x=>x.startsWith('parent ')).map(x=>x.slice(7)),author=headers.find(x=>x.startsWith('author '));
-  const match=/^author (.*) (\d+) ([+-]\d{4})$/.exec(author??'');if(!oid(tree)||parents.length!==1||!oid(parents[0])||!match)throw Error('Expected linear commit metadata');
+  const headers=[];for(const header of text(raw.subarray(0,separator)).split('\n')){
+   if(header.startsWith(' ')){const previous=headers.at(-1);if(!previous||['tree','parent','committer'].includes(previous.name))throw Error('Malformed commit header');previous.raw+='\n'+header;continue;}
+   const parsed=/^([^\s]+) (.*)$/.exec(header);if(!parsed)throw Error('Malformed commit header');headers.push({name:parsed[1],raw:header,value:parsed[2]});
+  }
+  const fields=name=>headers.filter(header=>header.name===name),trees=fields('tree'),parents=fields('parent'),authors=fields('author'),committers=fields('committer');
+  const match=/^author (.*) (\d+) ([+-]\d{4})$/.exec(authors[0]?.raw??'');if(trees.length!==1||!oid(trees[0].value)||parents.length!==1||!oid(parents[0].value)||authors.length!==1||committers.length!==1||!match)throw Error('Expected linear commit metadata');
+  const headerTemplate=headers.map(header=>['tree','parent','committer'].includes(header.name)?header.name:header.raw);
   const bytes=await run(['ls-tree','-r','-z','--full-tree',id]);const entries=text(bytes);if(entries&&!entries.endsWith('\0'))throw Error('Incomplete tree');
   const treeEntries=(entries?entries.slice(0,-1).split('\0'):[]).map(row=>{const m=/^(100644|100755|120000|160000) (blob|commit) ([a-f0-9]+)\t([\s\S]+)$/.exec(row);if(!m||!oid(m[3])||!gitPath(m[4]))throw Error('Invalid tree entry');return {path:m[4],mode:m[1],oid:m[3]};});
   if(!unique(treeEntries.map(x=>x.path)))throw Error('Duplicate tree path');
-  return {oid:id,parent:parents[0],author:match[1],authorDate:match[2]+' '+match[3],message:text(raw.subarray(separator+2)),tree:treeEntries};
+  return {oid:id,parent:parents[0].value,author:match[1],authorDate:match[2]+' '+match[3],message:text(raw.subarray(separator+2)),tree:treeEntries,headerTemplate};
  };
  const commits=[];for(const id of ids)commits.push(await commit(id));
  const newCommits=[];for(const item of mapping)newCommits.push(await commit(item.new));
  const original=await run(['show',`${a.history.planCommit}:${a.plan.gitPath}`]);
  const current=await readPlanBytes(a.plan.path);
  const firstFingerprint=await preservationFingerprint(target.realpath,a.plan.gitPath);
- let recoveryRef=null;const refResult=await gitRunner({args:['show-ref','--verify','--quiet',a.recovery.ref],cwd:target.realpath});
- if(refResult?.status===0&&!refResult.error){const value=await line(['rev-parse','--verify',a.recovery.ref]);if(!oid(value))throw Error('Invalid recovery ref');recoveryRef={name:a.recovery.ref,oid:value};}
- else if(refResult?.status!==1||refResult.error)throw Error('Recovery ref observation failed');
+ const recoveryRef=await observeRecoveryRef();
  const after=await readGitEvidence({target,gitRunner}),secondFingerprint=await preservationFingerprint(target.realpath,a.plan.gitPath);
- const latest=await readPlanBytes(a.plan.path);if(!equal(before,after)||firstFingerprint!==secondFingerprint||!latest.bytes.equals(current.bytes)||latest.mode!==current.mode)throw Error('Git or worktree changed during observation');
+ const latest=await readPlanBytes(a.plan.path),finalRemotes=await observeRemotes(),finalRecoveryRef=await observeRecoveryRef();
+ if(!equal(before,after)||firstFingerprint!==secondFingerprint||!latest.bytes.equals(current.bytes)||latest.mode!==current.mode||!equal(configuredRemotes,finalRemotes)||!equal(recoveryRef,finalRecoveryRef))throw Error('Git or worktree changed during observation');
  return {target,index:{tree:before.indexTree,headTree,stagedPaths:before.stagedPaths},worktree:{planClean:!before.workingPaths.includes(a.plan.gitPath)&&!before.untrackedPaths.includes(a.plan.gitPath),nonPlanFingerprint:firstFingerprint},configuredRemotes,history:{base:a.history.base,planCommit:a.history.planCommit,head:a.history.head,commits,newCommits},plan:{path:a.plan.path,content:text(current.bytes),hash:hash(current.bytes),originalHash:hash(original),mode:current.mode},recoveryRef};
 }
 

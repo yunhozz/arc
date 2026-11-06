@@ -37,7 +37,7 @@ function syntheticHistory() {
  const revised=oid('e'),next=oid('f'),newHead=oid('1');
  const entry=(name,content)=>({path:name,mode,oid:blob(content)});
  const oldPlan=entry('plan.md',oldText),newPlan=entry('plan.md',newText),one=entry('one.txt','one\n'),two=entry('two.txt','two\n');
- const commit=(id,parent,message,tree)=>({oid:id,parent,author:'ARC <arc@example.invalid>',authorDate:'2026-11-05T10:00:00Z',message,tree});
+ const commit=(id,parent,message,tree)=>({oid:id,parent,author:'ARC <arc@example.invalid>',authorDate:'2026-11-05T10:00:00Z',message,tree,headerTemplate:['tree','parent','author ARC <arc@example.invalid> 1793872800 +0000','committer']});
  return {base,planCommit,first,head,revised,next,newHead,
   oldCommits:[commit(planCommit,base,'docs\n',[oldPlan]),commit(first,planCommit,'first\n',[oldPlan,one]),commit(head,first,'second\n',[oldPlan,one,two])],
   newCommits:[commit(revised,base,'docs\n',[newPlan]),commit(next,revised,'first\n',[newPlan,one]),commit(newHead,next,'second\n',[newPlan,one,two])],
@@ -129,6 +129,30 @@ test('remote snapshot at exactly five minutes is eligible while older is held',a
  const f=await fixture(t);const p=await prepare(f,a=>{a.remotes[0].observedAt=iso(now-300000);});assert.equal(p.out.decision,'allow');
 });
 
+for(const stage of ['prepare','checkpoint','reconcile'])test(`remote freshness is checked after ${stage} Git observation finishes`,async t=>{
+ const f=await fixture(t),observedAt=iso(now-299999);let intentId;
+ if(stage==='checkpoint'){
+  const p=await prepare(f,a=>{a.remotes[0].observedAt=observedAt;});assert.equal(p.out.decision,'allow');intentId=p.input.requestId;
+  f.observation.recoveryRef={name:f.a.recovery.ref,oid:f.a.recovery.oid};
+ }else if(stage==='reconcile'){intentId=await ready(f);await rewritten(f);}
+ let finished=false;f.args.clock=()=>finished?now+2:now;f.args.readPlanAmendGit=async()=>{finished=true;return structuredClone(f.observation);};
+ let r;
+ if(stage==='prepare')r=await prepare(f,a=>{a.remotes[0].observedAt=observedAt;});
+ else if(stage==='checkpoint')r=await f.invoke('record',{evidence:{kind:'note',messageRef:'checkpoint:delayed',data:{type:'plan-amend-checkpoint',intentId}}});
+ else{const statement=result(f);statement.data.remotes[0].observedAt=observedAt;r=await f.invoke('reconcile',{intentId,result:statement});}
+ assert.notEqual(r.out.decision,'allow');assert.equal((await f.state()).target.head,f.target.head);
+});
+
+test('prepare holds if task change observation crosses the remote freshness limit',async t=>{
+ const f=await fixture(t),before=await f.state();
+ before.tasks.push({id:'T1',paths:[f.a.plan.path],criteria:['current evidence'],requiredChecks:[],dependencies:[],status:'pending'});
+ await fs.writeFile(f.file,JSON.stringify(before));
+ let finished=false;f.args.clock=()=>finished?now+2:now;f.args.readChanges=async()=>{finished=true;return {};};
+ const r=await prepare(f,a=>{a.remotes[0].observedAt=iso(now-299999);});
+ assert.notEqual(r.out.decision,'allow');const after=await f.state();
+ assert.deepEqual(after.target,before.target);assert.deepEqual(after.tasks,before.tasks);assert.equal(after.intents.length,before.intents.length);
+});
+
 test('remote snapshots without an endpoint identity cannot prepare a rewrite',async t=>{
  const f=await fixture(t);let p;try{p=await prepare(f,a=>{delete a.remotes[0].identity;});}catch(error){assert.match(error.message,/schema|remote/i);}
  if(p)assert.notEqual(p.out.decision,'allow');assert.equal((await f.state()).intents.length,0);
@@ -173,6 +197,29 @@ test('read-only observer binds sanitized complete fetch URL set without network 
  const serialized=JSON.stringify(observed);for(const secret of ['password','token=secret','key=secret','#private'])assert.equal(serialized.includes(secret),false);
  const same=await observerFixture(t,['https://another.example/team/repo#different','https://other:credential@example.invalid/arc-fixture']);
  const again=await same.readPlanAmendGitEvidence({target:same.target,arguments:same.a,gitRunner:same.gitRunner});assert.deepEqual(again.configuredRemotes,observed.configuredRemotes);
+});
+
+test('observer holds when the same remote name changes endpoint during observation',async t=>{
+ const f=await observerFixture(t,['https://example.invalid/arc-fixture']);let calls=0;
+ const gitRunner=async request=>{const response=await f.gitRunner(request);if(request.args[0]==='remote'&&request.args[1]==='get-url'&&++calls===2)return {status:0,stdout:'https://other.example/arc-fixture\n'};return response;};
+ await assert.rejects(f.readPlanAmendGitEvidence({target:f.target,arguments:f.a,gitRunner}),/changed/i);
+});
+
+test('observer holds when recovery ref OID changes during observation',async t=>{
+ const f=await observerFixture(t,['https://example.invalid/arc-fixture']);let reads=0;
+ const gitRunner=async request=>{
+  if(request.args[0]==='show-ref')return {status:0,stdout:''};
+  if(request.args[0]==='rev-parse'&&request.args[1]==='--verify'&&request.args[2]===f.a.recovery.ref)return {status:0,stdout:(++reads===1?oid('a'):oid('b'))+'\n'};
+  return f.gitRunner(request);
+ };
+ await assert.rejects(f.readPlanAmendGitEvidence({target:f.target,arguments:f.a,gitRunner}),/changed/i);
+});
+
+test('observer retains non-mutable commit headers including continuations',async t=>{
+ const f=await observerFixture(t,['https://example.invalid/arc-fixture']);
+ const gitRunner=async request=>{const response=await f.gitRunner(request);if(request.args[0]==='cat-file')return {...response,stdout:response.stdout.replace('\n\ndocs\n','\nencoding UTF-8\nx-extra value\n continuation\n\ndocs\n')};return response;};
+ const observed=await f.readPlanAmendGitEvidence({target:f.target,arguments:f.a,gitRunner});
+ assert.deepEqual(observed.history.commits[0].headerTemplate,['tree','parent','author ARC <arc@example.invalid> 1793872800 +0000','committer','encoding UTF-8','x-extra value\n continuation']);
 });
 
 test('a configured URL query holds without disclosing userinfo query or fragment in output or state',async t=>{
@@ -228,6 +275,7 @@ for(const [name,mutate] of [
  ['non-plan tree change',f=>{f.observation.history.newCommits[1].tree[1].oid=oid('9');}],
  ['descendant plan change',f=>{f.observation.history.newCommits[2].tree[0].oid=blob('unapproved\n');}],
  ['changed commit message',f=>{f.observation.history.newCommits[1].message='different\n';}],
+ ['changed non-mutable commit header',f=>{f.observation.history.newCommits[1].headerTemplate.push('encoding ISO-8859-1');}],
  ['dirty file fingerprint changed',f=>{f.observation.worktree.nonPlanFingerprint=hash('changed');}],
  ['wrong recovery ref',f=>{f.observation.recoveryRef.oid=oid('9');}],
  ['remote endpoint changed',f=>{f.observation.configuredRemotes[0].identity=hash('new endpoint');}],

@@ -8,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
 const previousRuntimeHash='sha256:8be1db491aa12e4982e5d0dc9048d2b46717de133feb2d26f98b5301e086bb87';
-const baselineHash='sha256:7c198346ba7a6200fc8abb7b79ef6320cfe4b0ebdc330569a7148ac10af1cd8c';
+const baselineHash='sha256:2c708f0dec7f2da50b14fc710eee7886e78d6eb7cc28113d70b834e8d0732ec4';
 
 // Independent T5 contract: omission, reordering or unhashed gate bytes must fail.
 const expectedModules = [
