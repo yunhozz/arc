@@ -28,9 +28,9 @@ Package installation provides the CLI, not the harness. Install or manage the ha
 
 ## Manage ARC
 
-- **Install or update:** Open `Install / Update`, choose Codex, Claude Code, or both, then set the preset, limits, language, and global settings. Select `Execute` and press Enter. To change only the preset, use `Change Preset`, select `Apply`, and press Enter. Blank lines are not selectable. ARC validates and executes these actions without a review screen.
-- **Check version:** `Check Version` shows the current and latest CLI versions. `Version Upgrade` appears only when a newer version is available. Enter applies that version and preserves installed settings. A global upgrade replaces the CLI and ends the session; an npx upgrade uses the displayed payload without replacing the global CLI. Use `Install / Update` to reconfigure the same version.
-- **Uninstall:** Choose the harness targets and global instructions, then review with `Edit` or `Cancel`. ARC removes the verified global CLI only after all selected harnesses are removed successfully, including in an npx session. A harness failure or interruption skips CLI removal. Results report partial removals and CLI failures. Unselected harnesses, user files, other npm packages, and the shared npx cache remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
+- **Install or update:** Choose Codex, Claude Code, or both in `Install / Update`, configure options, then select `Execute`. `Change Preset` changes only the preset.
+- **Version:** `Check Version` shows installed and latest CLI versions. `Version Upgrade` appears when available and preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
+- **Uninstall:** Removes selected harnesses; the global CLI is removed only if all succeed. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
 
 The TUI requires terminal input and output. It supports only `arc`, `arc --help`, and `arc --version`. Help and version also work without a TTY.
 
