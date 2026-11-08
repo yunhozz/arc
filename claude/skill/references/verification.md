@@ -58,7 +58,7 @@ SHA change alone invalidates no entire evidence set. Determine whether exact-HEA
 <a id="reviewer-timing-and-task-acceptance"></a>
 ## Task acceptance and final plan acceptance
 
-Task acceptance differs from final verification/acceptance. Connect criteria/observations/current checks/findings, not checkboxes/reports/passing commands alone. Use fresh QA where required or low-risk focused checks. Same-task rechecks default to current QA while scope/workspace/ownership/context remain valid.
+Task acceptance differs from final verification/acceptance. Connect criteria/observations/current checks/findings, not checkboxes/reports/passing commands alone. Use fresh QA where required or low-risk focused checks. For same-task QA findings and required QA rechecks, reuse the current QA while scope/workspace/ownership/context remain valid. Final overall Reviewer findings on plan work follow Implementer → Reviewer without QA reassignment; see the [final plan Reviewer correction loop](#final-plan-reviewer-correction-loop).
 
 Do not delay independently acceptable tasks solely for final-only checks or defer currently required checks to accept early. State final integration scope/timing separately. Whole-plan Reviewer is final verification; task commits prove no unperformed final checks. Orchestrator decides final acceptance with QA/Reviewer/integration evidence/findings and unverified/disposition records. Shared evidence must satisfy all reuse rules.
 
