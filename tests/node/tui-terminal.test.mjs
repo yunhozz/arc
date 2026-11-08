@@ -7,7 +7,7 @@ test('split-byte arrows, enter, back and EOF normalize in input order',async t=>
  assert.deepEqual(events.map(event=>event.name),['down','enter','backspace','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
 });
 test('UTF-8 and bracketed paste stay text, including pasted confirmation characters',async t=>{
- const io=session(t);const bytes=Buffer.from('한');io.send(bytes.subarray(0,1));io.send(bytes.subarray(1));assert.deepEqual((await io.session.nextEvent()).text,'한');
+ const io=session(t);const bytes=Buffer.from('€');io.send(bytes.subarray(0,1));io.send(bytes.subarray(1));assert.deepEqual((await io.session.nextEvent()).text,'€');
  for(const part of ['\x1b[20','0~yes\r','\x1b[B','\x1b[201~'])io.send(part);
  const event=await io.session.nextEvent();assert.equal(event.name,'paste');assert.equal(event.text,'yes\r\x1b[B');
 });

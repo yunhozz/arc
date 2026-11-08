@@ -366,11 +366,11 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
             text = " ".join(path.read_text().lower().split())
             with self.subTest(file=path.name, absent="accepted and qa'd"):
                 self.assertNotIn("accepted and qa'd", text)
-                self.assertNotIn("수락·QA된".lower(), text)
+                self.assertNotIn("accepted and qa-approved", text)
             for absent in (r"checks/reviews as a (?:per-task|task) (?:gate|prerequisite)", r"in a multi-task plan", r"review as a task acceptance prerequisite",
                            r"expressly a task prerequisite", r"designated as that task's prerequisite",
                            r"qa/review at that dependency boundary", r"new reviewer for each task unless",
-                           r"선행 조건으로 지정", r"검사/검토"):
+                           r"designated as a prerequisite", r"checks/reviews as a prerequisite"):
                 with self.subTest(file=path.name, absent=absent):
                     self.assertNotRegex(text, absent)
 

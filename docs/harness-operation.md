@@ -21,6 +21,12 @@ The Node.js CLI validates/installs files. The conversation Orchestrator then rou
 
 Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
 
+`Claude & Codex` stores each role's platform, model, and effort in the shared active file `CODEX_HOME/arc-role-platform-routing.json`. Each harness's `arc-role-platform-routing.prepared.json` marker and separate `agents/arc-routing-*` profile identify the installed bytes for the same revision. These markers do not prove CLI login or actual execution permissions, model, or effort.
+
+The home status labels `Avaliable`, `Not Avaliable`, `Incomplete`, and `Unauthorized` distinguish installation state from local CLI authentication. `Unauthorized` is shown only when the CLI explicitly reports that the user is signed out. Codex model and effort selections use the account's app-server catalog; the Claude API catalog is only an optional selection aid. Claude models and effort can be entered manually without an API key.
+
+All current composite role routes remain `held / unverified` across CLI and both local Desktop environments. Publishing the configuration does not start role execution or prove support. Verify local CLI search paths and authentication homes, the same worktree, profile reload in a new session, and execution evidence separately. Do not assume an existing Desktop session can be attached.
+
 Installation preserves bytes outside `arc:begin` / `arc:end`. Codex wait settings merge into supported standalone `[features.multi_agent_v2]`; unsupported structure receives manual guidance. Native concurrency writes integer `[agents].max_concurrent_threads_per_session` for Codex and string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` for Claude, preserving unrelated settings.
 
 Static references include brainstorming/writing-plans/test-driven-development, related Markdown/mockups/license/provenance. Markdown lives in platform `skill/references/`, scripts/HTML in `references/scripts/`. Existing shared/global skills/links are separately preserved. Source packages have no npm install hook. Published artifacts have informational postinstall only. npm installation neither downloads/installs the harness nor connects TTY/changes shell. It prints `Run arc to install or manage the ARC harness.`
@@ -41,7 +47,8 @@ Install/update/uninstall remove valid old ARC management completion blocks and a
 | Operation | Publication/recovery boundary |
 |---|---|
 | `bash scripts/update-superpowers-local.sh` | Ignored wrapper calls tracked `node scripts/update-superpowers.mjs`. One acquired revision updates both mapped platforms/static manifest together. Failure restores previous files/manifest; cleanup may report residuals. No completion registration |
-| Both TUI targets | Codex then Claude are independent transactions. Later failures preserve earlier success; remaining targets may be not-started. Inspect each status/residual |
+| Both TUI targets | Installation runs independent transactions in Codex-then-Claude order; removal runs Claude-then-Codex. Failure on the second target preserves the first target's success. Check per-target status and residual paths |
+| `Claude & Codex` configuration | After rechecking both installation results, authentication, and catalogs, publish profiles and prepared markers under a shared lock, then replace the active file last. Failures before publication do not publish a new active revision; report paths when recovery state is unclear. If the previous active file remains but no longer matches the actual files, role execution remains held |
 
 `superpowers-provenance.json` records revision/time/original-path hashes/relative links. It proves local consistency, not upstream authenticity or protection from malicious local rewriting. Git/network are needed only for explicit maintainer updater use. npm/`npm --ignore-scripts`/ZIP/plain clones/harness install-upgrade use packaged static references. Read-only packages are supported.
 
@@ -165,6 +172,8 @@ Agent Git recovery coordinates checkout/index; installer rollback handles public
 | CLI only | `npm uninstall -g @yunhozz/arc` leaves harness settings |
 
 `Uninstall` removes selected skill/five profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
+
+Remove composite profiles and prepared markers only within the selected harness when the active configuration and marker paths and hashes match. Preserve files with unclear ownership and report their residual paths. After removing one side, execution remains held because readiness consistency for the remaining composite configuration is no longer established.
 
 Use [maintenance](../README.md#manage-arc)/[models](../README.md#models-and-language)/[removal](../README.md#manage-arc). New settings need new sessions; structure alone proves no support.
 

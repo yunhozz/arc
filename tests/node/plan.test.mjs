@@ -118,12 +118,12 @@ for(const platform of ['codex','claude'])test(`${platform} installs instruction 
  const target=targets.resolveTarget(platform,{userHome:home,env:environment,cwd:home});
  const make=extra=>api.buildInstallPlan({payload:input,target,preset:'balanced',language:'ko',safeFs,...extra});
  const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
- const globals=target.instructionPath;fs.mkdirSync(path.dirname(globals),{recursive:true});fs.writeFileSync(globals,'사용자 지침\r\n');
+ const globals=target.instructionPath;fs.mkdirSync(path.dirname(globals),{recursive:true});fs.writeFileSync(globals,'User instructions — café\r\n');
  applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});
  const installed=fs.readFileSync(custom+'/skills/arc/SKILL.md','utf8');assert.match(installed,/Use Korean by default/);
  for(const match of installed.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(custom+'/skills/arc/'+match[1]),match[1]);
  assert.match(fs.readFileSync(custom+'/skills/arc/references/coordination.md','utf8'),/\[role.implementer-implementation\]/);
- assert.ok(fs.readFileSync(globals,'utf8').startsWith('사용자 지침\r\n'));
+ assert.ok(fs.readFileSync(globals,'utf8').startsWith('User instructions — café\r\n'));
  const before=fs.readFileSync(globals);applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
  applyTransaction(make({skipGlobal:true}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
 });

@@ -27,3 +27,5 @@ Confirmed completion or termination frees active capacity. Exhaustion holds crea
 Cumulative limits and scheduling are prompt policy, not hard runtime controls. Text tests prove package consistency, not live compliance/native support.
 Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.
 Independent sessions/accounts/platforms do not share the ledger. Agent Teams and hosted APIs are outside this contract. Verify native application separately in a supported new session.
+
+Composite platform routes must observe both these limits and each platform's actual capacity. Current role routing is held before reservation because trusted evidence for capacity, permissions, or model/effort observation is unavailable. Do not assume that a slot was acquired or released.

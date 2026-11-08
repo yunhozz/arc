@@ -105,3 +105,9 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [role.reviewer-independent] Independently inspect assigned final changes and evidence, and report actionable findings and limits. Remain read-only: do not execute QA tests, edit files, perform Git mutations or decide acceptance.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. ARC supplies no native observer hook or role-specific Git guard. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]
+
+## Composite Platform Role Preflight
+
+`Claude & Codex` keeps the current session as the Orchestrator. Pass a JSON object to the installed `$ARC_RUNTIME_ENTRY prepare-dispatch --cwd <absolute worktree> --workflow <workflow ID> --input -` with `hostPlatform` (`codex` or `claude`), `executionEnvironment` (`codex-cli`, `claude-cli`, `codex-desktop`, or `claude-desktop`), `role` (`arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, or `arc_reviewer`), and `expectedRevision` (the active configuration revision). These host and environment values are caller-provided claims, not host attestations.
+
+The current implementation reports missing execution evidence separately from installation readiness and authentication, and returns `held / unverified` for every role. It does not reserve capacity, create a native agent, or start the peer CLI. Inputs to `run-dispatch`, `observe`, `resume`, and local Hooks are not treated as trusted execution or termination evidence. Because there is no verified reservation or execution ID, this command holds before launch with reason `execution_identity_unverified`. Report the reason and conditions for release; do not substitute another model or platform or retry automatically before evidence is available.

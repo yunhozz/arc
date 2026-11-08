@@ -58,7 +58,7 @@ test('packed management installs, switches preset and removes without a global a
 
 test('packed instruction references install with valid links for both platforms in custom spaced homes',t=>{
  const f=fixture(t),home=fs.mkdtempSync(path.join(f.base,'instruction home ')),codex=home+'/custom codex',claude=home+'/.claude';
- for(const[dir,name]of [[codex,'AGENTS.md'],[claude,'CLAUDE.md']]){fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,name),'사용자 지침\r\n');}
+ for(const[dir,name]of [[codex,'AGENTS.md'],[claude,'CLAUDE.md']]){fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,name),'User instructions — café\r\n');}
  const result=manage(f,'traps',{target:'all',preset:'balanced',language:'ko'},{home,env:{HOME:home,CODEX_HOME:codex,CLAUDE_CONFIG_DIR:claude,PATH:f.environments.traps.PATH,TMPDIR:f.base}});
  assert.equal(result.status,0,result.stderr);
  for(const[platform,dir,name]of [['codex',codex,'AGENTS.md'],['claude',claude,'CLAUDE.md']]){
@@ -66,6 +66,6 @@ test('packed instruction references install with valid links for both platforms 
   assert.ok(fs.existsSync(path.join(skillRoot,'references/coordination.md')));
   for(const link of core.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(path.join(skillRoot,link[1])),`${platform}/${link[1]}`);
   assert.match(fs.readFileSync(path.join(skillRoot,'references/coordination.md'),'utf8'),/\[role.implementer-implementation\]/);
-  const global=fs.readFileSync(path.join(dir,name),'utf8');assert.ok(global.startsWith('사용자 지침\r\n'));assert.doesNotMatch(global,/\[ARC role policy:/);
+  const global=fs.readFileSync(path.join(dir,name),'utf8');assert.ok(global.startsWith('User instructions — café\r\n'));assert.doesNotMatch(global,/\[ARC role policy:/);
  }
 });
