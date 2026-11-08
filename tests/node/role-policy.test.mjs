@@ -40,11 +40,11 @@ test('orchestrator projections preserve canonical text and order', () => {
   };
   const p = policy();
   for (const platform of ['codex', 'claude']) for (const [projection, ids] of Object.entries(expected)) {
-    const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection, skillPath:'/tmp/한 글/SKILL.md'});
+    const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection, skillPath:'/tmp/café folder/SKILL.md'});
     const lines = output.split('\n');
     assert.deepEqual(lines.slice(1, -2), ids.map(id => `- [${id}] ${p.rules.find(rule => rule.id === id).text}`));
     assert.equal(lines.at(-2), `- [platform.${platform}] ${p.platforms[platform].notice}`);
-    assert.equal(lines.at(-1), '- Policy details: `/tmp/한 글/SKILL.md`.');
+    assert.equal(lines.at(-1), '- Policy details: `/tmp/café folder/SKILL.md`.');
   }
   const reversed = policy(); reversed.rules.reverse();
   const reversedOutput = api.renderPolicySection(reversed, {platform:'codex', audience:'orchestrator', projection:'core', section:'global'});

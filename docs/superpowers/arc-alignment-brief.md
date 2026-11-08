@@ -24,7 +24,8 @@ dispositions all actionable findings.
 
 ## Decisions and prior findings
 
-User additionally requested Korean Planner specs/plans and explicitly approved “planner 지침 적용해”, passed by CEO.
+User additionally requested Korean Planner specs/plans and explicitly approved “apply the Planner instructions”
+(translated), passed by CEO.
 Planner classified this separable output convention as bounded: one language policy, no shared
 state/lifecycle/integration-order change, one focused prose-contract verification; no separate writing-plans needed for
 this policy. Coder owns only skill/Planner/Lead language sentences and their three manifest hashes.
@@ -39,9 +40,9 @@ existing TOML/installer/manifest/diff checks plus focused language-contract revi
 No live-agent compliance or red-green claim. This authorization covers only three language sentences and corresponding
 hashes, not the main six-contract implementation.
 
-Architectural classification and central adapter plus Lead/Planner/Coder profile design approved by user “그럼 진행해”,
-passed by CEO. Planner returned complete spec and self-review; Lead integrated/saved/self-reviewed
-`docs/superpowers/specs/2026-10-03-arc-alignment-design.md`. User “ㅇㅇ” approved the written spec, passed by CEO.
+Architectural classification and central adapter plus Lead/Planner/Coder profile design approved by user “then proceed”
+(translated), passed by CEO. Planner returned complete spec and self-review; Lead integrated/saved/self-reviewed
+`docs/superpowers/specs/2026-10-03-arc-alignment-design.md`. User “yes” (translated) approved the written spec, passed by CEO.
 Worktree consent/fallback and TDD human-required exception authority are preserved. No implementation has started.
 Cross-role contracts and distinct acceptance paths require a written plan; architectural planning is mandatory.
 Planner now assigned installed writing-plans. No relevant memory registry entries were found.

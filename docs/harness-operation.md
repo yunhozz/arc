@@ -21,11 +21,11 @@ The Node.js CLI validates/installs files. The conversation Orchestrator then rou
 
 Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
 
-`Claude & Codex`는 역할별 플랫폼·모델·effort를 공통 활성 파일 `CODEX_HOME/arc-role-platform-routing.json`에 저장합니다. 각 하네스의 `arc-role-platform-routing.prepared.json`과 별도 `agents/arc-routing-*` 프로필은 같은 리비전의 설치 바이트를 식별합니다. 마커는 CLI 로그인이나 실제 실행 권한·모델·effort를 증명하지 않습니다.
+`Claude & Codex` stores each role's platform, model, and effort in the shared active file `CODEX_HOME/arc-role-platform-routing.json`. Each harness's `arc-role-platform-routing.prepared.json` marker and separate `agents/arc-routing-*` profile identify the installed bytes for the same revision. These markers do not prove CLI login or actual execution permissions, model, or effort.
 
-홈 상태의 `Avaliable`, `Not Avaliable`, `Incomplete`, `Unauthorized`는 설치와 로컬 CLI 인증을 구분합니다. `Unauthorized`는 CLI가 명시적으로 미로그인을 반환한 경우입니다. Codex 모델·effort는 계정의 app-server 목록을 확인하고, Claude API 목록은 선택 보조 자료로만 사용합니다. Claude 모델과 effort는 API 키 없이 수동 입력할 수 있습니다.
+The home status labels `Avaliable`, `Not Avaliable`, `Incomplete`, and `Unauthorized` distinguish installation state from local CLI authentication. `Unauthorized` is shown only when the CLI explicitly reports that the user is signed out. Codex model and effort selections use the account's app-server catalog; the Claude API catalog is only an optional selection aid. Claude models and effort can be entered manually without an API key.
 
-현재 복합 역할 경로는 CLI와 두 Desktop 로컬 환경 모두에서 `held / unverified`입니다. 구성 게시가 역할 실행을 시작하거나 지원을 입증하지 않습니다. 로컬 CLI 검색 경로와 인증 홈, 같은 작업 트리, 새 세션의 프로필 재로드 및 실행 근거는 별도로 확인해야 합니다. 기존 Desktop 세션 연결은 가정하지 않습니다.
+All current composite role routes remain `held / unverified` across CLI and both local Desktop environments. Publishing the configuration does not start role execution or prove support. Verify local CLI search paths and authentication homes, the same worktree, profile reload in a new session, and execution evidence separately. Do not assume an existing Desktop session can be attached.
 
 Installation preserves bytes outside `arc:begin` / `arc:end`. Codex wait settings merge into supported standalone `[features.multi_agent_v2]`; unsupported structure receives manual guidance. Native concurrency writes integer `[agents].max_concurrent_threads_per_session` for Codex and string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` for Claude, preserving unrelated settings.
 
@@ -47,8 +47,8 @@ Install/update/uninstall remove valid old ARC management completion blocks and a
 | Operation | Publication/recovery boundary |
 |---|---|
 | `bash scripts/update-superpowers-local.sh` | Ignored wrapper calls tracked `node scripts/update-superpowers.mjs`. One acquired revision updates both mapped platforms/static manifest together. Failure restores previous files/manifest; cleanup may report residuals. No completion registration |
-| Both TUI targets | 설치는 Codex 다음 Claude, 제거는 Claude 다음 Codex 순서의 독립 트랜잭션입니다. 뒤 대상의 실패는 앞 대상의 성공을 유지합니다. 대상별 상태와 잔여 경로를 확인합니다 |
-| `Claude & Codex` configuration | 두 설치 결과와 인증·카탈로그를 재확인한 뒤 공유 잠금 아래 프로필과 준비 마커를 게시하고 활성 파일을 마지막으로 교체합니다. 게시 전 실패는 새 활성 리비전을 게시하지 않으며 복구 상태가 불명확하면 경로를 보고합니다. 이전 활성 파일이 남아도 실제 파일과 맞지 않으면 역할 실행은 보류됩니다 |
+| Both TUI targets | Installation runs independent transactions in Codex-then-Claude order; removal runs Claude-then-Codex. Failure on the second target preserves the first target's success. Check per-target status and residual paths |
+| `Claude & Codex` configuration | After rechecking both installation results, authentication, and catalogs, publish profiles and prepared markers under a shared lock, then replace the active file last. Failures before publication do not publish a new active revision; report paths when recovery state is unclear. If the previous active file remains but no longer matches the actual files, role execution remains held |
 
 `superpowers-provenance.json` records revision/time/original-path hashes/relative links. It proves local consistency, not upstream authenticity or protection from malicious local rewriting. Git/network are needed only for explicit maintainer updater use. npm/`npm --ignore-scripts`/ZIP/plain clones/harness install-upgrade use packaged static references. Read-only packages are supported.
 
@@ -173,7 +173,7 @@ Agent Git recovery coordinates checkout/index; installer rollback handles public
 
 `Uninstall` removes selected skill/five profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
 
-복합 프로필과 준비 마커는 활성 구성 및 마커의 경로·해시가 일치할 때 선택한 하네스 범위에서 제거합니다. 소유 관계가 불명확한 파일은 보존하고 잔여 경로로 표시합니다. 한쪽을 제거하면 나머지 복합 구성도 준비 일치가 확인되지 않아 실행이 보류됩니다.
+Remove composite profiles and prepared markers only within the selected harness when the active configuration and marker paths and hashes match. Preserve files with unclear ownership and report their residual paths. After removing one side, execution remains held because readiness consistency for the remaining composite configuration is no longer established.
 
 Use [maintenance](../README.md#manage-arc)/[models](../README.md#models-and-language)/[removal](../README.md#manage-arc). New settings need new sessions; structure alone proves no support.
 

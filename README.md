@@ -38,9 +38,9 @@ The TUI requires terminal input and output. It supports only `arc`, `arc --help`
 
 The Orchestrator uses the current conversation model. Specialist roles use the selected preset in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
 
-`Install / Update`와 `Change Preset`의 `Claude & Codex`에서 역할마다 플랫폼·모델·effort를 설정할 수 있습니다. Codex 선택에는 로컬 CLI 계정의 모델 목록이 필요합니다. Claude는 API 카탈로그가 없어도 모델 식별자와 effort를 직접 입력할 수 있으며, API 목록은 CLI 계정의 접근 권한을 증명하지 않습니다. 로그인 확인은 각 로컬 CLI의 상태 명령을 사용하므로 별도 API 키가 필요하지 않습니다.
+In `Claude & Codex` under `Install / Update` and `Change Preset`, you can set the platform, model, and effort for each role. Codex selections require a model list from the local CLI account. For Claude, you can enter a model identifier and effort manually without an API catalog; an API list does not prove that the CLI account can access those models. Login checks use each local CLI's status command, so no separate API key is required.
 
-현재 복합 구성은 저장·활성화와 역할 실행 지원을 구분합니다. 신뢰된 실행 식별, 권한 강제, 실제 모델·effort 관측이 확인되지 않아 모든 역할 실행은 `held / unverified`로 보류됩니다. CLI와 Codex Desktop·Claude Desktop Code의 로컬 세션에서도 실행 지원을 추정하지 않습니다. 새 프로필이 적용되려면 해당 호스트의 새 세션과 별도 실행 근거가 필요합니다.
+The composite configuration separates saving and activation from role execution support. Every role remains `held / unverified` because trusted execution identity, permission enforcement, and observation of the actual model and effort have not been established. Do not infer execution support for CLI sessions or local Codex Desktop and Claude Desktop Code sessions. Applying a new profile requires a new session on that host and separate execution evidence.
 
 ## Guides
 

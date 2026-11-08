@@ -24,7 +24,7 @@ test('home wordmark is compact, readable without ANSI and absent on inner screen
 test('detail wrapping preserves every escaped character without horizontal truncation',()=>{
  assert.equal(typeof api.wrapDetailRows,'function');const source='/tmp/'+('long/').repeat(30)+'END\x1b[2J\rnote';const lines=api.wrapDetailRows([source],24);
  assert.equal(lines.join(''),api.escapeTerminalText(source));assert.ok(lines.every(line=>line.length<=21));
- const wide=api.wrapDetailRows(['가나다라마바사아자차카타파하'],12);assert.equal(wide.join(''),'가나다라마바사아자차카타파하');assert.ok(wide.every(line=>[...line].length<=4));
+ const wide=api.wrapDetailRows(['ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ'],12);assert.equal(wide.join(''),'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ');assert.ok(wide.every(line=>[...line].length<=4));
 });
 test('outline and green rule remain visible after terminal grows',()=>{
  const screen={title:'ARC',wordmark:true,rows:['Destination','Changes','Apply']};
