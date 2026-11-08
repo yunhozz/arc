@@ -93,16 +93,18 @@
       "effect": "allow",
       "operations": [
         "accept",
+        "task-progress-record",
         "stage",
         "commit"
       ],
       "evidence": [
         "acceptance-criteria",
         "required-checks",
-        "findings-disposition"
+        "findings-disposition",
+        "task-progress-classification-reason-time"
       ],
       "authority": "orchestrator",
-      "text": "Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.",
+      "text": "Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then includes that task's own progress records made after task completion (checkboxes, notes, results, evidence and status) with its implementation work in that commit, without a separate docs/fixup commit or planning-commit amendment for those records. Exclude other tasks and preserve the no-change path without empty commits. Orchestrator commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -340,17 +342,17 @@
       ],
       "effect": "require",
       "operations": [
-        "plan-update",
-        "plan-commit-amend"
+        "non-progress-spec-plan-content-update",
+        "non-progress-planning-commit-amend"
       ],
       "evidence": [
-        "change-classification",
+        "non-progress-content-change-classification",
         "actual-approval-chronology",
         "rewrite-safety",
         "sha-mapping"
       ],
       "authority": "orchestrator",
-      "text": "Mechanical spec/plan progress records during approved execution need no new user approval. Changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval and preparation before affected work. In both cases Orchestrator MUST amend the original planning-document commit at a safe boundary; never create a separate docs or fixup commit. Preserve actual approval chronology, recoverable old/new content, hashes, versions and SHA mappings; never authorize past work retroactively. Rewrite only unpublished, unshared local linear history with clear ownership and no merges. Unknown publication/ownership, unexpected state or replay conflicts stop rewriting; no force push or fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. This obligation does not authorize amending implementation commits or rewriting history generally. Follow planning, handoff-prep, commit and verification for the full contract.",
+      "text": "Task progress records preserving the approved contract need no new user approval; Orchestrator includes the completed task's own records in its accepted implementation commit, without amending the original planning-document commit, creating history mappings or making a separate docs/fixup commit for them; record classification, reason and actual time as applicable. Spec/plan content changes other than task progress records require applicable approval and preparation; changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval and preparation before affected work. For these content changes Orchestrator MUST amend the original planning-document commit at a safe boundary; never create a separate docs or fixup commit. For these non-progress content amendments, preserve actual approval chronology, recoverable old/new content, hashes, versions and old→new SHA mappings; never authorize past work retroactively. For these amendments rewrite only unpublished, unshared local linear history with clear ownership and no merges. Unknown publication/ownership, unexpected state or replay conflicts stop rewriting; no force push or fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. This obligation does not authorize amending implementation commits or rewriting history generally. Follow planning, handoff-prep, commit and verification for the full contract.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
