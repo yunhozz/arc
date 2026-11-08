@@ -27,3 +27,5 @@ Confirmed completion or termination frees active capacity. Exhaustion holds crea
 Cumulative limits and scheduling are prompt policy, not hard runtime controls. Text tests prove package consistency, not live compliance/native support.
 Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.
 Independent sessions/accounts/platforms do not share the ledger. Agent Teams and hosted APIs are outside this contract. Verify native application separately in a supported new session.
+
+복합 플랫폼 경로도 위 한도와 실제 플랫폼 수용량을 각각 확인해야 합니다. 현재 역할 라우팅은 신뢰된 수용량·권한·모델/effort 관측 근거가 없어 예약 전에 보류하며, 슬롯이 확보됐거나 종료됐다고 추정하지 않습니다.

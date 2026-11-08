@@ -6,7 +6,8 @@ import {observeCooperativeTarget,validateObservedTarget,validateWorkflowId,workf
 import {saveDurableState} from './store.mjs';
 export const COOPERATIVE_RUNTIME_MODULES=Object.freeze([
  'cli.mjs','command.mjs','bootstrap.mjs','cooperative-schema.mjs','cooperative.mjs','evaluate.mjs',
- 'scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs','external.mjs','schema.mjs','operations.mjs','gate.mjs','adapters/codex.mjs','adapters/claude.mjs','capabilities.mjs','identity.mjs','git-query.mjs','target-preparation.mjs'
+ 'scope.mjs','store.mjs','git-evidence.mjs','assignment.mjs','verification.mjs','acceptance.mjs','external.mjs','schema.mjs','operations.mjs','gate.mjs','adapters/codex.mjs','adapters/claude.mjs','capabilities.mjs','identity.mjs','git-query.mjs','target-preparation.mjs',
+ 'local-cli.mjs','role-routing-config.mjs','role-routing.mjs','role-bridge.mjs'
 ]);
 export const cooperativeCoverage=()=>({enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false});
 export function commandResult({workflowId,state,input,decision='allow',ruleId='cooperative.recorded',persisted=false,...extra}){

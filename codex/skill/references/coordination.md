@@ -105,3 +105,9 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 - [role.reviewer-independent] Independently inspect assigned final changes and evidence, and report actionable findings and limits. Remain read-only: do not execute QA tests, edit files, perform Git mutations or decide acceptance.
 - [platform.codex] Role restrictions are prompt-level contracts, not a filesystem sandbox. ARC supplies no native observer hook or role-specific Git guard. Existing shell capabilities are retained because static read access after shell reduction has not been verified; Implementer and QA need shell for approved checks.
 [ARC role policy: contract end]
+
+## 복합 플랫폼 역할 사전 확인
+
+`Claude & Codex`에서 현재 세션이 Orchestrator를 유지합니다. 설치된 `$ARC_RUNTIME_ENTRY prepare-dispatch --cwd <절대 작업 트리> --workflow <워크플로 ID> --input -`에 JSON 객체의 `hostPlatform` (`codex` 또는 `claude`), `executionEnvironment` (`codex-cli`, `claude-cli`, `codex-desktop`, `claude-desktop`), `role` (`arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, `arc_reviewer`), `expectedRevision` (활성 구성 리비전)을 전달합니다. 호스트와 환경 값은 호출자의 주장일 뿐 호스트 증명이 아닙니다.
+
+현재 구현은 설치 준비·인증 상태와 별도로 실행 근거의 부재를 반환하며 모든 역할을 `held` / `unverified`로 보류합니다. 예약, 네이티브 에이전트 생성 또는 상대 CLI 실행을 수행하지 않습니다. `run-dispatch`, `observe`, `resume` 입력과 로컬 Hook을 신뢰된 실행·종료 근거로 취급하지 않으며, 이 명령은 확인된 예약과 실행 ID가 없으므로 `execution_identity_unverified` 사유와 함께 시작 전 보류를 반환합니다. 사유 및 해제 조건을 보고하고 근거가 생기기 전에는 다른 모델이나 플랫폼으로 대체하거나 임의로 재시도하지 않습니다.
