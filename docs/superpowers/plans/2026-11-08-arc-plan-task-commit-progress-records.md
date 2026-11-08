@@ -73,7 +73,7 @@
 
 **Interfaces:** canonical JSON 정책과 직접 작성된 지침이 두 플랫폼의 generated policy 및 runtime 사본으로 반영된다. 모든 변경은 이 하나의 승인된 Task에 속한다.
 
-- [ ] **Step 1: canonical 커밋 규칙 수정**
+- [x] **Step 1: canonical 커밋 규칙 수정**
 
   `git.orchestrator-accept-commit`은 해당 Task의 수락 이후 Orchestrator가 기록하는 진행·완료 내역이 그 Task의 구현물과 함께 한 개의 집중된 구현 커밋에 들어간다고 명시한다. 그 기록은 해당 Task에만 속하며 다른 Task 기록은 제외한다.
 
@@ -81,7 +81,7 @@
 
   **예상 결과:** canonical 규칙이 Task 수락·커밋 전제, no-change 처리, task 경계와 현재 amendment 보호 조건을 보존하며 두 커밋 경로를 명확히 구분한다.
 
-- [ ] **Step 2: Codex·Claude의 직접 작성 지침 정리**
+- [x] **Step 2: Codex·Claude의 직접 작성 지침 정리**
 
   양쪽 `SKILL.md`의 `Preservation rule`에서 모든 기계적 진행 기록에 amendment를 요구하는 표현을 제거하고, 실제 내용 수정과 Task 진행 기록의 차이를 반영한다.
 
@@ -93,7 +93,7 @@
 
   **예상 결과:** 수동 지침이 두 경우를 같은 의미로 설명하며 managed section과 상충하지 않는다.
 
-- [ ] **Step 3: 정책 projection·runtime 사본·manifest 생성**
+- [x] **Step 3: 정책 projection·runtime 사본·manifest 생성**
 
   Step 1–2 완료 후 workspace root에서 순서대로 실행한다.
 
@@ -107,7 +107,7 @@
 
   **예상 결과:** managed section은 canonical 정책과 일치하고 runtime 정책 사본 두 개는 원본과 일치하며, `MANIFEST.sha256`은 갱신된 보호 파일을 반영한다.
 
-- [ ] **Step 4: fresh QA로 정적 일관성 검토**
+- [x] **Step 4: fresh QA로 정적 일관성 검토**
 
   QA는 변경 diff에서 검토 초점 1–5와 위 수락 경로에 대한 근거를 파일·section 기준으로 보고하고 각 기준을 `proven`, `unmet`, `unverified`로 분류한다. 테스트는 실행하지 않는다. 다음의 생성물 동기화 및 diff 형식 검사는 테스트 suite 실행이 아니라 정적 검토에 사용한다.
 
@@ -122,11 +122,13 @@
 
   QA finding은 현재 Implementer가 수정하고 QA가 필요한 재확인을 한다. 필수 확인이 해결되지 않으면 acceptance를 보류한다.
 
-- [ ] **Step 5: Orchestrator 수락 및 한 개의 구현 커밋**
+- [x] **Step 5: Orchestrator 수락 및 한 개의 구현 커밋**
 
   기준, QA 근거, findings 해결 여부와 변경 범위를 검토해 Task를 수락한다. Orchestrator가 이 Task의 plan 진행 기록을 갱신하고, 해당 Task 구현물과 그 기록만을 함께 stage하여 한 개의 집중된 구현 커밋을 만든다. 다른 Task 기록과 무관한 사용자 변경은 보존한다.
 
   Task 진행 기록만을 위해 최초 spec/plan 커밋을 amend하거나 별도 docs/fixup 커밋을 만들지 않는다. accepted no-change인 경우 기존 no-change 경로를 따르고 빈 커밋을 만들지 않는다. 커밋 후 SHA·내용·HEAD·잔여 상태를 확인하고 canonical handoff를 갱신한다.
+
+  **Orchestrator Task 1 수락·완료 기록 (2026-11-09 00:08:57 KST):** QA 재확인에서 C1–C5가 모두 proven이고 finding이 없어 Task 1을 수락했다. `update-role-policy.mjs --check`(24 targets), `update-runtime-assets.mjs --check`(46 files), `update-manifest.mjs --check`(215 files), `git diff --check`가 모두 통과했다. 테스트는 추가하거나 실행하지 않았다. 분류: 승인된 Task 1의 task-owned 진행 기록이며 이 체크 표시와 결과를 Task 1 구현 커밋에 포함한다.
 
 #### 수락 기준
 
