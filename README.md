@@ -38,6 +38,10 @@ The TUI requires terminal input and output. It supports only `arc`, `arc --help`
 
 The Orchestrator uses the current conversation model. Specialist roles use the selected preset in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
 
+`Install / Update`와 `Change Preset`의 `Claude & Codex`에서 역할마다 플랫폼·모델·effort를 설정할 수 있습니다. Codex 선택에는 로컬 CLI 계정의 모델 목록이 필요합니다. Claude는 API 카탈로그가 없어도 모델 식별자와 effort를 직접 입력할 수 있으며, API 목록은 CLI 계정의 접근 권한을 증명하지 않습니다. 로그인 확인은 각 로컬 CLI의 상태 명령을 사용하므로 별도 API 키가 필요하지 않습니다.
+
+현재 복합 구성은 저장·활성화와 역할 실행 지원을 구분합니다. 신뢰된 실행 식별, 권한 강제, 실제 모델·effort 관측이 확인되지 않아 모든 역할 실행은 `held / unverified`로 보류됩니다. CLI와 Codex Desktop·Claude Desktop Code의 로컬 세션에서도 실행 지원을 추정하지 않습니다. 새 프로필이 적용되려면 해당 호스트의 새 세션과 별도 실행 근거가 필요합니다.
+
 ## Guides
 
 [Harness operation](docs/harness-operation.md) · [Codex guide](codex/skill/SKILL.md) · [Claude Code guide](claude/skill/SKILL.md)
