@@ -36,7 +36,7 @@ Verify creation in order:
 
 The tool copies no uncommitted changes. Transfer rules below apply only to existing approved documents in legacy/restart/explicit-target-change cases, not normal new documents.
 
-- Untracked approved documents must be absent from source HEAD/index, with working-tree bytes matching latest approval.
+- Untracked approved documents MUST be absent from source HEAD/index, with working-tree bytes matching latest approval.
 - Tracked documents require source index blob/mode equal to HEAD and working-tree bytes equal to latest approval. Approved working revisions may differ from HEAD/index. Do not stage source documents to repair or verify them.
 - Mismatches, unrelated staged changes, required uncommitted implementation/configuration/test changes or unclear ownership block preparation. Clearly unrelated unstaged/untracked changes stay in source.
 - Never automatically stash/commit/reset/clean/unstage or transfer dirty implementation. Transfer existing approved documents below before target document preparation.
@@ -47,7 +47,7 @@ The tool copies no uncommitted changes. Transfer rules below apply only to exist
 Only for existing approved documents in legacy/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:
 
 1. Verify existing approved commit SHA/message/paths/content and validity at base/target; reuse them.
-2. Copy only uncommitted approved spec/plan documents to the same relative paths. Never move/delete/modify source documents. Stop for destinations escaping the worktree, including symlinks. Target HEAD must equal selected source base SHA before transfer.
-3. Before replacing a destination, prove clean base state: no staged/unstaged changes, index/working bytes equal base. Documents absent from base must also be absent at destination. Never overwrite unexpected changes.
+2. Copy only uncommitted approved spec/plan documents to the same relative paths. Never move/delete/modify source documents. Stop for destinations escaping the worktree, including symlinks. Target HEAD MUST equal selected source base SHA before transfer.
+3. Before replacing a destination, prove clean base state: no staged/unstaged changes, index/working bytes equal base. Documents absent from base MUST also be absent at destination. Never overwrite unexpected changes.
 4. Verify approved bytes before reusing identical content; verify approved bytes after transfer.
 5. Record approvals, versions, evidence, absolute source and target paths, common relative paths and content checks. Changed content/approval scope needs revised approval. Transfer nothing else. Failure/partial transfer blocks dependent staging, commits and Implementer handoff.

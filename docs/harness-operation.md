@@ -131,7 +131,9 @@ After required checks/acceptance promptly commit one task without separate appro
 
 Significant plans receive one final Reviewer after task acceptance/QA, never each commit. No-plan review precedes acceptance. Omission gains no automatic commits. Task/final acceptance differ. Push/merge/publish/deploy need separate approval. Follow [Codex verification](../codex/skill/references/verification.md)/[commit](../codex/skill/references/commit.md) and [Claude verification](../claude/skill/references/verification.md)/[commit](../claude/skill/references/commit.md).
 
-Before initial final plan review, QA failure/unmet criteria follow Implementer→QA. Final whole Reviewer findings, including behavior, repeat Implementer→Reviewer without QA reassignment. Define follow-up/approvals, keep fixes uncommitted and supply current committed state/diff/files, then accept/commit one follow-up. Final QA stays Implementer→QA. No automatic original amend/reset/duplication.
+During approved execution, Orchestrator MUST amend the original planning-document commit for mechanical spec/plan progress and approved contract updates at a safe boundary; never create a separate docs/fixup commit. Preserve actual approval chronology, recoverable old/new contents, hashes, versions and SHA mappings. Rewrite only unpublished, unshared local linear history with no merges and clear ownership; unknown safety or replay conflicts stop the rewrite. This exception does not authorize amending implementation commits or general history rewriting.
+
+Complete required QA and QA failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every Reviewer finding, including behavior, repeats Implementer→Reviewer without QA reassignment until resolved. Define follow-up/approvals, keep fixes uncommitted and supply current committed state/diff/files, then accept/commit one focused follow-up. Separate QA findings remain Implementer→QA.
 
 Conventional Commits follow user/repository instructions. This repository requires concise, specific Korean descriptions; upstream English defaults do not override user instructions.
 
