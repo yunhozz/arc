@@ -14,7 +14,7 @@ Existing hook commands may therefore remain in settings. After an update or unin
 
 Policy bytes and the removal of hook-only functions change `policyHash` and `runtimeHash`. Cooperative workflows storing earlier hashes may hold at the existing `cooperative.versions` check. ARC does not automatically rewrite stored versions or Planner ledgers or reset workflows.
 
-General adapter and cooperative checks verify shared contracts using synthetic trusted context and temporary workflows. Distribution payload checks verify that hook-only assets are absent and the shared runtime remains present. These results do not prove that an actual host stopped a tool call. `plannerHookContextStatus` and capability diagnostics describe the context shared API consumers must supply and the limits of verification.
+General adapter and cooperative checks verify shared contracts using synthetic trusted context and temporary workflows. Distribution payload checks verify that hook-only assets are absent and the shared runtime remains present. These results do not prove that an actual host stopped a tool call. `plannerHookContextStatus` and capability diagnostics describe the context shared API consumers MUST supply and the limits of verification.
 
 ## Target preparation evidence
 

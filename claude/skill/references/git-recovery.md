@@ -26,4 +26,4 @@ Invalid names, creation/switch failures, lookup errors or unexpected branches re
 
 If canonical-record writing is denied/unavailable, stop it and report path/error. Never change permissions or bypass sandbox. Use [handoff](handoff.md)'s inline fallback.
 
-Orchestrator inspects related processes/ACLs read-only itself or assigns QA; Scouter/Planner/Reviewer cannot execute commands. Failed profile reapplication must restore replaced bytes/modes. If rollback fails, preserve recovery files/paths; never claim clean state or remove recovery material.
+Orchestrator inspects related processes/ACLs read-only itself or assigns QA; Scouter/Planner/Reviewer cannot execute commands. Failed profile reapplication MUST restore replaced bytes/modes. If rollback fails, preserve recovery files/paths; never claim clean state or remove recovery material.
