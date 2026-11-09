@@ -253,7 +253,7 @@ test('long role values use a compact preview when the full diagram does not fit'
 });
 
 async function openCompositeScreen(){
- const events=[{name:'down'},{name:'down'},{name:'enter'},...Array.from({length:6},()=>({name:'down'})),{name:'enter'},{name:'down'},{name:'enter'}],screens=[],catalogLoads=[],viewport={columns:200,rows:40};
+ const events=[{name:'down'},{name:'down'},{name:'enter'},...Array.from({length:8},()=>({name:'down'})),{name:'enter'},{name:'down'},{name:'enter'}],screens=[],catalogLoads=[],viewport={columns:200,rows:40};
  const session={viewport:()=>viewport,render:screen=>{const rendered=renderScreen(screen,viewport);screens.push({screen,rendered});return rendered;},nextEvent:async()=>events.shift()??{name:'eof'},setBusy(){},discardInput(){}};
  const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:role==='arc_planner'?'claude':'codex',model:role==='arc_planner'?'sonnet':'gpt-6-luna',effort:'high'}]));
  await runSetup({ui:createTuiInterface(session),statuses,draft:{},kind:'install',loadCatalog:async platform=>{catalogLoads.push(platform);return platform==='codex'?{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}],unavailable:[]}}:{status:'unavailable',code:'missing_api_key'};},loadCompositeConfig:async()=>({version:1,revision:'fixture',roles}),prepare:async()=>assert.fail('Back must not apply')});
@@ -275,11 +275,194 @@ test('composite mode accepts a manually entered Claude model when its API catalo
  const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}])),catalogLoads=[];let compositeVisits=0;
  const prepared=await runSetup({statuses,draft:{},kind:'install',ui:{busy:action=>action(),menu:async(title,rows)=>{
   if(title==='Install / Update')return 2;
-  if(title==='Claude & Codex')return compositeVisits++===0?0:5;
+  if(title==='Claude & Codex')return compositeVisits++===0?0:rows.indexOf('Apply');
   if(title.startsWith('Platform —'))return 1;
   if(title.startsWith('Claude model —')){assert.deepEqual(rows,['Enter model manually']);return 0;}
   if(title.startsWith('Claude effort —'))return 2;
   assert.fail('Unexpected menu '+title);
  },text:async title=>{assert.equal(title,'Claude model identifier');return 'claude-sonnet-4-20250514';},page:async()=>assert.fail('manual Claude entry should remain available')},loadCatalog:async platform=>{catalogLoads.push(platform);return platform==='codex'?{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}],unavailable:[]}}:{status:'unavailable',code:'missing_api_key'};},loadCompositeConfig:async()=>({version:1,revision:'fixture',roles}),prepare:async options=>options});
  assert.deepEqual(catalogLoads,['codex','claude']);assert.equal(prepared.target,'composite');assert.deepEqual(prepared.config.roles.arc_scouter,{platform:'claude',model:'claude-sonnet-4-20250514',effort:'high'});
+});
+
+for(const kind of ['install','preset'])test(`composite ${kind} starts with the requested platform roles and their preset values`,async()=>{
+ const prepared=await runSetup({statuses,draft:{},kind,loadPreviewConfig:platform=>({...models[platform],preset:platform==='codex'?'economy':'smart'}),ui:{menu:async(title,rows)=>{if(title!=='Claude & Codex')return 2;assert.ok(rows.includes('Preset: Balanced'));assert.ok(!rows.some(row=>/^(Codex|Claude) preset:/.test(row)));return rows.indexOf('Apply');},page:async()=>assert.fail('preset values should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'},{model:'gpt-6.1-sol',effort:'medium'},{model:'gpt-6.1-terra',effort:'high'}]}},loadCompositeConfig:async()=>null,prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,{
+  arc_scouter:{platform:'codex',model:'gpt-6-luna',effort:'high'},
+  arc_planner:{platform:'claude',model:'sonnet',effort:'xhigh'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'medium'},
+  arc_qa:{platform:'codex',model:'gpt-6.1-terra',effort:'high'},
+  arc_reviewer:{platform:'claude',model:'sonnet',effort:'high'},
+ });
+});
+
+for(const kind of ['install','preset'])for(const scenario of [
+ {preset:'Economy',expected:{arc_scouter:{platform:'codex',model:'gpt-6-luna',effort:'medium'},arc_planner:{platform:'claude',model:'sonnet',effort:'high'},arc_implementer:{platform:'codex',model:'gpt-6.1-terra',effort:'medium'},arc_qa:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_reviewer:{platform:'claude',model:'sonnet',effort:'medium'}}},
+ {preset:'Smart',expected:{arc_scouter:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},arc_planner:{platform:'claude',model:'opus',effort:'high'},arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},arc_qa:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},arc_reviewer:{platform:'claude',model:'sonnet',effort:'xhigh'}}},
+])test(`composite ${kind} merges ${scenario.preset} across platforms without a Claude catalog`,async()=>{
+ let visits=0;
+ const prepared=await runSetup({statuses,draft:{},kind,ui:{menu:async(title,rows)=>{
+  if(title===(kind==='install'?'Install / Update':'Change Preset'))return 2;
+  if(title==='Claude & Codex'){
+   assert.ok(!rows.some(row=>/^(Codex|Claude) preset:/.test(row)));const index=visits++===0?rows.findIndex(row=>row.startsWith('Preset:')):rows.indexOf('Apply');
+   assert.ok(index>=0,'integrated preset must be selectable');return index;
+  }
+  if(title==='Preset'){assert.deepEqual(rows,['Economy','Balanced','Smart']);return rows.indexOf(scenario.preset);}
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('selected Codex pairs should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'medium'},{model:'gpt-6.1-terra',effort:'medium'},{model:'gpt-6-luna',effort:'high'},{model:'gpt-6.1-sol',effort:'high'}]}},loadCompositeConfig:async()=>null,prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,scenario.expected);
+});
+
+test('composite keeps existing role assignments and values when no preset is selected',async()=>{
+ const roles={arc_scouter:{platform:'claude',model:'claude-manual',effort:'max'},arc_planner:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_implementer:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_qa:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_reviewer:{platform:'claude',model:'claude-other',effort:'low'}},before=structuredClone(roles);
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows)=>title==='Claude & Codex'?rows.indexOf('Apply'):2,page:async()=>assert.fail('existing configuration should be valid')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}]}},loadCompositeConfig:async()=>({version:1,revision:'existing',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,before);assert.deepEqual(roles,before);
+});
+
+test('composite legacy all-Codex values remain unchanged without a preset selection',async()=>{
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}])),before=structuredClone(roles);
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows)=>title==='Claude & Codex'?rows.indexOf('Apply'):2,page:async()=>assert.fail('existing configuration should be valid')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}]}},loadCompositeConfig:async()=>({version:1,revision:'legacy',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,before);assert.deepEqual(roles,before);
+});
+
+test('composite preset selection preserves an existing mixed platform assignment',async()=>{
+ const roles={arc_scouter:{platform:'claude',model:'claude-manual',effort:'max'},arc_planner:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_implementer:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_qa:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_reviewer:{platform:'claude',model:'claude-other',effort:'low'}},before=structuredClone(roles);let visits=0;
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows)=>{
+  if(title==='Change Preset')return 2;
+  if(title==='Claude & Codex'){assert.ok(rows.includes('Use default role mapping'));const index=visits++===0?rows.findIndex(row=>row.startsWith('Preset:')):rows.indexOf('Apply');assert.ok(index>=0);return index;}
+  if(title==='Preset')return rows.indexOf('Smart');
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('selected Codex values should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-astra',effort:'high'},{model:'gpt-6.1-sol',effort:'high'}]}},loadCompositeConfig:async()=>({version:1,revision:'mixed',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,{
+  arc_scouter:{platform:'claude',model:'sonnet',effort:'high'},
+  arc_planner:{platform:'codex',model:'gpt-6-astra',effort:'high'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_qa:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_reviewer:{platform:'claude',model:'sonnet',effort:'xhigh'},
+ });assert.deepEqual(roles,before);
+});
+
+for(const scenario of [
+ {preset:'Smart',expected:{
+  arc_scouter:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_planner:{platform:'codex',model:'gpt-6-astra',effort:'high'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_qa:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_reviewer:{platform:'codex',model:'gpt-6.1-sol',effort:'xhigh'},
+ }},
+ {preset:'Economy',expected:{
+  arc_scouter:{platform:'codex',model:'gpt-6-luna',effort:'medium'},
+  arc_planner:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-terra',effort:'medium'},
+  arc_qa:{platform:'codex',model:'gpt-6-luna',effort:'high'},
+  arc_reviewer:{platform:'codex',model:'gpt-6.1-sol',effort:'medium'},
+ }},
+])test(`composite legacy all-Codex mapping stays intact when ${scenario.preset} is selected`,async()=>{
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}])),before=structuredClone(roles);let visits=0;
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows)=>{
+  if(title==='Change Preset')return 2;
+  if(title==='Claude & Codex'){const index=visits++===0?rows.findIndex(row=>row.startsWith('Preset:')):rows.indexOf('Apply');assert.ok(index>=0);return index;}
+  if(title==='Preset')return rows.indexOf(scenario.preset);
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('merged Codex values should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'},{model:'gpt-6-luna',effort:'medium'},{model:'gpt-6.1-sol',effort:'medium'},{model:'gpt-6.1-sol',effort:'high'},{model:'gpt-6.1-sol',effort:'xhigh'},{model:'gpt-6-astra',effort:'high'},{model:'gpt-6.1-terra',effort:'medium'}]}},loadCompositeConfig:async()=>({version:1,revision:'legacy',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,scenario.expected);assert.deepEqual(roles,before);
+});
+
+test('composite explicitly restores the default role mapping using the selected integrated preset',async()=>{
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}])),before=structuredClone(roles);let visits=0;
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',loadPreviewConfig:platform=>platform==='codex'?{...models.codex,preset:'economy'}:models.claude,ui:{menu:async(title,rows)=>{
+  if(title==='Change Preset')return 2;
+  if(title==='Claude & Codex'){
+   const step=visits++;
+   if(step===0){const index=rows.findIndex(row=>row.startsWith('Preset:'));assert.ok(index>=0);return index;}
+   if(step===1){assert.ok(rows.includes('Use default role mapping'));return rows.indexOf('Use default role mapping');}
+   assert.ok(!rows.includes('Use default role mapping'));return rows.indexOf('Apply');
+  }
+  if(title==='Preset')return rows.indexOf('Smart');
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('merged Codex values should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6.1-sol',effort:'high'}]}},loadCompositeConfig:async()=>({version:1,revision:'legacy',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,{
+  arc_scouter:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_planner:{platform:'claude',model:'opus',effort:'high'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_qa:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_reviewer:{platform:'claude',model:'sonnet',effort:'xhigh'},
+ });assert.deepEqual(roles,before);
+});
+
+test('composite default role mapping uses Balanced when no integrated preset has been selected',async()=>{
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));let visits=0;
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',loadPreviewConfig:platform=>({...models[platform],preset:platform==='codex'?'economy':'smart'}),ui:{menu:async(title,rows)=>{
+  if(title==='Change Preset')return 2;
+  if(title==='Claude & Codex')return visits++===0?rows.indexOf('Use default role mapping'):rows.indexOf('Apply');
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('Balanced Codex values should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'},{model:'gpt-6-luna',effort:'medium'},{model:'gpt-6.1-sol',effort:'medium'},{model:'gpt-6.1-terra',effort:'high'},{model:'gpt-6.1-terra',effort:'medium'}]}},loadCompositeConfig:async()=>({version:1,revision:'legacy',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,{
+  arc_scouter:{platform:'codex',model:'gpt-6-luna',effort:'high'},
+  arc_planner:{platform:'claude',model:'sonnet',effort:'xhigh'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'medium'},
+  arc_qa:{platform:'codex',model:'gpt-6.1-terra',effort:'high'},
+  arc_reviewer:{platform:'claude',model:'sonnet',effort:'high'},
+ });
+});
+
+test('composite default role mapping keeps the selected preset after a manual role edit',async()=>{
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));let visits=0;
+ const prepared=await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows)=>{
+  if(title==='Change Preset')return 2;
+  if(title==='Claude & Codex'){
+   const step=visits++;if(step===0){const index=rows.findIndex(row=>row.startsWith('Preset:'));assert.ok(index>=0);return index;}
+   if(step===1)return 0;if(step===2)return rows.indexOf('Use default role mapping');return rows.indexOf('Apply');
+  }
+  if(title==='Preset')return rows.indexOf('Smart');
+  if(title==='Platform — Scouter')return 0;
+  if(title==='Codex model — Scouter')return rows.indexOf('gpt-6-luna');
+  if(title==='Codex effort — Scouter')return rows.indexOf('high');
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('Smart Codex values should be available')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'},{model:'gpt-6.1-sol',effort:'high'},{model:'gpt-6.1-sol',effort:'xhigh'},{model:'gpt-6-astra',effort:'high'}]}},loadCompositeConfig:async()=>({version:1,revision:'legacy',roles}),prepare:async options=>options});
+ assert.deepEqual(prepared.config.roles,{
+  arc_scouter:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_planner:{platform:'claude',model:'opus',effort:'high'},
+  arc_implementer:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_qa:{platform:'codex',model:'gpt-6.1-sol',effort:'high'},
+  arc_reviewer:{platform:'claude',model:'sonnet',effort:'xhigh'},
+ });
+});
+
+test('composite default mapping action and footer retain correct selection in wide and compact views',async()=>{
+ const roles={arc_scouter:{platform:'claude',model:'claude-manual',effort:'max'},arc_planner:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_implementer:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_qa:{platform:'codex',model:'gpt-6-luna',effort:'high'},arc_reviewer:{platform:'claude',model:'claude-other',effort:'low'}};let targets=0,observed=false;
+ await runSetup({statuses,draft:{},kind:'preset',ui:{menu:async(title,rows,options)=>{
+  if(title==='Change Preset')return targets++===0?2:null;
+  if(title==='Claude & Codex'){
+   observed=true;assert.ok(rows.includes('Use default role mapping'));
+   for(const viewport of [{columns:200,rows:40},{columns:40,rows:16}]){
+    for(let selected=0;selected<=rows.length;selected++){
+     const body=options.renderBody({selected,blink:true,...viewport}),rendered=renderScreen({title:'Claude & Codex',...body},viewport);
+     assert.equal(rendered.selectionEnabled,true,JSON.stringify({viewport,selected,row:body.rows[body.selected]}));
+     if(selected<5){const role=['Scouter','Planner','Implementer','QA','Reviewer'][selected];assert.match(body.rows[body.selected],new RegExp(viewport.columns===200?`> ${role}`:`^${role}:`));}
+     else assert.equal(body.rows[body.selected],selected===rows.length?'Back':rows[selected]);
+     const apply=body.rows.indexOf('Apply');assert.equal(body.rows[apply+1],'Back');
+    }
+   }
+   return null;
+  }
+  assert.fail('Unexpected menu '+title);
+ },page:async()=>assert.fail('catalog should be valid')},loadCatalog:async platform=>platform==='claude'?{status:'unavailable',code:'missing_api_key'}:{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}]}},loadCompositeConfig:async()=>({version:1,revision:'mixed',roles}),prepare:async()=>assert.fail('Back must not apply')});
+ assert.ok(observed);
+});
+
+test('composite custom preset preview keeps role values aligned when keys are reversed',()=>{
+ const config={...structuredClone(models.claude),version:2,preset:'custom',custom:{
+  arc_reviewer:{model:'reviewer-model',effort:'max'},
+  arc_qa:{model:'qa-model',effort:'xhigh'},
+  arc_implementer:{model:'implementer-model',effort:'high'},
+  arc_planner:{model:'planner-model',effort:'medium'},
+  arc_scouter:{model:'scouter-model',effort:'low'},
+ }};
+ assert.deepEqual(setup.presetRoleRows(config,'custom'),[
+  {role:'Scouter',model:'scouter-model',effort:'low'},
+  {role:'Planner',model:'planner-model',effort:'medium'},
+  {role:'Implementer',model:'implementer-model',effort:'high'},
+  {role:'QA',model:'qa-model',effort:'xhigh'},
+  {role:'Reviewer',model:'reviewer-model',effort:'max'},
+ ]);
 });
