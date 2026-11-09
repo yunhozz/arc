@@ -2,6 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import * as setup from '../../lib/tui/setup.mjs';
+import {createTuiInterface} from '../../lib/tui/app.mjs';
+import {renderScreen} from '../../lib/tui/render.mjs';
 import {loadModelConfig} from '../../lib/models/index.mjs';
 const {initialSettings,setupOptions}=setup;
 const packageRoot=fileURLToPath(new URL('../../',import.meta.url));
@@ -248,4 +250,27 @@ test('long role values use a compact preview when the full diagram does not fit'
  const roles=setup.presetRoleRows(models.codex,'balanced');roles[0].model='a-very-long-model-identifier-that-must-remain-visible';
  const small=setup.presetPreviewRows(roles,{columns:80,rows:24,compact:true}).join('\n');assert.doesNotMatch(small,/requires.*columns/i);assert.match(small,/Scouter:/);assert.match(small,/Reviewer:/);assert.doesNotMatch(small,/Orchestrator|[├└]─/);assert.ok(small.includes('a-very-long-model-identifier-that-must-remain-visible'));
  const large=setup.presetPreviewRows(roles,{columns:200,rows:30}).join('\n');assert.match(large,/┌/);assert.match(large,/a-very-long-model-identifier-that-must-remain-visible/);
+});
+
+async function openCompositeScreen(){
+ const events=[{name:'down'},{name:'down'},{name:'enter'},...Array.from({length:6},()=>({name:'down'})),{name:'enter'},{name:'down'},{name:'enter'}],screens=[],catalogLoads=[],viewport={columns:200,rows:40};
+ const session={viewport:()=>viewport,render:screen=>{const rendered=renderScreen(screen,viewport);screens.push({screen,rendered});return rendered;},nextEvent:async()=>events.shift()??{name:'eof'},setBusy(){},discardInput(){}};
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:role==='arc_planner'?'claude':'codex',model:role==='arc_planner'?'sonnet':'gpt-6-luna',effort:'high'}]));
+ await runSetup({ui:createTuiInterface(session),statuses,draft:{},kind:'install',loadCatalog:async platform=>{catalogLoads.push(platform);return platform==='codex'?{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}],unavailable:[]}}:{status:'unavailable',code:'missing_api_key'};},loadCompositeConfig:async()=>({version:1,revision:'fixture',roles}),prepare:async()=>assert.fail('Back must not apply')});
+ return {screen:screens.find(({screen})=>screen.title==='Claude & Codex').screen,catalogLoads};
+}
+
+test('composite menu keeps Apply adjacent to Back',async()=>{
+ const rows=(await openCompositeScreen()).screen.rows,apply=rows.lastIndexOf('Apply');
+ assert.ok(apply>=0);assert.equal(rows[apply+1],'Back');
+});
+
+test('composite menu renders the Codex and Claude role diagram',async()=>{
+ const {screen}=await openCompositeScreen(),rows=screen.rows.join('\n');
+ assert.match(screen.rows[0],/^┌/);assert.doesNotMatch(rows,/(?:Codex|Claude): |Claude catalog:|Role execution:/);
+ assert.match(rows,/┌/);assert.match(rows,/Orchestrator/);assert.match(rows,/Codex \/ gpt-6-luna/);assert.match(rows,/Claude \/ sonnet/);
+});
+
+test('composite screen skips the Claude catalog lookup when status is hidden',async()=>{
+ assert.deepEqual((await openCompositeScreen()).catalogLoads,['codex']);
 });
