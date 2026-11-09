@@ -74,6 +74,7 @@ Codex와 Claude 모델·effort를 패키지 안의 고정 목록에서 선택하
 - 다섯 변경 `.mjs`의 `node --check`, `git diff --check`, `node scripts/update-manifest.mjs --check`가 통과했다. 매니페스트는 231개 파일을 확인했다.
 - 테스트 파일은 수정·추가하지 않았고 테스트 명령도 실행하지 않았다.
 - 실제 TUI 이동·배치, 런타임 외부 호출 관측, 계정별 모델 접근 및 역할 실행은 `unverified`로 남긴다.
+- 독립 Reviewer의 첫 검토에서 C2 재진입 매핑과 C5 좁은 화면/긴 기존 값 표시 문제를 찾았다. 미커밋 수정 후 같은 Reviewer가 두 문제의 해결과 나머지 diff를 재확인했으며 추가 발견 사항은 없었다.
 
 ### 수용 및 검토
 
