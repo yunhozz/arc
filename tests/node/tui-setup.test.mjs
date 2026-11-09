@@ -271,6 +271,15 @@ test('composite menu renders the Codex and Claude role diagram',async()=>{
  assert.match(rows,/┌/);assert.match(rows,/Orchestrator/);assert.match(rows,/Codex \/ gpt-6-luna/);assert.match(rows,/Claude \/ sonnet/);
 });
 
-test('composite screen skips the Claude catalog lookup when status is hidden',async()=>{
- assert.deepEqual((await openCompositeScreen()).catalogLoads,['codex']);
+test('composite mode accepts a manually entered Claude model when its API catalog is unavailable',async()=>{
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}])),catalogLoads=[];let compositeVisits=0;
+ const prepared=await runSetup({statuses,draft:{},kind:'install',ui:{busy:action=>action(),menu:async(title,rows)=>{
+  if(title==='Install / Update')return 2;
+  if(title==='Claude & Codex')return compositeVisits++===0?0:5;
+  if(title.startsWith('Platform —'))return 1;
+  if(title.startsWith('Claude model —')){assert.deepEqual(rows,['Enter model manually']);return 0;}
+  if(title.startsWith('Claude effort —'))return 2;
+  assert.fail('Unexpected menu '+title);
+ },text:async title=>{assert.equal(title,'Claude model identifier');return 'claude-sonnet-4-20250514';},page:async()=>assert.fail('manual Claude entry should remain available')},loadCatalog:async platform=>{catalogLoads.push(platform);return platform==='codex'?{status:'ready',catalog:{platform:'codex',pairs:[{model:'gpt-6-luna',effort:'high'}],unavailable:[]}}:{status:'unavailable',code:'missing_api_key'};},loadCompositeConfig:async()=>({version:1,revision:'fixture',roles}),prepare:async options=>options});
+ assert.deepEqual(catalogLoads,['codex','claude']);assert.equal(prepared.target,'composite');assert.deepEqual(prepared.config.roles.arc_scouter,{platform:'claude',model:'claude-sonnet-4-20250514',effort:'high'});
 });
