@@ -68,17 +68,17 @@ Codex CLI는 계정별 모델 카탈로그에서 추가 effort를 제공할 수 
 
 ### 단일 플랫폼 모델 선택
 
-단일 플랫폼의 모델 및 Custom preset 화면은 해당 플랫폼 JSON에서 모델과 effort를 선택한다. 모델별로 등록된 effort 외의 값은 표시하지 않는다. 직접 입력 화면은 제공하지 않는다.
+단일 플랫폼의 모델 및 Custom preset 화면은 해당 플랫폼 JSON에서 모델과 effort를 선택한다. 모델별로 등록된 effort 외의 값은 표시하지 않는다. 직접 입력 화면은 제공하지 않는다. 역할별 `Select model` 창에는 `Static candidates`, `Current model`, `Current effort` 안내 행을 표시하지 않고, 현재 선택 후보의 모델 및 effort 상세만 표시한다.
 
 ### 혼합 프리셋
 
-`Install / Update`와 `Change Preset`의 `Claude & Codex` 화면은 동일한 혼합 설정 흐름을 사용한다. `Preset` 선택지는 `Economy`, `Balanced`, `Smart`, `Custom` 순서다.
+`Install / Update`와 `Change Preset`에서 `Claude & Codex`를 선택하면 먼저 단일 플랫폼과 같은 `Performance preset` 선택 화면을 연다. 이 화면은 `Economy`, `Balanced`, `Smart`, `Custom`을 이 순서로 표시하고, 기본 프리셋 미리보기는 역할별 현재 플랫폼의 값을 사용한다. 기본 프리셋 선택은 복합 역할 편집 초안을 갱신한 뒤 역할 화면으로 이동한다. `Custom`은 `Custom preset` 역할 다이어그램을 열고, 내부 Apply 후 역할 화면으로 이동한다. 역할 화면의 바깥 Apply에서만 저장 준비를 시작한다.
 
 기본 프리셋 미리보기와 선택은 현재 각 역할의 플랫폼을 유지하고 해당 플랫폼의 기본 프리셋 모델·effort를 사용한다. `Custom` 미리보기는 현재 역할 배정을 보여 준다. 혼합 화면에서 역할을 직접 편집할 때는 해당 플랫폼 JSON의 모델·effort 조합만 선택할 수 있다. Claude의 `Enter model manually` 및 `Claude model identifier` 입력 화면은 제거한다.
 
 ### 혼합 Custom 편집
 
-`Custom`을 선택하면 현재 다섯 역할의 배정을 복사해 `Custom preset` 화면을 연다. 화면은 각 역할의 플랫폼, 모델, effort를 표시한다. 역할의 모델과 effort를 편집할 때 그 역할의 현재 플랫폼 JSON만 사용한다. 플랫폼 변경은 혼합 화면의 기존 역할 편집에서 수행한다.
+`Custom`을 선택하면 현재 다섯 역할의 배정을 복사해 `Custom preset` 화면을 연다. 화면은 각 역할의 플랫폼, 모델, effort를 표시한다. 역할의 모델과 effort를 편집할 때 그 역할의 현재 플랫폼 JSON만 사용한다. 내부 Apply 후 역할 편집 화면에서 플랫폼을 변경할 수 있다.
 
 Custom 편집 화면의 `Apply`는 모든 역할 조합을 검증하고 성공하면 혼합 화면의 초안만 갱신하며 `Preset: Custom`으로 표시한다. `Back`은 편집 화면의 변경을 버린다. 설정 파일 반영은 바깥 `Claude & Codex` 화면의 `Apply`에서 시작한다.
 
@@ -94,7 +94,7 @@ Custom 상태에서 `Use default role mapping`을 선택하면 플랫폼이 그�
 
 | ID | 기준 | 검증 근거 |
 |---|---|---|
-| C1 | 두 진입점의 혼합 `Preset` 메뉴가 네 선택지를 지정된 순서로 표시하고, `Custom`에서 `Custom preset` 화면으로 이동한다. | TUI 메뉴 구성 및 분기 소스 대조 |
+| C1 | 두 진입점에서 `Claude & Codex`를 선택하면 먼저 `Performance preset` 화면이 열리고 네 선택지를 지정된 순서로 표시한다. 기본 프리셋은 역할 편집으로, `Custom`은 `Custom preset` 다이어그램으로 이동한다. | TUI 메뉴 구성 및 분기 소스 대조 |
 | C2 | 기본 프리셋은 현재 역할 플랫폼을 유지한다. Custom 편집의 `Back`은 변경을 버리고, 내부 `Apply`는 초안만 갱신하며, 바깥 `Apply`에서만 저장 작업을 준비한다. | 역할 상태 복사·취소·적용 및 저장 호출 위치 대조 |
 | C3 | Codex 8개 모델 46쌍, Claude 15개 모델 이름 73쌍이 표 및 공식 근거와 일치하며 기본 프리셋 조합 전체를 포함한다. `none`은 명시된 여섯 Codex 모델에만 표시된다. 모든 선택 메뉴가 모델별 effort를 제한하며 양 플랫폼에 모델 수동 입력 화면이 없다. | JSON과 `models.toml`, 공식 모델 문서, 메뉴 생성 및 입력 분기 대조 |
 | C4 | 목록 표시부터 혼합 설정 게시 전까지 Anthropic 모델 API와 Codex `model/list` 호출 경로가 없다. 준비·쓰기 전·게시 전 검증이 두 정적 JSON을 사용한다. | 메뉴부터 `prepareCompositeOperation` 및 `executeCompositeOperation`까지 호출 경로 대조 |
