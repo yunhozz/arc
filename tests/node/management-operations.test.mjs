@@ -61,3 +61,14 @@ test('active dispatch message is surfaced',async t=>{
  assert.ok(result.messages.includes('Active bridge dispatches: active-1'),JSON.stringify(result.messages));
  assert.equal(fs.existsSync(ctx.userHome+'/.codex/arc-role-platform-routing.json'),false);
 });
+
+test('composite operation results no longer report held / unverified and point to routing-status',async t=>{
+ const ctx=context(t),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-astra',effort:'low'}])),config={version:1,revision:'rev-1',roles};
+ const {installFakeCli}=await import('./role-fixtures.mjs'),bin=ctx.userHome+'/bin';for(const platform of ['codex','claude'])await installFakeCli(t,bin,platform);ctx.env={PATH:bin+':/usr/bin:/bin'};
+ const prepared=await api.prepareCompositeOperation(ctx,{kind:'install',config});
+ assert.doesNotMatch(JSON.stringify(prepared.summary),/held and unverified/);
+ assert.ok(prepared.summary.includes('Per-role execution support is reported by routing-status.'),JSON.stringify(prepared.summary));
+ const result=await api.executeOperation(ctx,prepared);
+ assert.doesNotMatch(JSON.stringify(result),/held \/ unverified/);
+ assert.match(result.support.reason,/routing-status/);
+});

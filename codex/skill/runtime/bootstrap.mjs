@@ -18,7 +18,7 @@ export async function cooperativeVersions(){
  const hash=bytes=>'sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
  let policy;try{policy=await fs.readFile(new URL('../policy/role-policy.json',import.meta.url));}catch(error){if(error.code!=='ENOENT')throw error;policy=await fs.readFile(new URL('./role-policy.json',import.meta.url));}
  const runtime=await Promise.all(COOPERATIVE_RUNTIME_MODULES.map(file=>fs.readFile(new URL(file,import.meta.url))));
- return {policy:'1',runtime:'cooperative-6',policyHash:hash(policy),runtimeHash:hash(Buffer.concat(runtime))};
+ return {policy:'1',runtime:'cooperative-7',policyHash:hash(policy),runtimeHash:hash(Buffer.concat(runtime))};
 }
 export async function initializeCooperativeWorkflow({cwd,workflowId,input,observe=observeCooperativeTarget,storage={}}){
  validateWorkflowId(workflowId);validateCooperativeCommand({command:'init',input});

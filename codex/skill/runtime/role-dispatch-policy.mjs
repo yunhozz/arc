@@ -46,7 +46,7 @@ export const RELEASE_CONDITIONS = Object.freeze({
   'Not Avaliable': 'Install the target platform CLI so that it is found on PATH.',
   Unauthorized: 'Authenticate the target platform CLI.',
   Incomplete: 'Make the target platform CLI authentication status check complete successfully.',
-  environment_unverified: 'Record a passed manual checklist for this desktop environment.',
+  environment_unverified: 'Desktop hosts are held in this release; use a CLI host or a later ARC update that changes the support status.',
   host_sandbox_blocked: 'Allow the host to write the Codex home and keep a detached supervisor alive, with explicit user approval.',
   capacity_exhausted: 'Finish or release active bridge executions, or raise the host limits.',
   permission_scope_unverified: 'Use a supported CLI version or update ARC, and verify enforcement of the role permissions and approved scope before starting.',

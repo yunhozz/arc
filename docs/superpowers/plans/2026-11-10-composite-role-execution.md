@@ -693,31 +693,31 @@
   - README의 해당 문단도 같은 등급으로 고칩니다.
 - `operations.mjs`: `'Role execution: held / unverified.'`를 `'Role execution: per-role status via routing-status.'`로 바꾸고, `:76`의 `support` 사유 문구도 같은 의미로 바꿉니다.
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/composite-instructions.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/composite-instructions.test.mjs`)
   - `both coordination references define Composite Platform Role Dispatch with the six commands, native names and planning link`: 각 파일에 `routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`, `arc-routing-`(claude)·`arc_routing_`(codex), `planning.md#`가 있고, `Composite Platform Role Preflight`는 없어야 합니다.
   - `the two harness sections state the same rules`: 정규화한 규칙 문장 목록(플랫폼 이름 치환 후)이 같습니다.
   - `incorrect statements are removed`: "does not … start the peer CLI", "this command holds before launch with reason `execution_identity_unverified`"가 없어야 합니다.
   - `limits and handoff references mention bridge counting, unknown slot retention, fixed timeouts, 30-day pruning, resultPath and stdin-only brief`
   - `operations result no longer reports held / unverified`(`management-operations.test.mjs` 단언 추가)
   - `runtime-versions.test.mjs`: `'cooperative-7'`
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
   - 실행: `node --test tests/node/composite-instructions.test.mjs tests/node/runtime-versions.test.mjs tests/node/management-operations.test.mjs`
   - 기대: FAIL
-- [ ] **Step 3: 지침, 문서, 문구, 버전 수정**
-- [ ] **Step 4: 옵트인 스모크 작성** (`tests/node/composite-live.test.mjs`)
+- [x] **Step 3: 지침, 문서, 문구, 버전 수정**
+- [x] **Step 4: 옵트인 스모크 작성** (`tests/node/composite-live.test.mjs`)
   - 실제 PATH의 CLI를 쓰고, 임시 git 저장소와 실제 사용자 홈을 사용합니다. 기존 활성 설정이 필요하며, 없으면 skip 사유를 출력합니다.
   - 케이스: 호스트 claude → codex bridge, 호스트 codex → claude bridge 각각에 대해
     - Planner(읽기 전용) 완료, claims model `runtime-observed`
     - Implementer 쓰기 1건이 `allowedPaths` 안에서 완료
     - resume 1회
     - 자식 transcript·rollout에 ARC `SKILL.md` 로드 흔적이 없음(재귀 없음)
-- [ ] **Step 5: GREEN 확인** Step 2 명령이 PASS, `npm run check:role-policy`가 종료 0
-- [ ] **Step 6: 등록(R)과 회귀 확인**
+- [x] **Step 5: GREEN 확인** Step 2 명령이 PASS, `npm run check:role-policy`가 종료 0
+- [x] **Step 6: 등록(R)과 회귀 확인**
   - `npm test`가 G0 대비 새 실패 없음이고, 스모크는 skip으로 표시되어야 합니다.
-- [ ] **Step 7: 실제 스모크 실행** (QA, 모델 호출 비용 발생)
+- [x] **Step 7: 실제 스모크 실행** (QA, 모델 호출 비용 발생)
   - 실행: `ARC_LIVE_CLI_TESTS=1 node --test tests/node/composite-live.test.mjs`
   - 기대: PASS. 실패하면 수용을 보류하고 결과를 기록합니다.
-- [ ] **Step 8: 수용 후 커밋** (Orchestrator) `docs(arc): 복합 역할 실행 지침과 런타임 버전 상향`
+- [x] **Step 8: 수용 후 커밋** (Orchestrator) `docs(arc): 복합 역할 실행 지침과 런타임 버전 상향`
 
 **필수 QA (fresh):**
 - Step 2·5·6·7을 재실행합니다.
@@ -727,6 +727,9 @@
 **보류 조건:**
 - 실제 스모크에서 G 결과와 다른 동작이 관측되면 정책 상수를 고치지 말고 Orchestrator에 반환합니다.
 - CLI가 미인증이면 스모크를 보류하고 그 사실을 기록합니다.
+
+
+**진행 기록 (2026-11-11, 분류: task progress record):** T6 수용. 두 하네스 지침(`coordination.md` "Composite Platform Role Dispatch", `limits.md`, `handoff.md`)을 실제 동작에 맞췄고, 문서와 결과 문구, `cooperative-7` 상향과 마이그레이션 안내, 옵트인 실제 스모크를 추가했습니다. QA의 지침·코드 대조에서 나온 불일치 F1–F8·F10·N1을 수정했고, Desktop의 `supportStatus`를 `unverified`로 제한했으며, 결과 문구의 버전은 하드코딩하지 않고 동적으로 만듭니다. 재검증 결과 신규 실패는 0입니다. Step 7은 사용자 승인에 따라 Orchestrator가 사용자 홈에 통합 모드(revision 3d9d7106-81e8-47a7-9cd1-a278ba2e2ae3)를 설치한 뒤 QA가 1회 실행해 통과했습니다(3 pass, 1 skip, Codex 호출 3회, 남은 비터미널 lease 0). 미검증: 현재 구성에서는 Claude bridge 자식과 Claude transcript 검사에 도달하지 않음, 테스트 타임아웃 뒤 정리 경로, `docs/runtime/planner-hook-context.md`의 cooperative-6 서술(범위 밖).
 
 ---
 

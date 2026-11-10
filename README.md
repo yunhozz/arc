@@ -42,7 +42,7 @@ In `Claude & Codex` under `Install / Update` and `Change Preset`, choose `Econom
 
 Model and effort choices come from the packaged Codex and Claude catalogs, without a model-list API call or a separate API key. They are static candidates and do not establish that an account, CLI version, or provider can use a selection. A saved model and effort absent from the catalog remains visible and must be reselected before applying new settings. Login checks continue to use each local CLI's status command.
 
-The composite configuration separates saving and activation from role execution support. Every role remains `held / unverified` because trusted execution identity, permission enforcement, and observation of the actual model and effort have not been established. Do not infer execution support for CLI sessions or local Codex Desktop and Claude Desktop Code sessions. Applying a new profile requires a new session on that host and separate execution evidence.
+The composite configuration separates saving and activation from role execution. Role execution support is reported per role and environment by `routing-status`: `claude-cli` hosts are supported (Claude bridge Implementer and QA are held as `permission_scope_unverified`), `codex-cli` hosts support native routes while bridges are held as `host_sandbox_blocked`, and on Codex Desktop and Claude Desktop Code sessions every role (native and bridge) is held as `environment_unverified` in this release (the manual checklist in `docs/harness-operation.md` is a list of manual checks for a future ARC update, not a way to release the hold). Applying a new profile requires a new session on that host, and the `cooperative-7` runtime requires running Install / Update again.
 
 ## Guides
 

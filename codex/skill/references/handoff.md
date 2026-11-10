@@ -218,3 +218,8 @@ Git OIDs are full lowercase 40/64-character hex; artifactHash is `sha256:<64-hex
 `result`/`reconcile` accept `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {operation, scope, descriptor}}}`, with prepare requestId as intentId. Mismatch/unknown/stale outcomes hold while preserving attestations. After interruption inspect intent/`state.requests`/`state.audit`/`state.results` through `status` and investigate actual effects. Reconcile that same intent, not fresh preparation or replayed approvals.
 
 Cancellation also requires `notExecutedEvidence: {messageRef}`; approval remains consumed. No automatic update/migration/renewed permission to fix drift. Report holds. Succeeded results remain attestations, not remote proof. `audit` links request→decision→intent→result→resolution but is locally editable, not tamper-proof. Never retry uncertain external outcomes.
+
+<a id="composite-bridge-results-and-briefs"></a>
+## Composite bridge results and briefs
+
+For a bridge dispatch the result is the child's final message, saved at the `resultPath` returned by `run-dispatch` and `observe`; read it from there and treat it as `operator-attested` text, not as acceptance. The brief sent to `run-dispatch` or `resume` keeps the fixed brief order from [coordination](coordination.md#token-discipline-and-handoffs) and is delivered on stdin only: never put it in argv, environment variables or a positional prompt, and keep it at most 256 KiB. For audit ARC also stores the brief in `<gitCommonDir>/arc/workflows/<workflowId>/dispatches/<dispatchId>/brief.md` (mode 0600); the child still receives it on stdin only. Do not include secrets or raw CLI output.

@@ -18,7 +18,7 @@ const environmentOf=(context,host)=>['codex-cli','claude-cli','codex-desktop','c
 const validContext=context=>{const host=hostOf(context);return Boolean(host&&environmentOf(context,host)&&typeof context.workflowId==='string'&&context.workflowId&&typeof context.cwd==='string');};
 const blank=(context,dispatchId,decision,code)=>({decision,routeStatus:'held',supportStatus:'unverified',dispatchId:typeof dispatchId==='string'&&ID.test(dispatchId)?dispatchId:null,route:null,profileName:null,executionEnvironment:context?.executionEnvironment??null,hostPlatform:context?.hostPlatform??null,role:null,requested:null,authentication:null,cliVersion:null,claims:null,reasons:[reason(code)]});
 const bridgeTarget=lease=>lease.route==='native'?lease.hostPlatform:lease.hostPlatform==='codex'?'claude':'codex';
-const supportOf=lease=>lease.route==='bridge'&&lease.state==='completed'&&lease.reasons.length===0&&['identity','model','effort','permissions','terminal'].every(key=>lease.claims?.[key]?.level==='runtime-observed')?'verified':'unverified';
+const supportOf=lease=>lease.route==='bridge'&&!String(lease.executionEnvironment).endsWith('-desktop')&&lease.state==='completed'&&lease.reasons.length===0&&['identity','model','effort','permissions','terminal'].every(key=>lease.claims?.[key]?.level==='runtime-observed')?'verified':'unverified';
 /** Result view of a lease. failed and unknown hold dependent work; every other observed state is reported as allow. */
 function fromLease(lease,decision=['failed','unknown'].includes(lease.state)?'hold':'allow'){
  const platform=bridgeTarget(lease);
