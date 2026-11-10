@@ -215,7 +215,7 @@
    - 사유가 없으면 `createLease(state:'reserved', timeoutMinutes: ROLE_TIMEOUT_MINUTES[role])`
 3. 오류 코드 매핑: `ARC_HOST_SANDBOX`는 `host_sandbox_blocked`, `ARC_ROUTING_LOCK_BUSY`와 활성화 오류는 `activation_unverified`입니다.
 
-- [ ] **Step 1: fixture 헬퍼 작성** (`tests/node/role-fixtures.mjs`)
+- [x] **Step 1: fixture 헬퍼 작성** (`tests/node/role-fixtures.mjs`)
   - `createRoutingFixture(t, {roles, hostPlatform='claude', limits={total:100, concurrent:5}}) -> {userHome, codexHome, claudeHome, cwd, env, revision, context(overrides)}`
     - 임시 git 저장소를 `cwd`로 만듭니다.
     - 두 홈에 `lib/runtime/*`와 `lib/policy/role-policy.json`을 `skills/arc/runtime/`으로 복사합니다.
@@ -227,14 +227,14 @@
     - `auth status --json`·`login status`에 `scenario.auth` ∈ `ok|unauthorized|error|hang`로 응답합니다.
     - `--version`에 `scenario.version`을 출력합니다.
     - 실행 모드에서는 argv와 stdin을 `recordPath`에 JSON으로 기록하고, 시나리오가 정한 이벤트 줄, 파일 쓰기, transcript·rollout 파일 작성, 지연, hang, SIGTERM 무시, 손자 프로세스 생성, 종료 코드를 수행합니다.
-- [ ] **Step 2: 실패 테스트 작성** (`tests/node/role-dispatch-store.test.mjs`)
+- [x] **Step 2: 실패 테스트 작성** (`tests/node/role-dispatch-store.test.mjs`)
   - `lease create/read/write keeps 0600 file and 0700 directory and exact keys`: 키가 하나 많거나 적으면 `validateLease`가 throw합니다.
   - `listLeases throws on an unparsable lease file`
   - `pruneTerminalLeases removes only terminal leases older than 30 days` (AC20)
     - `now=T`에서 `completed`(T−31d), `failed`(T−31d), `cancelled`(T−29d), `unknown`(T−90d), `running`(T−90d)을 두면 `removed===2`이고, 나머지 세 파일은 존재합니다.
   - `pruneTerminalLeases counts unlink errors without throwing`: 디렉터리 0500으로 만들면 `errors>0`입니다.
   - `readHostLimits accepts serializeLimits output and comments, rejects unknown keys or version 2`
-- [ ] **Step 3: 실패 테스트 작성** (`tests/node/role-routing-dispatch.test.mjs`)
+- [x] **Step 3: 실패 테스트 작성** (`tests/node/role-routing-dispatch.test.mjs`)
   - `routing-status returns revision, per-role routes, profile names and auth without creating leases` (AC1)
     - host claude, `arc_qa`는 codex에 배정합니다.
     - `roles.arc_qa = {route:'bridge', profileName:'arc_routing_qa', revisionTag:'[arc-routing rev <rev>]'}`
@@ -270,26 +270,26 @@
   - `lock released within retry window allows`: 300ms 뒤 해제되면 allow입니다.
   - `prune failure does not change the decision` (AC20)
   - `installed cli.mjs maps allow/hold/deny to exit 0/3/2`: `HOME`과 `CODEX_HOME` 환경으로 `lib/runtime/cli.mjs`를 spawn합니다.
-- [ ] **Step 4: RED 확인**
+- [x] **Step 4: RED 확인**
   - 실행: `node --test tests/node/role-dispatch-store.test.mjs tests/node/role-routing-dispatch.test.mjs`
   - 기대: 모듈·export 부재 또는 hold 고정으로 FAIL
-- [ ] **Step 5: 구현**
+- [x] **Step 5: 구현**
   - 위 인터페이스대로 두 신규 모듈을 작성하고 `local-cli.mjs`에 버전 probe를 추가합니다.
   - `role-routing.mjs`는 `RELEASE` 상수를 `RELEASE_CONDITIONS`로 이관하고 판정을 재작성합니다.
   - `command.mjs`의 `routing-status`와 `prepare-dispatch` 입력을 확장합니다.
   - `renameCompositeProfile` export를 추가합니다.
-- [ ] **Step 6: GREEN 확인**
+- [x] **Step 6: GREEN 확인**
   - 실행: Step 4 명령
   - 기대: PASS
-- [ ] **Step 7: 등록(R)**
+- [x] **Step 7: 등록(R)**
   - 새 모듈 순서: `'role-dispatch-policy.mjs','role-dispatch-store.mjs'`
   - 인벤토리·해시 테스트를 현재 인벤토리로 맞춥니다. 기준선에서 이미 맞지 않았다면 함께 맞춥니다(P-1).
-- [ ] **Step 8: 회귀 확인**
+- [x] **Step 8: 회귀 확인**
   - 실행: `node --test tests/node/runtime-assets.test.mjs tests/node/manifest.test.mjs tests/node/runtime-versions.test.mjs tests/node/runtime-cli.test.mjs`
   - 기대: PASS
   - 실행: `npm test`
   - 기대: G0 대비 새 실패 없음
-- [ ] **Step 9: 수용 후 커밋** (Orchestrator) `feat(runtime): 복합 역할 dispatch 판정과 lease 저장소`
+- [x] **Step 9: 수용 후 커밋** (Orchestrator) `feat(runtime): 복합 역할 dispatch 판정과 lease 저장소`
 
 **필수 QA (fresh):**
 - Step 4·8 명령을 재실행하고 `npm test`를 G0과 비교합니다.
@@ -303,6 +303,8 @@
 - G 결과 기록이 없으면 착수하지 않습니다.
 - 판정표에 없는 사유가 필요해지거나 명세 수치와 충돌하면 Orchestrator에 반환합니다.
 - `lib/tui/*` 수정이 필요해지면 중단하고 보고합니다.
+
+**진행 기록 (2026-11-10, 진행 기록·분류: task progress record):** T1 수용. Implementer 구현 → QA 지적 F-1(requestId 전역), F-3(손상 lease 해제 조건), F-4(G1 pass+JSON 부재 시 fail), F-6(실경합 테스트), F-7(Implementer 빈 allowedPaths deny), F-8(테스트 잔여 정리) 수정 → QA 재검증 통과(신규 28/28, 무부하 5회·부하 6회 반복, 영향 파일 35개 신규 실패 0, R 3검사 통과). 처분: QA 역할의 빈 `allowedPaths`는 쓰기 허용 없음으로 해석(T3 사후 검출에 반영). F-2(잠금 해제 실패 후 reserved 고아 lease)는 해제 조건에 cancel 안내만 추가, 정리 경로는 T4 `cancel`에서 `reserved` lease 처리로 구현.
 
 ---
 
