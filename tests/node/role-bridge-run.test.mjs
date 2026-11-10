@@ -20,13 +20,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let counter = 0;
 const nextId = () => { counter += 1; return `r${counter}`; };
 
+const bases = [];
 const cleanup = ctx => {
   if (!ctx.f) return;
   spawnSync('pkill', ['-KILL', '-f', ctx.f.base]);
   for (const pid of ctx.pids ?? []) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
 };
 test.after(() => {
-  const list = spawnSync('ps', ['-axo', 'pid=,command='], {encoding: 'utf8'}).stdout.split('\n').filter(line => line.includes('arc-route-') && !line.includes('ps -axo'));
+  const list = spawnSync('ps', ['-axo', 'pid=,command='], {encoding: 'utf8'}).stdout.split('\n').filter(line => bases.some(base => line.includes(base)) && !line.includes('ps -axo'));
   assert.deepEqual(list, [], 'leftover fixture processes');
 });
 
@@ -34,6 +35,7 @@ async function setup(t, {roles = {arc_planner: 'codex'}, hostPlatform = 'claude'
   const ctx = {pids: []};
   t.after(() => cleanup(ctx));
   const f = ctx.f = await createRoutingFixture(t, {roles, hostPlatform, ...(limits ? {limits} : {})});
+  bases.push(f.base);
   f.ctx = ctx;
   // Every scenario keeps a supported version so later setScenario calls never change the pre-start decision.
   for (const [name, version, scenario] of [['codex', 'codex-cli 0.167.0', codexScenario], ['claude', '2.1.322 (Claude Code)', claudeScenario]]) {

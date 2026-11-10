@@ -9,9 +9,10 @@ import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from 
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
 
 const DAY = 86400000;
-const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 500, lockRetryMs: 300, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
+const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 300, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
 let counter = 0;
 const request = (role, extra = {}) => { counter += 1; return {role, requestId: `req-${counter}`, taskId: `T${counter}`, ...(role === 'arc_implementer' ? {allowedPaths: ['src/']} : {}), ...extra}; };
+// policyWith defaults to a generous probe timeout so CPU load cannot cause a spurious hold; only the hang scenario overrides it.
 const prepare = (f, assignment, {policy = policyWith(), now, context} = {}) => prepareRoleDispatch({context: context ?? f.context(), assignment, expectedRevision: f.revision, now, policy});
 const codes = result => result.reasons.map(reason => reason.code);
 const leaseCount = async f => { try { return (await fs.readdir(dispatchDirectory(f.codexHome))).length; } catch (error) { if (error.code === 'ENOENT') return 0; throw error; } };
@@ -107,7 +108,7 @@ test('prepare-dispatch maps CLI absence, unauthorized and probe failure to Not A
   assert.equal(result.dispatchId, null);
   for (const [auth, status] of [['unauthorized', 'Unauthorized'], ['error', 'Incomplete'], ['hang', 'Incomplete']]) {
     await f.cli('codex', {auth, version: 'codex-cli 0.167.0'});
-    result = await prepare(f, request('arc_qa'));
+    result = await prepare(f, request('arc_qa'), {policy: policyWith({probeTimeoutMs: 500})}); // the hang scenario needs a short probe timeout
     assert.equal(result.decision, 'hold', auth);
     assert.equal(result.routeStatus, 'held');
     assert.equal(result.authentication.status, status, auth);
@@ -199,30 +200,30 @@ test('duplicate requestId and duplicate non-terminal task-role are denied', asyn
 test('bridge concurrency and workflow total come from host limits.toml and unknown leases count', async t => {
   const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_scouter: 'codex', arc_reviewer: 'codex'}, limits: {total: 100, concurrent: 2}});
   await okClis(f);
-  const a = await prepare(f, request('arc_scouter')), b = await prepare(f, request('arc_reviewer'));
+  const a = await prepare(f, request('arc_scouter'), {policy: policyWith()}), b = await prepare(f, request('arc_reviewer'), {policy: policyWith()});
   assert.equal(a.decision, 'allow'); assert.equal(b.decision, 'allow');
-  let third = await prepare(f, request('arc_qa'));
+  let third = await prepare(f, request('arc_qa'), {policy: policyWith()});
   assert.equal(third.decision, 'hold');
   assert.deepEqual(codes(third), ['capacity_exhausted']);
   await writeLease(f.codexHome, {...(await readLease(f.codexHome, a.dispatchId)), state: 'unknown'});
-  third = await prepare(f, request('arc_qa'));
+  third = await prepare(f, request('arc_qa'), {policy: policyWith()});
   assert.deepEqual(codes(third), ['capacity_exhausted']);
-  assert.equal((await prepare(f, request('arc_planner'))).decision, 'allow');
+  assert.equal((await prepare(f, request('arc_planner'), {policy: policyWith()})).decision, 'allow');
   await writeLease(f.codexHome, {...(await readLease(f.codexHome, a.dispatchId)), state: 'completed'});
-  assert.equal((await prepare(f, request('arc_qa'))).decision, 'allow');
+  assert.equal((await prepare(f, request('arc_qa'), {policy: policyWith()})).decision, 'allow');
 
   const g = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_scouter: 'codex', arc_reviewer: 'codex'}, limits: {total: 3, concurrent: 5}});
   await okClis(g);
   for (const role of ['arc_scouter', 'arc_reviewer', 'arc_qa']) {
-    const r = await prepare(g, request(role)); assert.equal(r.decision, 'allow', role);
+    const r = await prepare(g, request(role), {policy: policyWith()}); assert.equal(r.decision, 'allow', role);
     await writeLease(g.codexHome, {...(await readLease(g.codexHome, r.dispatchId)), state: 'completed'});
   }
-  const over = await prepare(g, request('arc_scouter'));
+  const over = await prepare(g, request('arc_scouter'), {policy: policyWith()});
   assert.equal(over.decision, 'hold');
   assert.deepEqual(codes(over), ['capacity_exhausted']);
-  assert.equal((await prepare(g, request('arc_planner'))).decision, 'allow');
+  assert.equal((await prepare(g, request('arc_planner'), {policy: policyWith()})).decision, 'allow');
   await fs.writeFile(path.join(g.claudeHome, 'skills/arc/limits.toml'), 'version = 2\n');
-  const broken = await prepare(g, request('arc_scouter'));
+  const broken = await prepare(g, request('arc_scouter'), {policy: policyWith()});
   assert.deepEqual(codes(broken), ['activation_unverified']);
 });
 
@@ -250,14 +251,14 @@ test('EACCES on dispatch directory or lock maps to host_sandbox_blocked', async 
   await fs.mkdir(dispatchDirectory(f.codexHome), {mode: 0o700});
   await fs.chmod(dispatchDirectory(f.codexHome), 0o500);
   try {
-    const dirResult = await prepare(f, request('arc_qa'));
+    const dirResult = await prepare(f, request('arc_qa'), {policy: policyWith()});
     assert.equal(dirResult.decision, 'hold');
     assert.deepEqual(codes(dirResult), ['host_sandbox_blocked']);
   } finally { await fs.chmod(dispatchDirectory(f.codexHome), 0o700); }
   await fs.chmod(dispatchDirectory(f.codexHome), 0o700);
   await fs.chmod(f.codexHome, 0o500);
   try {
-    const lockResult = await prepare(f, request('arc_qa'));
+    const lockResult = await prepare(f, request('arc_qa'), {policy: policyWith()});
     assert.equal(lockResult.decision, 'hold');
     assert.deepEqual(codes(lockResult), ['host_sandbox_blocked']);
   } finally { await fs.chmod(f.codexHome, 0o700); }

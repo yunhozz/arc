@@ -49,3 +49,15 @@ test('management prepares and applies Custom roles without exposing context secr
  const result=await api.executeOperation(ctx,prepared);assert.equal(result.code,0);assert.doesNotMatch(JSON.stringify(result),/fixture-secret-token/);assert.match(fs.readFileSync(arc+'/models.toml','utf8'),/fixture-model/);for(const role of ['scouter','planner','implementer','qa','reviewer'])assert.match(fs.readFileSync(agents+'/arc-'+role+'.toml','utf8'),/fixture-model/);
  await assert.rejects(api.prepareOperation(ctx,{kind:'preset',target:'codex',preset:'custom',customRoles,verifiedCatalog:{platform:'codex',pairs:[]}}),/catalog/i);
 });
+test('active dispatch message is surfaced',async t=>{
+ const {installFakeCli}=await import('./role-fixtures.mjs'),{createLease}=await import('../../lib/runtime/role-dispatch-store.mjs');
+ const ctx=context(t),bin=ctx.userHome+'/bin';for(const platform of ['codex','claude'])await installFakeCli(t,bin,platform);
+ ctx.env={PATH:bin+':/usr/bin:/bin'};
+ const now='2026-11-10T00:00:00.000Z',lease={version:1,dispatchId:'active-1',workflowId:'wf-1',taskId:'task-1',requestId:'req-1',role:'arc_planner',route:'bridge',hostPlatform:'claude',executionEnvironment:'claude-cli',revision:'rev-0',profileHash:null,argsDigest:null,state:'running',supervisor:null,child:null,sessionId:null,timeoutMinutes:20,claims:null,reasons:[],allowedPaths:[],resultPath:null,segment:0,nativeAgentId:null,createdAt:now,updatedAt:now};
+ await createLease(ctx.userHome+'/.codex',lease);
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-astra',effort:'low'}])),config={version:1,revision:'rev-1',roles};
+ const result=await api.executeOperation(ctx,await api.prepareCompositeOperation(ctx,{kind:'install',config}));
+ assert.equal(result.activation,'held');assert.equal(result.code,1);
+ assert.ok(result.messages.includes('Active bridge dispatches: active-1'),JSON.stringify(result.messages));
+ assert.equal(fs.existsSync(ctx.userHome+'/.codex/arc-role-platform-routing.json'),false);
+});

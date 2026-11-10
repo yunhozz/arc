@@ -5,12 +5,12 @@ import {initializeCooperativeWorkflow,commandResult} from './bootstrap.mjs';
 import {runCooperativeCommand} from './cooperative.mjs';
 import {validateWorkflowId} from './scope.mjs';
 import {prepareRoleDispatch,routingStatus,invalidRoutingRequest} from './role-routing.mjs';
-import {runBridgeDispatch,recordRoleObservation,resumeRoleDispatch,heldRoutingResult} from './role-bridge.mjs';
+import {runBridgeDispatch,recordRoleObservation,resumeRoleDispatch,cancelRoleDispatch,heldRoutingResult} from './role-bridge.mjs';
 export async function runWorkflowCommand(args,io={}){
  const output=io.output??process.stdout;let workflowId=null,isRouting=false;
  try{
   const [command,...rest]=args,options={};
-  isRouting=['routing-status','prepare-dispatch','run-dispatch','observe','resume'].includes(command);
+  isRouting=['routing-status','prepare-dispatch','run-dispatch','observe','resume','cancel'].includes(command);
   if(!['init','record','status','reconcile','prepare','result'].includes(command)&&!isRouting)throw Error('Expected workflow command');
   for(let i=0;i<rest.length;i+=2){const key=rest[i];if(!['--cwd','--workflow','--input'].includes(key)||options[key]!==undefined||typeof rest[i+1]!=='string')throw Error('Invalid workflow option');options[key]=rest[i+1];}
   const cwd=options['--cwd'];workflowId=options['--workflow'];validateWorkflowId(workflowId);
@@ -23,9 +23,9 @@ export async function runWorkflowCommand(args,io={}){
   if(isRouting){
    if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Invalid routing input');
    const context={cwd,userHome:os.homedir(),env:process.env,workflowId,hostPlatform:input.hostPlatform,executionEnvironment:input.executionEnvironment};
-   const keys=Object.keys(input),allowed={'routing-status':[['hostPlatform','executionEnvironment'],[]],'prepare-dispatch':[['hostPlatform','executionEnvironment','role','expectedRevision','requestId','taskId'],['allowedPaths']],'run-dispatch':[['hostPlatform','executionEnvironment','dispatchId','brief'],[]],observe:[['hostPlatform','executionEnvironment','dispatchId'],['waitMs','event','nativeAgentId']]}[command];
+   const keys=Object.keys(input),allowed={'routing-status':[['hostPlatform','executionEnvironment'],[]],'prepare-dispatch':[['hostPlatform','executionEnvironment','role','expectedRevision','requestId','taskId'],['allowedPaths']],'run-dispatch':[['hostPlatform','executionEnvironment','dispatchId','brief'],[]],observe:[['hostPlatform','executionEnvironment','dispatchId'],['waitMs','event','nativeAgentId']],resume:[['hostPlatform','executionEnvironment','dispatchId','brief'],[]],cancel:[['hostPlatform','executionEnvironment','dispatchId'],[]]}[command];
    if(allowed&&(allowed[0].some(key=>!Object.hasOwn(input,key))||keys.some(key=>!allowed[0].includes(key)&&!allowed[1].includes(key))))result=invalidRoutingRequest(context);
-   else result=command==='routing-status'?await routingStatus({context}):command==='prepare-dispatch'?await prepareRoleDispatch({context,assignment:{role:input.role,requestId:input.requestId,taskId:input.taskId,...(Object.hasOwn(input,'allowedPaths')?{allowedPaths:input.allowedPaths}:{})},expectedRevision:input.expectedRevision}):command==='run-dispatch'?await runBridgeDispatch({context,dispatchId:input.dispatchId,brief:input.brief}):command==='observe'?await recordRoleObservation({context,dispatchId:input.dispatchId,...(Object.hasOwn(input,'waitMs')?{waitMs:input.waitMs}:{}),...(Object.hasOwn(input,'event')?{event:input.event}:{}),...(Object.hasOwn(input,'nativeAgentId')?{nativeAgentId:input.nativeAgentId}:{})}):await resumeRoleDispatch();
+   else result=command==='routing-status'?await routingStatus({context}):command==='prepare-dispatch'?await prepareRoleDispatch({context,assignment:{role:input.role,requestId:input.requestId,taskId:input.taskId,...(Object.hasOwn(input,'allowedPaths')?{allowedPaths:input.allowedPaths}:{})},expectedRevision:input.expectedRevision}):command==='run-dispatch'?await runBridgeDispatch({context,dispatchId:input.dispatchId,brief:input.brief}):command==='observe'?await recordRoleObservation({context,dispatchId:input.dispatchId,...(Object.hasOwn(input,'waitMs')?{waitMs:input.waitMs}:{}),...(Object.hasOwn(input,'event')?{event:input.event}:{}),...(Object.hasOwn(input,'nativeAgentId')?{nativeAgentId:input.nativeAgentId}:{})}):command==='resume'?await resumeRoleDispatch({context,dispatchId:input.dispatchId,brief:input.brief}):await cancelRoleDispatch({context,dispatchId:input.dispatchId});
    result={workflowId,...result};
   }else result=await(command==='init'?initializeCooperativeWorkflow({cwd,workflowId,input}):runCooperativeCommand({cwd,workflowId,command,input}));
   output.write(JSON.stringify(result)+'\n');return result.decision==='deny'?2:result.decision==='hold'?3:0;

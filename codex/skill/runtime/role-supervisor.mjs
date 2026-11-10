@@ -38,6 +38,8 @@ export async function resolveWorktree(cwd) {
   return observeCooperativeTarget(result.stdout.slice(0, -1));
 }
 export const artifactDirectory = (target, workflowId, dispatchId) => path.join(target.gitCommonDir, 'arc', 'workflows', workflowId, 'dispatches', dispatchId);
+/** Segment 0 (the first run) keeps its files in the dispatch directory; resumed segments use segments/<n>/. */
+export const segmentDirectory = (target, workflowId, dispatchId, segment) => segment > 0 ? path.join(artifactDirectory(target, workflowId, dispatchId), 'segments', String(segment)) : artifactDirectory(target, workflowId, dispatchId);
 
 /** Builds the child CLI arguments from the hash-verified target profile. Errors carry reasonCode. */
 export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, policy = DEFAULT_POLICY}) {
@@ -92,7 +94,7 @@ export async function runSupervisor(options) {
   const target = await resolveWorktree(cwd);
   let lease = await readLease(codexHome, dispatchId);
   if (!lease || lease.route !== 'bridge') return;
-  const artifactDir = artifactDirectory(target, lease.workflowId, dispatchId), resultFile = path.join(artifactDir, 'result.md');
+  const artifactDir = segmentDirectory(target, lease.workflowId, dispatchId, lease.segment), resultFile = path.join(artifactDir, 'result.md');
   const mine = current => current && current.state === 'starting' && current.supervisor?.pid === process.pid;
   let config;
   const guarded = await locked(async () => {
@@ -241,6 +243,8 @@ export async function runSupervisor(options) {
 
 
     let exit = await exitPromise;
+    // A cancel request whose own SIGTERM stopped the child before the marker poll ran still counts as a cancel, and the group is reaped the same way.
+    if (!terminating && !exit.unobserved && (exit.signal || !state.terminal) && await cancelRequested(codexHome, dispatchId)) { terminating = 'cancel'; termAt = Date.now(); }
     if (termAt && !exit.unobserved && !await reapGroup()) exit = {code: null, signal: null, unobserved: true};
     await Promise.race([stdoutClosed, sleep(1000)]);
     parser.end();
@@ -299,18 +303,23 @@ export async function runSupervisor(options) {
     if (resultPath) await fsp.chmod(resultPath, 0o600);
 
     let finalState = 'failed';
+    const observedSession = platform === 'claude' ? state.init?.sessionId : state.threadId;
     if (!codes.length && terminating === 'cancel') finalState = 'cancelled';
     else if (!codes.length) {
       const failure = classifyFailure({exitCode: exit.code, signal: exit.signal, terminal: state.terminal, terminalError: state.terminalError, messages: [...state.messages, Buffer.concat(stderrParts).toString('utf8')]});
       if (failure) codes.push(failure);
       else if (!resultPath) codes.push('invalid_output');
       finalState = codes.length ? 'failed' : 'completed';
-      const observedSession = platform === 'claude' ? state.init?.sessionId : state.threadId;
       if (finalState === 'completed' && !observedSession) {
         // Without a session id the execution identity cannot be tied to this dispatch: the slot stays occupied.
         finalState = 'unknown'; codes.push('execution_identity_unverified');
         claims.identity = {level: 'unverified', source: 'none'};
       }
+    }
+    if (lease.sessionId && observedSession && observedSession !== lease.sessionId && finalState !== 'cancelled') {
+      // A resumed segment must continue the recorded session; a different observed id leaves the slot occupied.
+      finalState = 'unknown'; sessionId = lease.sessionId; if (!codes.includes('execution_identity_unverified')) codes.push('execution_identity_unverified');
+      claims.identity = {level: 'unverified', source: 'none'};
     }
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
     await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged}, argsDigest: invocation.argsDigest, resultPath});

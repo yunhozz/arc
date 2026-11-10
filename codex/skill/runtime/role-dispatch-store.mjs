@@ -114,6 +114,10 @@ export async function requestCancel(codexHome, dispatchId) {
   const handle = await fsp.open(sidecarPath(codexHome, dispatchId, '.cancel'), 'a', 0o600);
   await handle.close();
 }
+/** Removes a stale cancel marker before a resumed segment starts; the caller holds the routing lock. */
+export async function clearCancel(codexHome, dispatchId) {
+  try { await fsp.unlink(sidecarPath(codexHome, dispatchId, '.cancel')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
 export async function cancelRequested(codexHome, dispatchId) {
   try { await fsp.access(sidecarPath(codexHome, dispatchId, '.cancel')); return true; } catch { return false; }
 }

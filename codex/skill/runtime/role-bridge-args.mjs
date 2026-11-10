@@ -139,7 +139,7 @@ export function buildCodexArgs({role, profile, worktree, resultPath, threadId = 
     '-c', 'approval_policy="never"', '-o', resultPath, '-'];
   if (threadId !== null) {
     if (typeof threadId !== 'string' || !/^[A-Za-z0-9._-]+$/.test(threadId)) throw Error('Invalid threadId');
-    return ['exec', 'resume', threadId, '--json', ...settings];
+    return [...(permissions.search ? ['--search'] : []), 'exec', 'resume', threadId, '--json', ...settings];
   }
   if (typeof worktree !== 'string' || !path.isAbsolute(worktree)) throw Error('Absolute worktree required');
   return [...(permissions.search ? ['--search'] : []), 'exec', '--json', '-C', worktree, ...settings];

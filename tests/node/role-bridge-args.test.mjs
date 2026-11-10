@@ -118,6 +118,15 @@ test('Codex resume argv uses exec resume <tid>, -c sandbox_mode and no -C or --s
   assert.equal(args.at(-1), '-');
 });
 
+test('Codex resume re-specifies top-level --search before exec for Scouter only', () => {
+  for (const role of ROUTING_ROLES) {
+    const args = buildCodexArgs({role, profile: codexProfile(role), worktree: '/work/repo', resultPath: '/work/out/r.txt', threadId: 'tid-1', policy: DEFAULT_POLICY});
+    assert.equal(args.includes('--search'), role === 'arc_scouter', role);
+    if (role === 'arc_scouter') assert.deepEqual(args.slice(0, 5), ['--search', 'exec', 'resume', 'tid-1', '--json']);
+    else assert.deepEqual(args.slice(0, 4), ['exec', 'resume', 'tid-1', '--json']);
+  }
+});
+
 test('Codex -C uses the worktree root passed by the caller, not a subdirectory', () => {
   const args = buildCodexArgs({role: 'arc_planner', profile: codexProfile('arc_planner'), worktree: '/work/repo', resultPath: '/r', policy: DEFAULT_POLICY});
   assert.equal(flagValue(args, '-C'), '/work/repo');

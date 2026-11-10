@@ -578,7 +578,7 @@
   - `publishCompositeFiles`: 잠금 획득 직후 `listLeases(targets.codex.home)`를 확인합니다. bridge이면서 `NON_TERMINAL_STATES`인 lease가 있으면 `TargetConfigurationError`를 던지며 `activation='held'`, `activeDispatches=[ids]`를 붙입니다. lease 목록을 읽지 못해도 같은 오류(`activeDispatches:null`)입니다.
   - `executeCompositeOperation` catch에서 `error.activeDispatches`가 있으면 `messages`에 `` `Active bridge dispatches: ${ids.join(', ')}` ``를 추가합니다.
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/role-bridge-resume.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/role-bridge-resume.test.mjs`)
   - `resume of completed Claude dispatch runs claude -p --resume <sid> with all flags re-specified and writes segments/1` (AC11)
   - `resume of failed Codex dispatch runs exec resume <tid> with -m, model_reasoning_effort and sandbox_mode, without -C or --sandbox` (AC11)
   - `resume is denied for reserved, running, unknown and cancelled; held revision_changed after a new revision is active; held execution_identity_unverified without sessionId` (AC11)
@@ -586,20 +586,20 @@
   - `cancel running dispatch sends SIGTERM to the group and records cancelled only after exit` (AC10): 반환은 `cancelling`, 이후 `observe`가 `cancelled`
   - `cancel of TERM-ignoring child escalates to SIGKILL after grace` (주입 `graceMs:200`)
   - `cancel is a no-op on terminal and denied on native`
-- [ ] **Step 2: 실패 테스트 작성** (`tests/node/role-routing-publish.test.mjs`)
+- [x] **Step 2: 실패 테스트 작성** (`tests/node/role-routing-publish.test.mjs`)
   - 픽스처 패턴은 `tests/node/transaction.test.mjs`의 safeFs 구성을 따릅니다.
   - `publish is refused with activation held and dispatch ids while a bridge lease is reserved, starting, running or unknown` (AC12)
   - `native non-terminal lease and terminal bridge leases do not block publication` (AC12)
   - `unreadable lease directory refuses publication`
   - `management-operations.test.mjs`: `active dispatch message is surfaced`
-- [ ] **Step 3: RED 확인**
+- [x] **Step 3: RED 확인**
   - 실행: `node --test tests/node/role-bridge-resume.test.mjs tests/node/role-routing-publish.test.mjs tests/node/management-operations.test.mjs`
   - 기대: FAIL
-- [ ] **Step 4: 구현** 위 인터페이스대로 작성합니다.
-- [ ] **Step 5: GREEN 확인** Step 3 명령이 PASS여야 합니다.
-- [ ] **Step 6: 등록(R)**과 매니페스트(`lib/installer`, `lib/management` 변경 포함)
-- [ ] **Step 7: 회귀 확인** `npm test`가 G0 대비 새 실패 없음
-- [ ] **Step 8: 수용 후 커밋** (Orchestrator) `feat(runtime): bridge 재개·취소와 게시 차단`
+- [x] **Step 4: 구현** 위 인터페이스대로 작성합니다.
+- [x] **Step 5: GREEN 확인** Step 3 명령이 PASS여야 합니다.
+- [x] **Step 6: 등록(R)**과 매니페스트(`lib/installer`, `lib/management` 변경 포함)
+- [x] **Step 7: 회귀 확인** `npm test`가 G0 대비 새 실패 없음
+- [x] **Step 8: 수용 후 커밋** (Orchestrator) `feat(runtime): bridge 재개·취소와 게시 차단`
 
 **필수 QA (fresh):**
 - 테스트와 등록 검사를 재실행합니다.
@@ -609,6 +609,9 @@
 
 **보류 조건:**
 - T5 이후 마이그레이션에서 기존 활성 리비전 게시 흐름과 충돌하면 반환합니다.
+
+
+**진행 기록 (2026-11-11, 분류: task progress record):** T4 수용. `resume`·`cancel`·게시 차단을 구현했고, T1에서 이관한 `reserved` 고아 lease 정리도 `cancel`로 동작합니다. Orchestrator 결정에 따라 resume에 동시 실행 한도 검사(누적 수는 늘리지 않음)와 세션 ID 불일치 시 `unknown` 처리를 추가했습니다. QA 지적 F1(Codex Scouter resume에 top-level `--search`)과 F2(cancel 테스트 전제)를 수정하고 `starting` 상태 cancel 테스트를 추가한 뒤 재검증을 통과했습니다(격리 20회·부하 3회, 신규 실패 0). 처분: supervisor가 소실됐고 자식 기록이 없는 `starting` lease는 종료를 관측할 수 없으므로 보류를 유지하며, 수동 정리 안내를 T6 지침에 포함합니다. 테스트 안정화를 위해 `role-routing-dispatch` 테스트의 probe 타임아웃 주입값만 올렸고 제품 기본값은 그대로입니다.
 
 ---
 
