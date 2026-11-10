@@ -252,6 +252,14 @@ test('long role values use a compact preview when the full diagram does not fit'
  const large=setup.presetPreviewRows(roles,{columns:200,rows:30}).join('\n');assert.match(large,/┌/);assert.match(large,/a-very-long-model-identifier-that-must-remain-visible/);
 });
 
+test('platform-labelled rows keep the diagram at 80x24 and the compact fallback format',()=>{
+ const rows=['Scouter','Planner','Implementer','QA','Reviewer'].map((role,index)=>({role,platform:[1,4].includes(index)?'claude':'codex',model:index===1?'claude-sonnet-5-5':'gpt-6.1-terra',effort:'high'}));
+ const wide=setup.presetPreviewRows(rows,{columns:80,rows:24,compact:true});
+ assert.ok(wide.some(row=>row.includes('┌─')));assert.ok(wide.join('\n').includes('Orchestrator'));assert.match(wide.join('\n'),/┌─ Codex ─/);assert.match(wide.join('\n'),/┌─ Claude ─/);assert.ok(wide.every(row=>row.length<=77));
+ const hidden=setup.presetPreviewRows(rows,{columns:80,rows:24,selectedRole:0,blink:false}).join('\n');assert.match(hidden,/Codex/);
+ const narrow=setup.presetPreviewRows(rows,{columns:60,rows:24,compact:true}).join('\n');assert.match(narrow,/Scouter: Codex \/ gpt-6\.1-terra/);assert.doesNotMatch(narrow,/┌/);
+});
+
 async function openCompositeScreen(){
  const events=[{name:'down'},{name:'down'},{name:'enter'},...Array.from({length:8},()=>({name:'down'})),{name:'enter'},{name:'down'},{name:'enter'}],screens=[],catalogLoads=[],viewport={columns:200,rows:40};
  const session={viewport:()=>viewport,render:screen=>{const rendered=renderScreen(screen,viewport);screens.push({screen,rendered});return rendered;},nextEvent:async()=>events.shift()??{name:'eof'},setBusy(){},discardInput(){}};
@@ -268,7 +276,7 @@ test('composite menu keeps Apply adjacent to Back',async()=>{
 test('composite menu renders the Codex and Claude role diagram',async()=>{
  const {screen}=await openCompositeScreen(),rows=screen.rows.join('\n');
  assert.match(screen.rows[0],/^┌/);assert.doesNotMatch(rows,/(?:Codex|Claude): |Claude catalog:|Role execution:/);
- assert.match(rows,/┌/);assert.match(rows,/Orchestrator/);assert.match(rows,/Codex \/ gpt-6-luna/);assert.match(rows,/Claude \/ sonnet/);
+ assert.match(rows,/┌/);assert.match(rows,/Orchestrator/);assert.match(rows,/┌─ Codex ─/);assert.match(rows,/gpt-6-luna/);assert.match(rows,/┌─ Claude ─/);assert.doesNotMatch(rows,/Codex \/ gpt-6-luna/);
 });
 
 test('composite mode accepts a manually entered Claude model when its API catalog is unavailable',async()=>{
