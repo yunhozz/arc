@@ -367,7 +367,7 @@
     - entries 값은 `상태코드 + ':' + sha256(내용|'deleted')`입니다.
   - `detectViolations({role, allowedPaths, before, after}) -> {reason:null|'permission_violation_observed', changedPaths:string[], headChanged:boolean}`
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/role-bridge-args.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/role-bridge-args.test.mjs`)
   - `parseCompositeProfile reads fixture-rendered Claude and Codex profiles for all five roles`: tools가 `lib/models/profiles.mjs:2-8`과 같고, instructions가 비어 있지 않습니다.
   - `parseCompositeProfile rejects missing model or malformed developer_instructions`
   - `Claude argv per role matches spec §5.5` (AC5)
@@ -382,7 +382,7 @@
     - `--skip-git-repo-check`·`--sandbox` 없음, `developer_instructions`는 `JSON.parse` 가능한 값
   - `Codex resume argv uses exec resume <tid>, -c sandbox_mode and no -C or --sandbox` (AC11 일부)
   - `argv never contains environment secret values`: `ARC_FAKE_SECRET` 값이 어떤 인자에도 없습니다(AC7 일부).
-- [ ] **Step 2: 실패 테스트 작성** (`tests/node/role-observe.test.mjs`)
+- [x] **Step 2: 실패 테스트 작성** (`tests/node/role-observe.test.mjs`)
   - `line parser joins split chunks, ignores non-JSON and flags lines over 1 MiB` (Review Focus 4)
   - `Claude init/result normalize from fixtures; eventRecord drops result text`
   - `Codex thread/turn events normalize and type=error warning items are warnings` (픽스처 `codex-exec.jsonl`)
@@ -400,14 +400,14 @@
     - QA가 `allowedPaths:[]`에서 변경: 위반
     - `git commit`으로 HEAD 변경: `headChanged`이고 위반
     - cwd가 하위 디렉터리여도 루트 기준(Review Focus 5)
-- [ ] **Step 3: RED 확인**
+- [x] **Step 3: RED 확인**
   - 실행: `node --test tests/node/role-bridge-args.test.mjs tests/node/role-observe.test.mjs`
   - 기대: 모듈 부재로 FAIL
-- [ ] **Step 4: 구현** 위 인터페이스대로 작성합니다.
-- [ ] **Step 5: GREEN 확인** Step 3 명령이 PASS여야 합니다.
-- [ ] **Step 6: 등록(R)** 새 모듈 순서: `'role-bridge-args.mjs','role-observe.mjs'`
-- [ ] **Step 7: 회귀 확인** `npm test`가 G0 대비 새 실패 없음
-- [ ] **Step 8: 수용 후 커밋** (Orchestrator) `feat(runtime): bridge 인자와 실행 관측 판정`
+- [x] **Step 4: 구현** 위 인터페이스대로 작성합니다.
+- [x] **Step 5: GREEN 확인** Step 3 명령이 PASS여야 합니다.
+- [x] **Step 6: 등록(R)** 새 모듈 순서: `'role-bridge-args.mjs','role-observe.mjs'`
+- [x] **Step 7: 회귀 확인** `npm test`가 G0 대비 새 실패 없음
+- [x] **Step 8: 수용 후 커밋** (Orchestrator) `feat(runtime): bridge 인자와 실행 관측 판정`
 
 **필수 QA (fresh):**
 - 테스트와 등록 검사를 재실행합니다.
@@ -416,6 +416,9 @@
 
 **보류 조건:**
 - G 샘플의 필드 모양이 명세 §5.11과 다르면 Orchestrator에 반환합니다. 예를 들어 rollout에 effort가 없는 경우입니다.
+
+
+**진행 기록 (2026-11-10, 분류: task progress record):** T2 수용. QA 지적 F-1(관측 불가 → `unverified` 라벨), F-2(Codex 권한 상한은 G3가 `pass`일 때만 해제), F-3(모든 `turn_context` 대조), F-4(성공 종료는 실패 분류하지 않음, `terminalError`는 호출자가 전달), F-5(rollout 파일명 `-<UUID>.jsonl` 접미 일치, 중복 시 관측 불가), F-7(압축 `.jsonl.zst` rollout을 `zlib.zstdDecompressSync`로 읽음, 불가 시 관측 불가)을 수정한 뒤 QA 재검증 통과(신규 27/27, 영향 파일 신규 실패 0). G3 기본값 `pass` 유지(검출 입증). T3는 `classifyFailure`에 `terminalError`를 반드시 전달해야 합니다.
 
 ---
 
