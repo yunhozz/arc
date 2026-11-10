@@ -11,7 +11,7 @@ import {startSupervisor, processAlive, resolveWorktree, artifactDirectory, segme
 export const heldRoutingResult=(code,releaseCondition)=>({decision:'hold',routeStatus:'held',supportStatus:'unverified',route:null,executionEnvironment:null,hostPlatform:null,role:null,requested:null,authentication:null,reasons:[{code,releaseCondition}]});
 
 const ID=/^[A-Za-z0-9._-]{1,128}$/;
-const NATIVE_EVENTS={started:['reserved','running'],completed:['running','completed'],failed:['running','failed'],cancelled:['running','cancelled']};
+const NATIVE_EVENTS={started:[['reserved'],'running'],completed:[['running'],'completed'],failed:[['running'],'failed'],cancelled:[['running','reserved'],'cancelled']};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const hostOf=context=>['codex','claude'].includes(context?.hostPlatform)?context.hostPlatform:null;
 const environmentOf=(context,host)=>['codex-cli','claude-cli','codex-desktop','claude-desktop'].includes(context?.executionEnvironment)&&host&&context.executionEnvironment.startsWith(`${host}-`)?context.executionEnvironment:null;
@@ -80,7 +80,7 @@ async function recordNativeEvent({context,homes,dispatchId,event,nativeAgentId,n
   await withRoutingLock(homes.codex,async()=>{
    const lease=await readLease(homes.codex,dispatchId);
    const rule=NATIVE_EVENTS[event];
-   if(!lease||lease.route!=='native'||lease.workflowId!==context.workflowId||lease.state!==rule[0]||(event==='started')!==(nativeAgentId!==undefined)){result=blank(context,dispatchId,'deny','invalid_request');return;}
+   if(!lease||lease.route!=='native'||lease.workflowId!==context.workflowId||!rule[0].includes(lease.state)||(event==='started')!==(nativeAgentId!==undefined)){result=blank(context,dispatchId,'deny','invalid_request');return;}
    const attested={level:'operator-attested',source:'orchestrator'};
    const claims={...lease.claims,...(event==='started'?{identity:{...attested,observed:nativeAgentId}}:{terminal:{...attested,observed:event}})};
    const next=await writeLease(homes.codex,{...lease,state:rule[1],claims,nativeAgentId:nativeAgentId??lease.nativeAgentId,reasons:event==='failed'?[reason('execution_failed')]:[]},{now});
@@ -177,7 +177,13 @@ export async function cancelRoleDispatch({context,dispatchId,now=Date.now(),poli
  try{
   await withRoutingLock(homes.codex,async()=>{
    const lease=await readLease(homes.codex,dispatchId);
-   if(!lease||lease.workflowId!==context.workflowId||lease.hostPlatform!==context.hostPlatform||lease.route!=='bridge'){result=blank(context,dispatchId,'deny','invalid_request');return;}
+   if(!lease||lease.workflowId!==context.workflowId||lease.hostPlatform!==context.hostPlatform){result=blank(context,dispatchId,'deny','invalid_request');return;}
+   if(lease.route==='native'){
+    // A native lease has no child: only a reserved one is cancelled here (under the lock); started native dispatches are closed with observe events.
+    if(lease.state!=='reserved'){result=blank(context,dispatchId,'deny','invalid_request');return;}
+    const claims={...lease.claims,terminal:{level:'operator-attested',source:'orchestrator',observed:'cancelled'}};
+    result=fromLease(await writeLease(homes.codex,{...lease,state:'cancelled',claims,reasons:[]},{now}),'allow');return;
+   }
    if(TERMINAL_STATES.includes(lease.state)){result=fromLease(lease,'allow');return;}
    if(lease.state==='reserved'){result=fromLease(await writeLease(homes.codex,{...lease,state:'cancelled',reasons:[]},{now}),'allow');return;}
    const supervised=['starting','running'].includes(lease.state)&&lease.supervisor&&processAlive(lease.supervisor);
@@ -207,7 +213,8 @@ export async function cancelRoleDispatch({context,dispatchId,now=Date.now(),poli
      const current=await readLease(homes.codex,dispatchId);
      if(!current||TERMINAL_STATES.includes(current.state)||current.child?.pid!==pid){result=current?fromLease(current,'allow'):blank(context,dispatchId,'deny','invalid_request');return;}
      const claims={...(current.claims??{}),terminal:{level:'runtime-observed',source:'cancel-group-gone',observed:{pid}}};
-     result=fromLease(await writeLease(homes.codex,{...current,state:'cancelled',claims,reasons:[]},{now:Date.now()}),'allow');
+     // The recorded reasons (for example terminal_state_unverified) stay on the cancelled lease.
+     result=fromLease(await writeLease(homes.codex,{...current,state:'cancelled',claims},{now:Date.now()}),'allow');
     },{retryMs:policy.lockRetryMs});
    }catch(error){
     if(error?.code==='ARC_ROUTING_LOCK_RELEASE'&&!error.failure&&result){residual=residualOf(error);}

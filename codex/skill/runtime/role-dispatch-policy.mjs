@@ -10,6 +10,8 @@ const isRecordedObject = value => value !== null && typeof value === 'object' &&
 export const CLAUDE_SANDBOX_SETTINGS = BRIDGE_GATE_RESULTS.G1 === 'pass' && isRecordedObject(RECORDED_CLAUDE_SANDBOX_SETTINGS) ? RECORDED_CLAUDE_SANDBOX_SETTINGS : null;
 /** G1 counts as passed only with an explicitly recorded settings object; otherwise the settings are null. */
 export const effectiveClaudeSandboxSettings = policy => policy?.gates?.G1 === 'pass' && isRecordedObject(policy.claudeSandboxSettings) ? policy.claudeSandboxSettings : null;
+// Short Claude model aliases of the lib/models Claude catalog (claude-models.json). The runtime cannot import lib/models, so they are fixed here; a test keeps both in sync.
+export const CATALOG_MODEL_ALIASES = Object.freeze(['fable', 'opus', 'sonnet', 'haiku']);
 export const CODEX_DELEGATION_CALL_NAMES = Object.freeze(['spawn_agent', 'wait_agent']);
 export const DESKTOP_CHECKLIST_PASSED = Object.freeze({'claude-desktop': false, 'codex-desktop': false});
 export const ROLE_TIMEOUT_MINUTES = Object.freeze({arc_scouter: 20, arc_planner: 20, arc_implementer: 60, arc_qa: 30, arc_reviewer: 20});

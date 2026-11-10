@@ -30,9 +30,19 @@ export function validateLease(value) {
   if (!ok) throw Error('Invalid lease values');
   return structuredClone(value);
 }
-export async function createLease(codexHome, lease) {
-  const value = validateLease(lease), directory = dispatchDirectory(codexHome);
+/** Creates the lease directory when missing. An existing one must be a real directory owned by the current user and has its group and other access removed (0700 when the owner has full access); anything else is refused. */
+export async function ensureDispatchDirectory(codexHome, {uid = process.getuid?.()} = {}) {
+  const directory = dispatchDirectory(codexHome);
   await fsp.mkdir(directory, {recursive: true, mode: 0o700});
+  const stat = await fsp.lstat(directory);
+  if (!stat.isDirectory()) throw Error('Dispatch path is not a directory');
+  if (uid !== undefined && stat.uid !== uid) throw Error('Dispatch directory is not owned by the current user');
+  if ((stat.mode & 0o077) !== 0) await fsp.chmod(directory, stat.mode & 0o700); // only tightens: owner bits are never widened, so a sandbox-restricted directory still fails on write
+  return directory;
+}
+export async function createLease(codexHome, lease) {
+  const value = validateLease(lease);
+  await ensureDispatchDirectory(codexHome);
   const handle = await fsp.open(leasePath(codexHome, value.dispatchId), 'wx', 0o600);
   try { await handle.writeFile(JSON.stringify(value, null, 2) + '\n'); await handle.sync(); } finally { await handle.close(); }
   return value;
@@ -43,6 +53,7 @@ export async function readLease(codexHome, dispatchId) {
   return validateLease(JSON.parse(bytes));
 }
 export async function writeLease(codexHome, lease, {now = Date.now()} = {}) {
+  await ensureDispatchDirectory(codexHome);
   const value = validateLease({...lease, updatedAt: new Date(now).toISOString()}), target = leasePath(codexHome, value.dispatchId);
   const temp = path.join(dispatchDirectory(codexHome), `.${value.dispatchId}.${crypto.randomUUID()}.tmp`);
   try {

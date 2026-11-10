@@ -746,6 +746,8 @@
   - 두 하네스 지침의 의미 동일성
 - **finding 처리:** Implementer → Reviewer 재확인 순으로 진행하고 QA를 재배정하지 않습니다. 수정은 Reviewer 재확인까지 미커밋으로 유지하고, 수용 후 focused 후속 커밋 1개를 만듭니다.
 
+**진행 기록 (2026-11-11, 분류: task progress record):** 최종 Reviewer는 표준 `arc-reviewer`로 수행했습니다. 통합 모드에서는 `claude-desktop` 세션이 `environment_unverified`로 보류되어, 사용자가 이 경로를 지정했습니다. 1차 판정은 수정 필요(중간 M1–M4, 낮음 L1–L4, 정보 I1–I4)였습니다. 위임받은 권장안에 따라 다음을 결정하고 후속 수정을 적용했습니다: M1 리더 정상 종료 후 남은 프로세스 그룹 회수, M2 native `reserved` cancel 허용, M3 Codex bridge 권한 근거를 최대 operator-attested로 제한, M4 ref 스냅샷 추가와 ignored 경로 한계 문서화, L1 문서 정정, L2 bridge 자식 안에서 라우팅 명령 거부, L3 cancel 시 사유 보존, L4 lease 디렉터리 권한 강화, I1 별칭을 카탈로그로 한정. 재확인 판정은 수용 가능입니다. 알려진 후속 과제(이번 변경에서 수용): R1 회수 실패로 `unknown`이 된 기록에 `orphanGroupReaped` 진단이 없음, I-a terminal native lease cancel deny 문구 보강, I-b 실행 중 외부 Git 활동(자동 fetch 등)이 ref를 바꾸면 위반으로 판정될 수 있음, I-c ARC_BRIDGE_CHILD 거부는 우회 가능한 심층 방어.
+
 ## AC 추적
 
 | AC | 작업 | 근거 |

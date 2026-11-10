@@ -6,10 +6,11 @@ import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture} from './role-fixtures.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
-import {readLease, writeLease, requestCancel, cancelRequested, readHeartbeat, writeHeartbeat, listLeases, dispatchDirectory} from '../../lib/runtime/role-dispatch-store.mjs';
+import {readLease, writeLease, requestCancel, cancelRequested, readHeartbeat, writeHeartbeat, listLeases, dispatchDirectory, NON_TERMINAL_STATES as NON_TERMINAL} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, withRoutingLock} from '../../lib/runtime/role-routing.mjs';
 import {runBridgeDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
 import {runSupervisor, processAlive, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
+import {runWorkflowCommand} from '../../lib/runtime/command.mjs';
 import {parseCompositeProfile} from '../../lib/runtime/role-bridge-args.mjs';
 
 const TERMINAL = ['completed', 'failed', 'cancelled'];
@@ -95,7 +96,10 @@ test('run-dispatch starts a detached supervisor and reaches completed with resul
   assert.equal(started.dispatchId, prepared.dispatchId);
   const done = await settle(f, prepared.dispatchId);
   assert.equal(done.routeStatus, 'completed', JSON.stringify(done.reasons));
-  assert.equal(done.supportStatus, 'verified');
+  // User config (MCP servers) is not controlled for a Codex child, so permissions stay operator-attested and support never becomes verified.
+  assert.equal(done.claims.permissions.level, 'operator-attested');
+  assert.match(done.claims.permissions.details, /user-config-mcp-not-controlled/);
+  assert.equal(done.supportStatus, 'unverified');
   const [record] = await records(f.codex);
   assert.equal(record.stdin, 'brief — 한글 body');
   assert.equal(record.bridgeChild, prepared.dispatchId);
@@ -638,3 +642,114 @@ for (const survives of [false, true]) {
     }
   });
 }
+
+// Leader exits on its own (exit 0 after turn.completed) while a grandchild keeps running in the process group.
+async function installOrphaningCodex(f, {gcFile, readyFile, termWrite = null, ignoreTerm = false, thread = 90}) {
+  const gcSource = `${ignoreTerm ? "process.on('SIGTERM',()=>{});" : ''}${termWrite ? `process.on('SIGTERM',()=>{require('fs').writeFileSync(${JSON.stringify(termWrite)},'late');process.exit(0)});` : ''}require('fs').writeFileSync(${JSON.stringify(readyFile)},'1');setInterval(()=>{},1000);`;
+  const script = `#!${process.execPath}
+const cp=require('node:child_process'),fs=require('node:fs');
+const args=process.argv.slice(2);
+if(args[0]==='login'){process.stdout.write('Logged in');process.exit(0);}
+if(args.length===1&&args[0]==='--version'){process.stdout.write('codex-cli 0.167.0');process.exit(0);}
+fs.readFileSync(0);
+const at=args.indexOf('-o');if(at>=0)fs.writeFileSync(args[at+1],'RESULT TEXT');
+const gc=cp.spawn(process.execPath,['-e',${JSON.stringify(gcSource)}],{stdio:'ignore'});
+gc.unref();fs.writeFileSync(${JSON.stringify(gcFile)},String(gc.pid));
+while(!fs.existsSync(${JSON.stringify(readyFile)}))Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,20);
+process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stringify(THREAD(thread))}})+'\\n'+JSON.stringify({type:'turn.completed'})+'\\n');
+`;
+  await fs.writeFile(path.join(f.binDir, 'codex'), script, {mode: 0o755});
+  const rollout = rolloutFile(f, THREAD(thread));
+  await fs.mkdir(path.dirname(rollout.path), {recursive: true});
+  await fs.writeFile(rollout.path, rollout.content);
+}
+const runOrphanDispatch = async (f, extra = {}) => {
+  const prepared = await prepare(f, 'arc_planner');
+  await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
+  await runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 300, heartbeatMs: 100, ...extra});
+  return prepared.dispatchId;
+};
+const recordOf = async (f, id) => JSON.parse(await fs.readFile(path.join(f.base, 'repo/.git/arc/workflows/wf-1/dispatches', id, 'record.json'), 'utf8'));
+
+test('a leader that exits by itself leaves no grandchild: the group is reaped, the lease completes and the record notes orphanGroupReaped', async t => {
+  const f = await setup(t);
+  const gcFile = path.join(f.base, 'gc.pid');
+  await installOrphaningCodex(f, {gcFile, readyFile: path.join(f.base, 'ready')});
+  const id = await runOrphanDispatch(f);
+  const gc = Number(await fs.readFile(gcFile, 'utf8'));
+  t.after(() => { try { process.kill(gc, 'SIGKILL'); } catch { /* gone */ } });
+  assert.equal(alive(gc), false, 'grandchild is reaped before the terminal state');
+  const lease = await readLease(f.codexHome, id);
+  assert.equal(lease.state, 'completed', JSON.stringify(lease.reasons));
+  const record = await recordOf(f, id);
+  assert.equal(record.orphanGroupReaped, true);
+  assert.equal(record.state, 'completed');
+});
+
+test('the post-run snapshot is taken after the orphaned group is reaped', async t => {
+  const f = await setup(t);
+  const gcFile = path.join(f.base, 'gc.pid');
+  await installOrphaningCodex(f, {gcFile, readyFile: path.join(f.base, 'ready'), termWrite: path.join(f.cwd, 'late-write.txt')});
+  const id = await runOrphanDispatch(f);
+  const lease = await readLease(f.codexHome, id);
+  assert.equal(lease.state, 'failed');
+  assert.deepEqual(lease.reasons.map(reason => reason.code), ['permission_violation_observed']);
+  const record = await recordOf(f, id);
+  assert.deepEqual(record.violations.changedPaths, ['late-write.txt']);
+  assert.equal(record.orphanGroupReaped, true);
+});
+
+test('an orphaned group that cannot be reaped leaves unknown terminal_state_unverified and keeps the slot', async t => {
+  const f = await setup(t);
+  const gcFile = path.join(f.base, 'gc.pid');
+  await installOrphaningCodex(f, {gcFile, readyFile: path.join(f.base, 'ready'), ignoreTerm: true});
+  const id = await runOrphanDispatch(f, {signalGroup: () => {}, graceMs: 100});
+  const gc = Number(await fs.readFile(gcFile, 'utf8'));
+  t.after(() => { try { process.kill(gc, 'SIGKILL'); } catch { /* gone */ } });
+  const lease = await readLease(f.codexHome, id);
+  assert.equal(lease.state, 'unknown');
+  assert.ok(lease.reasons.some(reason => reason.code === 'terminal_state_unverified'));
+  assert.ok(NON_TERMINAL.includes(lease.state));
+});
+
+test('branch and tag creation by a role fails permission_violation_observed and the record names refsChanged', async t => {
+  const f = await setup(t, {roles: {arc_planner: 'codex', arc_implementer: 'codex'}});
+  for (const [n, args] of [[91, ['branch', 'created-by-role']], [92, ['tag', 'tag-by-role']]]) {
+    const script = `#!${process.execPath}
+const cp=require('node:child_process'),fs=require('node:fs');
+const args=process.argv.slice(2);
+if(args[0]==='login'){process.stdout.write('Logged in');process.exit(0);}
+if(args.length===1&&args[0]==='--version'){process.stdout.write('codex-cli 0.167.0');process.exit(0);}
+fs.readFileSync(0);
+const at=args.indexOf('-o');if(at>=0)fs.writeFileSync(args[at+1],'RESULT TEXT');
+const r=cp.spawnSync('git',${JSON.stringify(args)},{cwd:process.cwd()});if(r.status!==0)process.exit(9);
+process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stringify(THREAD(n))}})+'\\n'+JSON.stringify({type:'turn.completed'})+'\\n');
+`;
+    await fs.writeFile(path.join(f.binDir, 'codex'), script, {mode: 0o755});
+    const rollout = rolloutFile(f, THREAD(n), {sandbox: 'workspace-write'});
+    await fs.mkdir(path.dirname(rollout.path), {recursive: true}); await fs.writeFile(rollout.path, rollout.content);
+    const prepared = await prepare(f, 'arc_implementer');
+    await run(f, prepared.dispatchId);
+    const done = await settle(f, prepared.dispatchId);
+    assert.equal(done.routeStatus, 'failed', args.join(' ') + JSON.stringify(done.reasons));
+    assert.deepEqual(codes(done), ['permission_violation_observed']);
+    const record = await recordOf(f, prepared.dispatchId);
+    assert.equal(record.violations.refsChanged, true);
+    assert.equal(record.violations.headChanged, false);
+  }
+});
+
+test('routing commands are denied inside a bridge child (ARC_BRIDGE_CHILD set) and nothing is reserved or started', async t => {
+  const f = await setup(t);
+  const base = {hostPlatform: 'claude', executionEnvironment: 'claude-cli'};
+  const inputs = {'routing-status': base, 'prepare-dispatch': {...base, role: 'arc_planner', expectedRevision: f.revision, requestId: 'bc-1', taskId: 'bc-t'}, 'run-dispatch': {...base, dispatchId: 'nope', brief: 'x'}, observe: {...base, dispatchId: 'nope'}, resume: {...base, dispatchId: 'nope', brief: 'x'}, cancel: {...base, dispatchId: 'nope'}};
+  for (const [command, input] of Object.entries(inputs)) {
+    let out = '';
+    const code = await runWorkflowCommand([command, '--cwd', f.cwd, '--workflow', 'wf-1', '--input', '-'], {output: {write: chunk => { out += chunk; }}, input: JSON.stringify(input), env: {...f.env, ARC_BRIDGE_CHILD: 'some-dispatch'}});
+    const json = JSON.parse(out.trim());
+    assert.equal(code, 2, command);
+    assert.equal(json.decision, 'deny', command);
+    assert.match(json.message, /bridge child/i);
+  }
+  assert.deepEqual(await listLeases(f.codexHome), []);
+});

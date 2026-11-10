@@ -8,7 +8,7 @@ import readline from 'node:readline';
 import zlib from 'node:zlib';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {DEFAULT_POLICY} from './role-dispatch-policy.mjs';
+import {DEFAULT_POLICY, CATALOG_MODEL_ALIASES} from './role-dispatch-policy.mjs';
 
 const execFileAsync = promisify(execFile);
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -87,7 +87,7 @@ export function eventRecord(normalized) {
 
 export const matchModel = (requested, observed) => {
   if (typeof requested !== 'string' || typeof observed !== 'string' || requested === '' || observed === '') return false;
-  return /^[a-z]+$/.test(requested) ? observed.split('-').includes(requested) : requested === observed;
+  return CATALOG_MODEL_ALIASES.includes(requested) ? observed.split('-').includes(requested) : requested === observed;
 };
 
 const sameSet = (left, right) => left.length === right.length && new Set(left).size === left.length && new Set(right).size === right.length && left.every(item => right.includes(item));
@@ -203,13 +203,14 @@ export function evaluateCodexContext({context, expected, policy = DEFAULT_POLICY
   const sandbox = judge('sandboxMode', value => value === expected.sandboxMode), approval = judge('approvalPolicy', value => value === expected.approvalPolicy);
   const settings = sandbox === 'mismatch' || approval === 'mismatch' ? 'mismatch' : sandbox === 'ok' && approval === 'ok' ? 'ok' : 'missing';
   const delegationDetectable = gates.G3 === 'pass', delegated = delegationDetectable && context.delegationObserved === true;
-  const notes = [];
+  // The child loads the user's Codex config (MCP servers and so on), which ARC does not control: the claim never exceeds operator-attested.
+  const notes = ['user-config-mcp-not-controlled'];
   if (gates.G5 === 'wide') notes.push('writable-root-wider-than-worktree');
   if (!delegationDetectable) notes.push('delegation-not-detectable');
   if (settings === 'mismatch') notes.push('sandbox or approval policy differs from the requested values');
   if (settings === 'missing') notes.push('sandbox or approval policy not observed');
   if (delegated) notes.push('delegation call observed');
-  const permissionLevel = settings !== 'ok' || delegated ? 'unverified' : delegationDetectable ? 'runtime-observed' : 'operator-attested';
+  const permissionLevel = settings !== 'ok' || delegated ? 'unverified' : 'operator-attested';
   const claimOf = (state, requested, field) => observedClaim(state === 'ok' ? 'runtime-observed' : 'unverified', 'codex-rollout', {requested, observed: context[field] ?? null, ...(state === 'missing' ? {label: 'model_effort_unverified'} : {})});
   const claims = {
     model: claimOf(model, expected.model, 'model'), effort: claimOf(effort, expected.effort, 'effort'),
@@ -262,11 +263,16 @@ async function contentDigest(filename) {
   });
 }
 
-/** Snapshot of HEAD, branch and every changed or untracked path; paths are relative to the worktree root even when worktree is a subdirectory. */
+/** Snapshot of HEAD, branch, every ref (name and object) and every changed or untracked path; paths are relative to the worktree root even when worktree is a subdirectory. */
 export async function snapshotWorktree(worktree) {
   const root = (await git(worktree, ['rev-parse', '--show-toplevel'])).trim();
   const head = (await git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], {allowFailure: true}))?.trim() || null;
   const branch = (await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], {allowFailure: true}))?.trim() || null;
+  const refs = {};
+  for (const line of (await git(root, ['for-each-ref', '--format=%(refname) %(objectname)'])).split('\n')) {
+    const at = line.lastIndexOf(' ');
+    if (at > 0) refs[line.slice(0, at)] = line.slice(at + 1);
+  }
   const status = await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
   const tokens = status.split('\0'), entries = new Map();
   for (let i = 0; i < tokens.length; i++) {
@@ -276,16 +282,18 @@ export async function snapshotWorktree(worktree) {
     entries.set(file, `${code}:${await contentDigest(path.join(root, file))}`);
     if (code.includes('R') || code.includes('C')) { const origin = tokens[++i]; if (origin) entries.set(origin, `${code}:${sha256('deleted')}`); }
   }
-  return {head, branch, entries};
+  return {head, branch, refs, entries};
 }
 
 const allowedBy = (allowedPaths, file) => allowedPaths.some(entry => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
-/** Implementer and QA may change only allowedPaths (QA: none when empty or missing); read-only roles may change nothing; any HEAD or branch change is a violation. */
+/** Implementer and QA may change only allowedPaths (QA: none when empty or missing); read-only roles may change nothing; any HEAD, branch or ref change (created, deleted or moved) is a violation. Git-ignored paths are not observed. */
 export function detectViolations({role, allowedPaths, before, after}) {
   const headChanged = before.head !== after.head || before.branch !== after.branch;
+  const refsBefore = before.refs ?? {}, refsAfter = after.refs ?? {};
+  const refsChanged = [...new Set([...Object.keys(refsBefore), ...Object.keys(refsAfter)])].some(name => refsBefore[name] !== refsAfter[name]);
   const allowed = (role === 'arc_implementer' || role === 'arc_qa') && Array.isArray(allowedPaths) ? allowedPaths : [];
   const changed = new Set();
   for (const file of new Set([...before.entries.keys(), ...after.entries.keys()])) if (before.entries.get(file) !== after.entries.get(file)) changed.add(file);
   const changedPaths = [...changed].filter(file => !allowedBy(allowed, file)).sort();
-  return {reason: headChanged || changedPaths.length ? 'permission_violation_observed' : null, changedPaths, headChanged};
+  return {reason: headChanged || refsChanged || changedPaths.length ? 'permission_violation_observed' : null, changedPaths, headChanged, refsChanged};
 }

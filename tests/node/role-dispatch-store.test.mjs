@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {serializeLimits} from '../../lib/installer/limits.mjs';
-import {createLease, dispatchDirectory, listLeases, pruneTerminalLeases, readHostLimits, readLease, validateLease, writeLease, NON_TERMINAL_STATES, TERMINAL_STATES} from '../../lib/runtime/role-dispatch-store.mjs';
+import {createLease, ensureDispatchDirectory, dispatchDirectory, listLeases, pruneTerminalLeases, readHostLimits, readLease, validateLease, writeLease, NON_TERMINAL_STATES, TERMINAL_STATES} from '../../lib/runtime/role-dispatch-store.mjs';
 
 const DAY = 86400000;
 const lease = (id, extra = {}) => ({
@@ -80,4 +80,20 @@ test('readHostLimits accepts serializeLimits output and comments, rejects unknow
   for (const bad of ['version = 2\nmax_total_subagents = 9\nmax_concurrent_subagents = 2\n', 'version = 1\nmax_total_subagents = 9\nmax_concurrent_subagents = 2\nextra = 1\n', 'version = 1\nmax_total_subagents = 9\n', 'version = 1\nmax_total_subagents = 0\nmax_concurrent_subagents = 2\n', 'version = 1\nmax_total_subagents = x\nmax_concurrent_subagents = 2\n'])
     { await fs.writeFile(file, bad); assert.throws(() => readHostLimits(home), bad); }
   await fs.rm(file); assert.throws(() => readHostLimits(home));
+});
+
+test('a lease directory that is too open and owned by the current user is corrected to 0700; a foreign-owned or symlinked one is refused', async t => {
+  const home = await tmp(t);
+  await fs.mkdir(dispatchDirectory(home), {recursive: true, mode: 0o755});
+  await fs.chmod(dispatchDirectory(home), 0o777);
+  await createLease(home, lease('wide'));
+  assert.equal((await fs.stat(dispatchDirectory(home))).mode & 0o777, 0o700);
+  await fs.chmod(dispatchDirectory(home), 0o755);
+  await writeLease(home, lease('wide'));
+  assert.equal((await fs.stat(dispatchDirectory(home))).mode & 0o777, 0o700, 'writeLease also corrects the directory');
+  await assert.rejects(ensureDispatchDirectory(home, {uid: process.getuid() + 1}), /not owned/i);
+  const other = await tmp(t), target = await fs.mkdtemp(path.join(os.tmpdir(), 'arc-store-target-'));
+  t.after(() => fs.rm(target, {recursive: true, force: true}));
+  await fs.symlink(target, dispatchDirectory(other));
+  await assert.rejects(createLease(other, lease('linked')), /directory/i);
 });

@@ -217,7 +217,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
  }catch(error){
   if(error?.code==='ARC_ROUTING_LOCK_RELEASE'&&!error.failure&&result.decision==='allow'){
    // The lease was written but lock ownership could not be verified: report it as held and keep the id for inspection.
-   {const base=reason('activation_unverified');Object.assign(result,{decision:'hold',routeStatus:'held',claims:null,reasons:[result.dispatchId?{...base,releaseCondition:`${base.releaseCondition} Reserved dispatch ${result.dispatchId} remains reserved and must be cleaned up with cancel.`}:base]});}
+   {const base=reason('activation_unverified');Object.assign(result,{decision:'hold',routeStatus:'held',claims:null,reasons:[result.dispatchId?{...base,releaseCondition:`${base.releaseCondition} Reserved dispatch ${result.dispatchId} remains reserved and must be cleaned up with cancel (native or bridge route).`}:base]});}
   }else{
    Object.assign(result,{decision:'hold',routeStatus:'held',dispatchId:null,claims:null,reasons:[reason(classify(error))]});
   }

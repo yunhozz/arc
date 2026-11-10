@@ -259,12 +259,49 @@ test('cancel is a no-op on terminal and denied on native', async t => {
   assert.equal(result.routeStatus, 'completed');
   assert.deepEqual(await readLease(f.codexHome, id), before, 'terminal lease is not rewritten');
   assert.equal(await cancelRequested(f.codexHome, id), false, 'no cancel marker is left for a terminal dispatch');
+  // A native lease is cancellable only while reserved (no child exists); a started native dispatch keeps the existing deny rule.
   const native = await prepare(f, 'arc_planner');
+  await recordRoleObservation({context: f.context(), dispatchId: native.dispatchId, event: 'started', nativeAgentId: 'agent-1', policy: policyWith()});
   const denied = await cancel(f, native.dispatchId);
   assert.equal(denied.decision, 'deny');
   assert.deepEqual(codes(denied), ['invalid_request']);
-  assert.equal((await readLease(f.codexHome, native.dispatchId)).state, 'reserved');
+  assert.equal((await readLease(f.codexHome, native.dispatchId)).state, 'running');
   assert.equal((await cancel(f, 'does-not-exist')).decision, 'deny');
+});
+
+test('cancel and the observe cancelled event release a reserved native lease; the same task and role can be prepared again', async t => {
+  const f = await setup(t, {roles: {}});
+  const assignment = {role: 'arc_planner', requestId: 'native-req-1', taskId: 'native-task'};
+  const first = await prepareRoleDispatch({context: f.context(), assignment, expectedRevision: f.revision, policy: policyWith()});
+  assert.equal(first.route, 'native');
+  const again = await prepareRoleDispatch({context: f.context(), assignment: {...assignment, requestId: 'native-req-2'}, expectedRevision: f.revision, policy: policyWith()});
+  assert.equal(again.decision, 'deny');
+  assert.deepEqual(codes(again), ['duplicate_dispatch']);
+  const cancelled = await cancel(f, first.dispatchId);
+  assert.equal(cancelled.decision, 'allow');
+  assert.equal(cancelled.routeStatus, 'cancelled');
+  assert.equal((await readLease(f.codexHome, first.dispatchId)).state, 'cancelled');
+  const second = await prepareRoleDispatch({context: f.context(), assignment: {...assignment, requestId: 'native-req-2'}, expectedRevision: f.revision, policy: policyWith()});
+  assert.equal(second.decision, 'allow', JSON.stringify(second.reasons));
+  const viaObserve = await recordRoleObservation({context: f.context(), dispatchId: second.dispatchId, event: 'cancelled', policy: policyWith()});
+  assert.equal(viaObserve.decision, 'allow');
+  assert.equal(viaObserve.routeStatus, 'cancelled');
+  const third = await prepareRoleDispatch({context: f.context(), assignment: {...assignment, requestId: 'native-req-3'}, expectedRevision: f.revision, policy: policyWith()});
+  assert.equal(third.decision, 'allow', JSON.stringify(third.reasons));
+  const withAgent = await recordRoleObservation({context: f.context(), dispatchId: third.dispatchId, event: 'cancelled', nativeAgentId: 'agent-x', policy: policyWith()});
+  assert.equal(withAgent.decision, 'deny');
+  assert.equal((await readLease(f.codexHome, third.dispatchId)).state, 'reserved');
+});
+
+test('cancel of an unknown lease keeps its recorded reasons on the cancelled lease', async t => {
+  const f = await setup(t);
+  const child = startStray(f);
+  await sleep(200);
+  const id = await unknownLease(f, {pid: child.pid, startTime: processStartTime(child.pid)});
+  const result = await cancel(f, id);
+  assert.equal(result.routeStatus, 'cancelled');
+  assert.deepEqual(codes(result), ['terminal_state_unverified']);
+  assert.deepEqual((await readLease(f.codexHome, id)).reasons.map(reason => reason.code), ['terminal_state_unverified']);
 });
 
 test('cancel cleans up an orphaned reserved bridge lease under the lock and frees the slot', async t => {

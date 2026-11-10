@@ -12,6 +12,8 @@ export async function runWorkflowCommand(args,io={}){
   const [command,...rest]=args,options={};
   isRouting=['routing-status','prepare-dispatch','run-dispatch','observe','resume','cancel'].includes(command);
   if(!['init','record','status','reconcile','prepare','result'].includes(command)&&!isRouting)throw Error('Expected workflow command');
+  // A bridge child must not drive routing itself: the supervisor sets ARC_BRIDGE_CHILD for the child CLI process tree.
+  if(isRouting&&(io.env??process.env).ARC_BRIDGE_CHILD){output.write(JSON.stringify({workflowId:null,...invalidRoutingRequest({}),message:'Routing commands are not available inside a bridge child.'})+'\n');return 2;}
   for(let i=0;i<rest.length;i+=2){const key=rest[i];if(!['--cwd','--workflow','--input'].includes(key)||options[key]!==undefined||typeof rest[i+1]!=='string')throw Error('Invalid workflow option');options[key]=rest[i+1];}
   const cwd=options['--cwd'];workflowId=options['--workflow'];validateWorkflowId(workflowId);
   if(typeof cwd!=='string'||!path.isAbsolute(cwd)||path.normalize(cwd)!==cwd)throw Error('Absolute workspace required');

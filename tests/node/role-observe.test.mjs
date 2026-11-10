@@ -152,7 +152,8 @@ test('evaluateCodexContext caps permissions at operator-attested when G3 failed 
   const wide = evaluateCodexContext({context, expected, policy: DEFAULT_POLICY});
   assert.equal(wide.reason, null);
   assert.equal(wide.claims.model.level, 'runtime-observed'); assert.equal(wide.claims.effort.level, 'runtime-observed');
-  assert.equal(wide.claims.permissions.level, 'runtime-observed');
+  assert.equal(wide.claims.permissions.level, 'operator-attested', 'user config (MCP) is not controlled, so permissions never reach runtime-observed');
+  assert.match(String(wide.claims.permissions.details), /user-config-mcp-not-controlled/);
   assert.match(String(wide.claims.permissions.details), /writable-root-wider-than-worktree/);
   const g3 = evaluateCodexContext({context, expected, policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G3: 'fail', G5: 'narrow'}}});
   assert.equal(g3.claims.permissions.level, 'operator-attested');
@@ -196,7 +197,7 @@ test('detectViolations on a repo with pre-existing dirty and untracked files', a
   assert.match(snap.entries.get('untracked-before.txt'), /^\?\?:[a-f0-9]{64}$/);
 
   // Review Focus 3: pre-existing dirty files untouched by a read-only role are not violations
-  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false});
+  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false});
   // read-only role edits a tracked file, an already-dirty file, or creates a file
   for (const change of [() => fs.writeFile(path.join(dir, 'src/a.txt'), 'changed\n'), () => fs.writeFile(path.join(dir, 'dirty.txt'), 'edited again\n'), () => fs.writeFile(path.join(dir, 'new.txt'), 'n\n'), () => fs.rm(path.join(dir, 'untracked-before.txt'))]) {
     const result = await run('arc_scouter', undefined, change);
@@ -261,8 +262,8 @@ test('F-1 missing observed values are unverified, not mismatches', () => {
   assert.equal(evaluateCodexContext({context: codexContext({effort: 'high'}), expected: CODEX_EXPECTED, policy: G3PASS}).reason, 'model_effort_mismatch');
 });
 
-test('F-2 Codex permissions cap lifts only when G3 is exactly pass', () => {
-  for (const [g3, level] of [['pass', 'runtime-observed'], ['fail', 'operator-attested'], ['pending', 'operator-attested'], [undefined, 'operator-attested'], ['', 'operator-attested']]) {
+test('F-2 Codex permissions stay operator-attested at G3 pass or not (user config is never controlled; M3 supersedes the G3 lift)', () => {
+  for (const [g3, level] of [['pass', 'operator-attested'], ['fail', 'operator-attested'], ['pending', 'operator-attested'], [undefined, 'operator-attested'], ['', 'operator-attested']]) {
     const r = evaluateCodexContext({context: codexContext(), expected: CODEX_EXPECTED, policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G3: g3}}});
     assert.equal(r.claims.permissions.level, level, String(g3));
   }
@@ -333,4 +334,54 @@ test('F-7 compressed .jsonl.zst rollouts are read like plain ones; corrupt, unsu
   assert.equal(await readCodexTurnContext({codexHome: zstHome, threadId: spawnId, delegationNames: [], zstdDecompress: () => { throw Error('boom'); }}), null);
   // plain files are unaffected by missing zstd support
   assert.ok(await readCodexTurnContext({codexHome: plainHome, threadId: id, delegationNames: [], zstdDecompress: null}));
+});
+
+test('Codex permissions claim never reaches runtime-observed even when G3 passes and every observed setting matches', () => {
+  const expected = {model: 'gpt-6-luna', effort: 'low', sandboxMode: 'read-only', approvalPolicy: 'never'};
+  const context = {model: 'gpt-6-luna', effort: 'low', sandboxMode: 'read-only', approvalPolicy: 'never', delegationObserved: false};
+  const ok = evaluateCodexContext({context, expected, policy: DEFAULT_POLICY});
+  assert.equal(ok.claims.permissions.level, 'operator-attested');
+  assert.match(ok.claims.permissions.details, /user-config-mcp-not-controlled/);
+  const mismatch = evaluateCodexContext({context: {...context, sandboxMode: 'workspace-write'}, expected, policy: DEFAULT_POLICY});
+  assert.equal(mismatch.claims.permissions.level, 'unverified');
+});
+
+test('matchModel accepts only catalog short aliases for the alias rule', () => {
+  for (const alias of ['opus', 'sonnet', 'haiku', 'fable']) assert.equal(matchModel(alias, `claude-${alias}-5-5`), true, alias);
+  assert.equal(matchModel('claude', 'claude-haiku-5-5'), false, 'a vendor prefix is not a catalog alias');
+  assert.equal(matchModel('five', 'claude-haiku-5-five'), false);
+  assert.equal(matchModel('gpt', 'gpt-6-luna'), false);
+  assert.equal(matchModel('latest', 'claude-haiku-latest'), false);
+});
+
+test('the policy alias list equals the short model names of the Claude catalog', async () => {
+  const {CATALOG_MODEL_ALIASES} = await import('../../lib/runtime/role-dispatch-policy.mjs');
+  const catalog = JSON.parse(await fs.readFile(new URL('../../lib/models/claude-models.json', import.meta.url), 'utf8'));
+  const shortNames = [...new Set(catalog.pairs.map(pair => pair.model).filter(model => /^[a-z]+$/.test(model)))].sort();
+  assert.deepEqual([...CATALOG_MODEL_ALIASES].sort(), shortNames);
+});
+
+test('snapshotWorktree records refs and detectViolations treats ref creation, deletion and movement as violations for every role', async t => {
+  const dir = await makeRepo(t);
+  const git = (...args) => { const r = spawnSync('git', args, {cwd: dir, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr); return r.stdout; };
+  const check = async (role, allowedPaths, change) => {
+    const before = await snapshotWorktree(dir);
+    await change();
+    return detectViolations({role, allowedPaths, before, after: await snapshotWorktree(dir)});
+  };
+  const snap = await snapshotWorktree(dir);
+  assert.ok(Object.keys(snap.refs).some(name => name.startsWith('refs/heads/')));
+  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false});
+  const branch = await check('arc_implementer', ['src/'], async () => git('branch', 'side'));
+  assert.equal(branch.refsChanged, true); assert.equal(branch.reason, 'permission_violation_observed'); assert.equal(branch.headChanged, false);
+  const tag = await check('arc_implementer', ['src/'], async () => git('tag', 'v1'));
+  assert.equal(tag.refsChanged, true); assert.equal(tag.reason, 'permission_violation_observed');
+  const removed = await check('arc_qa', ['src/'], async () => git('branch', '-D', 'side'));
+  assert.equal(removed.refsChanged, true);
+  git('branch', 'mover');
+  const moved = await check('arc_planner', undefined, async () => git('branch', '-f', 'mover', 'HEAD'));
+  assert.equal(moved.refsChanged, false, 'a ref set to the same object is unchanged');
+  git('commit', '-q', '--allow-empty', '-m', 'next');
+  const forced = await check('arc_planner', undefined, async () => git('branch', '-f', 'mover', 'HEAD'));
+  assert.equal(forced.refsChanged, true);
 });

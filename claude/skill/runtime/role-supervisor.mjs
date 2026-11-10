@@ -245,6 +245,9 @@ export async function runSupervisor(options) {
     let exit = await exitPromise;
     // A cancel request whose own SIGTERM stopped the child before the marker poll ran still counts as a cancel, and the group is reaped the same way.
     if (!terminating && !exit.unobserved && (exit.signal || !state.terminal) && await cancelRequested(codexHome, dispatchId)) { terminating = 'cancel'; termAt = Date.now(); }
+    // A leader that exited on its own may leave descendants in the process group: they are stopped (SIGTERM, grace, SIGKILL) before the post-run snapshot is taken.
+    let orphanGroupReaped = false;
+    if (!termAt && !exit.unobserved && child?.pid && groupAlive()) { orphanGroupReaped = true; termAt = Date.now(); killGroup('SIGTERM'); }
     if (termAt && !exit.unobserved && !await reapGroup()) exit = {code: null, signal: null, unobserved: true};
     await Promise.race([stdoutClosed, sleep(1000)]);
     parser.end();
@@ -267,7 +270,7 @@ export async function runSupervisor(options) {
 
     let after = null;
     try { after = await snapshotWorktree(target.realpath); } catch { after = null; }
-    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after}) : {reason: null, changedPaths: [], headChanged: false};
+    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false};
     const codes = [];
     if (state.mismatch) codes.push(state.mismatch);
     if (state.internal) codes.push(state.internal);
@@ -322,7 +325,7 @@ export async function runSupervisor(options) {
       claims.identity = {level: 'unverified', source: 'none'};
     }
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
-    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged}, argsDigest: invocation.argsDigest, resultPath});
+    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath});
     await commit(finalState, codes, claims, {sessionId, resultPath});
   } catch {
     // Unexpected failure after the child started: stop it, then record a failed state if the child is gone.

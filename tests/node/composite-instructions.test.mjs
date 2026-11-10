@@ -111,3 +111,25 @@ test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
   assert.ok(!operations.includes('cooperative-7'), 'operations.mjs must read the runtime version instead of hardcoding it');
 });
+
+test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref detection limits, bridge-child guard, and G1 scope', async () => {
+  for (const harness of Object.keys(harnesses)) {
+    const body = section(await read(harness, 'coordination.md'));
+    assert.match(body, /`reserved` lease \(native or bridge\) becomes `cancelled` at once/);
+    assert.match(body, /`cancelled` event is also accepted for a `reserved` native lease/);
+    assert.match(body, /Codex bridge[^.]*`permissions` claim is at most `operator-attested`[^.]*`user-config-mcp-not-controlled`/);
+    assert.match(body, /Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed`/);
+    assert.match(body, /Changes to Git-ignored paths are outside post-run detection/);
+    assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
+    assert.match(body, /re-running `codex exec` or `claude -p` through a shell is not a detected `delegation_observed`/i);
+    assert.match(body, /orphaned process group[^.]*reaped/);
+    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` on a Codex host[^.]*? are held as `permission_scope_unverified`[^.]*\(G1\)/);
+    assert.doesNotMatch(body, /`claude-cli` hosts are supported\./);
+  }
+  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
+  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
+  assert.doesNotMatch(docs, /\| `claude-cli` host \| Supported\. Claude bridge `arc_implementer`/);
+  assert.doesNotMatch(readme, /`claude-cli` hosts are supported \(Claude bridge Implementer and QA/);
+  for (const text of [docs, readme]) assert.match(text, /Claude bridge[^.]*(?:Implementer and QA|`arc_implementer` and `arc_qa`)[^.]*Codex host/);
+  for (const needle of ['user-config-mcp-not-controlled', 'ARC_BRIDGE_CHILD', 'Git-ignored']) assert.ok(docs.includes(needle), 'docs ' + needle);
+});
