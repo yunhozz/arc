@@ -489,7 +489,7 @@
   - native이면 `event`가 필수입니다. 허용 전이는 `reserved→running`(`started`, `nativeAgentId` 필수)과 `running→completed|failed|cancelled`이고, 그 밖은 deny입니다. claims는 operator-attested입니다.
 - **adapters:** `runClaudeGate`·`runCodexGate`는 `(context.env ?? process.env).ARC_BRIDGE_CHILD`가 있으면 SubagentStart·PostToolUse 기록을 하지 않고 `{}`를 반환합니다. PreToolUse 판정은 바꾸지 않습니다.
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/role-bridge-run.test.mjs`, T1 fixture와 fake CLI 사용)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/role-bridge-run.test.mjs`, T1 fixture와 fake CLI 사용)
   - `run-dispatch starts a detached supervisor and reaches completed with result.md` (AC10)
     - 반환 `starting`, 이후 `observe waitMs` 결과는 `completed`
     - fake 기록상 stdin이 brief와 같고, `resultPath` 파일이 있고, 산출물 디렉터리는 0700, 파일은 0600
@@ -514,16 +514,16 @@
   - `supervisor lease writes during concurrent prepare-dispatch never surface activation_unverified` (Review Focus 1): 병렬 prepare 20회와 실행 중 supervisor
   - `native observe started→completed records operator-attested claims; invalid transitions are denied` (AC4)
   - `cwd in a subdirectory uses the worktree root for -C and snapshots` (Review Focus 5)
-- [ ] **Step 2: 실패 테스트 작성** (`tests/node/runtime-claude.test.mjs`, `tests/node/runtime-codex.test.mjs`)
+- [x] **Step 2: 실패 테스트 작성** (`tests/node/runtime-claude.test.mjs`, `tests/node/runtime-codex.test.mjs`)
   - `SubagentStart with ARC_BRIDGE_CHILD is not recorded`: `recordPlannerAgentObservation` 호출 0회, 반환 `{}`
-- [ ] **Step 3: RED 확인**
+- [x] **Step 3: RED 확인**
   - 실행: `node --test tests/node/role-bridge-run.test.mjs tests/node/runtime-claude.test.mjs tests/node/runtime-codex.test.mjs`
   - 기대: FAIL
-- [ ] **Step 4: 구현** 위 인터페이스와 절차대로 작성합니다.
-- [ ] **Step 5: GREEN 확인** Step 3 명령이 PASS여야 합니다.
-- [ ] **Step 6: 등록(R)** 새 모듈 순서: `'role-supervisor.mjs'`
-- [ ] **Step 7: 회귀 확인** `npm test`가 G0 대비 새 실패 없음이고 남은 자식 프로세스가 없어야 합니다(`ps`로 fake 이름 확인).
-- [ ] **Step 8: 수용 후 커밋** (Orchestrator) `feat(runtime): bridge supervisor 실행과 관측`
+- [x] **Step 4: 구현** 위 인터페이스와 절차대로 작성합니다.
+- [x] **Step 5: GREEN 확인** Step 3 명령이 PASS여야 합니다.
+- [x] **Step 6: 등록(R)** 새 모듈 순서: `'role-supervisor.mjs'`
+- [x] **Step 7: 회귀 확인** `npm test`가 G0 대비 새 실패 없음이고 남은 자식 프로세스가 없어야 합니다(`ps`로 fake 이름 확인).
+- [x] **Step 8: 수용 후 커밋** (Orchestrator) `feat(runtime): bridge supervisor 실행과 관측`
 
 **필수 QA (fresh):**
 - 테스트와 등록 검사를 재실행합니다. 같은 테스트를 3회 반복해 시간 의존 불안정성이 없는지 확인합니다.
@@ -536,6 +536,9 @@
 **보류 조건:**
 - macOS나 Linux에서 `ps -o lstart=`를 쓸 수 없으면 반환합니다.
 - detached supervisor가 테스트 환경에서 살아남지 못하면 G2와 별개 문제로 보고 반환합니다.
+
+
+**진행 기록 (2026-11-11, 분류: task progress record):** T3 수용. QA 지적 F1(timeout·cancel 시 리더가 먼저 죽어도 유예 뒤 그룹 SIGKILL, 그룹 소멸 확인 후에만 종료 상태 기록), F2(supervisor 직접 실행 가드가 import 시 예외 → `runtime-cli` 신규 실패), F3(세션 ID 미확보 → 명세 §5.10대로 `unknown`+`execution_identity_unverified`), F5(c)(예외 경로에서 실제 pid·`spawned` 기록, 생존 시 `unknown` 기록), AC9 테스트 공백(permissionMode·MCP 노출·approval_policy)을 수정한 뒤 재검증 통과(`role-bridge-run` 30/30, 무부하·부하 반복, 신규 실패 0). 처분: `observe`의 failed·unknown은 hold(종료 코드 3), supervisor 단계 activation·argsDigest 불일치는 `failed`, 테스트 전용 주입 옵션(`afterSpawn`, `signalGroup`)은 외부 경로 없음을 확인하고 수용. 이전 QA 인스턴스는 세션 중단으로 사용할 수 없어 교체했습니다. Implementer는 F1~F3에서 TDD 순서를 지키지 못했다고 자진 보고했습니다(이전 버전으로 RED 재현).
 
 ---
 

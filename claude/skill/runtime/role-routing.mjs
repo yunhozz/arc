@@ -141,7 +141,7 @@ async function readRevision(homes){
  const bytes=await readStable(path.join(homes.codex,'arc-role-platform-routing.json'),[]);
  return parseRoleRoutingConfig(bytes.toString('utf8')).revision;
 }
-async function readProfileHash(home,role){
+export async function readProfileHash(home,role){
  const marker=JSON.parse(await fs.readFile(path.join(home,'arc-role-platform-routing.prepared.json'),'utf8'));
  const hashValue=marker?.profiles?.[role]?.hash;if(!validHash(hashValue))throw Error('Invalid profile hash');return hashValue;
 }

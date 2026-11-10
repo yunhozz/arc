@@ -94,13 +94,15 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  }
  if(args.length===1&&args[0]==='--version'){process.stdout.write(String(scenario.version??'0.0.0'));process.exit(0);}
  let stdin='';try{stdin=fs.readFileSync(0,'utf8');}catch{}
- if(scenario.recordPath)fs.appendFileSync(scenario.recordPath,JSON.stringify({argv:args,stdin,cwd:process.cwd(),pid:process.pid})+'\\n');
+ if(scenario.recordPath)fs.appendFileSync(scenario.recordPath,JSON.stringify({argv:args,stdin,cwd:process.cwd(),pid:process.pid,bridgeChild:process.env.ARC_BRIDGE_CHILD||null})+'\\n');
+ if(scenario.outputFile!==undefined){const at=args.indexOf('-o');if(at>=0)fs.writeFileSync(args[at+1],scenario.outputFile);}
  if(scenario.ignoreSigterm)process.on('SIGTERM',()=>{});
  for(const file of scenario.writes??[])fs.mkdirSync(require('node:path').dirname(file.path),{recursive:true}),fs.writeFileSync(file.path,file.content);
  if(scenario.grandchild){const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});if(scenario.grandchildPidFile)fs.writeFileSync(scenario.grandchildPidFile,String(child.pid));}
  if(scenario.delayMs)await sleep(scenario.delayMs);
  for(const line of scenario.events??[])process.stdout.write((typeof line==='string'?line:JSON.stringify(line))+'\\n');
  if(scenario.stderr)process.stderr.write(scenario.stderr);
+ await new Promise(r=>process.stdout.write('',r));await new Promise(r=>process.stderr.write('',r));
  if(scenario.hang)return setInterval(()=>{},1000);
  process.exit(scenario.exitCode??0);
 })();

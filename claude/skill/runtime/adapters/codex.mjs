@@ -7,6 +7,8 @@ import {runGate} from '../gate.mjs';
 const text=v=>typeof v==='string'&&v.length>0;
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const supported=new Set(['Read','Glob','Grep','Bash','Write','Edit','MultiEdit','exec_command','apply_patch','Agent','spawn_agent']);
+// A bridge child carries this marker; its Hook events are observation-only and never recorded.
+const bridgeChild=context=>text((context?.env??process.env).ARC_BRIDGE_CHILD);
 const deny=reason=>({decision:'deny',reason,ruleIds:['runtime.codex'],proposedTransition:null});
 /** Context is a trusted host dependency, never deserialized from stdin/tool_input.
  * describeTool must parse the complete tool invocation conservatively, and supply
@@ -32,6 +34,7 @@ export function renderCodexDecision(decision){
  * timeout, hosted/specialized paths and existing write_stdin are outside it. */
 export async function runCodexGate(input,context={}){
  if(input?.hook_event_name==='SubagentStart'){
+  if(bridgeChild(context))return {};
   // SubagentStart cannot prevent startup. Only a trusted provider can correlate
   // agent_id with a pending assignment; tool/event agent_type is not authority.
   try{

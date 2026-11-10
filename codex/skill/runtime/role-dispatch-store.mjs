@@ -52,8 +52,9 @@ export async function writeLease(codexHome, lease, {now = Date.now()} = {}) {
   } catch (error) { await fsp.unlink(temp).catch(() => {}); throw error; }
   return value;
 }
+const HEARTBEAT_SUFFIX = '.heartbeat.json';
 const leaseFiles = async codexHome => {
-  try { return (await fsp.readdir(dispatchDirectory(codexHome))).filter(name => name.endsWith('.json') && !name.startsWith('.')).sort(); }
+  try { return (await fsp.readdir(dispatchDirectory(codexHome))).filter(name => name.endsWith('.json') && !name.endsWith(HEARTBEAT_SUFFIX) && !name.startsWith('.')).sort(); }
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }
 };
 export async function listLeases(codexHome) {
@@ -72,6 +73,7 @@ export async function pruneTerminalLeases(codexHome, {now = Date.now(), retentio
       const updated = Date.parse(lease.updatedAt);
       if (!TERMINAL_STATES.includes(lease.state) || !Number.isFinite(updated) || now - updated <= retentionMs) continue;
       await fsp.unlink(file); removed += 1;
+      for (const extra of [`${lease.dispatchId}${HEARTBEAT_SUFFIX}`, `${lease.dispatchId}.cancel`]) await fsp.unlink(path.join(dispatchDirectory(codexHome), extra)).catch(() => {});
     } catch { errors += 1; }
   }
   return {removed, errors};
@@ -88,4 +90,30 @@ export function readHostLimits(hostHome) {
   }
   if (Object.keys(values).length !== 3 || values.version !== 1 || values.max_total_subagents < 1 || values.max_concurrent_subagents < 1) throw Error('Invalid limits file');
   return {maxTotal: values.max_total_subagents, maxConcurrent: values.max_concurrent_subagents};
+}
+
+const sidecarPath = (codexHome, dispatchId, suffix) => path.join(dispatchDirectory(codexHome), `${path.basename(leasePath(codexHome, dispatchId), '.json')}${suffix}`);
+/** The supervisor alone writes its heartbeat; no routing lock is needed because the file is replaced atomically and holds no lease state. */
+export async function writeHeartbeat(codexHome, dispatchId, {at, pid}) {
+  if (!Number.isFinite(at) || !Number.isInteger(pid) || pid <= 0) throw Error('Invalid heartbeat');
+  const target = sidecarPath(codexHome, dispatchId, HEARTBEAT_SUFFIX), temp = path.join(dispatchDirectory(codexHome), `.${dispatchId}.${crypto.randomUUID()}.hb.tmp`);
+  try {
+    const handle = await fsp.open(temp, 'wx', 0o600);
+    try { await handle.writeFile(JSON.stringify({at, pid}) + '\n'); } finally { await handle.close(); }
+    await fsp.rename(temp, target);
+  } catch (error) { await fsp.unlink(temp).catch(() => {}); throw error; }
+}
+export async function readHeartbeat(codexHome, dispatchId) {
+  try {
+    const value = JSON.parse(await fsp.readFile(sidecarPath(codexHome, dispatchId, HEARTBEAT_SUFFIX), 'utf8'));
+    return isObject(value) && Number.isFinite(value.at) && Number.isInteger(value.pid) ? {at: value.at, pid: value.pid} : null;
+  } catch { return null; }
+}
+/** Marker file asking the supervisor to stop the child; the supervisor polls for it. */
+export async function requestCancel(codexHome, dispatchId) {
+  const handle = await fsp.open(sidecarPath(codexHome, dispatchId, '.cancel'), 'a', 0o600);
+  await handle.close();
+}
+export async function cancelRequested(codexHome, dispatchId) {
+  try { await fsp.access(sidecarPath(codexHome, dispatchId, '.cancel')); return true; } catch { return false; }
 }
