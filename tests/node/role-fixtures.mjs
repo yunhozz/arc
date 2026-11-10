@@ -31,7 +31,7 @@ async function renderPlatform(platform, config) {
   const settings = resolveModelSettings(applyPreset(base, 'smart'));
   for (const role of ROUTING_ROLES) if (config.roles[role].platform === platform) settings.roles[role] = {model: config.roles[role].model, [field]: config.roles[role].effort};
   const rendered = renderProfiles(inputs, settings), result = {};
-  for (const role of ROUTING_ROLES) if (config.roles[role].platform === platform) result[role] = renameCompositeProfile(rendered.get(`${role.replace('_', '-')}.${ext}`), platform, role);
+  for (const role of ROUTING_ROLES) if (config.roles[role].platform === platform) result[role] = renameCompositeProfile(rendered.get(`${role.replace('_', '-')}.${ext}`), platform, role, config.revision);
   return result;
 }
 

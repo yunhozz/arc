@@ -633,7 +633,7 @@
   - Claude: frontmatter `description: <기존>` 줄 끝에 추가합니다.
   - description 줄이 정확히 하나가 아니거나 revision이 `/^[A-Za-z0-9._-]{1,128}$/`를 만족하지 않으면 `TargetConfigurationError('Composite revision cannot be tagged')`를 던집니다(P-6). TUI는 `randomUUID()`를 씁니다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `composite profiles carry the revision tag on both platforms and markers hash the tagged bytes`
     - Codex description을 TOML로 파싱한 값이 `` `… [arc-routing rev ${rev}]` ``로 끝납니다.
     - Claude frontmatter description도 같은 태그로 끝납니다.
@@ -641,19 +641,22 @@
   - `routing-status revisionTag equals the tag inside the installed profile`
   - `untaggable revision is rejected before publication`
   - `standard arc-* profiles are unchanged`
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
   - 실행: `node --test tests/node/role-routing-install.test.mjs`
   - 기대: FAIL
-- [ ] **Step 3: 구현** 위 인터페이스대로 작성합니다.
-- [ ] **Step 4: GREEN 확인**
+- [x] **Step 3: 구현** 위 인터페이스대로 작성합니다.
+- [x] **Step 4: GREEN 확인**
   - 실행: Step 2 명령과 `node --test tests/node/role-routing-dispatch.test.mjs tests/node/role-bridge-run.test.mjs`
   - 기대: PASS
-- [ ] **Step 5: 매니페스트와 회귀 확인** `node scripts/update-manifest.mjs`, `npm run check:manifest`를 실행하고, `npm test`가 G0 대비 새 실패 없음
-- [ ] **Step 6: 수용 후 커밋** (Orchestrator) `feat(installer): native 프로필 revision 태그`
+- [x] **Step 5: 매니페스트와 회귀 확인** `node scripts/update-manifest.mjs`, `npm run check:manifest`를 실행하고, `npm test`가 G0 대비 새 실패 없음
+- [x] **Step 6: 수용 후 커밋** (Orchestrator) `feat(installer): native 프로필 revision 태그`
 
 **필수 QA (fresh):** 테스트를 재실행하고, 태그된 Claude 프로필이 `lib/models/profiles.mjs`의 프로필 검증 규칙과 충돌하지 않는지 정적으로 확인합니다.
 
 **보류 조건:** 태그 삽입이 기존 설치의 프로필 소유권 대조(`inspectCompositeRemoval`)를 깨면 반환합니다.
+
+
+**진행 기록 (2026-11-11, 분류: task progress record):** T5 수용. 설치기가 `arc-routing-*` 프로필 description에 `[arc-routing rev <revision>]` 태그(T1 `revisionTag` 단일 원천)를 붙이고, 태그된 바이트로 마커 해시를 계산합니다. QA가 신규 4/4 통과와 신규 실패 0을 확인했습니다. `inspectCompositeRemoval`에는 영향이 없습니다. 잠재 위험: `lib/models/profiles.mjs`의 Claude 평문 스칼라 규칙은 `[`·`]`를 거부하므로, 앞으로 설치된 `arc-routing-*` 파일을 `renderProfiles`로 다시 렌더링하는 경로가 생기면 실패합니다. 현재는 그런 경로가 없음을 정적 추적과 재현으로 확인했고, 최종 Reviewer 확인 대상으로 남깁니다.
 
 ---
 
