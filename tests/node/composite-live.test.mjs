@@ -7,7 +7,7 @@
 // minimize tokens. Terminal leases it creates under <CODEX_HOME>/arc-role-dispatch are pruned by ARC after 30 days.
 //
 // It is skipped unless ARC_LIVE_CLI_TESTS=1, and additionally skipped (with a printed reason) when the real user home
-// has no active composite configuration whose prepared markers match the current runtime (`cooperative-7`).
+// has no active composite configuration whose prepared markers match the current runtime (`cooperative-8`).
 // The default `npm test` run never executes it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 
 const SKIP_DEFAULT = 'opt-in live smoke: set ARC_LIVE_CLI_TESTS=1 (makes real model calls and incurs cost)';
-const RUNTIME_VERSION = 'cooperative-7';
+const RUNTIME_VERSION = 'cooperative-8';
 const TERMINAL = ['completed', 'failed', 'cancelled', 'unknown'];
 
 if (process.env.ARC_LIVE_CLI_TESTS !== '1') {

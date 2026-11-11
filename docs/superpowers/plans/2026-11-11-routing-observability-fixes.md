@@ -155,14 +155,16 @@
 **파일:** `lib/runtime/bootstrap.mjs`(약 21행), `tests/node/runtime-versions.test.mjs`, `tests/node/composite-live.test.mjs`, `tests/node/composite-instructions.test.mjs`, `docs/harness-operation.md`(마이그레이션 문단), `README.md:45`, 생성 사본, `MANIFEST.sha256`.
 **선행:** T1–T3 커밋.
 
-- [ ] **1단계: 실패하는 테스트 작성.** `runtime-versions.test.mjs`의 기대값을 `'cooperative-8'`로, `composite-instructions.test.mjs`의 버전 정규식과 부정 단언을 `cooperative-8` 기준으로, `composite-live.test.mjs`의 `RUNTIME_VERSION`과 주석을 `cooperative-8`로 바꾼다.
-- [ ] **2단계: 실패 확인.** `node --test --test-timeout=120000 tests/node/runtime-versions.test.mjs tests/node/composite-instructions.test.mjs` → FAIL.
-- [ ] **3단계: 구현.** `bootstrap.mjs`의 `runtime:'cooperative-8'`. `docs/harness-operation.md`의 마이그레이션 문단 머리를 "`cooperative-8` migration"으로 바꾸고 다음 문장을 추가한다: "This version renames the authentication label to `Available` / `Not Available`, makes a bridge `observe` with `waitMs` wait for a terminal or `unknown` state, and checks Codex authentication by refreshing the token." `README.md:45`의 `cooperative-7`을 같은 의미로 교체한다.
-- [ ] **4단계: 생성물 갱신과 통과 확인.** `node scripts/update-runtime-assets.mjs` → `baselineHash` 갱신(전역 제약; `bootstrap.mjs` 바이트가 바뀌므로 필요) → `node scripts/update-manifest.mjs`. 기준선 비교 규칙의 전체 테스트, `check:manifest`, `check:role-policy`, runtime 사본 검사, `grep -rn "cooperative-7" lib claude/skill codex/skill tests/node README.md docs/harness-operation.md` 출력 없음.
-- [ ] **5단계: 커밋(Orchestrator 수용 후)** — `docs(arc): 런타임 버전 cooperative-8 상향과 마이그레이션 안내`
+- [x] **1단계: 실패하는 테스트 작성.** `runtime-versions.test.mjs`의 기대값을 `'cooperative-8'`로, `composite-instructions.test.mjs`의 버전 정규식과 부정 단언을 `cooperative-8` 기준으로, `composite-live.test.mjs`의 `RUNTIME_VERSION`과 주석을 `cooperative-8`로 바꾼다.
+- [x] **2단계: 실패 확인.** `node --test --test-timeout=120000 tests/node/runtime-versions.test.mjs tests/node/composite-instructions.test.mjs` → FAIL.
+- [x] **3단계: 구현.** `bootstrap.mjs`의 `runtime:'cooperative-8'`. `docs/harness-operation.md`의 마이그레이션 문단 머리를 "`cooperative-8` migration"으로 바꾸고 다음 문장을 추가한다: "This version renames the authentication label to `Available` / `Not Available`, makes a bridge `observe` with `waitMs` wait for a terminal or `unknown` state, and checks Codex authentication by refreshing the token." `README.md:45`의 `cooperative-7`을 같은 의미로 교체한다.
+- [x] **4단계: 생성물 갱신과 통과 확인.** `node scripts/update-runtime-assets.mjs` → `baselineHash` 갱신(전역 제약; `bootstrap.mjs` 바이트가 바뀌므로 필요) → `node scripts/update-manifest.mjs`. 기준선 비교 규칙의 전체 테스트, `check:manifest`, `check:role-policy`, runtime 사본 검사, `grep -rn "cooperative-7" lib claude/skill codex/skill tests/node README.md docs/harness-operation.md` 출력 없음.
+- [x] **5단계: 커밋(Orchestrator 수용 후)** — `docs(arc): 런타임 버전 cooperative-8 상향과 마이그레이션 안내`
 
 **수용 기준:** 스펙 AC7.
 **수용 전 QA:** 새 QA가 4단계를 재실행한다.
+
+**진행 기록 (2026-11-11, 진행 기록):** Implementer dispatch `ac`(Codex bridge) 1~4단계, `baselineHash` `sha256:18c478c9…`. 전체 테스트 1524개 중 실패 89, 취소 1, 기준선 대비 새 실패 0. QA dispatch `60eada8d` Q1~Q4 proven. 수용: Orchestrator.
 
 ---
 

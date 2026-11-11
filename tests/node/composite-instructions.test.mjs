@@ -76,7 +76,7 @@ test('operations source and docs no longer report held / unverified and describe
   const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
   assert.doesNotMatch(readme, /Every role remains `held \/ unverified`/);
   assert.doesNotMatch(docs, /All current composite role routes remain `held \/ unverified`/);
-  for (const text of [docs, readme]) { assert.match(text, /cooperative-7/); assert.match(text, /Install \/ Update/); }
+  for (const text of [docs, readme]) { assert.match(text, /cooperative-8/); assert.match(text, /Install \/ Update/); }
   for (const needle of ['claude-cli', 'codex-cli', 'codex-desktop', 'claude-desktop', 'host_sandbox_blocked', 'permission_scope_unverified', 'environment_unverified']) assert.ok(docs.includes(needle), 'docs ' + needle);
   for (const needle of ['host CLI discovery', 'authentication sharing', 'same worktree', 'supervisor survival', 'escalation', 'native tag']) assert.ok(docs.includes(needle), 'checklist ' + needle);
 });
@@ -109,7 +109,7 @@ test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G
   assert.match(docs, /only results are recorded[^.]*`versions-changed`[^.]*unresolved/);
   assert.match(docs, /no automatic migration/);
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
-  assert.ok(!operations.includes('cooperative-7'), 'operations.mjs must read the runtime version instead of hardcoding it');
+  assert.ok(!operations.includes('cooperative-8'), 'operations.mjs must read the runtime version instead of hardcoding it');
 });
 
 test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref detection limits, bridge-child guard, and G1 scope', async () => {
