@@ -87,22 +87,24 @@
 
 **선행:** T1 커밋(같은 파일과 매니페스트 직렬화). **소비:** `createRoutingFixture`, `writeLease`/`readLease`(`role-dispatch-store.mjs`), `withRoutingLock`(`role-routing.mjs`), `TERMINAL_STATES`. **산출:** 계약 "bridge `observe`는 `completed`·`failed`·`cancelled`·`unknown` 또는 `waitMs` 경과에서 반환".
 
-- [ ] **1단계: 실패하는 테스트 작성.** 픽스처: `createRoutingFixture(t,{roles:{arc_qa:'codex'}})`와 정상 CLI로 bridge `arc_qa`를 `prepare-dispatch`해 reserved lease를 만든다. 테스트 안에서 `withRoutingLock` 아래 `writeLease`로 상태를 바꾼다. supervisor는 `{pid:process.pid,startTime:'fixture'}`로 두고 `updatedAt`을 최근 값으로 유지해 lost 판정이 일어나지 않게 한다. 모든 호출에 `pollMs:50`.
+- [x] **1단계: 실패하는 테스트 작성.** 픽스처: `createRoutingFixture(t,{roles:{arc_qa:'codex'}})`와 정상 CLI로 bridge `arc_qa`를 `prepare-dispatch`해 reserved lease를 만든다. 테스트 안에서 `withRoutingLock` 아래 `writeLease`로 상태를 바꾼다. supervisor는 `{pid:process.pid,startTime:'fixture'}`로 두고 `updatedAt`을 최근 값으로 유지해 lost 판정이 일어나지 않게 한다. 모든 호출에 `pollMs:50`.
   - `test('observe keeps waiting through starting to running and returns on a terminal state')`: lease를 `starting`으로 둔 뒤 `waitMs:5000`으로 observe를 시작한다. 300ms 뒤 `running`, 700ms 뒤 `completed`로 쓴다. 단언: `routeStatus==='completed'`, 경과 ≥ 650ms, 경과 < 5000ms.
   - 같은 형태로 `failed`(decision `'hold'`)와 `cancelled`(decision `'allow'`)를 매개변수화한다.
   - `test('observe returns unknown without waiting for waitMs')`: `running`에서 300ms 뒤 `unknown`. 단언: `routeStatus==='unknown'`, `decision==='hold'`, 경과 < 5000ms.
   - `test('observe returns the running state when waitMs elapses')`: `running` 유지, `waitMs:400`. 단언: `routeStatus==='running'`, 350ms ≤ 경과 < 3000ms.
   - `test('a supervisor lost during the wait is marked unknown and returned before waitMs')`: 종료된 자식 pid로 supervisor `{pid:deadPid,startTime:'gone'}`, `running`, `lostMs:200`, `waitMs:5000`. 단언: `routeStatus==='unknown'`, 사유 코드 `['terminal_state_unverified']`, 저장된 lease 상태 `unknown`, 경과 < 5000ms.
   - `test('a terminal lease returns at once even with a long waitMs')`: `completed`, `waitMs:5000`. 단언: 경과 < 1000ms.
-- [ ] **2단계: 실패 확인.** `node --test --test-timeout=120000 tests/node/role-bridge-observe-wait.test.mjs`. 기대: 첫 테스트가 `running`을 반환해 FAIL.
-- [ ] **3단계: 구현.** 반환 조건을 `TERMINAL_STATES.includes(lease.state)||lease.state==='unknown'||Date.now()>=end`로 바꾸고 `initial` 변수를 제거한다. 주석을 "bridge: waits up to waitMs for a terminal or unknown state and marks a lost supervisor unknown"으로 고친다.
-- [ ] **4단계: 지침 갱신.** 두 `coordination.md`의 4단계 문장 "`observe` returns status, claims, `resultPath` and reasons;" 앞에 같은 문구로 넣는다: "With `waitMs`, `observe` returns only when the dispatch reaches `completed`, `failed`, `cancelled` or `unknown`, or when `waitMs` elapses; a transition such as `starting` to `running` does not end the wait."
-- [ ] **5단계: 생성물 갱신.** `node scripts/update-runtime-assets.mjs` → `baselineHash` 갱신(전역 제약) → `node scripts/update-manifest.mjs`.
-- [ ] **6단계: 통과 확인.** `node --test --test-timeout=120000 tests/node/role-bridge-observe-wait.test.mjs tests/node/runtime-versions.test.mjs tests/node/role-bridge-run.test.mjs tests/node/role-bridge-resume.test.mjs tests/node/role-bridge-support.test.mjs tests/node/composite-instructions.test.mjs` 통과. 기준선 비교 규칙의 전체 테스트, `check:manifest`, `check:role-policy`, runtime 사본 검사.
-- [ ] **7단계: 커밋(Orchestrator 수용 후)** — `fix(runtime): observe가 터미널 또는 unknown까지 대기`
+- [x] **2단계: 실패 확인.** `node --test --test-timeout=120000 tests/node/role-bridge-observe-wait.test.mjs`. 기대: 첫 테스트가 `running`을 반환해 FAIL.
+- [x] **3단계: 구현.** 반환 조건을 `TERMINAL_STATES.includes(lease.state)||lease.state==='unknown'||Date.now()>=end`로 바꾸고 `initial` 변수를 제거한다. 주석을 "bridge: waits up to waitMs for a terminal or unknown state and marks a lost supervisor unknown"으로 고친다.
+- [x] **4단계: 지침 갱신.** 두 `coordination.md`의 4단계 문장 "`observe` returns status, claims, `resultPath` and reasons;" 앞에 같은 문구로 넣는다: "With `waitMs`, `observe` returns only when the dispatch reaches `completed`, `failed`, `cancelled` or `unknown`, or when `waitMs` elapses; a transition such as `starting` to `running` does not end the wait."
+- [x] **5단계: 생성물 갱신.** `node scripts/update-runtime-assets.mjs` → `baselineHash` 갱신(전역 제약) → `node scripts/update-manifest.mjs`.
+- [x] **6단계: 통과 확인.** `node --test --test-timeout=120000 tests/node/role-bridge-observe-wait.test.mjs tests/node/runtime-versions.test.mjs tests/node/role-bridge-run.test.mjs tests/node/role-bridge-resume.test.mjs tests/node/role-bridge-support.test.mjs tests/node/composite-instructions.test.mjs` 통과. 기준선 비교 규칙의 전체 테스트, `check:manifest`, `check:role-policy`, runtime 사본 검사.
+- [x] **7단계: 커밋(Orchestrator 수용 후)** — `fix(runtime): observe가 터미널 또는 unknown까지 대기`
 
 **수용 기준:** 스펙 AC5. 두 coordination 섹션의 동일 규칙 테스트 통과. native observe 테스트 변경 없이 통과.
 **수용 전 QA:** 새 QA가 6단계를 재실행하고, `git diff`로 `markLostIfDue` 본문과 입력 검증이 바뀌지 않았음을 확인한다.
+
+**진행 기록 (2026-11-11, 진행 기록):** Implementer dispatch `7c420f80`(Codex bridge) 1~6단계, `baselineHash` `sha256:d4ceb4aa…`. Implementer sandbox에서 `role-bridge-resume` 3건 실패 보고 → Orchestrator가 sandbox 밖에서 `role-bridge-resume`·`role-bridge-run`·`role-bridge-observe-wait` 58/58 통과 확인(환경 한계로 분류). 전체 테스트 1509개 중 실패 89, 취소 1, 기준선 대비 새 실패 0. QA dispatch `932a1cbe` Q1~Q5 proven. 수용: Orchestrator.
 
 ---
 

@@ -90,7 +90,7 @@ async function recordNativeEvent({context,homes,dispatchId,event,nativeAgentId,n
  return result;
 }
 
-/** bridge: waits up to waitMs for a state change and marks a lost supervisor unknown. native: records operator events. */
+/** bridge: waits up to waitMs for a terminal or unknown state and marks a lost supervisor unknown. native: records operator events. */
 export async function recordRoleObservation({context,dispatchId,waitMs,event,nativeAgentId,now,lostMs,pollMs=500,policy=DEFAULT_POLICY}={}){
  if(!validContext(context)||typeof dispatchId!=='string'||!ID.test(dispatchId)||dispatchId.startsWith('.'))return blank(context,dispatchId,'deny','invalid_request');
  if(waitMs!==undefined&&(!Number.isInteger(waitMs)||waitMs<0||waitMs>policy.observeMaxWaitMs))return blank(context,dispatchId,'deny','invalid_request');
@@ -104,11 +104,11 @@ export async function recordRoleObservation({context,dispatchId,waitMs,event,nat
   return recordNativeEvent({context,homes,dispatchId,event,nativeAgentId,now:now??Date.now(),policy});
  }
  if(event!==undefined||nativeAgentId!==undefined)return blank(context,dispatchId,'deny','invalid_request');
- const initial=lease.state,end=Date.now()+(waitMs??0),lost=lostMs??policy.supervisorLostMs;
+ const end=Date.now()+(waitMs??0),lost=lostMs??policy.supervisorLostMs;
  try{
   for(;;){
    lease=await markLostIfDue(homes,lease,{now:now??Date.now(),lostMs:lost,policy});
-   if(lease.state!==initial||TERMINAL_STATES.includes(lease.state)||Date.now()>=end)return fromLease(lease);
+   if(TERMINAL_STATES.includes(lease.state)||lease.state==='unknown'||Date.now()>=end)return fromLease(lease);
    await sleep(Math.min(pollMs,Math.max(0,end-Date.now())));
    lease=await readLease(homes.codex,dispatchId)??lease;
   }
