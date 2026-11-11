@@ -135,3 +135,11 @@ for(const platform of ['codex','claude'])for(const version of [1,2])for(const ac
  });
 }
 import {parseToml} from '../../lib/models/config.mjs';
+
+for(const skipped of ['codex','claude'])test(`upgrade output reports ${skipped} skipped-platform residual from collected state`,async t=>{
+ const {report}=await import('../../lib/management/update.mjs'),home=fixture(t),installed=skipped==='codex'?'claude':'codex';seed(home,installed);
+ const ext=skipped==='codex'?'toml':'md',filename=path.join(home,'.'+skipped,'agents','arc-qa.'+ext);fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'user profile');
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.deepEqual(state.residualPaths,[filename]);
+ const result=await api.upgradeInstalledTargets({packageRoot:staticPackageFixture(t),state,safeFs});let stdout='',stderr='';const code=report(result,{write:s=>stdout+=s},{write:s=>stderr+=s});
+ assert.equal(code,0,stderr);assert.equal(stdout.split('\n').filter(line=>line==='Residual path: '+filename).length,1);assert.match(stdout,new RegExp(installed+': installed'));assert.equal(fs.readFileSync(filename,'utf8'),'user profile');assert.equal(fs.existsSync(path.join(home,'.'+skipped,'skills/arc')),false);
+});

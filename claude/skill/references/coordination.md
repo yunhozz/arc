@@ -96,7 +96,7 @@ Before Planner dispatch, evaluate F1–F8 direct-path eligibility and Bounded pl
 
 Adjacent `models.toml` is authoritative for role models/effort. Orchestrator uses the current model. Do not substitute settings or reduce effort; report unavailability. Declarations prove no provider support/account access/alias resolution/actual model-effort application/concurrency/depth enforcement. New sessions reload profiles; running agents retain settings/parents. Changes do not automatically reparent or prove runtime parent behavior.
 
-`arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, `arc_reviewer` settings map to hyphenated native names, not tool calls. For visualization read [visual companion](arc-visual-companion.md), use only actual allowlisted tools and report unavailable/unverified scope. Shipped `model`/`effort` defaults are replaced with active `models.toml` preset at installation.
+`arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, `arc_reviewer` settings map to hyphenated native names, not tool calls. For visualization read [visual companion](arc-visual-companion.md), use only actual allowlisted tools and report unavailable/unverified scope. Shipped `model`/`effort` defaults are replaced with active `models.toml` role settings at installation.
 
 <a id="instruction-and-input-provenance"></a>
 ## Instruction and input provenance
