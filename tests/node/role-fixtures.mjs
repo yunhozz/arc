@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {applyPreset, loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
+import {loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
 import {renameCompositeProfile} from '../../lib/installer/role-routing.mjs';
 import {ROUTING_ROLES, serializeRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
 import {cooperativeVersions} from '../../lib/runtime/bootstrap.mjs';
@@ -28,7 +28,7 @@ async function renderPlatform(platform, config) {
     inputs[name] = await fs.readFile(path.join(root, platform, 'agents', name));
   }
   const base = loadModelConfig(await fs.readFile(path.join(root, platform, 'skill/models.toml'), 'utf8'), platform);
-  const settings = resolveModelSettings(applyPreset(base, 'smart'));
+  const settings = resolveModelSettings(base);
   for (const role of ROUTING_ROLES) if (config.roles[role].platform === platform) settings.roles[role] = {model: config.roles[role].model, [field]: config.roles[role].effort};
   const rendered = renderProfiles(inputs, settings), result = {};
   for (const role of ROUTING_ROLES) if (config.roles[role].platform === platform) result[role] = renameCompositeProfile(rendered.get(`${role.replace('_', '-')}.${ext}`), platform, role, config.revision);

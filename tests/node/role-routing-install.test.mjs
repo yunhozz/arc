@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {openRoot} from '../../lib/safe-fs/index.mjs';
 import {loadNative} from '../../lib/safe-fs/native.mjs';
-import {applyPreset, loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
+import {loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
 import {parseToml} from '../../lib/models/config.mjs';
 import {prepareCompositeFiles, publishCompositeFiles, renameCompositeProfile} from '../../lib/installer/role-routing.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
@@ -26,7 +26,7 @@ async function inputsFor(platform) {
     inputs[name] = await fs.readFile(path.join(root, platform, 'agents', name));
   }
   const base = loadModelConfig(await fs.readFile(path.join(root, platform, 'skill/models.toml'), 'utf8'), platform);
-  return {inputs, modelConfig: applyPreset(base, 'smart')};
+  return {inputs, modelConfig: base};
 }
 
 // Starts from the fixture's runtime copies, then clears its pre-published composite state so the real prepare/publish path runs.

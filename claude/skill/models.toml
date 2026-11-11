@@ -1,64 +1,23 @@
-# Canonical source for every role model and effort preset.
+# Canonical source for every role model and effort.
 # Use configured settings as specified. Report unavailable settings.
-version = 1
-preset = "balanced"
+version = 3
 
-[roles.arc_scouter.economy]
-model = "haiku"
-effort = "medium"
-
-[roles.arc_scouter.balanced]
+[roles.arc_scouter]
 model = "haiku"
 effort = "high"
 
-[roles.arc_scouter.smart]
-model = "sonnet"
-effort = "high"
-
-[roles.arc_planner.economy]
-model = "sonnet"
-effort = "high"
-
-[roles.arc_planner.balanced]
+[roles.arc_planner]
 model = "sonnet"
 effort = "xhigh"
 
-[roles.arc_planner.smart]
-model = "opus"
-effort = "high"
-
-[roles.arc_implementer.economy]
+[roles.arc_implementer]
 model = "sonnet"
 effort = "medium"
 
-[roles.arc_implementer.balanced]
-model = "sonnet"
-effort = "medium"
-
-[roles.arc_implementer.smart]
-model = "sonnet"
-effort = "high"
-
-[roles.arc_qa.economy]
+[roles.arc_qa]
 model = "haiku"
 effort = "high"
 
-[roles.arc_qa.balanced]
-model = "haiku"
-effort = "high"
-
-[roles.arc_qa.smart]
+[roles.arc_reviewer]
 model = "sonnet"
 effort = "high"
-
-[roles.arc_reviewer.economy]
-model = "sonnet"
-effort = "medium"
-
-[roles.arc_reviewer.balanced]
-model = "sonnet"
-effort = "high"
-
-[roles.arc_reviewer.smart]
-model = "sonnet"
-effort = "xhigh"

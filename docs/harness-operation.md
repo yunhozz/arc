@@ -19,7 +19,7 @@ The Node.js CLI validates/installs files. The conversation Orchestrator then rou
 | Managed instructions | `AGENTS.md` | `CLAUDE.md` |
 | Native configuration | `config.toml` | `settings.json` |
 
-Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
+Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models use schema v3: `version = 3` and five `[roles.<role>]` tables, each containing exactly `model` and its effort field. Legacy v1/v2 files are validated and converted to their active values; writes use v3 only. Codex uses `model_reasoning_effort`, Claude `effort`.
 
 `Claude & Codex` stores each role's platform, model, and effort in the shared active file `CODEX_HOME/arc-role-platform-routing.json`. Each harness's `arc-role-platform-routing.prepared.json` marker and separate `agents/arc-routing-*` profile identify the installed bytes for the same revision. These markers do not prove CLI login or actual execution permissions, model, or effort.
 
@@ -47,7 +47,7 @@ Static references include brainstorming/writing-plans/test-driven-development, r
 ## Installation and refresh lifecycle
 
 1. `arc` opens the English TUI when both streams are TTYs. Public syntax: `arc`, `arc watch`, `arc --help`, `arc --version`. No-argument non-TTY and other commands/options exit 2 without controlling-terminal reconnection. Help/version/watch require no native installer.
-2. Home actions: `Install / Update`, `Change Preset`, `Check Version`, `Uninstall`, `Exit`. Installation selects targets/preset/limits/language/global settings. A nonselectable blank line precedes `Execute`; Enter validates/executes once without review. `Change Preset` changes drafts until Enter on `Apply`, separated likewise. Preserve other settings; differing targets require explicit common values.
+2. Home actions: `Install / Update`, `Change Models`, `Check Version`, `Uninstall`, `Exit`. Selecting a platform opens its role editor immediately. Choose a role to edit its model and effort; composite roles first choose their platform. `Settings` is available during installation for language, limits, and global configuration (On by default); shared composite settings apply to both platforms. `Apply` validates catalog pairs and executes once. `Back` returns to the previous editor step; Esc returns home.
 3. Preparation validates payload/settings/paths and snapshots them. Execution revalidates and stops on drift. Selected package determines reference revision.
 4. Install verified platform-local bytes. Install/reinstall/upgrade never collects Superpowers, queries its latest revision or runs updater. Imported Markdown/mockups stay unchanged.
 5. Report target transaction/rollback/residual recovery paths. Later target failure preserves earlier success. Settings apply in new agent sessions.
@@ -197,9 +197,9 @@ Agent Git recovery coordinates checkout/index; installer rollback handles public
 
 | Maintenance | Effect |
 |---|---|
-| Models | Edit installed `models.toml`, optional Python apply-models validation/render; no ARC/upstream refresh |
+| Models | Edit installed v3 `models.toml`: one `[roles.<role>]` per role with `model` and `model_reasoning_effort` (Codex) or `effort` (Claude). Python apply-models validates/renders v1/v2/v3; serialization writes v3. No ARC/upstream refresh |
 | Manifest | Update/check `MANIFEST.sha256` after protected changes; models excluded, dynamic upstream has provenance |
-| Reinstall | Packaged static managed files replace local model edits; upstream needs explicit updater, valid omitted limits preserved |
+| Reinstall | Installed active model values survive reinstall and upgrade; other packaged static managed files are refreshed; upstream needs explicit updater, valid omitted limits preserved |
 | Harness removal | Below |
 | CLI only | `npm uninstall -g @yunhozz/arc` leaves harness settings |
 

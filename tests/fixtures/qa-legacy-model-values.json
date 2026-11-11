@@ -1,0 +1,14 @@
+{
+  "codex": {
+    "economy": [["gpt-6-luna", "medium"], ["gpt-6.1-sol", "high"], ["gpt-6.1-terra", "medium"], ["gpt-6-luna", "high"], ["gpt-6.1-sol", "medium"]],
+    "balanced": [["gpt-6-luna", "high"], ["gpt-6.1-sol", "xhigh"], ["gpt-6.1-sol", "medium"], ["gpt-6.1-terra", "high"], ["gpt-6.1-sol", "high"]],
+    "smart": [["gpt-6.1-sol", "high"], ["gpt-6-astra", "high"], ["gpt-6.1-sol", "high"], ["gpt-6.1-sol", "high"], ["gpt-6.1-sol", "xhigh"]],
+    "custom": [["legacy-custom-scouter", "low"], ["legacy-custom-planner", "xhigh"], ["legacy-custom-implementer", "medium"], ["legacy-custom-qa", "high"], ["legacy-custom-reviewer", "max"]]
+  },
+  "claude": {
+    "economy": [["haiku", "medium"], ["sonnet", "high"], ["sonnet", "medium"], ["haiku", "high"], ["sonnet", "medium"]],
+    "balanced": [["haiku", "high"], ["sonnet", "xhigh"], ["sonnet", "medium"], ["haiku", "high"], ["sonnet", "high"]],
+    "smart": [["sonnet", "high"], ["opus", "high"], ["sonnet", "high"], ["sonnet", "high"], ["sonnet", "xhigh"]],
+    "custom": [["claude-custom-scouter", "low"], ["claude-custom-planner", "xhigh"], ["claude-custom-implementer", "medium"], ["claude-custom-qa", "high"], ["claude-custom-reviewer", "max"]]
+  }
+}

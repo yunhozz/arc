@@ -484,7 +484,7 @@ runSetup({ui, statuses, draft, kind, prepare, loadRoleDefaults, loadCatalog, loa
 
 **Steps:**
 
-- [ ] **Step 1: 모델 계층 실패 테스트 작성** (`tests/node/models.test.mjs`)
+- [x] **Step 1: 모델 계층 실패 테스트 작성** (`tests/node/models.test.mjs`)
 ```js
 test('loadModelConfig converts v1 and v2 active presets and custom to v3 roles', ...)   // AC-P02
   // codex v1 원본 문자열(현행 파일 내용) × preset economy/balanced/smart, v2 custom
@@ -498,29 +498,29 @@ test('PRESETS and preset helpers are gone', ...)   // AC-P05 일부
   // import * as m from config.mjs → m.PRESETS, m.applyPreset, m.applyCustomRoles 모두 undefined
 ```
 
-- [ ] **Step 2: 실행해서 실패 확인**
+- [x] **Step 2: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/models.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 3: `config.mjs`, `index.mjs`, 두 패키지 `models.toml`을 v3로 구현**
+- [x] **Step 3: `config.mjs`, `index.mjs`, 두 패키지 `models.toml`을 v3로 구현**
 
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
 
-- [ ] **Step 5: Python 실패 테스트 작성** (`tests/test_codex_models.py`, 해당 시 `tests/test_claude_payload.py`)
+- [x] **Step 5: Python 실패 테스트 작성** (`tests/test_codex_models.py`, 해당 시 `tests/test_claude_payload.py`)
 ```python
 def test_v3_round_trip(self): ...                      # serialize_settings → 'version = 3', preset 없음, load_settings 결과 동일
 def test_legacy_v1_v2_convert_to_active_roles(self): ...  # economy/balanced/smart/custom 각각 활성 값
 ```
 
-- [ ] **Step 6: 실행해서 실패 확인**
+- [x] **Step 6: 실행해서 실패 확인**
   - Run: `python3 -m unittest tests/test_codex_models.py tests/test_claude_payload.py`
   - Expected: FAIL
 
-- [ ] **Step 7: 두 `model_config.py`와 `apply-models.py` 구현.** v3 기준으로 오류 문구를 갱신한다.
+- [x] **Step 7: 두 `model_config.py`와 `apply-models.py` 구현.** v3 기준으로 오류 문구를 갱신한다.
 
-- [ ] **Step 8: 실행해서 통과 확인** (Step 6 명령, PASS)
+- [x] **Step 8: 실행해서 통과 확인** (Step 6 명령, PASS)
 
-- [ ] **Step 9: 설치기와 운영 계층 실패 테스트 작성**
+- [x] **Step 9: 설치기와 운영 계층 실패 테스트 작성**
 ```js
 // tests/node/preset.test.mjs
 test('Change Models rewrites a v2 file as v3 even when roles are unchanged', ...)
@@ -532,15 +532,15 @@ test('upgrade keeps the installed v1 balanced values', ...)   // AC-P02 후반
 test('all roles on one platform publish', ...)   // AC-R03: 다섯 역할 모두 claude → code 0, codex agents/에 ARC profile 없음
 ```
 
-- [ ] **Step 10: 실행해서 실패 확인**
+- [x] **Step 10: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/preset.test.mjs tests/node/upgrade-harness.test.mjs tests/node/install-mode.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 11: 구현** — `plan.mjs`, `preset.mjs`, `upgrade.mjs`, `operations.mjs`의 `roles`·`settings` 인자. I2 테스트 helper의 `preset:'balanced'` 호출은 `roles`로 바꾼다.
+- [x] **Step 11: 구현** — `plan.mjs`, `preset.mjs`, `upgrade.mjs`, `operations.mjs`의 `roles`·`settings` 인자. I2 테스트 helper의 `preset:'balanced'` 호출은 `roles`로 바꾼다.
 
-- [ ] **Step 12: 실행해서 통과 확인** (Step 10 명령, PASS)
+- [x] **Step 12: 실행해서 통과 확인** (Step 10 명령, PASS)
 
-- [ ] **Step 13: TUI 실패 테스트 작성** (`tests/node/tui-setup.test.mjs`)
+- [x] **Step 13: TUI 실패 테스트 작성** (`tests/node/tui-setup.test.mjs`)
   - 현행 테스트는 `title`로 메뉴를 고르는 스크립트형 `ui`를 쓴다. 새 테스트도 같은 방식이다.
   - 프리셋 관련 기존 테스트(`:15-110`, `:161-243`, `:323-378` 등)는 삭제하거나 아래 테스트로 대체한다.
 ```js
@@ -564,21 +564,21 @@ test('no preset strings remain in the TUI', ...)  // AC-P05
   // lib/tui/*.mjs 원문에 /Economy|Balanced|Smart|Custom preset|Performance preset|Preset:/ 없음
 ```
 
-- [ ] **Step 14: 실행해서 실패 확인**
+- [x] **Step 14: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/tui-setup.test.mjs tests/node/tui-app.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 15: 구현** — `custom-preset.mjs` 편집기 두 개와 `selectCatalogPair` 제목, `setup.mjs` 재구성(I2의 U-03 유지), `app.mjs` loader 교체(`loadRoleDefaults`).
+- [x] **Step 15: 구현** — `custom-preset.mjs` 편집기 두 개와 `selectCatalogPair` 제목, `setup.mjs` 재구성(I2의 U-03 유지), `app.mjs` loader 교체(`loadRoleDefaults`).
 
-- [ ] **Step 16: 실행해서 통과 확인** (Step 14 명령 + `tests/node/tui-app-pty.test.mjs`, PASS)
+- [x] **Step 16: 실행해서 통과 확인** (Step 14 명령 + `tests/node/tui-app-pty.test.mjs`, PASS)
 
-- [ ] **Step 17: 간접 테스트·fixture 정리**
+- [x] **Step 17: 간접 테스트·fixture 정리**
   - Files 목록의 간접 테스트에서 preset 인자와 문자열을 `roles` 기준으로 바꾼다.
   - `tests/installer-parity.json`은 생성 스크립트가 있으면 스크립트로 다시 만든다.
   - Run: `node --test --test-timeout=120000 tests/node/*.test.mjs`
   - Expected: 기준선 대비 새 실패 없음
 
-- [ ] **Step 18: 문서 갱신과 MANIFEST 재생성**
+- [x] **Step 18: 문서 갱신과 MANIFEST 재생성**
   - `README.md:31,46`: `Change Models`, 역할별 설정.
   - `docs/harness-operation.md:22`: v3 형식.
   - `docs/harness-operation.md:50`: 편집기 직행 흐름. 홈 메뉴 이름은 I4에서 고친다.

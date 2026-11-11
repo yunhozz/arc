@@ -28,7 +28,7 @@ Package installation provides the CLI, not the harness. Install or manage the ha
 
 ## Manage ARC
 
-- **Install or update:** Choose Codex, Claude Code, or both in `Install / Update`, configure options, then select `Execute`. `Change Preset` changes only the preset.
+- **Install or update:** Choose Codex, Claude Code, or both in `Install / Update`, edit each role, then select `Apply`. `Settings` configures language, subagent limits, and global configuration for installation. `Change Models` edits role models and efforts.
 - **Version:** `Check Version` shows installed and latest CLI versions. `Version Upgrade` appears when available and preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
 - **Uninstall:** Removes selected harnesses; the global CLI is removed only if all succeed. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
 
@@ -43,9 +43,9 @@ Use `arc watch --help` for scope, platform, history and JSON options; press Ctrl
 
 ## Models and language
 
-The Orchestrator uses the current conversation model. Specialist roles use the selected preset in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
+The Orchestrator uses the current conversation model. Specialist roles use the active role settings in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
 
-In `Claude & Codex` under `Install / Update` and `Change Preset`, choose `Economy`, `Balanced`, `Smart`, or `Custom`. The built-in presets update each role using its assigned platform's settings. `Custom` opens an editor whose Apply updates the draft; the outer Apply saves the composite settings. New configurations start with `Balanced`, assigning Planner and Reviewer to Claude and the other roles to Codex; individual roles can also be edited. `Use default role mapping` restores the default platforms while retaining Custom values for roles whose platform stays the same. Changed platforms use the last selected built-in preset, or `Balanced` if none was selected.
+In `Claude & Codex` under `Install / Update` and `Change Models`, the role editor opens immediately. Each role can use either platform and any model/effort pair in that platform's static catalog. New configurations assign Planner and Reviewer to Claude and the other roles to Codex, using installed active values or package defaults. All five roles may use the same platform. `Apply` publishes the configuration directly. Installation offers shared `Settings` for both platforms; `Global config` defaults to On.
 
 Model and effort choices come from the packaged Codex and Claude catalogs, without a model-list API call or a separate API key. They are static candidates and do not establish that an account, CLI version, or provider can use a selection. A saved model and effort absent from the catalog remains visible and must be reselected before applying new settings. Codex authentication is checked by refreshing the login token through `codex app-server`; this needs network access and rotates the tokens in `CODEX_HOME/auth.json`. Claude authentication checks continue to use `claude auth status`.
 

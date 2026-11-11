@@ -7,7 +7,7 @@ import os from 'node:os';
 const api = await import('../../lib/models/index.mjs').catch(() => ({}));
 const roles = ['scouter', 'planner', 'implementer', 'qa', 'reviewer'];
 function profiles(platform, eol = '\n') { return Object.fromEntries(roles.map(role => { const name = `arc-${role}.${platform === 'codex' ? 'toml' : 'md'}`; return [name, Buffer.from(fs.readFileSync(new URL(`../../${platform}/agents/${name}`, import.meta.url), 'utf8').replace(/\r?\n/g, eol))]; })); }
-function settings(platform) { return api.resolveModelSettings(api.applyPreset(api.loadModelConfig(fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8'), platform), 'smart')); }
+function settings(platform) { return api.resolveModelSettings(api.loadModelConfig(fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8'), platform)); }
 for (const platform of ['codex', 'claude']) for (const eol of ['\n','\r\n']) test(`${platform} renderer preserves non-model bytes with ${JSON.stringify(eol)}`, () => {
   const input = profiles(platform, eol); const config = settings(platform); const result = api.renderProfiles(input, config);
   for (const [name, original] of Object.entries(input)) {

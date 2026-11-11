@@ -24,7 +24,7 @@ class ValidationError(ValueError):
     """Invalid local settings, profile or target path."""
 
 
-PRESETS = ('economy', 'balanced', 'smart')
+_LEGACY_PRESETS = ('economy', 'balanced', 'smart')
 
 
 def _validate_role(settings: dict, name: str) -> dict:
@@ -39,20 +39,24 @@ def _validate_role(settings: dict, name: str) -> dict:
 
 
 def validate_settings(data: dict) -> dict:
+    if isinstance(data, dict) and type(data.get('version')) is int and data['version'] == 3:
+        if set(data) != {'version', 'roles'} or not isinstance(data['roles'], dict) or set(data['roles']) != set(ROLE_FILES):
+            raise ValidationError('version 3 requires exactly the five ARC roles')
+        return {role: _validate_role(values, role) for role, values in data['roles'].items()}
     if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] not in (1, 2):
-        raise ValidationError('update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
+        raise ValidationError('update to version 3 role settings; reinstall ARC or edit models.toml')
     has_custom = 'custom' in data
     allowed = {'version', 'preset', 'roles'} | ({'custom'} if data['version'] == 2 and has_custom else set())
     if set(data) != allowed:
-        raise ValidationError('update to version 1 or 2 unified presets; reinstall ARC or edit models.toml to include preset and all role presets')
-    if not isinstance(data['preset'], str) or data['preset'] not in (*PRESETS, 'custom') or (data['preset'] == 'custom' and not has_custom):
+        raise ValidationError('update to version 3 role settings; reinstall ARC or edit models.toml')
+    if not isinstance(data['preset'], str) or data['preset'] not in (*_LEGACY_PRESETS, 'custom') or (data['preset'] == 'custom' and not has_custom):
         raise ValidationError('preset must select an available preset')
     roles = data['roles']
     if not isinstance(roles, dict) or set(roles) != set(ROLE_FILES):
         raise ValidationError('settings require exactly the five ARC roles')
     result = {}
     for name, variants in roles.items():
-        if not isinstance(variants, dict) or set(variants) != set(PRESETS):
+        if not isinstance(variants, dict) or set(variants) != set(_LEGACY_PRESETS):
             raise ValidationError(f'{name}: require exactly economy, balanced and smart')
         validated = {preset: _validate_role(settings, f'{name}.{preset}') for preset, settings in variants.items()}
         if data['preset'] != 'custom':
@@ -65,6 +69,20 @@ def validate_settings(data: dict) -> dict:
         if data['preset'] == 'custom':
             result = validated_custom
     return result
+
+
+def validate_config(config: dict, path: Path) -> dict:
+    return {'version': 3, 'roles': validate_settings(config)}
+
+
+def serialize_settings(config: dict) -> bytes:
+    import json
+    config = validate_config(config, Path('models.toml'))
+    lines = ['version = 3']
+    for role in ROLE_FILES:
+        lines.extend(['', f'[roles.{role}]'])
+        lines.extend(f'{key} = {json.dumps(config["roles"][role][key], ensure_ascii=False)}' for key in ('model', 'effort'))
+    return ('\n'.join(lines) + '\n').encode('utf-8')
 
 
 def require_regular(path: Path) -> None:

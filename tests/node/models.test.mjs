@@ -1,57 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const api = await import('../../lib/models/index.mjs').catch(() => ({}));
-const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
-const expected = {
-  codex: {
-    economy: [['gpt-6-luna','high'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','medium'],['gpt-6-luna','high'],['gpt-6.1-sol','medium']],
-    balanced: [['gpt-6-luna','high'],['gpt-6.1-sol','high'],['gpt-6.1-sol','medium'],['gpt-6-luna','max'],['gpt-6.1-sol','high']],
-    smart: [['gpt-6-luna','max'],['gpt-6-astra','high'],['gpt-6-astra','high'],['gpt-6.1-sol','medium'],['gpt-6-astra','high']],
-  },
-  claude: {
-    economy: [['haiku','high'],['sonnet','medium'],['sonnet','medium'],['haiku','high'],['sonnet','medium']],
-    balanced: [['haiku','high'],['sonnet','high'],['sonnet','medium'],['haiku','max'],['sonnet','high']],
-    smart: [['haiku','max'],['opus','high'],['opus','high'],['sonnet','medium'],['opus','high']],
-  },
-};
-for (const platform of ['codex', 'claude']) {
-  const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
-  const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
-  test(`${platform} unified config preserves every role and preset and round trips`, () => {
-    const config = api.loadModelConfig(source, platform);
-    assert.equal(config.version, 2); assert.equal(config.preset, 'balanced');
-    assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(config), platform), config);
-    for (const preset of ['economy', 'balanced', 'smart']) {
-      const before = structuredClone(config), selected = api.applyPreset(config, preset);
-      assert.equal(selected.preset, preset); assert.deepEqual(selected.roles, config.roles);
-      const effective = api.resolveModelSettings(selected);
-      assert.deepEqual(Object.keys(effective.roles).sort(), [...roles].sort());
-      roles.forEach((role, i) => assert.deepEqual([effective.roles[role].model, effective.roles[role][effort]], expected[platform][preset][i]));
-      assert.deepEqual(config, before);
-      assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(selected), platform), selected);
-    }
-  });
-  test(`${platform} rejects invalid inactive presets and exact schema violations`, () => {
-    const valid = api.loadModelConfig(source, platform);
-    const mutations = [c => c.version = 5, c => c.preset = 'fast', c => delete c.preset,
-      c => c.extra = true, c => delete c.roles.arc_qa, c => c.roles.extra = {},
-      c => delete c.roles.arc_qa.smart, c => c.roles.arc_qa.extra = {},
-      c => c.roles.arc_qa.smart.model = 5, c => c.roles.arc_qa.smart[effort] = '',
-      c => c.roles.arc_qa.smart.model = ' bad ', c => c.roles.arc_qa.smart.extra = true];
-    for (const mutate of mutations) { const value = structuredClone(valid); mutate(value); assert.throws(() => api.serializeModelConfig(value), {code: 'ARC_MODEL_VALIDATION'}); }
-    for (const version of [1, 5]) {
-      const legacy = `version = ${version}\n` + roles.map(role => `[roles.${role}]\nmodel = "old"\n${effort} = "low"\n`).join('');
-      assert.throws(() => api.loadModelConfig(legacy, platform), {code: 'ARC_MODEL_VALIDATION'});
-    }
-    for (const text of ['version = [', source + '\nversion = 1', source.replace('version = 1', 'version = 1.0')]) assert.throws(() => api.loadModelConfig(text, platform), {code: 'ARC_MODEL_VALIDATION'});
-    assert.throws(() => api.applyPreset(valid, 'fast'), /preset/i);
-  });
-}
-test('unknown platform is rejected', () => assert.throws(() => api.loadModelConfig('', 'other'), { code: 'ARC_MODEL_VALIDATION' }));
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import * as api from '../../lib/models/index.mjs';
+import * as configApi from '../../lib/models/config.mjs';
+import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
+const roles = ['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
+const defaults = {
+ codex: [['gpt-6-luna','high'],['gpt-6.1-sol','xhigh'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','high'],['gpt-6.1-sol','high']],
+ claude: [['haiku','high'],['sonnet','xhigh'],['sonnet','medium'],['haiku','high'],['sonnet','high']],
+};
+for (const platform of ['codex','claude']) {
+ const field=platform==='codex'?'model_reasoning_effort':'effort';
+ const legacy=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8');
+ const source=()=>fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url),'utf8');
+ test(`${platform} loadModelConfig converts v1 and v2 active presets and custom to v3 roles`,()=>{
+  for(const version of [1,2]) for(const preset of ['economy','balanced','smart','custom']) {
+   const custom=Object.fromEntries(roles.map(role=>[role,{model:platform==='codex'?'legacy-custom':'sonnet',[field]:'low'}]));
+   const text=legacy.replace('version = 1',`version = ${version}`).replace('preset = "balanced"',`preset = "${preset}"`)+(preset==='custom'?roles.map(role=>`\n[custom.${role}]\nmodel = "${custom[role].model}"\n${field} = "low"\n`).join(''):'');
+   if(version===1&&preset==='custom'){assert.throws(()=>api.loadModelConfig(text,platform));continue;}
+   const parsed=configApi.parseToml(text), loaded=api.loadModelConfig(text,platform);
+   assert.equal(loaded.version,3);
+   assert.deepEqual(loaded.roles,preset==='custom'?custom:Object.fromEntries(roles.map(role=>[role,{...parsed.roles[role][preset]}])));
+   assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(loaded),platform),loaded);
+  }
+ });
+ test(`${platform} serializeModelConfig writes version 3 without preset`,()=>{
+  const config=api.loadModelConfig(source(),platform),text=api.serializeModelConfig(config);
+  assert.match(text,/^version = 3$/m);assert.doesNotMatch(text,/preset/);
+  assert.equal((text.match(/\[roles\.arc_/g)||[]).length,5);
+  assert.deepEqual(api.loadModelConfig(text,platform),config);
+ });
+ test(`${platform} package defaults equal the former balanced values and exist in the static catalog`,async()=>{
+  const config=api.loadModelConfig(source(),platform),catalog=await loadStaticModelCatalog(platform);
+  assert.equal(config.version,3);assert.equal(configApi.readModelFileVersion(source()),3);
+  assert.deepEqual(roles.map(role=>[config.roles[role].model,config.roles[role][field]]),defaults[platform]);
+  for(const role of roles)assert.ok(catalog.catalog.pairs.some(p=>p.model===config.roles[role].model&&p.effort===config.roles[role][field]));
+ });
+ test(`${platform} v3 rejects exact schema violations and invalid inactive legacy values`,()=>{
+  const config=api.loadModelConfig(source(),platform);
+  for(const mutate of [c=>c.version=4,c=>c.preset='balanced',c=>delete c.roles.arc_qa,c=>c.roles.extra={},c=>c.roles.arc_qa.extra=true,c=>c.roles.arc_qa.model=' bad ',c=>c.roles.arc_qa[field]='']){
+   const invalid=structuredClone(config);mutate(invalid);assert.throws(()=>api.serializeModelConfig(invalid),{code:'ARC_MODEL_VALIDATION'});
+  }
+  assert.throws(()=>api.loadModelConfig(legacy.replace('model = "'+(platform==='codex'?'gpt-6-luna':'haiku')+'"','model = ""'),platform));
+  for(const text of ['version = [',source()+'\nversion = 3',source().replace(/version = [123]/,'version = 3.0')])assert.throws(()=>api.loadModelConfig(text,platform));
+ });
+ test(`${platform} withRoles clones and renders selected role values`,()=>{
+  const config=api.loadModelConfig(source(),platform),before=structuredClone(config),selected=structuredClone(config.roles);
+  selected.arc_planner[field]='high';const updated=api.withRoles(config,selected);
+  assert.deepEqual(api.resolveModelSettings(updated),{platform,roles:selected});assert.deepEqual(config,before);
+  selected.arc_planner.model='changed';assert.notEqual(updated.roles.arc_planner.model,'changed');
+ });
+}
+test('PRESETS and preset helpers are gone',()=>{
+ for(const key of ['PRESETS','applyPreset','applyCustomRoles'])assert.equal(configApi[key],undefined);
+});
+test('unknown platform is rejected',()=>assert.throws(()=>api.loadModelConfig('', 'other'),{code:'ARC_MODEL_VALIDATION'}));
 test('vendor check rejects parser drift against the exact pinned source', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arc-vendor-')); t.after(() => fs.rmSync(root,{recursive:true,force:true}));
   fs.mkdirSync(`${root}/node_modules/smol-toml/dist`,{recursive:true});
@@ -111,61 +117,3 @@ for (const platform of ['codex','claude']) test(`${platform} rejects unsupported
  assert.throws(()=>api.serializeModelConfig(invalid),{code:'ARC_MODEL_VALIDATION'});
  assert.deepEqual(config,before);
 });
-
-for (const platform of ['codex', 'claude']) {
-  test(`${platform} custom settings survive switching and render all role profiles`, () => {
-    const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
-    const config = api.loadModelConfig(source, platform), before = structuredClone(config);
-    const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
-    const custom = Object.fromEntries(roles.map((role, i) => [role, {model: `custom-${i}`, [effort]: 'low'}]));
-    const selected = api.applyCustomRoles(config, custom);
-    assert.equal(selected.preset, 'custom');
-    assert.deepEqual(api.resolveModelSettings(selected).roles, custom);
-    assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(selected), platform), selected);
-    const inactive = api.applyPreset(selected, 'economy');
-    assert.deepEqual(inactive.custom, custom);
-    assert.deepEqual(api.applyPreset(inactive, 'custom'), selected);
-    assert.deepEqual(config, before);
-    custom.arc_qa.model = 'changed';
-    assert.equal(selected.custom.arc_qa.model, 'custom-3');
-    const extension = platform === 'codex' ? 'toml' : 'md';
-    const buffers = Object.fromEntries(roles.map(role => {
-      const name = `${role.replace('_', '-')}.${extension}`;
-      return [name, fs.readFileSync(new URL(`../../${platform}/agents/${name}`, import.meta.url))];
-    }));
-    const rendered = api.renderProfiles(buffers, api.resolveModelSettings(selected));
-    for (const [name, bytes] of rendered) {
-      const role = name.replace('-', '_').replace(`.${extension}`, '');
-      const original = buffers[name].toString();
-      const text = bytes.toString();
-      if (platform === 'codex') {
-        assert.match(text, new RegExp(`^model = "${selected.custom[role].model}"$`, 'm'));
-        assert.match(text, /^model_reasoning_effort = "low"$/m);
-        const stripped = value => value.replace(/^model = .*\n?/m, '').replace(/^model_reasoning_effort = .*\n?/m, '');
-        assert.equal(stripped(text), stripped(original));
-      } else {
-        assert.match(text, new RegExp(`^model: ${selected.custom[role].model}$`, 'm'));
-        assert.match(text, /^effort: low$/m);
-        const stripped = value => value.replace(/^model: .*\n/m, '').replace(/^effort: .*\n/m, '');
-        assert.equal(stripped(text), stripped(original));
-      }
-    }
-  });
-  test(`${platform} rejects malformed active and inactive custom settings`, () => {
-    const source = fs.readFileSync(new URL(`../../${platform}/skill/models.toml`, import.meta.url), 'utf8');
-    const config = api.loadModelConfig(source, platform);
-    assert.throws(() => api.applyPreset(config, 'custom'), {code: 'ARC_MODEL_VALIDATION'});
-    const effort = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
-    const custom = Object.fromEntries(roles.map(role => [role, {model: 'example', [effort]: 'high'}]));
-    const selected = api.applyCustomRoles(config, custom);
-    for (const mutate of [c => delete c.custom.arc_qa, c => c.custom.extra = {}, c => c.custom.arc_qa.extra = true,
-      c => c.custom.arc_qa[effort] = '', c => delete c.custom, c => c.version = 3]) {
-      const invalid = structuredClone(selected); mutate(invalid);
-      assert.throws(() => api.serializeModelConfig(invalid), {code: 'ARC_MODEL_VALIDATION'});
-    }
-    const inactive = api.applyPreset(selected, 'balanced');
-    inactive.custom.arc_qa.model = '';
-    assert.throws(() => api.serializeModelConfig(inactive), {code: 'ARC_MODEL_VALIDATION'});
-    assert.throws(() => api.loadModelConfig(source + '\n[custom.arc_qa]\nmodel = "x"\n', platform), {code: 'ARC_MODEL_VALIDATION'});
-  });
-}
