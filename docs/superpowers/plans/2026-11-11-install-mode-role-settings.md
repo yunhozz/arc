@@ -338,7 +338,7 @@ Before the first specialist creation or assignment, check whether `arc-role-plat
 
 **Steps:**
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/composite-instructions.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/composite-instructions.test.mjs`)
 ```js
 test('execution mode precedes standalone names and forbids standalone names in composite mode', async () => {
   const paragraphs = {};
@@ -358,21 +358,21 @@ test('execution mode precedes standalone names and forbids standalone names in c
 });
 ```
 
-- [ ] **Step 2: 실행해서 실패 확인**
+- [x] **Step 2: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/composite-instructions.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 3: 네 문서 수정.** 조건부 대상은 다음 명령 결과를 보고 판단해 고친다. 고친 곳과 고치지 않은 이유를 보고에 적는다.
+- [x] **Step 3: 네 문서 수정.** 조건부 대상은 다음 명령 결과를 보고 판단해 고친다. 고친 곳과 고치지 않은 이유를 보고에 적는다.
   - Run: `rg -n "arc-(scouter|planner|implementer|qa|reviewer)\b|arc_(scouter|planner|implementer|qa|reviewer)\b" claude/skill codex/skill --glob '*.md'`
 
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
 
-- [ ] **Step 5: 계약 fixture와 Python needle 갱신 후 확인**
+- [x] **Step 5: 계약 fixture와 Python needle 갱신 후 확인**
   - Run: `node --test --test-timeout=120000 tests/node/instruction-layout.test.mjs tests/node/agent-fragments.test.mjs tests/node/legacy-parity.test.mjs tests/node/parity-check.test.mjs tests/node/package-references.test.mjs tests/node/instruction-language.test.mjs`
   - Run: `python3 -m unittest tests/test_claude_payload.py tests/test_arc_policy.py`
   - Expected: 기준선 대비 새 실패 없음
 
-- [ ] **Step 6: MANIFEST 재생성과 검사**
+- [x] **Step 6: MANIFEST 재생성과 검사**
   - Run: `node scripts/update-manifest.mjs && npm run check:manifest && npm run check:role-policy`
   - Expected: 통과
 

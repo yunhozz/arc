@@ -14,6 +14,23 @@ const section = text => {
 const normalize = body => body.replaceAll(/Claude/g, '@A').replaceAll(/Codex/g, '@B').replaceAll(/claude/g, '@a').replaceAll(/codex/g, '@b')
   .split(/\n+|(?<=[.!?])\s+/).map(line => line.trim()).filter(Boolean).map(line => line.replaceAll('@A', '<P1>').replaceAll('@B', '<P2>').replaceAll('@a', '<p1>').replaceAll('@b', '<p2>')).sort();
 
+test('execution mode precedes standalone names and forbids standalone names in composite mode', async () => {
+  const paragraphs = {};
+  for (const harness of Object.keys(harnesses)) {
+    const text = await read(harness, 'coordination.md');
+    const mode = text.indexOf('### Execution mode'), standalone = text.indexOf(harness === 'claude' ? 'Standalone native names:' : 'Standalone aliases:');
+    const composite = text.indexOf('Composite native names'), adapter = text.indexOf('<a id="instruction-and-execution-adapter"');
+    assert.ok(mode > 0 && mode < standalone && standalone < composite && composite < adapter, harness);
+    assert.ok(text.includes('Never invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed.'), harness);
+    assert.ok(text.includes('`../../arc-role-platform-routing.prepared.json`'), harness);
+    assert.doesNotMatch(text, /Claude native names:|\nAliases:/);
+    paragraphs[harness] = text.slice(mode, standalone);
+    const skill = await readFile(new URL(`../../${harness}/skill/SKILL.md`, import.meta.url), 'utf8');
+    assert.doesNotMatch(skill.split('\n').find(l => l.startsWith('**Role gate:**')), /`arc[-_]planner`/);
+  }
+  assert.equal(paragraphs.claude, paragraphs.codex);
+});
+
 test('both coordination references define Composite Platform Role Dispatch with the six commands, native names and planning link', async () => {
   for (const harness of Object.keys(harnesses)) {
     const text = await read(harness, 'coordination.md');

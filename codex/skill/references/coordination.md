@@ -17,7 +17,11 @@ Orchestrator reads this before the first specialist creation or assignment and r
 
 Orchestrator is depth 1. All five specialists report directly at depth 2 without creating agents/delegating. Reviewer stays independent.
 
-Aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Implementer=`arc_implementer`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
+### Execution mode
+
+Before the first specialist creation or assignment, check whether `arc-role-platform-routing.prepared.json` exists in the platform home that contains this skill (`../../arc-role-platform-routing.prepared.json` relative to this skill directory). If it exists, ARC runs in `Claude & Codex` mode: follow [Composite Platform Role Dispatch](#composite-platform-role-dispatch) for every role, starting with `routing-status`, and use only the profile or bridge it returns. Never invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed. Otherwise use the standalone names below.
+
+Standalone aliases: Scouter=`arc_scouter`, Planner=`arc_planner`, Implementer=`arc_implementer`, QA=`arc_qa`, Reviewer=`arc_reviewer`.
 
 Composite native names (`Claude & Codex`): Claude-routed roles use `arc-routing-<suffix>`, Codex-routed roles use `arc_routing_<suffix>`; the suffix is the role name. Never pass a model argument when spawning them.
 
