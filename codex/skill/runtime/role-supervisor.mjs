@@ -153,7 +153,7 @@ export async function runSupervisor(options) {
     if (invocation.argsDigest !== lease.argsDigest) return await earlyFailure('activation_unverified');
     const brief = await fsp.readFile(path.join(artifactDir, 'brief.md'), 'utf8');
     const cli = resolveLocalCli(platform, context);
-    if (cli.reason) return await earlyFailure(cli.reason === 'cli_not_found' ? 'Not Avaliable' : 'execution_failed');
+    if (cli.reason) return await earlyFailure(cli.reason === 'cli_not_found' ? 'Not Available' : 'execution_failed');
     let before;
     try { before = await snapshotWorktree(target.realpath); } catch { return await earlyFailure('execution_failed'); }
 

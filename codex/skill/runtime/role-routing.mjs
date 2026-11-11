@@ -132,9 +132,9 @@ const classify=error=>{
 };
 export async function authenticate(platform,context,policy){
  const cli=resolveLocalCli(platform,context);
- if(cli.reason)return {cli:null,authentication:{status:cli.reason==='cli_not_found'?'Not Avaliable':'Incomplete',reason:cli.reason}};
+ if(cli.reason)return {cli:null,authentication:{status:cli.reason==='cli_not_found'?'Not Available':'Incomplete',reason:cli.reason}};
  const auth=await probePlatformAuth(cli,{timeoutMs:policy.probeTimeoutMs});
- return {cli,authentication:{status:auth.authStatus==='authenticated'?'Avaliable':auth.authStatus==='unauthorized'?'Unauthorized':'Incomplete',...(auth.reason?{reason:auth.reason}:{})}};
+ return {cli,authentication:{status:auth.authStatus==='authenticated'?'Available':auth.authStatus==='unauthorized'?'Unauthorized':'Incomplete',...(auth.reason?{reason:auth.reason}:{})}};
 }
 export const versionOf=(cli,policy)=>cli?probeCliVersion(cli,{timeoutMs:policy.probeTimeoutMs,policy}):{version:null,supported:false,reason:'cli_not_found'};
 export async function readRevision(homes){
@@ -191,7 +191,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    result.requested={...requested};result.route=route;result.profileName=profileName(requested.platform,role);
    const {cli,authentication}=await authenticate(requested.platform,context,policy);
    result.authentication=authentication;
-   if(authentication.status!=='Avaliable')codes.add(authentication.status);
+   if(authentication.status!=='Available')codes.add(authentication.status);
    if(route==='bridge'){
     result.cliVersion=await versionOf(cli,policy);
     if(cli&&!result.cliVersion.supported)codes.add('permission_scope_unverified');

@@ -45,7 +45,7 @@ export const DEFAULT_POLICY = Object.freeze({
 
 export const RELEASE_CONDITIONS = Object.freeze({
   activation_unverified: 'Verify the active configuration, both prepared markers, installed bytes, host limits and the shared lock, and inspect the lease records in <CODEX_HOME>/arc-role-dispatch for unreadable or corrupted files.',
-  'Not Avaliable': 'Install the target platform CLI so that it is found on PATH.',
+  'Not Available': 'Install the target platform CLI so that it is found on PATH.',
   Unauthorized: 'Authenticate the target platform CLI.',
   Incomplete: 'Make the target platform CLI authentication status check complete successfully.',
   environment_unverified: 'Desktop hosts are held in this release; use a CLI host or a later ARC update that changes the support status.',

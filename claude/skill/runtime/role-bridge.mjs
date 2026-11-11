@@ -135,7 +135,7 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
    }
    const requested=config.roles[lease.role],platform=requested.platform,codes=new Set();
    const {cli,authentication}=await authenticate(platform,context,policy);
-   if(authentication.status!=='Avaliable')codes.add(authentication.status);
+   if(authentication.status!=='Available')codes.add(authentication.status);
    const version=await versionOf(cli,policy);
    if(cli&&!version.supported)codes.add('permission_scope_unverified');
    for(const code of environmentReasons(context.executionEnvironment,policy))codes.add(code);

@@ -32,7 +32,7 @@ test('routing-status returns revision, per-role routes, profile names and auth w
   assert.equal(status.roles.arc_qa.revisionTag, `[arc-routing rev ${f.revision}]`);
   assert.equal(status.roles.arc_planner.route, 'native');
   assert.equal(status.roles.arc_planner.profileName, 'arc-routing-planner');
-  assert.equal(status.platforms.codex.authentication.status, 'Avaliable');
+  assert.equal(status.platforms.codex.authentication.status, 'Available');
   assert.equal(status.platforms.codex.cliVersion.version, '0.167.0');
   assert.equal(status.platforms.claude.cliVersion.supported, true);
   assert.deepEqual(status.pruned, {removed: 0, errors: 0});
@@ -98,13 +98,13 @@ test('prepare-dispatch never emits native_provider_unavailable, capacity_unverif
   for (const code of ['native_provider_unavailable', 'capacity_unverified', 'model_effort_observer_unavailable']) assert.equal(seen.includes(code), false, code);
 });
 
-test('prepare-dispatch maps CLI absence, unauthorized and probe failure to Not Avaliable, Unauthorized, Incomplete holds', async t => {
+test('prepare-dispatch maps CLI absence, unauthorized and probe failure to Not Available, Unauthorized, Incomplete holds', async t => {
   const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
   await f.cli('claude', {version: '2.1.322'});
   let result = await prepare(f, request('arc_qa'));
   assert.equal(result.decision, 'hold');
-  assert.equal(result.authentication.status, 'Not Avaliable');
-  assert.ok(codes(result).includes('Not Avaliable'));
+  assert.equal(result.authentication.status, 'Not Available');
+  assert.ok(codes(result).includes('Not Available'));
   assert.equal(result.dispatchId, null);
   for (const [auth, status] of [['unauthorized', 'Unauthorized'], ['error', 'Incomplete'], ['hang', 'Incomplete']]) {
     await f.cli('codex', {auth, version: 'codex-cli 0.167.0'});

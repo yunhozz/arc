@@ -56,21 +56,23 @@
 
 **선행:** B0. **산출 인터페이스:** `RELEASE_CONDITIONS['Not Available']`, `authenticate()`의 `authentication.status` ∈ {`Available`,`Not Available`,`Unauthorized`,`Incomplete`}.
 
-- [ ] **1단계: 실패하는 테스트 작성**
+- [x] **1단계: 실패하는 테스트 작성**
   - `role-routing-dispatch.test.mjs`: 기대값 `'Available'`, 테스트 이름 `'prepare-dispatch maps CLI absence, unauthorized and probe failure to Not Available, Unauthorized, Incomplete holds'`, 사유 `'Not Available'`.
   - 신규 `status-labels.test.mjs`:
     - `test('release conditions use the corrected Not Available code')`: `assert.ok(Object.hasOwn(RELEASE_CONDITIONS,'Not Available'))`, `assert.equal(Object.hasOwn(RELEASE_CONDITIONS,'Not Ava'+'liable'),false)`, `assert.throws(()=>reason('Not Ava'+'liable'))`.
     - `test('live sources, runtime copies, node tests and current docs do not contain the misspelled label')`: `lib/`, `claude/skill/`, `codex/skill/`, `tests/node/`의 모든 파일과 `README.md`, `docs/harness-operation.md`를 재귀로 읽어 `'Ava'+'liable'`이 없음을 단언한다. 실패 메시지에 파일 경로를 넣는다.
   - `tui-app.test.mjs` 신규 `test('home status shows Available, Not Available and Unauthorized labels')`: `collectStatus`가 `[{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'authenticated'}},{platform:'codex',state:'absent',diagnostics:[]}]`을 반환하면 `rows[0] === 'Claude: Available / Codex: Not Available'`. 두 번째 실행에서 `[{platform:'codex',state:'installed',diagnostics:[],authentication:{platform:'codex',authStatus:'unknown',reason:'cli_not_found'}},{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'unauthorized'}}]`이면 `rows[0] === 'Claude: Unauthorized / Codex: Not Available'`.
   - 기준선에서 실패하던 `tui-app.test.mjs`의 'home status orders Claude then Codex…', 'home status with one collected target…' 두 테스트는 기대값을 현재 라벨 체계(`'Claude: Available / Codex: Incomplete'`, `['Codex: Not Available','','Install / Update']`)로 고친다. 이는 C3 라벨 교정의 일부다.
-- [ ] **2단계: 실패 확인.** `node --test --test-timeout=120000 tests/node/role-routing-dispatch.test.mjs tests/node/status-labels.test.mjs tests/node/tui-app.test.mjs`. 기대: 위 테스트들이 철자 불일치로 FAIL.
-- [ ] **3단계: 구현.** 파일 목록의 문자열만 교정한다. `RELEASE_CONDITIONS` 키를 `'Not Available'`로 바꾸고, 해제 조건 문구는 유지한다. `docs/harness-operation.md:26`은 라벨 두 개만 바꾼다.
-- [ ] **4단계: 생성물 갱신.** `node scripts/update-runtime-assets.mjs` → `tests/node/runtime-versions.test.mjs`의 `baselineHash` 갱신(전역 제약) → `node scripts/update-manifest.mjs`.
-- [ ] **5단계: 통과 확인.** 1단계 대상 명령 통과. `node --test --test-timeout=120000 tests/node/runtime-versions.test.mjs` 통과. 기준선 비교 규칙의 전체 테스트(새 실패 없음, 위 두 home status 테스트는 통과로 전환). `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check`. `grep -rn "Avaliable" lib claude/skill codex/skill tests/node README.md docs/harness-operation.md` 출력 없음.
-- [ ] **6단계: 커밋(Orchestrator 수용 후)** — `fix(runtime): 인증 상태 라벨 철자 교정`
+- [x] **2단계: 실패 확인.** `node --test --test-timeout=120000 tests/node/role-routing-dispatch.test.mjs tests/node/status-labels.test.mjs tests/node/tui-app.test.mjs`. 기대: 위 테스트들이 철자 불일치로 FAIL.
+- [x] **3단계: 구현.** 파일 목록의 문자열만 교정한다. `RELEASE_CONDITIONS` 키를 `'Not Available'`로 바꾸고, 해제 조건 문구는 유지한다. `docs/harness-operation.md:26`은 라벨 두 개만 바꾼다.
+- [x] **4단계: 생성물 갱신.** `node scripts/update-runtime-assets.mjs` → `tests/node/runtime-versions.test.mjs`의 `baselineHash` 갱신(전역 제약) → `node scripts/update-manifest.mjs`.
+- [x] **5단계: 통과 확인.** 1단계 대상 명령 통과. `node --test --test-timeout=120000 tests/node/runtime-versions.test.mjs` 통과. 기준선 비교 규칙의 전체 테스트(새 실패 없음, 위 두 home status 테스트는 통과로 전환). `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check`. `grep -rn "Avaliable" lib claude/skill codex/skill tests/node README.md docs/harness-operation.md` 출력 없음.
+- [x] **6단계: 커밋(Orchestrator 수용 후)** — `fix(runtime): 인증 상태 라벨 철자 교정`
 
 **수용 기준:** 스펙 AC6. 위 명령 모두 통과. 생성 사본과 매니페스트 일치.
 **수용 전 QA:** 새 QA가 5단계를 재실행하고, `docs/superpowers/` 아래 기존 파일이 변경되지 않았음을 `git diff --stat`으로 확인한다.
+
+**진행 기록 (2026-11-11, 진행 기록):** Implementer(Codex bridge) dispatch `c28496d9` 1~5단계(`baselineHash` 제외), 계획 수정(전역 제약 `baselineHash`, 사용자 승인) 뒤 새 Implementer dispatch `4511c58c`가 `baselineHash`를 `sha256:032029ed…`로 갱신. Orchestrator 전체 테스트(`--test-timeout=120000`): 1502개 중 실패 89, 취소 1, 기준선 대비 새 실패 0, 고쳐진 것 2(home status 두 테스트). QA dispatch `81225559` Q1~Q6 proven. 수용: Orchestrator.
 
 ---
 
