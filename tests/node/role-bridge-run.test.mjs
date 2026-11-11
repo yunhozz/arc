@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
-import {createRoutingFixture} from './role-fixtures.mjs';
+import {createRoutingFixture, FAKE_CODEX_APP_SERVER} from './role-fixtures.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {readLease, writeLease, requestCancel, cancelRequested, readHeartbeat, writeHeartbeat, listLeases, dispatchDirectory, NON_TERMINAL_STATES as NON_TERMINAL} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, withRoutingLock} from '../../lib/runtime/role-routing.mjs';
@@ -537,7 +537,9 @@ test('cancel marker stops the child group and the supervisor records cancelled o
 async function installStubbornGrandchild(f, gcFile) {
   const script = `#!${process.execPath}
 const cp=require('node:child_process'),fs=require('node:fs');
+${FAKE_CODEX_APP_SERVER}
 const args=process.argv.slice(2);
+if(args[0]==='app-server'){appServer({});}else {
 if(args[0]==='login'){process.stdout.write('Logged in');process.exit(0);}
 if(args.length===1&&args[0]==='--version'){process.stdout.write('codex-cli 0.167.0');process.exit(0);}
 fs.readFileSync(0);
@@ -545,6 +547,7 @@ const gc=cp.spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});setInterv
 fs.writeFileSync(${JSON.stringify(gcFile)},String(gc.pid));
 process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stringify(THREAD(80))}})+'\\n');
 setInterval(()=>{},1000);
+}
 `;
   await fs.writeFile(path.join(f.binDir, 'codex'), script, {mode: 0o755});
   await fs.mkdir(path.join(f.codexHome, 'sessions/2026/11/10'), {recursive: true});
@@ -648,7 +651,9 @@ async function installOrphaningCodex(f, {gcFile, readyFile, termWrite = null, ig
   const gcSource = `${ignoreTerm ? "process.on('SIGTERM',()=>{});" : ''}${termWrite ? `process.on('SIGTERM',()=>{require('fs').writeFileSync(${JSON.stringify(termWrite)},'late');process.exit(0)});` : ''}require('fs').writeFileSync(${JSON.stringify(readyFile)},'1');setInterval(()=>{},1000);`;
   const script = `#!${process.execPath}
 const cp=require('node:child_process'),fs=require('node:fs');
+${FAKE_CODEX_APP_SERVER}
 const args=process.argv.slice(2);
+if(args[0]==='app-server'){appServer({});}else {
 if(args[0]==='login'){process.stdout.write('Logged in');process.exit(0);}
 if(args.length===1&&args[0]==='--version'){process.stdout.write('codex-cli 0.167.0');process.exit(0);}
 fs.readFileSync(0);
@@ -657,6 +662,7 @@ const gc=cp.spawn(process.execPath,['-e',${JSON.stringify(gcSource)}],{stdio:'ig
 gc.unref();fs.writeFileSync(${JSON.stringify(gcFile)},String(gc.pid));
 while(!fs.existsSync(${JSON.stringify(readyFile)}))Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,20);
 process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stringify(THREAD(thread))}})+'\\n'+JSON.stringify({type:'turn.completed'})+'\\n');
+}
 `;
   await fs.writeFile(path.join(f.binDir, 'codex'), script, {mode: 0o755});
   const rollout = rolloutFile(f, THREAD(thread));
@@ -717,13 +723,16 @@ test('branch and tag creation by a role fails permission_violation_observed and 
   for (const [n, args] of [[91, ['branch', 'created-by-role']], [92, ['tag', 'tag-by-role']]]) {
     const script = `#!${process.execPath}
 const cp=require('node:child_process'),fs=require('node:fs');
+${FAKE_CODEX_APP_SERVER}
 const args=process.argv.slice(2);
+if(args[0]==='app-server'){appServer({});}else {
 if(args[0]==='login'){process.stdout.write('Logged in');process.exit(0);}
 if(args.length===1&&args[0]==='--version'){process.stdout.write('codex-cli 0.167.0');process.exit(0);}
 fs.readFileSync(0);
 const at=args.indexOf('-o');if(at>=0)fs.writeFileSync(args[at+1],'RESULT TEXT');
 const r=cp.spawnSync('git',${JSON.stringify(args)},{cwd:process.cwd()});if(r.status!==0)process.exit(9);
 process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stringify(THREAD(n))}})+'\\n'+JSON.stringify({type:'turn.completed'})+'\\n');
+}
 `;
     await fs.writeFile(path.join(f.binDir, 'codex'), script, {mode: 0o755});
     const rollout = rolloutFile(f, THREAD(n), {sandbox: 'workspace-write'});

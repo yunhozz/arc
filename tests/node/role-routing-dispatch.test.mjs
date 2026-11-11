@@ -434,3 +434,18 @@ test('parallel child processes reserve the same requestId exactly once', async t
   assert.ok(results.filter(r => r.json.decision !== 'allow').every(r => [2, 3].includes(r.code)));
   assert.equal((await listLeases(f.codexHome)).length, 1);
 });
+
+test('routing-status and prepare-dispatch report Unauthorized for a withheld Codex token without leaking token or error text',async t=>{
+ const f=await createRoutingFixture(t,{roles:{arc_qa:'codex'}});await f.cli('claude',{version:'2.1.322'});
+ for(const [authStatus,status,reason] of [['revoked','Unauthorized','token_rejected'],['chatgpt-ok','Available'],['error','Incomplete','status_command_failed']]) {
+  await f.cli('codex',{authStatus,version:'codex-cli 0.167.0'});
+  const value=await routingStatus({context:f.context(),policy:policyWith()});
+  assert.deepEqual(value.platforms.codex.authentication,{status,...(reason?{reason}:{})});
+  assert.doesNotMatch(JSON.stringify(value),/fixture-token-SECRET|refresh token/);
+  if(status!=='Available') {
+   const held=await prepare(f,request('arc_qa'));assert.equal(held.decision,'hold');assert.ok(codes(held).includes(status));
+   assert.doesNotMatch(JSON.stringify(held),/fixture-token-SECRET|refresh token/);
+  }
+ }
+ assert.equal(await leaseCount(f),0);
+});

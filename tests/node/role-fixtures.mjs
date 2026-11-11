@@ -76,6 +76,41 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   return fixture;
 }
 
+export const FAKE_CODEX_APP_SERVER = String.raw`
+function appServer(scenario) {
+ const fs=require('node:fs');
+ const mode=scenario.authStatus??({ok:'chatgpt-ok',unauthorized:'logged-out',error:'error',hang:'hang'}[scenario.auth??'ok']);
+ const record=value=>{if(scenario.appServerRecordPath)fs.appendFileSync(scenario.appServerRecordPath,JSON.stringify({...value,pid:process.pid})+'\n');};
+ record({event:'start'});
+ if(mode==='exit')return process.exit(1);
+ const rl=require('node:readline').createInterface({input:process.stdin});
+ rl.on('close',()=>process.exit(0));
+ rl.on('line',line=>{
+  const request=JSON.parse(line);record(request);
+  if(mode==='hang')return;
+  const send=value=>process.stdout.write(JSON.stringify(value)+'\n');
+  if(request.method==='initialize')return send({id:request.id,result:{userAgent:'fake',platformFamily:'unix',platformOs:'macos'}});
+  if(request.method!=='getAuthStatus')return;
+  if(mode==='malformed')return process.stdout.write('not json\n');
+  if(mode==='oversize')return process.stdout.write('x'.repeat(2*1048576)+'\n');
+  if(mode==='error')return send({id:request.id,error:{code:-32603,message:'Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again.'}});
+  if(mode==='notify-first'){send({method:'notification',params:{}});send({id:99,method:'server/request',params:{}});}
+  const values={
+   'chatgpt-ok':['chatgpt','fixture-token-SECRET',true],
+   'apikey-ok':['apikey','fixture-token-SECRET',true],
+   'pat-null':['personalAccessToken',null,true],
+   revoked:['chatgpt',null,true],
+   'logged-out':[null,null,true],
+   'no-auth-required':[null,null,false],
+   'other-null':['bedrockApiKey',null,true],
+   'notify-first':['chatgpt','fixture-token-SECRET',true]
+  };
+  const [authMethod,authToken,requiresOpenaiAuth]=values[mode]??values['chatgpt-ok'];
+  send({id:request.id,result:{authMethod,authToken,requiresOpenaiAuth}});
+ });
+}
+`;
+
 const FAKE_SOURCE = `#!${process.execPath}
 const fs=require('node:fs'),cp=require('node:child_process');
 const platform=process.env.ARC_FAKE_CLI_PLATFORM_NAME||require('node:path').basename(process.argv[1]);
@@ -83,7 +118,9 @@ const scenarioFile=process.env['ARC_FAKE_CLI_SCENARIO_'+platform.toUpperCase()];
 const scenario=scenarioFile&&fs.existsSync(scenarioFile)?JSON.parse(fs.readFileSync(scenarioFile,'utf8')):{};
 const args=process.argv.slice(2);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+${FAKE_CODEX_APP_SERVER}
 (async()=>{
+ if(args[0]==='app-server')return appServer(scenario);
  const auth=args[0]==='auth'&&args[1]==='status'||args[0]==='login'&&args[1]==='status';
  if(auth){
   const mode=scenario.auth??'ok';
