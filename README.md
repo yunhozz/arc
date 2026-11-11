@@ -32,7 +32,14 @@ Package installation provides the CLI, not the harness. Install or manage the ha
 - **Version:** `Check Version` shows installed and latest CLI versions. `Version Upgrade` appears when available and preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
 - **Uninstall:** Removes selected harnesses; the global CLI is removed only if all succeed. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
 
-The TUI requires terminal input and output. It supports only `arc`, `arc --help`, and `arc --version`. Help and version also work without a TTY.
+The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.
+
+## Watch sessions
+
+`arc watch` follows Claude Code and Codex activity in a read-only stream; by default it includes every worktree of the current Git repository, or the current directory outside Git.
+Tool and command outputs are never shown; common secret patterns are masked, but masking is not complete.
+Codex Desktop sessions are excluded. Bridge roles on Codex hosts remain held as `host_sandbox_blocked` and appear once they run.
+Use `arc watch --help` for scope, platform, history and JSON options; press Ctrl-C to stop.
 
 ## Models and language
 

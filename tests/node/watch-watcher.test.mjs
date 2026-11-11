@@ -40,7 +40,7 @@ test('start shows banner, the last 20 recent events in ts order, then live',asyn
   const s=setup(t); s.c('codex',Array.from({length:15},(_,i)=>msg(`c${i}`,TIME-300000+i*2000)));
   s.cl('claude',Array.from({length:15},(_,i)=>cm('claude',s.cwd,`a${i}`,'cli',TIME-299000+i*2000)));
   const out=await s.w.start(); assert.equal(out.length,22);
-  assert.equal(out[0].text,`arc watch: scope dir ${s.cwd} · codex+claude · Ctrl-C to stop`);
+  assert.equal(out[0].text,`arc watch: scope ${s.cwd} · codex+claude · Ctrl-C to stop`);
   assert.equal(out.at(-1).text,'live');
   assert.deepEqual(content(out).map(e=>e.text),Array.from({length:10},(_,i)=>[`c${i+5}`,`a${i+5}`]).flat());
   assert.deepEqual(await s.w.tick(),[]);
@@ -152,4 +152,18 @@ test('Claude init artifacts set dispatch platform independently of the Codex hos
   assert.equal(out[0].kind, 'dispatch');
   assert.equal(out[0].platform, 'claude');
   assert.equal(out[0].hostPlatform, 'codex');
+});
+
+// Catch extra mode words and the misplaced scope prefix in session banners.
+test('banner matches all four public scope forms exactly', async t => {
+  for (const kind of ['repo','dir','all','session']) {
+    const s = setup(t, {session:kind === 'session' ? 'abc-1' : null, platforms:['codex']}, kind);
+    const expected = {
+      repo:`arc watch: scope ${s.cwd} (1 worktrees) · codex · Ctrl-C to stop`,
+      dir:`arc watch: scope ${s.cwd} · codex · Ctrl-C to stop`,
+      all:'arc watch: scope all · codex · Ctrl-C to stop',
+      session:'arc watch: session abc-1 · codex · Ctrl-C to stop',
+    };
+    assert.equal((await s.w.start())[0].text, expected[kind]);
+  }
 });

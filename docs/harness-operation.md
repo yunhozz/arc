@@ -46,13 +46,23 @@ Static references include brainstorming/writing-plans/test-driven-development, r
 <a id="installation-and-refresh-lifecycle"></a>
 ## Installation and refresh lifecycle
 
-1. `arc` opens the English TUI when both streams are TTYs. Public syntax: `arc`, `arc --help`, `arc --version`. No-argument non-TTY and other commands/options exit 2 without controlling-terminal reconnection. Help/version require no native installer.
+1. `arc` opens the English TUI when both streams are TTYs. Public syntax: `arc`, `arc watch`, `arc --help`, `arc --version`. No-argument non-TTY and other commands/options exit 2 without controlling-terminal reconnection. Help/version/watch require no native installer.
 2. Home actions: `Install / Update`, `Change Preset`, `Check Version`, `Uninstall`, `Exit`. Installation selects targets/preset/limits/language/global settings. A nonselectable blank line precedes `Execute`; Enter validates/executes once without review. `Change Preset` changes drafts until Enter on `Apply`, separated likewise. Preserve other settings; differing targets require explicit common values.
 3. Preparation validates payload/settings/paths and snapshots them. Execution revalidates and stops on drift. Selected package determines reference revision.
 4. Install verified platform-local bytes. Install/reinstall/upgrade never collects Superpowers, queries its latest revision or runs updater. Imported Markdown/mockups stay unchanged.
 5. Report target transaction/rollback/residual recovery paths. Later target failure preserves earlier success. Settings apply in new agent sessions.
 
 TUI stays English regardless of harness language. `Workflow`/automatic platform integration share the internal runtime endpoint. TUI inspection proves no workflow approval. `Check Version` displays `Current version`/`Latest version`. Only numerically newer versions offer `Version Upgrade`. Enter revalidates package identity/npm context/installed state then applies the exact displayed version without requerying latest. Equal/older/unavailable versions offer no upgrade. Escape returns home. Global replacement ends the session; npx runs pinned payload without replacing global CLI. Same-version refresh uses `Install / Update`. If CLI cannot start, run `npx --yes @yunhozz/arc@latest`.
+
+### Watch
+
+`arc watch` reads Codex rollout JSONL, Claude Code transcripts (including persisted bridge transcripts), and ARC dispatch leases and artifacts. It defaults to every worktree of the current Git repository, or the current directory outside Git; `--cwd`, `--all`, `--session` and `--platform` select scope. Codex Desktop sessions are excluded.
+
+Dispatch thread/init events and saved session IDs map bridge activity to role and dispatch labels; missing transcripts leave dispatch events visible. Codex-host bridges remain held as `host_sandbox_blocked` (and, where applicable, `permission_scope_unverified`); without a lease there is no dispatch to display.
+
+The stream is read-only: no CLI execution except restricted Git discovery, no network requests, and no changes to homes, repositories or artifacts. Tool and command outputs are never shown. Reasoning appears only with `--verbose`; common secrets are masked, but masking is not complete. `--json` uses the same content policy. Signals stop the watcher immediately with exit 0; after a pipe reader closes, it exits with 0 on its next output.
+
+Files are polled every 500 ms, discovery every 2 seconds, and worktrees every 30 seconds. Tracking is limited to 64 files, 1 MiB per file per tick, 256 KiB of history per session, 4 MiB per line, 30 minutes of inactivity and 32 repositories in all-scope mode. Merge order is per tick, not globally guaranteed. A transcript truncated and regrown past the previous read offset between polls is not detected.
 
 Install/update/uninstall remove valid old ARC management completion blocks and add no registrations. Status never edits shell files. Preserve user settings and block-external content.
 
