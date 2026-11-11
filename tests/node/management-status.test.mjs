@@ -21,3 +21,18 @@ test('management status and TUI home use refreshed Codex authentication without 
  const records=fs.readFileSync(recordPath,'utf8').trim().split('\n').map(JSON.parse);
  assert.equal(records.filter(x=>x.method==='getAuthStatus').length,3);
 });
+
+test('management status refreshes by default and supports a local Codex recheck',async t=>{
+ const {createRoutingFixture}=await import('./role-fixtures.mjs');
+ const f=await createRoutingFixture(t),recordPath=path.join(f.base,'status-auth.jsonl');
+ await f.cli('codex',{appServerRecordPath:recordPath});
+ const ctx={userHome:f.userHome,cwd:f.cwd,env:f.env,safeFs};
+ for(const options of [undefined,{codexCheck:'local'}]) {
+  const statuses=await api.collectStatus(ctx,options);
+  assert.equal(statuses.find(x=>x.platform==='codex').authentication.authStatus,'authenticated');
+ }
+ const requests=fs.readFileSync(recordPath,'utf8').trim().split('\n').map(JSON.parse).filter(x=>x.method==='getAuthStatus');
+ assert.deepEqual(requests.map(x=>x.params),[{includeToken:true,refreshToken:true}]);
+ const records=fs.readFileSync(recordPath,'utf8').trim().split('\n').map(JSON.parse);
+ assert.deepEqual(records.filter(x=>x.event).map(x=>x.event),['start','login-status']);
+});

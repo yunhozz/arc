@@ -188,13 +188,13 @@
 - 테스트: `tests/node/codex-auth-probe.test.mjs`, `tests/node/management-status.test.mjs`, 관리 operation 테스트(기존 `tests/node/management-operations.test.mjs` 또는 composite 실행을 다루는 파일), `tests/node/runtime-versions.test.mjs`(`baselineHash`만)
 - 생성: 런타임 사본, `MANIFEST.sha256`
 
-- [ ] **1단계: 실패하는 테스트 작성.** (a) `probeCodexAuthStatus(context,{refreshToken:false})`는 `getAuthStatus` params로 `{includeToken:true,refreshToken:false}`를 보낸다(기록 확인). 기본값은 `refreshToken:true`. (b) `collectStatus(context,{refreshToken:false})`가 Codex probe에 `refreshToken:false`를 전달하고 기본은 `true`. (c) composite 실행 경로: 준비(`prepareCompositeOperation`)는 `refreshToken:true`, 실행(`executeCompositeOperation`)의 두 재확인은 `refreshToken:false`로 호출됨을 주입 가능한 probe 또는 가짜 app-server 기록으로 확인한다. (d) 회귀 재현: 가짜 app-server가 `refreshToken:true` 요청을 받을 때 `CODEX_HOME/auth.json`을 교체(임시 파일 후 rename)하도록 하는 시나리오에서 composite install 실행이 `Install target changed` 없이 진행되는지 확인한다(가능한 범위의 fixture로).
-- [ ] **2단계: 실패 확인.**
-- [ ] **3단계: 구현.** 위 파일 목록대로. Claude 경로와 라우팅 경로(`authenticate()`)는 바꾸지 않는다(계속 갱신).
-- [ ] **4단계: 생성물 갱신.** `node scripts/update-runtime-assets.mjs` → `baselineHash` 갱신(전역 제약) → `node scripts/update-manifest.mjs`.
-- [ ] **5단계: 통과 확인.** 대상 테스트, 기준선 비교 규칙의 전체 테스트(Orchestrator, sandbox 밖), `check:manifest`, `check:role-policy`, runtime 사본 검사.
-- [ ] **6단계: 실제 설치 확인(Orchestrator, 사용자 요청).** 기존 설정으로 `Claude & Codex` Install / Update를 실행해 `code 0`, `activation:'published'`를 확인하고, 새 세션 전 `routing-status`가 새 revision과 `cooperative-8` 마커로 `allow`인지 확인한다.
-- [ ] **7단계: 커밋(Orchestrator 수용 후)** — `fix(management): 설치 실행 단계의 Codex 재확인에서 토큰 갱신 제외`
+- [x] **1단계: 실패하는 테스트 작성.** (a) `probeCodexAuthStatus(context,{refreshToken:false})`는 `getAuthStatus` params로 `{includeToken:true,refreshToken:false}`를 보낸다(기록 확인). 기본값은 `refreshToken:true`. (b) `collectStatus(context,{refreshToken:false})`가 Codex probe에 `refreshToken:false`를 전달하고 기본은 `true`. (c) composite 실행 경로: 준비(`prepareCompositeOperation`)는 `refreshToken:true`, 실행(`executeCompositeOperation`)의 두 재확인은 `refreshToken:false`로 호출됨을 주입 가능한 probe 또는 가짜 app-server 기록으로 확인한다. (d) 회귀 재현: 가짜 app-server가 `refreshToken:true` 요청을 받을 때 `CODEX_HOME/auth.json`을 교체(임시 파일 후 rename)하도록 하는 시나리오에서 composite install 실행이 `Install target changed` 없이 진행되는지 확인한다(가능한 범위의 fixture로).
+- [x] **2단계: 실패 확인.**
+- [x] **3단계: 구현.** 위 파일 목록대로. Claude 경로와 라우팅 경로(`authenticate()`)는 바꾸지 않는다(계속 갱신).
+- [x] **4단계: 생성물 갱신.** `node scripts/update-runtime-assets.mjs` → `baselineHash` 갱신(전역 제약) → `node scripts/update-manifest.mjs`.
+- [x] **5단계: 통과 확인.** 대상 테스트, 기준선 비교 규칙의 전체 테스트(Orchestrator, sandbox 밖), `check:manifest`, `check:role-policy`, runtime 사본 검사.
+- [x] **6단계: 실제 설치 확인(Orchestrator, 사용자 요청).** 기존 설정으로 `Claude & Codex` Install / Update를 실행해 `code 0`, `activation:'published'`를 확인하고, 새 세션 전 `routing-status`가 새 revision과 `cooperative-8` 마커로 `allow`인지 확인한다.
+- [x] **7단계: 커밋(Orchestrator 수용 후)** — `fix(management): 설치 실행 단계의 Codex 재확인에서 토큰 갱신 제외`
 
 
 **실행 중 수정(2026-11-11, 사용자 승인):** 1차 구현(`refreshToken:false`)으로 실제 설치를 다시 시도했으나 같은 오류로 실패했다. 측정 결과 갱신 없이도 app-server 실행이 `CODEX_HOME`의 SQLite 보조 파일을 만들어 디렉터리 메타데이터를 바꿨다. 실행 단계 재확인은 `codex login status`(로컬, `CODEX_HOME` 불변 실측)로 바꾼다. 테스트 (c)는 "실행 단계에서 app-server 요청이 없고 login status만 실행됨"으로, (d) 회귀 시나리오는 "app-server 실행 시 `CODEX_HOME`에 보조 파일을 만드는 가짜"까지 포함한다. 사용하지 않게 되는 `refreshToken` 옵션 경로는 제거하거나 사용처가 없으면 남기지 않는다.
@@ -214,3 +214,11 @@
 - 후속 수정: Implementer dispatch `c73b428a`(Codex bridge). `baselineHash` `sha256:6b5f156b…`. Reviewer 재검토(dispatch `110b633d`) approve. Info(가드 테스트의 ENOENT 단언은 증명력이 약하지만 결과 단언으로 충족)는 수정하지 않음.
 - 전체 테스트(`--test-timeout=120000`, sandbox 밖): 1회차 1527개 중 새 실패 1개(`events.jsonl holds only normalized fields and truncates at the configured cap with record flag`, `prepare-dispatch`가 Codex 인증 `Incomplete`로 hold). 단독 3/3 통과, 2회차 전체 실행 새 실패 0. 전체 병렬 부하에서 가짜 app-server probe가 시간 제한에 걸리는 간헐 실패로 분류하고 위험으로 기록한다(T3 이후 probe가 자식 프로세스를 띄우므로 발생 가능성이 생김).
 - `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check` 통과(Implementer, Reviewer 확인).
+
+## T5 진행 기록 (2026-11-11, 진행 기록)
+
+- 발견: 최종 리뷰 승인 뒤 Orchestrator가 실제 `Claude & Codex` Install / Update를 실행했으나 `Install target changed: /Users/ma-24-007/.codex`로 실패(설치 전 중단, 기존 설치 유지). 1차 구현(Implementer dispatch `3bf3dad0`, 실행 단계 `refreshToken:false`)으로 재시도했으나 같은 오류. 측정: 갱신 없이도 app-server 실행이 `CODEX_HOME`의 SQLite 보조 파일을 만들어 디렉터리 size/mtime이 바뀜(3392→3488), `codex login status`는 변화 없음. 사용자 승인으로 스펙·계획을 다시 수정하고 새 Implementer dispatch `cfbb0ad4`가 `probeCodexLoginStatus`와 `collectStatus({codexCheck})`로 재구현. `baselineHash` `sha256:92ff3554…`.
+- 검증: 전체 테스트 1536개 중 실패 89, 취소 1, 기준선 대비 새 실패 0. QA dispatch `8677b352` Q2~Q5 proven, Q1(`stderr.trim()` 대 "정확히 일치")은 a8ffd31 로직과 동일하고 판정이 `unauthorized`/`unknown` 사이에서만 넓어지므로 수정 없음으로 처분(Reviewer 동의). 대상 테스트의 유일한 실패 `uninstall failure, cleanup error or interruption skips CLI removal and retains partial harness results`는 기준선 목록에 있음.
+- 실제 설치(6단계): 이 트리로 `code 0`, `activation:'published'`, 두 대상 `installed`. `routing-status` `allow`, revision `6933b6e9-d198-461f-b399-713227559603`, 인증 `Available`. 설치된 런타임 `cooperative-8`이고 저장소 사본과 바이트 동일.
+- Reviewer 재검토(dispatch `cd71c6ec`, 같은 인스턴스 재개; 이 세션의 native 프로필 태그가 이전 revision이라 새 spawn 대신 재개) approve. 기록만 남기는 Info: I-T5-1 `probeCodexLoginStatus` 실행 실패 사유가 `cli_execution_error`가 아니라 `status_command_failed`(판정 동일), I-T5-2 README와 운영 문서에 게시 직전 재확인이 로컬 `login status`라는 설명 없음. 남은 위험: 준비와 실행 사이에 다른 Codex/ARC 프로세스가 `CODEX_HOME` 최상위 항목을 바꾸면 설치가 변경 전에 중단됨(재시도로 해소), 준비 이후 토큰 폐기는 게시 직전 검사에서 감지하지 않음(승인된 절충), `codex login status`의 비쓰기 성질은 Codex 버전 상향 때 재확인 필요.
+- 수용: Orchestrator.

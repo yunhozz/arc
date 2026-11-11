@@ -82,6 +82,7 @@ function appServer(scenario) {
  const mode=scenario.authStatus??({ok:'chatgpt-ok',unauthorized:'logged-out',error:'error',hang:'hang'}[scenario.auth??'ok']);
  const record=value=>{if(scenario.appServerRecordPath)fs.appendFileSync(scenario.appServerRecordPath,JSON.stringify({...value,pid:process.pid})+'\n');};
  record({event:'start'});
+ if(scenario.sideFileOnStart)fs.writeFileSync(require('node:path').join(process.env.CODEX_HOME,'logs_2.sqlite-wal.'+process.pid),'fixture');
  if(mode==='exit')return process.exit(1);
  const rl=require('node:readline').createInterface({input:process.stdin});
  rl.on('close',()=>process.exit(0));
@@ -91,6 +92,12 @@ function appServer(scenario) {
   const send=value=>process.stdout.write(JSON.stringify(value)+'\n');
   if(request.method==='initialize')return send({id:request.id,result:{userAgent:'fake',platformFamily:'unix',platformOs:'macos'}});
   if(request.method!=='getAuthStatus')return;
+  if(scenario.replaceAuthOnRefresh&&request.params.refreshToken===true){
+   const path=require('node:path'),home=process.env.CODEX_HOME;
+   const temporary=path.join(home,'auth.json.'+process.pid+'.tmp');
+   fs.writeFileSync(temporary,JSON.stringify({fixture:true}));
+   fs.renameSync(temporary,path.join(home,'auth.json'));
+  }
   if(mode==='malformed')return process.stdout.write('not json\n');
   if(mode==='oversize')return process.stdout.write('x'.repeat(2*1048576)+'\n');
   if(mode==='error')return send({id:request.id,error:{code:-32603,message:'Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again.'}});
@@ -123,6 +130,8 @@ ${FAKE_CODEX_APP_SERVER}
  if(args[0]==='app-server')return appServer(scenario);
  const auth=args[0]==='auth'&&args[1]==='status'||args[0]==='login'&&args[1]==='status';
  if(auth){
+  if(platform==='codex'&&scenario.appServerRecordPath)fs.appendFileSync(scenario.appServerRecordPath,JSON.stringify({event:'login-status',argv:args,pid:process.pid,cwd:process.cwd(),configHome:process.env.CODEX_HOME})+'\\n');
+  if(platform==='codex'&&scenario.loginStatusExitCode!==undefined){process.stderr.write(scenario.loginStatusStderr??'');process.exit(scenario.loginStatusExitCode);}
   const mode=scenario.auth??'ok';
   if(mode==='hang')return setInterval(()=>{},1000);
   if(mode==='error'){process.stderr.write('boom');process.exit(2);}

@@ -72,3 +72,29 @@ test('composite operation results no longer report held / unverified and point t
  assert.doesNotMatch(JSON.stringify(result),/held \/ unverified/);
  assert.match(result.support.reason,/routing-status/);
 });
+
+test('composite install publishes with only local auth rechecks despite app-server side files',async t=>{
+ const {installFakeCli}=await import('./role-fixtures.mjs');
+ const ctx=context(t),bin=path.join(ctx.userHome,'bin'),recordPath=path.join(ctx.userHome,'auth-requests.jsonl');
+ ctx.env={PATH:bin+':/usr/bin:/bin'};
+ for(const platform of ['codex','claude']) {
+  const fake=await installFakeCli(t,bin,platform,platform==='codex'?{replaceAuthOnRefresh:true,sideFileOnStart:true,appServerRecordPath:recordPath}:{});
+  ctx.env[fake.envName]=fake.scenarioPath;
+ }
+ const codexHome=path.join(ctx.userHome,'.codex'),authPath=path.join(codexHome,'auth.json');
+ fs.mkdirSync(codexHome);fs.writeFileSync(authPath,'original');
+ const original=fs.statSync(authPath).ino;
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-astra',effort:'low'}]));
+ const prepared=await api.prepareCompositeOperation(ctx,{kind:'install',config:{version:1,revision:'rev-refresh',roles}});
+ const refreshed=fs.statSync(authPath).ino;
+ assert.notEqual(refreshed,original,'preparation must refresh before snapshots');
+ const result=await api.executeCompositeOperation(ctx,prepared);
+ assert.equal(result.code,0,JSON.stringify(result));
+ assert.equal(result.activation,'published');
+ assert.equal(fs.statSync(authPath).ino,refreshed,'execution must preserve the refreshed auth file');
+ assert.equal(JSON.parse(fs.readFileSync(path.join(codexHome,'arc-role-platform-routing.json'),'utf8')).revision,'rev-refresh');
+ const records=fs.readFileSync(recordPath,'utf8').trim().split('\n').map(JSON.parse);
+ assert.deepEqual(records.filter(x=>x.method==='getAuthStatus').map(x=>x.params),[{includeToken:true,refreshToken:true}]);
+ assert.deepEqual(records.filter(x=>x.event).map(x=>x.event),['start','login-status','login-status']);
+ assert.equal(fs.readdirSync(codexHome).filter(x=>x.startsWith('logs_2.sqlite-wal.')).length,1);
+});

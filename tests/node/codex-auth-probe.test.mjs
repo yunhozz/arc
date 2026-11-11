@@ -148,3 +148,40 @@ test('kills a hanging app-server that ignores SIGTERM within the cleanup allowan
  assert.ok(Date.now()-start<timeoutMs+2000);
  assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
 });
+
+for(const [name,scenario,status,reason] of [
+ ['success',{auth:'ok'},'authenticated'],
+ ['logged out',{auth:'unauthorized'},'unauthorized','not_logged_in'],
+ ['other failure',{auth:'error'},'unknown','status_command_failed'],
+ ['different stderr',{loginStatusExitCode:1,loginStatusStderr:'Not logged in: fixture-token-SECRET'},'unknown','status_command_failed'],
+ ['wrong exit code',{loginStatusExitCode:2,loginStatusStderr:'Not logged in'},'unknown','status_command_failed']
+]) test(`local Codex login status classifies ${name} without starting app-server`,async t=>{
+ const {f,context,recordPath}=await setup(t,'chatgpt-ok');
+ await f.cli('codex',{...scenario,appServerRecordPath:recordPath});
+ assert.equal(typeof cli.probeCodexLoginStatus,'function');
+ assert.deepEqual(await cli.probeCodexLoginStatus(context),result(status,reason));
+ const records=(await fs.readFile(recordPath,'utf8')).trim().split('\n').map(JSON.parse);
+ assert.equal(records.length,1);
+ assert.equal(records[0].event,'login-status');
+ assert.deepEqual(records[0].argv,['login','status']);
+ assert.equal(records[0].cwd,context.cwd);
+ assert.equal(records[0].configHome,context.configHome);
+});
+test('local Codex login status bounds a hanging command and leaves no child',async t=>{
+ const {f,context,recordPath}=await setup(t,'chatgpt-ok');
+ await f.cli('codex',{auth:'hang',appServerRecordPath:recordPath});
+ assert.equal(typeof cli.probeCodexLoginStatus,'function');
+ const timeoutMs=1500,start=Date.now();
+ assert.deepEqual(await cli.probeCodexLoginStatus(context,{timeoutMs}),result('unknown','timeout'));
+ assert.ok(Date.now()-start<timeoutMs+2000);
+ const [{pid}]=(await fs.readFile(recordPath,'utf8')).trim().split('\n').map(JSON.parse);
+ assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
+});
+test('local Codex login status rejects invalid contexts and aborted signals',async t=>{
+ const {context,recordPath}=await setup(t,'chatgpt-ok');
+ assert.equal(typeof cli.probeCodexLoginStatus,'function');
+ assert.deepEqual(await cli.probeCodexLoginStatus(context,{signal:AbortSignal.abort()}),result('unknown','aborted'));
+ assert.deepEqual(await cli.probeCodexLoginStatus({platform:'codex'}),result('unknown','invalid_context'));
+ assert.deepEqual(await cli.probeCodexLoginStatus({platform:'claude'}),result('unknown','invalid_context'));
+ await assert.rejects(fs.access(recordPath),{code:'ENOENT'});
+});
