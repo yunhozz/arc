@@ -72,6 +72,10 @@ Dispatch thread/init events and saved session IDs map bridge activity to role an
 
 The stream is read-only: no CLI execution except restricted Git discovery, no network requests, and no changes to homes, repositories or artifacts. Tool and command outputs are never shown. Reasoning appears only with `--verbose`; common secrets are masked, but masking is not complete. `--json` uses the same content policy. Signals stop the watcher immediately with exit 0; after a pipe reader closes, it exits with 0 on its next output.
 
+Human output uses `HH:MM:SS <platform> <KIND> <text>` without a session label column. User and agent messages are shown in full, preserving newlines and indentation; continuation lines are indented by the prefix width, and blank lines stay empty. Long message lines are neither clipped by `--width` nor wrapped by the watcher; the terminal may wrap them. Other events use one line, clipped to `--width`.
+
+Messages have terminal escapes and controls removed, line endings normalized, tabs expanded to four spaces, trailing whitespace and outer blank lines removed, and secrets masked across the full text (including multiline PEM blocks). JSON stays at schema `v:1` and keeps the existing `label` field. User and agent `text` preserves newlines without a length limit or a `truncated` field; other kinds collapse whitespace, cap `text` at 1000 code points and set `truncated:true` when clipped.
+
 Files are polled every 500 ms, discovery every 2 seconds, and worktrees every 30 seconds. Tracking is limited to 64 files, 1 MiB per file per tick, 256 KiB of history per session, 4 MiB per line, 30 minutes of inactivity and 32 repositories in all-scope mode. Merge order is per tick, not globally guaranteed. A transcript truncated and regrown past the previous read offset between polls is not detected.
 
 Install/update/uninstall remove valid old ARC management completion blocks and add no registrations. Status never edits shell files. Preserve user settings and block-external content.

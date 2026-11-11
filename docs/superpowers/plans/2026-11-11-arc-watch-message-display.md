@@ -110,7 +110,7 @@ export function renderJson(event) /*: string*/
 
 **Steps:**
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/watch-policy.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/watch-policy.test.mjs`)
 ```js
 test('sanitizeMessage keeps line structure and indentation', () => {
   assert.equal(sanitizeMessage('\n\nfirst  \n  - item\n\n  code\n\n'), 'first\n  - item\n\n  code');
@@ -129,15 +129,15 @@ test('sanitizeMessage of blank-only text is empty', () => { assert.equal(sanitiz
 test('sanitizeMessage is idempotent', () => { const s = sanitizeMessage('a\r\n\tb\nGITHUB_TOKEN=x'); assert.equal(sanitizeMessage(s), s); });
 ```
 
-- [ ] **Step 2: 실행해서 실패 확인**
+- [x] **Step 2: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/watch-policy.test.mjs`
   - Expected: FAIL(export 없음)
 
-- [ ] **Step 3: `policy.mjs`의 `sanitizeMessage`와 `model.mjs`의 `MESSAGE_KINDS` 구현**
+- [x] **Step 3: `policy.mjs`의 `sanitizeMessage`와 `model.mjs`의 `MESSAGE_KINDS` 구현**
 
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
 
-- [ ] **Step 5: 렌더러 실패 테스트 작성** (`tests/node/watch-render.test.mjs`)
+- [x] **Step 5: 렌더러 실패 테스트 작성** (`tests/node/watch-render.test.mjs`)
   - 기존 `:6-15`의 고정 칸 테스트와 `:20-28`의 라벨 자르기 테스트를 다음으로 바꾼다.
 ```js
 test('renderHuman has no label column', () => {
@@ -175,15 +175,15 @@ test('renderJson still clips other kinds', () => {
     - `human output has no session labels while json keeps label` (AC-W26, W09, W10, W19·W22의 label 부분). 기존 `:197` JSON 라벨 fixture 재사용. 사람용 출력에 `/(tui|exec|main)[^ ]*#[0-9a-z]{4}|\b[a-z]+@[0-9a-z]{4}\b/`가 없고, `--json` 각 줄 `label` 값이 기존 기대값과 같다.
     - `help describes one-line width and full messages` (AC-W02). §5.3 두 줄이 포함된다.
 
-- [ ] **Step 6: 실행해서 실패 확인**
+- [x] **Step 6: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/watch-render.test.mjs tests/node/watch-watcher.test.mjs tests/node/watch-cli.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 7: 구현** — `watcher.mjs`의 `clean`, `render.mjs`(라벨 칸 제거, 메시지 분기, `renderJson`), `model.mjs`의 `labelWidth` 제거, `index.mjs` help.
+- [x] **Step 7: 구현** — `watcher.mjs`의 `clean`, `render.mjs`(라벨 칸 제거, 메시지 분기, `renderJson`), `model.mjs`의 `labelWidth` 제거, `index.mjs` help.
 
-- [ ] **Step 8: 실행해서 통과 확인** (Step 6 명령 + `tests/node/watch-policy.test.mjs`, PASS)
+- [x] **Step 8: 실행해서 통과 확인** (Step 6 명령 + `tests/node/watch-policy.test.mjs`, PASS)
 
-- [ ] **Step 9: 문서와 MANIFEST**
+- [x] **Step 9: 문서와 MANIFEST**
   - README Watch sessions 절에 `User and agent messages are shown in full; other events use one line.`을 추가한다.
   - `docs/harness-operation.md` watch 하위 절에 라벨 칸 삭제, 메시지 전체 출력, JSON `text`·`label` 규칙을 반영한다.
   - Run: `node scripts/update-manifest.mjs && npm run check:manifest`

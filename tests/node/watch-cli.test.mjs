@@ -15,6 +15,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const TIME = Date.parse('2026-11-11T12:00:00Z');
 const iso = n => new Date(n).toISOString();
 const msg = text => ({timestamp:iso(TIME),type:'event_msg',payload:{type:'item_completed',item:{type:'UserMessage',content:[{text}]}}});
+const command = text => ({timestamp:iso(TIME),type:'event_msg',payload:{type:'item_completed',item:{type:'CommandExecution',command:text,exit_code:0}}});
 const strip = s => s.replace(/\x1b\[[0-9;]*m/g,'');
 class Output extends EventEmitter {
   text = '';
@@ -97,10 +98,10 @@ test('unexpected exceptions return 1 with one stderr line',async t=>{const s=set
 test('color and width follow TTY, NO_COLOR, json and resize',async t=>{
   for(const [tty,env,args,ansi,width] of [[true,{},[],true,100],[true,{NO_COLOR:'1'},[],false,100],[true,{},['--json'],false,null],[false,{},[],false,200],[true,{},['--width','80'],true,80],[true,{},[],true,60]]) {
     const s=setup(t);s.output.isTTY=tty;s.output.columns=width===60?30:100;s.io.env=env;
-    const f=s.write('width',s.cwd,[msg('x'.repeat(400))]);
+    const f=s.write('width',s.cwd,[command('x'.repeat(400))]);
     const {result}=await s.start(args);assert.equal(s.output.text.includes('\x1b['),ansi);
     if(width)assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=width));
-    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,JSON.stringify(msg('y'.repeat(400)))+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
+    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,JSON.stringify(command('y'.repeat(400)))+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
     s.controller.abort();assert.equal(await result,0);
   }
 });
@@ -201,4 +202,30 @@ test('R1 M1 Claude-only watch reads Codex dispatch leases and Claude init artifa
  assert.ok(events.some(e=>e.sessionId==='bridge'&&e.label==='planner@1234'));
  assert.ok(events.some(e=>e.kind==='dispatch'&&e.platform==='claude'&&e.label==='planner@1234'));
  s.controller.abort();assert.equal(await result,0);
+});
+
+
+test('human output has no session labels while json keeps label', async t => {
+  for(const json of [false,true]) {
+    const s=setup(t), gcd=path.join(s.cwd,'.git');fs.mkdirSync(gcd);
+    s.io.git=async(dir,args)=>args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;
+    s.write('top1234');
+    s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'bridge',[{type:'user',cwd:s.cwd,sessionId:'bridge',message:{content:'hello'}}],{mtime:TIME-300000});
+    s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
+    s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
+    const {result}=await s.start(json?['--json']:[]);
+    s.controller.abort();assert.equal(await result,0);
+    if(json) {
+      const rows=s.output.text.trim().split('\n').map(JSON.parse);
+      for(const e of rows) assert.equal(e.label,e.source==='watch'?'watch':e.sessionId==='top1234'?'tui#1234':'planner@1234');
+      assert.ok(rows.some(e=>e.sessionId==='bridge'&&e.label==='planner@1234'));
+      assert.ok(rows.some(e=>e.kind==='dispatch'&&e.label==='planner@1234'));
+    } else assert.doesNotMatch(s.output.text,/(tui|exec|main)[^ ]*#[0-9a-z]{4}|\b[a-z]+@[0-9a-z]{4}\b/);
+  }
+});
+test('help describes one-line width and full messages', async t => {
+  const s=setup(t);
+  assert.equal(await runWatch(['--help'],s.io),0);
+  assert.ok(s.output.text.includes('  --width <n>         Maximum width of one-line events (default: terminal width, or 200)'));
+  assert.ok(s.output.text.includes('User and agent messages are shown in full; other events use one line.\nTool and command outputs'));
 });

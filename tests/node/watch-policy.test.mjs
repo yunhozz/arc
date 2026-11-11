@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {WATCH_KINDS, VERBOSE_KINDS} from '../../lib/watch/model.mjs';
-import {sanitizeText, maskSecrets, clipCodePoints, isVisible} from '../../lib/watch/policy.mjs';
+import {sanitizeMessage, sanitizeText, maskSecrets, clipCodePoints, isVisible} from '../../lib/watch/policy.mjs';
 
 test('sanitizeText strips terminal control sequences and collapses whitespace', () => {
   assert.equal(sanitizeText('a\n\tb\x1b[31mc\x1b]0;t\x07 d\u009b'), 'a bc d');
@@ -57,4 +57,29 @@ test('R1 L1 equals flags and JSON secret keys mask only secret values', () => {
   ['{"password":"hunter2"}','{"password":***}'], ['"api_key": "abc"','"api_key": ***'],
  ]) assert.equal(maskSecrets(input),expected);
  for(const text of ['author: Kim','tokenizer tests pass','--author=Kim']) assert.equal(maskSecrets(text),text);
+});
+
+
+test('sanitizeMessage keeps line structure and indentation', () => {
+  assert.equal(sanitizeMessage('\n\nfirst  \n  - item\n\n  code\n\n'), 'first\n  - item\n\n  code');
+});
+test('sanitizeMessage strips escapes and controls and normalizes newlines and tabs', () => {
+  assert.equal(sanitizeMessage('a\r\nb\rc\u2028d\u2029e'), 'a\nb\nc\nd\ne');
+  assert.equal(sanitizeMessage('\tx'), '    x');
+  assert.equal(sanitizeMessage('a\x1b[2Jb\x1b]8;;http://x\x07c\x9b31md\x07\x00e'), 'abcde');
+});
+test('sanitizeMessage masks secrets on any line including PEM blocks', () => {
+  assert.equal(sanitizeMessage('ok\nGITHUB_TOKEN=abc\nauthor: Kim'), 'ok\nGITHUB_TOKEN=***\nauthor: Kim');
+  assert.equal(sanitizeMessage('keep\n-----BEGIN RSA PRIVATE KEY-----\nAAA\nBBB'), 'keep\n***');
+  assert.match(sanitizeMessage('x\nBearer abcdef0123456789'), /\nBearer \*\*\*$/);
+  assert.equal(sanitizeMessage('token=\nauthor: Kim'), 'token=\nauthor: Kim');
+  assert.equal(sanitizeMessage('token="abc\nnext line"\nauthor: Kim'), 'token=***\nnext line"\nauthor: Kim');
+});
+test('sanitizeMessage of blank-only text is empty', () => {
+  assert.equal(sanitizeMessage(' \n\t\n '), '');
+  assert.equal(sanitizeMessage(null), '');
+});
+test('sanitizeMessage is idempotent', () => {
+  const s = sanitizeMessage('a\r\n\tb\nGITHUB_TOKEN=x');
+  assert.equal(sanitizeMessage(s), s);
 });
