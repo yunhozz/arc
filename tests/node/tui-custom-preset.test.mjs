@@ -77,3 +77,28 @@ test('effort detail resize guidance blocks Enter and preserves pending selection
  const wide=screens.filter(item=>item.screen.title==='Effort — Scouter'&&item.viewport.columns===120).at(-1);assert.match(wide.text,/> low/);assert.ok(wide.text.replace(/\n  /g,'').includes(model));assert.equal(wide.selectionEnabled,true);
  assert.ok(screens.some(item=>item.screen.title==='Codex'&&item.screen.rows.join('\n').includes('effort: low')));assert.deepEqual(roles,initial);
 });
+
+
+test('compact detail menu puts one blank after the pager row and none before Back',async()=>{
+ let visits=0;
+ await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
+  if(title==='Codex')return visits++===0?0:null;
+  assert.equal(title,'Model — Scouter');const body=options.renderBody({selected:0,columns:60,rows:20}),pagerRow=body.rows.find(row=>row.startsWith('←/→: Details '));
+  assert.ok(pagerRow);assert.equal(body.rows[body.rows.indexOf(pagerRow)+1],'');assert.equal(body.rows.at(-1),'Back');assert.notEqual(body.rows.at(-2),'');assert.equal(body.rows[body.selected],'model-a');
+  const back=options.renderBody({selected:rows.length,columns:60,rows:20});assert.equal(back.rows[back.selected],'Back');return null;
+ },page:async()=>assert.fail('unexpected unavailable')}});
+});
+
+test('full model menu has no blank before Back',async()=>{
+ let visits=0;
+ await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
+  if(title==='Codex')return visits++===0?0:null;
+  assert.equal(title,'Model — Scouter');const body=options.renderBody({selected:rows.length,columns:120,rows:40});assert.equal(body.rows[body.selected],'Back');assert.notEqual(body.rows[body.selected-1],'');return null;
+ },page:async()=>assert.fail('unexpected unavailable')}});
+});
+
+test('compact editor summary keeps role rows adjacent to controls',async()=>{
+ await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
+  assert.equal(title,'Codex');const body=options.renderBody({selected:5,blink:true,columns:60,rows:20});assert.ok(!body.rows.includes(''));assert.equal(body.rows[body.selected],'Apply');assert.equal(body.rows.at(-1),'Back');return null;
+ },page:async()=>assert.fail('unexpected unavailable')}});
+});

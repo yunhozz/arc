@@ -69,7 +69,7 @@
 
 **Predecessors:** 없음.
 
-- [ ] **Step 1: 실패하는 테스트 작성과 기존 단언 갱신**
+- [x] **Step 1: 실패하는 테스트 작성과 기존 단언 갱신**
   - 신규 `menu keeps actions adjacent and separates info by one blank` (tui-app): `menu('Check',['Upgrade'],{backRow:true,info:['1.9.0 → 1.10.0']})`를 `[down, enter]`로 진행하면 `null`. 첫 화면 rows `['1.9.0 → 1.10.0','','Upgrade','Back']`, `selected===2`; 마지막 화면 `selected===3`. `info:['A','']`이면 rows `['A','','One']`(빈 줄 중복 없음). info가 없으면 `['One','Back']`.
   - 기존 갱신 (tui-app): 14 → `['Details','','One']`; 98 → 위 신규 테스트로 대체(`separatorBefore` 테스트 삭제); 100 → `separatorBefore:1` 인자 제거(rows 2에서 숨김·차단 단언 유지); 101 → `['1.9.0 → 1.10.0','','Upgrade','Back']`; 120 → 이름 `common Back follows the last action without a spacer`, `['One','Two','Back']`; 124 → `['Codex','Claude','Everything (incl. CLI)','Back']`; 125 → `['Remove ARC from Codex and Claude, and the arc CLI?','','Remove','Back']`; 217 → Upgrade 케이스 `['1.9.0 → 1.10.0','','Upgrade','Back']`(나머지 세 케이스 유지).
   - tui-setup.test.mjs:158 → `assert.equal(options.separatorBefore,undefined)`.
@@ -77,18 +77,20 @@
     - `compact detail menu puts one blank after the pager row and none before Back`: Model 메뉴 `renderBody({selected:0,columns:60,rows:20})`(compactMenu 경로)에서 `rows[rows.indexOf(pagerRow)+1]===''`, `rows.at(-1)==='Back'`, `rows.at(-2)!==''`. `selected:rows.length`면 `body.rows[body.selected]==='Back'`.
     - `full model menu has no blank before Back`: `renderBody({selected:rows.length,columns:120,rows:40})`에서 `body.rows[body.selected]==='Back'`이고 바로 앞 행이 `''`가 아님.
     - `compact editor summary keeps role rows adjacent to controls`: `editPlatformRoles`의 `renderBody({selected:5,blink:true,columns:60,rows:20})` 결과에 `''` 없음, `rows[selected]==='Apply'`, `rows.at(-1)==='Back'`.
-- [ ] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-app.test.mjs tests/node/tui-setup.test.mjs tests/node/tui-custom-preset.test.mjs`. 신규·갱신 단언 FAIL, 베이스라인 실패(129행)는 이전과 같음.
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-app.test.mjs tests/node/tui-setup.test.mjs tests/node/tui-custom-preset.test.mjs`. 신규·갱신 단언 FAIL, 베이스라인 실패(129행)는 이전과 같음.
+- [x] **Step 3: 구현**
   - `app.mjs` `menu()`: `display=actions`, `displayIndex=selected`. Back/`separatorBefore`용 `''` 삽입 제거. info는 끝의 `''`를 모두 제거한 뒤 남은 행이 있으면 `''` 하나를 붙인다(20행 wordmark 전용 조건 대체).
   - `setup.mjs:52` `separatorBefore:4` 삭제; `custom-preset.mjs:152,175` `separatorBefore: labels.length` 삭제.
   - compactMenu: rows `[...information, pager, '', ...visible, 'Back']`; selected는 항목 `information.length + 2 + selected - offset`, Back `information.length + 2 + visible.length`.
   - `custom-preset.mjs:97` `display.push('')` 삭제; 103행 `rows.length + 2` → `rows.length + 1`.
   - `custom-preset.mjs:139` `[...summary, ...controls, 'Back']`, `selected: selected`. 141행 다이어그램 모드 유지.
-- [ ] **Step 4: 통과 확인** — Step 2 명령. 베이스라인 외 실패 0.
-- [ ] **Step 5: manifest** — `node scripts/update-manifest.mjs` 후 `--check` → `Protected payload manifest verified`.
-- [ ] **Step 6: 수락 전 확인 (Orchestrator)** — 별도 QA 없음. 집중 테스트 출력과 diff 범위 확인, 전체 스위트와 `tests/node/tui-app-pty.test.mjs` 실행. 커밋 `fix(tui): unify action spacing`.
+- [x] **Step 4: 통과 확인** — Step 2 명령. 베이스라인 외 실패 0.
+- [x] **Step 5: manifest** — `node scripts/update-manifest.mjs` 후 `--check` → `Protected payload manifest verified`.
+- [x] **Step 6: 수락 전 확인 (Orchestrator)** — 별도 QA 없음. 집중 테스트 출력과 diff 범위 확인, 전체 스위트와 `tests/node/tui-app-pty.test.mjs` 실행. 커밋 `fix(tui): unify action spacing`.
 
 **Hold:** PTY 기대 문자열 실패; Step 1 목록 밖 테스트의 새 실패; `separatorBefore`를 다른 호출부가 쓰는 경우.
+
+**Result (2026-11-12, 진행 기록):** 집중 테스트 127 통과 / 1 실패(베이스라인 `custom editor keeps long model choices selectable at 40 columns`, 내용 불변). 전체 스위트 1836개 중 51 실패, 베이스라인 대비 새 실패 0(4건 추가 통과). manifest 재생성 시 기준 커밋에서 이미 어긋나 있던 `scripts/deploy.sh` 해시도 갱신됨(파일 자체 변경 없음). Orchestrator 수락.
 
 ---
 
