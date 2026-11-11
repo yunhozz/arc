@@ -58,10 +58,12 @@ test('never reports authenticated when the probe cannot decide',async t=>{
  }
 });
 test('times out a hanging app-server within the bound and leaves no child',async t=>{
- const {context,recordPath}=await setup(t,'hang'),start=Date.now();
- assert.deepEqual(await probe(context,{timeoutMs:300}),result('unknown','timeout'));
- assert.ok(Date.now()-start<2300);
- const {pid}=JSON.parse((await fs.readFile(recordPath,'utf8')).split('\n')[0]);
+ const {context,recordPath}=await setup(t,'hang');
+ const timeoutMs=1500,start=Date.now(),pending=probe(context,{timeoutMs});
+ let pid;
+ try { ({pid}=await waitForStart(recordPath,{timeoutMs})); } finally { await pending; }
+ assert.deepEqual(await pending,result('unknown','timeout'));
+ assert.ok(Date.now()-start<timeoutMs+2000);
  assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
 });
 test('returns aborted for an aborted signal and invalid_context for an unknown context',async t=>{
@@ -69,6 +71,14 @@ test('returns aborted for an aborted signal and invalid_context for an unknown c
  assert.deepEqual(await probe(context,{signal:AbortSignal.abort()}),result('unknown','aborted'));
  assert.deepEqual(await probe({platform:'codex'}),result('unknown','invalid_context'));
  assert.deepEqual(await probe({platform:'codex',reason:'cli_not_found'}),result('unknown','cli_not_found'));
+});
+test('platform auth rejects non-Claude contexts without starting a child',async t=>{
+ const {f,context,recordPath}=await setup(t,'chatgpt-ok');
+ assert.deepEqual(await cli.probePlatformAuth(context),result('unknown','invalid_context'));
+ assert.deepEqual(await cli.probePlatformAuth({platform:'other',reason:'cli_not_found'}),{platform:'other',authStatus:'unknown',reason:'invalid_context'});
+ for(const filename of [recordPath,path.join(f.binDir,'.record-codex.jsonl')]) {
+  await assert.rejects(fs.access(filename),{code:'ENOENT'});
+ }
 });
 test('aborting an active app-server stops the child without leaking its response',async t=>{
  const {context,recordPath}=await setup(t,'hang'),controller=new AbortController();
@@ -82,6 +92,16 @@ test('aborting an active app-server stops the child without leaking its response
  assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
 });
 
+for(const [name,response,status,reason] of [
+ ['logged-out',{authMethod:null,authToken:null,requiresOpenaiAuth:null},'unauthorized','not_logged_in'],
+ ['token-present',{authMethod:'chatgpt',authToken:'fixture-token-SECRET',requiresOpenaiAuth:null},'authenticated']
+]) test(`accepts nullable OpenAI auth requirement for ${name} responses without leaking tokens`,async t=>{
+ const {FAKE_CODEX_APP_SERVER}=await import('./role-fixtures.mjs');
+ const {f,context}=await setup(t,'chatgpt-ok');
+ const source=FAKE_CODEX_APP_SERVER.replace('result:{authMethod,authToken,requiresOpenaiAuth}',`result:${JSON.stringify(response)}`);
+ await fs.writeFile(path.join(f.binDir,'codex'),`#!${process.execPath}\n${source}\nappServer({});\n`);
+ assert.deepEqual(await probe(context),result(status,reason));
+});
 test('validates response shapes and ignores host-owned token withholding without promoting unknown methods',async t=>{
  const {FAKE_CODEX_APP_SERVER}=await import('./role-fixtures.mjs');
  for(const [response,status,reason] of [
@@ -92,6 +112,8 @@ test('validates response shapes and ignores host-owned token withholding without
   [{authMethod:'chatgpt',authToken:'',requiresOpenaiAuth:true},'unknown','invalid_response'],
   [{authMethod:'chatgpt',requiresOpenaiAuth:true},'unknown','invalid_response'],
   [{authMethod:42,authToken:null,requiresOpenaiAuth:true},'unknown','invalid_response'],
+  [{authMethod:null,authToken:null,requiresOpenaiAuth:'false'},'unknown','invalid_response'],
+  [{authMethod:null,authToken:null,requiresOpenaiAuth:0},'unknown','invalid_response'],
   [{authMethod:'chatgpt',authToken:'fixture-token-SECRET'},'unknown','invalid_response'],
   [null,'unknown','invalid_response'],
   [[], 'unknown','invalid_response']

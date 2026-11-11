@@ -164,7 +164,7 @@
 **수용 기준:** 스펙 AC7.
 **수용 전 QA:** 새 QA가 4단계를 재실행한다.
 
-**진행 기록 (2026-11-11, 진행 기록):** Implementer dispatch `ac`(Codex bridge) 1~4단계, `baselineHash` `sha256:18c478c9…`. 전체 테스트 1524개 중 실패 89, 취소 1, 기준선 대비 새 실패 0. QA dispatch `60eada8d` Q1~Q4 proven. 수용: Orchestrator.
+**진행 기록 (2026-11-11, 진행 기록):** Implementer dispatch `54f49c4c`(Codex bridge) 1~4단계, `baselineHash` `sha256:18c478c9…`. 전체 테스트 1524개 중 실패 89, 취소 1, 기준선 대비 새 실패 0. QA dispatch `60eada8d` Q1~Q4 proven. 수용: Orchestrator.
 
 ---
 
@@ -207,3 +207,10 @@
 - 전체 변경 기준: 기준선 비교 규칙의 전체 테스트, `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check`, `grep -rn "Avaliable" lib claude/skill codex/skill tests/node README.md docs/harness-operation.md`(출력 없음), `git diff --stat a8ffd31 -- docs/superpowers/specs docs/superpowers/plans`(신규 문서 외 변경 없음).
 - 선택 증거: 사용자 승인 후 Install / Update 재실행 → `claude-cli` 호스트에서 실제 Codex bridge `observe`(`waitMs:540000`)가 터미널 상태로 한 번에 반환되는지, `routing-status`가 Codex `Available`인지 확인한다.
 - 최종 Reviewer 1회(전체 변경). 초점: 판정표의 보수성, 토큰 비노출, 자식 정리와 시간 상한, observe 종료 조건과 `markLostIfDue` 순서, 생성물 일치, 과거 문서 불변.
+
+## 최종 검증 기록 (2026-11-11, 진행 기록)
+
+- 최종 Reviewer(Claude native `arc-routing-reviewer`, dispatch `2e2ecf54`): changes requested(경미). L1 README 로그인 검사 설명, L2 timeout 테스트 시작 대기, (a) `requiresOpenaiAuth: null` 허용, (b) `probePlatformAuth` 비Claude 가드. I1(자식 PID에만 신호)은 계약 위반이 아니어서 알려진 한계로 수용. (c) T4 기록의 dispatch 이름 오타를 이 기록에서 `54f49c4c`로 교정.
+- 후속 수정: Implementer dispatch `c73b428a`(Codex bridge). `baselineHash` `sha256:6b5f156b…`. Reviewer 재검토(dispatch `110b633d`) approve. Info(가드 테스트의 ENOENT 단언은 증명력이 약하지만 결과 단언으로 충족)는 수정하지 않음.
+- 전체 테스트(`--test-timeout=120000`, sandbox 밖): 1회차 1527개 중 새 실패 1개(`events.jsonl holds only normalized fields and truncates at the configured cap with record flag`, `prepare-dispatch`가 Codex 인증 `Incomplete`로 hold). 단독 3/3 통과, 2회차 전체 실행 새 실패 0. 전체 병렬 부하에서 가짜 app-server probe가 시간 제한에 걸리는 간헐 실패로 분류하고 위험으로 기록한다(T3 이후 probe가 자식 프로세스를 띄우므로 발생 가능성이 생김).
+- `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check` 통과(Implementer, Reviewer 확인).
