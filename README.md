@@ -29,8 +29,8 @@ Package installation provides the CLI, not the harness. Install or manage the ha
 ## Manage ARC
 
 - **Install or update:** Choose Codex, Claude Code, or both in `Install / Update`, edit each role, then select `Apply`. `Settings` configures language, subagent limits, and global configuration for installation. `Change Models` edits role models and efforts.
-- **Version:** `Check Version` shows installed and latest CLI versions. `Version Upgrade` appears when available and preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
-- **Uninstall:** Removes selected harnesses; the global CLI is removed only if all succeed. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
+- **Version:** `Check Version` shows `<current> → <latest>` with `Upgrade` when an upgrade is available, `Up to date (<current>)` for the current version, or current/latest details and any lookup error otherwise. `Upgrade` preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
+- **Uninstall:** Choose `Codex`, `Claude`, or `Everything (incl. CLI)`, then confirm with `Remove` (the default is `Back`). `Back` returns to Uninstall; Esc returns home. Everything removes both harnesses and the global CLI only if harness removal succeeds. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
 
 The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.
 

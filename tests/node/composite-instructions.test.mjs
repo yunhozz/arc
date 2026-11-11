@@ -88,7 +88,8 @@ test('limits and handoff references mention bridge counting, unknown slot retent
 test('operations source and docs no longer report held / unverified and describe migration and support grades', async () => {
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
   assert.ok(!operations.includes('held / unverified'));
-  assert.ok(operations.includes('Role execution: per-role status via routing-status.'));
+  assert.ok(!operations.includes('Role execution: per-role status via routing-status.'));
+  assert.ok(operations.includes('Claude & Codex activated.'));
   const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
   const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
   assert.doesNotMatch(readme, /Every role remains `held \/ unverified`/);
@@ -126,7 +127,7 @@ test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G
   assert.match(docs, /only results are recorded[^.]*`versions-changed`[^.]*unresolved/);
   assert.match(docs, /no automatic migration/);
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
-  assert.ok(!operations.includes('cooperative-8'), 'operations.mjs must read the runtime version instead of hardcoding it');
+  assert.ok(!operations.includes('cooperative-8'), 'operations.mjs must not hardcode the runtime version');
 });
 
 test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref detection limits, bridge-child guard, and G1 scope', async () => {

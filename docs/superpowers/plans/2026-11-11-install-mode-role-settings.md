@@ -639,7 +639,7 @@ test('no preset strings remain in the TUI', ...)  // AC-P05
 
 **Steps:**
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/tui-app.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/tui-app.test.mjs`)
 ```js
 test('home lists Change Models', ...)  // U-01
 test('home status collapses to Claude & Codex: Available in composite mode', ...)  // U-02 (그 밖 모드에서는 현행 문자열)
@@ -653,15 +653,15 @@ test('Esc on any confirmation returns home', ...)  // U-15: Everything 확인에
 ```
 `tests/node/composite-instructions.test.mjs:74`은 `assert.ok(!operations.includes('Role execution: per-role status via routing-status.'))`와 `assert.ok(operations.includes('Claude & Codex activated.'))`로 바꾼다.
 
-- [ ] **Step 2: 실행해서 실패 확인**
+- [x] **Step 2: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/tui-app.test.mjs tests/node/composite-instructions.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 3: `app.mjs`와 `operations.mjs:88` 구현**
+- [x] **Step 3: `app.mjs`와 `operations.mjs:88` 구현**
 
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령 + `tests/node/tui-app-pty.test.mjs`. PTY 기대 문자열은 Check Version·Uninstall 경로에 맞춰 갱신. PASS)
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령 + `tests/node/tui-app-pty.test.mjs`. PTY 기대 문자열은 Check Version·Uninstall 경로에 맞춰 갱신. PASS)
 
-- [ ] **Step 5: 문서와 MANIFEST**
+- [x] **Step 5: 문서와 MANIFEST**
   - `README.md:31`, `docs/harness-operation.md:50`의 홈 메뉴, Uninstall, Check Version 설명을 갱신한다.
   - Run: `node scripts/update-manifest.mjs && npm run check:manifest`
   - Run: `node --test --test-timeout=120000 tests/node/*.test.mjs`
