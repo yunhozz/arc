@@ -72,3 +72,18 @@ test('tail starts at the supplied byte offset', async t => {
   const file = fixture(t, '{"i":0}\n{"i":1}\n');
   assert.deepEqual((await createTail(file, {offset:8}).poll()).lines, [{i:1}]);
 });
+test('readTail leaves an unterminated final line for the live tail', async t => {
+  const file = fixture(t, '{"a":1}\n{"b":');
+  const result = await readTail(file);
+  assert.deepEqual(result.lines, [{a:1}]);
+  assert.equal(result.endOffset, 8);
+  const tail = createTail(file, {offset:result.endOffset});
+  fs.appendFileSync(file, '2}\n');
+  assert.deepEqual((await tail.poll()).lines, [{b:2}]);
+});
+test('readTail consumes nothing when the parsing window has no complete line', async t => {
+  const file = fixture(t, '{"b":');
+  assert.deepEqual(await readTail(file), {lines:[], endOffset:0});
+  fs.writeFileSync(file, 'discarded\n{"b":');
+  assert.deepEqual(await readTail(file, {maxBytes:8}), {lines:[], endOffset:10});
+});
