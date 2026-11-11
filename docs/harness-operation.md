@@ -54,6 +54,16 @@ Static references include brainstorming/writing-plans/test-driven-development, r
 
 TUI stays English regardless of harness language. `Workflow`/automatic platform integration share the internal runtime endpoint. TUI inspection proves no workflow approval. `Check Version` displays `Current version`/`Latest version`. Only numerically newer versions offer `Version Upgrade`. Enter revalidates package identity/npm context/installed state then applies the exact displayed version without requerying latest. Equal/older/unavailable versions offer no upgrade. Escape returns home. Global replacement ends the session; npx runs pinned payload without replacing global CLI. Same-version refresh uses `Install / Update`. If CLI cannot start, run `npx --yes @yunhozz/arc@latest`.
 
+### Installation mode transitions
+
+Successful `Claude & Codex` publication removes owned standalone profiles and keeps per-role `arc-routing-*` profiles, both markers, and the active configuration. A failed publication transaction restores the original bytes, including standalone profiles. Composite Change Models renders from the payload and each platform's installed model and language settings.
+
+Selecting Codex or Claude in composite mode opens `Switch to Codex` or `Switch to Claude` with `Claude & Codex will be turned off.` and `Back` selected by default. `Continue` changes no files. Choosing `Apply` in the editor removes composite files and restores standalone profiles in one transaction, only in homes containing `skills/arc`. The selected operation is then prepared again and executed; if it fails, the restored standalone installations remain.
+
+Single-platform uninstall also shows the turn-off notice, deactivates composite mode, then removes the selected platform. The other platform remains a standalone installation. Full uninstall keeps its existing behavior. In composite mode, npm upgrades neither create standalone profiles nor modify leftover standalone profiles. Run `Install / Update` again after upgrading to refresh routing.
+
+Standalone profiles are overwritten or removed only when they are regular files with the matching role name and role contract marker. Unverified profiles are preserved and reported as `Residual path:` entries. Unverified composite files block publication, deactivation, and switching. Active bridge dispatches also block publication and deactivation.
+
 ### Watch
 
 `arc watch` reads Codex rollout JSONL, Claude Code transcripts (including persisted bridge transcripts), and ARC dispatch leases and artifacts. It defaults to every worktree of the current Git repository, or the current directory outside Git; `--cwd`, `--all`, `--session` and `--platform` select scope. Codex Desktop sessions are excluded.

@@ -94,13 +94,11 @@ test('untaggable revision is rejected before publication', {timeout: 60000}, asy
   assert.throws(() => renameCompositeProfile(bytes, 'claude', 'arc_qa', 'rev-1'), /Cannot identify|cannot be tagged/);
 });
 
-test('standard arc-* profiles are unchanged', {timeout: 60000}, async t => {
+test('rendered standalone profiles have no composite revision tag', {timeout: 60000}, async t => {
   const s = await freshInstall(t, 'rev-std');
   await install(s);
   for (const platform of ['codex', 'claude']) {
     const settings = resolveModelSettings(s.modelConfigs[platform]), rendered = renderProfiles(s.profileInputs[platform], settings);
     for (const [name, bytes] of rendered) assert.ok(!bytes.toString('utf8').includes('[arc-routing rev'), name);
-    const agents = await fs.readdir(path.join(s.f.homes[platform], 'agents'));
-    assert.deepEqual(agents.filter(n => !n.startsWith('arc-routing-')), []);
   }
 });

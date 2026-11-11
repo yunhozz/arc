@@ -474,3 +474,12 @@ test('composite custom preset preview keeps role values aligned when keys are re
   {role:'Reviewer',model:'reviewer-model',effort:'max'},
  ]);
 });
+
+test('composite mode shows Switch to Codex before the Codex flow and Back prepares nothing',async()=>{
+ const screens=[];let visits=0;
+ await runSetup({statuses,draft:{},kind:'install',loadInstallMode:()=> 'composite',ui:{menu:async(title,rows,options)=>{screens.push(title);if(title==='Install / Update')return visits++===0?0:null;if(title==='Switch to Codex'){assert.deepEqual(rows,['Continue']);assert.deepEqual(options.info,['Claude & Codex will be turned off.']);assert.equal(options.selected,1);return null;}assert.fail(title);}},prepare:async()=>assert.fail('Back cannot prepare')});
+ assert.deepEqual(screens,['Install / Update','Switch to Codex','Install / Update']);
+});
+test('Continue on Switch to Codex prepares with switchFromComposite',async()=>{
+ const result=await runSetup({statuses,draft:{},kind:'install',loadInstallMode:()=> 'composite',ui:{menu:async title=>{if(title==='Install / Update'||title==='Switch to Codex')return 0;if(title==='Settings — codex')return 5;assert.fail(title);}},prepare:async options=>options});assert.equal(result.switchFromComposite,true);
+});

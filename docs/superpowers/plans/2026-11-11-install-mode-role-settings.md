@@ -154,7 +154,7 @@ runSetup({...기존, loadInstallMode /* () => Mode */})
 
 **Steps:**
 
-- [ ] **Step 1: 판정·식별 실패 테스트 작성** (`tests/node/install-mode.test.mjs`)
+- [x] **Step 1: 판정·식별 실패 테스트 작성** (`tests/node/install-mode.test.mjs`)
 ```js
 test('isOwnedStandaloneProfile accepts shipped profiles and rejects renamed or contract-less bytes', async () => {
   for (const [platform, ext] of [['claude','md'],['codex','toml']]) for (const role of ['scouter','planner','implementer','qa','reviewer']) {
@@ -169,19 +169,19 @@ test('readInstallMode reports standalone, composite and unverified', ...)
 // marker의 configHash를 변조 → 'unverified'이고 residualPaths에 marker 경로가 들어감.
 ```
 
-- [ ] **Step 2: 실행해서 실패 확인**
+- [x] **Step 2: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/install-mode.test.mjs`
   - Expected: FAIL(모듈 없음)
 
-- [ ] **Step 3: `lib/installer/install-mode.mjs` 구현**
+- [x] **Step 3: `lib/installer/install-mode.mjs` 구현**
   - 이름 줄 판정
     - Claude: frontmatter(첫 `---`와 다음 `---` 사이)에서 `^name: arc-<suffix>\r?$`가 정확히 1개
     - Codex: `^name[ \t]*=[ \t]*"arc_<suffix>"[ \t]*(#.*)?\r?$`가 정확히 1개
   - symlink 판정은 `inspectPath`의 snapshot 항목 `type`을 쓴다(`uninstall.mjs:12`와 같은 필드).
 
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
 
-- [ ] **Step 5: 게시 시나리오 실패 테스트 작성** (같은 파일)
+- [x] **Step 5: 게시 시나리오 실패 테스트 작성** (같은 파일)
   - helper `compositeContext(t)`: `management-operations.test.mjs:5,65-67`과 같은 방식으로 임시 홈, `staticPackageFixture`, 두 플랫폼 fake CLI, `PATH`를 준비한다.
   - helper `mixedConfig(rev)`: Planner와 Reviewer는 claude, 나머지는 codex다. 각 값은 `loadStaticModelCatalog(platform)` 첫 pair다.
 ```js
@@ -201,17 +201,17 @@ test('mixed legacy state is cleaned by one composite publication', ...)  // AC-M
   // 통합 게시 후 단독 profile 5+5를 패키지 렌더 결과로 다시 써서 관측 상태 재현 → 다시 게시 → 단독 profile 없음
 ```
 
-- [ ] **Step 6: 실행해서 실패 확인** (Step 2 명령, FAIL: 단독 profile이 남음)
+- [x] **Step 6: 실행해서 실패 확인** (Step 2 명령, FAIL: 단독 profile이 남음)
 
-- [ ] **Step 7: 게시 경로 구현**
+- [x] **Step 7: 게시 경로 구현**
   - `buildInstallPlan`의 `profiles` 옵션과 `renderStandaloneProfiles`를 추가한다. `renderModelAssets`를 감싸서 이미 확장된 profile Map을 돌려준다.
   - `prepareCompositeFiles`와 `publishCompositeFiles`에 단독 profile 제거 스펙을 넣는다.
   - `prepareCompositeOperation`(install)에서 현재 모드에 따라 `profiles` 값을 고른다.
   - 결과 `messages`에 residual 줄을 넣는다(기존 `'Residual path: '` 형식).
 
-- [ ] **Step 8: 실행해서 통과 확인** (Step 2 명령, PASS)
+- [x] **Step 8: 실행해서 통과 확인** (Step 2 명령, PASS)
 
-- [ ] **Step 9: 상태·업그레이드·preset·unverified 실패 테스트 작성**
+- [x] **Step 9: 상태·업그레이드·preset·unverified 실패 테스트 작성**
 ```js
 test('status and installed state accept composite homes without standalone profiles', ...)  // AC-M04
   // 통합 게시 후 collectStatus → 두 플랫폼 state 'installed'. collectInstalledState → targets 2, mode 'composite'
@@ -226,13 +226,13 @@ test('composite Change Models renders from the payload and keeps each platform l
   // claude arc-routing-planner.md에 KR 언어 정책 문자열(renderLanguagePolicy 결과) 포함
 ```
 
-- [ ] **Step 10: 실행해서 실패 확인**
+- [x] **Step 10: 실행해서 실패 확인**
 
-- [ ] **Step 11: 구현** — `status.mjs`, `upgrade-state.mjs`(`mode` 반환), `upgrade.mjs`, `operations.mjs` 통합 preset 재료 교체, 모드 검사.
+- [x] **Step 11: 구현** — `status.mjs`, `upgrade-state.mjs`(`mode` 반환), `upgrade.mjs`, `operations.mjs` 통합 preset 재료 교체, 모드 검사.
 
-- [ ] **Step 12: 실행해서 통과 확인**
+- [x] **Step 12: 실행해서 통과 확인**
 
-- [ ] **Step 13: 전환·제거·가드 실패 테스트 작성**
+- [x] **Step 13: 전환·제거·가드 실패 테스트 작성**
 ```js
 test('switch to Codex restores both standalone installs then applies the Codex operation', ...)  // AC-M08
   // 통합 게시 → prepareOperation({kind:'install', target:'codex', preset:'balanced', language:'en', switchFromComposite:true})
@@ -262,26 +262,26 @@ test('Continue on Switch to Codex prepares with switchFromComposite', ...)
 test('uninstall confirmation during composite adds the turn-off line and switch flag', ...)
 ```
 
-- [ ] **Step 14: 실행해서 실패 확인**
+- [x] **Step 14: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/install-mode.test.mjs tests/node/tui-setup.test.mjs tests/node/tui-app.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 15: 구현** — `prepareCompositeDeactivation`, `publishCompositeDeactivation`, `currentInstallMode`, switch 준비·실행, `setup.mjs` U-03, `app.mjs` Uninstall 확인 줄과 `loadInstallMode` 전달.
+- [x] **Step 15: 구현** — `prepareCompositeDeactivation`, `publishCompositeDeactivation`, `currentInstallMode`, switch 준비·실행, `setup.mjs` U-03, `app.mjs` Uninstall 확인 줄과 `loadInstallMode` 전달.
 
-- [ ] **Step 16: 실행해서 통과 확인** (Step 14 명령, PASS)
+- [x] **Step 16: 실행해서 통과 확인** (Step 14 명령, PASS)
 
-- [ ] **Step 17: 기존 테스트 조정과 회귀 확인**
+- [x] **Step 17: 기존 테스트 조정과 회귀 확인**
   - `role-routing-install.test.mjs:97-106`의 "standard arc-* profiles are unchanged"는 렌더 결과의 revision tag 부재만 검사하도록 의미를 유지한다.
   - Run: `node --test --test-timeout=120000 tests/node/role-routing-install.test.mjs tests/node/management-operations.test.mjs tests/node/management-status.test.mjs tests/node/upgrade-harness.test.mjs tests/node/transaction.test.mjs tests/node/transaction-drift.test.mjs tests/node/transaction-readonly.test.mjs tests/node/install.test.mjs`
   - Expected: PASS(기준선 실패는 제외)
 
-- [ ] **Step 18: 문서 갱신과 MANIFEST 재생성**
+- [x] **Step 18: 문서 갱신과 MANIFEST 재생성**
   - `README.md`: 통합 모드에서는 단독 profile이 없다는 점, 단독 선택 시 자동 전환(U-03)을 한두 문장으로 적는다.
   - `docs/harness-operation.md`: spec §6.4~§6.7 요약을 모드 전환 하위 절로 추가한다.
   - Run: `node scripts/update-manifest.mjs && npm run check:manifest && npm run check:role-policy`
   - Expected: 모두 통과
 
-- [ ] **Step 19: 기준선 비교**
+- [x] **Step 19: 기준선 비교**
   - Run: `node --test --test-timeout=120000 tests/node/*.test.mjs`
   - Expected: 기준선 대비 새 실패 없음
 

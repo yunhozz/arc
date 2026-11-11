@@ -51,6 +51,8 @@ Model and effort choices come from the packaged Codex and Claude catalogs, witho
 
 The composite configuration separates saving and activation from role execution. Role execution support is reported per role and environment by `routing-status`: `claude-cli` hosts support native routes and Codex bridges, `codex-cli` hosts support native routes while every bridge is held as `host_sandbox_blocked` (G2; Claude bridge Implementer and QA on a Codex host are additionally held as `permission_scope_unverified` by G1), and on Codex Desktop and Claude Desktop Code sessions every role (native and bridge) is held as `environment_unverified` in this release (the manual checklist in `docs/harness-operation.md` is a list of manual checks for a future ARC update, not a way to release the hold). Applying a new profile requires a new session on that host, and the `cooperative-8` runtime requires running Install / Update again.
 
+Composite mode removes owned standalone `arc-*` profiles from both homes and keeps per-role `arc-routing-*` profiles. Selecting Codex or Claude shows a switch confirmation; after `Continue`, choosing `Apply` turns off composite mode, restores standalone profiles for installed platforms, and performs the selected operation.
+
 ## Guides
 
 [Harness operation](docs/harness-operation.md) · [Codex guide](codex/skill/SKILL.md) · [Claude Code guide](claude/skill/SKILL.md)
