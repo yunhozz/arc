@@ -9,7 +9,8 @@ const expectedPaths = [
  'lib/runtime/assignment.mjs','lib/runtime/bootstrap.mjs','lib/runtime/capabilities.mjs','lib/runtime/cli.mjs','lib/runtime/command.mjs',
  'lib/runtime/cooperative-schema.mjs','lib/runtime/cooperative.mjs','lib/runtime/evaluate.mjs',
  'lib/runtime/external.mjs','lib/runtime/gate.mjs','lib/runtime/git-evidence.mjs',
- 'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/operations.mjs',
+ 'lib/runtime/git-query.mjs','lib/runtime/identity.mjs','lib/runtime/local-cli.mjs','lib/runtime/operations.mjs',
+ 'lib/runtime/role-bridge-args.mjs','lib/runtime/role-bridge.mjs','lib/runtime/role-dispatch-policy.mjs','lib/runtime/role-dispatch-store.mjs','lib/runtime/role-observe.mjs','lib/runtime/role-routing-config.mjs','lib/runtime/role-routing.mjs','lib/runtime/role-supervisor.mjs',
  'lib/runtime/schema.mjs','lib/runtime/scope.mjs','lib/runtime/store.mjs','lib/runtime/target-preparation.mjs','lib/runtime/verification.mjs'
 ];
 async function fixture(t){

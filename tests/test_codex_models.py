@@ -68,6 +68,26 @@ class ModelSettingsTests(unittest.TestCase):
         self.config.write_bytes(settings_bytes(roles, version))
         return self.module.load_settings(self.config)
 
+    def test_v3_round_trip(self):
+        config = {"version": 3, "roles": FIVE_SETTINGS}
+        content = self.module.serialize_settings(config)
+        self.assertEqual(tomllib.loads(content.decode()), config)
+        self.assertNotIn(b'preset', content)
+        self.config.write_bytes(content)
+        self.assertEqual(self.module.load_settings(self.config), FIVE_SETTINGS)
+
+    def test_legacy_v1_v2_convert_to_active_roles(self):
+        import copy
+        legacy = tomllib.loads((REPO / 'tests/fixtures/models-codex-v1.toml').read_text())
+        for version in (1, 2):
+            for preset in ('economy', 'balanced', 'smart', 'custom'):
+                if version == 1 and preset == 'custom': continue
+                config = copy.deepcopy(legacy)
+                config.update(version=version, preset=preset)
+                if preset == 'custom': config['custom'] = FIVE_SETTINGS
+                expected = FIVE_SETTINGS if preset == 'custom' else {role: variants[preset] for role, variants in config['roles'].items()}
+                self.assertEqual(self.module.validate_config(config, self.config), {'version': 3, 'roles': expected})
+
     def test_model_standard_five_roles(self) -> None:
         try:
             settings = self.load(FIVE_SETTINGS)
@@ -91,7 +111,7 @@ class ModelSettingsTests(unittest.TestCase):
                 self.module.load_settings(self.config)
 
     def test_unified_presets_and_legacy_rejection(self):
-        source = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
+        source = tomllib.loads((REPO / 'tests/fixtures/models-codex-v1.toml').read_text())
         for preset in ('economy', 'balanced', 'smart'):
             source['preset'] = preset
             self.config.write_bytes(self.module.serialize_settings(source))
@@ -106,15 +126,15 @@ class ModelSettingsTests(unittest.TestCase):
 
     def test_custom_roundtrip_and_validation(self):
         import copy
-        source = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
-        self.assertEqual(self.module.validate_config(source, self.config)['version'], 2)
+        source = tomllib.loads((REPO / 'tests/fixtures/models-codex-v1.toml').read_text())
+        self.assertEqual(self.module.validate_config(source, self.config)['version'], 3)
         source['version'] = 2
         source['custom'] = {role: {'model': f'custom-{index}', 'model_reasoning_effort': 'low'}
                             for index, role in enumerate(FIVE_SETTINGS)}
         before = copy.deepcopy(source)
         self.config.write_bytes(self.module.serialize_settings(source))
         self.assertEqual(self.module.load_settings(self.config), BALANCED_SETTINGS)
-        self.assertEqual(tomllib.loads(self.config.read_text())['custom'], source['custom'])
+        self.assertEqual(tomllib.loads(self.config.read_text())['roles'], {role: variants['balanced'] for role, variants in source['roles'].items()})
         source['preset'] = 'custom'
         self.config.write_bytes(self.module.serialize_settings(source))
         content = self.config.read_bytes()
@@ -148,7 +168,7 @@ class ModelSettingsTests(unittest.TestCase):
             self.fail(f"unified version 1 settings must be accepted: {exc}")
         self.assertEqual(loaded, FIVE_SETTINGS)
         serialized = self.module.serialize_settings(tomllib.loads(self.config.read_text()))
-        self.assertEqual(tomllib.loads(serialized.decode())["version"], 2)
+        self.assertEqual(tomllib.loads(serialized.decode())["version"], 3)
         self.config.write_bytes(serialized)
         self.assertEqual(self.module.load_settings(self.config), FIVE_SETTINGS)
 
@@ -185,7 +205,7 @@ class ModelSettingsTests(unittest.TestCase):
                 self.module.load_settings(self.config)
             self.assertEqual(self.config.read_bytes(), original)
         for version in (3, 4, 5):
-            with self.assertRaisesRegex(self.module.ValidationError, "update.*version 1"):
+            with self.assertRaisesRegex(self.module.ValidationError, "update.*version 3"):
                 self.load(FIVE_SETTINGS, version)
 
     def test_naming_profile_identity_and_mapping(self) -> None:
@@ -301,7 +321,7 @@ class ApplyModelsTests(unittest.TestCase):
             self.assertEqual(tree_state(self.base), before)
 
     def test_all_presets_apply_check_dry_run_and_invalid_input_without_writes(self):
-        source = (REPO / 'codex/skill/models.toml').read_text()
+        source = (REPO / 'tests/fixtures/models-codex-v1.toml').read_text()
         config = tomllib.loads(source)
         for preset in ('economy', 'balanced', 'smart'):
             self.fixture()
@@ -368,9 +388,15 @@ class StrictRoleTests(unittest.TestCase):
     def test_unsupported_model_key_is_rejected(self):
         import copy
         module = load_model_module()
-        config = tomllib.loads((REPO / 'codex/skill/models.toml').read_text())
+        config = tomllib.loads((REPO / 'tests/fixtures/models-codex-v1.toml').read_text())
         config['roles']['arc_unknown'] = config['roles'].pop('arc_implementer')
         before = copy.deepcopy(config)
         with self.assertRaises(module.ValidationError):
             module.validate_config(config, Path('models.toml'))
         self.assertEqual(config, before)
+
+
+class QASchemaEvidenceTests(unittest.TestCase):
+    def test_qa_e2_codex_v1_v2_v3_load_serialize_and_apply_matrix(self):
+        from tests.qa_model_cases import exercise_python_model_matrix
+        exercise_python_model_matrix(self, load_model_module(), 'codex')

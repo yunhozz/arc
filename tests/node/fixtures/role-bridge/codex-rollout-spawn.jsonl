@@ -1,0 +1,6 @@
+{"type":"session_meta","payload":{"id":"01a1c595-429a-7d62-99b9-846844484cfd","session_id":"01a1c595-429a-7d62-99b9-846844484cfd","cli_version":"0.167.0","source":"exec","originator":"codex_exec"}}
+{"type":"turn_context","payload":{"turn_id":"01a1c595-44ae-7932-acaa-d42e4fb78d71","approval_policy":"never","model":"gpt-6-luna","effort":"low","cwd":"/work/repo","sandbox_policy":{"type":"workspace-write","network_access":false,"exclude_tmpdir_env_var":false,"exclude_slash_tmp":false}}}
+{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","arguments":"<redacted>"}}
+{"type":"response_item","payload":{"type":"function_call","name":"spawn_agent","arguments":"<redacted>"}}
+{"type":"response_item","payload":{"type":"function_call","name":"wait_agent","arguments":"<redacted>"}}
+{"type":"event_msg","payload":{"type":"task_complete"}}

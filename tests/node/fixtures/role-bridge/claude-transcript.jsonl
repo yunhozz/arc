@@ -1,0 +1,6 @@
+{"type":"api-request","output_config":{"effort":"low"}}
+{"type":"assistant","effort":"low","message":{"model":"claude-haiku-5-5","role":"assistant"}}
+{"type":"assistant","effort":"low","message":{"model":"claude-haiku-5-5","role":"assistant"}}
+{"type":"api-request","output_config":{"effort":"low"}}
+{"type":"assistant","effort":"low","message":{"model":"claude-haiku-5-5","role":"assistant"}}
+{"type":"assistant","effort":"low","message":{"model":"claude-haiku-5-5","role":"assistant"}}

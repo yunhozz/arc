@@ -1,0 +1,64 @@
+# Canonical source for every role model and effort preset.
+# Use configured settings as specified. Report unavailable settings.
+version = 1
+preset = "balanced"
+
+[roles.arc_scouter.economy]
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
+
+[roles.arc_scouter.balanced]
+model = "gpt-6-luna"
+model_reasoning_effort = "high"
+
+[roles.arc_scouter.smart]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+
+[roles.arc_planner.economy]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+
+[roles.arc_planner.balanced]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"
+
+[roles.arc_planner.smart]
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
+
+[roles.arc_implementer.economy]
+model = "gpt-6.1-terra"
+model_reasoning_effort = "medium"
+
+[roles.arc_implementer.balanced]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+
+[roles.arc_implementer.smart]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+
+[roles.arc_qa.economy]
+model = "gpt-6-luna"
+model_reasoning_effort = "high"
+
+[roles.arc_qa.balanced]
+model = "gpt-6.1-terra"
+model_reasoning_effort = "high"
+
+[roles.arc_qa.smart]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+
+[roles.arc_reviewer.economy]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+
+[roles.arc_reviewer.balanced]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+
+[roles.arc_reviewer.smart]
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"

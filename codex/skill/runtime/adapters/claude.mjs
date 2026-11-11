@@ -8,6 +8,8 @@ import {classifyGitCommand} from '../git-query.mjs';
 const text=v=>typeof v==='string'&&v.length>0;
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const supported=new Set(['Read','Glob','Grep','Bash','Write','Edit','MultiEdit','Agent']);
+// A bridge child carries this marker; its Hook events are observation-only and never recorded.
+const bridgeChild=context=>text((context?.env??process.env).ARC_BRIDGE_CHILD);
 const deny=reason=>({decision:'deny',reason,ruleIds:['runtime.claude'],proposedTransition:null});
 /** Host-verified support for this installed version is required. A config value
  * alone cannot establish hook failure blocking; provider wiring belongs to T6. */
@@ -42,11 +44,13 @@ export function renderClaudeDecision(decision){
  * timeout, hosted/specialized paths and existing write_stdin are outside it. */
 export async function runClaudeGate(input,context={}){
  if(input?.hook_event_name==='PostToolUse'){
+  if(bridgeChild(context))return {};
   // Result recording cannot authorize assignment/start or prevent a completed call.
   try{if(input.session_id===context.sessionRef&&input.tool_use_id===context.toolUseId&&text(context.actorRef)&&typeof context.recordToolResult==='function')await context.recordToolResult(structuredClone(input));}catch{}
   return {};
  }
  if(input?.hook_event_name==='SubagentStart'){
+  if(bridgeChild(context))return {};
   // SubagentStart cannot prevent startup. Only a trusted provider can correlate
   // agent_id with a pending assignment; tool/event agent_type is not authority.
   try{

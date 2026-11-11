@@ -19,13 +19,25 @@ The Node.js CLI validates/installs files. The conversation Orchestrator then rou
 | Managed instructions | `AGENTS.md` | `CLAUDE.md` |
 | Native configuration | `config.toml` | `settings.json` |
 
-Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models retain economy/balanced/smart variants and one selected preset. Codex uses `model_reasoning_effort`, Claude `effort`.
+Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models use schema v3: `version = 3` and five `[roles.<role>]` tables, each containing exactly `model` and its effort field. Legacy v1/v2 files are validated and converted to their active values; writes use v3 only. Codex uses `model_reasoning_effort`, Claude `effort`.
 
 `Claude & Codex` stores each role's platform, model, and effort in the shared active file `CODEX_HOME/arc-role-platform-routing.json`. Each harness's `arc-role-platform-routing.prepared.json` marker and separate `agents/arc-routing-*` profile identify the installed bytes for the same revision. These markers do not prove CLI login or actual execution permissions, model, or effort.
 
-The home status labels `Avaliable`, `Not Avaliable`, `Incomplete`, and `Unauthorized` distinguish installation state from local CLI authentication. `Unauthorized` is shown only when the CLI explicitly reports that the user is signed out. Codex model and effort selections use the account's app-server catalog; the Claude API catalog is only an optional selection aid. Claude models and effort can be entered manually without an API key.
+The home status labels `Available`, `Not Available`, `Incomplete`, and `Unauthorized` distinguish installation state from local CLI authentication. Codex authentication is checked by refreshing the login token through `codex app-server` (`getAuthStatus`), both on the home screen and for composite routing; this needs network access and rotates the tokens in `CODEX_HOME/auth.json`. A refresh that is permanently rejected is `Unauthorized`, and a check that cannot decide is `Incomplete`, never `Available`. Codex model and effort selections use the account's app-server catalog; the Claude API catalog is only an optional selection aid. Claude models and effort can be entered manually without an API key.
 
-All current composite role routes remain `held / unverified` across CLI and both local Desktop environments. Publishing the configuration does not start role execution or prove support. Verify local CLI search paths and authentication homes, the same worktree, profile reload in a new session, and execution evidence separately. Do not assume an existing Desktop session can be attached.
+Composite role execution support is per environment and per role. Publishing the configuration starts nothing; `routing-status` reports each role's route, profile, authentication and CLI versions. Support grades for the first release:
+
+| Environment | Grade |
+|---|---|
+| `claude-cli` host | Supported: native routes and Codex bridges (Codex bridge limits below apply) |
+| `codex-cli` host | Native routes supported. Bridge routes are conservatively held as `host_sandbox_blocked` because writes to `CODEX_HOME` are denied in the Codex host sandbox (G2); detached supervisor survival itself was observed under variant conditions. Claude bridge `arc_implementer` and `arc_qa` on a Codex host would additionally stay held as `permission_scope_unverified` because the injected sandbox is not verified (G1) |
+| `claude-desktop`, `codex-desktop` | Every role (native and bridge) is held as `environment_unverified` in this release; `supportStatus` is capped at `unverified` |
+
+Bridge CLI versions must be Claude Code `>=2.1.322 <2.2.0` and codex-cli `>=0.167.0 <0.168.0`; otherwise that platform's bridge is held as `permission_scope_unverified`. Re-delegation of a Codex bridge child is not blocked; a spawn found afterwards in its rollout fails the dispatch as `delegation_observed` (G3). Codex `workspace-write` bridge children may write outside the worktree, which post-run detection does not cover (G5). A bridge `supportStatus` is `verified` only when all five claims are `runtime-observed`; a Codex bridge never qualifies because its `permissions` claim is capped at `operator-attested` (`user-config-mcp-not-controlled`: the child loads the user's Codex configuration, including MCP servers, which ARC does not control). Post-run detection compares changed paths, `HEAD`, the branch and every Git ref (creation, deletion or movement is a violation); changes to Git-ignored paths are not detected. Bridge children carry `ARC_BRIDGE_CHILD` and routing commands are denied in such a process, but re-running `codex exec` or `claude -p` through a shell is not detected as `delegation_observed`.
+
+Desktop manual checklist. This release has no way to record it and every role (native and bridge) on Desktop stays `environment_unverified`; the list is the set of manual checks a future ARC update would need before it may change the support status: host CLI discovery (the same `claude` and `codex` executables the CLI would use are found), authentication sharing (the Desktop session and the CLI use the same authentication home), same worktree (all roles use the identical checkout), supervisor survival (a detached bridge supervisor keeps running after the command returns), escalation (approval prompts on a Codex host are granted each time), native tag check (the `[arc-routing rev <revision>]` tag in the agent list equals the `routing-status` revision in a new session).
+
+`cooperative-8` migration: This version renames the authentication label to `Available` / `Not Available`, makes a bridge `observe` with `waitMs` wait for a terminal or `unknown` state, and checks Codex authentication by refreshing the token. The runtime version changed, so existing prepared markers no longer match and routing reports `activation_unverified` until Install / Update is run again for both harnesses. In-progress cooperative workflows keep their recorded `state.versions`. When the runtime or policy version differs, every plan-mode command of an existing workflow, including status, holds with `cooperative.versions` ("Policy or runtime changed"); only results are recorded, and `versions-changed` stays in unresolved. There is no automatic migration of workflow state and no renewal of approvals: finish or hand off in-flight workflows before updating, or start a new workflow with fresh evidence and approvals afterwards. Active bridge dispatches block publishing; finish or cancel them first. Leases left in `unknown` or a `starting` state without a supervisor need manual cleanup under `<CODEX_HOME>/arc-role-dispatch/`; nothing is deleted automatically.
 
 Installation preserves bytes outside `arc:begin` / `arc:end`. Codex wait settings merge into supported standalone `[features.multi_agent_v2]`; unsupported structure receives manual guidance. Native concurrency writes integer `[agents].max_concurrent_threads_per_session` for Codex and string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` for Claude, preserving unrelated settings.
 
@@ -34,13 +46,57 @@ Static references include brainstorming/writing-plans/test-driven-development, r
 <a id="installation-and-refresh-lifecycle"></a>
 ## Installation and refresh lifecycle
 
-1. `arc` opens the English TUI when both streams are TTYs. Public syntax: `arc`, `arc --help`, `arc --version`. No-argument non-TTY and other commands/options exit 2 without controlling-terminal reconnection. Help/version require no native installer.
-2. Home actions: `Install / Update`, `Change Preset`, `Check Version`, `Uninstall`, `Exit`. Installation selects targets/preset/limits/language/global settings. A nonselectable blank line precedes `Execute`; Enter validates/executes once without review. `Change Preset` changes drafts until Enter on `Apply`, separated likewise. Preserve other settings; differing targets require explicit common values.
+1. `arc` opens the English TUI when both streams are TTYs. Public syntax: `arc`, `arc watch`, `arc --help`, `arc --version`. No-argument non-TTY and other commands/options exit 2 without controlling-terminal reconnection. Help/version/watch require no native installer.
+2. Home actions: `Install / Update`, `Change Models`, `Check Version`, `Uninstall`, `Exit`. Selecting a platform opens its role editor immediately. Choose a role to edit its model and effort; composite roles first choose their platform. `Settings` is available during installation for language, limits, and global configuration (On by default); shared composite settings apply to both platforms. `Apply` validates catalog pairs and executes once. `Back` returns to the previous editor step; Esc returns home.
 3. Preparation validates payload/settings/paths and snapshots them. Execution revalidates and stops on drift. Selected package determines reference revision.
 4. Install verified platform-local bytes. Install/reinstall/upgrade never collects Superpowers, queries its latest revision or runs updater. Imported Markdown/mockups stay unchanged.
 5. Report target transaction/rollback/residual recovery paths. Later target failure preserves earlier success. Settings apply in new agent sessions.
 
-TUI stays English regardless of harness language. `Workflow`/automatic platform integration share the internal runtime endpoint. TUI inspection proves no workflow approval. `Check Version` displays `Current version`/`Latest version`. Only numerically newer versions offer `Version Upgrade`. Enter revalidates package identity/npm context/installed state then applies the exact displayed version without requerying latest. Equal/older/unavailable versions offer no upgrade. Escape returns home. Global replacement ends the session; npx runs pinned payload without replacing global CLI. Same-version refresh uses `Install / Update`. If CLI cannot start, run `npx --yes @yunhozz/arc@latest`.
+TUI stays English regardless of harness language. `Workflow`/automatic platform integration share the internal runtime endpoint. TUI inspection proves no workflow approval. `Check Version` displays `<current> → <latest>` and `Upgrade`/`Back` when an upgrade is available. Equal versions show `Up to date (<current>)` and `Back`. Older or unavailable versions show `Current version`/`Latest version`, any lookup error, and `Back`. Enter revalidates package identity/npm context/installed state then applies the exact displayed version without requerying latest. Equal/older/unavailable versions offer no upgrade. Escape returns home. Global replacement ends the session; npx runs pinned payload without replacing global CLI. Same-version refresh uses `Install / Update`. If CLI cannot start, run `npx --yes @yunhozz/arc@latest`.
+
+### Installation mode transitions
+
+Successful `Claude & Codex` publication removes owned standalone profiles and keeps per-role `arc-routing-*` profiles, both markers, and the active configuration. A failed publication transaction restores the original bytes, including standalone profiles. Composite Change Models renders from the payload and each platform's installed model and language settings.
+
+Selecting Codex or Claude in composite mode opens `Switch to Codex` or `Switch to Claude` with `Claude & Codex will be turned off.` and `Back` selected by default. `Continue` changes no files. Choosing `Apply` in the editor removes composite files and restores standalone profiles in one transaction, only in homes containing `skills/arc`. The selected operation is then prepared again and executed; if it fails, the restored standalone installations remain.
+
+Single-platform uninstall also shows the turn-off notice, deactivates composite mode, then removes the selected platform. The other platform remains a standalone installation. Full uninstall keeps its existing behavior. In composite mode, npm upgrades neither create standalone profiles nor modify leftover standalone profiles. Run `Install / Update` again after upgrading to refresh routing.
+
+Standalone profiles are overwritten or removed only when they are regular files with the matching role name and role contract marker. Unverified profiles are preserved and reported as `Residual path:` entries. Unverified composite files block publication, deactivation, and switching. Active bridge dispatches also block publication and deactivation.
+
+### Watch
+
+`arc watch` reads Codex rollout JSONL, Claude Code transcripts (including persisted bridge transcripts), and ARC dispatch leases and artifacts. It defaults to every worktree of the current Git repository, or the current directory outside Git; `--cwd`, `--all`, `--session` and `--platform` select scope. Codex Desktop sessions are excluded.
+
+Dispatch thread/init events and saved session IDs map bridge activity to role and dispatch labels; missing transcripts leave dispatch events visible. Codex-host bridges remain held as `host_sandbox_blocked` (and, where applicable, `permission_scope_unverified`); without a lease there is no dispatch to display.
+
+The stream is read-only: no CLI execution except restricted Git discovery, no network requests, and no changes to homes, repositories or artifacts. Tool and command outputs are never shown. Reasoning appears only with `--verbose`; common secrets are masked, but masking is not complete. `--json` uses the same content policy. Signals stop the watcher immediately with exit 0; after a pipe reader closes, it exits with 0 on its next output.
+
+Human output uses `HH:MM:SS <platform> <KIND> <text>` without a session label column. User and agent messages are shown in full, preserving newlines and indentation; continuation lines are indented by the prefix width, and blank lines stay empty. Long message lines are neither clipped by `--width` nor wrapped by the watcher; the terminal may wrap them. Other events use one line, clipped to `--width`.
+
+Agent messages use `AGENT(<role>)` when a role is present. Otherwise, subagents use the label segment after the last `/`; top-level sessions and bridges without a role use `AGENT`. Names longer than 20 code points are shortened to the first 19 plus `…`. Other KIND tags never include a role. The KIND column has a minimum width of 8; longer tags have one following space, and continuation indentation follows the full prefix width.
+
+Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
+
+| KIND | ANSI SGR |
+|---|---|
+| `USER` | `1;35` |
+| `AGENT`, `AGENT(<name>)` | `32` |
+| `CMD`, `CMD(0)` | `38;5;242` |
+| `CMD(n)` where n is nonzero | `31` |
+| `EDIT` | `33` |
+| `TOOL` | `38;5;250` |
+| `SPAWN` | `38;5;141` |
+| `DISPATCH` | `38;5;137` |
+| `APPROVE` | `1;4` |
+| `FAIL`, `ERROR`, `TOOL!` | `31` |
+| `SESSION`, `END`, `NOTICE`, `SETTINGS`, `TURN`, `THINK`, `ITEM` | `2` |
+
+Failure bodies (`FAIL`, `ERROR`, `TOOL!`, nonzero `CMD(n)`) are red (`31`). Other bodies and message continuation lines have no color. KIND tags never use the platform cyan or orange. There is no fallback for terminals without 256-color support. One-line events whose prefix exceeds `--width` are printed without color.
+
+Messages have terminal escapes and controls removed, line endings normalized, tabs expanded to four spaces, trailing whitespace and outer blank lines removed, and secrets masked across the full text (including multiline PEM blocks). JSON stays at schema `v:1` and keeps the existing `label` field. User and agent `text` preserves newlines without a length limit or a `truncated` field; other kinds collapse whitespace, cap `text` at 1000 code points and set `truncated:true` when clipped.
+
+Files are polled every 500 ms, discovery every 2 seconds, and worktrees every 30 seconds. Tracking is limited to 64 files, 1 MiB per file per tick, 256 KiB of history per session, 4 MiB per line, 30 minutes of inactivity and 32 repositories in all-scope mode. Merge order is per tick, not globally guaranteed. A transcript truncated and regrown past the previous read offset between polls is not detected.
 
 Install/update/uninstall remove valid old ARC management completion blocks and add no registrations. Status never edits shell files. Preserve user settings and block-external content.
 
@@ -165,13 +221,13 @@ Agent Git recovery coordinates checkout/index; installer rollback handles public
 
 | Maintenance | Effect |
 |---|---|
-| Models | Edit installed `models.toml`, optional Python apply-models validation/render; no ARC/upstream refresh |
+| Models | Edit installed v3 `models.toml`: one `[roles.<role>]` per role with `model` and `model_reasoning_effort` (Codex) or `effort` (Claude). Python apply-models validates/renders v1/v2/v3; serialization writes v3. No ARC/upstream refresh |
 | Manifest | Update/check `MANIFEST.sha256` after protected changes; models excluded, dynamic upstream has provenance |
-| Reinstall | Packaged static managed files replace local model edits; upstream needs explicit updater, valid omitted limits preserved |
+| Reinstall | Installed active model values survive reinstall and upgrade; other packaged static managed files are refreshed; upstream needs explicit updater, valid omitted limits preserved |
 | Harness removal | Below |
 | CLI only | `npm uninstall -g @yunhozz/arc` leaves harness settings |
 
-`Uninstall` removes selected skill/five profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
+`Uninstall` offers `Codex`, `Claude`, `Everything (incl. CLI)`, and `Back`. Confirmation asks `Remove ARC from Codex?`, `Remove ARC from Claude?`, or `Remove ARC from Codex and Claude, and the arc CLI?`, with `Remove` and default `Back`. A single-platform confirmation in composite mode also shows `Claude & Codex will be turned off.`. `Back` returns to Uninstall; Esc returns home (and exits from home). Removal deletes selected skill/five profiles/managed blocks, including edited ARC files. Preserve other skills/profiles, Codex wait/native concurrency/workflow records. Global instructions can be retained and removal reviewed. Clean valid completion blocks. Only all-success harness removal permits npm removal of verified global `@yunhozz/arc`, including npx runs. Harness failure/cleanup/interruption skips CLI removal; identity/context failure blocks harness changes. Report separately; CLI failure preserves harness success. Once CLI removal begins, success/failure/interruption ends session. Preserve unselected harnesses/user files/other packages/shared npx cache.
 
 Remove composite profiles and prepared markers only within the selected harness when the active configuration and marker paths and hashes match. Preserve files with unclear ownership and report their residual paths. After removing one side, execution remains held because readiness consistency for the remaining composite configuration is no longer established.
 

@@ -57,6 +57,30 @@ class ClaudePayloadTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
+    def test_v3_round_trip(self):
+        import tomllib
+        module = self.module()
+        config = {'version': 3, 'roles': {f'arc_{role}': {'model': 'sonnet', 'effort': 'high'} for role in EXPECTED}}
+        content = module.serialize_settings(config)
+        self.assertEqual(tomllib.loads(content.decode()), config)
+        self.assertNotIn(b'preset', content)
+        self.assertEqual(module.validate_config(config, Path('models.toml')), config)
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp).resolve() / 'models.toml'; target.write_bytes(content)
+            self.assertEqual(module.load_settings(target), config['roles'])
+
+    def test_legacy_v1_v2_convert_to_active_roles(self):
+        import tomllib
+        module = self.module()
+        legacy = tomllib.loads((ROOT / 'tests/fixtures/models-claude-v1.toml').read_text())
+        for version in (1, 2):
+            for preset in ('economy', 'balanced', 'smart', 'custom'):
+                if version == 1 and preset == 'custom': continue
+                config = copy.deepcopy(legacy); config.update(version=version, preset=preset)
+                if preset == 'custom': config['custom'] = {f'arc_{role}': {'model': 'opus', 'effort': 'low'} for role in EXPECTED}
+                expected = config['custom'] if preset == 'custom' else {role: variants[preset] for role, variants in config['roles'].items()}
+                self.assertEqual(module.validate_config(config, Path('models.toml')), {'version': 3, 'roles': expected})
+
     def fixture(self, root):
         target = root / '.claude'
         shutil.copytree(PAYLOAD / 'skill', target / 'skills/arc')
@@ -111,7 +135,7 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_rejects_missing_extra_roles_and_invalid_settings(self):
         module = self.module()
         import tomllib
-        valid = tomllib.loads((PAYLOAD / 'skill/models.toml').read_text())
+        valid = tomllib.loads((ROOT / 'tests/fixtures/models-claude-v1.toml').read_text())
         variants = []
         for mutate in (
             lambda d: d['roles'].pop('arc_qa'),
@@ -153,7 +177,7 @@ class ClaudePayloadTests(unittest.TestCase):
         with self.assertRaises(module.ValidationError): module.validate_settings(invalid)
         legacy = copy.deepcopy(selected); legacy['version'] = 1
         with self.assertRaises(module.ValidationError): module.validate_settings(legacy)
-        source = (PAYLOAD / 'skill/models.toml').read_text().replace('version = 1', 'version = 2').replace('preset = "balanced"', 'preset = "custom"')
+        source = (ROOT / 'tests/fixtures/models-claude-v1.toml').read_text().replace('version = 1', 'version = 2').replace('preset = "balanced"', 'preset = "custom"')
         source += ''.join(f'\n[custom.{role}]\nmodel = "{values["model"]}"\neffort = "low"\n' for role, values in custom.items())
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp).resolve() / 'models.toml'; path.write_text(source)
@@ -196,7 +220,7 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_all_presets_apply_check_dry_run_and_invalid_input_without_writes(self):
         import tomllib
         module = self.module()
-        source = (PAYLOAD / 'skill/models.toml').read_text()
+        source = (ROOT / 'tests/fixtures/models-claude-v1.toml').read_text()
         config = tomllib.loads(source)
         with tempfile.TemporaryDirectory() as tmp:
             target = self.fixture(Path(tmp).resolve())
@@ -748,7 +772,7 @@ class ClaudeStrictRoleTests(unittest.TestCase):
     def test_unsupported_model_key_is_rejected(self):
         import tomllib
         module = ClaudePayloadTests().module()
-        config = tomllib.loads((PAYLOAD / 'skill/models.toml').read_text())
+        config = tomllib.loads((ROOT / 'tests/fixtures/models-claude-v1.toml').read_text())
         config['roles']['arc_unknown'] = config['roles'].pop('arc_implementer')
         before = copy.deepcopy(config)
         with self.assertRaises(module.ValidationError):
@@ -762,3 +786,13 @@ class FastDirectProofTests(unittest.TestCase):
         section = text.split('### Fast gate', 1)[1].split('### Instruction fingerprint', 1)[0]
         self.assertRegex(section, r'(?i)security/permissions.*public-interface.*never eligible')
         self.assertRegex(section, r'(?s)F1.*F2.*F3.*F4.*F5.*F6.*F7.*F8')
+
+
+class QASchemaEvidenceTests(unittest.TestCase):
+    def test_qa_e2_claude_v1_v2_v3_load_serialize_and_apply_matrix(self):
+        from tests.qa_model_cases import exercise_python_model_matrix
+        module_path = PAYLOAD / 'skill/scripts/model_config.py'
+        spec = importlib.util.spec_from_file_location('qa_claude_model_config', module_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        exercise_python_model_matrix(self, module, 'claude')

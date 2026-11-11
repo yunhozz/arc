@@ -1,0 +1,7 @@
+{"type":"thread.started","thread_id":"01a1c596-43f9-77a0-b0bb-3cfcdd195652"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Under-development features enabled: local_thread_store_compression. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /home/user/.codex/config.toml."}}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc \"printf 'G4-OK' > g4-marker.txt\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc \"printf 'G4-OK' > g4-marker.txt\"","aggregated_output":"","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"DONE"}}
+{"type":"turn.completed","usage":{"input_tokens":39885,"cached_input_tokens":26880,"cache_write_input_tokens":0,"output_tokens":55,"reasoning_output_tokens":0}}

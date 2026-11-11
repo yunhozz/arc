@@ -1,6 +1,8 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { StringDecoder } from 'node:string_decoder';
 import { spawn } from 'node:child_process';
+import { DEFAULT_POLICY } from './role-dispatch-policy.mjs';
 
 const environments = new WeakMap();
 export function resolveConfigHome(platform, { userHome, env = {}, cwd } = {}) {
@@ -42,9 +44,154 @@ export function resolveLocalCli(platform, { cwd, userHome, env = process.env } =
   return context;
 }
 export function localCliEnvironment(context) { const env = environments.get(context); if (!env) throw Error('Invalid CLI context'); return { ...env }; }
+/** Checks Codex authentication with refresh; only a token-presence boolean survives parsing. */
+export async function probeCodexAuthStatus(context, { signal, timeoutMs = 10000 } = {}) {
+  const result = (authStatus, reason) => ({ platform: 'codex', authStatus, ...(reason ? { reason } : {}) });
+  if (!environments.has(context) || context.platform !== 'codex') return result('unknown', context?.reason ?? 'invalid_context');
+  if (signal?.aborted) return result('unknown', 'aborted');
+  let child;
+  try { child = spawn(context.executable, ['app-server'], { cwd: context.cwd, env: localCliEnvironment(context), stdio: ['pipe', 'pipe', 'pipe'], shell: false }); }
+  catch { return result('unknown', 'cli_execution_error'); }
+  let closed = false, failure, pending, nextId = 0, buffer = '', outputBytes = 0;
+  const decoder = new StringDecoder('utf8');
+  let resolveClosed;
+  const closedPromise = new Promise(resolve => { resolveClosed = resolve; });
+  const fail = reason => { failure ??= reason; if (pending) { const {reject} = pending; pending = null; reject(); } };
+  const onClose = () => { closed = true; resolveClosed(); fail('cli_execution_error'); };
+  const onError = () => fail('cli_execution_error');
+  const onAbort = () => fail('aborted');
+  const countOutput = chunk => { outputBytes += chunk.length; if (outputBytes > 1048576) { fail('invalid_response'); return false; } return !failure; };
+  const classify = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !(value.requiresOpenaiAuth === null || typeof value.requiresOpenaiAuth === 'boolean') ||
+        !(value.authMethod === null || typeof value.authMethod === 'string') ||
+        !(value.authToken === null || typeof value.authToken === 'string')) return result('unknown', 'invalid_response');
+    const hasToken = typeof value.authToken === 'string' && value.authToken.length > 0;
+    if (value.requiresOpenaiAuth === false || typeof value.authMethod === 'string' && hasToken) return result('authenticated');
+    if (value.authMethod === null) return result('unauthorized', 'not_logged_in');
+    if (value.authToken !== null) return result('unknown', 'invalid_response');
+    if (value.authMethod === 'chatgpt') return result('unauthorized', 'token_rejected');
+    if (['headers', 'agentIdentity', 'personalAccessToken'].includes(value.authMethod)) return result('authenticated');
+    return result('unknown', 'auth_unverified');
+  };
+  const onData = chunk => {
+    if (!countOutput(chunk)) { buffer = ''; return; }
+    buffer += decoder.write(chunk);
+    let newline;
+    while (!failure && (newline = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1);
+      if (!line.trim()) continue;
+      let message;
+      try { message = JSON.parse(line); } catch { line = ''; buffer = ''; fail('invalid_response'); return; }
+      line = '';
+      if (message && typeof message === 'object' && !Array.isArray(message) &&
+          (Object.hasOwn(message, 'method') || !Object.hasOwn(message, 'id'))) { message = null; continue; }
+      if (!message || !pending || message.id !== pending.id) { message = null; fail('invalid_response'); return; }
+      if (Object.hasOwn(message, 'error')) { message = null; fail('status_command_failed'); return; }
+      if (!Object.hasOwn(message, 'result')) { message = null; fail('invalid_response'); return; }
+      const value = pending.method === 'initialize'
+        ? (message.result && typeof message.result === 'object' && !Array.isArray(message.result) && typeof message.result.userAgent === 'string' && message.result.userAgent.length > 0 ? true : false)
+        : classify(message.result);
+      message = null;
+      const {resolve} = pending; pending = null; resolve(value);
+    }
+  };
+  const onStderr = chunk => { countOutput(chunk); };
+  child.on('close', onClose); child.on('error', onError);
+  child.stdout.on('data', onData); child.stderr.on('data', onStderr);
+  for (const stream of [child.stdin, child.stdout, child.stderr]) stream.on('error', onError);
+  signal?.addEventListener('abort', onAbort, { once: true });
+  if (signal?.aborted) onAbort();
+  const timer = setTimeout(() => fail('timeout'), Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 10000);
+  const send = message => { if (failure || closed) throw new Error('Codex authentication unavailable'); child.stdin.write(JSON.stringify(message) + '\n'); };
+  const request = (method, params) => new Promise((resolve, reject) => {
+    if (failure || closed) { reject(); return; }
+    const id = ++nextId; pending = {id, method, resolve, reject};
+    try { send({id, method, params}); } catch { fail('cli_execution_error'); }
+  });
+  let authentication;
+  try {
+    if (!await request('initialize', {clientInfo: {name: 'arc', title: 'ARC', version: '1.0.0'}})) fail('invalid_response');
+    send({method: 'initialized', params: {}});
+    authentication = await request('getAuthStatus', {includeToken: true, refreshToken: true});
+    if (failure) authentication = result('unknown', failure);
+  } catch { authentication = result('unknown', failure ?? 'cli_execution_error'); }
+  finally {
+    clearTimeout(timer); signal?.removeEventListener('abort', onAbort);
+    buffer = ''; pending = null;
+    try { child.stdin.end(); } catch { /* cleanup only */ }
+    if (!closed) { try { child.kill('SIGTERM'); } catch { /* still wait for close */ } }
+    const wait = async ms => {
+      if (closed) return true;
+      let timerId;
+      const done = await Promise.race([closedPromise.then(() => true), new Promise(resolve => { timerId = setTimeout(() => resolve(false), ms); })]);
+      clearTimeout(timerId); return done;
+    };
+    if (!await wait(1000)) {
+      try { child.kill('SIGKILL'); } catch { /* bounded cleanup */ }
+      if (!await wait(1000)) authentication = result('unknown', 'cli_execution_error');
+    }
+    child.stdout.removeListener('data', onData); child.stderr.removeListener('data', onStderr);
+    child.removeListener('close', onClose);
+    // Keep error guards on streams until destruction, including late pipe errors.
+    for (const stream of [child.stdin, child.stdout, child.stderr]) stream.destroy();
+  }
+  return authentication;
+}
+/** Checks local Codex login state without starting app-server or refreshing credentials. */
+export async function probeCodexLoginStatus(context, { signal, timeoutMs = 10000 } = {}) {
+  const result = (authStatus, reason) => ({ platform: 'codex', authStatus, ...(reason ? { reason } : {}) });
+  if (!environments.has(context) || context.platform !== 'codex') return result('unknown', context?.reason ?? 'invalid_context');
+  if (signal?.aborted) return result('unknown', 'aborted');
+  let child;
+  try { child = spawn(context.executable, ['login', 'status'], { cwd: context.cwd, env: localCliEnvironment(context), stdio: ['ignore', 'pipe', 'pipe'], shell: false }); }
+  catch { return result('unknown', 'status_command_failed'); }
+  let closed = false, stderr = '', outputBytes = 0, timer, resolveClosed;
+  const closedPromise = new Promise(resolve => { resolveClosed = resolve; });
+  let finish;
+  const authentication = new Promise(resolve => { finish = resolve; });
+  const fail = reason => finish(result('unknown', reason));
+  const onError = () => fail('status_command_failed');
+  const onAbort = () => fail('aborted');
+  const countOutput = chunk => {
+    outputBytes += chunk.length;
+    if (outputBytes > 65536) { stderr = ''; fail('status_command_failed'); return false; }
+    return true;
+  };
+  const onStdout = chunk => { countOutput(chunk); };
+  const onStderr = chunk => { if (countOutput(chunk)) stderr += chunk.toString(); };
+  const onClose = (code, exitSignal) => {
+    closed = true; resolveClosed();
+    finish(exitSignal ? result('unknown', 'status_command_failed') : code === 0 ? result('authenticated') :
+      code === 1 && stderr.trim() === 'Not logged in' ? result('unauthorized', 'not_logged_in') : result('unknown', 'status_command_failed'));
+  };
+  child.on('error', onError); child.on('close', onClose);
+  child.stdout.on('data', onStdout); child.stderr.on('data', onStderr);
+  for (const stream of [child.stdout, child.stderr]) stream.on('error', onError);
+  signal?.addEventListener('abort', onAbort, { once: true });
+  timer = setTimeout(() => fail('timeout'), Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 10000);
+  if (signal?.aborted) onAbort();
+  const value = await authentication;
+  clearTimeout(timer); signal?.removeEventListener('abort', onAbort);
+  if (!closed) { try { child.kill('SIGTERM'); } catch { /* bounded cleanup */ } }
+  const wait = async ms => {
+    if (closed) return true;
+    let timerId;
+    const done = await Promise.race([closedPromise.then(() => true), new Promise(resolve => { timerId = setTimeout(() => resolve(false), ms); })]);
+    clearTimeout(timerId); return done;
+  };
+  if (!await wait(1000)) {
+    try { child.kill('SIGKILL'); } catch { /* bounded cleanup */ }
+    await wait(1000);
+  }
+  child.stdout.removeListener('data', onStdout); child.stderr.removeListener('data', onStderr);
+  child.removeListener('close', onClose);
+  child.stdout.destroy(); child.stderr.destroy();
+  return value;
+}
 export async function probePlatformAuth(context, { signal, timeoutMs = 10000 } = {}) {
   const platform = context?.platform;
   const result = (authStatus, reason) => ({ platform, authStatus, ...(reason ? { reason } : {}) });
+  if (platform !== 'claude') return result('unknown', 'invalid_context');
   if (!environments.has(context)) return result('unknown', context?.reason ?? 'invalid_context');
   if (signal?.aborted) return result('unknown', 'aborted');
   return new Promise(resolve => {
@@ -53,19 +200,49 @@ export async function probePlatformAuth(context, { signal, timeoutMs = 10000 } =
     const abort = () => { reason = 'aborted'; child?.kill(); finish(result('unknown', reason)); };
     const timer = setTimeout(() => { reason = 'timeout'; child?.kill(); finish(result('unknown', reason)); }, Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 10000);
     signal?.addEventListener('abort', abort, { once: true });
-    try { child = spawn(context.executable, platform === 'codex' ? ['login', 'status'] : ['auth', 'status', '--json'], { cwd: context.cwd, env: localCliEnvironment(context), stdio: ['ignore', 'pipe', 'pipe'], shell: false }); }
+    try { child = spawn(context.executable, ['auth', 'status', '--json'], { cwd: context.cwd, env: localCliEnvironment(context), stdio: ['ignore', 'pipe', 'pipe'], shell: false }); }
     catch { finish(result('unknown', 'cli_execution_error')); return; }
     child.stdout.on('data', chunk => { if (output.length + chunk.length > 65536) overflow = true; else if (!overflow) output += chunk.toString(); });
     child.stderr.on('data', chunk => { if (stderr.length + chunk.length > 65536) overflow = true; else if (!overflow) stderr += chunk.toString(); });
     child.on('error', () => finish(result('unknown', 'cli_execution_error')));
     child.on('close', (code, exitSignal) => {
       if (exitSignal || overflow) return finish(result('unknown', overflow ? 'invalid_response' : 'cli_execution_error'));
-      if (platform === 'codex') return finish(code === 0 ? result('authenticated') : code === 1 && stderr.trim() === 'Not logged in' ? result('unauthorized', 'not_logged_in') : result('unknown', 'status_command_failed'));
       let parsed; try { parsed = JSON.parse(output); } catch { return finish(result('unknown', 'invalid_response')); }
       if (parsed?.loggedIn === true && code === 0) return finish(result('authenticated'));
       if (parsed?.loggedIn === false && code === 1) return finish(result('unauthorized', 'not_logged_in'));
       finish(result('unknown', 'status_mismatch'));
     });
     if (signal?.aborted) abort();
+  });
+}
+export function compareVersions(a, b) {
+  const left = String(a).split('.').map(Number), right = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) { const x = left[i] ?? 0, y = right[i] ?? 0; if (x !== y) return x < y ? -1 : 1; }
+  return 0;
+}
+/** Runs `<cli> --version`; keeps only the parsed version, never the raw output. */
+export async function probeCliVersion(context, { signal, timeoutMs = 10000, policy = DEFAULT_POLICY } = {}) {
+  const platform = context?.platform;
+  const result = (version, supported, reason) => ({ version, supported, ...(reason ? { reason } : {}) });
+  if (!environments.has(context) || signal?.aborted) return result(null, false, 'cli_execution_error');
+  return new Promise(resolve => {
+    let child, output = '', overflow = false, done = false;
+    const finish = value => { if (done) return; done = true; clearTimeout(timer); signal?.removeEventListener('abort', abort); resolve(value); };
+    const abort = () => { child?.kill(); finish(result(null, false, 'cli_execution_error')); };
+    const timer = setTimeout(() => { child?.kill(); finish(result(null, false, 'timeout')); }, Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 10000);
+    signal?.addEventListener('abort', abort, { once: true });
+    try { child = spawn(context.executable, ['--version'], { cwd: context.cwd, env: localCliEnvironment(context), stdio: ['ignore', 'pipe', 'pipe'], shell: false }); }
+    catch { finish(result(null, false, 'cli_execution_error')); return; }
+    child.stdout.on('data', chunk => { if (output.length + chunk.length > 65536) overflow = true; else if (!overflow) output += chunk.toString(); });
+    child.stderr.on('data', chunk => { if (chunk.length > 65536) overflow = true; });
+    child.on('error', () => finish(result(null, false, 'cli_execution_error')));
+    child.on('close', (code, exitSignal) => {
+      if (exitSignal || code !== 0 || overflow) return finish(result(null, false, 'cli_execution_error'));
+      const version = /\d+\.\d+\.\d+/.exec(output)?.[0] ?? null;
+      if (!version) return finish(result(null, false, 'version_unparsed'));
+      const range = policy?.supportedVersions?.[platform];
+      const supported = Boolean(range) && compareVersions(version, range.min) >= 0 && compareVersions(version, range.below) < 0;
+      finish(supported ? result(version, true) : result(version, false, 'version_unsupported'));
+    });
   });
 }

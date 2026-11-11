@@ -30,11 +30,11 @@ test('release consumer opens TUI only on explicit launch and installs independen
  assert.deepEqual(fs.readdirSync(s.home),[]);
  const api=await import(pathToFileURL(isolated+'/lib/management/operations.mjs'));
  const ctx=await api.createManagementContext({packageRoot:isolated,userHome:s.home,cwd:s.cwd,env:s.env,acquisition:async()=>({references:referenceFixture()})});
- const fresh=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'all',preset:'balanced',language:'en'}));
+ const fresh=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'all',language:'en'}));
  assert.equal(fresh.code,0,JSON.stringify(fresh));assert.equal(fs.existsSync(s.home+'/.zshrc'),false);
  const shell='export KEEP_ME=1\n# >>> arc completion >>>\neval "$(arc completion zsh)"\n# <<< arc completion <<<\nexport AFTER=1\n';
  fs.writeFileSync(s.home+'/.zshrc',shell);
- const prepared=await api.prepareOperation(ctx,{kind:'install',target:'all',preset:'smart',language:'en'});
+ const prepared=await api.prepareOperation(ctx,{kind:'install',target:'all',language:'en'});
  assert.equal(fs.readFileSync(s.home+'/.zshrc','utf8'),shell);
  const updated=await api.executeOperation(ctx,prepared);assert.equal(updated.code,0,JSON.stringify(updated));
  assert.equal(fs.readFileSync(s.home+'/.zshrc','utf8'),'export KEEP_ME=1\nexport AFTER=1\n');

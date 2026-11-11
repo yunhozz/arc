@@ -143,3 +143,9 @@ test('local Planner hook drives initial correction further and rejects non-progr
  s.plannerLedger.stages[0].artifacts.push({ref:'input:new',stageId:'spec-draft',path:inputFile,purpose:'input',hash:inputHash,criterionIds:['C1'],verification:{status:'verified',source:'local-bytes'},semantic:{meaningful:true,source:'operator-attested',judgmentRef:'review:new-input',targetHash:inputHash}});fs.writeFileSync(c.statePath,JSON.stringify(s));
  assert.equal(await invoke('more','further',{reviewRef,criterionIds:['C1'],evidenceRefs:['input:new']}),'allow');const final=stored().plannerLedger.stages[0];assert.deepEqual(final.calls.map(call=>call.kind),['initial','correction','further']);assert.deepEqual(final.calls[2].evidenceHashes,[inputHash]);assert.equal(final.pending,'more');assert.equal(final.ready,false);assert.equal(final.criteria[0].status,'open');
 });
+test('SubagentStart with ARC_BRIDGE_CHILD is not recorded',async()=>{
+ const a=setup('implementer','write');const c=context(a);let calls=0;c.observeAgent=()=>{calls++;return {decision:'deny'};};c.env={ARC_BRIDGE_CHILD:'dispatch-1'};
+ assert.deepEqual(await api.runCodexGate({hook_event_name:'SubagentStart',session_id:'session',agent_id:'child',agent_type:'implementer'},c),{});assert.equal(calls,0);
+ const e=context(a);e.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runCodexGate(event(),e)),'allow','PreToolUse judgement is unchanged');
+ const g=context(setup('qa','write'));g.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runCodexGate(event(),g)),'deny','PreToolUse still denies under the marker');
+});

@@ -30,7 +30,7 @@ export function transactionFixture(t,platform='codex'){
  const target={platform,home,userHome,profileNames:['arc-implementer.'+(platform==='codex'?'toml':'md')],globalPaths:[],externalPolicy:{skills:[],includeShared:false}};
  const snapshot=new Map();return{userHome,home,target,snapshot};
 }
-function simplePlan(fixture){return{target:fixture.target,preset:'balanced',skipGlobal:true,generated:{skill:new Map([['SKILL.md',Buffer.from('new skill')]]),profiles:new Map([[fixture.target.profileNames[0],Buffer.from('new profile')]])},globalChanges:[],managedPaths:[fixture.home+'/skills/arc',fixture.home+'/agents/'+fixture.target.profileNames[0]],externalPaths:[],snapshot:fixture.snapshot,summary:[]};}
+function simplePlan(fixture){return{target:fixture.target,skipGlobal:true,generated:{skill:new Map([['SKILL.md',Buffer.from('new skill')]]),profiles:new Map([[fixture.target.profileNames[0],Buffer.from('new profile')]])},globalChanges:[],managedPaths:[fixture.home+'/skills/arc',fixture.home+'/agents/'+fixture.target.profileNames[0]],externalPaths:[],snapshot:fixture.snapshot,summary:[]};}
 test('transaction publishes verified buffers without persistent backups and preserves user profiles',t=>{
  const f=transactionFixture(t);assert.equal(typeof transaction.applyTransaction,'function');const plan=simplePlan(f);transaction.capturePlanSnapshot(plan,{safeFs});
  const result=transaction.applyTransaction(plan,{safeFs,acquired:{references:referenceFixture(),skills:new Map()}});
