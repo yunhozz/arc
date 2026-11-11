@@ -229,3 +229,23 @@ test('help describes one-line width and full messages', async t => {
   assert.ok(s.output.text.includes('  --width <n>         Maximum width of one-line events (default: terminal width, or 200)'));
   assert.ok(s.output.text.includes('User and agent messages are shown in full; other events use one line.\nTool and command outputs'));
 });
+
+
+test('bridge and subagent AGENT lines show the role', async t => {
+  const s=setup(t), gcd=path.join(s.cwd,'.git');fs.mkdirSync(gcd);
+  s.io.git=async(dir,args)=>args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;
+  s.write('parent1234');
+  s.h.writeRollout(['2026','11','11'],'rollout-child.jsonl',[
+    {timestamp:iso(TIME),type:'session_meta',payload:{id:'child',cwd:s.cwd,originator:'codex-tui',source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_qa'}}}}},
+    {timestamp:iso(TIME),type:'event_msg',payload:{type:'item_completed',item:{type:'AgentMessage',content:[{type:'Text',text:'child answer'}]}}},
+  ],{mtime:TIME});
+  s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'bridge',[
+    {type:'user',cwd:s.cwd,sessionId:'bridge',message:{content:'hello'}},
+    {type:'assistant',timestamp:iso(TIME),cwd:s.cwd,sessionId:'bridge',message:{role:'assistant',content:[{type:'text',text:'bridge answer'}]}},
+  ],{mtime:TIME-300000});
+  s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
+  s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
+  const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
+  assert.match(s.output.text,/AGENT\(planner\) bridge answer/);
+  assert.match(s.output.text,/AGENT\(qa\) child answer/);
+});

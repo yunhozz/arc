@@ -38,6 +38,7 @@ The TUI requires terminal input and output. Public commands: `arc`, `arc watch`,
 
 `arc watch` follows Claude Code and Codex activity in a read-only stream; by default it includes every worktree of the current Git repository, or the current directory outside Git.
 User and agent messages are shown in full; other events use one line.
+Agent messages show `AGENT(<role>)` when a role is known, or the subagent label tail when available; top-level sessions show `AGENT`. TTY output uses distinct KIND colors, cyan for Codex and orange for Claude; `NO_COLOR`, non-TTY output and `--json` disable colors.
 Tool and command outputs are never shown; common secret patterns are masked, but masking is not complete.
 Codex Desktop sessions are excluded. Bridge roles on Codex hosts remain held as `host_sandbox_blocked` and appear once they run.
 Use `arc watch --help` for scope, platform, history and JSON options; press Ctrl-C to stop.

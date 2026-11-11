@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as renderer from '../../lib/watch/render.mjs';
 import {renderHuman, renderJson, kindTag} from '../../lib/watch/render.mjs';
 const event = {ts:'2026-11-11T00:01:15.000Z',platform:'codex',label:'tui#e2e8',kind:'command',text:'git status',exitCode:0};
 const options = {width:120, color:false, verbose:false};
@@ -99,4 +100,60 @@ test('renderJson keeps full message text with newlines and no truncated', () => 
     assert.equal('truncated' in parsed, false);
     assert.equal(parsed.label, 'tui#e2e8');
   }
+});
+
+
+test('AGENT tag shows role, subagent label tail or plain AGENT', () => {
+  for (const [input, tag] of [
+    [{role:'implementer'}, 'AGENT(implementer)'],
+    [{source:'subagent',label:'main#7f77/general-purpose'}, 'AGENT(general-purpose)'],
+    [{source:'subagent',label:'tui#e2e8/qa/' + 'N'.repeat(25)}, 'AGENT(' + 'N'.repeat(19) + '…)'],
+    [{source:'subagent',label:'tui#e2e8/' + '😀'.repeat(21)}, 'AGENT(' + '😀'.repeat(19) + '…)'],
+    [{source:'session',label:'tui#e2e8'}, 'AGENT'],
+    [{source:'bridge',role:'planner',label:'planner@b9a1'}, 'AGENT(planner)'],
+    [{source:'bridge',label:'planner@b9a1'}, 'AGENT'],
+    [{source:'subagent',label:'unknown'}, 'AGENT'],
+    [{role:'N'.repeat(21)}, 'AGENT(' + 'N'.repeat(19) + '…)'],
+  ]) assert.equal(kindTag({kind:'agent',...input}), tag);
+  assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD(0)');
+});
+test('continuation indent follows a long AGENT tag', () => {
+  for (const input of [{role:'planner'}, {role:'implementer'}, {source:'subagent',label:'parent/' + 'N'.repeat(25)}]) {
+    for (const color of [false,true]) {
+      const lines = renderHuman({...event,...input,kind:'agent',text:'a\nb'}, {...options,color}).replace(/\x1b\[[0-9;]*m/g,'').split('\n');
+      const tag = input.role ? `AGENT(${input.role})` : 'AGENT(' + 'N'.repeat(19) + '…)';
+      assert.ok(lines[0].endsWith(tag + ' a'));
+      assert.equal(lines[1], ' '.repeat(17 + [...tag].length) + 'b');
+    }
+  }
+});
+test('tag colors follow the table and include the parenthesized part', () => {
+  const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT(qa)'],
+    [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD(0)'],
+    [{kind:'command',exitCode:1},'31','CMD(1)'],[{kind:'command',exitCode:-1},'31','CMD(-1)'],
+    [{kind:'file_change'},'33','EDIT'],[{kind:'tool'},'38;5;250','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
+    [{kind:'dispatch'},'38;5;137','DISPATCH'],[{kind:'approval'},'1;4','APPROVE'],
+    [{kind:'turn_failed'},'31','FAIL'],[{kind:'error'},'31','ERROR'],[{kind:'tool_failed'},'31','TOOL!'],
+    ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2',kindTag({kind})])];
+  for (const [input,code,tag] of table) {
+    const line = renderHuman({ts:event.ts,platform:'codex',...input,text:'t'}, {...options,color:true,verbose:true});
+    assert.ok(line.includes(`\x1b[${code}m${tag}\x1b[0m`), tag);
+    assert.ok(line.includes(`\x1b[${code}m${tag}\x1b[0m${' '.repeat(Math.max(0,8-[...tag].length))} `), tag + ' padding');
+    assert.equal(renderer.tagColor(input),code);
+    assert.notEqual(code,'36'); assert.notEqual(code,'38;5;208');
+  }
+});
+test('platform colors: codex 36, claude 38;5;208, watch and arc 2', () => {
+  assert.deepEqual(renderer.PLATFORM_COLORS,{codex:'36',claude:'38;5;208',other:'2'});
+  for (const [input,name,code] of [[{platform:'codex'},'codex','36'],[{platform:'claude'},'claude','38;5;208'],[{source:'watch',platform:'codex'},'watch','2'],[{},'arc','2']]) {
+    assert.ok(renderHuman({...input,kind:'notice',text:'t'}, {...options,color:true}).includes(`\x1b[${code}m${name.padEnd(6)}\x1b[0m`));
+  }
+});
+test('failure bodies are red and message continuation lines carry no color', () => {
+  for (const input of [{kind:'command',exitCode:1},{kind:'turn_failed'},{kind:'error'},{kind:'tool_failed'}]) {
+    assert.ok(renderHuman({...event,...input,text:'node --test'}, {...options,color:true}).endsWith('\x1b[31mnode --test\x1b[0m'));
+  }
+  const lines = renderHuman({...event,kind:'agent',role:'implementer',text:'a\nb'}, {...options,color:true}).split('\n');
+  assert.doesNotMatch(lines[1],/\x1b\[/);
+  assert.equal(renderHuman(event,{...options,width:10,color:true}),renderHuman(event,{...options,width:10}));
 });

@@ -246,7 +246,7 @@ WATCH_LIMITS.agentNameMax = 20
 
 **Steps:**
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/watch-render.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/watch-render.test.mjs`)
 ```js
 test('AGENT tag shows role, subagent label tail or plain AGENT', () => {
   assert.equal(kindTag({kind:'agent', role:'implementer'}), 'AGENT(implementer)');
@@ -280,15 +280,15 @@ test('failure bodies are red and message continuation lines carry no color', ...
   - `tests/node/watch-cli.test.mjs`의 기존 `NO_COLOR`·`--json`·비TTY 무색 테스트를 W2 출력으로 재확인한다(AC-W04).
   - 같은 파일에 다음을 추가한다. `bridge and subagent AGENT lines show the role` (AC-W19, AC-W22 사람용 부분). 기존 bridge·Codex 하위 에이전트 fixture에서 AGENT 줄이 `AGENT(planner)`, `AGENT(qa)`이다.
 
-- [ ] **Step 2: 실행해서 실패 확인**
+- [x] **Step 2: 실행해서 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/watch-render.test.mjs tests/node/watch-cli.test.mjs`
   - Expected: FAIL
 
-- [ ] **Step 3: `render.mjs`(`kindTag`, `PLATFORM_COLORS`, `tagColor`, 칠하기)와 `model.mjs`(`agentNameMax`) 구현**
+- [x] **Step 3: `render.mjs`(`kindTag`, `PLATFORM_COLORS`, `tagColor`, 칠하기)와 `model.mjs`(`agentNameMax`) 구현**
 
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령, PASS)
 
-- [ ] **Step 5: 문서와 MANIFEST**
+- [x] **Step 5: 문서와 MANIFEST**
   - `docs/harness-operation.md` watch 하위 절에 색 표와 AGENT 태그 규칙을 추가한다.
   - Run: `node scripts/update-manifest.mjs && npm run check:manifest`
   - Run: `node --test --test-timeout=120000 tests/node/*.test.mjs`

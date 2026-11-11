@@ -74,6 +74,26 @@ The stream is read-only: no CLI execution except restricted Git discovery, no ne
 
 Human output uses `HH:MM:SS <platform> <KIND> <text>` without a session label column. User and agent messages are shown in full, preserving newlines and indentation; continuation lines are indented by the prefix width, and blank lines stay empty. Long message lines are neither clipped by `--width` nor wrapped by the watcher; the terminal may wrap them. Other events use one line, clipped to `--width`.
 
+Agent messages use `AGENT(<role>)` when a role is present. Otherwise, subagents use the label segment after the last `/`; top-level sessions and bridges without a role use `AGENT`. Names longer than 20 code points are shortened to the first 19 plus `…`. Other KIND tags never include a role. The KIND column has a minimum width of 8; longer tags have one following space, and continuation indentation follows the full prefix width.
+
+Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
+
+| KIND | ANSI SGR |
+|---|---|
+| `USER` | `1;35` |
+| `AGENT`, `AGENT(<name>)` | `32` |
+| `CMD`, `CMD(0)` | `38;5;242` |
+| `CMD(n)` where n is nonzero | `31` |
+| `EDIT` | `33` |
+| `TOOL` | `38;5;250` |
+| `SPAWN` | `38;5;141` |
+| `DISPATCH` | `38;5;137` |
+| `APPROVE` | `1;4` |
+| `FAIL`, `ERROR`, `TOOL!` | `31` |
+| `SESSION`, `END`, `NOTICE`, `SETTINGS`, `TURN`, `THINK`, `ITEM` | `2` |
+
+Failure bodies (`FAIL`, `ERROR`, `TOOL!`, nonzero `CMD(n)`) are red (`31`). Other bodies and message continuation lines have no color. KIND tags never use the platform cyan or orange. There is no fallback for terminals without 256-color support. One-line events whose prefix exceeds `--width` are printed without color.
+
 Messages have terminal escapes and controls removed, line endings normalized, tabs expanded to four spaces, trailing whitespace and outer blank lines removed, and secrets masked across the full text (including multiline PEM blocks). JSON stays at schema `v:1` and keeps the existing `label` field. User and agent `text` preserves newlines without a length limit or a `truncated` field; other kinds collapse whitespace, cap `text` at 1000 code points and set `truncated:true` when clipped.
 
 Files are polled every 500 ms, discovery every 2 seconds, and worktrees every 30 seconds. Tracking is limited to 64 files, 1 MiB per file per tick, 256 KiB of history per session, 4 MiB per line, 30 minutes of inactivity and 32 repositories in all-scope mode. Merge order is per tick, not globally guaranteed. A transcript truncated and regrown past the previous read offset between polls is not detected.
