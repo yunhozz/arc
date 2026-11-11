@@ -101,3 +101,11 @@ test('R1 M4 bash input and output blocks never expose markers', () => {
   assert.deepEqual(user(`<${tag}>WATCH_MARKER_output</${tag}>`),[]);
  }
 });
+
+
+test('AC-W29 compact summary becomes a notice without its private body', () => {
+  for (const content of ['private\nsummary', [{type:'text',text:'private\nsummary'}]]) {
+    assert.deepEqual(user(content, undefined, {isCompactSummary:true,isVisibleInTranscriptOnly:true}),
+      [{kind:'notice',text:'compact summary (15 chars)'}]);
+  }
+});

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
 import {WATCH_KINDS, VERBOSE_KINDS} from '../../lib/watch/model.mjs';
 import {sanitizeMessage, sanitizeText, maskSecrets, clipCodePoints, isVisible} from '../../lib/watch/policy.mjs';
 
@@ -82,4 +83,28 @@ test('sanitizeMessage of blank-only text is empty', () => {
 test('sanitizeMessage is idempotent', () => {
   const s = sanitizeMessage('a\r\n\tb\nGITHUB_TOKEN=x');
   assert.equal(sanitizeMessage(s), s);
+});
+
+
+test('AC-W30 flag masking requires a boundary and keys of at most 64 characters', () => {
+  for (const prefix of ['a','_','0','-']) {
+    const text = `${prefix}--token hidden`;
+    assert.equal(maskSecrets(text), text);
+  }
+  for (const prefix of ['', ' ', '(', ';']) {
+    assert.equal(maskSecrets(`${prefix}--token hidden`), `${prefix}--token ***`);
+  }
+  const key64 = 'a'.repeat(59) + 'token', key65 = 'a' + key64;
+  assert.equal(maskSecrets(`--${key64} hidden`), `--${key64} ***`);
+  assert.equal(maskSecrets(`--${key65} hidden`), `--${key65} hidden`);
+});
+
+test('AC-W30 masks a 4 MiB repeated flag input within five seconds', () => {
+  const url = new URL('../../lib/watch/policy.mjs', import.meta.url).href;
+  const script = `import {maskSecrets} from ${JSON.stringify(url)};
+    const text = '--a'.repeat(Math.ceil(4194304 / 3)).slice(0, 4194304);
+    if (maskSecrets(text) !== text) process.exit(1);`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {timeout:5000, encoding:'utf8'});
+  assert.equal(result.error, undefined, '4 MiB masking must finish within five seconds');
+  assert.equal(result.status, 0, result.stderr);
 });

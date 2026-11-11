@@ -316,11 +316,11 @@ test('failure bodies are red and message continuation lines carry no color', ...
 - Modify: `README.md`(Watch sessions 절), `docs/harness-operation.md`(필요 시)
 - Regenerate: `MANIFEST.sha256`
 
-- [ ] **Step 1: 실패 테스트 작성** — AC-W29(기본 숨김, verbose 한 줄 NOTICE, JSON 동일 정책), AC-W26 verbose NOTICE 라벨 부재(`<id8>` 사용), AC-W30(경계 없는 `a--key v` 미적용·65자 키 미적용·4 MiB 입력 처리 시간 상한).
-- [ ] **Step 2: 실행해서 실패 확인** — `node --test --test-timeout=120000 tests/node/watch-*.test.mjs`
-- [ ] **Step 3: 구현**
-- [ ] **Step 4: 실행해서 통과 확인** (Step 2 명령)
-- [ ] **Step 5: README 축소, MANIFEST 재생성, `npm run check:manifest`, `npm run check:role-policy`**
+- [x] **Step 1: 실패 테스트 작성** — AC-W29(기본 숨김, verbose 한 줄 NOTICE, JSON 동일 정책), AC-W26 verbose NOTICE 라벨 부재(`<id8>` 사용), AC-W30(경계 없는 `a--key v` 미적용·65자 키 미적용·4 MiB 입력 처리 시간 상한).
+- [x] **Step 2: 실행해서 실패 확인** — `node --test --test-timeout=120000 tests/node/watch-*.test.mjs`
+- [x] **Step 3: 구현**
+- [x] **Step 4: 실행해서 통과 확인** (Step 2 명령)
+- [x] **Step 5: README 축소, MANIFEST 재생성, `npm run check:manifest`, `npm run check:role-policy`**
 
 **수용 기준:** AC-W26(개정 2), AC-W29, AC-W30, L6 README 분량. 기존 watch 테스트 회귀 없음.
 

@@ -249,3 +249,27 @@ test('bridge and subagent AGENT lines show the role', async t => {
   assert.match(s.output.text,/AGENT\(planner\) bridge answer/);
   assert.match(s.output.text,/AGENT\(qa\) child answer/);
 });
+
+
+for (const json of [false,true]) for (const verbose of [false,true]) {
+  test(`AC-W29 compact summaries obey verbose policy in ${json?'JSON':'human'} output (${verbose})`, async t => {
+    const s=setup(t), body='PRIVATE_COMPACT_BODY\n'+'x'.repeat(12000);
+    s.h.writeClaude('project','compact-session',[
+      {type:'user',sessionId:'compact-session',cwd:s.cwd,timestamp:iso(TIME),isCompactSummary:true,isVisibleInTranscriptOnly:true,message:{content:body}},
+      {type:'user',sessionId:'compact-session',cwd:s.cwd,timestamp:iso(TIME),message:{content:'ordinary user'}},
+    ],{mtime:TIME});
+    const {result}=await s.start([...(json?['--json']:[]),...(verbose?['--verbose']:[])]);
+    s.controller.abort();assert.equal(await result,0);
+    assert.doesNotMatch(s.output.text,/PRIVATE_COMPACT_BODY|x{100}/);
+    if (json) {
+      const events=s.output.text.trim().split('\n').map(JSON.parse);
+      assert.deepEqual(events.filter(e=>e.kind==='user').map(e=>e.text),['ordinary user']);
+      assert.deepEqual(events.filter(e=>e.text?.startsWith('compact summary')).map(e=>[e.kind,e.text]),
+        verbose?[['notice',`compact summary (${body.length} chars)`]]:[]);
+    } else {
+      assert.equal(s.output.text.includes(`compact summary (${body.length} chars)`),verbose);
+      if (verbose) assert.match(s.output.text,/NOTICE +compact summary \(\d+ chars\)/);
+      assert.match(s.output.text,/USER +ordinary user/);
+    }
+  });
+}
