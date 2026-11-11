@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {makeHomes} from './fixtures/watch/homes.mjs';
 import {createWatcher} from '../../lib/watch/watcher.mjs';
 import {renderHuman} from '../../lib/watch/render.mjs';
+import {readClaudeHead, createClaudeDiscovery} from '../../lib/watch/discover-claude.mjs';
+import {readCodexMeta} from '../../lib/watch/discover-codex.mjs';
+import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {GIT_ALLOWED} from '../../lib/watch/git.mjs';
 
 const TIME = Date.parse('2026-11-11T12:00:00Z');
@@ -13,7 +17,7 @@ const iso = n => new Date(n).toISOString();
 const msg = (text, ts = TIME, type = 'UserMessage') => ({timestamp:iso(ts), type:'event_msg', payload:{type:'item_completed', item:{type, content:[{text}]}}});
 const meta = (id, cwd, originator='codex-tui', extra={}) => ({timestamp:iso(TIME-300000), type:'session_meta', payload:{id, cwd, originator, cli_version:'1.0', ...extra}});
 const cm = (id,cwd,text='hello',entrypoint='cli',ts=TIME) => ({timestamp:iso(ts), type:'user', sessionId:id,cwd,entrypoint,version:'2.0',message:{content:text}});
-function setup(t, options={}, kind='dir') {
+function setup(t, options={}, kind='dir', dependencies={}) {
   const h = makeHomes(t), cwd = path.join(h.root,'repo'), gcd=path.join(h.root,'git');
   fs.mkdirSync(cwd);
   let clock=TIME, roots=[cwd];
@@ -23,7 +27,7 @@ function setup(t, options={}, kind='dir') {
     if (args[0]==='worktree') return roots.map(r=>`worktree ${r}\0\0`).join('');
     return args.includes('--show-toplevel')?cwd:gcd;
   };
-  const w=createWatcher({options:{platforms:['codex','claude'],session:null,tail:20,verbose:false,...options},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock});
+  const w=createWatcher({options:{platforms:['codex','claude'],session:null,tail:20,verbose:false,...options},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock,dependencies});
   t.after(()=>w.close());
   const c=(id,lines=[msg('hello')],{origin='codex-tui',age=300000,cwd:dir=cwd,extra={},suffix=''}={})=>h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl${suffix}`,[meta(id,dir,origin,extra),...lines],{mtime:clock-age});
   const cl=(id,lines,opts={})=>h.writeClaude(cwd.replace(/[^A-Za-z0-9]/g,'-'),id,lines??[cm(id,cwd)],{mtime:clock-300000,...opts});
@@ -72,7 +76,7 @@ test('late mapping emits a notice and relabels later events',async t=>{const s=s
 test('swapping lease hostPlatform leaves human output identical',async t=>{const s=setup(t,{},'repo');s.c('bridge',undefined,{origin:'codex_exec'});s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});let previous;for(const hostPlatform of ['codex','claude']){s.lease('d123',{hostPlatform});const w=createWatcher({options:{platforms:['codex','claude'],tail:20,verbose:false},homes:{codex:s.h.codexHome,claude:s.h.claudeHome},scope:{kind:'repo',roots:[s.cwd],gitCommonDir:s.gcd},git:()=>null,now:()=>TIME});const out=lines(await w.start());if(previous)assert.deepEqual(out,previous);previous=out;await w.close();}});
 test('held bridge lease shows raw reasons; no lease shows nothing',async t=>{const s=setup(t,{},'all');assert.equal(content(await s.w.start()).length,0);s.lease('d123',{state:'failed',reasons:['host_sandbox_blocked','permission_scope_unverified']});s.advance(2000);const out=await s.w.tick(),e=content(out)[0];assert.equal(e.platform,undefined);assert.match(lines([e])[0],/arc\s+qa@d123\s+DISPATCH failed bridge wf-3 host_sandbox_blocked,permission_scope_unverified/);});
 test('platform filter removes other-platform sessions and unknown-platform dispatches',async t=>{const s=setup(t,{platforms:['codex']},'all');s.c('codex');s.cl('claude');s.lease('unknown');const out=content(await s.w.start());assert.ok(out.length>0);assert.ok(out.every(e=>e.platform==='codex'));});
-test('session filter by thread id, by dispatch id, and waiting for an unknown id',async t=>{for(const session of ['parent','d123','missing']){const s=setup(t,{session},'session');s.c('parent');s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('bridge',undefined,{origin:'codex_exec'});s.lease('d123',{sessionId:'bridge'});s.c('unrelated');const out=await s.w.start(),ids=[...new Set(content(out).map(e=>e.sessionId??e.dispatchId))].sort();assert.deepEqual(ids,session==='parent'?['child','parent']:session==='d123'?['bridge','d123']:[]);if(session==='missing')assert.ok(notices(out).includes('waiting for session missing'));}});
+test('session filter by thread id, by dispatch id, and waiting for an unknown id',async t=>{for(const session of ['parent','d123','missing']){const s=setup(t,{session},'session');s.c('parent');s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('bridge',undefined,{origin:'codex_exec'});s.lease('d123',{sessionId:'bridge'});s.c('unrelated');const out=await s.w.start(),ids=[...new Set(content(out).map(e=>e.sessionId??e.dispatchId))].sort();assert.deepEqual(ids,session==='parent'?['child','parent']:session==='d123'?['bridge','d123']:[]);if(session==='missing')assert.ok(!notices(out).includes('waiting for session missing'));}});
 test('more than 64 candidates follows the newest 64 with one notice',async t=>{const s=setup(t,{tail:1000});for(let i=0;i<66;i++)s.c(`id${i}`,[],{age:i*1000+10000});const out=await s.w.start();assert.equal(content(out).length,64);assert.ok(!content(out).some(e=>['id64','id65'].includes(e.sessionId)));assert.equal(notices(out).filter(x=>x==='following the newest 64 sessions; others are skipped').length,1);s.advance(2000);assert.ok(!notices(await s.w.tick()).some(x=>x.includes('newest 64')));});
 test('a file idle 30 minutes is detached and reattached when it grows',async t=>{const s=setup(t,{verbose:true}),f=s.c('idle');await s.w.start();s.advance(1800000);assert.ok(notices(await s.w.tick()).includes('detached idle session tui#idle'));s.append(f,[msg('return',TIME+1800000)]);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='return'));});
 test('verbose adds reasoning, settings and turn starts',async t=>{for(const verbose of [false,true]){const s=setup(t,{verbose});s.c('one',[{type:'event_msg',payload:{type:'thread_settings_applied',thread_settings:{model:'m'}}},{type:'event_msg',payload:{type:'task_started'}},{type:'event_msg',payload:{type:'item_completed',item:{type:'Reasoning',summary_text:['summary']}}}]);assert.deepEqual(content(await s.w.start()).map(e=>e.kind),verbose?['session','settings','turn_start','reasoning']:['session']);}});
@@ -123,8 +127,8 @@ test('Claude session filter follows only the selected session and its subagents'
   }]});
   s.c('codex-other');
   const out = content(await s.w.start());
-  assert.deepEqual([...new Set(out.map(e => e.sessionId))].sort(), ['claude-child','claude-selected']);
-  assert.equal(out.find(e => e.sessionId === 'claude-child').parentId, 'claude-selected');
+  assert.deepEqual([...new Set(out.map(e => e.sessionId))].sort(), ['agent-selected-child','claude-selected']);
+  assert.equal(out.find(e => e.sessionId === 'agent-selected-child').parentId, 'claude-selected');
   s.advance(2000);
   s.append(parent, [cm('claude-selected', s.cwd, 'selected append')]);
   s.append(other, [cm('claude-other', s.cwd, 'excluded append')]);
@@ -206,7 +210,7 @@ test('old Claude subagents resume from startup sizes under both recent and old p
     });
     const child = path.join(parent.slice(0,-6),'subagents','agent-child.jsonl');
     const initial = content(await s.w.start());
-    assert.ok(!initial.some(e => e.sessionId === 'child'));
+    assert.ok(!initial.some(e => e.sessionId === 'agent-child'));
     s.advance(2000);
     assert.deepEqual(content(await s.w.tick()), []);
     s.append(parent,[cm('parent',s.cwd,'parent new')]);
@@ -214,7 +218,7 @@ test('old Claude subagents resume from startup sizes under both recent and old p
     s.advance(2000);
     const out = content(await s.w.tick()).filter(e => e.kind !== 'session');
     assert.deepEqual(out.map(e => e.text).sort(), ['child new','parent new']);
-    assert.equal(out.find(e => e.sessionId === 'child').parentId,'parent');
+    assert.equal(out.find(e => e.sessionId === 'agent-child').parentId,'parent');
   }
 });
 
@@ -262,4 +266,94 @@ test('a newly discovered Claude transcript is buffered for label mapping rather 
   s.art('d123', {'events.jsonl':'{"kind":"init","sessionId":"new-claude"}\n'});
   const out = content(await s.w.tick());
   assert.ok(out.some(e => e.kind === 'user' && e.text === 'buffered Claude event' && e.label === 'qa@d123'));
+});
+
+
+test('R1 H1 real Claude child shares parent sessionId without replacing its stream', async t => {
+  const s=setup(t, {tail:1000}, 'all');
+  const fixture=name=>fs.readFileSync(new URL(`./fixtures/watch/${name}`,import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
+  const main=fixture('claude-main.jsonl'), child=fixture('claude-subagent.jsonl');
+  const id=main.find(r=>r.cwd&&r.sessionId).sessionId;
+  assert.equal(child.find(r=>r.cwd&&r.sessionId).sessionId,id);
+  const agentId=child.find(r=>r.agentId).agentId;
+  const meta=JSON.parse(fs.readFileSync(new URL('./fixtures/watch/claude-subagent.meta.json',import.meta.url),'utf8'));
+  const file=s.h.writeClaude('project',id,main,{mtime:TIME-300000,subagents:[{agentId,meta,lines:child,mtime:TIME-300000}]});
+  const initial=content(await s.w.start());
+  assert.ok(initial.some(e=>e.sessionId===`agent-${agentId}`&&e.parentId===id&&e.label===`main#${id.slice(-4)}/planner`));
+  s.append(file,[cm(id,s.cwd,'parent remains live')]);
+  assert.ok(content(await s.w.tick()).some(e=>e.sessionId===id&&e.text==='parent remains live'));
+});
+
+test('R1 H2 unchanged heads and child metadata are cached and dispatch scans once', async t => {
+  const calls={head:0,meta:0,dispatch:0};
+  const s=setup(t,{},'dir',{
+    readClaudeHead:async file=>{calls.head++;return readClaudeHead(file);},
+    readCodexMeta:async file=>{calls.meta++;return readCodexMeta(file);},
+    createDispatchIndex:args=>{const d=createDispatchIndex(args);return {...d,scan:async args=>{calls.dispatch++;return d.scan(args);}};},
+  });
+  s.c('excluded',undefined,{cwd:'/outside'});
+  const old=s.c('old',undefined,{age:18000000});
+  s.cl('recent',undefined,{subagents:[{agentId:'child',lines:[cm('recent',s.cwd)],mtime:TIME-300000}]});
+  s.cl('old-claude',undefined,{mtime:TIME-18000000});
+  await s.w.start();
+  assert.deepEqual(calls,{head:2,meta:1,dispatch:1});
+  s.advance(2000);await s.w.tick();
+  assert.deepEqual(calls,{head:2,meta:1,dispatch:2});
+  s.append(old,[msg('now eligible')]);s.advance(2000);await s.w.tick();
+  assert.equal(calls.meta,2);
+});
+
+test('R1 M2 cwd-less and vanished pending files stop per-tick discovery', async t => {
+  let scans=0;
+  const s=setup(t,{},'dir',{createClaudeDiscovery:args=>{const d=createClaudeDiscovery(args);return {...d,scan:async args=>{scans++;return d.scan(args);}};}});
+  s.cl('no-cwd',[{type:'user',sessionId:'no-cwd',message:{content:'hidden'}}]);
+  const gone=s.cl('gone',[{type:'user',sessionId:'gone'}]);
+  await s.w.start();fs.unlinkSync(gone);
+  for(let i=0;i<20;i++){s.advance(500);await s.w.tick();}
+  const atTimeout=scans;
+  for(let i=0;i<3;i++){s.advance(500);await s.w.tick();}
+  assert.equal(scans,atTimeout);
+  s.advance(500);await s.w.tick();assert.equal(scans,atTimeout+1);
+});
+
+test('R1 M3 old-date rollout growth resumes from the startup offset', async t => {
+  const s=setup(t);
+  const file=s.h.writeRollout(['2026','11','08'],'rollout-old-folder.jsonl',[meta('old-folder',s.cwd),msg('history')],{mtime:TIME-18000000});
+  assert.deepEqual(content(await s.w.start()),[]);
+  s.append(file,[msg('new in old folder')]);s.advance(2000);
+  assert.deepEqual(content(await s.w.tick()).filter(e=>e.kind!=='session').map(e=>e.text),['new in old folder']);
+  s.advance(1800000);await s.w.tick();
+  s.append(file,[msg('after detach')]);s.advance(2000);
+  assert.deepEqual(content(await s.w.tick()).filter(e=>e.kind!=='session').map(e=>e.text),['after detach']);
+});
+
+test('R1 L2 waiting for a missing session is verbose only', async t => {
+  for(const verbose of [false,true]){
+    const s=setup(t,{session:'missing',verbose},'session');
+    assert.equal(notices(await s.w.start()).includes('waiting for session missing'),verbose);
+    s.advance(2000);assert.ok(!notices(await s.w.tick()).includes('waiting for session missing'));
+  }
+});
+
+
+test('R1 H2 child growth does not reread unchanged per-file agent metadata', async t => {
+  const s=setup(t);
+  const file=s.cl('parent',undefined,{subagents:[
+    {agentId:'one',meta:{agentType:'arc-planner'},lines:[cm('parent',s.cwd)],mtime:TIME-300000},
+    {agentId:'two',meta:{agentType:'arc-qa'},lines:[cm('parent',s.cwd)],mtime:TIME-300000},
+    {agentId:'old',meta:{agentType:'arc-scouter'},lines:[cm('parent',s.cwd)],mtime:TIME-18000000},
+  ]});
+  s.cl('old-parent',undefined,{mtime:TIME-18000000,subagents:[
+    {agentId:'old-child',meta:{agentType:'arc-scouter'},lines:[cm('old-parent',s.cwd)],mtime:TIME-18000000},
+  ]});
+  let reads=0;
+  const open=fsp.open;
+  t.mock.method(fsp,'open',function(file,...args){if(String(file).endsWith('.meta.json')) reads++;return open.call(this,file,...args);});
+  await s.w.start();assert.equal(reads,2);
+  s.append(path.join(file.slice(0,-6),'subagents','agent-one.jsonl'),[cm('parent',s.cwd,'growth')]);
+  s.advance(2000);await s.w.tick();assert.equal(reads,2);
+  const metadata=path.join(file.slice(0,-6),'subagents','agent-two.meta.json');
+  fs.writeFileSync(metadata,JSON.stringify({agentType:'arc-reviewer'}));
+  fs.utimesSync(metadata,new Date(TIME+4000),new Date(TIME+4000));
+  s.advance(2000);await s.w.tick();assert.equal(reads,3);
 });

@@ -92,3 +92,12 @@ test('bad input never throws and timestamps remain raw', () => {
  for(const input of [null,undefined,'bad',[],{}, {type:'assistant',message:null}]) { assert.deepEqual(normalizeClaudeLine(input,createClaudeState()),[]); assert.equal(parseClaudeHead(input),null); }
  assert.deepEqual(normalizeClaudeLine({type:'user',timestamp:'raw',message:{content:'a\nb'}},createClaudeState()),[{ts:'raw',kind:'user',text:'a\nb'}]);
 });
+
+
+test('R1 M4 bash input and output blocks never expose markers', () => {
+ for(const tag of ['bash-input','bash-stdout','bash-stderr']) {
+  assert.deepEqual(user(`before<${tag}>WATCH_MARKER_output</${tag.toUpperCase()}>after`),[{kind:'user',text:'beforeafter'}]);
+  assert.deepEqual(user(`before<${tag.toUpperCase()}>WATCH_MARKER_output`),[{kind:'user',text:'before'}]);
+  assert.deepEqual(user(`<${tag}>WATCH_MARKER_output</${tag}>`),[]);
+ }
+});

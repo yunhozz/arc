@@ -49,3 +49,12 @@ test('verbose-only kinds are hidden by default', () => {
     assert.equal(isVisible(kind, true), true);
   }
 });
+
+
+test('R1 L1 equals flags and JSON secret keys mask only secret values', () => {
+ for(const [input,expected] of [
+  ['--password=hunter2','--password=***'], ['--api-key=abc','--api-key=***'], ['--auth=x','--auth=***'],
+  ['{"password":"hunter2"}','{"password":***}'], ['"api_key": "abc"','"api_key": ***'],
+ ]) assert.equal(maskSecrets(input),expected);
+ for(const text of ['author: Kim','tokenizer tests pass','--author=Kim']) assert.equal(maskSecrets(text),text);
+});

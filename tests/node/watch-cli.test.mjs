@@ -187,3 +187,18 @@ test('ticks never overlap and abort waits for an in-flight tick', async t => {
   await Promise.resolve();assert.equal(settled,false);
   release();await first;assert.equal(await result,0);assert.equal(s.cleared(),1);
 });
+
+
+test('R1 M1 Claude-only watch reads Codex dispatch leases and Claude init artifacts', async t => {
+ const s=setup(t), gcd=path.join(s.cwd,'.git');fs.mkdirSync(gcd);
+ s.io.env={CODEX_HOME:s.h.codexHome,CLAUDE_CONFIG_DIR:s.h.claudeHome};
+ s.io.git=async (dir,args)=>args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;
+ s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'bridge',[{type:'user',cwd:s.cwd,sessionId:'bridge',message:{content:'hello'}}],{mtime:TIME-300000});
+ s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
+ s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
+ const {result}=await s.start(['--platform','claude','--json']);
+ const events=s.output.text.trim().split('\n').map(JSON.parse);
+ assert.ok(events.some(e=>e.sessionId==='bridge'&&e.label==='planner@1234'));
+ assert.ok(events.some(e=>e.kind==='dispatch'&&e.platform==='claude'&&e.label==='planner@1234'));
+ s.controller.abort();assert.equal(await result,0);
+});

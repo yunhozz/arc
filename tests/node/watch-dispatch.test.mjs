@@ -159,6 +159,7 @@ test('scan never creates or modifies files', async t => {
   await scan(index, [gcd]);
   assert.deepEqual(await homes.snapshot(), withLease);
   const absent = createDispatchIndex({codexHome:null});
-  assert.deepEqual(await scan(absent, [gcd], true), []);
-  assert.deepEqual(absent.list(), []);
+  assert.equal((await scan(absent, [gcd], true)).length, 1);
+  assert.equal(absent.bySession('T1').inScope, true);
+  assert.deepEqual(await homes.snapshot(), withLease);
 });
