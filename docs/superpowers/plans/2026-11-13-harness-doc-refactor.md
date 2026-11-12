@@ -333,14 +333,15 @@ PY
   - `tests/node/plan.test.mjs:147-154` 중 `skipGlobal=false` 키(실패 키만)
   - 수정하지 않는 것: `tests/installer-parity.json:11482`(O3)
 
-- [ ] T4-1 handoff 상태를 확인한다.
-- [ ] T4-2 리터럴만 편집한다.
-- [ ] T4-3 fixture와 테스트를 같은 줄에서 교체하고 §8.4 기록을 작성한다.
-- [ ] T4-4 `node scripts/update-manifest.mjs` → `npm run check:manifest`. MANIFEST에 `lib/` 항목이 없으면 diff 0이 정상이다.
-- [ ] T4-5 Implementer가 Q-FULL을 실행하고 보고한다.
-- [ ] T4-6 fresh QA: Q-FULL, Q-B(`global-config.mjs`), Q-D, Q-E. 실제 전역 설치는 하지 않는다.
-- [ ] T4-7 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(installer): bootstrap 지침 규범 표기 대문자화`.
+- [x] T4-1 handoff 상태를 확인한다.
+- [x] T4-2 리터럴만 편집한다.
+- [x] T4-3 fixture와 테스트를 같은 줄에서 교체하고 §8.4 기록을 작성한다.
+- [x] T4-4 `node scripts/update-manifest.mjs` → `npm run check:manifest`. MANIFEST에 `lib/` 항목이 없으면 diff 0이 정상이다.
+- [x] T4-5 Implementer가 Q-FULL을 실행하고 보고한다.
+- [x] T4-6 fresh QA: Q-FULL, Q-B(`global-config.mjs`), Q-D, Q-E. 실제 전역 설치는 하지 않는다.
+- [x] T4-7 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(installer): bootstrap 지침 규범 표기 대문자화`.
 - **수용 기준:** AC-3, AC-4, AC-6, AC-9, AC-10(global-config), AC-11, AC-12, AC-13, AC-15.
+- **진행 기록(2026-11-13 수락):** `global-config.mjs:42-43` 리터럴 2곳(`DO NOT load`, `MUST NOT edit`)을 바꿨다. `does not transfer`는 비대상이다. 테스트 기대값은 4줄(`instruction-contracts.json:13,125`, `global-config.test.mjs:10`, `test_arc_policy.py:850`)을 바꿨고, O8에 따라 SHA는 미갱신이다. QA 2a1f79ee에서 AC-4·6·9·10·11·12·13이 proven(node pass 1759·새 실패 0, Python 신규·증가 0)이다. AC-3·15는 최종 Reviewer가 판정한다.
 - **hold:** T1 hold 조건과 같다. 리터럴 밖의 수정이 필요한 경우도 hold한다.
 
 ## F1: 최종 Reviewer(전체 1회)

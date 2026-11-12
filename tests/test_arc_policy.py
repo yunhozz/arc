@@ -847,7 +847,7 @@ class ImplementerBriefAndReuseTests(unittest.TestCase):
 
     def test_loader_keeps_subagents_on_profiles(self) -> None:
         body = node_agents_block_body()
-        self.assertIn("ARC subagents (depth 2) follow their role profile and brief instead and do not load `SKILL.md`.", body)
+        self.assertIn("ARC subagents (depth 2) follow their role profile and brief instead and DO NOT load `SKILL.md`.", body)
 
 class LongTaskTokenTests(unittest.TestCase):
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
