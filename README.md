@@ -48,15 +48,15 @@ Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl
 
 ## Models and language
 
-The Orchestrator uses the current conversation model. Specialist roles use the active role settings in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml). The TUI is in English; the selected response language applies to agents in new sessions.
+![Role models and platforms](docs/images/role-models.svg)
 
-In `Claude & Codex` under `Install / Update` and `Change Models`, the role editor opens immediately. Each role can use either platform and any model/effort pair in that platform's static catalog. New configurations assign Planner and Reviewer to Claude and the other roles to Codex, using installed active values or package defaults. All five roles may use the same platform. `Apply` publishes the configuration directly. Installation offers shared `Settings` for both platforms; `Global config` defaults to On.
+- **Orchestrator:** the current conversation model.
+- **Specialist roles:** active settings in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml); edit them with `Change Models`.
+- **Claude & Codex:** each role runs on either platform. New configurations put Planner and Reviewer on Claude and the rest on Codex. `Apply` publishes; start a new session to load new profiles.
+- **Catalogs:** model and effort choices come from packaged catalogs, with no API key or model-list call; a choice is not proof that your account can use it.
+- **Language:** the TUI is in English; the selected response language applies to agents in new sessions.
 
-Model and effort choices come from the packaged Codex and Claude catalogs, without a model-list API call or a separate API key. They are static candidates and do not establish that an account, CLI version, or provider can use a selection. A saved model and effort absent from the catalog remains visible and must be reselected before applying new settings. Codex authentication is checked by refreshing the login token through `codex app-server`; this needs network access and rotates the tokens in `CODEX_HOME/auth.json`. Claude authentication checks continue to use `claude auth status`.
-
-The composite configuration separates saving and activation from role execution. Role execution support is reported per role and environment by `routing-status`: `claude-cli` hosts support native routes and Codex bridges, `codex-cli` hosts support native routes while every bridge is held as `host_sandbox_blocked` (G2; Claude bridge Implementer and QA on a Codex host are additionally held as `permission_scope_unverified` by G1), and on Codex Desktop and Claude Desktop Code sessions every role (native and bridge) is held as `environment_unverified` in this release (the manual checklist in `docs/harness-operation.md` is a list of manual checks for a future ARC update, not a way to release the hold). Applying a new profile requires a new session on that host, and the `cooperative-8` runtime requires running Install / Update again.
-
-Composite mode removes owned standalone `arc-*` profiles from both homes and keeps per-role `arc-routing-*` profiles. Selecting Codex or Claude shows a switch confirmation; after `Continue`, choosing `Apply` turns off composite mode, restores standalone profiles for installed platforms, and performs the selected operation.
+Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
 
 ## Guides
 
