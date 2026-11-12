@@ -252,20 +252,22 @@
 
 **결정:** 사용자 지시 "TOOL도 마찬가지로 흐린 회색"은 END 등과 같은 `2`(dim)로 해석(Orchestrator 해석) — TOOL 태그·본문 모두 `2`. 본문에는 색 코드만(Q6). 흐린 `2`와 CMD `38;5;242`도 태그와 똑같이(Q7). 이 변경은 기존 계약 "message continuation lines carry no color"(watch-render.test.mjs:152-157)와 harness-operation.md:95 "Other bodies … have no color"를 대체한다. 과거 spec `docs/superpowers/specs/2026-11-11-arc-watch-design.md`의 색 표는 승인 이력이므로 고치지 않는다.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
   - 134행 표의 TOOL을 `'2'`로.
   - 신규 `body color matches tag color without attributes`: 130-137행 표의 각 입력에서 `renderHuman({...,text:'t'},{color:true,width:120,verbose:true})`가 `\x1b[${body}mt\x1b[0m`으로 끝남(USER `35`, TOOL `2`, AGENT `32`, CMD `38;5;242`, 나머지는 태그와 같음). APPROVE는 SGR 없이 `t`로 끝남. `bodyColor` 반환값도 단언.
   - 152-157 대체 `message lines are colored per line with uncolored indentation`: 실패 4종 `endsWith('\x1b[31mnode --test\x1b[0m')` 유지. `{kind:'agent',role:'implementer',text:'a\n\nb'}` 결과에서 `lines[1]===''`, `lines[2]===' '.repeat(prefixLen)+'\x1b[32mb\x1b[0m'`(`prefixLen`은 ANSI 제거한 첫 줄의 prefix 폭). 158행(width 10에서 색 없음) 유지.
   - 신규 `color off output is byte-identical for every kind`: 표의 모든 입력에서 `color:false` 출력에 `\x1b` 없음, 기대 문자열은 현재 코드 기준 고정.
-- [ ] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/watch-render.test.mjs`.
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/watch-render.test.mjs`.
+- [x] **Step 3: 구현**
   - `renderHuman`: 50행 `failure` 분기를 `bodyColor`로 대체. 메시지 종류는 비어 있지 않은 각 줄의 내용만 `paint(line, code)`(들여쓰기 제외). 한 줄 종류는 `clippedText`를 감쌈. code가 `''`이거나 본문이 비면 감싸지 않음. 49·56행 조기 반환 유지.
   - `docs/harness-operation.md` 88행 `| \`TOOL\` | \`2\` |`; 95행 첫 두 문장을 "Bodies use their KIND color without bold or underline attributes: `USER` bodies use `35`, `APPROVE` bodies have no color, and failure bodies stay red (`31`). Each message line, including continuation lines, is colored separately; indentation is not colored, and parts wrapped by the terminal keep the line's color."로 교체. 나머지 유지, 한글 금지.
-- [ ] **Step 4: 통과 확인** — `node --test --test-timeout=120000 tests/node/watch-render.test.mjs tests/node/watch-cli.test.mjs tests/node/watch-watcher.test.mjs`. 실패 0.
-- [ ] **Step 5: manifest** — T1과 같음.
-- [ ] **Step 6: 수락 전 확인** — QA 없음. Orchestrator가 집중 테스트·전체 스위트 확인, 실제 TTY에서 `arc watch` 긴 AGENT 메시지 줄바꿈 색 유지 수동 확인. 커밋 `feat(watch): match body colors to KIND tags`.
+- [x] **Step 4: 통과 확인** — `node --test --test-timeout=120000 tests/node/watch-render.test.mjs tests/node/watch-cli.test.mjs tests/node/watch-watcher.test.mjs`. 실패 0.
+- [x] **Step 5: manifest** — T1과 같음.
+- [x] **Step 6: 수락 전 확인** — QA 없음. Orchestrator가 집중 테스트·전체 스위트 확인, 실제 TTY에서 `arc watch` 긴 AGENT 메시지 줄바꿈 색 유지 수동 확인. 커밋 `feat(watch): match body colors to KIND tags`.
 
 **Hold:** `--json`·NO_COLOR 출력 변경; 정제 테스트(49-54, 75-76행) 실패.
+
+**Result (2026-11-12, 진행 기록):** 집중 테스트(render·cli·watcher) 103/103 통과, 색 비활성 출력 고정 테스트 통과, 문서 한글 없음. 전체 스위트 실행 중 시스템 부하로 5개 파일이 120s 파일 단위 시간 초과 → 단독 재실행 시 베이스라인 외 실패 1건(`missing transcript effort ...`, lib/watch와 무관)만 남았고 그 테스트도 단독 재실행 통과(flaky). 실제 TTY 줄바꿈 색 유지 확인은 사용자 환경 수동 확인으로 남김. Orchestrator 수락.
 
 ---
 
