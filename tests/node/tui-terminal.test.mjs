@@ -101,3 +101,9 @@ test('formatLine clamps colors and ignores unknown roles',()=>{
  assert.equal(api.formatLine('ab',{line:0,runs:[{from:0,to:1,role:'logo',fg:[300,-5,12.6]},{from:1,to:2,role:'bogus',fg:[1,2,3]}]},'truecolor'),'\x1b[0;38;2;255;0;13ma\x1b[0mb');
  assert.equal(api.formatLine('😀x',{runs:[{from:0,to:1,role:'logo',fg:[1,2,3]}]},'truecolor'),'\x1b[0;38;2;1;2;3m😀\x1b[0mx');assert.equal(api.formatLine('plain',{runs:[{from:0,to:5,role:'title',bold:true}]},'none'),'plain');
 });
+
+test('status tones vanish without color',t=>{
+ const screen={wordmark:true,rows:['Claude: Available / Codex: Not Available','Codex: Unauthorized','Codex: Incomplete'],rowTones:['status','status','status']};
+ for(const env of [{NO_COLOR:'',COLORTERM:'truecolor'},{TERM:'dumb'}]){const io=session(t,{env});io.session.render(screen);assert.doesNotMatch(io.text(),/\x1b\[[0-9;]*m/);assert.match(io.text(),/Claude: Available \/ Codex: Not Available/);}
+ const basic=session(t,{env:{TERM:'xterm'}});basic.session.render(screen);assert.ok(basic.text().includes('\x1b[0;32mAvailable'));assert.ok(basic.text().includes('\x1b[0;2mNot Available'));assert.ok(basic.text().includes('\x1b[0;31mUnauthorized'));assert.ok(basic.text().includes('\x1b[0;33mIncomplete'));
+});

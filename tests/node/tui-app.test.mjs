@@ -228,3 +228,17 @@ test('home capacity follows wordmarkRows in a 17-row terminal',async()=>{
  const{createTuiInterface}=await load(),session=terminal([...down(4),enter]);let last,screen;session.viewport=()=>({columns:80,rows:17});session.render=value=>{screen=value;last=renderScreen(screen,session.viewport());return last;};
  assert.equal(await createTuiInterface(session).menu('ARC',['Install / Update','Change Models','Check Version','Uninstall','Exit'],{wordmark:true,info:['Status','Diagnostic','Diagnostic','Diagnostic']}),4);assert.equal(last.selectionEnabled,true);assert.equal(screen.position,undefined);assert.equal(screen.rows.filter(row=>['Install / Update','Change Models','Check Version','Uninstall','Exit'].includes(row)).length,5);
 });
+
+test('home passes status and diagnostic tones without changing row text',async()=>{
+ const{runTui}=await load(),session=terminal([...down(2),enter,back,back]);
+ await runTui({session,context:{},services:{currentInstallMode:()=> 'composite',collectStatus:async()=>['claude','codex'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},diagnostics:platform==='claude'?[{message:'diagnostic'}]:[]})),prepareOperation:async()=>({kind:'update',currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false})}});
+ const screen=session.screens[0];assert.deepEqual(screen.rows,['Claude & Codex: Available','Claude: diagnostic','','Install / Update','Change Models','Check Version','Uninstall','Exit']);assert.deepEqual(screen.rowTones,['status','diagnostic',undefined,undefined,undefined,undefined,undefined,undefined]);
+ assert.ok(session.screens.filter(screen=>!screen.wordmark).every(screen=>screen.rowTones===undefined));
+ const unknown=terminal([back]);await runTui({session:unknown,context:{},services:{collectStatus:async()=>[{platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'probe failed'}}]}});assert.deepEqual(unknown.screens[0].rows.slice(0,2),['Codex: Incomplete','Codex: probe failed']);assert.deepEqual(unknown.screens[0].rowTones.slice(0,2),['status','diagnostic']);
+});
+test('wrapped info keeps tones per display line',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([enter]);session.viewport=()=>({columns:30,rows:40});
+ await createTuiInterface(session).menu('ARC',['Exit'],{info:['Codex: Available / Claude: Not Available','Codex: '+ 'x'.repeat(50),''],infoTones:['status','diagnostic',undefined]});
+ assert.deepEqual(session.screens[0].rows,['Codex: Available / Claude: ','Not Available','Codex: '+ 'x'.repeat(20),'x'.repeat(27),'xxx','','Exit']);assert.deepEqual(session.screens[0].rowTones,['status','status','diagnostic','diagnostic-cont','diagnostic-cont',undefined,undefined]);
+ const replaced=terminal([enter]);await createTuiInterface(replaced).menu('Settings',['Back'],{info:['Codex: boom'],infoTones:['diagnostic'],renderBody:()=>({rows:['Back'],selected:0})});assert.equal(replaced.screens[0].rowTones,undefined);
+});

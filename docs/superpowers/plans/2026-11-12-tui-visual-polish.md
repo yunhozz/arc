@@ -170,22 +170,24 @@
 
 **결정 근거:** Incomplete·unverified·알 수 없는 상태는 warn(조치 필요, 실패 아님). 진단 줄(`<Label>: <message>`)과 인증 reason 줄은 메시지 부분만 warn. 합성 줄 `Claude & Codex: Available`은 일반 `Label: State` 문법으로 ok.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
   - tui-render `status tones color only state words`: `renderScreen({title:'ARC',wordmark:true,version:'0.3.0',rows:['Claude: Available / Codex: Not Available','Codex: boom','','Install / Update'],rowTones:['status','diagnostic',undefined,undefined],selected:3})` → `Available`/`Not Available`/`boom` 위치에 `ok`/`muted`/`warn` run(행 앞 `'  '`로 오프셋 +2), 라벨에는 run 없음. `Claude & Codex: Available` ok, `Unauthorized` error, `Incomplete`·`weird` warn.
   - tui-render `wrapped diagnostic continuation is fully warned`: `'diagnostic-cont'` 행은 `from:2`부터 줄 끝까지 run 하나.
   - tui-app `home passes status and diagnostic tones without changing row text`: 211-213행 composite/authenticated 케이스 재사용, `screens[0].rows[0]==='Claude & Codex: Available'`, `rowTones[0]==='status'`, `'Claude: diagnostic'` 행 tone `'diagnostic'`, 빈 줄·메뉴 항목 tone `undefined`.
   - tui-app `wrapped info keeps tones per display line`: columns 30에서 긴 진단은 첫 줄 `'diagnostic'`, 나머지 `'diagnostic-cont'`.
   - tui-terminal `status tones vanish without color`: NO_COLOR 출력에 SGR 없음; 16색에서 `\x1b[0;32mAvailable`, `\x1b[0;2mNot Available`.
-- [ ] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs tests/node/tui-terminal.test.mjs`.
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs tests/node/tui-terminal.test.mjs`.
+- [x] **Step 3: 구현**
   - app.mjs:73: info와 함께 `infoTones`(상태 줄 `'status'`, 진단·인증 reason 줄 `'diagnostic'`).
   - `menu()`: info 행을 하나씩 `wrapDetailRows([row], columns)`로 감싸 행별 tone 생성(첫 줄 원래 tone, `diagnostic` 이어지는 줄 `diagnostic-cont`, `status` 이어지는 줄 `status`). `rowTones`는 `screen.rows` 인덱스와 맞춘다. `renderBody`가 본문을 대체하면 넘기지 않는다.
   - render.mjs: `status`는 보이는 줄을 `' / '`로 나눠 `^(.+?): (.+)$` 구간의 상태 부분에 run; `diagnostic`은 첫 `': '` 다음부터 줄 끝까지 warn; `diagnostic-cont`는 앞 `'  '` 제외 줄 전체 warn.
-- [ ] **Step 4: 통과 확인** — Step 2 명령. 베이스라인 외 실패 0, `management-status` 베이스라인 실패 내용 불변.
-- [ ] **Step 5: manifest** — T1과 같음.
-- [ ] **Step 6: 수락 전 확인** — QA 없음. Orchestrator가 집중 테스트, 전체 스위트, 120x40 truecolor 홈 캡처(상태 색) 확인. 커밋 `feat(tui): semantic home status colors`.
+- [x] **Step 4: 통과 확인** — Step 2 명령. 베이스라인 외 실패 0, `management-status` 베이스라인 실패 내용 불변.
+- [x] **Step 5: manifest** — T1과 같음.
+- [x] **Step 6: 수락 전 확인** — QA 없음. Orchestrator가 집중 테스트, 전체 스위트, 120x40 truecolor 홈 캡처(상태 색) 확인. 커밋 `feat(tui): semantic home status colors`.
 
 **Hold:** 홈 rows 텍스트 변경(기존 181-188, 211-213 실패); tone 메타데이터가 비홈 화면에 샘.
+
+**Result (2026-11-12, 진행 기록):** 집중 테스트 123/124(베이스라인 1건 불변), 신규 5건과 A1 출력 예산 통과. 줄바꿈 테스트 기대값을 27칸 규칙에 맞게 정정(Implementer 보고). 전체 스위트 1852개 중 51 실패, 베이스라인 대비 새 실패 0(`management status ...`는 통과). Orchestrator 수락.
 
 ---
 

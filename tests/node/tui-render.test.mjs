@@ -89,3 +89,18 @@ test('inner truecolor frames stay within the PTY output budget',()=>{
  const result=api.renderScreen({title:'Uninstall',rows:['Codex','Claude','Everything (incl. CLI)','Back'],selected:2},{columns:120,rows:40});
  const bytes=result.text.split('\n').reduce((total,line,index)=>total+Buffer.byteLength(formatLine(line,result.styles.find(style=>style.line===index),'truecolor')),0);assert.ok(bytes<800,`Frame uses ${bytes} bytes; expected fewer than 800`);
 });
+
+test('status tones color only state words',()=>{
+ const screen={title:'ARC',wordmark:true,version:'0.3.0',rows:['Claude: Available / Codex: Not Available','Codex: boom','','Install / Update'],rowTones:['status','diagnostic',undefined,undefined],selected:3},result=api.renderScreen(screen);
+ assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:10,to:19,role:'ok',fg:[52,211,153]},{from:29,to:42,role:'muted',fg:[128,128,128]}]);
+ assert.deepEqual(result.styles.find(style=>style.line===9)?.runs,[{from:9,to:13,role:'warn',fg:[251,191,36]}]);
+ assert.equal(result.text,api.renderScreen({...screen,rowTones:undefined}).text);
+ for(const [row,from,to,role,fg] of [['Claude & Codex: Available',18,27,'ok',[52,211,153]],['Codex: Unauthorized',9,21,'error',[248,113,113]],['Codex: Incomplete',9,19,'warn',[251,191,36]],['Codex: weird',9,14,'warn',[251,191,36]],['Codex: unverified',9,19,'warn',[251,191,36]]]){
+  const rendered=api.renderScreen({wordmark:true,rows:[row],rowTones:['status']});assert.deepEqual(rendered.styles.find(style=>style.line===8)?.runs,[{from,to,role,fg}]);
+ }
+ const plain=api.renderScreen({title:'Details',rows:['Codex: Available','Codex: boom']});assert.ok(!plain.styles.some(style=>style.runs.some(run=>['ok','muted','error','warn'].includes(run.role))));
+});
+test('wrapped diagnostic continuation is fully warned',()=>{
+ const result=api.renderScreen({wordmark:true,rows:['continued message'],rowTones:['diagnostic-cont']});assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:2,to:19,role:'warn',fg:[251,191,36]}]);
+ const clipped=api.renderScreen({wordmark:true,rows:['Codex: Available / Claude: Unauthorized'],rowTones:['status']},{columns:30,rows:24});assert.deepEqual(clipped.styles.find(style=>style.line===8)?.runs,[{from:9,to:18,role:'ok',fg:[52,211,153]}]);
+});
