@@ -273,15 +273,16 @@ PY
   - 영향 없음: `tests/node/agent-fragments.test.mjs:15`(`/i`), `tests/test_arc_policy.py:1350`
   - codex agents 산문에는 대상이 없다(P0). 다른 산문 대상을 발견하면 편집하지 않고 보고한다.
 
-- [ ] T2-1 handoff 상태를 확인하고 각 테스트 행의 원문 출처(fragment, 템플릿 산문, 관리 블록)를 확정한다. 관리 블록 출처이면 T1에서 처리됐어야 하므로 불일치를 보고한다.
-- [ ] T2-2 fragments 문구와 산문 3곳을 편집한다. frontmatter, marker 줄, 관리 블록은 건드리지 않는다.
-- [ ] T2-3 `npm run check:role-policy`(기대: exit 0, 관리 블록 불변 확인)
-- [ ] T2-4 T1-5와 같은 방법으로 SHA를 다시 계산하고 문자열을 갱신한 뒤 §8.4 기록을 작성한다.
-- [ ] T2-5 `node scripts/update-manifest.mjs` → `npm run check:manifest`
-- [ ] T2-6 Implementer가 Q-FULL을 실행하고 보고한다.
-- [ ] T2-7 fresh QA: Q-FULL(`tests/node/agent-fragments.test.mjs` 통과 포함), Q-A(조각 수·역할별 개수 출력 포함), Q-B, Q-D, Q-E(`agent-fragments.json` + 3개 파일 비관리 구간)
-- [ ] T2-8 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(agents): 에이전트 지침 조각 규범 표기 대문자화`.
+- [x] T2-1 handoff 상태를 확인하고 각 테스트 행의 원문 출처(fragment, 템플릿 산문, 관리 블록)를 확정한다. 관리 블록 출처이면 T1에서 처리됐어야 하므로 불일치를 보고한다.
+- [x] T2-2 fragments 문구와 산문 3곳을 편집한다. frontmatter, marker 줄, 관리 블록은 건드리지 않는다.
+- [x] T2-3 `npm run check:role-policy`(기대: exit 0, 관리 블록 불변 확인)
+- [x] T2-4 T1-5와 같은 방법으로 SHA를 다시 계산하고 문자열을 갱신한 뒤 §8.4 기록을 작성한다.
+- [x] T2-5 `node scripts/update-manifest.mjs` → `npm run check:manifest`
+- [x] T2-6 Implementer가 Q-FULL을 실행하고 보고한다.
+- [x] T2-7 fresh QA: Q-FULL(`tests/node/agent-fragments.test.mjs` 통과 포함), Q-A(조각 수·역할별 개수 출력 포함), Q-B, Q-D, Q-E(`agent-fragments.json` + 3개 파일 비관리 구간)
+- [x] T2-8 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(agents): 에이전트 지침 조각 규범 표기 대문자화`.
 - **수용 기준:** AC-3, AC-4, AC-5, AC-6, AC-9, AC-10(fragments), AC-11, AC-12, AC-13, AC-15.
+- **진행 기록(2026-11-13 수락):** fragments 16개의 42곳과 템플릿 산문 2곳(`arc-planner.md:26`, `arc-scouter.md:28`)을 대소문자만 바꿨다. 신규 hold는 `claude/agents/arc-implementer.md:29` "never inferred from size"(주어 없는 분사구)다. 테스트 변경은 0이고, O8에 따라 SHA를 갱신하지 않았다. QA 6543a79b에서 AC-4·5·6·9·11·12가 proven이다. AC-10·13은 Orchestrator가 직접 확인했다: `agent-fragments.test.mjs` 4/5 통과(실패 1은 T0 baseline SHA), T0 대비 새 실패 ID 0, ID별 증가 0. AC-3·15는 최종 Reviewer가 판정한다.
 - **hold:** T1 hold 조건에 더해, 조각 ID·개수 변경이 필요한 경우와 frontmatter·TOML 비`developer_instructions` 키에 대상 단어가 있는 경우(§3.1).
 
 ## T3: SKILL.md와 references 비관리 구간 대문자화

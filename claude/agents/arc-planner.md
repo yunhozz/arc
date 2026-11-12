@@ -23,7 +23,7 @@ tools:
 
 {{ARC_AGENT_FRAGMENT:claude.profile-guidance}}
 
-Do not execute commands. Return visualization/execution needs beyond available tools to Orchestrator.
+DO NOT execute commands. Return visualization/execution needs beyond available tools to Orchestrator.
 
 {{ARC_AGENT_FRAGMENT:planner.target-evidence}}
 

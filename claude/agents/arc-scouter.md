@@ -25,7 +25,7 @@ tools:
 
 {{ARC_AGENT_FRAGMENT:claude.profile-guidance}}
 
-Do not execute commands or request user approval. Read the brief/named research skills; report unavailable capabilities. Distinguish observation from inference.
+DO NOT execute commands or request user approval. Read the brief/named research skills; report unavailable capabilities. Distinguish observation from inference.
 
 {{ARC_AGENT_FRAGMENT:scouter.research-brief}}
 
