@@ -4,6 +4,31 @@ import * as renderer from '../../lib/watch/render.mjs';
 import {renderHuman, renderJson, kindTag} from '../../lib/watch/render.mjs';
 const event = {ts:'2026-11-11T00:01:15.000Z',platform:'codex',label:'tui#e2e8',kind:'command',text:'git status',exitCode:0};
 const options = {width:120, color:false, verbose:false};
+test('displayPath shortens only absolute paths inside the root', () => {
+  assert.equal(typeof renderer.displayPath, 'function');
+  for (const [file, root, want] of [
+    ['/repo/arc/docs/x.md','/repo/arc','arc/docs/x.md'],
+    ['/repo/arc','/repo/arc','arc'],
+    ['/private/tmp/x','/repo/arc','/private/tmp/x'],
+    ['/repo/arc-other/x','/repo/arc','/repo/arc-other/x'],
+    ['docs/x.md','/repo/arc','docs/x.md'],
+    ['/repo/arc/x','repo/arc','/repo/arc/x'],
+    ['/repo/arc/x',undefined,'/repo/arc/x'],
+  ]) assert.equal(renderer.displayPath(file,root),want);
+});
+test('CREATE and EDIT keep all paths and colors even below prefix width', () => {
+  const file = '/repo/arc/docs/' + 'long-name-'.repeat(20) + '.md';
+  for (const kind of ['file_create','file_change']) for (const width of [40,10]) {
+    for (const color of [false,true]) {
+      const out = renderHuman({...event,kind,text:'updated',root:'/repo/arc',paths:[file,'/private/tmp/outside.md']}, {...options,width,color});
+      const plain = out.replace(/\x1b\[[0-9;]*m/g,'');
+      assert.equal(plain.slice(25), 'updated arc/docs/' + 'long-name-'.repeat(20) + '.md /private/tmp/outside.md');
+      assert.ok(!plain.includes('…'));
+      assert.equal(plain.split('\n').length,1);
+      if (color) assert.match(out,/\x1b\[/);
+    }
+  }
+});
 test('renderHuman has no label column', () => {
   const line = renderHuman(event, options);
   assert.match(line.slice(0,8), /^\d\d:\d\d:\d\d$/);

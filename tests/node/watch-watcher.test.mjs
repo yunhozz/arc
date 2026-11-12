@@ -6,7 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {makeHomes} from './fixtures/watch/homes.mjs';
 import {createWatcher} from '../../lib/watch/watcher.mjs';
-import {renderHuman} from '../../lib/watch/render.mjs';
+import {renderHuman, renderJson} from '../../lib/watch/render.mjs';
 import {readClaudeHead, createClaudeDiscovery} from '../../lib/watch/discover-claude.mjs';
 import {readCodexMeta} from '../../lib/watch/discover-codex.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
@@ -39,6 +39,67 @@ function setup(t, options={}, kind='dir', dependencies={}) {
 const content = events=>events.filter(e=>e.source!=='watch');
 const notices = events=>events.filter(e=>e.source==='watch').map(e=>e.text);
 const lines=(events,verbose=false)=>events.map(e=>renderHuman(e,{width:200,color:false,verbose}));
+
+test('scope roots match real cwd aliases and render real-root paths', async t => {
+  const s = setup(t), alias = path.join(s.h.root,'repo-alias');
+  fs.symlinkSync(s.cwd,alias,'dir');
+  const real = fs.realpathSync(s.cwd), file = path.join(real,'docs/x.md');
+  s.c('aliased',[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}}}],{cwd:path.join(real,'src')});
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome},scope:{kind:'dir',roots:[alias]},
+    git:async () => { throw Error('scope root must avoid Git'); },now:()=>TIME});
+  t.after(()=>w.close());
+  const changed = content(await w.start()).find(e=>e.kind==='file_change');
+  assert.equal(changed.root,alias);
+  assert.equal(renderHuman(changed,{width:40,color:false}).slice(25),'repo-alias/docs/x.md');
+});
+
+test('subdirectory sessions use the longest containing scope root on both platforms', async t => {
+  const s = setup(t), nested = path.join(s.cwd,'nested');
+  const scope = {kind:'dir',roots:[s.cwd,nested]};
+  const cwd = path.join(nested,'src');
+  s.c('codex-root',undefined,{cwd});
+  s.cl('claude-root',[cm('claude-root',cwd)]);
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome,claude:s.h.claudeHome},scope,
+    git:async () => { throw Error('scope root must avoid Git'); },now:()=>TIME});
+  t.after(()=>w.close());
+  const out = content(await w.start());
+  assert.deepEqual([...new Set(out.map(e=>e.platform))].sort(),['claude','codex']);
+  assert.ok(out.every(e=>e.root===nested));
+});
+
+test('all-scope roots use cached Git top-level results without leaking into JSON', async t => {
+  const s = setup(t,{},'all'), cwd = path.join(s.cwd,'src'), file = path.join(s.cwd,'docs/x.md');
+  s.c('first',[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}}}],{cwd});
+  s.c('second',undefined,{cwd});
+  let calls = 0;
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome},scope:{kind:'all',roots:[]},
+    git:async (dir,args) => {
+      if (args===GIT_ALLOWED[0]) { assert.equal(dir,cwd); calls++; return s.cwd + '\n'; }
+      return null;
+    },now:()=>TIME});
+  t.after(()=>w.close());
+  const out = content(await w.start());
+  assert.ok(out.every(e=>e.root===s.cwd));
+  assert.equal(calls,1);
+  const changed = out.find(e=>e.kind==='file_change');
+  assert.equal(renderHuman(changed,{width:40,color:false}).slice(25),'repo/docs/x.md');
+  const json = JSON.parse(renderJson(changed));
+  assert.equal('root' in json,false);
+  assert.deepEqual(json.paths,[file]);
+});
+
+test('missing or failed Git top-level falls back to the session cwd', async t => {
+  for (const result of [null,'  ',new Error('git unavailable')]) {
+    const s = setup(t), cwd = path.join(s.cwd,'src');
+    s.c('fallback',undefined,{cwd});
+    const w = createWatcher({options:{tail:20,session:'fallback'},homes:{codex:s.h.codexHome},scope:{kind:'dir',roots:[]},
+      git:async () => { if (result instanceof Error) throw result; return result; },now:()=>TIME});
+    t.after(()=>w.close());
+    const out = content(await w.start());
+    assert.ok(out.length>0);
+    assert.ok(out.every(e=>e.root===cwd));
+  }
+});
 
 test('start shows banner, the last 20 recent events in ts order, then live',async t=>{
   const s=setup(t); s.c('codex',Array.from({length:15},(_,i)=>msg(`c${i}`,TIME-300000+i*2000)));
