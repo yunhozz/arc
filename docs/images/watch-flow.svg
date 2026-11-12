@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 520" width="1560" height="520" role="img" aria-labelledby="title description">
+<title id="title">arc watch read-only session stream</title>
+<desc id="description">arc watch reads Claude Code and Codex session logs, keeps sessions in the selected scope, drops tool and command outputs, masks common secret patterns, and prints one read-only stream as text or JSON lines.</desc>
+<defs>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#203442} .heading{font-size:30px;font-weight:700} .label{font-size:25px;font-weight:700} .detail{font-size:22px} .note{font-size:21px} .flow{fill:none;stroke:#526675;stroke-width:3} .card{fill:white;stroke:#b1c0c8;stroke-width:2}</style></defs>
+<rect width="1560" height="520" rx="24" fill="#f4f6f5"/>
+<text x="50" y="51" class="heading">arc watch: one read-only stream</text>
+<text x="50" y="87" class="detail">Reads local session logs only; never writes to sessions.</text>
+
+<rect x="50" y="125" width="320" height="120" rx="14" class="card"/>
+<text x="70" y="161" class="label">Claude Code</text>
+<text x="70" y="193" class="detail">Session logs</text>
+<text x="70" y="222" class="detail">and subagents</text>
+<rect x="50" y="285" width="320" height="120" rx="14" class="card"/>
+<text x="70" y="321" class="label">Codex CLI</text>
+<text x="70" y="353" class="detail">Session logs</text>
+<text x="70" y="382" class="detail">(Desktop excluded)</text>
+
+<rect x="440" y="125" width="320" height="280" rx="14" class="card" style="fill:#e9f1f7"/>
+<text x="460" y="161" class="label">Scope</text>
+<text x="460" y="197" class="detail">Default: all worktrees</text>
+<text x="460" y="226" class="detail">of the current repo</text>
+<text x="460" y="268" class="detail">--cwd · --all</text>
+<text x="460" y="297" class="detail">--session · --platform</text>
+
+<rect x="830" y="125" width="320" height="280" rx="14" class="card"/>
+<text x="850" y="161" class="label">Filter</text>
+<text x="850" y="197" class="detail">Drop tool and</text>
+<text x="850" y="226" class="detail">command outputs</text>
+<text x="850" y="268" class="detail">Mask common</text>
+<text x="850" y="297" class="detail">secret patterns</text>
+
+<rect x="1220" y="125" width="290" height="280" rx="14" class="card" style="fill:#e9f3ed"/>
+<text x="1240" y="161" class="label">Stream</text>
+<text x="1240" y="197" class="detail">Messages in full</text>
+<text x="1240" y="226" class="detail">Other events: 1 line</text>
+<text x="1240" y="268" class="detail">--tail history</text>
+<text x="1240" y="297" class="detail">--json lines</text>
+<text x="1240" y="339" class="detail">Ctrl-C to stop</text>
+
+<g class="connector"><path class="flow" d="M370 185 H440"/><polygon points="440,185 426,178 426,192" fill="#526675"/></g>
+<g class="connector"><path class="flow" d="M370 345 H440"/><polygon points="440,345 426,338 426,352" fill="#526675"/></g>
+<g class="connector"><path class="flow" d="M760 265 H830"/><polygon points="830,265 816,258 816,272" fill="#526675"/></g>
+<g class="connector"><path class="flow" d="M1150 265 H1220"/><polygon points="1220,265 1206,258 1206,272" fill="#526675"/></g>
+
+<text x="50" y="455" class="note">Masking is not complete. Bridge roles on Codex hosts stay held (host_sandbox_blocked) and appear once they run.</text>
+<text x="50" y="488" class="note">Options: arc watch --help</text>
+</svg>
