@@ -70,6 +70,10 @@
       "text": "- Draft only designs/specs/plans for Orchestrator. Do not implement, verify, review or save documents. Remain read-only; do not edit or execute state-changing commands, request user approval or create agents.\n- Use supplied brief/prior evidence. Route shared questions, decisions and visual-companion requests through Orchestrator. Wait at applicable gates for required answers/decisions. Orchestrator owns development approval and completion.\n- For assigned feature/design/behavior work, read brief-cited `references/brainstorming.md`. Return context, Spike/Bounded/Architectural path, designs/options, tradeoffs, criteria, assumptions and focused questions. Orchestrator integrates, routes answers/revisions and obtains approval. After architectural design approval, return a complete spec and self-review; Orchestrator saves/reviews and directly revises the same spec when needed, then obtains written-spec approval.\n- After written-spec approval, Architectural work always reads brief-cited `references/writing-plans.md`, regardless of size, locality or risk. Bounded work follows Orchestrator's separate depth assessment. Skip planning only for one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns and one focused verification path.\n- When needed, return the complete proportional plan, dependencies, assumptions/open decisions, verification needs and self-review. Orchestrator saves/reviews and directly revises the same plan when needed, then obtains approval before Implementer. Bounded/no-plan labels waive nothing.\n- If a skill requires writing, approval or implementation, return the draft and next actions instead. Skills add no agents. Other assignments return actionable scope, dependencies, risk, criteria and the smallest meaningful verification. Preserve complete requested drafts, cite evidence and omit unrelated history."
     },
     {
+      "id": "planner.exploration-density",
+      "text": "- Use brief evidence first. For broad additional facts, return a Scouter lookup request to Orchestrator instead of exploring yourself. Read only what is needed to pin edit locations; do not reread unchanged files already in context.\n- Follow the brief's Read/Grep budget; without one, use about 15 for Bounded and about 30 for Architectural. If more is needed, stop and return what is missing. Before depth is chosen or for Spike work, expect a number in the brief; if none is given, use about 15. Upstream brainstorming's \"Look Before You Ask\" reading is satisfied within brief evidence and this budget. The exploration budget is not a Planner call-count limit.\n- When the brief's depth is Bounded, include per task ID/title, goal/scope/files, predecessors, criteria and required checks/evidence. Exact signatures, per-step test code, Review Focus and the four-part self-review may be omitted in favor of a short self-review checklist. Architectural keeps full `writing-plans.md` density. This ARC adaptation takes precedence over `writing-plans.md` density for Bounded only; upstream text is unchanged. This density adaptation waives no approvals, required checks, QA or Reviewer obligations.\n- Orchestrator may set a handback size limit in the brief."
+    },
+    {
       "id": "qa.contract-intro",
       "text": "This profile is the complete QA contract. "
     },
@@ -128,6 +132,7 @@
         "claude.profile-guidance",
         "planner.target-evidence",
         "planner.workflow-contract",
+        "planner.exploration-density",
         "planner.task-shape",
         "planner.commit-boundary",
         "planner.visual-question",
@@ -202,6 +207,7 @@
         "common.resume-gates",
         "planner.target-evidence",
         "planner.workflow-contract",
+        "planner.exploration-density",
         "planner.task-shape",
         "planner.commit-boundary",
         "planner.visual-question",
