@@ -62,7 +62,7 @@ test('usage errors exit 2 with a message',async t=>{
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP,expected);assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected);assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
 });
 test('root lists watch and keeps other behavior',async t=>{
@@ -98,10 +98,10 @@ test('unexpected exceptions return 1 with one stderr line',async t=>{const s=set
 test('color and width follow TTY, NO_COLOR, json and resize',async t=>{
   for(const [tty,env,args,ansi,width] of [[true,{},[],true,100],[true,{NO_COLOR:'1'},[],false,100],[true,{},['--json'],false,null],[false,{},[],false,200],[true,{},['--width','80'],true,80],[true,{},[],true,60]]) {
     const s=setup(t);s.output.isTTY=tty;s.output.columns=width===60?30:100;s.io.env=env;
-    const f=s.write('width',s.cwd,[command('x'.repeat(400))]);
+    const f=s.write('width',s.cwd,[command('x'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}]);
     const {result}=await s.start(args);assert.equal(s.output.text.includes('\x1b['),ansi);
     if(width)assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=width));
-    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,JSON.stringify(command('y'.repeat(400)))+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
+    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,[command('y'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}].map(JSON.stringify).join('\n')+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
     s.controller.abort();assert.equal(await result,0);
   }
 });
@@ -273,3 +273,31 @@ for (const json of [false,true]) for (const verbose of [false,true]) {
     }
   });
 }
+
+test('TTY spinner advances, erases before events, clears on end and stop', async t => {
+  for (const env of [{},{NO_COLOR:'1'}]) {
+    const s=setup(t);s.output.isTTY=true;s.io.env=env;
+    const file=s.write('spinner');const {result}=await s.start();
+    assert.ok(strip(s.output.text).endsWith('⠋ working…'));
+    if (env.NO_COLOR) assert.doesNotMatch(s.output.text,/\x1b\[[0-9;]*m/);
+    else assert.match(s.output.text,/\x1b\[2m⠋ working…\x1b\[0m$/);
+    s.output.text='';await s.step();
+    assert.equal(strip(s.output.text),'\r\x1b[2K⠙ working…');
+    s.output.text='';fs.appendFileSync(file,JSON.stringify(msg('next'))+'\n');await s.step();
+    assert.ok(s.output.text.startsWith('\r\x1b[2K'));
+    assert.ok(strip(s.output.text).endsWith('⠹ working…'));
+    s.output.text='';fs.appendFileSync(file,JSON.stringify({type:'event_msg',payload:{type:'task_complete'}})+'\n');await s.step();
+    assert.ok(s.output.text.startsWith('\r\x1b[2K'));
+    assert.doesNotMatch(s.output.text,/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+    fs.appendFileSync(file,JSON.stringify(msg('again'))+'\n');await s.step();
+    s.output.text='';s.controller.abort();assert.equal(await result,0);
+    assert.equal(s.output.text,'\r\x1b[2K');
+  }
+});
+test('non-TTY and JSON output never include spinner controls', async t => {
+  for(const [tty,args] of [[false,[]],[false,['--json']],[true,['--json']]]) {
+    const s=setup(t);s.output.isTTY=tty;s.write('busy');
+    const {result}=await s.start(args);await s.step();s.controller.abort();assert.equal(await result,0);
+    assert.doesNotMatch(s.output.text,/[\r⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+  }
+});

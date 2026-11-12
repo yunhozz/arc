@@ -74,3 +74,18 @@ test('bad input never throws and timestamps remain raw', () => {
  for(const value of [null,undefined,'bad',[],{}, {type:'event_msg',payload:null},{type:'event_msg',payload:{type:'item_completed',item:null}}]) { assert.deepEqual(normalize(value),[]); assert.equal(parseCodexMeta(value),null); }
  assert.deepEqual(normalize({timestamp:'raw',type:'event_msg',payload:{type:'error',message:'a\nb'}}),[{ts:'raw',kind:'error',text:'a\nb'}]);
 });
+
+test('file changes split added paths before updates and moves', () => {
+  for (const type of ['FileChange','PatchApply']) {
+    assert.deepEqual(item(type,{changes:{'/n':{type:'add'},'/u':{type:'update',move_path:'/m'}}}), [
+      {kind:'file_create',paths:['/n']},{kind:'file_change',paths:['/u','/m']},
+    ]);
+    assert.deepEqual(item(type,{changes:{'/n':{type:'add'}}}), [{kind:'file_create',paths:['/n']}]);
+    assert.deepEqual(item(type,{changes:{'/n':{add:{content:'private'}}}}), [{kind:'file_create',paths:['/n']}]);
+    assert.deepEqual(item(type,{changes:[{path:'/n',type:'add'},{file:'/n2',kind:{type:'add'}},{path:'/u',type:'delete'}]}), [
+      {kind:'file_create',paths:['/n','/n2']},{kind:'file_change',paths:['/u']},
+    ]);
+    assert.deepEqual(item(type,{changes:{}}), [{kind:'file_change',paths:[]}]);
+  }
+  assert.deepEqual(event('apply_patch_approval_request',{changes:{'/n':{type:'add'}}}), [{kind:'approval',paths:['/n']}]);
+});

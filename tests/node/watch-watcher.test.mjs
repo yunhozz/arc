@@ -383,3 +383,37 @@ test('AC-W26 verbose diagnostic notices use id8 for every session identity', asy
   for (const id of ids) assert.ok(notices(out).includes(`session file removed: ${id.slice(0,8)}`));
   assert.doesNotMatch(lines(out,true).join('\n'), /tui#|exec#|main#|qa@d123/);
 });
+
+test('busy tracks user and agent activity, ends, and five minutes of inactivity', async t => {
+  const s = setup(t), file = s.c('busy',[],{age:0});
+  await s.w.start();
+  assert.equal(s.w.busy?.(), false);
+  for (const type of ['UserMessage','AgentMessage']) {
+    s.append(file,[msg('working',TIME,type)]);await s.w.tick();
+    assert.equal(s.w.busy?.(),true);
+    s.append(file,[{type:'event_msg',payload:{type:'task_complete'}}]);await s.w.tick();
+    assert.equal(s.w.busy(),false);
+  }
+  s.append(file,[msg('working')]);await s.w.tick();
+  s.advance(300001);
+  assert.equal(s.w.busy(),false);
+});
+test('busy replays history before the verbose filter and follows all rows', async t => {
+  const s = setup(t,{tail:0});
+  const ended = s.c('ended',[msg('done'),{type:'event_msg',payload:{type:'task_complete'}}],{age:0});
+  const active = s.c('active',[{type:'event_msg',payload:{type:'task_started'}}],{age:0});
+  await s.w.start();
+  assert.equal(s.w.busy?.(),true);
+  s.append(active,[{type:'event_msg',payload:{type:'task_complete',error:{message:'failed'}}}]);await s.w.tick();
+  assert.equal(s.w.busy(),false);
+  s.append(ended,[{type:'event_msg',payload:{type:'task_started'}}]);await s.w.tick();
+  assert.equal(s.w.busy(),true);
+  fs.unlinkSync(ended);await s.w.tick();
+  assert.equal(s.w.busy(),false);
+});
+test('busy counts held sessions before their events are visible', async t => {
+  const s = setup(t);await s.w.start();s.advance(2000);
+  s.c('held',[msg('working')],{origin:'codex_exec',age:0});
+  assert.deepEqual(content(await s.w.tick()),[]);
+  assert.equal(s.w.busy?.(),true);
+});
