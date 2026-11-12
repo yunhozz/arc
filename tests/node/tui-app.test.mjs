@@ -250,6 +250,25 @@ test('home ticks repaint with increasing frames and one pending read',async()=>{
 test('menu without frameMs never ticks on home',async()=>{
  const{createTuiInterface}=await load(),session=terminal([]);let resolveEvent;session.nextEvent=()=>new Promise(resolve=>{resolveEvent=resolve;});const result=createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true});await new Promise(resolve=>setTimeout(resolve,40));resolveEvent(enter);await result;assert.equal(session.screens.length,1);
 });
+test('home ticks subscribe only once to the pending event promise',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([]),subscriptions=new WeakMap(),originalThen=Promise.prototype.then;let resolveEvent,ticks=0,maximum=0,reads=0;
+ session.frameMs=1;session.nextEvent=()=>{reads++;return new Promise(resolve=>{resolveEvent=resolve;});};session.repaint=()=>{if(++ticks===12)resolveEvent(enter);return{selectionEnabled:true};};
+ Promise.prototype.then=function(...args){const count=(subscriptions.get(this)??0)+1;subscriptions.set(this,count);maximum=Math.max(maximum,count);return originalThen.apply(this,args);};
+ try{assert.equal(await createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true}),0);}finally{Promise.prototype.then=originalThen;}
+ assert.equal(ticks,12);assert.equal(reads,1);assert.equal(maximum,1);
+});
+test('busy awaits the action after a spinner repaint failure',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([]);let repaints=0,finished=false;session.frameMs=1;session.repaint=()=>{repaints++;throw Error('paint failed');};
+ assert.equal(await createTuiInterface(session).busy(async()=>{await new Promise(resolve=>setTimeout(resolve,30));finished=true;return 42;}),42);
+ assert.equal(finished,true);assert.equal(repaints,1);await new Promise(resolve=>setTimeout(resolve,10));assert.equal(repaints,1);
+});
+test('home keeps wrapped state fragments in their original status tone',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([enter]);session.viewport=()=>({columns:35,rows:24});
+ await createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true,info:['Claude: Available / Codex: Not Available'],infoTones:['status']});
+ const screen=session.screens[0],result=renderScreen(screen,session.viewport()),lines=result.text.split('\n');assert.deepEqual(screen.rows.slice(0,2),['Claude: Available / Codex: Not A','vailable']);
+ const states=result.styles.flatMap(style=>style.runs.filter(run=>['ok','muted','warn','error'].includes(run.role)).map(run=>[lines[style.line].slice(run.from,run.to),run.role]));
+ assert.deepEqual(states,[['Available','ok'],['Not A','muted'],['vailable','muted']]);
+});
 for(const ending of ['return','throw'])test('busy spinner stops before leaving busy on '+ending,async()=>{
  const{createTuiInterface}=await load(),session=terminal([]),calls=[];session.frameMs=10;session.setBusy=value=>calls.push(value);session.repaint=screen=>calls.push(screen.frame);
  const result=createTuiInterface(session).busy(async()=>{await new Promise(resolve=>setTimeout(resolve,45));if(ending==='throw')throw Error('action failed');return 42;});if(ending==='throw')await assert.rejects(result,/action failed/);else assert.equal(await result,42);

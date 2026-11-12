@@ -277,6 +277,8 @@
 - **최종 Reviewer 1회**가 T1–T5 전체 변경을 검토. 중점: 입력 수명주기(`repaint`, 타이머, dispose), "Only terminal.mjs emits" 규칙, PTY 문자열 연속성, 색 등급 폴백, watch 색 계약 변경.
 - Reviewer 지적은 Implementer → Reviewer 재확인 루프로 처리하고, 해결 후 후속 커밋 하나로 남긴다.
 
+**Result (2026-11-12, 진행 기록):** 최종 Reviewer가 F1(Medium, 홈 틱마다 오래 대기 중인 pending에 반응 누적), F2(Low, busy 스피너 repaint 실패 시 action이 감독 없이 계속 실행), F3(Low, 감긴 상태어 조각의 잘못된 tone)을 보고 → Implementer 수정(F1 구독 13회→1회, F2 action 결과까지 대기, F3 원문 기준 상태 구간 매핑) → 같은 Reviewer 재확인 결과 모두 resolved, 승인. 정보성 메모 2건(repaint 예외 진단 정보 손실, `spans` 끝부분 정렬)은 동작 영향 없음으로 미반영. 실제 PTY type-ahead 확인(스윕 중 4ms 간격 키 입력 5회) 모두 정상. 최종 전체 스위트 1875개 중 51 실패, 베이스라인 대비 새 실패 0. manifest 검증 통과. Orchestrator 수락.
+
 ## 수용 기준 매핑
 
 | AC | 내용 | Task |

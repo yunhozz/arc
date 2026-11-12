@@ -104,6 +104,10 @@ test('wrapped diagnostic continuation is fully warned',()=>{
  const result=api.renderScreen({wordmark:true,rows:['continued message'],rowTones:['diagnostic-cont']});assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:2,to:19,role:'warn',fg:[251,191,36]}]);
  const clipped=api.renderScreen({wordmark:true,rows:['Codex: Available / Claude: Unauthorized'],rowTones:['status']},{columns:30,rows:24});assert.deepEqual(clipped.styles.find(style=>style.line===8)?.runs,[{from:9,to:18,role:'ok',fg:[52,211,153]}]);
 });
+test('clipping a known status never changes its tone to warning',()=>{
+ const result=api.renderScreen({title:'ARC',rows:['Claude: Available / Codex: Not Available'],rowTones:['status']},{columns:35,rows:24});
+ assert.deepEqual(result.styles.find(style=>style.line===1).runs,[{from:10,to:19,role:'ok',fg:[52,211,153]},{from:29,to:34,role:'muted',fg:[128,128,128]}]);
+});
 
 test('frame 0 equals no frame and rest frames equal frame 0',()=>{
  const home={wordmark:true,rows:['Exit'],selected:0},first=api.renderScreen(home);for(const frame of [0,18,35,36])assert.deepEqual(api.renderScreen({...home,frame}),first);
