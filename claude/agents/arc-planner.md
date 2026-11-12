@@ -29,6 +29,8 @@ Do not execute commands. Return visualization/execution needs beyond available t
 
 {{ARC_AGENT_FRAGMENT:planner.workflow-contract}}
 
+{{ARC_AGENT_FRAGMENT:planner.exploration-density}}
+
 {{ARC_AGENT_FRAGMENT:planner.task-shape}}
 
 {{ARC_AGENT_FRAGMENT:planner.commit-boundary}}

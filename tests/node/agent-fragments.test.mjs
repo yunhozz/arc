@@ -23,9 +23,9 @@ test('expands all approved profile templates to their independently recorded ori
   }
   const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
   const fixture = JSON.parse(await read('tests/node/fixtures/instruction-contracts.json'));
-  assert.equal(registry.fragments.length, 25);
+  assert.equal(registry.fragments.length, 26);
   assert.equal(registry.targets.length, 10);
-  assert.deepEqual(registry.targets.map((target) => target.fragments.length), [8, 13, 10, 12, 11, 5, 11, 8, 10, 9]);
+  assert.deepEqual(registry.targets.map((target) => target.fragments.length), [8, 14, 10, 12, 11, 5, 12, 8, 10, 9]);
   for (const target of registry.targets) {
     const source = await read(target.path);
     const before = Buffer.from(source);

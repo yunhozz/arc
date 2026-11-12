@@ -26,6 +26,7 @@
 - **선행:** 없음.
 - **기준:** 두 profile이 같은 fragment를 같은 위치·순서로 참조한다. 기존 "Bounded work follows Orchestrator's separate depth assessment"와 충돌하지 않는다. upstream 파일 해시 불변.
 - **필수 점검:** `node --test tests/node/agent-fragments.test.mjs tests/node/manifest.test.mjs`, `npm run check:manifest`, `npm run check:role-policy`(변경 없이 통과).
+- **진행 기록 (2026-11-12, 수락):** 완료. `lib/prompts/render.mjs`의 `EXPECTED` 두 Planner 목록에도 id를 추가해야 했다(렌더러 id 허용 목록, Orchestrator 범위 확장 승인; bridge 사후 감지 `permission_violation_observed`는 이 경로로 대조 완료). focused 테스트 84 통과·1 실패이며, 실패한 `expands all approved profile templates ...`는 master `99ba7ce`에서도 10개 프로필 전부 해시 불일치인 기존 기준선 실패다. MANIFEST 재생성은 master에서 이미 stale이던 `scripts/deploy.sh` 해시도 함께 갱신했다.
 
 ## T2: coordination.md와 planning.md 두 사본 (R1의 Orchestrator 쪽, R2, R3의 Orchestrator 쪽)
 
