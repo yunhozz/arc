@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {formatLine} from '../../lib/tui/terminal.mjs';
 const api=await import('../../lib/tui/render.mjs').catch(()=>({}));
 test('renderer escapes injected terminal controls in every user-visible field',()=>{
  assert.equal(typeof api.renderScreen,'function');
@@ -15,47 +16,109 @@ test('shared hints exactly describe menu, page, input and busy controls',()=>{
  assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');
 });
-test('home wordmark is compact, readable without ANSI and absent on inner screens',()=>{
- const home=api.renderScreen({title:'ARC',wordmark:true,rows:['Configure','Update','Uninstall','Exit'],selected:0});
- const lines=home.text.split('\n');assert.ok(lines.length<=14);assert.doesNotMatch(home.text,/^[ \t]*ARC[ \t]*$/m);assert.deepEqual(lines.slice(0,5),['  █████    ███████     ███████ ', '██     ██  ██    ██   ██       ', '█████████  ███████    ██       ', '██     ██  ██   ██    ██       ', '██     ██  ██    ██    ███████ ']);assert.ok(lines.slice(0,5).every(line=>[...line].length===31));assert.doesNotMatch(home.text,/#/);assert.match(lines[5],/^─+$/);assert.equal(lines[5].length,34);assert.equal(lines[6].length,34);assert.doesNotMatch(home.text,/\x1b/);
- assert.ok(home.styles.length>0);assert.doesNotMatch(api.renderScreen({title:'Configure',rows:['Install / Reconfigure']}).text,/[█▀▄]/);
-
-});
 test('detail wrapping preserves every escaped character without horizontal truncation',()=>{
  assert.equal(typeof api.wrapDetailRows,'function');const source='/tmp/'+('long/').repeat(30)+'END\x1b[2J\rnote';const lines=api.wrapDetailRows([source],24);
  assert.equal(lines.join(''),api.escapeTerminalText(source));assert.ok(lines.every(line=>line.length<=21));
  const wide=api.wrapDetailRows(['ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ'],12);assert.equal(wide.join(''),'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ');assert.ok(wide.every(line=>[...line].length<=4));
 });
-test('outline and green rule remain visible after terminal grows',()=>{
- const screen={title:'ARC',wordmark:true,rows:['Destination','Changes','Apply']};
-
- const expanded=api.renderScreen(screen,{columns:80,rows:24});assert.equal(expanded.text.split('\n')[5].length,34);
-});
-
-test('five-row ARC home fits status and all four actions with footer in 24 rows',()=>{
- const screen={title:'ARC',wordmark:true,rows:['Codex: Installed','Claude: Not installed','Configure','Update','Uninstall','Exit'],selected:2};
- const rendered=api.renderScreen(screen,{columns:80,rows:24});assert.equal(rendered.text.split('\n').length,15);assert.match(rendered.text,/> Configure/);assert.match(rendered.text,/Exit/);assert.match(rendered.text,/Esc Home$/);
-});
-
-test('pixel logo metadata colors only its visible filled cells and keeps gradient stops across its width',()=>{
- const rendered=api.renderScreen({title:'ARC',wordmark:true,rows:['Configure'],selected:0});const lines=rendered.text.split('\n');
- const logo=rendered.styles.filter(style=>style.color==='logo');assert.equal(logo.length,5);
- for(const style of logo){for(const cell of style.cells){assert.equal(lines[style.line][cell.column] ,'█');assert.equal(cell.rgb.length,3);}}
- assert.deepEqual(logo[2].cells.find(cell=>cell.column===0).rgb,[183,228,199]);assert.deepEqual(logo[0].cells.find(cell=>cell.column===15).rgb,[114,196,155]);assert.deepEqual(logo[0].cells.find(cell=>cell.column===29).rgb,[64,145,108]);
- assert.ok(logo.every(style=>!style.cells.some(cell=>cell.column===30)));
- const clipped=api.renderScreen({title:'ARC',wordmark:true,rows:['Apply']},{columns:8,rows:3});assert.ok(!clipped.styles.some(style=>style.line===2&&style.color==='logo'));assert.doesNotMatch(rendered.text,/\x1b/);
-});
-
-test('filled logo uses single-column blocks and clipped metadata tracks only visible cells',()=>{
- const screen={title:'ARC',wordmark:true,rows:['Apply'],hint:'Back'};
-
- const clipped=api.renderScreen({...screen},{columns:12,rows:24});const lines=clipped.text.split('\n');
- for(const style of clipped.styles.filter(style=>style.color==='logo')){assert.ok(lines[style.line].length<=11);assert.equal(style.cells.length,[...lines[style.line]].filter(character=>character==='█').length);assert.ok(style.cells.every(cell=>cell.column<11&&lines[style.line][cell.column]==='█'));}
-});
-
 test('responsive footer remains outside selectable rows',()=>{for(const columns of [40,80,120]){const screen={title:'Menu',rows:['One','Two'],selected:1};const result=api.renderScreen(screen,{columns,rows:24});const lines=result.text.split('\n');assert.equal(lines.at(-3),'');assert.equal(lines.at(-2),'─'.repeat(columns-1));assert.equal(screen.rows.length,2);assert.equal(result.selectionEnabled,true);}});
 test('footer reserves space and blocks hidden selected actions',()=>{assert.equal(api.renderScreen({title:'Menu',rows:['Apply'],selected:0},{columns:80,rows:4}).selectionEnabled,false);});
 
 test('small viewport pins footer and blocks hidden actions',()=>{const result=api.renderScreen({title:'Menu',rows:['Required information','Apply'],selected:1},{columns:100,rows:4});assert.equal(result.selectionEnabled,false);assert.equal(result.text.split('\n').at(-1),'↑/↓: Select · Enter Continue · Esc Home');assert.equal(result.text.split('\n').at(-2),'─'.repeat(99));});
 
 test('renderer returns selection safety without Review confirmation API or warning',()=>{const result=api.renderScreen({title:'Settings',rows:['Apply'],selected:0},{columns:80,rows:4});assert.equal('applyEnabled' in result,false);assert.equal(result.selectionEnabled,false);assert.doesNotMatch(result.text,/Resize terminal to review/);});
+
+const shadowLogo=[' █████╗ ██████╗  ██████╗','██╔══██╗██╔══██╗██╔════╝','███████║██████╔╝██║     ','██╔══██║██╔══██╗██║     ','██║  ██║██║  ██║╚██████╗','╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝'];
+test('home heading renders the six-row shadow logo, tagline and 38-column rule',()=>{
+ const result=api.renderScreen({title:'ARC',wordmark:true,version:'0.3.0',rows:['Install / Update'],selected:0}),lines=result.text.split('\n');
+ assert.deepEqual(lines.slice(0,6),shadowLogo);assert.equal(lines[6],' ✦ agent role coordination   ver 0.3.0');assert.equal(lines[7],'─'.repeat(38));assert.doesNotMatch(result.text,/\x1b/);assert.ok(lines.length<=16);
+ const full=api.renderScreen({wordmark:true,rows:['Codex: Installed','Claude: Not installed','Configure','Update','Uninstall','Exit'],selected:2});assert.equal(full.text.split('\n').length,17);
+});
+test('tagline falls back to version only, then clips',()=>{
+ assert.equal(api.renderScreen({wordmark:true,version:'0.3.0'},{columns:31,rows:24}).text.split('\n')[6],' ✦ ver 0.3.0');
+ assert.equal(api.renderScreen({wordmark:true},{columns:27,rows:24}).text.split('\n')[6],' ✦ agent role coordination');
+});
+test('narrow or short viewport uses the two-row compact heading',()=>{
+ assert.equal(api.wordmarkRows({columns:80,rows:24}),8);assert.equal(api.wordmarkRows({columns:24,rows:24}),2);assert.equal(api.wordmarkRows({columns:80,rows:17}),2);
+ const result=api.renderScreen({wordmark:true,version:'0.3.0'},{columns:24,rows:24}),lines=result.text.split('\n');assert.equal(lines[0],'ARC ✦ ver 0.3.0');assert.equal(lines[1],'─'.repeat(23));
+ assert.deepEqual(result.styles[0].runs.slice(0,3).map(run=>run.fg),[[178,245,214],[81,221,168],[16,185,129]]);
+});
+test('cellWidth counts box drawing, sparkle and braille as one column',()=>{
+ for(const character of ['═','✦','✧','⠋','─','█','▟','←'])assert.equal(api.cellWidth(character),1);assert.equal(api.cellWidth('Ａ'),2);assert.equal(api.cellWidth('\u0301'),0);
+});
+test('gradient stops are pinned',()=>{
+ for(const [t,want] of [[-1,[178,245,214]],[0,[178,245,214]],[1/3,[110,231,183]],[2/3,[52,211,153]],[1,[16,185,129]],[2,[16,185,129]]])assert.deepEqual(api.gradientAt(t),want);
+});
+test('logo runs color filled and shadow cells only',()=>{
+ const result=api.renderScreen({wordmark:true}),lines=result.text.split('\n');
+ for(let row=0;row<6;row++){const runs=result.styles.find(style=>style.line===row).runs;for(let col=0;col<[...lines[row]].length;col++){
+  const character=[...lines[row]][col],run=runs.find(run=>run.from<=col&&col<run.to);if(character===' '){assert.equal(run,undefined);continue;}
+  assert.equal(run.role,character==='█'?'logo':'shadow');const color=api.gradientAt((col+0.75*row)/26.75);assert.deepEqual(run.fg,character==='█'?color:color.map(value=>Math.round(value*0.55)));
+ }}
+ assert.deepEqual(result.styles[0].runs[0].fg,[170,243,211]);
+});
+test('selected row is one contiguous run with a padded tail',()=>{
+ const result=api.renderScreen({title:'Menu',rows:['Configure'],selected:0}),line=result.text.split('\n')[1],runs=result.styles.find(style=>style.line===1).runs;
+ assert.equal(line.length,38);assert.deepEqual(runs[0],{from:0,to:11,role:'selected',fg:[236,253,245],bg:[6,95,70],bold:true});assert.equal(runs.length,2);assert.deepEqual(runs[1],{from:11,to:38,role:'selectedPad',bg:[9,70,53]});
+});
+test('hint segments and separators are separate runs',()=>{
+ const result=api.renderScreen({title:'Menu',position:'1-2/3'}),lines=result.text.split('\n'),runs=result.styles.find(style=>style.line===lines.length-1).runs;
+ assert.deepEqual(runs.map(run=>[lines.at(-1).slice(run.from,run.to),run.role,run.fg]),[['↑/↓: Select','hint',[150,170,160]],[' · ','hintSep',[70,95,85]],['Enter Continue','hint',[150,170,160]],[' · ','hintSep',[70,95,85]],['Esc Home','hint',[150,170,160]]]);
+ assert.deepEqual(result.styles.find(style=>style.line===1).runs,[{from:0,to:5,role:'position',fg:[110,130,120]}]);
+});
+test('title uses a bold mint run on inner screens',()=>{
+ const result=api.renderScreen({title:'Check Version',rows:['Upgrade','Back'],selected:0});assert.deepEqual(result.styles[0],{line:0,runs:[{from:0,to:13,role:'title',fg:[110,231,183],bold:true}]});assert.equal(result.text.split('\n').length,6);
+});
+test('rules use the pinned gradients',()=>{
+ const result=api.renderScreen({wordmark:true}),lines=result.text.split('\n'),home=result.styles.find(style=>style.line===7).runs,footer=result.styles.find(style=>style.line===lines.length-2).runs;
+ const colorAt=(runs,col)=>runs.find(run=>run.from<=col&&col<run.to).fg;
+ assert.equal(lines[7].length,38);assert.deepEqual(colorAt(home,0),[178,245,214]);assert.deepEqual(colorAt(home,37),[23,66,51]);assert.deepEqual(footer,[{from:0,to:79,role:'rule',fg:[36,140,106]}]);
+ for(const runs of [home,footer])for(let i=1;i<runs.length;i++)assert.notDeepEqual(runs[i-1].fg,runs[i].fg);
+});
+test('visible runs stay sorted, nonoverlapping and bounded after clipping',()=>{
+ for(const columns of [8,24,27,80])for(const rows of [3,17,24]){const result=api.renderScreen({wordmark:true,rows:['Ａ😀 Configure','Back'],selected:0,position:'1/2'},{columns,rows}),lines=result.text.split('\n');assert.equal(new Set(result.styles.map(style=>style.line)).size,result.styles.length);for(const style of result.styles){let end=0;for(const run of style.runs){assert.ok(run.from>=end);assert.ok(run.to>run.from&&run.to<=[...lines[style.line]].length);end=run.to;}}}
+});
+
+test('clipped tagline retains its visible color run and full heading colors stay distinct',()=>{
+ const clipped=api.renderScreen({wordmark:true},{columns:25,rows:24});assert.deepEqual(clipped.styles.find(style=>style.line===6).runs.at(-1),{from:3,to:24,role:'tagline',fg:[134,176,158]});
+ const full=api.renderScreen({wordmark:true,version:'0.3.0'});assert.deepEqual(full.styles.find(style=>style.line===6).runs,[{from:1,to:2,role:'sparkle',fg:[143,237,199]},{from:3,to:26,role:'tagline',fg:[134,176,158]},{from:29,to:38,role:'version',fg:[52,211,153]}]);
+});
+
+
+test('inner truecolor frames stay within the PTY output budget',()=>{
+ const result=api.renderScreen({title:'Uninstall',rows:['Codex','Claude','Everything (incl. CLI)','Back'],selected:2},{columns:120,rows:40});
+ const bytes=result.text.split('\n').reduce((total,line,index)=>total+Buffer.byteLength(formatLine(line,result.styles.find(style=>style.line===index),'truecolor')),0);assert.ok(bytes<800,`Frame uses ${bytes} bytes; expected fewer than 800`);
+});
+
+test('status tones color only state words',()=>{
+ const screen={title:'ARC',wordmark:true,version:'0.3.0',rows:['Claude: Available / Codex: Not Available','Codex: boom','','Install / Update'],rowTones:['status','diagnostic',undefined,undefined],selected:3},result=api.renderScreen(screen);
+ assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:10,to:19,role:'ok',fg:[52,211,153]},{from:29,to:42,role:'muted',fg:[128,128,128]}]);
+ assert.deepEqual(result.styles.find(style=>style.line===9)?.runs,[{from:9,to:13,role:'warn',fg:[251,191,36]}]);
+ assert.equal(result.text,api.renderScreen({...screen,rowTones:undefined}).text);
+ for(const [row,from,to,role,fg] of [['Claude & Codex: Available',18,27,'ok',[52,211,153]],['Codex: Unauthorized',9,21,'error',[248,113,113]],['Codex: Incomplete',9,19,'warn',[251,191,36]],['Codex: weird',9,14,'warn',[251,191,36]],['Codex: unverified',9,19,'warn',[251,191,36]]]){
+  const rendered=api.renderScreen({wordmark:true,rows:[row],rowTones:['status']});assert.deepEqual(rendered.styles.find(style=>style.line===8)?.runs,[{from,to,role,fg}]);
+ }
+ const plain=api.renderScreen({title:'Details',rows:['Codex: Available','Codex: boom']});assert.ok(!plain.styles.some(style=>style.runs.some(run=>['ok','muted','error','warn'].includes(run.role))));
+});
+test('wrapped diagnostic continuation is fully warned',()=>{
+ const result=api.renderScreen({wordmark:true,rows:['continued message'],rowTones:['diagnostic-cont']});assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:2,to:19,role:'warn',fg:[251,191,36]}]);
+ const clipped=api.renderScreen({wordmark:true,rows:['Codex: Available / Claude: Unauthorized'],rowTones:['status']},{columns:30,rows:24});assert.deepEqual(clipped.styles.find(style=>style.line===8)?.runs,[{from:9,to:18,role:'ok',fg:[52,211,153]}]);
+});
+test('clipping a known status never changes its tone to warning',()=>{
+ const result=api.renderScreen({title:'ARC',rows:['Claude: Available / Codex: Not Available'],rowTones:['status']},{columns:35,rows:24});
+ assert.deepEqual(result.styles.find(style=>style.line===1).runs,[{from:10,to:19,role:'ok',fg:[52,211,153]},{from:29,to:34,role:'muted',fg:[128,128,128]}]);
+});
+
+test('frame 0 equals no frame and rest frames equal frame 0',()=>{
+ const home={wordmark:true,rows:['Exit'],selected:0},first=api.renderScreen(home);for(const frame of [0,18,35,36])assert.deepEqual(api.renderScreen({...home,frame}),first);
+});
+test('shimmer changes colors but never text',()=>{
+ const home={wordmark:true,rows:['Exit'],selected:0},first=api.renderScreen(home),next=api.renderScreen({...home,frame:9});assert.equal(next.text,first.text);assert.notDeepEqual(next.styles,first.styles);
+ assert.ok(api.shimmerIntensity(13,1,9)>0.8);assert.equal(api.shimmerIntensity(0,0,9),0);assert.equal(api.shimmerIntensity(13,1,0),0);
+ const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+ for(const [row,col,role] of [[1,13,'logo'],[1,15,'shadow']]){const run=next.styles.find(style=>style.line===row).runs.find(run=>run.from<=col&&run.to>col),base=api.gradientAt((col+0.75*row)/26.75),intensity=api.shimmerIntensity(col,row,9);assert.equal(run.role,role);assert.deepEqual(run.fg,role==='logo'?mix(base,[240,255,248],0.7*intensity):mix(base.map(v=>Math.round(v*0.55)),[150,230,200],0.5*intensity));}
+ assert.deepEqual(next.styles.find(style=>style.line===6).runs.find(run=>run.role==='sparkle').fg,[175,243,216]);
+});
+test('busy heading shows the braille spinner frame',()=>{
+ const result=api.renderScreen({title:'Working',mode:'busy',rows:[],frame:3});assert.equal(result.text.split('\n')[0],'⠸ Working');assert.deepEqual(result.styles[0].runs,[{from:0,to:1,role:'spinner',fg:[52,211,153]},{from:2,to:9,role:'title',fg:[110,231,183],bold:true}]);
+});

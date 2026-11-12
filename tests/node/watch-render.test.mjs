@@ -131,7 +131,7 @@ test('tag colors follow the table and include the parenthesized part', () => {
   const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT(qa)'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD(0)'],
     [{kind:'command',exitCode:1},'31','CMD(1)'],[{kind:'command',exitCode:-1},'31','CMD(-1)'],
-    [{kind:'file_change'},'33','EDIT'],[{kind:'tool'},'38;5;250','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
+    [{kind:'file_change'},'33','EDIT'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
     [{kind:'dispatch'},'38;5;137','DISPATCH'],[{kind:'approval'},'1;4','APPROVE'],
     [{kind:'turn_failed'},'31','FAIL'],[{kind:'error'},'31','ERROR'],[{kind:'tool_failed'},'31','TOOL!'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2',kindTag({kind})])];
@@ -149,11 +149,42 @@ test('platform colors: codex 36, claude 38;5;208, watch and arc 2', () => {
     assert.ok(renderHuman({...input,kind:'notice',text:'t'}, {...options,color:true}).includes(`\x1b[${code}m${name.padEnd(6)}\x1b[0m`));
   }
 });
-test('failure bodies are red and message continuation lines carry no color', () => {
+test('body color matches tag color without attributes', () => {
+  const table = [[{kind:'user'},'35'],[{kind:'agent',role:'qa'},'32'],
+    [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
+    [{kind:'command',exitCode:1},'31'],[{kind:'command',exitCode:-1},'31'],
+    [{kind:'file_change'},'33'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
+    [{kind:'dispatch',state:'t'},'38;5;137'],[{kind:'approval'},''],
+    [{kind:'turn_failed'},'31'],[{kind:'error'},'31'],[{kind:'tool_failed'},'31'],
+    ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2'])];
+  for (const [input,body] of table) {
+    const line = renderHuman({...event,...input,text:'t'}, {...options,color:true,verbose:true});
+    assert.ok(line.endsWith(body ? `\x1b[${body}mt\x1b[0m` : ' t'), input.kind);
+    assert.equal(renderer.bodyColor(input),body);
+  }
+});
+test('color off output is byte-identical for every kind', () => {
+  const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT(qa)'],
+    [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD(0)'],
+    [{kind:'command',exitCode:1},'CMD(1)'],[{kind:'command',exitCode:-1},'CMD(-1)'],
+    [{kind:'file_change'},'EDIT'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
+    [{kind:'dispatch',state:'t'},'DISPATCH'],[{kind:'approval'},'APPROVE'],
+    [{kind:'turn_failed'},'FAIL'],[{kind:'error'},'ERROR'],[{kind:'tool_failed'},'TOOL!'],
+    [{kind:'session'},'SESSION'],[{kind:'turn_end'},'END'],[{kind:'notice'},'NOTICE'],
+    [{kind:'settings'},'SETTINGS'],[{kind:'turn_start'},'TURN'],[{kind:'reasoning'},'THINK'],[{kind:'other'},'ITEM']];
+  for (const [input,tag] of table) {
+    const line = renderHuman({platform:'codex',...input,text:'t'}, {...options,verbose:true});
+    assert.equal(line, `00:00:00 codex  ${tag.padEnd(8)} t`);
+    assert.doesNotMatch(line,/\x1b/);
+  }
+});
+test('message lines are colored per line with uncolored indentation', () => {
   for (const input of [{kind:'command',exitCode:1},{kind:'turn_failed'},{kind:'error'},{kind:'tool_failed'}]) {
     assert.ok(renderHuman({...event,...input,text:'node --test'}, {...options,color:true}).endsWith('\x1b[31mnode --test\x1b[0m'));
   }
-  const lines = renderHuman({...event,kind:'agent',role:'implementer',text:'a\nb'}, {...options,color:true}).split('\n');
-  assert.doesNotMatch(lines[1],/\x1b\[/);
+  const lines = renderHuman({...event,kind:'agent',role:'implementer',text:'a\n\nb'}, {...options,color:true}).split('\n');
+  const prefixLen = [...lines[0].replace(/\x1b\[[0-9;]*m/g,'')].length - 1;
+  assert.equal(lines[1],'');
+  assert.equal(lines[2],' '.repeat(prefixLen) + '\x1b[32mb\x1b[0m');
   assert.equal(renderHuman(event,{...options,width:10,color:true}),renderHuman(event,{...options,width:10}));
 });

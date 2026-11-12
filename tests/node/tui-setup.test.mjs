@@ -155,7 +155,7 @@ for(const target of ['codex','claude','composite'])for(const kind of ['install',
  ui.menu=async(title,rows,options)=>{
   visited.add(title);
   if(title.startsWith('Settings — ')){
-   assert.equal(options.backRow,undefined,'Settings owns its explicit footer');assert.equal(rows.at(-1),'Back');assert.equal(options.separatorBefore,4);
+   assert.equal(options.backRow,undefined,'Settings owns its explicit footer');assert.equal(rows.at(-1),'Back');assert.equal(options.separatorBefore,undefined);
   }else{assert.equal(options.backRow,true,title);assert.ok(!rows.includes('Back'),title+' must use common Back');}
   return menu(title,rows,options);
  };

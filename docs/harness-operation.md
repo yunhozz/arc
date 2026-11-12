@@ -85,14 +85,14 @@ Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json
 | `CMD`, `CMD(0)` | `38;5;242` |
 | `CMD(n)` where n is nonzero | `31` |
 | `EDIT` | `33` |
-| `TOOL` | `38;5;250` |
+| `TOOL` | `2` |
 | `SPAWN` | `38;5;141` |
 | `DISPATCH` | `38;5;137` |
 | `APPROVE` | `1;4` |
 | `FAIL`, `ERROR`, `TOOL!` | `31` |
 | `SESSION`, `END`, `NOTICE`, `SETTINGS`, `TURN`, `THINK`, `ITEM` | `2` |
 
-Failure bodies (`FAIL`, `ERROR`, `TOOL!`, nonzero `CMD(n)`) are red (`31`). Other bodies and message continuation lines have no color. KIND tags never use the platform cyan or orange. There is no fallback for terminals without 256-color support. One-line events whose prefix exceeds `--width` are printed without color.
+Bodies use their KIND color without bold or underline attributes: `USER` bodies use `35`, `APPROVE` bodies have no color, and failure bodies stay red (`31`). Each message line, including continuation lines, is colored separately; indentation is not colored, and parts wrapped by the terminal keep the line's color. KIND tags never use the platform cyan or orange. There is no fallback for terminals without 256-color support. One-line events whose prefix exceeds `--width` are printed without color.
 
 Messages have terminal escapes and controls removed, line endings normalized, tabs expanded to four spaces, trailing whitespace and outer blank lines removed, and secrets masked across the full text (including multiline PEM blocks). JSON stays at schema `v:1` and keeps the existing `label` field. User and agent `text` preserves newlines without a length limit or a `truncated` field; other kinds collapse whitespace, cap `text` at 1000 code points and set `truncated:true` when clipped.
 
