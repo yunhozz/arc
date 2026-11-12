@@ -47,6 +47,7 @@
 - **선행:** T2.
 - **기준:** 저장소 전체(`docs/` 제외) grep에서 단계 간 재사용 문구 0건. "no fixed call cap" 문구와 관련 테스트(`tests/test_arc_policy.py:465`, `tests/test_harness_contract.py:47`) 유지. 생성기 외 수동 편집 없음.
 - **필수 점검:** `npm run check:role-policy`(재생성 후 통과), `node --test tests/node/role-policy.test.mjs tests/node/runtime-assignment.test.mjs`, `npm run check:manifest`.
+- **진행 기록 (2026-11-12, 수락):** 완료. runtime 사본은 `update:role-policy`가 아니라 `node scripts/update-runtime-assets.mjs`로 동기화된다. `role-policy.test.mjs` 정규식은 새 문장으로도 통과해 테스트 수정은 없었다. `check:role-policy`, runtime asset `--check`, `check:manifest` 통과, 지정 테스트 58/58 통과, `docs/` 밖 기존 문장 0건. `policyHash`가 바뀌므로 새 버전 설치 후에는 composite 재설치(Install / Update)가 필요하고 진행 중 cooperative workflow는 `versions-changed`로 보류된다.
 
 ## 최종 검증 (모든 태스크 수락 후)
 
