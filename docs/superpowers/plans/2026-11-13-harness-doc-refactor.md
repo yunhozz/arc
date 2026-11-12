@@ -309,15 +309,16 @@ PY
   - `never broad Git access`(claude/codex `git-recovery.md`)는 주어·동사가 없는 생략구다. §4.1-4로 판정되지 않으면 양 플랫폼을 함께 hold한다.
   - 관리 블록 안의 발생은 T1 소관이므로 Q-E의 `MANAGED`로만 확인한다.
 
-- [ ] T3-1 handoff 상태를 확인하고 각 테스트 행의 원문 줄을 확정한다(관리 블록 출처이면 T1 결과와 대조).
-- [ ] T3-2 공통 문장을 쌍으로 편집하고, 고유 문장은 그 파일에서만 판정한다. R4 행에는 근거 path:line을 적는다.
-- [ ] T3-3 `npm run check:role-policy`(기대: exit 0, 관리 블록 불변)
-- [ ] T3-4 테스트와 fixture 문자열을 같은 줄에서 교체한다. 바이트·줄 수는 필요할 때만 `wc -c`/`wc -l` 결과로 갱신한다. plan.test SHA는 T1-5 방식으로 처리한다. §8.4 기록을 작성한다.
-- [ ] T3-5 `node scripts/update-manifest.mjs` → `npm run check:manifest`
-- [ ] T3-6 Implementer가 Q-FULL을 실행하고 보고한다.
-- [ ] T3-7 fresh QA: Q-FULL, Q-B(SKILL 2 + references 18 + handoff-worktree 1), Q-C, Q-D, Q-E(같은 파일). §3.1 관리 구간 diff 0과 §4.2 비대상 위치 diff 0을 확인한다.
-- [ ] T3-8 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(skill): 스킬 지침 규범 표기 대문자화`.
+- [x] T3-1 handoff 상태를 확인하고 각 테스트 행의 원문 줄을 확정한다(관리 블록 출처이면 T1 결과와 대조).
+- [x] T3-2 공통 문장을 쌍으로 편집하고, 고유 문장은 그 파일에서만 판정한다. R4 행에는 근거 path:line을 적는다.
+- [x] T3-3 `npm run check:role-policy`(기대: exit 0, 관리 블록 불변)
+- [x] T3-4 테스트와 fixture 문자열을 같은 줄에서 교체한다. 바이트·줄 수는 필요할 때만 `wc -c`/`wc -l` 결과로 갱신한다. plan.test SHA는 T1-5 방식으로 처리한다. §8.4 기록을 작성한다.
+- [x] T3-5 `node scripts/update-manifest.mjs` → `npm run check:manifest`
+- [x] T3-6 Implementer가 Q-FULL을 실행하고 보고한다.
+- [x] T3-7 fresh QA: Q-FULL, Q-B(SKILL 2 + references 18 + handoff-worktree 1), Q-C, Q-D, Q-E(같은 파일). §3.1 관리 구간 diff 0과 §4.2 비대상 위치 diff 0을 확인한다.
+- [x] T3-8 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(skill): 스킬 지침 규범 표기 대문자화`.
 - **수용 기준:** AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-12, AC-13, AC-14, AC-15.
+- **진행 기록(2026-11-13 수락):** 21개 문서에서 159줄을 대소문자만 바꿨다(L001–L159). 테스트 기대 문자열 26줄을 짝지어 갱신했다(`instruction-contracts.json` 24, `composite-instructions.test.mjs` 2). R4는 0건, hold는 45건이다. 잔존 OPEN 147건은 비대상 102·hold 45로 위치별 기록이 있다. QA 06aaeacc에서 AC-4·6·7·8·9·12·14가 proven(초기 불합격은 AC-4 기록 누락, 보정 후 재확인 통과)이다. AC-13은 Orchestrator가 직접 확인했다: Python 169 ID/562건이 T2와 동일하고, node 새 실패명은 0(QA)이다. 고정 문구 소실은 0이다. AC-3·5·15는 최종 Reviewer가 판정한다.
 - **hold:** T1 hold 조건에 더해, 플랫폼 쌍 불일치와 근거가 없거나 충돌하는 R4(후보로 보고).
 
 ## T4: bootstrap 문구 대문자화

@@ -36,7 +36,7 @@ Ordinary/significant tasks need fresh QA before acceptance. Low risk requires na
 - QA independently checks without edits. Reviewer performs no QA/planning/editing/delegation/completion decisions. Orchestrator routes fixes to Implementer and required QA rechecks; direct-check failures return to normal flow. Accept after findings/gaps resolved or dispositioned.
 - Fresh-per-task applies to Implementer/QA, not Reviewer. Reuse Reviewer only with independence, valid context and refreshed scope/target/evidence, never an old verdict or waived timing/coverage.
 
-Record which risk/instruction/approved obligations each check satisfies. Do not automatically assign QA/Reviewer for clear low-risk scope with sufficient evidence and no requirement. Metadata counts alone prove no significance; one permission/loss rule may. Vague file deletion is not low-risk evidence; reclassify installer/manifest impacts. Confirm cleanup targets unused, required materials intact, ignore patterns scoped and diff approved before focused-check-only acceptance.
+Record which risk/instruction/approved obligations each check satisfies. DO NOT automatically assign QA/Reviewer for clear low-risk scope with sufficient evidence and no requirement. Metadata counts alone prove no significance; one permission/loss rule may. Vague file deletion is not low-risk evidence; reclassify installer/manifest impacts. Confirm cleanup targets unused, required materials intact, ignore patterns scoped and diff approved before focused-check-only acceptance.
 
 Distinguish environment failures from code failures and report exact limits and gaps. Use Planner/Scouter only for unresolved planning/discovery. Reviewer covers substantial correctness/factual/security/data/interface risks. Orchestrator assigns support as needed. Claim only verified outputs. Read cited `references/test-driven-development.md`, preserving exceptions.
 
@@ -45,14 +45,14 @@ Distinguish environment failures from code failures and report exact limits and 
 
 Only final overall Reviewer findings on plan work, including behavior, follow Implementer → Reviewer without QA reassignment until resolved. One initial full review permits necessary rechecks. Before it, risk checks/QA failures/unmet criteria still need Implementer → QA. No-plan flow remains unchanged.
 
-Expanded scope/separate obligations/gaps hold affected work for resolution/approval. Orchestrator assigns/accepts; Reviewer stays read-only without QA/acceptance. Never present old QA as post-fix execution. Report actual actor/target/check/result/limits only.
+Expanded scope/separate obligations/gaps hold affected work for resolution/approval. Orchestrator assigns/accepts; Reviewer stays read-only without QA/acceptance. NEVER present old QA as post-fix execution. Report actual actor/target/check/result/limits only.
 
 <a id="evidence-after-plan-history-rewrite"></a>
 ## Evidence after plan history rewrite
 
 Verify new HEAD/approved plan content-version/old→new SHAs, descendant implementation/task boundaries and remaining staged/unstaged/untracked state. Preserve chronology/recoverable contents. New content in old commits proves no early approval.
 
-SHA change alone invalidates no entire evidence set. Determine whether exact-HEAD/document/policy evidence links to new state. If not or semantically affected, repeat affected checks/rechecks. Preserve runtime/exact-state rules; never rewrite old fingerprints to suggest execution at new HEAD. Refresh briefs/gates before dependencies. Structure proves neither live compliance nor successful replay.
+SHA change alone invalidates no entire evidence set. Determine whether exact-HEAD/document/policy evidence links to new state. If not or semantically affected, repeat affected checks/rechecks. Preserve runtime/exact-state rules; NEVER rewrite old fingerprints to suggest execution at new HEAD. Refresh briefs/gates before dependencies. Structure proves neither live compliance nor successful replay.
 
 <a id="task-acceptance-and-final-plan-acceptance"></a>
 <a id="reviewer-timing-and-task-acceptance"></a>
@@ -60,7 +60,7 @@ SHA change alone invalidates no entire evidence set. Determine whether exact-HEA
 
 Task acceptance differs from final verification/acceptance. Connect criteria/observations/current checks/findings, not checkboxes/reports/passing commands alone. Use fresh QA where required or low-risk focused checks. For same-task QA findings and required QA rechecks, reuse the current QA while scope/workspace/ownership/context remain valid. Final overall Reviewer findings on plan work follow Implementer → Reviewer without QA reassignment; see the [final plan Reviewer correction loop](#final-plan-reviewer-correction-loop).
 
-Do not delay independently acceptable tasks solely for final-only checks or defer currently required checks to accept early. State final integration scope/timing separately. Whole-plan Reviewer is final verification; task commits prove no unperformed final checks. Orchestrator decides final acceptance with QA/Reviewer/integration evidence/findings and unverified/disposition records. Shared evidence MUST satisfy all reuse rules.
+DO NOT delay independently acceptable tasks solely for final-only checks or defer currently required checks to accept early. State final integration scope/timing separately. Whole-plan Reviewer is final verification; task commits prove no unperformed final checks. Orchestrator decides final acceptance with QA/Reviewer/integration evidence/findings and unverified/disposition records. Shared evidence MUST satisfy all reuse rules.
 
 Committed-plan final Reviewer findings need a follow-up task/planning/approvals. Keep corrections uncommitted; refresh committed state plus uncommitted diff/files in Reviewer artifacts/briefs. Reuse/assign independent Reviewer and repeat Implementer → Reviewer until resolved, then accept/commit one focused follow-up. Final QA findings still use Implementer → QA. No automatic amend/reset/duplicate originals; scope growth retains planning/approvals.
 
@@ -89,7 +89,7 @@ Accept from criterion verdicts/findings/rechecks/gaps, not overall run status. D
 <a id="completion-continuity"></a>
 ## Completion continuity
 
-Once approval/depth/target/handoff hold, continue execution/correction/reverification/required QA-Reviewer/disposition/acceptance/report. Preserve timing without new task-level gates. Reports/probes/commands never complete remaining approved scope. Do not make authorized execution an optional offer awaiting response. Probe-only ends at question/evidence/limits; combined work follows planning. Omission changes neither risk nor acceptance. Hold only actual affected conditions and report resume requirements. Structure proves no live compliance.
+Once approval/depth/target/handoff hold, continue execution/correction/reverification/required QA-Reviewer/disposition/acceptance/report. Preserve timing without new task-level gates. Reports/probes/commands never complete remaining approved scope. DO NOT make authorized execution an optional offer awaiting response. Probe-only ends at question/evidence/limits; combined work follows planning. Omission changes neither risk nor acceptance. Hold only actual affected conditions and report resume requirements. Structure proves no live compliance.
 
 <a id="verification-lifecycle-in-the-cooperative-cli"></a>
 ## Verification lifecycle in the cooperative CLI
@@ -118,7 +118,7 @@ Commit preparation references `arguments: {"acceptanceId": "acceptance requestId
 
 Submit intentId/`actor.role: "orchestrator"` and `result: {"status": "succeeded", "messageRef": "actual result evidence", "data": {"commit": "full OID"}}` through reconcile/result. CLI rereads local object/parent/tree/paths/HEAD/index/residual changes. Only complete match updates target HEAD/committed. Preserve failed/unknown/mismatch/history; never arbitrary target updates. Same request/completed intent permits no repeated effect. Inspect/resolve/reconcile existing intent after failure.
 
-Never rewrite QA fingerprints after commit. Separate post-commit observations detect changes. Final review needs current task evidence/final fingerprint. RuntimeHash drift keeps existing stale/hold without automatic version update.
+NEVER rewrite QA fingerprints after commit. Separate post-commit observations detect changes. Final review needs current task evidence/final fingerprint. RuntimeHash drift keeps existing stale/hold without automatic version update.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
@@ -152,4 +152,4 @@ Git OIDs are full lowercase 40/64-character hex; artifactHash is `sha256:<64-hex
 
 `result`/`reconcile` accept `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {operation, scope, descriptor}}}`, with prepare requestId as intentId. Mismatch/unknown/stale outcomes hold while preserving attestations. After interruption inspect intent/`state.requests`/`state.audit`/`state.results` through `status` and investigate actual effects. Reconcile that same intent, not fresh preparation or replayed approvals.
 
-Cancellation also requires `notExecutedEvidence: {messageRef}`; approval remains consumed. No automatic update/migration/renewed permission to fix drift. Report holds. Succeeded results remain attestations, not remote proof. `audit` links request→decision→intent→result→resolution but is locally editable, not tamper-proof. Never retry uncertain external outcomes.
+Cancellation also requires `notExecutedEvidence: {messageRef}`; approval remains consumed. No automatic update/migration/renewed permission to fix drift. Report holds. Succeeded results remain attestations, not remote proof. `audit` links request→decision→intent→result→resolution but is locally editable, not tamper-proof. NEVER retry uncertain external outcomes.

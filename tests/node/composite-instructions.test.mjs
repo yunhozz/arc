@@ -17,7 +17,7 @@ const normalize = body => body.replaceAll(/Claude/g, '@A').replaceAll(/Codex/g, 
 for (const harness of Object.keys(harnesses)) {
   test(`${harness} skill places the role routing gate immediately after the role gate and before shared terms`, async () => {
     const skill = await readFile(new URL(`../../${harness}/skill/SKILL.md`, import.meta.url), 'utf8');
-    const gate = '**Role routing gate:** Before any specialist creation or assignment, check whether `../../arc-role-platform-routing.prepared.json` exists relative to this skill directory. If it exists, run `routing-status` and follow [coordination](references/coordination.md#composite-platform-role-dispatch) for every role, using only the returned native profile or bridge. Never substitute a generic or built-in agent (for example `general-purpose`, `fork` or `default`), an `arc-<role>`/`arc_<role>` name, another model or another platform. If routing is unavailable, held or unverified, hold that role and report it. Without the marker, use the standalone role names.';
+    const gate = '**Role routing gate:** Before any specialist creation or assignment, check whether `../../arc-role-platform-routing.prepared.json` exists relative to this skill directory. If it exists, run `routing-status` and follow [coordination](references/coordination.md#composite-platform-role-dispatch) for every role, using only the returned native profile or bridge. NEVER substitute a generic or built-in agent (for example `general-purpose`, `fork` or `default`), an `arc-<role>`/`arc_<role>` name, another model or another platform. If routing is unavailable, held or unverified, hold that role and report it. Without the marker, use the standalone role names.';
     assert.ok(skill.includes(gate), `${harness} missing approved Role routing gate`);
     const roleGate = skill.split('\n').find(line => line.startsWith('**Role gate:**'));
     assert.ok(roleGate && skill.includes(`${roleGate}\n\n${gate}\n\n`), `${harness} routing gate must directly follow Role gate`);
@@ -43,7 +43,7 @@ test('execution mode precedes standalone names and forbids standalone names in c
     const mode = text.indexOf('### Execution mode'), standalone = text.indexOf(harness === 'claude' ? 'Standalone native names:' : 'Standalone aliases:');
     const composite = text.indexOf('Composite native names'), adapter = text.indexOf('<a id="instruction-and-execution-adapter"');
     assert.ok(mode > 0 && mode < standalone && standalone < composite && composite < adapter, harness);
-    assert.ok(text.includes('Never invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed.'), harness);
+    assert.ok(text.includes('NEVER invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed.'), harness);
     assert.ok(text.includes('`../../arc-role-platform-routing.prepared.json`'), harness);
     assert.doesNotMatch(text, /Claude native names:|\nAliases:/);
     paragraphs[harness] = text.slice(mode, standalone);

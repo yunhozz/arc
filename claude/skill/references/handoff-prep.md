@@ -1,7 +1,7 @@
 <a id="prepare-the-current-checkout"></a>
 # Prepare the current checkout
 
-Claude v1 supports current checkout only, not ARC-managed worktree execution. Never create/attach worktrees as fallback; report unsupported requests before dependent work.
+Claude v1 supports current checkout only, not ARC-managed worktree execution. NEVER create/attach worktrees as fallback; report unsupported requests before dependent work.
 
 <a id="execution-target-and-git-evidence-gates"></a>
 ## Execution-target and Git evidence gates
@@ -34,7 +34,7 @@ Before every preparation mutation (branch creation/switch, approved-doc staging/
 
 Missing or mismatched evidence blocks mutation. Initial preparation verifies planned scope/inputs without requiring complete approved documents. Document staging/commit also verifies the full set, individual approvals/versions/dependencies and actual index. Read-only Git remains allowed. External skills' early commits grant no authority.
 
-After branch/commit operations verify path/branch/HEAD/preservation/result before dependent action. After staging verify index paths/diff and finalized message. Unrelated staged paths block changes. Revalidate affected evidence after a change or failure; never retroactively authorize pre-gate actions.
+After branch/commit operations verify path/branch/HEAD/preservation/result before dependent action. After staging verify index paths/diff and finalized message. Unrelated staged paths block changes. Revalidate affected evidence after a change or failure; NEVER retroactively authorize pre-gate actions.
 
 <a id="new-task-branch"></a>
 <a id="new-task-branch-naming"></a>
@@ -56,7 +56,7 @@ Create the explicitly approved candidate from approved base in the current check
 | chore/ | Policy/tools/maintenance |
 | revert/ | Revert prior change |
 
-Validate name/collision before creation. Never add suffixes automatically; approve new candidates. Never reuse/delete/overwrite existing branches. Distinguish lookup errors from absence.
+Validate name/collision before creation. NEVER add suffixes automatically; approve new candidates. NEVER reuse/delete/overwrite existing branches. Distinguish lookup errors from absence.
 
 Immediately recheck workspace, branch/detached HEAD, base and candidate. Changed target/collision candidate requires fresh explicit approval before creation/switch; otherwise block handoff. Detached HEAD is allowed when resolved and approved. After success verify actual branch equals candidate, HEAD equals base, unchanged absolute checkout and preserved changes. Failures follow Stop and inspect, never automatic checkout/worktree fallback.
 
@@ -74,8 +74,8 @@ Begin after target preparation and all applicable documents are written/individu
 1. Verify already committed approvals by SHA, actual message/paths/content and selected-checkout validity; reuse without recommitting.
 2. Record remaining approved versions/paths. Finalize a specific English Conventional Commit message before the first commit.
 3. Batch all remaining approved documents into one focused docs commit. Staged paths/diff MUST match exactly; unrelated staging blocks commit. No implementation files.
-4. If all validly committed, verify only. Never duplicate/empty-commit/amend/reset/recommit merely to combine SHAs. Do not use temporary messages followed by routine `git commit --amend`; separate amend needs scope/current HEAD/publication checks.
-5. Failure/staged-content mismatch stops handoff. Inspect branch/HEAD/index/partial completion and resolve before resuming; never commit implementation instead.
+4. If all validly committed, verify only. NEVER duplicate/empty-commit/amend/reset/recommit merely to combine SHAs. DO NOT use temporary messages followed by routine `git commit --amend`; separate amend needs scope/current HEAD/publication checks.
+5. Failure/staged-content mismatch stops handoff. Inspect branch/HEAD/index/partial completion and resolve before resuming; NEVER commit implementation instead.
 6. Verify SHA/message/paths/content, post-commit HEAD/branch and remaining state in the brief, including selected base and actual order/deviations. Command success alone proves no preparation. Docs commit is neither implementation acceptance nor push approval; no push without separate explicit request.
 
 Skip only when depth rules required no documents and none were created; record why. Uncommitted documents are not absent. This adds neither documents nor gate exceptions. Unchanged authorized target/scope needs no repeated choice.
@@ -83,7 +83,7 @@ Skip only when depth rules required no documents and none were created; record w
 <a id="execution-time-plan-amendment"></a>
 ### Execution-time plan amendment
 
-After initial document batching, use this amendment procedure for spec/plan content changes other than task progress records, following [planning](planning.md#plan-updates-during-execution), including scope revisions and applicable approval and preparation. Same-task progress records follow the accepted task implementation commit path. Never batch another document commit or combine historical commits/rewrite implementation contents under this exception.
+After initial document batching, use this amendment procedure for spec/plan content changes other than task progress records, following [planning](planning.md#plan-updates-during-execution), including scope revisions and applicable approval and preparation. Same-task progress records follow the accepted task implementation commit path. NEVER batch another document commit or combine historical commits/rewrite implementation contents under this exception.
 
 1. Verify original planning commit ancestry/current replacement, unpublished/unshared local linear history, no merges, clear ownership/plan paths, paused writers/safe unfinished-work boundary and complete classification/approval/chronology. Unexpected dirty state blocks rewrite.
 2. Preserve recoverable old HEAD/commits and before/after plan contents, plus unrelated staged/unstaged/untracked work.
