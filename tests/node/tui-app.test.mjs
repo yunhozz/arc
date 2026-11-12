@@ -223,3 +223,8 @@ test('unverified operation rejection displays residual paths',async()=>{
  await runTui({session,context:{},services:{currentInstallMode:()=>'unverified',collectStatus:async()=>[],prepareOperation:async()=>{throw error;},executeOperation:async()=>assert.fail('rejected operation must not execute')}});
  const screen=session.screens.find(s=>s.title==='Operation unavailable');assert.ok(screen);assert.ok(screen.rows.includes('Residual path: /tmp/unverified-marker'));assert.ok(screen.rows.includes('No changes were applied.'));
 });
+
+test('home capacity follows wordmarkRows in a 17-row terminal',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([...down(4),enter]);let last,screen;session.viewport=()=>({columns:80,rows:17});session.render=value=>{screen=value;last=renderScreen(screen,session.viewport());return last;};
+ assert.equal(await createTuiInterface(session).menu('ARC',['Install / Update','Change Models','Check Version','Uninstall','Exit'],{wordmark:true,info:['Status','Diagnostic','Diagnostic','Diagnostic']}),4);assert.equal(last.selectionEnabled,true);assert.equal(screen.position,undefined);assert.equal(screen.rows.filter(row=>['Install / Update','Change Models','Check Version','Uninstall','Exit'].includes(row)).length,5);
+});

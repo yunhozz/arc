@@ -113,7 +113,7 @@
 
 **Predecessors:** T1.
 
-- [ ] **Step 1: 실패하는 테스트 작성과 기존 단언 갱신**
+- [x] **Step 1: 실패하는 테스트 작성과 기존 단언 갱신**
   - tui-render
     - `home heading renders the six-row shadow logo, tagline and 38-column rule`: `renderScreen({title:'ARC',wordmark:true,version:'0.3.0',rows:['Install / Update'],selected:0})` 줄 0-5가 아래 배열(각 폭 24), 줄 6 `' ✦ agent role coordination   ver 0.3.0'`, 줄 7 `'─'.repeat(38)`, 출력에 `\x1b` 없음.
       `[' █████╗ ██████╗  ██████╗','██╔══██╗██╔══██╗██╔════╝','███████║██████╔╝██║     ','██╔══██║██╔══██╗██║     ','██║  ██║██║  ██║╚██████╗','╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝']`
@@ -139,16 +139,18 @@
     - `formatLine clamps colors and ignores unknown roles`: `formatLine('ab',{line:0,runs:[{from:0,to:1,role:'logo',fg:[300,-5,12.6]},{from:1,to:2,role:'bogus',fg:[1,2,3]}]},'truecolor')` === `'\x1b[0;38;2;255;0;13ma\x1b[0mb'`.
     - 78-83, 90-95: 새 팔레트로 재작성(Ghostty/cmux에서 모든 `█`가 `38;2`, 공백에는 SGR 없음).
   - tui-app `home capacity follows wordmarkRows in a 17-row terminal`: session.render가 `renderScreen(s,{columns:80,rows:17})`를 반환, `down`×4와 `enter` → 반환 4, 마지막 render `selectionEnabled===true`.
-- [ ] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-render.test.mjs tests/node/tui-terminal.test.mjs tests/node/tui-app.test.mjs`.
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-render.test.mjs tests/node/tui-terminal.test.mjs tests/node/tui-app.test.mjs`.
+- [x] **Step 3: 구현**
   - render.mjs: wordmark 상수, 태그라인·fallback, `PANEL`, 축약 머리말, run 생성. `width` → `cellWidth`. 선택 행 패딩 34 → `PANEL`. 축약 머리말 `ARC` fg는 `gradientAt(0)`, `(0.5)`, `(1)`. `✦` 정적 fg `mix([110,231,183],[240,255,248],0.25)`, 태그라인 문구 `[134,176,158]`, `ver X` `[52,211,153]`.
   - terminal.mjs: `colorDepth` 판정, `draw()`는 줄마다 `formatLine(line, styles.find(s=>s.line===index), depth)`.
   - app.mjs:21 `(wordmark?6:1)` → `(wordmark?wordmarkRows(viewport):1)`.
-- [ ] **Step 4: 통과 확인** — Step 2 명령과 `node --test --test-timeout=120000 tests/node/tui-setup.test.mjs tests/node/tui-custom-preset.test.mjs`. 베이스라인 외 실패 0.
-- [ ] **Step 5: manifest** — T1과 같음.
-- [ ] **Step 6: 수락 전 확인** — **fresh QA 필수**: Step 2·4 재실행, PTY 문자열 연속성 점검, `formatLine` 출력 샘플(truecolor/256/16/none). Orchestrator: 전체 스위트, PTY 테스트, 수동 PTY 캡처(120x40 truecolor 홈·Check Version, 80x24 `xterm-256color`, NO_COLOR, 30x12). 커밋 `feat(tui): shadow logo and gradient styling`.
+- [x] **Step 4: 통과 확인** — Step 2 명령과 `node --test --test-timeout=120000 tests/node/tui-setup.test.mjs tests/node/tui-custom-preset.test.mjs`. 베이스라인 외 실패 0.
+- [x] **Step 5: manifest** — T1과 같음.
+- [x] **Step 6: 수락 전 확인** — **fresh QA 필수**: Step 2·4 재실행, PTY 문자열 연속성 점검, `formatLine` 출력 샘플(truecolor/256/16/none). Orchestrator: 전체 스위트, PTY 테스트, 수동 PTY 캡처(120x40 truecolor 홈·Check Version, 80x24 `xterm-256color`, NO_COLOR, 30x12). 커밋 `feat(tui): shadow logo and gradient styling`.
 
 **Hold:** PTY 기대 문자열 실패; 비홈 화면 행 수 변화; `formatLine` 밖에서 ANSI 생성.
+
+**Result (2026-11-12, 진행 기록):** 첫 구현 후 전체 스위트에서 PTY 4건 시간 초과 → 개정 A1(출력 예산) 승인, 같은 Implementer가 수정(내부 화면 truecolor 1,121B → 681B). fresh QA: AC1·AC3-T2 입증, 깊이별 프로브·비홈 행 수 비교(20회) 입증(재확인 세그먼트). 집중 테스트 118/119 + 64/64(베이스라인 1건 불변). 전체 스위트 1847개 중 51 실패, 베이스라인 대비 새 실패 0(PTY 포함). 계획 커밋 재작성 매핑: 940e19c→b383454, 593a190→a9f419b. Orchestrator 수락.
 
 ---
 
