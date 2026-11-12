@@ -76,7 +76,7 @@ Human output uses `HH:MM:SS <platform> <KIND> <text>` without a session label co
 
 Agent messages use `AGENT(<role>)` when a role is present. Otherwise, subagents use the label segment after the last `/`; top-level sessions and bridges without a role use `AGENT`. Names longer than 20 code points are shortened to the first 19 plus `…`. Other KIND tags never include a role. The KIND column has a minimum width of 8; longer tags have one following space, and continuation indentation follows the full prefix width.
 
-A spinner on the last line shows while a followed session has a turn in progress (TTY human output only, including with `NO_COLOR`); it clears after five minutes without activity.
+A spinner on the last line shows while a followed session has a turn in progress (TTY human output only, including with `NO_COLOR`); a Claude Esc interrupt ends the turn (shown as `END interrupted by user`), and it clears after five minutes without activity.
 
 Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
 

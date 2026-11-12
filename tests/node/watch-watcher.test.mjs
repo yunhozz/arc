@@ -398,6 +398,21 @@ test('busy tracks user and agent activity, ends, and five minutes of inactivity'
   s.advance(300001);
   assert.equal(s.w.busy(),false);
 });
+test('Claude Esc interruption stops busy and emits a visible END without verbose', async t => {
+  for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
+    const s = setup(t), file = s.cl('claude-busy',[cm('claude-busy',s.cwd,'working')]);
+    await s.w.start();
+    assert.equal(s.w.busy(),true);
+    s.advance(2000);
+    const interrupt = cm('claude-busy',s.cwd,'','cli',TIME+2000);
+    interrupt.message.content = [{type:'text',text:marker}];
+    s.append(file,[interrupt]);
+    const out = content(await s.w.tick());
+    assert.equal(s.w.busy(),false);
+    assert.ok(out.some(e => e.kind === 'turn_end' && e.text === 'interrupted by user'));
+    assert.match(lines(out).join('\n'), /END\s+interrupted by user/);
+  }
+});
 test('busy replays history before the verbose filter and follows all rows', async t => {
   const s = setup(t,{tail:0});
   const ended = s.c('ended',[msg('done'),{type:'event_msg',payload:{type:'task_complete'}}],{age:0});

@@ -7,6 +7,26 @@ const assistant = (content, state=createClaudeState(), extra={}) => normalizeCla
 const user = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'user',message:{content},...extra},state);
 const tool = (name,input={}) => assistant([{type:'tool_use',id:'id',name,input}]);
 
+for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
+ test(`user interrupt ${marker} ends the turn`, () => {
+  assert.deepEqual(user([{type:'text',text:marker}]),[{kind:'turn_end',text:'interrupted by user'}]);
+  assert.deepEqual(user([{type:'text',text:` \n${marker}\t`}],undefined,{timestamp:'raw'}),
+   [{kind:'turn_end',text:'interrupted by user',ts:'raw'}]);
+ });
+}
+test('ordinary user text and interrupt markers alongside other words stay user events', () => {
+ for (const text of ['hello','before [Request interrupted by user]','[Request interrupted by user for tool use] after']) {
+  assert.deepEqual(user([{type:'text',text}]),[{kind:'user',text}]);
+ }
+});
+test('user interruption preserves tool failures on the same line', () => {
+ const state=createClaudeState();
+ assistant([{type:'tool_use',id:'t1',name:'Bash',input:{command:'ls'}}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'t1',is_error:true},
+  {type:'text',text:'[Request interrupted by user]'}],state),
+  [{kind:'tool_failed',tool:'Bash'},{kind:'turn_end',text:'interrupted by user'}]);
+});
+
 test('head finds the first line with cwd', () => {
  const head=fixture('claude-main').map(parseClaudeHead).find(Boolean);
  assert.deepEqual(head,{sessionId:'00000052-0000-7000-8000-000000000052',cwd:'/tmp/arc-watch-fixture/repo',entrypoint:'cli',version:'2.1.322'});
