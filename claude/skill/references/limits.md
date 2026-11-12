@@ -15,12 +15,12 @@ Reserve the full proposed parallel batch before dispatch, satisfying both:
 1. `created + pending reservations + proposed <= max_total_subagents`
 2. `active + pending reservations + proposed <= max_concurrent_subagents`, within actual available runtime capacity.
 
-Reserve before each call. Confirmed creation becomes a created/active ID. Release only when failure proves no instance was created. Uncertain results retain capacity until reconciled; never retry blindly. Serialize batches that do not fit. No role has reserved slots.
+Reserve before each call. Confirmed creation becomes a created/active ID. Release only when failure proves no instance was created. Uncertain results retain capacity until reconciled; NEVER retry blindly. Serialize batches that do not fit. No role has reserved slots.
 
 <a id="continuation-and-exhaustion"></a>
 ## Continuation and exhaustion
 
-Preserve the ledger across continuation, resume and compaction, and reconcile actual IDs before dispatch. Never reset lost counters to zero. Incomplete reconstruction holds creation and reports unknown budget; use a conservative upper bound only when records support it.
+Preserve the ledger across continuation, resume and compaction, and reconcile actual IDs before dispatch. NEVER reset lost counters to zero. Incomplete reconstruction holds creation and reports unknown budget; use a conservative upper bound only when records support it.
 
 Confirmed completion or termination frees active capacity. Exhaustion holds creation and reports remaining work/budget; it never waives QA/Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.
 

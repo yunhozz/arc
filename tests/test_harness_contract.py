@@ -678,7 +678,7 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
             r"First, record the exact failed check.*?baseline revision.*?current revision",
             r"Second, classify each failure.*?baseline or current.*?affected scope.*?dependency",
             r"Third, hold only affected or dependent tasks and checks.*?unknown.*?only work whose impact is unknown",
-            r"Fourth, Orchestrator must release already-approved independent work without waiting for unrelated failures",
+            r"Fourth, Orchestrator MUST release already-approved independent work without waiting for unrelated failures",
             r"Finally, keep acceptance held while any required check remains unresolved",
         )
         sources = {"canonical": common}
@@ -693,7 +693,7 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
                     match = re.search(step, remaining)
                     self.assertIsNotNone(match, f"Missing or out-of-order disposition step: {step}")
                     remaining = remaining[match.end():]
-                self.assertRegex(text, r"Specialists report evidence.*must not self-authorize release")
+                self.assertRegex(text, r"Specialists report evidence.*MUST NOT self-authorize release")
 
     def test_operation_guide_requires_independent_release_without_acceptance_waiver(self):
         text = (REPO / "docs/harness-operation.md").read_text()

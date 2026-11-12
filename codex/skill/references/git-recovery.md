@@ -3,7 +3,7 @@
 
 Read on branch collision, Git preparation failure/partial completion, metadata or handoff-record write denial. Use [handoff-prep](handoff-prep.md) for branch selection and [handoff](handoff.md) for full restart gates.
 
-Stop dependent work on a Git or tool failure, partial completion, unexpected branch or HEAD, missing path or conflicting edit. Record absolute path, branch or detached HEAD, HEAD, index, working-tree/untracked files, ownership and completed steps. Return the precise blocker/resolution to Orchestrator. Never automatically retry, fall back or repeat completed mutations.
+Stop dependent work on a Git or tool failure, partial completion, unexpected branch or HEAD, missing path or conflicting edit. Record absolute path, branch or detached HEAD, HEAD, index, working-tree/untracked files, ownership and completed steps. Return the precise blocker/resolution to Orchestrator. NEVER automatically retry, fall back or repeat completed mutations.
 
 Apply the Preservation rule: preserve unrelated work and recovery artifacts. No automatic stash/reset/clean/unstage/discard/amend, branch/worktree deletion, lock removal, permission changes or sandbox bypass. Orchestrator obtains needed human decisions, resolves within authority, revalidates gates and supplies a delta restart brief. Explicit choice is required where applicable; silence, planning approval and refusal of another option do not count.
 
@@ -17,14 +17,14 @@ Invalid names, creation/switch failures, lookup errors or unexpected branches re
 
 1. Denial of authorized stage/commit/branch creation/switch at `.git/index.lock` or other metadata blocks handoff.
 2. Inspect exact command/workspace/error/failed path, actual Git directory/branch/HEAD/index/partial completion read-only. Inspect lock existence, observable processes, sandbox limits, OS permissions/ACLs and concurrent Git activity. Record supported causes/uncertainty. Lock-creation denial alone proves no stale lock.
-3. Do not remove locks, `chmod`/`chown`, bypass sandbox or move workspaces. Only when evidence confirms that the sandbox denied an already authorized operation, request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access.
+3. DO NOT remove locks, `chmod`/`chown`, bypass sandbox or move workspaces. Only when evidence confirms that the sandbox denied an already authorized operation, request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access.
 4. Before authorized retry, recheck branch/HEAD/index/partial completion without repeating completed work. After success verify operation/final state and the entire handoff gate.
 5. Denied approval or unresolved OS/ACL issues keep handoff blocked; report actual state/cause. A finalized message avoids unnecessary amend but cannot repair write access. Only authorized successful writes plus verified results prove recovery.
 
 <a id="handoff-record-write-denial"></a>
 ## Handoff record write denial
 
-If canonical-record writing is denied/unavailable, stop it and report path/error. Never change permissions or bypass sandbox. Use [handoff](handoff.md)'s inline fallback.
+If canonical-record writing is denied/unavailable, stop it and report path/error. NEVER change permissions or bypass sandbox. Use [handoff](handoff.md)'s inline fallback.
 
 <a id="recovery-cases"></a>
 ## Recovery cases
@@ -32,7 +32,7 @@ If canonical-record writing is denied/unavailable, stop it and report path/error
 <a id="existing-changes-and-failures"></a>
 ### Existing changes and failures
 
-A branch does not isolate uncommitted changes in another directory. Record task relationship/preservation/ownership in the brief. Never automatically commit/delete changes to prepare. Approved docs commits on the three paths are the sole exception; preserve unrelated dirty files. Switching blocks or unclear ownership hold handoff until resolution. Both operational failure and missing target choice block handoff.
+A branch does not isolate uncommitted changes in another directory. Record task relationship/preservation/ownership in the brief. NEVER automatically commit/delete changes to prepare. Approved docs commits on the three paths are the sole exception; preserve unrelated dirty files. Switching blocks or unclear ownership hold handoff until resolution. Both operational failure and missing target choice block handoff.
 
 <a id="worktree-failures-and-partial-completion"></a>
 ### Worktree failures and partial completion
