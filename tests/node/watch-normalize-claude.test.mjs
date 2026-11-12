@@ -7,6 +7,26 @@ const assistant = (content, state=createClaudeState(), extra={}) => normalizeCla
 const user = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'user',message:{content},...extra},state);
 const tool = (name,input={}) => assistant([{type:'tool_use',id:'id',name,input}]);
 
+for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
+ test(`user interrupt ${marker} ends the turn`, () => {
+  assert.deepEqual(user([{type:'text',text:marker}]),[{kind:'turn_end',text:'interrupted by user'}]);
+  assert.deepEqual(user([{type:'text',text:` \n${marker}\t`}],undefined,{timestamp:'raw'}),
+   [{kind:'turn_end',text:'interrupted by user',ts:'raw'}]);
+ });
+}
+test('ordinary user text and interrupt markers alongside other words stay user events', () => {
+ for (const text of ['hello','before [Request interrupted by user]','[Request interrupted by user for tool use] after']) {
+  assert.deepEqual(user([{type:'text',text}]),[{kind:'user',text}]);
+ }
+});
+test('user interruption preserves tool failures on the same line', () => {
+ const state=createClaudeState();
+ assistant([{type:'tool_use',id:'t1',name:'Bash',input:{command:'ls'}}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'t1',is_error:true},
+  {type:'text',text:'[Request interrupted by user]'}],state),
+  [{kind:'tool_failed',tool:'Bash'},{kind:'turn_end',text:'interrupted by user'}]);
+});
+
 test('head finds the first line with cwd', () => {
  const head=fixture('claude-main').map(parseClaudeHead).find(Boolean);
  assert.deepEqual(head,{sessionId:'00000052-0000-7000-8000-000000000052',cwd:'/tmp/arc-watch-fixture/repo',entrypoint:'cli',version:'2.1.322'});
@@ -57,7 +77,7 @@ test('assistant blocks map to agent, reasoning, command, edit, spawn, tool', () 
  assert.deepEqual(assistant([{type:'text',text:'hello'},{type:'thinking',thinking:'plan',signature:'WATCH_MARKER_signature'},{type:'redacted_thinking',data:'WATCH_MARKER_redacted'}]),[{kind:'agent',text:'hello'},{kind:'reasoning',text:'plan'}]);
  assert.deepEqual(assistant([{type:'thinking',thinking:''}]),[]);
  assert.deepEqual(tool('Bash',{command:'a\nb'}),[{kind:'command',text:'a\nb'}]);
- for(const name of ['Edit','MultiEdit','Write','NotebookEdit']) assert.deepEqual(tool(name,{file_path:'/a',notebook_path:'/a',content:'WATCH_MARKER_file'}),[{kind:'file_change',paths:['/a']}]);
+ for(const name of ['Edit','MultiEdit','NotebookEdit']) assert.deepEqual(tool(name,{file_path:'/a',notebook_path:'/a',content:'WATCH_MARKER_file'}),[{kind:'file_change',paths:['/a']}]);
  for(const name of ['Agent','Task']) assert.deepEqual(tool(name,{subagent_type:'arc-routing-planner',description:'Native planner routing demo',prompt:'WATCH_MARKER_prompt'}),[{kind:'spawn',text:'arc-routing-planner: Native planner routing demo'}]);
  for(const [name,key] of [['Read','file_path'],['Grep','pattern'],['Glob','path'],['WebFetch','url'],['WebSearch','query']]) assert.deepEqual(tool(name,{[key]:'target'}),[{kind:'tool',tool:name,text:'target'}]);
  for(const name of ['mcp__srv__tool','Unknown']) assert.deepEqual(tool(name,{query:'WATCH_MARKER_input'}),[{kind:'tool',tool:name}]);
@@ -108,4 +128,33 @@ test('AC-W29 compact summary becomes a notice without its private body', () => {
     assert.deepEqual(user(content, undefined, {isCompactSummary:true,isVisibleInTranscriptOnly:true}),
       [{kind:'notice',text:'compact summary (15 chars)'}]);
   }
+});
+
+test('Write waits for its result to classify creation or update without result text', () => {
+  for (const [result,kind,paths] of [
+    [{type:'create',filePath:'/new'},'file_create',['/new']],
+    [{type:'update',filePath:'/existing'},'file_change',['/existing']],
+    [{type:'create'},'file_create',['/input']],
+    [{},'file_change',['/input']],
+  ]) {
+    const state = {modelSeen:false,tools:new Map()};
+    assert.deepEqual(assistant([{type:'tool_use',id:'write',name:'Write',input:{file_path:'/input',content:'private'}}],state), []);
+    const blocks = [{type:'tool_result',tool_use_id:'write',content:'private output'}];
+    assert.deepEqual(user(blocks,state,{toolUseResult:result}), [{kind,paths}]);
+    assert.deepEqual(user(blocks,state,{toolUseResult:result}), []);
+  }
+});
+test('failed Write emits only tool_failed and consumes its pending path', () => {
+  const state = createClaudeState();
+  assistant([{type:'tool_use',id:'write',name:'Write',input:{file_path:'/input'}}],state);
+  const block = {type:'tool_result',tool_use_id:'write',is_error:true,content:'private output'};
+  assert.deepEqual(user([block],state,{toolUseResult:{type:'create',filePath:'/new'}}), [{kind:'tool_failed',tool:'Write'}]);
+  assert.deepEqual(user([{...block,is_error:false}],state,{toolUseResult:{type:'create'}}), []);
+});
+test('pending Write paths are bounded without changing the tool-name cache', () => {
+  const state = createClaudeState();
+  for (let i=0;i<600;i++) assistant([{type:'tool_use',id:`w${i}`,name:'Write',input:{file_path:`/p${i}`}}],state);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'w0'}],state,{toolUseResult:{type:'create'}}), []);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'w599'}],state,{toolUseResult:{type:'create'}}), [{kind:'file_create',paths:['/p599']}]);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'w599',is_error:true}],state), [{kind:'tool_failed',tool:'Write'}]);
 });

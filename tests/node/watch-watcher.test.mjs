@@ -6,7 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {makeHomes} from './fixtures/watch/homes.mjs';
 import {createWatcher} from '../../lib/watch/watcher.mjs';
-import {renderHuman} from '../../lib/watch/render.mjs';
+import {renderHuman, renderJson} from '../../lib/watch/render.mjs';
 import {readClaudeHead, createClaudeDiscovery} from '../../lib/watch/discover-claude.mjs';
 import {readCodexMeta} from '../../lib/watch/discover-codex.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
@@ -39,6 +39,67 @@ function setup(t, options={}, kind='dir', dependencies={}) {
 const content = events=>events.filter(e=>e.source!=='watch');
 const notices = events=>events.filter(e=>e.source==='watch').map(e=>e.text);
 const lines=(events,verbose=false)=>events.map(e=>renderHuman(e,{width:200,color:false,verbose}));
+
+test('scope roots match real cwd aliases and render real-root paths', async t => {
+  const s = setup(t), alias = path.join(s.h.root,'repo-alias');
+  fs.symlinkSync(s.cwd,alias,'dir');
+  const real = fs.realpathSync(s.cwd), file = path.join(real,'docs/x.md');
+  s.c('aliased',[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}}}],{cwd:path.join(real,'src')});
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome},scope:{kind:'dir',roots:[alias]},
+    git:async () => { throw Error('scope root must avoid Git'); },now:()=>TIME});
+  t.after(()=>w.close());
+  const changed = content(await w.start()).find(e=>e.kind==='file_change');
+  assert.equal(changed.root,alias);
+  assert.equal(renderHuman(changed,{width:40,color:false}).slice(25),'repo-alias/docs/x.md');
+});
+
+test('subdirectory sessions use the longest containing scope root on both platforms', async t => {
+  const s = setup(t), nested = path.join(s.cwd,'nested');
+  const scope = {kind:'dir',roots:[s.cwd,nested]};
+  const cwd = path.join(nested,'src');
+  s.c('codex-root',undefined,{cwd});
+  s.cl('claude-root',[cm('claude-root',cwd)]);
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome,claude:s.h.claudeHome},scope,
+    git:async () => { throw Error('scope root must avoid Git'); },now:()=>TIME});
+  t.after(()=>w.close());
+  const out = content(await w.start());
+  assert.deepEqual([...new Set(out.map(e=>e.platform))].sort(),['claude','codex']);
+  assert.ok(out.every(e=>e.root===nested));
+});
+
+test('all-scope roots use cached Git top-level results without leaking into JSON', async t => {
+  const s = setup(t,{},'all'), cwd = path.join(s.cwd,'src'), file = path.join(s.cwd,'docs/x.md');
+  s.c('first',[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}}}],{cwd});
+  s.c('second',undefined,{cwd});
+  let calls = 0;
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome},scope:{kind:'all',roots:[]},
+    git:async (dir,args) => {
+      if (args===GIT_ALLOWED[0]) { assert.equal(dir,cwd); calls++; return s.cwd + '\n'; }
+      return null;
+    },now:()=>TIME});
+  t.after(()=>w.close());
+  const out = content(await w.start());
+  assert.ok(out.every(e=>e.root===s.cwd));
+  assert.equal(calls,1);
+  const changed = out.find(e=>e.kind==='file_change');
+  assert.equal(renderHuman(changed,{width:40,color:false}).slice(25),'repo/docs/x.md');
+  const json = JSON.parse(renderJson(changed));
+  assert.equal('root' in json,false);
+  assert.deepEqual(json.paths,[file]);
+});
+
+test('missing or failed Git top-level falls back to the session cwd', async t => {
+  for (const result of [null,'  ',new Error('git unavailable')]) {
+    const s = setup(t), cwd = path.join(s.cwd,'src');
+    s.c('fallback',undefined,{cwd});
+    const w = createWatcher({options:{tail:20,session:'fallback'},homes:{codex:s.h.codexHome},scope:{kind:'dir',roots:[]},
+      git:async () => { if (result instanceof Error) throw result; return result; },now:()=>TIME});
+    t.after(()=>w.close());
+    const out = content(await w.start());
+    assert.ok(out.length>0);
+    assert.ok(out.every(e=>e.root===cwd));
+  }
+});
 
 test('start shows banner, the last 20 recent events in ts order, then live',async t=>{
   const s=setup(t); s.c('codex',Array.from({length:15},(_,i)=>msg(`c${i}`,TIME-300000+i*2000)));
@@ -382,4 +443,53 @@ test('AC-W26 verbose diagnostic notices use id8 for every session identity', asy
   const out=await s.w.tick();
   for (const id of ids) assert.ok(notices(out).includes(`session file removed: ${id.slice(0,8)}`));
   assert.doesNotMatch(lines(out,true).join('\n'), /tui#|exec#|main#|qa@d123/);
+});
+
+test('busy tracks user and agent activity, ends, and five minutes of inactivity', async t => {
+  const s = setup(t), file = s.c('busy',[],{age:0});
+  await s.w.start();
+  assert.equal(s.w.busy?.(), false);
+  for (const type of ['UserMessage','AgentMessage']) {
+    s.append(file,[msg('working',TIME,type)]);await s.w.tick();
+    assert.equal(s.w.busy?.(),true);
+    s.append(file,[{type:'event_msg',payload:{type:'task_complete'}}]);await s.w.tick();
+    assert.equal(s.w.busy(),false);
+  }
+  s.append(file,[msg('working')]);await s.w.tick();
+  s.advance(300001);
+  assert.equal(s.w.busy(),false);
+});
+test('Claude Esc interruption stops busy and emits a visible END without verbose', async t => {
+  for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
+    const s = setup(t), file = s.cl('claude-busy',[cm('claude-busy',s.cwd,'working')]);
+    await s.w.start();
+    assert.equal(s.w.busy(),true);
+    s.advance(2000);
+    const interrupt = cm('claude-busy',s.cwd,'','cli',TIME+2000);
+    interrupt.message.content = [{type:'text',text:marker}];
+    s.append(file,[interrupt]);
+    const out = content(await s.w.tick());
+    assert.equal(s.w.busy(),false);
+    assert.ok(out.some(e => e.kind === 'turn_end' && e.text === 'interrupted by user'));
+    assert.match(lines(out).join('\n'), /END\s+interrupted by user/);
+  }
+});
+test('busy replays history before the verbose filter and follows all rows', async t => {
+  const s = setup(t,{tail:0});
+  const ended = s.c('ended',[msg('done'),{type:'event_msg',payload:{type:'task_complete'}}],{age:0});
+  const active = s.c('active',[{type:'event_msg',payload:{type:'task_started'}}],{age:0});
+  await s.w.start();
+  assert.equal(s.w.busy?.(),true);
+  s.append(active,[{type:'event_msg',payload:{type:'task_complete',error:{message:'failed'}}}]);await s.w.tick();
+  assert.equal(s.w.busy(),false);
+  s.append(ended,[{type:'event_msg',payload:{type:'task_started'}}]);await s.w.tick();
+  assert.equal(s.w.busy(),true);
+  fs.unlinkSync(ended);await s.w.tick();
+  assert.equal(s.w.busy(),false);
+});
+test('busy counts held sessions before their events are visible', async t => {
+  const s = setup(t);await s.w.start();s.advance(2000);
+  s.c('held',[msg('working')],{origin:'codex_exec',age:0});
+  assert.deepEqual(content(await s.w.tick()),[]);
+  assert.equal(s.w.busy?.(),true);
 });

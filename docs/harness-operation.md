@@ -19,11 +19,13 @@ The Node.js CLI validates/installs files. The conversation Orchestrator then rou
 | Managed instructions | `AGENTS.md` | `CLAUDE.md` |
 | Native configuration | `config.toml` | `settings.json` |
 
-Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator is the current conversation, not a sixth profile. Models use schema v3: `version = 3` and five `[roles.<role>]` tables, each containing exactly `model` and its effort field. Legacy v1/v2 files are validated and converted to their active values; writes use v3 only. Codex uses `model_reasoning_effort`, Claude `effort`.
+Installed roles are Scouter/Planner/Implementer/QA/Reviewer; Orchestrator uses the current conversation model, not a sixth profile. Active role settings are in the installed copies of [Codex models.toml](../codex/skill/models.toml) or [Claude Code models.toml](../claude/skill/models.toml); edit them with `Change Models`. Models use schema v3: `version = 3` and five `[roles.<role>]` tables, each containing exactly `model` and its effort field. Legacy v1/v2 files are validated and converted to their active values; writes use v3 only. Codex uses `model_reasoning_effort`, Claude `effort`.
 
-`Claude & Codex` stores each role's platform, model, and effort in the shared active file `CODEX_HOME/arc-role-platform-routing.json`. Each harness's `arc-role-platform-routing.prepared.json` marker and separate `agents/arc-routing-*` profile identify the installed bytes for the same revision. These markers do not prove CLI login or actual execution permissions, model, or effort.
+`Claude & Codex` lets each role use either platform and any model/effort pair in that platform's static catalog. New configurations assign Planner and Reviewer to Claude and Scouter, Implementer, and QA to Codex, using installed active values or package defaults. All five roles may use the same platform. `Apply` publishes the configuration directly; start a new session on that host to load new profiles. It stores each role's platform, model, and effort in the shared active file `CODEX_HOME/arc-role-platform-routing.json`. Each harness's `arc-role-platform-routing.prepared.json` marker and separate `agents/arc-routing-*` profile identify the installed bytes for the same revision. These markers do not prove CLI login or actual execution permissions, model, or effort.
 
-The home status labels `Available`, `Not Available`, `Incomplete`, and `Unauthorized` distinguish installation state from local CLI authentication. Codex authentication is checked by refreshing the login token through `codex app-server` (`getAuthStatus`), both on the home screen and for composite routing; this needs network access and rotates the tokens in `CODEX_HOME/auth.json`. A refresh that is permanently rejected is `Unauthorized`, and a check that cannot decide is `Incomplete`, never `Available`. Codex model and effort selections use the account's app-server catalog; the Claude API catalog is only an optional selection aid. Claude models and effort can be entered manually without an API key.
+The home status labels `Available`, `Not Available`, `Incomplete`, and `Unauthorized` distinguish installation state from local CLI authentication. Codex authentication is checked by refreshing the login token through `codex app-server` (`getAuthStatus`), both on the home screen and for composite routing; this needs network access and rotates the tokens in `CODEX_HOME/auth.json`. A refresh that is permanently rejected is `Unauthorized`, and a check that cannot decide is `Incomplete`, never `Available`. Claude authentication uses `claude auth status`.
+
+Model and effort choices come from packaged static Codex and Claude catalogs (`lib/models/static-catalog.mjs`, used by `lib/management/operations.mjs`), with no model-list API call or API key. These are candidates only: they do not prove availability for an account, CLI version, or provider. A saved model/effort pair absent from the catalog remains visible and must be reselected before applying new settings.
 
 Composite role execution support is per environment and per role. Publishing the configuration starts nothing; `routing-status` reports each role's route, profile, authentication and CLI versions. Support grades for the first release:
 
@@ -72,9 +74,13 @@ Dispatch thread/init events and saved session IDs map bridge activity to role an
 
 The stream is read-only: no CLI execution except restricted Git discovery, no network requests, and no changes to homes, repositories or artifacts. Tool and command outputs are never shown. Reasoning appears only with `--verbose`; common secrets are masked, but masking is not complete. `--json` uses the same content policy. Signals stop the watcher immediately with exit 0; after a pipe reader closes, it exits with 0 on its next output.
 
-Human output uses `HH:MM:SS <platform> <KIND> <text>` without a session label column. User and agent messages are shown in full, preserving newlines and indentation; continuation lines are indented by the prefix width, and blank lines stay empty. Long message lines are neither clipped by `--width` nor wrapped by the watcher; the terminal may wrap them. Other events use one line, clipped to `--width`.
+Human output uses `HH:MM:SS <platform> <KIND> <text>` without a session label column. User and agent messages are shown in full, preserving newlines and indentation; continuation lines are indented by the prefix width, and blank lines stay empty. Long message lines are neither clipped by `--width` nor wrapped by the watcher; the terminal may wrap them. `EDIT` and `CREATE` also keep their full single line without clipping; paths are joined with spaces and the terminal may wrap them. Paths inside the session's repository or worktree start with its root folder name (for example, `arc/docs/harness-operation.md`), even when the session cwd is a subdirectory. Outside Git, the session cwd is the root. Root aliases such as `/tmp` and `/private/tmp` are recognized via realpath. Paths outside the root stay absolute, relative paths stay unchanged, and JSON keeps absolute paths unchanged. Other events use one line, clipped to `--width`.
 
 Agent messages use `AGENT(<role>)` when a role is present. Otherwise, subagents use the label segment after the last `/`; top-level sessions and bridges without a role use `AGENT`. Names longer than 20 code points are shortened to the first 19 plus `…`. Other KIND tags never include a role. The KIND column has a minimum width of 8; longer tags have one following space, and continuation indentation follows the full prefix width.
+
+A spinner on the last line shows while a followed session has a turn in progress (TTY human output only, including with `NO_COLOR`); a Claude Esc interrupt ends the turn (shown as `END interrupted by user`), and it clears after five minutes without activity.
+
+Ctrl-L clears the screen and scrollback (`ESC[H ESC[2J ESC[3J`) in TTY human output; raw mode is restored on exit, and Ctrl-C still stops the watcher.
 
 Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
 
@@ -85,6 +91,7 @@ Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json
 | `CMD`, `CMD(0)` | `38;5;242` |
 | `CMD(n)` where n is nonzero | `31` |
 | `EDIT` | `33` |
+| `CREATE` | `38;5;69` |
 | `TOOL` | `2` |
 | `SPAWN` | `38;5;141` |
 | `DISPATCH` | `38;5;137` |
@@ -92,7 +99,7 @@ Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json
 | `FAIL`, `ERROR`, `TOOL!` | `31` |
 | `SESSION`, `END`, `NOTICE`, `SETTINGS`, `TURN`, `THINK`, `ITEM` | `2` |
 
-Bodies use their KIND color without bold or underline attributes: `USER` bodies use `35`, `APPROVE` bodies have no color, and failure bodies stay red (`31`). Each message line, including continuation lines, is colored separately; indentation is not colored, and parts wrapped by the terminal keep the line's color. KIND tags never use the platform cyan or orange. There is no fallback for terminals without 256-color support. One-line events whose prefix exceeds `--width` are printed without color.
+Bodies use their KIND color without bold or underline attributes: `USER` bodies use `35`, `APPROVE` bodies have no color, and failure bodies stay red (`31`). Each message line, including continuation lines, is colored separately; indentation is not colored, and parts wrapped by the terminal keep the line's color. KIND tags never use the platform cyan or orange. There is no fallback for terminals without 256-color support. One-line events other than `EDIT` and `CREATE` whose prefix exceeds `--width` are printed without color.
 
 Messages have terminal escapes and controls removed, line endings normalized, tabs expanded to four spaces, trailing whitespace and outer blank lines removed, and secrets masked across the full text (including multiline PEM blocks). JSON stays at schema `v:1` and keeps the existing `label` field. User and agent `text` preserves newlines without a length limit or a `truncated` field; other kinds collapse whitespace, cap `text` at 1000 code points and set `truncated:true` when clipped.
 

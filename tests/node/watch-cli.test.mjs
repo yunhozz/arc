@@ -21,13 +21,22 @@ class Output extends EventEmitter {
   text = '';
   write(s) { this.text += s; this.emit('written',s); return true; }
 }
+class Input extends EventEmitter {
+  isTTY = false;
+  rawModes = [];
+  resumes = 0;
+  pauses = 0;
+  setRawMode(value) { this.rawModes.push(value); }
+  resume() { this.resumes++; }
+  pause() { this.pauses++; }
+}
 function setup(t) {
   const h = makeHomes(t), cwd = path.join(h.root,'repo');
   fs.mkdirSync(cwd);
   let tick, clearCount = 0, clock = TIME, ready;
   const started = new Promise(resolve => ready = resolve), controller = new AbortController();
   const output = new Output(), error = new Output(), proc = new EventEmitter(), calls = [];
-  const io = {output,error,process:proc,userHome:h.userHome,cwd,env:{},signal:controller.signal,now:()=>clock,
+  const io = {input:new Input(),output,error,process:proc,userHome:h.userHome,cwd,env:{},signal:controller.signal,now:()=>clock,
     git:async (dir,args)=>{calls.push({dir,args});assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));return null;},
     setInterval(fn,ms){assert.equal(ms,WATCH_LIMITS.filePollMs);tick=fn;ready();return 17;},
     clearInterval(id){assert.equal(id,17);clearCount++;},
@@ -62,7 +71,7 @@ test('usage errors exit 2 with a message',async t=>{
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP,expected);assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
 });
 test('root lists watch and keeps other behavior',async t=>{
@@ -98,10 +107,10 @@ test('unexpected exceptions return 1 with one stderr line',async t=>{const s=set
 test('color and width follow TTY, NO_COLOR, json and resize',async t=>{
   for(const [tty,env,args,ansi,width] of [[true,{},[],true,100],[true,{NO_COLOR:'1'},[],false,100],[true,{},['--json'],false,null],[false,{},[],false,200],[true,{},['--width','80'],true,80],[true,{},[],true,60]]) {
     const s=setup(t);s.output.isTTY=tty;s.output.columns=width===60?30:100;s.io.env=env;
-    const f=s.write('width',s.cwd,[command('x'.repeat(400))]);
+    const f=s.write('width',s.cwd,[command('x'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}]);
     const {result}=await s.start(args);assert.equal(s.output.text.includes('\x1b['),ansi);
     if(width)assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=width));
-    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,JSON.stringify(command('y'.repeat(400)))+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
+    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,[command('y'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}].map(JSON.stringify).join('\n')+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
     s.controller.abort();assert.equal(await result,0);
   }
 });
@@ -273,3 +282,82 @@ for (const json of [false,true]) for (const verbose of [false,true]) {
     }
   });
 }
+
+test('TTY spinner advances, erases before events, clears on end and stop', async t => {
+  for (const env of [{},{NO_COLOR:'1'}]) {
+    const s=setup(t);s.output.isTTY=true;s.io.env=env;
+    const file=s.write('spinner');const {result}=await s.start();
+    assert.ok(strip(s.output.text).endsWith('⠋ working…'));
+    if (env.NO_COLOR) assert.doesNotMatch(s.output.text,/\x1b\[[0-9;]*m/);
+    else assert.match(s.output.text,/\x1b\[2m⠋ working…\x1b\[0m$/);
+    s.output.text='';await s.step();
+    assert.equal(strip(s.output.text),'\r\x1b[2K⠙ working…');
+    s.output.text='';fs.appendFileSync(file,JSON.stringify(msg('next'))+'\n');await s.step();
+    assert.ok(s.output.text.startsWith('\r\x1b[2K'));
+    assert.ok(strip(s.output.text).endsWith('⠹ working…'));
+    s.output.text='';fs.appendFileSync(file,JSON.stringify({type:'event_msg',payload:{type:'task_complete'}})+'\n');await s.step();
+    assert.ok(s.output.text.startsWith('\r\x1b[2K'));
+    assert.doesNotMatch(s.output.text,/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+    fs.appendFileSync(file,JSON.stringify(msg('again'))+'\n');await s.step();
+    s.output.text='';s.controller.abort();assert.equal(await result,0);
+    assert.equal(s.output.text,'\r\x1b[2K');
+  }
+});
+test('non-TTY and JSON output never include spinner controls', async t => {
+  for(const [tty,args] of [[false,[]],[false,['--json']],[true,['--json']]]) {
+    const s=setup(t);s.output.isTTY=tty;s.write('busy');
+    const {result}=await s.start(args);await s.step();s.controller.abort();assert.equal(await result,0);
+    assert.doesNotMatch(s.output.text,/[\r⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+  }
+});
+
+test('TTY Ctrl-L clears screen and scrollback, redraws busy spinner and Ctrl-C restores input', async t => {
+  for (const env of [{},{NO_COLOR:'1'}]) {
+    const s=setup(t), input=s.io.input;input.isTTY=true;s.output.isTTY=true;s.io.env=env;
+    const file=s.write('keys');const {result}=await s.start();
+    assert.deepEqual(input.rawModes,[true]);assert.equal(input.resumes,1);
+    s.output.text='';input.emit('data','ignored\x0c');
+    assert.equal(s.output.text,'\x1b[H\x1b[2J\x1b[3J'+(env.NO_COLOR?'⠙ working…':'\x1b[2m⠙ working…\x1b[0m'));
+    fs.appendFileSync(file,JSON.stringify({type:'event_msg',payload:{type:'task_complete'}})+'\n');await s.step();
+    s.output.text='';input.emit('data',Buffer.from([0x61,0x0c]));
+    assert.equal(s.output.text,'\x1b[H\x1b[2J\x1b[3J');
+    input.emit('data',Buffer.from([0x03,0x0c]));assert.equal(await result,0);
+    assert.equal(s.output.text,'\x1b[H\x1b[2J\x1b[3J');
+    assert.deepEqual(input.rawModes,[true,false]);assert.equal(input.pauses,1);assert.equal(input.listenerCount('data'),0);
+  }
+});
+test('signals and abort restore TTY input exactly once', async t => {
+  for (const signal of ['SIGINT','SIGTERM','SIGHUP','abort']) {
+    const s=setup(t), input=s.io.input;input.isTTY=true;s.output.isTTY=true;
+    const {result}=await s.start();
+    if(signal==='abort')s.controller.abort();else s.proc.emit(signal);
+    s.controller.abort();s.proc.emit('SIGINT');assert.equal(await result,0);
+    assert.deepEqual(input.rawModes,[true,false]);assert.equal(input.pauses,1);assert.equal(input.listenerCount('data'),0);
+  }
+});
+test('startup and output errors restore TTY input even when raw mode restoration throws', async t => {
+  for (const failure of ['startup','output','closed']) {
+    const s=setup(t), input=s.io.input;input.isTTY=true;s.output.isTTY=true;
+    if(failure==='startup')s.io.git=async()=>{throw Error('startup failed');};
+    if(failure==='closed')input.setRawMode=value=>{input.rawModes.push(value);if(!value)throw Error('closed TTY');};
+    let result;
+    if(failure==='startup')result=runWatch([],s.io);
+    else {
+      ({result}=await s.start());
+      if(failure==='output')s.output.emit('error',Object.assign(Error('pipe'),{code:'EPIPE'}));
+      else s.controller.abort();
+    }
+    assert.equal(await result,failure==='startup'?1:0);
+    assert.deepEqual(input.rawModes,[true,false]);assert.equal(input.pauses,1);assert.equal(input.listenerCount('data'),0);
+  }
+});
+test('non-TTY, JSON and input without raw mode leave stdin and output untouched', async t => {
+  for(const [inputTTY,outputTTY,args,raw] of [[false,true,[],true],[true,false,[],true],[true,true,['--json'],true],[true,true,[],false]]) {
+    const s=setup(t), input=s.io.input;input.isTTY=inputTTY;s.output.isTTY=outputTTY;
+    if(!raw)input.setRawMode=undefined;
+    s.write('untouched');const {result}=await s.start(args);const before=s.output.text;
+    input.emit('data',Buffer.from([0x0c,0x03]));assert.equal(s.output.text,before);
+    assert.deepEqual(input.rawModes,[]);assert.equal(input.resumes,0);assert.equal(input.pauses,0);assert.equal(input.listenerCount('data'),0);
+    s.controller.abort();assert.equal(await result,0);
+  }
+});

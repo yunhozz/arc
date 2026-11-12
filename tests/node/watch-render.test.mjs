@@ -4,6 +4,31 @@ import * as renderer from '../../lib/watch/render.mjs';
 import {renderHuman, renderJson, kindTag} from '../../lib/watch/render.mjs';
 const event = {ts:'2026-11-11T00:01:15.000Z',platform:'codex',label:'tui#e2e8',kind:'command',text:'git status',exitCode:0};
 const options = {width:120, color:false, verbose:false};
+test('displayPath shortens only absolute paths inside the root', () => {
+  assert.equal(typeof renderer.displayPath, 'function');
+  for (const [file, root, want] of [
+    ['/repo/arc/docs/x.md','/repo/arc','arc/docs/x.md'],
+    ['/repo/arc','/repo/arc','arc'],
+    ['/private/tmp/x','/repo/arc','/private/tmp/x'],
+    ['/repo/arc-other/x','/repo/arc','/repo/arc-other/x'],
+    ['docs/x.md','/repo/arc','docs/x.md'],
+    ['/repo/arc/x','repo/arc','/repo/arc/x'],
+    ['/repo/arc/x',undefined,'/repo/arc/x'],
+  ]) assert.equal(renderer.displayPath(file,root),want);
+});
+test('CREATE and EDIT keep all paths and colors even below prefix width', () => {
+  const file = '/repo/arc/docs/' + 'long-name-'.repeat(20) + '.md';
+  for (const kind of ['file_create','file_change']) for (const width of [40,10]) {
+    for (const color of [false,true]) {
+      const out = renderHuman({...event,kind,text:'updated',root:'/repo/arc',paths:[file,'/private/tmp/outside.md']}, {...options,width,color});
+      const plain = out.replace(/\x1b\[[0-9;]*m/g,'');
+      assert.equal(plain.slice(25), 'updated arc/docs/' + 'long-name-'.repeat(20) + '.md /private/tmp/outside.md');
+      assert.ok(!plain.includes('…'));
+      assert.equal(plain.split('\n').length,1);
+      if (color) assert.match(out,/\x1b\[/);
+    }
+  }
+});
 test('renderHuman has no label column', () => {
   const line = renderHuman(event, options);
   assert.match(line.slice(0,8), /^\d\d:\d\d:\d\d$/);
@@ -15,7 +40,7 @@ test('renderHuman has no label column', () => {
   assert.equal(renderHuman({...event,ts:'invalid',observedAt:event.ts}, options).slice(0,8), line.slice(0,8));
 });
 test('kind tags follow the spec table', () => {
-  for (const [kind, want] of [['command','CMD'],['tool_failed','TOOL!'],['turn_end','END'],['turn_failed','FAIL'],['turn_start','TURN'],['reasoning','THINK'],['file_change','EDIT'],['approval','APPROVE'],['other','ITEM'],['settings','SETTINGS'],['notice','NOTICE'],['dispatch','DISPATCH'],['session','SESSION'],['user','USER'],['agent','AGENT'],['spawn','SPAWN'],['error','ERROR'],['tool','TOOL']]) assert.equal(kindTag({kind}),want);
+  for (const [kind, want] of [['command','CMD'],['tool_failed','TOOL!'],['turn_end','END'],['turn_failed','FAIL'],['turn_start','TURN'],['reasoning','THINK'],['file_change','EDIT'],['file_create','CREATE'],['approval','APPROVE'],['other','ITEM'],['settings','SETTINGS'],['notice','NOTICE'],['dispatch','DISPATCH'],['session','SESSION'],['user','USER'],['agent','AGENT'],['spawn','SPAWN'],['error','ERROR'],['tool','TOOL']]) assert.equal(kindTag({kind}),want);
   assert.equal(kindTag({kind:'command',exitCode:2}), 'CMD(2)');
 });
 test('non-message lines still clip to width', () => {
@@ -131,7 +156,7 @@ test('tag colors follow the table and include the parenthesized part', () => {
   const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT(qa)'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD(0)'],
     [{kind:'command',exitCode:1},'31','CMD(1)'],[{kind:'command',exitCode:-1},'31','CMD(-1)'],
-    [{kind:'file_change'},'33','EDIT'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
+    [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
     [{kind:'dispatch'},'38;5;137','DISPATCH'],[{kind:'approval'},'1;4','APPROVE'],
     [{kind:'turn_failed'},'31','FAIL'],[{kind:'error'},'31','ERROR'],[{kind:'tool_failed'},'31','TOOL!'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2',kindTag({kind})])];
@@ -153,7 +178,7 @@ test('body color matches tag color without attributes', () => {
   const table = [[{kind:'user'},'35'],[{kind:'agent',role:'qa'},'32'],
     [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
     [{kind:'command',exitCode:1},'31'],[{kind:'command',exitCode:-1},'31'],
-    [{kind:'file_change'},'33'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
+    [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
     [{kind:'dispatch',state:'t'},'38;5;137'],[{kind:'approval'},''],
     [{kind:'turn_failed'},'31'],[{kind:'error'},'31'],[{kind:'tool_failed'},'31'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2'])];
@@ -167,7 +192,7 @@ test('color off output is byte-identical for every kind', () => {
   const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT(qa)'],
     [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD(0)'],
     [{kind:'command',exitCode:1},'CMD(1)'],[{kind:'command',exitCode:-1},'CMD(-1)'],
-    [{kind:'file_change'},'EDIT'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
+    [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
     [{kind:'dispatch',state:'t'},'DISPATCH'],[{kind:'approval'},'APPROVE'],
     [{kind:'turn_failed'},'FAIL'],[{kind:'error'},'ERROR'],[{kind:'tool_failed'},'TOOL!'],
     [{kind:'session'},'SESSION'],[{kind:'turn_end'},'END'],[{kind:'notice'},'NOTICE'],
@@ -187,4 +212,11 @@ test('message lines are colored per line with uncolored indentation', () => {
   assert.equal(lines[1],'');
   assert.equal(lines[2],' '.repeat(prefixLen) + '\x1b[32mb\x1b[0m');
   assert.equal(renderHuman(event,{...options,width:10,color:true}),renderHuman(event,{...options,width:10}));
+});
+
+test('file creation renders CREATE with text and paths', () => {
+  const input = {...event,kind:'file_create',text:'created',paths:['/a/new.mjs']};
+  assert.equal(renderHuman(input,options).slice(16), 'CREATE   created /a/new.mjs');
+  assert.equal(renderer.tagColor(input), '38;5;69');
+  assert.equal(renderer.bodyColor(input), '38;5;69');
 });
