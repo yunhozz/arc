@@ -36,11 +36,15 @@ The TUI requires terminal input and output. Public commands: `arc`, `arc watch`,
 
 ## Watch sessions
 
-`arc watch` follows Claude Code and Codex activity in a read-only stream; by default it includes every worktree of the current Git repository, or the current directory outside Git.
-User and agent messages are shown in full; other events use one line.
-Tool and command outputs are never shown; common secret patterns are masked, but masking is not complete.
-Codex Desktop sessions are excluded. Bridge roles on Codex hosts remain held as `host_sandbox_blocked` and appear once they run.
-Use `arc watch --help` for scope, platform, history and JSON options; press Ctrl-C to stop.
+![arc watch flow](docs/images/watch-flow.svg)
+
+`arc watch` streams Claude Code and Codex activity read-only. Default scope: every worktree of the current Git repository, or the current directory outside Git.
+
+- **Shown:** user and agent messages in full; other events on one line.
+- **Hidden:** tool and command outputs. Common secret patterns are masked, but masking is not complete.
+- **Excluded:** Codex Desktop sessions. Bridge roles on Codex hosts stay held as `host_sandbox_blocked` until they run.
+
+Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl-C to stop.
 
 ## Models and language
 
