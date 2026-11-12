@@ -14,6 +14,28 @@ const section = text => {
 const normalize = body => body.replaceAll(/Claude/g, '@A').replaceAll(/Codex/g, '@B').replaceAll(/claude/g, '@a').replaceAll(/codex/g, '@b')
   .split(/\n+|(?<=[.!?])\s+/).map(line => line.trim()).filter(Boolean).map(line => line.replaceAll('@A', '<P1>').replaceAll('@B', '<P2>').replaceAll('@a', '<p1>').replaceAll('@b', '<p2>')).sort();
 
+for (const harness of Object.keys(harnesses)) {
+  test(`${harness} skill places the role routing gate immediately after the role gate and before shared terms`, async () => {
+    const skill = await readFile(new URL(`../../${harness}/skill/SKILL.md`, import.meta.url), 'utf8');
+    const gate = '**Role routing gate:** Before any specialist creation or assignment, check whether `../../arc-role-platform-routing.prepared.json` exists relative to this skill directory. If it exists, run `routing-status` and follow [coordination](references/coordination.md#composite-platform-role-dispatch) for every role, using only the returned native profile or bridge. Never substitute a generic or built-in agent (for example `general-purpose`, `fork` or `default`), an `arc-<role>`/`arc_<role>` name, another model or another platform. If routing is unavailable, held or unverified, hold that role and report it. Without the marker, use the standalone role names.';
+    assert.ok(skill.includes(gate), `${harness} missing approved Role routing gate`);
+    const roleGate = skill.split('\n').find(line => line.startsWith('**Role gate:**'));
+    assert.ok(roleGate && skill.includes(`${roleGate}\n\n${gate}\n\n`), `${harness} routing gate must directly follow Role gate`);
+    assert.ok(skill.indexOf(gate) < skill.indexOf('## Shared terms'), `${harness} routing gate must precede Shared terms`);
+  });
+
+  test(`${harness} skill records the pre-action gate after routing and links planning judgments`, async () => {
+    const skill = await readFile(new URL(`../../${harness}/skill/SKILL.md`, import.meta.url), 'utf8');
+    const gate = "**Pre-action gate record:** Before a task's first specialist creation or assignment, its first repository edit, or any decision to skip the Planner design stage, read the applicable references first, then post one line in a user-visible progress message with `mode` (standalone, or composite with routing revision), `class` (work type), `path` (direct with all F1–F8 proven, Spike, Bounded or Architectural), `design` (Planner design required, approved or omitted, and why), `depth` (plan required, or the omission reason), `risk` (level and reason) and `refs` (reference sections actually read). A field that a later stage decides (for example `path` or `depth` before Planner design) is recorded as `pending` with that stage; for work with no edits or design, such as Scouter-only research, `path`, `design` and `depth` are `n/a` with the reason; any other empty or unverified field holds that action. Post a new line when a recorded fact changes. Feature, behavior and bug-fix implementation starts with Planner design unless the direct path is selected with all F1–F8 proven.";
+    assert.ok(skill.includes(gate), `${harness} missing approved Pre-action gate record`);
+    const routingGate = skill.split('\n').find(line => line.startsWith('**Role routing gate:**'));
+    assert.ok(routingGate && skill.includes(`${routingGate}\n\n${gate}\n\n`), `${harness} pre-action gate must directly follow Role routing gate`);
+    assert.ok(skill.indexOf(gate) < skill.indexOf('## Shared terms'), `${harness} pre-action gate must precede Shared terms`);
+    const planning = await read(harness, 'planning.md');
+    assert.ok(planning.includes('4. Record dependencies/depth reasons; also post the design path, depth and risk judgments in the SKILL.md Pre-action gate record.'), `${harness} planning must link judgments to Pre-action gate record`);
+  });
+}
+
 test('execution mode precedes standalone names and forbids standalone names in composite mode', async () => {
   const paragraphs = {};
   for (const harness of Object.keys(harnesses)) {

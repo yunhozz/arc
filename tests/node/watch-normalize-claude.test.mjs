@@ -91,6 +91,29 @@ test('end_turn and system errors per spike findings', () => {
  assert.deepEqual(assistant([],undefined,{stop_reason:'end_turn'}),[{kind:'turn_end'}]);
  for(const subtype of ['error','api_error','other']) assert.deepEqual(normalizeClaudeLine({type:'system',subtype,message:'WATCH_MARKER_error'},createClaudeState()),[]);
 });
+for (const stop_reason of ['tool_use','end_turn']) {
+ test(`SubagentHandback ends the turn once with stop_reason ${stop_reason}`, () => {
+  assert.deepEqual(normalizeClaudeLine({type:'assistant',timestamp:'raw',message:{stop_reason,
+   content:[{type:'tool_use',id:'handback',name:'SubagentHandback',input:{}}]}},createClaudeState()),
+   [{kind:'tool',tool:'SubagentHandback',ts:'raw'},{kind:'turn_end',ts:'raw'}]);
+ });
+}
+test('repeated SubagentHandback blocks end the message only once', () => {
+ assert.deepEqual(assistant([
+  {type:'tool_use',id:'first',name:'SubagentHandback',input:{}},
+  {type:'tool_use',id:'second',name:'SubagentHandback',input:{}},
+ ],undefined,{stop_reason:'end_turn'}),[
+  {kind:'tool',tool:'SubagentHandback'},{kind:'turn_end'},
+  {kind:'tool',tool:'SubagentHandback'},
+ ]);
+});
+test('SubagentHandback results stay silent unless they fail', () => {
+ const state=createClaudeState();
+ assistant([{type:'tool_use',id:'handback',name:'SubagentHandback',input:{}}],state);
+ const result={type:'tool_result',tool_use_id:'handback',content:'private output'};
+ assert.deepEqual(user([result],state),[]);
+ assert.deepEqual(user([{...result,is_error:true}],state),[{kind:'tool_failed',tool:'SubagentHandback'}]);
+});
 test('housekeeping types produce nothing', () => {
  for(const type of ['last-prompt','mode','permission-mode','session-owner','attachment','file-history-snapshot','cost-state','summary','queue-operation','atis-latch','custom-title','agent-name','relocated','environment','api-request-shape','api-request']) assert.deepEqual(normalizeClaudeLine({type,message:{role:'assistant',content:'WATCH_MARKER_private'}},createClaudeState()),[]);
 });
