@@ -64,3 +64,8 @@
 - [x] MANIFEST는 해시 대상을 바꾸는 각 태스크 안에서 재생성한다.
 - [x] Reviewer는 최종 1회다.
 - [ ] 미확인(Implementer 확인): codex planning.md 항목 4 정확한 행, `codex/agents/arc-planner.toml` placeholder 위치, fragment 테스트가 id 목록을 고정하는지 여부.
+
+## 최종 검증 진행 기록 (2026-11-12)
+
+- 전체 suite(`--test-timeout=120000`): 워크트리 43 실패·6 취소, master 47 실패·5 취소. 새로 보인 `role-bridge-run` 타이밍 실패 2건은 두 suite 병렬 실행 부하에서만 발생했고 단독 실행 35/35 통과(runtime 모듈 미변경).
+- 최종 Reviewer 1회 + 재검토 2회: M1(예산 보류 재요청 경로), L1(depth 미정·Spike 예산), L2(밀도 적응이 승인·검사를 면제하지 않음), L3(설계 단계 further 호출), N1(단계 내 budget-hold delta 수신자), N2(설계 단계 재전송이 correction 기회 사용) 반영 후 해결. R1(관리 행이 budget-hold 재사용을 언급하지 않음)은 승인된 한 문장 범위 밖이라 보류, 향후 role-policy 개정 시 반영.
