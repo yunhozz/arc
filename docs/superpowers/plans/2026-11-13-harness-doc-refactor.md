@@ -211,16 +211,16 @@ PY
 - **선행:** plan 승인과 문서 커밋. **산출물:** `$REV/T0-baseline.md`(QA 보고를 Orchestrator가 저장). **수정 파일:** 없음.
 - **Python 실행 형태 근거:** `scripts/check-installer-parity.mjs:56`(`python3 -B -m unittest discover -v -s tests -p <file>`), `docs/superpowers/plans/2026-10-20-harness-instruction-copyedit.md:95-97`.
 
-- [ ] T0-1 QA가 문서 커밋 HEAD에서 Q-FULL을 실행한다(`git diff --check`는 생략). `git status --porcelain` 결과도 기록한다.
-- [ ] T0-2 표를 작성한다: `검사 | 종료 코드 | 실패 테스트 ID | 실패 메시지 요지 | 분류(baseline/D7 후보/불명)`. node는 `not ok` 줄의 테스트명 전체를, Python은 `FAIL:`/`ERROR:` 줄의 `module.Class.test` 전체를 적는다.
-- [ ] T0-3 분류 규칙을 적용한다.
+- [x] T0-1 QA가 문서 커밋 HEAD에서 Q-FULL을 실행한다(`git diff --check`는 생략). `git status --porcelain` 결과도 기록한다.
+- [x] T0-2 표를 작성한다: `검사 | 종료 코드 | 실패 테스트 ID | 실패 메시지 요지 | 분류(baseline/D7 후보/불명)`. node는 `not ok` 줄의 테스트명 전체를, Python은 `FAIL:`/`ERROR:` 줄의 `module.Class.test` 전체를 적는다.
+- [x] T0-3 분류 규칙을 적용한다.
   - **D7 후보:** 기대 문자열이나 정규식이 원문과 대소문자 표기만 다르고, 그 표기가 승인 표기(§4.1-5)와 일치한다. 확정 사례는 `tests/test_harness_contract.py:696`이다.
   - **baseline:** 기대 문구가 대소문자 접기 후에도 저장소에 없거나, 실패 원인이 표기와 무관하다.
     - `tests/test_arc_policy.py:1344`(`if Planner fails or is unavailable, stop and report, never draft instead`)는 문구 부재 → baseline. 유지하고 수정하지 않는다.
     - `tests/test_harness_contract.py:91`도 문구 부재 → baseline이다. `.lower()` 경로(`:209-211`)라 대소문자 변경의 영향을 받지 않는다.
   - **불명:** 위 둘로 정할 수 없다. 해당 테스트가 읽는 파일을 바꾸는 작업은 Orchestrator 판단 전까지 hold한다.
-- [ ] T0-4 사용자가 제공한 "node 테스트 실패 69개"의 재현 여부(실제 `# fail` 수)를 기록한다.
-- [ ] T0-5 `tests/node/plan.test.mjs:147-154` renderingBaseline 8개 테스트, `tests/node/instruction-layout.test.mjs:135-137`(`protected`), `tests/node/agent-fragments.test.mjs:19-36`의 기준선 통과 여부를 따로 적는다.
+- [x] T0-4 사용자가 제공한 "node 테스트 실패 69개"의 재현 여부(실제 `# fail` 수)를 기록한다.
+- [x] T0-5 `tests/node/plan.test.mjs:147-154` renderingBaseline 8개 테스트, `tests/node/instruction-layout.test.mjs:135-137`(`protected`), `tests/node/agent-fragments.test.mjs:19-36`의 기준선 통과 여부를 따로 적는다.
 - **hold:** 검사 명령 자체가 실행되지 않으면(환경·의존성 오류) 모든 작업을 hold하고 보고한다. 의존성 설치나 환경 변경은 하지 않는다.
 
 ## T1: 역할 정책 원천 문구 대문자화와 관리 블록 재생성
@@ -245,16 +245,17 @@ PY
   - `tests/node/plan.test.mjs:147-154` renderingBaseline(O1, T1 후 실패하는 키만)
   - 확인만 하고 수정하지 않는 것: `tests/test_harness_contract.py:713`(O4), `tests/node/instruction-layout.test.mjs:99,102`(`rule.text` 동적 대조)
 
-- [ ] T1-1 작업 시작 시 HEAD, branch, 변경 상태가 handoff와 일치하는지 확인한다. 위 테스트 행마다 원문 줄과 관리 블록 여부를 확정한다(관리 블록 출처가 아니면 T3 소관이므로 손대지 않는다).
-- [ ] T1-2 원천 문구를 편집한다(`rules[].text`, `platforms.*.notice`만). §4 판정, §4.4 hold, 근거 있는 R4만 적용한다. 대조표 행마다 비고에 반영 target 수를 적는다(§11.1, §13).
-- [ ] T1-3 `npm run update:role-policy` → `npm run check:role-policy`(기대: exit 0).
-- [ ] T1-4 `node scripts/update-runtime-assets.mjs` → `node scripts/update-runtime-assets.mjs --check`(기대: exit 0). 이 스크립트는 `lib/policy/role-policy.json`을 양 플랫폼 `skill/runtime/role-policy.json`으로 복사한다(`scripts/update-runtime-assets.mjs:20-22`). 복제본이 원천과 바이트가 다르면 hold한다(§7-3).
-- [ ] T1-5 fixture와 테스트를 갱신한다. 문자열은 같은 줄에서 교체하고, 파일 SHA는 `shasum -a 256 <file>`로 다시 계산한다. `agentProfileBaseline`은 `lib/prompts/render.mjs`의 렌더 함수로 각 target을 렌더한 결과의 SHA-256으로 계산한다(`tests/node/agent-fragments.test.mjs`의 계산 방식과 같게). `plan.test.mjs` 값은 실패 메시지의 actual hash를 기록하고, 2회 실행으로 결정적인지 확인한다. §8.4 기록을 작성한다.
-- [ ] T1-6 `node scripts/update-manifest.mjs` → `npm run check:manifest`(기대: exit 0).
-- [ ] T1-7 Implementer가 Q-FULL을 실행하고 대조표, §8.4 기록, hold, R4 후보, 불분명 추가분을 보고한다.
-- [ ] T1-8 fresh QA: Q-FULL, Q-A, Q-B(원천 + 관리 블록 target), Q-C, Q-D, Q-E(`lib/policy/role-policy.json`). 24 target의 diff가 관리 블록 안에만 있는지(begin~end 밖의 바뀐 줄 0), 바뀐 파일이 모두 `allowedPaths` 안에 있는지 확인한다.
-- [ ] T1-9 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(policy): 역할 정책 규범 표기 대문자화`.
+- [x] T1-1 작업 시작 시 HEAD, branch, 변경 상태가 handoff와 일치하는지 확인한다. 위 테스트 행마다 원문 줄과 관리 블록 여부를 확정한다(관리 블록 출처가 아니면 T3 소관이므로 손대지 않는다).
+- [x] T1-2 원천 문구를 편집한다(`rules[].text`, `platforms.*.notice`만). §4 판정, §4.4 hold, 근거 있는 R4만 적용한다. 대조표 행마다 비고에 반영 target 수를 적는다(§11.1, §13).
+- [x] T1-3 `npm run update:role-policy` → `npm run check:role-policy`(기대: exit 0).
+- [x] T1-4 `node scripts/update-runtime-assets.mjs` → `node scripts/update-runtime-assets.mjs --check`(기대: exit 0). 이 스크립트는 `lib/policy/role-policy.json`을 양 플랫폼 `skill/runtime/role-policy.json`으로 복사한다(`scripts/update-runtime-assets.mjs:20-22`). 복제본이 원천과 바이트가 다르면 hold한다(§7-3).
+- [x] T1-5 fixture와 테스트를 갱신한다. 문자열은 같은 줄에서 교체하고, 파일 SHA는 `shasum -a 256 <file>`로 다시 계산한다. `agentProfileBaseline`은 `lib/prompts/render.mjs`의 렌더 함수로 각 target을 렌더한 결과의 SHA-256으로 계산한다(`tests/node/agent-fragments.test.mjs`의 계산 방식과 같게). `plan.test.mjs` 값은 실패 메시지의 actual hash를 기록하고, 2회 실행으로 결정적인지 확인한다. §8.4 기록을 작성한다.
+- [x] T1-6 `node scripts/update-manifest.mjs` → `npm run check:manifest`(기대: exit 0).
+- [x] T1-7 Implementer가 Q-FULL을 실행하고 대조표, §8.4 기록, hold, R4 후보, 불분명 추가분을 보고한다.
+- [x] T1-8 fresh QA: Q-FULL, Q-A, Q-B(원천 + 관리 블록 target), Q-C, Q-D, Q-E(`lib/policy/role-policy.json`). 24 target의 diff가 관리 블록 안에만 있는지(begin~end 밖의 바뀐 줄 0), 바뀐 파일이 모두 `allowedPaths` 안에 있는지 확인한다.
+- [x] T1-9 Orchestrator가 수락하고 checkbox를 갱신한 뒤 커밋한다: `refactor(policy): 역할 정책 규범 표기 대문자화`.
 - **수용 기준:** AC-3, AC-4(원천), AC-5, AC-6, AC-9, AC-10(role-policy), AC-11, AC-12, AC-13(`:696` 통과), AC-14(관리 블록 쌍), AC-15.
+- **진행 기록(2026-11-13 수락):** T0 기준선은 node fail 139/pass 1758, Python 고유 170개(575건), installer parity 실패. T1은 원천 10개 규칙의 18곳을 대소문자만 바꿨다(S1–S10, 24 target 재생성). O8에 따라 SHA 기대값 31행은 BASE로 유지하고, 테스트 갱신은 D7 2행(`tests/test_harness_contract.py:681,696`)만 했다. QA 16415e2d에서 AC-4·5·6·9·10·11·12가 proven이다. AC-13·14는 Orchestrator가 직접 확인했다(`test_arc_policy` ID 108개·339건 불변, composite 12/12 통과). node는 pass 1759/fail 138로 새 실패 0이다. AC-3·15는 최종 Reviewer가 판정한다.
 - **hold:** 생성 명령 실패나 `--check` 불일치, 비문구 diff, 관리 블록 밖 diff, 부재 assertion 실패, T0에 없던 실패, 테스트 줄 수·이름 변경 필요, `tests/installer-parity.json` 변경 필요, `allowedPaths` 밖 파일 변경.
 
 ## T2: 에이전트 조각 문구와 템플릿 산문 대문자화
