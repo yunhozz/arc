@@ -44,7 +44,7 @@ The TUI requires terminal input and output. Public commands: `arc`, `arc watch`,
 - **Hidden:** tool and command outputs. Common secret patterns are masked, but masking is not complete.
 - **Excluded:** Codex Desktop sessions. Bridge roles on Codex hosts stay held as `host_sandbox_blocked` until they run.
 
-Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl-C to stop.
+Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl-L to clear the screen and Ctrl-C to stop.
 
 ## Models and language
 

@@ -78,6 +78,8 @@ Agent messages use `AGENT(<role>)` when a role is present. Otherwise, subagents 
 
 A spinner on the last line shows while a followed session has a turn in progress (TTY human output only, including with `NO_COLOR`); a Claude Esc interrupt ends the turn (shown as `END interrupted by user`), and it clears after five minutes without activity.
 
+Ctrl-L clears the screen and scrollback (`ESC[H ESC[2J ESC[3J`) in TTY human output; raw mode is restored on exit, and Ctrl-C still stops the watcher.
+
 Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
 
 | KIND | ANSI SGR |
