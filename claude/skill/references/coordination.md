@@ -89,7 +89,7 @@ The [task envelope](handoff.md#orchestrator-direct-path-for-small-tasks) fits th
 
 ## Planner dispatch efficiency
 
-Before Planner dispatch, evaluate F1–F8 direct-path eligibility and Bounded plan-omission eligibility independently. Enter each path only when all of that path's existing conditions are proven; if neither path qualifies, use normal full evaluation. Orchestrator can read a few already identified files; route material research and broad static exploration to Scouter. Reuse relevant Planner context across stages only while role, source and context remain valid. Follow-up briefs cite an accessible prior brief for unchanged fields.
+Before Planner dispatch, evaluate F1–F8 direct-path eligibility and Bounded plan-omission eligibility independently. Enter each path only when all of that path's existing conditions are proven; if neither path qualifies, use normal full evaluation. Orchestrator can read a few already identified files; route material research and broad static exploration to Scouter. Planner briefs carry path/line-verified evidence and a Read/Grep exploration budget (default about 15 for Bounded and about 30 for Architectural when no task-specific number is set); additional broad exploration goes to Scouter, not Planner. Reuse one Planner only within the design/brainstorming stage (initial draft and its consolidated correction). After design approval, the spec stage and the plan stage each use a fresh Planner whose brief contains every required field plus saved document paths and approved versions; cite a prior brief only when it is an accessible file. Orchestrator may set a handback size limit in the brief.
 
 <a id="models"></a>
 ## Models

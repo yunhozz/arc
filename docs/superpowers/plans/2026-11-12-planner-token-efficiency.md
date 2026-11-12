@@ -39,6 +39,7 @@
 - **선행:** T1(같은 `MANIFEST.sha256`을 수정하므로 순차).
 - **기준:** 두 사본 의미 일치(행·표현 차이 허용). 관리 섹션(`[ARC role policy: contract begin]` 이후) 미수정. 관리 섹션 밖 본문에 단계 간 재사용 문구 0건.
 - **필수 점검:** `npm run check:manifest`, `npm run check:role-policy`(변경 없이 통과), 관리 섹션 밖 grep `across (related )?stages|Planner instance|Planner context` 0건.
+- **진행 기록 (2026-11-12, 수락):** 완료. 두 사본 diff 동일, `check:manifest`·`check:role-policy` 통과, `role-policy.test.mjs` 24/24 통과, 관리 섹션 밖 단계 간 재사용 문구 0건, 한글 0건.
 
 ## T3: role-policy `planning.planner-brief` 재사용 문장
 
