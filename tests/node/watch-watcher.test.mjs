@@ -459,6 +459,32 @@ test('busy tracks user and agent activity, ends, and five minutes of inactivity'
   s.advance(300001);
   assert.equal(s.w.busy(),false);
 });
+test('Claude subagent handback stops busy after its parent turn has ended', async t => {
+  const s = setup(t), id = 'claude-parent';
+  const parent = s.cl(id, [cm(id,s.cwd)], {subagents:[{
+    agentId:'busy-child', meta:{agentType:'arc-qa'},
+    lines:[cm(id,s.cwd), {type:'assistant',message:{content:[
+      {type:'tool_use',id:'read',name:'Read',input:{file_path:'/input'}},
+    ]}}], mtime:TIME-300000,
+  }]});
+  const child = path.join(parent.slice(0,-6),'subagents','agent-busy-child.jsonl');
+  const initial = content(await s.w.start());
+  assert.ok(initial.some(e => e.source === 'subagent' && e.kind === 'tool' && e.tool === 'Read'));
+  assert.equal(s.w.busy(),true);
+  s.append(parent,[{type:'assistant',message:{content:[],stop_reason:'end_turn'}}]);
+  await s.w.tick();
+  assert.equal(s.w.busy(),true);
+  s.append(child,[
+    {type:'assistant',timestamp:iso(TIME),message:{stop_reason:'tool_use',content:[
+      {type:'tool_use',id:'handback',name:'SubagentHandback',input:{}},
+    ]}},
+    {type:'user',timestamp:iso(TIME),message:{content:[
+      {type:'tool_result',tool_use_id:'handback',content:'done'},
+    ]}},
+  ]);
+  await s.w.tick();
+  assert.equal(s.w.busy(),false);
+});
 test('Claude Esc interruption stops busy and emits a visible END without verbose', async t => {
   for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
     const s = setup(t), file = s.cl('claude-busy',[cm('claude-busy',s.cwd,'working')]);
