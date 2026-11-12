@@ -104,3 +104,17 @@ test('wrapped diagnostic continuation is fully warned',()=>{
  const result=api.renderScreen({wordmark:true,rows:['continued message'],rowTones:['diagnostic-cont']});assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:2,to:19,role:'warn',fg:[251,191,36]}]);
  const clipped=api.renderScreen({wordmark:true,rows:['Codex: Available / Claude: Unauthorized'],rowTones:['status']},{columns:30,rows:24});assert.deepEqual(clipped.styles.find(style=>style.line===8)?.runs,[{from:9,to:18,role:'ok',fg:[52,211,153]}]);
 });
+
+test('frame 0 equals no frame and rest frames equal frame 0',()=>{
+ const home={wordmark:true,rows:['Exit'],selected:0},first=api.renderScreen(home);for(const frame of [0,18,35,36])assert.deepEqual(api.renderScreen({...home,frame}),first);
+});
+test('shimmer changes colors but never text',()=>{
+ const home={wordmark:true,rows:['Exit'],selected:0},first=api.renderScreen(home),next=api.renderScreen({...home,frame:9});assert.equal(next.text,first.text);assert.notDeepEqual(next.styles,first.styles);
+ assert.ok(api.shimmerIntensity(13,1,9)>0.8);assert.equal(api.shimmerIntensity(0,0,9),0);assert.equal(api.shimmerIntensity(13,1,0),0);
+ const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+ for(const [row,col,role] of [[1,13,'logo'],[1,15,'shadow']]){const run=next.styles.find(style=>style.line===row).runs.find(run=>run.from<=col&&run.to>col),base=api.gradientAt((col+0.75*row)/26.75),intensity=api.shimmerIntensity(col,row,9);assert.equal(run.role,role);assert.deepEqual(run.fg,role==='logo'?mix(base,[240,255,248],0.7*intensity):mix(base.map(v=>Math.round(v*0.55)),[150,230,200],0.5*intensity));}
+ assert.deepEqual(next.styles.find(style=>style.line===6).runs.find(run=>run.role==='sparkle').fg,[175,243,216]);
+});
+test('busy heading shows the braille spinner frame',()=>{
+ const result=api.renderScreen({title:'Working',mode:'busy',rows:[],frame:3});assert.equal(result.text.split('\n')[0],'⠸ Working');assert.deepEqual(result.styles[0].runs,[{from:0,to:1,role:'spinner',fg:[52,211,153]},{from:2,to:9,role:'title',fg:[110,231,183],bold:true}]);
+});

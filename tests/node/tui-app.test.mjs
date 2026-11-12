@@ -242,3 +242,19 @@ test('wrapped info keeps tones per display line',async()=>{
  assert.deepEqual(session.screens[0].rows,['Codex: Available / Claude: ','Not Available','Codex: '+ 'x'.repeat(20),'x'.repeat(27),'xxx','','Exit']);assert.deepEqual(session.screens[0].rowTones,['status','status','diagnostic','diagnostic-cont','diagnostic-cont',undefined,undefined]);
  const replaced=terminal([enter]);await createTuiInterface(replaced).menu('Settings',['Back'],{info:['Codex: boom'],infoTones:['diagnostic'],renderBody:()=>({rows:['Back'],selected:0})});assert.equal(replaced.screens[0].rowTones,undefined);
 });
+
+test('home ticks repaint with increasing frames and one pending read',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([]),frames=[];let resolveEvent,reads=0;session.frameMs=15;session.repaint=screen=>{frames.push(screen.frame);return{selectionEnabled:true};};session.nextEvent=()=>{reads++;return new Promise(resolve=>{resolveEvent=resolve;});};
+ const result=createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true});await new Promise(resolve=>setTimeout(resolve,65));resolveEvent(enter);assert.equal(await result,0);assert.ok(frames.length>=3);assert.deepEqual(frames,frames.map((_,index)=>index+1));assert.equal(session.screens.length,1);assert.equal(reads,1);const count=frames.length;await new Promise(resolve=>setTimeout(resolve,35));assert.equal(frames.length,count);
+});
+test('menu without frameMs never ticks on home',async()=>{
+ const{createTuiInterface}=await load(),session=terminal([]);let resolveEvent;session.nextEvent=()=>new Promise(resolve=>{resolveEvent=resolve;});const result=createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true});await new Promise(resolve=>setTimeout(resolve,40));resolveEvent(enter);await result;assert.equal(session.screens.length,1);
+});
+for(const ending of ['return','throw'])test('busy spinner stops before leaving busy on '+ending,async()=>{
+ const{createTuiInterface}=await load(),session=terminal([]),calls=[];session.frameMs=10;session.setBusy=value=>calls.push(value);session.repaint=screen=>calls.push(screen.frame);
+ const result=createTuiInterface(session).busy(async()=>{await new Promise(resolve=>setTimeout(resolve,45));if(ending==='throw')throw Error('action failed');return 42;});if(ending==='throw')await assert.rejects(result,/action failed/);else assert.equal(await result,42);
+ const frames=calls.filter(value=>typeof value==='number');assert.ok(frames.length>=2);assert.deepEqual(frames,frames.map((_,index)=>index+1));assert.equal(calls.at(-1),false);const count=calls.length;await new Promise(resolve=>setTimeout(resolve,30));assert.equal(calls.length,count);
+});
+for(const ending of ['escape','eof','error'])test('home animation clears its timer on '+ending,async()=>{
+ const{createTuiInterface}=await load(),session=terminal([]),frames=[];let resolveEvent;session.frameMs=10;session.repaint=screen=>frames.push(screen.frame);session.nextEvent=()=>new Promise(resolve=>{resolveEvent=resolve;});const result=createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true});await new Promise(resolve=>setTimeout(resolve,25));resolveEvent(ending==='error'?{name:'error',error:Error('read failed')}:{name:ending});await assert.rejects(result,ending==='escape'?{code:'ARC_TUI_HOME'}:ending==='eof'?{code:'ARC_TUI_EOF'}:/read failed/);const count=frames.length;await new Promise(resolve=>setTimeout(resolve,25));assert.equal(frames.length,count);
+});

@@ -206,7 +206,7 @@
 
 **Predecessors:** T2, T5(app.mjs `menu()` 충돌 최소화).
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
   - tui-terminal
     - `repaint keeps a pending lone Escape and split arrows`: `io.send('\x1b')` 직후 `io.session.repaint(screen)` → 다음 `nextEvent`는 `escape`. `io.send('\x1b[')`, repaint, `io.send('B')` → `down`.
     - `repaint skips identical frames and resize forces a redraw`: render 후 같은 screen repaint는 출력 길이 불변; truecolor `{...home,frame:9}` repaint는 출력 증가; `io.resize(100,30)` 뒤 같은 screen repaint는 출력 증가.
@@ -222,17 +222,19 @@
     - `menu without frameMs never ticks on home`: frameMs 없는 세션의 wordmark 메뉴는 40ms 동안 render 1회.
     - `busy spinner stops before leaving busy`: fake session `frameMs:10`, `setBusy`·`repaint` 순서 기록, action 40ms 대기. repaint ≥2, 모든 repaint가 `setBusy(false)`보다 앞, 반환 뒤 30ms 동안 repaint 0.
     - 149, 155, 214 기존 테스트 통과 유지.
-- [ ] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-terminal.test.mjs tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs`.
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실패 확인** — `node --test --test-timeout=120000 tests/node/tui-terminal.test.mjs tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs`.
+- [x] **Step 3: 구현**
   - terminal.mjs: `draw()`는 프레임 문자열 전체(커서 이동 포함)를 `\x1b[?2026h…\x1b[?2026l`로 감싸 `output.write` 한 번. `repaint`는 `discardInput` 없이 draw하되 직전 프레임 문자열과 `lastLines`가 같으면 쓰지 않음. `render()`는 현행대로 입력을 버리고 항상 씀. `onResize`는 프레임 캐시를 비움.
   - app.mjs `menu()`: `animate = wordmark && session.frameMs > 0`; 틱 주기 `animate ? session.frameMs : refreshMs`; 틱마다 animate면 `frame++`, 아니면 `blink=!blink`; 틱 재렌더 `(session.repaint ?? session.render).call(session, screen)`, 입력 이벤트 뒤 재렌더는 `session.render`; `screen.frame=frame`.
   - app.mjs `busy()`: 첫 render 뒤 `frameMs>0`이면 `setInterval`로 `frame++`·repaint. `finally` 첫 문장은 `clearInterval`.
   - render.mjs: logo/shadow/sparkle fg에 shimmer, busy 머리말에 스피너.
-- [ ] **Step 4: 통과 확인** — Step 2 명령과 `tests/node/tui-setup.test.mjs`, `tests/node/tui-custom-preset.test.mjs`. 베이스라인 외 실패 0.
-- [ ] **Step 5: manifest** — T1과 같음.
-- [ ] **Step 6: 수락 전 확인** — **fresh QA 필수**: Step 2·4 재실행, 입력 보존 시나리오(ESC, 나뉜 화살표, busy 중 Ctrl+C) 증거, 타이머 누수 없음(테스트 종료 시 활성 handle 없음, `--test-timeout` 내 종료). Orchestrator: 전체 스위트와 PTY 테스트(cli-pty 베이스라인 실패 3건 불변), 수동 PTY 캡처(120x40 truecolor 홈 shimmer 2사이클 약 6s·휴식 구간 출력 없음, Working 스피너, 홈 ESC 연속 입력, 30x12, TERM=dumb). 커밋 `feat(tui): logo shimmer and busy spinner`.
+- [x] **Step 4: 통과 확인** — Step 2 명령과 `tests/node/tui-setup.test.mjs`, `tests/node/tui-custom-preset.test.mjs`. 베이스라인 외 실패 0.
+- [x] **Step 5: manifest** — T1과 같음.
+- [x] **Step 6: 수락 전 확인** — **fresh QA 필수**: Step 2·4 재실행, 입력 보존 시나리오(ESC, 나뉜 화살표, busy 중 Ctrl+C) 증거, 타이머 누수 없음(테스트 종료 시 활성 handle 없음, `--test-timeout` 내 종료). Orchestrator: 전체 스위트와 PTY 테스트(cli-pty 베이스라인 실패 3건 불변), 수동 PTY 캡처(120x40 truecolor 홈 shimmer 2사이클 약 6s·휴식 구간 출력 없음, Working 스피너, 홈 ESC 연속 입력, 30x12, TERM=dumb). 커밋 `feat(tui): logo shimmer and busy spinner`.
 
 **Hold:** ESC·키 유실 재현; busy 종료 뒤 출력 잔존; PTY 테스트 시간 초과(출력량 조사).
+
+**Result (2026-11-12, 진행 기록):** fresh QA가 16색에서 shimmer tick마다 재출력되는 결함(AC2 unmet)을 발견 → 같은 Implementer가 `formatLine`에서 동일 SGR 인접 run을 병합(16색 36프레임 추가 출력 4,367B → 0B), 같은 QA 재확인 전 항목 입증(입력 보존, 단일 pending read, 모든 종료 경로 타이머 정리, dumb frameMs 0, 동기화 출력, A1 678B). 집중 테스트 204/205(베이스라인 1건 불변). 전체 스위트 1869개 중 52 실패, 새 실패 1건(`prepare-dispatch maps CLI absence ...`)은 TUI와 무관하고 단독 재실행 통과(부하성 flaky). PTY 3개 파일 재실행: cli-pty 베이스라인 3건 외 통과. 실제 PTY 캡처(120x40 truecolor): 1.44s 스윕 동안만 프레임 출력, 휴식 구간 출력 없음, ESC로 정상 종료. 실행 중 다른 worktree의 브랜치 ref 이동으로 runtime이 `permission_violation_observed`를 기록했으나 변경 경로·HEAD 무변화로 무관함을 확인. Orchestrator 수락.
 
 ---
 

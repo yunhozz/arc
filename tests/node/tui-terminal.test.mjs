@@ -107,3 +107,36 @@ test('status tones vanish without color',t=>{
  for(const env of [{NO_COLOR:'',COLORTERM:'truecolor'},{TERM:'dumb'}]){const io=session(t,{env});io.session.render(screen);assert.doesNotMatch(io.text(),/\x1b\[[0-9;]*m/);assert.match(io.text(),/Claude: Available \/ Codex: Not Available/);}
  const basic=session(t,{env:{TERM:'xterm'}});basic.session.render(screen);assert.ok(basic.text().includes('\x1b[0;32mAvailable'));assert.ok(basic.text().includes('\x1b[0;2mNot Available'));assert.ok(basic.text().includes('\x1b[0;31mUnauthorized'));assert.ok(basic.text().includes('\x1b[0;33mIncomplete'));
 });
+
+test('repaint keeps a pending lone Escape and split arrows',async t=>{
+ const io=session(t),screen={title:'Settings',rows:['Back'],selected:0};io.session.render(screen);
+ io.send('\x1b');io.session.repaint(screen);assert.equal((await io.session.nextEvent()).name,'escape');
+ io.send('\x1b[');io.session.repaint(screen);io.send('B');assert.equal((await io.session.nextEvent()).name,'down');
+ io.send('x');io.session.repaint(screen);assert.equal((await io.session.nextEvent()).text,'x');
+});
+test('repaint skips identical frames and resize forces a redraw',t=>{
+ const io=session(t),screen={wordmark:true,rows:['Exit'],selected:0};io.session.render(screen);const first=io.text().length;
+ io.session.repaint(screen);assert.equal(io.text().length,first);io.session.repaint({...screen,frame:9});assert.ok(io.text().length>first);
+ const animated=io.text().length;io.resize(100,30);assert.ok(io.text().length>animated);const resized=io.text().length;
+ io.session.repaint({...screen,frame:9});assert.equal(io.text().length,resized);
+});
+test('frames are wrapped in synchronized output',t=>{
+ const io=session(t),writes=[],write=io.output.write.bind(io.output);io.output.write=chunk=>{writes.push(String(chunk));return write(chunk);};
+ io.session.render({title:'Settings',rows:['Back'],selected:0});assert.equal(writes.length,1);assert.match(writes[0],/^\x1b\[\?2026h[\s\S]*\x1b\[2K[\s\S]*\x1b\[\?2026l$/);
+});
+test('frameMs is 80 unless TERM is dumb',t=>{for(const [env,want] of [[{},80],[{TERM:'dumb'},0],[{NO_COLOR:''},80]])assert.equal(session(t,{env}).session.frameMs,want);});
+test('repaint after dispose is a no-op',t=>{const io=session(t);io.session.dispose();const before=io.text();assert.deepEqual(io.session.repaint({title:'Closed'}),{selectionEnabled:false,text:''});assert.equal(io.text(),before);});
+
+test('basic and 256-color formatting merges adjacent runs with identical SGR',()=>{
+ for(const [depth,colors,params] of [['16',[[1,2,3],[240,250,245]],'92'],['256',[[1,2,3],[10,12,15]],'38;5;16'],['truecolor',[[1,2,3],[1,2,3]],'38;2;1;2;3']]){
+  const runs=colors.map((fg,index)=>({from:index,to:index+1,role:index?'sparkle':'logo',fg}));
+  assert.equal(api.formatLine('ab',{runs},depth),'\x1b[0;'+params+'mab\x1b[0m');
+  assert.equal(api.formatLine('a b',{runs:[runs[0],{...runs[1],from:2,to:3}]},depth),'\x1b[0;'+params+'ma\x1b[0m \x1b[0;'+params+'mb\x1b[0m');
+ }
+});
+test('basic home frames stay identical throughout shimmer',async t=>{
+ const{renderScreen}=await import('../../lib/tui/render.mjs'),home={wordmark:true,rows:['Exit'],selected:0};
+ const formatted=frame=>{const result=renderScreen({...home,frame});return result.text.split('\n').map((line,index)=>api.formatLine(line,result.styles.find(style=>style.line===index),'16')).join('\n');};
+ assert.equal(formatted(9),formatted(0));
+ const io=session(t,{env:{TERM:'xterm'}});io.session.render(home);const before=Buffer.byteLength(io.text());for(let frame=1;frame<=36;frame++)io.session.repaint({...home,frame});assert.equal(Buffer.byteLength(io.text())-before,0);
+});
