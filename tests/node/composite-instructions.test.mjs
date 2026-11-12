@@ -14,6 +14,17 @@ const section = text => {
 const normalize = body => body.replaceAll(/Claude/g, '@A').replaceAll(/Codex/g, '@B').replaceAll(/claude/g, '@a').replaceAll(/codex/g, '@b')
   .split(/\n+|(?<=[.!?])\s+/).map(line => line.trim()).filter(Boolean).map(line => line.replaceAll('@A', '<P1>').replaceAll('@B', '<P2>').replaceAll('@a', '<p1>').replaceAll('@b', '<p2>')).sort();
 
+for (const harness of Object.keys(harnesses)) {
+  test(`${harness} skill places the role routing gate immediately after the role gate and before shared terms`, async () => {
+    const skill = await readFile(new URL(`../../${harness}/skill/SKILL.md`, import.meta.url), 'utf8');
+    const gate = '**Role routing gate:** Before any specialist creation or assignment, check whether `../../arc-role-platform-routing.prepared.json` exists relative to this skill directory. If it exists, run `routing-status` and follow [coordination](references/coordination.md#composite-platform-role-dispatch) for every role, using only the returned native profile or bridge. Never substitute a generic or built-in agent (for example `general-purpose`, `fork` or `default`), an `arc-<role>`/`arc_<role>` name, another model or another platform. If routing is unavailable, held or unverified, hold that role and report it. Without the marker, use the standalone role names.';
+    assert.ok(skill.includes(gate), `${harness} missing approved Role routing gate`);
+    const roleGate = skill.split('\n').find(line => line.startsWith('**Role gate:**'));
+    assert.ok(roleGate && skill.includes(`${roleGate}\n\n${gate}\n\n`), `${harness} routing gate must directly follow Role gate`);
+    assert.ok(skill.indexOf(gate) < skill.indexOf('## Shared terms'), `${harness} routing gate must precede Shared terms`);
+  });
+}
+
 test('execution mode precedes standalone names and forbids standalone names in composite mode', async () => {
   const paragraphs = {};
   for (const harness of Object.keys(harnesses)) {
