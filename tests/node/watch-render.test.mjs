@@ -16,9 +16,9 @@ test('displayPath shortens only absolute paths inside the root', () => {
     ['/repo/arc/x',undefined,'/repo/arc/x'],
   ]) assert.equal(renderer.displayPath(file,root),want);
 });
-test('CREATE and EDIT keep all paths and colors even below prefix width', () => {
+test('CREATE, EDIT and DELETE keep all paths and colors even below prefix width', () => {
   const file = '/repo/arc/docs/' + 'long-name-'.repeat(20) + '.md';
-  for (const kind of ['file_create','file_change']) for (const width of [40,10]) {
+  for (const kind of ['file_create','file_change','file_delete']) for (const width of [40,10]) {
     for (const color of [false,true]) {
       const out = renderHuman({...event,kind,text:'updated',root:'/repo/arc',paths:[file,'/private/tmp/outside.md']}, {...options,width,color});
       const plain = out.replace(/\x1b\[[0-9;]*m/g,'');
@@ -40,7 +40,7 @@ test('renderHuman has no label column', () => {
   assert.equal(renderHuman({...event,ts:'invalid',observedAt:event.ts}, options).slice(0,8), line.slice(0,8));
 });
 test('kind tags follow the spec table', () => {
-  for (const [kind, want] of [['command','CMD'],['tool_failed','TOOL!'],['turn_end','END'],['turn_failed','FAIL'],['turn_start','TURN'],['reasoning','THINK'],['file_change','EDIT'],['file_create','CREATE'],['approval','APPROVE'],['other','ITEM'],['settings','SETTINGS'],['notice','NOTICE'],['dispatch','DISPATCH'],['session','SESSION'],['user','USER'],['agent','AGENT'],['spawn','SPAWN'],['error','ERROR'],['tool','TOOL']]) assert.equal(kindTag({kind}),want);
+  for (const [kind, want] of [['command','CMD'],['tool_failed','TOOL!'],['turn_end','END'],['turn_failed','FAIL'],['turn_start','TURN'],['reasoning','THINK'],['file_change','EDIT'],['file_create','CREATE'],['file_delete','DELETE'],['approval','APPROVE'],['other','ITEM'],['settings','SETTINGS'],['notice','NOTICE'],['dispatch','DISPATCH'],['session','SESSION'],['user','USER'],['agent','AGENT'],['spawn','SPAWN'],['error','ERROR'],['tool','TOOL']]) assert.equal(kindTag({kind}),want);
   assert.equal(kindTag({kind:'command',exitCode:2}), 'CMD(2)');
 });
 test('non-message lines still clip to width', () => {
@@ -156,7 +156,7 @@ test('tag colors follow the table and include the parenthesized part', () => {
   const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT(qa)'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD(0)'],
     [{kind:'command',exitCode:1},'31','CMD(1)'],[{kind:'command',exitCode:-1},'31','CMD(-1)'],
-    [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
+    [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
     [{kind:'dispatch'},'38;5;137','DISPATCH'],[{kind:'approval'},'1;4','APPROVE'],
     [{kind:'turn_failed'},'31','FAIL'],[{kind:'error'},'31','ERROR'],[{kind:'tool_failed'},'31','TOOL!'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2',kindTag({kind})])];
@@ -178,7 +178,7 @@ test('body color matches tag color without attributes', () => {
   const table = [[{kind:'user'},'35'],[{kind:'agent',role:'qa'},'32'],
     [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
     [{kind:'command',exitCode:1},'31'],[{kind:'command',exitCode:-1},'31'],
-    [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
+    [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'file_delete'},'31'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
     [{kind:'dispatch',state:'t'},'38;5;137'],[{kind:'approval'},''],
     [{kind:'turn_failed'},'31'],[{kind:'error'},'31'],[{kind:'tool_failed'},'31'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2'])];
@@ -192,7 +192,7 @@ test('color off output is byte-identical for every kind', () => {
   const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT(qa)'],
     [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD(0)'],
     [{kind:'command',exitCode:1},'CMD(1)'],[{kind:'command',exitCode:-1},'CMD(-1)'],
-    [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
+    [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'file_delete'},'DELETE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
     [{kind:'dispatch',state:'t'},'DISPATCH'],[{kind:'approval'},'APPROVE'],
     [{kind:'turn_failed'},'FAIL'],[{kind:'error'},'ERROR'],[{kind:'tool_failed'},'TOOL!'],
     [{kind:'session'},'SESSION'],[{kind:'turn_end'},'END'],[{kind:'notice'},'NOTICE'],
@@ -219,4 +219,12 @@ test('file creation renders CREATE with text and paths', () => {
   assert.equal(renderHuman(input,options).slice(16), 'CREATE   created /a/new.mjs');
   assert.equal(renderer.tagColor(input), '38;5;69');
   assert.equal(renderer.bodyColor(input), '38;5;69');
+});
+
+
+test('file deletion renders DELETE and preserves paths in JSON', () => {
+  const input = {...event,kind:'file_delete',text:'deleted',paths:['/a/gone.mjs']};
+  assert.equal(renderHuman(input,options).slice(16), 'DELETE   deleted /a/gone.mjs');
+  assert.deepEqual(JSON.parse(renderJson(input)).paths, input.paths);
+  assert.equal(JSON.parse(renderJson(input)).kind, 'file_delete');
 });

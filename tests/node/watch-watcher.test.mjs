@@ -549,3 +549,45 @@ test('busy counts held sessions before their events are visible', async t => {
   assert.deepEqual(content(await s.w.tick()),[]);
   assert.equal(s.w.busy?.(),true);
 });
+
+
+test('live deletion reaches human and JSON output and marks the session busy', async t => {
+  const s = setup(t), file = s.c('delete',[],{age:0});
+  await s.w.start();
+  assert.equal(s.w.busy(),false);
+  const deleted = s.cwd + '/docs/' + 'long-name-'.repeat(20) + '.md';
+  s.append(file,[{timestamp:iso(TIME),type:'event_msg',payload:{type:'item_completed',item:{
+    type:'FileChange',changes:{[deleted]:{type:'delete',content:'WATCH_MARKER_deleted_content'}},
+  }}}]);
+  const out = content(await s.w.tick());
+  assert.equal(out.length,1);
+  assert.equal(out[0].kind,'file_delete');
+  assert.deepEqual(out[0].paths,[deleted]);
+  assert.equal(s.w.busy(),true);
+  const human = renderHuman(out[0],{width:40,color:false});
+  assert.equal(human.slice(16),'DELETE   repo/docs/' + 'long-name-'.repeat(20) + '.md');
+  const json = JSON.parse(renderJson(out[0]));
+  assert.equal(json.kind,'file_delete');
+  assert.deepEqual(json.paths,[deleted]);
+  assert.doesNotMatch(human + JSON.stringify(json),/WATCH_MARKER/);
+});
+
+
+test('Claude successful rm reaches live DELETE output without exposing tool results', async t => {
+  const s = setup(t), file = s.cl('claude-delete');
+  await s.w.start();
+  s.append(file,[{type:'assistant',sessionId:'claude-delete',cwd:s.cwd,message:{content:[
+    {type:'tool_use',id:'delete',name:'Bash',input:{command:'rm "docs/old file.md"'}},
+  ]}}]);
+  assert.deepEqual(content(await s.w.tick()).map(e=>e.kind),['command']);
+  s.append(file,[{type:'user',sessionId:'claude-delete',cwd:s.cwd,message:{content:[
+    {type:'tool_result',tool_use_id:'delete',is_error:false,content:'WATCH_MARKER_output'},
+  ]},toolUseResult:{stdout:'WATCH_MARKER_stdout',stderr:'',interrupted:false}}]);
+  const out=content(await s.w.tick());
+  assert.equal(out.length,1);
+  assert.equal(out[0].platform,'claude');
+  assert.equal(out[0].kind,'file_delete');
+  assert.equal(renderHuman(out[0],{width:40,color:false}).slice(16),'DELETE   repo/docs/old file.md');
+  assert.deepEqual(JSON.parse(renderJson(out[0])).paths,[s.cwd + '/docs/old file.md']);
+  assert.doesNotMatch(JSON.stringify(out),/WATCH_MARKER/);
+});
