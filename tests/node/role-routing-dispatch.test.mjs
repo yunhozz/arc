@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {createRoutingFixture} from './role-fixtures.mjs';
-import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
+import {BRIDGE_GATE_RESULTS, DESKTOP_CHECKLIST_PASSED, DEFAULT_POLICY, bridgeGateReasons, reason} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
 import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
@@ -20,6 +20,78 @@ const codes = result => result.reasons.map(reason => reason.code);
 const leaseCount = async f => { try { return (await fs.readdir(dispatchDirectory(f.codexHome))).length; } catch (error) { if (error.code === 'ENOENT') return 0; throw error; } };
 const okClis = async (f, claudeVersion = '2.1.322 (Claude Code)', codexVersion = 'codex-cli 0.167.0') => { await f.cli('claude', {version: claudeVersion}); await f.cli('codex', {version: codexVersion}); };
 const skipRoot = t => process.getuid?.() === 0 && t.skip('root ignores directory permissions');
+
+test('default bridge policy keeps G1 and Desktop holds while G2 requires per-call escalation', () => {
+  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass'});
+  assert.equal(Object.isFrozen(BRIDGE_GATE_RESULTS), true);
+  assert.deepEqual(DESKTOP_CHECKLIST_PASSED, {'claude-desktop': false, 'codex-desktop': false});
+  assert.equal(DEFAULT_POLICY.gates, BRIDGE_GATE_RESULTS);
+});
+
+test('default Codex host permits read-only Claude bridge gates but preserves explicit G2 failure and G1 holds', () => {
+  const input = {platform: 'claude', role: 'arc_planner', hostPlatform: 'codex'};
+  assert.deepEqual(bridgeGateReasons(input), []);
+  assert.deepEqual(bridgeGateReasons({...input, policy: policyWith({gates: {G1: 'pass', G2: 'fail'}})}), ['host_sandbox_blocked']);
+  assert.deepEqual(bridgeGateReasons({...input, role: 'arc_qa'}), ['permission_scope_unverified']);
+});
+
+test('default Codex CLI policy allows Claude planner and reviewer while holding implementer and QA only for G1', async t => {
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude', arc_reviewer: 'claude', arc_implementer: 'claude', arc_qa: 'claude'}});
+  await okClis(f);
+  for (const role of ['arc_planner', 'arc_reviewer']) {
+    const result = await prepare(f, request(role), {policy: DEFAULT_POLICY});
+    try {
+      assert.equal(result.decision, 'allow', role);
+      assert.equal(result.route, 'bridge', role);
+      assert.equal(result.supportStatus, 'unverified', role);
+      assert.deepEqual(codes(result), [], role);
+      assert.ok(result.dispatchId, role);
+    } finally { if (result.dispatchId) await cancel(f, result.dispatchId); }
+  }
+  for (const role of ['arc_implementer', 'arc_qa']) {
+    const result = await prepare(f, request(role), {policy: DEFAULT_POLICY});
+    assert.equal(result.decision, 'hold', role);
+    assert.deepEqual(codes(result), ['permission_scope_unverified'], role);
+  }
+});
+
+test('default Desktop policy holds Codex native and bridge roles and Claude hosts for environment verification', async t => {
+  const codex = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude'}});
+  await okClis(codex);
+  for (const [role, route] of [['arc_planner', 'bridge'], ['arc_scouter', 'native']]) {
+    const result = await prepare(codex, request(role), {policy: DEFAULT_POLICY, context: codex.context({executionEnvironment: 'codex-desktop'})});
+    assert.equal(result.decision, 'hold', role);
+    assert.equal(result.route, route, role);
+    assert.deepEqual(codes(result), ['environment_unverified'], role);
+    assert.equal(codes(result).includes('host_sandbox_blocked'), false, role);
+  }
+  const claude = await createRoutingFixture(t);
+  await okClis(claude);
+  const result = await prepare(claude, request('arc_planner'), {policy: DEFAULT_POLICY, context: claude.context({executionEnvironment: 'claude-desktop'})});
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['environment_unverified']);
+});
+
+test('Desktop release condition tells terminal sessions to redeclare a CLI environment', () => {
+  const {releaseCondition} = reason('environment_unverified');
+  assert.match(releaseCondition, /not running inside a Desktop app/);
+  assert.match(releaseCondition, /codex-cli or claude-cli/);
+});
+
+test('default Codex host maps Claude planner dispatch-directory and Codex-home EACCES to host_sandbox_blocked', async t => {
+  if (skipRoot(t)) return;
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude'}});
+  await okClis(f);
+  await fs.mkdir(dispatchDirectory(f.codexHome), {mode: 0o700});
+  for (const directory of [dispatchDirectory(f.codexHome), f.codexHome]) {
+    await fs.chmod(directory, 0o500);
+    try {
+      const result = await prepare(f, request('arc_planner'), {policy: DEFAULT_POLICY});
+      assert.equal(result.decision, 'hold');
+      assert.deepEqual(codes(result), ['host_sandbox_blocked']);
+    } finally { await fs.chmod(directory, 0o700); }
+  }
+});
 
 test('routing-status returns revision, per-role routes, profile names and auth without creating leases', async t => {
   const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});

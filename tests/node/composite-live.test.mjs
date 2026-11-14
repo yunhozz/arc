@@ -7,7 +7,7 @@
 // minimize tokens. Terminal leases it creates under <CODEX_HOME>/arc-role-dispatch are pruned by ARC after 30 days.
 //
 // It is skipped unless ARC_LIVE_CLI_TESTS=1, and additionally skipped (with a printed reason) when the real user home
-// has no active composite configuration whose prepared markers match the current runtime (`cooperative-8`).
+// has no active composite configuration whose prepared markers match the current runtime (`cooperative-9`).
 // The default `npm test` run never executes it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 
 const SKIP_DEFAULT = 'opt-in live smoke: set ARC_LIVE_CLI_TESTS=1 (makes real model calls and incurs cost)';
-const RUNTIME_VERSION = 'cooperative-8';
+const RUNTIME_VERSION = 'cooperative-9';
 const TERMINAL = ['completed', 'failed', 'cancelled', 'unknown'];
 
 if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
@@ -175,18 +175,24 @@ if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
       } finally { await cleanupDispatches(); }
     });
 
-    // Host codex -> claude bridge. Gates G2 (CODEX_HOME writes are denied in the Codex host sandbox, so bridges are conservatively held) and G1 (Claude sandbox
-    // injection unverified) failed, so these cases assert the recorded holds. No model is called.
-    const anyOnClaude = roleOn('claude', ['arc_planner', 'arc_reviewer', 'arc_scouter', 'arc_implementer', 'arc_qa']);
-    test('host codex to claude bridge is held as host_sandbox_blocked (G2) before any model call', {skip: anyOnClaude ? false : 'no role is routed to claude in the active configuration', timeout: 5 * 60 * 1000}, async t => {
+    // Host codex -> claude bridge. G2 escalation requires per-call user approval; prepare may still be blocked by the host sandbox.
+    // G1 keeps Claude bridge Implementer and QA held for unverified sandbox injection. No model is called in these cases.
+    const readOnlyOnClaude = roleOn('claude', ['arc_planner', 'arc_reviewer', 'arc_scouter']);
+    test('host codex to claude bridge: read-only role is allowed, or host_sandbox_blocked inside a Codex sandbox', {skip: readOnlyOnClaude ? false : 'no read-only role is routed to claude in the active configuration', timeout: 5 * 60 * 1000}, async t => {
       t.after(cleanupDispatches); // also runs when node:test times the test out; the finally below covers normal and failing exits
       try {
-      const extra = anyOnClaude === 'arc_implementer' ? {allowedPaths: ['live-smoke.txt']} : {};
-      const prepared = await prepare('codex', 'codex-cli', anyOnClaude, extra);
-      assert.equal(prepared.status, 3, JSON.stringify(prepared.body));
-      assert.equal(prepared.body.decision, 'hold');
-      assert.match(JSON.stringify(prepared.body.reasons), /host_sandbox_blocked/);
-      assert.equal(prepared.body.dispatchId, null);
+      const prepared = await prepare('codex', 'codex-cli', readOnlyOnClaude);
+      assert.ok(prepared.status === 0 || prepared.status === 3, JSON.stringify(prepared.body));
+      if (prepared.status === 0) {
+        assert.equal(prepared.body.decision, 'allow');
+        assert.equal(prepared.body.route, 'bridge');
+        assert.equal(prepared.body.supportStatus, 'unverified');
+        assert.ok(prepared.body.dispatchId);
+      } else {
+        assert.equal(prepared.body.decision, 'hold');
+        assert.deepEqual(prepared.body.reasons.map(reason => reason.code), ['host_sandbox_blocked']);
+        assert.equal(prepared.body.dispatchId, null);
+      }
       } finally { await cleanupDispatches(); }
     });
 

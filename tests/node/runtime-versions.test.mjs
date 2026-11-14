@@ -7,12 +7,12 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
-const previousRuntimeHash='sha256:8be1db491aa12e4982e5d0dc9048d2b46717de133feb2d26f98b5301e086bb87';
-const baselineHash='sha256:f24d913ad8866ec89fcd38cb26e7dbebc0b0243a9763df88af7a95861a02fe5d';
+const previousRuntimeHash='sha256:f24d913ad8866ec89fcd38cb26e7dbebc0b0243a9763df88af7a95861a02fe5d';
+const baselineHash='sha256:941ceb4ed788ecc14e8e08b66447f18f740a67ef4ad96776c56fd073530a266a';
 
 test('target preparation is included in the current cooperative runtime contract',async()=>{
  const api=await import('../../lib/runtime/bootstrap.mjs');
- assert.equal((await api.cooperativeVersions()).runtime,'cooperative-8');
+ assert.equal((await api.cooperativeVersions()).runtime,'cooperative-9');
  assert.ok(api.COOPERATIVE_RUNTIME_MODULES.includes('target-preparation.mjs'));
 });
 
@@ -31,7 +31,7 @@ for (const runtime of ['lib/runtime/', 'shared/skill/runtime/']) {
   assert.equal(Object.isFrozen(api.COOPERATIVE_RUNTIME_MODULES), true);
   const bytes = Buffer.concat(await Promise.all(expectedModules.map(file => readFile(new URL(file, directory)))));
   const expectedHash = 'sha256:' + createHash('sha256').update(bytes).digest('hex');
-  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-8');
+  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-9');
   assert.equal(versions.runtimeHash, expectedHash);
   assert.equal(expectedHash, baselineHash);
  });
