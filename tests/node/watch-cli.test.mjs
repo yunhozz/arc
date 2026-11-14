@@ -9,7 +9,7 @@ import {makeHomes} from './fixtures/watch/homes.mjs';
 import {parseWatchArgs, runWatch, WATCH_HELP} from '../../lib/watch/index.mjs';
 import {runRoot} from '../../lib/cli/root.mjs';
 import {WATCH_KINDS, WATCH_LIMITS} from '../../lib/watch/model.mjs';
-import {GIT_ALLOWED} from '../../lib/watch/git.mjs';
+import {GIT_ALLOWED, createGitRunner} from '../../lib/watch/git.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const TIME = Date.parse('2026-11-11T12:00:00Z');
@@ -72,7 +72,7 @@ test('usage errors exit 2 with a message',async t=>{
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
 });
 test('root lists watch and keeps other behavior',async t=>{
@@ -137,6 +137,28 @@ test('markers never appear and secrets are masked in human and json modes',async
 test('--cwd uses the selected directory rather than the invoking directory',async t=>{
   const s=setup(t), selected=path.join(s.h.root,'selected');fs.mkdirSync(selected);s.write('in',selected,[msg('selected event')]);s.write('out',s.cwd,[msg('outside event')]);
   s.io.cwd=s.h.root;const {result}=await s.start(['--cwd','selected']);s.controller.abort();assert.equal(await result,0);assert.match(s.output.text,/selected event/);assert.ok(!s.output.text.includes('outside event'));assert.equal(s.calls[0].dir,fs.realpathSync(selected));
+});
+test('default and --cwd isolate real linked worktrees in history and live output',async t=>{
+  for(const explicit of [false,true]) {
+    const s=setup(t), tree=path.join(s.h.root,'linked-tree'), sub=path.join(tree,'src');
+    const env={PATH:process.env.PATH,HOME:s.h.userHome,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'};
+    const git=args=>execFileSync('git',args,{cwd:s.cwd,env,stdio:'pipe'});
+    git(['init']);git(['-c','user.name=Watch','-c','user.email=watch@example.invalid','commit','--allow-empty','-m','initial']);
+    git(['worktree','add','-b','linked',tree]);fs.mkdirSync(sub);
+    const file=s.write('local',sub,[msg('local history')]);
+    const foreign=s.write('foreign',s.cwd,[msg('foreign history')]);
+    s.io.git=createGitRunner({env});s.io.cwd=explicit?s.cwd:sub;
+    const {result}=await s.start(['--json',...(explicit?['--cwd',sub]:[])]);
+    const content=()=>s.output.text.trim().split('\n').map(JSON.parse).filter(e=>e.source!=='watch');
+    assert.ok(content().some(e=>e.text==='local history'));
+    assert.ok(content().every(e=>e.sessionId==='local'));
+    fs.appendFileSync(file,JSON.stringify(msg('local live'))+'\n');
+    fs.appendFileSync(foreign,JSON.stringify(msg('foreign live'))+'\n');
+    s.advance(30000);await s.step();
+    assert.ok(content().some(e=>e.text==='local live'));
+    assert.ok(content().every(e=>e.sessionId==='local'));
+    s.controller.abort();assert.equal(await result,0);
+  }
 });
 test('a run leaves every watched tree unchanged and runs only allowed git commands',async t=>{
   const s=setup(t), gcd=path.join(s.cwd,'.git');fs.mkdirSync(gcd);s.write('readonly');

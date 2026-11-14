@@ -116,13 +116,41 @@ test('one tick merges appends from several files by timestamp',async t=>{const s
 test('a new session is attached within 3 seconds',async t=>{const s=setup(t);await s.w.start();s.advance(2000);s.c('new');const out=await s.w.tick();assert.ok(content(out).some(e=>e.kind==='session'&&e.sessionId==='new'));});
 test('Codex Desktop rollouts and their children are excluded in every mode',async t=>{for(const kind of ['dir','all','session']){const s=setup(t,{session:kind==='session'?'desktop':null},kind);s.c('desktop',undefined,{origin:'Codex Desktop'});s.c('child',undefined,{extra:{parent_thread_id:'desktop'}});assert.equal(content(await s.w.start()).length,0);s.advance(3000);assert.equal(content(await s.w.tick()).length,0);}});
 test('out-of-scope cwd is excluded by default and included with all',async t=>{for(const kind of ['dir','all']){const s=setup(t,{},kind);s.c('outside',undefined,{cwd:path.join(s.h.root,'other')});assert.equal(content(await s.w.start()).length,kind==='all'?2:0);}});
-test('a worktree added after start is in scope after 30 seconds',async t=>{
+test('a worktree added after start stays outside the scope after 30 seconds',async t=>{
   const s=setup(t,{},'repo'),other=path.join(s.h.root,'tree');
   const file=s.c('tree',undefined,{cwd:other});
   await s.w.start();s.trees([s.cwd,other]);s.advance(30000);
   assert.deepEqual(content(await s.w.tick()),[]);
   s.append(file,[msg('new tree event')]);s.advance(2000);
-  assert.deepEqual(content(await s.w.tick()).filter(e=>e.kind!=='session').map(e=>[e.sessionId,e.text]),[['tree','new tree event']]);
+  assert.deepEqual(content(await s.w.tick()),[]);
+});
+test('shared dispatch artifacts cannot pull another worktree into history or live output',async t=>{
+  const s=setup(t,{},'repo'), other=path.join(s.h.root,'other');
+  const local=s.c('local',[msg('local history')]);
+  const localClaude=s.cl('local-claude',[cm('local-claude',s.cwd,'local claude history')]);
+  const foreign=s.c('foreign',[msg('foreign history')],{cwd:other,origin:'codex_exec'});
+  const foreignClaude=s.cl('foreign-claude',[cm('foreign-claude',other,'foreign claude history','sdk-cli')]);
+  s.lease('foreign-dispatch');
+  s.art('foreign-dispatch',{'events.jsonl':'{"kind":"thread","threadId":"foreign"}\n{"kind":"init","sessionId":"foreign-claude"}\n'});
+  const history=content(await s.w.start());
+  assert.ok(history.some(e=>e.text==='local history'));
+  assert.ok(history.some(e=>e.text==='local claude history'));
+  assert.ok(history.every(e=>['local','local-claude'].includes(e.sessionId)));
+  s.advance(30000);
+  s.append(local,[msg('local live')]);s.append(foreign,[msg('foreign live')]);
+  s.append(localClaude,[cm('local-claude',s.cwd,'local claude live')]);
+  s.append(foreignClaude,[cm('foreign-claude',other,'foreign claude live')]);
+  const live=content(await s.w.tick());
+  assert.deepEqual(live.map(e=>e.text).sort(),['local claude live','local live']);
+});
+test('dispatches without transcripts require a workflow target in the selected worktree',async t=>{
+  const s=setup(t,{},'repo');
+  for(const [workflowId,target] of [['local',s.cwd],['foreign',path.join(s.h.root,'other')]]) {
+    s.h.writeArtifacts(s.gcd,workflowId,'',{'state.json':{target:{realpath:target}}});
+    s.h.writeArtifacts(s.gcd,workflowId,`dispatches/${workflowId}`,{'record.json':{state:'running',updatedAt:iso(TIME)}});
+  }
+  s.art('unknown',{'record.json':{state:'running',updatedAt:iso(TIME)}});
+  assert.deepEqual(content(await s.w.start()).map(e=>e.dispatchId),['local']);
 });
 test('direct codex exec and non-cli Claude entrypoints are included with labels',async t=>{const s=setup(t);s.c('id-1234',undefined,{origin:'codex_exec'});s.cl('id-5678',[cm('id-5678',s.cwd,'hello','sdk-cli')]);const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='exec#1234'));assert.ok(out.some(e=>e.label==='main:sdk-cli#5678'));assert.ok(out.some(e=>e.text===`id-1234 codex_exec 1.0 cwd=${s.cwd}`));});
 test('compressed rollouts are skipped with a verbose notice',async t=>{const s=setup(t,{verbose:true});s.c('z',[],{suffix:'.zst'});assert.ok(notices(await s.w.start()).includes('compressed session skipped: rollout-z.jsonl.zst'));});
@@ -130,7 +158,7 @@ test('subagent rollouts attach under their parent at depth 1 and 2',async t=>{co
 test('a child found before its parent is held up to 2 seconds',async t=>{const s=setup(t,{verbose:true});s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('orphan',undefined,{extra:{parent_thread_id:'missing'}});assert.equal(content(await s.w.start()).length,0);s.advance(1000);s.c('parent');assert.ok(content(await s.w.tick()).some(e=>e.sessionId==='child'));s.advance(1000);const out=await s.w.tick();assert.ok(notices(out).some(x=>x.includes('orphan')));assert.ok(!content(out).some(e=>e.sessionId==='orphan'));});
 test('a codex-tui rollout without parent fields is top-level',async t=>{const s=setup(t);s.c('solo1234');assert.equal(content(await s.w.start())[0].label,'tui#1234');});
 test('Claude subagent labels from meta agentType with fallback',async t=>{const s=setup(t);s.cl('parent1234',undefined,{subagents:[{agentId:'qa',meta:{agentType:'arc-qa'},lines:[cm('child-qa','/outside')]},{agentId:'fallback',lines:[cm('child-fallback','/outside')]}]});const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='main#1234/qa'&&e.parentId==='parent1234'));assert.ok(out.some(e=>e.label==='main#1234/agent'));});
-test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});
+test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});
 test('Claude bridge transcript is labeled from the init session id, and a resumed id maps to the same dispatch',async t=>{const s=setup(t,{},'repo');s.cl('first',[cm('first',s.cwd,'first','sdk-cli')]);s.cl('resume',[cm('resume',s.cwd,'resume','sdk-cli')]);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"init","sessionId":"first"}\n','segments/1/events.jsonl':'{"kind":"init","sessionId":"resume"}\n'});const out=content(await s.w.start());assert.deepEqual(out.filter(e=>e.kind==='user').map(e=>[e.sessionId,e.label]).sort(),[['first','qa@d123'],['resume','qa@d123']]);});
 test('dispatch without a transcript shows DISPATCH lines only',async t=>{const s=setup(t,{verbose:true},'all');s.lease('d123');const out=await s.w.start();assert.deepEqual(content(out).map(e=>e.kind),['dispatch']);assert.ok(notices(out).includes('transcript not found for dispatch d123'));});
 test('late mapping emits a notice and relabels later events',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('late1234',[msg('held')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='held'&&e.label==='exec#1234'));s.advance(500);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"late1234"}\n'});s.advance(1500);s.append(f,[msg('mapped',TIME+6000)]);const out=await s.w.tick();assert.ok(notices(out).includes('session late1234 is dispatch d123 (qa)'));assert.ok(content(out).some(e=>e.text==='mapped'&&e.label==='qa@d123'));});
@@ -202,6 +230,7 @@ test('Claude bridge session filter includes its dispatch events', async t => {
   s.cl('claude-selected', [cm('claude-selected', s.cwd, 'selected', 'sdk-cli')]);
   s.cl('claude-other');
   s.lease('d123', {hostPlatform:'codex'});
+  s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
   s.art('d123', {'events.jsonl':'{"kind":"init","sessionId":"claude-selected"}\n'});
   s.lease('other-dispatch', {sessionId:'claude-other'});
   const out = content(await s.w.start());
@@ -218,6 +247,7 @@ test('Claude bridge session filter includes its dispatch events', async t => {
 test('Claude init artifacts set dispatch platform independently of the Codex host', async t => {
   const s = setup(t, {platforms:['claude']}, 'repo');
   s.lease('d123', {hostPlatform:'codex'});
+  s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
   s.art('d123', {'events.jsonl':'{"kind":"init","sessionId":"absent-claude-session"}\n'});
   const out = content(await s.w.start());
   assert.equal(out.length, 1);
@@ -283,7 +313,7 @@ test('old Claude subagents resume from startup sizes under both recent and old p
   }
 });
 
-test('Claude files outside startup project prefixes keep their startup offsets', async t => {
+test('Claude files in another worktree stay excluded as parent and child grow', async t => {
   const s = setup(t, {}, 'repo'), other = path.join(fs.realpathSync(s.h.root),'other-tree');
   const parent = s.h.writeClaude(other.replace(/[^A-Za-z0-9]/g,'-'),'other-parent', [cm('other-parent',other,'parent history')], {
     mtime:TIME-300000,subagents:[{agentId:'child',mtime:TIME-300000,lines:[cm('other-child',other,'child history')]}],
@@ -295,7 +325,7 @@ test('Claude files outside startup project prefixes keep their startup offsets',
   s.append(parent,[cm('other-parent',other,'parent new')]);
   s.append(child,[cm('other-child',other,'child new')]);s.advance(2000);
   const grown = await s.w.tick();
-  assert.deepEqual(content(grown).filter(e => e.kind !== 'session').map(e => e.text).sort(), ['child new','parent new'], JSON.stringify(grown));
+  assert.deepEqual(content(grown), []);
 });
 
 test('new Claude events are held at two seconds and released at four seconds without mapping', async t => {

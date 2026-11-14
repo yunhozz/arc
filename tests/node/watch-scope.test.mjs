@@ -24,11 +24,13 @@ test('git runner rejects commands outside the allowlist', async t => {
   for (const args of GIT_ALLOWED) assert.equal(typeof await git(repo, args), 'string');
   assert.equal(await git(path.dirname(repo), GIT_ALLOWED[0]), null);
 });
-test('default scope covers every worktree of the repository', async t => {
+test('default scope covers only the selected worktree, including from a subdirectory', async t => {
   const {repo, git, add} = repository(t), wt = add('wt 2');
-  const scope = await resolveScope({mode:'default', dir:repo, git});
-  assert.equal(scope.kind, 'repo'); assert.deepEqual(new Set(scope.roots), new Set([repo,wt]));
+  fs.mkdirSync(path.join(wt,'src'));
+  const scope = await resolveScope({mode:'default', dir:path.join(wt,'src'), git});
+  assert.equal(scope.kind, 'repo'); assert.deepEqual(scope.roots, [wt]);
   assert.equal(inScope(scope, path.join(wt,'sub')), true);
+  assert.equal(inScope(scope, repo), false);
   assert.equal(inScope(scope, `${repo}-other`), false);
   assert.equal(scope.gitCommonDir, path.join(repo,'.git'));
 });
@@ -45,11 +47,19 @@ test('inScope resolves symlinked and spaced paths', async t => {
   assert.equal(inScope(scope,path.join(link,'missing','child')),true);
   assert.equal(inScope(scope,path.join(repo,'문서')),true);
 });
-test('refreshScope picks up a worktree added later', async t => {
+test('refreshScope never expands to a worktree added later', async t => {
   const {repo,git,add} = repository(t), scope = await resolveScope({mode:'default',dir:repo,git});
   const wt = add('later'); assert.equal(inScope(scope,wt),false);
   const refreshed = await refreshScope(scope,git);
-  assert.equal(inScope(refreshed,wt),true);
+  assert.equal(inScope(refreshed,wt),false);
+  assert.equal(inScope(refreshed,repo),true);
+});
+test('nested linked worktrees are excluded from the main worktree', async t => {
+  const {repo,git,add} = repository(t);
+  const nested = add(path.join('repo','nested-tree'));
+  const scope = await resolveScope({mode:'default',dir:repo,git});
+  assert.equal(inScope(scope,path.join(repo,'src')),true);
+  assert.equal(inScope(scope,path.join(nested,'src')),false);
 });
 test('claudeDirPrefixes normalizes worktree paths', async t => {
   const {root,repo,git} = repository(t), link = path.join(root,'alias'); fs.symlinkSync(repo,link,'dir');

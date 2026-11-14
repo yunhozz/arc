@@ -68,7 +68,7 @@ Standalone profiles are overwritten or removed only when they are regular files 
 
 ### Watch
 
-`arc watch` reads Codex rollout JSONL, Claude Code transcripts (including persisted bridge transcripts), and ARC dispatch leases and artifacts. It defaults to every worktree of the current Git repository, or the current directory outside Git; `--cwd`, `--all`, `--session` and `--platform` select scope. Codex Desktop sessions are excluded.
+`arc watch` reads Codex rollout JSONL, Claude Code transcripts (including persisted bridge transcripts), and ARC dispatch leases and artifacts. It defaults to the current Git worktree, or the current directory outside Git; `--cwd`, `--all`, `--session` and `--platform` select scope. Running from a subdirectory watches its entire worktree. Other linked worktrees, including nested ones, are excluded. Shared dispatch artifacts require a matching workflow target or a followed session; dispatches with no identifiable worktree are available with `--all` or `--session`. Subagents of followed sessions remain included. Codex Desktop sessions are excluded.
 
 Dispatch thread/init events and saved session IDs map bridge activity to role and dispatch labels; missing transcripts leave dispatch events visible. Codex-host bridges remain held as `host_sandbox_blocked` (and, where applicable, `permission_scope_unverified`); without a lease there is no dispatch to display.
 
@@ -103,7 +103,7 @@ Bodies use their KIND color without bold or underline attributes: `USER` bodies 
 
 Messages have terminal escapes and controls removed, line endings normalized, tabs expanded to four spaces, trailing whitespace and outer blank lines removed, and secrets masked across the full text (including multiline PEM blocks). JSON stays at schema `v:1` and keeps the existing `label` field. User and agent `text` preserves newlines without a length limit or a `truncated` field; other kinds collapse whitespace, cap `text` at 1000 code points and set `truncated:true` when clipped.
 
-Files are polled every 500 ms, discovery every 2 seconds, and worktrees every 30 seconds. Tracking is limited to 64 files, 1 MiB per file per tick, 256 KiB of history per session, 4 MiB per line, 30 minutes of inactivity and 32 repositories in all-scope mode. Merge order is per tick, not globally guaranteed. A transcript truncated and regrown past the previous read offset between polls is not detected.
+Files are polled every 500 ms, discovery every 2 seconds, and worktree exclusions every 30 seconds. Tracking is limited to 64 files, 1 MiB per file per tick, 256 KiB of history per session, 4 MiB per line, 30 minutes of inactivity and 32 repositories in all-scope mode. Merge order is per tick, not globally guaranteed. A transcript truncated and regrown past the previous read offset between polls is not detected.
 
 Install/update/uninstall remove valid old ARC management completion blocks and add no registrations. Status never edits shell files. Preserve user settings and block-external content.
 
