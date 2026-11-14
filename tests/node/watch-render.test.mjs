@@ -22,9 +22,9 @@ test('CREATE, EDIT and DELETE keep all paths and colors even below prefix width'
     for (const color of [false,true]) {
       const out = renderHuman({...event,kind,text:'updated',root:'/repo/arc',paths:[file,'/private/tmp/outside.md']}, {...options,width,color});
       const plain = out.replace(/\x1b\[[0-9;]*m/g,'');
-      assert.equal(plain.slice(25), 'updated arc/docs/' + 'long-name-'.repeat(20) + '.md /private/tmp/outside.md');
+      assert.equal(plain.slice(25), 'updated\n' + ' '.repeat(25) + 'arc/docs/' + 'long-name-'.repeat(20) + '.md\n' + ' '.repeat(25) + '/private/tmp/outside.md');
       assert.ok(!plain.includes('…'));
-      assert.equal(plain.split('\n').length,1);
+      assert.equal(plain.split('\n').length,3);
       if (color) assert.match(out,/\x1b\[/);
     }
   }
@@ -92,13 +92,13 @@ test('renderHuman includes failed tool names without text', () => {
 });
 test('renderHuman includes file change paths after optional text', () => {
   const input = {kind:'file_change',paths:['/a/x.mjs','/a/y.mjs']};
-  assert.equal(renderHuman(input,options).slice(25), '/a/x.mjs /a/y.mjs');
-  assert.equal(renderHuman({...input,text:'updated'},options).slice(25), 'updated /a/x.mjs /a/y.mjs');
+  assert.equal(renderHuman(input,options).slice(25), '/a/x.mjs\n' + ' '.repeat(25) + '/a/y.mjs');
+  assert.equal(renderHuman({...input,text:'updated'},options).slice(25), 'updated\n' + ' '.repeat(25) + '/a/x.mjs\n' + ' '.repeat(25) + '/a/y.mjs');
 });
 test('renderHuman sanitizes and masks tool targets and file paths', () => {
   assert.equal(renderHuman({kind:'tool',tool:'WebFetch',text:'https://user:pw@host/x'},options).slice(25), 'WebFetch https://***@host/x');
   assert.equal(renderHuman({kind:'tool_failed',tool:'\x1b[31mBash'},options).slice(25), 'Bash');
-  assert.equal(renderHuman({kind:'file_change',text:'updated\nfiles',paths:['https://user:pw@host/x','\x1b[31m/a/y.mjs']},options).slice(25), 'updated files https://***@host/x /a/y.mjs');
+  assert.equal(renderHuman({kind:'file_change',text:'updated\nfiles',paths:['https://user:pw@host/x','\x1b[31m/a/y.mjs']},options).slice(25), 'updated files\n' + ' '.repeat(25) + 'https://***@host/x\n' + ' '.repeat(25) + '/a/y.mjs');
 });
 
 test('message lines keep full text with hanging indent', () => {
@@ -216,7 +216,7 @@ test('message lines are colored per line with uncolored indentation', () => {
 
 test('file creation renders CREATE with text and paths', () => {
   const input = {...event,kind:'file_create',text:'created',paths:['/a/new.mjs']};
-  assert.equal(renderHuman(input,options).slice(16), 'CREATE   created /a/new.mjs');
+  assert.equal(renderHuman(input,options).slice(16), 'CREATE   created\n' + ' '.repeat(25) + '/a/new.mjs');
   assert.equal(renderer.tagColor(input), '38;5;69');
   assert.equal(renderer.bodyColor(input), '38;5;69');
 });
@@ -224,7 +224,89 @@ test('file creation renders CREATE with text and paths', () => {
 
 test('file deletion renders DELETE and preserves paths in JSON', () => {
   const input = {...event,kind:'file_delete',text:'deleted',paths:['/a/gone.mjs']};
-  assert.equal(renderHuman(input,options).slice(16), 'DELETE   deleted /a/gone.mjs');
+  assert.equal(renderHuman(input,options).slice(16), 'DELETE   deleted\n' + ' '.repeat(25) + '/a/gone.mjs');
   assert.deepEqual(JSON.parse(renderJson(input)).paths, input.paths);
   assert.equal(JSON.parse(renderJson(input)).kind, 'file_delete');
+});
+
+const strip = value => value.replace(/\x1b\[[0-9;]*m/g,'');
+test('EDIT lists each path in input order with separately colored bodies', () => {
+  const paths = ['/a/third','/a/first','/a/second'];
+  const plain = renderHuman({...event,kind:'file_change',text:undefined,paths},options);
+  assert.equal(plain.slice(25), '/a/third\n' + ' '.repeat(25) + '/a/first\n' + ' '.repeat(25) + '/a/second');
+  const colored = renderHuman({...event,kind:'file_change',text:undefined,paths},{...options,color:true});
+  assert.equal(strip(colored),plain);
+  assert.ok(colored.endsWith('\x1b[33m/a/third\x1b[0m\n' + ' '.repeat(25) + '\x1b[33m/a/first\x1b[0m\n' + ' '.repeat(25) + '\x1b[33m/a/second\x1b[0m'));
+});
+test('empty file bodies preserve prefix spacing and ignore empty entries', () => {
+  for (const kind of ['file_change','file_create','file_delete']) for (const color of [false,true]) {
+    assert.equal(strip(renderHuman({...event,kind,text:'',paths:[]},{...options,color})).slice(16),kindTag({kind}).padEnd(8) + ' ');
+    assert.equal(strip(renderHuman({...event,kind,text:' \n ',paths:['',' /a\nfile ']},{...options,color})).slice(25),'/a file');
+  }
+});
+test('displayWidth counts graphemes using terminal display columns', () => {
+  assert.equal(typeof renderer.displayWidth,'function');
+  for (const [text,width] of [['abc',3],['한글',4],['😀',2],['👨‍👩‍👧',2],['e\u0301',1],['é',1],['❤️',2],['\u0301\u200b\u200d\ufe0f',0],['Ａ',2],['𠀀',2]]) {
+    assert.equal(renderer.displayWidth(text),width,text);
+  }
+});
+test('wrapLine prefers the last fitting space and otherwise preserves graphemes', () => {
+  assert.equal(typeof renderer.wrapLine,'function');
+  for (const [text,avail,want] of [
+    ['one two three',8,['one two','three']],
+    ['abcdefghij',4,['abcd','efgh','ij']],
+    ['한글이모지',4,['한글','이모','지']],
+    ['👨‍👩‍👧😀e\u0301',3,['👨‍👩‍👧','😀e\u0301']],
+    ['  one two three',9,['  one two','three']],
+    ['exact',5,['exact']],['',5,['']],
+  ]) assert.deepEqual(renderer.wrapLine(text,avail),want);
+});
+test('messages and file paths wrap to display width with uncolored continuation indentation', () => {
+  assert.equal(typeof renderer.displayWidth,'function');
+  for (const kind of ['user','agent','file_change','file_create','file_delete']) for (const color of [false,true]) {
+    const text = '한글 😀 👨‍👩‍👧 e\u0301 '.repeat(20).trim();
+    const input = {...event,kind,text,...(kind.startsWith('file_') ? {paths:['/repo/' + '한😀'.repeat(30)]} : {})};
+    const out = renderHuman(input,{...options,width:60,wrap:true,color});
+    const lines = strip(out).split('\n');
+    assert.ok(lines.length > 2);
+    assert.ok(lines.every(line => renderer.displayWidth(line) <= 60));
+    assert.ok(lines.slice(1).every(line => line.startsWith(' '.repeat(25)) && line[25] !== ' '));
+    if (color) assert.ok(out.split('\n').slice(1).every(line => line.startsWith(' '.repeat(25) + '\x1b[')));
+    const body = lines.map((line,i)=>line.slice(25)).join('').replaceAll(' ','');
+    assert.equal(body, (text + (input.paths?.[0] ?? '')).replaceAll(' ',''));
+  }
+});
+test('wrapping is opt-in and disabled when available body width is below 20', () => {
+  const input = {...event,kind:'user',text:'한글'.repeat(50)};
+  for (const settings of [{width:60},{width:60,wrap:false},{width:40,wrap:true}]) {
+    assert.equal(renderHuman(input,{...options,...settings}).slice(25),input.text);
+  }
+  assert.equal(renderHuman(input,{...options,width:45,wrap:true}).split('\n').length,10);
+});
+test('explicit message newlines and blank lines survive soft wrapping', () => {
+  const out = renderHuman({...event,kind:'user',text:'x'.repeat(40) + '\n\n  short\n' + 'y'.repeat(36)}, {...options,width:60,wrap:true}).split('\n');
+  assert.deepEqual(out.map(line => line ? line.slice(25) : ''),['x'.repeat(35),'xxxxx','','  short','y'.repeat(35),'y']);
+});
+test('wide AGENT prefixes reserve display columns but indent by code points', () => {
+  assert.equal(typeof renderer.displayWidth,'function');
+  const lines = renderHuman({...event,kind:'agent',role:'😀',text:'x'.repeat(70)},{...options,width:60,wrap:true}).split('\n');
+  assert.equal(lines.length,3);
+  assert.equal(lines[1],' '.repeat(25) + 'x'.repeat(34));
+  assert.ok(lines.every(line=>renderer.displayWidth(line)<=60));
+});
+test('wrapping leaves clipped one-line events byte-identical', () => {
+  for (const kind of ['command','tool','dispatch']) for (const color of [false,true]) for (const width of [10,60]) {
+    const input = {...event,kind,text:'x'.repeat(100),tool:'Read',state:'running',route:'bridge',workflowId:'w'.repeat(100)};
+    const out = renderHuman(input,{...options,width,color,wrap:true});
+    assert.equal(out,renderHuman(input,{...options,width,color,wrap:false}));
+    if (kind==='command' && !color && width===60) assert.equal(out,new Date(event.ts).toLocaleTimeString('en-GB',{hour12:false}) + ' codex  CMD(0)   ' + 'x'.repeat(34) + '…');
+  }
+});
+test('human and JSON file events preserve all 25 reported paths', () => {
+  const paths = Array.from({length:25},(_,i)=>`/p${i}`);
+  const input = {...event,kind:'file_change',text:undefined,paths};
+  const json = JSON.parse(renderJson(input));
+  assert.equal(json.v,1);
+  assert.deepEqual(json.paths,paths);
+  assert.deepEqual(renderHuman(input,options).split('\n').map(line=>line.slice(25)),paths);
 });

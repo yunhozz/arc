@@ -214,13 +214,13 @@ test('ambiguous shell commands remain CMD without inferred deletions', () => {
     assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state), [] ,command);
   }
 });
-test('pending deletion cache is bounded and paths are capped', () => {
+test('pending deletion cache is bounded and all paths are retained', () => {
   const state=createClaudeState();
   for(let i=0;i<600;i++) assistant([{type:'tool_use',id:`r${i}`,name:'Bash',input:{command:`rm /p${i}`}}],state);
   assert.deepEqual(user([{type:'tool_result',tool_use_id:'r0'}],state), []);
   assert.deepEqual(user([{type:'tool_result',tool_use_id:'r599'}],state), [{kind:'file_delete',paths:['/p599']}]);
   assistant([{type:'tool_use',id:'many',name:'Bash',input:{command:'rm ' + Array.from({length:25},(_,i)=>`/p${i}`).join(' ')}}],state);
-  assert.equal(user([{type:'tool_result',tool_use_id:'many'}],state)[0].paths.length,20);
+  assert.equal(user([{type:'tool_result',tool_use_id:'many'}],state)[0].paths.length,25);
 });
 
 
@@ -246,4 +246,16 @@ test('unmatched results and incomplete shell syntax cannot report deletions', ()
     assert.deepEqual(user([{type:'tool_result',tool_use_id:'other'}],state), []);
     assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state), [], command);
   }
+});
+
+test('Claude Edit and Write retain all 25 reported file events', () => {
+  const paths=Array.from({length:25},(_,i)=>`/p${i}`);
+  const state=createClaudeState();
+  for (const name of ['Edit','MultiEdit','NotebookEdit']) {
+    const events=assistant(paths.map((file_path,i)=>({type:'tool_use',id:`e${i}`,name,input:{file_path}})),state);
+    assert.deepEqual(events.map(e=>e.paths),paths.map(p=>[p]));
+  }
+  assert.deepEqual(assistant(paths.map((file_path,i)=>({type:'tool_use',id:`w${i}`,name:'Write',input:{file_path}})),state),[]);
+  const events=user(paths.map((_,i)=>({type:'tool_result',tool_use_id:`w${i}`})),state,{toolUseResult:{type:'create'}});
+  assert.deepEqual(events.map(e=>e.paths),paths.map(p=>[p]));
 });
