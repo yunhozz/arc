@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict'; import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import {spawnSync} from 'node:child_process';
 import {openRoot} from '../../lib/safe-fs/index.mjs'; import {loadNative} from '../../lib/safe-fs/native.mjs';
+import {buildInstallPlan} from '../../lib/installer/plan.mjs';import {resolveTarget} from '../../lib/installer/targets.mjs';
 import {flattenFixtureReferences,referencePaths} from './fixtures/static-references.mjs';import {createHash} from 'node:crypto';
 const api=await import('../../lib/installer/manifest.mjs').catch(()=>({}));
 const native=loadNative({artifactDirectory:'build/native'}); const safeFs={openRoot:p=>openRoot(p,{native})};
@@ -7,6 +8,32 @@ const source=new URL('../../',import.meta.url).pathname;
 function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-payload-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of ['README.md','install.command','package.json','package-lock.json','bin','lib','scripts','vendor','codex','claude'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});flattenFixtureReferences(root);fs.mkdirSync(`${root}/prebuilds`);const artifacts={};for(const tuple of ['darwin-arm64','darwin-x64','linux-arm64-gnu','linux-x64-gnu']){fs.mkdirSync(`${root}/prebuilds/${tuple}`);fs.writeFileSync(`${root}/prebuilds/${tuple}/arc_safe_fs.node`,'native fixture');artifacts[tuple]={napi:8};}fs.writeFileSync(`${root}/prebuilds/index.json`,JSON.stringify({artifacts}));refresh(root);return root;}
 function refresh(root){const r=spawnSync(process.execPath,[`${source}/scripts/update-manifest.mjs`,'--root',root],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);}
 function verify(root){return api.verifyPayload({packageRoot:root,safeFs});}
+function compositionFixture(t){const root=fixture(t);fs.rmSync(`${root}/scripts/update-superpowers-local.sh`,{force:true});refresh(root);return root;}
+function renderComposition(root,name,bytes){const payload=verify(root);payload.files.set('shared/skill/'+name,bytes);return buildInstallPlan({payload,target:resolveTarget('codex',{userHome:root,env:{},cwd:root}),safeFs,skipGlobal:true}).generated.skill;}
+test('payload rejects shared and platform duplicate skill path (C1)',t=>{
+ const root=compositionFixture(t);assert.throws(()=>renderComposition(root,'references/limits.md',fs.readFileSync(`${root}/codex/skill/references/limits.md`)),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/Payload skill composition failed:.*C1/.test(error.message)&&error.message.includes('references/limits.md'));
+ fs.mkdirSync(`${root}/shared/skill/references`,{recursive:true});fs.copyFileSync(`${root}/codex/skill/references/limits.md`,`${root}/shared/skill/references/limits.md`);refresh(root);
+ assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/C1/.test(error.message)&&error.message.includes('references/limits.md'));
+});
+test('payload rejects shared generated skill file (C2)',t=>{
+ const root=compositionFixture(t);assert.throws(()=>renderComposition(root,'settings.toml',Buffer.from('generated')),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/Payload skill composition failed:.*C2/.test(error.message)&&error.message.includes('settings.toml'));
+ fs.mkdirSync(`${root}/shared/skill`,{recursive:true});fs.writeFileSync(`${root}/shared/skill/settings.toml`,'language = "en"\n');refresh(root);
+ assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/C2/.test(error.message)&&error.message.includes('settings.toml'));
+});
+test('payload rejects shared file/directory prefix conflict (C3)',t=>{
+ const root=compositionFixture(t);assert.throws(()=>renderComposition(root,'references',Buffer.from('file')),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/Payload skill composition failed:.*C3/.test(error.message)&&error.message.includes('references'));
+ fs.mkdirSync(`${root}/shared/skill`,{recursive:true});fs.writeFileSync(`${root}/shared/skill/references`,'file');refresh(root);
+ assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/C3/.test(error.message)&&error.message.includes('references'));
+});
+test('payload ignores a regular shared .DS_Store',t=>{
+ const root=compositionFixture(t);fs.mkdirSync(`${root}/shared/skill`,{recursive:true});fs.writeFileSync(`${root}/shared/skill/.DS_Store`,'ignored');fs.writeFileSync(`${root}/shared/skill/shared.txt`,'shared bytes');refresh(root);
+ const result=verify(root);assert.ok(result.files instanceof Map);assert.equal(result.files.get('shared/skill/shared.txt')?.toString(),'shared bytes');assert.equal(result.files.has('shared/skill/.DS_Store'),false);
+ assert.equal(renderComposition(root,'extra.txt',Buffer.from('extra')).get('shared.txt').toString(),'shared bytes');
+});
+test('payload requires lib/installer/skill-sources.mjs even with a regenerated manifest',t=>{
+ const root=compositionFixture(t);fs.rmSync(`${root}/lib/installer/skill-sources.mjs`,{force:true});refresh(root);
+ assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes('Required runtime asset is missing: lib/installer/skill-sources.mjs'));
+});
 test('descriptor-verifies bytes and mutable model inputs',t=>{const root=fixture(t);assert.equal(typeof api.verifyPayload,'function');const p=verify(root);assert.ok(p.files instanceof Map);assert.deepEqual(p.modelInputs.codex.models,fs.readFileSync(`${root}/codex/skill/models.toml`));assert.equal(p.modelInputs.claude.profiles.size,5);});
 for(const [label,change] of [
  ['escape',r=>fs.appendFileSync(`${r}/MANIFEST.sha256`,`${'0'.repeat(64)}  ../outside\n`)],

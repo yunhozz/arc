@@ -256,7 +256,7 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 1: 실패하는 단위 테스트 작성** (`tests/node/skill-sources.test.mjs`)
+- [x] **Step 1: 실패하는 단위 테스트 작성** (`tests/node/skill-sources.test.mjs`)
   - `composes shared and platform files as a sorted union`
     - 입력 키: `shared/skill/references/a.md`, `codex/skill/SKILL.md`, `codex/skill/references/b.md`, `claude/skill/x`
     - codex 결과가 정확히 `['SKILL.md','references/a.md','references/b.md']` 순서다.
@@ -272,11 +272,11 @@ node tests/node/fixtures/installed-layout.mjs --diff
   - `ignores other platform files` — claude 키는 codex 결과에 없다.
   - `is order independent` — 입력 삽입 순서를 뒤집어도 결과가 deepEqual이다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
   - `node --test tests/node/skill-sources.test.mjs`
   - 예상: FAIL (`Cannot find module .../skill-sources.mjs`)
 
-- [ ] **Step 3: `manifest.test.mjs`에 실패하는 테스트 추가** (기존 `fixture()`와 `refresh()`를 쓴다)
+- [x] **Step 3: `manifest.test.mjs`에 실패하는 테스트 추가** (기존 `fixture()`와 `refresh()`를 쓴다)
   - `payload rejects shared and platform duplicate skill path (C1)`
     - `shared/skill/references/limits.md`에 `codex/skill/references/limits.md`의 바이트를 쓰고 refresh한다.
     - `throws(e=>e.code==='ARC_PAYLOAD_VALIDATION'&&/C1/.test(e.message)&&e.message.includes('references/limits.md'))`
@@ -285,11 +285,11 @@ node tests/node/fixtures/installed-layout.mjs --diff
   - `payload ignores a regular shared .DS_Store` — `shared/skill/.DS_Store`를 일반 파일로 둔다. `verify(root).files instanceof Map`이다.
   - `payload requires lib/installer/skill-sources.mjs even with a regenerated manifest` — 파일을 지우고 refresh한다. 메시지에 `Required runtime asset is missing: lib/installer/skill-sources.mjs`가 있다.
 
-- [ ] **Step 4: 실패 확인**
+- [x] **Step 4: 실패 확인**
   - `node --test tests/node/manifest.test.mjs`
   - 예상: 새 테스트 5건 FAIL. 기존 실패는 기준선과 같아야 한다.
 
-- [ ] **Step 5: `skill-sources.mjs` 구현과 연결**
+- [x] **Step 5: `skill-sources.mjs` 구현과 연결**
   - `manifest.mjs`
     - :10 `ROOTS`에 `'shared/skill'`을 넣는다.
     - :40 바로 뒤에 `for(const platform of ['codex','claude'])composeSkillSources(files,platform);`를 넣는다.
@@ -299,11 +299,11 @@ node tests/node/fixtures/installed-layout.mjs --diff
     - 그 뒤의 `SKILL.md`·`settings.toml`·`models.toml`·`limits.toml` 설정은 그대로 둔다.
   - `update-manifest.mjs:20`에 `'shared/skill'`을 넣는다.
 
-- [ ] **Step 6: manifest 재생성**
+- [x] **Step 6: manifest 재생성**
   - `node scripts/update-manifest.mjs`, 이어서 `--check` → `Protected payload manifest verified`
   - diff는 `lib/installer/skill-sources.mjs` 줄 추가뿐이어야 한다.
 
-- [ ] **Step 7: 통과 확인**
+- [x] **Step 7: 통과 확인**
   - skill-sources, manifest, plan 테스트를 실행한다. 새 테스트는 PASS여야 한다.
   - `plan.test.mjs`는 기준선의 8건 실패가 그대로 남는다.
 
@@ -315,6 +315,21 @@ node tests/node/fixtures/installed-layout.mjs --diff
 - N-ALL, P-ALL로 B1–B4
 - `git diff --stat`에 위 파일과 `MANIFEST.sha256`만 있다.
 - T1 커밋 대비 `tests/node/fixtures/installed-layout-golden.json`의 diff가 비어 있다.
+
+**진행 기록 (2026-11-14, 수락):**
+- 기준 변경: 사용자 요청으로 T2 시작 전에 origin/master(ee2127a, watch 수정)를 merge했다(merge 커밋 2aec9f4). merge 후 기준선은 QA 271623b4 Phase A에서 다시 측정했다(baseline2). 결과는 Node not ok 106건이고, 기존 105건에 HEAD 의존 실패 `runtime-acceptance.test.mjs:72` 1건이 더해졌다. 이 1건은 HEAD가 merge 커밋일 때만 실패한다. Python은 564건이다.
+- 구현: Implementer c6b15d46. 첫 실행은 없는 파일을 조회하다 중단됐고, 같은 Implementer를 재개했다. RED를 확인한 뒤 GREEN이 됐다(신규 13건).
+- QA(271623b4 Phase B)
+  - focused 실패 25건: 모두 기준선에 있던 이름이다.
+  - 입증: AC4(golden diff 0), AC5, AC6(합성 fixture). manifest·runtime·role-policy `--check` 통과.
+  - B1/B2: 신규 실패와 해소 실패 모두 0건이다.
+  - B3: Orchestrator가 메시지 대조로 확인했다(`EEXIST` symlink, `codex/skill/runtime/role-policy.json`이 기준선과 동일).
+  - AC15: Orchestrator가 정렬 비교로 동일함을 확인했다.
+  - B4: 입증
+- 처분 기록
+  - `MANIFEST.sha256` diff는 새 모듈 1줄 추가에 더해, 수정된 보호 파일 3개(`manifest.mjs`, `plan.mjs`, `update-manifest.mjs`)의 해시 갱신을 포함한다. 생성기 출력이므로 정상이다. Step 6의 "추가만" 문구는 부정확했다.
+  - parity 검사 실패는 기존과 같다.
+  - `role-bridge-*` timeout 범위는 미검증이다(기준선과 동일).
 
 ---
 
