@@ -1,8 +1,4 @@
 // Fixed policy values for composite role dispatch. Gate results mirror the recorded G1-G8 outcomes.
-export const SUPPORTED_CLI_VERSIONS = Object.freeze({
-  claude: Object.freeze({min: '2.1.322', below: '2.2.0'}),
-  codex: Object.freeze({min: '0.167.0', below: '0.168.0'})
-});
 export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'fail', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass'});
 // No sandbox settings JSON has been recorded: G1 failed, so there is nothing to apply.
 const RECORDED_CLAUDE_SANDBOX_SETTINGS = null;
@@ -26,7 +22,6 @@ export const LEASE_RETENTION_MS = 2592000000;
 export const PROBE_TIMEOUT_MS = 10000;
 
 export const DEFAULT_POLICY = Object.freeze({
-  supportedVersions: SUPPORTED_CLI_VERSIONS,
   gates: BRIDGE_GATE_RESULTS,
   claudeSandboxSettings: CLAUDE_SANDBOX_SETTINGS,
   codexDelegationCallNames: CODEX_DELEGATION_CALL_NAMES,
@@ -51,7 +46,7 @@ export const RELEASE_CONDITIONS = Object.freeze({
   environment_unverified: 'Desktop hosts are held in this release; use a CLI host or a later ARC update that changes the support status.',
   host_sandbox_blocked: 'Allow the host to write the Codex home and keep a detached supervisor alive, with explicit user approval.',
   capacity_exhausted: 'Finish or release active bridge executions, or raise the host limits.',
-  permission_scope_unverified: 'Use a supported CLI version or update ARC, and verify enforcement of the role permissions and approved scope before starting.',
+  permission_scope_unverified: 'Update ARC and verify enforcement of the role permissions and approved scope before starting.',
   native_profile_reload_unverified: 'Verify that the host session loaded the requested profile revision.',
   revision_changed: 'Re-run routing-status and prepare a new dispatch under the current revision.',
   duplicate_dispatch: 'Use a new requestId, or finish the existing dispatch for the same workflow, task and role.',

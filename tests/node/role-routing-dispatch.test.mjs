@@ -7,6 +7,7 @@ import {createRoutingFixture} from './role-fixtures.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
+import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
 
 const DAY = 86400000;
 const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 300, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
@@ -14,6 +15,7 @@ let counter = 0;
 const request = (role, extra = {}) => { counter += 1; return {role, requestId: `req-${counter}`, taskId: `T${counter}`, ...(role === 'arc_implementer' ? {allowedPaths: ['src/']} : {}), ...extra}; };
 // policyWith defaults to a generous probe timeout so CPU load cannot cause a spurious hold; only the hang scenario overrides it.
 const prepare = (f, assignment, {policy = policyWith(), now, context} = {}) => prepareRoleDispatch({context: context ?? f.context(), assignment, expectedRevision: f.revision, now, policy});
+const cancel = (f, dispatchId) => cancelRoleDispatch({context: f.context(), dispatchId});
 const codes = result => result.reasons.map(reason => reason.code);
 const leaseCount = async f => { try { return (await fs.readdir(dispatchDirectory(f.codexHome))).length; } catch (error) { if (error.code === 'ENOENT') return 0; throw error; } };
 const okClis = async (f, claudeVersion = '2.1.322 (Claude Code)', codexVersion = 'codex-cli 0.167.0') => { await f.cli('claude', {version: claudeVersion}); await f.cli('codex', {version: codexVersion}); };
@@ -34,7 +36,7 @@ test('routing-status returns revision, per-role routes, profile names and auth w
   assert.equal(status.roles.arc_planner.profileName, 'arc-routing-planner');
   assert.equal(status.platforms.codex.authentication.status, 'Available');
   assert.equal(status.platforms.codex.cliVersion.version, '0.167.0');
-  assert.equal(status.platforms.claude.cliVersion.supported, true);
+  assert.deepEqual(status.platforms.claude.cliVersion, {version: '2.1.322'});
   assert.deepEqual(status.pruned, {removed: 0, errors: 0});
   assert.deepEqual(status.reasons, []);
   assert.equal(await leaseCount(f), 0);
@@ -118,22 +120,26 @@ test('prepare-dispatch maps CLI absence, unauthorized and probe failure to Not A
   assert.equal(await leaseCount(f), 0);
 });
 
-test('bridge CLI version range is enforced per platform and native is unaffected', async t => {
+test('bridge CLI versions are reported but never gate dispatch', async t => {
   const passing = policyWith({gates: {G1: 'pass', G2: 'pass'}});
   const claudeHost = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
-  for (const [version, allowed] of [['codex-cli 0.167.0', true], ['codex-cli 0.167.9', true], ['codex-cli 0.168.0', false], ['codex-cli 0.166.9', false], ['garbage', false]]) {
+  for (const [version, parsed] of [['codex-cli 0.167.0', '0.167.0'], ['codex-cli 0.169.0', '0.169.0'], ['codex-cli 0.166.9', '0.166.9'], ['garbage', null]]) {
     await claudeHost.cli('claude', {version: 'garbage'}); await claudeHost.cli('codex', {version});
     const bridge = await prepare(claudeHost, request('arc_qa'), {policy: passing});
-    assert.equal(bridge.decision, allowed ? 'allow' : 'hold', version);
-    if (!allowed) assert.ok(codes(bridge).includes('permission_scope_unverified'), version);
+    assert.equal(bridge.decision, 'allow', version);
+    assert.ok(!codes(bridge).includes('permission_scope_unverified'), version);
+    assert.deepEqual(bridge.cliVersion, parsed ? {version: parsed} : {version: null, reason: 'version_unparsed'}, version);
+    await cancel(claudeHost, bridge.dispatchId);
     assert.equal((await prepare(claudeHost, request('arc_planner'), {policy: passing})).decision, 'allow', `native with ${version}`);
   }
   const codexHost = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude'}});
-  for (const [version, allowed] of [['2.1.322 (Claude Code)', true], ['2.1.999', true], ['2.2.0', false], ['2.1.321', false], ['garbage', false]]) {
+  for (const [version, parsed] of [['2.1.322 (Claude Code)', '2.1.322'], ['2.2.0', '2.2.0'], ['2.1.321', '2.1.321'], ['garbage', null]]) {
     await codexHost.cli('codex', {version: 'garbage'}); await codexHost.cli('claude', {version});
     const bridge = await prepare(codexHost, request('arc_planner'), {policy: passing});
-    assert.equal(bridge.decision, allowed ? 'allow' : 'hold', version);
-    if (!allowed) assert.ok(codes(bridge).includes('permission_scope_unverified'), version);
+    assert.equal(bridge.decision, 'allow', version);
+    assert.ok(!codes(bridge).includes('permission_scope_unverified'), version);
+    assert.deepEqual(bridge.cliVersion, parsed ? {version: parsed} : {version: null, reason: 'version_unparsed'}, version);
+    await cancel(codexHost, bridge.dispatchId);
     assert.equal((await prepare(codexHost, request('arc_scouter'), {policy: passing})).decision, 'allow', `native with ${version}`);
   }
 });

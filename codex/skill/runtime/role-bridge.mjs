@@ -4,7 +4,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {DEFAULT_POLICY, reason, profileName, bridgeGateReasons, environmentReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, listLeases, readHostLimits, NON_TERMINAL_STATES, readHeartbeat, requestCancel, clearCancel, TERMINAL_STATES} from './role-dispatch-store.mjs';
-import {withRoutingLock, readActivation, readRevision, authenticate, versionOf} from './role-routing.mjs';
+import {withRoutingLock, readActivation, readRevision, authenticate} from './role-routing.mjs';
 import {resolveConfigHome} from './local-cli.mjs';
 import {startSupervisor, processAlive, resolveWorktree, artifactDirectory, segmentDirectory, buildBridgeInvocation} from './role-supervisor.mjs';
 
@@ -134,10 +134,8 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
     result=blank(context,dispatchId,'hold',active!==null&&active!==lease.revision?'revision_changed':'activation_unverified');return;
    }
    const requested=config.roles[lease.role],platform=requested.platform,codes=new Set();
-   const {cli,authentication}=await authenticate(platform,context,policy);
+   const {authentication}=await authenticate(platform,context,policy);
    if(authentication.status!=='Available')codes.add(authentication.status);
-   const version=await versionOf(cli,policy);
-   if(cli&&!version.supported)codes.add('permission_scope_unverified');
    for(const code of environmentReasons(context.executionEnvironment,policy))codes.add(code);
    for(const code of bridgeGateReasons({platform,role:lease.role,hostPlatform:context.hostPlatform,policy}))codes.add(code);
    // The dispatch itself is terminal here, so only other non-terminal bridge leases occupy slots. The workflow total is not increased by a follow-up segment.

@@ -66,7 +66,7 @@ test('both coordination references define Composite Platform Role Dispatch with 
     for (const key of ['hostPlatform', 'executionEnvironment', 'expectedRevision', 'requestId', 'taskId', 'allowedPaths', 'dispatchId', 'brief', 'waitMs', 'event', 'nativeAgentId']) assert.ok(body.includes('`' + key), harness + ' key ' + key);
     // exit codes, gates, limits
     assert.match(body, /allow 0, deny 2, hold 3, error 1/);
-    for (const needle of ['permission_scope_unverified', 'host_sandbox_blocked', 'delegation_observed', 'environment_unverified', 'native_profile_reload_unverified', 'new session', 'model argument', 'rev ', 'Active bridge dispatches', '>=2.1.322 <2.2.0', '>=0.167.0 <0.168.0', '60 minutes', '30 minutes', '20 minutes', '30 days', 'cancelling', 'terminal_state_unverified', 'completed` or `failed']) assert.ok(body.includes(needle), harness + ' needle ' + needle);
+    for (const needle of ['permission_scope_unverified', 'host_sandbox_blocked', 'delegation_observed', 'environment_unverified', 'native_profile_reload_unverified', 'new session', 'model argument', 'rev ', 'Active bridge dispatches', 'CLI versions are not restricted', '60 minutes', '30 minutes', '20 minutes', '30 days', 'cancelling', 'terminal_state_unverified', 'completed` or `failed']) assert.ok(body.includes(needle), harness + ' needle ' + needle);
     assert.match(body, /no automatic (?:fallback|substitution)/i);
     assert.match(body, /short polling loop/i);
     assert.match(body, /each (?:call|time)[^.]*escalation|escalation approval[^.]*each/i);

@@ -136,7 +136,7 @@ export async function authenticate(platform,context,policy){
  const auth=await (platform==='codex'?probeCodexAuthStatus:probePlatformAuth)(cli,{timeoutMs:policy.probeTimeoutMs});
  return {cli,authentication:{status:auth.authStatus==='authenticated'?'Available':auth.authStatus==='unauthorized'?'Unauthorized':'Incomplete',...(auth.reason?{reason:auth.reason}:{})}};
 }
-export const versionOf=(cli,policy)=>cli?probeCliVersion(cli,{timeoutMs:policy.probeTimeoutMs,policy}):{version:null,supported:false,reason:'cli_not_found'};
+export const versionOf=(cli,policy)=>cli?probeCliVersion(cli,{timeoutMs:policy.probeTimeoutMs}):{version:null,reason:'cli_not_found'};
 export async function readRevision(homes){
  const bytes=await readStable(path.join(homes.codex,'arc-role-platform-routing.json'),[]);
  return parseRoleRoutingConfig(bytes.toString('utf8')).revision;
@@ -194,7 +194,6 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    if(authentication.status!=='Available')codes.add(authentication.status);
    if(route==='bridge'){
     result.cliVersion=await versionOf(cli,policy);
-    if(cli&&!result.cliVersion.supported)codes.add('permission_scope_unverified');
    }
    for(const code of environmentReasons(environment,policy))codes.add(code);
    const leases=await listLeases(homes.codex);

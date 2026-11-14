@@ -95,7 +95,8 @@ async function completedClaude(t) {
 
 test('resume of completed Claude dispatch runs claude -p --resume <sid> with all flags re-specified and writes segments/1', async t => {
   const {f, id} = await completedClaude(t);
-  await f.claude.setScenario({events: [claudeInit(claudeTools(f)), claudeResult('second')], writes: [transcript(f)]});
+  // Resume never gates on the CLI version, including versions far outside any former range.
+  await f.claude.setScenario({version: '9.9.9 (Claude Code)', events: [claudeInit(claudeTools(f)), claudeResult('second')], writes: [transcript(f)]});
   const started = await resume(f, id, 'second brief — 한글');
   assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
   assert.equal(started.routeStatus, 'starting');
@@ -130,7 +131,8 @@ test('resume of failed Codex dispatch runs exec resume <tid> with -m, model_reas
   const failed = await settle(f, prepared.dispatchId);
   assert.equal(failed.routeStatus, 'failed');
   assert.equal((await readLease(f.codexHome, prepared.dispatchId)).sessionId, THREAD(1));
-  await f.codex.setScenario(codexOk(f, 1));
+  // An unparseable CLI version must not hold resume either.
+  await f.codex.setScenario({...codexOk(f, 1), version: 'garbage'});
   const started = await resume(f, prepared.dispatchId, 'again');
   assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
   const done = await settle(f, prepared.dispatchId);
@@ -192,12 +194,6 @@ test('resume is denied for reserved, running, unknown and cancelled; held revisi
   assert.deepEqual(codes(result), ['revision_changed']);
   assert.equal((await records(f.codex)).length, count, 'no child for held or denied resumes');
   assert.equal((await readLease(f.codexHome, done.dispatchId)).state, 'completed');
-  await fs.writeFile(f.activePath, serializeRoleRoutingConfig(f.config));
-  await f.codex.setScenario({version: '0.1.0'});
-  result = await resume(f, done.dispatchId);
-  assert.equal(result.decision, 'hold');
-  assert.deepEqual(codes(result), ['permission_scope_unverified'], 'CLI version check is applied again');
-  assert.equal((await readLease(f.codexHome, done.dispatchId)).segment, 0);
 });
 
 test('resume input cannot carry a session id', async t => {
