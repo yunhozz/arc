@@ -120,3 +120,34 @@ test('real linked worktree requires both Git registration and app attachment att
  current=await state();assert.equal((await record('target-preparation','transition',{...transition,expectedRevision:current.revision,destination:{realpath:destination,attachmentRef:'attachment'}})).decision,'allow');
  const after=await state();assert.equal(after.targetVersion,2);assert.deepEqual(after.target,target);assert.equal(await fs.readFile(path.join(root,'input.txt'),'utf8'),'source\n');
 });
+
+test('claude managed worktree under .claude/worktrees with operator attachment is accepted as worktree intent', {skip:!enabled}, async t=>{
+ const parent=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-worktree-integration-')));
+ t.after(()=>fs.rm(parent,{recursive:true,force:true}));
+ const root=path.join(parent,'source'),destination=path.join(root,'.claude/worktrees/managed');await fs.mkdir(root);
+ const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
+ git('init','-b','main');git('config','user.name','ARC integration');git('config','user.email','arc@example.invalid');
+ await fs.writeFile(path.join(root,'input.txt'),'source\n');git('add','input.txt');git('commit','-m','fixture');
+ const source=await observeCooperativeTarget(root),statePath=path.join(source.gitCommonDir,'arc/workflows/worktree/state.json');
+ const common={cwd:root,workflowId:'worktree'},actor={id:'operator',role:'orchestrator'};
+ await initializeCooperativeWorkflow({...common,input:{mode:'plan',actor:{id:'operator'},selection:{messageRef:'selection',contentHash:'sha256:'+'a'.repeat(64)}}});
+ const state=async()=>JSON.parse(await fs.readFile(statePath,'utf8'));
+ const record=async(kind,messageRef,data)=>{const s=await state();return runCooperativeCommand({...common,command:'record',input:{requestId:messageRef,expectedRevision:s.revision,actor,evidence:{kind,messageRef,data}}});};
+ const documents=[{kind:'spec',path:'spec.md'}],scope={depth:'Bounded',documents,selectionRef:'selection',kind:'worktree',candidate:'feature',base:source.head,workflowId:'worktree',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1};
+ await record('approval','scope',{targetPreparation:scope});
+ assert.equal((await record('target-preparation','intent',{type:'intent',id:'intent',approvalRef:'scope',...scope})).decision,'allow');
+ const contract={document:{path:path.join(root,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,targetIntentId:'intent'};
+ await record('approval','stage-approval',{plannerStage:contract});
+ assert.equal((await record('planner-stage','stage',{id:'stage',...contract,approvalRef:'stage-approval',criteria:[{id:'C1',status:'open',judgmentRef:'criterion'}]})).decision,'allow');
+ let current=await state();assert.equal((await runCooperativeCommand({...common,command:'prepare',input:{requestId:'call',expectedRevision:current.revision,actor,operation:'planner-call',arguments:{stageId:'stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}}})).decision,'allow');
+ await record('planner-result','result',{stageId:'stage',callRequestId:'call',status:'succeeded',chatDraft:{intentId:'intent',draftRef:'draft',selfReviewRef:'self',complete:true}});
+ await record('target-preparation','checkpoint',{type:'checkpoint',intentId:'intent',stageId:'stage',resultRef:'result',selfReviewRef:'self'});
+ await fs.writeFile(path.join(root,'.git/info/exclude'),'.claude/worktrees/\n');
+ git('worktree','add','-b','feature','.claude/worktrees/managed',source.head);
+ const target=await observeCooperativeTarget(destination);
+ current=await state();const transition={type:'transition',intentId:'intent',checkpointRef:'checkpoint',expectedRevision:current.revision,destination:{realpath:destination}};
+ assert.equal((await record('target-preparation','missing-attachment',transition)).decision,'hold');
+ await record('note','attachment',{type:'worktree-attachment',realpath:target.realpath,gitDir:target.gitDir,gitCommonDir:target.gitCommonDir});
+ current=await state();assert.equal((await record('target-preparation','transition',{...transition,expectedRevision:current.revision,destination:{realpath:destination,attachmentRef:'attachment'}})).decision,'allow');
+ const after=await state();assert.equal(after.targetVersion,2);assert.deepEqual(after.target,target);assert.equal(await fs.readFile(path.join(root,'input.txt'),'utf8'),'source\n');
+});

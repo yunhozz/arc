@@ -46,6 +46,7 @@ Orchestrator and assigned roles read applicable references before dependent deci
 | [planning](references/planning.md) | Design/plan-depth judgments; spec/plan drafting, approval, first save; dependency/readiness decisions before assignment |
 | [handoff](references/handoff.md) | Every Implementer first start/restart; Orchestrator preparation and first direct edit. Implementer trusts verified brief and reads cited sections only |
 | [handoff-prep](references/handoff-prep.md) | Execution-target choice request; each preparation Git mutation (branch creation/switch, staging, commit) |
+| [handoff-worktree](references/handoff-worktree.md) | After explicit managed-worktree selection, before creation, branch work or document transfer |
 | [commit](references/commit.md) | Plan-task acceptance; focused commit and resumption with uncertain commit result |
 | [verification](references/verification.md) | Orchestrator's verification design; QA/Reviewer assignment, correction rechecks, UI acceptance, risk classification, acceptance/completion. QA/Reviewer use profiles and brief-cited sections |
 | [git-recovery](references/git-recovery.md) | Branch collision, Git preparation failure/partial completion, metadata/handoff-record write denial recovery |

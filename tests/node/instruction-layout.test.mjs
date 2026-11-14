@@ -115,7 +115,7 @@ for(const platform of ['codex','claude']){
   assert.ok(normalize(documents.get('core')).includes(normalize(fixture.platforms[platform].opening)),`missing initial routing ${platform}`);
   assert.ok(Buffer.byteLength(documents.get('core'))<fixture.platforms[platform].skill.bytes);
   assert.ok(documents.get('core').split('\n').length-1<fixture.platforms[platform].skill.lines);
-  for(const link of documents.get('core').matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(path.join(root,platform,'skill',link[1])),link[1]);
+  for(const link of documents.get('core').matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(path.join(root,platform,'skill',link[1]))||fs.existsSync(path.join(root,'shared/skill',link[1])),link[1]);
   for(const name of Object.keys(gates)){
    const missing=new Map(documents);missing.delete(name);assert.throws(()=>checkLayout(platform,missing),undefined,`omitted ${name}`);
    const ungated=new Map(documents);ungated.set('core',documents.get('core').split('\n').filter(line=>!line.includes(`references/${name}.md`)).join('\n'));assert.throws(()=>checkLayout(platform,ungated),undefined,`ungated ${name}`);
@@ -123,7 +123,7 @@ for(const platform of ['codex','claude']){
  });
 }
 test('Codex document transfer includes legacy documents while excluding normal new documents',()=>{
- const transfer=read('codex/skill/references/handoff-worktree.md').split('### Worktree document transfer')[1];
+ const transfer=read('shared/skill/references/handoff-worktree.md').split('### Worktree document transfer')[1];
  assert.match(transfer,/Only for existing approved documents in legacy\/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:/);
 });
 test('Codex Git escalation requires sandbox denial and stays limited to the exact command and workspace',()=>{

@@ -114,7 +114,7 @@ for(const platform of ['codex','claude'])test(`${platform} installs instruction 
  const home=fixture(t),custom=platform==='codex'?home+'/custom agent home':home+'/.claude',environment=platform==='codex'?{CODEX_HOME:custom}:{};
  const input=payload();
  const core=fs.readFileSync(new URL(`../../${platform}/skill/SKILL.md`,import.meta.url),'utf8');const names=['SKILL.md',...[...core.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g)].map(match=>match[1])];
- for(const name of new Set(names))input.files.set(`${platform}/skill/${name}`,fs.readFileSync(new URL(`../../${platform}/skill/${name}`,import.meta.url)));
+ for(const name of new Set(names)){const source=fs.existsSync(new URL(`../../${platform}/skill/${name}`,import.meta.url))?`${platform}/skill/${name}`:`shared/skill/${name}`;input.files.set(source,fs.readFileSync(new URL(`../../${source}`,import.meta.url)));}
  const target=targets.resolveTarget(platform,{userHome:home,env:environment,cwd:home});
  const make=extra=>api.buildInstallPlan({payload:input,target,language:'ko',safeFs,...extra});
  const {applyTransaction}=await import('../../lib/installer/transaction.mjs');

@@ -27,3 +27,8 @@ Invalid names, creation/switch failures, lookup errors or unexpected branches re
 If canonical-record writing is denied/unavailable, stop it and report path/error. NEVER change permissions or bypass sandbox. Use [handoff](handoff.md)'s inline fallback.
 
 Orchestrator inspects related processes/ACLs read-only itself or assigns QA; Scouter/Planner/Reviewer cannot execute commands. Failed profile reapplication MUST restore replaced bytes/modes. If rollback fails, preserve recovery files/paths; NEVER claim clean state or remove recovery material.
+
+<a id="worktree-failures-and-partial-completion"></a>
+### Worktree failures and partial completion
+
+Apply [managed-worktree failures and partial completion](handoff-worktree.md#worktree-failures-and-partial-completion). For Claude session recovery, also apply the attachment, keep-only exit and no-retry/no-fallback limits in [worktree-creation](worktree-creation.md).

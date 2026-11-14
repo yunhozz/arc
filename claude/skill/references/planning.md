@@ -142,6 +142,11 @@ Brief absolute installed `references/brainstorming.md`/`references/writing-plans
 
 Supply exact skill/reference paths/access state. Separate user instructions/discovered files, approved versions/open questions. Visual criteria link approved source/version/access/IDs/method. Missing inputs/unapproved interpretation hold dependent drafting. Optional alternatives follow [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption). Planner stays draft-only in recovery.
 
+<a id="managed-worktree-preparation"></a>
+### Managed worktree preparation
+
+Follow [handoff-worktree](handoff-worktree.md).
+
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then includes that task's own progress records made after task completion (checkboxes, notes, results, evidence and status) with its implementation work in that commit, without a separate docs/fixup commit or planning-commit amendment for those records. Exclude other tasks and preserve the no-change path without empty commits. Orchestrator commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.

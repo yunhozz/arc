@@ -165,7 +165,7 @@ NATIVE_ADAPTERS = {
 }
 NATIVE_WORKTREE = {
     "codex": (r"selected worktree.*common directory.*registration.*source preservation",),
-    "claude": (r"arc-managed worktree execution is unsupported",),
+    "claude": (r"selected worktree.*common directory.*registration.*source preservation",),
 }
 
 # This test-only table names the contracts and each platform's owner.
@@ -507,9 +507,14 @@ class PolicyContractTests(unittest.TestCase):
                     self.assertTrue(any(failure.startswith(f"{contract}: {path}:") for failure in policy_contract_failures(changed)))
 
     def test_policy_contract_checker_rejects_adapter_conflation(self) -> None:
+        prep = self.texts["claude/skill/references/handoff-prep.md"]
+        self.assertNotIn("ARC-managed worktree execution is unsupported", prep)
+        self.assertNotIn("current checkout only", prep)
+        for option in ("current checkout", "new task branch", "new managed worktree and task branch", ".claude/worktrees/<name>"):
+            self.assertIn(option, prep)
         for path, old, new in (
             ("claude/skill/references/handoff.md",
-             "ARC-managed worktree execution is unsupported", "ARC-managed worktree execution is supported"),
+             "Selected worktrees require common directory, registration", "Selected worktrees require common directory"),
             ("claude/skill/references/coordination.md", "arc-implementer", "arc_implementer"),
         ):
             changed_text = self.texts[path].replace(old, new)
@@ -583,12 +588,27 @@ class DocumentationContractTests(unittest.TestCase):
                     continue
                 filename, _, anchor = unquote(target).partition("#")
                 resolved = path.parent / filename if filename else path
-                with self.subTest(source=str(path.relative_to(REPO)), target=target):
-                    self.assertTrue(resolved.exists(), f"Missing local link: {target}")
-                    if anchor and resolved.suffix == ".md":
-                        headings = re.findall(r"^#{1,6} (.+)$", resolved.read_text(), re.M)
-                        anchors = {re.sub(r"[^\w -]", "", h.lower()).replace(" ", "-") for h in headings}
-                        self.assertIn(anchor, anchors)
+                resolutions = [resolved]
+                for owner in (*PLATFORMS, "shared"):
+                    skill_root = REPO / owner / "skill"
+                    if not path.is_relative_to(skill_root):
+                        continue
+                    if resolved.resolve().is_relative_to(skill_root):
+                        relative = resolved.resolve().relative_to(skill_root)
+                        platforms = PLATFORMS if owner == "shared" else (owner,)
+                        resolutions = []
+                        for platform in platforms:
+                            candidates = (REPO / platform / "skill" / relative,
+                                          REPO / "shared/skill" / relative)
+                            resolutions.append(next((candidate for candidate in candidates if candidate.exists()), candidates[0]))
+                    break
+                for resolved in resolutions:
+                    with self.subTest(source=str(path.relative_to(REPO)), target=target):
+                        self.assertTrue(resolved.exists(), f"Missing local link: {target}")
+                        if anchor and resolved.suffix == ".md":
+                            headings = re.findall(r"^#{1,6} (.+)$", resolved.read_text(), re.M)
+                            anchors = {re.sub(r"[^\w -]", "", h.lower()).replace(" ", "-") for h in headings}
+                            self.assertIn(anchor, anchors)
 
     def test_svg_contains_required_english_flow_labels(self) -> None:
         import xml.etree.ElementTree as ET

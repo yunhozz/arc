@@ -154,7 +154,7 @@ Planner drafts, Orchestrator obtains approval before dependencies. Plan omission
 
 Order: initial design approval → explicit target → preparation/verification → required spec draft/save/self-review/individual approval → required plan draft/save/review/individual approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer. Required specs precede dependent plans. Omissions skip inapplicable document stages only with reasons. Complete docs precede staging/commit/handoff, not initial preparation. Plan approval selects no target.
 
-Approved-documents/preparation/handoff summaries never replace this order. Codex supports current checkout/new branch/managed worktree; Claude v1 current checkout only. Branches share files, worktrees separate directories. Verify repository/common directory/registration/source preservation/transfer evidence. Preserve unrelated changes/ownership.
+Approved-documents/preparation/handoff summaries never replace this order. Both platforms offer current checkout, new task branch, or new managed worktree and task branch; only creation differs: Codex uses its app tool, while Claude uses `git worktree add -b <branch> .claude/worktrees/<name> <full-sha>` followed by `EnterWorktree({path})`. Branches share files, worktrees separate directories. Verify repository/common directory/registration/source preservation/transfer evidence. Preserve unrelated changes/ownership.
 
 <a id="instruction-provenance-and-visual-evidence"></a>
 ### Instruction provenance and visual evidence
@@ -174,7 +174,7 @@ Probe-only ends with evidence/limits/uncertainty, including supported infeasibil
 
 Material scope/method/risk changes/new decisions/target/ownership/state/failure/missing inputs hold affected work. Routine corrections need no duplicate approval. Revalidate then continue execution→correction→checks→risk-scaled QA/Reviewer→disposition→acceptance→report. Notifications/findings/passing commands alone never complete remaining scope.
 
-Canonical records include versions/path/branch-dettached HEAD/HEAD/index/worktree/untracked/ownership/choice/document commits/readiness/checks. Implementer trusts verified facts and reads `unchanged`; inaccessible records/actual conflicts block. Follow [Codex handoff](../codex/skill/references/handoff.md), [worktree](../codex/skill/references/handoff-worktree.md), [Claude handoff](../claude/skill/references/handoff.md). Reuse valid approvals/targets and record omissions. Material changes wait for revised approval.
+Canonical records include versions/path/branch-dettached HEAD/HEAD/index/worktree/untracked/ownership/choice/document commits/readiness/checks. Implementer trusts verified facts and reads `unchanged`; inaccessible records/actual conflicts block. Follow [Codex handoff](../codex/skill/references/handoff.md), [worktree](../shared/skill/references/handoff-worktree.md), [Claude handoff](../claude/skill/references/handoff.md). Reuse valid approvals/targets and record omissions. Material changes wait for revised approval.
 
 <a id="scheduling-and-limits"></a>
 ## Scheduling and limits
@@ -273,7 +273,7 @@ Earlier T1 compared 29 non-Superpowers runtime guides (2 core, 9 Codex reference
 | Routing/risk/continuity/detail links | Both `skill/SKILL.md` |
 | Approvals/probes/depth/dependencies/order | Both `skill/references/planning.md` |
 | Handoff/preparation/commit evidence | Both `handoff.md`, `handoff-prep.md` |
-| Codex worktree preparation | [handoff-worktree](../codex/skill/references/handoff-worktree.md) |
+| Managed worktree preparation | [handoff-worktree](../shared/skill/references/handoff-worktree.md) |
 | Limits/adapters | Both `limits.md` |
 | Risk/acceptance/final corrections/continuity | Both `verification.md` |
 | Task/no-change/correction commits | Both `commit.md` |

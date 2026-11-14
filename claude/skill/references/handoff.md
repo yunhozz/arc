@@ -24,7 +24,7 @@ Before every Implementer start or restart, verify access to the supplied absolut
 
 The first required spec/plan draft follows choice and verified source evidence and precedes actual preparation; saving follows verified preparation. Initial design MAY precede choice. Preparation alone authorizes no Implementer. All approvals/full documents/verified batch or valid absence/final Git checks remain. Separate planned scope/paths, actual preparation and drafting/save/approval/commit, recording chronology/gaps.
 
-After initial design approval record explicit selection: current checkout branch/detached HEAD or a task branch there. Without choice/valid reuse, wait. Reuse through unchanged-scope/target drafting/implementation. Authorized HEAD/dirty changes alone do not invalidate choice; verify preservation/ownership. Changed scope/target requires fresh choice before dependent drafting/preparation without waiting for full documents. NEVER fall back automatically.
+After initial design approval record explicit selection: current checkout, new task branch from verified base there, or managed worktree/task branch. Without choice/valid reuse, wait. Reuse through unchanged-scope/target drafting/implementation. Authorized HEAD/dirty changes alone do not invalidate choice; verify preservation/ownership. Changed scope/target requires fresh choice before dependent drafting/preparation without waiting for full documents. NEVER fall back automatically.
 
 <a id="implementer-handoff-gate"></a>
 ### Implementer handoff gate
@@ -89,7 +89,7 @@ Use [planning](planning.md#authorization-and-scope), recording scope/criteria/co
 ## Common handoff gate
 
 Before every start/restart verify approvals/artifacts or omissions, explicit target/reuse, accessible intended repository/workspace, actual Git identity/state, preservation/ownership, docs commits or absence and no unresolved failure/partial completion. Missing/mismatched/unclear evidence blocks until resolution/full revalidation. This reference owns records/restarts/lifetime. Implementer uses self-contained guards, not mandatory Orchestrator-procedure loading. Depth 2 NEVER creates/switches workspace/branches. Direct edits require the same.
-Claude v1 supports current checkout only. Explicitly select current/task branch and follow [preparation](handoff-prep.md). Report unsupported isolated-worktree requests before dependent work.
+Selected worktrees require common directory, registration, `EnterWorktree` session attachment, approved branch and source preservation through [managed preparation](handoff-worktree.md) only.
 
 <a id="implementer-tdd-and-constraints"></a>
 ## Implementer TDD and constraints

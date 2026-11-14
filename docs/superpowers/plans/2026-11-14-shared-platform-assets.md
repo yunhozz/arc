@@ -760,7 +760,7 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 1: 테스트·fixture 변경 먼저 적용 (RED)**
+- [x] **Step 1: 테스트·fixture 변경 먼저 적용 (RED)**
   - 실행:
     ```
     PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests -p test_harness_contract.py -k worktree -k checkout
@@ -768,12 +768,12 @@ node tests/node/fixtures/installed-layout.mjs --diff
     node --test tests/node/instruction-layout.test.mjs tests/node/runtime-target-preparation.integration.test.mjs
     ```
   - 예상: 문서 관련 단언은 FAIL이다. runtime 시나리오는 코드 변경이 없어 처음부터 PASS일 수 있다. 이 경우 회귀 고정용 테스트임을 기록한다.
-- [ ] **Step 2:** 이동, 생성, 문서 수정
-- [ ] **Step 3: 검사, 재생성, golden 갱신**
+- [x] **Step 2:** 이동, 생성, 문서 수정
+- [x] **Step 3: 검사, 재생성, golden 갱신**
   - `node scripts/update-role-policy.mjs --check`가 stale이면 관리 블록을 건드린 것이다. 중단하고 보고한다.
   - `node scripts/update-manifest.mjs`
   - golden `--diff`(증거), 이어서 `--write`
-- [ ] **Step 4:** 대상 테스트와 GOLD가 PASS다.
+- [x] **Step 4:** 대상 테스트와 GOLD가 PASS다.
 
 **수용 기준:** AC17, AC19–AC22, AC13
 
@@ -786,6 +786,27 @@ node tests/node/fixtures/installed-layout.mjs --diff
   - 새 runtime 테스트가 PASS다.
   - 워크트리 cwd에서 bridge `run-dispatch`를 1회 실행한 증거가 있다. 시험용 워크트리를 만들고 지우는 일은 O-P3 결정에 따라 Orchestrator가 한다. QA는 dispatch 결과와 `resolveWorktree`의 대상 realpath를 확인한다.
 - `node scripts/check-installer-parity.mjs`(가능하면 `--complete`), CHK, N-ALL, P-ALL(B1–B4)
+
+**진행 기록 (2026-11-14, 수락):**
+- 구현(Implementer aa57705c)
+  - 공통 계약 `handoff-worktree.md`를 shared로 옮겼다(바이트 동일).
+  - Claude `worktree-creation.md`(§11.2의 1–9단계)와 Claude 문서 5개, docs, 테스트를 반영했다.
+  - golden 갱신 전 diff가 예상한 28줄과 정확히 일치했고, 그 뒤 `--write`로 갱신했다.
+  - 진행 중 Implementer 쪽 실행 오류 1회(기준선 수집 병렬화)가 있었다. 테스트 경로와 기대값 보완 지시도 1회 했다.
+- 계획 편차: `tests/node/plan.test.mjs:117`의 fixture가 SKILL.md에 링크된 reference를 플랫폼 경로에서만 읽고 있었다. 이 파일은 W2 파일 목록에 빠져 있었다.
+  - Orchestrator가 W2 범위 안의 테스트 경로 보완으로 판단했다(합성 트리 방식).
+  - 기존 Implementer의 허용 경로에 이 파일이 없어, fresh Implementer 3bb51989로 교체해 이 줄만 수정했다.
+- AC22 실행 증거
+  - 승인된 시험 워크트리 `.claude/worktrees/arc-ac22-probe`를 `--cwd`로 Codex bridge를 실행했다(dispatch 49527202).
+  - pwd와 toplevel은 워크트리였고, common dir은 공유 `.git`이었다.
+  - 확인 후 워크트리와 브랜치를 삭제했다.
+- QA(11b98887)
+  - proven: AC17, AC19, AC20(정확히 28줄, codex·agents 0), AC21, AC22(통합 테스트 3/3 + bridge 증거), AC15
+  - 금지 파일 변경과 테스트 약화가 없음을 확인했다.
+  - B1: plan.test 보완 후 W1 대비 신규 실패 0건
+  - Python 561→558(3건 해소)
+  - B3: 메시지 차이는 문서 본문, anchor 집합 표현, 실패 목록 길이에 한정된다.
+- 처분 기록: parity 실패, public rendering baseline 8건, 링크 기존 2건은 기존부터 있던 것이다.
 
 ---
 

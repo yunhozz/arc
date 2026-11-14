@@ -13,6 +13,7 @@ def policy_text(name: str) -> str:
     # "handoff" covers the whole handoff contract, which is split by trigger across HANDOFF_FILES.
     names = HANDOFF_FILES if name == "handoff" else (name,)
     paths = [REPO / "codex/skill" / ("SKILL.md" if n == "core" else f"references/{n}.md") for n in names]
+    paths = [path if path.exists() else REPO / "shared/skill/references" / path.name for path in paths]
     return " ".join(" ".join(path.read_text().lower().split()) for path in paths)
 
 class TaskCommitPolicyTests(unittest.TestCase):
@@ -1013,6 +1014,33 @@ class RolePolicyTests(unittest.TestCase):
             with self.subTest(section=title, contract=contract):
                 self.assertRegex(section, contract)
 
+    def test_claude_managed_worktree_creation_covers_ac19(self) -> None:
+        prep = (REPO / "claude/skill/references/handoff-prep.md").read_text()
+        self.assertNotIn("current checkout only", prep)
+        self.assertNotIn("ARC-managed worktree execution is unsupported", prep)
+        for option in ("current checkout", "new task branch", "new managed worktree and task branch", ".claude/worktrees/<name>"):
+            self.assertIn(option, prep)
+        creation = REPO / "claude/skill/references/worktree-creation.md"
+        self.assertTrue(creation.is_file(), "Claude M2 creation procedure is required")
+        text = creation.read_text()
+        self.assertEqual(re.findall(r"^(\d)\. ", text, re.M), list("123456789"))
+        steps = dict(re.findall(r"^(\d)\. (.*?)(?=^\d\. |\Z)", text, re.M | re.S))
+        required = {
+            "1": ("explicit", "source", "common directory", "full SHA", "collision", "document"),
+            "2": ("git check-ignore", ".git/info/exclude", "EnterWorktree", "base", "collision"),
+            "3": ("git worktree add -b <approved-branch> .claude/worktrees/<name> <verified-full-sha>", "--force", "-B", "suffix", "retry", "git worktree add .claude/worktrees/<name> <branch>"),
+            "4": ("git worktree list --porcelain", "common", "HEAD", "branch", "index", "files"),
+            "5": ('EnterWorktree({path:"<abs>"})', "git rev-parse --show-toplevel", "realpath", "simple", "compound", "before entry or after exit"),
+            "6": ("type:'worktree-attachment'", "realpath", "gitDir", "gitCommonDir", "cwd", "toplevel"),
+            "7": ("native", "inherit", "--cwd <worktree realpath>", "brief"),
+            "8": ('ExitWorktree({action:"keep"})', "automatic cleanup", "git worktree remove/prune", "branch deletion"),
+            "9": ("Stop and inspect", "retry", "fallback", "M1", "M3", "deletion"),
+        }
+        for number, phrases in required.items():
+            for phrase in phrases:
+                with self.subTest(step=number, phrase=phrase):
+                    self.assertIn(phrase, steps[number])
+
     def test_workspace_handoff_requires_scoped_checkout_approval(self) -> None:
         self._assert_workspace_handoff_contracts(
             "Checkout approval",
@@ -1480,7 +1508,10 @@ class InternalSuperpowersContractTests(unittest.TestCase):
 class WorkspaceBeforeDocumentsTests(unittest.TestCase):
     # Approved T1 structural checks; consuming-agent runtime compliance is unverified.
     def text(self, name):
-        return " ".join((REPO / "codex/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")).read_text().lower().split())
+        path = REPO / "codex/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
+        if not path.exists():
+            path = REPO / "shared/skill/references" / f"{name}.md"
+        return " ".join(path.read_text().lower().split())
 
     def test_normal_order_selects_and_prepares_before_formal_drafting(self):
         planning = self.text("planning")
