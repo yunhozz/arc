@@ -83,6 +83,32 @@ test('the two harness sections state the same rules', async () => {
   assert.deepEqual(claude, codex);
 });
 
+test('both harnesses require escalation for every runtime command as an Orchestrator obligation', async () => {
+  const expected = '- On a Codex host ask the user for escalation approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs, because each may write `CODEX_HOME`. The runtime does not check this approval; asking for it is an Orchestrator obligation. Without approval or on failure the result is `host_sandbox_blocked`.';
+  const lines = [];
+  for (const harness of Object.keys(harnesses)) {
+    const text = await read(harness, 'coordination.md');
+    const line = text.split('\n').find(line => line.startsWith('- On a Codex host ask the user for escalation approval'));
+    assert.equal(line, expected, harness);
+    assert.ok(line.includes('`routing-status`'));
+    assert.ok(line.includes('Orchestrator obligation'));
+    lines.push(line);
+  }
+  assert.equal(lines[0], lines[1]);
+});
+
+test('operations and README disclose caller-declared execution environments and unchecked approval', async () => {
+  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
+  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
+  const row = docs.split('\n').find(line => line.startsWith('| `codex-cli` host |'));
+  assert.ok(row.includes('the runtime does not check the approval, so asking for it before every runtime command is an Orchestrator obligation'));
+  const warning = '`executionEnvironment` is declared by the caller and not verified by the runtime; declaring a CLI value from a Desktop session bypasses the Desktop hold, so declare the Desktop value whenever the session is confirmed to run inside the Desktop app.';
+  assert.ok(docs.includes(warning));
+  for (const text of [docs, readme]) {
+    assert.match(text, /`executionEnvironment`[^.]*declared[^.]*not verified by the runtime[^.]*Desktop[^.]*hold/);
+  }
+});
+
 test('incorrect statements are removed', async () => {
   for (const harness of Object.keys(harnesses)) {
     const text = await read(harness, 'coordination.md');

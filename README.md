@@ -42,7 +42,7 @@ The TUI requires terminal input and output. Public commands: `arc`, `arc watch`,
 
 - **Shown:** user and agent messages in full; other events on one line.
 - **Hidden:** tool and command outputs. Common secret patterns are masked, but masking is not complete.
-- **Excluded:** Codex Desktop sessions. Bridge roles on Codex hosts need per-call escalation approval (otherwise `host_sandbox_blocked`) and appear once they run.
+- **Excluded:** Codex Desktop sessions. Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise `host_sandbox_blocked`) and appear once they run; Claude bridge Implementer and QA stay held.
 
 Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl-L to clear the screen and Ctrl-C to stop.
 
@@ -55,7 +55,7 @@ Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl
 - **Claude & Codex:** each role runs on either platform. New configurations put Planner and Reviewer on Claude and the rest on Codex. `Apply` publishes; start a new session to load new profiles.
 - **Catalogs:** model and effort choices come from packaged catalogs, with no API key or model-list call; a choice is not proof that your account can use it.
 - **Language:** the TUI is in English; the selected response language applies to agents in new sessions.
-- **Execution support:** `claude-cli` hosts run native roles and Codex bridges. `codex-cli` hosts run native roles and Claude bridges for Scouter, Planner and Reviewer after per-call escalation approval (a refused approval or denied `CODEX_HOME` write is `host_sandbox_blocked`); Claude bridge Implementer and QA roles stay held as `permission_scope_unverified`. Declare `codex-cli` or `claude-cli` for terminal sessions, including IDE terminals; use a `-desktop` value only inside a Desktop app, never because of a path such as `~/Desktop`. On Desktop, every role (native and bridge) is held as `environment_unverified` pending a future ARC update. After upgrading to `cooperative-9`, run Install / Update again.
+- **Execution support:** `claude-cli` hosts run native roles and Codex bridges. `codex-cli` hosts run native roles and Claude bridges for Scouter, Planner and Reviewer after per-call escalation approval, which every runtime command needs there, native roles included (a refused approval or denied `CODEX_HOME` write is `host_sandbox_blocked`); Claude bridge Implementer and QA roles stay held as `permission_scope_unverified`. Declare `codex-cli` or `claude-cli` for terminal sessions, including IDE terminals; use a `-desktop` value only inside a Desktop app, never because of a path such as `~/Desktop`. On Desktop, every role (native and bridge) is held as `environment_unverified` pending a future ARC update. After upgrading to `cooperative-9`, run Install / Update again. `executionEnvironment` is declared by the caller and not verified by the runtime; declaring a CLI value inside Desktop bypasses the hold, so confirmed Desktop sessions must declare the Desktop value.
 
 Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
 
