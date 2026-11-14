@@ -107,6 +107,29 @@ test('repeated SubagentHandback blocks end the message only once', () => {
   {kind:'tool',tool:'SubagentHandback'},
  ]);
 });
+for (const stop_reason of ['tool_use','end_turn']) {
+ test(`SubagentHandback message replaces the tool event with agent text (${stop_reason})`, () => {
+  assert.deepEqual(normalizeClaudeLine({type:'assistant',timestamp:'raw',message:{stop_reason,
+   content:[{type:'tool_use',id:'handback',name:'SubagentHandback',input:{message:'review complete\nnext step'}}]}},createClaudeState()),
+   [{kind:'agent',text:'review complete\nnext step',ts:'raw'},{kind:'turn_end',ts:'raw'}]);
+ });
+}
+test('SubagentHandback missing, empty and non-string messages keep the tool event', () => {
+ for (const input of [{},{message:''},{message:null},{message:42},{message:{}},{message:[]}]) {
+  assert.deepEqual(tool('SubagentHandback',input),[{kind:'tool',tool:'SubagentHandback'},{kind:'turn_end'}]);
+ }
+ assert.deepEqual(tool('SubagentHandback',{message:' \n'}),[{kind:'agent',text:' \n'},{kind:'turn_end'}]);
+});
+test('repeated SubagentHandback messages are all emitted with only one turn end', () => {
+ assert.deepEqual(assistant([
+  {type:'tool_use',id:'first',name:'SubagentHandback',input:{message:'first report'}},
+  {type:'tool_use',id:'second',name:'SubagentHandback',input:{message:'second report'}},
+  {type:'tool_use',id:'empty',name:'SubagentHandback',input:{message:''}},
+ ],undefined,{stop_reason:'end_turn'}),[
+  {kind:'agent',text:'first report'},{kind:'turn_end'},
+  {kind:'agent',text:'second report'},{kind:'tool',tool:'SubagentHandback'},
+ ]);
+});
 test('SubagentHandback results stay silent unless they fail', () => {
  const state=createClaudeState();
  assistant([{type:'tool_use',id:'handback',name:'SubagentHandback',input:{}}],state);

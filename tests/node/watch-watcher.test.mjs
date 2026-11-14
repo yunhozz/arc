@@ -168,6 +168,42 @@ test('subagent rollouts attach under their parent at depth 1 and 2',async t=>{co
 test('a child found before its parent is held up to 2 seconds',async t=>{const s=setup(t,{verbose:true});s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('orphan',undefined,{extra:{parent_thread_id:'missing'}});assert.equal(content(await s.w.start()).length,0);s.advance(1000);s.c('parent');assert.ok(content(await s.w.tick()).some(e=>e.sessionId==='child'));s.advance(1000);const out=await s.w.tick();assert.ok(notices(out).some(x=>x.includes('orphan')));assert.ok(!content(out).some(e=>e.sessionId==='orphan'));});
 test('a codex-tui rollout without parent fields is top-level',async t=>{const s=setup(t);s.c('solo1234');assert.equal(content(await s.w.start())[0].label,'tui#1234');});
 test('Claude subagent labels from meta agentType with fallback',async t=>{const s=setup(t);s.cl('parent1234',undefined,{subagents:[{agentId:'qa',meta:{agentType:'arc-qa'},lines:[cm('child-qa','/outside')]},{agentId:'fallback',lines:[cm('child-fallback','/outside')]}]});const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='main#1234/qa'&&e.parentId==='parent1234'));assert.ok(out.some(e=>e.label==='main#1234/agent'));});
+test('Claude native reviewer handback-only transcript renders its role and masks message secrets', async t => {
+  const s=setup(t);
+  s.cl('parent1234',undefined,{subagents:[{
+    agentId:'review',meta:{agentType:'arc-routing-reviewer'},lines:[{
+      type:'assistant',timestamp:iso(TIME),message:{role:'assistant',stop_reason:'end_turn',content:[
+        {type:'tool_use',id:'handback',name:'SubagentHandback',input:{message:'\x1b[31mreview complete\npassword=hidden'}},
+      ]},
+    }],
+  }]});
+  const out=content(await s.w.start()), report=out.find(e=>e.kind==='agent');
+  assert.ok(report,'handback must produce an agent message');
+  assert.equal(report.sessionId,'agent-review');
+  assert.equal(report.label,'main#1234/reviewer');
+  assert.equal(report.role,'reviewer');
+  assert.equal(report.text,'review complete\npassword=***');
+  assert.match(lines([report])[0].slice(25),/^\[Reviewer\] review complete\n +password=\*\*\*$/);
+  assert.equal(out.filter(e=>e.sessionId==='agent-review'&&e.kind==='turn_end').length,1);
+  assert.ok(!out.some(e=>e.tool==='SubagentHandback'));
+});
+test('Codex native arc_routing child threads render final agent messages with their roles', async t => {
+  const s=setup(t);
+  s.c('parent1234');
+  for (const role of ['scouter','planner','implementer','qa','reviewer']) {
+    s.c(role,[msg(`${role} final report`,TIME,'AgentMessage'),{type:'event_msg',payload:{type:'task_complete'}}],{
+      extra:{source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:`arc_routing_${role}`}}}},
+    });
+  }
+  const out=content(await s.w.start());
+  for (const [role,title] of [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],['qa','QA'],['reviewer','Reviewer']]) {
+    const report=out.find(e=>e.sessionId===role&&e.kind==='agent');
+    assert.ok(report);
+    assert.equal(report.label,`tui#1234/${role}`);
+    assert.equal(report.role,role);
+    assert.equal(lines([report])[0].slice(25),`[${title}] ${role} final report`);
+  }
+});
 test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});
 test('Claude bridge transcript is labeled from the init session id, and a resumed id maps to the same dispatch',async t=>{const s=setup(t,{},'repo');s.cl('first',[cm('first',s.cwd,'first','sdk-cli')]);s.cl('resume',[cm('resume',s.cwd,'resume','sdk-cli')]);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"init","sessionId":"first"}\n','segments/1/events.jsonl':'{"kind":"init","sessionId":"resume"}\n'});const out=content(await s.w.start());assert.deepEqual(out.filter(e=>e.kind==='user').map(e=>[e.sessionId,e.label]).sort(),[['first','qa@d123'],['resume','qa@d123']]);});
 test('dispatch without a transcript shows DISPATCH lines only',async t=>{const s=setup(t,{verbose:true},'all');s.lease('d123');const out=await s.w.start();assert.deepEqual(content(out).map(e=>e.kind),['dispatch']);assert.ok(notices(out).includes('transcript not found for dispatch d123'));});
