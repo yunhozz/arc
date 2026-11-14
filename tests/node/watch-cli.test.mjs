@@ -33,23 +33,24 @@ class Input extends EventEmitter {
 function setup(t) {
   const h = makeHomes(t), cwd = path.join(h.root,'repo');
   fs.mkdirSync(cwd);
-  let tick, clearCount = 0, clock = TIME, ready;
+  let tick, clearCount = 0, clock = TIME, ready, argsJson = false;
   const started = new Promise(resolve => ready = resolve), controller = new AbortController();
   const output = new Output(), error = new Output(), proc = new EventEmitter(), calls = [];
   const io = {input:new Input(),output,error,process:proc,userHome:h.userHome,cwd,env:{},signal:controller.signal,now:()=>clock,
     git:async (dir,args)=>{calls.push({dir,args});assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));return null;},
-    setInterval(fn,ms){assert.equal(ms,WATCH_LIMITS.filePollMs);tick=fn;ready();return 17;},
+    setInterval(fn,ms){assert.equal(ms,output.isTTY&&!argsJson?100:WATCH_LIMITS.filePollMs);tick=fn;ready();return 17;},
     clearInterval(id){assert.equal(id,17);clearCount++;},
   };
   const write = (id,dir=cwd,lines=[msg('hello')]) => h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl`,[
     {timestamp:iso(TIME),type:'session_meta',payload:{id,cwd:dir,originator:'codex-tui'}},...lines,
   ],{mtime:TIME});
   async function start(args=[]) {
+    argsJson=args.includes('--json');
     const result=runWatch(args,io);t.after(()=>controller.abort());
     await Promise.race([started,result.then(code=>{throw Error(`watch exited before live: ${code}: ${error.text}`);})]);
     return {result};
   }
-  return {h,cwd,io,output,error,proc,controller,calls,write,start,step:async()=>{clock+=500;await tick();},cleared:()=>clearCount,advance:ms=>clock+=ms};
+  return {h,cwd,io,output,error,proc,controller,calls,write,start,step:async(ms=500)=>{clock+=ms;await tick();},cleared:()=>clearCount,advance:ms=>clock+=ms};
 }
 
 // Catch missing parsing branches, bad defaults, duplicate options and invalid values.
@@ -292,9 +293,14 @@ test('TTY spinner advances, erases before events, clears on end and stop', async
     else assert.match(s.output.text,/\x1b\[2m⠋ working…\x1b\[0m$/);
     s.output.text='';await s.step();
     assert.equal(strip(s.output.text),'\r\x1b[2K⠙ working…');
+    s.output.text='';fs.appendFileSync(file,JSON.stringify(msg('pending'))+'\n');await s.step(100);
+    assert.equal(strip(s.output.text),'\r\x1b[2K⠹ working…');
+    s.output.text='';await s.step(400);
+    assert.match(strip(s.output.text),/USER +pending/);
+    assert.ok(strip(s.output.text).endsWith('⠸ working…'));
     s.output.text='';fs.appendFileSync(file,JSON.stringify(msg('next'))+'\n');await s.step();
     assert.ok(s.output.text.startsWith('\r\x1b[2K'));
-    assert.ok(strip(s.output.text).endsWith('⠹ working…'));
+    assert.ok(strip(s.output.text).endsWith('⠼ working…'));
     s.output.text='';fs.appendFileSync(file,JSON.stringify({type:'event_msg',payload:{type:'task_complete'}})+'\n');await s.step();
     assert.ok(s.output.text.startsWith('\r\x1b[2K'));
     assert.doesNotMatch(s.output.text,/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
