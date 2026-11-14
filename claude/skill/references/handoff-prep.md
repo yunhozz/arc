@@ -1,5 +1,5 @@
 <a id="prepare-the-current-checkout"></a>
-# Prepare the current checkout
+# Handoff preparation contract
 
 Offer three options: current checkout, new task branch in that checkout, or new managed worktree and task branch. NEVER create/attach worktrees as fallback; explicit selection and verified preparation are required before dependent work.
 

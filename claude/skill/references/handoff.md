@@ -53,7 +53,7 @@ One canonical record includes:
 - Absolute approved artifacts, full set/versions/coverage/dependencies/order and no pending writing/approval.
 - Final verification, failures/partial completion/recovery and each start/restart's approval/choice/reuse.
 - Each plan task ID and current Implementer conversation ID, status, last result and reuse/replacement decision. Before same-task replacement, record the prior ID and status, allowed reason and supporting evidence; hold if the reason is not established. Record the returned ID after a successful initial or replacement call, and reconcile an uncertain call result before another assignment.
-
+- Worktree source/target paths/common directory/base/branch/name/`.claude/worktrees/<name>` path/`EnterWorktree` attachment evidence/registration/source preservation/transfer evidence. No automatic recreation/cleanup/removal.
 
 Give all five roles the same actual workspace/selected checkout, preparation evidence and absolute artifacts. Roles stay there and report missing/inaccessible/conflicting paths/unexpected branches before dependent work, NEVER create/switch workspaces/branches. Tell Implementer others share the repository and unrelated work MUST be preserved.
 
@@ -70,7 +70,7 @@ Apply all [planning](planning.md#dependency-and-readiness-record) conditions: pr
 
 Reuse only for unchanged approved scope/workspace/repository/target with accessible valid evidence. Every start/restart compares actual identity/branch/detached HEAD/HEAD/changes/preservation/ownership, approvals/artifacts, document SHA/message/paths/content or absence and final state with the brief. Reuse waives none of gates 1–7.
 
-Unchanged-document restarts reuse valid commits/choice with fresh state checks. Accepted task/docs commits and authorized implementation/dirty changes alone invalidate no choice; record matching work/ownership/target. Link plan version/task ID/commit content-validity/current Git/ownership in restart brief. NEVER duplicate successful commits or confuse task commits with document preparation; DO NOT repeat valid docs preparation.
+Unchanged-document restarts reuse valid commits/choice with fresh state checks. Accepted task/docs commits and authorized implementation/dirty changes alone invalidate no choice; record matching work/ownership/target. Authorized worktree transfers also preserve reuse. Creation base remains evidence, not a permanent target HEAD constraint; source-preservation/unexpected-state checks remain. Link plan version/task ID/commit content-validity/current Git/ownership in restart brief. NEVER duplicate successful commits or confuse task commits with document preparation; DO NOT repeat valid docs preparation.
 
 Changed scope/workspace/repository/target/candidate needs fresh choice before dependent work. Failures invalidating target trust need new choice after resolution. Resolution alone needs none if choice remains valid. Mismatches/unresolved failures hold edits through full revalidation; NEVER fallback.
 

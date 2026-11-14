@@ -820,6 +820,20 @@ node tests/node/fixtures/installed-layout.mjs --diff
   - 관리 블록 밖에서만 수정했는지
   - 비목표 파일의 diff가 0인지
 
+**최종 Reviewer 결과와 후속 수정 R1 (2026-11-14, 수락):**
+- 최종 Reviewer(93905792): High 지적은 없다. 조합, 설치 결과물 보존, 테스트 약화, 보안, 비목표 항목에서 문제가 없다.
+- 워크트리 문서 정합성 지적 5건
+  - M1: Claude `handoff.md`에 codex `:56`/`:73`에 해당하는 내용이 없다(spec §11.4 누락).
+  - M2: shared 계약의 검사 순서와 Claude 절차의 순서가 맞지 않는다.
+  - L1: `handoff-prep.md` 제목
+  - L2: 생성 명령의 실행 위치
+  - L3: 금지 목록에 `ref` 누락
+- 사용자 승인(5건 모두 수정, M2는 (b) 방식, M1 문장 추가 포함)에 따라 R1 Implementer(c1527a3b)가 Claude 문서 3개를 수정했다.
+  - golden 사전 diff는 예상 12줄(claude 4조합 × 3파일)과 정확히 일치한다. codex와 agents는 0줄이다.
+  - role-policy 검사 통과. 변경 전후 실패 이름이 동일하다.
+- Reviewer 재확인(13fd66d5): 5건 모두 해소, 남은 지적 없음.
+- Orchestrator 확인: manifest `--check`(220), role-policy(24), golden 4/4, `--diff` 출력 없음.
+
 ## 미결·보류 요약
 
 | ID | 내용 | 상태 |
