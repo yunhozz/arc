@@ -82,7 +82,7 @@ Independently of command parsing, transcript activity in a Git repository schedu
 
 Shell change detection is observation, not an audit. Concurrent sessions can cause incorrect attribution, external editor changes can be included, untracked files excluded by `.gitignore` are not detected, and tool file events arriving after a scan can duplicate an inferred report. Changes preserving all fingerprint fields can be missed. Sessions outside Git repositories have no shell change detection. Symlinks are compared using their own metadata and directories are excluded. Missing paths are treated as deletions; other `lstat` errors retain the previous fingerprint for that round. Detection tracks at most 32 repository roots.
 
-Agent messages use `AGENT(<role>)` when a role is present. Otherwise, subagents use the label segment after the last `/`; top-level sessions and bridges without a role use `AGENT`. Names longer than 20 code points are shortened to the first 19 plus `…`. Other KIND tags never include a role. The KIND column has a minimum width of 8; longer tags have one following space, and continuation indentation follows the full prefix width.
+Agent messages always use the `AGENT` KIND tag. When `role` is `scouter`, `planner`, `implementer`, `qa`, `reviewer` or `orchestrator`, the first body line starts with `[Scouter] `, `[Planner] `, `[Implementer] `, `[QA] `, `[Reviewer] ` or `[Orchestrator] `, respectively. This prefix counts toward the soft-wrap width and is not repeated on explicit or soft-wrapped continuation lines, which start at the body column. In color output, only the role name inside the brackets is bold (SGR `1`); the brackets and message retain the existing body color. Without color, the prefix is plain text. Non-ARC agents, sessions and bridges without a role have no prefix, and empty messages show only the tag. JSON retains the original `role` and message text. Other KIND tags never include a role. The KIND column has a minimum width of 8; longer tags have one following space, and continuation indentation follows the full prefix width.
 
 A spinner on the last line shows while a followed session has a turn in progress (TTY human output only, including with `NO_COLOR`); a Claude Esc interrupt ends the turn (shown as `END interrupted by user`), and it clears after five minutes without activity.
 
@@ -93,7 +93,7 @@ Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json
 | KIND | ANSI SGR |
 |---|---|
 | `USER` | `1;35` |
-| `AGENT`, `AGENT(<name>)` | `32` |
+| `AGENT` | `32` |
 | `CMD`, `CMD(0)` | `38;5;242` |
 | `CMD(n)` where n is nonzero | `31` |
 | `EDIT` | `33` |

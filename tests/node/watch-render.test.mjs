@@ -128,32 +128,61 @@ test('renderJson keeps full message text with newlines and no truncated', () => 
 });
 
 
-test('AGENT tag shows role, subagent label tail or plain AGENT', () => {
-  for (const [input, tag] of [
-    [{role:'implementer'}, 'AGENT(implementer)'],
-    [{source:'subagent',label:'main#7f77/general-purpose'}, 'AGENT(general-purpose)'],
-    [{source:'subagent',label:'tui#e2e8/qa/' + 'N'.repeat(25)}, 'AGENT(' + 'N'.repeat(19) + '…)'],
-    [{source:'subagent',label:'tui#e2e8/' + '😀'.repeat(21)}, 'AGENT(' + '😀'.repeat(19) + '…)'],
-    [{source:'session',label:'tui#e2e8'}, 'AGENT'],
-    [{source:'bridge',role:'planner',label:'planner@b9a1'}, 'AGENT(planner)'],
-    [{source:'bridge',label:'planner@b9a1'}, 'AGENT'],
-    [{source:'subagent',label:'unknown'}, 'AGENT'],
-    [{role:'N'.repeat(21)}, 'AGENT(' + 'N'.repeat(19) + '…)'],
-  ]) assert.equal(kindTag({kind:'agent',...input}), tag);
+test('agent tags stay AGENT regardless of roles or label tails', () => {
+  for (const input of [
+    {role:'implementer'},
+    {source:'subagent',label:'main#7f77/general-purpose'},
+    {source:'subagent',label:'tui#e2e8/qa/' + 'N'.repeat(25)},
+    {source:'subagent',label:'tui#e2e8/' + '😀'.repeat(21)},
+    {source:'session',label:'tui#e2e8'},
+    {source:'bridge',role:'planner',label:'planner@b9a1'},
+    {source:'bridge',label:'planner@b9a1'},
+    {source:'subagent',label:'unknown'},
+    {role:'N'.repeat(21)},
+  ]) assert.equal(kindTag({kind:'agent',...input}), 'AGENT');
   assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD(0)');
 });
-test('continuation indent follows a long AGENT tag', () => {
-  for (const input of [{role:'planner'}, {role:'implementer'}, {source:'subagent',label:'parent/' + 'N'.repeat(25)}]) {
-    for (const color of [false,true]) {
-      const lines = renderHuman({...event,...input,kind:'agent',text:'a\nb'}, {...options,color}).replace(/\x1b\[[0-9;]*m/g,'').split('\n');
-      const tag = input.role ? `AGENT(${input.role})` : 'AGENT(' + 'N'.repeat(19) + '…)';
-      assert.ok(lines[0].endsWith(tag + ' a'));
-      assert.equal(lines[1], ' '.repeat(17 + [...tag].length) + 'b');
-    }
+const arcRoles = [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],
+  ['qa','QA'],['reviewer','Reviewer'],['orchestrator','Orchestrator']];
+test('ARC agent roles prefix only the first body line and bold only the role name', () => {
+  for (const [role,name] of arcRoles) for (const color of [false,true]) {
+    const out = renderHuman({...event,kind:'agent',role,text:'a\n\nb'}, {...options,color});
+    assert.deepEqual(strip(out).split('\n').map(line => line ? line.slice(25) : ''), [`[${name}] a`,'','b']);
+    assert.equal(strip(out).slice(16,25), 'AGENT    ');
+    if (color) {
+      assert.ok(out.endsWith(`\x1b[32m[\x1b[1m${name}\x1b[22m] a\x1b[0m\n\n` + ' '.repeat(25) + '\x1b[32mb\x1b[0m'));
+      assert.equal((out.match(/\x1b\[1m/g) ?? []).length,1);
+    } else assert.doesNotMatch(out,/\x1b/);
+  }
+});
+test('non-ARC agents and non-agent events never gain a role prefix', () => {
+  for (const input of [
+    {kind:'agent',source:'subagent',label:'main/general-purpose'},
+    {kind:'agent',source:'session',label:'main'},
+    {kind:'agent',source:'bridge',label:'planner@b9a1'},
+    {kind:'agent',role:'general-purpose'}, {kind:'agent',role:'😀'},
+    {kind:'agent',role:'toString'}, {kind:'agent',role:'__proto__'},
+    {kind:'user',role:'qa'}, {kind:'command',role:'qa'},
+  ]) for (const color of [false,true]) {
+    assert.equal(strip(renderHuman({...event,...input,text:'a\nb'}, {...options,color})).slice(25),
+      input.kind === 'command' ? 'a b' : 'a\n' + ' '.repeat(25) + 'b');
+  }
+});
+test('empty ARC agent messages render only the AGENT tag', () => {
+  for (const [role] of arcRoles) for (const text of [undefined,'',' \n\t\n ']) for (const color of [false,true]) {
+    const out = renderHuman({...event,kind:'agent',role,text}, {...options,color});
+    assert.equal(strip(out).slice(16), 'AGENT');
+    assert.doesNotMatch(out,/\x1b\[1m/);
+  }
+});
+test('ARC agent role prefixes leave JSON role and message fields unchanged', () => {
+  for (const [role] of arcRoles) {
+    assert.deepEqual(JSON.parse(renderJson({kind:'agent',role,text:'first\nsecond'})),
+      {v:1,kind:'agent',role,text:'first\nsecond'});
   }
 });
 test('tag colors follow the table and include the parenthesized part', () => {
-  const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT(qa)'],
+  const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD(0)'],
     [{kind:'command',exitCode:1},'31','CMD(1)'],[{kind:'command',exitCode:-1},'31','CMD(-1)'],
     [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
@@ -175,7 +204,7 @@ test('platform colors: codex 36, claude 38;5;208, watch and arc 2', () => {
   }
 });
 test('body color matches tag color without attributes', () => {
-  const table = [[{kind:'user'},'35'],[{kind:'agent',role:'qa'},'32'],
+  const table = [[{kind:'user'},'35'],[{kind:'agent'},'32'],
     [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
     [{kind:'command',exitCode:1},'31'],[{kind:'command',exitCode:-1},'31'],
     [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'file_delete'},'31'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
@@ -189,7 +218,7 @@ test('body color matches tag color without attributes', () => {
   }
 });
 test('color off output is byte-identical for every kind', () => {
-  const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT(qa)'],
+  const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT'],
     [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD(0)'],
     [{kind:'command',exitCode:1},'CMD(1)'],[{kind:'command',exitCode:-1},'CMD(-1)'],
     [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'file_delete'},'DELETE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
@@ -199,7 +228,7 @@ test('color off output is byte-identical for every kind', () => {
     [{kind:'settings'},'SETTINGS'],[{kind:'turn_start'},'TURN'],[{kind:'reasoning'},'THINK'],[{kind:'other'},'ITEM']];
   for (const [input,tag] of table) {
     const line = renderHuman({platform:'codex',...input,text:'t'}, {...options,verbose:true});
-    assert.equal(line, `00:00:00 codex  ${tag.padEnd(8)} t`);
+    assert.equal(line, `00:00:00 codex  ${tag.padEnd(8)} ${input.kind === 'agent' ? '[QA] ' : ''}t`);
     assert.doesNotMatch(line,/\x1b/);
   }
 });
@@ -208,7 +237,7 @@ test('message lines are colored per line with uncolored indentation', () => {
     assert.ok(renderHuman({...event,...input,text:'node --test'}, {...options,color:true}).endsWith('\x1b[31mnode --test\x1b[0m'));
   }
   const lines = renderHuman({...event,kind:'agent',role:'implementer',text:'a\n\nb'}, {...options,color:true}).split('\n');
-  const prefixLen = [...lines[0].replace(/\x1b\[[0-9;]*m/g,'')].length - 1;
+  const prefixLen = 25;
   assert.equal(lines[1],'');
   assert.equal(lines[2],' '.repeat(prefixLen) + '\x1b[32mb\x1b[0m');
   assert.equal(renderHuman(event,{...options,width:10,color:true}),renderHuman(event,{...options,width:10}));
@@ -287,12 +316,17 @@ test('explicit message newlines and blank lines survive soft wrapping', () => {
   const out = renderHuman({...event,kind:'user',text:'x'.repeat(40) + '\n\n  short\n' + 'y'.repeat(36)}, {...options,width:60,wrap:true}).split('\n');
   assert.deepEqual(out.map(line => line ? line.slice(25) : ''),['x'.repeat(35),'xxxxx','','  short','y'.repeat(35),'y']);
 });
-test('wide AGENT prefixes reserve display columns but indent by code points', () => {
-  assert.equal(typeof renderer.displayWidth,'function');
-  const lines = renderHuman({...event,kind:'agent',role:'😀',text:'x'.repeat(70)},{...options,width:60,wrap:true}).split('\n');
-  assert.equal(lines.length,3);
-  assert.equal(lines[1],' '.repeat(25) + 'x'.repeat(34));
-  assert.ok(lines.every(line=>renderer.displayWidth(line)<=60));
+test('ARC role prefixes count toward wrap width without repeating on continuations', () => {
+  for (const [role,name] of arcRoles) for (const color of [false,true]) {
+    const out = renderHuman({...event,kind:'agent',role,text:'x'.repeat(30) + '\n' + 'y'.repeat(40)},
+      {...options,width:60,wrap:true,color});
+    const lines = strip(out).split('\n');
+    const firstBodyLines = role === 'qa' ? ['[QA] ' + 'x'.repeat(30)] : [`[${name}]`,'x'.repeat(30)];
+    assert.deepEqual(lines.map(line => line.slice(25)),[...firstBodyLines,'y'.repeat(35),'yyyyy']);
+    assert.ok(lines.every(line => renderer.displayWidth(line) <= 60));
+    assert.ok(lines.slice(1).every(line => line.startsWith(' '.repeat(25))));
+    if (color) assert.ok(out.includes(`\x1b[32m[\x1b[1m${name}\x1b[22m]${role === 'qa' ? ' ' + 'x'.repeat(30) : ''}\x1b[0m`));
+  }
 });
 test('wrapping leaves clipped one-line events byte-identical', () => {
   for (const kind of ['command','tool','dispatch']) for (const color of [false,true]) for (const width of [10,60]) {
