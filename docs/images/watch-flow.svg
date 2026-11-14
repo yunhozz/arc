@@ -18,7 +18,7 @@
 
 <rect x="440" y="125" width="320" height="280" rx="14" class="card" style="fill:#e9f1f7"/>
 <text x="460" y="161" class="label">Scope</text>
-<text x="460" y="197" class="detail">Default: all worktrees</text>
+<text x="460" y="197" class="detail">Default: current worktree</text>
 <text x="460" y="226" class="detail">of the current repo</text>
 <text x="460" y="268" class="detail">--cwd · --all</text>
 <text x="460" y="297" class="detail">--session · --platform</text>
