@@ -310,3 +310,10 @@ test('human and JSON file events preserve all 25 reported paths', () => {
   assert.deepEqual(json.paths,paths);
   assert.deepEqual(renderHuman(input,options).split('\n').map(line=>line.slice(25)),paths);
 });
+
+test('JSON retains inferred file provenance without changing human output', () => {
+  const input={...event,kind:'file_change',paths:['/repo/golden'],text:undefined};
+  assert.equal(JSON.parse(renderJson({...input,inferred:true})).inferred,true);
+  assert.equal('inferred' in JSON.parse(renderJson(input)),false);
+  assert.equal(renderHuman({...input,inferred:true},options),renderHuman(input,options));
+});

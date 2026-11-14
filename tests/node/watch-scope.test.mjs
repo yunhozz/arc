@@ -71,3 +71,26 @@ test('claudeDirPrefixes normalizes worktree paths', async t => {
     assert.equal(claudeDirPrefixes(unrestricted),null); assert.equal(inScope(unrestricted,'/outside'),true);
   }
 });
+
+test('ls-files lists tracked and unignored files with a sanitized Git environment', async t => {
+  const {repo,git}=repository(t);
+  fs.writeFileSync(path.join(repo,'.gitignore'),'ignored\n');
+  fs.writeFileSync(path.join(repo,'tracked'),'tracked');
+  execFileSync('git',['add','tracked'],{cwd:repo});
+  fs.writeFileSync(path.join(repo,'untracked'),'new');
+  fs.writeFileSync(path.join(repo,'ignored'),'hidden');
+  const output=await git(repo,['ls-files','-z','--cached','--others','--exclude-standard']);
+  assert.deepEqual(output.split('\0').filter(Boolean).sort(),['.gitignore','tracked','untracked']);
+});
+test('ls-files rejects argument variants and returns null on maxBuffer overflow', async t => {
+  const {repo,git}=repository(t);
+  for (const args of [
+    ['ls-files','--cached','--others','--exclude-standard'],
+    ['ls-files','-z','--cached','--others','--exclude-standard','extra'],
+    ['ls-files','-z','--others','--cached','--exclude-standard'],
+    ['ls-files','-z','--cached','--others','--ignored'],
+  ]) await assert.rejects(()=>git(repo,args),/git command not allowed/);
+  fs.writeFileSync(path.join(repo,'overflow'),'new');
+  const limited=createGitRunner({maxBuffer:1});
+  assert.equal(await limited(repo,['ls-files','-z','--cached','--others','--exclude-standard']),null);
+});

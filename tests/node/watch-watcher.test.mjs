@@ -18,23 +18,33 @@ const msg = (text, ts = TIME, type = 'UserMessage') => ({timestamp:iso(ts), type
 const meta = (id, cwd, originator='codex-tui', extra={}) => ({timestamp:iso(TIME-300000), type:'session_meta', payload:{id, cwd, originator, cli_version:'1.0', ...extra}});
 const cm = (id,cwd,text='hello',entrypoint='cli',ts=TIME) => ({timestamp:iso(ts), type:'user', sessionId:id,cwd,entrypoint,version:'2.0',message:{content:text}});
 function setup(t, options={}, kind='dir', dependencies={}) {
-  const h = makeHomes(t), cwd = path.join(h.root,'repo'), gcd=path.join(h.root,'git');
-  fs.mkdirSync(cwd);
-  let clock=TIME, roots=[cwd];
+  const h = makeHomes(t), repo = path.join(h.root,'repo'), gcd=path.join(h.root,'git');
+  fs.mkdirSync(repo);
+  const cwd = fs.realpathSync(repo);
+  let clock=TIME, roots=[cwd], shellFiles=[], gitTop=cwd;
+  const calls=[], stats=new Map();
+  const lstat=async file=>{
+    const value=stats.get(file);
+    if (value instanceof Error) throw value;
+    if (!value) throw Object.assign(Error('missing'),{code:'ENOENT'});
+    return {mtimeMs:1,size:1,ino:1,mode:33188,isDirectory:()=>false,...value};
+  };
   const scope={kind,roots:kind==='all'||kind==='session'?[]:roots,gitCommonDir:kind==='repo'?gcd:null,description:cwd};
   const git=(dir,args)=> {
     assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));
+    calls.push({dir,args});
+    if (args[0]==='ls-files') return shellFiles===null?null:shellFiles.join('\0')+(shellFiles.length?'\0':'');
     if (args[0]==='worktree') return roots.map(r=>`worktree ${r}\0\0`).join('');
-    return args.includes('--show-toplevel')?cwd:gcd;
+    return args.includes('--show-toplevel')?(typeof gitTop==='function'?gitTop(dir):gitTop):gcd;
   };
-  const w=createWatcher({options:{platforms:['codex','claude'],session:null,tail:20,verbose:false,...options},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock,dependencies});
+  const w=createWatcher({options:{platforms:['codex','claude'],session:null,tail:20,verbose:false,...options},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock,dependencies:{lstat,...dependencies}});
   t.after(()=>w.close());
   const c=(id,lines=[msg('hello')],{origin='codex-tui',age=300000,cwd:dir=cwd,extra={},suffix=''}={})=>h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl${suffix}`,[meta(id,dir,origin,extra),...lines],{mtime:clock-age});
   const cl=(id,lines,opts={})=>h.writeClaude(cwd.replace(/[^A-Za-z0-9]/g,'-'),id,lines??[cm(id,cwd)],{mtime:clock-300000,...opts});
   const append=(file,lines)=>{fs.appendFileSync(file,lines.map(x=>JSON.stringify(x)).join('\n')+'\n'); fs.utimesSync(file,new Date(clock),new Date(clock));};
   const lease=(id,extra={})=>h.writeLease({dispatchId:id,role:'arc_qa',state:'running',route:'bridge',workflowId:'wf-3',updatedAt:iso(clock),...extra});
   const art=(id,files)=>h.writeArtifacts(gcd,'wf-3',`dispatches/${id}`,files);
-  return {h,cwd,gcd,w,c,cl,append,lease,art,advance:n=>clock+=n,trees:r=>roots=r};
+  return {h,cwd,gcd,w,c,cl,append,lease,art,advance:n=>clock+=n,trees:r=>roots=r,calls,stats,files:r=>shellFiles=r,top:r=>gitTop=r};
 }
 const content = events=>events.filter(e=>e.source!=='watch');
 const notices = events=>events.filter(e=>e.source==='watch').map(e=>e.text);
@@ -590,4 +600,153 @@ test('Claude successful rm reaches live DELETE output without exposing tool resu
   assert.equal(renderHuman(out[0],{width:40,color:false}).slice(16),'DELETE   repo/docs/old file.md');
   assert.deepEqual(JSON.parse(renderJson(out[0])).paths,[s.cwd + '/docs/old file.md']);
   assert.doesNotMatch(JSON.stringify(out),/WATCH_MARKER/);
+});
+
+const inferred=events=>events.filter(e=>e.inferred);
+const scans=s=>s.calls.filter(c=>c.args[0]==='ls-files');
+async function shellActivity(s,file,delay=1000) {
+  s.append(file,[msg('shell activity')]);
+  await s.w.tick();s.advance(delay);
+  return s.w.tick();
+}
+
+test('shell baseline and history are silent; delayed scans emit sorted CREATE EDIT DELETE',async t=>{
+  const s=setup(t), a=path.join(s.cwd,'a'), z=path.join(s.cwd,'z'), gone=path.join(s.cwd,'gone');
+  s.files(['a','gone']);s.stats.set(a,{});s.stats.set(gone,{});
+  const file=s.c('shell');await s.w.start();
+  assert.equal(scans(s).length,1);
+  s.advance(3000);assert.deepEqual(inferred(await s.w.tick()),[]);assert.equal(scans(s).length,1);
+  s.stats.set(a,{mtimeMs:2});s.stats.delete(gone);s.stats.set(z,{});s.files(['z','a']);
+  s.append(file,[msg('running shell')]);await s.w.tick();s.advance(999);
+  assert.deepEqual(inferred(await s.w.tick()),[]);assert.equal(scans(s).length,1);
+  s.advance(1);const out=inferred(await s.w.tick());
+  assert.deepEqual(out.map(e=>[e.kind,e.paths,e.sessionId]),[
+    ['file_create',[z],'shell'],['file_change',[a],'shell'],['file_delete',[gone],'shell'],
+  ]);
+  assert.ok(out.every(e=>e.inferred===true));
+});
+
+test('shell scan suppresses three FileChange claims but reports a silent golden write and later edit',async t=>{
+  const s=setup(t), claimed=['a','b','c'], golden=path.join(s.cwd,'golden');
+  s.files([...claimed,'golden']);for(const p of [...claimed,'golden'])s.stats.set(path.join(s.cwd,p),{});
+  const file=s.c('exec-shell',[],{origin:'codex_exec'});await s.w.start();s.advance(3000);
+  for(const p of [...claimed,'golden'])s.stats.set(path.join(s.cwd,p),{mtimeMs:2});
+  s.append(file,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:Object.fromEntries(claimed.map(p=>[p,{}]))}}}]);
+  const direct=await s.w.tick();assert.equal(direct.filter(e=>e.kind==='file_change').length,1);
+  s.advance(1000);const out=inferred(await s.w.tick());
+  assert.deepEqual(out.map(e=>[e.kind,e.paths,e.sessionId]),[['file_change',[golden],'exec-shell']]);
+  s.advance(3000);s.stats.set(golden,{mtimeMs:3});
+  assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[golden]]]);
+});
+
+test('shell scans attribute changes to the most recently active followed session',async t=>{
+  const s=setup(t), a=s.c('first'), b=s.c('second');await s.w.start();s.advance(3000);
+  s.append(a,[msg('first')]);await s.w.tick();s.advance(100);
+  s.stats.set(path.join(s.cwd,'new'),{});s.files(['new']);
+  const out=inferred(await shellActivity(s,b));assert.equal(out.length,1);assert.equal(out[0].sessionId,'second');
+});
+
+test('shell detection skips non-repositories and caches failed top-level lookup',async t=>{
+  const s=setup(t);s.top(null);s.c('one');s.c('two');await s.w.start();
+  assert.equal(scans(s).length,0);assert.equal(s.calls.filter(c=>c.args===GIT_ALLOWED[0]).length,1);
+});
+
+for(const reason of ['limit','failures'])test(`shell detection disables once without verbose after ${reason}`,async t=>{
+  const s=setup(t), file=s.c('off');
+  if(reason==='limit')s.files(Array.from({length:20001},(_,i)=>`f${i}`));else s.files(null);
+  const out=await s.w.start();
+  for(let i=0;i<4;i++){s.advance(3000);out.push(...await shellActivity(s,file));}
+  const matching=notices(out).filter(n=>n.startsWith('shell change detection off for '));
+  assert.deepEqual(matching,[`shell change detection off for ${s.cwd}: ${reason==='limit'?'more than 20000 files':'git ls-files failed 3 times'}`]);
+  assert.equal(scans(s).length,reason==='limit'?1:3);
+});
+
+test('continuous transcript activity still scans every three seconds',async t=>{
+  const s=setup(t), file=s.c('continuous');await s.w.start();
+  // Activity first arrives at 500ms: pendingSince reaches 3000ms at 3500ms.
+  // After that scan, the next activity starts a new pending window at 4000ms.
+  for(const count of [1,1,1,1,1,1,2,2,2,2,2,2,2,3]){
+    s.advance(500);s.append(file,[msg('still running')]);await s.w.tick();
+    assert.equal(scans(s).length,count);
+  }
+});
+
+test('shell scanning rotates three roots with at most two scans per tick',async t=>{
+  const s=setup(t,{},'all');s.top(dir=>dir);
+  const files=['one','two','three'].map(id=>s.c(id,[],{cwd:path.join(s.cwd,id)}));
+  await s.w.start();assert.equal(scans(s).length,3);s.advance(3000);
+  for(const file of files)s.append(file,[msg('activity')]);await s.w.tick();s.advance(1000);
+  await s.w.tick();assert.equal(scans(s).length,5);
+  await s.w.tick();assert.equal(scans(s).length,6);
+  assert.equal(new Set(scans(s).slice(3).map(c=>c.dir)).size,3);
+});
+
+test('shell scan reports every path in a sorted 500-file change',async t=>{
+  const s=setup(t), file=s.c('bulk');await s.w.start();s.advance(3000);
+  const names=Array.from({length:500},(_,i)=>`file-${String(i).padStart(3,'0')}`);
+  s.files([...names].reverse());for(const name of names)s.stats.set(path.join(s.cwd,name),{});
+  const out=inferred(await shellActivity(s,file));
+  assert.equal(out.length,1);assert.equal(out[0].kind,'file_create');assert.deepEqual(out[0].paths,names.map(n=>path.join(s.cwd,n)));
+});
+
+test('shell lstat preserves inaccessible fingerprints, skips directories and tracks symlink metadata',async t=>{
+  const s=setup(t), file=s.c('metadata'), link=path.join(s.cwd,'link'), denied=path.join(s.cwd,'denied');
+  s.files(['link','denied','directory']);s.stats.set(link,{mode:41471});s.stats.set(denied,{});
+  s.stats.set(path.join(s.cwd,'directory'),{isDirectory:()=>true});await s.w.start();s.advance(3000);
+  s.stats.set(denied,Object.assign(Error('denied'),{code:'EACCES'}));s.stats.set(link,{mode:41471,size:2});
+  let out=inferred(await shellActivity(s,file));assert.deepEqual(out.map(e=>e.paths),[[link]]);
+  s.advance(3000);s.stats.set(denied,{});out=inferred(await shellActivity(s,file));assert.deepEqual(out,[]);
+  s.advance(3000);s.stats.set(link,Object.assign(Error('not a directory'),{code:'ENOTDIR'}));
+  out=inferred(await shellActivity(s,file));assert.deepEqual(out.map(e=>[e.kind,e.paths]),[['file_delete',[link]]]);
+});
+
+test('a successful scan after a failed baseline establishes a silent baseline',async t=>{
+  const s=setup(t), file=s.c('retry');s.files(null);await s.w.start();s.advance(3000);
+  s.files(['new']);s.stats.set(path.join(s.cwd,'new'),{});
+  assert.deepEqual(inferred(await shellActivity(s,file)),[]);assert.equal(scans(s).length,2);
+  s.advance(3000);s.stats.set(path.join(s.cwd,'new'),{mode:33261});
+  assert.equal(inferred(await shellActivity(s,file))[0].kind,'file_change');
+});
+
+test('shell scans respect held events and do not reactivate an ended turn',async t=>{
+  const s=setup(t);await s.w.start();s.c('held',[],{origin:'codex_exec',age:0});s.advance(2000);await s.w.tick();
+  // A new row is held until TIME+4000; its baseline is already established.
+  s.advance(3000);const file=path.join(s.h.codexHome,'sessions','2026','11','11','rollout-held.jsonl');
+  s.stats.set(path.join(s.cwd,'new'),{});s.files(['new']);
+  s.append(file,[{type:'event_msg',payload:{type:'task_complete'}}]);await s.w.tick();assert.equal(s.w.busy(),false);
+  s.advance(1000);assert.equal(inferred(await s.w.tick()).length,1);assert.equal(s.w.busy(),false);
+});
+
+
+for (const aliasTop of [false,true]) test(`shell claims suppress aliases with ${aliasTop?'aliased Git top':'aliased session cwd'}`,async t=>{
+  const s=setup(t,{},'dir',{lstat:fsp.lstat}), alias=path.join(s.h.root,'repo-alias');
+  fs.symlinkSync(s.cwd,alias,'dir');
+  const cwd=aliasTop?s.cwd:alias;
+  s.top(aliasTop?alias:s.cwd);
+  const a=path.join(s.cwd,'A'), b=path.join(s.cwd,'B'), gone=path.join(s.cwd,'gone');
+  for(const file of [a,b,gone]) fs.writeFileSync(file,'initial');
+  s.files(['A','B','gone']);
+  const transcript=s.c('alias-shell',[],{cwd});
+  await s.w.start();s.advance(3000);
+  fs.writeFileSync(a,'tool write');fs.writeFileSync(b,'silent shell write');fs.unlinkSync(gone);
+  s.append(transcript,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{
+    A:{},[path.join(alias,'gone')]:{type:'delete'},
+  }}}}]);
+  await s.w.tick();s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths,e.sessionId]),[
+    ['file_change',[b],'alias-shell'],
+  ]);
+});
+
+test('shell claims canonicalize directories without following the claimed symlink itself',async t=>{
+  const s=setup(t,{},'dir',{lstat:fsp.lstat}), alias=path.join(s.h.root,'repo-alias');
+  fs.symlinkSync(s.cwd,alias,'dir');
+  const target=path.join(s.cwd,'target'), link=path.join(s.cwd,'link');
+  fs.writeFileSync(target,'initial');fs.symlinkSync('target',link);
+  s.files(['target','link']);s.top(s.cwd);
+  const transcript=s.c('alias-link',[],{cwd:alias});await s.w.start();s.advance(3000);
+  fs.writeFileSync(target,'silent target write');fs.unlinkSync(link);fs.symlinkSync('different-target',link);
+  s.append(transcript,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{link:{}}}}}]);
+  await s.w.tick();s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths]),[['file_change',[target]]]);
 });

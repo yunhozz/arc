@@ -165,7 +165,7 @@ test('a run leaves every watched tree unchanged and runs only allowed git comman
   const s=setup(t), gcd=path.join(s.cwd,'.git');fs.mkdirSync(gcd);s.write('readonly');
   s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'claude',[{type:'user',cwd:s.cwd,sessionId:'claude',message:{content:'hello'}}],{mtime:TIME});
   s.h.writeArtifacts(gcd,'wf','dispatches/example',{'events.jsonl':'{"kind":"thread","threadId":"readonly"}\n'});
-  s.io.git=async(dir,args)=>{s.calls.push({dir,args});assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));return args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;};
+  s.io.git=async(dir,args)=>{s.calls.push({dir,args});assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));return args[0]==='ls-files'?'':args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;};
   const before=await s.h.snapshot(), {result}=await s.start();for(let i=0;i<3;i++)await s.step();s.controller.abort();assert.equal(await result,0);
   assert.deepEqual(await s.h.snapshot(),before);assert.equal(fs.existsSync(path.join(s.h.codexHome,'arc-role-dispatch')),false);assert.ok(s.calls.length>=3);
 });
