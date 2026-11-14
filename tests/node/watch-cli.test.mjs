@@ -73,8 +73,9 @@ test('usage errors exit 2 with a message',async t=>{
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Bridge roles on a Codex host run only after per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
+  assert.match(WATCH_HELP,/per-call escalation approval/);assert.doesNotMatch(WATCH_HELP,/currently held/);
 });
 test('root lists watch and keeps other behavior',async t=>{
   const s=setup(t);assert.equal(await runRoot(['--help'],s.io),0);
@@ -198,6 +199,7 @@ test('docs describe the public watch command',()=>{
   const readme=fs.readFileSync(path.join(root,'README.md'),'utf8'),doc=fs.readFileSync(path.join(root,'docs/harness-operation.md'),'utf8');
   assert.ok(readme.includes('The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.'));
   const section=readme.split('## Watch sessions\n')[1]?.split('\n## ')[0];assert.ok(section);assert.match(section,/host_sandbox_blocked/);assert.match(section,/Codex Desktop/);
+  assert.match(section,/per-call escalation approval/);assert.doesNotMatch(section,/stay held as `host_sandbox_blocked`/);
   assert.match(doc,/Public syntax:[^\n]*`arc watch`/);assert.match(doc,/### Watch/);assert.ok(!/[가-힣]/.test(readme+doc));
 });
 
