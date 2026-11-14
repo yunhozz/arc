@@ -563,12 +563,12 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 1 (RED):** `test_maintained_local_links_resolve`(unittest `-k`)와 아래 grep을 실행해, 지금 잘못된 설명이 있는 위치를 기록한다.
+- [x] **Step 1 (RED):** `test_maintained_local_links_resolve`(unittest `-k`)와 아래 grep을 실행해, 지금 잘못된 설명이 있는 위치를 기록한다.
   ```
   rg -n "(codex|claude)/skill/(runtime|references/(brainstorming|builder-check-prompt|test-driven-development|visual-companion|writing-good-tests|writing-plans|superpowers-|scripts/))" README.md AGENTS.md CLAUDE.md docs --glob '!docs/superpowers/**'
   ```
-- [ ] **Step 2:** 설명을 고친다. 링크 대상이 바뀐 곳도 함께 고친다.
-- [ ] **Step 3:** grep 결과가 0줄이고 링크 테스트가 PASS다.
+- [x] **Step 2:** 설명을 고친다. 링크 대상이 바뀐 곳도 함께 고친다.
+- [x] **Step 3:** grep 결과가 0줄이고 링크 테스트가 PASS다.
 
 **수용 기준:** AC13–AC16
 
@@ -582,6 +582,19 @@ node tests/node/fixtures/installed-layout.mjs --diff
   ```
 - **AC4:** `git diff <T1 commit> HEAD -- tests/node/fixtures/installed-layout-golden.json`이 비어 있다.
 - GOLD, CHK, N-ALL, P-ALL
+
+**진행 기록 (2026-11-14, 수락):**
+- 구현(Implementer 842aa92c): `docs/harness-operation.md:46`의 문장 하나만 수정했다. 소스 위치(shared, 플랫폼별)와 설치 위치(`skills/arc/references`, `skills/arc/runtime`)를 구분해 설명한다.
+  - 첫 실행에서 기존 링크 실패 때문에 중단했다. Orchestrator가 처분한 뒤 재개했다.
+  - 문단의 나머지 내용과 276행(handoff-worktree 링크, W2 범위)은 그대로 두었다.
+- QA(972d8736)
+  - 문장 내용이 저장소 상태와 맞는지 확인했다.
+  - proven: AC4(T1 이후 golden diff 0), AC14(grep 0건, 과거 문서 diff 0), AC16(비목표 경로 diff 0)
+  - B1/B2(T4 로그 대비): Node 104, Python 562로 변화가 없다. 신규 실패와 해소된 실패 모두 0건이다.
+  - CHK: 통과(parity 실패는 기존과 같음)
+  - 링크 검사: 기존 2건만 실패한다.
+- AC15: QA의 비교 명령이 잘못돼 미검증이었다. Orchestrator가 정렬 해시를 직접 대조해 동일함을 확인했다.
+- 처분 기록: 링크 실패 2건(handoff.md에서 `coordination.md#token-discipline-and-handoffs`로 가는 앵커 누락)은 기준선부터 있던 것이며 범위 밖이다.
 
 ---
 
