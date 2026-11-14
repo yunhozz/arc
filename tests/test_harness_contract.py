@@ -571,6 +571,7 @@ class DocumentationContractTests(unittest.TestCase):
 
     def test_maintained_local_links_resolve(self) -> None:
         paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
+        paths.extend((REPO / "shared/skill/references").glob("*.md"))
         for platform in PLATFORMS:
             paths.append(REPO / platform / "skill/SKILL.md")
             paths.extend((REPO / platform / "skill/references").glob("*.md"))
@@ -631,6 +632,7 @@ class DocumentationContractTests(unittest.TestCase):
     def test_stale_png_is_absent_and_unreferenced(self) -> None:
         self.assertFalse((REPO / "docs/images/role-flow.png").exists())
         paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
+        paths.extend((REPO / "shared/skill/references").glob("*.md"))
         for platform in PLATFORMS:
             paths.extend((REPO / platform / "skill").rglob("*.md"))
             paths.extend((REPO / platform / "agents").iterdir())
@@ -663,7 +665,10 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
     def test_verification_and_visual_companion_keep_visual_gaps_visible(self):
         for platform in PLATFORMS:
             for reference in ("verification", "visual-companion"):
-                text = (REPO / platform / f"skill/references/{reference}.md").read_text()
+                reference_path = (REPO / "shared/skill/references/visual-companion.md"
+                                  if reference == "visual-companion"
+                                  else REPO / platform / f"skill/references/{reference}.md")
+                text = reference_path.read_text()
                 with self.subTest(platform=platform, reference=reference):
                     for pattern in (r"pass.*mismatch.*unverified", r"fresh QA.*actual comparison",
                                     r"revision.*unverified.*visible.*mismatch"):

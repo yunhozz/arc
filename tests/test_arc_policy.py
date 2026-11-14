@@ -1446,6 +1446,7 @@ class InternalSuperpowersContractTests(unittest.TestCase):
             self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
             self.assertIn('references/arc-visual-companion.md', (REPO / f'{platform}/skill/SKILL.md').read_text())
             self.assertFalse((REPO / f'{platform}/skill/references/superpowers').exists())
+        self.assertFalse((REPO / 'shared/skill/references/superpowers').exists())
 
     def test_flat_imported_assets_match_original_provenance_and_both_platforms(self):
         mapping = {'brainstorming/SKILL.md': 'brainstorming.md', 'writing-plans/SKILL.md': 'writing-plans.md',
@@ -1455,15 +1456,16 @@ class InternalSuperpowersContractTests(unittest.TestCase):
                    'test-driven-development/writing-good-tests.md': 'writing-good-tests.md', 'LICENSE': 'superpowers-LICENSE'}
         mapping.update({f'brainstorming/scripts/{name}': f'scripts/{name}' for name in
                         ('start-server.sh', 'stop-server.sh', 'server.cjs', 'helper.js', 'frame-template.html')})
+        base = REPO / 'shared/skill/references'
+        provenance = json.loads((base / 'superpowers-provenance.json').read_bytes())
+        self.assertEqual(set(provenance['files']), set(mapping))
+        for source, destination in mapping.items():
+            actual = (base / destination).read_bytes()
+            self.assertEqual(hashlib.sha256(actual).hexdigest(), provenance['files'][source])
+            for platform in ('codex', 'claude'):
+                self.assertFalse((REPO / f'{platform}/skill/references/{destination}').exists())
         for platform in ('codex', 'claude'):
-            base = REPO / f'{platform}/skill/references'
-            provenance = json.loads((base / 'superpowers-provenance.json').read_bytes())
-            self.assertEqual(set(provenance['files']), set(mapping))
-            for source, destination in mapping.items():
-                actual = (base / destination).read_bytes()
-                self.assertEqual(hashlib.sha256(actual).hexdigest(), provenance['files'][source])
-                self.assertEqual(actual, (REPO / f'codex/skill/references/{destination}').read_bytes())
-            self.assertNotEqual((base / 'arc-visual-companion.md').read_bytes(), (base / 'visual-companion.md').read_bytes())
+            self.assertNotEqual((REPO / f'{platform}/skill/references/arc-visual-companion.md').read_bytes(), (base / 'visual-companion.md').read_bytes())
 
 
 class WorkspaceBeforeDocumentsTests(unittest.TestCase):

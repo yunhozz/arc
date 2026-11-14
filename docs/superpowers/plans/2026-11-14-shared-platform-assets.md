@@ -413,20 +413,20 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 1: 테스트 변경 먼저 적용 (RED)**
+- [x] **Step 1: 테스트 변경 먼저 적용 (RED)**
   - 파일을 옮기기 전이므로 shared 경로 assertion과 1인자 호출이 실패해야 한다.
   - `node --test tests/node/superpowers.test.mjs tests/node/manifest.test.mjs tests/node/package-references.test.mjs`
   - 예상: FAIL — `Required flat reference file is missing`, `referenceTree undefined`, ENOENT `shared/skill/references/...`
 
-- [ ] **Step 2: 파일 이동·삭제**
+- [x] **Step 2: 파일 이동·삭제**
   - `mkdir -p shared/skill/references/scripts`, 이어서 `mv`, `rm`
   - `ls -l`로 `start-server.sh`와 `stop-server.sh`의 실행 비트가 유지됐는지 확인한다.
 
-- [ ] **Step 3: 코드 변경** — manifest, superpowers, package-references, `package.json`
+- [x] **Step 3: 코드 변경** — manifest, superpowers, package-references, `package.json`
 
-- [ ] **Step 4: manifest 재생성** — `node scripts/update-manifest.mjs`, 이어서 `--check`
+- [x] **Step 4: manifest 재생성** — `node scripts/update-manifest.mjs`, 이어서 `--check`
 
-- [ ] **Step 5: 통과 확인** — 위의 Node·Python 대상 테스트가 PASS다. B3의 알려진 원인은 예외로 인정한다.
+- [x] **Step 5: 통과 확인** — 위의 Node·Python 대상 테스트가 PASS다. B3의 알려진 원인은 예외로 인정한다.
 
 **수용 기준:** AC1, AC3, AC4, AC6–AC13
 
@@ -445,6 +445,28 @@ node tests/node/fixtures/installed-layout.mjs --diff
 - **AC16 (중간 점검):** `git diff e472406 -- lib/policy/render.mjs lib/release/artifact.mjs`가 비어 있다. `lib/installer/superpowers.mjs`의 diff는 :11과 :126-130 부분뿐이다.
 - GOLD(`--diff` 비어 있음), CHK, N-ALL, P-ALL(B1–B4)
 - `test_claude_payload` 실패가 B3의 알려진 원인과 메시지가 같다는 증거
+
+**진행 기록 (2026-11-14, 수락):**
+- 기준: T3 시작 후 사용자가 watch DELETE 이벤트 변경을 같은 작업 트리에서 했다. Orchestrator가 사용자 요청에 따라 이를 검토하고 별도 커밋 f1c4a3d로 분리했다(watch 전용 MANIFEST 별도 생성).
+- 구현(Implementer 1b7e8577)
+  - 13개 파일을 rename했다. 해시와 실행 비트를 보존했다.
+  - QA 지적 F1: visual gaps 테스트가 대상을 `arc-visual-companion`으로 바꿨던 것을 shared 경로로 되돌렸다.
+  - QA 지적 F2: upgrade-harness의 기대 목록에 shared 키가 빠져 있던 것을 수정했다. 제품 동작 변화는 아니다.
+- QA(da0fc7b3)
+  - proven: AC1, AC3, AC4(golden diff 0), AC8, AC12, AC15, AC16(중간), 테스트 약화 없음
+  - 실패 수: Node 106→105, Python 564→562. 남은 신규 실패는 F2 수정 후 0건이다(upgrade-harness 36/36).
+- Orchestrator 추가 검증
+  - updater 래퍼를 뺀 사본에서 manifest, package-references, superpowers, upgrade-harness, management-operations 테스트를 실행했다. 결과는 151/154 통과다.
+  - 남은 1건(`uninstall failure…`)은 HEAD 사본에서도 동일하게 실패하는 기존 실패다.
+  - 이로써 AC6(reference), AC7, AC9가 proven이다.
+- 처분 기록
+  - AC11의 추가 경로 `lib/installer/skill-sources.mjs`는 T2 분량이다(baseline2 이후 추가).
+  - B3 메시지 차이는 다음과 같으며 회귀가 아니다.
+    - `test_claude_payload` native adapter: 기준선부터 낡은 기대값이던 `visual-companion`을 실제 레이아웃인 `arc-visual-companion`으로 바로잡았다. 그 결과 이후의 기존 단언에서 실패한다.
+    - harness_contract 5건: 집합 출력 순서와 watch 문서 본문 차이
+    - consumer/manifest: 임시 경로와 줄 번호 차이
+  - AC6(runtime)과 AC10은 T4 범위다.
+  - parity 검사 실패와 role-bridge timeout은 기존부터 있던 것이다.
 
 ---
 

@@ -41,6 +41,7 @@
     "prebuilds/",
     "native/binding.c",
     "native/binding.gyp",
+    "shared/skill/",
     "codex/skill/",
     "codex/agents/",
     "claude/skill/",

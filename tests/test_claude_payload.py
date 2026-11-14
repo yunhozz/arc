@@ -293,7 +293,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_policy_preserves_role_and_approval_contracts(self):
         self.assertTrue((PAYLOAD / 'skill/SKILL.md').is_file(), 'Claude CEO adapter must be shipped')
-        required = {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'}
+        required = {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'arc-visual-companion', 'limits'}
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
         # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
 
@@ -377,7 +377,7 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertIn('`arc_' + role + '`', core)
             self.assertIn('arc_' + role, settings)
         links = set(re.findall(r'references/([a-z-]+)\.md', skill))
-        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
+        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'arc-visual-companion', 'limits'})
         for name in links:
             self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
         self.assertTrue((PAYLOAD / 'skill/scripts/apply-models.py').is_file())
