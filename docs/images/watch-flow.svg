@@ -43,6 +43,7 @@
 <g class="connector"><path class="flow" d="M760 265 H830"/><polygon points="830,265 816,258 816,272" fill="#526675"/></g>
 <g class="connector"><path class="flow" d="M1150 265 H1220"/><polygon points="1220,265 1206,258 1206,272" fill="#526675"/></g>
 
-<text x="50" y="455" class="note">Masking is not complete. Bridge roles on Codex hosts stay held (host_sandbox_blocked) and appear once they run.</text>
-<text x="50" y="488" class="note">Options: arc watch --help</text>
+<text x="50" y="443" class="note">On a Codex host, Claude bridge Scouter, Planner and Reviewer need per-call escalation approval (host_sandbox_blocked otherwise)</text>
+<text x="50" y="473" class="note">and appear once they run; Claude bridge Implementer and QA stay held. Masking is not complete.</text>
+<text x="50" y="503" class="note">Options: arc watch --help</text>
 </svg>

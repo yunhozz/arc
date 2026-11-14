@@ -1,7 +1,7 @@
 <a id="prepare-the-current-checkout"></a>
-# Prepare the current checkout
+# Handoff preparation contract
 
-Claude v1 supports current checkout only, not ARC-managed worktree execution. NEVER create/attach worktrees as fallback; report unsupported requests before dependent work.
+Offer three options: current checkout, new task branch in that checkout, or new managed worktree and task branch. NEVER create/attach worktrees as fallback; explicit selection and verified preparation are required before dependent work.
 
 <a id="execution-target-and-git-evidence-gates"></a>
 ## Execution-target and Git evidence gates
@@ -18,14 +18,12 @@ Present each supported option with:
 
 Obtain explicit choice before preparation.
 
-Claude v1 offers current branch/detached HEAD or a task branch in that checkout. Planning approval/silence chooses neither. Present exact candidate/base before creation. Preserve unrelated work; no preparation stash/reset/clean.
+Present current checkout (current branch/detached HEAD), new task branch in that checkout, or new managed worktree and task branch at `.claude/worktrees/<name>`. Planning approval/silence chooses none. Before offering managed worktrees, verify/present source absolute path/repository/common directory, source branch/detached HEAD/full SHA, approved candidate/collision, name/path, planned documents and existing approved transfer/commit scope. Validate naming/collision and source unrelated staging/approved document HEAD/index/working bytes. NEVER substitute/fetch remote/default base. Only after explicit selection read [handoff-worktree](handoff-worktree.md), before creation/branch/transfer. Preserve unrelated work; no preparation stash/reset/clean.
 
 <a id="git-mutation-evidence-gate"></a>
 ### Git mutation evidence gate
 
-Before branch preparation, obtain the complete first required draft and self-review and pass the focused source/intent/preservation check.
-
-Before every preparation mutation (branch creation/switch, approved-doc staging/commit), read this and record/recheck:
+Before branch/worktree preparation, obtain the complete first required draft and self-review and pass the focused source/intent/preservation check. Before every preparation mutation (branch creation/switch, worktree creation, approved-doc staging/commit), read this and record/recheck:
 
 1. Explicit choice or verified valid reuse.
 2. Absolute workspace/intended repository, actual branch or detached HEAD and HEAD.
@@ -56,7 +54,7 @@ Create the explicitly approved candidate from approved base in the current check
 | chore/ | Policy/tools/maintenance |
 | revert/ | Revert prior change |
 
-Validate name/collision before creation. NEVER add suffixes automatically; approve new candidates. NEVER reuse/delete/overwrite existing branches. Distinguish lookup errors from absence.
+Validate name/collision before creation. NEVER add suffixes automatically; approve new candidates. NEVER reuse/delete/overwrite existing branches. Only the [managed-path exception](handoff-worktree.md) permits narrowly verified approved-branch reuse. Distinguish lookup errors from absence.
 
 Immediately recheck workspace, branch/detached HEAD, base and candidate. Changed target/collision candidate requires fresh explicit approval before creation/switch; otherwise block handoff. Detached HEAD is allowed when resolved and approved. After success verify actual branch equals candidate, HEAD equals base, unchanged absolute checkout and preserved changes. Failures follow Stop and inspect, never automatic checkout/worktree fallback.
 
@@ -69,7 +67,7 @@ After explicit selection or valid reuse, verify absolute workspace, branch/detac
 ### Planning document commit
 
 Begin after target preparation and all applicable documents are written/individually approved. Verify full set/evidence/versions before staging/commit. New branches require successful switch, actual branch, unchanged path/preservation. Current checkout requires selected branch/detached HEAD/path/changes.
-
+For worktrees verify actual registration/`EnterWorktree` session attachment/identity/base/branch and directly written documents or protected legacy/restart transfers before target docs commits. Commit remaining approvals once at target; no automatic source docs commit.
 
 1. Verify already committed approvals by SHA, actual message/paths/content and selected-checkout validity; reuse without recommitting.
 2. Record remaining approved versions/paths. Finalize a specific English Conventional Commit message before the first commit.

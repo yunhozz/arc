@@ -7,12 +7,12 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
-const previousRuntimeHash='sha256:8be1db491aa12e4982e5d0dc9048d2b46717de133feb2d26f98b5301e086bb87';
-const baselineHash='sha256:92ff35548de8c357c043bcd550ca9964fd8ed7f2cfac8406611b57492f19bb05';
+const previousRuntimeHash='sha256:f24d913ad8866ec89fcd38cb26e7dbebc0b0243a9763df88af7a95861a02fe5d';
+const baselineHash='sha256:941ceb4ed788ecc14e8e08b66447f18f740a67ef4ad96776c56fd073530a266a';
 
 test('target preparation is included in the current cooperative runtime contract',async()=>{
  const api=await import('../../lib/runtime/bootstrap.mjs');
- assert.equal((await api.cooperativeVersions()).runtime,'cooperative-8');
+ assert.equal((await api.cooperativeVersions()).runtime,'cooperative-9');
  assert.ok(api.COOPERATIVE_RUNTIME_MODULES.includes('target-preparation.mjs'));
 });
 
@@ -23,7 +23,7 @@ const expectedModules = [
  'schema.mjs', 'operations.mjs', 'gate.mjs', 'adapters/codex.mjs', 'adapters/claude.mjs', 'capabilities.mjs', 'identity.mjs', 'git-query.mjs', 'target-preparation.mjs',
  'local-cli.mjs', 'role-routing-config.mjs', 'role-routing.mjs', 'role-bridge.mjs', 'role-dispatch-policy.mjs', 'role-dispatch-store.mjs', 'role-bridge-args.mjs', 'role-observe.mjs', 'role-supervisor.mjs'
 ];
-for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/runtime/']) {
+for (const runtime of ['lib/runtime/', 'shared/skill/runtime/']) {
  test(`${runtime} freezes the ordered T5 inventory and hashes every raw module Buffer`, async () => {
   const directory = new URL('../../' + runtime, import.meta.url);
   const api = await import(new URL('bootstrap.mjs', directory));
@@ -31,7 +31,7 @@ for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/run
   assert.equal(Object.isFrozen(api.COOPERATIVE_RUNTIME_MODULES), true);
   const bytes = Buffer.concat(await Promise.all(expectedModules.map(file => readFile(new URL(file, directory)))));
   const expectedHash = 'sha256:' + createHash('sha256').update(bytes).digest('hex');
-  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-8');
+  const versions=await api.cooperativeVersions();assert.equal(versions.runtime,'cooperative-9');
   assert.equal(versions.runtimeHash, expectedHash);
   assert.equal(expectedHash, baselineHash);
  });
@@ -45,7 +45,7 @@ test('install-only inventory additions and byte changes preserve the cooperative
  await writeFile(path.join(root,'lib/installer/runtime-assets.mjs'),'export const RUNTIME_MODULE_PATHS=Object.freeze('+JSON.stringify([...RUNTIME_MODULE_PATHS,'lib/runtime/install-only.mjs'].sort())+');');
  for(const bytes of ['export const install=1;','export const install=2;']){
   await writeFile(path.join(root,'lib/runtime/install-only.mjs'),bytes);const result=spawnSync(process.execPath,[path.join(root,'scripts/update-runtime-assets.mjs'),'--root',root],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);
-  for(const runtime of ['lib/runtime','codex/skill/runtime','claude/skill/runtime']){assert.equal(await readFile(path.join(root,runtime,'install-only.mjs'),'utf8'),bytes);const api=await import(pathToFileURL(path.join(root,runtime,'bootstrap.mjs')));assert.equal((await api.cooperativeVersions()).runtimeHash,baselineHash);}
+  for(const runtime of ['lib/runtime','shared/skill/runtime']){assert.equal(await readFile(path.join(root,runtime,'install-only.mjs'),'utf8'),bytes);const api=await import(pathToFileURL(path.join(root,runtime,'bootstrap.mjs')));assert.equal((await api.cooperativeVersions()).runtimeHash,baselineHash);}
  }
 });
 test('cooperative hash changes when the Claude adapter Git query dependency changes',async t=>{
@@ -56,5 +56,5 @@ test('cooperative hash changes when the Claude adapter Git query dependency chan
 });
 
 test('HSR: canonical and deployed policy/runtime versions agree',async()=>{
- assert.notEqual(baselineHash,historicalRuntimeHash);assert.notEqual(baselineHash,previousRuntimeHash);const versions=[];for(const runtime of ['lib/runtime/','codex/skill/runtime/','claude/skill/runtime/'])versions.push(await(await import(new URL('../../'+runtime+'bootstrap.mjs',import.meta.url))).cooperativeVersions());assert.deepEqual(versions[1],versions[0]);assert.deepEqual(versions[2],versions[0]);
+ assert.notEqual(baselineHash,historicalRuntimeHash);assert.notEqual(baselineHash,previousRuntimeHash);const versions=[];for(const runtime of ['lib/runtime/','shared/skill/runtime/'])versions.push(await(await import(new URL('../../'+runtime+'bootstrap.mjs',import.meta.url))).cooperativeVersions());assert.deepEqual(versions[1],versions[0]);
 });

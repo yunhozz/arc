@@ -8,7 +8,9 @@ const root=path.resolve(arg('--root',fileURLToPath(new URL('../',import.meta.url
 const complete=process.argv.includes('--complete');
 // Frozen before the legacy files were removed: test bodies, assertion expressions,
 // and helper assertion sites. Coverage mappings may change; this inventory may not.
-const inventorySha='b21f21cb1786d8400914f6f1837e8c3dddc51e4629fbdc4e091567a99f3825de';
+// Re-pinned after d98d7c7 translated seven assertion expressions to English (line IDs
+// and sourceSha256 still refer to the recorded source revision).
+const inventorySha='586d1055494a0d62ae726f67de43384ea210dbcf7b66403eef7ed8fa7af165dd';
 try{
  const ledger=JSON.parse(fs.readFileSync(path.join(root,'tests/installer-parity.json'),'utf8'));
  const inventory={tests:ledger.legacyInventory,helpers:ledger.legacyHelpers?.map(({id,assertions})=>({id,assertions}))};

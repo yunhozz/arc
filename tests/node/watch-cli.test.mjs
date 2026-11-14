@@ -9,6 +9,7 @@ import {makeHomes} from './fixtures/watch/homes.mjs';
 import {parseWatchArgs, runWatch, WATCH_HELP} from '../../lib/watch/index.mjs';
 import {runRoot} from '../../lib/cli/root.mjs';
 import {WATCH_KINDS, WATCH_LIMITS} from '../../lib/watch/model.mjs';
+import * as renderer from '../../lib/watch/render.mjs';
 import {GIT_ALLOWED, createGitRunner} from '../../lib/watch/git.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -72,8 +73,9 @@ test('usage errors exit 2 with a message',async t=>{
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run; Claude bridge Implementer and QA stay held.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
+  assert.match(WATCH_HELP,/per-call escalation approval/);assert.doesNotMatch(WATCH_HELP,/currently held/);
 });
 test('root lists watch and keeps other behavior',async t=>{
   const s=setup(t);assert.equal(await runRoot(['--help'],s.io),0);
@@ -164,7 +166,7 @@ test('a run leaves every watched tree unchanged and runs only allowed git comman
   const s=setup(t), gcd=path.join(s.cwd,'.git');fs.mkdirSync(gcd);s.write('readonly');
   s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'claude',[{type:'user',cwd:s.cwd,sessionId:'claude',message:{content:'hello'}}],{mtime:TIME});
   s.h.writeArtifacts(gcd,'wf','dispatches/example',{'events.jsonl':'{"kind":"thread","threadId":"readonly"}\n'});
-  s.io.git=async(dir,args)=>{s.calls.push({dir,args});assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));return args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;};
+  s.io.git=async(dir,args)=>{s.calls.push({dir,args});assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));return args[0]==='ls-files'?'':args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;};
   const before=await s.h.snapshot(), {result}=await s.start();for(let i=0;i<3;i++)await s.step();s.controller.abort();assert.equal(await result,0);
   assert.deepEqual(await s.h.snapshot(),before);assert.equal(fs.existsSync(path.join(s.h.codexHome,'arc-role-dispatch')),false);assert.ok(s.calls.length>=3);
 });
@@ -197,6 +199,7 @@ test('docs describe the public watch command',()=>{
   const readme=fs.readFileSync(path.join(root,'README.md'),'utf8'),doc=fs.readFileSync(path.join(root,'docs/harness-operation.md'),'utf8');
   assert.ok(readme.includes('The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.'));
   const section=readme.split('## Watch sessions\n')[1]?.split('\n## ')[0];assert.ok(section);assert.match(section,/host_sandbox_blocked/);assert.match(section,/Codex Desktop/);
+  assert.match(section,/per-call escalation approval/);assert.doesNotMatch(section,/stay held as `host_sandbox_blocked`/);
   assert.match(doc,/Public syntax:[^\n]*`arc watch`/);assert.match(doc,/### Watch/);assert.ok(!/[가-힣]/.test(readme+doc));
 });
 
@@ -258,8 +261,8 @@ test('human output has no session labels while json keeps label', async t => {
 test('help describes one-line width and full messages', async t => {
   const s=setup(t);
   assert.equal(await runWatch(['--help'],s.io),0);
-  assert.ok(s.output.text.includes('  --width <n>         Maximum width of one-line events (default: terminal width, or 200)'));
-  assert.ok(s.output.text.includes('User and agent messages are shown in full; other events use one line.\nTool and command outputs'));
+  assert.ok(s.output.text.includes('  --width <n>         Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)'));
+  assert.ok(s.output.text.includes('User and agent messages and file paths are shown in full; other events use one line.\nTool and command outputs'));
 });
 
 
@@ -278,8 +281,8 @@ test('bridge and subagent AGENT lines show the role', async t => {
   s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
   s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
   const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
-  assert.match(s.output.text,/AGENT\(planner\) bridge answer/);
-  assert.match(s.output.text,/AGENT\(qa\) child answer/);
+  assert.match(s.output.text,/AGENT    \[Planner\] bridge answer/);
+  assert.match(s.output.text,/AGENT    \[QA\] child answer/);
 });
 
 
@@ -387,5 +390,36 @@ test('non-TTY, JSON and input without raw mode leave stdin and output untouched'
     input.emit('data',Buffer.from([0x0c,0x03]));assert.equal(s.output.text,before);
     assert.deepEqual(input.rawModes,[]);assert.equal(input.resumes,0);assert.equal(input.pauses,0);assert.equal(input.listenerCount('data'),0);
     s.controller.abort();assert.equal(await result,0);
+  }
+});
+
+test('non-TTY messages stay on one line unless --width requests wrapping', async t => {
+  const text='한글메시지😀'.repeat(60);
+  for (const args of [[],['--width','60'],['--width','60','--json']]) {
+    const s=setup(t);
+    s.write('wrap',s.cwd,[msg(text)]);
+    const {result}=await s.start(args);
+    s.controller.abort();assert.equal(await result,0);
+    if (args.includes('--json')) {
+      assert.equal(s.output.text.trim().split('\n').map(JSON.parse).find(e=>e.kind==='user').text,text);
+      continue;
+    }
+    const lines=s.output.text.trimEnd().split('\n');
+    const at=lines.findIndex(line=>line.includes('USER'));
+    assert.ok(at>=0);
+    const bodyLines=[lines[at]];
+    for (const line of lines.slice(at+1)) {
+      if (!line.startsWith(' '.repeat(25))) break;
+      bodyLines.push(line);
+    }
+    if (!args.length) {
+      assert.equal(bodyLines[0].slice(25),text);
+      assert.equal(bodyLines.length,1);
+    } else {
+      assert.ok(bodyLines.length>1);
+      assert.ok(lines.every(line=>renderer.displayWidth(strip(line))<=60));
+      assert.ok(bodyLines.slice(1).every(line=>line.startsWith(' '.repeat(25))));
+      assert.equal(bodyLines.map(line=>line.slice(25)).join(''),text);
+    }
   }
 });

@@ -30,7 +30,7 @@ test('file change paths from object and array shapes, never diffs', () => {
  assert.deepEqual(result,[{kind:'file_change',paths:['/a/x.mjs','/a/y.mjs']}]); safe(result);
  }
  assert.deepEqual(item('FileChange',{changes:[{path:'/b'},{file:'/c'},{path:'/b'}]}),[{kind:'file_change',paths:['/b','/c']}]);
- assert.equal(item('FileChange',{changes:Object.fromEntries(Array.from({length:25},(_,i)=>[`/p${i}`,{}]))})[0].paths.length,20);
+ assert.equal(item('FileChange',{changes:Object.fromEntries(Array.from({length:25},(_,i)=>[`/p${i}`,{}]))})[0].paths.length,25);
 });
 test('reasoning uses summary text only', () => {
  assert.deepEqual(item('Reasoning',{summary_text:[]}),[]);
@@ -83,9 +83,37 @@ test('file changes split added paths before updates and moves', () => {
     assert.deepEqual(item(type,{changes:{'/n':{type:'add'}}}), [{kind:'file_create',paths:['/n']}]);
     assert.deepEqual(item(type,{changes:{'/n':{add:{content:'private'}}}}), [{kind:'file_create',paths:['/n']}]);
     assert.deepEqual(item(type,{changes:[{path:'/n',type:'add'},{file:'/n2',kind:{type:'add'}},{path:'/u',type:'delete'}]}), [
-      {kind:'file_create',paths:['/n','/n2']},{kind:'file_change',paths:['/u']},
+      {kind:'file_create',paths:['/n','/n2']},{kind:'file_delete',paths:['/u']},
     ]);
     assert.deepEqual(item(type,{changes:{}}), [{kind:'file_change',paths:[]}]);
   }
   assert.deepEqual(event('apply_patch_approval_request',{changes:{'/n':{type:'add'}}}), [{kind:'approval',paths:['/n']}]);
+});
+
+
+test('file changes separate deletions from creates, updates and moves', () => {
+  for (const type of ['FileChange','PatchApply']) {
+    for (const change of [{type:'delete'}, {kind:{type:'delete'}}, {delete:{content:'WATCH_MARKER_deleted_content'}}]) {
+      const result = item(type,{changes:{'/gone':change}});
+      assert.deepEqual(result,[{kind:'file_delete',paths:['/gone']}]);
+      safe(result);
+    }
+    assert.deepEqual(item(type,{changes:[
+      {path:'/new',type:'add'}, {path:'/updated',type:'update',move_path:'/moved'},
+      {path:'/gone',type:'delete'}, {file:'/gone2',kind:{type:'delete'}}, {path:'/gone',type:'delete'},
+    ]}), [
+      {kind:'file_create',paths:['/new']}, {kind:'file_change',paths:['/updated','/moved']},
+      {kind:'file_delete',paths:['/gone','/gone2']},
+    ]);
+    const changes = Object.fromEntries(Array.from({length:25}, (_,i) => [`/gone${i}`,{type:'delete'}]));
+    assert.equal(item(type,{changes})[0].paths.length,25);
+  }
+});
+
+test('patch approvals and each file-change group preserve 25 unique paths', () => {
+  const paths = Array.from({length:25},(_,i)=>`/p${i}`);
+  assert.deepEqual(event('apply_patch_approval_request',{changes:paths.map(path=>({path}))})[0].paths,paths);
+  for (const type of ['add','update','delete']) {
+    assert.deepEqual(item('FileChange',{changes:[...paths.map(path=>({path,type})),{path:'/p0',type}]})[0].paths,paths);
+  }
 });

@@ -37,8 +37,4 @@ A branch does not isolate uncommitted changes in another directory. Record task 
 <a id="worktree-failures-and-partial-completion"></a>
 ### Worktree failures and partial completion
 
-[Managed-worktree](handoff-worktree.md) creation/registration/attachment/identity/base/checkout/transfer/stage/commit failures stop dependent work/handoff. Branch-only or partial-path creation, registration/path mismatch, wrong base/branch and partial transfer count as partial completion.
-
-Record source/target commands/errors/branch/HEAD/common directory/registration/index/files, target dirty state and source preservation. Include tool inputs/operationId/results/returned path, app management/current-chat attachment, initial/final branch, base/ref SHA and ownership. Inspect actual state/completed work before authorized retry.
-
-No automatic alternate path/branch, deletion, `git worktree prune`, `--force`/`-B`, cleanup or archive. Normal preparation after explicit managed selection is allowed; arbitrary recovery workspace moves are not. Resolve and revalidate the full gate; renewed choice follows handoff lifetime rules. Preserve completion/attach-retry/no-fallback limits. Recheck completion/current-chat attachment after attach retry; failure or unverifiable results stop with actual-state reporting. Directory existence does not prove app management.
+Apply [managed-worktree failures and partial completion](handoff-worktree.md#worktree-failures-and-partial-completion). For Codex app recovery, also apply the attachment and retry limits in [worktree-creation](worktree-creation.md).

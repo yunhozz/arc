@@ -18,7 +18,7 @@ try{
  if(modules.length!==RUNTIME_MODULE_PATHS.length||modules.some((name,index)=>name!==RUNTIME_MODULE_PATHS[index]))throw Error('Runtime asset inventory does not match canonical modules');
  const entries=modules.map(name=>[name.slice('lib/runtime/'.length),fs.readFileSync(path.join(root,name))]);
  const policy=path.join(root,'lib/policy/role-policy.json');safe(policy);entries.push(['role-policy.json',fs.readFileSync(policy)]);
- const outputs=[];for(const platform of ['codex','claude'])for(const [name,bytes]of entries){const filename=path.join(root,platform,'skill/runtime',name);safe(filename);outputs.push({filename,bytes});}
+ const outputs=[];for(const [name,bytes]of entries){const filename=path.join(root,'shared/skill/runtime',name);safe(filename);outputs.push({filename,bytes});}
  let drift=false;for(const {filename,bytes}of outputs){if(!fs.existsSync(filename)||!fs.readFileSync(filename).equals(bytes)){drift=true;if(!check){fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,bytes);}}}
  if(check&&drift){console.error('Runtime payload drift');process.exitCode=1;}else console.log(`Runtime payload ${check?'verified':'generated'} (${outputs.length} files)`);
 }catch(error){console.error(error.message);process.exitCode=1;}

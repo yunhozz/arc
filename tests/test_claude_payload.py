@@ -293,7 +293,7 @@ class ClaudePayloadTests(unittest.TestCase):
 
     def test_claude_policy_preserves_role_and_approval_contracts(self):
         self.assertTrue((PAYLOAD / 'skill/SKILL.md').is_file(), 'Claude CEO adapter must be shipped')
-        required = {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'}
+        required = {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'arc-visual-companion', 'limits', 'worktree-creation'}
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
         # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
 
@@ -359,10 +359,10 @@ class ClaudePayloadTests(unittest.TestCase):
                 ('references/verification.md', 'final full change once'),
                 ('references/handoff.md', 'canonical handoff record'),
                 ('references/coordination.md', 'Goal; Criteria'),
-                ('references/handoff.md', 'current checkout only'),
                 ('SKILL.md', 'execution-state investigation or cleanup')):
             with self.subTest(file=name, clause=clause):
                 self.assertIn(clause, texts[name])
+        self.assertNotIn('current checkout only', texts['references/handoff.md'])
 
     def test_claude_native_adapter_matches_shipped_profiles_and_scripts(self):
         skill = (PAYLOAD / 'skill/SKILL.md').read_text()
@@ -377,15 +377,18 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertIn('`arc_' + role + '`', core)
             self.assertIn('arc_' + role, settings)
         links = set(re.findall(r'references/([a-z-]+)\.md', skill))
-        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'visual-companion', 'limits'})
+        self.assertEqual(links, {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'arc-visual-companion', 'limits', 'handoff-worktree'})
         for name in links:
-            self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file())
+            self.assertTrue((PAYLOAD / f'skill/references/{name}.md').is_file() or
+                            (ROOT / f'shared/skill/references/{name}.md').is_file())
         self.assertTrue((PAYLOAD / 'skill/scripts/apply-models.py').is_file())
         result = subprocess.run([sys.executable, '-B', str(PAYLOAD / 'skill/scripts/apply-models.py'), '--help'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         for flag in ('--config', '--agents-dir', '--check', '--dry-run'):
             self.assertIn(flag, result.stdout)
-        self.assertIn('current checkout only', ' '.join(handoff.split()))
+        self.assertNotIn('current checkout only', ' '.join(handoff.split()))
+        for option in ('current checkout', 'new task branch', 'managed worktree/task branch'):
+            self.assertIn(option, handoff)
         for boundary in ('not a filesystem sandbox', 'Claude native subagent'):
             self.assertIn(boundary, ' '.join(core.split()))
         self.assertRegex(core, r'do(?:es)? not prove runtime.*provider support')
@@ -752,7 +755,10 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         text = self.text("handoff-prep")
         self.assertIn("current checkout", text)
         self.assertIn("task branch", text)
-        self.assertIn("arc-managed worktree execution is unsupported", text)
+        self.assertNotIn("arc-managed worktree execution is unsupported", text)
+        self.assertNotIn("current checkout only", text)
+        for option in ("current checkout", "new task branch", "new managed worktree and task branch", ".claude/worktrees/<name>"):
+            self.assertIn(option, text)
         self.assertNotIn("mcp__codex_app__create_worktree", text)
 
     def test_choice_reuse_and_reselection_before_documents(self):

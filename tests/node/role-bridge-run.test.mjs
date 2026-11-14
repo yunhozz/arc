@@ -38,7 +38,7 @@ async function setup(t, {roles = {arc_planner: 'codex'}, hostPlatform = 'claude'
   const f = ctx.f = await createRoutingFixture(t, {roles, hostPlatform, ...(limits ? {limits} : {})});
   bases.push(f.base);
   f.ctx = ctx;
-  // Every scenario keeps a supported version so later setScenario calls never change the pre-start decision.
+  // Every scenario keeps a fixed reported version; the version is informational and never changes the pre-start decision.
   for (const [name, version, scenario] of [['codex', 'codex-cli 0.167.0', codexScenario], ['claude', '2.1.322 (Claude Code)', claudeScenario]]) {
     const cli = f[name] = await f.cli(name, {version, ...scenario}), set = cli.setScenario;
     cli.setScenario = value => set({version, ...value});

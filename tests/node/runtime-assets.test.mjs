@@ -29,19 +29,19 @@ test('installer inventory covers every canonical module with frozen sorted root-
 });
 for(const kind of ['canonical-only','inventory-only','duplicate'])test(`generator rejects ${kind} before writing outputs`,async t=>{
  const {root,inventory,run}=await fixture(t);assert.equal(run([]).status,0);
- const target=path.join(root,'codex/skill/runtime/acceptance.mjs');await fs.writeFile(target,'sentinel');
+ const target=path.join(root,'shared/skill/runtime/acceptance.mjs');await fs.writeFile(target,'sentinel');
  if(kind==='canonical-only')await fs.writeFile(path.join(root,'lib/runtime/new.mjs'),'export {};');
  if(kind==='inventory-only')await inventory([...expectedPaths,'lib/runtime/new.mjs'].sort());
  if(kind==='duplicate')await inventory([...expectedPaths,expectedPaths[0]].sort());
  const result=run([]);assert.equal(result.status,1,result.stdout);assert.match(result.stderr,/inventory/i);assert.equal(await fs.readFile(target,'utf8'),'sentinel');
- await assert.rejects(fs.access(path.join(root,'codex/skill/runtime/new.mjs')),{code:'ENOENT'});
+ await assert.rejects(fs.access(path.join(root,'shared/skill/runtime/new.mjs')),{code:'ENOENT'});
 });
 test('runtime generator copies inventory additions and preserves check-only symlink and unmanaged-file safety',async t=>{
  const {root,inventory,run}=await fixture(t);await fs.writeFile(path.join(root,'lib/runtime/install-only.mjs'),'export const install=1;\n');await inventory([...expectedPaths,'lib/runtime/install-only.mjs'].sort());
- assert.equal(run([]).status,0);for(const platform of ['codex','claude'])assert.equal(await fs.readFile(path.join(root,platform,'skill/runtime/install-only.mjs'),'utf8'),'export const install=1;\n');
- const target=path.join(root,'codex/skill/runtime/schema.mjs');assert.deepEqual(await fs.readFile(target),await fs.readFile(path.join(root,'lib/runtime/schema.mjs')));assert.equal(run(['--check']).status,0);
+ assert.equal(run([]).status,0);assert.equal(await fs.readFile(path.join(root,'shared/skill/runtime/install-only.mjs'),'utf8'),'export const install=1;\n');
+ const target=path.join(root,'shared/skill/runtime/schema.mjs');assert.deepEqual(await fs.readFile(target),await fs.readFile(path.join(root,'lib/runtime/schema.mjs')));assert.equal(run(['--check']).status,0);
  await fs.writeFile(target,'drift');assert.equal(run(['--check']).status,1);assert.equal(await fs.readFile(target,'utf8'),'drift');assert.equal(run([]).status,0);assert.equal(run(['--check']).status,0);
- const unmanaged=path.join(root,'codex/skill/runtime/user.txt');await fs.writeFile(unmanaged,'keep');assert.equal(run([]).status,0);assert.equal(await fs.readFile(unmanaged,'utf8'),'keep');
+ const unmanaged=path.join(root,'shared/skill/runtime/user.txt');await fs.writeFile(unmanaged,'keep');assert.equal(run([]).status,0);assert.equal(await fs.readFile(unmanaged,'utf8'),'keep');
  await fs.unlink(target);await fs.symlink(unmanaged,target);assert.equal(run([]).status,1);assert.equal(await fs.readFile(unmanaged,'utf8'),'keep');
 });
 

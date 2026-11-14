@@ -107,6 +107,29 @@ test('repeated SubagentHandback blocks end the message only once', () => {
   {kind:'tool',tool:'SubagentHandback'},
  ]);
 });
+for (const stop_reason of ['tool_use','end_turn']) {
+ test(`SubagentHandback message replaces the tool event with agent text (${stop_reason})`, () => {
+  assert.deepEqual(normalizeClaudeLine({type:'assistant',timestamp:'raw',message:{stop_reason,
+   content:[{type:'tool_use',id:'handback',name:'SubagentHandback',input:{message:'review complete\nnext step'}}]}},createClaudeState()),
+   [{kind:'agent',text:'review complete\nnext step',ts:'raw'},{kind:'turn_end',ts:'raw'}]);
+ });
+}
+test('SubagentHandback missing, empty and non-string messages keep the tool event', () => {
+ for (const input of [{},{message:''},{message:null},{message:42},{message:{}},{message:[]}]) {
+  assert.deepEqual(tool('SubagentHandback',input),[{kind:'tool',tool:'SubagentHandback'},{kind:'turn_end'}]);
+ }
+ assert.deepEqual(tool('SubagentHandback',{message:' \n'}),[{kind:'agent',text:' \n'},{kind:'turn_end'}]);
+});
+test('repeated SubagentHandback messages are all emitted with only one turn end', () => {
+ assert.deepEqual(assistant([
+  {type:'tool_use',id:'first',name:'SubagentHandback',input:{message:'first report'}},
+  {type:'tool_use',id:'second',name:'SubagentHandback',input:{message:'second report'}},
+  {type:'tool_use',id:'empty',name:'SubagentHandback',input:{message:''}},
+ ],undefined,{stop_reason:'end_turn'}),[
+  {kind:'agent',text:'first report'},{kind:'turn_end'},
+  {kind:'agent',text:'second report'},{kind:'tool',tool:'SubagentHandback'},
+ ]);
+});
 test('SubagentHandback results stay silent unless they fail', () => {
  const state=createClaudeState();
  assistant([{type:'tool_use',id:'handback',name:'SubagentHandback',input:{}}],state);
@@ -180,4 +203,82 @@ test('pending Write paths are bounded without changing the tool-name cache', () 
   assert.deepEqual(user([{type:'tool_result',tool_use_id:'w0'}],state,{toolUseResult:{type:'create'}}), []);
   assert.deepEqual(user([{type:'tool_result',tool_use_id:'w599'}],state,{toolUseResult:{type:'create'}}), [{kind:'file_create',paths:['/p599']}]);
   assert.deepEqual(user([{type:'tool_result',tool_use_id:'w599',is_error:true}],state), [{kind:'tool_failed',tool:'Write'}]);
+});
+
+test('literal rm emits DELETE only after a successful matching result', () => {
+  for (const command of ['rm /a', '/bin/rm -f -- /a', 'rm --force /a', "rm '/a b' \"/c d\"", 'cd /repo && rm -rf old']) {
+    const state=createClaudeState();
+    assert.deepEqual(assistant([{type:'tool_use',id:'rm',name:'Bash',input:{command}}],state), [{kind:'command',text:command}]);
+    const paths = command.includes('cd ') ? ['/repo/old'] : command.includes('/a b') ? ['/a b','/c d'] : ['/a'];
+    const block={type:'tool_result',tool_use_id:'rm',is_error:false,content:'WATCH_MARKER_output'};
+    assert.deepEqual(user([block],state,{toolUseResult:{stdout:'WATCH_MARKER_stdout',interrupted:false}}), [{kind:'file_delete',paths}]);
+    assert.deepEqual(user([block],state), []);
+  }
+});
+test('rm resolves literal relative paths using the command cwd', () => {
+  const state=createClaudeState();
+  normalizeClaudeLine({type:'assistant',cwd:'/repo/sub',message:{content:[{type:'tool_use',id:'rm',name:'Bash',input:{command:'rm ../old ./gone'}}]}},state);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state), [{kind:'file_delete',paths:['/repo/old','/repo/sub/gone']}]);
+});
+test('failed, interrupted and background rm never emit DELETE', () => {
+  for (const mode of ['failed','interrupted','background','auto-background']) {
+    const state=createClaudeState();
+    assistant([{type:'tool_use',id:'rm',name:'Bash',input:{command:'rm /a',run_in_background:mode==='background'}}],state);
+    const block={type:'tool_result',tool_use_id:'rm',is_error:mode==='failed'};
+    const out=user([block],state,{toolUseResult:{interrupted:mode==='interrupted',backgroundTaskId:mode==='auto-background' ? 'task' : undefined}});
+    assert.deepEqual(out,mode==='failed' ? [{kind:'tool_failed',tool:'Bash'}] : []);
+    assert.deepEqual(user([{...block,is_error:false}],state), []);
+  }
+});
+test('ambiguous shell commands remain CMD without inferred deletions', () => {
+  for (const command of ['echo rm /a', 'rm $FILE', 'rm "${FILE}"', 'rm *.md', 'rm ~/a', 'rm a; echo done', 'rm a && echo done', 'rm a || true', 'rm a | cat', 'rm > /a', 'rm $(pwd)/a', 'rm `pwd`/a', 'rm -i /a', 'rm --help', 'rm --unknown /a', 'rm', 'cd /repo; rm old', 'rm /a\nrm /b']) {
+    const state=createClaudeState();
+    assert.deepEqual(assistant([{type:'tool_use',id:'rm',name:'Bash',input:{command}}],state), [{kind:'command',text:command}]);
+    assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state), [] ,command);
+  }
+});
+test('pending deletion cache is bounded and all paths are retained', () => {
+  const state=createClaudeState();
+  for(let i=0;i<600;i++) assistant([{type:'tool_use',id:`r${i}`,name:'Bash',input:{command:`rm /p${i}`}}],state);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'r0'}],state), []);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'r599'}],state), [{kind:'file_delete',paths:['/p599']}]);
+  assistant([{type:'tool_use',id:'many',name:'Bash',input:{command:'rm ' + Array.from({length:25},(_,i)=>`/p${i}`).join(' ')}}],state);
+  assert.equal(user([{type:'tool_result',tool_use_id:'many'}],state)[0].paths.length,25);
+});
+
+
+test('literal rm preserves quoted and escaped filenames and honors --', () => {
+  for (const [command,paths] of [
+    ["rm -- '-old'",['-old']],
+    ["rm /한글\u00a0파일",['/한글\u00a0파일']],
+    [String.raw`rm /a\ b`,['/a b']],
+    ["rm '/a*' '/$FILE'",['/a*','/$FILE']],
+    [String.raw`rm "/a\$b"`,['/a$b']],
+    [String.raw`rm "/a\qb"`,[String.raw`/a\qb`]],
+    ["cd -- '/repo with spaces' && rm 'old file'",['/repo with spaces/old file']],
+  ]) {
+    const state=createClaudeState();
+    assistant([{type:'tool_use',id:'rm',name:'Bash',input:{command}}],state);
+    assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state), [{kind:'file_delete',paths}], command);
+  }
+});
+test('unmatched results and incomplete shell syntax cannot report deletions', () => {
+  for (const command of ["rm 'unterminated", 'rm "unterminated', 'rm /a &&', '&& rm /a', 'rm /a # comment', 'cd /repo && rm /a && rm /b', 'cd - && rm /a', 'rm /a\\']) {
+    const state=createClaudeState();
+    assistant([{type:'tool_use',id:'rm',name:'Bash',input:{command}}],state);
+    assert.deepEqual(user([{type:'tool_result',tool_use_id:'other'}],state), []);
+    assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state), [], command);
+  }
+});
+
+test('Claude Edit and Write retain all 25 reported file events', () => {
+  const paths=Array.from({length:25},(_,i)=>`/p${i}`);
+  const state=createClaudeState();
+  for (const name of ['Edit','MultiEdit','NotebookEdit']) {
+    const events=assistant(paths.map((file_path,i)=>({type:'tool_use',id:`e${i}`,name,input:{file_path}})),state);
+    assert.deepEqual(events.map(e=>e.paths),paths.map(p=>[p]));
+  }
+  assert.deepEqual(assistant(paths.map((file_path,i)=>({type:'tool_use',id:`w${i}`,name:'Write',input:{file_path}})),state),[]);
+  const events=user(paths.map((_,i)=>({type:'tool_result',tool_use_id:`w${i}`})),state,{toolUseResult:{type:'create'}});
+  assert.deepEqual(events.map(e=>e.paths),paths.map(p=>[p]));
 });

@@ -52,7 +52,7 @@ test('release consumer opens TUI only on explicit launch and installs independen
  assert.deepEqual(resultRows(updated).slice(0,2),['ARC installed for Codex.','ARC installed for Claude.']);assert.doesNotMatch(resultRows(updated).join('\n'),/rollback|Open a new agent session/i);
  const shellBefore=fs.readFileSync(s.home+'/.zshrc');ctx.inspectGlobalArc=async()=>assert.fail('Settings cannot inspect CLI');const settings=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:'codex',removeCli:false}));assert.equal(settings.code,0);assert.equal(fs.existsSync(s.home+'/.codex/skills/arc'),false);assert.equal(fs.existsSync(s.home+'/.claude/skills/arc'),true);assert.deepEqual(fs.readFileSync(s.home+'/.zshrc'),shellBefore);
  const {verifyPayload}=await import(pathToFileURL(isolated+'/lib/installer/manifest.mjs'));
- for(const name of ['codex/skill/runtime/cli.mjs','claude/skill/runtime/command.mjs','claude/skill/runtime/role-policy.json','lib/tui/setup.mjs','lib/management/workflow.mjs']){
+ for(const name of ['shared/skill/runtime/cli.mjs','shared/skill/runtime/command.mjs','shared/skill/runtime/role-policy.json','lib/tui/setup.mjs','lib/management/workflow.mjs']){
   const filename=isolated+'/'+name,bytes=fs.readFileSync(filename),manifest=fs.readFileSync(isolated+'/MANIFEST.sha256');
   fs.appendFileSync(filename,'\nchanged\n');assert.throws(()=>verifyPayload(ctx),/Payload|hash|mismatch/i);fs.writeFileSync(filename,bytes);
   fs.unlinkSync(filename);

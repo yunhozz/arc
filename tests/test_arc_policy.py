@@ -7,12 +7,13 @@ TMP_ROOT = os.path.realpath(tempfile.gettempdir())
 REFERENCE_NAMES = ("planning", "handoff", "handoff-prep", "handoff-worktree", "verification", "git-recovery",
                    "arc-visual-companion", "commit")
 
-HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree")
+HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree", "worktree-creation")
 
 def policy_text(name: str) -> str:
     # "handoff" covers the whole handoff contract, which is split by trigger across HANDOFF_FILES.
     names = HANDOFF_FILES if name == "handoff" else (name,)
     paths = [REPO / "codex/skill" / ("SKILL.md" if n == "core" else f"references/{n}.md") for n in names]
+    paths = [path if path.exists() else REPO / "shared/skill/references" / path.name for path in paths]
     return " ".join(" ".join(path.read_text().lower().split()) for path in paths)
 
 class TaskCommitPolicyTests(unittest.TestCase):
@@ -304,7 +305,8 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
                                                     "execution-time plan amendment", "recovery prerequisite"])
-        self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer"])
+        self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer",
+                                                        "worktree failures and partial completion"])
         core = (REPO / "codex/skill/references/handoff.md").read_text().lower()
         self.assertIn("handoff-prep.md", core)
         self.assertIn("handoff-worktree.md", core)
@@ -999,7 +1001,10 @@ class RolePolicyTests(unittest.TestCase):
     def _workspace_handoff_section(self, title: str) -> str:
         handoff = policy_text("handoff") + " " + policy_text("git-recovery")
         self.assertIn(f"### {title.lower()}", handoff)
-        return handoff.split(f"### {title.lower()}", 1)[1].split("### ", 1)[0]
+        section = handoff.split(f"### {title.lower()}", 1)[1].split("### ", 1)[0]
+        if title == "New managed worktree":
+            section += " " + policy_text("worktree-creation")
+        return section
 
     def _assert_workspace_handoff_contracts(
         self, title: str, contracts: tuple[str, ...]
@@ -1008,6 +1013,33 @@ class RolePolicyTests(unittest.TestCase):
         for contract in contracts:
             with self.subTest(section=title, contract=contract):
                 self.assertRegex(section, contract)
+
+    def test_claude_managed_worktree_creation_covers_ac19(self) -> None:
+        prep = (REPO / "claude/skill/references/handoff-prep.md").read_text()
+        self.assertNotIn("current checkout only", prep)
+        self.assertNotIn("ARC-managed worktree execution is unsupported", prep)
+        for option in ("current checkout", "new task branch", "new managed worktree and task branch", ".claude/worktrees/<name>"):
+            self.assertIn(option, prep)
+        creation = REPO / "claude/skill/references/worktree-creation.md"
+        self.assertTrue(creation.is_file(), "Claude M2 creation procedure is required")
+        text = creation.read_text()
+        self.assertEqual(re.findall(r"^(\d)\. ", text, re.M), list("123456789"))
+        steps = dict(re.findall(r"^(\d)\. (.*?)(?=^\d\. |\Z)", text, re.M | re.S))
+        required = {
+            "1": ("explicit", "source", "common directory", "full SHA", "collision", "document"),
+            "2": ("git check-ignore", ".git/info/exclude", "EnterWorktree", "base", "collision"),
+            "3": ("git worktree add -b <approved-branch> .claude/worktrees/<name> <verified-full-sha>", "--force", "-B", "suffix", "retry", "git worktree add .claude/worktrees/<name> <branch>"),
+            "4": ("git worktree list --porcelain", "common", "HEAD", "branch", "index", "files"),
+            "5": ('EnterWorktree({path:"<abs>"})', "git rev-parse --show-toplevel", "realpath", "simple", "compound", "before entry or after exit"),
+            "6": ("type:'worktree-attachment'", "realpath", "gitDir", "gitCommonDir", "cwd", "toplevel"),
+            "7": ("native", "inherit", "--cwd <worktree realpath>", "brief"),
+            "8": ('ExitWorktree({action:"keep"})', "automatic cleanup", "git worktree remove/prune", "branch deletion"),
+            "9": ("Stop and inspect", "retry", "fallback", "M1", "M3", "deletion"),
+        }
+        for number, phrases in required.items():
+            for phrase in phrases:
+                with self.subTest(step=number, phrase=phrase):
+                    self.assertIn(phrase, steps[number])
 
     def test_workspace_handoff_requires_scoped_checkout_approval(self) -> None:
         self._assert_workspace_handoff_contracts(
@@ -1253,11 +1285,16 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_worktree_contract_matches_selected_execution_paths(self) -> None:
         text = policy_text("handoff-worktree")
+        creation = policy_text("worktree-creation")
         for phrase in ("mcp__codex_app__create_worktree", "allowasync: true", "operationid", "attach_worktree",
-                       "the app determines the actual destination path", "approved branch", "source head",
-                       "index blob and mode", "working-tree bytes", "latest approved version", "base sha",
-                       "staging", "registration", "do not fall back to raw git worktree creation"):
+                       "the app determines the actual destination path", "do not fall back to raw git worktree creation"):
+            self.assertIn(phrase, creation)
+        for phrase in ("approved branch", "source head", "index blob and mode", "working-tree bytes",
+                       "latest approved version", "base sha", "staging", "registration"):
             self.assertIn(phrase, text)
+        self.assertNotIn("mcp__codex_app__", text)
+        self.assertNotIn("codex app", text)
+        self.assertIn("[worktree-creation](worktree-creation.md)", text)
         self.assertNotIn("../<repo>-<topic>-worktree", text)
         self.assertNotIn("git worktree add -b", text)
         self.assertRegex(text, r"only an explicit user choice of this third path authorizes preparation")
@@ -1446,6 +1483,7 @@ class InternalSuperpowersContractTests(unittest.TestCase):
             self.assertIn('no global discovery, external Skill invocation, or automatic download', core)
             self.assertIn('references/arc-visual-companion.md', (REPO / f'{platform}/skill/SKILL.md').read_text())
             self.assertFalse((REPO / f'{platform}/skill/references/superpowers').exists())
+        self.assertFalse((REPO / 'shared/skill/references/superpowers').exists())
 
     def test_flat_imported_assets_match_original_provenance_and_both_platforms(self):
         mapping = {'brainstorming/SKILL.md': 'brainstorming.md', 'writing-plans/SKILL.md': 'writing-plans.md',
@@ -1455,21 +1493,25 @@ class InternalSuperpowersContractTests(unittest.TestCase):
                    'test-driven-development/writing-good-tests.md': 'writing-good-tests.md', 'LICENSE': 'superpowers-LICENSE'}
         mapping.update({f'brainstorming/scripts/{name}': f'scripts/{name}' for name in
                         ('start-server.sh', 'stop-server.sh', 'server.cjs', 'helper.js', 'frame-template.html')})
+        base = REPO / 'shared/skill/references'
+        provenance = json.loads((base / 'superpowers-provenance.json').read_bytes())
+        self.assertEqual(set(provenance['files']), set(mapping))
+        for source, destination in mapping.items():
+            actual = (base / destination).read_bytes()
+            self.assertEqual(hashlib.sha256(actual).hexdigest(), provenance['files'][source])
+            for platform in ('codex', 'claude'):
+                self.assertFalse((REPO / f'{platform}/skill/references/{destination}').exists())
         for platform in ('codex', 'claude'):
-            base = REPO / f'{platform}/skill/references'
-            provenance = json.loads((base / 'superpowers-provenance.json').read_bytes())
-            self.assertEqual(set(provenance['files']), set(mapping))
-            for source, destination in mapping.items():
-                actual = (base / destination).read_bytes()
-                self.assertEqual(hashlib.sha256(actual).hexdigest(), provenance['files'][source])
-                self.assertEqual(actual, (REPO / f'codex/skill/references/{destination}').read_bytes())
-            self.assertNotEqual((base / 'arc-visual-companion.md').read_bytes(), (base / 'visual-companion.md').read_bytes())
+            self.assertNotEqual((REPO / f'{platform}/skill/references/arc-visual-companion.md').read_bytes(), (base / 'visual-companion.md').read_bytes())
 
 
 class WorkspaceBeforeDocumentsTests(unittest.TestCase):
     # Approved T1 structural checks; consuming-agent runtime compliance is unverified.
     def text(self, name):
-        return " ".join((REPO / "codex/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")).read_text().lower().split())
+        path = REPO / "codex/skill" / ("SKILL.md" if name == "core" else f"references/{name}.md")
+        if not path.exists():
+            path = REPO / "shared/skill/references" / f"{name}.md"
+        return " ".join(path.read_text().lower().split())
 
     def test_normal_order_selects_and_prepares_before_formal_drafting(self):
         planning = self.text("planning")
@@ -1531,7 +1573,10 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         self.assertIn("current checkout", text)
         self.assertIn("task branch", text)
         worktree = self.text("handoff-worktree")
-        for phrase in ("before formal drafting", "registration", "current-chat attachment", "common directory", "approved branch", "legacy or restart", "do not move, delete, or modify the source documents"):
+        creation = self.text("worktree-creation")
+        for phrase in ("current-chat attachment",):
+            self.assertIn(phrase, creation)
+        for phrase in ("before formal drafting", "registration", "common directory", "approved branch", "legacy or restart", "do not move, delete, or modify the source documents"):
             self.assertIn(phrase, worktree)
 
     def test_choice_reuse_and_reselection_before_documents(self):
