@@ -159,7 +159,7 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 0 (QA, 코드 수정 전): 기준선 측정**
+- [x] **Step 0 (QA, 코드 수정 전): 기준선 측정**
   - HEAD가 `e472406`이고 추적 파일 변경이 0인지 확인한다. 미추적 spec·plan은 허용한다.
   - N-ALL, P-ALL을 실행하고 실패 이름과 첫 메시지 줄을 뽑는다.
   - `npm pack --dry-run --json`을 실행한다.
@@ -170,24 +170,24 @@ node tests/node/fixtures/installed-layout.mjs --diff
     ```
   - 예상: Node 실패 약 68건, Python 실패 약 563건. 알려진 원인은 local updater, arc-consistent-gates, `plan.test.mjs` 8건이다. Python 건수는 unittest 기준으로 다시 잰다. 결과는 Orchestrator가 `baseline/`에 저장한다.
 
-- [ ] **Step 1: 실패하는 테스트 작성** (`tests/node/installed-layout-golden.test.mjs`)
+- [x] **Step 1: 실패하는 테스트 작성** (`tests/node/installed-layout-golden.test.mjs`)
   - `golden fixture covers exactly the 8 approved combinations` — `Object.keys(golden.combinations).sort()`가 8개 조합 키와 deepEqual이다.
   - `current installed layout matches the golden fixture for every combination` — 임시 복사본으로 계산한 `computeInstalledLayout` 결과가 `golden.combinations`와 deepEqual이다(키 집합과 해시 모두).
   - `installed layout is deterministic across homes and runs` — 두 번 계산한 결과가 deepEqual이다.
   - `golden comparison detects a single changed installed byte` — 복사본의 `codex/skill/references/limits.md` 끝에 `x`를 붙이고 manifest를 갱신한 뒤 다시 계산한다. codex 4개 조합의 `skills/arc/references/limits.md`만 달라지고, 나머지 키와 값은 같아야 한다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
   - `node --test tests/node/installed-layout-golden.test.mjs`
   - 예상: FAIL. fixture가 없으므로 `ENOENT ... installed-layout-golden.json`.
 
-- [ ] **Step 3: `tests/node/fixtures/installed-layout.mjs` 구현**
+- [x] **Step 3: `tests/node/fixtures/installed-layout.mjs` 구현**
   - 위 인터페이스대로 만든다. native는 `loadNative({artifactDirectory:'build/native'})`로 불러온다.
 
-- [ ] **Step 4: fixture 생성**
+- [x] **Step 4: fixture 생성**
   - `node tests/node/fixtures/installed-layout.mjs --write`
   - 확인: 조합 8개가 있고, `ko` 조합의 `skills/arc/SKILL.md` 해시가 `en`과 다르다.
 
-- [ ] **Step 5: 통과 확인**
+- [x] **Step 5: 통과 확인**
   - `node --test tests/node/installed-layout-golden.test.mjs` → PASS(4건)
   - `--diff` 출력이 비어 있다.
 
@@ -200,6 +200,20 @@ node tests/node/fixtures/installed-layout.mjs --diff
 - AC15 해시 대조
 
 **보류 조건:** fixture에 home 경로 같은 비결정 값이 섞이면(결정성 테스트 실패) 수락을 보류한다.
+
+**진행 기록 (2026-11-14, 수락):**
+- 기준선(Step 0): QA dispatch 901f3218 segment 2에서 측정했다. Codex QA sandbox 환경 기준이다. 결과는 Node not ok 105건, Python 실패 블록 564건이다. 같은 환경에서만 비교한다.
+- 구현: Implementer dispatch c33260e8. RED(ENOENT)를 확인한 뒤 GREEN(4/4)이 됐다. 계획 대비 API 편차는 없다.
+- QA(segment 3) 결과
+  - GOLD: 2회 통과했고 `--diff` 출력이 비어 있다.
+  - manifest, runtime, role-policy `--check`: 모두 통과
+  - B1/B2: 신규 실패와 해소된 실패가 모두 0건이다.
+  - B3/B4: 입증됨
+  - AC15: 보호 대상 해시가 일치한다.
+- 처분 기록
+  - `check-installer-parity.mjs` 실패(`Original assertion inventory changed`)는 커밋된 HEAD c38c264 사본에서도 재현되는 기존 실패다.
+  - `role-bridge-resume`/`role-bridge-run`은 기준선과 이번 실행 모두 180s timeout이 났다. 이 두 파일의 범위는 B1/B2 미검증으로 남긴다(T1과 무관).
+  - 실행 중 사용자 쪽 외부 ref 변경(master merge/push)으로 refsChanged가 감지됐다. 작업 트리와 HEAD는 영향받지 않았다.
 
 ---
 
