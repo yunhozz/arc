@@ -635,8 +635,77 @@ test('shell scan suppresses three FileChange claims but reports a silent golden 
   const direct=await s.w.tick();assert.equal(direct.filter(e=>e.kind==='file_change').length,1);
   s.advance(1000);const out=inferred(await s.w.tick());
   assert.deepEqual(out.map(e=>[e.kind,e.paths,e.sessionId]),[['file_change',[golden],'exec-shell']]);
-  s.advance(3000);s.stats.set(golden,{mtimeMs:3});
-  assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[golden]]]);
+  const a=path.join(s.cwd,'a');
+  s.advance(3000);s.stats.set(a,{mtimeMs:3});
+  assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[a]]]);
+});
+
+test('shell claims survive unchanged scans until a pending Claude Edit lands',async t=>{
+  const s=setup(t), x=path.join(s.cwd,'x');
+  s.files(['x']);s.stats.set(x,{});
+  const file=s.cl('pending-edit');await s.w.start();s.advance(3000);
+  s.append(file,[{type:'assistant',sessionId:'pending-edit',cwd:s.cwd,message:{content:[
+    {type:'tool_use',id:'edit-x',name:'Edit',input:{file_path:x,old_string:'before',new_string:'after'}},
+  ]}}]);
+  assert.deepEqual((await s.w.tick()).filter(e=>e.kind==='file_change').map(e=>e.paths),[[x]]);
+  s.advance(1000);assert.deepEqual(content(await s.w.tick()),[]);
+  s.stats.set(x,{mtimeMs:2});
+  s.append(file,[{type:'user',sessionId:'pending-edit',cwd:s.cwd,message:{content:[
+    {type:'tool_result',tool_use_id:'edit-x',content:'Edit applied'},
+  ]}}]);
+  s.advance(3000);assert.deepEqual(inferred(await s.w.tick()),[]);
+  s.advance(1000);assert.deepEqual(inferred(await s.w.tick()),[]);
+  assert.equal(scans(s).length,3);
+});
+
+test('unobserved shell claims remain valid through two minutes and then expire',async t=>{
+  const s=setup(t), x=path.join(s.cwd,'x'), y=path.join(s.cwd,'y');
+  s.files(['x','y']);s.stats.set(x,{});s.stats.set(y,{});
+  const file=s.cl('expiring-edit');await s.w.start();s.advance(3000);
+  s.append(file,[{type:'assistant',sessionId:'expiring-edit',cwd:s.cwd,message:{content:[
+    {type:'tool_use',id:'edit-x',name:'Edit',input:{file_path:x,old_string:'before',new_string:'after'}},
+    {type:'tool_use',id:'edit-y',name:'Edit',input:{file_path:y,old_string:'before',new_string:'after'}},
+  ]}}]);
+  assert.equal((await s.w.tick()).filter(e=>e.kind==='file_change').length,2);
+  s.advance(1000);assert.deepEqual(content(await s.w.tick()),[]);
+  // The next scan starts exactly 120000ms after the claims were recorded.
+  s.advance(118000);s.stats.set(x,{mtimeMs:2});
+  assert.deepEqual(inferred(await shellActivity(s,file)),[]);
+  // Y has remained unchanged until after its unconsumed claim expires.
+  s.advance(3000);s.stats.set(y,{mtimeMs:2});
+  assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[y]]]);
+});
+
+test('shell scans do not suppress changes claimed only by attachment history',async t=>{
+  const s=setup(t), a=path.join(s.cwd,'a');
+  s.files(['a']);s.stats.set(a,{});
+  const file=s.c('history-edit',[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{a:{}}}}}]);
+  const history=await s.w.start();
+  assert.deepEqual(history.filter(e=>e.kind==='file_change').map(e=>e.paths),[['a']]);
+  s.advance(3000);s.stats.set(a,{mtimeMs:2});
+  assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[a]]]);
+});
+
+test('disabled shell roots neither accumulate claims nor resolve tool-reported paths',async t=>{
+  const s=setup(t), file=s.c('off-claims'), directory=path.join(s.cwd,'tool-claims');
+  s.files(Array.from({length:20001},(_,i)=>`f${i}`));
+  const out=await s.w.start();
+  assert.ok(notices(out).some(n=>n.includes('more than 20000 files')));
+  let claims=0,realPaths=0;
+  const set=Map.prototype.set,realpath=fs.realpathSync;
+  t.mock.method(Map.prototype,'set',function(key,value){
+    if(typeof key==='string' && key.startsWith(directory+path.sep))claims++;
+    return set.call(this,key,value);
+  });
+  t.mock.method(fs,'realpathSync',function(file,...args){
+    if(file===directory)realPaths++;
+    return realpath.call(this,file,...args);
+  });
+  for(const name of ['a','b','c']){
+    s.append(file,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[path.join(directory,name)]:{}}}}}]);
+    assert.equal((await s.w.tick()).filter(e=>e.kind==='file_change').length,1);
+  }
+  assert.deepEqual({claims,realPaths},{claims:0,realPaths:0});
 });
 
 test('shell scans attribute changes to the most recently active followed session',async t=>{

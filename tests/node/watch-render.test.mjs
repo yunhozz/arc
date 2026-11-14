@@ -290,6 +290,21 @@ test('wrapLine prefers the last fitting space and otherwise preserves graphemes'
     ['exact',5,['exact']],['',5,['']],
   ]) assert.deepEqual(renderer.wrapLine(text,avail),want);
 });
+test('displayWidth counts default emoji presentation as two columns', () => {
+  for (const text of ['✅','❌','⚡','⭐','🚀','🛑','🟠','🩰']) {
+    assert.equal(renderer.displayWidth(text),2,text);
+  }
+});
+test('wrapLine does not emit indentation-only pieces before a long token', () => {
+  for (const [text,avail,want] of [
+    ['  abcdefghij',6,['  abcd','efghij']],
+    ['        abcdefghij',4,['abcd','efgh','ij']],
+  ]) {
+    const lines=renderer.wrapLine(text,avail);
+    assert.deepEqual(lines,want);
+    assert.ok(lines.every(line=>line.trim().length>0));
+  }
+});
 test('messages and file paths wrap to display width with uncolored continuation indentation', () => {
   assert.equal(typeof renderer.displayWidth,'function');
   for (const kind of ['user','agent','file_change','file_create','file_delete']) for (const color of [false,true]) {
