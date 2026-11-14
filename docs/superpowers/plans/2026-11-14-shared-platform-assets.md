@@ -655,15 +655,15 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 1: 테스트 변경 먼저 적용 (RED)** — heading 목록, phrase 출처, `HANDOFF_FILES`
+- [x] **Step 1: 테스트 변경 먼저 적용 (RED)** — heading 목록, phrase 출처, `HANDOFF_FILES`
   - `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests -p test_arc_policy.py -k worktree -k handoff`
   - 예상: FAIL (`worktree-creation.md` 없음, heading 불일치)
-- [ ] **Step 2:** 문서를 분리한다.
-- [ ] **Step 3: 재생성과 golden 갱신**
+- [x] **Step 2:** 문서를 분리한다.
+- [x] **Step 3: 재생성과 golden 갱신**
   - `node scripts/update-manifest.mjs`
   - `--write` 전에 `node tests/node/fixtures/installed-layout.mjs --diff`를 실행해 출력을 증거로 남긴다. 위 12줄과 같아야 한다.
   - `--write`
-- [ ] **Step 4:** 대상 테스트와 GOLD가 PASS다.
+- [x] **Step 4:** 대상 테스트와 GOLD가 PASS다.
 
 **수용 기준:** AC18, AC21, AC13. W1에서는 codex 파일의 anchor 유지만 확인하고, AC17 전체는 W2에서 확인한다.
 
@@ -673,6 +673,21 @@ node tests/node/fixtures/installed-layout.mjs --diff
 - `node scripts/check-installer-parity.mjs`
 - CHK, N-ALL, P-ALL(B1–B4)
 - `git diff --stat -- claude`가 0이다.
+
+**진행 기록 (2026-11-14, 수락):**
+- 구현(Implementer f03b4ef4)
+  - 첫 실행은 Codex 사용량 한도(`usage_limit_exceeded`)로 중단됐다. 사용자가 계정을 전환한 뒤 같은 세션으로 재개했다.
+  - 중립 계약 `handoff-worktree.md`: 앱 관련 문구가 없고 anchor 4개를 갖는다.
+  - `worktree-creation.md`(codex)를 새로 만들어 Codex 앱 생성 절차를 옮겼다.
+  - `git-recovery.md`의 워크트리 절은 링크로 바꿨다.
+- QA(0250b1b8)
+  - proven: AC18(golden 변경이 예상한 codex 12건과 정확히 같고 claude 0건), AC21, AC15
+  - 중립성과 링크, 테스트 약화 없음, 변경 금지 파일 diff 0을 확인했다.
+  - B1/B2(T5 로그 대비): Node 104로 같고, Python은 562→561이다(`test_workspace_handoff_worktree_creation_and_identity` 계약 1건 해소). 신규 실패는 0건이다.
+- 처분 기록
+  - B3 메시지 차이 56건은 단언 패턴 접두부가 모두 같다. 메시지에 포함되는 검사 대상 문서 본문만 바뀌었다(Orchestrator가 판별).
+  - 문서 규칙 보존: 삭제되거나 약화된 규칙이 없음을 확인했다. 각 규칙이 정확히 한 곳에만 있는지(단일 위치 조건)는 최종 Reviewer가 함께 확인한다.
+  - parity 실패는 기존부터 있던 것이다.
 
 ---
 

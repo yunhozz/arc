@@ -7,7 +7,7 @@ TMP_ROOT = os.path.realpath(tempfile.gettempdir())
 REFERENCE_NAMES = ("planning", "handoff", "handoff-prep", "handoff-worktree", "verification", "git-recovery",
                    "arc-visual-companion", "commit")
 
-HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree")
+HANDOFF_FILES = ("handoff", "handoff-prep", "handoff-worktree", "worktree-creation")
 
 def policy_text(name: str) -> str:
     # "handoff" covers the whole handoff contract, which is split by trigger across HANDOFF_FILES.
@@ -304,7 +304,8 @@ class ConditionalReferenceTests(unittest.TestCase):
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
                                                     "execution-time plan amendment", "recovery prerequisite"])
-        self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer"])
+        self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer",
+                                                        "worktree failures and partial completion"])
         core = (REPO / "codex/skill/references/handoff.md").read_text().lower()
         self.assertIn("handoff-prep.md", core)
         self.assertIn("handoff-worktree.md", core)
@@ -999,7 +1000,10 @@ class RolePolicyTests(unittest.TestCase):
     def _workspace_handoff_section(self, title: str) -> str:
         handoff = policy_text("handoff") + " " + policy_text("git-recovery")
         self.assertIn(f"### {title.lower()}", handoff)
-        return handoff.split(f"### {title.lower()}", 1)[1].split("### ", 1)[0]
+        section = handoff.split(f"### {title.lower()}", 1)[1].split("### ", 1)[0]
+        if title == "New managed worktree":
+            section += " " + policy_text("worktree-creation")
+        return section
 
     def _assert_workspace_handoff_contracts(
         self, title: str, contracts: tuple[str, ...]
@@ -1253,11 +1257,16 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_worktree_contract_matches_selected_execution_paths(self) -> None:
         text = policy_text("handoff-worktree")
+        creation = policy_text("worktree-creation")
         for phrase in ("mcp__codex_app__create_worktree", "allowasync: true", "operationid", "attach_worktree",
-                       "the app determines the actual destination path", "approved branch", "source head",
-                       "index blob and mode", "working-tree bytes", "latest approved version", "base sha",
-                       "staging", "registration", "do not fall back to raw git worktree creation"):
+                       "the app determines the actual destination path", "do not fall back to raw git worktree creation"):
+            self.assertIn(phrase, creation)
+        for phrase in ("approved branch", "source head", "index blob and mode", "working-tree bytes",
+                       "latest approved version", "base sha", "staging", "registration"):
             self.assertIn(phrase, text)
+        self.assertNotIn("mcp__codex_app__", text)
+        self.assertNotIn("codex app", text)
+        self.assertIn("[worktree-creation](worktree-creation.md)", text)
         self.assertNotIn("../<repo>-<topic>-worktree", text)
         self.assertNotIn("git worktree add -b", text)
         self.assertRegex(text, r"only an explicit user choice of this third path authorizes preparation")
@@ -1533,7 +1542,10 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         self.assertIn("current checkout", text)
         self.assertIn("task branch", text)
         worktree = self.text("handoff-worktree")
-        for phrase in ("before formal drafting", "registration", "current-chat attachment", "common directory", "approved branch", "legacy or restart", "do not move, delete, or modify the source documents"):
+        creation = self.text("worktree-creation")
+        for phrase in ("current-chat attachment",):
+            self.assertIn(phrase, creation)
+        for phrase in ("before formal drafting", "registration", "common directory", "approved branch", "legacy or restart", "do not move, delete, or modify the source documents"):
             self.assertIn(phrase, worktree)
 
     def test_choice_reuse_and_reselection_before_documents(self):
