@@ -75,6 +75,7 @@ for(const[label,change]of [
 ])test(`static payload rejects ${label}`,t=>{const root=fixture(t);change(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});
 for(const[,name]of referencePaths)test(`static payload requires shared/${name} after manifest regeneration`,t=>{const root=fixture(t);fs.unlinkSync(root+'/shared/skill/references/'+name);refresh(root);assert.throws(()=>verify(root),{code:'ARC_PAYLOAD_VALIDATION'});});
 for(const platform of ['codex','claude'])test(`reintroduced ${platform} imported copy fails C1`,t=>{const root=compositionFixture(t);fs.copyFileSync(root+'/shared/skill/references/brainstorming.md',root+'/'+platform+'/skill/references/brainstorming.md');refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/C1/.test(error.message)&&error.message.includes('references/brainstorming.md'));});
+test('reintroduced platform runtime copy fails C1',t=>{for(const platform of ['codex','claude']){const root=compositionFixture(t),name=platform+'/skill/runtime/cli.mjs';fs.mkdirSync(path.dirname(root+'/'+name),{recursive:true});fs.copyFileSync(root+'/shared/skill/runtime/cli.mjs',root+'/'+name);refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/C1/.test(error.message)&&error.message.includes('runtime/cli.mjs'));}});
 for(const prefix of ['shared','codex','claude'])test(`payload rejects nested ${prefix} reference tree`,t=>{const root=compositionFixture(t),base=root+'/'+prefix+'/skill/references/superpowers';fs.mkdirSync(base,{recursive:true});fs.writeFileSync(base+'/x.md','nested');refresh(root);assert.throws(()=>verify(root),/nested/i);});
 test('payload rejects missing shared/skill tree',t=>{const root=compositionFixture(t);fs.rmSync(root+'/shared/skill',{recursive:true});refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&/Required flat reference file is missing/.test(error.message));});
 const localUpdater='scripts/update-superpowers-local.sh';
@@ -111,7 +112,7 @@ const requiredRuntimePaths = [
  'lib/runtime/schema.mjs','lib/runtime/scope.mjs','lib/runtime/store.mjs','lib/runtime/verification.mjs'
 ];
 test('regenerating the manifest cannot hide any required canonical or installed runtime asset',t=>{
- const root=fixture(t);const required=['codex/skill/runtime/role-policy.json','claude/skill/runtime/role-policy.json',...requiredRuntimePaths,...['codex','claude'].flatMap(platform=>requiredRuntimePaths.map(name=>platform+'/skill/runtime/'+name.slice('lib/runtime/'.length))),'lib/installer/runtime-assets.mjs'];
+ const root=fixture(t);const required=['shared/skill/runtime/role-policy.json',...requiredRuntimePaths,...requiredRuntimePaths.map(name=>'shared/skill/runtime/'+name.slice('lib/runtime/'.length)),'lib/installer/runtime-assets.mjs'];
  for(const name of required){const file=path.join(root,name);assert.ok(fs.existsSync(file),name);const bytes=fs.readFileSync(file);fs.unlinkSync(file);refresh(root);assert.throws(()=>verify(root),error=>error.code==='ARC_PAYLOAD_VALIDATION'&&error.message.includes('Required runtime asset is missing: '+name),name);fs.writeFileSync(file,bytes);}
  refresh(root);assert.ok(verify(root).files instanceof Map);
 });

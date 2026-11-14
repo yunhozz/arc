@@ -500,22 +500,22 @@ node tests/node/fixtures/installed-layout.mjs --diff
 
 **단계**
 
-- [ ] **Step 1: 테스트·fixture 변경 먼저 적용 (RED)**
+- [x] **Step 1: 테스트·fixture 변경 먼저 적용 (RED)**
   - manifest.test에 `'reintroduced platform runtime copy fails C1'`도 함께 추가한다.
   - `node --test tests/node/runtime-assets.test.mjs tests/node/runtime-versions.test.mjs tests/node/instruction-layout.test.mjs`
   - 예상: FAIL (ENOENT `shared/skill/runtime/...`)
 
-- [ ] **Step 2: 이동·삭제**
+- [x] **Step 2: 이동·삭제**
   - `mv codex/skill/runtime shared/skill/runtime`, `rm -r claude/skill/runtime`
   - 추적 파일만 대상이다. 미추적 파일이 남아 있으면 중단하고 보고한다.
 
-- [ ] **Step 3: 생성기와 manifest 코드 변경**
+- [x] **Step 3: 생성기와 manifest 코드 변경**
 
-- [ ] **Step 4: 생성기 확인과 manifest 재생성**
+- [x] **Step 4: 생성기 확인과 manifest 재생성**
   - `node scripts/update-runtime-assets.mjs --check` → `Runtime payload verified (<N/2> files)`, drift 없음
   - `node scripts/update-manifest.mjs`, 이어서 `--check`
 
-- [ ] **Step 5: 통과 확인**
+- [x] **Step 5: 통과 확인**
   - 대상 테스트가 PASS다. B3 예외는 증거를 함께 낸다.
   - `runtime-installed-entry` 2건은 arc-consistent-gates 원인으로 기준선과 같다.
 
@@ -527,6 +527,23 @@ node tests/node/fixtures/installed-layout.mjs --diff
 - **AC6 (runtime):** C1 재유입 테스트가 PASS다.
 - **AC10, AC11, AC12:** `npm pack --dry-run --json`에 `shared/skill/runtime/**`이 있고 플랫폼 runtime은 없다.
 - GOLD(`--diff` 비어 있음), CHK, N-ALL, P-ALL(B1–B4)
+
+**진행 기록 (2026-11-14, 수락):**
+- 구현(Implementer 5d97976e)
+  - runtime 32개를 shared로 이동했다(해시 32/32 일치).
+  - 생성기 출력이 64개에서 32개로 줄었고 drift는 없다.
+  - C1 runtime 재유입 테스트를 추가했다.
+- QA(d72e8bfb)
+  - proven: AC2, AC3, AC4(golden diff 0), AC6(runtime), AC10, AC11, AC12, AC15, B4
+  - AC11 상세: shared runtime 32개 추가, 플랫폼 runtime 64개 제거. 그 밖의 차이는 없다.
+  - instruction-contracts의 플랫폼 키 24개는 같은 해시를 가진 shared 키 12개로 바뀌었다.
+  - B1/B2(T3 로그 대비): Node 105→104(F2 해소 1건), Python 562로 동일. 신규 실패는 0건이다.
+- 처분 기록(B3)
+  - `plan.test.mjs` codex 렌더링 기준선 4건은 실제 해시가 달라졌다. 이 8건은 기준선부터 실패하던 테스트다.
+  - 원인은 fixture 변경이다. 이전에는 `git-query.mjs`를 claude runtime에만 넣었고, 이제는 shared에 넣는다. shared 파일은 설계상 두 플랫폼에 합성되므로 codex 렌더 결과에도 포함된다.
+  - 실제 설치 결과물은 golden diff 0으로 변하지 않았다.
+  - 나머지 2건의 메시지 차이는 경로명(플랫폼→shared) 변경뿐이다.
+  - parity 검사 실패와 role-bridge timeout은 기존부터 있던 것이다.
 
 ---
 

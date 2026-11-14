@@ -23,7 +23,7 @@ const expectedModules = [
  'schema.mjs', 'operations.mjs', 'gate.mjs', 'adapters/codex.mjs', 'adapters/claude.mjs', 'capabilities.mjs', 'identity.mjs', 'git-query.mjs', 'target-preparation.mjs',
  'local-cli.mjs', 'role-routing-config.mjs', 'role-routing.mjs', 'role-bridge.mjs', 'role-dispatch-policy.mjs', 'role-dispatch-store.mjs', 'role-bridge-args.mjs', 'role-observe.mjs', 'role-supervisor.mjs'
 ];
-for (const runtime of ['lib/runtime/', 'codex/skill/runtime/', 'claude/skill/runtime/']) {
+for (const runtime of ['lib/runtime/', 'shared/skill/runtime/']) {
  test(`${runtime} freezes the ordered T5 inventory and hashes every raw module Buffer`, async () => {
   const directory = new URL('../../' + runtime, import.meta.url);
   const api = await import(new URL('bootstrap.mjs', directory));
@@ -45,7 +45,7 @@ test('install-only inventory additions and byte changes preserve the cooperative
  await writeFile(path.join(root,'lib/installer/runtime-assets.mjs'),'export const RUNTIME_MODULE_PATHS=Object.freeze('+JSON.stringify([...RUNTIME_MODULE_PATHS,'lib/runtime/install-only.mjs'].sort())+');');
  for(const bytes of ['export const install=1;','export const install=2;']){
   await writeFile(path.join(root,'lib/runtime/install-only.mjs'),bytes);const result=spawnSync(process.execPath,[path.join(root,'scripts/update-runtime-assets.mjs'),'--root',root],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);
-  for(const runtime of ['lib/runtime','codex/skill/runtime','claude/skill/runtime']){assert.equal(await readFile(path.join(root,runtime,'install-only.mjs'),'utf8'),bytes);const api=await import(pathToFileURL(path.join(root,runtime,'bootstrap.mjs')));assert.equal((await api.cooperativeVersions()).runtimeHash,baselineHash);}
+  for(const runtime of ['lib/runtime','shared/skill/runtime']){assert.equal(await readFile(path.join(root,runtime,'install-only.mjs'),'utf8'),bytes);const api=await import(pathToFileURL(path.join(root,runtime,'bootstrap.mjs')));assert.equal((await api.cooperativeVersions()).runtimeHash,baselineHash);}
  }
 });
 test('cooperative hash changes when the Claude adapter Git query dependency changes',async t=>{
@@ -56,5 +56,5 @@ test('cooperative hash changes when the Claude adapter Git query dependency chan
 });
 
 test('HSR: canonical and deployed policy/runtime versions agree',async()=>{
- assert.notEqual(baselineHash,historicalRuntimeHash);assert.notEqual(baselineHash,previousRuntimeHash);const versions=[];for(const runtime of ['lib/runtime/','codex/skill/runtime/','claude/skill/runtime/'])versions.push(await(await import(new URL('../../'+runtime+'bootstrap.mjs',import.meta.url))).cooperativeVersions());assert.deepEqual(versions[1],versions[0]);assert.deepEqual(versions[2],versions[0]);
+ assert.notEqual(baselineHash,historicalRuntimeHash);assert.notEqual(baselineHash,previousRuntimeHash);const versions=[];for(const runtime of ['lib/runtime/','shared/skill/runtime/'])versions.push(await(await import(new URL('../../'+runtime+'bootstrap.mjs',import.meta.url))).cooperativeVersions());assert.deepEqual(versions[1],versions[0]);
 });

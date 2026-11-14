@@ -36,5 +36,5 @@ test('package ships shared policy source and generator with check/update entry p
 test('HSR: packed payload omits native hook integrations and retains shared runtime APIs',()=>{
  const result=pack();assert.equal(result.status,0,result.stderr);const files=packRecord(result.stdout).files.map(f=>f.path);
  for(const name of ['lib/policy/claude-hook.mjs','codex/skill/hooks/runtime-gate.mjs','claude/skill/hooks/runtime-gate.mjs','claude/skill/hooks/role-git-guard.mjs','claude/skill/hooks/git-policy.json','scripts/probe-runtime-hooks.mjs'])assert.equal(files.includes(name),false,name);
- for(const name of ['lib/runtime/git-query.mjs','lib/runtime/adapters/codex.mjs','lib/runtime/adapters/claude.mjs','codex/skill/runtime/cli.mjs','claude/skill/runtime/cli.mjs'])assert.ok(files.includes(name),name);
+ for(const name of ['lib/runtime/git-query.mjs','lib/runtime/adapters/codex.mjs','lib/runtime/adapters/claude.mjs','shared/skill/runtime/cli.mjs'])assert.ok(files.includes(name),name);
 });

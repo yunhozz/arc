@@ -8,7 +8,7 @@ import {spawnSync,spawn} from 'node:child_process';
 
 for(const platform of ['codex','claude'])test(`${platform} installed endpoint preserves workflow guards without package dependencies`,async t=>{
  const home=await fs.mkdtemp(path.join(os.tmpdir(),"arc home '$ (installed)-"));t.after(()=>fs.rm(home,{recursive:true,force:true}));
- const runtime=path.join(home,'skills/arc/runtime');await fs.mkdir(path.dirname(runtime),{recursive:true});await fs.cp(`${platform}/skill/runtime`,runtime,{recursive:true});
+ const runtime=path.join(home,'skills/arc/runtime');await fs.mkdir(path.dirname(runtime),{recursive:true});await fs.cp('shared/skill/runtime',runtime,{recursive:true});
  const entry=path.join(runtime,'cli.mjs');assert.equal(await fs.stat(entry).then(s=>s.isFile()).catch(()=>false),true);
  const run=(args,input)=>spawnSync(process.execPath,[entry,...args],{cwd:home,input,encoding:'utf8'});
  const git=args=>{const r=spawnSync('git',args,{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
