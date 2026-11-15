@@ -14,7 +14,7 @@ for(const mode of ['composite','unverified'])test(`all install and preset refuse
  const ctx=await compositeContext(t);await standalone(ctx);assert.equal((await publish(ctx)).code,0);
  if(mode==='unverified')fs.appendFileSync(ctx.userHome+'/.codex/arc-role-platform-routing.json','invalid');
  const before=profileFiles(ctx),models=['codex','claude'].map(p=>fs.readFileSync(ctx.userHome+'/.'+p+'/skills/arc/models.toml'));
- for(const kind of ['install','preset'])for(const switchFromComposite of [false,true])await t.test(`${kind} switch=${switchFromComposite}`,async()=>assert.rejects(api.prepareOperation(ctx,{kind,target:'all',switchFromComposite}),{code:'ARC_TARGET_CONFIGURATION',message:mode==='composite'?'Claude & Codex is active; confirm the switch first':'Claude & Codex configuration cannot be verified.'}));
+ for(const kind of ['install','preset'])for(const switchFromComposite of [false,true])await t.test(`${kind} switch=${switchFromComposite}`,async()=>assert.rejects(api.prepareOperation(ctx,{kind,target:'all',switchFromComposite}),{code:'ARC_TARGET_CONFIGURATION',message:mode==='composite'?'Mixed routing is active; confirm the switch first':'Mixed routing configuration cannot be verified.'}));
  assert.deepEqual(profileFiles(ctx),before);for(const [i,p]of ['codex','claude'].entries())assert.deepEqual(fs.readFileSync(ctx.userHome+'/.'+p+'/skills/arc/models.toml'),models[i]);
  // Everything retains the removal path even when verification fails.
  assert.equal((await api.prepareOperation(ctx,{kind:'uninstall',target:'all',removeCli:false})).kind,'uninstall');

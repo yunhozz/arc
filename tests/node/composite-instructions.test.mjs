@@ -137,7 +137,7 @@ test('operations source and docs no longer report held / unverified and describe
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
   assert.ok(!operations.includes('held / unverified'));
   assert.ok(!operations.includes('Role execution: per-role status via routing-status.'));
-  assert.ok(operations.includes('Claude & Codex activated.'));
+  assert.ok(operations.includes('`${mixedLabel(prepared.config.platforms,installerRegistryOf(context))} activated.`'));
   const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
   const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
   assert.doesNotMatch(readme, /Every role remains `held \/ unverified`/);

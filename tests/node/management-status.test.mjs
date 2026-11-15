@@ -71,3 +71,29 @@ test('static catalog resolves via descriptor',async()=>{
  assert.equal(result.catalog.platform,'zeta');
  assert.deepEqual(result.catalog.pairs,[{model:'zeta-model',effort:'high'}]);
 });
+
+test('injected zeta status reads standalone and composite through its registry',async t=>{
+ const {zetaContext,installAll}=await import('./fixtures/platforms/package-root.mjs');
+ const {resolveTargets}=await import('../../lib/installer/targets.mjs');
+ const {prepareCompositeFiles,publishCompositeFiles}=await import('../../lib/installer/role-routing.mjs');
+ const {buildRoleRoutingConfig,ROUTING_ROLES}=await import('../../lib/runtime/role-routing-config.mjs');
+ const {verifyPayload}=await import('../../lib/installer/manifest.mjs');
+ const {loadModelConfig}=await import('../../lib/models/index.mjs');
+ const {renderStandaloneProfiles}=await import('../../lib/installer/plan.mjs');
+ const ctx=await zetaContext(t);await installAll(ctx,['claude','zeta']);
+ let status=(await api.collectStatus(ctx)).find(item=>item.platform==='zeta');
+ assert.equal(status.state,'installed',status.diagnostics[0]?.stack);assert.equal(status.settings.modelConfig.platform,'zeta');
+ const targets=resolveTargets(ctx).targets,payload=verifyPayload(ctx),modelConfigs={},profileInputs={};
+ for(const id of ['claude','zeta']){modelConfigs[id]=loadModelConfig(fs.readFileSync(path.join(targets[id].home,'skills/arc/models.toml')),id,ctx);profileInputs[id]=renderStandaloneProfiles({...ctx,payload,target:targets[id],modelConfig:modelConfigs[id],language:'en'});}
+ const config=buildRoleRoutingConfig({revision:'status-zeta',platforms:['claude','zeta'],roles:Object.fromEntries(ROUTING_ROLES.map(role=>[role,{platform:'zeta',model:'zeta-model',effort:'high'}]))},ctx);
+ await publishCompositeFiles({context:ctx,prepared:prepareCompositeFiles({context:ctx,targets,platforms:['claude','zeta'],anchor:'claude',config,profileInputs,modelConfigs})});
+ status=(await api.collectStatus(ctx)).find(item=>item.platform==='zeta');assert.equal(status.state,'installed',status.diagnostics[0]?.stack);
+});
+test('composite static catalog validation accepts injected zeta and rejects missing pairs',async()=>{
+ const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
+ const {assertCompositeCatalogRoles}=await import('../../lib/models/static-catalog.mjs');
+ const ctx=createTestRegistries(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'zeta',model:'zeta-model',effort:'high'}]));
+ const catalogs={zeta:{platform:'zeta',pairs:[{model:'zeta-model',effort:'high'}]}};
+ assert.doesNotThrow(()=>assertCompositeCatalogRoles({...ctx,roles,catalogs}));
+ assert.throws(()=>assertCompositeCatalogRoles({...ctx,roles:{...roles,arc_qa:{platform:'zeta',model:'other',effort:'high'}},catalogs}),/unavailable for arc_qa/);
+});

@@ -508,7 +508,7 @@ test('deactivation restores standalone across S', ...);
 - `currentInstallState(context) -> {mode, platforms, anchor}`(신규 export). `currentInstallMode`와 `readCompositeConfig`는 유지합니다.
 - `uninstallPrepared`: lock은 anchor home에서 잡습니다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('D1-a leaves other homes byte-identical', ...); // codex+claude standalone, claude만 install → codex home 스냅샷(재귀 바이트) 동일
@@ -521,8 +521,8 @@ test('kind preset, skipGlobal and target all remain accepted', ...);
 test('activation message uses display-ordered mixed label', ...); // messages[0]==='Mixed (Claude + Codex) activated.'
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/management-operations.test.mjs tests/node/preset*.test.mjs tests/node/uninstall*.test.mjs tests/node/all-targets.test.mjs tests/node/npm-lifecycle.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(management): composite 참여 집합 옵션과 Mixed 문구 적용`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/management-operations.test.mjs tests/node/preset*.test.mjs tests/node/uninstall*.test.mjs tests/node/all-targets.test.mjs tests/node/npm-lifecycle.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(management): composite 참여 집합 옵션과 Mixed 문구 적용`
 
 **수용 전 QA:** fresh QA가 바뀐 테스트 diff를 확인합니다. 문구 줄만 바뀌어야 하며, 기대값의 다른 변경이 있으면 거부합니다. AC-C1 CLI 테스트도 확인합니다.
 
@@ -1096,3 +1096,24 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
     - focused: 129 pass / 0 fail.
     - runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 통과.
   - 전체 `npm test`: 2066 tests, 2010 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
+- **작업 9 (2026-11-15 수용):**
+  - Implementer:
+    - dispatch `39bb7c7e`: 변경 없이 hold. 범위 밖 레지스트리 미전달 결함 2건(`lib/management/status.mjs` collectStatus, `lib/models/static-catalog.mjs` assertCompositeCatalogRoles)을 보고했습니다.
+    - dispatch `934d1a96`: 변경 없이 hold. 세 번째 결함(`lib/installer/uninstall.mjs` buildUninstallPlan)을 보고했습니다.
+    - dispatch `9e88b39e`: 구현 완료. 테스트만 추가하고 한 번 hold(`status.mjs` readRuntimeConcurrency('zeta'))한 뒤 같은 dispatch를 resume했습니다.
+  - Orchestrator 범위 기록(개정 3의 주입 레지스트리 취지 안, 기본 레지스트리 동작 불변 조건):
+    - `lib/installer/`·`lib/models/`·`lib/management/`에서 이미 있는 주입 레지스트리를 하위 호출에 넘기는 수정만 허용했습니다. 순환 규칙은 유지했고, 모듈마다 회귀 테스트를 추가했습니다.
+    - 실제 범위 추가 파일: `lib/installer/{plan,preset,uninstall}.mjs`, `lib/models/{catalog,static-catalog}.mjs`, `lib/management/status.mjs`, `tests/node/management-status.test.mjs`.
+    - `status.mjs`의 `readRuntimeConcurrency(platform,…)`는 descriptor `runtimeConfig.readConcurrency(…)` 호출로 바꿨습니다. `upgrade-state.mjs:25`와 같은 기존 패턴이며, codex/claude에서는 같은 함수입니다.
+  - 사전 위임 규칙: `composite-instructions.test.mjs:140`과 `tui-app.test.mjs`의 문구 기대값만 바꿨습니다. 140행은 operations 소스의 `mixedLabel` 활성 문구 리터럴을 단언합니다.
+  - fresh QA dispatch `fc370856`(2 segment):
+    - Q1 proven: 기존 테스트 변경은 문구 줄뿐입니다.
+    - Q2 proven: 기본 레지스트리의 collectStatus·install/preset/uninstall plan·카탈로그 검증 출력이 `091d191` export와 경로 정규화 후 같습니다.
+    - Q3 proven: 전달을 되돌린 mutation 6건이 각 회귀 테스트를 실패시켰습니다.
+    - Q4 proven(management API 범위), Q5 proven: 해석 불가 `CLAUDE_CONFIG_DIR`에서 codex만 설치해도 `~/.claude` sentinel 바이트가 같고 지정 경로를 만들지 않습니다.
+    - Q7 proven: 신규 import 순환 0개, 금지 도달 0건입니다.
+    - Q6: 가용성 메시지 매핑과 composite `kind:'preset'` 오류 문구(HEAD와 같음)는 확인했습니다. 기존 composite에 새 플랫폼을 더하는 경우(새 P의 profile write)는 `['claude','zeta']`에 codex를 더하면 anchor가 옮겨져 `Existing composite marker does not match configuration`으로 거부됐습니다. 이는 작업 10(D1-e 집합 변경과 anchor 이동) 범위라 작업 10 QA로 넘깁니다.
+  - 검증(Orchestrator 환경):
+    - runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2083 tests, 2027 pass / 38 fail. 실패 목록이 기존 목록과 같습니다(신규 0건).
+  - Implementer 재개 dispatch의 `permission_violation_observed`는 changedPaths 0건과 다른 세션의 fetch(ref 활동)로 정리했습니다.
