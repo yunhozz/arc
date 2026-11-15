@@ -1,40 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { editPlatformRoles } from '../../lib/tui/custom-preset.mjs';
+import { selectCatalogPair, editRole } from '../../lib/tui/custom-preset.mjs';
 
-const initial=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'model-a',model_reasoning_effort:'high'}]));
+const initial={model:'model-a',effort:'high'};
 const catalog={platform:'codex',pairs:[{model:'model-a',effort:'high'},{model:'model-a',effort:'medium'},{model:'model-b',effort:'low'}]};
 test('model choices are unique and only confirmed supported effort updates a role',async()=>{
- const before=structuredClone(initial);let step=0;
- const result=await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  if(title==='Codex'){if(step++===0)return 0;assert.equal(options.selected,0);return 5;}
+ const before=structuredClone(initial);
+ const result=await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
   if(title.startsWith('Model')){assert.deepEqual(rows,['model-a','model-b']);assert.match(options.info({selected:0,columns:100,rows:30}).join(' '),/high.*medium/);return 1;}
   if(title.startsWith('Effort')){assert.deepEqual(rows,['low']);assert.deepEqual(initial,before);return 0;}
   assert.fail(title);
  },page:async()=>assert.fail('unexpected unavailable')}});
- assert.equal(result.roles.arc_scouter.model,'model-b');assert.equal(result.roles.arc_scouter.model_reasoning_effort,'low');assert.deepEqual(initial,before);
-});
-
-test('role editor presents the diagram with focus and preserves it after editing',async()=>{
- let visits=0;await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  if(title==='Codex'){assert.equal(typeof options.renderBody,'function');const body=options.renderBody({selected:2,blink:true,columns:120,rows:30});assert.match(body.rows.join('\n'),/Orchestrator/);assert.match(body.rows.join('\n'),/> Implementer/);assert.equal(options.refreshMs,600);return visits++===0?2:null;}
-  if(title.startsWith('Model'))return 0;if(title.startsWith('Effort'))return 0;assert.fail(title);
- },page:async()=>{}}});
+ assert.equal(result.model,'model-b');assert.equal(result.effort,'low');assert.deepEqual(initial,before);
 });
 
 test('model picker shows the full identifier and all supported efforts',async()=>{
- const model='long-'+('x'.repeat(120)),pairs=[{model,effort:'high'},{model,effort:'medium'}];let visits=0;
- await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog:{platform:'codex',pairs},ui:{menu:async(title,rows,options)=>{
-  if(title==='Codex')return visits++?null:0;
+ const model='long-'+('x'.repeat(120)),pairs=[{model,effort:'high'},{model,effort:'medium'}];
+ await selectCatalogPair({roleName:'Scouter',current:initial,catalog:{platform:'codex',pairs},ui:{menu:async(title,rows,options)=>{
   if(title.startsWith('Model')){assert.deepEqual(rows,[model]);const info=options.info({selected:0,columns:30,rows:24}).join('');assert.ok(info.includes(model));assert.match(info,/high.*medium/);return null;}
   assert.fail(title);
  },page:async()=>{}}});
 });
 
 test('model and effort detail stays in place with placeholders on Back',async()=>{
- let customVisits=0,modelVisits=0;
- await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  if(title==='Codex')return customVisits++===0?0:null;
+ let modelVisits=0;
+ await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
   if(title==='Model — Scouter'){
    assert.deepEqual(options.info({selected:0,columns:100,rows:30}).slice(-3),['Model: model-a','Effort: high, medium','']);
    assert.deepEqual(options.info({selected:rows.length,columns:100,rows:30}),['Model: -','Effort: -','']);
@@ -48,41 +38,31 @@ test('model and effort detail stays in place with placeholders on Back',async()=
  },page:async()=>assert.fail('unexpected unavailable')}});
 });
 
-test('diagram marks only the role whose current pair is unavailable',async()=>{
- const roles=structuredClone(initial);roles.arc_planner={model:'missing-model',model_reasoning_effort:'high'};
- await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:roles,catalog,ui:{menu:async(title,rows,options)=>{
-  assert.equal(title,'Codex');const lines=options.renderBody({selected:0,blink:true,columns:120,rows:30}).rows;
-  assert.match(lines[1],/Planner !/);assert.equal((lines.join('\n').match(/!/g)??[]).length,1);return null;
- },page:async()=>{}}});
-});
-
 test('model detail resize guidance blocks Enter and retains role and model selection',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const model='candidate-'+('x'.repeat(198)),roles=structuredClone(initial),catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}],unavailable:[{model:'old',reason:'unsupported'}]};
- let viewport={columns:120,rows:40};const screens=[],events=[{name:'enter'},{name:'resize',viewport:{columns:40,rows:12}},{name:'enter'},{name:'resize',viewport:{columns:120,rows:40}},{name:'enter'},{name:'enter'},{name:'escape'}];
+ const model='candidate-'+('x'.repeat(198)),current={platform:'codex',...initial},catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}],unavailable:[{model:'old',reason:'unsupported'}]};
+ let viewport={columns:120,rows:40};const screens=[],events=[{name:'down'},{name:'enter'},{name:'resize',viewport:{columns:40,rows:12}},{name:'enter'},{name:'resize',viewport:{columns:120,rows:40}},{name:'enter'},{name:'enter'},{name:'escape'}];
  const session={viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);screens.push({screen,viewport:{...viewport},...result});return result;},nextEvent:async()=>{const event=events.shift();if(event?.viewport)viewport=event.viewport;return event??{name:'eof'};}};
- await assert.rejects(editPlatformRoles({ui:createTuiInterface(session),platform:'codex',title:'Codex',initialRoles:roles,catalog}),{code:'ARC_TUI_HOME'});
+ await assert.rejects(editRole({ui:createTuiInterface(session),roleName:'Scouter',current,availabilityOf:id=>({selectable:id==='codex',reason:id==='codex'?null:'unauthorized'}),loadCatalog:async()=>({status:'ready',catalog}),defaultsFor:async()=>initial}),{code:'ARC_TUI_HOME'});
  const narrow=screens.filter(item=>item.screen.title==='Model — Scouter'&&item.viewport.columns===40);assert.equal(narrow.length,2);assert.match(narrow[0].text,/requires/i);assert.equal(narrow[0].selectionEnabled,false);
  const wide=screens.find(item=>item.screen.title==='Model — Scouter'&&item.viewport.columns===120);assert.ok(wide.screen.rows.slice(wide.screen.selected).join('').includes(model));assert.match(wide.text,/high, low/);assert.equal(wide.selectionEnabled,true);
- assert.ok(screens.some(item=>item.screen.title==='Effort — Scouter'));assert.deepEqual(roles,initial);
+ assert.ok(screens.some(item=>item.screen.title==='Effort — Scouter'));assert.deepEqual(current,{platform:'codex',...initial});
 });
 
 test('effort detail resize guidance blocks Enter and preserves pending selection',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const model='candidate-'+('x'.repeat(198)),roles=structuredClone(initial),catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}]};
- let viewport={columns:120,rows:40};const screens=[],events=[{name:'enter'},{name:'enter'},{name:'down'},{name:'resize',viewport:{columns:40,rows:12}},{name:'enter'},{name:'resize',viewport:{columns:120,rows:40}},{name:'enter'},{name:'resize',viewport:{columns:800,rows:40}},{name:'escape'}];
+ const model='candidate-'+('x'.repeat(198)),current={platform:'codex',...initial},catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}]};
+ let viewport={columns:120,rows:40};const screens=[],events=[{name:'down'},{name:'enter'},{name:'enter'},{name:'down'},{name:'resize',viewport:{columns:40,rows:12}},{name:'enter'},{name:'resize',viewport:{columns:120,rows:40}},{name:'enter'},{name:'resize',viewport:{columns:800,rows:40}},{name:'escape'}];
  const session={viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);screens.push({screen,viewport:{...viewport},...result});return result;},nextEvent:async()=>{const event=events.shift();if(event?.viewport)viewport=event.viewport;return event??{name:'eof'};}};
- await assert.rejects(editPlatformRoles({ui:createTuiInterface(session),platform:'codex',title:'Codex',initialRoles:roles,catalog}),{code:'ARC_TUI_HOME'});
+ await assert.rejects(editRole({ui:createTuiInterface(session),roleName:'Scouter',current,availabilityOf:id=>({selectable:id==='codex',reason:id==='codex'?null:'unauthorized'}),loadCatalog:async()=>({status:'ready',catalog}),defaultsFor:async()=>initial}),{code:'ARC_TUI_HOME'});
  const narrow=screens.filter(item=>item.screen.title==='Effort — Scouter'&&item.viewport.columns===40);assert.equal(narrow.length,2);assert.match(narrow[0].text,/requires/i);assert.equal(narrow[0].selectionEnabled,false);
  const wide=screens.filter(item=>item.screen.title==='Effort — Scouter'&&item.viewport.columns===120).at(-1);assert.match(wide.text,/> low/);assert.ok(wide.text.replace(/\n  /g,'').includes(model));assert.equal(wide.selectionEnabled,true);
- assert.ok(screens.some(item=>item.screen.title==='Codex'&&item.screen.rows.join('\n').includes('effort: low')));assert.deepEqual(roles,initial);
+ assert.ok(screens.some(item=>item.screen.title==='Scouter'&&item.screen.rows.join('\n').includes('Effort ‹ low ›')));assert.deepEqual(current,{platform:'codex',...initial});
 });
 
 
 test('compact detail menu puts one blank after the pager row and none before Back',async()=>{
- let visits=0;
- await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  if(title==='Codex')return visits++===0?0:null;
+ await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
   assert.equal(title,'Model — Scouter');const body=options.renderBody({selected:0,columns:60,rows:20}),pagerRow=body.rows.find(row=>row.startsWith('←/→: Details '));
   assert.ok(pagerRow);assert.equal(body.rows[body.rows.indexOf(pagerRow)+1],'');assert.equal(body.rows.at(-1),'Back');assert.notEqual(body.rows.at(-2),'');assert.equal(body.rows[body.selected],'model-a');
   const back=options.renderBody({selected:rows.length,columns:60,rows:20});assert.equal(back.rows[back.selected],'Back');return null;
@@ -90,16 +70,8 @@ test('compact detail menu puts one blank after the pager row and none before Bac
 });
 
 test('full model menu has no blank before Back',async()=>{
- let visits=0;
- await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  if(title==='Codex')return visits++===0?0:null;
+ await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
   assert.equal(title,'Model — Scouter');const body=options.renderBody({selected:rows.length,columns:120,rows:40});assert.equal(body.rows[body.selected],'Back');assert.notEqual(body.rows[body.selected-1],'');return null;
- },page:async()=>assert.fail('unexpected unavailable')}});
-});
-
-test('compact editor summary keeps role rows adjacent to controls',async()=>{
- await editPlatformRoles({platform:'codex',title:'Codex',initialRoles:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  assert.equal(title,'Codex');const body=options.renderBody({selected:5,blink:true,columns:60,rows:20});assert.ok(!body.rows.includes(''));assert.equal(body.rows[body.selected],'Apply');assert.equal(body.rows.at(-1),'Back');return null;
  },page:async()=>assert.fail('unexpected unavailable')}});
 });
 
@@ -260,4 +232,11 @@ test('role editor updates rendered rows through the existing ui key contract',as
  assert.deepEqual(await runRoleEditor(createTuiInterface(session)),{platform:'codex',model:'model-b',effort:'low'});
  assert.ok(screens.some(screen=>screen.rows[0]==='Platform ‹ Codex ›'&&screen.rows[1]==='Model ‹ model-a › (reset)'));
  assert.equal(screens.at(-1).rows[2],'Effort ‹ low › (reset)');
+});
+
+for(const ending of ['escape','interrupt','eof','error'])test('role editor propagates '+ending+' through the terminal interface',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs'),before=structuredClone(editorCurrent),screens=[];
+ const session={viewport:()=>({columns:100,rows:30}),render:screen=>{screens.push(screen);return{selectionEnabled:true};},nextEvent:async()=>ending==='error'?{name:'error',error:Error('terminal read failed')}:{name:ending}};
+ await assert.rejects(runRoleEditor(createTuiInterface(session)),ending==='error'?/terminal read failed/:{code:ending==='escape'?'ARC_TUI_HOME':ending==='interrupt'?'ARC_CANCELLED':'ARC_TUI_EOF'});
+ assert.deepEqual(editorCurrent,before);assert.match(screens[0].hint,/←\/→: Change/);
 });

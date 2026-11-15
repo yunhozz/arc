@@ -12,6 +12,8 @@ test('shared hints exactly describe menu, page, input and busy controls',()=>{
  assert.equal(typeof api.navigationHint,'function');
  assert.equal(api.navigationHint('menu'),'↑/↓: Select · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('menu',{backLabel:'exit'}),'↑/↓: Select · Enter Continue · Esc Exit');
+ assert.equal(api.navigationHint('menu',{horizontal:true}),'↑/↓: Select · ←/→: Change · Enter Continue · Esc Home');
+ assert.equal(api.navigationHint('menu',{horizontal:true,backLabel:'exit'}),'↑/↓: Select · ←/→: Change · Enter Continue · Esc Exit');
  assert.equal(api.navigationHint('page'),'↑/↓: Scroll · Enter Back · Esc Home');
  assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');

@@ -1,267 +1,106 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {spawn,spawnSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
 const available=process.platform==='darwin'&&spawnSync('which',['expect']).status===0;
+const withoutSgr=output=>output.replace(/\x1b\[[0-9;]*m/g,'');
 const url=new URL('../../lib/tui/app.mjs',import.meta.url).href;
 const modelsUrl=new URL('../../lib/models/index.mjs',import.meta.url).href,packageUrl=new URL('../../',import.meta.url);
-async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true,catalog=null}={}){
- const program=`import {runTui} from ${JSON.stringify(url)};import {readFileSync} from 'node:fs';import {loadModelConfig} from ${JSON.stringify(modelsUrl)};const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',modelConfig:loadModelConfig(readFileSync(new URL(platform+'/skill/models.toml',${JSON.stringify(packageUrl.href)}),'utf8'),platform),limits:{max_total_subagents:100,max_concurrent_subagents:5}},diagnostics:[]}));${observe}let calls=0,prepares=0,preparedOptions;const before=process.stdin.isRaw;const code=await runTui({context:{packageRoot:${JSON.stringify(fileURLToPath(packageUrl))}},services:{collectStatus:async()=>statuses,...( ${JSON.stringify(catalog)} ? {loadCatalog:async()=>(${JSON.stringify(catalog)})} : {}),prepareOperation:async(c,o)=>{prepares++;preparedOptions=o;return{kind:o.kind,options:o,plans:${plans},currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:${canUpgrade}};},executeOperation:async context=>{calls++;${execute}}}});console.log('OPTIONS='+JSON.stringify(preparedOptions));console.log('CODE='+code+' CALLS='+calls+' PREPARES='+prepares+' RESTORED='+(before===process.stdin.isRaw));`;
+async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true,catalog=null,installState={mode:'standalone',platforms:[]},codexAuth='authenticated'}={}){
+ const program=`import {runTui} from ${JSON.stringify(url)};import {readFileSync} from 'node:fs';import {loadModelConfig} from ${JSON.stringify(modelsUrl)};const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',modelConfig:loadModelConfig(readFileSync(new URL(platform+'/skill/models.toml',${JSON.stringify(packageUrl.href)}),'utf8'),platform),limits:{max_total_subagents:100,max_concurrent_subagents:5}},diagnostics:[],authentication:{authStatus:platform==='codex'?${JSON.stringify(codexAuth)}:'authenticated'},cliVersion:{version:'1.0.0'}}));${observe}let calls=0,prepares=0,preparedOptions;const before=process.stdin.isRaw;const code=await runTui({context:{packageRoot:${JSON.stringify(fileURLToPath(packageUrl))}},services:{currentInstallState:()=>(${JSON.stringify(installState)}),collectStatus:async()=>statuses,...( ${JSON.stringify(catalog)} ? {loadCatalog:async()=>(${JSON.stringify(catalog)})} : {}),prepareOperation:async(c,o)=>{prepares++;preparedOptions=o;return{kind:o.kind,options:o,plans:${plans},currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:${canUpgrade}};},executeOperation:async context=>{calls++;${execute}}}});console.log('OPTIONS='+JSON.stringify(preparedOptions));console.log('CODE='+code+' CALLS='+calls+' PREPARES='+prepares+' RESTORED='+(before===process.stdin.isRaw));`;
  const q=v=>"'"+v.replaceAll("'","'\\''")+"'";
  const command=`stty rows 40 cols 120; before=$(stty -g); ${q(process.execPath)} --input-type=module -e ${q(program)}; after=$(stty -g); test "$before" = "$after" && echo TERMIOS_RESTORED; stty -a`;
  // Drain completed frames between consecutive inputs so PTY output cannot block writes.
  steps=steps.replace(/expect -exact \{Total subagents\}\n/g,'expect -exact {Total subagents}\nexpect -exact {Type/Paste Input}\n').replace(/expect -exact \{Total subagents\}\n(?=send)/g,'expect -exact {Total subagents}\nexpect -re {Esc Home}\n').replace(/down\n(?=down)/g,'down\nexpect -re {Esc (Home|Exit)}\n').replace(/after 80\n(?=send|down|enter)/g,'after 80\nexpect -re {Esc Home}\n');
  const script=`set timeout 10\nexpect_before timeout {puts stderr {PTY expectation timed out}; exit 91}\nspawn -noecho /bin/sh -c {${command}}\nproc down {} {send -- "\\033\\\[B"; after 80}\nproc enter {} {send -- "\\r"; after 80}\nproc back {} {send -- "\\033"; after 80}\nexpect -exact {Esc Exit}\n${steps}\nexpect eof\nset result [wait]\nexit [lindex $result 3]`;
  const child=spawn('expect',['-c',script]);let output='';child.stdout.on('data',c=>output+=c);child.stderr.on('data',c=>output+=c);const timer=setTimeout(()=>child.kill('SIGKILL'),14000);t.after(()=>clearTimeout(timer));
- assert.equal(await new Promise(resolve=>child.on('close',resolve)),0,output);assert.doesNotMatch(output,/Operation unavailable/);assert.match(output,/RESTORED=true/);assert.match(output,/TERMIOS_RESTORED/);assert.doesNotMatch(output,/-icanon/);return output;
+ assert.equal(await new Promise(resolve=>child.on('close',resolve)),0,output);assert.doesNotMatch(output,/Operation unavailable|Change\x20Models/);assert.match(output,/RESTORED=true/);assert.match(output,/TERMIOS_RESTORED/);assert.doesNotMatch(output,/-icanon/);return output;
 }
+
+const entry='enter\nexpect -exact {Install / Update}\nexpect -exact {┌─ Scouter}\nexpect -exact {Mode:}\nexpect -exact {Esc Home}\n';
+const moves=n=>Array(n).fill('down\n').join('');
+const finish='expect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback';
+const settings=entry+moves(6)+'expect -exact {> Settings}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Language}\nexpect -exact {Esc Home}\n';
+const input=settings+'down\nenter\nexpect -exact {Type/Paste Input}\n';
+const clear='send -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\010"\nexpect -exact {Type/Paste Input}\n';
+const settingsToApply='down\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\ndown\nexpect -exact {> Apply}\nenter\n';
+const choosePair='down\nenter\nexpect -exact {Model — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Scouter}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\n';
 test('actual app restores PTY after home Escape with no execution',{skip:!available},async t=>{
- const output=await drive(t,'back');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'back');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(withoutSgr(output),/Claude: Available \/ Codex: Available/);assert.match(output,/Mode: Claude, Codex/);assert.match(output,/Install \/ Update[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
+});
+test('install opens the diagram immediately with Mode and platform order',{skip:!available},async t=>{
+ const output=await drive(t,entry+'back\nexpect -exact {Esc Exit}\nback');assert.match(output,/┌─ Scouter/);assert.match(output,/Mode:/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('queued Enter never reaches install Apply',{skip:!available},async t=>{
  const output=await drive(t,'send -- "\\r\\r\\r"\nexpect -exact {Install / Update}\nafter 100\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
 test('install skips blank spacer and Apply runs once without review',{skip:!available},async t=>{
- const output=await drive(t,'enter\nexpect -exact {Install / Update}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\ndown\ndown\ndown\ndown\ndown\ndown\nexpect -exact {> Apply}\nsend -- "\\r\\r\\r"\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Install|Confirm Install/);
+ const output=await drive(t,entry+moves(7)+'expect -exact {> Apply}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Install|Confirm Install/);
 });
 test('role chooser edits draft without executing',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Change Models}\nexpect -exact {> Codex}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Model — Scouter}\nenter\nexpect -exact {Effort — Scouter}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
+ const output=await drive(t,entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\n'+choosePair+'send -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
-test('Back from entry role editor returns to the platform chooser',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Change Models}\nexpect -exact {> Codex}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Change Models}\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
+test('Back from role editor returns to diagram',{skip:!available},async t=>{
+ const output=await drive(t,entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {┌─ Scouter}\nexpect -exact {Esc Home}\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
-test('Change Models Apply needs its own Enter and runs once',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Change Models}\nexpect -exact {> Codex}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\ndown\ndown\ndown\ndown\ndown\nexpect -exact {> Apply}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Are you sure/);
+test('edited role Apply needs its own Enter and runs once',{skip:!available},async t=>{
+ const output=await drive(t,entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\n'+choosePair+moves(7)+'expect -exact {> Apply}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Are you sure/);
 });
 test('Check Version exposes a real selected upgrade row and applies once',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {1.9.0 → 1.10.0}\nexpect -exact {> Upgrade}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Update|Confirm Update/);
+ const output=await drive(t,'down\nenter\nexpect -exact {1.9.0 → 1.10.0}\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Update|Confirm Update/);
 });
 test('version without an upgrade selects Back and Enter returns home',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {Latest version}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Latest version}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
 });
 test('Everything warning defaults Back, Back retains selection and Escape returns home',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Codex}\ndown\ndown\nenter\nexpect -exact {Remove ARC from Codex and Claude, and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Codex}\ndown\ndown\nenter\nexpect -exact {Remove ARC from Codex and Claude, and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 for(const trigger of ['Ctrl+C','SIGINT','SIGTERM'])test('actual app reports cleanup after restoring PTY on '+trigger,{skip:!available},async t=>{
  const execute=`${trigger==='Ctrl+C'?'':`setTimeout(()=>process.kill(process.pid,${JSON.stringify(trigger)}),100);`}await new Promise(resolve=>context.signal.addEventListener('abort',resolve,{once:true}));await new Promise(resolve=>setTimeout(resolve,20));return{code:130,results:[{platform:'codex',status:'installed',rollback:'not-needed'},{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/pty-recovery'],error:Error('cleanup failed')}]};`;
  const observe=`const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{if(String(chunk).includes('Residual path:'))original('REPORT_RESTORED='+!process.stdin.isRaw+'\\n');return original(chunk,...args);};`;
- const output=await drive(t,`down\ndown\nenter\nexpect -exact {> Upgrade}\nenter\nexpect -exact {Working}\n${trigger==='Ctrl+C'?'send -- "\\003"':''}`,{execute,observe});
+ const output=await drive(t,`down\nenter\nexpect -exact {> Upgrade}\nenter\nexpect -exact {Working}\n${trigger==='Ctrl+C'?'send -- "\\003"':''}`,{execute,observe});
  assert.match(output,/ARC installed for Codex\./);assert.match(output,/claude: failed/);assert.match(output,/Residual path: \/tmp\/pty-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/CODE=130 CALLS=1/);assert.match(output,/REPORT_RESTORED=true/);
 });
 test('Settings platform selection executes once and preserves CLI explicitly',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Codex}\ndown\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- \"\\033\\[A\"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Codex}\ndown\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);
 });
-test('Everything requires deliberate Remove and executes once despite queued Enter',{skip:!available},async t=>{const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Codex}\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);});
-
+test('Everything requires deliberate Remove and executes once despite queued Enter',{skip:!available},async t=>{
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Codex}\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
+});
 test('EOF restores the terminal without preparing or executing',{skip:!available},async t=>{const output=await drive(t,'send -- "\\004"');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);});
 test('hidden Apply is blocked after each shrink and runs after the final resize',{skip:!available},async t=>{
  const observe=`import {spawnSync} from 'node:child_process';let resized=false;const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{const result=original(chunk,...args);if(!resized&&String(chunk).includes('> Apply')){resized=true;for(const [delay,rows,cols,marker] of [[100,'3','20','NARROW'],[450,'40','120','WIDE'],[750,'3','20','NARROW2'],[1050,'40','120','WIDE2']])setTimeout(()=>{spawnSync('stty',['rows',rows,'cols',cols],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');setTimeout(()=>original(marker+'\\n'),50);},delay);}return result;};`;
- const output=await drive(t,'enter\nexpect -exact {Install / Update}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\ndown\ndown\ndown\ndown\ndown\ndown\nexpect -exact {NARROW}\nenter\nexpect -exact {WIDE}\nexpect -exact {NARROW2}\nenter\nexpect -exact {WIDE2}\nenter\nexpect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback',{observe});assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);
+ const output=await drive(t,entry+moves(7)+'expect -exact {NARROW}\nenter\nexpect -exact {WIDE}\nexpect -exact {NARROW2}\nenter\nexpect -exact {WIDE2}\nenter\n'+finish,{observe});assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);
 });
-
-test('input DEL and BS edit while Back discards text and keeps Settings values',{skip:!available},async t=>{const output=await drive(t,'enter\nexpect -exact {Install / Update}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\ndown\ndown\ndown\ndown\ndown\nenter\nexpect -exact {Settings — Codex}\ndown\nenter\nexpect -exact {Total subagents}\nsend -- "\\177"\nafter 80\nsend -- "\\010"\nafter 80\nsend -- "7"\nafter 80\ndown\nexpect -exact {> Back}\nenter\nexpect -exact {Total subagents: 100}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);});
+test('input DEL and BS edit while Back discards text and keeps Settings values',{skip:!available},async t=>{
+ const output=await drive(t,input+'send -- "\\177"\nafter 80\nsend -- "\\010"\nafter 80\nsend -- "7"\nafter 80\ndown\nexpect -exact {> Back}\nenter\nexpect -re {Total subagents +100}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+});
 test('input paste Apply validates and executes once with lowercase settings',{skip:!available},async t=>{
- const output=await drive(t,`enter
-expect -exact {Install / Update}
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-down
-down
-down
-down
-down
-enter
-expect -exact {Settings — Codex}
-expect -exact {Esc Home}
-down
-enter
-expect -exact {Type/Paste Input}
-send -- "\\177"
-expect -exact {Type/Paste Input}
-send -- "\\177"
-expect -exact {Type/Paste Input}
-send -- "\\010"
-expect -exact {Type/Paste Input}
-send -- "\\033\\[200~42\\033\\[201~"
-expect -exact {Type/Paste Input}
-enter
-expect -exact {Total subagents: 42}
-expect -exact {Esc Home}
-down
-down
-down
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-down
-down
-down
-down
-down
-down
-expect -exact {> Apply}
-enter
-expect -exact {Result}
-back
-expect -exact {Esc Exit}
-back`);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"maxTotalSubagents":42/);assert.match(output,/"language":"en"/);
+ const output=await drive(t,input+clear+'send -- "\\033\\[200~42\\033\\[201~"\nexpect -exact {Type/Paste Input}\nenter\nexpect -re {Total subagents +42}\nexpect -exact {Esc Home}\n'+settingsToApply+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"maxTotalSubagents":42/);assert.match(output,/"language":"en"/);
 });
 test('invalid input Apply preserves editable text then correction executes once',{skip:!available},async t=>{
- const output=await drive(t,`enter
-expect -exact {Install / Update}
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-down
-down
-down
-down
-down
-enter
-expect -exact {Settings — Codex}
-expect -exact {Esc Home}
-down
-enter
-expect -exact {Type/Paste Input}
-send -- "\\177"
-expect -exact {Type/Paste Input}
-send -- "\\177"
-expect -exact {Type/Paste Input}
-send -- "\\177"
-expect -exact {Type/Paste Input}
-send -- "0"
-expect -exact {Type/Paste Input}
-enter
-expect -exact {Invalid limit}
-expect -exact {Enter a positive whole number.}
-enter
-expect -exact {  0}
-expect -exact {Type/Paste Input}
-send -- "\\010"
-expect -exact {Type/Paste Input}
-send -- "9"
-expect -exact {Type/Paste Input}
-enter
-expect -exact {Total subagents: 9}
-expect -exact {Esc Home}
-down
-down
-down
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-down
-down
-down
-down
-down
-down
-expect -exact {> Apply}
-enter
-expect -exact {Result}
-enter
-expect -exact {Esc Exit}
-back`);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"maxTotalSubagents":9/);
+ const output=await drive(t,input+clear+'send -- "0"\nexpect -exact {Type/Paste Input}\nenter\nexpect -exact {Invalid limit}\nexpect -exact {Enter a positive whole number.}\nenter\nexpect -exact {Type/Paste Input}\nsend -- "\\010"\nexpect -exact {Type/Paste Input}\nsend -- "9"\nexpect -exact {Type/Paste Input}\nenter\nexpect -re {Total subagents +9}\nexpect -exact {Esc Home}\n'+settingsToApply+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"maxTotalSubagents":9/);
 });
-for(const screen of ['input','chooser','settings-target'])test('Escape from '+screen+' returns directly home in PTY',{skip:!available},async t=>{const steps=screen==='settings-target'?'down\ndown\ndown\nenter\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}':screen==='input'?'enter\nexpect -exact {Install / Update}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\ndown\ndown\ndown\ndown\ndown\nenter\nexpect -exact {Settings — Codex}\ndown\nenter\nexpect -exact {Total subagents}':'enter\nexpect -exact {Install / Update}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Model — Scouter}';const output=await drive(t,steps+'\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);});
-
-for(const [name,moves] of [['Install / Update',''],['Change Models','down\n'],['Uninstall','down\ndown\ndown\n']])test('target Back returns home from '+name,{skip:!available},async t=>{
- const ready=name==='Change Models'?'expect -exact {> Codex}\n':name==='Uninstall'?'expect -exact {> Codex}\n':'';
- const output=await drive(t,moves+'enter\nexpect -exact {'+name+'}\n'+ready+'send -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+for(const screen of ['input','chooser','settings-target'])test('Escape from '+screen+' returns directly home in PTY',{skip:!available},async t=>{
+ const steps=screen==='settings-target'?'down\ndown\nenter\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}':screen==='input'?input:entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — Scouter}';
+ const output=await drive(t,steps+'\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
-test('Settings and role editor Back preserve Claude settings and target selection',{skip:!available},async t=>{
- const output=await drive(t,'enter\nexpect -exact {Install / Update}\ndown\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\ndown\ndown\ndown\ndown\ndown\nenter\nexpect -exact {Settings — Claude}\nenter\nexpect -exact {Language}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Language: EN}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {> Scouter}\nexpect -exact {Esc Home}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Install / Update}\nexpect -exact {> Claude}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+for(const [name,steps] of [['Install / Update',entry],['Uninstall','down\ndown\nenter\nexpect -exact {> Codex}\n']])test('target Back returns home from '+name,{skip:!available},async t=>{
+ const output=await drive(t,steps+'send -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+});
+test('Settings Back preserves draft when reopening diagram',{skip:!available},async t=>{
+ const output=await drive(t,settings+'enter\nexpect -exact {‹KR›}\nexpect -exact {Esc Home}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\n'+settings.replace('expect -exact {> Language}', 'expect -re {> Language +‹KR›}')+'back\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+});
+test('role edits reach Settings but do not apply before Apply',{skip:!available},async t=>{
+ const catalog={status:'ready',catalog:{platform:'claude',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]}};
+ let steps=entry;
+ for(const name of ['Scouter','Planner','Implementer','QA','Reviewer'])steps+='enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {'+name+'}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\ndown\nexpect -exact {Esc Home}\n';
+ const output=await drive(t,steps+'down\nenter\nexpect -exact {Settings}\nsend -- "\\003"',{catalog});assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);assert.doesNotMatch(output,/entitlement|permission.{0,30}(?:unverified|not verified)/i);
+});
+test('diagram resize blocks editing and role picker retains pending effort',{skip:!available},async t=>{
+ const catalog={status:'ready',catalog:{platform:'claude',pairs:[{model:'fixture-model',effort:'high'},{model:'fixture-model',effort:'low'}],unavailable:[]}};
+ const observe=`import {spawnSync} from 'node:child_process';let resized=false,effortResized=false;const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{const result=original(chunk,...args);if(!resized&&String(chunk).includes('┌─ Scouter')){resized=true;setTimeout(()=>{spawnSync('stty',['rows','12','cols','30'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');},300);setTimeout(()=>{spawnSync('stty',['rows','40','cols','120'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');},1200);}if(!effortResized&&String(chunk).includes('> low')){effortResized=true;setTimeout(()=>{spawnSync('stty',['rows','12','cols','40'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');original('EFFORT_NARROW\\n');},100);setTimeout(()=>{spawnSync('stty',['rows','40','cols','120'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');setTimeout(()=>original('EFFORT_WIDE\\n'),100);},600);}return result;};`;
+ const output=await drive(t,entry+'down\nexpect -exact {Menu requires}\nenter\nexpect -exact {┌─ Planner}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — Planner}\nenter\nexpect -exact {Effort — Planner}\ndown\nexpect -exact {EFFORT_NARROW}\nexpect -exact {EFFORT_WIDE}\nenter\nexpect -exact {Effort ‹ low ›}\nsend -- "\\003"',{catalog,observe});assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
 
-test('Custom role edits reach Settings but do not apply before Apply',{skip:!available},async t=>{
- const catalog={status:'ready',catalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]}};
- const output=await drive(t,`enter
-expect -exact {Install / Update}
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-enter
-expect -exact {Model}
-expect -exact {Esc Home}
-enter
-expect -exact {Effort}
-expect -exact {Esc Home}
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-down
-expect -exact {> Planner}
-enter
-expect -exact {Model}
-expect -exact {Esc Home}
-enter
-expect -exact {Effort}
-expect -exact {Esc Home}
-enter
-expect -exact {> Planner}
-expect -exact {Esc Home}
-down
-expect -exact {> Implementer}
-enter
-expect -exact {Model}
-expect -exact {Esc Home}
-enter
-expect -exact {Effort}
-expect -exact {Esc Home}
-enter
-expect -exact {> Implementer}
-expect -exact {Esc Home}
-down
-expect -exact {> QA}
-enter
-expect -exact {Model}
-expect -exact {Esc Home}
-enter
-expect -exact {Effort}
-expect -exact {Esc Home}
-enter
-expect -exact {> QA}
-expect -exact {Esc Home}
-down
-expect -exact {> Reviewer}
-enter
-expect -exact {Model}
-expect -exact {Esc Home}
-enter
-expect -exact {Effort}
-expect -exact {Esc Home}
-enter
-expect -exact {> Reviewer}
-expect -exact {Esc Home}
-down
-expect -exact {> Settings}
-enter
-expect -exact {Settings — Codex}
-send -- "\\003"`,{catalog});
- assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);assert.doesNotMatch(output,/entitlement|permission.{0,30}(?:unverified|not verified)|(?:unverified|not verified).{0,30}permission/i);
-});
-
-test('Custom resize blocks editing until diagram fits and retains focused pending pair',{skip:!available},async t=>{
- const catalog={status:'ready',catalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'},{model:'fixture-model',effort:'low'}],unavailable:[]}};
- const observe=`import {spawnSync} from 'node:child_process';let resized=false,effortResized=false;const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{const result=original(chunk,...args);if(!resized&&String(chunk).includes('> Planner')){resized=true;setTimeout(()=>{spawnSync('stty',['rows','12','cols','30'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');},100);setTimeout(()=>{spawnSync('stty',['rows','40','cols','120'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');},1200);}if(!effortResized&&String(chunk).includes('> low')){effortResized=true;setTimeout(()=>{spawnSync('stty',['rows','12','cols','40'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');original('EFFORT_NARROW\\n');},100);setTimeout(()=>{spawnSync('stty',['rows','40','cols','120'],{stdio:['inherit','pipe','pipe']});process.kill(process.pid,'SIGWINCH');setTimeout(()=>original('EFFORT_WIDE\\n'),100);},600);}return result;};`;
- const output=await drive(t,`enter
-expect -exact {Install / Update}
-enter
-expect -exact {> Scouter}
-expect -exact {Esc Home}
-down
-expect -exact {Menu requires}
-enter
-expect -exact {> Planner}
-enter
-expect -exact {Model — Planner}
-enter
-expect -exact {Effort — Planner}
-down
-expect -exact {EFFORT_NARROW}
-expect -exact {EFFORT_WIDE}
-enter
-expect -exact {> Planner}
-expect -exact {fixture-model}
-expect -exact {effort: low}
-send -- "\\003"`,{catalog,observe});
- assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
+test('composite home keeps platform status and Mixed Mode in display order',{skip:!available},async t=>{
+ const output=await drive(t,'back',{installState:{mode:'composite',platforms:['codex','claude'],anchor:'codex'},codexAuth:'unauthorized'});
+ assert.match(withoutSgr(output),/Claude: Available \/ Codex: Unauthorized/);assert.match(output,/Mode: Mixed \(Claude \+ Codex\)/);assert.doesNotMatch(withoutSgr(output),/Claude & Codex: Available/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });

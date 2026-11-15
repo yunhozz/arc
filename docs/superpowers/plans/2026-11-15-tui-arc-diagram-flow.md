@@ -775,7 +775,7 @@ test('compact layout keeps Hosts/Mode/controls', ...);
 - 홈 행은 `[{id:'install',label:'Install / Update'},{id:'version',label:'Check Version'},{id:'uninstall',label:'Uninstall'},{id:'exit',label:'Exit'}]`이고, 분기는 id로 합니다.
 - info 순서는 상태줄, `Mode: …`, 진단 줄입니다.
 
-- [ ] **Step 1: 테스트를 새 기대값으로 수정**
+- [x] **Step 1: 테스트를 새 기대값으로 수정**
 
 ```js
 test('home menu is exactly four actions', ...); // rows deepEqual ['Install / Update','Check Version','Uninstall','Exit']
@@ -784,8 +784,8 @@ test('install goes straight to diagram', ...);
 // PTY: Install / Update Enter 직후 화면에 '┌─ Scouter' 와 'Mode:' 표시, 'Change Models' 부재
 ```
 
-- [ ] **Step 2:** FAIL 확인 → **Step 3:** 구현과 삭제 → **Step 4:** `node --test tests/node/tui-*.test.mjs tests/node/cli-pty.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 홈 메뉴를 action id 기반으로 바꾸고 도식 흐름 연결`
+- [x] **Step 2:** FAIL 확인 → **Step 3:** 구현과 삭제 → **Step 4:** `node --test tests/node/tui-*.test.mjs tests/node/cli-pty.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 홈 메뉴를 action id 기반으로 바꾸고 도식 흐름 연결`
 
 **수용 전 QA:** fresh QA가 PTY(`tui-app-pty`, `tui-terminal-pty`, `cli-pty`)를 실제 실행하고 화면 캡처 증거를 냅니다.
 
@@ -1176,3 +1176,11 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - prepare 옵션: D1-a/b는 기존 management 입력 형태(플랫폼별 effort 필드 roles, verifiedCatalog, 최상위 settings)이고 D1-b에만 `switchFromComposite:true`를 더합니다. D1-c/d/e는 `platforms`, `buildRoleRoutingConfig` 결과, 중첩 `settings`입니다. `skipGlobal`은 항상 false이고, 바꾸지 않은 `(mixed)` 필드는 보내지 않습니다.
   - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2243 tests, 2187 pass / 38 fail. 실패 목록이 기준 목록과 같습니다(신규 0건).
+- Task 16 완료(필수 QA):
+  - 1차 Implementer `1d311784`: Codex `usage_limit_exceeded`로 12초 만에 실패(변경 없음). 2차 `8e2ace9c`: 범위 충돌로 보류(`tests/node/npm-lifecycle.test.mjs:17`이 `Change Models` 단언, management `preset` 테스트 이름이 grep에 걸림).
+  - Orchestrator 결정(사전 위임 규칙): `npm-lifecycle.test.mjs`를 홈 기대값 갱신 범위로 추가하고, grep 조건을 lib와 TUI 관련 테스트로 좁혔습니다. management `preset` 테스트 이름(install-mode-review-followup, install-mode-models-upgrade, preset)은 TUI 메뉴가 아니라 management 동작을 가리키므로 무변경입니다.
+  - 3차 `ce13bd7c`: 홈 4개 action id 분기, `homeStatusLine`·`homeModeLine`, Install / Update → `runInstallFlow` 직행, 이전 흐름(`runSetup`, `presetPreviewRows`, `setupOptions`, `editSettings`, 옛 `initialSettings`, `label`, `editPlatformRoles`, `editCompositeRoles`, 미사용 `pairKey`) 삭제, `navigationHint`는 `onHorizontal`이 있는 화면에만 `←/→: Change`. 테스트 144건 이관표: `/private/tmp/arc-task16-migrations.md`. setup ↔ custom-preset 순환이 사라져 기존 순환 그룹이 3개에서 2개로 줄었습니다.
+  - Orchestrator 전체 실행에서 PTY 2건이 truecolor SGR로 실패 → resume으로 테스트에 `withoutSgr` helper를 추가했습니다. truecolor와 `NO_COLOR=1` 모두 29/29입니다.
+  - fresh QA `9c026576`(2 segment): Q1 PTY 실제 실행 34/37(실패 3건은 기준 커밋과 같은 cli-pty `.claude` 단언) + SGR 제거 캡처(단독 홈, 혼합 홈, 설치 도식), Q2 이전 흐름 제거, Q3 Check Version/Uninstall 무변경(기준·현재 15/0), Q5 info 순서, Q6 import, Q7 mutation 3건 모두 proven. Q4는 이름 대조 144행과 표본 본문 감사를 마쳤으나 "subject removed" 행별 대조가 남아 unverified였습니다. Orchestrator가 해당 행을 검토했고(별도 preset 메뉴, 플랫폼별 draft, Codex 우선 설정 규칙, 옛 composite 기본값 — 모두 spec이 없앤 동작), Q2의 부재 증명과 함께 수용했습니다.
+  - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2209 tests, 2154 pass / 37 fail. 신규 실패 0건, 기준 실패 `custom editor keeps long model choices selectable at 40 columns`는 새 편집기로 이관된 뒤 통과합니다(기준 목록 38 → 37).
