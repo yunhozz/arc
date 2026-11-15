@@ -58,6 +58,89 @@ function movingSetup(t,options={}) {
 }
 const move=(cwd,ts=TIME)=>({timestamp:iso(ts),type:'turn_context',payload:{cwd}});
 
+// Without a fresh cwd check, a new worktree leaks until the periodic scope refresh.
+test('AC-W39 a nested worktree seen in a line is excluded before the 30-second refresh',async t=>{
+  const s=setup(t,{},'repo'), nested=path.join(s.cwd,'nested'), id='new-worktree';
+  const file=s.cl(id);await s.w.start();
+  s.top(dir=>dir.startsWith(nested)?nested:s.cwd);s.trees([s.cwd,nested]);
+  const before=s.calls.length;
+  s.append(file,[cm(id,nested,'x')]);s.advance(500);
+  assert.deepEqual(await s.w.tick(),[]);
+  const calls=s.calls.slice(before), checked=calls.findIndex(c=>c.dir===nested&&c.args===GIT_ALLOWED[0]);
+  assert.ok(checked>=0);
+  assert.ok(calls.slice(checked+1).some(c=>c.args===GIT_ALLOWED[2]));
+});
+
+// Caching an unsuccessful lookup forever loses future lines; retrying immediately hammers Git.
+for(const failure of ['null','exception']) {
+  test(`AC-W39 failed checks are not cached and retried after 2 seconds (${failure})`,async t=>{
+    const s=setup(t,{},'repo'), sub=path.join(s.cwd,'src'), id=`retry-${failure}`;
+    const file=s.cl(id);await s.w.start();
+    s.top(dir=>{
+      if(dir!==sub) return s.cwd;
+      if(failure==='exception') throw Error('git timeout');
+      return null;
+    });
+    const checks=()=>s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length;
+    s.append(file,[cm(id,sub,'failed')]);
+    assert.deepEqual(content(await s.w.tick()),[]);assert.equal(checks(),1);
+    s.advance(1000);s.append(file,[cm(id,sub,'too soon')]);
+    assert.deepEqual(content(await s.w.tick()),[]);assert.equal(checks(),1);
+    s.top(()=>s.cwd);s.advance(2000);
+    // A line without cwd inherits the failed cwd and must still trigger a retry.
+    s.append(file,[{timestamp:iso(TIME+3000),type:'assistant',message:{content:[{type:'text',text:'recovered'}]}}]);
+    const out=content(await s.w.tick());
+    assert.equal(checks(),2);assert.deepEqual(out.map(e=>e.kind),['session','agent']);
+    assert.equal(out[1].text,'recovered');assert.ok(out.every(e=>e.cwd===sub));
+    s.append(file,[cm(id,sub,'after recovery')]);
+    assert.deepEqual(content(await s.w.tick()).map(e=>e.text),['after recovery']);
+    assert.equal(checks(),2);
+  });
+}
+
+// Rechecking successful directory lookups adds one Git round trip per line.
+test('nested check caches an in-scope subdirectory once',async t=>{
+  const s=setup(t,{},'repo'), sub=path.join(s.cwd,'src'), id='cached-subdirectory';
+  const file=s.cl(id,[cm(id,sub,'first')]);
+  assert.ok(content(await s.w.start()).some(e=>e.text==='first'));
+  for(const text of ['second','third']) {
+    s.append(file,[cm(id,sub,text)]);
+    assert.deepEqual(content(await s.w.tick()).map(e=>e.text),[text]);
+  }
+  assert.equal(s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length,1);
+});
+
+// Checking the selected root (including realpath aliases) adds no scope information.
+test('the selected root and its alias are never git-checked',async t=>{
+  const s=setup(t,{},'repo'), alias=path.join(s.h.root,'repo-alias');
+  fs.symlinkSync(s.cwd,alias,'dir');
+  const files=[s.cl('root'),s.cl('alias',[cm('alias',alias)])];
+  await s.w.start();const before=s.calls.length;
+  for(const [i,cwd] of [s.cwd,alias].entries()) s.append(files[i],[cm(i?'alias':'root',cwd,'visible')]);
+  assert.deepEqual(content(await s.w.tick()).map(e=>e.text),['visible','visible']);
+  assert.equal(s.calls.slice(before).filter(c=>c.args===GIT_ALLOWED[0]).length,0);
+});
+
+test('AC-W05 dir scope never runs the nested check',async t=>{
+  const s=setup(t), sub=path.join(s.cwd,'src'), id='directory';
+  const file=s.cl(id,[cm(id,sub)]);await s.w.start();
+  const before=s.calls.length;
+  s.top(()=>{throw Error('dir scope must not verify nested worktrees');});
+  s.append(file,[cm(id,sub,'directory line')]);
+  assert.deepEqual(content(await s.w.tick()).map(e=>e.text),['directory line']);
+  assert.equal(s.calls.length,before);
+});
+
+test('AC-W40 GIT_ALLOWED stays four commands',()=>{
+  assert.equal(GIT_ALLOWED.length,4);
+  assert.deepEqual(GIT_ALLOWED,[
+    ['rev-parse','--show-toplevel'],
+    ['rev-parse','--path-format=absolute','--git-common-dir'],
+    ['worktree','list','--porcelain','-z'],
+    ['ls-files','-z','--cached','--others','--exclude-standard'],
+  ]);
+});
+
 // Ignoring known parents or using the parent's cwd loses scoped children and ancestry labels.
 test('AC-W35 subagents are scoped by their own cwd and keep parent labels',async t=>{
   const s=setup(t);

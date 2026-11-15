@@ -611,7 +611,7 @@
   3. `attach`의 초기 cwd
 - 기존 `gitTop`(`:160-172`, 실패도 캐시함)은 이 경로에 쓰지 않는다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `AC-W39 a nested worktree seen in a line is excluded before the 30-second refresh`
     - 준비: 범위는 `repo`, `nested = path.join(s.cwd,'nested')`, `s.top(dir=>dir.startsWith(nested)?nested:s.cwd)`.
     - Claude 세션에 `cm(id,nested,'x')`를 append하면 `advance(500)` 뒤 tick이 0개다.
@@ -626,12 +626,12 @@
     - `the selected root and its alias are never git-checked`: 루트와 symlink 별칭 cwd의 줄은 이 경로의 `GIT_ALLOWED[0]` 호출이 0회다. attach의 기존 `gitTop` 호출과 구분하려고 줄 처리 전후 호출 수 차이로 단언한다.
   - `AC-W05 dir scope never runs the nested check`: `dir` 범위에서 하위 cwd 줄이 와도 git 호출이 늘지 않는다.
   - `AC-W40 GIT_ALLOWED stays four commands`: `GIT_ALLOWED.length===4`이고 값도 기존과 같다.
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="AC-W39|AC-W05 dir|nested check|never git-checked|GIT_ALLOWED stays" tests/node/watch-watcher.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 위 규칙대로 구현한다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령이 PASS이고, `tests/node/watch-watcher.test.mjs` 전체와 `tests/node/watch-scope.test.mjs`도 PASS여야 한다.
-- [ ] **Step 5: manifest 재생성과 check:manifest PASS**
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
-- [ ] **Step 7: 커밋.** `feat(watch): 줄 cwd로 관측한 중첩 worktree 즉시 제외`
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="AC-W39|AC-W05 dir|nested check|never git-checked|GIT_ALLOWED stays" tests/node/watch-watcher.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 위 규칙대로 구현한다.
+- [x] **Step 4: 통과 확인.** Step 2 명령이 PASS이고, `tests/node/watch-watcher.test.mjs` 전체와 `tests/node/watch-scope.test.mjs`도 PASS여야 한다.
+- [x] **Step 5: manifest 재생성과 check:manifest PASS**
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
+- [x] **Step 7: 커밋.** `feat(watch): 줄 cwd로 관측한 중첩 worktree 즉시 제외`
 
 **수용 기준:** AC-W39, AC-W05(즉시 제외, 30초 갱신 유지), AC-W40의 `GIT_ALLOWED` 항목을 만족한다.
 
@@ -640,6 +640,17 @@
 **위험:**
 - R14: 처음 보는 cwd마다 git을 기다리므로 출력이 늦어지고, 확인이 실패하면 그 줄은 빠진다.
 - 하위 디렉터리가 많은 세션에서는 캐시 상한(32) 때문에 축출과 재확인이 생긴다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `34afcec8`(segment 0–1). QA: bridge dispatch `7aa38c88`(segment 0).
+- Orchestrator 실행 결정(승인 범위 안)
+  - 새 테스트의 assistant fixture `content`를 문자열에서 text block 배열로 고쳤다. 실제 Claude 형식이며, 정규화기는 배열에서만 agent 이벤트를 만든다.
+  - 성공한 중첩 확인 결과만 기존 `gitTopByCwd`에 넣어 다시 쓴다. 실패는 넣지 않는다.
+  - 즉시 갱신 간격용 `lastNestedRefresh`를 두고, 즉시 갱신할 때 `lastRefresh`도 함께 갱신한다(30초 주기 갱신과 겹치지 않게).
+- 결과
+  - watcher 119/119, watch-scope 9/9, `watch-*` 333/334(기준선 help 실패 1건만 남음), check:manifest 통과. 전체 테스트 실패 목록은 기준선과 같다.
+  - QA: AC-W39, W05, W40(`GIT_ALLOWED`), 선택 루트·별칭 미확인, 회귀, R14 모두 proven. 실제 git 임시 저장소의 중첩 worktree와 실제 runner timeout(100ms 주입)으로 확인했다. 캐시 축출 뒤 재확인도 확인했다.
+- 한계: 출력 형식은 watcher 이벤트를 renderer에 넘겨 확인했고, CLI 프로세스로는 따로 재현하지 않았다.
 
 ---
 
