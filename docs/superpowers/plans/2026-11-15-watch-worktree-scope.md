@@ -509,7 +509,7 @@
 - **재부착:** `attach`의 `previous`(detached/seenAtStart)가 `cwd`를 담고 있으므로 T4 로직이 그 cwd에서 상속을 시작한다.
 - **Claude child 행:** `cwd: childHead?.cwd ?? head.cwd`(`:290`)를 그대로 둔다. cwd 줄이 없는 child는 부모 cwd를 물려받는다(`:173` 유지).
 
-- [ ] **Step 1: 실패 테스트 작성과 기대값 조정**
+- [x] **Step 1: 실패 테스트 작성과 기대값 조정**
   - 기대값 변경
     - `:167` child `cwd:'/elsewhere'`를 `cwd:s.cwd`로 바꾼다. grand의 known 라벨 단언은 유지한다.
     - `:170` `cm('child-qa','/outside')` 등을 `s.cwd`로 바꾼다.
@@ -536,12 +536,12 @@
     - 끝 64 KiB 안에 turn cwd가 없는 Codex 세션(70 KB 패딩 뒤 msg만)은 붙지 않는다.
   - `AC-W17 dormant sessions reattach from the saved offset with the gate`: T4의 W17 시나리오 뒤 범위 안 줄을 append하면, 해제된 세션이 다음 탐색에서 다시 붙고 저장 offset 이후의 범위 안 줄만 나온다.
   - `AC-W17 known is capped`: `dependencies.maxKnown:2`로 Codex 부모 3개를 만든다. 첫 부모의 child는 `parent session not found` NOTICE와 함께 제외된다.
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="AC-W(17|21|35|36|37)|subagent rollouts attach|Claude subagent labels" tests/node/watch-watcher.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 위 규칙대로 구현한다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령이 PASS이고 `tests/node/watch-watcher.test.mjs` 전체도 PASS여야 한다.
-- [ ] **Step 5: manifest 재생성과 check:manifest PASS**
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
-- [ ] **Step 7: 커밋.** `feat(watch): 하위 에이전트 자기 cwd 판정과 최신 cwd attach`
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="AC-W(17|21|35|36|37)|subagent rollouts attach|Claude subagent labels" tests/node/watch-watcher.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 위 규칙대로 구현한다.
+- [x] **Step 4: 통과 확인.** Step 2 명령이 PASS이고 `tests/node/watch-watcher.test.mjs` 전체도 PASS여야 한다.
+- [x] **Step 5: manifest 재생성과 check:manifest PASS**
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
+- [x] **Step 7: 커밋.** `feat(watch): 하위 에이전트 자기 cwd 판정과 최신 cwd attach`
 
 **수용 기준:**
 - AC-W21, W35, W36, W37을 만족한다.
@@ -555,6 +555,23 @@
 - R13: dormant 세션이 추적 슬롯을 차지한다.
 - R15: `known` 축출.
 - startup probe 때문에 시작 비용이 늘어난다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `e718388d`(segment 0–2). QA: bridge dispatch `150595a2`(segment 0–1).
+- Orchestrator 실행 결정(승인 범위 안)
+  - `:167`/`:170` 기대값 변경은 T4에서 이미 했다. Step 1에서는 `/outside` child 미출력 테스트만 추가했다.
+  - 테스트 `move` 헬퍼에 timestamp를 넣었다. 실제 `turn_context` 줄은 timestamp를 가진다. 없으면 진입 SESSION이 현재 시각을 받아 과거 메시지 뒤로 정렬된다. watcher의 SESSION 시각 규칙은 바꾸지 않았다.
+  - 부모가 확인된 자식은 codex_exec·Claude 신규 세션의 2초 라벨 보류에서 제외했다(AC-W21의 3초 조건). 최종 Reviewer 검토 대상이다.
+  - 보류 루프 규칙을 범위 종류로 나눴다. `all`/`session`은 `!followed.has(row.parentId)`면 기존처럼 보류 후 진단하고, repo/dir는 `parentOf` 규칙을 따른다. 사용자 결정(`--all`/`--session`은 부모 추적 유지)과 AC-W36 기존 동작을 지키기 위해서다.
+- QA finding(해결, 회귀 테스트 2건 추가)
+  - F-T5-1: `--session`/`--all`에서 known이지만 추적되지 않는 부모의 자식이 보류·`parent session not found` 진단 없이 빠졌다. 위 보류 루프 분리로 해결했다.
+- 결과
+  - watcher 112/112, `watch-*` 326/327(기준선 help 실패 1건만 남음), check:manifest 통과. 전체 테스트 실패 목록은 기준선과 같다.
+  - QA: AC-W35, W21, W36, W37, W17(재부착·상한), AC-W31·W32·W34의 worktree 쪽(루트·worktree watcher 동시 비교) 모두 proven.
+- 한계
+  - 탐색 비용은 실제 읽기 횟수를 계측하지 않았다. probe가 끝 64 KiB만 읽는 것은 T1 테스트와 AC-W37 패딩 테스트로, 크기·mtime이 같으면 다시 읽지 않는 것은 `cachedHead` 코드로 확인했다.
+  - Desktop 조상 순환과 known 축출 시 라벨 변화는 실행 재현하지 않았다.
+- 런타임이 segment 0에서 `refsChanged`를 보고했다. 다른 worktree의 `feat/tui-arc-diagram-flow` 커밋(`091d191`)으로, 외부 변경이다.
 
 ---
 

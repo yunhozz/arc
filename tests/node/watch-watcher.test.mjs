@@ -56,7 +56,147 @@ function movingSetup(t,options={}) {
   fs.mkdirSync(wt);s.trees([s.cwd,wt]);
   return {...s,wt};
 }
-const move=cwd=>({type:'turn_context',payload:{cwd}});
+const move=(cwd,ts=TIME)=>({timestamp:iso(ts),type:'turn_context',payload:{cwd}});
+
+// Ignoring known parents or using the parent's cwd loses scoped children and ancestry labels.
+test('AC-W35 subagents are scoped by their own cwd and keep parent labels',async t=>{
+  const s=setup(t);
+  s.c('parent1234',undefined,{cwd:'/outside'});
+  s.c('child',[msg('review',TIME,'AgentMessage')],{extra:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_qa'}});
+  s.c('grand',undefined,{extra:{parent_thread_id:'child',depth:2,agent_nickname:'Aristotle'}});
+  s.cl('main1234',[cm('main1234','/outside')],{subagents:[{
+    agentId:'qa',meta:{agentType:'arc-qa'},lines:[cm('main1234',s.cwd,'Claude child')],
+  }]});
+  const out=content(await s.w.start());
+  assert.ok(!out.some(e=>['parent1234','main1234'].includes(e.sessionId)));
+  for(const [id,label,parentId,depth] of [
+    ['child','tui#1234/qa','parent1234',1],
+    ['grand','tui#1234/qa/Aristotle','child',2],
+    ['agent-qa','main#1234/qa','main1234',1],
+  ]) {
+    const e=out.find(e=>e.sessionId===id);
+    assert.ok(e,`${id} must attach using its own cwd`);
+    assert.equal(e.label,label);assert.equal(e.parentId,parentId);
+    assert.equal(e.depth,depth);assert.equal(e.source,'subagent');
+  }
+  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT\s+\[QA\] review/);
+});
+
+test('AC-W35 outside children do not output under in-scope parents',async t=>{
+  const s=setup(t,{verbose:true});
+  s.c('parent');s.c('child',undefined,{cwd:'/outside',extra:{parent_thread_id:'parent'}});
+  s.cl('main',undefined,{subagents:[{agentId:'outside',lines:[cm('main','/outside')]}]});
+  const initial=await s.w.start();s.advance(2000);
+  const out=[...initial,...await s.w.tick()];
+  assert.ok(!content(out).some(e=>['child','agent-outside'].includes(e.sessionId)));
+  assert.ok(!notices(out).some(text=>text.includes('parent session not found')));
+});
+
+// Keeping the top-level mapping hold for a known child misses the three-second attach bound.
+test('AC-W21 known-parent children attach within 3 seconds regardless of originator',async t=>{
+  const s=setup(t);s.c('parent',undefined,{cwd:'/outside'});await s.w.start();
+  s.c('child',undefined,{age:0,origin:'codex_exec',extra:{parent_thread_id:'parent',depth:2}});
+  s.advance(2000);
+  assert.ok(content(await s.w.tick()).some(e=>e.sessionId==='child'&&e.kind==='session'&&e.depth===2));
+});
+
+test('AC-W36 Desktop descendants stay excluded by ancestry',async t=>{
+  const s=setup(t,{verbose:true});
+  s.c('desktop',undefined,{origin:'Codex Desktop',cwd:'/outside'});
+  s.c('child',undefined,{extra:{parent_thread_id:'desktop'}});
+  s.c('grand',undefined,{extra:{parent_thread_id:'child'}});
+  assert.deepEqual(content(await s.w.start()),[]);s.advance(2000);
+  const out=await s.w.tick();assert.deepEqual(content(out),[]);
+  assert.ok(!notices(out).some(text=>text.includes('parent session not found')));
+});
+
+test('AC-W36 all and session still require a followed parent',async t=>{
+  for(const kind of ['all','session']) {
+    const s=setup(t,{session:kind==='session'?'selected':null},kind);
+    s.c('other',undefined,{age:kind==='all'?18000000:300000});
+    s.c('other-child',undefined,{extra:{parent_thread_id:'other'}});
+    s.c('selected');s.c('selected-child',undefined,{extra:{parent_thread_id:'selected'}});
+    const out=content(await s.w.start());
+    assert.deepEqual([...new Set(out.map(e=>e.sessionId))].sort(),['selected','selected-child']);
+  }
+});
+
+// Known metadata cannot replace a followed parent for the all/session hold deadline.
+for(const kind of ['session','all']) {
+  test(`AC-W36 ${kind} scope still holds and diagnoses children of known but unfollowed parents`,async t=>{
+    const s=setup(t,{session:kind==='session'?'selected':null,verbose:true},kind);
+    s.c('selected',undefined,{age:0});
+    // In all mode, 64 newer roots keep the known unselected parent out of followed.
+    if(kind==='all') for(let i=0;i<63;i++) s.c(`filler-${i}`,undefined,{age:0});
+    s.c('unselected');
+    s.c('unselected-child',undefined,{age:0,extra:{parent_thread_id:'unselected'}});
+    const initial=await s.w.start();
+    const diagnostic='parent session not found for unselected-child';
+    assert.ok(!content(initial).some(e=>['unselected','unselected-child'].includes(e.sessionId)));
+    assert.ok(!notices(initial).includes(diagnostic));
+    s.advance(1999);
+    const held=await s.w.tick();
+    assert.ok(!content(held).some(e=>e.sessionId==='unselected-child'));
+    assert.ok(!notices(held).includes(diagnostic));
+    s.advance(1);
+    const expired=await s.w.tick();
+    assert.ok(!content(expired).some(e=>e.sessionId==='unselected-child'));
+    assert.equal(notices(expired).filter(text=>text===diagnostic).length,1);
+    s.advance(2000);
+    const later=await s.w.tick();
+    assert.ok(!content(later).some(e=>e.sessionId==='unselected-child'));
+    assert.ok(!notices(later).includes(diagnostic));
+  });
+}
+
+// Head-only eligibility misses moved files; head-only resume inheritance leaks old-cwd messages.
+test('AC-W37 worktree watch discovers moved sessions within one discovery',async t=>{
+  const s=movingSetup(t,{root:'wt',excluded:[]});
+  let clock=TIME;
+  const w=createWatcher({options:{tail:20},homes:{codex:s.h.codexHome,claude:s.h.claudeHome},
+    scope:{kind:'repo',roots:[s.wt],excludedRoots:[s.cwd]},git:async()=>null,now:()=>clock});
+  t.after(()=>w.close());
+  const claude=s.cl('moving-claude',[cm('moving-claude',s.cwd,'old Claude')]);
+  const codex=s.c('moving-codex',[msg('old Codex')]);
+  const padded=s.c('padded',[move(s.wt),msg('x'.repeat(70000)),msg('old padded')]);
+  await w.start();
+  s.advance(2000);
+  s.append(claude,[cm('moving-claude',s.wt,'moved Claude')]);
+  s.append(codex,[move(s.wt),msg('moved Codex')]);
+  s.append(padded,[msg('no recent cwd')]);
+  clock+=2000;
+  const out=content(await w.tick());
+  for(const id of ['moving-claude','moving-codex']) {
+    const events=out.filter(e=>e.sessionId===id);
+    assert.deepEqual(events.map(e=>e.kind),['session','user']);
+    assert.equal(events[0].cwd,s.wt);assert.ok(events[0].text.includes(`cwd=${s.wt}`));
+    assert.match(events[1].text,/^moved /);
+  }
+  assert.ok(!out.some(e=>e.sessionId==='padded'));
+});
+
+test('AC-W17 dormant sessions reattach from the saved offset with the gate',async t=>{
+  const s=movingSetup(t,{verbose:true}), file=s.c('dormant',[move(s.cwd),msg('history')],{cwd:'/outside',age:0});
+  assert.ok(content(await s.w.start()).some(e=>e.text==='history'));
+  for(let i=0;i<30;i++) {s.advance(60000);s.append(file,[move(s.wt),msg('outside')]);await s.w.tick();}
+  s.append(file,[msg('still outside'),move(s.cwd),msg('returned')]);s.advance(2000);
+  const out=content(await s.w.tick());
+  assert.deepEqual(out.map(e=>e.kind),['session','user']);
+  assert.equal(out[0].cwd,s.cwd);assert.equal(out[1].text,'returned');
+});
+
+test('AC-W17 known is capped',async t=>{
+  const s=setup(t,{verbose:true},'dir',{maxKnown:2});
+  for(const id of ['a-parent','b-parent','c-parent']) s.c(id,undefined,{cwd:'/outside'});
+  await s.w.start();s.c('y-child',undefined,{extra:{parent_thread_id:'c-parent'}});
+  s.advance(2000);
+  assert.ok(content(await s.w.tick()).some(e=>e.sessionId==='y-child'));
+  s.c('z-child',undefined,{extra:{parent_thread_id:'a-parent'}});
+  s.advance(2000);assert.deepEqual(content(await s.w.tick()),[]);
+  s.advance(2000);const out=await s.w.tick();
+  assert.deepEqual(content(out),[]);
+  assert.ok(notices(out).includes('parent session not found for z-child'));
+});
 
 // Missing line gates leak moved history/appends; missing cwd inheritance leaks later messages.
 test('AC-W31 moved Claude session lines stay out of the root watch',async t=>{
