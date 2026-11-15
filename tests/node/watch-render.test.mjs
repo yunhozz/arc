@@ -4,6 +4,29 @@ import * as renderer from '../../lib/watch/render.mjs';
 import {renderHuman, renderJson, kindTag} from '../../lib/watch/render.mjs';
 const event = {ts:'2026-11-11T00:01:15.000Z',platform:'codex',label:'tui#e2e8',kind:'command',text:'git status',exitCode:0};
 const options = {width:120, color:false, verbose:false};
+test('SKILL and PLUGIN tags, bodies and colors', () => {
+  const rows = [
+    [{kind:'tool',tool:'Skill',skill:'arc',text:'x'}, 'SKILL    arc x', '38;5;110'],
+    [{kind:'tool',tool:'cua_repl.js',plugin:'unified-computer-use@openai-bundled'}, 'PLUGIN   unified-computer-use@openai-bundled cua_repl.js', '38;5;175'],
+    [{kind:'tool_failed',tool:'Skill',skill:'arc'}, 'TOOL!    Skill arc', '31'],
+    [{kind:'tool_failed',tool:'srv.t',plugin:'p'}, 'TOOL!    srv.t p', '31'],
+    [{kind:'tool',tool:'Skill',skill:'a:b',plugin:'a'}, 'SKILL    a:b', '38;5;110'],
+  ];
+  for (const [input,want,code] of rows) for (const color of [false,true]) {
+    const out = renderHuman({...event,...input,text:input.text}, {...options,color});
+    assert.equal(out.replace(/\x1b\[[0-9;]*m/g,'').slice(16),want);
+    if (color) {
+      assert.ok(out.includes(`\x1b[${code}m${want.split(' ')[0]}\x1b[0m`));
+      assert.ok(out.endsWith(`\x1b[${code}m${want.slice(9)}\x1b[0m`));
+    } else assert.doesNotMatch(out,/\x1b/);
+  }
+});
+test('renderJson includes skill and plugin', () => {
+  assert.deepEqual(JSON.parse(renderJson({kind:'tool',tool:'Skill',skill:'a:b',plugin:'a'})),
+    {v:1,kind:'tool',tool:'Skill',skill:'a:b',plugin:'a'});
+  assert.deepEqual(JSON.parse(renderJson({kind:'tool_failed',tool:'Skill',skill:'\x1b[31marc',plugin:'token=hidden'})),
+    {v:1,kind:'tool_failed',tool:'Skill',skill:'arc',plugin:'token=***'});
+});
 test('displayPath shortens only absolute paths inside the root', () => {
   assert.equal(typeof renderer.displayPath, 'function');
   for (const [file, root, want] of [

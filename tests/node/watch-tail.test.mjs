@@ -5,12 +5,31 @@ import path from 'node:path';
 import {performance} from 'node:perf_hooks';
 import {makeHomes} from './fixtures/watch/homes.mjs';
 import {createTail, readTail, readHead} from '../../lib/watch/tail.mjs';
+import * as tail from '../../lib/watch/tail.mjs';
+import {WATCH_LIMITS} from '../../lib/watch/model.mjs';
 
 function fixture(t, contents = '') {
   const homes = makeHomes(t), file = path.join(homes.root, 'tail.jsonl');
   fs.writeFileSync(file, contents);
   return file;
 }
+
+test('WATCH_LIMITS has probe and known caps', () => {
+  assert.equal(WATCH_LIMITS.cwdProbeBytes,65536);
+  assert.equal(WATCH_LIMITS.maxKnown,512);
+});
+test('readLatestCwd returns the last extractable cwd within 64 KiB', async t => {
+  assert.equal(typeof tail.readLatestCwd,'function');
+  const extract = obj => typeof obj.cwd === 'string' && obj.cwd ? obj.cwd : undefined;
+  const file = fixture(t, '{"cwd":"/a"}\n{"cwd":"/b"}\ninvalid JSON\n{"note":"tail"}\n');
+  assert.equal(await tail.readLatestCwd(file,extract),'/b');
+  fs.writeFileSync(file, '{"cwd":"/old"}\n' + ('{"padding":"' + 'x'.repeat(1000) + '"}\n').repeat(70) + '{"note":"tail"}\n');
+  assert.equal(await tail.readLatestCwd(file,extract),undefined);
+  const partial = '{"cwd":"/cut"}\n{"note":"tail"}\n';
+  fs.writeFileSync(file, 'discarded' + partial);
+  assert.equal(await tail.readLatestCwd(file,extract,{maxBytes:Buffer.byteLength(partial)}),undefined);
+  assert.equal(await tail.readLatestCwd(path.join(path.dirname(file),'missing.jsonl'),extract),undefined);
+});
 
 test('tail joins a line split across two appends', async t => {
   const file = fixture(t), tail = createTail(file);
