@@ -432,3 +432,151 @@ test('install plan validates zeta custom roles using the injected registry', asy
   assert.equal(prepared.plans[0].target.platform, 'zeta');
   assert.match(prepared.plans[0].generated.profiles.get('arc-qa.md').toString(), /model: zeta-model/);
 });
+
+import {createLease} from '../../lib/runtime/role-dispatch-store.mjs';
+
+async function setChangeConfig(ctx, revision) {
+  const config = await mixedConfig(revision), pair = config.roles.arc_planner;
+  return {...config, roles: Object.fromEntries(ROUTING_ROLES.map(role => [role, {...pair, platform: 'claude'}]))};
+}
+async function prepareSetChange(ctx, platforms, revision, options = {}) {
+  let prepared;
+  await assert.doesNotReject(async () => {
+    prepared = await management.prepareCompositeOperation(ctx, {kind: 'install', platforms, config: await setChangeConfig(ctx, revision), ...options});
+  }, 'a verified previous composite must permit changing S and anchor');
+  return prepared;
+}
+const routingNames = home => fs.readdirSync(path.join(home, 'agents')).filter(name => name.startsWith('arc-routing-'));
+const markerName = home => path.join(home, 'arc-role-platform-routing.prepared.json');
+const routingLock = home => path.join(home, 'arc-role-platform-routing.lock');
+const moveLease = (dispatchId, state = 'reserved', route = 'native') => ({
+  version: 1, dispatchId, workflowId: 'move', taskId: 'task-10', requestId: dispatchId, role: 'arc_planner', route,
+  hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'before-move', profileHash: null, argsDigest: null,
+  state, supervisor: null, child: null, sessionId: null, timeoutMinutes: 20, claims: null, reasons: [], allowedPaths: [],
+  resultPath: null, segment: 0, nativeAgentId: null, createdAt: '2026-11-15T00:00:00.000Z', updatedAt: '2026-11-15T00:00:00.000Z'
+});
+
+test('D1-e same anchor adds zeta and removes nothing', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+  await managementPublish(ctx);
+  const prepared = await prepareSetChange(ctx, ['codex', 'claude', 'zeta'], 'same-anchor-add');
+  const result = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['codex', 'claude', 'zeta'], anchor: 'codex'});
+  for (const target of Object.values(resolveTargets(ctx).targets)) assert.ok(fs.existsSync(markerName(target.home)));
+  assert.equal(result.messages.some(message => message.startsWith('Dispatch history stays')), false);
+});
+
+test("D1-e removes S'\\S routing files and restores standalone", async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+  const zeta = resolveTargets(ctx).targets.zeta.home;
+  const standalone = homeBytes(path.join(zeta, 'agents')), skill = homeBytes(path.join(zeta, 'skills/arc'));
+  await managementPublish(ctx, {platforms: ['codex', 'claude', 'zeta']});
+  const prepared = await prepareSetChange(ctx, ['codex', 'claude'], 'same-anchor-remove');
+  const result = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.equal(fs.existsSync(markerName(zeta)), false);
+  assert.deepEqual(routingNames(zeta), []);
+  assert.deepEqual(homeBytes(path.join(zeta, 'agents')), standalone);
+  assert.deepEqual(homeBytes(path.join(zeta, 'skills/arc')), skill);
+  assert.equal(state(ctx).mode, 'composite');
+  assert.deepEqual(state(ctx).platforms, ['codex', 'claude']);
+});
+
+test('anchor move codex→claude rewrites active, markers, old active removed', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+  const targets = resolveTargets(ctx).targets, profiles = homeBytes(path.join(targets.codex.home, 'agents'));
+  await managementPublish(ctx);
+  await createLease(targets.codex.home, moveLease('old-history', 'completed'));
+  const history = homeBytes(path.join(targets.codex.home, 'arc-role-dispatch'));
+  const prepared = await prepareSetChange(ctx, ['claude', 'zeta'], 'move-to-claude');
+  const result = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['claude', 'zeta'], anchor: 'claude'});
+  assert.equal(JSON.parse(fs.readFileSync(active(ctx, 'claude'))).version, 2);
+  for (const id of ['claude', 'zeta']) assert.equal(JSON.parse(fs.readFileSync(markerName(targets[id].home))).activeConfigPath, active(ctx, 'claude'));
+  assert.equal(fs.existsSync(active(ctx, 'codex')), false);
+  assert.equal(fs.existsSync(markerName(targets.codex.home)), false);
+  assert.deepEqual(routingNames(targets.codex.home), []);
+  assert.deepEqual(homeBytes(path.join(targets.codex.home, 'agents')), profiles);
+  assert.deepEqual(homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')), history);
+  assert.ok(result.messages.includes(`Dispatch history stays in ${targets.codex.home}/arc-role-dispatch.`));
+});
+
+test('anchor move blocked by any non-terminal lease', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+  await managementPublish(ctx);
+  const targets = resolveTargets(ctx).targets;
+  for (const id of ['codex', 'claude']) for (const state of ['reserved', 'starting', 'running', 'unknown']) {
+    const dispatchId = `${id}-${state}`, leasePath = path.join(targets[id].home, 'arc-role-dispatch', `${dispatchId}.json`);
+    await createLease(targets[id].home, moveLease(dispatchId, state));
+    const prepared = await prepareSetChange(ctx, ['claude', 'zeta'], `blocked-${dispatchId}`, {settings: {language: 'ko'}});
+    const before = Object.fromEntries(Object.entries(targets).map(([id, target]) => [id, homeBytes(target.home)]));
+    const result = await management.executeCompositeOperation(ctx, prepared);
+    assert.equal(result.activation, 'held');
+    assert.equal(result.error?.message, 'Active dispatches block moving mixed routing; finish or cancel them first');
+    assert.deepEqual(result.error.activeDispatches, [dispatchId]);
+    for (const [id, target] of Object.entries(targets)) assert.deepEqual(homeBytes(target.home), before[id], id);
+    fs.unlinkSync(leasePath);
+  }
+});
+
+test('anchor move lock release failure reports both lock paths', async t => {
+  for (const rollback of [false, true]) {
+    const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+    await managementPublish(ctx);
+    const targets = resolveTargets(ctx).targets, before = homeBytes(ctx.userHome);
+    const prepared = await prepareSetChange(ctx, ['claude', 'zeta'], `release-failure-${rollback}`);
+    let sabotaged = false;
+    ctx.hooks = {fault(event) {
+      if (event.phase !== 'after-publish' || event.path !== active(ctx, 'claude')) return;
+      sabotaged = true;
+      for (const id of ['codex', 'claude']) {
+        const filename = routingLock(targets[id].home);
+        assert.equal(fs.existsSync(filename), true, `${id} lock held during publication`);
+        fs.writeFileSync(filename, '{}');
+      }
+      if (rollback) throw Error('force restored rollback');
+    }};
+    const result = await management.executeCompositeOperation(ctx, prepared);
+    assert.equal(sabotaged, true);
+    assert.equal(result.code, 1);
+    assert.equal(result.activation, rollback ? 'held' : 'unknown');
+    assert.equal(result.error.lockReleaseFailed, true);
+    assert.deepEqual(result.error.residualPaths.filter(filename => filename.endsWith('.lock')).sort(), ['codex', 'claude'].map(id => routingLock(targets[id].home)).sort());
+    for (const id of ['codex', 'claude']) fs.unlinkSync(routingLock(targets[id].home));
+    if (rollback) assert.deepEqual(homeBytes(ctx.userHome), before);
+  }
+});
+
+test('D1-e claude+zeta adds codex and writes only the joining standalone profiles', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+  await managementPublish(ctx, {platforms: ['claude', 'zeta'], config: await setChangeConfig(ctx, 'old-claude-anchor')});
+  const prepared = await prepareSetChange(ctx, ['codex', 'claude', 'zeta'], 'join-codex');
+  for (const plan of prepared.plans) assert.equal(plan.profileWrites.size, plan.target.platform === 'codex' ? ROUTING_ROLES.length : 0, plan.target.platform);
+  const result = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['codex', 'claude', 'zeta'], anchor: 'codex'});
+  assert.equal(fs.existsSync(active(ctx, 'claude')), false, 'the old anchor remains in S but loses its active file');
+  for (const target of Object.values(resolveTargets(ctx).targets)) assert.equal(JSON.parse(fs.readFileSync(markerName(target.home))).activeConfigPath, active(ctx, 'codex'));
+  assert.ok(result.messages.includes(`Dispatch history stays in ${resolveTargets(ctx).targets.claude.home}/arc-role-dispatch.`));
+});
+
+test('anchor move can install a joining anchor with no existing home and blocks without creating it', async t => {
+  const ctx = await zetaContext(t);
+  await managementPublish(ctx, {platforms: ['claude', 'zeta'], config: await setChangeConfig(ctx, 'no-codex-home')});
+  const targets = resolveTargets(ctx).targets;
+  assert.equal(fs.existsSync(targets.codex.home), false);
+  await createLease(targets.claude.home, moveLease('old-native'));
+  let prepared = await prepareSetChange(ctx, ['codex', 'claude', 'zeta'], 'create-codex', {settings: {language: 'ko'}});
+  const before = homeBytes(ctx.userHome);
+  let result = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(result.activation, 'held');
+  assert.equal(result.error?.message, 'Active dispatches block moving mixed routing; finish or cancel them first');
+  assert.deepEqual(homeBytes(ctx.userHome), before);
+  fs.unlinkSync(path.join(targets.claude.home, 'arc-role-dispatch/old-native.json'));
+  prepared = await prepareSetChange(ctx, ['codex', 'claude', 'zeta'], 'create-codex');
+  result = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(result.code, 0, result.error?.stack ?? result.results.find(item => item.error)?.error?.stack);
+  assert.equal(state(ctx).anchor, 'codex');
+});

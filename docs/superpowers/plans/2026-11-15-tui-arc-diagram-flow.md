@@ -549,7 +549,7 @@ test('activation message uses display-ordered mixed label', ...); // messages[0]
   - anchor가 같은 경우는 Task 8 규칙을 따릅니다.
 - management는 anchor 이동 시 메시지에 `Dispatch history stays in <old home>/arc-role-dispatch.`를 추가합니다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('D1-e same anchor adds zeta and removes nothing', ...); // S' [codex,claude] → S [codex,claude,zeta]
@@ -559,8 +559,8 @@ test('anchor move blocked by any non-terminal lease', ...); // codex store에 na
 test('anchor move lock release failure reports both lock paths', ...); // Review Focus 5
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/role-routing-*.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(installer): 참여 집합 변경과 anchor 이동 트랜잭션 추가`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/role-routing-*.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(installer): 참여 집합 변경과 anchor 이동 트랜잭션 추가`
 
 **수용 전 QA:** fresh QA가 AC-M8 바이트 동일성과 실패 경로의 residual 보고를 확인합니다.
 
@@ -1117,3 +1117,16 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
     - runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2083 tests, 2027 pass / 38 fail. 실패 목록이 기존 목록과 같습니다(신규 0건).
   - Implementer 재개 dispatch의 `permission_violation_observed`는 changedPaths 0건과 다른 세션의 fetch(ref 활동)로 정리했습니다.
+- **작업 10 (2026-11-15 수용):**
+  - Implementer dispatch `db2133c6`: 첫 실행은 패치 문맥 오류로 변경 없이 중단했습니다. 재시도를 허용해 resume했고 구현을 마쳤습니다. 범위 추가와 레지스트리 전달 수정은 없습니다. 기존 테스트 변경도 없습니다(테스트 148줄 추가).
+  - 작업 9 QA에서 넘어온 `['claude','zeta']`에 codex를 더하는 경우(anchor claude→codex, 이전에는 marker 불일치로 거부)를 추가 테스트로 넣었고 통과합니다.
+  - fresh QA dispatch `e653bfc6`(4 segment: 사본 생성 명령 오류, `rm -rf` 자동 승인 거부, 한글 파일명 NFC/NFD 차이로 세 번 멈춘 뒤 4회차에 완료):
+    - Q1 proven(AC-M8): old/new store 각각의 non-terminal 4상태 × native/bridge에서 지정 오류, `held`, id가 반환되고 `userHome` 전체 바이트가 같습니다. terminal lease만 있으면 이동이 성공합니다.
+    - Q2 proven(Review Focus 5): 각 lock 단독·동시 해제 실패를 publish 후와 rollback 후에 주입했습니다. 실패 경로가 모두 residual에 들어가고 activation은 `unknown`/`held`입니다. 획득은 anchorOrder 오름차순, 해제는 역순입니다.
+    - Q3 proven: same-anchor 추가(새 P만 profile write, 기존 구성원 omit), S'\S 제거와 standalone 복원, anchor 이동의 활성 설정·marker·history·메시지를 확인했습니다.
+    - Q4 proven: `prepareCompositeDeactivation` 결과(removals 8, writes 10, snapshot 40)와 same-anchor 재게시 결과 169항목이 `9d2605d`와 같습니다(atime 제외).
+    - Q5 proven: mutation 4건(lease 검사, S'\S 제거, lock 경로 보고, 이전 활성 파일 제거)이 모두 테스트를 실패시켰습니다. 이전 활성 파일 제거 mutation은 claude→codex 테스트만 감지합니다(codex→claude는 다른 제거 경로가 같은 파일을 지움).
+    - Q6 proven: 신규 import 순환 0개, lib/runtime 무변경, 금지 도달 0건입니다.
+  - 검증(Orchestrator 환경): runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2090 tests, 2034 pass / 38 fail. 실패 목록이 기존 목록과 같습니다(신규 0건).
+  - Implementer dispatch의 `permission_violation_observed`는 changedPaths 0건과 다른 세션의 fetch로 정리했습니다.
