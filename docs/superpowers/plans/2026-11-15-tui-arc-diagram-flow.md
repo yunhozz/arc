@@ -654,7 +654,7 @@ test('mode line values', ...); // 4가지 상태
 - guard 조건은 `columns < 40 || rows < 16`입니다.
 - compact 행은 `Planner: Claude / opus / medium`이며 차단 시 `Planner !: …`입니다. 자르기는 현행 `shorten` 규칙입니다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('box shows role on top border and three inner lines', ...); // rows[0] includes '┌─ Scouter ─', rows[1..3] '│ Codex', '│ gpt-5.5', '│ effort: low'
@@ -664,8 +664,8 @@ test('thresholds', ...); // boxWidth 24일 때 columns 79/rows 24/footerRows 6 �
 test('wide characters and long models', ...); // model '모델-아주-긴-이름' → 각 행 cellWidth 합이 동일; compact에서 '…'
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-render.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 역할명 테두리 라벨 도식 렌더러 추가`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-render.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 역할명 테두리 라벨 도식 렌더러 추가`
 
 ---
 
@@ -1156,3 +1156,9 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 새 모듈은 `../platforms/index.mjs`만 import합니다. 신규 순환 0건입니다.
   - 검증: runtime-assets `--check` 33, `check:manifest` 231, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2204 tests, 2145 pass / 41 fail. 기준 밖 3건 중 2건(`cwd in a subdirectory …`, `prepare-dispatch maps CLI absence …`)은 파일 단위 재실행에서 통과했습니다. 나머지 `commit observer reads exact real local commit objects …`는 실제 HEAD가 병합 커밋(부모 2개)이라 `Expected exact single-parent commit`으로 실패하는 환경 의존 사례이며, Task 12 변경과 무관합니다.
+- Task 13 완료(필수 QA 대상 아님):
+  - Implementer dispatch `1a71ea61`: `lib/tui/diagram.mjs`(순수 `diagramRows`), `tests/node/tui-render.test.mjs`에 테스트 9개 추가(기존 무변경), 테스트용 레지스트리 `tests/node/fixtures/platforms/diagram.mjs`. RED 9건, GREEN 35/35입니다.
+  - guard(`columns < 40 || rows < 16`)를 먼저 판정하고, full은 세 임계값을 모두 만족할 때만 냅니다. 폭 공식은 이스케이프 후 셀 수에 `max(…)+4`를 적용합니다. compact는 기존 공간 배분과 `…` 규칙을 씁니다.
+  - `viewportGuard`와 `shorten`은 범위 밖 파일(`custom-preset.mjs`, `setup.mjs`)의 비공개 함수라 `diagram.mjs`에 같은 동작으로 복제했습니다. 아래 박스 상단 테두리는 라벨이 중앙을 차지하므로 기존 `┴` 접점을 두지 않습니다(spec 7.3 도식과 같음).
+  - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2213 tests, 2155 pass / 40 fail. 기준 밖 2건(`role-bridge-run.test.mjs`의 `auth, model and effort error streams …`, `native observe started→completed …`)은 파일 단위 재실행에서 35/0으로 통과했습니다(부하 의존).
