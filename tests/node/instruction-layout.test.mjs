@@ -122,6 +122,13 @@ for(const platform of ['codex','claude']){
   }
  });
 }
+test('planning document commits wait for every planned spec and plan approval on both platforms',()=>{
+ const expected='Paths requiring both spec and plan (Architectural or spec-required Bounded) permit no document commit on spec approval alone; after every planned spec/plan is individually approved, record the remaining ones in one planning-document commit. Plan-less paths commit their own approved document set.';
+ for(const platform of ['claude','codex']){
+  const section=read(file(platform,'handoff-prep')).split('<a id="planning-document-commit"></a>')[1]?.split('<a id=')[0]??'';
+  assert.ok(section.includes(expected),`missing planning document commit timing rule for ${platform}`);
+ }
+});
 test('Codex document transfer includes legacy documents while excluding normal new documents',()=>{
  const transfer=read('shared/skill/references/handoff-worktree.md').split('### Worktree document transfer')[1];
  assert.match(transfer,/Only for existing approved documents in legacy\/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:/);
