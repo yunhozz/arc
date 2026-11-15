@@ -44,3 +44,30 @@ for(const platform of ['codex','claude'])for(const kind of ['file','symlink','ow
  const status=(await api.collectStatus({userHome,cwd:userHome,env:{},safeFs})).find(item=>item.platform===platform);assert.equal(status.state,kind==='owned'?'incomplete':'absent');
  if(kind!=='owned'){assert.deepEqual(status.residualPaths,[filename]);assert.deepEqual(status.diagnostics,[]);}else assert.match(status.diagnostics[0].message,/Incomplete ARC installation/);
 });
+
+test('collectStatus iterates registry in anchor order',async t=>{
+ const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-order-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
+ const statuses=await api.collectStatus({userHome,cwd:userHome,env:{},safeFs});
+ assert.deepEqual(statuses.map(status=>status.platform),['codex','claude']);
+});
+
+test('auth kind none reports unknown without probe',async t=>{
+ const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
+ const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-no-auth-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
+ const bin=path.join(userHome,'bin'),record=path.join(userHome,'zeta-probed');fs.mkdirSync(bin);
+ fs.writeFileSync(path.join(bin,'zeta'),'#!/bin/sh\nprintf probed > "'+record+'"\nexit 1\n',{mode:0o755});
+ const statuses=await api.collectStatus({userHome,cwd:userHome,env:{PATH:bin},safeFs,...createTestRegistries()});
+ const zeta=statuses.find(status=>status.platform==='zeta');
+ assert.ok(zeta,'registered zeta must have a status');
+ assert.deepEqual(zeta.authentication,{platform:'zeta',authStatus:'unknown',reason:'auth_probe_unavailable'});
+ assert.equal(fs.existsSync(record),false);
+});
+
+test('static catalog resolves via descriptor',async()=>{
+ const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
+ const {loadStaticModelCatalog}=await import('../../lib/models/static-catalog.mjs');
+ const result=await loadStaticModelCatalog('zeta',createTestRegistries());
+ assert.equal(result.status,'ready');
+ assert.equal(result.catalog.platform,'zeta');
+ assert.deepEqual(result.catalog.pairs,[{model:'zeta-model',effort:'high'}]);
+});

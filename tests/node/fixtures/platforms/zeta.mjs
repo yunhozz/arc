@@ -15,6 +15,7 @@ export const ZETA_RUNTIME = {
   },
   cli: {command: 'zeta', supportedVersions: null},
   auth: {kind: 'none'},
+  models: {effortField: 'effort'},
   profile: {
     ext: 'md',
     standaloneName: role => `arc-${role.slice(4)}`,
@@ -27,6 +28,7 @@ export const ZETA_RUNTIME = {
 
 export const ETA_RUNTIME = {
   ...ZETA_RUNTIME, id: 'eta', label: 'Eta', anchorOrder: 3, displayOrder: 3,
+  models: {effortField: 'effort'},
   capabilities: {},
 };
 
@@ -42,11 +44,12 @@ export const ZETA_INSTALLER = {
   ...CLAUDE_INSTALLER, runtime: ZETA_RUNTIME,
   payloadPrefix: 'zeta', instructionFile: 'ZETA.md', runtimeConfigFile: 'settings.json',
   globalPaths: ['ZETA.md', 'settings.json'],
-  models: {staticCatalog: new URL('./zeta-models.json', import.meta.url), effortField: 'effort', discover: null},
+  models: {staticCatalog: new URL('./zeta-models.json', import.meta.url), effortField: ZETA_RUNTIME.models.effortField, discover: null},
 };
 
 export const ETA_INSTALLER = {
   ...ZETA_INSTALLER, runtime: ETA_RUNTIME, payloadPrefix: 'eta',
+  models: {...ZETA_INSTALLER.models, effortField: ETA_RUNTIME.models.effortField},
 };
 
 export function createTestRegistries(ids = ['codex', 'claude', 'zeta']) {

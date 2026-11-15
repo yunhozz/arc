@@ -207,3 +207,33 @@ test('format and leaf modules do not import lib/platforms', () => {
     }
   }
 });
+
+test('effortField comes from runtime registry', async () => {
+  const {effortField, platformOf} = await import('../../lib/models/config.mjs');
+  for (const [id, field] of [['codex', 'model_reasoning_effort'], ['claude', 'effort']]) {
+    assert.equal(getPlatform(id).models?.effortField, field);
+    assert.equal(installer.DEFAULT_INSTALLER_REGISTRY.getPlatform(id).models.effortField, getPlatform(id).models.effortField);
+    assert.equal(effortField(id), field);
+    assert.equal(platformOf({platform: id, version: 3}), id);
+  }
+  const injected = fixtureRegistries.createTestRegistries(['codex', 'claude', 'zeta', 'eta']);
+  for (const id of ['zeta', 'eta']) {
+    assert.equal(injected.runtimePlatforms.getPlatform(id).models?.effortField, 'effort');
+    assert.equal(injected.platforms.getPlatform(id).models.effortField, injected.runtimePlatforms.getPlatform(id).models.effortField);
+  }
+  assert.throws(() => effortField('missing'), {message: 'Unknown model platform'});
+  assert.throws(() => platformOf({platform: 'missing', version: 3}), {message: 'Unsupported model schema version'});
+  const visited = new Set();
+  function walk(url) {
+    if (visited.has(url.href)) return;
+    visited.add(url.href);
+    const source = fs.readFileSync(url, 'utf8');
+    for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"]([^'"]+)['"]/g)) {
+      if (!match[1].startsWith('.')) continue;
+      const dependency = new URL(match[1], url);
+      assert.equal(dependency.pathname.includes('/lib/platforms/'), false, `${url.pathname}: ${match[1]}`);
+      if (/\.(?:mjs|js)$/.test(dependency.pathname)) walk(dependency);
+    }
+  }
+  walk(new URL('../../lib/models/config.mjs', import.meta.url));
+});

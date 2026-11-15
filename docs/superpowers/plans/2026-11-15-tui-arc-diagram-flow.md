@@ -306,7 +306,7 @@ test('install order follows anchorOrder', ...); // plans [claude,zeta,codex] →
     - mode는 `resolveTargets`와 `readInstallMode`로 구합니다.
     - 인증 처리는 `auth.kind`로 정합니다. `codex-refresh`는 현행 codex probe(`codexCheck`)를, `cli-status-json`은 `probePlatformAuth`를 씁니다. `none`이면 CLI가 있을 때 `{platform, authStatus:'unknown', reason:'auth_probe_unavailable'}`을 돌려줍니다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('collectStatus iterates registry in anchor order', ...); // 기본 → map(s=>s.platform) deepEqual ['codex','claude']
@@ -316,11 +316,11 @@ test('static catalog resolves via descriptor', ...); // zeta 주입 시 status '
 test('effortField comes from runtime registry', ...); // getPlatform('codex').models.effortField==='model_reasoning_effort', claude 'effort', 설치기 descriptor 값과 같음, config.mjs가 lib/platforms를 직접·간접 import하지 않음
 ```
 
-- [ ] **Step 2:** `node --test tests/node/management-status.test.mjs` → FAIL
-- [ ] **Step 3:** 구현
-- [ ] **Step 4:** `node --test tests/node/platform-registry.test.mjs tests/node/management-status.test.mjs tests/node/models.test.mjs tests/node/model-catalog.test.mjs tests/node/profile-render.test.mjs tests/node/role-policy.test.mjs tests/node/status-labels.test.mjs tests/node/codex-auth-probe.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE**(`check:role-policy` 생성물 무변경을 반드시 확인)
-- [ ] **Step 6:** `refactor(models): 모델 카탈로그와 정책 대상, 상태 수집을 레지스트리로 이전`
+- [x] **Step 2:** `node --test tests/node/management-status.test.mjs` → FAIL
+- [x] **Step 3:** 구현
+- [x] **Step 4:** `node --test tests/node/platform-registry.test.mjs tests/node/management-status.test.mjs tests/node/models.test.mjs tests/node/model-catalog.test.mjs tests/node/profile-render.test.mjs tests/node/role-policy.test.mjs tests/node/status-labels.test.mjs tests/node/codex-auth-probe.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE**(`check:role-policy` 생성물 무변경을 반드시 확인)
+- [x] **Step 6:** `refactor(models): 모델 카탈로그와 정책 대상, 상태 수집을 레지스트리로 이전`
 
 ---
 
@@ -1013,3 +1013,20 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - fresh QA(dispatch `f1d83bf7`, 재확인 1회) Q1–Q7 모두 proven, finding 없음.
     - 정적 import 그래프에 순환이 0개입니다.
     - 렌더링 실패 8건은 기준 커밋 `57675db`에서도 같은 assertion 출력으로 실패합니다.
+- **작업 4 (2026-11-15 수용):**
+  - 개정 2(사용자 승인)에 따라 진행했습니다.
+    - `models.effortField`를 runtime descriptor로 옮겼습니다. 설치기 descriptor와 zeta fixture는 runtime 값을 따릅니다.
+    - `config.mjs`는 runtime 레지스트리만 씁니다.
+  - Implementer:
+    - dispatch `17dfbae7`: RED 테스트 3개만 추가하고 순환을 보고했습니다.
+    - dispatch `2a040c81`: 개정 2 이후 새로 배정했습니다. 사전 위임 규칙의 해시 갱신(golden의 `platform-registry.mjs` 8곳, `runtime-versions` baselineHash)만 범위에 추가했습니다.
+    - 두 dispatch 모두 `refsChanged`로 기록됐지만 다른 세션의 ref 변경·fetch 때문입니다. changedPaths는 0건입니다.
+  - 검증:
+    - focused(runtime 해시 테스트 포함): 145 pass / 1 fail. 실패 1건은 기존 실패 `Codex existing root field edits…`입니다.
+    - runtime-assets `--check` 33 files, `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 236 IDs 통과.
+    - 정적 import 그래프에서 신규 순환은 0개입니다. 순환 금지 모듈은 `lib/platforms/**`에 직접·간접 모두 도달하지 않습니다.
+  - 전체 `npm test`(Orchestrator 환경): 2031 tests, 1975 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 정확히 같습니다(신규 0건).
+  - 의도된 동작 차이(계획 Interfaces), 최종 Reviewer 확인 대상:
+    - `assertCompositeCatalogRoles`는 역할 플랫폼의 카탈로그가 없을 때 "unavailable for role" 오류를 냅니다.
+    - `collectStatus`의 mode는 `resolveTargets`의 해석된 대상만으로 판정합니다.
+  - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.
