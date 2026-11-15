@@ -219,7 +219,7 @@
   - `parts.length>=3`이고, `rest = parts[1].slice('plugin_'.length)`에서 `i = rest.indexOf('_')`가 0보다 크면 `{kind:'tool', tool:name, plugin:rest.slice(0,i)}`.
   - 조건이 맞지 않으면 기존처럼 `{kind:'tool', tool:name}`.
 
-- [ ] **Step 1: 실패 테스트 작성** (`watch-normalize-claude.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`watch-normalize-claude.test.mjs`)
   - `Skill call with args is a skill tool event`: `{name:'Skill',id:'s1',input:{skill:'arc',args:'x'}}` → `[{kind:'tool',tool:'Skill',skill:'arc',text:'x',ts}]`
   - `plugin skill keeps the prefix as plugin`: `{skill:'anthropic-skills:docs'}` → `plugin:'anthropic-skills'`, `skill:'anthropic-skills:docs'`
   - `failed Skill carries skill and plugin`: 위 `s1` 뒤 `tool_result` `is_error:true` → `{kind:'tool_failed',tool:'Skill',skill:'arc'}`
@@ -232,18 +232,23 @@
   - `plugin MCP tool name yields plugin`
     - `mcp__plugin_p_srv__t` → `{kind:'tool',tool:'mcp__plugin_p_srv__t',plugin:'p'}`
     - `mcp__plugin_p__t`, `mcp__srv__t` → `plugin` 없음
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 tests/node/watch-normalize-claude.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 위 규칙대로 구현한다. 기존 `state.tools`(id→이름 문자열) 형식은 바꾸지 않는다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령 PASS
-- [ ] **Step 5: manifest 재생성과 check:manifest PASS**
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
-- [ ] **Step 7: 커밋.** `feat(watch): Claude skill과 plugin 도구 사용 판정 추가`
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 tests/node/watch-normalize-claude.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 위 규칙대로 구현한다. 기존 `state.tools`(id→이름 문자열) 형식은 바꾸지 않는다.
+- [x] **Step 4: 통과 확인.** Step 2 명령 PASS
+- [x] **Step 5: manifest 재생성과 check:manifest PASS**
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
+- [x] **Step 7: 커밋.** `feat(watch): Claude skill과 plugin 도구 사용 판정 추가`
 
 **수용 기준:** AC-W41의 정규화 부분과 AC-W43의 Claude 부분을 만족하고, 기존 Claude 정규화 테스트가 통과한다.
 
 **QA:** 불필요(T7 통합에서 확인).
 
 **위험:** R17. `mcp__plugin_` 형식은 관찰된 적이 없고, 대화형 slash 형식은 가정이다. 알아보지 못한 형식은 개정 전 동작으로 처리한다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `649b766c`.
+- RED는 46 pass / 6 fail, GREEN은 52/52.
+- Orchestrator 재확인: `watch-*` 291/292(기준선 help 실패 1건만 남음), check:manifest 통과, 전체 테스트 실패 목록이 기준선과 같음.
 
 ---
 
