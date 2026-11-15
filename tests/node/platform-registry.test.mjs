@@ -11,6 +11,54 @@ import {
 import {resolveConfigHome, resolveLocalCli, localCliEnvironment} from '../../lib/runtime/local-cli.mjs';
 import {ZETA_RUNTIME, createTestRuntimeRegistry} from './fixtures/platforms/zeta.mjs';
 
+function sourceFiles(relative) {
+  const root = new URL('../../' + relative + '/', import.meta.url);
+  return fs.readdirSync(root, {recursive: true, withFileTypes: true})
+    .filter(entry => entry.isFile())
+    .map(entry => path.relative(new URL('../../', import.meta.url).pathname, path.join(entry.parentPath, entry.name)).split(path.sep).join('/'))
+    .sort();
+}
+
+test('AC-P1 has no platform hardcoding outside the line-scoped allowlist', () => {
+  const patterns = [
+    ['P1', /\[\s*(['"])(codex|claude)\1\s*,\s*(['"])(codex|claude)\3\s*\]/],
+    ['P2', /\{\s*['"]?(codex|claude)['"]?\s*:[^{}\n]*,\s*['"]?(codex|claude)['"]?\s*:/],
+    ['P3', /===\s*['"]codex['"]\s*\?\s*['"]toml['"]\s*:\s*['"]md['"]/],
+  ];
+  const runtimeAllowlist = /^(?:lib|shared\/skill)\/runtime\/(?:platform-registry\.mjs|adapters\/.*|capabilities\.mjs|role-bridge-args\.mjs|role-supervisor\.mjs|local-cli\.mjs)$/;
+  const violations = [];
+  for (const filename of [...sourceFiles('lib'), ...sourceFiles('shared/skill/runtime')].filter(filename => filename.endsWith('.mjs'))) {
+    if (/^lib\/(?:platforms|watch)\//.test(filename) || runtimeAllowlist.test(filename)) continue;
+    const lines = fs.readFileSync(new URL('../../' + filename, import.meta.url), 'utf8').split('\n');
+    for (const [index, line] of lines.entries()) {
+      // D-Compat / §8: v1 means exactly codex+claude; registry derivation would change the schema meaning.
+      if (['lib/runtime/role-routing-config.mjs', 'shared/skill/runtime/role-routing-config.mjs'].includes(filename)
+        && line === "const v1Platforms = Object.freeze(['codex', 'claude']);") continue;
+      for (const [id, pattern] of patterns) if (pattern.test(line)) violations.push(`${filename}:${index + 1} ${id}: ${line}`);
+    }
+  }
+  assert.deepEqual(violations, [], violations.join('\n'));
+});
+
+test('AC-P1 install-verified platforms have adapters and capabilities-map keys', () => {
+  const source = fs.readFileSync(new URL('../../lib/runtime/capabilities.mjs', import.meta.url), 'utf8');
+  const contracts = source.match(/const contracts = \{([\s\S]*?)\n\};/)?.[1];
+  assert.ok(contracts, 'capabilities map exists');
+  const keys = [...contracts.matchAll(/^\s*([a-z][a-z0-9-]*):/gm)].map(match => match[1]);
+  for (const platform of RUNTIME_PLATFORMS.filter(platform => platform.capabilities.install.state === 'verified')) {
+    assert.ok(fs.statSync(new URL(`../../lib/runtime/adapters/${platform.id}.mjs`, import.meta.url)).isFile(), platform.id);
+    assert.ok(keys.includes(platform.id), `${platform.id} capabilities-map key`);
+  }
+});
+
+test('AC-P1 production sources never reference platform test fixtures', () => {
+  const violations = [];
+  for (const filename of ['lib', 'shared', 'bin', 'scripts'].flatMap(sourceFiles)) {
+    if (fs.readFileSync(new URL('../../' + filename, import.meta.url)).includes(Buffer.from('fixtures/platforms'))) violations.push(filename);
+  }
+  assert.deepEqual(violations, []);
+});
+
 test('runtime registry exposes codex and claude with spec values', () => {
   assert.deepEqual(CAPABILITY_KEYS, ['install', 'standalone', 'compositeRole', 'compositeHost', 'bridge', 'nativeProfile', 'authProbe', 'catalog', 'watch']);
   assert.deepEqual(platformIds(), ['codex', 'claude']);

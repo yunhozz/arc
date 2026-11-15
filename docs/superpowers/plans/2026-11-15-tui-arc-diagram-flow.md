@@ -849,10 +849,10 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
 - adapter coverage: `capabilities.install`이 verified인 id마다 `lib/runtime/adapters/<id>.mjs`가 있고 capabilities 맵에 키가 있어야 합니다.
 - fixture import 금지: `lib/**`, `shared/**`, `bin/**`, `scripts/**`에 `fixtures/platforms` 문자열이 없어야 합니다.
 
-- [ ] **Step 1:** 테스트를 추가하고 실행 → 잔존이 있으면 FAIL 목록을 기록합니다.
-- [ ] **Step 2:** 남은 줄을 레지스트리 조회로 바꿉니다. 대상이 허용 목록 밖의 뜻밖의 파일이고 의미가 바뀌는 수정이 필요하면 hold합니다.
-- [ ] **Step 3:** `node --test tests/node/platform-registry.test.mjs` → PASS
-- [ ] **Step 4: STD-CLOSE** → **Step 5:** `test(platforms): 플랫폼 하드코딩 잔존 검사와 coverage 추가`
+- [x] **Step 1:** 테스트를 추가하고 실행 → 잔존이 있으면 FAIL 목록을 기록합니다.
+- [x] **Step 2:** 남은 줄을 레지스트리 조회로 바꿉니다. 대상이 허용 목록 밖의 뜻밖의 파일이고 의미가 바뀌는 수정이 필요하면 hold합니다.
+- [x] **Step 3:** `node --test tests/node/platform-registry.test.mjs` → PASS
+- [x] **Step 4: STD-CLOSE** → **Step 5:** `test(platforms): 플랫폼 하드코딩 잔존 검사와 coverage 추가`
 
 ---
 
@@ -1190,3 +1190,9 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - Q6 mutation은 QA가 역할 지침(소스 편집 금지)을 이유로 임시 사본에서도 거부했습니다. Orchestrator가 scratchpad 사본에서 직접 실행했고, (i) 미설치 행 선택 가능, (ii) Residual 중복 제거 삭제·Exit code 줄 삭제, (iii) `Removed ARC.`/`Removed ARC and CLI.` 조건 교환, (iv) 제거 목록 순서를 `['codex','claude']`로 고정 — 모두 테스트 실패를 일으켰습니다. 복원 후 사본 `app.mjs`가 작업 트리와 동일합니다.
   - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2224 tests, 2168 pass / 38 fail. 기준 밖 1건 `prepare-dispatch maps CLI absence …`는 파일 단위 재실행 29/0(Task 12와 같은 부하 의존).
+- Task 18 완료(필수 QA 대상 아님):
+  - Orchestrator 계획 보정(동작 무변경): `lib/runtime/role-routing-config.mjs`와 미러의 `const v1Platforms = Object.freeze(['codex', 'claude']);` 한 줄을 정확 일치 예외로 둡니다. v1 role-routing 설정 형식은 codex+claude로 고정돼 있어(D-Compat, spec 8장) 레지스트리에서 끌어오면 의미가 바뀝니다. 예외는 테스트에만 있고 사유를 주석으로 남겼습니다.
+  - Implementer `3cc7e706`: `tests/node/platform-registry.test.mjs`에 P1–P3 줄 단위 검사, adapter coverage, fixture import 금지를 추가했습니다. RED에서 P1 5줄(`lib/installer/role-routing.mjs:32,126,190`, `lib/management/operations.mjs:71`, `lib/tui/setup.mjs:16`)을 검출했습니다.
+  - 수정: role-routing의 기본 `platforms`/`anchor`를 레지스트리 anchor 순서와 최소 anchor로, management의 비composite fallback을 레지스트리 anchor 순서로, setup의 target 검사를 `isPlatformId`로 바꿨습니다(setup은 모델 처리에 context도 전달). 운영 레지스트리 기본값의 바이트·경로 동일성은 `tests/node/hardcoding-residual.test.mjs` 10건으로 고정했습니다. lib/runtime와 shared/skill/runtime은 무변경입니다.
+  - 검증: registry·잔존 테스트 28/28, runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2237 tests, 2182 pass / 37 fail. 신규 실패 0건.
