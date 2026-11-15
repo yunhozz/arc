@@ -1,11 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import * as claude from '../../lib/watch/normalize-claude.mjs';
 import {createClaudeState,parseClaudeHead,parseClaudeAgentMeta,normalizeClaudeLine} from '../../lib/watch/normalize-claude.mjs';
 const fixture = name => fs.readFileSync(new URL(`./fixtures/watch/${name}.jsonl`,import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
 const assistant = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'assistant',message:{content,...extra}},state);
 const user = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'user',message:{content},...extra},state);
 const tool = (name,input={}) => assistant([{type:'tool_use',id:'id',name,input}]);
+
+test('claudeLineCwd returns string cwd only', () => {
+ assert.equal(typeof claude.claudeLineCwd,'function');
+ assert.equal(claude.claudeLineCwd({cwd:'/r'}),'/r');
+ for (const obj of [{cwd:1},{cwd:''},{},null,[]]) assert.equal(claude.claudeLineCwd(obj),undefined);
+});
+test('Bash deletion paths use state.cwd when the line has no cwd', () => {
+ const state=createClaudeState();
+ assert.equal(state.cwd,undefined);
+ state.cwd='/r/wt';
+ assistant([{type:'tool_use',id:'b1',name:'Bash',input:{command:'rm a.txt'}}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'b1'}],state),[{kind:'file_delete',paths:['/r/wt/a.txt']}]);
+});
 
 for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
  test(`user interrupt ${marker} ends the turn`, () => {

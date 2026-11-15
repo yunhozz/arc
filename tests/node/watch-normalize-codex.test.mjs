@@ -1,11 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import * as codex from '../../lib/watch/normalize-codex.mjs';
 import {parseCodexMeta, normalizeCodexLine as normalize} from '../../lib/watch/normalize-codex.mjs';
 const fixture = name => fs.readFileSync(new URL(`./fixtures/watch/${name}.jsonl`, import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
 const event = (type, rest={}) => normalize({type:'event_msg',payload:{type,...rest}});
 const item = (type, rest={}) => event('item_completed',{item:{type,...rest}});
 const safe = result => assert.doesNotMatch(JSON.stringify(result), /WATCH_MARKER_\w+/);
+
+test('codexLineCwd reads only session_meta, turn_context and thread_settings_applied', () => {
+ assert.equal(typeof codex.codexLineCwd,'function');
+ for (const type of ['session_meta','turn_context']) assert.equal(codex.codexLineCwd({type,payload:{cwd:'/r/a'}}),'/r/a');
+ assert.equal(codex.codexLineCwd({type:'event_msg',payload:{type:'thread_settings_applied',thread_settings:{cwd:'/r/a'}}}),'/r/a');
+ for (const obj of [
+  {type:'event_msg',payload:{type:'item_completed',item:{type:'CommandExecution',cwd:'/x'}}},
+  {type:'world_state',payload:{state:{environments:{local:{cwd:'/x'}}}}},
+  {type:'turn_context',payload:{cwd:''}},
+  {type:'session_meta',payload:{cwd:1}},
+  {type:'event_msg',payload:{type:'thread_settings_applied',thread_settings:{cwd:''}}},
+  {type:'turn_context',payload:null},null,[],{},
+ ]) assert.equal(codex.codexLineCwd(obj),undefined);
+});
 
 test('session_meta yields meta without instructions', () => {
  const row=fixture('codex-tui')[0], meta=parseCodexMeta(row);

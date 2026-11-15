@@ -127,7 +127,7 @@
   - `dir`: 기존과 같다.
   - `all`/`session`: `null`.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `watch-normalize-codex.test.mjs` `codexLineCwd reads only session_meta, turn_context and thread_settings_applied`
     - 세 소스 각각 `'/r/a'`를 돌려준다.
     - `{type:'event_msg',payload:{type:'item_completed',item:{type:'CommandExecution',cwd:'/x'}}}` → `undefined`
@@ -149,16 +149,16 @@
     - `dir:wt` 범위의 접두어에 `normalizeSlug(repo)`가 있다.
     - 기존 단언은 유지한다.
   - `WATCH_LIMITS has probe and known caps`: `cwdProbeBytes===65536`, `maxKnown===512`
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
   - Run: `node --test --test-timeout=120000 tests/node/watch-normalize-claude.test.mjs tests/node/watch-normalize-codex.test.mjs tests/node/watch-tail.test.mjs tests/node/watch-scope.test.mjs`
   - Expected: FAIL(새 함수 미정의, 접두어 단언 실패)
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
   - Interfaces대로 구현한다.
   - `readLatestCwd`는 `readTail`과 같은 방식(`fsp.open(file,'r')`, 첫 줄 버림)으로 읽고, 파싱에는 `createLineParser`를 쓴다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령이 PASS여야 한다.
-- [ ] **Step 5: manifest.** `node scripts/update-manifest.mjs`를 실행한 뒤 `npm run check:manifest` PASS.
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS.
-- [ ] **Step 7: 커밋(Orchestrator).** `feat(watch): 줄 cwd 추출과 최신 cwd probe 추가`
+- [x] **Step 4: 통과 확인.** Step 2 명령이 PASS여야 한다.
+- [x] **Step 5: manifest.** `node scripts/update-manifest.mjs`를 실행한 뒤 `npm run check:manifest` PASS.
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS.
+- [x] **Step 7: 커밋(Orchestrator).** `feat(watch): 줄 cwd 추출과 최신 cwd probe 추가`
 
 **수용 기준:**
 - 위 테스트가 통과한다.
@@ -168,6 +168,14 @@
 **QA:** 불필요(순수 함수, Orchestrator 집중 확인).
 
 **위험:** 접두어가 늘어 project 디렉터리 읽기가 늘어난다(R16). 기존 mtime 캐시로 줄인다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `3e800f5e`.
+- RED는 76 pass / 6 fail(새 함수·상수 없음, 삭제 경로, 접두어)였다. GREEN은 집중 테스트 82/82.
+- Orchestrator 재확인
+  - `watch-*`: 283/284. 남은 실패 `watch help matches the spec text`는 기준선 실패다. docs 커밋의 spec §5.3 개정 때문이며 T8에서 해결한다.
+  - check:manifest: 통과.
+  - 전체 테스트: 기준선 56건과 같다. 그 밖에 `role-bridge-run` orphan reap 테스트가 1회 실패했으나, 단독으로 3회 재실행해 모두 통과했다. timing flake로 보며 T1과 무관하다.
 
 ---
 
