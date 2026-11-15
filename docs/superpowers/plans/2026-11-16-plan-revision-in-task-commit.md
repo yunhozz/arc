@@ -86,10 +86,19 @@
 **실행 환경:** 2026-11-16 사용자 결정. 워크트리에서 `npm ci`와 `npm run build:native`를 실행한 뒤 baseline과 이후 검증을 모두 같은 환경에서 돌린다.
 **선행:** plan 승인, 계획 문서 커밋
 
-- [ ] HEAD, 브랜치, `git status`, node/python 버전, `node_modules`와 `build` 유무를 기록한다.
-- [ ] N-ALL과 P-ALL을 실행하고 실패 집합(테스트 ID 목록과 파일 단위 실패 목록)을 저장한다.
-- [ ] G-POL, G-RT, G-MAN, G-PAR, `G-PAR --complete`의 종료 코드와 출력을 저장한다.
-- [ ] 결과: 실패 수, 파일 단위 실패 파일 목록, 그 때문에 검증되지 않는 범위를 적는다.
+- [x] HEAD, 브랜치, `git status`, node/python 버전, `node_modules`와 `build` 유무를 기록한다.
+- [x] N-ALL과 P-ALL을 실행하고 실패 집합(테스트 ID 목록과 파일 단위 실패 목록)을 저장한다.
+- [x] G-POL, G-RT, G-MAN, G-PAR, `G-PAR --complete`의 종료 코드와 출력을 저장한다.
+- [x] 결과: 실패 수, 파일 단위 실패 파일 목록, 그 때문에 검증되지 않는 범위를 적는다.
+
+**T0 결과 (2026-11-16)**
+- 환경: HEAD fe76d07(코드 기준 ec91fc0과 같음), 브랜치 fix/plan-revision-in-task-commit, clean. node v22.18.0, Python 3.15.2. 워크트리에서 `npm ci`와 `npm run build:native`를 실행했다.
+- N-ALL: pass 2027, fail 38. 파일 단위 실패는 없다. 실패 항목은 설치, packed, rendering baseline 계열이다.
+- P-ALL: 251 tests, failures=551, errors=7. 실패/오류 줄은 557개로, test_arc_policy 338, test_claude_payload 120, test_harness_contract 98, test_codex_models 2다.
+  - `policy_contract_failures`는 baseline에서 이미 133개 패턴을 놓친다. `PLAN_UPDATE_CLASSIFICATION`도 포함된다.
+  - 그래서 python 계약 테스트는 개별 ID 기준으로만 비교하고, 새 `PLAN_*` 계약은 따로 확인한다.
+- G-POL, G-RT, G-MAN, G-PAR: verified. `G-PAR --complete`: exit 1(packed 3개 fail).
+- 원본 출력: `.git/arc/handoff/wf-plan-revision-commit/baseline/`
 
 ### T1: 정책 원본 교체
 
@@ -111,10 +120,11 @@
   - `shared/skill/runtime/role-policy.json`
   - `MANIFEST.sha256`
 - 변경 예상 없음: `claude/agents/*`, `codex/agents/*`, `*/skill/SKILL.md`. 생성기가 이 파일들을 바꾸면 중지하고 보고한다.
+- `tests/node/fixtures/installed-layout-golden.json` (v2 추가): 설치 결과 해시 fixture. `node tests/node/fixtures/installed-layout.mjs --diff`로 차이를 확인한 뒤 `--write`로 다시 만든다. 차이는 이 작업이 바꾼 설치 파일(생성 섹션 문서, runtime role-policy 사본, fragment로 렌더되는 agent profile)에서만 나야 한다.
 
 **Interfaces:** T2와 T3은 rule id `planning.plan-revision`과 projection 4곳(planning, preparation, verification, commit)을 쓴다.
 
-- [ ] **Step 1 (실패 테스트):** `role-policy.test.mjs`를 고친다.
+- [x] **Step 1 (실패 테스트):** `role-policy.test.mjs`를 고친다.
   - 35-39행 기대값을 `'planning.plan-revision'`으로 바꾼다.
   - 155행을 `/\[planning\.plan-revision\]/`로 바꾼다.
   - 새 테스트 `plan-revision rule replaces plan-amend with approved operations and evidence`를 추가한다. 단언은 다음과 같다.
@@ -123,22 +133,32 @@
     - roles, effect, authority가 유지된다.
     - text에 `/Plan-Revision, Plan-Approved-At and Plan-Reason trailers/`와 `/NEVER amend or rewrite planning or implementation commits/`가 있다.
     - `git.orchestrator-accept-commit` text에 새 문구가 있다.
-- [ ] **Step 2:** `node --test tests/node/role-policy.test.mjs`를 실행한다. 기대 결과: FAIL.
-- [ ] **Step 3:** `role-policy.json`, `placement.mjs`, `agent-fragments.json`을 고친다.
-- [ ] **Step 4:** 생성 명령 3개를 순서대로 실행한다. `git diff --stat`으로 바뀐 파일이 목록 안에만 있는지 확인한다.
-- [ ] **Step 5:** fixture 해시를 갱신한다.
+- [x] **Step 2:** `node --test tests/node/role-policy.test.mjs`를 실행한다. 기대 결과: FAIL.
+- [x] **Step 3:** `role-policy.json`, `placement.mjs`, `agent-fragments.json`을 고친다.
+- [x] **Step 4:** 생성 명령 3개를 순서대로 실행한다. `git diff --stat`으로 바뀐 파일이 목록 안에만 있는지 확인한다.
+- [x] **Step 5:** fixture 해시를 갱신한다.
   - profile 해시는 target마다 `renderAgentProfile(target.path, source, registry)` 결과의 sha256이다(`agent-fragments.test.mjs`와 같은 계산).
   - `protected`는 파일 바이트의 sha256이다.
-- [ ] **Step 6:** 대상 테스트를 실행한다. 기대 결과: PASS(baseline 예외 제외).
+- [x] **Step 6:** 대상 테스트를 실행한다. 기대 결과: PASS(baseline 예외 제외).
   ```
   node --test tests/node/role-policy.test.mjs tests/node/agent-fragments.test.mjs tests/node/instruction-layout.test.mjs tests/node/runtime-assets.test.mjs
   ```
-- [ ] **Step 7:** G-POL, G-RT, G-MAN이 verified인지 확인한다. N-ALL과 P-ALL 실패 집합이 baseline의 부분집합이어야 한다. python 계약 테스트가 새로 실패하면 중지하고 보고한다.
-- [ ] **Step 8:** 진행 기록을 적는다. 커밋 메시지는 `refactor(policy): planning.plan-amend를 planning.plan-revision으로 교체`.
+- [x] **Step 7:** G-POL, G-RT, G-MAN이 verified인지 확인한다. N-ALL과 P-ALL 실패 집합이 baseline의 부분집합이어야 한다. python 계약 테스트가 새로 실패하면 중지하고 보고한다.
+- [x] **Step 8:** 진행 기록을 적는다. 커밋 메시지는 `refactor(policy): planning.plan-amend를 planning.plan-revision으로 교체`.
 
 **수락 기준:** AC-P1, AC-P2, AC-P3(T1 시점), AC-P4, AC-T1(role-policy 부분), AC-T2(T1 시점)
 **필요 검사:** Step 6과 Step 7, fresh QA
 - QA 확인 항목: rule text가 spec 6.1과 같은지, 생성 diff가 생성 섹션 안에만 있는지, fragment에서 삭제한 범위가 정확한지.
+
+**T1 결과 (2026-11-16, 수락)**
+- Implementer 1차: Step 1-6을 수행했다. RED는 role-policy 테스트 3개 FAIL, GREEN은 25/25 PASS. sandbox 안의 N-ALL은 끝나지 않아 판정에서 뺐다.
+- 같은 환경 재실행에서 새 실패 `installed-layout-golden`이 확인되었다. 원인은 파일 목록에서 빠진 fixture였다. plan v2 개정으로 파일을 추가했고(사용자 승인, 분류 mechanical), Implementer 2차(새 인스턴스)가 `--diff` 확인 뒤 `--write`로 갱신했다. golden 4/4 PASS.
+- Orchestrator 전체 실행: N-ALL pass 2029, fail 37. 새 실패 0, 사라진 baseline 실패 1(`expands all approved profile templates…`). P-ALL은 baseline과 같다(새 0, 사라짐 0). G-POL, G-RT, G-MAN verified.
+- QA(새 인스턴스)
+  - 1·5번 외 항목은 proven.
+  - 지적 1(낮음): `role-policy.test.mjs:57`의 `planning.plan-amend`는 Step 1이 지정한 부재 단언이므로 의도된 참조다. 처리: 변경 없음. T4 잔여 grep 때 함께 다룬다.
+  - 지적 5: `instruction-contracts.json` 전체 검사 실패는 baseline부터 있던 `operations.mjs` 해시 불일치다. T3에서 갱신한다.
+- 판정: AC-P1 proven, AC-P2 proven, AC-P3(T1) proven, AC-P4 proven, AC-T1(role-policy) proven, AC-T2(T1) proven(새 실패 0).
 
 ### T2: 지침 변경 (claude/codex)
 
@@ -160,6 +180,7 @@
   - "Automatic commit after plan-task acceptance" 문구
   - 그 밖에 바뀐 contract text. coordination의 fresh Implementer 문구는 유지한다.
 - `MANIFEST.sha256`
+- `tests/node/fixtures/installed-layout-golden.json` (v2 추가): T1과 같은 방법(`--diff` 확인 뒤 `--write`)으로 이 작업이 바꾼 설치 파일만 반영한다.
 - 범위 밖: 생성 섹션 내부, `git-recovery.md`, `coordination.md`
 
 **Interfaces:** T4가 쓰는 앵커는 `execution-time-plan-revision`, `evidence-after-plan-revision-commit`, `plan-updates-during-execution`(유지), `execution-time-plan-document-updates`(유지)다.
@@ -210,6 +231,7 @@
 - 삭제: `tests/node/runtime-plan-amend.test.mjs` (다른 등록처는 없다)
 - 생성: `tests/node/runtime-legacy-plan-amend.test.mjs`
 - `tests/node/fixtures/instruction-contracts.json`의 `protected`: `lib/runtime/{evaluate,operations,git-evidence}.mjs`와 shared 사본, 해시 6개. 승인 범위 안의 기계적 갱신이다.
+- `tests/node/fixtures/installed-layout-golden.json` (v2 추가): T1과 같은 방법으로 이 작업이 바꾼 runtime 설치 파일만 반영한다.
 - 범위 밖: `lib/runtime/acceptance.mjs`, `bootstrap.mjs`, `store.mjs`
 
 **Interfaces:**
@@ -287,3 +309,10 @@
 - [ ] F 최종 검증 통과, 최종 Reviewer 지적 해소
 - [ ] 대기 중인 plan 개정 없음, 모든 진행 기록이 각 작업 커밋에 포함됨
 - [ ] AC-P1~P4, AC-G1~G3, AC-R1~R4, AC-T1~T2, AC-D1~D2 전부 증거 연결
+
+## 개정 이력
+
+| 버전 | 승인 시각 | 분류 | 영향 작업 | 사유 |
+|---|---|---|---|---|
+| v1 | 2026-11-16 (plan 승인, 커밋 fe76d07) | 최초 승인 | 전체 | - |
+| v2 | 2026-11-16 (T1 실행 중 사용자 승인) | mechanical | T1, T2, T3 | 설치 결과 해시 fixture `installed-layout-golden.json`이 파일 목록에서 빠져 T1에서 golden 테스트가 새로 실패함. 갱신 방법과 함께 추가. 사용자 결정에 따라 이 개정은 T1 커밋에 넣는다. |
