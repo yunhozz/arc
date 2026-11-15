@@ -1204,3 +1204,9 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - Implementer `822b193d`: `currentInstallState`가 unverified일 때만 `residualPaths`를 함께 돌려줍니다. standalone/composite 반환값은 `{mode, platforms, anchor}` 그대로라 기존 deepEqual 테스트는 무변경입니다. TUI 코드 무변경. 테스트 2건(management, 실제 management 상태를 쓰는 TUI 끝단) 추가, harness-operation.md 한 문장 수정.
   - 끝단 테스트 첫 실패는 120열 화면에서 긴 임시 경로가 줄바꿈된 것이 원인이었습니다(캡처로 확인). 페이지 행을 이어 붙여 전체 경로를 검사하도록 단언을 고쳤고, 무변경 문구와 prepare 0회 검사는 유지했습니다.
   - 검증: 검사 4종 통과. 전체 `npm test`: 2239 tests, 2184 pass / 37 fail. 신규 실패 0건.
+- 최종 Reviewer와 지적 수정:
+  - native Reviewer `b7e954e4`(전체 diff, 병합 base `ec91fc0` 대비): "후속 조치 조건부 승인". 운영 codex+claude 레지스트리 결함 없음, Review Focus 1–5 통과. 지적 7건은 모두 주입 레지스트리에서만 발생합니다.
+  - Orchestrator 판정 — 지금 수정: F1 `operations.mjs` switch 준비에 `platforms:mode.platforms, anchor:mode.anchor` 미전달(spec 6.5·6.7, Task 8 Interfaces 위반), F2 `role-routing.mjs` lease 검사 두 곳의 `listLeases` registry 미전달(spec 6.6.2, AC-M8), F3 composite 중 S 밖 단일 target도 switch 요구(spec 7.10, 6.4.3), F7b 전체 주입 레지스트리 테스트.
+  - Orchestrator 판정 — Phase A 밖 후속 과제: F4 status/upgrade가 composite면 S 참여 여부와 상관없이 모든 home의 standalone 검사·갱신을 건너뜀(`upgrade.mjs` registry 미전달 포함), F5 runtime `locateAnchorHome`이 marker의 `activeConfigPath` 디렉터리를 검증 전에 lock 생성·terminal lease 정리에 씀, F6 `prepareLockHome`이 경로의 symlink 구성요소를 거부, F7a host marker 재확인 테스트의 lstat 호출 횟수 의존. 모두 운영 레지스트리에서는 일어나지 않습니다.
+  - Implementer `616666ae`: F1–F3 수정, 테스트 8건 추가(RED 8, GREEN 8/8; full registry D1-b·Uninstall switch, terminal/non-terminal zeta lease의 publication·anchor move, S 밖 zeta install/uninstall). 기존 테스트와 lib/runtime 무변경.
+  - 검증: 검사 4종 통과. 전체 `npm test`: 2247 tests, 2190 pass / 39 fail. 기준 밖 2건(`role-bridge-run.test.mjs`의 timeout, `role-routing-dispatch.test.mjs`의 prepare-dispatch)은 파일 단위 재실행 64/0으로 통과(부하 의존, 이번 수정과 무관한 runtime 테스트).
