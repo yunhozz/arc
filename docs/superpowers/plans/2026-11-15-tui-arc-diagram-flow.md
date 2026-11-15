@@ -621,7 +621,7 @@ test('leaseTargetPlatform holds with three registered platforms', ...);
 - `homeStatusLine(statuses, registry) -> string`: 표시 순서로 `Label: State`를 ` / `로 연결합니다. State 어휘는 현행 매핑을 유지하고 composite 축약은 없앱니다.
 - `homeModeLine(installState, statuses, registry) -> string`: `Mixed (…)`, `Claude, Codex`(standalone 설치만, 표시 순서), `Not installed`, `Unverified`
 
-- [ ] **Step 1: 테스트 작성(표 테스트)**
+- [x] **Step 1: 테스트 작성(표 테스트)**
 
 ```js
 const all=p=>Object.fromEntries(ROLES.map(r=>[r,{platform:p,model:'m',effort:'e'}]));
@@ -631,8 +631,8 @@ test('labels follow display order with four fake ids', ...); // registry ids cod
 test('mode line values', ...); // 4가지 상태
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/derive-install-plan.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 역할과 호스트에서 설치 모드를 도출하는 순수 함수 추가`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/derive-install-plan.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 역할과 호스트에서 설치 모드를 도출하는 순수 함수 추가`
 
 ---
 
@@ -1148,3 +1148,11 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
     - runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`(테스트 보강 후): 2095 tests, 2039 pass / 38 fail. 실패 목록이 기존 목록과 같습니다(신규 0건).
   - dispatch의 `permission_violation_observed`는 모두 changedPaths 0건입니다. ref 변경은 다른 세션의 `fix/watch-worktree-scope` rebase·commit·push와 fetch였습니다.
+- 원격 master 병합(`b51303b`): `origin/master` `ec91fc0`(PR #62–#64)를 병합했습니다. 겹친 파일은 `MANIFEST.sha256`과 installed-layout golden뿐이고 재생성 결과가 같았습니다. `lib/watch/**` 무변경 제약은 병합 트리를 기준으로 봅니다.
+- Task 12 완료(필수 QA 대상 아님):
+  - Implementer dispatch `99d0e87f`: `lib/tui/derive-install-plan.mjs`, `lib/tui/mode.mjs`, 표 테스트 `tests/node/derive-install-plan.test.mjs` 30건을 추가했습니다. RED에서 30건 `ERR_ASSERTION`, GREEN 30/30입니다.
+  - 규칙 판별은 D1-f(unverified) 우선, |S|=1이면 현재 composite 여부로 D1-b/D1-a, |S|≥2면 D1-c/D1-d/D1-e입니다. `anchorMove`는 D1-e에서 이전 anchor와 다를 때만 참입니다. Review Focus 2(호스트 전부 해제)는 D1-b 사례로 덮습니다.
+  - `homeStatusLine`은 `lib/tui/app.mjs`의 기존 State 어휘와 인증 우선순위를 유지합니다. 네 가짜 id(codex, claude, zeta, eta)가 Claude, Codex, Zeta, Eta 순서로 표시됩니다.
+  - 새 모듈은 `../platforms/index.mjs`만 import합니다. 신규 순환 0건입니다.
+  - 검증: runtime-assets `--check` 33, `check:manifest` 231, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2204 tests, 2145 pass / 41 fail. 기준 밖 3건 중 2건(`cwd in a subdirectory …`, `prepare-dispatch maps CLI absence …`)은 파일 단위 재실행에서 통과했습니다. 나머지 `commit observer reads exact real local commit objects …`는 실제 HEAD가 병합 커밋(부모 2개)이라 `Expected exact single-parent commit`으로 실패하는 환경 의존 사례이며, Task 12 변경과 무관합니다.
