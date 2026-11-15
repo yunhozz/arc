@@ -261,7 +261,7 @@ test('mixedLabel uses display order', () => assert.equal(mixedLabel(['codex','cl
   - `installTargets(plans, {…, platforms})`: 레지스트리 anchorOrder로 정렬합니다.
 - Consumes: Task 2의 `installerRegistryOf`, descriptor 필드
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('resolveTargets separates unresolved homes', ...); // env.CLAUDE_CONFIG_DIR='/x' → targets.codex 존재, unresolved[0].platform==='claude'
@@ -269,11 +269,11 @@ test('resolveTarget uses injected registry', ...); // ctx.platforms=createTestRe
 test('install order follows anchorOrder', ...); // plans [claude,zeta,codex] → 실행 순서 codex, claude, zeta
 ```
 
-- [ ] **Step 2:** `node --test tests/node/targets.test.mjs` → FAIL
-- [ ] **Step 3:** 구현
-- [ ] **Step 4:** `node --test tests/node/targets.test.mjs tests/node/install.test.mjs tests/node/uninstall.test.mjs tests/node/upgrade-state.test.mjs tests/node/global-config.test.mjs tests/node/manifest.test.mjs tests/node/plan.test.mjs tests/node/acquisition.test.mjs tests/node/all-targets.test.mjs` → PASS(기존 기대값 무변경)
-- [ ] **Step 5: STD-CLOSE**와 `node scripts/check-installer-parity.mjs` → PASS
-- [ ] **Step 6:** `refactor(installer): 설치 대상과 자산 경로를 플랫폼 레지스트리로 이전`
+- [x] **Step 2:** `node --test tests/node/targets.test.mjs` → FAIL
+- [x] **Step 3:** 구현
+- [x] **Step 4:** `node --test tests/node/targets.test.mjs tests/node/install.test.mjs tests/node/uninstall.test.mjs tests/node/upgrade-state.test.mjs tests/node/global-config.test.mjs tests/node/manifest.test.mjs tests/node/plan.test.mjs tests/node/acquisition.test.mjs tests/node/all-targets.test.mjs` → PASS(기존 기대값 무변경)
+- [x] **Step 5: STD-CLOSE**와 `node scripts/check-installer-parity.mjs` → PASS
+- [x] **Step 6:** `refactor(installer): 설치 대상과 자산 경로를 플랫폼 레지스트리로 이전`
 
 **수용 전 QA:** fresh QA가 무변경 테스트군과 parity를 확인합니다.
 **Hold:** 기존 테스트 기대값을 바꿔야 한다면 hold합니다.
@@ -994,3 +994,22 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 검증: RED 7 pass / 11 fail → focused check 45 pass / 1 fail. 실패 1건(`Codex existing root field edits preserve indentation, comments and nested fields`)은 같은 단언으로 실패하는 기존 실패입니다. runtime-assets `--check`, `check:manifest`(228), `check:role-policy` 통과.
   - 전체 `npm test`(Orchestrator 환경): 1966 pass / 38 fail / 18 skip. 실패 목록이 작업 1 직후와 같습니다(신규 0건). Implementer 샌드박스의 추가 실패 69건은 loopback `listen`과 `.git` 쓰기 금지 등 샌드박스 제약 때문입니다.
   - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.
+- **작업 3 (2026-11-15 수용):**
+  - 범위 추가(사용자 승인, 2026-11-15): `lib/installer/target-errors.mjs`(신규 leaf 모듈)와 `lib/platforms/formats/{toml,markdown}.mjs`(import 한 줄씩).
+    - 이유: `targets.mjs → lib/platforms → formats → targets.mjs` 순환 import를 없애기 위해서입니다.
+    - 조치: `TargetConfigurationError`를 leaf로 옮기고 `targets.mjs`가 re-export합니다.
+  - Implementer:
+    - dispatch `081ea5e2`: 구현 후 순환을 보고했습니다.
+    - dispatch `75c4371e`: 허용 경로가 바뀌어 교체했습니다. 순환을 없앴습니다.
+    - 두 dispatch 모두 `refsChanged`로 기록됐지만, 같은 시각 다른 세션의 ref 변경(`911f115`, `master` → `d2a09f2`) 때문입니다. changedPaths는 0건입니다.
+  - 검증:
+    - targets: RED → 13 pass / 0 fail.
+    - Step 4 테스트군: 282 pass / 8 fail. 실패 8건은 모두 기존 실패인 `… preserves public rendering baseline`입니다.
+    - parity: 236 IDs / 739 assertions.
+    - runtime-assets `--check`, `check:manifest`, `check:role-policy` 통과.
+  - 전체 `npm test`(Orchestrator 환경): 2027 tests, 1970 pass / 39 fail / 18 skip.
+    - 38건은 기존 실패 목록과 같습니다.
+    - 1건(`runtime-cli.test.mjs` "workflow CLI initializes records…")은 환경 원인입니다. 공통 `index`를 비교하는데 다른 세션이 동시에 Git 작업을 했습니다. 단독 재실행은 12/0입니다.
+  - fresh QA(dispatch `f1d83bf7`, 재확인 1회) Q1–Q7 모두 proven, finding 없음.
+    - 정적 import 그래프에 순환이 0개입니다.
+    - 렌더링 실패 8건은 기준 커밋 `57675db`에서도 같은 assertion 출력으로 실패합니다.

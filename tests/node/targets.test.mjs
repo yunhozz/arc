@@ -11,6 +11,67 @@ import path from 'node:path';
 import {openRoot} from '../../lib/safe-fs/index.mjs';
 import {loadNative} from '../../lib/safe-fs/native.mjs';
 const native=loadNative({artifactDirectory:'build/native'});
+import {createTestRegistries} from './fixtures/platforms/zeta.mjs';
+import {installTargets} from '../../lib/installer/install.mjs';
+import {capturePlanSnapshot} from '../../lib/installer/transaction.mjs';
+test('cycle-rule modules do not depend on installer targets or installer platforms',()=>{
+ const modules=['lib/models/profiles.mjs','lib/models/codex-catalog.mjs','lib/models/catalog-anthropic.mjs','lib/installer/runtime-config.mjs','lib/installer/global-config.mjs',...fs.readdirSync(new URL('../../lib/platforms/formats/',import.meta.url)).filter(name=>name.endsWith('.mjs')).map(name=>`lib/platforms/formats/${name}`)];
+ for(const name of modules){
+  const source=fs.readFileSync(new URL(`../../${name}`,import.meta.url),'utf8');
+  for(const [,specifier]of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g)){
+   if(!specifier.startsWith('.'))continue;
+   const dependency=new URL(specifier,new URL(`../../${name}`,import.meta.url));
+   assert.notEqual(dependency.pathname,new URL('../../lib/installer/targets.mjs',import.meta.url).pathname,`${name} imports installer targets`);
+   assert.ok(!dependency.pathname.startsWith(new URL('../../lib/platforms/',import.meta.url).pathname),`${name} imports installer platforms`);
+  }
+ }
+});
+test('format errors preserve the shared TargetConfigurationError identity and cause',async()=>{
+ const location=new URL('../../lib/installer/target-errors.mjs',import.meta.url);
+ assert.ok(fs.existsSync(location),'TargetConfigurationError needs an independent leaf module');
+ const {TargetConfigurationError}=await import(location);
+ assert.equal(api.TargetConfigurationError,TargetConfigurationError);
+ const cause=new Error('original'),error=new TargetConfigurationError('invalid target',{cause});
+ assert.ok(error instanceof Error);assert.equal(error.name,'TargetConfigurationError');assert.equal(error.code,'ARC_TARGET_CONFIGURATION');assert.equal(error.message,'invalid target');assert.equal(error.cause,cause);
+ for(const format of ['toml','markdown']){
+  const {renameForRouting}=await import(`../../lib/platforms/formats/${format}.mjs`);
+  assert.throws(()=>renameForRouting(Buffer.alloc(0),'arc_scouter','invalid revision'),error=>error instanceof api.TargetConfigurationError&&error.message==='Composite revision cannot be tagged'&&error.code==='ARC_TARGET_CONFIGURATION');
+ }
+});
+test('resolveTargets separates unresolved homes',()=>{
+ assert.equal(typeof api.resolveTargets,'function');
+ const {targets,unresolved}=api.resolveTargets({userHome:'/users/test',env:{CLAUDE_CONFIG_DIR:'/x'}});
+ assert.deepEqual(Object.keys(targets),['codex']);
+ assert.equal(targets.codex.home,'/users/test/.codex');
+ assert.equal(unresolved.length,1);assert.equal(unresolved[0].platform,'claude');
+ assert.equal(unresolved[0].error.code,'ARC_TARGET_CONFIGURATION');
+});
+test('resolveTarget uses injected registry',()=>{
+ const {platforms}=createTestRegistries();
+ const target=api.resolveTarget('zeta',{platforms,userHome:'/users/test',env:{ZETA_HOME:'/custom/zeta'}});
+ assert.equal(target.home,'/custom/zeta');assert.equal(target.payloadPrefix,'zeta');
+ assert.equal(target.instructionPath,'/custom/zeta/ZETA.md');
+ assert.equal(target.runtimeConfigPath,'/custom/zeta/settings.json');
+ assert.deepEqual(target.profileNames,['arc-scouter.md','arc-planner.md','arc-implementer.md','arc-qa.md','arc-reviewer.md']);
+ assert.deepEqual(target.globalPaths,['/custom/zeta/ZETA.md','/custom/zeta/settings.json']);
+ assert.ok(Object.isFrozen(target));assert.ok(Object.isFrozen(target.profileNames));assert.ok(Object.isFrozen(target.globalPaths));
+ assert.equal(typeof api.resolveTargets,'function');
+ const resolved=api.resolveTargets({platforms,userHome:'/users/test',env:{ZETA_HOME:'/custom/zeta'}});
+ assert.deepEqual(Object.keys(resolved.targets),['codex','claude','zeta']);assert.deepEqual(resolved.unresolved,[]);
+});
+test('install order follows anchorOrder',async t=>{
+ const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-anchor-order-')));
+ t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
+ const {platforms}=createTestRegistries(),safeFs={openRoot:p=>openRoot(p,{native})};
+ const plans=['zeta','claude','codex'].map(platform=>{
+  const home=path.join(userHome,'.'+platform),plan={target:{platform,home,userHome},skipGlobal:true,generated:{skill:new Map([['SKILL.md',Buffer.from(platform)]]),profiles:new Map()},globalChanges:[],managedPaths:[home+'/skills/arc'],externalPaths:[],snapshot:new Map(),summary:[]};
+  capturePlanSnapshot(plan,{safeFs});return plan;
+ });
+ const executed=[],result=await installTargets(plans,{safeFs,platforms,hooks:{fault({phase,plan}){if(phase==='before-prepare')executed.push(plan.target.platform);}}});
+ assert.deepEqual(result.results.map(({platform,status})=>({platform,status})),[{platform:'codex',status:'installed'},{platform:'claude',status:'installed'},{platform:'zeta',status:'installed'}]);
+ assert.deepEqual(executed,['codex','claude','zeta']);
+ for(const platform of ['codex','claude','zeta'])assert.equal(fs.readFileSync(path.join(userHome,'.'+platform,'skills/arc/SKILL.md'),'utf8'),platform);
+});
 test('ancestor sibling changes do not invalidate the opened directory identity',t=>{
  const base=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-ancestor-')));t.after(()=>fs.rmSync(base,{recursive:true,force:true}));fs.mkdirSync(base+'/ancestor');fs.mkdirSync(base+'/ancestor/target');let changed=false;
  function wrap(handle){return new Proxy(handle,{get(target,key){if(key==='openDir')return name=>{if(name==='ancestor'&&!changed){changed=true;fs.mkdirSync(base+'/ancestor/sibling');}return wrap(target.openDir(name));};const member=target[key];return typeof member==='function'?member.bind(target):member;}});}
