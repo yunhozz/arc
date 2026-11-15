@@ -81,10 +81,17 @@ test('usage errors exit 2 with a message',async t=>{
     s.error.text='';assert.equal(await runWatch(args,{...s.io,setInterval(){throw Error('Invalid arguments started the watcher');}}),2,JSON.stringify(args));assert.match(s.error.text,/arc watch --help/);assert.equal(s.output.text,'');
   }
 });
+test('help lists line-time scope and SKILL/PLUGIN lines',async t=>{
+  const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
+  const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
+  assert.equal(await runWatch(['--help'],s.io),0);
+  assert.equal(s.output.text,expected+'\n');
+  assert.equal(s.error.text,'');
+});
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP.replace('A spinner on the last line shows while a turn is in progress (TTY only).\n',''),expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run; Claude bridge Implementer and QA stay held.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP,expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run; Claude bridge Implementer and QA stay held.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
   assert.match(WATCH_HELP,/per-call escalation approval/);assert.doesNotMatch(WATCH_HELP,/currently held/);
 });

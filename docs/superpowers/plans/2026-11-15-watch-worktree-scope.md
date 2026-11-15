@@ -749,23 +749,23 @@
 
 **Files (allowedPaths):** `lib/watch/index.mjs`, `README.md`, `docs/harness-operation.md`, `MANIFEST.sha256`, `tests/node/watch-cli.test.mjs`
 
-- [ ] **Step 1: 실패 테스트 작성.** `watch-cli.test.mjs` `help lists line-time scope and SKILL/PLUGIN lines`
+- [x] **Step 1: 실패 테스트 작성.** `watch-cli.test.mjs` `help lists line-time scope and SKILL/PLUGIN lines`
   - `--help` stdout이 spec §5.3 블록과 정확히 같다(전문 비교).
   - 새 두 줄은 `--help` 줄 뒤 빈 줄 다음, `User and agent messages…` 앞에 온다.
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="help lists" tests/node/watch-cli.test.mjs` → FAIL
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="help lists" tests/node/watch-cli.test.mjs` → FAIL
+- [x] **Step 3: 구현**
   - `WATCH_HELP`에 두 줄을 넣는다.
   - `README.md:41`을 spec §17 문구로 바꾸고 `Skills and plugin tools in use are shown as SKILL and PLUGIN lines.`를 덧붙인다.
   - `docs/harness-operation.md`
     - `:75` 문장을 spec §17 문구로 바꾼다.
     - `:116`에 중첩 worktree 즉시 제외와 64 KiB probe 문구를 추가한다.
     - 출력 형식 절에 `SKILL`(`38;5;110`)·`PLUGIN`(`38;5;175`) 태그, 본문 규칙, Codex skill-only CMD 대체(기본 모드)를 추가한다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령 PASS
-- [ ] **Step 5: manifest와 runtime 확인**
+- [x] **Step 4: 통과 확인.** Step 2 명령 PASS
+- [x] **Step 5: manifest와 runtime 확인**
   - `node scripts/update-manifest.mjs`를 실행한 뒤 `npm run check:manifest` PASS
   - `git diff --stat 31d304b -- lib/runtime` 결과가 비어 있다(runtime payload 무변경).
-- [ ] **Step 6: 전체 기준선 비교.** `node --test --test-timeout=120000 tests/node/*.test.mjs`에서 기준선 `31d304b`보다 새 실패가 없다.
-- [ ] **Step 7: 커밋.** `docs(watch): 줄 시점 범위와 SKILL/PLUGIN 안내 반영`
+- [x] **Step 6: 전체 기준선 비교.** `node --test --test-timeout=120000 tests/node/*.test.mjs`에서 기준선 `31d304b`보다 새 실패가 없다.
+- [x] **Step 7: 커밋.** `docs(watch): 줄 시점 범위와 SKILL/PLUGIN 안내 반영`
 
 **수용 기준:**
 - `--help`가 §5.3 전문과 일치한다.
@@ -776,6 +776,14 @@
 **QA:** 불필요(문서, Orchestrator 확인).
 
 **위험:** 낮음. README가 바뀌므로 manifest도 바뀐다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `000ef744`(segment 0–1). QA 없음(계획대로 Orchestrator 확인).
+- Orchestrator 실행 결정(승인 범위 안): 기존 `watch help matches the spec text`가 실제 help에서 spinner 줄을 지운 뒤 비교하고 있었다. 개정 3 spec §5.3에는 spinner 줄이 있으므로 이 처리만 지웠다. Orchestrator가 직접 비교해 보니 HEAD `07ad687`의 help와 spec §5.3의 차이는 새 두 줄뿐이었다. spec 쪽 문구 치환들은 이제 효과가 없지만 범위를 최소로 하려고 그대로 뒀다.
+- 결과
+  - 새 help 테스트와 기존 help-spec 테스트 모두 RED(두 줄 누락)에서 GREEN. `watch-*` 342/342, check:manifest 통과, `git diff --stat 31d304b -- lib/runtime` 비어 있음.
+  - 전체 테스트는 1681개 중 55개 실패다. 기준선 56건에서 `watch help matches the spec text`가 빠졌고 새 실패는 없다.
+  - Orchestrator가 문서 문구를 spec §6.6과 §17에 대조해 확인했다.
 
 ---
 
