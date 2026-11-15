@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import {isPlatformId} from './platform-registry.mjs';
+import {runtimeRegistryOf} from './platform-registry.mjs';
 
 export const NON_TERMINAL_STATES = Object.freeze(['reserved', 'starting', 'running', 'unknown']);
 export const TERMINAL_STATES = Object.freeze(['completed', 'failed', 'cancelled']);
@@ -19,11 +19,11 @@ const leasePath = (codexHome, dispatchId) => {
   if (typeof dispatchId !== 'string' || !ID.test(dispatchId) || dispatchId.startsWith('.')) throw Error('Invalid dispatch id');
   return path.join(dispatchDirectory(codexHome), `${dispatchId}.json`);
 };
-export function validateLease(value) {
+export function validateLease(value, options) {
   if (!isObject(value) || Object.keys(value).length !== KEYS.length || KEYS.some(key => !Object.hasOwn(value, key))) throw Error('Invalid lease keys');
   const ok = value.version === 1 && typeof value.dispatchId === 'string' && ID.test(value.dispatchId) && !value.dispatchId.startsWith('.')
     && ['workflowId', 'taskId', 'requestId', 'role', 'executionEnvironment', 'revision', 'createdAt', 'updatedAt'].every(key => text(value[key]))
-    && ['native', 'bridge'].includes(value.route) && isPlatformId(value.hostPlatform)
+    && ['native', 'bridge'].includes(value.route) && runtimeRegistryOf(options).isPlatformId(value.hostPlatform)
     && nullableText(value.profileHash) && nullableText(value.argsDigest) && nullableText(value.sessionId) && nullableText(value.resultPath) && nullableText(value.nativeAgentId)
     && [...NON_TERMINAL_STATES, ...TERMINAL_STATES].includes(value.state) && process_(value.supervisor) && process_(value.child)
     && Number.isInteger(value.timeoutMinutes) && value.timeoutMinutes > 0 && Number.isInteger(value.segment) && value.segment >= 0
@@ -41,21 +41,21 @@ export async function ensureDispatchDirectory(codexHome, {uid = process.getuid?.
   if ((stat.mode & 0o077) !== 0) await fsp.chmod(directory, stat.mode & 0o700); // only tightens: owner bits are never widened, so a sandbox-restricted directory still fails on write
   return directory;
 }
-export async function createLease(codexHome, lease) {
-  const value = validateLease(lease);
+export async function createLease(codexHome, lease, options) {
+  const value = validateLease(lease, options);
   await ensureDispatchDirectory(codexHome);
   const handle = await fsp.open(leasePath(codexHome, value.dispatchId), 'wx', 0o600);
   try { await handle.writeFile(JSON.stringify(value, null, 2) + '\n'); await handle.sync(); } finally { await handle.close(); }
   return value;
 }
-export async function readLease(codexHome, dispatchId) {
+export async function readLease(codexHome, dispatchId, options) {
   let bytes;
   try { bytes = await fsp.readFile(leasePath(codexHome, dispatchId), 'utf8'); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
-  return validateLease(JSON.parse(bytes));
+  return validateLease(JSON.parse(bytes), options);
 }
-export async function writeLease(codexHome, lease, {now = Date.now()} = {}) {
+export async function writeLease(codexHome, lease, {now = Date.now(), runtimePlatforms} = {}) {
   await ensureDispatchDirectory(codexHome);
-  const value = validateLease({...lease, updatedAt: new Date(now).toISOString()}), target = leasePath(codexHome, value.dispatchId);
+  const value = validateLease({...lease, updatedAt: new Date(now).toISOString()}, {runtimePlatforms}), target = leasePath(codexHome, value.dispatchId);
   const temp = path.join(dispatchDirectory(codexHome), `.${value.dispatchId}.${crypto.randomUUID()}.tmp`);
   try {
     const handle = await fsp.open(temp, 'wx', 0o600);
@@ -69,19 +69,19 @@ const leaseFiles = async codexHome => {
   try { return (await fsp.readdir(dispatchDirectory(codexHome))).filter(name => name.endsWith('.json') && !name.endsWith(HEARTBEAT_SUFFIX) && !name.startsWith('.')).sort(); }
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }
 };
-export async function listLeases(codexHome) {
+export async function listLeases(codexHome, options) {
   const leases = [];
-  for (const name of await leaseFiles(codexHome)) leases.push(validateLease(JSON.parse(await fsp.readFile(path.join(dispatchDirectory(codexHome), name), 'utf8'))));
+  for (const name of await leaseFiles(codexHome)) leases.push(validateLease(JSON.parse(await fsp.readFile(path.join(dispatchDirectory(codexHome), name), 'utf8')), options));
   return leases;
 }
 /** Removes only terminal leases whose updatedAt is older than retentionMs. Failures are counted, never thrown. */
-export async function pruneTerminalLeases(codexHome, {now = Date.now(), retentionMs}) {
+export async function pruneTerminalLeases(codexHome, {now = Date.now(), retentionMs, runtimePlatforms}) {
   let removed = 0, errors = 0, names;
   try { names = await leaseFiles(codexHome); } catch { return {removed, errors: 1}; }
   for (const name of names) {
     const file = path.join(dispatchDirectory(codexHome), name);
     try {
-      const lease = validateLease(JSON.parse(await fsp.readFile(file, 'utf8')));
+      const lease = validateLease(JSON.parse(await fsp.readFile(file, 'utf8')), {runtimePlatforms});
       const updated = Date.parse(lease.updatedAt);
       if (!TERMINAL_STATES.includes(lease.state) || !Number.isFinite(updated) || now - updated <= retentionMs) continue;
       await fsp.unlink(file); removed += 1;

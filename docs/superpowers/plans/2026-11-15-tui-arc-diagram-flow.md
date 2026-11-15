@@ -588,7 +588,7 @@ test('anchor move lock release failure reports both lock paths', ...); // Review
   - 모든 store와 lock은 `locateAnchorHome` 결과를 씁니다.
 - supervisor는 전달받은 `codexHome`을 anchor home으로 취급합니다(매개변수 이름은 유지). 93행 homes 맵 → `resolveRuntimeHomes`
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('routingStatus finds anchor via host marker and locks there', ...); // test registry S [claude,zeta], host zeta → claude home에 lock 생성 관찰(fs.open 감시 또는 미리 둔 lock으로 busy 확인)
@@ -598,8 +598,8 @@ test('default codex+claude layout unchanged', ...); // 기존 fixture: lock/stor
 test('leaseTargetPlatform holds with three registered platforms', ...);
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/role-routing-*.test.mjs tests/node/role-bridge-*.test.mjs tests/node/role-dispatch-store.test.mjs tests/node/role-observe.test.mjs tests/node/watch-dispatch.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(runtime): host marker 기반 anchor 탐색과 lock 적용`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/role-routing-*.test.mjs tests/node/role-bridge-*.test.mjs tests/node/role-dispatch-store.test.mjs tests/node/role-observe.test.mjs tests/node/watch-dispatch.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(runtime): host marker 기반 anchor 탐색과 lock 적용`
 
 **수용 전 QA:** fresh QA가 기존 `role-bridge-*` 무변경 통과와 watch 테스트 무영향을 확인합니다.
 
@@ -1130,3 +1130,21 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 검증(Orchestrator 환경): runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2090 tests, 2034 pass / 38 fail. 실패 목록이 기존 목록과 같습니다(신규 0건).
   - Implementer dispatch의 `permission_violation_observed`는 changedPaths 0건과 다른 세션의 fetch로 정리했습니다.
+- **작업 11 (2026-11-16 수용):**
+  - Implementer dispatch `54c5499e`(3 segment):
+    - 1차: 구현을 마쳤습니다. 기존 테스트는 golden 해시 40줄(변경 runtime 5개 파일 × 8)과 `baselineHash` 1줄만 바뀌었습니다(사전 위임 규칙).
+    - registry 전달 대상: `role-dispatch-policy.mjs`·`role-dispatch-store.mjs`(lease 검증과 profileName에 runtime registry 전달).
+    - 2–3차: QA Q5 지적에 따라 새 테스트만 고쳤습니다. 스파이가 `bigint:true` 조회만 세어 마지막 host marker 재확인을 고립시킵니다. guard를 지운 사본에서는 `Missing expected rejection`으로 실패하고, 정상 코드에서는 통과합니다.
+  - fresh QA dispatch `be63d865`(3 segment):
+    - Q1 proven: golden 변경 40개가 실제 SHA-256과 같고, `baselineHash`는 재계산값과 같습니다.
+    - Q2 proven(미러 `cmp`, runtime-assets `--check`).
+    - Q4 proven: 기본 codex+claude fixture에서 routingStatus·prepareRoleDispatch·lease 바이트·lock 경로가 `447b5a4`와 같습니다(정규화 후). lock과 store는 codex home입니다.
+    - Q5 proven: 테스트 보강 후 mutation 3건(host marker 재확인, lock 위치, 세 플랫폼 lease 대상)이 모두 실패를 일으켰습니다.
+    - Q6 proven: 신규 순환 0개, runtime 금지 도달 0건, lib/watch 무변경입니다.
+    - Q7 proven: watch 테스트가 head·현재 모두 279/0입니다.
+    - Q3: 실패 사례(marker 누락·형식 오류, anchor 불일치, host∉S, marker 없는 S 밖 host, 검사 사이 host marker 변경)와 `resolveRuntimeHomes`·`leaseTargetPlatform`을 독립 fixture로 확인했습니다. QA가 남긴 해석 문제(`prepareRoleDispatch`가 요청 역할 플랫폼만 인증)는 Orchestrator가 판정했습니다. spec 5.4의 "현행 필터의 일반화"에 해당하고, `447b5a4`도 `requested.platform`만 인증하므로 적합합니다.
+  - 검증(Orchestrator 환경, bridge 샌드박스는 `ps` EPERM):
+    - focused(role-routing·role-bridge·dispatch-store·observe·watch-dispatch·runtime-versions·installed-layout): 188 pass / 0 fail.
+    - runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`(테스트 보강 후): 2095 tests, 2039 pass / 38 fail. 실패 목록이 기존 목록과 같습니다(신규 0건).
+  - dispatch의 `permission_violation_observed`는 모두 changedPaths 0건입니다. ref 변경은 다른 세션의 `fix/watch-worktree-scope` rebase·commit·push와 fetch였습니다.
