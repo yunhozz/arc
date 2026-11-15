@@ -6,7 +6,7 @@ const event = {ts:'2026-11-11T00:01:15.000Z',platform:'codex',label:'tui#e2e8',k
 const options = {width:120, color:false, verbose:false};
 test('SKILL and PLUGIN tags, bodies and colors', () => {
   const rows = [
-    [{kind:'tool',tool:'Skill',skill:'arc',text:'x'}, 'SKILL    arc x', '38;5;110'],
+    [{kind:'tool',tool:'Skill',skill:'arc',text:'x'}, 'SKILL    arc', '38;5;110'],
     [{kind:'tool',tool:'cua_repl.js',plugin:'unified-computer-use@openai-bundled'}, 'PLUGIN   unified-computer-use@openai-bundled cua_repl.js', '38;5;175'],
     [{kind:'tool_failed',tool:'Skill',skill:'arc'}, 'TOOL!    Skill arc', '31'],
     [{kind:'tool_failed',tool:'srv.t',plugin:'p'}, 'TOOL!    srv.t p', '31'],
