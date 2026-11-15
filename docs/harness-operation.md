@@ -92,14 +92,13 @@ A spinner on the last line shows while a followed session has a turn in progress
 
 Ctrl-L clears the screen and scrollback (`ESC[H ESC[2J ESC[3J`) in TTY human output; raw mode is restored on exit, and Ctrl-C still stops the watcher.
 
-Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
+Colors are enabled only for TTY output without `NO_COLOR`, and never for `--json`. Platform columns show `CODEX` and `CLAUDE` in uppercase and use `36` (cyan) for Codex, `38;5;208` (orange) for Claude and `2` (dim) for watch/ARC. KIND colors cover the entire tag, including parentheses, but exclude padding spaces:
 
 | KIND | ANSI SGR |
 |---|---|
 | `USER` | `1;35` |
 | `AGENT` | `32` |
-| `CMD`, `CMD(0)` | `38;5;242` |
-| `CMD(n)` where n is nonzero | `31` |
+| `CMD` | `38;5;242` |
 | `EDIT` | `33` |
 | `CREATE` | `38;5;69` |
 | `DELETE` | `31` |
