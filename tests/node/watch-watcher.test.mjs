@@ -72,8 +72,8 @@ test('AC-W41 Claude Skill and slash command render as SKILL',async t=>{
       .trim().split('\n').map(line=>({...JSON.parse(line),cwd:s.cwd,sessionId:id}));
     s.cl(id,[cm(id,s.cwd),claudeTool(id,s.cwd,'Skill',{skill:'arc',args:'x'}),...fixture]);
     const events=content(await s.w.start()), human=lines(events,mode==='verbose').join('\n');
-    assert.equal(human.split('\n').filter(line=>line.endsWith('SKILL    arc x')).length,1);
-    assert.equal(human.split('\n').filter(line=>line.endsWith('SKILL    find-skills 테스트용 호출입니다. 도구를 쓰지 말고 한 문장으로만 답하세요.')).length,1);
+    assert.equal(human.split('\n').filter(line=>line.endsWith('SKILL    arc')).length,1);
+    assert.equal(human.split('\n').filter(line=>line.endsWith('SKILL    find-skills')).length,1);
     const output=mode==='json'?events.map(renderJson).join('\n'):human;
     assert.doesNotMatch(output,/Base directory|# Find Skills|SKILL\.md/);
   }
@@ -123,7 +123,10 @@ test('AC-W44 SKILL and PLUGIN follow the gate and masking',async t=>{
   assert.equal(skill.skill,'arc');
   assert.equal(skill.text,'key ***');
   assert.equal(events.find(e=>e.plugin).plugin,'p');
-  for (const output of [lines(events).join('\n'),events.map(renderJson).join('\n'),JSON.stringify(events)]) {
+  const human=lines(events).join('\n');
+  assert.doesNotMatch(human,/sk-abcdefghijklmnopqrstu|\\u001b|\x1b|key/);
+  assert.match(human,/SKILL    arc$/m);
+  for (const output of [events.map(renderJson).join('\n'),JSON.stringify(events)]) {
     assert.doesNotMatch(output,/sk-abcdefghijklmnopqrstu|\\u001b|\x1b/);
     assert.match(output,/key \*\*\*/);
   }
