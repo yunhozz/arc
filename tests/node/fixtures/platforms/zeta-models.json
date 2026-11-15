@@ -1,0 +1,9 @@
+{
+  "platform": "zeta",
+  "pairs": [
+    {
+      "model": "zeta-model",
+      "effort": "high"
+    }
+  ]
+}

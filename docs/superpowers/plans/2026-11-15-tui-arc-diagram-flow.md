@@ -207,7 +207,7 @@ test('runtime registry imports only runtime-local modules', ...); // platform-re
   - `ETA_INSTALLER`
   - `createTestRegistries(ids) -> {runtimePlatforms, platforms}`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```js
 // platform-availability.test.mjs
@@ -228,11 +228,11 @@ test('format modules do not import lib/platforms', ...); // Global Constraints �
 test('mixedLabel uses display order', () => assert.equal(mixedLabel(['codex','claude']),'Mixed (Claude + Codex)'));
 ```
 
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/platform-availability.test.mjs tests/node/platform-registry.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 옮긴 함수의 동작은 바이트 단위로 같아야 합니다. 래퍼 `isOwnedStandaloneProfile(bytes,platform,role)`는 미등록 id에 `false`를 돌려줍니다.
-- [ ] **Step 4: 통과 확인.** 위 테스트와 `install-mode.test.mjs`, `role-routing-publish.test.mjs`, `profile-render.test.mjs`, `runtime-config.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE**
-- [ ] **Step 6: 커밋.** `feat(platforms): 설치기 레지스트리와 가용성 판정 추가`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/platform-availability.test.mjs tests/node/platform-registry.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 옮긴 함수의 동작은 바이트 단위로 같아야 합니다. 래퍼 `isOwnedStandaloneProfile(bytes,platform,role)`는 미등록 id에 `false`를 돌려줍니다.
+- [x] **Step 4: 통과 확인.** 위 테스트와 `install-mode.test.mjs`, `role-routing-publish.test.mjs`, `profile-render.test.mjs`, `runtime-config.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE**
+- [x] **Step 6: 커밋.** `feat(platforms): 설치기 레지스트리와 가용성 판정 추가`
 
 **Hold:** 옮긴 함수 때문에 기존 테스트 기대값이 바뀌면 hold합니다.
 
@@ -989,3 +989,8 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 환경 준비: 워크트리에 ignore된 `build/native`와 `node_modules`를 원래 체크아웃에서 복사했습니다(native 소스는 56eb566 이후 변경 없음).
   - 검증: focused check 32 pass / 0 fail. golden 차이는 신규 항목 8개와 해시 갱신 16개뿐입니다. runtime-assets `--check`, `check:manifest`, `check:role-policy` 통과. fresh QA(dispatch `e692d820`) Q1–Q6 모두 proven, finding 없음.
   - 전체 `npm test`: 현재 1955 pass / 38 fail / 18 skip, 기준 HEAD 스냅샷 1941 pass / 45 fail / 18 skip. 현재 실패는 모두 기준에도 있는 기존 실패입니다(신규 0건). 기존 실패는 Phase A 범위 밖이며 최종 보고에서 따로 다룹니다.
+- **작업 2 (2026-11-15 수용):**
+  - Implementer dispatch `0e33a808`(재개 1회). 범위 추가 없음.
+  - 검증: RED 7 pass / 11 fail → focused check 45 pass / 1 fail. 실패 1건(`Codex existing root field edits preserve indentation, comments and nested fields`)은 같은 단언으로 실패하는 기존 실패입니다. runtime-assets `--check`, `check:manifest`(228), `check:role-policy` 통과.
+  - 전체 `npm test`(Orchestrator 환경): 1966 pass / 38 fail / 18 skip. 실패 목록이 작업 1 직후와 같습니다(신규 0건). Implementer 샌드박스의 추가 실패 69건은 loopback `listen`과 `.git` 쓰기 금지 등 샌드박스 제약 때문입니다.
+  - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.

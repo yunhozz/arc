@@ -116,3 +116,94 @@ test('runtime registry imports only runtime-local modules', () => {
   const source = fs.readFileSync(new URL('../../lib/runtime/platform-registry.mjs', import.meta.url), 'utf8');
   for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"]([^'"]+)['"]/g)) assert.match(match[1], /^(?:\.\/|node:)/);
 });
+
+// Task 2: wrong registry order/reference, display sorting and format extraction regressions.
+const installer = await import('../../lib/platforms/index.mjs').catch(() => ({}));
+const fixtureRegistries = await import('./fixtures/platforms/zeta.mjs');
+
+test('installer and runtime registries agree and reject mismatches', () => {
+  assert.equal(typeof installer.createInstallerRegistry, 'function');
+  const registry = installer.DEFAULT_INSTALLER_REGISTRY;
+  assert.deepEqual(registry.platformIds(), ['codex', 'claude']);
+  assert.deepEqual(registry.byAnchorOrder().map(p => p.runtime.id), ['codex', 'claude']);
+  assert.deepEqual(registry.byDisplayOrder().map(p => p.runtime.id), ['claude', 'codex']);
+  for (const id of registry.platformIds()) assert.equal(registry.getPlatform(id).runtime, getPlatform(id));
+  assert.equal(registry.getPlatform('missing'), null);
+  assert.equal(registry.isPlatformId('toString'), false);
+  assert.equal(installer.installerRegistryOf(), registry);
+  const descriptors = [...registry.platforms];
+  for (const invalid of [descriptors.toReversed(), descriptors.slice(1), [...descriptors, descriptors[0]], [{...descriptors[0], runtime: {...getPlatform('codex')}}, descriptors[1]]]) {
+    assert.throws(() => installer.createInstallerRegistry({runtime: DEFAULT_PLATFORM_REGISTRY, descriptors: invalid}));
+  }
+  const injected = fixtureRegistries.createTestRegistries(['eta', 'zeta', 'claude', 'codex']);
+  assert.deepEqual(injected.platforms.platformIds(), ['codex', 'claude', 'zeta', 'eta']);
+  for (const id of injected.runtimePlatforms.platformIds()) assert.equal(injected.platforms.getPlatform(id).runtime, injected.runtimePlatforms.getPlatform(id));
+  assert.equal(installer.installerRegistryOf(injected), injected.platforms);
+});
+
+test('mixedLabel and sort helpers use runtime display and anchor order', () => {
+  assert.equal(typeof installer.mixedLabel, 'function');
+  assert.equal(installer.mixedLabel(['codex', 'claude']), 'Mixed (Claude + Codex)');
+  const {platforms} = fixtureRegistries.createTestRegistries();
+  const ids = ['zeta', 'codex', 'claude'];
+  assert.deepEqual(installer.sortByDisplay(ids, platforms), ['claude', 'codex', 'zeta']);
+  assert.deepEqual(installer.sortByAnchor(ids, platforms), ['codex', 'claude', 'zeta']);
+  assert.deepEqual(ids, ['zeta', 'codex', 'claude']);
+  assert.equal(installer.platformLabel('zeta', platforms), 'Zeta');
+});
+
+test('installer descriptors expose format and leaf-module behavior', async () => {
+  assert.ok(installer.DEFAULT_INSTALLER_REGISTRY);
+  const {renameCompositeProfile} = await import('../../lib/installer/role-routing.mjs');
+  const {isOwnedStandaloneProfile} = await import('../../lib/installer/install-mode.mjs');
+  const {renderProfiles} = await import('../../lib/models/profiles.mjs');
+  const {loadModelConfig, resolveModelSettings} = await import('../../lib/models/index.mjs');
+  for (const [id, ext, instruction, config, field] of [['codex', 'toml', 'AGENTS.md', 'config.toml', 'model_reasoning_effort'], ['claude', 'md', 'CLAUDE.md', 'settings.json', 'effort']]) {
+    const p = installer.DEFAULT_INSTALLER_REGISTRY.getPlatform(id);
+    assert.equal(p.payloadPrefix, id); assert.equal(p.instructionFile, instruction); assert.equal(p.runtimeConfigFile, config);
+    assert.deepEqual(p.globalPaths, [instruction, config]); assert.equal(p.models.effortField, field);
+    assert.equal(JSON.parse(fs.readFileSync(p.models.staticCatalog, 'utf8')).platform, id);
+    assert.equal(typeof p.models.discover, 'function');
+    const settings = resolveModelSettings(loadModelConfig(fs.readFileSync(new URL(`../../${id}/skill/models.toml`, import.meta.url)), id));
+    const inputs = Object.fromEntries(Object.keys(settings.roles).map(role => [`${role.replace('_', '-')}.${ext}`, fs.readFileSync(new URL(`../../${id}/agents/${role.replace('_', '-')}.${ext}`, import.meta.url))]));
+    for (const eol of ['\n', '\r\n']) {
+      const normalized = Object.fromEntries(Object.entries(inputs).map(([name, bytes]) => [name, Buffer.from(bytes.toString().replace(/\r?\n/g, eol))]));
+      const rendered = renderProfiles(normalized, settings);
+      for (const [role, setting] of Object.entries(settings.roles)) {
+        const name = `${role.replace('_', '-')}.${ext}`, bytes = normalized[name];
+        assert.deepEqual(p.profiles.render(bytes.toString(), role, setting), rendered.get(name));
+        assert.equal(p.profiles.isOwnedStandalone(bytes, role), true);
+        assert.equal(p.profiles.isOwnedStandalone(Buffer.from(bytes.toString().replace('[ARC role policy: contract begin]', '')), role), false);
+      }
+    }
+    const source = id === 'codex' ? 'name = "arc_planner" # keep\r\ndescription = "Plan" # note\r\ndeveloper_instructions = "body"\r\n' : '---\r\nname: arc-planner\r\ndescription: Plan\r\n---\r\nbody\r\n';
+    const expected = id === 'codex' ? 'name = "arc_routing_planner" # keep\r\ndescription = "Plan [arc-routing rev rev-1]" # note\r\ndeveloper_instructions = "body"\r\n' : '---\r\nname: arc-routing-planner\r\ndescription: Plan [arc-routing rev rev-1]\r\n---\r\nbody\r\n';
+    assert.deepEqual(p.profiles.renameForRouting(Buffer.from(source), 'arc_planner', 'rev-1'), Buffer.from(expected));
+    assert.deepEqual(renameCompositeProfile(Buffer.from(source), id, 'arc_planner', 'rev-1'), Buffer.from(expected));
+    assert.throws(() => p.profiles.renameForRouting(Buffer.from(source), 'arc_planner', 'bad revision'), {name: 'TargetConfigurationError', message: 'Composite revision cannot be tagged'});
+    assert.throws(() => p.profiles.renameForRouting(Buffer.from(source.replace('description', 'other')), 'arc_planner', 'rev-1'), {name: 'TargetConfigurationError', message: 'Composite revision cannot be tagged'});
+    assert.equal(p.runtimeConfig.readConcurrency(null), null);
+    const out = p.runtimeConfig.renderConcurrency(null, 3);
+    assert.equal(p.runtimeConfig.readConcurrency(out.content), 3);
+    assert.deepEqual(p.runtimeConfig.renderConcurrency(out.content, 3), {content: out.content, action: 'unchanged'});
+    assert.equal(p.runtimeConfig.extraRender === null, id === 'claude');
+    assert.deepEqual(p.isolationEnv('/work'), id === 'codex' ? {CODEX_HOME: '/work/codex-runtime'} : {});
+  }
+  assert.equal(isOwnedStandaloneProfile(Buffer.from(''), 'missing', 'arc_planner'), false);
+  const zeta = fixtureRegistries.createTestRegistries().platforms.getPlatform('zeta');
+  assert.equal(zeta.models.discover, null);
+  assert.deepEqual(JSON.parse(fs.readFileSync(zeta.models.staticCatalog, 'utf8')), {platform: 'zeta', pairs: [{model: 'zeta-model', effort: 'high'}]});
+});
+
+test('format and leaf modules do not import lib/platforms', () => {
+  const files = ['lib/models/profiles.mjs', 'lib/models/codex-catalog.mjs', 'lib/models/catalog-anthropic.mjs', 'lib/installer/runtime-config.mjs', 'lib/installer/global-config.mjs', 'lib/platforms/formats/toml.mjs', 'lib/platforms/formats/markdown.mjs'];
+  for (const filename of files) {
+    assert.equal(fs.existsSync(new URL('../../' + filename, import.meta.url)), true, filename);
+    const source = fs.readFileSync(new URL('../../' + filename, import.meta.url), 'utf8');
+    for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"]([^'"]+)['"]/g)) {
+      if (match[1].startsWith('node:')) continue;
+      const resolved = new URL(match[1], new URL('../../' + filename, import.meta.url));
+      assert.equal(resolved.pathname.includes('/lib/platforms/'), false, `${filename}: ${match[1]}`);
+    }
+  }
+});

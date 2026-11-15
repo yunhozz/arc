@@ -1,3 +1,5 @@
+import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../../../lib/platforms/index.mjs';
+import {CLAUDE_INSTALLER} from '../../../../lib/platforms/claude.mjs';
 import path from 'node:path';
 import {CAPABILITY_KEYS, createPlatformRegistry, getPlatform} from '../../../../lib/runtime/platform-registry.mjs';
 
@@ -34,4 +36,24 @@ export function createTestRuntimeRegistry(ids = ['codex', 'claude', 'zeta']) {
     if (!descriptor) throw Error(`Unknown test platform: ${id}`);
     return descriptor;
   }));
+}
+
+export const ZETA_INSTALLER = {
+  ...CLAUDE_INSTALLER, runtime: ZETA_RUNTIME,
+  payloadPrefix: 'zeta', instructionFile: 'ZETA.md', runtimeConfigFile: 'settings.json',
+  globalPaths: ['ZETA.md', 'settings.json'],
+  models: {staticCatalog: new URL('./zeta-models.json', import.meta.url), effortField: 'effort', discover: null},
+};
+
+export const ETA_INSTALLER = {
+  ...ZETA_INSTALLER, runtime: ETA_RUNTIME, payloadPrefix: 'eta',
+};
+
+export function createTestRegistries(ids = ['codex', 'claude', 'zeta']) {
+  const runtimePlatforms = createTestRuntimeRegistry(ids);
+  const platforms = createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platformIds().map(id => ({
+    ...(id === 'zeta' ? ZETA_INSTALLER : id === 'eta' ? ETA_INSTALLER : DEFAULT_INSTALLER_REGISTRY.getPlatform(id)),
+    runtime: runtimePlatforms.getPlatform(id),
+  }))});
+  return {runtimePlatforms, platforms};
 }
