@@ -248,6 +248,7 @@
 - 생성: `tests/node/runtime-legacy-plan-amend.test.mjs`
 - `tests/node/fixtures/instruction-contracts.json`의 `protected`: `lib/runtime/{evaluate,operations,git-evidence}.mjs`와 shared 사본, 해시 6개. 승인 범위 안의 기계적 갱신이다.
 - `tests/node/fixtures/installed-layout-golden.json` (v2 추가): T1과 같은 방법으로 이 작업이 바꾼 runtime 설치 파일만 반영한다.
+- `tests/node/runtime-versions.test.mjs` (v3 추가): 런타임 모듈 바이트 합산 해시 `baselineHash`를 새 값으로 갱신한다. `e472406`의 선례를 따라 버전 라벨 `cooperative-9`, `historicalRuntimeHash`, `previousRuntimeHash`는 바꾸지 않는다.
 - 범위 밖: `lib/runtime/acceptance.mjs`, `bootstrap.mjs`, `store.mjs`
 
 **Interfaces:**
@@ -257,7 +258,7 @@
   1. H-3: `state.intents.some(i=>i.operation==='plan-amend'&&['prepared','unknown','mismatch','failed'].includes(i.status))`이면 hold
   2. H-5: `request.command==='prepare'&&request.input?.operation==='plan-amend'`이면 hold
 
-- [ ] **Step 1 (실패 테스트):** `runtime-legacy-plan-amend.test.mjs`를 작성한다.
+- [x] **Step 1 (실패 테스트):** `runtime-legacy-plan-amend.test.mjs`를 작성한다.
   - state 준비: `initializeCooperativeWorkflow`로 만든 state에 legacy 필드와 intent를 직접 써 넣는다. intent는 공통 필드만 갖는다: `requestId`, `status`, `fingerprint`, `operation:'plan-amend'`, `arguments:{}`.
   - H-1: 형식이 틀린 `planAmendments`와 `planAmendObservations`가 있어도 `cooperative.schema` hold가 나지 않는다. 상태를 바꾸는 명령 뒤에도 두 키가 보존된다.
   - H-2: `succeeded`이고 `arguments:{}`인 intent는 통과한다. fingerprint가 없는 intent는 `cooperative.schema` hold다.
@@ -273,22 +274,39 @@
   - H-6
     - 임시 git repo에 `refs/arc/recovery/legacy`를 만든다. 명령을 실행한 뒤 ref와 legacy intent가 그대로 남아 있다.
     - 정적 검사: `lib/runtime`과 `shared/skill/runtime` 원문에 `update-ref`, `planAmend`가 없다. `refs/arc/recovery`는 H-3 문구에만 있다.
-- [ ] **Step 2:** `node --test tests/node/runtime-legacy-plan-amend.test.mjs`를 실행한다. 기대 결과: H-3, H-5, H-6이 FAIL.
-- [ ] **Step 3:** `tests/node/runtime-plan-amend.test.mjs`를 삭제한다.
-- [ ] **Step 4:** 6.2 삭제 항목과 판정 2개를 구현하고, 쓰이지 않는 helper와 import를 정리한다.
-- [ ] **Step 5:** `node scripts/update-runtime-assets.mjs`를 실행하고 fixture `protected` 해시 6개를 갱신한다. 이어서 `node scripts/update-manifest.mjs`를 실행한다.
-- [ ] **Step 6:** 대상 테스트를 실행한다. 기대 결과: PASS(baseline 예외 제외, AC-R4 포함).
+- [x] **Step 2:** `node --test tests/node/runtime-legacy-plan-amend.test.mjs`를 실행한다. 기대 결과: H-3, H-5, H-6이 FAIL.
+- [x] **Step 3:** `tests/node/runtime-plan-amend.test.mjs`를 삭제한다.
+- [x] **Step 4:** 6.2 삭제 항목과 판정 2개를 구현하고, 쓰이지 않는 helper와 import를 정리한다.
+- [x] **Step 5:** `node scripts/update-runtime-assets.mjs`를 실행하고 fixture `protected` 해시 6개를 갱신한다. 이어서 `node scripts/update-manifest.mjs`를 실행한다.
+- [x] **Step 6:** 대상 테스트를 실행한다. 기대 결과: PASS(baseline 예외 제외, AC-R4 포함).
   ```
   node --test tests/node/runtime-legacy-plan-amend.test.mjs tests/node/runtime-cooperative.test.mjs tests/node/runtime-acceptance.test.mjs tests/node/runtime-evaluate.test.mjs tests/node/runtime-schema.test.mjs tests/node/runtime-git-evidence.test.mjs tests/node/runtime-workflow.integration.test.mjs tests/node/runtime-assets.test.mjs tests/node/instruction-layout.test.mjs
   ```
-- [ ] **Step 7:** G-RT, G-MAN, G-POL, G-PAR을 확인한다.
+- [x] **Step 7:** G-RT, G-MAN, G-POL, G-PAR을 확인한다.
   - runtime 경로에서 `plan-amend|planAmend|PlanAmend|readPlanAmendGit|refs/arc/recovery`를 grep한 결과는 의도된 예외 줄만 남아야 한다. 예외 줄 목록을 기록한다.
   - N-ALL과 P-ALL은 baseline의 부분집합이어야 한다.
-- [ ] **Step 8:** 진행 기록을 적는다. 커밋 메시지는 `refactor(runtime): plan-amend 런타임 제거와 예전 state 보류 처리`.
+- [x] **Step 8:** 진행 기록을 적는다. 커밋 메시지는 `refactor(runtime): plan-amend 런타임 제거와 예전 state 보류 처리`.
 
 **수락 기준:** AC-R1, AC-R2, AC-R3, AC-R4, AC-T1(node 부분), AC-T2(T3 시점)
 **필요 검사:** Step 6, 7과 fresh QA
 - QA 확인 항목: H-3 판정 위치, 예외 경로에서 죽지 않는지, 남은 dead code, shared 사본과의 일치.
+
+**T3 결과 (2026-11-16, 수락)**
+- Implementer: Step 1-7을 수행했다.
+  - RED는 28개 모두 FAIL, GREEN은 H-1~H-6 28개 PASS.
+  - 판정 순서(`evaluate.mjs`): schema 125 → H-3 126 → H-5 127 → policy 128.
+  - 잔여 grep은 의도된 예외 6줄(evaluate.mjs H-3/H-5, cooperative.mjs 조기 반환, lib와 shared 각각)이다.
+  - G-RT, G-MAN, G-POL, G-PAR verified. golden은 runtime 5개 × 8조합만 갱신했다.
+- Orchestrator N-ALL에서 새 실패 3개(`runtime-versions.test.mjs`의 런타임 해시 고정)가 나왔다.
+  - plan v3 개정(mechanical, 사용자 위임에 따른 Orchestrator 승인)으로 파일을 추가했다.
+  - 새 Implementer가 `baselineHash`만 갱신했다(선례 e472406, 버전 라벨 유지). 6/6 PASS.
+- Git 통합(`ARC_RUN_GIT_INTEGRATION=1`): 77개 중 76개 통과. 남은 실패 `cooperative CLI verifies exact approved document commit…`은 원본 master ec91fc0에서도 같은 실패다(baseline).
+- 최종 N-ALL: pass 2003, fail 37. 새 실패 0, 사라진 baseline 실패 1. 통과 수 감소는 `runtime-plan-amend.test.mjs` 삭제 때문이다. P-ALL은 baseline과 같다.
+- QA(새 인스턴스)
+  - 항목 1·2·3·4·6 proven.
+  - 항목 5(정상 흐름)·7(지정 묶음)은 baseline 실패 때문에 unverified/unmet으로 남겼다.
+  - 같은 QA 재검사에서 해시와 G-POL proven. 통합 테스트 실패는 기존 실패로 분류했다.
+- 판정: AC-R1 proven, AC-R2 proven, AC-R3 proven, AC-R4 proven(통합 실패는 baseline과 같음), AC-T1(node) proven(남은 실패는 모두 baseline), AC-T2(T3) proven.
 
 ### T4: 운영 문서와 잔여 참조 정리
 
@@ -332,3 +350,4 @@
 |---|---|---|---|---|
 | v1 | 2026-11-16 (plan 승인, 커밋 fe76d07) | 최초 승인 | 전체 | - |
 | v2 | 2026-11-16 (T1 실행 중 사용자 승인) | mechanical | T1, T2, T3 | 설치 결과 해시 fixture `installed-layout-golden.json`이 파일 목록에서 빠져 T1에서 golden 테스트가 새로 실패함. 갱신 방법과 함께 추가. 사용자 결정에 따라 이 개정은 T1 커밋에 넣는다. |
+| v3 | 2026-11-16 (T3 실행 중, 사용자가 위임한 Orchestrator 승인) | mechanical | T3 | 런타임 해시 고정 테스트 `runtime-versions.test.mjs`가 파일 목록에서 빠져 N-ALL에서 새 실패 3개가 생김. `baselineHash`만 갱신하는 항목을 추가. T3 커밋에 넣는다. |
