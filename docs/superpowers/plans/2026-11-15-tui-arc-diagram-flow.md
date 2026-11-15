@@ -739,7 +739,7 @@ test('narrow editor omits arrows', ...);
   - D1-b면 확인 메뉴를 띄웁니다. 제목 `Switch to <Label>`, info `Mixed routing will be turned off.`, 행 `Continue`/`Back`입니다.
   - 그 밖에는 바로 `prepare`합니다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('diagram is the first screen', ...); // 첫 ui.menu 호출의 rows[0..4]가 역할, 플랫폼 picker 호출 없음
@@ -753,8 +753,8 @@ test('initial platform is Claude when both standalone', ...); // Q4
 test('compact layout keeps Hosts/Mode/controls', ...);
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-setup.test.mjs` → PASS(기존 케이스 포함)
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 도식 기반 설치 흐름과 Hosts, Settings 화면 추가`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-setup.test.mjs` → PASS(기존 케이스 포함)
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 도식 기반 설치 흐름과 Hosts, Settings 화면 추가`
 
 ---
 
@@ -1169,3 +1169,10 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - Task 15 인계 사항: `editRole`은 편집기를 열 때 선택 가능한 플랫폼(그리고 현재 플랫폼)의 카탈로그를 `loadCatalog`로 미리 불러옵니다(←/→ 처리가 동기식이기 때문). Task 15의 `loadCatalog`는 캐시를 쓰고, 실패를 예외 대신 `catalog_error` 결과로 돌려줘야 합니다.
   - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2227 tests, 2171 pass / 38 fail. 실패 목록이 기준 목록과 같습니다(신규 0건).
+- Task 15 완료(필수 QA 대상 아님):
+  - Implementer dispatch `dc85c7b4`: `lib/tui/setup.mjs`에 `runInstallFlow`, `editHosts`, `editInstallSettings`, `installSettingsDraft`, `installPrepareOptions`를 추가했습니다. 기존 `runSetup`과 기존 함수 본문, 기존 테스트는 `e5eb3a0`과 바이트 동일합니다. 테스트 16개 추가, RED 12건, GREEN `tui-setup` 70/70입니다.
+  - 카탈로그: `catalogFor`가 플랫폼별로 결과를 캐시하고, 예외·형식 오류를 `{status:'catalog_error'}`로 바꿉니다. S 플랫폼만 미리 불러오고 게이트도 S 플랫폼만 검사합니다(Review Focus 3). |S|=1이면 `standalone`, 역할 플랫폼은 `role`, 호스트 전용은 `host` usage입니다.
+  - Apply: 게이트 실패 → 사유 줄 강조, D1-f → `Operation unavailable` 페이지, D1-b → `Switch to <Label>` 확인(기본 선택 Back, Back이면 prepare 없음, Review Focus 2), 그 밖은 바로 prepare입니다.
+  - prepare 옵션: D1-a/b는 기존 management 입력 형태(플랫폼별 effort 필드 roles, verifiedCatalog, 최상위 settings)이고 D1-b에만 `switchFromComposite:true`를 더합니다. D1-c/d/e는 `platforms`, `buildRoleRoutingConfig` 결과, 중첩 `settings`입니다. `skipGlobal`은 항상 false이고, 바꾸지 않은 `(mixed)` 필드는 보내지 않습니다.
+  - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2243 tests, 2187 pass / 38 fail. 실패 목록이 기준 목록과 같습니다(신규 0건).
