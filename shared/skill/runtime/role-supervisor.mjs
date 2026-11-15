@@ -11,12 +11,43 @@ import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES}
 import {withRoutingLock, readActivation} from './role-routing.mjs';
 import {observeCooperativeTarget} from './scope.mjs';
 import {resolveConfigHome, resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
-import {parseCompositeProfile, buildClaudeArgs, buildCodexArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
+import {parseCompositeProfile, buildBridgeArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
 import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, detectViolations} from './role-observe.mjs';
+import {getPlatform, routingProfileFile} from './platform-registry.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const sha256 = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 const STDERR_LIMIT = 65536;
+
+const SUPERVISOR_IMPLEMENTATIONS = new Map([
+  ['claude', {
+    normalize: normalizeClaudeStreamEvent,
+    async observe({state, invocation, homes, requested, terminalClaim, lease}) {
+      const evaluation = state.initEval ?? evaluateClaudeInit({init: null, expected: invocation.expected});
+      const observed = await readClaudeTranscriptEffort({claudeHome: homes.claude, sessionId: state.init?.sessionId});
+      const effort = observed === null ? {level: 'unverified', source: 'none', requested: requested.effort, observed: null, label: 'model_effort_unverified'}
+        : {level: observed === requested.effort ? 'runtime-observed' : 'unverified', source: 'claude-transcript', requested: requested.effort, observed};
+      return {claims: {...evaluation.claims, effort, terminal: terminalClaim}, effortMismatch: observed !== null && observed !== requested.effort, sessionId: state.init?.sessionId ?? lease.sessionId};
+    },
+    async resultPath(state, resultFile) {
+      if (state.terminal && !state.terminalError && typeof state.resultText === 'string') { await fsp.writeFile(resultFile, state.resultText, {mode: 0o600}); return resultFile; }
+      return null;
+    },
+    session: state => state.init?.sessionId,
+  }],
+  ['codex', {
+    normalize: normalizeCodexStreamEvent,
+    async observe({state, invocation, readContext, policy, terminalClaim, lease}) {
+      let finalContext = null;
+      if (state.threadId) finalContext = await readContext().catch(() => null);
+      const evaluation = finalContext ? evaluateCodexContext({context: finalContext, expected: invocation.expected, policy}) : state.codexEval ?? evaluateCodexContext({context: null, expected: invocation.expected, policy});
+      return {claims: {identity: state.threadId ? {level: 'runtime-observed', source: 'codex-stream-thread', observed: state.threadId} : {level: 'unverified', source: 'none'}, ...evaluation.claims, terminal: terminalClaim}, reason: evaluation.reason, effortMismatch: false, sessionId: state.threadId ?? lease.sessionId};
+    },
+    async resultPath(state, resultFile) { return fs.existsSync(resultFile) ? resultFile : null; },
+    session: state => state.threadId,
+  }],
+]);
+export const SUPERVISOR_PLATFORM_IDS = Object.freeze([...SUPERVISOR_IMPLEMENTATIONS.keys()]);
 
 /** `ps -o lstart=` start time; used with the pid to tell a live process from a reused pid. Null when ps is unavailable or the pid is gone. */
 export function processStartTime(pid) {
@@ -45,14 +76,15 @@ export const segmentDirectory = (target, workflowId, dispatchId, segment) => seg
 export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, policy = DEFAULT_POLICY}) {
   const fail = (reasonCode, message) => Object.assign(Error(message), {reasonCode});
   const requested = config.roles[lease.role], platform = requested.platform;
-  const file = path.join(homes[platform], 'agents', `arc-routing-${lease.role.slice('arc_'.length)}.${platform === 'codex' ? 'toml' : 'md'}`);
+  if (!SUPERVISOR_IMPLEMENTATIONS.has(platform)) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
+  const file = path.join(homes[platform], 'agents', routingProfileFile(getPlatform(platform), lease.role));
   let bytes;
   try { bytes = await fsp.readFile(file); } catch { throw fail('activation_unverified', 'Profile unreadable'); }
   if (sha256(bytes) !== lease.profileHash) throw fail('activation_unverified', 'Profile hash differs from the reserved lease');
   let profile, args;
   try {
     profile = parseCompositeProfile(platform, bytes);
-    args = platform === 'claude' ? buildClaudeArgs({role: lease.role, profile, sessionId: lease.sessionId, policy}) : buildCodexArgs({role: lease.role, profile, worktree, resultPath, threadId: lease.sessionId, policy});
+    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy});
   } catch { throw fail('permission_scope_unverified', 'Profile arguments unavailable'); }
   const permissions = ROLE_BRIDGE_PERMISSIONS[platform][lease.role];
   const expected = platform === 'claude'
@@ -148,6 +180,8 @@ export async function runSupervisor(options) {
   try {
     if (config === null) return await earlyFailure('activation_unverified');
     const requested = config.roles[lease.role], platform = requested.platform;
+    const implementation = SUPERVISOR_IMPLEMENTATIONS.get(platform);
+    if (!implementation) throw Error('Invalid composite profile: unknown platform');
     let invocation;
     try { invocation = await buildBridgeInvocation({lease, config, homes, worktree: target.realpath, resultPath: resultFile, policy}); } catch (error) { return await earlyFailure(error.reasonCode ?? 'activation_unverified'); }
     if (invocation.argsDigest !== lease.argsDigest) return await earlyFailure('activation_unverified');
@@ -211,7 +245,7 @@ export async function runSupervisor(options) {
       }
     };
     const handle = raw => {
-      const normalized = platform === 'claude' ? normalizeClaudeStreamEvent(raw) : normalizeCodexStreamEvent(raw);
+      const normalized = implementation.normalize(raw);
       if (!normalized) return;
       writeEvent(normalized);
       if (normalized.kind === 'init') {
@@ -274,39 +308,22 @@ export async function runSupervisor(options) {
     const codes = [];
     if (state.mismatch) codes.push(state.mismatch);
     if (state.internal) codes.push(state.internal);
-    let claims, effortMismatch = false;
     const terminalClaim = {level: 'runtime-observed', source: 'supervisor-exit', observed: {exitCode: exit.code, signal: exit.signal}};
-    let sessionId = lease.sessionId;
-    if (platform === 'claude') {
-      const evaluation = state.initEval ?? evaluateClaudeInit({init: null, expected: invocation.expected});
-      const observed = await readClaudeTranscriptEffort({claudeHome: homes.claude, sessionId: state.init?.sessionId});
-      const effort = observed === null ? {level: 'unverified', source: 'none', requested: requested.effort, observed: null, label: 'model_effort_unverified'}
-        : {level: observed === requested.effort ? 'runtime-observed' : 'unverified', source: 'claude-transcript', requested: requested.effort, observed};
-      effortMismatch = observed !== null && observed !== requested.effort;
-      claims = {...evaluation.claims, effort, terminal: terminalClaim};
-      sessionId = state.init?.sessionId ?? sessionId;
-    } else {
-      let finalContext = null;
-      if (state.threadId) finalContext = await readContext().catch(() => null);
-      const evaluation = finalContext ? evaluateCodexContext({context: finalContext, expected: invocation.expected, policy}) : state.codexEval ?? evaluateCodexContext({context: null, expected: invocation.expected, policy});
-      if (evaluation.reason && !codes.includes(evaluation.reason)) codes.push(evaluation.reason);
-      claims = {identity: state.threadId ? {level: 'runtime-observed', source: 'codex-stream-thread', observed: state.threadId} : {level: 'unverified', source: 'none'}, ...evaluation.claims, terminal: terminalClaim};
-      sessionId = state.threadId ?? sessionId;
-    }
+    const observation = await implementation.observe({state, invocation, homes, requested, terminalClaim, lease, readContext, policy});
+    let {claims, sessionId} = observation;
+    const {effortMismatch} = observation;
+    if (observation.reason && !codes.includes(observation.reason)) codes.push(observation.reason);
     if (effortMismatch) codes.push('model_effort_mismatch');
     if (violations.reason) codes.push(violations.reason);
     if (after === null) claims.permissions = {level: 'unverified', source: 'worktree-snapshot', details: 'post-run snapshot unavailable'};
     else if (violations.reason) claims.permissions = {...claims.permissions, level: 'unverified', details: 'permission violation observed'};
     if (terminating === 'timeout') codes.push('timeout');
 
-    let resultPath = null;
-    if (platform === 'claude') {
-      if (state.terminal && !state.terminalError && typeof state.resultText === 'string') { await fsp.writeFile(resultFile, state.resultText, {mode: 0o600}); resultPath = resultFile; }
-    } else if (fs.existsSync(resultFile)) resultPath = resultFile;
+    const resultPath = await implementation.resultPath(state, resultFile);
     if (resultPath) await fsp.chmod(resultPath, 0o600);
 
     let finalState = 'failed';
-    const observedSession = platform === 'claude' ? state.init?.sessionId : state.threadId;
+    const observedSession = implementation.session(state);
     if (!codes.length && terminating === 'cancel') finalState = 'cancelled';
     else if (!codes.length) {
       const failure = classifyFailure({exitCode: exit.code, signal: exit.signal, terminal: state.terminal, terminalError: state.terminalError, messages: [...state.messages, Buffer.concat(stderrParts).toString('utf8')]});

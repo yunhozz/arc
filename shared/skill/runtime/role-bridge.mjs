@@ -1,3 +1,4 @@
+import {runtimeRegistryOf} from './platform-registry.mjs';
 // A caller's JSON, local hook or child process ID cannot authorize execution.
 // run-dispatch only asks the supervisor (the sole child spawner) to start; observe reads and records state under the routing lock.
 import fsp from 'node:fs/promises';
@@ -13,8 +14,8 @@ export const heldRoutingResult=(code,releaseCondition)=>({decision:'hold',routeS
 const ID=/^[A-Za-z0-9._-]{1,128}$/;
 const NATIVE_EVENTS={started:[['reserved'],'running'],completed:[['running'],'completed'],failed:[['running'],'failed'],cancelled:[['running','reserved'],'cancelled']};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const hostOf=context=>['codex','claude'].includes(context?.hostPlatform)?context.hostPlatform:null;
-const environmentOf=(context,host)=>['codex-cli','claude-cli','codex-desktop','claude-desktop'].includes(context?.executionEnvironment)&&host&&context.executionEnvironment.startsWith(`${host}-`)?context.executionEnvironment:null;
+const hostOf=context=>runtimeRegistryOf(context).isPlatformId(context?.hostPlatform)?context.hostPlatform:null;
+const environmentOf=(context,host)=>runtimeRegistryOf(context).getPlatform(host)?.executionEnvironments.includes(context?.executionEnvironment)?context.executionEnvironment:null;
 const validContext=context=>{const host=hostOf(context);return Boolean(host&&environmentOf(context,host)&&typeof context.workflowId==='string'&&context.workflowId&&typeof context.cwd==='string');};
 const blank=(context,dispatchId,decision,code)=>({decision,routeStatus:'held',supportStatus:'unverified',dispatchId:typeof dispatchId==='string'&&ID.test(dispatchId)?dispatchId:null,route:null,profileName:null,executionEnvironment:context?.executionEnvironment??null,hostPlatform:context?.hostPlatform??null,role:null,requested:null,authentication:null,cliVersion:null,claims:null,reasons:[reason(code)]});
 const bridgeTarget=lease=>lease.route==='native'?lease.hostPlatform:lease.hostPlatform==='codex'?'claude':'codex';

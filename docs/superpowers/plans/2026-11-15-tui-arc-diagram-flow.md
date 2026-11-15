@@ -345,7 +345,7 @@ test('effortField comes from runtime registry', ...); // getPlatform('codex').mo
   - `hostOf(context)`: `runtimeRegistryOf(context).isPlatformId(context.hostPlatform)`
   - `environmentOf`: `getPlatform(host).executionEnvironments.includes(env)`
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('bridge implementations cover every bridge-verified platform', () => { for (const p of RUNTIME_PLATFORMS.filter(p=>p.capabilities.bridge.state==='verified')) { assert.ok(BRIDGE_PLATFORM_IDS.includes(p.id)); assert.ok(SUPERVISOR_PLATFORM_IDS.includes(p.id)); } });
@@ -353,11 +353,11 @@ test('lease hostPlatform accepts only registered ids', ...); // validateLease({�
 test('environmentOf uses registry environments', ...); // routingStatus({context:{hostPlatform:'codex',executionEnvironment:'claude-cli'}}).decision==='deny'
 ```
 
-- [ ] **Step 2:** FAIL 확인
-- [ ] **Step 3:** 구현
-- [ ] **Step 4:** `node --test tests/node/platform-registry.test.mjs tests/node/role-bridge-*.test.mjs tests/node/role-dispatch-store.test.mjs tests/node/role-routing-dispatch.test.mjs tests/node/runtime-schema.test.mjs tests/node/runtime-capabilities.test.mjs tests/node/runtime-claude.test.mjs tests/node/runtime-codex.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE**(runtime 재생성 포함)
-- [ ] **Step 6:** `refactor(runtime): 호스트와 실행 환경, bridge 구현 조회를 레지스트리로 이전`
+- [x] **Step 2:** FAIL 확인
+- [x] **Step 3:** 구현
+- [x] **Step 4:** `node --test tests/node/platform-registry.test.mjs tests/node/role-bridge-*.test.mjs tests/node/role-dispatch-store.test.mjs tests/node/role-routing-dispatch.test.mjs tests/node/runtime-schema.test.mjs tests/node/runtime-capabilities.test.mjs tests/node/runtime-claude.test.mjs tests/node/runtime-codex.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE**(runtime 재생성 포함)
+- [x] **Step 6:** `refactor(runtime): 호스트와 실행 환경, bridge 구현 조회를 레지스트리로 이전`
 
 ---
 
@@ -1029,4 +1029,17 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 의도된 동작 차이(계획 Interfaces), 최종 Reviewer 확인 대상:
     - `assertCompositeCatalogRoles`는 역할 플랫폼의 카탈로그가 없을 때 "unavailable for role" 오류를 냅니다.
     - `collectStatus`의 mode는 `resolveTargets`의 해석된 대상만으로 판정합니다.
+  - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.
+- **작업 5 (2026-11-15 수용):**
+  - Implementer dispatch `705231cf`. 사전 위임 규칙에 따라 해시 갱신만 범위에 추가했습니다.
+    - golden: 변경된 runtime 파일 8개 × 8곳
+    - `runtime-versions` baselineHash
+  - dispatch의 `refsChanged`는 다른 세션의 워크트리 브랜치 생성(`fix/watch-worktree-scope`) 때문입니다. changedPaths는 0건입니다.
+  - 검증(Orchestrator 환경):
+    - focused(runtime 해시 테스트 포함): 192 pass / 0 fail.
+    - runtime-assets `--check` 33 files, `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 236 IDs 통과.
+    - Implementer 보고: 신규 import 순환 0개, `lib/runtime/**`의 금지 경로 도달 0건.
+  - 전체 `npm test`: 2034 tests, 1978 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
+    - Implementer 샌드박스의 추가 실패(`ps`/`listen` EPERM 등)는 환경 제약입니다.
+  - 최종 Reviewer 확인 대상: `role-routing.mjs`의 `authenticate`는 `auth.kind:'none'`을 `authenticated`로 처리합니다. 현재 등록된 플랫폼에는 해당하지 않고 테스트 fixture zeta에만 적용됩니다.
   - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.

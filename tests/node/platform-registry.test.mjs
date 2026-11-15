@@ -237,3 +237,43 @@ test('effortField comes from runtime registry', async () => {
   }
   walk(new URL('../../lib/models/config.mjs', import.meta.url));
 });
+
+test('bridge implementations cover every bridge-verified platform', async () => {
+  const bridge = await import('../../lib/runtime/role-bridge-args.mjs');
+  const supervisor = await import('../../lib/runtime/role-supervisor.mjs');
+  for (const ids of [bridge.BRIDGE_PLATFORM_IDS, supervisor.SUPERVISOR_PLATFORM_IDS]) {
+    assert.ok(Array.isArray(ids), 'bridge implementation ids are exported');
+    assert.equal(Object.isFrozen(ids), true);
+    for (const platform of RUNTIME_PLATFORMS.filter(p => p.capabilities.bridge.state === 'verified')) assert.ok(ids.includes(platform.id), platform.id);
+  }
+  assert.throws(() => bridge.parseCompositeProfile('eta', ''), {message: 'Invalid composite profile: unknown platform'});
+  assert.throws(() => bridge.buildBridgeArgs('eta', {}), {message: 'Invalid composite profile: unknown platform'});
+});
+
+test('lease hostPlatform accepts only registered ids', async () => {
+  const {validateLease} = await import('../../lib/runtime/role-dispatch-store.mjs');
+  const lease = {
+    version: 1, dispatchId: 'd1', workflowId: 'wf-1', taskId: 'T1', requestId: 'req-d1', role: 'arc_qa', route: 'bridge',
+    hostPlatform: 'codex', executionEnvironment: 'codex-cli', revision: 'rev-1', profileHash: null, argsDigest: null,
+    state: 'reserved', supervisor: null, child: null, sessionId: null, timeoutMinutes: 30, claims: null, reasons: [],
+    allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  assert.equal(validateLease(lease).hostPlatform, 'codex');
+  assert.throws(() => validateLease({...lease, hostPlatform: 'eta'}), {message: 'Invalid lease values'});
+});
+
+test('environmentOf uses registry environments', async () => {
+  const {routingStatus} = await import('../../lib/runtime/role-routing.mjs');
+  const mismatch = await routingStatus({context: {hostPlatform: 'codex', executionEnvironment: 'claude-cli'}});
+  assert.equal(mismatch.decision, 'deny');
+  const runtimePlatforms = createPlatformRegistry([{...getPlatform('codex'), executionEnvironments: ['custom-cli']}]);
+  const accepted = await routingStatus({context: {hostPlatform: 'codex', executionEnvironment: 'custom-cli', runtimePlatforms}});
+  assert.equal(accepted.executionEnvironment, 'custom-cli');
+  assert.equal(accepted.decision, 'hold');
+  const removed = await routingStatus({context: {hostPlatform: 'codex', executionEnvironment: 'codex-cli', runtimePlatforms}});
+  assert.equal(removed.decision, 'deny');
+  const injected = await routingStatus({context: {hostPlatform: 'eta', executionEnvironment: 'zeta-cli', runtimePlatforms: createTestRuntimeRegistry(['eta'])}});
+  assert.equal(injected.hostPlatform, 'eta');
+  assert.equal(injected.executionEnvironment, 'zeta-cli');
+  assert.equal(injected.decision, 'hold');
+});

@@ -1,3 +1,4 @@
+import {runtimeRegistryOf} from './platform-registry.mjs';
 import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
@@ -115,8 +116,8 @@ export async function withRoutingLock(codexHome,fn,{retryMs=DEFAULT_POLICY.lockR
 
 const textValue=value=>typeof value==='string'&&/^[^\p{Cc}]{1,256}$/u.test(value);
 const validRelativePath=value=>typeof value==='string'&&value.length>0&&value.length<=1024&&!value.includes('\0')&&!value.startsWith('/')&&!/^[A-Za-z]:/.test(value)&&value.replace(/\/$/,'').split('/').every(part=>part&&part!=='..');
-const hostOf=context=>['codex','claude'].includes(context?.hostPlatform)?context.hostPlatform:null;
-const environmentOf=(context,host)=>['codex-cli','claude-cli','codex-desktop','claude-desktop'].includes(context?.executionEnvironment)&&host&&context.executionEnvironment.startsWith(`${host}-`)?context.executionEnvironment:null;
+const hostOf=context=>runtimeRegistryOf(context).isPlatformId(context?.hostPlatform)?context.hostPlatform:null;
+const environmentOf=(context,host)=>runtimeRegistryOf(context).getPlatform(host)?.executionEnvironments.includes(context?.executionEnvironment)?context.executionEnvironment:null;
 function validateAssignment(assignment,expectedRevision,context){
  const role=assignment?.role;
  if(!ROUTING_ROLES.includes(role)||!textValue(assignment.requestId)||!textValue(assignment.taskId)||!textValue(expectedRevision)||!textValue(context?.workflowId))return false;
@@ -133,7 +134,8 @@ const classify=error=>{
 export async function authenticate(platform,context,policy){
  const cli=resolveLocalCli(platform,context);
  if(cli.reason)return {cli:null,authentication:{status:cli.reason==='cli_not_found'?'Not Available':'Incomplete',reason:cli.reason}};
- const auth=await (platform==='codex'?probeCodexAuthStatus:probePlatformAuth)(cli,{timeoutMs:policy.probeTimeoutMs});
+ const kind=runtimeRegistryOf(context).getPlatform(platform).auth.kind;
+ const auth=kind==='none'?{authStatus:'authenticated'}:await (kind==='codex-refresh'?probeCodexAuthStatus:probePlatformAuth)(cli,{timeoutMs:policy.probeTimeoutMs});
  return {cli,authentication:{status:auth.authStatus==='authenticated'?'Available':auth.authStatus==='unauthorized'?'Unauthorized':'Incomplete',...(auth.reason?{reason:auth.reason}:{})}};
 }
 export const versionOf=(cli,policy)=>cli?probeCliVersion(cli,{timeoutMs:policy.probeTimeoutMs}):{version:null,reason:'cli_not_found'};

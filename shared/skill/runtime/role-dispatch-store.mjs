@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {isPlatformId} from './platform-registry.mjs';
 
 export const NON_TERMINAL_STATES = Object.freeze(['reserved', 'starting', 'running', 'unknown']);
 export const TERMINAL_STATES = Object.freeze(['completed', 'failed', 'cancelled']);
@@ -22,7 +23,7 @@ export function validateLease(value) {
   if (!isObject(value) || Object.keys(value).length !== KEYS.length || KEYS.some(key => !Object.hasOwn(value, key))) throw Error('Invalid lease keys');
   const ok = value.version === 1 && typeof value.dispatchId === 'string' && ID.test(value.dispatchId) && !value.dispatchId.startsWith('.')
     && ['workflowId', 'taskId', 'requestId', 'role', 'executionEnvironment', 'revision', 'createdAt', 'updatedAt'].every(key => text(value[key]))
-    && ['native', 'bridge'].includes(value.route) && ['codex', 'claude'].includes(value.hostPlatform)
+    && ['native', 'bridge'].includes(value.route) && isPlatformId(value.hostPlatform)
     && nullableText(value.profileHash) && nullableText(value.argsDigest) && nullableText(value.sessionId) && nullableText(value.resultPath) && nullableText(value.nativeAgentId)
     && [...NON_TERMINAL_STATES, ...TERMINAL_STATES].includes(value.state) && process_(value.supervisor) && process_(value.child)
     && Number.isInteger(value.timeoutMinutes) && value.timeoutMinutes > 0 && Number.isInteger(value.segment) && value.segment >= 0
