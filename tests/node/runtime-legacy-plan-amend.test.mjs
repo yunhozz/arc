@@ -71,6 +71,15 @@ for(const status of ['prepared','unknown','mismatch','failed'])for(const command
   assert.equal(await fs.readFile(f.file,'utf8'),before,'legacy holds must preserve state bytes');
  });
 }
+// Regression guard: legacy status already omits another checkout's workflow state.
+test('H-3: legacy status from another checkout holds without exposing state',async t=>{
+ const f=await fixture(t),state=await f.read();state.intents.push(legacy('prepared'));
+ state.target={...state.target,realpath:path.join(f.args.cwd,'other-checkout'),gitDir:path.join(f.target.gitCommonDir,'worktrees/other')};
+ await f.write(state);const before=await fs.readFile(f.file,'utf8');
+ const out=await f.call(request('status'));assertRemoved(out);
+ assert.equal(Object.hasOwn(out,'state'),false,'another checkout must not receive workflow state');
+ assert.equal(await fs.readFile(f.file,'utf8'),before);
+});
 // Catches terminal legacy intents being treated as unresolved or executable.
 for(const status of ['succeeded','cancelled'])test(`H-4: ${status} legacy intent does not affect normal commands`,async t=>{
  const f=await fixture(t),state=await f.read();state.intents.push(legacy(status));await f.write(state);

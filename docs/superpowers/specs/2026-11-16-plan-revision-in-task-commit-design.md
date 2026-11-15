@@ -82,7 +82,7 @@
   - 예전 승인과 사본은 덮어쓰지 않는다.
 - **R-6 예상된 dirty state**
   - 대기 개정은 Orchestrator가 소유하는 예상된 dirty state다.
-  - 역할 brief에는 작업 트리의 개정 버전과 `contentHash`를 적고 그 파일이 Orchestrator 소유임을 밝힌다.
+  - 역할 brief에는 작업 트리의 개정 버전과 `contentHash`를 적고 그 파일이 Orchestrator 소유임을 밝힌다. 승인 뒤 다른 작업의 진행 기록이 이미 커밋되었다면, brief에는 작업 트리 문서 내용의 SHA-256도 함께 적는다. 이때 작업 트리 문서는 승인 본문에 그 진행 기록이 더해진 상태다.
   - Implementer와 QA는 그 변경을 자기 것이나 무관한 사용자 변경으로 다루지 않고 손대지 않는다.
 - **R-7 포함할 커밋 (우선순위 순)**
   1. 개정 승인 뒤 개정 버전을 기준으로 실행되었거나 재확인된 첫 상위 작업의 수락 커밋. 대기 개정 전체(spec과 plan 모두)와 trailer를 넣는다.
@@ -100,7 +100,10 @@
   - `Plan-Reason: <gitPath> v<N> <사유>`: 버전마다 한 줄
   - 기존 Git trailer 보존 규칙(`commit.md`)을 따른다.
 - **R-10 커밋 뒤 확인**
-  - 커밋에 들어간 각 문서 blob을 확인한다. 같은 커밋에 그 작업의 진행 기록이 없으면 blob hash가 최신 승인 `contentHash`와 같아야 한다. 진행 기록이 있으면 승인 본문 사본과의 차이가 그 커밋 작업의 분류된 진행 기록뿐이어야 한다.
+  - 커밋에 들어간 각 문서 blob의 내용을 확인한다. Git blob OID가 아니라 내용 바이트의 SHA-256으로 비교한다.
+    - 승인 뒤 커밋된 진행 기록이 하나도 없으면, 커밋된 내용의 SHA-256이 최신 승인 `contentHash`와 같아야 한다.
+    - 진행 기록이 있으면, 최신 승인 본문 사본과의 차이가 분류된 진행 기록뿐이어야 한다. 대상은 이 커밋 작업의 진행 기록과, 승인 뒤 먼저 커밋된 다른 작업(R-8 분리 포함)의 진행 기록이다.
+    - 이 판정에 쓴 기대 본문의 SHA-256을 canonical record에 남긴다. 승인 사본은 덮어쓰지 않는다.
   - 해당 대기 개정이 `committed`가 되어 대기 개정이 비었는지 확인한다.
   - 커밋 SHA는 record에만 연결하고 문서에는 적지 않는다.
 - **R-11 금지**
@@ -138,7 +141,7 @@
   - operations: `["non-progress-spec-plan-content-update","pending-plan-revision-commit"]`
   - evidence: `["non-progress-content-change-classification","actual-approval-chronology","approved-revision-content-hash","plan-revision-trailers"]`
   - text 초안:
-    > Task progress records (checkboxes, notes, results, evidence and status) preserving the approved contract need no new user approval; Orchestrator includes the completed task's own records in its accepted implementation commit and records classification, reason and actual time as applicable. All other spec/plan content changes, contract or mechanical, require applicable approval and preparation; changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval, preparation and holds on affected work before it continues, with a fresh Implementer for remaining work. After approval Orchestrator edits the same document, appends a revision-history row and leaves it uncommitted as an Orchestrator-owned pending revision, recording version, content hash, approval reference, actual time, classification, reason, affected tasks and the full approved content in the canonical handoff record. Orchestrator includes all pending revisions with Plan-Revision, Plan-Approved-At and Plan-Reason trailers in the accepted commit of the first top-level task executed or reconfirmed against the revised version, otherwise in a current task or final Reviewer follow-up commit; only when no implementation work remains before overall completion MAY it make one standalone docs(plan) closing commit without implementation files. Exclude revision hunks from commits of independent tasks accepted on a prior version, or hold that commit when separation is unsafe. NEVER amend or rewrite planning or implementation commits, create any other docs/fixup commit or authorize past work retroactively. After commit verify the committed documents match the latest approved content apart from that commit's own progress records and that no pending revision remains. Follow planning, handoff-prep, commit and verification for the full contract.
+    > Task progress records (checkboxes, notes, results, evidence and status) preserving the approved contract need no new user approval; Orchestrator includes the completed task's own records in its accepted implementation commit and records classification, reason and actual time as applicable. All other spec/plan content changes, contract or mechanical, require applicable approval and preparation; changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval, preparation and holds on affected work before it continues, with a fresh Implementer for remaining work. After approval Orchestrator edits the same document, appends a revision-history row and leaves it uncommitted as an Orchestrator-owned pending revision, recording version, content hash, approval reference, actual time, classification, reason, affected tasks and the full approved content in the canonical handoff record. Orchestrator includes all pending revisions with Plan-Revision, Plan-Approved-At and Plan-Reason trailers in the accepted commit of the first top-level task executed or reconfirmed against the revised version, otherwise in a current task or final Reviewer follow-up commit; only when no implementation work remains before overall completion MAY it make one standalone docs(plan) closing commit without implementation files. Exclude revision hunks from commits of independent tasks accepted on a prior version, or hold that commit when separation is unsafe. NEVER amend or rewrite planning or implementation commits, create any other docs/fixup commit or authorize past work retroactively. After commit verify the committed document content matches the latest approved content apart from classified progress records of that commit's task or committed for other tasks after approval, and that no pending revision remains. Follow planning, handoff-prep, commit and verification for the full contract.
 - `git.orchestrator-accept-commit`: "Exclude other tasks"를 "Exclude other tasks; pending approved spec/plan revisions follow planning.plan-revision"으로 바꾼다.
 - `placement.mjs` 4개 projection의 id를 교체한다.
 
@@ -227,3 +230,11 @@
 | T4 운영 문서 | harness-operation.md와 잔여 grep | T2, T3 |
 
 모든 작업이 수락된 뒤 최종 Reviewer를 1회 둔다. 작업마다 baseline 대비 실패 집합을 비교한다.
+
+## 개정 이력
+
+| 버전 | 승인 시각 | 분류 | 영향 작업 | 사유 |
+|---|---|---|---|---|
+| v1 | 2026-11-16 (spec 승인) | 최초 승인 | 전체 | - |
+| v2 | 2026-11-16 (최종 Reviewer 지적 처리, 사용자 위임에 따른 Orchestrator 승인) | contract | 최종 Reviewer 후속 작업 | R-10이 Git blob OID와 내용 SHA-256을 섞어 쓰고, R-8 분리 뒤 먼저 커밋된 다른 작업의 진행 기록을 고려하지 않았다. R-6, R-10의 비교 기준을 바로잡는다. |
+| v3 | 2026-11-16 (최종 Reviewer 재확인 N1 처리, 사용자 위임에 따른 Orchestrator 승인) | contract | 최종 Reviewer 후속 작업 | 6.1 rule text의 커밋 뒤 확인 요약이 v2의 R-10보다 좁았다. 다른 작업의 진행 기록도 허용하도록 맞춘다. |

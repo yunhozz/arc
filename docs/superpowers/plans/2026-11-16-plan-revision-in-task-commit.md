@@ -337,22 +337,43 @@
 
 ## F. 최종 검증 (모든 작업 수락 뒤, 커밋 없음)
 
-- [ ] T0과 같은 환경에서 N-ALL과 P-ALL을 실행한다. 실패 집합이 baseline의 부분집합이고 새 실패가 0개여야 한다(AC-T2).
-- [ ] G-POL, G-RT, G-MAN, `G-PAR --complete`를 실행하고 baseline과 비교한다.
-- [ ] 잔여 grep과 AC-D2 diff를 다시 확인한다.
-- [ ] 최종 Reviewer가 ec91fc0..HEAD 전체 변경을 1회 검토한다. 중점은 AC 전체, Review Focus, R-1~R-12 대응, parity다.
-- [ ] Reviewer 지적은 Implementer → Reviewer 재확인 순서로 처리하고, 해소된 뒤 후속 커밋 하나를 만든다.
+- [x] T0과 같은 환경에서 N-ALL과 P-ALL을 실행한다. 실패 집합이 baseline의 부분집합이고 새 실패가 0개여야 한다(AC-T2).
+- [x] G-POL, G-RT, G-MAN, `G-PAR --complete`를 실행하고 baseline과 비교한다.
+- [x] 잔여 grep과 AC-D2 diff를 다시 확인한다.
+- [x] 최종 Reviewer가 ec91fc0..HEAD 전체 변경을 1회 검토한다. 중점은 AC 전체, Review Focus, R-1~R-12 대응, parity다.
+- [x] Reviewer 지적은 Implementer → Reviewer 재확인 순서로 처리하고, 해소된 뒤 후속 커밋 하나를 만든다.
+
+**F 결과 (2026-11-16)**
+- 최종 Reviewer 1차 지적과 처리
+  - 1·2(중간, R-10 비교 기준): spec v2 개정. 내용 SHA-256으로 비교하고, 승인 뒤 다른 작업의 진행 기록을 허용한다.
+  - 4(낮음): cooperative CLI의 R-8 한계를 안내 문장에 추가했다.
+  - 5(낮음): planning.md 용어를 progress records로 바꿨다.
+  - 3(낮음): 결함이 아니다(`commandResult`가 state를 내보내지 않음). Reviewer가 철회했고 회귀 테스트만 추가했다.
+  - 6: 기록 편차는 canonical record(`deviations.md`, `pending.json`)에 남겼다.
+- Reviewer 재확인 지적과 처리
+  - N1(중간): 정책 rule text 요약을 R-10과 맞추기 위해 spec v3로 개정했다. role-policy text, 생성 섹션, fixture, golden을 갱신했다.
+  - N2(낮음): 승인 시각, spec 해시 참조, fresh Implementer 배정을 기록했다.
+  - 최종 재확인 결과 남은 지적은 없다.
+- 각 spec 개정 뒤에는 새 Implementer를 배정했다(v2 승인 뒤 1명, v3 승인 뒤 1명).
+- 테스트 실행이 만든 git-ignored `__pycache__`가 payload 해시 검사를 깨뜨려 지웠다(추적 파일에는 영향 없음).
+- 최종 검사
+  - N-ALL: pass 2004, fail 37. 새 실패 0, 사라진 baseline 실패 1.
+  - P-ALL: baseline과 같다(새 0, 사라짐 0).
+  - 문장 단위 계약 실험: 70/70 검출.
+  - G-POL, G-RT, G-MAN verified. `G-PAR --complete`: baseline과 같은 packed 3개 fail.
+  - 잔여 grep은 의도된 예외 6개 파일뿐이다.
+- AC 판정: AC-P1~P4, AC-G1~G3, AC-R1~R4, AC-T1~T2, AC-D1~D2 모두 proven. 남은 실패는 모두 baseline이다.
 
 ## 완료 체크리스트
 
-- [ ] T0 baseline 기록 (환경 조건 포함)
-- [ ] T1 수락과 커밋 (QA 통과)
-- [ ] T2 수락과 커밋 (QA 통과)
-- [ ] T3 수락과 커밋 (QA 통과)
-- [ ] T4 수락과 커밋
-- [ ] F 최종 검증 통과, 최종 Reviewer 지적 해소
-- [ ] 대기 중인 plan 개정 없음, 모든 진행 기록이 각 작업 커밋에 포함됨
-- [ ] AC-P1~P4, AC-G1~G3, AC-R1~R4, AC-T1~T2, AC-D1~D2 전부 증거 연결
+- [x] T0 baseline 기록 (환경 조건 포함)
+- [x] T1 수락과 커밋 (QA 통과)
+- [x] T2 수락과 커밋 (QA 통과)
+- [x] T3 수락과 커밋 (QA 통과)
+- [x] T4 수락과 커밋
+- [x] F 최종 검증 통과, 최종 Reviewer 지적 해소
+- [x] 대기 중인 plan 개정 없음, 모든 진행 기록이 각 작업 커밋에 포함됨
+- [x] AC-P1~P4, AC-G1~G3, AC-R1~R4, AC-T1~T2, AC-D1~D2 전부 증거 연결
 
 ## 개정 이력
 

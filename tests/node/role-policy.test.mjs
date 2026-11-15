@@ -64,6 +64,7 @@ test('plan-revision rule replaces plan-amend with approved operations and eviden
   assert.equal(revision.authority, 'orchestrator');
   assert.match(revision.text, /Plan-Revision, Plan-Approved-At and Plan-Reason trailers/);
   assert.match(revision.text, /NEVER amend or rewrite planning or implementation commits/);
+  assert.match(revision.text, /committed for other tasks after approval/);
   assert.match(p.rules.find(rule => rule.id === 'git.orchestrator-accept-commit').text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
 });
 // Adding projections must not change existing installed contracts or global-section filtering.

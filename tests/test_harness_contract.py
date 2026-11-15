@@ -20,8 +20,9 @@ COMMON_CONTRACTS = {
         # R-1: distinguish task records from every other body change.
         r"task progress records[^.]*need no new approval",
         r"checkboxes[^.]*notes[^.]*results[^.]*evidence[^.]*completion status",
-        r"removing checks[^.]*invented success[^.]*unsupported acceptance[^.]*mixed scope changes are not mechanical",
+        r"removing checks[^.]*invented success[^.]*unsupported acceptance[^.]*mixed scope changes are not progress records",
         # R-2: approve the revised contract before affected work; refresh its owner.
+        r"approved-body changes need revised approval except task progress records below",
         r"goals[^.]*task boundaries[^.]*scope[^.]*criteria[^.]*method[^.]*risk[^.]*dependencies[^.]*checks[^.]*revised approval before affected work",
         r"contract revision[^.]*fresh implementer[^.]*remaining work",
         r"written-spec approval[^.]*before[^.]*dependent plan revision",
@@ -45,6 +46,7 @@ COMMON_CONTRACTS = {
         r"never overwrite[^.]*approvals[^.]*copies",
         # R-6: explicit ownership in every role brief.
         r"brief[^.]*orchestrator-owned[^.]*pending revision[^.]*version[^.]*contenthash",
+        r"if another task's progress records were committed after approval[^.]*brief[^.]*sha-256 of the working-tree document content[^.]*approved content plus those progress records",
         r"implementer[^.]*qa[^.]*preserve[^.]*neither[^.]*own[^.]*unrelated user",
         # R-7/R-8: all pending revisions, fallback order and unsafe separation hold.
         r"include all pending revisions in the accepted commit of the first top-level task[^.]*executed or reconfirmed[^.]*revised version, otherwise a current task or final reviewer follow-up commit",
@@ -54,12 +56,17 @@ COMMON_CONTRACTS = {
         r"plan-revision: [^.]* -> ",
         r"plan-approved-at:[^.]*iso 8601[^.]*plan-reason:",
         r"per document[^.]*per version[^.]*repeat[^.]*preserve[^.]*trailers",
+        # R-10: content bytes, all post-approval records and canonical expected hash.
+        r"after commit verify the sha-256 of each committed document's content \(not the git blob oid\)[^.]*latest approved `contenthash`[^.]*no progress records have been committed since approval",
+        r"otherwise compare against the latest approved copy[^.]*only classified progress records[^.]*this commit's task[^.]*committed for other tasks after approval[^.]*r-8 separation",
+        r"record the sha-256 of the expected content used for this comparison in the canonical record[^.]*never overwrite approved copies",
     )),
     "PLAN_REVISION_EVIDENCE": ("references/verification.md", (
-        # R-10: hash equality or classified own-progress-only diff; clear pending state.
+        # R-10: content SHA-256, classified post-approval progress and expected hash.
         r"committed[^.]*blob[^.]*latest approved[^.]*content hash",
-        r"no[^.]*progress records[^.]*hash[^.]*equal",
-        r"otherwise the diff from the approved copy must contain only classified progress records belonging to that commit's task",
+        r"if no progress records have been committed since approval, the sha-256 of the committed document content \(not the git blob oid\) must equal the latest approved `contenthash`",
+        r"otherwise the diff from the latest approved copy must contain only classified progress records belonging to that commit's task or committed for other tasks after approval \(including r-8 separation\)",
+        r"record the sha-256 of the expected content used for this comparison in the canonical record[^.]*never overwrite approved copies",
         r"status[^.]*committed[^.]*no pending revision",
         r"commit sha[^.]*record only[^.]*not[^.]*document",
         # R-12: retain commit links, rerun affected checks and refresh stale evidence.
