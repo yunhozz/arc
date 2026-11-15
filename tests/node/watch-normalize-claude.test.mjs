@@ -1,11 +1,100 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import * as claude from '../../lib/watch/normalize-claude.mjs';
 import {createClaudeState,parseClaudeHead,parseClaudeAgentMeta,normalizeClaudeLine} from '../../lib/watch/normalize-claude.mjs';
 const fixture = name => fs.readFileSync(new URL(`./fixtures/watch/${name}.jsonl`,import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
 const assistant = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'assistant',message:{content,...extra}},state);
 const user = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'user',message:{content},...extra},state);
 const tool = (name,input={}) => assistant([{type:'tool_use',id:'id',name,input}]);
+
+test('Skill call with args is a skill tool event', () => {
+ assert.deepEqual(normalizeClaudeLine({type:'assistant',timestamp:'raw',message:{content:[
+  {type:'tool_use',id:'s1',name:'Skill',input:{skill:'arc',args:'x'}},
+ ]}},createClaudeState()),[{kind:'tool',tool:'Skill',skill:'arc',text:'x',ts:'raw'}]);
+ for (const args of ['',undefined,42]) {
+  assert.deepEqual(tool('Skill',{skill:'arc',args}),[{kind:'tool',tool:'Skill',skill:'arc'}]);
+ }
+});
+test('plugin skill keeps the prefix as plugin', () => {
+ assert.deepEqual(tool('Skill',{skill:'anthropic-skills:docs'}),
+  [{kind:'tool',tool:'Skill',skill:'anthropic-skills:docs',plugin:'anthropic-skills'}]);
+ assert.deepEqual(tool('Skill',{skill:':docs'}),[{kind:'tool',tool:'Skill',skill:':docs'}]);
+});
+test('failed Skill carries skill and plugin', () => {
+ for (const [skill,fields] of [['arc',{skill:'arc'}],
+  ['anthropic-skills:docs',{skill:'anthropic-skills:docs',plugin:'anthropic-skills'}]]) {
+  const state=createClaudeState();
+  assistant([{type:'tool_use',id:'s1',name:'Skill',input:{skill,args:'private args'}}],state);
+  assert.equal(state.tools.get('s1'),'Skill');
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'s1',is_error:true,content:'private result'}],state),
+   [{kind:'tool_failed',tool:'Skill',...fields}]);
+ }
+ const state=createClaudeState();
+ for(let i=0;i<600;i++) assistant([{type:'tool_use',id:`s${i}`,name:'Skill',input:{skill:`skill-${i}`}}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'s0',is_error:true}],state),[{kind:'tool_failed'}]);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'s599',is_error:true}],state),
+  [{kind:'tool_failed',tool:'Skill',skill:'skill-599'}]);
+});
+test('Skill without input.skill stays plain', () => {
+ for (const input of [{},{skill:null},{skill:42}]) {
+  assert.deepEqual(tool('Skill',input),[{kind:'tool',tool:'Skill'}]);
+ }
+});
+test('observed slash command yields one skill event', () => {
+ const state=createClaudeState();
+ const events=fixture('claude-slash-command').flatMap(line=>normalizeClaudeLine(line,state));
+ assert.deepEqual(events.filter(event=>event.kind==='tool'),[
+  {kind:'tool',tool:'/find-skills',skill:'find-skills',
+   text:'테스트용 호출입니다. 도구를 쓰지 말고 한 문장으로만 답하세요.',ts:'2026-11-15T11:57:34.341Z'},
+ ]);
+ assert.equal(events.filter(event=>event.kind==='user').length,0);
+ assert.doesNotMatch(JSON.stringify(events),/Base directory|# Find Skills|\/home\/u\/\.claude\/skills/);
+});
+test('builtin slash command without injection is not a skill', () => {
+ for (const next of [{type:'user',message:{content:'hello'}},
+  {type:'assistant',message:{content:[{type:'text',text:'hello'}]}}]) {
+  const state=createClaudeState();
+  const events=user('<command-name>/clear</command-name>',state);
+  events.push(...normalizeClaudeLine(next,state));
+  events.push(...user('Base directory for this skill: /private/path',state,{isMeta:true}));
+  assert.equal(events.filter(event=>event.kind==='tool').length,0);
+  assert.deepEqual(events,[{kind:next.type==='user' ? 'user' : 'agent',text:'hello'}]);
+ }
+});
+test('slash pending survives attachment lines', () => {
+ const state=createClaudeState();
+ assert.deepEqual(user([{type:'text',text:'<command-name>/anthropic-skills:docs</command-name>'},
+  {type:'text',text:'<command-args>first\nsecond</command-args>'}],state),[]);
+ assert.deepEqual(normalizeClaudeLine({type:'attachment',attachment:{type:'file'}},state),[]);
+ assert.deepEqual(user([{type:'text',text:'Base directory for this skill: /private/path\n# Secret body'}],state,{isMeta:true}),
+  [{kind:'tool',tool:'/anthropic-skills:docs',skill:'anthropic-skills:docs',plugin:'anthropic-skills',text:'first\nsecond'}]);
+ assert.deepEqual(user('Base directory for this skill: /private/path',state,{isMeta:true}),[]);
+ for (const args of ['', '<command-args> \n </command-args>']) {
+  user(`<command-name>/arc</command-name>${args}`,state);
+  assert.deepEqual(user('Base directory for this skill: /private/path',state,{isMeta:true}),
+   [{kind:'tool',tool:'/arc',skill:'arc'}]);
+ }
+});
+test('plugin MCP tool name yields plugin', () => {
+ for (const [name,fields] of [['mcp__plugin_p_srv__t',{plugin:'p'}],
+  ['mcp__plugin_p__t',{}],['mcp__srv__t',{}],['mcp__plugin__t',{}],['mcp__plugin_p_srv',{}]]) {
+  assert.deepEqual(tool(name,{query:'private input'}),[{kind:'tool',tool:name,...fields}]);
+ }
+});
+
+test('claudeLineCwd returns string cwd only', () => {
+ assert.equal(typeof claude.claudeLineCwd,'function');
+ assert.equal(claude.claudeLineCwd({cwd:'/r'}),'/r');
+ for (const obj of [{cwd:1},{cwd:''},{},null,[]]) assert.equal(claude.claudeLineCwd(obj),undefined);
+});
+test('Bash deletion paths use state.cwd when the line has no cwd', () => {
+ const state=createClaudeState();
+ assert.equal(state.cwd,undefined);
+ state.cwd='/r/wt';
+ assistant([{type:'tool_use',id:'b1',name:'Bash',input:{command:'rm a.txt'}}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'b1'}],state),[{kind:'file_delete',paths:['/r/wt/a.txt']}]);
+});
 
 for (const marker of ['[Request interrupted by user]','[Request interrupted by user for tool use]']) {
  test(`user interrupt ${marker} ends the turn`, () => {

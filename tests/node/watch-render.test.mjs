@@ -4,6 +4,29 @@ import * as renderer from '../../lib/watch/render.mjs';
 import {renderHuman, renderJson, kindTag} from '../../lib/watch/render.mjs';
 const event = {ts:'2026-11-11T00:01:15.000Z',platform:'codex',label:'tui#e2e8',kind:'command',text:'git status',exitCode:0};
 const options = {width:120, color:false, verbose:false};
+test('SKILL and PLUGIN tags, bodies and colors', () => {
+  const rows = [
+    [{kind:'tool',tool:'Skill',skill:'arc',text:'x'}, 'SKILL    arc x', '38;5;110'],
+    [{kind:'tool',tool:'cua_repl.js',plugin:'unified-computer-use@openai-bundled'}, 'PLUGIN   unified-computer-use@openai-bundled cua_repl.js', '38;5;175'],
+    [{kind:'tool_failed',tool:'Skill',skill:'arc'}, 'TOOL!    Skill arc', '31'],
+    [{kind:'tool_failed',tool:'srv.t',plugin:'p'}, 'TOOL!    srv.t p', '31'],
+    [{kind:'tool',tool:'Skill',skill:'a:b',plugin:'a'}, 'SKILL    a:b', '38;5;110'],
+  ];
+  for (const [input,want,code] of rows) for (const color of [false,true]) {
+    const out = renderHuman({...event,...input,text:input.text}, {...options,color});
+    assert.equal(out.replace(/\x1b\[[0-9;]*m/g,'').slice(16),want);
+    if (color) {
+      assert.ok(out.includes(`\x1b[${code}m${want.split(' ')[0]}\x1b[0m`));
+      assert.ok(out.endsWith(`\x1b[${code}m${want.slice(9)}\x1b[0m`));
+    } else assert.doesNotMatch(out,/\x1b/);
+  }
+});
+test('renderJson includes skill and plugin', () => {
+  assert.deepEqual(JSON.parse(renderJson({kind:'tool',tool:'Skill',skill:'a:b',plugin:'a'})),
+    {v:1,kind:'tool',tool:'Skill',skill:'a:b',plugin:'a'});
+  assert.deepEqual(JSON.parse(renderJson({kind:'tool_failed',tool:'Skill',skill:'\x1b[31marc',plugin:'token=hidden'})),
+    {v:1,kind:'tool_failed',tool:'Skill',skill:'arc',plugin:'token=***'});
+});
 test('displayPath shortens only absolute paths inside the root', () => {
   assert.equal(typeof renderer.displayPath, 'function');
   for (const [file, root, want] of [
@@ -33,15 +56,15 @@ test('renderHuman has no label column', () => {
   const line = renderHuman(event, options);
   assert.match(line.slice(0,8), /^\d\d:\d\d:\d\d$/);
   assert.equal(line.slice(0,8), new Date(event.ts).toLocaleTimeString('en-GB',{hour12:false}));
-  assert.equal(line.slice(9,15), 'codex ');
+  assert.equal(line.slice(9,15), 'CODEX ');
   assert.ok(!line.includes('tui#e2e8'));
-  assert.equal(line.slice(16,24), 'CMD(0)  ');
+  assert.equal(line.slice(16,24), 'CMD     ');
   assert.equal(line.slice(25), 'git status');
   assert.equal(renderHuman({...event,ts:'invalid',observedAt:event.ts}, options).slice(0,8), line.slice(0,8));
 });
 test('kind tags follow the spec table', () => {
   for (const [kind, want] of [['command','CMD'],['tool_failed','TOOL!'],['turn_end','END'],['turn_failed','FAIL'],['turn_start','TURN'],['reasoning','THINK'],['file_change','EDIT'],['file_create','CREATE'],['file_delete','DELETE'],['approval','APPROVE'],['other','ITEM'],['settings','SETTINGS'],['notice','NOTICE'],['dispatch','DISPATCH'],['session','SESSION'],['user','USER'],['agent','AGENT'],['spawn','SPAWN'],['error','ERROR'],['tool','TOOL']]) assert.equal(kindTag({kind}),want);
-  assert.equal(kindTag({kind:'command',exitCode:2}), 'CMD(2)');
+  assert.equal(kindTag({kind:'command',exitCode:2}), 'CMD');
 });
 test('non-message lines still clip to width', () => {
   const line = renderHuman({...event,label:'tui#e2e8/qa/Aristotle/Plato',text:'x'.repeat(500)}, {...options,width:80});
@@ -140,7 +163,7 @@ test('agent tags stay AGENT regardless of roles or label tails', () => {
     {source:'subagent',label:'unknown'},
     {role:'N'.repeat(21)},
   ]) assert.equal(kindTag({kind:'agent',...input}), 'AGENT');
-  assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD(0)');
+  assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD');
 });
 const arcRoles = [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],
   ['qa','QA'],['reviewer','Reviewer'],['orchestrator','Orchestrator']];
@@ -183,8 +206,8 @@ test('ARC agent role prefixes leave JSON role and message fields unchanged', () 
 });
 test('tag colors follow the table and include the parenthesized part', () => {
   const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT'],
-    [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD(0)'],
-    [{kind:'command',exitCode:1},'31','CMD(1)'],[{kind:'command',exitCode:-1},'31','CMD(-1)'],
+    [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD'],
+    [{kind:'command',exitCode:1},'38;5;242','CMD'],[{kind:'command',exitCode:-1},'38;5;242','CMD'],
     [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'2','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
     [{kind:'dispatch'},'38;5;137','DISPATCH'],[{kind:'approval'},'1;4','APPROVE'],
     [{kind:'turn_failed'},'31','FAIL'],[{kind:'error'},'31','ERROR'],[{kind:'tool_failed'},'31','TOOL!'],
@@ -199,14 +222,14 @@ test('tag colors follow the table and include the parenthesized part', () => {
 });
 test('platform colors: codex 36, claude 38;5;208, watch and arc 2', () => {
   assert.deepEqual(renderer.PLATFORM_COLORS,{codex:'36',claude:'38;5;208',other:'2'});
-  for (const [input,name,code] of [[{platform:'codex'},'codex','36'],[{platform:'claude'},'claude','38;5;208'],[{source:'watch',platform:'codex'},'watch','2'],[{},'arc','2']]) {
+  for (const [input,name,code] of [[{platform:'codex'},'CODEX','36'],[{platform:'claude'},'CLAUDE','38;5;208'],[{source:'watch',platform:'codex'},'watch','2'],[{},'arc','2']]) {
     assert.ok(renderHuman({...input,kind:'notice',text:'t'}, {...options,color:true}).includes(`\x1b[${code}m${name.padEnd(6)}\x1b[0m`));
   }
 });
 test('body color matches tag color without attributes', () => {
   const table = [[{kind:'user'},'35'],[{kind:'agent'},'32'],
     [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
-    [{kind:'command',exitCode:1},'31'],[{kind:'command',exitCode:-1},'31'],
+    [{kind:'command',exitCode:1},'38;5;242'],[{kind:'command',exitCode:-1},'38;5;242'],
     [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'file_delete'},'31'],[{kind:'tool'},'2'],[{kind:'spawn'},'38;5;141'],
     [{kind:'dispatch',state:'t'},'38;5;137'],[{kind:'approval'},''],
     [{kind:'turn_failed'},'31'],[{kind:'error'},'31'],[{kind:'tool_failed'},'31'],
@@ -219,8 +242,8 @@ test('body color matches tag color without attributes', () => {
 });
 test('color off output is byte-identical for every kind', () => {
   const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT'],
-    [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD(0)'],
-    [{kind:'command',exitCode:1},'CMD(1)'],[{kind:'command',exitCode:-1},'CMD(-1)'],
+    [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD'],
+    [{kind:'command',exitCode:1},'CMD'],[{kind:'command',exitCode:-1},'CMD'],
     [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'file_delete'},'DELETE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
     [{kind:'dispatch',state:'t'},'DISPATCH'],[{kind:'approval'},'APPROVE'],
     [{kind:'turn_failed'},'FAIL'],[{kind:'error'},'ERROR'],[{kind:'tool_failed'},'TOOL!'],
@@ -228,12 +251,13 @@ test('color off output is byte-identical for every kind', () => {
     [{kind:'settings'},'SETTINGS'],[{kind:'turn_start'},'TURN'],[{kind:'reasoning'},'THINK'],[{kind:'other'},'ITEM']];
   for (const [input,tag] of table) {
     const line = renderHuman({platform:'codex',...input,text:'t'}, {...options,verbose:true});
-    assert.equal(line, `00:00:00 codex  ${tag.padEnd(8)} ${input.kind === 'agent' ? '[QA] ' : ''}t`);
+    assert.equal(line, `00:00:00 CODEX  ${tag.padEnd(8)} ${input.kind === 'agent' ? '[QA] ' : ''}t`);
     assert.doesNotMatch(line,/\x1b/);
   }
 });
 test('message lines are colored per line with uncolored indentation', () => {
-  for (const input of [{kind:'command',exitCode:1},{kind:'turn_failed'},{kind:'error'},{kind:'tool_failed'}]) {
+  assert.ok(renderHuman({...event,kind:'command',exitCode:1,text:'node --test'}, {...options,color:true}).endsWith('\x1b[38;5;242mnode --test\x1b[0m'));
+  for (const input of [{kind:'turn_failed'},{kind:'error'},{kind:'tool_failed'}]) {
     assert.ok(renderHuman({...event,...input,text:'node --test'}, {...options,color:true}).endsWith('\x1b[31mnode --test\x1b[0m'));
   }
   const lines = renderHuman({...event,kind:'agent',role:'implementer',text:'a\n\nb'}, {...options,color:true}).split('\n');
@@ -348,7 +372,7 @@ test('wrapping leaves clipped one-line events byte-identical', () => {
     const input = {...event,kind,text:'x'.repeat(100),tool:'Read',state:'running',route:'bridge',workflowId:'w'.repeat(100)};
     const out = renderHuman(input,{...options,width,color,wrap:true});
     assert.equal(out,renderHuman(input,{...options,width,color,wrap:false}));
-    if (kind==='command' && !color && width===60) assert.equal(out,new Date(event.ts).toLocaleTimeString('en-GB',{hour12:false}) + ' codex  CMD(0)   ' + 'x'.repeat(34) + '…');
+    if (kind==='command' && !color && width===60) assert.equal(out,new Date(event.ts).toLocaleTimeString('en-GB',{hour12:false}) + ' CODEX  CMD      ' + 'x'.repeat(34) + '…');
   }
 });
 test('human and JSON file events preserve all 25 reported paths', () => {

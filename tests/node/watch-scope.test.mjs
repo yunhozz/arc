@@ -62,10 +62,15 @@ test('nested linked worktrees are excluded from the main worktree', async t => {
   assert.equal(inScope(scope,path.join(nested,'src')),false);
 });
 test('claudeDirPrefixes normalizes worktree paths', async t => {
-  const {root,repo,git} = repository(t), link = path.join(root,'alias'); fs.symlinkSync(repo,link,'dir');
+  const {root,repo,git,add} = repository(t), link = path.join(root,'alias'); fs.symlinkSync(repo,link,'dir');
+  const wt = add('wt 2');
   const scope = await resolveScope({mode:'cwd',dir:link,git});
   assert.equal(normalizeSlug('/a/b.c d'),'-a-b-c-d');
   assert.ok(claudeDirPrefixes(scope).includes(repo.replace(/[^A-Za-z0-9]/g,'-')));
+  const repoScope = await resolveScope({mode:'default',dir:repo,git});
+  assert.ok(claudeDirPrefixes(repoScope).includes(normalizeSlug(wt)));
+  const wtScope = await resolveScope({mode:'default',dir:wt,git});
+  assert.ok(claudeDirPrefixes(wtScope).includes(normalizeSlug(repo)));
   for (const mode of ['all','session']) {
     const unrestricted = await resolveScope({mode,dir:repo,session:'sid',git});
     assert.equal(claudeDirPrefixes(unrestricted),null); assert.equal(inScope(unrestricted,'/outside'),true);

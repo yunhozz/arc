@@ -38,7 +38,7 @@ The TUI requires terminal input and output. Public commands: `arc`, `arc watch`,
 
 ![arc watch flow](docs/images/watch-flow.svg)
 
-`arc watch` streams Claude Code and Codex activity read-only. Default scope: the current Git worktree, or the current directory outside Git.
+`arc watch` streams Claude Code and Codex activity read-only. Default scope: the current Git worktree, or the current directory outside Git. Each event follows its session's working directory at that point, so a session that moves into another worktree appears in that worktree's watch instead. Skills and plugin tools in use are shown as SKILL and PLUGIN lines.
 
 - **Shown:** user and agent messages in full; other events on one line.
 - **Hidden:** tool and command outputs. Common secret patterns are masked, but masking is not complete.
