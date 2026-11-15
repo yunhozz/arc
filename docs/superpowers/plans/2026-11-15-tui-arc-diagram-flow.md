@@ -136,7 +136,7 @@
   - `resolveConfigHome(platform, ctx)`는 `runtimeRegistryOf(ctx).getPlatform(platform)?.home.resolve(ctx)`에 위임합니다. 미등록 id는 기존 문구 `Target must be codex or claude`를 그대로 던집니다.
   - `resolveLocalCli`는 허용 id, `cli.command`, `home.env`를 레지스트리에서 가져옵니다(42행 삼항 제거).
 
-- [ ] **Step 1: 실패하는 테스트 작성** (`tests/node/platform-registry.test.mjs`)
+- [x] **Step 1: 실패하는 테스트 작성** (`tests/node/platform-registry.test.mjs`)
 
 ```js
 test('runtime registry exposes codex and claude with spec values', () => {
@@ -158,11 +158,11 @@ test('resolveLocalCli uses registry for ids', ...); // runtimePlatforms=createTe
 test('runtime registry imports only runtime-local modules', ...); // platform-registry.mjs의 import specifier가 모두 './' 또는 'node:'로 시작
 ```
 
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/platform-registry.test.mjs` 실행. 기대: FAIL(모듈 없음)
-- [ ] **Step 3: 구현.** 위 Interfaces대로 구현하고 bootstrap, runtime-assets, golden을 갱신합니다.
-- [ ] **Step 4: 통과 확인.** `node --test tests/node/platform-registry.test.mjs tests/node/runtime-assets.test.mjs tests/node/runtime-versions.test.mjs tests/node/installed-layout-golden.test.mjs tests/node/targets.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** 실행
-- [ ] **Step 6: Orchestrator 커밋(수용 후).** `feat(runtime): 플랫폼 레지스트리 추가와 home 해석 위임`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/platform-registry.test.mjs` 실행. 기대: FAIL(모듈 없음)
+- [x] **Step 3: 구현.** 위 Interfaces대로 구현하고 bootstrap, runtime-assets, golden을 갱신합니다.
+- [x] **Step 4: 통과 확인.** `node --test tests/node/platform-registry.test.mjs tests/node/runtime-assets.test.mjs tests/node/runtime-versions.test.mjs tests/node/installed-layout-golden.test.mjs tests/node/targets.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** 실행
+- [x] **Step 6: Orchestrator 커밋(수용 후).** `feat(runtime): 플랫폼 레지스트리 추가와 home 해석 위임`
 
 **수용 전 QA:** fresh QA가 STD-CLOSE와 `installed-layout-golden` 차이를 확인합니다. 차이는 신규 경로 추가와, 이 작업이 수정한 runtime 파일(`bootstrap.mjs`, `local-cli.mjs`)의 해시 갱신뿐이어야 합니다(개정 1).
 **Hold:** golden이나 parity에서 위 허용 차이 외의 차이가 생기면 hold하고 보고합니다.
@@ -981,3 +981,11 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 결정: 두 곳과 standalone 설치 경로가 주입 레지스트리를 받도록 작업 7 범위를 넓힙니다. 기본 레지스트리에서는 동작과 문구가 그대로입니다. 설치기 descriptor에 선택 필드 `agentTemplates.expectationsFrom`을 추가합니다(명세 5.3).
   - 정정: `models.toml`에는 platform 필드가 없습니다. helper는 이 파일을 그대로 복사하고, 임시 MANIFEST는 `renderManifest(files,{platforms})`로 다시 씁니다.
   - 작업 7의 Files, helper 범위, Step 1, Step 4를 이에 맞춥니다.
+
+## 작업 진행 기록
+
+- **작업 1 (2026-11-15 수용):**
+  - 사전 위임 규칙에 따라 `tests/node/runtime-versions.test.mjs`를 수정 범위에 추가했습니다. 이 작업의 focused check가 `expectedModules`와 `baselineHash`에 신규 runtime 모듈을 포함하도록 요구하기 때문입니다.
+  - 환경 준비: 워크트리에 ignore된 `build/native`와 `node_modules`를 원래 체크아웃에서 복사했습니다(native 소스는 56eb566 이후 변경 없음).
+  - 검증: focused check 32 pass / 0 fail. golden 차이는 신규 항목 8개와 해시 갱신 16개뿐입니다. runtime-assets `--check`, `check:manifest`, `check:role-policy` 통과. fresh QA(dispatch `e692d820`) Q1–Q6 모두 proven, finding 없음.
+  - 전체 `npm test`: 현재 1955 pass / 38 fail / 18 skip, 기준 HEAD 스냅샷 1941 pass / 45 fail / 18 skip. 현재 실패는 모두 기준에도 있는 기존 실패입니다(신규 0건). 기존 실패는 Phase A 범위 밖이며 최종 보고에서 따로 다룹니다.
