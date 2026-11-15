@@ -422,7 +422,7 @@ test('v2 parses with injected registry', ...);
   - 활성 설정 후보는 해석된 각 home의 `arc-role-platform-routing.json`입니다.
   - `inspectCompositeRemoval`의 anchor 판정은 `target.home === path.dirname(activeConfigPath)`입니다(Task 8에서 적용하며, 여기서는 호출만 바꿉니다).
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('existing codex+claude composite fixture stays composite', ...); // publish() 후 mode 'composite', platforms ['codex','claude'], anchor 'codex'
@@ -436,8 +436,8 @@ test('zeta package passes verifyPayload with injected registry', ...); // zetaPa
 test('installAll installs zeta standalone', ...); // installAll(ctx,['codex','claude','zeta']) → readInstallMode mode 'standalone', homes 3개 'standalone'
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/management-status.test.mjs tests/node/upgrade-state.test.mjs tests/node/agent-fragments.test.mjs tests/node/models.test.mjs tests/node/profile-render.test.mjs tests/node/install.test.mjs tests/node/plan.test.mjs tests/node/manifest.test.mjs tests/node/role-routing-install.test.mjs` → PASS(기존 기대값 무변경, 개정 3에서 테스트군 추가)
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(installer): 설치 모드 판정을 참여 집합 기준으로 일반화`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/management-status.test.mjs tests/node/upgrade-state.test.mjs tests/node/agent-fragments.test.mjs tests/node/models.test.mjs tests/node/profile-render.test.mjs tests/node/install.test.mjs tests/node/plan.test.mjs tests/node/manifest.test.mjs tests/node/role-routing-install.test.mjs` → PASS(기존 기대값 무변경, 개정 3에서 테스트군 추가)
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(installer): 설치 모드 판정을 참여 집합 기준으로 일반화`
 
 **수용 전 QA:** fresh QA가 기존 `install-mode-*` 무변경 통과와 helper의 격리를 확인합니다. 격리 조건은 실제 `~` 미사용이며, 생성되는 임시 MANIFEST는 원본을 바꾸지 않아야 합니다.
 **Hold:** zeta payload가 `verifyPayload`를 통과하려면 `role-policy.json`이나 정책 렌더 변경이 필요하다면 hold하고 Orchestrator에 보고합니다(명세 13장 helper 비용 위험).
@@ -1055,3 +1055,28 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 전체 `npm test`: 2054 tests, 1998 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
     - Implementer 샌드박스의 `role-bridge-resume` 실패 11건과 `listen` EPERM 실패 7건은 Orchestrator 환경에서 재현되지 않았습니다(환경 제약).
   - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.
+- **작업 7 (2026-11-15 수용):**
+  - 범위 결정 경과:
+    - dispatch `47d81b73`가 두 번 보류했습니다(둘 다 변경 없음).
+      - 1차: `update-manifest`가 codex/claude만 읽습니다. Orchestrator가 helper 쪽 `renderManifest(files,{platforms})`로 처리하기로 했습니다(test helper 구현 세부).
+      - 2차: `Invalid template set`. 개정 3을 사용자 승인받아 적용했습니다.
+    - 개정 3 후 fresh Implementer dispatch `e5fbfd05`가 구현했습니다. `install.mjs`는 변경이 필요 없었습니다.
+  - fresh QA dispatch `bf8d37f4`:
+    - 1차: 검증 전 중단. 브리프에 `.arc-*`가 Orchestrator 소유라고 적지 않은 누락 때문입니다.
+    - 2차: Q3·Q4 unmet, Q2 unverified.
+      - F1: `inspectCompositeRemoval`의 parse에 레지스트리가 전달되지 않았습니다.
+      - F2: anchor 테스트가 다른 검사 때문에 통과했습니다.
+    - 같은 Implementer가 F1·F2를 수정했습니다.
+    - 3차: QA 준비 실패(임시 디렉터리 순서).
+    - 4차: Q1, Q3–Q7 proven.
+      - 독립 mutation 2건(anchor guard, registry 전달)이 모두 실패를 일으켰습니다.
+      - 신규 import 순환 0개입니다. helper는 격리됩니다(MANIFEST·작업 트리 무변경).
+    - Q2 잔여분(`verifyPayload` 반환값 전체)은 QA 도구의 BigInt 직렬화 실패로 남았습니다. Orchestrator가 직접 대조했습니다.
+      - 키·파일 이름 231개가 같습니다. 바이트 차이는 이 작업이 바꾼 8개 파일뿐입니다.
+      - `modelInputs`·`agentRegistry`·`referenceTree`·`snapshot` 키가 같습니다.
+      - `snapshot` 메타데이터는 트리마다 달라 비교 대상이 아닙니다.
+  - 검증(Orchestrator 환경):
+    - focused: 272 pass / 10 fail. 실패 10건은 모두 기존 실패입니다.
+    - `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 통과.
+  - 전체 `npm test`(수정 후): 2063 tests, 2007 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
+  - Implementer dispatch의 `refsChanged`는 다른 세션의 `fix/watch-worktree-scope` 커밋 때문입니다. changedPaths는 0건입니다.

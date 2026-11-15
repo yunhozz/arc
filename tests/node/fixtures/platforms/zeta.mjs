@@ -42,6 +42,7 @@ export function createTestRuntimeRegistry(ids = ['codex', 'claude', 'zeta']) {
 
 export const ZETA_INSTALLER = {
   ...CLAUDE_INSTALLER, runtime: ZETA_RUNTIME,
+  agentTemplates: {expectationsFrom: 'claude'},
   payloadPrefix: 'zeta', instructionFile: 'ZETA.md', runtimeConfigFile: 'settings.json',
   globalPaths: ['ZETA.md', 'settings.json'],
   models: {staticCatalog: new URL('./zeta-models.json', import.meta.url), effortField: ZETA_RUNTIME.models.effortField, discover: null},
