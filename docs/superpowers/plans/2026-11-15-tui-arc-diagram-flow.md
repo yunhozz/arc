@@ -379,7 +379,7 @@ test('environmentOf uses registry environments', ...); // routingStatus({context
   - 그 밖에는 `{version:2,revision,platforms,roles}`로 씁니다. 키 순서는 이대로이며, 서식은 v1과 같습니다.
 - `buildRoleRoutingConfig({revision, platforms, roles}, opts) -> config`: platforms ∪ 역할 플랫폼을 anchorOrder로 정렬하고 version을 정합니다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('v1 round-trips byte-identically', ...); // 현행 fixture JSON → parse → serialize === 원문, platforms ['codex','claude']
@@ -388,8 +388,8 @@ test('v2 rejects unsorted, duplicate, unregistered, missing role platform, lengt
 test('v2 parses with injected registry', ...);
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** 위 테스트와 `role-routing-publish`, `role-routing-install`, `install-mode` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(runtime): 활성 라우팅 설정 v2 파서와 기록 규칙 추가`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** 위 테스트와 `role-routing-publish`, `role-routing-install`, `install-mode` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(runtime): 활성 라우팅 설정 v2 파서와 기록 규칙 추가`
 
 **Hold:** 기존 테스트가 parse 결과를 deepEqual로 단언해 `platforms` 추가로 실패하면 hold하고 보고합니다(조사 범위에서는 해당 없음).
 
@@ -1042,4 +1042,16 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 전체 `npm test`: 2034 tests, 1978 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
     - Implementer 샌드박스의 추가 실패(`ps`/`listen` EPERM 등)는 환경 제약입니다.
   - 최종 Reviewer 확인 대상: `role-routing.mjs`의 `authenticate`는 `auth.kind:'none'`을 `authenticated`로 처리합니다. 현재 등록된 플랫폼에는 해당하지 않고 테스트 fixture zeta에만 적용됩니다.
+  - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.
+- **작업 6 (2026-11-15 수용):**
+  - Implementer dispatch `03ae012c`(완료, 위반 없음). 사전 위임 규칙에 따라 해시 갱신만 범위에 추가했습니다.
+    - golden: `role-routing-config.mjs` 8곳
+    - `runtime-versions` baselineHash
+  - 검증(Orchestrator 환경):
+    - 새 테스트: RED 11/9 → 20/20.
+    - focused: 64 pass / 0 fail. 기존 deepEqual 관련 Hold에는 해당하지 않습니다.
+    - runtime-assets `--check` 33 files, `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 236 IDs 통과.
+    - Implementer 보고: 신규 import 순환 0개.
+  - 전체 `npm test`: 2054 tests, 1998 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
+    - Implementer 샌드박스의 `role-bridge-resume` 실패 11건과 `listen` EPERM 실패 7건은 Orchestrator 환경에서 재현되지 않았습니다(환경 제약).
   - 계획상 필수 QA 대상이 아니라 Orchestrator가 위 증거로 수용했습니다.
