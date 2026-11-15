@@ -315,13 +315,23 @@
 
 **Files (allowedPaths):** `docs/harness-operation.md`. 다른 파일에서 잔여 참조가 나오면 고치지 않고 Orchestrator에게 보고한다.
 
-- [ ] **Step 1:** 220행을 교체하고, 바뀐 앵커를 가리키는 링크를 고친다.
-- [ ] **Step 2:** `docs/superpowers/**`를 뺀 저장소 전체에서 잔여 grep을 실행한다. 허용되는 예외는 `tests/node/runtime-legacy-plan-amend.test.mjs`와 evaluate.mjs의 H-3 문구 및 ruleId(lib, shared)다. 예외 목록과 그 밖의 결과 0건을 기록한다.
-- [ ] **Step 3:** `git diff --stat ec91fc08ded203d3d95df2faff78eabb73c7335a -- docs/superpowers`를 실행한다. 이 spec과 이 plan만 나와야 한다(AC-D2).
-- [ ] **Step 4:** `python3 -B -m unittest tests.test_harness_contract tests.test_arc_policy -v`를 실행한다. 진행 기록을 적는다. 커밋 메시지는 `docs(harness): 계획 개정 규칙 요약으로 운영 문서 갱신`.
+- [x] **Step 1:** 220행을 교체하고, 바뀐 앵커를 가리키는 링크를 고친다.
+- [x] **Step 2:** `docs/superpowers/**`를 뺀 저장소 전체에서 잔여 grep을 실행한다. 허용되는 예외는 `tests/node/runtime-legacy-plan-amend.test.mjs`와 evaluate.mjs의 H-3 문구 및 ruleId(lib, shared)다. 예외 목록과 그 밖의 결과 0건을 기록한다.
+- [x] **Step 3:** `git diff --stat ec91fc08ded203d3d95df2faff78eabb73c7335a -- docs/superpowers`를 실행한다. 이 spec과 이 plan만 나와야 한다(AC-D2).
+- [x] **Step 4:** `python3 -B -m unittest tests.test_harness_contract tests.test_arc_policy -v`를 실행한다. 진행 기록을 적는다. 커밋 메시지는 `docs(harness): 계획 개정 규칙 요약으로 운영 문서 갱신`.
 
 **수락 기준:** AC-D1, AC-D2, AC-T1(잔여 grep)
 **필요 검사:** Step 2, 3, 4. QA 없이 Orchestrator가 직접 확인한다.
+
+**T4 결과 (2026-11-16, 수락)**
+- Implementer(새 인스턴스)가 `docs/harness-operation.md:220` 문단을 R-1, R-7, R-9, R-11 요약과 references 링크(새 앵커)로 교체했다. 옛 앵커 링크는 없었다.
+- 잔여 grep(Orchestrator 확인): 다음 파일에만 결과가 있고 모두 의도된 참조다. 그 밖의 결과는 0건이다.
+  - `lib/runtime/{cooperative,evaluate}.mjs`와 shared 사본(H-3/H-5와 조기 반환, 6줄)
+  - `tests/node/runtime-legacy-plan-amend.test.mjs`(16줄)
+  - `tests/node/role-policy.test.mjs`(2줄: T1 Step 1이 지정한 부재 단언과 테스트 제목). Step 2 허용 목록에 없던 파일이라, T1 QA 지적 1의 처리에 따라 의도된 예외로 기록한다.
+- AC-D2: ec91fc0 대비 `docs/superpowers` 변경은 이 spec과 이 plan 두 파일뿐이다.
+- Step 4 python(`test_harness_contract`, `test_arc_policy`): 실패/오류 435개. 모듈 이름 접두어를 맞추면 baseline 해당 모듈 집합과 같다(새 0, 사라짐 0).
+- 판정: AC-D1 proven, AC-D2 proven, AC-T1(잔여 grep) proven.
 
 ---
 
