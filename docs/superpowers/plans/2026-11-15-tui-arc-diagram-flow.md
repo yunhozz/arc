@@ -692,7 +692,7 @@ test('wide characters and long models', ...); // model '모델-아주-긴-이름
   - Unavailable 행은 `<Label> - Unavailable  (<REASON_TEXT>)`이며 Enter로 선택되지 않습니다.
   - info에는 커서 행의 `reasonDetail`을 보여줍니다. 사유는 줄바꿈 없이 자릅니다.
 
-- [ ] **Step 1: 테스트 작성(가짜 ui의 이벤트 스크립트)**
+- [x] **Step 1: 테스트 작성(가짜 ui의 이벤트 스크립트)**
 
 ```js
 test('left/right skips unavailable platforms', ...); // codex unauthorized(role) → ←/→가 Claude에서 멈춤
@@ -703,8 +703,8 @@ test('platform list order, unavailable format and info detail', ...); // rows ['
 test('narrow editor omits arrows', ...);
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-custom-preset.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 한 화면 역할 편집기와 플랫폼 가용성 목록 추가`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-custom-preset.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 한 화면 역할 편집기와 플랫폼 가용성 목록 추가`
 
 ---
 
@@ -1162,3 +1162,10 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - `viewportGuard`와 `shorten`은 범위 밖 파일(`custom-preset.mjs`, `setup.mjs`)의 비공개 함수라 `diagram.mjs`에 같은 동작으로 복제했습니다. 아래 박스 상단 테두리는 라벨이 중앙을 차지하므로 기존 `┴` 접점을 두지 않습니다(spec 7.3 도식과 같음).
   - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2213 tests, 2155 pass / 40 fail. 기준 밖 2건(`role-bridge-run.test.mjs`의 `auth, model and effort error streams …`, `native observe started→completed …`)은 파일 단위 재실행에서 35/0으로 통과했습니다(부하 의존).
+- Task 14 완료(필수 QA 대상 아님):
+  - 1차 Implementer dispatch `9adf60ab`: `reasonDetail`(lib/platforms/availability.mjs)이 registry를 받지 않아 가짜 레지스트리 라벨이 `zeta`로 나오는 기존 결함을 발견하고 변경 없이 보류했습니다.
+  - Orchestrator 범위 추가(사전 위임 규칙, 전달만): `reasonDetail(id, availability, status, registry = DEFAULT_INSTALLER_REGISTRY)`. 기본 출력은 바이트 동일하고, `tests/node/platform-availability.test.mjs`에 회귀 테스트 1건을 더했습니다.
+  - 2차 dispatch `32a2eb7a`: `lib/tui/custom-preset.mjs`에 `editRole`, `selectPlatform`을 추가했습니다. 기존 `editPlatformRoles`/`editCompositeRoles`와 공유 helper는 바이트 동일합니다. 테스트 13개 추가, RED 14건, GREEN 편집기 23/23·가용성 8/8입니다.
+  - Task 15 인계 사항: `editRole`은 편집기를 열 때 선택 가능한 플랫폼(그리고 현재 플랫폼)의 카탈로그를 `loadCatalog`로 미리 불러옵니다(←/→ 처리가 동기식이기 때문). Task 15의 `loadCatalog`는 캐시를 쓰고, 실패를 예외 대신 `catalog_error` 결과로 돌려줘야 합니다.
+  - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2227 tests, 2171 pass / 38 fail. 실패 목록이 기준 목록과 같습니다(신규 0건).

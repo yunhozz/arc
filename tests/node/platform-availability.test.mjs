@@ -102,3 +102,9 @@ test('reasonDetail includes fixed reason text and available diagnostic messages'
   assert.match(detail, /timeout/);
   assert.match(detail, /Probe timed out/);
 });
+
+test('reasonDetail uses a supplied registry label while default output stays unchanged', () => {
+  const registry=fixtures.createTestRegistries().platforms;
+  assert.equal(api.reasonDetail('zeta',blocked('unauthorized'),{authentication:{reason:'login required'}},registry),'Zeta: unauthorized: login required');
+  assert.equal(api.reasonDetail('codex',blocked('unauthorized'),{authentication:{reason:'login required'}}),'Codex: unauthorized: login required');
+});
