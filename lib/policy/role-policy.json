@@ -104,7 +104,7 @@
         "task-progress-classification-reason-time"
       ],
       "authority": "orchestrator",
-      "text": "Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then includes that task's own progress records made after task completion (checkboxes, notes, results, evidence and status) with its implementation work in that commit, without a separate docs/fixup commit or planning-commit amendment for those records. Exclude other tasks and preserve the no-change path without empty commits. Orchestrator commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.",
+      "text": "Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then includes that task's own progress records made after task completion (checkboxes, notes, results, evidence and status) with its implementation work in that commit, without a separate docs/fixup commit or planning-commit amendment for those records. Exclude other tasks; pending approved spec/plan revisions follow planning.plan-revision and preserve the no-change path without empty commits. Orchestrator commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"
@@ -336,23 +336,23 @@
       }
     },
     {
-      "id": "planning.plan-amend",
+      "id": "planning.plan-revision",
       "roles": [
         "orchestrator"
       ],
       "effect": "require",
       "operations": [
         "non-progress-spec-plan-content-update",
-        "non-progress-planning-commit-amend"
+        "pending-plan-revision-commit"
       ],
       "evidence": [
         "non-progress-content-change-classification",
         "actual-approval-chronology",
-        "rewrite-safety",
-        "sha-mapping"
+        "approved-revision-content-hash",
+        "plan-revision-trailers"
       ],
       "authority": "orchestrator",
-      "text": "Task progress records preserving the approved contract need no new user approval; Orchestrator includes the completed task's own records in its accepted implementation commit, without amending the original planning-document commit, creating history mappings or making a separate docs/fixup commit for them; record classification, reason and actual time as applicable. Spec/plan content changes other than task progress records require applicable approval and preparation; changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval and preparation before affected work. For these content changes Orchestrator MUST amend the original planning-document commit at a safe boundary; NEVER create a separate docs or fixup commit. For these non-progress content amendments, preserve actual approval chronology, recoverable old/new content, hashes, versions and old→new SHA mappings; NEVER authorize past work retroactively. For these amendments rewrite only unpublished, unshared local linear history with clear ownership and no merges. Unknown publication/ownership, unexpected state or replay conflicts stop rewriting; no force push or fallback document commit. Preserve implementation task boundaries and revalidate affected evidence. This obligation does not authorize amending implementation commits or rewriting history generally. Follow planning, handoff-prep, commit and verification for the full contract.",
+      "text": "Task progress records (checkboxes, notes, results, evidence and status) preserving the approved contract need no new user approval; Orchestrator includes the completed task's own records in its accepted implementation commit and records classification, reason and actual time as applicable. All other spec/plan content changes, contract or mechanical, require applicable approval and preparation; changes to goals, scope, criteria, method, risk, dependencies or required verification need revised-version approval, preparation and holds on affected work before it continues, with a fresh Implementer for remaining work. After approval Orchestrator edits the same document, appends a revision-history row and leaves it uncommitted as an Orchestrator-owned pending revision, recording version, content hash, approval reference, actual time, classification, reason, affected tasks and the full approved content in the canonical handoff record. Orchestrator includes all pending revisions with Plan-Revision, Plan-Approved-At and Plan-Reason trailers in the accepted commit of the first top-level task executed or reconfirmed against the revised version, otherwise in a current task or final Reviewer follow-up commit; only when no implementation work remains before overall completion MAY it make one standalone docs(plan) closing commit without implementation files. Exclude revision hunks from commits of independent tasks accepted on a prior version, or hold that commit when separation is unsafe. NEVER amend or rewrite planning or implementation commits, create any other docs/fixup commit or authorize past work retroactively. After commit verify the committed document content matches the latest approved content apart from classified progress records of that commit's task or committed for other tasks after approval, and that no pending revision remains. Follow planning, handoff-prep, commit and verification for the full contract.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt"

@@ -32,11 +32,11 @@ test('orchestrator projections preserve canonical text and order', () => {
   const expected = {
     core: ['scope.non-escalation', 'external.explicit-user-authority', 'role.orchestrator-boundary'],
     assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.implementer-implementation', 'role.qa-verification', 'role.reviewer-independent'],
-    planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-amend', 'planning.planner-brief'],
+    planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-revision', 'planning.planner-brief'],
     handoff: ['git.specialists-deny', 'role.implementer-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
-    preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-amend'],
-    verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-amend'],
-    commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-amend'],
+    preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-revision'],
+    verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-revision'],
+    commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-revision'],
   };
   const p = policy();
   for (const platform of ['codex', 'claude']) for (const [projection, ids] of Object.entries(expected)) {
@@ -50,6 +50,22 @@ test('orchestrator projections preserve canonical text and order', () => {
   const reversedOutput = api.renderPolicySection(reversed, {platform:'codex', audience:'orchestrator', projection:'core', section:'global'});
   assert.deepEqual([...reversedOutput.matchAll(/^- \[([^\]]+)\]/gm)].map(match => match[1]), [...expected.core].reverse());
   assert.throws(() => api.renderPolicySection(p, {platform:'codex', audience:'orchestrator', projection:'unknown'}), /unknown.*projection/i);
+});
+// Keeping the removed rule or dropping revision evidence would emit the old commit authority.
+test('plan-revision rule replaces plan-amend with approved operations and evidence', () => {
+  const p = policy();
+  assert.equal(p.rules.some(rule => rule.id === 'planning.plan-amend'), false);
+  const revision = p.rules.find(rule => rule.id === 'planning.plan-revision');
+  assert.ok(revision);
+  assert.deepEqual(revision.operations, ['non-progress-spec-plan-content-update', 'pending-plan-revision-commit']);
+  assert.deepEqual(revision.evidence, ['non-progress-content-change-classification', 'actual-approval-chronology', 'approved-revision-content-hash', 'plan-revision-trailers']);
+  assert.deepEqual(revision.roles, ['orchestrator']);
+  assert.equal(revision.effect, 'require');
+  assert.equal(revision.authority, 'orchestrator');
+  assert.match(revision.text, /Plan-Revision, Plan-Approved-At and Plan-Reason trailers/);
+  assert.match(revision.text, /NEVER amend or rewrite planning or implementation commits/);
+  assert.match(revision.text, /committed for other tasks after approval/);
+  assert.match(p.rules.find(rule => rule.id === 'git.orchestrator-accept-commit').text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
 });
 // Adding projections must not change existing installed contracts or global-section filtering.
 test('default policy rendering preserves complete existing contracts', () => {
@@ -152,7 +168,7 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
   for (const platform of ['codex', 'claude']) {
     for (const projection of ['planning', 'preparation', 'verification', 'commit']) {
       const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection});
-      assert.match(output, /\[planning\.plan-amend\]/);
+      assert.match(output, /\[planning\.plan-revision\]/);
     }
     const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection:'planning'});
     assert.match(output, /\[planning\.planner-brief\]/);
