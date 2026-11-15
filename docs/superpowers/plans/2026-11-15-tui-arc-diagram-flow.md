@@ -815,7 +815,7 @@ test('install goes straight to diagram', ...);
   - composite 해제 문구는 앞에 오며 management 메시지 순서를 그대로 씁니다.
   - 실패 시 `Error:`, 중복 제거한 `Residual path:`, `Exit code: N`을 유지합니다.
 
-- [ ] **Step 1: 테스트 작성과 수정**
+- [x] **Step 1: 테스트 작성과 수정**
 
 ```js
 test('uninstall rows follow display order and mark not installed', ...);
@@ -823,8 +823,8 @@ test('result wording', () => { assert.deepEqual(resultRows({code:0,results:[{pla
 test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-app.test.mjs tests/node/tui-app-pty.test.mjs tests/node/uninstall-pty.test.mjs tests/node/uninstall-cli.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 버전 확인과 제거 화면, 결과 문구 단축`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/tui-app.test.mjs tests/node/tui-app-pty.test.mjs tests/node/uninstall-pty.test.mjs tests/node/uninstall-cli.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(tui): 버전 확인과 제거 화면, 결과 문구 단축`
 
 **수용 전 QA:** fresh QA가 PTY 실행과 실패 결과 화면(Residual, Exit code)을 확인합니다.
 
@@ -1184,3 +1184,9 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - fresh QA `9c026576`(2 segment): Q1 PTY 실제 실행 34/37(실패 3건은 기준 커밋과 같은 cli-pty `.claude` 단언) + SGR 제거 캡처(단독 홈, 혼합 홈, 설치 도식), Q2 이전 흐름 제거, Q3 Check Version/Uninstall 무변경(기준·현재 15/0), Q5 info 순서, Q6 import, Q7 mutation 3건 모두 proven. Q4는 이름 대조 144행과 표본 본문 감사를 마쳤으나 "subject removed" 행별 대조가 남아 unverified였습니다. Orchestrator가 해당 행을 검토했고(별도 preset 메뉴, 플랫폼별 draft, Codex 우선 설정 규칙, 옛 composite 기본값 — 모두 spec이 없앤 동작), Q2의 부재 증명과 함께 수용했습니다.
   - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2209 tests, 2154 pass / 37 fail. 신규 실패 0건, 기준 실패 `custom editor keeps long model choices selectable at 40 columns`는 새 편집기로 이관된 뒤 통과합니다(기준 목록 38 → 37).
+- Task 17 완료(필수 QA):
+  - Implementer `560d0870`: `lib/tui/app.mjs`의 Check Version(세 상태, `Upgraded to <latest>.`), Uninstall(레지스트리 표시 순서, `<Label>  (not installed)` 선택 불가, 확인 문구 Global Constraints 그대로, composite 참여 플랫폼만 `Mixed routing will be turned off.` + `switchFromComposite:true`), `resultRows`(`Removed from <Label>.`, `Removed ARC and CLI.`/`Removed ARC.`, management 메시지 먼저, 실패 시 `Error:` 1줄·Residual 중복 제거·`Exit code: N`)를 바꿨습니다. management 코드는 무변경이고, 문구는 `results[].platform/status`, `cli.status`, `messages`, `prepared.latestVersion`으로 정해집니다. assertion old → new 목록: `/private/tmp/arc-task17-report.md`. 사용되지 않게 된 `currentInstallMode` import를 제거했습니다.
+  - fresh QA `7153fc70`: Q1 PTY 127/0·NO_COLOR 33/0 + 캡처 7장(제거 목록, composite 단일 확인, Everything 확인, 실패 화면 `Error`/`Residual path`/`Exit code: 7`, 버전 세 상태와 업그레이드 성공), Q2·Q3·Q4(정적)·Q7 proven. Q5 지적: 업그레이드 PTY 테스트가 `Result` 제목 대기를 성공 문구 대기로 대체 → Implementer resume로 둘 다 검사하도록 복원(기본·NO_COLOR 32/0).
+  - Q6 mutation은 QA가 역할 지침(소스 편집 금지)을 이유로 임시 사본에서도 거부했습니다. Orchestrator가 scratchpad 사본에서 직접 실행했고, (i) 미설치 행 선택 가능, (ii) Residual 중복 제거 삭제·Exit code 줄 삭제, (iii) `Removed ARC.`/`Removed ARC and CLI.` 조건 교환, (iv) 제거 목록 순서를 `['codex','claude']`로 고정 — 모두 테스트 실패를 일으켰습니다. 복원 후 사본 `app.mjs`가 작업 트리와 동일합니다.
+  - 검증: runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
+  - 전체 `npm test`: 2224 tests, 2168 pass / 38 fail. 기준 밖 1건 `prepare-dispatch maps CLI absence …`는 파일 단위 재실행 29/0(Task 12와 같은 부하 의존).
