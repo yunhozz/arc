@@ -477,6 +477,97 @@ test('held new sessions release only gated events',async t=>{
   assert.ok(out.every(e=>e.cwd===s.cwd));assert.ok(out[0].text.includes(`cwd=${s.cwd}`));
 });
 
+// Invisible history must not consume the only opportunity to announce attachment.
+test('Reviewer M1 invisible Claude history emits one SESSION before the next USER',async t=>{
+  const s=setup(t), id='clear-only', sub=path.join(s.cwd,'src');
+  await s.w.start();s.advance(2000);
+  const file=s.cl(id,[cm(id,s.cwd,'<command-name>/clear</command-name>'),
+    cm(id,sub,'<local-command-stdout>Cleared</local-command-stdout>')]);
+  const attached=content(await s.w.tick());
+  assert.deepEqual(attached.map(e=>e.kind),['session']);
+  assert.equal(attached[0].cwd,sub);
+  assert.ok(attached[0].text.endsWith(`cwd=${sub}`));
+  s.advance(500);s.append(file,[cm(id,sub,'first visible message','cli',TIME+2500)]);
+  const next=content(await s.w.tick());
+  assert.deepEqual(next.map(e=>e.kind),['user']);
+  assert.equal(next[0].text,'first visible message');
+  assert.deepEqual([...attached,...next].map(e=>e.kind),['session','user']);
+});
+
+// A resolved parent must stop the pending queue from forcing discovery on every tick.
+for (const kind of ['repo','dir']) {
+  test(`Reviewer L1 out-of-scope children leave pending when their parent is known (${kind})`,async t=>{
+    let scans=0;
+    const s=setup(t,{verbose:true},kind,{createClaudeDiscovery:args=>{
+      const discovery=createClaudeDiscovery(args);
+      return {...discovery,scan:async args=>{scans++;return discovery.scan(args);}};
+    }});
+    s.c('pending-child',undefined,{cwd:'/outside',extra:{parent_thread_id:'late-parent'}});
+    const start=await s.w.start();
+    assert.deepEqual(content(start),[]);
+    assert.deepEqual(notices(start).filter(text=>text!=='live'&&!text.startsWith('arc watch:')),[]);
+    assert.equal(scans,1);
+    s.advance(500);s.c('late-parent',undefined,{cwd:'/outside'});
+    assert.deepEqual(await s.w.tick(),[]);
+    assert.equal(scans,2);
+    for (let i=0;i<2;i++) {
+      s.advance(500);
+      assert.deepEqual(await s.w.tick(),[]);
+      assert.equal(scans,2,'a known out-of-scope child must not force discovery before 2 seconds');
+    }
+  });
+}
+
+// A recovered cwd must regain its shell identity even though the cwd did not change.
+for (const failure of ['null','exception']) {
+  test(`Reviewer L2 recovered cwd schedules inferred changes for its session (${failure})`,async t=>{
+    const s=setup(t,{},'repo'), id=`shell-recovery-${failure}`, sub=path.join(s.cwd,'src');
+    const changed=path.join(sub,'changed.txt');
+    s.files(['src/changed.txt']);s.stats.set(changed,{size:1});
+    const file=s.cl(id);await s.w.start();
+    s.top(dir=>{
+      if (dir!==sub) return s.cwd;
+      if (failure==='exception') throw Error('git timeout');
+      return null;
+    });
+    s.append(file,[cm(id,sub,'unverified')]);
+    assert.deepEqual(content(await s.w.tick()),[]);
+    assert.equal(s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length,1);
+    s.advance(2000);s.top(()=>s.cwd);s.stats.set(changed,{size:2});
+    s.append(file,[cm(id,sub,'recovered','cli',TIME+2000)]);
+    const recovered=content(await s.w.tick());
+    assert.deepEqual(recovered.map(e=>e.kind),['session','user']);
+    assert.equal(s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length,2);
+    s.advance(1000);
+    const inferred=content(await s.w.tick()).filter(e=>e.inferred);
+    assert.deepEqual(inferred.map(e=>({kind:e.kind,sessionId:e.sessionId,cwd:e.cwd,root:e.root,paths:e.paths})),[
+      {kind:'file_change',sessionId:id,cwd:sub,root:s.cwd,paths:[changed]},
+    ]);
+  });
+}
+
+// A dispatch without a workflow target cannot bypass a failed nested-cwd check.
+for (const failure of ['null','exception']) {
+  test(`Reviewer L4 targetless bridge respects nested cwd verification (${failure})`,async t=>{
+    const s=setup(t,{},'repo'), id=`targetless-${failure}`, sub=path.join(s.cwd,'nested');
+    const file=s.cl(id,[cm(id,s.cwd,'inside','sdk-cli')]);
+    s.lease('d123');s.art('d123',{'events.jsonl':JSON.stringify({kind:'init',sessionId:id})+'\n'});
+    const start=content(await s.w.start());
+    assert.ok(start.some(e=>e.sessionId===id&&e.kind==='user'&&e.source==='bridge'));
+    s.top(dir=>{
+      if (dir!==sub) return s.cwd;
+      if (failure==='exception') throw Error('git timeout');
+      return null;
+    });
+    s.append(file,[cm(id,sub,'outside','sdk-cli'),claudeTool(id,sub,'Skill',{skill:'hidden'})]);
+    assert.deepEqual(await s.w.tick(),[]);
+    assert.equal(s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length,1);
+    s.advance(2000);s.append(file,[cm(id,sub,'still outside','sdk-cli',TIME+2000)]);
+    assert.deepEqual(await s.w.tick(),[]);
+    assert.equal(s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length,2);
+  });
+}
+
 test('scope roots match real cwd aliases and render real-root paths', async t => {
   const s = setup(t), alias = path.join(s.h.root,'repo-alias');
   fs.symlinkSync(s.cwd,alias,'dir');
