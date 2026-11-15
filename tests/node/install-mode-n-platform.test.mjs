@@ -12,6 +12,12 @@ import {compositeContext, standalone, publish, targets, safeFs} from './fixtures
 import {staticPackageFixture} from './fixtures/static-references.mjs';
 import {createTestRegistries} from './fixtures/platforms/zeta.mjs';
 import {zetaPackageFixture, zetaContext, installAll} from './fixtures/platforms/package-root.mjs';
+import {prepareCompositeFiles, publishCompositeFiles, prepareCompositeDeactivation, publishCompositeDeactivation, readCompositeRoutingConfig} from '../../lib/installer/role-routing.mjs';
+import {ROUTING_ROLES, buildRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
+import {acquireRoleRoutingLock} from '../../lib/runtime/role-routing.mjs';
+import {loadModelConfig} from '../../lib/models/index.mjs';
+import {renderStandaloneProfiles} from '../../lib/installer/plan.mjs';
+import {mixedConfig} from './fixtures/install-mode.mjs';
 
 async function composite(t) {
   const ctx = await compositeContext(t);
@@ -142,5 +148,99 @@ test('installAll installs zeta standalone', async t => {
     assert.ok(fs.readFileSync(path.join(home, 'skills/arc/SKILL.md')).length);
     assert.equal(fs.readdirSync(path.join(home, 'agents')).length, 5);
     for (const name of fs.readdirSync(path.join(home, 'agents'))) assert.ok(!fs.readFileSync(path.join(home, 'agents', name), 'utf8').includes('ARC_AGENT_FRAGMENT'));
+  }
+});
+
+async function compositeFilesFixture(t, platforms, rolePlatforms) {
+  const context = await zetaContext(t);
+  await installAll(context, ['codex', 'claude', 'zeta']);
+  const targets = resolveTargets(context).targets, payload = verifyPayload(context);
+  const profileInputs = {}, modelConfigs = {}, standaloneBytes = new Map();
+  for (const id of platforms) {
+    const target = targets[id];
+    modelConfigs[id] = loadModelConfig(fs.readFileSync(path.join(target.home, 'skills/arc/models.toml')), id, context);
+    profileInputs[id] = renderStandaloneProfiles({payload, target, modelConfig: modelConfigs[id], language: 'en', ...context});
+    for (const name of fs.readdirSync(path.join(target.home, 'agents'))) {
+      const filename = path.join(target.home, 'agents', name);
+      standaloneBytes.set(filename, fs.readFileSync(filename));
+    }
+  }
+  const roles = (await mixedConfig('n-files-1')).roles;
+  const pairs = {codex: roles.arc_qa, claude: roles.arc_planner};
+  for (const [index, role] of ROUTING_ROLES.entries()) {
+    const platform = rolePlatforms[index % rolePlatforms.length];
+    const pair = pairs[platform === 'codex' ? 'codex' : 'claude'];
+    roles[role] = {platform, model: pair.model, effort: pair.effort};
+  }
+  const config = buildRoleRoutingConfig({revision: 'n-files-1', platforms, roles}, context);
+  return {context, targets, payload, platforms, anchor: platforms[0], config, profileInputs, modelConfigs, standaloneBytes};
+}
+
+test('|S|=3 publish writes active only at anchor and markers in all homes', async t => {
+  const fixture = await compositeFilesFixture(t, ['codex', 'claude', 'zeta'], ['codex', 'claude']);
+  // A host needs no role model/profile inputs to receive its ownership marker.
+  delete fixture.profileInputs.zeta;
+  delete fixture.modelConfigs.zeta;
+  const prepared = prepareCompositeFiles(fixture);
+  const result = await publishCompositeFiles({context: fixture.context, prepared});
+  assert.equal(result.published, true);
+  const activeConfigPath = active(fixture.context, 'codex');
+  const config = JSON.parse(fs.readFileSync(activeConfigPath));
+  assert.equal(config.version, 2);
+  assert.deepEqual(config.platforms, ['codex', 'claude', 'zeta']);
+  for (const id of fixture.platforms) {
+    assert.equal(fs.existsSync(active(fixture.context, id)), id === 'codex');
+    const marker = JSON.parse(fs.readFileSync(path.join(fixture.targets[id].home, 'arc-role-platform-routing.prepared.json')));
+    assert.equal(marker.activeConfigPath, activeConfigPath);
+    assert.deepEqual(Object.keys(marker.profiles), ROUTING_ROLES.filter(role => config.roles[role].platform === id));
+    if (id === 'zeta') assert.deepEqual(marker.profiles, {});
+  }
+  assert.equal(state(fixture.context).mode, 'composite');
+  assert.deepEqual(readCompositeRoutingConfig(fixture.context, fixture.targets), fixture.config);
+});
+
+test('publish lock lives at anchor home', async t => {
+  const fixture = await compositeFilesFixture(t, ['claude', 'zeta'], ['claude', 'zeta']);
+  const prepared = prepareCompositeFiles(fixture);
+  const releaseAnchor = await acquireRoleRoutingLock(fixture.targets.claude.home);
+  try {
+    await assert.rejects(publishCompositeFiles({context: fixture.context, prepared}), {code: 'EEXIST'});
+    assert.equal(fs.existsSync(active(fixture.context, 'claude')), false);
+  } finally { await releaseAnchor(); }
+  const releaseOutside = await acquireRoleRoutingLock(fixture.targets.codex.home);
+  try {
+    assert.equal((await publishCompositeFiles({context: fixture.context, prepared})).published, true);
+  } finally { await releaseOutside(); }
+  assert.equal(fs.existsSync(active(fixture.context, 'codex')), false);
+  assert.equal(state(fixture.context).anchor, 'claude');
+  assert.deepEqual(readCompositeRoutingConfig(fixture.context, fixture.targets), fixture.config);
+  const marker = JSON.parse(fs.readFileSync(path.join(fixture.targets.zeta.home, 'arc-role-platform-routing.prepared.json')));
+  for (const [role, entry] of Object.entries(marker.profiles)) {
+    assert.equal(entry.path, `agents/arc-routing-${role.slice(4)}.md`);
+    const text = fs.readFileSync(path.join(fixture.targets.zeta.home, entry.path), 'utf8');
+    assert.ok(text.includes(`effort: ${fixture.config.roles[role].effort}\n`));
+    assert.ok(text.includes(`model: ${fixture.config.roles[role].model}\n`));
+  }
+});
+
+test('deactivation restores standalone across S', async t => {
+  for (const platforms of [['codex', 'claude', 'zeta'], ['claude', 'zeta']]) {
+    const fixture = await compositeFilesFixture(t, platforms, platforms);
+    await publishCompositeFiles({context: fixture.context, prepared: prepareCompositeFiles(fixture)});
+    const prepared = prepareCompositeDeactivation(fixture);
+    const release = await acquireRoleRoutingLock(fixture.targets[fixture.anchor].home);
+    try {
+      await assert.rejects(publishCompositeDeactivation({context: fixture.context, prepared}), {code: 'EEXIST'});
+    } finally { await release(); }
+    const result = await publishCompositeDeactivation({context: fixture.context, prepared});
+    assert.deepEqual(result.residualPaths, []);
+    for (const [filename, bytes] of fixture.standaloneBytes) assert.ok(fs.readFileSync(filename).equals(bytes), filename);
+    for (const id of fixture.platforms) {
+      assert.equal(fs.existsSync(active(fixture.context, id)), false);
+      assert.equal(fs.existsSync(path.join(fixture.targets[id].home, 'arc-role-platform-routing.prepared.json')), false);
+      assert.ok(fs.readdirSync(path.join(fixture.targets[id].home, 'agents')).every(name => !name.startsWith('arc-routing-')));
+    }
+    assert.equal(state(fixture.context).mode, 'standalone');
+    assert.equal(readCompositeRoutingConfig(fixture.context, fixture.targets), null);
   }
 });

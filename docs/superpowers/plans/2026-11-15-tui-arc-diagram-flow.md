@@ -465,7 +465,7 @@ test('installAll installs zeta standalone', ...); // installAll(ctx,['codex','cl
 - `readCompositeRoutingConfig(context, targets)`: `readInstallMode`의 anchor를 통해 읽습니다.
 - 인자를 생략하면 `platforms`는 `['codex','claude']`, `anchor`는 `'codex'`입니다(기존 테스트 호환).
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```js
 test('|S|=3 publish writes active only at anchor and markers in all homes', ...); // installAll(ctx,['codex','claude','zeta']), roles 전부 codex/claude, platforms [codex,claude,zeta] → codex home에만 active(v2), 3개 marker, zeta marker.profiles deepEqual {}
@@ -473,8 +473,8 @@ test('publish lock lives at anchor home', ...); // anchor home에 미리 만든 
 test('deactivation restores standalone across S', ...);
 ```
 
-- [ ] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/role-routing-*.test.mjs tests/node/composite-instructions.test.mjs` → PASS
-- [ ] **Step 5: STD-CLOSE** → **Step 6:** `feat(installer): composite 파일 게시를 참여 집합과 anchor 기준으로 일반화`
+- [x] **Step 2:** FAIL → **Step 3:** 구현 → **Step 4:** `node --test tests/node/install-mode*.test.mjs tests/node/role-routing-*.test.mjs tests/node/composite-instructions.test.mjs` → PASS
+- [x] **Step 5: STD-CLOSE** → **Step 6:** `feat(installer): composite 파일 게시를 참여 집합과 anchor 기준으로 일반화`
 
 **수용 전 QA:** fresh QA가 기존 `role-routing-*`와 `install-mode-*` 무변경 통과, v1 바이트 동일성을 확인합니다.
 
@@ -1080,3 +1080,19 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
     - `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 통과.
   - 전체 `npm test`(수정 후): 2063 tests, 2007 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
   - Implementer dispatch의 `refsChanged`는 다른 세션의 `fix/watch-worktree-scope` 커밋 때문입니다. changedPaths는 0건입니다.
+- **작업 8 (2026-11-15 수용):**
+  - Implementer dispatch `af40b4ca`(완료, 위반 없음). 범위 추가는 없습니다.
+  - fresh QA:
+    - 첫 dispatch `89a4ddae`는 예약 상태에서 cancel했습니다(사용량 한도로 세션 중단, 생성 없음).
+    - dispatch `31b6e03d`: Q1, Q3–Q6 proven.
+      - 독립 mutation 3건(비-anchor 활성 파일, 비-anchor lock, 비활성화 생략)이 모두 실패를 일으켰습니다.
+      - 신규 import 순환 0개입니다.
+      - v1 게시·비활성화 후 파일(140/138/140개)의 바이트 차이 0, 반환값도 같습니다.
+    - Q2 잔여분: QA 재확인은 QA 쪽 명령 오류(경로 오타)로 실행되지 못했습니다. Orchestrator가 기준 `18b4d34` export와 직접 대조했습니다.
+      - codex home lock: 두 트리 모두 `EEXIST`, 파일 트리 무변경.
+      - claude home lock: 게시를 막지 않습니다. 다음 runtime 검사 결과도 두 트리가 같습니다(임시 경로 정규화 후 완전 동일).
+      - 단계 사이 일시 쓰기 추적은 기준(기록된 파일과 반환값) 밖으로 처리했습니다.
+  - 검증(Orchestrator 환경):
+    - focused: 129 pass / 0 fail.
+    - runtime-assets `--check` 33, `check:manifest` 229, `check:role-policy` 24 targets(생성물 무변경), parity 통과.
+  - 전체 `npm test`: 2066 tests, 2010 pass / 38 fail / 18 skip. 실패 목록이 기존 목록과 같습니다(신규 0건).
