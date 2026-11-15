@@ -1210,3 +1210,6 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - Orchestrator 판정 — Phase A 밖 후속 과제: F4 status/upgrade가 composite면 S 참여 여부와 상관없이 모든 home의 standalone 검사·갱신을 건너뜀(`upgrade.mjs` registry 미전달 포함), F5 runtime `locateAnchorHome`이 marker의 `activeConfigPath` 디렉터리를 검증 전에 lock 생성·terminal lease 정리에 씀, F6 `prepareLockHome`이 경로의 symlink 구성요소를 거부, F7a host marker 재확인 테스트의 lstat 호출 횟수 의존. 모두 운영 레지스트리에서는 일어나지 않습니다.
   - Implementer `616666ae`: F1–F3 수정, 테스트 8건 추가(RED 8, GREEN 8/8; full registry D1-b·Uninstall switch, terminal/non-terminal zeta lease의 publication·anchor move, S 밖 zeta install/uninstall). 기존 테스트와 lib/runtime 무변경.
   - 검증: 검사 4종 통과. 전체 `npm test`: 2247 tests, 2190 pass / 39 fail. 기준 밖 2건(`role-bridge-run.test.mjs`의 timeout, `role-routing-dispatch.test.mjs`의 prepare-dispatch)은 파일 단위 재실행 64/0으로 통과(부하 의존, 이번 수정과 무관한 runtime 테스트).
+  - 재확인 Reviewer `98f67880`(native): F1–F3 모두 해결, 새 결함 없음. 참고: F1 테스트는 anchor 참여 플랫폼(claude)만 다루고 anchor가 아닌 참여 플랫폼(zeta)의 switch는 다루지 않음(같은 코드 경로, 위험 낮음).
+  - Orchestrator 실행 확인: 신규 테스트 8개를 수정 전 `74356cd` 사본에서 돌리면 8개 모두 실패하고, HEAD에서는 모두 통과합니다.
+- Phase A 완료(2026-11-16). 기준 실패 37건은 Phase A 밖의 기존 실패로 별도 보고합니다. 후속 과제: F4–F6, F7a, F1 비anchor 참여 플랫폼 switch 테스트.
