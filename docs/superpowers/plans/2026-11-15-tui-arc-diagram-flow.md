@@ -864,9 +864,9 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
 
 **금지:** `*/skill/references/coordination.md`와 `instruction-contracts.json`은 바꾸지 않습니다.
 
-- [ ] **Step 1:** 문서 수정
-- [ ] **Step 2:** `rg -n "Change Models|Global config" README.md docs/harness-operation.md` 결과가 없어야 합니다. `node --test tests/node/package*.test.mjs tests/node/composite-instructions.test.mjs` → PASS
-- [ ] **Step 3: STD-CLOSE** → **Step 4:** `docs(readme): 도식 기반 설치 흐름과 참여 집합 anchor 설명 반영`
+- [x] **Step 1:** 문서 수정
+- [x] **Step 2:** `rg -n "Change Models|Global config" README.md docs/harness-operation.md` 결과가 없어야 합니다. `node --test tests/node/package*.test.mjs tests/node/composite-instructions.test.mjs` → PASS
+- [x] **Step 3: STD-CLOSE** → **Step 4:** `docs(readme): 도식 기반 설치 흐름과 참여 집합 anchor 설명 반영`
 
 ---
 
@@ -1196,3 +1196,7 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - 수정: role-routing의 기본 `platforms`/`anchor`를 레지스트리 anchor 순서와 최소 anchor로, management의 비composite fallback을 레지스트리 anchor 순서로, setup의 target 검사를 `isPlatformId`로 바꿨습니다(setup은 모델 처리에 context도 전달). 운영 레지스트리 기본값의 바이트·경로 동일성은 `tests/node/hardcoding-residual.test.mjs` 10건으로 고정했습니다. lib/runtime와 shared/skill/runtime은 무변경입니다.
   - 검증: registry·잔존 테스트 28/28, runtime-assets `--check` 33, `check:manifest` 232, `check:role-policy` 24 targets, parity 통과.
   - 전체 `npm test`: 2237 tests, 2182 pass / 37 fail. 신규 실패 0건.
+- Task 19 완료(필수 QA 대상 아님):
+  - Implementer `60984289`: README.md(도식과 한 화면 역할 편집기, Hosts 잠금, S·Mode·anchor, Settings `(mixed)`, 초기값 규칙, 버전·제거 확인과 결과 문구)와 docs/harness-operation.md(S와 anchor 정의, 활성 파일 위치를 anchor home으로 일반화, 홈·편집기·Hosts·Settings·Apply, D1-b 확인, D1-e 집합 변경과 anchor 이동, unverified, Uninstall과 결과 문구)를 갱신했습니다. coordination.md는 Phase A 무변경입니다.
+  - `rg -n "Change Models|Global config"`와 `Claude & Codex|global configuration` 검색 0건. 문서 테스트 31개 중 30 통과, 실패 1건은 기준 목록의 `publishes both flat platforms and manifest consistently …`입니다.
+  - Implementer가 보고한 spec과 코드 차이: (1) 초기 플랫폼 선택은 카탈로그 검사 전에 하고 이후 실패해도 다시 고르지 않음, (2) 역할 편집기를 열면 선택 가능한 플랫폼 카탈로그를 미리 읽음(Task 14 기록), (3) Model·Effort 행 Enter 모두 `selectCatalogPair`의 모델 목록부터 시작, (4) 조회한 최신 버전이 현재보다 낮으면 `Up to date (<current>)`, (5) `currentInstallState`가 `residualPaths`를 버려 D1-f 화면에 `Residual path:`가 나오지 않을 수 있음. Orchestrator 판정: (1)–(4)는 spec 7.3·7.5·7.9 범위 안의 해석으로 수용하고, (5)는 spec 7.8·AC-M6 미충족 결함이라 후속 수정으로 고칩니다.
