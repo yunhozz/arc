@@ -230,6 +230,21 @@ for(const lookup of ['default','missing','throws','unverified'])test('state look
  assert.equal(await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),userHome:'/private/tmp/arc-task16-state-probe',env:{},safeFs:{openRoot(){throw Error('state inspection failed');}}},services}),0);
  assert.ok(session.screens.some(s=>s.title==='Install / Update'&&s.rows.some(row=>row.includes('Scouter'))));assert.ok(session.screens.some(s=>s.title==='Operation unavailable'&&s.rows.includes('Mixed routing configuration cannot be verified.')));assert.ok(session.screens[0].rows.includes('Mode: Unverified'));
 });
+test('unverified Apply lists real management residual paths without preparing',async t=>{
+ const {compositeContext,targets}=await import('./fixtures/install-mode.mjs');
+ const {mkdirSync,writeFileSync}=await import('node:fs'),{join}=await import('node:path');
+ const context=await compositeContext(t),home=targets(context).codex.home;
+ const residualPaths=['arc-role-platform-routing.prepared.json','agents/arc-routing-qa.toml'].map(name=>join(home,name));
+ mkdirSync(join(home,'agents'),{recursive:true});for(const filename of residualPaths)writeFileSync(filename,'{}');
+ const {runTui}=await load(),session=terminal([enter,...down(7),enter,back,back]);let preparations=0;
+ assert.equal(await runTui({session,context,services:{collectStatus:async()=>[],prepareOperation:async()=>{preparations++;assert.fail('unverified cannot prepare');},executeOperation:async()=>assert.fail('unverified cannot execute')}}),0);
+ assert.equal(preparations,0);
+ assert.ok(session.screens.some(screen=>screen.title==='Install / Update'));
+ const screen=session.screens.find(screen=>screen.title==='Operation unavailable');assert.ok(screen);
+ const pageText=screen.rows.join('');
+ for(const filename of residualPaths)assert.ok(pageText.includes('Residual path: '+filename));
+ assert.ok(screen.rows.includes('No changes were applied.'));
+});
 test('status line lists each platform and Mode line',async()=>{
  const {runTui}=await load();for(const [mode,auth,want] of [['composite','authenticated','Mode: Mixed (Claude + Codex)'],['standalone','authenticated','Mode: Claude, Codex'],['composite','unauthorized','Mode: Mixed (Claude + Codex)']]){
   const session=terminal([back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode,platforms:['codex','claude']}),collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:platform==='codex'?auth:'authenticated'},diagnostics:platform==='claude'?[{message:'diagnostic'}]:[]}))}});

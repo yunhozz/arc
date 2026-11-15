@@ -62,6 +62,17 @@ test('orphan marker or routing profile → unverified', async t => {
     fs.unlinkSync(filename);
   }
 });
+test('management unverified state retains known residual paths', async t => {
+  const ctx = await compositeContext(t), home = targets(ctx).codex.home;
+  const residualPaths = ['arc-role-platform-routing.prepared.json', 'agents/arc-routing-qa.toml'].map(name => path.join(home, name));
+  fs.mkdirSync(path.join(home, 'agents'), {recursive: true});
+  for (const filename of residualPaths) fs.writeFileSync(filename, '{}');
+  const detected = state(ctx), result = management.currentInstallState(ctx);
+  assert.equal(result.mode, 'unverified');
+  assert.deepEqual(detected.residualPaths, residualPaths);
+  assert.deepEqual(result.residualPaths, detected.residualPaths);
+  assert.equal(new Set(result.residualPaths).size, result.residualPaths.length);
+});
 test('active config not at anchor home → unverified', async t => {
   const ctx = await composite(t);
   const moved = active(ctx, 'claude');

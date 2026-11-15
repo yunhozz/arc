@@ -1200,3 +1200,7 @@ test('check version states', ...); // 3가지와 'Upgraded to 0.3.6.'
   - Implementer `60984289`: README.md(도식과 한 화면 역할 편집기, Hosts 잠금, S·Mode·anchor, Settings `(mixed)`, 초기값 규칙, 버전·제거 확인과 결과 문구)와 docs/harness-operation.md(S와 anchor 정의, 활성 파일 위치를 anchor home으로 일반화, 홈·편집기·Hosts·Settings·Apply, D1-b 확인, D1-e 집합 변경과 anchor 이동, unverified, Uninstall과 결과 문구)를 갱신했습니다. coordination.md는 Phase A 무변경입니다.
   - `rg -n "Change Models|Global config"`와 `Claude & Codex|global configuration` 검색 0건. 문서 테스트 31개 중 30 통과, 실패 1건은 기준 목록의 `publishes both flat platforms and manifest consistently …`입니다.
   - Implementer가 보고한 spec과 코드 차이: (1) 초기 플랫폼 선택은 카탈로그 검사 전에 하고 이후 실패해도 다시 고르지 않음, (2) 역할 편집기를 열면 선택 가능한 플랫폼 카탈로그를 미리 읽음(Task 14 기록), (3) Model·Effort 행 Enter 모두 `selectCatalogPair`의 모델 목록부터 시작, (4) 조회한 최신 버전이 현재보다 낮으면 `Up to date (<current>)`, (5) `currentInstallState`가 `residualPaths`를 버려 D1-f 화면에 `Residual path:`가 나오지 않을 수 있음. Orchestrator 판정: (1)–(4)는 spec 7.3·7.5·7.9 범위 안의 해석으로 수용하고, (5)는 spec 7.8·AC-M6 미충족 결함이라 후속 수정으로 고칩니다.
+- Task 19 후속 수정(spec 7.8·AC-M6):
+  - Implementer `822b193d`: `currentInstallState`가 unverified일 때만 `residualPaths`를 함께 돌려줍니다. standalone/composite 반환값은 `{mode, platforms, anchor}` 그대로라 기존 deepEqual 테스트는 무변경입니다. TUI 코드 무변경. 테스트 2건(management, 실제 management 상태를 쓰는 TUI 끝단) 추가, harness-operation.md 한 문장 수정.
+  - 끝단 테스트 첫 실패는 120열 화면에서 긴 임시 경로가 줄바꿈된 것이 원인이었습니다(캡처로 확인). 페이지 행을 이어 붙여 전체 경로를 검사하도록 단언을 고쳤고, 무변경 문구와 prepare 0회 검사는 유지했습니다.
+  - 검증: 검사 4종 통과. 전체 `npm test`: 2239 tests, 2184 pass / 37 fail. 신규 실패 0건.
