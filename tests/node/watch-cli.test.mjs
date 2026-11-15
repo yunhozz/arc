@@ -55,6 +55,17 @@ function setup(t) {
 }
 
 // Catch missing parsing branches, bad defaults, duplicate options and invalid values.
+test('runWatch passes the user home for host skill roots',async t=>{
+  const s=setup(t), skillFile=path.join(s.h.userHome,'host-skills/arc/SKILL.md');
+  s.write('host-skill',s.cwd,[
+    {type:'world_state',payload:{state:{host_skills:{body:'r1 = ~/host-skills'}}}},
+    {type:'event_msg',payload:{type:'item_completed',item:{type:'CommandExecution',command:'cat SKILL.md',
+      parsed_cmd:[{type:'read',path:skillFile}],exit_code:0}}},
+  ]);
+  const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
+  assert.match(s.output.text,/SKILL    arc/);
+  assert.doesNotMatch(s.output.text,/CMD|SKILL\.md|host-skills/);
+});
 test('parseWatchArgs accepts each documented option in both value forms', t => {
   const s=setup(t);
   assert.deepEqual(parseWatchArgs([]),{ok:true,options:{mode:'default',dir:null,session:null,platforms:['codex','claude'],tail:20,verbose:false,json:false,width:null,help:false}});

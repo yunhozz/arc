@@ -691,7 +691,7 @@
 - `clean`은 `skill`과 `plugin`에 `sanitizeText`를 적용하고 `skillOnly`는 지운다.
 - normalize 루프에서 `e.kind==='command' && e.skillOnly && !verbose`인 이벤트는 push하지 않는다. `row.active` 갱신은 그대로 한다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `watch-render.test.mjs` `SKILL and PLUGIN tags, bodies and colors`
     - `{kind:'tool',tool:'Skill',skill:'arc',text:'x'}` → `SKILL    arc x`
     - `{kind:'tool',tool:'cua_repl.js',plugin:'unified-computer-use@openai-bundled'}` → `PLUGIN   unified-computer-use@openai-bundled cua_repl.js`
@@ -717,18 +717,29 @@
     - 세션이 `wt`로 이동한 뒤의 Skill 호출은 0건이다.
     - `WATCH_KINDS` 배열이 기준선 값과 같다.
   - `watch-cli.test.mjs` `runWatch passes the user home for host skill roots`: 주입한 `userHome`과 `world_state`의 `~` 경로로 SKILL이 나오는 end-to-end 1건
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="SKILL|PLUGIN|AC-W4[1-4]|user home" tests/node/watch-render.test.mjs tests/node/watch-watcher.test.mjs tests/node/watch-cli.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 위 Interfaces와 규칙대로 구현한다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령 PASS
-- [ ] **Step 5: manifest 재생성과 check:manifest PASS**
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
-- [ ] **Step 7: 커밋.** `feat(watch): SKILL과 PLUGIN 줄 표시`
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="SKILL|PLUGIN|AC-W4[1-4]|user home" tests/node/watch-render.test.mjs tests/node/watch-watcher.test.mjs tests/node/watch-cli.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 위 Interfaces와 규칙대로 구현한다.
+- [x] **Step 4: 통과 확인.** Step 2 명령 PASS
+- [x] **Step 5: manifest 재생성과 check:manifest PASS**
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
+- [x] **Step 7: 커밋.** `feat(watch): SKILL과 PLUGIN 줄 표시`
 
 **수용 기준:** AC-W41–W44를 종단으로 만족한다. 기존 render 색 테스트는 바뀌지 않는다.
 
 **QA:** 필요(fresh QA). 내용 노출 관련 반목표(skill 본문, 비밀, CMD 이중 출력)를 세 출력 모드에서 확인한다.
 
 **위험:** R18. args가 노출되고 마스킹은 완전하지 않다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `f87125d6`(segment 0). QA: bridge dispatch `77c5bd1d`(segment 0).
+- Step 2 패턴이 `renderJson includes skill and plugin` 테스트를 고르지 않아, 그 테스트는 따로 RED→GREEN을 확인했다.
+- 결과
+  - Step 2 6/6, `watch-*` 340/341(기준선 help 실패 1건만 남음), check:manifest 통과. 전체 테스트 실패 목록은 기준선과 같다.
+  - QA: AC-W41–W44, render 태그·색·JSON 필드, user home 전달 모두 proven. 임시 home의 `runWatch` 종단으로 기본·verbose·JSON 세 모드에서 skill 본문 0건, 비밀값 마스킹, CMD 이중 출력 없음을 확인했다.
+- 한계
+  - 마스킹은 알려진 패턴에만 적용된다(R18).
+  - skillOnly CMD가 history·hold·reset과 겹치는 경로는 기존 테스트와 코드 검토로 확인했고, 조합 전체를 따로 실행하지는 않았다.
+- 런타임이 segment 0에서 `refsChanged`를 보고했다. 다른 worktree의 `feat/tui-arc-diagram-flow` 커밋(`9d2605d`)으로, 외부 변경이다.
 
 ---
 

@@ -11,6 +11,7 @@ import {readClaudeHead, createClaudeDiscovery} from '../../lib/watch/discover-cl
 import {readCodexMeta} from '../../lib/watch/discover-codex.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {GIT_ALLOWED} from '../../lib/watch/git.mjs';
+import {WATCH_KINDS} from '../../lib/watch/model.mjs';
 
 const TIME = Date.parse('2026-11-11T12:00:00Z');
 const iso = n => new Date(n).toISOString();
@@ -57,6 +58,79 @@ function movingSetup(t,options={}) {
   return {...s,wt};
 }
 const move=(cwd,ts=TIME)=>({timestamp:iso(ts),type:'turn_context',payload:{cwd}});
+
+const claudeTool = (id,cwd,name,input) => ({timestamp:iso(TIME),type:'assistant',sessionId:id,cwd,
+  message:{content:[{type:'tool_use',id:'call-'+name,name,input}]}});
+const skillRead = file => ({timestamp:iso(TIME),type:'event_msg',payload:{type:'item_completed',item:{
+  type:'CommandExecution',command:'cat SKILL.md',parsed_cmd:[{type:'read',path:file}],exit_code:0}}});
+
+// Missing watcher/render integration loses tool identity, leaks skill bodies or duplicates commands.
+test('AC-W41 Claude Skill and slash command render as SKILL',async t=>{
+  for (const mode of ['default','verbose','json']) {
+    const s=setup(t,{verbose:mode==='verbose'}), id='claude-skills';
+    const fixture=fs.readFileSync(new URL('./fixtures/watch/claude-slash-command.jsonl',import.meta.url),'utf8')
+      .trim().split('\n').map(line=>({...JSON.parse(line),cwd:s.cwd,sessionId:id}));
+    s.cl(id,[cm(id,s.cwd),claudeTool(id,s.cwd,'Skill',{skill:'arc',args:'x'}),...fixture]);
+    const events=content(await s.w.start()), human=lines(events,mode==='verbose').join('\n');
+    assert.equal(human.split('\n').filter(line=>line.endsWith('SKILL    arc x')).length,1);
+    assert.equal(human.split('\n').filter(line=>line.endsWith('SKILL    find-skills 테스트용 호출입니다. 도구를 쓰지 말고 한 문장으로만 답하세요.')).length,1);
+    const output=mode==='json'?events.map(renderJson).join('\n'):human;
+    assert.doesNotMatch(output,/Base directory|# Find Skills|SKILL\.md/);
+  }
+});
+
+test('AC-W42 Codex skill-only read replaces CMD by default',async t=>{
+  for (const verbose of [false,true]) {
+    const s=setup(t,{verbose},'all'), file=s.c('codex-skills',[skillRead(path.join(s.h.codexHome,'skills/arc/SKILL.md'))]);
+    const first=content(await s.w.start());
+    assert.equal(lines(first).filter(line=>line.endsWith('SKILL    arc')).length,1);
+    assert.equal(first.filter(e=>e.kind==='command').length,verbose?1:0);
+    assert.ok(first.every(e=>!Object.hasOwn(e,'skillOnly')));
+    // Relative paths must use the latest inherited cwd, and same-turn reads stay deduplicated.
+    s.append(file,[move(path.join(s.h.codexHome,'skills/arc')),skillRead('./SKILL.md')]);
+    s.append(file,[move(s.cwd)]);
+    const repeated=content(await s.w.tick());
+    assert.equal(repeated.filter(e=>e.kind==='tool').length,0);
+    assert.equal(repeated.filter(e=>e.kind==='command').length,verbose?1:0);
+    s.append(file,[{type:'event_msg',payload:{type:'task_started'}},skillRead(path.join(s.h.codexHome,'skills/arc/SKILL.md'))]);
+    const next=content(await s.w.tick());
+    assert.equal(next.filter(e=>e.skill==='arc').length,1);
+    assert.equal(next.filter(e=>e.kind==='command').length,verbose?1:0);
+    assert.ok(next.every(e=>!Object.hasOwn(e,'skillOnly')));
+    // Truncation starts a fresh announcement state without needing task_started.
+    fs.writeFileSync(file,JSON.stringify(skillRead(path.join(s.h.codexHome,'skills/arc/SKILL.md')))+'\n');
+    assert.equal(content(await s.w.tick()).filter(e=>e.skill==='arc').length,1);
+  }
+});
+
+test('AC-W43 Codex pluginId and Claude plugin MCP render as PLUGIN',async t=>{
+  const s=setup(t), item=rest=>({type:'event_msg',payload:{type:'item_completed',item:{type:'McpToolCall',...rest}}});
+  s.c('plugins',[item({server:'cua',tool:'repl',pluginId:'unified-computer-use@openai-bundled'}),item({server:'srv',tool:'call'})]);
+  s.cl('claude-plugin',[cm('claude-plugin',s.cwd),claudeTool('claude-plugin',s.cwd,'mcp__plugin_p_srv__t',{secret:'MCP_ARGUMENT_HIDDEN'})]);
+  const events=content(await s.w.start()), human=lines(events).join('\n');
+  assert.match(human,/PLUGIN   unified-computer-use@openai-bundled cua\.repl/);
+  assert.match(human,/PLUGIN   p mcp__plugin_p_srv__t/);
+  assert.match(human,/TOOL     srv\.call/);
+  assert.equal(events.find(e=>e.tool==='mcp__plugin_p_srv__t').plugin,'p');
+  assert.doesNotMatch(human+events.map(renderJson).join('\n'),/MCP_ARGUMENT_HIDDEN/);
+});
+
+test('AC-W44 SKILL and PLUGIN follow the gate and masking',async t=>{
+  const s=movingSetup(t), id='masked-skills';
+  const file=s.cl(id,[cm(id,s.cwd),claudeTool(id,s.cwd,'Skill',{skill:'\x1b[31marc',args:'key sk-abcdefghijklmnopqrstu'}),
+    claudeTool(id,s.cwd,'mcp__plugin_\x1b[31mp_srv__t',{})]);
+  const events=content(await s.w.start()), skill=events.find(e=>e.kind==='tool'&&e.tool==='Skill');
+  assert.equal(skill.skill,'arc');
+  assert.equal(skill.text,'key ***');
+  assert.equal(events.find(e=>e.plugin).plugin,'p');
+  for (const output of [lines(events).join('\n'),events.map(renderJson).join('\n'),JSON.stringify(events)]) {
+    assert.doesNotMatch(output,/sk-abcdefghijklmnopqrstu|\\u001b|\x1b/);
+    assert.match(output,/key \*\*\*/);
+  }
+  s.append(file,[claudeTool(id,s.wt,'Skill',{skill:'outside'}),claudeTool(id,s.wt,'mcp__plugin_p_srv__t',{})]);
+  assert.equal(content(await s.w.tick()).filter(e=>e.kind==='tool').length,0);
+  assert.deepEqual(WATCH_KINDS,['session','settings','turn_start','turn_end','turn_failed','user','agent','reasoning','command','tool','tool_failed','file_change','file_create','file_delete','spawn','approval','dispatch','error','other','notice']);
+});
 
 // Without a fresh cwd check, a new worktree leaks until the periodic scope refresh.
 test('AC-W39 a nested worktree seen in a line is excluded before the 30-second refresh',async t=>{
