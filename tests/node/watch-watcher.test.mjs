@@ -267,6 +267,79 @@ test('AC-W36 Desktop descendants stay excluded by ancestry',async t=>{
   assert.ok(!notices(out).some(text=>text.includes('parent session not found')));
 });
 
+// A known immediate parent cannot prove that a missing root is not Desktop.
+for (const kind of ['repo','dir']) {
+  test(`L3 broken ancestor chains are held and dropped (${kind})`,async t=>{
+    const s=setup(t,{verbose:true},kind), diagnostic='parent session not found for chain-grand';
+    s.c('chain-child',undefined,{cwd:'/outside',extra:{parent_thread_id:'missing-desktop'}});
+    s.c('chain-grand',undefined,{extra:{parent_thread_id:'chain-child'}});
+    const initial=await s.w.start();
+    assert.deepEqual(content(initial),[]);
+    assert.ok(!notices(initial).includes(diagnostic));
+    s.advance(1999);
+    const held=await s.w.tick();
+    assert.deepEqual(content(held),[]);
+    assert.ok(!notices(held).includes(diagnostic));
+    s.advance(1);
+    const expired=await s.w.tick();
+    assert.deepEqual(content(expired),[]);
+    assert.equal(notices(expired).filter(text=>text===diagnostic).length,1);
+    s.advance(2000);
+    const later=await s.w.tick();
+    assert.deepEqual(content(later),[]);
+    assert.ok(!notices(later).includes(diagnostic));
+  });
+
+  for (const origin of ['Codex Desktop','codex-tui']) {
+    test(`L3 ancestors found during the hold decide the chain (${kind}, ${origin})`,async t=>{
+      const s=setup(t,{verbose:true},kind);
+      s.c('chain-child',undefined,{cwd:'/outside',extra:{parent_thread_id:'root1234',depth:1,agent_role:'arc_qa'}});
+      s.c('chain-grand',undefined,{extra:{parent_thread_id:'chain-child',depth:2,agent_nickname:'Aristotle'}});
+      const initial=await s.w.start();
+      assert.deepEqual(content(initial),[]);
+      s.advance(500);
+      const held=await s.w.tick();
+      assert.deepEqual(content(held),[]);
+      s.advance(500);
+      s.c('root1234',undefined,{cwd:'/outside',origin,age:0});
+      const resolved=await s.w.tick(), events=content(resolved);
+      if (origin==='Codex Desktop') assert.deepEqual(events,[]);
+      else {
+        assert.deepEqual(events.map(e=>e.kind),['session','user']);
+        assert.ok(events.every(e=>e.sessionId==='chain-grand'&&e.label==='tui#1234/qa/Aristotle'
+          &&e.parentId==='chain-child'&&e.depth===2&&e.source==='subagent'));
+      }
+      s.advance(2000);
+      const later=await s.w.tick();
+      assert.deepEqual(later,[]);
+      assert.ok(!notices([...initial,...held,...resolved]).some(text=>text.includes('parent session not found')));
+    });
+  }
+
+  // Finding both parents is insufficient when neither chain reaches a root.
+  test(`L3 cyclic ancestor chains are held and dropped (${kind})`,async t=>{
+    const s=setup(t,{verbose:true},kind), diagnostic='parent session not found for cycle-child';
+    s.c('cycle-a',undefined,{cwd:'/outside',extra:{parent_thread_id:'cycle-b'}});
+    s.c('cycle-b',undefined,{cwd:'/outside',extra:{parent_thread_id:'cycle-a'}});
+    s.c('cycle-child',undefined,{extra:{parent_thread_id:'cycle-a'}});
+    const initial=await s.w.start();
+    assert.deepEqual(content(initial),[]);
+    assert.ok(!notices(initial).includes(diagnostic));
+    s.advance(1999);
+    const held=await s.w.tick();
+    assert.deepEqual(content(held),[]);
+    assert.ok(!notices(held).includes(diagnostic));
+    s.advance(1);
+    const expired=await s.w.tick();
+    assert.deepEqual(content(expired),[]);
+    assert.equal(notices(expired).filter(text=>text===diagnostic).length,1);
+    s.advance(2000);
+    const later=await s.w.tick();
+    assert.deepEqual(content(later),[]);
+    assert.ok(!notices(later).includes(diagnostic));
+  });
+}
+
 test('AC-W36 all and session still require a followed parent',async t=>{
   for(const kind of ['all','session']) {
     const s=setup(t,{session:kind==='session'?'selected':null},kind);
