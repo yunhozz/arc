@@ -66,7 +66,7 @@ After explicit selection or valid reuse, verify absolute workspace, branch/detac
 <a id="planning-document-commit"></a>
 ### Planning document commit
 
-Begin after target preparation and all applicable documents are written/individually approved. Verify full set/evidence/versions before staging/commit. New branches require successful switch, actual branch, unchanged path/preservation. Current checkout requires selected branch/detached HEAD/path/changes.
+Begin after target preparation and all applicable documents are written/individually approved. Paths requiring both spec and plan (Architectural or spec-required Bounded) permit no document commit on spec approval alone; after every planned spec/plan is individually approved, record the remaining ones in one planning-document commit. Plan-less paths commit their own approved document set. Verify full set/evidence/versions before staging/commit. New branches require successful switch, actual branch, unchanged path/preservation. Current checkout requires selected branch/detached HEAD/path/changes.
 For worktrees verify actual registration/`EnterWorktree` session attachment/identity/base/branch and directly written documents or protected legacy/restart transfers before target docs commits. Commit remaining approvals once at target; no automatic source docs commit.
 
 1. Verify already committed approvals by SHA, actual message/paths/content and selected-checkout validity; reuse without recommitting.
