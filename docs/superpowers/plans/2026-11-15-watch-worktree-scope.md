@@ -389,7 +389,7 @@
 - **`dispatchInScope` 대체 판정:** `[...followed.values()].some(row=>ref.sessionIds.includes(row.id) && cwdInScope(row.cwd))`.
 - **`busy()`:** `row.active && (row.inScopeNow || mapped(row)) && now()-row.lastActivity<=spinnerIdleMs`.
 
-- [ ] **Step 1: 실패 테스트 작성** (`watch-watcher.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`watch-watcher.test.mjs`)
   - 준비: `wt = path.join(s.cwd,'wt')`를 만들고, repo 범위의 `excludedRoots`에 `wt`를 넣는 setup 옵션 `excluded`를 추가한다.
   - `AC-W31 moved Claude session lines stay out of the root watch`
     - `cl` 줄은 `[cm(id,s.cwd,'before'), cm(id,wt,'after-history')]`다.
@@ -424,12 +424,12 @@
     - `reset restarts cwd inheritance from headCwd`: 이동한 파일을 잘라 root 줄로 다시 쓰면 다시 나온다.
     - `held new sessions release only gated events`: 새 Claude 세션(hold 대상)의 범위 밖 줄은 hold가 풀린 뒤에도 없다.
   - 회귀(그대로 통과): `:127,128,129,137,156,168,218,362`, bridge·dispatch 테스트 전부, `:173,:256-260,:478-483,:540`.
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="AC-W3[1-4]|AC-W38|AC-W40|AC-W17 out-of-scope|in-out-in|reset restarts|held new" tests/node/watch-watcher.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 위 알고리즘대로 구현한다. `normalize`가 async가 되므로 호출부(`attach`, `poll`)에 `await`를 붙인다.
-- [ ] **Step 4: 통과 확인.** Step 2 명령이 PASS이고, `node --test --test-timeout=120000 tests/node/watch-watcher.test.mjs` 전체도 PASS여야 한다.
-- [ ] **Step 5: manifest 재생성과 check:manifest PASS**
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
-- [ ] **Step 7: 커밋.** `feat(watch): 줄 시점 cwd로 이벤트 범위 판정`
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 --test-name-pattern="AC-W3[1-4]|AC-W38|AC-W40|AC-W17 out-of-scope|in-out-in|reset restarts|held new" tests/node/watch-watcher.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 위 알고리즘대로 구현한다. `normalize`가 async가 되므로 호출부(`attach`, `poll`)에 `await`를 붙인다.
+- [x] **Step 4: 통과 확인.** Step 2 명령이 PASS이고, `node --test --test-timeout=120000 tests/node/watch-watcher.test.mjs` 전체도 PASS여야 한다.
+- [x] **Step 5: manifest 재생성과 check:manifest PASS**
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
+- [x] **Step 7: 커밋.** `feat(watch): 줄 시점 cwd로 이벤트 범위 판정`
 
 **수용 기준:**
 - AC-W31(루트 쪽), W32, W33, W34, W38, W40을 만족한다.
@@ -441,6 +441,23 @@
 **위험:**
 - `normalize`가 async로 바뀌면서 이벤트 순서가 달라질 수 있다. 같은 tick 안의 정렬은 `sort`가 보장한다.
 - R12: history에 포함된 Codex 줄의 cwd 상속에는 한계가 있다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `d93d37d3`(segment 0–4). QA: bridge dispatch `a5ad360a`(segment 0–3).
+- Orchestrator 실행 결정(승인 범위 안)
+  - `watch-watcher.test.mjs:167`, `:170`의 child cwd를 범위 안으로 바꾸는 기대값 변경을 T5에서 T4로 앞당겼다. T4 줄 게이트가 child 줄에도 적용되기 때문이다.
+  - git fallback 테스트는 scope를 `session`으로 바꾸고, Git stub이 `GIT_ALLOWED[0]`에만 실패하도록 정정했다.
+  - D1의 "기록 없이 붙을 때 SESSION"은 개정 전에도 SESSION을 합성하던 경로에만 적용한다. 그래서 10–30분 된 세션의 시작 출력은 0개로 유지된다(spec §10).
+- QA finding(모두 해결, 각각 회귀 테스트 추가)
+  - F-T4-1: 이탈 뒤 실행된 지연 shell 스캔의 inferred 이벤트에 범위 밖 cwd가 붙었다. 후보 등록 시점의 identity를 저장해 해결했다.
+  - F-T4-2: 같은 poll 안에서 이탈하면 루트 shell 스캔이 예약되지 않았다. 범위 안 줄 처리 시점에 후보를 등록하도록 바꿔 해결했다.
+- 결과
+  - watcher 102/102, `watch-*` 316/317(기준선 help 실패 1건만 남음), check:manifest 통과.
+  - QA: AC-W31·W32·W34(루트 범위 쪽), W33, W38, W40, W17(유휴 부분), Review Focus 모두 proven.
+- 한계
+  - dispatch 매핑 row의 줄 게이트 면제는 독립 재현으로 비교하지 않았다. 기존 bridge·dispatch 테스트 통과로 판단했으며, 최종 Reviewer 검토 대상이다.
+  - AC-W31·W32·W34의 worktree 쪽 동시 비교는 T5에 의존하므로 T5 QA에서 확인한다.
+- 런타임이 segment 2에서 `refsChanged`를 보고했다. 같은 시각 다른 worktree가 `feat/tui-arc-diagram-flow`에 커밋한 것으로, 외부 변경이다.
 
 ---
 
