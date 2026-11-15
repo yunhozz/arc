@@ -47,12 +47,12 @@ Only final overall Reviewer findings on plan work, including behavior, follow Im
 
 Expanded scope/separate obligations/gaps hold affected work for resolution/approval. Orchestrator assigns/accepts; Reviewer stays read-only without QA/acceptance. NEVER present old QA as post-fix execution. Report actual actor/target/check/result/limits only.
 
-<a id="evidence-after-plan-history-rewrite"></a>
-## Evidence after plan history rewrite
+<a id="evidence-after-plan-revision-commit"></a>
+## Evidence after plan revision commit
 
-Verify new HEAD/approved plan content-version/old→new SHAs, descendant implementation/task boundaries and remaining staged/unstaged/untracked state. Preserve chronology/recoverable contents. New content in old commits proves no early approval.
+Verify every committed document blob against its latest approved content hash and full approved copy. With no same-commit task progress records, its blob hash MUST equal the approved `contentHash`. Otherwise the diff from the approved copy MUST contain only classified progress records belonging to that commit's task. Verify each pending revision's status is `committed` and no pending revision remains before overall completion. Link commit SHA in the canonical record only, not the document. Preserve actual approval chronology; later committed content proves no earlier approval.
 
-SHA change alone invalidates no entire evidence set. Determine whether exact-HEAD/document/policy evidence links to new state. If not or semantically affected, repeat affected checks/rechecks. Preserve runtime/exact-state rules; NEVER rewrite old fingerprints to suggest execution at new HEAD. Refresh briefs/gates before dependencies. Structure proves neither live compliance nor successful replay.
+Existing commit evidence links remain valid because history is unchanged. For a contract revision, affected checks and rechecks MUST be rerun against the revised version. Stale evidence from plan-file changes requires refresh under existing rules. Preserve exact-HEAD/document/policy/fingerprint requirements; NEVER rewrite old fingerprints to suggest execution at a new state. Refresh briefs/gates before dependencies. Structure proves no live compliance.
 
 <a id="task-acceptance-and-final-plan-acceptance"></a>
 <a id="reviewer-timing-and-task-acceptance"></a>

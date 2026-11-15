@@ -185,7 +185,7 @@
 
 **Interfaces:** T4가 쓰는 앵커는 `execution-time-plan-revision`, `evidence-after-plan-revision-commit`, `plan-updates-during-execution`(유지), `execution-time-plan-document-updates`(유지)다.
 
-- [ ] **Step 1 (실패 테스트):** `test_harness_contract.py`를 고친다.
+- [x] **Step 1 (실패 테스트):** `test_harness_contract.py`를 고친다.
   - `PLAN_UPDATE_CLASSIFICATION` 22-26행을 다음 정규식으로 바꾼다. 18-21행은 유지한다.
     - `mechanical.*(?:correction|fix).*plan revision`
     - `first top-level task.*executed or reconfirmed.*revised version`
@@ -206,19 +206,35 @@
     - `contract revision.*affected.*checks.*rerun|rerun.*affected.*checks`
   - `test_arc_policy.py:307`을 `"execution-time plan revision"`으로 바꾼다.
   - 정규식 문구는 실제 영문 지침에 맞춰 조정할 수 있다. 다만 R 항목마다 정규식을 하나 이상 두고 의미를 줄이지 않는다.
-- [ ] **Step 2:** `python3 -B -m unittest tests.test_harness_contract tests.test_arc_policy -v`를 실행한다. 기대 결과: 바뀐 항목이 FAIL.
-- [ ] **Step 3:** spec 5절대로 claude 지침을 고치고 codex에 같은 의미로 반영한다. commit.md에는 "NEVER amend planning or implementation commits"를 넣는다.
-- [ ] **Step 4:** 앵커와 링크를 확인한다.
+- [x] **Step 2:** `python3 -B -m unittest tests.test_harness_contract tests.test_arc_policy -v`를 실행한다. 기대 결과: 바뀐 항목이 FAIL.
+- [x] **Step 3:** spec 5절대로 claude 지침을 고치고 codex에 같은 의미로 반영한다. commit.md에는 "NEVER amend planning or implementation commits"를 넣는다.
+- [x] **Step 4:** 앵커와 링크를 확인한다.
   - claude/skill과 codex/skill에서 `execution-time-plan-amendment|evidence-after-plan-history-rewrite|planning-document commit amendment|old→new`를 grep한 결과가 0건이어야 한다.
   - 새 앵커는 각각 하나씩 있어야 하고, 들어오는 링크가 유효해야 한다.
-- [ ] **Step 5:** fixture contract 문구를 맞추고 `node --test tests/node/instruction-layout.test.mjs`를 실행한다.
-- [ ] **Step 6:** G-POL을 실행한다(drift 0). 이어서 `node scripts/update-manifest.mjs`와 G-MAN을 실행한다.
-- [ ] **Step 7:** 다음이 PASS여야 한다(baseline 예외 제외): Step 2의 python 명령, `instruction-layout.test.mjs`, `agent-fragments.test.mjs`. P-ALL과 N-ALL은 baseline의 부분집합이어야 한다. `test_plan_amendment_restarts_implementer`와 `test_claude_payload.py`가 계속 통과해야 한다(AC-G3).
-- [ ] **Step 8:** 진행 기록을 적는다. 커밋 메시지는 `docs(skill): 실행 중 계획 개정을 이후 수락 커밋에 포함하도록 지침 변경`.
+- [x] **Step 5:** fixture contract 문구를 맞추고 `node --test tests/node/instruction-layout.test.mjs`를 실행한다.
+- [x] **Step 6:** G-POL을 실행한다(drift 0). 이어서 `node scripts/update-manifest.mjs`와 G-MAN을 실행한다.
+- [x] **Step 7:** 다음이 PASS여야 한다(baseline 예외 제외): Step 2의 python 명령, `instruction-layout.test.mjs`, `agent-fragments.test.mjs`. P-ALL과 N-ALL은 baseline의 부분집합이어야 한다. `test_plan_amendment_restarts_implementer`와 `test_claude_payload.py`가 계속 통과해야 한다(AC-G3).
+- [x] **Step 8:** 진행 기록을 적는다. 커밋 메시지는 `docs(skill): 실행 중 계획 개정을 이후 수락 커밋에 포함하도록 지침 변경`.
 
 **수락 기준:** AC-G1, AC-G2, AC-G3, AC-P3, AC-T1(python 부분), AC-T2(T2 시점)
 **필요 검사:** Step 4, 6, 7과 fresh QA
 - QA 확인 항목: R-1~R-12 대응표, claude와 codex의 의미가 같은지, 링크와 앵커, 생성 섹션을 건드리지 않았는지, 한쪽 adapter에서 계약을 빼면 테스트가 실패하는지.
+
+**T2 결과 (2026-11-16, 수락)**
+- Implementer: Step 1-7을 수행했다.
+  - 대상 계약 누락: RED claude/codex 6/6, 9/9, 6/6 → GREEN 0/0.
+  - 대상 mutation 하위 검사 70개 통과.
+  - golden fixture는 plan v2 방법으로 갱신했다.
+- 실행 기록 정리: dispatch에 `permission_violation_observed`(refsChanged)가 기록되었다. 실행 중 다른 세션이 `feat/tui-arc-diagram-flow` ref를 커밋하고 push한 것이 원인이다. 변경 경로는 모두 허용 범위 안이고 작업 브랜치 HEAD도 그대로였다. 외부 동시 작업으로 보고 문제로 삼지 않았다.
+- QA(새 인스턴스) 지적(중간): 새 PLAN_* 정규식이 R-7(3), R-11, R-10 진행 기록 판정 문장의 단독 삭제를 탐지하지 못했다.
+  - 같은 Implementer가 정규식의 문장 경계를 좁혔다. 문장 단위 삭제 실험 58건의 미탐지가 18건에서 0건이 되었고, 지침 문장은 바꾸지 않았다.
+  - 같은 QA가 독립 실험으로 재검사했고 proven.
+- 같은 QA가 AC-G3을 확인했다: `test_plan_amendment_restarts_implementer`는 baseline과 같은 실패이고, 새 실패는 없다.
+- 검사 결과
+  - Orchestrator N-ALL: pass 2029, fail 37, 새 실패 0. 이후 수정은 python 테스트 파일뿐이었다.
+  - P-ALL: baseline과 같다(새 0, 사라짐 0).
+  - G-POL, G-MAN verified. golden 4/4.
+- 판정: AC-G1, AC-G2, AC-G3, AC-P3, AC-T1(python), AC-T2(T2) 모두 proven. python 계약 전체 통과가 아니라 대상 계약 기준이다.
 
 ### T3: 런타임 plan-amend 제거와 예전 state 처리
 

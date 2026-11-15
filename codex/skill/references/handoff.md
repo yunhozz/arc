@@ -167,6 +167,8 @@ Evaluate target choice validity separately from evidence validity. Approved HEAD
 
 Supported spec+plan handoffs include registered task contract, exact check descriptor, task/final scope, `status.changeFingerprints`, independent actor attestations, intent ID/result messageRef/verdict. Authorized roles execute after `prepare` and record through `result`; CLI records prove no identity/compliance.
 
+Include spec/plan paths in cooperative `task.paths` to commit task progress records and pending revisions; missing paths hold the commit until an approved scope revision, and the cooperative CLI does not support the standalone `docs(plan)` closing commit, so include pending revisions in task or follow-up commits.
+
 On scope/docs/approval changes inspect `affectedTaskIds`/dependencies, preserve history and supply current approval/contracts. NEVER reuse checks across fingerprints. Link findings to same-version Implementer resolution/QA rechecks; only plan-final Reviewer findings use Implementer→Reviewer. No task-level Reviewer prerequisite. Detailed fields/holds follow [verification](verification.md#verification-lifecycle-in-the-cooperative-cli); unsupported omission is no policy violation/document obligation.
 
 [ARC role policy: contract begin]

@@ -304,7 +304,7 @@ class ConditionalReferenceTests(unittest.TestCase):
                                                "task readiness at every assignment", "choice lifetime and restart record"])
         self.assertEqual(headings("handoff-prep"), ["execution-target request gate", "git mutation evidence gate",
                                                     "new task branch", "current checkout", "planning document commit",
-                                                    "execution-time plan amendment", "recovery prerequisite"])
+                                                    "execution-time plan revision", "recovery prerequisite"])
         self.assertEqual(headings("handoff-worktree"), ["new managed worktree", "worktree document transfer",
                                                         "worktree failures and partial completion"])
         core = (REPO / "codex/skill/references/handoff.md").read_text().lower()

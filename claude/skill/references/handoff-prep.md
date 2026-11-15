@@ -72,22 +72,22 @@ For worktrees verify actual registration/`EnterWorktree` session attachment/iden
 1. Verify already committed approvals by SHA, actual message/paths/content and selected-checkout validity; reuse without recommitting.
 2. Record remaining approved versions/paths. Finalize a specific English Conventional Commit message before the first commit.
 3. Batch all remaining approved documents into one focused docs commit. Staged paths/diff MUST match exactly; unrelated staging blocks commit. No implementation files.
-4. If all validly committed, verify only. NEVER duplicate/empty-commit/amend/reset/recommit merely to combine SHAs. DO NOT use temporary messages followed by routine `git commit --amend`; separate amend needs scope/current HEAD/publication checks.
+4. If all validly committed, verify only. NEVER duplicate/empty-commit/amend/reset/recommit merely to combine SHAs. DO NOT use temporary messages followed by routine `git commit --amend`.
 5. Failure/staged-content mismatch stops handoff. Inspect branch/HEAD/index/partial completion and resolve before resuming; NEVER commit implementation instead.
 6. Verify SHA/message/paths/content, post-commit HEAD/branch and remaining state in the brief, including selected base and actual order/deviations. Command success alone proves no preparation. Docs commit is neither implementation acceptance nor push approval; no push without separate explicit request.
 
 Skip only when depth rules required no documents and none were created; record why. Uncommitted documents are not absent. This adds neither documents nor gate exceptions. Unchanged authorized target/scope needs no repeated choice.
 
-<a id="execution-time-plan-amendment"></a>
-### Execution-time plan amendment
+<a id="execution-time-plan-revision"></a>
+### Execution-time plan revision
 
-After initial document batching, use this amendment procedure for spec/plan content changes other than task progress records, following [planning](planning.md#plan-updates-during-execution), including scope revisions and applicable approval and preparation. Same-task progress records follow the accepted task implementation commit path. NEVER batch another document commit or combine historical commits/rewrite implementation contents under this exception.
+After initial document batching, follow [planning](planning.md#plan-updates-during-execution) for spec/plan revisions and same-task progress records. Orchestrator alone manages pending revisions and Git; preserve unrelated work and actual approval chronology.
 
-1. Verify original planning commit ancestry/current replacement, unpublished/unshared local linear history, no merges, clear ownership/plan paths, paused writers/safe unfinished-work boundary and complete classification/approval/chronology. Unexpected dirty state blocks rewrite.
-2. Preserve recoverable old HEAD/commits and before/after plan contents, plus unrelated staged/unstaged/untracked work.
-3. If original commit is HEAD, amend only plan paths, preserving other documents. Otherwise amend original and replay descendants in order with task boundaries/implementation contents intact. No separate docs/intermediate fixup commit. Orchestrator alone mutates Git.
-4. Unknown publication/sharing/ownership, merges, unexpected HEAD/state or replay conflict stops rewrite/affected work. No automatic resolution, force push or fallback docs commit. Record actual path/branch/HEAD/index/files/completed steps.
-5. After resolution revalidate gates. Verify new SHA/HEAD, approved plan content/version, descendants, old→new mappings and remaining state under [verification](verification.md#evidence-after-plan-history-rewrite).
+1. Classify progress records versus contract/mechanical plan revisions. Verify applicable approvals, actual approval time, ordered written-spec/dependent-plan approval, preparation and holds; contract revisions require a fresh Implementer for remaining work. NEVER authorize past work retroactively.
+2. After approval edit the same document, append its revision-history row and leave it uncommitted. Record each pending revision with its approved content hash and approval in the canonical `.git/arc/handoff/<workflow>/` record: `gitPath`, `fromVersion`, `toVersion`, `contentHash` (approved content SHA-256), `approvalRef`, `approvedAt` (actual time), `classification` (`contract|mechanical`), `reason`, `affectedTaskIds`, `status` (`pending|committed`). Preserve each full approved version at `.git/arc/handoff/<workflow>/plan-revisions/<flattened-gitPath>.v<N>.md`; NEVER overwrite prior approvals or copies.
+3. In every role brief identify the Orchestrator-owned pending revision, working-tree version and `contentHash`. Implementer and QA preserve it untouched as neither their own work nor unrelated user changes.
+4. Include all pending revisions in the accepted commit of the first top-level task executed or reconfirmed against the revised version, otherwise a current task or final Reviewer follow-up commit. Only before overall completion, a standalone `docs(plan)` closing commit MAY include all pending revisions/trailers and no implementation files when no implementation work remains; keep canonical supporting evidence. Exclude pending revision hunks from independent prior-version task commits; hold the commit if separation is unsafe. Add `Plan-Revision: <gitPath> v<from> -> v<to>`, `Plan-Approved-At: <gitPath> v<N> <actual ISO 8601 approval time>` and `Plan-Reason: <gitPath> v<N> <reason>`: one revision trailer per document, approval/reason trailers per version after from through to; repeat keys as needed and preserve existing Git trailers. Use ASCII `->`.
+5. After commit verify each blob against approved content, mark recorded revisions `committed` and verify no pending revisions remain under [verification](verification.md#evidence-after-plan-revision-commit). Link commit SHA only in the canonical record, never the document. NEVER amend/reset/replay/rewrite planning or implementation commits or create other docs/fixup commits.
 
 <a id="recovery-prerequisite"></a>
 ### Recovery prerequisite

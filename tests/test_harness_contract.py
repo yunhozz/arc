@@ -14,30 +14,58 @@ PLATFORMS = ("codex", "claude")
 # these checks catch; wording outside these obligations is free to change.
 COMMON_CONTRACTS = {
     # Approved written-contract checks: losing these gates must fail both adapters.
+    # Keep PLAN obligations within one sentence; generated policy prose must
+    # not substitute for a removed obligation in the owning manual section.
     "PLAN_UPDATE_CLASSIFICATION": ("references/planning.md", (
-        r"mechanical execution records.*without new user approval",
-        r"checkbox.*actual results.*evidence links.*completion state",
-        r"required checks.*removal.*not mechanical",
-        r"goals.*task scope.*boundaries.*acceptance criteria.*method.*risk.*dependencies.*required verification.*revised.*approval",
-        r"both.*mechanical.*approved.*original planning-document commit",
-        r"no separate.*document.*or fixup commit",
-        r"actual approval.*(?:time|chronology).*not.*retroactive",
-        r"before and after.*content hashes.*versions.*approval references.*times",
-        r"recoverable.*contents.*old.*new.*sha.*descendant",
+        # R-1: distinguish task records from every other body change.
+        r"task progress records[^.]*need no new approval",
+        r"checkboxes[^.]*notes[^.]*results[^.]*evidence[^.]*completion status",
+        r"removing checks[^.]*invented success[^.]*unsupported acceptance[^.]*mixed scope changes are not mechanical",
+        # R-2: approve the revised contract before affected work; refresh its owner.
+        r"goals[^.]*task boundaries[^.]*scope[^.]*criteria[^.]*method[^.]*risk[^.]*dependencies[^.]*checks[^.]*revised approval before affected work",
+        r"contract revision[^.]*fresh implementer[^.]*remaining work",
+        r"written-spec approval[^.]*before[^.]*dependent plan revision",
+        r"mechanical[^.]*(?:correction|fix)[^.]*plan revision",
+        # R-3/R-4: same file, pending state and append-only actual approval history.
+        r"after approval orchestrator edits the same file, appends a revision-history row and leaves the revision uncommitted",
+        r"version[^.]*approval time[^.]*classification[^.]*affected tasks[^.]*reason[^.]*append.only[^.]*no sha",
+        r"v1[^.]*first revision[^.]*actual[^.]*initial approval time",
+        # R-7/R-11: first eligible commit, sole closing exception, no rewrite/backdating.
+        r"keep all approved spec/plan revisions pending for the accepted commit of the first top-level task[^.]*executed or reconfirmed[^.]*revised version",
+        r"only when no implementation work remains before overall completion may orchestrator make one standalone `docs\(plan\)` closing commit:[^.]*evidence canonically[^.]*all pending revisions/trailers and no implementation files",
+        r"no separate[^.]*docs[^.]*fixup commit",
+        r"actual approval[^.]*(?:time|chronology)[^.]*not[^.]*retroactive",
+        r"never amend planning or implementation commits, reset, replay or rewrite their history",
     )),
-    "PLAN_AMEND_SAFETY": ("references/handoff-prep.md", (
-        r"original.*ancestor.*head",
-        r"unpublished.*unshared.*local.*linear.*no merge",
-        r"unknown.*publication.*ownership.*conflict.*stop",
-        r"no.*force.push.*fallback.*document commit",
-        r"head.*amend.*plan paths only",
-        r"descendant.*reapply.*order.*task boundaries",
+    "PLAN_REVISION_COMMIT": ("references/handoff-prep.md", (
+        # R-5: canonical fields, immutable approved copies and exact copy path.
+        r"pending revision[^.]*content hash[^.]*approval",
+        r"gitpath[^.]*fromversion[^.]*toversion[^.]*contenthash[^.]*approvalref[^.]*approvedat[^.]*classification[^.]*reason[^.]*affectedtaskids[^.]*status",
+        r"plan-revisions/[^.]*\.v<?n>?\.md",
+        r"never overwrite[^.]*approvals[^.]*copies",
+        # R-6: explicit ownership in every role brief.
+        r"brief[^.]*orchestrator-owned[^.]*pending revision[^.]*version[^.]*contenthash",
+        r"implementer[^.]*qa[^.]*preserve[^.]*neither[^.]*own[^.]*unrelated user",
+        # R-7/R-8: all pending revisions, fallback order and unsafe separation hold.
+        r"include all pending revisions in the accepted commit of the first top-level task[^.]*executed or reconfirmed[^.]*revised version, otherwise a current task or final reviewer follow-up commit",
+        r"standalone[^.]*docs\(plan\)[^.]*no implementation[^.]*canonical[^.]*evidence",
+        r"exclude pending revision hunks from independent prior-version task commits; hold the commit if separation is unsafe",
+        # R-9: per-document and per-version ASCII trailers, preserving existing ones.
+        r"plan-revision: [^.]* -> ",
+        r"plan-approved-at:[^.]*iso 8601[^.]*plan-reason:",
+        r"per document[^.]*per version[^.]*repeat[^.]*preserve[^.]*trailers",
     )),
-    "PLAN_AMEND_EVIDENCE": ("references/verification.md", (
-        r"rewrite.*new head.*approved.*plan.*sha mapping",
-        r"descendant.*content.*task boundaries.*remaining.*state",
-        r"sha change alone.*not.*invalidate",
-        r"cannot.*link.*affected.*repeat.*checks",
+    "PLAN_REVISION_EVIDENCE": ("references/verification.md", (
+        # R-10: hash equality or classified own-progress-only diff; clear pending state.
+        r"committed[^.]*blob[^.]*latest approved[^.]*content hash",
+        r"no[^.]*progress records[^.]*hash[^.]*equal",
+        r"otherwise the diff from the approved copy must contain only classified progress records belonging to that commit's task",
+        r"status[^.]*committed[^.]*no pending revision",
+        r"commit sha[^.]*record only[^.]*not[^.]*document",
+        # R-12: retain commit links, rerun affected checks and refresh stale evidence.
+        r"existing commit[^.]*evidence links[^.]*remain valid",
+        r"contract revision[^.]*affected[^.]*checks[^.]*rechecks[^.]*rerun[^.]*revised version",
+        r"stale[^.]*plan-file[^.]*refresh",
     )),
     "PLANNER_COMPLETE_BRIEF": ("references/planning.md", (
         r"original user requirements.*criteria ids.*approved decisions.*open decisions",
@@ -327,7 +355,8 @@ class PolicyContractTests(unittest.TestCase):
     def test_contract_mutations_reject_removed_holds_and_role_guards(self) -> None:
         # A missing hold, completion step or role boundary is a contract regression.
         for contract in ("SCOPED_AUTHORIZATION", "AUTHORIZATION_HOLDS", "COMPLETION_CONTINUITY",
-                         "PROBE_SCOPE", "AUTHORIZATION_REUSE", "ROLE_LOCAL", "NATIVE_ADAPTERS"):
+                         "PROBE_SCOPE", "AUTHORIZATION_REUSE", "ROLE_LOCAL", "NATIVE_ADAPTERS",
+                         "PLAN_UPDATE_CLASSIFICATION", "PLAN_REVISION_COMMIT", "PLAN_REVISION_EVIDENCE"):
             for path, patterns in POLICY_CONTRACTS[contract].values():
                 fixture = " ".join(self.texts[path].lower().replace("**", "").split())
                 for pattern in patterns:
