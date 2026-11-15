@@ -7,6 +7,113 @@ const fixture = name => fs.readFileSync(new URL(`./fixtures/watch/${name}.jsonl`
 const event = (type, rest={}) => normalize({type:'event_msg',payload:{type,...rest}});
 const item = (type, rest={}) => event('item_completed',{item:{type,...rest}});
 const safe = result => assert.doesNotMatch(JSON.stringify(result), /WATCH_MARKER_\w+/);
+const H = '/h/.codex';
+const cfg = {codexHome:H,userHome:'/h'};
+const codexState = () => {
+ assert.equal(typeof codex.createCodexState,'function');
+ return codex.createCodexState();
+};
+const readLine = (parsed_cmd=[{type:'read',path:H+'/skills/arc/SKILL.md'}], rest={}) => ({
+ type:'event_msg',payload:{type:'item_completed',item:{type:'CommandExecution',command:['cat','SKILL.md'],parsed_cmd,...rest}},
+});
+
+test('skill-only read emits SKILL then a skillOnly command', () => {
+ const st=codexState();
+ assert.deepEqual(normalize(readLine(undefined,{exit_code:0}),st,cfg),[
+  {kind:'tool',tool:'read',skill:'arc'}, {kind:'command',text:'cat SKILL.md',exitCode:0,skillOnly:true},
+ ]);
+ assert.deepEqual(normalize(readLine([{type:'read',path:H+'/skills/other/SKILL.md'}]),st,cfg),[
+  {kind:'tool',tool:'read',skill:'other'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+});
+test('.system skill name', () => {
+ assert.deepEqual(normalize(readLine([{type:'read',path:H+'/skills/.system/openai-docs/SKILL.md'}]),codexState(),cfg),[
+  {kind:'tool',tool:'read',skill:'openai-docs'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+});
+test('plugin cache skill', () => {
+ assert.deepEqual(normalize(readLine([{type:'read',path:H+'/plugins/cache/m/p/v1/s/SKILL.md'}]),codexState(),cfg),[
+  {kind:'tool',tool:'read',skill:'p:s',plugin:'p@m'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+ assert.deepEqual(normalize(readLine([{type:'read',path:H+'/plugins/cache/m/SKILL.md'}]),codexState(),cfg),[
+  {kind:'tool',tool:'read',skill:'m'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+});
+test('repository SKILL.md and search are not skills', () => {
+ const st=codexState();
+ for (const parsed of [
+  [{type:'read',path:'/repo/claude/skill/SKILL.md'}],
+  [{type:'search',path:H+'/skills/arc/SKILL.md'}],
+  [{type:'read',path:H+'/skills-extra/arc/SKILL.md'}],
+  [{type:'read',path:H+'/skills/arc/README.md'}],
+  [{type:'read',path:42}], [], undefined,
+ ]) assert.deepEqual(normalize(readLine(parsed ?? [],{}),st,cfg),[{kind:'command',text:'cat SKILL.md'}]);
+});
+test('failed read emits only the command', () => {
+ const st=codexState();
+ assert.deepEqual(normalize(readLine(undefined,{exit_code:1}),st,cfg),[{kind:'command',text:'cat SKILL.md',exitCode:1}]);
+ assert.deepEqual(normalize(readLine(undefined,{exit_code:0}),st,cfg),[
+  {kind:'tool',tool:'read',skill:'arc'}, {kind:'command',text:'cat SKILL.md',exitCode:0,skillOnly:true},
+ ]);
+});
+test('mixed read keeps the command', () => {
+ assert.deepEqual(normalize(readLine([{type:'read',path:H+'/skills/arc/SKILL.md'},{type:'unknown'}]),codexState(),cfg),[
+  {kind:'tool',tool:'read',skill:'arc'}, {kind:'command',text:'cat SKILL.md'},
+ ]);
+});
+test('same skill in one turn is announced once', () => {
+ const st=codexState(), row=readLine();
+ const first=[{kind:'tool',tool:'read',skill:'arc'},{kind:'command',text:'cat SKILL.md',skillOnly:true}];
+ assert.deepEqual(normalize(row,st,cfg),first);
+ assert.deepEqual(normalize(row,st,cfg),[{kind:'command',text:'cat SKILL.md',skillOnly:true}]);
+ assert.deepEqual(normalize({type:'event_msg',payload:{type:'task_started'}},st,cfg),[{kind:'turn_start'}]);
+ assert.deepEqual(normalize(row,st,cfg),first);
+ for (let i=0;i<512;i++) normalize(readLine([{type:'read',path:H+`/skills/s${i}/SKILL.md`}]),st,cfg);
+ assert.equal(st.announced.size,512);
+ assert.deepEqual(normalize(row,st,cfg),first);
+});
+test('relative path resolves against item.cwd', () => {
+ const st=codexState();
+ const relative=readLine([{type:'read',path:'SKILL.md'}]);
+ assert.deepEqual(normalize(relative,st,cfg),[{kind:'command',text:'cat SKILL.md'}]);
+ st.cwd=H+'/skills/fallback';
+ assert.deepEqual(normalize(readLine([{type:'read',path:'./SKILL.md'}],{cwd:H+'/skills/arc'}),st,cfg),[
+  {kind:'tool',tool:'read',skill:'arc'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+ assert.deepEqual(normalize(relative,st,cfg),[
+  {kind:'tool',tool:'read',skill:'fallback'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+ assert.equal(st.cwd,H+'/skills/fallback');
+});
+test('host_skills roots extend skill roots', () => {
+ const st=codexState();
+ const world = body => ({type:'world_state',payload:{state:{host_skills:{body}}}});
+ assert.deepEqual(normalize(world('r1 = ~/x/skills\n`r2` = `/opt/skills`\nunknown format\nr3 = relative/path'),st,cfg),[]);
+ assert.deepEqual(normalize(readLine([{type:'read',path:'/h/x/skills/foo/SKILL.md'},{type:'read',path:'/opt/skills/bar/SKILL.md'}]),st,cfg),[
+  {kind:'tool',tool:'read',skill:'foo'}, {kind:'tool',tool:'read',skill:'bar'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+ assert.deepEqual(normalize(world('unknown format'),st,cfg),[]);
+ assert.deepEqual(normalize(readLine([{type:'read',path:'/h/x/skills/new/SKILL.md'}]),st,cfg),[{kind:'command',text:'cat SKILL.md'}]);
+ const noHome=codexState();
+ normalize(world('r1 = ~/x/skills\nr2 = ~'),noHome,{codexHome:H});
+ assert.deepEqual(noHome.hostRoots,[]);
+ normalize(world(Array.from({length:513},(_,i)=>`r${i} = /roots/${i}`).join('\n')),st,cfg);
+ assert.equal(st.hostRoots.length,512);
+ assert.deepEqual(normalize(readLine([{type:'read',path:'/roots/511/last/SKILL.md'}]),st,{}),[
+  {kind:'tool',tool:'read',skill:'last'}, {kind:'command',text:'cat SKILL.md',skillOnly:true},
+ ]);
+ assert.deepEqual(normalize(readLine([{type:'read',path:'/roots/512/overflow/SKILL.md'}]),st,{}),[{kind:'command',text:'cat SKILL.md'}]);
+});
+test('McpToolCall pluginId becomes plugin', () => {
+ const row={type:'event_msg',payload:{type:'item_completed',item:{type:'McpToolCall',server:'cua',tool:'repl',pluginId:'unified-computer-use@openai-bundled'}}};
+ assert.deepEqual(normalize(row),[{kind:'tool',tool:'cua.repl',plugin:'unified-computer-use@openai-bundled'}]);
+ assert.deepEqual(normalize(row,codexState(),cfg),[{kind:'tool',tool:'cua.repl',plugin:'unified-computer-use@openai-bundled'}]);
+});
+test('single-argument call is unchanged', () => {
+ const row=readLine();
+ assert.deepEqual(normalize(row),[{kind:'command',text:'cat SKILL.md'}]);
+ for (const state of [undefined,null,0,'bad',[]]) assert.deepEqual(normalize(row,state,cfg),[{kind:'command',text:'cat SKILL.md'}]);
+});
 
 test('codexLineCwd reads only session_meta, turn_context and thread_settings_applied', () => {
  assert.equal(typeof codex.codexLineCwd,'function');

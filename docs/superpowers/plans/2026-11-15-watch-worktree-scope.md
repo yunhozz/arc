@@ -291,7 +291,7 @@
     2. 그 뒤 command를 낸다. `parsed_cmd`가 비어 있지 않고 전부 skill read면 `skillOnly:true`를 단다.
 - **`McpToolCall`:** `item.pluginId`가 문자열이면 `plugin:item.pluginId`를 더한다. `state`와 무관하게 적용한다.
 
-- [ ] **Step 1: 실패 테스트 작성** (`watch-normalize-codex.test.mjs`. `H='/h/.codex'`, `st=createCodexState()`, `cfg={codexHome:H,userHome:'/h'}`)
+- [x] **Step 1: 실패 테스트 작성** (`watch-normalize-codex.test.mjs`. `H='/h/.codex'`, `st=createCodexState()`, `cfg={codexHome:H,userHome:'/h'}`)
   - `skill-only read emits SKILL then a skillOnly command`: `parsed_cmd:[{type:'read',path:H+'/skills/arc/SKILL.md'}]`, `exit_code:0` → `[{kind:'tool',tool:'read',skill:'arc'}, {kind:'command',…,skillOnly:true}]`
   - `.system skill name`: `H+'/skills/.system/openai-docs/SKILL.md'` → `skill:'openai-docs'`
   - `plugin cache skill`: `H+'/plugins/cache/m/p/v1/s/SKILL.md'` → `skill:'p:s'`, `plugin:'p@m'`
@@ -307,12 +307,12 @@
     - 알아보지 못한 body는 무시한다.
   - `McpToolCall pluginId becomes plugin`: `{type:'McpToolCall',server:'cua',tool:'repl',pluginId:'unified-computer-use@openai-bundled'}` → `{kind:'tool',tool:'cua.repl',plugin:'unified-computer-use@openai-bundled'}`
   - `single-argument call is unchanged`: 위 skill read 줄을 `normalizeCodexLine(obj)`로 부르면 `[{kind:'command',…}]`만 나오고 `skillOnly`가 없다.
-- [ ] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 tests/node/watch-normalize-codex.test.mjs` → FAIL
-- [ ] **Step 3: 구현.** 위 규칙대로 구현한다.
-- [ ] **Step 4: 통과 확인.** 기존 `:57`, `:64`를 포함해 PASS
-- [ ] **Step 5: manifest 재생성과 check:manifest PASS**
-- [ ] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
-- [ ] **Step 7: 커밋.** `feat(watch): Codex skill read와 plugin 도구 판정 추가`
+- [x] **Step 2: 실패 확인.** Run: `node --test --test-timeout=120000 tests/node/watch-normalize-codex.test.mjs` → FAIL
+- [x] **Step 3: 구현.** 위 규칙대로 구현한다.
+- [x] **Step 4: 통과 확인.** 기존 `:57`, `:64`를 포함해 PASS
+- [x] **Step 5: manifest 재생성과 check:manifest PASS**
+- [x] **Step 6: 회귀.** `node --test --test-timeout=120000 tests/node/watch-*.test.mjs` PASS
+- [x] **Step 7: 커밋.** `feat(watch): Codex skill read와 plugin 도구 판정 추가`
 
 **수용 기준:** AC-W42의 정규화 부분과 AC-W43의 Codex 부분을 만족한다.
 
@@ -321,6 +321,11 @@
 **위험:**
 - R17: plugin cache 하위 구조와 `host_skills.body` 형식이 확인되지 않았다. 형식이 다르면 plugin 없는 SKILL이나 CMD로 표시된다.
 - R18: skill root 안에서 개발하며 읽은 것도 사용으로 보인다.
+
+**진행 기록 (2026-11-15):**
+- 수용됨. Implementer: bridge dispatch `ead7f715`.
+- RED는 18 pass / 10 fail, GREEN은 28/28.
+- Orchestrator 재확인: `watch-*` 302/303(기준선 help 실패 1건), check:manifest 통과, 전체 테스트 실패 목록이 기준선과 같음.
 
 ---
 
