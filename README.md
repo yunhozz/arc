@@ -19,6 +19,8 @@ ARC coordinates work in Codex and Claude Code through scoped roles, clear handof
 
 **Requirements:** Node.js 22+, npm, Git, and network access. Supported platforms: macOS 13+ and Linux with glibc 2.28+ (arm64 or x64). Windows and musl Linux are not supported. Python, a compiler, and `node-gyp` are not required.
 
+Platform homes and their parent directories must not be symbolic links; ARC refuses to install, publish or take routing locks through them.
+
 ```sh
 npm install --global @yunhozz/arc
 arc

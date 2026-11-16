@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import {createTestRuntimeRegistry} from './fixtures/platforms/zeta.mjs';
 import {createRoutingFixture, installFakeCli} from './role-fixtures.mjs';
@@ -20,7 +21,7 @@ const codes = result => result.reasons.map(entry => entry.code);
 const assignment = {role: 'arc_planner', taskId: 'T11', requestId: 'anchor-1'};
 
 async function fixture(t) {
-  const base = await fs.mkdtemp('/private/tmp/arc-anchor-');
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'arc-anchor-'));
   const root = await fs.realpath(base);
   t.after(() => fs.rm(root, {recursive: true, force: true}));
   const userHome = path.join(root, 'home'), cwd = path.join(root, 'repo'), bin = path.join(root, 'bin');
@@ -254,4 +255,40 @@ test('F5 matchRegisteredHome exact match only', () => {
     ['/tmp/arc-t2/.claude-other', null],
     ['/tmp/arc-t2/.zeta', 'zeta']
   ]) assert.equal(routing.matchRegisteredHome({dir, homes}), expected, dir);
+});
+
+test('F6 symlinked home ancestor rejects runtime lock without changes', async t => {
+  const f = await fixture(t), root = path.dirname(f.context.userHome);
+  const linkParent = path.join(root, 'linkParent');
+  await fs.symlink(f.context.userHome, linkParent);
+  const home = path.join(linkParent, '.claude');
+  const context = {...f.context, env: {...f.context.env, CLAUDE_CONFIG_DIR: home}};
+  const hostMarker = markerPath(f.homes.zeta), marker = JSON.parse(await fs.readFile(hostMarker));
+  await fs.writeFile(hostMarker, JSON.stringify({...marker, activeConfigPath: activePath(home)}));
+  async function snapshot() {
+    const entries = {};
+    async function visit(relative) {
+      const filename = path.join(root, relative), stat = await fs.lstat(filename);
+      if (stat.isSymbolicLink()) entries[relative] = ['link', await fs.readlink(filename)];
+      else if (stat.isDirectory()) {
+        entries[relative] = ['directory'];
+        for (const name of (await fs.readdir(filename)).sort()) await visit(path.join(relative, name));
+      } else entries[relative] = ['file', (await fs.readFile(filename)).toString('hex')];
+    }
+    await visit(''); return entries;
+  }
+  const before = await snapshot(), writes = [], open = fs.open;
+  t.mock.method(fs, 'open', async (filename, flags, ...args) => {
+    if (typeof flags === 'string' && /[wa+]/.test(flags)) writes.push(filename);
+    return open(filename, flags, ...args);
+  });
+  await assert.rejects(routing.acquireRoleRoutingLock(home), {message: 'Unsafe symlink path'});
+  const result = await routing.routingStatus({context, policy});
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['activation_unverified']);
+  assert.deepEqual(writes, []);
+  for (const realHome of Object.values(f.homes)) {
+    await assert.rejects(fs.lstat(path.join(realHome, 'arc-role-platform-routing.lock')), {code: 'ENOENT'});
+  }
+  assert.deepEqual(await snapshot(), before);
 });

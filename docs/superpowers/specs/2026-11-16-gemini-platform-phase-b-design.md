@@ -22,6 +22,7 @@
 | 7 | 위험: 권한 의미 차이(Gemini `--allowed-tools`가 확인을 우회함), 새 home sandbox 쓰기 미검증 | 10, 11 |
 | 8 | 후속 과제 F4–F6을 Phase B 계획의 첫 작업으로 | 2(G1), 12 |
 | 9 | 열린 질문 Q1–Q8 확정 | 18 |
+| 11 | F6은 현행 정책 유지(symlink home 미지원)와 판정 일치 테스트·문서화로 처리(2026-11-16, 개정 v2) | 12, 13 |
 | 10 | anchor 순서를 표시 순서와 맞춤(claude > codex > gemini > grok). 기존 Codex+Claude composite는 anchor를 Claude home으로 옮기는 마이그레이션을 거치고, watch는 anchor를 찾도록 바꿈(Q2 변경) | 4.1, 6.2, 6.7, 7.1, 7.3, 18 |
 
 ## 1. 의도
@@ -521,7 +522,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 |---|---|---|---|
 | F4 | `status`/`upgrade`가 composite면 S 참여 여부와 무관하게 모든 home의 standalone 검사·갱신을 건너뜀. `lib/installer/upgrade.mjs`가 registry를 전달하지 않음 | S={codex,claude}이고 Gemini standalone이 있거나, S={claude,gemini}이고 Codex standalone이 있으면 S 밖 standalone이 갱신·보고되지 않음 | composite에서는 S의 home만 composite 경로로 처리하고, S 밖 home은 standalone 규칙(Phase A 6.4.7)으로 검사·갱신. upgrade 경로 전체에 context registry 전달 |
 | F5 | runtime `locateAnchorHome`(`lib/runtime/role-routing.mjs`)이 marker의 `activeConfigPath` 디렉터리를 검증 전에 lock 생성과 terminal lease 정리에 씀 | 새 home(`~/.gemini`)의 marker 하나가 임의 디렉터리에 lock 파일 생성과 lease 삭제를 유발할 수 있어 신뢰 경계가 넓어짐 | lock 생성 전에 후보 디렉터리가 등록 플랫폼의 해석된 home 중 하나와 정확히 같은지 확인. terminal lease 정리는 lock 안의 전체 검증(Phase A 6.9.4) 통과 뒤에만 수행. 실패는 파일 생성 없이 `activation_unverified` |
-| F6 | `prepareLockHome`(`lib/installer/role-routing.mjs`)이 경로의 symlink 구성요소를 모두 거부 | dotfile 관리로 `~/.gemini` 등을 symlink로 두는 환경에서 composite publish가 실패. runtime 쪽 규칙과 불일치 가능 | home 경로 자체(조상 포함)는 runtime과 같은 해석 규칙으로 허용. home **아래** 구성요소와 lock 파일은 symlink 거부 유지. 설치기와 runtime이 같은 판정을 쓰는지 테스트로 고정 |
+| F6 | `prepareLockHome`(`lib/installer/role-routing.mjs`)이 경로의 symlink 구성요소를 모두 거부 | dotfile 관리로 `~/.gemini`나 `~/.claude`를 symlink로 두면 설치와 composite publish가 거부됨. 조사 결과 설치기(`lib/installer/targets.mjs` `inspectPath`)와 runtime(`lib/runtime/scope.mjs` `inspectPath`, lock 획득, 파일 검증)도 모두 symlink 조상을 거부하므로 두 판정은 이미 같음(개정 v2) | **현행 정책 유지**(결정 11): symlink home은 지원하지 않습니다. 설치기 `prepareLockHome`과 runtime lock이 같은 판정(symlink 조상 거부, 파일 무변경)을 낸다는 테스트로 고정하고, README와 harness 문서에 '플랫폼 home과 그 조상은 symlink일 수 없다'를 적습니다 |
 
 - **의존 관계:** F4–F6 수정은 Gemini descriptor 등록 작업의 선행 작업입니다. 주입 레지스트리(zeta)로 RED → GREEN을 확인합니다.
 - **테스트 전용 후속 과제(Q1 확정):** F7a(host marker 재확인 테스트의 lstat 호출 횟수 의존 제거)와 F1 비anchor 참여 플랫폼(zeta) switch 테스트를 테스트 전용 작업 하나로 포함합니다. Gemini가 비anchor 참여 플랫폼이 되므로 F1 경로가 운영 경로가 됩니다.
@@ -532,7 +533,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 |---|---|---|
 | AC-F4 | composite 중 S 밖 home의 standalone이 status에 보고되고 upgrade에서 갱신된다. S home은 composite 규칙대로 처리된다. upgrade가 context registry를 쓴다 | integration(zeta 주입, 운영 codex+claude 무변경) |
 | AC-F5 | 등록 home이 아닌 `activeConfigPath`를 가리키는 marker로 runtime 명령을 실행하면 lock·파일 생성과 lease 삭제가 0건이고 결과는 `activation_unverified`다 | unit/integration `role-routing-anchor` |
-| AC-F6 | home 조상이 symlink인 환경에서 publish와 runtime lock이 성공한다. home 아래 symlink 구성요소와 lock symlink는 거부된다. 설치기와 runtime 판정이 같다 | integration(임시 symlink home) |
+| AC-F6 | home(또는 조상)이 symlink인 환경에서 설치기 anchor 이동 publish(`prepareLockHome` 경로)와 runtime lock 획득이 모두 거부되고 파일이 바뀌지 않는다. 같은 경로 조합에서 두 판정이 일치한다. README와 harness 문서에 제한이 적혀 있다 | integration(임시 symlink home), 문서 grep |
 | AC-F7 | F7a 테스트가 lstat 호출 횟수에 의존하지 않고 같은 동작을 검증한다. 비anchor 참여 플랫폼 switch가 테스트로 고정된다 | 테스트 전용 |
 | AC-G1 | 운영 레지스트리 id·순서가 anchor와 display 모두 `claude, codex, gemini`이고 두 레지스트리가 일치한다(AC-P1 확장). 금지 패턴 검사가 통과한다 | `platform-registry` |
 | AC-A1 | Codex home의 v1 설정 + 정상 marker·프로필은 `legacyAnchor:true`인 composite로 판정된다. Codex home의 v2 설정, 양쪽 home의 설정, marker 불일치는 `unverified`다. legacy가 아닌 반환값에는 `legacyAnchor` 필드가 없다 | unit `install-mode-*` |
@@ -579,7 +580,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
   - 운영 코드는 fixture를 import하지 않습니다(asset check).
 - **주로 바뀌는 코드**
   - runtime: `lib/runtime/platform-registry.mjs`, `role-bridge-args.mjs`, `role-supervisor.mjs`, `role-observe.mjs`, `role-bridge.mjs`(`leaseTargetPlatform`), `role-dispatch-store.mjs`(v2), `role-routing.mjs`(F5, capability hold, lease 기록), `role-dispatch-policy.mjs`(GG1/GG2, reason code, 문구), `local-cli.mjs`
-  - 설치기: `lib/platforms/{gemini,index}.mjs`, `lib/platforms/formats/*`, `lib/installer/role-routing.mjs`(F6), `lib/installer/upgrade.mjs`(F4), `lib/management/{status,operations}.mjs`
+  - 설치기: `lib/platforms/{gemini,index}.mjs`, `lib/platforms/formats/*`, `lib/installer/upgrade.mjs`(F4), `lib/management/{status,operations}.mjs`
   - 마이그레이션·watch: `lib/installer/install-mode.mjs`(또는 `readInstallMode` 소재 모듈, legacy 판정), `lib/installer/role-routing.mjs`(anchor 이동 트리거), `lib/management/operations.mjs`(`anchorMove`), `lib/watch/index.mjs`, `lib/watch/dispatch.mjs`
   - 기타: `lib/models/gemini-models.json`, `lib/tui/*`(상태줄·경고 표시, legacy 미리보기 줄), `lib/policy/role-policy.json`(Q4)
   - payload와 문서: `gemini/**`, `codex|claude/skill/references/coordination.md`(Q3)
@@ -694,3 +695,10 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 - fake gemini helper 구현
 - 진단·info 전문 문구(6.3 예시 수준 유지)
 - live 전용 테스트를 환경변수로 켤지 여부
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-16 (anchor 순서 변경 반영본 승인) | 초기 승인 | — | — |
+| v2 | 2026-11-16T00:42:34Z | 범위·수용 기준 변경 | T3, T8, T14 | F6 전제(설치기만 symlink 거부) 오류. 사용자 결정 11: 현행 정책 유지 + 판정 일치 테스트·문서화 |

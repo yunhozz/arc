@@ -512,6 +512,119 @@ async function prepareSetChange(ctx, platforms, revision, options = {}) {
   }, 'a verified previous composite must permit changing S and anchor');
   return prepared;
 }
+
+async function f6MoveFixture(t) {
+  const context = await zetaContext(t);
+  await installAll(context, ['codex', 'claude', 'zeta']);
+  await managementPublish(context);
+  const prepared = await prepareSetChange(context, ['claude', 'zeta'], 'f6-move');
+  assert.equal(prepared.files.previous.anchor, 'codex');
+  assert.equal(prepared.files.anchor, 'claude');
+  return {context, prepared};
+}
+
+test('F6 symlinked home ancestor rejects anchor-move publish without changes', async t => {
+  const {context, prepared} = await f6MoveFixture(t);
+  const linkParent = context.userHome, realParent = `${linkParent}-real`;
+  t.after(() => fs.rmSync(realParent, {recursive: true, force: true}));
+  fs.renameSync(linkParent, realParent);
+  fs.symlinkSync(realParent, linkParent);
+  const snapshot = () => ({link: fs.readlinkSync(linkParent), files: homeBytes(realParent)});
+  const before = snapshot();
+  // Management may refuse at its installation-state inspection before publication.
+  await assert.rejects(management.prepareCompositeOperation(context, {
+    kind: 'install', platforms: ['claude', 'zeta'], config: await setChangeConfig(context, 'f6-move')
+  }), {message: `Symlink destination is unsafe: ${linkParent}`});
+  assert.deepEqual(snapshot(), before);
+  // Also exercise prepareLockHome with an already-prepared anchor move.
+  await assert.rejects(publishCompositeFiles({context, prepared: prepared.files}), {
+    message: `Expected destination directory: ${linkParent}`
+  });
+  assert.deepEqual(snapshot(), before);
+  // Restore only the parent layout; homes and marker path strings stay identical.
+  fs.unlinkSync(linkParent);
+  fs.renameSync(realParent, linkParent);
+  let control;
+  await assert.doesNotReject(async () => {
+    control = await management.prepareCompositeOperation(context, {
+      kind: 'install', platforms: ['claude', 'zeta'], config: await setChangeConfig(context, 'f6-move')
+    });
+  });
+  const result = await management.executeCompositeOperation(context, control);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.equal(state(context).anchor, 'claude');
+});
+
+test('F6 installer and runtime verdicts agree', async t => {
+  const cases = [
+    {name: 'ancestor symlink', allowed: false},
+    {name: 'home symlink', allowed: false},
+    {name: 'dispatch directory symlink', allowed: true},
+    {name: 'lock file symlink', allowed: false},
+    {name: 'normal', allowed: true}
+  ];
+  for (const entry of cases) {
+    await t.test(entry.name, async t => {
+      const {context, prepared} = await f6MoveFixture(t);
+      const realHome = prepared.files.targets.claude.home;
+      let home = realHome;
+      if (entry.name === 'ancestor symlink') {
+        const linkParent = path.join(context.userHome, 'linkParent');
+        fs.symlinkSync(context.userHome, linkParent);
+        home = path.join(linkParent, '.claude');
+      } else if (entry.name === 'home symlink') {
+        home = path.join(context.userHome, 'linkHome');
+        fs.symlinkSync(realHome, home);
+      } else if (entry.name === 'dispatch directory symlink') {
+        const directory = path.join(context.userHome, 'real-dispatch');
+        fs.mkdirSync(directory);
+        fs.writeFileSync(path.join(directory, 'sentinel'), 'preserve dispatch target');
+        fs.symlinkSync(directory, path.join(home, 'arc-role-dispatch'));
+      } else if (entry.name === 'lock file symlink') {
+        const filename = path.join(context.userHome, 'real-lock');
+        fs.writeFileSync(filename, 'preserve lock target');
+        fs.symlinkSync(filename, path.join(home, 'arc-role-platform-routing.lock'));
+      }
+      const target = {...prepared.files.targets.claude, home};
+      prepared.files = {...prepared.files, target, targets: {...prepared.files.targets, claude: target}};
+      const before = homeBytes(context.userHome);
+      let release, runtimeError;
+      try {
+        release = await acquireRoleRoutingLock(home);
+      } catch (error) { runtimeError = error; }
+      const runtimeAllowed = typeof release === 'function';
+      if (release) assert.equal(await release(), true);
+      assert.equal(runtimeAllowed, entry.allowed, runtimeError?.stack);
+      assert.deepEqual(homeBytes(context.userHome), before);
+      let installerAllowed = false, installerError;
+      try {
+        const result = await publishCompositeFiles({context, prepared: prepared.files});
+        installerAllowed = result.published;
+      } catch (error) { installerError = error; }
+      assert.equal(installerAllowed, entry.allowed, installerError?.stack);
+      assert.equal(installerAllowed, runtimeAllowed);
+      if (!entry.allowed) {
+        assert.deepEqual(homeBytes(context.userHome), before);
+        if (entry.name === 'lock file symlink') {
+          assert.equal(runtimeError.code, 'EEXIST');
+          assert.equal(installerError.code, 'EEXIST');
+        } else {
+          assert.equal(runtimeError.message, 'Unsafe symlink path');
+          assert.match(installerError.message, /^Expected destination directory: /);
+        }
+      } else {
+        assert.equal(state(context).anchor, 'claude');
+        if (entry.name === 'dispatch directory symlink') {
+          assert.equal(fs.readlinkSync(path.join(home, 'arc-role-dispatch')), path.join(context.userHome, 'real-dispatch'));
+          assert.deepEqual(homeBytes(path.join(context.userHome, 'real-dispatch')), {
+            '': ['directory'], sentinel: ['file', Buffer.from('preserve dispatch target').toString('hex')]
+          });
+        }
+      }
+      t.diagnostic(`installer=${installerAllowed ? 'allow' : 'reject'}, runtime=${runtimeAllowed ? 'allow' : 'reject'}`);
+    });
+  }
+});
 const routingNames = home => fs.readdirSync(path.join(home, 'agents')).filter(name => name.startsWith('arc-routing-'));
 const markerName = home => path.join(home, 'arc-role-platform-routing.prepared.json');
 const routingLock = home => path.join(home, 'arc-role-platform-routing.lock');

@@ -72,7 +72,7 @@ bridge Implementer는 live Gemini, 네트워크, 실제 home 설치를 실행하
 
 1. **`GEMINI_CLI_HOME`이 설정된 사용자.** Gemini home 해석은 실패해야 합니다. 그래도 Gemini가 S 밖이면 Codex/Claude의 Install / Update와 status가 막히지 않아야 합니다(Phase A 6.4.8). 테스트: T10 `gemini home env set does not block codex/claude install`
 2. **진행 중 dispatch가 있는 legacy 사용자가 업그레이드 후 Install / Update를 실행하는 경우.** 이동은 held여야 하고, 파일 무변경과 dispatch id 표시가 있어야 합니다. dispatch가 끝난 뒤 재실행하면 성공해야 합니다. 테스트: T7 `legacy migration held then succeeds after lease terminal`
-3. **dotfile 관리로 `~/.gemini`나 `~/.claude`가 symlink인 환경.** publish와 runtime lock 판정이 같아야 합니다. 테스트: T3(AC-F6). 결정 10 이후 기본 anchor가 Claude home이므로 T8에 `symlinked claude home ancestor publishes after flip` 1건을 둡니다.
+3. **dotfile 관리로 `~/.gemini`나 `~/.claude`가 symlink인 환경.** symlink home은 지원하지 않습니다(spec 결정 11). 설치기와 runtime이 똑같이 거부하고 파일을 바꾸지 않아야 합니다. 테스트: T3(AC-F6). 결정 10 이후 기본 anchor가 Claude home이므로 T8에 `symlinked claude home ancestor is rejected after flip without file changes` 1건을 둡니다.
 4. **rollback 잔여물로 marker 후보가 2개 이상 남은 상태에서 watch를 띄우는 경우.** `dispatch store ambiguous`만 표시하고 store는 읽지 않아야 합니다. 테스트: T6
 5. **Gemini CLI가 range 밖(예: 0.69.0)이거나 capability off인데 이전 설치 흔적이 있는 경우.** 상태줄은 `Gemini: Not verified`이고(install off가 우선), Uninstall은 허용되어야 합니다(P-B3). 테스트: T9, T11
 
@@ -99,7 +99,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 |---|---|---|
 | T1 | F4 S 밖 standalone status/upgrade | — |
 | T2 | F5 runtime anchor 신뢰 경계 | — |
-| T3 | F6 lock home symlink 판정 통일 | T2 |
+| T3 | F6 symlink home 판정 일치 테스트와 문서화 | T2 |
 | T4 | F7a + F1 비anchor switch 테스트(테스트 전용) | T1, T2, T3 |
 | T5 | lease v2, capability hold, runtime 문구 일반화 | T2, T4 |
 | T6 | watch anchor 탐색 | T2 |
@@ -117,7 +117,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 **공유 계약과 직렬화 근거**
 
 - 모든 코드 작업이 `MANIFEST.sha256`을 바꿉니다.
-- `lib/runtime/**`를 바꾸는 작업(T2, T3, T5, T8, T9, T10, T12, L5–L7)은 다음 세 가지도 함께 바꿉니다.
+- `lib/runtime/**`를 바꾸는 작업(T2, T5, T8, T9, T10, T12, L5–L7)은 다음 세 가지도 함께 바꿉니다.
   - `shared/skill/runtime/*`
   - `installed-layout-golden.json`
   - `tests/node/runtime-versions.test.mjs` baseline
@@ -128,8 +128,8 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - T6 ↔ T7
   - T11 ↔ T12
 - 같은 파일을 고치는 작업 쌍과 직렬 근거:
-  - `lib/runtime/role-routing.mjs`: T2 → T3 → T5 → T8. F5 검사 함수를 T3, T5가 재사용합니다.
-  - `lib/installer/role-routing.mjs`: T3 → T7 → T8 → T13
+  - `lib/runtime/role-routing.mjs`: T2 → T5 → T8. F5 검사 함수를 T5, T6이 재사용합니다.
+  - `lib/installer/role-routing.mjs`: T7 → T8 → T13
   - `tests/node/install-mode-n-platform.test.mjs`: T1 → T4 → T7 → T8 → T13
   - `tests/node/role-routing-anchor.test.mjs`: T2 → T3 → T4 → T5 → T8
   - `lib/runtime/platform-registry.mjs`: T8 → T9 → T10 → L*
@@ -163,8 +163,8 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 
 **필수 QA(수용 전 fresh QA, Codex bridge)**
 
-- 대상(고위험: runtime/bridge/권한/마이그레이션/composite/upgrade): T1, T2, T3, T5, T7, T8, T9, T10, T12, T13, L5, L6, L7
-- 나머지 T4, T6, T11, T14, L1–L4는 Orchestrator가 focused check와 STD-CLOSE 증거로 확인합니다.
+- 대상(고위험: runtime/bridge/권한/마이그레이션/composite/upgrade): T1, T2, T5, T7, T8, T9, T10, T12, T13, L5, L6, L7
+- 나머지 T3(개정 v2), T4, T6, T11, T14, L1–L4는 Orchestrator가 focused check와 STD-CLOSE 증거로 확인합니다.
 - Reviewer는 작업마다 두지 않습니다. FR에서 전체 변경을 1회 검토합니다.
 
 ---
@@ -216,7 +216,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 - Test: `tests/node/role-routing-anchor.test.mjs`(추가)
 
 **Interfaces:**
-- Produces: `export function matchRegisteredHome({dir, homes}) -> string|null`(`lib/runtime/role-routing.mjs`). `homes`는 `{[platformId]: resolvedHome}`이고, 정확히 같은 경로의 platform id를 돌려줍니다. 정규화는 `path.resolve` 뒤 문자열 비교입니다. T3, T6이 재사용합니다.
+- Produces: `export function matchRegisteredHome({dir, homes}) -> string|null`(`lib/runtime/role-routing.mjs`). `homes`는 `{[platformId]: resolvedHome}`이고, 정확히 같은 경로의 platform id를 돌려줍니다. 정규화는 `path.resolve` 뒤 문자열 비교입니다. T6이 재사용합니다.
 
 - [x] **Step 1: 실패 테스트 작성**
   - `F5 marker pointing outside registered homes creates no files`: 임시 디렉터리 X를 가리키는 marker로 routing-status/prepare를 호출하면 결과 `activation_unverified`이고, X 안 파일 수 0, 등록 home의 `.lock` 미생성입니다.
@@ -233,36 +233,28 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 
 ---
 
-### Task T3: F6 — lock home symlink 판정을 설치기와 runtime에서 통일
+### Task T3: F6 — symlink home 판정 일치 테스트와 문서화 (개정 v2)
 
 **AC:** AC-F6
 
-**목표:** home 경로 자체(조상 포함)의 symlink는 runtime과 같은 해석 규칙으로 허용합니다. home 아래 구성요소와 lock 파일의 symlink는 계속 거부합니다. 설치기와 runtime이 같은 함수를 씁니다.
+**목표:** ARC의 현행 정책(플랫폼 home과 그 조상에 symlink가 있으면 거부)을 유지합니다. 설치기의 anchor 이동 lock 준비(`prepareLockHome`)와 runtime lock 획득이 같은 경로 조합에서 같은 판정을 내고 파일을 바꾸지 않는다는 것을 테스트로 고정합니다. README와 harness 문서에 이 제한을 적습니다. 운영 코드는 바꾸지 않습니다.
 
 **Files:**
-- Modify:
-  - `lib/runtime/role-routing.mjs`(판정 함수 추가와 runtime lock 경로에서 사용)
-  - `lib/installer/role-routing.mjs:115-129`(`prepareLockHome`이 runtime 판정 함수 사용)
-- Test: `tests/node/role-routing-anchor.test.mjs`, `tests/node/install-mode-n-platform.test.mjs`(추가)
+- Modify(테스트): `tests/node/role-routing-anchor.test.mjs`, `tests/node/install-mode-n-platform.test.mjs`
+- Modify(문서): `README.md`, `docs/harness-operation.md`(영어 유지. 한 문장 수준)
+- 생성물: `MANIFEST.sha256`(문서가 manifest 대상이면)
 
-**Interfaces:**
-- Consumes: T2 `matchRegisteredHome`
-- Produces: `export function checkLockHomePath({home, lockPath, fsOps:{lstatSync, realpathSync}}) -> {ok:true} | {ok:false, reason:'symlink_below_home'|'lock_symlink'|'not_directory'}`(`lib/runtime/role-routing.mjs`, 순수 함수). 모듈을 분리하면 Global Constraints의 다섯 가지 갱신을 이 작업에 포함합니다.
+- [x] **Step 1: 테스트 작성**(임시 디렉터리에서 `linkParent -> realParent` symlink 구성)
+  - `F6 symlinked home ancestor rejects anchor-move publish without changes`: 조상이 symlink인 anchor home으로 이동이 일어나는 management composite publish가 거부되고(`Symlink destination is unsafe` 계열), 모든 home 스냅샷이 deepEqual입니다.
+  - `F6 symlinked home ancestor rejects runtime lock without changes`: 같은 환경에서 runtime 명령이 lock을 만들지 않고 hold/`activation_unverified`이며 파일이 바뀌지 않습니다.
+  - `F6 installer and runtime verdicts agree`: {조상 symlink, home 자체 symlink, `<home>/arc-role-dispatch` symlink, lock 파일 symlink, 정상} 조합 표에서 설치기 `prepareLockHome`(또는 이를 쓰는 publish)와 runtime `acquireRoleRoutingLock`의 성공·거부가 1:1로 일치합니다.
+- [x] **Step 2:** 테스트 실행. 현행 코드에서 통과해야 합니다(정책 고정 테스트). 통과하지 않는 조합이 있으면 운영 코드를 바꾸지 말고 멈추고 보고합니다.
+- [x] **Step 3:** README와 harness 문서에 "Platform homes and their parent directories must not be symbolic links; ARC refuses to install, publish or take routing locks through them." 수준의 문장을 추가합니다.
+- [x] **Step 4:** STD-CLOSE(3, 5–7, 9)
 
-- [ ] **Step 1: 실패 테스트 작성**(임시 디렉터리에서 `realHome`과 `linkParent -> realParent` symlink 구성)
-  - `F6 home ancestor symlink allows publish`: 조상이 symlink인 codex/claude home으로 management composite publish 결과 `activation:'activated'`
-  - `F6 home ancestor symlink allows runtime lock`: 같은 환경에서 routing-status가 `activation_unverified`가 아닙니다.
-  - `F6 symlink below home rejected`: `<home>/arc-role-dispatch`가 symlink이면 publish 거부, runtime 거부
-  - `F6 lock file symlink rejected`: `.lock`이 symlink이면 양쪽 거부
-  - `F6 installer and runtime verdicts agree`: 위 4개 경로 조합 표를 돌며 `checkLockHomePath` 결과와 `prepareLockHome` 성공·실패가 1:1로 일치합니다.
-- [ ] **Step 2:** `node --test tests/node/role-routing-anchor.test.mjs tests/node/install-mode-n-platform.test.mjs`. 기대: 위 5건 FAIL
-- [ ] **Step 3:** `checkLockHomePath` 구현. 조상은 `realpathSync`로 해석해 허용하고, home 아래 구성요소는 `lstatSync`로 symlink를 거부합니다. `prepareLockHome`은 결과가 `ok:false`이면 기존 오류 형식으로 throw합니다.
-- [ ] **Step 4:** Step 2 PASS
-- [ ] **Step 5:** STD-CLOSE(전부)
-
-**필수 검사:** T2와 같음
-**필수 QA:** 예
-**보류 조건:** home 아래 symlink 허용으로 바뀌는 경로가 하나라도 생기면 보류합니다(보안 회귀).
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`, parity
+**필수 QA:** 아니요(운영 코드 무변경, 정책 고정 테스트). Orchestrator가 테스트의 실효성을 확인합니다(symlink 검사를 임시로 끈 사본에서 실패하는지).
+**보류 조건:** 운영 코드 변경이 필요해 보이면 멈추고 보고합니다.
 
 ---
 
@@ -484,7 +476,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - `AC-A5 publish after migration is v2 and lock order claude then codex`: lock 획득 순서를 기록하는 safeFs 주입으로 `['claude','codex']`
   - `AC-L2 claude-anchored composite prepare/run/observe/resume/cancel match Phase A`: role-fixtures 기반으로 store 위치만 Claude home이고 결과 deepEqual
   - `AC-A2 operational legacy migration`: 운영 레지스트리 + Phase A 형식 fixture에 T7 A2 단언 재사용
-  - `symlinked claude home ancestor publishes after flip`(Review Focus 3)
+  - `symlinked claude home ancestor is rejected after flip without file changes`(Review Focus 3)
 - [ ] **Step 5:** `npm test`(Orchestrator)와 작업 테스트 PASS. 대응표의 모든 행이 PASS 테스트에 대응
 - [ ] **Step 6:** STD-CLOSE(전부, PTY 포함)
 
@@ -867,6 +859,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | 기준선 | 기록 | `739da7f` | `npm test` 기준 실패 36건(부록 B) |
 | 2026-11-16 | T1 | 수용 | (이 커밋) | Implementer bridge `77805bd2`(2 segment: RED 62/4 → GREEN 66/0, manifest 232·role-policy 24·parity 통과; sandbox `EMFILE` 1건은 호스트 미재현 → 환경). fresh QA bridge `d93b70d0`(3 segment; sandbox 제한으로 Orchestrator가 호스트에서 Q4 176건 175 pass/0 fail/1 skip, Q5 `7947cf8` 사본에서 신규 4건만 FAIL 실행 후 전달). QA: Q1·Q2·Q5 proven, Q3(pinned API 실행)·Q4(바이트 비교) unverified → Orchestrator 처분: Q3은 undefined 인자 무시와 `installerRegistryOf` 기본값으로 정적 수용, Q4는 status deepEqual·S target 쓰기 0건 단언과 기존 테스트로 수용. 전체 `npm test` 2224 tests / 36 fail = 기준과 동일 |
 | 2026-11-16 | T2 | 수용 | (이 커밋) | Implementer bridge `1b549570`(RED anchor 5/3 → GREEN 8/0, role-routing-* 64/0, runtime-versions 6/0). dispatch는 `permission_violation_observed`(`shared/skill/runtime/role-routing.mjs`)로 기록됨 — Orchestrator가 allowedPaths에 디렉터리를 넣은 지정 오류이며 파일은 생성 명령 산출물(원본과 `cmp` 동일, runtime-assets `--check` 33)로 정리. 호스트 실행: `b0daa39` 사본에서 F5 신규 3건만 FAIL, role-routing-*·role-bridge-* 141/0, `npm test` 2227 tests / 36 fail = 기준과 동일, check:role-policy 24, parity, golden `--diff` 무차이. fresh QA bridge `a64cacfe`: Q1–Q6 proven |
+| 2026-11-16 | T3 | 수용(개정 v2) | (이 커밋) | 첫 Implementer `9ee0127d`가 v1 전제 오류(설치기·runtime 모두 symlink 조상 거부)를 보고 → 사용자 결정 11로 spec/plan v2. fresh Implementer `c312e61e`(2 segment: 단언 단계 수정, 대조 케이스 추가): anchor 9/0, n-platform 53/0, manifest 232, parity. 조합 판정: 조상·home 자체·lock symlink 양쪽 거부, `arc-role-dispatch` symlink 양쪽 허용(일치, 후속 과제로 기록). Orchestrator 실효성 확인: `scope.mjs` symlink 검사 제거 사본에서 runtime F6 테스트 FAIL, `targets.mjs` symlink 검사 제거 사본에서 publish F6 테스트 FAIL. `npm test` 2235 tests / 36 fail = 기준과 동일. 사용자 커밋 `c4aecb3`(watch 스타일) 이후 watch-*·T3 테스트 419/0 재확인. 필수 QA 대상 아님(v2) |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 (T8 Step 1 산출물을 Orchestrator가 기록)
@@ -910,3 +903,10 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 34. `scripts-disabled packed install uses static references in custom CODEX_HOME without rewriting readonly package`
 35. `staging populates acquired nested 0555/0500 directories before restoring metadata`
 36. `uninstall failure, cleanup error or interruption skips CLI removal and retains partial harness results`
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-16 (계획 승인) | 초기 승인 | — | — |
+| v2 | 2026-11-16T00:42:34Z | 범위·수용 기준·검증 변경 | T3, T8, QA 대상 목록 | spec v2(결정 11): F6을 현행 정책 유지 + 판정 일치 테스트·문서화로 변경. T3는 테스트·문서만, 필수 QA 해제 |
