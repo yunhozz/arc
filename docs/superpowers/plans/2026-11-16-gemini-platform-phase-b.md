@@ -267,10 +267,10 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 **Files:**
 - Modify: `tests/node/role-routing-anchor.test.mjs`(F7a 해당 테스트. Implementer가 `lstat` 호출 횟수 카운터를 쓰는 테스트를 grep으로 특정), `tests/node/install-mode-n-platform.test.mjs`(F1 추가)
 
-- [ ] **Step 1:** F7a 대상 테스트를 특정하고, 같은 동작(재확인 사이에 marker가 바뀌면 거부)을 호출 횟수가 아니라 관찰 가능한 결과(결과 reason, 파일 무변경)로 단언하도록 바꿉니다. 단언 항목 수는 줄이지 않습니다.
-- [ ] **Step 2:** `F1 non-anchor participant switch`: S={codex,claude,zeta}에서 zeta(비anchor)를 standalone으로 전환(D1-b 계열)하면 zeta marker 제거, zeta standalone 프로필 기록, anchor 설정 갱신이 일어나고 codex/claude 상태는 composite 규칙대로입니다.
-- [ ] **Step 3:** `node --test tests/node/role-routing-anchor.test.mjs tests/node/install-mode-n-platform.test.mjs` PASS
-- [ ] **Step 4:** STD-CLOSE(3, 5–7, 9)
+- [x] **Step 1:** F7a 대상 테스트를 특정하고, 같은 동작(재확인 사이에 marker가 바뀌면 거부)을 호출 횟수가 아니라 관찰 가능한 결과(결과 reason, 파일 무변경)로 단언하도록 바꿉니다. 단언 항목 수는 줄이지 않습니다.
+- [x] **Step 2:** `F1 non-anchor participant switch`: S={codex,claude,zeta}에서 zeta(비anchor)를 standalone으로 전환(D1-b 계열)하면 zeta marker 제거, zeta standalone 프로필 기록, anchor 설정 갱신이 일어나고 codex/claude 상태는 composite 규칙대로입니다.
+- [x] **Step 3:** `node --test tests/node/role-routing-anchor.test.mjs tests/node/install-mode-n-platform.test.mjs` PASS
+- [x] **Step 4:** STD-CLOSE(3, 5–7, 9)
 
 **필수 검사:** 작업 테스트, `npm test`, `check:manifest`(테스트는 manifest 대상이 아니면 무변경 확인)
 **필수 QA:** 아니요
@@ -860,6 +860,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | T1 | 수용 | (이 커밋) | Implementer bridge `77805bd2`(2 segment: RED 62/4 → GREEN 66/0, manifest 232·role-policy 24·parity 통과; sandbox `EMFILE` 1건은 호스트 미재현 → 환경). fresh QA bridge `d93b70d0`(3 segment; sandbox 제한으로 Orchestrator가 호스트에서 Q4 176건 175 pass/0 fail/1 skip, Q5 `7947cf8` 사본에서 신규 4건만 FAIL 실행 후 전달). QA: Q1·Q2·Q5 proven, Q3(pinned API 실행)·Q4(바이트 비교) unverified → Orchestrator 처분: Q3은 undefined 인자 무시와 `installerRegistryOf` 기본값으로 정적 수용, Q4는 status deepEqual·S target 쓰기 0건 단언과 기존 테스트로 수용. 전체 `npm test` 2224 tests / 36 fail = 기준과 동일 |
 | 2026-11-16 | T2 | 수용 | (이 커밋) | Implementer bridge `1b549570`(RED anchor 5/3 → GREEN 8/0, role-routing-* 64/0, runtime-versions 6/0). dispatch는 `permission_violation_observed`(`shared/skill/runtime/role-routing.mjs`)로 기록됨 — Orchestrator가 allowedPaths에 디렉터리를 넣은 지정 오류이며 파일은 생성 명령 산출물(원본과 `cmp` 동일, runtime-assets `--check` 33)로 정리. 호스트 실행: `b0daa39` 사본에서 F5 신규 3건만 FAIL, role-routing-*·role-bridge-* 141/0, `npm test` 2227 tests / 36 fail = 기준과 동일, check:role-policy 24, parity, golden `--diff` 무차이. fresh QA bridge `a64cacfe`: Q1–Q6 proven |
 | 2026-11-16 | T3 | 수용(개정 v2) | (이 커밋) | 첫 Implementer `9ee0127d`가 v1 전제 오류(설치기·runtime 모두 symlink 조상 거부)를 보고 → 사용자 결정 11로 spec/plan v2. fresh Implementer `c312e61e`(2 segment: 단언 단계 수정, 대조 케이스 추가): anchor 9/0, n-platform 53/0, manifest 232, parity. 조합 판정: 조상·home 자체·lock symlink 양쪽 거부, `arc-role-dispatch` symlink 양쪽 허용(일치, 후속 과제로 기록). Orchestrator 실효성 확인: `scope.mjs` symlink 검사 제거 사본에서 runtime F6 테스트 FAIL, `targets.mjs` symlink 검사 제거 사본에서 publish F6 테스트 FAIL. `npm test` 2235 tests / 36 fail = 기준과 동일. 사용자 커밋 `c4aecb3`(watch 스타일) 이후 watch-*·T3 테스트 419/0 재확인. 필수 QA 대상 아님(v2) |
+| 2026-11-16 | T4 | 수용 | (이 커밋) | Implementer bridge `e503f27e`(2 segment; 자기 테스트 오류 수정 허용 지시 후 완료): F7a는 호출 횟수 대신 마지막 프로필 읽기 완료 시점에 marker 변경, 단언 2→3개. F1 비anchor(zeta) switch 테스트 추가. anchor 9/0, n-platform 54/0, parity. segment 1의 `permission_violation_observed`(headChanged/refsChanged)는 실행 중 사용자 커밋 `944f818`(watch 라벨) 때문이며 Implementer 변경 아님. Orchestrator 실효성 확인: host marker 재확인 줄 제거 사본에서 해당 테스트 FAIL. `npm test` 2236 tests / 36 fail = 기준과 동일. 필수 QA 대상 아님 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 (T8 Step 1 산출물을 Orchestrator가 기록)

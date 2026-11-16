@@ -108,23 +108,51 @@ test('anchor/host mismatch, host∉S, marker re-check mismatch → activation_un
     marker.activeConfigPath = activePath(f.homes.claude);
     await fs.writeFile(file, JSON.stringify(marker));
   }
-  const hostMarker = markerPath(f.homes.zeta), original = await fs.readFile(hostMarker), lstat = fs.lstat;
+  const hostMarker = markerPath(f.homes.zeta), original = await fs.readFile(hostMarker), lstat = fs.lstat, open = fs.open;
   const lastProfile = path.join(f.homes.zeta, 'agents/arc-routing-reviewer.md');
-  let visits = 0;
-  const spy = t.mock.method(fs, 'lstat', async (...args) => {
+  const root = f.context.userHome;
+  async function snapshot() {
+    const entries = {};
+    async function visit(relative) {
+      const filename = path.join(root, relative), stat = await fs.lstat(filename);
+      if (stat.isDirectory()) {
+        entries[relative] = ['directory'];
+        for (const name of (await fs.readdir(filename)).sort()) await visit(path.join(relative, name));
+      } else entries[relative] = ['file', (await fs.readFile(filename)).toString('hex')];
+    }
+    await visit(''); return entries;
+  }
+  const changedMarker = Buffer.from(JSON.stringify({...JSON.parse(original), activeConfigPath: moved}));
+  const expected = await snapshot();
+  expected[path.relative(root, hostMarker)] = ['file', changedMarker.toString('hex')];
+  let lastProfileRead = false, markerChanged = false;
+  const openSpy = t.mock.method(fs, 'open', async (filename, ...args) => {
+    const handle = await open(filename, ...args);
+    if (filename === lastProfile) {
+      const readFile = handle.readFile.bind(handle);
+      t.mock.method(handle, 'readFile', async (...readArgs) => {
+        const bytes = await readFile(...readArgs);
+        lastProfileRead = true;
+        return bytes;
+      });
+    }
+    return handle;
+  });
+  const statSpy = t.mock.method(fs, 'lstat', async (...args) => {
     const stat = await lstat(...args);
-    // Ignore inspectPath's non-bigint calls: readStable has two bigint stats,
-    // then the third is the final snapshot check, after the host-marker check.
-    if (args[0] === lastProfile && args[1]?.bigint === true && ++visits === 3) {
-      const marker = JSON.parse(original); marker.activeConfigPath = moved;
-      await fs.writeFile(hostMarker, JSON.stringify(marker));
+    // Once profiles have been read, this is the host marker's snapshot check.
+    // Return its captured stat, then let the final host lookup see the changed marker.
+    if (lastProfileRead && !markerChanged && args[0] === hostMarker && args[1]?.bigint === true) {
+      markerChanged = true;
+      await fs.writeFile(hostMarker, changedMarker);
     }
     return stat;
   });
   try {
     await assert.rejects(routing.readActivation(f.homes, f.config.revision, options), {message: 'Host marker changed'});
-    assert.equal(visits, 3);
-  } finally { spy.mock.restore(); await fs.writeFile(hostMarker, original); }
+    assert.deepEqual(await fs.readFile(hostMarker), changedMarker);
+    assert.deepEqual(await snapshot(), expected);
+  } finally { openSpy.mock.restore(); statSpy.mock.restore(); await fs.writeFile(hostMarker, original); }
   const marker = JSON.parse(original);
   await fs.writeFile(markerPath(f.homes.codex), JSON.stringify({...marker, platform: 'codex', targetHome: f.homes.codex, profiles: {}}));
   assert.deepEqual(codes(await routing.routingStatus({context: {...f.context, hostPlatform: 'codex', executionEnvironment: 'codex-cli'}, policy})), ['activation_unverified']);

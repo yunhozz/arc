@@ -760,6 +760,34 @@ test('anchor move can install a joining anchor with no existing home and blocks 
   assert.equal(state(ctx).anchor, 'codex');
 });
 
+test('F1 non-anchor participant switch', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
+  const targets = resolveTargets(ctx).targets;
+  const profiles = Object.fromEntries(Object.entries(targets).map(([id, target]) => [id, homeBytes(path.join(target.home, 'agents'))]));
+  await managementPublish(ctx, {platforms: ['codex', 'claude', 'zeta']});
+  assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['codex', 'claude', 'zeta'], anchor: 'codex'});
+  const prepared = await management.prepareOperation(ctx, {kind: 'install', target: 'zeta', switchFromComposite: true});
+  const result = await management.executeOperation(ctx, prepared);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.deepEqual(prepared.deactivation.platforms, ['codex', 'claude', 'zeta']);
+  assert.equal(prepared.deactivation.anchor, 'codex');
+  assert.deepEqual(result.messages, ['Mixed routing turned off.']);
+  for (const id of ['codex', 'claude', 'zeta']) {
+    assert.equal(fs.existsSync(active(ctx, id)), false, id);
+    assert.equal(fs.existsSync(markerName(targets[id].home)), false, id);
+    assert.deepEqual(routingNames(targets[id].home), [], id);
+    assert.deepEqual(homeBytes(path.join(targets[id].home, 'agents')), profiles[id], id);
+  }
+  const zetaProfiles = Object.entries(profiles.zeta).filter(([, entry]) => entry[0] === 'file');
+  assert.equal(zetaProfiles.length, ROUTING_ROLES.length);
+  for (const [name, [, bytes]] of zetaProfiles) {
+    const filename = path.join(targets.zeta.home, 'agents', name);
+    assert.equal(fs.existsSync(filename), true, name);
+    assert.deepEqual(fs.readFileSync(filename), Buffer.from(bytes, 'hex'), name);
+  }
+  assert.deepEqual(management.currentInstallState(ctx), {mode: 'standalone', platforms: [], anchor: null});
+});
+
 for (const kind of ['install', 'uninstall']) {
   test(`full registry ${kind} switch deactivates claude+zeta under the claude lock`, async t => {
     const ctx = await zetaContext(t); await installAll(ctx, ['codex', 'claude', 'zeta']);
