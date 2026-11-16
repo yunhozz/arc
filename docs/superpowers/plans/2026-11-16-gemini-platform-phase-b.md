@@ -189,15 +189,15 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - `buildUpgradePlans({payload, state, safeFs, registry?})`. `state.mode==='composite'`이면 `state.platforms`(S)에 든 target만 `profiles:'omit'`, 그 밖은 `'write'`
   - `collectInstalledState({safeFs, userHome, env, cwd, platforms?, runtimePlatforms?}) -> {mode, platforms?, targets, residualPaths, stateToken, ...}`. composite이면 `platforms`가 S
 
-- [ ] **Step 1: 실패 테스트 작성**(zeta 주입, S={codex,claude}, zeta standalone 설치됨)
+- [x] **Step 1: 실패 테스트 작성**(zeta 주입, S={codex,claude}, zeta standalone 설치됨)
   - `F4 status reports standalone outside S during composite`: `collectStatus(ctx)`의 zeta 항목이 `state:'installed'`이고 standalone 검사 결과를 갖습니다. codex/claude 항목은 현행과 deepEqual입니다.
   - `F4 upgrade rewrites standalone profiles outside S`: `buildUpgradePlans`의 zeta plan writes에 `arc-*` standalone 프로필이 있고, codex/claude plan에는 profile write가 0건입니다.
   - `F4 upgrade uses context registry`: 주입 registry를 넘기지 않으면 zeta target이 생기지 않고, 넘기면 생깁니다.
   - `upgrade-state.test.mjs`의 `composite state carries participating set`: `state.platforms`가 `['codex','claude']`(anchorOrder 순)입니다.
-- [ ] **Step 2: 실행해 실패 확인**: `node --test tests/node/install-mode-n-platform.test.mjs tests/node/upgrade-state.test.mjs`. 기대: 위 4건 FAIL
-- [ ] **Step 3: 구현.** state에 S를 싣고 per-target `profiles`를 고릅니다. registry가 없으면 기존 기본 레지스트리를 씁니다. 운영 codex+claude 결과는 바이트 단위로 같아야 합니다.
-- [ ] **Step 4: 통과 확인**: Step 2 명령 PASS. `tests/node/upgrade*.test.mjs`, `tests/node/management-status*.test.mjs` 무변경 PASS
-- [ ] **Step 5: STD-CLOSE**(runtime 무변경이므로 1–2 생략)
+- [x] **Step 2: 실행해 실패 확인**: `node --test tests/node/install-mode-n-platform.test.mjs tests/node/upgrade-state.test.mjs`. 기대: 위 4건 FAIL
+- [x] **Step 3: 구현.** state에 S를 싣고 per-target `profiles`를 고릅니다. registry가 없으면 기존 기본 레지스트리를 씁니다. 운영 codex+claude 결과는 바이트 단위로 같아야 합니다.
+- [x] **Step 4: 통과 확인**: Step 2 명령 PASS. `tests/node/upgrade*.test.mjs`, `tests/node/management-status*.test.mjs` 무변경 PASS
+- [x] **Step 5: STD-CLOSE**(runtime 무변경이므로 1–2 생략)
 
 **필수 검사:** 작업 테스트, `npm test`, `check:manifest`, `check:role-policy`, parity
 **필수 QA:** 예(upgrade 경로)
@@ -865,6 +865,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 일시 | 작업 | 상태 | 커밋 | 메모 |
 |---|---|---|---|---|
 | 2026-11-16 | 기준선 | 기록 | `739da7f` | `npm test` 기준 실패 36건(부록 B) |
+| 2026-11-16 | T1 | 수용 | (이 커밋) | Implementer bridge `77805bd2`(2 segment: RED 62/4 → GREEN 66/0, manifest 232·role-policy 24·parity 통과; sandbox `EMFILE` 1건은 호스트 미재현 → 환경). fresh QA bridge `d93b70d0`(3 segment; sandbox 제한으로 Orchestrator가 호스트에서 Q4 176건 175 pass/0 fail/1 skip, Q5 `7947cf8` 사본에서 신규 4건만 FAIL 실행 후 전달). QA: Q1·Q2·Q5 proven, Q3(pinned API 실행)·Q4(바이트 비교) unverified → Orchestrator 처분: Q3은 undefined 인자 무시와 `installerRegistryOf` 기본값으로 정적 수용, Q4는 status deepEqual·S target 쓰기 0건 단언과 기존 테스트로 수용. 전체 `npm test` 2224 tests / 36 fail = 기준과 동일 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 (T8 Step 1 산출물을 Orchestrator가 기록)

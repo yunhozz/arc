@@ -18,6 +18,9 @@ import {acquireRoleRoutingLock} from '../../lib/runtime/role-routing.mjs';
 import {loadModelConfig} from '../../lib/models/index.mjs';
 import {renderStandaloneProfiles} from '../../lib/installer/plan.mjs';
 import {mixedConfig} from './fixtures/install-mode.mjs';
+import {collectStatus} from '../../lib/management/status.mjs';
+import {buildUpgradePlans, upgradeInstalledTargets} from '../../lib/installer/upgrade.mjs';
+import {prepareUpdate, runChild} from '../../lib/management/update.mjs';
 
 async function composite(t) {
   const ctx = await compositeContext(t);
@@ -186,6 +189,58 @@ async function compositeFilesFixture(t, platforms, rolePlatforms) {
   const config = buildRoleRoutingConfig({revision: 'n-files-1', platforms, roles}, context);
   return {context, targets, payload, platforms, anchor: platforms[0], config, profileInputs, modelConfigs, standaloneBytes};
 }
+
+async function f4Fixture(t) {
+  const fixture = await compositeFilesFixture(t, ['codex', 'claude'], ['codex', 'claude']);
+  await publishCompositeFiles({context: fixture.context, prepared: prepareCompositeFiles(fixture)});
+  return fixture;
+}
+
+test('F4 status reports standalone outside S during composite', async t => {
+  const {context, targets} = await f4Fixture(t);
+  const ordinary = await collectStatus({...context, platforms: undefined, runtimePlatforms: undefined});
+  const statuses = await collectStatus(context);
+  assert.deepEqual(statuses.filter(item => item.platform !== 'zeta'), ordinary);
+  const zeta = statuses.find(item => item.platform === 'zeta');
+  assert.equal(zeta.state, 'installed');
+  assert.ok(zeta.snapshot.has(path.join(targets.zeta.home, 'agents/arc-qa.md')));
+  fs.unlinkSync(path.join(targets.zeta.home, 'agents/arc-qa.md'));
+  const damaged = (await collectStatus(context)).find(item => item.platform === 'zeta');
+  assert.equal(damaged.state, 'incomplete');
+  assert.match(damaged.diagnostics[0].message, /missing profile/);
+});
+
+test('F4 upgrade rewrites standalone profiles outside S', async t => {
+  const {context, payload, targets} = await f4Fixture(t);
+  const profiles = id => Object.fromEntries(Object.entries(homeBytes(targets[id].home)).filter(([name]) => name.startsWith('agents/')));
+  const before = Object.fromEntries(['codex', 'claude'].map(id => [id, profiles(id)]));
+  const state = collectInstalledState(context);
+  const plans = buildUpgradePlans({payload, state, safeFs, registry: context.platforms});
+  for (const id of ['codex', 'claude']) assert.equal(plans.find(plan => plan.target.platform === id).profileWrites.size, 0);
+  assert.deepEqual([...plans.find(plan => plan.target.platform === 'zeta').profileWrites.keys()].sort(), [
+    'arc-implementer.md', 'arc-planner.md', 'arc-qa.md', 'arc-reviewer.md', 'arc-scouter.md',
+  ]);
+  const result = await upgradeInstalledTargets({...context, state, registry: context.platforms});
+  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['codex', 'installed'], ['claude', 'installed'], ['zeta', 'installed']]);
+  for (const id of ['codex', 'claude']) assert.deepEqual(profiles(id), before[id]);
+  for (const [name, bytes] of plans.find(plan => plan.target.platform === 'zeta').profileWrites) assert.deepEqual(fs.readFileSync(path.join(targets.zeta.home, 'agents', name)), bytes);
+});
+
+test('F4 upgrade uses context registry', async t => {
+  const {context} = await f4Fixture(t);
+  const npmContext = {kind: 'global', packageRoot: context.packageRoot};
+  const deps = {...context, inspectNpmContext: async () => npmContext, resolveLatest: async () => ({version: '999.0.0'})};
+  const ordinary = await prepareUpdate({...deps, platforms: undefined, runtimePlatforms: undefined});
+  assert.deepEqual(ordinary.state.targets.map(item => item.target.platform), ['codex', 'claude']);
+  const prepared = await prepareUpdate(deps);
+  assert.deepEqual(prepared.state.targets.map(item => item.target.platform), ['codex', 'claude', 'zeta']);
+  const plans = buildUpgradePlans({payload: verifyPayload(context), state: prepared.state, safeFs});
+  assert.deepEqual(plans.map(plan => plan.target.platform), ['codex', 'claude', 'zeta']);
+  let stdout = '', stderr = '';
+  const code = await runChild({protocol: 1, expectedVersion: prepared.currentVersion, expectedStateToken: prepared.state.stateToken, invocationCwd: context.cwd}, {env: context.env, output: {write: text => stdout += text}, error: {write: text => stderr += text}}, deps);
+  assert.equal(code, 0, stderr);
+  assert.match(stdout, /zeta: installed/);
+});
 
 test('|S|=3 publish writes active only at anchor and markers in all homes', async t => {
   const fixture = await compositeFilesFixture(t, ['codex', 'claude', 'zeta'], ['codex', 'claude']);
