@@ -67,7 +67,7 @@ test('uninstall absent platform cannot open confirmation in PTY',{skip:!availabl
  assert.doesNotMatch(output,/Remove ARC from Claude\?/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('composite uninstall warning and result keep management message first in PTY',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {Mixed routing will be turned off.}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Mixed routing turned off.}\nexpect -exact {Removed from Claude.}\n'+finish.replace('expect -exact {Result}\n',''),{installState:{mode:'composite',platforms:['codex','claude'],anchor:'codex'},execute:"return{code:0,messages:['Mixed routing turned off.'],results:[{platform:'claude',status:'uninstalled'}]};"});
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {Mixed routing will be turned off.}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Mixed routing turned off.}\nexpect -exact {Removed from Claude.}\n'+finish.replace('expect -exact {Result}\n',''),{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},execute:"return{code:0,messages:['Mixed routing turned off.'],results:[{platform:'claude',status:'uninstalled'}]};"});
  assert.match(output,/Mixed routing turned off\.[\s\S]*Removed from Claude\./);assert.match(output,/"switchFromComposite":true/);
 });
 test('version lookup failure shows one diagnostic and only Back in PTY',{skip:!available},async t=>{
@@ -123,6 +123,6 @@ test('diagram resize blocks editing and role picker retains pending effort',{ski
 });
 
 test('composite home keeps platform status and Mixed Mode in display order',{skip:!available},async t=>{
- const output=await drive(t,'back',{installState:{mode:'composite',platforms:['codex','claude'],anchor:'codex'},codexAuth:'unauthorized'});
+ const output=await drive(t,'back',{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},codexAuth:'unauthorized'});
  assert.match(withoutSgr(output),/Claude: Available \/ Codex: Unauthorized/);assert.match(output,/Mode: Mixed \(Claude \+ Codex\)/);assert.doesNotMatch(withoutSgr(output),/Claude & Codex: Available/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });

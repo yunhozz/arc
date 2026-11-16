@@ -4,7 +4,7 @@ export const ROUTING_ROLES = Object.freeze(['arc_scouter', 'arc_planner', 'arc_i
 const validText = value => typeof value === 'string' && value.length > 0 && value === value.trim() && !/[\p{Cc}\u2028\u2029]/u.test(value);
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 const v1Platforms = Object.freeze(['codex', 'claude']);
-const isV1Platforms = platforms => platforms.length === 2 && v1Platforms.every(id => platforms.includes(id));
+const isV1Platforms = platforms => platforms.length === v1Platforms.length && v1Platforms.every((id, index) => platforms[index] === id);
 // Keep injected validation context out of the public config and serialized bytes.
 const configRegistries = new WeakMap();
 
@@ -33,7 +33,7 @@ export function parseRoleRoutingConfig(text, opts) {
 }
 export function serializeRoleRoutingConfig(config) {
   const {revision, platforms, roles} = validateRoleRoutingConfig(config, {runtimePlatforms: configRegistries.get(config)});
-  const value = isV1Platforms(platforms) ? {version: 1, revision, roles} : {version: 2, revision, platforms, roles};
+  const value = {version: 2, revision, platforms, roles};
   return JSON.stringify(value, null, 2) + '\n';
 }
 export function buildRoleRoutingConfig({revision, platforms = [], roles}, opts = {}) {
@@ -42,5 +42,5 @@ export function buildRoleRoutingConfig({revision, platforms = [], roles}, opts =
   const participating = [...new Set([...platforms, ...Object.values(roles).map(fields => fields.platform)])];
   if (participating.some(id => !registry.isPlatformId(id))) throw Error('Invalid role routing platforms');
   participating.sort((a, b) => registry.getPlatform(a).anchorOrder - registry.getPlatform(b).anchorOrder);
-  return validateRoleRoutingConfig({version: isV1Platforms(participating) ? 1 : 2, revision, platforms: participating, roles}, opts);
+  return validateRoleRoutingConfig({version: 2, revision, platforms: participating, roles}, opts);
 }

@@ -12,7 +12,7 @@ import {compositeContext,standalone,publish,profileFiles,targets} from './fixtur
 
 for(const mode of ['composite','unverified'])test(`all install and preset refuse ${mode} without writes`,async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);assert.equal((await publish(ctx)).code,0);
- if(mode==='unverified')fs.appendFileSync(ctx.userHome+'/.codex/arc-role-platform-routing.json','invalid');
+ if(mode==='unverified')fs.appendFileSync(ctx.userHome+'/.claude/arc-role-platform-routing.json','invalid');
  const before=profileFiles(ctx),models=['codex','claude'].map(p=>fs.readFileSync(ctx.userHome+'/.'+p+'/skills/arc/models.toml'));
  for(const kind of ['install','preset'])for(const switchFromComposite of [false,true])await t.test(`${kind} switch=${switchFromComposite}`,async()=>assert.rejects(api.prepareOperation(ctx,{kind,target:'all',switchFromComposite}),{code:'ARC_TARGET_CONFIGURATION',message:mode==='composite'?'Mixed routing is active; confirm the switch first':'Mixed routing configuration cannot be verified.'}));
  assert.deepEqual(profileFiles(ctx),before);for(const [i,p]of ['codex','claude'].entries())assert.deepEqual(fs.readFileSync(ctx.userHome+'/.'+p+'/skills/arc/models.toml'),models[i]);

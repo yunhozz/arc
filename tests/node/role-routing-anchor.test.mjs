@@ -171,7 +171,7 @@ test('host outside S without marker → activation_unverified', async t => {
   await assert.rejects(fs.stat(path.join(f.homes.codex, 'arc-role-platform-routing.lock')), {code: 'ENOENT'});
 });
 
-test('default codex+claude layout unchanged', async t => {
+test('default codex+claude layout uses the Claude anchor', async t => {
   const f = await createRoutingFixture(t);
   await f.cli('claude', {version: '2.1.322'});
   const locks = [], open = fs.open;
@@ -181,9 +181,9 @@ test('default codex+claude layout unchanged', async t => {
   });
   const result = await routing.prepareRoleDispatch({context: f.context(), assignment, expectedRevision: f.revision, policy});
   assert.equal(result.decision, 'allow');
-  assert.deepEqual(locks, [path.join(f.codexHome, 'arc-role-platform-routing.lock')]);
-  assert.equal((await listLeases(f.codexHome)).length, 1);
-  assert.deepEqual(await listLeases(f.claudeHome), []);
+  assert.deepEqual(locks, [path.join(f.claudeHome, 'arc-role-platform-routing.lock')]);
+  assert.equal((await listLeases(f.claudeHome)).length, 1);
+  assert.deepEqual(await listLeases(f.codexHome), []);
 });
 
 test('leaseTargetPlatform reads v2 targets and preserves the v1 two-platform rule with three registered platforms', async t => {
@@ -239,15 +239,15 @@ test('F5 terminal lease cleanup only after full verification', async t => {
   const now = Date.parse('2026-11-16T00:00:00.000Z');
   const old = new Date(now - policy.leaseRetentionMs - 1).toISOString();
   const lease = {version: 1, dispatchId: 'expired', workflowId: 'old-wf', taskId: 'old-task', requestId: 'old-request', role: 'arc_planner', route: 'native', hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: f.revision, profileHash: 'sha256:' + 'b'.repeat(64), argsDigest: null, state: 'completed', supervisor: null, child: null, sessionId: null, timeoutMinutes: 30, claims: null, reasons: [], allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: old, updatedAt: old};
-  await createLease(f.codexHome, lease);
-  const leasePath = path.join(f.codexHome, 'arc-role-dispatch/expired.json');
+  await createLease(f.claudeHome, lease);
+  const leasePath = path.join(f.claudeHome, 'arc-role-dispatch/expired.json');
   const originalLease = await fs.readFile(leasePath, 'utf8');
   const profile = path.join(f.claudeHome, 'agents/arc-routing-planner.md'), originalProfile = await fs.readFile(profile);
   await fs.appendFile(profile, '\nmodified profile\n');
   const deletions = [], unlink = fs.unlink;
   t.mock.method(fs, 'unlink', async filename => {
     if (filename === leasePath) {
-      const lock = await fs.stat(path.join(f.codexHome, 'arc-role-platform-routing.lock'));
+      const lock = await fs.stat(path.join(f.claudeHome, 'arc-role-platform-routing.lock'));
       deletions.push(lock.isFile());
     }
     return unlink(filename);
@@ -265,7 +265,7 @@ test('F5 terminal lease cleanup only after full verification', async t => {
   assert.equal(verified.decision, 'allow');
   assert.deepEqual(verified.pruned, {removed: 1, errors: 0});
   await assert.rejects(fs.stat(leasePath), {code: 'ENOENT'});
-  await createLease(f.codexHome, lease);
+  await createLease(f.claudeHome, lease);
   assert.equal((await routing.prepareRoleDispatch({...options, assignment, expectedRevision: f.revision})).decision, 'allow');
   await assert.rejects(fs.stat(leasePath), {code: 'ENOENT'});
   assert.deepEqual(deletions, [true, true]);

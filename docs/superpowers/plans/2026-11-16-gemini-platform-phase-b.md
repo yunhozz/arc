@@ -460,25 +460,25 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 - Consumes: T5 lease v2, T6 `resolveDispatchStore`, T7 legacy 판정과 이동
 - Produces: 운영 `byAnchorOrder()` = `[claude, codex]`. publish는 항상 v2이고, 파서는 v1을 계속 받습니다.
 
-- [ ] **Step 1: 이관 대상 확정(grep).** 아래 패턴을 `tests/node` 전체에 실행하고, 결과의 단언마다 old → new 대응표를 만듭니다.
+- [x] **Step 1: 이관 대상 확정(grep).** 아래 패턴을 `tests/node` 전체에 실행하고, 결과의 단언마다 old → new 대응표를 만듭니다.
   - 패턴: `anchor:\s*'codex'`, `anchorOrder`, `CODEX_HOME`, `codexHome`, `codex\.home`, `arc-role-dispatch`, `arc-role-platform-routing\.(json|lock)`, `version:\s*1`, `\bv1\b`
   - 대응표 열: `파일:행 | old 단언 | new 단언 | 분류(경로만 변경 / 의미 변경 / 무변경 / legacy로 보존)`
   - 대응표는 Implementer 보고에 포함합니다. Orchestrator가 이 계획의 부록 A에 기록합니다.
-- [ ] **Step 2: 이관 원칙 적용**
+- [x] **Step 2: 이관 원칙 적용**
   - 경로나 anchor 기대값만 바꿉니다. 검사 항목 수와 실패 조건은 줄이지 않습니다.
   - 순서 변경으로 단언의 의미가 사라지는 경우에는, 같은 성질을 지키는 대체 케이스를 추가합니다.
     - 예: `derive-install-plan.test.mjs:60`(previous `[claude,zeta]` + codex 추가 → 기존 `anchorMove:true`)은 새 순서에서 `anchorMove:false`가 됩니다. 그래서 `previous [codex,zeta] + claude 추가 → anchorMove:true, anchor 'claude'` 케이스를 추가합니다.
     - `{codex}` 단독(D1-b)과 `{codex,eta}`는 anchor codex 그대로입니다(무변경).
   - 기존 `<CODEX_HOME>` 경로 동작은 T7 legacy 테스트가 보존합니다. 대응표에서 "legacy로 보존" 행이 T7 테스트 이름을 가리켜야 합니다.
   - `composite-live`는 live 환경이 아니면 skip이지만, 경로 기대값은 함께 이관합니다.
-- [ ] **Step 3: 운영 변경 구현.** descriptor `anchorOrder`, 설치기 순서, v2 항상 기록
-- [ ] **Step 4: 신규 테스트**
+- [x] **Step 3: 운영 변경 구현.** descriptor `anchorOrder`, 설치기 순서, v2 항상 기록
+- [x] **Step 4: 신규 테스트**
   - `AC-A5 publish after migration is v2 and lock order claude then codex`: lock 획득 순서를 기록하는 safeFs 주입으로 `['claude','codex']`
   - `AC-L2 claude-anchored composite prepare/run/observe/resume/cancel match Phase A`: role-fixtures 기반으로 store 위치만 Claude home이고 결과 deepEqual
   - `AC-A2 operational legacy migration`: 운영 레지스트리 + Phase A 형식 fixture에 T7 A2 단언 재사용
   - `symlinked claude home ancestor is rejected after flip without file changes`(Review Focus 3)
-- [ ] **Step 5:** `npm test`(Orchestrator)와 작업 테스트 PASS. 대응표의 모든 행이 PASS 테스트에 대응
-- [ ] **Step 6:** STD-CLOSE(전부, PTY 포함)
+- [x] **Step 5:** `npm test`(Orchestrator)와 작업 테스트 PASS. 대응표의 모든 행이 PASS 테스트에 대응
+- [x] **Step 6:** STD-CLOSE(전부, PTY 포함)
 
 **필수 검사:** 작업 테스트, PTY, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`, parity, `hardcoding-residual`
 **필수 QA:** 예(마이그레이션, composite)
@@ -864,9 +864,47 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | T5 | 수용 | (이 커밋) | Implementer bridge `c2844a56`(2 segment: 구현 전 lease-v2+store 16/12 → 후 29/0; segment 2에서 STD-CLOSE: runtime-assets 33, runtime-versions 6/0, manifest 232, role-policy 24 무변경, parity). sandbox의 bridge resume 실패는 호스트에서 bridge·lease 87/0으로 환경 제한 판정. 호스트 실행: `e191068` 사본에서 새 테스트 22건 중 13 FAIL(통과 9건은 v2 전체 거부였던 base에서도 통과하는 거부 사례, valid v2 수용 테스트와 짝), 회귀 routing·bridge·lease·watch 528/0, golden 4/0, `npm test` 2258 tests / 36 fail = 기준과 동일. fresh QA bridge `3022af70`: Q1·Q3·Q4·Q5·Q7 proven, Q2 unmet, Q6·Q8 unverified → Orchestrator 처분: Q2(observe가 config 없이 v2 대상을 표시)는 수정하지 않음 — observe는 재구성 뒤 과거 dispatch를 관측해야 해서 활성 설정을 읽지 않는 기존 설계이고, lease는 lock 아래 runtime만 기록하며 실행 전(run·resume)에는 `buildBridgeInvocation`이 대상 불일치를 `activation_unverified`로 막음. Q6은 `parseLeaseLenient`가 v2 lease를 읽는 것을 직접 실행으로 확인, Q8은 golden 4/0·runtime-versions 6/0 호스트 실행으로 확인. 잔여 위험(후속 기록): resume은 capability를 재확인하지 않음(spec 7.2 범위는 prepare·run) |
 | 2026-11-16 | T6 | 수용 | (이 커밋) | Implementer bridge `0c277237`(2 segment): `lib/watch/anchor-store.mjs` `resolveDispatchStore`(async, anchorOrder 순 marker 형식 검사·등록 home 정확 일치·중복 제거 → anchor/legacy/none/ambiguous), `createDispatchIndex({storeDir})`, ambiguous는 기존 `notice` 경로로 `dispatch store ambiguous` 표시(`render.mjs` 무변경). 탐색은 watch 시작 시 1회, 후보 0이고 Codex home이 있으면 시작 후 생기는 legacy store도 계속 관찰. Orchestrator 검토 지적(segment 1): storeDir 없을 때 `scan`이 `[]`를 반환해 workflow artifact 표시까지 사라지는 회귀 → lease만 비우고 artifact 스캔 유지로 수정. 호스트 실행: `a531139` 사본에서 새 탐색 테스트 6건 FAIL(watch-watcher 파일은 새 모듈 import로 전체 FAIL), watch-* 366/0(Implementer), `npm test` 2267 tests / 36 fail = 기준과 동일. manifest 233. 필수 QA 대상 아님 |
 | 2026-11-16 | T7 | 수용 | (이 커밋) | Implementer bridge `7f90418e`(관측 3회): legacy 판정(`install-mode.mjs` 단일 설정·v1·Codex home 예외 후 6.4.5 검사 계속), 설치기 전용 `parseInstalledRoutingConfig`(v1을 codex 우선 historical 레지스트리로 재해석, runtime은 엄격 유지), 기존 6.6 이동 경로 재사용, legacy 전체 Uninstall은 old anchor plan을 마지막으로 정렬, management `anchorMove`, status 진단·Apply 미리보기 문구. 상수 `legacyAnchorPlatform`은 AC-P1 allowlist 변경 없이 통과. 호스트 실행: PTY 33/0(sandbox 미검증분), `32c5e08` 사본(build/ 복사)에서 새·수정 테스트 87건 중 legacy 16건 FAIL, `npm test` 2290 tests / 36 fail = 기준과 동일. fresh QA bridge `4779a84d`: Q1·Q4·Q6·Q7·Q8 proven, Q5 unverified(패키지 획득 stub), Q2·Q3 unmet → Orchestrator 처분: (결함 2) `serializeRoleRoutingConfig`가 codex+claude를 v1로 정규화해 anchor≠codex일 때의 `JSON.stringify` 우회 바이트와 다름 → T8 "새 활성 설정 v2 항상 기록"에서 serializer를 v2 상시 출력으로 바꾸고 우회를 제거(T8 이관). 현재 바이트는 runtime이 수용하는 유효 v2. (결함 1) Claude 우선 레지스트리에서 `version:1, platforms:['claude','codex']`가 통과 — 우회가 아니라 기존 `validateRoleRoutingConfig`의 성질이며 그런 v1 파일은 기록된 적 없음 → T8 순서 전환 시 v1 검증을 codex 우선 고정으로 엄격화(T8 이관). Q5는 패키지 설치가 home을 건드리지 않는 기존 테스트와 이번 스냅샷 테스트로 수용 |
+| 2026-11-16 | T8 | 수용 | (이 커밋) | 첫 Implementer `02d6a292`는 grep 목록 밖 `management-status.test.mjs` 때문에 무편집 반환 → Orchestrator가 scratch 사본에서 순서만 전환해 대조본과 전체 실행 비교(신규 실패 231건, 30개 파일)하고 허용 목록 확장. fresh Implementer `28a95049`(3 segment): segment 0은 lock 순서 검증 방법 불일치로 무편집 반환 → Orchestrator 결정(테스트 내 `fsp.open` 관찰, 운영 주입 API 금지, role-bridge-*는 호스트 실행, T7 운영 순서 테스트는 codex 우선 주입 레지스트리로 고정), segment 1 구현·이관(운영 5, 테스트·fixture 33, 생성물 5; T7 이관 2건: serializer·builder v2 상시, `isV1Platforms` 순서 비교, `prepareCompositeFiles` 우회 제거; 전체 Uninstall에서 composite anchor plan을 마지막으로 정렬하도록 일반화), segment 2 QA Q4 수정(`parseInstalledRoutingConfig`는 항상 현재 순서의 v2 객체 반환, legacy 판정은 원본 JSON version). 대응표는 부록 A. fresh QA bridge `c3e29942`(첫 turn은 19초 만에 원인 미기록 `turn_failed` → 같은 세션 재개): Q1–Q3·Q5·Q6·Q8·Q10 proven, Q4 unmet(수정 후 재검증 (a)–(d) proven), Q7 unverified → Orchestrator 처분: 공용 fixture가 Claude home을 쓰므로 실제 supervisor를 쓰는 role-bridge-run·resume 호스트 통과로 수용, Q9 unverified → Orchestrator가 이관 파일 전체 assert 수 감소 0건 확인. 호스트 실행: PTY 33/0, `npm test` 2299 tests / 36 fail = 기준과 동일 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
-(T8 Step 1 산출물을 Orchestrator가 기록)
+전체 대응표(549행)는 `docs/superpowers/evidence/phase-b/t8-anchor-correspondence.md`에 둡니다. 기준 HEAD `219b4b7`, Step 1 grep 65개 파일·461개 일치와 grep 밖 추가 단언 89행입니다.
+
+| 분류 | 행 수 |
+|---|---|
+| 경로만 변경 | 160 |
+| 의미 변경 | 114 |
+| 무변경 | 255 |
+| legacy로 보존 | 21 |
+
+- 의미 변경 행의 대체 케이스: Claude 추가·제거 시 실제 anchor 이동 2건(`derive-install-plan.test.mjs`), 역방향 displayOrder 주입 사례, N-platform 이동은 `{codex,zeta}`에 Claude가 참여하는 경우로 교체, v1 바이트 재직렬화 단언은 v1 읽기 + v2 출력 단언으로 교체(`role-routing-config.test.mjs`).
+- Orchestrator 확인: 이관된 테스트 파일 전부에서 HEAD 대비 assert 호출 수 감소 0건.
+
+legacy로 보존 행:
+
+| 파일:행 | old 단언 | new 단언 | 분류 |
+|---|---|---|---|
+| tests/node/anchor-migration.test.mjs:35 | `test('legacy v1 at codex home is composite with legacyAnchor', async t => {` | `test('legacy v1 at codex home is composite with legacyAnchor', async t => { — T7 보존 테스트: legacy v1 at codex home is composite with legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:37 | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',` | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', — T7 보존 테스트: legacy v1 at codex home is composite with legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:39 | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true});` | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true}); — T7 보존 테스트: legacy v1 at codex home is composite with legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:68 | `await createLease(targets.codex.home, legacyLease('history', 'completed'), context);` | `await createLease(targets.codex.home, legacyLease('history', 'completed'), context); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:69 | `fs.writeFileSync(path.join(targets.codex.home, 'arc-role-dispatch/history.cancel'), 'preserve history');` | `fs.writeFileSync(path.join(targets.codex.home, 'arc-role-dispatch/history.cancel'), 'preserve history'); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:70 | `const history = homeBytes(path.join(targets.codex.home, 'arc-role-dispatch'));` | `const history = homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:71 | `const metadata = storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch'));` | `const metadata = storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch')); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:81 | `assert.deepEqual(homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')), history);` | `assert.deepEqual(homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')), history); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:82 | `assert.deepEqual(storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch')), metadata);` | `assert.deepEqual(storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch')), metadata); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:83 | `assert.ok(result.messages.includes(\`Dispatch history stays in ${targets.codex.home}/arc-role-dispatch.\`));` | `assert.ok(result.messages.includes(\`Dispatch history stays in ${targets.codex.home}/arc-role-dispatch.\`)); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:111 | `const context = await legacyComposite(t), home = resolveTargets(context).targets.codex.home, lease = legacyLease('finish-first', 'running');` | `const context = await legacyComposite(t), home = resolveTargets(context).targets.codex.home, lease = legacyLease('finish-first', 'running'); — T7 보존 테스트: legacy migration held then succeeds after lease terminal` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:115 | `const history = homeBytes(path.join(home, 'arc-role-dispatch'));` | `const history = homeBytes(path.join(home, 'arc-role-dispatch')); — T7 보존 테스트: legacy migration held then succeeds after lease terminal` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:117 | `assert.deepEqual(homeBytes(path.join(home, 'arc-role-dispatch')), history);` | `assert.deepEqual(homeBytes(path.join(home, 'arc-role-dispatch')), history); — T7 보존 테스트: legacy migration held then succeeds after lease terminal` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:152 | `for (const result of [await routingStatus({context, policy}), await prepareRoleDispatch({context, policy, expectedRevision: 'legacy-v1', assignment: {role: 'arc_planner', taskId: 'T7', requestId: 'legacy-runtime'}})]) {` | `for (const result of [await routingStatus({context, policy}), await prepareRoleDispatch({context, policy, expectedRevision: 'legacy-v1', assignment: {role: 'arc_planner', taskId: 'T7', requestId: 'legacy-runtime'}})]) { — T7 보존 테스트: runtime under legacy is activation_unverified and creates no files` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:179 | `test('operational order: codex v1 at codex home stays normal composite without legacyAnchor', async t => {` | `test('injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor', async t => { — T7 보존 테스트: injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:181 | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, platforms: ['codex', 'claude']}, residualPaths: []});` | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, platforms: ['codex', 'claude']}, residualPaths: []}); — T7 보존 테스트: injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:182 | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex'});` | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex'}); — T7 보존 테스트: injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:15 | `...descriptor, anchorOrder: descriptor.id === 'claude' ? 0 : descriptor.id === 'codex' ? 1 : descriptor.anchorOrder,` | `...descriptor, anchorOrder: descriptor.id === 'claude' ? 0 : descriptor.id === 'codex' ? 1 : descriptor.anchorOrder, — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:23 | `export const activePath = (context, id) => path.join(resolveTargets(context).targets[id].home, 'arc-role-platform-routing.json');` | `export const activePath = (context, id) => path.join(resolveTargets(context).targets[id].home, 'arc-role-platform-routing.json'); — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:30 | `const prepared = await management.prepareCompositeOperation(context, {kind: 'install', platforms: ['codex', 'claude'], config: await mixedConfig('legacy-v1')});` | `const prepared = await management.prepareCompositeOperation(context, {kind: 'install', platforms: ['codex', 'claude'], config: await mixedConfig('legacy-v1')}); — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:52 | `hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'legacy-v1', profileHash: null, argsDigest: null,` | `hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'legacy-v1', profileHash: null, argsDigest: null, — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+
 
 ### 부록 B — 기준 실패 36건
 `739da7f`에서 Orchestrator가 실행한 `npm test`(2220 tests, 2169 pass, 36 fail, 15 skipped)의 실패 이름입니다. `bare arc opens English TUI …`는 인자만 다른 3건입니다.

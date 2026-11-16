@@ -61,16 +61,16 @@ test('AC-P1 production sources never reference platform test fixtures', () => {
 
 test('runtime registry exposes codex and claude with spec values', () => {
   assert.deepEqual(CAPABILITY_KEYS, ['install', 'standalone', 'compositeRole', 'compositeHost', 'bridge', 'nativeProfile', 'authProbe', 'catalog', 'watch']);
-  assert.deepEqual(platformIds(), ['codex', 'claude']);
+  assert.deepEqual(platformIds(), ['claude', 'codex']);
   assert.deepEqual(byDisplayOrder().map(p => p.id), ['claude', 'codex']);
-  assert.deepEqual(byAnchorOrder().map(p => p.id), ['codex', 'claude']);
+  assert.deepEqual(byAnchorOrder().map(p => p.id), ['claude', 'codex']);
   assert.equal(RUNTIME_PLATFORMS, DEFAULT_PLATFORM_REGISTRY.platforms);
   assert.equal(runtimeRegistryOf(), DEFAULT_PLATFORM_REGISTRY);
   assert.equal(getPlatform('zeta'), null);
   for (const value of ['eta', null, 1, {}, 'toString']) assert.equal(isPlatformId(value), false);
   for (const [id, label, displayOrder, anchorOrder, homeEnv, authKind, ext, standaloneName, routingName, environments] of [
-    ['codex', 'Codex', 1, 0, 'CODEX_HOME', 'codex-refresh', 'toml', 'arc_planner', 'arc_routing_planner', ['codex-cli', 'codex-desktop']],
-    ['claude', 'Claude', 0, 1, 'CLAUDE_CONFIG_DIR', 'cli-status-json', 'md', 'arc-planner', 'arc-routing-planner', ['claude-cli', 'claude-desktop']],
+    ['codex', 'Codex', 1, 1, 'CODEX_HOME', 'codex-refresh', 'toml', 'arc_planner', 'arc_routing_planner', ['codex-cli', 'codex-desktop']],
+    ['claude', 'Claude', 0, 0, 'CLAUDE_CONFIG_DIR', 'cli-status-json', 'md', 'arc-planner', 'arc-routing-planner', ['claude-cli', 'claude-desktop']],
   ]) {
     const p = getPlatform(id);
     assert.equal(isPlatformId(id), true);
@@ -116,9 +116,9 @@ test('validatePair keeps current rules', () => {
 
 test('test registry orders zeta after claude', () => {
   const registry = createTestRuntimeRegistry();
-  assert.deepEqual(registry.platformIds(), ['codex', 'claude', 'zeta']);
+  assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'zeta']);
   assert.deepEqual(registry.byDisplayOrder().map(p => p.id), ['claude', 'codex', 'zeta']);
-  assert.deepEqual(createTestRuntimeRegistry(['zeta', 'claude', 'codex']).platformIds(), ['codex', 'claude', 'zeta']);
+  assert.deepEqual(createTestRuntimeRegistry(['zeta', 'claude', 'codex']).platformIds(), ['claude', 'codex', 'zeta']);
   assert.equal(runtimeRegistryOf({runtimePlatforms: registry}), registry);
   const zeta = registry.getPlatform('zeta');
   assert.deepEqual(zeta.capabilities.watch, {state: 'off'});
@@ -172,30 +172,34 @@ const fixtureRegistries = await import('./fixtures/platforms/zeta.mjs');
 test('installer and runtime registries agree and reject mismatches', () => {
   assert.equal(typeof installer.createInstallerRegistry, 'function');
   const registry = installer.DEFAULT_INSTALLER_REGISTRY;
-  assert.deepEqual(registry.platformIds(), ['codex', 'claude']);
-  assert.deepEqual(registry.byAnchorOrder().map(p => p.runtime.id), ['codex', 'claude']);
+  assert.deepEqual(registry.platformIds(), ['claude', 'codex']);
+  assert.deepEqual(registry.byAnchorOrder().map(p => p.runtime.id), ['claude', 'codex']);
   assert.deepEqual(registry.byDisplayOrder().map(p => p.runtime.id), ['claude', 'codex']);
   for (const id of registry.platformIds()) assert.equal(registry.getPlatform(id).runtime, getPlatform(id));
   assert.equal(registry.getPlatform('missing'), null);
   assert.equal(registry.isPlatformId('toString'), false);
   assert.equal(installer.installerRegistryOf(), registry);
   const descriptors = [...registry.platforms];
-  for (const invalid of [descriptors.toReversed(), descriptors.slice(1), [...descriptors, descriptors[0]], [{...descriptors[0], runtime: {...getPlatform('codex')}}, descriptors[1]]]) {
+  for (const invalid of [descriptors.toReversed(), descriptors.slice(1), [...descriptors, descriptors[0]], [{...descriptors[0], runtime: {...getPlatform('claude')}}, descriptors[1]]]) {
     assert.throws(() => installer.createInstallerRegistry({runtime: DEFAULT_PLATFORM_REGISTRY, descriptors: invalid}));
   }
   const injected = fixtureRegistries.createTestRegistries(['eta', 'zeta', 'claude', 'codex']);
-  assert.deepEqual(injected.platforms.platformIds(), ['codex', 'claude', 'zeta', 'eta']);
+  assert.deepEqual(injected.platforms.platformIds(), ['claude', 'codex', 'zeta', 'eta']);
   for (const id of injected.runtimePlatforms.platformIds()) assert.equal(injected.platforms.getPlatform(id).runtime, injected.runtimePlatforms.getPlatform(id));
   assert.equal(installer.installerRegistryOf(injected), injected.platforms);
 });
 
 test('mixedLabel and sort helpers use runtime display and anchor order', () => {
   assert.equal(typeof installer.mixedLabel, 'function');
-  assert.equal(installer.mixedLabel(['codex', 'claude']), 'Mixed (Claude + Codex)');
+  assert.equal(installer.mixedLabel(['claude', 'codex']), 'Mixed (Claude + Codex)');
   const {platforms} = fixtureRegistries.createTestRegistries();
   const ids = ['zeta', 'codex', 'claude'];
   assert.deepEqual(installer.sortByDisplay(ids, platforms), ['claude', 'codex', 'zeta']);
-  assert.deepEqual(installer.sortByAnchor(ids, platforms), ['codex', 'claude', 'zeta']);
+  assert.deepEqual(installer.sortByAnchor(ids, platforms), ['claude', 'codex', 'zeta']);
+  const runtime = createPlatformRegistry(platforms.platforms.map(({runtime}) => ({...runtime, displayOrder: 2 - runtime.anchorOrder})));
+  const reversed = installer.createInstallerRegistry({runtime, descriptors: runtime.platforms.map(descriptor => ({...platforms.getPlatform(descriptor.id), runtime: descriptor}))});
+  assert.deepEqual(installer.sortByDisplay(ids, reversed), ['zeta', 'codex', 'claude']);
+  assert.deepEqual(installer.sortByAnchor(ids, reversed), ['claude', 'codex', 'zeta']);
   assert.deepEqual(ids, ['zeta', 'codex', 'claude']);
   assert.equal(installer.platformLabel('zeta', platforms), 'Zeta');
 });
@@ -264,7 +268,7 @@ test('effortField comes from runtime registry', async () => {
     assert.equal(effortField(id), field);
     assert.equal(platformOf({platform: id, version: 3}), id);
   }
-  const injected = fixtureRegistries.createTestRegistries(['codex', 'claude', 'zeta', 'eta']);
+  const injected = fixtureRegistries.createTestRegistries(['claude', 'codex', 'zeta', 'eta']);
   for (const id of ['zeta', 'eta']) {
     assert.equal(injected.runtimePlatforms.getPlatform(id).models?.effortField, 'effort');
     assert.equal(injected.platforms.getPlatform(id).models.effortField, injected.runtimePlatforms.getPlatform(id).models.effortField);

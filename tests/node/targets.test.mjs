@@ -57,7 +57,7 @@ test('resolveTarget uses injected registry',()=>{
  assert.ok(Object.isFrozen(target));assert.ok(Object.isFrozen(target.profileNames));assert.ok(Object.isFrozen(target.globalPaths));
  assert.equal(typeof api.resolveTargets,'function');
  const resolved=api.resolveTargets({platforms,userHome:'/users/test',env:{ZETA_HOME:'/custom/zeta'}});
- assert.deepEqual(Object.keys(resolved.targets),['codex','claude','zeta']);assert.deepEqual(resolved.unresolved,[]);
+ assert.deepEqual(Object.keys(resolved.targets),['claude','codex','zeta']);assert.deepEqual(resolved.unresolved,[]);
 });
 test('install order follows anchorOrder',async t=>{
  const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-anchor-order-')));
@@ -68,8 +68,8 @@ test('install order follows anchorOrder',async t=>{
   capturePlanSnapshot(plan,{safeFs});return plan;
  });
  const executed=[],result=await installTargets(plans,{safeFs,platforms,hooks:{fault({phase,plan}){if(phase==='before-prepare')executed.push(plan.target.platform);}}});
- assert.deepEqual(result.results.map(({platform,status})=>({platform,status})),[{platform:'codex',status:'installed'},{platform:'claude',status:'installed'},{platform:'zeta',status:'installed'}]);
- assert.deepEqual(executed,['codex','claude','zeta']);
+ assert.deepEqual(result.results.map(({platform,status})=>({platform,status})),[{platform:'claude',status:'installed'},{platform:'codex',status:'installed'},{platform:'zeta',status:'installed'}]);
+ assert.deepEqual(executed,['claude','codex','zeta']);
  for(const platform of ['codex','claude','zeta'])assert.equal(fs.readFileSync(path.join(userHome,'.'+platform,'skills/arc/SKILL.md'),'utf8'),platform);
 });
 test('ancestor sibling changes do not invalidate the opened directory identity',t=>{

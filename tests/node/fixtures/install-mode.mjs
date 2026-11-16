@@ -29,7 +29,7 @@ const targets=ctx=>Object.fromEntries(['codex','claude'].map(p=>[p,resolveTarget
 const agents=(ctx,p)=>fs.readdirSync(ctx.userHome+'/.'+p+'/agents').sort();
 async function mixedConfig(revision){
  const {loadStaticModelCatalog}=await import('../../../lib/models/static-catalog.mjs');const pairs={};for(const p of ['codex','claude'])pairs[p]=(await loadStaticModelCatalog(p)).catalog.pairs[0];
- return{version:1,revision,roles:Object.fromEntries(roles.map(r=>{const platform=['planner','reviewer'].includes(r)?'claude':'codex';return['arc_'+r,{platform,...pairs[platform]}];}))};
+ return{version:2,revision,platforms:['claude','codex'],roles:Object.fromEntries(roles.map(r=>{const platform=['planner','reviewer'].includes(r)?'claude':'codex';return['arc_'+r,{platform,...pairs[platform]}];}))};
 }
 async function standalone(ctx){assert.equal((await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'all',language:'en'}))).code,0);}
 async function publish(ctx,revision='mode-1',kind='install'){return api.executeOperation(ctx,await api.prepareCompositeOperation(ctx,{kind,config:await mixedConfig(revision)}));}

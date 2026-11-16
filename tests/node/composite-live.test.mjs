@@ -31,8 +31,8 @@ if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
   const readJson = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 
   const unmet = (() => {
-    const config = readJson(path.join(codexHome, 'arc-role-platform-routing.json'));
-    if (!config?.roles) return 'no active composite configuration at ' + path.join(codexHome, 'arc-role-platform-routing.json');
+    const config = readJson(path.join(claudeHome, 'arc-role-platform-routing.json'));
+    if (!config?.roles) return 'no active composite configuration at ' + path.join(claudeHome, 'arc-role-platform-routing.json');
     if (!fs.existsSync(entry)) return 'installed runtime entry missing: ' + entry;
     for (const platform of ['codex', 'claude']) {
       const marker = readJson(path.join(homes[platform], 'arc-role-platform-routing.prepared.json'));
@@ -47,7 +47,7 @@ if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
     console.log('composite live smoke skipped: ' + unmet);
     test.skip('composite live smoke', {skip: unmet}, () => {});
   } else {
-    const config = readJson(path.join(codexHome, 'arc-role-platform-routing.json'));
+    const config = readJson(path.join(claudeHome, 'arc-role-platform-routing.json'));
     const roleOn = (platform, candidates) => candidates.find(role => config.roles[role]?.platform === platform);
     const workflow = 'live-smoke-' + process.pid;
     const worktree = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'arc-live-smoke-')));
@@ -102,13 +102,13 @@ if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
               await arc('observe', {...ids(host, environment), dispatchId, waitMs: 30000}, 60000);
               state = lease(dispatchId)?.state;
             }
-            if (!['completed', 'failed', 'cancelled'].includes(state)) console.log(`composite live smoke: dispatch ${dispatchId} is still ${state}; clean it up manually in ${path.join(codexHome, 'arc-role-dispatch')}`);
+            if (!['completed', 'failed', 'cancelled'].includes(state)) console.log(`composite live smoke: dispatch ${dispatchId} is still ${state}; clean it up manually in ${path.join(claudeHome, 'arc-role-dispatch')}`);
           }
         } catch (error) { console.log(`composite live smoke: cleanup of ${dispatchId} failed: ${error.message}`); }
         started.delete(entryText);
       }
     };
-    const lease = dispatchId => readJson(path.join(codexHome, 'arc-role-dispatch', dispatchId + '.json'));
+    const lease = dispatchId => readJson(path.join(claudeHome, 'arc-role-dispatch', dispatchId + '.json'));
     const find = (directory, pattern) => {
       const found = [];
       const walk = current => { for (const item of fs.existsSync(current) ? fs.readdirSync(current, {withFileTypes: true}) : []) { const next = path.join(current, item.name); if (item.isDirectory()) walk(next); else if (pattern.test(item.name)) found.push(next); } };

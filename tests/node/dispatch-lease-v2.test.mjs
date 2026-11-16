@@ -36,9 +36,9 @@ async function fixture(t) {
   for (const dir of [...Object.values(homes), cwd, bin]) await fs.mkdir(dir, {recursive: true});
   await installFakeCli(t, bin, 'claude', {version: '2.1.322'});
   await fs.symlink(process.execPath, path.join(bin, 'zeta'));
-  const config = {version: 2, revision: 'lease-rev', platforms: ['codex', 'claude', 'zeta'], roles: Object.fromEntries(ROUTING_ROLES.map(role => [role,
+  const config = {version: 2, revision: 'lease-rev', platforms: ['claude', 'codex', 'zeta'], roles: Object.fromEntries(ROUTING_ROLES.map(role => [role,
     {platform: role === 'arc_planner' ? 'zeta' : role === 'arc_qa' ? 'codex' : 'claude', model: 'haiku', effort: 'low'}]))};
-  const bytes = Buffer.from(JSON.stringify(config)), activePath = path.join(homes.codex, 'arc-role-platform-routing.json');
+  const bytes = Buffer.from(JSON.stringify(config)), activePath = path.join(homes.claude, 'arc-role-platform-routing.json');
   await fs.writeFile(activePath, bytes);
   const versions = await cooperativeVersions();
   for (const id of config.platforms) {
@@ -70,7 +70,7 @@ for (const [role, route, target] of [['arc_scouter', 'native', 'claude'], ['arc_
   test(`new lease is v2 with targetPlatform for ${route}`, async t => {
     const f = await fixture(t), prepared = await f.prepare(role);
     assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
-    const saved = await readLease(f.homes.codex, prepared.dispatchId, {runtimePlatforms: registry});
+    const saved = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
     assert.equal(saved.version, 2);
     assert.equal(saved.route, route);
     assert.equal(saved.targetPlatform, target);
@@ -79,7 +79,7 @@ for (const [role, route, target] of [['arc_scouter', 'native', 'claude'], ['arc_
 
 test('v1 lease resolves target with 2-platform rule under 3 registered without hold', async t => {
   const f = await fixture(t), old = lease();
-  await createLease(f.homes.codex, old, {runtimePlatforms: registry});
+  await createLease(f.homes.claude, old, {runtimePlatforms: registry});
   assert.equal(leaseTargetPlatform(old, registry), 'claude');
   assert.equal(leaseTargetPlatform(lease({route: 'native'}), registry), 'codex');
   const observed = await recordRoleObservation({context: {...f.context, hostPlatform: 'codex', executionEnvironment: 'codex-cli'}, dispatchId: old.dispatchId, policy});
@@ -90,7 +90,7 @@ test('v1 lease resolves target with 2-platform rule under 3 registered without h
 for (const route of ['native', 'bridge']) {
   test(`v1 lease with host outside codex/claude is activation_unverified for ${route}`, async t => {
     const f = await fixture(t), old = lease({route, hostPlatform: 'zeta', executionEnvironment: 'zeta-cli'});
-    await createLease(f.homes.codex, old, {runtimePlatforms: registry});
+    await createLease(f.homes.claude, old, {runtimePlatforms: registry});
     assert.throws(() => leaseTargetPlatform(old, registry), /unknown platform/);
     const observed = await recordRoleObservation({context: {...f.context, hostPlatform: 'zeta', executionEnvironment: 'zeta-cli'}, dispatchId: old.dispatchId, policy});
     assert.equal(observed.decision, 'hold');
@@ -137,8 +137,8 @@ for (const [id, capability] of [['zeta', 'compositeRole'], ['claude', 'composite
     assert.equal(result.decision, 'hold');
     assert.deepEqual(codes(result), ['capability_not_verified']);
     assert.equal(result.dispatchId, null);
-    assert.deepEqual(await listLeases(f.homes.codex, {runtimePlatforms: registry}), []);
-    await assert.rejects(fs.stat(dispatchDirectory(f.homes.codex)), {code: 'ENOENT'});
+    assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: registry}), []);
+    await assert.rejects(fs.stat(dispatchDirectory(f.homes.claude)), {code: 'ENOENT'});
   });
 }
 
@@ -146,11 +146,11 @@ for (const [id, capability] of [['zeta', 'compositeRole'], ['claude', 'composite
   test(`run rechecks capability: ${id}.${capability}`, async t => {
     const f = await fixture(t), prepared = await f.prepare('arc_planner');
     assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
-    const before = await readLease(f.homes.codex, prepared.dispatchId, {runtimePlatforms: registry});
+    const before = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
     const result = await runBridgeDispatch({context: {...f.context, runtimePlatforms: offRegistry(id, capability)}, dispatchId: prepared.dispatchId, brief: 'T5', policy});
     assert.equal(result.decision, 'hold');
     assert.deepEqual(codes(result), ['capability_not_verified']);
-    assert.deepEqual(await readLease(f.homes.codex, prepared.dispatchId, {runtimePlatforms: registry}), before);
+    assert.deepEqual(await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry}), before);
     await assert.rejects(fs.stat(path.join(f.context.cwd, '.git')), {code: 'ENOENT'});
   });
 }

@@ -25,7 +25,7 @@ test('composite install leaves no standalone profiles on either home',async t=>{
 });
 test('failed composite publication restores standalone profiles byte for byte',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);const before=profileFiles(ctx);ctx.hooks={fault:e=>{if(e.phase==='before-publish'&&e.path.endsWith('arc-role-platform-routing.json'))throw Error('fault');}};
- const result=await publish(ctx);assert.equal(result.code,1);assert.deepEqual(profileFiles(ctx),before);assert.equal(fs.existsSync(ctx.userHome+'/.codex/arc-role-platform-routing.json'),false);
+ const result=await publish(ctx);assert.equal(result.code,1);assert.deepEqual(profileFiles(ctx),before);assert.equal(fs.existsSync(ctx.userHome+'/.claude/arc-role-platform-routing.json'),false);
 });
 test('unowned standalone profile is kept and reported as residual',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);const user=ctx.userHome+'/.claude/agents/arc-qa.md',link=ctx.userHome+'/.codex/agents/arc-qa.toml',outside=ctx.userHome+'/mine';fs.writeFileSync(user,'my profile\n');fs.writeFileSync(outside,'outside\n');fs.unlinkSync(link);fs.symlinkSync(outside,link);
@@ -33,7 +33,7 @@ test('unowned standalone profile is kept and reported as residual',async t=>{
 });
 test('active bridge lease blocks publication and deactivation without changes',async t=>{
  const {createLease}=await import('../../lib/runtime/role-dispatch-store.mjs');const ctx=await compositeContext(t);await standalone(ctx);const before=profileFiles(ctx),now='2026-11-10T00:00:00.000Z';
- await createLease(ctx.userHome+'/.codex',{version:1,dispatchId:'active-1',workflowId:'wf-1',taskId:'task-1',requestId:'req-1',role:'arc_planner',route:'bridge',hostPlatform:'claude',executionEnvironment:'claude-cli',revision:'rev-0',profileHash:null,argsDigest:null,state:'running',supervisor:null,child:null,sessionId:null,timeoutMinutes:20,claims:null,reasons:[],allowedPaths:[],resultPath:null,segment:0,nativeAgentId:null,createdAt:now,updatedAt:now});
+ await createLease(ctx.userHome+'/.claude',{version:1,dispatchId:'active-1',workflowId:'wf-1',taskId:'task-1',requestId:'req-1',role:'arc_planner',route:'bridge',hostPlatform:'claude',executionEnvironment:'claude-cli',revision:'rev-0',profileHash:null,argsDigest:null,state:'running',supervisor:null,child:null,sessionId:null,timeoutMinutes:20,claims:null,reasons:[],allowedPaths:[],resultPath:null,segment:0,nativeAgentId:null,createdAt:now,updatedAt:now});
  const result=await publish(ctx);assert.equal(result.code,1);assert.ok(result.messages.includes('Active bridge dispatches: active-1'));assert.deepEqual(profileFiles(ctx),before);
 });
 test('mixed legacy state is cleaned by one composite publication',async t=>{

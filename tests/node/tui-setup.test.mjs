@@ -51,7 +51,7 @@ for(const target of ['codex','claude'])for(const source of ['draft','installed',
 });
 test('session draft wins over current composite config and Back prepares nothing',async()=>{
  const draft=installDraft('codex',['codex','claude']),before=structuredClone(draft.roles);
- const result=await installFlow({draft,installState:{mode:'composite',platforms:['codex','claude'],anchor:'codex'},currentConfig:{roles:installRoles('claude')},loadRoleDefaults:()=>assert.fail('draft wins'),ui:scripted([['Install / Update',null]]),prepare:()=>assert.fail('Back must not prepare')});
+ const result=await installFlow({draft,installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},currentConfig:{roles:installRoles('claude')},loadRoleDefaults:()=>assert.fail('draft wins'),ui:scripted([['Install / Update',null]]),prepare:()=>assert.fail('Back must not prepare')});
  assert.equal(result,null);assert.deepEqual(draft.roles,before);
 });
 for(const platform of ['codex','claude'])test(platform+' malformed later catalog pair blocks Apply and caches failure',async()=>{
@@ -118,24 +118,24 @@ test('(mixed) field untouched is omitted, touched applies to S',async()=>{
  const saved=[installStatuses[0],{...installStatuses[1],settings:{language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2}}}],settings=setup.installSettingsDraft(saved,['codex','claude']);
  assert.deepEqual([...settings.mixed],['language','maxTotalSubagents','maxConcurrentSubagents']);assert.equal(settings.touched.size,0);
  assert.deepEqual(setup.installSettingsDraft([],['codex']),{language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5,mixed:new Set(),touched:new Set()});
- const draft={...installDraft('codex',['codex','claude']),settings},plan={rule:'D1-c',platforms:['codex','claude'],anchor:'codex'};
+ const draft={...installDraft('codex',['codex','claude']),settings},plan={rule:'D1-c',platforms:['claude','codex'],anchor:'claude'};
  assert.deepEqual(setup.installPrepareOptions(plan,draft,catalogs).settings,{skipGlobal:false});
  const steps=[['Settings',0,(rows,options)=>{assert.match(rows[0],/\(mixed\)/);options.onHorizontal({selected:0,direction:'right'});}],['Settings',1],['Settings',2],['Settings',3]],ui=scripted(steps);let input=0;
  ui.text=async()=>['9','4'][input++];await setup.editInstallSettings({ui,settings});
- const options=setup.installPrepareOptions(plan,draft,catalogs);assert.deepEqual(options.settings,{skipGlobal:false,language:'en',maxTotalSubagents:9,maxConcurrentSubagents:4,concurrentSelected:true});assert.deepEqual(options.platforms,['codex','claude']);
- for(const rule of ['D1-c','D1-d','D1-e']){const value=setup.installPrepareOptions({...plan,rule},draft,catalogs);assert.equal(value.target,'composite');assert.equal(value.config.version,1);assert.deepEqual(value.config.roles,draft.roles);assert.ok(value.config.revision);}
+ const options=setup.installPrepareOptions(plan,draft,catalogs);assert.deepEqual(options.settings,{skipGlobal:false,language:'en',maxTotalSubagents:9,maxConcurrentSubagents:4,concurrentSelected:true});assert.deepEqual(options.platforms,['claude','codex']);
+ for(const rule of ['D1-c','D1-d','D1-e']){const value=setup.installPrepareOptions({...plan,rule},draft,catalogs);assert.equal(value.target,'composite');assert.equal(value.config.version,2);assert.deepEqual(value.config.roles,draft.roles);assert.ok(value.config.revision);}
  const single=setup.installPrepareOptions({rule:'D1-b',platforms:['codex'],anchor:'codex'},draft,catalogs);assert.equal(single.switchFromComposite,true);assert.deepEqual(single.roles,models.codex.roles);assert.strictEqual(single.verifiedCatalog,catalogs.codex);assert.equal(single.skipGlobal,false);
 });
 
 test('hosts lock role platforms and preview Mode',async()=>{
  const steps=[['Install / Update',5],['Hosts — CLIs you will work in',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[x] Codex          (used by roles)');}],['Hosts — CLIs you will work in',0,rows=>assert.match(rows[1],/^\[x\]/)],['Hosts — CLIs you will work in',2],['Install / Update',7,(_rows,options)=>{assert.deepEqual(options.info,['Hosts: Claude, Codex','Mode:  Mixed (Claude + Codex)']);}]];
- const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['codex','claude']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
+ const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
 test('D1-b asks confirmation; Back sends nothing',async()=>{
  let calls=0;const steps=[['Install / Update',7],['Switch to Codex',null,(rows,options)=>{assert.deepEqual([...rows,...(options.backRow?['Back']:[])],['Continue','Back']);assert.deepEqual(options.info,['Mixed routing will be turned off.']);}],['Install / Update',null]];
- assert.equal(await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['codex','claude']},ui:scripted(steps),prepare:async()=>{calls++;}}),null);assert.equal(calls,0);assert.equal(steps.length,0);
- const result=await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['codex','claude']},ui:scripted([['Install / Update',7],['Switch to Codex',0]])});assert.equal(result.switchFromComposite,true);
+ assert.equal(await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps),prepare:async()=>{calls++;}}),null);assert.equal(calls,0);assert.equal(steps.length,0);
+ const result=await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted([['Install / Update',7],['Switch to Codex',0]])});assert.equal(result.switchFromComposite,true);
 });
 
 test('D1-f shows Operation unavailable',async()=>{
@@ -175,10 +175,10 @@ test('install hosts use injected registry labels, order and reason detail',async
 });
 
 test('initial composite roles and hosts come from currentConfig and D1-e prepares without confirmation',async()=>{
- const currentConfig={version:1,revision:'saved',platforms:['codex','claude'],roles:installRoles('claude')},steps=[['Install / Update',5,(_rows,options)=>assert.ok(options.info.includes('Hosts: Claude, Codex'))],['Hosts — CLIs you will work in',1],['Hosts — CLIs you will work in',2],['Install / Update',7],['Switch to Claude',0]];
- const result=await installFlow({currentConfig,installState:{mode:'composite',platforms:['codex','claude']},ui:scripted(steps)});assert.equal(result.target,'claude');assert.equal(result.switchFromComposite,true);assert.deepEqual(currentConfig.roles,installRoles('claude'));
+ const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Install / Update',5,(_rows,options)=>assert.ok(options.info.includes('Hosts: Claude, Codex'))],['Hosts — CLIs you will work in',1],['Hosts — CLIs you will work in',2],['Install / Update',7],['Switch to Claude',0]];
+ const result=await installFlow({currentConfig,installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps)});assert.equal(result.target,'claude');assert.equal(result.switchFromComposite,true);assert.deepEqual(currentConfig.roles,installRoles('claude'));
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries();
- const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Install / Update',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['codex','claude']);
+ const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Install / Update',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);
 });
 
 test('uninstalled initial platform uses role availability then display order fallback',async()=>{
@@ -207,7 +207,7 @@ test('composite gates distinguish role and host usage and standalone ignores aut
 test('injected third host produces a version 2 routing config and registry labels',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries(),draft=installDraft('codex',['zeta','claude','codex']);
  const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Install / Update',7,(_rows,options)=>assert.deepEqual(options.info,['Hosts: Claude, Codex, Zeta','Mode:  Mixed (Claude + Codex + Zeta)'])]])});
- assert.deepEqual(result.platforms,['codex','claude','zeta']);assert.equal(result.config.version,2);assert.deepEqual(result.config.platforms,['codex','claude','zeta']);assert.equal(result.settings.skipGlobal,false);
+ assert.deepEqual(result.platforms,['claude','codex','zeta']);assert.equal(result.config.version,2);assert.deepEqual(result.config.platforms,['claude','codex','zeta']);assert.equal(result.settings.skipGlobal,false);
 });
 
 test('compact blocked screen keeps Back selectable through the real UI',async()=>{

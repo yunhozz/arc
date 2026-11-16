@@ -35,7 +35,7 @@ function rewriteConfig(context, config) {
 test('legacy v1 at codex home is composite with legacyAnchor', async t => {
   const context = await legacyComposite(t), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
   assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',
-    homes: {claude: 'composite', codex: 'composite', zeta: 'standalone'}, config: {...raw, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
+    homes: {claude: 'composite', codex: 'composite', zeta: 'standalone'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
   assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true});
   assert.deepEqual(management.readCompositeConfig(context), legacyState(context).config);
 });
@@ -176,9 +176,9 @@ test('legacy status adds move diagnostic', async t => {
   }
   assert.deepEqual(homeBytes(context.userHome), before);
 });
-test('operational order: codex v1 at codex home stays normal composite without legacyAnchor', async t => {
+test('injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor', async t => {
   const context = await legacyComposite(t, {operational: true}), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
-  assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, platforms: ['codex', 'claude']}, residualPaths: []});
+  assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, version: 2, platforms: ['codex', 'claude']}, residualPaths: []});
   assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex'});
   assert.equal('anchorMove' in await prepare(context), false);
 });

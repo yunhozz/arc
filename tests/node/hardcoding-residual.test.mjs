@@ -19,10 +19,10 @@ const plannedOutput = ({snapshot, ...output}) => output;
 
 async function routingInputs(t, injected) {
   const context = await (injected ? zetaContext(t) : compositeContext(t));
-  await installAll(context, injected ? ['codex', 'claude', 'zeta'] : ['codex', 'claude']);
+  await installAll(context, injected ? ['claude', 'codex', 'zeta'] : ['claude', 'codex']);
   const payload = verifyPayload(context);
   if (injected) Object.assign(context, createTestRegistries(['claude', 'zeta']));
-  const platforms = injected ? ['claude', 'zeta'] : ['codex', 'claude'], anchor = platforms[0];
+  const platforms = injected ? ['claude', 'zeta'] : ['claude', 'codex'], anchor = platforms[0];
   const targets = resolveTargets(context).targets, profileInputs = {}, modelConfigs = {};
   for (const id of platforms) {
     modelConfigs[id] = loadModelConfig(fs.readFileSync(path.join(targets[id].home, 'skills/arc/models.toml')), id, context);
@@ -35,7 +35,7 @@ async function routingInputs(t, injected) {
 }
 
 for (const injected of [false, true]) {
-  const label = injected ? 'injected claude+zeta registry' : 'production legacy defaults';
+  const label = injected ? 'injected claude+zeta registry' : 'production defaults';
   test(`role-routing preparation preserves bytes and paths for ${label}`, async t => {
     const input = await routingInputs(t, injected);
     const explicit = prepareCompositeFiles(input);
@@ -46,7 +46,7 @@ for (const injected of [false, true]) {
     assert.equal(prepared.anchor, anchor);
     const value = injected
       ? {version: 2, revision: input.config.revision, platforms: ['claude', 'zeta'], roles: input.config.roles}
-      : {version: 1, revision: input.config.revision, roles: input.config.roles};
+      : {version: 2, revision: input.config.revision, platforms: ['claude', 'codex'], roles: input.config.roles};
     assert.equal(prepared.bytes.toString(), JSON.stringify(value, null, 2) + '\n');
     assert.ok(prepared.managedPaths.includes(path.join(input.targets[anchor].home, 'arc-role-platform-routing.json')));
   });
@@ -82,29 +82,29 @@ for (const injected of [false, true]) {
   });
 }
 
-test('management composite fallback keeps production v1 bytes, paths and options', async t => {
+test('management composite fallback keeps production v2 bytes, paths and options', async t => {
   const context = await compositeContext(t), config = await mixedConfig('management-default');
   const prepared = await prepareCompositeOperation(context, {kind: 'install', config});
-  const explicit = await prepareCompositeOperation(context, {kind: 'install', config, platforms: ['codex', 'claude']});
+  const explicit = await prepareCompositeOperation(context, {kind: 'install', config, platforms: ['claude', 'codex']});
   assert.deepEqual(prepared, explicit);
   assert.equal(prepared.files.bytes.toString(), JSON.stringify(config, null, 2) + '\n');
-  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['codex', 'claude']);
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
   assert.deepEqual(prepared.options, {target: 'composite'});
-  assert.equal(prepared.files.anchor, 'codex');
+  assert.equal(prepared.files.anchor, 'claude');
 });
 
 test('management composite fallback includes injected host-only zeta in anchor order', async t => {
   const context = await zetaContext(t), config = await mixedConfig('management-injected');
   const prepared = await prepareCompositeOperation(context, {kind: 'install', config});
-  assert.deepEqual(prepared.files.platforms, ['codex', 'claude', 'zeta']);
-  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['codex', 'claude', 'zeta']);
+  assert.deepEqual(prepared.files.platforms, ['claude', 'codex', 'zeta']);
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'zeta']);
   assert.equal(prepared.config.version, 2);
-  assert.equal(prepared.files.anchor, 'codex');
+  assert.equal(prepared.files.anchor, 'claude');
 });
 
 test('setup role defaults keep production values and unknown-target error', () => {
   const context = {packageRoot: new URL('../../', import.meta.url).pathname};
-  for (const target of ['codex', 'claude']) {
+  for (const target of ['claude', 'codex']) {
     const modelConfig = loadModelConfig(fs.readFileSync(path.join(context.packageRoot, target, 'skill/models.toml')), target);
     assert.deepEqual(loadRoleDefaults({context, statuses: [], target}), modelConfig.roles);
     assert.deepEqual(loadRoleDefaults({context, statuses: [{platform: target, settings: {modelConfig}}], target}), modelConfig.roles);

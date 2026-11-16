@@ -6,8 +6,9 @@ import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
 import {renameCompositeProfile} from '../../lib/installer/role-routing.mjs';
-import {ROUTING_ROLES, serializeRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
+import {ROUTING_ROLES, serializeRoleRoutingConfig, validateRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
 import {cooperativeVersions} from '../../lib/runtime/bootstrap.mjs';
+import {runtimeRegistryOf} from '../../lib/runtime/platform-registry.mjs';
 
 const root = new URL('../../', import.meta.url).pathname;
 const digest = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
@@ -36,7 +37,7 @@ async function renderPlatform(platform, config) {
 }
 
 /** roles: {arc_qa:'codex'} assigns that role to a platform; every other role stays on hostPlatform. */
-export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claude', limits = {total: 100, concurrent: 5}, revision = 'rev-1'} = {}) {
+export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claude', limits = {total: 100, concurrent: 5}, revision = 'rev-1', runtimePlatforms} = {}) {
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-route-'));
   // Tests may chmod directories; restore permissions before removing so a failing test leaves nothing behind.
   t.after(async () => { spawnSync('chmod', ['-R', 'u+rwx', base]); await fs.rm(base, {recursive: true, force: true}); });
@@ -46,9 +47,10 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   for (const args of [['init', '-q'], ['config', 'user.email', 't@example.com'], ['config', 'user.name', 't'], ['commit', '-q', '--allow-empty', '-m', 'init']]) {
     const r = spawnSync('git', args, {cwd, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr);
   }
-  const config = {version: 1, revision, roles: {}};
+  const platforms = runtimeRegistryOf({runtimePlatforms}).byAnchorOrder().map(platform => platform.id);
+  const config = {version: 2, revision, platforms, roles: {}};
   for (const role of ROUTING_ROLES) { const platform = roles[role] ?? hostPlatform; config.roles[role] = {platform, ...VALUES[platform]}; }
-  const configBytes = Buffer.from(serializeRoleRoutingConfig(config)), activePath = path.join(codexHome, 'arc-role-platform-routing.json');
+  const configBytes = Buffer.from(serializeRoleRoutingConfig(validateRoleRoutingConfig(config, {runtimePlatforms}))), activePath = path.join(platforms[0] === 'claude' ? claudeHome : codexHome, 'arc-role-platform-routing.json');
   await fs.writeFile(activePath, configBytes);
   const versions = await cooperativeVersions(), homes = {codex: codexHome, claude: claudeHome};
   for (const platform of ['codex', 'claude']) {
@@ -70,7 +72,7 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   await fs.writeFile(path.join(homes[hostPlatform], 'skills/arc/limits.toml'), serializeLimits({version: 1, max_total_subagents: limits.total, max_concurrent_subagents: limits.concurrent}));
   const env = {PATH: `${binDir}${path.delimiter}/usr/bin${path.delimiter}/bin`, HOME: userHome, CODEX_HOME: codexHome};
   const fixture = {base, userHome, codexHome, claudeHome, cwd, binDir, env, revision, config, hostPlatform, activePath, homes,
-    context: (overrides = {}) => ({cwd, userHome, env: fixture.env, hostPlatform, executionEnvironment: `${hostPlatform}-cli`, workflowId: 'wf-1', ...overrides}),
+    context: (overrides = {}) => ({cwd, userHome, env: fixture.env, ...(runtimePlatforms ? {runtimePlatforms} : {}), hostPlatform, executionEnvironment: `${hostPlatform}-cli`, workflowId: 'wf-1', ...overrides}),
     cli(platform, scenario = {}) { const cli = installFakeCli(t, binDir, platform, scenario); return cli.then(value => { fixture.env = {...fixture.env, [value.envName]: value.scenarioPath}; return value; }); }
   };
   return fixture;

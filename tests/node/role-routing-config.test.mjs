@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createPlatformRegistry} from '../../lib/runtime/platform-registry.mjs';
 import * as routing from '../../lib/runtime/role-routing-config.mjs';
 import {createTestRuntimeRegistry, createTestRegistries} from './fixtures/platforms/zeta.mjs';
 
@@ -41,39 +42,41 @@ const v2 = () => {
   for (const fields of Object.values(roles)) if (fields.platform === 'codex') fields.platform = 'zeta';
   return {version: 2, revision, platforms: ['claude', 'zeta'], roles};
 };
+const historical = {runtimePlatforms: createPlatformRegistry(createTestRuntimeRegistry().platforms.map(p => ({...p, anchorOrder: p.id === 'codex' ? 0 : p.id === 'claude' ? 1 : p.anchorOrder})))};
+const v2PairText = platforms => JSON.stringify({version: 2, revision: v1().revision, platforms, roles: v1().roles}, null, 2) + '\n';
 const opts = {runtimePlatforms: createTestRuntimeRegistry()};
 
-test('v1 round-trips byte-identically and exposes its implicit participating platforms', () => {
-  const config = routing.parseRoleRoutingConfig(v1Text);
+test('historical v1 reads its implicit platforms and serializes as explicit v2', () => {
+  const config = routing.parseRoleRoutingConfig(v1Text, historical);
   assert.deepEqual(config.platforms, ['codex', 'claude']);
-  assert.equal(routing.serializeRoleRoutingConfig(config), v1Text);
-  assert.equal(routing.serializeRoleRoutingConfig(v1()), v1Text);
+  assert.equal(routing.serializeRoleRoutingConfig(config), v2PairText(['codex', 'claude']));
+  assert.equal(routing.serializeRoleRoutingConfig(routing.validateRoleRoutingConfig(v1(), historical)), v2PairText(['codex', 'claude']));
 });
 
 test('v1 validation accepts omitted or explicit implicit platforms without mutating input', () => {
   const input = v1();
-  const config = routing.validateRoleRoutingConfig(input);
+  const config = routing.validateRoleRoutingConfig(input, historical);
   assert.deepEqual(config, {...input, platforms: ['codex', 'claude']});
   assert.equal(Object.hasOwn(input, 'platforms'), false);
   config.roles.arc_scouter.model = 'changed';
   assert.equal(input.roles.arc_scouter.model, 'gpt-5');
-  assert.deepEqual(routing.validateRoleRoutingConfig({...input, platforms: ['codex', 'claude']}), {...input, platforms: ['codex', 'claude']});
+  assert.deepEqual(routing.validateRoleRoutingConfig({...input, platforms: ['codex', 'claude']}, historical), {...input, platforms: ['codex', 'claude']});
 });
 
 test('v1 rejects a participating set or role platform outside its implicit pair', () => {
-  assert.throws(() => routing.validateRoleRoutingConfig({...v1(), platforms: ['claude', 'zeta']}, opts));
+  assert.throws(() => routing.validateRoleRoutingConfig({...v1(), platforms: ['claude', 'zeta']}, historical));
   const input = v1();
   input.roles.arc_scouter.platform = 'zeta';
-  assert.throws(() => routing.validateRoleRoutingConfig(input, opts));
+  assert.throws(() => routing.validateRoleRoutingConfig(input, historical));
 });
 
-test('build writes v1 only for codex+claude and normalizes host order and duplicates', () => {
+test('build writes v2 for codex+claude and normalizes host order and duplicates', () => {
   const {roles} = v1();
   for (const fields of Object.values(roles)) fields.platform = 'codex';
   const config = routing.buildRoleRoutingConfig({revision: 'rev-1', platforms: ['claude', 'codex', 'claude'], roles});
-  assert.equal(config.version, 1);
-  assert.deepEqual(config.platforms, ['codex', 'claude']);
-  assert.equal(Object.hasOwn(JSON.parse(routing.serializeRoleRoutingConfig(config)), 'platforms'), false);
+  assert.equal(config.version, 2);
+  assert.deepEqual(config.platforms, ['claude', 'codex']);
+  assert.equal(Object.hasOwn(JSON.parse(routing.serializeRoleRoutingConfig(config)), 'platforms'), true);
 });
 
 test('build unions role platforms with hosts and sorts by anchorOrder for v2', () => {
@@ -82,7 +85,7 @@ test('build unions role platforms with hosts and sorts by anchorOrder for v2', (
   assert.deepEqual(config, v2());
   const three = routing.buildRoleRoutingConfig({revision: 'rev-1', platforms: ['zeta', 'codex', 'zeta'], roles}, opts);
   assert.equal(three.version, 2);
-  assert.deepEqual(three.platforms, ['codex', 'claude', 'zeta']);
+  assert.deepEqual(three.platforms, ['claude', 'codex', 'zeta']);
 });
 
 test('build can derive the participating set solely from roles', () => {
@@ -119,10 +122,10 @@ test('v2 serializes in version, revision, platforms, roles order using v1 format
   ]) assert.equal(routing.serializeRoleRoutingConfig(config), expected);
 });
 
-test('v2 with exactly codex+claude serializes as the existing v1 bytes', () => {
-  const config = routing.validateRoleRoutingConfig({...v1(), version: 2, platforms: ['codex', 'claude']});
+test('v2 with exactly codex+claude remains v2 with explicit sorted platforms', () => {
+  const config = routing.validateRoleRoutingConfig({...v1(), version: 2, platforms: ['claude', 'codex']});
   assert.equal(config.version, 2);
-  assert.equal(routing.serializeRoleRoutingConfig(config), v1Text);
+  assert.equal(routing.serializeRoleRoutingConfig(config), v2PairText(['claude', 'codex']));
 });
 
 for (const [name, platforms] of [

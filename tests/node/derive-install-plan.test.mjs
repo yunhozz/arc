@@ -11,7 +11,7 @@ const load = url => import(url).catch(error => {
 });
 const plan = await load('../../lib/tui/derive-install-plan.mjs');
 const mode = await load('../../lib/tui/mode.mjs');
-const {platforms: registry} = createTestRegistries(['codex', 'claude', 'zeta', 'eta']);
+const {platforms: registry} = createTestRegistries(['claude', 'codex', 'zeta', 'eta']);
 const all = platform => Object.fromEntries(ROLES.map(role => [role, {platform, model: 'm', effort: 'high'}]));
 const standalone = {mode: 'standalone', platforms: null};
 const composite = platforms => ({mode: 'composite', platforms});
@@ -32,23 +32,23 @@ const cases = [
   },
   {
     name: 'D1-b: clearing every host with all Codex roles turns mixed routing off (Review Focus 2)',
-    roles: all('codex'), hosts: [], current: composite(['codex', 'claude']),
-    want: {rule: 'D1-b', platforms: ['codex'], anchor: 'codex', previous: ['codex', 'claude'], removed: ['claude'], added: [], anchorMove: false, modeLabel: 'Codex'},
+    roles: all('codex'), hosts: [], current: composite(['claude', 'codex']),
+    want: {rule: 'D1-b', platforms: ['codex'], anchor: 'codex', previous: ['claude', 'codex'], removed: ['claude'], added: [], anchorMove: false, modeLabel: 'Codex'},
   },
   {
     name: 'D1-c: all Codex roles plus a Claude host derive a composite install (AC-T10)',
     roles: all('codex'), hosts: ['claude'], current: standalone,
-    want: {rule: 'D1-c', platforms: ['codex', 'claude'], anchor: 'codex', previous: [], removed: [], added: ['codex', 'claude'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex)'},
+    want: {rule: 'D1-c', platforms: ['claude', 'codex'], anchor: 'claude', previous: [], removed: [], added: ['claude', 'codex'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex)'},
   },
   {
     name: 'D1-c: three platforms are deduplicated and sorted by anchor order',
     roles: all('zeta'), hosts: ['claude', 'codex', 'zeta', 'claude'], current: standalone,
-    want: {rule: 'D1-c', platforms: ['codex', 'claude', 'zeta'], anchor: 'codex', previous: [], removed: [], added: ['codex', 'claude', 'zeta'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex + Zeta)'},
+    want: {rule: 'D1-c', platforms: ['claude', 'codex', 'zeta'], anchor: 'claude', previous: [], removed: [], added: ['claude', 'codex', 'zeta'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex + Zeta)'},
   },
   {
     name: 'D1-d: equal sets compare by membership regardless of input order',
     roles: all('claude'), hosts: ['codex'], current: composite(['claude', 'codex']),
-    want: {rule: 'D1-d', platforms: ['codex', 'claude'], anchor: 'codex', previous: ['codex', 'claude'], removed: [], added: [], anchorMove: false, modeLabel: 'Mixed (Claude + Codex)'},
+    want: {rule: 'D1-d', platforms: ['claude', 'codex'], anchor: 'claude', previous: ['claude', 'codex'], removed: [], added: [], anchorMove: false, modeLabel: 'Mixed (Claude + Codex)'},
   },
   {
     name: 'D1-e: replacing a member can keep the same anchor',
@@ -56,14 +56,24 @@ const cases = [
     want: {rule: 'D1-e', platforms: ['codex', 'eta'], anchor: 'codex', previous: ['codex', 'zeta'], removed: ['zeta'], added: ['eta'], anchorMove: false, modeLabel: 'Mixed (Codex + Eta)'},
   },
   {
-    name: 'D1-e: adding Codex moves the anchor from Claude',
-    roles: all('zeta'), hosts: ['codex', 'claude'], current: composite(['zeta', 'claude']),
-    want: {rule: 'D1-e', platforms: ['codex', 'claude', 'zeta'], anchor: 'codex', previous: ['claude', 'zeta'], removed: [], added: ['codex'], anchorMove: true, modeLabel: 'Mixed (Claude + Codex + Zeta)'},
+    name: 'D1-e: adding Codex preserves the Claude anchor',
+    roles: all('zeta'), hosts: ['claude', 'codex'], current: composite(['zeta', 'claude']),
+    want: {rule: 'D1-e', platforms: ['claude', 'codex', 'zeta'], anchor: 'claude', previous: ['claude', 'zeta'], removed: [], added: ['codex'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex + Zeta)'},
   },
   {
-    name: 'D1-e: removing Codex moves the anchor to Claude',
+    name: 'D1-e: removing Codex preserves the Claude anchor',
     roles: all('zeta'), hosts: ['claude'], current: composite(['zeta', 'codex', 'claude']),
-    want: {rule: 'D1-e', platforms: ['claude', 'zeta'], anchor: 'claude', previous: ['codex', 'claude', 'zeta'], removed: ['codex'], added: [], anchorMove: true, modeLabel: 'Mixed (Claude + Zeta)'},
+    want: {rule: 'D1-e', platforms: ['claude', 'zeta'], anchor: 'claude', previous: ['claude', 'codex', 'zeta'], removed: ['codex'], added: [], anchorMove: false, modeLabel: 'Mixed (Claude + Zeta)'},
+  },
+  {
+    name: 'D1-e: adding Claude moves the anchor from Codex',
+    roles: all('zeta'), hosts: ['codex', 'claude'], current: composite(['zeta', 'codex']),
+    want: {rule: 'D1-e', platforms: ['claude', 'codex', 'zeta'], anchor: 'claude', previous: ['codex', 'zeta'], removed: [], added: ['claude'], anchorMove: true, modeLabel: 'Mixed (Claude + Codex + Zeta)'},
+  },
+  {
+    name: 'D1-e: removing Claude moves the anchor to Codex',
+    roles: all('zeta'), hosts: ['codex'], current: composite(['zeta', 'codex', 'claude']),
+    want: {rule: 'D1-e', platforms: ['codex', 'zeta'], anchor: 'codex', previous: ['claude', 'codex', 'zeta'], removed: ['claude'], added: [], anchorMove: true, modeLabel: 'Mixed (Codex + Zeta)'},
   },
   {
     name: 'hosts [] derives S from role platforms only',
@@ -89,13 +99,13 @@ for (const {name, want, ...input} of cases) test(name, () => {
 test('deriveInstallPlan defaults to the production installer registry', () => {
   assert.equal(typeof plan.deriveInstallPlan, 'function');
   assert.deepEqual(plan.deriveInstallPlan({roles: all('codex'), hosts: ['claude'], current: standalone}), {
-    rule: 'D1-c', platforms: ['codex', 'claude'], anchor: 'codex', previous: [], removed: [], added: ['codex', 'claude'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex)',
+    rule: 'D1-c', platforms: ['claude', 'codex'], anchor: 'claude', previous: [], removed: [], added: ['claude', 'codex'], anchorMove: false, modeLabel: 'Mixed (Claude + Codex)',
   });
 });
 
 test('four fake ids use display order in homeStatusLine and mixedLabel (AC-T9)', () => {
   assert.equal(typeof mode.homeStatusLine, 'function');
-  const ids = ['codex', 'claude', 'zeta', 'eta'];
+  const ids = ['claude', 'codex', 'zeta', 'eta'];
   assert.deepEqual(registry.platformIds(), ids);
   const statuses = freeze(ids.map(platform => ({platform, state: 'installed'})));
   assert.equal(mode.homeStatusLine(statuses, registry), 'Claude: Available / Codex: Available / Zeta: Available / Eta: Available');
@@ -135,7 +145,7 @@ for (const [name, installState, statuses, want] of [
   ['one standalone installation', standalone, [{platform: 'zeta', state: 'installed'}], 'Zeta'],
   ['no installations', standalone, [{platform: 'codex', state: 'absent'}, {platform: 'claude', state: 'incomplete'}], 'Not installed'],
   ['no statuses', standalone, [], 'Not installed'],
-  ['unverified overrides installed statuses', {mode: 'unverified', platforms: ['codex', 'claude']}, [{platform: 'codex', state: 'installed'}], 'Unverified'],
+  ['unverified overrides installed statuses', {mode: 'unverified', platforms: ['claude', 'codex']}, [{platform: 'codex', state: 'installed'}], 'Unverified'],
 ]) test(`homeModeLine: ${name}`, () => {
   assert.equal(typeof mode.homeModeLine, 'function');
   assert.equal(mode.homeModeLine(freeze(installState), freeze(statuses), registry), want);
@@ -143,13 +153,13 @@ for (const [name, installState, statuses, want] of [
 
 test('homeModeLine defaults to the production installer registry', () => {
   assert.equal(typeof mode.homeModeLine, 'function');
-  assert.equal(mode.homeModeLine(composite(['codex', 'claude']), []), 'Mixed (Claude + Codex)');
+  assert.equal(mode.homeModeLine(composite(['claude', 'codex']), []), 'Mixed (Claude + Codex)');
 });
 
 test('legacy same-set and changed-set previews move to the new anchor; D1-b does not', () => {
   const {platforms: registry} = migrationRegistries();
   const roles = Object.fromEntries(ROLES.map(role => [role, {platform: 'codex', model: 'gpt-6', effort: 'high'}]));
-  const current = {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true};
+  const current = {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'claude', legacyAnchor: true};
   for (const hosts of [['claude', 'codex'], ['claude', 'codex', 'zeta']]) {
     const result = plan.deriveInstallPlan({roles, hosts, current, registry});
     assert.equal(result.anchorMove, true);

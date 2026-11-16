@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {createInstallerRegistry} from '../../../lib/platforms/index.mjs';
 import {createPlatformRegistry} from '../../../lib/runtime/platform-registry.mjs';
 import {resolveTargets} from '../../../lib/installer/targets.mjs';
@@ -26,10 +27,27 @@ export const legacyState = context => readInstallMode({...context, ...resolveTar
 
 export async function legacyComposite(t, {operational = false} = {}) {
   const context = await zetaContext(t);
+  const original = createTestRegistries();
+  const runtimePlatforms = createPlatformRegistry(original.runtimePlatforms.platforms.map(descriptor => ({
+    ...descriptor, anchorOrder: descriptor.id === 'codex' ? 0 : descriptor.id === 'claude' ? 1 : descriptor.anchorOrder,
+  })));
+  const platforms = createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.byAnchorOrder().map(runtime => ({
+    ...original.platforms.getPlatform(runtime.id), runtime,
+  }))});
+  Object.assign(context, {runtimePlatforms, platforms});
   await installAll(context, ['codex', 'claude', 'zeta']);
   const prepared = await management.prepareCompositeOperation(context, {kind: 'install', platforms: ['codex', 'claude'], config: await mixedConfig('legacy-v1')});
   const result = await management.executeCompositeOperation(context, prepared);
   if (result.code !== 0) throw result.error ?? Error('Legacy fixture publication failed');
+  // Preserve the Phase A wire format independently of the current serializer.
+  const {revision, roles} = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
+  const bytes = Buffer.from(JSON.stringify({version: 1, revision, roles}, null, 2) + '\n');
+  fs.writeFileSync(activePath(context, 'codex'), bytes);
+  for (const id of ['codex', 'claude']) {
+    const filename = markerPath(context, id), marker = JSON.parse(fs.readFileSync(filename));
+    marker.configHash = 'sha256:' + createHash('sha256').update(bytes).digest('hex');
+    fs.writeFileSync(filename, JSON.stringify(marker));
+  }
   if (!operational) Object.assign(context, migrationRegistries());
   return context;
 }

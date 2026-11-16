@@ -15,14 +15,14 @@ async function setup(t, state) {
   assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
   assert.equal(prepared.route, 'bridge');
   f.dispatchId = prepared.dispatchId;
-  assert.equal((await readLease(f.codexHome, f.dispatchId)).state, 'reserved');
+  assert.equal((await readLease(f.claudeHome, f.dispatchId)).state, 'reserved');
   await changeLease(f, state, {supervisor: {pid: process.pid, startTime: 'fixture'}});
   return f;
 }
 
-const changeLease = (f, state, extra = {}) => withRoutingLock(f.codexHome, async () => {
-  const lease = await readLease(f.codexHome, f.dispatchId);
-  return writeLease(f.codexHome, {...lease, ...extra, state});
+const changeLease = (f, state, extra = {}) => withRoutingLock(f.claudeHome, async () => {
+  const lease = await readLease(f.claudeHome, f.dispatchId);
+  return writeLease(f.claudeHome, {...lease, ...extra, state});
 });
 const observe = (f, extra = {}) => recordRoleObservation({context: f.context(), dispatchId: f.dispatchId, waitMs: 5000, pollMs: 50, ...extra});
 
@@ -86,7 +86,7 @@ test('a supervisor lost during the wait is marked unknown and returned before wa
   assert.equal(result.routeStatus, 'unknown');
   assert.equal(result.decision, 'hold');
   assert.deepEqual(result.reasons.map(reason => reason.code), ['terminal_state_unverified']);
-  assert.equal((await readLease(f.codexHome, f.dispatchId)).state, 'unknown');
+  assert.equal((await readLease(f.claudeHome, f.dispatchId)).state, 'unknown');
   assert.ok(elapsed < 5000, `elapsed: ${elapsed}ms`);
 });
 
