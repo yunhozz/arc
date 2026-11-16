@@ -16,6 +16,7 @@ const safeFs = {openRoot: p => openRoot(p, {native})};
 const approvedKeys = [
   'claude/omit/en', 'claude/omit/ko', 'claude/write/en', 'claude/write/ko',
   'codex/omit/en', 'codex/omit/ko', 'codex/write/en', 'codex/write/ko',
+  'gemini/omit/en', 'gemini/omit/ko', 'gemini/write/en', 'gemini/write/ko',
 ];
 
 function packageFixture(t) {
@@ -25,7 +26,7 @@ function packageFixture(t) {
   return packageRoot;
 }
 
-test('golden fixture covers exactly the 8 approved combinations', () => {
+test('golden fixture covers exactly the 12 approved combinations', () => {
   assert.equal(golden.version, 1);
   assert.deepEqual(Object.keys(golden.combinations).sort(), approvedKeys);
   assert.deepEqual(COMBINATIONS.map(({platform, profiles, language}) => `${platform}/${profiles}/${language}`).sort(), approvedKeys);

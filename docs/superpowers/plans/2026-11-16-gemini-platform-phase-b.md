@@ -15,7 +15,7 @@
 - `lib/runtime/**`는 `lib/runtime` 내부만 import합니다(`lib/models`, `lib/installer`, `lib/platforms` 금지).
 - 새 runtime 모듈을 추가하면 같은 작업에서 다음 다섯 가지를 함께 갱신합니다: `RUNTIME_MODULE_PATHS`(`lib/installer/runtime-assets.mjs`), `COOPERATIVE_RUNTIME_MODULES`(`lib/runtime/bootstrap.mjs`), `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, runtime-assets `--check`. `tests/node/runtime-assets.test.mjs`의 `expectedPaths`도 함께 고칩니다.
 - `shared/skill/runtime/**`는 손으로 고치지 않습니다. `node scripts/update-runtime-assets.mjs`로만 동기화합니다.
-- `lib/policy/role-policy.json`은 각 role `controls`에 `gemini` 키를 추가하는 것만 허용합니다. codex/claude 생성물은 바이트 단위로 같아야 합니다(Q4, AC-R1).
+- `lib/policy/role-policy.json`은 각 role `controls`에 `gemini` 키를 추가하고, `platforms`에 `gemini` 항목(level `prompt`, notice는 spec Q4의 결정 12 문구)을 추가하는 것만 허용합니다. codex/claude 생성물은 바이트 단위로 같아야 합니다(Q4, AC-R1, 결정 12).
 - 레지스트리 값(최종): claude `displayOrder 0, anchorOrder 0` / codex `displayOrder 1, anchorOrder 1` / gemini `displayOrder 2, anchorOrder 2`. `DEFAULT_INSTALLER_REGISTRY` 순서는 `[CLAUDE, CODEX, GEMINI]`입니다.
 - gemini descriptor: `home.env 'GEMINI_CLI_HOME'`(설정되어 있으면 `unresolved`), 기본 `~/.gemini`, `cli.command 'gemini'`, `cli.supportedVersions '>=0.68.0 <0.69.0'`, `auth.kind 'none'`, `models.effortField 'effort'`, `profile.ext 'md'`, `standaloneName 'arc-<suffix>'`, `routingName 'arc-routing-<suffix>'`, `executionEnvironments ['gemini-cli']`.
 - Gemini capability의 초기 상태는 전부 `off`이고 reason은 정확히 다음 값입니다.
@@ -617,18 +617,18 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - `tests/installer-parity.json`(필요할 때만)
   - `lib/installer/*`(payload 트리 매핑에 gemini prefix가 하드코딩되어 있으면 해당 위치만)
 
-- [ ] **Step 1: 실패 테스트 작성**(임시 HOME, 주입 레지스트리에서 gemini `install`·`standalone`·`nativeProfile`·`catalog` verified)
+- [x] **Step 1: 실패 테스트 작성**(임시 HOME, 주입 레지스트리에서 gemini `install`·`standalone`·`nativeProfile`·`catalog` verified)
   - `gemini standalone install layout`: `~/.gemini/skills/arc/**`, `~/.gemini/agents/arc-*.md` 5종, `GEMINI.md` ARC 블록, 공통 runtime 설치
   - `settings.json untouched`: 설치 전후 바이트 동일, 파일이 없으면 생성되지 않음
   - `reinstall idempotent`: 두 번째 설치 후 바이트 동일
   - `uninstall removes owned only`: 사용자 `agents/my.md`, `settings.json`, `GEMINI.md`의 블록 밖 내용 보존. ARC 소유 파일 0개. 요약에 `Gemini settings.json is preserved.`
   - `uninstall allowed with install capability off when traces exist`(운영 레지스트리, P-B3)
   - `uninstall order follows displayOrder`
-- [ ] **Step 2:** `node --test tests/node/gemini-install.test.mjs`. 기대: FAIL
-- [ ] **Step 3:** 구현
-- [ ] **Step 4:** PASS
-- [ ] **Step 5:** STD-CLOSE(3–9). golden은 `installed-layout.mjs --write`로 갱신
-- [ ] **Step 6:** Orchestrator 확인: `npm pack --dry-run` 목록에 `gemini/`가 포함됨(packed 계열 테스트는 기준 실패라 대체 증거로 씀)
+- [x] **Step 2:** `node --test tests/node/gemini-install.test.mjs`. 기대: FAIL
+- [x] **Step 3:** 구현
+- [x] **Step 4:** PASS
+- [x] **Step 5:** STD-CLOSE(3–9). golden은 `installed-layout.mjs --write`로 갱신
+- [x] **Step 6:** Orchestrator 확인: `npm pack --dry-run` 목록에 `gemini/`가 포함됨(packed 계열 테스트는 기준 실패라 대체 증거로 씀)
 
 **필수 검사:** 작업 테스트, `npm test`, `check:manifest`, golden, parity, `npm pack --dry-run`(Orchestrator)
 **필수 QA:** 아니요
@@ -867,6 +867,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | T8 | 수용 | (이 커밋) | 첫 Implementer `02d6a292`는 grep 목록 밖 `management-status.test.mjs` 때문에 무편집 반환 → Orchestrator가 scratch 사본에서 순서만 전환해 대조본과 전체 실행 비교(신규 실패 231건, 30개 파일)하고 허용 목록 확장. fresh Implementer `28a95049`(3 segment): segment 0은 lock 순서 검증 방법 불일치로 무편집 반환 → Orchestrator 결정(테스트 내 `fsp.open` 관찰, 운영 주입 API 금지, role-bridge-*는 호스트 실행, T7 운영 순서 테스트는 codex 우선 주입 레지스트리로 고정), segment 1 구현·이관(운영 5, 테스트·fixture 33, 생성물 5; T7 이관 2건: serializer·builder v2 상시, `isV1Platforms` 순서 비교, `prepareCompositeFiles` 우회 제거; 전체 Uninstall에서 composite anchor plan을 마지막으로 정렬하도록 일반화), segment 2 QA Q4 수정(`parseInstalledRoutingConfig`는 항상 현재 순서의 v2 객체 반환, legacy 판정은 원본 JSON version). 대응표는 부록 A. fresh QA bridge `c3e29942`(첫 turn은 19초 만에 원인 미기록 `turn_failed` → 같은 세션 재개): Q1–Q3·Q5·Q6·Q8·Q10 proven, Q4 unmet(수정 후 재검증 (a)–(d) proven), Q7 unverified → Orchestrator 처분: 공용 fixture가 Claude home을 쓰므로 실제 supervisor를 쓰는 role-bridge-run·resume 호스트 통과로 수용, Q9 unverified → Orchestrator가 이관 파일 전체 assert 수 감소 0건 확인. 호스트 실행: PTY 33/0, `npm test` 2299 tests / 36 fail = 기준과 동일 |
 | 2026-11-16 | T9 | 수용 | (이 커밋) | Implementer bridge `318f3487`(segment 0은 존재하지 않는 선택 참고 경로 읽기 실패로 무편집 반환 → 읽기 탐색 실패는 차단 사유 아님 지시 후 재개): `CAPABILITY_PREREQUISITES`와 생성 시 throw, auth none probe 무실행(`local-cli.mjs` 비공개 WeakMap), runtime authenticate가 auth none을 unknown으로 보고하고 dispatch 게이트 통과, availability 경고·사유 줄, management `target:<off id>` 오류·composite probe 전 거부·`warnings`, `all`을 install·standalone verified로 필터(install·preset·uninstall), status에 auth none 인증·`cliVersion`. 구현 전 capability-surfaces 13 FAIL, all-targets·preset-cli·uninstall-cli 무편집 20/20. 호스트 전체에서 신규 실패 3건(선행 조건 검사로 dispatch-lease-v2 bridge off 레지스트리 throw 2건, AC-T9 가짜 플랫폼 `Not verified` 표시 1건) → 후속 Implementer `66d8f4f2`(허용: 두 테스트 파일): 가짜 descriptor에 verified capability 부여로 표시 순서 기대값 유지, bridge off 시 compositeRole도 off + `capabilityReasons` 함수 단위 방어 테스트 추가. 호스트 실행: `972b967` 사본에서 capability-surfaces 22건 중 13 FAIL, PTY 35/0, `npm test` 2324 tests / 36 fail = 기준과 동일. fresh QA bridge `bb5eaf3c`: Q1·Q6·Q8 proven, Q2–Q5·Q7·Q9 unverified(변경 전후 deepEqual 미비교 등) → Orchestrator 처분: 수정된 기존 테스트 파일의 assert 수 감소 0건, 바뀐 기존 단언은 zeta(auth none) 의미 변화뿐이고 codex/claude 기대값 불변이므로 수용. 결함 후보(uninstall `all`이 off 플랫폼 흔적을 남길 수 있음)는 수정하지 않음 — spec 6.5 `all` 정의(Q7)와 일치하고, 필터가 없으면 Gemini 등록 후 `GEMINI_CLI_HOME` 설정 시 Codex/Claude 제거까지 막힐 수 있으며(Review Focus 1), off 플랫폼 흔적은 다운그레이드에서만 생기고 TUI 개별 제거가 가능 → 후속 과제로 기록. auth none status의 `platform` 키 누락은 상위 status에 platform이 있고 spec 5.4 객체와 같아 수용 |
 | 2026-11-16 | T10 | 수용 | (이 커밋) | 첫 Implementer `e1038c43`이 부분 구현(19개 파일) 후 반환 — Orchestrator 브리프에 실제 허용 목록이 빠져 있어 범위 확인 불가 → 정확한 목록(installer 파일 추가)을 명시한 fresh Implementer `1ff9dc5a`(2 segment)가 이어받아 완성: Gemini runtime·설치기 descriptor(capability 9개 off, Global Constraints 값), `lib/platforms/formats/gemini-markdown.mjs`(제한된 scalar frontmatter, effort 키 거부), `lib/models/gemini-models.json`(모델 2개, effort default), payload 검증은 install verified 플랫폼만 필수, composite 기본 대상은 compositeRole/compositeHost verified 플랫폼, deactivation 기본은 설치 상태 platforms, policy render 대상은 metadata `platforms` 키(controls.gemini는 'prompt'), hardcoding `==='gemini'` 패턴, zeta 3·eta 4 재배치, 기존 테스트 14개 파일 Gemini 행 추가(보호 CLI 3개 무수정 통과). 호스트 실행: `e844acf` 사본에서 신규 Gemini 테스트 14건 중 10 FAIL, 수정 기존 파일 assert 감소 0건, PTY 35/0, 첫 `npm test` 2339/37(기준 36 + codex-auth-probe 타이밍 1건, 단독 3회 통과 → flake). fresh QA bridge `5e1a5b81`: Q1–Q5·Q7·Q9 proven, Q6 unmet(frontmatter가 `description: [x]` 허용) → segment 1에서 scalar 검사 강화 후 재검증 proven(우회 시도 `"[x]"`, `- item`, `|`, `>`, `&a`, `*a` 모두 거부), Q8 unmet(runtime-versions hash 갱신이 열거 범위 밖) → 생성물이므로 범위 안 처분. 수정 후 `npm test`는 QA와 동시 실행되어 2340/43(신규 7건 전부 프로세스·타이밍 계열) → 해당 3개 파일 직렬 재실행 86/87, 남은 1건도 단독 2회 통과·직전 전체 실행 통과로 부하 flake 판정. manifest 236·role-policy 24·runtime 33 verified. T11 참고: install off 동안 Gemini payload 항목은 일반 해시 검사만 받고 Gemini 전용 필수 파일·템플릿 검사는 적용되지 않음 |
+| 2026-11-16 | T11 | 수용(개정 v3) | (이 커밋) | 첫 Implementer `250b5d5a`: `gemini/` payload 19개(claude 기준, coordination `Mixed routing`, Python 스크립트 제외, `models.toml` 유지), 설치·제거 테스트 6건 — 정책 metadata `platforms.gemini` 추가가 Q4 문언 밖이고 runtime 정책 사본 미동기화로 composite 설치 실패하여 보류 반환 → 사용자 결정 12(platforms.gemini 허용, spec/plan v3) → 수용 기준 개정에 따라 fresh Implementer `96f1681a`(2 segment): 정책 사본 동기화, `role-policy.json` 재직렬화로 생긴 `\u2192` 등 이스케이프 되돌림(diff는 platforms.gemini 추가뿐), segment 1에서 Orchestrator 호스트 전체 실행의 신규 실패 72건 해결 — verifyPayload의 policy 출력 검증을 install verified 플랫폼 대상으로 한정(`check:role-policy`는 전체 유지), `lib/models/profiles.mjs`의 Gemini 직접 import·리터럴 분기를 descriptor 렌더러 인자 전달로 교체. `settings.json` 미작성·사용자 파일 보존·소유 파일만 제거·off 상태 흔적 제거 허용·제거 순서 테스트. 호스트 실행: `7ef75fb` 사본에서 gemini-install 6건 중 5 FAIL, `npm pack --dry-run`에 `gemini/` 19개 포함, PTY 35/0, `npm test` 2348 tests / 36 fail = 기준과 동일. manifest 254·role-policy 36 verified. 필수 QA 대상 아님 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 전체 대응표(549행)는 `docs/superpowers/evidence/phase-b/t8-anchor-correspondence.md`에 둡니다. 기준 HEAD `219b4b7`, Step 1 grep 65개 파일·461개 일치와 grep 밖 추가 단언 89행입니다.
@@ -954,3 +955,4 @@ legacy로 보존 행:
 |---|---|---|---|---|
 | v1 | 2026-11-16 (계획 승인) | 초기 승인 | — | — |
 | v2 | 2026-11-16T00:42:34Z | 범위·수용 기준·검증 변경 | T3, T8, QA 대상 목록 | spec v2(결정 11): F6을 현행 정책 유지 + 판정 일치 테스트·문서화로 변경. T3는 테스트·문서만, 필수 QA 해제 |
+| v3 | 2026-11-16 (사용자 결정 12) | 수용 기준 변경 | T11 | spec v3: `role-policy.json` `platforms.gemini` 항목 추가 허용(AC-R1 개정). 수용 기준 개정에 따라 T11은 fresh Implementer로 이어받음 |

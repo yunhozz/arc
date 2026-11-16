@@ -4,6 +4,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY} from '../../../lib/runtime/platform-registry.mjs';
+import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../../lib/platforms/index.mjs';
 import {verifyPayload} from '../../../lib/installer/manifest.mjs';
 import {buildInstallPlan} from '../../../lib/installer/plan.mjs';
 import {resolveTarget} from '../../../lib/installer/targets.mjs';
@@ -12,14 +14,14 @@ import {loadNative} from '../../../lib/safe-fs/native.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../../../', import.meta.url));
 export const GOLDEN_PATH = fileURLToPath(new URL('./installed-layout-golden.json', import.meta.url));
-export const COMBINATIONS = Object.freeze(['codex', 'claude'].flatMap(platform =>
+export const COMBINATIONS = Object.freeze(['codex', 'claude', 'gemini'].flatMap(platform =>
   ['write', 'omit'].flatMap(profiles => ['en', 'ko'].map(language =>
     Object.freeze({platform, profiles, language})))));
 
 export function copyPackageSource(destination) {
   const entries = [
     'README.md', 'install.command', 'package.json', 'package-lock.json',
-    'bin', 'lib', 'scripts', 'vendor', 'prebuilds', 'native', 'codex', 'claude',
+    'bin', 'lib', 'scripts', 'vendor', 'prebuilds', 'native', 'codex', 'claude', 'gemini',
   ];
   if (fs.existsSync(path.join(sourceRoot, 'shared'))) entries.push('shared');
   for (const entry of entries) {
@@ -36,13 +38,16 @@ export function copyPackageSource(destination) {
 }
 
 export function computeInstalledLayout({packageRoot, safeFs}) {
-  const payload = verifyPayload({packageRoot, safeFs, payloadMode: 'package'});
+  const runtimePlatforms = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, ...Object.fromEntries(['install', 'standalone', 'nativeProfile', 'catalog'].map(key => [key, {state: 'verified'}]))}} : p));
+  const platforms = createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
+  const context = {platforms, runtimePlatforms};
+  const payload = verifyPayload({packageRoot, safeFs, payloadMode: 'package', ...context});
   const combinations = [];
   for (const {platform, profiles, language} of COMBINATIONS) {
     const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'arc-golden-home-')));
     try {
-      const target = resolveTarget(platform, {userHome: home, env: {}, cwd: home});
-      const plan = buildInstallPlan({payload, target, profiles, language, safeFs, skipGlobal: true});
+      const target = resolveTarget(platform, {userHome: home, env: {}, cwd: home, ...context});
+      const plan = buildInstallPlan({payload, target, profiles, language, safeFs, skipGlobal: true, ...context});
       const files = [...plan.generated.skill].map(([name, bytes]) => [`skills/arc/${name}`, bytes]);
       if (profiles === 'write') {
         for (const [name, bytes] of plan.profileWrites) files.push([`agents/${name}`, bytes]);

@@ -75,7 +75,7 @@ Gemini CLI의 외부 계약은 대부분 아직 live로 검증되지 않았습�
   - 새 runtime 모듈을 추가하면 `RUNTIME_MODULE_PATHS`, `COOPERATIVE_RUNTIME_MODULES`, `MANIFEST.sha256`, `installed-layout-golden.json`, runtime-assets `--check` 다섯 가지를 함께 갱신합니다.
   - runtime hash가 바뀌므로 기존 composite는 업그레이드 후 Install / Update를 다시 해야 합니다. 이는 현행 정책 문구와 같습니다.
 - Gemini bridge·관찰 구현은 우선 기존 모듈(`role-bridge-args.mjs`, `role-supervisor.mjs`, `role-observe.mjs`)의 `Map<id, impl>`에 추가합니다. 모듈 크기 때문에 분리가 필요하면 계획 단계에서 새 모듈과 위 다섯 가지 갱신을 한 작업에 묶습니다.
-- `lib/policy/role-policy.json`은 각 role의 `controls`에 `gemini` 키를 추가하는 변경만 허용합니다(Q4). codex/claude 생성물은 바이트 단위로 같아야 합니다.
+- `lib/policy/role-policy.json`은 각 role의 `controls`에 `gemini` 키를 추가하고, `platforms`에 `gemini` 항목(level `prompt`와 notice, 결정 12)을 추가하는 변경만 허용합니다(Q4). codex/claude 생성물은 바이트 단위로 같아야 합니다.
 - capability 상태의 원천은 runtime descriptor입니다. 설치기는 이를 참조만 하므로 runtime과 설치기가 서로 다른 상태를 볼 수 없습니다.
 
 ## 4. 레지스트리 등록
@@ -560,7 +560,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 | AC-B5 | runtime이 off capability의 host/대상에 대해 `capability_not_verified`로 hold하고 lease를 만들지 않는다 | unit `role-routing-*` |
 | AC-V1 | verified capability마다 9.3 형식의 `pass` 증거가 있고 version이 range 안이며 선행 조건이 지켜진다 | `gemini-capability-evidence` |
 | AC-D1 | 6.6 문구 일반화가 반영되고, coordination.md·instruction-contract fixture가 `Mixed routing` 일반화(Q3)라는 의도된 변경만 갖는다 | asset/fixture 테스트 |
-| AC-R1 | `role-policy.json` 변경은 각 role `controls`의 `gemini` 키 추가뿐이고, codex/claude 생성물이 바이트 단위로 같다(Q4) | `check:role-policy`, role-policy 테스트 |
+| AC-R1 | `role-policy.json` 변경은 각 role `controls`의 `gemini` 키 추가와 `platforms.gemini` 항목 추가(결정 12)뿐이고, codex/claude 생성물이 바이트 단위로 같다(Q4) | `check:role-policy`, role-policy 테스트 |
 | AC-P2' | Phase A AC-P2 검사 목록이 모두 통과한다(16장) | 전체 |
 
 ## 14. 테스트 전략과 영향 파일
@@ -635,6 +635,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 2. **Q2** ~~watch 코드는 무변경으로 두고 v2 lease 관용 파싱 회귀 테스트만 추가~~ → 결정 10(Q9)으로 변경: watch에 anchor 탐색을 넣고 v2 관용 파싱 회귀 테스트를 추가합니다. Gemini 세션 표시는 여전히 범위 밖입니다(7.3, AC-W1, AC-L3).
 3. **Q3** coordination.md의 `Claude & Codex` 표기를 세 플랫폼 모두 `Mixed routing`으로 일반화하고 instruction-contract fixture를 갱신합니다(6.6, AC-D1).
 4. **Q4** `role-policy.json`은 각 role `controls`에 `gemini` 키 추가만 허용합니다. codex/claude 생성물은 바이트 동일입니다(3장, AC-R1).
+   - **결정 12(2026-11-16, Q4 보완):** Gemini payload의 정책 문구를 같은 생성기로 만들기 위해 `platforms.gemini = {level:'prompt', notice:'Role restrictions are prompt-level contracts, not a filesystem sandbox. Native tool restriction fields, observer hooks and Git guards are unverified. Use only available authorized tools; ARC does not write Gemini settings.json.'}` 추가를 허용합니다. 공통 runtime 정책 사본(`shared/skill/runtime/role-policy.json`)은 생성 스크립트로 동기화하며, 그 결과 설치된 runtime 정책 사본 바이트가 바뀌는 것은 runtime hash 변경과 같은 재설치 대상입니다. codex/claude의 렌더 생성물은 계속 바이트 동일입니다.
 5. **Q5** `bridge`는 run/observe/cancel만으로 verified가 됩니다. 재개는 내부 플래그로 분리하고 검증 전에는 `resume_unverified`로 hold합니다(8.5, AC-B3).
 6. **Q6** capability 전환은 Phase B 안에서 live 증거가 확보된 것부터 순차로 진행합니다. 증거가 없는 capability는 off인 채 Phase B를 끝냅니다(9.1).
 7. **Q7** Gemini가 `install`·`standalone` verified가 되면 `target:'all'`에 포함합니다(6.5, AC-G9).
@@ -702,3 +703,4 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 |---|---|---|---|---|
 | v1 | 2026-11-16 (anchor 순서 변경 반영본 승인) | 초기 승인 | — | — |
 | v2 | 2026-11-16T00:42:34Z | 범위·수용 기준 변경 | T3, T8, T14 | F6 전제(설치기만 symlink 거부) 오류. 사용자 결정 11: 현행 정책 유지 + 판정 일치 테스트·문서화 |
+| v3 | 2026-11-16 (사용자 결정 12) | 수용 기준 변경 | T11 | Gemini payload 정책 문구 생성을 위해 `role-policy.json` `platforms.gemini` 항목 추가 허용(Q4 보완, AC-R1 개정) |

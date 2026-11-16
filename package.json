@@ -46,6 +46,7 @@
     "codex/agents/",
     "claude/skill/",
     "claude/agents/",
+    "gemini/",
     "MANIFEST.sha256",
     "install.command",
     "!**/__pycache__/**",

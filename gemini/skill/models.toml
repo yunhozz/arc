@@ -1,0 +1,23 @@
+# Canonical source for every role model and effort.
+# Defaults are fixtures pending live catalog verification.
+version = 3
+
+[roles.arc_scouter]
+model = "gemini-2.5-flash"
+effort = "default"
+
+[roles.arc_planner]
+model = "gemini-2.5-pro"
+effort = "default"
+
+[roles.arc_implementer]
+model = "gemini-2.5-pro"
+effort = "default"
+
+[roles.arc_qa]
+model = "gemini-2.5-flash"
+effort = "default"
+
+[roles.arc_reviewer]
+model = "gemini-2.5-pro"
+effort = "default"

@@ -164,11 +164,12 @@ test('range out version unsupported after install verification while off takes p
   assert.equal(homeStatusLine([status], registry), 'Gemini: Unsupported version');
 });
 
-test('Gemini controls preserve codex/claude policy outputs byte for byte without Gemini payload targets', () => {
+test('Gemini controls preserve codex/claude policy outputs byte for byte with Gemini payload targets', () => {
   const policy = JSON.parse(fs.readFileSync(new URL('../../lib/policy/role-policy.json', import.meta.url)));
   for (const rule of policy.rules) assert.equal(rule.controls.gemini, 'prompt');
   assert.doesNotThrow(() => validateRolePolicy(policy));
-  assert.ok(POLICY_TARGETS.every(target => ['codex', 'claude'].includes(target.platform)));
+  assert.ok(POLICY_TARGETS.some(target => target.platform === 'gemini'));
+  assert.ok(POLICY_TARGETS.every(target => ['codex', 'claude', 'gemini'].includes(target.platform)));
   const inputs = new Map(POLICY_TARGETS.map(target => [target.path, fs.readFileSync(new URL('../../' + target.path, import.meta.url))]));
   assert.deepEqual(buildPolicyOutputs(inputs, policy), inputs);
 });

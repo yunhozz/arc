@@ -404,6 +404,10 @@
     "claude": {
       "level": "capability",
       "notice": "Existing per-role tool allowlists reduce available tools; Bash and role contracts are not a filesystem sandbox. ARC supplies no native observer hook or Bash Git guard; Git restrictions remain prompt-level role contracts."
+    },
+    "gemini": {
+      "level": "prompt",
+      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. Native tool restriction fields, observer hooks and Git guards are unverified. Use only available authorized tools; ARC does not write Gemini settings.json."
     }
   },
   "review": {

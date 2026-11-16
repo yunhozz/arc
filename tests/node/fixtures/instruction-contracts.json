@@ -271,7 +271,7 @@
     "codex/skill/models.toml": "e788736ac2345ec234cd4582a3f4779f46ee5f1a5a12f2f0f4049c7699fe0f2b",
     "lib/cli/progress.mjs": "a575a94adc9461a7c5c051983b47d1a40a88fb8ee90fa469041cd99165cbb80f",
     "lib/cli/root.mjs": "a52b6a309ad3d48a46e7b81021b9589f15ed60c388b0cbd4ff3d59f0dc898464",
-    "lib/policy/role-policy.json": "60a6bfb03136b507d83d4f0e767eecde2d5a917a64c4650f48b6c36939c8d61d",
+    "lib/policy/role-policy.json": "56947139d15abeb86e68917b9215bcf76ddc6641b96322a036c0fe4564837a69",
     "lib/runtime/adapters/claude.mjs": "689f88987c997dcd7ba6e7de61b1b1b203976a418399cab4fa543df42e7ee7b0",
     "lib/runtime/adapters/codex.mjs": "68bdeb2b3605dda663264b77047488046a62c7d7289f82d1ff9c09b2976d2e4a",
     "lib/runtime/capabilities.mjs": "548e78bcfc01b6c3c46ba5698414f9faafcfcf73f9e9e0c24c41420343b40239",
@@ -307,7 +307,12 @@
       "codex/agents/arc-planner.toml": "41cd5c6a9671354efb558344c3310d25008dfb86ce57585031325ec1621f1924",
       "codex/agents/arc-qa.toml": "4890f578fd4edcf9fc3d6829eef29ea742e0544bfc32d53eba0c4098dfa994fb",
       "codex/agents/arc-reviewer.toml": "235260ec860c05311bef8a43944521453a3cba1d8b3b4b6a0774865ca3f18617",
-      "codex/agents/arc-scouter.toml": "3d33fe87000ce368d30ba315bb99c1508dcce94ab40bb3caba9e4032a18d3c76"
+      "codex/agents/arc-scouter.toml": "3d33fe87000ce368d30ba315bb99c1508dcce94ab40bb3caba9e4032a18d3c76",
+      "gemini/agents/arc-implementer.md": "990d3a190d618b859c6367c2412cb8822af37439fc84ea4c14ce5b404407e6da",
+      "gemini/agents/arc-planner.md": "9b39da5afea01a062ca6a916ac660f11d567107897c0f063b0faa3e5492896ae",
+      "gemini/agents/arc-qa.md": "88968b16e0d2cd56dda9616fdb0cb1a14d27b35b1c0e477cc32549f659541ef2",
+      "gemini/agents/arc-reviewer.md": "f44427e1cab3984b5c37c45cab208e9eb430743d2b62b97ba1ed17cd9ad367a5",
+      "gemini/agents/arc-scouter.md": "90b9e54ec7a8dc5c79ec312cfe647af4fadc5fb804b41cb93de10392df6c8c66"
     }
   }
 }
