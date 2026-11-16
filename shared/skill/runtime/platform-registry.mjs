@@ -5,6 +5,13 @@ export const CAPABILITY_KEYS = Object.freeze([
   'nativeProfile', 'authProbe', 'catalog', 'watch',
 ]);
 
+export const CAPABILITY_PREREQUISITES = Object.freeze({
+  install: Object.freeze([]), nativeProfile: Object.freeze(['install']),
+  catalog: Object.freeze(['install']), standalone: Object.freeze(['install', 'nativeProfile', 'catalog']),
+  bridge: Object.freeze(['install', 'catalog']), compositeRole: Object.freeze(['bridge']),
+  compositeHost: Object.freeze(['install', 'nativeProfile']), authProbe: Object.freeze([]), watch: Object.freeze([]),
+});
+
 function frozenCopy(value) {
   if (Array.isArray(value)) return Object.freeze(value.map(frozenCopy));
   if (value && typeof value === 'object') return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, frozenCopy(entry)])));
@@ -20,6 +27,10 @@ export function createPlatformRegistry(descriptors) {
     if (displays.has(displayOrder)) throw Error(`Duplicate platform displayOrder: ${displayOrder}`);
     ids.add(id); anchors.add(anchorOrder); displays.add(displayOrder);
     const capabilities = Object.fromEntries(CAPABILITY_KEYS.map(key => [key, descriptor.capabilities?.[key] ?? {state: 'off'}]));
+    for (const [key, prerequisites] of Object.entries(CAPABILITY_PREREQUISITES)) {
+      if (capabilities[key].state !== 'verified') continue;
+      for (const prerequisite of prerequisites) if (capabilities[prerequisite].state !== 'verified') throw Error(`${id} capability ${key} requires ${prerequisite}`);
+    }
     return frozenCopy({...descriptor, capabilities});
   }).sort((a, b) => a.anchorOrder - b.anchorOrder));
   const byId = new Map(platforms.map(platform => [platform.id, platform]));

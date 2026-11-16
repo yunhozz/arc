@@ -55,11 +55,12 @@ test('auth kind none reports unknown without probe',async t=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
  const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-no-auth-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
  const bin=path.join(userHome,'bin'),record=path.join(userHome,'zeta-probed');fs.mkdirSync(bin);
- fs.writeFileSync(path.join(bin,'zeta'),'#!/bin/sh\nprintf probed > "'+record+'"\nexit 1\n',{mode:0o755});
+ fs.writeFileSync(path.join(bin,'zeta'),'#!/bin/sh\nif [ "$1" = "--version" ]; then printf "zeta 1.0.0\\n"; exit 0; fi\nprintf probed > "'+record+'"\nexit 1\n',{mode:0o755});
  const statuses=await api.collectStatus({userHome,cwd:userHome,env:{PATH:bin},safeFs,...createTestRegistries()});
  const zeta=statuses.find(status=>status.platform==='zeta');
  assert.ok(zeta,'registered zeta must have a status');
- assert.deepEqual(zeta.authentication,{platform:'zeta',authStatus:'unknown',reason:'auth_probe_unavailable'});
+ assert.deepEqual(zeta.authentication,{authStatus:'unknown',reason:'auth_unverified'});
+ assert.deepEqual(zeta.cliVersion,{version:'1.0.0'});
  assert.equal(fs.existsSync(record),false);
 });
 

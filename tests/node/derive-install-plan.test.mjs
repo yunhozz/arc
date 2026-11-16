@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ROLES} from '../../lib/models/config.mjs';
-import {mixedLabel} from '../../lib/platforms/index.mjs';
+import {createInstallerRegistry, mixedLabel} from '../../lib/platforms/index.mjs';
+import {createPlatformRegistry} from '../../lib/runtime/platform-registry.mjs';
 import {createTestRegistries} from './fixtures/platforms/zeta.mjs';
 import {migrationRegistries} from './fixtures/legacy-composite.mjs';
 
@@ -106,12 +107,19 @@ test('deriveInstallPlan defaults to the production installer registry', () => {
 test('four fake ids use display order in homeStatusLine and mixedLabel (AC-T9)', () => {
   assert.equal(typeof mode.homeStatusLine, 'function');
   const ids = ['claude', 'codex', 'zeta', 'eta'];
-  assert.deepEqual(registry.platformIds(), ids);
+  // Keep availability and authentication neutral so these assertions isolate display order.
+  const verified = registry.getPlatform('claude').runtime;
+  const runtime = createPlatformRegistry(registry.platforms.map(({runtime}) => ['zeta', 'eta'].includes(runtime.id)
+    ? {...runtime, capabilities: verified.capabilities, auth: verified.auth} : runtime));
+  const displayRegistry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(descriptor => ({
+    ...registry.getPlatform(descriptor.id), runtime: descriptor,
+  }))});
+  assert.deepEqual(displayRegistry.platformIds(), ids);
   const statuses = freeze(ids.map(platform => ({platform, state: 'installed'})));
-  assert.equal(mode.homeStatusLine(statuses, registry), 'Claude: Available / Codex: Available / Zeta: Available / Eta: Available');
-  assert.equal(mixedLabel(ids, registry), 'Mixed (Claude + Codex + Zeta + Eta)');
-  assert.equal(mode.homeModeLine(composite(ids), statuses, registry), 'Mixed (Claude + Codex + Zeta + Eta)');
-  assert.equal(plan.deriveInstallPlan({roles: all('eta'), hosts: ['zeta', 'claude', 'codex'], current: standalone, registry}).modeLabel, 'Mixed (Claude + Codex + Zeta + Eta)');
+  assert.equal(mode.homeStatusLine(statuses, displayRegistry), 'Claude: Available / Codex: Available / Zeta: Available / Eta: Available');
+  assert.equal(mixedLabel(ids, displayRegistry), 'Mixed (Claude + Codex + Zeta + Eta)');
+  assert.equal(mode.homeModeLine(composite(ids), statuses, displayRegistry), 'Mixed (Claude + Codex + Zeta + Eta)');
+  assert.equal(plan.deriveInstallPlan({roles: all('eta'), hosts: ['zeta', 'claude', 'codex'], current: standalone, registry: displayRegistry}).modeLabel, 'Mixed (Claude + Codex + Zeta + Eta)');
 });
 
 // The old renderer's auth precedence must survive extraction, including fallback states.

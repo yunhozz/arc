@@ -322,7 +322,7 @@ for(const ending of ['escape','eof','error'])test('home animation clears its tim
 test('home uses injected registry labels and display order for four platforms',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{runTui}=await load(),session=terminal([back]);
  await runTui({session,context:{platforms:createTestRegistries(['eta','zeta','codex','claude']).platforms},services:{currentInstallState:()=>({mode:'composite',platforms:['eta','zeta','codex','claude']}),collectStatus:async()=>['eta','zeta','codex','claude'].map(platform=>({platform,state:'installed',diagnostics:[{message:platform+' detail'}]}))}});
- assert.deepEqual(session.screens[0].rows.slice(0,6),['Claude: Available / Codex: Available / Zeta: Available / Eta: Available','Mode: Mixed (Claude + Codex + Zeta + Eta)','Claude: claude detail','Codex: codex detail','Zeta: zeta detail','Eta: eta detail']);
+ assert.deepEqual(session.screens[0].rows.slice(0,6),['Claude: Available / Codex: Available / Zeta: Available (auth unverified) / Eta: Not verified','Mode: Mixed (Claude + Codex + Zeta + Eta)','Claude: claude detail','Codex: codex detail','Zeta: zeta detail','Eta: eta detail']);
 });
 test('app loads current composite config and prepares diagram snapshot under busy',async()=>{
  const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));

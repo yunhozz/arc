@@ -161,7 +161,8 @@ export async function authenticate(platform,context,policy){
  const cli=resolveLocalCli(platform,context);
  if(cli.reason)return {cli:null,authentication:{status:cli.reason==='cli_not_found'?'Not Available':'Incomplete',reason:cli.reason}};
  const kind=runtimeRegistryOf(context).getPlatform(platform).auth.kind;
- const auth=kind==='none'?{authStatus:'authenticated'}:await (kind==='codex-refresh'?probeCodexAuthStatus:probePlatformAuth)(cli,{timeoutMs:policy.probeTimeoutMs});
+ const auth=await (kind==='codex-refresh'?probeCodexAuthStatus:probePlatformAuth)(cli,{timeoutMs:policy.probeTimeoutMs});
+ if(kind==='none')return {cli,authentication:auth};
  return {cli,authentication:{status:auth.authStatus==='authenticated'?'Available':auth.authStatus==='unauthorized'?'Unauthorized':'Incomplete',...(auth.reason?{reason:auth.reason}:{})}};
 }
 export const versionOf=(cli,policy)=>cli?probeCliVersion(cli,{timeoutMs:policy.probeTimeoutMs}):{version:null,reason:'cli_not_found'};
@@ -222,7 +223,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    await pruneTerminalLeases(anchorHome,{now,retentionMs:policy.leaseRetentionMs,runtimePlatforms});
    const {cli,authentication}=await authenticate(requested.platform,context,policy);
    result.authentication=authentication;
-   if(authentication.status!=='Available')codes.add(authentication.status);
+   if(authentication.status!=='Available'&&!(runtimePlatforms.getPlatform(requested.platform).auth.kind==='none'&&authentication.authStatus==='unknown'&&authentication.reason==='auth_unverified'))codes.add(authentication.status??'Incomplete');
    if(route==='bridge'){
     result.cliVersion=await versionOf(cli,policy);
    }

@@ -515,7 +515,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - management: 오류 `` `${label} is not available: capability not verified` ``. `all` = 등록 플랫폼 중 `install`·`standalone`이 verified인 것. prepare `warnings: [`${id}:auth_unverified`]`
   - 표시 문구는 Global Constraints 값을 `${label}`로 일반화합니다(예: `${label}: Not verified`).
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `prerequisite violation throws`: `standalone` verified인데 `catalog` off인 descriptor는 throw. 운영 codex/claude는 throw하지 않음
   - `auth none probe spawns no process`: spawn 스파이 호출 0, 반환값 deepEqual
   - `auth none passes role/host gate with warning`: management prepare `warnings` deepEqual `['zeta:auth_unverified']`. routingStatus `authentication` deepEqual
@@ -535,10 +535,10 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - `effort row fixed for single-effort platform`: ←/→ 후 값 `default`, 박스 `effort: default`
   - `auth unverified info line`과 `reason line only when no block`
   - PTY: Hosts에 `(auth unverified)` 표시, capability off 행 표시
-- [ ] **Step 2:** 해당 테스트 실행. 기대: FAIL
-- [ ] **Step 3:** 구현
-- [ ] **Step 4:** PASS, PTY PASS
-- [ ] **Step 5:** STD-CLOSE(전부)
+- [x] **Step 2:** 해당 테스트 실행. 기대: FAIL
+- [x] **Step 3:** 구현
+- [x] **Step 4:** PASS, PTY PASS
+- [x] **Step 5:** STD-CLOSE(전부)
 
 **필수 검사:** 작업 테스트, PTY, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`
 **필수 QA:** 예(게이트, 권한 표면)
@@ -865,6 +865,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | T6 | 수용 | (이 커밋) | Implementer bridge `0c277237`(2 segment): `lib/watch/anchor-store.mjs` `resolveDispatchStore`(async, anchorOrder 순 marker 형식 검사·등록 home 정확 일치·중복 제거 → anchor/legacy/none/ambiguous), `createDispatchIndex({storeDir})`, ambiguous는 기존 `notice` 경로로 `dispatch store ambiguous` 표시(`render.mjs` 무변경). 탐색은 watch 시작 시 1회, 후보 0이고 Codex home이 있으면 시작 후 생기는 legacy store도 계속 관찰. Orchestrator 검토 지적(segment 1): storeDir 없을 때 `scan`이 `[]`를 반환해 workflow artifact 표시까지 사라지는 회귀 → lease만 비우고 artifact 스캔 유지로 수정. 호스트 실행: `a531139` 사본에서 새 탐색 테스트 6건 FAIL(watch-watcher 파일은 새 모듈 import로 전체 FAIL), watch-* 366/0(Implementer), `npm test` 2267 tests / 36 fail = 기준과 동일. manifest 233. 필수 QA 대상 아님 |
 | 2026-11-16 | T7 | 수용 | (이 커밋) | Implementer bridge `7f90418e`(관측 3회): legacy 판정(`install-mode.mjs` 단일 설정·v1·Codex home 예외 후 6.4.5 검사 계속), 설치기 전용 `parseInstalledRoutingConfig`(v1을 codex 우선 historical 레지스트리로 재해석, runtime은 엄격 유지), 기존 6.6 이동 경로 재사용, legacy 전체 Uninstall은 old anchor plan을 마지막으로 정렬, management `anchorMove`, status 진단·Apply 미리보기 문구. 상수 `legacyAnchorPlatform`은 AC-P1 allowlist 변경 없이 통과. 호스트 실행: PTY 33/0(sandbox 미검증분), `32c5e08` 사본(build/ 복사)에서 새·수정 테스트 87건 중 legacy 16건 FAIL, `npm test` 2290 tests / 36 fail = 기준과 동일. fresh QA bridge `4779a84d`: Q1·Q4·Q6·Q7·Q8 proven, Q5 unverified(패키지 획득 stub), Q2·Q3 unmet → Orchestrator 처분: (결함 2) `serializeRoleRoutingConfig`가 codex+claude를 v1로 정규화해 anchor≠codex일 때의 `JSON.stringify` 우회 바이트와 다름 → T8 "새 활성 설정 v2 항상 기록"에서 serializer를 v2 상시 출력으로 바꾸고 우회를 제거(T8 이관). 현재 바이트는 runtime이 수용하는 유효 v2. (결함 1) Claude 우선 레지스트리에서 `version:1, platforms:['claude','codex']`가 통과 — 우회가 아니라 기존 `validateRoleRoutingConfig`의 성질이며 그런 v1 파일은 기록된 적 없음 → T8 순서 전환 시 v1 검증을 codex 우선 고정으로 엄격화(T8 이관). Q5는 패키지 설치가 home을 건드리지 않는 기존 테스트와 이번 스냅샷 테스트로 수용 |
 | 2026-11-16 | T8 | 수용 | (이 커밋) | 첫 Implementer `02d6a292`는 grep 목록 밖 `management-status.test.mjs` 때문에 무편집 반환 → Orchestrator가 scratch 사본에서 순서만 전환해 대조본과 전체 실행 비교(신규 실패 231건, 30개 파일)하고 허용 목록 확장. fresh Implementer `28a95049`(3 segment): segment 0은 lock 순서 검증 방법 불일치로 무편집 반환 → Orchestrator 결정(테스트 내 `fsp.open` 관찰, 운영 주입 API 금지, role-bridge-*는 호스트 실행, T7 운영 순서 테스트는 codex 우선 주입 레지스트리로 고정), segment 1 구현·이관(운영 5, 테스트·fixture 33, 생성물 5; T7 이관 2건: serializer·builder v2 상시, `isV1Platforms` 순서 비교, `prepareCompositeFiles` 우회 제거; 전체 Uninstall에서 composite anchor plan을 마지막으로 정렬하도록 일반화), segment 2 QA Q4 수정(`parseInstalledRoutingConfig`는 항상 현재 순서의 v2 객체 반환, legacy 판정은 원본 JSON version). 대응표는 부록 A. fresh QA bridge `c3e29942`(첫 turn은 19초 만에 원인 미기록 `turn_failed` → 같은 세션 재개): Q1–Q3·Q5·Q6·Q8·Q10 proven, Q4 unmet(수정 후 재검증 (a)–(d) proven), Q7 unverified → Orchestrator 처분: 공용 fixture가 Claude home을 쓰므로 실제 supervisor를 쓰는 role-bridge-run·resume 호스트 통과로 수용, Q9 unverified → Orchestrator가 이관 파일 전체 assert 수 감소 0건 확인. 호스트 실행: PTY 33/0, `npm test` 2299 tests / 36 fail = 기준과 동일 |
+| 2026-11-16 | T9 | 수용 | (이 커밋) | Implementer bridge `318f3487`(segment 0은 존재하지 않는 선택 참고 경로 읽기 실패로 무편집 반환 → 읽기 탐색 실패는 차단 사유 아님 지시 후 재개): `CAPABILITY_PREREQUISITES`와 생성 시 throw, auth none probe 무실행(`local-cli.mjs` 비공개 WeakMap), runtime authenticate가 auth none을 unknown으로 보고하고 dispatch 게이트 통과, availability 경고·사유 줄, management `target:<off id>` 오류·composite probe 전 거부·`warnings`, `all`을 install·standalone verified로 필터(install·preset·uninstall), status에 auth none 인증·`cliVersion`. 구현 전 capability-surfaces 13 FAIL, all-targets·preset-cli·uninstall-cli 무편집 20/20. 호스트 전체에서 신규 실패 3건(선행 조건 검사로 dispatch-lease-v2 bridge off 레지스트리 throw 2건, AC-T9 가짜 플랫폼 `Not verified` 표시 1건) → 후속 Implementer `66d8f4f2`(허용: 두 테스트 파일): 가짜 descriptor에 verified capability 부여로 표시 순서 기대값 유지, bridge off 시 compositeRole도 off + `capabilityReasons` 함수 단위 방어 테스트 추가. 호스트 실행: `972b967` 사본에서 capability-surfaces 22건 중 13 FAIL, PTY 35/0, `npm test` 2324 tests / 36 fail = 기준과 동일. fresh QA bridge `bb5eaf3c`: Q1·Q6·Q8 proven, Q2–Q5·Q7·Q9 unverified(변경 전후 deepEqual 미비교 등) → Orchestrator 처분: 수정된 기존 테스트 파일의 assert 수 감소 0건, 바뀐 기존 단언은 zeta(auth none) 의미 변화뿐이고 codex/claude 기대값 불변이므로 수용. 결함 후보(uninstall `all`이 off 플랫폼 흔적을 남길 수 있음)는 수정하지 않음 — spec 6.5 `all` 정의(Q7)와 일치하고, 필터가 없으면 Gemini 등록 후 `GEMINI_CLI_HOME` 설정 시 Codex/Claude 제거까지 막힐 수 있으며(Review Focus 1), off 플랫폼 흔적은 다운그레이드에서만 생기고 TUI 개별 제거가 가능 → 후속 과제로 기록. auth none status의 `platform` 키 누락은 상위 status에 platform이 있고 spec 5.4 객체와 같아 수용 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 전체 대응표(549행)는 `docs/superpowers/evidence/phase-b/t8-anchor-correspondence.md`에 둡니다. 기준 HEAD `219b4b7`, Step 1 grep 65개 파일·461개 일치와 grep 밖 추가 단언 89행입니다.

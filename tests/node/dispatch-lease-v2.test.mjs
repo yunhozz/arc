@@ -10,7 +10,7 @@ import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
 import {leaseTargetPlatform, recordRoleObservation, runBridgeDispatch} from '../../lib/runtime/role-bridge.mjs';
 import {createLease, dispatchDirectory, listLeases, readLease, validateLease} from '../../lib/runtime/role-dispatch-store.mjs';
-import {DEFAULT_POLICY, RELEASE_CONDITIONS} from '../../lib/runtime/role-dispatch-policy.mjs';
+import {capabilityReasons, DEFAULT_POLICY, RELEASE_CONDITIONS} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
 import {createTestRuntimeRegistry} from './fixtures/platforms/zeta.mjs';
 import {installFakeCli} from './role-fixtures.mjs';
@@ -25,7 +25,9 @@ const lease = (extra = {}) => ({
   claims: null, reasons: [], allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: '2026-11-16T00:00:00.000Z', updatedAt: '2026-11-16T00:00:00.000Z', ...extra,
 });
 const offRegistry = (id, capability) => createPlatformRegistry(registry.platforms.map(platform => platform.id === id
-  ? {...platform, capabilities: {...platform.capabilities, [capability]: {state: 'off'}}} : platform));
+  ? {...platform, capabilities: {...platform.capabilities,
+    // A role cannot remain verified when its bridge prerequisite is off.
+    ...(capability === 'bridge' ? {compositeRole: {state: 'off'}} : {}), [capability]: {state: 'off'}}} : platform));
 
 // Real activation markers and installed bytes keep capability failures separate from activation failures.
 async function fixture(t) {
@@ -146,6 +148,7 @@ for (const [id, capability] of [['zeta', 'compositeRole'], ['claude', 'composite
   test(`run rechecks capability: ${id}.${capability}`, async t => {
     const f = await fixture(t), prepared = await f.prepare('arc_planner');
     assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+    assert.equal(prepared.route, 'bridge');
     const before = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
     const result = await runBridgeDispatch({context: {...f.context, runtimePlatforms: offRegistry(id, capability)}, dispatchId: prepared.dispatchId, brief: 'T5', policy});
     assert.equal(result.decision, 'hold');
@@ -154,6 +157,17 @@ for (const [id, capability] of [['zeta', 'compositeRole'], ['claude', 'composite
     await assert.rejects(fs.stat(path.join(f.context.cwd, '.git')), {code: 'ENOENT'});
   });
 }
+
+test('capabilityReasons independently checks bridge even when compositeRole is verified', () => {
+  // Only the policy unit receives this inconsistent descriptor; real registries reject it.
+  const target = registry.getPlatform('zeta');
+  const runtimePlatforms = {getPlatform: id => id === 'zeta'
+    ? {...target, capabilities: {...target.capabilities, bridge: {state: 'off'}}} : registry.getPlatform(id)};
+  const input = {hostPlatform: 'claude', targetPlatform: 'zeta', runtimePlatforms};
+  assert.deepEqual(capabilityReasons({...input, route: 'native'}), []);
+  assert.deepEqual(capabilityReasons({...input, route: 'bridge'}), ['capability_not_verified']);
+  assert.deepEqual(capabilityReasons({...input, route: 'bridge', runtimePlatforms: registry}), []);
+});
 
 test('release conditions describe all markers and the anchor home', () => {
   assert.equal(RELEASE_CONDITIONS.capability_not_verified, 'Update ARC to a release that verifies this platform capability.');

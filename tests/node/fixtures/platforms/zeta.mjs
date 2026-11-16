@@ -32,6 +32,23 @@ export const ETA_RUNTIME = {
   capabilities: {},
 };
 
+export const ZETA_AUTH_NONE = {
+  ...ZETA_RUNTIME,
+  cli: {command: 'zeta', supportedVersions: '>=1.0.0 <2.0.0'},
+  capabilities: {...ZETA_RUNTIME.capabilities, authProbe: {state: 'off'}},
+};
+
+export const ZETA_CAPABILITY_OFF = {...ZETA_AUTH_NONE, capabilities: {}};
+
+export function createZetaRegistries(zeta = ZETA_AUTH_NONE) {
+  const original = createTestRegistries();
+  const runtimePlatforms = createPlatformRegistry(original.runtimePlatforms.platforms.map(runtime => runtime.id === 'zeta' ? zeta : runtime));
+  const platforms = createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platforms.map(runtime => ({
+    ...original.platforms.getPlatform(runtime.id), runtime,
+  }))});
+  return {runtimePlatforms, platforms};
+}
+
 export function createTestRuntimeRegistry(ids = ['codex', 'claude', 'zeta']) {
   return createPlatformRegistry(ids.map(id => {
     const descriptor = id === 'zeta' ? ZETA_RUNTIME : id === 'eta' ? ETA_RUNTIME : getPlatform(id);

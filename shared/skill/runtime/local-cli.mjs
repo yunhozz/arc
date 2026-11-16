@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import {runtimeRegistryOf} from './platform-registry.mjs';
 
 const environments = new WeakMap();
+const authKinds = new WeakMap();
 export function resolveConfigHome(platform, context = {}) {
   const descriptor = runtimeRegistryOf(context).getPlatform(platform);
   if (!descriptor) throw Error('Target must be codex or claude');
@@ -27,6 +28,7 @@ export function resolveLocalCli(platform, { cwd, userHome, env = process.env, ru
   if (!executable) return { platform, reason: 'cli_not_found' };
   const context = Object.freeze({ platform, executable, cwd, configHome: home });
   environments.set(context, Object.freeze({ ...env, [descriptor.home.env]: home }));
+  authKinds.set(context, descriptor.auth.kind);
   return context;
 }
 export function localCliEnvironment(context) { const env = environments.get(context); if (!env) throw Error('Invalid CLI context'); return { ...env }; }
@@ -175,6 +177,7 @@ export async function probeCodexLoginStatus(context, { signal, timeoutMs = 10000
   return value;
 }
 export async function probePlatformAuth(context, { signal, timeoutMs = 10000 } = {}) {
+  if (authKinds.get(context) === 'none') return {authStatus: 'unknown', reason: 'auth_unverified'};
   const platform = context?.platform;
   const result = (authStatus, reason) => ({ platform, authStatus, ...(reason ? { reason } : {}) });
   if (platform !== 'claude') return result('unknown', 'invalid_context');

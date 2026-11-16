@@ -206,7 +206,7 @@ test('composite gates distinguish role and host usage and standalone ignores aut
 
 test('injected third host produces a version 2 routing config and registry labels',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries(),draft=installDraft('codex',['zeta','claude','codex']);
- const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Install / Update',7,(_rows,options)=>assert.deepEqual(options.info,['Hosts: Claude, Codex, Zeta','Mode:  Mixed (Claude + Codex + Zeta)'])]])});
+ const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Install / Update',7,(_rows,options)=>assert.deepEqual(options.info,['Hosts: Claude, Codex, Zeta','Mode:  Mixed (Claude + Codex + Zeta)','Zeta: auth unverified'])]])});
  assert.deepEqual(result.platforms,['claude','codex','zeta']);assert.equal(result.config.version,2);assert.deepEqual(result.config.platforms,['claude','codex','zeta']);assert.equal(result.settings.skipGlobal,false);
 });
 

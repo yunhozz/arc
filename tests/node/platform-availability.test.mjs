@@ -60,7 +60,8 @@ test('capability off wins first for every usage and standalone checks install to
   const {platforms: registry} = fixtures.createTestRegistries(['codex', 'claude', 'zeta', 'eta']);
   for (const usage of ['role', 'host', 'standalone']) assert.deepEqual(api.platformAvailability('eta', {status: {authentication: {reason: 'cli_not_found'}}, catalog: {status: 'unavailable'}, usage, registry}), blocked('capability_not_verified'));
   for (const [key, usage] of [['install', 'standalone'], ['standalone', 'standalone'], ['compositeRole', 'role'], ['compositeHost', 'host']]) {
-    const runtime = createPlatformRegistry([{...getPlatform('codex'), capabilities: {...getPlatform('codex').capabilities, [key]: {state: 'off'}}}]);
+    const capabilities = key === 'install' ? {} : {...getPlatform('codex').capabilities, [key]: {state: 'off'}};
+    const runtime = createPlatformRegistry([{...getPlatform('codex'), capabilities}]);
     const registry = installer.createInstallerRegistry({runtime, descriptors: [{...installer.DEFAULT_INSTALLER_REGISTRY.getPlatform('codex'), runtime: runtime.getPlatform('codex')}]});
     assert.deepEqual(api.platformAvailability('codex', {status: ok, catalog: ready, usage, registry}), blocked('capability_not_verified'));
     if (key === 'compositeRole') assert.deepEqual(api.platformAvailability('codex', {status: ok, catalog: ready, usage: 'host', registry}), available);
