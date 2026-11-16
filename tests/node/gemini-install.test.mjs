@@ -90,7 +90,7 @@ test('payload policy verification follows install capabilities and checks verifi
   assert.ok(source.includes('- [platform.gemini]'));
   fs.writeFileSync(skill, source.replace('- [platform.gemini]', '- [platform.gemini] Stale notice.'));
   refreshManifest(context.packageRoot);
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}, standalone: {state: 'off'}}} : p));
   const platforms = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
   assert.doesNotThrow(() => verifyPayload({...context, platforms, runtimePlatforms: runtime}));
   for (const candidate of [context, {...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}]) {
@@ -128,7 +128,7 @@ test('uninstall removes owned only', async t => {
 test('uninstall allowed with install capability off when traces exist', async t => {
   const context = await contextFor(t);
   await install(context);
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}, standalone: {state: 'off'}}} : p));
   const platforms = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
   const off = {...context, platforms, runtimePlatforms: runtime};
   const prepared = await prepareOperation(off, {kind: 'uninstall', target: 'gemini', removeCli: false});

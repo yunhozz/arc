@@ -1,6 +1,6 @@
 # ARC — Agent Role Coordination
 
-ARC coordinates work in Claude Code and Codex through scoped roles, clear handoffs, and verification. Gemini CLI integration is registered and partially verified (install, native profiles, and catalog); see [Gemini CLI status](#gemini-cli-status).
+ARC coordinates work in Claude Code and Codex through scoped roles, clear handoffs, and verification. Gemini CLI integration is registered and partially verified (install, native profiles, catalog, and standalone); see [Gemini CLI status](#gemini-cli-status).
 
 ![ARC workflow](docs/images/role-flow.svg)
 
@@ -67,11 +67,11 @@ After upgrading, run `Install / Update` to migrate an existing Codex+Claude comp
 
 ## Gemini CLI status
 
-- **Verification:** Gemini `install`, `nativeProfile`, and `catalog` are verified by live evidence ([install](docs/superpowers/evidence/gemini/install-2026-11-16.md), [nativeProfile](docs/superpowers/evidence/gemini/nativeProfile-2026-11-16.md), [catalog](docs/superpowers/evidence/gemini/catalog-2026-11-16.md)); the other six capabilities remain `off`: `standalone`, `bridge`, `compositeRole`, `compositeHost`, `authProbe`, and `watch`. The home screen follows CLI status: `Not Available` when the CLI is missing, `Unsupported version` outside the supported range, and `Available (auth unverified)` otherwise; installation, standalone roles, composite roles/hosts, and bridges remain unavailable until their required capabilities are verified in a future ARC release. Packaged profiles and catalogs alone do not verify live behavior.
+- **Verification:** Gemini `install`, `nativeProfile`, `catalog`, and `standalone` are verified by live evidence ([install](docs/superpowers/evidence/gemini/install-2026-11-16.md), [nativeProfile](docs/superpowers/evidence/gemini/nativeProfile-2026-11-16.md), [catalog](docs/superpowers/evidence/gemini/catalog-2026-11-16.md), [standalone](docs/superpowers/evidence/gemini/standalone-2026-11-16.md)); the other five capabilities remain `off`: `bridge`, `compositeRole`, `compositeHost`, `authProbe`, and `watch`. The home screen follows CLI status: `Not Available` when the CLI is missing, `Unsupported version` outside the supported range, and `Available (auth unverified)` otherwise; standalone installation and roles are available; composite roles/hosts and bridges remain unavailable until their required capabilities are verified in a future ARC release. Packaged profiles and catalogs alone do not verify live behavior.
 - **Authentication:** Gemini has no authentication probe. Status reports `unknown` without running a login check. Once capabilities, CLI version, and catalog gates pass, unknown authentication allows composite participation with an `auth unverified` warning; it does not prove login.
 - **Permissions:** Gemini role permissions are checked only after the fact, and only within the git-visible worktree. Detection covers tracked and untracked files except Git-ignored paths, plus HEAD, branch, and ref changes; it proves no prevention of outside-worktree writes, network effects, or secret reads.
 - **Effort:** Gemini effort is fixed at `default`.
-- **Management:** `target:'all'` includes Gemini when its `install` and `standalone` capabilities are verified; it excludes Gemini while `standalone` remains off.
+- **Management:** `target:'all'` includes Gemini because its `install` and `standalone` capabilities are verified.
 
 Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
 

@@ -56,6 +56,6 @@ for(const platform of ['codex','claude'])test(`${platform} unowned profile on an
  const {buildUpgradePlans}=await import('../../lib/installer/upgrade.mjs'),{installTargets}=await import('../../lib/installer/install.mjs'),{verifyPayload}=await import('../../lib/installer/manifest.mjs');
  const ctx=await compositeContext(t);await standalone(ctx);assert.equal((await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:platform,removeCli:false}))).code,0);
  const target=targets(ctx)[platform],filename=path.join(target.home,'agents',target.profileNames[0]);fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'user profile');
- const state=collectInstalledState(ctx);assert.deepEqual(state.residualPaths,[filename]);const plans=buildUpgradePlans({payload:verifyPayload(ctx),state,safeFs:ctx.safeFs});assert.deepEqual(plans.map(plan=>plan.target.platform),[platform==='codex'?'claude':'codex']);
+ const state=collectInstalledState(ctx);assert.deepEqual(state.residualPaths,[filename]);const plans=buildUpgradePlans({payload:verifyPayload(ctx),state,safeFs:ctx.safeFs});assert.deepEqual(plans.map(plan=>plan.target.platform),[platform==='codex'?'claude':'codex','gemini']);
  const result=await installTargets(plans,{safeFs:ctx.safeFs});assert.ok(result.results.every(item=>item.status==='installed'&&!item.error));assert.equal(fs.readFileSync(filename,'utf8'),'user profile');assert.equal(fs.existsSync(path.join(target.home,'skills/arc')),false);
 });

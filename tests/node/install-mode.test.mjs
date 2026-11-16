@@ -30,7 +30,7 @@ test('readInstallMode reports standalone, composite and unverified',async t=>{
 test('status and installed state accept composite homes without standalone profiles',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);const before=profileFiles(ctx);assert.equal((await publish(ctx)).code,0);
  for(const mixed of [false,true]){if(mixed)for(const [name,hex]of Object.entries(before)){const[p,file]=name.split('/');fs.writeFileSync(ctx.userHome+'/.'+p+'/agents/'+file,Buffer.from(hex,'hex'));}
- assert.deepEqual((await collectStatus(ctx)).map(s=>s.state),['installed','installed','absent']);const state=collectInstalledState(ctx);assert.equal(state.mode,'composite');assert.equal(state.targets.length,2);}
+ assert.deepEqual((await collectStatus(ctx)).map(s=>s.state),['installed','installed','installed']);const state=collectInstalledState(ctx);assert.equal(state.mode,'composite');assert.equal(state.targets.length,3);assert.deepEqual(state.targets.map(entry=>entry.target.platform),['claude','codex','gemini']);assert.deepEqual(state.platforms,['claude','codex']);}
 });
 test('unverified composite state refuses publish, deactivation and switch',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);await publish(ctx);const marker=ctx.userHome+'/.codex/arc-role-platform-routing.prepared.json',data=JSON.parse(fs.readFileSync(marker));data.configHash='sha256:'+'0'.repeat(64);fs.writeFileSync(marker,JSON.stringify(data));const before=profileFiles(ctx);

@@ -78,6 +78,15 @@ test('L2 operational Gemini catalog has its passing live evidence record', () =>
   verifyEvidence(promoted({install: getPlatform('gemini').capabilities.install, catalog: getPlatform('gemini').capabilities.catalog}), [files.find(file => file.name === 'install-2026-11-16.md'), evidence]);
 });
 
+test('L4 operational Gemini standalone has its passing live evidence record', () => {
+  assert.equal(getPlatform('gemini').capabilities.standalone.state, 'verified');
+  const evidence = files.find(file => file.name === 'standalone-2026-11-16.md');
+  assert.ok(evidence, 'L4 standalone evidence is required');
+  assert.match(evidence.bytes, /invoke_agent.*agent_name: "arc-scouter"/);
+  assert.match(evidence.bytes, /gemini-2\.5-flash.*role `subagent`/);
+  verifyEvidence(getPlatform('gemini'), files);
+});
+
 test('catalog evidence categories cover the static catalog exactly', () => {
   const evidence = files.find(file => file.name === 'catalog-2026-11-16.md');
   assert.ok(evidence, 'L2 catalog evidence is required');
