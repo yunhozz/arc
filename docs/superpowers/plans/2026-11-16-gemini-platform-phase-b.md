@@ -1,0 +1,1061 @@
+# Gemini 플랫폼 완전 지원 Phase B 구현 계획
+
+> **실행 방식:** ARC Orchestrator가 작업마다 새 Implementer(Codex bridge `arc_routing_implementer`)를 배정합니다. 수용 후 작업 하나당 커밋 하나를 Orchestrator가 만듭니다. Implementer와 QA는 Git 상태를 바꾸지 않습니다.
+
+**Goal:** Phase A 후속 결함 F4–F6을 먼저 고칩니다. 이어서 anchor 순서를 claude > codex > gemini로 바꾸고 기존 composite를 마이그레이션한 뒤, Gemini를 세 번째 플랫폼으로 등록합니다. 설치, 상태, composite, bridge를 capability off 상태로 넣고, live 증거가 생긴 capability만 순차로 verified로 바꿉니다.
+
+**Architecture:** capability의 원천은 runtime descriptor(`lib/runtime/platform-registry.mjs`)이고 설치기 descriptor(`lib/platforms/gemini.mjs`)는 이를 참조만 합니다. 코드는 먼저 일반화합니다. lease v2, watch anchor 탐색, legacy 판정과 마이그레이션, auth none 및 capability off 표면을 주입 레지스트리로 검증합니다. 그다음 anchor 순서 전환과 Gemini 등록을 별도 작업으로 넣습니다. Gemini 외부 계약은 fake `gemini`(stream-json fixture)로 코드 경로만 검증하고, live 검증은 Orchestrator가 맡습니다.
+
+**Tech Stack:** Node.js ESM(`.mjs`), `node:test`, 기존 safe-fs, PTY 헬퍼(`tests/node/helpers/tui-terminal.mjs`), 주입 레지스트리(`tests/node/fixtures/platforms/zeta.mjs`)
+
+**Spec:** `docs/superpowers/specs/2026-11-16-gemini-platform-phase-b-design.md`(2026-11-16 승인, v4 2026-11-16T13:12:29Z 승인, v5 2026-11-17 승인, sha256 `b1a51e5992226b3f67d9740a8c3fbd37995f22f8104bfed645baad953845c79b`). 선행: `docs/superpowers/specs/2026-11-15-tui-arc-diagram-flow-design.md`
+
+## Global Constraints
+
+- `lib/runtime/**`는 `lib/runtime` 내부만 import합니다(`lib/models`, `lib/installer`, `lib/platforms` 금지).
+- 새 runtime 모듈을 추가하면 같은 작업에서 다음 다섯 가지를 함께 갱신합니다: `RUNTIME_MODULE_PATHS`(`lib/installer/runtime-assets.mjs`), `COOPERATIVE_RUNTIME_MODULES`(`lib/runtime/bootstrap.mjs`), `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, runtime-assets `--check`. `tests/node/runtime-assets.test.mjs`의 `expectedPaths`도 함께 고칩니다.
+- `shared/skill/runtime/**`는 손으로 고치지 않습니다. `node scripts/update-runtime-assets.mjs`로만 동기화합니다.
+- `lib/policy/role-policy.json`은 각 role `controls`에 `gemini` 키를 추가하고, `platforms`에 `gemini` 항목(level `prompt`, notice는 spec Q4의 결정 12 문구)을 추가하는 것만 허용합니다. codex/claude 생성물은 바이트 단위로 같아야 합니다(Q4, AC-R1, 결정 12).
+- 레지스트리 값(최종): claude `displayOrder 0, anchorOrder 0` / codex `displayOrder 1, anchorOrder 1` / gemini `displayOrder 2, anchorOrder 2`. `DEFAULT_INSTALLER_REGISTRY` 순서는 `[CLAUDE, CODEX, GEMINI]`입니다.
+- gemini descriptor: `home.env 'GEMINI_CLI_HOME'`(설정되어 있으면 `unresolved`), 기본 `~/.gemini`, `cli.command 'gemini'`, `cli.supportedVersions '>=0.68.0 <0.69.0'`, `auth.kind 'none'`, `models.effortField 'effort'`, `profile.ext 'md'`, `standaloneName 'arc-<suffix>'`, `routingName 'arc-routing-<suffix>'`, `executionEnvironments ['gemini-cli']`.
+- Gemini capability의 초기 상태는 전부 `off`이고 reason은 정확히 다음 값입니다.
+  - `install`: `install layout not verified`
+  - `nativeProfile`: `native profile format not verified`
+  - `catalog`: `catalog not verified`
+  - `standalone`: `standalone not verified`
+  - `bridge`: `bridge contract not verified`
+  - `compositeRole`: `composite role not verified`
+  - `compositeHost`: `composite host not verified`
+  - `authProbe`: `no official auth status command`
+  - `watch`: `watch support out of scope`
+- 정확한 문구:
+  - `Gemini is not available: capability not verified`
+  - `Gemini: auth unverified — ARC cannot confirm Gemini CLI login.`
+  - `Gemini: auth unverified`(사유 줄)
+  - `Gemini - Unavailable  (capability not verified)`
+  - `- Unavailable  (capability not verified)`
+  - `Gemini: Not verified` / `Gemini: Not Available` / `Gemini: Unsupported version` / `Gemini: Available (auth unverified)`
+  - `Gemini  (not installed)`
+  - `Gemini settings.json is preserved.`
+  - `Mixed routing files will move to the Claude home.`
+  - `Mixed routing will move to the Claude home on the next Install / Update.`
+  - `Dispatch history stays in <codex home>/arc-role-dispatch.`
+  - `dispatch store ambiguous`
+  - `Update ARC to a release that verifies this platform capability.`
+  - `After upgrading ARC, run Install / Update again.`(유지)
+- reason code 신규: `capability_not_verified`, `resume_unverified`. 기존: `permission_scope_unverified`, `host_sandbox_blocked`, `auth_rejected`, `activation_unverified`
+- gate 신규: `BRIDGE_GATE_RESULTS.GG1 = 'fail'`, `GG2 = 'fail'`
+- management 필드 추가: prepare `warnings: ['gemini:auth_unverified']`, `anchorMove: {from:'codex', to:'claude'}`. 기존 필드의 의미는 바꾸지 않습니다.
+- 바꾸지 않는 것: `kind:'preset'`, `skipGlobal`, `switchFromComposite`, `target: codex|claude|all|composite`의 의미(`all`은 Q7 정의). 파일 이름 `arc-role-platform-routing.json`, `.prepared.json`, `.lock`, `arc-role-dispatch/`와 marker 형식도 바꾸지 않습니다.
+- 금지: Gemini `--allowed-tools`, `--yolo`, `--approval-mode yolo`, `--skip-trust`, `--raw-output`. live 증거 없이 `verified`로 바꾸는 것. 검증 전 `settings.json` 쓰기(P-B2). old anchor `arc-role-dispatch/`의 이동·삭제.
+- 마이그레이션은 Install / Update(TUI Apply, management `target:'composite'` publish) 안에서만 일어납니다. 패키지 설치, `arc upgrade`, runtime 명령, status는 파일을 옮기지 않습니다.
+- 테스트 전용 플랫폼과 fixture는 `tests/node/fixtures/**`에만 둡니다. 운영 코드는 이를 import하지 않습니다.
+- Gemini catalog discover(결정 14): `GEMINI_MODELS_API = 'https://generativelanguage.googleapis.com/v1beta/models'`, 키 헤더 `x-goog-api-key`, env `GEMINI_API_KEY`만 사용, `pageSize=1000`, `redirect:'manual'`, 결과 `source:'gemini_api'`, `cliAccountVerified:false`. 문구 `Gemini API key is unavailable.`, `Gemini catalog is unavailable.`. 키는 URL·argv·결과·오류에 넣지 않습니다.
+- Gemini 카탈로그 선택 정규식: `^gemini-(\d+(?:\.\d+)?)-(pro|flash|flash-lite)$`(preview 전부 제외, spec 5.3). 다섯 역할 기본 모델은 `gemini-2.5-flash`입니다(결정 13).
+- 커밋 메시지 형식은 `type(scope): 한국어 설명`이며, 수용 후 Orchestrator가 만듭니다.
+
+### 표준 마무리 절차 (STD-CLOSE, 모든 코드 작업의 마지막 검증 단계)
+
+1. `lib/runtime/**`를 바꿨다면 `node scripts/update-runtime-assets.mjs`를 실행한 뒤 `node scripts/update-runtime-assets.mjs --check`가 `Runtime payload verified`를 내는지 확인합니다.
+2. runtime 파일 해시가 바뀌었다면 다음을 갱신합니다.
+   - `node tests/node/fixtures/installed-layout.mjs --write`로 golden을 갱신합니다.
+   - `tests/node/runtime-versions.test.mjs`의 baseline hash를 의도된 값으로 고칩니다.
+3. `node scripts/update-manifest.mjs`를 실행하고 `npm run check:manifest`가 통과하는지 확인합니다.
+4. `npm run check:role-policy`가 통과해야 합니다. T10 이전에는 생성물 변경 0건이어야 합니다. T10 이후에는 codex/claude 생성물 무변경, gemini는 기대 생성물입니다.
+5. `node scripts/check-installer-parity.mjs`가 통과해야 합니다.
+6. 작업 단위 테스트(`node --test <파일>`)가 PASS여야 합니다.
+7. `npm test`(Orchestrator 실행): 기준 실패 36건 밖의 신규 실패가 0건이어야 합니다(16장 판정 원칙, 아래 "검증 판정" 절).
+8. TUI를 바꾼 작업은 PTY 테스트(`tests/node/tui-app-pty.test.mjs`, `tests/node/cli-pty.test.mjs` 중 해당 파일)가 PASS여야 합니다.
+9. `git status --short`에는 해당 작업의 Files와 생성물(`MANIFEST.sha256`, `shared/skill/runtime/*`, golden)만 보여야 합니다.
+
+bridge Implementer는 live Gemini, 네트워크, 실제 home 설치를 실행하지 않습니다. 7번과 실제 CLI 검증은 Orchestrator가 합니다.
+
+## Review Focus
+
+1. **`GEMINI_CLI_HOME`이 설정된 사용자.** Gemini home 해석은 실패해야 합니다. 그래도 Gemini가 S 밖이면 Codex/Claude의 Install / Update와 status가 막히지 않아야 합니다(Phase A 6.4.8). 테스트: T10 `gemini home env set does not block codex/claude install`
+2. **진행 중 dispatch가 있는 legacy 사용자가 업그레이드 후 Install / Update를 실행하는 경우.** 이동은 held여야 하고, 파일 무변경과 dispatch id 표시가 있어야 합니다. dispatch가 끝난 뒤 재실행하면 성공해야 합니다. 테스트: T7 `legacy migration held then succeeds after lease terminal`
+3. **dotfile 관리로 `~/.gemini`나 `~/.claude`가 symlink인 환경.** symlink home은 지원하지 않습니다(spec 결정 11). 설치기와 runtime이 똑같이 거부하고 파일을 바꾸지 않아야 합니다. 테스트: T3(AC-F6). 결정 10 이후 기본 anchor가 Claude home이므로 T8에 `symlinked claude home ancestor is rejected after flip without file changes` 1건을 둡니다.
+4. **rollback 잔여물로 marker 후보가 2개 이상 남은 상태에서 watch를 띄우는 경우.** `dispatch store ambiguous`만 표시하고 store는 읽지 않아야 합니다. 테스트: T6
+5. **Gemini CLI가 range 밖(예: 0.69.0)이거나 capability off인데 이전 설치 흔적이 있는 경우.** 상태줄은 `Gemini: Not verified`이고(install off가 우선), Uninstall은 허용되어야 합니다(P-B3). 테스트: T9, T11
+
+## Orchestrator 결정 (계획 검토, 2026-11-16)
+
+Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위 안의 해석이며 새 제품 결정은 없습니다.
+
+- **Q-O1 GG1:** spec 9.2에 GG1 live 전환 항목이 없으므로 Phase B 동안 `fail`을 유지합니다. Gemini Implementer/QA bridge는 Phase B 내내 `permission_scope_unverified`로 hold됩니다(spec 10.2, Q8). GG1 전환은 별도 승인 단계입니다.
+- **Q-O2 GG2:** spec 9.2 compositeHost 통과 조건이 "11장 GG2 통과"이므로, L7 증거가 GG2 항목을 포함해 `pass`일 때만 `GG2:'pass'`를 같은 커밋에 넣습니다.
+- **Q-O3 기준 실패와 겹치는 작업:** T11·T14처럼 영향 범위가 기준 실패 테스트와 겹치는 작업은 대체 증거(fixture 테스트, `npm pack --dry-run`, 해당 테스트 단독 재실행이 기준선과 같은 실패 메시지인지 비교)로 판정합니다. 실패 메시지가 기준선과 달라지면 신규 실패로 봅니다.
+- **Q-O4 range 밖 버전:** L 단계에서 로컬 `gemini --version`이 0.68.x가 아니면 중단하고 사용자에게 보고합니다(spec 9.4).
+- **Q-O5 T8 범위:** 이관 대상이 40개 파일을 넘으면 Orchestrator가 범위를 사용자에게 보고하고 진행 여부를 묻습니다. 순서 전환만 먼저 커밋하는 분할은 하지 않습니다.
+- **가정 A1 확인:** 운영 codex/claude descriptor는 모든 capability가 `verified`입니다(`lib/runtime/platform-registry.mjs:59,75,90`). 6.1 선행 조건을 만족합니다.
+- **가정 A2–A4:** 그대로 채택합니다(zeta 3·eta 4 재배치, 부록 A는 계획 문서에 기록, `lib/npm/upgrade.mjs`의 registry 인자 생략 허용).
+- **역할 경로:** Implementer와 QA는 Codex bridge, Reviewer는 native Claude입니다(routing revision `c9e69910-0738-4749-be32-9021a2c3c8b2`). bridge 자식은 live Gemini, 네트워크 의존 검사, 실제 home 설치를 하지 않습니다.
+
+---
+
+## 의존성과 실행 순서
+
+**논리 DAG**
+
+| 작업 | 제목 | 선행 |
+|---|---|---|
+| T1 | F4 S 밖 standalone status/upgrade | — |
+| T2 | F5 runtime anchor 신뢰 경계 | — |
+| T3 | F6 symlink home 판정 일치 테스트와 문서화 | T2 |
+| T4 | F7a + F1 비anchor switch 테스트(테스트 전용) | T1, T2, T3 |
+| T5 | lease v2, capability hold, runtime 문구 일반화 | T2, T4 |
+| T6 | watch anchor 탐색 | T2 |
+| T7 | legacy 판정과 마이그레이션 엔진(주입 레지스트리) | T1, T3 |
+| T8 | anchor 순서 전환, v2 항상 기록, 기존 테스트 이관 | T5, T6, T7 |
+| T9 | auth none / capability off 일반 표면 | T8 |
+| T10 | Gemini descriptor 등록 | T1–T4, T9 |
+| T11 | Gemini payload, 설치·제거 | T10 |
+| T12 | Gemini bridge(실행·관찰·취소·재개 플래그, GG1/GG2) | T5, T10 |
+| T13 | Gemini 참여 composite 통합 | T11, T12 |
+| T14 | 문서·skill 문구·README·harness | T8, T13 |
+| L1–L7 | capability live 전환(install → catalog → nativeProfile → standalone → bridge → compositeRole → compositeHost) | T14, 앞 L 작업 |
+| FR | 최종 독립 Reviewer 1회 | 모든 작업 수용(L 작업은 수용 또는 no-change 종료) |
+| T15 | Gemini catalog discover(API `models.list`) + `catalog.mjs` 키·source 표·capability 게이트 (v5) | FR(수용 완료) |
+| FR2 | 추가 최종 독립 Reviewer(`a163358..HEAD`) (v5) | T15, L2, L4–L6 각각 수용 또는 no-change, 필수 QA 완료 |
+| EV | 증거 파일 삭제와 증거 테스트 교체 (v6) | FR2(수용 완료) |
+
+v5: L2(재개)의 선행은 T15입니다. L4–L6은 L2 뒤 6.1 선행 관계대로 진행하고, L7은 no-change 종료 기록을 유지합니다.
+
+**공유 계약과 직렬화 근거**
+
+- 모든 코드 작업이 `MANIFEST.sha256`을 바꿉니다.
+- `lib/runtime/**`를 바꾸는 작업(T2, T5, T8, T9, T10, T12, L5–L7)은 다음 세 가지도 함께 바꿉니다.
+  - `shared/skill/runtime/*`
+  - `installed-layout-golden.json`
+  - `tests/node/runtime-versions.test.mjs` baseline
+- T10, T11은 golden의 gemini 레이아웃을, T10은 role-policy 생성물을 바꿉니다.
+- 같은 생성물을 동시에 고칠 수 없으므로 **실제 실행은 전부 직렬**입니다.
+- 논리적으로는 다음 쌍이 독립입니다. 실패 시 hold 범위를 정할 때 이 독립성을 씁니다.
+  - T1 ↔ T2
+  - T6 ↔ T7
+  - T11 ↔ T12
+- 같은 파일을 고치는 작업 쌍과 직렬 근거:
+  - `lib/runtime/role-routing.mjs`: T2 → T5 → T8. F5 검사 함수를 T5, T6이 재사용합니다.
+  - `lib/installer/role-routing.mjs`: T7 → T8 → T13
+  - `tests/node/install-mode-n-platform.test.mjs`: T1 → T4 → T7 → T8 → T13
+  - `tests/node/role-routing-anchor.test.mjs`: T2 → T3 → T4 → T5 → T8
+  - `lib/runtime/platform-registry.mjs`: T8 → T9 → T10 → L*
+  - `tests/node/gemini-platform.test.mjs`, `tests/node/gemini-capability-evidence.test.mjs`, `lib/models/gemini-models.json`: T15 → L2
+  - `lib/models/catalog.mjs`: T15 단독
+  - TUI 스냅샷 테스트: T7 → T8 → T9 → T10 → T11
+- 분리할 수 없는 계약은 한 작업에 묶습니다.
+  - runtime + 설치기 descriptor + AC-P1 일관성 테스트 + 금지 패턴 + role-policy `controls.gemini` + zeta `anchorOrder` 재배치: T10
+  - anchor 순서 + v2 항상 기록 + 기존 테스트 이관: T8
+  - descriptor 상태 + 증거 + 회귀 테스트: 각 L 작업
+
+**실행 순서(직렬):** T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T12 → T13 → T14 → L1 → L2(no-change) → L3 → L7(no-change) → FR → (v5) T15 → L2(재개) → L4 → L5 → L6 → FR2
+
+**hold 범위:** 실패한 작업은 DAG상 후속만 막습니다.
+
+- T6이 실패하면 T8 이후만 막고 T7은 진행합니다.
+- T11이 실패하면 T13, T14, L*을 막고 T12는 진행합니다.
+- L 작업이 증거 실패로 no-change 종료되면, 6.1 선행 관계상 그 capability가 필요한 L 작업도 no-change 종료합니다.
+  - catalog 실패 → standalone, bridge, compositeRole도 no-change
+  - nativeProfile 실패 → standalone, compositeHost도 no-change
+  - 선행이 독립인 작업은 계속합니다(예: catalog 실패에도 L3 nativeProfile과 L7 compositeHost는 진행).
+
+**anchor 전환 커밋 안전성 판단(P5)**
+
+- 순서만 바꾸는 중간 커밋은 안전하지 않습니다. Codex home에 v1 설정이 있는 기존 composite가 legacy 판정 없이 `unverified`가 되어 Install / Update로도 복구할 수 없습니다.
+- 그래서 다음처럼 나눕니다.
+  - **T7(엔진):** 운영 순서에서는 발동하지 않는 legacy 판정과 이동 경로를 먼저 넣습니다. 주입 레지스트리(claude `anchorOrder 0`)로 검증합니다.
+  - **T6:** watch 탐색을 전환 전에 넣습니다. 전환 전에는 후보가 Codex home 하나이므로 동작이 같습니다.
+  - **T8:** 운영 descriptor 전환과 v2 항상 기록, 기존 테스트 이관을 한 커밋에 넣습니다.
+- "v2 항상 기록"은 T8에 둡니다. 전환 전에 이를 켜면 Codex home에 v2가 기록되고, 이것은 전환 후 legacy가 아닌 `unverified`(6.7.1)가 됩니다.
+- 테스트 이관을 T8에서 떼어 내면 T8 자체가 `npm test`를 통과하지 못해 독립 수용이 불가능합니다. 그래서 분리하지 않습니다.
+- 사전 "anchor 계산 헬퍼로 기대값 파라미터화" 작업도 두지 않습니다. 기대값을 코드와 같은 레지스트리에서 계산하면 테스트가 자기 참조가 되어 검사 강도가 떨어지기 때문입니다.
+
+**필수 QA(수용 전 fresh QA, Codex bridge)**
+
+- 대상(고위험: runtime/bridge/권한/마이그레이션/composite/upgrade/네트워크·비밀값): T1, T2, T5, T7, T8, T9, T10, T12, T13, T15, L5, L6, L7
+- 나머지 T3(개정 v2), T4, T6, T11, T14, L1–L4는 Orchestrator가 focused check와 STD-CLOSE 증거로 확인합니다.
+- Reviewer는 작업마다 두지 않습니다. FR에서 전체 변경을 1회 검토했고, v5 이후 추가 변경은 FR2에서 1회 검토합니다.
+
+---
+
+### Task T1: F4 — composite 중 S 밖 standalone의 status/upgrade 처리
+
+**AC:** AC-F4(부분), AC-P2'
+
+**목표:** composite일 때 S의 home만 composite 경로(profiles `omit`)로 처리합니다. S 밖 home은 standalone 규칙(Phase A 6.4.7)으로 검사하고 갱신합니다. upgrade 경로 전체에 context registry를 넘깁니다.
+
+**Files:**
+- Modify:
+  - `lib/installer/upgrade.mjs:8-23`(`buildUpgradePlans`: `profiles`를 target별로 정함, `registry` 인자 추가)
+  - `lib/installer/upgrade-state.mjs:12`(`collectInstalledState`가 `platforms`/`runtimePlatforms`를 받아 state에 `platforms`(S)와 registry를 실음)
+  - `lib/management/update.mjs:30,39,55`(registry 전달)
+  - `lib/npm/upgrade.mjs:48,51`(pinned API 호출에 registry 전달. 인자 생략 시 기본 레지스트리로 동작해 하위 호환)
+  - `lib/management/status.mjs:12-13`(composite면 S 밖 플랫폼의 standalone 상태 보고)
+- Test: `tests/node/install-mode-n-platform.test.mjs`(추가), `tests/node/upgrade-state.test.mjs`(추가)
+
+**Interfaces:**
+- Produces:
+  - `buildUpgradePlans({payload, state, safeFs, registry?})`. `state.mode==='composite'`이면 `state.platforms`(S)에 든 target만 `profiles:'omit'`, 그 밖은 `'write'`
+  - `collectInstalledState({safeFs, userHome, env, cwd, platforms?, runtimePlatforms?}) -> {mode, platforms?, targets, residualPaths, stateToken, ...}`. composite이면 `platforms`가 S
+
+- [x] **Step 1: 실패 테스트 작성**(zeta 주입, S={codex,claude}, zeta standalone 설치됨)
+  - `F4 status reports standalone outside S during composite`: `collectStatus(ctx)`의 zeta 항목이 `state:'installed'`이고 standalone 검사 결과를 갖습니다. codex/claude 항목은 현행과 deepEqual입니다.
+  - `F4 upgrade rewrites standalone profiles outside S`: `buildUpgradePlans`의 zeta plan writes에 `arc-*` standalone 프로필이 있고, codex/claude plan에는 profile write가 0건입니다.
+  - `F4 upgrade uses context registry`: 주입 registry를 넘기지 않으면 zeta target이 생기지 않고, 넘기면 생깁니다.
+  - `upgrade-state.test.mjs`의 `composite state carries participating set`: `state.platforms`가 `['codex','claude']`(anchorOrder 순)입니다.
+- [x] **Step 2: 실행해 실패 확인**: `node --test tests/node/install-mode-n-platform.test.mjs tests/node/upgrade-state.test.mjs`. 기대: 위 4건 FAIL
+- [x] **Step 3: 구현.** state에 S를 싣고 per-target `profiles`를 고릅니다. registry가 없으면 기존 기본 레지스트리를 씁니다. 운영 codex+claude 결과는 바이트 단위로 같아야 합니다.
+- [x] **Step 4: 통과 확인**: Step 2 명령 PASS. `tests/node/upgrade*.test.mjs`, `tests/node/management-status*.test.mjs` 무변경 PASS
+- [x] **Step 5: STD-CLOSE**(runtime 무변경이므로 1–2 생략)
+
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`, `check:role-policy`, parity
+**필수 QA:** 예(upgrade 경로)
+**보류 조건:** 운영 codex+claude upgrade 결과가 바뀌면 보류합니다. `lib/npm/upgrade.mjs` pinned API 호환성(이전 버전 management API 호출)이 깨지면 보류하고 Orchestrator에 보고합니다.
+
+---
+
+### Task T2: F5 — runtime `locateAnchorHome` 신뢰 경계
+
+**AC:** AC-F5
+
+**목표:** marker의 `activeConfigPath` 디렉터리가 등록 플랫폼의 해석된 home 중 하나와 정확히 같을 때만 lock을 만듭니다. terminal lease 정리는 lock 안에서 전체 검증(Phase A 6.9.4)을 통과한 뒤에만 합니다.
+
+**Files:**
+- Modify: `lib/runtime/role-routing.mjs:73`(`locateAnchorHome`과 호출부의 정리 순서)
+- Test: `tests/node/role-routing-anchor.test.mjs`(추가)
+
+**Interfaces:**
+- Produces: `export function matchRegisteredHome({dir, homes}) -> string|null`(`lib/runtime/role-routing.mjs`). `homes`는 `{[platformId]: resolvedHome}`이고, 정확히 같은 경로의 platform id를 돌려줍니다. 정규화는 `path.resolve` 뒤 문자열 비교입니다. T6이 재사용합니다.
+
+- [x] **Step 1: 실패 테스트 작성**
+  - `F5 marker pointing outside registered homes creates no files`: 임시 디렉터리 X를 가리키는 marker로 routing-status/prepare를 호출하면 결과 `activation_unverified`이고, X 안 파일 수 0, 등록 home의 `.lock` 미생성입니다.
+  - `F5 terminal lease cleanup only after full verification`: 등록 home이지만 프로필 해시가 불일치하는 상태에서 terminal lease 파일이 그대로 남습니다(`fs.existsSync(leasePath)===true`).
+  - `F5 matchRegisteredHome exact match only`: 하위 디렉터리, 상위 디렉터리, 후행 슬래시 차이는 정규화 후 판정하고, 하위·상위는 `null`입니다.
+- [x] **Step 2:** `node --test tests/node/role-routing-anchor.test.mjs`. 기대: 위 3건 FAIL
+- [x] **Step 3:** lock 생성 전에 `matchRegisteredHome` 검사를 넣고, 실패하면 파일을 만들지 않고 `activation_unverified`를 냅니다. lease 정리 호출은 전체 검증 성공 분기 뒤로 옮깁니다.
+- [x] **Step 4:** Step 2 PASS, `tests/node/role-routing-*.test.mjs` 전체 PASS
+- [x] **Step 5:** STD-CLOSE(runtime 변경: 1–9 전부)
+
+**필수 검사:** 작업 테스트, `npm test`, runtime-assets `--check`, golden, runtime-versions baseline, `check:manifest`, `check:role-policy`
+**필수 QA:** 예
+**보류 조건:** 정상 Codex+Claude composite의 lease 정리 동작이 바뀌면(정리 시점 외의 차이) 보류합니다.
+
+---
+
+### Task T3: F6 — symlink home 판정 일치 테스트와 문서화 (개정 v2)
+
+**AC:** AC-F6
+
+**목표:** ARC의 현행 정책(플랫폼 home과 그 조상에 symlink가 있으면 거부)을 유지합니다. 설치기의 anchor 이동 lock 준비(`prepareLockHome`)와 runtime lock 획득이 같은 경로 조합에서 같은 판정을 내고 파일을 바꾸지 않는다는 것을 테스트로 고정합니다. README와 harness 문서에 이 제한을 적습니다. 운영 코드는 바꾸지 않습니다.
+
+**Files:**
+- Modify(테스트): `tests/node/role-routing-anchor.test.mjs`, `tests/node/install-mode-n-platform.test.mjs`
+- Modify(문서): `README.md`, `docs/harness-operation.md`(영어 유지. 한 문장 수준)
+- 생성물: `MANIFEST.sha256`(문서가 manifest 대상이면)
+
+- [x] **Step 1: 테스트 작성**(임시 디렉터리에서 `linkParent -> realParent` symlink 구성)
+  - `F6 symlinked home ancestor rejects anchor-move publish without changes`: 조상이 symlink인 anchor home으로 이동이 일어나는 management composite publish가 거부되고(`Symlink destination is unsafe` 계열), 모든 home 스냅샷이 deepEqual입니다.
+  - `F6 symlinked home ancestor rejects runtime lock without changes`: 같은 환경에서 runtime 명령이 lock을 만들지 않고 hold/`activation_unverified`이며 파일이 바뀌지 않습니다.
+  - `F6 installer and runtime verdicts agree`: {조상 symlink, home 자체 symlink, `<home>/arc-role-dispatch` symlink, lock 파일 symlink, 정상} 조합 표에서 설치기 `prepareLockHome`(또는 이를 쓰는 publish)와 runtime `acquireRoleRoutingLock`의 성공·거부가 1:1로 일치합니다.
+- [x] **Step 2:** 테스트 실행. 현행 코드에서 통과해야 합니다(정책 고정 테스트). 통과하지 않는 조합이 있으면 운영 코드를 바꾸지 말고 멈추고 보고합니다.
+- [x] **Step 3:** README와 harness 문서에 "Platform homes and their parent directories must not be symbolic links; ARC refuses to install, publish or take routing locks through them." 수준의 문장을 추가합니다.
+- [x] **Step 4:** STD-CLOSE(3, 5–7, 9)
+
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`, parity
+**필수 QA:** 아니요(운영 코드 무변경, 정책 고정 테스트). Orchestrator가 테스트의 실효성을 확인합니다(symlink 검사를 임시로 끈 사본에서 실패하는지).
+**보류 조건:** 운영 코드 변경이 필요해 보이면 멈추고 보고합니다.
+
+---
+
+### Task T4: F7a + F1 비anchor 참여 플랫폼 switch 테스트(테스트 전용)
+
+**AC:** AC-F7
+
+**목표:** host marker 재확인 테스트의 lstat 호출 횟수 의존을 없앱니다. 비anchor 참여 플랫폼(zeta)의 switch 경로를 테스트로 고정합니다. 운영 코드는 바꾸지 않습니다.
+
+**Files:**
+- Modify: `tests/node/role-routing-anchor.test.mjs`(F7a 해당 테스트. Implementer가 `lstat` 호출 횟수 카운터를 쓰는 테스트를 grep으로 특정), `tests/node/install-mode-n-platform.test.mjs`(F1 추가)
+
+- [x] **Step 1:** F7a 대상 테스트를 특정하고, 같은 동작(재확인 사이에 marker가 바뀌면 거부)을 호출 횟수가 아니라 관찰 가능한 결과(결과 reason, 파일 무변경)로 단언하도록 바꿉니다. 단언 항목 수는 줄이지 않습니다.
+- [x] **Step 2:** `F1 non-anchor participant switch`: S={codex,claude,zeta}에서 zeta(비anchor)를 standalone으로 전환(D1-b 계열)하면 zeta marker 제거, zeta standalone 프로필 기록, anchor 설정 갱신이 일어나고 codex/claude 상태는 composite 규칙대로입니다.
+- [x] **Step 3:** `node --test tests/node/role-routing-anchor.test.mjs tests/node/install-mode-n-platform.test.mjs` PASS
+- [x] **Step 4:** STD-CLOSE(3, 5–7, 9)
+
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`(테스트는 manifest 대상이 아니면 무변경 확인)
+**필수 QA:** 아니요
+**보류 조건:** 운영 코드 변경이 필요해 보이면 멈추고 Orchestrator에 보고합니다(이 작업은 테스트 전용).
+
+---
+
+### Task T5: dispatch lease v2, runtime capability hold, runtime 문구 일반화
+
+**AC:** AC-L1, AC-B5, AC-D1(runtime 문구 부분)
+
+**목표:**
+- 새 lease는 항상 v2(`targetPlatform`)로 기록합니다.
+- v1은 읽기 호환용 2-플랫폼 규칙으로 대상을 얻습니다.
+- prepare와 run에서 capability를 다시 확인하고 `capability_not_verified`로 hold합니다.
+- `activation_unverified`·`host_sandbox_blocked` 문구를 anchor 기준으로 일반화합니다.
+
+**Files:**
+- Modify:
+  - `lib/runtime/role-dispatch-store.mjs:22`(`validateLease` v1|v2)
+  - `lib/runtime/role-bridge.mjs:20`(`leaseTargetPlatform`)
+  - `lib/runtime/role-routing.mjs`(prepare의 v2 기록, capability 재확인)
+  - `lib/runtime/role-dispatch-policy.mjs:42-76`(`RELEASE_CONDITIONS` 추가와 문구 변경)
+  - run 진입부(`lib/runtime/role-bridge.mjs` 또는 run 진입 모듈)의 capability 재확인
+- Create: `tests/node/dispatch-lease-v2.test.mjs`
+- Modify(테스트): `tests/node/role-dispatch-store.test.mjs`, release condition 문구를 단언하는 기존 테스트(Implementer가 `<CODEX_HOME>/arc-role-dispatch`, `both prepared markers`, `write the Codex home`을 grep해 갱신)
+
+**Interfaces:**
+- Produces:
+  - lease v2 키 = v1 키 ∪ `{targetPlatform}`. `validateLease(value, {config, registry})`는 version별로 키 집합을 정확히 검사합니다.
+  - `leaseTargetPlatform(lease, registry) -> string`. v1은 native이면 `hostPlatform`, bridge이면 {codex,claude} 중 host가 아닌 쪽입니다. `hostPlatform`이 {codex,claude} 밖이면 `activation_unverified`입니다.
+  - `RELEASE_CONDITIONS.capability_not_verified = 'Update ARC to a release that verifies this platform capability.'`
+  - `activation_unverified` 문구는 `<anchor home>/arc-role-dispatch`, `all prepared markers`로, `host_sandbox_blocked`는 `… write the anchor home …`으로 바꿉니다.
+
+- [x] **Step 1: 실패 테스트 작성**(`dispatch-lease-v2.test.mjs`)
+  - `new lease is v2 with targetPlatform`: prepare 후 lease에서 `version===2`, bridge이면 `targetPlatform===config.roles[role].platform`, native이면 `===hostPlatform`
+  - `v1 lease resolves target with 2-platform rule under 3 registered`: zeta 주입 레지스트리에서 v1 bridge lease(host codex)의 대상은 `'claude'`이고 hold하지 않습니다.
+  - `v1 lease with host outside codex/claude is activation_unverified`
+  - `invalid v2 rejected`: (a) `targetPlatform`∉S, (b) native인데 target≠host, (c) bridge인데 target===host, (d) 키 초과·누락. 각각 거부
+  - `capability off blocks prepare without lease`: zeta `compositeRole` off 주입 레지스트리에서 prepare 결과 reason `capability_not_verified`, store 파일 수 0
+  - `capability off host blocks prepare`(`compositeHost` off), `bridge off target blocks bridge route`
+  - `run rechecks capability`: lease 생성 후 레지스트리를 off로 바꿔 run하면 `capability_not_verified`
+  - 문구 테스트: 바뀐 `RELEASE_CONDITIONS` 값을 정확한 문자열로 단언
+- [x] **Step 2:** `node --test tests/node/dispatch-lease-v2.test.mjs tests/node/role-dispatch-store.test.mjs`. 기대: FAIL
+- [x] **Step 3:** 구현. 기존 Phase A의 "등록 3개 이상 + v1이면 hold" 규칙은 지웁니다.
+- [x] **Step 4:** Step 2 PASS, `tests/node/role-bridge-*.test.mjs`, `tests/node/role-routing-*.test.mjs` PASS
+- [x] **Step 5:** STD-CLOSE(전부)
+
+**필수 검사:** 작업 테스트, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`
+**필수 QA:** 예
+**보류 조건:**
+- 운영 codex/claude descriptor의 `compositeRole`/`compositeHost`/`bridge`가 verified가 아니어서 기존 composite가 hold되면 멈추고 보고합니다(가정 A1).
+- 문구 변경이 coordination.md 계약 테스트에 영향을 주면 T14로 넘기고 보고합니다.
+
+---
+
+### Task T6: watch anchor 탐색
+
+**AC:** AC-W1, AC-L3
+
+**목표:** watch가 marker 기반으로 anchor store를 찾게 합니다. 후보 0개이면 `<CODEX_HOME>/arc-role-dispatch`로 대체하고, 2개 이상이면 `dispatch store ambiguous`를 표시합니다.
+
+**Files:**
+- Create: `lib/watch/anchor-store.mjs`
+- Modify:
+  - `lib/watch/dispatch.mjs:26-30,83`(`createDispatchIndex({storeDir})`)
+  - `lib/watch/watcher.mjs:32`(탐색 결과 전달, ambiguous 상태 줄)
+  - `lib/watch/index.mjs:55`(home 해석을 레지스트리 순회로)
+- Test: `tests/node/watch-dispatch.test.mjs`, `tests/node/watch-watcher.test.mjs`, `tests/node/fixtures/watch/homes.mjs`(추가)
+
+**Interfaces:**
+- Consumes: T2 `matchRegisteredHome`(runtime import 허용, `lib/watch/index.mjs:4` 선례)
+- Produces:
+  - `export function resolveDispatchStore({homes, registry, readMarker}) -> {kind:'anchor', dir} | {kind:'legacy', dir} | {kind:'none'} | {kind:'ambiguous'}`
+  - `createDispatchIndex({storeDir})`(인자 `codexHome` 대체. `storeDir`가 없으면 빈 색인)
+
+- [x] **Step 1: 실패 테스트 작성**
+  - `watch reads claude anchor store`: claude·codex marker가 모두 Claude home을 가리키면 `{kind:'anchor', dir:<claude>/arc-role-dispatch}`이고 색인에 Claude store lease가 보입니다.
+  - `watch reads codex anchor store for S={codex,zeta}`(주입)
+  - `watch falls back to CODEX_HOME store with zero candidates`: marker 없음 + Codex store 존재 → `legacy`
+  - `watch ambiguous with two candidates`: 서로 다른 home을 가리키는 marker 2개 → `ambiguous`, store 읽기 0회, 상태 줄에 `dispatch store ambiguous`
+  - `unregistered activeConfigPath is not a candidate`: marker가 임시 디렉터리를 가리키면 후보 0
+  - `parseLeaseLenient reads v2 like v1`(AC-L3): v2 lease 필드 결과가 같은 v1 lease와 deepEqual(`targetPlatform` 무시)
+  - 기존 `watch-*` 세션 정규화 테스트 무변경
+- [x] **Step 2:** `node --test tests/node/watch-*.test.mjs`. 기대: 신규 FAIL
+- [x] **Step 3:** 구현. 읽기 전용이며 lock은 쓰지 않습니다. 새 문구는 `dispatch store ambiguous` 하나뿐입니다.
+- [x] **Step 4:** Step 2 PASS
+- [x] **Step 5:** STD-CLOSE(3–7, 9)
+
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`
+**필수 QA:** 아니요
+**보류 조건:** 운영 순서(전환 전)에서 기존 Codex+Claude composite 사용자의 watch 결과가 바뀌면 보류합니다.
+
+---
+
+### Task T7: legacy 판정과 마이그레이션 엔진(주입 레지스트리로 검증)
+
+**AC:** AC-A1, AC-A2(주입), AC-A3, AC-A4
+
+**목표:**
+- `readInstallMode`에 legacy 예외(Codex home의 v1 설정, 활성 설정 1개, 나머지 6.4.5 검사 통과)를 넣습니다.
+- legacy 상태에서 Install / Update 시 anchor 이동, D1-b/Uninstall의 old anchor 해제, TUI/management/status 표면을 구현합니다.
+- 운영 순서(codex anchor 0)에서는 이 조건이 성립하지 않아 동작이 바뀌지 않습니다.
+
+**Files:**
+- Modify:
+  - `lib/installer/install-mode.mjs:15`(`readInstallMode`의 legacy 반환)
+  - `lib/installer/role-routing.mjs:33-34,78,129`(legacy면 anchor 이동 포함, D1-b/Uninstall은 old anchor 기준)
+  - `lib/management/operations.mjs:65`(prepare 결과 `anchorMove`)
+  - `lib/management/status.mjs`(legacy 진단 줄)
+  - `lib/tui/*`(Apply 미리보기 1줄. 대상 파일은 Implementer가 `Dispatch history stays in` 렌더 위치를 grep해 특정)
+  - `deriveInstallPlan` 소재 모듈(legacy면 `anchorMove:true`)
+- Create: `tests/node/anchor-migration.test.mjs`, `tests/node/fixtures/legacy-composite.mjs`(Phase A 형식: Codex home v1 + 두 marker + routing 프로필, 주입 레지스트리 claude `anchorOrder 0`, codex `1`)
+- Test 추가: `tests/node/derive-install-plan.test.mjs`, `tests/node/tui-setup.test.mjs`, PTY `tests/node/tui-app-pty.test.mjs`
+
+**Interfaces:**
+- Produces:
+  - `readInstallMode(...)`는 legacy일 때만 `{mode:'composite', platforms:['claude','codex'], anchor:'codex', legacyAnchor:true, config}`를 반환합니다. 그 밖에는 `legacyAnchor` 키가 없습니다.
+  - management prepare 결과: `anchorMove:{from:'codex', to:'claude'}`(legacy일 때만)
+  - `deriveInstallPlan`: legacy `installState`이면 `anchorMove:true`, 새 anchor는 `min(S)`
+
+- [x] **Step 1: 실패 테스트 작성**(`anchor-migration.test.mjs`, legacy fixture)
+  - A1:
+    - `legacy v1 at codex home is composite with legacyAnchor`: 반환값 deepEqual(위 형태)
+    - `v2 at codex home is unverified`
+    - `configs at both homes are unverified`
+    - `marker mismatch is unverified`
+    - `non-legacy result has no legacyAnchor key`: `'legacyAnchor' in result === false`
+  - A2:
+    - `legacy Install/Update moves anchor to claude`: Claude home에 v2 설정, 두 marker의 `activeConfigPath`가 Claude 설정, Codex home 설정 없음
+    - `<codex>/arc-role-dispatch` 바이트가 이동 전과 deepEqual
+    - 결과 messages에 `Dispatch history stays in <codex home>/arc-role-dispatch.`, management prepare `anchorMove` deepEqual
+  - A2(D1-e): `legacy {codex,claude} → {codex,claude,zeta} moves and changes set in one transaction`
+  - A3:
+    - `legacy migration held with non-terminal lease in either store`(codex store, claude store 각각): `activation:'held'`, `activeDispatches`에 id, 모든 home 바이트 무변경
+    - `legacy migration held then succeeds after lease terminal`(Review Focus 2)
+    - `rollback restored keeps legacy state`: 트랜잭션 쓰기 실패 주입 후 `readInstallMode`가 다시 legacy
+  - A4:
+    - `legacy D1-b turns off without move`
+    - `legacy Uninstall without move`
+    - `runtime under legacy is activation_unverified and creates no files`
+    - `package install / arc upgrade / status move no files`: 세 경로 실행 후 home 스냅샷 deepEqual
+  - 표면:
+    - `legacy status adds move diagnostic`: 진단 줄 정확 문자열
+    - `legacy preview line`: Apply 미리보기에 `Mixed routing files will move to the Claude home.`
+    - 홈 모드 줄이 `Mixed (Claude + Codex)`
+    - PTY: legacy 상태 Apply 미리보기 줄 표시
+  - 운영 회귀: `operational order: codex v1 at codex home stays normal composite without legacyAnchor`
+- [x] **Step 2:** `node --test tests/node/anchor-migration.test.mjs tests/node/derive-install-plan.test.mjs tests/node/tui-setup.test.mjs`. 기대: 신규 FAIL
+- [x] **Step 3:** 구현. 이동 절차는 Phase A 6.6을 재사용합니다(anchorOrder 오름차순 lock, 두 store의 non-terminal 검사, 단일 `applyTransaction`, 역순 해제).
+- [x] **Step 4:** Step 2 PASS, PTY PASS
+- [x] **Step 5:** STD-CLOSE(runtime 무변경이면 1–2 생략)
+
+**필수 검사:** 작업 테스트, PTY, `npm test`, `check:manifest`, `check:role-policy`, parity
+**필수 QA:** 예(마이그레이션)
+**보류 조건:** 운영 레지스트리에서 기존 composite 판정이나 반환값이 바뀌면 보류합니다. old store에 쓰기가 1건이라도 생기면 보류합니다.
+
+---
+
+### Task T8: anchor 순서 전환, 새 활성 설정 v2 항상 기록, 기존 테스트 이관
+
+**AC:** AC-A5, AC-L2, AC-A2(운영 레지스트리), AC-G1(codex/claude 부분), AC-P2'
+
+**목표:**
+- 운영 descriptor를 claude `anchorOrder 0`, codex `1`로 바꿉니다.
+- 설치기 descriptors 순서를 `[CLAUDE, CODEX]`로 바꿉니다.
+- publish는 S와 무관하게 v2를 기록합니다.
+- `<CODEX_HOME>`/anchor=codex를 단언하는 기존 테스트를 Claude home 기대값으로 이관하고 old → new 대응표를 냅니다.
+
+**Files:**
+- Modify:
+  - `lib/runtime/platform-registry.mjs`(codex/claude `anchorOrder`)
+  - `lib/platforms/index.mjs`(`DEFAULT_INSTALLER_REGISTRY` 순서)
+  - v1/v2 선택 위치(Implementer가 "S={codex,claude}면 v1" 분기를 grep해 특정. 예상 `lib/runtime/role-routing-config.mjs` 또는 `lib/installer/role-routing.mjs`)
+- Modify(테스트, 예비 목록. Step 1에서 확정):
+  - 공용 fixture `tests/node/role-fixtures.mjs:51`(`activePath`를 Claude home v2로). importer 14개(`role-routing-anchor`, `install-mode`, `install-mode-switch`, `role-routing-dispatch`, `role-bridge-support`, `role-bridge-run`, `role-bridge-resume`, `role-routing-install`, `install-mode-uninstall`, `install-mode-publication`, `install-mode-models-upgrade`, `codex-auth-probe`, `role-bridge-observe-wait`, `role-bridge-args`)
+  - `tests/node/install-mode-n-platform.test.mjs:318,340,476,502,513-514,570,704`
+  - `tests/node/derive-install-plan.test.mjs:35-91`
+  - `tests/node/tui-setup.test.mjs:42,109,115`
+  - `tests/node/tui-app.test.mjs:30`, `tests/node/tui-app-pty.test.mjs:60,116`
+  - `tests/node/platform-registry.test.mjs:71-77`, `tests/node/targets.test.mjs:62`, `tests/node/role-routing-config.test.mjs:79`
+  - `tests/node/management-operations.test.mjs`, `tests/node/hardcoding-residual.test.mjs`, `tests/node/composite-live.test.mjs`
+  - `tests/node/install-mode-review-followup.test.mjs`, `tests/node/role-routing-publish.test.mjs`, `tests/node/role-dispatch-store.test.mjs`
+  - `tests/node/fixtures/watch/homes.mjs`, `tests/node/watch-dispatch.test.mjs`, `tests/node/watch-cli.test.mjs`, `tests/node/watch-watcher.test.mjs`
+
+**Interfaces:**
+- Consumes: T5 lease v2, T6 `resolveDispatchStore`, T7 legacy 판정과 이동
+- Produces: 운영 `byAnchorOrder()` = `[claude, codex]`. publish는 항상 v2이고, 파서는 v1을 계속 받습니다.
+
+- [x] **Step 1: 이관 대상 확정(grep).** 아래 패턴을 `tests/node` 전체에 실행하고, 결과의 단언마다 old → new 대응표를 만듭니다.
+  - 패턴: `anchor:\s*'codex'`, `anchorOrder`, `CODEX_HOME`, `codexHome`, `codex\.home`, `arc-role-dispatch`, `arc-role-platform-routing\.(json|lock)`, `version:\s*1`, `\bv1\b`
+  - 대응표 열: `파일:행 | old 단언 | new 단언 | 분류(경로만 변경 / 의미 변경 / 무변경 / legacy로 보존)`
+  - 대응표는 Implementer 보고에 포함합니다. Orchestrator가 이 계획의 부록 A에 기록합니다.
+- [x] **Step 2: 이관 원칙 적용**
+  - 경로나 anchor 기대값만 바꿉니다. 검사 항목 수와 실패 조건은 줄이지 않습니다.
+  - 순서 변경으로 단언의 의미가 사라지는 경우에는, 같은 성질을 지키는 대체 케이스를 추가합니다.
+    - 예: `derive-install-plan.test.mjs:60`(previous `[claude,zeta]` + codex 추가 → 기존 `anchorMove:true`)은 새 순서에서 `anchorMove:false`가 됩니다. 그래서 `previous [codex,zeta] + claude 추가 → anchorMove:true, anchor 'claude'` 케이스를 추가합니다.
+    - `{codex}` 단독(D1-b)과 `{codex,eta}`는 anchor codex 그대로입니다(무변경).
+  - 기존 `<CODEX_HOME>` 경로 동작은 T7 legacy 테스트가 보존합니다. 대응표에서 "legacy로 보존" 행이 T7 테스트 이름을 가리켜야 합니다.
+  - `composite-live`는 live 환경이 아니면 skip이지만, 경로 기대값은 함께 이관합니다.
+- [x] **Step 3: 운영 변경 구현.** descriptor `anchorOrder`, 설치기 순서, v2 항상 기록
+- [x] **Step 4: 신규 테스트**
+  - `AC-A5 publish after migration is v2 and lock order claude then codex`: lock 획득 순서를 기록하는 safeFs 주입으로 `['claude','codex']`
+  - `AC-L2 claude-anchored composite prepare/run/observe/resume/cancel match Phase A`: role-fixtures 기반으로 store 위치만 Claude home이고 결과 deepEqual
+  - `AC-A2 operational legacy migration`: 운영 레지스트리 + Phase A 형식 fixture에 T7 A2 단언 재사용
+  - `symlinked claude home ancestor is rejected after flip without file changes`(Review Focus 3)
+- [x] **Step 5:** `npm test`(Orchestrator)와 작업 테스트 PASS. 대응표의 모든 행이 PASS 테스트에 대응
+- [x] **Step 6:** STD-CLOSE(전부, PTY 포함)
+
+**필수 검사:** 작업 테스트, PTY, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`, parity, `hardcoding-residual`
+**필수 QA:** 예(마이그레이션, composite)
+**보류 조건:**
+- 대응표에 "의미 변경"인데 대체 케이스가 없는 행이 있으면 보류합니다.
+- 기준 실패 36건 밖의 신규 실패가 있으면 보류합니다.
+- 이관 대상이 예비 목록보다 크게 늘어 한 커밋으로 검토하기 어려우면(예: 40개 파일 초과) Orchestrator에 범위를 보고합니다. 단, 순서 전환만 먼저 커밋하는 분할은 하지 않습니다.
+
+---
+
+### Task T9: auth none / capability off 일반 표면(주입 레지스트리)
+
+**AC:** AC-G2(선행 조건 throw), AC-G3(표면 로직), AC-G4, AC-G6(TUI Effort 고정), AC-G9(주입)
+
+**목표:** Gemini 등록 전에 `auth.kind:'none'`과 capability off 플랫폼의 표면 동작을 일반 코드로 구현합니다. 검증은 zeta 변형(주입)으로 합니다.
+
+**Files:**
+- Modify:
+  - `lib/runtime/platform-registry.mjs`(`CAPABILITY_PREREQUISITES`와 생성 시 검사)
+  - `lib/runtime/local-cli.mjs:177`(`probePlatformAuth`의 `auth.kind==='none'` 분기)
+  - runtime `routingStatus` 인증 보고와 composite gate(`lib/runtime/role-routing.mjs`)
+  - 플랫폼 availability 모듈(Phase A 5.4 소재)
+  - `lib/management/operations.mjs`(`target:<id>` off 오류, prepare `warnings`, `all` 정의)
+  - `lib/management/status.mjs`
+  - `lib/tui/*`(홈 상태줄, 플랫폼 목록, Hosts, 편집기 info 줄, 사유 줄, Uninstall `(not installed)`, Effort 행 단일 값 고정)
+- Create: `tests/node/fixtures/platforms/zeta.mjs`에 `ZETA_AUTH_NONE` 변형 추가
+- Test: `tests/node/platform-registry.test.mjs`, `tests/node/platform-availability*.test.mjs`, `tests/node/management-status*.test.mjs`, `tests/node/tui-setup.test.mjs`, `tests/node/tui-custom-preset*.test.mjs`, PTY
+
+**Interfaces:**
+- Produces:
+  - `export const CAPABILITY_PREREQUISITES = {install:[], nativeProfile:['install'], catalog:['install'], standalone:['install','nativeProfile','catalog'], bridge:['install','catalog'], compositeRole:['bridge'], compositeHost:['install','nativeProfile'], authProbe:[], watch:[]}`. `createPlatformRegistry`는 위반 시 `Error('<id> capability <key> requires <pre>')`를 throw합니다.
+  - `probePlatformAuth` → `{authStatus:'unknown', reason:'auth_unverified'}`(프로세스 미실행)
+  - availability: `{selectable:true, warning:'auth_unverified'}`
+  - management: 오류 `` `${label} is not available: capability not verified` ``. `all` = 등록 플랫폼 중 `install`·`standalone`이 verified인 것. prepare `warnings: [`${id}:auth_unverified`]`
+  - 표시 문구는 Global Constraints 값을 `${label}`로 일반화합니다(예: `${label}: Not verified`).
+
+- [x] **Step 1: 실패 테스트 작성**
+  - `prerequisite violation throws`: `standalone` verified인데 `catalog` off인 descriptor는 throw. 운영 codex/claude는 throw하지 않음
+  - `auth none probe spawns no process`: spawn 스파이 호출 0, 반환값 deepEqual
+  - `auth none passes role/host gate with warning`: management prepare `warnings` deepEqual `['zeta:auth_unverified']`. routingStatus `authentication` deepEqual
+  - `auth none cli missing blocks` / `out of range blocks`
+  - `capability off surfaces`(9.5 표):
+    - 홈 상태줄 `Zeta: Not verified`(install off가 CLI 상태보다 우선)
+    - 플랫폼 목록 `Zeta - Unavailable  (capability not verified)`
+    - Hosts 체크 불가
+    - 편집기 ←/→ 건너뜀
+    - 도식 미표시
+    - Uninstall 흔적 없음 `Zeta  (not installed)` 비선택, 흔적 있음 선택 가능
+    - management `target:'zeta'` 오류 정확 문자열 + 파일 무변경
+    - composite `platforms`에 zeta → 게이트 거부
+  - `status line wording`: 4행 표(5.6)의 조건별 문자열
+  - `all includes verified install+standalone only`(AC-G9 주입): zeta install·standalone verified → `all`에 zeta 포함, off → 제외
+  - `all-targets`, `preset-cli`, `uninstall-cli` 기존 테스트 무변경 PASS
+  - `effort row fixed for single-effort platform`: ←/→ 후 값 `default`, 박스 `effort: default`
+  - `auth unverified info line`과 `reason line only when no block`
+  - PTY: Hosts에 `(auth unverified)` 표시, capability off 행 표시
+- [x] **Step 2:** 해당 테스트 실행. 기대: FAIL
+- [x] **Step 3:** 구현
+- [x] **Step 4:** PASS, PTY PASS
+- [x] **Step 5:** STD-CLOSE(전부)
+
+**필수 검사:** 작업 테스트, PTY, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`
+**필수 QA:** 예(게이트, 권한 표면)
+**보류 조건:** 운영 codex/claude의 상태 어휘나 표시가 바뀌면 보류합니다. 운영 descriptor가 선행 조건을 어겨 throw하면 멈추고 보고합니다(가정 A1).
+
+---
+
+### Task T10: Gemini descriptor 등록(runtime + 설치기 + 카탈로그 + 형식 + role-policy)
+
+**AC:** AC-G1, AC-G2(초기 상태), AC-G3(운영), AC-G4(운영), AC-G6, AC-G7(설치기 형식 부분), AC-G9(운영), AC-R1, AC-V1(테스트 골격)
+
+**목표:** 운영 레지스트리에 gemini를 capability 전부 off로 등록합니다. 두 레지스트리 일관성, 금지 패턴, role-policy, TUI 스냅샷을 한 커밋에 맞춥니다.
+
+**Files:**
+- Modify:
+  - `lib/runtime/platform-registry.mjs`(gemini descriptor, `resolveHome` gemini 분기, `validatePair`)
+  - `lib/platforms/index.mjs`(`[CLAUDE, CODEX, GEMINI]`)
+  - `lib/policy/role-policy.json`(각 role `controls.gemini`)
+  - `tests/node/hardcoding-residual.test.mjs`(`==='gemini'` 패턴 추가)
+  - `tests/node/fixtures/platforms/zeta.mjs`(zeta `anchorOrder/displayOrder` 2 → 3, eta 3 → 4. gemini와 충돌 방지)
+  - TUI 스냅샷과 플랫폼 목록·Hosts·Uninstall 단언 테스트(Gemini 행 추가)
+  - `package.json` `files`(필요 시 `lib/models/gemini-models.json`)
+- Create:
+  - `lib/platforms/gemini.mjs`
+  - `lib/platforms/formats/gemini-markdown.mjs`(또는 기존 markdown 형식 옵션. builder 선택)
+  - `lib/models/gemini-models.json`(fixture 수준 목록, 모든 effort `default`)
+  - `tests/node/gemini-platform.test.mjs`
+  - `tests/node/gemini-capability-evidence.test.mjs`
+
+**Interfaces:**
+- Produces:
+  - `getPlatform('gemini')`(Global Constraints 값)
+  - 설치기 descriptor 필드는 spec 4.2 표 그대로입니다: `payloadPrefix:'gemini'`, `instructionFile:'GEMINI.md'`, `runtimeConfigFile:'settings.json'`, `globalPaths`, `models.staticCatalog`, `discover:null`, `profiles.{render,isOwnedStandalone,renameForRouting}`, `uninstallSummary`, `isolationEnv:()=>({})`. 동시성 키는 없습니다.
+  - 증거 테스트: (v6, 결정 16) 운영 registry의 verified 집합·선행 조건·`supportedVersions`와 카탈로그 불변식을 테스트 고정 값으로 검사합니다. 증거 파일은 없습니다(spec 9.3).
+
+- [x] **Step 1: 실패 테스트 작성**(`gemini-platform.test.mjs`)
+  - AC-G1: `byAnchorOrder` id `['claude','codex','gemini']`, `byDisplayOrder` 같음, 두 레지스트리 id 일치(AC-P1 확장)
+  - AC-G2: 9개 capability가 `off`이고 reason이 Global Constraints 값과 같음
+  - `gemini home env set is unresolved`: `GEMINI_CLI_HOME` 설정 → `unresolved`
+  - `gemini home env set does not block codex/claude install`(Review Focus 1)
+  - AC-G6: 카탈로그 모든 effort `default`. `validatePair('gemini-x','high')` 거부, `('gemini-x','default')` 허용. 카탈로그 모델이 모두 runtime 모델 정규식을 통과(정합성 테스트)
+  - AC-G7(형식): render → `isOwnedStandalone` true → `renameForRouting` 왕복 일치. frontmatter에 effort 없음. `name`/`model` 누락 거부
+  - AC-G3 운영: `target:'gemini'` 거부 문자열, `all` = `['claude','codex']`(기존 표현 순서 유지), 상태줄 `Gemini: Not verified`
+  - AC-G4 운영: Gemini auth probe 미실행, `unknown`
+  - AC-R1: `check:role-policy` 생성물에서 codex/claude 바이트 동일(기존 생성물 해시 비교)
+  - `range out version unsupported`: `0.69.0` → `Gemini: Unsupported version` 조건(install off면 Not verified가 우선이므로 주입 레지스트리로 검증)
+  - `gemini-capability-evidence.test.mjs`: 운영 상태(전부 off)에서 통과. 주입으로 verified인데 증거가 없으면 실패하는 음성 케이스
+- [x] **Step 2:** `node --test tests/node/gemini-platform.test.mjs tests/node/gemini-capability-evidence.test.mjs tests/node/platform-registry.test.mjs tests/node/hardcoding-residual.test.mjs`. 기대: FAIL
+- [x] **Step 3:** 구현과 스냅샷 갱신(Gemini 행 추가 외의 차이 0)
+- [x] **Step 4:** PASS, PTY PASS
+- [x] **Step 5:** STD-CLOSE(전부. role-policy는 gemini 기대 생성물)
+
+**필수 검사:** 작업 테스트, PTY, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`, parity
+**필수 QA:** 예
+**보류 조건:**
+- codex/claude role-policy 생성물이 1바이트라도 바뀌면 보류합니다.
+- `all-targets`, `preset-cli`, `uninstall-cli`가 수정 없이 통과하지 않으면 보류합니다.
+- zeta 순서 재배치로 T1–T9 테스트 의미가 바뀌면 대응을 보고합니다.
+
+---
+
+### Task T11: Gemini payload와 설치·제거
+
+**AC:** AC-G5, AC-G3(Uninstall 흔적 제거, P-B3)
+
+**목표:** `gemini/` payload를 추가하고(skill, `GEMINI.md` 블록, agent 5종), 주입 레지스트리(capability on)에서 standalone 설치, 재설치, 제거가 5.1/5.2를 만족하게 합니다. `settings.json`은 쓰지 않습니다.
+
+**Files:**
+- Create:
+  - `gemini/skill/**`(claude payload 기준. `references/coordination.md`는 `Mixed routing` 일반 표기)
+  - `gemini/` instruction 템플릿, agent 템플릿 `arc-*.md` 5종
+  - `tests/node/gemini-install.test.mjs`
+- Modify:
+  - `package.json` `files`(`gemini/`)
+  - `tests/node/fixtures/installed-layout-golden.json`(gemini 레이아웃)
+  - `tests/installer-parity.json`(필요할 때만)
+  - `lib/installer/*`(payload 트리 매핑에 gemini prefix가 하드코딩되어 있으면 해당 위치만)
+
+- [x] **Step 1: 실패 테스트 작성**(임시 HOME, 주입 레지스트리에서 gemini `install`·`standalone`·`nativeProfile`·`catalog` verified)
+  - `gemini standalone install layout`: `~/.gemini/skills/arc/**`, `~/.gemini/agents/arc-*.md` 5종, `GEMINI.md` ARC 블록, 공통 runtime 설치
+  - `settings.json untouched`: 설치 전후 바이트 동일, 파일이 없으면 생성되지 않음
+  - `reinstall idempotent`: 두 번째 설치 후 바이트 동일
+  - `uninstall removes owned only`: 사용자 `agents/my.md`, `settings.json`, `GEMINI.md`의 블록 밖 내용 보존. ARC 소유 파일 0개. 요약에 `Gemini settings.json is preserved.`
+  - `uninstall allowed with install capability off when traces exist`(운영 레지스트리, P-B3)
+  - `uninstall order follows displayOrder`
+- [x] **Step 2:** `node --test tests/node/gemini-install.test.mjs`. 기대: FAIL
+- [x] **Step 3:** 구현
+- [x] **Step 4:** PASS
+- [x] **Step 5:** STD-CLOSE(3–9). golden은 `installed-layout.mjs --write`로 갱신
+- [x] **Step 6:** Orchestrator 확인: `npm pack --dry-run` 목록에 `gemini/`가 포함됨(packed 계열 테스트는 기준 실패라 대체 증거로 씀)
+
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`, golden, parity, `npm pack --dry-run`(Orchestrator)
+**필수 QA:** 아니요
+**보류 조건:** `settings.json`에 쓰기가 생기거나 사용자 파일이 하나라도 바뀌면 보류합니다.
+
+---
+
+### Task T12: Gemini bridge(실행·관찰·취소·재개 플래그, GG1/GG2, runtime 프로필 파서)
+
+**AC:** AC-B1, AC-B2, AC-B3, AC-B4, AC-G7(runtime 파서 부분)
+
+**목표:** 기존 `Map<id, impl>`에 Gemini 구현을 추가합니다. 쓰기 역할과 Gemini host는 gate로 hold합니다.
+
+**Files:**
+- Modify:
+  - `lib/runtime/role-bridge-args.mjs`(`buildGeminiArgs`, `parseCompositeProfile('gemini')` at `:109`)
+  - `lib/runtime/role-supervisor.mjs`(`SUPERVISOR_IMPLEMENTATIONS.gemini`, `normalizeGeminiStreamEvent`)
+  - `lib/runtime/role-observe.mjs`(claim 판정)
+  - `lib/runtime/role-dispatch-policy.mjs:3,76`(`GG1`, `GG2`, `bridgeGateReasons` 규칙, `resume_unverified`)
+- Create:
+  - `tests/node/gemini-bridge.test.mjs`
+  - `tests/node/fixtures/gemini/stream-{ok,model-mismatch,session-mismatch,error,empty,unknown-event}.jsonl`
+  - `tests/node/fixtures/gemini/fake-gemini.mjs`(PATH 주입 helper, fixture 재생)
+- 모듈 분리 시: Global Constraints의 다섯 가지 갱신을 이 작업에 포함합니다.
+
+**Interfaces:**
+- Consumes: T5 lease v2(`targetPlatform`, `sessionId`), T10 descriptor
+- Produces:
+  - `buildGeminiArgs({role, model, sessionId, policyFile, promptFlag}) -> string[]`. 형태는 `['-p', <짧은 지시>, '-m', model, '-o', 'stream-json', '--session-id', sessionId, '--approval-mode', <plan|auto_edit>, ...]`이며, instructions와 brief는 stdin으로 넘깁니다.
+  - `normalizeGeminiStreamEvent(line) -> {kind:'init'|'message'|'tool_use'|'tool_result'|'result'|'unknown', raw, sessionId?, model?, text?}`
+  - impl 플래그 `resume:'off'`
+  - `BRIDGE_GATE_RESULTS.GG1='fail'`, `GG2='fail'`
+
+- [x] **Step 1: 실패 테스트 작성**
+  - AC-B1:
+    - Scouter/Planner/Reviewer → `--approval-mode plan` + `--policy`
+    - Implementer/QA → `auto_edit` + `--sandbox`
+    - 모든 역할에서 `--allowed-tools`, `--yolo`, `yolo`, `--skip-trust`, `--raw-output`이 인자에 없음
+    - `--session-id`가 lease UUID와 같음
+  - AC-B2(fake gemini, 주입 레지스트리 bridge on):
+    - ok → identity `{level:'runtime-observed', source:'gemini-stream-session'}`, model runtime-observed, effort `{level:'unverified', source:'none', requested:'default', observed:null}`이며 hold 아님, `resultFile` 내용 일치
+    - model 불일치 → `model_effort_mismatch`
+    - 세션 불일치·없음 → `execution_identity_unverified`
+    - 비정상 종료 → `execution_failed`, 빈 결과 → `invalid_output`
+    - unknown 이벤트 → 원문 기록, `kind:'unknown'`
+  - `effort unverified non-blocking matches claude path`: Claude transcript 미발견 경로와 같은 hold 판정(8.2 확인 항목)
+  - `cancel uses SIGTERM then SIGKILL`(기존 경로)
+  - AC-B3: `resume:'off'` → resume 요청 `resume_unverified` hold. 주입 `'on'` → 재개 인자 사용, 세션 불일치 시 `execution_identity_unverified`
+  - AC-B4:
+    - GG1 fail → Gemini Implementer/QA bridge `permission_scope_unverified`
+    - hostPlatform gemini + GG2 fail → `host_sandbox_blocked`
+    - read-only 역할 worktree 쓰기 → `permission_violation_observed`
+    - read-only `permissions` claim `{level:'runtime-observed', source:'worktree-snapshot', details:'git-visible worktree only'}`
+  - AC-G7(runtime): `parseCompositeProfile('gemini', render(...))` 왕복. 필수 키 누락 거부. effort는 `default`로 간주
+  - `bridge coverage: verified ⇒ impl exists` 유지
+- [x] **Step 2:** `node --test tests/node/gemini-bridge.test.mjs tests/node/role-bridge-args.test.mjs tests/node/role-dispatch-policy*.test.mjs`. 기대: FAIL
+- [x] **Step 3:** 구현. `-p`와 stdin 결합, 이벤트 형태는 미검증이므로(U-B1, U-B3) fixture 형태를 단일 상수 모듈 안에 모읍니다.
+- [x] **Step 4:** PASS
+- [x] **Step 5:** STD-CLOSE(전부)
+
+**필수 검사:** 작업 테스트, `npm test`, runtime-assets `--check`, golden, runtime-versions, `check:manifest`, `check:role-policy`
+**필수 QA:** 예(bridge, 권한)
+**보류 조건:** 금지 인자가 어느 경로에서든 생성되면 보류합니다. effort 비차단 처리가 Claude 경로와 다르면 보고합니다(spec 8.2 확인 항목).
+
+---
+
+### Task T13: Gemini 참여 composite 통합
+
+**AC:** AC-G8, AC-A5(gemini 포함 lock 순서)
+
+**목표:** 주입 레지스트리(gemini capability on)에서 S={claude,gemini}, {codex,claude,gemini}, {codex,gemini}의 publish, 전환, 이동이 Phase A AC-M3·M5·M8을 만족하는지 확인하고, 필요한 수정을 넣습니다.
+
+**Files:**
+- Modify(필요 시): `lib/installer/role-routing.mjs`, `lib/management/operations.mjs`
+- Test: `tests/node/install-mode-n-platform.test.mjs` 또는 신규 `tests/node/gemini-composite.test.mjs`
+
+- [x] **Step 1: 실패/회귀 테스트 작성**
+  - `publish S={claude,gemini}`: v2 설정이 Claude home에 있고 claude·gemini marker가 생기며 Gemini home에 `arc-role-platform-routing.prepared.json`이 있음
+  - `publish S={codex,claude,gemini}`: anchor claude, 3개 marker, lock 순서 `['claude','codex','gemini']`
+  - `publish S={codex,gemini}`: anchor codex
+  - `D1-b from gemini-participating composite`, `D1-e add/remove gemini`, `anchor move {codex,gemini} → {claude,gemini}`: Phase A AC-M3·M5·M8 단언 재사용
+  - `legacy {codex,claude} → {codex,claude,gemini}`: 이동과 집합 변경이 한 트랜잭션(spec 6.7.2)
+  - `prepare warnings include gemini:auth_unverified`
+  - 운영 레지스트리(off): composite `platforms`에 gemini → 게이트 거부, 파일 무변경
+- [x] **Step 2–4:** 실행 → 수정 → PASS
+- [x] **Step 5:** STD-CLOSE(runtime 변경 여부에 따라)
+
+**필수 검사:** 작업 테스트, `npm test`, `check:manifest`, parity(runtime을 바꿨다면 runtime 3종)
+**필수 QA:** 예(composite)
+**보류 조건:** 운영 Codex+Claude 경로의 결과가 바뀌면 보류합니다.
+
+---
+
+### Task T14: 문서, skill 문구, README, harness
+
+**AC:** AC-D1(문서·fixture 부분)
+
+**목표:** 15장 문서 의무를 반영하고, coordination.md를 `Mixed routing`으로 일반화합니다.
+
+**Files:**
+- Modify:
+  - `README.md`(15장 7개 항목)
+  - `docs/harness-operation.md`(15장 5개 항목)
+  - `codex/skill/references/coordination.md`, `claude/skill/references/coordination.md`(`Claude & Codex` → `Mixed routing`, `<CODEX_HOME>/arc-role-dispatch/` → `<anchor home>/arc-role-dispatch/`와 이동 전 기록 안내)
+  - `tests/node/fixtures/instruction-contracts.json`
+  - golden(해당 payload 해시)
+
+- [x] **Step 1:** `instruction-contracts.json`을 의도된 변경(Q3, 6.6)만 반영하도록 갱신합니다. 차이가 `Mixed routing`과 `<anchor home>` 관련 행에만 있어야 합니다.
+- [x] **Step 2:** 문서 갱신. Gemini 권한 문구 "Gemini 역할 권한은 사후 탐지로 git-visible worktree 범위만 확인된다"를 README와 harness 양쪽에 넣습니다.
+- [x] **Step 3:** asset/fixture 테스트 PASS. `rg 'Claude & Codex|<CODEX_HOME>/arc-role-dispatch' codex claude gemini docs/harness-operation.md README.md` 결과가 0건이어야 합니다(legacy 안내 문맥은 예외로 대응표에 기록).
+- [x] **Step 4:** STD-CLOSE(3–9)
+
+**필수 검사:** asset/fixture 테스트, `npm test`, `check:manifest`, golden, parity
+**필수 QA:** 아니요
+**보류 조건:** 기준 실패 목록 중 contract 계열("claude/codex contracts have explicit destinations…", "… preserves public rendering baseline")이 이 작업 영향 범위와 겹칩니다. 그래서 그 테스트 결과로 수용을 판정하지 않습니다. 단독 재실행 결과가 기준선과 같은지만 확인합니다(질문 Q-O3).
+
+---
+
+### Task T15: Gemini catalog discover(API `models.list`) (개정 v5)
+
+**AC:** AC-G10, AC-V2(선택 규칙 부분)
+
+**목표:** Claude/Codex와 같은 discover 경로를 Gemini에 추가합니다(결정 14). TUI·management는 바꾸지 않습니다. 운영 catalog capability는 off 그대로이고 전환은 L2에서 합니다.
+
+**Files:**
+- Create: `lib/models/catalog-gemini.mjs`, `tests/node/gemini-catalog-discover.test.mjs`
+- Modify: `lib/models/catalog.mjs`(27–43행: 키·source 표, capability 게이트, `discoverGeminiCatalog` re-export), `lib/platforms/gemini.mjs`(8행 `discover: discoverGeminiCatalog`), `tests/node/gemini-platform.test.mjs`(`discover` 기대값, 정적 목록 선택 규칙 정합성 테스트)
+- 생성물: `MANIFEST.sha256`. `lib/runtime/**`는 바꾸지 않습니다.
+
+**Interfaces:**
+- Consumes: `installerRegistryOf({platforms})`(`lib/platforms/index.mjs`), runtime descriptor `capabilities.catalog.state`
+- Produces:
+  - `export const GEMINI_MODELS_API = 'https://generativelanguage.googleapis.com/v1beta/models'`
+  - `export function selectGeminiCatalogModels(ids: string[]): string[]` — 입력 순서 유지, 중복 제거, 정규식 `^gemini-(\d+(?:\.\d+)?)-(pro|flash|flash-lite)$`를 통과하지 못하면 제외(`-preview` 포함 전부 제외)
+  - `export async function discoverGeminiCatalog({apiKey, fetchImpl = globalThis.fetch, signal} = {})` → `{status:'ready', catalog:{platform:'gemini', pairs:{model, effort:'default'}[], unavailable:[]}}` 또는 `{status:'unavailable', code:'missing_api_key'|'unavailable'|'http_error'|'invalid_response'|'aborted', message}`
+  - `discoverModelCatalog`: 함수 identity → `{env, source}` 표(`discoverAnthropicCatalog → {env:'ANTHROPIC_API_KEY', source:'anthropic_api'}`, `discoverGeminiCatalog → {env:'GEMINI_API_KEY', source:'gemini_api'}`). 표에 있으면 ready 결과에 `source`와 `cliAccountVerified:false`를 붙입니다. 표에 없는 함수는 현행 동작 유지. `typeof discover !== 'function'` 검사 뒤 `descriptor.runtime.capabilities?.catalog?.state !== 'verified'`이면 `unavailable('capability_not_verified', `${label} catalog is unavailable.`)`
+
+- [ ] **Step 1: 실패 테스트 작성**(`gemini-catalog-discover.test.mjs`, fetch 주입, 네트워크 없음, fixture는 공식 형태 `{models:[{name:'models/<id>', supportedGenerationMethods:[…]}], nextPageToken}`)
+  - `gemini discover sends key only in x-goog-api-key header`: 요청 URL에 키 부분문자열 없음, `searchParams.has('key')===false`, `pageSize==='1000'`, `method==='GET'`, `redirect==='manual'`, 헤더 값 = 키. 결과 ready, `platform==='gemini'`, `JSON.stringify(result)`에 키 없음
+  - `gemini discover selects text family GA models only`: 입력 `gemini-2.5-flash, gemini-2.5-flash-preview-tts, gemini-flash-latest, gemini-2.5-flash-image, gemini-3.1-pro-preview, gemini-3.1-pro-preview-customtools, gemini-3.1-flash-lite-preview, gemini-3.1-flash-lite, gemini-3-flash-preview, gemini-3.5-flash, gemma-4-31b-it, gemini-4-argon, gemini-embedding-001`(embedding은 `['embedContent']`) → pairs model 정확히 `['gemini-2.5-flash','gemini-3.1-flash-lite','gemini-3.5-flash']`, effort 전부 `'default'`, `unavailable` `[]`
+  - `selectGeminiCatalogModels drops previews and dedupes`: `['gemini-3.1-pro-preview','gemini-2.5-pro','gemini-2.5-pro']` → `['gemini-2.5-pro']`
+  - `gemini discover follows nextPageToken and rejects repeated or invalid token`: 2쪽 합치기, 두 번째 요청 `pageToken` 일치. 토큰 반복, `nextPageToken: 5`, `models` 누락 → `invalid_response`
+  - `gemini discover rejects ids containing the key and malformed names`: `models/gemini-<key>`, 접두 없음, `models/ bad` → `invalid_response`, 결과에 키 없음
+  - `gemini discover rejects non-ok and redirected responses`: `ok:false`(403, 429), 다른 origin, 같은 origin 다른 path → `http_error`
+  - `gemini discover without usable key does not fetch`: `undefined`, `''`, `'  '`, `'a\nb'` → `missing_api_key`, `'Gemini API key is unavailable.'`, fetch 0회
+  - `gemini discover aborted signal returns aborted`: fetch 0회
+  - `gemini discover with no selectable model is invalid_response`
+  - `discoverModelCatalog gemini uses GEMINI_API_KEY and marks gemini_api`: catalog verified 주입 레지스트리 + `env:{GEMINI_API_KEY:g, ANTHROPIC_API_KEY:a}` → 헤더 `g`, 어떤 요청에도 `a` 없음, `source==='gemini_api'`, `cliAccountVerified===false`
+  - `discoverModelCatalog gemini catalog off returns capability_not_verified without fetch`
+  - `gemini-platform.test.mjs`: `descriptor.models.discover === discoverGeminiCatalog`, `static gemini catalog passes selectGeminiCatalogModels unchanged`
+- [ ] **Step 2:** `node --test tests/node/gemini-catalog-discover.test.mjs tests/node/gemini-platform.test.mjs` → FAIL(모듈 없음, discover null)
+- [ ] **Step 3:** 구현. 응답 처리 순서는 Anthropic 구현과 같습니다(`response.ok` → `response.url` origin·pathname → `response.json()` → 항목 검사). 예외는 `signal.aborted`면 `aborted`, 아니면 `invalid_response`. `==='gemini'` 분기는 두지 않습니다.
+- [ ] **Step 4:** 같은 명령 PASS. `model-catalog`·`platform-registry`·`hardcoding-residual` 테스트가 무수정 PASS(Anthropic·Codex 회귀)
+- [ ] **Step 5:** STD-CLOSE(runtime 무변경 확인). `npm pack --dry-run`에 `lib/models/catalog-gemini.mjs` 포함
+
+**필수 검사:** 작업 테스트, `model-catalog`·`platform-registry`·`hardcoding-residual` 무수정 통과, `npm test`(기준 54건 밖 신규 실패 0), `check:manifest`, `check:role-policy`(무변경), parity, runtime-assets `--check`(무변경)
+**필수 QA:** 예. 키 누출 경로(URL, 오류, 결과 객체, `ANTHROPIC_API_KEY` 혼입), redirect·origin, 페이지 종료·반복, 운영 descriptor 무변경, TUI·management 무변경
+**보류 조건:** 키가 URL·결과·오류 문자열에 나타남 / Anthropic·Codex 기존 테스트 수정 필요 / TUI·management에 discover 호출 추가 / 운영 Gemini `catalog` 변경
+
+---
+
+### Task L1–L7: capability live 전환(Q6 순서)
+
+공통 구조(각 L 작업 = 커밋 1개 또는 no-change 종료):
+
+**Step A — Orchestrator live 실행(사용자 환경, specialist 금지)**
+1. `gemini --version` 원문을 기록합니다. range `>=0.68.0 <0.69.0` 밖이면 중단하고 사용자에게 보고합니다(range 확장은 9.4 규칙에 따른 별도 결정).
+2. 9.2 표의 해당 행 검증 항목을 실행합니다.
+3. 9.3 형식의 증거 초안을 작성합니다. 개인 정보, 토큰, 이메일은 제외합니다.
+
+**Step B — 판정**
+- `pass`: Step C로 갑니다.
+- `fail` 또는 증거 불충분: descriptor를 off로 둡니다. 저장소 변경 없이 작업을 **no-change 종료**하고, 진행 기록에 사유와 실행 일시를 남깁니다. 6.1 선행 관계상 영향받는 후속 L 작업도 no-change 종료합니다.
+
+**Step C — Implementer(descriptor, 증거, 회귀 테스트, 한 커밋)**
+1. (v6) 9.3 항목을 진행 기록 행과 커밋 메시지에 남기고, `gemini-capability-evidence.test.mjs`의 고정 verified 목록을 갱신합니다. 증거 파일은 추가하지 않습니다.
+2. `lib/runtime/platform-registry.mjs`에서 해당 capability를 `{state:'verified'}`로 바꿉니다.
+3. 해당 capability의 회귀 테스트를 추가합니다(아래 표).
+4. STD-CLOSE를 실행하고, `gemini-capability-evidence.test.mjs`가 PASS여야 합니다.
+
+| 작업 | capability | live 항목(9.2) | Step C 추가 변경과 회귀 테스트 | 필수 QA |
+|---|---|---|---|---|
+| L1 | install | 임시 HOME 설치 → `gemini -p`가 GEMINI.md 블록과 skill 고정 토큰 인식 → 제거 후 소유 파일 0 | 운영 레지스트리 `install` verified 상태 표면 테스트(상태줄이 CLI 상태 규칙으로 넘어감). 설치는 standalone off로 여전히 거부 | 아니요 |
+| L2 | catalog | (v5) Step A: `gemini --list-models`와 API `models.list`(curl 헤더 `x-goog-api-key`, URL에 키 없음, 원문 필드 이름 발췌) 수집. spec 5.3 후보 중 live 결과가 없는 모델(`gemini-2.5-flash-lite`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`)에 `-m <model> -p` 최소 실행 1회. 결과를 accepted / listed(quota-blocked: 429·503만) / excluded(rejected)로 분류. 그 밖의 오류(404 등)는 excluded | (v5) 증거 파일(9.3 + 세 목록 줄)과 `catalog` verified. `lib/models/gemini-models.json` = accepted ∪ listed(spec 5.3 순서, effort `default`). 다섯 역할 기본 모델 `gemini-2.5-flash`(`gemini/skill/models.toml`, `gemini/agents/arc-*.md`). 생성물(MANIFEST, golden, instruction-contracts, runtime 사본·runtime-versions) 갱신. 회귀 테스트: `gemini-capability-evidence.test.mjs`에 `catalogEvidenceLists(bytes)` 파서와 `catalog evidence categories cover the static catalog exactly`(비중첩, 정적 = accepted ∪ listed, 기본 모델 ∈ accepted, listed 코드 ⊆ {429,503}·출처 ∈ {cli,api}, rejected ∩ 카탈로그 = ∅), 음성 사례 3건. `gemini-platform.test.mjs` 정합성(정규식, 선택 규칙 identity, 기본 모델 ∈ 카탈로그). 운영 `discoverModelCatalog({platform:'gemini'})`이 주입 fetch로 ready를 내는 테스트 1건 | 아니요 |
+| L3 | nativeProfile | `~/.gemini/agents/arc-routing-scouter.md` 로드 + model 일치 + revision 재로드 | frontmatter 필드 이름이 증거와 다르면 형식 모듈 수정 포함. AC-G7 테스트 갱신 | 아니요 |
+| L4 | standalone | 선행 3종 + 단독 ARC 역할 1개 native 위임 | `target:'gemini'` 허용, `all`에 gemini 포함(AC-G9 운영). README `all` 변경 문구 확인 | 아니요 |
+| L5 | bridge | claude-cli host와 codex-cli host 각각 run → observe → cancel. 세션 id, model, 결과 파일, read-only 쓰기 0 | fixture를 실제 stream 형태로 갱신(U-B3). `buildGeminiArgs` MCP/확장 차단 인자 확정(U-B4). resume 플래그는 U-B9 증거가 따로 있을 때만 on | 예 |
+| L6 | compositeRole | Claude+Gemini, Codex+Claude+Gemini publish/routingStatus/prepare → v2 lease | 운영 레지스트리 prepare가 v2 lease 기록 테스트 | 예 |
+| L7 | compositeHost | Gemini 세션 안 runtime 명령, native 위임, 다른 플랫폼 bridge, 11장 host sandbox 쓰기(GG2) | `GG2:'pass'` 전환 포함(증거에 GG2 항목 필수) | 예 |
+
+- **선행:** L1 ← T14. L2(재개) ← T15(v5). 각 L은 직전 L이 끝난(수용 또는 no-change) 뒤 실행합니다. 6.1 선행 capability가 verified가 아니면 실행하지 않습니다. v5 재개 순서는 L2 → L4 → L5 → L6이고, L7은 기존 no-change 종료를 유지합니다(재개는 별도 사용자 결정).
+- **보류 조건:**
+  - 증거 version이 range 밖이면 보류합니다.
+  - 증거 파일과 descriptor 상태가 따로 커밋되려 하면 보류합니다.
+  - GG1은 Phase B 계획에 live 전환 단계가 없으므로 `fail`을 유지합니다(질문 Q-O1).
+  - (L2) 역할 기본 모델이 accepted가 아니거나, 카탈로그에 증거 분류가 없는 모델이 있으면 보류합니다.
+
+---
+
+### Task FR: 최종 독립 Reviewer 1회
+
+- **선행:** T1–T14 수용, L1–L7 각각 수용 또는 no-change 종료, 필수 QA와 QA 재확인 완료
+- **대상:** `739da7f..HEAD` 전체 변경과 이 계획의 진행 기록·부록 A
+- **위험 기반 점검:**
+  - F5/F6 신뢰 경계
+  - 마이그레이션 원자성과 old store 불변
+  - lease v2 검증
+  - capability hold와 증거 일치
+  - 금지 인자 부재
+  - role-policy codex/claude 바이트 동일
+  - 이관 대응표의 검사 강도 유지
+- **Reviewer 지적:** Implementer → Reviewer 재확인으로 처리합니다(QA 재배정 없음). 해결 후 수용하고 follow-up 커밋 1개를 만듭니다.
+
+---
+
+### Task FR2: 추가 최종 독립 Reviewer 1회 (개정 v5)
+
+- **선행:** T15 수용, L2·L4·L5·L6 각각 수용 또는 no-change 종료, 필수 QA(T15, L5, L6)와 QA 재확인 완료
+- **대상:** `a163358..HEAD` 변경 전체와 이 계획 v5 개정·진행 기록. FR 수정(`collectInstalledState`, native config 검사) 회귀 여부 포함
+- **위험 기반 점검:** 키 처리(헤더 전용, 누출 0, 다른 플랫폼 키 혼입 0), 응답 신뢰 경계(redirect·origin, 페이지 반복, id 정규식), 정적 카탈로그 = 증거 분류·기본 모델 accepted, discover 미사용 표면(TUI·management) 무변경, L5·L6 capability 증거 일치와 금지 인자 부재
+- **Reviewer 지적:** Implementer → Reviewer 재확인(QA 재배정 없음). 해결까지 미커밋, 수용 후 follow-up 커밋 1개
+- **생략 조건:** v5 범위에서 수용된 커밋이 0개면 FR2를 열지 않고 진행 기록에 남깁니다.
+
+### Task EV: 증거 파일 삭제와 증거 테스트 교체 (개정 v6)
+
+- **선행:** FR2 수용(`084d80f`)
+- **결정:** 사용자 결정 16(2026-11-17). `docs/superpowers/evidence/` 전체(gemini 6개, phase-b T8 대응표)를 삭제합니다.
+- **변경:**
+  - 증거 파일 7개를 삭제합니다.
+  - `tests/node/gemini-capability-evidence.test.mjs`를 spec 9.3(v5) 검사로 바꿉니다.
+    - 고정 verified 목록은 `install`, `nativeProfile`, `catalog`, `standalone`, `bridge`, `compositeRole`입니다.
+    - 고정 range는 `>=0.68.0 <0.69.0`입니다.
+    - 고정 live 목록: accepted는 `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`이고, rejected는 `gemini-2.5-pro`, `gemini-2.5-flash-lite`입니다.
+    - 음성 사례를 둡니다: 선행 조건 위반, 목록 밖 verified, 거부 모델 포함, 기본 모델이 accepted 밖.
+  - README·`docs/harness-operation.md`의 증거 링크와 기록 위치 문구를 바꿉니다.
+  - 필요하면 `MANIFEST.sha256`을 갱신합니다.
+- **검사:** STD-CLOSE, 호스트 `npm test` 기준선 밖 신규 실패 0
+- **QA:** 필수 아님(테스트·문서 변경, runtime 동작 무변경). Reviewer 없음
+
+---
+
+## AC 추적표
+
+| AC | 작업 |
+|---|---|
+| AC-F4 | T1 |
+| AC-F5 | T2 |
+| AC-F6 | T3 |
+| AC-F7 | T4 |
+| AC-G1 | T8(codex/claude 순서), T10 |
+| AC-G2 | T9(선행 조건 throw), T10(초기 off·reason) |
+| AC-G3 | T9(표면 로직), T10(운영), T11(Uninstall 흔적) |
+| AC-G4 | T9, T10 |
+| AC-G5 | T11 |
+| AC-G6 | T9(TUI Effort), T10(카탈로그·validatePair) |
+| AC-G7 | T10(설치기 형식), T12(runtime 파서), L3(검증 시 형식 확정) |
+| AC-G8 | T13 |
+| AC-G9 | T9(주입), T10(운영 off), L4(운영 verified) |
+| AC-A1 | T7 |
+| AC-A2 | T7(주입), T8(운영) |
+| AC-A3 | T7 |
+| AC-A4 | T7 |
+| AC-A5 | T8, T13 |
+| AC-W1 | T6 |
+| AC-L1 | T5 |
+| AC-L2 | T8 |
+| AC-L3 | T6 |
+| AC-B1 | T12 |
+| AC-B2 | T12 |
+| AC-B3 | T12 |
+| AC-B4 | T12 |
+| AC-B5 | T5 |
+| AC-V1 | T10(테스트), L1–L7(증거) |
+| AC-V2 | T15(선택 규칙), L2(증거 분류) |
+| AC-G10 | T15 |
+| AC-D1 | T5(runtime 문구), T14(skill·fixture) |
+| AC-R1 | T10 |
+| AC-P2' | 모든 작업 STD-CLOSE, FR, FR2 |
+
+---
+
+## 검증 판정 (spec 16장)
+
+- **기준선:** 시작 시점(`739da7f`) `npm test` 기준 실패는 36건입니다. 이름 목록은 진행 기록 부록 B에 둡니다.
+- **판정:**
+  - 신규 실패는 0건이어야 합니다.
+  - 기준 목록 밖의 실패는 파일 단위로 단독 재실행합니다.
+    - 단독으로 통과하면 부하 의존 실패로 기록합니다.
+    - 단독으로도 실패하면 신규 실패로 보고 수용을 보류합니다.
+  - 기준 목록 안의 실패가 통과로 바뀐 경우에는 기록만 하고 판정에 쓰지 않습니다.
+- 실패 분류(기준/현재)와 hold 범위는 [scope.non-escalation] 절차를 따릅니다. 영향받지 않는 독립 작업은 Orchestrator가 해제합니다.
+- 자동 테스트 통과는 live 증거를 대신하지 않습니다.
+
+---
+
+## 진행 기록
+
+| 일시 | 작업 | 상태 | 커밋 | 메모 |
+|---|---|---|---|---|
+| 2026-11-16 | 기준선 | 기록 | `739da7f` | `npm test` 기준 실패 36건(부록 B) |
+| 2026-11-16 | T1 | 수용 | (이 커밋) | Implementer bridge `77805bd2`(2 segment: RED 62/4 → GREEN 66/0, manifest 232·role-policy 24·parity 통과; sandbox `EMFILE` 1건은 호스트 미재현 → 환경). fresh QA bridge `d93b70d0`(3 segment; sandbox 제한으로 Orchestrator가 호스트에서 Q4 176건 175 pass/0 fail/1 skip, Q5 `7947cf8` 사본에서 신규 4건만 FAIL 실행 후 전달). QA: Q1·Q2·Q5 proven, Q3(pinned API 실행)·Q4(바이트 비교) unverified → Orchestrator 처분: Q3은 undefined 인자 무시와 `installerRegistryOf` 기본값으로 정적 수용, Q4는 status deepEqual·S target 쓰기 0건 단언과 기존 테스트로 수용. 전체 `npm test` 2224 tests / 36 fail = 기준과 동일 |
+| 2026-11-16 | T2 | 수용 | (이 커밋) | Implementer bridge `1b549570`(RED anchor 5/3 → GREEN 8/0, role-routing-* 64/0, runtime-versions 6/0). dispatch는 `permission_violation_observed`(`shared/skill/runtime/role-routing.mjs`)로 기록됨 — Orchestrator가 allowedPaths에 디렉터리를 넣은 지정 오류이며 파일은 생성 명령 산출물(원본과 `cmp` 동일, runtime-assets `--check` 33)로 정리. 호스트 실행: `b0daa39` 사본에서 F5 신규 3건만 FAIL, role-routing-*·role-bridge-* 141/0, `npm test` 2227 tests / 36 fail = 기준과 동일, check:role-policy 24, parity, golden `--diff` 무차이. fresh QA bridge `a64cacfe`: Q1–Q6 proven |
+| 2026-11-16 | T3 | 수용(개정 v2) | (이 커밋) | 첫 Implementer `9ee0127d`가 v1 전제 오류(설치기·runtime 모두 symlink 조상 거부)를 보고 → 사용자 결정 11로 spec/plan v2. fresh Implementer `c312e61e`(2 segment: 단언 단계 수정, 대조 케이스 추가): anchor 9/0, n-platform 53/0, manifest 232, parity. 조합 판정: 조상·home 자체·lock symlink 양쪽 거부, `arc-role-dispatch` symlink 양쪽 허용(일치, 후속 과제로 기록). Orchestrator 실효성 확인: `scope.mjs` symlink 검사 제거 사본에서 runtime F6 테스트 FAIL, `targets.mjs` symlink 검사 제거 사본에서 publish F6 테스트 FAIL. `npm test` 2235 tests / 36 fail = 기준과 동일. 사용자 커밋 `c4aecb3`(watch 스타일) 이후 watch-*·T3 테스트 419/0 재확인. 필수 QA 대상 아님(v2) |
+| 2026-11-16 | T4 | 수용 | (이 커밋) | Implementer bridge `e503f27e`(2 segment; 자기 테스트 오류 수정 허용 지시 후 완료): F7a는 호출 횟수 대신 마지막 프로필 읽기 완료 시점에 marker 변경, 단언 2→3개. F1 비anchor(zeta) switch 테스트 추가. anchor 9/0, n-platform 54/0, parity. segment 1의 `permission_violation_observed`(headChanged/refsChanged)는 실행 중 사용자 커밋 `944f818`(watch 라벨) 때문이며 Implementer 변경 아님. Orchestrator 실효성 확인: host marker 재확인 줄 제거 사본에서 해당 테스트 FAIL. `npm test` 2236 tests / 36 fail = 기준과 동일. 필수 QA 대상 아님 |
+| 2026-11-16 | T5 | 수용 | (이 커밋) | Implementer bridge `c2844a56`(2 segment: 구현 전 lease-v2+store 16/12 → 후 29/0; segment 2에서 STD-CLOSE: runtime-assets 33, runtime-versions 6/0, manifest 232, role-policy 24 무변경, parity). sandbox의 bridge resume 실패는 호스트에서 bridge·lease 87/0으로 환경 제한 판정. 호스트 실행: `e191068` 사본에서 새 테스트 22건 중 13 FAIL(통과 9건은 v2 전체 거부였던 base에서도 통과하는 거부 사례, valid v2 수용 테스트와 짝), 회귀 routing·bridge·lease·watch 528/0, golden 4/0, `npm test` 2258 tests / 36 fail = 기준과 동일. fresh QA bridge `3022af70`: Q1·Q3·Q4·Q5·Q7 proven, Q2 unmet, Q6·Q8 unverified → Orchestrator 처분: Q2(observe가 config 없이 v2 대상을 표시)는 수정하지 않음 — observe는 재구성 뒤 과거 dispatch를 관측해야 해서 활성 설정을 읽지 않는 기존 설계이고, lease는 lock 아래 runtime만 기록하며 실행 전(run·resume)에는 `buildBridgeInvocation`이 대상 불일치를 `activation_unverified`로 막음. Q6은 `parseLeaseLenient`가 v2 lease를 읽는 것을 직접 실행으로 확인, Q8은 golden 4/0·runtime-versions 6/0 호스트 실행으로 확인. 잔여 위험(후속 기록): resume은 capability를 재확인하지 않음(spec 7.2 범위는 prepare·run) |
+| 2026-11-16 | T6 | 수용 | (이 커밋) | Implementer bridge `0c277237`(2 segment): `lib/watch/anchor-store.mjs` `resolveDispatchStore`(async, anchorOrder 순 marker 형식 검사·등록 home 정확 일치·중복 제거 → anchor/legacy/none/ambiguous), `createDispatchIndex({storeDir})`, ambiguous는 기존 `notice` 경로로 `dispatch store ambiguous` 표시(`render.mjs` 무변경). 탐색은 watch 시작 시 1회, 후보 0이고 Codex home이 있으면 시작 후 생기는 legacy store도 계속 관찰. Orchestrator 검토 지적(segment 1): storeDir 없을 때 `scan`이 `[]`를 반환해 workflow artifact 표시까지 사라지는 회귀 → lease만 비우고 artifact 스캔 유지로 수정. 호스트 실행: `a531139` 사본에서 새 탐색 테스트 6건 FAIL(watch-watcher 파일은 새 모듈 import로 전체 FAIL), watch-* 366/0(Implementer), `npm test` 2267 tests / 36 fail = 기준과 동일. manifest 233. 필수 QA 대상 아님 |
+| 2026-11-16 | T7 | 수용 | (이 커밋) | Implementer bridge `7f90418e`(관측 3회): legacy 판정(`install-mode.mjs` 단일 설정·v1·Codex home 예외 후 6.4.5 검사 계속), 설치기 전용 `parseInstalledRoutingConfig`(v1을 codex 우선 historical 레지스트리로 재해석, runtime은 엄격 유지), 기존 6.6 이동 경로 재사용, legacy 전체 Uninstall은 old anchor plan을 마지막으로 정렬, management `anchorMove`, status 진단·Apply 미리보기 문구. 상수 `legacyAnchorPlatform`은 AC-P1 allowlist 변경 없이 통과. 호스트 실행: PTY 33/0(sandbox 미검증분), `32c5e08` 사본(build/ 복사)에서 새·수정 테스트 87건 중 legacy 16건 FAIL, `npm test` 2290 tests / 36 fail = 기준과 동일. fresh QA bridge `4779a84d`: Q1·Q4·Q6·Q7·Q8 proven, Q5 unverified(패키지 획득 stub), Q2·Q3 unmet → Orchestrator 처분: (결함 2) `serializeRoleRoutingConfig`가 codex+claude를 v1로 정규화해 anchor≠codex일 때의 `JSON.stringify` 우회 바이트와 다름 → T8 "새 활성 설정 v2 항상 기록"에서 serializer를 v2 상시 출력으로 바꾸고 우회를 제거(T8 이관). 현재 바이트는 runtime이 수용하는 유효 v2. (결함 1) Claude 우선 레지스트리에서 `version:1, platforms:['claude','codex']`가 통과 — 우회가 아니라 기존 `validateRoleRoutingConfig`의 성질이며 그런 v1 파일은 기록된 적 없음 → T8 순서 전환 시 v1 검증을 codex 우선 고정으로 엄격화(T8 이관). Q5는 패키지 설치가 home을 건드리지 않는 기존 테스트와 이번 스냅샷 테스트로 수용 |
+| 2026-11-16 | T8 | 수용 | (이 커밋) | 첫 Implementer `02d6a292`는 grep 목록 밖 `management-status.test.mjs` 때문에 무편집 반환 → Orchestrator가 scratch 사본에서 순서만 전환해 대조본과 전체 실행 비교(신규 실패 231건, 30개 파일)하고 허용 목록 확장. fresh Implementer `28a95049`(3 segment): segment 0은 lock 순서 검증 방법 불일치로 무편집 반환 → Orchestrator 결정(테스트 내 `fsp.open` 관찰, 운영 주입 API 금지, role-bridge-*는 호스트 실행, T7 운영 순서 테스트는 codex 우선 주입 레지스트리로 고정), segment 1 구현·이관(운영 5, 테스트·fixture 33, 생성물 5; T7 이관 2건: serializer·builder v2 상시, `isV1Platforms` 순서 비교, `prepareCompositeFiles` 우회 제거; 전체 Uninstall에서 composite anchor plan을 마지막으로 정렬하도록 일반화), segment 2 QA Q4 수정(`parseInstalledRoutingConfig`는 항상 현재 순서의 v2 객체 반환, legacy 판정은 원본 JSON version). 대응표는 부록 A. fresh QA bridge `c3e29942`(첫 turn은 19초 만에 원인 미기록 `turn_failed` → 같은 세션 재개): Q1–Q3·Q5·Q6·Q8·Q10 proven, Q4 unmet(수정 후 재검증 (a)–(d) proven), Q7 unverified → Orchestrator 처분: 공용 fixture가 Claude home을 쓰므로 실제 supervisor를 쓰는 role-bridge-run·resume 호스트 통과로 수용, Q9 unverified → Orchestrator가 이관 파일 전체 assert 수 감소 0건 확인. 호스트 실행: PTY 33/0, `npm test` 2299 tests / 36 fail = 기준과 동일 |
+| 2026-11-16 | T9 | 수용 | (이 커밋) | Implementer bridge `318f3487`(segment 0은 존재하지 않는 선택 참고 경로 읽기 실패로 무편집 반환 → 읽기 탐색 실패는 차단 사유 아님 지시 후 재개): `CAPABILITY_PREREQUISITES`와 생성 시 throw, auth none probe 무실행(`local-cli.mjs` 비공개 WeakMap), runtime authenticate가 auth none을 unknown으로 보고하고 dispatch 게이트 통과, availability 경고·사유 줄, management `target:<off id>` 오류·composite probe 전 거부·`warnings`, `all`을 install·standalone verified로 필터(install·preset·uninstall), status에 auth none 인증·`cliVersion`. 구현 전 capability-surfaces 13 FAIL, all-targets·preset-cli·uninstall-cli 무편집 20/20. 호스트 전체에서 신규 실패 3건(선행 조건 검사로 dispatch-lease-v2 bridge off 레지스트리 throw 2건, AC-T9 가짜 플랫폼 `Not verified` 표시 1건) → 후속 Implementer `66d8f4f2`(허용: 두 테스트 파일): 가짜 descriptor에 verified capability 부여로 표시 순서 기대값 유지, bridge off 시 compositeRole도 off + `capabilityReasons` 함수 단위 방어 테스트 추가. 호스트 실행: `972b967` 사본에서 capability-surfaces 22건 중 13 FAIL, PTY 35/0, `npm test` 2324 tests / 36 fail = 기준과 동일. fresh QA bridge `bb5eaf3c`: Q1·Q6·Q8 proven, Q2–Q5·Q7·Q9 unverified(변경 전후 deepEqual 미비교 등) → Orchestrator 처분: 수정된 기존 테스트 파일의 assert 수 감소 0건, 바뀐 기존 단언은 zeta(auth none) 의미 변화뿐이고 codex/claude 기대값 불변이므로 수용. 결함 후보(uninstall `all`이 off 플랫폼 흔적을 남길 수 있음)는 수정하지 않음 — spec 6.5 `all` 정의(Q7)와 일치하고, 필터가 없으면 Gemini 등록 후 `GEMINI_CLI_HOME` 설정 시 Codex/Claude 제거까지 막힐 수 있으며(Review Focus 1), off 플랫폼 흔적은 다운그레이드에서만 생기고 TUI 개별 제거가 가능 → 후속 과제로 기록. auth none status의 `platform` 키 누락은 상위 status에 platform이 있고 spec 5.4 객체와 같아 수용 |
+| 2026-11-16 | T10 | 수용 | (이 커밋) | 첫 Implementer `e1038c43`이 부분 구현(19개 파일) 후 반환 — Orchestrator 브리프에 실제 허용 목록이 빠져 있어 범위 확인 불가 → 정확한 목록(installer 파일 추가)을 명시한 fresh Implementer `1ff9dc5a`(2 segment)가 이어받아 완성: Gemini runtime·설치기 descriptor(capability 9개 off, Global Constraints 값), `lib/platforms/formats/gemini-markdown.mjs`(제한된 scalar frontmatter, effort 키 거부), `lib/models/gemini-models.json`(모델 2개, effort default), payload 검증은 install verified 플랫폼만 필수, composite 기본 대상은 compositeRole/compositeHost verified 플랫폼, deactivation 기본은 설치 상태 platforms, policy render 대상은 metadata `platforms` 키(controls.gemini는 'prompt'), hardcoding `==='gemini'` 패턴, zeta 3·eta 4 재배치, 기존 테스트 14개 파일 Gemini 행 추가(보호 CLI 3개 무수정 통과). 호스트 실행: `e844acf` 사본에서 신규 Gemini 테스트 14건 중 10 FAIL, 수정 기존 파일 assert 감소 0건, PTY 35/0, 첫 `npm test` 2339/37(기준 36 + codex-auth-probe 타이밍 1건, 단독 3회 통과 → flake). fresh QA bridge `5e1a5b81`: Q1–Q5·Q7·Q9 proven, Q6 unmet(frontmatter가 `description: [x]` 허용) → segment 1에서 scalar 검사 강화 후 재검증 proven(우회 시도 `"[x]"`, `- item`, `|`, `>`, `&a`, `*a` 모두 거부), Q8 unmet(runtime-versions hash 갱신이 열거 범위 밖) → 생성물이므로 범위 안 처분. 수정 후 `npm test`는 QA와 동시 실행되어 2340/43(신규 7건 전부 프로세스·타이밍 계열) → 해당 3개 파일 직렬 재실행 86/87, 남은 1건도 단독 2회 통과·직전 전체 실행 통과로 부하 flake 판정. manifest 236·role-policy 24·runtime 33 verified. T11 참고: install off 동안 Gemini payload 항목은 일반 해시 검사만 받고 Gemini 전용 필수 파일·템플릿 검사는 적용되지 않음 |
+| 2026-11-16 | T11 | 수용(개정 v3) | (이 커밋) | 첫 Implementer `250b5d5a`: `gemini/` payload 19개(claude 기준, coordination `Mixed routing`, Python 스크립트 제외, `models.toml` 유지), 설치·제거 테스트 6건 — 정책 metadata `platforms.gemini` 추가가 Q4 문언 밖이고 runtime 정책 사본 미동기화로 composite 설치 실패하여 보류 반환 → 사용자 결정 12(platforms.gemini 허용, spec/plan v3) → 수용 기준 개정에 따라 fresh Implementer `96f1681a`(2 segment): 정책 사본 동기화, `role-policy.json` 재직렬화로 생긴 `\u2192` 등 이스케이프 되돌림(diff는 platforms.gemini 추가뿐), segment 1에서 Orchestrator 호스트 전체 실행의 신규 실패 72건 해결 — verifyPayload의 policy 출력 검증을 install verified 플랫폼 대상으로 한정(`check:role-policy`는 전체 유지), `lib/models/profiles.mjs`의 Gemini 직접 import·리터럴 분기를 descriptor 렌더러 인자 전달로 교체. `settings.json` 미작성·사용자 파일 보존·소유 파일만 제거·off 상태 흔적 제거 허용·제거 순서 테스트. 호스트 실행: `7ef75fb` 사본에서 gemini-install 6건 중 5 FAIL, `npm pack --dry-run`에 `gemini/` 19개 포함, PTY 35/0, `npm test` 2348 tests / 36 fail = 기준과 동일. manifest 254·role-policy 36 verified. 필수 QA 대상 아님 |
+| 2026-11-16 | T12 | 수용 | (이 커밋) | Implementer bridge `ceadc14d`: Gemini 인자(`role-bridge-args.mjs` 읽기 역할 plan+policy, 쓰기 역할 auto_edit+policy+`--sandbox`, lease UUID `--session-id`, instructions·brief stdin), 새 runtime 모듈 `lib/runtime/gemini-stream.mjs`(미검증 계약 상수 `GEMINI_CONTRACT`와 stream 정규화·claim 판정, 다섯 가지 등록 갱신), `SUPERVISOR_IMPLEMENTATIONS.gemini`(resume 'off'), GG1/GG2='fail'과 gate 규칙(쓰기 역할 `permission_scope_unverified`, Gemini host는 native 준비 포함 `host_sandbox_blocked`), `resume_unverified` reason·release condition, runtime `parseGemini`. 구현 전 새 테스트 20 FAIL, 최종 지정 묶음 140/140. 호스트 전체에서 `BRIDGE_GATE_RESULTS` 전체 단언 테스트 1건 신규 실패 → 후속 Implementer `34dfa9b0`(허용: role-routing-dispatch.test.mjs)가 기대 객체에 GG1/GG2 추가. 금지 토큰 grep: 'yolo'는 모델 이름 거부 검사에만 등장. 호스트 실행: `3bbb131` 사본에서 gemini-bridge 25건 중 24 FAIL, 최종 `npm test` 2373 tests / 36 fail로 기준 목록과 정확히 동일. fresh QA bridge `15a724f2`: Q1–Q5·Q7–Q9 proven, Q6 unverified(수정 후 전체 실행 증거 없음) → Orchestrator 최종 전체 실행으로 보완. 미검증 계약(정책 파일 내용·설치, MCP·확장 차단 인자, delegation 탐지, 자식 트리 정리)은 상수 자리만 두고 L 단계로 이관 |
+| 2026-11-16 | T13 | 수용 | f781cd6 | Implementer bridge `ea2034b8`: `tests/node/gemini-composite.test.mjs` 18건(S={claude,gemini}·{codex,claude,gemini}·{codex,gemini} publish, AC-M3 D1-b ×3, AC-M5 D1-e·anchor move, AC-M8 non-terminal hold ×4, legacy 쌍+gemini 단일 트랜잭션, 인증 경고, 운영 off 게이트). 최초 실행에서 3개 플랫폼 publish의 lock이 anchor만 잡히는 결함 발견 → `lib/installer/role-routing.mjs` 3개 이상이면 참여 home 전체를 anchorOrder로 lock(2개 플랫폼 경로 불변), `lib/management/operations.mjs` 이동 중 3개 이상이면 모든 plan home identity 재검사. 호스트 실행: `5d4db55` 사본에서 18건 중 2 FAIL(3플랫폼 lock 순서, legacy+gemini 트랜잭션; 나머지 16건은 회귀 고정), `npm test` 2391 tests / 36 fail로 기준 목록과 정확히 동일. fresh QA bridge `4136a6c9`: Q1·Q3–Q6 proven, Q2 unverified(실제 동시 실행 미재현) → Orchestrator 처분: runtime은 anchor lock 하나만 잡고 설치기는 lock 충돌 시 대기하지 않으므로 순환 대기 불가, 빈 home 첫 설치는 참여 설치가 lock 전에 실행되어 통과, lock 해제 후 파일 부재 확인으로 수용 |
+| 2026-11-16 | T14 | 수용 | e5f3cf7 | Implementer bridge `21f4e219`: README(Gemini CLI status 절, anchor 순서 Claude>Codex>Gemini, 마이그레이션·다운그레이드 한계, watch anchor 탐색·Gemini 세션 미지원, effort `default`, `target:'all'`), harness(lease v2·`targetPlatform`, anchorOrder 0/1/2, legacy 판정·마이그레이션 절차·held 해제, GG1/GG2·`capability_not_verified`·`resume_unverified`, 증거 기반 capability 전환, 낡은 Codex 우선 서술 수정), codex/claude coordination.md를 gemini판과 같은 `Mixed routing`/`<anchor home>` 문구로 일반화, fixture는 codex/claude Ownership 두 항목만 변경, golden 8개 해시. Gemini 권한 사후 탐지 문장 양쪽 수록. rg 검사 0건(예외 없음). contract 테스트 단독 실행 작업 전후 동일(instruction-layout 25/5, plan 50/8 기준 실패 그대로). `npm test` 2391 tests / 36 fail로 기준 목록과 정확히 동일. 문서 문자열은 Orchestrator가 코드(platform-registry, role-dispatch-policy)와 대조 |
+| 2026-11-16 | L1 | 수용 | (이 커밋) | Orchestrator live(gemini 0.68.0, darwin, claude-cli): 임시 HOME에 주입 레지스트리로 설치 code 0 → `gemini skills list`에 `arc [Enabled]` → `gemini -m gemini-2.5-flash -p`가 도구 0회로 ARC 블록 heading과 `arc` skill 응답 → 제거 후 ARC 소유 파일 0(빈 GEMINI.md·빈 디렉터리는 공통 managed-block 제거 동작). 증거 `docs/superpowers/evidence/gemini/install-2026-11-16.md`. Implementer `bb3a5909`: `install` verified(나머지 8개 off), 회귀 3건, README/harness 사실 문장 갱신. 후속 `1f5c3e23`: zeta verifyPayload 기대값에 gemini 추가, AC-P1 adapter coverage를 native hook 플랫폼으로 한정(`noNativeHookAdapter={gemini}`, 부재 단언). 계약 관찰: 개인 Google OAuth는 `IneligibleTierError`(UNSUPPORTED_CLIENT)로 거부, API 키(`selectedType: gemini-api-key` + `GEMINI_API_KEY`)는 동작, headless는 신뢰 폴더 필요(`GEMINI_CLI_TRUST_WORKSPACE=true` 사용, `--skip-trust` 금지 유지), `-m` 없이 실행하면 180초 내 미완료. 다음: L2 catalog |
+| 2026-11-16 | 기준선(새 PC) | 기록 | `53cf93a` | `npm ci`·`build:native` 후 `npm test` 2393 tests / 54 fail = 부록 B 36건 + 18건. 추가 18건은 이 PC의 ignored 로컬 파일 `scripts/update-superpowers-local.sh`(local updater wrapper)가 payload 사본에 포함되어 생기는 환경 실패(`Local updater wrapper is forbidden in package payload`, symlink `EEXIST`). 이후 판정은 이 54건 밖 신규 실패 0건 |
+| 2026-11-16 | L2 | no-change 종료 | — | Orchestrator live(gemini 0.68.0, 임시 HOME, API 키): `--list-models`는 `auto`, `gemini-2.5-pro`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`를 나열. `-m <model> -p` 결과 카탈로그 `gemini-2.5-pro`는 거부(`no longer available to new users`), `gemini-2.5-flash` 수락(목록에는 없음). 카탈로그 밖 `gemini-3.1-flash-lite` 수락(stats 응답 모델 `gemini-3.5-flash-lite`), `gemini-3.5-flash`는 503 후 무료 등급 일일 한도 429, `gemini-3.1-pro-preview`는 무료 등급 한도 0(429). 통과 조건(모든 카탈로그 모델 수락) 미충족 → 사용자 결정으로 no-change 종료, catalog off 유지. 6.1 선행 관계로 L4(standalone)·L5(bridge)·L6(compositeRole) no-change 종료 |
+| 2026-11-16 | L3 | 수용 | (이 커밋) | Orchestrator live(gemini 0.68.0, darwin 25.6.0, claude-cli): 임시 HOME에 주입 레지스트리로 Claude+Gemini composite publish(Claude 쪽은 version·auth status만 답하는 stub, 검증 대상 아님) → `arc-routing-scouter.md`(`model: gemini-2.5-flash`) 생성. `-m gemini-3.1-flash-lite` 메인 세션에서 `@arc-routing-scouter`가 `invoke_agent`로 위임되어 token 응답, stats는 main `gemini-3.5-flash-lite`·subagent `gemini-2.5-flash`(프로필 model 일치). revision `l3-rev-b` 재publish 후 새 세션이 새 revision tag 설명을 도구 0회로 보고. frontmatter 필드(name/description/model)는 CLI 스키마와 일치해 형식 모듈은 주석만 변경. 증거 `docs/superpowers/evidence/gemini/nativeProfile-2026-11-16.md`. Implementer bridge `6a762f09`: `nativeProfile` verified(나머지 7개 off), RED 2건 → 지정 7개 파일 90/0, L3 증거·frontmatter 키 회귀 테스트, install off 테스트 레지스트리는 선행 조건상 nativeProfile도 off, README/harness 사실 문장 갱신, runtime 34·manifest 256·role-policy 36·parity 통과. 호스트 `npm test` 2395 tests / 53 fail로 신규 실패 0건(기준 1건 통과). 필수 QA 대상 아님. 다음: L7 compositeHost |
+| 2026-11-16 | L7 | no-change 종료 | — | 사용자 결정. 증거 불충분: 설치 runtime은 compositeHost off·GG2 fail로 Gemini host를 hold하므로 live에는 설치 사본 수정이 필요하고, 임시 HOME에서는 Claude/Codex bridge 자식이 미인증이며 실제 home 사용 금지, 무료 등급 일일 한도. compositeHost off, GG1·GG2 `fail` 유지 |
+| 2026-11-16 | FR | 수용 | (이 커밋) | Reviewer native `a5208d17`(범위 `739da7f..f342413`, 151 files): FR-1–FR-6·FR-8 충족, FR-7 표본 확인(Orchestrator assert 감소 0건 기록 의존). 지적 F1 Medium(`GEMINI_CLI_HOME` 설정 시 `collectInstalledState`가 throw해 Codex/Claude 전용 사용자의 upgrade 차단), F2 Medium 잠재(Gemini descriptor에 `readConcurrency`가 없어 `settings.json`이 있으면 status incomplete·upgrade throw), F3 Low 잠재, F4 Info(README 첫 문단). Orchestrator가 F1·F2를 직접 재현. fresh Implementer bridge `6e2212c4`(2 segment; segment 0은 anchor를 unresolved로 둔 fixture 오류 1건 → 승인된 fixture 교정): `collectInstalledState`가 `resolveTargets`로 S 밖 unresolved home은 건너뛰고 S 안이면 `Mixed routing configuration cannot be verified.`, status·upgrade는 `readConcurrency`가 있는 플랫폼만 native config 검사, README 첫 문단 수정. RED 4 → 지정 5개 파일 80/0, manifest 256·parity·role-policy 36. Reviewer 재확인(`38f93dce`, 같은 Reviewer): F1·F2·F4 resolved. 호스트 `npm test` 2399 tests / 53 fail로 신규 실패 0건. 후속 과제: F3(Gemini payload coordination의 `hostPlatform`·`executionEnvironment` 안내를 gemini/gemini-cli로 바꾸기, L6/L7 선행), N1 Low(S 안의 anchor가 unresolved이면 fail-closed는 유지되지만 오류 문구가 `Incomplete ARC installation: missing profile`이고 테스트 없음), N2 Low(S 밖 unresolved home이 upgrade 결과에 보고되지 않음, 6.4.8과 일치), T5·T9 기록 후속 과제 유지. Phase B 종료 상태: Gemini `install`·`nativeProfile` verified, 나머지 7개 off |
+| 2026-11-16 | 개정 v5 | 승인 | (이 커밋) | 사용자 결정 13(무료 키 진행, 기본 모델 `gemini-2.5-flash`), 14(카탈로그 노출을 Claude/Codex와 같게: 정적 JSON 전체 GA 모델 + discover, 유료 모델은 listing + quota 거부만이면 listed), 15(미시도 후보 1회 실행 후 분류, preview 전부 제외, deny 목록 없음, `GEMINI_API_KEY`만, TUI 경고 없음). Planner native `e650474d` 초안 → Orchestrator 반영, spec v4·plan v5 승인 2026-11-16T13:12:29Z. v4(카탈로그 2개 확정) 중 L2 Implementer `28108a24`는 범위 변경으로 취소, 부분 수정은 사용자 승인으로 되돌림(patch 보존) |
+| 2026-11-16 | T15 | 수용 | (이 커밋) | Implementer bridge `4aea7c72`(2 segment): `lib/models/catalog-gemini.mjs`(`GEMINI_MODELS_API`, `selectGeminiCatalogModels`, `discoverGeminiCatalog`), `catalog.mjs` 키·source 표와 catalog capability 게이트, Gemini descriptor `discover`. RED 14 → 지정 5개 파일 76/0, 기존 model-catalog·platform-registry·hardcoding-residual 무수정 50/0. manifest 257, role-policy 36, parity, runtime 무변경, 호스트 `npm pack --dry-run`에 새 모듈 포함. fresh QA bridge `569d6ee2`: Q2 unmet(`redirected:true` 동일 URL 응답 수용) → segment 1에서 `response.redirected` 거부와 테스트 추가 후 재확인 proven. Q1 unmet(키가 `catalog`·`default` 같은 일반 단어면 고정 문구와 겹침)은 Orchestrator 처분: Anthropic discover와 같은 성질이고 실제 키는 긴 무작위 문자열이라 수정하지 않음. Q4·Q5 unverified는 Orchestrator 호스트 실행(기존 테스트 50/0, runtime diff 0, 운영 호출자 0, `==='gemini'` 0)으로 보완 후 재확인 proven. 호스트 `npm test` 2412 tests / 53 fail로 신규 실패 0건 |
+| 2026-11-16 | L2(재개, v5) | 수용 | (이 커밋) | Orchestrator live(gemini 0.68.0, darwin 25.6.0, claude-cli): CLI `--list-models`와 API `models.list`(헤더 키, 단일 페이지 64개) 수집, `selectGeminiCatalogModels` 후보 9개 분류 — accepted `gemini-2.5-flash`·`gemini-3.1-flash-lite`(서비스 모델 `gemini-3.5-flash-lite`)·`gemini-3.5-flash-lite`·`gemini-3.6-flash`, listed(quota-blocked) `gemini-3.5-flash`[cli,api; 503,429]·`gemini-3.7-flash`[api; 429]·`gemini-3.8-flash`[api; 429], excluded `gemini-2.5-pro`·`gemini-2.5-flash-lite`(no longer available to new users). preview는 결정 15로 제외되어 pro 계열은 카탈로그에 없음. 증거 `docs/superpowers/evidence/gemini/catalog-2026-11-16.md`. fresh Implementer bridge `5616d26f`(2 segment; segment 0은 프로필 2개 누락으로 1건 FAIL 반환 → 같은 변경 세트 완료 지시): `catalog` verified(나머지 6개 off), 정적 카탈로그 7개(spec 5.3 순서), 다섯 역할 기본 모델 `gemini-2.5-flash`, 증거 분류 파서와 정합성·음성 테스트, 운영 discover ready 테스트, catalog off 게이트 테스트는 주입 레지스트리로 유지. RED 5 → 지정 10개 파일 139/0, runtime 34·manifest 257·role-policy 36·parity. 호스트 `npm test` 2420 tests / 53 fail로 신규 실패 0건. 필수 QA 대상 아님. 다음: L4 standalone |
+| 2026-11-16 | L4 | 수용 | (이 커밋) | Orchestrator live(gemini 0.68.0, darwin 25.6.0, claude-cli): 임시 HOME에 주입 레지스트리(standalone만 추가 verified)로 `target:'gemini'` standalone 설치 code 0 → `-m gemini-3.5-flash-lite` 메인 세션이 `@` 강제 없이 `invoke_agent` `arc-scouter`로 위임, subagent는 프로필 model `gemini-2.5-flash`로 token 응답(session `d27e1b23`) → 제거 후 ARC 소유 파일 0. skill 활성화 호출은 로그에 없음(GEMINI.md 블록과 subagent 목록으로 위임). 증거 `docs/superpowers/evidence/gemini/standalone-2026-11-16.md`. Implementer bridge `dc452c4d`: `standalone` verified(나머지 5개 off), 운영 `target:'gemini'` 설치 성공과 standalone-off 주입 거부 유지, `target:'all'`의 Gemini 포함(install·preset·uninstall). 영향 테스트 17건은 모두 기대값 변경으로 분류(결함 0): `all` 결과에 Gemini 추가, install/catalog off 주입 레지스트리의 선행 조건 정합, composite upgrade는 비참여 Gemini standalone 유지·프로필 바이트 보존 확인, management 부분 실패 훅은 Codex로 옮겨 부분 성공 보존 검사 유지. 지정 회귀 167/0, PTY 35/3(기준 부록 B #1–3), runtime 34·manifest 257·role-policy 36·parity, assert 감소 0. 호스트 `npm test` 2423 tests / 52 fail로 신규 실패 0건. 필수 QA 대상 아님. 다음: L5 bridge |
+| 2026-11-16 | L5 | 수용 | (이 커밋) | Orchestrator live(gemini 0.68.0, darwin 25.6.0): 임시 HOME에 bridge·compositeRole만 켠 scratch 패키지로 Claude+Codex+Gemini composite publish(Codex는 사용자 승인으로 auth.json 임시 사본 사용, 실제 `~/.codex` 무변경·사본 무변경 확인, Claude는 stub). 1차 실행에서 두 host 모두 session·model 일치·쓰기 0·cancel exit 143이었으나 실제 stream(assistant `delta` 메시지, `result.status`, result 텍스트 없음)과 parser 불일치로 `invalid_output`(U-B3). U-B4는 marker MCP 서버(사용자 settings·확장)로 `-e none --allowed-mcp-server-names __arc_none__` 차단 확인. Implementer bridge `5bf5c0f1`(3 segment): assistant 메시지 연결로 결과 생성·`status !== success` 실패, 격리 인자 전 역할 적용, `bridge` verified(나머지 4개 off, GG1/GG2 fail·resume off 유지), fake-gemini fixture 실제 형식, 회귀 테스트. 수정 코드로 live 재실행: claude-cli `e311ca4a`·codex-cli `faaecd55` completed, 결과 파일 `L5-TOKEN-7e3a` 동일 해시, session=lease UUID, model 일치, 쓰기·HEAD·ref 변경 0, cancel 두 host 정상. 증거 `docs/superpowers/evidence/gemini/bridge-2026-11-16.md`. segment 2에서 README/harness에 들어간 한국어 문장을 영어로 수정(언어 검사 2건). fresh QA bridge `750f5072`: Q2–Q4·Q6 proven, Q1(적대적 stream 실행 미시작)·Q5(비밀값) unverified → Orchestrator가 실제 키 문자열로 증거·diff·커밋 검색 0건 확인, QA 재개로 Q1 적대적 3건 통과 → Q1–Q6 proven. 지정 묶음 122/0, 호스트 `npm test` 2432 tests / 52 fail로 신규 실패 0건. 다음: L6 compositeRole |
+| 2026-11-16 | L6 | 수용 | 86f8370 | Orchestrator live(gemini 0.68.0, darwin 25.6.0): compositeRole만 켠 scratch 패키지로 {claude,gemini}·{claude,codex,gemini} 각각 publish(v2 활성 설정, Claude anchor) → claude-cli(두 조합)·codex-cli(3조합) `routing-status` allow → `prepare-dispatch arc_scouter`가 v2 lease(`targetPlatform:'gemini'`) 기록 후 cancel, `arc_qa`는 `permission_scope_unverified` hold. Codex 인증 임시 사본이 probe로 refresh됨 → 실제 Codex는 세션 `routing-status`에서 `Available` 확인, 사본 삭제. 증거 `docs/superpowers/evidence/gemini/compositeRole-2026-11-16.md`. 영향 probe에서 결함 발견: 기본 composite 집합이 compositeRole 또는 compositeHost verified 플랫폼을 모두 넣어 역할 없는 Gemini가 host 용도로 판정되고 기본 Codex+Claude publish가 `Gemini is not available`로 실패 → 기본 집합을 compositeHost verified 플랫폼 + 역할 플랫폼으로 수정(`lib/management/operations.mjs`, `lib/installer/role-routing.mjs`, 기존 Codex+Claude 기본 동작 유지). Implementer bridge `e8ce2567`: `compositeRole` verified(compositeHost·authProbe·watch off, GG1/GG2 fail), C3 회귀·운영 v2 lease 테스트, 선행 조건 주입 레지스트리 정합. dispatch의 `permission_violation_observed`는 Orchestrator allowedPaths 지정 오류(zsh 미분리로 테스트 경로가 한 문자열)이며 변경 경로는 브리프 허용 목록 안. sandbox `ps` 제한으로 미판정이던 role-bridge-run은 호스트 35/0. fresh QA bridge `f2a5cedf`(2 segment; segment 0은 테스트 자체 임시 디렉터리 정리까지 금지로 해석해 실행 보류 → 지시 정정): Q2·Q3·Q4·Q6 proven, 통합 200/0, C3 테스트는 두 lib 파일을 HEAD로 되돌린 사본에서 FAIL. Q1 HEAD 게시 바이트 직접 비교 unverified → runtime 해시 변경으로 marker 바이트는 본래 달라지며 기본 S 동일·기존 바이트 기대값 통과로 수용. 호스트 `npm test` 2436 tests / 52 fail로 신규 실패 0건. 기록 메모: 이 행은 진행 기록 삽입 스크립트 오류로 구현 커밋 `86f8370`에서 빠져 이후 커밋에 포함됨. 다음: FR2 |
+| 2026-11-16 | L7(v5) | no-change 유지 | — | v5에서 L2·L4–L6 수용 뒤에도 앞선 L7 no-change 결정 유지: compositeHost off, GG1·GG2 `fail`. Gemini는 역할로만 composite 참여, host 불가 |
+| 2026-11-16 | FR2 | 수용 | (이 커밋) | Reviewer native `95193634`(범위 `a163358..86f8370`): R1–R6 proven, R7 unmet(F1 Medium — L4 이후 `GEMINI_CLI_HOME` 설정 시 management `target:'all'` install/preset/uninstall 전체 거부, Orchestrator 재현). Implementer bridge `740866b1`(3 segment): install·preset `all`은 home 해석 불가 플랫폼을 건너뛰고 결과에 `skipped`와 원 오류로 보고(모든 플랫폼 동일 규칙, Claude/Codex도 거부→보고로 변경), uninstall `all`은 그 경우 계획 전 거부(`Cannot uninstall everything: …`), 단일 target 불변. 재확인 1회차 N1 Medium(무보고 skip·uninstall 부분 해체) → 위 규칙으로 교정, 2회차 N1 resolved, 3회차 I1(README·harness에서 `all` 포함 사실 복원) resolved. F6(b) catalog 증거 커밋 표기 정정(`a163358` live, `080bb54` 선택 함수). 회귀 테스트 `gemini-platform.test.mjs`(assert 102→136), 지정 검사 73/0, manifest 257. 호스트 `npm test` 2445 tests / 52 fail, 기준선 54건 밖 신규 실패 0. 후속 과제: F2(Gemini assistant 텍스트 턴 구분·`result` 뒤 메시지·누적 상한), F3(요청과 다른 모델이 응답하는 카탈로그 모델의 bridge model 검사), F4(표 밖 discover 함수의 `ANTHROPIC_API_KEY` fallback), F5(Gemini 역할 제거 시 오해 소지 오류), F6(a)(c)(d), L1(`GEMINI_CLI_HOME` 설정 시 TUI Everything 항상 거부), I2(전부 unresolved면 plan 0개 code 0), 이전 F3·N1·N2·U-B7·U-B9 |
+| 2026-11-17 | 개정 v6 | 승인 | (이 커밋) | 사용자 결정 16: `docs/superpowers/evidence/` 전체 삭제. spec v5(9.1, 9.3, AC-V1, AC-V2, P-B8), plan v6(Task EV, Step C, 부록 A) Orchestrator 개정 |
+| 2026-11-17 | EV | 수용 | (이 커밋) | Implementer bridge `03e652a4`(segment 0은 패치 도구 오류로 무변경 반환 → 파일별 적용 지시로 resume): 증거 파일 7개와 빈 디렉터리 삭제, `gemini-capability-evidence.test.mjs`를 고정 verified 6개·range `>=0.68.0 <0.69.0`·live accepted 4개·rejected 2개 검사와 음성 사례로 교체(assert 36→17, 파일 형식 파싱 검사 제거), README·harness 증거 링크와 기록 위치 문구 변경, MANIFEST README 해시 1행. 지정 검사 50/0, hardcoding 11/0, manifest 257, role-policy 36, runtime 34, parity 통과. 호스트 `npm test` 2442 tests / 52 fail, 기준선 54건 밖 신규 실패 0. 남은 `superpowers/evidence` 문자열은 plan/spec의 이력·개정 기록뿐. 증거 원문은 `084d80f`까지의 Git 이력 |
+
+### 부록 A — T8 anchor 이관 old → new 대응표
+전체 대응표(549행)는 `docs/superpowers/evidence/phase-b/t8-anchor-correspondence.md`에 있었고, v6(결정 16)에서 삭제했습니다. 원문은 커밋 `084d80f`까지의 Git 이력에서 볼 수 있습니다. 기준 HEAD `219b4b7`, Step 1 grep 65개 파일·461개 일치와 grep 밖 추가 단언 89행입니다.
+
+| 분류 | 행 수 |
+|---|---|
+| 경로만 변경 | 160 |
+| 의미 변경 | 114 |
+| 무변경 | 255 |
+| legacy로 보존 | 21 |
+
+- 의미 변경 행의 대체 케이스: Claude 추가·제거 시 실제 anchor 이동 2건(`derive-install-plan.test.mjs`), 역방향 displayOrder 주입 사례, N-platform 이동은 `{codex,zeta}`에 Claude가 참여하는 경우로 교체, v1 바이트 재직렬화 단언은 v1 읽기 + v2 출력 단언으로 교체(`role-routing-config.test.mjs`).
+- Orchestrator 확인: 이관된 테스트 파일 전부에서 HEAD 대비 assert 호출 수 감소 0건.
+
+legacy로 보존 행:
+
+| 파일:행 | old 단언 | new 단언 | 분류 |
+|---|---|---|---|
+| tests/node/anchor-migration.test.mjs:35 | `test('legacy v1 at codex home is composite with legacyAnchor', async t => {` | `test('legacy v1 at codex home is composite with legacyAnchor', async t => { — T7 보존 테스트: legacy v1 at codex home is composite with legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:37 | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',` | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', — T7 보존 테스트: legacy v1 at codex home is composite with legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:39 | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true});` | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true}); — T7 보존 테스트: legacy v1 at codex home is composite with legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:68 | `await createLease(targets.codex.home, legacyLease('history', 'completed'), context);` | `await createLease(targets.codex.home, legacyLease('history', 'completed'), context); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:69 | `fs.writeFileSync(path.join(targets.codex.home, 'arc-role-dispatch/history.cancel'), 'preserve history');` | `fs.writeFileSync(path.join(targets.codex.home, 'arc-role-dispatch/history.cancel'), 'preserve history'); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:70 | `const history = homeBytes(path.join(targets.codex.home, 'arc-role-dispatch'));` | `const history = homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:71 | `const metadata = storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch'));` | `const metadata = storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch')); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:81 | `assert.deepEqual(homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')), history);` | `assert.deepEqual(homeBytes(path.join(targets.codex.home, 'arc-role-dispatch')), history); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:82 | `assert.deepEqual(storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch')), metadata);` | `assert.deepEqual(storeMetadata(path.join(targets.codex.home, 'arc-role-dispatch')), metadata); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:83 | `assert.ok(result.messages.includes(\`Dispatch history stays in ${targets.codex.home}/arc-role-dispatch.\`));` | `assert.ok(result.messages.includes(\`Dispatch history stays in ${targets.codex.home}/arc-role-dispatch.\`)); — T7 보존 테스트: legacy Install/Update moves anchor to claude (${kind})` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:111 | `const context = await legacyComposite(t), home = resolveTargets(context).targets.codex.home, lease = legacyLease('finish-first', 'running');` | `const context = await legacyComposite(t), home = resolveTargets(context).targets.codex.home, lease = legacyLease('finish-first', 'running'); — T7 보존 테스트: legacy migration held then succeeds after lease terminal` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:115 | `const history = homeBytes(path.join(home, 'arc-role-dispatch'));` | `const history = homeBytes(path.join(home, 'arc-role-dispatch')); — T7 보존 테스트: legacy migration held then succeeds after lease terminal` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:117 | `assert.deepEqual(homeBytes(path.join(home, 'arc-role-dispatch')), history);` | `assert.deepEqual(homeBytes(path.join(home, 'arc-role-dispatch')), history); — T7 보존 테스트: legacy migration held then succeeds after lease terminal` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:152 | `for (const result of [await routingStatus({context, policy}), await prepareRoleDispatch({context, policy, expectedRevision: 'legacy-v1', assignment: {role: 'arc_planner', taskId: 'T7', requestId: 'legacy-runtime'}})]) {` | `for (const result of [await routingStatus({context, policy}), await prepareRoleDispatch({context, policy, expectedRevision: 'legacy-v1', assignment: {role: 'arc_planner', taskId: 'T7', requestId: 'legacy-runtime'}})]) { — T7 보존 테스트: runtime under legacy is activation_unverified and creates no files` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:179 | `test('operational order: codex v1 at codex home stays normal composite without legacyAnchor', async t => {` | `test('injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor', async t => { — T7 보존 테스트: injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:181 | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, platforms: ['codex', 'claude']}, residualPaths: []});` | `assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, platforms: ['codex', 'claude']}, residualPaths: []}); — T7 보존 테스트: injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/anchor-migration.test.mjs:182 | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex'});` | `assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex'}); — T7 보존 테스트: injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:15 | `...descriptor, anchorOrder: descriptor.id === 'claude' ? 0 : descriptor.id === 'codex' ? 1 : descriptor.anchorOrder,` | `...descriptor, anchorOrder: descriptor.id === 'claude' ? 0 : descriptor.id === 'codex' ? 1 : descriptor.anchorOrder, — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:23 | `export const activePath = (context, id) => path.join(resolveTargets(context).targets[id].home, 'arc-role-platform-routing.json');` | `export const activePath = (context, id) => path.join(resolveTargets(context).targets[id].home, 'arc-role-platform-routing.json'); — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:30 | `const prepared = await management.prepareCompositeOperation(context, {kind: 'install', platforms: ['codex', 'claude'], config: await mixedConfig('legacy-v1')});` | `const prepared = await management.prepareCompositeOperation(context, {kind: 'install', platforms: ['codex', 'claude'], config: await mixedConfig('legacy-v1')}); — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+| tests/node/fixtures/legacy-composite.mjs:52 | `hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'legacy-v1', profileHash: null, argsDigest: null,` | `hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'legacy-v1', profileHash: null, argsDigest: null, — T7 보존 테스트: T7: legacy v1 at codex home is composite with legacyAnchor; legacy Install/Update moves anchor to claude (install/preset); injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor` | legacy로 보존 |
+
+
+### 부록 B — 기준 실패 36건
+`739da7f`에서 Orchestrator가 실행한 `npm test`(2220 tests, 2169 pass, 36 fail, 15 skipped)의 실패 이름입니다. `bare arc opens English TUI …`는 인자만 다른 3건입니다.
+
+1. `bare arc opens English TUI and restores PTY after "\\u0003"`
+2. `bare arc opens English TUI and restores PTY after "\\u0004"`
+3. `bare arc opens English TUI and restores PTY after "\\u001b"`
+4. `Claude allowed external skill link becomes independent and rollback restores original literal link`
+5. `claude applies existing gates only when triggered without adding new obligations`
+6. `claude contracts have explicit destinations and before-action gates`
+7. `claude en skipGlobal=false preserves public rendering baseline`
+8. `claude en skipGlobal=true preserves public rendering baseline`
+9. `claude installed endpoint preserves workflow guards without package dependencies`
+10. `claude ko skipGlobal=false preserves public rendering baseline`
+11. `claude ko skipGlobal=true preserves public rendering baseline`
+12. `codex applies existing gates only when triggered without adding new obligations`
+13. `codex contracts have explicit destinations and before-action gates`
+14. `codex en skipGlobal=false preserves public rendering baseline`
+15. `codex en skipGlobal=true preserves public rendering baseline`
+16. `Codex existing root field edits preserve indentation, comments and nested fields`
+17. `codex installed endpoint preserves workflow guards without package dependencies`
+18. `codex ko skipGlobal=false preserves public rendering baseline`
+19. `codex ko skipGlobal=true preserves public rendering baseline`
+20. `failed acquired directory metadata verification retains originals before publication`
+21. `generated global upgrade preserves settings, reports partial failure, retries newer version and npx applies displayed latest version`
+22. `packed all-target install preserves distinct omitted platform limits independently`
+23. `packed help, metadata and service preparation leave real homes untouched`
+24. `packed instruction references install with valid links for both platforms in custom spaced homes`
+25. `packed management installs, changes models and removes without a global arc`
+26. `packed reinstalls synchronize managed trees, preserve unrelated content without backups`
+27. `packed tarball executes every target with active roles without Python or source access`
+28. `packed temporary-HOME limit install, reinstall, drift selection and uninstall preserve native keys`
+29. `packed transaction rolls back real published targets and cleans owned rollback stages`
+30. `profile models, permissions, canonical policy and CLI/runtime bytes are preserved`
+31. `publishes both flat platforms and manifest consistently without replacing ARC-owned files`
+32. `read-only packed modes never invoke Git and package metadata stays protected`
+33. `release consumer opens TUI only on explicit launch and installs independent platform endpoints`
+34. `scripts-disabled packed install uses static references in custom CODEX_HOME without rewriting readonly package`
+35. `staging populates acquired nested 0555/0500 directories before restoring metadata`
+36. `uninstall failure, cleanup error or interruption skips CLI removal and retains partial harness results`
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-16 (계획 승인) | 초기 승인 | — | — |
+| v2 | 2026-11-16T00:42:34Z | 범위·수용 기준·검증 변경 | T3, T8, QA 대상 목록 | spec v2(결정 11): F6을 현행 정책 유지 + 판정 일치 테스트·문서화로 변경. T3는 테스트·문서만, 필수 QA 해제 |
+| v3 | 2026-11-16 (사용자 결정 12) | 수용 기준 변경 | T11 | spec v3: `role-policy.json` `platforms.gemini` 항목 추가 허용(AC-R1 개정). 수용 기준 개정에 따라 T11은 fresh Implementer로 이어받음 |
+| v4 | 2026-11-16T12:47:50Z (사용자 결정 13) | 범위·수용 기준 변경 | L2(재개), L4–L6 | 무료 API 키 진행 결정. live에서 `gemini-2.5-pro`가 신규 사용자에게 거부되어 카탈로그를 수락 모델 `[gemini-2.5-flash, gemini-3.1-flash-lite]`로 확정하고 다섯 역할 기본 모델을 `gemini-2.5-flash`로 바꿈. L2 Step C 범위에 `models.toml`·`gemini/agents` 추가. 앞선 L2 no-change 기록은 이력으로 유지하고 L2를 재개, 선행 관계에 따라 L4–L6도 재개 대상. spec 변경 없음(5.3 "증거로 확정"과 일치) | → 승인 전 v5로 흡수됨
+| v5 | 2026-11-16T13:12:29Z (사용자 결정 14, 15) | 범위·수용 기준·검증 변경 | T15(신규), L2, L4–L6, FR2(신규), QA 대상 목록 | spec v4: Gemini 카탈로그 노출을 Claude/Codex와 같게(정적 JSON 전체 GA 모델 + `discoverGeminiCatalog`). 유료 모델은 listing + quota 거부(429/503)만 있으면 listed, 명시 거부 제외, preview 전부 제외. L2 Step A에 API listing·미시도 후보 실행 추가, Step C를 증거 분류 기반 카탈로그와 기본 모델 `gemini-2.5-flash`로 개정. T15 필수 QA. FR 이후 변경은 FR2로 검토. v4의 2개 모델 확정 문구는 v5 규칙으로 대체 |
+| v6 | 2026-11-17 (사용자 결정 16) | 범위·검증 변경 | EV(신규) | spec v5: 증거 파일 삭제, 증거 기록 위치를 진행 기록·커밋 메시지로, 증거 테스트를 registry·카탈로그 고정 검사로 교체(9.1, 9.3, AC-V1, AC-V2, P-B8) |

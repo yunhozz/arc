@@ -1,0 +1,3 @@
+{"type":"init","session_id":"SESSION_ID","model":"gemini-test"}
+{"type":"future_event","payload":{"untouched":"raw event"}}
+{"type":"result","session_id":"SESSION_ID","result":"Gemini result"}

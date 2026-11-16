@@ -17,7 +17,7 @@ export function makeHomes(t) {
   };
   const jsonl = lines => lines.map(line => typeof line === 'string' ? line : JSON.stringify(line)).join('\n') + '\n';
   return {
-    root, userHome, codexHome, claudeHome,
+    root, userHome, codexHome, claudeHome, storeDir:path.join(codexHome, 'arc-role-dispatch'),
     writeRollout(dateParts, name, lines, {mtime} = {}) {
       return write(path.join(codexHome, 'sessions', ...dateParts.map(String), name), jsonl(lines), mtime);
     },
@@ -30,7 +30,14 @@ export function makeHomes(t) {
       }
       return file;
     },
-    writeLease(lease) { return write(path.join(codexHome, 'arc-role-dispatch', `${lease.dispatchId}.json`), JSON.stringify(lease)); },
+    writeLease(lease, home = codexHome) { return write(path.join(home, 'arc-role-dispatch', `${lease.dispatchId}.json`), JSON.stringify(lease)); },
+    writeMarker(platform, home, anchorHome = home, overrides = {}) {
+      const hash = 'sha256:' + 'a'.repeat(64);
+      const marker = {version:1, revision:'test-revision', platform, targetHome:home,
+        activeConfigPath:path.join(anchorHome, 'arc-role-platform-routing.json'), configHash:hash,
+        runtime:{version:'1', hash, policyHash:hash}, profiles:{}, ...overrides};
+      return write(path.join(home, 'arc-role-platform-routing.prepared.json'), JSON.stringify(marker));
+    },
     writeArtifacts(gitCommonDir, workflowId, dispatchId, files) {
       const dir = path.join(gitCommonDir, 'arc', 'workflows', workflowId, dispatchId);
       for (const [name, contents] of Object.entries(files)) write(path.join(dir, name), typeof contents === 'string' ? contents : JSON.stringify(contents));

@@ -1,6 +1,6 @@
 # ARC — Agent Role Coordination
 
-ARC coordinates work in Codex and Claude Code through scoped roles, clear handoffs, and verification.
+ARC coordinates scoped roles, handoffs, and verification in Claude Code, Codex, and Gemini CLI.
 
 ![ARC workflow](docs/images/role-flow.svg)
 
@@ -17,48 +17,82 @@ ARC coordinates work in Codex and Claude Code through scoped roles, clear handof
 
 ## Install
 
-**Requirements:** Node.js 22+, npm, Git, and network access. Supported platforms: macOS 13+ and Linux with glibc 2.28+ (arm64 or x64). Windows and musl Linux are not supported. Python, a compiler, and `node-gyp` are not required.
+| Requirement | Support |
+|---|---|
+| Tools | Node.js 22+, npm, Git, network access |
+| OS | macOS 13+ or Linux glibc 2.28+; no Windows or musl |
+| CPU | arm64 or x64 |
+| Homes | Symlinked platform homes or parents are refused for install, publication, and routing locks |
 
 ```sh
 npm install --global @yunhozz/arc
 arc
+# Without a global install:
+npx --yes @yunhozz/arc
 ```
 
-Package installation provides the CLI, not the harness. Install or manage the harness in the interactive TUI. To open it without a global install, run `npx --yes @yunhozz/arc`.
+The package provides the CLI; use the TUI to install the harness. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; only the TUI requires terminal input/output.
 
 ## Manage ARC
 
-- **Install or update:** Choose Codex, Claude Code, or both in `Install / Update`, edit each role, then select `Apply`. `Settings` configures language, subagent limits, and global configuration for installation. `Change Models` edits role models and efforts.
-- **Version:** `Check Version` shows `<current> → <latest>` with `Upgrade` when an upgrade is available, `Up to date (<current>)` for the current version, or current/latest details and any lookup error otherwise. `Upgrade` preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
-- **Uninstall:** Choose `Codex`, `Claude`, or `Everything (incl. CLI)`, then confirm with `Remove` (the default is `Back`). `Back` returns to Uninstall; Esc returns home. Everything removes both harnesses and the global CLI only if harness removal succeeds. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
+| Home action | Effect |
+|---|---|
+| Install / Update | Edit role platform/model/effort, Hosts, and Settings; `Apply` publishes; new sessions load profiles. Defaults: English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
+| Check Version | Shows current/latest or lookup failure; `Upgrade` preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
+| Uninstall | Remove a platform or `Everything (incl. CLI)` after confirmation (default `Back`); removing a Mixed participant restores others to standalone. Everything filters verified install/standalone platforms and removes CLI only after harness success. Unselected harnesses/user files remain. CLI only: `npm uninstall -g @yunhozz/arc` |
 
-The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.
+| Mode | Rule |
+|---|---|
+| Standalone | S = role platforms ∪ hosts; one participant |
+| Mixed (…) | Two or more participants; hosts may have no roles; anchor order: Claude > Codex > Gemini |
+| Unverified | `Apply` blocked; inspect inconsistent files/residual paths |
 
 ## Watch sessions
 
 ![arc watch flow](docs/images/watch-flow.svg)
 
-`arc watch` streams Claude Code and Codex activity read-only. Default scope: the current Git worktree, or the current directory outside Git. Each event follows its session's working directory at that point, so a session that moves into another worktree appears in that worktree's watch instead. Skills and plugin tools in use are shown as SKILL and PLUGIN lines.
+| Visibility | Behavior |
+|---|---|
+| Shown | Claude Code/Codex activity, full messages, one-line other events, SKILL/PLUGIN lines, dispatch records |
+| Hidden | Tool/command outputs; reasoning unless verbose; common secrets masked incompletely |
+| Excluded | Codex Desktop sessions; held bridges have no running activity |
+| Scope | Current Git worktree or directory outside Git; events follow session cwd. Markers select the anchor store; legacy Codex fallback; conflicting anchors: `dispatch store ambiguous`; old-store history is not merged |
 
-- **Shown:** user and agent messages in full; other events on one line.
-- **Hidden:** tool and command outputs. Common secret patterns are masked, but masking is not complete.
-- **Excluded:** Codex Desktop sessions. Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise `host_sandbox_blocked`) and appear once they run; Claude bridge Implementer and QA stay held.
-
-Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl-L to clear the screen and Ctrl-C to stop.
+`arc watch --help` lists scope/history/platform/JSON options; Ctrl-L clears, Ctrl-C stops.
 
 ## Models and language
 
 ![Role models and platforms](docs/images/role-models.svg)
 
-- **Orchestrator:** the current conversation model.
-- **Specialist roles:** active settings in [Codex](codex/skill/models.toml) or [Claude Code](claude/skill/models.toml); edit them with `Change Models`.
-- **Claude & Codex:** each role runs on either platform. New configurations put Planner and Reviewer on Claude and the rest on Codex. `Apply` publishes; start a new session to load new profiles.
-- **Catalogs:** model and effort choices come from packaged catalogs, with no API key or model-list call; a choice is not proof that your account can use it.
-- **Language:** the TUI is in English; the selected response language applies to agents in new sessions.
-- **Execution support:** `claude-cli` hosts run native roles and Codex bridges. `codex-cli` hosts run native roles and Claude bridges for Scouter, Planner and Reviewer after per-call escalation approval, which every runtime command needs there, native roles included (a refused approval or denied `CODEX_HOME` write is `host_sandbox_blocked`); Claude bridge Implementer and QA roles stay held as `permission_scope_unverified`. Declare `codex-cli` or `claude-cli` for terminal sessions, including IDE terminals; use a `-desktop` value only inside a Desktop app, never because of a path such as `~/Desktop`. On Desktop, every role (native and bridge) is held as `environment_unverified` pending a future ARC update. After upgrading to `cooperative-9`, run Install / Update again. `executionEnvironment` is declared by the caller and not verified by the runtime; declaring a CLI value inside Desktop bypasses the hold, so confirmed Desktop sessions must declare the Desktop value.
+| Setting | Details |
+|---|---|
+| Orchestrator model | Current conversation |
+| Specialist models | Installed [Claude](claude/skill/models.toml), [Codex](codex/skill/models.toml), [Gemini](gemini/skill/models.toml) settings; edit through role boxes |
+| Catalogs | Packaged candidates only; no model-list call/API key; no proof of account availability |
+| Language | English TUI; selected agent response language applies in new sessions |
 
-Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
+## Platform and environment support
+
+| Platform | Host? | Native roles | Bridges to this platform | Authentication |
+|---|---|---|---|---|
+| Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA held: `permission_scope_unverified` | `claude auth status` |
+| Codex | Yes | Supported on CLI | From Claude; permissions claim capped at `operator-attested` | `codex app-server` refresh rotates `auth.json`; network required |
+| Gemini | No | Standalone verified | Read roles verified; write roles held: `permission_scope_unverified` | No probe; `unknown`, `auth unverified` warning |
+
+| executionEnvironment | Support and obligations |
+|---|---|
+| `claude-cli` | Native roles and Codex bridges |
+| `codex-cli` | Native roles and Claude read-role bridges; every runtime call needs escalation approval, including native calls; refusal/denied `CODEX_HOME` write: `host_sandbox_blocked`. Runtime does not check approval |
+| `claude-desktop`, `codex-desktop` | All native/bridge roles held: `environment_unverified` until a future ARC update |
+
+`executionEnvironment` is caller-declared, not runtime-verified: use CLI values for terminal/IDE sessions, Desktop values for confirmed Desktop apps, never infer from paths. A false CLI declaration bypasses the Desktop hold.
+
+## Upgrade
+
+- Re-run `Install / Update` after upgrading, including `cooperative-9`; in-flight workflow version mismatches hold with `cooperative.versions`, without automatic migration.
+- Existing Codex+Claude composites move to the Claude home; finish/cancel non-terminal dispatches in either store before applying. Old Codex dispatch history stays there.
+- After downgrading, run the older version's `Install / Update` to restore its composite layout.
 
 ## Guides
 
-[Harness operation](docs/harness-operation.md) · [Codex guide](codex/skill/SKILL.md) · [Claude Code guide](claude/skill/SKILL.md)
+[Harness operation](docs/harness-operation.md) · [Codex](codex/skill/SKILL.md) · [Claude Code](claude/skill/SKILL.md) · [Gemini CLI](gemini/skill/SKILL.md)

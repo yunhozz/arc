@@ -1,3 +1,4 @@
+import {isPlatformId} from './platform-registry.mjs';
 import {validateWorkflowState, text} from './schema.mjs';
 import {ROLES} from './operations.mjs';
 import fs from 'node:fs/promises';
@@ -31,7 +32,7 @@ export function registerAgentObservation(state, observation){
 
 /** A raw start is audit only; verified correlation may bind an existing assignment. */
 export async function recordPlannerAgentObservation({statePath,expectedRevision,input,platform,sessionRef,observation}={}){
- if(!path.isAbsolute(statePath??'')||input?.hook_event_name!=='SubagentStart'||input.session_id!==sessionRef||!text(sessionRef)||!text(input.agent_id)||!['codex','claude'].includes(platform))throw Error('Trusted observation target and complete start required');
+ if(!path.isAbsolute(statePath??'')||input?.hook_event_name!=='SubagentStart'||input.session_id!==sessionRef||!text(sessionRef)||!text(input.agent_id)||!isPlatformId(platform))throw Error('Trusted observation target and complete start required');
  const parent=await fs.realpath(path.dirname(statePath));statePath=path.join(parent,path.basename(statePath));let lock;
  try{
   lock=await fs.open(statePath+'.lock','wx',0o600);const stat=await fs.lstat(statePath);if(!stat.isFile()||stat.isSymbolicLink())throw Error('Observation state must be regular file');

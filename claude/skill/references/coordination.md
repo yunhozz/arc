@@ -19,11 +19,11 @@ Orchestrator is depth 1. All five specialists report directly at depth 2 without
 
 ### Execution mode
 
-Before the first specialist creation or assignment, check whether `arc-role-platform-routing.prepared.json` exists in the platform home that contains this skill (`../../arc-role-platform-routing.prepared.json` relative to this skill directory). If it exists, ARC runs in `Claude & Codex` mode: follow [Composite Platform Role Dispatch](#composite-platform-role-dispatch) for every role, starting with `routing-status`, and use only the profile or bridge it returns. NEVER invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed. Otherwise use the standalone names below.
+Before the first specialist creation or assignment, check whether `arc-role-platform-routing.prepared.json` exists in the platform home that contains this skill (`../../arc-role-platform-routing.prepared.json` relative to this skill directory). If it exists, ARC runs in `Mixed routing` mode: follow [Composite Platform Role Dispatch](#composite-platform-role-dispatch) for every role, starting with `routing-status`, and use only the profile or bridge it returns. NEVER invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed. Otherwise use the standalone names below.
 
 Standalone native names: Scouter=`arc-scouter`, Planner=`arc-planner`, Implementer=`arc-implementer`, QA=`arc-qa`, Reviewer=`arc-reviewer`.
 
-Composite native names (`Claude & Codex`): Claude-routed roles use `arc-routing-<suffix>`, Codex-routed roles use `arc_routing_<suffix>`; the suffix is the role name. NEVER pass a model argument when spawning them.
+Composite native names (`Mixed routing`): Markdown-profile platforms use `arc-routing-<suffix>`; Codex uses `arc_routing_<suffix>`; the suffix is the role name. NEVER pass a model argument when spawning them.
 
 Obey concurrency limits across the tree, including Scouter. No reserved role slots. Read limits before first creation and maintain cumulative ledger/reservations. Parallelize independent tasks only; dependent handoffs are sequential and edit scopes never overlap.
 
@@ -116,7 +116,7 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 
 ## Composite Platform Role Dispatch
 
-`Claude & Codex` keeps the current session as the Orchestrator. Each role runs either as a native `arc-routing-*` profile on the host or as a bridge: a child process of the peer CLI started by the runtime. Invoke `$ARC_RUNTIME_ENTRY` as described in [planning](planning.md#approved-cooperative-execution-path-within-the-repository): `node "$ARC_RUNTIME_ENTRY" <command> --cwd <absolute worktree> --workflow <workflow ID> --input -`, with one JSON object on stdin. Output is one JSON line. Exit codes: allow 0, deny 2, hold 3, error 1. Every input is validated against an exact key set; a missing or unknown key is denied with `invalid_request`. `hostPlatform` (`codex` or `claude`) and `executionEnvironment` (`codex-cli`, `claude-cli`, `codex-desktop`, or `claude-desktop`) are caller-provided claims, not host attestations.
+`Mixed routing` keeps the current session as the Orchestrator. Each role runs either as a native `arc-routing-*` profile on the host or as a bridge: a child process of the peer CLI started by the runtime. Invoke `$ARC_RUNTIME_ENTRY` as described in [planning](planning.md#approved-cooperative-execution-path-within-the-repository): `node "$ARC_RUNTIME_ENTRY" <command> --cwd <absolute worktree> --workflow <workflow ID> --input -`, with one JSON object on stdin. Output is one JSON line. Exit codes: allow 0, deny 2, hold 3, error 1. Every input is validated against an exact key set; a missing or unknown key is denied with `invalid_request`. `hostPlatform` (`codex` or `claude`) and `executionEnvironment` (`codex-cli`, `claude-cli`, `codex-desktop`, or `claude-desktop`) are caller-provided claims, not host attestations.
 
 Choose `executionEnvironment` by where the session actually runs: a terminal CLI or TUI session, including one in an IDE integrated terminal, is `codex-cli` or `claude-cli`; use `codex-desktop` or `claude-desktop` only when the session is confirmed to run inside the Desktop app. NEVER infer the environment from paths or directory names (for example `~/Desktop/...`). When unsure, declare the CLI value.
 
@@ -133,7 +133,7 @@ Rules:
 
 - Bridge children receive the profile instructions only and NEVER load ARC `SKILL.md`. Role instructions forbid re-delegation. Claude children expose no Task tool.
 - Fixed timeouts: `arc_implementer` 60 minutes, `arc_qa` 30 minutes, others 20 minutes. At timeout the child group is terminated; `failed` is recorded only after observed exit, otherwise `unknown`.
-- `unknown` (`terminal_state_unverified`) keeps its slot and is never released or re-run automatically. After a supervisor loss, inspect the dispatch in `<CODEX_HOME>/arc-role-dispatch/` and its artifacts under `<gitCommonDir>/arc/workflows/<workflowId>/dispatches/<dispatchId>/` and perform manual cleanup. ARC does not delete or release such leases, nor residual lock files, automatically; it reports them. Only leases in `completed`, `failed` or `cancelled` for more than 30 days are pruned.
+- `unknown` (`terminal_state_unverified`) keeps its slot and is never released or re-run automatically. After a supervisor loss, inspect the dispatch in `<anchor home>/arc-role-dispatch/` and its artifacts under `<gitCommonDir>/arc/workflows/<workflowId>/dispatches/<dispatchId>/` and perform manual cleanup. ARC does not delete or release such leases, nor residual lock files, automatically; it reports them. Only leases in `completed`, `failed` or `cancelled` for more than 30 days are pruned.
 - Active bridge dispatches block publishing the composite configuration (`Active bridge dispatches: <ids>`); finish or cancel them first. Native leases do not block.
 - `execution_identity_unverified` (no session ID was obtained) is recorded by the supervisor after exit and exposed by `observe`; `resume` holds with it for a dispatch without a session ID. The `run-dispatch` response and `prepare-dispatch` never carry it.
 - A leftover orphaned process group after the child leader exits by itself is reaped (SIGTERM, grace, then SIGKILL) before the post-run snapshot is taken, and `orphanGroupReaped` is recorded; if the group cannot be observed gone the dispatch is `unknown` (`terminal_state_unverified`) and keeps its slot.
@@ -145,3 +145,5 @@ Rules:
 - On a Codex host ask the user for escalation approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs, because each may write `CODEX_HOME`. The runtime does not check this approval; asking for it is an Orchestrator obligation. Without approval or on failure the result is `host_sandbox_blocked`.
 - There is no automatic fallback, substitution or retry. On any hold, deny or failure, report the reasons and release conditions and DO NOT use another model or platform. Run `routing-status` again only after the condition changed. Bridge dispatches count in the instance ledger; see [limits](limits.md).
 - After an ARC upgrade that changes the cooperative runtime version, run Install / Update again; until then routing holds as `activation_unverified`.
+
+Dispatch history created before an anchor move stays in the old anchor home.

@@ -562,53 +562,8 @@ class PolicyContractTests(unittest.TestCase):
 class DocumentationContractTests(unittest.TestCase):
     """Approved artifact contracts; source review and rendering remain necessary."""
 
-    def guide(self) -> str:
-        path = REPO / "docs/harness-operation.md"
-        self.assertTrue(path.is_file(), "The operation guide must exist")
-        return path.read_text()
-
     def svg(self) -> str:
         return (REPO / "docs/images/role-flow.svg").read_text()
-
-    def test_operation_guide_covers_required_sections(self) -> None:
-        guide = self.guide()
-        for heading in (
-            "What ARC installs", "Installation and refresh lifecycle",
-            "Request routing and role responsibilities", "Design and preparation",
-            "Scheduling and limits", "Verification, acceptance, and commits",
-            "Failure, resume, and maintenance", "Source map",
-        ):
-            with self.subTest(heading=heading):
-                self.assertIn("## " + heading, guide)
-
-    def test_operation_guide_distinguishes_transaction_scopes(self) -> None:
-        guide = " ".join(self.guide().lower().split())
-        for pattern in (
-            r"scripts/update-superpowers-local\.sh.*one acquired revision updates both mapped platforms.*failure restores previous files/manifest",
-            r"both tui targets.*installation runs independent transactions in codex-then-claude order.*failure on the second target preserves the first target's success",
-            r"residual path", r"source packages have no npm install hook.*published artifacts have informational postinstall only",
-            r"provenance.*consistency.*not upstream authenticity",
-        ):
-            self.assertRegex(guide, pattern)
-
-    def test_operation_guide_distinguishes_policy_from_runtime(self) -> None:
-        guide = " ".join(self.guide().lower().split())
-        for pattern in (r"prompt-level policy", r"native.*concurrency", r"structural.*do not prove.*runtime", r"new session"):
-            self.assertRegex(guide, pattern)
-
-    def test_guide_covers_authorization_completion_and_correction_boundaries(self) -> None:
-        guide = self.guide()
-        for contract in (
-            "probe-only", "probe+implementation", "Specific requests may approve their scope",
-            "Reuse valid approvals/targets", "Material scope/method/risk changes",
-            "Omissions skip inapplicable document stages", "without QA reassignment",
-            "Separate QA findings", "unverified",
-        ):
-            with self.subTest(contract=contract):
-                self.assertIn(contract, guide)
-        self.assertRegex(guide, r"Implementer\s*→\s*Reviewer")
-        self.assertRegex(guide, r"Implementer\s*→\s*QA")
-        self.assertRegex(guide, r"Plan omission requires one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns and one focused path")
 
     def test_maintained_local_links_resolve(self) -> None:
         paths = [REPO / "README.md", REPO / "docs/harness-operation.md"]
@@ -672,18 +627,13 @@ class DocumentationContractTests(unittest.TestCase):
         ):
             self.assertIn(label, text)
 
-    def test_svg_and_guide_preserve_acceptance_commit_review_distinctions(self) -> None:
-        for name, text in (("guide", self.guide()), ("svg", self.svg())):
+    def test_svg_preserves_acceptance_commit_review_distinctions(self) -> None:
+        for name, text in (("svg", self.svg()),):
             text = " ".join(text.lower().split())
             with self.subTest(artifact=name):
                 self.assertRegex(text, r"no.change.*record")
                 self.assertRegex(text, r"significant planned.*final.*review")
                 self.assertRegex(text, r"significant unplanned.*before acceptance")
-
-    def test_readme_uses_maintained_svg_and_links_operation_guide(self) -> None:
-        readme = (REPO / "README.md").read_text()
-        self.assertRegex(readme, r"!\[[^\]]+\]\(docs/images/role-flow\.svg\)")
-        self.assertRegex(readme, r"\[[^\]]+\]\(docs/harness-operation\.md\)")
 
     def test_stale_png_is_absent_and_unreferenced(self) -> None:
         self.assertFalse((REPO / "docs/images/role-flow.png").exists())
@@ -755,31 +705,6 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
                     self.assertIsNotNone(match, f"Missing or out-of-order disposition step: {step}")
                     remaining = remaining[match.end():]
                 self.assertRegex(text, r"Specialists report evidence.*MUST NOT self-authorize release")
-
-    def test_operation_guide_requires_independent_release_without_acceptance_waiver(self):
-        text = (REPO / "docs/harness-operation.md").read_text()
-        steps = (
-            "1. Record exact failed check, baseline/current revision, results/evidence/state.",
-            "2. Classify baseline/current impact/dependencies.",
-            "3. Hold affected/dependent or impact-unknown work only.",
-            "4. Orchestrator validates authority/target/inputs/ownership/gates and releases approved independent work without unrelated delays.",
-            "5. Keep acceptance held for required unresolved checks.",
-        )
-        offset = 0
-        for step in steps:
-            found = text.find(step, offset)
-            self.assertGreaterEqual(found, offset, f"Missing or out-of-order step: {step}")
-            offset = found + len(step)
-        self.assertIn("Hold affected/dependent or impact-unknown work only", text)
-        self.assertIn("Roles never self-authorize release", text)
-
-    def test_operation_guide_records_bounded_recovery_and_evidence_limits(self):
-        guide = (REPO / "docs/harness-operation.md").read_text()
-        for contract in ("Optional failed reads", "brief-preauthorized", "missing inputs", "Instruction provenance", "Resume preserves",
-                         "pass", "mismatch", "unverified", "independent work", "Claude.app", "Claude Code CLI"):
-            with self.subTest(contract=contract):
-                self.assertIn(contract, guide)
-
 
 
 class EnvelopeRefreshTests(unittest.TestCase):

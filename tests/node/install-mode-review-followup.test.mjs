@@ -12,9 +12,9 @@ import {compositeContext,standalone,publish,profileFiles,targets} from './fixtur
 
 for(const mode of ['composite','unverified'])test(`all install and preset refuse ${mode} without writes`,async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);assert.equal((await publish(ctx)).code,0);
- if(mode==='unverified')fs.appendFileSync(ctx.userHome+'/.codex/arc-role-platform-routing.json','invalid');
+ if(mode==='unverified')fs.appendFileSync(ctx.userHome+'/.claude/arc-role-platform-routing.json','invalid');
  const before=profileFiles(ctx),models=['codex','claude'].map(p=>fs.readFileSync(ctx.userHome+'/.'+p+'/skills/arc/models.toml'));
- for(const kind of ['install','preset'])for(const switchFromComposite of [false,true])await t.test(`${kind} switch=${switchFromComposite}`,async()=>assert.rejects(api.prepareOperation(ctx,{kind,target:'all',switchFromComposite}),{code:'ARC_TARGET_CONFIGURATION',message:mode==='composite'?'Claude & Codex is active; confirm the switch first':'Claude & Codex configuration cannot be verified.'}));
+ for(const kind of ['install','preset'])for(const switchFromComposite of [false,true])await t.test(`${kind} switch=${switchFromComposite}`,async()=>assert.rejects(api.prepareOperation(ctx,{kind,target:'all',switchFromComposite}),{code:'ARC_TARGET_CONFIGURATION',message:mode==='composite'?'Mixed routing is active; confirm the switch first':'Mixed routing configuration cannot be verified.'}));
  assert.deepEqual(profileFiles(ctx),before);for(const [i,p]of ['codex','claude'].entries())assert.deepEqual(fs.readFileSync(ctx.userHome+'/.'+p+'/skills/arc/models.toml'),models[i]);
  // Everything retains the removal path even when verification fails.
  assert.equal((await api.prepareOperation(ctx,{kind:'uninstall',target:'all',removeCli:false})).kind,'uninstall');
@@ -56,6 +56,6 @@ for(const platform of ['codex','claude'])test(`${platform} unowned profile on an
  const {buildUpgradePlans}=await import('../../lib/installer/upgrade.mjs'),{installTargets}=await import('../../lib/installer/install.mjs'),{verifyPayload}=await import('../../lib/installer/manifest.mjs');
  const ctx=await compositeContext(t);await standalone(ctx);assert.equal((await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:platform,removeCli:false}))).code,0);
  const target=targets(ctx)[platform],filename=path.join(target.home,'agents',target.profileNames[0]);fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'user profile');
- const state=collectInstalledState(ctx);assert.deepEqual(state.residualPaths,[filename]);const plans=buildUpgradePlans({payload:verifyPayload(ctx),state,safeFs:ctx.safeFs});assert.deepEqual(plans.map(plan=>plan.target.platform),[platform==='codex'?'claude':'codex']);
+ const state=collectInstalledState(ctx);assert.deepEqual(state.residualPaths,[filename]);const plans=buildUpgradePlans({payload:verifyPayload(ctx),state,safeFs:ctx.safeFs});assert.deepEqual(plans.map(plan=>plan.target.platform),[platform==='codex'?'claude':'codex','gemini']);
  const result=await installTargets(plans,{safeFs:ctx.safeFs});assert.ok(result.results.every(item=>item.status==='installed'&&!item.error));assert.equal(fs.readFileSync(filename,'utf8'),'user profile');assert.equal(fs.existsSync(path.join(target.home,'skills/arc')),false);
 });

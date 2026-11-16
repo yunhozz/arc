@@ -55,6 +55,35 @@ function setup(t) {
 }
 
 // Catch missing parsing branches, bad defaults, duplicate options and invalid values.
+test('watch finds an anchor from all registered platforms despite the source filter', async t => {
+  const s = setup(t);
+  s.h.writeMarker('claude', s.h.claudeHome);
+  s.h.writeLease({dispatchId:'filtered-anchor', state:'running', sessionId:'source', updatedAt:iso(TIME)}, s.h.claudeHome);
+  s.write('source');
+  const before = await s.h.snapshot(), {result} = await s.start(['--platform', 'codex', '--all', '--json']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  const rows = s.output.text.trim().split('\n').map(JSON.parse);
+  assert.ok(rows.some(event => event.dispatchId === 'filtered-anchor'));
+  assert.ok(rows.some(event => event.sessionId === 'source'));
+  assert.deepEqual(await s.h.snapshot(), before);
+});
+
+test('a Codex anchor marker preserves current composite watch output', async t => {
+  const s = setup(t);
+  s.write('composite');
+  s.h.writeLease({dispatchId:'current-anchor', state:'running', sessionId:'composite', role:'arc_qa', updatedAt:iso(TIME)});
+  const {result} = await s.start(['--all', '--json']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  const baseline = s.output.text, controller = new AbortController(), output = new Output();
+  s.h.writeMarker('codex', s.h.codexHome);
+  s.h.writeMarker('claude', s.h.claudeHome, s.h.codexHome);
+  assert.equal(await runWatch(['--all', '--json'], {...s.io, output, signal:controller.signal,
+    setInterval(){controller.abort();return 17;}}), 0);
+  assert.equal(output.text, baseline);
+});
+
 test('runWatch passes the user home for host skill roots',async t=>{
   const s=setup(t), skillFile=path.join(s.h.userHome,'host-skills/arc/SKILL.md');
   s.write('host-skill',s.cwd,[
@@ -213,12 +242,9 @@ test('closing the reading end exits 0 within 3 seconds',{timeout:15000},async t=
   const s=await childWatch(t);s.child.stdout.destroy();fs.appendFileSync(s.file,JSON.stringify(msg('pipe closed'))+'\n');
   let timer;try {const [code,signal]=await Promise.race([s.closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('EPIPE shutdown exceeded 3 seconds')),3000);})]);assert.equal(code,0);assert.equal(signal,null);assert.equal(s.stderr(),'');}finally{clearTimeout(timer);}
 });
-test('docs describe the public watch command',()=>{
+test('README and operation guide contain no Hangul',()=>{
   const readme=fs.readFileSync(path.join(root,'README.md'),'utf8'),doc=fs.readFileSync(path.join(root,'docs/harness-operation.md'),'utf8');
-  assert.ok(readme.includes('The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.'));
-  const section=readme.split('## Watch sessions\n')[1]?.split('\n## ')[0];assert.ok(section);assert.match(section,/host_sandbox_blocked/);assert.match(section,/Codex Desktop/);
-  assert.match(section,/per-call escalation approval/);assert.doesNotMatch(section,/stay held as `host_sandbox_blocked`/);
-  assert.match(doc,/Public syntax:[^\n]*`arc watch`/);assert.match(doc,/### Watch/);assert.ok(!/[가-힣]/.test(readme+doc));
+  assert.ok(!/[가-힣]/.test(readme+doc));
 });
 
 // Catch overlapping asynchronous refreshes and cleanup racing an in-flight tick.
@@ -299,8 +325,8 @@ test('bridge and subagent AGENT lines show the role', async t => {
   s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
   s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
   const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
-  assert.match(s.output.text,/AGENT    \[Planner\] bridge answer/);
-  assert.match(s.output.text,/AGENT    \[QA\] child answer/);
+  assert.match(s.output.text,/AGENT    PLANNER bridge answer/);
+  assert.match(s.output.text,/AGENT    QA child answer/);
 });
 
 

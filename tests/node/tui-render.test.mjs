@@ -12,6 +12,8 @@ test('shared hints exactly describe menu, page, input and busy controls',()=>{
  assert.equal(typeof api.navigationHint,'function');
  assert.equal(api.navigationHint('menu'),'↑/↓: Select · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('menu',{backLabel:'exit'}),'↑/↓: Select · Enter Continue · Esc Exit');
+ assert.equal(api.navigationHint('menu',{horizontal:true}),'↑/↓: Select · ←/→: Change · Enter Continue · Esc Home');
+ assert.equal(api.navigationHint('menu',{horizontal:true,backLabel:'exit'}),'↑/↓: Select · ←/→: Change · Enter Continue · Esc Exit');
  assert.equal(api.navigationHint('page'),'↑/↓: Scroll · Enter Back · Esc Home');
  assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');
@@ -121,4 +123,120 @@ test('shimmer changes colors but never text',()=>{
 });
 test('busy heading shows the braille spinner frame',()=>{
  const result=api.renderScreen({title:'Working',mode:'busy',rows:[],frame:3});assert.equal(result.text.split('\n')[0],'⠸ Working');assert.deepEqual(result.styles[0].runs,[{from:0,to:1,role:'spinner',fg:[52,211,153]},{from:2,to:9,role:'title',fg:[110,231,183],bold:true}]);
+});
+
+const diagramApi=await import('../../lib/tui/diagram.mjs').catch(()=>({}));
+const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
+const {diagramRegistry}=await import('./fixtures/platforms/diagram.mjs');
+const diagramRoles=['Scouter','Planner','Implementer','QA','Reviewer'].map((role,index)=>({role,platform:index===1?'claude':'codex',model:index===1?'opus':'gpt-5.5',effort:['low','medium','high','medium','high'][index]}));
+const diagramCells=text=>[...text].reduce((total,character)=>total+api.cellWidth(character),0);
+function renderDiagram(values=diagramRoles,options={}){
+ assert.equal(typeof diagramApi.diagramRows,'function');
+ return diagramApi.diagramRows(values,{columns:79,rows:24,footerRows:6,...options});
+}
+
+test('diagram box shows role on top border and three inner lines',()=>{
+ const result=renderDiagram();
+ assert.equal(result.mode,'full');assert.equal(result.rows.length,13);
+ assert.equal(result.rows[0],'┌─ Scouter '+'─'.repeat(12)+'┐  ┌─ Planner '+'─'.repeat(12)+'┐  ┌─ Implementer '+'─'.repeat(8)+'┐');
+ assert.equal(result.rows[1],'│ Codex                │  │ Claude               │  │ Codex                │');
+ assert.equal(result.rows[2],'│ gpt-5.5              │  │ opus                 │  │ gpt-5.5              │');
+ assert.equal(result.rows[3],'│ effort: low          │  │ effort: medium       │  │ effort: high         │');
+ assert.equal(result.rows[4],'└'+'─'.repeat(11)+'┬'+'─'.repeat(10)+'┘  └'+'─'.repeat(11)+'┬'+'─'.repeat(10)+'┘  └'+'─'.repeat(11)+'┬'+'─'.repeat(10)+'┘');
+ assert.equal(result.rows[6],' '.repeat(32)+'Orchestrator');
+ assert.match(result.rows[8],/^ {13}┌─ QA ─/);assert.match(result.rows[8],/┌─ Reviewer ─/);
+ assert.equal(result.rows[5][12],'┴');assert.equal(result.rows[5][38],'┼');assert.equal(result.rows[5][64],'┴');
+ assert.equal(result.rows[7][25],'┬');assert.equal(result.rows[7][38],'┼');assert.equal(result.rows[7][51],'┬');
+});
+
+test('diagram blink blanks only selected borders and keeps the role label',()=>{
+ const shown=renderDiagram(),hidden=renderDiagram(diagramRoles,{selectedRole:1,blink:false});
+ for(let row=0;row<5;row++){
+  assert.equal(hidden.rows[row].slice(0,26),shown.rows[row].slice(0,26));
+  assert.equal(hidden.rows[row].slice(50),shown.rows[row].slice(50));
+  const selected=hidden.rows[row].slice(26,50);
+  assert.doesNotMatch(selected,/[┌┐└┘│─┬┴]/);
+  assert.equal(selected,shown.rows[row].slice(26,50).replace(/[┌┐└┘│─┬┴]/g,' '));
+ }
+ assert.match(hidden.rows[0],/Planner/);
+ const bottom=renderDiagram(diagramRoles,{selectedRole:4,blink:false});
+ assert.match(bottom.rows[8],/Reviewer/);assert.doesNotMatch(bottom.rows[8].slice(39),/[┌┐─]/);
+});
+
+test('diagram blocked indices add an exclamation label in full and compact modes',()=>{
+ const blocked=new Set([1,4]),full=renderDiagram(diagramRoles,{blocked});
+ assert.match(full.rows[0],/┌─ Planner ! ─/);assert.match(full.rows[8],/┌─ Reviewer ! ─/);assert.doesNotMatch(full.rows[0],/Scouter !/);
+ assert.match(renderDiagram(diagramRoles,{blocked,selectedRole:1,blink:false}).rows[0],/Planner !/);
+ const compact=renderDiagram(diagramRoles,{blocked,columns:78});
+ assert.equal(compact.rows[1],'Planner !: Claude / opus / medium');
+ assert.equal(compact.rows[4],'Reviewer !: Codex / gpt-5.5 / high');
+ assert.deepEqual([...blocked],[1,4]);
+});
+
+test('diagram thresholds include box width, viewport height and footer space',()=>{
+ for(const [options,mode] of [
+  [{},'full'],[{columns:78},'compact'],[{rows:23},'compact'],
+  [{footerRows:7},'compact'],[{rows:25,footerRows:7},'full'],
+  [{columns:39},'guard'],[{rows:15},'guard'],[{columns:40,rows:16},'compact'],
+ ])assert.equal(renderDiagram(diagramRoles,options).mode,mode,JSON.stringify(options));
+ assert.deepEqual(renderDiagram(diagramRoles,{columns:78}).rows,[
+  'Scouter: Codex / gpt-5.5 / low','Planner: Claude / opus / medium',
+  'Implementer: Codex / gpt-5.5 / high','QA: Codex / gpt-5.5 / medium','Reviewer: Codex / gpt-5.5 / high','',
+ ]);
+ assert.deepEqual(renderDiagram(diagramRoles,{rows:15}).rows,['Menu requires 40 columns and 16 rows.']);
+ assert.deepEqual(renderDiagram(diagramRoles,{columns:10,rows:2}).rows,['40x16']);
+ assert.deepEqual(renderDiagram(diagramRoles,{columns:40,rows:1}).rows,[]);
+});
+
+test('diagram resolves injected registry labels in full and compact modes',()=>{
+ const {platforms:registry}=createTestRegistries(),values=diagramRoles.map(value=>({...value,platform:'zeta'}));
+ assert.match(renderDiagram(values,{registry}).rows[1],/^│ Zeta +│/);
+ assert.equal(renderDiagram(values,{registry,columns:78}).rows[1],'Planner: Zeta / opus / medium');
+ const wideRegistry=diagramRegistry('플랫폼'.repeat(5)),wide=renderDiagram(values,{registry:wideRegistry,columns:109});
+ assert.equal(wide.mode,'full');assert.match(wide.rows[1],/플랫폼플랫폼플랫폼플랫폼플랫폼/);
+ for(const row of wide.rows.slice(0,5))assert.equal(diagramCells(row),106);
+ assert.equal(renderDiagram(values,{registry:wideRegistry,columns:108}).mode,'compact');
+});
+
+test('diagram wide role labels and long models keep every box group aligned',()=>{
+ const values=diagramRoles.map((value,index)=>({...value,role:index===0?'조사역할이름아주길게':value.role,model:'모델-아주-긴-이름-0123456789',effort:index===4?'매우높음':'medium'}));
+ // The model occupies 28 cells, so each box is 32 and the full threshold is 103.
+ const full=renderDiagram(values,{columns:103,blocked:new Set([0]),selectedRole:0,blink:false});
+ assert.equal(full.mode,'full');assert.match(full.rows[0],/조사역할이름아주길게 !/);
+ for(const row of full.rows.slice(0,5))assert.equal(diagramCells(row),100);
+ for(const row of full.rows.slice(8,13))assert.equal(diagramCells(row),83);
+ assert.equal(renderDiagram(values,{columns:102}).mode,'compact');
+ assert.match(full.rows[2],/모델-아주-긴-이름-0123456789/);
+});
+
+test('diagram width formula includes long role labels and effort text',()=>{
+ for(const [patch,columns,width] of [
+  [{role:'RoleNameLongerThanTwenty'},103,100],
+  [{effort:'effort-name-longer-than-twenty'},133,130],
+ ]){
+  const values=diagramRoles.map((value,index)=>index===0?{...value,...patch}:value);
+  const result=renderDiagram(values,{columns});assert.equal(result.mode,'full');
+  for(const row of result.rows.slice(0,5))assert.equal(diagramCells(row),width);
+  assert.equal(renderDiagram(values,{columns:columns-1}).mode,'compact');
+ }
+});
+
+test('diagram compact truncation preserves wide cells and the current effort split',()=>{
+ const values=diagramRoles.map(value=>({...value,model:'모델-아주-긴-이름-0123456789',effort:'medium'}));
+ const result=renderDiagram(values,{columns:40});assert.equal(result.mode,'compact');
+ assert.equal(result.rows[1],'Planner: Claude / 모델-아… / medium');
+ for(const row of result.rows.slice(0,5)){assert.ok(diagramCells(row)<=37);assert.match(row,/…/);assert.match(row,/ \/ medium$/);}
+ const long=renderDiagram(values.map(value=>({...value,role:'역할'.repeat(20)})),{columns:40});
+ for(const row of long.rows.slice(0,5)){assert.equal(diagramCells(row),36);assert.ok(row.endsWith('…'));}
+});
+
+test('diagram escapes controls in role, platform label, model and effort',()=>{
+ const values=diagramRoles.map(value=>({...value,role:'역할\x1b',platform:'zeta',model:'m\r\n\x9b',effort:'x\t\u2028'}));
+ const registry=diagramRegistry('Zeta\x07');
+ for(const columns of [160,40]){
+  const result=renderDiagram(values,{registry,columns});assert.equal(result.mode,columns===160?'full':'compact');
+  const text=result.rows.join('');assert.doesNotMatch(text,/[\p{Cc}\p{Cf}\u2028\u2029]/u);
+  assert.match(text,/역할\\x1b/);assert.match(text,/Zeta\\x07/);
+  if(result.mode==='full'){assert.match(text,/m\\x0d\\x0a\\x9b/);assert.match(text,/x\\x09\\u\{2028\}/);}
+ }
 });

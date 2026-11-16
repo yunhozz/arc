@@ -10,6 +10,7 @@ import {renderHuman, renderJson} from '../../lib/watch/render.mjs';
 import {readClaudeHead, createClaudeDiscovery} from '../../lib/watch/discover-claude.mjs';
 import {readCodexMeta} from '../../lib/watch/discover-codex.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
+import {resolveDispatchStore} from '../../lib/watch/anchor-store.mjs';
 import {GIT_ALLOWED} from '../../lib/watch/git.mjs';
 import {WATCH_KINDS} from '../../lib/watch/model.mjs';
 
@@ -18,6 +19,34 @@ const iso = n => new Date(n).toISOString();
 const msg = (text, ts = TIME, type = 'UserMessage') => ({timestamp:iso(ts), type:'event_msg', payload:{type:'item_completed', item:{type, content:[{text}]}}});
 const meta = (id, cwd, originator='codex-tui', extra={}) => ({timestamp:iso(TIME-300000), type:'session_meta', payload:{id, cwd, originator, cli_version:'1.0', ...extra}});
 const cm = (id,cwd,text='hello',entrypoint='cli',ts=TIME) => ({timestamp:iso(ts), type:'user', sessionId:id,cwd,entrypoint,version:'2.0',message:{content:text}});
+test('watch ambiguous with two candidates', async t => {
+  let storeReads = 0;
+  const s = setup(t, {}, 'all', {createDispatchIndex:args => {
+    const index = createDispatchIndex(args);
+    return {...index, scan:async options => {
+      if (args.storeDir || args.codexHome) storeReads++;
+      return index.scan(options);
+    }};
+  }});
+  s.h.writeMarker('codex', s.h.codexHome);
+  s.h.writeMarker('claude', s.h.claudeHome);
+  s.lease('must-not-read');
+  s.c('still-live');
+  s.art('artifact-only', {'record.json':{state:'completed', role:'arc_qa', updatedAt:iso(TIME)},
+    'events.jsonl':'{"kind":"thread","threadId":"still-live"}\n'});
+  assert.deepEqual(await resolveDispatchStore({homes:{codex:s.h.codexHome, claude:s.h.claudeHome}}), {kind:'ambiguous'});
+  const before = await s.h.snapshot(), events = await s.w.start();
+  assert.ok(events.some(event => event.kind === 'notice' && event.text === 'dispatch store ambiguous'));
+  assert.match(events.map(event => renderHuman(event, {width:200})).join('\n'), /dispatch store ambiguous/);
+  assert.deepEqual(events.filter(event => event.source === 'dispatch').map(event => event.dispatchId), ['artifact-only']);
+  assert.equal(events.find(event => event.dispatchId === 'artifact-only' && event.kind === 'dispatch').state, 'completed');
+  assert.ok(events.some(event => event.sessionId === 'still-live'));
+  s.advance(3000);
+  await s.w.tick();
+  assert.equal(storeReads, 0);
+  assert.deepEqual(await s.h.snapshot(), before);
+});
+
 function setup(t, options={}, kind='dir', dependencies={}) {
   const {excluded=[],root,...watchOptions}=options;
   const h = makeHomes(t), repo = path.join(h.root,'repo'), gcd=path.join(h.root,'git');
@@ -239,7 +268,7 @@ test('AC-W35 subagents are scoped by their own cwd and keep parent labels',async
     assert.equal(e.label,label);assert.equal(e.parentId,parentId);
     assert.equal(e.depth,depth);assert.equal(e.source,'subagent');
   }
-  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT\s+\[QA\] review/);
+  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT\s+QA review/);
 });
 
 test('AC-W35 outside children do not output under in-scope parents',async t=>{
@@ -781,7 +810,7 @@ test('Claude native reviewer handback-only transcript renders its role and masks
   assert.equal(report.label,'main#1234/reviewer');
   assert.equal(report.role,'reviewer');
   assert.equal(report.text,'review complete\npassword=***');
-  assert.match(lines([report])[0].slice(25),/^\[Reviewer\] review complete\n +password=\*\*\*$/);
+  assert.match(lines([report])[0].slice(25),/^REVIEWER review complete\n +password=\*\*\*$/);
   assert.equal(out.filter(e=>e.sessionId==='agent-review'&&e.kind==='turn_end').length,1);
   assert.ok(!out.some(e=>e.tool==='SubagentHandback'));
 });
@@ -794,12 +823,12 @@ test('Codex native arc_routing child threads render final agent messages with th
     });
   }
   const out=content(await s.w.start());
-  for (const [role,title] of [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],['qa','QA'],['reviewer','Reviewer']]) {
+  for (const [role,title] of [['scouter','SCOUTER'],['planner','PLANNER'],['implementer','IMPLEMENTER'],['qa','QA'],['reviewer','REVIEWER']]) {
     const report=out.find(e=>e.sessionId===role&&e.kind==='agent');
     assert.ok(report);
     assert.equal(report.label,`tui#1234/${role}`);
     assert.equal(report.role,role);
-    assert.equal(lines([report])[0].slice(25),`[${title}] ${role} final report`);
+    assert.equal(lines([report])[0].slice(25),`${title} ${role} final report`);
   }
 });
 test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});

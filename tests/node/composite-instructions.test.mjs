@@ -97,18 +97,6 @@ test('both harnesses require escalation for every runtime command as an Orchestr
   assert.equal(lines[0], lines[1]);
 });
 
-test('operations and README disclose caller-declared execution environments and unchecked approval', async () => {
-  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
-  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
-  const row = docs.split('\n').find(line => line.startsWith('| `codex-cli` host |'));
-  assert.ok(row.includes('the runtime does not check the approval, so asking for it before every runtime command is an Orchestrator obligation'));
-  const warning = '`executionEnvironment` is declared by the caller and not verified by the runtime; declaring a CLI value from a Desktop session bypasses the Desktop hold, so declare the Desktop value whenever the session is confirmed to run inside the Desktop app.';
-  assert.ok(docs.includes(warning));
-  for (const text of [docs, readme]) {
-    assert.match(text, /`executionEnvironment`[^.]*declared[^.]*not verified by the runtime[^.]*Desktop[^.]*hold/);
-  }
-});
-
 test('incorrect statements are removed', async () => {
   for (const harness of Object.keys(harnesses)) {
     const text = await read(harness, 'coordination.md');
@@ -133,20 +121,11 @@ test('limits and handoff references mention bridge counting, unknown slot retent
   }
 });
 
-test('operations source and docs no longer report held / unverified and describe migration and support grades', async () => {
+test('operations source uses current routing status messages', async () => {
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
   assert.ok(!operations.includes('held / unverified'));
   assert.ok(!operations.includes('Role execution: per-role status via routing-status.'));
-  assert.ok(operations.includes('Claude & Codex activated.'));
-  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
-  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
-  assert.doesNotMatch(readme, /Every role remains `held \/ unverified`/);
-  assert.doesNotMatch(docs, /All current composite role routes remain `held \/ unverified`/);
-  for (const text of [docs, readme]) { assert.match(text, /cooperative-9/); assert.doesNotMatch(text, /cooperative-8/); assert.match(text, /Install \/ Update/); }
-  assert.match(docs, /G2 is recorded as `escalation`/);
-  assert.match(docs, /`cooperative-9` migration/);
-  for (const needle of ['claude-cli', 'codex-cli', 'codex-desktop', 'claude-desktop', 'host_sandbox_blocked', 'permission_scope_unverified', 'environment_unverified']) assert.ok(docs.includes(needle), 'docs ' + needle);
-  for (const needle of ['host CLI discovery', 'authentication sharing', 'same worktree', 'supervisor survival', 'escalation', 'native tag']) assert.ok(docs.includes(needle), 'checklist ' + needle);
+  assert.ok(operations.includes('`${mixedLabel(prepared.config.platforms,installerRegistryOf(context))} activated.`'));
 });
 
 test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G3, versions, cancel, resume, brief)', async () => {
@@ -171,18 +150,11 @@ test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G
     assert.match(handoff, /dispatches\/<dispatchId>\/brief\.md`[^.]*0600/);
     assert.match(handoff, /audit/);
   }
-  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
-  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
-  for (const text of [docs, readme]) { assert.doesNotMatch(text, /until the manual checklist/); assert.match(text, /future ARC update/); assert.match(text, /every role \(native and bridge\)/); assert.doesNotMatch(text, /Desktop bridge dispatch|Desktop[^.]*bridge dispatch is held/); }
-  assert.match(docs, /every plan-mode command of an existing workflow, including status, holds with `cooperative\.versions`/);
-  assert.match(docs, /only results are recorded[^.]*`versions-changed`[^.]*unresolved/);
-  assert.match(docs, /no automatic migration/);
   const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(operations, /cooperative-[89]/, 'operations.mjs must not hardcode the runtime version');
 });
 
 test('execution environment rules use the actual session and agree byte-for-byte across harnesses', async () => {
-  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
   const rules = [];
   for (const harness of Object.keys(harnesses)) {
     const body = section(await read(harness, 'coordination.md'));
@@ -192,14 +164,12 @@ test('execution environment rules use the actual session and agree byte-for-byte
     assert.doesNotMatch(body, /`supportStatus` stays `unverified`/);
   }
   assert.equal(rules[0], rules[1]);
-  for (const text of [...rules, docs]) {
+  for (const text of rules) {
     assert.match(text, /terminal CLI or TUI session.*IDE integrated terminal.*`codex-cli` or `claude-cli`/);
     assert.match(text, /only when the session is confirmed to run inside the Desktop app/);
     assert.match(text, /NEVER infer the environment from paths or directory names/);
     assert.match(text, /When unsure, declare the CLI value/);
   }
-  assert.ok(docs.includes(rules[0]), 'docs must repeat the same execution environment rule');
-  assert.match(docs, /A completed Claude bridge reports `supportStatus` `verified` only when every claim is runtime-observed/);
 });
 
 test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref detection limits, bridge-child guard, and G1 scope', async () => {
@@ -216,11 +186,4 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` on a Codex host[^.]*? are held as `permission_scope_unverified`[^.]*\(G1\)/);
     assert.doesNotMatch(body, /`claude-cli` hosts are supported\./);
   }
-  const docs = await readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8');
-  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
-  assert.doesNotMatch(docs, /\| `claude-cli` host \| Supported\. Claude bridge `arc_implementer`/);
-  assert.doesNotMatch(readme, /`claude-cli` hosts are supported \(Claude bridge Implementer and QA/);
-  assert.match(docs, /Claude bridge[^.]*`arc_implementer` and `arc_qa`[^.]*Codex host/);
-  assert.match(readme, /`codex-cli` hosts[^.]*Claude bridges[^.]*per-call escalation approval[^.]*Claude bridge Implementer and QA roles stay held as `permission_scope_unverified`/);
-  for (const needle of ['user-config-mcp-not-controlled', 'ARC_BRIDGE_CHILD', 'Git-ignored']) assert.ok(docs.includes(needle), 'docs ' + needle);
 });

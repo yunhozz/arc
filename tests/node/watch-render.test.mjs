@@ -165,16 +165,17 @@ test('agent tags stay AGENT regardless of roles or label tails', () => {
   ]) assert.equal(kindTag({kind:'agent',...input}), 'AGENT');
   assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD');
 });
-const arcRoles = [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],
-  ['qa','QA'],['reviewer','Reviewer'],['orchestrator','Orchestrator']];
-test('ARC agent roles prefix only the first body line and bold only the role name', () => {
+const arcRoles = [['scouter','SCOUTER'],['planner','PLANNER'],['implementer','IMPLEMENTER'],
+  ['qa','QA'],['reviewer','REVIEWER'],['orchestrator','ORCHESTRATOR']];
+test('ARC agent roles prefix only the first body line with a background badge', () => {
   for (const [role,name] of arcRoles) for (const color of [false,true]) {
     const out = renderHuman({...event,kind:'agent',role,text:'a\n\nb'}, {...options,color});
-    assert.deepEqual(strip(out).split('\n').map(line => line ? line.slice(25) : ''), [`[${name}] a`,'','b']);
+    assert.deepEqual(strip(out).split('\n').map(line => line ? line.slice(25) : ''), [`${name} a`,'','b']);
     assert.equal(strip(out).slice(16,25), 'AGENT    ');
     if (color) {
-      assert.ok(out.endsWith(`\x1b[32m[\x1b[1m${name}\x1b[22m] a\x1b[0m\n\n` + ' '.repeat(25) + '\x1b[32mb\x1b[0m'));
-      assert.equal((out.match(/\x1b\[1m/g) ?? []).length,1);
+      assert.match(out,new RegExp(`\\x1b\\[1;38;5;\\d+;48;5;\\d+m${name}\\x1b\\[0m`));
+      assert.ok(out.endsWith(`${name}\x1b[0m\x1b[32m a\x1b[0m\n\n` + ' '.repeat(25) + '\x1b[32mb\x1b[0m'));
+      assert.equal((out.match(/48;5;/g) ?? []).length,1);
     } else assert.doesNotMatch(out,/\x1b/);
   }
 });
@@ -251,7 +252,7 @@ test('color off output is byte-identical for every kind', () => {
     [{kind:'settings'},'SETTINGS'],[{kind:'turn_start'},'TURN'],[{kind:'reasoning'},'THINK'],[{kind:'other'},'ITEM']];
   for (const [input,tag] of table) {
     const line = renderHuman({platform:'codex',...input,text:'t'}, {...options,verbose:true});
-    assert.equal(line, `00:00:00 CODEX  ${tag.padEnd(8)} ${input.kind === 'agent' ? '[QA] ' : ''}t`);
+    assert.equal(line, `00:00:00 CODEX  ${tag.padEnd(8)} ${input.kind === 'agent' ? 'QA ' : ''}t`);
     assert.doesNotMatch(line,/\x1b/);
   }
 });
@@ -360,11 +361,11 @@ test('ARC role prefixes count toward wrap width without repeating on continuatio
     const out = renderHuman({...event,kind:'agent',role,text:'x'.repeat(30) + '\n' + 'y'.repeat(40)},
       {...options,width:60,wrap:true,color});
     const lines = strip(out).split('\n');
-    const firstBodyLines = role === 'qa' ? ['[QA] ' + 'x'.repeat(30)] : [`[${name}]`,'x'.repeat(30)];
+    const firstBodyLines = role === 'qa' ? ['QA ' + 'x'.repeat(30)] : [name,'x'.repeat(30)];
     assert.deepEqual(lines.map(line => line.slice(25)),[...firstBodyLines,'y'.repeat(35),'yyyyy']);
     assert.ok(lines.every(line => renderer.displayWidth(line) <= 60));
     assert.ok(lines.slice(1).every(line => line.startsWith(' '.repeat(25))));
-    if (color) assert.ok(out.includes(`\x1b[32m[\x1b[1m${name}\x1b[22m]${role === 'qa' ? ' ' + 'x'.repeat(30) : ''}\x1b[0m`));
+    if (color) assert.match(out,new RegExp(`\\x1b\\[1;38;5;\\d+;48;5;\\d+m${name}\\x1b\\[0m`));
   }
 });
 test('wrapping leaves clipped one-line events byte-identical', () => {

@@ -1,5 +1,6 @@
+import {runtimeRegistryOf} from './platform-registry.mjs';
 // Fixed policy values for composite role dispatch. G2 'escalation' means the bridge runs only with per-call user escalation approval on a Codex host; it is not a verified pass.
-export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass'});
+export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail'});
 // No sandbox settings JSON has been recorded: G1 failed, so there is nothing to apply.
 const RECORDED_CLAUDE_SANDBOX_SETTINGS = null;
 const isRecordedObject = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
@@ -39,12 +40,14 @@ export const DEFAULT_POLICY = Object.freeze({
 });
 
 export const RELEASE_CONDITIONS = Object.freeze({
-  activation_unverified: 'Verify the active configuration, both prepared markers, installed bytes, host limits and the shared lock, and inspect the lease records in <CODEX_HOME>/arc-role-dispatch for unreadable or corrupted files.',
+  activation_unverified: 'Verify the active configuration, all prepared markers, installed bytes, host limits and the shared lock, and inspect the lease records in <anchor home>/arc-role-dispatch for unreadable or corrupted files.',
+  resume_unverified: 'Update ARC after verifying Gemini session resume against the recorded session UUID.',
+  capability_not_verified: 'Update ARC to a release that verifies this platform capability.',
   'Not Available': 'Install the target platform CLI so that it is found on PATH.',
   Unauthorized: 'Authenticate the target platform CLI.',
   Incomplete: 'Make the target platform CLI authentication status check complete successfully.',
   environment_unverified: 'Desktop hosts are held in this release. If this session is not running inside a Desktop app (for example a terminal or IDE terminal session), declare codex-cli or claude-cli instead; otherwise use a CLI host or a later ARC update that changes the support status.',
-  host_sandbox_blocked: 'Allow the host to write the Codex home and keep a detached supervisor alive, with explicit user approval.',
+  host_sandbox_blocked: 'Allow the host to write the anchor home and keep a detached supervisor alive, with explicit user approval.',
   capacity_exhausted: 'Finish or release active bridge executions, or raise the host limits.',
   permission_scope_unverified: 'Update ARC and verify enforcement of the role permissions and approved scope before starting.',
   native_profile_reload_unverified: 'Verify that the host session loaded the requested profile revision.',
@@ -69,15 +72,22 @@ export const reason = code => {
   if (!Object.hasOwn(RELEASE_CONDITIONS, code)) throw Error(`Unknown reason code: ${code}`);
   return {code, releaseCondition: RELEASE_CONDITIONS[code]};
 };
-export const profileName = (platform, role) => {
-  const suffix = role.slice('arc_'.length);
-  return platform === 'claude' ? `arc-routing-${suffix}` : `arc_routing_${suffix}`;
-};
+export const profileName = (platform, role, options) => runtimeRegistryOf(options).getPlatform(platform).profile.routingName(role);
 export const revisionTag = revision => `[arc-routing rev ${revision}]`;
+
+export function capabilityReasons({hostPlatform, targetPlatform, route, runtimePlatforms}) {
+  const registry = runtimeRegistryOf({runtimePlatforms});
+  const host = registry.getPlatform(hostPlatform), target = registry.getPlatform(targetPlatform);
+  return host?.capabilities.compositeHost.state === 'verified'
+    && target?.capabilities.compositeRole.state === 'verified'
+    && (route !== 'bridge' || target?.capabilities.bridge.state === 'verified') ? [] : ['capability_not_verified'];
+}
 
 export function bridgeGateReasons({platform, role, hostPlatform, policy = DEFAULT_POLICY}) {
   const gates = policy.gates ?? BRIDGE_GATE_RESULTS, codes = [];
   if (platform === 'claude' && (role === 'arc_implementer' || role === 'arc_qa') && effectiveClaudeSandboxSettings({gates, claudeSandboxSettings: policy.claudeSandboxSettings}) === null) codes.push('permission_scope_unverified');
+  if (platform === 'gemini' && (role === 'arc_implementer' || role === 'arc_qa') && gates.GG1 !== 'pass') codes.push('permission_scope_unverified');
+  if (hostPlatform === 'gemini' && gates.GG2 !== 'pass') codes.push('host_sandbox_blocked');
   if (platform === 'codex' && gates.G4 === 'fail') codes.push('permission_scope_unverified');
   if (hostPlatform === 'codex' && gates.G2 === 'fail') codes.push('host_sandbox_blocked');
   return [...new Set(codes)];

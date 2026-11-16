@@ -109,7 +109,7 @@ test('run-dispatch starts a detached supervisor and reaches completed with resul
   assert.equal(await mode(dir), 0o700);
   for (const name of ['brief.md', 'events.jsonl', 'record.json', 'result.md']) assert.equal(await mode(path.join(dir, name)), 0o600, name);
   assert.equal(await fs.readFile(path.join(dir, 'brief.md'), 'utf8'), 'brief — 한글 body');
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
   assert.equal(lease.state, 'completed');
   assert.ok(lease.supervisor.pid > 0 && lease.child.pid > 0 && lease.argsDigest.startsWith('sha256:'));
   assert.equal(lease.sessionId, THREAD(1));
@@ -130,8 +130,8 @@ test('run-dispatch denies non-reserved, native, empty, non-string and 262145-byt
   assert.deepEqual(codes(nativeResult), ['invalid_request']);
   const unknown = await run(f, 'does-not-exist', 'x');
   assert.equal(unknown.decision, 'deny');
-  assert.equal((await readLease(f.codexHome, bridge.dispatchId)).state, 'reserved');
-  assert.equal((await readLease(f.codexHome, native.dispatchId)).state, 'reserved');
+  assert.equal((await readLease(f.claudeHome, bridge.dispatchId)).state, 'reserved');
+  assert.equal((await readLease(f.claudeHome, native.dispatchId)).state, 'reserved');
   assert.equal((await records(f.codex)).length, 0);
   const exact = 'a'.repeat(262144);
   assert.equal((await run(f, bridge.dispatchId, exact)).routeStatus, 'starting');
@@ -163,7 +163,7 @@ test('profile changed after prepare holds activation_unverified without spawning
   const result = await run(f, prepared.dispatchId);
   assert.equal(result.decision, 'hold');
   assert.deepEqual(codes(result), ['activation_unverified']);
-  assert.equal((await readLease(f.codexHome, prepared.dispatchId)).state, 'reserved');
+  assert.equal((await readLease(f.claudeHome, prepared.dispatchId)).state, 'reserved');
   assert.equal((await records(f.codex)).length, 0);
 });
 
@@ -175,7 +175,7 @@ test('Claude init with extra tool kills the child group and records failed permi
   const done = await settle(f, prepared.dispatchId);
   assert.equal(done.routeStatus, 'failed');
   assert.equal(codes(done)[0], 'permission_scope_mismatch');
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
   assert.equal(alive(lease.child.pid), false);
   const grandchild = Number(await fs.readFile(path.join(f.base, 'gc.pid'), 'utf8'));
   assert.ok(await waitDead(grandchild), 'grandchild in the process group is gone');
@@ -222,7 +222,7 @@ test('Codex rollout sandbox mismatch fails permission_scope_mismatch; spawn_agen
   const failed = await settle(f, mismatch.dispatchId);
   assert.equal(failed.routeStatus, 'failed');
   assert.equal(codes(failed)[0], 'permission_scope_mismatch');
-  assert.equal(alive((await readLease(f.codexHome, mismatch.dispatchId)).child.pid), false);
+  assert.equal(alive((await readLease(f.claudeHome, mismatch.dispatchId)).child.pid), false);
   await f.codex.setScenario(codexOk(f, 6, {}, {delegate: true}));
   const delegated = await prepare(f, 'arc_reviewer');
   await run(f, delegated.dispatchId);
@@ -259,8 +259,8 @@ test('timeout kills the process group including a grandchild and records failed 
   const prepared = await prepare(f, 'arc_planner');
   const started = await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
   assert.equal(started.routeStatus, 'starting');
-  await runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, timeoutMs: 600, graceMs: 200, heartbeatMs: 100});
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
+  await runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, timeoutMs: 600, graceMs: 200, heartbeatMs: 100});
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
   assert.equal(lease.state, 'failed');
   assert.deepEqual(lease.reasons.map(reason => reason.code), ['timeout']);
   const grandchild = Number(await fs.readFile(gcFile, 'utf8'));
@@ -274,8 +274,8 @@ test('child ignoring SIGTERM is SIGKILLed after grace', async t => {
   const prepared = await prepare(f, 'arc_planner');
   await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
   const begin = Date.now();
-  await runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, timeoutMs: 600, graceMs: 400, heartbeatMs: 100});
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
+  await runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, timeoutMs: 600, graceMs: 400, heartbeatMs: 100});
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
   assert.equal(lease.state, 'failed');
   assert.deepEqual(lease.reasons.map(reason => reason.code), ['timeout']);
   assert.ok(Date.now() - begin >= 900, 'waited the grace period before SIGKILL');
@@ -288,7 +288,7 @@ test('killed supervisor leads observe to unknown terminal_state_unverified and t
   const prepared = await prepare(f, 'arc_planner');
   await run(f, prepared.dispatchId);
   let lease;
-  for (const end = Date.now() + 20000; ;) { lease = await readLease(f.codexHome, prepared.dispatchId); if (lease.state === 'running' || Date.now() > end) break; await sleep(100); }
+  for (const end = Date.now() + 20000; ;) { lease = await readLease(f.claudeHome, prepared.dispatchId); if (lease.state === 'running' || Date.now() > end) break; await sleep(100); }
   assert.equal(lease.state, 'running');
   process.kill(lease.supervisor.pid, 'SIGKILL');
   assert.ok(await waitDead(lease.supervisor.pid));
@@ -301,7 +301,7 @@ test('killed supervisor leads observe to unknown terminal_state_unverified and t
   const next = await prepareRoleDispatch({context: f.context(), assignment: {role: 'arc_reviewer', requestId: nextId(), taskId: nextId()}, expectedRevision: f.revision, policy: policyWith()});
   assert.equal(next.decision, 'hold');
   assert.ok(codes(next).includes('capacity_exhausted'));
-  assert.equal((await readLease(f.codexHome, prepared.dispatchId)).state, 'unknown');
+  assert.equal((await readLease(f.claudeHome, prepared.dispatchId)).state, 'unknown');
 });
 
 test('PID reuse: alive pid with different start time is treated as dead', async t => {
@@ -313,16 +313,16 @@ test('PID reuse: alive pid with different start time is treated as dead', async 
   assert.equal(processAlive({pid: 2147483000, startTime: own}), false);
   const f = await setup(t);
   const prepared = await prepare(f, 'arc_planner');
-  const stale = async startTime => withRoutingLock(f.codexHome, async () => {
-    const lease = await readLease(f.codexHome, prepared.dispatchId);
-    await writeLease(f.codexHome, {...lease, state: 'starting', supervisor: {pid: process.pid, startTime}}, {now: Date.now() - 100000});
+  const stale = async startTime => withRoutingLock(f.claudeHome, async () => {
+    const lease = await readLease(f.claudeHome, prepared.dispatchId);
+    await writeLease(f.claudeHome, {...lease, state: 'starting', supervisor: {pid: process.pid, startTime}}, {now: Date.now() - 100000});
   });
   await stale('Thu Jan  1 00:00:00 1970');
   const lost = await recordRoleObservation({context: f.context(), dispatchId: prepared.dispatchId, now: Date.now(), policy: policyWith()});
   assert.equal(lost.routeStatus, 'unknown');
   const f2 = await setup(t);
   const prepared2 = await prepare(f2, 'arc_planner');
-  await withRoutingLock(f2.codexHome, async () => writeLease(f2.codexHome, {...(await readLease(f2.codexHome, prepared2.dispatchId)), state: 'starting', supervisor: {pid: process.pid, startTime: own}}, {now: Date.now() - 100000}));
+  await withRoutingLock(f2.claudeHome, async () => writeLease(f2.claudeHome, {...(await readLease(f2.claudeHome, prepared2.dispatchId)), state: 'starting', supervisor: {pid: process.pid, startTime: own}}, {now: Date.now() - 100000}));
   const still = await recordRoleObservation({context: f2.context(), dispatchId: prepared2.dispatchId, now: Date.now(), policy: policyWith()});
   assert.equal(still.routeStatus, 'starting', 'live supervisor with matching start time is not lost');
 });
@@ -349,8 +349,8 @@ test('secret environment values never appear in argv record, lease, heartbeat, d
   for (const end = Date.now() + 40000; ;) { observed = await runCli(f, 'observe', {...base, dispatchId: prepared.dispatchId, waitMs: 2000}); if (TERMINAL.includes(observed.json.routeStatus) || Date.now() > end) break; }
   assert.equal(observed.json.routeStatus, 'completed', observed.stdout);
   assert.equal(observed.code, 0);
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
-  const files = [...await listFiles(dispatchDirectory(f.codexHome)), ...await listFiles(artifactOf(observed.json)), f.codex.recordPath];
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
+  const files = [...await listFiles(dispatchDirectory(f.claudeHome)), ...await listFiles(artifactOf(observed.json)), f.codex.recordPath];
   for (const file of files) assert.equal((await fs.readFile(file, 'utf8')).includes(SECRET), false, file);
   for (const out of [started.stdout, started.stderr, observed.stdout, observed.stderr]) assert.equal(out.includes(SECRET), false);
   assert.equal(JSON.stringify(lease).includes(SECRET), false);
@@ -363,8 +363,8 @@ test('events.jsonl holds only normalized fields and truncates at the configured 
   await f.codex.setScenario(codexOk(f, 13, {events: [{type: 'thread.started', thread_id: THREAD(13)}, {type: 'error', message: 'MSG-UNIQUE'}, ...noise, {type: 'turn.completed'}]}));
   const prepared = await prepare(f, 'arc_planner');
   await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
-  await runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, eventsMaxBytes: 1024, heartbeatMs: 100});
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
+  await runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, eventsMaxBytes: 1024, heartbeatMs: 100});
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
   assert.equal(lease.state, 'completed');
   const dir = path.dirname(lease.resultPath);
   const events = await fs.readFile(path.join(dir, 'events.jsonl'), 'utf8');
@@ -444,7 +444,7 @@ test('native observe started→completed records operator-attested claims; inval
   assert.equal(done.routeStatus, 'completed');
   assert.equal(done.supportStatus, 'unverified');
   for (const claim of Object.values(done.claims)) assert.equal(claim.level, 'operator-attested');
-  assert.equal((await readLease(f.codexHome, native.dispatchId)).nativeAgentId, 'agent-1');
+  assert.equal((await readLease(f.claudeHome, native.dispatchId)).nativeAgentId, 'agent-1');
   assert.equal((await observe({event: 'failed'})).decision, 'deny', 'terminal is final');
   const other = await prepare(f, 'arc_reviewer');
   const failedEarly = await recordRoleObservation({context: f.context(), dispatchId: other.dispatchId, event: 'failed', policy: policyWith()});
@@ -508,14 +508,14 @@ test('installed cli maps run-dispatch and observe results to exit codes and vali
 test('store heartbeat and cancel marker files stay out of lease listings and are written without the lock', async t => {
   const f = await setup(t);
   const prepared = await prepare(f, 'arc_planner');
-  assert.equal(await readHeartbeat(f.codexHome, prepared.dispatchId), null);
-  await writeHeartbeat(f.codexHome, prepared.dispatchId, {at: 1234, pid: 42});
-  assert.deepEqual(await readHeartbeat(f.codexHome, prepared.dispatchId), {at: 1234, pid: 42});
-  assert.equal(await cancelRequested(f.codexHome, prepared.dispatchId), false);
-  await requestCancel(f.codexHome, prepared.dispatchId);
-  assert.equal(await cancelRequested(f.codexHome, prepared.dispatchId), true);
-  assert.deepEqual((await listLeases(f.codexHome)).map(lease => lease.dispatchId), [prepared.dispatchId]);
-  assert.equal(await mode(path.join(dispatchDirectory(f.codexHome), `${prepared.dispatchId}.heartbeat.json`)), 0o600);
+  assert.equal(await readHeartbeat(f.claudeHome, prepared.dispatchId), null);
+  await writeHeartbeat(f.claudeHome, prepared.dispatchId, {at: 1234, pid: 42});
+  assert.deepEqual(await readHeartbeat(f.claudeHome, prepared.dispatchId), {at: 1234, pid: 42});
+  assert.equal(await cancelRequested(f.claudeHome, prepared.dispatchId), false);
+  await requestCancel(f.claudeHome, prepared.dispatchId);
+  assert.equal(await cancelRequested(f.claudeHome, prepared.dispatchId), true);
+  assert.deepEqual((await listLeases(f.claudeHome)).map(lease => lease.dispatchId), [prepared.dispatchId]);
+  assert.equal(await mode(path.join(dispatchDirectory(f.claudeHome), `${prepared.dispatchId}.heartbeat.json`)), 0o600);
 });
 
 test('cancel marker stops the child group and the supervisor records cancelled only after the exit is observed', async t => {
@@ -523,11 +523,11 @@ test('cancel marker stops the child group and the supervisor records cancelled o
   await f.codex.setScenario({...codexOk(f, 70), hang: true});
   const prepared = await prepare(f, 'arc_planner');
   await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
-  const finished = runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 300, heartbeatMs: 100});
-  for (const end = Date.now() + 20000; (await readLease(f.codexHome, prepared.dispatchId)).state !== 'running' && Date.now() < end;) await sleep(50);
-  await requestCancel(f.codexHome, prepared.dispatchId);
+  const finished = runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 300, heartbeatMs: 100});
+  for (const end = Date.now() + 20000; (await readLease(f.claudeHome, prepared.dispatchId)).state !== 'running' && Date.now() < end;) await sleep(50);
+  await requestCancel(f.claudeHome, prepared.dispatchId);
   await finished;
-  const lease = await readLease(f.codexHome, prepared.dispatchId);
+  const lease = await readLease(f.claudeHome, prepared.dispatchId);
   assert.equal(lease.state, 'cancelled');
   assert.deepEqual(lease.reasons, []);
   assert.equal(alive(lease.child.pid), false);
@@ -561,14 +561,14 @@ for (const path_ of ['timeout', 'cancel']) {
     await installStubbornGrandchild(f, gcFile);
     const prepared = await prepare(f, 'arc_planner');
     await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
-    const finished = runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, timeoutMs: path_ === 'timeout' ? 800 : 600000, graceMs: 400, heartbeatMs: 100});
+    const finished = runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, timeoutMs: path_ === 'timeout' ? 800 : 600000, graceMs: 400, heartbeatMs: 100});
     if (path_ === 'cancel') {
-      for (const end = Date.now() + 20000; (await readLease(f.codexHome, prepared.dispatchId)).state !== 'running' && Date.now() < end;) await sleep(50);
+      for (const end = Date.now() + 20000; (await readLease(f.claudeHome, prepared.dispatchId)).state !== 'running' && Date.now() < end;) await sleep(50);
       for (const end = Date.now() + 5000; !(await fs.readFile(gcFile, 'utf8').catch(() => '')) && Date.now() < end;) await sleep(50);
-      await requestCancel(f.codexHome, prepared.dispatchId);
+      await requestCancel(f.claudeHome, prepared.dispatchId);
     }
     await finished;
-    const lease = await readLease(f.codexHome, prepared.dispatchId);
+    const lease = await readLease(f.claudeHome, prepared.dispatchId);
     const gc = Number(await fs.readFile(gcFile, 'utf8'));
     t.after(() => { try { process.kill(gc, 'SIGKILL'); } catch { /* gone */ } });
     assert.equal(alive(gc), false, 'grandchild must be gone before the terminal state is recorded');
@@ -622,9 +622,9 @@ for (const survives of [false, true]) {
     const prepared = await prepare(f, 'arc_planner');
     await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
     let spawnedPid;
-    await runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 200, heartbeatMs: 100,
+    await runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 200, heartbeatMs: 100,
       afterSpawn: async child => { spawnedPid = child.pid; throw Error('injected'); }, ...(survives ? {signalGroup: () => {}} : {})});
-    const lease = await readLease(f.codexHome, prepared.dispatchId);
+    const lease = await readLease(f.claudeHome, prepared.dispatchId);
     const record = JSON.parse(await fs.readFile(path.join(dirOf(f, prepared.dispatchId), 'record.json'), 'utf8'));
     assert.equal(await mode(path.join(dirOf(f, prepared.dispatchId), 'record.json')), 0o600);
     assert.equal(record.spawned, true);
@@ -672,7 +672,7 @@ process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stri
 const runOrphanDispatch = async (f, extra = {}) => {
   const prepared = await prepare(f, 'arc_planner');
   await run(f, prepared.dispatchId, 'x', {startSupervisor: startInProcess(f)});
-  await runSupervisor({codexHome: f.codexHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 300, heartbeatMs: 100, ...extra});
+  await runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 300, heartbeatMs: 100, ...extra});
   return prepared.dispatchId;
 };
 const recordOf = async (f, id) => JSON.parse(await fs.readFile(path.join(f.base, 'repo/.git/arc/workflows/wf-1/dispatches', id, 'record.json'), 'utf8'));
@@ -685,7 +685,7 @@ test('a leader that exits by itself leaves no grandchild: the group is reaped, t
   const gc = Number(await fs.readFile(gcFile, 'utf8'));
   t.after(() => { try { process.kill(gc, 'SIGKILL'); } catch { /* gone */ } });
   assert.equal(alive(gc), false, 'grandchild is reaped before the terminal state');
-  const lease = await readLease(f.codexHome, id);
+  const lease = await readLease(f.claudeHome, id);
   assert.equal(lease.state, 'completed', JSON.stringify(lease.reasons));
   const record = await recordOf(f, id);
   assert.equal(record.orphanGroupReaped, true);
@@ -697,7 +697,7 @@ test('the post-run snapshot is taken after the orphaned group is reaped', async 
   const gcFile = path.join(f.base, 'gc.pid');
   await installOrphaningCodex(f, {gcFile, readyFile: path.join(f.base, 'ready'), termWrite: path.join(f.cwd, 'late-write.txt')});
   const id = await runOrphanDispatch(f);
-  const lease = await readLease(f.codexHome, id);
+  const lease = await readLease(f.claudeHome, id);
   assert.equal(lease.state, 'failed');
   assert.deepEqual(lease.reasons.map(reason => reason.code), ['permission_violation_observed']);
   const record = await recordOf(f, id);
@@ -712,7 +712,7 @@ test('an orphaned group that cannot be reaped leaves unknown terminal_state_unve
   const id = await runOrphanDispatch(f, {signalGroup: () => {}, graceMs: 100});
   const gc = Number(await fs.readFile(gcFile, 'utf8'));
   t.after(() => { try { process.kill(gc, 'SIGKILL'); } catch { /* gone */ } });
-  const lease = await readLease(f.codexHome, id);
+  const lease = await readLease(f.claudeHome, id);
   assert.equal(lease.state, 'unknown');
   assert.ok(lease.reasons.some(reason => reason.code === 'terminal_state_unverified'));
   assert.ok(NON_TERMINAL.includes(lease.state));
@@ -760,5 +760,5 @@ test('routing commands are denied inside a bridge child (ARC_BRIDGE_CHILD set) a
     assert.equal(json.decision, 'deny', command);
     assert.match(json.message, /bridge child/i);
   }
-  assert.deepEqual(await listLeases(f.codexHome), []);
+  assert.deepEqual(await listLeases(f.claudeHome), []);
 });

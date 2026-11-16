@@ -1,0 +1,2 @@
+{"type":"init","session_id":"SESSION_ID","model":"gemini-test"}
+{"type":"result","session_id":"SESSION_ID","is_error":true,"result":"Fixture failure"}

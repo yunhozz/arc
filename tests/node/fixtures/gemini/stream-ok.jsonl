@@ -1,0 +1,5 @@
+{"type":"init","session_id":"SESSION_ID","model":"gemini-test"}
+{"type":"message","role":"assistant","content":"Working"}
+{"type":"tool_use","tool_name":"read_file"}
+{"type":"tool_result","output":"read"}
+{"type":"result","session_id":"SESSION_ID","result":"Gemini result"}
