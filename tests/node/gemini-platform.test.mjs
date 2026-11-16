@@ -20,15 +20,14 @@ import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {POLICY_TARGETS, buildPolicyOutputs, validateRolePolicy} from '../../lib/policy/render.mjs';
 
 // Missing registration or an enabled unverified capability must fail these boundaries.
-test('Gemini registries agree in anchor and display order with install, nativeProfile, catalog and standalone verified', () => {
+test('Gemini registries agree in anchor and display order with install, nativeProfile, catalog, standalone and bridge verified', () => {
   for (const registry of [DEFAULT_PLATFORM_REGISTRY, DEFAULT_INSTALLER_REGISTRY]) {
     assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini']);
     for (const order of ['byAnchorOrder', 'byDisplayOrder']) assert.deepEqual(registry[order]().map(p => p.runtime?.id ?? p.id), ['claude', 'codex', 'gemini']);
   }
   const runtime = getPlatform('gemini');
   assert.equal(DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').runtime, runtime);
-  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, catalog: {state: 'verified'}, standalone: {state: 'verified'}, ...Object.fromEntries(Object.entries({
-    bridge: 'bridge contract not verified',
+  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, catalog: {state: 'verified'}, standalone: {state: 'verified'}, bridge: {state: 'verified'}, ...Object.fromEntries(Object.entries({
     compositeRole: 'composite role not verified', compositeHost: 'composite host not verified',
     authProbe: 'no official auth status command', watch: 'watch support out of scope',
   }).map(([key, reason]) => [key, {state: 'off', reason}]))});
@@ -245,7 +244,7 @@ test('range out version unsupported after install verification while off takes p
   const status = {platform: 'gemini', state: 'installed', authentication: {authStatus: 'unknown', reason: 'auth_unverified'}, cliVersion: {version: '0.69.0'}};
   assert.equal(homeStatusLine([status]), 'Gemini: Unsupported version');
   assert.ok(getPlatform('gemini'));
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}, standalone: {state: 'off'}, standalone: {state: 'off'}}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}, standalone: {state: 'off'}, bridge: {state: 'off'}}} : p));
   const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
   assert.equal(homeStatusLine([status], registry), 'Gemini: Not verified');
 });
@@ -258,4 +257,13 @@ test('Gemini controls preserve codex/claude policy outputs byte for byte with Ge
   assert.ok(POLICY_TARGETS.every(target => ['codex', 'claude', 'gemini'].includes(target.platform)));
   const inputs = new Map(POLICY_TARGETS.map(target => [target.path, fs.readFileSync(new URL('../../' + target.path, import.meta.url))]));
   assert.deepEqual(buildPolicyOutputs(inputs, policy), inputs);
+});
+
+for (const prerequisite of ['install', 'catalog']) test(`Gemini verified bridge rejects ${prerequisite} off`, () => {
+  const gemini = getPlatform('gemini');
+  const capabilities = {...gemini.capabilities, standalone: {state: 'off'}, nativeProfile: {state: 'off'},
+    ...(prerequisite === 'install' ? {catalog: {state: 'off'}} : {}), [prerequisite]: {state: 'off'}};
+  assert.throws(() => createPlatformRegistry([{...gemini, capabilities}]), {message: `gemini capability bridge requires ${prerequisite}`});
+  const registry = createPlatformRegistry([{...gemini, capabilities: {...capabilities, bridge: {state: 'off'}}}]);
+  assert.equal(registry.getPlatform('gemini').capabilities.bridge.state, 'off');
 });

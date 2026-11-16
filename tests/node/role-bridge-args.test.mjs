@@ -5,7 +5,7 @@ import path from 'node:path';
 import {createRoutingFixture} from './role-fixtures.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
-import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
+import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, buildGeminiArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
 import {profileName} from '../../lib/runtime/role-dispatch-policy.mjs';
 
 const CLAUDE_TOOLS = {
@@ -145,4 +145,15 @@ test('argv never contains environment secret values and argsDigest is stable', t
   assert.equal(digest, argsDigest([...lists[0]]));
   assert.notEqual(digest, argsDigest(lists[1]));
   assert.notEqual(argsDigest(['a', 'bc']), argsDigest(['ab', 'c']));
+});
+
+// Omitting isolation flags would start user or extension MCP servers in a bridge child.
+for (const role of ROUTING_ROLES) test(`Gemini bridge arguments isolate MCP and extensions for ${role}`, () => {
+  const sessionId = '11111111-1111-4111-8111-111111111111';
+  const writing = ['arc_implementer', 'arc_qa'].includes(role);
+  const args = buildGeminiArgs({role, model: 'gemini-test', sessionId, policyFile: '/policy/role.toml'});
+  assert.deepEqual(args, ['-p', 'Follow the role instructions and task on stdin.', '-m', 'gemini-test', '-o', 'stream-json', '--session-id', sessionId,
+    '--approval-mode', writing ? 'auto_edit' : 'plan', '--policy', '/policy/role.toml', ...(writing ? ['--sandbox'] : []),
+    '-e', 'none', '--allowed-mcp-server-names', '__arc_none__']);
+  assert.equal(args.includes('--resume'), false);
 });

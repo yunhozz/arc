@@ -34,6 +34,7 @@ for (const role of ROUTING_ROLES) test(`Gemini arguments enforce permissions and
   assert.equal(args[args.indexOf('--policy') + 1], '/policy/role.toml');
   assert.equal(args.includes('--sandbox'), writing);
   assert.equal(forbidden.some(flag => args.includes(flag)), false);
+  assert.deepEqual(args.slice(-4), ['-e', 'none', '--allowed-mcp-server-names', '__arc_none__']);
   assert.equal(args.includes('--resume'), false);
   const resumed = argsApi.buildGeminiArgs({role, model: 'gemini-test', sessionId: SESSION, policyFile: '/policy/role.toml', resume: true});
   assert.equal(resumed[resumed.indexOf('--resume') + 1], SESSION);
@@ -70,6 +71,16 @@ test('unknown Gemini events retain the complete raw event', () => {
   const raw = {type: 'future_event', payload: {untouched: 'raw event'}};
   const normalized = observeApi.normalizeGeminiStreamEvent(raw);
   assert.equal(normalized.kind, 'unknown'); assert.deepEqual(observeApi.eventRecord(normalized).raw, raw);
+});
+
+
+test('Gemini result status determines terminal errors without legacy result fields', () => {
+  for (const status of ['success', 'error', 'cancelled', undefined]) {
+    const normalized = observeApi.normalizeGeminiStreamEvent({type: 'result', status, stats: {models: {'gemini-test': {}}}});
+    assert.equal(normalized.kind, 'result');
+    assert.equal(normalized.isError, status !== 'success');
+    assert.equal(normalized.resultText, undefined);
+  }
 });
 
 // Real markers, profile hashes, leases and worktree snapshots; only the child CLI is fake.
@@ -119,9 +130,9 @@ async function fixture(t, extraEnv = {}) {
 }
 
 for (const [scenario, env, want] of [
-  ['ok', {}, null], ['ok', {ARC_FAKE_GEMINI_MISSING_MODEL: '1'}, null], ['model-mismatch', {}, 'model_effort_mismatch'],
+  ['ok', {}, null], ['ok', {ARC_FAKE_GEMINI_WHOLE_MESSAGE: '1'}, null], ['ok', {ARC_FAKE_GEMINI_MISSING_MODEL: '1'}, null], ['model-mismatch', {}, 'model_effort_mismatch'],
   ['session-mismatch', {}, 'execution_identity_unverified'], ['ok', {ARC_FAKE_GEMINI_MISSING_SESSION: '1'}, 'execution_identity_unverified'],
-  ['ok', {ARC_FAKE_GEMINI_EXIT: '1', ARC_FAKE_GEMINI_NO_RESULT: '1'}, 'execution_failed'], ['error', {ARC_FAKE_GEMINI_EXIT: '1'}, 'execution_failed'], ['empty', {}, 'invalid_output'],
+  ['ok', {ARC_FAKE_GEMINI_EXIT: '1', ARC_FAKE_GEMINI_NO_RESULT: '1'}, 'execution_failed'], ['error', {}, 'execution_failed'], ['empty', {}, 'invalid_output'],
   ['unknown-event', {}, null], ['ok', {ARC_FAKE_GEMINI_WRITE: '1'}, 'permission_violation_observed'],
 ]) test(`fake Gemini ${scenario} ${JSON.stringify(env)} produces ${want ?? 'completed'}`, async t => {
   const f = await fixture(t, {...env, ARC_FAKE_GEMINI_FIXTURE: new URL(`./fixtures/gemini/stream-${scenario}.jsonl`, import.meta.url).pathname});
@@ -136,10 +147,13 @@ for (const [scenario, env, want] of [
     assert.equal(done.claims.model.level, env.ARC_FAKE_GEMINI_MISSING_MODEL ? 'unverified' : 'runtime-observed');
     assert.deepEqual(done.claims.effort, {level: 'unverified', source: 'none', requested: 'default', observed: null});
     assert.deepEqual(done.claims.permissions, {level: 'runtime-observed', source: 'worktree-snapshot', details: 'git-visible worktree only'});
-    assert.equal(await fs.readFile(done.resultPath, 'utf8'), 'Gemini result');
+    assert.equal(await fs.readFile(done.resultPath, 'utf8'), 'L5-TOKEN-4b1d');
   }
   const record = JSON.parse(await fs.readFile(f.record, 'utf8'));
   assert.equal(record.argv[record.argv.indexOf('--session-id') + 1], reserved.sessionId);
+  assert.deepEqual(record.argv.slice(-4), ['-e', 'none', '--allowed-mcp-server-names', '__arc_none__']);
+  assert.equal(record.argv.includes('--resume'), false);
+  if (scenario === 'error') assert.equal(done.routeStatus, 'failed');
   assert.match(record.stdin, /Private role instructions/); assert.match(record.stdin, /Private task brief/);
   assert.equal(forbidden.some(flag => record.argv.includes(flag)), false);
   assert.equal(record.argv.some(arg => arg.includes('Private')), false);

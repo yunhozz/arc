@@ -186,7 +186,7 @@ export function buildCodexArgs({role, profile, worktree, resultPath, threadId = 
 
 export const argsDigest = args => 'sha256:' + crypto.createHash('sha256').update(JSON.stringify(args)).digest('hex');
 
-/** CLI semantics remain unverified; production Gemini bridge capability stays off. */
+/** L5 verifies run/observe/cancel and isolation; UUID resume remains unverified. */
 export function buildGeminiArgs({role, model, profile, sessionId, policyFile, promptFlag = GEMINI_CONTRACT.prompt, resume = false}) {
   const permissions = permissionsFor('gemini', role);
   if (typeof sessionId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) throw Error('Gemini sessionId must be a UUID');

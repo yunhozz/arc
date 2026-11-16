@@ -285,8 +285,11 @@ export async function runSupervisor(options) {
           }
         }
         if (normalized.kind === 'init') state.init = normalized;
+        if (normalized.kind === 'message' && normalized.role === 'assistant' && typeof normalized.text === 'string') {
+          state.resultText = (state.resultText ?? '') + normalized.text;
+        }
         if (normalized.kind === 'result') {
-          state.terminal = true; state.terminalError ||= normalized.isError === true; state.resultText = normalized.resultText;
+          state.terminal = true; state.terminalError ||= normalized.isError === true;
         }
         return;
       }

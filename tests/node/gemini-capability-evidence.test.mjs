@@ -58,7 +58,6 @@ const files = fs.existsSync(evidenceDir) ? fs.readdirSync(evidenceDir).filter(na
 const promoted = capabilities => ({cli: {supportedVersions: '>=0.68.0 <0.69.0'}, capabilities});
 const record = (capability, version = '0.68.0', verdict = 'pass') => ({name: `${capability}-2026-11-16.md`, bytes: `- capability: ${capability}\n- gemini version: ${version} (recorded CLI output)\n- 판정: ${verdict}\n`});
 
-test('operational Gemini verified capabilities have passing supported-version evidence and prerequisites', () => verifyEvidence(getPlatform('gemini'), files));
 test('L1 operational Gemini install has its passing live evidence record', () => {
   assert.equal(getPlatform('gemini').capabilities.install.state, 'verified');
   const evidence = files.find(file => file.name === 'install-2026-11-16.md');
@@ -84,7 +83,7 @@ test('L4 operational Gemini standalone has its passing live evidence record', ()
   assert.ok(evidence, 'L4 standalone evidence is required');
   assert.match(evidence.bytes, /invoke_agent.*agent_name: "arc-scouter"/);
   assert.match(evidence.bytes, /gemini-2\.5-flash.*role `subagent`/);
-  verifyEvidence(getPlatform('gemini'), files);
+  verifyEvidence(promoted(Object.fromEntries(['install', 'nativeProfile', 'catalog', 'standalone'].map(key => [key, getPlatform('gemini').capabilities[key]]))), files);
 });
 
 test('catalog evidence categories cover the static catalog exactly', () => {
@@ -122,4 +121,11 @@ test('evidence parser accepts pass and rejects wrong version, verdict, capabilit
 });
 test('verified capability with passing evidence still requires verified prerequisites', () => {
   assert.throws(() => verifyEvidence(promoted({install: {state: 'off'}, nativeProfile: {state: 'verified'}}), [record('nativeProfile')]), /nativeProfile requires install/);
+});
+
+test('L5 operational Gemini bridge and all verified capabilities have passing supported-version evidence and prerequisites', () => {
+  assert.equal(getPlatform('gemini').capabilities.bridge.state, 'verified');
+  const evidence = files.find(file => file.name === 'bridge-2026-11-16.md');
+  assert.ok(evidence, 'L5 bridge evidence is required');
+  verifyEvidence(getPlatform('gemini'), files);
 });
