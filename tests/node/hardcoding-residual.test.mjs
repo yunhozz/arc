@@ -122,10 +122,10 @@ test('setup role defaults honor injected registry for package and installed mode
   assert.deepEqual(loadRoleDefaults({context, statuses: [{platform: 'zeta', settings: {modelConfig}}], target: 'zeta', readText: () => assert.fail('installed settings take priority')}), roles);
 });
 
-// New platform branches belong only in the same descriptor/adapter boundaries as AC-P1.
+// Platform branches stay in descriptor/adapter boundaries, including T12 bridge gates and session reservation.
 test('Gemini literal branches stay inside the platform hardcoding allowlist', () => {
   const violations = [];
-  const runtimeAllowlist = /^(?:lib|shared\/skill)\/runtime\/(?:platform-registry\.mjs|adapters\/.*|capabilities\.mjs|role-bridge-args\.mjs|role-supervisor\.mjs|local-cli\.mjs)$/;
+  const runtimeAllowlist = /^(?:lib|shared\/skill)\/runtime\/(?:platform-registry\.mjs|adapters\/.*|capabilities\.mjs|role-bridge-args\.mjs|role-supervisor\.mjs|role-bridge\.mjs|role-dispatch-policy\.mjs|role-routing\.mjs|local-cli\.mjs)$/;
   for (const relative of ['lib', 'shared/skill/runtime']) {
     const directory = new URL('../../' + relative + '/', import.meta.url);
     for (const entry of fs.readdirSync(directory, {recursive: true, withFileTypes: true})) {

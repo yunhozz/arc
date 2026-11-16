@@ -6,7 +6,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {spawn, spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {DEFAULT_POLICY, reason} from './role-dispatch-policy.mjs';
+import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
+import {DEFAULT_POLICY, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
 import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routing.mjs';
 import {observeCooperativeTarget} from './scope.mjs';
@@ -19,7 +20,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const sha256 = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 const STDERR_LIMIT = 65536;
 
-const SUPERVISOR_IMPLEMENTATIONS = new Map([
+export const SUPERVISOR_IMPLEMENTATIONS = new Map([
   ['claude', {
     normalize: normalizeClaudeStreamEvent,
     async observe({state, invocation, homes, requested, terminalClaim, lease}) {
@@ -34,6 +35,19 @@ const SUPERVISOR_IMPLEMENTATIONS = new Map([
       return null;
     },
     session: state => state.init?.sessionId,
+  }],
+  ['gemini', {
+    resume: 'off',
+    normalize: normalizeGeminiStreamEvent,
+    async observe({state, invocation, terminalClaim, lease}) {
+      const evaluation = evaluateGeminiObservation({state, expected: invocation.expected, sessionId: lease.sessionId});
+      return {...evaluation, claims: {...evaluation.claims, terminal: terminalClaim}, effortMismatch: false, sessionId: lease.sessionId};
+    },
+    async resultPath(state, resultFile) {
+      if (!state.terminal || state.terminalError || typeof state.resultText !== 'string' || !state.resultText.trim()) return null;
+      await fsp.writeFile(resultFile, state.resultText, {mode: 0o600}); return resultFile;
+    },
+    session: state => state.geminiSessionId ?? state.init?.sessionId,
   }],
   ['codex', {
     normalize: normalizeCodexStreamEvent,
@@ -72,12 +86,21 @@ export const artifactDirectory = (target, workflowId, dispatchId) => path.join(t
 /** Segment 0 (the first run) keeps its files in the dispatch directory; resumed segments use segments/<n>/. */
 export const segmentDirectory = (target, workflowId, dispatchId, segment) => segment > 0 ? path.join(artifactDirectory(target, workflowId, dispatchId), 'segments', String(segment)) : artifactDirectory(target, workflowId, dispatchId);
 
+// U-P1: reserved path only; policy contents and installation await live format verification.
+export const geminiPolicyFile = (homes, role) => path.join(homes.gemini ?? '', 'skills', 'arc', 'policies', `${role}.toml`);
+
 /** Builds the child CLI arguments from the hash-verified target profile. Errors carry reasonCode. */
-export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, policy = DEFAULT_POLICY}) {
+export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, policy = DEFAULT_POLICY, supervisorImplementations = SUPERVISOR_IMPLEMENTATIONS}) {
   const fail = (reasonCode, message) => Object.assign(Error(message), {reasonCode});
   const requested = config.roles[lease.role], platform = lease.version === 2 ? lease.targetPlatform : requested.platform;
   if (platform !== requested.platform) throw fail('activation_unverified', 'Lease target differs from the active role target');
-  if (!SUPERVISOR_IMPLEMENTATIONS.has(platform)) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
+  const implementation = supervisorImplementations.get(platform);
+  if (platform === 'gemini' || lease.hostPlatform === 'gemini') {
+    const gates = bridgeGateReasons({platform, role: lease.role, hostPlatform: lease.hostPlatform, policy});
+    if (gates.length) throw fail(gates[0], 'Gemini bridge gates are not verified');
+  }
+  if (platform === 'gemini' && lease.segment > 0 && !['on', 'verified'].includes(implementation?.resume)) throw fail('resume_unverified', 'Gemini resume is not verified');
+  if (!implementation) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
   const file = path.join(homes[platform], 'agents', routingProfileFile(getPlatform(platform), lease.role));
   let bytes;
   try { bytes = await fsp.readFile(file); } catch { throw fail('activation_unverified', 'Profile unreadable'); }
@@ -85,13 +108,14 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   let profile, args;
   try {
     profile = parseCompositeProfile(platform, bytes);
-    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy});
+    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy, policyFile: geminiPolicyFile(homes, lease.role), resume: lease.segment > 0});
   } catch { throw fail('permission_scope_unverified', 'Profile arguments unavailable'); }
   const permissions = ROLE_BRIDGE_PERMISSIONS[platform][lease.role];
   const expected = platform === 'claude'
     ? {model: requested.model, effort: requested.effort, tools: profile.tools, permissionMode: permissions.permissionMode}
+    : platform === 'gemini' ? {model: requested.model, effort: 'default'}
     : {model: requested.model, effort: requested.effort, sandboxMode: permissions.sandboxMode, approvalPolicy: 'never'};
-  return {platform, args, argsDigest: argsDigest(args), expected, requested};
+  return {platform, args, argsDigest: argsDigest(args), expected, requested, ...(platform === 'gemini' ? {stdinInstructions: profile.instructions} : {})};
 }
 
 /** Starts this module as a detached supervisor process (own session, stdio ignored, unref'd). env defaults to the inherited environment. */
@@ -181,10 +205,10 @@ export async function runSupervisor(options) {
   try {
     if (config === null) return await earlyFailure('activation_unverified');
     const requested = config.roles[lease.role], platform = requested.platform;
-    const implementation = SUPERVISOR_IMPLEMENTATIONS.get(platform);
+    const implementation = (options.supervisorImplementations ?? SUPERVISOR_IMPLEMENTATIONS).get(platform);
     if (!implementation) throw Error('Invalid composite profile: unknown platform');
     let invocation;
-    try { invocation = await buildBridgeInvocation({lease, config, homes, worktree: target.realpath, resultPath: resultFile, policy}); } catch (error) { return await earlyFailure(error.reasonCode ?? 'activation_unverified'); }
+    try { invocation = await buildBridgeInvocation({lease, config, homes, worktree: target.realpath, resultPath: resultFile, policy, supervisorImplementations: options.supervisorImplementations}); } catch (error) { return await earlyFailure(error.reasonCode ?? 'activation_unverified'); }
     if (invocation.argsDigest !== lease.argsDigest) return await earlyFailure('activation_unverified');
     const brief = await fsp.readFile(path.join(artifactDir, 'brief.md'), 'utf8');
     const cli = resolveLocalCli(platform, context);
@@ -201,7 +225,7 @@ export async function runSupervisor(options) {
     child.on('error', () => { exited = true; exitResolve({code: null, signal: null, spawnError: true}); });
     child.stdin.on('error', () => {});
     if (options.afterSpawn) await options.afterSpawn(child); // test injection point for post-spawn failures
-    child.stdin.end(brief);
+    child.stdin.end(invocation.stdinInstructions === undefined ? brief : `${invocation.stdinInstructions}\n\n${brief}`);
     const stdoutClosed = new Promise(resolve => { child.stdout.on('close', resolve); child.stdout.on('error', resolve); });
 
     const state = {init: null, initEval: null, threadId: null, codexEval: null, terminal: false, terminalError: false, resultText: undefined, messages: [], mismatch: null, internal: null};
@@ -249,6 +273,23 @@ export async function runSupervisor(options) {
       const normalized = implementation.normalize(raw);
       if (!normalized) return;
       writeEvent(normalized);
+      if (platform === 'gemini') {
+        if (normalized.kind !== 'unknown') {
+          if (normalized.sessionId) {
+            if (normalized.sessionId !== lease.sessionId) state.geminiSessionMismatch = true;
+            state.geminiSessionId = normalized.sessionId;
+          }
+          if (normalized.model) {
+            if (normalized.model !== invocation.expected.model) state.geminiModelMismatch = true;
+            state.geminiModel = normalized.model;
+          }
+        }
+        if (normalized.kind === 'init') state.init = normalized;
+        if (normalized.kind === 'result') {
+          state.terminal = true; state.terminalError ||= normalized.isError === true; state.resultText = normalized.resultText;
+        }
+        return;
+      }
       if (normalized.kind === 'init') {
         state.init = normalized; state.initEval = evaluateClaudeInit({init: normalized, expected: invocation.expected});
         if (state.initEval.reason && !state.mismatch) { state.mismatch = state.initEval.reason; terminate('mismatch'); }
@@ -313,7 +354,9 @@ export async function runSupervisor(options) {
     const observation = await implementation.observe({state, invocation, homes, requested, terminalClaim, lease, readContext, policy});
     let {claims, sessionId} = observation;
     const {effortMismatch} = observation;
-    if (observation.reason && !codes.includes(observation.reason)) codes.push(observation.reason);
+    const cancelledBeforeIdentity = platform === 'gemini' && terminating === 'cancel' && !implementation.session(state);
+    if (observation.reason && !(cancelledBeforeIdentity && observation.reason === 'execution_identity_unverified') && !codes.includes(observation.reason)) codes.push(observation.reason);
+    if (platform === 'gemini' && terminating !== 'cancel' && (exit.code !== 0 || exit.signal || state.terminalError)) codes.push('execution_failed');
     if (effortMismatch) codes.push('model_effort_mismatch');
     if (violations.reason) codes.push(violations.reason);
     if (after === null) claims.permissions = {level: 'unverified', source: 'worktree-snapshot', details: 'post-run snapshot unavailable'};
@@ -337,13 +380,14 @@ export async function runSupervisor(options) {
         claims.identity = {level: 'unverified', source: 'none'};
       }
     }
+    if (platform === 'gemini' && codes.includes('execution_identity_unverified') && terminating !== 'cancel') finalState = 'unknown';
     if (lease.sessionId && observedSession && observedSession !== lease.sessionId && finalState !== 'cancelled') {
       // A resumed segment must continue the recorded session; a different observed id leaves the slot occupied.
       finalState = 'unknown'; sessionId = lease.sessionId; if (!codes.includes('execution_identity_unverified')) codes.push('execution_identity_unverified');
       claims.identity = {level: 'unverified', source: 'none'};
     }
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
-    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath});
+    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : {})});
     await commit(finalState, codes, claims, {sessionId, resultPath});
   } catch {
     // Unexpected failure after the child started: stop it, then record a failed state if the child is gone.

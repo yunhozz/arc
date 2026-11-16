@@ -6,7 +6,7 @@ import path from 'node:path';
 import {DEFAULT_POLICY, reason, profileName, bridgeGateReasons, environmentReasons, capabilityReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, listLeases, readHostLimits, NON_TERMINAL_STATES, readHeartbeat, requestCancel, clearCancel, TERMINAL_STATES, validateLease} from './role-dispatch-store.mjs';
 import {withRoutingLock, readActivation, readRevision, authenticate, resolveRuntimeHomes, locateAnchorHome} from './role-routing.mjs';
-import {startSupervisor, processAlive, resolveWorktree, artifactDirectory, segmentDirectory, buildBridgeInvocation} from './role-supervisor.mjs';
+import {SUPERVISOR_IMPLEMENTATIONS, startSupervisor, processAlive, resolveWorktree, artifactDirectory, segmentDirectory, buildBridgeInvocation} from './role-supervisor.mjs';
 
 export const heldRoutingResult=(code,releaseCondition)=>({decision:'hold',routeStatus:'held',supportStatus:'unverified',route:null,executionEnvironment:null,hostPlatform:null,role:null,requested:null,authentication:null,reasons:[{code,releaseCondition}]});
 
@@ -130,7 +130,7 @@ export async function recordRoleObservation({context,dispatchId,waitMs,event,nat
 }
 
 /** Continues a completed or failed bridge dispatch in its recorded session. The input carries no session id; only the lease value is used. */
-export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(),policy=DEFAULT_POLICY,startSupervisor:starter=startSupervisor}={}){
+export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(),policy=DEFAULT_POLICY,startSupervisor:starter=startSupervisor,supervisorImplementations=SUPERVISOR_IMPLEMENTATIONS}={}){
  if(!validContext(context)||typeof dispatchId!=='string'||!ID.test(dispatchId)||dispatchId.startsWith('.')||typeof brief!=='string'){return blank(context,dispatchId,'deny','invalid_request');}
  const bytes=Buffer.byteLength(brief,'utf8');
  if(bytes<1||bytes>policy.briefMaxBytes)return blank(context,dispatchId,'deny','invalid_request');
@@ -142,7 +142,8 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
   await withRoutingLock(anchorHome,async()=>{
    const lease=await readLease(anchorHome,dispatchId,{runtimePlatforms});
    if(!lease||lease.workflowId!==context.workflowId||lease.hostPlatform!==context.hostPlatform||lease.route!=='bridge'||!['completed','failed'].includes(lease.state)){result=blank(context,dispatchId,'deny','invalid_request');return;}
-   leaseTargetPlatform(lease,runtimePlatforms);
+   const targetPlatform=leaseTargetPlatform(lease,runtimePlatforms);
+   if(targetPlatform==='gemini'&&!['on','verified'].includes(supervisorImplementations.get(targetPlatform)?.resume)){result=blank(context,dispatchId,'hold','resume_unverified');return;}
    if(!lease.sessionId){result=blank(context,dispatchId,'hold','execution_identity_unverified');return;}
    let config;
    try{config=await readActivation(homes,lease.revision,{anchorHome,host:context.hostPlatform,runtimePlatforms});}
@@ -152,7 +153,7 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
    }
    const requested=config.roles[lease.role],platform=requested.platform,codes=new Set();
    const {authentication}=await authenticate(platform,context,policy);
-   if(authentication.status!=='Available')codes.add(authentication.status);
+   if(authentication.status!=='Available'&&!(runtimePlatforms.getPlatform(platform).auth.kind==='none'&&authentication.authStatus==='unknown'&&authentication.reason==='auth_unverified'))codes.add(authentication.status??'Incomplete');
    for(const code of environmentReasons(context.executionEnvironment,policy))codes.add(code);
    for(const code of bridgeGateReasons({platform,role:lease.role,hostPlatform:context.hostPlatform,policy}))codes.add(code);
    // The dispatch itself is terminal here, so only other non-terminal bridge leases occupy slots. The workflow total is not increased by a follow-up segment.
@@ -161,7 +162,7 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
    if(codes.size){result=blank(context,dispatchId,'hold','activation_unverified');result.reasons=[...codes].map(reason);return;}
    let target;try{target=await resolveWorktree(context.cwd);}catch{result=blank(context,dispatchId,'hold','activation_unverified');return;}
    const segment=lease.segment+1,directory=segmentDirectory(target,lease.workflowId,dispatchId,segment),resultPath=path.join(directory,'result.md');
-   let invocation;try{invocation=await buildBridgeInvocation({lease:{...lease,segment},config,homes,worktree:target.realpath,resultPath,policy});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
+   let invocation;try{invocation=await buildBridgeInvocation({lease:{...lease,segment},config,homes,worktree:target.realpath,resultPath,policy,supervisorImplementations});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
    await fsp.mkdir(directory,{recursive:true,mode:0o700});await fsp.chmod(path.dirname(directory),0o700);await fsp.chmod(directory,0o700);
    await fsp.writeFile(path.join(directory,'brief.md'),brief,{mode:0o600,flag:'w'});await fsp.chmod(path.join(directory,'brief.md'),0o600);
    await clearCancel(anchorHome,dispatchId);
