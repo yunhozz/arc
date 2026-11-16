@@ -218,14 +218,14 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 **Interfaces:**
 - Produces: `export function matchRegisteredHome({dir, homes}) -> string|null`(`lib/runtime/role-routing.mjs`). `homes`는 `{[platformId]: resolvedHome}`이고, 정확히 같은 경로의 platform id를 돌려줍니다. 정규화는 `path.resolve` 뒤 문자열 비교입니다. T3, T6이 재사용합니다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `F5 marker pointing outside registered homes creates no files`: 임시 디렉터리 X를 가리키는 marker로 routing-status/prepare를 호출하면 결과 `activation_unverified`이고, X 안 파일 수 0, 등록 home의 `.lock` 미생성입니다.
   - `F5 terminal lease cleanup only after full verification`: 등록 home이지만 프로필 해시가 불일치하는 상태에서 terminal lease 파일이 그대로 남습니다(`fs.existsSync(leasePath)===true`).
   - `F5 matchRegisteredHome exact match only`: 하위 디렉터리, 상위 디렉터리, 후행 슬래시 차이는 정규화 후 판정하고, 하위·상위는 `null`입니다.
-- [ ] **Step 2:** `node --test tests/node/role-routing-anchor.test.mjs`. 기대: 위 3건 FAIL
-- [ ] **Step 3:** lock 생성 전에 `matchRegisteredHome` 검사를 넣고, 실패하면 파일을 만들지 않고 `activation_unverified`를 냅니다. lease 정리 호출은 전체 검증 성공 분기 뒤로 옮깁니다.
-- [ ] **Step 4:** Step 2 PASS, `tests/node/role-routing-*.test.mjs` 전체 PASS
-- [ ] **Step 5:** STD-CLOSE(runtime 변경: 1–9 전부)
+- [x] **Step 2:** `node --test tests/node/role-routing-anchor.test.mjs`. 기대: 위 3건 FAIL
+- [x] **Step 3:** lock 생성 전에 `matchRegisteredHome` 검사를 넣고, 실패하면 파일을 만들지 않고 `activation_unverified`를 냅니다. lease 정리 호출은 전체 검증 성공 분기 뒤로 옮깁니다.
+- [x] **Step 4:** Step 2 PASS, `tests/node/role-routing-*.test.mjs` 전체 PASS
+- [x] **Step 5:** STD-CLOSE(runtime 변경: 1–9 전부)
 
 **필수 검사:** 작업 테스트, `npm test`, runtime-assets `--check`, golden, runtime-versions baseline, `check:manifest`, `check:role-policy`
 **필수 QA:** 예
@@ -866,6 +866,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 |---|---|---|---|---|
 | 2026-11-16 | 기준선 | 기록 | `739da7f` | `npm test` 기준 실패 36건(부록 B) |
 | 2026-11-16 | T1 | 수용 | (이 커밋) | Implementer bridge `77805bd2`(2 segment: RED 62/4 → GREEN 66/0, manifest 232·role-policy 24·parity 통과; sandbox `EMFILE` 1건은 호스트 미재현 → 환경). fresh QA bridge `d93b70d0`(3 segment; sandbox 제한으로 Orchestrator가 호스트에서 Q4 176건 175 pass/0 fail/1 skip, Q5 `7947cf8` 사본에서 신규 4건만 FAIL 실행 후 전달). QA: Q1·Q2·Q5 proven, Q3(pinned API 실행)·Q4(바이트 비교) unverified → Orchestrator 처분: Q3은 undefined 인자 무시와 `installerRegistryOf` 기본값으로 정적 수용, Q4는 status deepEqual·S target 쓰기 0건 단언과 기존 테스트로 수용. 전체 `npm test` 2224 tests / 36 fail = 기준과 동일 |
+| 2026-11-16 | T2 | 수용 | (이 커밋) | Implementer bridge `1b549570`(RED anchor 5/3 → GREEN 8/0, role-routing-* 64/0, runtime-versions 6/0). dispatch는 `permission_violation_observed`(`shared/skill/runtime/role-routing.mjs`)로 기록됨 — Orchestrator가 allowedPaths에 디렉터리를 넣은 지정 오류이며 파일은 생성 명령 산출물(원본과 `cmp` 동일, runtime-assets `--check` 33)로 정리. 호스트 실행: `b0daa39` 사본에서 F5 신규 3건만 FAIL, role-routing-*·role-bridge-* 141/0, `npm test` 2227 tests / 36 fail = 기준과 동일, check:role-policy 24, parity, golden `--diff` 무차이. fresh QA bridge `a64cacfe`: Q1–Q6 proven |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 (T8 Step 1 산출물을 Orchestrator가 기록)
