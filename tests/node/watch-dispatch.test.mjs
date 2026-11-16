@@ -4,9 +4,90 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {makeHomes} from './fixtures/watch/homes.mjs';
 import {parseLeaseLenient, createDispatchIndex} from '../../lib/watch/dispatch.mjs';
+import {createTestRuntimeRegistry} from './fixtures/platforms/zeta.mjs';
 
 const scan = (index, gitCommonDirs = [], includeAllLeases = false) => index.scan({gitCommonDirs, includeAllLeases});
 const artifacts = (homes, gcd, id, files) => homes.writeArtifacts(gcd, 'w1', `dispatches/${id}`, files);
+
+async function resolveStore(args) {
+  const file = new URL('../../lib/watch/anchor-store.mjs', import.meta.url);
+  assert.ok(fs.existsSync(file), 'watch anchor store resolver must exist');
+  return (await import(file.href)).resolveDispatchStore(args);
+}
+
+test('watch reads claude anchor store', async t => {
+  const h = makeHomes(t), homes = {codex:h.codexHome, claude:h.claudeHome};
+  h.writeMarker('codex', homes.codex, homes.claude);
+  h.writeMarker('claude', homes.claude);
+  h.writeLease({dispatchId:'claude-anchor'}, homes.claude);
+  h.writeLease({dispatchId:'old-anchor'});
+  const before = await h.snapshot(), result = await resolveStore({homes});
+  assert.deepEqual(result, {kind:'anchor', dir:path.join(homes.claude, 'arc-role-dispatch')});
+  const index = createDispatchIndex({storeDir:result.dir});
+  await scan(index, [], true);
+  assert.deepEqual(index.list().map(ref => ref.dispatchId), ['claude-anchor']);
+  assert.deepEqual(await h.snapshot(), before);
+});
+
+test('watch reads codex anchor store for S={codex,zeta}', async t => {
+  const h = makeHomes(t), homes = {codex:h.codexHome, zeta:path.join(h.userHome, '.zeta')};
+  h.writeMarker('codex', homes.codex);
+  h.writeMarker('zeta', homes.zeta, homes.codex);
+  h.writeLease({dispatchId:'codex-anchor'});
+  const visited = [], result = await resolveStore({homes, registry:createTestRuntimeRegistry(['zeta', 'codex']),
+    readMarker:async file => { visited.push(path.dirname(file)); return fs.promises.readFile(file, 'utf8'); }});
+  assert.deepEqual(visited, [homes.codex, homes.zeta]);
+  assert.deepEqual(result, {kind:'anchor', dir:path.join(homes.codex, 'arc-role-dispatch')});
+  const index = createDispatchIndex({storeDir:result.dir});
+  await scan(index, [], true);
+  assert.equal(index.byId('codex-anchor').inScope, true);
+});
+
+test('watch falls back to CODEX_HOME store with zero candidates', async t => {
+  const h = makeHomes(t);
+  h.writeLease({dispatchId:'legacy'});
+  const result = await resolveStore({homes:{codex:h.codexHome, claude:h.claudeHome}});
+  assert.deepEqual(result, {kind:'legacy', dir:path.join(h.codexHome, 'arc-role-dispatch')});
+  const index = createDispatchIndex({storeDir:result.dir});
+  await scan(index, [], true);
+  assert.equal(index.byId('legacy').inScope, true);
+  assert.deepEqual(await resolveStore({homes:{claude:h.claudeHome}}), {kind:'none'});
+});
+
+test('unregistered activeConfigPath is not a candidate', async t => {
+  const h = makeHomes(t), outside = path.join(h.root, 'unregistered');
+  h.writeMarker('claude', h.claudeHome, outside);
+  const before = await h.snapshot();
+  assert.deepEqual(await resolveStore({homes:{claude:h.claudeHome, user:outside}}), {kind:'none'});
+  assert.deepEqual(await h.snapshot(), before);
+});
+
+test('parseLeaseLenient reads v2 like v1', () => {
+  const lease = {dispatchId:'d-v2', workflowId:'wf', role:'arc_qa', route:'bridge', hostPlatform:'codex',
+    state:'running', sessionId:'session', nativeAgentId:'agent', createdAt:'created', updatedAt:'updated', reasons:['reason']};
+  assert.deepEqual(parseLeaseLenient(JSON.stringify({version:2, targetPlatform:'claude', ...lease})),
+    parseLeaseLenient(JSON.stringify({version:1, ...lease})));
+});
+
+test('watch ignores malformed, mismatched and noncanonical markers', async t => {
+  const h = makeHomes(t), homes = {claude:h.claudeHome};
+  const invalid = [
+    {version:2}, {revision:''}, {platform:'codex'}, {targetHome:h.codexHome}, {configHash:'bad'},
+    {runtime:{version:'1', hash:'bad', policyHash:'bad'}}, {profiles:[]}, {extra:true},
+    {activeConfigPath:'relative/arc-role-platform-routing.json'},
+    {activeConfigPath:path.join(h.claudeHome, 'other.json')},
+    {activeConfigPath:h.claudeHome + '/../.claude/arc-role-platform-routing.json'},
+  ];
+  for (const overrides of invalid) {
+    h.writeMarker('claude', h.claudeHome, h.claudeHome, overrides);
+    assert.deepEqual(await resolveStore({homes}), {kind:'none'}, JSON.stringify(overrides));
+  }
+  const marker = h.writeMarker('claude', h.claudeHome);
+  fs.writeFileSync(marker, '{');
+  assert.deepEqual(await resolveStore({homes}), {kind:'none'});
+  assert.deepEqual(await resolveStore({homes, readMarker:async () => { throw Error('unreadable'); }}), {kind:'none'});
+  assert.deepEqual(await resolveStore({homes:{codex:h.codexHome}}), {kind:'none'});
+});
 
 test('lenient lease parsing ignores extra and missing keys', () => {
   assert.deepEqual(parseLeaseLenient('{"dispatchId":"d1","future":1,"reasons":"x","nativeAgentId":null,"role":4}'), {dispatchId:'d1', reasons:[]});
@@ -158,8 +239,10 @@ test('scan never creates or modifies files', async t => {
   const withLease = await homes.snapshot();
   await scan(index, [gcd]);
   assert.deepEqual(await homes.snapshot(), withLease);
-  const absent = createDispatchIndex({codexHome:null});
+  const absent = createDispatchIndex({storeDir:null});
   assert.equal((await scan(absent, [gcd], true)).length, 1);
   assert.equal(absent.bySession('T1').inScope, true);
+  assert.deepEqual(absent.list().map(ref => ref.dispatchId), ['d1']);
+  assert.equal(absent.byId('d2'), null);
   assert.deepEqual(await homes.snapshot(), withLease);
 });

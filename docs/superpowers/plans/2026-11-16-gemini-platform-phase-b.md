@@ -347,7 +347,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - `export function resolveDispatchStore({homes, registry, readMarker}) -> {kind:'anchor', dir} | {kind:'legacy', dir} | {kind:'none'} | {kind:'ambiguous'}`
   - `createDispatchIndex({storeDir})`(인자 `codexHome` 대체. `storeDir`가 없으면 빈 색인)
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `watch reads claude anchor store`: claude·codex marker가 모두 Claude home을 가리키면 `{kind:'anchor', dir:<claude>/arc-role-dispatch}`이고 색인에 Claude store lease가 보입니다.
   - `watch reads codex anchor store for S={codex,zeta}`(주입)
   - `watch falls back to CODEX_HOME store with zero candidates`: marker 없음 + Codex store 존재 → `legacy`
@@ -355,10 +355,10 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - `unregistered activeConfigPath is not a candidate`: marker가 임시 디렉터리를 가리키면 후보 0
   - `parseLeaseLenient reads v2 like v1`(AC-L3): v2 lease 필드 결과가 같은 v1 lease와 deepEqual(`targetPlatform` 무시)
   - 기존 `watch-*` 세션 정규화 테스트 무변경
-- [ ] **Step 2:** `node --test tests/node/watch-*.test.mjs`. 기대: 신규 FAIL
-- [ ] **Step 3:** 구현. 읽기 전용이며 lock은 쓰지 않습니다. 새 문구는 `dispatch store ambiguous` 하나뿐입니다.
-- [ ] **Step 4:** Step 2 PASS
-- [ ] **Step 5:** STD-CLOSE(3–7, 9)
+- [x] **Step 2:** `node --test tests/node/watch-*.test.mjs`. 기대: 신규 FAIL
+- [x] **Step 3:** 구현. 읽기 전용이며 lock은 쓰지 않습니다. 새 문구는 `dispatch store ambiguous` 하나뿐입니다.
+- [x] **Step 4:** Step 2 PASS
+- [x] **Step 5:** STD-CLOSE(3–7, 9)
 
 **필수 검사:** 작업 테스트, `npm test`, `check:manifest`
 **필수 QA:** 아니요
@@ -862,6 +862,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | T3 | 수용(개정 v2) | (이 커밋) | 첫 Implementer `9ee0127d`가 v1 전제 오류(설치기·runtime 모두 symlink 조상 거부)를 보고 → 사용자 결정 11로 spec/plan v2. fresh Implementer `c312e61e`(2 segment: 단언 단계 수정, 대조 케이스 추가): anchor 9/0, n-platform 53/0, manifest 232, parity. 조합 판정: 조상·home 자체·lock symlink 양쪽 거부, `arc-role-dispatch` symlink 양쪽 허용(일치, 후속 과제로 기록). Orchestrator 실효성 확인: `scope.mjs` symlink 검사 제거 사본에서 runtime F6 테스트 FAIL, `targets.mjs` symlink 검사 제거 사본에서 publish F6 테스트 FAIL. `npm test` 2235 tests / 36 fail = 기준과 동일. 사용자 커밋 `c4aecb3`(watch 스타일) 이후 watch-*·T3 테스트 419/0 재확인. 필수 QA 대상 아님(v2) |
 | 2026-11-16 | T4 | 수용 | (이 커밋) | Implementer bridge `e503f27e`(2 segment; 자기 테스트 오류 수정 허용 지시 후 완료): F7a는 호출 횟수 대신 마지막 프로필 읽기 완료 시점에 marker 변경, 단언 2→3개. F1 비anchor(zeta) switch 테스트 추가. anchor 9/0, n-platform 54/0, parity. segment 1의 `permission_violation_observed`(headChanged/refsChanged)는 실행 중 사용자 커밋 `944f818`(watch 라벨) 때문이며 Implementer 변경 아님. Orchestrator 실효성 확인: host marker 재확인 줄 제거 사본에서 해당 테스트 FAIL. `npm test` 2236 tests / 36 fail = 기준과 동일. 필수 QA 대상 아님 |
 | 2026-11-16 | T5 | 수용 | (이 커밋) | Implementer bridge `c2844a56`(2 segment: 구현 전 lease-v2+store 16/12 → 후 29/0; segment 2에서 STD-CLOSE: runtime-assets 33, runtime-versions 6/0, manifest 232, role-policy 24 무변경, parity). sandbox의 bridge resume 실패는 호스트에서 bridge·lease 87/0으로 환경 제한 판정. 호스트 실행: `e191068` 사본에서 새 테스트 22건 중 13 FAIL(통과 9건은 v2 전체 거부였던 base에서도 통과하는 거부 사례, valid v2 수용 테스트와 짝), 회귀 routing·bridge·lease·watch 528/0, golden 4/0, `npm test` 2258 tests / 36 fail = 기준과 동일. fresh QA bridge `3022af70`: Q1·Q3·Q4·Q5·Q7 proven, Q2 unmet, Q6·Q8 unverified → Orchestrator 처분: Q2(observe가 config 없이 v2 대상을 표시)는 수정하지 않음 — observe는 재구성 뒤 과거 dispatch를 관측해야 해서 활성 설정을 읽지 않는 기존 설계이고, lease는 lock 아래 runtime만 기록하며 실행 전(run·resume)에는 `buildBridgeInvocation`이 대상 불일치를 `activation_unverified`로 막음. Q6은 `parseLeaseLenient`가 v2 lease를 읽는 것을 직접 실행으로 확인, Q8은 golden 4/0·runtime-versions 6/0 호스트 실행으로 확인. 잔여 위험(후속 기록): resume은 capability를 재확인하지 않음(spec 7.2 범위는 prepare·run) |
+| 2026-11-16 | T6 | 수용 | (이 커밋) | Implementer bridge `0c277237`(2 segment): `lib/watch/anchor-store.mjs` `resolveDispatchStore`(async, anchorOrder 순 marker 형식 검사·등록 home 정확 일치·중복 제거 → anchor/legacy/none/ambiguous), `createDispatchIndex({storeDir})`, ambiguous는 기존 `notice` 경로로 `dispatch store ambiguous` 표시(`render.mjs` 무변경). 탐색은 watch 시작 시 1회, 후보 0이고 Codex home이 있으면 시작 후 생기는 legacy store도 계속 관찰. Orchestrator 검토 지적(segment 1): storeDir 없을 때 `scan`이 `[]`를 반환해 workflow artifact 표시까지 사라지는 회귀 → lease만 비우고 artifact 스캔 유지로 수정. 호스트 실행: `a531139` 사본에서 새 탐색 테스트 6건 FAIL(watch-watcher 파일은 새 모듈 import로 전체 FAIL), watch-* 366/0(Implementer), `npm test` 2267 tests / 36 fail = 기준과 동일. manifest 233. 필수 QA 대상 아님 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 (T8 Step 1 산출물을 Orchestrator가 기록)

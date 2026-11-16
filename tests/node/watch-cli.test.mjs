@@ -55,6 +55,35 @@ function setup(t) {
 }
 
 // Catch missing parsing branches, bad defaults, duplicate options and invalid values.
+test('watch finds an anchor from all registered platforms despite the source filter', async t => {
+  const s = setup(t);
+  s.h.writeMarker('claude', s.h.claudeHome);
+  s.h.writeLease({dispatchId:'filtered-anchor', state:'running', sessionId:'source', updatedAt:iso(TIME)}, s.h.claudeHome);
+  s.write('source');
+  const before = await s.h.snapshot(), {result} = await s.start(['--platform', 'codex', '--all', '--json']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  const rows = s.output.text.trim().split('\n').map(JSON.parse);
+  assert.ok(rows.some(event => event.dispatchId === 'filtered-anchor'));
+  assert.ok(rows.some(event => event.sessionId === 'source'));
+  assert.deepEqual(await s.h.snapshot(), before);
+});
+
+test('a Codex anchor marker preserves current composite watch output', async t => {
+  const s = setup(t);
+  s.write('composite');
+  s.h.writeLease({dispatchId:'current-anchor', state:'running', sessionId:'composite', role:'arc_qa', updatedAt:iso(TIME)});
+  const {result} = await s.start(['--all', '--json']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  const baseline = s.output.text, controller = new AbortController(), output = new Output();
+  s.h.writeMarker('codex', s.h.codexHome);
+  s.h.writeMarker('claude', s.h.claudeHome, s.h.codexHome);
+  assert.equal(await runWatch(['--all', '--json'], {...s.io, output, signal:controller.signal,
+    setInterval(){controller.abort();return 17;}}), 0);
+  assert.equal(output.text, baseline);
+});
+
 test('runWatch passes the user home for host skill roots',async t=>{
   const s=setup(t), skillFile=path.join(s.h.userHome,'host-skills/arc/SKILL.md');
   s.write('host-skill',s.cwd,[
