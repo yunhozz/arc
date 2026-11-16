@@ -10,7 +10,7 @@ const model = (id, supportedGenerationMethods = ['generateContent']) => ({name: 
 const response = (body, extra = {}) => ({ok: true, status: 200, json: async () => structuredClone(body), ...extra});
 
 function verifiedGeminiPlatforms(state = 'verified') {
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, catalog: {state}, ...(state === 'off' ? {standalone: {state: 'off'}, bridge: {state: 'off'}} : {})}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, catalog: {state}, ...(state === 'off' ? {standalone: {state: 'off'}, bridge: {state: 'off'}, compositeRole: {state: 'off'}} : {})}} : p));
   return createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
 }
 

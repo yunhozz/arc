@@ -54,6 +54,9 @@ for (const injected of [false, true]) {
   test(`role-routing publication defaults preserve profile and marker bytes for ${label}`, async t => {
     const input = await routingInputs(t, injected), prepared = prepareCompositeFiles(input);
     const {platforms, anchor, ...defaults} = prepared;
+    // Exercise publication fallback when no config platform list is supplied.
+    const {platforms: configPlatforms, ...configWithoutPlatforms} = defaults.config;
+    defaults.config = configWithoutPlatforms;
     assert.equal((await publishCompositeFiles({context: input.context, prepared: defaults})).published, true);
     const active = path.join(input.targets[anchor].home, 'arc-role-platform-routing.json');
     assert.deepEqual(fs.readFileSync(active), prepared.bytes);

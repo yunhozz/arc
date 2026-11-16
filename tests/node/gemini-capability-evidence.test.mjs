@@ -129,3 +129,10 @@ test('L5 operational Gemini bridge and all verified capabilities have passing su
   assert.ok(evidence, 'L5 bridge evidence is required');
   verifyEvidence(getPlatform('gemini'), files);
 });
+
+test('L6 operational Gemini compositeRole has passing live evidence and verified bridge prerequisites', () => {
+  assert.equal(getPlatform('gemini').capabilities.compositeRole.state, 'verified');
+  const evidence = files.find(file => file.name === 'compositeRole-2026-11-16.md');
+  assert.ok(evidence, 'L6 compositeRole evidence is required');
+  verifyEvidence(getPlatform('gemini'), files);
+});

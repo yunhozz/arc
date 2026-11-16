@@ -9,7 +9,9 @@ import * as management from '../../lib/management/operations.mjs';
 import {resolveTargets} from '../../lib/installer/targets.mjs';
 import {publishCompositeFiles} from '../../lib/installer/role-routing.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
-import {createLease} from '../../lib/runtime/role-dispatch-store.mjs';
+import {createLease, readLease} from '../../lib/runtime/role-dispatch-store.mjs';
+import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
+import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {compositeContext} from './fixtures/install-mode.mjs';
 import {staticPackageFixture} from './fixtures/static-references.mjs';
@@ -28,9 +30,9 @@ function verifiedRegistries() {
     descriptors: runtimePlatforms.platforms.map(runtime => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(runtime.id), runtime})),
   })};
 }
-async function contextFor(t, {legacy = false} = {}) {
+async function contextFor(t, {legacy = false, operational = false} = {}) {
   const context = legacy ? {...await legacyComposite(t, {operational: true}), packageRoot: staticPackageFixture(t)} : await compositeContext(t);
-  Object.assign(context, verifiedRegistries());
+  if (!operational) Object.assign(context, verifiedRegistries());
   context.env.HOME = context.userHome;
   context.env.TMPDIR = process.env.TMPDIR;
   // Only the version command is allowed; auth.kind=none must never invoke a probe.
@@ -228,13 +230,62 @@ test('AC-G8 legacy add-gemini publication rollback restores the entire legacy ro
   assert.equal(management.currentInstallState(context).legacyAnchor, true);
 });
 
-for (const role of [false, true]) test(`operational gemini-off rejects composite ${role ? 'role' : 'host'} without changing files`, async t => {
+for (const role of [false, true]) test(`${role ? 'injected compositeRole-off' : 'operational compositeHost-off'} rejects Gemini composite ${role ? 'role' : 'host'} without changing files`, async t => {
   const context = await compositeContext(t);
   context.env.HOME = context.userHome;
+  if (role) {
+    const runtimePlatforms = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(descriptor => descriptor.id === 'gemini' ? {...descriptor, capabilities: {...descriptor.capabilities, compositeRole: {state: 'off'}}} : descriptor));
+    Object.assign(context, {runtimePlatforms, platforms: createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platforms.map(runtime => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(runtime.id), runtime}))})});
+  }
   const config = await configFor(context, ['claude', 'codex'], 'operational-off');
   if (role) config.roles.arc_qa = {platform: 'gemini', model: 'gemini-2.5-flash', effort: 'default'};
   else await publish(context, ['claude', 'codex'], 'operational-existing-pair');
   const before = homeBytes(context.userHome);
   await assert.rejects(management.prepareOperation(context, {kind: 'install', target: 'composite', platforms: ids, config}), /Gemini is not available: capability not verified/);
   assert.deepEqual(homeBytes(context.userHome), before);
+});
+
+// Including role-only platforms by default would make the ordinary pair fail availability.
+test('L6 default composite excludes role-only Gemini and unions explicit Gemini roles', async t => {
+  const context = await contextFor(t, {operational: true});
+  const runtimePlatforms = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(descriptor => descriptor.id === 'gemini' ? {...descriptor, capabilities: {...descriptor.capabilities, compositeRole: {state: 'verified'}}} : descriptor));
+  Object.assign(context, {runtimePlatforms, platforms: createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platforms.map(runtime => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(runtime.id), runtime}))})});
+  const config = await configFor(context, ['claude', 'codex'], 'default-pair');
+  delete config.platforms;
+  const prepared = await management.prepareOperation(context, {kind: 'install', target: 'composite', config});
+  assert.deepEqual(prepared.config.platforms, ['claude', 'codex']);
+  await execute(context, prepared);
+  assertComposite(context, ['claude', 'codex'], 'claude');
+  config.revision = 'default-with-gemini-role';
+  config.roles.arc_scouter = {platform: 'gemini', model: 'gemini-2.5-flash', effort: 'default'};
+  const withRole = await management.prepareOperation(context, {kind: 'install', target: 'composite', config});
+  assert.deepEqual(withRole.config.platforms, ['claude', 'codex', 'gemini']);
+  await execute(context, withRole);
+  assertComposite(context, ['claude', 'codex', 'gemini'], 'claude');
+});
+
+// An operational capability hold or a missing targetPlatform/v2 write must break this test.
+test('L6 operational prepare-dispatch reserves a v2 Gemini-target lease in Claude+Gemini', async t => {
+  const context = await contextFor(t, {operational: true});
+  const config = await configFor(context, ['claude', 'gemini'], 'l6-operational');
+  config.roles.arc_scouter = {platform: 'gemini', model: 'gemini-2.5-flash', effort: 'default'};
+  await execute(context, await management.prepareOperation(context, {kind: 'install', target: 'composite', platforms: ['claude', 'gemini'], config}));
+  const runtimeContext = {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 'l6-workflow'};
+  const prepared = await prepareRoleDispatch({context: runtimeContext, expectedRevision: config.revision,
+    assignment: {role: 'arc_scouter', taskId: 'L6', requestId: 'l6-prepare'}});
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  assert.equal(prepared.routeStatus, 'reserved');
+  assert.equal(prepared.route, 'bridge');
+  const leasePath = path.join(home(context, 'claude'), 'arc-role-dispatch', `${prepared.dispatchId}.json`);
+  const raw = JSON.parse(fs.readFileSync(leasePath, 'utf8'));
+  assert.equal(raw.version, 2);
+  assert.equal(raw.targetPlatform, 'gemini');
+  const lease = await readLease(home(context, 'claude'), prepared.dispatchId);
+  assert.equal(lease.version, 2);
+  assert.equal(lease.targetPlatform, 'gemini');
+  assert.equal(lease.hostPlatform, 'claude');
+  assert.equal(lease.role, 'arc_scouter');
+  assert.equal(lease.state, 'reserved');
+  assert.equal(fs.existsSync(path.join(context.userHome, 'gemini-unexpected-command')), false);
+  assert.equal((await cancelRoleDispatch({context: runtimeContext, dispatchId: prepared.dispatchId})).routeStatus, 'cancelled');
 });
