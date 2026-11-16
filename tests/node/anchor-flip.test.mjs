@@ -19,7 +19,7 @@ import {legacyComposite, legacyState, activePath, markerPath, homeBytes, legacyL
 
 const policy = {...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 0};
 const historical = () => createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(descriptor => ({
-  ...descriptor, anchorOrder: descriptor.id === 'codex' ? 0 : 1,
+  ...descriptor, anchorOrder: descriptor.id === 'codex' ? 0 : descriptor.id === 'claude' ? 1 : descriptor.anchorOrder,
 })));
 const operationalLegacy = async t => Object.assign(await legacyComposite(t, {operational: true}), {
   platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY, packageRoot: staticPackageFixture(t),
@@ -85,7 +85,7 @@ test('AC-L2 claude-anchored composite prepare/run/observe/resume/cancel match Ph
 test('AC-A2 operational legacy migration', async t => {
   const context = await operationalLegacy(t), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
   assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',
-    homes: {claude: 'composite', codex: 'composite'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
+    homes: {claude: 'composite', codex: 'composite', gemini: 'standalone'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
   const before = homeBytes(context.userHome), runtimeContext = {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 'legacy'};
   assert.deepEqual((await routingStatus({context: runtimeContext, policy})).reasons.map(reason => reason.code), ['activation_unverified']);
   assert.deepEqual(homeBytes(context.userHome), before);

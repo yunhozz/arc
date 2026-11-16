@@ -121,3 +121,21 @@ test('setup role defaults honor injected registry for package and installed mode
   const modelConfig = {platform: 'zeta', version: 3, roles};
   assert.deepEqual(loadRoleDefaults({context, statuses: [{platform: 'zeta', settings: {modelConfig}}], target: 'zeta', readText: () => assert.fail('installed settings take priority')}), roles);
 });
+
+// New platform branches belong only in the same descriptor/adapter boundaries as AC-P1.
+test('Gemini literal branches stay inside the platform hardcoding allowlist', () => {
+  const violations = [];
+  const runtimeAllowlist = /^(?:lib|shared\/skill)\/runtime\/(?:platform-registry\.mjs|adapters\/.*|capabilities\.mjs|role-bridge-args\.mjs|role-supervisor\.mjs|local-cli\.mjs)$/;
+  for (const relative of ['lib', 'shared/skill/runtime']) {
+    const directory = new URL('../../' + relative + '/', import.meta.url);
+    for (const entry of fs.readdirSync(directory, {recursive: true, withFileTypes: true})) {
+      if (!entry.isFile() || !entry.name.endsWith('.mjs')) continue;
+      const filename = path.relative(new URL('../../', import.meta.url).pathname, path.join(entry.parentPath, entry.name)).split(path.sep).join('/');
+      if (/^lib\/(?:platforms|watch)\//.test(filename) || runtimeAllowlist.test(filename)) continue;
+      fs.readFileSync(new URL('../../' + filename, import.meta.url), 'utf8').split('\n').forEach((line, index) => {
+        if (/===\s*['"]gemini['"]/.test(line)) violations.push(`${filename}:${index + 1}: ${line}`);
+      });
+    }
+  }
+  assert.deepEqual(violations, [], violations.join('\n'));
+});

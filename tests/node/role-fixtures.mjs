@@ -47,12 +47,13 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   for (const args of [['init', '-q'], ['config', 'user.email', 't@example.com'], ['config', 'user.name', 't'], ['commit', '-q', '--allow-empty', '-m', 'init']]) {
     const r = spawnSync('git', args, {cwd, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr);
   }
-  const platforms = runtimeRegistryOf({runtimePlatforms}).byAnchorOrder().map(platform => platform.id);
+  const homes = {codex: codexHome, claude: claudeHome};
+  const platforms = runtimeRegistryOf({runtimePlatforms}).byAnchorOrder().map(platform => platform.id).filter(id => Object.hasOwn(homes, id));
   const config = {version: 2, revision, platforms, roles: {}};
   for (const role of ROUTING_ROLES) { const platform = roles[role] ?? hostPlatform; config.roles[role] = {platform, ...VALUES[platform]}; }
   const configBytes = Buffer.from(serializeRoleRoutingConfig(validateRoleRoutingConfig(config, {runtimePlatforms}))), activePath = path.join(platforms[0] === 'claude' ? claudeHome : codexHome, 'arc-role-platform-routing.json');
   await fs.writeFile(activePath, configBytes);
-  const versions = await cooperativeVersions(), homes = {codex: codexHome, claude: claudeHome};
+  const versions = await cooperativeVersions();
   for (const platform of ['codex', 'claude']) {
     const home = homes[platform];
     await copyRuntime(home);

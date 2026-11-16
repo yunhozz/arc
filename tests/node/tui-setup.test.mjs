@@ -128,7 +128,7 @@ test('(mixed) field untouched is omitted, touched applies to S',async()=>{
 });
 
 test('hosts lock role platforms and preview Mode',async()=>{
- const steps=[['Install / Update',5],['Hosts — CLIs you will work in',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[x] Codex          (used by roles)');}],['Hosts — CLIs you will work in',0,rows=>assert.match(rows[1],/^\[x\]/)],['Hosts — CLIs you will work in',2],['Install / Update',7,(_rows,options)=>{assert.deepEqual(options.info,['Hosts: Claude, Codex','Mode:  Mixed (Claude + Codex)']);}]];
+ const steps=[['Install / Update',5],['Hosts — CLIs you will work in',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[x] Codex          (used by roles)');assert.equal(rows[2],'[ ] Gemini - Unavailable  (capability not verified)');}],['Hosts — CLIs you will work in',0,rows=>assert.match(rows[1],/^\[x\]/)],['Hosts — CLIs you will work in',3],['Install / Update',7,(_rows,options)=>{assert.deepEqual(options.info,['Hosts: Claude, Codex','Mode:  Mixed (Claude + Codex)']);}]];
  const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
@@ -175,7 +175,7 @@ test('install hosts use injected registry labels, order and reason detail',async
 });
 
 test('initial composite roles and hosts come from currentConfig and D1-e prepares without confirmation',async()=>{
- const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Install / Update',5,(_rows,options)=>assert.ok(options.info.includes('Hosts: Claude, Codex'))],['Hosts — CLIs you will work in',1],['Hosts — CLIs you will work in',2],['Install / Update',7],['Switch to Claude',0]];
+ const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Install / Update',5,(_rows,options)=>assert.ok(options.info.includes('Hosts: Claude, Codex'))],['Hosts — CLIs you will work in',1],['Hosts — CLIs you will work in',3],['Install / Update',7],['Switch to Claude',0]];
  const result=await installFlow({currentConfig,installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps)});assert.equal(result.target,'claude');assert.equal(result.switchFromComposite,true);assert.deepEqual(currentConfig.roles,installRoles('claude'));
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries();
  const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Install / Update',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);

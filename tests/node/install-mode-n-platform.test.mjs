@@ -43,7 +43,7 @@ test('unresolved platform outside S is ignored', async t => {
   ctx.env.CLAUDE_CONFIG_DIR = path.join(ctx.userHome, 'other-claude');
   const result = state(ctx);
   assert.equal(result.mode, 'standalone');
-  assert.deepEqual(result.homes, {codex: 'standalone', claude: 'unresolved'});
+  assert.deepEqual(result.homes, {codex: 'standalone', claude: 'unresolved', gemini: 'standalone'});
 });
 test('two active configs → unverified with both residual', async t => {
   const ctx = await composite(t);
@@ -200,7 +200,12 @@ test('F4 status reports standalone outside S during composite', async t => {
   const {context, targets} = await f4Fixture(t);
   const ordinary = await collectStatus({...context, platforms: undefined, runtimePlatforms: undefined});
   const statuses = await collectStatus(context);
-  assert.deepEqual(statuses.filter(item => item.platform !== 'zeta'), ordinary);
+  assert.deepEqual([...statuses.filter(item => item.platform !== 'zeta'), {
+    platform: 'gemini', target: resolveTargets({...context, platforms: undefined, runtimePlatforms: undefined}).targets.gemini,
+    state: 'absent', diagnostics: [], residualPaths: [],
+    authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
+    cliVersion: {version: null, reason: 'cli_not_found'},
+  }], ordinary);
   const zeta = statuses.find(item => item.platform === 'zeta');
   assert.equal(zeta.state, 'installed');
   assert.ok(zeta.snapshot.has(path.join(targets.zeta.home, 'agents/arc-qa.md')));

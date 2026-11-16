@@ -48,7 +48,7 @@ for(const platform of ['codex','claude'])for(const kind of ['file','symlink','ow
 test('collectStatus iterates registry in anchor order',async t=>{
  const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-order-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
  const statuses=await api.collectStatus({userHome,cwd:userHome,env:{},safeFs});
- assert.deepEqual(statuses.map(status=>status.platform),['claude','codex']);
+ assert.deepEqual(statuses.map(status=>status.platform),['claude','codex','gemini']);
 });
 
 test('auth kind none reports unknown without probe',async t=>{

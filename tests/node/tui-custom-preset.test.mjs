@@ -156,7 +156,7 @@ test('model change resets missing effort but preserves an effort supported by th
 test('enter opens platform and catalog lists from both model and effort rows',async()=>{
  const ui=menuScript([
   ()=>0,
-  (title,rows)=>{assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex']);return 1;},
+  (title,rows)=>{assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex','Gemini']);return 1;},
   (title,rows,options)=>{assert.match(bodyRows(options)[1],/\(reset\)/);assert.equal(options.selected,0);return 1;},
   (title,rows,options)=>{assert.equal(title,'Model — Planner');assert.deepEqual(rows,['model-a','model-b']);assert.match(options.info(editorState()).join(' '),/high, medium/);assert.equal(typeof options.onHorizontal,'function');return 1;},
   (title,rows)=>{assert.equal(title,'Effort — Planner');assert.deepEqual(rows,['low']);return 0;},
@@ -172,7 +172,7 @@ test('platform list keeps fixed order and rejects unavailable Enter while showin
  assert.equal(typeof roleEditor.selectPlatform,'function');
  const ui=menuScript([
   (title,rows,options)=>{
-   assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex - Unavailable  (unauthorized)']);assert.equal(options.backRow,true);assert.equal(options.selected,1);
+   assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex - Unavailable  (unauthorized)','Gemini']);assert.equal(options.backRow,true);assert.equal(options.selected,1);
    assert.deepEqual(options.info(editorState(1)),['Codex: unauthorized']);assert.deepEqual(options.info(editorState(0)),[]);assert.deepEqual(options.info(editorState(2)),[]);return 1;
   },
   (title,rows,options)=>{assert.equal(options.selected,1);return 0;},

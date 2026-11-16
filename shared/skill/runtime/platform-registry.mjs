@@ -58,6 +58,9 @@ function resolveHome(platform, {userHome, env = {}, cwd} = {}) {
     const expanded = expand(raw ?? path.join(userHome, '.codex'));
     if (path.isAbsolute(expanded)) home = path.resolve(expanded);
     else { const base = cwd ?? process.cwd(); if (typeof base !== 'string' || !path.isAbsolute(base)) throw Error('cwd must be absolute for relative CODEX_HOME'); home = path.resolve(base, expanded); }
+  } else if (platform === 'gemini') {
+    if (env.GEMINI_CLI_HOME !== undefined) throw Error('GEMINI_CLI_HOME is not verified');
+    home = path.join(userHome, '.gemini');
   } else {
     home = path.join(userHome, '.claude'); const raw = env.CLAUDE_CONFIG_DIR;
     if (raw !== undefined && (typeof raw !== 'string' || !raw.trim() || !path.isAbsolute(expand(raw)) || path.resolve(expand(raw)) !== home)) throw Error('CLAUDE_CONFIG_DIR must select the default ~/.claude directory');
@@ -99,6 +102,26 @@ export const DEFAULT_PLATFORM_REGISTRY = createPlatformRegistry([
     executionEnvironments: ['claude-cli', 'claude-desktop'],
     routing: {validatePair: (model, effort) => validText(model) && validText(effort) && /^[A-Za-z0-9][A-Za-z0-9._:/@+\-]*$/.test(model) && ['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)},
     capabilities: verifiedCapabilities,
+  },
+  {
+    id: 'gemini', label: 'Gemini', displayOrder: 2, anchorOrder: 2,
+    home: {env: 'GEMINI_CLI_HOME', resolve: context => resolveHome('gemini', context)},
+    cli: {command: 'gemini', supportedVersions: '>=0.68.0 <0.69.0'},
+    auth: {kind: 'none'},
+    models: {effortField: 'effort'},
+    profile: {
+      ext: 'md',
+      standaloneName: role => `arc-${role.slice(4)}`,
+      routingName: role => `arc-routing-${role.slice(4)}`,
+    },
+    executionEnvironments: ['gemini-cli'],
+    routing: {validatePair: (model, effort) => validText(model) && /^[A-Za-z0-9][A-Za-z0-9._:/@+\-]*$/.test(model) && effort === 'default'},
+    capabilities: Object.fromEntries(Object.entries({
+      install: 'install layout not verified', nativeProfile: 'native profile format not verified',
+      catalog: 'catalog not verified', standalone: 'standalone not verified', bridge: 'bridge contract not verified',
+      compositeRole: 'composite role not verified', compositeHost: 'composite host not verified',
+      authProbe: 'no official auth status command', watch: 'watch support out of scope',
+    }).map(([key, reason]) => [key, {state: 'off', reason}])),
   },
 ]);
 

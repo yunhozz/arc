@@ -14,6 +14,7 @@ import {editRole, selectPlatform} from '../../lib/tui/custom-preset.mjs';
 import {diagramRows} from '../../lib/tui/diagram.mjs';
 import {runTui} from '../../lib/tui/app.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
+import {resolveTargets} from '../../lib/installer/targets.mjs';
 import {prepareOperation, prepareCompositeOperation, executeOperation} from '../../lib/management/operations.mjs';
 import {authenticate, routingStatus, prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
@@ -196,8 +197,13 @@ test('operational status and home wording remain unchanged with an off injected 
   const ctx = await packageContext(t, ZETA_CAPABILITY_OFF);
   const injected = await collectStatus(ctx);
   const ordinary = await collectStatus({...ctx, platforms: undefined, runtimePlatforms: undefined});
-  assert.deepEqual(injected.filter(status => status.platform !== 'zeta'), ordinary);
-  assert.equal(homeStatusLine(ordinary), 'Claude: Not Available / Codex: Not Available');
+  assert.deepEqual([...injected.filter(status => status.platform !== 'zeta'), {
+    platform: 'gemini', target: resolveTargets({...ctx, platforms: undefined, runtimePlatforms: undefined}).targets.gemini,
+    state: 'absent', diagnostics: [], residualPaths: [],
+    authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
+    cliVersion: {version: null, reason: 'cli_not_found'},
+  }], ordinary);
+  assert.equal(homeStatusLine(ordinary), 'Claude: Not Available / Codex: Not Available / Gemini: Not verified');
   for (const [authStatus, expected] of [['authenticated', 'Claude: Available / Codex: Available'], ['unauthorized', 'Claude: Unauthorized / Codex: Unauthorized'], ['unknown', 'Claude: Incomplete / Codex: Incomplete']]) {
     assert.equal(homeStatusLine(['claude', 'codex'].map(id => statusOf(id, {authStatus}))), expected);
   }

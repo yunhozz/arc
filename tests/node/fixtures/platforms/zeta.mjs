@@ -4,7 +4,7 @@ import path from 'node:path';
 import {CAPABILITY_KEYS, createPlatformRegistry, getPlatform} from '../../../../lib/runtime/platform-registry.mjs';
 
 export const ZETA_RUNTIME = {
-  id: 'zeta', label: 'Zeta', anchorOrder: 2, displayOrder: 2,
+  id: 'zeta', label: 'Zeta', anchorOrder: 3, displayOrder: 3,
   home: {
     env: 'ZETA_HOME',
     resolve({userHome, env = {}}) {
@@ -27,7 +27,7 @@ export const ZETA_RUNTIME = {
 };
 
 export const ETA_RUNTIME = {
-  ...ZETA_RUNTIME, id: 'eta', label: 'Eta', anchorOrder: 3, displayOrder: 3,
+  ...ZETA_RUNTIME, id: 'eta', label: 'Eta', anchorOrder: 4, displayOrder: 4,
   models: {effortField: 'effort'},
   capabilities: {},
 };

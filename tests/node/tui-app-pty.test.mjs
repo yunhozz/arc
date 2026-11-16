@@ -60,7 +60,7 @@ test('version without an upgrade selects Back and Enter returns home',{skip:!ava
  const output=await drive(t,'down\nenter\nexpect -exact {Up to date (1.9.0)}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
 });
 test('Everything warning defaults Back, Back retains selection and Escape returns home',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\nenter\nexpect -exact {Remove ARC from all platforms and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {Remove ARC from all platforms and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('uninstall absent platform cannot open confirmation in PTY',{skip:!available},async t=>{
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {Claude  (not installed)}\nenter\nexpect -exact {Claude  (not installed)}\ndown\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}\nback\nexpect -exact {Esc Exit}\nback',{absentPlatforms:['claude']});
@@ -84,7 +84,7 @@ test('Settings platform selection executes once and preserves CLI explicitly',{s
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);
 });
 test('Everything requires deliberate Remove and executes once despite queued Enter',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
 });
 test('EOF restores the terminal without preparing or executing',{skip:!available},async t=>{const output=await drive(t,'send -- "\\004"');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);});
 test('hidden Apply is blocked after each shrink and runs after the final resize',{skip:!available},async t=>{
