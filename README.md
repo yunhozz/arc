@@ -1,6 +1,6 @@
 # ARC — Agent Role Coordination
 
-ARC coordinates work in Claude Code and Codex through scoped roles, clear handoffs, and verification. Gemini CLI integration is registered and partially verified (install, native profiles, catalog, standalone, bridge, and composite roles); see [Gemini CLI status](#gemini-cli-status).
+ARC coordinates scoped roles, handoffs, and verification in Claude Code, Codex, and Gemini CLI.
 
 ![ARC workflow](docs/images/role-flow.svg)
 
@@ -17,64 +17,82 @@ ARC coordinates work in Claude Code and Codex through scoped roles, clear handof
 
 ## Install
 
-**Requirements:** Node.js 22+, npm, Git, and network access. Supported platforms: macOS 13+ and Linux with glibc 2.28+ (arm64 or x64). Windows and musl Linux are not supported. Python, a compiler, and `node-gyp` are not required.
-
-Platform homes and their parent directories must not be symbolic links; ARC refuses to install, publish or take routing locks through them.
+| Requirement | Support |
+|---|---|
+| Tools | Node.js 22+, npm, Git, network access |
+| OS | macOS 13+ or Linux glibc 2.28+; no Windows or musl |
+| CPU | arm64 or x64 |
+| Homes | Symlinked platform homes or parents are refused for install, publication, and routing locks |
 
 ```sh
 npm install --global @yunhozz/arc
 arc
+# Without a global install:
+npx --yes @yunhozz/arc
 ```
 
-Package installation provides the CLI, not the harness. Install or manage the harness in the interactive TUI. To open it without a global install, run `npx --yes @yunhozz/arc`.
+The package provides the CLI; use the TUI to install the harness. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; only the TUI requires terminal input/output.
 
 ## Manage ARC
 
-- **Install or update:** `Install / Update` opens the role diagram immediately. Each box has the role name on its top border and the platform, model, and effort inside. Enter on a role opens one editor with `Platform`, `Model`, `Effort`, `Done`, and `Back`; use ←/→ to cycle values or Enter to open the selection flow. `Done` saves to the draft; `Apply` installs or updates it. Narrow terminals show compact role rows.
-- **Hosts and mode:** `Hosts` selects the CLIs you will work in. Platforms used by roles stay checked and locked as `(used by roles)`. The participant set S = role platforms ∪ hosts: one platform means standalone; two or more mean `Mixed (…)`, such as `Mixed (Claude + Codex)`. The anchor is the participant with the lowest anchor order (Claude, then Codex, then Gemini); its home stores the active routing configuration.
-- **Settings:** Choose language (`EN`/`KR`), total subagents, and concurrent subagents. Differing platform values show `(mixed)`: leave a field unchanged to preserve each platform's value, or edit it to apply one value across S. New installations use English, 100 total, and 5 concurrent subagents. Installation includes managed instructions and native settings.
-- **Version:** `Check Version` shows `<current> → <latest>` with `Upgrade` when an upgrade is available, `Up to date (<current>)` when no newer version is available, or `<current> (latest unavailable)` and a lookup error otherwise. Success shows `Upgraded to <version>.` `Upgrade` preserves settings; global upgrades exit ARC, while npx upgrades leave the global CLI unchanged.
-- **Uninstall:** Rows are `Claude`, `Codex`, `Gemini`, `Everything (incl. CLI)`, and `Back`; `(not installed)` rows cannot be selected. Confirm `Remove ARC from <Label>?` or `Remove ARC from all platforms and the arc CLI?` with `Remove` (the default is `Back`). Removing a Mixed participant also warns `Mixed routing will be turned off.` `Back` returns to Uninstall; Esc returns home. Everything removes harnesses with verified install/standalone capabilities and the global CLI only if harness removal succeeds. Use the individual Gemini row for files left while its capabilities are off. Success shows `Removed from <Label>.`, `Removed ARC and CLI.`, or `Removed ARC.` if the CLI was already absent; a mode switch adds `Mixed routing turned off.` first. Unselected harnesses and user files remain. To remove only the CLI, run `npm uninstall -g @yunhozz/arc`.
+| Home action | Effect |
+|---|---|
+| Install / Update | Edit role platform/model/effort, Hosts, and Settings; `Apply` publishes; new sessions load profiles. Defaults: English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
+| Check Version | Shows current/latest or lookup failure; `Upgrade` preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
+| Uninstall | Remove a platform or `Everything (incl. CLI)` after confirmation (default `Back`); removing a Mixed participant restores others to standalone. Everything filters verified install/standalone platforms and removes CLI only after harness success. Unselected harnesses/user files remain. CLI only: `npm uninstall -g @yunhozz/arc` |
 
-The TUI requires terminal input and output. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; help, version and `arc watch` also work without a TTY.
+| Mode | Rule |
+|---|---|
+| Standalone | S = role platforms ∪ hosts; one participant |
+| Mixed (…) | Two or more participants; hosts may have no roles; anchor order: Claude > Codex > Gemini |
+| Unverified | `Apply` blocked; inspect inconsistent files/residual paths |
 
 ## Watch sessions
 
 ![arc watch flow](docs/images/watch-flow.svg)
 
-`arc watch` streams Claude Code and Codex activity read-only. Default scope: the current Git worktree, or the current directory outside Git. Each event follows its session's working directory at that point, so a session that moves into another worktree appears in that worktree's watch instead. Skills and plugin tools in use are shown as SKILL and PLUGIN lines.
+| Visibility | Behavior |
+|---|---|
+| Shown | Claude Code/Codex activity, full messages, one-line other events, SKILL/PLUGIN lines, dispatch records |
+| Hidden | Tool/command outputs; reasoning unless verbose; common secrets masked incompletely |
+| Excluded | Codex Desktop sessions; held bridges have no running activity |
+| Scope | Current Git worktree or directory outside Git; events follow session cwd. Markers select the anchor store; legacy Codex fallback; conflicting anchors: `dispatch store ambiguous`; old-store history is not merged |
 
-- **Shown:** user and agent messages in full; other events on one line.
-- **Hidden:** tool and command outputs. Common secret patterns are masked, but masking is not complete.
-- **Excluded:** Codex Desktop sessions. Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise `host_sandbox_blocked`) and appear once they run; Claude bridge Implementer and QA stay held.
-
-Watch discovers the dispatch anchor through registered platform markers, with a legacy Codex-home fallback when no anchor is found. Conflicting anchors show `dispatch store ambiguous`. Gemini session discovery and conversation display are unsupported; dispatch records in the selected store remain visible. History left in an old anchor home is not combined with the current store.
-
-Run `arc watch --help` for scope, platform, history and JSON options; press Ctrl-L to clear the screen and Ctrl-C to stop.
+`arc watch --help` lists scope/history/platform/JSON options; Ctrl-L clears, Ctrl-C stops.
 
 ## Models and language
 
 ![Role models and platforms](docs/images/role-models.svg)
 
-- **Orchestrator:** the current conversation model.
-- **Specialist roles:** active settings in [Claude Code](claude/skill/models.toml), [Codex](codex/skill/models.toml), or [Gemini CLI](gemini/skill/models.toml); edit them through the `Install / Update` role boxes.
-- **Mixed routing:** each role runs on a participating platform; hosts can participate without assigned roles. The diagram reuses a session draft first, then current Mixed roles and all participants as hosts. Otherwise it uses the first installed platform in display order (Claude, Codex, Gemini), with installed model settings. With no installation, it uses package defaults for the first platform passing the initial role availability check, falling back to Claude; catalogs are checked after that choice. An unverified installation shows `Mode: Unverified` and blocks Apply. `Apply` publishes; start a new session to load new profiles.
-- **Catalogs:** model and effort choices come from packaged catalogs, with no API key or model-list call; a choice is not proof that your account can use it.
-- **Language:** the TUI is in English; the selected response language applies to agents in new sessions.
-- **Execution support:** `claude-cli` hosts run native roles and Codex bridges. `codex-cli` hosts run native roles and Claude bridges for Scouter, Planner and Reviewer after per-call escalation approval, which every runtime command needs there, native roles included (a refused approval or denied `CODEX_HOME` write is `host_sandbox_blocked`); Claude bridge Implementer and QA roles stay held as `permission_scope_unverified`. Declare `codex-cli` or `claude-cli` for terminal sessions, including IDE terminals; use a `-desktop` value only inside a Desktop app, never because of a path such as `~/Desktop`. On Desktop, every role (native and bridge) is held as `environment_unverified` pending a future ARC update. After upgrading to `cooperative-9`, run Install / Update again. `executionEnvironment` is declared by the caller and not verified by the runtime; declaring a CLI value inside Desktop bypasses the hold, so confirmed Desktop sessions must declare the Desktop value.
+| Setting | Details |
+|---|---|
+| Orchestrator model | Current conversation |
+| Specialist models | Installed [Claude](claude/skill/models.toml), [Codex](codex/skill/models.toml), [Gemini](gemini/skill/models.toml) settings; edit through role boxes |
+| Catalogs | Packaged candidates only; no model-list call/API key; no proof of account availability |
+| Language | English TUI; selected agent response language applies in new sessions |
 
-After upgrading, run `Install / Update` to migrate an existing Codex+Claude composite to the Claude home. Any non-terminal dispatch in either store holds the move; finish or cancel it before applying again. Previous dispatch history stays in the Codex home and is not merged into the new store. After migration, older ARC versions may see an unverified or standalone installation; run `Install / Update` in the older version to restore its composite layout after downgrading.
+## Platform and environment support
 
-## Gemini CLI status
+| Platform | Host? | Native roles | Bridges to this platform | Authentication |
+|---|---|---|---|---|
+| Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA held: `permission_scope_unverified` | `claude auth status` |
+| Codex | Yes | Supported on CLI | From Claude; permissions claim capped at `operator-attested` | `codex app-server` refresh rotates `auth.json`; network required |
+| Gemini | No | Standalone verified | Read roles verified; write roles held: `permission_scope_unverified` | No probe; `unknown`, `auth unverified` warning |
 
-- **Verification:** Gemini `install`, `nativeProfile`, `catalog`, `standalone`, `bridge`, and `compositeRole` are verified by live evidence recorded in the Phase B plan progress record (`docs/superpowers/plans/2026-11-16-gemini-platform-phase-b.md`); the other three capabilities remain `off`: `compositeHost`, `authProbe`, and `watch`. The home screen follows CLI status: `Not Available` when the CLI is missing, `Unsupported version` outside the supported range, and `Available (auth unverified)` otherwise; standalone installation and roles are available. The L5 live evidence verifies Gemini bridge run/observe/cancel, the U-B3 stream contract, and U-B4 MCP/extension isolation. Gemini can join composites through assigned roles, but cannot be a host while `compositeHost` is off. The default composite set includes host-capable platforms plus platforms assigned to roles. U-B7 delegation detection and U-B9 resume remain unverified; resume stays off. GG1/GG2 remain `fail`, and write-role bridges remain held as `permission_scope_unverified`. Packaged profiles and catalogs alone do not verify live behavior.
-- **Authentication:** Gemini has no authentication probe. Status reports `unknown` without running a login check. Once capabilities, CLI version, and catalog gates pass, unknown authentication allows composite participation with an `auth unverified` warning; it does not prove login.
-- **Permissions:** Gemini role permissions are checked only after the fact, and only within the git-visible worktree. Detection covers tracked and untracked files except Git-ignored paths, plus HEAD, branch, and ref changes; it proves no prevention of outside-worktree writes, network effects, or secret reads.
-- **Effort:** Gemini effort is fixed at `default`.
-- **Management:** `target:'all'` includes Gemini because its `install` and `standalone` capabilities are verified; install and preset skip and report (`skipped`) any platform whose home cannot be resolved (for example, when `GEMINI_CLI_HOME` is set), and uninstall refuses in that case.
+| executionEnvironment | Support and obligations |
+|---|---|
+| `claude-cli` | Native roles and Codex bridges |
+| `codex-cli` | Native roles and Claude read-role bridges; every runtime call needs escalation approval, including native calls; refusal/denied `CODEX_HOME` write: `host_sandbox_blocked`. Runtime does not check approval |
+| `claude-desktop`, `codex-desktop` | All native/bridge roles held: `environment_unverified` until a future ARC update |
 
-Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
+`executionEnvironment` is caller-declared, not runtime-verified: use CLI values for terminal/IDE sessions, Desktop values for confirmed Desktop apps, never infer from paths. A false CLI declaration bypasses the Desktop hold.
+
+## Upgrade
+
+- Re-run `Install / Update` after upgrading, including `cooperative-9`; in-flight workflow version mismatches hold with `cooperative.versions`, without automatic migration.
+- Existing Codex+Claude composites move to the Claude home; finish/cancel non-terminal dispatches in either store before applying. Old Codex dispatch history stays there.
+- After downgrading, run the older version's `Install / Update` to restore its composite layout.
 
 ## Guides
 
-[Harness operation](docs/harness-operation.md) · [Codex guide](codex/skill/SKILL.md) · [Claude Code guide](claude/skill/SKILL.md) · [Gemini CLI guide](gemini/skill/SKILL.md)
+[Harness operation](docs/harness-operation.md) · [Codex](codex/skill/SKILL.md) · [Claude Code](claude/skill/SKILL.md) · [Gemini CLI](gemini/skill/SKILL.md)
