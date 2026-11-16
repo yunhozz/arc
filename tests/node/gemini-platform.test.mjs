@@ -6,7 +6,7 @@ import childProcess from 'node:child_process';
 import {syncBuiltinESMExports} from 'node:module';
 import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY, getPlatform} from '../../lib/runtime/platform-registry.mjs';
 import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../lib/platforms/index.mjs';
-import {resolveTargets} from '../../lib/installer/targets.mjs';
+import {resolveTargets, TargetConfigurationError} from '../../lib/installer/targets.mjs';
 import {resolveLocalCli, probePlatformAuth} from '../../lib/runtime/local-cli.mjs';
 import {prepareOperation, executeOperation} from '../../lib/management/operations.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
@@ -61,6 +61,106 @@ test('gemini home env set does not block codex/claude install', async t => {
   const statuses = await collectStatus(context);
   for (const target of ['claude', 'codex']) assert.equal(statuses.find(status => status.platform === target).state, 'installed');
   assert.equal(fs.existsSync(path.join(context.userHome, '.gemini')), false);
+});
+
+for (const kind of ['install', 'preset']) test(`gemini home env set is reported as skipped for target all ${kind}`, async t => {
+  const context = await compositeContext(t);
+  context.env.GEMINI_CLI_HOME = path.join(context.userHome, 'unsupported-gemini');
+  if (kind !== 'install') for (const target of ['claude', 'codex']) {
+    const installed = await executeOperation(context, await prepareOperation(context, {kind: 'install', target, language: 'en'}));
+    assert.equal(installed.code, 0, JSON.stringify(installed));
+  }
+  const prepared = await prepareOperation(context, {kind, target: 'all', language: 'en', preset: 'balanced', removeCli: false});
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
+  const result = await executeOperation(context, prepared);
+  assert.equal(result.code, 0, JSON.stringify(result));
+  assert.deepEqual(result.results.map(item => item.platform), ['claude', 'codex', 'gemini']);
+  assert.deepEqual(result.results.map(item => item.status), kind === 'install' ? ['installed', 'installed', 'skipped'] : ['unchanged', 'unchanged', 'skipped']);
+  const skipped = result.results[2];
+  assert.equal(skipped.status, 'skipped');
+  assert.deepEqual(skipped.residualPaths, []);
+  assert.ok(skipped.error instanceof TargetConfigurationError);
+  assert.equal(skipped.error.message, 'GEMINI_CLI_HOME is not verified');
+  for (const platform of ['claude', 'codex']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
+  assert.equal(fs.existsSync(path.join(context.userHome, '.gemini')), false);
+});
+
+for (const removeCli of [false, true]) test(`gemini home env set rejects target all uninstall with removeCli ${removeCli} before removing files`, async t => {
+  const context = await compositeContext(t);
+  const installed = await executeOperation(context, await prepareOperation(context, {kind: 'install', target: 'all', language: 'en'}));
+  assert.equal(installed.code, 0, JSON.stringify(installed));
+  context.env.GEMINI_CLI_HOME = path.join(context.userHome, 'unsupported-gemini');
+  context.inspectGlobalArc = async () => ({kind: 'global', packageRoot: '/verified', npmCli: '/npm', prefix: '/prefix', packageToken: 'token'});
+  context.uninstallGlobal = async () => assert.fail('unresolved homes must prevent CLI removal');
+  const before = homeBytes(context.userHome);
+  await assert.rejects(prepareOperation(context, {kind: 'uninstall', target: 'all', removeCli}), {
+    name: 'TargetConfigurationError', code: 'ARC_TARGET_CONFIGURATION',
+    message: 'Cannot uninstall everything: Gemini home cannot be resolved (GEMINI_CLI_HOME is not verified). Unset the variable or uninstall platforms individually.',
+  });
+  assert.deepEqual(homeBytes(context.userHome), before);
+  for (const platform of ['claude', 'codex', 'gemini']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
+});
+
+test('target all uninstall reports multiple unresolved homes in platform order', async t => {
+  const context = await compositeContext(t);
+  context.env.CLAUDE_CONFIG_DIR = path.join(context.userHome, 'unsupported-claude');
+  context.env.GEMINI_CLI_HOME = path.join(context.userHome, 'unsupported-gemini');
+  await assert.rejects(prepareOperation(context, {kind: 'uninstall', target: 'all', removeCli: false}), {
+    name: 'TargetConfigurationError',
+    message: 'Cannot uninstall everything: Claude home cannot be resolved (CLAUDE_CONFIG_DIR must select the default ~/.claude directory); Gemini home cannot be resolved (GEMINI_CLI_HOME is not verified). Unset the variable or uninstall platforms individually.',
+  });
+});
+
+test('claude home env set is reported first as skipped for target all install', async t => {
+  const context = await compositeContext(t);
+  context.env.CLAUDE_CONFIG_DIR = path.join(context.userHome, 'unsupported-claude');
+  assert.deepEqual(resolveTargets(context).unresolved.map(item => [item.platform, item.error.message]), [
+    ['claude', 'CLAUDE_CONFIG_DIR must select the default ~/.claude directory'],
+  ]);
+  const prepared = await prepareOperation(context, {kind: 'install', target: 'all', language: 'en'});
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['codex', 'gemini']);
+  const result = await executeOperation(context, prepared);
+  assert.equal(result.code, 0, JSON.stringify(result));
+  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'skipped'], ['codex', 'installed'], ['gemini', 'installed']]);
+  assert.deepEqual(result.results[0].residualPaths, []);
+  assert.ok(result.results[0].error instanceof TargetConfigurationError);
+  assert.equal(result.results[0].error.message, 'CLAUDE_CONFIG_DIR must select the default ~/.claude directory');
+  assert.equal(fs.existsSync(path.join(context.userHome, '.claude')), false);
+  for (const platform of ['codex', 'gemini']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
+});
+
+test('target all install retains transaction failure alongside a skipped platform', async t => {
+  const context = await compositeContext(t);
+  context.env.GEMINI_CLI_HOME = path.join(context.userHome, 'unsupported-gemini');
+  const prepared = await prepareOperation(context, {kind: 'install', target: 'all', language: 'en'});
+  context.hooks = {fault(event) {
+    if (event.phase === 'before-prepare' && event.plan.target.platform === 'codex') throw Error('fixture transaction failure');
+  }};
+  const result = await executeOperation(context, prepared);
+  assert.equal(result.code, 1);
+  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'installed'], ['codex', 'failed'], ['gemini', 'skipped']]);
+  assert.equal(result.results[1].error.message, 'fixture transaction failure');
+});
+
+test('target all install and preset reject an unresolved composite participant', async t => {
+  const context = await compositeContext(t);
+  const prepared = await prepareOperation(context, {kind: 'install', target: 'composite', config: await mixedConfig('unresolved-member')});
+  assert.equal((await executeOperation(context, prepared)).code, 0);
+  context.env.CODEX_HOME = '';
+  assert.deepEqual(resolveTargets(context).unresolved.map(item => item.platform), ['codex']);
+  const before = homeBytes(context.userHome);
+  for (const kind of ['install', 'preset']) await assert.rejects(prepareOperation(context, {kind, target: 'all'}), {
+    name: 'TargetConfigurationError', message: 'Mixed routing configuration cannot be verified.',
+  });
+  assert.deepEqual(homeBytes(context.userHome), before);
+});
+
+test('gemini home env set still rejects explicit gemini management', async t => {
+  const context = await compositeContext(t);
+  context.env.GEMINI_CLI_HOME = path.join(context.userHome, 'unsupported-gemini');
+  await assert.rejects(prepareOperation(context, {kind: 'install', target: 'gemini'}), {
+    name: 'TargetConfigurationError', code: 'ARC_TARGET_CONFIGURATION', message: 'GEMINI_CLI_HOME is not verified',
+  });
 });
 
 test('Gemini catalog accepts only default effort and safe model identifiers', async () => {

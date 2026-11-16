@@ -71,7 +71,7 @@ After upgrading, run `Install / Update` to migrate an existing Codex+Claude comp
 - **Authentication:** Gemini has no authentication probe. Status reports `unknown` without running a login check. Once capabilities, CLI version, and catalog gates pass, unknown authentication allows composite participation with an `auth unverified` warning; it does not prove login.
 - **Permissions:** Gemini role permissions are checked only after the fact, and only within the git-visible worktree. Detection covers tracked and untracked files except Git-ignored paths, plus HEAD, branch, and ref changes; it proves no prevention of outside-worktree writes, network effects, or secret reads.
 - **Effort:** Gemini effort is fixed at `default`.
-- **Management:** `target:'all'` includes Gemini because its `install` and `standalone` capabilities are verified.
+- **Management:** `target:'all'` includes Gemini because its `install` and `standalone` capabilities are verified; install and preset skip and report (`skipped`) any platform whose home cannot be resolved (for example, when `GEMINI_CLI_HOME` is set), and uninstall refuses in that case.
 
 Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
 
