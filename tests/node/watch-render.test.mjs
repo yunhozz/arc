@@ -165,8 +165,8 @@ test('agent tags stay AGENT regardless of roles or label tails', () => {
   ]) assert.equal(kindTag({kind:'agent',...input}), 'AGENT');
   assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD');
 });
-const arcRoles = [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],
-  ['qa','QA'],['reviewer','Reviewer'],['orchestrator','Orchestrator']];
+const arcRoles = [['scouter','SCOUTER'],['planner','PLANNER'],['implementer','IMPLEMENTER'],
+  ['qa','QA'],['reviewer','REVIEWER'],['orchestrator','ORCHESTRATOR']];
 test('ARC agent roles prefix only the first body line with a background badge', () => {
   for (const [role,name] of arcRoles) for (const color of [false,true]) {
     const out = renderHuman({...event,kind:'agent',role,text:'a\n\nb'}, {...options,color});

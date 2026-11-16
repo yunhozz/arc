@@ -781,7 +781,7 @@ test('Claude native reviewer handback-only transcript renders its role and masks
   assert.equal(report.label,'main#1234/reviewer');
   assert.equal(report.role,'reviewer');
   assert.equal(report.text,'review complete\npassword=***');
-  assert.match(lines([report])[0].slice(25),/^Reviewer review complete\n +password=\*\*\*$/);
+  assert.match(lines([report])[0].slice(25),/^REVIEWER review complete\n +password=\*\*\*$/);
   assert.equal(out.filter(e=>e.sessionId==='agent-review'&&e.kind==='turn_end').length,1);
   assert.ok(!out.some(e=>e.tool==='SubagentHandback'));
 });
@@ -794,7 +794,7 @@ test('Codex native arc_routing child threads render final agent messages with th
     });
   }
   const out=content(await s.w.start());
-  for (const [role,title] of [['scouter','Scouter'],['planner','Planner'],['implementer','Implementer'],['qa','QA'],['reviewer','Reviewer']]) {
+  for (const [role,title] of [['scouter','SCOUTER'],['planner','PLANNER'],['implementer','IMPLEMENTER'],['qa','QA'],['reviewer','REVIEWER']]) {
     const report=out.find(e=>e.sessionId===role&&e.kind==='agent');
     assert.ok(report);
     assert.equal(report.label,`tui#1234/${role}`);
