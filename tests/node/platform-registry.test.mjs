@@ -40,12 +40,18 @@ test('AC-P1 has no platform hardcoding outside the line-scoped allowlist', () =>
   assert.deepEqual(violations, [], violations.join('\n'));
 });
 
-test('AC-P1 install-verified platforms have adapters and capabilities-map keys', () => {
+test('AC-P1 install-verified platforms with native hooks have adapters and capabilities-map keys', () => {
   const source = fs.readFileSync(new URL('../../lib/runtime/capabilities.mjs', import.meta.url), 'utf8');
   const contracts = source.match(/const contracts = \{([\s\S]*?)\n\};/)?.[1];
   assert.ok(contracts, 'capabilities map exists');
   const keys = [...contracts.matchAll(/^\s*([a-z][a-z0-9-]*):/gm)].map(match => match[1]);
-  for (const platform of RUNTIME_PLATFORMS.filter(platform => platform.capabilities.install.state === 'verified')) {
+  // Phase B spec §10 / [platform.gemini]: prompt contracts and post-run detection; native hooks and Git guards are unverified.
+  const noNativeHookAdapter = new Set(['gemini']);
+  for (const id of noNativeHookAdapter) {
+    assert.equal(fs.existsSync(new URL(`../../lib/runtime/adapters/${id}.mjs`, import.meta.url)), false, `${id} has no native hook adapter`);
+    assert.equal(keys.includes(id), false, `${id} has no capabilities-map key`);
+  }
+  for (const platform of RUNTIME_PLATFORMS.filter(platform => platform.capabilities.install.state === 'verified' && !noNativeHookAdapter.has(platform.id))) {
     assert.ok(fs.statSync(new URL(`../../lib/runtime/adapters/${platform.id}.mjs`, import.meta.url)).isFile(), platform.id);
     assert.ok(keys.includes(platform.id), `${platform.id} capabilities-map key`);
   }

@@ -67,11 +67,11 @@ After upgrading, run `Install / Update` to migrate an existing Codex+Claude comp
 
 ## Gemini CLI status
 
-- **Verification:** all Gemini capabilities in the operational registry are `off`. The home screen shows `Not verified`; installation, standalone roles, composite roles/hosts, and bridges remain unavailable until their required capabilities are verified in a future ARC release. Packaged profiles and catalogs alone do not verify live behavior.
+- **Verification:** Gemini `install` is verified by [live evidence](docs/superpowers/evidence/gemini/install-2026-11-16.md); the other eight capabilities remain `off`. The home screen follows CLI status: `Not Available` when the CLI is missing, `Unsupported version` outside the supported range, and `Available (auth unverified)` otherwise; installation, standalone roles, composite roles/hosts, and bridges remain unavailable until their required capabilities are verified in a future ARC release. Packaged profiles and catalogs alone do not verify live behavior.
 - **Authentication:** Gemini has no authentication probe. Status reports `unknown` without running a login check. Once capabilities, CLI version, and catalog gates pass, unknown authentication allows composite participation with an `auth unverified` warning; it does not prove login.
 - **Permissions:** Gemini role permissions are checked only after the fact, and only within the git-visible worktree. Detection covers tracked and untracked files except Git-ignored paths, plus HEAD, branch, and ref changes; it proves no prevention of outside-worktree writes, network effects, or secret reads.
 - **Effort:** Gemini effort is fixed at `default`.
-- **Management:** `target:'all'` includes Gemini when its `install` and `standalone` capabilities are verified; it excludes Gemini while they are off.
+- **Management:** `target:'all'` includes Gemini when its `install` and `standalone` capabilities are verified; it excludes Gemini while `standalone` remains off.
 
 Authentication checks, role execution support per environment, and switching between composite and single-platform modes: see [Harness operation](docs/harness-operation.md).
 

@@ -68,8 +68,12 @@ test('payload policy verification follows install capabilities and checks verifi
   assert.ok(source.includes('- [platform.gemini]'));
   fs.writeFileSync(skill, source.replace('- [platform.gemini]', '- [platform.gemini] Stale notice.'));
   refreshManifest(context.packageRoot);
-  assert.doesNotThrow(() => verifyPayload({...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}));
-  assert.throws(() => verifyPayload(context), {code: 'ARC_PAYLOAD_VALIDATION', message: /Stale role policy output: gemini\/skill\/SKILL\.md/});
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}}} : p));
+  const platforms = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
+  assert.doesNotThrow(() => verifyPayload({...context, platforms, runtimePlatforms: runtime}));
+  for (const candidate of [context, {...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}]) {
+    assert.throws(() => verifyPayload(candidate), {code: 'ARC_PAYLOAD_VALIDATION', message: /Stale role policy output: gemini\/skill\/SKILL\.md/});
+  }
 });
 
 test('reinstall idempotent', async t => {
@@ -102,9 +106,11 @@ test('uninstall removes owned only', async t => {
 test('uninstall allowed with install capability off when traces exist', async t => {
   const context = await contextFor(t);
   await install(context);
-  const operational = {...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
-  const prepared = await prepareOperation(operational, {kind: 'uninstall', target: 'gemini', removeCli: false});
-  assert.equal((await executeOperation(operational, prepared)).code, 0);
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}}} : p));
+  const platforms = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
+  const off = {...context, platforms, runtimePlatforms: runtime};
+  const prepared = await prepareOperation(off, {kind: 'uninstall', target: 'gemini', removeCli: false});
+  assert.equal((await executeOperation(off, prepared)).code, 0);
   const remaining = files(path.join(context.userHome, '.gemini'));
   assert.deepEqual(Object.keys(remaining), ['GEMINI.md']);
   assert.doesNotMatch(Buffer.from(remaining['GEMINI.md'], 'hex').toString(), /arc:begin/);

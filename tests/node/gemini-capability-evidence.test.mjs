@@ -23,6 +23,12 @@ const promoted = capabilities => ({cli: {supportedVersions: '>=0.68.0 <0.69.0'},
 const record = (capability, version = '0.68.0', verdict = 'pass') => ({name: `${capability}-2026-11-16.md`, bytes: `- capability: ${capability}\n- gemini version: ${version} (recorded CLI output)\n- 판정: ${verdict}\n`});
 
 test('operational Gemini verified capabilities have passing supported-version evidence and prerequisites', () => verifyEvidence(getPlatform('gemini'), files));
+test('L1 operational Gemini install has its passing live evidence record', () => {
+  assert.equal(getPlatform('gemini').capabilities.install.state, 'verified');
+  const evidence = files.find(file => file.name === 'install-2026-11-16.md');
+  assert.ok(evidence, 'L1 install evidence is required');
+  verifyEvidence(getPlatform('gemini'), [evidence]);
+});
 test('verified without evidence is rejected', () => assert.throws(() => verifyEvidence(promoted({install: {state: 'verified'}}), []), /install requires passing evidence/));
 test('evidence parser accepts pass and rejects wrong version, verdict, capability, filename and missing fields', () => {
   const descriptor = promoted({install: {state: 'verified'}});

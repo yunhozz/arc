@@ -203,7 +203,7 @@ test('operational status and home wording remain unchanged with an off injected 
     authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
     cliVersion: {version: null, reason: 'cli_not_found'},
   }], ordinary);
-  assert.equal(homeStatusLine(ordinary), 'Claude: Not Available / Codex: Not Available / Gemini: Not verified');
+  assert.equal(homeStatusLine(ordinary), 'Claude: Not Available / Codex: Not Available / Gemini: Not Available');
   for (const [authStatus, expected] of [['authenticated', 'Claude: Available / Codex: Available'], ['unauthorized', 'Claude: Unauthorized / Codex: Unauthorized'], ['unknown', 'Claude: Incomplete / Codex: Incomplete']]) {
     assert.equal(homeStatusLine(['claude', 'codex'].map(id => statusOf(id, {authStatus}))), expected);
   }

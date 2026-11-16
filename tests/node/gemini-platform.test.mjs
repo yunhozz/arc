@@ -13,22 +13,23 @@ import {collectStatus} from '../../lib/management/status.mjs';
 import {homeStatusLine} from '../../lib/tui/mode.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {compositeContext, mixedConfig} from './fixtures/install-mode.mjs';
+import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {POLICY_TARGETS, buildPolicyOutputs, validateRolePolicy} from '../../lib/policy/render.mjs';
 
 // Missing registration or an enabled unverified capability must fail these boundaries.
-test('Gemini registries agree in anchor and display order with all capabilities off', () => {
+test('Gemini registries agree in anchor and display order with only install verified', () => {
   for (const registry of [DEFAULT_PLATFORM_REGISTRY, DEFAULT_INSTALLER_REGISTRY]) {
     assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini']);
     for (const order of ['byAnchorOrder', 'byDisplayOrder']) assert.deepEqual(registry[order]().map(p => p.runtime?.id ?? p.id), ['claude', 'codex', 'gemini']);
   }
   const runtime = getPlatform('gemini');
   assert.equal(DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').runtime, runtime);
-  assert.deepEqual(runtime.capabilities, Object.fromEntries(Object.entries({
-    install: 'install layout not verified', nativeProfile: 'native profile format not verified',
+  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, ...Object.fromEntries(Object.entries({
+    nativeProfile: 'native profile format not verified',
     catalog: 'catalog not verified', standalone: 'standalone not verified', bridge: 'bridge contract not verified',
     compositeRole: 'composite role not verified', compositeHost: 'composite host not verified',
     authProbe: 'no official auth status command', watch: 'watch support out of scope',
-  }).map(([key, reason]) => [key, {state: 'off', reason}])));
+  }).map(([key, reason]) => [key, {state: 'off', reason}]))});
   assert.equal(runtime.home.env, 'GEMINI_CLI_HOME');
   assert.deepEqual(runtime.cli, {command: 'gemini', supportedVersions: '>=0.68.0 <0.69.0'});
   assert.deepEqual(runtime.auth, {kind: 'none'});
@@ -136,14 +137,27 @@ test('Gemini profiles reject non-string scalars, YAML syntax and malformed front
   assert.equal(profiles.render(tagged, 'arc_qa', {model: 'gemini-x', effort: 'default'}).toString(), tagged);
 });
 
-test('Gemini management refuses direct install, excludes all and reports Not verified', async t => {
+test('L1 operational Gemini install verification still refuses standalone management without file changes', async t => {
   const context = await compositeContext(t);
+  assert.equal(getPlatform('gemini').capabilities.standalone.state, 'off');
+  const before = homeBytes(context.userHome);
   await assert.rejects(prepareOperation(context, {kind: 'install', target: 'gemini'}), {message: 'Gemini is not available: capability not verified'});
+  assert.deepEqual(homeBytes(context.userHome), before);
   const prepared = await prepareOperation(context, {kind: 'install', target: 'all'});
   assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
   const statuses = await collectStatus(context);
-  assert.equal(homeStatusLine(statuses), 'Claude: Not Available / Codex: Not Available / Gemini: Not verified');
+  assert.equal(homeStatusLine(statuses), 'Claude: Not Available / Codex: Not Available / Gemini: Not Available');
+  assert.deepEqual(homeBytes(context.userHome), before);
   assert.equal(fs.existsSync(path.join(context.userHome, '.gemini')), false);
+});
+
+test('L1 operational Gemini home follows CLI status with auth none after install verification', () => {
+  for (const [cliVersion, authentication, want] of [
+    [{version: null, reason: 'cli_not_found'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Not Available'],
+    [{version: '0.68.0'}, {authStatus: 'unknown', reason: 'cli_not_found'}, 'Gemini: Not Available'],
+    [{version: '0.69.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Unsupported version'],
+    [{version: '0.68.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Available (auth unverified)'],
+  ]) assert.equal(homeStatusLine([{platform: 'gemini', state: 'absent', cliVersion, authentication}]), want);
 });
 
 test('Gemini auth none probe does not spawn and returns unknown', async t => {
@@ -157,11 +171,11 @@ test('Gemini auth none probe does not spawn and returns unknown', async t => {
 
 test('range out version unsupported after install verification while off takes precedence', () => {
   const status = {platform: 'gemini', state: 'installed', authentication: {authStatus: 'unknown', reason: 'auth_unverified'}, cliVersion: {version: '0.69.0'}};
-  assert.equal(homeStatusLine([status]), 'Gemini: Not verified');
+  assert.equal(homeStatusLine([status]), 'Gemini: Unsupported version');
   assert.ok(getPlatform('gemini'));
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'verified'}}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}}} : p));
   const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
-  assert.equal(homeStatusLine([status], registry), 'Gemini: Unsupported version');
+  assert.equal(homeStatusLine([status], registry), 'Gemini: Not verified');
 });
 
 test('Gemini controls preserve codex/claude policy outputs byte for byte with Gemini payload targets', () => {

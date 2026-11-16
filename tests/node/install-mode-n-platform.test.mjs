@@ -144,7 +144,7 @@ test('zeta package passes verifyPayload with injected registry', t => {
   const payload = verifyPayload({packageRoot: root, safeFs, ...registries});
   assert.deepEqual(Object.keys(payload.modelInputs), ['claude', 'codex', 'zeta']);
   const ordinary = staticPackageFixture(t);
-  assert.deepEqual(Object.keys(verifyPayload({packageRoot: ordinary, safeFs}).modelInputs), ['claude', 'codex']);
+  assert.deepEqual(Object.keys(verifyPayload({packageRoot: ordinary, safeFs}).modelInputs), ['claude', 'codex', 'gemini']);
   assert.throws(() => verifyPayload({packageRoot: root, safeFs}), {message: 'Payload verification failed: Duplicate, mutable or unexpected manifest entry: zeta/agents/arc-implementer.md'});
 });
 test('installAll installs zeta standalone', async t => {
