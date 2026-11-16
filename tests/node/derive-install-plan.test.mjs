@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {ROLES} from '../../lib/models/config.mjs';
 import {mixedLabel} from '../../lib/platforms/index.mjs';
 import {createTestRegistries} from './fixtures/platforms/zeta.mjs';
+import {migrationRegistries} from './fixtures/legacy-composite.mjs';
 
 const load = url => import(url).catch(error => {
   if (error.code !== 'ERR_MODULE_NOT_FOUND' || error.url !== new URL(url, import.meta.url).href) throw error;
@@ -143,4 +144,18 @@ for (const [name, installState, statuses, want] of [
 test('homeModeLine defaults to the production installer registry', () => {
   assert.equal(typeof mode.homeModeLine, 'function');
   assert.equal(mode.homeModeLine(composite(['codex', 'claude']), []), 'Mixed (Claude + Codex)');
+});
+
+test('legacy same-set and changed-set previews move to the new anchor; D1-b does not', () => {
+  const {platforms: registry} = migrationRegistries();
+  const roles = Object.fromEntries(ROLES.map(role => [role, {platform: 'codex', model: 'gpt-6', effort: 'high'}]));
+  const current = {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true};
+  for (const hosts of [['claude', 'codex'], ['claude', 'codex', 'zeta']]) {
+    const result = plan.deriveInstallPlan({roles, hosts, current, registry});
+    assert.equal(result.anchorMove, true);
+    assert.equal(result.anchor, 'claude');
+    assert.equal(result.rule, hosts.length === 2 ? 'D1-d' : 'D1-e');
+  }
+  assert.equal(plan.deriveInstallPlan({roles, hosts: ['codex'], current, registry}).anchorMove, false);
+  assert.equal(mode.homeModeLine(current, [], registry), 'Mixed (Claude + Codex)');
 });

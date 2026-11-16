@@ -392,7 +392,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
   - management prepare 결과: `anchorMove:{from:'codex', to:'claude'}`(legacy일 때만)
   - `deriveInstallPlan`: legacy `installState`이면 `anchorMove:true`, 새 anchor는 `min(S)`
 
-- [ ] **Step 1: 실패 테스트 작성**(`anchor-migration.test.mjs`, legacy fixture)
+- [x] **Step 1: 실패 테스트 작성**(`anchor-migration.test.mjs`, legacy fixture)
   - A1:
     - `legacy v1 at codex home is composite with legacyAnchor`: 반환값 deepEqual(위 형태)
     - `v2 at codex home is unverified`
@@ -419,10 +419,10 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
     - 홈 모드 줄이 `Mixed (Claude + Codex)`
     - PTY: legacy 상태 Apply 미리보기 줄 표시
   - 운영 회귀: `operational order: codex v1 at codex home stays normal composite without legacyAnchor`
-- [ ] **Step 2:** `node --test tests/node/anchor-migration.test.mjs tests/node/derive-install-plan.test.mjs tests/node/tui-setup.test.mjs`. 기대: 신규 FAIL
-- [ ] **Step 3:** 구현. 이동 절차는 Phase A 6.6을 재사용합니다(anchorOrder 오름차순 lock, 두 store의 non-terminal 검사, 단일 `applyTransaction`, 역순 해제).
-- [ ] **Step 4:** Step 2 PASS, PTY PASS
-- [ ] **Step 5:** STD-CLOSE(runtime 무변경이면 1–2 생략)
+- [x] **Step 2:** `node --test tests/node/anchor-migration.test.mjs tests/node/derive-install-plan.test.mjs tests/node/tui-setup.test.mjs`. 기대: 신규 FAIL
+- [x] **Step 3:** 구현. 이동 절차는 Phase A 6.6을 재사용합니다(anchorOrder 오름차순 lock, 두 store의 non-terminal 검사, 단일 `applyTransaction`, 역순 해제).
+- [x] **Step 4:** Step 2 PASS, PTY PASS
+- [x] **Step 5:** STD-CLOSE(runtime 무변경이면 1–2 생략)
 
 **필수 검사:** 작업 테스트, PTY, `npm test`, `check:manifest`, `check:role-policy`, parity
 **필수 QA:** 예(마이그레이션)
@@ -863,6 +863,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | 2026-11-16 | T4 | 수용 | (이 커밋) | Implementer bridge `e503f27e`(2 segment; 자기 테스트 오류 수정 허용 지시 후 완료): F7a는 호출 횟수 대신 마지막 프로필 읽기 완료 시점에 marker 변경, 단언 2→3개. F1 비anchor(zeta) switch 테스트 추가. anchor 9/0, n-platform 54/0, parity. segment 1의 `permission_violation_observed`(headChanged/refsChanged)는 실행 중 사용자 커밋 `944f818`(watch 라벨) 때문이며 Implementer 변경 아님. Orchestrator 실효성 확인: host marker 재확인 줄 제거 사본에서 해당 테스트 FAIL. `npm test` 2236 tests / 36 fail = 기준과 동일. 필수 QA 대상 아님 |
 | 2026-11-16 | T5 | 수용 | (이 커밋) | Implementer bridge `c2844a56`(2 segment: 구현 전 lease-v2+store 16/12 → 후 29/0; segment 2에서 STD-CLOSE: runtime-assets 33, runtime-versions 6/0, manifest 232, role-policy 24 무변경, parity). sandbox의 bridge resume 실패는 호스트에서 bridge·lease 87/0으로 환경 제한 판정. 호스트 실행: `e191068` 사본에서 새 테스트 22건 중 13 FAIL(통과 9건은 v2 전체 거부였던 base에서도 통과하는 거부 사례, valid v2 수용 테스트와 짝), 회귀 routing·bridge·lease·watch 528/0, golden 4/0, `npm test` 2258 tests / 36 fail = 기준과 동일. fresh QA bridge `3022af70`: Q1·Q3·Q4·Q5·Q7 proven, Q2 unmet, Q6·Q8 unverified → Orchestrator 처분: Q2(observe가 config 없이 v2 대상을 표시)는 수정하지 않음 — observe는 재구성 뒤 과거 dispatch를 관측해야 해서 활성 설정을 읽지 않는 기존 설계이고, lease는 lock 아래 runtime만 기록하며 실행 전(run·resume)에는 `buildBridgeInvocation`이 대상 불일치를 `activation_unverified`로 막음. Q6은 `parseLeaseLenient`가 v2 lease를 읽는 것을 직접 실행으로 확인, Q8은 golden 4/0·runtime-versions 6/0 호스트 실행으로 확인. 잔여 위험(후속 기록): resume은 capability를 재확인하지 않음(spec 7.2 범위는 prepare·run) |
 | 2026-11-16 | T6 | 수용 | (이 커밋) | Implementer bridge `0c277237`(2 segment): `lib/watch/anchor-store.mjs` `resolveDispatchStore`(async, anchorOrder 순 marker 형식 검사·등록 home 정확 일치·중복 제거 → anchor/legacy/none/ambiguous), `createDispatchIndex({storeDir})`, ambiguous는 기존 `notice` 경로로 `dispatch store ambiguous` 표시(`render.mjs` 무변경). 탐색은 watch 시작 시 1회, 후보 0이고 Codex home이 있으면 시작 후 생기는 legacy store도 계속 관찰. Orchestrator 검토 지적(segment 1): storeDir 없을 때 `scan`이 `[]`를 반환해 workflow artifact 표시까지 사라지는 회귀 → lease만 비우고 artifact 스캔 유지로 수정. 호스트 실행: `a531139` 사본에서 새 탐색 테스트 6건 FAIL(watch-watcher 파일은 새 모듈 import로 전체 FAIL), watch-* 366/0(Implementer), `npm test` 2267 tests / 36 fail = 기준과 동일. manifest 233. 필수 QA 대상 아님 |
+| 2026-11-16 | T7 | 수용 | (이 커밋) | Implementer bridge `7f90418e`(관측 3회): legacy 판정(`install-mode.mjs` 단일 설정·v1·Codex home 예외 후 6.4.5 검사 계속), 설치기 전용 `parseInstalledRoutingConfig`(v1을 codex 우선 historical 레지스트리로 재해석, runtime은 엄격 유지), 기존 6.6 이동 경로 재사용, legacy 전체 Uninstall은 old anchor plan을 마지막으로 정렬, management `anchorMove`, status 진단·Apply 미리보기 문구. 상수 `legacyAnchorPlatform`은 AC-P1 allowlist 변경 없이 통과. 호스트 실행: PTY 33/0(sandbox 미검증분), `32c5e08` 사본(build/ 복사)에서 새·수정 테스트 87건 중 legacy 16건 FAIL, `npm test` 2290 tests / 36 fail = 기준과 동일. fresh QA bridge `4779a84d`: Q1·Q4·Q6·Q7·Q8 proven, Q5 unverified(패키지 획득 stub), Q2·Q3 unmet → Orchestrator 처분: (결함 2) `serializeRoleRoutingConfig`가 codex+claude를 v1로 정규화해 anchor≠codex일 때의 `JSON.stringify` 우회 바이트와 다름 → T8 "새 활성 설정 v2 항상 기록"에서 serializer를 v2 상시 출력으로 바꾸고 우회를 제거(T8 이관). 현재 바이트는 runtime이 수용하는 유효 v2. (결함 1) Claude 우선 레지스트리에서 `version:1, platforms:['claude','codex']`가 통과 — 우회가 아니라 기존 `validateRoleRoutingConfig`의 성질이며 그런 v1 파일은 기록된 적 없음 → T8 순서 전환 시 v1 검증을 codex 우선 고정으로 엄격화(T8 이관). Q5는 패키지 설치가 home을 건드리지 않는 기존 테스트와 이번 스냅샷 테스트로 수용 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
 (T8 Step 1 산출물을 Orchestrator가 기록)

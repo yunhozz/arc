@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import * as setup from '../../lib/tui/setup.mjs';
 import {loadModelConfig} from '../../lib/models/index.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
+import {migrationRegistries} from './fixtures/legacy-composite.mjs';
 const packageRoot=fileURLToPath(new URL('../../',import.meta.url));
 const roles=['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
 const names=['Scouter','Planner','Implementer','QA','Reviewer'];
@@ -12,6 +13,17 @@ const catalogs=Object.fromEntries(await Promise.all(['codex','claude'].map(async
 const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models[platform]}}));
 
 function scripted(steps,pages=[]){return {menu:async(title,rows,options)=>{const step=steps.shift();assert.ok(step,'unexpected '+title);assert.equal(title,step[0]);step[2]?.(rows,options);return step[1];},page:async(title,rows)=>pages.push({title,rows})};}
+
+test('legacy preview line appears once and Apply prepares the migration without confirmation',async()=>{
+ const {platforms:registry}=migrationRegistries();
+ const steps=[['Install / Update',7,(_rows,options)=>{
+  assert.deepEqual(options.info,['Hosts: Claude, Codex','Mode:  Mixed (Claude + Codex)','Mixed routing files will move to the Claude home.']);
+  const screen=options.renderBody({selected:7,columns:120,rows:40});
+  assert.equal(screen.rows.filter(row=>row==='Mixed routing files will move to the Claude home.').length,1);
+ }]];
+ const result=await installFlow({registry,installState:{mode:'composite',platforms:['claude','codex'],anchor:'codex',legacyAnchor:true},currentConfig:{roles:installRoles('codex')},ui:scripted(steps)});
+ assert.equal(result.target,'composite');assert.deepEqual(result.platforms,['claude','codex']);assert.equal(steps.length,0);
+});
 
 test('role editor uses the static catalog without starting a model discovery child',async()=>{
  const {loadCustomCatalog}=await import('../../lib/tui/custom-preset.mjs');let calls=0;
