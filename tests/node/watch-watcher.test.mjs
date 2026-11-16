@@ -239,7 +239,7 @@ test('AC-W35 subagents are scoped by their own cwd and keep parent labels',async
     assert.equal(e.label,label);assert.equal(e.parentId,parentId);
     assert.equal(e.depth,depth);assert.equal(e.source,'subagent');
   }
-  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT\s+\[QA\] review/);
+  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT\s+QA review/);
 });
 
 test('AC-W35 outside children do not output under in-scope parents',async t=>{
@@ -781,7 +781,7 @@ test('Claude native reviewer handback-only transcript renders its role and masks
   assert.equal(report.label,'main#1234/reviewer');
   assert.equal(report.role,'reviewer');
   assert.equal(report.text,'review complete\npassword=***');
-  assert.match(lines([report])[0].slice(25),/^\[Reviewer\] review complete\n +password=\*\*\*$/);
+  assert.match(lines([report])[0].slice(25),/^Reviewer review complete\n +password=\*\*\*$/);
   assert.equal(out.filter(e=>e.sessionId==='agent-review'&&e.kind==='turn_end').length,1);
   assert.ok(!out.some(e=>e.tool==='SubagentHandback'));
 });
@@ -799,7 +799,7 @@ test('Codex native arc_routing child threads render final agent messages with th
     assert.ok(report);
     assert.equal(report.label,`tui#1234/${role}`);
     assert.equal(report.role,role);
-    assert.equal(lines([report])[0].slice(25),`[${title}] ${role} final report`);
+    assert.equal(lines([report])[0].slice(25),`${title} ${role} final report`);
   }
 });
 test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});

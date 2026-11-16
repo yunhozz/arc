@@ -299,8 +299,8 @@ test('bridge and subagent AGENT lines show the role', async t => {
   s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
   s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
   const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
-  assert.match(s.output.text,/AGENT    \[Planner\] bridge answer/);
-  assert.match(s.output.text,/AGENT    \[QA\] child answer/);
+  assert.match(s.output.text,/AGENT    Planner bridge answer/);
+  assert.match(s.output.text,/AGENT    QA child answer/);
 });
 
 
