@@ -27,7 +27,13 @@ test('L1 operational Gemini install has its passing live evidence record', () =>
   assert.equal(getPlatform('gemini').capabilities.install.state, 'verified');
   const evidence = files.find(file => file.name === 'install-2026-11-16.md');
   assert.ok(evidence, 'L1 install evidence is required');
-  verifyEvidence(getPlatform('gemini'), [evidence]);
+  verifyEvidence(promoted({install: getPlatform('gemini').capabilities.install}), [evidence]);
+});
+test('L3 operational Gemini nativeProfile has its passing live evidence record', () => {
+  assert.equal(getPlatform('gemini').capabilities.nativeProfile.state, 'verified');
+  const evidence = files.find(file => file.name === 'nativeProfile-2026-11-16.md');
+  assert.ok(evidence, 'L3 nativeProfile evidence is required');
+  verifyEvidence(getPlatform('gemini'), [files.find(file => file.name === 'install-2026-11-16.md'), evidence]);
 });
 test('verified without evidence is rejected', () => assert.throws(() => verifyEvidence(promoted({install: {state: 'verified'}}), []), /install requires passing evidence/));
 test('evidence parser accepts pass and rejects wrong version, verdict, capability, filename and missing fields', () => {

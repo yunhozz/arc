@@ -17,15 +17,14 @@ import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {POLICY_TARGETS, buildPolicyOutputs, validateRolePolicy} from '../../lib/policy/render.mjs';
 
 // Missing registration or an enabled unverified capability must fail these boundaries.
-test('Gemini registries agree in anchor and display order with only install verified', () => {
+test('Gemini registries agree in anchor and display order with install and nativeProfile verified', () => {
   for (const registry of [DEFAULT_PLATFORM_REGISTRY, DEFAULT_INSTALLER_REGISTRY]) {
     assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini']);
     for (const order of ['byAnchorOrder', 'byDisplayOrder']) assert.deepEqual(registry[order]().map(p => p.runtime?.id ?? p.id), ['claude', 'codex', 'gemini']);
   }
   const runtime = getPlatform('gemini');
   assert.equal(DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').runtime, runtime);
-  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, ...Object.fromEntries(Object.entries({
-    nativeProfile: 'native profile format not verified',
+  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, ...Object.fromEntries(Object.entries({
     catalog: 'catalog not verified', standalone: 'standalone not verified', bridge: 'bridge contract not verified',
     compositeRole: 'composite role not verified', compositeHost: 'composite host not verified',
     authProbe: 'no official auth status command', watch: 'watch support out of scope',
@@ -137,6 +136,14 @@ test('Gemini profiles reject non-string scalars, YAML syntax and malformed front
   assert.equal(profiles.render(tagged, 'arc_qa', {model: 'gemini-x', effort: 'default'}).toString(), tagged);
 });
 
+test('L3 rendered Gemini routing profile has exactly the live-verified frontmatter keys', () => {
+  const profiles = DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').profiles;
+  const source = fs.readFileSync(new URL('../../gemini/agents/arc-scouter.md', import.meta.url), 'utf8');
+  const rendered = profiles.render(source, 'arc_scouter', {model: 'gemini-2.5-flash', effort: 'default'});
+  const routed = profiles.renameForRouting(rendered, 'arc_scouter', 'l3-rev-b').toString();
+  assert.deepEqual(routed.split('---')[1].trim().split(/\r?\n/).map(line => line.split(':')[0]), ['name', 'description', 'model']);
+});
+
 test('L1 operational Gemini install verification still refuses standalone management without file changes', async t => {
   const context = await compositeContext(t);
   assert.equal(getPlatform('gemini').capabilities.standalone.state, 'off');
@@ -173,7 +180,7 @@ test('range out version unsupported after install verification while off takes p
   const status = {platform: 'gemini', state: 'installed', authentication: {authStatus: 'unknown', reason: 'auth_unverified'}, cliVersion: {version: '0.69.0'}};
   assert.equal(homeStatusLine([status]), 'Gemini: Unsupported version');
   assert.ok(getPlatform('gemini'));
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}}} : p));
   const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
   assert.equal(homeStatusLine([status], registry), 'Gemini: Not verified');
 });

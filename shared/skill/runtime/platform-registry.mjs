@@ -116,8 +116,7 @@ export const DEFAULT_PLATFORM_REGISTRY = createPlatformRegistry([
     },
     executionEnvironments: ['gemini-cli'],
     routing: {validatePair: (model, effort) => validText(model) && /^[A-Za-z0-9][A-Za-z0-9._:/@+\-]*$/.test(model) && effort === 'default'},
-    capabilities: {install: {state: 'verified'}, ...Object.fromEntries(Object.entries({
-      nativeProfile: 'native profile format not verified',
+    capabilities: {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, ...Object.fromEntries(Object.entries({
       catalog: 'catalog not verified', standalone: 'standalone not verified', bridge: 'bridge contract not verified',
       compositeRole: 'composite role not verified', compositeHost: 'composite host not verified',
       authProbe: 'no official auth status command', watch: 'watch support out of scope',
