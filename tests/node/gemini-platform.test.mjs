@@ -12,6 +12,7 @@ import {prepareOperation, executeOperation} from '../../lib/management/operation
 import {collectStatus} from '../../lib/management/status.mjs';
 import {homeStatusLine} from '../../lib/tui/mode.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
+const {discoverGeminiCatalog, selectGeminiCatalogModels} = await import('../../lib/models/catalog-gemini.mjs').catch(() => ({}));
 import {compositeContext, mixedConfig} from './fixtures/install-mode.mjs';
 import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {POLICY_TARGETS, buildPolicyOutputs, validateRolePolicy} from '../../lib/policy/render.mjs';
@@ -72,6 +73,13 @@ test('Gemini catalog accepts only default effort and safe model identifiers', as
   for (const model of ['', '-gemini', 'gemini x', 'gemini\n', null]) assert.equal(validate(model, 'default'), false);
 });
 
+test('static gemini catalog passes selectGeminiCatalogModels unchanged', async () => {
+  const result = await loadStaticModelCatalog('gemini');
+  assert.equal(result.status, 'ready');
+  const models = result.catalog.pairs.map(pair => pair.model);
+  assert.deepEqual(selectGeminiCatalogModels(models), models);
+});
+
 test('composite defaults exclude unverified Gemini but explicit participation is rejected', async t => {
   const context = await compositeContext(t);
   context.env.GEMINI_CLI_HOME = '/unverified-home';
@@ -89,7 +97,7 @@ test('Gemini profiles render owned markdown and rename only the routing identity
   assert.equal(descriptor.payloadPrefix, 'gemini'); assert.equal(descriptor.instructionFile, 'GEMINI.md');
   assert.equal(descriptor.runtimeConfigFile, 'settings.json');
   assert.deepEqual(descriptor.globalPaths, ['GEMINI.md', 'settings.json']);
-  assert.equal(descriptor.models.discover, null);
+  assert.equal(descriptor.models.discover, discoverGeminiCatalog);
   assert.deepEqual(descriptor.runtimeConfig, {});
   assert.deepEqual(descriptor.isolationEnv('/work'), {});
   assert.equal(descriptor.uninstallSummary, 'Gemini settings.json is preserved.');

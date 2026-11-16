@@ -1,7 +1,7 @@
 # Gemini 플랫폼 완전 지원 — Phase B 설계 명세
 
 - 작성일: 2026-11-16
-- 상태: 승인(2026-11-16, anchor 순서 변경 반영본)
+- 상태: 승인(2026-11-16, anchor 순서 변경 반영본). 개정 v4 승인 2026-11-16T13:12:29Z(결정 13–15)
 - 작업 대상: 브랜치 `feat/tui-arc-diagram-flow`, 기준 `739da7f`(origin/master 병합 커밋)
 - 선행 명세: `docs/superpowers/specs/2026-11-15-tui-arc-diagram-flow-design.md`(이하 "Phase A spec"). Phase A의 구속 결정(D-Arch, D-Anchor, D-Display, D-Host, D1-a..f, D-Auth-Unknown, D-Unauthorized, D-Phase, D-Unverified, D-Watch, D-GeminiEffort, D-Compat)은 Phase B에서도 구속력이 있습니다. 단 **D-Anchor의 anchor 순서(codex > claude)와 Phase A 반목표 "기존 composite 경로 불변"(AC-M7)은 2026-11-16 사용자 결정(결정 10)으로 대체**됩니다(6.7). 원본 설계 기록은 저장소에서 접근할 수 없으므로, 이 명세는 Phase A spec 본문에 서술된 범위만 근거로 씁니다.
 - 경로: Architectural. 이 명세가 승인되면 별도 구현 계획을 작성합니다.
@@ -24,6 +24,9 @@
 | 9 | 열린 질문 Q1–Q8 확정 | 18 |
 | 11 | F6은 현행 정책 유지(symlink home 미지원)와 판정 일치 테스트·문서화로 처리(2026-11-16, 개정 v2) | 12, 13 |
 | 10 | anchor 순서를 표시 순서와 맞춤(claude > codex > gemini > grok). 기존 Codex+Claude composite는 anchor를 Claude home으로 옮기는 마이그레이션을 거치고, watch는 anchor를 찾도록 바꿈(Q2 변경) | 4.1, 6.2, 6.7, 7.1, 7.3, 18 |
+| 13 | 무료 API 키로 진행. 다섯 역할 기본 모델 `gemini-2.5-flash`, live에서 거부된 `gemini-2.5-pro` 제거(2026-11-16T12:47:50Z) | 5.3, 9.2, 18 |
+| 14 | Gemini 카탈로그 노출을 Claude/Codex와 같게: 정적 JSON은 유료 포함 전체 모델, discover 함수 추가. listing + quota 거부(429/503)만 있는 모델은 listed 증거, 명시 거부 모델 제외 | 2, 4.2, 5.3, 6.1, 9.2, 9.3, 17, 18 |
+| 15 | listing만 있는 후보는 live `-m` 1회 시도 후 분류. preview 모델은 전부 제외. discover deny 목록 없음, catalog off면 discover 미호출, 키 env는 `GEMINI_API_KEY`만, TUI 경고 없음(Claude/Codex와 같음) | 5.3, 9.2, 18 |
 
 ## 1. 의도
 
@@ -54,7 +57,7 @@ Gemini CLI의 외부 계약은 대부분 아직 live로 검증되지 않았습�
 - `arc watch`의 Gemini 지원(결정 6, D-Watch). Gemini 세션 탐색·정규화와 Gemini dispatch 표시가 여기에 해당합니다. watch의 anchor 탐색은 결정 10에 따라 범위 안입니다(7.3).
 - Grok(Phase C)
 - Gemini Desktop 등 CLI 외 실행 환경. `executionEnvironments`는 `gemini-cli` 하나입니다.
-- Gemini 동적 모델 discover. 카탈로그는 정적 JSON만 씁니다(5.3).
+- TUI·management의 Gemini discover 사용. Claude/Codex와 같이 선택 표면은 정적 카탈로그만 씁니다(5.3, 결정 14).
 - 공식 인증 확인 명령이 생겼을 때의 probe 구현. 그때 별도 변경으로 다룹니다.
 
 **반목표**
@@ -112,7 +115,7 @@ Gemini CLI의 외부 계약은 대부분 아직 live로 검증되지 않았습�
 | `runtimeConfigFile` | `settings.json` | U-I2. ARC는 읽기만 하거나 최소 키만 병합합니다(5.2) |
 | `globalPaths` | `GEMINI.md`, `settings.json` | |
 | `models.staticCatalog` | `lib/models/gemini-models.json` | 5.3 |
-| `models.discover` | `null` | 정적 카탈로그만 씁니다 |
+| `models.discover` | `discoverGeminiCatalog`(`lib/models/catalog-gemini.mjs`) | Gemini API `models.list` 기반(5.3, 결정 14). TUI·management는 정적 카탈로그만 씁니다 |
 | `profiles.render/isOwnedStandalone/renameForRouting` | Gemini 전용 markdown frontmatter 형식(`lib/platforms/formats/gemini-markdown.mjs` 또는 markdown 형식의 옵션) | 5.5. 형식 분리 여부는 builder가 정합니다 |
 | `runtimeConfig.readConcurrency/renderConcurrency` | 없음(동시성 키를 쓰지 않음) | U-I3. Settings의 Concurrent는 ARC `settings.toml`에만 저장합니다 |
 | `runtimeConfig.extraRender` | 없음 | |
@@ -155,7 +158,20 @@ Gemini CLI의 외부 계약은 대부분 아직 live로 검증되지 않았습�
 ### 5.3 카탈로그
 
 - `lib/models/gemini-models.json`: 모든 쌍의 effort가 `default`입니다(D-GeminiEffort, 결정 5).
-- 모델 목록은 `catalog` capability 검증 때 `gemini --list-models` 출력 증거로 확정합니다(9.2). 검증 전 파일에는 fixture 수준의 목록을 두며, capability가 off이므로 사용자 선택에 쓰이지 않습니다.
+- **정적 목록 규칙(결정 13, 14, 15):**
+  - 후보는 `selectGeminiCatalogModels`를 통과하는 Gemini 텍스트 계열 GA 모델입니다. 정규식은 `^gemini-(\d+(?:\.\d+)?)-(pro|flash|flash-lite)$`입니다. `-preview` 모델은 모두 제외합니다.
+  - TTS, image("Nano Banana"), omni, transcribe, live, native-audio, robotics, computer-use, embedding, `-customtools`, `-latest` 별칭, `auto`, 버전 없는 codename(`gemini-4-argon` 등), Gemini 계열이 아닌 모델(gemma 등)은 정규식에서 제외됩니다.
+  - 카탈로그에 넣으려면 9.3 catalog 증거의 `accepted (live -m)` 또는 `listed (quota-blocked)`에 있어야 합니다. `excluded (rejected)` 모델은 넣지 않습니다.
+  - 다섯 역할 기본 모델(`gemini/skill/models.toml`, `gemini/agents/arc-*.md`의 `model`)은 `gemini-2.5-flash`이고 `accepted`에 있어야 합니다.
+  - 순서: tier(pro → flash → flash-lite), 같은 tier 안에서는 버전 내림차순입니다. 선택 기본값은 models.toml이 정하므로 순서는 표시용입니다.
+- **discover(`discoverGeminiCatalog`, 결정 14):**
+  - 요청: `GET https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000[&pageToken=…]`, 헤더 `x-goog-api-key: <GEMINI_API_KEY>`, `redirect:'manual'`. 키는 URL·argv·결과·오류 문구 어디에도 넣지 않습니다.
+  - 응답 검사: `response.ok`가 아니거나 `response.url`의 origin·pathname이 요청과 다르면 `http_error`. `models`는 배열이고, 각 항목 `name`은 `models/` 접두 문자열, id(접두 제거)는 runtime 모델 정규식을 통과하고 키를 포함하지 않아야 합니다. 어기면 `invalid_response`. `supportedGenerationMethods`에 `generateContent`가 없는 항목은 건너뜁니다.
+  - 페이지: `nextPageToken`이 비어 있거나 없으면 끝. 문자열이 아니거나 이전 토큰 반복, 1000쪽 초과면 `invalid_response`.
+  - 선택: 모은 id에 `selectGeminiCatalogModels`를 적용하고 모든 effort는 `default`. 결과 0개면 `invalid_response`. 증거상 거부된 id를 거르는 deny 목록은 두지 않습니다(Claude/Codex와 같음, 결정 15).
+  - 결과: `{status:'ready', catalog:{platform:'gemini', pairs, unavailable:[], source:'gemini_api', cliAccountVerified:false}}`. listing은 계정 자격과 quota를 반영하지 않으므로(U-C2) `cliAccountVerified`는 항상 `false`입니다.
+  - 실패: `{status:'unavailable', code, message}`. code는 `missing_api_key`(`Gemini API key is unavailable.`), `http_error`·`invalid_response`·`unavailable`(`Gemini catalog is unavailable.`), `aborted`, `timeout`(`discoverModelCatalog` 공통). 키 env는 `GEMINI_API_KEY`만 씁니다.
+  - `discoverModelCatalog`는 descriptor의 `catalog` capability가 verified가 아니면 discover를 호출하지 않고 `capability_not_verified`를 반환합니다.
 - runtime은 `lib/models`를 import할 수 없으므로 runtime의 모델 문자 규칙은 정규식으로만 검사합니다. 카탈로그와 runtime 규칙의 정합성은 테스트로 고정합니다(Claude의 `CATALOG_MODEL_ALIASES` 선례).
 - 카탈로그 실패는 Phase A와 같이 `catalog_error` 사유로 처리합니다.
 
@@ -205,7 +221,7 @@ usage 게이트(Phase A 5.4)는 바꾸지 않습니다. 대신 capability 사이
 |---|---|---|
 | `install` | — | payload 설치·제거, Gemini가 GEMINI.md와 skill을 읽음 |
 | `nativeProfile` | `install` | `~/.gemini/agents` 프로필 로드, model 적용, revision 재로드 |
-| `catalog` | `install` | 정적 카탈로그 모델이 CLI에서 수락됨 |
+| `catalog` | `install` | 정적 카탈로그 모델마다 CLI 수락 또는 listing + quota 거부만 있음(9.2), 역할 기본 모델은 수락됨 |
 | `standalone` | `install`, `nativeProfile`, `catalog` | Gemini 단독 ARC |
 | `bridge` | `install`, `catalog` | 다른 host에서 Gemini 역할 실행/관찰/취소(재개는 8.5) |
 | `compositeRole` | `bridge` | Gemini를 역할 플랫폼으로 선택 |
@@ -415,7 +431,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 |---|---|---|---|
 | `install` | `install layout not verified` | 임시 HOME에 설치하고 `gemini -p`가 GEMINI.md 블록과 ARC skill을 인식하는지 확인(skill 목록 또는 응답 내 고정 토큰). 제거 후 잔여물 확인 | 토큰 확인, 제거 후 ARC 소유 파일 0개 |
 | `nativeProfile` | `native profile format not verified` | `~/.gemini/agents/arc-routing-scouter.md`가 로드되어 지정 model로 실행됨. revision tag 변경 후 새 세션에서 새 revision이 보임 | 로드 + model 일치 + 재로드 |
-| `catalog` | `catalog not verified` | `gemini --list-models` 출력 수집. 카탈로그 각 모델로 `-m <model> -p` 최소 실행 | 모든 카탈로그 모델 수락 |
+| `catalog` | `catalog not verified` | `gemini --list-models` 출력과 Gemini API `models.list`(헤더 키) 수집. 5.3 후보 모델마다 `-m <model> -p` 최소 실행 1회 이상 | 카탈로그 모델마다 `accepted` 또는 `listed (quota-blocked)`(listing 출처 1개 이상, 실패가 429/503뿐). 명시 거부 모델 0. 역할 기본 모델은 `accepted` |
 | `standalone` | `standalone not verified` | 선행 3종 + Gemini 단독 ARC에서 역할 1개 native 위임 | 위임 성공 |
 | `bridge` | `bridge contract not verified` | claude-cli host와 codex-cli host 각각에서 Gemini 역할 run → observe → cancel. 세션 id 일치, model 관찰, 결과 파일, read-only 역할의 쓰기 0건 | 두 host 모두 통과(P-B5) |
 | `compositeRole` | `composite role not verified` | `bridge` + composite(Claude+Gemini, Codex+Claude+Gemini) publish/routingStatus/prepare | prepare가 v2 lease 기록 |
@@ -443,6 +459,12 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
   - verified인 capability마다 증거 파일이 있고 판정이 `pass`입니다.
   - 기록된 version이 `supportedVersions` range 안에 있습니다.
   - 6.1 선행 조건이 지켜집니다.
+- catalog 증거는 위 형식에 다음 세 줄을 추가합니다(결정 14). 모델은 쉼표로 구분하고 `listed`·`excluded` 항목은 대괄호에 근거를 적습니다.
+  - `- accepted (live -m): <model>, …`
+  - `- listed (quota-blocked): <model> [<cli|api>[,<cli|api>]; <429|503>[,…]], …`
+  - `- excluded (rejected): <model> [<거부 문구 요지>], …`
+- catalog 증거는 API 응답 원문의 필드 이름(`models`, `name`, `supportedGenerationMethods`, `nextPageToken`) 발췌를 포함합니다(U-C2).
+- 같은 테스트가 catalog verified일 때 다음도 검사합니다: 세 목록 비중첩, 정적 카탈로그 모델 집합 = accepted ∪ listed, 역할 기본 모델 ∈ accepted, listed 항목은 출처와 코드가 있고 코드 ⊆ {429, 503}.
 
 ### 9.4 버전 고정
 
@@ -559,6 +581,8 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 | AC-B4 | Gemini Implementer/QA bridge는 GG1 `fail`에서 `permission_scope_unverified`, Gemini host bridge는 GG2 `fail`에서 `host_sandbox_blocked`로 hold된다. read-only 역할의 worktree 쓰기는 `permission_violation_observed`다 | unit `role-dispatch-policy`, integration |
 | AC-B5 | runtime이 off capability의 host/대상에 대해 `capability_not_verified`로 hold하고 lease를 만들지 않는다 | unit `role-routing-*` |
 | AC-V1 | verified capability마다 9.3 형식의 `pass` 증거가 있고 version이 range 안이며 선행 조건이 지켜진다 | `gemini-capability-evidence` |
+| AC-G10 | `discoverGeminiCatalog`가 키를 `x-goog-api-key` 헤더로만 보내고(URL·결과·오류에 키 없음), 5.3 선택 규칙·페이지·redirect·키 포함 id 거부·`unavailable` 코드를 지킨다. `discoverModelCatalog`는 `GEMINI_API_KEY`만 쓰고 `source:'gemini_api'`, `cliAccountVerified:false`를 붙이며, catalog off면 fetch 없이 `capability_not_verified`다. Anthropic·Codex discover 결과는 무변경이다 | unit `gemini-catalog-discover`, `model-catalog` |
+| AC-V2 | catalog 증거의 accepted/listed/excluded 목록이 9.3 규칙을 지키고, 정적 카탈로그 = accepted ∪ listed, 역할 기본 모델 ∈ accepted다. 정적 목록은 `selectGeminiCatalogModels`를 그대로 통과한다 | `gemini-capability-evidence`, `gemini-platform` |
 | AC-D1 | 6.6 문구 일반화가 반영되고, coordination.md·instruction-contract fixture가 `Mixed routing` 일반화(Q3)라는 의도된 변경만 갖는다 | asset/fixture 테스트 |
 | AC-R1 | `role-policy.json` 변경은 각 role `controls`의 `gemini` 키 추가와 `platforms.gemini` 항목 추가(결정 12)뿐이고, codex/claude 생성물이 바이트 단위로 같다(Q4) | `check:role-policy`, role-policy 테스트 |
 | AC-P2' | Phase A AC-P2 검사 목록이 모두 통과한다(16장) | 전체 |
@@ -572,7 +596,8 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
   - `dispatch-lease-v2.test.mjs`(L1, L2)
   - `anchor-migration.test.mjs`(A1–A5)
   - watch anchor 탐색 테스트(W1, 기존 `watch-*`에 추가 가능)
-  - `gemini-capability-evidence.test.mjs`(V1)
+  - `gemini-capability-evidence.test.mjs`(V1, V2)
+  - `gemini-catalog-discover.test.mjs`(G10)
   - F4–F7 회귀 테스트(기존 `install-mode-n-platform`, `role-routing-anchor`에 추가 가능)
 - **fixture**
   - `tests/node/fixtures/gemini/stream-*.jsonl`(fake 출력)
@@ -582,7 +607,7 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
   - runtime: `lib/runtime/platform-registry.mjs`, `role-bridge-args.mjs`, `role-supervisor.mjs`, `role-observe.mjs`, `role-bridge.mjs`(`leaseTargetPlatform`), `role-dispatch-store.mjs`(v2), `role-routing.mjs`(F5, capability hold, lease 기록), `role-dispatch-policy.mjs`(GG1/GG2, reason code, 문구), `local-cli.mjs`
   - 설치기: `lib/platforms/{gemini,index}.mjs`, `lib/platforms/formats/*`, `lib/installer/upgrade.mjs`(F4), `lib/management/{status,operations}.mjs`
   - 마이그레이션·watch: `lib/installer/install-mode.mjs`(또는 `readInstallMode` 소재 모듈, legacy 판정), `lib/installer/role-routing.mjs`(anchor 이동 트리거), `lib/management/operations.mjs`(`anchorMove`), `lib/watch/index.mjs`, `lib/watch/dispatch.mjs`
-  - 기타: `lib/models/gemini-models.json`, `lib/tui/*`(상태줄·경고 표시, legacy 미리보기 줄), `lib/policy/role-policy.json`(Q4)
+  - 기타: `lib/models/gemini-models.json`, `lib/models/catalog-gemini.mjs`(신규, 결정 14), `lib/models/catalog.mjs`(키·source 표, capability 게이트), `lib/platforms/gemini.mjs`(`discover`), `gemini/skill/models.toml`·`gemini/agents/arc-*.md`(기본 모델, 결정 13), `lib/tui/*`(상태줄·경고 표시, legacy 미리보기 줄), `lib/policy/role-policy.json`(Q4)
   - payload와 문서: `gemini/**`, `codex|claude/skill/references/coordination.md`(Q3)
 - **기대값이 바뀌는 기존 테스트:** release condition 문구 단언, 운영 레지스트리 순서·개수를 단언하는 registry 테스트, TUI 플랫폼 목록·Hosts·Uninstall 스냅샷(Gemini 행 추가), instruction-contract fixture(Q3). 결정 10으로 **Codex+Claude composite의 anchor·경로를 `<CODEX_HOME>`으로 단언하는 테스트 전부**(AC-M7 fixture, `install-mode-*`, `role-routing-*`, `role-bridge-*`, `composite-*`, management composite 테스트, 운영 레지스트리 바이트·경로 동일성 `hardcoding-residual`)가 Claude home 기대값으로 바뀝니다. 계획 단계에서 이 목록을 grep으로 확정하고, 바뀌는 단언마다 old → new 대응표를 남깁니다(Phase A Task 16 방식).
 - **이관 원칙:** 기존 테스트의 기대 경로만 바꾸고 검사 강도(검사 항목 수, 실패 조건)는 줄이지 않습니다. 기존 `<CODEX_HOME>` 경로 동작은 legacy fixture 테스트(AC-A1–A4)로 따로 보존합니다.
@@ -621,12 +646,13 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
   - `scripts/check-installer-parity.mjs`
 - **live 검증:** 9장 절차. 자동 테스트 통과가 live 증거를 대신하지 않습니다.
 - **최종:** 모든 작업이 수용된 뒤 전체 변경에 대해 독립 Reviewer 1회를 둡니다(고위험 계획 작업).
+- **추가 최종 검토(결정 14):** 첫 최종 Reviewer 이후 추가된 변경(discover 구현, catalog 전환, 이어진 capability 전환)은 모두 수용된 뒤 그 범위에 대해 독립 Reviewer를 1회 더 둡니다.
 
 ## 17. 범위 밖
 
 - `arc watch`의 Gemini 세션 탐색·표시(7.3)
 - Grok
-- Gemini Desktop, 동적 모델 discover, 공식 인증 probe
+- Gemini Desktop, TUI·management의 discover 사용(Claude/Codex와 같음), 계정 자격을 반영하는 모델 목록(listing은 자격 비반영, U-C2), 공식 인증 probe
 - 마이그레이션 이후 이전 ARC 버전으로의 composite 다운그레이드 보장(6.7.5). old anchor의 이동 전 dispatch 기록 조회(watch·runtime 모두)
 
 ## 18. 확정된 질문 (2026-11-16 사용자 결정)
@@ -641,6 +667,9 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 7. **Q7** Gemini가 `install`·`standalone` verified가 되면 `target:'all'`에 포함합니다(6.5, AC-G9).
 8. **Q8** Gemini Implementer/QA bridge는 GG1(정책·sandbox 시행) 검증 전까지 `permission_scope_unverified`로 hold하며 `yolo`는 쓰지 않습니다(10.2, AC-B4).
 9. **Q9 (결정 10)** anchor 순서를 표시 순서와 맞춥니다(claude > codex > gemini). 기존 Codex+Claude composite는 Install / Update 때 Claude home으로 옮기는 전면 마이그레이션을 거치고, watch는 anchor를 탐색합니다. Phase A의 D-Anchor 순서와 AC-M7 반목표를 대체합니다(6.7, 7.3, AC-A1–A5, AC-W1).
+10. **결정 13(2026-11-16T12:47:50Z)** 무료 API 키로 진행합니다. 다섯 역할 기본 모델은 `gemini-2.5-flash`이고, 신규 사용자에게 거부된 `gemini-2.5-pro`는 제거합니다(5.3).
+11. **결정 14(2026-11-16)** Gemini 카탈로그 노출을 Claude/Codex와 같게 합니다. (a) 정적 JSON은 유료 모델을 포함한 전체 모델을 나열하고 (b) discover 함수를 추가합니다. 유료 모델은 CLI `--list-models` 또는 API `models.list` listing이 있고 live 거부가 quota(429/503)뿐이면 listed로 인정합니다. 명시 거부 모델은 제외합니다(5.3, 9.2, 9.3, AC-G10, AC-V2).
+12. **결정 15(2026-11-16)** listing만 있는 후보는 live `-m` 1회 시도 후 분류합니다. preview 모델은 전부 제외합니다. discover는 deny 목록을 두지 않고, catalog off면 호출하지 않으며, 키 env는 `GEMINI_API_KEY`만 씁니다. TUI에 quota 경고를 붙이지 않습니다(Claude/Codex와 같음).
 
 D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 
@@ -663,6 +692,9 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 - P-B7 runtime capability 방어 hold `capability_not_verified`(7.2)
 - P-B8 증거 파일 위치와 형식(9.3)
 - P-B9 모르는 stream 이벤트는 원문 기록, 분류 `unknown`
+- P-B15 discover 출처는 Gemini API `models.list`(헤더 키). CLI `--list-models` 파싱은 쓰지 않음(5.3)
+- P-B16 listed 증거는 listing + live `-m` 시도 1회 이상 + 실패 코드 429/503뿐(5.3, 9.3)
+- P-B17 `discoverModelCatalog`는 catalog capability가 verified가 아니면 `capability_not_verified`(5.3)
 
 ## 20. 미검증 가정 (모두 해당 capability off에 연결)
 
@@ -689,6 +721,7 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 - U-P4 `--approval-mode plan`이 셸·쓰기를 실제로 막음. read-only 역할 `bridge`
 - U-S1 Gemini 셸 도구 안에서 anchor home 쓰기와 detached supervisor 유지 가능. GG2, `compositeHost`
 - U-C1 `gemini --list-models` 출력 형식과 카탈로그 모델 수락. `catalog`
+- U-C2 Gemini API `models.list` 응답 형식(`models[].name`, `supportedGenerationMethods`, `nextPageToken`). listing은 계정 자격·quota를 반영하지 않음(`gemini-2.5-pro` 사례). `catalog`, discover
 
 ## 21. builder에게 남긴 것
 
@@ -704,3 +737,4 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 | v1 | 2026-11-16 (anchor 순서 변경 반영본 승인) | 초기 승인 | — | — |
 | v2 | 2026-11-16T00:42:34Z | 범위·수용 기준 변경 | T3, T8, T14 | F6 전제(설치기만 symlink 거부) 오류. 사용자 결정 11: 현행 정책 유지 + 판정 일치 테스트·문서화 |
 | v3 | 2026-11-16 (사용자 결정 12) | 수용 기준 변경 | T11 | Gemini payload 정책 문구 생성을 위해 `role-policy.json` `platforms.gemini` 항목 추가 허용(Q4 보완, AC-R1 개정) |
+| v4 | 2026-11-16T13:12:29Z (사용자 결정 13, 14, 15) | 범위·수용 기준 변경 | T15(신규), L2, L4–L6, FR2(신규) | 카탈로그 노출을 Claude/Codex와 같게: 정적 JSON 전체 GA 모델 + `discoverGeminiCatalog`. 비목표·범위 밖에서 discover 제거, 4.2·5.3·6.1·9.2·9.3·14·16·18·19·20 개정, AC-G10·AC-V2 추가. 기본 모델 `gemini-2.5-flash`, `gemini-2.5-pro` 제거 |
