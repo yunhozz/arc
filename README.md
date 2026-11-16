@@ -1,6 +1,6 @@
 # ARC — Agent Role Coordination
 
-ARC coordinates work in Claude Code and Codex through scoped roles, clear handoffs, and verification. Gemini CLI integration is registered but not yet verified.
+ARC coordinates work in Claude Code and Codex through scoped roles, clear handoffs, and verification. Gemini CLI integration is registered and partially verified (install and native profiles); see [Gemini CLI status](#gemini-cli-status).
 
 ![ARC workflow](docs/images/role-flow.svg)
 

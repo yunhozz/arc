@@ -5,6 +5,8 @@ import path from 'node:path';
 import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY} from '../../lib/runtime/platform-registry.mjs';
 import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../lib/platforms/index.mjs';
 import {prepareOperation, executeOperation} from '../../lib/management/operations.mjs';
+import {collectStatus} from '../../lib/management/status.mjs';
+import {collectInstalledState} from '../../lib/installer/upgrade-state.mjs';
 import {verifyPayload} from '../../lib/installer/manifest.mjs';
 import {compositeContext, roles} from './fixtures/install-mode.mjs';
 import {refreshManifest} from './fixtures/static-references.mjs';
@@ -59,6 +61,26 @@ test('settings.json untouched', async t => {
     if (existing) assert.deepEqual(fs.readFileSync(filename), existing);
     else assert.equal(fs.existsSync(filename), false);
   }
+});
+
+test('Gemini status remains installed when settings.json exists without a native concurrency reader', async t => {
+  const context = await contextFor(t);
+  await install(context);
+  fs.writeFileSync(path.join(context.userHome, '.gemini/settings.json'), '{"user":true}\n');
+  const statuses = await collectStatus({...context, env: {...context.env, PATH: ''}});
+  const gemini = statuses.find(status => status.platform === 'gemini');
+  assert.equal(gemini.state, 'installed', gemini.diagnostics[0]?.stack);
+  assert.deepEqual(gemini.diagnostics, []);
+});
+
+test('Gemini installed-state collection accepts settings.json without a native concurrency reader', async t => {
+  const context = await contextFor(t);
+  await install(context);
+  const filename = path.join(context.userHome, '.gemini/settings.json'), bytes = '{"user":true}\n';
+  fs.writeFileSync(filename, bytes);
+  const state = collectInstalledState(context);
+  assert.deepEqual(state.targets.map(entry => entry.target.platform), ['gemini']);
+  assert.equal(fs.readFileSync(filename, 'utf8'), bytes);
 });
 
 test('payload policy verification follows install capabilities and checks verified Gemini outputs', async t => {
