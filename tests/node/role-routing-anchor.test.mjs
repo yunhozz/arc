@@ -186,14 +186,15 @@ test('default codex+claude layout unchanged', async t => {
   assert.deepEqual(await listLeases(f.claudeHome), []);
 });
 
-test('leaseTargetPlatform holds with three registered platforms', async t => {
+test('leaseTargetPlatform reads v2 targets and preserves the v1 two-platform rule with three registered platforms', async t => {
   const f = await fixture(t);
   assert.equal((await routing.routingStatus({context: f.context, policy})).decision, 'allow');
   const native = await routing.prepareRoleDispatch({context: f.context, assignment, expectedRevision: f.config.revision, policy});
   assert.equal(native.decision, 'allow');
-  assert.equal(bridge.leaseTargetPlatform({route: 'native', hostPlatform: 'zeta'}, f.context.runtimePlatforms), 'zeta');
-  assert.equal(bridge.leaseTargetPlatform({route: 'bridge', hostPlatform: 'zeta'}, createTestRuntimeRegistry(['claude', 'zeta'])), 'claude');
-  assert.throws(() => bridge.leaseTargetPlatform({route: 'bridge', hostPlatform: 'zeta'}, f.context.runtimePlatforms), /unknown platform/);
+  assert.equal(bridge.leaseTargetPlatform({version: 2, route: 'native', hostPlatform: 'zeta', targetPlatform: 'zeta'}, f.context.runtimePlatforms), 'zeta');
+  assert.equal(bridge.leaseTargetPlatform({version: 2, route: 'bridge', hostPlatform: 'zeta', targetPlatform: 'claude'}, createTestRuntimeRegistry(['claude', 'zeta'])), 'claude');
+  assert.throws(() => bridge.leaseTargetPlatform({version: 1, route: 'bridge', hostPlatform: 'zeta'}, f.context.runtimePlatforms), /unknown platform/);
+  assert.equal(bridge.leaseTargetPlatform({version: 1, route: 'bridge', hostPlatform: 'codex'}, f.context.runtimePlatforms), 'claude');
   const file = path.join(f.homes.claude, 'arc-role-dispatch', native.dispatchId + '.json');
   const lease = JSON.parse(await fs.readFile(file));
   await fs.writeFile(file, JSON.stringify({...lease, route: 'bridge'}));

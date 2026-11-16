@@ -32,7 +32,7 @@ test('AC-P1 has no platform hardcoding outside the line-scoped allowlist', () =>
     const lines = fs.readFileSync(new URL('../../' + filename, import.meta.url), 'utf8').split('\n');
     for (const [index, line] of lines.entries()) {
       // D-Compat / §8: v1 means exactly codex+claude; registry derivation would change the schema meaning.
-      if (['lib/runtime/role-routing-config.mjs', 'shared/skill/runtime/role-routing-config.mjs'].includes(filename)
+      if (['lib/runtime/role-routing-config.mjs', 'shared/skill/runtime/role-routing-config.mjs', 'lib/runtime/role-bridge.mjs', 'shared/skill/runtime/role-bridge.mjs'].includes(filename)
         && line === "const v1Platforms = Object.freeze(['codex', 'claude']);") continue;
       for (const [id, pattern] of patterns) if (pattern.test(line)) violations.push(`${filename}:${index + 1} ${id}: ${line}`);
     }

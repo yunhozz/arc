@@ -4,7 +4,7 @@
 // and therefore makes real model calls on the user's accounts. Each bridge dispatch uses the model and effort of the
 // ACTIVE composite configuration (the bridge reads its arguments only from the installed arc-routing profile), so
 // choose the cheapest model for the roles under test before enabling it. Briefs are kept to one short sentence to
-// minimize tokens. Terminal leases it creates under <CODEX_HOME>/arc-role-dispatch are pruned by ARC after 30 days.
+// minimize tokens. Terminal leases it creates under <anchor home>/arc-role-dispatch are pruned by ARC after 30 days.
 //
 // It is skipped unless ARC_LIVE_CLI_TESTS=1, and additionally skipped (with a printed reason) when the real user home
 // has no active composite configuration whose prepared markers match the current runtime (`cooperative-9`).

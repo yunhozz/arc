@@ -75,7 +75,8 @@ export const segmentDirectory = (target, workflowId, dispatchId, segment) => seg
 /** Builds the child CLI arguments from the hash-verified target profile. Errors carry reasonCode. */
 export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, policy = DEFAULT_POLICY}) {
   const fail = (reasonCode, message) => Object.assign(Error(message), {reasonCode});
-  const requested = config.roles[lease.role], platform = requested.platform;
+  const requested = config.roles[lease.role], platform = lease.version === 2 ? lease.targetPlatform : requested.platform;
+  if (platform !== requested.platform) throw fail('activation_unverified', 'Lease target differs from the active role target');
   if (!SUPERVISOR_IMPLEMENTATIONS.has(platform)) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
   const file = path.join(homes[platform], 'agents', routingProfileFile(getPlatform(platform), lease.role));
   let bytes;

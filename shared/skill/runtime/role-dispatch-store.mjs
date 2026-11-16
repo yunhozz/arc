@@ -20,10 +20,15 @@ const leasePath = (codexHome, dispatchId) => {
   return path.join(dispatchDirectory(codexHome), `${dispatchId}.json`);
 };
 export function validateLease(value, options) {
-  if (!isObject(value) || Object.keys(value).length !== KEYS.length || KEYS.some(key => !Object.hasOwn(value, key))) throw Error('Invalid lease keys');
-  const ok = value.version === 1 && typeof value.dispatchId === 'string' && ID.test(value.dispatchId) && !value.dispatchId.startsWith('.')
+  const keys = value?.version === 2 ? [...KEYS, 'targetPlatform'] : KEYS;
+  if (!isObject(value) || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) throw Error('Invalid lease keys');
+  const registry = options?.registry ?? runtimeRegistryOf(options);
+  const ok = [1, 2].includes(value.version) && typeof value.dispatchId === 'string' && ID.test(value.dispatchId) && !value.dispatchId.startsWith('.')
     && ['workflowId', 'taskId', 'requestId', 'role', 'executionEnvironment', 'revision', 'createdAt', 'updatedAt'].every(key => text(value[key]))
-    && ['native', 'bridge'].includes(value.route) && runtimeRegistryOf(options).isPlatformId(value.hostPlatform)
+    && ['native', 'bridge'].includes(value.route) && registry.isPlatformId(value.hostPlatform)
+    && (value.version === 1 || registry.isPlatformId(value.targetPlatform)
+      && (value.route === 'native' ? value.targetPlatform === value.hostPlatform : value.targetPlatform !== value.hostPlatform)
+      && (!options?.config || Object.values(options.config.roles).some(role => role.platform === value.targetPlatform)))
     && nullableText(value.profileHash) && nullableText(value.argsDigest) && nullableText(value.sessionId) && nullableText(value.resultPath) && nullableText(value.nativeAgentId)
     && [...NON_TERMINAL_STATES, ...TERMINAL_STATES].includes(value.state) && process_(value.supervisor) && process_(value.child)
     && Number.isInteger(value.timeoutMinutes) && value.timeoutMinutes > 0 && Number.isInteger(value.segment) && value.segment >= 0

@@ -7,7 +7,7 @@ import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from './bootstrap.mjs'
 import {inspectPath} from './scope.mjs';
 import {resolveConfigHome, resolveLocalCli, probePlatformAuth, probeCodexAuthStatus, probeCliVersion} from './local-cli.mjs';
 import {ROUTING_ROLES, parseRoleRoutingConfig} from './role-routing-config.mjs';
-import {DEFAULT_POLICY, reason, profileName, revisionTag, bridgeGateReasons, environmentReasons, initialClaims} from './role-dispatch-policy.mjs';
+import {DEFAULT_POLICY, reason, profileName, revisionTag, bridgeGateReasons, environmentReasons, initialClaims, capabilityReasons} from './role-dispatch-policy.mjs';
 import {NON_TERMINAL_STATES, createLease, listLeases, pruneTerminalLeases, readHostLimits} from './role-dispatch-store.mjs';
 
 const exact=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
@@ -215,9 +215,11 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
  try{
   await withRoutingLock(anchorHome,async()=>{
    let config;try{config=await readActivation(homes,expectedRevision,{anchorHome,host,runtimePlatforms});}catch{result.reasons=[reason('activation_unverified')];return;}
-   await pruneTerminalLeases(anchorHome,{now,retentionMs:policy.leaseRetentionMs,runtimePlatforms});
    const requested=config.roles[role],route=requested.platform===host?'native':'bridge';
    result.requested={...requested};result.route=route;result.profileName=profileName(requested.platform,role,{runtimePlatforms});
+   const capabilities=capabilityReasons({hostPlatform:host,targetPlatform:requested.platform,route,runtimePlatforms});
+   if(capabilities.length){result.reasons=capabilities.map(reason);return;}
+   await pruneTerminalLeases(anchorHome,{now,retentionMs:policy.leaseRetentionMs,runtimePlatforms});
    const {cli,authentication}=await authenticate(requested.platform,context,policy);
    result.authentication=authentication;
    if(authentication.status!=='Available')codes.add(authentication.status);
@@ -239,7 +241,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    result.reasons=[...codes].map(reason);
    if(codes.size){result.decision=duplicate?'deny':'hold';return;}
    const claims=initialClaims(route,policy,requested),iso=new Date(now).toISOString(),dispatchId=crypto.randomUUID();
-   const lease=await createLease(anchorHome,{version:1,dispatchId,workflowId:context.workflowId,taskId:assignment.taskId,requestId:assignment.requestId,role,route,hostPlatform:host,executionEnvironment:environment,revision:config.revision,profileHash:await readProfileHash(homes[requested.platform],role),argsDigest:null,state:'reserved',supervisor:null,child:null,sessionId:null,timeoutMinutes:policy.roleTimeoutMinutes[role],claims,reasons:[],allowedPaths:assignment.allowedPaths??[],resultPath:null,segment:0,nativeAgentId:null,createdAt:iso,updatedAt:iso},{runtimePlatforms});
+   const lease=await createLease(anchorHome,{version:2,targetPlatform:route==='native'?host:requested.platform,dispatchId,workflowId:context.workflowId,taskId:assignment.taskId,requestId:assignment.requestId,role,route,hostPlatform:host,executionEnvironment:environment,revision:config.revision,profileHash:await readProfileHash(homes[requested.platform],role),argsDigest:null,state:'reserved',supervisor:null,child:null,sessionId:null,timeoutMinutes:policy.roleTimeoutMinutes[role],claims,reasons:[],allowedPaths:assignment.allowedPaths??[],resultPath:null,segment:0,nativeAgentId:null,createdAt:iso,updatedAt:iso},{runtimePlatforms,config});
    Object.assign(result,{decision:'allow',routeStatus:'reserved',dispatchId:lease.dispatchId,claims});
   },{retryMs:policy.lockRetryMs});
  }catch(error){
