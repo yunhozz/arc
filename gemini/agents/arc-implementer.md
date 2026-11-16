@@ -1,7 +1,7 @@
 ---
 name: arc-implementer
 description: Implement approved scoped changes and focused verification
-model: gemini-2.5-pro
+model: gemini-2.5-flash
 ---
 
 # Implementer

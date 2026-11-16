@@ -1,7 +1,7 @@
 ---
 name: arc-scouter
 description: Research evidence and inspect assigned static source
-model: gemini-2.5-pro
+model: gemini-2.5-flash
 ---
 
 # Scouter

@@ -3,6 +3,42 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {CAPABILITY_PREREQUISITES, getPlatform} from '../../lib/runtime/platform-registry.mjs';
 import {supportedVersion} from '../../lib/platforms/availability.mjs';
+import {loadModelConfig, resolveModelSettings} from '../../lib/models/index.mjs';
+
+function catalogEvidenceLists(bytes) {
+  const line = label => {
+    const value = bytes.toString().split(/\r?\n/).find(line => line.startsWith(`- ${label}: `));
+    assert.ok(value, `catalog evidence requires ${label}`);
+    return value.slice(`- ${label}: `.length).trim();
+  };
+  const csv = value => value.split(',').map(item => item.trim()).filter(Boolean);
+  const annotated = value => value ? value.split(/,\s*(?=[^\s,\[\]]+\s*\[)/).map(item => {
+    const match = /^([^\s,\[\]]+) \[([^\]]+)\]$/.exec(item);
+    assert.ok(match, `invalid catalog evidence item: ${item}`);
+    return {model: match[1], annotation: match[2]};
+  }) : [];
+  const accepted = csv(line('accepted (live -m)'));
+  const listed = annotated(line('listed (quota-blocked)')).map(({model, annotation}) => {
+    const parts = annotation.split(';');
+    assert.equal(parts.length, 2, 'listed evidence requires sources and codes');
+    return {model, sources: csv(parts[0]), codes: csv(parts[1])};
+  });
+  const rejected = annotated(line('excluded (rejected)')).map(({model}) => model);
+  return {accepted, listed, rejected};
+}
+
+function verifyCatalogEvidence(bytes, models, defaults) {
+  const {accepted, listed, rejected} = catalogEvidenceLists(bytes);
+  const categories = [...accepted, ...listed.map(item => item.model), ...rejected];
+  assert.equal(new Set(categories).size, categories.length, 'catalog evidence categories must be disjoint');
+  for (const {sources, codes} of listed) {
+    assert.ok(sources.length && sources.every(source => ['cli', 'api'].includes(source)), 'listed sources must be cli or api');
+    assert.ok(codes.length && codes.every(code => ['429', '503'].includes(code)), 'listed codes must be 429 or 503');
+  }
+  assert.ok(rejected.every(model => !models.includes(model)), 'rejected models must not appear in the catalog');
+  assert.deepEqual(new Set(models), new Set([...accepted, ...listed.map(item => item.model)]), 'static catalog must equal accepted union listed');
+  for (const model of defaults) assert.ok(accepted.includes(model), 'role defaults must be accepted live');
+}
 
 // Evidence remains test-only; descriptor promotion without a passing supported-version record must fail.
 function verifyEvidence(descriptor, files) {
@@ -33,7 +69,41 @@ test('L3 operational Gemini nativeProfile has its passing live evidence record',
   assert.equal(getPlatform('gemini').capabilities.nativeProfile.state, 'verified');
   const evidence = files.find(file => file.name === 'nativeProfile-2026-11-16.md');
   assert.ok(evidence, 'L3 nativeProfile evidence is required');
-  verifyEvidence(getPlatform('gemini'), [files.find(file => file.name === 'install-2026-11-16.md'), evidence]);
+  verifyEvidence(promoted({install: getPlatform('gemini').capabilities.install, nativeProfile: getPlatform('gemini').capabilities.nativeProfile}), [files.find(file => file.name === 'install-2026-11-16.md'), evidence]);
+});
+test('L2 operational Gemini catalog has its passing live evidence record', () => {
+  assert.equal(getPlatform('gemini').capabilities.catalog.state, 'verified');
+  const evidence = files.find(file => file.name === 'catalog-2026-11-16.md');
+  assert.ok(evidence, 'L2 catalog evidence is required');
+  verifyEvidence(promoted({install: getPlatform('gemini').capabilities.install, catalog: getPlatform('gemini').capabilities.catalog}), [files.find(file => file.name === 'install-2026-11-16.md'), evidence]);
+});
+
+test('catalog evidence categories cover the static catalog exactly', () => {
+  const evidence = files.find(file => file.name === 'catalog-2026-11-16.md');
+  assert.ok(evidence, 'L2 catalog evidence is required');
+  const catalog = JSON.parse(fs.readFileSync(new URL('../../lib/models/gemini-models.json', import.meta.url)));
+  const settings = resolveModelSettings(loadModelConfig(fs.readFileSync(new URL('../../gemini/skill/models.toml', import.meta.url)), 'gemini'));
+  verifyCatalogEvidence(evidence.bytes, catalog.pairs.map(pair => pair.model), Object.values(settings.roles).map(role => role.model));
+});
+
+const categoryFixture = '- accepted (live -m): gemini-2.5-flash\n- listed (quota-blocked): gemini-3.5-flash [cli,api; 503,429], gemini-3.8-flash [api; 429]\n- excluded (rejected): gemini-2.5-pro [no longer available to new users]\n';
+const categoryModels = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash'];
+test('catalog evidence parser preserves bracketed source and code lists', () => {
+  assert.deepEqual(catalogEvidenceLists(Buffer.from(categoryFixture)), {
+    accepted: ['gemini-2.5-flash'],
+    listed: [{model: 'gemini-3.5-flash', sources: ['cli', 'api'], codes: ['503', '429']}, {model: 'gemini-3.8-flash', sources: ['api'], codes: ['429']}],
+    rejected: ['gemini-2.5-pro'],
+  });
+  assert.doesNotThrow(() => verifyCatalogEvidence(categoryFixture, categoryModels, ['gemini-2.5-flash']));
+});
+test('catalog evidence rejects a listed 404 code', () => {
+  assert.throws(() => verifyCatalogEvidence(categoryFixture.replace('503,429', '404'), categoryModels, ['gemini-2.5-flash']), /listed codes must be 429 or 503/);
+});
+test('catalog evidence rejects a catalog containing a rejected model', () => {
+  assert.throws(() => verifyCatalogEvidence(categoryFixture, [...categoryModels, 'gemini-2.5-pro'], ['gemini-2.5-flash']), /rejected models must not appear/);
+});
+test('catalog evidence rejects a role default that is only listed', () => {
+  assert.throws(() => verifyCatalogEvidence(categoryFixture, categoryModels, ['gemini-3.5-flash']), /role defaults must be accepted live/);
 });
 test('verified without evidence is rejected', () => assert.throws(() => verifyEvidence(promoted({install: {state: 'verified'}}), []), /install requires passing evidence/));
 test('evidence parser accepts pass and rejects wrong version, verdict, capability, filename and missing fields', () => {

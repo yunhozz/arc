@@ -9,8 +9,8 @@ const apiKey = 'gemini-test-secret';
 const model = (id, supportedGenerationMethods = ['generateContent']) => ({name: `models/${id}`, supportedGenerationMethods});
 const response = (body, extra = {}) => ({ok: true, status: 200, json: async () => structuredClone(body), ...extra});
 
-function verifiedGeminiPlatforms() {
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, catalog: {state: 'verified'}}} : p));
+function verifiedGeminiPlatforms(state = 'verified') {
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, catalog: {state}}} : p));
   return createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
 }
 
@@ -164,7 +164,7 @@ test('discoverModelCatalog gemini uses GEMINI_API_KEY and marks gemini_api', asy
 
 test('discoverModelCatalog gemini catalog off returns capability_not_verified without fetch', async () => {
   let calls = 0;
-  const result = await catalog.discoverModelCatalog({platform: 'gemini', env: {GEMINI_API_KEY: apiKey}, fetchImpl: async () => {calls++;}});
+  const result = await catalog.discoverModelCatalog({platform: 'gemini', platforms: verifiedGeminiPlatforms('off'), env: {GEMINI_API_KEY: apiKey}, fetchImpl: async () => {calls++;}});
   assert.deepEqual(result, {status: 'unavailable', code: 'capability_not_verified', message: 'Gemini catalog is unavailable.'});
   assert.equal(calls, 0);
 });

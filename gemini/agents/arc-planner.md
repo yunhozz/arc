@@ -1,7 +1,7 @@
 ---
 name: arc-planner
 description: Draft scoped designs and implementation plans for Orchestrator
-model: gemini-2.5-pro
+model: gemini-2.5-flash
 ---
 
 # Planner

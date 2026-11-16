@@ -308,11 +308,11 @@
       "codex/agents/arc-qa.toml": "4890f578fd4edcf9fc3d6829eef29ea742e0544bfc32d53eba0c4098dfa994fb",
       "codex/agents/arc-reviewer.toml": "235260ec860c05311bef8a43944521453a3cba1d8b3b4b6a0774865ca3f18617",
       "codex/agents/arc-scouter.toml": "3d33fe87000ce368d30ba315bb99c1508dcce94ab40bb3caba9e4032a18d3c76",
-      "gemini/agents/arc-implementer.md": "990d3a190d618b859c6367c2412cb8822af37439fc84ea4c14ce5b404407e6da",
-      "gemini/agents/arc-planner.md": "9b39da5afea01a062ca6a916ac660f11d567107897c0f063b0faa3e5492896ae",
-      "gemini/agents/arc-qa.md": "88968b16e0d2cd56dda9616fdb0cb1a14d27b35b1c0e477cc32549f659541ef2",
-      "gemini/agents/arc-reviewer.md": "f44427e1cab3984b5c37c45cab208e9eb430743d2b62b97ba1ed17cd9ad367a5",
-      "gemini/agents/arc-scouter.md": "90b9e54ec7a8dc5c79ec312cfe647af4fadc5fb804b41cb93de10392df6c8c66"
+      "gemini/agents/arc-implementer.md": "27e6a193933b302a897b6cb56aa6d1bc34b7e16d83539a3b39000e07ee2d0dcf",
+      "gemini/agents/arc-planner.md": "06f4ab11f895f2e48c20561008955a86dd083a29f95613524f98c13fcc463747",
+      "gemini/agents/arc-qa.md": "feec68454b812c7b24e92f7ccbd383d53ef9a5d9fcb839b0cc6be7f41e89eb12",
+      "gemini/agents/arc-reviewer.md": "f16c3ca720f475af939948fae664be0257e931e78e8efe5fec859d92e2d16d53",
+      "gemini/agents/arc-scouter.md": "e62caa455445affb6e7107408b54681750d9d9cf554af8cda4dd00f8cb744dde"
     }
   }
 }

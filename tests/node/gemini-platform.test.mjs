@@ -12,21 +12,23 @@ import {prepareOperation, executeOperation} from '../../lib/management/operation
 import {collectStatus} from '../../lib/management/status.mjs';
 import {homeStatusLine} from '../../lib/tui/mode.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
+import {discoverModelCatalog} from '../../lib/models/catalog.mjs';
+import {loadModelConfig, resolveModelSettings} from '../../lib/models/index.mjs';
 const {discoverGeminiCatalog, selectGeminiCatalogModels} = await import('../../lib/models/catalog-gemini.mjs').catch(() => ({}));
 import {compositeContext, mixedConfig} from './fixtures/install-mode.mjs';
 import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {POLICY_TARGETS, buildPolicyOutputs, validateRolePolicy} from '../../lib/policy/render.mjs';
 
 // Missing registration or an enabled unverified capability must fail these boundaries.
-test('Gemini registries agree in anchor and display order with install and nativeProfile verified', () => {
+test('Gemini registries agree in anchor and display order with install, nativeProfile and catalog verified', () => {
   for (const registry of [DEFAULT_PLATFORM_REGISTRY, DEFAULT_INSTALLER_REGISTRY]) {
     assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini']);
     for (const order of ['byAnchorOrder', 'byDisplayOrder']) assert.deepEqual(registry[order]().map(p => p.runtime?.id ?? p.id), ['claude', 'codex', 'gemini']);
   }
   const runtime = getPlatform('gemini');
   assert.equal(DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').runtime, runtime);
-  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, ...Object.fromEntries(Object.entries({
-    catalog: 'catalog not verified', standalone: 'standalone not verified', bridge: 'bridge contract not verified',
+  assert.deepEqual(runtime.capabilities, {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, catalog: {state: 'verified'}, ...Object.fromEntries(Object.entries({
+    standalone: 'standalone not verified', bridge: 'bridge contract not verified',
     compositeRole: 'composite role not verified', compositeHost: 'composite host not verified',
     authProbe: 'no official auth status command', watch: 'watch support out of scope',
   }).map(([key, reason]) => [key, {state: 'off', reason}]))});
@@ -78,6 +80,33 @@ test('static gemini catalog passes selectGeminiCatalogModels unchanged', async (
   assert.equal(result.status, 'ready');
   const models = result.catalog.pairs.map(pair => pair.model);
   assert.deepEqual(selectGeminiCatalogModels(models), models);
+});
+
+test('L2 Gemini catalog order and role defaults match the live evidence selection', async () => {
+  const result = await loadStaticModelCatalog('gemini');
+  assert.equal(result.status, 'ready');
+  const models = result.catalog.pairs.map(pair => pair.model);
+  assert.deepEqual(models, ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+  for (const {model, effort} of result.catalog.pairs) {
+    assert.match(model, /^gemini-(\d+(?:\.\d+)?)-(pro|flash|flash-lite)$/);
+    assert.equal(getPlatform('gemini').routing.validatePair(model, effort), true);
+    assert.equal(effort, 'default');
+  }
+  const settings = resolveModelSettings(loadModelConfig(fs.readFileSync(new URL('../../gemini/skill/models.toml', import.meta.url)), 'gemini'));
+  assert.equal(Object.keys(settings.roles).length, 5);
+  for (const [role, {model, effort}] of Object.entries(settings.roles)) {
+    assert.ok(models.includes(model), `${role} default must belong to the catalog`);
+    assert.equal(model, 'gemini-2.5-flash');
+    assert.equal(effort, 'default');
+    const profile = fs.readFileSync(new URL(`../../gemini/agents/${role.replace('_', '-')}.md`, import.meta.url), 'utf8');
+    assert.equal(/^model: (.+)$/m.exec(profile.split('---')[1])?.[1], model);
+  }
+});
+
+test('L2 operational Gemini discoverModelCatalog returns ready with injected fetch', async () => {
+  const result = await discoverModelCatalog({platform: 'gemini', env: {GEMINI_API_KEY: 'gemini-l2-operational-test-key-long-enough'},
+    fetchImpl: async () => ({ok: true, status: 200, json: async () => ({models: [{name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent']}]})})});
+  assert.deepEqual(result, {status: 'ready', catalog: {platform: 'gemini', pairs: [{model: 'gemini-2.5-flash', effort: 'default'}], unavailable: [], source: 'gemini_api', cliAccountVerified: false}});
 });
 
 test('composite defaults exclude unverified Gemini but explicit participation is rejected', async t => {
@@ -188,7 +217,7 @@ test('range out version unsupported after install verification while off takes p
   const status = {platform: 'gemini', state: 'installed', authentication: {authStatus: 'unknown', reason: 'auth_unverified'}, cliVersion: {version: '0.69.0'}};
   assert.equal(homeStatusLine([status]), 'Gemini: Unsupported version');
   assert.ok(getPlatform('gemini'));
-  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}}} : p));
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}}} : p));
   const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
   assert.equal(homeStatusLine([status], registry), 'Gemini: Not verified');
 });
