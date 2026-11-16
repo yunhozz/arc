@@ -1,7 +1,7 @@
 # Gemini 플랫폼 완전 지원 — Phase B 설계 명세
 
 - 작성일: 2026-11-16
-- 상태: 승인(2026-11-16, anchor 순서 변경 반영본). 개정 v4 승인 2026-11-16T13:12:29Z(결정 13–15)
+- 상태: 승인(2026-11-16, anchor 순서 변경 반영본). 개정 v4 승인 2026-11-16T13:12:29Z(결정 13–15). 개정 v5 승인 2026-11-17(결정 16)
 - 작업 대상: 브랜치 `feat/tui-arc-diagram-flow`, 기준 `739da7f`(origin/master 병합 커밋)
 - 선행 명세: `docs/superpowers/specs/2026-11-15-tui-arc-diagram-flow-design.md`(이하 "Phase A spec"). Phase A의 구속 결정(D-Arch, D-Anchor, D-Display, D-Host, D1-a..f, D-Auth-Unknown, D-Unauthorized, D-Phase, D-Unverified, D-Watch, D-GeminiEffort, D-Compat)은 Phase B에서도 구속력이 있습니다. 단 **D-Anchor의 anchor 순서(codex > claude)와 Phase A 반목표 "기존 composite 경로 불변"(AC-M7)은 2026-11-16 사용자 결정(결정 10)으로 대체**됩니다(6.7). 원본 설계 기록은 저장소에서 접근할 수 없으므로, 이 명세는 Phase A spec 본문에 서술된 범위만 근거로 씁니다.
 - 경로: Architectural. 이 명세가 승인되면 별도 구현 계획을 작성합니다.
@@ -26,6 +26,7 @@
 | 10 | anchor 순서를 표시 순서와 맞춤(claude > codex > gemini > grok). 기존 Codex+Claude composite는 anchor를 Claude home으로 옮기는 마이그레이션을 거치고, watch는 anchor를 찾도록 바꿈(Q2 변경) | 4.1, 6.2, 6.7, 7.1, 7.3, 18 |
 | 13 | 무료 API 키로 진행. 다섯 역할 기본 모델 `gemini-2.5-flash`, live에서 거부된 `gemini-2.5-pro` 제거(2026-11-16T12:47:50Z) | 5.3, 9.2, 18 |
 | 14 | Gemini 카탈로그 노출을 Claude/Codex와 같게: 정적 JSON은 유료 포함 전체 모델, discover 함수 추가. listing + quota 거부(429/503)만 있는 모델은 listed 증거, 명시 거부 모델 제외 | 2, 4.2, 5.3, 6.1, 9.2, 9.3, 17, 18 |
+| 16 | 저장소의 증거 파일(`docs/superpowers/evidence/`)을 삭제. live 증거는 구현 계획 진행 기록 행과 전환 커밋 메시지에만 남기고, 증거 테스트는 운영 registry 상태와 카탈로그 불변식 고정 검사로 바꿈(2026-11-17) | 9.1, 9.3, 13, 14, 19 |
 | 15 | listing만 있는 후보는 live `-m` 1회 시도 후 분류. preview 모델은 전부 제외. discover deny 목록 없음, catalog off면 discover 미호출, 키 env는 `GEMINI_API_KEY`만, TUI 경고 없음(Claude/Codex와 같음) | 5.3, 9.2, 18 |
 
 ## 1. 의도
@@ -417,9 +418,9 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 ### 9.1 원칙
 
 - 모든 Gemini capability는 `off`로 시작합니다(결정 4).
-- `verified`로 바꾸는 변경은 다음 세 가지를 한 커밋에 담습니다. 증거 없는 변경은 테스트가 거부합니다.
-  1. descriptor 상태 변경
-  2. 증거 파일 추가
+- `verified`로 바꾸는 변경은 다음 세 가지를 한 커밋에 담습니다(결정 16).
+  1. descriptor 상태 변경과, 테스트에 고정된 verified 집합 갱신
+  2. 구현 계획 진행 기록 행과 커밋 메시지에 9.3 항목 기록
   3. 해당 capability의 회귀 테스트
 - live 검증은 실제 인증된 Gemini CLI와 네트워크가 필요하므로 Orchestrator가 사용자 환경에서 실행합니다. specialist sandbox에서는 실행하지 않습니다.
 - 전환은 Phase B 안에서 코드 작업이 끝난 뒤 순차로 진행합니다(Q6). 순서는 install → catalog → nativeProfile → standalone → bridge → compositeRole → compositeHost이며, 증거를 얻지 못한 capability는 off인 채 Phase B를 끝냅니다.
@@ -441,30 +442,22 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 
 ### 9.3 증거 형식
 
-증거 파일 위치는 `docs/superpowers/evidence/gemini/<capability>-<YYYY-MM-DD>.md`이고(P-B8), 형식은 다음과 같습니다.
+증거는 저장소 파일로 두지 않습니다(결정 16, P-B8). capability를 전환하는 작업의 구현 계획 진행 기록 행과 전환 커밋 메시지에 다음 항목을 적습니다.
 
-```
-- capability: bridge
-- gemini version: 0.68.0 (`gemini --version` 원문)
-- os / host: darwin 25.x / claude-cli | codex-cli
-- ARC commit: <sha>
-- 실행 명령: (인자 전문, 비밀값 제거)
+- capability, `gemini --version` 원문, OS와 host, ARC commit
+- 실행 명령 요지(비밀값 제거)
 - 관찰 결과: stream-json 발췌(세션 id, model 필드, 종료 이벤트), 결과 파일 해시, 쓰기 탐지 결과
-- 판정: pass | fail, 실패 시 사유
-- 실행자: Orchestrator, 일시
-```
+- 판정 `pass` 또는 `fail`과 실패 사유, 실행자와 일시
+- catalog 전환은 `accepted (live -m)`, `listed (quota-blocked)`(출처 cli/api, 코드 429/503), `excluded (rejected)` 세 목록과 API 응답 원문 필드 이름(`models`, `name`, `supportedGenerationMethods`, `nextPageToken`)을 함께 적습니다(결정 14, U-C2).
 
+규칙:
 - 개인 정보·토큰·계정 이메일은 기록하지 않습니다.
-- 테스트 `gemini-capability-evidence.test.mjs`가 다음을 검사합니다.
-  - verified인 capability마다 증거 파일이 있고 판정이 `pass`입니다.
-  - 기록된 version이 `supportedVersions` range 안에 있습니다.
+- 2026-11-16 Phase B의 증거 파일 원문은 커밋 `084d80f`까지의 Git 이력에서만 볼 수 있습니다.
+- 테스트 `gemini-capability-evidence.test.mjs`는 다음을 검사합니다.
+  - 운영 registry의 verified capability 집합이 테스트에 고정한 목록과 같습니다. 전환은 이 목록을 함께 바꿔야 합니다.
   - 6.1 선행 조건이 지켜집니다.
-- catalog 증거는 위 형식에 다음 세 줄을 추가합니다(결정 14). 모델은 쉼표로 구분하고 `listed`·`excluded` 항목은 대괄호에 근거를 적습니다.
-  - `- accepted (live -m): <model>, …`
-  - `- listed (quota-blocked): <model> [<cli|api>[,<cli|api>]; <429|503>[,…]], …`
-  - `- excluded (rejected): <model> [<거부 문구 요지>], …`
-- catalog 증거는 API 응답 원문의 필드 이름(`models`, `name`, `supportedGenerationMethods`, `nextPageToken`) 발췌를 포함합니다(U-C2).
-- 같은 테스트가 catalog verified일 때 다음도 검사합니다: 세 목록 비중첩, 정적 카탈로그 모델 집합 = accepted ∪ listed, 역할 기본 모델 ∈ accepted, listed 항목은 출처와 코드가 있고 코드 ⊆ {429, 503}.
+  - `supportedVersions`가 테스트에 고정한 range와 같습니다.
+  - catalog가 verified이면 정적 카탈로그 모델이 모두 `selectGeminiCatalogModels`를 통과합니다. 테스트에 고정한 live 거부 모델(`gemini-2.5-pro`, `gemini-2.5-flash-lite`)은 카탈로그에 없습니다. 역할 기본 모델은 테스트에 고정한 live accepted 목록 안에 있습니다.
 
 ### 9.4 버전 고정
 
@@ -580,9 +573,9 @@ gemini -p <prompt> -m <model> -o stream-json --session-id <uuid>
 | AC-B3 | 재개: impl `resume` 플래그가 off이면 `resume_unverified` hold. on(주입)이면 검증된 재개 인자와 세션 id 일치 규칙을 따른다 | unit/integration |
 | AC-B4 | Gemini Implementer/QA bridge는 GG1 `fail`에서 `permission_scope_unverified`, Gemini host bridge는 GG2 `fail`에서 `host_sandbox_blocked`로 hold된다. read-only 역할의 worktree 쓰기는 `permission_violation_observed`다 | unit `role-dispatch-policy`, integration |
 | AC-B5 | runtime이 off capability의 host/대상에 대해 `capability_not_verified`로 hold하고 lease를 만들지 않는다 | unit `role-routing-*` |
-| AC-V1 | verified capability마다 9.3 형식의 `pass` 증거가 있고 version이 range 안이며 선행 조건이 지켜진다 | `gemini-capability-evidence` |
+| AC-V1 | 운영 registry의 verified 집합이 테스트 고정 목록과 같고, 선행 조건과 `supportedVersions` range가 지켜진다(결정 16) | `gemini-capability-evidence` |
 | AC-G10 | `discoverGeminiCatalog`가 키를 `x-goog-api-key` 헤더로만 보내고(URL·결과·오류에 키 없음), 5.3 선택 규칙·페이지·redirect·키 포함 id 거부·`unavailable` 코드를 지킨다. `discoverModelCatalog`는 `GEMINI_API_KEY`만 쓰고 `source:'gemini_api'`, `cliAccountVerified:false`를 붙이며, catalog off면 fetch 없이 `capability_not_verified`다. Anthropic·Codex discover 결과는 무변경이다 | unit `gemini-catalog-discover`, `model-catalog` |
-| AC-V2 | catalog 증거의 accepted/listed/excluded 목록이 9.3 규칙을 지키고, 정적 카탈로그 = accepted ∪ listed, 역할 기본 모델 ∈ accepted다. 정적 목록은 `selectGeminiCatalogModels`를 그대로 통과한다 | `gemini-capability-evidence`, `gemini-platform` |
+| AC-V2 | 정적 카탈로그가 `selectGeminiCatalogModels`를 그대로 통과하고, 고정한 live 거부 모델이 없으며, 역할 기본 모델 ∈ 고정한 live accepted 목록이다(결정 16) | `gemini-capability-evidence`, `gemini-platform` |
 | AC-D1 | 6.6 문구 일반화가 반영되고, coordination.md·instruction-contract fixture가 `Mixed routing` 일반화(Q3)라는 의도된 변경만 갖는다 | asset/fixture 테스트 |
 | AC-R1 | `role-policy.json` 변경은 각 role `controls`의 `gemini` 키 추가와 `platforms.gemini` 항목 추가(결정 12)뿐이고, codex/claude 생성물이 바이트 단위로 같다(Q4) | `check:role-policy`, role-policy 테스트 |
 | AC-P2' | Phase A AC-P2 검사 목록이 모두 통과한다(16장) | 전체 |
@@ -690,7 +683,7 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 - P-B13 runtime은 legacy 상태를 지원하지 않고 `activation_unverified`(6.7.4). Orchestrator 개정
 - P-B14 watch 후보 0개면 `<CODEX_HOME>` store 대체, 2개 이상이면 ambiguous(7.3). Orchestrator 개정
 - P-B7 runtime capability 방어 hold `capability_not_verified`(7.2)
-- P-B8 증거 파일 위치와 형식(9.3)
+- P-B8 증거 기록 위치와 형식(9.3). 결정 16으로 파일 대신 계획 진행 기록과 커밋 메시지
 - P-B9 모르는 stream 이벤트는 원문 기록, 분류 `unknown`
 - P-B15 discover 출처는 Gemini API `models.list`(헤더 키). CLI `--list-models` 파싱은 쓰지 않음(5.3)
 - P-B16 listed 증거는 listing + live `-m` 시도 1회 이상 + 실패 코드 429/503뿐(5.3, 9.3)
@@ -738,3 +731,4 @@ D-* 해석(원본 설계 기록 부재로 Phase A spec 본문 기준):
 | v2 | 2026-11-16T00:42:34Z | 범위·수용 기준 변경 | T3, T8, T14 | F6 전제(설치기만 symlink 거부) 오류. 사용자 결정 11: 현행 정책 유지 + 판정 일치 테스트·문서화 |
 | v3 | 2026-11-16 (사용자 결정 12) | 수용 기준 변경 | T11 | Gemini payload 정책 문구 생성을 위해 `role-policy.json` `platforms.gemini` 항목 추가 허용(Q4 보완, AC-R1 개정) |
 | v4 | 2026-11-16T13:12:29Z (사용자 결정 13, 14, 15) | 범위·수용 기준 변경 | T15(신규), L2, L4–L6, FR2(신규) | 카탈로그 노출을 Claude/Codex와 같게: 정적 JSON 전체 GA 모델 + `discoverGeminiCatalog`. 비목표·범위 밖에서 discover 제거, 4.2·5.3·6.1·9.2·9.3·14·16·18·19·20 개정, AC-G10·AC-V2 추가. 기본 모델 `gemini-2.5-flash`, `gemini-2.5-pro` 제거 |
+| v5 | 2026-11-17 (사용자 결정 16) | 검증 변경 | EV(신규) | 저장소 증거 파일 삭제. 증거 기록 위치를 계획 진행 기록·커밋 메시지로 바꾸고, 증거 테스트를 운영 registry·카탈로그 고정 검사로 교체(9.1, 9.3, AC-V1, AC-V2, P-B8) |

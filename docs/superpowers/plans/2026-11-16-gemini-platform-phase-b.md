@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js ESM(`.mjs`), `node:test`, 기존 safe-fs, PTY 헬퍼(`tests/node/helpers/tui-terminal.mjs`), 주입 레지스트리(`tests/node/fixtures/platforms/zeta.mjs`)
 
-**Spec:** `docs/superpowers/specs/2026-11-16-gemini-platform-phase-b-design.md`(2026-11-16 승인, v4 2026-11-16T13:12:29Z 승인, sha256 `369a233ddc3accb1370bd9f8894b2c81f92852cc69e66f57b7d7341ca813698e`). 선행: `docs/superpowers/specs/2026-11-15-tui-arc-diagram-flow-design.md`
+**Spec:** `docs/superpowers/specs/2026-11-16-gemini-platform-phase-b-design.md`(2026-11-16 승인, v4 2026-11-16T13:12:29Z 승인, v5 2026-11-17 승인, sha256 `b1a51e5992226b3f67d9740a8c3fbd37995f22f8104bfed645baad953845c79b`). 선행: `docs/superpowers/specs/2026-11-15-tui-arc-diagram-flow-design.md`
 
 ## Global Constraints
 
@@ -117,6 +117,7 @@ Planner 질문과 가정에 대한 판단입니다. 모두 승인된 spec 범위
 | FR | 최종 독립 Reviewer 1회 | 모든 작업 수용(L 작업은 수용 또는 no-change 종료) |
 | T15 | Gemini catalog discover(API `models.list`) + `catalog.mjs` 키·source 표·capability 게이트 (v5) | FR(수용 완료) |
 | FR2 | 추가 최종 독립 Reviewer(`a163358..HEAD`) (v5) | T15, L2, L4–L6 각각 수용 또는 no-change, 필수 QA 완료 |
+| EV | 증거 파일 삭제와 증거 테스트 교체 (v6) | FR2(수용 완료) |
 
 v5: L2(재개)의 선행은 T15입니다. L4–L6은 L2 뒤 6.1 선행 관계대로 진행하고, L7은 no-change 종료 기록을 유지합니다.
 
@@ -580,7 +581,7 @@ v5: L2(재개)의 선행은 T15입니다. L4–L6은 L2 뒤 6.1 선행 관계대
 - Produces:
   - `getPlatform('gemini')`(Global Constraints 값)
   - 설치기 descriptor 필드는 spec 4.2 표 그대로입니다: `payloadPrefix:'gemini'`, `instructionFile:'GEMINI.md'`, `runtimeConfigFile:'settings.json'`, `globalPaths`, `models.staticCatalog`, `discover:null`, `profiles.{render,isOwnedStandalone,renameForRouting}`, `uninstallSummary`, `isolationEnv:()=>({})`. 동시성 키는 없습니다.
-  - 증거 테스트: `docs/superpowers/evidence/gemini/<capability>-<YYYY-MM-DD>.md`의 필드 `capability`, `gemini version`, `판정`을 파싱합니다. verified마다 `pass` 파일이 필요하고, version은 `supportedVersions` 안이어야 하며, 선행 조건을 검사합니다.
+  - 증거 테스트: (v6, 결정 16) 운영 registry의 verified 집합·선행 조건·`supportedVersions`와 카탈로그 불변식을 테스트 고정 값으로 검사합니다. 증거 파일은 없습니다(spec 9.3).
 
 - [x] **Step 1: 실패 테스트 작성**(`gemini-platform.test.mjs`)
   - AC-G1: `byAnchorOrder` id `['claude','codex','gemini']`, `byDisplayOrder` 같음, 두 레지스트리 id 일치(AC-P1 확장)
@@ -812,7 +813,7 @@ v5: L2(재개)의 선행은 T15입니다. L4–L6은 L2 뒤 6.1 선행 관계대
 - `fail` 또는 증거 불충분: descriptor를 off로 둡니다. 저장소 변경 없이 작업을 **no-change 종료**하고, 진행 기록에 사유와 실행 일시를 남깁니다. 6.1 선행 관계상 영향받는 후속 L 작업도 no-change 종료합니다.
 
 **Step C — Implementer(descriptor, 증거, 회귀 테스트, 한 커밋)**
-1. `docs/superpowers/evidence/gemini/<capability>-<YYYY-MM-DD>.md`를 추가합니다(Orchestrator 초안 그대로).
+1. (v6) 9.3 항목을 진행 기록 행과 커밋 메시지에 남기고, `gemini-capability-evidence.test.mjs`의 고정 verified 목록을 갱신합니다. 증거 파일은 추가하지 않습니다.
 2. `lib/runtime/platform-registry.mjs`에서 해당 capability를 `{state:'verified'}`로 바꿉니다.
 3. 해당 capability의 회귀 테스트를 추가합니다(아래 표).
 4. STD-CLOSE를 실행하고, `gemini-capability-evidence.test.mjs`가 PASS여야 합니다.
@@ -859,6 +860,22 @@ v5: L2(재개)의 선행은 T15입니다. L4–L6은 L2 뒤 6.1 선행 관계대
 - **위험 기반 점검:** 키 처리(헤더 전용, 누출 0, 다른 플랫폼 키 혼입 0), 응답 신뢰 경계(redirect·origin, 페이지 반복, id 정규식), 정적 카탈로그 = 증거 분류·기본 모델 accepted, discover 미사용 표면(TUI·management) 무변경, L5·L6 capability 증거 일치와 금지 인자 부재
 - **Reviewer 지적:** Implementer → Reviewer 재확인(QA 재배정 없음). 해결까지 미커밋, 수용 후 follow-up 커밋 1개
 - **생략 조건:** v5 범위에서 수용된 커밋이 0개면 FR2를 열지 않고 진행 기록에 남깁니다.
+
+### Task EV: 증거 파일 삭제와 증거 테스트 교체 (개정 v6)
+
+- **선행:** FR2 수용(`084d80f`)
+- **결정:** 사용자 결정 16(2026-11-17). `docs/superpowers/evidence/` 전체(gemini 6개, phase-b T8 대응표)를 삭제합니다.
+- **변경:**
+  - 증거 파일 7개를 삭제합니다.
+  - `tests/node/gemini-capability-evidence.test.mjs`를 spec 9.3(v5) 검사로 바꿉니다.
+    - 고정 verified 목록은 `install`, `nativeProfile`, `catalog`, `standalone`, `bridge`, `compositeRole`입니다.
+    - 고정 range는 `>=0.68.0 <0.69.0`입니다.
+    - 고정 live 목록: accepted는 `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`이고, rejected는 `gemini-2.5-pro`, `gemini-2.5-flash-lite`입니다.
+    - 음성 사례를 둡니다: 선행 조건 위반, 목록 밖 verified, 거부 모델 포함, 기본 모델이 accepted 밖.
+  - README·`docs/harness-operation.md`의 증거 링크와 기록 위치 문구를 바꿉니다.
+  - 필요하면 `MANIFEST.sha256`을 갱신합니다.
+- **검사:** STD-CLOSE, 호스트 `npm test` 기준선 밖 신규 실패 0
+- **QA:** 필수 아님(테스트·문서 변경, runtime 동작 무변경). Reviewer 없음
 
 ---
 
@@ -949,9 +966,11 @@ v5: L2(재개)의 선행은 T15입니다. L4–L6은 L2 뒤 6.1 선행 관계대
 | 2026-11-16 | L6 | 수용 | 86f8370 | Orchestrator live(gemini 0.68.0, darwin 25.6.0): compositeRole만 켠 scratch 패키지로 {claude,gemini}·{claude,codex,gemini} 각각 publish(v2 활성 설정, Claude anchor) → claude-cli(두 조합)·codex-cli(3조합) `routing-status` allow → `prepare-dispatch arc_scouter`가 v2 lease(`targetPlatform:'gemini'`) 기록 후 cancel, `arc_qa`는 `permission_scope_unverified` hold. Codex 인증 임시 사본이 probe로 refresh됨 → 실제 Codex는 세션 `routing-status`에서 `Available` 확인, 사본 삭제. 증거 `docs/superpowers/evidence/gemini/compositeRole-2026-11-16.md`. 영향 probe에서 결함 발견: 기본 composite 집합이 compositeRole 또는 compositeHost verified 플랫폼을 모두 넣어 역할 없는 Gemini가 host 용도로 판정되고 기본 Codex+Claude publish가 `Gemini is not available`로 실패 → 기본 집합을 compositeHost verified 플랫폼 + 역할 플랫폼으로 수정(`lib/management/operations.mjs`, `lib/installer/role-routing.mjs`, 기존 Codex+Claude 기본 동작 유지). Implementer bridge `e8ce2567`: `compositeRole` verified(compositeHost·authProbe·watch off, GG1/GG2 fail), C3 회귀·운영 v2 lease 테스트, 선행 조건 주입 레지스트리 정합. dispatch의 `permission_violation_observed`는 Orchestrator allowedPaths 지정 오류(zsh 미분리로 테스트 경로가 한 문자열)이며 변경 경로는 브리프 허용 목록 안. sandbox `ps` 제한으로 미판정이던 role-bridge-run은 호스트 35/0. fresh QA bridge `f2a5cedf`(2 segment; segment 0은 테스트 자체 임시 디렉터리 정리까지 금지로 해석해 실행 보류 → 지시 정정): Q2·Q3·Q4·Q6 proven, 통합 200/0, C3 테스트는 두 lib 파일을 HEAD로 되돌린 사본에서 FAIL. Q1 HEAD 게시 바이트 직접 비교 unverified → runtime 해시 변경으로 marker 바이트는 본래 달라지며 기본 S 동일·기존 바이트 기대값 통과로 수용. 호스트 `npm test` 2436 tests / 52 fail로 신규 실패 0건. 기록 메모: 이 행은 진행 기록 삽입 스크립트 오류로 구현 커밋 `86f8370`에서 빠져 이후 커밋에 포함됨. 다음: FR2 |
 | 2026-11-16 | L7(v5) | no-change 유지 | — | v5에서 L2·L4–L6 수용 뒤에도 앞선 L7 no-change 결정 유지: compositeHost off, GG1·GG2 `fail`. Gemini는 역할로만 composite 참여, host 불가 |
 | 2026-11-16 | FR2 | 수용 | (이 커밋) | Reviewer native `95193634`(범위 `a163358..86f8370`): R1–R6 proven, R7 unmet(F1 Medium — L4 이후 `GEMINI_CLI_HOME` 설정 시 management `target:'all'` install/preset/uninstall 전체 거부, Orchestrator 재현). Implementer bridge `740866b1`(3 segment): install·preset `all`은 home 해석 불가 플랫폼을 건너뛰고 결과에 `skipped`와 원 오류로 보고(모든 플랫폼 동일 규칙, Claude/Codex도 거부→보고로 변경), uninstall `all`은 그 경우 계획 전 거부(`Cannot uninstall everything: …`), 단일 target 불변. 재확인 1회차 N1 Medium(무보고 skip·uninstall 부분 해체) → 위 규칙으로 교정, 2회차 N1 resolved, 3회차 I1(README·harness에서 `all` 포함 사실 복원) resolved. F6(b) catalog 증거 커밋 표기 정정(`a163358` live, `080bb54` 선택 함수). 회귀 테스트 `gemini-platform.test.mjs`(assert 102→136), 지정 검사 73/0, manifest 257. 호스트 `npm test` 2445 tests / 52 fail, 기준선 54건 밖 신규 실패 0. 후속 과제: F2(Gemini assistant 텍스트 턴 구분·`result` 뒤 메시지·누적 상한), F3(요청과 다른 모델이 응답하는 카탈로그 모델의 bridge model 검사), F4(표 밖 discover 함수의 `ANTHROPIC_API_KEY` fallback), F5(Gemini 역할 제거 시 오해 소지 오류), F6(a)(c)(d), L1(`GEMINI_CLI_HOME` 설정 시 TUI Everything 항상 거부), I2(전부 unresolved면 plan 0개 code 0), 이전 F3·N1·N2·U-B7·U-B9 |
+| 2026-11-17 | 개정 v6 | 승인 | (이 커밋) | 사용자 결정 16: `docs/superpowers/evidence/` 전체 삭제. spec v5(9.1, 9.3, AC-V1, AC-V2, P-B8), plan v6(Task EV, Step C, 부록 A) Orchestrator 개정 |
+| 2026-11-17 | EV | 수용 | (이 커밋) | Implementer bridge `03e652a4`(segment 0은 패치 도구 오류로 무변경 반환 → 파일별 적용 지시로 resume): 증거 파일 7개와 빈 디렉터리 삭제, `gemini-capability-evidence.test.mjs`를 고정 verified 6개·range `>=0.68.0 <0.69.0`·live accepted 4개·rejected 2개 검사와 음성 사례로 교체(assert 36→17, 파일 형식 파싱 검사 제거), README·harness 증거 링크와 기록 위치 문구 변경, MANIFEST README 해시 1행. 지정 검사 50/0, hardcoding 11/0, manifest 257, role-policy 36, runtime 34, parity 통과. 호스트 `npm test` 2442 tests / 52 fail, 기준선 54건 밖 신규 실패 0. 남은 `superpowers/evidence` 문자열은 plan/spec의 이력·개정 기록뿐. 증거 원문은 `084d80f`까지의 Git 이력 |
 
 ### 부록 A — T8 anchor 이관 old → new 대응표
-전체 대응표(549행)는 `docs/superpowers/evidence/phase-b/t8-anchor-correspondence.md`에 둡니다. 기준 HEAD `219b4b7`, Step 1 grep 65개 파일·461개 일치와 grep 밖 추가 단언 89행입니다.
+전체 대응표(549행)는 `docs/superpowers/evidence/phase-b/t8-anchor-correspondence.md`에 있었고, v6(결정 16)에서 삭제했습니다. 원문은 커밋 `084d80f`까지의 Git 이력에서 볼 수 있습니다. 기준 HEAD `219b4b7`, Step 1 grep 65개 파일·461개 일치와 grep 밖 추가 단언 89행입니다.
 
 | 분류 | 행 수 |
 |---|---|
@@ -1039,3 +1058,4 @@ legacy로 보존 행:
 | v3 | 2026-11-16 (사용자 결정 12) | 수용 기준 변경 | T11 | spec v3: `role-policy.json` `platforms.gemini` 항목 추가 허용(AC-R1 개정). 수용 기준 개정에 따라 T11은 fresh Implementer로 이어받음 |
 | v4 | 2026-11-16T12:47:50Z (사용자 결정 13) | 범위·수용 기준 변경 | L2(재개), L4–L6 | 무료 API 키 진행 결정. live에서 `gemini-2.5-pro`가 신규 사용자에게 거부되어 카탈로그를 수락 모델 `[gemini-2.5-flash, gemini-3.1-flash-lite]`로 확정하고 다섯 역할 기본 모델을 `gemini-2.5-flash`로 바꿈. L2 Step C 범위에 `models.toml`·`gemini/agents` 추가. 앞선 L2 no-change 기록은 이력으로 유지하고 L2를 재개, 선행 관계에 따라 L4–L6도 재개 대상. spec 변경 없음(5.3 "증거로 확정"과 일치) | → 승인 전 v5로 흡수됨
 | v5 | 2026-11-16T13:12:29Z (사용자 결정 14, 15) | 범위·수용 기준·검증 변경 | T15(신규), L2, L4–L6, FR2(신규), QA 대상 목록 | spec v4: Gemini 카탈로그 노출을 Claude/Codex와 같게(정적 JSON 전체 GA 모델 + `discoverGeminiCatalog`). 유료 모델은 listing + quota 거부(429/503)만 있으면 listed, 명시 거부 제외, preview 전부 제외. L2 Step A에 API listing·미시도 후보 실행 추가, Step C를 증거 분류 기반 카탈로그와 기본 모델 `gemini-2.5-flash`로 개정. T15 필수 QA. FR 이후 변경은 FR2로 검토. v4의 2개 모델 확정 문구는 v5 규칙으로 대체 |
+| v6 | 2026-11-17 (사용자 결정 16) | 범위·검증 변경 | EV(신규) | spec v5: 증거 파일 삭제, 증거 기록 위치를 진행 기록·커밋 메시지로, 증거 테스트를 registry·카탈로그 고정 검사로 교체(9.1, 9.3, AC-V1, AC-V2, P-B8) |
