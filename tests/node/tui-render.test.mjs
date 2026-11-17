@@ -47,7 +47,10 @@ test('narrow or short viewport uses the two-row compact heading',()=>{
  assert.deepEqual(result.styles[0].runs.slice(0,3).map(run=>run.fg),[[178,245,214],[81,221,168],[16,185,129]]);
 });
 test('cellWidth counts box drawing, sparkle and braille as one column',()=>{
- for(const character of ['═','✦','✧','⠋','─','█','▟','←'])assert.equal(api.cellWidth(character),1);assert.equal(api.cellWidth('Ａ'),2);assert.equal(api.cellWidth('\u0301'),0);
+ for(const character of ['═','✦','✧','⠋','─','█','▟','←'])assert.equal(api.cellWidth(character),1);assert.equal(api.cellWidth('Ａ'),2);assert.equal(api.cellWidth('한'),2);assert.equal(api.cellWidth('\u0301'),0);
+});
+test('cellWidth counts the locked Hosts glyph as one column',()=>{
+ assert.equal(api.cellWidth('■'),1);
 });
 test('gradient stops are pinned',()=>{
  for(const [t,want] of [[-1,[178,245,214]],[0,[178,245,214]],[1/3,[110,231,183]],[2/3,[52,211,153]],[1,[16,185,129]],[2,[16,185,129]]])assert.deepEqual(api.gradientAt(t),want);

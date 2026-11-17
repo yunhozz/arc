@@ -110,7 +110,7 @@ test('capability off surfaces: Hosts cannot check zeta and editor arrows skip it
   const registry = createZetaRegistries(ZETA_CAPABILITY_OFF).platforms, availabilityOf = id => id === 'zeta' ? unavailable : available;
   let calls = 0;
   assert.deepEqual(await editHosts({registry, hosts: [], rolePlatforms: [], availabilityOf, ui: {menu: async (_title, rows) => {
-    assert.equal(rows[2], '[ ] Zeta - Unavailable  (capability not verified)');
+    assert.equal(rows[2], '[-] Zeta    - Unavailable  (capability not verified)');
     return calls++ === 0 ? 2 : 3;
   }}}), []);
   const edited = await editRole({registry, roleName: 'Planner', current: {platform: 'codex', model: 'model-a', effort: 'high'}, availabilityOf, loadCatalog: async platform => ({platform, pairs: [{model: 'model-a', effort: 'high'}]}), defaultsFor: async () => ({model: 'model-a', effort: 'high'}), ui: {menu: async (_title, _rows, options) => {

@@ -413,6 +413,23 @@ A → B → C → D → E → F → G
 
 ---
 
+### Task H: Hosts 화면 상태 표시 보완 (T4 후속, v6)
+
+**Files:** `lib/tui/setup.mjs`, 관련 테스트(`tests/node/tui-setup.test.mjs`, `tests/node/tui-render.test.mjs`, `tests/node/tui-app-pty.test.mjs`, `tests/node/capability-surfaces.test.mjs`), `MANIFEST.sha256`
+
+**Predecessors:** G와 최종 Reviewer 후속(91e344e)
+
+- H1 바꿀 수 있는 행(잠기지 않고 사용 가능한 행)이 하나도 없으면 info에 `No host can be changed now: all platforms are used by roles or unavailable.` 한 줄만 표시한다. 커서 이동만으로는 커서 행의 사유(reasonDetail)를 따로 표시하지 않는다. 사유는 Enter를 눌렀을 때만 그 행의 피드백으로 안내 문구 아래에 표시한다. 바꿀 수 있는 행이 있으면 기존 동작(`Roles' platforms are always included.` + 커서 행 사유)을 유지한다.
+- H2 행 표시: 잠긴 행 `[■]`, 사용 불가 행 `[-]`, 토글 가능한 행 `[x]`/`[ ]`.
+- H3 (사용자 지시로 제외) 하단 힌트는 바꾸지 않는다. 항상 기존 `↑/↓: Select · Enter Toggle · Esc Home`.
+- H4 `(used by …)` 와 `- Unavailable` 접미사 열을 가장 긴 플랫폼 라벨 기준으로 정렬한다.
+- [x] Step 1 실패 테스트 작성 → [x] Step 2 RED 확인 → [x] Step 3 구현 → [x] Step 4 GREEN → [x] Step 5 manifest 재생성/검사
+- 구현 중 결정(Orchestrator): `■`를 `cellWidth` 1칸으로 계산(`lib/tui/render.mjs`)해 첫 접미사 열을 맞춘다. 잠김+사용 불가 행의 두 번째 접미사는 정렬 대상이 아니다.
+
+**QA(fresh):** H1·H2·H4, 힌트 불변, 기존 T4 기준(제목, used by 역할 순서, Enter 피드백) 무퇴행.
+
+---
+
 ### 최종 검증 (모든 작업 수락 후)
 
 - Orchestrator가 실행한다.
@@ -439,3 +456,4 @@ A → B → C → D → E → F → G
 | v3 | 2026-11-17T01:11:22Z | contract | A | 사용자 보완: 역할 뱃지 라벨 앞뒤 공백(배경 안), 이후 Task A 커밋 amend 지시 |
 | v4 | 2026-11-17T01:28:02Z | contract | A (follow-up) | 사용자 보완: TOOL 색이 너무 밝고 CODEX와 비슷함 → 저채도 38;5;101 |
 | v5 | 2026-11-17T02:01:20Z | mechanical (Orchestrator, routine implementation detail) | B (follow-up) | watch→tui import가 기존 계약 테스트 위반: 색 함수를 lib/color/palette.mjs로 이동, 화면 동작 불변 |
+| v6 | 2026-11-17T04:13:11Z | contract | H (new) | 사용자 요청: Hosts 화면에 변경 불가 안내, 행 상태 기호, 접미사 정렬(H3 Details 힌트는 사용자 지시로 제외). 사용자 정정: 변경 불가 상태에서 커서 행 사유를 따로 표시하지 않음 |
