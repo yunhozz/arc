@@ -187,7 +187,7 @@ A → B → C → D → E → F → G
 
 **Interfaces (Produces):** 세션 객체에 `motion: boolean`(`frameMs>0 && colorDepth!=='none'`)을 노출한다. `frameMs`는 그대로 유지한다.
 
-- [ ] **Step 1: 실패 테스트 작성 (`tui-terminal.test.mjs`)**
+- [x] **Step 1: 실패 테스트 작성 (`tui-terminal.test.mjs`)**
   - `alternate screen on start and restored on dispose`
     - 기본 env에서 시작 출력이 `'\x1b[?1049h\x1b[H\x1b[2J'`로 시작하고 그 뒤에 `\x1b[?25l\x1b[?2004h`가 온다.
     - dispose 출력은 정확히 `'\x1b[0m\x1b[?2004l\x1b[?25h\x1b[?1049l'`이고 `\n`이 없다.
@@ -199,13 +199,13 @@ A → B → C → D → E → F → G
     - dispose 후 listener가 0개이고, 추가 dispose에서 출력이 없다.
   - `motion follows frameMs and color`: `{}`→`true`, `{TERM:'dumb'}`→`false`, `{NO_COLOR:''}`→`false`
   - 기존 `\x1b[?25h` 단언과 `frameMs` 테스트는 그대로 둔다.
-- [ ] **Step 2:** `node --test tests/node/tui-terminal.test.mjs`를 실행해 FAIL을 확인한다.
-- [ ] **Step 3: 구현**
+- [x] **Step 2:** `node --test tests/node/tui-terminal.test.mjs`를 실행해 FAIL을 확인한다.
+- [x] **Step 3: 구현**
   - `useAlt = env.TERM !== 'dumb'`로 둔다. 시작할 때 `useAlt`면 대체 화면 시퀀스를 먼저 쓴다.
   - dispose는 `'\x1b[0m\x1b[?2004l\x1b[?25h' + (useAlt ? '\x1b[?1049l' : '')`를 쓴다.
   - `signals.on('exit', onExit)`를 등록한다. `onExit`는 동기 dispose를 호출한다. dispose 안에서 이 리스너를 해제한다.
-- [ ] **Step 4:** `node --test tests/node/tui-terminal.test.mjs tests/node/tui-terminal-pty.test.mjs tests/node/tui-app-pty.test.mjs tests/node/tui-app.test.mjs`로 PASS를 확인한다. PTY 쪽 dispose 시퀀스 단언은 필요하면 같은 Step에서 갱신한다.
-- [ ] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
+- [x] **Step 4:** `node --test tests/node/tui-terminal.test.mjs tests/node/tui-terminal-pty.test.mjs tests/node/tui-app-pty.test.mjs tests/node/tui-app.test.mjs`로 PASS를 확인한다. PTY 쪽 dispose 시퀀스 단언은 필요하면 같은 Step에서 갱신한다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
 
 **Commit (Orchestrator):** `feat(tui): 대체 화면 사용과 종료 시 콘솔 복원, session.motion`
 **Criteria:** T1. finalReport가 dispose 뒤에 출력되는 순서(`app.mjs`)는 바꾸지 않는다.

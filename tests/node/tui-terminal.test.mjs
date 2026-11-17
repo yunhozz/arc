@@ -2,6 +2,27 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {makeTerminal} from './helpers/tui-terminal.mjs';
 const api=await import('../../lib/tui/terminal.mjs').catch(()=>({}));
 function session(t,options){assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal(options),session=api.createTerminalSession({...io,env:options?.env??{COLORTERM:'truecolor'}});t.after(()=>session.dispose());return{...io,session};}
+test('alternate screen starts before cursor hiding and bracketed paste',t=>{
+ const io=session(t,{env:{}});assert.equal(io.text(),'\x1b[?1049h\x1b[H\x1b[2J\x1b[?25l\x1b[?2004h');
+});
+test('dispose restores the alternate screen exactly once without a trailing newline',t=>{
+ const io=session(t,{env:{}}),before=io.text();io.session.dispose();
+ assert.equal(io.text().slice(before.length),'\x1b[0m\x1b[?2004l\x1b[?25h\x1b[?1049l');assert.equal(io.signals.listenerCount('exit'),0);
+ const restored=io.text();io.session.dispose();assert.equal(io.text(),restored);
+});
+test('TERM=dumb skips alternate screen on start and dispose',t=>{
+ const io=session(t,{env:{TERM:'dumb'}});assert.equal(io.text(),'\x1b[?25l\x1b[?2004h');
+ const before=io.text();io.session.dispose();assert.equal(io.text().slice(before.length),'\x1b[0m\x1b[?2004l\x1b[?25h');assert.doesNotMatch(io.text(),/1049/);
+});
+test('exit listener restores synchronously and is removed',t=>{
+ const io=session(t,{env:{}});assert.equal(io.signals.listenerCount('exit'),1);
+ const before=io.text();io.signals.emit('exit');assert.equal(io.text().slice(before.length),'\x1b[0m\x1b[?2004l\x1b[?25h\x1b[?1049l');
+ assert.equal(io.signals.listenerCount('exit'),0);assert.equal(io.input.isRaw,false);
+ const restored=io.text();io.signals.emit('exit');io.session.dispose();assert.equal(io.text(),restored);
+});
+for(const [env,want] of [[{},true],[{TERM:'dumb'},false],[{NO_COLOR:''},false]])test('motion follows frameMs and color '+JSON.stringify(env),t=>{
+ assert.equal(session(t,{env}).session.motion,want);
+});
 test('split-byte arrows, enter, back and EOF normalize in input order',async t=>{
  const io=session(t),events=[];for(const chunks of [['\x1b','[','B'],['\r'],['\x7f'],['\x04']]){for(const chunk of chunks)io.send(chunk);events.push(await io.session.nextEvent());}
  assert.deepEqual(events.map(event=>event.name),['down','enter','backspace','eof']);assert.ok(events.every(event=>Number.isInteger(event.sequence)));
