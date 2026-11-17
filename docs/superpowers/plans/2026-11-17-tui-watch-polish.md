@@ -59,12 +59,13 @@ A → B → C → D → E → F → G
   - QA `1;38;5;16;48;5;228`
   - REVIEWER `1;38;5;231;48;5;161`
   - ORCHESTRATOR `1;38;5;16;48;5;255`
+  - (v3) color가 켜져 있을 때 뱃지 라벨은 배경색 안에서 앞뒤 공백 1칸으로 감싼다: `\x1b[<SGR>m PLANNER \x1b[0m`. color가 꺼져 있으면 공백 없이 `PLANNER`다. 본문 들여쓰기는 바뀌지 않는다.
 - `tagColor`
   - `tool` → `'38;5;80'` (W7: 청록. 기존 태그 색인 33/38;5;69/31/38;5;110/38;5;175/38;5;141/38;5;137/32/1;35와 구분된다.)
   - `command`는 `'38;5;242'`를 유지한다.
   - `bodyColor`는 기존 규칙을 따르므로 TOOL 본문도 `38;5;80`이 된다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `watch-render.test.mjs`
     - 기존 뱃지 색 단언을 위 팔레트로 바꾼다.
     - TOOL 색 단언(`tool` → `'2'` 계열)을 `38;5;80`으로 바꾼다. CMD `38;5;242` 단언은 그대로 둔다.
@@ -73,6 +74,7 @@ A → B → C → D → E → F → G
       - 각 경로 줄은 `indent + '- ' + displayPath`로 시작한다.
       - 줄바꿈된 연속 줄은 `indent + '  '`로 시작한다.
       - `event.text` 첫 줄에는 `- `가 붙지 않는다.
+    - 신규 `single file path has no "- " prefix`: paths가 1개인 이벤트는 경로 줄에 `- `가 붙지 않고 기존 형태(`indent + displayPath`)로 표시된다.
     - 신규 `agent role badge sits alone on the first line`
       - color가 없으면 `/AGENT    PLANNER\n {25}hello/`.
       - color가 있으면 첫 줄이 PLANNER 뱃지 SGR + `PLANNER\x1b[0m`으로 끝나고, 본문은 다음 줄에서 `\x1b[32m`으로 시작한다.
@@ -83,13 +85,13 @@ A → B → C → D → E → F → G
   - `watch-cli.test.mjs:328–329`
     - `/AGENT    PLANNER bridge answer/` → `/AGENT    PLANNER\n {25}bridge answer/`
     - QA도 같은 형태로 바꾼다.
-- [ ] **Step 2:** `node --test tests/node/watch-render.test.mjs tests/node/watch-cli.test.mjs`를 실행해 FAIL을 확인한다.
-- [ ] **Step 3: 구현**
-  - 경로 줄 `'- ' + displayPath(...)`: wrap할 때 `avail-2`로 나눈다. 첫 조각은 `- `를 유지하고 나머지 조각 앞에는 `'  '`를 붙인다.
+- [x] **Step 2:** `node --test tests/node/watch-render.test.mjs tests/node/watch-cli.test.mjs`를 실행해 FAIL을 확인한다.
+- [x] **Step 3: 구현**
+  - 경로가 2개 이상일 때만 경로 줄을 `'- ' + displayPath(...)`로 만든다. 경로가 1개면 `- ` 없이 기존 형태를 유지한다. `- ` 줄은 wrap할 때 `avail-2`로 나눈다. 첫 조각은 `- `를 유지하고 나머지 조각 앞에는 `'  '`를 붙인다.
   - `roleName`이 있으면 `bodyLines=[roleName, ...본문]`으로 만들고, 0번 줄은 뱃지 색만 칠한다. 기존의 `bodyLines[0]` 접두 결합은 없앤다.
   - color가 없는 경로도 같은 줄 구조를 쓴다.
-- [ ] **Step 4:** Step 2 명령으로 PASS를 확인한다.
-- [ ] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
+- [x] **Step 4:** Step 2 명령으로 PASS를 확인한다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
 
 **Commit (Orchestrator):** `feat(watch): 경로 목록 표시, 역할 뱃지 분리 줄과 팔레트, Gemini·TOOL 색`
 **Criteria:** W1, W2, W3, W4, W7. `renderJson` 불변.
@@ -426,3 +428,11 @@ A → B → C → D → E → F → G
 - [x] 작업 간 인터페이스 이름이 일치한다: `session.motion`, `arrowValue`, `navigationHint('checklist')`, `ui.menu` `hint`/`frame`, `resultRows(..., {version})`.
 - [x] 금지된 변경과 애니메이션 비활성 조건, PTY 결정성을 명시했다.
 - [ ] 미검증 가정(Implementer 확인 필요): `tui-terminal-pty.test.mjs`의 dispose 단언 형태, `consumer.test.mjs`가 `report()` 경로를 지나는지, `platformLabel` 기본 registry, harness-operation.md에 메뉴 설명 위치가 있는지.
+
+## Revision history
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-17 (사용자 승인, 계획 승인 질문) | initial | A–G | 최초 승인 |
+| v2 | 2026-11-17T00:58:53Z | contract | A | 사용자 정정: 파일 경로가 1개면 '- ' 미부착 (W1) |
+| v3 | 2026-11-17T01:11:22Z | contract | A | 사용자 보완: 역할 뱃지 라벨 앞뒤 공백(배경 안), 이후 Task A 커밋 amend 지시 |
