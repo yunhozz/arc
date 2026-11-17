@@ -7,6 +7,7 @@ import {selectCatalogPair} from '../../lib/tui/custom-preset.mjs';
 import {renderScreen} from '../../lib/tui/render.mjs';
 const previewConfig=loadModelConfig(readFileSync(new URL('../../codex/skill/models.toml',import.meta.url)),'codex');
 const load=()=>import('../../lib/tui/app.mjs');
+const packageVersion=JSON.parse(readFileSync(new URL('../../package.json',import.meta.url))).version;
 function terminal(events){const screens=[];return{screens,viewport(){return{columns:120,rows:40};},render(s){screens.push(s);return{selectionEnabled:true};},discardInput(){},setBusy(){},dispose(){this.closed=true;},async nextEvent(){return events.shift()??{name:'eof'};}};}
 const installedStatuses=()=>['claude','codex'].map(platform=>({platform,state:'installed'}));
 const down=n=>Array.from({length:n},()=>({name:'down'})),enter={name:'enter'},back={name:'escape'};
@@ -35,14 +36,21 @@ test('result wording preserves management message order, registry labels and fai
  const {resultRows}=await load(),{createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),registry=createTestRegistries().platforms;
  await t.test('single removal',()=>assert.deepEqual(resultRows({code:0,results:[{platform:'codex',status:'uninstalled'}]}),['Removed from Codex.']));
  await t.test('injected removal label',()=>assert.deepEqual(resultRows({code:0,results:[{target:{platform:'zeta'},status:'uninstalled'}]},registry),['Removed from Zeta.']));
- await t.test('injected install label preserves activated message',()=>assert.deepEqual(resultRows({code:0,results:[{platform:'zeta',status:'installed'}],messages:['Mixed (Claude + Zeta) activated.']},registry),['Mixed (Claude + Zeta) activated.','ARC installed for Zeta.']));
+ await t.test('injected install label preserves routing message',()=>assert.deepEqual(resultRows({code:0,results:[{platform:'zeta',status:'installed'}],messages:['Mixed routing on: Claude + Zeta.']},registry),['Mixed routing on: Claude + Zeta.','ARC installed for Zeta.']));
  for(const [status,message]of [['removed','Removed ARC and CLI.'],['absent','Removed ARC.']])await t.test('Everything CLI '+status,()=>assert.deepEqual(resultRows({code:0,messages:['Mixed routing turned off.','Dispatch history stays in /old/arc-role-dispatch.'],results:[{platform:'claude',status:'uninstalled'},{platform:'codex',status:'uninstalled'}],cli:{status}}),['Mixed routing turned off.','Dispatch history stays in /old/arc-role-dispatch.',message]));
  await t.test('failure keeps one-line errors and deduplicated residuals',()=>assert.deepEqual(resultRows({code:7,messages:['Mixed routing turned off.','Residual path: /tmp/remains'],results:[{platform:'codex',status:'uninstalled'},{platform:'claude',status:'failed',error:Error('failure\nsecond line'),residualPaths:['/tmp/remains','/tmp/other']}],error:Error('operation failed\nmore detail')}),['Mixed routing turned off.','Residual path: /tmp/remains','Removed from Codex.','claude: failed','Residual path: /tmp/other','Error: failure','Error: operation failed','Exit code: 7']));
+});
+test('install result rows prefer result version then supplied version and preserve unknown-version output',async()=>{
+ const {resultRows}=await load(),{createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),registry=createTestRegistries().platforms;
+ for(const [version,options,want]of [['1.2.3',{version:'9.9.9'},'ARC 1.2.3 installed for Zeta.'],[null,{version:'2.3.4'},'ARC 2.3.4 installed for Zeta.'],[undefined,{},'ARC installed for Zeta.']]){
+  const result={code:0,version,results:[{target:{platform:'zeta'},status:'installed'}]};
+  assert.deepEqual(resultRows(result,registry,options),[want]);
+ }
 });
 test('check version success reports the prepared latest version',async()=>{
  const {runTui}=await load();for(const exitSession of [false,true]){const session=terminal([...down(2),enter,enter,enter,back]);let output='';
  await runTui({session,output:{write:text=>{output+=text;}},context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',currentVersion:'0.3.5',latestVersion:'0.3.6',canUpgrade:true}),executeOperation:async()=>({code:0,exitSession,results:[]})}});
- assert.deepEqual(session.screens.find(screen=>screen.title==='Result').rows,['Upgraded to 0.3.6.']);if(exitSession)assert.equal(output,'Upgraded to 0.3.6.\n');}
+ assert.deepEqual(session.screens.find(screen=>screen.title==='Result').rows,['ARC updated: 0.3.5 → 0.3.6.']);if(exitSession)assert.equal(output,'ARC updated: 0.3.5 → 0.3.6.\n');}
 });
 test('menu reevaluates dynamic info with selection and resized viewport while preserving array info',async()=>{
  const{createTuiInterface}=await load();let viewport={columns:80,rows:24};const events=[{name:'down'},{name:'resize',viewport:{columns:60,rows:18}},{name:'down'},{name:'up'},enter],session=terminal([]),calls=[];session.viewport=()=>viewport;session.nextEvent=async()=>{const event=events.shift();if(event.viewport)viewport=event.viewport;return event;};let selected;
@@ -71,7 +79,7 @@ test('mixed target result keeps success alongside failed rollback and residual p
   ]})
  }});
  const rows=session.screens.filter(s=>s.title==='Result').flatMap(s=>s.rows).join('\n');
- assert.match(rows,/ARC installed for Codex\./);
+ assert.match(rows,new RegExp(`ARC ${packageVersion.replaceAll('.','\\.')} installed for Codex\\.`));
  assert.match(rows,/claude: failed/);
  assert.match(rows,/Residual path: \/tmp\/claude-residual/);
  assert.match(rows,/fixture target failure/);
@@ -88,7 +96,7 @@ test('interrupted execution reports completed cleanup after terminal restoration
  for(const trigger of ['Ctrl+C','SIGINT','SIGTERM']){
   const signals=new EventEmitter(),input=new EventEmitter(),session=terminal([...down(2),enter,enter]);let output='';
   const code=await runTui({signals,input,session,output:{write(text){assert.equal(session.closed,true);output+=text;}},context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',plans:[],currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:true}),executeOperation:async context=>{if(trigger==='Ctrl+C')input.emit('data',Buffer.from('\x03'));else signals.emit(trigger);assert.equal(context.signal.aborted,true);return{code:130,results:[{platform:'codex',status:'installed',rollback:'not-needed'},{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/cancel-recovery'],error:Error('cleanup failed')},{platform:'other',status:'not-started'}]};}}});
-  assert.equal(code,130);assert.match(output,/ARC installed for Codex\./);assert.match(output,/claude: failed/);assert.match(output,/Residual path: \/tmp\/cancel-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/other: not-started/);assert.match(output,/Exit code: 130/);assert.doesNotMatch(output,/rollback/i);
+  assert.equal(code,130);assert.match(output,new RegExp(`ARC ${packageVersion.replaceAll('.','\\.')} installed for Codex\\.`));assert.match(output,/claude: failed/);assert.match(output,/Residual path: \/tmp\/cancel-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/other: not-started/);assert.match(output,/Exit code: 130/);assert.doesNotMatch(output,/rollback/i);
  }
 });
 test('post-disposal reports escape terminal controls while retaining diagnostic rows',async()=>{
@@ -256,7 +264,7 @@ test('Status lists each platform and Mode line',async()=>{
 
 test('Working screen has no body text',async()=>{const{createTuiInterface}=await load();const session=terminal([]);assert.equal(await createTuiInterface(session).busy(async()=>42),42);assert.deepEqual(session.screens[0].rows,[]);assert.equal(session.screens[0].hint,'Ctrl+C Interrupt');});
 test('result rows hide a zero exit code and show nonzero ones',async()=>{const{resultRows}=await load();assert.deepEqual(resultRows({code:0,messages:['done']}),['done']);assert.deepEqual(resultRows({code:1,messages:['failed']}),['failed','Exit code: 1']);});
-test('composite result messages use the new copy',async t=>{const{compositeContext,publish}=await import('./fixtures/install-mode.mjs');const ctx=await compositeContext(t);const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));assert.deepEqual(result.messages,['Mixed (Claude + Codex) activated.','After upgrading ARC, run Install / Update again.']);});
+test('composite result messages use the new copy',async t=>{const{compositeContext,publish}=await import('./fixtures/install-mode.mjs');const ctx=await compositeContext(t);const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));assert.deepEqual(result.messages,['Mixed routing on: Claude + Codex.','After upgrading ARC, run Install / Update again.']);});
 test('Check Version shows current → latest, Up to date, or the unavailable lines',async()=>{const{runTui}=await load();for(const [latestVersion,canUpgrade,latestError,want] of [['1.10.0',true,undefined,['1.9.0 → 1.10.0','','Upgrade','Back']],['1.9.0',false,undefined,['Up to date (1.9.0)','','Back']],[null,false,Error('offline'),['1.9.0 (latest unavailable)','offline','','Back']],['1.8.0',false,undefined,['Up to date (1.9.0)','','Back']]]){const session=terminal([...down(2),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',currentVersion:'1.9.0',latestVersion,canUpgrade,latestError})}});assert.deepEqual(session.screens.find(s=>s.title==='Check Version').rows,want);}});
 for(const target of [0,1,3])test('Esc on confirmation '+target+' returns home',async()=>{const{runTui}=await load();const session=terminal([...down(3),enter,...down(target),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>installedStatuses(),prepareOperation:async()=>assert.fail('Esc must not prepare')}});assert.equal(session.screens.at(-1).title,'ARC');assert.equal(session.screens.filter(s=>s.rows.includes('Everything (incl. CLI)')).length,target+1);});
 

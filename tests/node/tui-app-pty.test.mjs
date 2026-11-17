@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {spa
 import {mixedConfig} from './fixtures/install-mode.mjs';
 const available=process.platform==='darwin'&&spawnSync('which',['expect']).status===0;
 const withoutSgr=output=>output.replace(/\x1b\[[0-9;]*m/g,'');
+const packageVersion=JSON.parse((await import('node:fs')).readFileSync(new URL('../../package.json',import.meta.url))).version;
 const url=new URL('../../lib/tui/app.mjs',import.meta.url).href;
 const modelsUrl=new URL('../../lib/models/index.mjs',import.meta.url).href,packageUrl=new URL('../../',import.meta.url);
 async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true,latestVersion=canUpgrade?'1.10.0':'1.9.0',latestError=null,absentPlatforms=[],catalog=null,installState={mode:'standalone',platforms:[]},codexAuth='authenticated',currentConfig=null,zetaVariant=null,env=process.env}={}){
@@ -55,7 +56,7 @@ test('edited role Apply needs its own Enter and runs once',{skip:!available},asy
  const output=await drive(t,entry+'enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\n'+choosePair+moves(7)+'expect -exact {> Apply}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Are you sure/);
 });
 test('Check Version exposes a real selected upgrade row and applies once',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {1.9.0 → 1.10.0}\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/Upgraded to 1\.10\.0\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {1.9.0 → 1.10.0}\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/ARC updated: 1\.9\.0 → 1\.10\.0\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
 });
 test('version without an upgrade selects Back and Enter returns home',{skip:!available},async t=>{
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {Up to date (1.9.0)}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
@@ -79,7 +80,7 @@ for(const trigger of ['Ctrl+C','SIGINT','SIGTERM'])test('actual app reports clea
  const execute=`${trigger==='Ctrl+C'?'':`setTimeout(()=>process.kill(process.pid,${JSON.stringify(trigger)}),100);`}await new Promise(resolve=>context.signal.addEventListener('abort',resolve,{once:true}));await new Promise(resolve=>setTimeout(resolve,20));return{code:130,results:[{platform:'codex',status:'installed',rollback:'not-needed'},{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/pty-recovery'],error:Error('cleanup failed')}]};`;
  const observe=`const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{if(String(chunk).includes('Residual path:'))original('REPORT_RESTORED='+!process.stdin.isRaw+'\\n');return original(chunk,...args);};`;
  const output=await drive(t,`down\ndown\nenter\nexpect -exact {> Upgrade}\nenter\nexpect -exact {Working}\n${trigger==='Ctrl+C'?'send -- "\\003"':''}`,{execute,observe});
- assert.match(output,/ARC installed for Codex\./);assert.match(output,/claude: failed/);assert.match(output,/Residual path: \/tmp\/pty-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/CODE=130 CALLS=1/);assert.match(output,/REPORT_RESTORED=true/);
+ assert.match(output,new RegExp(`ARC ${packageVersion.replaceAll('.','\\.')} installed for Codex\\.`));assert.match(output,/claude: failed/);assert.match(output,/Residual path: \/tmp\/pty-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/CODE=130 CALLS=1/);assert.match(output,/REPORT_RESTORED=true/);
 });
 test('Settings platform selection executes once and preserves CLI explicitly',{skip:!available},async t=>{
  const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);

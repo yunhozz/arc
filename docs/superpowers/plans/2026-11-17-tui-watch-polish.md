@@ -376,13 +376,13 @@ A → B → C → D → E → F → G
 - **CLI 교체:** `arc CLI: <prev> → <new>.`
 - **유지:** `Harness update did not complete…`, `Error:`, `Residual path:`, `Exit code:`, rollback 제거
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - 위 테스트 파일들에서 `ARC installed for X.`, `… activated.`, `Upgraded to …`, `codex: installed`, `harness upgraded!`, `CLI: updated to X (previous Y).` 단언을 새 문구로 바꾼다.
   - 성공 출력에 `Previous harness version`이 없어야 한다는 단언을 추가한다.
-- [ ] **Step 2:** `node --test tests/node/tui-app.test.mjs tests/node/management-update.test.mjs tests/node/upgrade-cli.test.mjs tests/node/upgrade-harness.test.mjs tests/node/install-mode-n-platform.test.mjs tests/node/composite-instructions.test.mjs tests/node/management-operations.test.mjs`를 실행해 FAIL을 확인한다.
-- [ ] **Step 3:** 위 고정 문구대로 구현한다.
-- [ ] **Step 4:** Step 2 명령에 `tests/node/tui-app-pty.test.mjs tests/node/tui-package-consumer.test.mjs tests/node/npm-upgrade-consumer.test.mjs tests/node/consumer.test.mjs`를 더해 PASS를 확인한다. npm/consumer 계열이 샌드박스에서 실행되지 않으면 그 사실을 보고한다. 이 경우 Orchestrator 호스트에서 실행한다.
-- [ ] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
+- [x] **Step 2:** `node --test tests/node/tui-app.test.mjs tests/node/management-update.test.mjs tests/node/upgrade-cli.test.mjs tests/node/upgrade-harness.test.mjs tests/node/install-mode-n-platform.test.mjs tests/node/composite-instructions.test.mjs tests/node/management-operations.test.mjs`를 실행해 FAIL을 확인한다.
+- [x] **Step 3:** 위 고정 문구대로 구현한다.
+- [x] **Step 4:** Step 2 명령에 `tests/node/tui-app-pty.test.mjs tests/node/tui-package-consumer.test.mjs tests/node/npm-upgrade-consumer.test.mjs tests/node/consumer.test.mjs`를 더해 PASS를 확인한다. npm/consumer 계열이 샌드박스에서 실행되지 않으면 그 사실을 보고한다. 이 경우 Orchestrator 호스트에서 실행한다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
 
 **Commit (Orchestrator):** `feat(management): 설치·업데이트 결과 문구에 버전과 대상 명시`
 **Criteria:** M1. 결과 객체 구조는 그대로 둔다. 새 세션 안내는 넣지 않는다.
