@@ -38,6 +38,7 @@ The package provides the CLI; use the TUI to install the harness. Public command
 | Home action | Effect |
 |---|---|
 | Install / Update | Edit role platform/model/effort, Hosts, and Settings; `Apply` publishes; new sessions load profiles. Defaults: English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
+| Status | Platform status, Mode, and diagnostics; home shows only the logo and menu |
 | Check Version | Shows current/latest or lookup failure; `Upgrade` preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
 | Uninstall | Remove a platform or `Everything (incl. CLI)` after confirmation (default `Back`); removing a Mixed participant restores others to standalone. Everything filters verified install/standalone platforms and removes CLI only after harness success. Unselected harnesses/user files remain. CLI only: `npm uninstall -g @yunhozz/arc` |
 

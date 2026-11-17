@@ -121,11 +121,11 @@ test('limits and handoff references mention bridge counting, unknown slot retent
   }
 });
 
-test('operations source uses current routing status messages', async () => {
-  const operations = await readFile(new URL('../../lib/management/operations.mjs', import.meta.url), 'utf8');
-  assert.ok(!operations.includes('held / unverified'));
-  assert.ok(!operations.includes('Role execution: per-role status via routing-status.'));
-  assert.ok(operations.includes('`${mixedLabel(prepared.config.platforms,installerRegistryOf(context))} activated.`'));
+test('operations return current routing status messages', async t => {
+  const {compositeContext,publish}=await import('./fixtures/install-mode.mjs');
+  const result=await publish(await compositeContext(t));
+  assert.equal(result.code,0,JSON.stringify(result));
+  assert.deepEqual(result.messages,['Mixed routing on: Claude + Codex.','After upgrading ARC, run Install / Update again.']);
 });
 
 test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G3, versions, cancel, resume, brief)', async () => {

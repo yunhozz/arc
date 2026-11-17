@@ -114,13 +114,13 @@ test('help lists line-time scope and SKILL/PLUGIN lines',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
   assert.equal(await runWatch(['--help'],s.io),0);
-  assert.equal(s.output.text,expected+'\n');
+  assert.equal(s.output.text,expected.replace('A spinner on the last line shows while a turn is in progress (TTY only).','A status block on the last lines shows the watched path and, while a turn is in progress, a spinner (TTY only).')+'\n');
   assert.equal(s.error.text,'');
 });
 test('watch help matches the spec text',async t=>{
   const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
   const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP,expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run; Claude bridge Implementer and QA stay held.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.equal(WATCH_HELP,expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('A spinner on the last line shows while a turn is in progress (TTY only).','A status block on the last lines shows the watched path and, while a turn is in progress, a spinner (TTY only).').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run; Claude bridge Implementer and QA stay held.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
   assert.match(WATCH_HELP,/per-call escalation approval/);assert.doesNotMatch(WATCH_HELP,/currently held/);
 });
@@ -160,7 +160,7 @@ test('color and width follow TTY, NO_COLOR, json and resize',async t=>{
     const f=s.write('width',s.cwd,[command('x'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}]);
     const {result}=await s.start(args);assert.equal(s.output.text.includes('\x1b['),ansi);
     if(width)assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=width));
-    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,[command('y'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}].map(JSON.stringify).join('\n')+'\n');await s.step();assert.ok(s.output.text.length>0);assert.ok(s.output.text.trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
+    if(tty&&!args.length&&width===100){s.output.text='';s.output.columns=70;s.output.emit('resize');fs.appendFileSync(f,[command('y'.repeat(400)),{type:'event_msg',payload:{type:'task_complete'}}].map(JSON.stringify).join('\n')+'\n');await s.step();assert.ok(s.output.text.startsWith('\r\x1b[2K'));assert.ok(s.output.text.slice('\r\x1b[2K'.length).trimEnd().split('\n').every(line=>[...strip(line)].length<=70));}
     s.controller.abort();assert.equal(await result,0);
   }
 });
@@ -325,8 +325,8 @@ test('bridge and subagent AGENT lines show the role', async t => {
   s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
   s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
   const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
-  assert.match(s.output.text,/AGENT    PLANNER bridge answer/);
-  assert.match(s.output.text,/AGENT    QA child answer/);
+  assert.match(s.output.text,/AGENT    PLANNER\n {25}bridge answer/);
+  assert.match(s.output.text,/AGENT    QA\n {25}child answer/);
 });
 
 
@@ -353,51 +353,127 @@ for (const json of [false,true]) for (const verbose of [false,true]) {
   });
 }
 
-test('TTY spinner advances, erases before events, clears on end and stop', async t => {
+test('TTY status block advances, erases before events and keeps the idle location', async t => {
   for (const env of [{},{NO_COLOR:'1'}]) {
-    const s=setup(t);s.output.isTTY=true;s.io.env=env;
+    const s=setup(t);s.output.isTTY=true;s.output.columns=200;s.io.env=env;
     const file=s.write('spinner');const {result}=await s.start();
-    assert.ok(strip(s.output.text).endsWith('⠋ working…'));
+    const erase='\r\x1b[2K\x1b[1A\x1b[2K';
+    assert.ok(strip(s.output.text).endsWith(`${s.cwd}\n⠋ working…`));
     if (env.NO_COLOR) assert.doesNotMatch(s.output.text,/\x1b\[[0-9;]*m/);
-    else assert.match(s.output.text,/\x1b\[2m⠋ working…\x1b\[0m$/);
+    else assert.match(s.output.text,/\x1b\[38;5;\d+mw/);
     s.output.text='';await s.step();
-    assert.equal(strip(s.output.text),'\r\x1b[2K⠙ working…');
+    assert.equal(strip(s.output.text),erase+`${s.cwd}\n⠙ working…`);
     s.output.text='';fs.appendFileSync(file,JSON.stringify(msg('pending'))+'\n');await s.step(100);
-    assert.equal(strip(s.output.text),'\r\x1b[2K⠹ working…');
+    assert.equal(strip(s.output.text),erase+`${s.cwd}\n⠹ working…`);
     s.output.text='';await s.step(400);
+    assert.ok(s.output.text.startsWith(erase));
     assert.match(strip(s.output.text),/USER +pending/);
-    assert.ok(strip(s.output.text).endsWith('⠸ working…'));
+    assert.ok(strip(s.output.text).endsWith(`${s.cwd}\n⠸ working…`));
     s.output.text='';fs.appendFileSync(file,JSON.stringify(msg('next'))+'\n');await s.step();
-    assert.ok(s.output.text.startsWith('\r\x1b[2K'));
+    assert.ok(s.output.text.startsWith(erase));
     assert.ok(strip(s.output.text).endsWith('⠼ working…'));
     s.output.text='';fs.appendFileSync(file,JSON.stringify({type:'event_msg',payload:{type:'task_complete'}})+'\n');await s.step();
-    assert.ok(s.output.text.startsWith('\r\x1b[2K'));
+    assert.ok(s.output.text.startsWith(erase));
+    assert.ok(strip(s.output.text).endsWith(s.cwd));
     assert.doesNotMatch(s.output.text,/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
-    fs.appendFileSync(file,JSON.stringify(msg('again'))+'\n');await s.step();
+    s.output.text='';await s.step(100);assert.equal(s.output.text,'');
     s.output.text='';s.controller.abort();assert.equal(await result,0);
     assert.equal(s.output.text,'\r\x1b[2K');
   }
+});
+for (const [columns,args,maxColumns] of [[40,[],39],[80,['--width','200'],79]]) {
+  test(`TTY status block fits ${columns} columns and erases its physical rows`, async t => {
+    const s=setup(t);s.output.isTTY=true;s.output.columns=columns;s.io.env={NO_COLOR:'1'};
+    const selected=path.join(fs.realpathSync(s.cwd),'project-'+'x'.repeat(100));fs.mkdirSync(selected);
+    s.write('busy',selected);
+    const writes=[];s.output.on('written',text=>writes.push(text));
+    const {result}=await s.start(['--cwd',selected,'--tail','0',...args]);
+    const lines=writes.at(-1).split('\n');
+    assert.equal(lines.length,2);
+    for(const line of lines)assert.ok(renderer.displayWidth(line)<=maxColumns,JSON.stringify(line));
+    const physicalRows=lines.reduce((rows,line)=>rows+Math.max(1,Math.ceil(renderer.displayWidth(line)/columns)),0);
+    assert.equal(physicalRows,2);
+    s.output.text='';await s.step(100);
+    const erase='\r\x1b[2K\x1b[1A\x1b[2K';
+    assert.equal(s.output.text,erase+selected.slice(0,maxColumns)+'\n⠙ working…');
+    assert.equal((s.output.text.match(/\x1b\[2K/g)??[]).length,physicalRows);
+    s.output.text='';s.controller.abort();assert.equal(await result,0);
+    assert.equal(s.output.text,erase);
+  });
+}
+test('TTY status location removes directory control sequences and line breaks', async t => {
+  const s=setup(t);s.output.isTTY=true;s.output.columns=200;s.io.env={NO_COLOR:'1'};
+  const parent=fs.realpathSync(s.cwd),selected=path.join(parent,'project\x1b]0;x\x07\n\rnext');fs.mkdirSync(selected);
+  const writes=[];s.output.on('written',text=>writes.push(text));
+  const {result}=await s.start(['--cwd',selected]);
+  assert.equal(writes.at(-1),path.join(parent,'project next'));
+  assert.doesNotMatch(writes.at(-1),/[\x00-\x1f\x7f-\x9f]/);
+  s.output.text='';await s.step();
+  assert.equal(s.output.text,'\r\x1b[2K'+path.join(parent,'project next'));
+  s.output.text='';s.controller.abort();assert.equal(await result,0);
+  assert.equal(s.output.text,'\r\x1b[2K');
+});
+test('TTY status block erases both busy lines on stop', async t => {
+  const s=setup(t);s.output.isTTY=true;s.write('busy');
+  const {result}=await s.start();s.output.text='';s.controller.abort();
+  assert.equal(await result,0);assert.equal(s.output.text,'\r\x1b[2K\x1b[1A\x1b[2K');
+});
+test('TTY status block shows the selected location even when idle', async t => {
+  for (const mode of ['default','cwd','home','all','session']) {
+    const s=setup(t);s.output.isTTY=true;s.output.columns=200;s.io.env={NO_COLOR:'1'};
+    s.io.userHome=fs.realpathSync(s.h.userHome);
+    const selected=path.join(s.h.userHome,'project');fs.mkdirSync(selected);
+    const args=mode==='cwd'?['--cwd',selected]:mode==='home'?['--cwd',s.h.userHome]:mode==='all'?['--all']:mode==='session'?['--session','x']:[];
+    const label=mode==='cwd'?'~/project':mode==='home'?'~':mode==='all'?'all directories':mode==='session'?'session x':s.cwd;
+    const {result}=await s.start(args);
+    assert.ok(s.output.text.endsWith(label),`${mode}: ${JSON.stringify(s.output.text)}`);
+    assert.doesNotMatch(s.output.text,/working…/);
+    s.controller.abort();assert.equal(await result,0);
+  }
+});
+test('TTY shimmer tick continues when the spinner glyph wraps', async t => {
+  const s=setup(t);s.output.isTTY=true;s.write('busy');
+  const {result}=await s.start();
+  for(let i=0;i<5;i++){s.output.text='';await s.step(100);}
+  const first=s.output.text.split('\n').at(-1);
+  for(let i=0;i<10;i++){s.output.text='';await s.step(100);}
+  const later=s.output.text.split('\n').at(-1);
+  assert.equal(strip(first),'⠴ working…');assert.equal(strip(later),'⠴ working…');
+  assert.notEqual(first,later);
+  s.controller.abort();assert.equal(await result,0);
+});
+test('TERM=dumb keeps plain working text without shimmer', async t => {
+  const s=setup(t);s.output.isTTY=true;s.io.env={TERM:'dumb'};s.write('busy');
+  const {result}=await s.start();
+  assert.equal(s.output.text.split('\n').at(-1),'⠋ working…');
+  assert.doesNotMatch(s.output.text,/\x1b\[38;5;\d+mw/);
+  s.controller.abort();assert.equal(await result,0);
 });
 test('non-TTY and JSON output never include spinner controls', async t => {
   for(const [tty,args] of [[false,[]],[false,['--json']],[true,['--json']]]) {
     const s=setup(t);s.output.isTTY=tty;s.write('busy');
     const {result}=await s.start(args);await s.step();s.controller.abort();assert.equal(await result,0);
     assert.doesNotMatch(s.output.text,/[\r⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+    assert.doesNotMatch(s.output.text,/\x1b/);
+    assert.ok(!s.output.text.split('\n').includes(s.cwd));
+    if(args.includes('--json'))for(const line of s.output.text.trim().split('\n'))assert.doesNotThrow(()=>JSON.parse(line));
   }
 });
 
-test('TTY Ctrl-L clears screen and scrollback, redraws busy spinner and Ctrl-C restores input', async t => {
+test('TTY Ctrl-L redraws busy and idle status blocks and Ctrl-C restores input', async t => {
   for (const env of [{},{NO_COLOR:'1'}]) {
-    const s=setup(t), input=s.io.input;input.isTTY=true;s.output.isTTY=true;s.io.env=env;
+    const s=setup(t), input=s.io.input;input.isTTY=true;s.output.isTTY=true;s.output.columns=200;s.io.env=env;
     const file=s.write('keys');const {result}=await s.start();
     assert.deepEqual(input.rawModes,[true]);assert.equal(input.resumes,1);
     s.output.text='';input.emit('data','ignored\x0c');
-    assert.equal(s.output.text,'\x1b[H\x1b[2J\x1b[3J'+(env.NO_COLOR?'⠙ working…':'\x1b[2m⠙ working…\x1b[0m'));
+    assert.equal(strip(s.output.text),'\x1b[H\x1b[2J\x1b[3J'+`${s.cwd}\n⠙ working…`);
+    if(env.NO_COLOR)assert.doesNotMatch(s.output.text,/\x1b\[[0-9;]*m/);
+    else assert.match(s.output.text,/\x1b\[38;5;\d+mw/);
     fs.appendFileSync(file,JSON.stringify({type:'event_msg',payload:{type:'task_complete'}})+'\n');await s.step();
     s.output.text='';input.emit('data',Buffer.from([0x61,0x0c]));
-    assert.equal(s.output.text,'\x1b[H\x1b[2J\x1b[3J');
+    assert.equal(strip(s.output.text),'\x1b[H\x1b[2J\x1b[3J'+s.cwd);
     input.emit('data',Buffer.from([0x03,0x0c]));assert.equal(await result,0);
-    assert.equal(s.output.text,'\x1b[H\x1b[2J\x1b[3J');
+    assert.equal(strip(s.output.text),'\x1b[H\x1b[2J\x1b[3J'+s.cwd+'\r\x1b[2K');
     assert.deepEqual(input.rawModes,[true,false]);assert.equal(input.pauses,1);assert.equal(input.listenerCount('data'),0);
   }
 });

@@ -244,7 +244,7 @@ test('F4 upgrade uses context registry', async t => {
   let stdout = '', stderr = '';
   const code = await runChild({protocol: 1, expectedVersion: prepared.currentVersion, expectedStateToken: prepared.state.stateToken, invocationCwd: context.cwd}, {env: context.env, output: {write: text => stdout += text}, error: {write: text => stderr += text}}, deps);
   assert.equal(code, 0, stderr);
-  assert.match(stdout, /zeta: installed/);
+  assert.match(stdout, /zeta: harness updated/);
 });
 
 test('|S|=3 publish writes active only at anchor and markers in all homes', async t => {
@@ -374,7 +374,7 @@ test('|S|=3 install-composite publishes at claude anchor', async t => {
   const ctx = await zetaContext(t);
   const {prepared, result} = await managementPublish(ctx, {platforms: ['zeta', 'claude', 'zeta']});
   assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'zeta']);
-  assert.equal(result.messages[0], 'Mixed (Claude + Codex + Zeta) activated.');
+  assert.equal(result.messages[0], 'Mixed routing on: Claude + Codex + Zeta.');
   assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['claude', 'codex', 'zeta'], anchor: 'claude'});
   for (const id of ['claude', 'codex', 'zeta']) {
     assert.equal(fs.existsSync(active(ctx, id)), id === 'claude');
@@ -414,7 +414,7 @@ test('D1-d republish keeps v2 bytes and claude lock/store', async t => {
   const next = await management.prepareCompositeOperation(ctx, {kind: 'install', config: await mixedConfig('management-1')});
   const result = await management.executeCompositeOperation(ctx, next);
   assert.equal(result.code, 0, result.error?.stack); assert.ok(fs.readFileSync(filename).equals(before));
-  assert.equal(result.messages[0], 'Mixed (Claude + Codex) activated.');
+  assert.equal(result.messages[0], 'Mixed routing on: Claude + Codex.');
   assert.equal(fs.readFileSync(path.join(store, 'history'), 'utf8'), 'retained history');
   assert.equal(fs.existsSync(path.join(targets(ctx).claude.home, 'arc-role-platform-routing.lock')), false);
 });
@@ -432,7 +432,7 @@ test('kind preset, skipGlobal and target all remain accepted', async t => {
 });
 test('activation message uses display-ordered mixed label', async t => {
   const ctx = await compositeContext(t), {result} = await managementPublish(ctx);
-  assert.deepEqual(result.messages, ['Mixed (Claude + Codex) activated.', 'After upgrading ARC, run Install / Update again.']);
+  assert.deepEqual(result.messages, ['Mixed routing on: Claude + Codex.', 'After upgrading ARC, run Install / Update again.']);
 });
 test('management composite rejects unknown or singleton participating sets', async t => {
   const ctx = await zetaContext(t), config = await mixedConfig('invalid-set');

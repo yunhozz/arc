@@ -110,12 +110,12 @@ test('capability off surfaces: Hosts cannot check zeta and editor arrows skip it
   const registry = createZetaRegistries(ZETA_CAPABILITY_OFF).platforms, availabilityOf = id => id === 'zeta' ? unavailable : available;
   let calls = 0;
   assert.deepEqual(await editHosts({registry, hosts: [], rolePlatforms: [], availabilityOf, ui: {menu: async (_title, rows) => {
-    assert.equal(rows[2], '[ ] Zeta - Unavailable  (capability not verified)');
+    assert.equal(rows[2], '[-] Zeta    - Unavailable  (capability not verified)');
     return calls++ === 0 ? 2 : 3;
   }}}), []);
   const edited = await editRole({registry, roleName: 'Planner', current: {platform: 'codex', model: 'model-a', effort: 'high'}, availabilityOf, loadCatalog: async platform => ({platform, pairs: [{model: 'model-a', effort: 'high'}]}), defaultsFor: async () => ({model: 'model-a', effort: 'high'}), ui: {menu: async (_title, _rows, options) => {
     options.onHorizontal({...state, direction: 'right'});
-    assert.equal(options.renderBody(state).rows[0], 'Platform ‹ Claude ›');
+    assert.equal(options.renderBody(state).rows[0], 'Platform < Claude >');
     return 3;
   }}});
   assert.equal(edited.platform, 'claude');
@@ -131,7 +131,7 @@ test('capability off surfaces: off platform is absent from the normal diagram', 
 
 test('capability off surfaces: uninstall absent zeta is disabled, traces allow removal', async () => {
   for (const installed of [false, true]) {
-    const events = ['down', 'down', 'enter', 'down', 'down', 'enter', ...(installed ? ['up', 'enter', 'enter'] : []), 'escape', 'escape'];
+    const events = ['down', 'down', 'down', 'enter', 'down', 'down', 'enter', ...(installed ? ['up', 'enter', 'enter'] : []), 'escape', 'escape'];
     const screens = []; let prepared;
     const session = {viewport: () => ({columns: 120, rows: 40}), render(screen) {screens.push(screen); return {selectionEnabled: true};}, nextEvent: async () => ({name: events.shift() ?? 'escape'}), discardInput() {}, setBusy() {}, dispose() {}};
     await runTui({session, context: createZetaRegistries(ZETA_CAPABILITY_OFF), services: {collectStatus: async () => [{platform: 'zeta', state: installed ? 'incomplete' : 'absent', diagnostics: []}], currentInstallState: () => ({mode: 'standalone', platforms: []}), prepareOperation: async (_ctx, options) => {prepared = options; return {kind: 'uninstall'};}, executeOperation: async () => ({code: 0, results: []})}});
@@ -212,15 +212,15 @@ test('operational status and home wording remain unchanged with an off injected 
   assert.deepEqual(prepared.options, {kind: 'install', target: 'all'});
 });
 
-test('auth unverified info line appears in platform picker and role editor', async () => {
+test('auth unverified bottom notice appears in platform picker and role editor', async () => {
   const registry = createZetaRegistries().platforms, statuses = ['claude', 'codex', 'zeta'].map(id => statusOf(id)), availability = availabilityOf(registry, statuses);
   const expected = ['Zeta: auth unverified — ARC cannot confirm Zeta CLI login.'];
   await selectPlatform({registry, roleName: 'Planner', current: 'zeta', availabilityOf: availability, ui: {menu: async (_title, _rows, options) => {
-    assert.deepEqual(options.info({...state, selected: 2}), expected); return null;
+    assert.deepEqual(options.notice({...state, selected: 2}), expected); return null;
   }}});
   await editRole({registry, roleName: 'Planner', current: {platform: 'zeta', model: 'zeta-model', effort: 'high'}, availabilityOf: availability, loadCatalog: async platform => catalogOf(platform), defaultsFor: async () => ({model: 'sonnet', effort: 'high'}), ui: {menu: async (_title, _rows, options) => {
-    assert.deepEqual(options.info(state), expected);
-    assert.ok(options.renderBody(state).rows.includes(expected[0])); return 3;
+    assert.deepEqual(options.notice(state), expected);
+    assert.ok(options.renderBody(state).notices.includes(expected[0])); return 3;
   }}});
 });
 
@@ -230,8 +230,8 @@ test('Hosts shows auth unverified and reason line appears only when no block', a
   for (const blocked of [false, true]) {
     const saved = statuses.map(status => blocked && status.platform === 'claude' ? {...status, authentication: {authStatus: 'unauthorized'}} : status);
     await runInstallFlow({registry, statuses: saved, draft: {roles: roles('zeta'), hosts: ['claude', 'zeta']}, installState: {mode: 'standalone', platforms: []}, loadRoleDefaults: async () => ({}), loadCatalog: async id => catalogOf(id), prepare: () => assert.fail('must not prepare'), ui: {menu: async (_title, _rows, options) => {
-      if (blocked) {assert.ok(options.info.some(row => row.startsWith('! Hosts: Claude'))); assert.ok(!options.info.includes('Zeta: auth unverified'));}
-      else assert.ok(options.info.includes('Zeta: auth unverified'));
+      if (blocked) {assert.ok(options.notice.some(row => row.startsWith('! Hosts: Claude'))); assert.ok(!options.notice.includes('Zeta: auth unverified'));}
+      else assert.ok(options.notice.includes('Zeta: auth unverified'));
       return null;
     }}});
   }
@@ -240,7 +240,7 @@ test('Hosts shows auth unverified and reason line appears only when no block', a
 test('effort row fixed for single-effort platform after both arrow keys and diagram', async () => {
   const registry = createZetaRegistries().platforms;
   const value = await editRole({registry, roleName: 'Planner', current: {platform: 'zeta', model: 'zeta-model', effort: 'default'}, availabilityOf: id => id === 'zeta' ? available : unavailable, loadCatalog: async () => ({pairs: [{model: 'zeta-model', effort: 'default'}]}), defaultsFor: async () => ({model: 'zeta-model', effort: 'default'}), ui: {menu: async (_title, _rows, options) => {
-    for (const direction of ['left', 'right']) {options.onHorizontal({...state, selected: 2, direction}); assert.equal(options.renderBody({...state, selected: 2}).rows[2], 'Effort ‹ default ›');}
+    for (const direction of ['left', 'right']) {options.onHorizontal({...state, selected: 2, direction}); assert.equal(options.renderBody({...state, selected: 2}).rows[2], 'Effort < default >');}
     return 3;
   }}});
   assert.equal(value.effort, 'default');

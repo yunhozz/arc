@@ -17,11 +17,21 @@ test('shared hints exactly describe menu, page, input and busy controls',()=>{
  assert.equal(api.navigationHint('page'),'↑/↓: Scroll · Enter Back · Esc Home');
  assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');
+ assert.equal(api.navigationHint('checklist'),'↑/↓: Select · Enter Toggle · Esc Home');
 });
 test('detail wrapping preserves every escaped character without horizontal truncation',()=>{
  assert.equal(typeof api.wrapDetailRows,'function');const source='/tmp/'+('long/').repeat(30)+'END\x1b[2J\rnote';const lines=api.wrapDetailRows([source],24);
  assert.equal(lines.join(''),api.escapeTerminalText(source));assert.ok(lines.every(line=>line.length<=21));
  const wide=api.wrapDetailRows(['ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ'],12);assert.equal(wide.join(''),'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ');assert.ok(wide.every(line=>[...line].length<=4));
+});
+test('detail wrapping breaks words only when necessary and preserves hanging indentation',()=>{
+ assert.deepEqual(api.wrapDetailRows(['  alpha beta gamma delta'],18),['  alpha beta','  gamma delta']);
+ assert.deepEqual(api.wrapDetailRows(['• Mixed routing will move to the Claude home'],30),['• Mixed routing will move','  to the Claude home']);
+ assert.deepEqual(api.wrapDetailRows(['Mode     Mixed (Claude + Codex)'],25),['Mode     Mixed (Claude','         + Codex)']);
+ assert.deepEqual(api.wrapDetailRows(['Claude   abcdefghijklmnop'],18),['Claude   abcdef','         ghijkl','         mnop']);
+ assert.deepEqual(api.wrapDetailRows(['','plain text'],15),['','plain text']);
+ const wide=api.wrapDetailRows(['• ＡＢＣＤＥＦＧＨＩＪ'],12);
+ assert.deepEqual(wide,['• ＡＢＣ','  ＤＥＦ','  ＧＨＩ','  Ｊ']);
 });
 test('responsive footer remains outside selectable rows',()=>{for(const columns of [40,80,120]){const screen={title:'Menu',rows:['One','Two'],selected:1};const result=api.renderScreen(screen,{columns,rows:24});const lines=result.text.split('\n');assert.equal(lines.at(-3),'');assert.equal(lines.at(-2),'─'.repeat(columns-1));assert.equal(screen.rows.length,2);assert.equal(result.selectionEnabled,true);}});
 test('footer reserves space and blocks hidden selected actions',()=>{assert.equal(api.renderScreen({title:'Menu',rows:['Apply'],selected:0},{columns:80,rows:4}).selectionEnabled,false);});
@@ -46,7 +56,10 @@ test('narrow or short viewport uses the two-row compact heading',()=>{
  assert.deepEqual(result.styles[0].runs.slice(0,3).map(run=>run.fg),[[178,245,214],[81,221,168],[16,185,129]]);
 });
 test('cellWidth counts box drawing, sparkle and braille as one column',()=>{
- for(const character of ['═','✦','✧','⠋','─','█','▟','←'])assert.equal(api.cellWidth(character),1);assert.equal(api.cellWidth('Ａ'),2);assert.equal(api.cellWidth('\u0301'),0);
+ for(const character of ['═','✦','✧','⠋','─','█','▟','←'])assert.equal(api.cellWidth(character),1);assert.equal(api.cellWidth('Ａ'),2);assert.equal(api.cellWidth('한'),2);assert.equal(api.cellWidth('\u0301'),0);
+});
+test('cellWidth counts the locked Hosts glyph as one column',()=>{
+ assert.equal(api.cellWidth('■'),1);
 });
 test('gradient stops are pinned',()=>{
  for(const [t,want] of [[-1,[178,245,214]],[0,[178,245,214]],[1/3,[110,231,183]],[2/3,[52,211,153]],[1,[16,185,129]],[2,[16,185,129]]])assert.deepEqual(api.gradientAt(t),want);
@@ -150,7 +163,7 @@ test('diagram box shows role on top border and three inner lines',()=>{
 });
 
 test('diagram blink blanks only selected borders and keeps the role label',()=>{
- const shown=renderDiagram(),hidden=renderDiagram(diagramRoles,{selectedRole:1,blink:false});
+ const shown=renderDiagram(diagramRoles,{selectedRole:1}),hidden=renderDiagram(diagramRoles,{selectedRole:1,blink:false});
  for(let row=0;row<5;row++){
   assert.equal(hidden.rows[row].slice(0,26),shown.rows[row].slice(0,26));
   assert.equal(hidden.rows[row].slice(50),shown.rows[row].slice(50));
@@ -158,7 +171,9 @@ test('diagram blink blanks only selected borders and keeps the role label',()=>{
   assert.doesNotMatch(selected,/[┌┐└┘│─┬┴]/);
   assert.equal(selected,shown.rows[row].slice(26,50).replace(/[┌┐└┘│─┬┴]/g,' '));
  }
- assert.match(hidden.rows[0],/Planner/);
+ assert.match(shown.rows[0],/┌─ > Planner /);assert.match(hidden.rows[0],/   > Planner /);
+ assert.deepEqual(shown.rows.map(diagramCells),renderDiagram().rows.map(diagramCells));
+ assert.deepEqual(hidden.rows.map(diagramCells),shown.rows.map(diagramCells));
  const bottom=renderDiagram(diagramRoles,{selectedRole:4,blink:false});
  assert.match(bottom.rows[8],/Reviewer/);assert.doesNotMatch(bottom.rows[8].slice(39),/[┌┐─]/);
 });
@@ -211,7 +226,7 @@ test('diagram wide role labels and long models keep every box group aligned',()=
 
 test('diagram width formula includes long role labels and effort text',()=>{
  for(const [patch,columns,width] of [
-  [{role:'RoleNameLongerThanTwenty'},103,100],
+  [{role:'RoleNameLongerThanTwenty'},109,106],
   [{effort:'effort-name-longer-than-twenty'},133,130],
  ]){
   const values=diagramRoles.map((value,index)=>index===0?{...value,...patch}:value);
@@ -239,4 +254,35 @@ test('diagram escapes controls in role, platform label, model and effort',()=>{
   assert.match(text,/역할\\x1b/);assert.match(text,/Zeta\\x07/);
   if(result.mode==='full'){assert.match(text,/m\\x0d\\x0a\\x9b/);assert.match(text,/x\\x09\\u\{2028\}/);}
  }
+});
+
+test('arrow values move every 5 frames (400ms) while active without changing width',()=>{
+ assert.equal(typeof api.arrowValue,'function');
+ for(const [frame,active,want] of [[0,true,'< KR >'],[4,true,'< KR >'],[5,true,' <KR> '],[9,true,' <KR> '],[10,true,'< KR >'],[15,true,' <KR> '],[5,false,'< KR >'],[9,false,'< KR >']]){const value=api.arrowValue('KR',frame,active);assert.equal(value,want);assert.equal(value.length,6);}
+});
+
+
+test('bottom notices wrap below choices and color the complete diagnostic yellow',()=>{
+ const result=api.renderScreen({title:'Hosts',rows:['Claude','Done'],selected:0,notices:['Codex: authentication needs attention today']},{columns:40,rows:20});
+ const lines=result.text.split('\n');
+ assert.deepEqual(lines.slice(0,4).map(line=>line.trimEnd()),['Hosts','> Claude','  Done','']);
+ assert.deepEqual(lines.slice(4,6),['  Codex: authentication needs attention','  today']);
+ assert.equal(lines[6],'─'.repeat(39));
+ const style=result.styles.find(style=>style.line===4);
+ assert.equal(formatLine(lines[4],style,'16'),'\x1b[0;33m'+lines[4]+'\x1b[0m');
+ assert.equal(formatLine(lines[4],style,'truecolor'),'\x1b[0;38;2;251;191;36m'+lines[4]+'\x1b[0m');
+ for(const line of [4,5])assert.deepEqual(result.styles.find(style=>style.line===line)?.runs,[{from:0,to:lines[line].length,role:'warn',fg:[251,191,36]}]);
+ assert.equal(result.selectionEnabled,true);
+});
+
+test('footer fitting reserves notices and disables a choice hidden by them',()=>{
+ const result=api.renderScreen({title:'Menu',rows:['One','Two','Apply'],selected:2,notices:['Warning']},{columns:80,rows:7});
+ assert.deepEqual(result.text.split('\n').slice(0,-2),['Menu','  One','  Two','','  Warning']);
+ assert.equal(result.selectionEnabled,false);
+});
+
+test('fitChoiceRow keeps fitting rows and ellipsizes long rows to one line',()=>{
+ assert.equal(api.fitChoiceRow('[ ] Claude',40),'[ ] Claude');
+ const long='[-] Codex   - Unavailable  (unauthorized) (auth unverified)',fitted=api.fitChoiceRow(long,40);
+ assert.ok(fitted.endsWith('…'));assert.ok([...fitted].reduce((width,character)=>width+api.cellWidth(character),0)<=37);assert.ok(long.startsWith(fitted.slice(0,-1)));
 });
