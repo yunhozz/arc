@@ -4,14 +4,14 @@ const available=process.platform==='darwin'&&spawnSync('which',['expect']).statu
 const withoutSgr=output=>output.replace(/\x1b\[[0-9;]*m/g,'');
 const url=new URL('../../lib/tui/app.mjs',import.meta.url).href;
 const modelsUrl=new URL('../../lib/models/index.mjs',import.meta.url).href,packageUrl=new URL('../../',import.meta.url);
-async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true,latestVersion=canUpgrade?'1.10.0':'1.9.0',latestError=null,absentPlatforms=[],catalog=null,installState={mode:'standalone',platforms:[]},codexAuth='authenticated',currentConfig=null,zetaVariant=null}={}){
+async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',observe='',canUpgrade=true,latestVersion=canUpgrade?'1.10.0':'1.9.0',latestError=null,absentPlatforms=[],catalog=null,installState={mode:'standalone',platforms:[]},codexAuth='authenticated',currentConfig=null,zetaVariant=null,env=process.env}={}){
  const program=`import {createZetaRegistries,ZETA_CAPABILITY_OFF} from ${JSON.stringify(new URL('./fixtures/platforms/zeta.mjs',import.meta.url).href)};import {migrationRegistries} from ${JSON.stringify(new URL('./fixtures/legacy-composite.mjs',import.meta.url).href)};import {runTui} from ${JSON.stringify(url)};import {readFileSync} from 'node:fs';import {loadModelConfig} from ${JSON.stringify(modelsUrl)};const statuses=['codex','claude'].map(platform=>({platform,state:${JSON.stringify(absentPlatforms)}.includes(platform)?'absent':'installed',settings:{language:'en',modelConfig:loadModelConfig(readFileSync(new URL(platform+'/skill/models.toml',${JSON.stringify(packageUrl.href)}),'utf8'),platform),limits:{max_total_subagents:100,max_concurrent_subagents:5}},diagnostics:[],authentication:{authStatus:platform==='codex'?${JSON.stringify(codexAuth)}:'authenticated'},cliVersion:{version:'1.0.0'}}));if(${JSON.stringify(zetaVariant)})statuses.push({platform:'zeta',state:'absent',authentication:{authStatus:'unknown',reason:'auth_unverified'},cliVersion:{version:'1.0.0'}});${observe}let calls=0,prepares=0,preparedOptions;const before=process.stdin.isRaw;const code=await runTui({context:{...(${JSON.stringify(zetaVariant)}?createZetaRegistries(${JSON.stringify(zetaVariant==='off')}?ZETA_CAPABILITY_OFF:undefined):{}),packageRoot:${JSON.stringify(fileURLToPath(packageUrl))},...(${JSON.stringify(installState.legacyAnchor===true)}?migrationRegistries():{})},services:{...(${JSON.stringify(currentConfig)}?{readCompositeConfig:async()=>(${JSON.stringify(currentConfig)})}:{}),currentInstallState:()=>(${JSON.stringify(installState)}),collectStatus:async()=>statuses,...( ${JSON.stringify(catalog)} ? {loadCatalog:async()=>(${JSON.stringify(catalog)})} : {}),prepareOperation:async(c,o)=>{prepares++;preparedOptions=o;return{kind:o.kind,options:o,plans:${plans},currentVersion:'1.9.0',latestVersion:${JSON.stringify(latestVersion)},latestError:${JSON.stringify(latestError)},canUpgrade:${canUpgrade}};},executeOperation:async context=>{calls++;${execute}}}});console.log('OPTIONS='+JSON.stringify(preparedOptions));console.log('CODE='+code+' CALLS='+calls+' PREPARES='+prepares+' RESTORED='+(before===process.stdin.isRaw));`;
  const q=v=>"'"+v.replaceAll("'","'\\''")+"'";
  const command=`stty rows 40 cols 120; before=$(stty -g); ${q(process.execPath)} --input-type=module -e ${q(program)}; after=$(stty -g); test "$before" = "$after" && echo TERMIOS_RESTORED; stty -a`;
  // Drain completed frames between consecutive inputs so PTY output cannot block writes.
  steps=steps.replace(/expect -exact \{Total subagents\}\n/g,'expect -exact {Total subagents}\nexpect -exact {Type/Paste Input}\n').replace(/expect -exact \{Total subagents\}\n(?=send)/g,'expect -exact {Total subagents}\nexpect -re {Esc Home}\n').replace(/down\n(?=down)/g,'down\nexpect -re {Esc (Home|Exit)}\n').replace(/after 80\n(?=send|down|enter)/g,'after 80\nexpect -re {Esc Home}\n');
  const script=`set timeout 10\nexpect_before timeout {puts stderr {PTY expectation timed out}; exit 91}\nspawn -noecho /bin/sh -c {${command}}\nproc down {} {send -- "\\033\\\[B"; after 80}\nproc enter {} {send -- "\\r"; after 80}\nproc back {} {send -- "\\033"; after 80}\nexpect -exact {Esc Exit}\n${steps}\nexpect eof\nset result [wait]\nexit [lindex $result 3]`;
- const child=spawn('expect',['-c',script]);let output='';child.stdout.on('data',c=>output+=c);child.stderr.on('data',c=>output+=c);const timer=setTimeout(()=>child.kill('SIGKILL'),14000);t.after(()=>clearTimeout(timer));
+ const child=spawn('expect',['-c',script],{env});let output='';child.stdout.on('data',c=>output+=c);child.stderr.on('data',c=>output+=c);const timer=setTimeout(()=>child.kill('SIGKILL'),14000);t.after(()=>clearTimeout(timer));
  const status=await new Promise(resolve=>child.on('close',resolve));output=withoutSgr(output);assert.equal(status,0,output);assert.doesNotMatch(output,/Operation unavailable|Change\x20Models/);assert.match(output,/RESTORED=true/);assert.match(output,/TERMIOS_RESTORED/);assert.doesNotMatch(output,/-icanon/);return output;
 }
 
@@ -23,15 +23,16 @@ const input=settings+'down\nenter\nexpect -exact {Type/Paste Input}\n';
 const clear='send -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\010"\nexpect -exact {Type/Paste Input}\n';
 const settingsToApply='down\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\ndown\nexpect -exact {> Apply}\nenter\n';
 const choosePair='down\nenter\nexpect -exact {Model — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Scouter}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\n';
-test('actual app restores PTY after home Escape with no execution',{skip:!available},async t=>{
- const output=await drive(t,'back');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(withoutSgr(output),/Claude: Available \/ Codex: Available/);assert.match(output,/Mode: Claude, Codex/);assert.match(output,/Install \/ Update[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
+test('actual app Status returns home and restores PTY with no execution',{skip:!available},async t=>{
+ // Status spans contain SGR codes: synchronize on the footer and assert the stripped content below.
+ const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{env:{...process.env,NO_COLOR:undefined}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(output,/Claude: Available \/ Codex: Available/);assert.match(output,/Mode: Claude, Codex/);assert.match(output,/Install \/ Update[\s\S]*Status[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
 });
 test('legacy Apply preview shows the move line in PTY',{skip:!available},async t=>{
  const output=await drive(t,'enter\nexpect -exact {Mixed routing files will move to the Claude home.}\nback\nexpect -exact {Esc Exit}\nback',{
   installState:{mode:'composite',platforms:['claude','codex'],anchor:'codex',legacyAnchor:true},
   currentConfig:await mixedConfig('legacy-pty'),
  });
- assert.match(output,/Mode: Mixed \(Claude \+ Codex\)/);
+ assert.match(output,/Mode: +Mixed \(Claude \+ Codex\)/);
  assert.match(output,/Mixed routing files will move to the Claude home\./);
  assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
@@ -54,37 +55,37 @@ test('edited role Apply needs its own Enter and runs once',{skip:!available},asy
  const output=await drive(t,entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\n'+choosePair+moves(7)+'expect -exact {> Apply}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Are you sure/);
 });
 test('Check Version exposes a real selected upgrade row and applies once',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {1.9.0 → 1.10.0}\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/Upgraded to 1\.10\.0\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {1.9.0 → 1.10.0}\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/Upgraded to 1\.10\.0\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
 });
 test('version without an upgrade selects Back and Enter returns home',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Up to date (1.9.0)}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {Up to date (1.9.0)}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
 });
 test('Everything warning defaults Back, Back retains selection and Escape returns home',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {Remove ARC from all platforms and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {Remove ARC from all platforms and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('uninstall absent platform cannot open confirmation in PTY',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {Claude  (not installed)}\nenter\nexpect -exact {Claude  (not installed)}\ndown\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}\nback\nexpect -exact {Esc Exit}\nback',{absentPlatforms:['claude']});
+ const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {Claude  (not installed)}\nenter\nexpect -exact {Claude  (not installed)}\ndown\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}\nback\nexpect -exact {Esc Exit}\nback',{absentPlatforms:['claude']});
  assert.doesNotMatch(output,/Remove ARC from Claude\?/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('composite uninstall warning and result keep management message first in PTY',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {Mixed routing will be turned off.}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Mixed routing turned off.}\nexpect -exact {Removed from Claude.}\n'+finish.replace('expect -exact {Result}\n',''),{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},execute:"return{code:0,messages:['Mixed routing turned off.'],results:[{platform:'claude',status:'uninstalled'}]};"});
+ const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {Mixed routing will be turned off.}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Mixed routing turned off.}\nexpect -exact {Removed from Claude.}\n'+finish.replace('expect -exact {Result}\n',''),{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},execute:"return{code:0,messages:['Mixed routing turned off.'],results:[{platform:'claude',status:'uninstalled'}]};"});
  assert.match(output,/Mixed routing turned off\.[\s\S]*Removed from Claude\./);assert.match(output,/"switchFromComposite":true/);
 });
 test('version lookup failure shows one diagnostic and only Back in PTY',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {1.9.0 (latest unavailable)}\nexpect -exact {offline}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false,latestVersion:null,latestError:{message:'offline\nhidden detail'}});
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {1.9.0 (latest unavailable)}\nexpect -exact {offline}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false,latestVersion:null,latestError:{message:'offline\nhidden detail'}});
  assert.doesNotMatch(output,/hidden detail|> Upgrade/);assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);
 });
 for(const trigger of ['Ctrl+C','SIGINT','SIGTERM'])test('actual app reports cleanup after restoring PTY on '+trigger,{skip:!available},async t=>{
  const execute=`${trigger==='Ctrl+C'?'':`setTimeout(()=>process.kill(process.pid,${JSON.stringify(trigger)}),100);`}await new Promise(resolve=>context.signal.addEventListener('abort',resolve,{once:true}));await new Promise(resolve=>setTimeout(resolve,20));return{code:130,results:[{platform:'codex',status:'installed',rollback:'not-needed'},{platform:'claude',status:'failed',rollback:'failed',residualPaths:['/tmp/pty-recovery'],error:Error('cleanup failed')}]};`;
  const observe=`const original=process.stdout.write.bind(process.stdout);process.stdout.write=(chunk,...args)=>{if(String(chunk).includes('Residual path:'))original('REPORT_RESTORED='+!process.stdin.isRaw+'\\n');return original(chunk,...args);};`;
- const output=await drive(t,`down\nenter\nexpect -exact {> Upgrade}\nenter\nexpect -exact {Working}\n${trigger==='Ctrl+C'?'send -- "\\003"':''}`,{execute,observe});
+ const output=await drive(t,`down\ndown\nenter\nexpect -exact {> Upgrade}\nenter\nexpect -exact {Working}\n${trigger==='Ctrl+C'?'send -- "\\003"':''}`,{execute,observe});
  assert.match(output,/ARC installed for Codex\./);assert.match(output,/claude: failed/);assert.match(output,/Residual path: \/tmp\/pty-recovery/);assert.match(output,/cleanup failed/);assert.match(output,/CODE=130 CALLS=1/);assert.match(output,/REPORT_RESTORED=true/);
 });
 test('Settings platform selection executes once and preserves CLI explicitly',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);
+ const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);
 });
 test('Everything requires deliberate Remove and executes once despite queued Enter',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
+ const output=await drive(t,'down\ndown\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
 });
 test('EOF restores the terminal without preparing or executing',{skip:!available},async t=>{const output=await drive(t,'send -- "\\004"');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);});
 test('hidden Apply is blocked after each shrink and runs after the final resize',{skip:!available},async t=>{
@@ -101,10 +102,10 @@ test('invalid input Apply preserves editable text then correction executes once'
  const output=await drive(t,input+clear+'send -- "0"\nexpect -exact {Type/Paste Input}\nenter\nexpect -exact {Invalid limit}\nexpect -exact {Enter a positive whole number.}\nenter\nexpect -exact {Type/Paste Input}\nsend -- "\\010"\nexpect -exact {Type/Paste Input}\nsend -- "9"\nexpect -exact {Type/Paste Input}\nenter\nexpect -re {Total subagents +9}\nexpect -exact {Esc Home}\n'+settingsToApply+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"maxTotalSubagents":9/);
 });
 for(const screen of ['input','chooser','settings-target'])test('Escape from '+screen+' returns directly home in PTY',{skip:!available},async t=>{
- const steps=screen==='settings-target'?'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}':screen==='input'?input:entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — Scouter}';
+ const steps=screen==='settings-target'?'down\ndown\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}':screen==='input'?input:entry+'enter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — Scouter}';
  const output=await drive(t,steps+'\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
-for(const [name,steps] of [['Install / Update',entry],['Uninstall','down\ndown\nenter\nexpect -exact {> Claude}\n']])test('target Back returns home from '+name,{skip:!available},async t=>{
+for(const [name,steps] of [['Install / Update',entry],['Uninstall','down\ndown\ndown\nenter\nexpect -exact {> Claude}\n']])test('target Back returns home from '+name,{skip:!available},async t=>{
  const output=await drive(t,steps+'send -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('Settings Back preserves draft when reopening diagram',{skip:!available},async t=>{
@@ -122,9 +123,9 @@ test('diagram resize blocks editing and role picker retains pending effort',{ski
  const output=await drive(t,entry+'down\nexpect -exact {Menu requires}\nenter\nexpect -exact {┌─ Planner}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Platform ‹ Claude ›}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — Planner}\nenter\nexpect -exact {Effort — Planner}\ndown\nexpect -exact {EFFORT_NARROW}\nexpect -exact {EFFORT_WIDE}\nenter\nexpect -exact {Effort ‹ low ›}\nsend -- "\\003"',{catalog,observe});assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
 
-test('composite home keeps platform status and Mixed Mode in display order',{skip:!available},async t=>{
- const output=await drive(t,'back',{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},codexAuth:'unauthorized'});
- assert.match(withoutSgr(output),/Claude: Available \/ Codex: Unauthorized/);assert.match(output,/Mode: Mixed \(Claude \+ Codex\)/);assert.doesNotMatch(withoutSgr(output),/Claude & Codex: Available/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+test('composite Status keeps platform status and Mixed Mode in display order',{skip:!available},async t=>{
+ const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},codexAuth:'unauthorized'});
+ assert.match(withoutSgr(output),/Claude: Available \/ Codex: Unauthorized/);assert.match(output,/Mode: +Mixed \(Claude \+ Codex\)/);assert.doesNotMatch(withoutSgr(output),/Claude & Codex: Available/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 
 

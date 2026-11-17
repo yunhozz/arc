@@ -17,6 +17,7 @@ test('shared hints exactly describe menu, page, input and busy controls',()=>{
  assert.equal(api.navigationHint('page'),'↑/↓: Scroll · Enter Back · Esc Home');
  assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');
+ assert.equal(api.navigationHint('checklist'),'↑/↓: Select · Enter Toggle · Esc Home');
 });
 test('detail wrapping preserves every escaped character without horizontal truncation',()=>{
  assert.equal(typeof api.wrapDetailRows,'function');const source='/tmp/'+('long/').repeat(30)+'END\x1b[2J\rnote';const lines=api.wrapDetailRows([source],24);
@@ -239,4 +240,9 @@ test('diagram escapes controls in role, platform label, model and effort',()=>{
   assert.match(text,/역할\\x1b/);assert.match(text,/Zeta\\x07/);
   if(result.mode==='full'){assert.match(text,/m\\x0d\\x0a\\x9b/);assert.match(text,/x\\x09\\u\{2028\}/);}
  }
+});
+
+test('arrow values pulse only during active end frames without changing width',()=>{
+ assert.equal(typeof api.arrowValue,'function');
+ for(const [frame,active,want] of [[0,true,'< KR >'],[26,true,'< KR >'],[27,true,' <KR> '],[29,true,' <KR> '],[27,false,'< KR >'],[30,true,'< KR >']]){const value=api.arrowValue('KR',frame,active);assert.equal(value,want);assert.equal(value.length,6);}
 });

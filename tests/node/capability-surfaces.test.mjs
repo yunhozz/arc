@@ -131,7 +131,7 @@ test('capability off surfaces: off platform is absent from the normal diagram', 
 
 test('capability off surfaces: uninstall absent zeta is disabled, traces allow removal', async () => {
   for (const installed of [false, true]) {
-    const events = ['down', 'down', 'enter', 'down', 'down', 'enter', ...(installed ? ['up', 'enter', 'enter'] : []), 'escape', 'escape'];
+    const events = ['down', 'down', 'down', 'enter', 'down', 'down', 'enter', ...(installed ? ['up', 'enter', 'enter'] : []), 'escape', 'escape'];
     const screens = []; let prepared;
     const session = {viewport: () => ({columns: 120, rows: 40}), render(screen) {screens.push(screen); return {selectionEnabled: true};}, nextEvent: async () => ({name: events.shift() ?? 'escape'}), discardInput() {}, setBusy() {}, dispose() {}};
     await runTui({session, context: createZetaRegistries(ZETA_CAPABILITY_OFF), services: {collectStatus: async () => [{platform: 'zeta', state: installed ? 'incomplete' : 'absent', diagnostics: []}], currentInstallState: () => ({mode: 'standalone', platforms: []}), prepareOperation: async (_ctx, options) => {prepared = options; return {kind: 'uninstall'};}, executeOperation: async () => ({code: 0, results: []})}});

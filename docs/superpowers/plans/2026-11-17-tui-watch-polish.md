@@ -244,7 +244,7 @@ A → B → C → D → E → F → G
   - `status`: 기존 info 배열(`homeStatusLine`, `'Mode: '+…`, 진단)과 tones 규칙을 그대로 써서 `ui.menu('Status',[], {backRow:true, info, infoTones})`로 보여 준다.
   - Back이나 Esc를 누르면 홈으로 돌아간다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `tui-render.test.mjs`
     - `arrowValue('KR',0,true)==='< KR >'`
     - `arrowValue('KR',27,true)===' <KR> '`
@@ -263,10 +263,10 @@ A → B → C → D → E → F → G
     - 홈 메뉴 순서를 단언한다.
     - Mode 단언은 `/Mode: +Mixed/`로 완화한다(E에서 다시 갱신).
     - Check Version 경로의 `down` 횟수를 1 늘린다.
-- [ ] **Step 2:** `node --test tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs tests/node/tui-app-pty.test.mjs`를 실행해 FAIL을 확인한다.
-- [ ] **Step 3:** 위 Interfaces대로 구현한다.
-- [ ] **Step 4:** Step 2 명령으로 PASS를 확인한다.
-- [ ] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
+- [x] **Step 2:** `node --test tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs tests/node/tui-app-pty.test.mjs`를 실행해 FAIL을 확인한다.
+- [x] **Step 3:** 위 Interfaces대로 구현한다.
+- [x] **Step 4:** Step 2 명령으로 PASS를 확인한다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
 
 **Commit (Orchestrator):** `feat(tui): 홈 정보 제거와 Status 메뉴, 메뉴 프레임 틱과 arrowValue`
 **Criteria:** T2. T5와 T4 힌트의 기반.
