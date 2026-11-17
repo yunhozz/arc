@@ -255,7 +255,7 @@ test('tag colors follow the table and include the parenthesized part', () => {
   const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD'],
     [{kind:'command',exitCode:1},'38;5;242','CMD'],[{kind:'command',exitCode:-1},'38;5;242','CMD'],
-    [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'38;5;80','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
+    [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'38;5;101','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
     [{kind:'dispatch'},'38;5;137','DISPATCH'],[{kind:'approval'},'1;4','APPROVE'],
     [{kind:'turn_failed'},'31','FAIL'],[{kind:'error'},'31','ERROR'],[{kind:'tool_failed'},'31','TOOL!'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2',kindTag({kind})])];
@@ -281,7 +281,7 @@ test('body color matches tag color without attributes', () => {
   const table = [[{kind:'user'},'35'],[{kind:'agent'},'32'],
     [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
     [{kind:'command',exitCode:1},'38;5;242'],[{kind:'command',exitCode:-1},'38;5;242'],
-    [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'file_delete'},'31'],[{kind:'tool'},'38;5;80'],[{kind:'spawn'},'38;5;141'],
+    [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'file_delete'},'31'],[{kind:'tool'},'38;5;101'],[{kind:'spawn'},'38;5;141'],
     [{kind:'dispatch',state:'t'},'38;5;137'],[{kind:'approval'},''],
     [{kind:'turn_failed'},'31'],[{kind:'error'},'31'],[{kind:'tool_failed'},'31'],
     ...['session','turn_end','notice','settings','turn_start','reasoning','other'].map(kind => [{kind},'2'])];
