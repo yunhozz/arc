@@ -36,6 +36,13 @@ function fixture({version = '0.4.1', previous = '0.4.1', pulls = [pull()], metad
     readPackage: () => { reads.push('current'); return files; },
     readPreviousPackage: value => { reads.push(value); return {name: '@yunhozz/arc', version: previous}; },
     fetchImpl,
+    git: args => {
+      if (args[0] === 'rev-list') {
+        assert.deepEqual(args, ['rev-list', '--parents', '-n', '1', sha]); return `${sha} ${before}\n`;
+      }
+      assert.deepEqual(args, ['rev-parse', '-q', '--verify', `refs/tags/v${version}`]);
+      throw Object.assign(new Error('Tag not found.'), {status: 1});
+    },
   };
   return {ctx, files, calls, reads};
 }
@@ -208,11 +215,14 @@ function cliFixture(options = {}) {
   const env = {GITHUB_EVENT_NAME: 'push', GITHUB_EVENT_PATH: '/event.json', GITHUB_SHA: sha, GITHUB_REF: 'refs/heads/master', GITHUB_REPOSITORY: 'yunhozz/arc', GH_TOKEN: 'test-token', GITHUB_OUTPUT: '/output', GITHUB_STEP_SUMMARY: '/summary'};
   const deps = {
     argv: ['plan'], env, fetchImpl: f.ctx.fetchImpl,
+    sleep: async () => assert.fail('Unexpected retry wait.'),
     git: args => {
       gitCalls.push(args);
       if (JSON.stringify(args) === JSON.stringify(['rev-parse', `${sha}^1`])) return `${before}\n`;
       if (JSON.stringify(args) === JSON.stringify(['show', '-s', '--format=%an%x00%B', sha])) return 'yunhozz\0feat: example\n';
       if (JSON.stringify(args) === JSON.stringify(['show', `${before}:package.json`])) return JSON.stringify({name: '@yunhozz/arc', version: '0.4.1'});
+      if (args[0] === 'rev-parse' && args[1] === '-q') return f.ctx.git(args);
+      if (args[0] === 'rev-list') return f.ctx.git(args);
       assert.fail(`Unexpected git arguments: ${JSON.stringify(args)}`);
     },
     readFile: file => {
@@ -231,13 +241,121 @@ test('main push consumes the event and writes the planned outputs', async () => 
   assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: 'mode=bump\nbump=patch\nversion=0.4.2\npr=70\n'}]);
   assert.deepEqual(f.gitCalls, [['show', `${before}:package.json`]]); assert.ok(f.fileReads.includes('/event.json'));
 });
+
+function delayedPullFixture(responses, options = {}) {
+  const f = fixture(options); const waits = []; const gitCalls = [];
+  f.ctx.headCommit.message = 'Merge pull request #70 from x/y';
+  const fetchImpl = f.ctx.fetchImpl; let lookups = 0;
+  f.ctx.fetchImpl = async (url, init) => {
+    const response = await fetchImpl(url, init);
+    if (url === pullsUrl) response.json = async () => structuredClone(responses[Math.min(lookups++, responses.length - 1)]);
+    return response;
+  };
+  f.ctx.git = args => {
+    gitCalls.push(args); assert.deepEqual(args, ['rev-list', '--parents', '-n', '1', sha]);
+    return `${sha} ${before} ${'c'.repeat(40)}\n`;
+  };
+  f.ctx.sleep = async milliseconds => waits.push(milliseconds);
+  return {...f, waits, gitCalls};
+}
+for (const [attempt, expectedWaits] of [[1, [5000]], [2, [5000, 10000]], [3, [5000, 10000, 20000]]]) {
+  test(`merge PR lookup recovers on retry ${attempt} with bounded backoff`, async () => {
+    const f = delayedPullFixture([...Array.from({length: attempt}, () => []), [pull()]]);
+    assert.deepEqual(await api.planRelease(f.ctx), bump);
+    assert.deepEqual(f.waits, expectedWaits);
+    assert.deepEqual(f.gitCalls, [['rev-list', '--parents', '-n', '1', sha]]);
+    assert.deepEqual(f.calls.map(call => call.url), [...Array(attempt + 1).fill(pullsUrl), registryUrl]);
+  });
+}
+test('merge PR lookup fails with Re-run guidance after exactly three empty retries', async () => {
+  const f = delayedPullFixture([[]]);
+  await assert.rejects(api.planRelease(f.ctx), /Re-run/);
+  assert.deepEqual(f.waits, [5000, 10000, 20000]);
+  assert.deepEqual(f.calls.map(call => call.url), Array(4).fill(pullsUrl));
+});
+test('direct-pushed merge commits with no eligible PR skip without waiting or retrying', async () => {
+  const f = delayedPullFixture([[]]);
+  f.ctx.headCommit.message = "Merge branch 'master' of github.com:yunhozz/arc";
+  assert.deepEqual(await api.planRelease(f.ctx), skip);
+  assert.deepEqual(f.waits, []);
+  assert.deepEqual(f.calls.map(call => call.url), [pullsUrl]);
+});
+test('merge PR lookup retries when results contain only ineligible PRs', async () => {
+  const f = delayedPullFixture([[pull({merge_commit_sha: before})], [pull({merged_at: null})], [pull({base: {ref: 'develop'}})], [pull({labels: [{name: 'release:skip'}]})]]);
+  assert.deepEqual(await api.planRelease(f.ctx), skip);
+  assert.deepEqual(f.waits, [5000, 10000, 20000]);
+  assert.deepEqual(f.calls.map(call => call.url), Array(4).fill(pullsUrl));
+});
+test('single-parent commits with no eligible PR skip without waiting', async () => {
+  const f = delayedPullFixture([[]]);
+  f.ctx.git = args => {
+    assert.deepEqual(args, ['rev-list', '--parents', '-n', '1', sha]); return `${sha} ${before}\n`;
+  };
+  assert.deepEqual(await api.planRelease(f.ctx), skip);
+  assert.deepEqual(f.waits, []); assert.deepEqual(f.calls.map(call => call.url), [pullsUrl]);
+});
+test('merge PR retries propagate HTTP errors without further waits or registry access', async () => {
+  const f = delayedPullFixture([[]]); const fetchImpl = f.ctx.fetchImpl; let count = 0;
+  f.ctx.fetchImpl = async (url, init) => {
+    const response = await fetchImpl(url, init);
+    if (++count === 2) return {...response, ok: false, status: 403};
+    return response;
+  };
+  await assert.rejects(api.planRelease(f.ctx), /GitHub pull request request failed: 403/);
+  assert.deepEqual(f.waits, [5000]); assert.deepEqual(f.calls.map(call => call.url), [pullsUrl, pullsUrl]);
+});
+test('merge PR retries reject ambiguous matching PRs immediately', async () => {
+  const f = delayedPullFixture([[], [pull(), pull({number: 71})]]);
+  await assert.rejects(api.planRelease(f.ctx), /Multiple merged pull requests/);
+  assert.deepEqual(f.waits, [5000]); assert.deepEqual(f.calls.map(call => call.url), [pullsUrl, pullsUrl]);
+});
+test('main injects git and fake sleep into delayed merge PR planning', async () => {
+  const f = cliFixture(); const delayed = delayedPullFixture([[], [pull()]]);
+  f.deps.fetchImpl = delayed.ctx.fetchImpl; f.deps.sleep = delayed.ctx.sleep;
+  const readFile = f.deps.readFile;
+  f.deps.readFile = file => file === '/event.json'
+    ? JSON.stringify({before, head_commit: {author: {name: 'yunhozz'}, message: 'Merge pull request #70 from x/y'}})
+    : readFile(file);
+  const git = f.deps.git;
+  f.deps.git = args => args[0] === 'rev-list' ? delayed.ctx.git(args) : git(args);
+  await api.main(f.deps);
+  assert.deepEqual(delayed.waits, [5000]);
+  assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: 'mode=bump\nbump=patch\nversion=0.4.2\npr=70\n'}]);
+});
+for (const [name, message, retries] of [
+  ['PR merge', 'Merge pull request #70 from x/y', true],
+  ['direct-pushed merge', "Merge branch 'master' of github.com:yunhozz/arc", false],
+]) test(`main dry-run uses the git commit message to decide retries for a ${name}`, async () => {
+  const f = cliFixture(); const delayed = delayedPullFixture([[]]);
+  Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'dry-run'});
+  f.deps.fetchImpl = delayed.ctx.fetchImpl; f.deps.sleep = delayed.ctx.sleep;
+  const git = f.deps.git;
+  f.deps.git = args => {
+    if (args[0] === 'rev-list') return delayed.ctx.git(args);
+    if (JSON.stringify(args) === JSON.stringify(['show', '-s', '--format=%an%x00%B', sha])) return `yunhozz\0${message}\n`;
+    return git(args);
+  };
+  if (retries) {
+    await assert.rejects(api.main(f.deps), /Re-run/);
+    assert.deepEqual(delayed.waits, [5000, 10000, 20000]);
+    assert.deepEqual(delayed.calls.map(call => call.url), Array(4).fill(pullsUrl));
+    assert.deepEqual(f.writes, []);
+  } else {
+    await api.main(f.deps);
+    assert.deepEqual(delayed.waits, []);
+    assert.deepEqual(delayed.calls.map(call => call.url), [pullsUrl]);
+    assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: 'mode=dry-run\nbump=\nversion=\npr=\n'}]);
+  }
+  assert.equal(f.fileReads.includes('/event.json'), false);
+});
 test('main dry-run uses master first parent and git head metadata, logs evaluation and writes summary', async () => {
   ready('main'); const f = cliFixture(); Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'dry-run'});
   await api.main(f.deps);
   assert.deepEqual(f.gitCalls, [['rev-parse', `${sha}^1`], ['show', '-s', '--format=%an%x00%B', sha], ['show', `${before}:package.json`]]);
   assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: 'mode=dry-run\nbump=patch\nversion=0.4.2\npr=70\n'}]);
   const summary = f.writes.find(write => write.file === '/summary')?.value;
-  assert.match(summary, /bump/); assert.match(summary, /0\.4\.2/); assert.match(f.logs.join('\n'), /0\.4\.2/);
+  assert.equal(summary, 'Dry-run evaluation:\nmode=bump\nbump=patch\nversion=0.4.2\npr=70\nmode=dry-run\nbump=patch\nversion=0.4.2\npr=70\n');
+  assert.match(f.logs.join('\n'), /0\.4\.2/);
   assert.equal(f.fileReads.includes('/event.json'), false);
 });
 test('main dry-run preserves skip evaluation and allows absent optional summary', async () => {
@@ -254,11 +372,64 @@ test('main rejects non-master dispatch before reads and propagates dry-run evalu
   const f = cliFixture({registryStatus: 500}); Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'dry-run'});
   await assert.rejects(api.main(f.deps), /npm registry request failed: 500/); assert.deepEqual(f.writes, []);
 });
-test('main publish-current needs neither event nor git reads', async () => {
+test('main publish-current checks the local version tag without reading an event', async () => {
   ready('main'); const f = cliFixture({version: '0.4.2'}); Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'publish-current'});
   await api.main(f.deps);
-  assert.deepEqual(f.gitCalls, []); assert.equal(f.fileReads.includes('/event.json'), false);
+  assert.deepEqual(f.gitCalls, [['rev-parse', '-q', '--verify', 'refs/tags/v0.4.2']]); assert.equal(f.fileReads.includes('/event.json'), false);
   assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: 'mode=publish-current\nbump=\nversion=0.4.2\npr=\n'}]);
+});
+
+test('publish-current accepts a matching stable tag and preserves registry decisions', async () => {
+  for (const [version, expected] of [
+    ['0.4.2', {mode: 'publish-current', bump: '', version: '0.4.2', pr: ''}], ['0.4.1', skip],
+  ]) {
+    const f = fixture({version}); Object.assign(f.ctx, {trigger: 'publish-current', ref: `refs/tags/v${version}`});
+    f.ctx.git = () => assert.fail('Tag dispatch must not check master tags.');
+    assert.deepEqual(await api.planRelease(f.ctx), expected);
+  }
+  const f = fixture({version: '0.4.0'}); Object.assign(f.ctx, {trigger: 'publish-current', ref: 'refs/tags/v0.4.0'});
+  await assert.rejects(api.planRelease(f.ctx), /New version must be greater than npm latest/);
+});
+test('publish-current rejects mismatched tags before registry access', async () => {
+  const f = fixture({version: '0.4.2'}); Object.assign(f.ctx, {trigger: 'publish-current', ref: 'refs/tags/v0.4.3'});
+  await assert.rejects(api.planRelease(f.ctx), /tag.*version|version.*tag/i);
+  assert.deepEqual(f.calls, []);
+});
+test('publish-current rejects invalid tag refs before package reads', async () => {
+  for (const ref of ['refs/tags/v01.4.2', 'refs/tags/v0.4.2-rc.1', 'refs/tags/v0.4.2\n', 'refs/heads/feature']) {
+    const f = fixture(); Object.assign(f.ctx, {trigger: 'publish-current', ref});
+    await assert.rejects(api.planRelease(f.ctx)); assert.deepEqual(f.reads, []); assert.deepEqual(f.calls, []);
+  }
+});
+test('publish-current on master refuses an existing tag with a tag dispatch command', async () => {
+  for (const version of ['0.4.1', '0.4.2']) {
+    const f = fixture({version}); f.ctx.trigger = 'publish-current';
+    f.ctx.git = async args => {
+      assert.deepEqual(args, ['rev-parse', '-q', '--verify', `refs/tags/v${version}`]); return `${sha}\n`;
+    };
+    await assert.rejects(api.planRelease(f.ctx), error => {
+      assert.ok(error.message.includes(`gh workflow run npm-publish.yml -r v${version} -f action=publish-current`)); return true;
+    });
+    assert.deepEqual(f.calls, []);
+  }
+});
+test('publish-current propagates unexpected git failures instead of treating tags as absent', async () => {
+  const f = fixture({version: '0.4.2'}); f.ctx.trigger = 'publish-current';
+  const failure = Object.assign(new Error('Git failed.'), {status: 128}); f.ctx.git = () => { throw failure; };
+  await assert.rejects(api.planRelease(f.ctx), error => error === failure); assert.deepEqual(f.calls, []);
+});
+test('main publish-current accepts tag dispatch and preserves its version outputs', async () => {
+  const f = cliFixture({version: '0.4.2'});
+  Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'publish-current', GITHUB_REF: 'refs/tags/v0.4.2'});
+  await api.main(f.deps);
+  assert.deepEqual(f.gitCalls, []);
+  assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: 'mode=publish-current\nbump=\nversion=0.4.2\npr=\n'}]);
+});
+test('main dry-run rejects a stable tag dispatch without any reads or outputs', async () => {
+  const f = cliFixture();
+  Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'dry-run', GITHUB_REF: 'refs/tags/v0.4.2'});
+  await assert.rejects(api.main(f.deps), /master/);
+  assert.deepEqual(f.fileReads, []); assert.deepEqual(f.gitCalls, []); assert.deepEqual(f.writes, []);
 });
 test('main published writes the prepublish registry recheck result', async () => {
   ready('main');
@@ -266,4 +437,52 @@ test('main published writes the prepublish registry recheck result', async () =>
     const f = cliFixture(); f.deps.argv = ['published']; f.env.VERSION = version; await api.main(f.deps);
     assert.deepEqual(f.writes, [{file: '/output', value: expected}]); assert.deepEqual(f.gitCalls, []); assert.deepEqual(f.fileReads, []);
   }
+});
+
+test('main rejects invalid release actions without reads or outputs on any ref', async () => {
+  for (const ref of ['refs/heads/master', 'refs/tags/v0.4.2', 'refs/heads/feature']) {
+    for (const action of [undefined, '', 'publish', 'dry-run\ninjected']) {
+      const f = cliFixture();
+      Object.assign(f.env, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: action, GITHUB_REF: ref});
+      await assert.rejects(api.main(f.deps), {message: 'Invalid release action.'});
+      assert.deepEqual(f.writes, []); assert.deepEqual(f.fileReads, []);
+      assert.deepEqual(f.gitCalls, []); assert.deepEqual(f.calls, []);
+    }
+  }
+});
+test('main rejects unsupported events without reads or outputs', async () => {
+  for (const event of ['pull_request', 'schedule', '', undefined]) {
+    const f = cliFixture(); f.env.GITHUB_EVENT_NAME = event;
+    await assert.rejects(api.main(f.deps), {message: 'Invalid release event.'});
+    assert.deepEqual(f.writes, []); assert.deepEqual(f.fileReads, []);
+    assert.deepEqual(f.gitCalls, []); assert.deepEqual(f.calls, []);
+  }
+});
+
+for (const [name, options, env, expected] of [
+  ['push bump', {pulls: [pull({title: 'UNTRUSTED_TITLE\nmode=manual', labels: [{name: 'UNTRUSTED_LABEL\nversion=9.9.9'}]})]}, {}, 'mode=bump\nbump=patch\nversion=0.4.2\npr=70\n'],
+  ['push manual', {version: '0.4.2'}, {}, 'mode=manual\nbump=\nversion=0.4.2\npr=\n'],
+  ['push skip', {pulls: []}, {}, 'mode=skip\nbump=\nversion=\npr=\n'],
+  ['master publish-current', {version: '0.4.2'}, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'publish-current'}, 'mode=publish-current\nbump=\nversion=0.4.2\npr=\n'],
+  ['tag publish-current', {version: '0.4.2'}, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'publish-current', GITHUB_REF: 'refs/tags/v0.4.2'}, 'mode=publish-current\nbump=\nversion=0.4.2\npr=\n'],
+  ['tag published skip', {}, {GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_ACTION: 'publish-current', GITHUB_REF: 'refs/tags/v0.4.1'}, 'mode=skip\nbump=\nversion=\npr=\n'],
+]) {
+  test(`main records only validated outputs in the ${name} summary`, async () => {
+    const f = cliFixture(options); Object.assign(f.env, env);
+    await api.main(f.deps);
+    assert.deepEqual(f.writes.filter(write => write.file === '/summary'), [{file: '/summary', value: expected}]);
+    assert.deepEqual(f.writes.filter(write => write.file === '/output'), [{file: '/output', value: expected}]);
+  });
+}
+test('main allows an absent optional summary for push and publish-current', async () => {
+  for (const event of ['push', 'workflow_dispatch']) {
+    const f = cliFixture({version: '0.4.2'});
+    Object.assign(f.env, {GITHUB_EVENT_NAME: event, RELEASE_ACTION: 'publish-current'}); delete f.env.GITHUB_STEP_SUMMARY;
+    await api.main(f.deps);
+    assert.equal(f.writes.length, 1); assert.equal(f.writes[0].file, '/output');
+  }
+});
+test('main writes neither summary nor output when a planned PR value is invalid', async () => {
+  const f = cliFixture({pulls: [pull({number: '70\nINJECTED'})]});
+  await assert.rejects(api.main(f.deps), /Invalid release outputs/); assert.deepEqual(f.writes, []);
 });

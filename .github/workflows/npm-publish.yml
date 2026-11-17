@@ -11,7 +11,7 @@ on:
         required: true
 permissions: {}
 concurrency:
-  group: npm-publish
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'dry-run' && 'npm-publish-dry-run' || 'npm-publish' }}
   cancel-in-progress: false
 jobs:
   plan:

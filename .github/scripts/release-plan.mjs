@@ -74,18 +74,35 @@ function requireAboveLatest(version, metadata) {
   if (!isGreater(version, metadata['dist-tags'].latest)) fail('New version must be greater than npm latest.');
 }
 
+function tagVersion(ref) {
+  const version = typeof ref === 'string' && ref.startsWith('refs/tags/v') ? ref.slice('refs/tags/v'.length) : '';
+  return isStableVersion(version) ? version : '';
+}
+
 export async function planRelease(ctx) {
   if (ctx.trigger === 'push') {
     if (isReleaseCommit(ctx.headCommit)) return skip();
     if (typeof ctx.before !== 'string' || ctx.before.length !== 40 || !/^[a-f0-9]{40}$/.test(ctx.before) || /^0+$/.test(ctx.before)) fail('Missing previous master commit; cannot establish a version change.');
   } else if (ctx.trigger === 'publish-current') {
-    if (ctx.ref !== 'refs/heads/master') fail('Release dispatch requires refs/heads/master.');
+    if (ctx.ref !== 'refs/heads/master' && !tagVersion(ctx.ref)) fail('Release dispatch requires refs/heads/master or a stable version tag.');
   } else {
     fail('Invalid release trigger.');
   }
 
   const current = validatePackage(await ctx.readPackage());
   if (ctx.trigger === 'publish-current') {
+    if (ctx.ref === 'refs/heads/master') {
+      let exists = false;
+      try {
+        await ctx.git(['rev-parse', '-q', '--verify', `refs/tags/v${current.version}`]);
+        exists = true;
+      } catch (error) {
+        if (error.status !== 1) throw error;
+      }
+      if (exists) fail(`Release tag exists; run gh workflow run npm-publish.yml -r v${current.version} -f action=publish-current`);
+    } else if (tagVersion(ctx.ref) !== current.version) {
+      fail('Release tag version must match package.json version.');
+    }
     const metadata = await readRegistry(ctx.fetchImpl);
     if (hasPublishedVersion(metadata, current.version)) return skip();
     requireAboveLatest(current.version, metadata);
@@ -103,12 +120,26 @@ export async function planRelease(ctx) {
   }
 
   if (typeof ctx.repo !== 'string' || /[\r\n]/.test(ctx.repo) || !/^[\w.-]+\/[\w.-]+$/.test(ctx.repo)) fail('Invalid GitHub repository.');
-  const response = await ctx.fetchImpl(`https://api.github.com/repos/${ctx.repo}/commits/${ctx.sha}/pulls`, {
-    headers: {Authorization: `Bearer ${ctx.token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!response.ok) fail(`GitHub pull request request failed: ${response.status}`);
-  const pull = selectMergedPullRequest(await response.json(), ctx.sha);
+  const readPull = async () => {
+    const response = await ctx.fetchImpl(`https://api.github.com/repos/${ctx.repo}/commits/${ctx.sha}/pulls`, {
+      headers: {Authorization: `Bearer ${ctx.token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) fail(`GitHub pull request request failed: ${response.status}`);
+    return selectMergedPullRequest(await response.json(), ctx.sha);
+  };
+  let pull = await readPull();
+  if (!pull) {
+    const parents = String(await ctx.git(['rev-list', '--parents', '-n', '1', ctx.sha])).trim().split(/\s+/);
+    if (parents.length === 3 && /^Merge pull request #[1-9]\d*/.test(ctx.headCommit?.message)) {
+      for (const delay of [5000, 10000, 20000]) {
+        await ctx.sleep(delay);
+        pull = await readPull();
+        if (pull) break;
+      }
+      if (!pull) fail('Merged pull request is not available yet; Re-run this workflow.');
+    }
+  }
   if (!pull) return skip();
   const decision = decideBump(pull.labels);
   if (decision.mode === 'skip') return skip();
@@ -141,7 +172,7 @@ export async function isPublished(fetchImpl, version) {
   return hasPublishedVersion(await readRegistry(fetchImpl), version);
 }
 
-export async function main({argv, env, fetchImpl, git, readFile, appendFile, log}) {
+export async function main({argv, env, fetchImpl, git, sleep, readFile, appendFile, log}) {
   if (argv[0] === 'published') {
     const published = await isPublished(fetchImpl, env.VERSION);
     await appendFile(env.GITHUB_OUTPUT, `published=${published}\n`);
@@ -149,12 +180,13 @@ export async function main({argv, env, fetchImpl, git, readFile, appendFile, log
   }
   if (argv[0] !== 'plan') fail('Expected plan or published command.');
   const dispatch = env.GITHUB_EVENT_NAME === 'workflow_dispatch';
-  if (dispatch && env.GITHUB_REF !== 'refs/heads/master') fail('Release dispatch requires refs/heads/master.');
   if (dispatch && !['dry-run', 'publish-current'].includes(env.RELEASE_ACTION)) fail('Invalid release action.');
+  if (dispatch && env.GITHUB_REF !== 'refs/heads/master'
+      && (env.RELEASE_ACTION === 'dry-run' || !tagVersion(env.GITHUB_REF))) fail('Release dispatch requires refs/heads/master or a stable version tag for publish-current.');
   if (!dispatch && env.GITHUB_EVENT_NAME !== 'push') fail('Invalid release event.');
   const ctx = {
     trigger: dispatch && env.RELEASE_ACTION === 'publish-current' ? 'publish-current' : 'push',
-    sha: env.GITHUB_SHA, ref: env.GITHUB_REF, repo: env.GITHUB_REPOSITORY, token: env.GH_TOKEN, fetchImpl,
+    sha: env.GITHUB_SHA, ref: env.GITHUB_REF, repo: env.GITHUB_REPOSITORY, token: env.GH_TOKEN, fetchImpl, git, sleep,
     readPackage: async () => ({pkg: JSON.parse(await readFile('package.json', 'utf8')), lock: JSON.parse(await readFile('package-lock.json', 'utf8'))}),
     readPreviousPackage: async before => JSON.parse(await git(['show', `${before}:package.json`])),
   };
@@ -171,11 +203,13 @@ export async function main({argv, env, fetchImpl, git, readFile, appendFile, log
   }
   const plan = await planRelease(ctx);
   const outputs = formatOutputs(dryRun ? {...plan, mode: 'dry-run'} : plan);
+  let summary = outputs;
   if (dryRun) {
     const evaluation = `Dry-run evaluation:\n${formatOutputs(plan)}`;
     log(evaluation);
-    if (env.GITHUB_STEP_SUMMARY) await appendFile(env.GITHUB_STEP_SUMMARY, evaluation);
+    summary = evaluation + outputs;
   }
+  if (env.GITHUB_STEP_SUMMARY) await appendFile(env.GITHUB_STEP_SUMMARY, summary);
   await appendFile(env.GITHUB_OUTPUT, outputs);
 }
 
@@ -183,6 +217,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   await main({
     argv: process.argv.slice(2), env: process.env, fetchImpl: globalThis.fetch,
     git: args => execFileSync('git', args, {encoding: 'utf8'}),
+    sleep: milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
     readFile: readFileSync, appendFile: appendFileSync, log: console.log,
   });
 }

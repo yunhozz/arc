@@ -58,7 +58,7 @@ test('triggers and top-level permissions', () => {
   assert.match(header, /default: dry-run/);
   assert.match(header, /required: true/);
   assert.match(header, /^permissions: \{\}$/m);
-  assert.match(header, /concurrency:\n  group: npm-publish\n  cancel-in-progress: false/);
+  assert.ok(header.includes("concurrency:\n  group: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'dry-run' && 'npm-publish-dry-run' || 'npm-publish' }}\n  cancel-in-progress: false"));
   assert.deepEqual(Object.keys(jobs), ['plan', 'rehearse', 'release', 'publish']);
   assert.doesNotMatch(workflow, /^  eligibility:|^    environment:/m);
 });

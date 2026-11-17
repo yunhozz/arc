@@ -30,8 +30,8 @@
 
 - Q1 dry-run: dispatch 시점 master tip을 push처럼 평가(`before`=첫 부모, head commit은 git에서 읽음)하고 결과를 로그·step summary에 남긴다. 이어서 `rehearse` job이 작업공간 안에서만 bump·manifest 재생성·pack·verify를 수행한다(push·publish·id-token 없음). 평가 실패 시 run 실패.
 - Q2 PR은 연결됐지만 `merge_commit_sha` 불일치: 후보에서 제외, 후보 0개면 skip.
-- Q3 master가 아닌 ref의 dispatch: `dry-run`·`publish-current` 모두 실패.
-- Q4 `publish-current`는 `v$VERSION` tag 존재를 검사하지 않는다.
+- Q3 master가 아닌 ref의 dispatch: `dry-run`은 실패. `publish-current`는 v2부터 F1의 tag ref 규칙을 따른다.
+- Q4 ~~`publish-current`는 `v$VERSION` tag 존재를 검사하지 않는다.~~ v2에서 F1으로 대체.
 - Q5 bot commit 판정: 작성자 `github-actions[bot]` + 메시지(끝 공백·개행만 제거)가 `^v\d+\.\d+\.\d+$`와 일치.
 - Q6 publish 직전 재확인에서 registry 404는 실패(기존 안내 문구).
 - Q7 publish job `if`는 `!cancelled()` + 결과 명시 검사(`always()` 금지 유지).
@@ -164,6 +164,37 @@
 
 **진행 기록 (2026-11-17, 수락):** 첫 시도는 Implementer 패치 형식 오류(같은 경로 Delete+Add 거부)로 변경 없이 중단, 같은 Implementer가 재개. RED 1/11(기존 워크플로) → GREEN 60/60(두 테스트 파일). `npm run check:manifest` 통과, 보호 파일 diff 없음, Ruby YAML 파싱 통과, actionlint 미설치로 미실행. fresh QA가 C1–C6 proven, 워크플로 사본 변형 시 테스트 실패 확인, 임시 저장소에서 release 검증 블록(`bash -e`, tag 조회 exit 2/0/128) 시뮬레이션. 실제 GitHub Actions 실행·`!cancelled()` 평가는 병합 후 dry-run과 첫 실전에서 확인.
 
+## 최종 리뷰 후속 F1 (v2, 최종 Reviewer 발견 사항 M1·M2·L1·L2·L3)
+
+**목표:** 최종 Reviewer 발견 사항 중 사용자가 선택한 5건을 반영한다. L4(action SHA 고정)는 범위 밖.
+
+**Files:** `.github/scripts/release-plan.mjs`, `tests/node/release-plan.test.mjs`, `.github/workflows/npm-publish.yml`, `tests/node/npm-publish-workflow.test.mjs`
+
+**선행:** T1·T2 수락·커밋(992254d, 19ecf38). 최종 Reviewer 수정 루프: Implementer → Reviewer(QA 재배정 없음), 수정은 Reviewer 재확인까지 미커밋, 이후 하나의 focused commit.
+
+**계약:**
+- F1-M1 `publish-current` tag 정합성(provenance가 실제 publish 내용과 같은 commit을 가리키도록 dispatch ref를 tag로 둔다):
+  - `ref`가 `refs/tags/v<X.Y.Z>`이면: `package.json` version이 `X.Y.Z`와 같아야 하고(다르면 실패), 이후 기존 publish-current 판정(일관성, 이미 게시 skip, 미게시·latest 초과 → `publish-current`, 그 외 실패).
+  - `ref`가 `refs/heads/master`이면: 로컬 tag `v$VERSION`(현재 `package.json` version)이 존재하는지 주입된 git으로 확인(`git rev-parse -q --verify refs/tags/v$VERSION`, plan job은 `fetch-depth: 0`). 존재하면 실패하고 메시지에 `-r v$VERSION`로 다시 실행하라는 안내(`gh workflow run npm-publish.yml -r v<version> -f action=publish-current`)를 포함한다. 존재하지 않으면(수동 version push 등) 기존 publish-current 판정.
+  - 그 외 ref는 실패. `dry-run`은 여전히 master만 허용.
+  - 워크플로 publish job checkout은 기존 `github.sha` 규칙 유지(tag dispatch이면 `github.sha`가 tag commit).
+- F1-M2 merge commit PR 조회 지연: pulls 결과에서 적격 PR이 0개일 때, 주입된 git으로 `git rev-list --parents -n 1 <sha>`를 확인한다. 부모가 2개(merge commit)이고 head commit 메시지가 `^Merge pull request #[1-9]\d*`로 시작하면(v3, N1) 주입된 `sleep`으로 5초·10초·20초 대기하며 최대 3회 재조회하고, 그래도 0개면 실패(메시지에 "Re-run" 안내). 부모 1개이거나, 부모 2개라도 메시지가 해당 형식이 아니면(직접 push한 merge commit) 기존대로 skip. 메시지는 push 이벤트의 `head_commit.message`(dry-run은 git `%B`)를 쓰며 PR 제목은 쓰지 않는다. `main`은 실제 `setTimeout` 기반 sleep을 주입하고 테스트는 가짜 sleep을 주입한다.
+- F1-L1 concurrency: dispatch `dry-run`은 별도 그룹 `npm-publish-dry-run`, 그 외는 `npm-publish`. `cancel-in-progress: false` 유지. 그룹 값은 `${{ github.event_name == 'workflow_dispatch' && inputs.action == 'dry-run' && 'npm-publish-dry-run' || 'npm-publish' }}`.
+- F1-L2 모든 trigger에서 판정 결과(`formatOutputs` 결과, dry-run은 기존 평가 문구 포함)를 `GITHUB_STEP_SUMMARY`가 있으면 기록한다. 검증된 값만 기록하고 PR 제목·라벨 문자열은 기록하지 않는다.
+- F1-L3 `main`이 잘못된 `RELEASE_ACTION`과 push·workflow_dispatch가 아닌 이벤트를 거부하고 `GITHUB_OUTPUT`에 아무것도 쓰지 않음을 테스트로 고정한다.
+
+**TDD:** 각 항목은 실패 테스트 먼저(RED) → 구현(GREEN). 워크플로 테스트는 concurrency 그룹 단언을 새 식으로 바꾼다.
+
+**필수 검사:** `node --test tests/node/release-plan.test.mjs tests/node/npm-publish-workflow.test.mjs`, `node --check .github/scripts/release-plan.mjs`, `npm run check:manifest`, `git diff --exit-code 6dc62d4 -- scripts/deploy.sh MANIFEST.sha256 README.md`. 이후 Reviewer 재확인.
+
+**수락 기준:** F1-M1, F1-M2, F1-L1, F1-L2, F1-L3 각각 테스트로 증명, 기존 T1·T2 계약 유지(기존 테스트 통과), 보호 파일 불변.
+
+- [x] F1 구현 (Implementer)
+- [x] Reviewer 재확인
+- [x] 수락·커밋 `fix(ci): 릴리스 복구·PR 조회 지연·dry-run 동시성 보완`
+
+**진행 기록 (2026-11-17, 수락):** fresh Implementer가 M1·M2·L1·L2·L3 구현(항목별 RED→GREEN, 86/86), Reviewer 재확인 승인 + N1(low) 신규. 사용자 승인으로 v3 개정 후 fresh Implementer가 N1 반영(RED 87/2 → GREEN 89/89), Reviewer 재확인 승인. `node --check`, `npm run check:manifest`, 보호 파일 diff 통과. 정보성 잔여: 사용자 지정 merge 제목은 재조회 없이 skip(summary로 확인 가능), tag dispatch commit의 master 조상 여부 미검사, squash/rebase merge 전환 시 M2 재검토 필요.
+
 ---
 
 ## 최종 검증 (모든 task 수락 후)
@@ -183,9 +214,12 @@
 5. 비활성 상태에서 `workflow_dispatch` `dry-run` 성공 확인 후 `NPM_PUBLISH_ENABLED=true`.
 6. 첫 실전 merge로 0.4.2 확인. merge 후 로컬 `git pull` 필요.
 7. 미확인 항목(concurrency 대기 run 취소, 30일 재실행 제한)은 dry-run·첫 실전에서 확인.
+8. publish 실패 복구는 우선 해당 run의 "Re-run failed jobs", 불가하면 `gh workflow run npm-publish.yml -r v<version> -f action=publish-current`. tag commit 자체가 pack/verify에서 실패하는 결함을 담고 있으면 두 경로 모두 실패하므로, 결함 수정과 함께 version을 직접 올리는 PR(manual mode)로 복구한다.
 
 ## Revision history
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
 | v1 | 2026-11-17 | Planner 초안 + Orchestrator 개정: Q1–Q7 확정, dry-run에 `rehearse` job(pack·verify 리허설) 추가(설계 초안의 dry-run 범위 반영), Q5 끝 공백 제거, Trusted Publisher 완료 반영 |
+| v2 | 2026-11-17 | 최종 Reviewer 발견 사항 반영(사용자 승인): F1 절 추가(M1 publish-current tag ref, M2 merge commit 재조회 후 실패, L1 dry-run concurrency 분리, L2 step summary, L3 거부 분기 테스트), Q3·Q4 갱신, 복구 안내 추가 |
+| v3 | 2026-11-17 | F1 Reviewer 재확인 N1 반영(사용자 승인): M2 재조회는 메시지가 `Merge pull request #N`인 merge commit만 대상, 그 외 직접 push merge commit은 skip. 복구 안내에 manual mode 경로 추가(I-c) |
