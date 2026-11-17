@@ -130,7 +130,7 @@ A → B → C → D → E → F → G
     - 이 줄도 width-1로 자른다.
   - `fancy = color && env.TERM !== 'dumb'`
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `watch-status-line.test.mjs`
     - `watchLocationLabel`: 세 가지 모드와 `~` 축약(`/home/u/proj` → `~/proj`, home 자체 → `~`)
     - `statusBlockLines`
@@ -150,8 +150,8 @@ A → B → C → D → E → F → G
   - 신규 `TERM=dumb keeps plain working line`: TTY에서 2행에 `\x1b[38;5`가 없다.
   - Ctrl-L 테스트(389–403): 기대값을 `'\x1b[H\x1b[2J\x1b[3J' + <블록 재그리기>`로 바꾼다. busy가 아니면 label 1줄만 다시 그린다.
   - non-TTY/JSON 테스트(381–387)는 그대로 둔다. 여기에 label 문자열이 없어야 한다는 단언을 추가한다.
-- [ ] **Step 2:** `node --test tests/node/watch-status-line.test.mjs tests/node/watch-cli.test.mjs`를 실행해 FAIL을 확인한다.
-- [ ] **Step 3: 구현**
+- [x] **Step 2:** `node --test tests/node/watch-status-line.test.mjs tests/node/watch-cli.test.mjs`를 실행해 FAIL을 확인한다.
+- [x] **Step 3: 구현**
   - `spinnerDrawn`을 숫자 `drawnLines`로 바꾼다.
   - `eraseBlock()`: `'\r\x1b[2K' + '\x1b[1A\x1b[2K'.repeat(drawnLines-1)`를 쓴 뒤 `drawnLines`를 0으로 되돌린다.
   - `drawBlock()`
@@ -164,8 +164,8 @@ A → B → C → D → E → F → G
   - stop: `eraseBlock()`을 호출한다.
   - label은 시작할 때 한 번만 계산한다.
   - 도움말 문구를 `A status block on the last lines shows the watched path and, while a turn is in progress, a spinner (TTY only).`로 바꾼다. 도움말 단언이 있으면 같이 갱신한다.
-- [ ] **Step 4:** Step 2 명령으로 PASS를 확인한다.
-- [ ] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
+- [x] **Step 4:** Step 2 명령으로 PASS를 확인한다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
 
 **Commit (Orchestrator):** `feat(watch): 하단 경로 줄과 working… shimmer 상태 블록`
 **Criteria:** W5, W6. non-TTY/`--json`/NO_COLOR 무퇴행.
