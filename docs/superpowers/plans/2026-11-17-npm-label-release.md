@@ -70,7 +70,7 @@
 
 **출력 검증 (`formatOutputs`):** mode는 다섯 값 중 하나, bump는 `''|patch|minor|major`, version은 `''`|stable, pr은 `''`|`^[1-9]\d*$`, 어떤 값에도 개행 없음 — 위반 시 throw. PR 제목은 읽거나 출력하지 않고 라벨 문자열도 출력하지 않는다.
 
-- [ ] **Step 1: 실패하는 테스트 작성** (`tests/node/release-plan.test.mjs`)
+- [x] **Step 1: 실패하는 테스트 작성** (`tests/node/release-plan.test.mjs`)
   - 모듈은 `await import('../../.github/scripts/release-plan.mjs').catch(()=>({}))`. fake fetch는 URL별 `{status, json}` + 호출 기록.
   - fixture registry: `{name:'@yunhozz/arc','dist-tags':{latest:'0.4.1'},versions:{'0.4.1':{version:'0.4.1'}}}`
   - `nextVersion`: 0.4.1+patch→0.4.2, +minor→0.5.0, +major→1.0.0, 1.2.3+major→2.0.0, `'prerelease'` throw.
@@ -83,10 +83,10 @@
   - `isPublished`: 있으면 true, 없으면 false, 404·500 throw.
   - `main` dry-run(`GITHUB_EVENT_NAME=workflow_dispatch`, `RELEASE_ACTION=dry-run`, `GITHUB_REF=refs/heads/master`, fake git): 출력 첫 줄 `mode=dry-run`, 나머지는 평가값. ref가 master가 아니면 reject.
   - `main published`: `VERSION=0.4.1` → `published=true`.
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/release-plan.test.mjs` FAIL(모듈 없음).
-- [ ] **Step 3: 구현.** CLI 진입은 `import.meta.url === pathToFileURL(process.argv[1]).href`일 때만 `main({argv: process.argv.slice(2), env: process.env, fetchImpl: globalThis.fetch, git: execFileSync 래퍼, readFile, appendFile: appendFileSync, log: console.log})`. 기본 fetch `AbortSignal.timeout(30000)`. `repo`는 `^[\w.-]+\/[\w.-]+$` 검증.
-- [ ] **Step 4: 통과 확인.** `node --test tests/node/release-plan.test.mjs` PASS, `node --check .github/scripts/release-plan.mjs` exit 0.
-- [ ] **Step 5: 커밋 (Orchestrator 수락 후).** `feat(ci): PR 라벨 기반 릴리스 판정 모듈 추가`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/release-plan.test.mjs` FAIL(모듈 없음).
+- [x] **Step 3: 구현.** CLI 진입은 `import.meta.url === pathToFileURL(process.argv[1]).href`일 때만 `main({argv: process.argv.slice(2), env: process.env, fetchImpl: globalThis.fetch, git: execFileSync 래퍼, readFile, appendFile: appendFileSync, log: console.log})`. 기본 fetch `AbortSignal.timeout(30000)`. `repo`는 `^[\w.-]+\/[\w.-]+$` 검증.
+- [x] **Step 4: 통과 확인.** `node --test tests/node/release-plan.test.mjs` PASS, `node --check .github/scripts/release-plan.mjs` exit 0.
+- [x] **Step 5: 커밋 (Orchestrator 수락 후).** `feat(ci): PR 라벨 기반 릴리스 판정 모듈 추가`
 
 **수락 기준:**
 - T1-C1 판정 순서 1–7, publish-current, dry-run 동작이 계약과 일치(위 테스트로 증명).
@@ -98,6 +98,8 @@
 **필수 검사:** `node --test tests/node/release-plan.test.mjs`, `node --check .github/scripts/release-plan.mjs`, `npm run check:manifest`, `git status --porcelain`이 위 2개 파일과 이 plan 문서뿐. fresh QA.
 
 **Holds:** 판정 계약 변경이 필요하면 멈추고 Orchestrator에 보고.
+
+**진행 기록 (2026-11-17, 수락):** RED 0/42(모듈 없음) → GREEN 42/42. fresh QA가 T1-C3 미충족(`formatOutputs` mode별 조합 미검증)을 지적해 같은 Implementer가 회귀 테스트 6개 추가(RED 43/5 → GREEN 48/48). QA 재확인에서 C1–C5 모두 proven. `node --check`, `npm run check:manifest` 통과, 기존 파일 diff 없음. 실제 GitHub·npm API 통합 실행은 범위 밖(병합 후 dry-run에서 확인).
 
 ---
 
