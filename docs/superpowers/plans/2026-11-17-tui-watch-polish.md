@@ -122,6 +122,7 @@ A → B → C → D → E → F → G
   - 여기에 `shimmerIntensity(i,0,tick)`만큼 `[255,255,255]`를 섞는다.
   - 출력은 `\x1b[38;5;${toAnsi256(rgb)}m<ch>`를 이어 붙이고 끝에 `\x1b[0m`을 둔다.
   - `gradientAt`/`shimmerIntensity`는 `lib/tui/render.mjs`에서, `toAnsi256`는 `lib/tui/terminal.mjs`에서 import만 한다.
+  - (v5) watch는 TUI 모듈을 import하면 안 된다(`tests/node/terminal.test.mjs` 계약). 세 함수를 중립 모듈 `lib/color/palette.mjs`로 옮기고, `lib/tui/render.mjs`와 `lib/tui/terminal.mjs`는 이를 import해 같은 이름으로 다시 export한다(시그니처·동작 불변). watch는 `lib/color/palette.mjs`만 import한다.
 - `statusBlockLines({label, busy, glyph, tick, color, fancy, width}) -> string[]`
   - 1행은 label이다. width-1로 자르고, color가 켜져 있으면 `\x1b[2m…\x1b[0m`으로 감싼다.
   - 2행은 busy일 때만 있다.
@@ -437,3 +438,4 @@ A → B → C → D → E → F → G
 | v2 | 2026-11-17T00:58:53Z | contract | A | 사용자 정정: 파일 경로가 1개면 '- ' 미부착 (W1) |
 | v3 | 2026-11-17T01:11:22Z | contract | A | 사용자 보완: 역할 뱃지 라벨 앞뒤 공백(배경 안), 이후 Task A 커밋 amend 지시 |
 | v4 | 2026-11-17T01:28:02Z | contract | A (follow-up) | 사용자 보완: TOOL 색이 너무 밝고 CODEX와 비슷함 → 저채도 38;5;101 |
+| v5 | 2026-11-17T02:01:20Z | mechanical (Orchestrator, routine implementation detail) | B (follow-up) | watch→tui import가 기존 계약 테스트 위반: 색 함수를 lib/color/palette.mjs로 이동, 화면 동작 불변 |
