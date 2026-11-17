@@ -381,6 +381,38 @@ test('TTY status block advances, erases before events and keeps the idle locatio
     assert.equal(s.output.text,'\r\x1b[2K');
   }
 });
+for (const [columns,args,maxColumns] of [[40,[],39],[80,['--width','200'],79]]) {
+  test(`TTY status block fits ${columns} columns and erases its physical rows`, async t => {
+    const s=setup(t);s.output.isTTY=true;s.output.columns=columns;s.io.env={NO_COLOR:'1'};
+    const selected=path.join(fs.realpathSync(s.cwd),'project-'+'x'.repeat(100));fs.mkdirSync(selected);
+    s.write('busy',selected);
+    const writes=[];s.output.on('written',text=>writes.push(text));
+    const {result}=await s.start(['--cwd',selected,'--tail','0',...args]);
+    const lines=writes.at(-1).split('\n');
+    assert.equal(lines.length,2);
+    for(const line of lines)assert.ok(renderer.displayWidth(line)<=maxColumns,JSON.stringify(line));
+    const physicalRows=lines.reduce((rows,line)=>rows+Math.max(1,Math.ceil(renderer.displayWidth(line)/columns)),0);
+    assert.equal(physicalRows,2);
+    s.output.text='';await s.step(100);
+    const erase='\r\x1b[2K\x1b[1A\x1b[2K';
+    assert.equal(s.output.text,erase+selected.slice(0,maxColumns)+'\n⠙ working…');
+    assert.equal((s.output.text.match(/\x1b\[2K/g)??[]).length,physicalRows);
+    s.output.text='';s.controller.abort();assert.equal(await result,0);
+    assert.equal(s.output.text,erase);
+  });
+}
+test('TTY status location removes directory control sequences and line breaks', async t => {
+  const s=setup(t);s.output.isTTY=true;s.output.columns=200;s.io.env={NO_COLOR:'1'};
+  const parent=fs.realpathSync(s.cwd),selected=path.join(parent,'project\x1b]0;x\x07\n\rnext');fs.mkdirSync(selected);
+  const writes=[];s.output.on('written',text=>writes.push(text));
+  const {result}=await s.start(['--cwd',selected]);
+  assert.equal(writes.at(-1),path.join(parent,'project next'));
+  assert.doesNotMatch(writes.at(-1),/[\x00-\x1f\x7f-\x9f]/);
+  s.output.text='';await s.step();
+  assert.equal(s.output.text,'\r\x1b[2K'+path.join(parent,'project next'));
+  s.output.text='';s.controller.abort();assert.equal(await result,0);
+  assert.equal(s.output.text,'\r\x1b[2K');
+});
 test('TTY status block erases both busy lines on stop', async t => {
   const s=setup(t);s.output.isTTY=true;s.write('busy');
   const {result}=await s.start();s.output.text='';s.controller.abort();

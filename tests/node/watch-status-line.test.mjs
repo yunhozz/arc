@@ -17,6 +17,10 @@ test('watch location identifies session, all directories and home-relative paths
   ]) assert.equal(watchLocationLabel(options),expected);
 });
 
+test('watch location sanitizes control sequences and line breaks after home abbreviation', () => {
+  assert.equal(watchLocationLabel({mode:'cwd',dir:'/home/u/project\x1b]0;x\x07\n\rnext',home:'/home/u'}),'~/project next');
+});
+
 test('idle status keeps the location and busy status adds working on the next line', () => {
   assert.deepEqual(statusBlockLines(base),['~/project']);
   assert.deepEqual(statusBlockLines({...base,busy:true}),['~/project','⠋ working…']);

@@ -146,7 +146,7 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | Mixed | `Mixed routing on: <Label> + <Label>.` |
 | Remove | `Removed from <Label>.`, `Removed ARC and CLI.`, or `Removed ARC.` (CLI absent) |
 | Switch | First adds `Mixed routing turned off.` |
-| Upgrade | `ARC updated: <current> → <latest>.`; CLI `arc update` prints `<Label>: harness updated`, `ARC harness updated to <version>.` and, when the CLI is replaced, `arc CLI: <previous> → <new>.` |
+| Upgrade | On success, Result shows `ARC updated: <current> → <latest>.`. On failure, Result also shows any upgrade child output (`<Label>: harness updated`) and, when the CLI was replaced, `arc CLI: <previous> → <new>.` |
 | Failure | `Error: <message>`, deduplicated `Residual path: …`, `Exit code: N`; earlier target success remains visible; rollback label proves no cleanup/backup |
 
 ## Watch
