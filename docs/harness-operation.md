@@ -142,11 +142,11 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 
 | Result | Message |
 |---|---|
-| Install | `ARC installed for <Label>.` |
-| Mixed | `Mixed (…) activated.` |
+| Install | `ARC <version> installed for <Label>.` |
+| Mixed | `Mixed routing on: <Label> + <Label>.` |
 | Remove | `Removed from <Label>.`, `Removed ARC and CLI.`, or `Removed ARC.` (CLI absent) |
 | Switch | First adds `Mixed routing turned off.` |
-| Upgrade | `Upgraded to <version>.` |
+| Upgrade | `ARC updated: <current> → <latest>.`; CLI `arc update` prints `<Label>: harness updated`, `ARC harness updated to <version>.` and, when the CLI is replaced, `arc CLI: <previous> → <new>.` |
 | Failure | `Error: <message>`, deduplicated `Residual path: …`, `Exit code: N`; earlier target success remains visible; rollback label proves no cleanup/backup |
 
 ## Watch
@@ -157,10 +157,10 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | Sources | Codex rollout JSONL, Claude transcripts/persisted bridges, dispatch leases/artifacts |
 | Scope | Current entire Git worktree or directory outside Git; exclude linked/nested worktrees, Codex Desktop/descendants. Per-event session cwd (not command cwd); subagents use own cwd, follow tracked parent in all/session scope. Unidentified dispatch worktree needs all/session or followed session |
 | Anchor | Marker active directory must match resolved registered home; one candidate selects store, none → legacy Codex, multiple → `dispatch store ambiguous` (other sources continue). No old-history merge |
-| Shown | Full USER/AGENT messages; role prefix when known; EDIT/CREATE/DELETE list all paths; other events one line |
+| Shown | Full USER/AGENT messages; role badge on its own line above the message when known; EDIT/CREATE/DELETE list all paths (two or more as `- ` items; a single path has no `- `); other events one line |
 | Hidden | Tool/command outputs, skill definitions/args, MCP args/results; reasoning only verbose; incomplete secret masking applies to JSON too |
 | Read-only | No network or CLI except restricted Git discovery/listing; no writes |
-| Display | TTY/width wraps messages/file lists; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. Ctrl-L clears TTY, Ctrl-C/signals exit 0; spinner ends after interrupt/5 minutes idle |
+| Display | TTY/width wraps messages/file lists; in a TTY, a bottom status block shows the watched path, with `working…` below it while a turn is in progress; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. Ctrl-L clears TTY, Ctrl-C/signals exit 0; `working…` ends after interrupt/5 minutes idle |
 | Shell detection | Git file list + lstat metadata, no content; inferred attribution may be wrong/include external edits/duplicate late tool events; ignored paths, unchanged fingerprints, non-Git roots missed. Own symlink metadata, no directories; other lstat errors retain prior fingerprint. Delay ~1s, ≥3s interval, ≤2 roots/tick, ≤32 roots; live path claims suppress one inferred report within 2 minutes; JSON adds `inferred:true` |
 | Bounds | Poll 500ms/discover 2s/exclusions 30s; 64 files, 1MiB/file/tick, 256KiB history/session, 64KiB cwd probe, 4MiB/line, 30min inactivity, 32 all-scope repositories; disable shell detection after >20000 files or 3 listing failures (timeout/buffer overflow included). Merge order per tick only; truncate/regrow past offset can be missed |
 

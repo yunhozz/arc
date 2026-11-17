@@ -400,12 +400,12 @@ A → B → C → D → E → F → G
 
 **Predecessors:** F
 
-- [ ] **Step 1:** `rg -n "harness-operation|README" tests`로 문서 문자열을 단언하는 테스트를 찾고, 단언 대상 구절은 바꾸지 않는다.
-- [ ] **Step 2: 최소 수정**
+- [x] **Step 1:** `rg -n "harness-operation|README" tests`로 문서 문자열을 단언하는 테스트를 찾고, 단언 대상 구절은 바꾸지 않는다.
+- [x] **Step 2: 최소 수정**
   - Result 표에 M1 문구를 반영한다.
   - Watch 행에 `- ` 경로 목록과 하단 경로 줄 / `working…` 구절을 추가한다.
   - Status 메뉴 설명은 한 줄만 쓴다.
-- [ ] **Step 3:** `python3 -m pytest tests/test_harness_contract.py -q`와 Step 1에서 찾은 node 테스트로 PASS를 확인한다. README를 바꿨다면 `node scripts/update-manifest.mjs --check`도 실행한다.
+- [x] **Step 3:** `python3 -m pytest tests/test_harness_contract.py -q`와 Step 1에서 찾은 node 테스트로 PASS를 확인한다. README를 바꿨다면 `node scripts/update-manifest.mjs --check`도 실행한다.
 
 **Commit (Orchestrator):** `docs: watch·TUI 개선과 결과 문구 반영`
 **Criteria:** D1.
