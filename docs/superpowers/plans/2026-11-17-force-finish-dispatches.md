@@ -157,7 +157,7 @@
 | Task | 상태 | Implementer | QA | 커밋 |
 |---|---|---|---|---|
 | T1 | 수용 | 3deadbf0 (c444b8aa 중단 후 v3로 교체) | 2aad1518: T-a~T-f, Q1-Q3, Q5-Q6 proven; Q4 lock 해제 실패 throw는 정적 확인만(최종 Reviewer 중점) | 이 커밋 |
-| T2 | 대기 | - | - | - |
+| T2 | 수용 | 4eae2271 | 3b711c22: U-a~U-d, R1-R7 proven (QA tui-app 2건 TMPDIR 부재 환경 실패; host 122/0) | 이 커밋 |
 
 ## Revision history
 | Version | Approval time | Classification | Affected tasks | Reason |

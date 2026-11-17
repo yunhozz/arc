@@ -11,6 +11,81 @@ const packageVersion=JSON.parse(readFileSync(new URL('../../package.json',import
 function terminal(events){const screens=[];return{screens,viewport(){return{columns:120,rows:40};},render(s){screens.push(s);return{selectionEnabled:true};},discardInput(){},setBusy(){},dispose(){this.closed=true;},async nextEvent(){return events.shift()??{name:'eof'};}};}
 const installedStatuses=()=>['claude','codex'].map(platform=>({platform,state:'installed'}));
 const down=n=>Array.from({length:n},()=>({name:'down'})),enter={name:'enter'},back={name:'escape'};
+const blockingNotice='Force finish marks the native/reserved entries cancelled. Native agents in other sessions are not stopped.';
+const blockingEntry={home:'/home/codex',dispatchId:'12345678-native',role:'arc_implementer',workflowId:'work',route:'native',state:'reserved',hostPlatform:'codex',updatedAt:'2026-11-17T00:00:00.000Z',forceFinishable:true};
+async function blockedTui({kind='composite',entries=[blockingEntry],events=[enter,enter,back],result,retryResult,forceResult={finished:[blockingEntry.dispatchId],skipped:[],residualPaths:[]},forceError,prepareError,uninstall=false}={}){
+ const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
+ const session=terminal([...(uninstall?[...down(3),enter,enter,{name:'up'},enter]:[enter,...down(7),enter]),...events]);
+ const requests=[],preparations=[],executions=[],forces=[],order=[];let busy=false;
+ session.setBusy=value=>{busy=value;};
+ const blocked=result??{code:1,results:[],error:Object.assign(Error('Active dispatches block this operation'),{blockingDispatches:entries})};
+ const code=await runTui({session,context:{},output:{write(){}},services:{
+  currentInstallState:()=>({mode:'composite',platforms:['claude','codex'],anchor:'claude'}),
+  collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}})),
+  readCompositeConfig:async()=>({version:2,revision:'saved',platforms:['claude','codex'],roles}),
+  loadCatalog:async platform=>({status:'ready',catalog:{platform,pairs:[{model:platform==='codex'?'gpt-6-luna':'sonnet',effort:'high'}]}}),
+  prepareOperation:async(context,request)=>{requests.push({context,request,busy});order.push('prepare');if(requests.length===2&&prepareError)throw prepareError;const prepared={kind,options:request};preparations.push(prepared);return prepared;},
+  executeOperation:async(context,prepared)=>{executions.push({context,prepared,busy});order.push('execute');return executions.length===1?blocked:retryResult??blocked;},
+  forceFinishBlockingDispatches:async(context,entries)=>{forces.push({context,entries,busy});order.push('force');if(forceError)throw forceError;return forceResult;}
+ }});
+ return{session,code,requests,preparations,executions,forces,order};
+}
+test('blocked composite shows active dispatches and back cancels without force finishing',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-17T12:00:00.000Z'));
+ const entries=[0,60000,3600000,86400000].map((age,index)=>({...blockingEntry,dispatchId:`1234567${index}-native`,updatedAt:new Date(Date.now()-age).toISOString()}));
+ const {session,code,forces,executions}=await blockedTui({entries});
+ const screen=session.screens.find(screen=>screen.title==='Active dispatches');assert.ok(screen);
+ assert.deepEqual(screen.rows,[
+  '12345670  arc_implementer  work  native  reserved  <1m ago',
+  '12345671  arc_implementer  work  native  reserved  1m ago',
+  '12345672  arc_implementer  work  native  reserved  1h 0m ago',
+  '12345673  arc_implementer  work  native  reserved  1d 0h ago',
+  '',blockingNotice,'','Force finish and retry','Back'
+ ]);
+ assert.equal(screen.rows[screen.selected],'Back');assert.equal(forces.length,0);assert.equal(executions.length,1);assert.equal(code,1);
+ assert.deepEqual(session.screens.filter(screen=>['Active dispatches','Result'].includes(screen.title)).map(screen=>screen.title),['Active dispatches','Result']);
+ for(const [name,options]of [['no details',{result:{code:1,results:[],error:Error('Cannot read dispatches')}}],['install kind',{kind:'install'}],['interrupted',{result:{code:130,error:{message:'Interrupted',blockingDispatches:entries}}}],['session ended',{result:{code:1,exitSession:true,error:{message:'Ended',blockingDispatches:entries}}}]])await t.test(name,async()=>{
+  const run=await blockedTui(options);assert.equal(run.session.screens.some(screen=>screen.title==='Active dispatches'),false);assert.equal(run.forces.length,0);assert.equal(run.executions.length,1);
+ });
+ await t.test('Escape returns home without a Result page',async()=>{const run=await blockedTui({events:[back,back]});assert.equal(run.forces.length,0);assert.equal(run.executions.length,1);assert.equal(run.session.screens.at(-1).title,'ARC');assert.equal(run.session.screens.some(screen=>screen.title==='Result'),false);});
+});
+test('force finish runs once, retries once, and does not offer it again',async t=>{
+ for(const kind of ['composite','switch'])for(const success of [false,true])await t.test(kind+' retry '+(success?'succeeds':'is blocked again'),async()=>{
+  const run=await blockedTui({kind,uninstall:kind==='switch',events:[{name:'up'},enter,enter,back],...(success?{retryResult:{code:0,results:[],messages:['Retry completed.']}}:{})});
+  assert.equal(run.forces.length,1);assert.deepEqual(run.forces[0].entries,[blockingEntry]);assert.equal(run.forces[0].busy,true);
+  assert.equal(run.requests.length,2);assert.equal(run.requests[1].request,run.requests[0].request);
+  if(kind==='switch')assert.deepEqual(run.requests[1].request,{kind:'uninstall',target:'claude',removeCli:false,switchFromComposite:true});
+  else{assert.equal(run.requests[1].request.target,'composite');assert.deepEqual(run.requests[1].request.platforms,['claude','codex']);}
+  assert.equal(run.executions.length,2);assert.equal(run.executions[0].prepared,run.preparations[0]);assert.equal(run.executions[1].prepared,run.preparations[1]);assert.notEqual(run.preparations[0],run.preparations[1]);
+  assert.ok([...run.requests,...run.executions].every(call=>call.busy&&call.context===run.forces[0].context));
+  assert.deepEqual(run.order,['prepare','execute','force','prepare','execute']);
+  assert.equal(run.session.screens.filter(screen=>screen.title==='Active dispatches'&&screen.rows[screen.selected]==='Back').length,1);
+  const result=run.session.screens.filter(screen=>screen.title==='Result');assert.equal(result.length,1);assert.equal(run.code,success?0:1);assert.ok(result[0].rows.includes(success?'Retry completed.':'Exit code: 1'));
+ });
+});
+test('no eligible entries shows a guidance page with the runtime cancel command',async()=>{
+ const entry={...blockingEntry,dispatchId:'bridge-running',route:'bridge',state:'running',forceFinishable:false};
+ const {session,forces,executions}=await blockedTui({entries:[entry]});
+ const screen=session.screens.find(screen=>screen.title==='Active dispatches');assert.ok(screen);assert.equal(screen.mode,'page');
+ assert.match(screen.rows.join('\n'),/Live bridge process may still run; cancel it: node/);
+ assert.match(screen.rows.join('\n'),/\/home\/codex\/skills\/arc\/runtime\/cli.mjs cancel --cwd <project>\s+--workflow work --input -/);
+ assert.ok(screen.rows.includes(blockingNotice));assert.equal(forces.length,0);assert.equal(executions.length,1);
+ assert.deepEqual(session.screens.filter(screen=>['Active dispatches','Result'].includes(screen.title)).map(screen=>screen.title),['Active dispatches','Result']);
+});
+test('skipped or failed force finish reports and does not retry',async t=>{
+ const cases=[
+  ['changed',{forceResult:{finished:['other'],skipped:[{dispatchId:blockingEntry.dispatchId,reason:'changed'}],residualPaths:[]}},['Finished: other','Skipped: 12345678-native (changed)']],
+  ['residual',{forceResult:{finished:[blockingEntry.dispatchId],skipped:[],residualPaths:['/x.lock']}},['Finished: 12345678-native','Residual path: /x.lock']],
+  ['force error',{forceError:Object.assign(Error('Lock release failed'),{residualPaths:['/x.lock']})},['Lock release failed','Residual path: /x.lock']],
+  ['prepare error',{prepareError:Error('Cannot prepare retry')},['Cannot prepare retry']]
+ ];
+ for(const [name,options,rows]of cases)await t.test(name,async()=>{
+  const run=await blockedTui({...options,events:[{name:'up'},enter,enter,back]});
+  const screen=run.session.screens.find(screen=>screen.title==='Force finish');assert.ok(screen);assert.deepEqual(screen.rows,[...rows,'Install / Update was not retried.']);
+  assert.equal(run.forces.length,1);assert.equal(run.executions.length,1);assert.equal(run.requests.length,name==='prepare error'?2:1);assert.equal(run.code,1);
+  assert.equal(run.session.screens.some(screen=>['Result','Operation unavailable'].includes(screen.title)),false);
+ });
+});
 for(const columns of [100,40])test('Status groups migration notes and aligns wrapped table values at '+columns+' columns',async()=>{
  const {runTui}=await load(),session=terminal([...down(1),enter,enter,back]);session.viewport=()=>({columns,rows:40});
  const message='Mixed routing will move to the Claude home on the next Install / Update.';
