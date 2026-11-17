@@ -151,7 +151,7 @@ test('diagram box shows role on top border and three inner lines',()=>{
 });
 
 test('diagram blink blanks only selected borders and keeps the role label',()=>{
- const shown=renderDiagram(),hidden=renderDiagram(diagramRoles,{selectedRole:1,blink:false});
+ const shown=renderDiagram(diagramRoles,{selectedRole:1}),hidden=renderDiagram(diagramRoles,{selectedRole:1,blink:false});
  for(let row=0;row<5;row++){
   assert.equal(hidden.rows[row].slice(0,26),shown.rows[row].slice(0,26));
   assert.equal(hidden.rows[row].slice(50),shown.rows[row].slice(50));
@@ -159,7 +159,9 @@ test('diagram blink blanks only selected borders and keeps the role label',()=>{
   assert.doesNotMatch(selected,/[┌┐└┘│─┬┴]/);
   assert.equal(selected,shown.rows[row].slice(26,50).replace(/[┌┐└┘│─┬┴]/g,' '));
  }
- assert.match(hidden.rows[0],/Planner/);
+ assert.match(shown.rows[0],/┌─ > Planner /);assert.match(hidden.rows[0],/   > Planner /);
+ assert.deepEqual(shown.rows.map(diagramCells),renderDiagram().rows.map(diagramCells));
+ assert.deepEqual(hidden.rows.map(diagramCells),shown.rows.map(diagramCells));
  const bottom=renderDiagram(diagramRoles,{selectedRole:4,blink:false});
  assert.match(bottom.rows[8],/Reviewer/);assert.doesNotMatch(bottom.rows[8].slice(39),/[┌┐─]/);
 });
@@ -212,7 +214,7 @@ test('diagram wide role labels and long models keep every box group aligned',()=
 
 test('diagram width formula includes long role labels and effort text',()=>{
  for(const [patch,columns,width] of [
-  [{role:'RoleNameLongerThanTwenty'},103,100],
+  [{role:'RoleNameLongerThanTwenty'},109,106],
   [{effort:'effort-name-longer-than-twenty'},133,130],
  ]){
   const values=diagramRoles.map((value,index)=>index===0?{...value,...patch}:value);

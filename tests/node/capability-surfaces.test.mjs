@@ -115,7 +115,7 @@ test('capability off surfaces: Hosts cannot check zeta and editor arrows skip it
   }}}), []);
   const edited = await editRole({registry, roleName: 'Planner', current: {platform: 'codex', model: 'model-a', effort: 'high'}, availabilityOf, loadCatalog: async platform => ({platform, pairs: [{model: 'model-a', effort: 'high'}]}), defaultsFor: async () => ({model: 'model-a', effort: 'high'}), ui: {menu: async (_title, _rows, options) => {
     options.onHorizontal({...state, direction: 'right'});
-    assert.equal(options.renderBody(state).rows[0], 'Platform ‹ Claude ›');
+    assert.equal(options.renderBody(state).rows[0], 'Platform < Claude >');
     return 3;
   }}});
   assert.equal(edited.platform, 'claude');
@@ -240,7 +240,7 @@ test('Hosts shows auth unverified and reason line appears only when no block', a
 test('effort row fixed for single-effort platform after both arrow keys and diagram', async () => {
   const registry = createZetaRegistries().platforms;
   const value = await editRole({registry, roleName: 'Planner', current: {platform: 'zeta', model: 'zeta-model', effort: 'default'}, availabilityOf: id => id === 'zeta' ? available : unavailable, loadCatalog: async () => ({pairs: [{model: 'zeta-model', effort: 'default'}]}), defaultsFor: async () => ({model: 'zeta-model', effort: 'default'}), ui: {menu: async (_title, _rows, options) => {
-    for (const direction of ['left', 'right']) {options.onHorizontal({...state, selected: 2, direction}); assert.equal(options.renderBody({...state, selected: 2}).rows[2], 'Effort ‹ default ›');}
+    for (const direction of ['left', 'right']) {options.onHorizontal({...state, selected: 2, direction}); assert.equal(options.renderBody({...state, selected: 2}).rows[2], 'Effort < default >');}
     return 3;
   }}});
   assert.equal(value.effort, 'default');

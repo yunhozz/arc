@@ -112,7 +112,7 @@ test('install goes straight to diagram',async()=>{
  const{runTui}=await load(),session=terminal([enter,back,back]);
  await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[]}});
  assert.deepEqual(session.screens.map(s=>s.title),['ARC','Install / Update','ARC']);
- assert.match(session.screens[1].rows.join('\n'),/┌─ Scouter/);assert.ok(session.screens[1].rows.some(row=>row.startsWith('Mode:')));assert.equal(session.closed,true);
+ assert.match(session.screens[1].rows.join('\n'),/┌─ > Scouter/);assert.ok(session.screens[1].rows.some(row=>row.startsWith('Apply  (')));assert.equal(session.closed,true);
 });
 
 test('idle Escape uses home control signal from all interface screens',async()=>{const{createTuiInterface}=await load();for(const mode of ['menu','text','page']){const ui=createTuiInterface(terminal([back]));await assert.rejects(()=>ui[mode]('Task',mode==='text'?'100':['One']),{code:'ARC_TUI_HOME'});}assert.equal(await createTuiInterface(terminal([back])).menu('ARC',['Exit'],{backLabel:'exit'}),null);});
@@ -205,7 +205,7 @@ test('diagram idle frames blink only the focused border while keeping its label'
 test('diagram role focus hides the outer selection line but remains selectable',async()=>{
  const {runTui}=await load(),session=terminal([enter,enter,back,back]);session.render=screen=>{session.screens.push(screen);return renderScreen(screen,session.viewport());};
  await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[]}});
- const screen=session.screens.find(item=>item.title==='Install / Update'),rendered=renderScreen(screen,session.viewport());assert.equal(rendered.selectionEnabled,true);assert.ok(!rendered.styles.some(style=>style.color==='selected'));assert.match(rendered.text,/┌─ Scouter/);assert.doesNotMatch(rendered.text,/^> /m);assert.ok(session.screens.some(item=>item.title==='Scouter'));
+ const screen=session.screens.find(item=>item.title==='Install / Update'),rendered=renderScreen(screen,session.viewport());assert.equal(rendered.selectionEnabled,true);assert.ok(!rendered.styles.some(style=>style.color==='selected'));assert.match(rendered.text,/┌─ > Scouter/);assert.doesNotMatch(rendered.text,/^> /m);assert.ok(session.screens.some(item=>item.title==='Scouter'));
 });
 
 test('Status shows Available, Not Available and Unauthorized labels',async()=>{

@@ -309,7 +309,7 @@ A → B → C → D → E → F → G
   - 역할 편집기의 Platform/Model/Effort 행은 40칸 이상일 때 `` `${field} ${arrowValue(text, frame, selected===rowIndex)}` ``로 표시해 기존 `‹ X ›`를 대체한다.
   - 40칸 미만의 `field: text` 표시와 상세 페이저는 바꾸지 않는다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `tui-setup.test.mjs`
     - Install 화면 info에 `Hosts:` 행이 없다.
     - controls 행이 `Hosts: Claude, Codex` / `Settings` / `Apply  (Mixed (Claude + Codex))`다.
@@ -328,10 +328,10 @@ A → B → C → D → E → F → G
     - `‹`가 들어간 expect를 `< … >`로 바꾼다.
     - Hosts 제목을 새 제목으로 바꾼다.
     - 펄스 때문에 결과가 흔들리지 않도록 기본형이나 필드명으로 매칭한다. 필요하면 `TERM=dumb`으로 고정한다.
-- [ ] **Step 2:** `node --test tests/node/tui-setup.test.mjs tests/node/tui-custom-preset.test.mjs tests/node/tui-render.test.mjs tests/node/capability-surfaces.test.mjs tests/node/tui-app.test.mjs tests/node/tui-app-pty.test.mjs`를 실행해 FAIL을 확인한다.
-- [ ] **Step 3:** 위 고정값대로 구현한다.
-- [ ] **Step 4:** Step 2 명령으로 PASS를 확인한다.
-- [ ] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
+- [x] **Step 2:** `node --test tests/node/tui-setup.test.mjs tests/node/tui-custom-preset.test.mjs tests/node/tui-render.test.mjs tests/node/capability-surfaces.test.mjs tests/node/tui-app.test.mjs tests/node/tui-app-pty.test.mjs`를 실행해 FAIL을 확인한다.
+- [x] **Step 3:** 위 고정값대로 구현한다.
+- [x] **Step 4:** Step 2 명령으로 PASS를 확인한다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs && node scripts/update-manifest.mjs --check`
 
 **Commit (Orchestrator):** `feat(tui): Install 화면 정리, 도식 '>' 커서, Hosts 피드백, < > 좌우 컨트롤`
 **Criteria:** T3, T4, T5.
