@@ -4,13 +4,180 @@ import {fileURLToPath} from 'node:url';
 import {loadModelConfig} from '../../lib/models/index.mjs';
 import {runInstallFlow} from '../../lib/tui/setup.mjs';
 import {selectCatalogPair} from '../../lib/tui/custom-preset.mjs';
-import {renderScreen} from '../../lib/tui/render.mjs';
+import {renderScreen,cellWidth,escapeTerminalText,wrapDetailRows} from '../../lib/tui/render.mjs';
 const previewConfig=loadModelConfig(readFileSync(new URL('../../codex/skill/models.toml',import.meta.url)),'codex');
 const load=()=>import('../../lib/tui/app.mjs');
 const packageVersion=JSON.parse(readFileSync(new URL('../../package.json',import.meta.url))).version;
-function terminal(events){const screens=[];return{screens,viewport(){return{columns:120,rows:40};},render(s){screens.push(s);return{selectionEnabled:true};},discardInput(){},setBusy(){},dispose(){this.closed=true;},async nextEvent(){return events.shift()??{name:'eof'};}};}
+function terminal(events,{columns=120}={}){const screens=[];return{screens,viewport(){return{columns,rows:40};},render(s){screens.push(s);return{selectionEnabled:true};},discardInput(){},setBusy(){},dispose(){this.closed=true;},async nextEvent(){return events.shift()??{name:'eof'};}};}
 const installedStatuses=()=>['claude','codex'].map(platform=>({platform,state:'installed'}));
 const down=n=>Array.from({length:n},()=>({name:'down'})),enter={name:'enter'},back={name:'escape'};
+const blockingNotice='Force finish marks the native/reserved entries cancelled. Native agents in other sessions are not stopped.';
+const blockingEntry={home:'/home/codex',dispatchId:'12345678-native',role:'arc_implementer',workflowId:'work',route:'native',state:'reserved',hostPlatform:'codex',updatedAt:'2026-11-17T00:00:00.000Z',forceFinishable:true};
+async function blockedTui({kind='composite',entries=[blockingEntry],events=[enter,enter,back],result,retryResult,forceResult={finished:[blockingEntry.dispatchId],skipped:[],residualPaths:[]},forceError,prepareError,uninstall=false,columns=120}={}){
+ const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
+ const session=terminal([...(uninstall?[...down(3),enter,enter,{name:'up'},enter]:[enter,...down(7),enter]),...events],{columns});
+ const requests=[],preparations=[],executions=[],forces=[],order=[];let busy=false;
+ session.setBusy=value=>{busy=value;};
+ const blocked=result??{code:1,results:[],error:Object.assign(Error('Active dispatches block this operation'),{blockingDispatches:entries})};
+ const code=await runTui({session,context:{},output:{write(){}},services:{
+  currentInstallState:()=>({mode:'composite',platforms:['claude','codex'],anchor:'claude'}),
+  collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}})),
+  readCompositeConfig:async()=>({version:2,revision:'saved',platforms:['claude','codex'],roles}),
+  loadCatalog:async platform=>({status:'ready',catalog:{platform,pairs:[{model:platform==='codex'?'gpt-6-luna':'sonnet',effort:'high'}]}}),
+  prepareOperation:async(context,request)=>{requests.push({context,request,busy});order.push('prepare');if(requests.length===2&&prepareError)throw prepareError;const prepared={kind,options:request};preparations.push(prepared);return prepared;},
+  executeOperation:async(context,prepared)=>{executions.push({context,prepared,busy});order.push('execute');return executions.length===1?blocked:retryResult??blocked;},
+  forceFinishBlockingDispatches:async(context,entries)=>{forces.push({context,entries,busy});order.push('force');if(forceError)throw forceError;return forceResult;}
+ }});
+ return{session,code,requests,preparations,executions,forces,order};
+}
+test('blocked composite shows active dispatches and back cancels without force finishing',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-17T12:00:00.000Z'));
+ const entries=[0,60000,3600000,86400000].map((age,index)=>({...blockingEntry,dispatchId:`1234567${index}-native`,updatedAt:new Date(Date.now()-age).toISOString()}));
+ const {session,code,forces,executions}=await blockedTui({entries});
+ const screen=session.screens.find(screen=>screen.title==='Active dispatches');assert.ok(screen);
+ assert.deepEqual(screen.rows,[
+  '4 active dispatches block this change. 4 can be force finished.','',
+  'ID        Role         Workflow  Route   State     Age',
+  '12345670  Implementer  work      native  reserved  <1m',
+  '12345671  Implementer  work      native  reserved  1m',
+  '12345672  Implementer  work      native  reserved  1h 0m',
+  '12345673  Implementer  work      native  reserved  1d 0h',
+  '','Force finish and retry','Back'
+ ]);
+ assert.deepEqual(screen.notices,[blockingNotice]);
+ assert.equal(screen.rows[screen.selected],'Back');assert.equal(forces.length,0);assert.equal(executions.length,1);assert.equal(code,1);
+ assert.deepEqual(session.screens.filter(screen=>['Active dispatches','Result'].includes(screen.title)).map(screen=>screen.title),['Active dispatches','Result']);
+ for(const [name,options]of [['no details',{result:{code:1,results:[],error:Error('Cannot read dispatches')}}],['install kind',{kind:'install'}],['interrupted',{result:{code:130,error:{message:'Interrupted',blockingDispatches:entries}}}],['session ended',{result:{code:1,exitSession:true,error:{message:'Ended',blockingDispatches:entries}}}]])await t.test(name,async()=>{
+  const run=await blockedTui(options);assert.equal(run.session.screens.some(screen=>screen.title==='Active dispatches'),false);assert.equal(run.forces.length,0);assert.equal(run.executions.length,1);
+ });
+ await t.test('Escape returns home without a Result page',async()=>{const run=await blockedTui({events:[back,back]});assert.equal(run.forces.length,0);assert.equal(run.executions.length,1);assert.equal(run.session.screens.at(-1).title,'ARC');assert.equal(run.session.screens.some(screen=>screen.title==='Result'),false);});
+});
+test('force finish runs once, retries once, and does not offer it again',async t=>{
+ for(const kind of ['composite','switch'])for(const success of [false,true])await t.test(kind+' retry '+(success?'succeeds':'is blocked again'),async()=>{
+  const run=await blockedTui({kind,uninstall:kind==='switch',events:[{name:'up'},enter,enter,back],...(success?{retryResult:{code:0,results:[],messages:['Retry completed.']}}:{})});
+  assert.equal(run.forces.length,1);assert.deepEqual(run.forces[0].entries,[blockingEntry]);assert.equal(run.forces[0].busy,true);
+  assert.equal(run.requests.length,2);assert.equal(run.requests[1].request,run.requests[0].request);
+  if(kind==='switch')assert.deepEqual(run.requests[1].request,{kind:'uninstall',target:'claude',removeCli:false,switchFromComposite:true});
+  else{assert.equal(run.requests[1].request.target,'composite');assert.deepEqual(run.requests[1].request.platforms,['claude','codex']);}
+  assert.equal(run.executions.length,2);assert.equal(run.executions[0].prepared,run.preparations[0]);assert.equal(run.executions[1].prepared,run.preparations[1]);assert.notEqual(run.preparations[0],run.preparations[1]);
+  assert.ok([...run.requests,...run.executions].every(call=>call.busy&&call.context===run.forces[0].context));
+  assert.deepEqual(run.order,['prepare','execute','force','prepare','execute']);
+  assert.equal(run.session.screens.filter(screen=>screen.title==='Active dispatches'&&screen.rows[screen.selected]==='Back').length,1);
+  const result=run.session.screens.filter(screen=>screen.title==='Result');assert.equal(result.length,1);assert.equal(run.code,success?0:1);assert.ok(result[0].rows.includes(success?'Retry completed.':'Exit code: 1'));
+ });
+});
+test('force finish and re-prepare preserve cancellation and navigation control errors',async t=>{
+ for(const stage of ['forceError','prepareError'])for(const code of ['ARC_CANCELLED','ARC_TUI_EOF','ARC_TUI_HOME'])await t.test(stage+' '+code,async()=>{
+  const run=await blockedTui({[stage]:Object.assign(Error('Control flow'),{code}),events:[{name:'up'},enter,back]});
+  assert.equal(run.session.screens.some(screen=>['Force finish','Operation unavailable','Result'].includes(screen.title)),false);
+  assert.equal(run.code,code==='ARC_CANCELLED'?130:1);
+  assert.equal(run.executions.length,1);assert.equal(run.forces.length,1);
+  assert.equal(run.requests.length,stage==='prepareError'?2:1);
+  assert.equal(run.session.closed,true);
+  if(code==='ARC_TUI_HOME')assert.equal(run.session.screens.at(-1).title,'ARC');
+ });
+});
+test('blocked dispatches show unknown for an invalid updatedAt',async()=>{
+ const run=await blockedTui({entries:[{...blockingEntry,updatedAt:'invalid'}]});
+ const screen=run.session.screens.find(screen=>screen.title==='Active dispatches');
+ assert.equal(screen.rows[3],'12345678  Implementer  work      native  reserved  unknown');
+});
+test('no eligible entries shows a Back menu with only live bridge guidance',async()=>{
+ const entry={...blockingEntry,dispatchId:'bridge-running',route:'bridge',state:'running',forceFinishable:false};
+ const {session,forces,executions}=await blockedTui({entries:[entry]});
+ const screen=session.screens.find(screen=>screen.title==='Active dispatches');assert.ok(screen);assert.equal(screen.mode,undefined);
+ assert.deepEqual(screen.notices,['* Live bridge is not force finished. Cancel it first:','  node /home/codex/skills/arc/runtime/cli.mjs cancel --cwd <project> --workflow work --input -']);
+ assert.equal(screen.rows[0],'1 active dispatch blocks this change. None can be force finished here.');
+ assert.equal(screen.rows[screen.selected],'Back');assert.equal(screen.rows.includes('Force finish and retry'),false);
+ assert.equal(screen.rowTones[3],'note');assert.match(screen.rows[3],/bridge\*/);
+ assert.equal(forces.length,0);assert.equal(executions.length,1);
+ assert.deepEqual(session.screens.filter(screen=>['Active dispatches','Result'].includes(screen.title)).map(screen=>screen.title),['Active dispatches','Result']);
+});
+test('active dispatches matches the approved 80 column native preview',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-17T12:00:00.000Z'));
+ const entries=[['0e757d6d','arc_planner','step3-adp-validation',372],['1889c800','arc_reviewer','step3-adp-validation',340],['403356e1','arc_planner','step4-consent-batch',1359],['9d06c5f5','arc_planner','step4-consent-batch',455],['c2e2d644','arc_reviewer','step4-consent-batch',390]].map(([dispatchId,role,workflowId,minutes])=>({...blockingEntry,dispatchId,role,workflowId,state:'running',updatedAt:new Date(Date.now()-minutes*60000).toISOString()}));
+ const {session}=await blockedTui({entries,columns:80}),screen=session.screens.find(screen=>screen.title==='Active dispatches');
+ assert.deepEqual(screen.rows,[
+  '5 active dispatches block this change. 5 can be force finished.','',
+  'ID        Role      Workflow              Route   State    Age',
+  '0e757d6d  Planner   step3-adp-validation  native  running  6h 12m',
+  '1889c800  Reviewer  step3-adp-validation  native  running  5h 40m',
+  '403356e1  Planner   step4-consent-batch   native  running  22h 39m',
+  '9d06c5f5  Planner   step4-consent-batch   native  running  7h 35m',
+  'c2e2d644  Reviewer  step4-consent-batch   native  running  6h 30m',
+  '','Force finish and retry','Back'
+ ]);
+ assert.deepEqual(screen.notices,[blockingNotice]);assert.equal(screen.rows[screen.selected],'Back');
+ const rendered=renderScreen(screen,session.viewport()),lines=rendered.text.split('\n');
+ assert.deepEqual(wrapDetailRows(screen.notices,80),['Force finish marks the native/reserved entries cancelled. Native agents in','other sessions are not stopped.']);
+ for(const row of wrapDetailRows(screen.notices,80)){const line=lines.indexOf('  '+row);assert.ok(line>=0);assert.ok(rendered.styles.find(style=>style.line===line)?.runs.every(run=>run.role==='warn'));}
+});
+test('mixed live bridge rows are marked yellow and cancel commands deduplicate by home and workflow',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-17T00:01:00.000Z'));
+ const bridge={...blockingEntry,dispatchId:'bridge01-live',role:'arc_reviewer',route:'bridge',state:'running',forceFinishable:false};
+ const entries=[blockingEntry,bridge,{...bridge,dispatchId:'bridge02-live'},{...bridge,dispatchId:'bridge03-live',home:'/home/claude'},{...bridge,dispatchId:'bridge04-live',workflowId:'other'},{...bridge,dispatchId:'bridge05-reserved',state:'reserved',forceFinishable:true}];
+ const {session}=await blockedTui({entries,columns:80}),screen=session.screens.find(screen=>screen.title==='Active dispatches');
+ assert.equal(screen.rows[0],'6 active dispatches block this change. 2 can be force finished.');
+ assert.deepEqual(screen.rows.slice(2,9),[
+  'ID        Role         Workflow  Route    State     Age',
+  '12345678  Implementer  work      native   reserved  1m',
+  'bridge01  Reviewer     work      bridge*  running   1m',
+  'bridge02  Reviewer     work      bridge*  running   1m',
+  'bridge03  Reviewer     work      bridge*  running   1m',
+  'bridge04  Reviewer     other     bridge*  running   1m',
+  'bridge05  Reviewer     work      bridge   reserved  1m'
+ ]);
+ assert.deepEqual(screen.rowTones.slice(3,9),[undefined,'note','note','note','note',undefined]);
+ assert.deepEqual(screen.notices,['* Live bridge is not force finished. Cancel it first:',
+  '  node /home/codex/skills/arc/runtime/cli.mjs cancel --cwd <project> --workflow work --input -',
+  '  node /home/claude/skills/arc/runtime/cli.mjs cancel --cwd <project> --workflow work --input -',
+  '  node /home/codex/skills/arc/runtime/cli.mjs cancel --cwd <project> --workflow other --input -',blockingNotice]);
+ const rendered=renderScreen(screen,session.viewport()),lines=rendered.text.split('\n');
+ for(const row of screen.rows.filter(row=>row.includes('bridge*'))){const line=lines.indexOf('  '+row);assert.ok(line>=0);assert.deepEqual(rendered.styles.find(style=>style.line===line)?.runs.map(run=>run.role),['warn']);}
+});
+test('active dispatch summary handles singular eligible and plural ineligible entries',async()=>{
+ const single=await blockedTui();assert.equal(single.session.screens.find(screen=>screen.title==='Active dispatches').rows[0],'1 active dispatch blocks this change. 1 can be force finished.');
+ const entries=[blockingEntry,{...blockingEntry,dispatchId:'other'}].map(entry=>({...entry,route:'bridge',forceFinishable:false}));
+ const none=await blockedTui({entries});assert.equal(none.session.screens.find(screen=>screen.title==='Active dispatches').rows[0],'2 active dispatches block this change. None can be force finished here.');
+ const escaped=await blockedTui({entries,events:[back,back]});assert.equal(escaped.session.screens.some(screen=>screen.title==='Result'),false);assert.equal(escaped.session.screens.at(-1).title,'ARC');
+});
+test('active dispatch roles use install display names and preserve unknown roles',async()=>{
+ const roles=['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','custom_role'];
+ const {session}=await blockedTui({entries:roles.map(role=>({...blockingEntry,role}))});
+ const screen=session.screens.find(screen=>screen.title==='Active dispatches');
+ assert.deepEqual(screen.rows.slice(3,9).map(row=>row.split(/ {2,}/)[1]),['Scouter','Planner','Implementer','QA','Reviewer','custom_role']);
+});
+test('narrow active dispatch table shortens workflow first and then truncates row ends by cell width',async t=>{
+ const width=text=>[...escapeTerminalText(text)].reduce((sum,character)=>sum+cellWidth(character),0);
+ for(const role of ['arc_planner','unusually_long_unknown_role'])await t.test(role,async()=>{
+  const {session}=await blockedTui({columns:60,entries:[{...blockingEntry,role,workflowId:'very-long-workflow-validation',updatedAt:'invalid'}]});
+  const screen=session.screens.find(screen=>screen.title==='Active dispatches'),header=screen.rows.findIndex(row=>row.startsWith('ID ')),table=screen.rows.slice(header,header+2);
+  assert.equal(table.length,2);assert.ok(table.every(row=>width(row)<=57));assert.match(table[1],/…/);
+  if(role==='arc_planner')assert.equal(table[1],'12345678  Planner  very-long…  native  reserved  unknown');
+  else assert.match(table[1],/12345678  unusually_long_unknown_role  very-l…  native.*…$/);
+  assert.deepEqual(wrapDetailRows(table,60),table);
+ });
+ await t.test('wide and escaped values',async()=>{
+  const {session}=await blockedTui({columns:60,entries:[{...blockingEntry,role:'QA',workflowId:'검증\t작업-with-a-long-suffix',updatedAt:'invalid'}]});
+  const screen=session.screens.find(screen=>screen.title==='Active dispatches'),header=screen.rows.findIndex(row=>row.startsWith('ID ')),table=screen.rows.slice(header,header+2);
+  assert.ok(table.every(row=>width(row)<=57));assert.match(table[1],/검증\\x09.*…/);assert.deepEqual(wrapDetailRows(table,60),table);
+ });
+});
+test('skipped or failed force finish reports and does not retry',async t=>{
+ const cases=[
+  ['changed',{forceResult:{finished:['other'],skipped:[{dispatchId:blockingEntry.dispatchId,reason:'changed'}],residualPaths:[]}},['Finished: other','Skipped: 12345678-native (changed)']],
+  ['residual',{forceResult:{finished:[blockingEntry.dispatchId],skipped:[],residualPaths:['/x.lock']}},['Finished: 12345678-native','Residual path: /x.lock']],
+  ['force error',{forceError:Object.assign(Error('Lock release failed'),{residualPaths:['/x.lock']})},['Lock release failed','Residual path: /x.lock']],
+  ['partial force error',{forceError:Object.assign(Error('Cannot read next lease'),{forceFinish:{finished:['already-finished'],skipped:[]},residualPaths:['/x.lock']})},['Finished: already-finished','Cannot read next lease','Residual path: /x.lock']],
+  ['prepare error',{prepareError:Error('Cannot prepare retry')},['Cannot prepare retry']]
+ ];
+ for(const [name,options,rows]of cases)await t.test(name,async()=>{
+  const run=await blockedTui({...options,events:[{name:'up'},enter,enter,back]});
+  const screen=run.session.screens.find(screen=>screen.title==='Force finish');assert.ok(screen);assert.deepEqual(screen.rows,[...rows,'Install / Update was not retried.']);
+  assert.equal(run.forces.length,1);assert.equal(run.executions.length,1);assert.equal(run.requests.length,name==='prepare error'?2:1);assert.equal(run.code,1);
+  assert.equal(run.session.screens.some(screen=>['Result','Operation unavailable'].includes(screen.title)),false);
+ });
+});
 for(const columns of [100,40])test('Status groups migration notes and aligns wrapped table values at '+columns+' columns',async()=>{
  const {runTui}=await load(),session=terminal([...down(1),enter,enter,back]);session.viewport=()=>({columns,rows:40});
  const message='Mixed routing will move to the Claude home on the next Install / Update.';

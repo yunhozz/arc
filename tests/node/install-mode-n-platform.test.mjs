@@ -8,6 +8,7 @@ import {resolveTargets} from '../../lib/installer/targets.mjs';
 import {verifyPayload} from '../../lib/installer/manifest.mjs';
 import {collectInstalledState} from '../../lib/installer/upgrade-state.mjs';
 import {inspectCompositeRemoval} from '../../lib/installer/role-routing.mjs';
+import * as installerRouting from '../../lib/installer/role-routing.mjs';
 import {compositeContext, standalone, publish, targets, safeFs} from './fixtures/install-mode.mjs';
 import {staticPackageFixture} from './fixtures/static-references.mjs';
 import {createTestRegistries} from './fixtures/platforms/zeta.mjs';
@@ -506,7 +507,7 @@ test('install plan validates zeta custom roles using the injected registry', asy
   assert.match(prepared.plans[0].generated.profiles.get('arc-qa.md').toString(), /model: zeta-model/);
 });
 
-import {createLease} from '../../lib/runtime/role-dispatch-store.mjs';
+import {createLease, readLease, writeLease} from '../../lib/runtime/role-dispatch-store.mjs';
 
 async function setChangeConfig(ctx, revision) {
   const config = await mixedConfig(revision), pair = config.roles.arc_planner;
@@ -843,6 +844,222 @@ for (const kind of ['install', 'uninstall']) {
 }
 
 const zetaLease = (id, state, route = 'bridge') => ({...moveLease(id, state, route), hostPlatform: 'zeta', executionEnvironment: 'zeta-cli'});
+
+const blockingEntry = (home, lease, forceFinishable = true) => ({
+  home, ...Object.fromEntries(['dispatchId', 'role', 'workflowId', 'route', 'state', 'hostPlatform', 'updatedAt'].map(key => [key, lease[key]])), forceFinishable
+});
+
+test('blocking details report home and forceFinishable', async t => {
+  await t.test('moving keeps duplicate ids per home and deduplicates activeDispatches', async t => {
+    const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex', 'zeta']);
+    await publishCodexAnchor(ctx);
+    const targets = resolveTargets(ctx).targets;
+    for (const id of ['claude', 'codex']) {
+      await createLease(targets[id].home, moveLease('shared-native'));
+      await createLease(targets[id].home, zetaLease('running-bridge', 'running'), ctx);
+    }
+    const result = await management.executeCompositeOperation(ctx, await prepareSetChange(ctx, ['claude', 'zeta'], 'blocking-details'));
+    assert.equal(result.code, 1);
+    assert.equal(result.error.message, 'Active dispatches block moving mixed routing; finish or cancel them first');
+    assert.deepEqual(result.error.activeDispatches, ['running-bridge', 'shared-native']);
+    assert.deepEqual(result.messages, ['Active dispatches: running-bridge, shared-native']);
+    assert.deepEqual(result.error.blockingDispatches, ['claude', 'codex'].flatMap(id => [
+      blockingEntry(targets[id].home, zetaLease('running-bridge', 'running'), false),
+      blockingEntry(targets[id].home, moveLease('shared-native'))
+    ]));
+    for (const entry of result.error.blockingDispatches) assert.equal(Object.keys(entry).length, 9);
+  });
+  await t.test('non-moving reports reserved and running bridge eligibility', async t => {
+    const fixture = await compositeFilesFixture(t, ['claude', 'zeta'], ['claude', 'zeta']);
+    const home = fixture.targets.claude.home;
+    for (const state of ['reserved', 'running']) await createLease(home, zetaLease(state, state), fixture.context);
+    await assert.rejects(publishCompositeFiles({context: fixture.context, prepared: prepareCompositeFiles(fixture)}), error => {
+      assert.equal(error.message, 'Active bridge dispatches block composite publication; finish or cancel them first');
+      assert.deepEqual(error.activeDispatches, ['reserved', 'running']);
+      assert.deepEqual(error.blockingDispatches, [blockingEntry(home, zetaLease('reserved', 'reserved')), blockingEntry(home, zetaLease('running', 'running'), false)]);
+      return true;
+    });
+  });
+  await t.test('unreadable leases do not expose blocking details', async t => {
+    const fixture = await compositeFilesFixture(t, ['claude', 'zeta'], ['claude', 'zeta']);
+    const home = fixture.targets.claude.home;
+    await createLease(home, zetaLease('broken', 'reserved'), fixture.context);
+    fs.writeFileSync(path.join(home, 'arc-role-dispatch/broken.json'), '{');
+    await assert.rejects(publishCompositeFiles({context: fixture.context, prepared: prepareCompositeFiles(fixture)}), error => {
+      assert.equal(error.activeDispatches, null);
+      assert.equal(error.blockingDispatches, undefined);
+      return true;
+    });
+  });
+});
+
+test('force finish cancels blocking native leases and a re-prepared move succeeds', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex', 'zeta']);
+  await publishCodexAnchor(ctx);
+  const home = resolveTargets(ctx).targets.codex.home;
+  await createLease(home, {...zetaLease('finish-native', 'reserved', 'native'), claims: {execution: {source: 'original'}}, reasons: ['previous reason']}, ctx);
+  const options = {kind: 'install', target: 'composite', platforms: ['claude', 'zeta'], config: await setChangeConfig(ctx, 'finish-move')};
+  const prepared = await management.prepareOperation(ctx, options);
+  const blocked = await management.executeCompositeOperation(ctx, prepared);
+  assert.equal(blocked.code, 1);
+  assert.ok(blocked.error.blockingDispatches);
+  assert.deepEqual(await management.forceFinishBlockingDispatches(ctx, blocked.error.blockingDispatches), {finished: ['finish-native'], skipped: [], residualPaths: []});
+  const lease = await readLease(home, 'finish-native', ctx);
+  assert.equal(lease.state, 'cancelled');
+  assert.deepEqual(lease.claims, {execution: {source: 'original'}, terminal: {level: 'operator-attested', source: 'installer-force-finish', observed: 'cancelled'}});
+  assert.deepEqual(lease.reasons, []);
+  const retryPrepared = await management.prepareOperation(ctx, options);
+  assert.notEqual(retryPrepared, prepared);
+  const result = await management.executeCompositeOperation(ctx, retryPrepared);
+  assert.equal(result.code, 0, result.error?.stack);
+  assert.equal(management.currentInstallState(ctx).anchor, 'claude');
+});
+
+test('force finish skips a running bridge lease as not_eligible without writing', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude']);
+  const home = resolveTargets(ctx).targets.claude.home, lease = zetaLease('ineligible', 'running');
+  await createLease(home, lease, ctx);
+  const before = homeBytes(path.join(home, 'arc-role-dispatch'));
+  assert.equal(typeof installerRouting.forceFinishDispatches, 'function');
+  assert.deepEqual(await installerRouting.forceFinishDispatches({context: ctx, entries: [blockingEntry(home, lease)]}), {finished: [], skipped: [{dispatchId: 'ineligible', reason: 'not_eligible'}], residualPaths: []});
+  assert.deepEqual(homeBytes(path.join(home, 'arc-role-dispatch')), before);
+  fs.writeFileSync(routingLock(home), 'held');
+  assert.deepEqual(await management.forceFinishBlockingDispatches(ctx, [blockingEntry(home, lease, false)]), {finished: [], skipped: [], residualPaths: []});
+  fs.unlinkSync(routingLock(home));
+});
+
+test('force finish skips a lease whose updatedAt changed', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude']);
+  const home = resolveTargets(ctx).targets.claude.home, lease = moveLease('changed');
+  await createLease(home, lease, ctx);
+  await writeLease(home, lease, {now: Date.parse('2026-11-17T00:00:00.000Z'), runtimePlatforms: ctx.runtimePlatforms});
+  const before = homeBytes(path.join(home, 'arc-role-dispatch'));
+  assert.equal(typeof installerRouting.forceFinishDispatches, 'function');
+  assert.deepEqual(await installerRouting.forceFinishDispatches({context: ctx, entries: [blockingEntry(home, lease)]}), {finished: [], skipped: [{dispatchId: 'changed', reason: 'changed'}], residualPaths: []});
+  assert.deepEqual(homeBytes(path.join(home, 'arc-role-dispatch')), before);
+});
+
+test('force finish fails when the routing lock is held and leaves leases unchanged', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex']);
+  const targets = resolveTargets(ctx).targets, lease = moveLease('locked');
+  for (const id of ['claude', 'codex']) await createLease(targets[id].home, lease, ctx);
+  const before = Object.fromEntries(['claude', 'codex'].map(id => [id, homeBytes(path.join(targets[id].home, 'arc-role-dispatch'))]));
+  fs.writeFileSync(routingLock(targets.codex.home), 'held');
+  assert.equal(typeof installerRouting.forceFinishDispatches, 'function');
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: ['claude', 'codex'].map(id => blockingEntry(targets[id].home, lease))}), error => {
+    assert.equal(error.code, 'EEXIST');
+    assert.deepEqual(error.forceFinish, {finished: [], skipped: []});
+    return true;
+  });
+  for (const id of ['claude', 'codex']) assert.deepEqual(homeBytes(path.join(targets[id].home, 'arc-role-dispatch')), before[id]);
+  assert.equal(fs.existsSync(routingLock(targets.claude.home)), false);
+  assert.equal(fs.readFileSync(routingLock(targets.codex.home), 'utf8'), 'held');
+  fs.unlinkSync(routingLock(targets.codex.home));
+});
+
+test('force finish reports completed and skipped leases on a mid-way read failure', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude']);
+  const home = resolveTargets(ctx).targets.claude.home;
+  const leases = ['finished-before-error', 'missing-before-error', 'broken-after-finish'].map(id => moveLease(id));
+  await createLease(home, leases[0], ctx);
+  await createLease(home, leases[2], ctx);
+  fs.writeFileSync(path.join(home, 'arc-role-dispatch/broken-after-finish.json'), '{');
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: leases.map(lease => blockingEntry(home, lease))}), error => {
+    assert.ok(error instanceof SyntaxError);
+    assert.deepEqual(error.forceFinish, {finished: ['finished-before-error'], skipped: [{dispatchId: 'missing-before-error', reason: 'changed'}]});
+    return true;
+  });
+  assert.equal((await readLease(home, leases[0].dispatchId, ctx)).state, 'cancelled');
+  assert.equal(fs.existsSync(routingLock(home)), false);
+});
+
+for (const throws of [false, true]) test('force finish reports partial results when lock release '+(throws ? 'throws' : 'returns false'), async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude']);
+  const home = resolveTargets(ctx).targets.claude.home, lease = moveLease('finished-before-release');
+  await createLease(home, lease, ctx);
+  const acquireLock = async home => {
+    const release = await acquireRoleRoutingLock(home);
+    return async () => { await release(); if (throws) throw Error('Release failed'); return false; };
+  };
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: [blockingEntry(home, lease)], acquireLock}), error => {
+    assert.equal(error.message, 'Dispatch lock ownership could not be verified');
+    assert.deepEqual(error.residualPaths, [routingLock(home)]);
+    assert.equal(error.lockReleaseFailed, true);
+    assert.deepEqual(error.forceFinish, {finished: ['finished-before-release'], skipped: []});
+    return true;
+  });
+  assert.equal((await readLease(home, lease.dispatchId, ctx)).state, 'cancelled');
+});
+
+test('force finish preserves the original acquire error when releasing an earlier lock fails', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex']);
+  const targets = resolveTargets(ctx).targets, lease = moveLease('acquire-error');
+  const original = Object.assign(Error('Acquire failed'), {code: 'EACCES', residualPaths: ['/existing.lock', routingLock(targets.claude.home)]});
+  const acquireLock = async home => {
+    if (home === targets.codex.home) throw original;
+    const release = await acquireRoleRoutingLock(home);
+    return async () => { await release(); return false; };
+  };
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: ['claude', 'codex'].map(id => blockingEntry(targets[id].home, lease)), acquireLock}), error => {
+    assert.equal(error, original);
+    assert.equal(error.code, 'EACCES');
+    assert.deepEqual(error.residualPaths, ['/existing.lock', routingLock(targets.claude.home)]);
+    assert.equal(error.lockReleaseFailed, true);
+    assert.deepEqual(error.forceFinish, {finished: [], skipped: []});
+    return true;
+  });
+});
+
+test('non-moving and switch paths force finish a reserved bridge lease', async t => {
+  await t.test('the same prepared publication succeeds', async t => {
+    const fixture = await compositeFilesFixture(t, ['claude', 'zeta'], ['claude', 'zeta']);
+    const home = fixture.targets.claude.home;
+    await createLease(home, zetaLease('publish-reserved', 'reserved'), fixture.context);
+    const prepared = prepareCompositeFiles(fixture);
+    let blocked;
+    await assert.rejects(publishCompositeFiles({context: fixture.context, prepared}), error => { blocked = error; return true; });
+    assert.ok(blocked.blockingDispatches);
+    assert.deepEqual(await management.forceFinishBlockingDispatches(fixture.context, blocked.blockingDispatches), {finished: ['publish-reserved'], skipped: [], residualPaths: []});
+    assert.equal((await publishCompositeFiles({context: fixture.context, prepared})).published, true);
+  });
+  await t.test('a re-prepared switch succeeds', async t => {
+    const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex', 'zeta']);
+    await managementPublish(ctx, {platforms: ['claude', 'codex', 'zeta']});
+    const home = resolveTargets(ctx).targets.claude.home;
+    await createLease(home, zetaLease('switch-reserved', 'reserved'), ctx);
+    const options = {kind: 'install', target: 'zeta', switchFromComposite: true};
+    const prepared = await management.prepareOperation(ctx, options);
+    const blocked = await management.executeOperation(ctx, prepared);
+    assert.equal(blocked.code, 1);
+    assert.ok(blocked.error.blockingDispatches);
+    assert.equal(blocked.error.blockingDispatches[0].forceFinishable, true);
+    assert.deepEqual(blocked.messages, ['Active bridge dispatches: switch-reserved']);
+    assert.deepEqual(await management.forceFinishBlockingDispatches(ctx, blocked.error.blockingDispatches), {finished: ['switch-reserved'], skipped: [], residualPaths: []});
+    const retryPrepared = await management.prepareOperation(ctx, options);
+    assert.notEqual(retryPrepared, prepared);
+    const result = await management.executeOperation(ctx, retryPrepared);
+    assert.equal(result.code, 0, result.error?.stack);
+  });
+  await t.test('a re-prepared non-moving install succeeds', async t => {
+    const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex', 'zeta']);
+    await managementPublish(ctx, {platforms: ['claude', 'zeta'], config: await setChangeConfig(ctx, 'non-moving-before')});
+    const home = resolveTargets(ctx).targets.claude.home;
+    await createLease(home, zetaLease('install-reserved', 'reserved'), ctx);
+    const options = {kind: 'install', target: 'composite', platforms: ['claude', 'zeta'], config: await setChangeConfig(ctx, 'non-moving-after')};
+    const prepared = await management.prepareOperation(ctx, options);
+    assert.equal(prepared.operation, 'install');
+    assert.equal(prepared.files.previous.anchor, prepared.files.anchor);
+    const blocked = await management.executeCompositeOperation(ctx, prepared);
+    assert.equal(blocked.code, 1);
+    assert.deepEqual(blocked.results.map(item => item.status), ['installed', 'installed']);
+    assert.ok(blocked.error.blockingDispatches);
+    assert.deepEqual(await management.forceFinishBlockingDispatches(ctx, blocked.error.blockingDispatches), {finished: ['install-reserved'], skipped: [], residualPaths: []});
+    const retryPrepared = await management.prepareOperation(ctx, options);
+    assert.notEqual(retryPrepared, prepared);
+    const result = await management.executeCompositeOperation(ctx, retryPrepared);
+    assert.equal(result.code, 0, result.error?.stack ?? result.results.find(item => item.error)?.error?.stack);
+  });
+});
 
 test('publication accepts terminal zeta-host leases with the full registry', async t => {
   const fixture = await compositeFilesFixture(t, ['claude', 'zeta'], ['claude', 'zeta']);
