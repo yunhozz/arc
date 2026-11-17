@@ -135,7 +135,7 @@
 **`publish` job:** `needs: [plan, release]`; `permissions: { contents: read, id-token: write }`; `if`(block scalar): `!cancelled() && vars.NPM_PUBLISH_ENABLED == 'true' && needs.plan.result == 'success' && ((needs.plan.outputs.mode == 'bump' && needs.release.result == 'success') || ((needs.plan.outputs.mode == 'manual' || needs.plan.outputs.mode == 'publish-current') && needs.release.result == 'skipped'))`; env `VERSION: ${{ needs.plan.outputs.version }}`. steps: checkout(`ref: ${{ needs.plan.outputs.mode == 'bump' && needs.release.outputs.sha || github.sha }}`, `persist-credentials: false`) → setup-node `'24'`(`registry-url` 없음) → `npm install --global npm@11` → id `published`: `node .github/scripts/release-plan.mjs published` → 이후 step 모두 `if: steps.published.outputs.published == 'false'`: `package.json` version == `$VERSION` 확인 → `node scripts/update-manifest.mjs --check` → `npm run pack:release -- --out-dir "$RUNNER_TEMP/arc-release"` → `node scripts/verify-release.mjs --out-dir "$RUNNER_TEMP/arc-release" --name @yunhozz/arc --version "$VERSION"` → `npm publish "$RUNNER_TEMP/arc-release/arc-release.tgz" --access public --provenance --registry https://registry.npmjs.org/`.
 워크플로 전체에 `continue-on-error`·`always()` 없음.
 
-- [ ] **Step 1: 실패하는 테스트 작성** (`tests/node/npm-publish-workflow.test.mjs`) — job 구간은 `^  plan:$`, `^  rehearse:$`, `^  release:$`, `^  publish:$`로 분할, `run:` 블록은 들여쓰기 기준 추출, YAML 의존성 추가 없음.
+- [x] **Step 1: 실패하는 테스트 작성** (`tests/node/npm-publish-workflow.test.mjs`) — job 구간은 `^  plan:$`, `^  rehearse:$`, `^  release:$`, `^  publish:$`로 분할, `run:` 블록은 들여쓰기 기준 추출, YAML 의존성 추가 없음.
   - `triggers and top-level permissions`: push `branches: [master]`, `paths:` 없음; dispatch 옵션 `dry-run`·`publish-current`; `permissions: {}`, `cancel-in-progress: false`, `group: npm-publish`.
   - `job permissions are least privilege`: plan `contents: read`+`pull-requests: read`, `id-token`·`contents: write` 없음; rehearse `contents: read`, `id-token`·`contents: write` 없음; release `contents: write`, `id-token` 없음; publish `contents: read`+`id-token: write`, `contents: write` 없음.
   - `only release persists credentials`: `persist-credentials: true` 정확히 1회·release 구간; plan·rehearse·publish는 `false`.
@@ -145,10 +145,10 @@
   - `publication consumes only the reverified tarball`: publish 구간 순서 `release-plan.mjs published` < `update-manifest.mjs --check` < `pack:release -- --out-dir` < `verify-release.mjs` < `npm publish "$RUNNER_TEMP/arc-release/arc-release.tgz"`; `--name @yunhozz/arc --version "$VERSION"`, `--access public --provenance --registry https://registry.npmjs.org/`; 워크플로 전체 `npm publish` 정확히 1회; `continue-on-error`, `always()`, `registry-url`, `npm publish --access` 없음; `npm install --global npm@11`, `node-version: '24'` 있음.
   - `no expression interpolation inside run blocks`: 모든 `run:` 블록에 `${{` 없음.
   - `plan invokes the release-plan module`: plan 구간에 `node .github/scripts/release-plan.mjs plan`, `GH_TOKEN: ${{ github.token }}`.
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/npm-publish-workflow.test.mjs`가 현재 워크플로에 FAIL.
-- [ ] **Step 3: 구현.** 계약대로 재작성, 기존 `eligibility` job 삭제.
-- [ ] **Step 4: 통과 확인.** `node --test tests/node/npm-publish-workflow.test.mjs tests/node/release-plan.test.mjs` PASS. `actionlint`는 로컬에 없음(미실행으로 기록).
-- [ ] **Step 5: 커밋 (Orchestrator 수락 후).** `ci(npm): PR 라벨 기반 자동 릴리스 워크플로로 재작성`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/npm-publish-workflow.test.mjs`가 현재 워크플로에 FAIL.
+- [x] **Step 3: 구현.** 계약대로 재작성, 기존 `eligibility` job 삭제.
+- [x] **Step 4: 통과 확인.** `node --test tests/node/npm-publish-workflow.test.mjs tests/node/release-plan.test.mjs` PASS. `actionlint`는 로컬에 없음(미실행으로 기록).
+- [x] **Step 5: 커밋 (Orchestrator 수락 후).** `ci(npm): PR 라벨 기반 자동 릴리스 워크플로로 재작성`
 
 **수락 기준:**
 - T2-C1 트리거·최상위 권한·concurrency·job별 권한이 설계 2절과 같다.
@@ -161,6 +161,8 @@
 **필수 검사:** `node --test tests/node/npm-publish-workflow.test.mjs tests/node/release-plan.test.mjs`, `npm run check:manifest`, `git diff --exit-code 6dc62d4 -- scripts/deploy.sh MANIFEST.sha256 README.md`. fresh QA.
 
 **Holds:** T1 수락 전 시작 금지.
+
+**진행 기록 (2026-11-17, 수락):** 첫 시도는 Implementer 패치 형식 오류(같은 경로 Delete+Add 거부)로 변경 없이 중단, 같은 Implementer가 재개. RED 1/11(기존 워크플로) → GREEN 60/60(두 테스트 파일). `npm run check:manifest` 통과, 보호 파일 diff 없음, Ruby YAML 파싱 통과, actionlint 미설치로 미실행. fresh QA가 C1–C6 proven, 워크플로 사본 변형 시 테스트 실패 확인, 임시 저장소에서 release 검증 블록(`bash -e`, tag 조회 exit 2/0/128) 시뮬레이션. 실제 GitHub Actions 실행·`!cancelled()` 평가는 병합 후 dry-run과 첫 실전에서 확인.
 
 ---
 
