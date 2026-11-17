@@ -7,7 +7,7 @@ const catalog={platform:'codex',pairs:[{model:'model-a',effort:'high'},{model:'m
 test('model choices are unique and only confirmed supported effort updates a role',async()=>{
  const before=structuredClone(initial);
  const result=await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  if(title.startsWith('Model')){assert.deepEqual(rows,['model-a','model-b']);assert.match(options.info({selected:0,columns:100,rows:30}).join(' '),/high.*medium/);return 1;}
+  if(title.startsWith('Model')){assert.deepEqual(rows,['model-a','model-b']);assert.match(options.notice({selected:0,columns:100,rows:30}).join(' '),/high.*medium/);return 1;}
   if(title.startsWith('Effort')){assert.deepEqual(rows,['low']);assert.deepEqual(initial,before);return 0;}
   assert.fail(title);
  },page:async()=>assert.fail('unexpected unavailable')}});
@@ -17,7 +17,7 @@ test('model choices are unique and only confirmed supported effort updates a rol
 test('model picker shows the full identifier and all supported efforts',async()=>{
  const model='long-'+('x'.repeat(120)),pairs=[{model,effort:'high'},{model,effort:'medium'}];
  await selectCatalogPair({roleName:'Scouter',current:initial,catalog:{platform:'codex',pairs},ui:{menu:async(title,rows,options)=>{
-  if(title.startsWith('Model')){assert.deepEqual(rows,[model]);const info=options.info({selected:0,columns:30,rows:24}).join('');assert.ok(info.includes(model));assert.match(info,/high.*medium/);return null;}
+  if(title.startsWith('Model')){assert.deepEqual(rows,[model]);const info=options.notice({selected:0,columns:30,rows:24}).join('');assert.ok(info.includes(model));assert.match(info,/high.*medium/);return null;}
   assert.fail(title);
  },page:async()=>{}}});
 });
@@ -26,12 +26,12 @@ test('model and effort detail stays in place with placeholders on Back',async()=
  let modelVisits=0;
  await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
   if(title==='Model — Scouter'){
-   assert.deepEqual(options.info({selected:0,columns:100,rows:30}).slice(-3),['Model: model-a','Effort: high, medium','']);
-   assert.deepEqual(options.info({selected:rows.length,columns:100,rows:30}),['Model: -','Effort: -','']);
+   assert.deepEqual(options.notice({selected:0,columns:100,rows:30}).slice(-3),['Model: model-a','Effort: high, medium','']);
+   assert.deepEqual(options.notice({selected:rows.length,columns:100,rows:30}),['Model: -','Effort: -','']);
    return modelVisits++===0?0:null;
   }
   if(title==='Effort — Scouter'){
-   assert.deepEqual(options.info({selected:rows.length,columns:100,rows:30}),['Model: model-a','Effort: -','']);
+   assert.deepEqual(options.notice({selected:rows.length,columns:100,rows:30}),['Model: model-a','Effort: -','']);
    return null;
   }
   assert.fail(title);
@@ -40,7 +40,7 @@ test('model and effort detail stays in place with placeholders on Back',async()=
 
 test('model detail resize guidance blocks Enter and retains role and model selection',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const model='candidate-'+('x'.repeat(198)),current={platform:'codex',...initial},catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}],unavailable:[{model:'old',reason:'unsupported'}]};
+ const model='candidate-'+('x'.repeat(998)),current={platform:'codex',...initial},catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}],unavailable:[{model:'old',reason:'unsupported'}]};
  let viewport={columns:120,rows:40};const screens=[],events=[{name:'down'},{name:'enter'},{name:'resize',viewport:{columns:40,rows:12}},{name:'enter'},{name:'resize',viewport:{columns:120,rows:40}},{name:'enter'},{name:'enter'},{name:'escape'}];
  const session={viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);screens.push({screen,viewport:{...viewport},...result});return result;},nextEvent:async()=>{const event=events.shift();if(event?.viewport)viewport=event.viewport;return event??{name:'eof'};}};
  await assert.rejects(editRole({ui:createTuiInterface(session),roleName:'Scouter',current,availabilityOf:id=>({selectable:id==='codex',reason:id==='codex'?null:'unauthorized'}),loadCatalog:async()=>({status:'ready',catalog}),defaultsFor:async()=>initial}),{code:'ARC_TUI_HOME'});
@@ -51,7 +51,7 @@ test('model detail resize guidance blocks Enter and retains role and model selec
 
 test('effort detail resize guidance blocks Enter and preserves pending selection',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const model='candidate-'+('x'.repeat(198)),current={platform:'codex',...initial},catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}]};
+ const model='candidate-'+('x'.repeat(998)),current={platform:'codex',...initial},catalog={platform:'codex',pairs:[{model,effort:'high'},{model,effort:'low'}]};
  let viewport={columns:120,rows:40};const screens=[],events=[{name:'down'},{name:'enter'},{name:'enter'},{name:'down'},{name:'resize',viewport:{columns:40,rows:12}},{name:'enter'},{name:'resize',viewport:{columns:120,rows:40}},{name:'enter'},{name:'resize',viewport:{columns:800,rows:40}},{name:'escape'}];
  const session={viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);screens.push({screen,viewport:{...viewport},...result});return result;},nextEvent:async()=>{const event=events.shift();if(event?.viewport)viewport=event.viewport;return event??{name:'eof'};}};
  await assert.rejects(editRole({ui:createTuiInterface(session),roleName:'Scouter',current,availabilityOf:id=>({selectable:id==='codex',reason:id==='codex'?null:'unauthorized'}),loadCatalog:async()=>({status:'ready',catalog}),defaultsFor:async()=>initial}),{code:'ARC_TUI_HOME'});
@@ -61,10 +61,10 @@ test('effort detail resize guidance blocks Enter and preserves pending selection
 });
 
 
-test('compact detail menu puts one blank after the pager row and none before Back',async()=>{
+test('compact detail menu puts the pager below choices and keeps Back adjacent',async()=>{
  await selectCatalogPair({roleName:'Scouter',current:initial,catalog,ui:{menu:async(title,rows,options)=>{
-  assert.equal(title,'Model — Scouter');const body=options.renderBody({selected:0,columns:60,rows:20}),pagerRow=body.rows.find(row=>row.startsWith('←/→: Details '));
-  assert.ok(pagerRow);assert.equal(body.rows[body.rows.indexOf(pagerRow)+1],'');assert.equal(body.rows.at(-1),'Back');assert.notEqual(body.rows.at(-2),'');assert.equal(body.rows[body.selected],'model-a');
+  assert.equal(title,'Model — Scouter');const body=options.renderBody({selected:0,columns:60,rows:20}),pagerRow=body.notices.find(row=>row.startsWith('←/→: Details '));
+  assert.ok(pagerRow);assert.equal(body.notices.at(-1),pagerRow);assert.equal(body.rows.includes(pagerRow),false);assert.equal(body.rows.at(-1),'Back');assert.notEqual(body.rows.at(-2),'');assert.equal(body.rows[body.selected],'model-a');
   const back=options.renderBody({selected:rows.length,columns:60,rows:20});assert.equal(back.rows[back.selected],'Back');return null;
  },page:async()=>assert.fail('unexpected unavailable')}});
 });
@@ -158,7 +158,7 @@ test('enter opens platform and catalog lists from both model and effort rows',as
   ()=>0,
   (title,rows)=>{assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex','Gemini']);return 1;},
   (title,rows,options)=>{assert.doesNotMatch(bodyRows(options)[1],/\(reset\)/);assert.equal(options.selected,0);return 1;},
-  (title,rows,options)=>{assert.equal(title,'Model — Planner');assert.deepEqual(rows,['model-a','model-b']);assert.match(options.info(editorState()).join(' '),/high, medium/);assert.equal(typeof options.onHorizontal,'function');return 1;},
+  (title,rows,options)=>{assert.equal(title,'Model — Planner');assert.deepEqual(rows,['model-a','model-b']);assert.match(options.notice(editorState()).join(' '),/high, medium/);assert.equal(typeof options.onHorizontal,'function');return 1;},
   (title,rows)=>{assert.equal(title,'Effort — Planner');assert.deepEqual(rows,['low']);return 0;},
   (title,rows,options)=>{assert.equal(options.selected,1);assert.deepEqual(bodyRows(options).slice(1,3),['Model < model-b >','Effort < low >']);return 2;},
   (title)=>{assert.equal(title,'Model — Planner');return 0;},
@@ -173,7 +173,7 @@ test('platform list keeps fixed order and rejects unavailable Enter while showin
  const ui=menuScript([
   (title,rows,options)=>{
    assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex - Unavailable  (unauthorized)','Gemini']);assert.equal(options.backRow,true);assert.equal(options.selected,1);
-   assert.deepEqual(options.info(editorState(1)),['Codex: unauthorized']);assert.deepEqual(options.info(editorState(0)),[]);assert.deepEqual(options.info(editorState(2)),[]);return 1;
+   assert.deepEqual(options.notice(editorState(1)),['Codex: unauthorized']);assert.deepEqual(options.notice(editorState(0)),[]);assert.deepEqual(options.notice(editorState(2)),[]);return 1;
   },
   (title,rows,options)=>{assert.equal(options.selected,1);return 0;},
  ]);
@@ -190,13 +190,15 @@ test('platform list uses fake registry labels and order without moving available
  assert.equal(await roleEditor.selectPlatform({ui,roleName:'QA',current:'zeta',availabilityOf:id=>id==='claude'?unauthorized:selectable,registry}),null);ui.done();
 });
 
-test('platform list truncates registry labels and reason detail on one line',async()=>{
+test('platform list truncates choices while bottom reasons wrap safely',async()=>{
  assert.equal(typeof roleEditor.selectPlatform,'function');
  const registry=diagramRegistry('가'.repeat(50)+'\nZeta');
- const ui=menuScript([(title,rows,options)=>{
-  const state=editorState(0,30),info=options.info(state),body=options.renderBody(state);
-  assert.equal(info.length,1);assert.match(info[0],/…$/);assert.ok(!info[0].includes('\n'));
-  assert.equal(body.rows.length,3);assert.match(body.rows[1],/…$/);
+ const ui=menuScript([async(title,rows,options)=>{
+  const state=editorState(0,30),info=options.notice(state),body=options.renderBody(state);
+  assert.equal(info.length,1);assert.ok(info[0].endsWith('Zeta: unauthorized'));
+  assert.ok(body.rows.length>=1);assert.match(body.rows[body.selected],/…$/);
+  const {renderScreen}=await import('../../lib/tui/render.mjs');const output=renderScreen({title, ...body},{columns:30,rows:30});
+  assert.doesNotMatch(output.text,/\nZeta/);assert.ok(output.text.replace(/\n  /g,'').includes('\\x0aZeta:'));assert.match(output.text,/unauthorized/);assert.equal(output.selectionEnabled,true);
   return null;
  }]);
  assert.equal(await roleEditor.selectPlatform({ui,roleName:'QA',current:'zeta',availabilityOf:()=>unauthorized,registry}),null);ui.done();
@@ -252,4 +254,29 @@ test('role editor pulses each selected horizontal field and leaves other fields 
   return null;
  }]);
  assert.equal(await runRoleEditor(ui),null);ui.done();
+});
+
+
+test('role editor scrolls choices above a warning to keep Done visible in a short viewport',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
+ const events=[{name:'down'},{name:'down'},{name:'down'},{name:'enter'}],frames=[];
+ const viewport={columns:40,rows:8};
+ const ui=createTuiInterface({viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);frames.push(result);return result;},nextEvent:async()=>events.shift()??{name:'eof'}});
+ assert.deepEqual(await runRoleEditor(ui,{availabilityOf:()=>({...selectable,warning:'auth_unverified'})}),editorCurrent);
+ assert.ok(frames.every(frame=>frame.selectionEnabled));assert.match(frames.at(-1).text,/> Done/);assert.match(frames.at(-1).text,/Claude: auth unverified/);
+});
+
+
+for(const viewport of [{columns:80,rows:24},{columns:40,rows:20}])test(`model notices keep each choice at its line at ${viewport.columns}x${viewport.rows}`,async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
+ const events=[{name:'down'},{name:'down'},{name:'enter'}],frames=[];
+ const ui=createTuiInterface({viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);frames.push({screen,...result});return result;},nextEvent:async()=>events.shift()??{name:'eof'}});
+ const catalog={platform:'codex',pairs:[{model:'model-a',effort:'high'},{model:'model-b-with-a-longer-description',effort:'low'}]};
+ assert.equal(await selectCatalogPair({ui,catalog,current:initial,roleName:'Planner'}),null);
+ for(const frame of frames){
+  const lines=frame.text.split('\n');
+  for(const [index,label] of ['model-a','model-b-with-a-longer-description','Back'].entries())assert.equal(lines.findIndex(line=>line.trim().replace(/^> /,'')===label),index+1);
+  assert.equal(frame.selectionEnabled,true);assert.ok(frame.screen.notices.length);
+ }
+ assert.match(frames[1].text,/Model:\s+model-b/);assert.match(frames[2].text,/Model: -/);
 });

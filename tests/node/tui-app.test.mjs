@@ -221,7 +221,7 @@ test('concise lifecycle result rows preserve diagnostics without rollback',async
 test('custom editor keeps long model choices selectable at 40 columns',async()=>{
  const model='fixture-'+('x'.repeat(200)),catalog={platform:'codex',pairs:[{model,effort:'medium'}]};let calls=0;
  const result=await selectCatalogPair({roleName:'Scouter',current:{model,effort:'medium'},catalog,ui:{menu:async(title,rows,options)=>{
-  calls++;const state={selected:0,columns:40,rows:18},body=options.renderBody(state);assert.equal(renderScreen({title,rows:body.rows,selected:body.selected,compactFooter:body.compactFooter},{columns:40,rows:18}).selectionEnabled,true);let detail='';for(let page=0;page<body.detailPages;page++){const frame=options.renderBody(state);detail+=frame.rows.slice(0,frame.rows.findIndex(row=>row.startsWith('←/→: Details'))).join('');options.onHorizontal({...state,direction:'right'});}assert.ok(detail.includes(model));return 0;
+  calls++;const state={selected:0,columns:40,rows:18},body=options.renderBody(state);assert.equal(renderScreen({title,rows:body.rows,notices:body.notices,selected:body.selected,compactFooter:body.compactFooter},{columns:40,rows:18}).selectionEnabled,true);let detail='';for(let page=0;page<body.detailPages;page++){const frame=options.renderBody(state);detail+=frame.notices.slice(0,frame.notices.findIndex(row=>row.startsWith('←/→: Details'))).join('');options.onHorizontal({...state,direction:'right'});}assert.ok(detail.includes(model));return 0;
  },page:async()=>assert.fail('unexpected page')}});assert.deepEqual(result,{model,effort:'medium'});assert.equal(calls,2);
 });
 
@@ -396,4 +396,34 @@ for(const wordmark of [false,true])test('menu frame ticks preserve an independen
 for(const motion of [undefined,false])test('horizontal controls stay static without motion '+motion,async t=>{
  t.mock.timers.enable({apis:['setTimeout']});const{createTuiInterface}=await load(),session=terminal([]),states=[];let resolveEvent;session.frameMs=80;session.motion=motion;session.nextEvent=()=>new Promise(resolve=>{resolveEvent=resolve;});
  const result=createTuiInterface(session).menu('Controls',['Language'],{onHorizontal(){},renderBody:state=>{states.push(state);return{rows:['Language'],selected:0};}});t.mock.timers.tick(400);await new Promise(resolve=>setImmediate(resolve));resolveEvent(enter);assert.equal(await result,0);assert.deepEqual(states.map(({frame})=>frame),[0]);assert.equal(session.screens.length,1);
+});
+
+
+test('dynamic bottom notices keep choices at the same lines and reserve scroll space',async()=>{
+ const {createTuiInterface}=await load(),session=terminal([...down(2),enter]),frames=[];
+ session.viewport=()=>({columns:40,rows:10});
+ session.render=screen=>{const rendered=renderScreen(screen,session.viewport());session.screens.push(screen);frames.push(rendered);return rendered;};
+ const notices=[[],['Short warning'],['A longer warning that wraps across multiple lines on this terminal']];
+ assert.equal(await createTuiInterface(session).menu('Menu',['One','Two','Three'],{notice:({selected,columns,rows})=>{assert.equal(columns,40);assert.equal(rows,10);return notices[selected];}}),2);
+ for(const frame of frames){const lines=frame.text.split('\n');for(const [index,label] of ['One','Two','Three'].entries())assert.equal(lines.findIndex(line=>line.trim()===label||line.trim()==='> '+label),index+1);assert.equal(frame.selectionEnabled,true);}
+ assert.deepEqual(session.screens.map(screen=>screen.rows),Array(3).fill(['One','Two','Three']));
+ const short=terminal([...down(11),enter]);short.viewport=()=>({columns:40,rows:9});short.render=screen=>{short.screens.push(screen);return renderScreen(screen,short.viewport());};
+ assert.equal(await createTuiInterface(short).menu('Menu',Array.from({length:12},(_,i)=>'Action '+i),{notice:['Warning wraps over two lines for the selected action']}),11);
+ const rendered=renderScreen(short.screens.at(-1),short.viewport());assert.equal(rendered.selectionEnabled,true);assert.match(rendered.text,/> Action 11/);assert.match(rendered.text,/selected action/);
+});
+
+test('renderBody notices replace menu notices without becoming selectable rows',async()=>{
+ const {createTuiInterface}=await load(),session=terminal([enter]);
+ await createTuiInterface(session).menu('Editor',['Done'],{notice:['Old'],renderBody:()=>({rows:['Done'],selected:0,notices:['New']})});
+ assert.deepEqual(session.screens[0].notices,['New']);assert.deepEqual(session.screens[0].rows,['Done']);
+});
+
+test('Hosts rows cut at 40 columns stay selectable and Enter shows their feedback',async()=>{
+ const {createTuiInterface}=await load(),{editHosts}=await import('../../lib/tui/setup.mjs');
+ const events=[{name:'down'},{name:'enter'},{name:'escape'}],screens=[];
+ const session={viewport:()=>({columns:40,rows:20}),render(screen){const rendered=renderScreen(screen,{columns:40,rows:20});screens.push({screen,rendered});return rendered;},async nextEvent(){return events.shift()??{name:'eof'};}};
+ await assert.rejects(editHosts({ui:createTuiInterface(session),hosts:[],rolePlatforms:['claude','claude','claude','claude','claude'],availabilityOf:id=>id==='codex'?{selectable:false,reason:'unauthorized'}:{selectable:true}}),{code:'ARC_TUI_HOME'});
+ const cut=screens.find(({screen})=>screen.selected===1);
+ assert.ok(cut.screen.rows[1].startsWith('[-] Codex')&&cut.screen.rows[1].endsWith('…'));assert.equal(cut.rendered.selectionEnabled,true);
+ assert.ok(screens.at(-1).screen.notices.some(line=>/Codex/.test(line)));
 });

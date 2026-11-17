@@ -467,6 +467,26 @@ Status
 
 ---
 
+### Task J: 바뀌는 안내를 하단 노란색 영역으로 이동 (v11)
+
+**Files:** `lib/tui/app.mjs`(`ui.menu`), `lib/tui/render.mjs`(배치·색), `lib/tui/setup.mjs`, `lib/tui/custom-preset.mjs`, 관련 테스트, `MANIFEST.sha256`
+
+**Predecessors:** I(b1e86a7)
+
+사용자 요청: 상단 info 문구가 나타나거나 바뀌면 선택지가 함께 움직여 혼동된다. 사용자 선택: "바뀌는 안내만".
+
+- J1 `ui.menu`에 하단 안내 옵션(예: `notice`, 배열 또는 `({selected,...viewport})=>배열`)을 추가하고, `renderBody` 결과도 같은 하단 안내를 돌려줄 수 있게 한다. 하단 안내는 선택지(와 position 표시) 아래, 조작 안내 구분선 바로 위에 그린다. 안내가 있을 때 선택지와의 사이에 빈 줄 하나를 둔다.
+- J2 하단 안내는 모두 노란색(기존 warn 색 `TONE_FG.warn`)으로 그린다. 기존 diagnostic(접두어 뒤만 색칠)도 하단으로 오면 줄 전체를 노란색으로 그린다. 줄바꿈은 기존 `wrapDetailRow` 규칙(단어 경계, 이어쓰기 들여쓰기)을 따른다.
+- J3 다음 화면의 바뀌는 안내를 하단으로 옮긴다: Hosts(안내 문구, 행 사유, Enter 피드백 전체), Install / Update(이동 안내, 선택한 역할 사유, 인증 경고), 역할 상세 설정과 Platform / Model / Effort 목록 화면의 info(좁은 화면의 `←/→: Details n/m` 페이지 표시 포함).
+- J4 고정 본문은 지금 위치에 둔다: Status 표(상태 색 유지), Uninstall 확인 문구, Switch 확인 문구, 홈.
+- J5 선택지 위치는 하단 안내의 유무·길이와 관계없이 같은 화면 안에서 움직이지 않는다(제목 바로 아래에서 시작). 화면이 낮으면 선택지 스크롤 용량 계산에 하단 안내 줄 수를 반영해 선택 행이 항상 보이게 한다. 기존 작은 화면 안전장치(선택 불가 처리, compactFooter)는 유지한다.
+- [x] Step 1 실패 테스트 작성 → [x] Step 2 RED 확인 → [x] Step 3 구현 → [x] Step 4 GREEN → [x] Step 5 manifest 재생성/검사
+- 수락 시 판정(Orchestrator): Model 목록 16행 미만 크기 안내는 기존 안전장치로 유지. 40열에서 잘린 Hosts 행의 선택 차단은 HEAD에서도 같은 기존 동작이며 J 범위 밖.
+
+**QA(fresh):** J1–J5, 대상 화면별 실제 렌더 샘플(일반 폭과 40열·낮은 높이), 커서 이동 시 선택지 줄 번호 불변, 노란색 SGR, 무퇴행.
+
+---
+
 ### 최종 검증 (모든 작업 수락 후)
 
 - Orchestrator가 실행한다.
@@ -498,3 +518,5 @@ Status
 | v8 | 2026-11-17T05:09:09Z | contract | D (follow-up, amended into I commit) | 사용자 요청: Settings Language와 역할 상세 설정(Platform/Model/Effort)의 `< … >` 화살표가 0.5s 미만 간격으로 규칙적으로 움직이도록(0.4s 토글, 공용 arrowValue), 최신 커밋에 amend 지시 |
 | v9 | 2026-11-17T05:12:52Z | contract | E (follow-up, amended into latest commit) | 사용자 요청: Install / Update의 Apply 모드 표시를 괄호 대신 ` - <mode>` 형식으로, 최신 커밋에 amend 지시 |
 | v10 | 2026-11-17T05:16:21Z | contract | I (follow-up, amended into latest commit) | 사용자 요청: 역할 상세 설정에서 Platform을 바꿀 때 Model/Effort의 `(reset)` 표시 제거(모델 변경으로 effort가 바뀌는 경우의 표시는 유지), 최신 커밋에 amend 지시 |
+| v11 | 2026-11-17T05:21:27Z | contract | J (new) | 사용자 요청: 바뀌는 info를 모든 화면에서 하단(조작 안내 선 바로 위) 노란색으로, 범위 선택 "바뀌는 안내만" |
+| v12 | 2026-11-17T05:49:24Z | contract | J (follow-up, amended into latest commit) | 사용자 요청: 40열에서 잘린 Hosts 행도 선택 가능하게(`ui.menu` `fitRows`로 말줄임 처리), 최신 커밋에 amend 지시 |

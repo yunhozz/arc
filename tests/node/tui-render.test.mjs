@@ -260,3 +260,29 @@ test('arrow values move every 5 frames (400ms) while active without changing wid
  assert.equal(typeof api.arrowValue,'function');
  for(const [frame,active,want] of [[0,true,'< KR >'],[4,true,'< KR >'],[5,true,' <KR> '],[9,true,' <KR> '],[10,true,'< KR >'],[15,true,' <KR> '],[5,false,'< KR >'],[9,false,'< KR >']]){const value=api.arrowValue('KR',frame,active);assert.equal(value,want);assert.equal(value.length,6);}
 });
+
+
+test('bottom notices wrap below choices and color the complete diagnostic yellow',()=>{
+ const result=api.renderScreen({title:'Hosts',rows:['Claude','Done'],selected:0,notices:['Codex: authentication needs attention today']},{columns:40,rows:20});
+ const lines=result.text.split('\n');
+ assert.deepEqual(lines.slice(0,4).map(line=>line.trimEnd()),['Hosts','> Claude','  Done','']);
+ assert.deepEqual(lines.slice(4,6),['  Codex: authentication needs attention','  today']);
+ assert.equal(lines[6],'─'.repeat(39));
+ const style=result.styles.find(style=>style.line===4);
+ assert.equal(formatLine(lines[4],style,'16'),'\x1b[0;33m'+lines[4]+'\x1b[0m');
+ assert.equal(formatLine(lines[4],style,'truecolor'),'\x1b[0;38;2;251;191;36m'+lines[4]+'\x1b[0m');
+ for(const line of [4,5])assert.deepEqual(result.styles.find(style=>style.line===line)?.runs,[{from:0,to:lines[line].length,role:'warn',fg:[251,191,36]}]);
+ assert.equal(result.selectionEnabled,true);
+});
+
+test('footer fitting reserves notices and disables a choice hidden by them',()=>{
+ const result=api.renderScreen({title:'Menu',rows:['One','Two','Apply'],selected:2,notices:['Warning']},{columns:80,rows:7});
+ assert.deepEqual(result.text.split('\n').slice(0,-2),['Menu','  One','  Two','','  Warning']);
+ assert.equal(result.selectionEnabled,false);
+});
+
+test('fitChoiceRow keeps fitting rows and ellipsizes long rows to one line',()=>{
+ assert.equal(api.fitChoiceRow('[ ] Claude',40),'[ ] Claude');
+ const long='[-] Codex   - Unavailable  (unauthorized) (auth unverified)',fitted=api.fitChoiceRow(long,40);
+ assert.ok(fitted.endsWith('…'));assert.ok([...fitted].reduce((width,character)=>width+api.cellWidth(character),0)<=37);assert.ok(long.startsWith(fitted.slice(0,-1)));
+});

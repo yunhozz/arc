@@ -212,15 +212,15 @@ test('operational status and home wording remain unchanged with an off injected 
   assert.deepEqual(prepared.options, {kind: 'install', target: 'all'});
 });
 
-test('auth unverified info line appears in platform picker and role editor', async () => {
+test('auth unverified bottom notice appears in platform picker and role editor', async () => {
   const registry = createZetaRegistries().platforms, statuses = ['claude', 'codex', 'zeta'].map(id => statusOf(id)), availability = availabilityOf(registry, statuses);
   const expected = ['Zeta: auth unverified — ARC cannot confirm Zeta CLI login.'];
   await selectPlatform({registry, roleName: 'Planner', current: 'zeta', availabilityOf: availability, ui: {menu: async (_title, _rows, options) => {
-    assert.deepEqual(options.info({...state, selected: 2}), expected); return null;
+    assert.deepEqual(options.notice({...state, selected: 2}), expected); return null;
   }}});
   await editRole({registry, roleName: 'Planner', current: {platform: 'zeta', model: 'zeta-model', effort: 'high'}, availabilityOf: availability, loadCatalog: async platform => catalogOf(platform), defaultsFor: async () => ({model: 'sonnet', effort: 'high'}), ui: {menu: async (_title, _rows, options) => {
-    assert.deepEqual(options.info(state), expected);
-    assert.ok(options.renderBody(state).rows.includes(expected[0])); return 3;
+    assert.deepEqual(options.notice(state), expected);
+    assert.ok(options.renderBody(state).notices.includes(expected[0])); return 3;
   }}});
 });
 
@@ -230,8 +230,8 @@ test('Hosts shows auth unverified and reason line appears only when no block', a
   for (const blocked of [false, true]) {
     const saved = statuses.map(status => blocked && status.platform === 'claude' ? {...status, authentication: {authStatus: 'unauthorized'}} : status);
     await runInstallFlow({registry, statuses: saved, draft: {roles: roles('zeta'), hosts: ['claude', 'zeta']}, installState: {mode: 'standalone', platforms: []}, loadRoleDefaults: async () => ({}), loadCatalog: async id => catalogOf(id), prepare: () => assert.fail('must not prepare'), ui: {menu: async (_title, _rows, options) => {
-      if (blocked) {assert.ok(options.info.some(row => row.startsWith('! Hosts: Claude'))); assert.ok(!options.info.includes('Zeta: auth unverified'));}
-      else assert.ok(options.info.includes('Zeta: auth unverified'));
+      if (blocked) {assert.ok(options.notice.some(row => row.startsWith('! Hosts: Claude'))); assert.ok(!options.notice.includes('Zeta: auth unverified'));}
+      else assert.ok(options.notice.includes('Zeta: auth unverified'));
       return null;
     }}});
   }
