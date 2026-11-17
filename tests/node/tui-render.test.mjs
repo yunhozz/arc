@@ -24,6 +24,15 @@ test('detail wrapping preserves every escaped character without horizontal trunc
  assert.equal(lines.join(''),api.escapeTerminalText(source));assert.ok(lines.every(line=>line.length<=21));
  const wide=api.wrapDetailRows(['ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ'],12);assert.equal(wide.join(''),'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮ');assert.ok(wide.every(line=>[...line].length<=4));
 });
+test('detail wrapping breaks words only when necessary and preserves hanging indentation',()=>{
+ assert.deepEqual(api.wrapDetailRows(['  alpha beta gamma delta'],18),['  alpha beta','  gamma delta']);
+ assert.deepEqual(api.wrapDetailRows(['• Mixed routing will move to the Claude home'],30),['• Mixed routing will move','  to the Claude home']);
+ assert.deepEqual(api.wrapDetailRows(['Mode     Mixed (Claude + Codex)'],25),['Mode     Mixed (Claude','         + Codex)']);
+ assert.deepEqual(api.wrapDetailRows(['Claude   abcdefghijklmnop'],18),['Claude   abcdef','         ghijkl','         mnop']);
+ assert.deepEqual(api.wrapDetailRows(['','plain text'],15),['','plain text']);
+ const wide=api.wrapDetailRows(['• ＡＢＣＤＥＦＧＨＩＪ'],12);
+ assert.deepEqual(wide,['• ＡＢＣ','  ＤＥＦ','  ＧＨＩ','  Ｊ']);
+});
 test('responsive footer remains outside selectable rows',()=>{for(const columns of [40,80,120]){const screen={title:'Menu',rows:['One','Two'],selected:1};const result=api.renderScreen(screen,{columns,rows:24});const lines=result.text.split('\n');assert.equal(lines.at(-3),'');assert.equal(lines.at(-2),'─'.repeat(columns-1));assert.equal(screen.rows.length,2);assert.equal(result.selectionEnabled,true);}});
 test('footer reserves space and blocks hidden selected actions',()=>{assert.equal(api.renderScreen({title:'Menu',rows:['Apply'],selected:0},{columns:80,rows:4}).selectionEnabled,false);});
 
@@ -247,7 +256,7 @@ test('diagram escapes controls in role, platform label, model and effort',()=>{
  }
 });
 
-test('arrow values pulse only during active end frames without changing width',()=>{
+test('arrow values move every 5 frames (400ms) while active without changing width',()=>{
  assert.equal(typeof api.arrowValue,'function');
- for(const [frame,active,want] of [[0,true,'< KR >'],[26,true,'< KR >'],[27,true,' <KR> '],[29,true,' <KR> '],[27,false,'< KR >'],[30,true,'< KR >']]){const value=api.arrowValue('KR',frame,active);assert.equal(value,want);assert.equal(value.length,6);}
+ for(const [frame,active,want] of [[0,true,'< KR >'],[4,true,'< KR >'],[5,true,' <KR> '],[9,true,' <KR> '],[10,true,'< KR >'],[15,true,' <KR> '],[5,false,'< KR >'],[9,false,'< KR >']]){const value=api.arrowValue('KR',frame,active);assert.equal(value,want);assert.equal(value.length,6);}
 });

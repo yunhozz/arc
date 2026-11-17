@@ -119,12 +119,12 @@ test('cycling with only the current platform selectable keeps values and reset m
  assert.deepEqual(await runRoleEditor(ui,{availabilityOf:id=>id==='claude'?selectable:unauthorized}),editorCurrent);ui.done();
 });
 
-test('platform change resets to role defaults and user field changes clear only their reset mark',async()=>{
+test('platform change resets to role defaults without a reset mark; a later model change still marks a reset effort',async()=>{
  const ui=menuScript([(title,rows,options)=>{
   options.onHorizontal({...editorState(),direction:'right'});
-  assert.deepEqual(bodyRows(options),['Platform < Codex >','Model < model-a > (reset)','Effort < medium > (reset)','Done','Back']);
+  assert.deepEqual(bodyRows(options),['Platform < Codex >','Model < model-a >','Effort < medium >','Done','Back']);
   options.onHorizontal({...editorState(2),direction:'left'});
-  assert.equal(bodyRows(options)[1],'Model < model-a > (reset)');assert.equal(bodyRows(options)[2],'Effort < high >');
+  assert.equal(bodyRows(options)[1],'Model < model-a >');assert.equal(bodyRows(options)[2],'Effort < high >');
   options.onHorizontal({...editorState(1),direction:'right'});
   assert.equal(bodyRows(options)[1],'Model < model-b >');assert.equal(bodyRows(options)[2],'Effort < low > (reset)');return 3;
  }]);
@@ -136,7 +136,7 @@ test('platform change resets to role defaults and user field changes clear only 
 test('platform change falls back to the first catalog pair when defaults are absent from the catalog',async()=>{
  const ui=menuScript([(title,rows,options)=>{
   options.onHorizontal({...editorState(),direction:'right'});
-  assert.deepEqual(bodyRows(options).slice(1,3),['Model < model-a > (reset)','Effort < high > (reset)']);return 3;
+  assert.deepEqual(bodyRows(options).slice(1,3),['Model < model-a >','Effort < high >']);return 3;
  }]);
  assert.deepEqual(await runRoleEditor(ui,{defaultsFor:()=>({model:'missing',effort:'high'})}),{platform:'codex',model:'model-a',effort:'high'});ui.done();
 });
@@ -157,7 +157,7 @@ test('enter opens platform and catalog lists from both model and effort rows',as
  const ui=menuScript([
   ()=>0,
   (title,rows)=>{assert.equal(title,'Platform — Planner');assert.deepEqual(rows,['Claude','Codex','Gemini']);return 1;},
-  (title,rows,options)=>{assert.match(bodyRows(options)[1],/\(reset\)/);assert.equal(options.selected,0);return 1;},
+  (title,rows,options)=>{assert.doesNotMatch(bodyRows(options)[1],/\(reset\)/);assert.equal(options.selected,0);return 1;},
   (title,rows,options)=>{assert.equal(title,'Model — Planner');assert.deepEqual(rows,['model-a','model-b']);assert.match(options.info(editorState()).join(' '),/high, medium/);assert.equal(typeof options.onHorizontal,'function');return 1;},
   (title,rows)=>{assert.equal(title,'Effort — Planner');assert.deepEqual(rows,['low']);return 0;},
   (title,rows,options)=>{assert.equal(options.selected,1);assert.deepEqual(bodyRows(options).slice(1,3),['Model < model-b >','Effort < low >']);return 2;},
@@ -230,7 +230,7 @@ test('role editor updates rendered rows through the existing ui key contract',as
  const events=['right','down','right','down','right','down','enter'],screens=[];
  const session={viewport:()=>({columns:100,rows:30}),render:screen=>{screens.push(screen);return {selectionEnabled:true};},nextEvent:async()=>({name:events.shift()??'eof'})};
  assert.deepEqual(await runRoleEditor(createTuiInterface(session)),{platform:'codex',model:'model-b',effort:'low'});
- assert.ok(screens.some(screen=>screen.rows[0]==='Platform < Codex >'&&screen.rows[1]==='Model < model-a > (reset)'));
+ assert.ok(screens.some(screen=>screen.rows[0]==='Platform < Codex >'&&screen.rows[1]==='Model < model-a >'));
  assert.equal(screens.at(-1).rows[2],'Effort < low > (reset)');
 });
 

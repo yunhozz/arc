@@ -231,6 +231,7 @@ A → B → C → D → E → F → G
 - `arrowValue(text, frame, active) -> string`
   - `active && frame % 30 >= 27`이면 `' <'+text+'> '`, 그 밖에는 `'< '+text+' >'`
   - 두 형태의 폭은 같다. 주기는 30프레임 × 80ms = 2.4s다.
+  - v8 변경(사용자 요청): `active && Math.floor(frame/5)%2===1`이면 안쪽 형태. 5프레임 × 80ms = 0.4s마다 규칙적으로 바뀐다(0.5s 미만).
 - `navigationHint('checklist')` → `'↑/↓: Select · Enter Toggle · Esc Home'`
 - `ui.menu` 변경
   - `hint` 옵션(`'checklist'`)을 추가한다.
@@ -291,6 +292,7 @@ A → B → C → D → E → F → G
 - **T3 Install 화면**
   - info에서 `Hosts:`/`Mode:` 행을 없앤다. 이동 줄과 reason/auth 줄은 남긴다.
   - controls 표시 행은 `Hosts: <Label, Label>` / `Settings` / `Apply  (<plan.modeLabel>)` / `Back`이다.
+  - v9 변경(사용자 요청): Apply 행은 `Apply - <plan.modeLabel>` 형식이다(예: `Apply - Mixed (Claude + Codex)`).
   - footer/reasonIndex는 줄어든 info 길이를 따라간다.
 - **T3 diagram**
   - 선택된 역할 라벨 앞에 `> `를 붙인다. 박스가 보일 때는 `┌─ > Planner ─…┐`, 깜빡여 숨겨졌을 때는 `   > Planner`다.
@@ -430,6 +432,41 @@ A → B → C → D → E → F → G
 
 ---
 
+### Task I: Status 화면 레이아웃 보완 (T2 후속, v7)
+
+**Files:** `lib/tui/app.mjs`(Status 액션), `lib/tui/mode.mjs`(행 생성 함수), `lib/tui/render.mjs`(줄바꿈), 관련 테스트, `MANIFEST.sha256`
+
+**Predecessors:** H(6e4aaf0)
+
+사용자 선택: "표 형태 + Notes".
+
+```
+Status
+  Mode     Mixed (Claude + Codex)
+
+  Claude   Available
+  Codex    Available
+  Gemini   Available · auth unverified
+
+  Notes
+  • Mixed routing will move to the Claude home
+    on the next Install / Update. (Claude, Codex)
+
+> Back
+```
+
+- I1 첫 줄은 `Mode` 라벨과 기존 `homeModeLine` 값이다. 빈 줄 뒤에 플랫폼마다 한 행씩 표시순으로 보여 준다. 라벨 열은 가장 긴 라벨(`Mode` 포함) 기준으로 정렬한다.
+- I2 플랫폼 행의 상태 단어(Available/Incomplete/Not installed 등 기존 `stateLabel` 값)는 기존 상태 색(ok/warn/error/muted)을 유지한다. 인증 미확인 같은 보조 상태는 ` · auth unverified`처럼 사람이 읽는 문구로 붙인다.
+- I3 진단과 인증 사유는 `Notes` 아래 `• ` 항목으로 모은다. 문구가 같은 항목은 한 번만 표시하고, 끝에 해당 플랫폼을 `(Claude, Codex)` 형태로 붙인다. 내부 코드(`auth_unverified` 등)는 기존 사람용 문구(`REASON_TEXT`/`reasonDetail` 등)로 바꾼다. 다른 행에 이미 같은 뜻으로 표시된 내용(예: Gemini 행의 `auth unverified`)은 Notes에 반복하지 않는다. 항목이 없으면 `Notes` 제목도 생략한다. Notes 항목은 진단 톤을 유지한다.
+- I4 info 줄바꿈은 단어 경계에서 한다. 한 단어가 폭보다 길면 그때만 글자 단위로 자른다. 이어지는 줄은 원래 행의 들여쓰기만큼 들여 쓴다. `• ` 항목은 글머리표 뒤 위치에, 표 행은 값 열에 맞춘다. 이 줄바꿈 변경이 다른 화면의 info에도 적용되는 것은 허용한다.
+- I5 홈 메뉴, Status의 Back 동작, 실행 없음 계약은 그대로 둔다. 기존 `homeStatusLine` export를 다른 곳에서 쓰면 유지한다.
+- [x] Step 1 실패 테스트 작성 → [x] Step 2 RED 확인 → [x] Step 3 구현 → [x] Step 4 GREEN → [x] Step 5 manifest 재생성/검사
+- 구현 중 결정(Orchestrator): 진단은 값 전체가 코드일 때만 사람용 문구로 바꾸고(경로 보존), 인증 사유는 문장 안의 코드 토큰도 바꾼다.
+
+**QA(fresh):** I1–I5, 좁은 폭(예: 40열)에서 단어 경계 줄바꿈과 들여쓰기, 색 유지, 무퇴행.
+
+---
+
 ### 최종 검증 (모든 작업 수락 후)
 
 - Orchestrator가 실행한다.
@@ -457,3 +494,7 @@ A → B → C → D → E → F → G
 | v4 | 2026-11-17T01:28:02Z | contract | A (follow-up) | 사용자 보완: TOOL 색이 너무 밝고 CODEX와 비슷함 → 저채도 38;5;101 |
 | v5 | 2026-11-17T02:01:20Z | mechanical (Orchestrator, routine implementation detail) | B (follow-up) | watch→tui import가 기존 계약 테스트 위반: 색 함수를 lib/color/palette.mjs로 이동, 화면 동작 불변 |
 | v6 | 2026-11-17T04:13:11Z | contract | H (new) | 사용자 요청: Hosts 화면에 변경 불가 안내, 행 상태 기호, 접미사 정렬(H3 Details 힌트는 사용자 지시로 제외). 사용자 정정: 변경 불가 상태에서 커서 행 사유를 따로 표시하지 않음 |
+| v7 | 2026-11-17T04:33:58Z | contract | I (new) | 사용자 요청: Status 화면 UI 보완, 레이아웃 선택 "표 형태 + Notes" |
+| v8 | 2026-11-17T05:09:09Z | contract | D (follow-up, amended into I commit) | 사용자 요청: Settings Language와 역할 상세 설정(Platform/Model/Effort)의 `< … >` 화살표가 0.5s 미만 간격으로 규칙적으로 움직이도록(0.4s 토글, 공용 arrowValue), 최신 커밋에 amend 지시 |
+| v9 | 2026-11-17T05:12:52Z | contract | E (follow-up, amended into latest commit) | 사용자 요청: Install / Update의 Apply 모드 표시를 괄호 대신 ` - <mode>` 형식으로, 최신 커밋에 amend 지시 |
+| v10 | 2026-11-17T05:16:21Z | contract | I (follow-up, amended into latest commit) | 사용자 요청: 역할 상세 설정에서 Platform을 바꿀 때 Model/Effort의 `(reset)` 표시 제거(모델 변경으로 effort가 바뀌는 경우의 표시는 유지), 최신 커밋에 amend 지시 |

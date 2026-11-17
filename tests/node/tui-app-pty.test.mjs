@@ -16,7 +16,7 @@ async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',ob
  const status=await new Promise(resolve=>child.on('close',resolve));output=withoutSgr(output);assert.equal(status,0,output);assert.doesNotMatch(output,/Operation unavailable|Change\x20Models/);assert.match(output,/RESTORED=true/);assert.match(output,/TERMIOS_RESTORED/);assert.doesNotMatch(output,/-icanon/);return output;
 }
 
-const entry='enter\nexpect -exact {Install / Update}\nexpect -exact {┌─ > Scouter}\nexpect -exact {Apply  (}\nexpect -exact {Esc Home}\n';
+const entry='enter\nexpect -exact {Install / Update}\nexpect -exact {┌─ > Scouter}\nexpect -exact {Apply - }\nexpect -exact {Esc Home}\n';
 const moves=n=>Array(n).fill('down\n').join('');
 const finish='expect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback';
 const settings=entry+moves(6)+'expect -exact {> Settings}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Language}\nexpect -exact {Esc Home}\n';
@@ -26,19 +26,19 @@ const settingsToApply='down\ndown\nenter\nexpect -exact {Install / Update}\nexpe
 const choosePair='down\nenter\nexpect -exact {Model — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Scouter}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\n';
 test('actual app Status returns home and restores PTY with no execution',{skip:!available},async t=>{
  // Status spans contain SGR codes: synchronize on the footer and assert the stripped content below.
- const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{env:{...process.env,NO_COLOR:undefined}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(output,/Claude: Available \/ Codex: Available/);assert.match(output,/Mode: Claude, Codex/);assert.match(output,/Install \/ Update[\s\S]*Status[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{env:{...process.env,NO_COLOR:undefined}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(output,/Claude +Available[\s\S]*Codex +Available/);assert.match(output,/Mode +Claude, Codex/);assert.match(output,/Install \/ Update[\s\S]*Status[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
 });
 test('legacy Apply preview shows the move line in PTY',{skip:!available},async t=>{
  const output=await drive(t,'enter\nexpect -exact {Mixed routing files will move to the Claude home.}\nback\nexpect -exact {Esc Exit}\nback',{
   installState:{mode:'composite',platforms:['claude','codex'],anchor:'codex',legacyAnchor:true},
   currentConfig:await mixedConfig('legacy-pty'),
  });
- assert.match(output,/Apply  \(Mixed \(Claude \+ Codex\)\)/);
+ assert.match(output,/Apply - Mixed \(Claude \+ Codex\)/);
  assert.match(output,/Mixed routing files will move to the Claude home\./);
  assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('install opens the diagram immediately with mode in Apply and platform order',{skip:!available},async t=>{
- const output=await drive(t,entry+'back\nexpect -exact {Esc Exit}\nback');assert.match(output,/┌─ > Scouter/);assert.match(output,/Apply  \(Claude\)/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,entry+'back\nexpect -exact {Esc Exit}\nback');assert.match(output,/┌─ > Scouter/);assert.match(output,/Apply - Claude/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('queued Enter never reaches install Apply',{skip:!available},async t=>{
  const output=await drive(t,'send -- "\\r\\r\\r"\nexpect -exact {Install / Update}\nafter 100\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
@@ -126,7 +126,7 @@ test('diagram resize blocks editing and role picker retains pending effort',{ski
 
 test('composite Status keeps platform status and Mixed Mode in display order',{skip:!available},async t=>{
  const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},codexAuth:'unauthorized'});
- assert.match(withoutSgr(output),/Claude: Available \/ Codex: Unauthorized/);assert.match(output,/Mode: +Mixed \(Claude \+ Codex\)/);assert.doesNotMatch(withoutSgr(output),/Claude & Codex: Available/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ assert.match(withoutSgr(output),/Claude +Available[\s\S]*Codex +Unauthorized/);assert.match(output,/Mode +Mixed \(Claude \+ Codex\)/);assert.doesNotMatch(withoutSgr(output),/Claude & Codex: Available/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 
 

@@ -11,6 +11,48 @@ const packageVersion=JSON.parse(readFileSync(new URL('../../package.json',import
 function terminal(events){const screens=[];return{screens,viewport(){return{columns:120,rows:40};},render(s){screens.push(s);return{selectionEnabled:true};},discardInput(){},setBusy(){},dispose(){this.closed=true;},async nextEvent(){return events.shift()??{name:'eof'};}};}
 const installedStatuses=()=>['claude','codex'].map(platform=>({platform,state:'installed'}));
 const down=n=>Array.from({length:n},()=>({name:'down'})),enter={name:'enter'},back={name:'escape'};
+for(const columns of [100,40])test('Status groups migration notes and aligns wrapped table values at '+columns+' columns',async()=>{
+ const {runTui}=await load(),session=terminal([...down(1),enter,enter,back]);session.viewport=()=>({columns,rows:40});
+ const message='Mixed routing will move to the Claude home on the next Install / Update.';
+ const statuses=['gemini','codex','claude'].map(platform=>({platform,state:'installed',cliVersion:{version:'0.68.0'},authentication:platform==='gemini'?{authStatus:'unknown',reason:'auth_unverified'}:{authStatus:'authenticated'},diagnostics:platform==='gemini'?[]:[{message}]}));
+ await runTui({session,context:{},services:{collectStatus:async()=>statuses,currentInstallState:()=>({mode:'composite',platforms:['claude','codex']}),prepareOperation:async()=>assert.fail('Status cannot prepare'),executeOperation:async()=>assert.fail('Status cannot execute')}});
+ const screen=session.screens.find(screen=>screen.title==='Status');
+ const notes=columns===100?['• '+message+' (Claude, Codex)']:['• Mixed routing will move to the','  Claude home on the next Install /','  Update. (Claude, Codex)'];
+ assert.deepEqual(screen.rows,['Mode     Mixed (Claude + Codex)','','Claude   Available','Codex    Available','Gemini   Available · auth unverified','','Notes',...notes,'','Back']);
+ assert.equal(screen.rows[screen.selected],'Back');assert.equal(session.screens.at(-1).title,'ARC');
+ const rendered=renderScreen(screen,session.viewport()),lines=rendered.text.split('\n');
+ const colors=rendered.styles.flatMap(style=>style.runs.filter(run=>['ok','warn','error','muted'].includes(run.role)).map(run=>[lines[style.line].slice(run.from,run.to),run.role]));
+ assert.deepEqual(colors.slice(0,3),[['Available','ok'],['Available','ok'],['Available','warn']]);
+ assert.ok(colors.slice(3).every(([,role])=>role==='warn'));assert.equal(colors.length,3+notes.length);
+});
+test('Status humanizes and deduplicates authentication notes and omits repeated state reasons',async()=>{
+ const {runTui}=await load(),session=terminal([...down(1),enter,back,back]);
+ await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[
+  {platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'auth_check_failed'},diagnostics:[{message:'auth check failed'}]},
+  {platform:'claude',state:'installed',authentication:{authStatus:'unauthorized',reason:'unauthorized'},diagnostics:[]}
+ ]}});
+ assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Mode     Claude, Codex','','Claude   Unauthorized','Codex    Incomplete','','Notes','• auth check failed (Codex)','','Back']);
+});
+test('Status humanizes embedded authentication codes while preserving diagnostic paths verbatim',async()=>{
+ const {runTui}=await load(),session=terminal([...down(1),enter,back,back]);
+ await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[
+  {platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'auth_unverified: probe failed; not_installed'},diagnostics:[{message:'Cannot read /tmp/role_config.json'},{message:'Diagnostic: role_config'}]},
+  {platform:'gemini',state:'installed',cliVersion:{version:'0.68.0'},authentication:{authStatus:'unknown',reason:'auth_unverified'},diagnostics:[]}
+ ]}});
+ const rows=session.screens.find(screen=>screen.title==='Status').rows;
+ assert.deepEqual(rows.filter(row=>row.startsWith('• ')),['• Cannot read /tmp/role_config.json (Codex)','• Diagnostic: role_config (Codex)','• auth unverified: probe failed; not installed (Codex)']);
+ assert.doesNotMatch(rows.join('\n'),/auth_unverified|not_installed/);
+});
+for(const platform of ['codex','gemini'])test('Status converts whole diagnostic codes before row-repeat suppression for '+platform,async()=>{
+ const {runTui}=await load(),session=terminal([...down(1),enter,back,back]);
+ await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[
+  {platform,state:'installed',cliVersion:{version:'0.68.0'},authentication:platform==='gemini'?{authStatus:'unknown',reason:'auth_unverified'}:{authStatus:'authenticated'},diagnostics:[{message:'auth_unverified'},{message:' auth_unverified '}]}
+ ]}});
+ const rows=session.screens.find(screen=>screen.title==='Status').rows;
+ assert.deepEqual(rows.filter(row=>row.startsWith('• ')),platform==='codex'?['• auth unverified (Codex)']:[]);
+ assert.equal(rows.includes('Notes'),platform==='codex');
+ assert.doesNotMatch(rows.join('\n'),/auth_unverified/);
+});
 test('uninstall rows follow display order and mark not installed without selecting them',async()=>{
  const {runTui}=await load(),session=terminal([...down(3),enter,enter,...down(1),enter,{name:'up'},enter,enter,back]);let prepared;
  await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'incomplete'},{platform:'claude',state:'absent'}],prepareOperation:async(_context,options)=>{prepared=options;return{kind:'uninstall',options};},executeOperation:async()=>({code:0,results:[{platform:'codex',status:'uninstalled'}]})}});
@@ -120,7 +162,7 @@ test('install goes straight to diagram',async()=>{
  const{runTui}=await load(),session=terminal([enter,back,back]);
  await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[]}});
  assert.deepEqual(session.screens.map(s=>s.title),['ARC','Install / Update','ARC']);
- assert.match(session.screens[1].rows.join('\n'),/┌─ > Scouter/);assert.ok(session.screens[1].rows.some(row=>row.startsWith('Apply  (')));assert.equal(session.closed,true);
+ assert.match(session.screens[1].rows.join('\n'),/┌─ > Scouter/);assert.ok(session.screens[1].rows.some(row=>row.startsWith('Apply - ')));assert.equal(session.closed,true);
 });
 
 test('idle Escape uses home control signal from all interface screens',async()=>{const{createTuiInterface}=await load();for(const mode of ['menu','text','page']){const ui=createTuiInterface(terminal([back]));await assert.rejects(()=>ui[mode]('Task',mode==='text'?'100':['One']),{code:'ARC_TUI_HOME'});}assert.equal(await createTuiInterface(terminal([back])).menu('ARC',['Exit'],{backLabel:'exit'}),null);});
@@ -137,11 +179,11 @@ test('all screen types use contextual compact hints while retaining existing nav
 for(const ending of [enter,back])test('Status preserves ordered information and returns home without operations on '+ending.name,async()=>{
  const{runTui}=await load(),session=terminal([...down(1),enter,ending,back]);
  const code=await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'incomplete',diagnostics:[Error('bad config\x1b[2J')]},{platform:'claude',state:'installed',diagnostics:[]}],prepareOperation:async()=>assert.fail('Status must not prepare'),executeOperation:async()=>assert.fail('Status must not execute')}});
- assert.equal(code,0);const status=session.screens.find(screen=>screen.title==='Status');assert.ok(status);assert.deepEqual(status.rows,['Claude: Available / Codex: Incomplete','Mode: Claude','Codex: bad config\\x1b[2J','','Back']);assert.deepEqual(status.rowTones,['status',undefined,'diagnostic',undefined,undefined]);assert.equal(status.selected,4);assert.equal(status.wordmark,false);
+ assert.equal(code,0);const status=session.screens.find(screen=>screen.title==='Status');assert.ok(status);assert.deepEqual(status.rows,['Mode     Claude','','Claude   Available','Codex    Incomplete','','Notes','• bad config\\x1b[2J (Codex)','','Back']);assert.deepEqual(status.rowTones,[undefined,undefined,'platform-status','platform-status',undefined,undefined,'note',undefined,undefined]);assert.equal(status.selected,8);assert.equal(status.wordmark,false);
  assert.equal(session.screens.at(-1).title,'ARC');assert.equal(session.screens.at(-1).rows[session.screens.at(-1).selected],'Status');assert.ok(session.screens.filter(screen=>screen.title==='ARC').every(screen=>screen.rows.length===5&&screen.rowTones===undefined));
 });
 test('Status with one collected target does not invent the missing target',async()=>{
- const{runTui}=await load(),session=terminal([...down(1),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'absent',diagnostics:[]}]}});assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Codex: Not Available','Mode: Not installed','','Back']);
+ const{runTui}=await load(),session=terminal([...down(1),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'absent',diagnostics:[]}]}});assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Mode    Not installed','','Codex   Not Available','','Back']);
 });
 
 test('home exposes direct lifecycle actions in approved order',async()=>{const{runTui}=await load();const session=terminal([back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[]}});assert.deepEqual(session.screens[0].rows.slice(session.screens[0].selected),['Install / Update','Status','Check Version','Uninstall','Exit']);});
@@ -219,10 +261,10 @@ test('diagram role focus hides the outer selection line but remains selectable',
 test('Status shows Available, Not Available and Unauthorized labels',async()=>{
  const{runTui}=await load();
  const cases=[
-  [[{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'authenticated'}},{platform:'codex',state:'absent',diagnostics:[]}],'Claude: Available / Codex: Not Available'],
-  [[{platform:'codex',state:'installed',diagnostics:[],authentication:{platform:'codex',authStatus:'unknown',reason:'cli_not_found'}},{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'unauthorized'}}],'Claude: Unauthorized / Codex: Not Available']
+  [[{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'authenticated'}},{platform:'codex',state:'absent',diagnostics:[]}],['Claude   Available','Codex    Not Available']],
+  [[{platform:'codex',state:'installed',diagnostics:[],authentication:{platform:'codex',authStatus:'unknown',reason:'cli_not_found'}},{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'unauthorized'}}],['Claude   Unauthorized','Codex    Not Available']]
  ];
- for(const [statuses,expected] of cases){const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>statuses}});assert.equal(session.screens.find(screen=>screen.title==='Status').rows[0],expected);}
+ for(const [statuses,expected] of cases){const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>statuses}});assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows.slice(2,4),expected);}
 });
 
 test('uninstall confirmation during composite adds the turn-off line and switch flag',async()=>{
@@ -238,7 +280,7 @@ for(const lookup of ['default','missing','throws','unverified'])test('state look
  if(lookup==='throws')services.currentInstallState=async()=>{throw Error('state inspection failed');};
  if(lookup==='unverified')services.currentInstallState=()=>({mode:'unverified',platforms:[]});
  assert.equal(await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),userHome:'/private/tmp/arc-task16-state-probe',env:{},safeFs:{openRoot(){throw Error('state inspection failed');}}},services}),0);
- assert.ok(session.screens.some(s=>s.title==='Install / Update'&&s.rows.some(row=>row.includes('Scouter'))));assert.ok(session.screens.some(s=>s.title==='Operation unavailable'&&s.rows.includes('Mixed routing configuration cannot be verified.')));assert.ok(session.screens.find(screen=>screen.title==='Status').rows.includes('Mode: Unverified'));
+ assert.ok(session.screens.some(s=>s.title==='Install / Update'&&s.rows.some(row=>row.includes('Scouter'))));assert.ok(session.screens.some(s=>s.title==='Operation unavailable'&&s.rows.includes('Mixed routing configuration cannot be verified.')));assert.ok(session.screens.find(screen=>screen.title==='Status').rows.includes('Mode   Unverified'));
 });
 test('unverified Apply lists real management residual paths without preparing',async t=>{
  const {compositeContext,targets}=await import('./fixtures/install-mode.mjs');
@@ -252,13 +294,13 @@ test('unverified Apply lists real management residual paths without preparing',a
  assert.ok(session.screens.some(screen=>screen.title==='Install / Update'));
  const screen=session.screens.find(screen=>screen.title==='Operation unavailable');assert.ok(screen);
  const pageText=screen.rows.join('');
- for(const filename of residualPaths)assert.ok(pageText.includes('Residual path: '+filename));
+ assert.match(pageText,/Residual path:/);for(const filename of residualPaths)assert.ok(pageText.includes(filename));
  assert.ok(screen.rows.includes('No changes were applied.'));
 });
 test('Status lists each platform and Mode line',async()=>{
- const {runTui}=await load();for(const [mode,auth,want] of [['composite','authenticated','Mode: Mixed (Claude + Codex)'],['standalone','authenticated','Mode: Claude, Codex'],['composite','unauthorized','Mode: Mixed (Claude + Codex)']]){
+ const {runTui}=await load();for(const [mode,auth,want] of [['composite','authenticated','Mode     Mixed (Claude + Codex)'],['standalone','authenticated','Mode     Claude, Codex'],['composite','unauthorized','Mode     Mixed (Claude + Codex)']]){
   const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{},services:{currentInstallState:()=>({mode,platforms:['claude','codex']}),collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:platform==='codex'?auth:'authenticated'},diagnostics:platform==='claude'?[{message:'diagnostic'}]:[]}))}});
-  const screen=session.screens.find(screen=>screen.title==='Status');assert.equal(screen.rows[0],'Claude: Available / Codex: '+(auth==='unauthorized'?'Unauthorized':'Available'));assert.equal(screen.rows[1],want);assert.equal(screen.rows[2],'Claude: diagnostic');
+  const screen=session.screens.find(screen=>screen.title==='Status');assert.equal(screen.rows[0],want);assert.deepEqual(screen.rows.slice(1,5),['','Claude   Available','Codex    '+(auth==='unauthorized'?'Unauthorized':'Available'),'']);assert.deepEqual(screen.rows.slice(5,7),['Notes','• diagnostic (Claude)']);
  }
 });
 
@@ -280,17 +322,17 @@ test('home capacity follows wordmarkRows in a 17-row terminal',async()=>{
  assert.equal(await createTuiInterface(session).menu('ARC',['Install / Update','Check Version','Uninstall','Exit'],{wordmark:true,info:['Status','Diagnostic','Diagnostic','Diagnostic']}),3);assert.equal(last.selectionEnabled,true);assert.equal(screen.position,undefined);assert.equal(screen.rows.filter(row=>['Install / Update','Check Version','Uninstall','Exit'].includes(row)).length,4);
 });
 
-test('Status passes status and diagnostic tones without changing row text',async()=>{
+test('Status passes platform and note tones without changing the home menu',async()=>{
  const{runTui}=await load(),session=terminal([...down(1),enter,back,back]);
  await runTui({session,context:{},services:{currentInstallState:()=>({mode:'composite',platforms:['claude','codex']}),currentInstallMode:()=> 'composite',collectStatus:async()=>['claude','codex'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},diagnostics:platform==='claude'?[{message:'diagnostic'}]:[]})),prepareOperation:async()=>({kind:'update',currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false})}});
- const screen=session.screens.find(screen=>screen.title==='Status');assert.deepEqual(screen.rows,['Claude: Available / Codex: Available','Mode: Mixed (Claude + Codex)','Claude: diagnostic','','Back']);assert.deepEqual(screen.rowTones,['status',undefined,'diagnostic',undefined,undefined]);
+ const screen=session.screens.find(screen=>screen.title==='Status');assert.deepEqual(screen.rows,['Mode     Mixed (Claude + Codex)','','Claude   Available','Codex    Available','','Notes','• diagnostic (Claude)','','Back']);assert.deepEqual(screen.rowTones,[undefined,undefined,'platform-status','platform-status',undefined,undefined,'note',undefined,undefined]);
  assert.ok(session.screens.filter(screen=>screen.wordmark).every(screen=>screen.rowTones===undefined));
- const unknown=terminal([...down(1),enter,back,back]);await runTui({session:unknown,context:{},services:{currentInstallState:()=>({mode:'unverified',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'probe failed'}}]}});assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rows.slice(0,3),['Codex: Incomplete','Mode: Unverified','Codex: probe failed']);assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rowTones.slice(0,3),['status',undefined,'diagnostic']);
+ const unknown=terminal([...down(1),enter,back,back]);await runTui({session:unknown,context:{},services:{currentInstallState:()=>({mode:'unverified',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'probe failed'}}]}});assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rows,['Mode    Unverified','','Codex   Incomplete','','Notes','• probe failed (Codex)','','Back']);assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rowTones,[undefined,undefined,'platform-status',undefined,undefined,'note',undefined,undefined]);
 });
 test('wrapped info keeps tones per display line',async()=>{
  const{createTuiInterface}=await load(),session=terminal([enter]);session.viewport=()=>({columns:30,rows:40});
  await createTuiInterface(session).menu('ARC',['Exit'],{info:['Codex: Available / Claude: Not Available','Codex: '+ 'x'.repeat(50),''],infoTones:['status','diagnostic',undefined]});
- assert.deepEqual(session.screens[0].rows,['Codex: Available / Claude: ','Not Available','Codex: '+ 'x'.repeat(20),'x'.repeat(27),'xxx','','Exit']);assert.deepEqual(session.screens[0].rowTones,['status','status','diagnostic','diagnostic-cont','diagnostic-cont',undefined,undefined]);
+ assert.deepEqual(session.screens[0].rows,['Codex: Available / Claude:','Not Available','Codex: '+ 'x'.repeat(20),'x'.repeat(27),'xxx','','Exit']);assert.deepEqual(session.screens[0].rowTones,['status','status','diagnostic','diagnostic-cont','diagnostic-cont',undefined,undefined]);
  const replaced=terminal([enter]);await createTuiInterface(replaced).menu('Settings',['Back'],{info:['Codex: boom'],infoTones:['diagnostic'],renderBody:()=>({rows:['Back'],selected:0})});assert.equal(replaced.screens[0].rowTones,undefined);
 });
 
@@ -316,9 +358,9 @@ test('busy awaits the action after a spinner repaint failure',async()=>{
 test('home keeps wrapped state fragments in their original status tone',async()=>{
  const{createTuiInterface}=await load(),session=terminal([enter]);session.viewport=()=>({columns:35,rows:24});
  await createTuiInterface(session).menu('ARC',['Exit'],{wordmark:true,info:['Claude: Available / Codex: Not Available'],infoTones:['status']});
- const screen=session.screens[0],result=renderScreen(screen,session.viewport()),lines=result.text.split('\n');assert.deepEqual(screen.rows.slice(0,2),['Claude: Available / Codex: Not A','vailable']);
+ const screen=session.screens[0],result=renderScreen(screen,session.viewport()),lines=result.text.split('\n');assert.deepEqual(screen.rows.slice(0,2),['Claude: Available / Codex: Not','Available']);
  const states=result.styles.flatMap(style=>style.runs.filter(run=>['ok','muted','warn','error'].includes(run.role)).map(run=>[lines[style.line].slice(run.from,run.to),run.role]));
- assert.deepEqual(states,[['Available','ok'],['Not A','muted'],['vailable','muted']]);
+ assert.deepEqual(states,[['Available','ok'],['Not','muted'],['Available','muted']]);
 });
 for(const ending of ['return','throw'])test('busy spinner stops before leaving busy on '+ending,async()=>{
  const{createTuiInterface}=await load(),session=terminal([]),calls=[];session.frameMs=10;session.setBusy=value=>calls.push(value);session.repaint=screen=>calls.push(screen.frame);
@@ -332,7 +374,7 @@ for(const ending of ['escape','eof','error'])test('home animation clears its tim
 test('Status uses injected registry labels and display order for four platforms',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{runTui}=await load(),session=terminal([...down(1),enter,back,back]);
  await runTui({session,context:{platforms:createTestRegistries(['eta','zeta','codex','claude']).platforms},services:{currentInstallState:()=>({mode:'composite',platforms:['eta','zeta','codex','claude']}),collectStatus:async()=>['eta','zeta','codex','claude'].map(platform=>({platform,state:'installed',diagnostics:[{message:platform+' detail'}]}))}});
- assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows.slice(0,6),['Claude: Available / Codex: Available / Zeta: Available (auth unverified) / Eta: Not verified','Mode: Mixed (Claude + Codex + Zeta + Eta)','Claude: claude detail','Codex: codex detail','Zeta: zeta detail','Eta: eta detail']);
+ assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Mode     Mixed (Claude + Codex + Zeta + Eta)','','Claude   Available','Codex    Available','Zeta     Available · auth unverified','Eta      Not verified','','Notes','• claude detail (Claude)','• codex detail (Codex)','• zeta detail (Zeta)','• eta detail (Eta)','','Back']);
 });
 test('app loads current composite config and prepares diagram snapshot under busy',async()=>{
  const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));

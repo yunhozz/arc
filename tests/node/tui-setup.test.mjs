@@ -99,9 +99,9 @@ const installBody=(options,selected=7,columns=120,rows=40)=>options.renderBody({
 
 test('diagram is the first screen',async()=>{
  const loaded=[],steps=[['Install / Update',null,(rows,options)=>{
-  assert.deepEqual(rows,[...names,'Hosts: Claude','Settings','Apply  (Claude)']);assert.equal(options.backRow,true);assert.equal(options.refreshMs,600);
+  assert.deepEqual(rows,[...names,'Hosts: Claude','Settings','Apply - Claude']);assert.equal(options.backRow,true);assert.equal(options.refreshMs,600);
   const body=installBody(options,0);assert.match(body.rows.join('\n'),/┌─ > Scouter/);assert.match(body.rows.join('\n'),/Orchestrator/);
-  assert.deepEqual(options.info,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply  (Claude)'));
+  assert.deepEqual(options.info,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply - Claude'));
  }]];
  assert.equal(await installFlow({ui:scripted(steps),loadCatalog:async p=>{loaded.push(p);return {status:'ready',catalog:catalogs[p]};}}),null);
  assert.deepEqual(loaded,['claude']);assert.equal(steps.length,0);
@@ -129,7 +129,7 @@ test('(mixed) field untouched is omitted, touched applies to S',async()=>{
 });
 
 test('hosts lock role platforms and preview mode in Apply',async()=>{
- const steps=[['Install / Update',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',3],['Install / Update',7,(_rows,options)=>{assert.deepEqual(options.info,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply  (Mixed (Claude + Codex))','Back']);}]];
+ const steps=[['Install / Update',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',3],['Install / Update',7,(_rows,options)=>{assert.deepEqual(options.info,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply - Mixed (Claude + Codex)','Back']);}]];
  const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
@@ -140,7 +140,7 @@ test('D1-b asks confirmation; Back sends nothing',async()=>{
 });
 
 test('D1-f shows Operation unavailable',async()=>{
- const pages=[],steps=[['Install / Update',7,(_rows,options)=>assert.ok(installBody(options).rows.includes('Apply  (Unverified)'))],['Install / Update',null]];
+ const pages=[],steps=[['Install / Update',7,(_rows,options)=>assert.ok(installBody(options).rows.includes('Apply - Unverified'))],['Install / Update',null]];
  await installFlow({installState:{mode:'unverified',platforms:[],residualPaths:['/fixture/routing.json']},ui:scripted(steps,pages),prepare:()=>assert.fail('D1-f must not prepare')});
  assert.deepEqual(pages,[{title:'Operation unavailable',rows:['Mixed routing configuration cannot be verified.','Residual path: /fixture/routing.json','No changes were applied.']}]);
 });
@@ -161,7 +161,7 @@ test('initial platform is Claude when both standalone',async()=>{
 test('compact layout keeps host and mode values in controls',async()=>{
  await installFlow({ui:scripted([['Install / Update',null,(_rows,options)=>{
   for(const [columns,rows] of [[40,16],[60,20],[80,23]]){
-   const body=installBody(options,7,columns,rows);assert.match(body.rows[0],/^Scouter: Claude \/ /);assert.deepEqual(options.info,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply  (Claude)'));assert.deepEqual(body.rows.slice(-4),['Hosts: Claude','Settings','Apply  (Claude)','Back']);assert.equal(body.rows[body.selected],'Apply  (Claude)');assert.ok(body.rows.length+5<=rows);
+   const body=installBody(options,7,columns,rows);assert.match(body.rows[0],/^Scouter: Claude \/ /);assert.deepEqual(options.info,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply - Claude'));assert.deepEqual(body.rows.slice(-4),['Hosts: Claude','Settings','Apply - Claude','Back']);assert.equal(body.rows[body.selected],'Apply - Claude');assert.ok(body.rows.length+5<=rows);
   }
   const guard=installBody(options,0,39,16);assert.match(guard.rows.join(' '),/40.*16/);
  }]])});
@@ -216,7 +216,7 @@ test('compact blocked screen keeps Back selectable through the real UI',async()=
  const events=[...Array.from({length:8},()=>({name:'down'})),{name:'enter'}],screens=[],viewport={columns:40,rows:16};
  const ui=createTuiInterface({viewport:()=>viewport,render:screen=>{const rendered=renderScreen(screen,viewport);screens.push({screen,rendered});return rendered;},nextEvent:async()=>events.shift()??{name:'eof'}});
  const result=await installFlow({draft:installDraft('codex',['codex','claude']),loadCatalog:async p=>p==='claude'?{status:'catalog_error'}:{status:'ready',catalog:catalogs[p]},ui,prepare:()=>assert.fail('Back cannot prepare')});
- assert.equal(result,null);assert.equal(screens.at(-1).screen.rows.at(-1),'Back');assert.equal(screens.at(-1).rendered.selectionEnabled,true);assert.ok(screens.at(-1).rendered.text.includes('Apply  (Mixed (Claude + Codex))'));
+ assert.equal(result,null);assert.equal(screens.at(-1).screen.rows.at(-1),'Back');assert.equal(screens.at(-1).rendered.selectionEnabled,true);assert.ok(screens.at(-1).rendered.text.includes('Apply - Mixed (Claude + Codex)'));
 });
 
 
