@@ -946,11 +946,68 @@ test('force finish fails when the routing lock is held and leaves leases unchang
   const before = Object.fromEntries(['claude', 'codex'].map(id => [id, homeBytes(path.join(targets[id].home, 'arc-role-dispatch'))]));
   fs.writeFileSync(routingLock(targets.codex.home), 'held');
   assert.equal(typeof installerRouting.forceFinishDispatches, 'function');
-  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: ['claude', 'codex'].map(id => blockingEntry(targets[id].home, lease))}), {code: 'EEXIST'});
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: ['claude', 'codex'].map(id => blockingEntry(targets[id].home, lease))}), error => {
+    assert.equal(error.code, 'EEXIST');
+    assert.deepEqual(error.forceFinish, {finished: [], skipped: []});
+    return true;
+  });
   for (const id of ['claude', 'codex']) assert.deepEqual(homeBytes(path.join(targets[id].home, 'arc-role-dispatch')), before[id]);
   assert.equal(fs.existsSync(routingLock(targets.claude.home)), false);
   assert.equal(fs.readFileSync(routingLock(targets.codex.home), 'utf8'), 'held');
   fs.unlinkSync(routingLock(targets.codex.home));
+});
+
+test('force finish reports completed and skipped leases on a mid-way read failure', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude']);
+  const home = resolveTargets(ctx).targets.claude.home;
+  const leases = ['finished-before-error', 'missing-before-error', 'broken-after-finish'].map(id => moveLease(id));
+  await createLease(home, leases[0], ctx);
+  await createLease(home, leases[2], ctx);
+  fs.writeFileSync(path.join(home, 'arc-role-dispatch/broken-after-finish.json'), '{');
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: leases.map(lease => blockingEntry(home, lease))}), error => {
+    assert.ok(error instanceof SyntaxError);
+    assert.deepEqual(error.forceFinish, {finished: ['finished-before-error'], skipped: [{dispatchId: 'missing-before-error', reason: 'changed'}]});
+    return true;
+  });
+  assert.equal((await readLease(home, leases[0].dispatchId, ctx)).state, 'cancelled');
+  assert.equal(fs.existsSync(routingLock(home)), false);
+});
+
+for (const throws of [false, true]) test('force finish reports partial results when lock release '+(throws ? 'throws' : 'returns false'), async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude']);
+  const home = resolveTargets(ctx).targets.claude.home, lease = moveLease('finished-before-release');
+  await createLease(home, lease, ctx);
+  const acquireLock = async home => {
+    const release = await acquireRoleRoutingLock(home);
+    return async () => { await release(); if (throws) throw Error('Release failed'); return false; };
+  };
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: [blockingEntry(home, lease)], acquireLock}), error => {
+    assert.equal(error.message, 'Dispatch lock ownership could not be verified');
+    assert.deepEqual(error.residualPaths, [routingLock(home)]);
+    assert.equal(error.lockReleaseFailed, true);
+    assert.deepEqual(error.forceFinish, {finished: ['finished-before-release'], skipped: []});
+    return true;
+  });
+  assert.equal((await readLease(home, lease.dispatchId, ctx)).state, 'cancelled');
+});
+
+test('force finish preserves the original acquire error when releasing an earlier lock fails', async t => {
+  const ctx = await zetaContext(t); await installAll(ctx, ['claude', 'codex']);
+  const targets = resolveTargets(ctx).targets, lease = moveLease('acquire-error');
+  const original = Object.assign(Error('Acquire failed'), {code: 'EACCES', residualPaths: ['/existing.lock', routingLock(targets.claude.home)]});
+  const acquireLock = async home => {
+    if (home === targets.codex.home) throw original;
+    const release = await acquireRoleRoutingLock(home);
+    return async () => { await release(); return false; };
+  };
+  await assert.rejects(installerRouting.forceFinishDispatches({context: ctx, entries: ['claude', 'codex'].map(id => blockingEntry(targets[id].home, lease)), acquireLock}), error => {
+    assert.equal(error, original);
+    assert.equal(error.code, 'EACCES');
+    assert.deepEqual(error.residualPaths, ['/existing.lock', routingLock(targets.claude.home)]);
+    assert.equal(error.lockReleaseFailed, true);
+    assert.deepEqual(error.forceFinish, {finished: [], skipped: []});
+    return true;
+  });
 });
 
 test('non-moving and switch paths force finish a reserved bridge lease', async t => {

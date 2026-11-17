@@ -63,6 +63,22 @@ test('force finish runs once, retries once, and does not offer it again',async t
   const result=run.session.screens.filter(screen=>screen.title==='Result');assert.equal(result.length,1);assert.equal(run.code,success?0:1);assert.ok(result[0].rows.includes(success?'Retry completed.':'Exit code: 1'));
  });
 });
+test('force finish and re-prepare preserve cancellation and navigation control errors',async t=>{
+ for(const stage of ['forceError','prepareError'])for(const code of ['ARC_CANCELLED','ARC_TUI_EOF','ARC_TUI_HOME'])await t.test(stage+' '+code,async()=>{
+  const run=await blockedTui({[stage]:Object.assign(Error('Control flow'),{code}),events:[{name:'up'},enter,back]});
+  assert.equal(run.session.screens.some(screen=>['Force finish','Operation unavailable','Result'].includes(screen.title)),false);
+  assert.equal(run.code,code==='ARC_CANCELLED'?130:1);
+  assert.equal(run.executions.length,1);assert.equal(run.forces.length,1);
+  assert.equal(run.requests.length,stage==='prepareError'?2:1);
+  assert.equal(run.session.closed,true);
+  if(code==='ARC_TUI_HOME')assert.equal(run.session.screens.at(-1).title,'ARC');
+ });
+});
+test('blocked dispatches show unknown for an invalid updatedAt',async()=>{
+ const run=await blockedTui({entries:[{...blockingEntry,updatedAt:'invalid'}]});
+ const screen=run.session.screens.find(screen=>screen.title==='Active dispatches');
+ assert.equal(screen.rows[0],'12345678  arc_implementer  work  native  reserved  unknown');
+});
 test('no eligible entries shows a guidance page with the runtime cancel command',async()=>{
  const entry={...blockingEntry,dispatchId:'bridge-running',route:'bridge',state:'running',forceFinishable:false};
  const {session,forces,executions}=await blockedTui({entries:[entry]});
@@ -77,6 +93,7 @@ test('skipped or failed force finish reports and does not retry',async t=>{
   ['changed',{forceResult:{finished:['other'],skipped:[{dispatchId:blockingEntry.dispatchId,reason:'changed'}],residualPaths:[]}},['Finished: other','Skipped: 12345678-native (changed)']],
   ['residual',{forceResult:{finished:[blockingEntry.dispatchId],skipped:[],residualPaths:['/x.lock']}},['Finished: 12345678-native','Residual path: /x.lock']],
   ['force error',{forceError:Object.assign(Error('Lock release failed'),{residualPaths:['/x.lock']})},['Lock release failed','Residual path: /x.lock']],
+  ['partial force error',{forceError:Object.assign(Error('Cannot read next lease'),{forceFinish:{finished:['already-finished'],skipped:[]},residualPaths:['/x.lock']})},['Finished: already-finished','Cannot read next lease','Residual path: /x.lock']],
   ['prepare error',{prepareError:Error('Cannot prepare retry')},['Cannot prepare retry']]
  ];
  for(const [name,options,rows]of cases)await t.test(name,async()=>{
