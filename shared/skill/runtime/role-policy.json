@@ -51,7 +51,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -84,7 +85,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -110,7 +112,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -139,7 +142,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -160,7 +164,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -181,7 +186,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -202,7 +208,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -224,7 +231,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -247,7 +255,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -268,7 +277,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -294,7 +304,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -320,7 +331,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -345,7 +357,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -369,7 +382,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     },
     {
@@ -392,7 +406,8 @@
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
-        "gemini": "prompt"
+        "gemini": "prompt",
+        "grok": "prompt"
       }
     }
   ],

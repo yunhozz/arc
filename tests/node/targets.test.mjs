@@ -41,7 +41,7 @@ test('format errors preserve the shared TargetConfigurationError identity and ca
 test('resolveTargets separates unresolved homes',()=>{
  assert.equal(typeof api.resolveTargets,'function');
  const {targets,unresolved}=api.resolveTargets({userHome:'/users/test',env:{CLAUDE_CONFIG_DIR:'/x'}});
- assert.deepEqual(Object.keys(targets),['codex','gemini']);
+ assert.deepEqual(Object.keys(targets),['codex','gemini','grok']);
  assert.equal(targets.codex.home,'/users/test/.codex');
  assert.equal(unresolved.length,1);assert.equal(unresolved[0].platform,'claude');
  assert.equal(unresolved[0].error.code,'ARC_TARGET_CONFIGURATION');

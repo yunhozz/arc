@@ -13,6 +13,16 @@ const models=Object.fromEntries(['codex','claude'].map(p=>[p,loadModelConfig(rea
 const catalogs=Object.fromEntries(await Promise.all(['codex','claude'].map(async p=>[p,(await loadStaticModelCatalog(p)).catalog])));
 const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models[platform]}}));
 
+test('Grok Hosts and platform chooser are unavailable and role editor arrows skip Grok',async()=>{
+ const {DEFAULT_INSTALLER_REGISTRY:registry}=await import('../../lib/platforms/index.mjs');assert.ok(registry.getPlatform('grok'),'Grok descriptor is required');
+ const {platformAvailability}=await import('../../lib/platforms/availability.mjs');
+ const {editRole,selectPlatform}=await import('../../lib/tui/custom-preset.mjs');
+ const availabilityOf=id=>platformAvailability(id,{registry,usage:'role',status:{platform:id,state:'installed',authentication:{authStatus:'authenticated'},cliVersion:{version:'0.68.0'}}});
+ let calls=0;assert.deepEqual(await setup.editHosts({registry,hosts:[],rolePlatforms:[],availabilityOf,ui:{menu:async(_title,rows)=>{assert.match(rows[3],/^\[-\] Grok +- Unavailable  \(capability not verified\)$/);return calls++===0?3:4;}}}),[]);assert.equal(calls,2);
+ calls=0;assert.equal(await selectPlatform({registry,roleName:'Planner',current:'codex',availabilityOf,ui:{menu:async(_title,rows)=>{assert.equal(rows[3],'Grok - Unavailable  (capability not verified)');return calls++===0?3:null;}}}),null);assert.equal(calls,2);
+ const value=await editRole({registry,roleName:'Planner',current:{platform:'gemini',model:'gemini-model',effort:'default'},availabilityOf,loadCatalog:async()=>({pairs:[{model:'model',effort:'default'}]}),defaultsFor:async()=>({model:'model',effort:'default'}),ui:{menu:async(_title,_rows,options)=>{options.onHorizontal({selected:0,direction:'right',columns:120,rows:40});assert.equal(options.renderBody({selected:0,columns:120,rows:40}).rows[0],'Platform < Claude >');return 3;}}});assert.equal(value.platform,'claude');
+});
+
 function scripted(steps,pages=[]){return {menu:async(title,rows,options)=>{const step=steps.shift();assert.ok(step,'unexpected '+title);assert.equal(title,step[0]);step[2]?.(rows,options);return step[1];},page:async(title,rows)=>pages.push({title,rows})};}
 
 test('legacy preview line appears once and Apply prepares the migration without confirmation',async()=>{
@@ -129,7 +139,7 @@ test('(mixed) field untouched is omitted, touched applies to S',async()=>{
 });
 
 test('hosts lock role platforms and preview mode in Apply',async()=>{
- const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',3],['Configure',7,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply - Mixed (Claude + Codex)','Back']);}]];
+ const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');assert.equal(rows[3],'[-] Grok    - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',4],['Configure',7,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply - Mixed (Claude + Codex)','Back']);}]];
  const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
@@ -176,7 +186,7 @@ test('install hosts use injected registry labels, order and reason detail',async
 });
 
 test('initial composite roles and hosts come from currentConfig and D1-e prepares without confirmation',async()=>{
- const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Configure',5,(_rows,options)=>assert.ok(installBody(options).rows.includes('Hosts: Claude, Codex'))],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',3],['Configure',7],['Switch to Claude',0]];
+ const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Configure',5,(_rows,options)=>assert.ok(installBody(options).rows.includes('Hosts: Claude, Codex'))],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',4],['Configure',7],['Switch to Claude',0]];
  const result=await installFlow({currentConfig,installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps)});assert.equal(result.target,'claude');assert.equal(result.switchFromComposite,true);assert.deepEqual(currentConfig.roles,installRoles('claude'));
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries();
  const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Configure',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);
@@ -235,17 +245,18 @@ test('Settings pulses only the selected Language row and horizontal input change
 
 for(const state of ['locked','unavailable','mixed'])test(`Hosts ${state} rows suppress cursor reasons until Enter when none can change`,async()=>{
  const notice='No host can be changed now: all platforms are used by roles or unavailable.';
- const rolePlatforms=state==='locked'?['claude','codex','gemini']:state==='mixed'?['claude']:[];
+ const {DEFAULT_INSTALLER_REGISTRY}=await import('../../lib/platforms/index.mjs');
+ const rolePlatforms=state==='locked'?DEFAULT_INSTALLER_REGISTRY.platformIds():state==='mixed'?['claude']:[];
  const availabilityOf=id=>({selectable:state==='locked'||state==='mixed'&&id==='claude',reason:state==='locked'||state==='mixed'&&id==='claude'?null:'unauthorized',status:{authentication:{reason:'fixture denial'}}});
  const steps=[['Hosts — CLIs where you start ARC sessions',0,(_rows,options)=>{
-  for(const selected of [0,1,2,3,4])assert.deepEqual(options.notice({selected}),[notice]);
+  for(const selected of [0,1,2,3,4,5])assert.deepEqual(options.notice({selected}),[notice]);
   assert.equal(options.hint,'checklist');assert.equal(options.backRow,true);
  }],['Hosts — CLIs where you start ARC sessions',1,(_rows,options)=>{
   assert.deepEqual(options.notice({selected:0}),[notice,state==='unavailable'?'Claude: unauthorized: fixture denial':"Change those roles' platform to remove Claude."]);
   assert.equal(options.info,undefined);
-  for(const selected of [1,2,3,4])assert.deepEqual(options.notice({selected}),[notice]);
+  for(const selected of [1,2,3,4,5])assert.deepEqual(options.notice({selected}),[notice]);
   assert.equal(options.hint,'checklist');
- }],['Hosts — CLIs where you start ARC sessions',3,(_rows,options)=>{
+ }],['Hosts — CLIs where you start ARC sessions',4,(_rows,options)=>{
   assert.deepEqual(options.notice({selected:1}),[notice,state==='locked'?"Change those roles' platform to remove Codex.":'Codex: unauthorized: fixture denial']);
   assert.deepEqual(options.notice({selected:0}),[notice]);assert.equal(options.info,undefined);
  }]];
@@ -292,7 +303,7 @@ test('Hosts identifies roles in install order and locked Enter explains how to r
   assert.equal(rows[1],'[■] Codex   (used by Planner, QA)');
   assert.deepEqual(options.notice({selected:1}),['No host can be changed now: all platforms are used by roles or unavailable.']);
   assert.equal(options.hint,'checklist');
- }],['Hosts — CLIs where you start ARC sessions',3,(rows,options)=>{
+ }],['Hosts — CLIs where you start ARC sessions',4,(rows,options)=>{
   assert.equal(rows[1],'[■] Codex   (used by Planner, QA)');
   assert.deepEqual(options.notice({selected:1}),['No host can be changed now: all platforms are used by roles or unavailable.',"Change those roles' platform to remove Codex."]);
   assert.equal(options.info,undefined);
@@ -301,7 +312,7 @@ test('Hosts identifies roles in install order and locked Enter explains how to r
 });
 
 test('Hosts unavailable Enter highlights the reason without adding an unavailable host',async()=>{
- const steps=[['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',3,(rows,options)=>{
+ const steps=[['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',4,(rows,options)=>{
   assert.match(rows[1],/^\[-\] Codex/);
   assert.deepEqual(options.notice({selected:1}),["Roles' platforms are always included.",'Codex: unauthorized: fixture denial']);
   assert.equal(options.info,undefined);
@@ -313,12 +324,12 @@ test('Hosts unavailable Enter highlights the reason without adding an unavailabl
 
 for(const columns of [80,40])test(`Hosts feedback stays below fixed choices at ${columns} columns`,async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const viewport={columns,rows:20},frames=[],events=[{name:'enter'},{name:'down'},{name:'down'},{name:'down'},{name:'enter'}];
+ const viewport={columns,rows:20},frames=[],events=[{name:'enter'},{name:'down'},{name:'down'},{name:'down'},{name:'down'},{name:'enter'}];
  const ui=createTuiInterface({viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);frames.push({screen,...result});return result;},nextEvent:async()=>events.shift()??{name:'eof'}});
  assert.deepEqual(await setup.editHosts({ui,hosts:[],rolePlatforms:['claude','codex','gemini'],availabilityOf:()=>({selectable:true})}),['claude','codex','gemini']);
  for(const frame of frames){
-  assert.equal(frame.screen.rows.length,5);assert.equal(frame.screen.rows[3],'Done');assert.equal(frame.screen.rows[4],'Back');
-  assert.equal(frame.text.split('\n').findIndex(line=>line.trim().replace(/^> /,'')==='Done'),4);assert.equal(frame.text.split('\n')[6],'');assert.equal(frame.selectionEnabled,true);
+  assert.equal(frame.screen.rows.length,6);assert.equal(frame.screen.rows[4],'Done');assert.equal(frame.screen.rows[5],'Back');
+  assert.equal(frame.text.split('\n').findIndex(line=>line.trim().replace(/^> /,'')==='Done'),5);assert.equal(frame.text.split('\n')[7],'');assert.equal(frame.selectionEnabled,true);
  }
  assert.ok(frames[1].screen.notices.some(row=>row.includes("Change those roles' platform")));assert.equal(frames[2].screen.notices.length,1);
 });

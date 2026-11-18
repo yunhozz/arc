@@ -126,7 +126,7 @@ test('setup role defaults honor injected registry for package and installed mode
 });
 
 // Platform branches stay in descriptor/adapter boundaries, including T12 bridge gates and session reservation.
-test('Gemini literal branches stay inside the platform hardcoding allowlist', () => {
+test('Platform literal branches stay inside the platform hardcoding allowlist', () => {
   const violations = [];
   const runtimeAllowlist = /^(?:lib|shared\/skill)\/runtime\/(?:platform-registry\.mjs|adapters\/.*|capabilities\.mjs|role-bridge-args\.mjs|role-supervisor\.mjs|role-bridge\.mjs|role-dispatch-policy\.mjs|role-routing\.mjs|local-cli\.mjs)$/;
   for (const relative of ['lib', 'shared/skill/runtime']) {
@@ -136,7 +136,7 @@ test('Gemini literal branches stay inside the platform hardcoding allowlist', ()
       const filename = path.relative(new URL('../../', import.meta.url).pathname, path.join(entry.parentPath, entry.name)).split(path.sep).join('/');
       if (/^lib\/(?:platforms|watch)\//.test(filename) || runtimeAllowlist.test(filename)) continue;
       fs.readFileSync(new URL('../../' + filename, import.meta.url), 'utf8').split('\n').forEach((line, index) => {
-        if (/===\s*['"]gemini['"]/.test(line)) violations.push(`${filename}:${index + 1}: ${line}`);
+        if (/===\s*['"](?:gemini|grok)['"]/.test(line)) violations.push(`${filename}:${index + 1}: ${line}`);
       });
     }
   }

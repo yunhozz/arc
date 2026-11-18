@@ -44,7 +44,7 @@ test('unresolved platform outside S is ignored', async t => {
   ctx.env.CLAUDE_CONFIG_DIR = path.join(ctx.userHome, 'other-claude');
   const result = state(ctx);
   assert.equal(result.mode, 'standalone');
-  assert.deepEqual(result.homes, {codex: 'standalone', claude: 'unresolved', gemini: 'standalone'});
+  assert.deepEqual(result.homes, {codex: 'standalone', claude: 'unresolved', gemini: 'standalone', grok: 'standalone'});
 });
 test('two active configs → unverified with both residual', async t => {
   const ctx = await composite(t);
@@ -206,6 +206,11 @@ test('F4 status reports standalone outside S during composite', async t => {
     state: 'absent', diagnostics: [], residualPaths: [],
     authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
     cliVersion: {version: null, reason: 'cli_not_found'},
+  }, {
+    platform: 'grok', target: resolveTargets({...context, platforms: undefined, runtimePlatforms: undefined}).targets.grok,
+    state: 'absent', diagnostics: [], residualPaths: [],
+    authentication: {authStatus: 'unknown', reason: 'capability_not_verified'},
+    cliVersion: {version: null, reason: 'capability_not_verified'},
   }], ordinary);
   const zeta = statuses.find(item => item.platform === 'zeta');
   assert.equal(zeta.state, 'installed');

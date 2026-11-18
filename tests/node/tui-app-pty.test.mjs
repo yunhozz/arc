@@ -19,6 +19,14 @@ async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',ob
 const entry='enter\nexpect -exact {Configure}\nexpect -exact {┌─ > Scouter}\nexpect -exact {Apply - }\nexpect -exact {Esc Home}\n';
 const moves=n=>Array(n).fill('down\n').join('');
 const finish='expect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback';
+test('fake grok on PATH is never executed through Status Configure and Uninstall in PTY',{skip:!available},async t=>{
+ const fs=await import('node:fs'),{compositeContext}=await import('./fixtures/install-mode.mjs');
+ const context=await compositeContext(t),marker=context.userHome+'/grok-executed';
+ fs.writeFileSync(context.userHome+'/bin/grok',`#!/bin/sh\nprintf executed > '${marker}'\nprintf 'grok 1.0.88\\n'\n`,{mode:0o755});
+ const observe=`const {collectStatus:collectGrokStatus}=await import(${JSON.stringify(new URL('../../lib/management/status.mjs',import.meta.url).href)});const {safeFs:statusSafeFs}=await import(${JSON.stringify(new URL('./fixtures/install-mode.mjs',import.meta.url).href)});statuses.push((await collectGrokStatus({...${JSON.stringify({userHome:context.userHome,cwd:context.cwd,env:context.env})},safeFs:statusSafeFs})).find(status=>status.platform==='grok'));`;
+ const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {Esc Exit}\n'+entry+'back\nexpect -exact {Esc Exit}\ndown\ndown\nenter\nexpect -exact {Grok  (not installed)}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{observe,env:{...process.env,PATH:context.env.PATH}});
+ assert.match(output,/Grok +Not verified/);assert.match(output,/Grok  \(not installed\)/);assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.equal(fs.existsSync(marker),false);
+});
 const settings=entry+moves(6)+'expect -exact {> Settings}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Language}\nexpect -exact {Esc Home}\n';
 const input=settings+'down\nenter\nexpect -exact {Type/Paste Input}\n';
 const clear='send -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\010"\nexpect -exact {Type/Paste Input}\n';
@@ -62,7 +70,7 @@ test('version without an upgrade selects Back and Enter returns home',{skip:!ava
  const output=await drive(t,'down\nenter\nexpect -exact {Version   1.9.0 · up to date}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
 });
 test('Everything warning defaults Back, Back retains selection and Escape returns home',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {Remove ARC from all platforms and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\ndown\nenter\nexpect -exact {Remove ARC from all platforms and the arc CLI?}\nexpect -exact {> Back}\nenter\nexpect -exact {> Everything (incl. CLI)}\nenter\nexpect -exact {> Back}\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('uninstall absent platform cannot open confirmation in PTY',{skip:!available},async t=>{
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {Claude  (not installed)}\nenter\nexpect -exact {Claude  (not installed)}\ndown\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}\nback\nexpect -exact {Esc Exit}\nback',{absentPlatforms:['claude']});
@@ -86,7 +94,7 @@ test('Settings platform selection executes once and preserves CLI explicitly',{s
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"kind":"uninstall","target":"claude","removeCli":false/);
 });
 test('Everything requires deliberate Remove and executes once despite queued Enter',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\ndown\ndown\ndown\ndown\nenter\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/"target":"all","removeCli":true/);
 });
 test('EOF restores the terminal without preparing or executing',{skip:!available},async t=>{const output=await drive(t,'send -- "\\004"');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);});
 test('hidden Apply is blocked after each shrink and runs after the final resize',{skip:!available},async t=>{

@@ -22,8 +22,8 @@ import {POLICY_TARGETS, buildPolicyOutputs, validateRolePolicy} from '../../lib/
 // Missing registration or an enabled unverified capability must fail these boundaries.
 test('Gemini registries agree in anchor and display order with install, nativeProfile, catalog, standalone, bridge and compositeRole verified', () => {
   for (const registry of [DEFAULT_PLATFORM_REGISTRY, DEFAULT_INSTALLER_REGISTRY]) {
-    assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini']);
-    for (const order of ['byAnchorOrder', 'byDisplayOrder']) assert.deepEqual(registry[order]().map(p => p.runtime?.id ?? p.id), ['claude', 'codex', 'gemini']);
+    assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini', 'grok']);
+    for (const order of ['byAnchorOrder', 'byDisplayOrder']) assert.deepEqual(registry[order]().map(p => p.runtime?.id ?? p.id), ['claude', 'codex', 'gemini', 'grok']);
   }
   const runtime = getPlatform('gemini');
   assert.equal(DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').runtime, runtime);
@@ -305,7 +305,7 @@ test('Gemini standalone off still refuses management without file changes', asyn
   const prepared = await prepareOperation(context, {kind: 'install', target: 'all'});
   assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
   const statuses = await collectStatus(context);
-  assert.equal(homeStatusLine(statuses, platforms), 'Claude: Not Available / Codex: Not Available / Gemini: Not Available');
+  assert.equal(homeStatusLine(statuses, platforms), 'Claude: Not Available / Codex: Not Available / Gemini: Not Available / Grok: Not verified');
   assert.deepEqual(homeBytes(context.userHome), before);
   assert.equal(fs.existsSync(path.join(context.userHome, '.gemini')), false);
 });
