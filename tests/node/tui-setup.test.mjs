@@ -108,6 +108,31 @@ function installFlow(options){
 }
 const installBody=(options,selected=7,columns=120,rows=40)=>options.renderBody({selected,columns,rows,blink:true});
 
+test('Settings and Hosts emit only the specified action kinds',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs');
+ for(const flow of ['settings','hosts']){
+  let screen;const ui=createTuiInterface({viewport:()=>({columns:120,rows:40}),render(value){screen=value;return {selectionEnabled:true};},nextEvent:async()=>({name:'escape'})});
+  await assert.rejects(()=>flow==='settings'?setup.editInstallSettings({ui,settings:setup.installSettingsDraft(statuses,['codex'])}):setup.editHosts({ui,hosts:[],rolePlatforms:[],availabilityOf:()=>({selectable:true})}),{code:'ARC_TUI_HOME'});
+  assert.deepEqual(screen.rowKinds,flow==='settings'?[undefined,undefined,undefined,'cancel']:[undefined,undefined,undefined,undefined,'confirm','cancel']);
+ }
+});
+test('Configure kinds track full, compact, scrolled and guard bodies',async()=>{
+ await installFlow({ui:scripted([['Configure',null,(_rows,options)=>{
+  for(const [columns,rows]of [[120,40],[80,24],[80,16],[40,16]]){
+   const body=installBody(options,8,columns,rows);
+   assert.deepEqual(body.rowKinds,body.rows.map(row=>row.startsWith('Apply - ')?'confirm':row==='Back'?'cancel':undefined));
+   assert.equal(body.rowKinds.at(-1),'cancel');
+  }
+  const guard=installBody(options,8,20,10);assert.equal(guard.selected,undefined);assert.equal(guard.rowKinds,undefined);
+ }]])});
+});
+test('Switch confirmation emits Continue confirm and Back cancel',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs');let screen;const events=[{name:'up'},{name:'enter'}];
+ const capture=createTuiInterface({viewport:()=>({columns:120,rows:40}),render(value){screen=value;return {selectionEnabled:true};},nextEvent:async()=>events.shift()});
+ await installFlow({draft:installDraft('codex'),installState:{mode:'composite',platforms:['claude','codex']},ui:{menu:async(title,rows,options)=>title==='Configure'?7:capture.menu(title,rows,options)}});
+ assert.deepEqual(screen.rowKinds,[undefined,undefined,'confirm','cancel']);
+});
+
 test('diagram is the first screen',async()=>{
  const loaded=[],steps=[['Configure',null,(rows,options)=>{
   assert.deepEqual(rows,[...names,'Hosts: Claude','Settings','Apply - Claude']);assert.equal(options.backRow,true);assert.equal(options.refreshMs,600);
@@ -330,7 +355,7 @@ for(const columns of [80,40])test(`Hosts feedback stays below fixed choices at $
  assert.deepEqual(await setup.editHosts({ui,hosts:[],rolePlatforms:['claude','codex','gemini'],availabilityOf:()=>({selectable:true})}),['claude','codex','gemini']);
  for(const frame of frames){
   assert.equal(frame.screen.rows.length,6);assert.equal(frame.screen.rows[4],'Done');assert.equal(frame.screen.rows[5],'Back');
-  assert.equal(frame.text.split('\n').findIndex(line=>line.trim().replace(/^> /,'')==='Done'),5);assert.equal(frame.text.split('\n')[7],'');assert.equal(frame.selectionEnabled,true);
+  assert.equal(frame.text.split('\n').findIndex(line=>line.trim().replace(/^> /,'')==='Done'),6);assert.equal(frame.text.split('\n')[8],'');assert.equal(frame.selectionEnabled,true);
  }
  assert.ok(frames[1].screen.notices.some(row=>row.includes("Change those roles' platform")));assert.equal(frames[2].screen.notices.length,1);
 });

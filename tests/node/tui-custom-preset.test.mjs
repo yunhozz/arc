@@ -98,6 +98,31 @@ async function runRoleEditor(ui,options={}) {
 }
 const bodyRows = (options,selected=0,columns=100) => options.renderBody(editorState(selected,columns)).rows;
 
+test('Model and Effort screens keep Back cancel in normal and compact viewports',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs');
+ for(const viewport of [{columns:80,rows:24},{columns:40,rows:16}]){
+  const screens=[],events=[{name:'enter'},{name:'enter'}];
+  const ui=createTuiInterface({viewport:()=>viewport,render(screen){screens.push(screen);return {selectionEnabled:true};},nextEvent:async()=>events.shift()});
+  assert.deepEqual(await selectCatalogPair({ui,roleName:'Scouter',current:initial,catalog}),initial);
+  assert.equal(screens.length,2);
+  for(const screen of screens)assert.deepEqual(screen.rowKinds,screen.rows.map(row=>row==='Back'?'cancel':undefined));
+ }
+});
+test('Platform and editRole bodies retain sliced action kinds',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs');
+ for(const flow of ['platform','editor']){
+  let screen;const ui=createTuiInterface({viewport:()=>({columns:80,rows:16}),render(value){screen=value;return {selectionEnabled:true};},nextEvent:async()=>({name:'escape'})});
+  await assert.rejects(()=>flow==='platform'?roleEditor.selectPlatform({ui,roleName:'Planner',current:'claude',availabilityOf:()=>selectable}):runRoleEditor(ui),{code:'ARC_TUI_HOME'});
+  assert.deepEqual(screen.rowKinds,flow==='platform'?[undefined,undefined,undefined,undefined,'cancel']:[undefined,undefined,undefined,'confirm','cancel']);
+ }
+});
+test('Model viewport guard emits no action kind',async()=>{
+ const {createTuiInterface}=await import('../../lib/tui/app.mjs');let screen;
+ const ui=createTuiInterface({viewport:()=>({columns:30,rows:12}),render(value){screen=value;return {selectionEnabled:false};},nextEvent:async()=>({name:'escape'})});
+ await assert.rejects(()=>selectCatalogPair({ui,roleName:'Scouter',current:initial,catalog}),{code:'ARC_TUI_HOME'});
+ assert.equal(screen.selected,undefined);assert.equal(screen.rowKinds,undefined);
+});
+
 test('left/right skips unavailable platforms in registry display order',async()=>{
  const registry=createTestRegistries(['eta','zeta','claude','codex']).platforms;
  const ui=menuScript([(title,rows,options)=>{
@@ -275,7 +300,7 @@ for(const viewport of [{columns:80,rows:24},{columns:40,rows:20}])test(`model no
  assert.equal(await selectCatalogPair({ui,catalog,current:initial,roleName:'Planner'}),null);
  for(const frame of frames){
   const lines=frame.text.split('\n');
-  for(const [index,label] of ['model-a','model-b-with-a-longer-description','Back'].entries())assert.equal(lines.findIndex(line=>line.trim().replace(/^> /,'')===label),index+1);
+  for(const [index,label] of ['model-a','model-b-with-a-longer-description','Back'].entries())assert.equal(lines.findIndex(line=>line.trim().replace(/^> /,'')===label),index+(label==='Back'?2:1));
   assert.equal(frame.selectionEnabled,true);assert.ok(frame.screen.notices.length);
  }
  assert.match(frames[1].text,/Model:\s+model-b/);assert.match(frames[2].text,/Model: -/);

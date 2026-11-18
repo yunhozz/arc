@@ -699,3 +699,25 @@ test('isNewerVersion preserves numeric triplet ordering',async()=>{
  const update=await import('../../lib/management/update.mjs');assert.equal(typeof update.isNewerVersion,'function');
  for(const [left,right,want]of [['1.10.0','1.9.0',true],['2.0.0','1.99.99',true],['1.2.4','1.2.3',true],['1.2.3','1.2.3',false],['1.2.3','1.3.0',false],['9007199254740993.0.0','9007199254740992.0.0',true]])assert.equal(update.isNewerVersion(left,right),want);
 });
+
+test('text input emits confirm and cancel kinds without changing its result',async()=>{
+ const {createTuiInterface}=await load(),session=terminal([enter]);
+ assert.equal(await createTuiInterface(session).text('Input','value'),'value');
+ assert.deepEqual(session.screens[0].rowKinds,[undefined,undefined,'confirm','cancel',undefined]);
+});
+test('app screens mark only their specified action rows',async()=>{
+ const blocked=await blockedTui();
+ const active=blocked.session.screens.find(screen=>screen.title==='Active dispatches');
+ assert.deepEqual(active.rowKinds,[...active.rows.slice(0,-2).map(()=>undefined),'confirm','cancel']);
+ for(const canUpgrade of [true,false]){
+  const run=await statusRun({prepared:statusPrepared({canUpgrade})});
+  const screen=run.screen;
+  assert.deepEqual(screen.rowKinds,[...screen.rows.slice(0,canUpgrade?-2:-1).map(()=>undefined),...(canUpgrade?['confirm']:[]),'cancel']);
+  for(const home of run.session.screens.filter(screen=>screen.title==='ARC'))assert.ok(!home.rowKinds||home.rowKinds.every(kind=>kind===undefined));
+ }
+ const {runTui}=await load(),session=terminal([...down(2),enter,enter,back,back]);
+ await runTui({session,context:{env:{PATH:fixturePath}},services:{collectStatus:async()=>installedStatuses(),currentInstallState:()=>({mode:'standalone',platforms:['claude']})}});
+ const screens=session.screens.filter(screen=>screen.title==='Uninstall');
+ assert.deepEqual(screens[0].rowKinds,[undefined,undefined,undefined,undefined,undefined,'cancel']);
+ assert.deepEqual(screens[1].rowKinds,[undefined,undefined,'danger','cancel']);
+});
