@@ -141,9 +141,9 @@
     - `catalog.pairs`가 아래 기대 목록과 `deepEqual`이어야 한다.
     - 길이는 64이고 `model/effort` 쌍에 중복이 없어야 한다.
   - `codex ultra pairs pass validatePair`
-    - `ultra` 쌍 14개 모두에서 `getPlatform('codex').routing.validatePair(model,'ultra')`가 `true`여야 한다. `getPlatform`은 `lib/runtime/platform-registry.mjs`에서 import한다.
+    - `ultra` 쌍 8개 모두에서 `getPlatform('codex').routing.validatePair(model,'ultra')`가 `true`여야 한다. `getPlatform`은 `lib/runtime/platform-registry.mjs`에서 import한다.
   - `existing codex none pairs are kept`
-    - `effort==='none'`인 쌍은 정확히 `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra` 5개여야 한다.
+    - `effort==='none'`인 쌍은 정확히 `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` 6개여야 한다.
 
   기대 목록은 테스트 안에서 다음처럼 만든다.
   ```js
@@ -375,7 +375,7 @@
   - 카탈로그:
     - 64쌍의 순서
     - 기존 46쌍이 부분열로 남아 있는지
-    - `none` 5쌍 유지
+    - `none` 6쌍 유지
     - `pairs[0]` 변경이 플랫폼 전환 fallback(`custom-preset.mjs:173`)에 주는 영향(의도된 동작)
   - `ultra` 근거 수준을 spec 4.3에만 기록했는지, 카탈로그 명세에는 diff가 없는지
   - watch 함수의 경계(tick 0, 12, 13, 17, 18), `palette.mjs`와 TUI wordmark에 변경이 없는지
@@ -397,7 +397,7 @@
 | AC | 작업 | 증거 |
 |---|---|---|
 | AC-C1 | T1 | `models.test.mjs` contract 테스트 |
-| AC-C2 | T1 | contract 테스트(정확 목록), Orchestrator 부분열 확인, `none` 5쌍 테스트 |
+| AC-C2 | T1 | contract 테스트(정확 목록), Orchestrator 부분열 확인, `none` 6쌍 테스트 |
 | AC-C3 | T1 | `loadStaticModelCatalog` 성공, `ultra` validatePair 테스트 |
 | AC-C4 | T1, FR | `git diff --stat d013cf0 -- …` 결과가 비어 있음 |
 | AC-C5 | T1 | `npm run check:manifest` |
@@ -429,9 +429,9 @@
 
 | 일시 | 작업 | 상태 | 커밋 | 메모 |
 |---|---|---|---|---|
-| | P0-a | | | |
-| | P0-b | | | |
-| | T1 | | | |
+| 2026-11-19 | P0-a | 완료 | — | PD-4: d013cf0 직전 FR 결과 재사용(2774/2708/53+cancelled 1, 신규 0). 참고: Python `tests/test_codex_models.py`는 d013cf0에서도 2건 실패(`test_custom_roundtrip_and_validation`, `test_model_standard_five_roles`, BALANCED_SETTINGS 불일치) — npm test 밖 기존 실패 |
+| 2026-11-19 | P0-b | 완료 | 1db99f4 | spec·plan v1 문서 커밋 후 clean |
+| 2026-11-19 | T1 | 수용 | (이 커밋) | Implementer #1 `1296b058` 구현 전 hold(문서 개수 충돌) → v2 정정 승인 → fresh #2 `fb31c027`. focused 138/0, check:manifest PASS(1행), AC-C4 diff 0, 부분열 확인. 호스트 sentinel npm test 2801/2736/53, 직전 FR 목록 대비 신규 1건(`role-bridge-run` secret env) 단독 35/0 → 부하 flake, sentinel log 없음. 첫 실행은 Python 회귀가 남긴 `__pycache__`로 payload 검증 336건 실패 → 산출물 삭제 후 `PYTHONDONTWRITEBYTECODE=1`로 재실행 |
 | | T2 | | | |
 | | T3 | | | |
 | | FR | | | |
@@ -449,3 +449,4 @@
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 2026-11-19T00:34+09:00 | — | — | 최초 승인 |
+| v2 | 2026-11-19T00:37+09:00 | 사실 정정 | T1 | 개수 표기 오류 정정: `ultra` 쌍 14→8, 기존 `none` 쌍 5→6(`gpt-5.6-luna` 누락). spec 4.1 표(정확 목록)와 기대 목록 코드는 불변. T1 Implementer(1296b058)가 구현 전 hold로 발견 |

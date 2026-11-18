@@ -1,7 +1,7 @@
 # TUI 동작 행 구분, Codex GPT-6.2·`ultra` 카탈로그, watch 반짝임 — 설계 명세
 
 - 작성일: 2026-11-19
-- 상태: 사용자 승인(written spec, 2026-11-19). 설계 사용자 승인 2026-11-19(결정 D1–D8 확정).
+- 상태: 사용자 승인(written spec, 2026-11-19). v2 개수 정정(AC-C2 `none` 6쌍) 사용자 승인 2026-11-19T00:37+09:00. 설계 사용자 승인 2026-11-19(결정 D1–D8 확정).
 - 소스: `/Users/yunho/Desktop/project/arc`, 브랜치 `feat/grok-support`, HEAD `d013cf0`, 작업 트리 clean. 사용자가 현재 checkout에서 이어서 작업하기로 선택했다.
 - 경로: Bounded. 이 spec이 승인되면 구현 계획 `docs/superpowers/plans/2026-11-19-tui-action-buttons-gpt62.md`를 작성한다.
 - 관련 명세: `docs/superpowers/specs/2026-11-09-static-model-catalog-design.md`(이하 "카탈로그 명세"). 이 명세는 카탈로그 명세를 **수정하지 않으며**, 근거 수준이 다른 추가분을 따로 기록한다(4.3).
@@ -188,7 +188,7 @@
 
 카탈로그
 - AC-C1: `codex-models.json`의 `pairs`가 4.1 표와 순서까지 정확히 같다. 64쌍, 중복 없음, `platform: "codex"`.
-- AC-C2: 기존 46쌍이 모두 남아 있고 서로의 상대 순서도 같다. `none` 쌍 5개도 유지된다.
+- AC-C2: 기존 46쌍이 모두 남아 있고 서로의 상대 순서도 같다. `none` 쌍 6개(`gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`)도 유지된다.
 - AC-C3: `loadStaticModelCatalog('codex')`가 성공하고, 모든 `ultra` 쌍이 Codex `validatePair`를 통과한다.
 - AC-C4: `codex/skill/models.toml`, Claude effort 열거 4곳, `shared/skill/runtime/`, 2026-11-09 spec에 diff가 없다.
 - AC-C5: `MANIFEST.sha256`을 갱신했고 `npm run check:manifest`가 통과한다.

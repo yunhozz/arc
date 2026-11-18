@@ -2,6 +2,54 @@
   "platform": "codex",
   "pairs": [
     {
+      "model": "gpt-6.2-astra",
+      "effort": "low"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "effort": "medium"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "effort": "high"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "effort": "xhigh"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "effort": "max"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "effort": "ultra"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "effort": "low"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "effort": "medium"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "effort": "high"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "effort": "xhigh"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "effort": "max"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "effort": "ultra"
+    },
+    {
       "model": "gpt-6-astra",
       "effort": "low"
     },
@@ -22,6 +70,10 @@
       "effort": "max"
     },
     {
+      "model": "gpt-6-astra",
+      "effort": "ultra"
+    },
+    {
       "model": "gpt-6.1-sol",
       "effort": "low"
     },
@@ -40,6 +92,10 @@
     {
       "model": "gpt-6.1-sol",
       "effort": "max"
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "effort": "ultra"
     },
     {
       "model": "gpt-6.1-terra",
@@ -66,6 +122,10 @@
       "effort": "max"
     },
     {
+      "model": "gpt-6.1-terra",
+      "effort": "ultra"
+    },
+    {
       "model": "gpt-6-sol",
       "effort": "none"
     },
@@ -90,6 +150,10 @@
       "effort": "max"
     },
     {
+      "model": "gpt-6-sol",
+      "effort": "ultra"
+    },
+    {
       "model": "gpt-6-luna",
       "effort": "none"
     },
@@ -138,6 +202,10 @@
       "effort": "max"
     },
     {
+      "model": "gpt-5.6-sol",
+      "effort": "ultra"
+    },
+    {
       "model": "gpt-5.6-terra",
       "effort": "none"
     },
@@ -160,6 +228,10 @@
     {
       "model": "gpt-5.6-terra",
       "effort": "max"
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "effort": "ultra"
     },
     {
       "model": "gpt-5.6-luna",
