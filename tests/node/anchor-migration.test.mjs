@@ -172,7 +172,7 @@ test('legacy status adds move diagnostic', async t => {
   for (const id of ['claude', 'codex']) {
     const status = statuses.find(item => item.platform === id);
     assert.equal(status.state, 'installed');
-    assert.deepEqual(status.diagnostics.map(error => error.message), ['Mixed routing will move to the Claude home on the next Install / Update.']);
+    assert.deepEqual(status.diagnostics.map(error => error.message), ['Mixed routing will move to the Claude home the next time you apply Configure.']);
   }
   assert.deepEqual(homeBytes(context.userHome), before);
 });

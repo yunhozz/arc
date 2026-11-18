@@ -141,8 +141,8 @@ test('uninstall allowed with install capability off when traces exist', async t 
 test('uninstall order follows displayOrder', async t => {
   const context = await contextFor(t, {reverseDisplay: true});
   const prepared = await prepareOperation(context, {kind: 'uninstall', target: 'all', removeCli: false});
-  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['gemini', 'codex', 'claude']);
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['grok', 'gemini', 'codex', 'claude']);
   const result = await executeOperation(context, prepared);
   assert.equal(result.code, 0);
-  assert.deepEqual(result.results.map(item => item.platform), ['gemini', 'codex', 'claude']);
+  assert.deepEqual(result.results.map(item => item.platform), ['grok', 'gemini', 'codex', 'claude']);
 });

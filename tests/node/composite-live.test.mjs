@@ -36,9 +36,9 @@ if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
     if (!fs.existsSync(entry)) return 'installed runtime entry missing: ' + entry;
     for (const platform of ['codex', 'claude']) {
       const marker = readJson(path.join(homes[platform], 'arc-role-platform-routing.prepared.json'));
-      if (!marker) return 'missing prepared marker for ' + platform + '; run Install / Update';
-      if (marker.revision !== config.revision) return 'prepared marker revision differs for ' + platform + '; run Install / Update';
-      if (marker.runtime?.version !== RUNTIME_VERSION) return `prepared marker for ${platform} is ${marker.runtime?.version}, not ${RUNTIME_VERSION}; run Install / Update`;
+      if (!marker) return 'missing prepared marker for ' + platform + '; run Configure';
+      if (marker.revision !== config.revision) return 'prepared marker revision differs for ' + platform + '; run Configure';
+      if (marker.runtime?.version !== RUNTIME_VERSION) return `prepared marker for ${platform} is ${marker.runtime?.version}, not ${RUNTIME_VERSION}; run Configure`;
     }
     return null;
   })();

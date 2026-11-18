@@ -16,7 +16,7 @@ test('management status and TUI Status use refreshed Codex authentication withou
   assert.equal(statuses.find(x=>x.platform==='codex').authentication.authStatus,{Unauthorized:'unauthorized',Available:'authenticated',Incomplete:'unknown'}[label]);
   const events=['down','enter','escape','escape'],screens=[],session={viewport:()=>({columns:120,rows:40}),render:s=>{screens.push(s);return{selectionEnabled:true};},discardInput(){},setBusy(){},dispose(){},nextEvent:async()=>({name:events.shift()??'escape'})};
   await runTui({session,context:ctx,services:{collectStatus:async()=>statuses}});
-  assert.ok(screens.find(screen=>screen.title==='Status')?.rows.includes('Codex    '+label));
+  assert.deepEqual(screens.find(screen=>screen.title==='Status')?.rows.filter(row=>/^Codex +/.test(row)).map(row=>row.replace(/^Codex +/,'')),[label]);
   assert.doesNotMatch(JSON.stringify({statuses,screens}),/fixture-token-SECRET|refresh token/);
  }
  const records=fs.readFileSync(recordPath,'utf8').trim().split('\n').map(JSON.parse);
@@ -48,7 +48,7 @@ for(const platform of ['codex','claude'])for(const kind of ['file','symlink','ow
 test('collectStatus iterates registry in anchor order',async t=>{
  const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-order-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
  const statuses=await api.collectStatus({userHome,cwd:userHome,env:{},safeFs});
- assert.deepEqual(statuses.map(status=>status.platform),['claude','codex','gemini']);
+ assert.deepEqual(statuses.map(status=>status.platform),['claude','codex','gemini','grok']);
 });
 
 test('auth kind none reports unknown without probe',async t=>{

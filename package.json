@@ -47,6 +47,7 @@
     "claude/skill/",
     "claude/agents/",
     "gemini/",
+    "grok/",
     "MANIFEST.sha256",
     "install.command",
     "!**/__pycache__/**",

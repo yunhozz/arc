@@ -46,7 +46,8 @@ test('AC-P1 install-verified platforms with native hooks have adapters and capab
   assert.ok(contracts, 'capabilities map exists');
   const keys = [...contracts.matchAll(/^\s*([a-z][a-z0-9-]*):/gm)].map(match => match[1]);
   // Phase B spec §10 / [platform.gemini]: prompt contracts and post-run detection; native hooks and Git guards are unverified.
-  const noNativeHookAdapter = new Set(['gemini']);
+  // Grok capability promotion spec §8 / [platform.grok] notice: observer hooks are unverified.
+  const noNativeHookAdapter = new Set(['gemini', 'grok']);
   for (const id of noNativeHookAdapter) {
     assert.equal(fs.existsSync(new URL(`../../lib/runtime/adapters/${id}.mjs`, import.meta.url)), false, `${id} has no native hook adapter`);
     assert.equal(keys.includes(id), false, `${id} has no capabilities-map key`);
@@ -67,9 +68,9 @@ test('AC-P1 production sources never reference platform test fixtures', () => {
 
 test('runtime registry exposes codex and claude with spec values', () => {
   assert.deepEqual(CAPABILITY_KEYS, ['install', 'standalone', 'compositeRole', 'compositeHost', 'bridge', 'nativeProfile', 'authProbe', 'catalog', 'watch']);
-  assert.deepEqual(platformIds(), ['claude', 'codex', 'gemini']);
-  assert.deepEqual(byDisplayOrder().map(p => p.id), ['claude', 'codex', 'gemini']);
-  assert.deepEqual(byAnchorOrder().map(p => p.id), ['claude', 'codex', 'gemini']);
+  assert.deepEqual(platformIds(), ['claude', 'codex', 'gemini', 'grok']);
+  assert.deepEqual(byDisplayOrder().map(p => p.id), ['claude', 'codex', 'gemini', 'grok']);
+  assert.deepEqual(byAnchorOrder().map(p => p.id), ['claude', 'codex', 'gemini', 'grok']);
   assert.equal(RUNTIME_PLATFORMS, DEFAULT_PLATFORM_REGISTRY.platforms);
   assert.equal(runtimeRegistryOf(), DEFAULT_PLATFORM_REGISTRY);
   assert.equal(getPlatform('zeta'), null);
@@ -178,9 +179,9 @@ const fixtureRegistries = await import('./fixtures/platforms/zeta.mjs');
 test('installer and runtime registries agree and reject mismatches', () => {
   assert.equal(typeof installer.createInstallerRegistry, 'function');
   const registry = installer.DEFAULT_INSTALLER_REGISTRY;
-  assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini']);
-  assert.deepEqual(registry.byAnchorOrder().map(p => p.runtime.id), ['claude', 'codex', 'gemini']);
-  assert.deepEqual(registry.byDisplayOrder().map(p => p.runtime.id), ['claude', 'codex', 'gemini']);
+  assert.deepEqual(registry.platformIds(), ['claude', 'codex', 'gemini', 'grok']);
+  assert.deepEqual(registry.byAnchorOrder().map(p => p.runtime.id), ['claude', 'codex', 'gemini', 'grok']);
+  assert.deepEqual(registry.byDisplayOrder().map(p => p.runtime.id), ['claude', 'codex', 'gemini', 'grok']);
   for (const id of registry.platformIds()) assert.equal(registry.getPlatform(id).runtime, getPlatform(id));
   assert.equal(registry.getPlatform('missing'), null);
   assert.equal(registry.isPlatformId('toString'), false);

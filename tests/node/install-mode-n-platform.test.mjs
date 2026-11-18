@@ -44,7 +44,7 @@ test('unresolved platform outside S is ignored', async t => {
   ctx.env.CLAUDE_CONFIG_DIR = path.join(ctx.userHome, 'other-claude');
   const result = state(ctx);
   assert.equal(result.mode, 'standalone');
-  assert.deepEqual(result.homes, {codex: 'standalone', claude: 'unresolved', gemini: 'standalone'});
+  assert.deepEqual(result.homes, {codex: 'standalone', claude: 'unresolved', gemini: 'standalone', grok: 'standalone'});
 });
 test('two active configs → unverified with both residual', async t => {
   const ctx = await composite(t);
@@ -145,7 +145,7 @@ test('zeta package passes verifyPayload with injected registry', t => {
   const payload = verifyPayload({packageRoot: root, safeFs, ...registries});
   assert.deepEqual(Object.keys(payload.modelInputs), ['claude', 'codex', 'zeta']);
   const ordinary = staticPackageFixture(t);
-  assert.deepEqual(Object.keys(verifyPayload({packageRoot: ordinary, safeFs}).modelInputs), ['claude', 'codex', 'gemini']);
+  assert.deepEqual(Object.keys(verifyPayload({packageRoot: ordinary, safeFs}).modelInputs), ['claude', 'codex', 'gemini', 'grok']);
   assert.throws(() => verifyPayload({packageRoot: root, safeFs}), {message: 'Payload verification failed: Duplicate, mutable or unexpected manifest entry: zeta/agents/arc-implementer.md'});
 });
 test('installAll installs zeta standalone', async t => {
@@ -203,6 +203,11 @@ test('F4 status reports standalone outside S during composite', async t => {
   const statuses = await collectStatus(context);
   assert.deepEqual([...statuses.filter(item => item.platform !== 'zeta'), {
     platform: 'gemini', target: resolveTargets({...context, platforms: undefined, runtimePlatforms: undefined}).targets.gemini,
+    state: 'absent', diagnostics: [], residualPaths: [],
+    authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
+    cliVersion: {version: null, reason: 'cli_not_found'},
+  }, {
+    platform: 'grok', target: resolveTargets({...context, platforms: undefined, runtimePlatforms: undefined}).targets.grok,
     state: 'absent', diagnostics: [], residualPaths: [],
     authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
     cliVersion: {version: null, reason: 'cli_not_found'},
@@ -433,7 +438,7 @@ test('kind preset, skipGlobal and target all remain accepted', async t => {
 });
 test('activation message uses display-ordered mixed label', async t => {
   const ctx = await compositeContext(t), {result} = await managementPublish(ctx);
-  assert.deepEqual(result.messages, ['Mixed routing on: Claude + Codex.', 'After upgrading ARC, run Install / Update again.']);
+  assert.deepEqual(result.messages, ['Mixed routing on: Claude + Codex.', 'After upgrading ARC, run Configure again.']);
 });
 test('management composite rejects unknown or singleton participating sets', async t => {
   const ctx = await zetaContext(t), config = await mixedConfig('invalid-set');

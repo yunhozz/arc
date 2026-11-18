@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {watchLocationLabel, shimmerText, statusBlockLines} from '../../lib/watch/status-line.mjs';
 import {displayWidth} from '../../lib/watch/render.mjs';
+import {gradientAt, toAnsi256} from '../../lib/color/palette.mjs';
 
 const strip = text => text.replace(/\x1b\[[0-9;]*m/g,'');
 const base = {label:'~/project',busy:false,glyph:'⠋',tick:0,color:false,fancy:false,width:80};
@@ -59,5 +60,27 @@ test('shimmer preserves text and changes the per-character palette with the tick
   assert.equal(strip(later),'working…');
   assert.notDeepEqual(first.match(/\x1b\[38;5;\d+m/g),later.match(/\x1b\[38;5;\d+m/g));
   assert.equal(shimmerText('w',0),'\x1b[38;5;158mw\x1b[0m');
-  assert.equal(shimmerText('w',2),'\x1b[38;5;231mw\x1b[0m');
+  assert.equal(shimmerText('w',2),'\x1b[38;5;195mw\x1b[0m');
+});
+
+test('watch shimmer repeats every 18 ticks', () => {
+  for (let tick = 0; tick <= 40; tick++) {
+    assert.equal(shimmerText('working…',tick),shimmerText('working…',tick+18),`working… tick ${tick}`);
+    assert.equal(shimmerText('w',tick),shimmerText('w',tick+18),`w tick ${tick}`);
+  }
+});
+
+test('watch shimmer rests on ticks 0, 12 and 13–17 and lights ticks 1–11', () => {
+  const base = shimmerText('working…',15);
+  const colors = [...base.matchAll(/\x1b\[38;5;(\d+)m/g)].map(match => Number(match[1]));
+  assert.equal(colors.length,8);
+  for (let i = 0; i < colors.length; i++) {
+    assert.equal(colors[i],toAnsi256(gradientAt(i/7)),`base color ${i}`);
+  }
+  for (const tick of [0,12,13,14,15,16,17]) {
+    assert.equal(shimmerText('working…',tick),base,`rest tick ${tick}`);
+  }
+  for (let tick = 1; tick <= 11; tick++) {
+    assert.notEqual(shimmerText('working…',tick),base,`lit tick ${tick}`);
+  }
 });

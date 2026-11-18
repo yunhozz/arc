@@ -85,7 +85,7 @@ test('AC-L2 claude-anchored composite prepare/run/observe/resume/cancel match Ph
 test('AC-A2 operational legacy migration', async t => {
   const context = await operationalLegacy(t), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
   assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',
-    homes: {claude: 'composite', codex: 'composite', gemini: 'standalone'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
+    homes: {claude: 'composite', codex: 'composite', gemini: 'standalone', grok: 'standalone'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
   const before = homeBytes(context.userHome), runtimeContext = {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 'legacy'};
   assert.deepEqual((await routingStatus({context: runtimeContext, policy})).reasons.map(reason => reason.code), ['activation_unverified']);
   assert.deepEqual(homeBytes(context.userHome), before);

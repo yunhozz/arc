@@ -1,6 +1,6 @@
 import {runtimeRegistryOf} from './platform-registry.mjs';
 // Fixed policy values for composite role dispatch. G2 'escalation' means the bridge runs only with per-call user escalation approval on a Codex host; it is not a verified pass.
-export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail'});
+export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
 // No sandbox settings JSON has been recorded: G1 failed, so there is nothing to apply.
 const RECORDED_CLAUDE_SANDBOX_SETTINGS = null;
 const isRecordedObject = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
@@ -41,7 +41,7 @@ export const DEFAULT_POLICY = Object.freeze({
 
 export const RELEASE_CONDITIONS = Object.freeze({
   activation_unverified: 'Verify the active configuration, all prepared markers, installed bytes, host limits and the shared lock, and inspect the lease records in <anchor home>/arc-role-dispatch for unreadable or corrupted files.',
-  resume_unverified: 'Update ARC after verifying Gemini session resume against the recorded session UUID.',
+  resume_unverified: 'Update ARC after verifying platform session resume against the recorded session UUID.',
   capability_not_verified: 'Update ARC to a release that verifies this platform capability.',
   'Not Available': 'Install the target platform CLI so that it is found on PATH.',
   Unauthorized: 'Authenticate the target platform CLI.',
@@ -87,6 +87,8 @@ export function bridgeGateReasons({platform, role, hostPlatform, policy = DEFAUL
   const gates = policy.gates ?? BRIDGE_GATE_RESULTS, codes = [];
   if (platform === 'claude' && (role === 'arc_implementer' || role === 'arc_qa') && effectiveClaudeSandboxSettings({gates, claudeSandboxSettings: policy.claudeSandboxSettings}) === null) codes.push('permission_scope_unverified');
   if (platform === 'gemini' && (role === 'arc_implementer' || role === 'arc_qa') && gates.GG1 !== 'pass') codes.push('permission_scope_unverified');
+  if (platform === 'grok' && (role === 'arc_implementer' || role === 'arc_qa') && gates.GK1 !== 'pass') codes.push('permission_scope_unverified');
+  if (hostPlatform === 'grok' && gates.GK2 !== 'pass') codes.push('host_sandbox_blocked');
   if (hostPlatform === 'gemini' && gates.GG2 !== 'pass') codes.push('host_sandbox_blocked');
   if (platform === 'codex' && gates.G4 === 'fail') codes.push('permission_scope_unverified');
   if (hostPlatform === 'codex' && gates.G2 === 'fail') codes.push('host_sandbox_blocked');

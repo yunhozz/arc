@@ -37,15 +37,14 @@ The package provides the CLI; use the TUI to install the harness. Public command
 
 | Home action | Effect |
 |---|---|
-| Install / Update | Edit role platform/model/effort, Hosts, and Settings; `Apply` publishes; new sessions load profiles. Defaults: English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
-| Status | Platform status, Mode, and diagnostics; home shows only the logo and menu |
-| Check Version | Shows current/latest or lookup failure; `Upgrade` preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
+| Configure | Edit role platform/model/effort, Hosts, and Settings; `Apply` publishes; new sessions load profiles. Defaults: English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
+| Status | Platform status, Mode, diagnostics, and ARC version (current/latest or lookup failure); `Upgrade` appears only when a newer version exists and an ARC harness is installed, and preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
 | Uninstall | Remove a platform or `Everything (incl. CLI)` after confirmation (default `Back`); removing a Mixed participant restores others to standalone. Everything filters verified install/standalone platforms and removes CLI only after harness success. Unselected harnesses/user files remain. CLI only: `npm uninstall -g @yunhozz/arc` |
 
 | Mode | Rule |
 |---|---|
 | Standalone | S = role platforms ∪ hosts; one participant |
-| Mixed (…) | Two or more participants; hosts may have no roles; anchor order: Claude > Codex > Gemini |
+| Mixed (…) | Two or more participants; hosts may have no roles; anchor order: Claude > Codex > Gemini > Grok |
 | Unverified | `Apply` blocked; inspect inconsistent files/residual paths |
 
 ## Watch sessions
@@ -79,6 +78,7 @@ The package provides the CLI; use the TUI to install the harness. Public command
 | Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA held: `permission_scope_unverified` | `claude auth status` |
 | Codex | Yes | Supported on CLI | From Claude; permissions claim capped at `operator-attested` | `codex app-server` refresh rotates `auth.json`; network required |
 | Gemini | No | Standalone verified | Read roles verified; write roles held: `permission_scope_unverified` | No probe; `unknown`, `auth unverified` warning |
+| Grok | No | Standalone enabled (not live-verified) | Read roles enabled (not live-verified); write roles held: `permission_scope_unverified`; Configure sets `[compat.claude]` agents/skills/rules to false in `~/.grok/config.toml` (session effect unverified) | No probe; `unknown`, `auth unverified` warning |
 
 | executionEnvironment | Support and obligations |
 |---|---|
@@ -90,9 +90,9 @@ The package provides the CLI; use the TUI to install the harness. Public command
 
 ## Upgrade
 
-- Re-run `Install / Update` after upgrading, including `cooperative-9`; in-flight workflow version mismatches hold with `cooperative.versions`, without automatic migration.
+- Re-run `Configure` after upgrading, including `cooperative-9`; in-flight workflow version mismatches hold with `cooperative.versions`, without automatic migration.
 - Existing Codex+Claude composites move to the Claude home; finish/cancel non-terminal dispatches in either store before applying. Old Codex dispatch history stays there.
-- After downgrading, run the older version's `Install / Update` to restore its composite layout.
+- After downgrading, run the older version's `Configure` to restore its composite layout.
 
 ## Guides
 

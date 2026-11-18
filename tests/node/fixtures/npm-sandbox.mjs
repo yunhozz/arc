@@ -6,6 +6,7 @@ import {spawn,spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {buildReleaseArtifact} from '../../../lib/release/artifact.mjs';
+import {writeFakeGrokCli} from './platforms/grok-off.mjs';
 const quote=value=>"'"+String(value).replaceAll("'","'\\''")+"'";
 const sourceRoot=fileURLToPath(new URL('../../../',import.meta.url));
 const npmCli=fs.realpathSync(spawnSync('/bin/sh',['-c','command -v npm'],{encoding:'utf8'}).stdout.trim());
@@ -26,6 +27,7 @@ export async function createNpmSandbox(t){
  fs.writeFileSync(root+'/user.npmrc',`registry=${registry}/\nprefix=${prefix}\ncache=${cache}\nforeground-scripts=false\naudit=false\nfund=false\nupdate-notifier=false\n`);fs.writeFileSync(root+'/global.npmrc','');fs.writeFileSync(root+'/gitconfig','');
  const env={PATH:bin+path.delimiter+process.env.PATH,HOME:home,ZDOTDIR:home,CODEX_HOME:home+'/.codex',CLAUDE_CONFIG_DIR:home+'/.claude',SHELL:'/bin/bash',TERM:'xterm',NODE_DISABLE_COMPILE_CACHE:'1',LANG:'C.UTF-8',TMPDIR:root,npm_config_userconfig:root+'/user.npmrc',npm_config_globalconfig:root+'/global.npmrc',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:root+'/gitconfig'};
  fs.writeFileSync(bin+'/git',`#!/bin/sh\nexec ${quote(process.execPath)} ${quote(sourceRoot+'tests/node/fixtures/fake-git.mjs')} valid "$@"\n`,{mode:0o755});
+ writeFakeGrokCli({bin,marker:root+'/grok-calls'});
  function sync(executable,args,options={}){const result=spawnSync(executable,args,{cwd,env,encoding:'utf8',timeout:120000,...options});if(result.status!==0)throw Error(result.stderr||result.stdout||String(result.error));return result;}
  function inputCopy(source,{version,extraFiles={}}={}){
   const copy=fs.mkdtempSync(root+'/source copy '),pkg=JSON.parse(fs.readFileSync(source+'/package.json'));

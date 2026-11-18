@@ -7,11 +7,36 @@ import { spawnSync } from 'node:child_process';
 import * as api from '../../lib/models/index.mjs';
 import * as configApi from '../../lib/models/config.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
+import {getPlatform} from '../../lib/runtime/platform-registry.mjs';
 const roles = ['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
 const defaults = {
  codex: [['gpt-6-luna','high'],['gpt-6.1-sol','xhigh'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','high'],['gpt-6.1-sol','high']],
  claude: [['haiku','high'],['sonnet','xhigh'],['sonnet','medium'],['haiku','high'],['sonnet','high']],
 };
+test('codex static catalog matches the GPT-6.2 and ultra contract', async()=>{
+ const result=await loadStaticModelCatalog('codex');
+ assert.equal(result.status,'ready');
+ const {catalog}=result;
+ const E=['low','medium','high','xhigh','max'],N=['none',...E],U=[...E,'ultra'],NU=[...N,'ultra'];
+ const expected=[['gpt-6.2-astra',U],['gpt-6.2-sol',U],['gpt-6-astra',U],['gpt-6.1-sol',U],['gpt-6.1-terra',NU],['gpt-6-sol',NU],['gpt-6-luna',N],['gpt-5.6-sol',NU],['gpt-5.6-terra',NU],['gpt-5.6-luna',N]]
+  .flatMap(([model,efforts])=>efforts.map(effort=>({model,effort})));
+ assert.equal(catalog.platform,'codex');
+ assert.deepEqual(catalog.pairs,expected);
+ assert.equal(catalog.pairs.length,64);
+ assert.equal(new Set(catalog.pairs.map(({model,effort})=>JSON.stringify([model,effort]))).size,64);
+});
+test('codex ultra pairs pass validatePair',()=>{
+ for(const model of ['gpt-6.2-astra','gpt-6.2-sol','gpt-6-astra','gpt-6.1-sol','gpt-6.1-terra','gpt-6-sol','gpt-5.6-sol','gpt-5.6-terra']){
+  assert.equal(getPlatform('codex').routing.validatePair(model,'ultra'),true,model);
+ }
+});
+test('existing codex none pairs are kept',async()=>{
+ const result=await loadStaticModelCatalog('codex');
+ assert.equal(result.status,'ready');
+ assert.deepEqual(result.catalog.pairs.filter(({effort})=>effort==='none').map(({model})=>model),[
+  'gpt-6.1-terra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna',
+ ]);
+});
 for (const platform of ['codex','claude']) {
  const field=platform==='codex'?'model_reasoning_effort':'effort';
  const legacy=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8');

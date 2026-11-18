@@ -99,7 +99,7 @@ test('truecolor emits run colors and resets after each run',t=>{
  assert.equal(api.formatLine('a b',{runs:[{from:0,to:1,role:'logo',fg:[1,2,3]},{from:2,to:3,role:'shadow',fg:[4,5,6]}]},'truecolor'),'\x1b[0;38;2;1;2;3ma\x1b[0m \x1b[0;38;2;4;5;6mb\x1b[0m');
 });
 test('selected label, hint segments and titles stay contiguous',t=>{
- const io=session(t);io.session.render({title:'Check Version',rows:['Upgrade','Back'],selected:0});for(const value of ['> Upgrade','Esc Home','Check Version'])assert.ok(io.text().includes(value));
+ const io=session(t);io.session.render({title:'Status',rows:['Upgrade','Back'],selected:0});for(const value of ['> Upgrade','Esc Home','Status'])assert.ok(io.text().includes(value));
 });
 test('256-color terminals use 38;5 indexes',t=>{
  const io=session(t,{env:{TERM:'xterm-256color'}});io.session.render({wordmark:true});assert.match(io.text(),/\x1b\[0;[0-9;]*38;5;\d+m█/);assert.doesNotMatch(io.text(),/38;2/);
@@ -109,7 +109,7 @@ test('basic terminals keep bright green logo',t=>{
  const io=session(t,{env:{TERM:'xterm'}});io.session.render({wordmark:true});assert.ok(io.text().includes('\x1b[0;92m█'));assert.doesNotMatch(io.text(),/38;[25]/);
 });
 for(const env of [{COLORTERM:'truecolor',NO_COLOR:''},{TERM:'dumb',TERM_PROGRAM:'cmux'}])test('color disable emits no SGR on any styled screen '+JSON.stringify(env),t=>{
- const io=session(t,{env});for(const screen of [{wordmark:true,rows:['Configure'],selected:0},{title:'Check Version',rows:['Upgrade'],selected:0},{title:'Working',mode:'busy',rows:['Running']}])io.session.render(screen);assert.doesNotMatch(io.text(),/\x1b\[[0-9;]*m/);
+ const io=session(t,{env});for(const screen of [{wordmark:true,rows:['Configure'],selected:0},{title:'Status',rows:['Upgrade'],selected:0},{title:'Working',mode:'busy',rows:['Running']}])io.session.render(screen);assert.doesNotMatch(io.text(),/\x1b\[[0-9;]*m/);
 });
 for(const name of ['ghostty','cmux'])test(name+' explicit identity enables RGB on all filled logo cells only',t=>{
  const io=session(t,{env:{TERM_PROGRAM:name,TERM:'xterm-256color'}});io.session.render({wordmark:true});const heading=io.text().split('\n').slice(0,6).join('\n');assert.equal([...heading.matchAll(/\x1b\[0;38;2;[0-9;]+m█/g)].length,[...heading].filter(character=>character==='█').length);assert.doesNotMatch(heading,/\x1b\[0;38;2;[0-9;]+m /);assert.ok(heading.includes('\x1b[0;38;2;170;243;211m█'));
@@ -118,6 +118,13 @@ test('reported color depth selects 256 or truecolor',t=>{
  for(const [depth,pattern] of [[8,/38;5;/],[24,/38;2;/]]){const io=makeTerminal();io.output.getColorDepth=()=>depth;const terminal=api.createTerminalSession({...io,env:{TERM:'xterm'}});t.after(()=>terminal.dispose());terminal.render({wordmark:true});assert.match(io.text(),pattern);}
 });
 test('toAnsi256 maps the cube',()=>{assert.equal(api.toAnsi256([0,0,0]),16);assert.equal(api.toAnsi256([255,255,255]),231);assert.equal(api.toAnsi256([16,185,129]),43);});
+test('BASIC maps action roles',()=>{
+ for(const [role,fg,bold,basic,index]of [['actionConfirm',[52,211,153],true,'1;32',79],['actionCancel',[150,170,160],false,'2',145],['actionDanger',[248,113,113],false,'31',210]]){
+  const style={runs:[{from:2,to:6,role,fg,bold}]};
+  assert.equal(api.formatLine('  Save',style,'16'),'  \x1b[0;'+basic+'mSave\x1b[0m');
+  assert.equal(api.formatLine('  Save',style,'256'),'  \x1b[0;'+(bold?'1;':'')+'38;5;'+index+'mSave\x1b[0m');
+ }
+});
 test('formatLine clamps colors and ignores unknown roles',()=>{
  assert.equal(api.formatLine('ab',{line:0,runs:[{from:0,to:1,role:'logo',fg:[300,-5,12.6]},{from:1,to:2,role:'bogus',fg:[1,2,3]}]},'truecolor'),'\x1b[0;38;2;255;0;13ma\x1b[0mb');
  assert.equal(api.formatLine('😀x',{runs:[{from:0,to:1,role:'logo',fg:[1,2,3]}]},'truecolor'),'\x1b[0;38;2;1;2;3m😀\x1b[0mx');assert.equal(api.formatLine('plain',{runs:[{from:0,to:5,role:'title',bold:true}]},'none'),'plain');

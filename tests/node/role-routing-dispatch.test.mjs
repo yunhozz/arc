@@ -22,7 +22,7 @@ const okClis = async (f, claudeVersion = '2.1.322 (Claude Code)', codexVersion =
 const skipRoot = t => process.getuid?.() === 0 && t.skip('root ignores directory permissions');
 
 test('default bridge policy keeps G1 and Desktop holds while G2 requires per-call escalation', () => {
-  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail'});
+  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
   assert.equal(Object.isFrozen(BRIDGE_GATE_RESULTS), true);
   assert.deepEqual(DESKTOP_CHECKLIST_PASSED, {'claude-desktop': false, 'codex-desktop': false});
   assert.equal(DEFAULT_POLICY.gates, BRIDGE_GATE_RESULTS);
