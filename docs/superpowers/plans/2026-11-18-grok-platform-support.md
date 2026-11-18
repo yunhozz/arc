@@ -763,7 +763,7 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | 2026-11-18 | T3 | 수용 | (이 커밋) | P0-b 재확인 `1.0.88`. Implementer 845f8427(재개 2회: 자기 결함 `CAPABILITY_KEYS` 오삽입·생성물 미갱신, tui-setup locked R 판정) → 보정 교체 bdf4670a(R7: anchor-flip, install-mode-n-platform, install-mode-switch, targets, tui-custom-preset 허용 목록 추가). QA ed451fe2: AC-K9 fail(추가 frontmatter 키 통과) → 정확한 키 집합 제한·주석 정정(spec 6장 우선, plan의 순수 복제 지시와 차이) → 재확인 494/494 PASS, 수용 권고. 호스트 `npm test` 2687/2636/35 = 기준선 + install-mode-n-platform 파일 timeout(단독 70/70) |
 | 2026-11-18 | T4 | 수용 | (이 커밋) | Implementer 46911c3a → 보정 교체 3f85bf22(R7: `gemini-platform.test.mjs:357` POLICY_TARGETS 허용 집합에 grok, Orchestrator의 허용 목록 누락). QA c284f85c: 작업 테스트 277/277, AC-K4·K3·K7·payload·생성물 pass. QA 분류 지적 1건(`grok-platform.test.mjs` `platforms.grok` false→true)은 plan T3의 "T4 전" 단계 기대값이 계획대로 전환된 것으로 Orchestrator가 처리(결함 아님, 강도 동일). `npm pack --dry-run` grok/ 19개. 호스트 `npm test` 보정 전 2678/2625/37 = 기준선 + 보정 대상 1 + flake 2(단독 PASS) |
 | 2026-11-18 | T5 | 수용 | (이 커밋) | Implementer eb3dca50(23 files, 218/218). QA 4f372103: AC-K5·K6·K9·K2·routing·갱신 세트 8항목·생성물 pass, 작업 테스트 202/202; QA 명령 regex 오류로 미확인이던 리터럴 분기 범위는 Orchestrator 호스트 `rg --pcre2`로 허용 목록 파일(lib/runtime·shared 사본)만 확인, hardcoding-residual 11/11. 호스트 `npm test` 2727/2676/35 = 기준선 + install-mode-n-platform 파일 timeout(단독 70/70), ps 의존 bridge 51/51 |
-| | T6 | | | |
+| 2026-11-18 | T6 | 수용 | (이 커밋) | Implementer b59378e9(신규 `tests/node/grok-composite.test.mjs` 1개, 운영 코드 변경 없음, 호스트 24/24). QA 9520f091: 주입 registry·publish S={claude,grok}·4플랫폼 lock 순서·`arc_scouter` lease v2·`arc_qa` hold·Gemini 무수정·manifest pass, 변이 3건 모두 ERR_ASSERTION으로 검출. 호스트 `npm test` 2729/2677/36 = 기준선 + install-mode-n-platform 파일 timeout + `cancel uses SIGTERM then SIGKILL before identity`(부하 flake); 전체 재실행 2731/2681/35 = 기준선과 동일 |
 | | T7 | | | |
 | | FR | | | |
 
@@ -802,6 +802,7 @@ T2: 수정 파일 assert 감소 0건 확인(QA ab90e9b4, tui-app 429→483, tui-
 T3: 수정 파일 assert 감소 0건 확인(QA ed451fe2; 보정 5파일 603→603).
 T4: 수정 파일 assert 감소 0건 확인(QA c284f85c).
 T5: 수정 파일 assert 감소 0건 확인(QA 4f372103; capability-evidence 5→8).
+T6: 기존 테스트 수정 없음, 신규 파일만 추가(QA 9520f091).
 
 ### 부록 B — 기준 실패 목록
 
