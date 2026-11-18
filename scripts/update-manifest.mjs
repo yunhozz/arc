@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const i = process.argv.indexOf('--root');
 const root = i < 0 ? fileURLToPath(new URL('../', import.meta.url)) : path.resolve(process.argv[i + 1]);
-const mutable = new Set(['codex/skill/models.toml', 'claude/skill/models.toml', 'gemini/skill/models.toml']);
+const mutable = new Set(['codex/skill/models.toml', 'claude/skill/models.toml', 'gemini/skill/models.toml', 'grok/skill/models.toml']);
 const excluded = new Set(['.DS_Store', '__pycache__', 'build']);
 const files = new Map();
 function visit(relative) {
@@ -17,7 +17,7 @@ function visit(relative) {
   } else if (stat.isFile() && !mutable.has(relative)) files.set(relative,fs.readFileSync(filename));
   else if (!stat.isFile()) throw new Error(`Protected payload is not regular: ${relative}`);
 }
-for (const entry of ['README.md', 'install.command', 'package.json', 'bin', 'lib', 'native/binding.c', 'native/binding.gyp', 'scripts', 'vendor', 'prebuilds', 'shared/skill', 'codex/skill', 'codex/agents', 'claude/skill', 'claude/agents', 'gemini']) visit(entry);
+for (const entry of ['README.md', 'install.command', 'package.json', 'bin', 'lib', 'native/binding.c', 'native/binding.gyp', 'scripts', 'vendor', 'prebuilds', 'shared/skill', 'codex/skill', 'codex/agents', 'claude/skill', 'claude/agents', 'gemini', 'grok']) visit(entry);
 const content = renderManifest(files);
 const manifest = path.join(root, 'MANIFEST.sha256');
 if (process.argv.includes('--check')) {

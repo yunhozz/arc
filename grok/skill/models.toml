@@ -1,0 +1,23 @@
+# Canonical source for every role model and effort.
+# ARC defaults only; Grok provider and native profile support are unverified.
+version = 3
+
+[roles.arc_scouter]
+model = "grok-4.6"
+effort = "default"
+
+[roles.arc_planner]
+model = "grok-4.6"
+effort = "default"
+
+[roles.arc_implementer]
+model = "grok-4.6"
+effort = "default"
+
+[roles.arc_qa]
+model = "grok-4.6"
+effort = "default"
+
+[roles.arc_reviewer]
+model = "grok-4.6"
+effort = "default"

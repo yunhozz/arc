@@ -761,7 +761,7 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | 2026-11-18 | T1 | 수용 | (이 커밋) | Implementer 9dea2fb9(재개 1회: 선택적 read 오류 후 동일 세션 재개), QA 889dcd66 수용 권고. 호스트 `npm test` 2637/2586/35 = 기준선과 동일(신규 0), PTY 35 PASS, golden·manifest·role-policy·parity 통과, 주입 검출 확인(사본, `lib/tui/setup.mjs:192`) |
 | 2026-11-18 | T2 | 수용 | (이 커밋) | Implementer 8f551e3b → 보정 교체 0efe1e07(R7: `capability-surfaces`, `management-status`를 Orchestrator가 허용 목록에 추가, lease allowedPaths 변경 불가로 교체). QA ab90e9b4 수용 권고(작업 테스트 330 PASS). 호스트 `npm test` 2656/2605/36 = 기준선 + 부하 flake 1(`role-routing-dispatch` 단독 29/29) |
 | 2026-11-18 | T3 | 수용 | (이 커밋) | P0-b 재확인 `1.0.88`. Implementer 845f8427(재개 2회: 자기 결함 `CAPABILITY_KEYS` 오삽입·생성물 미갱신, tui-setup locked R 판정) → 보정 교체 bdf4670a(R7: anchor-flip, install-mode-n-platform, install-mode-switch, targets, tui-custom-preset 허용 목록 추가). QA ed451fe2: AC-K9 fail(추가 frontmatter 키 통과) → 정확한 키 집합 제한·주석 정정(spec 6장 우선, plan의 순수 복제 지시와 차이) → 재확인 494/494 PASS, 수용 권고. 호스트 `npm test` 2687/2636/35 = 기준선 + install-mode-n-platform 파일 timeout(단독 70/70) |
-| | T4 | | | |
+| 2026-11-18 | T4 | 수용 | (이 커밋) | Implementer 46911c3a → 보정 교체 3f85bf22(R7: `gemini-platform.test.mjs:357` POLICY_TARGETS 허용 집합에 grok, Orchestrator의 허용 목록 누락). QA c284f85c: 작업 테스트 277/277, AC-K4·K3·K7·payload·생성물 pass. QA 분류 지적 1건(`grok-platform.test.mjs` `platforms.grok` false→true)은 plan T3의 "T4 전" 단계 기대값이 계획대로 전환된 것으로 Orchestrator가 처리(결함 아님, 강도 동일). `npm pack --dry-run` grok/ 19개. 호스트 `npm test` 보정 전 2678/2625/37 = 기준선 + 보정 대상 1 + flake 2(단독 PASS) |
 | | T5 | | | |
 | | T6 | | | |
 | | T7 | | | |
@@ -784,6 +784,9 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | T2 | `tests/node/management-status.test.mjs:19` | `rows.includes('Codex    '+label)` | `Codex` 행 정확히 1개, 값 `label` deepEqual | M | Version 행으로 정렬 폭 변경(강도 유지 이상) |
 | T2 | `tests/node/menu-label-residual.test.mjs:10,24` | 금지 문구 1개 | `'Check ' + 'Version'` 추가 | M | AC-M1 |
 
+| T4 | `tests/node/agent-fragments.test.mjs:27–28`, `installed-layout-golden.test.mjs:16–33`, `manifest.test.mjs:8,79`, `fixtures/installed-layout.mjs:17,24,41`, `fixtures/static-references.mjs:11`, `gemini-platform.test.mjs:357` | 3개 플랫폼 payload·조합·정책 대상 | grok 추가(15→20 targets, 12→16 조합) | R | 전체 payload 목록 |
+| T4 | `tests/node/grok-platform.test.mjs:190` | `platforms.grok` 존재 false | true | 단계 전환 | plan T3 "T4 전" 기대값의 계획된 전환 |
+
 T1: 수정 파일 assert 감소 0건 확인(QA 889dcd66, upgrade-cli 40→42).
 | T3 | `tests/node/platform-registry.test.mjs:70–72,181–183`, `gemini-platform.test.mjs:25–26`, `management-status.test.mjs:51`, `targets.test.mjs:44` | 3개 플랫폼 목록 | `grok` 추가 | R | 운영 registry 전체 |
 | T3 | `gemini-platform.test.mjs:308`, `capability-surfaces.test.mjs:204,206`, `install-mode-switch.test.mjs:22,25`, `install-mode.test.mjs:27,33` | 전체 Status·homes | Grok `Not verified`/`absent`/`unresolved` 추가 (targets V 단언 유지) | R | 전체 Status |
@@ -794,6 +797,7 @@ T1: 수정 파일 assert 감소 0건 확인(QA 889dcd66, upgrade-cli 40→42).
 
 T2: 수정 파일 assert 감소 0건 확인(QA ab90e9b4, tui-app 429→483, tui-app-pty 65→68).
 T3: 수정 파일 assert 감소 0건 확인(QA ed451fe2; 보정 5파일 603→603).
+T4: 수정 파일 assert 감소 0건 확인(QA c284f85c).
 
 ### 부록 B — 기준 실패 목록
 

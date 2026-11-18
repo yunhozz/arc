@@ -183,9 +183,9 @@ test('P-K7 install verified retains the CLI version probe', async t => {
   assert.equal(fs.readFileSync(marker, 'utf8'), '--version\n');
 });
 
-test('AC-K7 every controls entry has grok prompt with no platforms.grok before T4', () => {
+test('AC-K7 every controls entry has grok prompt with platforms.grok payload metadata', () => {
   const policy = JSON.parse(fs.readFileSync(new URL('../../lib/policy/role-policy.json', import.meta.url)));
   let count = 0;
   const visit = value => {if (!value || typeof value !== 'object') return; if (value.controls) {count++; assert.equal(value.controls.grok, 'prompt');} for (const child of Object.values(value)) visit(child);};
-  visit(policy); assert.equal(count, 15); assert.equal(Object.hasOwn(policy.platforms, 'grok'), false);
+  visit(policy); assert.equal(count, 15); assert.equal(Object.hasOwn(policy.platforms, 'grok'), true);
 });

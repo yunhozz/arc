@@ -325,6 +325,76 @@
         "common.read-only-no-mutations",
         "scouter.additional-boundaries"
       ]
+    },
+    {
+      "path": "grok/agents/arc-implementer.md",
+      "fragments": [
+        "common.brief-boundary",
+        "common.specialist-basics",
+        "common.preservation-choice-inspection",
+        "common.optional-read-exception",
+        "common.resume-gates",
+        "implementer.execution-steps"
+      ]
+    },
+    {
+      "path": "grok/agents/arc-planner.md",
+      "fragments": [
+        "common.brief-boundary",
+        "common.specialist-basics",
+        "common.preservation-choice-inspection",
+        "common.optional-read-exception",
+        "common.resume-gates",
+        "planner.target-evidence",
+        "planner.workflow-contract",
+        "planner.exploration-density",
+        "planner.task-shape",
+        "planner.commit-boundary",
+        "planner.visual-question",
+        "planner.final-plan-recheck"
+      ]
+    },
+    {
+      "path": "grok/agents/arc-qa.md",
+      "fragments": [
+        "common.brief-boundary",
+        "common.specialist-basics",
+        "common.preservation-choice-inspection",
+        "common.optional-read-exception",
+        "common.resume-gates",
+        "qa.contract-intro",
+        "common.verification-reference",
+        "qa.verification-steps"
+      ]
+    },
+    {
+      "path": "grok/agents/arc-reviewer.md",
+      "fragments": [
+        "common.brief-boundary",
+        "common.specialist-basics",
+        "common.preservation-choice-inspection",
+        "common.optional-read-exception",
+        "common.resume-gates",
+        "reviewer.contract-intro",
+        "common.verification-reference",
+        "reviewer.review-steps",
+        "common.read-only-no-mutations",
+        "reviewer.final-plan-findings"
+      ]
+    },
+    {
+      "path": "grok/agents/arc-scouter.md",
+      "fragments": [
+        "common.brief-boundary",
+        "common.specialist-basics",
+        "common.preservation-choice-inspection",
+        "common.optional-read-exception",
+        "common.resume-gates",
+        "scouter.research-brief",
+        "scouter.research-mode",
+        "common.read-only-no-mutations",
+        "scouter.additional-boundaries"
+      ]
     }
   ]
 }

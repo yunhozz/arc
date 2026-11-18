@@ -14,14 +14,14 @@ import {loadNative} from '../../../lib/safe-fs/native.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../../../', import.meta.url));
 export const GOLDEN_PATH = fileURLToPath(new URL('./installed-layout-golden.json', import.meta.url));
-export const COMBINATIONS = Object.freeze(['codex', 'claude', 'gemini'].flatMap(platform =>
+export const COMBINATIONS = Object.freeze(['codex', 'claude', 'gemini', 'grok'].flatMap(platform =>
   ['write', 'omit'].flatMap(profiles => ['en', 'ko'].map(language =>
     Object.freeze({platform, profiles, language})))));
 
 export function copyPackageSource(destination) {
   const entries = [
     'README.md', 'install.command', 'package.json', 'package-lock.json',
-    'bin', 'lib', 'scripts', 'vendor', 'prebuilds', 'native', 'codex', 'claude', 'gemini',
+    'bin', 'lib', 'scripts', 'vendor', 'prebuilds', 'native', 'codex', 'claude', 'gemini', 'grok',
   ];
   if (fs.existsSync(path.join(sourceRoot, 'shared'))) entries.push('shared');
   for (const entry of entries) {
@@ -38,7 +38,7 @@ export function copyPackageSource(destination) {
 }
 
 export function computeInstalledLayout({packageRoot, safeFs}) {
-  const runtimePlatforms = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, ...Object.fromEntries(['install', 'standalone', 'nativeProfile', 'catalog'].map(key => [key, {state: 'verified'}]))}} : p));
+  const runtimePlatforms = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => ['gemini', 'grok'].includes(p.id) ? {...p, capabilities: {...p.capabilities, ...Object.fromEntries(['install', 'standalone', 'nativeProfile', 'catalog'].map(key => [key, {state: 'verified'}]))}} : p));
   const platforms = createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});
   const context = {platforms, runtimePlatforms};
   const payload = verifyPayload({packageRoot, safeFs, payloadMode: 'package', ...context});

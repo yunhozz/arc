@@ -423,6 +423,10 @@
     "gemini": {
       "level": "prompt",
       "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. Native tool restriction fields, observer hooks and Git guards are unverified. Use only available authorized tools; ARC does not write Gemini settings.json."
+    },
+    "grok": {
+      "level": "prompt",
+      "notice": "Role restrictions are prompt-level contracts, not a filesystem sandbox. Grok sandboxing, native tool restriction fields, observer hooks and Git guards are unverified, and Grok may continue without its sandbox. Use only available authorized tools; ARC does not write Grok config.toml."
     }
   },
   "review": {

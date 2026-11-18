@@ -354,7 +354,7 @@ test('Gemini controls preserve codex/claude policy outputs byte for byte with Ge
   for (const rule of policy.rules) assert.equal(rule.controls.gemini, 'prompt');
   assert.doesNotThrow(() => validateRolePolicy(policy));
   assert.ok(POLICY_TARGETS.some(target => target.platform === 'gemini'));
-  assert.ok(POLICY_TARGETS.every(target => ['codex', 'claude', 'gemini'].includes(target.platform)));
+  assert.ok(POLICY_TARGETS.every(target => ['codex', 'claude', 'gemini', 'grok'].includes(target.platform)));
   const inputs = new Map(POLICY_TARGETS.map(target => [target.path, fs.readFileSync(new URL('../../' + target.path, import.meta.url))]));
   assert.deepEqual(buildPolicyOutputs(inputs, policy), inputs);
 });
