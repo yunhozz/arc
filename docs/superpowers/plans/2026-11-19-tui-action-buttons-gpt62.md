@@ -432,7 +432,7 @@
 | 2026-11-19 | P0-a | 완료 | — | PD-4: d013cf0 직전 FR 결과 재사용(2774/2708/53+cancelled 1, 신규 0). 참고: Python `tests/test_codex_models.py`는 d013cf0에서도 2건 실패(`test_custom_roundtrip_and_validation`, `test_model_standard_five_roles`, BALANCED_SETTINGS 불일치) — npm test 밖 기존 실패 |
 | 2026-11-19 | P0-b | 완료 | 1db99f4 | spec·plan v1 문서 커밋 후 clean |
 | 2026-11-19 | T1 | 수용 | (이 커밋) | Implementer #1 `1296b058` 구현 전 hold(문서 개수 충돌) → v2 정정 승인 → fresh #2 `fb31c027`. focused 138/0, check:manifest PASS(1행), AC-C4 diff 0, 부분열 확인. 호스트 sentinel npm test 2801/2736/53, 직전 FR 목록 대비 신규 1건(`role-bridge-run` secret env) 단독 35/0 → 부하 flake, sentinel log 없음. 첫 실행은 Python 회귀가 남긴 `__pycache__`로 payload 검증 336건 실패 → 산출물 삭제 후 `PYTHONDONTWRITEBYTECODE=1`로 재실행 |
-| | T2 | | | |
+| 2026-11-19 | T2 | 수용 | (이 커밋) | Implementer `33259279`. RED 6/3 → GREEN watch-status-line+tui-render 50/0, 기존 단언 1곳(`shimmerText('w',2)` 231→195, 계약 변경), assert 20→26, check:manifest PASS(1행), AC-W4 diff 0. 호스트 watch-cli+watch-status-line 55/0, sentinel npm test 2803/2739/52, 직전 목록 대비 신규 0, sentinel log 없음 |
 | | T3 | | | |
 | | FR | | | |
 
