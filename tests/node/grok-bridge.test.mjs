@@ -9,6 +9,7 @@ import {spawnSync} from 'node:child_process';
 import * as argsApi from '../../lib/runtime/role-bridge-args.mjs';
 import * as observeApi from '../../lib/runtime/role-observe.mjs';
 import * as supervisorApi from '../../lib/runtime/role-supervisor.mjs';
+import {writeFakeGrokCli} from './fixtures/platforms/grok-off.mjs';
 import {GROK_CONTRACT} from '../../lib/runtime/grok-stream.mjs';
 import {DEFAULT_POLICY, BRIDGE_GATE_RESULTS, bridgeGateReasons} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {DEFAULT_PLATFORM_REGISTRY, createPlatformRegistry} from '../../lib/runtime/platform-registry.mjs';
@@ -16,7 +17,7 @@ import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from '../../lib/runtim
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
 import {runBridgeDispatch, resumeRoleDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
-import {readLease, requestCancel} from '../../lib/runtime/role-dispatch-store.mjs';
+import {readLease, requestCancel, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
 import {render, renameForRouting} from '../../lib/platforms/formats/grok-markdown.mjs';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';
@@ -275,4 +276,41 @@ test('Grok invocation reserves prompt path without writing; existing Claude invo
   const claudeLease = {version: 2, targetPlatform: 'claude', hostPlatform: 'claude', role: 'arc_scouter', segment: 0, sessionId: null, profileHash: digest(await fs.readFile(path.join(legacy.homes.claude, 'agents/arc-routing-scouter.md')))};
   const claude = await supervisorApi.buildBridgeInvocation({lease: claudeLease, config: legacy.config, homes: legacy.homes, worktree: legacy.context.cwd, policy});
   assert.equal(claude.platform, 'claude'); assert.equal(claude.promptFile, undefined);
+});
+
+// Operational registry must retain the permission, host and resume boundaries after promotion.
+test('operational Grok Implementer and QA hold without leases', async t => {
+  const f = await fixture(t), context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
+  const marker = path.join(f.base, 'version-commands');
+  writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker});
+  for (const role of ['arc_implementer', 'arc_qa']) {
+    const result = await prepareRoleDispatch({context, assignment: {role, taskId: crypto.randomUUID(), requestId: crypto.randomUUID(), ...(role === 'arc_implementer' ? {allowedPaths: ['src/']} : {})}, expectedRevision: 't12', policy});
+    assert.equal(result.decision, 'hold');
+    assert.deepEqual(codes(result), ['permission_scope_unverified']);
+    assert.equal(result.dispatchId, null);
+  }
+  assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}), []);
+});
+
+test('operational Grok hosts hold native and bridge before sandbox checks', async t => {
+  for (const hostBridge of [false, true]) {
+    const f = await fixture(t, {}, hostBridge);
+    const context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY, hostPlatform: 'grok', executionEnvironment: 'grok-cli'};
+    writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker: path.join(f.base, 'version-commands')});
+    const result = await prepareRoleDispatch({context, assignment: {role: 'arc_scouter', taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}, expectedRevision: 't12', policy});
+    assert.equal(result.route, hostBridge ? 'bridge' : 'native');
+    assert.equal(result.decision, 'hold');
+    assert.deepEqual(codes(result), ['capability_not_verified']);
+    assert.equal(result.dispatchId, null);
+    assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}), []);
+  }
+});
+
+test('operational Grok segment above zero remains resume_unverified', async t => {
+  const f = await fixture(t), context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
+  writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker: path.join(f.base, 'version-commands')});
+  const result = await prepareRoleDispatch({context, assignment: {role: 'arc_scouter', taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}, expectedRevision: 't12', policy});
+  assert.equal(result.decision, 'allow', JSON.stringify(result.reasons));
+  const lease = await readLease(f.homes.claude, result.dispatchId, context);
+  await assert.rejects(supervisorApi.buildBridgeInvocation({lease: {...lease, segment: 1}, config: f.config, homes: f.homes, worktree: context.cwd, resultPath: path.join(f.base, 'result.md'), policy}), {reasonCode: 'resume_unverified'});
 });

@@ -1,6 +1,7 @@
 {
   "platform": "grok",
   "pairs": [
-    {"model": "grok-4.6", "effort": "default"}
+    {"model": "grok-4.6", "effort": "default"},
+    {"model": "grok-4.5", "effort": "default"}
   ]
 }

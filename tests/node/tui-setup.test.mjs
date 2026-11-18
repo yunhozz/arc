@@ -1,3 +1,4 @@
+import {grokOffRegistries} from './fixtures/platforms/grok-off.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -14,7 +15,7 @@ const catalogs=Object.fromEntries(await Promise.all(['codex','claude'].map(async
 const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models[platform]}}));
 
 test('Grok Hosts and platform chooser are unavailable and role editor arrows skip Grok',async()=>{
- const {DEFAULT_INSTALLER_REGISTRY:registry}=await import('../../lib/platforms/index.mjs');assert.ok(registry.getPlatform('grok'),'Grok descriptor is required');
+ const {platforms:registry}=grokOffRegistries();assert.ok(registry.getPlatform('grok'),'Grok descriptor is required');
  const {platformAvailability}=await import('../../lib/platforms/availability.mjs');
  const {editRole,selectPlatform}=await import('../../lib/tui/custom-preset.mjs');
  const availabilityOf=id=>platformAvailability(id,{registry,usage:'role',status:{platform:id,state:'installed',authentication:{authStatus:'authenticated'},cliVersion:{version:'0.68.0'}}});
@@ -343,4 +344,22 @@ test('compact migration and blocking notices reserve scroll space for every inst
  assert.equal(await installFlow({ui,registry,draft,statuses,installState:{mode:'composite',platforms:['claude','codex'],anchor:'codex',legacyAnchor:true},prepare:()=>assert.fail('Back cannot prepare')}),null);
  assert.ok(frames.every(frame=>frame.selectionEnabled));assert.match(frames.at(-1).text,/> Back/);
  assert.match(frames.at(-1).text,/Mixed routing files will move/);assert.match(frames.at(-1).text,/unauthorized/);
+});
+
+test('operational Grok chooser and role editor expose auth unverified', async () => {
+ const {DEFAULT_INSTALLER_REGISTRY:registry}=await import('../../lib/platforms/index.mjs');
+ const {platformAvailability}=await import('../../lib/platforms/availability.mjs');
+ const {selectPlatform,editRole}=await import('../../lib/tui/custom-preset.mjs');
+ const status={platform:'grok',state:'installed',cliVersion:{version:'1.0.89'},authentication:{authStatus:'unknown',reason:'auth_unverified'}};
+ assert.equal(platformAvailability('grok',{registry,usage:'standalone'}).selectable,true);
+ const availabilityOf=id=>platformAvailability(id,{registry,usage:'role',status:id==='grok'?status:{platform:id,state:'installed',cliVersion:{version:'0.68.0'},authentication:{authStatus:'authenticated'}}});
+ assert.equal(await selectPlatform({registry,roleName:'Planner',current:'grok',availabilityOf,ui:{menu:async(_title,rows,options)=>{
+  assert.equal(rows[3],'Grok');
+  assert.deepEqual(options.notice({selected:3}),['Grok: auth unverified — ARC cannot confirm Grok CLI login.']);return 3;
+ }}}),'grok');
+ const value=await editRole({registry,roleName:'Planner',current:{platform:'grok',model:'grok-4.6',effort:'default'},availabilityOf,loadCatalog:async()=>({pairs:[{model:'grok-4.6',effort:'default'}]}),defaultsFor:async()=>({model:'grok-4.6',effort:'default'}),ui:{menu:async(_title,_rows,options)=>{
+  assert.deepEqual(options.notice({selected:0}),['Grok: auth unverified — ARC cannot confirm Grok CLI login.']);return 3;
+ }}});
+ assert.equal(value.platform,'grok');
+ await setup.editHosts({registry,hosts:['grok'],rolePlatforms:[],availabilityOf,ui:{menu:async(_title,rows)=>{assert.match(rows[3],/Grok +\(auth unverified\)$/);return null;}}});
 });

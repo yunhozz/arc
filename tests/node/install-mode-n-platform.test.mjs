@@ -145,7 +145,7 @@ test('zeta package passes verifyPayload with injected registry', t => {
   const payload = verifyPayload({packageRoot: root, safeFs, ...registries});
   assert.deepEqual(Object.keys(payload.modelInputs), ['claude', 'codex', 'zeta']);
   const ordinary = staticPackageFixture(t);
-  assert.deepEqual(Object.keys(verifyPayload({packageRoot: ordinary, safeFs}).modelInputs), ['claude', 'codex', 'gemini']);
+  assert.deepEqual(Object.keys(verifyPayload({packageRoot: ordinary, safeFs}).modelInputs), ['claude', 'codex', 'gemini', 'grok']);
   assert.throws(() => verifyPayload({packageRoot: root, safeFs}), {message: 'Payload verification failed: Duplicate, mutable or unexpected manifest entry: zeta/agents/arc-implementer.md'});
 });
 test('installAll installs zeta standalone', async t => {
@@ -209,8 +209,8 @@ test('F4 status reports standalone outside S during composite', async t => {
   }, {
     platform: 'grok', target: resolveTargets({...context, platforms: undefined, runtimePlatforms: undefined}).targets.grok,
     state: 'absent', diagnostics: [], residualPaths: [],
-    authentication: {authStatus: 'unknown', reason: 'capability_not_verified'},
-    cliVersion: {version: null, reason: 'capability_not_verified'},
+    authentication: {authStatus: 'unknown', reason: 'auth_unverified'},
+    cliVersion: {version: null, reason: 'cli_not_found'},
   }], ordinary);
   const zeta = statuses.find(item => item.platform === 'zeta');
   assert.equal(zeta.state, 'installed');

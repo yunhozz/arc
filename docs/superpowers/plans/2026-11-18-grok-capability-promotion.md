@@ -450,7 +450,7 @@
   - `grok-composite`는 주입 registry를 유지해 기대값을 바꾸지 않습니다. spec 3.5 composite 경로 확인용 assert 1건만 추가합니다.
   - `grok-platform.test.mjs:79`는 `discoverModelCatalog({platform: 'grok'})`로 바꿔 `status === 'unavailable'`을 단언합니다. 기존 문자열 인자 호출은 의미가 없었고, 이 변경으로 강도가 오릅니다.
 
-- [ ] **Step 1: 고정 테스트 재작성(`grok-capability-evidence.test.mjs`, spec 9장)**
+- [x] **Step 1: 고정 테스트 재작성(`grok-capability-evidence.test.mjs`, spec 9장)**
   - `UNVERIFIED_CONTRACTS = [{id:'compat-session-effect', risk:'R1'}, {id:'native-model-application', risk:'R6'}, {id:'headless-stream-contract', risk:'R6'}, {id:'permission-sandbox-effect', risk:'R4'}, {id:'account-model-availability', risk:'R6'}, {id:'read-role-permission-effect', risk:'R4'}]`. 길이 6과 id 배열을 deepEqual합니다.
   - `operational Grok verified and off sets match spec 2.1`
     - verified 키 배열이 `['install','nativeProfile','catalog','standalone','bridge','compositeRole']`와 같습니다(deepEqual).
@@ -460,8 +460,8 @@
   - 기존 `GK1/GK2 and resume remain off`는 유지합니다.
   - `GROK_CONTRACT childEnv and isolation args`: childEnv가 6키와 같고(deepEqual), `isolationArgs`가 `--no-auto-update`와 `--no-subagents`를 포함합니다.
   - `grok notice ends with is unverified.`: `role-policy.json` `platforms.grok.notice.endsWith('is unverified.')`
-- [ ] **Step 2: fixture 작성:** `tests/node/fixtures/platforms/grok-off.mjs`
-- [ ] **Step 3: `grok-platform.test.mjs` 전환(분류는 부록 A)**
+- [x] **Step 2: fixture 작성:** `tests/node/fixtures/platforms/grok-off.mjs`
+- [x] **Step 3: `grok-platform.test.mjs` 전환(분류는 부록 A)**
   - `:53` `GROK_HOME set does not block other platforms`(O): `Grok +Not verified` → 현행 `mode.mjs`가 계산하는 값 `Grok +Unsupported version`(cliVersion `invalid_context`). Gemini의 `GEMINI_CLI_HOME`과 같은 경로입니다(Orchestrator 결정 OD-Q1). Notes 단언과 다른 플랫폼 단언은 유지합니다.
   - `:65` AC-K2(O): spec 2.1 객체와 deepEqual
   - `:73` AC-K10(O): `pairs`가 `['grok-4.6','grok-4.5']` 순서이고, 모든 쌍이 `validatePair`를 통과합니다. JSON 파일 바이트가 spec 6장 블록과 같습니다(AC-F8).
@@ -478,19 +478,19 @@
     - `statusInfo` 텍스트가 `/Grok +Available · auth unverified/`에 맞고, `homeStatusLine`이 `Grok: Available (auth unverified)`를 포함합니다.
     - `version:'1.1.0'`이면 `/Grok +Unsupported version/`입니다.
   - `:165`, `:177`(zeta P-K7)은 유지합니다.
-- [ ] **Step 4: `grok-install.test.mjs` 전환**
+- [x] **Step 4: `grok-install.test.mjs` 전환**
   - `contextFor` 계획 결정을 반영합니다.
   - `:113`, `:131`(F): `off`를 `{...context, ...grokOffRegistries()}`로 바꾸고 단언은 그대로 둡니다(T1의 `config.toml` 길이 0 단언 포함).
   - `:140`(F): `{...await compositeContext(t), ...grokOffRegistries()}`
   - 신규 `installed grok is an upgrade target and upgrade leaves config.toml`
     - 운영 registry에서 grok을 설치한 뒤 `collectInstalledState(ctx).targets`에 `grok`이 들어 있습니다.
     - `buildUpgradePlans` 결과 plan의 globalChanges에 config.toml이 없습니다(spec 3.5·OQ3).
-- [ ] **Step 5: `grok-bridge.test.mjs` 운영 hold 단언(AC-F12, 운영 `DEFAULT_PLATFORM_REGISTRY`, PATH fixture)**
+- [x] **Step 5: `grok-bridge.test.mjs` 운영 hold 단언(AC-F12, 운영 `DEFAULT_PLATFORM_REGISTRY`, PATH fixture)**
   - grok `arc_implementer`/`arc_qa`는 `permission_scope_unverified`이고 lease가 생기지 않습니다.
   - `segment > 0`이면 `resume_unverified`입니다.
   - hostPlatform grok은 현행 정렬이 내는 값을 정확히 단언합니다(`host_sandbox_blocked` 또는 `capability_not_verified`). Implementer는 RED 단계에서 관측한 값과 근거 코드 위치를 보고하고, Orchestrator가 진행 기록에 남깁니다(spec 2.3).
-- [ ] **Step 6: `grok-composite.test.mjs`**: 기존 grok 참여 publish 시나리오 끝에 `~/.grok/config.toml` 재파싱 결과 `compat.claude`가 3키 false임을 단언 1건 추가합니다(spec 3.5·OQ4). composite 적용이 grok 대상에 `buildInstallPlan`을 부르지 않는 구조라면 편집하지 않고 보고합니다.
-- [ ] **Step 7: grok 밖 테스트 전환(spec 11.4 확정 목록)**
+- [x] **Step 6: `grok-composite.test.mjs`**: 기존 grok 참여 publish 시나리오 끝에 `~/.grok/config.toml` 재파싱 결과 `compat.claude`가 3키 false임을 단언 1건 추가합니다(spec 3.5·OQ4). composite 적용이 grok 대상에 `buildInstallPlan`을 부르지 않는 구조라면 편집하지 않고 보고합니다.
+- [x] **Step 7: grok 밖 테스트 전환(spec 11.4 확정 목록)**
 
   | 파일:행 | 전환 | new |
   |---|---|---|
@@ -506,12 +506,12 @@
   | `install-mode.test.mjs:30`, `install-mode-switch.test.mjs:23` | O | `standalone(ctx)`(`target:'all'`)가 grok을 설치하므로 상태·대상 배열에 `grok`을 추가합니다. 실패 단언만 고칩니다 |
 
   - 각 수정에 old→new를 보고합니다. 운영 registry를 쓰는 수정 테스트에서 context `env` 누락이 0건이어야 합니다.
-- [ ] **Step 8: RED:** `node --test tests/node/grok-capability-evidence.test.mjs tests/node/grok-platform.test.mjs tests/node/grok-install.test.mjs tests/node/grok-bridge.test.mjs`
+- [x] **Step 8: RED:** `node --test tests/node/grok-capability-evidence.test.mjs tests/node/grok-platform.test.mjs tests/node/grok-install.test.mjs tests/node/grok-bridge.test.mjs`
   - 기대: verified `[]` vs 6개, AC-K2 off vs verified, 카탈로그 1쌍 vs 2쌍, `capability_not_verified` vs `1.0.89`로 FAIL
-- [ ] **Step 9:** `platform-registry.mjs:140-146`을 Gemini 형태로 바꾸고, `grok-models.json`을 spec 6장 바이트로 씁니다.
-- [ ] **Step 10: GREEN:** Step 8 명령과 Step 7 파일 전부, `grok-composite`, `hardcoding-residual`, `role-dispatch-policy`가 PASS여야 합니다.
-- [ ] **Step 11:** STD-CLOSE를 실행합니다(runtime 동기화, golden, baseline, manifest, role-policy 변경 0). PTY(호스트)를 실행합니다.
-- [ ] **Step 12(Orchestrator):** sentinel PATH로 `npm test`를 실행하고 sentinel log가 없음을 확인합니다(AC-F11). R7 가능성 파일이 실패하면 분류 규칙으로 처리합니다.
+- [x] **Step 9:** `platform-registry.mjs:140-146`을 Gemini 형태로 바꾸고, `grok-models.json`을 spec 6장 바이트로 씁니다.
+- [x] **Step 10: GREEN:** Step 8 명령과 Step 7 파일 전부, `grok-composite`, `hardcoding-residual`, `role-dispatch-policy`가 PASS여야 합니다.
+- [x] **Step 11:** STD-CLOSE를 실행합니다(runtime 동기화, golden, baseline, manifest, role-policy 변경 0). PTY(호스트)를 실행합니다.
+- [x] **Step 12(Orchestrator):** sentinel PATH로 `npm test`를 실행하고 sentinel log가 없음을 확인합니다(AC-F11). R7 가능성 파일이 실패하면 분류 규칙으로 처리합니다.
 
 **수용 기준:**
 - 위 테스트 PASS
@@ -617,7 +617,7 @@
 | 2026-11-18 | T1 | 수용 | (이 커밋) | Implementer codex bridge `3233a81f`(fresh), QA codex bridge `046fabca`(fresh). 작업 테스트 73/0, Step 6 추가 4파일 55/10(10건 모두 부록 B packed 계열). runtime `--check`·golden `--diff` 0·`check:manifest`·`check:role-policy`(변경 0)·parity 통과. 호스트 `npm test` 2740/2675/52+cancelled 1 = 기준선(35+17) 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0. `=== 'grok'` 0건, AC-F5 대상 테스트·golden diff 없음. QA 해석 지점 처분: (1) reset 키도 `set … = false` note에 포함 — spec 3.3-7/9/10과 모순 없음(QA 동의). (2) EOF 무개행 입력의 설치→제거 왕복 시 3.3-8이 붙인 구분 EOL이 남음 — spec 3.3-8 명시 동작이며 AC-F3 기준은 재파싱 일치이므로 결함 아님, FR 점검 메모 |
 | 2026-11-18 | T2 | 수용 | (이 커밋) | Implementer codex bridge `85ac0d61`(fresh), focused checks(OD-Q2, QA 없음). RED 42/3 → GREEN 45/0, 기존 argv·`argsDigest` 단언 무수정 통과. Orchestrator 재실행: runtime `--check` 35 files, golden `--diff` 0(갱신 후), `check:manifest` 283, `check:role-policy` 48(grok 생성물만), parity 통과, `git diff --stat -- claude codex gemini` 빈 결과, role-policy.json numstat 1/1, `does not write Grok config.toml` 0건. runtime baseline `5bed622b…`→`5faa50af…`, instruction-contracts 정책 해시 2·grok expanded profile 5 갱신. 호스트 `npm test` 2751/2686/52+cancelled 1 = 기준선 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0 |
 | 2026-11-18 | T3a | 수용 | (이 커밋) | v2 개정 작업. 설계 Planner(native) `80849db8` 옵션 B, 사용자 v2 승인 2026-11-18T22:19:32+09:00. Implementer codex bridge `f8eafb9e`(fresh), QA codex bridge `ceddbda3`(fresh). RED(분리 트리, lib만 HEAD) 신규 3 FAIL → GREEN 신규 8/0. 호스트: T3a 묶음 8파일 120/120(작업 트리), 분리 트리(HEAD+T3a, T3 없음) 120건 fail 0·`check:manifest`·parity 통과. QA: AC-U1–U4 proven, 분리 트리 구성 바이트 비교 proven, 독립 탐침(`agents2` sibling 유지, 비대상 참여자 profile drift 감지) proven, 리터럴 0, 금지 3파일 diff 없음. bridge의 `upgrade-process` EMFILE은 환경 제한(호스트 통과). 호스트 sentinel `npm test` 2755/2688/52+cancelled 3 = 기준선 동일 + 파일 timeout 3(anchor-migration 20/20, gemini-composite 20/20, install-mode-n-platform 70/70 단독 통과), sentinel log 없음. `stateToken` 계산 불변 |
-| | T3 | | | 전환 기록: 사용자 결정 2026-11-18(live 검증 아님), `.git/arc/handoff/grok-support/live-probe-2026-11-18.md`; hostPlatform grok 관측 reason |
+| 2026-11-18 | T3 | 수용 | (이 커밋) | 전환 기록: 사용자 결정 2026-11-18(live 검증 아님), offline probe `.git/arc/handoff/grok-support/live-probe-2026-11-18.md`(원래 PC). Implementer codex bridge `cca36c27`(fresh, 반환 2회 처분 후 resume) → 교체 `837d0444`(allowedPaths 확장 불가로 교체; 목록 밖 5파일 O 전환·cli-pty/npm-sandbox P 격리). QA codex bridge `b4b7fd9a`(fresh, 재확인 포함). hostPlatform grok 관측 reason `capability_not_verified`(`lib/runtime/role-routing.mjs:224`, `role-dispatch-policy.mjs:78`). Step 6 composite config 3키 false assert 추가(`operations.mjs:100`이 grok에 buildInstallPlan 호출). bridge stream-json fake(`grok-bridge.test.mjs:80`)는 기존 fixture 예외. 호스트: PTY `tui-app-pty` 37/37, Step 10 449/449(QA), sentinel `npm test` 2755/2688/52+cancelled 3 = 기준선 + 파일 timeout 3(단독 통과), **sentinel log 없음**. 첫 sentinel 실행에서 드러난 composite upgrade 잠복 결함은 v2 T3a(4021aec)로 해결. golden 차이는 16조합 runtime `platform-registry.mjs` 해시뿐, runtime baseline `5faa50af…`→`09ef06d2…` |
 | | T4 | | | |
 | | FR | | | |
 
@@ -636,7 +636,60 @@
 | T2 | `grok-bridge.test.mjs:249` | childEnv 1키 | 6키 | O | spec 5장 |
 | T2 | `grok-install.test.mjs:202` | 옛 notice | spec 8장 notice | O | spec 8장 |
 | T2 | (assert 수) | — | `grok-bridge` 83→90, `grok-install` 64→64, `runtime-versions` 14→14, 감소 0 | — | Orchestrator 확인 |
-| T3 | (Step 3·4·5·7 표의 행, Implementer 보고로 채움) | | | | |
+| T3 | `grok-capability-evidence.test.mjs:17` | verified [] | [install,nativeProfile,catalog,standalone,bridge,compositeRole] | O | spec 2.1·9: 운영 승격 집합 고정 |
+| T3 | `grok-capability-evidence.test.mjs:30` | 모든 capability 승격 거부; empty 메시지 | compositeHost/authProbe/watch만 승격 거부; match spec 2.1 메시지 | O+U | spec 9: 영구 off 세 경계를 계속 고정; prerequisite 재귀 승격 유지 |
+| T3 | `grok-platform.test.mjs:64` | /Grok +Not verified/ | /Grok +Unsupported version/ | O+P | OD-Q1: GROK_HOME invalid_context, Notes·타 플랫폼 단언 유지 |
+| T3 | `grok-platform.test.mjs:69` | 9개 {state:off,reason} | 6개 {state:verified} + 기존 reason의 off 3개 | O | spec 2.1 |
+| T3 | `grok-platform.test.mjs:81` | pairs: ['grok-4.6'] | pairs: ['grok-4.6','grok-4.5'] | O | spec 6·AC-F8; 모든 pair 검증 유지, 정확 JSON 바이트 단언 추가 |
+| T3 | `grok-platform.test.mjs:84` | discoverModelCatalog('grok') → unavailable | discoverModelCatalog({platform:'grok'}) → unavailable | O | PD-4: 의미 있는 객체 호출로 강도 상승 |
+| T3 | `grok-platform.test.mjs:133` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-platform.test.mjs:140` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-platform.test.mjs:162` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-platform.test.mjs:168` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-install.test.mjs:143` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-install.test.mjs:162` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-install.test.mjs:171` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `tui-app.test.mjs:16` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F+P | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `tui-setup.test.mjs:17` | 운영 registry의 off 상태; 기존 단언 전체 | grokOffRegistries() context; 기존 단언 전체 동일 | F | spec 11.2; HEAD 대비 assert 시작부터 줄 끝까지 정확 비교 일치 |
+| T3 | `grok-platform.test.mjs:151` | 기존 off 사본에는 3개 대상 | 별도 운영 사본 install/preset/uninstall에 [claude,codex,gemini,grok], execute 0 | O+P | 기존 제외 배열은 F로 보존, 운영 포함 경로를 추가 |
+| T3 | `grok-install.test.mjs:27` | 주입 verifiedRegistry를 모든 context에 적용 | compositeContext 그대로; reverseDisplay에만 displayRegistry 적용 | O+P | PD-2; 기존 단언 값 변경 없음 |
+| T3 | `grok-install.test.mjs:229` | spawn env 생략 | env:{...process.env,PATH:<임시 packageRoot>/fixture-bin} | P | 자식 프로세스 PATH 명시; 단언 값 변경 없음 |
+| T3 | `tui-app-pty.test.mjs:24` | /Grok +Not verified/; marker exists false | /Grok +Available · auth unverified/; marker 줄 1개 이상, 모든 줄 === --version | O+P | PD-5; not installed·CODE/CALLS/PREPARES 단언 동일; fake helper 사용 |
+| T3 | `tui-app.test.mjs:24` | 기존 Not verified 테스트만 존재 | 기존 F 유지 + version 1.0.89/auth_unverified 운영 사본 추가 | O+P | spec 7·plan Step 7; 기존 단언 수정 없음 |
+| T3 | `tui-setup.test.mjs:349` | off chooser·순환 테스트만 존재 | 기존 F 유지 + standalone 선택/role 선택/상세·auth 접미사 운영 사본 추가 | O | spec 7·plan Step 7; 접미사는 기존 zeta 선례와 같은 editHosts renderer+role availability로 검증 |
+| T3 | `gemini-platform.test.mjs:69` | preset 사전 설치 [claude,codex] | [claude,codex,grok] | O+P | resume 2(b): all에 새 운영 Grok이 포함되므로 설치 준비 필요 |
+| T3 | `gemini-platform.test.mjs:74` | [claude,codex] | [claude,codex,grok] | O+P | Gemini home unresolved인 target all의 계획 대상 |
+| T3 | `gemini-platform.test.mjs:77` | [claude,codex,gemini] | [claude,codex,gemini,grok] | O | Gemini home unresolved인 all 결과 대상 |
+| T3 | `gemini-platform.test.mjs:78` | install [installed,installed,skipped]; preset [unchanged,unchanged,skipped] | 각각 말미 installed / unchanged 추가 | O | Grok 설치·preset 결과 포함 |
+| T3 | `gemini-platform.test.mjs:84` | 존재 확인 [claude,codex] | [claude,codex,grok] | O | Grok 설치 바이트 존재 확인 추가 |
+| T3 | `gemini-platform.test.mjs:121` | [codex,gemini] | [codex,gemini,grok] | O+P | Claude home unresolved인 all 계획 |
+| T3 | `gemini-platform.test.mjs:124` | [[claude,skipped],[codex,installed],[gemini,installed]] | 말미 [grok,installed] 추가 | O | Claude home unresolved인 all 결과 |
+| T3 | `gemini-platform.test.mjs:129` | 존재 확인 [codex,gemini] | [codex,gemini,grok] | O | 성공한 Grok 설치 바이트 확인 추가 |
+| T3 | `gemini-platform.test.mjs:141` | [[claude,installed],[codex,failed],[gemini,skipped]] | 말미 [grok,not-started] 추가 | O | 트랜잭션 중단 시 뒤의 Grok이 미시작임을 정확히 단언 |
+| T3 | `gemini-platform.test.mjs:306` | [claude,codex] | [claude,codex,grok] | O+P | Gemini standalone off여도 운영 Grok은 all 포함 |
+| T3 | `gemini-platform.test.mjs:308` | Grok: Not verified | Grok: Not Available | O+P | fixture PATH에 Grok 없음; 다른 플랫폼 문자열 유지 |
+| T3 | `gemini-platform.test.mjs:313` | install/preset/uninstall 계획·결과·설치 존재 대상 [claude,codex,gemini] | 세 단언 모두 [claude,codex,gemini,grok] | O+P | 운영 all이 Grok 포함; 각 kind code 0 유지 |
+| T3 | `gemini-install.test.mjs:144` | 역순 uninstall 계획 [gemini,codex,claude] | [grok,gemini,codex,claude] | O | 운영 Grok 포함·displayOrder 유지 |
+| T3 | `gemini-install.test.mjs:147` | 역순 uninstall 결과 [gemini,codex,claude] | [grok,gemini,codex,claude] | O | 계획과 동일한 역순 실행 결과 |
+| T3 | `install-mode-n-platform.test.mjs:148` | modelInputs [claude,codex,gemini] | [claude,codex,gemini,grok] | O | 운영 install 검증 대상 포함 |
+| T3 | `install-mode-n-platform.test.mjs:210` | authentication unknown/capability_not_verified; cliVersion null/capability_not_verified | authentication unknown/auth_unverified; cliVersion null/cli_not_found | O+P | 동일 PATH를 쓰는 운영 collectStatus 결과와 비교; Grok 없음 |
+| T3 | `capability-surfaces.test.mjs:206` | authentication unknown/capability_not_verified; cliVersion null/capability_not_verified | authentication unknown/auth_unverified; cliVersion null/cli_not_found | O+P | 동일 PATH를 쓰는 운영 collectStatus 결과와 비교; Grok 없음 |
+| T3 | `capability-surfaces.test.mjs:211` | Grok: Not verified | Grok: Not Available | O+P | 같은 fixture PATH, CLI 없음 |
+| T3 | `install-mode.test.mjs:33` | states [installed,installed,installed,absent]; target 수 3; [claude,codex,gemini] | states 4개 installed; target 수 4; [claude,codex,gemini,grok] | O+P | standalone(all)이 Grok 설치; composite S 배열은 불변 |
+| T3 | `install-mode-switch.test.mjs:22` | 성공 후 states [installed,installed,installed,absent] | [installed,installed,installed,installed] | O+P | standalone(all)이 Grok 설치 |
+| T3 | `install-mode-switch.test.mjs:25` | 실패 후 states [installed,installed,installed,absent] | [installed,installed,installed,installed] | O+P | Grok은 후속 Codex 실패와 독립적으로 설치 상태 유지 |
+| T3 | `runtime-versions.test.mjs:11` | sha256:5faa50afef24b9c57eaad6fcc1dea1281c4b198473507c91615e3ca5fe135b1a | sha256:09ef06d21100f80aa881d9f43f239f692e6e57d87f1cc4a3d6ca234318bca52f | O(생성) | cooperativeVersions()로 baseline 값만 스크립트 갱신 |
+| T3 | `tui-setup.test.mjs:142` | [-] Grok    - Unavailable  (capability not verified) | 동일 | U | 운영 compositeHost off; 이 기존 단언은 수정하지 않았고 GREEN 통과 |
+| T3 | `tui-app.test.mjs:20,28,40,203,215,223,233,243,251,258,279,290,294,295,296,297,301,318,325,333,342,348,355,366,371,374,378,379,386,394,401,402,403,415,421,442,452,457,467,487,495,496,501,512,515,561,568,622,632` | context env 생략 또는 env:{} | env:{PATH:fixturePath}; secret 환경에는 PATH만 추가 | P | 모든 literal context 49개; 기존 단언 문자열·배열 값 불변. 나머지 1개는 compositeContext 상속 |
+| T3 | `tui-app-pty.test.mjs:10` | 기본 자식 env process.env; TUI context env 생략 | 기본 {…process.env,PATH:fixturePath}; child context env.PATH 명시 | P | fixturePath=tests/node/fixtures/grok:/usr/bin:/bin; 전용 Grok 테스트는 compositeContext PATH 유지 |
+| T3 | `platform-registry.test.mjs:50` | `noNativeHookAdapter` `['gemini']` | `['gemini','grok']` + spec 8장 근거 주석 | O | 운영 grok install verified, native hook adapter 없음(spec 8장 notice) |
+| T3 | `management-operations.test.mjs:7,15,19` | 결과 3개 | grok 결과(`not-started`/`uninstalled`) 포함 4개 | O | 운영 all에 grok 포함 |
+| T3 | `install-mode-models-upgrade.test.mjs:25` | upgrade 대상 `[claude,codex,gemini]` | `[claude,codex,gemini,grok]` | O | 설치된 grok upgrade 대상(결과 단언 통과는 T3a 전제) |
+| T3 | `install-mode-uninstall.test.mjs:24` | `[codex,gemini,claude]` | `[codex,gemini,grok,claude]` | O | 운영 grok 제거 대상 |
+| T3 | `install-mode-review-followup.test.mjs:59` | `[...,gemini]` | `[...,gemini,grok]` | O | 남은 설치 대상 upgrade |
+| T3 | `cli-pty.test.mjs:6,9` | 자식 env = 호스트 PATH | 임시 bin `writeFakeGrokCli`를 PATH 맨 앞 | P | sentinel 3건 → 0(AC-F11) |
+| T3 | `fixtures/npm-sandbox.mjs:9,30` | sandbox bin + 호스트 PATH | sandbox bin에 `writeFakeGrokCli` 추가 | P | sentinel 1건 → 0(AC-F11) |
+| T3 | (assert 수) | — | 수정 기존 테스트 22개 파일 모두 감소 0(Implementer·QA 계수) | — | QA b4b7fd9a 확인 |
 
 ### 부록 B — 기준 실패 목록
 

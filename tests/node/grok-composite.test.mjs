@@ -11,6 +11,7 @@ import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
 import {readLease, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
+import {parseToml} from '../../lib/models/config.mjs';
 import {compositeContext} from './fixtures/install-mode.mjs';
 import {activePath, markerPath} from './fixtures/legacy-composite.mjs';
 
@@ -91,6 +92,7 @@ test('publish S={claude,grok}', async t => {
   assert.equal(home(context, 'grok'), path.join(context.userHome, '.grok'));
   await execute(context, await preparePublication(context, ['claude', 'grok']));
   assertPublished(context, ['claude', 'grok']);
+  assert.deepEqual({...parseToml(fs.readFileSync(path.join(context.userHome, '.grok/config.toml'), 'utf8')).compat.claude}, {agents: false, skills: false, rules: false});
 });
 
 // Observe real successful exclusive opens; retain all lock filesystem effects.

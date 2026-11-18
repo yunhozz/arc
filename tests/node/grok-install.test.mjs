@@ -6,6 +6,8 @@ import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY} from '../../lib/runti
 import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../lib/platforms/index.mjs';
 import {prepareOperation, executeOperation} from '../../lib/management/operations.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
+import {grokOffRegistries} from './fixtures/platforms/grok-off.mjs';
+import {buildUpgradePlans} from '../../lib/installer/upgrade.mjs';
 import {collectInstalledState} from '../../lib/installer/upgrade-state.mjs';
 import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {runTui} from '../../lib/tui/app.mjs';
@@ -16,14 +18,13 @@ import {verifyPayload} from '../../lib/installer/manifest.mjs';
 import {compositeContext, roles} from './fixtures/install-mode.mjs';
 import {refreshManifest} from './fixtures/static-references.mjs';
 
-function verifiedRegistry({reverseDisplay = false} = {}) {
+function displayRegistry({reverseDisplay = false} = {}) {
   const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => ({...p,
     ...(reverseDisplay ? {displayOrder: 3 - p.displayOrder} : {}),
-    ...(p.id === 'grok' ? {capabilities: {...p.capabilities, ...Object.fromEntries(['install', 'standalone', 'nativeProfile', 'catalog'].map(key => [key, {state: 'verified'}]))}} : {}),
   })));
   return {runtimePlatforms: runtime, platforms: createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))})};
 }
-async function contextFor(t, options) {return {...await compositeContext(t), ...verifiedRegistry(options)};}
+async function contextFor(t, options) {return {...await compositeContext(t), ...(options?.reverseDisplay ? displayRegistry(options) : {})};}
 async function install(context) {
   const prepared = await prepareOperation(context, {kind: 'install', target: 'grok', language: 'en'});
   const result = await executeOperation(context, prepared);
@@ -142,7 +143,7 @@ test('uninstall removes owned only', async t => {
 test('uninstall allowed with install capability off when traces exist', async t => {
   const context = await contextFor(t);
   await install(context);
-  const off = {...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
+  const off = {...context, ...grokOffRegistries()};
   const status = (await collectStatus(off)).find(item => item.platform === 'grok');
   assert.equal(status.state, 'installed');
   const screens = [], events = [{name: 'down'}, {name: 'down'}, {name: 'enter'}, {name: 'eof'}];
@@ -161,14 +162,14 @@ test('uninstall allowed with install capability off when traces exist', async t 
 test('upgrade excludes installed traces with install capability off', async t => {
   const context = await contextFor(t);
   await install(context);
-  const off = {...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
+  const off = {...context, ...grokOffRegistries()};
   assert.equal((await executeOperation(off, await prepareOperation(off, {kind: 'install', target: 'claude', language: 'en'}))).code, 0);
   for (const name of ['SKILL.md', 'settings.toml', 'models.toml', 'limits.toml']) assert.ok(fs.existsSync(path.join(context.userHome, '.grok/skills/arc', name)), name);
   assert.deepEqual(collectInstalledState(off).targets.map(entry => entry.target.platform), ['claude']);
 });
 
 test('upgrade ignores a managed block without skills when install capability is off', async t => {
-  const context = await compositeContext(t);
+  const context = {...await compositeContext(t), ...grokOffRegistries()};
   assert.equal((await executeOperation(context, await prepareOperation(context, {kind: 'install', target: 'claude', language: 'en'}))).code, 0);
   const home = path.join(context.userHome, '.grok');
   fs.mkdirSync(home);
@@ -225,9 +226,18 @@ test('role policy renders grok outputs and leaves claude/codex/gemini bytes unch
   const before = Object.fromEntries(['claude', 'codex', 'gemini', 'grok'].map(name => [name, files(path.join(sourceRoot, name))]));
   const skill = path.join(sourceRoot, 'grok/skill/SKILL.md');
   fs.writeFileSync(skill, fs.readFileSync(skill, 'utf8').replace('- [platform.grok]', '- [stale.grok]'));
-  const result = spawnSync(process.execPath, [path.join(sourceRoot, 'scripts/update-role-policy.mjs')], {encoding: 'utf8'});
+  const result = spawnSync(process.execPath, [path.join(sourceRoot, 'scripts/update-role-policy.mjs')], {encoding: 'utf8', env: {...process.env, PATH: path.join(sourceRoot, 'fixture-bin')}});
   assert.equal(result.status, 0, result.stderr);
   for (const platform of ['claude', 'codex', 'gemini', 'grok']) assert.deepEqual(files(path.join(sourceRoot, platform)), before[platform]);
   const policy = JSON.parse(fs.readFileSync(path.join(sourceRoot, 'lib/policy/role-policy.json')));
   assert.deepEqual(policy.platforms.grok, {level: 'prompt', notice: 'Role restrictions are prompt-level contracts, not a filesystem sandbox. Grok sandboxing, native tool restriction fields, observer hooks and Git guards are unverified, and Grok may continue without its sandbox. Use only available authorized tools; ARC disables Grok Claude compatibility (agents, skills, rules in config.toml; also MCPs and hooks for bridge children), but whether Grok sessions honor these settings is unverified.'});
+});
+
+test('installed grok is an upgrade target and upgrade leaves config.toml', async t => {
+  const context = await contextFor(t);
+  await install(context);
+  const state = collectInstalledState(context);
+  assert.ok(state.targets.some(entry => entry.target.platform === 'grok'));
+  const plans = buildUpgradePlans({payload: verifyPayload(context), state, safeFs: context.safeFs});
+  assert.equal(plans.find(plan => plan.target.platform === 'grok').globalChanges.some(change => change.path === path.join(context.userHome, '.grok/config.toml')), false);
 });

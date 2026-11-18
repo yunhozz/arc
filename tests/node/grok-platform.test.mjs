@@ -7,6 +7,8 @@ import {DEFAULT_PLATFORM_REGISTRY, getPlatform} from '../../lib/runtime/platform
 import {DEFAULT_INSTALLER_REGISTRY} from '../../lib/platforms/index.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
 import {prepareOperation, executeOperation} from '../../lib/management/operations.mjs';
+import {homeStatusLine} from '../../lib/tui/mode.mjs';
+import {grokOffRegistries, writeFakeGrokCli} from './fixtures/platforms/grok-off.mjs';
 import {statusInfo} from '../../lib/tui/mode.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {discoverModelCatalog} from '../../lib/models/catalog.mjs';
@@ -59,26 +61,28 @@ test('GROK_HOME set does not block other platforms', async t => {
   for (const id of ['claude', 'codex', 'gemini']) assert.equal(statuses.find(s => s.platform === id).state, 'absent');
   assert.equal(statuses.find(s => s.platform === 'grok').state, 'incomplete');
   const text = statusInfo({mode: 'standalone', platforms: []}, statuses).info.join('\n');
-  assert.match(text, /Grok +Not verified/); assert.match(text, /GROK_HOME is not verified \(Grok\)/);
+  assert.match(text, /Grok +Unsupported version/); assert.match(text, /GROK_HOME is not verified \(Grok\)/);
   assert.doesNotMatch(text, /capability not verified/);
   assert.equal((await prepareOperation(ctx, {kind: 'install', target: 'codex', language: 'en'})).plans[0].target.platform, 'codex');
 });
 
-test('AC-K2 all nine Grok capabilities are off with fixed reasons', () => {
-  assert.deepEqual(descriptor().capabilities, Object.fromEntries(Object.entries({
-    install: 'install layout not verified', nativeProfile: 'native profile format not verified', catalog: 'catalog not verified',
-    standalone: 'standalone not verified', bridge: 'bridge contract not verified', compositeRole: 'composite role not verified',
-    compositeHost: 'composite host not verified', authProbe: 'no official auth status command', watch: 'watch support out of scope',
-  }).map(([key, reason]) => [key, {state: 'off', reason}])));
+test('AC-K2 Grok capabilities match the verified and off contract', () => {
+  assert.deepEqual(descriptor().capabilities, {
+    ...Object.fromEntries(['install', 'nativeProfile', 'catalog', 'standalone', 'bridge', 'compositeRole'].map(key => [key, {state: 'verified'}])),
+    compositeHost: {state: 'off', reason: 'composite host not verified'},
+    authProbe: {state: 'off', reason: 'no official auth status command'},
+    watch: {state: 'off', reason: 'watch support out of scope'},
+  });
 });
 
 test('AC-K10 Grok catalog pairs use default effort and safe model identifiers', async () => {
   const validate = descriptor().routing.validatePair, result = await loadStaticModelCatalog('grok');
   assert.equal(result.status, 'ready');
-  assert.deepEqual(result.catalog, {platform: 'grok', pairs: ['grok-4.6'].map(model => ({model, effort: 'default'}))});
+  assert.deepEqual(result.catalog, {platform: 'grok', pairs: ['grok-4.6', 'grok-4.5'].map(model => ({model, effort: 'default'}))});
   for (const pair of result.catalog.pairs) {assert.equal(pair.effort, 'default'); assert.match(pair.model, /^[A-Za-z0-9][A-Za-z0-9._:/@+\-]*$/); assert.equal(validate(pair.model, pair.effort), true);}
   for (const [model, effort] of [['grok-4.6', 'high'], ['-grok', 'default'], ['grok 4', 'default'], ['', 'default'], ['grok\n', 'default'], [null, 'default']]) assert.equal(validate(model, effort), false);
-  assert.equal((await discoverModelCatalog('grok')).status, 'unavailable');
+  assert.equal((await discoverModelCatalog({platform: 'grok'})).status, 'unavailable');
+  assert.equal(fs.readFileSync(new URL('../../lib/models/grok-models.json', import.meta.url), 'utf8'), '{\n  "platform": "grok",\n  "pairs": [\n    {"model": "grok-4.6", "effort": "default"},\n    {"model": "grok-4.5", "effort": "default"}\n  ]\n}\n');
 });
 
 test('AC-K9 Grok render ownership and routing round trip uses exactly three frontmatter keys', () => {
@@ -127,14 +131,14 @@ for (const [key, value] of [['tools', 'Read'], ['permissionMode', 'default'], ['
 }
 
 test('AC-K3 management refuses Grok install and composite without changing HOME', async t => {
-  descriptor(); const ctx = await compositeContext(t), before = homeBytes(ctx.userHome);
+  descriptor(); const ctx = {...await compositeContext(t), ...grokOffRegistries()}, before = homeBytes(ctx.userHome);
   await assert.rejects(prepareOperation(ctx, {kind: 'install', target: 'grok'}), {message: 'Grok is not available: capability not verified'});
   await assert.rejects(prepareOperation(ctx, {kind: 'install', target: 'composite', platforms: ['claude', 'codex', 'grok'], config: await mixedConfig('t3-off')}), {message: 'Grok is not available: capability not verified'});
   assert.deepEqual(homeBytes(ctx.userHome), before);
 });
 
 test('AC-K3 target all install preset and uninstall plans exclude Grok', async t => {
-  descriptor(); const ctx = await compositeContext(t);
+  descriptor(); const ctx = {...await compositeContext(t), ...grokOffRegistries()};
   const install = await prepareOperation(ctx, {kind: 'install', target: 'all', language: 'en'});
   assert.deepEqual(install.plans.map(p => p.target.platform), ['claude', 'codex', 'gemini']);
   assert.equal((await executeOperation(ctx, install)).code, 0);
@@ -144,15 +148,26 @@ test('AC-K3 target all install preset and uninstall plans exclude Grok', async t
   }
 });
 
+test('AC-K3 target all install preset and uninstall plans include Grok', async t => {
+  descriptor(); const ctx = await compositeContext(t);
+  const install = await prepareOperation(ctx, {kind: 'install', target: 'all', language: 'en'});
+  assert.deepEqual(install.plans.map(p => p.target.platform), ['claude', 'codex', 'gemini', 'grok']);
+  assert.equal((await executeOperation(ctx, install)).code, 0);
+  for (const kind of ['preset', 'uninstall']) {
+    const prepared = await prepareOperation(ctx, {kind, target: 'all', removeCli: false});
+    assert.deepEqual(prepared.plans.map(p => p.target.platform), ['claude', 'codex', 'gemini', 'grok']);
+  }
+});
+
 test('AC-K3 status skips Grok CLI and auth probes', async t => {
-  descriptor(); const ctx = await compositeContext(t), status = (await collectStatus(ctx)).find(s => s.platform === 'grok');
+  descriptor(); const ctx = {...await compositeContext(t), ...grokOffRegistries()}, status = (await collectStatus(ctx)).find(s => s.platform === 'grok');
   assert.deepEqual(status.cliVersion, {version: null, reason: 'capability_not_verified'});
   assert.deepEqual(status.authentication, {authStatus: 'unknown', reason: 'capability_not_verified'});
 });
 
 test('fake grok on PATH is never executed', async t => {
-  descriptor(); const ctx = await compositeContext(t), marker = path.join(ctx.userHome, 'grok-executed');
-  fs.writeFileSync(path.join(ctx.userHome, 'bin/grok'), `#!/bin/sh\nprintf executed > '${marker}'\nprintf 'grok 1.0.88\\n'\n`, {mode: 0o755});
+  descriptor(); const ctx = {...await compositeContext(t), ...grokOffRegistries()}, marker = path.join(ctx.userHome, 'grok-executed');
+  writeFakeGrokCli({bin: path.join(ctx.userHome, 'bin'), marker});
   await collectStatus(ctx);
   await assert.rejects(prepareOperation(ctx, {kind: 'install', target: 'grok'}), /Grok is not available: capability not verified/);
   await assert.rejects(prepareOperation(ctx, {kind: 'install', target: 'composite', platforms: ['claude', 'codex', 'grok'], config: await mixedConfig('fake-grok')}), /Grok is not available: capability not verified/);
@@ -191,4 +206,31 @@ test('AC-K7 every controls entry has grok prompt with platforms.grok payload met
   let count = 0;
   const visit = value => {if (!value || typeof value !== 'object') return; if (value.controls) {count++; assert.equal(value.controls.grok, 'prompt');} for (const child of Object.values(value)) visit(child);};
   visit(policy); assert.equal(count, 15); assert.equal(Object.hasOwn(policy.platforms, 'grok'), true);
+});
+
+test('operational Grok status without CLI', async t => {
+  const ctx = await compositeContext(t), statuses = await collectStatus(ctx), status = statuses.find(item => item.platform === 'grok');
+  assert.deepEqual(status.cliVersion, {version: null, reason: 'cli_not_found'});
+  assert.deepEqual(status.authentication, {authStatus: 'unknown', reason: 'auth_unverified'});
+  assert.match(statusInfo({mode: 'standalone', platforms: []}, statuses).info.join('\n'), /Grok +Not Available/);
+});
+
+test('operational Grok status runs only --version', async t => {
+  const ctx = await compositeContext(t), marker = path.join(ctx.userHome, 'grok-commands');
+  writeFakeGrokCli({bin: path.join(ctx.userHome, 'bin'), marker});
+  const statuses = await collectStatus(ctx), status = statuses.find(item => item.platform === 'grok');
+  assert.deepEqual(status.cliVersion, {version: '1.0.89'});
+  assert.deepEqual(status.authentication, {authStatus: 'unknown', reason: 'auth_unverified'});
+  assert.equal(fs.readFileSync(marker, 'utf8'), '--version\n');
+  assert.match(statusInfo({mode: 'standalone', platforms: []}, statuses).info.join('\n'), /Grok +Available · auth unverified/);
+  assert.ok(homeStatusLine(statuses).includes('Grok: Available (auth unverified)'));
+});
+
+test('operational Grok status rejects an unsupported CLI version', async t => {
+  const ctx = await compositeContext(t), marker = path.join(ctx.userHome, 'grok-commands');
+  writeFakeGrokCli({bin: path.join(ctx.userHome, 'bin'), marker, version: '1.1.0'});
+  const statuses = await collectStatus(ctx);
+  assert.deepEqual(statuses.find(item => item.platform === 'grok').cliVersion, {version: '1.1.0'});
+  assert.match(statusInfo({mode: 'standalone', platforms: []}, statuses).info.join('\n'), /Grok +Unsupported version/);
+  assert.equal(fs.readFileSync(marker, 'utf8'), '--version\n');
 });

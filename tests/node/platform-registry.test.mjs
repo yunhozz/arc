@@ -46,7 +46,8 @@ test('AC-P1 install-verified platforms with native hooks have adapters and capab
   assert.ok(contracts, 'capabilities map exists');
   const keys = [...contracts.matchAll(/^\s*([a-z][a-z0-9-]*):/gm)].map(match => match[1]);
   // Phase B spec §10 / [platform.gemini]: prompt contracts and post-run detection; native hooks and Git guards are unverified.
-  const noNativeHookAdapter = new Set(['gemini']);
+  // Grok capability promotion spec §8 / [platform.grok] notice: observer hooks are unverified.
+  const noNativeHookAdapter = new Set(['gemini', 'grok']);
   for (const id of noNativeHookAdapter) {
     assert.equal(fs.existsSync(new URL(`../../lib/runtime/adapters/${id}.mjs`, import.meta.url)), false, `${id} has no native hook adapter`);
     assert.equal(keys.includes(id), false, `${id} has no capabilities-map key`);

@@ -66,22 +66,22 @@ test('gemini home env set does not block codex/claude install', async t => {
 for (const kind of ['install', 'preset']) test(`gemini home env set is reported as skipped for target all ${kind}`, async t => {
   const context = await compositeContext(t);
   context.env.GEMINI_CLI_HOME = path.join(context.userHome, 'unsupported-gemini');
-  if (kind !== 'install') for (const target of ['claude', 'codex']) {
+  if (kind !== 'install') for (const target of ['claude', 'codex', 'grok']) {
     const installed = await executeOperation(context, await prepareOperation(context, {kind: 'install', target, language: 'en'}));
     assert.equal(installed.code, 0, JSON.stringify(installed));
   }
   const prepared = await prepareOperation(context, {kind, target: 'all', language: 'en', preset: 'balanced', removeCli: false});
-  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'grok']);
   const result = await executeOperation(context, prepared);
   assert.equal(result.code, 0, JSON.stringify(result));
-  assert.deepEqual(result.results.map(item => item.platform), ['claude', 'codex', 'gemini']);
-  assert.deepEqual(result.results.map(item => item.status), kind === 'install' ? ['installed', 'installed', 'skipped'] : ['unchanged', 'unchanged', 'skipped']);
+  assert.deepEqual(result.results.map(item => item.platform), ['claude', 'codex', 'gemini', 'grok']);
+  assert.deepEqual(result.results.map(item => item.status), kind === 'install' ? ['installed', 'installed', 'skipped', 'installed'] : ['unchanged', 'unchanged', 'skipped', 'unchanged']);
   const skipped = result.results[2];
   assert.equal(skipped.status, 'skipped');
   assert.deepEqual(skipped.residualPaths, []);
   assert.ok(skipped.error instanceof TargetConfigurationError);
   assert.equal(skipped.error.message, 'GEMINI_CLI_HOME is not verified');
-  for (const platform of ['claude', 'codex']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
+  for (const platform of ['claude', 'codex', 'grok']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
   assert.equal(fs.existsSync(path.join(context.userHome, '.gemini')), false);
 });
 
@@ -118,15 +118,15 @@ test('claude home env set is reported first as skipped for target all install', 
     ['claude', 'CLAUDE_CONFIG_DIR must select the default ~/.claude directory'],
   ]);
   const prepared = await prepareOperation(context, {kind: 'install', target: 'all', language: 'en'});
-  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['codex', 'gemini']);
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['codex', 'gemini', 'grok']);
   const result = await executeOperation(context, prepared);
   assert.equal(result.code, 0, JSON.stringify(result));
-  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'skipped'], ['codex', 'installed'], ['gemini', 'installed']]);
+  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'skipped'], ['codex', 'installed'], ['gemini', 'installed'], ['grok', 'installed']]);
   assert.deepEqual(result.results[0].residualPaths, []);
   assert.ok(result.results[0].error instanceof TargetConfigurationError);
   assert.equal(result.results[0].error.message, 'CLAUDE_CONFIG_DIR must select the default ~/.claude directory');
   assert.equal(fs.existsSync(path.join(context.userHome, '.claude')), false);
-  for (const platform of ['codex', 'gemini']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
+  for (const platform of ['codex', 'gemini', 'grok']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), true);
 });
 
 test('target all install retains transaction failure alongside a skipped platform', async t => {
@@ -138,7 +138,7 @@ test('target all install retains transaction failure alongside a skipped platfor
   }};
   const result = await executeOperation(context, prepared);
   assert.equal(result.code, 1);
-  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'installed'], ['codex', 'failed'], ['gemini', 'skipped']]);
+  assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'installed'], ['codex', 'failed'], ['gemini', 'skipped'], ['grok', 'not-started']]);
   assert.equal(result.results[1].error.message, 'fixture transaction failure');
 });
 
@@ -303,9 +303,9 @@ test('Gemini standalone off still refuses management without file changes', asyn
   await assert.rejects(prepareOperation(context, {kind: 'install', target: 'gemini'}), {message: 'Gemini is not available: capability not verified'});
   assert.deepEqual(homeBytes(context.userHome), before);
   const prepared = await prepareOperation(context, {kind: 'install', target: 'all'});
-  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
+  assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'grok']);
   const statuses = await collectStatus(context);
-  assert.equal(homeStatusLine(statuses, platforms), 'Claude: Not Available / Codex: Not Available / Gemini: Not Available / Grok: Not verified');
+  assert.equal(homeStatusLine(statuses, platforms), 'Claude: Not Available / Codex: Not Available / Gemini: Not Available / Grok: Not Available');
   assert.deepEqual(homeBytes(context.userHome), before);
   assert.equal(fs.existsSync(path.join(context.userHome, '.gemini')), false);
 });
@@ -314,11 +314,11 @@ test('L4 operational all includes Gemini for install, preset and uninstall', asy
   const context = await compositeContext(t);
   for (const kind of ['install', 'preset', 'uninstall']) {
     const prepared = await prepareOperation(context, {kind, target: 'all', language: 'en', preset: 'balanced', removeCli: false});
-    assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'gemini'], kind);
+    assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'gemini', 'grok'], kind);
     const result = await executeOperation(context, prepared);
     assert.equal(result.code, 0, JSON.stringify(result));
-    assert.deepEqual(result.results.map(item => item.platform), ['claude', 'codex', 'gemini'], kind);
-    for (const platform of ['claude', 'codex', 'gemini']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), kind !== 'uninstall', kind + ' ' + platform);
+    assert.deepEqual(result.results.map(item => item.platform), ['claude', 'codex', 'gemini', 'grok'], kind);
+    for (const platform of ['claude', 'codex', 'gemini', 'grok']) assert.equal(fs.existsSync(path.join(context.userHome, '.' + platform, 'skills/arc')), kind !== 'uninstall', kind + ' ' + platform);
   }
 });
 
