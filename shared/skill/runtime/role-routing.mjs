@@ -231,6 +231,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    const leases=await listLeases(anchorHome,{runtimePlatforms});
    const live=leases.filter(lease=>NON_TERMINAL_STATES.includes(lease.state));
    if(leases.some(lease=>lease.requestId===assignment.requestId)||live.some(lease=>lease.workflowId===context.workflowId&&lease.taskId===assignment.taskId&&lease.role===role)){duplicate=true;codes.add('duplicate_dispatch');}
+   if(host==='grok'&&(policy.gates?.GK2??DEFAULT_POLICY.gates.GK2)!=='pass')codes.add('host_sandbox_blocked');
    if(host==='gemini'&&(policy.gates?.GG2??DEFAULT_POLICY.gates.GG2)!=='pass')codes.add('host_sandbox_blocked');
    if(route==='bridge'){
     let limits;try{limits=readHostLimits(resolveConfigHome(host,context));}catch{codes.add('activation_unverified');}
@@ -243,7 +244,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    result.reasons=[...codes].map(reason);
    if(codes.size){result.decision=duplicate?'deny':'hold';return;}
    const claims=initialClaims(route,policy,requested),iso=new Date(now).toISOString(),dispatchId=crypto.randomUUID();
-   const lease=await createLease(anchorHome,{version:2,targetPlatform:route==='native'?host:requested.platform,dispatchId,workflowId:context.workflowId,taskId:assignment.taskId,requestId:assignment.requestId,role,route,hostPlatform:host,executionEnvironment:environment,revision:config.revision,profileHash:await readProfileHash(homes[requested.platform],role),argsDigest:null,state:'reserved',supervisor:null,child:null,sessionId:route==='bridge'&&requested.platform==='gemini'?crypto.randomUUID():null,timeoutMinutes:policy.roleTimeoutMinutes[role],claims,reasons:[],allowedPaths:assignment.allowedPaths??[],resultPath:null,segment:0,nativeAgentId:null,createdAt:iso,updatedAt:iso},{runtimePlatforms,config});
+   const lease=await createLease(anchorHome,{version:2,targetPlatform:route==='native'?host:requested.platform,dispatchId,workflowId:context.workflowId,taskId:assignment.taskId,requestId:assignment.requestId,role,route,hostPlatform:host,executionEnvironment:environment,revision:config.revision,profileHash:await readProfileHash(homes[requested.platform],role),argsDigest:null,state:'reserved',supervisor:null,child:null,sessionId:route==='bridge'&&(requested.platform==='gemini'||requested.platform==='grok')?crypto.randomUUID():null,timeoutMinutes:policy.roleTimeoutMinutes[role],claims,reasons:[],allowedPaths:assignment.allowedPaths??[],resultPath:null,segment:0,nativeAgentId:null,createdAt:iso,updatedAt:iso},{runtimePlatforms,config});
    Object.assign(result,{decision:'allow',routeStatus:'reserved',dispatchId:lease.dispatchId,claims});
   },{retryMs:policy.lockRetryMs});
  }catch(error){

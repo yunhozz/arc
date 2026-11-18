@@ -22,3 +22,11 @@ test('Grok capability evidence rejects any injected verified capability', () => 
     assert.throws(() => verifyEvidence({cli: {supportedVersions: '>=1.0.0 <1.1.0'}, capabilities}), /Grok verified capabilities must remain empty/);
   }
 });
+
+
+test('Grok GK1/GK2 and resume remain off', async () => {
+  const {BRIDGE_GATE_RESULTS} = await import('../../lib/runtime/role-dispatch-policy.mjs');
+  const {SUPERVISOR_IMPLEMENTATIONS} = await import('../../lib/runtime/role-supervisor.mjs');
+  assert.equal(BRIDGE_GATE_RESULTS.GK1, 'fail'); assert.equal(BRIDGE_GATE_RESULTS.GK2, 'fail');
+  assert.equal(SUPERVISOR_IMPLEMENTATIONS.get('grok')?.resume, 'off');
+});
