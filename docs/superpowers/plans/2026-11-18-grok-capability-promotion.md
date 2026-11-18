@@ -152,11 +152,12 @@
 |---|---|---|
 | T1 | config.toml managed 편집·원복과 설치기 hook 일반화 | P0-a |
 | T2 | bridge `childEnv`와 role-policy notice | P0-a(T1과 논리 독립) |
-| T3 | capability 전환, 카탈로그, 고정 테스트, 테스트 전환 | T1, T2, P0-b, P0-c |
+| T3a | composite upgrade snapshot 교차 drift 수정(v2) | T2 |
+| T3 | capability 전환, 카탈로그, 고정 테스트, 테스트 전환 | T1, T2, T3a(수용·커밋), P0-b, P0-c |
 | T4 | 문서 2행 | T3 |
 | FR | 최종 독립 Reviewer 1회 | T1–T4 수용, 필수 QA·재확인 완료 |
 
-**실제 실행은 직렬입니다(T1 → T2 → T3 → T4 → FR).** 근거는 공유 파일입니다.
+**실제 실행은 직렬입니다(T1 → T2 → T3 → T4 → FR).** v2: T3 구현 후 호스트 검사에서 T3a가 추가되어, T3a 수용·커밋 → T3 재검증·수용·커밋 순서로 진행합니다. 근거는 공유 파일입니다.
 - `MANIFEST.sha256`: T1(`lib/installer/*`, `lib/platforms/grok.mjs`), T2, T3, T4(`README.md`)
 - `installed-layout-golden.json`: T2, T3
 - `tests/node/grok-install.test.mjs`: T1 → T2(notice 단언 202행) → T3
@@ -167,10 +168,11 @@
 **hold 범위**
 - T1이 실패하면 T2는 논리 독립이므로 Orchestrator가 공유 생성물 기준을 확인한 뒤 해제할 수 있습니다. T3·T4·FR은 hold합니다.
 - T2가 실패하면 T3·T4·FR을 hold합니다. T1은 이미 독립 수용 가능합니다.
+- T3a가 실패하면 T3·T4·FR을 hold합니다.
 - T3이 실패하면 T4·FR을 hold합니다.
 - 필수 검사가 미해결이면 해당 작업 수용을 보류합니다.
 
-**QA:** T1·T3은 fresh QA(필수), T2는 focused checks(spec 13장, 필수 검사 목록 그대로), T4는 diff 검토입니다. Reviewer는 작업마다 두지 않고 FR에서 1회만 둡니다.
+**QA:** T1·T3a·T3은 fresh QA(필수), T2는 focused checks(spec 13장, 필수 검사 목록 그대로), T4는 diff 검토입니다. Reviewer는 작업마다 두지 않고 FR에서 1회만 둡니다.
 
 ---
 
@@ -367,6 +369,48 @@
 
 ---
 
+### Task T3a: composite upgrade snapshot 교차 drift 수정 (v2 추가)
+
+**AC:** AC-U1, AC-U2, AC-U3, AC-U4, AC-U5 (spec 16장)
+
+**배경:** T3 호스트 검사에서 `install-mode-models-upgrade.test.mjs` `composite upgrade does not recreate standalone profiles`의 `installTargets` 결과 단언이 Grok `failed`(`Install target changed: <home>/.gemini/agents`)로 실패했습니다. spec 16.1의 기존 잠복 결함입니다(사용자 결정 2026-11-18: plan에 수정 작업 추가).
+
+**Files:**
+- Modify: `lib/installer/upgrade-state.mjs`, `lib/installer/upgrade.mjs`
+- Create: `tests/node/upgrade-snapshot-scope.test.mjs`
+- 생성물: `MANIFEST.sha256`(`lib/installer/upgrade*.mjs` 2행만)
+- 수정 금지: `lib/installer/install.mjs`, `lib/installer/transaction.mjs`, `lib/installer/install-mode.mjs`, T3 미커밋 변경 파일 전부(`tests/node/install-mode-models-upgrade.test.mjs` 포함)
+
+**Interfaces:**
+- `collectInstalledState(...).targets[i].modeKeys: Set<string>`(composite에서 복사한 mode key, standalone이면 빈 Set). 기존 필드와 `stateToken`은 불변입니다.
+- `buildUpgradePlans`: spec 16.3의 2단계 제외 규칙. 반환 형태는 불변입니다.
+
+- [x] **Step 1: 실패 테스트(`tests/node/upgrade-snapshot-scope.test.mjs`)**
+  - 주입 registry(예: grok 또는 zeta를 verified로 둔 사본, 또는 기존 fixture)로 "composite 모드 + 앞 순서 standalone 대상이 프로필을 다시 씀 + 뒤 순서 대상" 상태를 만듭니다. 운영 Grok capability에 의존하지 않아 T3 없이도 RED가 재현되어야 합니다.
+  - `composite upgrade with an earlier standalone target installs every target`(AC-U1): `installTargets(buildUpgradePlans(...))` 결과 전부 `installed`
+  - `mode keys overlapping other plan writes are excluded only there`(AC-U2)
+  - `drift after planning still fails before writes`(AC-U3): 참여자 `arc-routing-*` 변경, routing 정의 파일 변경, 비참여 home `agents`에 `arc-routing-x.md` 추가 각각에서 쓰기 전 실패(ARC_INSTALL_DRIFT)와 파일 바이트 무변경
+  - `stateToken is unchanged by the fix`(AC-U4): 같은 home에서 수정 전 계산식과 같은 값(고정 기대값 또는 독립 재계산 helper)
+- [x] **Step 2: RED:** `node --test tests/node/upgrade-snapshot-scope.test.mjs` → AC-U1·AC-U2 FAIL
+- [x] **Step 3:** `upgrade-state.mjs`·`upgrade.mjs` 구현(spec 16.3)
+- [x] **Step 4: GREEN:** 같은 명령 PASS. 추가로 `node --test tests/node/upgrade-state.test.mjs tests/node/upgrade-harness.test.mjs tests/node/upgrade-process.test.mjs tests/node/upgrade-cli.test.mjs tests/node/install-mode-models-upgrade.test.mjs tests/node/install-mode-review-followup.test.mjs tests/node/hardcoding-residual.test.mjs` PASS(기준 실패 제외). `install-mode-models-upgrade`는 작업 트리의 T3 변경과 함께 전부 PASS여야 합니다.
+- [x] **Step 5:** `node scripts/update-manifest.mjs` → `npm run check:manifest`, `node scripts/check-installer-parity.mjs`, `npm run check:role-policy`(변경 0), `node tests/node/fixtures/installed-layout.mjs --diff`(0)
+
+**커밋 분리(Orchestrator):**
+- T3a 커밋은 T3보다 먼저 만듭니다. 내용은 `lib/installer/upgrade-state.mjs`, `lib/installer/upgrade.mjs`, `tests/node/upgrade-snapshot-scope.test.mjs`, `MANIFEST.sha256`의 해당 2행, 이 plan·spec의 v2 개정과 T3a 진행 기록입니다.
+- `MANIFEST.sha256`은 해당 2행 hunk만 staging합니다(T3의 manifest 행 제외). 분리가 안전하지 않으면 커밋을 보류합니다.
+- 커밋 전 검증: staged 트리를 임시 디렉터리로 추출(`git checkout-index` 또는 커밋 후 `git archive`)해 T3 변경 없이 `upgrade-snapshot-scope`, `upgrade-state`, `hardcoding-residual`, `check:manifest`가 통과함을 확인합니다(Git 상태를 바꾸지 않는 방식).
+
+**수용 기준:** 위 테스트 PASS, `git diff --stat -- lib/installer/install.mjs lib/installer/transaction.mjs lib/installer/install-mode.mjs` 빈 결과, 기존 upgrade·installer 테스트 무수정 통과, `rg -n "=== *['\"](grok|gemini|codex|claude)['\"]" lib/installer/upgrade.mjs lib/installer/upgrade-state.mjs` 신규 0건.
+**필수 검사:** 작업 테스트, `npm test`(호스트, 기준선 비교), `check:manifest`, parity, golden `--diff`
+**필수 QA:** 예(fresh). AC-U1–U5, 제외 규칙의 범위(과잉 제외 없음), drift 감지 유지, `stateToken` 불변, 분리 커밋 트리 단독 통과를 확인합니다.
+**보류 조건:** `stateToken` 변경, `install.mjs`·`transaction.mjs` 변경 필요, 기존 단언 수정 필요, MANIFEST 분리 불안전.
+**Implementer:** fresh(새 작업). T3a 수용 후 T3 남은 작업(재검증)은 v2 계약 개정에 따라 필요하면 fresh Implementer가 맡습니다.
+
+**커밋:** `fix(installer): composite upgrade의 교차 쓰기 경로를 mode snapshot 검사에서 제외`
+
+---
+
 ### Task T3: capability 전환, 카탈로그, 고정 테스트, 테스트 전환
 
 **AC:** AC-F1, AC-F8, AC-F9, AC-F10, AC-F11, AC-F12(+ AC-F2 composite 경로 1건)
@@ -545,6 +589,7 @@
 | AC-F10 | T3 |
 | AC-F11 | T3(sentinel), FR |
 | AC-F12 | T3(운영), 기존 `grok-bridge` 주입 단언 유지 |
+| AC-U1–AC-U5 | T3a |
 | AC-D1 | T4 |
 | 공통 검사(spec 12장) | 모든 작업 STD-CLOSE, FR |
 
@@ -571,6 +616,7 @@
 | 2026-11-18 | P0-c(재개 PC) | 기록 | — | `command -v grok` 없음(rc=1). 격리 성립 |
 | 2026-11-18 | T1 | 수용 | (이 커밋) | Implementer codex bridge `3233a81f`(fresh), QA codex bridge `046fabca`(fresh). 작업 테스트 73/0, Step 6 추가 4파일 55/10(10건 모두 부록 B packed 계열). runtime `--check`·golden `--diff` 0·`check:manifest`·`check:role-policy`(변경 0)·parity 통과. 호스트 `npm test` 2740/2675/52+cancelled 1 = 기준선(35+17) 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0. `=== 'grok'` 0건, AC-F5 대상 테스트·golden diff 없음. QA 해석 지점 처분: (1) reset 키도 `set … = false` note에 포함 — spec 3.3-7/9/10과 모순 없음(QA 동의). (2) EOF 무개행 입력의 설치→제거 왕복 시 3.3-8이 붙인 구분 EOL이 남음 — spec 3.3-8 명시 동작이며 AC-F3 기준은 재파싱 일치이므로 결함 아님, FR 점검 메모 |
 | 2026-11-18 | T2 | 수용 | (이 커밋) | Implementer codex bridge `85ac0d61`(fresh), focused checks(OD-Q2, QA 없음). RED 42/3 → GREEN 45/0, 기존 argv·`argsDigest` 단언 무수정 통과. Orchestrator 재실행: runtime `--check` 35 files, golden `--diff` 0(갱신 후), `check:manifest` 283, `check:role-policy` 48(grok 생성물만), parity 통과, `git diff --stat -- claude codex gemini` 빈 결과, role-policy.json numstat 1/1, `does not write Grok config.toml` 0건. runtime baseline `5bed622b…`→`5faa50af…`, instruction-contracts 정책 해시 2·grok expanded profile 5 갱신. 호스트 `npm test` 2751/2686/52+cancelled 1 = 기준선 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0 |
+| 2026-11-18 | T3a | 수용 | (이 커밋) | v2 개정 작업. 설계 Planner(native) `80849db8` 옵션 B, 사용자 v2 승인 2026-11-18T22:19:32+09:00. Implementer codex bridge `f8eafb9e`(fresh), QA codex bridge `ceddbda3`(fresh). RED(분리 트리, lib만 HEAD) 신규 3 FAIL → GREEN 신규 8/0. 호스트: T3a 묶음 8파일 120/120(작업 트리), 분리 트리(HEAD+T3a, T3 없음) 120건 fail 0·`check:manifest`·parity 통과. QA: AC-U1–U4 proven, 분리 트리 구성 바이트 비교 proven, 독립 탐침(`agents2` sibling 유지, 비대상 참여자 profile drift 감지) proven, 리터럴 0, 금지 3파일 diff 없음. bridge의 `upgrade-process` EMFILE은 환경 제한(호스트 통과). 호스트 sentinel `npm test` 2755/2688/52+cancelled 3 = 기준선 동일 + 파일 timeout 3(anchor-migration 20/20, gemini-composite 20/20, install-mode-n-platform 70/70 단독 통과), sentinel log 없음. `stateToken` 계산 불변 |
 | | T3 | | | 전환 기록: 사용자 결정 2026-11-18(live 검증 아님), `.git/arc/handoff/grok-support/live-probe-2026-11-18.md`; hostPlatform grok 관측 reason |
 | | T4 | | | |
 | | FR | | | |
@@ -649,3 +695,10 @@
 - **OD-Q2:** T2는 spec 13장대로 focused checks만 둡니다. 생성물 검사(runtime-assets `--check`, golden, manifest, role-policy, parity)와 호스트 `npm test`로 판정하고, FR에서 함께 검토합니다.
 - **OD-Q3:** `instruction-contracts.json`은 전용 생성 스크립트가 없으므로 fixture 테스트가 요구하는 값으로 갱신합니다(직전 plan T4 선례).
 - **알려진 빈틈:** spec 3.3-9(`cannot verify the safe edit`)는 정상 입력으로 유도할 수 없어 직접 테스트가 없습니다. FR 점검 항목에 포함했습니다.
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-18 (사용자 승인, `3bb15c5` 커밋 2026-11-18T15:45:08+09:00 이전; 정확한 승인 시각은 재개 PC에 기록 없음) | — | — | 최초 승인 |
+| v2 | 2026-11-18T22:19:32+09:00 | contract | T3a 신설, T3 선행·수용 조건, QA 범위 | T3 호스트 검사에서 드러난 composite upgrade snapshot 교차 drift 잠복 결함 수정 작업 추가(사용자 결정 2026-11-18 "plan에 수정 작업 추가", spec 16장) |

@@ -389,3 +389,53 @@ T3를 T1·T2 뒤에 두는 이유: capability가 켜지는 순간 운영 설치�
 - OQ3: upgrade 경로(`skipGlobal:true`)는 현행대로 편집하지 않습니다. 현재 운영 설치된 grok이 없어 영향이 없고, Configure 재실행 시 적용됩니다.
 - OQ4: composite/Configure 적용 경로(`lib/management/operations.mjs:100`)는 `skipGlobal`이 기본 false라 편집이 적용됩니다(3.5).
 - OQ5: grok 밖 영향 테스트는 Scouter 결과로 plan에서 확정합니다(11.4).
+
+## 16. composite upgrade snapshot 교차 drift 수정 (v2 개정)
+
+### 16.1 결함
+
+- T3 검증에서 드러난 기존 잠복 결함입니다. composite 모드에서 전체 upgrade를 하면, 적용 순서상 앞의 standalone 대상이 자기 `agents/arc-*`를 다시 쓴 뒤 뒤 대상의 적용 직전 snapshot 확인이 `Install target changed: <앞 대상 home>/agents`(ARC_INSTALL_DRIFT)로 실패합니다.
+- 재현: `tests/node/install-mode-models-upgrade.test.mjs` `composite upgrade does not recreate standalone profiles`(Claude+Codex composite, Gemini·Grok standalone). Grok이 `failed`가 됩니다. T3 전에는 Gemini가 마지막 적용 순서라 드러나지 않았습니다.
+- 원인:
+  - `lib/installer/install-mode.mjs` `readInstallMode`는 모든 플랫폼 home의 `arc-role-platform-routing.json`, `.prepared.json` marker, `agents` 디렉터리 tree를 같은 snapshot(`modeSnapshot`)에 기록합니다.
+  - `lib/installer/upgrade-state.mjs` `collectInstalledState`는 composite 모드이면 `modeSnapshot` 전체를 모든 대상 entry의 snapshot에 복사합니다.
+  - `lib/installer/upgrade.mjs` `buildUpgradePlans`가 이를 plan snapshot에 합치고, `lib/installer/install.mjs` `installTargets`는 plan마다 적용 직전에 `assertPlanSnapshot`을 다시 실행합니다.
+- 결함은 플랫폼과 무관합니다. "앞 순서 standalone 대상 + 뒤 순서 아무 대상" 조합에서 발생합니다.
+
+### 16.2 보존할 보장
+
+- **모드 판정 고정:** 수집 시점부터 각 plan 적용 직전까지 composite 여부, 참여 플랫폼, routing 정의 파일, 각 home의 `arc-routing-*` 흔적이 바뀌지 않았음을 확인합니다.
+- **`stateToken` 불변:** `collectInstalledState`의 `stateToken`은 버전 간 비교에 쓰입니다(`lib/management/update.mjs`, `lib/npm/upgrade.mjs`). 계산 입력과 결과는 바이트 단위로 바뀌지 않아야 합니다.
+
+### 16.3 수정 (옵션 B)
+
+- `lib/installer/upgrade-state.mjs`: composite 모드에서 entry snapshot에 복사한 mode key 집합을 entry의 새 필드 `modeKeys`(Set)로 함께 반환합니다. standalone 모드에서는 빈 Set입니다. `snapshot` 내용과 `stateToken` 계산은 바꾸지 않습니다.
+- `lib/installer/upgrade.mjs` `buildUpgradePlans`(2단계):
+  1. 지금처럼 plan을 만들고, `attachShellCompletionCleanup` 이전에 plan마다 쓰기 경로 집합(`managedPaths`, instruction 추가분 포함)을 기록합니다.
+  2. 각 plan P의 snapshot에서 key K를 제거하는 조건은 세 가지를 모두 만족할 때입니다.
+     - K가 P entry의 `modeKeys`에 속합니다.
+     - 다른 plan Q(Q≠P)의 쓰기 경로 W와 `K === W`, `W`가 `K` 아래, 또는 `K`가 `W` 아래인 관계입니다(경로 구분자 기준).
+     - 그 밖의 key(자기 home, routing 정의 파일, marker, 참여자 `arc-routing-*`)는 그대로 둡니다.
+- 사전 전체 entry 확인(`buildUpgradePlans`의 `assertPlanSnapshot(entry)`)과 `installTargets`·`transaction.mjs`는 바꾸지 않습니다. install·composite 적용 경로는 영향이 없습니다.
+- 플랫폼 리터럴 분기를 추가하지 않습니다.
+
+### 16.4 남는 틈 (수용)
+
+앞 plan 적용이 끝난 뒤 뒤 plan 적용 전 사이에 외부가 앞 plan의 `agents` 디렉터리에 `arc-routing-*`를 새로 넣으면 뒤 plan은 이를 감지하지 못합니다. 그 시점에 앞 plan의 쓰기는 끝났고, 뒤 plan의 profiles 결정은 참여자 routing 파일과 routing 정의 파일 검사로 계속 보호되므로 수용합니다.
+
+### 16.5 수용 기준
+
+| ID | 기준 | 검증 |
+|---|---|---|
+| AC-U1 | composite 모드에서 앞 순서 standalone 대상이 프로필을 다시 쓰는 전체 upgrade에서 모든 대상이 `installed`이다. 주입 registry로 재현하며 운영 capability에 의존하지 않는다 | 신규 unit/integration |
+| AC-U2 | 쓰기 경로와 겹치는 mode key만 다른 plan snapshot에서 빠진다. routing 정의 파일, marker, 참여자 `arc-routing-*`, 자기 home key는 남는다 | 신규 |
+| AC-U3 | plan 생성 뒤 참여자 `arc-routing-*` 또는 routing 정의 파일을 바꾸거나, 비참여 home `agents`에 `arc-routing-*`를 추가하면 쓰기 전에 실패(ARC_INSTALL_DRIFT)하고 파일 바이트가 그대로다 | 신규 |
+| AC-U4 | `stateToken`이 수정 전과 같다. standalone 모드 upgrade plan은 수정 전과 같다 | 신규, 기존 `upgrade-state`·`upgrade-*` 테스트 무수정 통과 |
+| AC-U5 | 플랫폼 리터럴 분기가 없다. Codex·Claude·Gemini 설치·제거·upgrade 결과가 바뀌지 않는다 | `hardcoding-residual`, 기존 installer 테스트 무수정 통과 |
+
+### 16.6 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-18 (사용자 승인, `3bb15c5` 커밋 2026-11-18T15:45:08+09:00 이전; 정확한 승인 시각은 재개 PC에 기록 없음) | — | — | 최초 승인 |
+| v2 | 2026-11-18T22:19:32+09:00 | contract | T3a 신설, T3 수용 조건 | T3 검증에서 드러난 composite upgrade snapshot 교차 drift 잠복 결함 수정 추가(사용자 결정 2026-11-18 "plan에 수정 작업 추가") |
