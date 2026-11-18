@@ -7,7 +7,7 @@ import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../lib/pla
 import {prepareOperation, executeOperation} from '../../lib/management/operations.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
 import {collectInstalledState} from '../../lib/installer/upgrade-state.mjs';
-import {DirectoryHandle} from '../../lib/safe-fs/index.mjs';
+import {homeBytes} from './fixtures/legacy-composite.mjs';
 import {runTui} from '../../lib/tui/app.mjs';
 import {spawnSync} from 'node:child_process';
 import {staticPackageFixture} from './fixtures/static-references.mjs';
@@ -26,7 +26,6 @@ function verifiedRegistry({reverseDisplay = false} = {}) {
 async function contextFor(t, options) {return {...await compositeContext(t), ...verifiedRegistry(options)};}
 async function install(context) {
   const prepared = await prepareOperation(context, {kind: 'install', target: 'grok', language: 'en'});
-  assert.ok(prepared.plans.every(plan => !plan.globalChanges.some(change => change.path.endsWith('/config.toml'))));
   const result = await executeOperation(context, prepared);
   assert.equal(result.code, 0, result.error?.stack ?? JSON.stringify(result.results));
   return prepared;
@@ -59,28 +58,58 @@ test('grok standalone install layout', async t => {
   assert.throws(() => verifyPayload(context), {code: 'ARC_PAYLOAD_VALIDATION', message: /Invalid profile markers/});
 });
 
-test('config.toml untouched', async t => {
-  for (const existing of [null, Buffer.from('{ "user": true, "env": {"CUSTOM": "value"} }\r\n')]) {
+test('config.toml managed edit on install and restore on uninstall', async t => {
+  for (const existing of [null, Buffer.from('[cli]\r\ninstaller = "npm"\r\n')]) {
     const context = await contextFor(t), filename = path.join(context.userHome, '.grok/config.toml');
     if (existing) {fs.mkdirSync(path.dirname(filename)); fs.writeFileSync(filename, existing);}
-    const originalRead = fs.readFileSync, originalOpen = DirectoryHandle.prototype.openFile;
-    const read = t.mock.method(fs, 'readFileSync', function(name, ...args) {
-      assert.notEqual(typeof name === 'string' ? path.resolve(name) : name, filename, 'ARC must not read config.toml');
-      return originalRead.call(this, name, ...args);
-    });
-    const open = t.mock.method(DirectoryHandle.prototype, 'openFile', function(name, ...args) {
-      assert.notEqual(name, 'config.toml', 'ARC must not open config.toml');
-      return originalOpen.call(this, name, ...args);
-    });
-    try {
-      await install(context);
-      const prepared = await prepareOperation(context, {kind: 'uninstall', target: 'grok', removeCli: false});
-      assert.ok(prepared.plans.every(plan => !plan.globalChanges.some(change => change.path === filename)));
-      assert.equal((await executeOperation(context, prepared)).code, 0);
-    } finally {read.mock.restore(); open.mock.restore();}
-    if (existing) assert.deepEqual(fs.readFileSync(filename), existing);
-    else assert.equal(fs.existsSync(filename), false);
+    const installed = await install(context), content = fs.readFileSync(filename);
+    assert.ok(installed.plans[0].summary.includes(`${filename}: set [compat.claude] agents, skills, rules = false (arc:managed)`));
+    if (existing) assert.deepEqual(content.subarray(0, existing.length), existing);
+    else assert.equal(content.toString(), '[compat.claude] # arc:managed\nagents = false # arc:managed\nskills = false # arc:managed\nrules = false # arc:managed\n');
+    for (const key of ['agents', 'skills', 'rules']) assert.equal(parseToml(content).compat.claude[key], false);
+    const prepared = await prepareOperation(context, {kind: 'uninstall', target: 'grok', removeCli: false});
+    assert.ok(prepared.plans[0].summary.includes(`${filename}: restored [compat.claude] managed lines`));
+    assert.equal((await executeOperation(context, prepared)).code, 0);
+    assert.equal(fs.existsSync(filename), true);
+    assert.deepEqual(fs.readFileSync(filename), existing ?? Buffer.alloc(0));
   }
+});
+
+for (const [name, text, reason, target] of [
+  ['install aborts on user true without changing files', '[compat.claude]\nagents = true\n', '[compat.claude] agents = true is set by the user; set it to false or remove it', 'grok'],
+  ['install aborts on invalid TOML', '[[x\n', 'TOML parse failed', 'grok'],
+  ['target all aborts before any home changes', '[compat.claude]\nagents = true\n', '[compat.claude] agents = true is set by the user; set it to false or remove it', 'all'],
+]) test(name, async t => {
+  const context = await contextFor(t), filename = path.join(context.userHome, '.grok/config.toml');
+  fs.mkdirSync(path.dirname(filename)); fs.writeFileSync(filename, text);
+  const before = homeBytes(context.userHome), grokBefore = files(path.dirname(filename));
+  await assert.rejects(prepareOperation(context, {kind: 'install', target, language: 'en'}), {name: 'TargetConfigurationError', message: `Cannot update ${filename}: ${reason}; fix it or use --skip-global`});
+  assert.deepEqual(files(path.dirname(filename)), grokBefore);
+  assert.deepEqual(homeBytes(context.userHome), before);
+});
+
+test('uninstall warns and continues when config.toml cannot be parsed', async t => {
+  const context = await contextFor(t), filename = path.join(context.userHome, '.grok/config.toml');
+  await install(context); fs.writeFileSync(filename, '[[broken\n');
+  const prepared = await prepareOperation(context, {kind: 'uninstall', target: 'grok', removeCli: false});
+  assert.ok(prepared.plans[0].summary.includes(`${filename}: ARC-managed [compat.claude] lines were not restored (TOML parse failed); remove lines marked # arc:managed manually`));
+  assert.equal((await executeOperation(context, prepared)).code, 0);
+  assert.equal(fs.existsSync(path.join(context.userHome, '.grok/skills/arc')), false);
+  assert.equal(fs.readFileSync(filename, 'utf8'), '[[broken\n');
+});
+
+test('--skip-global leaves config.toml bytes and reports', async t => {
+  const context = await contextFor(t), filename = path.join(context.userHome, '.grok/config.toml');
+  fs.mkdirSync(path.dirname(filename)); fs.writeFileSync(filename, '[cli]\nx = 1\n');
+  const prepared = await prepareOperation(context, {kind: 'install', target: 'grok', language: 'en', skipGlobal: true});
+  assert.ok(prepared.plans[0].summary.includes(`${filename}: compatibility settings update skipped (--skip-global).`));
+  assert.ok(prepared.plans[0].summary.includes('Native concurrency update skipped (--skip-global).'));
+  assert.equal((await executeOperation(context, prepared)).code, 0);
+  assert.equal(fs.readFileSync(filename, 'utf8'), '[cli]\nx = 1\n');
+  const removed = await prepareOperation(context, {kind: 'uninstall', target: 'grok', removeCli: false, skipGlobal: true});
+  assert.ok(removed.plans[0].summary.includes(`${filename}: compatibility settings not restored (--skip-global).`));
+  assert.equal((await executeOperation(context, removed)).code, 0);
+  assert.equal(fs.readFileSync(filename, 'utf8'), '[cli]\nx = 1\n');
 });
 
 test('reinstall idempotent', async t => {
@@ -94,7 +123,7 @@ test('reinstall idempotent', async t => {
 test('uninstall removes owned only', async t => {
   const context = await contextFor(t), home = path.join(context.userHome, '.grok');
   fs.mkdirSync(path.join(home, 'agents'), {recursive: true});
-  const user = new Map([['agents/my.md', Buffer.from('User agent\n')], ['config.toml', Buffer.from('User settings: opaque bytes\n')], ['AGENTS.md', Buffer.from('# User instructions\n\n')]]);
+  const user = new Map([['agents/my.md', Buffer.from('User agent\n')], ['config.toml', Buffer.from('[cli]\ninstaller = "npm"\n')], ['AGENTS.md', Buffer.from('# User instructions\n\n')]]);
   for (const [name, bytes] of user) fs.writeFileSync(path.join(home, name), bytes);
   await install(context);
   const instruction = path.join(home, 'AGENTS.md');
@@ -102,7 +131,7 @@ test('uninstall removes owned only', async t => {
   const before = fs.readFileSync(instruction, 'utf8');
   const outside = before.replace(/<!-- arc:begin -->[\s\S]*?<!-- arc:end -->/, '');
   const prepared = await prepareOperation(context, {kind: 'uninstall', target: 'grok', removeCli: false});
-  assert.ok(prepared.plans[0].summary.includes('Grok config.toml is preserved.'));
+  assert.ok(prepared.plans[0].summary.includes('Grok config.toml is preserved except ARC-managed [compat.claude] lines.'));
   assert.equal((await executeOperation(context, prepared)).code, 0);
   assert.equal(fs.existsSync(path.join(home, 'skills/arc')), false);
   assert.deepEqual(fs.readdirSync(path.join(home, 'agents')), ['my.md']);
@@ -124,7 +153,8 @@ test('uninstall allowed with install capability off when traces exist', async t 
   const prepared = await prepareOperation(off, {kind: 'uninstall', target: 'grok', removeCli: false});
   assert.equal((await executeOperation(off, prepared)).code, 0);
   const remaining = files(path.join(context.userHome, '.grok'));
-  assert.deepEqual(Object.keys(remaining), ['AGENTS.md']);
+  assert.deepEqual(Object.keys(remaining), ['AGENTS.md', 'config.toml']);
+  assert.equal(Buffer.from(remaining['config.toml'], 'hex').length, 0);
   assert.doesNotMatch(Buffer.from(remaining['AGENTS.md'], 'hex').toString(), /arc:begin/);
 });
 

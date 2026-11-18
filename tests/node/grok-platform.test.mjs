@@ -39,8 +39,10 @@ test('AC-K1 Grok registries agree in anchor and display order with descriptor re
   assert.deepEqual(installer.instructionTemplates, ['AGENTS.md', 'instructions.md']);
   assert.equal(installer.instructionFile, 'AGENTS.md'); assert.equal(installer.runtimeConfigFile, 'config.toml');
   assert.deepEqual(installer.globalPaths, ['AGENTS.md', 'config.toml']);
-  assert.deepEqual(installer.runtimeConfig, {}); assert.deepEqual(installer.isolationEnv(), {});
-  assert.equal(installer.uninstallSummary, 'Grok config.toml is preserved.');
+  assert.equal(typeof installer.runtimeConfig.globalRender, 'function');
+  assert.equal(typeof installer.runtimeConfig.globalRemove, 'function');
+  assert.deepEqual(Object.keys(installer.runtimeConfig), ['globalRender', 'globalRemove']); assert.deepEqual(installer.isolationEnv(), {});
+  assert.equal(installer.uninstallSummary, 'Grok config.toml is preserved except ARC-managed [compat.claude] lines.');
   assert.equal(Object.hasOwn(installer.models, 'discover'), false);
 });
 

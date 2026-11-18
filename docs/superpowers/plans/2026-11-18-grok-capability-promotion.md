@@ -213,7 +213,7 @@
   - `skipGlobal`이면 `${target.runtimeConfigPath}: compatibility settings not restored (--skip-global).`를 넣습니다.
   - summary 첫 항목은 `uninstallSummary`입니다(배열을 만든 뒤 push).
 
-- [ ] **Step 1: 실패 테스트 작성(`tests/node/grok-compat.test.mjs`, 단위)**
+- [x] **Step 1: 실패 테스트 작성(`tests/node/grok-compat.test.mjs`, 단위)**
   - `null creates managed table`
     - content가 Global Constraints의 4줄(`\n`)과 같습니다.
     - action은 `set Grok Claude compatibility`입니다.
@@ -258,7 +258,7 @@
     - managed 줄이 없으면 `content: null`입니다.
     - `[0xff]` → throws `config.toml is not UTF-8`, `'[[x\n'` → throws `TOML parse failed`
   - `only grok descriptor defines global hooks`: claude/codex/gemini 설치기 `runtimeConfig`에 `globalRender`/`globalRemove`가 없고, grok에는 두 함수가 있습니다(AC-F5).
-- [ ] **Step 2: 통합 테스트 수정(`tests/node/grok-install.test.mjs`, `verifiedRegistry` 유지)**
+- [x] **Step 2: 통합 테스트 수정(`tests/node/grok-install.test.mjs`, `verifiedRegistry` 유지)**
   - `install()` 헬퍼의 config.toml globalChanges 부재 단언(29행)을 제거합니다. 아래 명시 테스트로 대체하며 부록 A에 기록합니다.
   - `config.toml untouched`(62행)를 `config.toml managed edit on install and restore on uninstall`로 교체합니다.
     - `null` 사례: 설치 후 파일이 4줄과 같고, plan summary에 `${filename}: set [compat.claude] agents, skills, rules = false (arc:managed)`가 있습니다. 제거 후 파일이 존재하고 길이가 0입니다.
@@ -283,16 +283,16 @@
     - 기존 `'[cli]\nx = 1\n'`에서 `skipGlobal: true`로 설치하면 바이트가 동일하고, summary에 `${filename}: compatibility settings update skipped (--skip-global).`와 `Native concurrency update skipped (--skip-global).`가 있습니다.
     - `skipGlobal: true`로 제거하면 `${filename}: compatibility settings not restored (--skip-global).`가 나오고 바이트가 동일합니다.
   - `reinstall idempotent`는 유지합니다(config 포함 바이트 동일).
-- [ ] **Step 3:** `grok-platform.test.mjs:42-43`을 바꿉니다.
+- [x] **Step 3:** `grok-platform.test.mjs:42-43`을 바꿉니다.
   - `typeof installer.runtimeConfig.globalRender === 'function'`, `typeof installer.runtimeConfig.globalRemove === 'function'`, `Object.keys(installer.runtimeConfig)`가 `['globalRender','globalRemove']`와 같음(deepEqual)
   - summary는 새 문자열입니다.
-- [ ] **Step 4: RED 확인:** `node --test tests/node/grok-compat.test.mjs tests/node/grok-install.test.mjs tests/node/grok-platform.test.mjs`
+- [x] **Step 4: RED 확인:** `node --test tests/node/grok-compat.test.mjs tests/node/grok-install.test.mjs tests/node/grok-platform.test.mjs`
   - 기대: `grok-compat`는 `ERR_MODULE_NOT_FOUND`로 실패합니다.
   - `grok-install` 신규 테스트는 config 미변경, summary 불일치, 중단 미발생으로 FAIL입니다.
-- [ ] **Step 5:** `grok-compat.mjs`를 구현하고, `plan.mjs`·`uninstall.mjs`·`grok.mjs`에 hook을 연결합니다.
+- [x] **Step 5:** `grok-compat.mjs`를 구현하고, `plan.mjs`·`uninstall.mjs`·`grok.mjs`에 hook을 연결합니다.
   - 빈 content(`Buffer.alloc(0)`)가 transaction(`transaction.mjs:62,90` `bytes`)에서 빈 파일로 기록되는지 Step 2의 길이 0 단언으로 확인합니다.
-- [ ] **Step 6: GREEN 확인:** 같은 명령이 PASS여야 합니다. 추가로 `node --test tests/node/hardcoding-residual.test.mjs tests/node/global-config.test.mjs tests/node/runtime-config.test.mjs tests/node/consumer.test.mjs`가 PASS여야 합니다(기준 실패는 제외).
-- [ ] **Step 7:** STD-CLOSE를 실행합니다. golden `--diff`는 0, role-policy 생성물 변경은 0입니다.
+- [x] **Step 6: GREEN 확인:** 같은 명령이 PASS여야 합니다. 추가로 `node --test tests/node/hardcoding-residual.test.mjs tests/node/global-config.test.mjs tests/node/runtime-config.test.mjs tests/node/consumer.test.mjs`가 PASS여야 합니다(기준 실패는 제외).
+- [x] **Step 7:** STD-CLOSE를 실행합니다. golden `--diff`는 0, role-policy 생성물 변경은 0입니다.
 
 **수용 기준:**
 - 위 테스트가 PASS입니다.
@@ -566,7 +566,10 @@
 | 2026-11-18 | P0-a | 기록 | `0ec8647` | `npm test` 2703/2651/36 = 부록 B 35건 + 부하 flake 2(`role-bridge-run` grandchild SIGTERM, `install-mode-n-platform` 파일 timeout; 두 파일 단독 105/105). 신규 0 |
 | 2026-11-18 | P0-b | 기록 | — | `npm view @xai-official/grok version` → `1.0.89`(1.0.x, range 유지). T3 시작 직전 재확인 |
 | 2026-11-18 | P0-c | 기록 | — | `command -v grok` → `~/.nvm/versions/node/v22.21.0/bin/grok`(`/usr/bin`·`/bin` 아님, 격리 성립) |
-| | T1 | | | |
+| 2026-11-18 | P0-a(재개 PC) | 기록 | `3bb15c5` | 다른 PC에서 재개, node v22.18.0. `npm test` 2703/2638/52+cancelled 1 = 부록 B 35건 + 부하 flake 1(`install-mode-n-platform` 파일 timeout, 단독 70/70) + 이 PC 환경 기준 17건(`manifest.test.mjs` 16, `local-updater.test.mjs` 1; 단독 재실행도 실패, 원인은 gitignore된 사용자 파일 `scripts/update-superpowers-local.sh` → `Local updater wrapper is forbidden in package payload`, 사용자 파일이라 보존). 코드 신규 실패 0. 이 PC의 판정 기준선은 35+17건 |
+| 2026-11-18 | P0-b(재개 PC) | 기록 | — | `1.0.89`(1.0.x) |
+| 2026-11-18 | P0-c(재개 PC) | 기록 | — | `command -v grok` 없음(rc=1). 격리 성립 |
+| 2026-11-18 | T1 | 수용 | (이 커밋) | Implementer codex bridge `3233a81f`(fresh), QA codex bridge `046fabca`(fresh). 작업 테스트 73/0, Step 6 추가 4파일 55/10(10건 모두 부록 B packed 계열). runtime `--check`·golden `--diff` 0·`check:manifest`·`check:role-policy`(변경 0)·parity 통과. 호스트 `npm test` 2740/2675/52+cancelled 1 = 기준선(35+17) 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0. `=== 'grok'` 0건, AC-F5 대상 테스트·golden diff 없음. QA 해석 지점 처분: (1) reset 키도 `set … = false` note에 포함 — spec 3.3-7/9/10과 모순 없음(QA 동의). (2) EOF 무개행 입력의 설치→제거 왕복 시 3.3-8이 붙인 구분 EOL이 남음 — spec 3.3-8 명시 동작이며 AC-F3 기준은 재파싱 일치이므로 결함 아님, FR 점검 메모 |
 | | T2 | | | |
 | | T3 | | | 전환 기록: 사용자 결정 2026-11-18(live 검증 아님), `.git/arc/handoff/grok-support/live-probe-2026-11-18.md`; hostPlatform grok 관측 reason |
 | | T4 | | | |
@@ -583,6 +586,7 @@
 | T1 | `grok-install.test.mjs:97,105,109` | 비 TOML fixture, `Grok config.toml is preserved.` | 유효 TOML, 새 summary, 바이트 원복 | O | spec 11.3, 4.2 |
 | T1 | `grok-install.test.mjs:127` | 남는 파일 `['AGENTS.md']` | `['AGENTS.md','config.toml']` + 길이 0 | O | spec 3.4-7, 3.5 |
 | T1 | `grok-platform.test.mjs:42-43` | `runtimeConfig {}`, 옛 summary | hook 2개, 새 summary | O | spec 4.2 |
+| T1 | (assert 수) | — | `grok-install` 48→64, `grok-platform` 77→79, 감소 0 | — | Orchestrator·QA 확인 |
 | T2 | `grok-bridge.test.mjs:249` | childEnv 1키 | 6키 | O | spec 5장 |
 | T2 | `grok-install.test.mjs:202` | 옛 notice | spec 8장 notice | O | spec 8장 |
 | T3 | (Step 3·4·5·7 표의 행, Implementer 보고로 채움) | | | | |
