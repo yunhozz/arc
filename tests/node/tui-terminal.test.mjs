@@ -99,7 +99,7 @@ test('truecolor emits run colors and resets after each run',t=>{
  assert.equal(api.formatLine('a b',{runs:[{from:0,to:1,role:'logo',fg:[1,2,3]},{from:2,to:3,role:'shadow',fg:[4,5,6]}]},'truecolor'),'\x1b[0;38;2;1;2;3ma\x1b[0m \x1b[0;38;2;4;5;6mb\x1b[0m');
 });
 test('selected label, hint segments and titles stay contiguous',t=>{
- const io=session(t);io.session.render({title:'Check Version',rows:['Upgrade','Back'],selected:0});for(const value of ['> Upgrade','Esc Home','Check Version'])assert.ok(io.text().includes(value));
+ const io=session(t);io.session.render({title:'Status',rows:['Upgrade','Back'],selected:0});for(const value of ['> Upgrade','Esc Home','Status'])assert.ok(io.text().includes(value));
 });
 test('256-color terminals use 38;5 indexes',t=>{
  const io=session(t,{env:{TERM:'xterm-256color'}});io.session.render({wordmark:true});assert.match(io.text(),/\x1b\[0;[0-9;]*38;5;\d+m█/);assert.doesNotMatch(io.text(),/38;2/);
@@ -109,7 +109,7 @@ test('basic terminals keep bright green logo',t=>{
  const io=session(t,{env:{TERM:'xterm'}});io.session.render({wordmark:true});assert.ok(io.text().includes('\x1b[0;92m█'));assert.doesNotMatch(io.text(),/38;[25]/);
 });
 for(const env of [{COLORTERM:'truecolor',NO_COLOR:''},{TERM:'dumb',TERM_PROGRAM:'cmux'}])test('color disable emits no SGR on any styled screen '+JSON.stringify(env),t=>{
- const io=session(t,{env});for(const screen of [{wordmark:true,rows:['Configure'],selected:0},{title:'Check Version',rows:['Upgrade'],selected:0},{title:'Working',mode:'busy',rows:['Running']}])io.session.render(screen);assert.doesNotMatch(io.text(),/\x1b\[[0-9;]*m/);
+ const io=session(t,{env});for(const screen of [{wordmark:true,rows:['Configure'],selected:0},{title:'Status',rows:['Upgrade'],selected:0},{title:'Working',mode:'busy',rows:['Running']}])io.session.render(screen);assert.doesNotMatch(io.text(),/\x1b\[[0-9;]*m/);
 });
 for(const name of ['ghostty','cmux'])test(name+' explicit identity enables RGB on all filled logo cells only',t=>{
  const io=session(t,{env:{TERM_PROGRAM:name,TERM:'xterm-256color'}});io.session.render({wordmark:true});const heading=io.text().split('\n').slice(0,6).join('\n');assert.equal([...heading.matchAll(/\x1b\[0;38;2;[0-9;]+m█/g)].length,[...heading].filter(character=>character==='█').length);assert.doesNotMatch(heading,/\x1b\[0;38;2;[0-9;]+m /);assert.ok(heading.includes('\x1b[0;38;2;170;243;211m█'));

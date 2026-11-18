@@ -82,7 +82,7 @@ test('hint segments and separators are separate runs',()=>{
  assert.deepEqual(result.styles.find(style=>style.line===1).runs,[{from:0,to:5,role:'position',fg:[110,130,120]}]);
 });
 test('title uses a bold mint run on inner screens',()=>{
- const result=api.renderScreen({title:'Check Version',rows:['Upgrade','Back'],selected:0});assert.deepEqual(result.styles[0],{line:0,runs:[{from:0,to:13,role:'title',fg:[110,231,183],bold:true}]});assert.equal(result.text.split('\n').length,6);
+ const result=api.renderScreen({title:'Status',rows:['Upgrade','Back'],selected:0});assert.deepEqual(result.styles[0],{line:0,runs:[{from:0,to:6,role:'title',fg:[110,231,183],bold:true}]});assert.equal(result.text.split('\n').length,6);
 });
 test('rules use the pinned gradients',()=>{
  const result=api.renderScreen({wordmark:true}),lines=result.text.split('\n'),home=result.styles.find(style=>style.line===7).runs,footer=result.styles.find(style=>style.line===lines.length-2).runs;

@@ -3,7 +3,7 @@ const update=await import('../../lib/management/update.mjs');
 const {runChild}=await import('../../lib/cli/upgrade.mjs');
 // Service-level upgrade regressions remain after removing the public CLI parser.
 async function executePreparedUpdate(streams,deps){
- try{const result=await update.executeUpdate(deps,await update.prepareUpdate(deps));for(const message of result.messages??[])streams.output.write(message);if(result.stdout)streams.output.write(result.stdout);if(result.stderr)streams.error.write(result.stderr);if(result.error)update.failure(result.error,streams.error);else if(result.version)update.report(result,streams.output,streams.error);if(result.code!==0)streams.error.write('Retry from Check Version or Configure.');return result.code;}catch(error){return update.failure(error,streams.error);}
+ try{const result=await update.executeUpdate(deps,await update.prepareUpdate(deps));for(const message of result.messages??[])streams.output.write(message);if(result.stdout)streams.output.write(result.stdout);if(result.stderr)streams.error.write(result.stderr);if(result.error)update.failure(result.error,streams.error);else if(result.version)update.report(result,streams.output,streams.error);if(result.code!==0)streams.error.write('Retry from Status or Configure.');return result.code;}catch(error){return update.failure(error,streams.error);}
 }
 const api={runChild};
 test('incomplete harness update directs the user to Configure',()=>{

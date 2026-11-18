@@ -759,7 +759,7 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | 2026-11-18 | 기준선(P0-a) | 기록 | `564ea20` | `npm test` 실패 35건(부록 B). docs 커밋은 테스트 대상 파일을 바꾸지 않으므로 이 기준선을 그대로 씁니다 |
 | 2026-11-18 | P0-b | 기록 | — | `npm view @xai-official/grok version` → `1.0.88`(1.0.x, range 유지). T3 시작 직전에 다시 확인합니다 |
 | 2026-11-18 | T1 | 수용 | (이 커밋) | Implementer 9dea2fb9(재개 1회: 선택적 read 오류 후 동일 세션 재개), QA 889dcd66 수용 권고. 호스트 `npm test` 2637/2586/35 = 기준선과 동일(신규 0), PTY 35 PASS, golden·manifest·role-policy·parity 통과, 주입 검출 확인(사본, `lib/tui/setup.mjs:192`) |
-| | T2 | | | |
+| 2026-11-18 | T2 | 수용 | (이 커밋) | Implementer 8f551e3b → 보정 교체 0efe1e07(R7: `capability-surfaces`, `management-status`를 Orchestrator가 허용 목록에 추가, lease allowedPaths 변경 불가로 교체). QA ab90e9b4 수용 권고(작업 테스트 330 PASS). 호스트 `npm test` 2656/2605/36 = 기준선 + 부하 flake 1(`role-routing-dispatch` 단독 29/29) |
 | | T3 | | | |
 | | T4 | | | |
 | | T5 | | | |
@@ -777,7 +777,15 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | T1 | `tests/node/tui-app.test.mjs:183,187`, `anchor-migration.test.mjs:175` | `…Claude home on the next Install / Update.`(40열 줄바꿈 포함) | `…Claude home the next time you apply Configure.` | M | spec 13.1 상태 안내 |
 | T1 | `tests/node/upgrade-cli.test.mjs:9–13` | — | 반환값·stderr 정확 문자열 단언 2개 추가 | M | spec 13.1 update.mjs 문구 |
 
+| T2 | `tests/node/tui-app.test.mjs`(홈 배열·렌더 횟수·Status prepare·Version 행 정렬·기본 Back·버전 화면 이관; 행은 Implementer 8f551e3b 보고) | 5항목 홈, 별도 `Check Version` 화면, 기본 Upgrade | 4항목 홈, Status Version 행, 기본 Back | M | spec 13.2 |
+| T2 | `tests/node/tui-app-pty.test.mjs:29,59–109,129` | `PREPARES=0`, 별도 버전 화면, Uninstall 이동 3회 | `PREPARES=1`, Status 흐름, 이동 2회 | M | spec 13.2 |
+| T2 | `tests/node/{tui-render:85,tui-terminal:102,112,npm-lifecycle:17,upgrade-cli:6}` | `Check Version` 제목·항목·보조 문구 | `Status` | M | 홈 항목 제거 |
+| T2 | `tests/node/capability-surfaces.test.mjs:134` | 홈 `down` 3회 | 2회 | M | 새 홈 Uninstall 위치 |
+| T2 | `tests/node/management-status.test.mjs:19` | `rows.includes('Codex    '+label)` | `Codex` 행 정확히 1개, 값 `label` deepEqual | M | Version 행으로 정렬 폭 변경(강도 유지 이상) |
+| T2 | `tests/node/menu-label-residual.test.mjs:10,24` | 금지 문구 1개 | `'Check ' + 'Version'` 추가 | M | AC-M1 |
+
 T1: 수정 파일 assert 감소 0건 확인(QA 889dcd66, upgrade-cli 40→42).
+T2: 수정 파일 assert 감소 0건 확인(QA ab90e9b4, tui-app 429→483, tui-app-pty 65→68).
 
 ### 부록 B — 기준 실패 목록
 
