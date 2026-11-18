@@ -63,10 +63,43 @@ test('BOM is preserved or rejected', () => {
   try {result = renderGrokCompat(input);} catch (error) {assert.equal(error.message, 'TOML parse failed'); return;}
   assert.deepEqual(result.content.subarray(0, 3), bom);
 });
+test('BOM managed table reinstall preserves all bytes unchanged', () => {
+  const input = Buffer.from('\uFEFF' + table), result = renderGrokCompat(input);
+  assert.deepEqual(result.content, input);
+  assert.equal(result.action, 'unchanged');
+  assert.deepEqual(result.notes, []);
+});
+test('BOM user true aborts with the user-owned setting reason', () => {
+  assert.throws(() => render('\uFEFF[compat.claude]\nagents = true\n'), {message: '[compat.claude] agents = true is set by the user; set it to false or remove it'});
+});
+test('BOM subtable-only config appends managed header at EOF', () => {
+  const result = render('\uFEFF[compat.claude.extra]\nx = 1\n');
+  assert.deepEqual(result.content, Buffer.from('\uFEFF[compat.claude.extra]\nx = 1\n' + table));
+});
+test('render rejects a table-like multiline string with the safe edit reason', () => {
+  assert.throws(() => render('x = """\n[compat.claude]\nagents = false # arc:managed\n"""\n'), {message: 'cannot verify the safe edit'});
+});
+test('render keeps the safe edit rejection for a header-only multiline string', () => {
+  assert.throws(() => render('x = """\n[compat.claude]\nfoo\n"""\n'), {message: 'cannot verify the safe edit'});
+});
 
 test('remove missing or unmanaged config leaves it alone', () => {
   assert.deepEqual(removeGrokCompat(null), {content: null, notes: []});
   assert.deepEqual(removeGrokCompat(Buffer.from('[compat.claude]\nagents = false\n')), {content: null, notes: []});
+});
+test('remove BOM managed table preserves exactly the BOM bytes', () => {
+  const result = removeGrokCompat(Buffer.from('\uFEFF' + table));
+  assert.deepEqual(result.content, Buffer.from([0xef, 0xbb, 0xbf]));
+  assert.deepEqual(result.notes, ['restored [compat.claude] managed lines']);
+});
+test('remove rejects a table-like multiline string with the safe edit reason', () => {
+  assert.throws(() => removeGrokCompat(Buffer.from('x = """\n[compat.claude]\nagents = false # arc:managed\n"""\n')), {message: 'cannot verify the safe edit'});
+});
+test('remove leaves a table-like multiline string without managed keys alone', () => {
+  assert.deepEqual(removeGrokCompat(Buffer.from('x = """\n[compat.claude]\nfoo\n"""\n')), {content: null, notes: []});
+});
+test('remove rejects a managed header inside a multiline string with the safe edit reason', () => {
+  assert.throws(() => removeGrokCompat(Buffer.from('x = """\n[compat.claude] # arc:managed\n"""\n')), {message: 'cannot verify the safe edit'});
 });
 for (const [name, input, expected] of [
   ['managed table becomes empty file', table, ''],
