@@ -434,7 +434,7 @@
 | 2026-11-19 | T1 | 수용 | (이 커밋) | Implementer #1 `1296b058` 구현 전 hold(문서 개수 충돌) → v2 정정 승인 → fresh #2 `fb31c027`. focused 138/0, check:manifest PASS(1행), AC-C4 diff 0, 부분열 확인. 호스트 sentinel npm test 2801/2736/53, 직전 FR 목록 대비 신규 1건(`role-bridge-run` secret env) 단독 35/0 → 부하 flake, sentinel log 없음. 첫 실행은 Python 회귀가 남긴 `__pycache__`로 payload 검증 336건 실패 → 산출물 삭제 후 `PYTHONDONTWRITEBYTECODE=1`로 재실행 |
 | 2026-11-19 | T2 | 수용 | (이 커밋) | Implementer `33259279`. RED 6/3 → GREEN watch-status-line+tui-render 50/0, 기존 단언 1곳(`shimmerText('w',2)` 231→195, 계약 변경), assert 20→26, check:manifest PASS(1행), AC-W4 diff 0. 호스트 watch-cli+watch-status-line 55/0, sentinel npm test 2803/2739/52, 직전 목록 대비 신규 0, sentinel log 없음 |
 | 2026-11-19 | T3 | 수용 | (이 커밋) | Implementer `b796ad95`. RED 282/17 → GREEN 340/0. 기존 단언 수정 2곳(원인=빈 줄): `tui-custom-preset.test.mjs:303` Back 3→4, `tui-setup.test.mjs:358` Done 5→6·`[7]→[8]`; assert 수 감소 없음(110→112, 493→500, 231→238, 146→154). fresh QA `5c6fb92d`(4 segment; rm 거부로 2회 재지시): 명세 위반 없음, AC-U1·U3·U5 proven, AC-U2·U4·U6은 전 행 실제 프레임 순회 미실시로 unverified(화면별 kind 단언·기존 이동 테스트·경계 탐침·3×3 매트릭스·40×16 Configure 스크롤로 뒷받침), 미확인 조합: 스크롤된 Configure에서 Apply 선택 시 비선택 Back 색. 호스트 tui-*.test 383/382(실패 1 기준선), sentinel npm test 2825/2761/52 신규 0, sentinel log 없음 |
-| | FR | | | |
+| 2026-11-19 | FR | 완료 | — | Reviewer `c2d237a5`(native): 지적 없음(관찰 2건: `render.mjs:105` 미정의 kind→danger 방어 여부, AC-U2 단언에 Active dispatches 비자격·Uninstall switching info 경우 없음 — 수정 요구 없음). QA 미확인 조합(스크롤 Configure에서 Apply 선택 시 Back)은 Back이 창 밖이라 관찰 대상 없음(기존 동작). 최종 검사: T3 호스트 sentinel npm test(같은 코드 트리 0d330c5) 신규 0, sentinel log 없음 |
 
 ## 계획 결정 기록 (spec 범위 안, Orchestrator 확정 2026-11-19)
 
