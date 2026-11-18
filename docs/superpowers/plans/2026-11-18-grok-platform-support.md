@@ -353,7 +353,7 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
   - `lib/platforms/formats/grok-markdown.mjs`: `render(text, role, settings) -> string`, `isOwnedStandalone(bytes, role) -> boolean`, `renameForRouting(bytes, role, revision)` — 시그니처와 반환형은 `gemini-markdown.mjs`와 같습니다.
     - frontmatter는 정확히 `name`, `description`, `model`입니다. `effort`, 누락 필드, 잘못된 scalar는 거부합니다. `permissionMode`·`tools`·`disallowedTools`는 렌더링하지 않습니다.
     - routing 이름은 `arc-routing-<suffix>`, description 끝에 `[arc-routing rev <revision>]`를 붙입니다. 오류 문구의 플랫폼명은 `Grok`입니다.
-  - `lib/models/grok-models.json`: `{"platform":"grok","pairs":[…]}`. 모든 effort는 `"default"`이고, 모델 목록은 OD-1이 아닌 OD-2 확정값을 씁니다(기본안 `grok-4.6`, `grok-4.5`, `grok-build` 순서).
+  - `lib/models/grok-models.json`: `{"platform":"grok","pairs":[…]}`. 모든 effort는 `"default"`이고, 모델 목록은 OD-2 확정값(`grok-4.6` 하나)을 씁니다.
   - P-K7(`status.mjs` `collectStatus`): `runtime.capabilities.install.state !== 'verified'`이면 `probeCliVersion`·`probePlatformAuth`·codex probe를 호출하지 않고 `cliVersion: {version: null, reason: 'capability_not_verified'}`, `authentication: {authStatus: 'unknown', reason: 'capability_not_verified'}`를 씁니다. `resolveLocalCli`는 호출해도 됩니다. 리터럴 분기는 쓰지 않습니다.
 
 - [ ] **Step 1: 실패 테스트 작성**(`grok-platform.test.mjs`)
@@ -765,7 +765,7 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | 2026-11-18 | T5 | 수용 | (이 커밋) | Implementer eb3dca50(23 files, 218/218). QA 4f372103: AC-K5·K6·K9·K2·routing·갱신 세트 8항목·생성물 pass, 작업 테스트 202/202; QA 명령 regex 오류로 미확인이던 리터럴 분기 범위는 Orchestrator 호스트 `rg --pcre2`로 허용 목록 파일(lib/runtime·shared 사본)만 확인, hardcoding-residual 11/11. 호스트 `npm test` 2727/2676/35 = 기준선 + install-mode-n-platform 파일 timeout(단독 70/70), ps 의존 bridge 51/51 |
 | 2026-11-18 | T6 | 수용 | (이 커밋) | Implementer b59378e9(신규 `tests/node/grok-composite.test.mjs` 1개, 운영 코드 변경 없음, 호스트 24/24). QA 9520f091: 주입 registry·publish S={claude,grok}·4플랫폼 lock 순서·`arc_scouter` lease v2·`arc_qa` hold·Gemini 무수정·manifest pass, 변이 3건 모두 ERR_ASSERTION으로 검출. 호스트 `npm test` 2729/2677/36 = 기준선 + install-mode-n-platform 파일 timeout + `cancel uses SIGTERM then SIGKILL before identity`(부하 flake); 전체 재실행 2731/2681/35 = 기준선과 동일 |
 | 2026-11-18 | T7 | 수용 | (이 커밋) | Implementer 565cfb0d(4 files). 14장 대조: README 40 Configure·41–42 병합(정확 문자열)·48 `> Grok`·81 아래 Grok 행·93·95 Configure; harness-operation 42 `> Grok`·72 아래 Grok 행·114 Home·123 접두문+Configure·129·132·134 Configure — 7 hunk 모두 14장 항목, 범위 밖 0. QA 530dd4b0 수용 권고(병합 행 바이트 일치, formerly·GK1/GK2 0건, rg 잔존 0, residual 1/1, manifest OK). 호스트 `npm test` 2712/2661/35 = 기준선 + install-mode-n-platform 파일 timeout(기존 부하 flake) |
-| | FR | | | |
+| 2026-11-18 | FR | 수용 | (이 커밋) | Reviewer c48ad94c(native) `564ea20..4c82508` 검토: 차단 결함 0, D1(Low, prompt 파일 path chmod) · S1(의심, `collectInstalledState` capability 필터 없음) · Q1(note 병합 해석) · Q2(OD-2 카탈로그 근거 없음). Orchestrator 판정: D1 수정, S1 수정안 (a)(spec 5.6·D10), Q2 spec 5.3 위반으로 `grok-4.6`만(OD-2 정정), Q1 plan 해석 유지(플랫폼 note는 접미사가 있어 같은 문구 아님). Implementer ec642d10(fresh, FR 수정 경계): `fchmodSync(promptFd)`, upgrade-state descriptor 필터, 카탈로그 1개, 회귀 테스트 3개 추가(RED 확인), 지정 211/211. Reviewer 재확인: 3건 해소, 신규 N1(Low, `grok-platform` 모델 치환 검출력 상실) → 같은 Implementer 재개로 `grok-test` 설정+불일치 단언, 호스트 변이(render 치환 무력화) 27/1 검출, 28/28 → Reviewer 해소·신규 결함 0. 호스트 `npm test` 2708/2655/37 = 기준선 + install-mode-n-platform 파일 timeout + flake 2(`role-bridge-run` PID reuse, `codex-auth-probe` app-server timeout; 단독 86/86). 후속 점검(capability 전환 시): grok install verified 전환 후 `~/.grok` 흔적이 있으면 버전 간 stateToken 차이로 CLI 교체 후 upgrade 재시도가 필요할 수 있음 |
 
 ### 부록 A — 기존 단언 old → new 대응표
 
@@ -804,6 +804,7 @@ T4: 수정 파일 assert 감소 0건 확인(QA c284f85c).
 T5: 수정 파일 assert 감소 0건 확인(QA 4f372103; capability-evidence 5→8).
 T6: 기존 테스트 수정 없음, 신규 파일만 추가(QA 9520f091).
 T7: `menu-label-residual` 검사 대상 확장(EXTRA_PATHS 2개), assert 감소 0건(QA 530dd4b0).
+FR: `grok-platform.test.mjs:20,76,89` 모델·카탈로그 기대값 조정(`grok-4.5`→`grok-test`, 카탈로그 3→1), 불일치 단언 추가; assert grok-platform 76→77, grok-install 41→48, grok-bridge 76→83, 감소 0건(Reviewer c48ad94c 재확인).
 
 ### 부록 B — 기준 실패 목록
 
@@ -862,9 +863,7 @@ OD-1–OD-7은 모두 아래 기본안으로 확정합니다. 각 항목은 승�
   - `Read`·`Grep`·`Glob`·`WebFetch`·`WebSearch`는 읽기 계열이라 제외합니다.
   - 차단 효과는 unverified로 유지합니다(U-K5).
   - `MCPTool`을 spec의 "쓰기·셸 도구 rule" 밖으로 본다면 `['Bash','Edit','Write']`를 씁니다.
-- **OD-2 카탈로그 모델.** spec 5.3은 문서로 확인된 ID의 추가를 허용합니다. 확정: `grok-4.6`(역할 기본값), `grok-4.5`, `grok-build` 순서이고, 역할 기본 모델은 spec대로 `grok-4.6`입니다.
-  - 대안: `grok-4.6` 하나만 둡니다. live 전환 때 `-m` 확인 부담이 줄어듭니다.
-  - 문서상 새 세션 기본값이 `grok-4.5`라는 사실은 역할 기본값을 바꾸는 근거로 쓰지 않습니다. 바꾸려면 spec 개정이 필요합니다.
+- **OD-2 카탈로그 모델.** spec 5.3은 Scouter가 문서로 확인한 ID만 추가를 허용합니다. 확정(FR 정정): `grok-4.6` 하나. 최초 기본안의 `grok-4.5`·`grok-build`는 Scouter 결과(69a82e78, 56cea4d7)에 문서 근거가 없어 최종 Reviewer 지적(Q2)에 따라 제거했습니다.
 - **OD-3 T1의 홈 배열.** T1은 라벨만 바꾸고 `Check Version` 항목은 T2에서 제거합니다. spec 13.1의 `app.mjs:11` 값은 T2 완료 시점의 최종값으로 해석했습니다. 각 커밋에서 기능 공백이 생기지 않게 하려는 선택입니다.
 - **OD-4 `role-routing.mjs:234/246`을 T5에 배치.** spec 9장은 composite 장에 이 변경을 적었습니다. 그러나 15장 "T6은 T5에 의존(`sessionId` 예약, gate)"과 AC-K5/K6 통합 테스트가 `prepareRoleDispatch`를 거쳐야 한다는 점 때문에 T5에 넣었습니다(Gemini `gemini-bridge.test.mjs`도 같은 구조).
 - **OD-5 role-policy 분할.** `controls.grok`은 T3, `platforms.grok`은 T4에 둡니다. `lib/policy/render.mjs`의 `POLICY_TARGETS`가 `platforms` 키로 `grok/` payload 파일을 요구하기 때문입니다(Gemini T10/T11 선례와 같음).

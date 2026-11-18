@@ -17,7 +17,7 @@ import {ZETA_CAPABILITY_OFF, ZETA_AUTH_NONE, createZetaRegistries} from './fixtu
 
 const descriptor = () => {const value = getPlatform('grok'); assert.ok(value, 'Grok descriptor is required'); return value;};
 const source = '---\nname: arc-planner\ndescription: Plan carefully\nmodel: grok-4.6\n---\n[ARC role policy: contract begin]\nPlan the work.\n';
-const setting = {model: 'grok-4.5', effort: 'default'};
+const setting = {model: 'grok-test', effort: 'default'};
 
 // Missing registration, premature capability promotion and unsafe scalar acceptance break these boundaries.
 test('AC-K1 Grok registries agree in anchor and display order with descriptor references', () => {
@@ -73,7 +73,7 @@ test('AC-K2 all nine Grok capabilities are off with fixed reasons', () => {
 test('AC-K10 Grok catalog pairs use default effort and safe model identifiers', async () => {
   const validate = descriptor().routing.validatePair, result = await loadStaticModelCatalog('grok');
   assert.equal(result.status, 'ready');
-  assert.deepEqual(result.catalog, {platform: 'grok', pairs: ['grok-4.6', 'grok-4.5', 'grok-build'].map(model => ({model, effort: 'default'}))});
+  assert.deepEqual(result.catalog, {platform: 'grok', pairs: ['grok-4.6'].map(model => ({model, effort: 'default'}))});
   for (const pair of result.catalog.pairs) {assert.equal(pair.effort, 'default'); assert.match(pair.model, /^[A-Za-z0-9][A-Za-z0-9._:/@+\-]*$/); assert.equal(validate(pair.model, pair.effort), true);}
   for (const [model, effort] of [['grok-4.6', 'high'], ['-grok', 'default'], ['grok 4', 'default'], ['', 'default'], ['grok\n', 'default'], [null, 'default']]) assert.equal(validate(model, effort), false);
   assert.equal((await discoverModelCatalog('grok')).status, 'unavailable');
@@ -86,7 +86,8 @@ test('AC-K9 Grok render ownership and routing round trip uses exactly three fron
     assert.equal(format.isOwnedStandalone(rendered, 'arc_planner'), true);
     assert.equal(format.isOwnedStandalone(rendered, 'arc_qa'), false);
     assert.deepEqual(rendered.toString().split(/\r?\n---\r?\n/)[0].split(/\r?\n/).slice(1).map(line => line.split(':')[0]), ['name', 'description', 'model']);
-    assert.match(rendered.toString(), /model: grok-4.5/);
+    assert.match(rendered.toString(), /model: grok-test/);
+    assert.doesNotMatch(rendered.toString(), /model: grok-4.6/);
     assert.doesNotMatch(rendered.toString(), /permissionMode|disallowedTools|tools|effort:/);
     const routing = format.renameForRouting(rendered, 'arc_planner', 't3-revision');
     assert.match(routing.toString(), /name: arc-routing-planner/);

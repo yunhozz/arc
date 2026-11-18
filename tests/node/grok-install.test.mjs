@@ -6,6 +6,7 @@ import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY} from '../../lib/runti
 import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../lib/platforms/index.mjs';
 import {prepareOperation, executeOperation} from '../../lib/management/operations.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
+import {collectInstalledState} from '../../lib/installer/upgrade-state.mjs';
 import {DirectoryHandle} from '../../lib/safe-fs/index.mjs';
 import {runTui} from '../../lib/tui/app.mjs';
 import {spawnSync} from 'node:child_process';
@@ -125,6 +126,26 @@ test('uninstall allowed with install capability off when traces exist', async t 
   const remaining = files(path.join(context.userHome, '.grok'));
   assert.deepEqual(Object.keys(remaining), ['AGENTS.md']);
   assert.doesNotMatch(Buffer.from(remaining['AGENTS.md'], 'hex').toString(), /arc:begin/);
+});
+
+test('upgrade excludes installed traces with install capability off', async t => {
+  const context = await contextFor(t);
+  await install(context);
+  const off = {...context, platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
+  assert.equal((await executeOperation(off, await prepareOperation(off, {kind: 'install', target: 'claude', language: 'en'}))).code, 0);
+  for (const name of ['SKILL.md', 'settings.toml', 'models.toml', 'limits.toml']) assert.ok(fs.existsSync(path.join(context.userHome, '.grok/skills/arc', name)), name);
+  assert.deepEqual(collectInstalledState(off).targets.map(entry => entry.target.platform), ['claude']);
+});
+
+test('upgrade ignores a managed block without skills when install capability is off', async t => {
+  const context = await compositeContext(t);
+  assert.equal((await executeOperation(context, await prepareOperation(context, {kind: 'install', target: 'claude', language: 'en'}))).code, 0);
+  const home = path.join(context.userHome, '.grok');
+  fs.mkdirSync(home);
+  fs.writeFileSync(path.join(home, 'AGENTS.md'), '<!-- arc:begin -->\nARC managed instructions\n<!-- arc:end -->\n');
+  assert.equal(fs.existsSync(path.join(home, 'skills/arc')), false);
+  assert.doesNotThrow(() => collectInstalledState(context));
+  assert.deepEqual(collectInstalledState(context).targets.map(entry => entry.target.platform), ['claude']);
 });
 
 test('uninstall order follows displayOrder', async t => {

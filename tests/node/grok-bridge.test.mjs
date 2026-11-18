@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
@@ -164,6 +165,36 @@ test('existing or symlinked prompt.md fails before spawn', async t => {
     await assert.rejects(fs.access(f.record), {code: 'ENOENT'});
     assert.equal(await fs.readFile(target, 'utf8'), 'preserved'); assert.equal(await fs.readFile(prompt, 'utf8'), 'preserved');
   }
+});
+
+test('prompt permissions use the opened file when its path becomes a symlink', async t => {
+  const f = await fixture(t), prepared = await f.prepare(); assert.equal(prepared.decision, 'allow');
+  assert.equal((await runBridgeDispatch({context: f.context, dispatchId: prepared.dispatchId, brief: 'Private task brief', policy, startSupervisor: f.starter})).decision, 'allow');
+  const lease = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
+  const prompt = path.join(path.dirname(lease.resultPath), 'prompt.md'), opened = prompt + '.opened', target = path.join(f.base, 'target');
+  await fs.writeFile(target, 'preserved', {mode: 0o644});
+  const originalOpen = fsSync.openSync, originalWrite = fsSync.writeFileSync;
+  let promptFd, swapped = false;
+  const open = t.mock.method(fsSync, 'openSync', function(filename, ...args) {
+    const fd = originalOpen.call(this, filename, ...args);
+    if (filename === prompt) promptFd = fd;
+    return fd;
+  });
+  const write = t.mock.method(fsSync, 'writeFileSync', function(filename, ...args) {
+    const result = originalWrite.call(this, filename, ...args);
+    if (filename === promptFd && !swapped) {
+      swapped = true;
+      fsSync.renameSync(prompt, opened);
+      fsSync.symlinkSync(target, prompt);
+    }
+    return result;
+  });
+  try {await f.supervise(prepared.dispatchId);} finally {open.mock.restore(); write.mock.restore();}
+  assert.equal((await fs.lstat(prompt)).isSymbolicLink(), true);
+  assert.equal((await fs.stat(target)).mode & 0o777, 0o644);
+  assert.equal((await fs.stat(opened)).mode & 0o777, 0o600);
+  assert.equal(await fs.readFile(target, 'utf8'), 'preserved');
+  assert.equal(await fs.readFile(opened, 'utf8'), 'Private role instructions\n\n\nPrivate task brief');
 });
 
 test('AC-K6 Implementer/QA hold without spawning', async t => {
