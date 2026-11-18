@@ -39,7 +39,7 @@ Simple questions stay with Orchestrator; diagram stages depend on risk/plan rule
 | Contract | Rule |
 |---|---|
 | Participants | S = role platforms ∪ hosts; one = standalone, two or more = `Mixed (…)` |
-| Anchor | Display and anchor order: Claude > Codex > Gemini |
+| Anchor | Display and anchor order: Claude > Codex > Gemini > Grok |
 | Active file | `<anchor home>/arc-role-platform-routing.json`; new schema v2 explicitly lists anchor-ordered platforms |
 | Lock and store | Routing lock and `arc-role-dispatch/` in the anchor home |
 | Participants | `arc-role-platform-routing.prepared.json` points to active file; `agents/arc-routing-*` for assigned roles; host-only marker has an empty profile map |
@@ -70,6 +70,7 @@ flowchart LR
 | Codex | Home/composite auth uses `codex app-server` `getAuthStatus`; network refresh rotates `CODEX_HOME/auth.json` tokens |
 | Claude | `claude auth status` |
 | Gemini | `auth.kind: none`, no probe, status `unknown`; `auth unverified` warning, not proof of login |
+| Grok | All capabilities off; the CLI is not run; `auth.kind: none`, no probe |
 
 Unknown Claude/Codex probe results block participation.
 
@@ -111,7 +112,7 @@ flowchart LR
 | Operation or mode | Action and confirmation |
 |---|---|
 | CLI | `arc`, `arc watch`, `arc --help`, `arc --version`; TUI needs both TTYs, invalid/non-TTY no-argument calls exit 2; help/version/watch need no native installer |
-| Home | Install / Update, Check Version, Uninstall, Exit |
+| Home | Configure, Status, Uninstall, Exit |
 | Diagram | Role boxes → Platform/Model/Effort → Done → Apply; compact rows on narrow terminals. Reuse draft, then composite, then first installed platform, else available platform defaults (fallback Claude); catalog failure blocks participating platform, no automatic reselection. Unverified blocks Apply |
 | Settings | Defaults EN/100 total/5 concurrent; unchanged mixed fields preserve values; edited values apply across S |
 | D1-a: size 1, standalone | Install/update selected P; other standalone homes untouched |
@@ -120,18 +121,18 @@ flowchart LR
 | D1-d: size ≥2, same S | Install S in anchor order; republish at anchor |
 | Mixed publication | Owned standalone profiles replaced with routing profiles; rollback restores original bytes |
 | D1-e: size ≥2, changed S | Mode preview, no extra confirmation; install additions, transactionally restore departing standalone profiles/publish new markers; departing homes retain ARC. Anchor move locks old/new in ascending order, releases reverse; any non-terminal native/bridge lease in either store holds move |
-| Update | Exact displayed version revalidated before upgrade; no newer/unavailable latest offers no Upgrade. Global replacement exits; npx preserves global CLI. Same-version refresh: Install / Update; broken CLI: `npx --yes @yunhozz/arc@latest` |
+| Update | Status shows the version; Exact displayed version revalidated before upgrade; no newer/unavailable latest offers no Upgrade. Global replacement exits; npx preserves global CLI. Same-version refresh: Configure; broken CLI: `npx --yes @yunhozz/arc@latest` |
 | Preservation / holds | Preserve outside managed blocks, unrelated settings/shared skills; malformed policy/config stops install. Omitted valid limits survive; concurrency mismatch needs explicit selection. Skip-global omits this operation's instructions/native settings, not prior changes. Unverified profiles preserved as residuals; inconsistent routing blocks publication/switch/remove; active bridges block publication/deactivation |
 | Native settings | Codex wait config merges supported `[features.multi_agent_v2]`, otherwise guidance; concurrency: integer `[agents].max_concurrent_threads_per_session`, Claude string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` |
 
 Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active files/inconsistency is unverified):
 
-1. Run Install / Update → Apply; acquire Claude then Codex anchor locks; no extra migration confirmation.
+1. Run Configure → Apply; acquire Claude then Codex anchor locks; no extra migration confirmation.
 2. Inspect both stores; any non-terminal lease holds before writes. Finish/cancel; lost supervisors/corrupt leases/uncertain exit require manual inspection/cleanup, never automatic deletion.
 3. One transaction writes Claude-home v2, repoints markers, removes old active file; failed recovery reports residual paths, restored rollback permits later Apply.
-4. Leave history in old store (never merged/read by runtime after move), release locks in reverse; legacy runtime holds `activation_unverified`. Legacy removal uses old anchor; downgrade needs older Install / Update.
+4. Leave history in old store (never merged/read by runtime after move), release locks in reverse; legacy runtime holds `activation_unverified`. Legacy removal uses old anchor; downgrade needs older Configure.
 
-- `cooperative-9`: re-run Install / Update for all participants; active dispatches block publication; unknown/unsupervised starting leases need manual cleanup.
+- `cooperative-9`: re-run Configure for all participants; active dispatches block publication; unknown/unsupervised starting leases need manual cleanup.
 - In-flight plan commands, including status, hold with `cooperative.versions`; results only, unresolved `versions-changed`; no automatic migration/approval renewal. Finish/handoff before upgrade or start fresh with new evidence/approvals.
 
 | Uninstall | Scope and boundaries |

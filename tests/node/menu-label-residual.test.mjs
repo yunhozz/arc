@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const self=fileURLToPath(import.meta.url);
-const EXTRA_PATHS = [];
+const EXTRA_PATHS = ['README.md','docs/harness-operation.md'];
 const legacyLabels=['Install / ' + 'Update', 'Check ' + 'Version'];
 
 test('no legacy Install/Update label in shipped code, payloads or tests',()=>{

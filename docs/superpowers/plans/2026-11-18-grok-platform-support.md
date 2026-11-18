@@ -764,7 +764,7 @@ Scouter 대응표(56cea4d7 B장)는 후보 목록일 뿐입니다. 각 작업에
 | 2026-11-18 | T4 | 수용 | (이 커밋) | Implementer 46911c3a → 보정 교체 3f85bf22(R7: `gemini-platform.test.mjs:357` POLICY_TARGETS 허용 집합에 grok, Orchestrator의 허용 목록 누락). QA c284f85c: 작업 테스트 277/277, AC-K4·K3·K7·payload·생성물 pass. QA 분류 지적 1건(`grok-platform.test.mjs` `platforms.grok` false→true)은 plan T3의 "T4 전" 단계 기대값이 계획대로 전환된 것으로 Orchestrator가 처리(결함 아님, 강도 동일). `npm pack --dry-run` grok/ 19개. 호스트 `npm test` 보정 전 2678/2625/37 = 기준선 + 보정 대상 1 + flake 2(단독 PASS) |
 | 2026-11-18 | T5 | 수용 | (이 커밋) | Implementer eb3dca50(23 files, 218/218). QA 4f372103: AC-K5·K6·K9·K2·routing·갱신 세트 8항목·생성물 pass, 작업 테스트 202/202; QA 명령 regex 오류로 미확인이던 리터럴 분기 범위는 Orchestrator 호스트 `rg --pcre2`로 허용 목록 파일(lib/runtime·shared 사본)만 확인, hardcoding-residual 11/11. 호스트 `npm test` 2727/2676/35 = 기준선 + install-mode-n-platform 파일 timeout(단독 70/70), ps 의존 bridge 51/51 |
 | 2026-11-18 | T6 | 수용 | (이 커밋) | Implementer b59378e9(신규 `tests/node/grok-composite.test.mjs` 1개, 운영 코드 변경 없음, 호스트 24/24). QA 9520f091: 주입 registry·publish S={claude,grok}·4플랫폼 lock 순서·`arc_scouter` lease v2·`arc_qa` hold·Gemini 무수정·manifest pass, 변이 3건 모두 ERR_ASSERTION으로 검출. 호스트 `npm test` 2729/2677/36 = 기준선 + install-mode-n-platform 파일 timeout + `cancel uses SIGTERM then SIGKILL before identity`(부하 flake); 전체 재실행 2731/2681/35 = 기준선과 동일 |
-| | T7 | | | |
+| 2026-11-18 | T7 | 수용 | (이 커밋) | Implementer 565cfb0d(4 files). 14장 대조: README 40 Configure·41–42 병합(정확 문자열)·48 `> Grok`·81 아래 Grok 행·93·95 Configure; harness-operation 42 `> Grok`·72 아래 Grok 행·114 Home·123 접두문+Configure·129·132·134 Configure — 7 hunk 모두 14장 항목, 범위 밖 0. QA 530dd4b0 수용 권고(병합 행 바이트 일치, formerly·GK1/GK2 0건, rg 잔존 0, residual 1/1, manifest OK). 호스트 `npm test` 2712/2661/35 = 기준선 + install-mode-n-platform 파일 timeout(기존 부하 flake) |
 | | FR | | | |
 
 ### 부록 A — 기존 단언 old → new 대응표
@@ -803,6 +803,7 @@ T3: 수정 파일 assert 감소 0건 확인(QA ed451fe2; 보정 5파일 603→60
 T4: 수정 파일 assert 감소 0건 확인(QA c284f85c).
 T5: 수정 파일 assert 감소 0건 확인(QA 4f372103; capability-evidence 5→8).
 T6: 기존 테스트 수정 없음, 신규 파일만 추가(QA 9520f091).
+T7: `menu-label-residual` 검사 대상 확장(EXTRA_PATHS 2개), assert 감소 0건(QA 530dd4b0).
 
 ### 부록 B — 기준 실패 목록
 
