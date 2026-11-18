@@ -9,7 +9,14 @@
 export const GROK_CONTRACT = Object.freeze({
   outputFormat: 'streaming-json',
   isolationArgs: Object.freeze(['--no-auto-update', '--no-subagents']),
-  childEnv: Object.freeze({GROK_DISABLE_AUTOUPDATER: '1'}),
+  childEnv: Object.freeze({
+    GROK_DISABLE_AUTOUPDATER: '1',
+    GROK_CLAUDE_AGENTS_ENABLED: 'false',
+    GROK_CLAUDE_SKILLS_ENABLED: 'false',
+    GROK_CLAUDE_RULES_ENABLED: 'false',
+    GROK_CLAUDE_MCPS_ENABLED: 'false',
+    GROK_CLAUDE_HOOKS_ENABLED: 'false',
+  }),
   eventKinds: Object.freeze({text: 'text', thought: 'thought', tool_call: 'tool_call', tool_call_update: 'tool_call_update', usage: 'usage', plan: 'plan', available_commands: 'available_commands', error: 'error', end: 'end'}),
   successStopReasons: Object.freeze(['end_turn']),
   resumeFlag: '--resume',

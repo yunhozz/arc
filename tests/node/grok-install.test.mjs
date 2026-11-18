@@ -229,5 +229,5 @@ test('role policy renders grok outputs and leaves claude/codex/gemini bytes unch
   assert.equal(result.status, 0, result.stderr);
   for (const platform of ['claude', 'codex', 'gemini', 'grok']) assert.deepEqual(files(path.join(sourceRoot, platform)), before[platform]);
   const policy = JSON.parse(fs.readFileSync(path.join(sourceRoot, 'lib/policy/role-policy.json')));
-  assert.deepEqual(policy.platforms.grok, {level: 'prompt', notice: 'Role restrictions are prompt-level contracts, not a filesystem sandbox. Grok sandboxing, native tool restriction fields, observer hooks and Git guards are unverified, and Grok may continue without its sandbox. Use only available authorized tools; ARC does not write Grok config.toml.'});
+  assert.deepEqual(policy.platforms.grok, {level: 'prompt', notice: 'Role restrictions are prompt-level contracts, not a filesystem sandbox. Grok sandboxing, native tool restriction fields, observer hooks and Git guards are unverified, and Grok may continue without its sandbox. Use only available authorized tools; ARC disables Grok Claude compatibility (agents, skills, rules in config.toml; also MCPs and hooks for bridge children), but whether Grok sessions honor these settings is unverified.'});
 });

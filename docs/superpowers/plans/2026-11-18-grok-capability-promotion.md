@@ -337,7 +337,7 @@
 - notice 반영: `npm run update:role-policy`로 생성합니다.
 - `instruction-contracts.json`은 직전 plan T4와 같은 방식으로, 해당 fixture 테스트가 요구하는 값으로 갱신합니다(직전 작업 선례; 전용 생성 스크립트 없음).
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
   - `grok-bridge.test.mjs:249`: `assert.deepEqual(invocation.childEnv, {GROK_DISABLE_AUTOUPDATER: '1', GROK_CLAUDE_AGENTS_ENABLED: 'false', GROK_CLAUDE_SKILLS_ENABLED: 'false', GROK_CLAUDE_RULES_ENABLED: 'false', GROK_CLAUDE_MCPS_ENABLED: 'false', GROK_CLAUDE_HOOKS_ENABLED: 'false'})`
   - `Object.keys(GROK_CONTRACT.childEnv)` 순서를 위 순서로 deepEqual합니다.
   - `fake-grok.mjs` record에 `claudeEnv: Object.fromEntries(['AGENTS','SKILLS','RULES','MCPS','HOOKS'].map(k => [k, process.env['GROK_CLAUDE_' + k + '_ENABLED'] ?? null]))`를 추가합니다.
@@ -346,10 +346,10 @@
     - record `claudeEnv`의 5개 값이 모두 `'false'`이고 `autoUpdater`는 `'1'`입니다.
     - 기존 argv·`argsDigest` 단언은 수정 없이 PASS여야 합니다.
   - `grok-install.test.mjs:202`: notice를 spec 8장 정확 문자열로 바꿉니다.
-- [ ] **Step 2: RED:** `node --test tests/node/grok-bridge.test.mjs tests/node/grok-install.test.mjs`. 기대: childEnv deepEqual 불일치, `claudeEnv` 값 `null`, notice 불일치로 FAIL
-- [ ] **Step 3:** `grok-stream.mjs:12`와 notice를 수정하고 `npm run update:role-policy`를 실행합니다.
-- [ ] **Step 4: GREEN:** 같은 명령 PASS
-- [ ] **Step 5:** STD-CLOSE 전부를 실행합니다(runtime 동기화, golden `--write`, baseline, manifest, role-policy는 grok 생성물만).
+- [x] **Step 2: RED:** `node --test tests/node/grok-bridge.test.mjs tests/node/grok-install.test.mjs`. 기대: childEnv deepEqual 불일치, `claudeEnv` 값 `null`, notice 불일치로 FAIL
+- [x] **Step 3:** `grok-stream.mjs:12`와 notice를 수정하고 `npm run update:role-policy`를 실행합니다.
+- [x] **Step 4: GREEN:** 같은 명령 PASS
+- [x] **Step 5:** STD-CLOSE 전부를 실행합니다(runtime 동기화, golden `--write`, baseline, manifest, role-policy는 grok 생성물만).
 
 **수용 기준:**
 - 위 테스트 PASS
@@ -570,7 +570,7 @@
 | 2026-11-18 | P0-b(재개 PC) | 기록 | — | `1.0.89`(1.0.x) |
 | 2026-11-18 | P0-c(재개 PC) | 기록 | — | `command -v grok` 없음(rc=1). 격리 성립 |
 | 2026-11-18 | T1 | 수용 | (이 커밋) | Implementer codex bridge `3233a81f`(fresh), QA codex bridge `046fabca`(fresh). 작업 테스트 73/0, Step 6 추가 4파일 55/10(10건 모두 부록 B packed 계열). runtime `--check`·golden `--diff` 0·`check:manifest`·`check:role-policy`(변경 0)·parity 통과. 호스트 `npm test` 2740/2675/52+cancelled 1 = 기준선(35+17) 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0. `=== 'grok'` 0건, AC-F5 대상 테스트·golden diff 없음. QA 해석 지점 처분: (1) reset 키도 `set … = false` note에 포함 — spec 3.3-7/9/10과 모순 없음(QA 동의). (2) EOF 무개행 입력의 설치→제거 왕복 시 3.3-8이 붙인 구분 EOL이 남음 — spec 3.3-8 명시 동작이며 AC-F3 기준은 재파싱 일치이므로 결함 아님, FR 점검 메모 |
-| | T2 | | | |
+| 2026-11-18 | T2 | 수용 | (이 커밋) | Implementer codex bridge `85ac0d61`(fresh), focused checks(OD-Q2, QA 없음). RED 42/3 → GREEN 45/0, 기존 argv·`argsDigest` 단언 무수정 통과. Orchestrator 재실행: runtime `--check` 35 files, golden `--diff` 0(갱신 후), `check:manifest` 283, `check:role-policy` 48(grok 생성물만), parity 통과, `git diff --stat -- claude codex gemini` 빈 결과, role-policy.json numstat 1/1, `does not write Grok config.toml` 0건. runtime baseline `5bed622b…`→`5faa50af…`, instruction-contracts 정책 해시 2·grok expanded profile 5 갱신. 호스트 `npm test` 2751/2686/52+cancelled 1 = 기준선 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0 |
 | | T3 | | | 전환 기록: 사용자 결정 2026-11-18(live 검증 아님), `.git/arc/handoff/grok-support/live-probe-2026-11-18.md`; hostPlatform grok 관측 reason |
 | | T4 | | | |
 | | FR | | | |
@@ -589,6 +589,7 @@
 | T1 | (assert 수) | — | `grok-install` 48→64, `grok-platform` 77→79, 감소 0 | — | Orchestrator·QA 확인 |
 | T2 | `grok-bridge.test.mjs:249` | childEnv 1키 | 6키 | O | spec 5장 |
 | T2 | `grok-install.test.mjs:202` | 옛 notice | spec 8장 notice | O | spec 8장 |
+| T2 | (assert 수) | — | `grok-bridge` 83→90, `grok-install` 64→64, `runtime-versions` 14→14, 감소 0 | — | Orchestrator 확인 |
 | T3 | (Step 3·4·5·7 표의 행, Implementer 보고로 채움) | | | | |
 
 ### 부록 B — 기준 실패 목록

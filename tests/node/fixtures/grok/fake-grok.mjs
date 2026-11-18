@@ -4,7 +4,7 @@ const argv = process.argv.slice(2), value = flag => argv[argv.indexOf(flag) + 1]
 if (argv.includes('--version')) {console.log('1.0.88'); process.exit(0);}
 let stdin = ''; for await (const chunk of process.stdin) stdin += chunk;
 const promptFile = value('--prompt-file'), scenario = process.env.ARC_FAKE_GROK_SCENARIO ?? 'ok';
-await fs.writeFile(process.env.ARC_FAKE_GROK_RECORD, JSON.stringify({argv, stdin, prompt: await fs.readFile(promptFile, 'utf8'), mode: (await fs.stat(promptFile)).mode & 0o777, autoUpdater: process.env.GROK_DISABLE_AUTOUPDATER}));
+await fs.writeFile(process.env.ARC_FAKE_GROK_RECORD, JSON.stringify({argv, stdin, prompt: await fs.readFile(promptFile, 'utf8'), mode: (await fs.stat(promptFile)).mode & 0o777, autoUpdater: process.env.GROK_DISABLE_AUTOUPDATER, claudeEnv: Object.fromEntries(['AGENTS', 'SKILLS', 'RULES', 'MCPS', 'HOOKS'].map(k => [k, process.env['GROK_CLAUDE_' + k + '_ENABLED'] ?? null]))}));
 const sessionId = scenario === 'session-mismatch' ? '99999999-9999-4999-8999-999999999999' : value('--session-id');
 const model = scenario === 'model-mismatch' ? 'different-model' : value('-m');
 let events = [

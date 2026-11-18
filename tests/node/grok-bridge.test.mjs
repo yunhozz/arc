@@ -9,6 +9,7 @@ import {spawnSync} from 'node:child_process';
 import * as argsApi from '../../lib/runtime/role-bridge-args.mjs';
 import * as observeApi from '../../lib/runtime/role-observe.mjs';
 import * as supervisorApi from '../../lib/runtime/role-supervisor.mjs';
+import {GROK_CONTRACT} from '../../lib/runtime/grok-stream.mjs';
 import {DEFAULT_POLICY, BRIDGE_GATE_RESULTS, bridgeGateReasons} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {DEFAULT_PLATFORM_REGISTRY, createPlatformRegistry} from '../../lib/runtime/platform-registry.mjs';
 import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from '../../lib/runtime/bootstrap.mjs';
@@ -152,6 +153,16 @@ for (const [scenario, want] of [
   }
 });
 
+test('grok bridge child env overrides parent compat values', async t => {
+  const f = await fixture(t, {GROK_CLAUDE_AGENTS_ENABLED: 'true', GROK_CLAUDE_HOOKS_ENABLED: 'true'});
+  const prepared = await f.prepare(); assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  const done = await f.run(prepared.dispatchId);
+  assert.equal(done.decision, 'allow', JSON.stringify(done)); assert.equal(done.routeStatus, 'completed');
+  const child = JSON.parse(await fs.readFile(f.record, 'utf8'));
+  assert.deepEqual(child.claudeEnv, {AGENTS: 'false', SKILLS: 'false', RULES: 'false', MCPS: 'false', HOOKS: 'false'});
+  assert.equal(child.autoUpdater, '1');
+});
+
 test('existing or symlinked prompt.md fails before spawn', async t => {
   for (const kind of ['existing', 'symlink']) {
     const f = await fixture(t), prepared = await f.prepare(); assert.equal(prepared.decision, 'allow');
@@ -246,7 +257,16 @@ test('Grok invocation reserves prompt path without writing; existing Claude invo
   const invocation = await supervisorApi.buildBridgeInvocation({lease, config: f.config, homes: f.homes, worktree: f.context.cwd, resultPath, policy});
   assert.equal(invocation.promptFile.path, path.join(f.base, 'segment', 'prompt.md'));
   assert.equal(invocation.promptFile.instructions, 'Private role instructions\n');
-  assert.deepEqual(invocation.childEnv, {GROK_DISABLE_AUTOUPDATER: '1'});
+  assert.deepEqual(invocation.childEnv, {
+    GROK_DISABLE_AUTOUPDATER: '1',
+    GROK_CLAUDE_AGENTS_ENABLED: 'false',
+    GROK_CLAUDE_SKILLS_ENABLED: 'false',
+    GROK_CLAUDE_RULES_ENABLED: 'false',
+    GROK_CLAUDE_MCPS_ENABLED: 'false',
+    GROK_CLAUDE_HOOKS_ENABLED: 'false',
+  });
+  assert.deepEqual(Object.keys(GROK_CONTRACT.childEnv), ['GROK_DISABLE_AUTOUPDATER', 'GROK_CLAUDE_AGENTS_ENABLED', 'GROK_CLAUDE_SKILLS_ENABLED', 'GROK_CLAUDE_RULES_ENABLED', 'GROK_CLAUDE_MCPS_ENABLED', 'GROK_CLAUDE_HOOKS_ENABLED']);
+  assert.equal(Object.isFrozen(GROK_CONTRACT.childEnv), true);
   assert.deepEqual(invocation.expected, {model: 'grok-test', effort: 'default'});
   assert.equal(invocation.argsDigest, digest(JSON.stringify(invocation.args)));
   await assert.rejects(fs.access(invocation.promptFile.path), {code: 'ENOENT'});
