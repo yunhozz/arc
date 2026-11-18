@@ -42,7 +42,7 @@ test('renderer returns selection safety without Review confirmation API or warni
 
 const shadowLogo=[' █████╗ ██████╗  ██████╗','██╔══██╗██╔══██╗██╔════╝','███████║██████╔╝██║     ','██╔══██║██╔══██╗██║     ','██║  ██║██║  ██║╚██████╗','╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝'];
 test('home heading renders the six-row shadow logo, tagline and 38-column rule',()=>{
- const result=api.renderScreen({title:'ARC',wordmark:true,version:'0.3.0',rows:['Install / Update'],selected:0}),lines=result.text.split('\n');
+ const result=api.renderScreen({title:'ARC',wordmark:true,version:'0.3.0',rows:['Configure'],selected:0}),lines=result.text.split('\n');
  assert.deepEqual(lines.slice(0,6),shadowLogo);assert.equal(lines[6],' ✦ agent role coordination   ver 0.3.0');assert.equal(lines[7],'─'.repeat(38));assert.doesNotMatch(result.text,/\x1b/);assert.ok(lines.length<=16);
  const full=api.renderScreen({wordmark:true,rows:['Codex: Installed','Claude: Not installed','Configure','Update','Uninstall','Exit'],selected:2});assert.equal(full.text.split('\n').length,17);
 });
@@ -106,7 +106,7 @@ test('inner truecolor frames stay within the PTY output budget',()=>{
 });
 
 test('status tones color only state words',()=>{
- const screen={title:'ARC',wordmark:true,version:'0.3.0',rows:['Claude: Available / Codex: Not Available','Codex: boom','','Install / Update'],rowTones:['status','diagnostic',undefined,undefined],selected:3},result=api.renderScreen(screen);
+ const screen={title:'ARC',wordmark:true,version:'0.3.0',rows:['Claude: Available / Codex: Not Available','Codex: boom','','Configure'],rowTones:['status','diagnostic',undefined,undefined],selected:3},result=api.renderScreen(screen);
  assert.deepEqual(result.styles.find(style=>style.line===8)?.runs,[{from:10,to:19,role:'ok',fg:[52,211,153]},{from:29,to:42,role:'muted',fg:[128,128,128]}]);
  assert.deepEqual(result.styles.find(style=>style.line===9)?.runs,[{from:9,to:13,role:'warn',fg:[251,191,36]}]);
  assert.equal(result.text,api.renderScreen({...screen,rowTones:undefined}).text);

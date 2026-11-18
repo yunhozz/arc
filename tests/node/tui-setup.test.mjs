@@ -17,7 +17,7 @@ function scripted(steps,pages=[]){return {menu:async(title,rows,options)=>{const
 
 test('legacy preview line appears once and Apply prepares the migration without confirmation',async()=>{
  const {platforms:registry}=migrationRegistries();
- const steps=[['Install / Update',7,(_rows,options)=>{
+ const steps=[['Configure',7,(_rows,options)=>{
   assert.deepEqual(options.notice,['Mixed routing files will move to the Claude home.']);
   const screen=options.renderBody({selected:7,columns:120,rows:40});
   assert.equal(screen.notices.filter(row=>row==='Mixed routing files will move to the Claude home.').length,1);
@@ -47,43 +47,43 @@ for(const target of ['codex','claude'])for(const source of ['draft','installed',
  const draft=source==='draft'?installDraft(target):{};if(draft.roles)draft.roles.arc_scouter.model=target==='codex'?'gpt-6-astra':'fable';
  // An absent alternate platform keeps package fallback deterministic for both targets.
  const statuses=[...saved,...(source==='package'?[{platform:target,state:'absent',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}}]:[]),{platform:target==='codex'?'claude':'codex',state:'absent',authentication:{authStatus:'unauthorized'}}];
- const ui=scripted([['Install / Update',null,(_rows,options)=>{const text=installBody(options).rows.join('\n');assert.match(text,new RegExp(source==='draft'?draft.roles.arc_scouter.model:source==='installed'?installed.arc_scouter.model:models[target].roles.arc_scouter.model));}]]);
+ const ui=scripted([['Configure',null,(_rows,options)=>{const text=installBody(options).rows.join('\n');assert.match(text,new RegExp(source==='draft'?draft.roles.arc_scouter.model:source==='installed'?installed.arc_scouter.model:models[target].roles.arc_scouter.model));}]]);
  await installFlow({statuses,draft,loadRoleDefaults:p=>setup.loadRoleDefaults({context:{packageRoot},statuses:saved,target:p}),ui});
 });
 test('session draft wins over current composite config and Back prepares nothing',async()=>{
  const draft=installDraft('codex',['codex','claude']),before=structuredClone(draft.roles);
- const result=await installFlow({draft,installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},currentConfig:{roles:installRoles('claude')},loadRoleDefaults:()=>assert.fail('draft wins'),ui:scripted([['Install / Update',null]]),prepare:()=>assert.fail('Back must not prepare')});
+ const result=await installFlow({draft,installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},currentConfig:{roles:installRoles('claude')},loadRoleDefaults:()=>assert.fail('draft wins'),ui:scripted([['Configure',null]]),prepare:()=>assert.fail('Back must not prepare')});
  assert.equal(result,null);assert.deepEqual(draft.roles,before);
 });
 for(const platform of ['codex','claude'])test(platform+' malformed later catalog pair blocks Apply and caches failure',async()=>{
- let loads=0;const steps=[['Install / Update',7],['Install / Update',7],['Install / Update',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
+ let loads=0;const steps=[['Configure',7],['Configure',7],['Configure',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
  await installFlow({draft:installDraft(platform),loadCatalog:()=>{loads++;return {status:'ready',catalog:{platform,pairs:[catalogs[platform].pairs[0],{model:'',effort:'unknown'}]}};},ui:scripted(steps),prepare:()=>assert.fail('invalid catalog cannot prepare')});assert.equal(loads,1);assert.equal(steps.length,0);
 });
 test('catalog exception keeps diagram and Back available without preparing',async()=>{
- const steps=[['Install / Update',7],['Install / Update',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
+ const steps=[['Configure',7],['Configure',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
  await installFlow({draft:installDraft('codex'),loadCatalog:()=>{throw Error('offline');},ui:scripted(steps),prepare:()=>assert.fail('catalog error cannot prepare')});assert.equal(steps.length,0);
 });
 test('Back traverses role, platform, model, effort, hosts and Settings without prepare',async()=>{
- const steps=[['Install / Update',0],['Scouter',0],['Platform — Scouter',null],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',null],['Model — Scouter',null],['Scouter',null],['Install / Update',5],['Hosts — CLIs where you start ARC sessions',null],['Install / Update',6],['Settings',0],['Settings',1],['Settings',2],['Settings',null],['Install / Update',null]],ui=scripted(steps);
+ const steps=[['Configure',0],['Scouter',0],['Platform — Scouter',null],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',null],['Model — Scouter',null],['Scouter',null],['Configure',5],['Hosts — CLIs where you start ARC sessions',null],['Configure',6],['Settings',0],['Settings',1],['Settings',2],['Settings',null],['Configure',null]],ui=scripted(steps);
  ui.text=async()=>null;
  await installFlow({ui,prepare:()=>assert.fail('Back cannot prepare')});assert.equal(steps.length,0);
 });
 test('Settings input Back discards unconfirmed text and keeps language and role draft',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),draft=installDraft('claude');draft.roles.arc_scouter={platform:'claude',model:'fable',effort:'low'};
- const steps=[['Install / Update',6],['Settings',0],['Settings',1],['Settings',null],['Install / Update',null]],ui=scripted(steps);
+ const steps=[['Configure',6],['Settings',0],['Settings',1],['Settings',null],['Configure',null]],ui=scripted(steps);
  ui.text=async(_title,initial)=>{const events=[{name:'text',text:'999'},{name:'down'},{name:'enter'}],screens=[];const result=await createTuiInterface({viewport:()=>({columns:120,rows:40}),render:s=>{screens.push(s);return{selectionEnabled:true};},nextEvent:async()=>events.shift()}).text('Total subagents',initial);assert.equal(screens.at(-1).rows[0],'100999');return result;};
  await installFlow({draft,ui,prepare:()=>assert.fail('Back cannot prepare')});assert.equal(draft.settings.language,'ko');assert.equal(draft.settings.maxTotalSubagents,100);assert.deepEqual(draft.roles.arc_scouter,{platform:'claude',model:'fable',effort:'low'});
 });
 test('Settings validates limits and composite Apply sends settings to S',async()=>{
- const steps=[['Install / Update',6],['Settings',0],['Settings',1],['Settings',2],['Settings',null],['Install / Update',7]],pages=[],ui=scripted(steps,pages),inputs=['0','-1','１２','9007199254740992','7','3'];ui.text=async()=>inputs.shift();
+ const steps=[['Configure',6],['Settings',0],['Settings',1],['Settings',2],['Settings',null],['Configure',7]],pages=[],ui=scripted(steps,pages),inputs=['0','-1','１２','9007199254740992','7','3'];ui.text=async()=>inputs.shift();
  const result=await installFlow({draft:installDraft('codex',['claude','codex']),ui});assert.equal(result.settings.language,'ko');assert.equal(result.settings.maxTotalSubagents,7);assert.equal(result.settings.maxConcurrentSubagents,3);assert.equal(result.settings.skipGlobal,false);assert.equal(result.settings.concurrentSelected,true);assert.deepEqual(pages,Array.from({length:4},()=>({title:'Invalid limit',rows:['Enter a positive whole number.']})));
 });
 test('editing one composite role preserves other roles and returns canonical fields',async()=>{
- const draft=installDraft('codex',['claude','codex']),before=structuredClone(draft.roles),steps=[['Install / Update',1],['Planner',0],['Platform — Planner',0],['Planner',1],['Model — Planner',0],['Effort — Planner',0],['Planner',3],['Install / Update',7]];
+ const draft=installDraft('codex',['claude','codex']),before=structuredClone(draft.roles),steps=[['Configure',1],['Planner',0],['Platform — Planner',0],['Planner',1],['Model — Planner',0],['Effort — Planner',0],['Planner',3],['Configure',7]];
  const result=await installFlow({draft,ui:scripted(steps)});assert.deepEqual(result.config.roles.arc_planner,{platform:'claude',...catalogs.claude.pairs[0]});for(const role of roles.filter(r=>r!=='arc_planner'))assert.deepEqual(result.config.roles[role],before[role]);for(const role of roles)assert.deepEqual(Object.keys(result.config.roles[role]).sort(),['effort','model','platform']);
 });
 for(const platform of ['codex','claude'])test(platform+' edited role serializes its native effort field',async()=>{
- const steps=[['Install / Update',0],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',0],['Scouter',3],['Install / Update',7]],before=structuredClone(models[platform]);
+ const steps=[['Configure',0],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',0],['Scouter',3],['Configure',7]],before=structuredClone(models[platform]);
  const result=await installFlow({draft:installDraft(platform),ui:scripted(steps)});assert.deepEqual(result.roles.arc_scouter,{model:catalogs[platform].pairs[0].model,[platform==='codex'?'model_reasoning_effort':'effort']:catalogs[platform].pairs[0].effort});assert.deepEqual(models[platform],before);
 });
 
@@ -98,7 +98,7 @@ function installFlow(options){
 const installBody=(options,selected=7,columns=120,rows=40)=>options.renderBody({selected,columns,rows,blink:true});
 
 test('diagram is the first screen',async()=>{
- const loaded=[],steps=[['Install / Update',null,(rows,options)=>{
+ const loaded=[],steps=[['Configure',null,(rows,options)=>{
   assert.deepEqual(rows,[...names,'Hosts: Claude','Settings','Apply - Claude']);assert.equal(options.backRow,true);assert.equal(options.refreshMs,600);
   const body=installBody(options,0);assert.match(body.rows.join('\n'),/┌─ > Scouter/);assert.match(body.rows.join('\n'),/Orchestrator/);
   assert.deepEqual(options.notice,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply - Claude'));
@@ -108,7 +108,7 @@ test('diagram is the first screen',async()=>{
 });
 
 test('settings rows have no Global and skipGlobal is false',async()=>{
- const steps=[['Install / Update',6],['Settings',0,rows=>assert.deepEqual(rows,['Language              < EN >','Total subagents       100','Concurrent subagents  5','Back'])],['Settings',1],['Settings',2],['Settings',3],['Install / Update',7]],ui=scripted(steps),inputs=['0','7','3'],pages=[];
+ const steps=[['Configure',6],['Settings',0,rows=>assert.deepEqual(rows,['Language              < EN >','Total subagents       100','Concurrent subagents  5','Back'])],['Settings',1],['Settings',2],['Settings',3],['Configure',7]],ui=scripted(steps),inputs=['0','7','3'],pages=[];
  ui.page=async(title,rows)=>pages.push({title,rows});ui.text=async()=>inputs.shift();
  const result=await installFlow({ui});assert.equal(result.skipGlobal,false);assert.equal(result.language,'ko');assert.equal(result.maxTotalSubagents,7);assert.equal(result.maxConcurrentSubagents,3);assert.equal(result.concurrentSelected,true);
  assert.deepEqual(pages,[{title:'Invalid limit',rows:['Enter a positive whole number.']}]);assert.equal(steps.length,0);
@@ -129,37 +129,37 @@ test('(mixed) field untouched is omitted, touched applies to S',async()=>{
 });
 
 test('hosts lock role platforms and preview mode in Apply',async()=>{
- const steps=[['Install / Update',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',3],['Install / Update',7,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply - Mixed (Claude + Codex)','Back']);}]];
+ const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',3],['Configure',7,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply - Mixed (Claude + Codex)','Back']);}]];
  const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
 test('D1-b asks confirmation; Back sends nothing',async()=>{
- let calls=0;const steps=[['Install / Update',7],['Switch to Codex',null,(rows,options)=>{assert.deepEqual([...rows,...(options.backRow?['Back']:[])],['Continue','Back']);assert.deepEqual(options.info,['Mixed routing will be turned off.']);}],['Install / Update',null]];
+ let calls=0;const steps=[['Configure',7],['Switch to Codex',null,(rows,options)=>{assert.deepEqual([...rows,...(options.backRow?['Back']:[])],['Continue','Back']);assert.deepEqual(options.info,['Mixed routing will be turned off.']);}],['Configure',null]];
  assert.equal(await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps),prepare:async()=>{calls++;}}),null);assert.equal(calls,0);assert.equal(steps.length,0);
- const result=await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted([['Install / Update',7],['Switch to Codex',0]])});assert.equal(result.switchFromComposite,true);
+ const result=await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted([['Configure',7],['Switch to Codex',0]])});assert.equal(result.switchFromComposite,true);
 });
 
 test('D1-f shows Operation unavailable',async()=>{
- const pages=[],steps=[['Install / Update',7,(_rows,options)=>assert.ok(installBody(options).rows.includes('Apply - Unverified'))],['Install / Update',null]];
+ const pages=[],steps=[['Configure',7,(_rows,options)=>assert.ok(installBody(options).rows.includes('Apply - Unverified'))],['Configure',null]];
  await installFlow({installState:{mode:'unverified',platforms:[],residualPaths:['/fixture/routing.json']},ui:scripted(steps,pages),prepare:()=>assert.fail('D1-f must not prepare')});
  assert.deepEqual(pages,[{title:'Operation unavailable',rows:['Mixed routing configuration cannot be verified.','Residual path: /fixture/routing.json','No changes were applied.']}]);
 });
 
 test('catalog failure outside S does not block Apply; inside S blocks with catalog error',async()=>{
  for(const inside of [false,true]){
-  const loads=[],pages=[],steps=[['Install / Update',0],['Scouter',3,(_rows,options)=>{options.onHorizontal({selected:0,direction:'left'});const body=options.renderBody({selected:0,columns:120,rows:40});assert.match(body.rows[0],/Codex/);}],['Install / Update',0],['Scouter',3],['Install / Update',7,(_rows,options)=>{const body=installBody(options);assert.equal(body.notices.some(row=>row.includes('catalog error')),inside);}]];
-  if(inside)steps.push(['Install / Update',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/Unavailable \(catalog error\)/);assert.match(body.rows[body.selected],/^Apply/);}]);
+  const loads=[],pages=[],steps=[['Configure',0],['Scouter',3,(_rows,options)=>{options.onHorizontal({selected:0,direction:'left'});const body=options.renderBody({selected:0,columns:120,rows:40});assert.match(body.rows[0],/Codex/);}],['Configure',0],['Scouter',3],['Configure',7,(_rows,options)=>{const body=installBody(options);assert.equal(body.notices.some(row=>row.includes('catalog error')),inside);}]];
+  if(inside)steps.push(['Configure',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/Unavailable \(catalog error\)/);assert.match(body.rows[body.selected],/^Apply/);}]);
   const result=await installFlow({draft:installDraft('codex',inside?['codex','claude']:['codex']),ui:scripted(steps,pages),loadCatalog:async p=>{loads.push(p);if(p==='claude')throw Error('offline');return {status:'ready',catalog:catalogs[p]};},prepare:async options=>{assert.equal(inside,false);return options;}});
   assert.equal(result?.target??null,inside?null:'codex');assert.deepEqual(loads.sort(),['claude','codex']);assert.deepEqual(pages,[]);assert.equal(steps.length,0);
  }
 });
 
 test('initial platform is Claude when both standalone',async()=>{
- const result=await installFlow({ui:scripted([['Install / Update',7]])});assert.equal(result.target,'claude');assert.deepEqual(result.roles,models.claude.roles);assert.equal(result.switchFromComposite,undefined);
+ const result=await installFlow({ui:scripted([['Configure',7]])});assert.equal(result.target,'claude');assert.deepEqual(result.roles,models.claude.roles);assert.equal(result.switchFromComposite,undefined);
 });
 
 test('compact layout keeps host and mode values in controls',async()=>{
- await installFlow({ui:scripted([['Install / Update',null,(_rows,options)=>{
+ await installFlow({ui:scripted([['Configure',null,(_rows,options)=>{
   for(const [columns,rows] of [[40,16],[60,20],[80,23]]){
    const body=installBody(options,7,columns,rows);assert.match(body.rows[0],/^Scouter: Claude \/ /);assert.deepEqual(options.notice,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply - Claude'));assert.deepEqual(body.rows.slice(-4),['Hosts: Claude','Settings','Apply - Claude','Back']);assert.equal(body.rows[body.selected],'Apply - Claude');assert.ok(body.rows.length+5<=rows);
   }
@@ -176,21 +176,21 @@ test('install hosts use injected registry labels, order and reason detail',async
 });
 
 test('initial composite roles and hosts come from currentConfig and D1-e prepares without confirmation',async()=>{
- const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Install / Update',5,(_rows,options)=>assert.ok(installBody(options).rows.includes('Hosts: Claude, Codex'))],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',3],['Install / Update',7],['Switch to Claude',0]];
+ const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Configure',5,(_rows,options)=>assert.ok(installBody(options).rows.includes('Hosts: Claude, Codex'))],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',3],['Configure',7],['Switch to Claude',0]];
  const result=await installFlow({currentConfig,installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps)});assert.equal(result.target,'claude');assert.equal(result.switchFromComposite,true);assert.deepEqual(currentConfig.roles,installRoles('claude'));
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries();
- const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Install / Update',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);
+ const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Configure',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);
 });
 
 test('uninstalled initial platform uses role availability then display order fallback',async()=>{
  for(const unavailable of [false,true]){
   const saved=installStatuses.map(status=>({...status,state:'absent',authentication:{authStatus:unavailable||status.platform==='claude'?'unauthorized':'authenticated'}}));
-  const result=await installFlow({statuses:saved,ui:scripted([['Install / Update',7]])});assert.equal(result.target,unavailable?'claude':'codex');
+  const result=await installFlow({statuses:saved,ui:scripted([['Configure',7]])});assert.equal(result.target,unavailable?'claude':'codex');
  }
 });
 
 test('role editor Done updates the diagram draft and standalone prepare roles',async()=>{
- const draft=installDraft('claude'),steps=[['Install / Update',0],['Scouter',3,(_rows,options)=>options.onHorizontal({selected:1,direction:'right'})],['Install / Update',7,(_rows,options)=>assert.match(installBody(options).rows.join('\n'),/claude-fable-5-1/)] ];
+ const draft=installDraft('claude'),steps=[['Configure',0],['Scouter',3,(_rows,options)=>options.onHorizontal({selected:1,direction:'right'})],['Configure',7,(_rows,options)=>assert.match(installBody(options).rows.join('\n'),/claude-fable-5-1/)] ];
  const result=await installFlow({draft,ui:scripted(steps)});assert.equal(result.roles.arc_scouter.model,'claude-fable-5-1');assert.equal(draft.roles.arc_scouter.model,'claude-fable-5-1');assert.deepEqual(result.roles.arc_planner,models.claude.roles.arc_planner);
 });
 
@@ -198,16 +198,16 @@ test('composite gates distinguish role and host usage and standalone ignores aut
  for(const hostOnly of [false,true]){
   const saved=installStatuses.map(status=>status.platform==='claude'?{...status,authentication:{authStatus:'unauthorized',reason:'fixture denial'}}:status),draft=installDraft('codex',['codex','claude']);
   if(!hostOnly)draft.roles.arc_reviewer={...installRoles('claude').arc_reviewer};
-  const steps=[['Install / Update',7,(_rows,options)=>{assert.ok(options.notice.includes(`! ${hostOnly?'Hosts':'Reviewer'}: Claude - Unavailable (unauthorized)`));const body=installBody(options,4,40,16);assert.equal(body.rows[4].startsWith('Reviewer !:'),!hostOnly);assert.ok(body.rows.includes('Back'));}],['Install / Update',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/unauthorized/);assert.match(body.rows[body.selected],/^Apply/);}]];
+  const steps=[['Configure',7,(_rows,options)=>{assert.ok(options.notice.includes(`! ${hostOnly?'Hosts':'Reviewer'}: Claude - Unavailable (unauthorized)`));const body=installBody(options,4,40,16);assert.equal(body.rows[4].startsWith('Reviewer !:'),!hostOnly);assert.ok(body.rows.includes('Back'));}],['Configure',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/unauthorized/);assert.match(body.rows[body.selected],/^Apply/);}]];
   await installFlow({statuses:saved,draft,ui:scripted(steps),prepare:()=>assert.fail('unavailable composite cannot prepare')});
  }
  const saved=installStatuses.map(status=>({...status,authentication:{authStatus:'unauthorized',reason:'cli_not_found'}}));
- const result=await installFlow({statuses:saved,draft:installDraft(),ui:scripted([['Install / Update',7]])});assert.equal(result.target,'codex');
+ const result=await installFlow({statuses:saved,draft:installDraft(),ui:scripted([['Configure',7]])});assert.equal(result.target,'codex');
 });
 
 test('injected third host produces a version 2 routing config and registry labels',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries(),draft=installDraft('codex',['zeta','claude','codex']);
- const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Install / Update',7,(_rows,options)=>assert.deepEqual(options.notice,['Zeta: auth unverified'])]])});
+ const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Configure',7,(_rows,options)=>assert.deepEqual(options.notice,['Zeta: auth unverified'])]])});
  assert.deepEqual(result.platforms,['claude','codex','zeta']);assert.equal(result.config.version,2);assert.deepEqual(result.config.platforms,['claude','codex','zeta']);assert.equal(result.settings.skipGlobal,false);
 });
 
@@ -288,7 +288,7 @@ test('Hosts identifies roles in install order and locked Enter explains how to r
  const draft=installDraft('claude',['codex','claude']);
  draft.roles.arc_planner=installRoles('codex').arc_planner;
  draft.roles.arc_qa=installRoles('codex').arc_qa;
- const steps=[['Install / Update',5],['Hosts — CLIs where you start ARC sessions',1,(rows,options)=>{
+ const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows,options)=>{
   assert.equal(rows[1],'[■] Codex   (used by Planner, QA)');
   assert.deepEqual(options.notice({selected:1}),['No host can be changed now: all platforms are used by roles or unavailable.']);
   assert.equal(options.hint,'checklist');
@@ -296,7 +296,7 @@ test('Hosts identifies roles in install order and locked Enter explains how to r
   assert.equal(rows[1],'[■] Codex   (used by Planner, QA)');
   assert.deepEqual(options.notice({selected:1}),['No host can be changed now: all platforms are used by roles or unavailable.',"Change those roles' platform to remove Codex."]);
   assert.equal(options.info,undefined);
- }],['Install / Update',null]];
+ }],['Configure',null]];
  await installFlow({draft,ui:scripted(steps)});assert.equal(steps.length,0);
 });
 

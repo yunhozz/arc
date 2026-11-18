@@ -125,7 +125,7 @@ test('operations return current routing status messages', async t => {
   const {compositeContext,publish}=await import('./fixtures/install-mode.mjs');
   const result=await publish(await compositeContext(t));
   assert.equal(result.code,0,JSON.stringify(result));
-  assert.deepEqual(result.messages,['Mixed routing on: Claude + Codex.','After upgrading ARC, run Install / Update again.']);
+  assert.deepEqual(result.messages,['Mixed routing on: Claude + Codex.','After upgrading ARC, run Configure again.']);
 });
 
 test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G3, versions, cancel, resume, brief)', async () => {

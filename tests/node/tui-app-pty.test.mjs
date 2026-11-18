@@ -16,17 +16,17 @@ async function drive(t,steps,{execute='return{code:0,results:[]};',plans='[]',ob
  const status=await new Promise(resolve=>child.on('close',resolve));output=withoutSgr(output);assert.equal(status,0,output);assert.doesNotMatch(output,/Operation unavailable|Change\x20Models/);assert.match(output,/RESTORED=true/);assert.match(output,/TERMIOS_RESTORED/);assert.doesNotMatch(output,/-icanon/);return output;
 }
 
-const entry='enter\nexpect -exact {Install / Update}\nexpect -exact {┌─ > Scouter}\nexpect -exact {Apply - }\nexpect -exact {Esc Home}\n';
+const entry='enter\nexpect -exact {Configure}\nexpect -exact {┌─ > Scouter}\nexpect -exact {Apply - }\nexpect -exact {Esc Home}\n';
 const moves=n=>Array(n).fill('down\n').join('');
 const finish='expect -exact {Result}\nenter\nexpect -exact {Esc Exit}\nback';
 const settings=entry+moves(6)+'expect -exact {> Settings}\nexpect -exact {Esc Home}\nenter\nexpect -exact {> Language}\nexpect -exact {Esc Home}\n';
 const input=settings+'down\nenter\nexpect -exact {Type/Paste Input}\n';
 const clear='send -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\177"\nexpect -exact {Type/Paste Input}\nsend -- "\\010"\nexpect -exact {Type/Paste Input}\n';
-const settingsToApply='down\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\ndown\nexpect -exact {> Apply}\nenter\n';
-const choosePair='down\nenter\nexpect -exact {Model — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Scouter}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\n';
+const settingsToApply='down\ndown\nenter\nexpect -exact {Configure}\nexpect -exact {Esc Home}\ndown\nexpect -exact {> Apply}\nenter\n';
+const choosePair='down\nenter\nexpect -exact {Model — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — Scouter}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Scouter}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Configure}\nexpect -exact {Esc Home}\n';
 test('actual app Status returns home and restores PTY with no execution',{skip:!available},async t=>{
  // Status spans contain SGR codes: synchronize on the footer and assert the stripped content below.
- const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{env:{...process.env,NO_COLOR:undefined}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(output,/Claude +Available[\s\S]*Codex +Available/);assert.match(output,/Mode +Claude, Codex/);assert.match(output,/Install \/ Update[\s\S]*Status[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Status}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\nback',{env:{...process.env,NO_COLOR:undefined}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);assert.match(output,/Claude +Available[\s\S]*Codex +Available/);assert.match(output,/Mode +Claude, Codex/);assert.match(output,/Configure[\s\S]*Status[\s\S]*Check Version[\s\S]*Uninstall[\s\S]*Exit/);
 });
 test('legacy Apply preview shows the move line in PTY',{skip:!available},async t=>{
  const output=await drive(t,'enter\nexpect -exact {Mixed routing files will move to the Claude home.}\nback\nexpect -exact {Esc Exit}\nback',{
@@ -41,7 +41,7 @@ test('install opens the diagram immediately with mode in Apply and platform orde
  const output=await drive(t,entry+'back\nexpect -exact {Esc Exit}\nback');assert.match(output,/┌─ > Scouter/);assert.match(output,/Apply - Claude/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('queued Enter never reaches install Apply',{skip:!available},async t=>{
- const output=await drive(t,'send -- "\\r\\r\\r"\nexpect -exact {Install / Update}\nafter 100\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
+ const output=await drive(t,'send -- "\\r\\r\\r"\nexpect -exact {Configure}\nafter 100\nsend -- "\\003"');assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);
 });
 test('install skips blank spacer and Apply runs once without review',{skip:!available},async t=>{
  const output=await drive(t,entry+moves(7)+'expect -exact {> Apply}\nsend -- "\\r\\r\\r"\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Review Install|Confirm Install/);
@@ -106,16 +106,16 @@ for(const screen of ['input','chooser','settings-target'])test('Escape from '+sc
  const steps=screen==='settings-target'?'down\ndown\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}':screen==='input'?input:entry+'enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — Scouter}';
  const output=await drive(t,steps+'\nback\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
-for(const [name,steps] of [['Install / Update',entry],['Uninstall','down\ndown\ndown\nenter\nexpect -exact {> Claude}\n']])test('target Back returns home from '+name,{skip:!available},async t=>{
+for(const [name,steps] of [['Configure',entry],['Uninstall','down\ndown\ndown\nenter\nexpect -exact {> Claude}\n']])test('target Back returns home from '+name,{skip:!available},async t=>{
  const output=await drive(t,steps+'send -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback');assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('Settings Back preserves draft when reopening diagram',{skip:!available},async t=>{
- const output=await drive(t,settings+'enter\nexpect -exact {< KR >}\nexpect -exact {Esc Home}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\n'+settings.replace('expect -exact {> Language}', 'expect -re {> Language +< KR >}')+'back\nexpect -exact {Esc Exit}\nback',{env:{...process.env,TERM:'dumb'}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
+ const output=await drive(t,settings+'enter\nexpect -exact {< KR >}\nexpect -exact {Esc Home}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Back}\nenter\nexpect -exact {Configure}\nexpect -exact {Esc Home}\nback\nexpect -exact {Esc Exit}\n'+settings.replace('expect -exact {> Language}', 'expect -re {> Language +< KR >}')+'back\nexpect -exact {Esc Exit}\nback',{env:{...process.env,TERM:'dumb'}});assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
 test('role edits reach Settings but do not apply before Apply',{skip:!available},async t=>{
  const catalog={status:'ready',catalog:{platform:'claude',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]}};
  let steps=entry;
- for(const name of ['Scouter','Planner','Implementer','QA','Reviewer'])steps+='enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {'+name+'}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Install / Update}\nexpect -exact {Esc Home}\ndown\nexpect -exact {Esc Home}\n';
+ for(const name of ['Scouter','Planner','Implementer','QA','Reviewer'])steps+='enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {'+name+'}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Configure}\nexpect -exact {Esc Home}\ndown\nexpect -exact {Esc Home}\n';
  const output=await drive(t,steps+'down\nenter\nexpect -exact {Settings}\nsend -- "\\003"',{catalog});assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);assert.doesNotMatch(output,/entitlement|permission.{0,30}(?:unverified|not verified)/i);
 });
 test('diagram resize blocks editing and role picker retains pending effort',{skip:!available},async t=>{

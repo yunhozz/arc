@@ -433,7 +433,7 @@ test('kind preset, skipGlobal and target all remain accepted', async t => {
 });
 test('activation message uses display-ordered mixed label', async t => {
   const ctx = await compositeContext(t), {result} = await managementPublish(ctx);
-  assert.deepEqual(result.messages, ['Mixed routing on: Claude + Codex.', 'After upgrading ARC, run Install / Update again.']);
+  assert.deepEqual(result.messages, ['Mixed routing on: Claude + Codex.', 'After upgrading ARC, run Configure again.']);
 });
 test('management composite rejects unknown or singleton participating sets', async t => {
   const ctx = await zetaContext(t), config = await mixedConfig('invalid-set');
