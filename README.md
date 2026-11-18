@@ -78,7 +78,7 @@ The package provides the CLI; use the TUI to install the harness. Public command
 | Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA held: `permission_scope_unverified` | `claude auth status` |
 | Codex | Yes | Supported on CLI | From Claude; permissions claim capped at `operator-attested` | `codex app-server` refresh rotates `auth.json`; network required |
 | Gemini | No | Standalone verified | Read roles verified; write roles held: `permission_scope_unverified` | No probe; `unknown`, `auth unverified` warning |
-| Grok | No | Not verified | Not verified (capability off) | No probe |
+| Grok | No | Standalone enabled (not live-verified) | Read roles enabled (not live-verified); write roles held: `permission_scope_unverified`; Configure sets `[compat.claude]` agents/skills/rules to false in `~/.grok/config.toml` (session effect unverified) | No probe; `unknown`, `auth unverified` warning |
 
 | executionEnvironment | Support and obligations |
 |---|---|

@@ -543,8 +543,8 @@
 - Modify: `README.md:81`, `docs/harness-operation.md:73`
 - 생성물: `MANIFEST.sha256`
 
-- [ ] **Step 1:** 두 행을 spec 10장 정확 문자열로 교체합니다.
-- [ ] **Step 2:** `node --test tests/node/menu-label-residual.test.mjs`를 실행하고 STD-CLOSE 3·5·7을 수행합니다.
+- [x] **Step 1:** 두 행을 spec 10장 정확 문자열로 교체합니다.
+- [x] **Step 2:** `node --test tests/node/menu-label-residual.test.mjs`를 실행하고 STD-CLOSE 3·5·7을 수행합니다.
 
 **수용 기준:** `git diff -- README.md docs/harness-operation.md`가 2개 hunk·2행뿐이고, 바이트가 spec 10장과 같습니다.
 **필수 검사:** diff 검토, `check:manifest`, residual 테스트, `npm test`(호스트)
@@ -618,7 +618,7 @@
 | 2026-11-18 | T2 | 수용 | (이 커밋) | Implementer codex bridge `85ac0d61`(fresh), focused checks(OD-Q2, QA 없음). RED 42/3 → GREEN 45/0, 기존 argv·`argsDigest` 단언 무수정 통과. Orchestrator 재실행: runtime `--check` 35 files, golden `--diff` 0(갱신 후), `check:manifest` 283, `check:role-policy` 48(grok 생성물만), parity 통과, `git diff --stat -- claude codex gemini` 빈 결과, role-policy.json numstat 1/1, `does not write Grok config.toml` 0건. runtime baseline `5bed622b…`→`5faa50af…`, instruction-contracts 정책 해시 2·grok expanded profile 5 갱신. 호스트 `npm test` 2751/2686/52+cancelled 1 = 기준선 동일 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0 |
 | 2026-11-18 | T3a | 수용 | (이 커밋) | v2 개정 작업. 설계 Planner(native) `80849db8` 옵션 B, 사용자 v2 승인 2026-11-18T22:19:32+09:00. Implementer codex bridge `f8eafb9e`(fresh), QA codex bridge `ceddbda3`(fresh). RED(분리 트리, lib만 HEAD) 신규 3 FAIL → GREEN 신규 8/0. 호스트: T3a 묶음 8파일 120/120(작업 트리), 분리 트리(HEAD+T3a, T3 없음) 120건 fail 0·`check:manifest`·parity 통과. QA: AC-U1–U4 proven, 분리 트리 구성 바이트 비교 proven, 독립 탐침(`agents2` sibling 유지, 비대상 참여자 profile drift 감지) proven, 리터럴 0, 금지 3파일 diff 없음. bridge의 `upgrade-process` EMFILE은 환경 제한(호스트 통과). 호스트 sentinel `npm test` 2755/2688/52+cancelled 3 = 기준선 동일 + 파일 timeout 3(anchor-migration 20/20, gemini-composite 20/20, install-mode-n-platform 70/70 단독 통과), sentinel log 없음. `stateToken` 계산 불변 |
 | 2026-11-18 | T3 | 수용 | (이 커밋) | 전환 기록: 사용자 결정 2026-11-18(live 검증 아님), offline probe `.git/arc/handoff/grok-support/live-probe-2026-11-18.md`(원래 PC). Implementer codex bridge `cca36c27`(fresh, 반환 2회 처분 후 resume) → 교체 `837d0444`(allowedPaths 확장 불가로 교체; 목록 밖 5파일 O 전환·cli-pty/npm-sandbox P 격리). QA codex bridge `b4b7fd9a`(fresh, 재확인 포함). hostPlatform grok 관측 reason `capability_not_verified`(`lib/runtime/role-routing.mjs:224`, `role-dispatch-policy.mjs:78`). Step 6 composite config 3키 false assert 추가(`operations.mjs:100`이 grok에 buildInstallPlan 호출). bridge stream-json fake(`grok-bridge.test.mjs:80`)는 기존 fixture 예외. 호스트: PTY `tui-app-pty` 37/37, Step 10 449/449(QA), sentinel `npm test` 2755/2688/52+cancelled 3 = 기준선 + 파일 timeout 3(단독 통과), **sentinel log 없음**. 첫 sentinel 실행에서 드러난 composite upgrade 잠복 결함은 v2 T3a(4021aec)로 해결. golden 차이는 16조합 runtime `platform-registry.mjs` 해시뿐, runtime baseline `5faa50af…`→`09ef06d2…` |
-| | T4 | | | |
+| 2026-11-18 | T4 | 수용 | (이 커밋) | Implementer codex bridge `6d75192f`(fresh), TDD 예외(비동작 문서). 두 행이 spec 10장과 바이트 일치(Orchestrator 독립 비교), 파일당 1 hunk·1행. `menu-label-residual` 1/0, `check:manifest` 283, parity 통과. 호스트 `npm test` 2758/2693/52+cancelled 1 = 기준선 + `install-mode-n-platform` 부하 flake(단독 70/70), 신규 0 |
 | | FR | | | |
 
 ### 부록 A — 기존 단언 old → new 대응표

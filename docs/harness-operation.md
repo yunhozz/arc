@@ -70,7 +70,7 @@ flowchart LR
 | Codex | Home/composite auth uses `codex app-server` `getAuthStatus`; network refresh rotates `CODEX_HOME/auth.json` tokens |
 | Claude | `claude auth status` |
 | Gemini | `auth.kind: none`, no probe, status `unknown`; `auth unverified` warning, not proof of login |
-| Grok | All capabilities off; the CLI is not run; `auth.kind: none`, no probe |
+| Grok | `auth.kind: none`, no probe, status `unknown`; Status runs only `grok --version`; `auth unverified` warning, not proof of login |
 
 Unknown Claude/Codex probe results block participation.
 
