@@ -17,7 +17,7 @@ const planningHeading = '<a id="full-auto-run-mode"></a>\n## Full Auto run mode\
 const planningSection = `<a id="full-auto-run-mode"></a>
 ## Full Auto run mode
 
-Applies only when the installed SKILL.md states \`Run mode: Full Auto\` and the user has not asked in this chat to stop auto-deciding or to use Supervised. Orchestrator first completes every review obligation of the gate, then selects the recommended option. Without a recommendation and supporting evidence, ask the user (fail-safe). Gates not listed as auto stay with the user.
+Applies only when the installed SKILL.md contains \`**Run mode:** Full Auto.\` and the user has not asked in this chat to stop auto-deciding or to use Supervised. Orchestrator first completes every review obligation of the gate, then selects the recommended option. Without a recommendation and supporting evidence, ask the user (fail-safe). Gates not listed as auto stay with the user. \`user\` and \`unchanged\` rows take precedence over \`auto\` rows: an auto question row (\`Planner options and questions\`, \`AskUserQuestion\`) answers only questions whose subject no \`user\` or \`unchanged\` row covers; otherwise ask the user.
 
 | Gate | Full Auto | Rule |
 |---|---|---|

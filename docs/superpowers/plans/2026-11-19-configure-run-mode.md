@@ -353,6 +353,7 @@
 | 2026-11-19 | FR | 완료 | — | native arc-routing-reviewer(rev baa6f627) 승인, 차단 0. 비차단: planning.md 질문 행 우선순위 모호·`Run mode: Full Auto` 문자열 불일치·Configure 80ms 재그리기. 앞선 보류 원인은 CLI `--cwd` 상대경로(activation_unverified) |
 | 2026-11-19 | FR 처리 | 사용자 결정 | — | 1·2 조치(T8), 3은 Full Auto info 문구로 대체(T9), Host 추가 시 `(mixed)` 수정(T9) → spec v2·plan v4 |
 | 2026-11-19 | T9 | 수용 | (이 커밋) | 3 files, TUI 4 files 307/307, host suite 2881/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-U1–U9 proven; Full Auto 80열 full 레이아웃은 27행부터(안내 2행, spec 4.3 footerRows 규칙) |
+| 2026-11-19 | T8 | 수용 | (이 커밋) | 6 files, 4개 planning.md 각 1줄 동일 교체, run-mode-contract RED 4→GREEN, host suite 2881/fail 36 = 기준선(신규 0), manifest 283; 정확 문구 교체라 별도 QA 대신 계약 테스트·Orchestrator diff 대조, FR2에서 재확인 |
 
 ## 개정 이력
 
