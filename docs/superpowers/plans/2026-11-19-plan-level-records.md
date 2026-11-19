@@ -169,10 +169,10 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 
 **Files (allowedPaths, 1개):** `docs/harness-operation.md`. 다른 파일에서 문제가 나오면 고치지 않고 보고.
 
-- [ ] **Step 1:** 226행(계획 개정 요약 bullet) 끝에 §4.8 문장을 바이트 그대로 덧붙인다. 227행은 바꾸지 않는다.
-- [ ] **Step 2 (잔여 grep, 읽기 전용):** `grep -rliE "plan-level progress records" --exclude-dir=.git --exclude-dir=node_modules . | grep -v '^./docs/superpowers/'` → 기대: 4개 플랫폼 SKILL.md와 references 5개(24개), `lib/policy/role-policy.json`, `shared/skill/runtime/role-policy.json`, `tests/test_harness_contract.py`, `tests/node/plan-level-records-contract.test.mjs`, `tests/node/role-policy.test.mjs`, `tests/node/fixtures/instruction-contracts.json`, `docs/harness-operation.md`(`run-mode-contract.test.mjs`는 행 문구에 따라 제외될 수 있음). 목록 밖 결과는 보고.
-- [ ] **Step 3:** `git diff --stat <P0 docs 커밋 SHA>..HEAD -- docs/superpowers` → 이 plan 파일(진행 기록)만 나와야 한다.
-- [ ] **Step 4:** `P-HC`와 `python3 -B -m unittest tests.test_harness_contract.DocumentationContractTests -v` → 실패 집합이 기준선의 부분집합, 링크 검사(`test_maintained_local_links_resolve`) 새 실패 없음. 진행 기록. 커밋 메시지 예: `docs(harness): plan-level 진행 기록 경로 요약 추가`
+- [x] **Step 1:** 226행(계획 개정 요약 bullet) 끝에 §4.8 문장을 바이트 그대로 덧붙인다. 227행은 바꾸지 않는다.
+- [x] **Step 2 (잔여 grep, 읽기 전용):** `grep -rliE "plan-level progress records" --exclude-dir=.git --exclude-dir=node_modules . | grep -v '^./docs/superpowers/'` → 기대: 4개 플랫폼 SKILL.md와 references 5개(24개), `lib/policy/role-policy.json`, `shared/skill/runtime/role-policy.json`, `tests/test_harness_contract.py`, `tests/node/plan-level-records-contract.test.mjs`, `tests/node/role-policy.test.mjs`, `tests/node/fixtures/instruction-contracts.json`, `docs/harness-operation.md`(`run-mode-contract.test.mjs`는 행 문구에 따라 제외될 수 있음). 목록 밖 결과는 보고.
+- [x] **Step 3:** `git diff --stat <P0 docs 커밋 SHA>..HEAD -- docs/superpowers` → 이 plan 파일(진행 기록)만 나와야 한다.
+- [x] **Step 4:** `P-HC`와 `python3 -B -m unittest tests.test_harness_contract.DocumentationContractTests -v` → 실패 집합이 기준선의 부분집합, 링크 검사(`test_maintained_local_links_resolve`) 새 실패 없음. 진행 기록. 커밋 메시지 예: `docs(harness): plan-level 진행 기록 경로 요약 추가`
 
 **수락 기준:** spec §4.8 반영, AC-10(잔여 참조), AC-11(문서 테스트 새 실패 0)
 **필수 검사:** Step 2–4. QA 없이 Orchestrator 직접 확인(O4).
@@ -223,6 +223,7 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 | 2026-11-19 | P0 | 완료 | 0e00371 | spec·plan docs 커밋. 기준선(호스트, worktree @0e00371): node 2097 tests 70 fail·13 skip, python 547 fail+7 error(기존 stale 계약), P-PLR 0, G-POL/G-RT/G-MAN/G-PAR exit 0, `G-PAR --complete` exit 1, `instruction-layout.test.mjs` 단독 exit 1(5 fail). 원본 출력은 canonical record 참조 |
 | 2026-11-19 | T1 | 완료 | 이 커밋 | RED: node 28 예상 실패, P-PLR 32 → GREEN: 신규 계약·Run mode 39개 pass, P-PLR 0, G-POL 48 targets·G-MAN 283 files ok. 호스트 N-ALL 2121 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0). fresh QA: AC-1~AC-10 입증, 표본 삭제 2건 검출, instruction-layout 5 fail P0 일치 |
 | 2026-11-19 | T2 | 완료 | 이 커밋 | RED: 새 role-policy 테스트 1 fail → GREEN. `Updated role policy (16 targets)`, runtime 사본 1개 변경, protected 해시 53acab4f…→799e9726…(실측 일치). focused node 111 중 106 pass, 5 fail = P0 instruction-layout 5개. 호스트 N-ALL 2122 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0), G-POL/G-RT/G-MAN/G-PAR P0와 동일. fresh QA: AC-2·AC-6·AC-9·AC-10 입증, 결함 없음. 한계: QA 독립 RED 표본은 QA 스크립트 오류로 미실행(AC-11은 Implementer RED 기록과 GREEN으로 판정) |
+| 2026-11-19 | T3 | 완료 | 이 커밋 | `docs/harness-operation.md:226` 끝에 §4.8 문장 추가(+1/−1). 잔여 grep 결과가 기대 목록과 일치. `docs/superpowers`는 P0 이후 이 plan 파일(진행 기록)만 변경. P-HC 95 실패가 P0와 동일(새 실패 0), 링크 검사 2건은 P0부터 실패(`coordination.md#token-discipline-and-handoffs`). Orchestrator 직접 확인(O4) |
 
 ## 개정 이력
 
