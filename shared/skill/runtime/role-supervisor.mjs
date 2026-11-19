@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import {spawn, spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {GROK_CONTRACT, normalizeGrokStreamEvent, evaluateGrokObservation} from './grok-stream.mjs';
+import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline} from './grok-sandbox.mjs';
 import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
 import {DEFAULT_POLICY, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
@@ -117,6 +118,14 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   }
   if ((platform === 'gemini' || platform === 'grok') && lease.segment > 0 && !['on', 'verified'].includes(implementation?.resume)) throw fail('resume_unverified', platform === 'grok' ? 'Grok resume is not verified' : 'Gemini resume is not verified');
   if (!implementation) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
+  const permissions = ROLE_BRIDGE_PERMISSIONS[platform][lease.role];
+  let grokSandbox;
+  if (platform === 'grok' && permissions.sandbox === 'custom') {
+    const name = grokSandboxProfileName(lease.dispatchId);
+    if (!name || grokProfileCovered(lease.allowedPaths)) throw fail('permission_scope_unverified', 'Grok sandbox profile scope is unavailable');
+    inspectGrokProfileSlot(worktree);
+    grokSandbox = {name, path: path.join(worktree, GROK_SANDBOX_RELATIVE), bytes: renderGrokSandboxProfile(name)};
+  }
   const file = path.join(homes[platform], 'agents', routingProfileFile(getPlatform(platform), lease.role));
   let bytes;
   try { bytes = await fsp.readFile(file); } catch { throw fail('activation_unverified', 'Profile unreadable'); }
@@ -124,14 +133,13 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   let profile, args;
   try {
     profile = parseCompositeProfile(platform, bytes);
-    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy, policyFile: geminiPolicyFile(homes, lease.role), ...(platform === 'grok' ? {promptFile: grokPromptFile(resultPath)} : {}), resume: lease.segment > 0});
+    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy, policyFile: geminiPolicyFile(homes, lease.role), ...(platform === 'grok' ? {promptFile: grokPromptFile(resultPath), sandboxProfile: grokSandbox?.name} : {}), resume: lease.segment > 0});
   } catch { throw fail('permission_scope_unverified', 'Profile arguments unavailable'); }
-  const permissions = ROLE_BRIDGE_PERMISSIONS[platform][lease.role];
   const expected = platform === 'claude'
     ? {model: requested.model, effort: requested.effort, tools: profile.tools, permissionMode: permissions.permissionMode}
     : platform === 'gemini' || platform === 'grok' ? {model: requested.model, effort: 'default'}
     : {model: requested.model, effort: requested.effort, sandboxMode: permissions.sandboxMode, approvalPolicy: 'never'};
-  return {platform, args, argsDigest: argsDigest(args), expected, requested, ...(platform === 'gemini' ? {stdinInstructions: profile.instructions} : {}), ...(platform === 'grok' ? {promptFile: {path: grokPromptFile(resultPath), instructions: profile.instructions}, childEnv: GROK_CONTRACT.childEnv} : {})};
+  return {platform, args, argsDigest: argsDigest(args), expected, requested, ...(platform === 'gemini' ? {stdinInstructions: profile.instructions} : {}), ...(platform === 'grok' ? {promptFile: {path: grokPromptFile(resultPath), instructions: profile.instructions}, childEnv: GROK_CONTRACT.childEnv} : {}), ...(grokSandbox ? {grokSandbox} : {})};
 }
 
 /** Starts this module as a detached supervisor process (own session, stdio ignored, unref'd). env defaults to the inherited environment. */
@@ -197,10 +205,31 @@ export async function runSupervisor(options) {
       await writeLease(codexHome, {...current, state, claims: claims ?? current.claims, reasons: [...new Set(codes)].map(reason), sessionId: extra.sessionId ?? current.sessionId, resultPath: extra.resultPath ?? null}, {runtimePlatforms});
     });
   };
-  const earlyFailure = async (code, spawned = null) => {
+  let createdGrokProfile, grokSandboxProfile, spawnAtMs, profileViolation = false;
+  const grokProfileRecord = () => grokSandboxProfile ? {grokSandboxProfile, ...(spawnAtMs === undefined ? {} : {spawnAtMs})} : {};
+  const cleanGrokProfile = () => {
+    if (!grokSandboxProfile || grokSandboxProfile.removed !== null) return;
+    const {removed, dirRemoved, violation} = removeGrokSandboxProfile(createdGrokProfile);
+    Object.assign(grokSandboxProfile, {removed, dirRemoved});
+    profileViolation = violation;
+  };
+  const retainGrokProfile = () => {
+    if (grokSandboxProfile?.removed === null) Object.assign(grokSandboxProfile, {removed: false, reason: 'child_unobserved'});
+    return grokProfileRecord();
+  };
+  const earlyFailure = async (code, spawned = null, extra = {}) => {
     const claims = {...(lease.claims ?? {}), terminal: {level: 'runtime-observed', source: 'supervisor'}};
-    await writeRecord({state: 'failed', reasons: [code], spawned: spawned !== null, ...(spawned !== null ? {childPid: spawned} : {})}).catch(() => {});
-    await commit('failed', [code], claims);
+    const codes = [code];
+    if (profileViolation) {
+      codes.push('permission_violation_observed');
+      claims.permissions = {...claims.permissions, level: 'unverified', details: 'permission violation observed'};
+    }
+    await writeRecord({state: 'failed', reasons: codes, spawned: spawned !== null, ...(spawned !== null ? {childPid: spawned} : {}), ...extra}).catch(() => {});
+    await commit('failed', codes, claims);
+  };
+  const failWithProfileCleanup = (code, spawned = null) => {
+    cleanGrokProfile();
+    return earlyFailure(code, spawned, grokProfileRecord());
   };
 
   let child = null, eventsFd = null, killTimers = [], terminating = null, termAt = 0;
@@ -229,8 +258,16 @@ export async function runSupervisor(options) {
     const brief = await fsp.readFile(path.join(artifactDir, 'brief.md'), 'utf8');
     const cli = resolveLocalCli(platform, context);
     if (cli.reason) return await earlyFailure(cli.reason === 'cli_not_found' ? 'Not Available' : 'execution_failed');
+    const childEnv = {...localCliEnvironment(cli), ...invocation.childEnv};
+    if (invocation.grokSandbox) {
+      if (Object.hasOwn(invocation.childEnv, 'GROK_HOME') || !checkGrokHome({grokHome: homes.grok, userHome, childEnv})) return await earlyFailure('permission_scope_unverified');
+      try { createdGrokProfile = createGrokSandboxProfile({worktree: target.realpath, bytes: invocation.grokSandbox.bytes}); }
+      catch (error) { return await earlyFailure(error.reasonCode ?? 'permission_scope_unverified'); }
+      const {path, sha256, dirCreated} = createdGrokProfile;
+      grokSandboxProfile = {name: invocation.grokSandbox.name, path, sha256, dirCreated, created: true, removed: null, dirRemoved: false, eventsBaseline: null, applied: null};
+    }
     let before;
-    try { before = await snapshotWorktree(target.realpath); } catch { return await earlyFailure('execution_failed'); }
+    try { before = await snapshotWorktree(target.realpath); } catch { return await failWithProfileCleanup('execution_failed'); }
 
     if (invocation.promptFile) {
       let promptFd;
@@ -238,12 +275,21 @@ export async function runSupervisor(options) {
         promptFd = fs.openSync(invocation.promptFile.path, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o600);
         fs.writeFileSync(promptFd, `${invocation.promptFile.instructions}\n\n${brief}`);
         fs.fchmodSync(promptFd, 0o600);
-      } catch { return await earlyFailure('execution_failed'); }
+      } catch { return await failWithProfileCleanup('execution_failed'); }
       finally { if (promptFd !== undefined) fs.closeSync(promptFd); }
     }
     eventsFd = fs.openSync(path.join(artifactDir, 'events.jsonl'), 'a', 0o600);
+    if (grokSandboxProfile) {
+      try { grokSandboxProfile.eventsBaseline = grokEventsBaseline(homes.grok); }
+      catch { return await failWithProfileCleanup('permission_scope_unverified'); }
+      if (!verifyGrokSandboxProfile(createdGrokProfile)) {
+        Object.assign(grokSandboxProfile, {removed: false, reason: 'profile_changed_before_spawn'});
+        return await earlyFailure('permission_scope_unverified', null, grokProfileRecord());
+      }
+      spawnAtMs = Date.now();
+    }
     // The child is a process-group leader so one signal reaches its descendants. The prompt uses the platform-specific input channel.
-    child = spawn(cli.executable, invocation.args, {cwd: target.realpath, env: {...localCliEnvironment(cli), ...invocation.childEnv, ARC_BRIDGE_CHILD: dispatchId}, detached: true, stdio: ['pipe', 'pipe', 'pipe'], shell: false});
+    child = spawn(cli.executable, invocation.args, {cwd: target.realpath, env: {...childEnv, ARC_BRIDGE_CHILD: dispatchId}, detached: true, stdio: ['pipe', 'pipe', 'pipe'], shell: false});
     let exitResolve, exited = false;
     const exitPromise = new Promise(resolve => { exitResolve = resolve; });
     child.on('exit', (code, signal) => { exited = true; exitResolve({code, signal}); });
@@ -382,7 +428,7 @@ export async function runSupervisor(options) {
     if (exit.unobserved) {
       // The child was signalled but its exit was never observed: the slot stays occupied.
       const claims = {...lease.claims, terminal: {level: 'unverified', source: 'none'}};
-      await writeRecord({state: 'unknown', reasons: [...(terminating === 'timeout' ? ['timeout'] : []), 'terminal_state_unverified'], terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow}).catch(() => {});
+      await writeRecord({state: 'unknown', reasons: [...(terminating === 'timeout' ? ['timeout'] : []), 'terminal_state_unverified'], terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, ...retainGrokProfile()}).catch(() => {});
       await locked(async () => {
         const current = await readLease(codexHome, dispatchId, {runtimePlatforms});
         if (current && !TERMINAL_STATES.includes(current.state)) await writeLease(codexHome, {...current, state: 'unknown', claims, reasons: [...(terminating === 'timeout' ? ['timeout'] : []), 'terminal_state_unverified'].map(reason)}, {runtimePlatforms});
@@ -405,9 +451,10 @@ export async function runSupervisor(options) {
     if (platform === 'gemini' && terminating !== 'cancel' && (exit.code !== 0 || exit.signal || state.terminalError)) codes.push('execution_failed');
     if (platform === 'grok' && terminating !== 'cancel' && (exit.code !== 0 || exit.signal || state.terminalError || !state.terminal)) codes.push('execution_failed');
     if (effortMismatch) codes.push('model_effort_mismatch');
-    if (violations.reason) codes.push(violations.reason);
+    cleanGrokProfile();
+    if (violations.reason || profileViolation) codes.push(violations.reason ?? 'permission_violation_observed');
     if (after === null) claims.permissions = {level: 'unverified', source: 'worktree-snapshot', details: 'post-run snapshot unavailable'};
-    else if (violations.reason) claims.permissions = {...claims.permissions, level: 'unverified', details: 'permission violation observed'};
+    if (violations.reason || profileViolation) claims.permissions = {...claims.permissions, level: 'unverified', details: 'permission violation observed'};
     if (terminating === 'timeout') codes.push('timeout');
 
     const resultPath = platform === 'grok' && (exit.code !== 0 || exit.signal) ? null : await implementation.resultPath(state, resultFile);
@@ -434,7 +481,7 @@ export async function runSupervisor(options) {
       claims.identity = {level: 'unverified', source: 'none'};
     }
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
-    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {})});
+    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...grokProfileRecord(), ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {})});
     await commit(finalState, codes, claims, {sessionId, resultPath});
   } catch {
     // Unexpected failure after the child started: stop it, then record a failed state if the child is gone.
@@ -443,11 +490,10 @@ export async function runSupervisor(options) {
     if (spawnedPid) { if (!termAt) { termAt = Date.now(); killGroup('SIGTERM'); } stopped = await reapGroup().catch(() => false); }
     for (const timer of timers) { clearInterval(timer); clearTimeout(timer); }
     for (const timer of killTimers) clearTimeout(timer);
-    if (eventsFd !== null) { try { fs.closeSync(eventsFd); } catch { /* closed */ } }
-    if (stopped) await earlyFailure('execution_failed', spawnedPid).catch(() => {});
+    if (stopped) await failWithProfileCleanup('execution_failed', spawnedPid).catch(() => {});
     else {
       const codes = ['execution_failed', 'terminal_state_unverified'];
-      await writeRecord({state: 'unknown', reasons: codes, spawned: true, childPid: spawnedPid}).catch(() => {});
+      await writeRecord({state: 'unknown', reasons: codes, spawned: true, childPid: spawnedPid, ...retainGrokProfile()}).catch(() => {});
       await locked(async () => {
       const current = await readLease(codexHome, dispatchId, {runtimePlatforms});
       if (current && !TERMINAL_STATES.includes(current.state)) await writeLease(codexHome, {...current, state: 'unknown', reasons: codes.map(reason)}, {runtimePlatforms});
@@ -455,6 +501,7 @@ export async function runSupervisor(options) {
     }
   } finally {
     for (const timer of timers) { clearInterval(timer); clearTimeout(timer); }
+    if (eventsFd !== null) { try { fs.closeSync(eventsFd); } catch { /* closed */ } }
   }
 }
 

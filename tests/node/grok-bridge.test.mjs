@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
+import {once} from 'node:events';
 import * as argsApi from '../../lib/runtime/role-bridge-args.mjs';
 import * as observeApi from '../../lib/runtime/role-observe.mjs';
 import * as supervisorApi from '../../lib/runtime/role-supervisor.mjs';
@@ -15,9 +16,9 @@ import {DEFAULT_POLICY, BRIDGE_GATE_RESULTS, bridgeGateReasons} from '../../lib/
 import {DEFAULT_PLATFORM_REGISTRY, createPlatformRegistry} from '../../lib/runtime/platform-registry.mjs';
 import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from '../../lib/runtime/bootstrap.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
-import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
+import {prepareRoleDispatch, withRoutingLock} from '../../lib/runtime/role-routing.mjs';
 import {cancelRoleDispatch, runBridgeDispatch, resumeRoleDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
-import {readLease, requestCancel, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
+import {readLease, requestCancel, listLeases, writeLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {render, renameForRouting} from '../../lib/platforms/formats/grok-markdown.mjs';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';
@@ -26,16 +27,17 @@ const codes = result => result.reasons.map(item => item.code);
 const registry = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'grok' ? {...p, capabilities: Object.fromEntries(Object.keys(p.capabilities).map(key => [key, {state: 'verified'}]))} : p));
 const policy = {...DEFAULT_POLICY, heartbeatMs: 30, cancelGraceMs: 60, probeTimeoutMs: 1000};
 const failedHostPolicy = {...policy, gates: {...policy.gates, GK2: 'fail'}};
+const writingPolicy = {...policy, gates: {...policy.gates, GK1: 'pass'}};
 const source = role => `---\nname: arc-${role.slice(4)}\ndescription: Role instructions\nmodel: grok-test\n---\nPrivate role instructions\n`;
 const forbidden = ['--always-approve', '--allow', '-c', '--continue', '-r', '--resume', '--prompt-json', '-p', '--single', '--effort', '--reasoning-effort', 'bypassPermissions'];
 
 // Catches widened permissions, reordered flags, unsafe model values and session substitution.
 for (const role of ROUTING_ROLES) test(`AC-K5 arguments for ${role}`, () => {
   assert.equal(typeof argsApi.buildGrokArgs, 'function');
-  const args = argsApi.buildGrokArgs({role, profile: {model: 'grok-test'}, sessionId: SESSION, promptFile: '/segment/prompt.md'});
+  const args = argsApi.buildGrokArgs({role, profile: {model: 'grok-test'}, sessionId: SESSION, promptFile: '/segment/prompt.md', sandboxProfile: 'arc-bridge-0123abcd'});
   const writing = ['arc_implementer', 'arc_qa'].includes(role);
   assert.deepEqual(args, ['--prompt-file', '/segment/prompt.md', '--output-format', 'streaming-json', '-m', 'grok-test', '--session-id', SESSION,
-    '--permission-mode', writing ? 'acceptEdits' : 'plan', '--sandbox', writing ? 'workspace' : 'read-only',
+    '--permission-mode', writing ? 'acceptEdits' : 'plan', '--sandbox', writing ? 'arc-bridge-0123abcd' : 'read-only',
     ...(writing ? [] : ['--deny', 'Bash', '--deny', 'Edit', '--deny', 'Write', '--deny', 'MCPTool']), '--no-auto-update', '--no-subagents']);
   assert.equal(forbidden.some(flag => args.includes(flag)), false);
   assert.notEqual(args[args.indexOf('--sandbox') + 1], 'off');
@@ -69,7 +71,7 @@ test('normalize preserves data, thought isolation and unknown raw events', async
 });
 
 // Real markers, profile hashes, leases and worktree snapshots; only the child CLI is fake.
-async function fixture(t, extraEnv = {}, hostBridge = false) {
+async function fixture(t, extraEnv = {}, hostBridge = false, dispatchPolicy = policy) {
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-grok-'));
   t.after(() => fs.rm(base, {recursive: true, force: true}));
   const cwd = path.join(base, 'repo'), userHome = path.join(base, 'home'), bin = path.join(base, 'bin');
@@ -104,15 +106,16 @@ async function fixture(t, extraEnv = {}, hostBridge = false) {
   const record = path.join(base, 'child.json');
   const context = {cwd, userHome, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 'wf-t12', runtimePlatforms: registry,
     env: {PATH: [bin, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter), HOME: userHome, TMPDIR: process.env.TMPDIR, ARC_FAKE_GROK_RECORD: record, ...extraEnv}};
-  const prepare = async (role = 'arc_scouter') => prepareRoleDispatch({context, assignment: {role, taskId: crypto.randomUUID(), requestId: crypto.randomUUID(), ...(role === 'arc_implementer' ? {allowedPaths: ['src/']} : {})}, expectedRevision: 't12', policy});
+  const prepare = async (role = 'arc_scouter', allowedPaths = role === 'arc_implementer' ? ['src/'] : undefined) => prepareRoleDispatch({context, assignment: {role, taskId: crypto.randomUUID(), requestId: crypto.randomUUID(), allowedPaths}, expectedRevision: 't12', policy: dispatchPolicy});
   const starter = async () => ({pid: process.pid, startTime: 'fixture-supervisor'});
-  const supervise = (id, extra = {}) => supervisorApi.runSupervisor({codexHome: homes.claude, dispatchId: id, cwd, userHome, env: context.env, runtimePlatforms: registry, policy, ...extra});
-  const observe = id => recordRoleObservation({context, dispatchId: id, policy});
+  const supervise = (id, extra = {}) => supervisorApi.runSupervisor({codexHome: homes.claude, dispatchId: id, cwd, userHome, env: context.env, runtimePlatforms: registry, policy: dispatchPolicy, ...extra});
+  const observe = id => recordRoleObservation({context, dispatchId: id, policy: dispatchPolicy});
+  const start = (id, startSupervisor = starter) => runBridgeDispatch({context, dispatchId: id, brief: 'Private task brief', policy: dispatchPolicy, startSupervisor});
   const run = async (id, extra = {}) => {
-    const result = await runBridgeDispatch({context, dispatchId: id, brief: 'Private task brief', policy, startSupervisor: starter});
+    const result = await start(id);
     assert.equal(result.decision, 'allow', JSON.stringify(result.reasons)); await supervise(id, extra); return observe(id);
   };
-  return {base, context, homes, config, prepare, run, supervise, observe, starter, record};
+  return {base, context, homes, config, prepare, start, run, supervise, observe, starter, record};
 }
 
 for (const [scenario, want] of [
@@ -281,6 +284,218 @@ test('Grok invocation reserves prompt path without writing; existing Claude invo
   assert.equal(claude.platform, 'claude'); assert.equal(claude.promptFile, undefined);
 });
 
+function sandboxPath(f) { return path.join(f.context.cwd, '.grok', 'sandbox.toml'); }
+
+async function dispatchRecord(f, id) {
+  const target = await supervisorApi.resolveWorktree(f.context.cwd);
+  const directory = supervisorApi.artifactDirectory(target, f.context.workflowId, id);
+  return JSON.parse(await fs.readFile(path.join(directory, 'record.json'), 'utf8'));
+}
+
+test('AC4 Grok writing invocation derives a stable digest and does not write the profile', async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  const lease = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
+  const input = {lease, config: f.config, homes: f.homes, worktree: f.context.cwd, resultPath: path.join(f.base, 'segment', 'result.md'), policy: writingPolicy};
+  const first = await supervisorApi.buildBridgeInvocation(input);
+  const second = await supervisorApi.buildBridgeInvocation(input);
+  const name = 'arc-bridge-' + prepared.dispatchId.slice(0, 8);
+  assert.equal(first.grokSandbox?.name, name);
+  assert.equal(first.grokSandbox.path, sandboxPath(f));
+  assert.ok(Buffer.isBuffer(first.grokSandbox.bytes));
+  assert.equal(first.args[first.args.indexOf('--sandbox') + 1], name);
+  assert.equal(first.argsDigest, second.argsDigest);
+  await assert.rejects(fs.lstat(sandboxPath(f)), {code: 'ENOENT'});
+});
+
+for (const scenario of ['E2 allowed path', 'E3 existing profile', 'E4 symlink directory', 'E6 invalid dispatch id']) test(`${scenario} holds run-dispatch before starting the supervisor`, async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  const prepared = await f.prepare('arc_implementer', scenario.startsWith('E2') ? ['.grok/owned'] : undefined);
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  const file = sandboxPath(f), directory = path.dirname(file);
+  let lease = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
+  if (scenario.startsWith('E3')) {
+    await fs.mkdir(directory);
+    await fs.writeFile(file, 'user bytes');
+  } else if (scenario.startsWith('E4')) {
+    const userDirectory = path.join(f.base, 'user-grok');
+    await fs.mkdir(userDirectory);
+    await fs.writeFile(path.join(userDirectory, 'sandbox.toml'), 'user bytes');
+    await fs.symlink(userDirectory, directory);
+  } else if (scenario.startsWith('E6')) {
+    lease = {...lease, dispatchId: 'not-hex-dispatch'};
+    await withRoutingLock(f.homes.claude, () => writeLease(f.homes.claude, lease, {runtimePlatforms: registry}));
+  }
+  const preservesFile = scenario.startsWith('E3') || scenario.startsWith('E4');
+  const before = preservesFile ? digest(await fs.readFile(file)) : null;
+  const input = {lease, config: f.config, homes: f.homes, worktree: f.context.cwd, resultPath: path.join(f.base, 'segment', 'result.md'), policy: writingPolicy};
+  await assert.rejects(supervisorApi.buildBridgeInvocation(input), {reasonCode: 'permission_scope_unverified'});
+  let started = false;
+  const held = await f.start(lease.dispatchId, async () => { started = true; return f.starter(); });
+  assert.equal(held.decision, 'hold');
+  assert.deepEqual(codes(held), ['permission_scope_unverified']);
+  assert.equal(started, false);
+  if (preservesFile) assert.equal(digest(await fs.readFile(file)), before);
+  else await assert.rejects(fs.lstat(file), {code: 'ENOENT'});
+  if (scenario.startsWith('E4')) assert.ok((await fs.lstat(directory)).isSymbolicLink());
+});
+
+for (const role of ['arc_implementer', 'arc_qa']) test(`AC6 supervisor creates and removes ${role} profile around the fake Grok child`, async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  const prepared = await f.prepare(role);
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  const file = sandboxPath(f);
+  let observed;
+  const done = await f.run(prepared.dispatchId, {afterSpawn() {
+    const status = fsSync.lstatSync(file, {throwIfNoEntry: false});
+    if (status) observed = {mode: status.mode & 0o777, sha256: digest(fsSync.readFileSync(file))};
+  }});
+  assert.equal(done.routeStatus, 'completed', JSON.stringify(done));
+  assert.equal(observed?.mode, 0o444);
+  const name = 'arc-bridge-' + prepared.dispatchId.slice(0, 8);
+  const {argv} = JSON.parse(await fs.readFile(f.record, 'utf8'));
+  assert.equal(argv[argv.indexOf('--sandbox') + 1], name);
+  assert.deepEqual((await dispatchRecord(f, prepared.dispatchId)).grokSandboxProfile, {
+    name, path: file, sha256: observed.sha256, dirCreated: true, created: true, removed: true,
+    dirRemoved: true, eventsBaseline: {exists: false, size: 0}, applied: null,
+  });
+  await assert.rejects(fs.lstat(path.dirname(file)), {code: 'ENOENT'});
+});
+
+for (const scenario of ['E5 late file', 'E7 different child GROK_HOME', 'E9 event directory', 'E10 existing prompt']) test(`${scenario} fails before spawn with the expected profile disposition`, async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  assert.equal((await f.start(prepared.dispatchId)).decision, 'allow');
+  const file = sandboxPath(f), directory = path.dirname(file);
+  const options = {};
+  let mkdir;
+  if (scenario.startsWith('E5')) {
+    const original = fsSync.mkdirSync;
+    mkdir = t.mock.method(fsSync, 'mkdirSync', (filename, ...args) => {
+      if (filename !== directory) return original(filename, ...args);
+      original(directory);
+      fsSync.writeFileSync(file, 'late user bytes');
+      return original(filename, ...args);
+    });
+  } else if (scenario.startsWith('E7')) {
+    // Simulate a CLI adapter passing through the wrong child value while home resolution stays correct.
+    options.env = {...f.context.env, GROK_HOME: path.join(f.base, 'wrong-home')};
+    options.runtimePlatforms = createPlatformRegistry(registry.platforms.map(p => p.id === 'grok' ? {
+      ...p, home: {...p.home, env: 'ARC_FIXTURE_GROK_HOME', resolve: () => f.homes.grok},
+    } : p));
+  } else if (scenario.startsWith('E9')) {
+    await fs.mkdir(path.join(f.homes.grok, 'sessions', 'sandbox-events.jsonl'), {recursive: true});
+  } else {
+    const lease = await readLease(f.homes.claude, prepared.dispatchId, {runtimePlatforms: registry});
+    await fs.writeFile(path.join(path.dirname(lease.resultPath), 'prompt.md'), 'existing');
+  }
+  try { await f.supervise(prepared.dispatchId, options); } finally { mkdir?.mock.restore(); }
+  const done = await f.observe(prepared.dispatchId);
+  assert.equal(done.routeStatus, 'failed', JSON.stringify(done));
+  assert.deepEqual(codes(done), [scenario.startsWith('E10') ? 'execution_failed' : 'permission_scope_unverified']);
+  const record = await dispatchRecord(f, prepared.dispatchId);
+  assert.equal(record.spawned, false);
+  if (scenario.startsWith('E5')) assert.equal(await fs.readFile(file, 'utf8'), 'late user bytes');
+  else await assert.rejects(fs.lstat(directory), {code: 'ENOENT'});
+  if (scenario.startsWith('E9') || scenario.startsWith('E10')) {
+    assert.equal(record.grokSandboxProfile?.created, true);
+    assert.equal(record.grokSandboxProfile.removed, true);
+    assert.equal(record.grokSandboxProfile.dirRemoved, true);
+  }
+  await assert.rejects(fs.lstat(f.record), {code: 'ENOENT'});
+});
+
+for (const {ignored, noIdentity} of [
+  {ignored: false, noIdentity: false}, {ignored: true, noIdentity: false}, {ignored: false, noIdentity: true},
+]) test(`E14/RF1 detects a changed Grok profile (ignored: ${ignored}, missing session: ${noIdentity})`, async t => {
+  const f = await fixture(t, noIdentity ? {ARC_FAKE_GROK_SCENARIO: 'no-end'} : {}, false, writingPolicy);
+  const file = sandboxPath(f);
+  if (ignored) await fs.writeFile(path.join(f.context.cwd, '.gitignore'), '.grok/\n');
+  const fake = path.join(f.base, 'bin', 'grok');
+  const script = (await fs.readFile(fake, 'utf8')).replace('let stdin', 'await fs.unlink(".grok/sandbox.toml").catch(error => { if (error.code !== "ENOENT") throw error; });\nawait fs.writeFile(".grok/sandbox.toml", "changed by fake grok").catch(error => { if (error.code !== "ENOENT") throw error; });\nlet stdin');
+  await fs.writeFile(fake, script);
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  const done = await f.run(prepared.dispatchId);
+  assert.equal(done.routeStatus, noIdentity ? 'unknown' : 'failed', JSON.stringify(done));
+  if (noIdentity) {
+    assert.ok(codes(done).includes('execution_identity_unverified'));
+    assert.ok(codes(done).includes('permission_violation_observed'));
+  } else assert.deepEqual(codes(done), ['permission_violation_observed']);
+  assert.equal(done.claims.permissions.level, 'unverified');
+  assert.equal(await fs.readFile(file, 'utf8'), 'changed by fake grok');
+  const record = await dispatchRecord(f, prepared.dispatchId);
+  assert.equal(record.grokSandboxProfile?.removed, false);
+  if (ignored) assert.deepEqual(record.violations.changedPaths, []);
+});
+
+for (const kind of ['changed bytes', 'same bytes with a new inode']) test(`AC6 spawn check rejects a profile with ${kind}`, async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  assert.equal((await f.start(prepared.dispatchId)).decision, 'allow');
+  const file = sandboxPath(f);
+  const eventsPath = path.join(f.homes.grok, 'sessions', 'sandbox-events.jsonl');
+  const expected = Buffer.from('changed before spawn');
+  const originalLstat = fsSync.lstatSync;
+  let replacement;
+  const lstat = t.mock.method(fsSync, 'lstatSync', (filename, ...args) => {
+    if (filename === eventsPath) {
+      if (kind === 'changed bytes') {
+        fsSync.chmodSync(file, 0o600);
+        fsSync.writeFileSync(file, expected);
+        replacement = expected;
+      } else {
+        replacement = fsSync.readFileSync(file);
+        fsSync.renameSync(file, path.join(f.base, 'original-profile'));
+        fsSync.writeFileSync(file, replacement);
+      }
+    }
+    return originalLstat(filename, ...args);
+  });
+  try { await f.supervise(prepared.dispatchId); } finally { lstat.mock.restore(); }
+  const done = await f.observe(prepared.dispatchId);
+  assert.equal(done.routeStatus, 'failed', JSON.stringify(done));
+  assert.deepEqual(codes(done), ['permission_scope_unverified']);
+  const record = await dispatchRecord(f, prepared.dispatchId);
+  assert.equal(record.spawned, false);
+  assert.equal(record.grokSandboxProfile.removed, false);
+  assert.equal(record.grokSandboxProfile.reason, 'profile_changed_before_spawn');
+  assert.ok(replacement);
+  assert.deepEqual(await fs.readFile(file), replacement);
+  await assert.rejects(fs.lstat(f.record), {code: 'ENOENT'});
+});
+
+for (const failAfterSpawn of [false, true]) test(`E${failAfterSpawn ? 16 : 15} retains the profile when the child has not stopped`, async t => {
+  const f = await fixture(t, {ARC_FAKE_GROK_SCENARIO: 'hang'}, false, writingPolicy);
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  let child, exited;
+  try {
+    const done = await f.run(prepared.dispatchId, {
+      timeoutMs: 30, graceMs: 30, signalGroup() {},
+      afterSpawn(spawned) {
+        child = spawned;
+        exited = once(child, 'exit');
+        if (failAfterSpawn) throw Error('fixture post-spawn failure');
+      },
+    });
+    assert.equal(done.routeStatus, 'unknown', JSON.stringify(done));
+    assert.ok(codes(done).includes('terminal_state_unverified'));
+    const sandbox = (await dispatchRecord(f, prepared.dispatchId)).grokSandboxProfile;
+    assert.equal(sandbox?.removed, false);
+    assert.equal(sandbox.reason, 'child_unobserved');
+    assert.equal(digest(await fs.readFile(sandboxPath(f))), sandbox.sha256);
+  } finally {
+    if (child?.pid) {
+      try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+      await exited;
+    }
+  }
+});
+
 // Operational registry must retain the permission, host and resume boundaries after promotion.
 test('operational Grok Implementer and QA hold without leases', async t => {
   const f = await fixture(t), context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
@@ -293,6 +508,16 @@ test('operational Grok Implementer and QA hold without leases', async t => {
     assert.equal(result.dispatchId, null);
   }
   assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}), []);
+});
+
+test('E8 user GROK_HOME holds prepare-dispatch without a lease', async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  f.context.env.GROK_HOME = path.join(f.base, 'user-override');
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'hold');
+  assert.deepEqual(codes(prepared), ['activation_unverified']);
+  assert.equal(prepared.dispatchId, null);
+  assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: registry}), []);
 });
 
 test('Grok hosts with capability off hold native and bridge before sandbox checks', async t => {

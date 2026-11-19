@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: 승인됨(v2, 2026-11-19T11:08:39Z)
+- 상태: 승인됨(v3, 2026-11-20)
 - 작업 위치: `/Users/yunho/Desktop/project/arc`, 현재 checkout `fix/bridge-ps-stub` @ `d5bae6a`(사용자 선택)
 - Risk: high. task마다 fresh QA를 두고, 모든 task를 수용한 뒤 최종 Reviewer가 전체 변경을 1회 검토합니다.
 
@@ -264,7 +264,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
     - 정상이면 `{removed:true, dirRemoved:true}`입니다.
     - `.grok`에 다른 파일이 있으면 `dirRemoved:false`이고 다른 파일은 남아야 합니다(RF2).
     - 파일이 삭제됐거나, 내용이 바뀌었거나, symlink로 교체됐으면 `violation:true, removed:false`이고 파일을 보존해야 합니다(E14).
-  - `checkGrokHome`: `GROK_HOME`이 있거나, `HOME` realpath가 다르거나, grokHome이 symlink이면 false이고, 정상이면 true입니다(E7).
+  - `checkGrokHome`: child env `GROK_HOME`이 `grokHome`과 다르거나(없음 포함), `HOME` realpath가 다르거나, grokHome이 symlink이면 false이고, `GROK_HOME === grokHome`인 정상 상태면 true입니다(E7, spec v3 D10).
   - `grokEventsBaseline`: 파일이 없으면 `exists:false`, 일반 파일이면 dev/ino/size, 디렉터리나 symlink이면 throw입니다(E9).
 - [ ] **Step 3 (RED): 인자와 invocation**
   - `buildGrokArgs`
@@ -276,7 +276,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
     - 같은 lease로 두 번 호출하면 `argsDigest`가 같고, name은 `'arc-bridge-' + dispatchId.slice(0,8)`이어야 합니다.
     - E2, E3, E4, E6 각각에서 `permission_scope_unverified`가 나와야 합니다.
 - [ ] **Step 4 (RED): prepare와 supervisor 통합 (fake grok, 임시 HOME)**
-  - prepare
+  - prepare(아래 E2–E6의 "prepare"는 `run-dispatch` 준비 단계, 즉 `role-bridge.mjs:57`의 `buildBridgeInvocation` 호출입니다. `role-routing.mjs`는 고치지 않습니다)
     - 기본 policy에서 `arc_qa`와 `arc_implementer`는 hold되고 reason은 `['permission_scope_unverified']`이며 lease가 없어야 합니다(E1, AC8). 기존 :137-149 테스트는 그대로 유지합니다.
     - 주입 `GK1:'pass'`에서 E2, E3, E4 조건이면 prepare가 hold되고 사용자 파일 해시는 그대로여야 합니다.
   - 주입 `GK1:'pass'` supervisor, 정상 실행
@@ -520,3 +520,4 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 |---|---|---|---|---|
 | v1 | 2026-11-19T10:59:30Z | 최초 승인 | 전체 | plan 승인 |
 | v2 | 2026-11-19T11:08:39Z | contract | T0c(신규), T1 | B0에서 golden이 baseline부터 104줄 어긋나 있음을 확인. 무관한 차이가 섞이지 않도록 재생성 task를 T1 앞에 분리(사용자 결정) |
+| v3 | 2026-11-20 | contract | T2 | spec v3 D10 정정을 `checkGrokHome` 기대값에 반영(사용자 결정). T2 Step 4의 prepare가 run-dispatch 준비 단계임을 명시 |

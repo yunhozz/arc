@@ -5,7 +5,7 @@ import path from 'node:path';
 import {createRoutingFixture} from './role-fixtures.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
-import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, buildGeminiArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
+import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, buildGeminiArgs, buildGrokArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
 import {profileName} from '../../lib/runtime/role-dispatch-policy.mjs';
 
 const CLAUDE_TOOLS = {
@@ -56,6 +56,17 @@ test('ROLE_BRIDGE_PERMISSIONS follows spec 5.5', () => {
   for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer']) assert.equal(p.codex[role].sandboxMode, 'read-only');
   for (const role of ['arc_qa', 'arc_implementer']) assert.equal(p.codex[role].sandboxMode, 'workspace-write');
   assert.deepEqual(ROUTING_ROLES.filter(r => p.codex[r].search), ['arc_scouter']);
+});
+
+for (const role of ['arc_implementer', 'arc_qa']) test(`AC4 Grok ${role} requires a valid custom sandbox name`, () => {
+  const input = {role, profile: {model: 'grok-test'}, sessionId: '11111111-1111-4111-8111-111111111111', promptFile: '/segment/prompt.md'};
+  for (const sandboxProfile of [undefined, 'workspace', 'arc-bridge-0123Abcd', 'arc-bridge-0123abc', 'arc-bridge-0123abcd\n']) {
+    assert.throws(() => buildGrokArgs({...input, sandboxProfile}), /sandbox/i);
+  }
+  assert.equal(ROLE_BRIDGE_PERMISSIONS.grok[role].sandbox, 'custom');
+  const args = buildGrokArgs({...input, sandboxProfile: 'arc-bridge-0123abcd'});
+  assert.equal(flagValue(args, '--sandbox'), 'arc-bridge-0123abcd');
+  assert.ok(!args.includes('workspace'));
 });
 
 test('Claude argv per role matches spec 5.5', () => {

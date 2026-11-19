@@ -1,6 +1,6 @@
 # G1·GK1 bridge 게이트 pass 전환 spec
 
-- 상태: 승인됨(v2, 2026-11-19T10:59:30Z).
+- 상태: 승인됨(v3, 2026-11-20).
 - 기준: `fix/bridge-ps-stub` @ d5bae6a. 작업 대상은 현재 checkout입니다(사용자 선택).
 - 경로: Architectural(보안 경계 변경). 위험도: high.
 - 승인 근거: 2026-11-19 설계 승인(G1-B, K-B, Q4, Q5, Q6, GG1 제외), T0 측정 뒤 사용자 결정 1–3, Grok 버전 범위 유지(Q-A).
@@ -40,7 +40,7 @@
 | D7 | 프로필 파일은 dispatch마다 `O_EXCL`, 0444로 생성하고 해시를 검증한 뒤 정리합니다(K-B). "같은 바이트면 재사용" 분기는 삭제합니다. `<worktree>/.grok/sandbox.toml`이 어떤 형태로든(일반 파일, symlink, 디렉터리) 이미 있으면 hold합니다 | 설계 K-B, 사용자 결정 2 |
 | D8 | `allowedPaths`가 `.grok/sandbox.toml`을 덮으면 hold합니다. 판정: `allowedBy(allowedPaths, '.grok/sandbox.toml')`이 참이거나, 항목이 `.grok`과 같거나 `.grok/`로 시작하는 경우 | 설계 K-B 2, `role-observe.mjs:289` |
 | D9 | 새 reason code는 만들지 않습니다. 사전 hold는 `permission_scope_unverified`, 사후 적용 확인 실패는 `permission_scope_mismatch`(Q4), 사후 프로필 변조나 소실은 `permission_violation_observed`입니다 | 설계 A4, Q4 |
-| D10 | Grok 홈은 registry의 `homes.grok` = `<userHome>/.grok`입니다. `GROK_HOME`이 설정되어 있으면 기존 동작대로 `activation_unverified`가 됩니다(`platform-registry.mjs:61-63`, `role-routing.mjs:66-72`). supervisor는 spawn 전에 세 가지를 확인합니다. child env에 `GROK_HOME`이 없어야 하고, child env `HOME`이 있다면 realpath가 `userHome` realpath와 같아야 하고, `homes.grok`이 symlink가 아니어야 합니다(lstat). 하나라도 어긋나면 spawn하지 않습니다(`permission_scope_unverified`) | 18-sandbox.md:112, :189-191 |
+| D10 | Grok 홈은 registry의 `homes.grok` = `<userHome>/.grok`입니다. `GROK_HOME`이 설정되어 있으면 기존 동작대로 `activation_unverified`가 됩니다(`platform-registry.mjs:61-63`, `role-routing.mjs:66-72`). supervisor는 spawn 전에 세 가지를 확인합니다. runtime은 `localCliEnvironment`로 child env에 `GROK_HOME=homes.grok`을 항상 넣으므로(`local-cli.mjs:31`), child env `GROK_HOME`은 `homes.grok`과 정확히 같아야 하고 `invocation.childEnv`가 `GROK_HOME`을 덮지 않아야 하며, child env `HOME`이 있다면 realpath가 `userHome` realpath와 같아야 하고, `homes.grok`이 symlink가 아니어야 합니다(lstat). 하나라도 어긋나면 spawn하지 않습니다(`permission_scope_unverified`) | 18-sandbox.md:112, :189-191 |
 | D11 | 적용 확인은 §3.3을 따릅니다. 이벤트 파일은 전역 append 파일이므로 spawn 직전 offset부터 읽고 spawn 시각 필터를 함께 적용합니다 | 사용자 결정 2, T0 M-K2 |
 | D12 | 취소되고 적용 후보가 0건이면 `permission_scope_mismatch`를 붙이지 않고 기록만 합니다. 후보가 1건 이상인데 규칙에 맞지 않으면 붙입니다. 사용자 정의 프로필을 적용할 수 없으면 Grok이 시작을 거부하기 때문입니다 | `role-supervisor.mjs:403` 선례, 18-sandbox.md:303, T0 M-K4 |
 | D13 | 게이트 순서: T2는 GK1을 `fail`로 둔 채 구현하고, T3에서 적용 확인과 함께 `pass`로 바꿉니다 | 설계 §4.3 |
@@ -146,7 +146,7 @@ record(`writeRecord`, :437)에 다음을 남깁니다.
 | E4 | `.grok`이 디렉터리가 아니거나 symlink | prepare / supervisor | hold / failed `permission_scope_unverified` | 건드리지 않음 |
 | E5 | prepare 뒤에 파일이 생김(`O_EXCL` EEXIST) | supervisor | failed `permission_scope_unverified` | 건드리지 않음 |
 | E6 | dispatchId 앞 8자가 hex가 아님 | prepare / supervisor | hold / failed `permission_scope_unverified` | 생성 안 함 |
-| E7 | child env `GROK_HOME`, `HOME` 불일치, `homes.grok` symlink | supervisor | failed `permission_scope_unverified` | 생성 안 함 |
+| E7 | child env `GROK_HOME`이 `homes.grok`과 다름, `HOME` 불일치, `homes.grok` symlink | supervisor | failed `permission_scope_unverified` | 생성 안 함 |
 | E8 | `GROK_HOME` 설정(기존 동작) | prepare | hold `activation_unverified` | 생성 안 함 |
 | E9 | 이벤트 파일이 일반 파일이 아님(spawn 전) | supervisor | failed `permission_scope_unverified` | 정리 규칙 |
 | E10 | 생성 뒤 spawn 전 실패 | supervisor | 기존 early failure 코드 | 정리 규칙 |
@@ -274,3 +274,4 @@ record(`writeRecord`, :437)에 다음을 남깁니다.
 |---|---|---|---|---|
 | v1 | 2026-11-19T10:49:50Z | 최초 승인 | 전체 | 작성 spec 승인 |
 | v2 | 2026-11-19T10:59:30Z | 기계적 정정 | T1, T2 | plan 근거 확인: M2 목록 위치 :226→:230, 새 모듈 등록 위치(`COOPERATIVE_RUNTIME_MODULES`, 등록 테스트, installed-layout golden) 누락 보완 |
+| v3 | 2026-11-20 | contract | T2 | D10·E7: runtime이 child env에 `GROK_HOME=homes.grok`을 항상 주입하므로 "`GROK_HOME` 없음" 조건을 "`homes.grok`과 정확히 같고 `invocation.childEnv`가 덮지 않음"으로 정정(T2 Implementer hold 보고, 사용자 결정). 사용자가 설정한 `GROK_HOME`은 E8대로 prepare hold |
