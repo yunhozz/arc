@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+const [option, field, selector, pid] = process.argv.slice(2);
+
+if (process.argv.length !== 6 || option !== '-o' || field !== 'lstart=' || selector !== '-p' || !/^[1-9]\d*$/.test(pid)) {
+  process.stderr.write('ps stub: unsupported arguments\n');
+  process.exitCode = 2;
+} else {
+  try {
+    process.kill(Number(pid), 0);
+  } catch (error) {
+    if (error.code !== 'EPERM') process.exitCode = 1;
+  }
+  if (!process.exitCode) process.stdout.write(`stub ${pid}\n`);
+}

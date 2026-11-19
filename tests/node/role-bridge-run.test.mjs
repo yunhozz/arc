@@ -5,16 +5,18 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture, FAKE_CODEX_APP_SERVER} from './role-fixtures.mjs';
+import {ORIGINAL_PATH, psAvailable, realPs, withPath, writeFailingPs} from './fixtures/ps-stub.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {readLease, writeLease, requestCancel, cancelRequested, readHeartbeat, writeHeartbeat, listLeases, dispatchDirectory, NON_TERMINAL_STATES as NON_TERMINAL} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, withRoutingLock} from '../../lib/runtime/role-routing.mjs';
 import {runBridgeDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
-import {runSupervisor, processAlive, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
+import {runSupervisor, startSupervisor, processAlive, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
 import {runWorkflowCommand} from '../../lib/runtime/command.mjs';
 import {parseCompositeProfile} from '../../lib/runtime/role-bridge-args.mjs';
 
 const TERMINAL = ['completed', 'failed', 'cancelled'];
 const SECRET = 'sk-test-SECRET-0123456789abcdef';
+const REAL_PS_SKIP = 'real ps unavailable (sandbox/PATH): identity tests use tests/fixtures/bin/ps stub';
 const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 1000, lockRetryMs: 30000, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
 const codes = result => result.reasons.map(reason => reason.code);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -28,7 +30,11 @@ const cleanup = ctx => {
   for (const pid of ctx.pids ?? []) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
 };
 test.after(() => {
-  const list = spawnSync('ps', ['-axo', 'pid=,command='], {encoding: 'utf8'}).stdout.split('\n').filter(line => bases.some(base => line.includes(base)) && !line.includes('ps -axo'));
+  if (!psAvailable()) {
+    console.log('Skipping leftover fixture process check: real ps unavailable (sandbox/PATH)');
+    return;
+  }
+  const list = (realPs(['-axo', 'pid=,command=']).stdout ?? '').split('\n').filter(line => bases.some(base => line.includes(base)) && !line.includes('ps -axo'));
   assert.deepEqual(list, [], 'leftover fixture processes');
 });
 
@@ -85,6 +91,40 @@ const dirOf = (f, dispatchId) => path.join(f.cwd, '.git/arc/workflows/wf-1/dispa
 const gitIn = (f, ...args) => { const r = spawnSync('git', args, {cwd: f.cwd, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr); return r.stdout; };
 const mode = async file => (await fs.stat(file)).mode & 0o777;
 const startInProcess = f => async () => ({pid: process.pid, startTime: processStartTime(process.pid)});
+
+test('startSupervisor kills the detached supervisor when ps cannot determine its start time', async t => {
+  const f = await setup(t);
+  const psDir = await fs.mkdtemp(path.join(f.base, 'failing-ps-'));
+  const pidFile = path.join(psDir, 'pid');
+  writeFailingPs(psDir, pidFile);
+  await assert.rejects(
+    withPath(`${psDir}${path.delimiter}${process.env.PATH}`, () => startSupervisor({codexHome: f.claudeHome, dispatchId: 'nonexistent', cwd: f.cwd, userHome: f.userHome, env: f.env})),
+    /Supervisor start time unavailable/,
+  );
+  const pid = Number((await fs.readFile(pidFile, 'utf8')).trim());
+  assert.ok(Number.isInteger(pid) && pid > 0, 'ps recorded the supervisor PID');
+  f.ctx.pids.push(pid);
+  assert.ok(await waitDead(pid), 'the detached supervisor exits');
+});
+
+test('run-dispatch holds the reserved lease when ps fails and does not start the Codex child', async t => {
+  const f = await setup(t);
+  const {dispatchId} = await prepare(f, 'arc_planner');
+  const psDir = await fs.mkdtemp(path.join(f.base, 'failing-ps-'));
+  const pidFile = path.join(psDir, 'pid');
+  writeFailingPs(psDir, pidFile);
+  const result = await withPath(`${psDir}${path.delimiter}${process.env.PATH}`, () => run(f, dispatchId));
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['host_sandbox_blocked']);
+  const pid = Number((await fs.readFile(pidFile, 'utf8')).trim());
+  assert.ok(Number.isInteger(pid) && pid > 0, 'ps recorded the supervisor PID');
+  f.ctx.pids.push(pid);
+  const lease = await readLease(f.claudeHome, dispatchId);
+  assert.equal(lease.state, 'reserved');
+  assert.equal(lease.supervisor, null);
+  await sleep(500);
+  assert.equal((await records(f.codex)).length, 0);
+});
 
 test('run-dispatch starts a detached supervisor and reaches completed with result.md', async t => {
   const f = await setup(t);
@@ -304,14 +344,25 @@ test('killed supervisor leads observe to unknown terminal_state_unverified and t
   assert.equal((await readLease(f.claudeHome, prepared.dispatchId)).state, 'unknown');
 });
 
+test('processStartTime uses real ps lstart', {skip: psAvailable() ? false : REAL_PS_SKIP}, async () => {
+  await withPath(ORIGINAL_PATH, () => {
+    const own = processStartTime(process.pid);
+    assert.match(own, /^\w{3} \w{3} +\d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/);
+    assert.equal(processStartTime(2147483000), null);
+    assert.equal(processAlive({pid: process.pid, startTime: own}), true);
+    assert.equal(processAlive({pid: process.pid, startTime: 'Thu Jan  1 00:00:00 1970'}), false);
+  });
+});
+
 test('PID reuse: alive pid with different start time is treated as dead', async t => {
+  // The fixture's ps stub verifies how observation handles matching and mismatched identities.
+  const f = await setup(t);
   assert.equal(typeof processStartTime(process.pid), 'string');
   assert.equal(processStartTime(2147483000), null);
   const own = processStartTime(process.pid);
   assert.equal(processAlive({pid: process.pid, startTime: own}), true);
   assert.equal(processAlive({pid: process.pid, startTime: 'Thu Jan  1 00:00:00 1970'}), false);
   assert.equal(processAlive({pid: 2147483000, startTime: own}), false);
-  const f = await setup(t);
   const prepared = await prepare(f, 'arc_planner');
   const stale = async startTime => withRoutingLock(f.claudeHome, async () => {
     const lease = await readLease(f.claudeHome, prepared.dispatchId);

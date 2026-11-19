@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture} from './role-fixtures.mjs';
+import {psAvailable, realPs} from './fixtures/ps-stub.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {readLease, writeLease, cancelRequested, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
@@ -31,7 +32,11 @@ const cleanup = ctx => {
   for (const pid of ctx.pids) { try { process.kill(-pid, 'SIGKILL'); } catch { /* gone */ } try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } }
 };
 test.after(() => {
-  const list = spawnSync('ps', ['-axo', 'pid=,command='], {encoding: 'utf8'}).stdout.split('\n').filter(line => bases.some(base => line.includes(base)) && !line.includes('ps -axo'));
+  if (!psAvailable()) {
+    console.log('Skipping leftover fixture process check: real ps unavailable (sandbox/PATH)');
+    return;
+  }
+  const list = (realPs(['-axo', 'pid=,command=']).stdout ?? '').split('\n').filter(line => bases.some(base => line.includes(base)) && !line.includes('ps -axo'));
   assert.deepEqual(list, [], 'leftover fixture processes');
 });
 

@@ -92,7 +92,7 @@ Codex bridge sandbox처럼 `ps`가 거부되는 환경에서도 `npm test`에 ps
 
 **단계 (TDD)**
 
-- [ ] **Step 0 — 재현 (Orchestrator, 호스트, Implementer dispatch 전).** 결과로 allowedPaths를 확정한다.
+- [x] **Step 0 — 재현 (Orchestrator, 호스트, Implementer dispatch 전).** 결과로 allowedPaths를 확정한다.
   ```
   S=<scratchpad>/psfail; mkdir -p "$S"; printf '#!/bin/sh\nexit 1\n' > "$S/ps"; chmod 755 "$S/ps"
   F="tests/node/role-bridge-run.test.mjs tests/node/role-bridge-resume.test.mjs tests/node/gemini-bridge.test.mjs tests/node/grok-bridge.test.mjs tests/node/anchor-flip.test.mjs tests/node/role-routing-anchor.test.mjs"
@@ -101,23 +101,23 @@ Codex bridge sandbox처럼 `ps`가 거부되는 환경에서도 `npm test`에 ps
   ```
   - 실패 목록 차이(sim − base)를 파일별로 기록한다.
   - 한계: 변경 전에는 fixture env(`/usr/bin:/bin`)가 실제 ps를 찾으므로 supervisor 자식 쪽 재현은 부분적이다. Codex bridge 실재현은 Step 5에서 보강한다.
-- [ ] **Step 1 — RED (Implementer).** `tests/node/ps-stub.test.mjs` 작성: stub 실행 비트, 살아 있는 `process.pid`에 `stub <pid>`·exit 0, `2147483000`에 exit 1, 지원하지 않는 인자에 exit 2, `psStubPath` 순서, `installPsStub` 멱등성. `node --test tests/node/ps-stub.test.mjs` → stub·helper가 없어 실패해야 한다.
-- [ ] **Step 2 — fail-closed 테스트 추가 (`role-bridge-run.test.mjs`).** runtime이 이미 fail-closed이므로 characterization 테스트이며 추가 직후 PASS 예상.
+- [x] **Step 1 — RED (Implementer).** `tests/node/ps-stub.test.mjs` 작성: stub 실행 비트, 살아 있는 `process.pid`에 `stub <pid>`·exit 0, `2147483000`에 exit 1, 지원하지 않는 인자에 exit 2, `psStubPath` 순서, `installPsStub` 멱등성. `node --test tests/node/ps-stub.test.mjs` → stub·helper가 없어 실패해야 한다.
+- [x] **Step 2 — fail-closed 테스트 추가 (`role-bridge-run.test.mjs`).** runtime이 이미 fail-closed이므로 characterization 테스트이며 추가 직후 PASS 예상.
   - (a) `writeFailingPs` dir를 `withPath`로 맨 앞에 두고 `startSupervisor({codexHome: f.claudeHome, dispatchId: 'nonexistent', cwd: f.cwd, userHome: f.userHome, env: f.env})` 호출. 기대: `/Supervisor start time unavailable/`로 reject, record 파일의 pid가 `waitDead(pid)`로 사라짐.
   - (b) 같은 조건에서 기본 starter로 `run(f, id)`. 기대: `decision === 'hold'`, `codes === ['host_sandbox_blocked']`, lease `state === 'reserved'`, `supervisor === null`, 500ms 뒤 `records(f.codex).length === 0`.
-- [ ] **Step 3 — GREEN.** stub(755), helper, `role-fixtures.mjs` 주입 구현. Step 1 테스트 통과 확인.
-- [ ] **Step 4 — 실제 ps 분리.**
+- [x] **Step 3 — GREEN.** stub(755), helper, `role-fixtures.mjs` 주입 구현. Step 1 테스트 통과 확인.
+- [x] **Step 4 — 실제 ps 분리.**
   - `role-bridge-run.test.mjs`에 `processStartTime uses real ps lstart` 추가, 옵션 `{skip: psAvailable() ? false : 'real ps unavailable (sandbox/PATH): identity tests use tests/fixtures/bin/ps stub'}`.
   - 본문은 `withPath(ORIGINAL_PATH)` 안에서: `processStartTime(process.pid)`가 `/^\w{3} \w{3} +\d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/`에 맞음, `processStartTime(2147483000) === null`, 자기 lstart로 `processAlive` true, 다른 lstart로 false.
   - 기존 :307-327 테스트는 그대로 두고 stub 기반으로 실행. 바뀐 의미를 주석 한 줄로 남긴다.
   - leftover 검사 2곳은 `realPs(['-axo','pid=,command='])`로 바꾸고 `!psAvailable()`이면 사유를 `console.log`로 남기고 건너뛴다. stdout null guard 포함.
-- [ ] **Step 5 — Implementer 대상 실행 (Codex sandbox).** sandbox에서 실제 ps가 거부되므로 실환경 재현이 된다.
+- [x] **Step 5 — Implementer 대상 실행 (Codex sandbox).** sandbox에서 실제 ps가 거부되므로 실환경 재현이 된다.
   ```
   node --test tests/node/ps-stub.test.mjs tests/node/role-bridge-run.test.mjs tests/node/role-bridge-resume.test.mjs
   ```
   결과, 실제 ps 테스트 skip 사유, stub의 `process.kill` 동작(R1)을 보고. ps 기인이 아닌 실패는 고치지 않고 보고.
-- [ ] **Step 6 — 호스트 검증 (Orchestrator).** 아래 AC 명령 실행.
-- [ ] **Step 7 — fresh QA (Codex bridge dispatch).** AC-a5.
+- [x] **Step 6 — 호스트 검증 (Orchestrator).** 아래 AC 명령 실행.
+- [x] **Step 7 — fresh QA (Codex bridge dispatch).** AC-a5.
 
 **수용 기준과 검증 명령**
 
@@ -154,15 +154,15 @@ Codex bridge sandbox처럼 `ps`가 거부되는 환경에서도 `npm test`에 ps
 
 | 단계 | 상태 | 증거 | 비고 |
 |---|---|---|---|
-| Step 0 재현 | 대기 | base.txt / sim.txt 차이 | allowedPaths 확정 |
-| Step 1 RED | 대기 | | |
-| Step 2 fail-closed | 대기 | | |
-| Step 3 GREEN | 대기 | | |
-| Step 4 실제 ps 분리 | 대기 | | |
-| Step 5 sandbox 대상 실행 | 대기 | | R1 실측 |
-| Step 6 호스트 AC-a1/a2/a4 | 대기 | | |
-| Step 7 QA AC-a5 | 대기 | | |
-| 수용 / commit | 대기 | | |
+| Step 0 재현 | 완료 | 대상 6개 파일: 정상 PATH 119 tests 2 fail(기준선), failing-ps PATH 43 fail → ps 기인 41건(role-bridge-run 28, role-bridge-resume 13) | gemini/grok/role-routing-anchor 해당 없음 → 조건부 파일 미추가 |
+| Step 1 RED | 완료 | stub·helper 부재로 `ps-stub.test.mjs` 6개 실패(없는 PID 검사에 stderr 단언 추가 후 RED 확인) | Implementer |
+| Step 2 fail-closed | 완료 | 2개 통과: supervisor 종료, `host_sandbox_blocked` hold, lease `reserved`, `supervisor: null`, child 기록 0 | AC-a3 |
+| Step 3 GREEN | 완료 | stub 계약 테스트 6개 통과, `tests/fixtures/bin/ps` mode 755 | |
+| Step 4 실제 ps 분리 | 완료 | `processStartTime uses real ps lstart` 추가(사유 명시 skip), leftover 검사 2곳 `realPs` + 사유 로그 | D5 |
+| Step 5 sandbox 대상 실행 | 완료 | 60개 중 59 pass, 0 fail, 1 skip(실제 ps) | R1: 살아 있는 PID identity·exit 0, 없는 PID exit 1 |
+| Step 6 호스트 AC-a1/a2/a4 | 완료 | 정상 PATH 2106 tests 70 fail(기준선과 동일), failing-ps PATH 2106 tests 70 fail·14 skip(새 실패 0), `role-bridge-run` 단독 38/38·실제 ps 테스트 pass, runtime diff 0 | AC-a1, AC-a2, AC-a4 |
+| Step 7 QA AC-a5 | 완료 | fresh QA(Codex bridge): sandbox full `npm test` 2106 tests, 실제 ps `EPERM`, ps 기인 실패 0 | 기준선 외 14건은 ps 외 sandbox 제약(`.git/arc` 쓰기 EPERM 6, runtime-claude/codex 관찰 이벤트 7, EMFILE 1) — 범위 밖, 후속 후보 |
+| 수용 / commit | 완료 | Orchestrator 수용(AC-a1~a5) | 이 커밋 |
 | 최종 Reviewer | 대기 | | |
 
 ## 개정 이력
