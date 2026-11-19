@@ -9,14 +9,14 @@ import {spawnSync} from 'node:child_process';
 import * as argsApi from '../../lib/runtime/role-bridge-args.mjs';
 import * as observeApi from '../../lib/runtime/role-observe.mjs';
 import * as supervisorApi from '../../lib/runtime/role-supervisor.mjs';
-import {writeFakeGrokCli} from './fixtures/platforms/grok-off.mjs';
+import {grokOffRegistries, writeFakeGrokCli} from './fixtures/platforms/grok-off.mjs';
 import {GROK_CONTRACT} from '../../lib/runtime/grok-stream.mjs';
 import {DEFAULT_POLICY, BRIDGE_GATE_RESULTS, bridgeGateReasons} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {DEFAULT_PLATFORM_REGISTRY, createPlatformRegistry} from '../../lib/runtime/platform-registry.mjs';
 import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from '../../lib/runtime/bootstrap.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
-import {runBridgeDispatch, resumeRoleDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
+import {cancelRoleDispatch, runBridgeDispatch, resumeRoleDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
 import {readLease, requestCancel, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
 import {render, renameForRouting} from '../../lib/platforms/formats/grok-markdown.mjs';
 
@@ -25,6 +25,7 @@ const digest = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).di
 const codes = result => result.reasons.map(item => item.code);
 const registry = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'grok' ? {...p, capabilities: Object.fromEntries(Object.keys(p.capabilities).map(key => [key, {state: 'verified'}]))} : p));
 const policy = {...DEFAULT_POLICY, heartbeatMs: 30, cancelGraceMs: 60, probeTimeoutMs: 1000};
+const failedHostPolicy = {...policy, gates: {...policy.gates, GK2: 'fail'}};
 const source = role => `---\nname: arc-${role.slice(4)}\ndescription: Role instructions\nmodel: grok-test\n---\nPrivate role instructions\n`;
 const forbidden = ['--always-approve', '--allow', '-c', '--continue', '-r', '--resume', '--prompt-json', '-p', '--single', '--effort', '--reasoning-effort', 'bypassPermissions'];
 
@@ -220,11 +221,13 @@ test('AC-K6 Implementer/QA hold without spawning', async t => {
 test('AC-K6 Grok hosts hold native and bridge prepare', async t => {
   for (const hostBridge of [false, true]) {
     const f = await fixture(t, {}, hostBridge);
-    const result = await prepareRoleDispatch({context: {...f.context, hostPlatform: 'grok', executionEnvironment: 'grok-cli'}, assignment: {role: 'arc_scouter', taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}, expectedRevision: 't12', policy});
+    const result = await prepareRoleDispatch({context: {...f.context, hostPlatform: 'grok', executionEnvironment: 'grok-cli'}, assignment: {role: 'arc_scouter', taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}, expectedRevision: 't12', policy: failedHostPolicy});
     assert.equal(result.route, hostBridge ? 'bridge' : 'native');
     assert.equal(result.decision, 'hold'); assert.ok(codes(result).includes('host_sandbox_blocked'), JSON.stringify(result));
   }
-  assert.deepEqual(bridgeGateReasons({platform: 'codex', hostPlatform: 'grok', role: 'arc_scouter'}), ['host_sandbox_blocked']);
+  const route = {platform: 'codex', hostPlatform: 'grok', role: 'arc_scouter'};
+  assert.deepEqual(bridgeGateReasons({...route, policy: failedHostPolicy}), ['host_sandbox_blocked']);
+  assert.deepEqual(bridgeGateReasons(route), []);
 });
 
 test('AC-K6 segment > 0 resume_unverified without mutation', async t => {
@@ -271,7 +274,7 @@ test('Grok invocation reserves prompt path without writing; existing Claude invo
   assert.deepEqual(invocation.expected, {model: 'grok-test', effort: 'default'});
   assert.equal(invocation.argsDigest, digest(JSON.stringify(invocation.args)));
   await assert.rejects(fs.access(invocation.promptFile.path), {code: 'ENOENT'});
-  await assert.rejects(supervisorApi.buildBridgeInvocation({lease: {...lease, hostPlatform: 'grok'}, config: f.config, homes: f.homes, resultPath, policy}), {reasonCode: 'host_sandbox_blocked'});
+  await assert.rejects(supervisorApi.buildBridgeInvocation({lease: {...lease, hostPlatform: 'grok'}, config: f.config, homes: f.homes, resultPath, policy: failedHostPolicy}), {reasonCode: 'host_sandbox_blocked'});
   const legacy = await fixture(t, {}, true);
   const claudeLease = {version: 2, targetPlatform: 'claude', hostPlatform: 'claude', role: 'arc_scouter', segment: 0, sessionId: null, profileHash: digest(await fs.readFile(path.join(legacy.homes.claude, 'agents/arc-routing-scouter.md')))};
   const claude = await supervisorApi.buildBridgeInvocation({lease: claudeLease, config: legacy.config, homes: legacy.homes, worktree: legacy.context.cwd, policy});
@@ -292,17 +295,33 @@ test('operational Grok Implementer and QA hold without leases', async t => {
   assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}), []);
 });
 
-test('operational Grok hosts hold native and bridge before sandbox checks', async t => {
+test('Grok hosts with capability off hold native and bridge before sandbox checks', async t => {
+  const {runtimePlatforms} = grokOffRegistries();
   for (const hostBridge of [false, true]) {
     const f = await fixture(t, {}, hostBridge);
-    const context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY, hostPlatform: 'grok', executionEnvironment: 'grok-cli'};
+    const context = {...f.context, runtimePlatforms, hostPlatform: 'grok', executionEnvironment: 'grok-cli'};
     writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker: path.join(f.base, 'version-commands')});
     const result = await prepareRoleDispatch({context, assignment: {role: 'arc_scouter', taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}, expectedRevision: 't12', policy});
     assert.equal(result.route, hostBridge ? 'bridge' : 'native');
     assert.equal(result.decision, 'hold');
     assert.deepEqual(codes(result), ['capability_not_verified']);
     assert.equal(result.dispatchId, null);
-    assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms: DEFAULT_PLATFORM_REGISTRY}), []);
+    assert.deepEqual(await listLeases(f.homes.claude, {runtimePlatforms}), []);
+  }
+});
+
+test('operational Grok hosts pass capability and GK2 gates', async t => {
+  for (const hostBridge of [false, true]) {
+    const f = await fixture(t, {}, hostBridge);
+    const context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY, hostPlatform: 'grok', executionEnvironment: 'grok-cli'};
+    writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker: path.join(f.base, 'version-commands')});
+    const result = await prepareRoleDispatch({context, assignment: {role: 'arc_scouter', taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}, expectedRevision: 't12', policy});
+    if (result.decision === 'allow') {
+      assert.equal((await cancelRoleDispatch({context, dispatchId: result.dispatchId, policy})).decision, 'allow');
+    }
+    assert.equal(result.route, hostBridge ? 'bridge' : 'native');
+    assert.equal(codes(result).includes('capability_not_verified'), false, JSON.stringify(result.reasons));
+    assert.equal(codes(result).includes('host_sandbox_blocked'), false, JSON.stringify(result.reasons));
   }
 });
 

@@ -376,7 +376,8 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
   - `tests/node/role-routing-dispatch.test.mjs`(`:25`)
   - `tests/node/composite-instructions.test.mjs`
   - `tests/node/runtime-versions.test.mjs`
-  - 후보(dry-run에서 깨지면 추가): `tests/node/tui-app-pty.test.mjs`, `tests/node/tui-app.test.mjs`, `tests/node/capability-surfaces.test.mjs`
+  - `tests/node/tui-setup.test.mjs`(T2 S3 dry-run 확정: `hosts lock role platforms and preview mode in Apply`의 Grok 표시 기대값)
+  - v2: dry-run에서 `tui-app-pty`, `tui-app`, `capability-surfaces`는 새 실패가 없어 후보에서 제외합니다.
 - 문서: coordination 4종, `docs/harness-operation.md`
 - 생성물: golden, `MANIFEST.sha256`
 - Orchestrator 소유(Implementer allowedPaths 아님): spec §10 갱신. T3 커밋에 함께 넣습니다.
@@ -387,7 +388,8 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
     - `verifyEvidence`: verified를 `['install','nativeProfile','catalog','standalone','bridge','compositeRole','compositeHost']`로, off를 `{authProbe, watch}`로 바꿉니다.
     - `:30` 제목과 키를 `injected verified authProbe or watch fails evidence` / `['authProbe','watch']`로 바꿉니다.
     - 새 `HOST_CONTRACTS`(id 순서 `host-runtime-approval`, `host-sandbox-fail-closed`, `host-supervisor-survival`, `host-native-spawn`, `host-bridge-child`, 각 `{id, state, evidence}`, `host-bridge-child`는 `unverified`)와 테스트 `Grok host contracts record five ids in fixed order`를 추가합니다.
-    - `UNVERIFIED_CONTRACTS`에 T2에서 unverified로 판정된 host id를 더하고, `:39-42` 길이와 목록 단언을 맞춥니다. M-H5에서 model 적용이 확인되면 `native-model-application`을 뺍니다.
+    - `HOST_CONTRACTS` 판정(T2 `<SP>/t2/RESULTS.md`): `host-runtime-approval`, `host-sandbox-fail-closed`, `host-supervisor-survival`, `host-native-spawn`은 `verified`, `host-bridge-child`는 `unverified`. `evidence`는 각각 `M-H1`, `M-H2`(target 차단은 Seatbelt 대체 측정), `M-H3`, `M-H5`, `fake CLI only` 문자열입니다.
+    - `UNVERIFIED_CONTRACTS`에 `host-bridge-child`를 더하고 `:39-42` 길이와 목록 단언을 맞춥니다. M-H5에서 profile model(grok-4.6)이 적용되지 않았으므로(실행 grok-4.7) `native-model-application`은 그대로 남깁니다.
     - `:59-64`는 제목 `Grok GK1 fail, GK2 approval and resume off`, 단언 `GK1 'fail'`, `GK2 'approval'`, `resume 'off'`입니다.
   - `grok-platform.test.mjs:69-76`: `compositeHost`를 verified 목록으로 옮깁니다.
   - `grok-bridge.test.mjs`
@@ -404,7 +406,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
       - 두 경우 모두 lease 0
   - `composite-instructions.test.mjs`
     - 새 테스트 `every harness states the same Grok host approval obligation`: 아래 문장(초안, M-H6 결과로 확정)이 4개 파일에서 정확히 같아야 합니다.
-      - `- On a Grok host start the session with \`grok --permission-mode default\` (ask), keep the platform-default sandbox off, and ask the user for approval each time any runtime command (\`routing-status\`, \`prepare-dispatch\`, \`run-dispatch\`, \`observe\`, \`resume\`, \`cancel\`) runs; NEVER use auto-review, \`--always-approve\` or \`--yolo\`, and DO NOT choose an approval option that is saved to settings. The runtime does not check this approval; asking for it is an Orchestrator obligation. A host whose sandbox is on, or a denied write, is \`host_sandbox_blocked\`.`
+      - `- On a Grok host start the session with \`grok --permission-mode default\` (ask), keep the platform-default sandbox off, and ask the user for approval each time any runtime command (\`routing-status\`, \`prepare-dispatch\`, \`run-dispatch\`, \`observe\`, \`resume\`, \`cancel\`) runs; NEVER use auto-review, \`--always-approve\` or \`--yolo\`, and DO NOT choose \`Always allow\`, which saves \`permission_mode = "always-approve"\` to the Grok config. Spawn with \`spawn_subagent\` only roles whose route is \`native\`; Grok can also list Claude \`arc-routing-*\` profiles, which remain bridge roles. The runtime does not check this approval; asking for it is an Orchestrator obligation. A host whose sandbox is on, or a denied write, is \`host_sandbox_blocked\`.`(v2 확정: T2 F-H1, F-H2)
     - host 목록 단언: Composite 절에 `` `grok-cli` ``가 포함됨
 - [ ] **Step 2: RED 확인 (bridge)**
   - `node --test tests/node/grok-capability-evidence.test.mjs tests/node/grok-platform.test.mjs tests/node/grok-bridge.test.mjs tests/node/role-routing-dispatch.test.mjs tests/node/host-gemini-grok.test.mjs tests/node/composite-instructions.test.mjs`
@@ -416,7 +418,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
   - coordination 4종
     - `:119` host 목록 `` `codex`, `claude` or `grok` ``, env 목록에 `` `grok-cli` ``
     - `:121` Desktop 규칙은 codex/claude 한정이라고 명시
-    - `:127` Grok host native spawn(`spawn_subagent` `subagent_type: "arc-routing-<suffix>"`, revision tag 확인 위치, `nativeAgentId` 출처)
+    - `:127` Grok host native spawn(v2 확정, M-H5): `spawn_subagent`의 `subagent_type: "arc-routing-<suffix>"`, revision tag는 `subagent_type` 설명에 보임, `nativeAgentId`는 반환된 `subagent_id`, profile model은 적용되지 않고 세션 model로 실행되므로 model claim은 operator-attested, child는 `spawn_subagent`를 받지 않음
     - `:145` 다음에 Step 1 의무 문장
     - `:61`, `:77`, `:149`의 unverified 문구를 M-H5 결과에 맞게 수정
     - M-H5에서 재spawn이 가능하면 "native role restrictions remain prompt-level contracts" 한계 문장을 넣고, M-H3이 조건부이면 그 문구도 넣습니다.
@@ -432,12 +434,12 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
   - golden `--diff` 출력 없음
   - allowedPaths 대조
   - TUI Hosts에서 Grok이 선택 가능한지 PTY 출력으로 확인(D9)
-- [ ] **Step 8: spec §10 갱신 (Orchestrator)**: 측정 버전, 날짜, `<SP>/t2/l-h-results.md`, 계약 id 판정
+- [ ] **Step 8: spec §10 갱신 (Orchestrator)**: 측정 버전, 날짜, `<SP>/t2/RESULTS.md`, 계약 id 판정, F-H1·F-H2, M-H2 target 대체 측정 한계
 - [ ] **Step 9: fresh QA**: B0 규칙으로 분류하고 AC8 hold 증거를 남깁니다.
 - [ ] **Step 10: 수용과 커밋**
   - 실행 중인 dispatch가 없음을 확인합니다.
   - 제목: `feat(runtime): Grok composite host 전환과 GK2 approval 기록`
-  - 본문(AC14): `측정: grok 1.0.89, <YYYY-MM-DD>, <SP>/t2/l-h-results.md` 한 줄과 계약 id별 판정 5줄
+  - 본문(AC14): `측정: grok 1.0.89, 2026-11-19, <SP>/t2/RESULTS.md` 한 줄과 계약 id별 판정 5줄
   - spec 문서 변경도 이 커밋에 넣습니다.
 
 **수용 기준:** AC2(T3), AC6(T3), AC8, AC9, AC10(Grok), AC11, AC13, AC14, RF6
@@ -530,6 +532,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
+| v2 | 2026-11-19T14:40:06Z | contract | T3 | T2 측정 반영: allowedPaths에 tui-setup.test.mjs 추가(후보 3개 제외), Grok host 의무 문장 확정(F-H1 Claude agents 노출, F-H2 Always allow 전역 저장), HOST_CONTRACTS 판정, native spawn 문구, 결과 경로 RESULTS.md. 승인: 사용자 AskUserQuestion "T3 진행 (Recommended)" |
 | v1 | 2026-11-19T12:12:41Z | 최초 작성 | 전체 | spec v1(2026-11-19T12:02:22Z) 구현 plan. spec T1을 T1a/T1b로 분할, D0 docs 커밋 분리, T2 사본 dry-run으로 T3 allowedPaths 확정 |
 
 ## Orchestrator 결정 (초안 확인 사항 정리)

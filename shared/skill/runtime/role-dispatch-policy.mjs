@@ -1,7 +1,8 @@
 import {runtimeRegistryOf} from './platform-registry.mjs';
 // Fixed policy values for composite role dispatch. G2 'escalation' means the bridge runs only with per-call user escalation approval on a Codex host; it is not a verified pass.
 // GK2/GG2 'approval' means a Grok/Gemini host keeps its platform-default sandbox (off), runs in ask mode, and obtains user approval for each runtime command; it is not a verified pass.
-export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
+// GK2 evidence: Grok 1.0.89, 2026-11-19, ask mode with the sandbox off.
+export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'approval'});
 export const HOST_SANDBOX_GATES = Object.freeze({grok: 'GK2', gemini: 'GG2'});
 export const HOST_GATE_ALLOWED = Object.freeze(['pass', 'approval']);
 

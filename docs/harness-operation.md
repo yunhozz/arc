@@ -80,9 +80,11 @@ Unknown Claude/Codex probe results block participation.
 |---|---|
 | `claude-cli` | Native roles and Codex bridges |
 | `codex-cli` | Native roles and Claude Scouter/Planner/Reviewer bridges; every runtime command needs per-call escalation approval, including native commands, because it may write `CODEX_HOME`. Refusal/denied write: `host_sandbox_blocked`; runtime does not check approval: Orchestrator must obtain it |
+| `grok-cli` | Native roles and Claude/Codex bridges. Obtain user approval on every runtime call in ask mode. A host with its sandbox on or a denied write is `host_sandbox_blocked` |
+| `gemini-cli` | Held (GG2 `fail`, `compositeHost` off) |
 | `claude-desktop`, `codex-desktop` | All native/bridge roles: `environment_unverified`; support capped at `unverified`. No checklist recording/release in this version; future checks: CLI discovery, shared auth, same worktree, supervisor survival, per-call escalation, matching native revision tag |
 
-`executionEnvironment` is caller-declared, not runtime-verified: terminal/TUI/IDE terminal uses `codex-cli` or `claude-cli`; confirmed Desktop app uses its Desktop value. Never infer from paths; when unsure use CLI. A false CLI declaration bypasses the Desktop hold.
+`executionEnvironment` is caller-declared. A terminal, TUI or IDE terminal uses the CLI value for its host. Use a Desktop value only for a confirmed Claude or Codex Desktop session. Determine the environment from the session itself; never infer it from paths. When unsure, use the CLI value. A false CLI declaration bypasses the Desktop hold.
 
 | Bridge contract | Guarantees and limits |
 |---|---|
@@ -91,6 +93,8 @@ Unknown Claude/Codex probe results block participation.
 | G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
 | G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |
 | G5 `wide` | Codex `workspace-write` can reach outside worktree; post-run detection does not cover those writes |
+| GK2 `approval` | Start Grok with `grok --permission-mode default` and use `Allow once` on each runtime call. `Always allow` saves `permission_mode = "always-approve"` in Grok configuration. The Orchestrator obtains each approval. |
+| GG2 `fail` | Gemini host remains held pending live host verification. |
 | Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
 | Versions | Claude/Codex versions reported, not restricted |
 | Detection | Compare git-visible tracked/untracked paths, HEAD, branch, every ref; ignored paths excluded |

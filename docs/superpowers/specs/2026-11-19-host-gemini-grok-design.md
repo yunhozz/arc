@@ -334,9 +334,21 @@ D8의 내용입니다.
 - **최종**: 모든 task를 accept하고 QA를 마친 뒤, 독립 Reviewer가 전체 변경을 1회 검토합니다.
 
 ## 10. 측정 결과 (T2/T4 뒤 기록)
-- Grok 1.0.89, 측정일 `<YYYY-MM-DD>`, 결과 파일 `<path>`
-- M-H1/H2/H3/H5/H6 판정과 계약 id 상태 표: 측정 뒤 기록
-- Gemini: M-G1–M-G7 판정 또는 "미전환(D17)": 측정 뒤 기록
+- Grok 1.0.89, 측정일 2026-11-19. 결과 파일은 scratchpad `t2/RESULTS.md`이고, canonical record `.git/arc/handoff/2026-11-19-host-gemini-grok.md`에 요약했습니다. 측정 사본은 1393aa6에 grok `compositeHost` verified와 `GK2:'approval'`을 더한 것이고, 임시 HOME, 가짜 claude/codex CLI, revision `t2-grok-1`로 실행했습니다.
+
+| 항목 | 계약 id | 판정 | 근거 |
+|---|---|---|---|
+| M-H1 | `host-runtime-approval` | verified | ask 모드에서 runtime 명령 9회 모두 승인 프롬프트가 떴습니다(Allow once / Always allow, 매번 Allow once). 결과는 8회가 allow였고, 1회(bridge observe)는 가짜 CLI 출력 때문에 `hold failed invalid_output`였습니다. 이 1회는 M-H4 범위라서 판정에 영향이 없습니다. shell 환경에 `GROK_HOME`은 주입되지 않았습니다 |
+| M-H2 | `host-sandbox-fail-closed` | verified | anchor deny 프로필(`ProfileApplied` enforced)에서 routing-status와 prepare(native·bridge)가 `host_sandbox_blocked`를 반환했고 lease·lock·probe 잔존은 0이었습니다. target만 막은 경우는 Grok 사용 한도 때문에 사용자 셸에서 같은 Seatbelt 규칙(`sandbox-exec`)으로 대신 측정했고 prepare가 `host_sandbox_blocked`, lease 0이었습니다 |
+| M-H3 | `host-supervisor-survival` | verified | 턴이 끝난 뒤와 Grok 세션을 종료한 뒤에도 supervisor가 살아 있었습니다(PPID 1, heartbeat 갱신). shell 도구 timeout은 run-dispatch가 즉시 반환되므로 해당하지 않습니다 |
+| M-H5 | `host-native-spawn` | verified | `spawn_subagent`의 `subagent_type` 설명에 revision tag가 보였고, `subagent_id`(UUID형)를 `nativeAgentId`로 쓸 수 있었으며, child는 재spawn할 수 없었습니다 |
+| M-H4 | `host-bridge-child` | unverified | 가짜 CLI만 사용했습니다(범위 밖) |
+| M-H5 | `native-model-application` | unverified 유지 | 프로필은 `grok-4.6`이었지만 실제로는 `grok-4.7`로 실행됐습니다(세션 model). 따라서 model claim은 operator-attested입니다 |
+
+- 발견 F-H1: Grok의 `spawn_subagent` 목록에 `~/.claude/agents`의 Claude `arc-routing-*` 프로필도 노출됩니다. `[compat.claude] agents = false`로도 막히지 않았습니다. 대응: Grok host 의무 문장에 "route가 native인 역할만 spawn"을 명시했습니다. runtime은 bridge lease에 native event가 오면 거부합니다(`role-bridge.mjs:124`).
+- 발견 F-H2: 승인 화면에서 `Always allow`를 고르면 Grok config에 `permission_mode = "always-approve"`가 저장되어 이후 전역 자동 승인으로 바뀝니다. 대응: 의무 문장에서 이 선택을 금지했습니다.
+- 사용자 판정(2026-11-19): T3 진행. 사용자 설정 해시(AC12)는 측정 전후 같았습니다.
+- Gemini: M-G1–M-G7 판정 또는 "미전환(D17)": T4 뒤 기록
 
 ## 개정 이력
 

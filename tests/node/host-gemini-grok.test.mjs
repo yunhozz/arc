@@ -18,9 +18,10 @@ import {prepareCompositeOperation, prepareOperation} from '../../lib/management/
 import {installFakeCli} from './role-fixtures.mjs';
 import {compositeContext, mixedConfig} from './fixtures/install-mode.mjs';
 import {createTestRegistries, ZETA_INSTALLER} from './fixtures/platforms/zeta.mjs';
+import {writeFakeGrokCli} from './fixtures/platforms/grok-off.mjs';
 import {installPsStub} from './fixtures/ps-stub.mjs';
 
-test('defaultCompositePlatformIds returns claude and codex for the default registry', () => {
+test('defaultCompositePlatformIds still returns claude and codex after Grok promotion', () => {
   assert.deepEqual(defaultCompositePlatformIds(), ['claude', 'codex']);
 });
 
@@ -50,11 +51,13 @@ test('prepareCompositeOperation without platforms uses claude and codex plus rol
   assert.deepEqual(prepared.config.platforms, ['claude', 'codex']);
 });
 
-test('explicit grok platforms are rejected before Grok host promotion', async t => {
+test('explicit grok platforms include Grok as host after promotion', async t => {
   const context = await compositeContext(t);
   const config = await mixedConfig('host-explicit-grok');
-  await assert.rejects(prepareOperation(context, {kind: 'install', target: 'composite', platforms: ['claude', 'codex', 'grok'], config}),
-    /Grok is not available: capability not verified/);
+  writeFakeGrokCli({bin: path.join(context.userHome, 'bin'), marker: path.join(context.userHome, 'grok-version')});
+  const prepared = await prepareOperation(context, {kind: 'install', target: 'composite', platforms: ['claude', 'codex', 'grok'], config});
+  assert.deepEqual(prepared.config.platforms, ['claude', 'codex', 'grok']);
+  assert.equal(prepared.files.anchor, 'claude');
 });
 
 const {BRIDGE_GATE_RESULTS, DEFAULT_POLICY, bridgeGateReasons} = dispatchPolicy;
@@ -93,7 +96,7 @@ function profileBytes(platform, role, descriptor, {model, effort}) {
 }
 
 // Keep the anchor writable when exercising a read-only Claude target.
-async function hostFixture(t, {host, anchor = 'claude', policy = approval}) {
+async function hostFixture(t, {host, anchor = 'claude', policy = approval, rolePlatforms = {}}) {
   installPsStub();
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-host-'));
   const cwd = path.join(base, 'repo'), userHome = path.join(base, 'home'), bin = path.join(base, 'bin');
@@ -117,7 +120,7 @@ async function hostFixture(t, {host, anchor = 'claude', policy = approval}) {
   const context = {cwd, userHome, env, runtimePlatforms, hostPlatform: host, executionEnvironment: host + '-cli', workflowId};
   const values = {claude: {model: 'haiku', effort: 'low'}, codex: {model: 'gpt-6-luna', effort: 'low'}, grok: {model: 'grok-test', effort: 'default'}, gemini: {model: 'gemini-test', effort: 'default'}};
   const roles = Object.fromEntries(ROUTING_ROLES.map(role => {
-    const platform = role === 'arc_scouter' ? 'claude' : role === 'arc_reviewer' ? 'codex' : host;
+    const platform = rolePlatforms[role] ?? (role === 'arc_scouter' ? 'claude' : role === 'arc_reviewer' ? 'codex' : host);
     return [role, {platform, ...values[platform]}];
   }));
   const config = buildRoleRoutingConfig({revision, roles}, {runtimePlatforms});
@@ -171,8 +174,8 @@ async function hostFixture(t, {host, anchor = 'claude', policy = approval}) {
     ].map(value => JSON.stringify(value)).join('\n') + '\n'}],
   });
   for (const cli of [claude, codex]) env[cli.envName] = cli.scenarioPath;
-  const prepare = (role, selectedPolicy = policy) => prepareRoleDispatch({context, policy: selectedPolicy, expectedRevision: revision,
-    assignment: {role, taskId: crypto.randomUUID(), requestId: crypto.randomUUID()}});
+  const prepare = (role, selectedPolicy = policy, assignmentOptions = {}) => prepareRoleDispatch({context, policy: selectedPolicy, expectedRevision: revision,
+    assignment: {role, taskId: crypto.randomUUID(), requestId: crypto.randomUUID(), ...assignmentOptions}});
   const input = (dispatchId, extra) => ({context, dispatchId, policy, ...extra});
   const run = (id, extra) => runBridgeDispatch(input(id, {brief: 'Run brief', startSupervisor: starter, ...extra}));
   const resume = (id, extra) => resumeRoleDispatch(input(id, {brief: 'Resume brief', startSupervisor: starter, ...extra}));
@@ -206,6 +209,11 @@ test('HOST_SANDBOX_GATES and HOST_GATE_ALLOWED are frozen with the spec values',
   assert.ok(Object.isFrozen(dispatchPolicy.HOST_GATE_ALLOWED));
 });
 
+test('BRIDGE_GATE_RESULTS records GK2 approval after Grok promotion', () => {
+  assert.equal(BRIDGE_GATE_RESULTS.GK2, 'approval');
+  for (const gate of ['GK1', 'GG1', 'GG2']) assert.equal(BRIDGE_GATE_RESULTS[gate], 'fail', gate);
+});
+
 test('hostGateReasons allows pass and approval for grok and gemini hosts', () => {
   for (const hostPlatform of hosts) for (const value of ['pass', 'approval']) {
     assert.deepEqual(dispatchPolicy.hostGateReasons({hostPlatform, policy: policyWithGate(hostPlatform, value)}), []);
@@ -216,9 +224,9 @@ test('hostGateReasons blocks fail, missing, escalation, wide and empty gate valu
   for (const hostPlatform of hosts) for (const value of blockedValues) {
     assert.deepEqual(dispatchPolicy.hostGateReasons({hostPlatform, policy: policyWithGate(hostPlatform, value)}), blocked);
   }
-  for (const hostPlatform of hosts) {
-    assert.deepEqual(dispatchPolicy.hostGateReasons({hostPlatform}), blocked);
-    assert.deepEqual(dispatchPolicy.hostGateReasons({hostPlatform, policy: {...approval, gates: null}}), blocked);
+  for (const [hostPlatform, expected] of [['grok', []], ['gemini', blocked]]) {
+    assert.deepEqual(dispatchPolicy.hostGateReasons({hostPlatform}), expected);
+    assert.deepEqual(dispatchPolicy.hostGateReasons({hostPlatform, policy: {...approval, gates: null}}), expected);
   }
 });
 
@@ -248,6 +256,26 @@ test('missing host gate key is fail-closed in prepare without DEFAULT fallback',
   const result = await f.prepare('arc_planner', policyWithGate('grok', undefined));
   assert.equal(result.decision, 'hold');
   assert.deepEqual(codes(result), blocked);
+  const fallback = await f.prepare('arc_planner', {...DEFAULT_POLICY, probeTimeoutMs: 10000});
+  assertAllowed(fallback);
+  assert.equal((await f.cancel(fallback.dispatchId)).decision, 'allow');
+});
+
+test('default policy keeps cross GK1 and GG1 holds for grok and gemini hosts', async t => {
+  for (const {host, target, role, assignment} of [
+    {host: 'grok', target: 'gemini', role: 'arc_qa'},
+    {host: 'gemini', target: 'grok', role: 'arc_implementer', assignment: {allowedPaths: ['src/']}},
+  ]) {
+    const policy = {...DEFAULT_POLICY, probeTimeoutMs: 10000};
+    const f = await hostFixture(t, {host, policy, rolePlatforms: {[role]: target}});
+    const result = await f.prepare(role, policy, assignment);
+    assert.equal(result.route, 'bridge');
+    assert.equal(result.requested.platform, target);
+    assert.equal(result.decision, 'hold');
+    assert.ok(codes(result).includes('permission_scope_unverified'), JSON.stringify(result.reasons));
+    assert.equal(result.dispatchId, null);
+    assert.deepEqual(await listLeases(f.anchorHome, f.context), []);
+  }
 });
 
 for (const host of hosts) test(`${host} host with injected approval completes native and bridge lifecycles`, async t => {

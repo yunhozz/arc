@@ -137,8 +137,8 @@ export const DEFAULT_PLATFORM_REGISTRY = createPlatformRegistry([
     },
     executionEnvironments: ['grok-cli'],
     routing: {validatePair: (model, effort) => validText(model) && /^[A-Za-z0-9][A-Za-z0-9._:/@+\-]*$/.test(model) && effort === 'default'},
-    capabilities: {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, catalog: {state: 'verified'}, standalone: {state: 'verified'}, bridge: {state: 'verified'}, compositeRole: {state: 'verified'}, ...Object.fromEntries(Object.entries({
-      compositeHost: 'composite host not verified', authProbe: 'no official auth status command',
+    capabilities: {install: {state: 'verified'}, nativeProfile: {state: 'verified'}, catalog: {state: 'verified'}, standalone: {state: 'verified'}, bridge: {state: 'verified'}, compositeRole: {state: 'verified'}, compositeHost: {state: 'verified'}, ...Object.fromEntries(Object.entries({
+      authProbe: 'no official auth status command',
       watch: 'watch support out of scope',
     }).map(([key, reason]) => [key, {state: 'off', reason}]))},
   },

@@ -97,6 +97,17 @@ test('both harnesses require escalation for every runtime command as an Orchestr
   assert.equal(lines[0], lines[1]);
 });
 
+test('every harness states the same Grok host approval obligation', async () => {
+  const expected = '- On a Grok host start the session with `grok --permission-mode default` (ask), keep the platform-default sandbox off, and ask the user for approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs; NEVER use auto-review, `--always-approve` or `--yolo`, and DO NOT choose `Always allow`, which saves `permission_mode = "always-approve"` to the Grok config. Spawn with `spawn_subagent` only roles whose route is `native`; Grok can also list Claude `arc-routing-*` profiles, which remain bridge roles. The runtime does not check this approval; asking for it is an Orchestrator obligation. A host whose sandbox is on, or a denied write, is `host_sandbox_blocked`.';
+  for (const harness of ['claude', 'codex', 'gemini', 'grok']) {
+    const text = await readFile(new URL(`../../${harness}/skill/references/coordination.md`, import.meta.url), 'utf8');
+    const body = section(text);
+    assert.ok(body.includes('`grok-cli`'), harness + ' Grok host environment');
+    const lines = body.split('\n').filter(line => line.startsWith('- On a Grok host start the session'));
+    assert.deepEqual(lines, [expected], harness);
+  }
+});
+
 test('every harness states the same host home probe rule', async () => {
   const expected = '- On a Grok or Gemini host, bridge `prepare-dispatch`, `run-dispatch` and `resume` first check that the target platform home is writable: a denied write is `host_sandbox_blocked`, a missing home is `activation_unverified`, and a probe file that cannot be removed is reported in `residualPaths`.';
   for (const harness of ['claude', 'codex', 'gemini', 'grok']) {
@@ -174,8 +185,8 @@ test('execution environment rules use the actual session and agree byte-for-byte
   }
   assert.equal(rules[0], rules[1]);
   for (const text of rules) {
-    assert.match(text, /terminal CLI or TUI session.*IDE integrated terminal.*`codex-cli` or `claude-cli`/);
-    assert.match(text, /only when the session is confirmed to run inside the Desktop app/);
+    assert.match(text, /terminal CLI or TUI session.*IDE integrated terminal.*`codex-cli`, `claude-cli` or `grok-cli`/);
+    assert.match(text, /Desktop values apply only to Codex and Claude\. Use them only for a session confirmed to run inside the corresponding Desktop app\./);
     assert.match(text, /NEVER infer the environment from paths or directory names/);
     assert.match(text, /When unsure, declare the CLI value/);
   }
