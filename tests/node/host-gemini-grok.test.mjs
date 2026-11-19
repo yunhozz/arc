@@ -13,12 +13,53 @@ import {buildBridgeInvocation, runSupervisor} from '../../lib/runtime/role-super
 import {DEFAULT_PLATFORM_REGISTRY, createPlatformRegistry, routingProfileFile} from '../../lib/runtime/platform-registry.mjs';
 import {buildRoleRoutingConfig, parseRoleRoutingConfig, ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
 import {cooperativeVersions, COOPERATIVE_RUNTIME_MODULES} from '../../lib/runtime/bootstrap.mjs';
+import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY, defaultCompositePlatformIds} from '../../lib/platforms/index.mjs';
+import {prepareCompositeOperation, prepareOperation} from '../../lib/management/operations.mjs';
 import {installFakeCli} from './role-fixtures.mjs';
+import {compositeContext, mixedConfig} from './fixtures/install-mode.mjs';
+import {createTestRegistries, ZETA_INSTALLER} from './fixtures/platforms/zeta.mjs';
 import {installPsStub} from './fixtures/ps-stub.mjs';
+
+test('defaultCompositePlatformIds returns claude and codex for the default registry', () => {
+  assert.deepEqual(defaultCompositePlatformIds(), ['claude', 'codex']);
+});
+
+test('defaultCompositePlatformIds requires defaultComposite and a verified compositeHost', () => {
+  const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(platform => {
+    if (!['claude', 'grok'].includes(platform.id)) return platform;
+    const state = platform.id === 'claude' ? 'off' : 'verified';
+    return {...platform, capabilities: {...platform.capabilities, compositeHost: {state}}};
+  }));
+  const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(platform => ({
+    ...DEFAULT_INSTALLER_REGISTRY.getPlatform(platform.id), runtime: platform,
+  }))});
+  assert.deepEqual(defaultCompositePlatformIds(registry), ['codex']);
+
+  const {runtimePlatforms, platforms} = createTestRegistries();
+  assert.deepEqual(defaultCompositePlatformIds(platforms), ['claude', 'codex', 'zeta']);
+  const withoutZetaDefault = createInstallerRegistry({runtime: runtimePlatforms, descriptors: platforms.byAnchorOrder().map(descriptor =>
+    descriptor.runtime.id === 'zeta' ? {...ZETA_INSTALLER, runtime: descriptor.runtime, defaultComposite: undefined} : descriptor,
+  )});
+  assert.deepEqual(defaultCompositePlatformIds(withoutZetaDefault), ['claude', 'codex']);
+});
+
+test('prepareCompositeOperation without platforms uses claude and codex plus role platforms', async t => {
+  const context = await compositeContext(t);
+  const config = await mixedConfig('host-defaults');
+  const prepared = await prepareCompositeOperation(context, {kind: 'install', config});
+  assert.deepEqual(prepared.config.platforms, ['claude', 'codex']);
+});
+
+test('explicit grok platforms are rejected before Grok host promotion', async t => {
+  const context = await compositeContext(t);
+  const config = await mixedConfig('host-explicit-grok');
+  await assert.rejects(prepareOperation(context, {kind: 'install', target: 'composite', platforms: ['claude', 'codex', 'grok'], config}),
+    /Grok is not available: capability not verified/);
+});
 
 const {BRIDGE_GATE_RESULTS, DEFAULT_POLICY, bridgeGateReasons} = dispatchPolicy;
 const {prepareRoleDispatch, routingStatus} = routing;
-const approval = {...DEFAULT_POLICY, probeTimeoutMs: 1000, lockRetryMs: 300, gates: {...BRIDGE_GATE_RESULTS, GK2: 'approval', GG2: 'approval'}};
+const approval = {...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 300, gates: {...BRIDGE_GATE_RESULTS, GK2: 'approval', GG2: 'approval'}};
 const hostGates = {grok: 'GK2', gemini: 'GG2'};
 const hosts = Object.keys(hostGates);
 const blockedValues = ['fail', undefined, 'escalation', 'wide', ''];
