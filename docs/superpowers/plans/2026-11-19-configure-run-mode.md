@@ -271,10 +271,10 @@
 - Modify: `docs/harness-operation.md` — Full Auto gate 요약(상세는 설치 skill `references/planning.md#full-auto-run-mode`), 설정 파일 문법, 보존 규칙(명시값 > 기존값 > supervised, upgrade 보존), 중단 방법(채팅에서 Supervised 요청 시 다음 gate부터).
 - Modify: `MANIFEST.sha256`(README)
 
-- [ ] **Step 1:** README·docs의 `Settings`·`Mode` 문구 위치를 grep으로 찾아 보고.
-- [ ] **Step 2:** 편집. 영문 정책 문장 인용은 spec 원문과 바이트 동일.
-- [ ] **Step 3: 확인.** `node --test tests/node/manifest.test.mjs` + README 문구 검사 테스트가 있으면 함께 실행, `grep -n "Settings" README.md`로 Configure 하위 메뉴 잔존 0건.
-- [ ] **Step 4: STD-CLOSE.** 커밋 예: `docs: Run mode·Configure·Status·settings v2 안내`
+- [x] **Step 1:** README·docs의 `Settings`·`Mode` 문구 위치를 grep으로 찾아 보고.
+- [x] **Step 2:** 편집. 영문 정책 문장 인용은 spec 원문과 바이트 동일.
+- [x] **Step 3: 확인.** `node --test tests/node/manifest.test.mjs` + README 문구 검사 테스트가 있으면 함께 실행, `grep -n "Settings" README.md`로 Configure 하위 메뉴 잔존 0건.
+- [x] **Step 4: STD-CLOSE.** 커밋 예: `docs: Run mode·Configure·Status·settings v2 안내`
 
 **Criteria:** AC-G5. **필수 QA:** 없음(Orchestrator가 spec 10절과 직접 대조). **Holds:** T5·T6 커밋 전 착수 금지.
 
@@ -327,7 +327,7 @@
 | 2026-11-19 | T4 | 수용 | (이 커밋) | 9 files, host suite = 기준선 + codex-auth-probe flake(단독 23/23), manifest 283, fresh QA AC-P2·AC-T3 충족, AC-P3 정규 바이트 보존 충족(TOML 주석 소실은 기존 정규화 동작·spec Q2, 결함 아님) |
 | 2026-11-19 | T5 | 수용 | (이 커밋) | 6 files, host suite = 기준선 36(신규 0), PTY 37/37, manifest 283, fresh QA AC-U1–U7 proven; 경계 full 22→25행·전환 24/25행; 역할 편집 후 PTY 시나리오 범위 축소는 앱 테스트·QA 재현으로 보완(수용) |
 | 2026-11-19 | T6 | 수용 | (이 커밋) | 4 files, host suite = 기준선 + role-bridge-run flake(단독 35/35), PTY 37/37, manifest 283, fresh QA AC-T1·T2 proven(값 시작 열 23) |
-| — | T7 | 대기 | — | — |
+| 2026-11-19 | T7 | 수용 | (이 커밋) | README·harness-operation 영어 문서, manifest 283, Orchestrator가 spec 10절 대조(Configure 행·Run mode·Status·settings v2·다운그레이드·Full Auto gate 요약) |
 | — | 최종 검증 | 대기 | — | — |
 | — | FR | 대기 | — | — |
 

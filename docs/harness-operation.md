@@ -114,7 +114,7 @@ flowchart LR
 | CLI | `arc`, `arc watch`, `arc --help`, `arc --version`; TUI needs both TTYs, invalid/non-TTY no-argument calls exit 2; help/version/watch need no native installer |
 | Home | Configure, Status, Uninstall, Exit |
 | Diagram | Role boxes → Platform/Model/Effort → Done → Apply; compact rows on narrow terminals. Reuse draft, then composite, then first installed platform, else available platform defaults (fallback Claude); catalog failure blocks participating platform, no automatic reselection. Unverified blocks Apply |
-| Settings | Defaults EN/100 total/5 concurrent; unchanged mixed fields preserve values; edited values apply across S |
+| Settings | Run mode/Language/limit rows on Configure; defaults Supervised/English/100 total/5 concurrent; unchanged mixed fields preserve values; edited values apply across S. Full Auto auto-decides only the gates in the installed skill's `references/planning.md#full-auto-run-mode` |
 | D1-a: size 1, standalone | Install/update selected P; other standalone homes untouched |
 | D1-b: size 1, Mixed | Confirm `Switch to <Label>` / `Mixed routing will be turned off.` (default Back); restore standalone in installed homes transactionally, then reprepare selected operation; later failure leaves restored standalone |
 | D1-c: size ≥2, new | Install S in anchor order; publish at anchor |
