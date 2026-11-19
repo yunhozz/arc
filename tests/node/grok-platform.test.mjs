@@ -68,8 +68,7 @@ test('GROK_HOME set does not block other platforms', async t => {
 
 test('AC-K2 Grok capabilities match the verified and off contract', () => {
   assert.deepEqual(descriptor().capabilities, {
-    ...Object.fromEntries(['install', 'nativeProfile', 'catalog', 'standalone', 'bridge', 'compositeRole'].map(key => [key, {state: 'verified'}])),
-    compositeHost: {state: 'off', reason: 'composite host not verified'},
+    ...Object.fromEntries(['install', 'nativeProfile', 'catalog', 'standalone', 'bridge', 'compositeRole', 'compositeHost'].map(key => [key, {state: 'verified'}])),
     authProbe: {state: 'off', reason: 'no official auth status command'},
     watch: {state: 'off', reason: 'watch support out of scope'},
   });

@@ -5,7 +5,7 @@ import path from 'node:path';
 import {createRoutingFixture} from './role-fixtures.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
-import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, buildGeminiArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
+import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, buildGeminiArgs, buildGrokArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
 import {profileName} from '../../lib/runtime/role-dispatch-policy.mjs';
 
 const CLAUDE_TOOLS = {
@@ -58,6 +58,17 @@ test('ROLE_BRIDGE_PERMISSIONS follows spec 5.5', () => {
   assert.deepEqual(ROUTING_ROLES.filter(r => p.codex[r].search), ['arc_scouter']);
 });
 
+for (const role of ['arc_implementer', 'arc_qa']) test(`AC4 Grok ${role} requires a valid custom sandbox name`, () => {
+  const input = {role, profile: {model: 'grok-test'}, sessionId: '11111111-1111-4111-8111-111111111111', promptFile: '/segment/prompt.md'};
+  for (const sandboxProfile of [undefined, 'workspace', 'arc-bridge-0123Abcd', 'arc-bridge-0123abc', 'arc-bridge-0123abcd\n']) {
+    assert.throws(() => buildGrokArgs({...input, sandboxProfile}), /sandbox/i);
+  }
+  assert.equal(ROLE_BRIDGE_PERMISSIONS.grok[role].sandbox, 'custom');
+  const args = buildGrokArgs({...input, sandboxProfile: 'arc-bridge-0123abcd'});
+  assert.equal(flagValue(args, '--sandbox'), 'arc-bridge-0123abcd');
+  assert.ok(!args.includes('workspace'));
+});
+
 test('Claude argv per role matches spec 5.5', () => {
   const planner = buildClaudeArgs({role: 'arc_planner', profile: claudeProfile('arc_planner'), policy: DEFAULT_POLICY});
   assert.deepEqual(planner.slice(0, 8), ['-p', '--safe-mode', '--output-format', 'stream-json', '--verbose', '--model', 'haiku', '--effort']);
@@ -80,8 +91,21 @@ test('Claude argv per role matches spec 5.5', () => {
   assert.ok(planner.includes('--strict-mcp-config'));
   const loose = buildClaudeArgs({role: 'arc_planner', profile: claudeProfile('arc_planner'), policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G6: 'loose'}}});
   assert.ok(!loose.includes('--strict-mcp-config'));
-  assert.throws(() => buildClaudeArgs({role: 'arc_implementer', profile: claudeProfile('arc_implementer'), policy: DEFAULT_POLICY}), /sandbox/i);
+  assert.throws(() => buildClaudeArgs({role: 'arc_implementer', profile: claudeProfile('arc_implementer'), policy: passPolicy({G1: 'fail'})}), /sandbox/i);
   assert.throws(() => buildClaudeArgs({role: 'arc_qa', profile: claudeProfile('arc_qa'), policy: {...passPolicy(), claudeSandboxSettings: null}}), /sandbox/i);
+});
+
+test('default Claude argv applies the measured sandbox settings once and only to writing roles', () => {
+  const settings = {sandbox: {enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true}};
+  for (const role of ['arc_implementer', 'arc_qa']) {
+    const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
+    assert.equal(args.filter(arg => arg === '--settings').length, 1, role);
+    assert.equal(flagValue(args, '--settings'), JSON.stringify(settings), role);
+  }
+  for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer']) {
+    const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
+    assert.equal(args.includes('--settings'), false, role);
+  }
 });
 
 test('Claude resume argv re-specifies model, effort, tools, permission and settings', () => {

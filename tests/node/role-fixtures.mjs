@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
+import {installPsStub, psStubPath} from './fixtures/ps-stub.mjs';
 import {loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
 import {renameCompositeProfile} from '../../lib/installer/role-routing.mjs';
 import {ROUTING_ROLES, serializeRoleRoutingConfig, validateRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
@@ -38,6 +39,7 @@ async function renderPlatform(platform, config) {
 
 /** roles: {arc_qa:'codex'} assigns that role to a platform; every other role stays on hostPlatform. */
 export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claude', limits = {total: 100, concurrent: 5}, revision = 'rev-1', runtimePlatforms} = {}) {
+  installPsStub();
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-route-'));
   // Tests may chmod directories; restore permissions before removing so a failing test leaves nothing behind.
   t.after(async () => { spawnSync('chmod', ['-R', 'u+rwx', base]); await fs.rm(base, {recursive: true, force: true}); });
@@ -71,7 +73,7 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   const {serializeLimits} = await import('../../lib/installer/limits.mjs');
   await fs.mkdir(path.join(homes[hostPlatform], 'skills/arc'), {recursive: true});
   await fs.writeFile(path.join(homes[hostPlatform], 'skills/arc/limits.toml'), serializeLimits({version: 1, max_total_subagents: limits.total, max_concurrent_subagents: limits.concurrent}));
-  const env = {PATH: `${binDir}${path.delimiter}/usr/bin${path.delimiter}/bin`, HOME: userHome, CODEX_HOME: codexHome};
+  const env = {PATH: psStubPath(`${binDir}${path.delimiter}/usr/bin${path.delimiter}/bin`), HOME: userHome, CODEX_HOME: codexHome};
   const fixture = {base, userHome, codexHome, claudeHome, cwd, binDir, env, revision, config, hostPlatform, activePath, homes,
     context: (overrides = {}) => ({cwd, userHome, env: fixture.env, ...(runtimePlatforms ? {runtimePlatforms} : {}), hostPlatform, executionEnvironment: `${hostPlatform}-cli`, workflowId: 'wf-1', ...overrides}),
     cli(platform, scenario = {}) { const cli = installFakeCli(t, binDir, platform, scenario); return cli.then(value => { fixture.env = {...fixture.env, [value.envName]: value.scenarioPath}; return value; }); }

@@ -116,33 +116,108 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 
 ## Composite Platform Role Dispatch
 
-`Mixed routing` keeps the current session as the Orchestrator. Each role runs either as a native `arc-routing-*` profile on the host or as a bridge: a child process of the peer CLI started by the runtime. Invoke `$ARC_RUNTIME_ENTRY` as described in [planning](planning.md#approved-cooperative-execution-path-within-the-repository): `node "$ARC_RUNTIME_ENTRY" <command> --cwd <absolute worktree> --workflow <workflow ID> --input -`, with one JSON object on stdin. Output is one JSON line. Exit codes: allow 0, deny 2, hold 3, error 1. Every input is validated against an exact key set; a missing or unknown key is denied with `invalid_request`. `hostPlatform` (`codex` or `claude`) and `executionEnvironment` (`codex-cli`, `claude-cli`, `codex-desktop`, or `claude-desktop`) are caller-provided claims, not host attestations.
+`Mixed routing` keeps the current session as the Orchestrator. Each role runs either as a native `arc-routing-*` profile on the host or as a bridge: a child process of the peer CLI started by the runtime. Invoke `$ARC_RUNTIME_ENTRY` as described in [planning](planning.md#approved-cooperative-execution-path-within-the-repository): `node "$ARC_RUNTIME_ENTRY" <command> --cwd <absolute worktree> --workflow <workflow ID> --input -`, with one JSON object on stdin. Output is one JSON line. Exit codes: allow 0, deny 2, hold 3, error 1. Every input is validated against an exact key set; a missing or unknown key is denied with `invalid_request`. `hostPlatform` (`codex`, `claude`, `gemini` or `grok`) and `executionEnvironment` (`codex-cli`, `claude-cli`, `gemini-cli`, `grok-cli`, `codex-desktop`, or `claude-desktop`) are caller-provided claims, not host attestations. Gemini host routing is held in this release (see the host support table below).
 
-Choose `executionEnvironment` by where the session actually runs: a terminal CLI or TUI session, including one in an IDE integrated terminal, is `codex-cli` or `claude-cli`; use `codex-desktop` or `claude-desktop` only when the session is confirmed to run inside the Desktop app. NEVER infer the environment from paths or directory names (for example `~/Desktop/...`). When unsure, declare the CLI value.
+Choose `executionEnvironment` by where the session actually runs: a terminal CLI or TUI session, including one in an IDE integrated terminal, uses `codex-cli`, `claude-cli`, `gemini-cli` or `grok-cli` for its host. Desktop values apply only to Codex and Claude. Use them only for a session confirmed to run inside the corresponding Desktop app. NEVER infer the environment from paths or directory names (for example `~/Desktop/...`). When unsure, declare the CLI value.
 
 Procedure, in order:
 
 1. `routing-status` with `hostPlatform`, `executionEnvironment`. Reads the active revision, each role's route, profile, model and effort, platform authentication and CLI versions without reserving anything. Authentication and version probes start a child process. The Codex authentication probe refreshes the login token over the network through `codex app-server`; a permanently rejected refresh is `Unauthorized` and a probe that cannot decide is `Incomplete`.
 2. `prepare-dispatch` with `hostPlatform`, `executionEnvironment`, `role` (`arc_scouter`, `arc_planner`, `arc_implementer`, `arc_qa`, or `arc_reviewer`), `expectedRevision` (the revision from step 1), `requestId`, `taskId`, and `allowedPaths` (worktree-relative path array; required and non-empty for `arc_implementer`, optional for `arc_qa` where empty or omitted allows no writes, omitted for other roles). `allow` returns `dispatchId`, the route and initial claims and reserves a lease; `hold` returns every reason with its release condition; `deny` rejects the request. Reuse of a `requestId`, or a non-terminal dispatch for the same workflow, task and role, is denied with `duplicate_dispatch`.
-3. Native route: before spawning, compare the `[arc-routing rev <revision>]` tag in the agent list description with the `routing-status` revision. If it differs or is not shown, hold the role as `native_profile_reload_unverified` and report that a new session is required. Then spawn: Claude host Agent tool `subagent_type: "arc-routing-<suffix>"`; Codex host `spawn_agent` `agent_type: "arc_routing_<suffix>"` with the existing `fork_turns="none"` and `task_name` rules. NEVER pass a model argument; the profile decides. Record the lifecycle with `observe` using `dispatchId`, `event` (`started`, `completed`, `failed`, or `cancelled`) and `nativeAgentId`. `nativeAgentId` is required with `started` and forbidden with every other event. A `cancelled` event is also accepted for a `reserved` native lease that was never started (without `nativeAgentId`). These are `operator-attested` claims.
+3. Native route: before spawning, compare the `[arc-routing rev <revision>]` tag in the agent list description with the `routing-status` revision. If it differs or is not shown, hold the role as `native_profile_reload_unverified` and report that a new session is required. Then spawn: Claude host Agent tool `subagent_type: "arc-routing-<suffix>"`; Codex host `spawn_agent` `agent_type: "arc_routing_<suffix>"` with the existing `fork_turns="none"` and `task_name` rules. On Grok use `spawn_subagent` with `subagent_type: "arc-routing-<suffix>"`. The revision tag appears in the `subagent_type` description. Use the returned `subagent_id` as `nativeAgentId`. The Grok child uses the session model, so its model claim remains `operator-attested`. The child has no `spawn_subagent` tool. NEVER pass a model argument. On Claude and Codex the profile decides. Record the lifecycle with `observe` using `dispatchId`, `event` (`started`, `completed`, `failed`, or `cancelled`) and `nativeAgentId`. `nativeAgentId` is required with `started` and forbidden with every other event. A `cancelled` event is also accepted for a `reserved` native lease that was never started (without `nativeAgentId`). These are `operator-attested` claims.
 4. Bridge route: `run-dispatch` with `hostPlatform`, `executionEnvironment`, `dispatchId`, `brief` (UTF-8, at most 256 KiB, delivered on stdin only). It starts a detached supervisor and returns at once with `routeStatus` and `resultPath`. Then `observe` with `hostPlatform`, `executionEnvironment`, `dispatchId` and optional `waitMs` (0 to 540000). Use the maximum wait for each call and DO NOT run a short polling loop. With `waitMs`, `observe` returns only when the dispatch reaches `completed`, `failed`, `cancelled` or `unknown`, or when `waitMs` elapses; a transition such as `starting` to `running` does not end the wait. `observe` returns status, claims, `resultPath` and reasons; `failed` and `unknown` are reported as hold (exit 3).
 5. `resume` with `hostPlatform`, `executionEnvironment`, `dispatchId`, `brief`. It continues the same session as a new segment only for a dispatch in `completed` or `failed` state with a recorded session ID and an unchanged active revision (otherwise `revision_changed`). All flags are re-specified, the concurrency limit is checked again, and a session ID mismatch makes the state `unknown`. `unknown` and `cancelled` dispatches cannot be resumed. New QA or Reviewer assignments never reuse a session.
 6. `cancel` with `hostPlatform`, `executionEnvironment`, `dispatchId`. A `reserved` lease (native or bridge) becomes `cancelled` at once; a `starting` or `running` native lease is denied and is closed with `observe` events. A cancelled `unknown` lease keeps its recorded reasons. A running child gets SIGTERM, a 10 second grace, then SIGKILL; the result is `cancelling` and `cancelled` is recorded only after exit is observed. A reused PID or missing child information (including a `starting` lease whose supervisor is lost and that has no child record) is left unchanged and the result is hold, because exit cannot be observed; clean it up manually.
 
-Rules:
+### Host rules
 
-- Bridge children receive the profile instructions only and NEVER load ARC `SKILL.md`. Role instructions forbid re-delegation. Claude children expose no Task tool.
+| executionEnvironment | Claude target | Codex target | Gemini target | Grok target |
+|---|---|---|---|---|
+| `claude-cli` | Native, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `codex-cli` | Bridge, all roles | Native, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `gemini-cli` | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) |
+| `grok-cli` | Bridge, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Native, all roles |
+| `claude-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
+| `codex-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
+
+Read roles are Scouter, Planner and Reviewer. The table shows which routes the recorded gates permit; apply the host rules and check each dispatch result.
+
+**Claude**
+
+- Approval: No per-call ARC approval gate.
+- Target home probe: None.
+- Desktop: Held as described below.
+
+**Codex**
+
+- On a Codex host ask the user for escalation approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs, because each may write `CODEX_HOME`. The runtime does not check this approval; asking for it is an Orchestrator obligation. Without approval or on failure the result is `host_sandbox_blocked`.
+- In a Codex host sandbox writes to `CODEX_HOME` are denied (G2), so a Codex-host bridge is not held in advance but runs only with the per-call escalation approval; a refused approval or a denied write is `host_sandbox_blocked`. Detached supervisor survival itself was observed under variant conditions, and native routes there remain supported.
+- Target home probe: None.
+- Desktop: Held as described below.
+
+**Gemini**
+
+- Approval: Hold the host pending live host measurement (GG2). The registry lists `gemini` and `gemini-cli`, but `compositeHost` is off.
+- Target home probe: See the shared probe rule below. The capability hold applies before the probe.
+- Desktop: No Desktop value.
+
+**Grok**
+
+GK2 is `approval`.
+
+- On a Grok host start the session with `grok --permission-mode default` (ask), keep the platform-default sandbox off, and ask the user for approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs; NEVER use auto-review, `/auto`, `bypassPermissions`, `--always-approve` or `--yolo`, and DO NOT choose `Always allow`, which saves `permission_mode = "always-approve"` to the Grok config. Spawn with `spawn_subagent` only roles whose route is `native`; Grok can also list Claude `arc-routing-*` profiles, which remain bridge roles. The runtime does not check this approval; asking for it is an Orchestrator obligation. A denied write (for example by a host sandbox) is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on.
+- Target home probe: See the shared probe rule below.
+- Desktop: No Desktop value.
+
+#### Shared host rules
+
+- On a Grok or Gemini host, bridge `prepare-dispatch`, `run-dispatch` and `resume` first check that the target platform home is writable: a denied write is `host_sandbox_blocked`, a missing home is `activation_unverified`, and a probe file that cannot be removed is reported in `residualPaths`.
+- On Desktop hosts (`codex-desktop`, `claude-desktop`) every role (native and bridge) is held as `environment_unverified` in this release; the manual checklist in the ARC operation guide is a list of manual checks for a future ARC update that may change the support status, and recording it releases nothing. Even then `supportStatus` is at most `unverified`.
+
+### Bridge target rules
+
+**Claude**
+
+- Writing roles: Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` only when an injected G1 fails or settings are missing (G1).
+- Permission claim: Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.
+- Delegation: Role instructions forbid re-delegation. Claude children expose no Task tool. Apply the shared child guard below.
+- Execution confirmation: Check the stream session identity and model, transcript effort, and the observed terminal result.
+
+**Codex**
+
+- Gate: G4 applies to every Codex bridge role. G4 `pass` permits dispatch; a failed G4 holds as `permission_scope_unverified`.
+- Writing roles: Codex `workspace-write` may reach beyond the worktree (G5): writes outside the worktree are outside post-run detection.
+- Permission claim: For a Codex bridge the `permissions` claim is at most `operator-attested` and notes `user-config-mcp-not-controlled`, because the child loads the user's Codex configuration (for example MCP servers), which ARC does not control; its `supportStatus` is therefore never `verified`.
+- Delegation: Codex rollout checks apply. The re-delegation of a Codex child is not blocked, and a spawn found afterwards in its rollout fails the dispatch as `delegation_observed` (G3).
+- Execution confirmation: Check the rollout for model, effort, sandbox mode and approval policy, and check the observed terminal result.
+
+**Gemini**
+
+- Writing roles: Gemini bridge `arc_implementer` and `arc_qa` are held as `permission_scope_unverified` while GG1 is `fail`. Scouter, Planner and Reviewer remain supported.
+- Permission claim: The worktree snapshot covers only Git-visible worktree changes.
+- Delegation: The dispatch record reports `unverifiedContracts.delegation` as `undetectable`.
+- Execution confirmation: Check the stream session ID against the recorded ID, the observed model and the terminal result. Effort stays `unverified`.
+
+**Grok**
+
+- Writing roles: Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution (GK1), with read-role behavior unchanged. Writing roles are held as `permission_scope_unverified` if GK1 is anything other than `pass`.
+- Grok records `ProfileApplied` itself in a file the child can write. If a Grok version neither applies the profile nor emits the event, a single forged candidate is indistinguishable from a genuine one. A forgery alongside a genuine event fails the two-candidate check.
+- On cancellation, the events check adds no `permission_scope_mismatch` if a valid events file has no matching `ProfileApplied` candidate or the file was absent both before and after execution. Other reasons still apply.
+- Permission claim: The worktree snapshot covers only Git-visible worktree changes.
+- Delegation: The dispatch record reports `unverifiedContracts.delegation` as `undetectable`.
+- Execution confirmation: Check the stream session ID against the recorded ID, the observed model and the terminal result. Effort stays `unverified`.
+
+### Shared dispatch rules
+
+- Bridge children receive the profile instructions only and NEVER load ARC `SKILL.md`. Role instructions forbid re-delegation.
 - Fixed timeouts: `arc_implementer` 60 minutes, `arc_qa` 30 minutes, others 20 minutes. At timeout the child group is terminated; `failed` is recorded only after observed exit, otherwise `unknown`.
 - `unknown` (`terminal_state_unverified`) keeps its slot and is never released or re-run automatically. After a supervisor loss, inspect the dispatch in `<anchor home>/arc-role-dispatch/` and its artifacts under `<gitCommonDir>/arc/workflows/<workflowId>/dispatches/<dispatchId>/` and perform manual cleanup. ARC does not delete or release such leases, nor residual lock files, automatically; it reports them. Only leases in `completed`, `failed` or `cancelled` for more than 30 days are pruned.
 - Active bridge dispatches block publishing the composite configuration (`Active bridge dispatches: <ids>`); finish or cancel them first. Native leases do not block.
 - `execution_identity_unverified` (no session ID was obtained) is recorded by the supervisor after exit and exposed by `observe`; `resume` holds with it for a dispatch without a session ID. The `run-dispatch` response and `prepare-dispatch` never carry it.
 - A leftover orphaned process group after the child leader exits by itself is reaped (SIGTERM, grace, then SIGKILL) before the post-run snapshot is taken, and `orphanGroupReaped` is recorded; if the group cannot be observed gone the dispatch is `unknown` (`terminal_state_unverified`) and keeps its slot.
-- For a Codex bridge the `permissions` claim is at most `operator-attested` and notes `user-config-mcp-not-controlled`, because the child loads the user's Codex configuration (for example MCP servers), which ARC does not control; its `supportStatus` is therefore never `verified`.
 - Post-run detection compares the changed paths, `HEAD`, the branch and every Git ref. Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed` for every role, assuming no other Git activity changes refs during the run. Changes to Git-ignored paths are outside post-run detection.
-- `ARC_BRIDGE_CHILD` is set in the environment of every bridge child; routing commands are denied in a process that has it. Re-running `codex exec` or `claude -p` through a shell is not a detected `delegation_observed` case and stays outside detection.
+- `ARC_BRIDGE_CHILD` is set in the environment of every bridge child; routing commands are denied in a process that has it. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection.
 - CLI versions are not restricted. `routing-status` and bridge `prepare-dispatch` report the parsed `<cli> --version` result (`cliVersion.version`, or `null` with a `reason`) for information only; no version holds a native or bridge route.
-- First-release support follows the recorded gates. Claude bridge `arc_implementer` and `arc_qa` on a Codex host (the only host with a Claude bridge) are held as `permission_scope_unverified` because the injected sandbox is not verified (G1). In a Codex host sandbox writes to `CODEX_HOME` are denied (G2), so a Codex-host bridge is not held in advance but runs only with the per-call escalation approval below; a refused approval or a denied write is `host_sandbox_blocked`. Detached supervisor survival itself was observed under variant conditions, and native routes there remain supported. For Codex bridge children, re-delegation of a Codex child is not blocked, and a spawn found afterwards in its rollout fails the dispatch as `delegation_observed` (G3). Codex `workspace-write` may reach beyond the worktree (G5): writes outside the worktree are outside post-run detection. A `claude-cli` host supports native routes and Codex bridges. On Desktop hosts (`codex-desktop`, `claude-desktop`) every role (native and bridge) is held as `environment_unverified` in this release; the manual checklist in the ARC operation guide is a list of manual checks for a future ARC update that may change the support status, and recording it releases nothing. Even then `supportStatus` is at most `unverified`.
-- On a Codex host ask the user for escalation approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs, because each may write `CODEX_HOME`. The runtime does not check this approval; asking for it is an Orchestrator obligation. Without approval or on failure the result is `host_sandbox_blocked`.
 - There is no automatic fallback, substitution or retry. On any hold, deny or failure, report the reasons and release conditions and DO NOT use another model or platform. Run `routing-status` again only after the condition changed. Bridge dispatches count in the instance ledger; see [limits](limits.md).
 - After an ARC upgrade that changes the cooperative runtime version, run Configure again; until then routing holds as `activation_unverified`.
 

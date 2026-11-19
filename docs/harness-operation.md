@@ -76,25 +76,44 @@ Unknown Claude/Codex probe results block participation.
 
 ## Execution support
 
-| executionEnvironment | Support and holds |
-|---|---|
-| `claude-cli` | Native roles and Codex bridges |
-| `codex-cli` | Native roles and Claude Scouter/Planner/Reviewer bridges; every runtime command needs per-call escalation approval, including native commands, because it may write `CODEX_HOME`. Refusal/denied write: `host_sandbox_blocked`; runtime does not check approval: Orchestrator must obtain it |
-| `claude-desktop`, `codex-desktop` | All native/bridge roles: `environment_unverified`; support capped at `unverified`. No checklist recording/release in this version; future checks: CLI discovery, shared auth, same worktree, supervisor survival, per-call escalation, matching native revision tag |
+| executionEnvironment | Claude target | Codex target | Gemini target | Grok target |
+|---|---|---|---|---|
+| `claude-cli` | Native, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `codex-cli` | Bridge, all roles | Native, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `gemini-cli` | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) |
+| `grok-cli` | Bridge, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Native, all roles |
+| `claude-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
+| `codex-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
 
-`executionEnvironment` is caller-declared, not runtime-verified: terminal/TUI/IDE terminal uses `codex-cli` or `claude-cli`; confirmed Desktop app uses its Desktop value. Never infer from paths; when unsure use CLI. A false CLI declaration bypasses the Desktop hold.
+Read roles are Scouter, Planner and Reviewer. The table shows which routes the recorded gates permit; apply the host rules and check each dispatch result.
+
+| Host | Runtime approval | Target home probe | Desktop |
+|---|---|---|---|
+| Claude | No per-call ARC approval gate | None | Held |
+| Codex | G2 `escalation`: obtain user approval on every runtime call, including native commands, because it may write `CODEX_HOME`. The Orchestrator obtains each approval; the runtime does not check it. Refusal or denied write is `host_sandbox_blocked` | None | Held |
+| Gemini | CLI host held pending live host measurement | Bridge prepare/run/resume, if the host gate is released | No Desktop value |
+| Grok | GK2 `approval`: obtain user approval on every runtime call in ask mode. A denied write is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on | Bridge prepare/run/resume | No Desktop value |
+
+On Claude and Codex Desktop, support is capped at `unverified`. This version provides no checklist recording or release. Future checks cover CLI discovery, shared auth, the same worktree, supervisor survival, per-call escalation and a matching native revision tag.
+
+`executionEnvironment` is caller-declared. A terminal, TUI or IDE terminal uses the CLI value for its host. Use a Desktop value only for a confirmed Claude or Codex Desktop session. Determine the environment from the session itself; never infer it from paths. When unsure, use the CLI value. A false CLI declaration bypasses the Desktop hold.
 
 | Bridge contract | Guarantees and limits |
 |---|---|
-| G1 `fail` | Claude Implementer/QA on Codex held: `permission_scope_unverified`; injected sandbox unverified |
+| G1 `pass` | On every host, Claude bridge Implementer/QA receive recorded settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. The following observations are from Claude 2.1.328 on macOS Seatbelt (2026-11-19). `/private/tmp/claude-<uid>` is writable. If sandboxing is unavailable, Bash exits 71 per command and Claude exits 0. M-C4 found no widening in trusted or untrusted workspaces. Network restrictions were outside the measurement scope. |
+| GG1 `fail` | Gemini bridge Implementer/QA are held as `permission_scope_unverified`; read roles remain supported. |
+| GK1 `pass` | Grok bridge Implementer/QA use a per-dispatch profile with `extends = "workspace"` and 24 deny entries. A verified `ProfileApplied` event is required after execution for completion. Unlisted `~/.grok/*` paths, `~/.grok/sessions` and temporary directories remain writable. Reads are unrestricted and network access is allowed. Measurements cover Grok 1.0.89 on macOS only.<br>Grok records `ProfileApplied` itself in a file the child can write. If a Grok version neither applies the profile nor emits the event, a single forged candidate is indistinguishable from a genuine one. A forgery alongside a genuine event fails the two-candidate check.<br>On cancellation, the events check adds no `permission_scope_mismatch` if a valid events file has no matching `ProfileApplied` candidate or the file was absent both before and after execution. Other reasons still apply. |
 | G2 `escalation` | Codex-host calls require approval; no advance hold; detached supervisor survival observed under variant conditions |
 | G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
 | G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |
 | G5 `wide` | Codex `workspace-write` can reach outside worktree; post-run detection does not cover those writes |
+| GK2 `approval` | Start Grok with `grok --permission-mode default` and use `Allow once` on each runtime call. `Always allow` saves `permission_mode = "always-approve"` in Grok configuration. The Orchestrator obtains each approval. |
+| GG2 `fail` | Gemini host remains held pending live host measurement. |
 | Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
-| Versions | Claude/Codex versions reported, not restricted |
+| Versions | Routing reports CLI versions for Codex, Claude, Gemini and Grok. Version never blocks routing. Configure blocks composite platform selection when a CLI version falls outside the registry's `cli.supportedVersions` range. TUI status uses the same range. |
 | Detection | Compare git-visible tracked/untracked paths, HEAD, branch, every ref; ignored paths excluded |
-| Child guard | `ARC_BRIDGE_CHILD` denies routing commands, but shell `codex exec` / `claude -p` is not detected delegation |
+| Host home probe | Grok/Gemini host only: bridge prepare/run/resume create and remove one probe file in the target home first; denied → `host_sandbox_blocked`, missing → `activation_unverified`, unremovable → `residualPaths`. Subpath-only denials are not detected |
+| Child guard | `ARC_BRIDGE_CHILD` denies routing commands. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection. |
 
 ## Install, update, remove
 
@@ -226,6 +245,8 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 - Contract-preserving task progress needs no new approval; other spec/plan edits require revised approval. Keep approved revisions pending for first accepted top-level task executed/reconfirmed against them, otherwise current task/final Reviewer follow-up; only with no implementation left/no such commit may one standalone `docs(plan)` closing commit include all revisions, no implementation. Overall completion leaves none pending. Plan-level progress records (final verification/Reviewer verdicts/dispositions/completion) ride the plan's next task or follow-up commit; with none, they stay canonical only, plan doc unchanged, never alone a closing commit.
 - Record `Plan-Revision`, per-version `Plan-Approved-At` (actual ISO 8601), `Plan-Reason` trailers with ASCII `->`; preserve trailers/approval chronology; never amend/reset/replay/rewrite or create other docs/fixup commits. Full rules: [planning](../codex/skill/references/planning.md#plan-updates-during-execution), [preparation](../codex/skill/references/handoff-prep.md#execution-time-plan-revision), [commit](../codex/skill/references/commit.md#execution-time-plan-document-updates). Repository commit descriptions are concise Korean.
 - Failure: no automatic retry/fallback/stash/reset/clean/lock deletion/permission changes/bypass. Optional failed reads allow only brief-preauthorized side-effect-free alternatives with exact locator/version/purpose/authority/equivalent evidence; missing inputs/unknown/partial changes return immediately. Resume preserves approvals/completed work/failure/resolution/valid-invalid evidence/holds/next goal.
+
+On failure or partial completion, apply these steps in order:
 
 1. Record exact failed check, baseline/current revision, evidence, path/branch or detached HEAD/index/files/completed steps.
 2. Classify baseline/current impact and dependencies.

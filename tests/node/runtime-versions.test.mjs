@@ -8,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 const historicalRuntimeHash='sha256:6e12541f86f8941fe407749be80ba1e3a2a950f18c17eff546da982f0471b3da';
 const previousRuntimeHash='sha256:f24d913ad8866ec89fcd38cb26e7dbebc0b0243a9763df88af7a95861a02fe5d';
-const baselineHash='sha256:09ef06d21100f80aa881d9f43f239f692e6e57d87f1cc4a3d6ca234318bca52f';
+const baselineHash='sha256:24b306a1b20508cfdced7c1c4a292e77d437d814bd14b72a5ee7f3d085fc12f2';
 
 test('target preparation is included in the current cooperative runtime contract',async()=>{
  const api=await import('../../lib/runtime/bootstrap.mjs');
@@ -21,7 +21,7 @@ const expectedModules = [
  'cli.mjs', 'command.mjs', 'bootstrap.mjs', 'cooperative-schema.mjs', 'cooperative.mjs', 'evaluate.mjs',
  'scope.mjs', 'store.mjs', 'git-evidence.mjs', 'assignment.mjs', 'verification.mjs', 'acceptance.mjs', 'external.mjs',
  'schema.mjs', 'operations.mjs', 'gate.mjs', 'adapters/codex.mjs', 'adapters/claude.mjs', 'capabilities.mjs', 'identity.mjs', 'git-query.mjs', 'target-preparation.mjs',
- 'local-cli.mjs', 'role-routing-config.mjs', 'role-routing.mjs', 'role-bridge.mjs', 'role-dispatch-policy.mjs', 'role-dispatch-store.mjs', 'role-bridge-args.mjs', 'role-observe.mjs', 'role-supervisor.mjs', 'platform-registry.mjs', 'gemini-stream.mjs', 'grok-stream.mjs'
+ 'local-cli.mjs', 'role-routing-config.mjs', 'role-routing.mjs', 'role-bridge.mjs', 'role-dispatch-policy.mjs', 'role-dispatch-store.mjs', 'role-bridge-args.mjs', 'role-observe.mjs', 'role-supervisor.mjs', 'platform-registry.mjs', 'gemini-stream.mjs', 'grok-stream.mjs', 'grok-sandbox.mjs'
 ];
 for (const runtime of ['lib/runtime/', 'shared/skill/runtime/']) {
  test(`${runtime} freezes the ordered T5 inventory and hashes every raw module Buffer`, async () => {

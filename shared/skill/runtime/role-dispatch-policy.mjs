@@ -1,8 +1,28 @@
 import {runtimeRegistryOf} from './platform-registry.mjs';
 // Fixed policy values for composite role dispatch. G2 'escalation' means the bridge runs only with per-call user escalation approval on a Codex host; it is not a verified pass.
-export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
-// No sandbox settings JSON has been recorded: G1 failed, so there is nothing to apply.
-const RECORDED_CLAUDE_SANDBOX_SETTINGS = null;
+// GK2/GG2 'approval' means a Grok/Gemini host keeps its platform-default sandbox (off), runs in ask mode, and obtains user approval for each runtime command; it is not a verified pass.
+// GK2 evidence: Grok 1.0.89, 2026-11-19, ask mode with the sandbox off.
+// GK1 evidence: Grok 1.0.89, 2026-11-19, writing roles only, with mandatory ProfileApplied verification.
+export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'pass', GK2: 'approval'});
+export const HOST_SANDBOX_GATES = Object.freeze({grok: 'GK2', gemini: 'GG2'});
+export const HOST_GATE_ALLOWED = Object.freeze(['pass', 'approval']);
+
+function deepFreeze(value) {
+  for (const nested of Object.values(value)) {
+    if (nested !== null && typeof nested === 'object') deepFreeze(nested);
+  }
+  return Object.freeze(value);
+}
+
+// Claude 2.1.328, 2026-11-19, macOS Seatbelt: /private/tmp/claude-<uid> is writable, Bash exits 71 per command if sandboxing is unavailable, and M-C4 found no widening in trusted or untrusted workspaces.
+const RECORDED_CLAUDE_SANDBOX_SETTINGS = deepFreeze({
+  sandbox: {
+    enabled: true,
+    autoAllowBashIfSandboxed: true,
+    allowUnsandboxedCommands: false,
+    failIfUnavailable: true,
+  },
+});
 const isRecordedObject = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
 export const CLAUDE_SANDBOX_SETTINGS = BRIDGE_GATE_RESULTS.G1 === 'pass' && isRecordedObject(RECORDED_CLAUDE_SANDBOX_SETTINGS) ? RECORDED_CLAUDE_SANDBOX_SETTINGS : null;
 /** G1 counts as passed only with an explicitly recorded settings object; otherwise the settings are null. */
@@ -83,13 +103,18 @@ export function capabilityReasons({hostPlatform, targetPlatform, route, runtimeP
     && (route !== 'bridge' || target?.capabilities.bridge.state === 'verified') ? [] : ['capability_not_verified'];
 }
 
+export function hostGateReasons({hostPlatform, policy = DEFAULT_POLICY}) {
+  if (!Object.hasOwn(HOST_SANDBOX_GATES, hostPlatform)) return [];
+  const gates = policy.gates ?? BRIDGE_GATE_RESULTS;
+  return HOST_GATE_ALLOWED.includes(gates[HOST_SANDBOX_GATES[hostPlatform]]) ? [] : ['host_sandbox_blocked'];
+}
+
 export function bridgeGateReasons({platform, role, hostPlatform, policy = DEFAULT_POLICY}) {
   const gates = policy.gates ?? BRIDGE_GATE_RESULTS, codes = [];
   if (platform === 'claude' && (role === 'arc_implementer' || role === 'arc_qa') && effectiveClaudeSandboxSettings({gates, claudeSandboxSettings: policy.claudeSandboxSettings}) === null) codes.push('permission_scope_unverified');
   if (platform === 'gemini' && (role === 'arc_implementer' || role === 'arc_qa') && gates.GG1 !== 'pass') codes.push('permission_scope_unverified');
   if (platform === 'grok' && (role === 'arc_implementer' || role === 'arc_qa') && gates.GK1 !== 'pass') codes.push('permission_scope_unverified');
-  if (hostPlatform === 'grok' && gates.GK2 !== 'pass') codes.push('host_sandbox_blocked');
-  if (hostPlatform === 'gemini' && gates.GG2 !== 'pass') codes.push('host_sandbox_blocked');
+  codes.push(...hostGateReasons({hostPlatform, policy}));
   if (platform === 'codex' && gates.G4 === 'fail') codes.push('permission_scope_unverified');
   if (hostPlatform === 'codex' && gates.G2 === 'fail') codes.push('host_sandbox_blocked');
   return [...new Set(codes)];
