@@ -182,7 +182,7 @@ Applies only when the installed SKILL.md contains `**Run mode:** Full Auto.` and
 | Written spec approval | auto | After Orchestrator review |
 | Plan approval | auto | Only with zero open decisions; otherwise user |
 | Spec/plan revision within the original scope | auto | Scope-expanding revisions → user |
-| Direct-path F1–F8 scope approval | auto | All F1–F8 still proven |
+| Direct-path F1–F8 scope approval | auto | All F1–F8 still proven; otherwise user |
 | `AskUserQuestion` | auto | Recommended option |
 | Visual companion offer | skipped | Not offered |
 | Visual interpretation approval ([verification](verification.md#visual-evidence-and-adjudication)) | user | Not an auto gate |

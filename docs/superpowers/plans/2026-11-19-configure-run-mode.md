@@ -392,6 +392,7 @@
 | 2026-11-19 | FR3 | 완료 | — | native reviewer 승인, 차단 0. FR2 지적 2건 해소 확인. 비차단: settings 없는 incomplete는 기본값과 비교되어 설치값=기본값이면 파일 값이 덮어써질 수 있음(회귀 아님); Direct-path F1–F8 행에 user fallback 미기재(정보) |
 | 2026-11-19 | FR3 처리 | 사용자 결정 | — | 1번 (a) incomplete 설정 best-effort 읽기(T12), 2번 F1–F8 행 문구 추가(T13) → spec v4·plan v6 |
 | 2026-11-19 | T12 | 수용 | (이 커밋) | 4 files, 관련 6개 파일 366/366, host suite 2891/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-T4·U9 proven |
+| 2026-11-19 | T13 | 수용 | (이 커밋) | 6 files, 4개 planning.md F1–F8 행 1줄 동일 교체, run-mode-contract RED 4→GREEN 15/15, host suite 2891/fail 36 = 기준선(신규 0), manifest 283; 정확 문구 교체라 계약 테스트·Orchestrator diff 대조, FR4에서 재확인 |
 
 ## 개정 이력
 
