@@ -190,15 +190,15 @@
 
 **Interfaces:** Consumes (T3) `buildInstallPlan({...,runMode})`, `agentsBlockBody(...,runMode)`, (T1) `parseSettings`. Produces `status.settings.runMode`, `collectInstalledState().targets[i].runMode`, prepare options 계약(standalone `options.runMode`, composite `options.settings.runMode` — T5가 생성).
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `management-operations.test.mjs`: `composite preserves per-platform runMode`(두 home에 v2 full-auto·v1, `options.settings`에 runMode 없음 → plan runMode `['full-auto','supervised']`, 각 `settings.toml` 바이트 — AC-P2, Review Focus 2); `composite explicit runMode applies to all`; `standalone passes runMode`(명시 full-auto, 미지정+기존 v2 → full-auto).
   - `upgrade-state.test.mjs`: v2 full-auto → target entry `runMode:'full-auto'`, v1 → `'supervised'`.
   - `upgrade-harness.test.mjs` `upgrade preserves full-auto`(AC-P3, Review Focus 4): `settings.toml` v2, SKILL.md Full Auto 문장, managed block 마지막 bullet이 spec 6.5 줄.
   - `management-status.test.mjs`: status `settings.runMode` full-auto/supervised (AC-T3).
-- [ ] **Step 2: 실패 확인.** 위 4개 파일 FAIL.
-- [ ] **Step 3: 구현.**
-- [ ] **Step 4: GREEN.** 위 4개 + `node --test tests/node/install-mode*.test.mjs`.
-- [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(management): composite·upgrade·status Run mode 보존`
+- [x] **Step 2: 실패 확인.** 위 4개 파일 FAIL.
+- [x] **Step 3: 구현.**
+- [x] **Step 4: GREEN.** 위 4개 + `node --test tests/node/install-mode*.test.mjs`.
+- [x] **Step 5: STD-CLOSE.** 커밋 예: `feat(management): composite·upgrade·status Run mode 보존`
 
 **Criteria:** AC-P2, AC-P3, AC-T3. **필수 QA:** fresh QA(composite 혼합 보존, upgrade 3요소 보존 독립 재현). **Holds:** T3 커밋 전 착수 금지.
 
@@ -323,7 +323,7 @@
 | 2026-11-19 | T1 | 수용 | (이 커밋) | language 13/13, host suite 신규 실패 0, check:manifest 283 OK, fresh QA AC-S1–S4·AC-P4 proven |
 | 2026-11-19 | T2 | 수용 | (이 커밋) | 39 files, update:role-policy 28/check 48, runtime 35, manifest 283, host suite = 기준선 + role-bridge-run flake(단독 35/35), fresh QA AC-G1·G2·G3(정적) proven |
 | 2026-11-19 | T3 | 수용 | (이 커밋) | 14 files, host suite = 기준선 36(신규 0), check:role-policy 48·manifest 283, fresh QA AC-P1·P4·P5·P6·G3·R1(지정 범위) proven, 전체 AC-R1은 V2 |
-| — | T4 | 대기 | — | — |
+| 2026-11-19 | T4 | 수용 | (이 커밋) | 9 files, host suite = 기준선 + codex-auth-probe flake(단독 23/23), manifest 283, fresh QA AC-P2·AC-T3 충족, AC-P3 정규 바이트 보존 충족(TOML 주석 소실은 기존 정규화 동작·spec Q2, 결함 아님) |
 | — | T5 | 대기 | — | — |
 | — | T6 | 대기 | — | — |
 | — | T7 | 대기 | — | — |

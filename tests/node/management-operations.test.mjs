@@ -1,8 +1,40 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';import {referenceFixture} from './fixtures/fake-git.mjs';
 import {staticPackageFixture,refreshManifest,sourceRoot} from './fixtures/static-references.mjs';import {verifyPayload} from '../../lib/installer/manifest.mjs';
+import {compositeContext,mixedConfig,standalone} from './fixtures/install-mode.mjs';
 const api=await import('../../lib/management/operations.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
 function context(t){const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-management-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));return{packageRoot:staticPackageFixture(t),userHome,cwd:userHome,env:{},safeFs,acquisition:async()=>assert.fail('automatic acquisition must not run')};}
+
+const fullAutoSettings='version = 2\nlanguage = "ko"\nrun_mode = "full-auto"\n';
+const supervisedSettings='version = 1\nlanguage = "en"\n';
+for(const explicit of [false,true])test(explicit?'composite explicit runMode applies to all':'composite preserves per-platform runMode',async t=>{
+ const ctx=await compositeContext(t);
+ await standalone(ctx);
+ fs.writeFileSync(path.join(ctx.userHome,'.claude/skills/arc/settings.toml'),fullAutoSettings);
+ const prepared=await api.prepareCompositeOperation(ctx,{
+  kind:'install',config:await mixedConfig('run-mode'),settings:explicit?{runMode:'full-auto'}:{},
+ });
+ assert.deepEqual(prepared.plans.map(({target,runMode})=>[target.platform,runMode]),[
+  ['claude','full-auto'],['codex',explicit?'full-auto':'supervised'],
+ ]);
+ assert.deepEqual(prepared.plans.map(plan=>plan.generated.skill.get('settings.toml').toString('utf8')),[
+  fullAutoSettings,explicit?'version = 2\nlanguage = "en"\nrun_mode = "full-auto"\n':supervisedSettings,
+ ]);
+});
+
+for(const explicit of [true,false])test(explicit?'standalone passes runMode':'standalone preserves existing runMode when omitted',async t=>{
+ const ctx=context(t),options={kind:'install',target:'codex',language:'ko'};
+ if(explicit){
+  options.runMode='full-auto';
+ }else{
+  const installed=await api.executeOperation(ctx,await api.prepareOperation(ctx,options));
+  assert.equal(installed.code,0);
+  fs.writeFileSync(path.join(ctx.userHome,'.codex/skills/arc/settings.toml'),fullAutoSettings);
+ }
+ const {plans:[plan]}=await api.prepareOperation(ctx,options);
+ assert.equal(plan.runMode,'full-auto');
+ assert.equal(plan.generated.skill.get('settings.toml').toString('utf8'),fullAutoSettings);
+});
 test('preparation performs no acquisition or writes and execution rejects the saved stale snapshot',async t=>{assert.equal(typeof api.prepareOperation,'function');const ctx=context(t);let acquisitions=0;ctx.acquisition=async()=>{acquisitions++;throw Error('must not acquire');};const prepared=await api.prepareOperation(ctx,{kind:'install',target:'codex',language:'ko',maxConcurrentSubagents:2});assert.equal(acquisitions,0);assert.deepEqual(fs.readdirSync(ctx.userHome),[]);fs.mkdirSync(ctx.userHome+'/.codex');const result=await api.executeOperation(ctx,prepared);assert.equal(result.code,1);assert.equal(result.exitSession,false);assert.equal(acquisitions,0);});
 test('preset no-op retains settings and partial transaction failure retains first success',async t=>{assert.equal(typeof api.prepareOperation,'function');const ctx=context(t),prepared=await api.prepareOperation(ctx,{kind:'install',target:'all',language:'ko',maxConcurrentSubagents:2});ctx.hooks={fault(event){if(event.phase==='before-prepare'&&event.plan.target.platform==='codex')throw Error('second target failed');}};const result=await api.executeOperation(ctx,prepared);assert.equal(result.code,1);assert.deepEqual(result.results.map(x=>x.status),['installed','failed','not-started','not-started']);delete ctx.hooks;const next=await api.prepareOperation(ctx,{kind:'preset',target:'claude',preset:'balanced'});const unchanged=await api.executeOperation(ctx,next);assert.equal(unchanged.code,0);assert.equal(unchanged.results[0].status,'unchanged');assert.match(fs.readFileSync(ctx.userHome+'/.claude/skills/arc/settings.toml','utf8'),/ko/);});
 test('management static install never collects or disposes upstream references',async t=>{const ctx=context(t);let collected=0,disposed=0;ctx.acquisition=async()=>{collected++;return{references:referenceFixture(),dispose:async()=>{disposed++;}};};const result=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'codex',language:'en'}));assert.equal(result.code,0);assert.equal(collected,0);assert.equal(disposed,0);assert.deepEqual(result.results[0].residualPaths,[]);});
