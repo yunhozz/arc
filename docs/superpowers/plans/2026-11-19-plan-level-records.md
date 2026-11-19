@@ -141,19 +141,19 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 - `MANIFEST.sha256`
 - 변경 예상 없음: `*/skill/SKILL.md`, `*/agents/*`, 다른 references, `shared/skill/runtime/*.mjs`. 생성기가 이들을 바꾸면 중지하고 보고(생성기 영향 확인: 두 규칙 모두 `roles: ["orchestrator"]`, projection은 planning/preparation/verification/commit 4곳 — `lib/policy/placement.mjs:6-10`, `lib/policy/render.mjs:48`).
 
-- [ ] **Step 1 (RED 테스트):** `role-policy.test.mjs`에 `plan-level progress records extend accept-commit and plan-revision text only` 추가:
+- [x] **Step 1 (RED 테스트):** `role-policy.test.mjs`에 `plan-level progress records extend accept-commit and plan-revision text only` 추가:
   - `git.orchestrator-accept-commit` text: 기존 `/Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/` 유지, spec §4.7 첫 인용문 포함(`includes`)
   - `planning.plan-revision` text: `Plan-level progress records preserving the approved contract also need no new user approval and alone never trigger the standalone docs(plan) closing commit.` 포함, `committed for other tasks after approval, or plan-level progress records carried by that commit` 포함, 기존 88–90행 패턴 유지
   - 두 규칙의 `operations`, `evidence`, `roles`, `effect`, `authority`가 ea1a3a2 값과 deepEqual(현재 파일에서 literal로 옮김)
   - `external.explicit-user-authority` text가 literal과 같음(AC-6): `Push, merge, deploy, publish and external messages require explicit user authorization for the action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialists return them without execution.`
   - 규칙 ID 목록(수와 순서) 불변
-- [ ] **Step 2 (RED 확인):** `node --test tests/node/role-policy.test.mjs` → 새 테스트 FAIL.
-- [ ] **Step 3 (소스 편집):** 두 text에 spec §4.7 문장을 지정 위치에 넣는다. JSON escape 유지.
-- [ ] **Step 4 (재생성):** `node scripts/update-role-policy.mjs` → `Updated role policy (16 targets)`(수가 다르면 중지·보고). G-POL verified. `node scripts/update-runtime-assets.mjs` 후 G-RT verified(`shared/skill/runtime/role-policy.json` 외 runtime 출력이 바뀌면 hold).
-- [ ] **Step 5 (fixture):** `protected`의 두 role-policy 경로 해시를 파일 바이트 sha256 실측값으로(두 파일은 바이트가 같으므로 같은 값).
-- [ ] **Step 6 (GREEN):** `node --test tests/node/role-policy.test.mjs tests/node/instruction-layout.test.mjs tests/node/runtime-assets.test.mjs tests/node/agent-fragments.test.mjs tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs` → PASS(P0 기준선 실패 제외). `P-PLR` 0.
-- [ ] **Step 7 (manifest와 범위):** `node scripts/update-manifest.mjs` → G-MAN verified. G-PAR verified. `git diff --stat`이 allowedPaths 안에만. `git diff -- '*/agents/*' '*/skill/SKILL.md' lib/runtime ':(glob)shared/skill/runtime/*.mjs'` → 빈 출력.
-- [ ] **Step 8:** Orchestrator가 호스트에서 N-ALL·P-ALL로 새 실패 0 확인 후 진행 기록. 커밋 메시지 예: `docs(policy): plan-level 진행 기록 예외를 role-policy 규칙 text에 반영`
+- [x] **Step 2 (RED 확인):** `node --test tests/node/role-policy.test.mjs` → 새 테스트 FAIL.
+- [x] **Step 3 (소스 편집):** 두 text에 spec §4.7 문장을 지정 위치에 넣는다. JSON escape 유지.
+- [x] **Step 4 (재생성):** `node scripts/update-role-policy.mjs` → `Updated role policy (16 targets)`(수가 다르면 중지·보고). G-POL verified. `node scripts/update-runtime-assets.mjs` 후 G-RT verified(`shared/skill/runtime/role-policy.json` 외 runtime 출력이 바뀌면 hold).
+- [x] **Step 5 (fixture):** `protected`의 두 role-policy 경로 해시를 파일 바이트 sha256 실측값으로(두 파일은 바이트가 같으므로 같은 값).
+- [x] **Step 6 (GREEN):** `node --test tests/node/role-policy.test.mjs tests/node/instruction-layout.test.mjs tests/node/runtime-assets.test.mjs tests/node/agent-fragments.test.mjs tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs` → PASS(P0 기준선 실패 제외). `P-PLR` 0.
+- [x] **Step 7 (manifest와 범위):** `node scripts/update-manifest.mjs` → G-MAN verified. G-PAR verified. `git diff --stat`이 allowedPaths 안에만. `git diff -- '*/agents/*' '*/skill/SKILL.md' lib/runtime ':(glob)shared/skill/runtime/*.mjs'` → 빈 출력.
+- [x] **Step 8:** Orchestrator가 호스트에서 N-ALL·P-ALL로 새 실패 0 확인 후 진행 기록. 커밋 메시지 예: `docs(policy): plan-level 진행 기록 예외를 role-policy 규칙 text에 반영`
 
 **수락 기준:** AC-2(role-policy), AC-6(external text 불변), AC-9(operations/evidence 불변, 새 trailer·operation 없음), AC-10(G-POL, G-RT, G-MAN, G-PAR, runtime 코드 diff 0), AC-11(T2 RED→GREEN, 새 실패 0)
 **필수 검사:** Step 2, 4, 6, 7, Orchestrator N-ALL·P-ALL, fresh QA
@@ -222,6 +222,7 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 |---|---|---|---|---|
 | 2026-11-19 | P0 | 완료 | 0e00371 | spec·plan docs 커밋. 기준선(호스트, worktree @0e00371): node 2097 tests 70 fail·13 skip, python 547 fail+7 error(기존 stale 계약), P-PLR 0, G-POL/G-RT/G-MAN/G-PAR exit 0, `G-PAR --complete` exit 1, `instruction-layout.test.mjs` 단독 exit 1(5 fail). 원본 출력은 canonical record 참조 |
 | 2026-11-19 | T1 | 완료 | 이 커밋 | RED: node 28 예상 실패, P-PLR 32 → GREEN: 신규 계약·Run mode 39개 pass, P-PLR 0, G-POL 48 targets·G-MAN 283 files ok. 호스트 N-ALL 2121 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0). fresh QA: AC-1~AC-10 입증, 표본 삭제 2건 검출, instruction-layout 5 fail P0 일치 |
+| 2026-11-19 | T2 | 완료 | 이 커밋 | RED: 새 role-policy 테스트 1 fail → GREEN. `Updated role policy (16 targets)`, runtime 사본 1개 변경, protected 해시 53acab4f…→799e9726…(실측 일치). focused node 111 중 106 pass, 5 fail = P0 instruction-layout 5개. 호스트 N-ALL 2122 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0), G-POL/G-RT/G-MAN/G-PAR P0와 동일. fresh QA: AC-2·AC-6·AC-9·AC-10 입증, 결함 없음. 한계: QA 독립 RED 표본은 QA 스크립트 오류로 미실행(AC-11은 Implementer RED 기록과 GREEN으로 판정) |
 
 ## 개정 이력
 

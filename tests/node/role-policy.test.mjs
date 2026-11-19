@@ -90,6 +90,50 @@ test('plan-revision rule replaces plan-amend with approved operations and eviden
   assert.match(revision.text, /committed for other tasks after approval/);
   assert.match(p.rules.find(rule => rule.id === 'git.orchestrator-accept-commit').text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
 });
+test('plan-level progress records extend accept-commit and plan-revision text only', () => {
+  const {rules} = policy();
+  assert.deepEqual(rules.map(({id}) => id), [
+    'scope.non-escalation',
+    'git.specialists-deny',
+    'git.orchestrator-accept-commit',
+    'external.explicit-user-authority',
+    'approval.run-mode',
+    'role.orchestrator-boundary',
+    'role.scouter-read-only',
+    'role.planner-draft-only',
+    'role.implementer-implementation',
+    'role.qa-verification',
+    'role.reviewer-independent',
+    'review.significant-no-plan',
+    'review.significant-plan',
+    'review.final-plan-recheck',
+    'planning.plan-revision',
+    'planning.planner-brief',
+  ]);
+
+  const accept = rules.find(rule => rule.id === 'git.orchestrator-accept-commit');
+  assert.deepEqual(accept.operations, ['accept', 'task-progress-record', 'stage', 'commit']);
+  assert.deepEqual(accept.evidence, ['acceptance-criteria', 'required-checks', 'findings-disposition', 'task-progress-classification-reason-time']);
+  assert.deepEqual(accept.roles, ['orchestrator']);
+  assert.equal(accept.effect, 'allow');
+  assert.equal(accept.authority, 'orchestrator');
+  assert.match(accept.text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
+  assert.ok(accept.text.includes("Plan-level progress records (final verification results, final Reviewer verdicts and finding dispositions, overall completion status) are the sole exception: include them in the plan's next task acceptance or final Reviewer follow-up commit; when no implementation work remains, keep them only in the canonical handoff record without changing the plan document or creating a commit."), 'accept-commit must include the plan-level progress records exception');
+
+  const revision = rules.find(rule => rule.id === 'planning.plan-revision');
+  assert.deepEqual(revision.operations, ['non-progress-spec-plan-content-update', 'pending-plan-revision-commit']);
+  assert.deepEqual(revision.evidence, ['non-progress-content-change-classification', 'actual-approval-chronology', 'approved-revision-content-hash', 'plan-revision-trailers']);
+  assert.deepEqual(revision.roles, ['orchestrator']);
+  assert.equal(revision.effect, 'require');
+  assert.equal(revision.authority, 'orchestrator');
+  assert.match(revision.text, /Plan-Revision, Plan-Approved-At and Plan-Reason trailers/);
+  assert.match(revision.text, /NEVER amend or rewrite planning or implementation commits/);
+  assert.ok(revision.text.includes('Plan-level progress records preserving the approved contract also need no new user approval and alone never trigger the standalone docs(plan) closing commit.'));
+  assert.ok(revision.text.includes('committed for other tasks after approval, or plan-level progress records carried by that commit'));
+
+  const external = rules.find(rule => rule.id === 'external.explicit-user-authority');
+  assert.equal(external.text, 'Push, merge, deploy, publish and external messages require explicit user authorization for the action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialists return them without execution.');
+});
 // Adding projections must not change existing installed contracts or global-section filtering.
 test('default policy rendering preserves complete existing contracts', () => {
   const p = policy();
