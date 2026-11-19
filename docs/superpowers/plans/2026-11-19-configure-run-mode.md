@@ -373,6 +373,7 @@
 | 2026-11-19 | FR2 | 완료 | — | native reviewer 승인, 차단 0. 비차단: incomplete 플랫폼 설정 덮어쓰기 가능성, 우선순위 문장이 auto 행 Rule의 user 조건 미포함 |
 | 2026-11-19 | FR2 처리 | 사용자 결정 | — | 둘 다 수정(T10·T11), 사용자 화면 확인 결과 25행에서 토글 시 도식 전환 → 문구 1줄 축약·행 확보 없음(T10) → spec v3·plan v5 |
 | 2026-11-19 | T10 | 수용 | (이 커밋) | 3 files, TUI 311/311, host suite 2885/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-U8·U9 v3 proven; 80열 도식 최소 높이 Supervised 25·Full Auto 26 |
+| 2026-11-19 | T11 | 수용 | (이 커밋) | 6 files, 4개 planning.md 각 1줄 동일 교체, run-mode-contract RED 4→GREEN 15/15, host suite 2885/fail 36 = 기준선(신규 0), manifest 283; 정확 문구 교체라 계약 테스트·Orchestrator diff 대조, FR3에서 재확인 |
 
 ## 개정 이력
 
