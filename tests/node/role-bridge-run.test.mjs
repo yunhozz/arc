@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture, FAKE_CODEX_APP_SERVER} from './role-fixtures.mjs';
 import {ORIGINAL_PATH, psAvailable, realPs, withPath, writeFailingPs} from './fixtures/ps-stub.mjs';
@@ -97,8 +98,13 @@ test('startSupervisor kills the detached supervisor when ps cannot determine its
   const psDir = await fs.mkdtemp(path.join(f.base, 'failing-ps-'));
   const pidFile = path.join(psDir, 'pid');
   writeFailingPs(psDir, pidFile);
+  // Hold only the detached child in startup, past waitDead's deadline.
+  // Otherwise it can exit on its own when it finds no lease.
+  const preload = path.join(psDir, 'delay-startup.mjs');
+  await fs.writeFile(preload, 'await new Promise(resolve => setTimeout(resolve, 30000));\n');
+  const env = {...f.env, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}`};
   await assert.rejects(
-    withPath(`${psDir}${path.delimiter}${process.env.PATH}`, () => startSupervisor({codexHome: f.claudeHome, dispatchId: 'nonexistent', cwd: f.cwd, userHome: f.userHome, env: f.env})),
+    withPath(`${psDir}${path.delimiter}${process.env.PATH}`, () => startSupervisor({codexHome: f.claudeHome, dispatchId: 'nonexistent', cwd: f.cwd, userHome: f.userHome, env})),
     /Supervisor start time unavailable/,
   );
   const pid = Number((await fs.readFile(pidFile, 'utf8')).trim());
@@ -107,7 +113,7 @@ test('startSupervisor kills the detached supervisor when ps cannot determine its
   assert.ok(await waitDead(pid), 'the detached supervisor exits');
 });
 
-test('run-dispatch holds the reserved lease when ps fails and does not start the Codex child', async t => {
+test('run-dispatch holds when ps fails and leaves the lease reserved without a registered supervisor', async t => {
   const f = await setup(t);
   const {dispatchId} = await prepare(f, 'arc_planner');
   const psDir = await fs.mkdtemp(path.join(f.base, 'failing-ps-'));
@@ -122,6 +128,7 @@ test('run-dispatch holds the reserved lease when ps fails and does not start the
   const lease = await readLease(f.claudeHome, dispatchId);
   assert.equal(lease.state, 'reserved');
   assert.equal(lease.supervisor, null);
+  // A supervisor needs a starting lease with its own PID to launch the Codex child.
   await sleep(500);
   assert.equal((await records(f.codex)).length, 0);
 });

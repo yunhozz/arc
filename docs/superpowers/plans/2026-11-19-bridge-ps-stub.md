@@ -1,6 +1,6 @@
 # 브리지 테스트 ps stub 구현 계획 (Bounded, 1 task)
 
-- 상태: 승인 요청 중 (Planner 첫 초안, Orchestrator 검토 반영)
+- 상태: 승인됨 (2026-11-19 사용자 명시 승인), v2 (최종 Reviewer N4 정정)
 - 근거: `.git/arc/workflows/bridge-sandbox-scope/design-approved.md` "(a)" 절 (2026-11-19 사용자 명시 승인). Written spec 불필요(Bounded).
 - Source: `/Users/ma-24-007/Desktop/workspace/arc`, master `ea1a3a2` clean
 - Target: managed worktree `.claude/worktrees/bridge-ps-stub`, branch `fix/bridge-ps-stub`, base `ea1a3a2`
@@ -27,7 +27,7 @@ Codex bridge sandbox처럼 `ps`가 거부되는 환경에서도 `npm test`에 ps
 - runtime의 ps 호출은 `lib/runtime/role-supervisor.mjs:81-86` `processStartTime` 한 곳이다. `spawnSync('ps', …, {env: {PATH: process.env.PATH, LC_ALL: 'C'}})`로 실행되어 다른 env는 전달되지 않는다.
 - 호출 측:
   - `startSupervisor`(:142-143)는 **테스트 프로세스**에서 실행된다. null이면 SIGKILL 후 throw → `role-bridge.mjs:61-62` hold `host_sandbox_blocked`(lease는 `reserved` 유지).
-  - supervisor 자식 :357은 **context.env PATH**로 `child.startTime ?? 'unavailable'`을 기록한다.
+  - supervisor 자식 :357은 자기 프로세스의 `process.env.PATH`로 `child.startTime ?? 'unavailable'`을 기록한다. detached supervisor는 **context.env**로 시작되므로 그 PATH를 쓰고, gemini/grok의 in-process `runSupervisor`는 테스트 프로세스 PATH(설치 후 stub)를 쓴다.
   - `role-bridge.mjs:79/208/211/214`의 `processAlive`는 **테스트 프로세스**에서 실행된다.
 - 따라서 stub은 `process.env.PATH`와 `context.env.PATH` **양쪽**에 같은 순서로 들어가야 identity가 일치한다.
 - `role-dispatch-store.mjs:15`는 `startTime`이 비어 있지 않은 문자열인지만 검사한다. `stub <pid>`는 통과한다.
@@ -163,9 +163,13 @@ Codex bridge sandbox처럼 `ps`가 거부되는 환경에서도 `npm test`에 ps
 | Step 6 호스트 AC-a1/a2/a4 | 완료 | 정상 PATH 2106 tests 70 fail(기준선과 동일), failing-ps PATH 2106 tests 70 fail·14 skip(새 실패 0), `role-bridge-run` 단독 38/38·실제 ps 테스트 pass, runtime diff 0 | AC-a1, AC-a2, AC-a4 |
 | Step 7 QA AC-a5 | 완료 | fresh QA(Codex bridge): sandbox full `npm test` 2106 tests, 실제 ps `EPERM`, ps 기인 실패 0 | 기준선 외 14건은 ps 외 sandbox 제약(`.git/arc` 쓰기 EPERM 6, runtime-claude/codex 관찰 이벤트 7, EMFILE 1) — 범위 밖, 후속 후보 |
 | 수용 / commit | 완료 | Orchestrator 수용(AC-a1~a5) | 이 커밋 |
-| 최종 Reviewer | 대기 | | |
+| 최종 검증 | 완료 | 호스트(FR 수정 반영): 정상 PATH 2107 tests 70 fail, failing-ps PATH 2107 tests 70 fail·14 skip — 둘 다 기준선 이름 집합과 동일(새 실패 0). `role-bridge-run` 단독 38/38, 실제 ps lstart 테스트 pass. runtime diff 0 | plan-level 기록 |
+| 최종 Reviewer 라운드 1 | 완료 | approve with non-blocking findings: N1 fail-closed 테스트가 SIGKILL 없이도 통과, N2 실제 ps 교차 프로세스 e2e 부재, N3 shim 경로 미검증, N4 plan 상태·:357 서술, N5 shim tmp 잔류 가능 | 사용자 결정(2026-11-19): N1·N3·N4 수정, N2·N5 미수정(기록) |
+| 최종 Reviewer 라운드 2 | 완료 | approve: N1(preload로 detached supervisor 지연 → SIGKILL 제거 시 실패 확인), N3(`processStartTime`이 shim 경유 `stub <pid>`), N4(v2 개정) 해결, 새 finding 없음 | 수정은 Implementer → Reviewer 재확인, QA 재배정 없음 |
+| 전체 완료 | 완료 | AC-a1~a5 충족, 최종 Reviewer approve | 후속 후보: QA sandbox full run의 ps 외 제약 14건(`.git/arc` 쓰기 EPERM 6, runtime-claude/codex 관찰 이벤트 7, EMFILE 1). (b) 게이트 Spike는 별도 |
 
 ## 개정 이력
 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
+| v2 | 2026-11-19T08:03:15Z | mechanical | T1 (기록만, 구현 영향 없음) | 최종 Reviewer N4: 상태 표기 정정, :357 PATH 서술 정정(사용자 수정 결정) |

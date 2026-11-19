@@ -4,6 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {accessSync, constants} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {processStartTime} from '../../lib/runtime/role-supervisor.mjs';
 
 const stub = fileURLToPath(new URL('../fixtures/bin/ps', import.meta.url));
 
@@ -17,6 +18,12 @@ test('ps stub reports a stable identity for a live PID', () => {
   const result = runPs('-o', 'lstart=', '-p', String(process.pid));
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, `stub ${process.pid}\n`);
+});
+
+test('processStartTime runs the ps stub through the node shim', async () => {
+  const {psStubPath, withPath} = await import('./fixtures/ps-stub.mjs');
+  const identity = await withPath(psStubPath('/usr/bin:/bin'), () => processStartTime(process.pid));
+  assert.equal(identity, `stub ${process.pid}`);
 });
 
 test('ps stub fails for a nonexistent PID', () => {
