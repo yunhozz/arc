@@ -7,7 +7,7 @@ import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from './bootstrap.mjs'
 import {inspectPath} from './scope.mjs';
 import {resolveConfigHome, resolveLocalCli, probePlatformAuth, probeCodexAuthStatus, probeCliVersion} from './local-cli.mjs';
 import {ROUTING_ROLES, parseRoleRoutingConfig} from './role-routing-config.mjs';
-import {DEFAULT_POLICY, reason, profileName, revisionTag, bridgeGateReasons, environmentReasons, initialClaims, capabilityReasons} from './role-dispatch-policy.mjs';
+import {DEFAULT_POLICY, HOST_SANDBOX_GATES, reason, profileName, revisionTag, hostGateReasons, bridgeGateReasons, environmentReasons, initialClaims, capabilityReasons} from './role-dispatch-policy.mjs';
 import {NON_TERMINAL_STATES, createLease, listLeases, pruneTerminalLeases, readHostLimits} from './role-dispatch-store.mjs';
 
 const exact=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
@@ -114,6 +114,27 @@ export async function readActivation(homes,expectedRevision,{anchorHome=homes.co
 
 
 const HOST_ERRORS=['EACCES','EPERM','EROFS'];
+export async function probeHomeWritable(home, {unlink = fs.unlink} = {}) {
+ const file = path.join(home, '.arc-host-probe-' + crypto.randomUUID());
+ let handle;
+ try {
+  handle = await fs.open(file, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+ } catch (error) {
+  return {ok: false, code: HOST_ERRORS.includes(error?.code) ? 'host_sandbox_blocked' : 'activation_unverified'};
+ }
+ let closed = false;
+ try {
+  await handle.close();
+  closed = true;
+ } catch { /* Attempt to remove the file even if close fails. */ }
+ try {
+  await unlink(file);
+ } catch {
+  return {ok: false, code: 'host_sandbox_blocked', residualPaths: [file]};
+ }
+ return closed ? {ok: true} : {ok: false, code: 'activation_unverified'};
+}
+
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const lockFile=codexHome=>path.join(codexHome,'arc-role-platform-routing.lock');
 /** Runs fn under the shared routing lock. Only EEXIST is retried; the lock file is never removed except by its owner. */
@@ -231,13 +252,19 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    const leases=await listLeases(anchorHome,{runtimePlatforms});
    const live=leases.filter(lease=>NON_TERMINAL_STATES.includes(lease.state));
    if(leases.some(lease=>lease.requestId===assignment.requestId)||live.some(lease=>lease.workflowId===context.workflowId&&lease.taskId===assignment.taskId&&lease.role===role)){duplicate=true;codes.add('duplicate_dispatch');}
-   if(host==='grok'&&(policy.gates?.GK2??DEFAULT_POLICY.gates.GK2)!=='pass')codes.add('host_sandbox_blocked');
-   if(host==='gemini'&&(policy.gates?.GG2??DEFAULT_POLICY.gates.GG2)!=='pass')codes.add('host_sandbox_blocked');
+   for(const code of hostGateReasons({hostPlatform:host,policy}))codes.add(code);
    if(route==='bridge'){
     let limits;try{limits=readHostLimits(resolveConfigHome(host,context));}catch{codes.add('activation_unverified');}
     if(limits){
      const bridges=leases.filter(lease=>lease.route==='bridge');
      if(bridges.filter(lease=>NON_TERMINAL_STATES.includes(lease.state)).length>=limits.maxConcurrent||bridges.filter(lease=>lease.workflowId===context.workflowId).length>=limits.maxTotal)codes.add('capacity_exhausted');
+    }
+    if(Object.hasOwn(HOST_SANDBOX_GATES,host)){
+     const probe=await probeHomeWritable(homes[requested.platform]);
+     if(!probe.ok){
+      codes.add(probe.code);
+      if(probe.residualPaths)result.residualPaths=probe.residualPaths;
+     }
     }
     for(const code of bridgeGateReasons({platform:requested.platform,role,hostPlatform:host,policy}))codes.add(code);
    }
@@ -254,7 +281,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
   }else{
    Object.assign(result,{decision:'hold',routeStatus:'held',dispatchId:null,claims:null,reasons:[reason(classify(error))]});
   }
-  const residual=residualOf(error);if(residual)result.residualPaths=residual;
+  const residual=residualOf(error);if(residual)result.residualPaths=[...(result.residualPaths??[]),...residual];
  }
  return result;
 }

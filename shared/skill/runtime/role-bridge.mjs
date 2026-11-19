@@ -3,9 +3,9 @@ import {runtimeRegistryOf, DEFAULT_PLATFORM_REGISTRY} from './platform-registry.
 // run-dispatch only asks the supervisor (the sole child spawner) to start; observe reads and records state under the routing lock.
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import {DEFAULT_POLICY, reason, profileName, bridgeGateReasons, environmentReasons, capabilityReasons} from './role-dispatch-policy.mjs';
+import {DEFAULT_POLICY, HOST_SANDBOX_GATES, reason, profileName, bridgeGateReasons, environmentReasons, capabilityReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, listLeases, readHostLimits, NON_TERMINAL_STATES, readHeartbeat, requestCancel, clearCancel, TERMINAL_STATES, validateLease} from './role-dispatch-store.mjs';
-import {withRoutingLock, readActivation, readRevision, authenticate, resolveRuntimeHomes, locateAnchorHome} from './role-routing.mjs';
+import {withRoutingLock, readActivation, readRevision, authenticate, resolveRuntimeHomes, locateAnchorHome, probeHomeWritable} from './role-routing.mjs';
 import {SUPERVISOR_IMPLEMENTATIONS, startSupervisor, processAlive, resolveWorktree, artifactDirectory, segmentDirectory, buildBridgeInvocation} from './role-supervisor.mjs';
 
 export const heldRoutingResult=(code,releaseCondition)=>({decision:'hold',routeStatus:'held',supportStatus:'unverified',route:null,executionEnvironment:null,hostPlatform:null,role:null,requested:null,authentication:null,reasons:[{code,releaseCondition}]});
@@ -47,16 +47,20 @@ export async function runBridgeDispatch({context,dispatchId,brief,now=Date.now()
   await withRoutingLock(anchorHome,async()=>{
    const lease=await readLease(anchorHome,dispatchId,{runtimePlatforms});
    if(!lease||lease.workflowId!==context.workflowId||lease.hostPlatform!==context.hostPlatform||lease.route!=='bridge'||lease.state!=='reserved'){result=blank(context,dispatchId,'deny','invalid_request');return;}
-   leaseTargetPlatform(lease,runtimePlatforms);
+   const platform=leaseTargetPlatform(lease,runtimePlatforms);
    let config;try{config=await readActivation(homes,lease.revision,{anchorHome,host:context.hostPlatform,runtimePlatforms});}catch{result=blank(context,dispatchId,'hold','activation_unverified');return;}
    validateLease(lease,{runtimePlatforms,config});
-   const capabilities=capabilityReasons({hostPlatform:lease.hostPlatform,targetPlatform:leaseTargetPlatform(lease,runtimePlatforms),route:lease.route,runtimePlatforms});
+   const capabilities=capabilityReasons({hostPlatform:lease.hostPlatform,targetPlatform:platform,route:lease.route,runtimePlatforms});
    if(capabilities.length){result=blank(context,dispatchId,'hold',capabilities[0]);return;}
    let target;try{target=await resolveWorktree(context.cwd);}catch{result=blank(context,dispatchId,'hold','activation_unverified');return;}
    const directory=artifactDirectory(target,lease.workflowId,dispatchId),resultPath=path.join(directory,'result.md');
    let invocation;try{invocation=await buildBridgeInvocation({lease,config,homes,worktree:target.realpath,resultPath,policy});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
    await fsp.mkdir(directory,{recursive:true,mode:0o700});await fsp.chmod(directory,0o700);
    await fsp.writeFile(path.join(directory,'brief.md'),brief,{mode:0o600,flag:'w'});await fsp.chmod(path.join(directory,'brief.md'),0o600);
+   if(Object.hasOwn(HOST_SANDBOX_GATES,lease.hostPlatform)){
+    const probe=await probeHomeWritable(homes[platform]);
+    if(!probe.ok){result=hold(context,dispatchId,probe.code,probe);return;}
+   }
    let supervisor;
    try{supervisor=await starter({codexHome:anchorHome,dispatchId,cwd:target.realpath,userHome:context.userHome,env:context.env??process.env});}
    catch{result=blank(context,dispatchId,'hold','host_sandbox_blocked');return;}
@@ -67,7 +71,7 @@ export async function runBridgeDispatch({context,dispatchId,brief,now=Date.now()
   if(error?.code==='ARC_ROUTING_LOCK_RELEASE'&&!error.failure&&result){residual=residualOf(error);}
   else return hold(context,dispatchId,classifyLock(error),error);
  }
- if(residual)result.residualPaths=residual;
+ if(residual)result.residualPaths=[...(result.residualPaths??[]),...residual];
  return result;
 }
 
@@ -165,6 +169,10 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
    let invocation;try{invocation=await buildBridgeInvocation({lease:{...lease,segment},config,homes,worktree:target.realpath,resultPath,policy,supervisorImplementations});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
    await fsp.mkdir(directory,{recursive:true,mode:0o700});await fsp.chmod(path.dirname(directory),0o700);await fsp.chmod(directory,0o700);
    await fsp.writeFile(path.join(directory,'brief.md'),brief,{mode:0o600,flag:'w'});await fsp.chmod(path.join(directory,'brief.md'),0o600);
+   if(Object.hasOwn(HOST_SANDBOX_GATES,lease.hostPlatform)){
+    const probe=await probeHomeWritable(homes[platform]);
+    if(!probe.ok){result=hold(context,dispatchId,probe.code,probe);return;}
+   }
    await clearCancel(anchorHome,dispatchId);
    let supervisor;
    try{supervisor=await starter({codexHome:anchorHome,dispatchId,cwd:target.realpath,userHome:context.userHome,env:context.env??process.env});}
@@ -177,7 +185,7 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
   if(error?.code==='ARC_ROUTING_LOCK_RELEASE'&&!error.failure&&result){residual=residualOf(error);}
   else return hold(context,dispatchId,classifyLock(error),error);
  }
- if(residual)result.residualPaths=residual;
+ if(residual)result.residualPaths=[...(result.residualPaths??[]),...residual];
  return result;
 }
 

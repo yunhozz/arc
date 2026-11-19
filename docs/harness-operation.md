@@ -94,6 +94,7 @@ Unknown Claude/Codex probe results block participation.
 | Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
 | Versions | Claude/Codex versions reported, not restricted |
 | Detection | Compare git-visible tracked/untracked paths, HEAD, branch, every ref; ignored paths excluded |
+| Host home probe | Grok/Gemini host only: bridge prepare/run/resume create and remove one probe file in the target home first; denied → `host_sandbox_blocked`, missing → `activation_unverified`, unremovable → `residualPaths`. Subpath-only denials are not detected |
 | Child guard | `ARC_BRIDGE_CHILD` denies routing commands, but shell `codex exec` / `claude -p` is not detected delegation |
 
 ## Install, update, remove

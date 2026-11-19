@@ -97,6 +97,15 @@ test('both harnesses require escalation for every runtime command as an Orchestr
   assert.equal(lines[0], lines[1]);
 });
 
+test('every harness states the same host home probe rule', async () => {
+  const expected = '- On a Grok or Gemini host, bridge `prepare-dispatch`, `run-dispatch` and `resume` first check that the target platform home is writable: a denied write is `host_sandbox_blocked`, a missing home is `activation_unverified`, and a probe file that cannot be removed is reported in `residualPaths`.';
+  for (const harness of ['claude', 'codex', 'gemini', 'grok']) {
+    const text = await readFile(new URL(`../../${harness}/skill/references/coordination.md`, import.meta.url), 'utf8');
+    const lines = section(text).split('\n').filter(line => line.startsWith('- On a Grok or Gemini host, bridge'));
+    assert.deepEqual(lines, [expected], harness);
+  }
+});
+
 test('incorrect statements are removed', async () => {
   for (const harness of Object.keys(harnesses)) {
     const text = await read(harness, 'coordination.md');
