@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: 승인됨(v1, 2026-11-19T10:59:30Z)
+- 상태: 승인됨(v2, 2026-11-19T11:08:39Z)
 - 작업 위치: `/Users/yunho/Desktop/project/arc`, 현재 checkout `fix/bridge-ps-stub` @ `d5bae6a`(사용자 선택)
 - Risk: high. task마다 fresh QA를 두고, 모든 task를 수용한 뒤 최종 Reviewer가 전체 변경을 1회 검토합니다.
 
@@ -82,6 +82,32 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 - [ ] 판정이 "넓혀지지 않음"이면 T1을 시작합니다. 결과는 T1 문서에 반영합니다.
 - [ ] 판정이 "넓혀짐"이면(E18) T1을 hold하고, 범위 변경으로 보고 사용자 결정을 받습니다. T2는 내용상 G1과 독립이지만 생성 파일이 겹치므로, 순서를 바꿀지는 Orchestrator가 결정합니다.
 
+### Task T0c: baseline installed-layout golden 재생성 (T1 선행)
+
+**목표:** baseline부터 어긋나 있던 `tests/node/fixtures/installed-layout-golden.json`을 현재 HEAD 기준으로 다시 만듭니다. 이렇게 해 두면 T1–T3의 golden diff에는 각 task의 변경분만 나타납니다.
+
+**배경:** B0에서 `node tests/node/fixtures/installed-layout.mjs --diff`가 104줄을 출력했습니다. 차이는 `skills/arc/SKILL.md`, `references/planning.md`, `references/superpowers-provenance.json`, `runtime/role-policy.json`, `agents/arc-*`에 있습니다. golden은 `413bc8d` 이후 재생성되지 않았고, 그 뒤로 `ec866c6`, `ee9b335`, `d63c1cc`의 policy 변경이 들어왔습니다. 2026-11-19 사용자 결정에 따라 별도 task로 분리합니다.
+
+**배정:** B0 drift 해소. AC를 새로 만들지 않습니다.
+
+**선행:** B0
+
+**allowedPaths:** `tests/node/fixtures/installed-layout-golden.json`
+
+- [ ] **Step 1:** `node tests/node/fixtures/installed-layout.mjs --diff`를 실행합니다. 출력은 위 배경에 적은 파일 범위 안에만 있어야 하며, 줄 수는 B0와 같은 104줄이어야 합니다.
+- [ ] **Step 2:** `node tests/node/fixtures/installed-layout.mjs --write`를 실행한 뒤 `--diff`를 다시 실행합니다. 출력이 없어야 합니다.
+- [ ] **Step 3:** `node --test tests/node/installed-layout-golden.test.mjs`가 PASS여야 합니다. 이어서 `npm test` 전체를 실행합니다. 실패 집합은 `B0-host`에서 golden 관련 실패만 빠진 것이어야 하고, 새 실패는 0건이어야 합니다.
+- [ ] **Step 4 (Orchestrator):** 다음을 확인합니다.
+  - `git diff --name-only`가 allowedPaths와 일치합니다.
+  - 바뀐 키가 Step 1 범위 밖에 없습니다.
+- [ ] **Step 5:** 수용하고 커밋합니다. 커밋 메시지는 `test(fixture): baseline installed-layout golden 재생성`입니다. 이 커밋에 plan v2 pending revision과 trailer를 함께 넣습니다.
+
+**QA:** 위험도가 낮은 기계적 재생성입니다. 별도 QA는 두지 않습니다. Orchestrator가 Step 3–4의 호스트 검증으로 대신합니다. 최종 Reviewer 범위에는 포함합니다.
+
+**Hold:**
+- `--diff`가 배경에 적은 범위 밖의 차이를 보이는 경우
+- 전체 테스트에서 새 실패가 나오는 경우
+
 ---
 
 ### Task T1: G1 pass 전환
@@ -90,7 +116,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 
 **배정:** D1–D3, AC1(G1 부분), AC2, AC3, AC9(G1, M2, coordination, composite 테스트), AC11, AC13, AC14, E17, L1
 
-**선행:** B0, T0b("넓혀지지 않음" 판정)
+**선행:** B0, T0b("넓혀지지 않음" 판정), T0c 수용과 커밋
 
 **allowedPaths:**
 - `lib/runtime/role-dispatch-policy.mjs`
@@ -487,3 +513,10 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 | E11–E13 | T3 |
 | E17 | T1 |
 | E18 | T0b |
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-19T10:59:30Z | 최초 승인 | 전체 | plan 승인 |
+| v2 | 2026-11-19T11:08:39Z | contract | T0c(신규), T1 | B0에서 golden이 baseline부터 104줄 어긋나 있음을 확인. 무관한 차이가 섞이지 않도록 재생성 task를 T1 앞에 분리(사용자 결정) |
