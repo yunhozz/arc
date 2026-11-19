@@ -79,12 +79,14 @@ COMMON_CONTRACTS = {
         r"plan-level progress records are final verification results, each final reviewer round's verdict and finding dispositions \(including references to user decisions\) and overall completion status",
         r"preserving the approved contract, they need no new approval; changing it makes them a plan revision",
         r"they are the sole exception to excluding other tasks' records: orchestrator includes them in that plan's next commit, either a task acceptance commit created by final reviewer finding work or the final reviewer follow-up commit",
-        r"when no implementation work remains, such as a final reviewer approval without findings or a user decision not to fix a non-blocking finding, orchestrator creates no commit for them, keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report",
+        r"when no implementation work remains, such as a final reviewer approval without findings or a user decision not to fix a non-blocking finding, orchestrator creates no commit for them alone: unless a standalone closing commit made for pending revisions carries them, orchestrator keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report",
         r"plan-level progress records alone never trigger the standalone `docs\(plan\)` closing commit",
+        r"write plan-level progress records into the plan document only while staging the commit that carries them; until then keep them in the canonical handoff record\.",
         r"when this closing commit is made for pending revisions, it also carries the plan-level progress records",
     )),
     "PLAN_LEVEL_PLANNING": ("references/planning.md", (
-        r"plan-level progress records \(final verification results, final reviewer round verdicts and finding dispositions with user-decision references, and overall completion status\) follow \[commit\]\(commit\.md#execution-time-plan-document-updates\): they ride the plan's next task acceptance or final reviewer follow-up commit, otherwise they stay only in the canonical record",
+        r"plan-level progress records \(final verification results, final reviewer round verdicts and finding dispositions with user-decision references, and overall completion status\) follow \[commit\]\(commit\.md#execution-time-plan-document-updates\): they ride the plan's next task acceptance or final reviewer follow-up commit, or a standalone closing commit made for pending revisions; otherwise they stay only in the canonical record",
+        r"\| non-blocking final reviewer finding disposition \| auto \| fix or no-fix decision only: recommended disposition within approved scope; scope-expanding fixes → user; reviewer recheck and acceptance stay unchanged \|",
         r"sole closing exception\. plan-level progress records alone never trigger it\.",
     )),
     "PLAN_LEVEL_PREPARATION": ("references/handoff-prep.md", (

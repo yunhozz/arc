@@ -1,7 +1,7 @@
 # plan-level 진행 기록의 커밋 경로 — 설계 명세
 
 - 날짜: 2026-11-19
-- 상태: 승인됨 (2026-11-19 사용자 명시 승인, Q1 = 함께 싣음)
+- 상태: v2 승인됨 (v1·v2 2026-11-19 사용자 명시 승인, Q1 = 함께 싣음; v2 = 최종 Reviewer N1–N3 반영)
 - 승인된 설계: `.git/arc/workflows/closing-commit/design-approved.md` (2026-11-19 사용자 명시 승인)
 - 기준: master `ea1a3a2`
 - 대상: managed worktree `.claude/worktrees/plan-level-records`, branch `feat/plan-level-records`
@@ -23,6 +23,9 @@
 | D10 | configure-run-mode plan 소급 보충 제외 | 설계 10 |
 | D11 | 이 작업 자체의 마무리에도 새 규칙 적용 | 설계 11 |
 | D12 | pending revision으로 standalone `docs(plan)` closing 커밋이 만들어지면 그 커밋에 plan-level 기록도 함께 싣는다 | spec Q1, 2026-11-19 사용자 결정 |
+| D13 | "남은 구현 작업이 없으면 canonical only" 문장은 pending-revision closing 커밋이 만들어지지 않는 경우로 한정한다(D12와의 충돌 해소) | v2, 최종 Reviewer N1, 사용자 수정 결정 |
+| D14 | plan 문서에는 기록을 싣는 커밋을 staging할 때만 plan-level 기록을 쓰고, 그 전에는 canonical record에만 둔다(R4를 규칙 문장으로 승격) | v2, 최종 Reviewer N2 |
+| D15 | Full Auto 새 행은 fix/no-fix 결정만 다루며 Reviewer 재확인과 acceptance 규칙은 바꾸지 않음을 Rule 칸에 명시 | v2, 최종 Reviewer N3 |
 
 ## 1. 배경과 문제
 
@@ -64,16 +67,16 @@
 
 - **:14 step 2**: "its own progress records, eligible pending approved spec/plan revisions" → "its own progress records, eligible plan-level progress records, eligible pending approved spec/plan revisions".
 - **:31 뒤 새 문단**:
-  > Plan-level progress records are final verification results, each final Reviewer round's verdict and finding dispositions (including references to user decisions) and overall completion status. Preserving the approved contract, they need no new approval; changing it makes them a plan revision. They are the sole exception to excluding other tasks' records: Orchestrator includes them in that plan's next commit, either a task acceptance commit created by final Reviewer finding work or the final Reviewer follow-up commit. When no implementation work remains, such as a final Reviewer approval without findings or a user decision not to fix a non-blocking finding, Orchestrator creates no commit for them, keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report. Plan-level progress records alone never trigger the standalone `docs(plan)` closing commit.
+  > Plan-level progress records are final verification results, each final Reviewer round's verdict and finding dispositions (including references to user decisions) and overall completion status. Preserving the approved contract, they need no new approval; changing it makes them a plan revision. They are the sole exception to excluding other tasks' records: Orchestrator includes them in that plan's next commit, either a task acceptance commit created by final Reviewer finding work or the final Reviewer follow-up commit. When no implementation work remains, such as a final Reviewer approval without findings or a user decision not to fix a non-blocking finding, Orchestrator creates no commit for them alone: unless a standalone closing commit made for pending revisions carries them, Orchestrator keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report. Plan-level progress records alone never trigger the standalone `docs(plan)` closing commit. Write plan-level progress records into the plan document only while staging the commit that carries them; until then keep them in the canonical handoff record.
 - **:33**: closing 예외 문장 유지. 끝에 추가(D12): "When this closing commit is made for pending revisions, it also carries the plan-level progress records."
 
 ### 4.2 `references/planning.md`
 
 - **:118 첫 문장 뒤**:
-  > Plan-level progress records (final verification results, final Reviewer round verdicts and finding dispositions with user-decision references, and overall completion status) follow [commit](commit.md#execution-time-plan-document-updates): they ride the plan's next task acceptance or final Reviewer follow-up commit, otherwise they stay only in the canonical record.
+  > Plan-level progress records (final verification results, final Reviewer round verdicts and finding dispositions with user-decision references, and overall completion status) follow [commit](commit.md#execution-time-plan-document-updates): they ride the plan's next task acceptance or final Reviewer follow-up commit, or a standalone closing commit made for pending revisions; otherwise they stay only in the canonical record.
 - **:124** "No separate docs/fixup commit is allowed outside this sole closing exception." 뒤에 "Plan-level progress records alone never trigger it." 추가.
 - **Full Auto 표(:184)**: `Spec/plan revision within the original scope` 행 바로 뒤에 행 추가(D7):
-  `| Non-blocking final Reviewer finding disposition | auto | Recommended disposition within approved scope; scope-expanding fixes → user |`
+  `| Non-blocking final Reviewer finding disposition | auto | Fix or no-fix decision only: recommended disposition within approved scope; scope-expanding fixes → user; Reviewer recheck and acceptance stay unchanged |`
   push/merge 행은 변경하지 않는다.
 
 ### 4.3 `references/handoff-prep.md`
@@ -99,7 +102,7 @@
 ### 4.7 `lib/policy/role-policy.json` (소스)과 생성 경로
 
 - **`git.orchestrator-accept-commit` text**: 테스트가 단언하는 기존 "Exclude other tasks; pending approved spec/plan revisions follow planning.plan-revision"는 유지하고 뒤에 추가:
-  > Plan-level progress records (final verification results, final Reviewer verdicts and finding dispositions, overall completion status) are the sole exception: include them in the plan's next task acceptance or final Reviewer follow-up commit; when no implementation work remains, keep them only in the canonical handoff record without changing the plan document or creating a commit.
+  > Plan-level progress records (final verification results, final Reviewer verdicts and finding dispositions, overall completion status) are the sole exception: include them in the plan's next task acceptance or final Reviewer follow-up commit; when no implementation work remains and no standalone closing commit for pending revisions is made, keep them only in the canonical handoff record without changing the plan document or creating a commit.
 - **`planning.plan-revision` text**:
   - 첫 문장 뒤: "Plan-level progress records preserving the approved contract also need no new user approval and alone never trigger the standalone docs(plan) closing commit."
   - 사후 검증 문장의 "or committed for other tasks after approval" 뒤: ", or plan-level progress records carried by that commit".
@@ -126,6 +129,9 @@
 | AC-9 | 기존 금지 유지: amend, rewrite, 그 밖의 docs/fixup 커밋, 빈 커밋, 새 trailer·operation·evidence 없음. role-policy `operations`/`evidence` 배열 불변 | role-policy 테스트, diff |
 | AC-10 | 4개 플랫폼 문장 동일, 생성물 `--check`·`check-installer-parity.mjs`·manifest 통과, handoff.md:170 갱신, runtime 코드 diff 0 | 생성 check, parity, diff |
 | AC-11 | 새 계약 단언이 변경 전 RED, 변경 후 GREEN. 전체 스위트는 P0 기준선 대비 새 실패 0 | RED/GREEN 기록, 호스트 `npm test`와 python 계약 테스트 |
+| AC-12 | (v2, D13) role-policy `git.orchestrator-accept-commit`, 4개 플랫폼 commit.md·planning.md의 "canonical only" 문장이 pending-revision closing 커밋 예외를 명시하고, D12 문장과 모순되지 않음 | 계약 테스트, role-policy 테스트 |
+| AC-13 | (v2, D14) 4개 플랫폼 commit.md에 staging 시점 기록 문장이 정확히 1회 | 계약 테스트 |
+| AC-14 | (v2, D15) 4개 플랫폼 planning.md Full Auto 새 행 Rule이 v2 문구와 일치하고 다른 행은 불변 | `run-mode-contract.test.mjs`, 계약 테스트 |
 
 ## 6. 검증 방법
 
@@ -155,3 +161,5 @@
 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
+| v1 | 2026-11-19 (사용자 명시 승인, planning-document 커밋 이전; 정확한 승인 시각 기록 없음) | — | — | 최초 승인(Q1 = 함께 싣음 포함) |
+| v2 | 2026-11-19T08:22:03Z | contract | 신규 T4 | 최종 Reviewer N1–N3(사용자 수정 결정): D12와 canonical-only 문장 충돌 해소, R4 완화책 규칙화, Full Auto 행 범위 명시 |

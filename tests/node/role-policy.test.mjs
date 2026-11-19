@@ -118,7 +118,7 @@ test('plan-level progress records extend accept-commit and plan-revision text on
   assert.equal(accept.effect, 'allow');
   assert.equal(accept.authority, 'orchestrator');
   assert.match(accept.text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
-  assert.ok(accept.text.includes("Plan-level progress records (final verification results, final Reviewer verdicts and finding dispositions, overall completion status) are the sole exception: include them in the plan's next task acceptance or final Reviewer follow-up commit; when no implementation work remains, keep them only in the canonical handoff record without changing the plan document or creating a commit."), 'accept-commit must include the plan-level progress records exception');
+  assert.ok(accept.text.includes("Plan-level progress records (final verification results, final Reviewer verdicts and finding dispositions, overall completion status) are the sole exception: include them in the plan's next task acceptance or final Reviewer follow-up commit; when no implementation work remains and no standalone closing commit for pending revisions is made, keep them only in the canonical handoff record without changing the plan document or creating a commit."), 'accept-commit must include the plan-level progress records exception');
 
   const revision = rules.find(rule => rule.id === 'planning.plan-revision');
   assert.deepEqual(revision.operations, ['non-progress-spec-plan-content-update', 'pending-plan-revision-commit']);

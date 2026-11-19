@@ -4,19 +4,20 @@ import {readFileSync} from 'node:fs';
 
 const platforms = ['claude', 'codex', 'gemini', 'grok'];
 const revisionRow = '| Spec/plan revision within the original scope | auto | Scope-expanding revisions → user |';
-const findingRow = '| Non-blocking final Reviewer finding disposition | auto | Recommended disposition within approved scope; scope-expanding fixes → user |';
+const findingRow = '| Non-blocking final Reviewer finding disposition | auto | Fix or no-fix decision only: recommended disposition within approved scope; scope-expanding fixes → user; Reviewer recheck and acceptance stay unchanged |';
 const externalRow = '| Push, merge, deploy, publish, external messages | user | — |';
 const planningClosing = 'No separate docs/fixup commit is allowed outside this sole closing exception.';
 
 const contracts = {
   'references/commit.md': [
     'its own progress records, eligible plan-level progress records, eligible pending approved spec/plan revisions',
-    "Plan-level progress records are final verification results, each final Reviewer round's verdict and finding dispositions (including references to user decisions) and overall completion status. Preserving the approved contract, they need no new approval; changing it makes them a plan revision. They are the sole exception to excluding other tasks' records: Orchestrator includes them in that plan's next commit, either a task acceptance commit created by final Reviewer finding work or the final Reviewer follow-up commit. When no implementation work remains, such as a final Reviewer approval without findings or a user decision not to fix a non-blocking finding, Orchestrator creates no commit for them, keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report. Plan-level progress records alone never trigger the standalone `docs(plan)` closing commit.",
+    "Plan-level progress records are final verification results, each final Reviewer round's verdict and finding dispositions (including references to user decisions) and overall completion status. Preserving the approved contract, they need no new approval; changing it makes them a plan revision. They are the sole exception to excluding other tasks' records: Orchestrator includes them in that plan's next commit, either a task acceptance commit created by final Reviewer finding work or the final Reviewer follow-up commit. When no implementation work remains, such as a final Reviewer approval without findings or a user decision not to fix a non-blocking finding, Orchestrator creates no commit for them alone: unless a standalone closing commit made for pending revisions carries them, Orchestrator keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report. Plan-level progress records alone never trigger the standalone `docs(plan)` closing commit.",
+    'Write plan-level progress records into the plan document only while staging the commit that carries them; until then keep them in the canonical handoff record.',
     'When this closing commit is made for pending revisions, it also carries the plan-level progress records.',
     'Only when no implementation work remains before overall completion MAY Orchestrator create one standalone `docs(plan): <description>` closing commit.',
   ],
   'references/planning.md': [
-    "Plan-level progress records (final verification results, final Reviewer round verdicts and finding dispositions with user-decision references, and overall completion status) follow [commit](commit.md#execution-time-plan-document-updates): they ride the plan's next task acceptance or final Reviewer follow-up commit, otherwise they stay only in the canonical record.",
+    "Plan-level progress records (final verification results, final Reviewer round verdicts and finding dispositions with user-decision references, and overall completion status) follow [commit](commit.md#execution-time-plan-document-updates): they ride the plan's next task acceptance or final Reviewer follow-up commit, or a standalone closing commit made for pending revisions; otherwise they stay only in the canonical record.",
     'Plan-level progress records alone never trigger it.',
     planningClosing,
     findingRow,

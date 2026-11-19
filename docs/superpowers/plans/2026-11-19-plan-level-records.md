@@ -2,7 +2,7 @@
 
 > **에이전트 작업자용:** ARC Orchestrator가 작업 단위로 조율한다. Implementer는 Codex bridge 자식(sandbox workspace-write, allowedPaths 정확한 파일 목록, 명령당 시간 제한 가능)이며 Git 변경 명령을 실행하지 않는다. 수락과 커밋은 Orchestrator가 한다. 진행은 체크박스(`- [ ]`)로 기록한다.
 
-**상태:** 승인 요청 중 (Planner 첫 초안, Orchestrator 검토 반영)
+**상태:** v2 승인됨 (v1·v2 2026-11-19 사용자 승인, T1–T3 실행 완료; v2 = 최종 Reviewer N1–N3 반영 T4 추가)
 
 **Goal:** 최종 검증 결과, 최종 Reviewer verdict·finding disposition, 전체 완료 상태("plan-level progress records")의 커밋 경로를 4개 플랫폼 지침, role-policy 규칙 text, 운영 문서에 정의한다. runtime 동작은 바꾸지 않는다.
 
@@ -180,13 +180,38 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 
 ---
 
+### T4: 최종 Reviewer N1–N3 반영 (v2)
+
+**목표:** spec v2 D13–D15를 반영한다. (N1) "남은 구현 작업이 없으면 canonical only" 문장을 pending-revision closing 커밋이 없는 경우로 한정, (N2) staging 시점 기록 문장 추가, (N3) Full Auto 새 행 Rule을 fix/no-fix 결정만으로 한정.
+**선행:** T3 커밋, spec·plan v2 승인. 최종 Reviewer 단계 수정이므로 fresh Implementer(plan 개정) → 최종 Reviewer 재확인, QA 재배정 없음.
+
+**Files (allowedPaths, 24개):**
+- `{claude,codex,gemini,grok}/skill/references/commit.md`: 수동 문단(spec §4.1 v2 문안) + managed section(생성기)
+- `{claude,codex,gemini,grok}/skill/references/planning.md`: 수동(§4.2 v2: `:118` 문장, Full Auto 행 Rule) + managed section(생성기)
+- `{claude,codex,gemini,grok}/skill/references/{handoff-prep,verification}.md`: managed section만(생성기)
+- `lib/policy/role-policy.json`: `git.orchestrator-accept-commit` text의 해당 문장만(§4.7 v2)
+- `shared/skill/runtime/role-policy.json`(생성기)
+- `tests/node/plan-level-records-contract.test.mjs`, `tests/node/run-mode-contract.test.mjs`, `tests/node/role-policy.test.mjs`, `tests/test_harness_contract.py`, `tests/node/fixtures/instruction-contracts.json`(protected 해시 2개만), `MANIFEST.sha256`
+- 범위 밖: SKILL.md, handoff.md, `docs/harness-operation.md`(v2 문구와 모순 없음), `*/agents/*`, runtime 코드
+
+- [x] **Step 1 (RED):** 계약 테스트 기대 문자열을 v2 문안으로 바꾸고 AC-12~14 단언 추가 → `node --test tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs tests/node/role-policy.test.mjs` 실패, P-PLR 실패 확인.
+- [x] **Step 2 (편집):** claude 수동 문장 → codex/gemini/grok 동일 적용, `role-policy.json` 문장 수정.
+- [x] **Step 3 (재생성):** `node scripts/update-role-policy.mjs`(16 targets) → `node scripts/update-runtime-assets.mjs` → protected 해시 실측 갱신 → `node scripts/update-manifest.mjs`.
+- [x] **Step 4 (GREEN):** Step 1 명령 + `tests/node/instruction-layout.test.mjs` PASS(P0 기준선 5 실패 제외), P-PLR 0, G-POL/G-RT/G-MAN/G-PAR verified, `git diff --stat` allowedPaths 안.
+- [x] **Step 5:** Orchestrator 호스트 N-ALL·P-ALL 새 실패 0 → 최종 Reviewer 재확인 → 승인 시 수락, focused follow-up 커밋 1개(이 plan의 v2 개정·T4 진행 기록·plan-level 기록 동승, Plan-Revision trailer).
+
+**수락 기준:** AC-12, AC-13, AC-14, 기존 AC-1~AC-11 유지(새 실패 0)
+**필수 검사:** Step 1, 4, 5. QA 없음(최종 Reviewer 단계 규칙).
+
+---
+
 ## F. 최종 검증과 최종 Reviewer (모든 작업 수락 뒤)
 
-- [ ] **V1:** 호스트 N-ALL·P-ALL. P0 기준선 대비 새 실패 0, golden은 같은 이름으로 계속 실패(AC-11, R2).
-- [ ] **V2:** G-POL, G-RT, G-MAN, G-PAR, `G-PAR --complete`를 기준선과 비교.
-- [ ] **V3:** `git diff ea1a3a2..HEAD --stat -- lib/runtime ':(glob)shared/skill/runtime/*.mjs' '*/agents/*'` → 빈 출력(AC-10). `external.explicit-user-authority` text 동일 재확인(AC-6).
-- [ ] **V4:** 잔여 grep(T3 Step 2) 재실행.
-- [ ] **FR:** 최종 Reviewer 1회. 범위 `ea1a3a2..HEAD` 전체 변경과 spec 전체. 중점: D1–D12와 AC-1~11 대응, 4개 플랫폼 parity, 기존 금지(amend, rewrite, 그 밖의 docs/fixup, 빈 커밋) 보존, pending-revision closing 예외 보존과 plan-level 단독 비발동, 외부 권한 규칙 불변. 지적은 Implementer → Reviewer 재확인을 반복하고 QA는 다시 배정하지 않는다. 수정은 재확인이 끝날 때까지 커밋하지 않고, 수락 뒤 focused follow-up 커밋 하나.
+- [x] **V1:** 호스트 N-ALL·P-ALL. P0 기준선 대비 새 실패 0, golden은 같은 이름으로 계속 실패(AC-11, R2).
+- [x] **V2:** G-POL, G-RT, G-MAN, G-PAR, `G-PAR --complete`를 기준선과 비교.
+- [x] **V3:** `git diff ea1a3a2..HEAD --stat -- lib/runtime ':(glob)shared/skill/runtime/*.mjs' '*/agents/*'` → 빈 출력(AC-10). `external.explicit-user-authority` text 동일 재확인(AC-6).
+- [x] **V4:** 잔여 grep(T3 Step 2) 재실행.
+- [x] **FR:** 최종 Reviewer 1회. 범위 `ea1a3a2..HEAD` 전체 변경과 spec 전체. 중점: D1–D12와 AC-1~11 대응, 4개 플랫폼 parity, 기존 금지(amend, rewrite, 그 밖의 docs/fixup, 빈 커밋) 보존, pending-revision closing 예외 보존과 plan-level 단독 비발동, 외부 권한 규칙 불변. 지적은 Implementer → Reviewer 재확인을 반복하고 QA는 다시 배정하지 않는다. 수정은 재확인이 끝날 때까지 커밋하지 않고, 수락 뒤 focused follow-up 커밋 하나.
 - [ ] **D11 마무리**
   - finding 없이 approve: 커밋 없음. V1–V4 결과, FR verdict, 완료 상태는 canonical record(`.git/arc/handoff/`)에만 남기고 이 plan 문서는 바꾸지 않는다. working tree clean 확인, 완료 보고에 명시한 뒤 push/PR 권한 요청.
   - finding 있음: plan-level 기록(F 결과, 각 FR 라운드 verdict와 disposition)을 그 follow-up 커밋에 함께 싣는다. non-blocking finding 결정을 기다리는 동안 전체 완료 보류.
@@ -204,6 +229,7 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 | AC-9 | T2(operations/evidence), F FR |
 | AC-10 | T1(4개 플랫폼 문장, handoff.md), T2(생성물·parity·runtime diff), T3(잔여), F V2–V4 |
 | AC-11 | T1·T2 RED/GREEN, 각 작업 N-ALL·P-ALL, F V1 |
+| AC-12, AC-13, AC-14 | T4 |
 
 ## 위험
 
@@ -224,8 +250,16 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 | 2026-11-19 | T1 | 완료 | 이 커밋 | RED: node 28 예상 실패, P-PLR 32 → GREEN: 신규 계약·Run mode 39개 pass, P-PLR 0, G-POL 48 targets·G-MAN 283 files ok. 호스트 N-ALL 2121 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0). fresh QA: AC-1~AC-10 입증, 표본 삭제 2건 검출, instruction-layout 5 fail P0 일치 |
 | 2026-11-19 | T2 | 완료 | 이 커밋 | RED: 새 role-policy 테스트 1 fail → GREEN. `Updated role policy (16 targets)`, runtime 사본 1개 변경, protected 해시 53acab4f…→799e9726…(실측 일치). focused node 111 중 106 pass, 5 fail = P0 instruction-layout 5개. 호스트 N-ALL 2122 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0), G-POL/G-RT/G-MAN/G-PAR P0와 동일. fresh QA: AC-2·AC-6·AC-9·AC-10 입증, 결함 없음. 한계: QA 독립 RED 표본은 QA 스크립트 오류로 미실행(AC-11은 Implementer RED 기록과 GREEN으로 판정) |
 | 2026-11-19 | T3 | 완료 | 이 커밋 | `docs/harness-operation.md:226` 끝에 §4.8 문장 추가(+1/−1). 잔여 grep 결과가 기대 목록과 일치. `docs/superpowers`는 P0 이후 이 plan 파일(진행 기록)만 변경. P-HC 95 실패가 P0와 동일(새 실패 0), 링크 검사 2건은 P0부터 실패(`coordination.md#token-discipline-and-handoffs`). Orchestrator 직접 확인(O4) |
+| 2026-11-19 | F V1–V4 | 완료 | 이 커밋 | V1 node 2122 tests 70 fail·python 547 fail+7 error, 실패 이름 집합 P0와 동일. V2 G-POL/G-RT/G-MAN/G-PAR P0와 동일(`--complete` exit 1 P0 동일). V3 runtime·agents diff 0, `external.explicit-user-authority` 불변. V4 잔여 grep 기대 목록 일치 |
+| 2026-11-19 | FR 라운드 1 | 완료 | 이 커밋 | approve with non-blocking findings: N1 D12와 canonical-only 문구 충돌, N2 R4 완화책 미규칙화, N3 Full Auto 새 행 우선순위 모호, N4 plan 상태 줄. 사용자 결정: N1·N2·N3 수정(N4 함께) → spec·plan v2(2026-11-19T08:22:03Z 승인), T4 추가 |
+| 2026-11-19 | T4 | 완료 | 이 커밋 | fresh Implementer: RED node 13·P-PLR 8 → GREEN, `Updated role policy (16 targets)`, protected 해시 갱신. 호스트 node 2122 tests 70 fail·python 547+7, P0와 동일(새 실패 0). QA 재배정 없음(최종 Reviewer 단계 규칙) |
+| 2026-11-19 | FR 라운드 2 | 완료 | 이 커밋 | N1–N4 해결, T4 approve. M1(blocking) 개정 이력 v1 행 누락 → Orchestrator 보정. M2(non-blocking) `docs/harness-operation.md:226` 요약이 D12/D13 경우를 생략 → 사용자 결정 대기 |
+| 2026-11-19 | FR 라운드 3 | 완료 | 이 커밋 | M1 해결, M1-a(v1 행의 SHA 표기) Orchestrator 보정 후 커밋 진행 승인 |
+| 2026-11-19 | 전체 완료 | 보류 | — | M2 사용자 결정 대기(D5) |
 
 ## 개정 이력
 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
+| v1 | 2026-11-19 (사용자 명시 승인, planning-document 커밋 이전; 정확한 승인 시각 기록 없음) | — | — | 최초 승인 |
+| v2 | 2026-11-19T08:22:03Z | contract | 신규 T4, F | 최종 Reviewer N1–N3(사용자 수정 결정): spec v2 D13–D15 반영 task 추가 |
