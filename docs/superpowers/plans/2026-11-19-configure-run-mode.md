@@ -287,6 +287,25 @@
 - 중점: Full Auto 정책 문구가 user gate(외부 작업, 실패·hold, 보존 규칙, 권한, 신규 제품 결정, visual interpretation)를 실제로 남기는지; supervised 바이트 회귀; 프로필에 모드별 렌더링이 없는지; 4개 플랫폼 패리티.
 - 지적 처리: Implementer → Reviewer 반복, QA 재배정 없음. 수정은 재확인까지 미커밋, 수용 후 focused follow-up 커밋 1개.
 
+### Task T8: planning.md Full Auto 적용 조건·질문 행 우선순위 (spec v2 7.6, D10)
+
+- 파일: `claude|codex|gemini|grok/skill/references/planning.md`, `tests/node/run-mode-contract.test.mjs`, `MANIFEST.sha256` (probe로 확인한 추가 단언 파일은 진행 기록에 적는다).
+- 4개 사본 Full Auto 절 첫 문단을 spec v2 7.6 문구로 정확히 교체. 나머지 표·Records는 바이트 불변.
+- 테스트 먼저: run-mode-contract의 기대 문단을 v2 문구로 바꿔 실패 확인 후 교체(AC-G6).
+- STD-CLOSE.
+
+### Task T9: Configure Full Auto info 문구와 Host 추가 시 설정 상속 (spec v2 4.1·4.3, D10)
+
+- 파일: `lib/tui/setup.mjs`, `tests/node/tui-setup.test.mjs`, `MANIFEST.sha256`.
+- `installSettingsDraft`: 값·`mixed`를 설치된 플랫폼만으로 계산, 미설치 플랫폼은 상속, 설치 없음은 기본값(AC-U9).
+- Configure renderBody·notice: Run mode가 표시상 `Full Auto`면 4.3 문구를 info 끝에 붙이고, notices·footerRows·capacity가 같은 목록을 쓴다. 메뉴 안 순환으로 즉시 반영(AC-U8). Supervised·mixed 화면은 현행과 같다.
+- 테스트 먼저: draft 상속·설치 간 mixed 유지·prepare options 전달, Full Auto 문구 표시·순환 후 소거.
+- STD-CLOSE.
+
+### Task FR2: 후속 변경 Reviewer
+
+- 시점: T8·T9 수용·커밋 후. 범위: `2f8e1dd..HEAD`와 spec v2 변경분, FR 지적 1·2 해소 여부.
+
 ## AC 추적표
 
 | AC | 작업 |
@@ -306,6 +325,8 @@
 | AC-G5 | T7 |
 | AC-R1 | T3(단위), 최종 검증 V2 |
 | AC-R2 | 모든 작업 STD-CLOSE, 최종 검증 V1 |
+| AC-G6 | T8 |
+| AC-U8, AC-U9 | T9 |
 
 ## 최종 검증 (Orchestrator, T7 수용 후·FR 전)
 
@@ -328,8 +349,10 @@
 | 2026-11-19 | T5 | 수용 | (이 커밋) | 6 files, host suite = 기준선 36(신규 0), PTY 37/37, manifest 283, fresh QA AC-U1–U7 proven; 경계 full 22→25행·전환 24/25행; 역할 편집 후 PTY 시나리오 범위 축소는 앱 테스트·QA 재현으로 보완(수용) |
 | 2026-11-19 | T6 | 수용 | (이 커밋) | 4 files, host suite = 기준선 + role-bridge-run flake(단독 35/35), PTY 37/37, manifest 283, fresh QA AC-T1·T2 proven(값 시작 열 23) |
 | 2026-11-19 | T7 | 수용 | (이 커밋) | README·harness-operation 영어 문서, manifest 283, Orchestrator가 spec 10절 대조(Configure 행·Run mode·Status·settings v2·다운그레이드·Full Auto gate 요약) |
-| — | 최종 검증 | 대기 | — | — |
-| — | FR | 대기 | — | — |
+| 2026-11-19 | 최종 검증 | 완료 | — | V1 npm test 2877/fail 36=기준선(신규 0), python 119≤120; V2 74df988 대비 supervised 설치 차이는 SKILL.md·planning.md·프로필·runtime/role-policy.json만, managed block 동일; V3 PTY 실제 TUI(Configure 행·토글·Full Auto Apply·Status) 확인; V4 manifest 283·role-policy 48·runtime 35 verified |
+| 2026-11-19 | FR | 완료 | — | native arc-routing-reviewer(rev baa6f627) 승인, 차단 0. 비차단: planning.md 질문 행 우선순위 모호·`Run mode: Full Auto` 문자열 불일치·Configure 80ms 재그리기. 앞선 보류 원인은 CLI `--cwd` 상대경로(activation_unverified) |
+| 2026-11-19 | FR 처리 | 사용자 결정 | — | 1·2 조치(T8), 3은 Full Auto info 문구로 대체(T9), Host 추가 시 `(mixed)` 수정(T9) → spec v2·plan v4 |
+| 2026-11-19 | T9 | 수용 | (이 커밋) | 3 files, TUI 4 files 307/307, host suite 2881/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-U1–U9 proven; Full Auto 80열 full 레이아웃은 27행부터(안내 2행, spec 4.3 footerRows 규칙) |
 
 ## 개정 이력
 
@@ -338,3 +361,4 @@
 | v1 | 2026-11-19 09:40 KST (사용자 명시 승인) | 초기 | — | spec v1(2026-11-19 08:59 KST 승인)의 최초 구현 계획 |
 | v2 | 2026-11-19T10:30:00+0900 (사용자 명시 승인) | 실행 중 개정(검증 방법·파일 목록) | T2, T3, T4 | golden fixture 갱신 제외(기준선에서 이미 실패), T2에 probe로 확인한 기존 단언 3개 파일 추가 |
 | v3 | 2026-11-19T12:12:54+0900 (사용자 명시 승인) | 실행 중 개정(파일 목록) | T5 | T5에 `tui-app-pty.test.mjs` 추가(Settings·KR 참조), `capability-surfaces.test.mjs` 조건부 추가 |
+| v4 | 2026-11-19 (사용자 지시로 범위 확정, FR 후속) | 실행 중 개정(작업 추가) | T8, T9, FR2 | spec v2(D10) 반영 |

@@ -157,11 +157,59 @@ test('Configure limit input retries invalid values and passes the concurrent sel
 });
 
 const mixedStatuses=()=>[installStatuses[0],{...installStatuses[1],settings:{runMode:'full-auto',language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2}}}];
+const uninstalledHostStatuses=()=>mixedStatuses().map(status=>status.platform==='codex'?{...status,state:'absent'}:status);
+const fullAutoNotice='Full Auto: the Orchestrator approves specs, plans and choices on its own; push, merge, holds and permissions still need you.';
 test('install settings draft defaults missing run mode and detects mixed values',()=>{
  const saved=mixedStatuses(),settings=setup.installSettingsDraft(saved,['codex','claude']);
  assert.equal(settings.runMode,'supervised');
  assert.deepEqual([...settings.mixed],['runMode','language','maxTotalSubagents','maxConcurrentSubagents']);assert.equal(settings.touched.size,0);
  assert.deepEqual(setup.installSettingsDraft([],['codex']),{runMode:'supervised',language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5,mixed:new Set(),touched:new Set()});
+});
+
+test('install settings draft inherits all four values from the installed platform',()=>{
+ const saved=uninstalledHostStatuses();
+ assert.deepEqual(setup.installSettingsDraft(saved,['codex','claude']),{
+  runMode:'full-auto',language:'ko',maxTotalSubagents:20,maxConcurrentSubagents:2,mixed:new Set(),touched:new Set(),
+ });
+});
+
+test('adding an uninstalled Host displays and prepares the inherited composite settings',async()=>{
+ const draft=installDraft('claude');
+ let settingsRows;
+ const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',4],['Configure',10,rows=>{settingsRows=rows.slice(6,10);}]];
+ const result=await installFlow({statuses:uninstalledHostStatuses(),draft,installState:{mode:'standalone',platforms:['claude']},ui:scripted(steps)});
+ assert.equal(result.target,'composite');
+ assert.deepEqual(result.platforms,['claude','codex']);
+ assert.deepEqual(result.settings,{skipGlobal:false,runMode:'full-auto',language:'ko',maxTotalSubagents:20,maxConcurrentSubagents:2});
+ assert.deepEqual(settingsRows,['Run mode              Full Auto','Language              Korean','Total subagents       20','Concurrent subagents  2']);
+});
+
+test('Configure updates the Full Auto notice within one menu on either arrow',async()=>{
+ await installFlow({draft:installDraft(),ui:scripted([['Configure',null,(_rows,options)=>{
+  const supervised=installBody(options,6,80,25);
+  options.onHorizontal({selected:6,direction:'right'});
+  const fullAuto=installBody(options,6,80,25);
+  const compact=installBody(options,11,40,16);
+  options.onHorizontal({selected:6,direction:'left'});
+  const reverted=installBody(options,6,80,25);
+
+  assert.deepEqual([supervised.notices,fullAuto.notices,reverted.notices],[[],[fullAutoNotice],[]]);
+  assert.match(supervised.rows[0],/^┌─ /);
+  assert.match(fullAuto.rows[0],/^Scouter: /);
+  assert.equal(compact.rows[compact.selected],'Back');
+  assert.ok(compact.rows.length<11);
+  assert.deepEqual(reverted,supervised);
+ }]])});
+});
+
+test('Configure appends the Full Auto notice after existing notices when Enter cycles a mixed Run mode',async()=>{
+ const reason='! Hosts: Codex - Unavailable (unauthorized)';
+ const saved=mixedStatuses().map(status=>status.platform==='codex'?{...status,authentication:{authStatus:'unauthorized'}}:status);
+ const notices=[];
+ const capture=(_rows,options)=>notices.push(installBody(options).notices);
+ const steps=[['Configure',6,capture],['Configure',6,capture],['Configure',6,capture],['Configure',null,capture]];
+ await installFlow({statuses:saved,draft:installDraft('claude',['claude','codex']),ui:scripted(steps)});
+ assert.deepEqual(notices,[[reason],[reason],[reason,fullAutoNotice],[reason]]);
 });
 
 test('(mixed) field untouched is omitted, touched applies to S',async()=>{
@@ -306,7 +354,8 @@ test('Configure cycles Run mode and Language and pulses only the selected row',a
   options.onHorizontal({selected:5,direction:'right'});
   assert.equal(draft.settings.touched.size,0);
   options.onHorizontal({selected:6,direction:'right'});
-  assert.equal(render(6,0)[14],'Run mode              < Full Auto >');
+  const fullAuto=options.renderBody({selected:6,frame:0,columns:80,rows:25});
+  assert.equal(fullAuto.rows[fullAuto.selected],'Run mode              < Full Auto >');
   assert.equal(draft.settings.touched.has('runMode'),true);
  }],['Configure',7,(rows,options)=>{
   assert.equal(options.selected,6);assert.equal(rows[6],'Run mode              Supervised');
