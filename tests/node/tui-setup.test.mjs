@@ -28,9 +28,9 @@ function scripted(steps,pages=[]){return {menu:async(title,rows,options)=>{const
 
 test('legacy preview line appears once and Apply prepares the migration without confirmation',async()=>{
  const {platforms:registry}=migrationRegistries();
- const steps=[['Configure',7,(_rows,options)=>{
+ const steps=[['Configure',10,(_rows,options)=>{
   assert.deepEqual(options.notice,['Mixed routing files will move to the Claude home.']);
-  const screen=options.renderBody({selected:7,columns:120,rows:40});
+  const screen=options.renderBody({selected:10,columns:120,rows:40});
   assert.equal(screen.notices.filter(row=>row==='Mixed routing files will move to the Claude home.').length,1);
  }]];
  const result=await installFlow({registry,installState:{mode:'composite',platforms:['claude','codex'],anchor:'codex',legacyAnchor:true},currentConfig:{roles:installRoles('codex')},ui:scripted(steps)});
@@ -67,34 +67,34 @@ test('session draft wins over current composite config and Back prepares nothing
  assert.equal(result,null);assert.deepEqual(draft.roles,before);
 });
 for(const platform of ['codex','claude'])test(platform+' malformed later catalog pair blocks Apply and caches failure',async()=>{
- let loads=0;const steps=[['Configure',7],['Configure',7],['Configure',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
+ let loads=0;const steps=[['Configure',10],['Configure',10],['Configure',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
  await installFlow({draft:installDraft(platform),loadCatalog:()=>{loads++;return {status:'ready',catalog:{platform,pairs:[catalogs[platform].pairs[0],{model:'',effort:'unknown'}]}};},ui:scripted(steps),prepare:()=>assert.fail('invalid catalog cannot prepare')});assert.equal(loads,1);assert.equal(steps.length,0);
 });
 test('catalog exception keeps diagram and Back available without preparing',async()=>{
- const steps=[['Configure',7],['Configure',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
+ const steps=[['Configure',10],['Configure',null,(_rows,options)=>assert.match(installBody(options).notices.join('\n'),/catalog error/)]];
  await installFlow({draft:installDraft('codex'),loadCatalog:()=>{throw Error('offline');},ui:scripted(steps),prepare:()=>assert.fail('catalog error cannot prepare')});assert.equal(steps.length,0);
 });
-test('Back traverses role, platform, model, effort, hosts and Settings without prepare',async()=>{
- const steps=[['Configure',0],['Scouter',0],['Platform — Scouter',null],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',null],['Model — Scouter',null],['Scouter',null],['Configure',5],['Hosts — CLIs where you start ARC sessions',null],['Configure',6],['Settings',0],['Settings',1],['Settings',2],['Settings',null],['Configure',null]],ui=scripted(steps);
+test('Back traverses role, platform, model, effort, hosts and Configure inputs without prepare',async()=>{
+ const steps=[['Configure',0],['Scouter',0],['Platform — Scouter',null],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',null],['Model — Scouter',null],['Scouter',null],['Configure',5],['Hosts — CLIs where you start ARC sessions',null],['Configure',6],['Configure',7],['Configure',8],['Configure',9],['Configure',null]],ui=scripted(steps);
  ui.text=async()=>null;
  await installFlow({ui,prepare:()=>assert.fail('Back cannot prepare')});assert.equal(steps.length,0);
 });
-test('Settings input Back discards unconfirmed text and keeps language and role draft',async()=>{
+test('Configure input Back discards unconfirmed text and keeps language and role draft',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),draft=installDraft('claude');draft.roles.arc_scouter={platform:'claude',model:'fable',effort:'low'};
- const steps=[['Configure',6],['Settings',0],['Settings',1],['Settings',null],['Configure',null]],ui=scripted(steps);
+ const steps=[['Configure',7],['Configure',8],['Configure',null]],ui=scripted(steps);
  ui.text=async(_title,initial)=>{const events=[{name:'text',text:'999'},{name:'down'},{name:'enter'}],screens=[];const result=await createTuiInterface({viewport:()=>({columns:120,rows:40}),render:s=>{screens.push(s);return{selectionEnabled:true};},nextEvent:async()=>events.shift()}).text('Total subagents',initial);assert.equal(screens.at(-1).rows[0],'100999');return result;};
  await installFlow({draft,ui,prepare:()=>assert.fail('Back cannot prepare')});assert.equal(draft.settings.language,'ko');assert.equal(draft.settings.maxTotalSubagents,100);assert.deepEqual(draft.roles.arc_scouter,{platform:'claude',model:'fable',effort:'low'});
 });
-test('Settings validates limits and composite Apply sends settings to S',async()=>{
- const steps=[['Configure',6],['Settings',0],['Settings',1],['Settings',2],['Settings',null],['Configure',7]],pages=[],ui=scripted(steps,pages),inputs=['0','-1','１２','9007199254740992','7','3'];ui.text=async()=>inputs.shift();
+test('Configure validates limits and composite Apply sends settings to S',async()=>{
+ const steps=[['Configure',7],['Configure',8],['Configure',9],['Configure',10]],pages=[],ui=scripted(steps,pages),inputs=['0','-1','１２','9007199254740992','7','3'];ui.text=async()=>inputs.shift();
  const result=await installFlow({draft:installDraft('codex',['claude','codex']),ui});assert.equal(result.settings.language,'ko');assert.equal(result.settings.maxTotalSubagents,7);assert.equal(result.settings.maxConcurrentSubagents,3);assert.equal(result.settings.skipGlobal,false);assert.equal(result.settings.concurrentSelected,true);assert.deepEqual(pages,Array.from({length:4},()=>({title:'Invalid limit',rows:['Enter a positive whole number.']})));
 });
 test('editing one composite role preserves other roles and returns canonical fields',async()=>{
- const draft=installDraft('codex',['claude','codex']),before=structuredClone(draft.roles),steps=[['Configure',1],['Planner',0],['Platform — Planner',0],['Planner',1],['Model — Planner',0],['Effort — Planner',0],['Planner',3],['Configure',7]];
+ const draft=installDraft('codex',['claude','codex']),before=structuredClone(draft.roles),steps=[['Configure',1],['Planner',0],['Platform — Planner',0],['Planner',1],['Model — Planner',0],['Effort — Planner',0],['Planner',3],['Configure',10]];
  const result=await installFlow({draft,ui:scripted(steps)});assert.deepEqual(result.config.roles.arc_planner,{platform:'claude',...catalogs.claude.pairs[0]});for(const role of roles.filter(r=>r!=='arc_planner'))assert.deepEqual(result.config.roles[role],before[role]);for(const role of roles)assert.deepEqual(Object.keys(result.config.roles[role]).sort(),['effort','model','platform']);
 });
 for(const platform of ['codex','claude'])test(platform+' edited role serializes its native effort field',async()=>{
- const steps=[['Configure',0],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',0],['Scouter',3],['Configure',7]],before=structuredClone(models[platform]);
+ const steps=[['Configure',0],['Scouter',1],['Model — Scouter',0],['Effort — Scouter',0],['Scouter',3],['Configure',10]],before=structuredClone(models[platform]);
  const result=await installFlow({draft:installDraft(platform),ui:scripted(steps)});assert.deepEqual(result.roles.arc_scouter,{model:catalogs[platform].pairs[0].model,[platform==='codex'?'model_reasoning_effort':'effort']:catalogs[platform].pairs[0].effort});assert.deepEqual(models[platform],before);
 });
 
@@ -106,36 +106,39 @@ function installFlow(options){
  assert.equal(typeof setup.runInstallFlow,'function','Task 15 exports the install flow');
  return setup.runInstallFlow({statuses:installStatuses,draft:{},installState:{mode:'standalone',platforms:[]},loadRoleDefaults:p=>structuredClone(models[p].roles),loadCatalog:async p=>({status:'ready',catalog:catalogs[p]}),prepare:async options=>options,...options});
 }
-const installBody=(options,selected=7,columns=120,rows=40)=>options.renderBody({selected,columns,rows,blink:true});
+const installBody=(options,selected=10,columns=120,rows=40)=>options.renderBody({selected,columns,rows,blink:true});
 
-test('Settings and Hosts emit only the specified action kinds',async()=>{
+test('Hosts emits only the specified action kinds',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs');
- for(const flow of ['settings','hosts']){
-  let screen;const ui=createTuiInterface({viewport:()=>({columns:120,rows:40}),render(value){screen=value;return {selectionEnabled:true};},nextEvent:async()=>({name:'escape'})});
-  await assert.rejects(()=>flow==='settings'?setup.editInstallSettings({ui,settings:setup.installSettingsDraft(statuses,['codex'])}):setup.editHosts({ui,hosts:[],rolePlatforms:[],availabilityOf:()=>({selectable:true})}),{code:'ARC_TUI_HOME'});
-  assert.deepEqual(screen.rowKinds,flow==='settings'?[undefined,undefined,undefined,'cancel']:[undefined,undefined,undefined,undefined,'confirm','cancel']);
- }
+ let screen;const ui=createTuiInterface({viewport:()=>({columns:120,rows:40}),render(value){screen=value;return {selectionEnabled:true};},nextEvent:async()=>({name:'escape'})});
+ await assert.rejects(()=>setup.editHosts({ui,hosts:[],rolePlatforms:[],availabilityOf:()=>({selectable:true})}),{code:'ARC_TUI_HOME'});
+ assert.deepEqual(screen.rowKinds,[undefined,undefined,undefined,undefined,'confirm','cancel']);
 });
 test('Configure kinds track full, compact, scrolled and guard bodies',async()=>{
  await installFlow({ui:scripted([['Configure',null,(_rows,options)=>{
+  assert.deepEqual(installBody(options).rowKinds.slice(-7),[undefined,undefined,undefined,undefined,undefined,'confirm','cancel']);
   for(const [columns,rows]of [[120,40],[80,24],[80,16],[40,16]]){
-   const body=installBody(options,8,columns,rows);
+   const body=installBody(options,11,columns,rows);
    assert.deepEqual(body.rowKinds,body.rows.map(row=>row.startsWith('Apply - ')?'confirm':row==='Back'?'cancel':undefined));
    assert.equal(body.rowKinds.at(-1),'cancel');
   }
-  const guard=installBody(options,8,20,10);assert.equal(guard.selected,undefined);assert.equal(guard.rowKinds,undefined);
+  const guard=installBody(options,11,20,10);assert.equal(guard.selected,undefined);assert.equal(guard.rowKinds,undefined);
  }]])});
 });
 test('Switch confirmation emits Continue confirm and Back cancel',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs');let screen;const events=[{name:'up'},{name:'enter'}];
  const capture=createTuiInterface({viewport:()=>({columns:120,rows:40}),render(value){screen=value;return {selectionEnabled:true};},nextEvent:async()=>events.shift()});
- await installFlow({draft:installDraft('codex'),installState:{mode:'composite',platforms:['claude','codex']},ui:{menu:async(title,rows,options)=>title==='Configure'?7:capture.menu(title,rows,options)}});
+ await installFlow({draft:installDraft('codex'),installState:{mode:'composite',platforms:['claude','codex']},ui:{menu:async(title,rows,options)=>{
+  if(title!=='Configure')return capture.menu(title,rows,options);
+  assert.equal(rows[10],'Apply - Codex');return 10;
+ }}});
  assert.deepEqual(screen.rowKinds,[undefined,undefined,'confirm','cancel']);
 });
 
-test('diagram is the first screen',async()=>{
+test('Configure rows are in order on the first screen',async()=>{
  const loaded=[],steps=[['Configure',null,(rows,options)=>{
-  assert.deepEqual(rows,[...names,'Hosts: Claude','Settings','Apply - Claude']);assert.equal(options.backRow,true);assert.equal(options.refreshMs,600);
+  assert.deepEqual(rows,[...names,'Hosts: Claude','Run mode              Supervised','Language              English','Total subagents       100','Concurrent subagents  5','Apply - Claude']);
+  assert.equal('editInstallSettings' in setup,false);assert.equal(options.backRow,true);assert.equal(options.refreshMs,600);
   const body=installBody(options,0);assert.match(body.rows.join('\n'),/┌─ > Scouter/);assert.match(body.rows.join('\n'),/Orchestrator/);
   assert.deepEqual(options.notice,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply - Claude'));
  }]];
@@ -143,47 +146,78 @@ test('diagram is the first screen',async()=>{
  assert.deepEqual(loaded,['claude']);assert.equal(steps.length,0);
 });
 
-test('settings rows have no Global and skipGlobal is false',async()=>{
- const steps=[['Configure',6],['Settings',0,rows=>assert.deepEqual(rows,['Language              < EN >','Total subagents       100','Concurrent subagents  5','Back'])],['Settings',1],['Settings',2],['Settings',3],['Configure',7]],ui=scripted(steps),inputs=['0','7','3'],pages=[];
- ui.page=async(title,rows)=>pages.push({title,rows});ui.text=async()=>inputs.shift();
- const result=await installFlow({ui});assert.equal(result.skipGlobal,false);assert.equal(result.language,'ko');assert.equal(result.maxTotalSubagents,7);assert.equal(result.maxConcurrentSubagents,3);assert.equal(result.concurrentSelected,true);
- assert.deepEqual(pages,[{title:'Invalid limit',rows:['Enter a positive whole number.']}]);assert.equal(steps.length,0);
+test('Configure limit input retries invalid values and passes the concurrent selection',async()=>{
+ const steps=[['Configure',7],['Configure',8],['Configure',9],['Configure',10]],pages=[],ui=scripted(steps,pages);
+ const inputs=[['Total subagents','100','0'],['Total subagents','0','7'],['Concurrent subagents','5','3']];
+ ui.text=async(title,raw)=>{const [label,initial,value]=inputs.shift();assert.equal(title,label);assert.equal(raw,initial);return value;};
+ const draft=installDraft(),result=await installFlow({draft,ui});
+ assert.equal(result.skipGlobal,false);assert.equal(result.runMode,'supervised');assert.equal(result.language,'ko');assert.equal(result.maxTotalSubagents,7);assert.equal(result.maxConcurrentSubagents,3);assert.equal(result.concurrentSelected,true);
+ assert.deepEqual([...draft.settings.touched],['language','maxTotalSubagents','maxConcurrentSubagents']);
+ assert.deepEqual(pages,[{title:'Invalid limit',rows:['Enter a positive whole number.']}]);assert.equal(inputs.length,0);assert.equal(steps.length,0);
+});
+
+const mixedStatuses=()=>[installStatuses[0],{...installStatuses[1],settings:{runMode:'full-auto',language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2}}}];
+test('install settings draft defaults missing run mode and detects mixed values',()=>{
+ const saved=mixedStatuses(),settings=setup.installSettingsDraft(saved,['codex','claude']);
+ assert.equal(settings.runMode,'supervised');
+ assert.deepEqual([...settings.mixed],['runMode','language','maxTotalSubagents','maxConcurrentSubagents']);assert.equal(settings.touched.size,0);
+ assert.deepEqual(setup.installSettingsDraft([],['codex']),{runMode:'supervised',language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5,mixed:new Set(),touched:new Set()});
 });
 
 test('(mixed) field untouched is omitted, touched applies to S',async()=>{
- assert.equal(typeof setup.installSettingsDraft,'function');assert.equal(typeof setup.installPrepareOptions,'function');
- const saved=[installStatuses[0],{...installStatuses[1],settings:{language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2}}}],settings=setup.installSettingsDraft(saved,['codex','claude']);
- assert.deepEqual([...settings.mixed],['language','maxTotalSubagents','maxConcurrentSubagents']);assert.equal(settings.touched.size,0);
- assert.deepEqual(setup.installSettingsDraft([],['codex']),{language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5,mixed:new Set(),touched:new Set()});
- const draft={...installDraft('codex',['codex','claude']),settings},plan={rule:'D1-c',platforms:['claude','codex'],anchor:'claude'};
- assert.deepEqual(setup.installPrepareOptions(plan,draft,catalogs).settings,{skipGlobal:false});
- const steps=[['Settings',0,(rows,options)=>{assert.match(rows[0],/\(mixed\)/);options.onHorizontal({selected:0,direction:'right'});}],['Settings',1],['Settings',2],['Settings',3]],ui=scripted(steps);let input=0;
- ui.text=async()=>['9','4'][input++];await setup.editInstallSettings({ui,settings});
- const options=setup.installPrepareOptions(plan,draft,catalogs);assert.deepEqual(options.settings,{skipGlobal:false,language:'en',maxTotalSubagents:9,maxConcurrentSubagents:4,concurrentSelected:true});assert.deepEqual(options.platforms,['claude','codex']);
+ const saved=mixedStatuses(),draft=installDraft('codex',['codex','claude']),plan={rule:'D1-c',platforms:['claude','codex'],anchor:'claude'};
+ const untouched=await installFlow({statuses:saved,draft,ui:scripted([['Configure',10,rows=>assert.deepEqual(rows.slice(6,10),[
+  'Run mode              (mixed)','Language              (mixed)','Total subagents       (mixed)','Concurrent subagents  (mixed)',
+ ])]])});
+ assert.deepEqual(untouched.settings,{skipGlobal:false});
+
+ const steps=[['Configure',6],['Configure',7],['Configure',8],['Configure',9],['Configure',10]],ui=scripted(steps);
+ const inputs=['9','4'];ui.text=async(_title,raw)=>{assert.equal(raw,'');return inputs.shift();};
+ const options=await installFlow({statuses:saved,draft,ui});
+ assert.deepEqual(options.settings,{skipGlobal:false,runMode:'supervised',language:'en',maxTotalSubagents:9,maxConcurrentSubagents:4,concurrentSelected:true});assert.deepEqual(options.platforms,['claude','codex']);
  for(const rule of ['D1-c','D1-d','D1-e']){const value=setup.installPrepareOptions({...plan,rule},draft,catalogs);assert.equal(value.target,'composite');assert.equal(value.config.version,2);assert.deepEqual(value.config.roles,draft.roles);assert.ok(value.config.revision);}
- const single=setup.installPrepareOptions({rule:'D1-b',platforms:['codex'],anchor:'codex'},draft,catalogs);assert.equal(single.switchFromComposite,true);assert.deepEqual(single.roles,models.codex.roles);assert.strictEqual(single.verifiedCatalog,catalogs.codex);assert.equal(single.skipGlobal,false);
+ const single=setup.installPrepareOptions({rule:'D1-b',platforms:['codex'],anchor:'codex'},draft,catalogs);assert.equal(single.switchFromComposite,true);assert.deepEqual(single.roles,models.codex.roles);assert.strictEqual(single.verifiedCatalog,catalogs.codex);assert.equal(single.skipGlobal,false);assert.equal(single.runMode,'supervised');
+});
+
+test('Configure cancels mixed limit input without applying a value',async()=>{
+ const draft=installDraft('codex',['claude','codex']);
+ const ui=scripted([['Configure',8],['Configure',10]]);
+ ui.text=async(title,raw)=>{assert.equal(title,'Total subagents');assert.equal(raw,'');return null;};
+ const result=await installFlow({statuses:mixedStatuses(),draft,ui});
+ assert.equal(draft.settings.touched.has('maxTotalSubagents'),false);
+ assert.equal(draft.settings.maxTotalSubagents,20);
+ assert.deepEqual(result.settings,{skipGlobal:false});
+});
+
+test('touched run mode survives a Hosts change',async()=>{
+ const draft=installDraft('claude'),steps=[['Configure',6],['Configure',5],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',4],['Configure',10,(rows,options)=>{
+  assert.equal(options.selected,5);
+  assert.equal(rows[6],'Run mode              Full Auto');
+ }]];
+ const result=await installFlow({draft,ui:scripted(steps)});
+ assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.settings.runMode,'full-auto');assert.equal(draft.settings.touched.has('runMode'),true);
 });
 
 test('hosts lock role platforms and preview mode in Apply',async()=>{
- const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');assert.equal(rows[3],'[-] Grok    - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',4],['Configure',7,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-4),['Hosts: Claude, Codex','Settings','Apply - Mixed (Claude + Codex)','Back']);}]];
+ const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');assert.equal(rows[3],'[-] Grok    - Unavailable  (capability not verified)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',4],['Configure',10,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-7),['Hosts: Claude, Codex','Run mode              < Supervised >','Language              < English >','Total subagents       100','Concurrent subagents  5','Apply - Mixed (Claude + Codex)','Back']);}]];
  const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
 test('D1-b asks confirmation; Back sends nothing',async()=>{
- let calls=0;const steps=[['Configure',7],['Switch to Codex',null,(rows,options)=>{assert.deepEqual([...rows,...(options.backRow?['Back']:[])],['Continue','Back']);assert.deepEqual(options.info,['Mixed routing will be turned off.']);}],['Configure',null]];
+ let calls=0;const steps=[['Configure',10],['Switch to Codex',null,(rows,options)=>{assert.deepEqual([...rows,...(options.backRow?['Back']:[])],['Continue','Back']);assert.deepEqual(options.info,['Mixed routing will be turned off.']);}],['Configure',null]];
  assert.equal(await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps),prepare:async()=>{calls++;}}),null);assert.equal(calls,0);assert.equal(steps.length,0);
- const result=await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted([['Configure',7],['Switch to Codex',0]])});assert.equal(result.switchFromComposite,true);
+ const result=await installFlow({draft:installDraft('codex',[]),installState:{mode:'composite',platforms:['claude','codex']},ui:scripted([['Configure',10],['Switch to Codex',0]])});assert.equal(result.switchFromComposite,true);
 });
 
 test('D1-f shows Operation unavailable',async()=>{
- const pages=[],steps=[['Configure',7,(_rows,options)=>assert.ok(installBody(options).rows.includes('Apply - Unverified'))],['Configure',null]];
+ const pages=[],steps=[['Configure',10,(_rows,options)=>assert.ok(installBody(options).rows.includes('Apply - Unverified'))],['Configure',null]];
  await installFlow({installState:{mode:'unverified',platforms:[],residualPaths:['/fixture/routing.json']},ui:scripted(steps,pages),prepare:()=>assert.fail('D1-f must not prepare')});
  assert.deepEqual(pages,[{title:'Operation unavailable',rows:['Mixed routing configuration cannot be verified.','Residual path: /fixture/routing.json','No changes were applied.']}]);
 });
 
 test('catalog failure outside S does not block Apply; inside S blocks with catalog error',async()=>{
  for(const inside of [false,true]){
-  const loads=[],pages=[],steps=[['Configure',0],['Scouter',3,(_rows,options)=>{options.onHorizontal({selected:0,direction:'left'});const body=options.renderBody({selected:0,columns:120,rows:40});assert.match(body.rows[0],/Codex/);}],['Configure',0],['Scouter',3],['Configure',7,(_rows,options)=>{const body=installBody(options);assert.equal(body.notices.some(row=>row.includes('catalog error')),inside);}]];
+  const loads=[],pages=[],steps=[['Configure',0],['Scouter',3,(_rows,options)=>{options.onHorizontal({selected:0,direction:'left'});const body=options.renderBody({selected:0,columns:120,rows:40});assert.match(body.rows[0],/Codex/);}],['Configure',0],['Scouter',3],['Configure',10,(_rows,options)=>{const body=installBody(options);assert.equal(body.notices.some(row=>row.includes('catalog error')),inside);}]];
   if(inside)steps.push(['Configure',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/Unavailable \(catalog error\)/);assert.match(body.rows[body.selected],/^Apply/);}]);
   const result=await installFlow({draft:installDraft('codex',inside?['codex','claude']:['codex']),ui:scripted(steps,pages),loadCatalog:async p=>{loads.push(p);if(p==='claude')throw Error('offline');return {status:'ready',catalog:catalogs[p]};},prepare:async options=>{assert.equal(inside,false);return options;}});
   assert.equal(result?.target??null,inside?null:'codex');assert.deepEqual(loads.sort(),['claude','codex']);assert.deepEqual(pages,[]);assert.equal(steps.length,0);
@@ -191,15 +225,19 @@ test('catalog failure outside S does not block Apply; inside S blocks with catal
 });
 
 test('initial platform is Claude when both standalone',async()=>{
- const result=await installFlow({ui:scripted([['Configure',7]])});assert.equal(result.target,'claude');assert.deepEqual(result.roles,models.claude.roles);assert.equal(result.switchFromComposite,undefined);
+ const result=await installFlow({ui:scripted([['Configure',10]])});assert.equal(result.target,'claude');assert.deepEqual(result.roles,models.claude.roles);assert.equal(result.switchFromComposite,undefined);
 });
 
-test('compact layout keeps host and mode values in controls',async()=>{
+test('Configure compact and guard boundaries preserve access to the controls',async()=>{
  await installFlow({ui:scripted([['Configure',null,(_rows,options)=>{
-  for(const [columns,rows] of [[40,16],[60,20],[80,23]]){
-   const body=installBody(options,7,columns,rows);assert.match(body.rows[0],/^Scouter: Claude \/ /);assert.deepEqual(options.notice,[]);assert.ok(body.rows.includes('Hosts: Claude'));assert.ok(body.rows.includes('Apply - Claude'));assert.deepEqual(body.rows.slice(-4),['Hosts: Claude','Settings','Apply - Claude','Back']);assert.equal(body.rows[body.selected],'Apply - Claude');assert.ok(body.rows.length+5<=rows);
+  for(const [columns,rows] of [[40,17],[60,20],[80,24]]){
+   const body=installBody(options,10,columns,rows);assert.match(body.rows[0],/^Scouter: Claude \/ /);assert.deepEqual(options.notice,[]);assert.deepEqual(body.rows.slice(-7),['Hosts: Claude','Run mode              < Supervised >','Language              < English >','Total subagents       100','Concurrent subagents  5','Apply - Claude','Back']);assert.equal(body.rows[body.selected],'Apply - Claude');assert.ok(body.rows.length+5<=rows);
   }
-  const guard=installBody(options,0,39,16);assert.match(guard.rows.join(' '),/40.*16/);
+  const full=installBody(options,0,80,25);assert.match(full.rows[0],/^┌─ > Scouter/);
+  const compact=installBody(options,11,40,16);assert.equal(compact.position,'2-12/12');assert.equal(compact.rows[compact.selected],'Back');
+  for(const [columns,rows] of [[39,16],[40,15]]){
+   const guard=installBody(options,0,columns,rows);assert.equal(guard.rows.join(' '),'Menu requires 40 columns and 16 rows.');assert.equal(guard.selected,undefined);
+  }
  }]])});
 });
 
@@ -212,21 +250,21 @@ test('install hosts use injected registry labels, order and reason detail',async
 });
 
 test('initial composite roles and hosts come from currentConfig and D1-e prepares without confirmation',async()=>{
- const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Configure',5,(_rows,options)=>assert.ok(installBody(options).rows.includes('Hosts: Claude, Codex'))],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',4],['Configure',7],['Switch to Claude',0]];
+ const currentConfig={version:2,revision:'saved',platforms:['claude','codex'],roles:installRoles('claude')},steps=[['Configure',5,(_rows,options)=>assert.ok(installBody(options).rows.includes('Hosts: Claude, Codex'))],['Hosts — CLIs where you start ARC sessions',1],['Hosts — CLIs where you start ARC sessions',4],['Configure',10],['Switch to Claude',0]];
  const result=await installFlow({currentConfig,installState:{mode:'composite',platforms:['claude','codex']},ui:scripted(steps)});assert.equal(result.target,'claude');assert.equal(result.switchFromComposite,true);assert.deepEqual(currentConfig.roles,installRoles('claude'));
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries();
- const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Configure',7]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);
+ const changed=await installFlow({draft:installDraft('codex',['codex','claude']),registry,installState:{mode:'composite',platforms:['codex','zeta']},ui:scripted([['Configure',10]])});assert.equal(changed.target,'composite');assert.deepEqual(changed.platforms,['claude','codex']);
 });
 
 test('uninstalled initial platform uses role availability then display order fallback',async()=>{
  for(const unavailable of [false,true]){
   const saved=installStatuses.map(status=>({...status,state:'absent',authentication:{authStatus:unavailable||status.platform==='claude'?'unauthorized':'authenticated'}}));
-  const result=await installFlow({statuses:saved,ui:scripted([['Configure',7]])});assert.equal(result.target,unavailable?'claude':'codex');
+  const result=await installFlow({statuses:saved,ui:scripted([['Configure',10]])});assert.equal(result.target,unavailable?'claude':'codex');
  }
 });
 
 test('role editor Done updates the diagram draft and standalone prepare roles',async()=>{
- const draft=installDraft('claude'),steps=[['Configure',0],['Scouter',3,(_rows,options)=>options.onHorizontal({selected:1,direction:'right'})],['Configure',7,(_rows,options)=>assert.match(installBody(options).rows.join('\n'),/claude-fable-5-1/)] ];
+ const draft=installDraft('claude'),steps=[['Configure',0],['Scouter',3,(_rows,options)=>options.onHorizontal({selected:1,direction:'right'})],['Configure',10,(_rows,options)=>assert.match(installBody(options).rows.join('\n'),/claude-fable-5-1/)] ];
  const result=await installFlow({draft,ui:scripted(steps)});assert.equal(result.roles.arc_scouter.model,'claude-fable-5-1');assert.equal(draft.roles.arc_scouter.model,'claude-fable-5-1');assert.deepEqual(result.roles.arc_planner,models.claude.roles.arc_planner);
 });
 
@@ -234,39 +272,52 @@ test('composite gates distinguish role and host usage and standalone ignores aut
  for(const hostOnly of [false,true]){
   const saved=installStatuses.map(status=>status.platform==='claude'?{...status,authentication:{authStatus:'unauthorized',reason:'fixture denial'}}:status),draft=installDraft('codex',['codex','claude']);
   if(!hostOnly)draft.roles.arc_reviewer={...installRoles('claude').arc_reviewer};
-  const steps=[['Configure',7,(_rows,options)=>{assert.ok(options.notice.includes(`! ${hostOnly?'Hosts':'Reviewer'}: Claude - Unavailable (unauthorized)`));const body=installBody(options,4,40,16);assert.equal(body.rows[4].startsWith('Reviewer !:'),!hostOnly);assert.ok(body.rows.includes('Back'));}],['Configure',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/unauthorized/);assert.match(body.rows[body.selected],/^Apply/);}]];
+  const steps=[['Configure',10,(_rows,options)=>{assert.ok(options.notice.includes(`! ${hostOnly?'Hosts':'Reviewer'}: Claude - Unavailable (unauthorized)`));const body=installBody(options,4,40,19);assert.equal(body.rows[4].startsWith('Reviewer !:'),!hostOnly);assert.ok(body.rows.includes('Back'));}],['Configure',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/unauthorized/);assert.match(body.rows[body.selected],/^Apply/);}]];
   await installFlow({statuses:saved,draft,ui:scripted(steps),prepare:()=>assert.fail('unavailable composite cannot prepare')});
  }
  const saved=installStatuses.map(status=>({...status,authentication:{authStatus:'unauthorized',reason:'cli_not_found'}}));
- const result=await installFlow({statuses:saved,draft:installDraft(),ui:scripted([['Configure',7]])});assert.equal(result.target,'codex');
+ const result=await installFlow({statuses:saved,draft:installDraft(),ui:scripted([['Configure',10]])});assert.equal(result.target,'codex');
 });
 
 test('injected third host produces a version 2 routing config and registry labels',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries(),draft=installDraft('codex',['zeta','claude','codex']);
- const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Configure',7,(_rows,options)=>assert.deepEqual(options.notice,['Zeta: auth unverified'])]])});
+ const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Configure',10,(_rows,options)=>assert.deepEqual(options.notice,['Zeta: auth unverified'])]])});
  assert.deepEqual(result.platforms,['claude','codex','zeta']);assert.equal(result.config.version,2);assert.deepEqual(result.config.platforms,['claude','codex','zeta']);assert.equal(result.settings.skipGlobal,false);
 });
 
 test('compact blocked screen keeps Back selectable through the real UI',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const events=[...Array.from({length:8},()=>({name:'down'})),{name:'enter'}],screens=[],viewport={columns:40,rows:16};
+ const events=[...Array.from({length:11},()=>({name:'down'})),{name:'enter'}],screens=[],viewport={columns:40,rows:16};
  const ui=createTuiInterface({viewport:()=>viewport,render:screen=>{const rendered=renderScreen(screen,viewport);screens.push({screen,rendered});return rendered;},nextEvent:async()=>events.shift()??{name:'eof'}});
  const result=await installFlow({draft:installDraft('codex',['codex','claude']),loadCatalog:async p=>p==='claude'?{status:'catalog_error'}:{status:'ready',catalog:catalogs[p]},ui,prepare:()=>assert.fail('Back cannot prepare')});
  assert.equal(result,null);assert.equal(screens.at(-1).screen.rows.at(-1),'Back');assert.equal(screens.at(-1).rendered.selectionEnabled,true);assert.ok(screens.at(-1).rendered.text.includes('Apply - Mixed (Claude + Codex)'));
 });
 
 
-test('Settings pulses only the selected Language row and horizontal input changes its value',async()=>{
- const settings=setup.installSettingsDraft([],['codex']);
- await setup.editInstallSettings({settings,ui:scripted([['Settings',null,(_rows,options)=>{
-  const render=(selected,frame)=>options.renderBody({selected,frame,columns:80,rows:24}).rows[0];
-  assert.equal(render(0,0),'Language              < EN >');
-  assert.equal(render(0,27),'Language               <EN> ');
-  assert.equal(render(1,27),'Language              < EN >');
-  options.onHorizontal({selected:0,direction:'right'});
-  assert.equal(render(0,0),'Language              < KR >');
- }]])});
- assert.equal(settings.language,'ko');
+test('Configure cycles Run mode and Language and pulses only the selected row',async()=>{
+ const draft=installDraft();
+ const steps=[['Configure',6,(_rows,options)=>{
+  const render=(selected,frame)=>options.renderBody({selected,frame,columns:80,rows:25}).rows;
+  assert.equal(render(6,0)[14],'Run mode              < Supervised >');
+  assert.equal(render(6,5)[14],'Run mode               <Supervised> ');
+  assert.equal(render(7,5)[14],'Run mode              < Supervised >');
+  assert.equal(render(7,5)[15],'Language               <English> ');
+  assert.equal(render(6,5)[15],'Language              < English >');
+  options.onHorizontal({selected:5,direction:'right'});
+  assert.equal(draft.settings.touched.size,0);
+  options.onHorizontal({selected:6,direction:'right'});
+  assert.equal(render(6,0)[14],'Run mode              < Full Auto >');
+  assert.equal(draft.settings.touched.has('runMode'),true);
+ }],['Configure',7,(rows,options)=>{
+  assert.equal(options.selected,6);assert.equal(rows[6],'Run mode              Supervised');
+  options.onHorizontal({selected:7,direction:'left'});
+  assert.equal(options.renderBody({selected:7,frame:0,columns:80,rows:25}).rows[15],'Language              < Korean >');
+  assert.equal(draft.settings.touched.has('language'),true);
+ }],['Configure',null,(rows,options)=>{
+  assert.equal(options.selected,7);assert.equal(rows[7],'Language              English');
+ }]];
+ await installFlow({draft,ui:scripted(steps)});
+ assert.deepEqual([...draft.settings.touched],['runMode','language']);
 });
 
 for(const state of ['locked','unavailable','mixed'])test(`Hosts ${state} rows suppress cursor reasons until Enter when none can change`,async()=>{
@@ -362,7 +413,7 @@ for(const columns of [80,40])test(`Hosts feedback stays below fixed choices at $
 
 test('compact migration and blocking notices reserve scroll space for every install choice',async()=>{
  const {createTuiInterface}=await import('../../lib/tui/app.mjs'),{renderScreen}=await import('../../lib/tui/render.mjs');
- const viewport={columns:40,rows:16},frames=[],events=[...Array.from({length:8},()=>({name:'down'})),{name:'enter'}];
+ const viewport={columns:40,rows:16},frames=[],events=[...Array.from({length:11},()=>({name:'down'})),{name:'enter'}];
  const ui=createTuiInterface({viewport:()=>viewport,render(screen){const result=renderScreen(screen,viewport);frames.push({screen,...result});return result;},nextEvent:async()=>events.shift()??{name:'eof'}});
  const {platforms:registry}=migrationRegistries(),draft=installDraft('codex',['claude','codex']);draft.roles.arc_reviewer=installRoles('claude').arc_reviewer;
  const statuses=installStatuses.map(status=>status.platform==='claude'?{...status,authentication:{authStatus:'unauthorized'}}:status);

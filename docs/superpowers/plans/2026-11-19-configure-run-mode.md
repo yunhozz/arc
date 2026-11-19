@@ -211,12 +211,13 @@
 **Files:**
 - Modify: `lib/tui/setup.mjs` — 15행 `languageLabel` 삭제, 모듈 내부 `runModeName`(`full-auto`→`Full Auto`, 그 외 `Supervised`)·`languageName`(`ko`→`Korean`, 그 외 `English`); 23행 `installSettingKeys`; 27–34 `installSettingsDraft`(`runMode:settings?.runMode??'supervised'`, first 기본값 포함); 36–49 `installPrepareOptions`(키 루프로 자동 반영); 51–69 `editInstallSettings` 삭제(export 포함); 152 `controls` 7개; 153–164 `ui.menu`에 `onHorizontal`; 162 rowKinds를 controls 기반 식으로; 173–188 choice 분기(5 hosts, 6 runMode 순환, 7 language 순환, 8·9 한도, 10 Apply — 기존 7 분기 본문 이전).
 - Test: `tests/node/tui-setup.test.mjs`(78–97, 115, 138–168, 200, 261행 재작성 + 신규), `tests/node/tui-terminal.test.mjs`(37–153행 `'Settings'`), `tests/node/tui-app.test.mjs`(377, 386, 390, 521행 `'Settings'`)
-- 조건부(실패 시에만): `tests/node/tui-render.test.mjs`(30, 41, 261 `KR`), `tests/node/hardcoding-residual.test.mjs`
+- Modify(v3): `tests/node/tui-app-pty.test.mjs`(`'Settings'`·`KR` 참조가 있는 PTY 시나리오)
+- 조건부(실패 시에만): `tests/node/tui-render.test.mjs`(30, 41, 261 `KR`), `tests/node/hardcoding-residual.test.mjs`, `tests/node/capability-surfaces.test.mjs`(v3, `runInstallFlow` renderBody 사용)
 - Modify: `MANIFEST.sha256`
 
 **Interfaces:** 행 텍스트 라벨 22칸 패딩: `'Run mode              '+v`, `'Language              '+v`, `'Total subagents       '+v`, `'Concurrent subagents  '+v`. v는 mixed·미touched면 `(mixed)`, 그 외 이름/`String(value)`, 6·7행은 `arrowValue(name,state.frame,state.selected===6|7)`. 한도 입력 `ui.text('Total subagents'|'Concurrent subagents', raw)`, 오류 `ui.page('Invalid limit',['Enter a positive whole number.'])`.
 
-- [ ] **Step 1: 실패 테스트 작성** (`tui-setup.test.mjs`, 기존 fake `ui` 헬퍼)
+- [x] **Step 1: 실패 테스트 작성** (`tui-setup.test.mjs`, 기존 fake `ui` 헬퍼)
   - `configure rows order`(AC-U1, AC-U7): 항목 `[...5 roles,'Hosts: …','Run mode              Supervised','Language              English','Total subagents       100','Concurrent subagents  5','Apply - <modeLabel>']`, `'Settings'` 없음, `editInstallSettings` export 없음.
   - `configure cycles run mode and language`(AC-U2): `onHorizontal({selected:6})` 후 `Full Auto`·`touched.has('runMode')`; choice 6 Enter도 순환하고 다음 menu `selected===6`; 7에서 `Korean`↔`English`; mixed·미touched `(mixed)`.
   - `configure limit input`(AC-U3): choice 8 → `ui.text('Total subagents','100')`, `'0'` → `Invalid limit` 후 재입력, `'7'` → 7 + touched; mixed면 초기 `''`; `null` → 불변; choice 9 → `'Concurrent subagents'` + `concurrentSelected` 전달.
@@ -225,10 +226,10 @@
   - `installPrepareOptions runMode`(AC-U6): standalone 비mixed → `runMode:'supervised'`; composite mixed·미touched → `settings`에 `runMode` 키 없음; touched → 존재.
   - `touched runMode survives host change`(Review Focus 3).
   - `installSettingsDraft`: status settings에 runMode 없으면 `'supervised'`, 플랫폼 간 상이 → `mixed.has('runMode')`.
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/tui-setup.test.mjs` FAIL.
-- [ ] **Step 3: 구현.** controls 행은 깜빡임 때문에 `state`를 받는 함수로 렌더 시점에 생성. menu 항목 `[...installRoleNames,...controls.slice(0,-1)]`. rowKinds `[...diagramBody.map(()=>undefined),...controls.map((_,i)=>i===controls.length-2?'confirm':i===controls.length-1?'cancel':undefined)]`. `footerRows` 식·160행 선택 매핑·161행 offset 식·`refreshMs:600` 유지. 한도 입력 루프는 삭제된 62–66행 동작 그대로.
-- [ ] **Step 4: GREEN.** `node --test tests/node/tui-setup.test.mjs tests/node/tui-terminal.test.mjs tests/node/tui-app.test.mjs tests/node/tui-render.test.mjs tests/node/tui-custom-preset.test.mjs tests/node/hardcoding-residual.test.mjs`
-- [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(tui): Configure 한 화면에서 Run mode·Language·한도 편집`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/tui-setup.test.mjs` FAIL.
+- [x] **Step 3: 구현.** controls 행은 깜빡임 때문에 `state`를 받는 함수로 렌더 시점에 생성. menu 항목 `[...installRoleNames,...controls.slice(0,-1)]`. rowKinds `[...diagramBody.map(()=>undefined),...controls.map((_,i)=>i===controls.length-2?'confirm':i===controls.length-1?'cancel':undefined)]`. `footerRows` 식·160행 선택 매핑·161행 offset 식·`refreshMs:600` 유지. 한도 입력 루프는 삭제된 62–66행 동작 그대로.
+- [x] **Step 4: GREEN.** `node --test tests/node/tui-setup.test.mjs tests/node/tui-terminal.test.mjs tests/node/tui-app.test.mjs tests/node/tui-render.test.mjs tests/node/tui-custom-preset.test.mjs tests/node/hardcoding-residual.test.mjs`
+- [x] **Step 5: STD-CLOSE.** 커밋 예: `feat(tui): Configure 한 화면에서 Run mode·Language·한도 편집`
 
 **Criteria:** AC-U1–U7. **필수 QA:** fresh QA(행·인덱스·rowKinds·경계값 독립 대조, 기존 단언 old→new 분류, Orchestrator 제공 호스트 PTY 출력 확인). **Holds:** T4 커밋 전 착수 금지.
 
@@ -324,7 +325,7 @@
 | 2026-11-19 | T2 | 수용 | (이 커밋) | 39 files, update:role-policy 28/check 48, runtime 35, manifest 283, host suite = 기준선 + role-bridge-run flake(단독 35/35), fresh QA AC-G1·G2·G3(정적) proven |
 | 2026-11-19 | T3 | 수용 | (이 커밋) | 14 files, host suite = 기준선 36(신규 0), check:role-policy 48·manifest 283, fresh QA AC-P1·P4·P5·P6·G3·R1(지정 범위) proven, 전체 AC-R1은 V2 |
 | 2026-11-19 | T4 | 수용 | (이 커밋) | 9 files, host suite = 기준선 + codex-auth-probe flake(단독 23/23), manifest 283, fresh QA AC-P2·AC-T3 충족, AC-P3 정규 바이트 보존 충족(TOML 주석 소실은 기존 정규화 동작·spec Q2, 결함 아님) |
-| — | T5 | 대기 | — | — |
+| 2026-11-19 | T5 | 수용 | (이 커밋) | 6 files, host suite = 기준선 36(신규 0), PTY 37/37, manifest 283, fresh QA AC-U1–U7 proven; 경계 full 22→25행·전환 24/25행; 역할 편집 후 PTY 시나리오 범위 축소는 앱 테스트·QA 재현으로 보완(수용) |
 | — | T6 | 대기 | — | — |
 | — | T7 | 대기 | — | — |
 | — | 최종 검증 | 대기 | — | — |
@@ -336,3 +337,4 @@
 |---|---|---|---|---|
 | v1 | 2026-11-19 09:40 KST (사용자 명시 승인) | 초기 | — | spec v1(2026-11-19 08:59 KST 승인)의 최초 구현 계획 |
 | v2 | 2026-11-19T10:30:00+0900 (사용자 명시 승인) | 실행 중 개정(검증 방법·파일 목록) | T2, T3, T4 | golden fixture 갱신 제외(기준선에서 이미 실패), T2에 probe로 확인한 기존 단언 3개 파일 추가 |
+| v3 | 2026-11-19T12:12:54+0900 (사용자 명시 승인) | 실행 중 개정(파일 목록) | T5 | T5에 `tui-app-pty.test.mjs` 추가(Settings·KR 참조), `capability-surfaces.test.mjs` 조건부 추가 |
