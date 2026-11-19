@@ -86,7 +86,7 @@ Unknown Claude/Codex probe results block participation.
 
 | Bridge contract | Guarantees and limits |
 |---|---|
-| G1 `fail` | Claude Implementer/QA on Codex held: `permission_scope_unverified`; injected sandbox unverified |
+| G1 `pass` | Claude Implementer/QA on Codex receive recorded settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. `/private/tmp/claude-<uid>` is writable. If sandboxing is unavailable, Bash exits 71 per command and Claude exits 0. M-C4 found no widening in trusted or untrusted workspaces. Network restrictions were outside the measurement scope. |
 | G2 `escalation` | Codex-host calls require approval; no advance hold; detached supervisor survival observed under variant conditions |
 | G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
 | G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |
@@ -226,6 +226,8 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 - Contract-preserving task progress needs no new approval; other spec/plan edits require revised approval. Keep approved revisions pending for first accepted top-level task executed/reconfirmed against them, otherwise current task/final Reviewer follow-up; only with no implementation left/no such commit may one standalone `docs(plan)` closing commit include all revisions, no implementation. Overall completion leaves none pending.
 - Record `Plan-Revision`, per-version `Plan-Approved-At` (actual ISO 8601), `Plan-Reason` trailers with ASCII `->`; preserve trailers/approval chronology; never amend/reset/replay/rewrite or create other docs/fixup commits. Full rules: [planning](../codex/skill/references/planning.md#plan-updates-during-execution), [preparation](../codex/skill/references/handoff-prep.md#execution-time-plan-revision), [commit](../codex/skill/references/commit.md#execution-time-plan-document-updates). Repository commit descriptions are concise Korean.
 - Failure: no automatic retry/fallback/stash/reset/clean/lock deletion/permission changes/bypass. Optional failed reads allow only brief-preauthorized side-effect-free alternatives with exact locator/version/purpose/authority/equivalent evidence; missing inputs/unknown/partial changes return immediately. Resume preserves approvals/completed work/failure/resolution/valid-invalid evidence/holds/next goal.
+
+On failure or partial completion, apply these steps in order:
 
 1. Record exact failed check, baseline/current revision, evidence, path/branch or detached HEAD/index/files/completed steps.
 2. Classify baseline/current impact and dependencies.

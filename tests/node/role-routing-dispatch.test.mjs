@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {createRoutingFixture} from './role-fixtures.mjs';
-import {BRIDGE_GATE_RESULTS, DESKTOP_CHECKLIST_PASSED, DEFAULT_POLICY, bridgeGateReasons, reason} from '../../lib/runtime/role-dispatch-policy.mjs';
+import {BRIDGE_GATE_RESULTS, CLAUDE_SANDBOX_SETTINGS, DESKTOP_CHECKLIST_PASSED, DEFAULT_POLICY, bridgeGateReasons, reason} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
 import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
@@ -21,24 +21,34 @@ const leaseCount = async f => { try { return (await fs.readdir(dispatchDirectory
 const okClis = async (f, claudeVersion = '2.1.322 (Claude Code)', codexVersion = 'codex-cli 0.167.0') => { await f.cli('claude', {version: claudeVersion}); await f.cli('codex', {version: codexVersion}); };
 const skipRoot = t => process.getuid?.() === 0 && t.skip('root ignores directory permissions');
 
-test('default bridge policy keeps G1 and Desktop holds while G2 requires per-call escalation', () => {
-  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
+test('default bridge policy passes G1, holds Desktop and requires per-call escalation for G2', () => {
+  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
   assert.equal(Object.isFrozen(BRIDGE_GATE_RESULTS), true);
   assert.deepEqual(DESKTOP_CHECKLIST_PASSED, {'claude-desktop': false, 'codex-desktop': false});
   assert.equal(DEFAULT_POLICY.gates, BRIDGE_GATE_RESULTS);
 });
 
-test('default Codex host permits read-only Claude bridge gates but preserves explicit G2 failure and G1 holds', () => {
+test('CLAUDE_SANDBOX_SETTINGS records the measured D1 object, deep-frozen', () => {
+  assert.deepEqual(CLAUDE_SANDBOX_SETTINGS, {sandbox: {enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true}});
+  assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS), true);
+  assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS.sandbox), true);
+  assert.equal(DEFAULT_POLICY.claudeSandboxSettings, CLAUDE_SANDBOX_SETTINGS);
+});
+
+test('default Codex host permits Claude bridge gates and honors injected G1 and G2 failures', () => {
   const input = {platform: 'claude', role: 'arc_planner', hostPlatform: 'codex'};
   assert.deepEqual(bridgeGateReasons(input), []);
   assert.deepEqual(bridgeGateReasons({...input, policy: policyWith({gates: {G1: 'pass', G2: 'fail'}})}), ['host_sandbox_blocked']);
-  assert.deepEqual(bridgeGateReasons({...input, role: 'arc_qa'}), ['permission_scope_unverified']);
+  for (const role of ['arc_implementer', 'arc_qa']) {
+    assert.deepEqual(bridgeGateReasons({...input, role}), [], role);
+    assert.deepEqual(bridgeGateReasons({...input, role, policy: policyWith({gates: {G1: 'fail'}})}), ['permission_scope_unverified'], role);
+  }
 });
 
-test('default Codex CLI policy allows Claude planner and reviewer while holding implementer and QA only for G1', async t => {
+test('default Codex CLI policy allows Claude bridge roles and injected G1 failure holds writing roles', async t => {
   const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude', arc_reviewer: 'claude', arc_implementer: 'claude', arc_qa: 'claude'}});
   await okClis(f);
-  for (const role of ['arc_planner', 'arc_reviewer']) {
+  for (const role of ['arc_planner', 'arc_reviewer', 'arc_implementer', 'arc_qa']) {
     const result = await prepare(f, request(role), {policy: DEFAULT_POLICY});
     try {
       assert.equal(result.decision, 'allow', role);
@@ -49,7 +59,7 @@ test('default Codex CLI policy allows Claude planner and reviewer while holding 
     } finally { if (result.dispatchId) await cancel(f, result.dispatchId); }
   }
   for (const role of ['arc_implementer', 'arc_qa']) {
-    const result = await prepare(f, request(role), {policy: DEFAULT_POLICY});
+    const result = await prepare(f, request(role), {policy: policyWith({gates: {G1: 'fail'}})});
     assert.equal(result.decision, 'hold', role);
     assert.deepEqual(codes(result), ['permission_scope_unverified'], role);
   }
@@ -468,10 +478,8 @@ test('an unparsable lease file holds activation_unverified and points at the lea
   assert.match(result.reasons[0].releaseCondition, /lease/i);
 });
 
-test('CLAUDE_SANDBOX_SETTINGS is a recorded JSON object only when G1 passes and otherwise null', async t => {
+test('Claude sandbox settings require both a passing G1 and a recorded object', async t => {
   const policyModule = await import('../../lib/runtime/role-dispatch-policy.mjs');
-  assert.equal(policyModule.CLAUDE_SANDBOX_SETTINGS, null);
-  assert.equal(policyModule.DEFAULT_POLICY.claudeSandboxSettings, null);
   assert.equal(policyModule.effectiveClaudeSandboxSettings({gates: {G1: 'fail'}, claudeSandboxSettings: {sandbox: {enabled: true}}}), null);
   assert.equal(policyModule.effectiveClaudeSandboxSettings({gates: {G1: 'pass'}, claudeSandboxSettings: {}}), null);
   assert.equal(policyModule.effectiveClaudeSandboxSettings({gates: {G1: 'pass'}, claudeSandboxSettings: null}), null);

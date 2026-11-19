@@ -1,8 +1,23 @@
 import {runtimeRegistryOf} from './platform-registry.mjs';
 // Fixed policy values for composite role dispatch. G2 'escalation' means the bridge runs only with per-call user escalation approval on a Codex host; it is not a verified pass.
-export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'fail', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
-// No sandbox settings JSON has been recorded: G1 failed, so there is nothing to apply.
-const RECORDED_CLAUDE_SANDBOX_SETTINGS = null;
+export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'fail'});
+
+function deepFreeze(value) {
+  for (const nested of Object.values(value)) {
+    if (nested !== null && typeof nested === 'object') deepFreeze(nested);
+  }
+  return Object.freeze(value);
+}
+
+// Claude 2.1.328, 2026-11-19, macOS Seatbelt: /private/tmp/claude-<uid> is writable, Bash exits 71 per command if sandboxing is unavailable, and M-C4 found no widening in trusted or untrusted workspaces.
+const RECORDED_CLAUDE_SANDBOX_SETTINGS = deepFreeze({
+  sandbox: {
+    enabled: true,
+    autoAllowBashIfSandboxed: true,
+    allowUnsandboxedCommands: false,
+    failIfUnavailable: true,
+  },
+});
 const isRecordedObject = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
 export const CLAUDE_SANDBOX_SETTINGS = BRIDGE_GATE_RESULTS.G1 === 'pass' && isRecordedObject(RECORDED_CLAUDE_SANDBOX_SETTINGS) ? RECORDED_CLAUDE_SANDBOX_SETTINGS : null;
 /** G1 counts as passed only with an explicitly recorded settings object; otherwise the settings are null. */

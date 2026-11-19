@@ -183,7 +183,7 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec` or `claude -p` through a shell is not a detected `delegation_observed`/i);
     assert.match(body, /orphaned process group[^.]*reaped/);
-    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` on a Codex host[^.]*? are held as `permission_scope_unverified`[^.]*\(G1\)/);
+    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` on a Codex host run with recorded sandbox settings and are held as `permission_scope_unverified` only when an injected G1 fails or settings are missing \(G1\)/);
     assert.doesNotMatch(body, /`claude-cli` hosts are supported\./);
   }
 });

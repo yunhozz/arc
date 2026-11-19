@@ -80,8 +80,21 @@ test('Claude argv per role matches spec 5.5', () => {
   assert.ok(planner.includes('--strict-mcp-config'));
   const loose = buildClaudeArgs({role: 'arc_planner', profile: claudeProfile('arc_planner'), policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G6: 'loose'}}});
   assert.ok(!loose.includes('--strict-mcp-config'));
-  assert.throws(() => buildClaudeArgs({role: 'arc_implementer', profile: claudeProfile('arc_implementer'), policy: DEFAULT_POLICY}), /sandbox/i);
+  assert.throws(() => buildClaudeArgs({role: 'arc_implementer', profile: claudeProfile('arc_implementer'), policy: passPolicy({G1: 'fail'})}), /sandbox/i);
   assert.throws(() => buildClaudeArgs({role: 'arc_qa', profile: claudeProfile('arc_qa'), policy: {...passPolicy(), claudeSandboxSettings: null}}), /sandbox/i);
+});
+
+test('default Claude argv applies the measured sandbox settings once and only to writing roles', () => {
+  const settings = {sandbox: {enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true}};
+  for (const role of ['arc_implementer', 'arc_qa']) {
+    const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
+    assert.equal(args.filter(arg => arg === '--settings').length, 1, role);
+    assert.equal(flagValue(args, '--settings'), JSON.stringify(settings), role);
+  }
+  for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer']) {
+    const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
+    assert.equal(args.includes('--settings'), false, role);
+  }
 });
 
 test('Claude resume argv re-specifies model, effort, tools, permission and settings', () => {
