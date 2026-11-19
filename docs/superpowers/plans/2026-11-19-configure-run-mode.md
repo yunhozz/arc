@@ -322,6 +322,21 @@
 
 - 범위 `060e4cd..HEAD`, FR2 지적 2건 해소 여부.
 
+### Task T12: incomplete 플랫폼 설정 best-effort 읽기 (spec v4 4.1, D12)
+
+- 파일: `lib/management/status.mjs`, `tests/node/management-status.test.mjs`, `tests/node/tui-setup.test.mjs`, `tests/node/tui-app.test.mjs`(실패 시에만), `MANIFEST.sha256`.
+- incomplete 분기에서 settings.toml·limits.toml을 각각 읽어 성공한 값만 `settings`에 담음(AC-T4). 이 값이 Configure 비교에 쓰여 기존 파일 값이 다르면 `(mixed)`로 보존됨.
+- STD-CLOSE.
+
+### Task T13: Direct-path F1–F8 행에 `otherwise user` (spec v4 7.6, D12)
+
+- 파일: 4개 `planning.md`, `tests/node/run-mode-contract.test.mjs`, `MANIFEST.sha256`. 해당 표 행 1줄만 교체(AC-G6).
+- STD-CLOSE.
+
+### Task FR4: T12·T13 Reviewer
+
+- 범위 `832517d..HEAD`.
+
 ## AC 추적표
 
 | AC | 작업 |
@@ -374,6 +389,9 @@
 | 2026-11-19 | FR2 처리 | 사용자 결정 | — | 둘 다 수정(T10·T11), 사용자 화면 확인 결과 25행에서 토글 시 도식 전환 → 문구 1줄 축약·행 확보 없음(T10) → spec v3·plan v5 |
 | 2026-11-19 | T10 | 수용 | (이 커밋) | 3 files, TUI 311/311, host suite 2885/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-U8·U9 v3 proven; 80열 도식 최소 높이 Supervised 25·Full Auto 26 |
 | 2026-11-19 | T11 | 수용 | (이 커밋) | 6 files, 4개 planning.md 각 1줄 동일 교체, run-mode-contract RED 4→GREEN 15/15, host suite 2885/fail 36 = 기준선(신규 0), manifest 283; 정확 문구 교체라 계약 테스트·Orchestrator diff 대조, FR3에서 재확인 |
+| 2026-11-19 | FR3 | 완료 | — | native reviewer 승인, 차단 0. FR2 지적 2건 해소 확인. 비차단: settings 없는 incomplete는 기본값과 비교되어 설치값=기본값이면 파일 값이 덮어써질 수 있음(회귀 아님); Direct-path F1–F8 행에 user fallback 미기재(정보) |
+| 2026-11-19 | FR3 처리 | 사용자 결정 | — | 1번 (a) incomplete 설정 best-effort 읽기(T12), 2번 F1–F8 행 문구 추가(T13) → spec v4·plan v6 |
+| 2026-11-19 | T12 | 수용 | (이 커밋) | 4 files, 관련 6개 파일 366/366, host suite 2891/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-T4·U9 proven |
 
 ## 개정 이력
 
@@ -384,3 +402,4 @@
 | v3 | 2026-11-19T12:12:54+0900 (사용자 명시 승인) | 실행 중 개정(파일 목록) | T5 | T5에 `tui-app-pty.test.mjs` 추가(Settings·KR 참조), `capability-surfaces.test.mjs` 조건부 추가 |
 | v4 | 2026-11-19 (사용자 지시로 범위 확정, FR 후속) | 실행 중 개정(작업 추가) | T8, T9, FR2 | spec v2(D10) 반영 |
 | v5 | 2026-11-19 (사용자 지시, FR2 후속) | 실행 중 개정(작업 추가) | T10, T11, FR3 | spec v3(D11) 반영 |
+| v6 | 2026-11-19 (사용자 지시, FR3 후속) | 실행 중 개정(작업 추가) | T12, T13, FR4 | spec v4(D12) 반영 |

@@ -20,6 +20,7 @@
 | D9 | Full Auto 의미·auto gate·사용자 유지 gate·불변 항목·기록·중단 | 8 |
 | D10 | FR 후속(2026-11-19 사용자 지시): Full Auto 선택 시 Configure info 주의 문구, Host 추가 시 새 플랫폼이 설치된 플랫폼의 설정을 이어받음(`(mixed)` 아님), planning.md 적용 조건 문구·질문 행 우선순위 명시 | 4.1, 4.3, 7.6 |
 | D11 | FR2 후속(2026-11-19 사용자 지시): 안내 문구를 80열 1줄로 축약(행 미리 확보 없음), 상속은 `absent` 플랫폼만(`incomplete`는 비교 대상 유지), 우선순위 문장에 auto 행 Rule의 user 조건 포함 | 4.1, 4.3, 7.6 |
+| D12 | FR3 후속(2026-11-19 사용자 지시): `collectStatus`가 incomplete 플랫폼의 읽을 수 있는 `settings.toml`·`limits.toml` 값을 best-effort로 `settings`에 담음, Direct-path F1–F8 행에 `otherwise user` | 4.1, 5, 7.6 |
 | — | 범위 밖: 프로젝트 단위 모드, runtime 구조화 필드, CLI 플래그 | 2 |
 
 ## 1. 목표
@@ -87,7 +88,7 @@ run_mode = "full-auto"
 ### 4.1 설정 키와 draft
 
 - `installSettingKeys = ['runMode','language','maxTotalSubagents','maxConcurrentSubagents']`
-- `installSettingsDraft`: 플랫폼별 값에 `runMode: settings?.runMode ?? 'supervised'` 추가. 기본 `{runMode:'supervised',language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5}`. (v3) 값과 `mixed`는 `plan.platforms` 중 `state==='absent'`가 아니고 status가 있는 플랫폼으로 계산한다. `installed`는 자기 settings, `incomplete`는 status settings가 있으면 그 값, 없으면 기본값으로 비교에 참여한다(기존 파일을 표시 없이 덮어쓰지 않도록). `absent`이거나 status가 없는 플랫폼(새로 추가한 Host·역할 플랫폼)은 값 계산에서 빠지고 draft 값을 이어받는다. 비교 대상이 없으면 기본값. 네 키 모두 같은 규칙. 그래서 Full Auto 설치에 Host를 추가해도 `(mixed)`가 아니라 `Full Auto`로 보이고 Apply 시 새 플랫폼에도 적용된다.
+- `installSettingsDraft`: 플랫폼별 값에 `runMode: settings?.runMode ?? 'supervised'` 추가. 기본 `{runMode:'supervised',language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5}`. (v3) 값과 `mixed`는 `plan.platforms` 중 `state==='absent'`가 아니고 status가 있는 플랫폼으로 계산한다. `installed`는 자기 settings, `incomplete`는 status settings가 있으면 그 값, 없으면 기본값으로 비교에 참여한다(기존 파일을 표시 없이 덮어쓰지 않도록). (v4) `collectStatus`는 incomplete일 때 `skills/arc/settings.toml`과 `limits.toml`을 각각 best-effort로 읽어, 파싱에 성공한 값만 `settings`(`language`·`runMode`, `limits`)에 담는다. 읽기·파싱 실패는 무시하고 incomplete 판정·diagnostics는 바꾸지 않는다. `modelConfig`는 담지 않는다. `absent`이거나 status가 없는 플랫폼(새로 추가한 Host·역할 플랫폼)은 값 계산에서 빠지고 draft 값을 이어받는다. 비교 대상이 없으면 기본값. 네 키 모두 같은 규칙. 그래서 Full Auto 설치에 Host를 추가해도 `(mixed)`가 아니라 `Full Auto`로 보이고 Apply 시 새 플랫폼에도 적용된다.
 - `installPrepareOptions`: 현행 반복문(`setup.mjs:38`)이 키 목록을 따르므로, runMode가 mixed가 아니거나 touched이면 standalone 결과(`...settings`)에 `runMode`, composite에 `settings.runMode`가 들어간다.
 - 루프마다 touched 값을 재적용하는 동작(`setup.mjs:139`)이 runMode에도 적용된다.
 
@@ -260,7 +261,7 @@ Applies only when the installed SKILL.md contains `**Run mode:** Full Auto.` and
 | Written spec approval | auto | After Orchestrator review |
 | Plan approval | auto | Only with zero open decisions; otherwise user |
 | Spec/plan revision within the original scope | auto | Scope-expanding revisions → user |
-| Direct-path F1–F8 scope approval | auto | All F1–F8 still proven |
+| Direct-path F1–F8 scope approval | auto | All F1–F8 still proven; otherwise user |
 | `AskUserQuestion` | auto | Recommended option |
 | Visual companion offer | skipped | Not offered |
 | Visual interpretation approval ([verification](verification.md#visual-evidence-and-adjudication)) | user | Not an auto gate |
@@ -338,6 +339,7 @@ Status
 - AC-T1: 첫 행 라벨 `Installed on`, 값은 현행 `homeModeLine`과 같다.
 - AC-T2: 설치된 플랫폼이 있으면 5절 4행이 순서대로 보이고, 값이 다르면 `mixed`.
 - AC-T3: `collectStatus` settings에 `runMode`가 있다.
+- AC-T4(v4): incomplete status는 읽을 수 있는 settings.toml·limits.toml 값을 `settings`에 담고(각 파일 독립), 실패 시 생략하며 state·diagnostics는 그대로다. Status 화면(`installed`만 집계)은 변하지 않는다.
 
 정책·생성물
 - AC-G1: `role-policy.json` 검증 통과, `approval.run-mode`가 필수 규칙이며 core·planning projection에 포함.
@@ -396,3 +398,4 @@ Status
 | v1 | 2026-11-19 08:59 KST (사용자 명시 승인) | 초기 승인 | — | Q1–Q3 기본값 포함 승인 |
 | v2 | 2026-11-19 (사용자 지시로 범위 확정: FR 지적 1·2 조치, 3은 Full Auto info 문구로, Host 추가 시 mixed 수정) | FR 후속 개정 | T8, T9 | D10. 4.1·4.3·7.6·AC-U8·U9·G6 |
 | v3 | 2026-11-19 (사용자 지시: 문구 1줄·행 확보 없음, FR2 지적 둘 다 수정) | FR2 후속 개정 | T10, T11 | D11. 4.1·4.3·7.6·AC-U8·U9 |
+| v4 | 2026-11-19 (사용자 지시: FR3 1번 (a), 2번 문구 추가) | FR3 후속 개정 | T12, T13 | D12. 4.1·7.6·AC-T4 |

@@ -1,7 +1,12 @@
 import {grokOffRegistries} from './fixtures/platforms/grok-off.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
-import {readFileSync,readdirSync} from 'node:fs';
+import {mkdirSync,mkdtempSync,readFileSync,readdirSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {collectStatus} from '../../lib/management/status.mjs';
+import {openRoot} from '../../lib/safe-fs/index.mjs';
+import {loadNative} from '../../lib/safe-fs/native.mjs';
 import * as setup from '../../lib/tui/setup.mjs';
 import {cellWidth,wrapDetailRows} from '../../lib/tui/render.mjs';
 import {loadModelConfig} from '../../lib/models/index.mjs';
@@ -190,6 +195,25 @@ test('install settings draft uses settings fields available on an incomplete pla
  const saved=[mixedStatuses()[1],{platform:'codex',state:'incomplete',settings:{language:'ko',limits:{max_total_subagents:20}}}];
  const settings=setup.installSettingsDraft(saved,['claude','codex']);
  assert.deepEqual([...settings.mixed],['runMode','maxConcurrentSubagents']);
+});
+
+test('Configure omits mixed run mode from Apply when an incomplete installation has Full Auto',async t=>{
+ const userHome=realpathSync(mkdtempSync(path.join(tmpdir(),'arc-configure-incomplete-')));
+ t.after(()=>rmSync(userHome,{recursive:true,force:true}));
+ const arc=path.join(userHome,'.codex/skills/arc');
+ mkdirSync(arc,{recursive:true});
+ writeFileSync(path.join(arc,'settings.toml'),'version = 2\nlanguage = "en"\nrun_mode = "full-auto"\n');
+ const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:root=>openRoot(root,{native})};
+ const incomplete=(await collectStatus({userHome,cwd:userHome,env:{},safeFs})).find(status=>status.platform==='codex');
+ assert.equal(incomplete.state,'incomplete');
+ const claude=installStatuses.find(status=>status.platform==='claude');
+ const installed={...claude,settings:{...claude.settings,runMode:'supervised'}};
+ const platforms=['claude','codex'];
+ const settings=setup.installSettingsDraft([installed,incomplete],platforms);
+ assert.deepEqual([...settings.mixed],['runMode']);
+ const plan={rule:'D1-c',platforms,anchor:'claude'};
+ const result=setup.installPrepareOptions(plan,{...installDraft('claude',platforms),settings},catalogs);
+ assert.deepEqual(result.settings,{skipGlobal:false,language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5});
 });
 
 test('adding an uninstalled Host displays and prepares the inherited composite settings',async()=>{
