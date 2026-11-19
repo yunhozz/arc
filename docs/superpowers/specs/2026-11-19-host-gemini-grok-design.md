@@ -348,7 +348,10 @@ D8의 내용입니다.
 - 발견 F-H1: Grok의 `spawn_subagent` 목록에 `~/.claude/agents`의 Claude `arc-routing-*` 프로필도 노출됩니다. `[compat.claude] agents = false`로도 막히지 않았습니다. 대응: Grok host 의무 문장에 "route가 native인 역할만 spawn"을 명시했습니다. runtime은 bridge lease에 native event가 오면 거부합니다(`role-bridge.mjs:124`).
 - 발견 F-H2: 승인 화면에서 `Always allow`를 고르면 Grok config에 `permission_mode = "always-approve"`가 저장되어 이후 전역 자동 승인으로 바뀝니다. 대응: 의무 문장에서 이 선택을 금지했습니다.
 - 사용자 판정(2026-11-19): T3 진행. 사용자 설정 해시(AC12)는 측정 전후 같았습니다.
-- Gemini: M-G1–M-G7 판정 또는 "미전환(D17)": T4 뒤 기록
+- Gemini: **미전환(D17)**. 측정일 2026-11-20(UTC 2026-11-19), 결과 파일은 scratchpad `t4/l-g-results.md`입니다.
+  - 전역 gemini 0.69.0이 지원 범위(`>=0.68.0 <0.69.0`) 밖이라, 측정에는 0.68.0을 임시 설치해 썼습니다.
+  - 임시 HOME과 API 키로 세션은 시작됐지만(M-G7), 첫 runtime 명령이 실행되기 전에 API usage limit에 걸려 M-G1–M-G6을 측정하지 못했습니다.
+  - 따라서 gemini `compositeHost` off와 `GG2: 'fail'`을 유지합니다. 재측정은 후속 과제이고, 그때 0.69 지원 범위 확장 여부도 함께 정합니다.
 
 ## 개정 이력
 
