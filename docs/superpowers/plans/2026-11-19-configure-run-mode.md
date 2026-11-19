@@ -306,6 +306,22 @@
 
 - 시점: T8·T9 수용·커밋 후. 범위: `2f8e1dd..HEAD`와 spec v2 변경분, FR 지적 1·2 해소 여부.
 
+### Task T10: 안내 문구 1줄 축약과 incomplete 비교 유지 (spec v3 4.1·4.3, D11)
+
+- 파일: `lib/tui/setup.mjs`, `tests/node/tui-setup.test.mjs`, `MANIFEST.sha256`.
+- 문구를 spec v3 4.3으로 교체하고 80열에서 1행인지 테스트. 행 미리 확보 없음.
+- `installSettingsDraft`: `absent`/status 없음만 상속, `incomplete`는 비교 참여(AC-U9 v3).
+- STD-CLOSE.
+
+### Task T11: 우선순위 문장에 auto 행 Rule의 user 조건 포함 (spec v3 7.6, D11)
+
+- 파일: 4개 `planning.md`, `tests/node/run-mode-contract.test.mjs`, `MANIFEST.sha256`. 첫 문단 1줄만 교체(AC-G6).
+- STD-CLOSE.
+
+### Task FR3: T10·T11 Reviewer
+
+- 범위 `060e4cd..HEAD`, FR2 지적 2건 해소 여부.
+
 ## AC 추적표
 
 | AC | 작업 |
@@ -354,6 +370,9 @@
 | 2026-11-19 | FR 처리 | 사용자 결정 | — | 1·2 조치(T8), 3은 Full Auto info 문구로 대체(T9), Host 추가 시 `(mixed)` 수정(T9) → spec v2·plan v4 |
 | 2026-11-19 | T9 | 수용 | (이 커밋) | 3 files, TUI 4 files 307/307, host suite 2881/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-U1–U9 proven; Full Auto 80열 full 레이아웃은 27행부터(안내 2행, spec 4.3 footerRows 규칙) |
 | 2026-11-19 | T8 | 수용 | (이 커밋) | 6 files, 4개 planning.md 각 1줄 동일 교체, run-mode-contract RED 4→GREEN, host suite 2881/fail 36 = 기준선(신규 0), manifest 283; 정확 문구 교체라 별도 QA 대신 계약 테스트·Orchestrator diff 대조, FR2에서 재확인 |
+| 2026-11-19 | FR2 | 완료 | — | native reviewer 승인, 차단 0. 비차단: incomplete 플랫폼 설정 덮어쓰기 가능성, 우선순위 문장이 auto 행 Rule의 user 조건 미포함 |
+| 2026-11-19 | FR2 처리 | 사용자 결정 | — | 둘 다 수정(T10·T11), 사용자 화면 확인 결과 25행에서 토글 시 도식 전환 → 문구 1줄 축약·행 확보 없음(T10) → spec v3·plan v5 |
+| 2026-11-19 | T10 | 수용 | (이 커밋) | 3 files, TUI 311/311, host suite 2885/fail 36 = 기준선(신규 0), manifest 283, fresh QA AC-U8·U9 v3 proven; 80열 도식 최소 높이 Supervised 25·Full Auto 26 |
 
 ## 개정 이력
 
@@ -363,3 +382,4 @@
 | v2 | 2026-11-19T10:30:00+0900 (사용자 명시 승인) | 실행 중 개정(검증 방법·파일 목록) | T2, T3, T4 | golden fixture 갱신 제외(기준선에서 이미 실패), T2에 probe로 확인한 기존 단언 3개 파일 추가 |
 | v3 | 2026-11-19T12:12:54+0900 (사용자 명시 승인) | 실행 중 개정(파일 목록) | T5 | T5에 `tui-app-pty.test.mjs` 추가(Settings·KR 참조), `capability-surfaces.test.mjs` 조건부 추가 |
 | v4 | 2026-11-19 (사용자 지시로 범위 확정, FR 후속) | 실행 중 개정(작업 추가) | T8, T9, FR2 | spec v2(D10) 반영 |
+| v5 | 2026-11-19 (사용자 지시, FR2 후속) | 실행 중 개정(작업 추가) | T10, T11, FR3 | spec v3(D11) 반영 |

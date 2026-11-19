@@ -3,7 +3,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import * as setup from '../../lib/tui/setup.mjs';
-import {cellWidth} from '../../lib/tui/render.mjs';
+import {cellWidth,wrapDetailRows} from '../../lib/tui/render.mjs';
 import {loadModelConfig} from '../../lib/models/index.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {migrationRegistries} from './fixtures/legacy-composite.mjs';
@@ -158,7 +158,7 @@ test('Configure limit input retries invalid values and passes the concurrent sel
 
 const mixedStatuses=()=>[installStatuses[0],{...installStatuses[1],settings:{runMode:'full-auto',language:'ko',limits:{max_total_subagents:20,max_concurrent_subagents:2}}}];
 const uninstalledHostStatuses=()=>mixedStatuses().map(status=>status.platform==='codex'?{...status,state:'absent'}:status);
-const fullAutoNotice='Full Auto: the Orchestrator approves specs, plans and choices on its own; push, merge, holds and permissions still need you.';
+const fullAutoNotice='Full Auto: ARC auto-approves specs, plans, choices; push/merge/holds ask you.';
 test('install settings draft defaults missing run mode and detects mixed values',()=>{
  const saved=mixedStatuses(),settings=setup.installSettingsDraft(saved,['codex','claude']);
  assert.equal(settings.runMode,'supervised');
@@ -171,6 +171,25 @@ test('install settings draft inherits all four values from the installed platfor
  assert.deepEqual(setup.installSettingsDraft(saved,['codex','claude']),{
   runMode:'full-auto',language:'ko',maxTotalSubagents:20,maxConcurrentSubagents:2,mixed:new Set(),touched:new Set(),
  });
+});
+
+test('install settings draft inherits all four values when a platform has no status',()=>{
+ const saved=mixedStatuses().filter(status=>status.platform==='claude');
+ assert.deepEqual(setup.installSettingsDraft(saved,['codex','claude']),{
+  runMode:'full-auto',language:'ko',maxTotalSubagents:20,maxConcurrentSubagents:2,mixed:new Set(),touched:new Set(),
+ });
+});
+
+test('install settings draft compares an incomplete platform without settings using defaults',()=>{
+ const saved=[mixedStatuses()[1],{platform:'codex',state:'incomplete'}];
+ const settings=setup.installSettingsDraft(saved,['claude','codex']);
+ assert.deepEqual([...settings.mixed],['runMode','language','maxTotalSubagents','maxConcurrentSubagents']);
+});
+
+test('install settings draft uses settings fields available on an incomplete platform',()=>{
+ const saved=[mixedStatuses()[1],{platform:'codex',state:'incomplete',settings:{language:'ko',limits:{max_total_subagents:20}}}];
+ const settings=setup.installSettingsDraft(saved,['claude','codex']);
+ assert.deepEqual([...settings.mixed],['runMode','maxConcurrentSubagents']);
 });
 
 test('adding an uninstalled Host displays and prepares the inherited composite settings',async()=>{
@@ -194,11 +213,22 @@ test('Configure updates the Full Auto notice within one menu on either arrow',as
   const reverted=installBody(options,6,80,25);
 
   assert.deepEqual([supervised.notices,fullAuto.notices,reverted.notices],[[],[fullAutoNotice],[]]);
+  assert.equal(wrapDetailRows([fullAutoNotice],80).length,1);
   assert.match(supervised.rows[0],/^┌─ /);
   assert.match(fullAuto.rows[0],/^Scouter: /);
   assert.equal(compact.rows[compact.selected],'Back');
   assert.ok(compact.rows.length<11);
   assert.deepEqual(reverted,supervised);
+ }]])});
+});
+
+test('Configure shows the full diagram at 25 rows for Supervised and 26 rows for Full Auto at 80 columns',async()=>{
+ await installFlow({draft:installDraft(),ui:scripted([['Configure',null,(_rows,options)=>{
+  assert.match(installBody(options,6,80,24).rows[0],/^Scouter: /);
+  assert.match(installBody(options,6,80,25).rows[0],/^┌/);
+  options.onHorizontal({selected:6,direction:'right'});
+  assert.match(installBody(options,6,80,25).rows[0],/^Scouter: /);
+  assert.match(installBody(options,6,80,26).rows[0],/^┌/);
  }]])});
 });
 

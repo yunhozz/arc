@@ -19,6 +19,7 @@
 | D8 | 에이전트 전달 방식 A: SKILL.md marker `{{ARC_RUN_MODE_POLICY}}` + `renderRunModePolicy`, Supervised에도 짧은 문단, Full Auto일 때만 managed block 한 줄, 모드 무관 정적 규칙 `[approval.run-mode]`, 프로필 모드별 렌더링 없음, fragment 금지 regex에 marker 추가, MANIFEST 갱신, "Explicit choice" 문장에 Full Auto 예외 | 7 |
 | D9 | Full Auto 의미·auto gate·사용자 유지 gate·불변 항목·기록·중단 | 8 |
 | D10 | FR 후속(2026-11-19 사용자 지시): Full Auto 선택 시 Configure info 주의 문구, Host 추가 시 새 플랫폼이 설치된 플랫폼의 설정을 이어받음(`(mixed)` 아님), planning.md 적용 조건 문구·질문 행 우선순위 명시 | 4.1, 4.3, 7.6 |
+| D11 | FR2 후속(2026-11-19 사용자 지시): 안내 문구를 80열 1줄로 축약(행 미리 확보 없음), 상속은 `absent` 플랫폼만(`incomplete`는 비교 대상 유지), 우선순위 문장에 auto 행 Rule의 user 조건 포함 | 4.1, 4.3, 7.6 |
 | — | 범위 밖: 프로젝트 단위 모드, runtime 구조화 필드, CLI 플래그 | 2 |
 
 ## 1. 목표
@@ -86,7 +87,7 @@ run_mode = "full-auto"
 ### 4.1 설정 키와 draft
 
 - `installSettingKeys = ['runMode','language','maxTotalSubagents','maxConcurrentSubagents']`
-- `installSettingsDraft`: 플랫폼별 값에 `runMode: settings?.runMode ?? 'supervised'` 추가. 기본 `{runMode:'supervised',language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5}`. (v2) 값과 `mixed`는 `plan.platforms` 중 `state==='installed'`인 플랫폼만으로 계산한다. 설치되지 않은 플랫폼(새로 추가한 Host·역할 플랫폼)은 값 계산에서 빠지고 draft 값을 그대로 이어받는다. 설치된 플랫폼이 없으면 기본값. 네 키 모두 같은 규칙. 그래서 Full Auto 설치에 Host를 추가해도 `(mixed)`가 아니라 `Full Auto`로 보이고 Apply 시 새 플랫폼에도 적용된다.
+- `installSettingsDraft`: 플랫폼별 값에 `runMode: settings?.runMode ?? 'supervised'` 추가. 기본 `{runMode:'supervised',language:'en',maxTotalSubagents:100,maxConcurrentSubagents:5}`. (v3) 값과 `mixed`는 `plan.platforms` 중 `state==='absent'`가 아니고 status가 있는 플랫폼으로 계산한다. `installed`는 자기 settings, `incomplete`는 status settings가 있으면 그 값, 없으면 기본값으로 비교에 참여한다(기존 파일을 표시 없이 덮어쓰지 않도록). `absent`이거나 status가 없는 플랫폼(새로 추가한 Host·역할 플랫폼)은 값 계산에서 빠지고 draft 값을 이어받는다. 비교 대상이 없으면 기본값. 네 키 모두 같은 규칙. 그래서 Full Auto 설치에 Host를 추가해도 `(mixed)`가 아니라 `Full Auto`로 보이고 Apply 시 새 플랫폼에도 적용된다.
 - `installPrepareOptions`: 현행 반복문(`setup.mjs:38`)이 키 목록을 따르므로, runMode가 mixed가 아니거나 touched이면 standalone 결과(`...settings`)에 `runMode`, composite에 `settings.runMode`가 들어간다.
 - 루프마다 touched 값을 재적용하는 동작(`setup.mjs:139`)이 runMode에도 적용된다.
 
@@ -118,9 +119,10 @@ run_mode = "full-auto"
 ### 4.3 Full Auto 주의 문구(v2)
 
 - 화면 Run mode 값이 `Full Auto`(mixed·미touched가 아님)이면 Configure notice 끝에 다음 info 한 줄을 붙인다(정확한 영문):
-  `Full Auto: the Orchestrator approves specs, plans and choices on its own; push, merge, holds and permissions still need you.`
+  `Full Auto: ARC auto-approves specs, plans, choices; push/merge/holds ask you.` (v3, 77자: 80열에서 1줄)
 - 기존 info(anchor 이동, 차단 사유/auth 경고) 뒤에 온다. ←/→/Enter로 Run mode를 바꾸면 같은 메뉴 안에서 즉시 나타나거나 사라진다(renderBody가 notices·footerRows·capacity를 같은 목록으로 계산).
 - Supervised 또는 `(mixed)`이면 표시하지 않으며, 그때의 notice·행 배치는 현행과 같다.
+- (v3) 행을 미리 확보하지 않는다(사용자 결정). 문구 1줄만큼 전체 도식 최소 높이가 늘어(80열 Supervised 25행, Full Auto 26행) 25행 터미널에서는 토글 시 도식/압축 전환이 남는다.
 
 ## 5. Status 화면 계약(`lib/tui/mode.mjs` `statusInfo`)
 
@@ -247,7 +249,7 @@ Full Auto:
 <a id="full-auto-run-mode"></a>
 ## Full Auto run mode
 
-Applies only when the installed SKILL.md contains `**Run mode:** Full Auto.` and the user has not asked in this chat to stop auto-deciding or to use Supervised. Orchestrator first completes every review obligation of the gate, then selects the recommended option. Without a recommendation and supporting evidence, ask the user (fail-safe). Gates not listed as auto stay with the user. `user` and `unchanged` rows take precedence over `auto` rows: an auto question row (`Planner options and questions`, `AskUserQuestion`) answers only questions whose subject no `user` or `unchanged` row covers; otherwise ask the user.
+Applies only when the installed SKILL.md contains `**Run mode:** Full Auto.` and the user has not asked in this chat to stop auto-deciding or to use Supervised. Orchestrator first completes every review obligation of the gate, then selects the recommended option. Without a recommendation and supporting evidence, ask the user (fail-safe). Gates not listed as auto stay with the user. `user` and `unchanged` rows, and user conditions inside an `auto` row's Rule (`→ user`, `otherwise user`), take precedence over `auto` rows: an auto question row (`Planner options and questions`, `AskUserQuestion`) answers only questions that none of them covers; otherwise ask the user.
 
 | Gate | Full Auto | Rule |
 |---|---|---|
@@ -329,8 +331,8 @@ TUI
 - AC-U5: compact/guard 전환 높이가 controls 7행 기준으로 고정(테스트에 정확한 경계 행 수).
 - AC-U6: `installPrepareOptions`가 standalone/composite 모두 4.1 규칙대로 runMode 전달.
 - AC-U7: `editInstallSettings`와 `'Settings'` 행이 없다.
-- AC-U8(v2): Run mode가 `Full Auto`면 4.3 문구가 notice 끝에 보이고, 순환으로 Supervised가 되면 같은 메뉴 안에서 사라진다. Supervised·`(mixed)`에서는 notice가 현행과 같다.
-- AC-U9(v2): Full Auto(또는 Korean·한도 변경)로 설치된 플랫폼에 미설치 Host를 추가하면 해당 값이 `(mixed)`가 아니라 설치값으로 보이고, `installPrepareOptions`가 그 값을 composite `settings`에 담는다. 설치된 두 플랫폼 값이 다르면 기존처럼 `(mixed)`.
+- AC-U8(v2, v3 문구): Run mode가 `Full Auto`면 4.3 문구(80열 1행)가 notice 끝에 보이고, 순환으로 Supervised가 되면 같은 메뉴 안에서 사라진다. Supervised·`(mixed)`에서는 notice가 현행과 같다.
+- AC-U9(v2): Full Auto(또는 Korean·한도 변경)로 설치된 플랫폼에 미설치 Host를 추가하면 해당 값이 `(mixed)`가 아니라 설치값으로 보이고, `installPrepareOptions`가 그 값을 composite `settings`에 담는다. 설치된 두 플랫폼 값이 다르면 기존처럼 `(mixed)`. (v3) `incomplete` 플랫폼은 상속하지 않고 비교에 참여해 값이 다르면 `(mixed)`.
 
 Status
 - AC-T1: 첫 행 라벨 `Installed on`, 값은 현행 `homeModeLine`과 같다.
@@ -393,3 +395,4 @@ Status
 |---|---|---|---|---|
 | v1 | 2026-11-19 08:59 KST (사용자 명시 승인) | 초기 승인 | — | Q1–Q3 기본값 포함 승인 |
 | v2 | 2026-11-19 (사용자 지시로 범위 확정: FR 지적 1·2 조치, 3은 Full Auto info 문구로, Host 추가 시 mixed 수정) | FR 후속 개정 | T8, T9 | D10. 4.1·4.3·7.6·AC-U8·U9·G6 |
+| v3 | 2026-11-19 (사용자 지시: 문구 1줄·행 확보 없음, FR2 지적 둘 다 수정) | FR2 후속 개정 | T10, T11 | D11. 4.1·4.3·7.6·AC-U8·U9 |
