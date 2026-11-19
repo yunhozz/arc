@@ -2,6 +2,17 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';import {resolveTarget,resolveTargets} from '../../lib/installer/targets.mjs';
 import {compositeContext, standalone, publish} from './fixtures/install-mode.mjs';
 const api=await import('../../lib/installer/upgrade-state.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
+
+test('installed state reports the runMode of each target',t=>{
+ const home=fixture(t);
+ const claude=seed(home,'claude');
+ seed(home,'codex');
+ fs.writeFileSync(path.join(claude.home,'skills/arc/settings.toml'),'version = 2\nlanguage = "en"\nrun_mode = "full-auto"\n');
+ const state=api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
+ assert.deepEqual(state.targets.map(({target,runMode})=>[target.platform,runMode]),[
+  ['claude','full-auto'],['codex','supervised'],
+ ]);
+});
 function fixture(t){const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-upgrade-state-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));return userHome;}
 function seed(home,platform,env={}){const target=resolveTarget(platform,{userHome:home,env,cwd:home}),arc=target.home+'/skills/arc';fs.mkdirSync(arc,{recursive:true});fs.mkdirSync(target.home+'/agents',{recursive:true});fs.writeFileSync(arc+'/SKILL.md','installed ARC');fs.copyFileSync(platform+'/skill/models.toml',arc+'/models.toml');fs.writeFileSync(arc+'/settings.toml',`version = 1\nlanguage = "${platform==='codex'?'ko':'en'}"\n`);fs.writeFileSync(arc+'/limits.toml','version = 1\nmax_total_subagents = 37\nmax_concurrent_subagents = 3\n');for(const name of target.profileNames)fs.writeFileSync(target.home+'/agents/'+name,'existing profile');return target;}
 test('composite state carries participating set',async t=>{const ctx=await compositeContext(t);await standalone(ctx);assert.equal((await publish(ctx)).code,0);const state=api.collectInstalledState(ctx);assert.equal(state.mode,'composite');assert.deepEqual(state.platforms,['claude','codex']);});

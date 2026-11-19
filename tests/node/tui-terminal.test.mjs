@@ -34,10 +34,10 @@ test('UTF-8 and bracketed paste stay text, including pasted confirmation charact
 });
 test('busy input and queued enter never reach the next selection screen',async t=>{
  const io=session(t);io.send('\r\r');assert.equal((await io.session.nextEvent()).name,'enter');io.session.setBusy(true);io.send('\r');io.session.setBusy(false);
- io.session.render({title:'Settings',rows:['Apply'],selected:0});io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');
+ io.session.render({title:'Configure',rows:['Apply'],selected:0});io.send('\x1b[B');assert.equal((await io.session.nextEvent()).name,'down');
 });
 test('hidden menu selection blocks Enter and resize recalculates visibility',async t=>{
- const io=session(t,{rows:3});const screen={title:'Settings',rows:['Preset','Language','Apply'],selected:2};io.session.render(screen);io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+ const io=session(t,{rows:3});const screen={title:'Configure',rows:['Run mode','Language','Apply'],selected:2};io.session.render(screen);io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
  io.resize(80,24);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
  io.resize(80,2);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
 });
@@ -48,7 +48,7 @@ test('text selections and page navigation refresh the Enter gate on every screen
  for(const selected of [1,2]){io.session.render({title:'Maximum total subagents',mode:'text',rows:['100','Apply','Back'],selected});io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');}
  io.session.render({title:'Result',mode:'page',rows:['Installed']});io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
  io.resize(80,3);assert.equal((await io.session.nextEvent()).name,'resize');io.send('\r');assert.equal((await io.session.nextEvent()).name,'enter');
- io.session.render({title:'Settings',rows:['Apply'],selected:0});io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
+ io.session.render({title:'Configure',rows:['Apply'],selected:0});io.send('\r');assert.equal((await io.session.nextEvent()).name,'blocked');
 });
 for(const ending of ['end','close','SIGINT','SIGTERM','error','render-error','dispose'])test('restores raw mode, flow and owned listeners on '+ending,async t=>{
  assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal({raw:true});const existing=()=>{};io.input.on('data',existing);io.input.pause();
@@ -64,8 +64,8 @@ test('split CRLF is one enter, preventing a second unintended confirmation',asyn
 });
 test('output failure during display restores terminal before propagating the error',t=>{
  const io=session(t);const write=io.output.write.bind(io.output);let failed=false;
- io.output.write=chunk=>{if(!failed&&String(chunk).includes('Settings')){failed=true;throw Error('output failed');}return write(chunk);};
- assert.throws(()=>io.session.render({title:'Settings',rows:['Apply'],selected:0}),/output failed/);assert.equal(io.input.isRaw,false);assert.equal(io.input.listenerCount('data'),0);assert.match(io.text(),/\x1b\[\?25h/);
+ io.output.write=chunk=>{if(!failed&&String(chunk).includes('Configure')){failed=true;throw Error('output failed');}return write(chunk);};
+ assert.throws(()=>io.session.render({title:'Configure',rows:['Apply'],selected:0}),/output failed/);assert.equal(io.input.isRaw,false);assert.equal(io.input.listenerCount('data'),0);assert.match(io.text(),/\x1b\[\?25h/);
 });
 test('output error events settle waiting readers and restore raw mode',async t=>{
  const io=session(t);const pending=io.session.nextEvent(),error=Error('write failed');io.output.emit('error',error);
@@ -137,7 +137,7 @@ test('status tones vanish without color',t=>{
 });
 
 test('repaint keeps a pending lone Escape and split arrows',async t=>{
- const io=session(t),screen={title:'Settings',rows:['Back'],selected:0};io.session.render(screen);
+ const io=session(t),screen={title:'Configure',rows:['Back'],selected:0};io.session.render(screen);
  io.send('\x1b');io.session.repaint(screen);assert.equal((await io.session.nextEvent()).name,'escape');
  io.send('\x1b[');io.session.repaint(screen);io.send('B');assert.equal((await io.session.nextEvent()).name,'down');
  io.send('x');io.session.repaint(screen);assert.equal((await io.session.nextEvent()).text,'x');
@@ -150,7 +150,7 @@ test('repaint skips identical frames and resize forces a redraw',t=>{
 });
 test('frames are wrapped in synchronized output',t=>{
  const io=session(t),writes=[],write=io.output.write.bind(io.output);io.output.write=chunk=>{writes.push(String(chunk));return write(chunk);};
- io.session.render({title:'Settings',rows:['Back'],selected:0});assert.equal(writes.length,1);assert.match(writes[0],/^\x1b\[\?2026h[\s\S]*\x1b\[2K[\s\S]*\x1b\[\?2026l$/);
+ io.session.render({title:'Configure',rows:['Back'],selected:0});assert.equal(writes.length,1);assert.match(writes[0],/^\x1b\[\?2026h[\s\S]*\x1b\[2K[\s\S]*\x1b\[\?2026l$/);
 });
 test('frameMs is 80 unless TERM is dumb',t=>{for(const [env,want] of [[{},80],[{TERM:'dumb'},0],[{NO_COLOR:''},80]])assert.equal(session(t,{env}).session.frameMs,want);});
 test('repaint after dispose is a no-op',t=>{const io=session(t);io.session.dispose();const before=io.text();assert.deepEqual(io.session.repaint({title:'Closed'}),{selectionEnabled:false,text:''});assert.equal(io.text(),before);});

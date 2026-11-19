@@ -147,6 +147,32 @@
       }
     },
     {
+      "id": "approval.run-mode",
+      "roles": [
+        "orchestrator",
+        "scouter",
+        "planner",
+        "implementer",
+        "qa",
+        "reviewer"
+      ],
+      "effect": "require",
+      "operations": [
+        "gate-decision"
+      ],
+      "evidence": [
+        "user-choice-or-recorded-full-auto-decision"
+      ],
+      "authority": "user",
+      "text": "The installed ARC Run mode is Supervised unless the installed skill states Full Auto. In Full Auto, an Orchestrator decision recorded as `auto-decided (Full Auto)` with gate, choice, reason and evidence counts as the explicit choice or approval for that listed gate only; briefs cite it as `full-auto:<doc>@<version>` or the recorded decision. It never authorizes new product decisions outside the original request, external actions, resolution of failures, holds, unknown state or ownership conflicts, preservation-rule Git actions, permission or sandbox changes, or unknown slots and exhausted capacity, and it changes no plan-depth, commit, QA, Reviewer or acceptance rule. A user request to stop or use Supervised applies from the next gate.",
+      "controls": {
+        "codex": "prompt",
+        "claude": "prompt",
+        "gemini": "prompt",
+        "grok": "prompt"
+      }
+    },
+    {
       "id": "role.orchestrator-boundary",
       "roles": [
         "orchestrator"

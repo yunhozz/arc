@@ -2,10 +2,82 @@ import{referenceFixture}from'./fixtures/fake-git.mjs';
 import {createHash} from 'node:crypto';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';
 import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '../../lib/safe-fs/native.mjs';
+import {agentsBlockBody,renderManagedBlock} from '../../lib/installer/global-config.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),safeFs,...extra});}
+const supervisedPolicy="**Run mode:** Supervised. Every approval and choice gate in this skill and its references requires the user's explicit answer; Orchestrator does not auto-decide gates.";
+const supervisedSettings='version = 1\nlanguage = "en"\n';
+const fullAutoSettings='version = 2\nlanguage = "en"\nrun_mode = "full-auto"\n';
+const runModeMarker='{{ARC_RUN_MODE_POLICY}}';
+function writeRunModeSettings(home,text){
+ const directory=path.join(home,'.codex/skills/arc');
+ fs.mkdirSync(directory,{recursive:true});
+ fs.writeFileSync(path.join(directory,'settings.toml'),text);
+}
+test('runMode default supervised bytes',t=>{
+ const home=fixture(t),result=plan(home),{target}=result;
+ assert.equal(result.runMode,'supervised');
+ assert.deepEqual(result.generated.skill.get('settings.toml'),Buffer.from(supervisedSettings));
+ const skill=result.generated.skill.get('SKILL.md').toString();
+ assert.ok(skill.includes(supervisedPolicy));
+ assert.ok(!skill.includes(runModeMarker));
+ const instructions=result.globalChanges.find(change=>change.path===target.instructionPath);
+ assert.deepEqual(instructions?.content,renderManagedBlock(null,agentsBlockBody(target.home,home,'en',target.platform)).content);
+});
+test('runMode preserves existing full-auto',t=>{
+ const home=fixture(t);
+ writeRunModeSettings(home,fullAutoSettings);
+ const result=plan(home);
+ assert.equal(result.runMode,'full-auto');
+ assert.deepEqual(result.generated.skill.get('settings.toml'),Buffer.from(fullAutoSettings));
+ const skill=result.generated.skill.get('SKILL.md').toString();
+ assert.ok(skill.includes('**Run mode:** Full Auto. Orchestrator decides the gates listed in [planning](references/planning.md#full-auto-run-mode) itself:'));
+ assert.ok(!skill.includes(runModeMarker));
+ const instructions=result.globalChanges.find(change=>change.path===result.target.instructionPath);
+ assert.match(instructions?.content.toString(),/^- ARC Run mode is Full Auto:/m);
+ for(const bytes of result.generated.profiles.values())assert.doesNotMatch(bytes.toString(),/ARC_RUN_MODE_POLICY|\*\*Run mode:\*\*/);
+});
+test('runMode v1 existing stays supervised',t=>{
+ const home=fixture(t);
+ writeRunModeSettings(home,supervisedSettings);
+ const result=plan(home);
+ assert.equal(result.runMode,'supervised');
+ assert.deepEqual(result.generated.skill.get('settings.toml'),Buffer.from(supervisedSettings));
+});
+test('runMode explicit overrides',t=>{
+ const home=fixture(t);
+ writeRunModeSettings(home,fullAutoSettings);
+ const result=plan(home,'codex',{runMode:'supervised'});
+ assert.equal(result.runMode,'supervised');
+ assert.deepEqual(result.generated.skill.get('settings.toml'),Buffer.from(supervisedSettings));
+});
+test('runMode v2 supervised normalizes',t=>{
+ const home=fixture(t);
+ writeRunModeSettings(home,'version = 2\nlanguage = "en"\nrun_mode = "supervised"\n');
+ const result=plan(home);
+ assert.equal(result.runMode,'supervised');
+ assert.deepEqual(result.generated.skill.get('settings.toml'),Buffer.from(supervisedSettings));
+});
+test('runMode invalid rejected',t=>{
+ const home=fixture(t);
+ assert.throws(()=>plan(home,'codex',{runMode:'auto'}),/Invalid run mode/);
+});
+test('summary unchanged across run modes',t=>{
+ const home=fixture(t);
+ const supervised=plan(home,'codex',{runMode:'supervised'});
+ const fullAuto=plan(home,'codex',{runMode:'full-auto'});
+ assert.equal(fullAuto.runMode,'full-auto');
+ assert.deepEqual(fullAuto.summary,supervised.summary);
+});
+for(const count of [0,2])test(`install plan rejects a skill with ${count} run mode markers`,t=>{
+ const home=fixture(t),input=payload();
+ const target=targets.resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const source=['{{ARC_OUTPUT_LANGUAGE_POLICY}}',...Array(count).fill(runModeMarker)].join('\n\n');
+ input.files.set('codex/skill/SKILL.md',Buffer.from(source));
+ assert.throws(()=>api.buildInstallPlan({payload:input,target,safeFs}),/Expected exactly one ARC run mode policy marker/);
+});
 test('plan rejects fragments that move model fields into a TOML table before writes',t=>{
  const home=fixture(t),input=payload();input.agentRegistry.fragments.find(item=>item.id==='common.brief-boundary').text='"""\n[shadow]\ntext = """';
  assert.throws(()=>api.buildInstallPlan({payload:input,target:targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),safeFs}),{code:'ARC_PAYLOAD_VALIDATION',message:/Final profile model settings changed/});

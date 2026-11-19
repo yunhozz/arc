@@ -37,8 +37,8 @@ The package provides the CLI; use the TUI to install the harness. Public command
 
 | Home action | Effect |
 |---|---|
-| Configure | Edit role platform/model/effort, Hosts, and Settings; `Apply` publishes; new sessions load profiles. Defaults: English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
-| Status | Platform status, Mode, diagnostics, and ARC version (current/latest or lookup failure); `Upgrade` appears only when a newer version exists and an ARC harness is installed, and preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
+| Configure | Edit role platform/model/effort, Hosts, Run mode (Supervised/Full Auto), Language, and subagent limits; `Apply` publishes; new sessions load profiles. Defaults: Supervised, English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
+| Status | Installed on, settings, platform status, diagnostics, and ARC version (current/latest or lookup failure); `Upgrade` appears only when a newer version exists and an ARC harness is installed, and preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
 | Uninstall | Remove a platform or `Everything (incl. CLI)` after confirmation (default `Back`); removing a Mixed participant restores others to standalone. Everything filters verified install/standalone platforms and removes CLI only after harness success. Unselected harnesses/user files remain. CLI only: `npm uninstall -g @yunhozz/arc` |
 
 | Mode | Rule |
@@ -92,6 +92,7 @@ The package provides the CLI; use the TUI to install the harness. Public command
 
 - Re-run `Configure` after upgrading, including `cooperative-9`; in-flight workflow version mismatches hold with `cooperative.versions`, without automatic migration.
 - Existing Codex+Claude composites move to the Claude home; finish/cancel non-terminal dispatches in either store before applying. Old Codex dispatch history stays there.
+- Before downgrading from Full Auto, switch Run mode to Supervised and `Apply`; older CLIs read the v2 `settings.toml` as incomplete.
 - After downgrading, run the older version's `Configure` to restore its composite layout.
 
 ## Guides

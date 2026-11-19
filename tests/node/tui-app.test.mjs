@@ -33,7 +33,7 @@ const blockingNotice='Force finish marks the native/reserved entries cancelled. 
 const blockingEntry={home:'/home/codex',dispatchId:'12345678-native',role:'arc_implementer',workflowId:'work',route:'native',state:'reserved',hostPlatform:'codex',updatedAt:'2026-11-17T00:00:00.000Z',forceFinishable:true};
 async function blockedTui({kind='composite',entries=[blockingEntry],events=[enter,enter,back],result,retryResult,forceResult={finished:[blockingEntry.dispatchId],skipped:[],residualPaths:[]},forceError,prepareError,uninstall=false,columns=120}={}){
  const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
- const session=terminal([...(uninstall?[...down(2),enter,enter,{name:'up'},enter]:[enter,...down(7),enter]),...events],{columns});
+ const session=terminal([...(uninstall?[...down(2),enter,enter,{name:'up'},enter]:[enter,...down(10),enter]),...events],{columns});
  const requests=[],preparations=[],executions=[],forces=[],order=[];let busy=false;
  session.setBusy=value=>{busy=value;};
  const blocked=result??{code:1,results:[],error:Object.assign(Error('Active dispatches block this operation'),{blockingDispatches:entries})};
@@ -203,7 +203,8 @@ for(const columns of [100,40])test('Status groups migration notes and aligns wra
  await runTui({session,context:{env:{PATH:fixturePath}},services:{collectStatus:async()=>statuses,currentInstallState:()=>({mode:'composite',platforms:['claude','codex']}),prepareOperation:async(_context,request)=>{assert.deepEqual(request,{kind:'update'});return statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false});},executeOperation:async()=>assert.fail('Status cannot execute')}});
  const screen=session.screens.find(screen=>screen.title==='Status');
  const notes=columns===100?['• '+message+' (Claude, Codex)']:['• Mixed routing will move to the','  Claude home the next time you apply','  Configure. (Claude, Codex)'];
- assert.deepEqual(screen.rows,['Mode      Mixed (Claude + Codex)','','Claude    Available','Codex     Available','Gemini    Available · auth unverified','','Version   1.0.0 · up to date','','Notes',...notes,'','Back']);
+ const gemini=columns===100?['Gemini         Available · auth unverified']:['Gemini         Available · auth','               unverified'];
+ assert.deepEqual(screen.rows,['Installed on   Mixed (Claude + Codex)','','Claude         Available','Codex          Available',...gemini,'','Version        1.0.0 · up to date','','Notes',...notes,'','Back']);
  assert.equal(screen.rows[screen.selected],'Back');assert.equal(session.screens.at(-1).title,'ARC');
  const rendered=renderScreen(screen,session.viewport()),lines=rendered.text.split('\n');
  const colors=rendered.styles.flatMap(style=>style.runs.filter(run=>['ok','warn','error','muted'].includes(run.role)).map(run=>[lines[style.line].slice(run.from,run.to),run.role]));
@@ -216,7 +217,7 @@ test('Status humanizes and deduplicates authentication notes and omits repeated 
   {platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'auth_check_failed'},diagnostics:[{message:'auth check failed'}]},
   {platform:'claude',state:'installed',authentication:{authStatus:'unauthorized',reason:'unauthorized'},diagnostics:[]}
  ]}});
- assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Mode      Claude, Codex','','Claude    Unauthorized','Codex     Incomplete','','Version   1.0.0 · up to date','','Notes','• auth check failed (Codex)','','Back']);
+ assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Installed on   Claude, Codex','','Claude         Unauthorized','Codex          Incomplete','','Version        1.0.0 · up to date','','Notes','• auth check failed (Codex)','','Back']);
 });
 test('Status humanizes embedded authentication codes while preserving diagnostic paths verbatim',async()=>{
  const {runTui}=await load(),session=terminal([...down(1),enter,back,back]);
@@ -364,18 +365,18 @@ test('all screen types use contextual compact hints while retaining existing nav
 for(const ending of [enter,back])test('Status preserves ordered information and returns home without operations on '+ending.name,async()=>{
  const{runTui}=await load(),session=terminal([...down(1),enter,ending,back]);
  const code=await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'incomplete',diagnostics:[Error('bad config\x1b[2J')]},{platform:'claude',state:'installed',diagnostics:[]}],prepareOperation:async(_context,request)=>{assert.deepEqual(request,{kind:'update'});return statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false});},executeOperation:async()=>assert.fail('Status must not execute')}});
- assert.equal(code,0);const status=session.screens.find(screen=>screen.title==='Status');assert.ok(status);assert.deepEqual(status.rows,['Mode      Claude','','Claude    Available','Codex     Incomplete','','Version   1.0.0 · up to date','','Notes','• bad config\\x1b[2J (Codex)','','Back']);assert.deepEqual(status.rowTones,[undefined,undefined,'platform-status','platform-status',undefined,undefined,undefined,undefined,'note',undefined,undefined]);assert.equal(status.selected,10);assert.equal(status.wordmark,false);
+ assert.equal(code,0);const status=session.screens.find(screen=>screen.title==='Status');assert.ok(status);assert.deepEqual(status.rows,['Installed on   Claude','','Claude         Available','Codex          Incomplete','','Version        1.0.0 · up to date','','Notes','• bad config\\x1b[2J (Codex)','','Back']);assert.deepEqual(status.rowTones,[undefined,undefined,'platform-status','platform-status',undefined,undefined,undefined,undefined,'note',undefined,undefined]);assert.equal(status.selected,10);assert.equal(status.wordmark,false);
  assert.equal(session.screens.at(-1).title,'ARC');assert.equal(session.screens.at(-1).rows[session.screens.at(-1).selected],'Status');assert.ok(session.screens.filter(screen=>screen.title==='ARC').every(screen=>screen.rows.length===4&&screen.rowTones===undefined));
 });
 test('Status with one collected target does not invent the missing target',async()=>{
- const{runTui}=await load(),session=terminal([...down(1),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'absent',diagnostics:[]}]}});assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Mode      Not installed','','Codex     Not Available','','Version   1.0.0 · up to date','','Back']);
+ const{runTui}=await load(),session=terminal([...down(1),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode:'standalone',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'absent',diagnostics:[]}]}});assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Installed on   Not installed','','Codex          Not Available','','Version        1.0.0 · up to date','','Back']);
 });
 
 test('home exposes direct lifecycle actions in approved order',async()=>{const{runTui}=await load();const session=terminal([back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[]}});assert.deepEqual(session.screens[0].rows.slice(session.screens[0].selected),['Configure','Status','Uninstall','Exit']);});
 test('menu keeps actions adjacent and separates info by one blank',async()=>{const{createTuiInterface}=await load();const session=terminal([...down(1),enter]);assert.equal(await createTuiInterface(session).menu('Check',['Upgrade'],{backRow:true,info:['1.9.0 → 1.10.0']}),null);assert.deepEqual(session.screens[0].rows,['1.9.0 → 1.10.0','','Upgrade','Back']);assert.equal(session.screens[0].selected,2);assert.equal(session.screens.at(-1).selected,3);const trailing=terminal([enter]);assert.equal(await createTuiInterface(trailing).menu('Menu',['One'],{info:['A','']}),0);assert.deepEqual(trailing.screens[0].rows,['A','','One']);const plain=terminal([enter]);assert.equal(await createTuiInterface(plain).menu('Menu',['One'],{backRow:true}),0);assert.deepEqual(plain.screens[0].rows,['One','Back']);});
 test('empty actions ignore Enter and navigation with no pointer until Escape',async()=>{const{createTuiInterface}=await load();const session=terminal([enter,...down(1),{name:'up'},back]);await assert.rejects(()=>createTuiInterface(session).menu('Status',[],{info:['Up to date (1.10.0)']}),{code:'ARC_TUI_HOME'});assert.equal(session.screens.length,4);assert.ok(session.screens.every(s=>s.selected===undefined));});
-test('hidden Execute cannot run until resized to show the selected row',async()=>{const{createTuiInterface}=await load();const{renderScreen}=await import('../../lib/tui/render.mjs');const session=terminal([enter,back]);session.viewport=()=>({columns:12,rows:2});session.render=s=>{session.screens.push(s);return renderScreen(s,session.viewport());};await assert.rejects(()=>createTuiInterface(session).menu('Settings',['Preset','Execute'],{selected:1}),{code:'ARC_TUI_HOME'});});
-test('Status upgrade defaults Back and is a selected row and executes the displayed snapshot without review',async()=>{const{runTui}=await load();const session=terminal([...down(1),enter,{name:'up'},enter,enter,back]);const prepared={kind:'update',state:{targets:[{target:{platform:'codex'}}]},currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:true};let preparations=0,executed;await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>{preparations++;return prepared;},executeOperation:async(c,p)=>{executed=p;return{code:0,results:[]};}}});assert.equal(preparations,1);assert.equal(executed,prepared);const screen=session.screens.find(s=>s.title==='Status');assert.equal(screen.rows[screen.selected],'Back');assert.deepEqual(screen.rows,['Mode      Not installed','','','Version   1.9.0 → 1.10.0','','Upgrade','Back']);assert.ok(session.screens.some(s=>s.title==='Status'&&s.rows[s.selected]==='Upgrade'));assert.ok(!session.screens.some(s=>s.title.startsWith('Review')));});
+test('hidden Apply cannot run until resized to show the selected row',async()=>{const{createTuiInterface}=await load();const{renderScreen}=await import('../../lib/tui/render.mjs');const session=terminal([enter,back]);session.viewport=()=>({columns:12,rows:2});session.render=s=>{session.screens.push(s);return renderScreen(s,session.viewport());};await assert.rejects(()=>createTuiInterface(session).menu('Configure',['Run mode','Apply'],{selected:1}),{code:'ARC_TUI_HOME'});});
+test('Status upgrade defaults Back and is a selected row and executes the displayed snapshot without review',async()=>{const{runTui}=await load();const session=terminal([...down(1),enter,{name:'up'},enter,enter,back]);const prepared={kind:'update',state:{targets:[{target:{platform:'codex'}}]},currentVersion:'1.9.0',latestVersion:'1.10.0',canUpgrade:true};let preparations=0,executed;await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>{preparations++;return prepared;},executeOperation:async(c,p)=>{executed=p;return{code:0,results:[]};}}});assert.equal(preparations,1);assert.equal(executed,prepared);const screen=session.screens.find(s=>s.title==='Status');assert.equal(screen.rows[screen.selected],'Back');assert.deepEqual(screen.rows,['Installed on   Not installed','','','Version        1.9.0 → 1.10.0','','Upgrade','Back']);assert.ok(session.screens.some(s=>s.title==='Status'&&s.rows[s.selected]==='Upgrade'));assert.ok(!session.screens.some(s=>s.title.startsWith('Review')));});
 test('unavailable version selects Back and Enter returns home without execution',async()=>{const{runTui}=await load();for(const latestVersion of ['1.9.0','1.8.0',null]){const session=terminal([...down(1),enter,enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',state:{targets:[{target:{platform:'codex'}}]},currentVersion:'1.9.0',latestVersion,canUpgrade:false}),executeOperation:async()=>assert.fail('no upgrade')}});for(const screen of session.screens.filter(s=>s.title==='Status')){assert.equal(screen.rows[screen.selected],'Back');assert.deepEqual(screen.rows.slice(-2),['','Back']);assert.ok(!screen.rows.includes('Version Upgrade'));}}});
 
 test('CLI uninstall status and error remain visible beside harness partial results',async()=>{const{resultRows}=await load();const rows=resultRows({code:1,exitSession:true,results:[{platform:'codex',status:'uninstalled'}],cli:{status:'failed',error:Error('npm failure')}}).join('\n');assert.match(rows,/CLI: failed/);assert.match(rows,/npm failure/);assert.match(rows,/CLI removal ended this session/);});
@@ -383,11 +384,11 @@ test('CLI uninstall status and error remain visible beside harness partial resul
 test('generic text Save returns edited string and Back returns null while editing selected actions',async()=>{const{createTuiInterface}=await load();const session=terminal([{name:'backspace'},{name:'paste',text:'€'},{name:'down'},{name:'text',text:'x'},{name:'backspace'},{name:'up'},enter]);assert.equal(await createTuiInterface(session).text('Input','12'),'1€');assert.deepEqual(session.screens[0].rows,['12','','Save','Back','']);assert.equal(session.screens[0].selected,2);assert.ok(session.screens.every(screen=>['Save','Back'].includes(screen.rows[screen.selected])));const cancel=terminal([{name:'down'},{name:'text',text:'discard'},enter]);assert.equal(await createTuiInterface(cancel).text('Input','old'),null);assert.equal(cancel.screens.at(-1).selected,3);assert.equal(cancel.screens.at(-1).rows[cancel.screens.at(-1).selected],'Back');});
 test('Backspace on menu and page never navigates',async()=>{const{createTuiInterface}=await load();for(const mode of ['menu','page']){const session=terminal([{name:'backspace'},enter]);assert.equal(await createTuiInterface(session)[mode]('Task',['One']),mode==='menu'?0:true);assert.equal(session.screens.length,2);}});
 test('viewport menu window follows selected action on resize without dropping required information',async()=>{const{createTuiInterface}=await load();const{renderScreen}=await import('../../lib/tui/render.mjs');const session=terminal([...down(11),enter]);session.viewport=()=>({columns:100,rows:9});session.render=s=>{session.screens.push(s);return renderScreen(s,session.viewport());};assert.equal(await createTuiInterface(session).menu('Menu',Array.from({length:12},(_,i)=>'Action '+i)),11);assert.equal(session.screens.at(-1).rows.at(-1),'Action 11');assert.ok(session.screens.at(-1).position);});
-test('input Save returns to Settings without preparing or executing an install',async()=>{const{runTui}=await load();const session=terminal([enter,...down(6),enter,...down(1),enter,{name:'backspace'},{name:'backspace'},{name:'backspace'},{name:'text',text:'42'},enter,back,back]);let prepares=0,executes=0;await runTui({session,context:{env:{PATH:fixturePath},packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>{prepares++;return{kind:'install'};},executeOperation:async()=>{executes++;return{code:0,results:[]};}}});assert.equal(prepares,0);assert.equal(executes,0);assert.ok(session.screens.some(s=>s.title==='Settings'&&s.rows.some(row=>/^Total subagents +42$/.test(row))));assert.equal(session.screens.filter(s=>s.title==='Working').length,0)});
+test('input Save returns to Configure without preparing or executing an install',async()=>{const{runTui}=await load();const session=terminal([enter,...down(8),enter,{name:'backspace'},{name:'backspace'},{name:'backspace'},{name:'text',text:'42'},enter,back,back]);let prepares=0,executes=0;await runTui({session,context:{env:{PATH:fixturePath},packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>{prepares++;return{kind:'install'};},executeOperation:async()=>{executes++;return{code:0,results:[]};}}});assert.equal(prepares,0);assert.equal(executes,0);assert.ok(session.screens.some(s=>s.title==='Configure'&&s.rows.some(row=>/^Total subagents +42$/.test(row))));assert.equal(session.screens.filter(s=>s.title==='Working').length,0)});
 
 test('idle Escape reaches home from every nested lifecycle screen without executing prepared actions',async()=>{
  const{runTui}=await load(),{fileURLToPath}=await import('node:url'),packageRoot=fileURLToPath(new URL('../../',import.meta.url));const scenarios=[
- ['diagram',[enter]],['Settings',[enter,...down(6),enter]],['chooser',[enter,enter,...down(1),enter]],['input',[enter,...down(6),enter,...down(1),enter]],
+ ['diagram',[enter]],['Configure Run mode',[enter,...down(6),enter]],['chooser',[enter,enter,...down(1),enter]],['input',[enter,...down(8),enter]],
  ['uninstall target',[...down(2),enter]],['global choice',[...down(2),enter,enter]],
  ['error',[...down(1),enter]],['Result',[...down(1),enter,{name:'up'},enter]]
  ];
@@ -411,12 +412,12 @@ test('custom editor keeps long model choices selectable at 40 columns',async()=>
 });
 
 test('TUI role selection prepares only role pairs and keeps environment secrets off screen',async()=>{
- const {runTui}=await load(),secret='fixture-sensitive-key',session=terminal([enter,...down(7),enter,enter,back]);let prepared;
+ const {runTui}=await load(),secret='fixture-sensitive-key',session=terminal([enter,...down(10),enter,enter,back]);let prepared;
  await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),env:{PATH:fixturePath,ANTHROPIC_API_KEY:secret}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async(_context,options)=>{prepared=options;return{kind:'install',plans:[]};},executeOperation:async()=>({code:0,results:[]})}});
  assert.equal(Object.keys(prepared.roles).length,5);assert.doesNotMatch(JSON.stringify(prepared),/fixture-sensitive-key/);assert.doesNotMatch(JSON.stringify(session.screens),/fixture-sensitive-key/);
 });
 for(const firstCode of [0,1])test('role draft '+(firstCode?'survives failed execution':'is cleared after successful execution'),async()=>{
- const {runTui}=await load();const events=[enter,enter,...down(2),{name:'left'},...down(1),enter,...down(7),enter,enter,enter,...down(7),enter,enter,back];
+ const {runTui}=await load();const events=[enter,enter,...down(2),{name:'left'},...down(1),enter,...down(10),enter,enter,enter,...down(10),enter,enter,back];
  const session=terminal(events),prepared=[];let executed=0;
  await runTui({session,context:{env:{PATH:fixturePath},packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async(_c,options)=>{prepared.push(structuredClone(options));return{kind:'install',plans:[]};},executeOperation:async()=>({code:executed++===0?firstCode:0,results:[]})}});
  assert.equal(prepared.length,2);assert.equal(prepared[0].roles.arc_scouter.model,'haiku');assert.equal(prepared[0].roles.arc_scouter.effort,'medium');assert.equal(prepared[1].roles.arc_scouter.effort,firstCode?'medium':'high');
@@ -446,8 +447,8 @@ test('diagram role focus hides the outer selection line but remains selectable',
 test('Status shows Available, Not Available and Unauthorized labels',async()=>{
  const{runTui}=await load();
  const cases=[
-  [[{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'authenticated'}},{platform:'codex',state:'absent',diagnostics:[]}],['Claude    Available','Codex     Not Available']],
-  [[{platform:'codex',state:'installed',diagnostics:[],authentication:{platform:'codex',authStatus:'unknown',reason:'cli_not_found'}},{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'unauthorized'}}],['Claude    Unauthorized','Codex     Not Available']]
+  [[{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'authenticated'}},{platform:'codex',state:'absent',diagnostics:[]}],['Claude         Available','Codex          Not Available']],
+  [[{platform:'codex',state:'installed',diagnostics:[],authentication:{platform:'codex',authStatus:'unknown',reason:'cli_not_found'}},{platform:'claude',state:'installed',diagnostics:[],authentication:{platform:'claude',authStatus:'unauthorized'}}],['Claude         Unauthorized','Codex          Not Available']]
  ];
  for(const [statuses,expected] of cases){const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>statuses}});assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows.slice(2,4),expected);}
 });
@@ -459,13 +460,13 @@ test('uninstall confirmation during composite adds the turn-off line and switch 
 });
 
 for(const lookup of ['default','missing','throws','unverified'])test('state lookup '+lookup+' keeps diagram usable and blocks unverified Apply',async()=>{
- const {runTui}=await load(),session=terminal([enter,...down(7),enter,back,...down(1),enter,back,back]);
+ const {runTui}=await load(),session=terminal([enter,...down(10),enter,back,...down(1),enter,back,back]);
  const services={collectStatus:async()=>[],prepareOperation:async(_context,request)=>{assert.deepEqual(request,{kind:'update'});return statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false});},executeOperation:async()=>assert.fail('unverified cannot execute')};
  if(lookup==='missing')services.currentInstallState=undefined;
  if(lookup==='throws')services.currentInstallState=async()=>{throw Error('state inspection failed');};
  if(lookup==='unverified')services.currentInstallState=()=>({mode:'unverified',platforms:[]});
  assert.equal(await runTui({session,context:{packageRoot:fileURLToPath(new URL('../../',import.meta.url)),userHome:'/private/tmp/arc-task16-state-probe',env:{PATH:fixturePath},safeFs:{openRoot(){throw Error('state inspection failed');}}},services}),0);
- assert.ok(session.screens.some(s=>s.title==='Configure'&&s.rows.some(row=>row.includes('Scouter'))));assert.ok(session.screens.some(s=>s.title==='Operation unavailable'&&s.rows.includes('Mixed routing configuration cannot be verified.')));assert.ok(session.screens.find(screen=>screen.title==='Status').rows.includes('Mode      Unverified'));
+ assert.ok(session.screens.some(s=>s.title==='Configure'&&s.rows.some(row=>row.includes('Scouter'))));assert.ok(session.screens.some(s=>s.title==='Operation unavailable'&&s.rows.includes('Mixed routing configuration cannot be verified.')));assert.ok(session.screens.find(screen=>screen.title==='Status').rows.includes('Installed on   Unverified'));
 });
 test('unverified Apply lists real management residual paths without preparing',async t=>{
  const {compositeContext,targets}=await import('./fixtures/install-mode.mjs');
@@ -473,7 +474,7 @@ test('unverified Apply lists real management residual paths without preparing',a
  const context=await compositeContext(t),home=targets(context).codex.home;
  const residualPaths=['arc-role-platform-routing.prepared.json','agents/arc-routing-qa.toml'].map(name=>join(home,name));
  mkdirSync(join(home,'agents'),{recursive:true});for(const filename of residualPaths)writeFileSync(filename,'{}');
- const {runTui}=await load(),session=terminal([enter,...down(7),enter,back,back]);let preparations=0;
+ const {runTui}=await load(),session=terminal([enter,...down(10),enter,back,back]);let preparations=0;
  assert.equal(await runTui({session,context,services:{collectStatus:async()=>[],prepareOperation:async()=>{preparations++;assert.fail('unverified cannot prepare');},executeOperation:async()=>assert.fail('unverified cannot execute')}}),0);
  assert.equal(preparations,0);
  assert.ok(session.screens.some(screen=>screen.title==='Configure'));
@@ -482,17 +483,17 @@ test('unverified Apply lists real management residual paths without preparing',a
  assert.match(pageText,/Residual path:/);for(const filename of residualPaths)assert.ok(pageText.includes(filename));
  assert.ok(screen.rows.includes('No changes were applied.'));
 });
-test('Status lists each platform and Mode line',async()=>{
- const {runTui}=await load();for(const [mode,auth,want] of [['composite','authenticated','Mode      Mixed (Claude + Codex)'],['standalone','authenticated','Mode      Claude, Codex'],['composite','unauthorized','Mode      Mixed (Claude + Codex)']]){
+test('Status lists each platform and Installed on line',async()=>{
+ const {runTui}=await load();for(const [mode,auth,want] of [['composite','authenticated','Installed on   Mixed (Claude + Codex)'],['standalone','authenticated','Installed on   Claude, Codex'],['composite','unauthorized','Installed on   Mixed (Claude + Codex)']]){
   const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode,platforms:['claude','codex']}),collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:platform==='codex'?auth:'authenticated'},diagnostics:platform==='claude'?[{message:'diagnostic'}]:[]}))}});
-  const screen=session.screens.find(screen=>screen.title==='Status');assert.equal(screen.rows[0],want);assert.deepEqual(screen.rows.slice(1,5),['','Claude    Available','Codex     '+(auth==='unauthorized'?'Unauthorized':'Available'),'']);assert.deepEqual(screen.rows.slice(7,9),['Notes','• diagnostic (Claude)']);
+  const screen=session.screens.find(screen=>screen.title==='Status');assert.equal(screen.rows[0],want);assert.deepEqual(screen.rows.slice(1,5),['','Claude         Available','Codex          '+(auth==='unauthorized'?'Unauthorized':'Available'),'']);assert.deepEqual(screen.rows.slice(7,9),['Notes','• diagnostic (Claude)']);
  }
 });
 
 test('Working screen has no body text',async()=>{const{createTuiInterface}=await load();const session=terminal([]);assert.equal(await createTuiInterface(session).busy(async()=>42),42);assert.deepEqual(session.screens[0].rows,[]);assert.equal(session.screens[0].hint,'Ctrl+C Interrupt');});
 test('result rows hide a zero exit code and show nonzero ones',async()=>{const{resultRows}=await load();assert.deepEqual(resultRows({code:0,messages:['done']}),['done']);assert.deepEqual(resultRows({code:1,messages:['failed']}),['failed','Exit code: 1']);});
 test('composite result messages use the new copy',async t=>{const{compositeContext,publish}=await import('./fixtures/install-mode.mjs');const ctx=await compositeContext(t);const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));assert.deepEqual(result.messages,['Mixed routing on: Claude + Codex.','After upgrading ARC, run Configure again.']);});
-test('Status shows current → latest, Up to date, or the unavailable lines',async()=>{const{runTui}=await load();for(const [latestVersion,canUpgrade,latestError,want] of [['1.10.0',true,undefined,['Mode      Not installed','','','Version   1.9.0 → 1.10.0','','Upgrade','Back']],['1.9.0',false,undefined,['Mode      Not installed','','','Version   1.9.0 · up to date','','Back']],[null,false,Error('offline'),['Mode      Not installed','','','Version   1.9.0 · latest unavailable','','Notes','• offline','','Back']],['1.8.0',false,undefined,['Mode      Not installed','','','Version   1.9.0 · up to date','','Back']]]){const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',state:{targets:[{target:{platform:'codex'}}]},currentVersion:'1.9.0',latestVersion,canUpgrade,latestError})}});assert.deepEqual(session.screens.find(s=>s.title==='Status').rows,want);}});
+test('Status shows current → latest, Up to date, or the unavailable lines',async()=>{const{runTui}=await load();for(const [latestVersion,canUpgrade,latestError,want] of [['1.10.0',true,undefined,['Installed on   Not installed','','','Version        1.9.0 → 1.10.0','','Upgrade','Back']],['1.9.0',false,undefined,['Installed on   Not installed','','','Version        1.9.0 · up to date','','Back']],[null,false,Error('offline'),['Installed on   Not installed','','','Version        1.9.0 · latest unavailable','','Notes','• offline','','Back']],['1.8.0',false,undefined,['Installed on   Not installed','','','Version        1.9.0 · up to date','','Back']]]){const session=terminal([...down(1),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async()=>({kind:'update',state:{targets:[{target:{platform:'codex'}}]},currentVersion:'1.9.0',latestVersion,canUpgrade,latestError})}});assert.deepEqual(session.screens.find(s=>s.title==='Status').rows,want);}});
 for(const target of [0,1,4])test('Esc on confirmation '+target+' returns home',async()=>{const{runTui}=await load();const session=terminal([...down(2),enter,...down(target),enter,back,back]);await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>installedStatuses(),prepareOperation:async()=>assert.fail('Esc must not prepare')}});assert.equal(session.screens.at(-1).title,'ARC');assert.equal(session.screens.filter(s=>s.rows.includes('Everything (incl. CLI)')).length,target+1);});
 
 test('unverified operation rejection displays residual paths',async()=>{
@@ -510,15 +511,15 @@ test('home capacity follows wordmarkRows in a 17-row terminal',async()=>{
 test('Status passes platform and note tones without changing the home menu',async()=>{
  const{runTui}=await load(),session=terminal([...down(1),enter,back,back]);
  await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'composite',platforms:['claude','codex']}),currentInstallMode:()=> 'composite',collectStatus:async()=>['claude','codex'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},diagnostics:platform==='claude'?[{message:'diagnostic'}]:[]})),prepareOperation:async()=>({kind:'update',state:{targets:[{target:{platform:'codex'}}]},currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false})}});
- const screen=session.screens.find(screen=>screen.title==='Status');assert.deepEqual(screen.rows,['Mode      Mixed (Claude + Codex)','','Claude    Available','Codex     Available','','Version   1.0.0 · up to date','','Notes','• diagnostic (Claude)','','Back']);assert.deepEqual(screen.rowTones,[undefined,undefined,'platform-status','platform-status',undefined,undefined,undefined,undefined,'note',undefined,undefined]);
+ const screen=session.screens.find(screen=>screen.title==='Status');assert.deepEqual(screen.rows,['Installed on   Mixed (Claude + Codex)','','Claude         Available','Codex          Available','','Version        1.0.0 · up to date','','Notes','• diagnostic (Claude)','','Back']);assert.deepEqual(screen.rowTones,[undefined,undefined,'platform-status','platform-status',undefined,undefined,undefined,undefined,'note',undefined,undefined]);
  assert.ok(session.screens.filter(screen=>screen.wordmark).every(screen=>screen.rowTones===undefined));
- const unknown=terminal([...down(1),enter,back,back]);await runTui({session:unknown,context:{env:{PATH:fixturePath}},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode:'unverified',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'probe failed'}}]}});assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rows,['Mode      Unverified','','Codex     Incomplete','','Version   1.0.0 · up to date','','Notes','• probe failed (Codex)','','Back']);assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rowTones,[undefined,undefined,'platform-status',undefined,undefined,undefined,undefined,'note',undefined,undefined]);
+ const unknown=terminal([...down(1),enter,back,back]);await runTui({session:unknown,context:{env:{PATH:fixturePath}},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode:'unverified',platforms:[]}),collectStatus:async()=>[{platform:'codex',state:'installed',authentication:{authStatus:'unknown',reason:'probe failed'}}]}});assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rows,['Installed on   Unverified','','Codex          Incomplete','','Version        1.0.0 · up to date','','Notes','• probe failed (Codex)','','Back']);assert.deepEqual(unknown.screens.find(screen=>screen.title==='Status').rowTones,[undefined,undefined,'platform-status',undefined,undefined,undefined,undefined,'note',undefined,undefined]);
 });
 test('wrapped info keeps tones per display line',async()=>{
  const{createTuiInterface}=await load(),session=terminal([enter]);session.viewport=()=>({columns:30,rows:40});
  await createTuiInterface(session).menu('ARC',['Exit'],{info:['Codex: Available / Claude: Not Available','Codex: '+ 'x'.repeat(50),''],infoTones:['status','diagnostic',undefined]});
  assert.deepEqual(session.screens[0].rows,['Codex: Available / Claude:','Not Available','Codex: '+ 'x'.repeat(20),'x'.repeat(27),'xxx','','Exit']);assert.deepEqual(session.screens[0].rowTones,['status','status','diagnostic','diagnostic-cont','diagnostic-cont',undefined,undefined]);
- const replaced=terminal([enter]);await createTuiInterface(replaced).menu('Settings',['Back'],{info:['Codex: boom'],infoTones:['diagnostic'],renderBody:()=>({rows:['Back'],selected:0})});assert.equal(replaced.screens[0].rowTones,undefined);
+ const replaced=terminal([enter]);await createTuiInterface(replaced).menu('Configure',['Back'],{info:['Codex: boom'],infoTones:['diagnostic'],renderBody:()=>({rows:['Back'],selected:0})});assert.equal(replaced.screens[0].rowTones,undefined);
 });
 
 test('home ticks repaint with increasing frames and one pending read',async()=>{
@@ -559,11 +560,11 @@ for(const ending of ['escape','eof','error'])test('home animation clears its tim
 test('Status uses injected registry labels and display order for four platforms',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{runTui}=await load(),session=terminal([...down(1),enter,back,back]);
  await runTui({session,context:{env:{PATH:fixturePath},platforms:createTestRegistries(['eta','zeta','codex','claude']).platforms},services:{prepareOperation:async()=>statusPrepared({currentVersion:'1.0.0',latestVersion:'1.0.0',canUpgrade:false}),currentInstallState:()=>({mode:'composite',platforms:['eta','zeta','codex','claude']}),collectStatus:async()=>['eta','zeta','codex','claude'].map(platform=>({platform,state:'installed',diagnostics:[{message:platform+' detail'}]}))}});
- assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Mode      Mixed (Claude + Codex + Zeta + Eta)','','Claude    Available','Codex     Available','Zeta      Available · auth unverified','Eta       Not verified','','Version   1.0.0 · up to date','','Notes','• claude detail (Claude)','• codex detail (Codex)','• zeta detail (Zeta)','• eta detail (Eta)','','Back']);
+ assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Installed on   Mixed (Claude + Codex + Zeta + Eta)','','Claude         Available','Codex          Available','Zeta           Available · auth unverified','Eta            Not verified','','Version        1.0.0 · up to date','','Notes','• claude detail (Claude)','• codex detail (Codex)','• zeta detail (Zeta)','• eta detail (Eta)','','Back']);
 });
 test('app loads current composite config and prepares diagram snapshot under busy',async()=>{
  const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
- const session=terminal([enter,...down(7),enter,enter,back]),catalogLoads=[],prepared=[];let configLoads=0,busy=false;
+ const session=terminal([enter,...down(10),enter,enter,back]),catalogLoads=[],prepared=[];let configLoads=0,busy=false;
  session.setBusy=value=>{busy=value;};
  const code=await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'composite',platforms:['claude','codex'],anchor:'claude'}),collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}})),readCompositeConfig:async()=>{configLoads++;return {version:2,revision:'saved',platforms:['claude','codex'],roles};},loadCatalog:async platform=>{catalogLoads.push(platform);return {status:'ready',catalog:{platform,pairs:[{model:platform==='codex'?'gpt-6-luna':'sonnet',effort:'high'}]}};},prepareOperation:async(context,options)=>{assert.equal(busy,true);assert.ok(context.signal);prepared.push(options);return{kind:'composite',options};},executeOperation:async(_context,operation)=>{assert.equal(busy,true);assert.equal(operation.options,prepared[0]);return{code:0,results:[]};}}});
  assert.equal(code,0);assert.equal(configLoads,1);assert.deepEqual([...catalogLoads].sort(),['claude','codex']);assert.equal(prepared.length,1);assert.equal(prepared[0].target,'composite');assert.deepEqual(prepared[0].config.roles,roles);assert.deepEqual(prepared[0].platforms,['claude','codex']);
@@ -635,7 +636,7 @@ test('home has Configure, Status, Uninstall, Exit',async()=>{
 test('status up to date shows version row and Back only',async()=>{
  for(const latestVersion of ['0.4.2','0.4.1']){
   const run=await statusRun({prepared:statusPrepared({latestVersion,canUpgrade:false})});
-  assert.ok(run.screen.rows.includes('Version   0.4.2 · up to date'));
+  assert.ok(run.screen.rows.includes('Version        0.4.2 · up to date'));
   assert.deepEqual(run.screen.rows.slice(-1),['Back']);assert.equal(run.screen.rows[run.screen.selected],'Back');
   assert.equal(run.screen.selected,run.screen.rows.length-1);assert.equal(run.executions.length,0);
   assert.deepEqual(run.requests,[{request:{kind:'update'},busy:true}]);
@@ -644,7 +645,7 @@ test('status up to date shows version row and Back only',async()=>{
 test('status upgrade available selects Back by default and Upgrade executes the prepared snapshot',async()=>{
  for(const exitSession of [false,true]){
   const prepared=statusPrepared(),run=await statusRun({prepared,exitSession,events:[{name:'up'},enter,enter,back]});
-  assert.ok(run.screen.rows.includes('Version   0.4.2 → 0.4.3'));
+  assert.ok(run.screen.rows.includes('Version        0.4.2 → 0.4.3'));
   assert.deepEqual(run.screen.rows.slice(-2),['Upgrade','Back']);assert.equal(run.screen.rows[run.screen.selected],'Back');
   assert.equal(run.executions.length,1);assert.equal(run.executions[0].snapshot,prepared);assert.equal(run.executions[0].busy,true);
   assert.equal(run.requests.length,1);assert.equal(run.code,0);
@@ -655,22 +656,22 @@ test('status upgrade available selects Back by default and Upgrade executes the 
 });
 test('status harness 0 with newer version',async()=>{
  const run=await statusRun({prepared:statusPrepared({canUpgrade:false,state:{targets:[]}})});
- assert.ok(run.screen.rows.includes('Version   0.4.2 → 0.4.3'));
+ assert.ok(run.screen.rows.includes('Version        0.4.2 → 0.4.3'));
  assert.ok(run.screen.rows.includes('• No installed ARC harness; run Configure first.'));
  assert.doesNotMatch(run.screen.rows.join('\n'),/up to date/i);assert.equal(run.screen.rows.includes('Upgrade'),false);
  assert.equal(run.screen.rows[run.screen.selected],'Back');assert.equal(run.executions.length,0);
 });
 test('status latestError',async()=>{
  const run=await statusRun({prepared:statusPrepared({latestVersion:null,canUpgrade:false,latestError:Error('offline\nhidden detail')})});
- assert.ok(run.screen.rows.includes('Version   0.4.2 · latest unavailable'));
+ assert.ok(run.screen.rows.includes('Version        0.4.2 · latest unavailable'));
  assert.deepEqual(run.screen.rows.filter(row=>row.startsWith('•')),['• platform detail (Codex)','• offline']);
  assert.doesNotMatch(run.screen.rows.join('\n'),/hidden detail/);assert.equal(run.screen.rows.includes('Upgrade'),false);
  assert.equal(run.session.screens.some(s=>s.title==='Operation unavailable'),false);assert.equal(run.executions.length,0);
 });
 test('status prepare exception keeps platform rows',async()=>{
  const run=await statusRun({failed:Error('Run arc from a verified global ARC installation or npx\nhidden detail')});
- assert.ok(run.screen.rows.includes('Codex     Available'));
- assert.ok(run.screen.rows.includes('Version   '+packageVersion+' · latest unavailable'));
+ assert.ok(run.screen.rows.includes('Codex          Available'));
+ assert.ok(run.screen.rows.includes('Version        '+packageVersion+' · latest unavailable'));
  assert.deepEqual(run.screen.rows.filter(row=>row.startsWith('•')),['• platform detail (Codex)','• Run arc from a verified global ARC installation or npx']);
  assert.equal(run.session.screens.some(s=>s.title==='Operation unavailable'),false);assert.equal(run.screen.rows.includes('Upgrade'),false);
  assert.equal(run.code,0);assert.equal(run.executions.length,0);
@@ -682,13 +683,66 @@ test('status propagates cancel, eof and home from prepare',async()=>{
   assert.equal(run.session.screens.some(s=>s.title==='Operation unavailable'),false);assert.equal(run.session.closed,true);
  }
 });
+test('status Installed on uses the home mode value and omits unavailable settings',async()=>{
+ const {homeModeLine,statusInfo}=await import('../../lib/tui/mode.mjs');
+ const state={mode:'standalone',platforms:[]};
+ const empty=statusInfo(state,[]);
+ assert.deepEqual(empty.info,['Installed on   Not installed','']);
+ const statuses=[{platform:'claude',state:'installed'}];
+ const installed=statusInfo({...state,platforms:['claude']},statuses);
+ assert.deepEqual(installed.info,['Installed on   Claude','','Claude         Available']);
+ assert.equal(installed.info[0].slice(15),homeModeLine({...state,platforms:['claude']},statuses));
+});
+test('status settings rows share the platform and Version value column',async()=>{
+ const {statusInfo}=await import('../../lib/tui/mode.mjs');
+ const state={mode:'standalone',platforms:['claude']};
+ const settings={runMode:'full-auto',language:'ko',limits:{max_total_subagents:100,max_concurrent_subagents:5}};
+ const version={currentVersion:'0.4.2',latestVersion:'0.4.3',canUpgrade:true};
+ const display=statusInfo(state,[{platform:'claude',state:'installed',settings}],undefined,{version});
+ assert.deepEqual(display.info,[
+  'Installed on           Claude',
+  'Run mode               Full Auto',
+  'Language               Korean',
+  'Total subagents        100',
+  'Concurrent subagents   5',
+  '',
+  'Claude                 Available',
+  '',
+  'Version                0.4.2 → 0.4.3'
+ ]);
+ assert.deepEqual(display.infoTones,[undefined,undefined,undefined,undefined,undefined,undefined,'platform-status',undefined,undefined]);
+});
+test('status settings mark only differing values as mixed',async()=>{
+ const {statusInfo}=await import('../../lib/tui/mode.mjs');
+ const state={mode:'composite',platforms:['claude','codex']};
+ const statuses=[
+  {platform:'claude',state:'installed',settings:{runMode:'supervised',language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5}}},
+  {platform:'codex',state:'installed',settings:{runMode:'full-auto',language:'en',limits:{max_total_subagents:80,max_concurrent_subagents:5}}}
+ ];
+ assert.deepEqual(statusInfo(state,statuses).info.slice(1,6),[
+  'Run mode               mixed','Language               English','Total subagents        mixed','Concurrent subagents   5',''
+ ]);
+});
+test('status settings ignore incomplete and absent platforms',async()=>{
+ const {statusInfo}=await import('../../lib/tui/mode.mjs');
+ const state={mode:'standalone',platforms:['claude']};
+ const settings={runMode:'full-auto',language:'ko',limits:{max_total_subagents:80,max_concurrent_subagents:4}};
+ const statuses=[
+  {platform:'claude',state:'installed',settings:{runMode:'supervised',language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5}}},
+  {platform:'codex',state:'incomplete',settings},
+  {platform:'gemini',state:'absent',settings}
+ ];
+ assert.deepEqual(statusInfo(state,statuses).info.slice(1,6),[
+  'Run mode               Supervised','Language               English','Total subagents        100','Concurrent subagents   5',''
+ ]);
+});
 test('statusInfo aligns Version with platform labels',async()=>{
  const mode=await import('../../lib/tui/mode.mjs'),state={mode:'standalone',platforms:['codex']},statuses=[{platform:'codex',state:'installed'}];
- assert.deepEqual(mode.statusInfo(state,statuses),{info:['Mode    Codex','','Codex   Available'],infoTones:[undefined,undefined,'platform-status']});
+ assert.deepEqual(mode.statusInfo(state,statuses),{info:['Installed on   Codex','','Codex          Available'],infoTones:[undefined,undefined,'platform-status']});
  assert.equal(typeof mode.statusVersion,'function');
  const version=mode.statusVersion({prepared:statusPrepared(),packageVersion}),display=mode.statusInfo(state,statuses,undefined,{version});
  assert.deepEqual(version,{currentVersion:'0.4.2',latestVersion:'0.4.3',canUpgrade:true,newerWithoutHarness:false,message:null});
- assert.deepEqual(display,{info:['Mode      Codex','','Codex     Available','','Version   0.4.2 → 0.4.3'],infoTones:[undefined,undefined,'platform-status',undefined,undefined]});
+ assert.deepEqual(display,{info:['Installed on   Codex','','Codex          Available','','Version        0.4.2 → 0.4.3'],infoTones:[undefined,undefined,'platform-status',undefined,undefined]});
  assert.equal(display.info[0].indexOf('Codex'),display.info[4].indexOf('0.4.2'));
  const failed=mode.statusVersion({failed:Error('offline\nprivate'),packageVersion:'0.4.2'});
  assert.deepEqual(failed,{currentVersion:'0.4.2',latestVersion:null,canUpgrade:false,newerWithoutHarness:false,message:'offline'});

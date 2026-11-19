@@ -153,6 +153,7 @@ Follow [handoff-worktree](handoff-worktree.md).
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.
 - [git.orchestrator-accept-commit] Only Orchestrator accepts work and performs Git mutations. One approved top-level plan task becomes one focused implementation commit after criteria, required checks and findings are satisfied. Orchestrator accepts, then includes that task's own progress records made after task completion (checkboxes, notes, results, evidence and status) with its implementation work in that commit, without a separate docs/fixup commit or planning-commit amendment for those records. Exclude other tasks; pending approved spec/plan revisions follow planning.plan-revision and preserve the no-change path without empty commits. Orchestrator commits without separate user commit approval. Reports, passing checks and Reviewer opinions do not replace acceptance. Preserve unrelated changes and ownership; verify the resulting SHA, content, HEAD and remaining changes. Existing small-task direct and plan-omission paths remain unchanged.
+- [approval.run-mode] The installed ARC Run mode is Supervised unless the installed skill states Full Auto. In Full Auto, an Orchestrator decision recorded as `auto-decided (Full Auto)` with gate, choice, reason and evidence counts as the explicit choice or approval for that listed gate only; briefs cite it as `full-auto:<doc>@<version>` or the recorded decision. It never authorizes new product decisions outside the original request, external actions, resolution of failures, holds, unknown state or ownership conflicts, preservation-rule Git actions, permission or sandbox changes, or unknown slots and exhausted capacity, and it changes no plan-depth, commit, QA, Reviewer or acceptance rule. A user request to stop or use Supervised applies from the next gate.
 - [review.significant-no-plan] Significant/high-risk work without a plan follows Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. DO NOT omit Reviewer because no plan exists. This adds no plan obligation.
 - [review.significant-plan] Significant/high-risk plan work follows Implementer → required fresh QA → Orchestrator acceptance and focused commit for each task. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is not a per-task or per-commit gate. Preserve required checks and necessary finding rechecks.
 - [review.final-plan-recheck] Complete required QA and QA failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without QA reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Separate QA findings follow Implementer → QA. Preserve required QA outside this final Reviewer exception.
@@ -169,3 +170,38 @@ Installed workflow connects plan-mode document commits to initial Implementer as
 Entry updates migrate no state/renew no approvals; drift requires current evidence. Scope is repository cooperative decisions/records, not native hook/provider/installer installation or blocking direct tools. `no-plan`/omission stays unsupported through Phases 2/3, implying neither policy violation nor new document duty.
 
 Record approved spec/plan SHA-256, shared docs-only commit and document/approval versions. CLI verifies exact Git-object paths/current bytes before assignment intent. New workflows/late commits prove no past compliance. Prior history/outside execution stays unverified. Approval/native results are `operator-attested`; agent IDs are not authenticated identity.
+
+<a id="full-auto-run-mode"></a>
+## Full Auto run mode
+
+Applies only when the installed SKILL.md contains `**Run mode:** Full Auto.` and the user has not asked in this chat to stop auto-deciding or to use Supervised. Orchestrator first completes every review obligation of the gate, then selects the recommended option. Without a recommendation and supporting evidence, ask the user (fail-safe). Gates not listed as auto stay with the user. `user` and `unchanged` rows, and user conditions inside an `auto` row's Rule (`→ user`, `otherwise user`), take precedence over `auto` rows: an auto question row (`Planner options and questions`, `AskUserQuestion`) answers only questions that none of them covers; otherwise ask the user.
+
+| Gate | Full Auto | Rule |
+|---|---|---|
+| Execution-target choice | auto | Clean work tree → new task branch in the current checkout; unrelated changes present → managed worktree; detached HEAD, unknown state or unclear ownership → user |
+| Branch name collision | auto | Next numeric suffix (`-2`, `-3`, …) |
+| Planner options and questions | auto | Recommended option; record assumptions in the brief |
+| Design and short-design approval | auto | After Orchestrator review |
+| Written spec approval | auto | After Orchestrator review |
+| Plan approval | auto | Only with zero open decisions; otherwise user |
+| Spec/plan revision within the original scope | auto | Scope-expanding revisions → user |
+| Direct-path F1–F8 scope approval | auto | All F1–F8 still proven; otherwise user |
+| `AskUserQuestion` | auto | Recommended option |
+| Visual companion offer | skipped | Not offered |
+| Visual interpretation approval ([verification](verification.md#visual-evidence-and-adjudication)) | user | Not an auto gate |
+| New product decision outside the original request | user | — |
+| Push, merge, deploy, publish, external messages | user | — |
+| Failure, partial completion, hold, unknown state, ownership conflict | user | — |
+| Preservation-rule Git actions | unchanged | Still prohibited; stop and report |
+| Permission or sandbox approval | user | — |
+| Unknown slot or exhausted capacity | user | — |
+| Plan depth, local commit, QA, Reviewer, acceptance | unchanged | — |
+
+Records:
+- Each auto decision: user-visible progress message `auto-decided (Full Auto): <gate> → <choice>; reason; alternatives; evidence`, plus the same entry in the canonical handoff record.
+- Pre-action gate record: `run` field (`supervised` or `full-auto`).
+- Revision-history `Approval time`: `auto-approved (Full Auto) <time>`.
+- Runtime `approvalRef` (free text): `full-auto:<doc>@<version>`.
+- Completion report: list every auto decision.
+
+Stopping: a user request in this chat to stop or switch to Supervised overrides the installed default and applies from the next gate; earlier auto decisions remain recorded.

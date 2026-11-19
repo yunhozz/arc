@@ -3,7 +3,34 @@ import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '.
 import {staticPackageFixture,refreshManifest,sourceRoot} from './fixtures/static-references.mjs';import {verifyPayload} from '../../lib/installer/manifest.mjs';
 const api=await import('../../lib/installer/upgrade.mjs').catch(()=>({})),stateApi=await import('../../lib/installer/upgrade-state.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-upgrade-harness-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}'));modelInputs[platform]={models,profiles};}files.set('shared/skill/references/brainstorming.md',Buffer.from('package pinned'));return{files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url)))};}
+
+test('upgrade preserves full-auto settings, skill policy and last managed bullet',async t=>{
+ const home=fixture(t),target=resolveTarget('codex',{userHome:home,env:{},cwd:home});
+ const {target:supervisedTarget}=seed(home,'claude');
+ applyTransaction(buildInstallPlan({payload:payload(),target,language:'ko',runMode:'full-auto',safeFs}),{safeFs});
+ const upgraded=payload();
+ upgraded.files.set('codex/skill/SKILL.md',Buffer.from('upgraded harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
+ const plans=api.buildUpgradePlans({payload:upgraded,state,safeFs});
+ const {installTargets}=await import('../../lib/installer/install.mjs');
+ const result=await installTargets(plans,{safeFs});
+ assert.deepEqual(result.results.map(item=>item.status),['installed','installed']);
+
+ const arc=path.join(target.home,'skills/arc');
+ assert.equal(fs.readFileSync(path.join(arc,'settings.toml'),'utf8'),'version = 2\nlanguage = "ko"\nrun_mode = "full-auto"\n');
+ const skill=fs.readFileSync(path.join(arc,'SKILL.md'),'utf8');
+ assert.match(skill,/^upgraded harness /);
+ assert.match(skill,/^\*\*Run mode:\*\* Full Auto\. Orchestrator decides the gates listed in \[planning\]/m);
+ const instruction=fs.readFileSync(target.instructionPath,'utf8');
+ const lastBullet=instruction.split('\n<!-- arc:end -->')[0].split('\n').at(-1);
+ assert.equal(lastBullet,'- ARC Run mode is Full Auto: Orchestrator auto-decides only the gates listed in the installed ARC skill, records each decision, and asks the user for everything else.');
+
+ const supervisedArc=path.join(supervisedTarget.home,'skills/arc');
+ assert.equal(fs.readFileSync(path.join(supervisedArc,'settings.toml'),'utf8'),'version = 1\nlanguage = "en"\n');
+ assert.match(fs.readFileSync(path.join(supervisedArc,'SKILL.md'),'utf8'),/^\*\*Run mode:\*\* Supervised\./m);
+ assert.doesNotMatch(fs.readFileSync(supervisedTarget.instructionPath,'utf8'),/ARC Run mode is Full Auto/);
+});
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));modelInputs[platform]={models,profiles};}files.set('shared/skill/references/brainstorming.md',Buffer.from('package pinned'));return{files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url)))};}
 function seed(home,platform,skipGlobal=false){const target=resolveTarget(platform,{userHome:home,env:{},cwd:home});applyTransaction(buildInstallPlan({payload:payload(),target,language:platform==='codex'?'ko':'en',safeFs,skipGlobal,limits:{max_total_subagents:37,max_concurrent_subagents:3}}),{safeFs});const legacy=target.home+'/skills/arc/references/superpowers';fs.mkdirSync(legacy,{recursive:true});fs.writeFileSync(legacy+'/obsolete','legacy nested');const filename=target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform);for(const role of Object.values(config.roles))role.model=platform==='codex'?'custom-codex':'custom-claude';fs.writeFileSync(filename,serializeModelConfig(config));const native=platform==='codex'?'[agents]\nmax_concurrent_threads_per_session = 9\n':'{"env":{"CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS":"9"}}\n';fs.writeFileSync(target.runtimeConfigPath,native);return{target,config,native};}
 for(const platform of ['codex','claude'])test(`${platform} upgrades same-version harness with all settings and native drift preserved`,async t=>{const home=fixture(t),old=seed(home,platform),state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.equal(typeof api.buildUpgradePlans,'function');const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform).roles,old.config.roles);assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),old.config);const {installTargets}=await import('../../lib/installer/install.mjs');const result=await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(result.results[0].status,'installed');assert.equal(fs.readFileSync(old.target.runtimeConfigPath,'utf8'),old.native);assert.deepEqual(loadModelConfig(fs.readFileSync(old.target.home+'/skills/arc/models.toml'),platform),old.config);assert.match(fs.readFileSync(old.target.home+'/skills/arc/SKILL.md','utf8'),/new harness/);assert.equal(plans[0].language,platform==='codex'?'ko':'en');assert.equal(plans[0].limits.max_concurrent_subagents,3);});
 test('absent global blocks stay absent and external skill sentinel survives',async t=>{const home=fixture(t),old=seed(home,'codex',true);fs.writeFileSync(old.target.instructionPath,'user instructions\n');fs.writeFileSync(home+'/.zshrc','user shell\n');fs.mkdirSync(old.target.home+'/skills/user-skill');fs.writeFileSync(old.target.home+'/skills/user-skill/sentinel','keep');const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(plans[0].globalChanges,[]);const {installTargets}=await import('../../lib/installer/install.mjs');await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(fs.readFileSync(old.target.instructionPath,'utf8'),'user instructions\n');assert.equal(fs.readFileSync(home+'/.zshrc','utf8'),'user shell\n');assert.equal(fs.readFileSync(old.target.home+'/skills/user-skill/sentinel','utf8'),'keep');});
@@ -14,7 +41,7 @@ test('second target publish failure restores prior bytes while first target stay
  const home=fixture(t),first=seed(home,'claude'),second=seed(home,'codex');
  function snapshot(directory){const entries=new Map();function visit(relative){const filename=path.join(directory,relative),stat=fs.lstatSync(filename);if(stat.isDirectory()){entries.set(relative,null);for(const name of fs.readdirSync(filename).sort())visit(path.join(relative,name));}else if(stat.isSymbolicLink())entries.set(relative,{link:fs.readlinkSync(filename)});else entries.set(relative,fs.readFileSync(filename));}visit('');return entries;}
  const before=snapshot(second.target.home),updated=payload();
- for(const platform of ['codex','claude'])updated.files.set(platform+'/skill/SKILL.md',Buffer.from('upgraded '+platform+' harness {{ARC_OUTPUT_LANGUAGE_POLICY}}'));
+ for(const platform of ['codex','claude'])updated.files.set(platform+'/skill/SKILL.md',Buffer.from('upgraded '+platform+' harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plans=api.buildUpgradePlans({payload:updated,state,safeFs});
  const {installTargets}=await import('../../lib/installer/install.mjs'),failure=Error('injected second target publish failure'),rolledBack=[];let injected=false;
  const result=await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()}),hooks:{fault(event){

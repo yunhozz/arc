@@ -9,6 +9,29 @@ const placement = await import('../../lib/policy/placement.mjs').catch(() => ({}
 const root = new URL('../../', import.meta.url);
 const policy = () => JSON.parse(fs.readFileSync(new URL('lib/policy/role-policy.json', root)));
 const block = body => `[ARC role policy: contract begin]\n${body}\n[ARC role policy: contract end]`;
+test('approval.run-mode is required', () => {
+  const p = policy();
+  p.rules = p.rules.filter(({id}) => id !== 'approval.run-mode');
+  assert.throws(() => api.validateRolePolicy(p), /missing required rule approval\.run-mode/);
+});
+
+test('approval.run-mode is placed in core and planning projections', () => {
+  const {core, planning, preparation} = placement.POLICY_PROJECTIONS;
+  assert.ok(core.includes('approval.run-mode'));
+  assert.ok(planning.includes('approval.run-mode'));
+  assert.ok(!preparation.includes('approval.run-mode'));
+});
+
+test('approval.run-mode immediately follows external authority in policy order', () => {
+  const ids = policy().rules.map(({id}) => id);
+  assert.equal(ids[ids.indexOf('external.explicit-user-authority') + 1], 'approval.run-mode');
+});
+
+test('approval.run-mode is rendered for specialists', () => {
+  const output = api.renderPolicySection(api.defaultRolePolicy, {platform:'claude', audience:'qa'});
+  assert.match(output, /^- \[approval\.run-mode\] /m);
+});
+
 // Broken placement validation would silently drop rules or render ambiguous contracts.
 test('policy projections reject unknown duplicate and uncovered rules', () => {
   assert.equal(typeof placement.validatePolicyProjections, 'function');
@@ -30,9 +53,9 @@ test('policy projections reject unknown duplicate and uncovered rules', () => {
 // Selecting the wrong subset or sorting by the placement table would change emitted authority.
 test('orchestrator projections preserve canonical text and order', () => {
   const expected = {
-    core: ['scope.non-escalation', 'external.explicit-user-authority', 'role.orchestrator-boundary'],
+    core: ['scope.non-escalation', 'external.explicit-user-authority', 'approval.run-mode', 'role.orchestrator-boundary'],
     assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.implementer-implementation', 'role.qa-verification', 'role.reviewer-independent'],
-    planning: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-revision', 'planning.planner-brief'],
+    planning: ['git.orchestrator-accept-commit', 'approval.run-mode', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-revision', 'planning.planner-brief'],
     handoff: ['git.specialists-deny', 'role.implementer-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
     preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-revision'],
     verification: ['git.orchestrator-accept-commit', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-revision'],
