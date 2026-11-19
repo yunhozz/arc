@@ -205,7 +205,7 @@ test('AC-K7 every controls entry has grok prompt with platforms.grok payload met
   const policy = JSON.parse(fs.readFileSync(new URL('../../lib/policy/role-policy.json', import.meta.url)));
   let count = 0;
   const visit = value => {if (!value || typeof value !== 'object') return; if (value.controls) {count++; assert.equal(value.controls.grok, 'prompt');} for (const child of Object.values(value)) visit(child);};
-  visit(policy); assert.equal(count, 15); assert.equal(Object.hasOwn(policy.platforms, 'grok'), true);
+  visit(policy); assert.equal(count, 16); assert.equal(Object.hasOwn(policy.platforms, 'grok'), true);
 });
 
 test('operational Grok status without CLI', async t => {

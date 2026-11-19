@@ -20,7 +20,7 @@
 - visual interpretation approval은 Full Auto에서도 user gate(spec Q1).
 - 정책·SKILL.md·planning.md·managed block 영문은 spec 6.5·7.2·7.3·7.4·7.5·7.6과 바이트 동일하게 옮긴다.
 - managed 섹션은 손으로 고치지 않고 `npm run update:role-policy`로만 재생성한다. `lib/policy/role-policy.json`을 바꾸면 `node scripts/update-runtime-assets.mjs`로 `shared/skill/runtime/role-policy.json` 사본을 동기화한다(현재 두 파일은 바이트 동일, `scripts/update-runtime-assets.mjs:20`).
-- 설치 SKILL.md·references·프로필 바이트가 바뀌는 작업은 `tests/node/fixtures/installed-layout-golden.json`(16개 조합의 설치 파일 sha256)을 같은 작업에서 갱신하고, 변경된 해시 키 목록을 보고한다. 허용 키는 `skills/arc/SKILL.md`, `skills/arc/references/planning.md`, agent 프로필뿐이며 그 밖의 키가 바뀌면 hold.
+- `tests/node/fixtures/installed-layout-golden.json`은 수정하지 않는다(v2). 기준선 a652279에서 `current installed layout matches the golden fixture for every combination`이 이미 실패하므로 갱신하면 무관한 기존 실패를 섞어 고치게 된다. 설치 바이트 회귀는 최종 검증 V2로 확인한다.
 - `lib/**`, `README.md`, `scripts/**`, `shared/**`, `claude|codex|gemini|grok` payload를 바꾼 작업은 끝에 `node scripts/update-manifest.mjs`를 실행하고 `MANIFEST.sha256`을 같은 커밋에 넣는다(STD-CLOSE). `docs/**`는 manifest 대상이 아니다.
 - 언어 기본값 동작(`buildInstallPlan`의 `language='en'`), plan depth, commit·QA·Reviewer·수락 흐름은 바꾸지 않는다.
 
@@ -53,7 +53,7 @@
 | 작업 | 제목 | 선행 |
 |---|---|---|
 | T1 | settings.toml v2와 Run mode 저장·렌더 API | P0-a |
-| T2 | `[approval.run-mode]` 규칙, SKILL.md 정적 문장, planning.md Full Auto 절, managed·runtime 사본·golden 재생성 | T1 커밋(manifest 직렬) |
+| T2 | `[approval.run-mode]` 규칙, SKILL.md 정적 문장, planning.md Full Auto 절, managed·runtime 사본 재생성 | T1 커밋(manifest 직렬) |
 | T3 | SKILL.md marker 치환, 설치 계획 runMode 전파, managed block 줄, fragment 금지 regex | T1, T2 |
 | T4 | composite·upgrade·status의 runMode 보존 | T3 |
 | T5 | Configure 한 화면 편집(Settings 하위 메뉴 제거) | T4 |
@@ -63,7 +63,7 @@
 
 공유 자원과 동시 실행 금지:
 - `MANIFEST.sha256`을 T1–T7 모두 갱신하므로 전부 직렬. T1과 T2는 논리 독립이지만 manifest 때문에 동시 진행하지 않는다.
-- 같은 파일을 여러 작업이 순서대로 고친다: `*/skill/SKILL.md`(T2 정적 문장·managed, T3 marker), `tests/node/fixtures/instruction-contracts.json`(T2 문장, T3 marker), `tests/node/fixtures/installed-layout-golden.json`(T2, T3), `tests/node/upgrade-harness.test.mjs`(T3 fixture marker, T4 보존 시나리오), `tests/node/tui-app.test.mjs`(T5 Settings, T6 Mode), `tests/node/run-mode-contract.test.mjs`(T2 생성, T3 추가).
+- 같은 파일을 여러 작업이 순서대로 고친다: `*/skill/SKILL.md`(T2 정적 문장·managed, T3 marker), `tests/node/fixtures/instruction-contracts.json`(T2 문장, T3 marker), `tests/node/upgrade-harness.test.mjs`(T3 fixture marker, T4 보존 시나리오), `tests/node/tui-app.test.mjs`(T5 Settings, T6 Mode), `tests/node/run-mode-contract.test.mjs`(T2 생성, T3 추가).
 - managed 섹션은 T2만 재생성한다. 이후 작업은 role-policy를 바꾸지 않되 각 작업 끝에 `npm run check:role-policy` 통과를 확인한다.
 
 ---
@@ -120,7 +120,7 @@
 - 재생성(손 편집 금지): `npm run update:role-policy` → SKILL.md 4 + planning.md 4 + 프로필 20(`claude/agents/arc-*.md`, `codex/agents/arc-*.toml`, `gemini/agents/arc-*.md`, `grok/agents/arc-*.md`). 다른 references는 바뀌지 않아야 한다.
 - 재생성: `node scripts/update-runtime-assets.mjs` → `shared/skill/runtime/role-policy.json`(다른 runtime 출력이 바뀌면 hold).
 - Modify: `tests/node/fixtures/instruction-contracts.json` — 바뀐 SKILL.md 문장을 담은 항목(최소 14·126행 Execution-target gate, 33·145행 Explicit choice, Pre-action 문장 항목).
-- Modify: `tests/node/fixtures/installed-layout-golden.json` — 바뀐 설치 파일 해시 갱신(허용 키: `skills/arc/SKILL.md`, `skills/arc/references/planning.md`, 프로필).
+- Modify(v2, probe로 확인한 기존 단언): `tests/node/grok-platform.test.mjs`(204행 규칙 수 15→16), `tests/node/composite-instructions.test.mjs`(27행 Pre-action gate record 승인 문장에 `run` 필드 반영), `tests/node/agent-fragments.test.mjs`(19행 fragment 원본 sha256 기대값).
 - Create: `tests/node/run-mode-contract.test.mjs`
 - Modify: `tests/node/role-policy.test.mjs`
 - 조건부(실행 결과 실패 시에만, Orchestrator 승인 후 추가): `tests/node/hardcoding-residual.test.mjs`, `tests/test_claude_payload.py`
@@ -128,16 +128,16 @@
 
 **Interfaces (Produces):** 규칙 ID `approval.run-mode`, 앵커 `references/planning.md#full-auto-run-mode`(T3 문단이 링크).
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `role-policy.test.mjs`: `approval.run-mode is required`(사본에서 제거 시 `validateRolePolicy`가 `/missing required rule approval\.run-mode/` throw — 실제 메시지 형식은 기존 테스트에 맞춤), `approval.run-mode projections`(`POLICY_PROJECTIONS.core`·`.planning` 포함), `approval.run-mode order`(index = `external.explicit-user-authority` + 1), `renderPolicySection(defaultRolePolicy,{platform:'claude',audience:'qa'})`에 `- [approval.run-mode] ` 줄 (AC-G1).
   - `run-mode-contract.test.mjs`: 4개 SKILL.md가 spec 7.3 세 문자열을 각 정확히 1회 포함; planning.md가 `<a id="full-auto-run-mode"></a>\n## Full Auto run mode\n`을 1회 포함하고 spec 7.6 블록으로 끝남; `agent-fragments.json`의 fragment 하나가 spec 7.4 문장 포함 (AC-G3 정적 부분).
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/role-policy.test.mjs tests/node/run-mode-contract.test.mjs` FAIL.
-- [ ] **Step 3: 원본 편집.** role-policy.json → placement.mjs → render.mjs → agent-fragments.json → SKILL.md 4개 → planning.md 4개.
-- [ ] **Step 4: 재생성.** `npm run update:role-policy` → `Updated role policy (28 targets)`(수가 다르면 보고·hold), `npm run check:role-policy` → verified, `node scripts/update-runtime-assets.mjs` 후 `node scripts/update-runtime-assets.mjs --check` → verified, `grep -c 'id="visual-evidence-and-adjudication"' {claude,codex,gemini,grok}/skill/references/verification.md` 각 1. golden fixture 해시 갱신 후 변경 키 목록 보고.
-- [ ] **Step 5: GREEN.** `node --test tests/node/role-policy.test.mjs tests/node/run-mode-contract.test.mjs tests/node/instruction-language.test.mjs tests/node/installed-layout-golden.test.mjs tests/node/manifest.test.mjs tests/node/hardcoding-residual.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs` + python payload 테스트(P0-a 명령).
-- [ ] **Step 6: STD-CLOSE.** 커밋 예: `feat(policy): approval.run-mode 규칙과 Full Auto gate 문서`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/role-policy.test.mjs tests/node/run-mode-contract.test.mjs` FAIL.
+- [x] **Step 3: 원본 편집.** role-policy.json → placement.mjs → render.mjs → agent-fragments.json → SKILL.md 4개 → planning.md 4개.
+- [x] **Step 4: 재생성.** `npm run update:role-policy` → `Updated role policy (28 targets)`(수가 다르면 보고·hold), `npm run check:role-policy` → verified, `node scripts/update-runtime-assets.mjs` 후 `node scripts/update-runtime-assets.mjs --check` → verified, `grep -c 'id="visual-evidence-and-adjudication"' {claude,codex,gemini,grok}/skill/references/verification.md` 각 1.
+- [x] **Step 5: GREEN.** `node --test tests/node/role-policy.test.mjs tests/node/run-mode-contract.test.mjs tests/node/instruction-language.test.mjs tests/node/grok-platform.test.mjs tests/node/composite-instructions.test.mjs tests/node/agent-fragments.test.mjs tests/node/manifest.test.mjs tests/node/hardcoding-residual.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs` + python payload 테스트(P0-a 명령).
+- [x] **Step 6: STD-CLOSE.** 커밋 예: `feat(policy): approval.run-mode 규칙과 Full Auto gate 문서`
 
-**Criteria:** AC-G1, AC-G2, AC-G3(정적 부분), AC-R1 "달라지는 파일" 범위. **필수 QA:** fresh QA(spec 7.3–7.6 영문 바이트 대조, 재생성 산출물 28개 + runtime 사본 + fixture 외 변경 없음, 다른 references 불변, golden 변경 키 허용 범위). **Holds:** T1 커밋 전 착수 금지.
+**Criteria:** AC-G1, AC-G2, AC-G3(정적 부분), AC-R1 "달라지는 파일" 범위. **필수 QA:** fresh QA(spec 7.3–7.6 영문 바이트 대조, 재생성 산출물 28개 + runtime 사본 + 지정 테스트·fixture 외 변경 없음, 다른 references 불변). **Holds:** T1 커밋 전 착수 금지.
 
 ---
 
@@ -152,7 +152,6 @@
 - Modify: `lib/prompts/render.mjs:145` 정규식 → `/ARC_AGENT_FRAGMENT|ARC_OUTPUT_LANGUAGE_POLICY|ARC_RUN_MODE_POLICY|\[ARC role policy: contract (?:begin|end)\]/`.
 - Modify(fixture marker, 없으면 throw): `tests/node/plan.test.mjs:7`, `tests/node/upgrade-harness.test.mjs:6,17`, `tests/node/fixtures/instruction-contracts.json:14,126`.
 - Modify: `tests/node/gemini-install.test.mjs:46`, `tests/node/grok-install.test.mjs:52` — `doesNotMatch` 정규식에 `|ARC_RUN_MODE_POLICY`.
-- Modify: `tests/node/fixtures/installed-layout-golden.json` — SKILL.md 해시 갱신(허용 키 `skills/arc/SKILL.md`만).
 - Modify: `tests/node/plan.test.mjs`(신규 테스트), `tests/node/run-mode-contract.test.mjs`(추가)
 - Modify: `MANIFEST.sha256`
 
@@ -170,7 +169,7 @@
   - `run-mode-contract.test.mjs`: `agentsBlockBody full-auto line`(full-auto = supervised + spec 6.5 줄 + `\n`, supervised = 4인자 호출 — AC-P5); `fragment marker rejected`(fragment text에 `' {{ARC_RUN_MODE_POLICY}}'`를 붙인 복제본은 `validateAgentRegistry`가 throw, 원본은 통과 — AC-P6); `SKILL.md marker exactly once`(4개, language marker 줄 다음 빈 줄 뒤 — AC-G3).
 - [ ] **Step 2: 실패 확인.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs` FAIL.
 - [ ] **Step 3: 구현.** `languageState`(68행 뒤)에서 실효 runMode를 정하고 `renderSkillPayload`(75행)·`renderNativeChanges`(83행)에 전달, 89행 plan 객체에 `runMode`.
-- [ ] **Step 4: GREEN.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs tests/node/language.test.mjs tests/node/upgrade-harness.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs tests/node/instruction-language.test.mjs tests/node/installed-layout-golden.test.mjs tests/node/install.test.mjs tests/node/install-mode-models-upgrade.test.mjs` + `npm run check:role-policy`.
+- [ ] **Step 4: GREEN.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs tests/node/language.test.mjs tests/node/upgrade-harness.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs tests/node/instruction-language.test.mjs tests/node/install.test.mjs tests/node/install-mode-models-upgrade.test.mjs` + `npm run check:role-policy`.
 - [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(installer): Run mode 정책 문단 렌더링과 설치 계획 전파`
 
 **Criteria:** AC-P1, AC-P4(통합), AC-P5, AC-P6, AC-G3(marker), AC-R1(단위 고정). **필수 QA:** fresh QA(실제 payload로 4개 플랫폼 supervised·full-auto plan의 SKILL.md·`settings.toml`·managed block 바이트, 프로필에 marker·문단 없음). **Holds:** T1·T2 커밋 전 착수 금지.
@@ -198,7 +197,7 @@
   - `management-status.test.mjs`: status `settings.runMode` full-auto/supervised (AC-T3).
 - [ ] **Step 2: 실패 확인.** 위 4개 파일 FAIL.
 - [ ] **Step 3: 구현.**
-- [ ] **Step 4: GREEN.** 위 4개 + `node --test tests/node/install-mode*.test.mjs tests/node/installed-layout-golden.test.mjs`.
+- [ ] **Step 4: GREEN.** 위 4개 + `node --test tests/node/install-mode*.test.mjs`.
 - [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(management): composite·upgrade·status Run mode 보존`
 
 **Criteria:** AC-P2, AC-P3, AC-T3. **필수 QA:** fresh QA(composite 혼합 보존, upgrade 3요소 보존 독립 재현). **Holds:** T3 커밋 전 착수 금지.
@@ -304,7 +303,7 @@
 | AC-G3 | T2(정적 문장·절), T3(marker) |
 | AC-G4 | 모든 작업 STD-CLOSE |
 | AC-G5 | T7 |
-| AC-R1 | T2·T3(golden 허용 키), T3(단위), 최종 검증 V2 |
+| AC-R1 | T3(단위), 최종 검증 V2 |
 | AC-R2 | 모든 작업 STD-CLOSE, 최종 검증 V1 |
 
 ## 최종 검증 (Orchestrator, T7 수용 후·FR 전)
@@ -322,7 +321,7 @@
 | 2026-11-19 | P0-b | 완료 | — | runtime 사본·golden fixture 확인, 언어 오류 단언 없음 |
 | 2026-11-19 | P0-a | 완료 | — | npm test 2825/fail 36(기준선 목록은 canonical record), python payload 52 run/120 failures |
 | 2026-11-19 | T1 | 수용 | (이 커밋) | language 13/13, host suite 신규 실패 0, check:manifest 283 OK, fresh QA AC-S1–S4·AC-P4 proven |
-| — | T2 | 대기 | — | — |
+| 2026-11-19 | T2 | 수용 | (이 커밋) | 39 files, update:role-policy 28/check 48, runtime 35, manifest 283, host suite = 기준선 + role-bridge-run flake(단독 35/35), fresh QA AC-G1·G2·G3(정적) proven |
 | — | T3 | 대기 | — | — |
 | — | T4 | 대기 | — | — |
 | — | T5 | 대기 | — | — |
@@ -336,3 +335,4 @@
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 2026-11-19 09:40 KST (사용자 명시 승인) | 초기 | — | spec v1(2026-11-19 08:59 KST 승인)의 최초 구현 계획 |
+| v2 | 2026-11-19T10:30:00+0900 (사용자 명시 승인) | 실행 중 개정(검증 방법·파일 목록) | T2, T3, T4 | golden fixture 갱신 제외(기준선에서 이미 실패), T2에 probe로 확인한 기존 단언 3개 파일 추가 |
