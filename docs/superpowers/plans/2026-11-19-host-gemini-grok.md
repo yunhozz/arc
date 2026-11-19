@@ -491,6 +491,24 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 
 ---
 
+### Task F1: 최종 Reviewer follow-up (v3)
+
+**선행:** 최종 Reviewer 검토(2d0056b..50130cc) 완료
+
+**allowedPaths:**
+- 테스트: `tests/node/host-gemini-grok.test.mjs`, `tests/node/composite-instructions.test.mjs`
+- 문서: coordination 4종, `docs/harness-operation.md`
+- 생성물: golden, `MANIFEST.sha256`
+
+**Steps:**
+- M1(E7/RF3): `fs.unlink`를 mock해 `.arc-host-probe-*`만 EPERM이 나게 한 상태에서 Grok host의 prepare(bridge), run-dispatch, resume을 호출합니다. 결과는 `host_sandbox_blocked`이고 `residualPaths` 1건(실제 존재), prepare는 lease 0건, run/resume은 starter 0회와 lease 불변이어야 합니다.
+- M2(E2): approval policy로 prepare와 run(starter mock)을 진행한 뒤 fail policy로 supervise를 실행합니다. lease는 `failed` + `host_sandbox_blocked`이고 child는 spawn되지 않아야 합니다.
+- L1·L6: coordination 4종의 Grok host 의무 문장을 아래 확정 문장으로 바꾸고 `composite-instructions.test.mjs:101` 기대값을 같게 맞춥니다.
+  - `- On a Grok host start the session with \`grok --permission-mode default\` (ask), keep the platform-default sandbox off, and ask the user for approval each time any runtime command (\`routing-status\`, \`prepare-dispatch\`, \`run-dispatch\`, \`observe\`, \`resume\`, \`cancel\`) runs; NEVER use auto-review, \`/auto\`, \`bypassPermissions\`, \`--always-approve\` or \`--yolo\`, and DO NOT choose \`Always allow\`, which saves \`permission_mode = "always-approve"\` to the Grok config. Spawn with \`spawn_subagent\` only roles whose route is \`native\`; Grok can also list Claude \`arc-routing-*\` profiles, which remain bridge roles. The runtime does not check this approval; asking for it is an Orchestrator obligation. A denied write (for example by a host sandbox) is \`host_sandbox_blocked\`; ARC does not detect whether the host sandbox is on.`
+- L1·L4: `docs/harness-operation.md`의 `grok-cli` 행을 "Native roles and Claude/Codex/Gemini bridges (Gemini read roles only; GG1 holds Gemini Implementer/QA). Obtain user approval on every runtime call in ask mode. A denied write is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on"으로 바꿉니다. `claude-cli` 행은 "Native roles, Codex bridges and Gemini read-role bridges (GG1 holds Gemini Implementer/QA)"로 바꿉니다.
+- 생성물 연쇄(runtime 변경 없음): golden `--write`, `update-manifest`. 호스트 검증 뒤 Reviewer가 재확인합니다(QA 재배정 없음).
+- 커밋: `test(runtime): 최종 리뷰 follow-up으로 host probe 명령 단위 검증과 의무 문장 보정`
+
 ## 최종 검증 (모든 task 수용 뒤)
 
 - [ ] Orchestrator
@@ -532,6 +550,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
+| v3 | 2026-11-19T15:32:48Z | contract | F1 | 최종 Reviewer 지적 반영: E2/E7 명령 단위 테스트(M1·M2), 의무 문장 과장 수정(L1)과 금지 목록 보강(L6), 운영 가이드 host 표 Gemini read bridge(L4). 승인: 사용자 AskUserQuestion "둘 다 반영 (Recommended)" |
 | v2 | 2026-11-19T14:40:06Z | contract | T3 | T2 측정 반영: allowedPaths에 tui-setup.test.mjs 추가(후보 3개 제외), Grok host 의무 문장 확정(F-H1 Claude agents 노출, F-H2 Always allow 전역 저장), HOST_CONTRACTS 판정, native spawn 문구, 결과 경로 RESULTS.md. 승인: 사용자 AskUserQuestion "T3 진행 (Recommended)" |
 | v1 | 2026-11-19T12:12:41Z | 최초 작성 | 전체 | spec v1(2026-11-19T12:02:22Z) 구현 plan. spec T1을 T1a/T1b로 분할, D0 docs 커밋 분리, T2 사본 dry-run으로 T3 allowedPaths 확정 |
 

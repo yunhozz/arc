@@ -78,9 +78,9 @@ Unknown Claude/Codex probe results block participation.
 
 | executionEnvironment | Support and holds |
 |---|---|
-| `claude-cli` | Native roles and Codex bridges |
+| `claude-cli` | Native roles, Codex bridges and Gemini read-role bridges (GG1 holds Gemini Implementer/QA) |
 | `codex-cli` | Native roles and Claude Scouter/Planner/Reviewer bridges; every runtime command needs per-call escalation approval, including native commands, because it may write `CODEX_HOME`. Refusal/denied write: `host_sandbox_blocked`; runtime does not check approval: Orchestrator must obtain it |
-| `grok-cli` | Native roles and Claude/Codex bridges. Obtain user approval on every runtime call in ask mode. A host with its sandbox on or a denied write is `host_sandbox_blocked` |
+| `grok-cli` | Native roles and Claude/Codex/Gemini bridges (Gemini read roles only; GG1 holds Gemini Implementer/QA). Obtain user approval on every runtime call in ask mode. A denied write is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on |
 | `gemini-cli` | Held (GG2 `fail`, `compositeHost` off) |
 | `claude-desktop`, `codex-desktop` | All native/bridge roles: `environment_unverified`; support capped at `unverified`. No checklist recording/release in this version; future checks: CLI discovery, shared auth, same worktree, supervisor survival, per-call escalation, matching native revision tag |
 

@@ -181,7 +181,7 @@ async function hostFixture(t, {host, anchor = 'claude', policy = approval, roleP
   const resume = (id, extra) => resumeRoleDispatch(input(id, {brief: 'Resume brief', startSupervisor: starter, ...extra}));
   const observe = (id, extra) => recordRoleObservation(input(id, extra));
   const cancel = id => cancelRoleDispatch(input(id));
-  const supervise = dispatchId => runSupervisor({codexHome: anchorHome, dispatchId, cwd, userHome, env, runtimePlatforms, policy});
+  const supervise = (dispatchId, selectedPolicy = policy) => runSupervisor({codexHome: anchorHome, dispatchId, cwd, userHome, env, runtimePlatforms, policy: selectedPolicy});
   const read = id => readLease(anchorHome, id, {runtimePlatforms});
   const artifacts = id => path.join(cwd, '.git/arc/workflows', workflowId, 'dispatches', id);
   return {anchorHome, homes, cwd, context, config, prepare, run, resume, observe, cancel, supervise, read, artifacts,
@@ -316,6 +316,25 @@ test('injected fail gates hold every grok and gemini host step without leases or
     assert.deepEqual(await listLeases(f.anchorHome), []);
     for (const record of f.childRecords) await assert.rejects(fs.access(record), {code: 'ENOENT'});
   });
+});
+
+test('Grok host supervisor fails the lease without spawning a child when GK2 changes to fail', async t => {
+  const f = await hostFixture(t, {host: 'grok', policy: approval});
+  const prepared = await f.prepare('arc_scouter');
+  assertAllowed(prepared);
+  assert.equal(prepared.route, 'bridge');
+  const id = prepared.dispatchId;
+  const startSupervisor = t.mock.fn(starter);
+  const started = await f.run(id, {startSupervisor});
+  assertAllowed(started);
+  assert.equal(started.routeStatus, 'starting');
+  assert.equal(startSupervisor.mock.callCount(), 1);
+
+  await f.supervise(id, policyWithGate('grok', 'fail'));
+  const lease = await f.read(id);
+  assert.equal(lease.state, 'failed');
+  assert.ok(codes(lease).includes('host_sandbox_blocked'), JSON.stringify(lease.reasons));
+  for (const record of f.childRecords) await assert.rejects(fs.access(record), {code: 'ENOENT'});
 });
 
 async function tempHome(t) {
@@ -470,6 +489,56 @@ for (const host of hosts) {
     }
   });
 }
+
+test('Grok host bridge prepare, run-dispatch and resume report a probe file that cannot be removed', async t => {
+  const role = 'arc_scouter';
+  const unlink = fs.unlink;
+  const commands = [
+    ['prepare', null, f => f.prepare(role)],
+    ['run-dispatch', async f => {
+      const prepared = await f.prepare(role);
+      assertAllowed(prepared);
+      return prepared.dispatchId;
+    }, (f, id, startSupervisor) => f.run(id, {startSupervisor})],
+    ['resume', async f => {
+      const id = await completeBridge(f, role);
+      await requestCancel(f.anchorHome, id);
+      assert.equal(await cancelRequested(f.anchorHome, id), true);
+      return id;
+    }, (f, id, startSupervisor) => f.resume(id, {startSupervisor})],
+  ];
+  for (const [command, arrange, dispatch] of commands) {
+    await t.test(command, async t => {
+      const f = await hostFixture(t, {host: 'grok', anchor: 'codex'});
+      const targetHome = f.homes.claude;
+      const id = arrange ? await arrange(f) : null;
+      const before = id ? await f.read(id) : null;
+      const startSupervisor = t.mock.fn(starter);
+      t.mock.method(fs, 'unlink', async (filename, ...args) => {
+        if (path.dirname(filename) === targetHome && path.basename(filename).startsWith('.arc-host-probe-')) {
+          throw Object.assign(Error('fixture denied unlink'), {code: 'EPERM'});
+        }
+        return unlink(filename, ...args);
+      });
+
+      const result = await dispatch(f, id, startSupervisor);
+      assert.equal(result.decision, 'hold');
+      assert.deepEqual(codes(result), blocked);
+      assert.equal(result.residualPaths.length, 1);
+      const [probe] = result.residualPaths;
+      assert.equal(path.dirname(probe), targetHome);
+      assert.match(path.basename(probe), /^\.arc-host-probe-/);
+      assert.equal((await fs.stat(probe)).isFile(), true);
+      if (id) {
+        assert.equal(startSupervisor.mock.callCount(), 0);
+        assert.deepEqual(await f.read(id), before);
+      } else {
+        assert.deepEqual(await listLeases(f.anchorHome), []);
+      }
+      if (command === 'resume') assert.equal(await cancelRequested(f.anchorHome, id), true);
+    });
+  }
+});
 
 test('codex and claude host bridges do not probe the target home', {skip: rootSkip}, async t => {
   for (const [host, target, role] of [['codex', 'claude', 'arc_scouter'], ['claude', 'codex', 'arc_reviewer']]) {

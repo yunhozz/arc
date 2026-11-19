@@ -346,6 +346,7 @@ D8의 내용입니다.
 | M-H5 | `native-model-application` | unverified 유지 | 프로필은 `grok-4.6`이었지만 실제로는 `grok-4.7`로 실행됐습니다(세션 model). 따라서 model claim은 operator-attested입니다 |
 
 - 발견 F-H1: Grok의 `spawn_subagent` 목록에 `~/.claude/agents`의 Claude `arc-routing-*` 프로필도 노출됩니다. `[compat.claude] agents = false`로도 막히지 않았습니다. 대응: Grok host 의무 문장에 "route가 native인 역할만 spawn"을 명시했습니다. runtime은 bridge lease에 native event가 오면 거부합니다(`role-bridge.mjs:124`).
+- 미측정: plan T2 S7의 참고 항목(built-in `workspace` 프로필만 쓴 경우)은 측정하지 않았습니다. 이 프로필이 home 루트 쓰기를 허용하면 probe는 통과하므로, 하위 경로만 막는 등 남은 거부가 있을 때는 그 실패가 child나 supervisor 단계에서 드러납니다(R3 한계). runtime은 sandbox가 켜져 있는지 판별하지 않고 쓰기 거부만 감지합니다.
 - 발견 F-H2: 승인 화면에서 `Always allow`를 고르면 Grok config에 `permission_mode = "always-approve"`가 저장되어 이후 전역 자동 승인으로 바뀝니다. 대응: 의무 문장에서 이 선택을 금지했습니다.
 - 사용자 판정(2026-11-19): T3 진행. 사용자 설정 해시(AC12)는 측정 전후 같았습니다.
 - Gemini: **미전환(D17)**. 측정일 2026-11-20(UTC 2026-11-19), 결과 파일은 scratchpad `t4/l-g-results.md`입니다.
