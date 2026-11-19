@@ -14,9 +14,12 @@ const HOST_CONTRACTS = [
 
 const UNVERIFIED_CONTRACTS = [
   {id: 'compat-session-effect', risk: 'R1'}, {id: 'native-model-application', risk: 'R6'},
-  {id: 'headless-stream-contract', risk: 'R6'}, {id: 'permission-sandbox-effect', risk: 'R4'},
+  {id: 'headless-stream-contract', risk: 'R6'},
   {id: 'account-model-availability', risk: 'R6'}, {id: 'read-role-permission-effect', risk: 'R4'},
-  {id: 'host-bridge-child', risk: 'R7'},
+];
+
+const VERIFIED_CONTRACTS = [
+  {id: 'permission-sandbox-effect', risk: 'R4', roles: ['arc_implementer', 'arc_qa']},
 ];
 
 function verifyEvidence(descriptor) {
@@ -51,9 +54,18 @@ test('Grok host contracts record five ids in fixed order', () => {
   assert.deepEqual(HOST_CONTRACTS.map(({state}) => state), ['verified', 'verified', 'verified', 'verified', 'unverified']);
 });
 
-test('Grok unverified contracts retain all seven risk links', () => {
-  assert.equal(UNVERIFIED_CONTRACTS.length, 7);
-  assert.deepEqual(UNVERIFIED_CONTRACTS.map(item => item.id), ['compat-session-effect', 'native-model-application', 'headless-stream-contract', 'permission-sandbox-effect', 'account-model-availability', 'read-role-permission-effect', 'host-bridge-child']);
+test('Grok unverified role contracts retain five risk links including read-role permissions', () => {
+  assert.equal(UNVERIFIED_CONTRACTS.length, 5);
+  assert.deepEqual(UNVERIFIED_CONTRACTS.map(item => item.id), [
+    'compat-session-effect', 'native-model-application', 'headless-stream-contract',
+    'account-model-availability', 'read-role-permission-effect',
+  ]);
+});
+
+test('Grok sandbox permission evidence is verified for writing roles only', () => {
+  assert.deepEqual(VERIFIED_CONTRACTS, [
+    {id: 'permission-sandbox-effect', risk: 'R4', roles: ['arc_implementer', 'arc_qa']},
+  ]);
 });
 
 test('GROK_CONTRACT childEnv and isolation args', () => {
@@ -71,9 +83,9 @@ test('grok notice ends with is unverified.', () => {
 });
 
 
-test('Grok GK1 fail, GK2 approval and resume off', async () => {
+test('Grok GK1 pass, GK2 approval and resume off', async () => {
   const {BRIDGE_GATE_RESULTS} = await import('../../lib/runtime/role-dispatch-policy.mjs');
   const {SUPERVISOR_IMPLEMENTATIONS} = await import('../../lib/runtime/role-supervisor.mjs');
-  assert.equal(BRIDGE_GATE_RESULTS.GK1, 'fail'); assert.equal(BRIDGE_GATE_RESULTS.GK2, 'approval');
+  assert.equal(BRIDGE_GATE_RESULTS.GK1, 'pass'); assert.equal(BRIDGE_GATE_RESULTS.GK2, 'approval');
   assert.equal(SUPERVISOR_IMPLEMENTATIONS.get('grok')?.resume, 'off');
 });

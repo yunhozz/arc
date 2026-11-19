@@ -89,6 +89,7 @@ Unknown Claude/Codex probe results block participation.
 | Bridge contract | Guarantees and limits |
 |---|---|
 | G1 `pass` | Claude Implementer/QA on Codex receive recorded settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. `/private/tmp/claude-<uid>` is writable. If sandboxing is unavailable, Bash exits 71 per command and Claude exits 0. M-C4 found no widening in trusted or untrusted workspaces. Network restrictions were outside the measurement scope. |
+| GK1 `pass` | Grok bridge Implementer/QA use a per-dispatch profile with `extends = "workspace"` and 24 deny entries. A verified `ProfileApplied` event is required after execution for completion. Unlisted `~/.grok/*` paths, `~/.grok/sessions` and temporary directories remain writable. Reads are unrestricted and network access is allowed. Measurements cover Grok 1.0.89 on macOS only. |
 | G2 `escalation` | Codex-host calls require approval; no advance hold; detached supervisor survival observed under variant conditions |
 | G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
 | G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |

@@ -8,6 +8,7 @@ import {createInstallerRegistry, DEFAULT_INSTALLER_REGISTRY} from '../../lib/pla
 import * as management from '../../lib/management/operations.mjs';
 import {resolveTargets} from '../../lib/installer/targets.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
+import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
 import {readLease, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
@@ -134,16 +135,29 @@ test('prepare arc_scouter targeting grok records lease v2', async t => {
   assert.equal(fs.existsSync(path.join(context.userHome, 'unexpected-command')), false);
 });
 
-// A widened GK1 gate or a lease written despite the hold must fail.
+// Bypassing an injected GK1 failure or a lease written despite the hold must fail.
 test('prepare arc_qa targeting grok holds permission_scope_unverified without lease', async t => {
   const context = await contextFor(t);
   await execute(context, await preparePublication(context, ['claude', 'grok']));
   const prepared = await prepareRoleDispatch({context: {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 't6-qa'},
-    expectedRevision: revision, assignment: {role: 'arc_qa', taskId: 'T6-qa', requestId: 't6-qa'}});
+    expectedRevision: revision, assignment: {role: 'arc_qa', taskId: 'T6-qa', requestId: 't6-qa'},
+    policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, GK1: 'fail'}}});
   assert.equal(prepared.decision, 'hold');
   assert.equal(prepared.route, 'bridge');
   assert.deepEqual(prepared.reasons.map(reason => reason.code), ['permission_scope_unverified']);
   assert.equal(prepared.dispatchId, null);
   for (const id of ids) assert.deepEqual(await listLeases(home(context, id), context), [], id);
   assert.equal(fs.existsSync(path.join(context.userHome, 'unexpected-command')), false);
+});
+
+test('default policy allows prepare of arc_qa targeting Grok', async t => {
+  const context = await contextFor(t);
+  await execute(context, await preparePublication(context, ['claude', 'grok']));
+  const prepared = await prepareRoleDispatch({
+    context: {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 't6-qa-default'},
+    expectedRevision: revision, assignment: {role: 'arc_qa', taskId: 'T6-qa-default', requestId: 't6-qa-default'},
+  });
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  assert.equal(prepared.route, 'bridge');
+  assert.equal((await readLease(home(context, 'claude'), prepared.dispatchId, context)).role, 'arc_qa');
 });

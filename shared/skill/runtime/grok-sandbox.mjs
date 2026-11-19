@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {EVENTS_MAX_BYTES} from './role-dispatch-policy.mjs';
 
 export const GROK_SANDBOX_RELATIVE = '.grok/sandbox.toml';
 export const GROK_SANDBOX_DENY = Object.freeze([
@@ -16,6 +17,7 @@ const digest = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).di
 const scopeError = (message, cause) => Object.assign(Error(message, {cause}), {reasonCode: 'permission_scope_unverified'});
 const sameEntry = (first, second) => first.dev === second.dev && first.ino === second.ino;
 const identityOf = ({dev, ino}) => ({dev, ino});
+const sandboxEventsPath = grokHome => path.join(grokHome, 'sessions', 'sandbox-events.jsonl');
 
 export function grokSandboxProfileName(dispatchId) {
   const prefix = typeof dispatchId === 'string' ? dispatchId.slice(0, 8) : '';
@@ -146,8 +148,81 @@ export function removeGrokSandboxProfile(profile) {
 }
 
 export function grokEventsBaseline(grokHome) {
-  const stat = fs.lstatSync(path.join(grokHome, 'sessions', 'sandbox-events.jsonl'), {throwIfNoEntry: false});
+  const stat = fs.lstatSync(sandboxEventsPath(grokHome), {throwIfNoEntry: false});
   if (!stat) return {exists: false, size: 0};
   if (!stat.isFile()) throw Error('Grok sandbox events are not a regular file');
   return {exists: true, dev: stat.dev, ino: stat.ino, size: stat.size};
+}
+
+const unapplied = (reason, candidates = 0) => ({ok: false, reason, candidates, applied: null});
+
+function eventsFileIssue(baseline, current, maxBytes) {
+  if (!current.exists) return baseline.exists ? 'rotated' : 'no_candidate';
+  if (!current.regular) return 'not_regular';
+  if (baseline.exists && !sameEntry(baseline, current)) return 'rotated';
+  if (current.size < baseline.size) return 'truncated';
+  if (current.size - baseline.size > maxBytes) return 'too_large';
+  return null;
+}
+
+export function evaluateGrokProfileApplied({text, baseline, current, spawnAtMs, name, worktreeRealpath, maxBytes = EVENTS_MAX_BYTES}) {
+  const issue = eventsFileIssue(baseline, current, maxBytes);
+  if (issue) return unapplied(issue);
+
+  const lines = text.split('\n');
+  lines.pop(); // The last entry is empty or an unfinished append.
+  let candidate = null, candidates = 0, invalidTimestamp = false;
+  for (const line of lines) {
+    let event;
+    try { event = JSON.parse(line); } catch { continue; }
+    if (event?.event_type !== 'ProfileApplied' || event.profile !== name || event.workspace !== worktreeRealpath) continue;
+    const timestamp = typeof event.timestamp === 'string' ? Date.parse(event.timestamp) : NaN;
+    if (Number.isNaN(timestamp)) {
+      invalidTimestamp = true;
+      candidates++;
+    } else if (timestamp >= spawnAtMs) {
+      candidate = event;
+      candidates++;
+    }
+  }
+  if (invalidTimestamp) return unapplied('timestamp_invalid', candidates);
+  if (!candidates) return unapplied('no_candidate');
+  if (candidates > 1) return unapplied('multiple_candidates', candidates);
+  if (candidate.enforced !== true) return unapplied('not_enforced', candidates);
+  if (candidate.inherited === true) return unapplied('inherited', candidates);
+  const expectedDeny = path.join(worktreeRealpath, GROK_SANDBOX_RELATIVE);
+  if (!Array.isArray(candidate.deny_paths) || !candidate.deny_paths.includes(expectedDeny)) return unapplied('deny_missing', candidates);
+  const applied = {timestamp: candidate.timestamp, enforced: true, inherited: false, denyOk: true};
+  return {ok: true, reason: null, candidates, applied};
+}
+
+export function readGrokProfileApplied({grokHome, baseline, spawnAtMs, name, worktreeRealpath}) {
+  const file = sandboxEventsPath(grokHome);
+  try {
+    const stat = fs.lstatSync(file, {throwIfNoEntry: false});
+    const current = stat ? {exists: true, regular: stat.isFile(), dev: stat.dev, ino: stat.ino, size: stat.size} : {exists: false};
+    const issue = eventsFileIssue(baseline, current, EVENTS_MAX_BYTES);
+    if (issue) return unapplied(issue);
+
+    const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    try {
+      const opened = fs.fstatSync(fd);
+      if (!sameEntry(opened, stat)) return unapplied('rotated');
+      if (!opened.isFile()) return unapplied('not_regular');
+      if (opened.size < stat.size) return unapplied('truncated');
+
+      const bytes = Buffer.alloc(stat.size - baseline.size);
+      let offset = 0;
+      while (offset < bytes.length) {
+        const read = fs.readSync(fd, bytes, offset, bytes.length - offset, baseline.size + offset);
+        if (read === 0) return unapplied('truncated');
+        offset += read;
+      }
+      return evaluateGrokProfileApplied({text: bytes.toString('utf8'), baseline, current, spawnAtMs, name, worktreeRealpath});
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (error) {
+    return unapplied(error.code === 'ENOENT' || error.code === 'ELOOP' ? 'rotated' : 'not_regular');
+  }
 }

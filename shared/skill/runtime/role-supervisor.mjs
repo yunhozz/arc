@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import {spawn, spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {GROK_CONTRACT, normalizeGrokStreamEvent, evaluateGrokObservation} from './grok-stream.mjs';
-import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline} from './grok-sandbox.mjs';
+import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline, readGrokProfileApplied} from './grok-sandbox.mjs';
 import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
 import {DEFAULT_POLICY, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
@@ -451,6 +451,12 @@ export async function runSupervisor(options) {
     if (platform === 'gemini' && terminating !== 'cancel' && (exit.code !== 0 || exit.signal || state.terminalError)) codes.push('execution_failed');
     if (platform === 'grok' && terminating !== 'cancel' && (exit.code !== 0 || exit.signal || state.terminalError || !state.terminal)) codes.push('execution_failed');
     if (effortMismatch) codes.push('model_effort_mismatch');
+    if (grokSandboxProfile) {
+      const {eventsBaseline: baseline, name} = grokSandboxProfile;
+      const {ok, reason, applied} = readGrokProfileApplied({grokHome: homes.grok, baseline, spawnAtMs, name, worktreeRealpath: target.realpath});
+      if (ok) grokSandboxProfile.applied = applied;
+      else if (!(terminating === 'cancel' && reason === 'no_candidate')) codes.push('permission_scope_mismatch');
+    }
     cleanGrokProfile();
     if (violations.reason || profileViolation) codes.push(violations.reason ?? 'permission_violation_observed');
     if (after === null) claims.permissions = {level: 'unverified', source: 'worktree-snapshot', details: 'post-run snapshot unavailable'};
@@ -481,6 +487,7 @@ export async function runSupervisor(options) {
       claims.identity = {level: 'unverified', source: 'none'};
     }
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
+    if ((finalState === 'completed' || finalState === 'cancelled') && codes.includes('permission_scope_mismatch')) finalState = 'failed';
     await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...grokProfileRecord(), ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {})});
     await commit(finalState, codes, claims, {sessionId, resultPath});
   } catch {

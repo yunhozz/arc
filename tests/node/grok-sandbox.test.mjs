@@ -197,3 +197,87 @@ test('E9 takes only a regular event file as the baseline', t => {
   fs.mkdirSync(events);
   assert.throws(() => sandbox.grokEventsBaseline(grokHome));
 });
+
+const worktreeRealpath = '/fixture/worktree';
+const name = 'arc-bridge-0123abcd';
+const spawnAtMs = Date.parse('2026-11-19T10:22:45.232Z');
+const profileApplied = {
+  timestamp: '2026-11-19T10:22:45.232832Z',
+  event_type: 'ProfileApplied',
+  profile: name,
+  workspace: worktreeRealpath,
+  platform: 'macos/seatbelt',
+  enforced: true,
+  restrict_network: false,
+  read_write_paths: [worktreeRealpath],
+  deny_paths: ['/fixture/worktree/.grok/sandbox.toml'],
+};
+const appliedEvidence = {timestamp: '2026-11-19T10:22:45.232832Z', enforced: true, inherited: false, denyOk: true};
+const eventLine = overrides => JSON.stringify({...profileApplied, ...overrides}) + '\n';
+const baseline = {exists: true, dev: 1, ino: 2, size: 128};
+const appliedContext = {spawnAtMs, name, worktreeRealpath};
+
+function evaluateApplied(text, overrides = {}) {
+  return sandbox.evaluateGrokProfileApplied({
+    ...appliedContext, text, baseline,
+    current: {...baseline, regular: true, size: baseline.size + Buffer.byteLength(text)},
+    ...overrides,
+  });
+}
+
+for (const [label, input, overrides] of [
+  ['one candidate in the spawn millisecond', eventLine()],
+  ['a candidate with inherited explicitly false', eventLine({inherited: false})],
+  ['an unrelated malformed line', '{bad json\n' + eventLine()],
+  ['an incomplete trailing candidate', eventLine() + eventLine().trimEnd()],
+  ['other profiles and workspaces', eventLine({profile: 'other'}) + eventLine({workspace: '/other'}) + eventLine()],
+  ['no pre-spawn event file', eventLine(), {
+    baseline: {exists: false, size: 0}, current: {exists: true, regular: true, dev: 1, ino: 2, size: Buffer.byteLength(eventLine())},
+  }],
+]) test(`AC7 ProfileApplied accepts ${label}`, () => {
+  assert.equal(typeof sandbox.evaluateGrokProfileApplied, 'function');
+  assert.deepEqual(evaluateApplied(input, overrides), {ok: true, reason: null, candidates: 1, applied: appliedEvidence});
+});
+
+for (const [label, input, reason, candidates] of [
+  ['no event', '', 'no_candidate', 0],
+  ['an incomplete line alone', eventLine().trimEnd(), 'no_candidate', 0],
+  ['duplicate candidates', eventLine().repeat(2), 'multiple_candidates', 2],
+  ['another event type', eventLine({event_type: 'Other'}), 'no_candidate', 0],
+  ['another profile', eventLine({profile: 'other'}), 'no_candidate', 0],
+  ['another workspace', eventLine({workspace: '/other'}), 'no_candidate', 0],
+  ['one millisecond before spawn', eventLine({timestamp: '2026-11-19T10:22:45.231832Z'}), 'no_candidate', 0],
+  ['an invalid timestamp next to a valid event', eventLine({timestamp: 'invalid'}) + eventLine(), 'timestamp_invalid', 2],
+  ['enforced false', eventLine({enforced: false}), 'not_enforced', 1],
+  ['enforced absent', eventLine({enforced: undefined}), 'not_enforced', 1],
+  ['an inherited profile', eventLine({inherited: true}), 'inherited', 1],
+  ['deny_paths absent', eventLine({deny_paths: undefined}), 'deny_missing', 1],
+  ['deny_paths as a string', eventLine({deny_paths: '/fixture/worktree/.grok/sandbox.toml'}), 'deny_missing', 1],
+  ['deny_paths without the profile', eventLine({deny_paths: ['/other']}), 'deny_missing', 1],
+]) test(`AC7 ProfileApplied rejects ${label}`, () => {
+  assert.deepEqual(evaluateApplied(input), {ok: false, reason, candidates, applied: null});
+});
+
+for (const [changes, reason] of [
+  [{regular: false}, 'not_regular'],
+  [{ino: 3}, 'rotated'],
+  [{size: baseline.size - 1}, 'truncated'],
+  [{size: baseline.size + 4194305}, 'too_large'],
+]) test(`AC7 ProfileApplied rejects event file metadata with ${reason}`, () => {
+  const current = {...baseline, regular: true, ...changes};
+  assert.deepEqual(evaluateApplied('', {current}), {ok: false, reason, candidates: 0, applied: null});
+});
+
+test('AC7 event reader scans only the appended interval and preserves the file', t => {
+  const {directory: grokHome} = fixture(t);
+  const events = path.join(grokHome, 'sessions', 'sandbox-events.jsonl');
+  fs.mkdirSync(path.dirname(events), {recursive: true});
+  fs.writeFileSync(events, eventLine());
+  const baseline = sandbox.grokEventsBaseline(grokHome);
+  fs.appendFileSync(events, eventLine());
+  assert.equal(typeof sandbox.readGrokProfileApplied, 'function');
+  assert.deepEqual(sandbox.readGrokProfileApplied({grokHome, baseline, ...appliedContext}), {
+    ok: true, reason: null, candidates: 1, applied: appliedEvidence,
+  });
+  assert.equal(fs.readFileSync(events, 'utf8'), eventLine().repeat(2));
+});

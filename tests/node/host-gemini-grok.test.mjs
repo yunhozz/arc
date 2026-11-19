@@ -209,9 +209,10 @@ test('HOST_SANDBOX_GATES and HOST_GATE_ALLOWED are frozen with the spec values',
   assert.ok(Object.isFrozen(dispatchPolicy.HOST_GATE_ALLOWED));
 });
 
-test('BRIDGE_GATE_RESULTS records GK2 approval after Grok promotion', () => {
+test('BRIDGE_GATE_RESULTS records GK1 pass, GK2 approval and GG1/GG2 fail', () => {
+  assert.equal(BRIDGE_GATE_RESULTS.GK1, 'pass');
   assert.equal(BRIDGE_GATE_RESULTS.GK2, 'approval');
-  for (const gate of ['GK1', 'GG1', 'GG2']) assert.equal(BRIDGE_GATE_RESULTS[gate], 'fail', gate);
+  for (const gate of ['GG1', 'GG2']) assert.equal(BRIDGE_GATE_RESULTS[gate], 'fail', gate);
 });
 
 test('hostGateReasons allows pass and approval for grok and gemini hosts', () => {
@@ -261,7 +262,7 @@ test('missing host gate key is fail-closed in prepare without DEFAULT fallback',
   assert.equal((await f.cancel(fallback.dispatchId)).decision, 'allow');
 });
 
-test('default policy keeps cross GK1 and GG1 holds for grok and gemini hosts', async t => {
+test('default policy holds Gemini QA under GG1 and Grok Implementer under the Gemini host gate', async t => {
   for (const {host, target, role, assignment} of [
     {host: 'grok', target: 'gemini', role: 'arc_qa'},
     {host: 'gemini', target: 'grok', role: 'arc_implementer', assignment: {allowedPaths: ['src/']}},
@@ -272,7 +273,13 @@ test('default policy keeps cross GK1 and GG1 holds for grok and gemini hosts', a
     assert.equal(result.route, 'bridge');
     assert.equal(result.requested.platform, target);
     assert.equal(result.decision, 'hold');
-    assert.ok(codes(result).includes('permission_scope_unverified'), JSON.stringify(result.reasons));
+    const reasons = codes(result);
+    if (host === 'grok') {
+      assert.ok(reasons.includes('permission_scope_unverified'), JSON.stringify(result.reasons));
+    } else {
+      assert.ok(reasons.includes('host_sandbox_blocked'), JSON.stringify(result.reasons));
+      assert.ok(!reasons.includes('permission_scope_unverified'), JSON.stringify(result.reasons));
+    }
     assert.equal(result.dispatchId, null);
     assert.deepEqual(await listLeases(f.anchorHome, f.context), []);
   }

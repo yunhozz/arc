@@ -21,8 +21,8 @@ const leaseCount = async f => { try { return (await fs.readdir(dispatchDirectory
 const okClis = async (f, claudeVersion = '2.1.322 (Claude Code)', codexVersion = 'codex-cli 0.167.0') => { await f.cli('claude', {version: claudeVersion}); await f.cli('codex', {version: codexVersion}); };
 const skipRoot = t => process.getuid?.() === 0 && t.skip('root ignores directory permissions');
 
-test('default bridge policy passes G1, holds Desktop and requires per-call escalation for G2', () => {
-  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'fail', GK2: 'approval'});
+test('default bridge policy passes G1 and GK1, holds Desktop and requires per-call escalation for G2', () => {
+  assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'pass', GK2: 'approval'});
   assert.equal(Object.isFrozen(BRIDGE_GATE_RESULTS), true);
   assert.deepEqual(DESKTOP_CHECKLIST_PASSED, {'claude-desktop': false, 'codex-desktop': false});
   assert.equal(DEFAULT_POLICY.gates, BRIDGE_GATE_RESULTS);

@@ -1,8 +1,8 @@
-# 브리지 게이트 G1·GK1 pass 전환 구현 계획 (Architectural, 3 task)
+# 브리지 게이트 G1·GK1 pass 전환 구현 계획 (Architectural, 4 task)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: 승인됨(v3, 2026-11-20)
+- 상태: 승인됨(v4, 2026-11-20)
 - 작업 위치: `/Users/yunho/Desktop/project/arc`, 현재 checkout `fix/bridge-ps-stub` @ `d5bae6a`(사용자 선택)
 - Risk: high. task마다 fresh QA를 두고, 모든 task를 수용한 뒤 최종 Reviewer가 전체 변경을 1회 검토합니다.
 
@@ -428,7 +428,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
     - `UNVERIFIED_CONTRACTS`에서 `permission-sandbox-effect`를 빼서 5개로 만듭니다.
     - `VERIFIED_CONTRACTS`에 `{id:'permission-sandbox-effect', risk:'R4', roles:['arc_implementer','arc_qa']}`를 추가합니다.
     - :39-42는 "five"와 `read-role-permission-effect` 포함 여부를 단언합니다.
-    - :59-64는 `GK1 'pass'`, `GK2 'fail'`, `resume 'off'`를 단언합니다(AC10).
+    - Grok gate 테스트(현재 `Grok GK1 fail, GK2 approval and resume off`)는 `GK1 'pass'`, `GK2 'approval'`, `resume 'off'`를 단언하도록 바꿉니다(AC10). GK2는 host-gemini-grok workflow(f636f5d)에서 `approval`이 됐으므로 그대로 둡니다.
   - `grok-composite.test.mjs:137-149`는 주입 `GK1:'fail'`로 hold를 유지합니다. 여기에 기본 policy에서 `arc_qa` prepare가 allow되는 테스트를 새로 추가합니다(AC8).
   - `composite-instructions.test.mjs`에 coordination 4종의 GK1 문장을 확인하는 단언을 추가합니다.
 - [ ] **Step 4: RED 확인**
@@ -478,14 +478,62 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 
 ---
 
+### Task T4: Mixed routing 절 host 중립 재작성 (문서, T3 뒤)
+
+**목표:** coordination 4종의 `Composite Platform Role Dispatch` 절과 `docs/harness-operation.md`의 host 표를 host 중립 구조로 다시 씁니다. Claude·Codex를 기본 host로 전제하지 않고, 네 플랫폼을 host와 bridge 양쪽에서 대등하게 서술합니다. 규칙의 의미는 하나도 빠뜨리거나 완화하지 않습니다.
+
+**배경:** 2026-11-20 사용자 지적과 결정. 이 절은 Claude↔Codex용으로 처음 쓰였고, Grok·Gemini 내용은 한 줄씩 덧붙여져 왔습니다. 그 결과 다음 문제가 남아 있습니다.
+- `A claude-cli host supports native routes and Codex bridges`는 낡은 문장입니다. Gemini 읽기 역할 bridge와 Grok bridge가 빠져 있습니다.
+- GG1(Gemini Implementer/QA hold)이 coordination에 없습니다.
+- `docs/harness-operation.md`의 `codex-cli` 행은 G1 pass(T1) 뒤에도 "Claude Scouter/Planner/Reviewer bridges"로 남아 있습니다. 또 `claude-cli`와 `codex-cli` 행에 Grok bridge가 없습니다.
+- Codex host 전용 규칙(G2 escalation)과 Codex bridge 전용 규칙이 공통 규칙처럼 섞여 있고, Gemini·Grok bridge에는 그에 대응하는 설명이 없습니다.
+
+**배정:** 사용자 결정 2026-11-20 (a)–(d). AC를 새로 정의합니다.
+- AC15: 공통 절차 뒤에 host별 규칙과 bridge 대상별 규칙을 대칭 구조로 둡니다. host별 규칙은 승인 방식, home probe, Desktop 여부를 다룹니다. bridge 대상별 규칙은 쓰기 역할 게이트(G1/GK1/GG1/Codex G5), permission claim 한계, delegation 감지, 실행 확인을 다룹니다. 표 또는 같은 순서의 목록으로 씁니다.
+- AC16: host×bridge 지원 조합을 실제 gate 값과 일치시킵니다. 근거는 `BRIDGE_GATE_RESULTS`와 registry `compositeHost`, `HOST_SANDBOX_GATES`이며, harness-operation 표에도 같은 값을 씁니다.
+- AC17: 의미 보존입니다. 변경 전 절의 모든 규칙 문장을 새 위치에 대응시킨 표를 Implementer가 증거로 제출합니다. 삭제나 완화가 0건이어야 합니다. 의도된 정정은 위 배경의 항목만입니다.
+- AC18: 네 파일의 절은 서로 같은 문장을 씁니다. 다만 기존에 플랫폼별로 다르게 둔 항목은 예외입니다(native spawn 도구 문장, 끝의 플랫폼 readiness 문단).
+
+**선행:** T3 수용과 커밋. T3가 넣은 GK1 문장도 재작성 대상입니다.
+
+**allowedPaths:**
+- `claude/skill/references/coordination.md`
+- `codex/skill/references/coordination.md`
+- `gemini/skill/references/coordination.md`
+- `grok/skill/references/coordination.md`
+- `docs/harness-operation.md`
+- `tests/node/composite-instructions.test.mjs`
+- `tests/node/fixtures/installed-layout-golden.json`
+- `MANIFEST.sha256`
+
+- [ ] **Step 1 (RED):** `composite-instructions.test.mjs`에 다음 단언을 추가합니다.
+  - AC16 조합 단언: 각 host 행이나 항목에 지원 bridge와 hold 이유가 gate 값과 맞게 적혀 있는지 확인합니다.
+  - AC18 동일성 단언.
+  - GG1·GK1 문장 단언.
+  - 기존 단언은 같은 의미로 옮깁니다. 삭제하거나 정규식을 느슨하게 바꾸지 않습니다.
+- [ ] **Step 2:** 실행 `node --test tests/node/composite-instructions.test.mjs`. 기대 결과는 새 단언 FAIL입니다.
+- [ ] **Step 3:** 문서 재작성. 영어, 기존 문체, 대응표는 결과 보고에 첨부합니다.
+- [ ] **Step 4:** golden `--diff`(coordination 관련 항목만) → `--write` → `update-manifest`. 이어서 `--check` 2종을 실행합니다.
+- [ ] **Step 5 GREEN:** `composite-instructions`, `installed-layout-golden`, `runtime-assets` 테스트를 PASS시키고 전체 실행 결과를 보고합니다.
+- [ ] **Step 6 호스트 검증 (Orchestrator):** allowedPaths, B1 대비 새 실패 0건, 대응표와 diff 대조를 확인합니다.
+- [ ] **Step 7 fresh QA:** AC15–AC18과 대응표 대조를 확인합니다.
+- [ ] **Step 8 수용과 커밋:** 커밋 메시지 `docs(coordination): Mixed routing 절 host 중립 재작성`.
+
+**Hold 조건:**
+- 대응표에서 삭제되거나 완화된 규칙이 나온 경우
+- gate 값과 문서가 다르고 어느 쪽이 맞는지 코드로 정할 수 없는 경우
+- runtime 코드를 고쳐야 하는 경우
+
+---
+
 ## 최종 검증 (모든 task 수용 뒤)
 
 - [ ] Orchestrator가 확인합니다.
   - 호스트 전체 테스트를 B0와 비교했을 때 새 실패가 0건
   - `--check` 2종 통과
   - golden `--diff` 출력 없음
-  - `git diff --stat d5bae6a -- lib/runtime shared/skill/runtime`의 범위가 spec §7과 같음
-- [ ] 독립 최종 Reviewer가 `d5bae6a..HEAD`를 1회 검토합니다. 중점은 다음과 같습니다.
+  - 이 workflow 커밋(55b313e, 2d0056b, T2–T4 커밋)의 `lib/runtime`, `shared/skill/runtime` 변경 범위가 spec §7과 같음. `d5bae6a..HEAD`에는 host-gemini-grok workflow와 master merge가 섞여 있으므로 커밋 단위로 봅니다
+- [ ] 독립 최종 Reviewer가 이 workflow 커밋들을 1회 검토합니다. 중점은 다음과 같습니다.
   - fail-closed 누락(생성 뒤 early failure와 catch 경로의 정리)
   - `O_EXCL|O_NOFOLLOW`와 lstat 사이의 TOCTOU
   - `~/.grok/sessions` 쓰기가 없는지
@@ -494,6 +542,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
   - G1 문서에 적은 예외가 정확한지
   - RF1–RF5
   - runtimeHash 변경
+  - T4 의미 보존(대응표)과 host 중립성
 - [ ] Reviewer 지적은 Implementer와 Reviewer 사이에서 다시 확인합니다. QA는 다시 배정하지 않습니다. 확인을 마치기 전에는 커밋하지 않고, 수용한 뒤 follow-up commit 1개로 남깁니다.
 
 ## AC와 E 배정표
@@ -513,6 +562,7 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 | E11–E13 | T3 |
 | E17 | T1 |
 | E18 | T0b |
+| AC15–AC18 | T4 |
 
 ## 개정 이력
 
@@ -521,3 +571,4 @@ QA 보고에는 출력 요약, 실패 목록, 분류 근거(메시지 발췌, �
 | v1 | 2026-11-19T10:59:30Z | 최초 승인 | 전체 | plan 승인 |
 | v2 | 2026-11-19T11:08:39Z | contract | T0c(신규), T1 | B0에서 golden이 baseline부터 104줄 어긋나 있음을 확인. 무관한 차이가 섞이지 않도록 재생성 task를 T1 앞에 분리(사용자 결정) |
 | v3 | 2026-11-20 | contract | T2 | spec v3 D10 정정을 `checkGrokHome` 기대값에 반영(사용자 결정). T2 Step 4의 prepare가 run-dispatch 준비 단계임을 명시 |
+| v4 | 2026-11-20 | contract | T3, T4(신규), 최종 검증 | 사용자 결정: coordination Mixed routing 절 host 중립 재작성과 문서 정정 3건을 T4로 신설. T3 GK2 기대값을 현재 값 `approval`로 정정, 최종 검증 범위를 이 workflow 커밋으로 한정(기계적). 승인은 사용자 위임("나 대신 spec/plan 승인해줘")에 따라 Orchestrator 대행 |
