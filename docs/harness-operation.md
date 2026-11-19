@@ -76,26 +76,39 @@ Unknown Claude/Codex probe results block participation.
 
 ## Execution support
 
-| executionEnvironment | Support and holds |
-|---|---|
-| `claude-cli` | Native roles, Codex bridges and Gemini read-role bridges (GG1 holds Gemini Implementer/QA) |
-| `codex-cli` | Native roles and Claude Scouter/Planner/Reviewer bridges; every runtime command needs per-call escalation approval, including native commands, because it may write `CODEX_HOME`. Refusal/denied write: `host_sandbox_blocked`; runtime does not check approval: Orchestrator must obtain it |
-| `grok-cli` | Native roles and Claude/Codex/Gemini bridges (Gemini read roles only; GG1 holds Gemini Implementer/QA). Obtain user approval on every runtime call in ask mode. A denied write is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on |
-| `gemini-cli` | Held (GG2 `fail`, `compositeHost` off) |
-| `claude-desktop`, `codex-desktop` | All native/bridge roles: `environment_unverified`; support capped at `unverified`. No checklist recording/release in this version; future checks: CLI discovery, shared auth, same worktree, supervisor survival, per-call escalation, matching native revision tag |
+| executionEnvironment | Claude target | Codex target | Gemini target | Grok target |
+|---|---|---|---|---|
+| `claude-cli` | Native, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `codex-cli` | Bridge, all roles | Native, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `gemini-cli` | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) |
+| `grok-cli` | Bridge, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Native, all roles |
+| `claude-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
+| `codex-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
+
+Read roles are Scouter, Planner and Reviewer. The table shows which routes the recorded gates permit; apply the host rules and check each dispatch result.
+
+| Host | Runtime approval | Target home probe | Desktop |
+|---|---|---|---|
+| Claude | No per-call ARC approval gate | None | Held |
+| Codex | G2 `escalation`: obtain user approval on every runtime call, including native commands, because it may write `CODEX_HOME`. The Orchestrator obtains each approval; the runtime does not check it. Refusal or denied write is `host_sandbox_blocked` | None | Held |
+| Gemini | CLI host held pending live host measurement | Bridge prepare/run/resume, if the host gate is released | No Desktop value |
+| Grok | GK2 `approval`: obtain user approval on every runtime call in ask mode. A denied write is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on | Bridge prepare/run/resume | No Desktop value |
+
+On Claude and Codex Desktop, support is capped at `unverified`. This version provides no checklist recording or release. Future checks cover CLI discovery, shared auth, the same worktree, supervisor survival, per-call escalation and a matching native revision tag.
 
 `executionEnvironment` is caller-declared. A terminal, TUI or IDE terminal uses the CLI value for its host. Use a Desktop value only for a confirmed Claude or Codex Desktop session. Determine the environment from the session itself; never infer it from paths. When unsure, use the CLI value. A false CLI declaration bypasses the Desktop hold.
 
 | Bridge contract | Guarantees and limits |
 |---|---|
-| G1 `pass` | Claude Implementer/QA on Codex receive recorded settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. `/private/tmp/claude-<uid>` is writable. If sandboxing is unavailable, Bash exits 71 per command and Claude exits 0. M-C4 found no widening in trusted or untrusted workspaces. Network restrictions were outside the measurement scope. |
+| G1 `pass` | On every host, Claude bridge Implementer/QA receive recorded settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. The following observations are from Claude 2.1.328 on macOS Seatbelt (2026-11-19). `/private/tmp/claude-<uid>` is writable. If sandboxing is unavailable, Bash exits 71 per command and Claude exits 0. M-C4 found no widening in trusted or untrusted workspaces. Network restrictions were outside the measurement scope. |
+| GG1 `fail` | Gemini bridge Implementer/QA are held as `permission_scope_unverified`; read roles remain supported. |
 | GK1 `pass` | Grok bridge Implementer/QA use a per-dispatch profile with `extends = "workspace"` and 24 deny entries. A verified `ProfileApplied` event is required after execution for completion. Unlisted `~/.grok/*` paths, `~/.grok/sessions` and temporary directories remain writable. Reads are unrestricted and network access is allowed. Measurements cover Grok 1.0.89 on macOS only. |
 | G2 `escalation` | Codex-host calls require approval; no advance hold; detached supervisor survival observed under variant conditions |
 | G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
 | G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |
 | G5 `wide` | Codex `workspace-write` can reach outside worktree; post-run detection does not cover those writes |
 | GK2 `approval` | Start Grok with `grok --permission-mode default` and use `Allow once` on each runtime call. `Always allow` saves `permission_mode = "always-approve"` in Grok configuration. The Orchestrator obtains each approval. |
-| GG2 `fail` | Gemini host remains held pending live host verification. |
+| GG2 `fail` | Gemini host remains held pending live host measurement. |
 | Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
 | Versions | Claude/Codex versions reported, not restricted |
 | Detection | Compare git-visible tracked/untracked paths, HEAD, branch, every ref; ignored paths excluded |

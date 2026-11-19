@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {BRIDGE_GATE_RESULTS, HOST_SANDBOX_GATES, bridgeGateReasons, capabilityReasons, environmentReasons, hostGateReasons} from '../../lib/runtime/role-dispatch-policy.mjs';
 
 const harnesses = {claude: 'claude/skill/references/', codex: 'codex/skill/references/'};
 const read = (harness, file) => readFile(new URL('../../' + harnesses[harness] + file, import.meta.url), 'utf8');
+const platforms = ['claude', 'codex', 'gemini', 'grok'];
+const coordination = platform => readFile(new URL(`../../${platform}/skill/references/coordination.md`, import.meta.url), 'utf8');
 const section = text => {
   const start = text.indexOf('## Composite Platform Role Dispatch');
   if (start < 0) return '';
@@ -81,6 +84,64 @@ test('the two harness sections state the same rules', async () => {
   const [claude, codex] = await Promise.all(['claude', 'codex'].map(async harness => normalize(section(await read(harness, 'coordination.md')))));
   assert.ok(claude.length > 10);
   assert.deepEqual(claude, codex);
+});
+
+test('all four composite sections match byte-for-byte outside the native spawn instruction and readiness sentences', async () => {
+  const readinessByPlatform = {
+    gemini: 'Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; do not invent native tool calls. ',
+    grok: 'Grok host readiness was verified with Grok 1.0.89. The live measurement covered per-call runtime approvals, sandbox write denials, supervisor survival and native spawn. Target-home denial was measured with the equivalent Seatbelt rule in a user shell. Live bridge-child execution and profile model application remain unverified. Hold unavailable routes. ',
+  };
+  const sections = await Promise.all(platforms.map(async platform => {
+    const body = section(await coordination(platform));
+    assert.ok(body, `${platform} section missing`);
+    const readiness = readinessByPlatform[platform];
+    const lastParagraph = body.lastIndexOf('\n\n') + 2;
+    const comparable = readiness && body.startsWith(readiness, lastParagraph)
+      ? body.slice(0, lastParagraph) + body.slice(lastParagraph + readiness.length)
+      : body;
+    return comparable.replace(/Then spawn: .*?\. The revision tag appears/, 'Then spawn: [native tools]. The revision tag appears');
+  }));
+  for (const [index, platform] of platforms.entries()) assert.equal(sections[index], sections[0], platform);
+});
+
+test('coordination and operations document every host and target route from current policy', async () => {
+  const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
+  const environments = [...platforms.map(platform => `${platform}-cli`), 'claude-desktop', 'codex-desktop'];
+  const documents = await Promise.all([...platforms.map(coordination), readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8')]);
+  for (const [index, document] of documents.entries()) {
+    const label = platforms[index] ?? 'harness-operation';
+    for (const environment of environments) {
+      const host = environment.split('-')[0];
+      const cells = platforms.map(target => {
+        const route = host === target ? 'native' : 'bridge';
+        const routeInput = {hostPlatform: host, targetPlatform: target, route};
+        if (capabilityReasons(routeInput).includes('capability_not_verified')) {
+          const gate = HOST_SANDBOX_GATES[host];
+          assert.deepEqual(hostGateReasons(routeInput), ['host_sandbox_blocked']);
+          return `Held (\`capability_not_verified\`; ${gate} \`${BRIDGE_GATE_RESULTS[gate]}\`, \`compositeHost\` off)`;
+        }
+        if (environmentReasons(environment).includes('environment_unverified')) return 'Held (`environment_unverified`)';
+        if (route === 'native') return 'Native, all roles';
+        const holds = roles.filter(role => bridgeGateReasons({platform: target, role, hostPlatform: host}).length > 0);
+        if (holds.length === 0) return 'Bridge, all roles';
+        assert.deepEqual(holds, ['arc_implementer', 'arc_qa']);
+        assert.deepEqual(bridgeGateReasons({platform: target, role: 'arc_qa', hostPlatform: host}), ['permission_scope_unverified']);
+        assert.equal(target, 'gemini');
+        return 'Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`)';
+      });
+      const row = document.split('\n').find(line => line.startsWith(`| \`${environment}\` |`));
+      assert.deepEqual(row?.split('|').slice(2, 6).map(cell => cell.trim()), cells, `${label}: ${environment}`);
+    }
+  }
+});
+
+test('every coordination reference states Gemini GG1 and Grok GK1 bridge writing gates', async () => {
+  for (const platform of platforms) {
+    const body = section(await coordination(platform));
+    assert.match(body, /Gemini bridge `arc_implementer` and `arc_qa` are held as `permission_scope_unverified` while GG1 is `fail`/, platform);
+    assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/, platform);
+    assert.match(body, /per-dispatch sandbox profile[^.]*GK1[^.]*\. [^.]*held as `permission_scope_unverified`[^.]*GK1/, platform);
+  }
 });
 
 test('both harnesses require escalation for every runtime command as an Orchestrator obligation', async () => {
@@ -178,6 +239,7 @@ test('execution environment rules use the actual session and agree byte-for-byte
   const rules = [];
   for (const harness of Object.keys(harnesses)) {
     const body = section(await read(harness, 'coordination.md'));
+    assert.ok(body.includes('`hostPlatform` (`codex`, `claude`, `gemini` or `grok`) and `executionEnvironment` (`codex-cli`, `claude-cli`, `gemini-cli`, `grok-cli`, `codex-desktop`, or `claude-desktop`) are caller-provided claims, not host attestations. Gemini host routing is held in this release (see the host support table below).'), harness);
     const rule = body.match(/Choose `executionEnvironment` by where the session actually runs:.*When unsure, declare the CLI value\./)?.[0];
     assert.ok(rule, harness + ' execution environment rule missing');
     rules.push(rule);
@@ -185,7 +247,7 @@ test('execution environment rules use the actual session and agree byte-for-byte
   }
   assert.equal(rules[0], rules[1]);
   for (const text of rules) {
-    assert.match(text, /terminal CLI or TUI session.*IDE integrated terminal.*`codex-cli`, `claude-cli` or `grok-cli`/);
+    assert.match(text, /terminal CLI or TUI session.*IDE integrated terminal.*`codex-cli`, `claude-cli`, `gemini-cli` or `grok-cli`/);
     assert.match(text, /Desktop values apply only to Codex and Claude\. Use them only for a session confirmed to run inside the corresponding Desktop app\./);
     assert.match(text, /NEVER infer the environment from paths or directory names/);
     assert.match(text, /When unsure, declare the CLI value/);
@@ -203,7 +265,8 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec` or `claude -p` through a shell is not a detected `delegation_observed`/i);
     assert.match(body, /orphaned process group[^.]*reaped/);
-    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` on a Codex host run with recorded sandbox settings and are held as `permission_scope_unverified` only when an injected G1 fails or settings are missing \(G1\)/);
+    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` only when an injected G1 fails or settings are missing \(G1\)/);
+    assert.ok(body.includes('Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.'), harness);
     assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/);
     assert.doesNotMatch(body, /`claude-cli` hosts are supported\./);
   }
