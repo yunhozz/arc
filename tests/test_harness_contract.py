@@ -74,6 +74,34 @@ COMMON_CONTRACTS = {
         r"contract revision[^.]*affected[^.]*checks[^.]*rechecks[^.]*rerun[^.]*revised version",
         r"stale[^.]*plan-file[^.]*refresh",
     )),
+    "PLAN_LEVEL_COMMIT": ("references/commit.md", (
+        r"its own progress records, eligible plan-level progress records, eligible pending approved spec/plan revisions",
+        r"plan-level progress records are final verification results, each final reviewer round's verdict and finding dispositions \(including references to user decisions\) and overall completion status",
+        r"preserving the approved contract, they need no new approval; changing it makes them a plan revision",
+        r"they are the sole exception to excluding other tasks' records: orchestrator includes them in that plan's next commit, either a task acceptance commit created by final reviewer finding work or the final reviewer follow-up commit",
+        r"when no implementation work remains, such as a final reviewer approval without findings or a user decision not to fix a non-blocking finding, orchestrator creates no commit for them, keeps them only in the canonical handoff record, leaves the plan document unchanged and the working tree clean, and states this in the completion report",
+        r"plan-level progress records alone never trigger the standalone `docs\(plan\)` closing commit",
+        r"when this closing commit is made for pending revisions, it also carries the plan-level progress records",
+    )),
+    "PLAN_LEVEL_PLANNING": ("references/planning.md", (
+        r"plan-level progress records \(final verification results, final reviewer round verdicts and finding dispositions with user-decision references, and overall completion status\) follow \[commit\]\(commit\.md#execution-time-plan-document-updates\): they ride the plan's next task acceptance or final reviewer follow-up commit, otherwise they stay only in the canonical record",
+        r"sole closing exception\. plan-level progress records alone never trigger it\.",
+    )),
+    "PLAN_LEVEL_PREPARATION": ("references/handoff-prep.md", (
+        r"plan-level progress records follow \[commit\]\(commit\.md#execution-time-plan-document-updates\) and alone never justify the closing commit",
+        r"\(including r-8 separation\) and plan-level progress records carried by this commit",
+    )),
+    "PLAN_LEVEL_EVIDENCE": ("references/verification.md", (
+        r"\(including r-8 separation\), or classified plan-level progress records carried by that commit",
+        r"before the overall completion report and any push, pr or merge authorization request, orchestrator verifies that plan-level progress records are carried by the verified next commit of the plan or, when none follows, recorded only in the canonical handoff record with the plan document unchanged and a clean working tree",
+        r"while a user decision on a non-blocking final reviewer finding is pending, hold overall completion; a fix decision follows plan revision and a new task whose accepted commit carries the records, and a no-fix disposition stays canonical only when no later commit follows",
+    )),
+    "PLAN_LEVEL_HANDOFF": ("references/handoff.md", (
+        r"plan-level progress records follow the same `task\.paths` rule; when no task or follow-up commit follows, they stay only in the canonical record, and the cooperative cli adds no support for them",
+    )),
+    "PLAN_LEVEL_SKILL": ("SKILL.md", (
+        r"plan-level progress records ride the plan's next commit or stay only in the canonical record",
+    )),
     "PLANNER_COMPLETE_BRIEF": ("references/planning.md", (
         r"original user requirements.*criteria ids.*approved decisions.*open decisions",
         r"current behavior.*source.*generated.*runtime.*installer.*documentation",
@@ -343,6 +371,12 @@ class PolicyContractTests(unittest.TestCase):
     def assert_contracts(self, *contracts: str) -> None:
         failures = policy_contract_failures(self.texts)
         self.assertEqual([failure for failure in failures if failure.split(":", 1)[0] in contracts], [])
+
+    def test_plan_level_progress_records_follow_commit_and_completion_rules(self) -> None:
+        self.assert_contracts(
+            "PLAN_LEVEL_COMMIT", "PLAN_LEVEL_PLANNING", "PLAN_LEVEL_PREPARATION",
+            "PLAN_LEVEL_EVIDENCE", "PLAN_LEVEL_HANDOFF", "PLAN_LEVEL_SKILL",
+        )
 
     def test_explicit_request_authorization_has_scoped_conditions(self) -> None:
         self.assert_contracts("SCOPED_AUTHORIZATION")

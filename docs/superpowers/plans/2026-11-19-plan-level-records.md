@@ -73,9 +73,9 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 
 ### P0: planning-document 커밋과 기준선 기록 (Orchestrator, 구현 커밋 없음)
 
-- [ ] handoff-prep `Planning document commit` 절차대로 승인된 spec과 이 plan을 한 번의 docs 커밋으로 묶는다. 메시지 예: `docs: plan-level 진행 기록 설계 spec과 구현 plan 추가`(closing 예외와 헷갈리지 않게 `docs(plan)` scope는 쓰지 않음). 커밋 뒤 SHA, 경로 2개, 내용 해시를 확인한다.
-- [ ] 같은 환경에서 기준선을 기록한다: HEAD, branch, `git status`, node/python 버전, N-ALL·P-ALL 실패 집합, P-PLR 출력(`PLAN_LEVEL failures: 0`), G-POL·G-RT·G-MAN·G-PAR·`G-PAR --complete` 종료 코드, `installed-layout-golden` 실패 여부(spec R2), `instruction-layout.test.mjs` 단독 결과.
-- [ ] 원본 출력은 `.git/arc/handoff/closing-commit/baseline/`에 둔다.
+- [x] handoff-prep `Planning document commit` 절차대로 승인된 spec과 이 plan을 한 번의 docs 커밋으로 묶는다. 메시지 예: `docs: plan-level 진행 기록 설계 spec과 구현 plan 추가`(closing 예외와 헷갈리지 않게 `docs(plan)` scope는 쓰지 않음). 커밋 뒤 SHA, 경로 2개, 내용 해시를 확인한다.
+- [x] 같은 환경에서 기준선을 기록한다: HEAD, branch, `git status`, node/python 버전, N-ALL·P-ALL 실패 집합, P-PLR 출력(`PLAN_LEVEL failures: 0`), G-POL·G-RT·G-MAN·G-PAR·`G-PAR --complete` 종료 코드, `installed-layout-golden` 실패 여부(spec R2), `instruction-layout.test.mjs` 단독 결과.
+- [x] 원본 출력은 `.git/arc/handoff/closing-commit/baseline/`에 둔다.
 
 ---
 
@@ -98,7 +98,7 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 - `MANIFEST.sha256`
 - 범위 밖: managed section 내부, `lib/**`, `shared/**`, `*/agents/*`, 위 목록 밖 references
 
-- [ ] **Step 1 (RED 테스트 작성)**
+- [x] **Step 1 (RED 테스트 작성)**
   - `test_harness_contract.py`에 owner별 contract 추가(패턴은 소문자 정규화된 spec 문장):
     - `PLAN_LEVEL_COMMIT` (`references/commit.md`): step 2 삽입, 정의 3요소, 승인 경계, "sole exception … next commit …", no-work 경로(final Reviewer approval without findings 예시, canonical only, plan 무변경, clean, 완료 보고), "alone never trigger the standalone `docs\(plan\)` closing commit"(백틱 포함, 생성 섹션 문장과 구분), D12 문장
     - `PLAN_LEVEL_PLANNING` (`references/planning.md`): §4.2 정의 문장, "sole closing exception\. plan-level progress records alone never trigger it\."
@@ -113,12 +113,12 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
     - `| Push, merge, deploy, publish, external messages | user | — |` 1회
     - 기존 closing 문장 보존: commit.md `Only when no implementation work remains before overall completion MAY Orchestrator create one standalone \`docs(plan): <description>\` closing commit.`, planning.md `No separate docs/fixup commit is allowed outside this sole closing exception.` 각 1회
   - `run-mode-contract.test.mjs`: `planningSection`의 `Spec/plan revision within the original scope` 행 바로 뒤에 새 행 1줄. 다른 행은 바이트 그대로.
-- [ ] **Step 2 (RED 확인):** `node --test tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs` → 새 단언과 `planning.md ends with one approved Full Auto section` 4개 FAIL. `P-PLR` → codex/claude 각 owner의 `PLAN_LEVEL_*` 누락 출력(0보다 큼).
-- [ ] **Step 3 (지침 편집):** claude 4개 references와 SKILL.md를 spec §4대로 고친 뒤 같은 문자열을 codex, gemini, grok에 적용. managed section은 건드리지 않는다.
-- [ ] **Step 4 (fixture):** `instruction-contracts.json`의 해당 4개 contract `text`에 같은 삽입 반영. 다른 키는 바꾸지 않는다. `skill.bytes/lines`는 O2.
-- [ ] **Step 5 (GREEN):** `node --test tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs tests/node/instruction-layout.test.mjs tests/node/role-policy.test.mjs` → PASS(P0 기준선 실패 제외). `P-PLR` → `PLAN_LEVEL failures: 0`. `P-HC` → 실패 ID 집합이 P0 집합의 부분집합.
-- [ ] **Step 6 (생성물 불변과 manifest):** G-POL verified(drift 0). `node scripts/update-manifest.mjs` → G-MAN verified. `git diff --stat`이 allowedPaths 안에만.
-- [ ] **Step 7 (보고):** Implementer가 변경 파일 목록, RED/GREEN 출력, fixture old→new 보고. Orchestrator는 호스트에서 N-ALL·P-ALL로 새 실패 0 확인 후 진행 기록. 커밋 메시지 예: `docs(skill): plan-level 진행 기록 커밋 경로를 4개 플랫폼 지침에 추가`
+- [x] **Step 2 (RED 확인):** `node --test tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs` → 새 단언과 `planning.md ends with one approved Full Auto section` 4개 FAIL. `P-PLR` → codex/claude 각 owner의 `PLAN_LEVEL_*` 누락 출력(0보다 큼).
+- [x] **Step 3 (지침 편집):** claude 4개 references와 SKILL.md를 spec §4대로 고친 뒤 같은 문자열을 codex, gemini, grok에 적용. managed section은 건드리지 않는다.
+- [x] **Step 4 (fixture):** `instruction-contracts.json`의 해당 4개 contract `text`에 같은 삽입 반영. 다른 키는 바꾸지 않는다. `skill.bytes/lines`는 O2.
+- [x] **Step 5 (GREEN):** `node --test tests/node/plan-level-records-contract.test.mjs tests/node/run-mode-contract.test.mjs tests/node/instruction-layout.test.mjs tests/node/role-policy.test.mjs` → PASS(P0 기준선 실패 제외). `P-PLR` → `PLAN_LEVEL failures: 0`. `P-HC` → 실패 ID 집합이 P0 집합의 부분집합.
+- [x] **Step 6 (생성물 불변과 manifest):** G-POL verified(drift 0). `node scripts/update-manifest.mjs` → G-MAN verified. `git diff --stat`이 allowedPaths 안에만.
+- [x] **Step 7 (보고):** Implementer가 변경 파일 목록, RED/GREEN 출력, fixture old→new 보고. Orchestrator는 호스트에서 N-ALL·P-ALL로 새 실패 0 확인 후 진행 기록. 커밋 메시지 예: `docs(skill): plan-level 진행 기록 커밋 경로를 4개 플랫폼 지침에 추가`
 
 **수락 기준:** AC-1, AC-2(문서), AC-3, AC-4, AC-5, AC-6(문서 순서), AC-7, AC-8, AC-10(4개 플랫폼 문장 동일, handoff.md, G-POL·G-MAN), AC-11(T1 RED→GREEN, 새 실패 0)
 **필수 검사:** Step 2, 5, 6, Orchestrator N-ALL·P-ALL, fresh QA
@@ -220,6 +220,8 @@ T1과 T2는 같은 reference 파일(수동 문단과 생성 섹션), `instructio
 
 | 일시 | 작업 | 상태 | 커밋 | 메모 |
 |---|---|---|---|---|
+| 2026-11-19 | P0 | 완료 | 0e00371 | spec·plan docs 커밋. 기준선(호스트, worktree @0e00371): node 2097 tests 70 fail·13 skip, python 547 fail+7 error(기존 stale 계약), P-PLR 0, G-POL/G-RT/G-MAN/G-PAR exit 0, `G-PAR --complete` exit 1, `instruction-layout.test.mjs` 단독 exit 1(5 fail). 원본 출력은 canonical record 참조 |
+| 2026-11-19 | T1 | 완료 | 이 커밋 | RED: node 28 예상 실패, P-PLR 32 → GREEN: 신규 계약·Run mode 39개 pass, P-PLR 0, G-POL 48 targets·G-MAN 283 files ok. 호스트 N-ALL 2121 tests 70 fail·P-ALL 547 fail+7 error, 실패 이름 집합 P0와 동일(새 실패 0). fresh QA: AC-1~AC-10 입증, 표본 삭제 2건 검출, instruction-layout 5 fail P0 일치 |
 
 ## 개정 이력
 
