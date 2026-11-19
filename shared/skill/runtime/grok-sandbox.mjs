@@ -70,6 +70,7 @@ export function createGrokSandboxProfile({worktree, bytes}) {
     const parent = fs.lstatSync(directory);
     if (!parent.isDirectory()) throw Error('.grok is not a real directory');
     profile.directoryIdentity = identityOf(parent);
+    // During creation, the parent .grok can become a symlink between its identity lstat and open.
     fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o444);
     try {
       const opened = fs.fstatSync(fd);
@@ -84,14 +85,19 @@ export function createGrokSandboxProfile({worktree, bytes}) {
     checkProfileEntries(profile);
     return profile;
   } catch (cause) {
-    if (profile.fileIdentity) removeGrokSandboxProfile(profile);
-    else if (fd === undefined && profile.dirCreated && profile.directoryIdentity) {
+    const error = scopeError('Grok sandbox profile creation failed', cause);
+    if (fd !== undefined) {
+      const {removed, dirRemoved, violation} = profile.fileIdentity
+        ? removeGrokSandboxProfile(profile)
+        : {removed: false, dirRemoved: false, violation: true};
+      error.cleanup = {path: file, retained: !removed, violation, dirRemoved};
+    } else if (profile.dirCreated && profile.directoryIdentity) {
       try {
         checkProfileDirectory(profile);
         fs.rmdirSync(directory);
       } catch { /* retain a concurrently occupied or replaced directory */ }
     }
-    throw scopeError('Grok sandbox profile creation failed', cause);
+    throw error;
   }
 }
 

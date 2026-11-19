@@ -201,6 +201,8 @@ GK2 is `approval`.
 **Grok**
 
 - Writing roles: Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution (GK1), with read-role behavior unchanged. Writing roles are held as `permission_scope_unverified` if GK1 is anything other than `pass`.
+- Grok records `ProfileApplied` itself in a file the child can write. If a Grok version neither applies the profile nor emits the event, a single forged candidate is indistinguishable from a genuine one. A forgery alongside a genuine event fails the two-candidate check.
+- On cancellation, the events check adds no `permission_scope_mismatch` if a valid events file has no matching `ProfileApplied` candidate or the file was absent both before and after execution. Other reasons still apply.
 - Permission claim: The worktree snapshot covers only Git-visible worktree changes.
 - Delegation: The dispatch record reports `unverifiedContracts.delegation` as `undetectable`.
 - Execution confirmation: Check the stream session ID against the recorded ID, the observed model and the terminal result. Effort stays `unverified`.
@@ -214,7 +216,7 @@ GK2 is `approval`.
 - `execution_identity_unverified` (no session ID was obtained) is recorded by the supervisor after exit and exposed by `observe`; `resume` holds with it for a dispatch without a session ID. The `run-dispatch` response and `prepare-dispatch` never carry it.
 - A leftover orphaned process group after the child leader exits by itself is reaped (SIGTERM, grace, then SIGKILL) before the post-run snapshot is taken, and `orphanGroupReaped` is recorded; if the group cannot be observed gone the dispatch is `unknown` (`terminal_state_unverified`) and keeps its slot.
 - Post-run detection compares the changed paths, `HEAD`, the branch and every Git ref. Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed` for every role, assuming no other Git activity changes refs during the run. Changes to Git-ignored paths are outside post-run detection.
-- `ARC_BRIDGE_CHILD` is set in the environment of every bridge child; routing commands are denied in a process that has it. Re-running `codex exec` or `claude -p` through a shell is not a detected `delegation_observed` case and stays outside detection.
+- `ARC_BRIDGE_CHILD` is set in the environment of every bridge child; routing commands are denied in a process that has it. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection.
 - CLI versions are not restricted. `routing-status` and bridge `prepare-dispatch` report the parsed `<cli> --version` result (`cliVersion.version`, or `null` with a `reason`) for information only; no version holds a native or bridge route.
 - There is no automatic fallback, substitution or retry. On any hold, deny or failure, report the reasons and release conditions and DO NOT use another model or platform. Run `routing-status` again only after the condition changed. Bridge dispatches count in the instance ledger; see [limits](limits.md).
 - After an ARC upgrade that changes the cooperative runtime version, run Configure again; until then routing holds as `activation_unverified`.

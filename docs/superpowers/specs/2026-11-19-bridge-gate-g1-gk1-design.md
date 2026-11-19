@@ -1,6 +1,6 @@
 # G1·GK1 bridge 게이트 pass 전환 spec
 
-- 상태: 승인됨(v3, 2026-11-20).
+- 상태: 승인됨(v4, 2026-11-20).
 - 기준: `fix/bridge-ps-stub` @ d5bae6a. 작업 대상은 현재 checkout입니다(사용자 선택).
 - 경로: Architectural(보안 경계 변경). 위험도: high.
 - 승인 근거: 2026-11-19 설계 승인(G1-B, K-B, Q4, Q5, Q6, GG1 제외), T0 측정 뒤 사용자 결정 1–3, Grok 버전 범위 유지(Q-A).
@@ -242,6 +242,9 @@ record(`writeRecord`, :437)에 다음을 남깁니다.
 - 사용자 `~/.grok/sandbox.toml`이 같은 이름을 정의하면 user 정의가 우선합니다. 고유 이름과 `deny_paths` 확인으로 대부분 걸러지지만, 이름 충돌(약 2^-32)과 동일한 deny 조합은 구분할 수 없습니다.
 - 측정 버전은 1.0.89뿐입니다. 범위(`>=1.0.0 <1.1.0`)는 유지합니다(D16). 이벤트 형식이 다르면 fail-closed로 실패하지만, 형식은 같고 deny 의미만 다른 버전은 탐지할 수 없습니다.
 - 전역 이벤트 파일 확인은 시계와 offset에 의존합니다. 회전과 잘림은 fail-closed로 처리합니다.
+- 부모 `.grok`의 identity를 `lstat`로 확인한 뒤 `open`하기 전에 부모가 symlink로 바뀔 수 있습니다.
+- `ProfileApplied`는 Grok이 child가 쓸 수 있는 파일에 직접 기록합니다. 프로필을 적용하지 않고 이벤트도 기록하지 않는 Grok 버전에서는 위조 후보 1건을 실제 이벤트와 구분할 수 없습니다. 정상 적용 이벤트와 위조가 함께 있으면 후보 2건으로 실패합니다.
+- 취소 시 이벤트 확인 결과가 `no_candidate`이면 `permission_scope_mismatch`를 추가하지 않고, 다른 reason이 없을 때 `cancelled`로 기록합니다(D12/E13).
 - Linux는 미측정입니다(deny가 bubblewrap에 의존하고 glob은 launch 시점 기준).
 
 ## 9. task 분할
@@ -275,3 +278,4 @@ record(`writeRecord`, :437)에 다음을 남깁니다.
 | v1 | 2026-11-19T10:49:50Z | 최초 승인 | 전체 | 작성 spec 승인 |
 | v2 | 2026-11-19T10:59:30Z | 기계적 정정 | T1, T2 | plan 근거 확인: M2 목록 위치 :226→:230, 새 모듈 등록 위치(`COOPERATIVE_RUNTIME_MODULES`, 등록 테스트, installed-layout golden) 누락 보완 |
 | v3 | 2026-11-20 | contract | T2 | D10·E7: runtime이 child env에 `GROK_HOME=homes.grok`을 항상 주입하므로 "`GROK_HOME` 없음" 조건을 "`homes.grok`과 정확히 같고 `invocation.childEnv`가 덮지 않음"으로 정정(T2 Implementer hold 보고, 사용자 결정). 사용자가 설정한 `GROK_HOME`은 E8대로 prepare hold |
+| v4 | 2026-11-20 | 기계적 보완 | 최종 리뷰 follow-up | §8 잔여 한계 보완(M2, M3) |

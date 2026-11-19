@@ -102,7 +102,7 @@ On Claude and Codex Desktop, support is capped at `unverified`. This version pro
 |---|---|
 | G1 `pass` | On every host, Claude bridge Implementer/QA receive recorded settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. The following observations are from Claude 2.1.328 on macOS Seatbelt (2026-11-19). `/private/tmp/claude-<uid>` is writable. If sandboxing is unavailable, Bash exits 71 per command and Claude exits 0. M-C4 found no widening in trusted or untrusted workspaces. Network restrictions were outside the measurement scope. |
 | GG1 `fail` | Gemini bridge Implementer/QA are held as `permission_scope_unverified`; read roles remain supported. |
-| GK1 `pass` | Grok bridge Implementer/QA use a per-dispatch profile with `extends = "workspace"` and 24 deny entries. A verified `ProfileApplied` event is required after execution for completion. Unlisted `~/.grok/*` paths, `~/.grok/sessions` and temporary directories remain writable. Reads are unrestricted and network access is allowed. Measurements cover Grok 1.0.89 on macOS only. |
+| GK1 `pass` | Grok bridge Implementer/QA use a per-dispatch profile with `extends = "workspace"` and 24 deny entries. A verified `ProfileApplied` event is required after execution for completion. Unlisted `~/.grok/*` paths, `~/.grok/sessions` and temporary directories remain writable. Reads are unrestricted and network access is allowed. Measurements cover Grok 1.0.89 on macOS only.<br>Grok records `ProfileApplied` itself in a file the child can write. If a Grok version neither applies the profile nor emits the event, a single forged candidate is indistinguishable from a genuine one. A forgery alongside a genuine event fails the two-candidate check.<br>On cancellation, the events check adds no `permission_scope_mismatch` if a valid events file has no matching `ProfileApplied` candidate or the file was absent both before and after execution. Other reasons still apply. |
 | G2 `escalation` | Codex-host calls require approval; no advance hold; detached supervisor survival observed under variant conditions |
 | G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
 | G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |
@@ -110,10 +110,10 @@ On Claude and Codex Desktop, support is capped at `unverified`. This version pro
 | GK2 `approval` | Start Grok with `grok --permission-mode default` and use `Allow once` on each runtime call. `Always allow` saves `permission_mode = "always-approve"` in Grok configuration. The Orchestrator obtains each approval. |
 | GG2 `fail` | Gemini host remains held pending live host measurement. |
 | Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
-| Versions | Claude/Codex versions reported, not restricted |
+| Versions | Routing reports CLI versions for Codex, Claude, Gemini and Grok. Version never blocks routing. Configure blocks composite platform selection when a CLI version falls outside the registry's `cli.supportedVersions` range. TUI status uses the same range. |
 | Detection | Compare git-visible tracked/untracked paths, HEAD, branch, every ref; ignored paths excluded |
 | Host home probe | Grok/Gemini host only: bridge prepare/run/resume create and remove one probe file in the target home first; denied → `host_sandbox_blocked`, missing → `activation_unverified`, unremovable → `residualPaths`. Subpath-only denials are not detected |
-| Child guard | `ARC_BRIDGE_CHILD` denies routing commands, but shell `codex exec` / `claude -p` is not detected delegation |
+| Child guard | `ARC_BRIDGE_CHILD` denies routing commands. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection. |
 
 ## Install, update, remove
 

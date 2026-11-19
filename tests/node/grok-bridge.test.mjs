@@ -484,6 +484,39 @@ for (const scenario of ['absent', 'valid', 'not-enforced', 'rotated']) {
   });
 }
 
+for (const retained of [true, false]) test(`M1 reports cleanup after a Grok profile write failure (retained: ${retained})`, async t => {
+  const f = await fixture(t, {}, false, writingPolicy);
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  assert.equal((await f.start(prepared.dispatchId)).decision, 'allow');
+  const file = sandboxPath(f);
+  const original = fsSync.writeFileSync;
+  const write = t.mock.method(fsSync, 'writeFileSync', (fd, bytes, ...args) => {
+    if (typeof fd !== 'number' || !Buffer.isBuffer(bytes) || !bytes.toString().startsWith('[profiles.arc-bridge-')) return original(fd, bytes, ...args);
+    fsSync.writeSync(fd, retained ? bytes.subarray(0, 8) : bytes);
+    throw Error('injected profile write failure');
+  });
+  try { await f.supervise(prepared.dispatchId); } finally { write.mock.restore(); }
+  const done = await f.observe(prepared.dispatchId);
+  const reasons = ['permission_scope_unverified', ...(retained ? ['permission_violation_observed'] : [])];
+  assert.equal(done.routeStatus, 'failed', JSON.stringify(done));
+  assert.deepEqual(codes(done), reasons);
+  const record = await dispatchRecord(f, prepared.dispatchId);
+  assert.equal(record.spawned, false);
+  assert.deepEqual(record.reasons, reasons);
+  if (retained) {
+    assert.equal(record.grokSandboxProfile.path, file);
+    assert.equal(record.grokSandboxProfile.created, true);
+    assert.equal(record.grokSandboxProfile.removed, false);
+    assert.equal(record.grokSandboxProfile.reason, 'profile_creation_cleanup_failed');
+    assert.equal(await fs.readFile(file, 'utf8'), '[profile');
+  } else {
+    assert.equal(record.grokSandboxProfile, undefined);
+    await assert.rejects(fs.lstat(file), {code: 'ENOENT'});
+  }
+  await assert.rejects(fs.lstat(f.record), {code: 'ENOENT'});
+});
+
 for (const scenario of ['E5 late file', 'E7 different child GROK_HOME', 'E9 event directory', 'E10 existing prompt']) test(`${scenario} fails before spawn with the expected profile disposition`, async t => {
   const f = await fixture(t, {}, false, writingPolicy);
   const prepared = await f.prepare('arc_implementer');

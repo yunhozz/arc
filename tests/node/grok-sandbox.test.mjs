@@ -96,6 +96,29 @@ test('E5 exclusive creation preserves a preexisting file even with matching byte
   assert.deepEqual(fs.readFileSync(file), rendered);
 });
 
+for (const phase of ['partial write', 'complete write', 'opened identity', 'chmod']) test(`M1 reports cleanup after a failed ${phase}`, t => {
+  const {worktree, file} = fixture(t);
+  const failure = Error('injected profile creation failure');
+  const method = phase === 'opened identity' ? 'fstatSync' : phase === 'chmod' ? 'fchmodSync' : 'writeFileSync';
+  const write = fs.writeFileSync;
+  const injection = t.mock.method(fs, method, (fd, bytes) => {
+    if (phase === 'complete write') write(fd, bytes);
+    if (phase === 'partial write') fs.writeSync(fd, bytes.subarray(0, 8));
+    throw failure;
+  });
+  const retained = phase === 'partial write' || phase === 'opened identity';
+  try {
+    assert.throws(() => sandbox.createGrokSandboxProfile({worktree, bytes: rendered}), {
+      ...permissionError, cause: failure,
+      cleanup: {path: file, retained, violation: retained, dirRemoved: !retained},
+    });
+  } finally {
+    injection.mock.restore();
+  }
+  if (retained) assert.deepEqual(fs.readFileSync(file), rendered.subarray(0, phase === 'partial write' ? 8 : 0));
+  else assert.equal(fs.existsSync(file), false);
+});
+
 function replaceProfileSlot({worktree, directory, file}, kind) {
   if (kind === 'directory') {
     fs.renameSync(directory, path.join(worktree, 'original-grok'));
