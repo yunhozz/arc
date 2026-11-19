@@ -85,7 +85,7 @@
 - `parseLanguage(bytes) -> {version:1|2, language}`(wrapper), `serializeLanguage(language)` = `serializeSettings({language})`
 - `runModePolicy(runMode) -> string`(spec 7.2 문단 바이트 그대로), `renderRunModePolicy(bytes, runMode) -> Buffer`(marker `{{ARC_RUN_MODE_POLICY}}`)
 
-- [ ] **Step 1: 실패 테스트 작성** (`tests/node/language.test.mjs`)
+- [x] **Step 1: 실패 테스트 작성** (`tests/node/language.test.mjs`)
   - `settings serialize v1 bytes unchanged`: `['en','ko']`마다 `serializeSettings({language})`, `serializeSettings({language,runMode:'supervised'})`, `serializeLanguage(language)`가 모두 `Buffer.from('version = 1\nlanguage = "'+language+'"\n')`와 `equals` (AC-S1).
   - `settings serialize full-auto v2`: `serializeSettings({language:'ko',runMode:'full-auto'})`가 `'version = 2\nlanguage = "ko"\nrun_mode = "full-auto"\n'`와 바이트 동일, `parseSettings`로 `{version:2,language:'ko',runMode:'full-auto'}` 복원 (AC-S2).
   - `settings parse v1`: `{version:1,language:'en',runMode:'supervised'}`.
@@ -93,10 +93,10 @@
   - `settings rejects`(AC-S3): v1+`run_mode = "full-auto"`, v2 run_mode 없음, v1+`extra = 1`, `version = 3`+세 키 → `/Invalid ARC settings schema or version/`; v2 `run_mode = "auto"` → `/Invalid run mode: auto/`; 문자열 입력·`Buffer.from([0xff,0xfe])` → throw(메시지 미검사).
   - `parseLanguage wrapper`(AC-S4): v1 → `{version:1,language:'en'}`, v2(full-auto, ko) → `{version:2,language:'ko'}`.
   - `renderRunModePolicy`: `Buffer.from('a\n{{ARC_RUN_MODE_POLICY}}\nb')`에서 supervised/full-auto 결과가 `'a\n'+<spec 7.2 문장>+'\nb'`, marker 미잔존; marker 0개·2개 → `/Expected exactly one ARC run mode policy marker/`; `runMode:'x'` → `/Invalid run mode/` (AC-P4 단위).
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/language.test.mjs` FAIL.
-- [ ] **Step 3: 구현.** 기존 디코딩(`TextDecoder('utf-8',{fatal:true,ignoreBOM:true})`)과 `parseToml` 재사용, 비Buffer 메시지는 기존 `'Language settings must be bytes'` 유지. 키 집합: v1 정확히 `{version,language}`·version `1`/`1n`, v2 정확히 `{version,language,run_mode}`·version `2`/`2n`, 그 외 `Invalid ARC settings schema or version`. `renderRunModePolicy`는 `renderLanguagePolicy`와 같은 형태로 치환 전에 `validateRunMode`. `defaultLanguage`·`languagePolicy`·`renderLanguagePolicy` 불변.
-- [ ] **Step 4: GREEN.** `node --test tests/node/language.test.mjs tests/node/plan.test.mjs tests/node/management-status.test.mjs tests/node/upgrade-state.test.mjs`
-- [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(installer): settings.toml v2 run_mode 저장 API`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/language.test.mjs` FAIL.
+- [x] **Step 3: 구현.** 기존 디코딩(`TextDecoder('utf-8',{fatal:true,ignoreBOM:true})`)과 `parseToml` 재사용, 비Buffer 메시지는 기존 `'Language settings must be bytes'` 유지. 키 집합: v1 정확히 `{version,language}`·version `1`/`1n`, v2 정확히 `{version,language,run_mode}`·version `2`/`2n`, 그 외 `Invalid ARC settings schema or version`. `renderRunModePolicy`는 `renderLanguagePolicy`와 같은 형태로 치환 전에 `validateRunMode`. `defaultLanguage`·`languagePolicy`·`renderLanguagePolicy` 불변.
+- [x] **Step 4: GREEN.** `node --test tests/node/language.test.mjs tests/node/plan.test.mjs tests/node/management-status.test.mjs tests/node/upgrade-state.test.mjs`
+- [x] **Step 5: STD-CLOSE.** 커밋 예: `feat(installer): settings.toml v2 run_mode 저장 API`
 
 **Criteria:** AC-S1–S4, AC-P4(단위). **필수 QA:** fresh QA(spec 3.2 거부 사례·7.2 문장 바이트 독립 대조). **Holds:** 없음.
 
@@ -320,8 +320,8 @@
 | 일시 | 작업 | 상태 | 커밋 | 메모 |
 |---|---|---|---|---|
 | 2026-11-19 | P0-b | 완료 | — | runtime 사본·golden fixture 확인, 언어 오류 단언 없음 |
-| — | P0-a | 대기 | — | — |
-| — | T1 | 대기 | — | — |
+| 2026-11-19 | P0-a | 완료 | — | npm test 2825/fail 36(기준선 목록은 canonical record), python payload 52 run/120 failures |
+| 2026-11-19 | T1 | 수용 | (이 커밋) | language 13/13, host suite 신규 실패 0, check:manifest 283 OK, fresh QA AC-S1–S4·AC-P4 proven |
 | — | T2 | 대기 | — | — |
 | — | T3 | 대기 | — | — |
 | — | T4 | 대기 | — | — |
