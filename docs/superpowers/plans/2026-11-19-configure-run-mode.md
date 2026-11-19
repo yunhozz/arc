@@ -247,16 +247,16 @@
 
 **Interfaces:** Consumes (T4) `status.settings.{runMode,language,limits.max_total_subagents,limits.max_concurrent_subagents}`. `statusInfo(...) -> {info, infoTones}` 형태 유지: `info[0] = row('Installed on', homeModeLine(...))`, installed settings가 있으면 `Run mode`·`Language`·`Total subagents`·`Concurrent subagents` 4행, 이어 `''`; 해당 infoTones `undefined`; `labelWidth = max(width('Installed on'), 설정 라벨(행이 있을 때), Version, 플랫폼 라벨)`(설정 행이 있으면 20).
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `status installed on label`(AC-T1): installed 없음 → `info[0]`이 `'Installed on'`+공백+`'Not installed'`, `info[1]===''`, 설정 행 없음; installed 1개 → 값이 `homeModeLine(...)`과 같다.
   - `status settings rows`(AC-T2): claude installed(`{runMode:'full-auto',language:'ko',limits:{max_total_subagents:100,max_concurrent_subagents:5}}`) → `info.slice(1,6)`이 `['Run mode              Full Auto','Language              Korean','Total subagents       100','Concurrent subagents  5','']`(라벨 폭 20 + 3칸, `row()`의 실제 간격 규칙에 맞춰 확정), `infoTones` 대응 `undefined`, 길이 일치.
   - `status settings mixed`(AC-T2): runMode 상이 → `mixed`, 같은 language는 실제 값.
   - `status ignores non-installed`(Review Focus 5).
   - 기존 `'Mode'` 단언 → `'Installed on'`, 플랫폼·Version 행 정렬 변화 반영, old→new 보고.
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/tui-app.test.mjs` FAIL.
-- [ ] **Step 3: 구현.** 대상 `statuses.filter(status=>status.state==='installed'&&status.settings)`, 행별 값이 모두 같으면 표시값 아니면 `'mixed'`. 매핑: runMode `Supervised`/`Full Auto`, language `English`/`Korean`, 한도 `String`.
-- [ ] **Step 4: GREEN.** `node --test tests/node/tui-app.test.mjs tests/node/tui-custom-preset.test.mjs tests/node/tui-setup.test.mjs`. PTY 테스트 `node --test tests/node/tui-app-pty.test.mjs`는 Orchestrator가 호스트에서 실행.
-- [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(tui): Status에 Installed on과 설치 설정 표시`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/tui-app.test.mjs` FAIL.
+- [x] **Step 3: 구현.** 대상 `statuses.filter(status=>status.state==='installed'&&status.settings)`, 행별 값이 모두 같으면 표시값 아니면 `'mixed'`. 매핑: runMode `Supervised`/`Full Auto`, language `English`/`Korean`, 한도 `String`.
+- [x] **Step 4: GREEN.** `node --test tests/node/tui-app.test.mjs tests/node/tui-custom-preset.test.mjs tests/node/tui-setup.test.mjs`. PTY 테스트 `node --test tests/node/tui-app-pty.test.mjs`는 Orchestrator가 호스트에서 실행.
+- [x] **Step 5: STD-CLOSE.** 커밋 예: `feat(tui): Status에 Installed on과 설치 설정 표시`
 
 **Criteria:** AC-T1, AC-T2. **필수 QA:** fresh QA(정렬·mixed·비설치 제외 독립 대조, 호스트 PTY 출력). **Holds:** T5 커밋 전 착수 금지.
 
@@ -326,7 +326,7 @@
 | 2026-11-19 | T3 | 수용 | (이 커밋) | 14 files, host suite = 기준선 36(신규 0), check:role-policy 48·manifest 283, fresh QA AC-P1·P4·P5·P6·G3·R1(지정 범위) proven, 전체 AC-R1은 V2 |
 | 2026-11-19 | T4 | 수용 | (이 커밋) | 9 files, host suite = 기준선 + codex-auth-probe flake(단독 23/23), manifest 283, fresh QA AC-P2·AC-T3 충족, AC-P3 정규 바이트 보존 충족(TOML 주석 소실은 기존 정규화 동작·spec Q2, 결함 아님) |
 | 2026-11-19 | T5 | 수용 | (이 커밋) | 6 files, host suite = 기준선 36(신규 0), PTY 37/37, manifest 283, fresh QA AC-U1–U7 proven; 경계 full 22→25행·전환 24/25행; 역할 편집 후 PTY 시나리오 범위 축소는 앱 테스트·QA 재현으로 보완(수용) |
-| — | T6 | 대기 | — | — |
+| 2026-11-19 | T6 | 수용 | (이 커밋) | 4 files, host suite = 기준선 + role-bridge-run flake(단독 35/35), PTY 37/37, manifest 283, fresh QA AC-T1·T2 proven(값 시작 열 23) |
 | — | T7 | 대기 | — | — |
 | — | 최종 검증 | 대기 | — | — |
 | — | FR | 대기 | — | — |
