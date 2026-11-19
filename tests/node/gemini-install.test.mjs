@@ -43,7 +43,7 @@ test('gemini standalone install layout', async t => {
   for (const role of roles) {
     const text = fs.readFileSync(path.join(home, 'agents', `arc-${role}.md`), 'utf8');
     assert.match(text, /^model: gemini-/m);
-    assert.doesNotMatch(text, /ARC_AGENT_FRAGMENT|ARC_OUTPUT_LANGUAGE_POLICY|^effort:/m);
+    assert.doesNotMatch(text, /ARC_AGENT_FRAGMENT|ARC_OUTPUT_LANGUAGE_POLICY|ARC_RUN_MODE_POLICY|^effort:/m);
   }
   const payload = verifyPayload(context);
   assert.ok(payload.modelInputs.gemini, 'verified Gemini templates must be validated');

@@ -7,6 +7,8 @@ description: Keep simple, self-contained questions with the chat-selected Orches
 
 {{ARC_OUTPUT_LANGUAGE_POLICY}}
 
+{{ARC_RUN_MODE_POLICY}}
+
 **Execution-target gate:** Before any task's first repository edit and every Implementer first start/restart, record explicit user target choice (or a Full Auto auto-decision under the Run mode policy) or verify valid reuse under [handoff](references/handoff.md#common-handoff-gate). Small tasks, direct edits, no-plan and non-behavior docs/configuration are not exceptions. Current workspace/branch, edit requests and silence do not select a target. Present supported [preparation options](references/handoff-prep.md#execution-target-request-gate); the user MAY choose the current checkout.
 
 **Role gate:** Only Planner authors design/brainstorming drafts and first complete spec/plan drafts. Orchestrator reviews and directly revises the same spec or plan when needed; missing or failed first drafts do not transfer initial authorship. New product decisions outside approved scope require user input first. Orchestrator NEVER invokes `brainstorming`/`writing-plans` through its own Skill tool. If auto-triggered, stop and route to Planner with that SKILL.md path in the brief. Skipping questions never waives design/approval gates. Planner returns questions to Orchestrator.

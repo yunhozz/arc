@@ -164,13 +164,13 @@
   - `renderSkillPayload({...,runMode})`: `SKILL.md = renderRunModePolicy(renderLanguagePolicy(src,language),runMode)`, `settings.toml = serializeSettings({language,runMode})`
   - `renderNativeChanges({...,runMode})` → `agentsBlockBody(home,target.userHome,language,target.platform,runMode)`
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
   - `plan.test.mjs`: `runMode default supervised bytes`(파일 없음·미지정 → `plan.runMode==='supervised'`, `settings.toml` v1 en, SKILL.md에 spec 7.2 Supervised 문장·marker 없음, instruction 파일 globalChange가 `renderManagedBlock(null, agentsBlockBody(home,userHome,'en',platform))`와 바이트 동일 — AC-R1, AC-P5); `runMode preserves existing full-auto`(AC-P1); `runMode v1 existing stays supervised`; `runMode explicit overrides`; `runMode v2 supervised normalizes`(Review Focus 1, 결과 v1 바이트); `runMode invalid rejected`(`/Invalid run mode/`); `summary unchanged`(supervised/full-auto summary deepEqual, Q3).
   - `run-mode-contract.test.mjs`: `agentsBlockBody full-auto line`(full-auto = supervised + spec 6.5 줄 + `\n`, supervised = 4인자 호출 — AC-P5); `fragment marker rejected`(fragment text에 `' {{ARC_RUN_MODE_POLICY}}'`를 붙인 복제본은 `validateAgentRegistry`가 throw, 원본은 통과 — AC-P6); `SKILL.md marker exactly once`(4개, language marker 줄 다음 빈 줄 뒤 — AC-G3).
-- [ ] **Step 2: 실패 확인.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs` FAIL.
-- [ ] **Step 3: 구현.** `languageState`(68행 뒤)에서 실효 runMode를 정하고 `renderSkillPayload`(75행)·`renderNativeChanges`(83행)에 전달, 89행 plan 객체에 `runMode`.
-- [ ] **Step 4: GREEN.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs tests/node/language.test.mjs tests/node/upgrade-harness.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs tests/node/instruction-language.test.mjs tests/node/install.test.mjs tests/node/install-mode-models-upgrade.test.mjs` + `npm run check:role-policy`.
-- [ ] **Step 5: STD-CLOSE.** 커밋 예: `feat(installer): Run mode 정책 문단 렌더링과 설치 계획 전파`
+- [x] **Step 2: 실패 확인.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs` FAIL.
+- [x] **Step 3: 구현.** `languageState`(68행 뒤)에서 실효 runMode를 정하고 `renderSkillPayload`(75행)·`renderNativeChanges`(83행)에 전달, 89행 plan 객체에 `runMode`.
+- [x] **Step 4: GREEN.** `node --test tests/node/plan.test.mjs tests/node/run-mode-contract.test.mjs tests/node/language.test.mjs tests/node/upgrade-harness.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs tests/node/instruction-language.test.mjs tests/node/install.test.mjs tests/node/install-mode-models-upgrade.test.mjs` + `npm run check:role-policy`.
+- [x] **Step 5: STD-CLOSE.** 커밋 예: `feat(installer): Run mode 정책 문단 렌더링과 설치 계획 전파`
 
 **Criteria:** AC-P1, AC-P4(통합), AC-P5, AC-P6, AC-G3(marker), AC-R1(단위 고정). **필수 QA:** fresh QA(실제 payload로 4개 플랫폼 supervised·full-auto plan의 SKILL.md·`settings.toml`·managed block 바이트, 프로필에 marker·문단 없음). **Holds:** T1·T2 커밋 전 착수 금지.
 
@@ -322,7 +322,7 @@
 | 2026-11-19 | P0-a | 완료 | — | npm test 2825/fail 36(기준선 목록은 canonical record), python payload 52 run/120 failures |
 | 2026-11-19 | T1 | 수용 | (이 커밋) | language 13/13, host suite 신규 실패 0, check:manifest 283 OK, fresh QA AC-S1–S4·AC-P4 proven |
 | 2026-11-19 | T2 | 수용 | (이 커밋) | 39 files, update:role-policy 28/check 48, runtime 35, manifest 283, host suite = 기준선 + role-bridge-run flake(단독 35/35), fresh QA AC-G1·G2·G3(정적) proven |
-| — | T3 | 대기 | — | — |
+| 2026-11-19 | T3 | 수용 | (이 커밋) | 14 files, host suite = 기준선 36(신규 0), check:role-policy 48·manifest 283, fresh QA AC-P1·P4·P5·P6·G3·R1(지정 범위) proven, 전체 AC-R1은 V2 |
 | — | T4 | 대기 | — | — |
 | — | T5 | 대기 | — | — |
 | — | T6 | 대기 | — | — |
