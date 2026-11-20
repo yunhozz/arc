@@ -214,7 +214,7 @@ test('detectViolations on a repo with pre-existing dirty and untracked files', a
   assert.match(snap.entries.get('untracked-before.txt'), /^\?\?:[a-f0-9]{64}$/);
 
   // Review Focus 3: pre-existing dirty files untouched by a read-only role are not violations
-  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: []});
+  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: [], toleratedCommitPaths: []});
   // read-only role edits a tracked file, an already-dirty file, or creates a file
   for (const change of [() => fs.writeFile(path.join(dir, 'src/a.txt'), 'changed\n'), () => fs.writeFile(path.join(dir, 'dirty.txt'), 'edited again\n'), () => fs.writeFile(path.join(dir, 'new.txt'), 'n\n'), () => fs.rm(path.join(dir, 'untracked-before.txt'))]) {
     const result = await run('arc_scouter', undefined, change);
@@ -388,7 +388,7 @@ test('snapshotWorktree records refs and detectViolations rejects unchecked-out b
   };
   const snap = await snapshotWorktree(dir);
   assert.ok(Object.keys(snap.refs).some(name => name.startsWith('refs/heads/')));
-  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: []});
+  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: [], toleratedCommitPaths: []});
   const branch = await check('arc_implementer', ['src/'], async () => gitHere('branch', 'side'));
   assert.equal(branch.refsChanged, true); assert.equal(branch.reason, 'permission_violation_observed'); assert.equal(branch.headChanged, false);
   const removed = await check('arc_qa', ['src/'], async () => gitHere('branch', '-D', 'side'));
@@ -691,6 +691,232 @@ for (const [label, args] of [
     assert.deepEqual(result.toleratedRefs, ['refs/remotes/origin/main']);
   });
 }
+
+async function detectHeadAdvance(dir, change, role = 'arc_implementer', allowedPaths) {
+  const before = await snapshotWorktree(dir);
+  await change();
+  const after = await snapshotWorktree(dir);
+  const headAdvance = await roleObserve.observeHeadAdvance(dir, before, after, role, allowedPaths);
+  return {headAdvance, ...detectViolations({role, allowedPaths, before, after, headAdvance})};
+}
+
+function assertRejectedAdvance(result, why, changedPaths = []) {
+  assert.equal(result.reason, 'permission_violation_observed');
+  assert.equal(result.headChanged, true);
+  assert.equal(result.headAdvance.why, why);
+  assert.equal(result.headAdvance.state, 'rejected');
+  assert.deepEqual(result.toleratedCommitPaths, []);
+  assert.deepEqual(result.changedPaths, changedPaths);
+}
+
+const commitAllTracked = dir => git(dir, 'commit', '-qam', 'tracked changes');
+const emptyCommit = dir => git(dir, 'commit', '-q', '--allow-empty', '-m', 'empty');
+
+test('T3 Git log NUL framing and merge-base exit statuses', async t => {
+  const dir = await makeRepo(t);
+  const before = git(dir, 'rev-parse', 'HEAD').trim();
+  await fs.writeFile(path.join(dir, 'src/a.txt'), 'changed');
+  git(dir, 'commit', '-qm', 'update source', '--', 'src/a.txt');
+  git(dir, 'mv', 'src/a.txt', 'src/b.txt');
+  git(dir, 'commit', '-qm', 'rename source');
+  const after = git(dir, 'rev-parse', 'HEAD').trim();
+  const raw = git(dir, 'log', '--no-renames', '--name-only', '-z', '--format=', `${before}..${after}`);
+  assert.deepEqual(raw.split('\0').map(token => token.replace(/^\n/, '')).filter(Boolean),
+    ['src/a.txt', 'src/b.txt', 'src/a.txt']);
+  const ancestry = (from, to) => spawnSync('git', ['--no-optional-locks', 'merge-base', '--is-ancestor', from, to], {cwd: dir}).status;
+  assert.equal(ancestry(before, after), 0);
+  assert.equal(ancestry(after, before), 1);
+  assert.equal(ancestry('no-such-object', after), 128);
+});
+
+test('T3 accepts an in-scope commit on a branch with a same-named tag', async t => {
+  const dir = await makeRepo(t);
+  const branch = (await snapshotWorktree(dir)).branch;
+  git(dir, 'tag', branch);
+  const result = await detectHeadAdvance(dir, async () => {
+    await fs.writeFile(path.join(dir, 'src/a.txt'), 'changed');
+    git(dir, 'commit', '-qm', 'update source', '--', 'src/a.txt');
+  }, 'arc_implementer', ['src/']);
+  assertToleratedBranch(result, `refs/heads/${branch}`);
+  assert.deepEqual(result.toleratedCommitPaths, ['src/a.txt']);
+  assert.equal(result.headAdvance.commits, 1);
+});
+
+for (const revert of [false, true]) {
+  test(`T3 reports committed out-of-scope paths once (revert: ${revert})`, async t => {
+    const dir = await makeRepo(t);
+    const result = await detectHeadAdvance(dir, async () => {
+      await fs.writeFile(path.join(dir, 'src/a.txt'), 'changed');
+      await fs.writeFile(path.join(dir, 'docs/b.txt'), 'changed');
+      git(dir, 'commit', '-qm', 'update source and docs', '--', 'src/a.txt', 'docs/b.txt');
+      if (revert) git(dir, 'revert', '--no-edit', 'HEAD');
+    }, 'arc_implementer', ['src/']);
+    assertRejectedAdvance(result, 'out_of_scope', ['docs/b.txt']);
+    assert.equal(result.refsChanged, true);
+  });
+}
+
+for (const [operation, dest, paths] of [
+  ['rename', 'src/b.txt', ['src/a.txt', 'src/b.txt']],
+  ['rename', 'docs/a.txt', ['docs/a.txt']],
+  ['delete', null, ['src/a.txt']],
+]) {
+  test(`T3 includes both rename paths and deletions: ${operation} ${dest ?? 'src/a.txt'}`, async t => {
+    const dir = await makeRepo(t);
+    const ref = (await snapshotWorktree(dir)).branchRef;
+    const result = await detectHeadAdvance(dir, () => {
+      if (dest) git(dir, 'mv', 'src/a.txt', dest);
+      else git(dir, 'rm', 'src/a.txt');
+      git(dir, 'commit', '-qm', operation);
+    }, 'arc_implementer', ['src/']);
+    if (dest === 'docs/a.txt') assertRejectedAdvance(result, 'out_of_scope', paths);
+    else {
+      assertToleratedBranch(result, ref);
+      assert.deepEqual(result.toleratedCommitPaths, paths);
+    }
+  });
+}
+
+const mergeAdvance = dir => {
+  git(dir, 'checkout', '-qb', 'topic');
+  emptyCommit(dir);
+  git(dir, 'checkout', '-q', '-');
+  git(dir, 'merge', '-q', '--no-ff', '-m', 'merge topic', 'topic');
+};
+const amendAdvance = dir => git(dir, 'commit', '-q', '--amend', '-m', 'rewritten');
+
+test('T3 tolerates a newly created same-named tag and an in-scope fast-forward', async t => {
+  const dir = await makeRepo(t);
+  git(dir, 'branch', '-M', 'main');
+  const result = await detectHeadAdvance(dir, async () => {
+    git(dir, 'tag', 'main');
+    await fs.writeFile(path.join(dir, 'src/a.txt'), 'changed');
+    git(dir, 'commit', '-qm', 'update source', '--', 'src/a.txt');
+  }, 'arc_implementer', ['src/']);
+  assert.equal(result.headChanged, false);
+  assert.equal(result.refsChanged, false);
+  assert.equal(result.reason, null);
+  assert.deepEqual(result.toleratedRefs, ['refs/heads/main', 'refs/tags/main']);
+  assert.deepEqual(result.toleratedCommitPaths, ['src/a.txt']);
+});
+
+test('T3 tolerates a newly created same-named tag and rejects an amend', async t => {
+  const dir = await makeRepo(t);
+  git(dir, 'branch', '-M', 'main');
+  const result = await detectHeadAdvance(dir, () => {
+    git(dir, 'tag', 'main');
+    amendAdvance(dir);
+  }, 'arc_implementer', ['src/']);
+  assertRejectedAdvance(result, 'not_fast_forward');
+  assert.equal(result.refsChanged, true);
+  assert.deepEqual(result.toleratedRefs, ['refs/tags/main']);
+});
+
+test('T3 rejects a real branch switch even when HEAD stays on the same commit', async t => {
+  const dir = await makeRepo(t);
+  const before = await snapshotWorktree(dir);
+  const result = await detectHeadAdvance(dir, async () => {
+    git(dir, 'checkout', '-qb', 'new-branch');
+    const after = await snapshotWorktree(dir);
+    assert.equal(after.head, before.head);
+    assert.notEqual(after.branchRef, before.branchRef);
+  }, 'arc_implementer', ['src/']);
+  assertRejectedAdvance(result, 'branch_switched');
+});
+
+for (const [name, why, change] of [
+  ['merge', 'merge_commit', mergeAdvance],
+  ['amend', 'not_fast_forward', amendAdvance],
+  ['reset', 'not_fast_forward', dir => git(dir, 'reset', '--hard', 'HEAD~1')],
+  ['101 commits', 'too_many_commits', dir => { for (let i = 0; i < 101; i++) emptyCommit(dir); }],
+  ['detached commit', 'detached', emptyCommit],
+  ['unborn first commit', 'unborn', emptyCommit],
+]) {
+  test(`T3 rejects ${name}`, async t => {
+    const dir = name === 'unborn first commit' ? await tempDir(t) : await makeRepo(t);
+    if (name === 'reset') {
+      git(dir, 'restore', 'dirty.txt');
+      emptyCommit(dir);
+    }
+    if (name === 'detached commit') git(dir, 'checkout', '-q', '--detach');
+    if (name === 'unborn first commit') {
+      git(dir, 'init', '-q');
+      git(dir, 'config', 'user.email', 't@example.com');
+      git(dir, 'config', 'user.name', 't');
+    }
+    const result = await detectHeadAdvance(dir, () => change(dir), 'arc_implementer', ['src/']);
+    assertRejectedAdvance(result, why);
+  });
+}
+
+for (const [role, allowedPaths] of [
+  ['arc_reviewer', []], ['arc_qa', []], ['arc_qa', undefined],
+]) {
+  for (const [name, change, why] of [
+    ['new file', async dir => {
+      await fs.writeFile(path.join(dir, 'docs/new.txt'), 'new');
+      git(dir, 'add', 'docs/new.txt');
+      git(dir, 'commit', '-qm', 'add docs');
+    }],
+    ['amend', amendAdvance, 'not_fast_forward'],
+    ['merge', mergeAdvance, 'merge_commit'],
+  ]) {
+    test(`T3 ${role} with ${JSON.stringify(allowedPaths)} observes ${name}`, async t => {
+      const dir = await makeRepo(t);
+      const ref = (await snapshotWorktree(dir)).branchRef;
+      const result = await detectHeadAdvance(dir, () => change(dir), role, allowedPaths);
+      if (why) assertRejectedAdvance(result, why);
+      else {
+        assertToleratedBranch(result, ref);
+        assert.deepEqual(result.toleratedCommitPaths, ['docs/new.txt']);
+      }
+    });
+  }
+}
+
+test('T3 deduplicates committed paths already detected by status', async t => {
+  const dir = await makeRepo(t);
+  const result = await detectHeadAdvance(dir, () => commitAllTracked(dir), 'arc_implementer', ['src/']);
+  assertRejectedAdvance(result, 'out_of_scope', ['dirty.txt']);
+});
+
+test('T3 rejects changed HEAD with failed or missing advance evidence', () => {
+  const ref = 'refs/heads/main';
+  const snapshot = head => ({head, branch: 'main', branchRef: ref, refs: {[ref]: head}, entries: new Map()});
+  for (const headAdvance of [{state: 'rejected', why: 'git_failed'}, undefined]) {
+    const result = detectViolations({role: 'arc_implementer', before: snapshot('a'), after: snapshot('b'), headAdvance});
+    assert.equal(result.reason, 'permission_violation_observed');
+    assert.equal(result.headChanged, true);
+    assert.equal(result.refsChanged, true);
+    assert.deepEqual(result.toleratedCommitPaths, []);
+  }
+});
+
+test('T3 enforces the 10,000-path limit even for Reviewer', async t => {
+  const dir = await makeRepo(t);
+  const before = await snapshotWorktree(dir);
+  const gitBlob = git(dir, 'rev-parse', 'HEAD:src/a.txt').trim();
+  const gitIndex = spawnSync('git', ['--no-optional-locks', 'update-index', '--index-info'], {
+    cwd: dir, encoding: 'utf8',
+    input: Array.from({length: 10001}, (_, i) => `100644 ${gitBlob}	src/path-${i}\n`).join(''),
+  });
+  assert.equal(gitIndex.status, 0, gitIndex.stderr);
+  git(dir, 'commit', '-qm', 'many paths');
+  const after = {...before, head: git(dir, 'rev-parse', 'HEAD').trim()};
+  after.refs = {...before.refs, [before.branchRef]: after.head};
+  for (const role of ['arc_reviewer', 'arc_implementer']) {
+    const allowedPaths = ['src/'];
+    const headAdvance = await roleObserve.observeHeadAdvance(dir, before, after, role, allowedPaths);
+    assertRejectedAdvance({headAdvance, ...detectViolations({role, allowedPaths, before, after, headAdvance})}, 'too_many_paths');
+  }
+});
+
+test('T3 toleratedRecord includes committed paths and truncates at 100', () => {
+  const paths = Array.from({length: 100}, (_, i) => `src/${String(i).padStart(3, '0')}`);
+  assert.deepEqual(roleObserve.toleratedRecord({toleratedCommitPaths: paths}), {commitPaths: paths});
+  assert.deepEqual(roleObserve.toleratedRecord({toleratedCommitPaths: ['src/100', ...paths]}),
+    {commitPaths: paths, truncated: true});
+});
 
 test('toleratedRecord returns null for empty lists', () => {
   assert.equal(roleObserve.toleratedRecord({toleratedRefs: [], toleratedControl: []}), null);

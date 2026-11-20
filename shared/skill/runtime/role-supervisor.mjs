@@ -14,7 +14,7 @@ import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES}
 import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routing.mjs';
 import {resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
 import {parseCompositeProfile, buildBridgeArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
-import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, detectViolations, toleratedRecord, allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
+import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, observeHeadAdvance, detectViolations, toleratedRecord, allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
 import {getPlatform, routingProfileFile} from './platform-registry.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -451,7 +451,8 @@ export async function runSupervisor(options) {
 
     let after = null;
     try { after = await snapshot(); } catch { after = null; }
-    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: []};
+    const headAdvance = after ? await observeHeadAdvance(target.realpath, before, after, lease.role, lease.allowedPaths) : null;
+    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after, headAdvance}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: [], toleratedCommitPaths: []};
     const codes = [];
     if (state.mismatch) codes.push(state.mismatch);
     if (state.internal) codes.push(state.internal);
