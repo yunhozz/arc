@@ -156,7 +156,7 @@ flowchart LR
 | D1-d: size ≥2, same S | Install S in anchor order; republish at anchor |
 | Mixed publication | Owned standalone profiles replaced with routing profiles; rollback restores original bytes |
 | D1-e: size ≥2, changed S | Mode preview, no extra confirmation; install additions, transactionally restore departing standalone profiles/publish new markers; departing homes retain ARC. Anchor move locks old/new in ascending order, releases reverse; any non-terminal native/bridge lease in either store holds move |
-| Update | Status shows the version; Exact displayed version revalidated before upgrade; no newer/unavailable latest offers no Upgrade. Global replacement exits; npx preserves global CLI. Same-version refresh: Configure; broken CLI: `npx --yes @yunhozz/arc@latest` |
+| Update | Status shows the version; Exact displayed version revalidated before upgrade; no newer/unavailable latest offers no Upgrade. Global replacement exits; npx preserves global CLI. After the harness update, ARC runs Configure → Apply with the current settings once for Mixed routing or once per installed standalone platform. After the first npx upgrade from 0.4.6 or earlier, run Configure → Apply manually because the previous package starts the upgrade. Same-version refresh: Configure; broken CLI: `npx --yes @yunhozz/arc@latest` |
 | Preservation / holds | Preserve outside managed blocks, unrelated settings/shared skills; malformed policy/config stops install. Omitted valid limits survive; concurrency mismatch needs explicit selection. Skip-global omits this operation's instructions/native settings, not prior changes. Unverified profiles preserved as residuals; inconsistent routing blocks publication/switch/remove; active bridges block publication/deactivation |
 | Native settings | Codex wait config merges supported `[features.multi_agent_v2]`, otherwise guidance; concurrency: integer `[agents].max_concurrent_threads_per_session`, Claude string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` |
 
@@ -182,7 +182,7 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | Mixed | `Mixed routing on: <Label> + <Label>.` |
 | Remove | `Removed from <Label>.`, `Removed ARC and CLI.`, or `Removed ARC.` (CLI absent) |
 | Switch | First adds `Mixed routing turned off.` |
-| Upgrade | On success, Result shows `ARC updated: <current> → <latest>.`. On failure, Result also shows any upgrade child output (`<Label>: harness updated`) and, when the CLI was replaced, `arc CLI: <previous> → <new>.` |
+| Upgrade | On success, Result shows `ARC updated: <current> → <latest>.`. On failure, Result also shows any upgrade child output (`<Label>: harness updated`) and, when the CLI was replaced, `arc CLI: <previous> → <new>.`. If configuration re-application is held, resolve the reported issue and run Configure → Apply. |
 | Failure | `Error: <message>`, deduplicated `Residual path: …`, `Exit code: N`; earlier target success remains visible; rollback label proves no cleanup/backup |
 
 ## Watch

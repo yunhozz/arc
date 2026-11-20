@@ -23,6 +23,7 @@
 - watch 경로: `lib/watch/**`와 그 import 그래프는 `lib/management/`, `lib/installer/`, `lib/safe-fs/`를 정적·동적으로 불러오지 않는다(`docs/harness-operation.md:149`).
 - `lib/` 아래 파일을 바꾸거나 만드는 작업은 그 작업 안에서 `node scripts/update-manifest.mjs`로 `MANIFEST.sha256`를 재생성하고 `npm run check:manifest`를 통과한다.
 - 테스트·스크립트는 `PYTHONDONTWRITEBYTECODE=1`로 실행한다. 실행 후 git-ignored `__pycache__`가 생기면 payload 해시 테스트가 깨질 수 있으므로 지우고 다시 돌린다.
+- **검증 범위(v2, 2026-11-20 사용자 지시):** 각 작업의 QA(최초 검증과 결함 수정 후 재검증 모두)와 Implementer 작업 단위 검증은 수정된 부분과 관련 테스트 묶음만 실행한다. 전체 `npm test` 회귀는 "최종 검증"에서 1회만 실행한다.
 - **Baseline 실패:** master(12aa9a3)에는 원래 있던 테스트 실패가 있을 수 있다. 각 작업은 먼저 같은 명령의 baseline 실패 집합을 기록하고, 새 실패만 current로 분류해 보고한다.
 - 런타임 모듈(`shared/skill/runtime/**`)은 바꾸지 않는다. 바뀌면 hold하고 Orchestrator에 보고한다(`runtime-versions` baselineHash·parity 영향).
 - 작업 하나 = focused commit 하나(Orchestrator가 수행), 메시지 `type(scope): 한국어 설명`.
@@ -76,18 +77,19 @@
 - AC1-5: stateToken 불일치는 하네스 쓰기 전 거부(기존 테스트 유지). npx bootstrap은 `upgradeAndReapply` 있으면 사용, 없으면 기존 경로.
 
 **단계(TDD):**
-- [ ] baseline: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/upgrade-cli.test.mjs` 및 `PYTHONDONTWRITEBYTECODE=1 npm test` baseline 실패 집합 기록.
-- [ ] RED 1: `tests/node/upgrade-cli.test.mjs`의 `dependencies()`에 `reapplyConfiguration` 주입(events에 `'reapply'`) 후 `child reapplies configuration only after harness success`(events `['harness','reapply']`, `Configuration re-applied:` 출력), `child skips reapply when nothing is installed and keeps output unchanged`, `child never reapplies after harness failure or interrupt`, `child reports held reapply with active dispatches and exits 1`, `child reports partial standalone reapply and exits 1`, `child reports other reapply errors with exit 1 and interrupt with 130`.
-- [ ] RED 2: `tests/node/upgrade-reapply.test.mjs` — 임시 HOME fixture(`tests/node/management-operations.test.mjs`·`tests/node/install-mode-n-platform.test.mjs`의 fixture helper·status stub·catalog stub 재사용):
+- [x] baseline: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/upgrade-cli.test.mjs` 및 `PYTHONDONTWRITEBYTECODE=1 npm test` baseline 실패 집합 기록.
+- [x] RED 1: `tests/node/upgrade-cli.test.mjs`의 `dependencies()`에 `reapplyConfiguration` 주입(events에 `'reapply'`) 후 `child reapplies configuration only after harness success`(events `['harness','reapply']`, `Configuration re-applied:` 출력), `child skips reapply when nothing is installed and keeps output unchanged`, `child never reapplies after harness failure or interrupt`, `child reports held reapply with active dispatches and exits 1`, `child reports partial standalone reapply and exits 1`, `child reports other reapply errors with exit 1 and interrupt with 130`.
+- [x] RED 2: `tests/node/upgrade-reapply.test.mjs` — 임시 HOME fixture(`tests/node/management-operations.test.mjs`·`tests/node/install-mode-n-platform.test.mjs`의 fixture helper·status stub·catalog stub 재사용):
   - composite: marker `runtime.hash`를 다른 유효 hash로 바꿔 구버전 흉내, 재적용 전 routing 판정 `activation_unverified` 확인(baseline), 재적용 후 AC1-1 assert; `reapply snapshot drift holds without partial publish`(prepare 후 settings.toml 변경 → held, 바이트 불변).
   - standalone: 단일·다중 플랫폼 standalone 설치에서 재적용 후 AC1-2 assert(설정 파일 값 유지, `reapplyConfiguration`이 만든 request가 같은 상태에서 `installPrepareOptions`로 만든 request와 같음); catalog 실패 플랫폼은 held·바이트 불변.
-- [ ] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/upgrade-cli.test.mjs tests/node/upgrade-reapply.test.mjs` → 새 테스트 FAIL.
-- [ ] GREEN: `lib/management/reapply.mjs`, `upgradeAndReapply`, `runChild` 연결, npx bootstrap 분기. `runtime()`의 `Promise.all`에 `import('./reapply.mjs')` 추가, deps로 덮어쓰기 가능. 초안 초기화를 `lib/tui/setup.mjs`에서 export 함수로 추출한 경우 `tests/node/tui-app.test.mjs`·`tests/node/tui-*.test.mjs` 회귀 PASS.
-- [ ] GREEN 확인: 같은 명령 PASS.
-- [ ] 문서: `docs/harness-operation.md:159,185`에 "업그레이드 후 현재 설정으로 Configure Apply를 자동 재실행(composite·standalone), 보류 시 Configure → Apply"와 O2 한계("이전 버전에서 npx로 업그레이드한 첫 회는 Configure → Apply 필요")를 host 중립으로 추가.
-- [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest` PASS.
-- [ ] 회귀: `PYTHONDONTWRITEBYTECODE=1 npm test` — baseline 대비 새 실패 없음.
-- [ ] 커밋(Orchestrator): `feat(upgrade): 업그레이드 시 Configure Apply 자동 재적용`
+- [x] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/upgrade-cli.test.mjs tests/node/upgrade-reapply.test.mjs` → 새 테스트 FAIL.
+- [x] GREEN: `lib/management/reapply.mjs`, `upgradeAndReapply`, `runChild` 연결, npx bootstrap 분기. `runtime()`의 `Promise.all`에 `import('./reapply.mjs')` 추가, deps로 덮어쓰기 가능. 초안 초기화를 `lib/tui/setup.mjs`에서 export 함수로 추출한 경우 `tests/node/tui-app.test.mjs`·`tests/node/tui-*.test.mjs` 회귀 PASS.
+- [x] GREEN 확인: 같은 명령 PASS.
+- [x] 문서: `docs/harness-operation.md:159,185`에 "업그레이드 후 현재 설정으로 Configure Apply를 자동 재실행(composite·standalone), 보류 시 Configure → Apply"와 O2 한계("이전 버전에서 npx로 업그레이드한 첫 회는 Configure → Apply 필요")를 host 중립으로 추가.
+- [x] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest` PASS.
+- [x] 회귀: `PYTHONDONTWRITEBYTECODE=1 npm test` — baseline 대비 새 실패 없음.
+- [x] 커밋(Orchestrator): `feat(upgrade): 업그레이드 시 Configure Apply 자동 재적용`
+  - 진행 기록(2026-11-20): Implementer 618994f9(codex bridge) 구현, fresh QA 48ead9a4 — 최초 QA에서 AC1-4 결함 2건(게시 후 lock 실패 오보, 게시 후 SIGINT 모순 출력) 수정·재검증 pass. AC1-1~AC1-5 pass. 관련 테스트 `upgrade-cli`+`upgrade-reapply` 31 pass, `check:manifest` pass. 회귀(초기 지시): npm test 실패가 기준선 58건과 동일, 추가 실패는 `role-bridge-run` auth probe `Incomplete`(실행마다 달라짐, 환경 판정) — v2에 따라 최종 검증에서 재확인.
 
 **QA(fresh, 필수, 임시 HOME 설치 fixture):**
 1. scratchpad 임시 디렉터리에 `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`(registry `home.env`)을 지정.
@@ -141,7 +143,7 @@
 - [ ] GREEN 확인: 같은 명령 PASS. `rg -n "'session'|'all'|options\.session|--cwd|--platform" lib/watch` 결과 비어 있음(event source 값으로 쓰이는 `'session'` 등은 예외로 보고).
 - [ ] 문서: README·`docs/harness-operation.md:192,194`(all/session Scope 문구 제거), `lib/cli/root.mjs` help.
 - [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
-- [ ] 회귀: `PYTHONDONTWRITEBYTECODE=1 npm test` — baseline 대비 새 실패 없음.
+- [ ] 회귀(관련 테스트만, v2): `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-*.test.mjs` — baseline 대비 새 실패 없음.
 - [ ] 커밋(Orchestrator): `feat(watch): 플랫폼 선택 메뉴 도입과 범위 옵션 제거`
 
 **QA(fresh, 필수):** TTY에서 worktree의 `node bin/arc.mjs watch` 실행(가능하면 `script`/pty로): 메뉴 항목·`(not supported)`·미지원 선택 불가, `All`/개별 선택 후 현재 worktree 이벤트만, Back·Ctrl-C 후 터미널 복원, `node bin/arc.mjs watch | cat`·`--json` 비TTY exit 2, 제거 옵션 4개 exit 2. TTY 조작 불가 시 fake TTY 테스트 결과와 함께 한계 보고.
@@ -172,7 +174,7 @@
 **단계(TDD):**
 - [ ] RED: `subagent and dispatch user messages become prompt`(watcher fixture 3종 + 상위 세션 대조), `user and prompt colors differ`, `json keeps prompt kind and full text`, `rg -n "'user'" lib/watch`로 찾은 소비 지점 중 prompt도 처리해야 하는 곳(tail, status-line busy 등) 회귀 테스트.
 - [ ] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-watcher.test.mjs tests/node/watch-cli.test.mjs` → FAIL.
-- [ ] GREEN 구현 → 같은 명령 PASS → `PYTHONDONTWRITEBYTECODE=1 npm test` baseline 대비 새 실패 없음.
+- [ ] GREEN 구현 → 같은 명령 PASS → 관련 테스트 `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs` baseline 대비 새 실패 없음(v2: 전체 npm test는 최종 검증에서만).
 - [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
 - [ ] 커밋(Orchestrator): `feat(watch): 하위 세션 사용자 메시지를 PROMPT로 구분`
 
@@ -206,7 +208,7 @@
 **단계(TDD):**
 - [ ] RED: `watch-markdown.test.mjs` 요소별(`heading`, `nested bullets`, `numbered`, `bold italic code`, `fenced code`, `quote`, `rule`, `link`, `table raw`), `wrap respects CJK width and resets each line`, `markdown never emits input-originated escapes`, `markdown avoids emphasis false positives and tolerates open fence`; `watch-cli.test.mjs`에 `non-color and json output stay raw`, `user stays raw while agent and prompt render`.
 - [ ] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-markdown.test.mjs tests/node/watch-cli.test.mjs` → FAIL.
-- [ ] GREEN 구현 → 같은 명령 PASS → `PYTHONDONTWRITEBYTECODE=1 npm test` baseline 대비 새 실패 없음.
+- [ ] GREEN 구현 → 같은 명령 PASS → 관련 테스트 `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs` baseline 대비 새 실패 없음(v2: 전체 npm test는 최종 검증에서만).
 - [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
 - [ ] 커밋(Orchestrator): `feat(watch): AGENT·PROMPT 메시지 Markdown 렌더링`
 
@@ -229,3 +231,10 @@
 - O4(해소): Python 테스트 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests`.
 - O5: 재적용 성공·보류 문구, 미지원 notice 문구, inline code 색 `38;5;180`은 위 고정값 채택.
 - O6: 메뉴 Back/Escape/EOF exit 0, Ctrl-C 130(`lib/tui/app.mjs:144` 관례).
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-20T12:05Z 무렵 (사용자 승인, 커밋 bd255d9 직전) | 초기 승인 | T1–T4 | 최초 계획 |
+| v2 | 2026-11-20T13:42:59Z | 검증 범위 변경 | T1(recheck)–T4 | 사용자 지시: 작업별 QA·recheck·Implementer 검증은 수정 부분·관련 테스트만, 전체 npm test는 최종 검증 1회 |
