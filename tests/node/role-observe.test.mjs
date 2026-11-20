@@ -892,6 +892,68 @@ test('T3 rejects changed HEAD with failed or missing advance evidence', () => {
   }
 });
 
+test('T3 N1 accepts a fast-forward of exactly 100 commits', async t => {
+  const dir = await makeRepo(t);
+  const ref = (await snapshotWorktree(dir)).branchRef;
+  const result = await detectHeadAdvance(dir, () => {
+    for (let i = 0; i < 100; i++) emptyCommit(dir);
+  }, 'arc_implementer', ['src/']);
+  assert.deepEqual(result.headAdvance, {state: 'advance', branch: ref, commits: 100, paths: []});
+  assertToleratedBranch(result, ref);
+});
+
+test('T3 N1 accepts a fast-forward touching exactly 10,000 paths', async t => {
+  const dir = await makeRepo(t);
+  const before = await snapshotWorktree(dir);
+  const blob = git(dir, 'rev-parse', 'HEAD:src/a.txt').trim();
+  const paths = Array.from({length: 10000}, (_, i) => `src/path-${String(i).padStart(4, '0')}`);
+  const index = spawnSync('git', ['--no-optional-locks', 'update-index', '--index-info'], {
+    cwd: dir, encoding: 'utf8',
+    input: paths.map(file => `100644 ${blob}\t${file}\n`).join(''),
+  });
+  assert.equal(index.status, 0, index.stderr);
+  git(dir, 'commit', '-qm', 'touch 10,000 paths');
+  const head = git(dir, 'rev-parse', 'HEAD').trim();
+  const after = {...before, head, refs: {...before.refs, [before.branchRef]: head}};
+  const role = 'arc_implementer', allowedPaths = ['src/'];
+  const headAdvance = await roleObserve.observeHeadAdvance(dir, before, after, role, allowedPaths);
+  assert.deepEqual(headAdvance, {state: 'advance', branch: before.branchRef, commits: 1, paths});
+  const result = detectViolations({role, allowedPaths, before, after, headAdvance});
+  assertToleratedBranch(result, before.branchRef);
+  assert.deepEqual(result.toleratedCommitPaths, paths);
+});
+
+const targetRef = 'refs/heads/main';
+const syntheticBranchSnapshot = (head, refHead = head) =>
+  ({head, branch: 'main', branchRef: targetRef, refs: {[targetRef]: refHead}, entries: new Map()});
+const syntheticAdvance = {state: 'advance', branch: targetRef, commits: 1, paths: ['src/a.txt']};
+
+for (const [label, after, headAdvance] of [
+  ['a different branch', syntheticBranchSnapshot('b'), {...syntheticAdvance, branch: 'refs/heads/other'}],
+  ['a ref that disagrees with HEAD', syntheticBranchSnapshot('b', 'c'), syntheticAdvance],
+  ['non-array paths', syntheticBranchSnapshot('b'), {...syntheticAdvance, paths: {}}],
+]) {
+  test(`T3 N2 rejects synthetic advance evidence with ${label}`, () => {
+    const result = detectViolations({role: 'arc_implementer', before: syntheticBranchSnapshot('a'), after, headAdvance});
+    assert.equal(result.reason, 'permission_violation_observed');
+    assert.equal(result.headChanged, true);
+    assert.equal(result.refsChanged, true);
+    assert.deepEqual(result.toleratedRefs, []);
+    assert.deepEqual(result.toleratedCommitPaths, []);
+  });
+}
+
+test('T3 N2 ignores synthetic advance evidence when HEAD and refs are unchanged', () => {
+  const before = syntheticBranchSnapshot('a');
+  const after = syntheticBranchSnapshot('a');
+  const result = detectViolations({role: 'arc_implementer', before, after, headAdvance: syntheticAdvance});
+  assert.equal(result.reason, null);
+  assert.equal(result.headChanged, false);
+  assert.equal(result.refsChanged, false);
+  assert.deepEqual(result.toleratedCommitPaths, []);
+  assert.equal(roleObserve.toleratedRecord(result), null);
+});
+
 test('T3 enforces the 10,000-path limit even for Reviewer', async t => {
   const dir = await makeRepo(t);
   const before = await snapshotWorktree(dir);
