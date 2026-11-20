@@ -206,6 +206,52 @@ test('user and prompt colors differ', async t => {
   assert.ok(s.output.text.includes('\x1b[1;35mPROMPT\x1b[0m   \x1b[35mchild input\x1b[0m'));
 });
 
+function writeMarkdownMessages(s, text) {
+  s.write('markdown-parent', s.cwd, [msg(text), {
+    timestamp:iso(TIME), type:'event_msg', payload:{type:'item_completed',
+      item:{type:'AgentMessage', content:[{type:'Text', text}]}},
+  }]);
+  s.h.writeRollout(['2026','11','11'], 'rollout-markdown-child.jsonl', [
+    {type:'session_meta', payload:{id:'markdown-child', cwd:s.cwd, originator:'codex-tui', parent_thread_id:'markdown-parent'}},
+    msg(text),
+  ], {mtime:TIME});
+}
+
+test('non-color and json output stay raw', async t => {
+  const text = '# **제목**\n- `code`';
+  for (const [tty, env, args] of [[false, {}, []], [true, {NO_COLOR:'1'}, []], [true, {}, ['--json']]]) {
+    const s = setup(t);
+    s.output.isTTY = tty;
+    s.output.columns = 120;
+    s.io.env = env;
+    writeMarkdownMessages(s, text);
+    const {result} = await s.start(['--tail', '20', ...args]);
+    s.controller.abort();
+    assert.equal(await result, 0);
+    if (args.length) {
+      const rows = s.output.text.trim().split('\n').map(JSON.parse);
+      for (const kind of ['user', 'agent', 'prompt']) assert.equal(rows.find(row => row.kind === kind)?.text, text);
+    } else {
+      for (const tag of ['USER    ', 'AGENT   ', 'PROMPT  ']) {
+        assert.ok(s.output.text.includes(` CODEX  ${tag} # **제목**\n${' '.repeat(25)}- \`code\`\n`));
+      }
+    }
+  }
+});
+
+test('user stays raw while agent and prompt render', async t => {
+  const s = setup(t);
+  s.output.isTTY = true;
+  s.output.columns = 120;
+  writeMarkdownMessages(s, '# 제목');
+  const {result} = await s.start(['--tail', '20']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  assert.ok(s.output.text.includes('\x1b[1;97mUSER\x1b[0m     \x1b[97m# 제목\x1b[0m'));
+  assert.ok(s.output.text.includes('\x1b[32mAGENT\x1b[0m    \x1b[32;1;4m제목\x1b[0m'));
+  assert.ok(s.output.text.includes('\x1b[1;35mPROMPT\x1b[0m   \x1b[35;1;4m제목\x1b[0m'));
+});
+
 test('a live prompt activates the TTY working status', async t => {
   const s = setup(t);
   s.output.isTTY = true;

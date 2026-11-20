@@ -15,7 +15,7 @@
 - **R1(2026-11-20 사용자 지시로 standalone 포함):** 업그레이드 자식에서 `upgradeInstalledTargets` 성공 후, 사용자가 Configure 화면에서 아무것도 바꾸지 않고 Apply를 누른 것과 같은 요청을 실행한다. composite면 현재 composite 설정(플랫폼·roles·settings)으로 composite Apply 1회(revision만 새로 생성), standalone이면 설치된 standalone 플랫폼마다 그 플랫폼의 현재 설정(roles·language·run mode·limits)으로 standalone Apply 1회. 설치 없음은 재적용하지 않고 출력도 바꾸지 않는다. 하네스 갱신 실패 시 재적용하지 않는다. active dispatch 보류와 기타 재적용 오류는 안내 후 exit 1, 인터럽트 130. 부분 publish 없음. 다음 실행 시 "재적용 필요" 감지 표시는 범위 밖.
 - **R2:** TTY에서 `arc watch`는 제목이 `Which platform to watch?`(사용자 지시: 최대한 짧은 의문문)인 메뉴를 먼저 띄운다. 항목은 `All` + registry 표시 순서 플랫폼이며, watch 미지원은 `(not supported)` 표시·선택 불가. 모든 항목은 현재 worktree 범위. `--cwd/--all/--session/--platform` 제거(Unknown option, exit 2). 비TTY는 안내 + exit 2(`--json` 포함). 메뉴 단계에서도 native/installer/management를 불러오지 않는다.
 - **R3:** `kind==='user'`이고 `parentId` 또는 `dispatchId`가 있으면 `prompt`(PROMPT, `1;35`), 나머지 USER는 태그 `1;97`·본문 `97`.
-- **R4:** AGENT·PROMPT만, color human 출력에서만 Markdown 렌더링. USER·비color·`--json`은 원문.
+- **R4:** AGENT·PROMPT만, color human 출력에서만 Markdown 렌더링. USER·비color·`--json`은 원문. 표는 정렬 표로 그리고, 폭을 넘으면 셀 안 줄바꿈, 그래도 안 되면 카드 형태(v3, 사용자 지시).
 
 ## Global Constraints
 
@@ -197,22 +197,31 @@
 
 **Interfaces:**
 - `renderMarkdown(text, {width, baseCode}) → string[]`: 들여쓰기·prefix 없는 시각 줄 배열, 각 줄은 SGR로 시작해 `\x1b[0m`으로 끝. `width`가 `Infinity`면 줄바꿈 없음. `displayWidth`/`wrapLine`은 `./render.mjs`에서 import(순환 문제 시 `lib/watch/text-width.mjs`로 옮기고 `render.mjs`에서 re-export).
-- 규칙: 헤딩 `#{1,6} ` 기호 제거 + `1;4`; 목록 `-`/`*`/`+` → `• `, 중첩은 입력 2칸당 2칸, 줄바꿈 줄은 본문 시작 열 정렬, 번호 목록 `N. ` 유지; `**x**` → `1`, `*x*` → `3`(양끝 비공백일 때만, `_x_` 미지원); `` `x` `` 백틱 제거 + `38;5;180`; fenced code는 fence 줄 제거, `2` 스타일, 2칸 들여쓰기, 강제 줄바꿈, 닫히지 않은 fence는 끝까지 code; `> ` → `│ ` + `2`; `---`/`***`/`___` 단독 줄 → `─` × `min(width, 40)`; 링크 `[t](u)` → `t (u)`; `|`로 시작하는 줄(표)은 원문; 기본 색 `baseCode`(agent `32`, prompt `35`)를 모든 span에 합성.
+- 규칙: 헤딩 `#{1,6} ` 기호 제거 + `1;4`; 목록 `-`/`*`/`+` → `• `, 중첩은 입력 2칸당 2칸, 줄바꿈 줄은 본문 시작 열 정렬, 번호 목록 `N. ` 유지; `**x**` → `1`, `*x*` → `3`(양끝 비공백일 때만, `_x_` 미지원); `` `x` `` 백틱 제거 + `38;5;180`; fenced code는 fence 줄 제거, `2` 스타일, 2칸 들여쓰기, 강제 줄바꿈, 닫히지 않은 fence는 끝까지 code; `> ` → `│ ` + `2`; `---`/`***`/`___` 단독 줄 → `─` × `min(width, 40)`; 링크 `[t](u)` → `t (u)`; 표는 아래 "표 렌더링(v3)" 규칙; 기본 색 `baseCode`(agent `32`, prompt `35`)를 모든 span에 합성.
 - `renderHuman`: `color && fullLine && ['agent','prompt'].includes(event.kind)`일 때만 `renderMarkdown(text,{width: wrap && avail>=WATCH_LIMITS.wrapMinBody ? avail : Infinity, baseCode})`. 역할 배지 줄·기존 indent 유지. plain 경로(`:135`), USER, `--json` 불변.
+
+**표 렌더링(v3, 2026-11-20 사용자 지시):**
+- 인식: 헤더 행 + 구분자 행(`|---|`, `:---`/`---:`/`:---:` 정렬 표기)이 있고 이어지는 `|` 행들이 있는 블록만 표로 본다. 구분자 행이 없으면 원문. 셀은 이스케이프된 `\|`와 인라인 코드 안의 `|`로 나누지 않는다. 셀 수가 헤더와 다르면 부족분은 빈 셀, 초과분은 마지막 셀에 합친다.
+- 정렬 표: 테두리 `┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ │ ─`(baseCode 색, 테두리는 `2` dim 합성 가능). 헤더 셀은 굵게(`1`), 헤더 아래와 각 데이터 행 사이에 `├─┼─┤` 구분선. 셀 내용은 인라인 서식(굵게·기울임·코드·링크) 적용, 정렬 표기(left/center/right) 반영, 셀 좌우 1칸 여백.
+- 폭: 열 자연 폭(`displayWidth`, CJK 포함)의 합 + 테두리·여백이 `width` 이하면 그대로. 넘으면 가장 넓은 열부터 줄여 맞추고(열 최소 폭 6), 줄어든 셀은 셀 안에서 단어 경계 우선·필요 시 강제 줄바꿈해 여러 시각 줄로 그린다(행 높이 = 그 행에서 가장 많은 줄 수).
+- 카드 폴백: 열 수 × 최소 폭 + 테두리·여백이 `width`를 넘으면 카드 형태로 그린다 — 행마다 `▸ <헤더1>: <값1>` 다음 줄부터 `  <헤더N>: <값N>`, 행 사이 빈 줄, 값은 들여쓰기 열에 맞춰 줄바꿈.
+- `width`가 `Infinity`(줄바꿈 없음)면 자연 폭 정렬 표.
 
 **선행:** T3(PROMPT kind와 `render.mjs` 겹침).
 
 **수용 기준:**
-- AC4-1: 위 요소가 지정 SGR·기호로 렌더링, 표 줄은 원문.
+- AC4-1: 위 요소가 지정 SGR·기호로 렌더링.
+- AC4-4(v3): 표가 "표 렌더링(v3)" 규칙대로 렌더링된다 — 정렬 표(헤더 굵게, 셀 인라인 서식), 폭 초과 시 셀 안 줄바꿈으로 표 모양 유지, 최소 폭도 안 되면 카드 형태. 모든 시각 줄 plain 폭 ≤ width(CJK 포함), 줄마다 `\x1b[0m` 종료. 구분자 행이 없는 `|` 줄은 원문.
 - AC4-2: 각 시각 줄 plain(SGR 제거) `displayWidth` ≤ `width`(CJK 포함), 모든 줄 `\x1b[0m`으로 끝나 스타일이 줄을 넘지 않음, 역할 배지·들여쓰기 유지.
 - AC4-3: 비color human과 `--json`은 기존과 바이트 동일, USER 원문, 입력 ESC·제어문자는 `sanitizeMessage` 이후 렌더링되어 출력에 없음.
 
 **단계(TDD):**
-- [ ] RED: `watch-markdown.test.mjs` 요소별(`heading`, `nested bullets`, `numbered`, `bold italic code`, `fenced code`, `quote`, `rule`, `link`, `table raw`), `wrap respects CJK width and resets each line`, `markdown never emits input-originated escapes`, `markdown avoids emphasis false positives and tolerates open fence`; `watch-cli.test.mjs`에 `non-color and json output stay raw`, `user stays raw while agent and prompt render`.
-- [ ] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-markdown.test.mjs tests/node/watch-cli.test.mjs` → FAIL.
-- [ ] GREEN 구현 → 같은 명령 PASS → 관련 테스트 `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs` baseline 대비 새 실패 없음(v2: 전체 npm test는 최종 검증에서만).
-- [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
-- [ ] 커밋(Orchestrator): `feat(watch): AGENT·PROMPT 메시지 Markdown 렌더링`
+- [x] RED: `watch-markdown.test.mjs` 요소별(`heading`, `nested bullets`, `numbered`, `bold italic code`, `fenced code`, `quote`, `rule`, `link`, `table aligned`, `table wraps cells when narrow`, `table falls back to cards`, `table without delimiter stays raw`, `table cells keep escaped pipes and inline code`), `wrap respects CJK width and resets each line`, `markdown never emits input-originated escapes`, `markdown avoids emphasis false positives and tolerates open fence`; `watch-cli.test.mjs`에 `non-color and json output stay raw`, `user stays raw while agent and prompt render`.
+- [x] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-markdown.test.mjs tests/node/watch-cli.test.mjs` → FAIL.
+- [x] GREEN 구현 → 같은 명령 PASS → 관련 테스트 `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs` baseline 대비 새 실패 없음(v2: 전체 npm test는 최종 검증에서만).
+- [x] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
+- [x] 커밋(Orchestrator): `feat(watch): AGENT·PROMPT 메시지 Markdown 렌더링`
+  - 진행 기록(2026-11-20): Implementer d11dabf4(초기 구현, 빈 줄 회귀 자체 수정) → 계획 v3(표 렌더링) 개정으로 fresh Implementer 1807e44c(QA 결함 2건: 한글 조사 강조·코드 블록 빈 줄, 표 정렬·셀 줄바꿈·카드 폴백). fresh QA 1f220075: 최초 AC4-1·AC4-2 FAIL → 수정 후 렌더러·seam·실제 PTY(60/160열) 재검증에서 AC4-1~AC4-4 pass, AC4-3 NO_COLOR·파이프·`--json` 바이트 동일. watch-* 390→414 pass, 새 실패 없음. `check:manifest` 290 pass. 81,021자 메시지 약 61~67ms.
 
 **QA(fresh, 필수):** TTY(가능하면 `script`/pty)에서 Markdown이 많은 agent 응답 transcript를 `--tail`로 재생: 좁은 폭(60열)·넓은 폭, 한글 혼합 본문, `NO_COLOR=1`·`| cat`에서 원문.
 
@@ -240,3 +249,4 @@
 |---|---|---|---|---|
 | v1 | 2026-11-20T12:05Z 무렵 (사용자 승인, 커밋 bd255d9 직전) | 초기 승인 | T1–T4 | 최초 계획 |
 | v2 | 2026-11-20T13:42:59Z | 검증 범위 변경 | T1(recheck)–T4 | 사용자 지시: 작업별 QA·recheck·Implementer 검증은 수정 부분·관련 테스트만, 전체 npm test는 최종 검증 1회 |
+| v3 | 2026-11-20T14:25:56Z | 범위·수용 기준 변경 | T4 | 사용자 지시: Markdown 표를 정렬 표(셀 안 줄바꿈, 폭 부족 시 카드)로 변환. AC4-1에서 "표 원문" 제거, AC4-4 추가 |
