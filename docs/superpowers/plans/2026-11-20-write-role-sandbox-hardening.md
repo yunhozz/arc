@@ -235,8 +235,8 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 
 | 항목 | 상태 | 커밋 | QA | 비고 |
 |---|---|---|---|---|
-| B0 | 대기 | — | — | |
-| T1 | 대기 | — | 없음(Orchestrator 확인) | |
+| B0 | 완료 | — | — | 2026-11-20 host: tests 3073, fail 35, skip 15. 생성물 3종 clean, S-2 불변 |
+| T1 | 완료 | 이 커밋 | 없음(Orchestrator 확인) | Implementer codex bridge b994161d. host: 새 실패 0건(부하 flake 2건 단독 재실행 pass) |
 | T2 | 대기 | — | fresh 필수 | |
 | T3 | 보류 | — | — | Grok 측정 대기 |
 | T4 | 대기 | — | fresh 필수 | L4 포함 |
