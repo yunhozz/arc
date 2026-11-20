@@ -244,12 +244,15 @@ const gitEnv = () => {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_')));
   return Object.assign(env, {GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null', GIT_OPTIONAL_LOCKS: '0', GIT_NO_REPLACE_OBJECTS: '1', GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0'});
 };
-const git = async (cwd, args, {allowFailure = false} = {}) => {
+const git = async (cwd, args, {allowFailure = false, allowUnsupportedZ = false} = {}) => {
+  const env = gitEnv();
+  if (allowUnsupportedZ) env.LC_ALL = 'C';
   try {
-    const {stdout} = await execFileAsync('git', ['--no-pager', '-c', 'core.fsmonitor=false', ...args], {cwd, env: gitEnv(), encoding: 'utf8', timeout: 60000, maxBuffer: 256 * 1024 * 1024});
+    const {stdout} = await execFileAsync('git', ['--no-pager', '-c', 'core.fsmonitor=false', ...args], {cwd, env, encoding: 'utf8', timeout: 60000, maxBuffer: 256 * 1024 * 1024});
     return stdout;
   } catch (error) {
     if (allowFailure) return null;
+    if (allowUnsupportedZ && error.code === 129 && /^error: unknown (?:switch|option) `-?z'(?:\r?\n|$)/.test(error.stderr)) return null;
     throw Error(`Git observation failed: ${args[0]}${error.code ? ` (${error.code})` : ''}`);
   }
 };
@@ -471,11 +474,54 @@ export function allowedPathsCoverControl(allowedPaths) {
   });
 }
 
-/** Snapshot of HEAD, branch, every ref (name and object) and every changed or untracked path; paths are relative to the worktree root even when worktree is a subdirectory. */
+const realpathOrOriginal = filename => fsp.realpath(filename).catch(() => filename);
+
+async function snapshotWorktreeBranches(root) {
+  const args = ['worktree', 'list', '--porcelain'];
+  const nulOutput = await git(root, [...args, '-z'], {allowUnsupportedZ: true});
+  const fallback = nulOutput === null;
+  const raw = nulOutput ?? await git(root, args);
+  const separator = fallback ? '\n' : '\0';
+  const recordSeparator = separator.repeat(2);
+  if (!raw.endsWith(recordSeparator)) return null;
+  const branches = new Map();
+  for (const record of raw.slice(0, -recordSeparator.length).split(recordSeparator)) {
+    const [header, ...attributes] = record.split(separator);
+    const filename = header.slice(9);
+    if (!header.startsWith('worktree ') || !path.isAbsolute(filename)) return null;
+    let branch;
+    let prunable = false;
+    for (const attribute of attributes) {
+      const ref = /^branch (refs\/heads\/[^ \x00-\x1f\x7f]+)$/.exec(attribute);
+      if (ref || attribute === 'detached' || attribute === 'bare') {
+        if (branch !== undefined) return null;
+        branch = ref ? ref[1] : null;
+      } else if (/^prunable(?: |$)/.test(attribute)) {
+        prunable = true;
+      } else if (!/^HEAD (?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(attribute) &&
+                 !/^locked(?: |$)/.test(attribute)) {
+        return null;
+      }
+    }
+    if (branch === undefined) return null;
+    const resolved = await fsp.realpath(filename).catch(() => null);
+    if (fallback && !prunable) {
+      const stat = resolved && await fsp.stat(resolved).catch(() => null);
+      if (!stat?.isDirectory()) return null;
+    }
+    const worktree = resolved ?? filename;
+    if (branches.has(worktree)) return null;
+    branches.set(worktree, branch);
+  }
+  return Object.fromEntries(branches);
+}
+
+/** Snapshot of HEAD, branch, refs, registered worktree branches and changed or untracked paths relative to the worktree root. */
 export async function snapshotWorktree(worktree) {
-  const root = (await git(worktree, ['rev-parse', '--show-toplevel'])).trim();
+  const root = await realpathOrOriginal((await git(worktree, ['rev-parse', '--show-toplevel'])).replace(/\n$/, ''));
   const head = (await git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], {allowFailure: true}))?.trim() || null;
   const branch = (await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], {allowFailure: true}))?.trim() || null;
+  const branchRef = (await git(root, ['symbolic-ref', '--quiet', 'HEAD'], {allowFailure: true}))?.trim() || null;
   const refs = {};
   for (const line of (await git(root, ['for-each-ref', '--format=%(refname) %(objectname)'])).split('\n')) {
     const at = line.lastIndexOf(' ');
@@ -490,14 +536,28 @@ export async function snapshotWorktree(worktree) {
     entries.set(file, `${code}:${await contentDigest(path.join(root, file))}`);
     if (code.includes('R') || code.includes('C')) { const origin = tokens[++i]; if (origin) entries.set(origin, `${code}:${sha256('deleted')}`); }
   }
-  return {head, branch, refs, entries};
+  return {head, branch, branchRef, refs, entries, worktreeRoot: root, worktreeBranches: await snapshotWorktreeBranches(root)};
+}
+
+function otherWorktreeBranches(before, after) {
+  const branches = new Set();
+  for (const snapshot of [before, after]) {
+    if (typeof snapshot.worktreeRoot !== 'string' || !isObject(snapshot.worktreeBranches) ||
+        !Object.hasOwn(snapshot.worktreeBranches, snapshot.worktreeRoot) ||
+        snapshot.branchRef === undefined || snapshot.worktreeBranches[snapshot.worktreeRoot] !== snapshot.branchRef) return new Set();
+    for (const [root, branch] of Object.entries(snapshot.worktreeBranches)) {
+      if (root !== before.worktreeRoot && root !== after.worktreeRoot && branch !== null) branches.add(branch);
+    }
+  }
+  return branches;
 }
 
 const allowedBy = (allowedPaths, file) => allowedPaths.some(entry => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
 /**
  * HEAD or branch changes are violations. Remote-tracking ref changes, new
- * tags and changes to git:info/refs are tolerated and returned separately
- * from violations. Any other ref creation, deletion or movement is a violation.
+ * tags, refs checked out by other registered worktrees and changes to
+ * git:info/refs are tolerated and returned separately from violations.
+ * Any other ref creation, deletion or movement is a violation.
  * Implementer and QA may change only allowedPaths (QA may change no paths
  * when the list is empty or missing). Read-only roles may change no worktree
  * paths. Ordinary worktree snapshots omit Git-ignored paths. Control files
@@ -506,11 +566,16 @@ const allowedBy = (allowedPaths, file) => allowedPaths.some(entry => entry.endsW
 export function detectViolations({role, allowedPaths, before, after}) {
   const headChanged = before.head !== after.head || before.branch !== after.branch;
   const refsBefore = before.refs ?? {}, refsAfter = after.refs ?? {};
+  const targetBranch = before.branchRef;
+  const otherBranches = otherWorktreeBranches(before, after);
   const toleratedRefs = [];
   let refsChanged = false;
   for (const name of new Set([...Object.keys(refsBefore), ...Object.keys(refsAfter)])) {
     if (refsBefore[name] === refsAfter[name]) continue;
-    if (name.startsWith('refs/remotes/') || (name.startsWith('refs/tags/') && !Object.hasOwn(refsBefore, name))) {
+    if (name === targetBranch) {
+      refsChanged = true;
+    } else if (name.startsWith('refs/remotes/') || (name.startsWith('refs/tags/') && !Object.hasOwn(refsBefore, name)) ||
+               (name.startsWith('refs/heads/') && otherBranches.has(name))) {
       toleratedRefs.push(name);
     } else {
       refsChanged = true;

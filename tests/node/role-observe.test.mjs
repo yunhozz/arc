@@ -4,7 +4,9 @@ import fs from 'node:fs/promises';
 import {renameSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {spawnSync} from 'node:child_process';
+import childProcess, {spawnSync} from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
+import {promisify} from 'node:util';
 import zlib from 'node:zlib';
 import {DEFAULT_POLICY, CODEX_DELEGATION_CALL_NAMES} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {grokConfigSecurityProjection} from '../../lib/runtime/grok-sandbox.mjs';
@@ -376,7 +378,7 @@ test('the policy alias list equals the short model names of the Claude catalog',
   assert.deepEqual([...CATALOG_MODEL_ALIASES].sort(), shortNames);
 });
 
-test('snapshotWorktree records refs and detectViolations rejects branch creation, deletion and movement for every role', async t => {
+test('snapshotWorktree records refs and detectViolations rejects unchecked-out branch creation, deletion and movement for every role', async t => {
   const dir = await makeRepo(t);
   const gitHere = (...args) => git(dir, ...args);
   const check = async (role, allowedPaths, change) => {
@@ -397,6 +399,234 @@ test('snapshotWorktree records refs and detectViolations rejects branch creation
   gitHere('commit', '-q', '--allow-empty', '-m', 'next');
   const forced = await check('arc_planner', undefined, async () => gitHere('branch', '-f', 'mover', 'HEAD'));
   assert.equal(forced.refsChanged, true);
+});
+
+async function makeLinkedRepo(t, linkedName = 'linked worktree') {
+  const main = await makeRepo(t);
+  git(main, 'branch', '-M', 'main');
+  const linked = path.join(path.dirname(main), linkedName);
+  git(main, 'worktree', 'add', '-b', 'other-wt', linked);
+  return {main, linked};
+}
+
+async function observeRefChange(target, change) {
+  const before = await snapshotWorktree(target);
+  change();
+  return detectViolations({role: 'arc_reviewer', before, after: await snapshotWorktree(target)});
+}
+
+function assertToleratedBranch(result, ref) {
+  assert.equal(result.reason, null);
+  assert.equal(result.refsChanged, false);
+  assert.equal(result.headChanged, false);
+  assert.deepEqual(result.toleratedRefs, [ref]);
+}
+
+test('snapshotWorktree identifies the real target root and the checked-out branch of each worktree', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const alias = path.join(path.dirname(main), 'linked-alias');
+  await fs.symlink(linked, alias, 'dir');
+  const snap = await snapshotWorktree(path.join(alias, 'src'));
+  assert.equal(snap.worktreeRoot, linked);
+  assert.deepEqual(snap.worktreeBranches, {[main]: 'refs/heads/main', [linked]: 'refs/heads/other-wt'});
+});
+
+async function withWorktreeListOverride(scenario, onWorktreeList, check) {
+  const original = childProcess.execFile;
+  const execute = promisify(original);
+  const override = {
+    async [promisify.custom](file, args, options) {
+      if (file === 'git' && args.includes('worktree') && args.includes('list')) {
+        const stdout = onWorktreeList(args);
+        if (stdout !== undefined) return {stdout};
+      }
+      return execute(file, args, options);
+    }
+  };
+  childProcess.execFile = Object.assign((...args) => original(...args), override);
+  syncBuiltinESMExports();
+  try {
+    const isolated = await import(`../../lib/runtime/role-observe.mjs?worktree-list=${scenario}`);
+    await check(isolated.snapshotWorktree);
+  } finally {
+    childProcess.execFile = original;
+    syncBuiltinESMExports();
+  }
+}
+
+function unsupportedWorktreeListZ() {
+  return Object.assign(new Error('git worktree list failed'), {code: 129, stderr: "error: unknown switch `z'\nusage: git worktree list [--porcelain]\n"});
+}
+
+test('snapshotWorktree tries -z before falling back to line-based porcelain', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const attempts = [];
+  await withWorktreeListOverride('legacy-git', args => {
+    attempts.push(args.includes('-z'));
+    if (args.includes('-z')) throw unsupportedWorktreeListZ();
+  }, async snapshot => {
+    const snap = await snapshot(main);
+    assert.deepEqual(snap.worktreeBranches, {[main]: 'refs/heads/main', [linked]: 'refs/heads/other-wt'});
+    assert.deepEqual(attempts, [true, false]);
+  });
+});
+
+test('snapshotWorktree returns null for an unknown NUL-delimited worktree attribute', async t => {
+  const {main} = await makeLinkedRepo(t, 'linked\nunrecognized line');
+  const raw = git(main, 'worktree', 'list', '--porcelain', '-z');
+  await withWorktreeListOverride('unknown-attribute', () => raw.replace('branch refs/heads/main\0', 'branch refs/heads/main\0unknown\0'), async snapshot => {
+    assert.equal((await snapshot(main)).worktreeBranches, null);
+  });
+});
+
+test('snapshotWorktree preserves a newline path with a colliding directory name', async t => {
+  const {main, linked} = await makeLinkedRepo(t, 'linked\nlocked for QA');
+  await fs.mkdir(path.join(path.dirname(main), 'linked'));
+  const snap = await snapshotWorktree(main);
+  assert.deepEqual(snap.worktreeBranches, {[main]: 'refs/heads/main', [linked]: 'refs/heads/other-wt'});
+});
+
+test('snapshotWorktree keeps the original prunable path and tolerates another worktree commit', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const missing = path.join(path.dirname(main), 'missing-wt');
+  git(main, 'worktree', 'add', '-b', 'prunable-wt', missing);
+  await fs.rm(missing, {recursive: true});
+  assert.match(git(main, 'worktree', 'list', '--porcelain'), /^prunable /m);
+  const snap = await snapshotWorktree(main);
+  assert.deepEqual(snap.worktreeBranches, {[main]: 'refs/heads/main', [linked]: 'refs/heads/other-wt', [missing]: 'refs/heads/prunable-wt'});
+  const result = await observeRefChange(main, () => git(linked, 'commit', '--allow-empty', '-m', 'other commit'));
+  assertToleratedBranch(result, 'refs/heads/other-wt');
+});
+
+test('snapshotWorktree fallback rejects non-prunable paths that cannot resolve to a directory', async t => {
+  const {main, linked} = await makeLinkedRepo(t, 'linked\nlocked for QA');
+  const truncated = path.join(path.dirname(linked), 'linked');
+  await withWorktreeListOverride('legacy-invalid-path', args => {
+    if (args.includes('-z')) throw unsupportedWorktreeListZ();
+  }, async snapshot => {
+    assert.equal((await snapshot(main)).worktreeBranches, null);
+    await fs.writeFile(truncated, 'not a directory');
+    assert.equal((await snapshot(main)).worktreeBranches, null);
+  });
+});
+
+test('snapshotWorktree fallback keeps the original prunable path', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  await fs.rm(linked, {recursive: true});
+  await withWorktreeListOverride('legacy-prunable', args => {
+    if (args.includes('-z')) throw unsupportedWorktreeListZ();
+  }, async snapshot => {
+    assert.deepEqual((await snapshot(main)).worktreeBranches, {[main]: 'refs/heads/main', [linked]: 'refs/heads/other-wt'});
+  });
+});
+
+for (const [code, stderr] of [[128, "error: unknown switch `z'"], [129, "error: unknown option `other'"], [129, 'error: worktree list failed']]) {
+  test(`snapshotWorktree rejects without fallback on Git worktree list error ${code}: ${stderr}`, async t => {
+    const dir = await makeRepo(t);
+    const attempts = [];
+    await withWorktreeListOverride(`failure-${code}-${encodeURIComponent(stderr)}`, args => {
+      attempts.push(args.includes('-z'));
+      throw Object.assign(new Error('worktree list failed'), {code, stderr});
+    }, async snapshot => {
+      await assert.rejects(snapshot(dir), {message: `Git observation failed: worktree (${code})`});
+      assert.deepEqual(attempts, [true]);
+    });
+  });
+}
+
+test('detectViolations tolerates a linked worktree commit when main is the target', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const result = await observeRefChange(main, () => git(linked, 'commit', '--allow-empty', '-m', 'other commit'));
+  assertToleratedBranch(result, 'refs/heads/other-wt');
+});
+
+test('detectViolations rejects moving the target main branch even with a tolerated linked worktree commit', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const result = await observeRefChange(main, () => {
+    git(linked, 'commit', '--allow-empty', '-m', 'other commit');
+    git(main, 'update-ref', 'refs/heads/main', 'other-wt');
+  });
+  assert.equal(result.reason, 'permission_violation_observed');
+  assert.equal(result.refsChanged, true);
+  assert.equal(result.headChanged, true);
+  assert.deepEqual(result.toleratedRefs, ['refs/heads/other-wt']);
+});
+
+test('detectViolations rejects moving the original target branch despite a same-named tag', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  git(main, 'tag', 'main');
+  const before = await snapshotWorktree(main);
+  assert.equal(before.branch, 'heads/main');
+  git(main, 'checkout', '--detach', 'HEAD');
+  git(linked, 'switch', 'main');
+  git(linked, 'commit', '--allow-empty', '-m', 'main commit');
+  const after = await snapshotWorktree(main);
+  const result = detectViolations({role: 'arc_reviewer', before, after});
+  assert.equal(result.refsChanged, true);
+  assert.deepEqual(result.toleratedRefs, []);
+  assert.equal(before.branchRef, 'refs/heads/main');
+  assert.equal(after.branchRef, null);
+});
+
+test('detectViolations tolerates a main worktree commit when a linked worktree is the target', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const result = await observeRefChange(linked, () => git(main, 'commit', '--allow-empty', '-m', 'main commit'));
+  assertToleratedBranch(result, 'refs/heads/main');
+});
+
+test('detectViolations tolerates a branch created with a newly registered worktree', async t => {
+  const main = await makeRepo(t);
+  const linked = path.join(path.dirname(main), 'new-linked');
+  const result = await observeRefChange(main, () => git(main, 'worktree', 'add', '-b', 'new-wt', linked));
+  assertToleratedBranch(result, 'refs/heads/new-wt');
+});
+
+test('detectViolations tolerates deleting the branch of a removed worktree', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  const result = await observeRefChange(main, () => {
+    git(main, 'worktree', 'remove', linked);
+    git(main, 'branch', '-D', 'other-wt');
+  });
+  assertToleratedBranch(result, 'refs/heads/other-wt');
+});
+
+test('detectViolations tolerates a main worktree commit when the linked target is detached', async t => {
+  const {main, linked} = await makeLinkedRepo(t);
+  git(linked, 'checkout', '--detach');
+  const result = await observeRefChange(linked, () => git(main, 'commit', '--allow-empty', '-m', 'main commit'));
+  assertToleratedBranch(result, 'refs/heads/main');
+});
+
+for (const [label, worktreeBranches] of [
+  ['ambiguous', null],
+  ['missing', undefined],
+  ['missing the target root', {'/other': 'refs/heads/other-wt'}],
+]) {
+  test(`detectViolations rejects a branch change if either worktree list is ${label}`, () => {
+    const ref = 'refs/heads/other-wt';
+    const before = {head: 'a', branch: 'main', branchRef: 'refs/heads/main', refs: {[ref]: 'a'}, entries: new Map(), worktreeRoot: '/target',
+      worktreeBranches: {'/target': 'refs/heads/main', '/other': ref}};
+    const after = {...before, refs: {[ref]: 'b'}};
+    for (const snapshots of [{before: {...before, worktreeBranches}, after}, {before, after: {...after, worktreeBranches}}]) {
+      const result = detectViolations({role: 'arc_reviewer', ...snapshots});
+      assert.equal(result.reason, 'permission_violation_observed');
+      assert.equal(result.refsChanged, true);
+      assert.deepEqual(result.toleratedRefs, []);
+    }
+  });
+}
+
+test('detectViolations rejects a branch change if either snapshot lacks a full target branch ref', () => {
+  const ref = 'refs/heads/other-wt';
+  const branchRef = 'refs/heads/main';
+  const before = {head: 'a', branch: 'main', refs: {[ref]: 'a'}, entries: new Map(), worktreeRoot: '/target',
+    worktreeBranches: {'/target': branchRef, '/other': ref}};
+  const after = {...before, refs: {[ref]: 'b'}};
+  for (const snapshots of [{before, after: {...after, branchRef}}, {before: {...before, branchRef}, after}]) {
+    const result = detectViolations({role: 'arc_reviewer', ...snapshots});
+    assert.equal(result.refsChanged, true);
+    assert.deepEqual(result.toleratedRefs, []);
+  }
 });
 
 for (const [action, setupArgs, args] of [

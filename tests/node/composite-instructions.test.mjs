@@ -270,8 +270,9 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`reserved` lease \(native or bridge\) becomes `cancelled` at once/);
     assert.match(body, /`cancelled` event is also accepted for a `reserved` native lease/);
     assert.match(body, /Codex bridge[^.]*`permissions` claim is at most `operator-attested`[^.]*`user-config-mcp-not-controlled`/);
-    assert.match(body, /Any other ref creation, deletion or movement is a `permission_violation_observed` for every role, including any branch and moving or deleting an existing tag/);
-    assert.match(body, /These ref changes are not violations and are recorded in the dispatch record under `tolerated\.refs`, [^\n]+: remote-tracking refs \(`refs\/remotes\/\*\*`\) and tags that did not exist before the run\./);
+    assert.match(body, /Any other ref creation, deletion or movement is a `permission_violation_observed` for every role, including the dispatch worktree's own branch, branches checked out by no worktree, and moving or deleting an existing tag\./);
+    assert.match(body, /These ref changes are not violations and are recorded in the dispatch record under `tolerated\.refs`, [^\n]+: remote-tracking refs \(`refs\/remotes\/\*\*`\), tags that did not exist before the run, and branches checked out by another registered worktree before or after the run\./);
+    assert.match(body, /If the worktree list cannot be parsed or does not include the dispatch worktree, no branch is tolerated this way\./);
     assert.match(body, /Each `tolerated` list keeps at most 100 sorted names, and `tolerated\.truncated` is set when a list is longer\./);
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection/i);

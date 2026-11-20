@@ -47,9 +47,11 @@
 **T2: `snapshotWorktree(worktree)` 반환 필드 추가**
 - `worktreeRoot`: `rev-parse --show-toplevel` 결과의 realpath다. realpath가 실패하면 원래 값을 쓴다.
 - `worktreeBranches`: `{[realpath]: 'refs/heads/<b>' | null}` 형태다.
-  - `git worktree list --porcelain` 출력을 파싱해 만든다.
+  - `git worktree list --porcelain -z` 출력을 파싱해 만든다(v4). 레코드는 `\0\0`, 속성은 `\0`로 나뉜다.
+  - git이 `-z`를 지원하지 않으면(옵션 오류로 실패) `-z` 없는 `git worktree list --porcelain`의 줄 단위 출력을 파싱한다(v4). 레코드는 빈 줄, 속성은 개행으로 나뉜다. 이 대체 경로에서는 prunable이 아닌 레코드의 경로가 실제 디렉터리로 realpath되어야 하고, 하나라도 아니면 `null`로 둔다.
   - worktree 경로는 realpath로 정규화한다. 실패하면(prunable 등) 원래 경로를 쓴다.
-  - 명령 자체가 실패하면 기존 `git()` helper처럼 throw한다. 즉 스냅샷 전체가 실패한다.
+  - 그 밖의 이유로 명령이 실패하면 기존 `git()` helper처럼 throw한다. 즉 스냅샷 전체가 실패한다.
+  - 대상 branch 판정은 `git symbolic-ref --quiet HEAD`의 full ref(`branchRef`)로 한다(v4). short 이름은 같은 이름의 tag가 있으면 `heads/<b>`가 되어 오분류된다. before나 after에 `branchRef` 정보가 없으면 다른 worktree branch 허용을 끈다.
   - 파싱이 모호하면 `worktreeBranches: null`로 두어 worktree 허용을 끈다. 모호한 경우는 다음과 같다.
     - 레코드가 `worktree `로 시작하지 않음
     - `branch `/`detached`/`bare` 중 정확히 하나가 아님
@@ -409,3 +411,4 @@ supervisor는 바꿀 필요가 없다. 필요해지면 보류한다.
 | v1 | 2026-11-20T22:11:11+0900 | 최초 승인 | T1, T2, T3 | 최초 plan |
 | v2 | 2026-11-20T22:35:54+0900 | contract | T1, T2, T3 | 계약 테스트(`runtime-versions`, `composite-instructions`)와 golden fixture가 runtime·문서 해시와 문구를 고정하고 있어서 동반 갱신이 필요함. 세 파일을 allowedPaths와 필수 검사에 추가 |
 | v3 | 2026-11-20T22:45:50+0900 | contract | T1, T2, T3 | 사용자 지시: 재검증은 수정 부분과 관련 테스트만 실행하고, `npm test` 전체 회귀는 최종 검증에서 한 번만 실행. task 필수 검사에서 전체 테스트를 빼고 최종 검증에 추가 |
+| v4 | 2026-11-20T23:17:57+0900 | contract | T2 | QA F1·F2 대응. worktree 목록은 `-z` 우선 파싱, `-z`를 지원하지 않는 git에서만 줄 단위로 대체(경로 존재 확인 포함). 대상 branch는 full ref(`branchRef`)로 판정. prunable 경로는 원래 경로 사용 유지 |

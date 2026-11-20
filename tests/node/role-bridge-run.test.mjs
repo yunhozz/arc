@@ -776,15 +776,21 @@ test('an orphaned group that cannot be reaped leaves unknown terminal_state_unve
   assert.ok(NON_TERMINAL.includes(lease.state));
 });
 
-for (const [n, name, args, tolerated] of [
-  [91, 'branch creation fails with refsChanged', ['branch', 'created-by-role']],
+for (const [n, name, gitArgs, tolerated] of [
+  [91, 'unchecked-out branch creation fails with refsChanged', ['branch', 'created-by-role']],
   [92, 'new tag creation completes with tolerated refs', ['tag', 'tag-by-role'], {refs: ['refs/tags/tag-by-role']}],
   [100, 'existing tag movement fails with refsChanged', ['tag', '-f', 'tag-by-role']],
   [101, 'remote-tracking ref creation completes with tolerated refs', ['update-ref', 'refs/remotes/origin/x', 'HEAD'], {refs: ['refs/remotes/origin/x']}],
   [102, 'info/refs generation completes with tolerated control', ['update-server-info'], {control: ['git:info/refs']}],
+  [103, 'another registered worktree commit completes with tolerated refs', f => {
+    const linked = path.join(f.base, 'other-worktree');
+    gitIn(f, 'worktree', 'add', '-b', 'other-wt', linked);
+    return ['-C', linked, 'commit', '--allow-empty', '-m', 'x'];
+  }, {refs: ['refs/heads/other-wt']}],
 ]) {
   test(`bridge post-run detection: ${name}`, async t => {
     const f = await setup(t, {roles: {arc_planner: 'codex', arc_implementer: 'codex'}});
+    const args = typeof gitArgs === 'function' ? gitArgs(f) : gitArgs;
     if (n === 100) {
       gitIn(f, 'tag', 'tag-by-role');
       gitIn(f, 'commit', '-q', '--allow-empty', '-m', 'next');
