@@ -409,7 +409,10 @@ test('help describes one-line width and full messages', async t => {
   const s=setup(t);
   assert.equal(await runWatch(['--help'],s.io),0);
   assert.ok(s.output.text.includes('  --width <n>         Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)'));
-  assert.ok(s.output.text.includes('User and agent messages and file paths are shown in full; other events use one line.\nTool and command outputs'));
+  assert.match(s.output.text,/User messages, agent messages, prompts and file paths are shown in full/);
+  assert.match(s.output.text,/PROMPT is an agent-generated prompt sent to a child session/);
+  assert.match(s.output.text,/Color TTY output renders Markdown in AGENT and PROMPT messages/);
+  assert.match(s.output.text,/NO_COLOR, piped output and --json keep the Markdown source text/);
 });
 
 
@@ -729,6 +732,20 @@ test('unsupported row is not selectable', async t => {
   assert.ok(indexes.every((index,i) => index>=0 && (!i || index>indexes[i-1])),first);
   assert.ok(strip(screens.at(-1)).includes(unsupported.label+' is not supported by arc watch.'));
   assert.deepEqual(s.calls,[]);
+});
+
+test('unsupported row notice clears when the cursor moves away', async t => {
+  const s = setup(t);
+  const timeline = menuTerminal(s,[
+    ...Array(descriptors.indexOf(unsupported)+1).fill('\x1b[B'),'\r','\x1b[A','\x1b[B','\x1b',
+  ]);
+  assert.equal(await runWatch([],s.io),0);
+  const screens = timeline.filter(frame => typeof frame === 'string' && frame.includes('Which platform to watch?'));
+  const message = unsupported.label+' is not supported by arc watch.';
+  const shown = screens.findIndex(frame => strip(frame).includes(message));
+  assert.ok(shown >= 0);
+  assert.ok(screens.length >= shown+3);
+  assert.ok(screens.slice(shown+1).every(frame => !strip(frame).includes(message)));
 });
 
 test('menu cancel restores terminal and never starts watcher', async t => {

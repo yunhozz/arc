@@ -160,6 +160,8 @@ flowchart LR
 | Preservation / holds | Preserve outside managed blocks, unrelated settings/shared skills; malformed policy/config stops install. Omitted valid limits survive; concurrency mismatch needs explicit selection. Skip-global omits this operation's instructions/native settings, not prior changes. Unverified profiles preserved as residuals; inconsistent routing blocks publication/switch/remove; active bridges block publication/deactivation |
 | Native settings | Codex wait config merges supported `[features.multi_agent_v2]`, otherwise guidance; concurrency: integer `[agents].max_concurrent_threads_per_session`, Claude string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` |
 
+Automatic re-application uses the same path as manual Configure → Apply. It rewrites global instructions and native concurrency settings using the current ARC configuration. ARC configuration values overwrite any manual edits to those instructions or settings.
+
 Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active files/inconsistency is unverified):
 
 1. Run Configure → Apply; acquire Claude then Codex anchor locks; no extra migration confirmation.
@@ -194,7 +196,7 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | Sources | Supported platform transcripts and dispatch leases/artifacts |
 | Scope | Every selection watches the current Git worktree or the current directory outside Git. Linked and nested worktrees are excluded. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
 | Anchor | Marker active directory must match resolved registered home; one candidate selects store, none → legacy Codex, multiple → `dispatch store ambiguous` (other sources continue). No old-history merge |
-| Shown | Full USER/AGENT messages; role badge on its own line above the message when known; EDIT/CREATE/DELETE list all paths (two or more as `- ` items; a single path has no `- `); other events one line |
+| Shown | Full USER, AGENT and PROMPT messages; role badge on its own line above the message when known; EDIT/CREATE/DELETE list all paths (two or more as `- ` items; a single path has no `- `); other events one line |
 | Hidden | Tool/command outputs, skill definitions/args, MCP args/results; reasoning only verbose; incomplete secret masking applies to JSON too |
 | Read-only | No network or CLI except restricted Git discovery/listing; no writes |
 | Display | TTY/width wraps messages/file lists; in a TTY, a bottom status block shows the watched path, with `working…` below it while a turn is in progress; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. During watch, Ctrl-L clears the screen and Ctrl-C or a stop signal exits 0. `working…` ends after interrupt or 5 minutes idle |
@@ -205,6 +207,7 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 |---|---|
 | USER | User message |
 | AGENT | Agent message (ARC role prefix when known) |
+| PROMPT | Agent-generated prompt sent to a child session (`kind: "prompt"` in `--json` output) |
 | CMD | Command; literal successful Claude rm targets are not a filesystem audit |
 | EDIT | File edit |
 | CREATE | File creation |
@@ -225,6 +228,8 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | TURN | Turn start |
 | THINK | Reasoning |
 | ITEM | Other item |
+
+With color enabled in a TTY, watch renders Markdown in AGENT and PROMPT messages. `NO_COLOR`, piped output and `--json` preserve the Markdown source text.
 
 ## Workflow rules
 

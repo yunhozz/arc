@@ -17,13 +17,14 @@ for (const [name, text, expected, styles] of [
   ['bold italic code', '**bold** *italic* `*literal*`', ['bold italic *literal*'],
     [/\x1b\[(?:0;)?32;1mbold/, /\x1b\[(?:0;)?32;3mitalic/, /\x1b\[(?:0;)?32;38;5;180m\*literal\*/]],
   ['bold before a Korean particle', '**굵게**와', ['굵게와'], [/\x1b\[32;1m굵게/]],
+  ['bold between letters', '이것은**중요**합니다 a**b**c', ['이것은중요합니다 abc'],
+    [/\x1b\[32m이것은\x1b\[0;32;1m중요\x1b\[0;32m합니다/, /\x1b\[0;32;1mb\x1b\[0;32mc/]],
   ['italic before a Korean particle', '*기울임*은', ['기울임은'], [/\x1b\[32;3m기울임/]],
   ['fenced code', '```js\n  **literal**\n\n```\nafter', ['    **literal**', '', 'after'], [/\x1b\[32;2m {4}\*\*literal\*\*/]],
   ['quote', '> cited', ['│ cited'], [/\x1b\[32;2m│ cited/]],
   ['rule', '---\n***\n___', Array(3).fill('─'.repeat(40)), []],
   ['link', '[site](https://example.com)', ['site (https://example.com)'], []],
   ['table without delimiter stays raw', '| **x** | *y* | `z` |', ['| **x** | *y* | `z` |'], []],
-  ['table without outer pipes or delimiter stays raw', '**x** | *y*', ['**x** | *y*'], []],
 ]) {
   test(`markdown renders ${name}`, () => {
     const lines = body(text);
@@ -39,7 +40,7 @@ test('markdown keeps a fenced blank line empty in human output', () => {
 const table = (text, width) => renderMarkdown(text, {width, baseCode:'32'});
 
 test('table aligned with CJK cells, inline styles and row dividers', () => {
-  const lines = table('왼쪽 | Center | R\n:--- | :---: | ---:\n**한글** | *가* | `123`\n가 | x | 9', Infinity);
+  const lines = table('  | 왼쪽 | Center | R\n:--- | :---: | ---:\n**한글** | *가* | `123`\n가 | x | 9', Infinity);
   assert.deepEqual(lines.map(plain), [
     '┌──────┬────────┬─────┐',
     '│ 왼쪽 │ Center │   R │',
@@ -53,6 +54,24 @@ test('table aligned with CJK cells, inline styles and row dividers', () => {
   assert.match(lines[3], /\x1b\[(?:0;)?32;3m가/);
   assert.match(lines[3], /\x1b\[(?:0;)?32;38;5;180m123/);
   assert.ok(lines.every(line => displayWidth(plain(line)) === 23 && line.endsWith('\x1b[0m')));
+});
+
+test('markdown styles prose with pipes and wraps it at word boundaries', () => {
+  const lines = table('**alpha** | longer word', 12);
+  assert.deepEqual(lines.map(plain), ['alpha |', 'longer word']);
+  assert.match(lines[0], /\x1b\[32;1malpha\x1b\[0;32m \|/);
+});
+
+test('markdown requires a leading pipe before a table delimiter', () => {
+  const lines = table('**alpha** | beta\n| --- | --- |\n| gamma | delta |', Infinity);
+  assert.deepEqual(lines.map(plain), ['alpha | beta', '| --- | --- |', '| gamma | delta |']);
+  assert.match(lines[0], /\x1b\[32;1malpha/);
+});
+
+test('markdown wraps an indented raw pipe line at word boundaries', () => {
+  const lines = table('  | **alpha** longer word', 16);
+  assert.deepEqual(lines.map(plain), ['  | **alpha**', 'longer word']);
+  assert.doesNotMatch(lines.join('\n'), /\x1b\[[0-9;]*;1m/);
 });
 
 test('table wraps cells when narrow', () => {
@@ -108,8 +127,8 @@ test('markdown never emits input-originated escapes', () => {
 });
 
 test('markdown avoids emphasis false positives and tolerates open fence', () => {
-  assert.deepEqual(body('a*b*c a**b**c snake_case * x* *y *\n```\n**literal**').map(plain), [
-    'a*b*c a**b**c snake_case * x* *y *', '  **literal**',
+  assert.deepEqual(body('a*b*c snake_case * x* *y *\n```\n**literal**').map(plain), [
+    'a*b*c snake_case * x* *y *', '  **literal**',
   ]);
 });
 

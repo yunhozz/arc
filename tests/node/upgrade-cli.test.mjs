@@ -62,6 +62,21 @@ test('child never reapplies after harness failure or interrupt',async()=>{
  }
 });
 
+test('child gives Configure Apply guidance on stderr when interrupted after harness success',async()=>{
+ const fixture=childFixture();
+ const upgradeHarness=fixture.deps.upgradeInstalledTargets;
+ let stderr='';
+ fixture.streams.error.write=text=>{stderr+=text;};
+ fixture.deps.upgradeInstalledTargets=async()=>{
+  const result=await upgradeHarness();
+  process.emit('SIGINT');
+  return result;
+ };
+ assert.equal(await fixture.run(),130);
+ assert.deepEqual(fixture.deps.events,['harness']);
+ assert.equal(stderr,'Configuration was not re-applied.\nRun arc → Configure → Apply to re-apply the configuration.\n');
+});
+
 test('child reports held reapply with active dispatches and exits 1',async()=>{
  const fixture=childFixture();
  fixture.reapplyWith({status:'held',mode:'composite',code:1,activeDispatches:['bridge-1','bridge-2'],error:Error('active dispatch'),residualPaths:[]});

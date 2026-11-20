@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {compositeContext, mixedConfig, targets} from './fixtures/install-mode.mjs';
+import {activePath, legacyComposite} from './fixtures/legacy-composite.mjs';
 import {currentInstallState, executeOperation, prepareOperation} from '../../lib/management/operations.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
 import {runChild} from '../../lib/management/update.mjs';
@@ -93,6 +94,16 @@ test('composite child refreshes every activation marker and preserves roles and 
  }
  assert.deepEqual(Object.values(homes).map(configBytes),before);
  assert.ok(!(await status()).reasons.some(reason=>reason.code==='activation_unverified'));
+});
+
+test('composite child reports retained dispatch history after moving the anchor',async t=>{
+ const context=await legacyComposite(t);
+ const oldAnchor=activePath(context,'codex');
+ const result=await upgrade(context);
+ assert.equal(result.code,0,result.stderr);
+ assert.equal(fs.existsSync(oldAnchor),false);
+ assert.equal(fs.existsSync(activePath(context,'claude')),true);
+ assert.ok(result.stdout.split('\n').includes('Dispatch history stays in '+path.join(path.dirname(oldAnchor),'arc-role-dispatch')+'.'),result.stdout);
 });
 
 test('reapply snapshot drift holds without partial publish',async t=>{
@@ -218,6 +229,19 @@ test('standalone child reports unknown publication when rollback cannot restore 
  }});
  assert.ok(published&&rollbackFailed);
  assertUnknownPublication(result,skill);
+});
+
+test('standalone child stops before the next platform when publication is unknown',async t=>{
+ const context=await compositeContext(t);
+ await installStandalone(context,['claude','codex']);
+ const skill=path.join(targets(context).claude.home,'skills/arc');
+ const attempted=[];
+ const result=await upgrade(context,{fault({phase,path:filename,plan}){
+  if(phase==='before-prepare')attempted.push(plan.target.platform);
+  if(filename===skill&&(phase==='after-publish'||phase==='before-rollback'))throw Error('fixture failure at '+phase);
+ }});
+ assertUnknownPublication(result,skill);
+ assert.deepEqual(attempted,['claude']);
 });
 
 for(const ids of [['claude'],['claude','codex']])test('standalone child preserves settings for '+ids.join(', '),async t=>{

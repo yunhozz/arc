@@ -201,7 +201,7 @@
 - `renderHuman`: `color && fullLine && ['agent','prompt'].includes(event.kind)`일 때만 `renderMarkdown(text,{width: wrap && avail>=WATCH_LIMITS.wrapMinBody ? avail : Infinity, baseCode})`. 역할 배지 줄·기존 indent 유지. plain 경로(`:135`), USER, `--json` 불변.
 
 **표 렌더링(v3, 2026-11-20 사용자 지시):**
-- 인식: 헤더 행 + 구분자 행(`|---|`, `:---`/`---:`/`:---:` 정렬 표기)이 있고 이어지는 `|` 행들이 있는 블록만 표로 본다. 구분자 행이 없으면 원문. 셀은 이스케이프된 `\|`와 인라인 코드 안의 `|`로 나누지 않는다. 셀 수가 헤더와 다르면 부족분은 빈 셀, 초과분은 마지막 셀에 합친다.
+- 인식: 헤더 행 + 구분자 행(`|---|`, `:---`/`---:`/`:---:` 정렬 표기)이 있고 이어지는 `|` 행들이 있는 블록만 표로 본다. 헤더 행은 `|`로 시작해야 한다(앞 공백 허용, v4 F5). 구분자 행이 없으면 원문. 셀은 이스케이프된 `\|`와 인라인 코드 안의 `|`로 나누지 않는다. 셀 수가 헤더와 다르면 부족분은 빈 셀, 초과분은 마지막 셀에 합친다.
 - 정렬 표: 테두리 `┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ │ ─`(baseCode 색, 테두리는 `2` dim 합성 가능). 헤더 셀은 굵게(`1`), 헤더 아래와 각 데이터 행 사이에 `├─┼─┤` 구분선. 셀 내용은 인라인 서식(굵게·기울임·코드·링크) 적용, 정렬 표기(left/center/right) 반영, 셀 좌우 1칸 여백.
 - 폭: 열 자연 폭(`displayWidth`, CJK 포함)의 합 + 테두리·여백이 `width` 이하면 그대로. 넘으면 가장 넓은 열부터 줄여 맞추고(열 최소 폭 6), 줄어든 셀은 셀 안에서 단어 경계 우선·필요 시 강제 줄바꿈해 여러 시각 줄로 그린다(행 높이 = 그 행에서 가장 많은 줄 수).
 - 카드 폴백: 열 수 × 최소 폭 + 테두리·여백이 `width`를 넘으면 카드 형태로 그린다 — 행마다 `▸ <헤더1>: <값1>` 다음 줄부터 `  <헤더N>: <값N>`, 행 사이 빈 줄, 값은 들여쓰기 열에 맞춰 줄바꿈.
@@ -231,8 +231,24 @@
 
 ## 최종 검증(모든 작업 수용 후, 작업 선행 조건 아님)
 
-- [ ] 전체 변경에 대해 1회: `PYTHONDONTWRITEBYTECODE=1 npm test`, `npm run check:manifest`, `npm run check:role-policy`, `node scripts/check-installer-parity.mjs --complete`, `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests` — 각각 base(12aa9a3) baseline 실패 집합과 비교해 새 실패 없음.
-- [ ] 독립 Reviewer가 최종 전체 변경(base `12aa9a3`..HEAD)을 1회 리뷰. 중점: R1 transaction·lock, watch 계약(native 미로딩, 터미널 복원). Reviewer 지적은 Implementer → Reviewer로 재검.
+- [x] 전체 변경에 대해 1회: `PYTHONDONTWRITEBYTECODE=1 npm test`, `npm run check:manifest`, `npm run check:role-policy`, `node scripts/check-installer-parity.mjs --complete`, `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests` — 각각 base(12aa9a3) baseline 실패 집합과 비교해 새 실패 없음.
+- [x] 독립 Reviewer가 최종 전체 변경(base `12aa9a3`..HEAD)을 1회 리뷰. 중점: R1 transaction·lock, watch 계약(native 미로딩, 터미널 복원). Reviewer 지적은 Implementer → Reviewer로 재검.
+
+### 최종 Reviewer 후속 수정(v4, 2026-11-20 사용자 지시: non-blocking 9건 모두 수정)
+
+final Reviewer 지적이므로 Implementer → Reviewer 재검으로 반복하고 QA는 재배정하지 않는다. 수정은 재검 동안 미커밋으로 두고, 해소 후 후속 커밋 1개로 묶는다. 검증은 v2 규칙대로 수정 부분과 관련 테스트만 실행한다.
+
+- [x] F1(N1, 문서): `docs/harness-operation.md` 업그레이드 절에 적는다. 자동 재적용은 수동 Configure → Apply와 같은 경로이며, 현재 설정 값으로 global instructions와 native 동시성 설정을 다시 기록한다. 사용자가 직접 바꾼 해당 값은 ARC 설정 값으로 덮인다. 문구는 host 중립으로 쓴다. 동작은 바꾸지 않는다.
+- [x] F2(N2): 하네스 갱신이 성공한 직후, 재적용을 시작하기 전에 인터럽트되면(`lib/management/update.mjs` `if(signal?.aborted)return 130;` 지점) 종료 코드 130을 유지한다. 그리고 `Configuration was not re-applied.`와 Configure → Apply 안내를 stderr에 출력한다. 테스트를 추가한다.
+- [x] F3(N3): standalone 재적용에서 한 플랫폼 결과가 unknown이면 다음 플랫폼으로 진행하지 않고 즉시 멈춘다(`lib/management/reapply.mjs` 반복문). 이미 적용된 플랫폼 보고와 unknown 출력은 기존 문구를 유지한다. 테스트를 추가한다.
+- [x] F4(N4): 재적용 성공 경로에서도 실행 결과의 history·anchor 이동 안내 메시지(`Residual path: ` 제외)를 버리지 않고 출력한다. 기존 Configure Apply가 같은 메시지를 내는 형식을 따른다. 테스트를 추가한다.
+- [x] F5(N5): 표가 아닌 문단에 `|`가 있어도 원문으로 바꾸지 않고 일반 문단처럼 인라인 서식과 단어 경계 줄바꿈을 적용한다. 표 후보는 `|`로 시작하는(앞 공백 허용) 줄과 바로 다음 구분자 행이 있는 경우만이다. 구분자 행이 없는 `|`로 시작하는 줄은 v3대로 원문으로 두되, 줄바꿈은 단어 경계를 우선한다. 테스트를 추가한다.
+- [x] F6(N6): 앞 글자에 붙은 `**x**`를 인식한다(예: `이것은**중요**합니다` → `이것은중요합니다`, `중요`만 굵게). `*x*` 기울임의 기존 오탐 방지(`a*b*c`, `snake_case`)는 유지한다. 테스트를 추가한다.
+- [x] F7(N7): `docs/harness-operation.md` watch 절과 WATCH_HELP(`lib/watch/index.mjs`)에 PROMPT 종류(하위 세션에 보낸 agent 생성 prompt)와 TTY Markdown 렌더링(NO_COLOR·파이프·`--json`은 원문)을 반영한다. `--json` 출력의 `kind` 값에 `prompt`가 있다는 점도 문서에 적는다. 문구는 host 중립으로 쓴다.
+- [x] F8(N8): 아무 데서도 쓰지 않는 `docs/images/watch-flow.svg`를 삭제한다. 참조가 남지 않았는지 확인하고, MANIFEST·package files에 포함돼 있으면 함께 갱신한다.
+- [x] F9(N9): 메뉴에서 미지원 항목 안내는 커서가 그 항목에 있을 때만 보인다. 다른 행으로 옮기면 지운다(`lib/watch/menu.mjs`). 테스트를 추가한다.
+- 진행 기록(2026-11-20): 최종 전체 검사(HEAD 3d4b7c5) 기준선 12aa9a3 대비 새 실패 0(role-bridge-run 2건은 Codex 인증 probe `Incomplete`, 단독 재실행 pass). 최종 Reviewer approve, non-blocking 9건 → fresh Implementer 1d02c2e3가 F1–F9 수정(RED 8 → GREEN 8, 관련 묶음 516/518 → 523/525, 동일 EMFILE 1). Reviewer 재검에서 B1(KIND 표 분리) 1건 → 같은 Implementer가 수정 → Reviewer approve. 참고 지적 N-a(`2**3**4` 굵게, CommonMark와 동일)·N-c(skipped 상태에서도 F2 안내)는 수정하지 않음. N-b는 표 인식 규칙에 반영.
+- 검증: 관련 테스트 묶음(`upgrade-*`, `watch-*`, 메뉴·markdown·render), `npm run check:manifest`, `npm run check:role-policy`를 실행한다. 전체 `npm test`는 실행하지 않는다(v2). 수정 후 Reviewer가 F1–F9 해소를 재확인한다.
 
 ## 기록된 결정·한계
 
@@ -250,3 +266,4 @@
 | v1 | 2026-11-20T12:05Z 무렵 (사용자 승인, 커밋 bd255d9 직전) | 초기 승인 | T1–T4 | 최초 계획 |
 | v2 | 2026-11-20T13:42:59Z | 검증 범위 변경 | T1(recheck)–T4 | 사용자 지시: 작업별 QA·recheck·Implementer 검증은 수정 부분·관련 테스트만, 전체 npm test는 최종 검증 1회 |
 | v3 | 2026-11-20T14:25:56Z | 범위·수용 기준 변경 | T4 | 사용자 지시: Markdown 표를 정렬 표(셀 안 줄바꿈, 폭 부족 시 카드)로 변환. AC4-1에서 "표 원문" 제거, AC4-4 추가 |
+| v4 | 2026-11-20T15:15:00Z | 범위 추가(후속 수정) | 최종 검증 | 사용자 지시: 최종 Reviewer non-blocking N1–N9 모두 수정. F1–F9 추가 |
