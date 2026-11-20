@@ -7,9 +7,10 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
 import zlib from 'node:zlib';
-import {execFile} from 'node:child_process';
+import {execFile, spawnSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {DEFAULT_POLICY, CATALOG_MODEL_ALIASES} from './role-dispatch-policy.mjs';
+import {observeCooperativeTarget} from './scope.mjs';
 
 const execFileAsync = promisify(execFile);
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -253,6 +254,14 @@ const git = async (cwd, args, {allowFailure = false} = {}) => {
   }
 };
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
+
+/** Resolve the worktree root for a cwd that may be a subdirectory. */
+export async function resolveWorktree(cwd) {
+  const result = spawnSync('git', ['--no-pager', 'rev-parse', '--show-toplevel'], {cwd, env: gitEnv(), encoding: 'utf8', timeout: 10000});
+  if (result.error || result.status !== 0 || !result.stdout.endsWith('\n')) throw Error('Worktree root unavailable');
+  return observeCooperativeTarget(result.stdout.slice(0, -1));
+}
+
 async function contentDigest(filename) {
   let stat;
   try { stat = await fsp.lstat(filename); } catch (error) { return error.code === 'ENOENT' ? sha256('deleted') : sha256('unreadable'); }
@@ -386,6 +395,39 @@ async function extraControlFileState({path: filename, project}) {
   if (!stat.isDirectory()) return 'parent-not-directory';
   const state = await controlFileState(filename, {project, parentIntact});
   return await parentIntact() ? state : 'parent-changed';
+}
+
+function claudeSettingsScopeReason(bytes) {
+  let settings;
+  try { settings = JSON.parse(bytes.toString('utf8')); } catch { return 'invalid JSON'; }
+  if (!isObject(settings)) return null;
+  if (Object.hasOwn(settings, 'hooks')) return 'hooks';
+  if (Object.hasOwn(settings, 'sandbox')) return 'sandbox';
+  const {permissions} = settings;
+  if (!isObject(permissions)) return null;
+  if (permissions.additionalDirectories?.length > 0) return 'permissions.additionalDirectories';
+  if (Array.isArray(permissions.allow) && permissions.allow.some(rule => typeof rule === 'string' && /^(?:Edit|Write|MultiEdit|NotebookEdit)\(/.test(rule))) return 'permissions.allow';
+  if (Object.hasOwn(permissions, 'defaultMode')) return 'permissions.defaultMode';
+  return null;
+}
+
+/** Check Claude project and local settings before starting a writing bridge. */
+export async function claudeProjectSettingsWidenScope(worktree) {
+  for (const label of ['.claude/settings.json', '.claude/settings.local.json']) {
+    let scopeReason;
+    const state = await extraControlFileState({path: path.join(worktree, label), project: bytes => {
+      scopeReason = claudeSettingsScopeReason(bytes);
+      return 'claude-settings-read';
+    }}).catch(() => 'unreadable');
+    if (state === sha256('deleted')) continue;
+    if (state === sha256('projection:claude-settings-read')) {
+      if (scopeReason) return `${label}: ${scopeReason}`;
+      continue;
+    }
+    if (state === sha256('directory') || state.startsWith('symlink:')) return `${label}: not a regular file`;
+    return `${label}: settings path could not be verified`;
+  }
+  return null;
 }
 
 /** Snapshot of selected Git, worktree and optional platform control files. */

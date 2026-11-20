@@ -12,10 +12,9 @@ import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} 
 import {DEFAULT_POLICY, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
 import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routing.mjs';
-import {observeCooperativeTarget} from './scope.mjs';
 import {resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
 import {parseCompositeProfile, buildBridgeArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
-import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, detectViolations, allowedPathsCoverControl} from './role-observe.mjs';
+import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, detectViolations, allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
 import {getPlatform, routingProfileFile} from './platform-registry.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -90,13 +89,7 @@ export function processAlive({pid, startTime} = {}) {
   return current !== null && current === startTime;
 }
 
-/** Worktree root and git common dir for a cwd that may be a subdirectory of the worktree. */
-export async function resolveWorktree(cwd) {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_')));
-  const result = spawnSync('git', ['--no-pager', 'rev-parse', '--show-toplevel'], {cwd, env: {...env, GIT_CONFIG_NOSYSTEM: '1', GIT_OPTIONAL_LOCKS: '0'}, encoding: 'utf8', timeout: 10000});
-  if (result.error || result.status !== 0 || !result.stdout.endsWith('\n')) throw Error('Worktree root unavailable');
-  return observeCooperativeTarget(result.stdout.slice(0, -1));
-}
+export {resolveWorktree};
 export const artifactDirectory = (target, workflowId, dispatchId) => path.join(target.gitCommonDir, 'arc', 'workflows', workflowId, 'dispatches', dispatchId);
 /** Segment 0 (the first run) keeps its files in the dispatch directory; resumed segments use segments/<n>/. */
 export const segmentDirectory = (target, workflowId, dispatchId, segment) => segment > 0 ? path.join(artifactDirectory(target, workflowId, dispatchId), 'segments', String(segment)) : artifactDirectory(target, workflowId, dispatchId);
@@ -120,6 +113,10 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   if (!implementation) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
   const permissions = ROLE_BRIDGE_PERMISSIONS[platform][lease.role];
   if (Array.isArray(lease.allowedPaths) && allowedPathsCoverControl(lease.allowedPaths)) throw fail('permission_scope_unverified', 'allowedPaths cover a control file');
+  if (platform === 'claude' && permissions.sandbox) {
+    const scopeReason = await claudeProjectSettingsWidenScope(worktree);
+    if (scopeReason) throw fail('permission_scope_unverified', scopeReason);
+  }
   let grokSandbox;
   if (platform === 'grok' && permissions.sandbox === 'custom') {
     const name = grokSandboxProfileName(lease.dispatchId);

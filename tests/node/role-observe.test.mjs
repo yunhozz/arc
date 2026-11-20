@@ -8,6 +8,7 @@ import {spawnSync} from 'node:child_process';
 import zlib from 'node:zlib';
 import {DEFAULT_POLICY, CODEX_DELEGATION_CALL_NAMES} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {grokConfigSecurityProjection} from '../../lib/runtime/grok-sandbox.mjs';
+import * as roleObserve from '../../lib/runtime/role-observe.mjs';
 import {
   createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, matchModel, evaluateClaudeInit,
   readClaudeTranscriptEffort, readCodexTurnContext, evaluateCodexContext, classifyFailure, snapshotWorktree, detectViolations,
@@ -626,6 +627,55 @@ test('snapshotControlFiles rejects relative paths, a missing gitCommonDir and an
     } finally {
       await fs.chmod(hooks, mode);
     }
+  });
+});
+
+test('claudeProjectSettingsWidenScope checks both project settings files', async t => {
+  const cases = [
+    ['absent settings', null, null],
+    ['benign settings', '{"permissions":{"allow":["Bash(npm test)"],"additionalDirectories":[]},"env":{"A":"1"}}', null],
+    ['symlink', 'symlink', /regular file/],
+    ['directory', 'directory', /regular file/],
+    ['invalid JSON', '{', /invalid JSON/],
+    ['additionalDirectories', '{"permissions":{"additionalDirectories":["../outside"]}}', /additionalDirectories/],
+    ...['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].map(tool => [tool, `{"permissions":{"allow":["Bash(npm test)","${tool}(src/**)"]}}`, /permissions\.allow/]),
+    ['hooks', '{"hooks":{}}', /hooks/],
+    ['sandbox', '{"sandbox":null}', /sandbox/],
+    ['defaultMode', '{"permissions":{"defaultMode":"default"}}', /defaultMode/],
+  ];
+  for (const [name, contents, expected] of cases) {
+    await t.test(name, async t => {
+      const worktree = await tempDir(t);
+      const settings = path.join(worktree, '.claude/settings.local.json');
+      if (contents !== null) {
+        await fs.mkdir(path.dirname(settings));
+        await fs.writeFile(path.join(worktree, '.claude/settings.json'), '{}');
+        if (contents === 'symlink') await fs.symlink('settings.json', settings);
+        else if (contents === 'directory') await fs.mkdir(settings);
+        else await fs.writeFile(settings, contents);
+      }
+      const result = await roleObserve.claudeProjectSettingsWidenScope?.(worktree);
+      if (expected === null) assert.equal(result, null);
+      else {
+        assert.match(result, expected);
+        assert.match(result, /\.claude\/settings\.local\.json/);
+      }
+    });
+  }
+});
+
+test('claudeProjectSettingsWidenScope holds when .claude is a symlink even without settings files', async t => {
+  await t.test('symlink to an empty outside directory', async t => {
+    const worktree = await tempDir(t);
+    const outside = await tempDir(t);
+    await fs.symlink(outside, path.join(worktree, '.claude'));
+    assert.ok(await roleObserve.claudeProjectSettingsWidenScope(worktree));
+  });
+
+  await t.test('regular file', async t => {
+    const worktree = await tempDir(t);
+    await fs.writeFile(path.join(worktree, '.claude'), '');
+    assert.ok(await roleObserve.claudeProjectSettingsWidenScope(worktree));
   });
 });
 

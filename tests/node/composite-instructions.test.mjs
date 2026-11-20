@@ -135,9 +135,10 @@ test('coordination and operations document every host and target route from curr
   }
 });
 
-test('every coordination reference states Gemini GG1 and Grok GK1 bridge writing gates', async () => {
+test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bridge writing gates', async () => {
   for (const platform of platforms) {
     const body = section(await coordination(platform));
+    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/QA bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, Edit\/Write allow rules, hooks, sandbox or defaultMode/, platform);
     assert.match(body, /Gemini bridge `arc_implementer` and `arc_qa` are held as `permission_scope_unverified` while GG1 is `fail`/, platform);
     assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/, platform);
     assert.match(body, /per-dispatch sandbox profile[^.]*GK1[^.]*\. [^.]*held as `permission_scope_unverified`[^.]*GK1/, platform);
@@ -265,7 +266,7 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection/i);
     assert.match(body, /orphaned process group[^.]*reaped/);
-    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` only when an injected G1 fails or settings are missing \(G1\)/);
+    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing \(G1\)/);
     assert.ok(body.includes('Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.'), harness);
     assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/);
     assert.doesNotMatch(body, /`claude-cli` hosts are supported\./);

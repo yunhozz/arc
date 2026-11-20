@@ -14,13 +14,15 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
-// Claude 2.1.328, 2026-11-19, macOS Seatbelt: /private/tmp/claude-<uid> is writable, Bash exits 71 per command if sandboxing is unavailable, and M-C4 found no widening in trusted or untrusted workspaces.
+// Claude 2.1.327, 2026-11-20, T0 M-C10/M-C11/M-C12/FINAL
 const RECORDED_CLAUDE_SANDBOX_SETTINGS = deepFreeze({
+  permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
   sandbox: {
     enabled: true,
     autoAllowBashIfSandboxed: true,
     allowUnsandboxedCommands: false,
     failIfUnavailable: true,
+    filesystem: {denyWrite: ['./.git']},
   },
 });
 const isRecordedObject = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
