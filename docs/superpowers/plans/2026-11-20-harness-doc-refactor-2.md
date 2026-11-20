@@ -87,7 +87,7 @@
 
 ### T2 Implementer 절차 (spec §7.1, 실행 순서)
 
-- [ ] **1. 문서 7곳 편집.** 각 위치에서 아래 구만 바꿉니다. 줄 안의 다른 바이트는 바꾸지 않습니다.
+- [x] **1. 문서 7곳 편집.** 각 위치에서 아래 구만 바꿉니다. 줄 안의 다른 바이트는 바꾸지 않습니다.
 
 | ID | 파일:줄 | 이전 | 이후 |
 |---|---|---|---|
@@ -104,14 +104,14 @@
     - H2: `claude/skill/references/worktree-creation.md:6`의 `never remote HEAD/default branch or automatic fetch`
     - H1, H4, H5: 편집 대상이 아닌 파일에 있습니다(`*/skill/references/handoff-prep.md:90`, `shared/skill/references/handoff-worktree.md:14,16,32`). 이 파일들은 열어서 편집하지 않습니다.
   - E4·E5와 E6·E7은 같은 작업에서 함께 바꿉니다. 한쪽만 바꾸지 않습니다.
-- [ ] **2.** `npm run check:role-policy`를 실행해 종료 코드 0을 확인합니다. `update:role-policy`는 실행하지 않습니다.
-- [ ] **3.** `node scripts/update-runtime-assets.mjs --check`를 실행해 종료 코드 0을 확인합니다. 갱신 모드는 실행하지 않습니다.
-- [ ] **4. TU-1.** `tests/node/composite-instructions.test.mjs:91`의 `do not invent native tool calls`를 `DO NOT invent native tool calls`로 바꿉니다. 같은 줄의 나머지 바이트, 다른 줄, 매칭 방식, 정규화, 플래그, 테스트 이름과 구조는 바꾸지 않습니다(D3).
-- [ ] **5.** `node scripts/update-manifest.mjs`를 실행한 뒤 `npm run check:manifest`로 종료 코드 0을 확인합니다.
+- [x] **2.** `npm run check:role-policy`를 실행해 종료 코드 0을 확인합니다. `update:role-policy`는 실행하지 않습니다.
+- [x] **3.** `node scripts/update-runtime-assets.mjs --check`를 실행해 종료 코드 0을 확인합니다. 갱신 모드는 실행하지 않습니다.
+- [x] **4. TU-1.** `tests/node/composite-instructions.test.mjs:91`의 `do not invent native tool calls`를 `DO NOT invent native tool calls`로 바꿉니다. 같은 줄의 나머지 바이트, 다른 줄, 매칭 방식, 정규화, 플래그, 테스트 이름과 구조는 바꾸지 않습니다(D3).
+- [x] **5.** `node scripts/update-manifest.mjs`를 실행한 뒤 `npm run check:manifest`로 종료 코드 0을 확인합니다.
   - 기대 변경은 `MANIFEST.sha256`의 4행입니다: `:19` claude wc, `:50` gemini coordination, `:57` gemini wc, `:75` grok wc.
   - 확인 명령: `git --no-optional-locks diff -U0 --no-color -- MANIFEST.sha256 | grep -c '^+[0-9a-f]'`. 기대값은 4입니다.
   - 다른 행이 바뀌면 멈추고 보고합니다.
-- [ ] **6. golden.**
+- [x] **6. golden.**
   - 먼저 `node tests/node/fixtures/installed-layout.mjs --diff`를 실행하고 출력을 그대로 기록합니다.
   - 기대: 모든 줄이 `~ <조합> skills/arc/references/worktree-creation.md` 또는 `~ <조합> skills/arc/references/coordination.md` 형태입니다. 줄 수는 현재 golden에서 이전 SHA 4종(`8826abe4`, `751eb3c7`, `401fdde0`, `c8951454`)이 나오는 횟수와 같아야 합니다. Planner가 센 값은 16이며, QA는 `grep -cE '8826abe4|751eb3c7|401fdde0|c8951454' tests/node/fixtures/installed-layout-golden.json`(T2 전 HEAD 기준, 또는 `git --no-optional-locks show HEAD:tests/node/fixtures/installed-layout-golden.json | grep -cE …`)으로 다시 확인합니다.
   - 아래 조건을 모두 충족할 때만 `node tests/node/fixtures/installed-layout.mjs --write`를 실행하고, 이어서 `--diff`를 다시 실행해 출력 0줄을 확인합니다.
@@ -119,11 +119,11 @@
     - 차이가 기대 범위 안에만 있습니다.
     - `+`나 `-` 줄이 없습니다.
   - 조건이 하나라도 어긋나면 `--write`를 hold하고, 출력과 T0 상태를 보고합니다(OD-8).
-- [ ] **7. Implementer 자체 확인.**
+- [x] **7. Implementer 자체 확인.**
   - `node --test tests/node/composite-instructions.test.mjs tests/node/installed-layout-golden.test.mjs`
   - Q-A의 접기 비교 한 줄 명령
   - `git --no-optional-locks diff --name-only`
-- [ ] **8. 보고.** 파일로 저장하지 않고 응답으로 반환합니다. Orchestrator가 canonical 기록에 옮깁니다.
+- [x] **8. 보고.** 파일로 저장하지 않고 응답으로 반환합니다. Orchestrator가 canonical 기록에 옮깁니다.
   - 대조표(1차 §11.1 형식)
     - E1–E7 각 행: 위치, 이전, 이후, 강도·주체·조건·예외·우선순위가 바뀌지 않았다는 확인 문장
     - H1–H5 행: 바이트 불변. H1은 "새 hold(1차 대응 미확인)"로 적습니다.
@@ -185,8 +185,9 @@ node -e 'const s=require("child_process").spawnSync;const P=["claude","codex","g
   - `DIFF`와 `ERR`가 0개입니다.
   - `CASE_ONLY`는 다음 쌍뿐입니다.
     - `references/worktree-creation.md`: claude–codex, claude–gemini, claude–grok, codex–gemini, codex–grok (E1, E2, E4–E7)
+    - `references/worktree-creation.md`: gemini–grok (E4·E5). 6행은 플랫폼 이름(Gemini/Grok)이 달라 두 파일 간 diff에 남는다. 두 파일 모두 같은 `Do not`→`DO NOT` 편집을 받으므로 그 diff 줄의 대소문자만 바뀐다. 8행(E6·E7)은 두 파일에서 같은 문장이라 diff에 나타나지 않는다.
     - `references/coordination.md`: gemini가 들어간 3쌍 (E3)
-  - `references/worktree-creation.md`의 gemini–grok는 `SAME`이어야 합니다(E4–E7 묶음이 gemini/grok 사이 diff를 바꾸지 않음).
+  - (개정 2026-11-20: 처음 기대값은 gemini–grok `SAME`이었다. 6행의 플랫폼 이름 차이를 반영하지 못한 오류라 위와 같이 정정했다.)
 - 각 `CASE_ONLY`는 대조표의 E ID로 설명합니다.
 - `npm test` 안의 `composite-instructions` `:89` 통과도 함께 확인합니다.
 
@@ -263,6 +264,31 @@ git --no-optional-locks diff -U0 --no-color 12aa9a3 -- claude gemini grok codex 
 hold가 생기면 해당 작업만 멈추고 Orchestrator에 보고합니다. 자동 재시도, 대체 경로, 범위 확장은 하지 않습니다.
 
 ---
+
+### T2 진행 기록 (2026-11-20, Orchestrator 수락)
+
+- 상태: 수락됨. Implementer는 bridge dispatch `3303bb40`, QA는 fresh bridge dispatch `65cff2c0`(재확인 2회)다.
+- 결과:
+  - E1–E7과 TU-1을 적용했다.
+  - `MANIFEST.sha256` 4행(`:19`, `:50`, `:57`, `:75`)이 바뀌었다.
+  - golden은 `--diff` 16줄이 모두 기대 범위 안이었고, `--write` 뒤 0줄이 됐다.
+  - RED→GREEN 3종(composite `:89`, `check:manifest`, golden)을 확인했다.
+- QA 판정: AC2-1, AC2-3, AC2-4, AC2-5, AC2-6, AC2-7, AC2-9, AC2-10, AC2-12, AC2-14는 proven이다.
+  - AC2-4: 잔존 96줄이 모두 P0 원자료의 `inherited` 행에 대응한다.
+  - AC2-14: 개정된 Q-C 기준으로 판정했다.
+- AC2-13은 unmet이다. 사용자 결정에 따라 환경 불안정으로 처분했다.
+  - 전체 `npm test`에서 실행마다 다른 runtime 테스트가 새로 실패했다(TAP 1658, 1487, 1510).
+  - 세 건 모두 단독 실행에서 통과했다.
+  - 정적 추적상 T2 변경 파일을 읽는 경로는 0개다.
+  - 원인은 fixture 가짜 CLI auth probe의 1,000ms 제한에 걸린 부하·동시 실행으로 추정한다.
+- 관찰: 공용 `.git`의 `FETCH_HEAD`와 refs 변경은 다른 세션의 동작이다(`watch-menu-upgrade-reapply`, `bridge-fetch-tolerance` 워크트리). T0·T2 dispatch의 `permission_violation_observed`도 이것 때문이다. 사용자 결정에 따라 외부 변경으로 기록했다.
+
+## 개정 이력
+
+| 버전 | 내용 | 승인 | 사유 |
+|---|---|---|---|
+| v1 | 최초 승인본(sha256 `c160907f…4088`) | 사용자 2026-11-20 | — |
+| v2 | Q-C의 gemini–grok `references/worktree-creation.md` 기대값을 `SAME`에서 `CASE_ONLY`(E4·E5)로 정정 | 사용자 2026-11-20T22:12:52+0900 | 6행의 플랫폼 이름 차이를 반영하지 못한 기대값 오류. 영향 작업은 T2 QA 재확인 |
 
 ## 최종 보고 형식 (PL-6, Orchestrator가 작성)
 

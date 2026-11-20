@@ -88,7 +88,7 @@ test('the two harness sections state the same rules', async () => {
 
 test('all four composite sections match byte-for-byte outside the native spawn instruction and readiness sentences', async () => {
   const readinessByPlatform = {
-    gemini: 'Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; do not invent native tool calls. ',
+    gemini: 'Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; DO NOT invent native tool calls. ',
     grok: 'Grok host readiness was verified with Grok 1.0.89. The live measurement covered per-call runtime approvals, sandbox write denials, supervisor survival and native spawn. Target-home denial was measured with the equivalent Seatbelt rule in a user shell. Live bridge-child execution and profile model application remain unverified. Hold unavailable routes. ',
   };
   const sections = await Promise.all(platforms.map(async platform => {

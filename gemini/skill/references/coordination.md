@@ -223,4 +223,4 @@ GK2 is `approval`.
 - There is no automatic fallback, substitution or retry. On any hold, deny or failure, report the reasons and release conditions and DO NOT use another model or platform. Run `routing-status` again only after the condition changed. Bridge dispatches count in the instance ledger; see [limits](limits.md).
 - After an ARC upgrade that changes the cooperative runtime version, run Configure again; until then routing holds as `activation_unverified`.
 
-Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; do not invent native tool calls. Dispatch history created before an anchor move stays in the old anchor home.
+Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; DO NOT invent native tool calls. Dispatch history created before an anchor move stays in the old anchor home.
