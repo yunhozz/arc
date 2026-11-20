@@ -146,7 +146,7 @@ flowchart LR
 
 | Operation or mode | Action and confirmation |
 |---|---|
-| CLI | `arc`, `arc watch`, `arc --help`, `arc --version`; TUI needs both TTYs, invalid/non-TTY no-argument calls exit 2; help/version/watch need no native installer |
+| CLI | `arc`, `arc watch`, `arc --help`, `arc --version`. Management and watch need terminal input and output. Invalid arguments and non-interactive launches exit 2. Help, version and watch need no native installer |
 | Home | Configure, Status, Uninstall, Exit |
 | Diagram | Role boxes → Platform/Model/Effort → Done → Apply; compact rows on narrow terminals. Reuse draft, then composite, then first installed platform, else available platform defaults (fallback Claude); catalog failure blocks participating platform, no automatic reselection. Unverified blocks Apply |
 | Settings | Run mode/Language/limit rows on Configure; defaults Supervised/English/100 total/5 concurrent; unchanged mixed fields preserve values; edited values apply across S. Full Auto auto-decides only the gates in the installed skill's `references/planning.md#full-auto-run-mode` |
@@ -189,16 +189,17 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 
 | Concern | Behavior and limits |
 |---|---|
-| Options | `arc watch --help`; `--cwd`, `--all`, `--session`, `--platform`, history, JSON |
-| Sources | Codex rollout JSONL, Claude transcripts/persisted bridges, dispatch leases/artifacts |
-| Scope | Current entire Git worktree or directory outside Git; exclude linked/nested worktrees, Codex Desktop/descendants. Per-event session cwd (not command cwd); subagents use own cwd, follow tracked parent in all/session scope. Unidentified dispatch worktree needs all/session or followed session |
+| Options | History and output options are listed by `arc watch --help`, which also works without a terminal. Watch requires terminal input and output, including with `--json` |
+| Selection | Choose All supported platforms or one supported platform. Unsupported platforms are marked and unavailable. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130 |
+| Sources | Supported platform transcripts and dispatch leases/artifacts |
+| Scope | Every selection watches the current Git worktree or the current directory outside Git. Linked and nested worktrees are excluded. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
 | Anchor | Marker active directory must match resolved registered home; one candidate selects store, none → legacy Codex, multiple → `dispatch store ambiguous` (other sources continue). No old-history merge |
 | Shown | Full USER/AGENT messages; role badge on its own line above the message when known; EDIT/CREATE/DELETE list all paths (two or more as `- ` items; a single path has no `- `); other events one line |
 | Hidden | Tool/command outputs, skill definitions/args, MCP args/results; reasoning only verbose; incomplete secret masking applies to JSON too |
 | Read-only | No network or CLI except restricted Git discovery/listing; no writes |
-| Display | TTY/width wraps messages/file lists; in a TTY, a bottom status block shows the watched path, with `working…` below it while a turn is in progress; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. Ctrl-L clears TTY, Ctrl-C/signals exit 0; `working…` ends after interrupt/5 minutes idle |
+| Display | TTY/width wraps messages/file lists; in a TTY, a bottom status block shows the watched path, with `working…` below it while a turn is in progress; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. During watch, Ctrl-L clears the screen and Ctrl-C or a stop signal exits 0. `working…` ends after interrupt or 5 minutes idle |
 | Shell detection | Git file list + lstat metadata, no content; inferred attribution may be wrong/include external edits/duplicate late tool events; ignored paths, unchanged fingerprints, non-Git roots missed. Own symlink metadata, no directories; other lstat errors retain prior fingerprint. Delay ~1s, ≥3s interval, ≤2 roots/tick, ≤32 roots; live path claims suppress one inferred report within 2 minutes; JSON adds `inferred:true` |
-| Bounds | Poll 500ms/discover 2s/exclusions 30s; 64 files, 1MiB/file/tick, 256KiB history/session, 64KiB cwd probe, 4MiB/line, 30min inactivity, 32 all-scope repositories; disable shell detection after >20000 files or 3 listing failures (timeout/buffer overflow included). Merge order per tick only; truncate/regrow past offset can be missed |
+| Bounds | Poll 500ms/discover 2s/exclusions 30s; 64 files, 1MiB/file/tick, 256KiB history/session, 64KiB cwd probe, 4MiB/line, 30min inactivity. Disable shell detection after >20000 files or 3 listing failures (timeout/buffer overflow included). Merge order per tick only; truncate/regrow past offset can be missed |
 
 | KIND | Meaning |
 |---|---|

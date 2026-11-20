@@ -135,16 +135,17 @@
 - AC2-5: `lib/watch/index.mjs` import 그래프에 `lib/management/`, `lib/installer/`, `lib/safe-fs/` 없음. dispose의 raw false·`\x1b[?1049l`이 watch `setRawMode(true)`·첫 이벤트 출력보다 앞섬. help·README·docs·root help가 새 동작을 host 중립으로 설명. `tests/node/tui-app.test.mjs`·`tests/node/tui-package-consumer.test.mjs` 통과.
 
 **단계(TDD):**
-- [ ] baseline: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-*.test.mjs` 실패 집합 기록.
-- [ ] 기존 테스트 이전: `watch-cli.test.mjs`의 비TTY `runWatch(args, io)` 호출을 helper `follow(args, io, platforms)` = `followWatch(parseWatchArgs(args).options, {...io, platforms})`로 교체(기본 `platforms`는 registry에서 계산). `--cwd/--all/--session/--platform` 사례(예: `:186`, `:190`)는 삭제 또는 기본 worktree 사례로 변경. scope·watcher·dispatch 테스트의 all/session 사례 제거.
-- [ ] RED: `watch-cli.test.mjs`에 `removed scope options are unknown`, `non-TTY and json require an interactive terminal`, `menu rows come from registry watch capability`, `unsupported row is not selectable`, `menu cancel restores terminal and never starts watcher`, `menu dispose precedes watch raw mode and first output`(fake TTY가 `setRawMode` 호출·write 순서 기록). `watch-import-graph.test.mjs`: `lib/watch/index.mjs`부터 정적 `import … from '…'`·`import('…')` 상대경로를 재귀 추적해 금지 디렉터리 없음 확인.
-- [ ] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-app.test.mjs` → 새 테스트 FAIL.
-- [ ] GREEN: interface 추출, menu, args, index, scope, watcher, status-line 정리, help 문구.
-- [ ] GREEN 확인: 같은 명령 PASS. `rg -n "'session'|'all'|options\.session|--cwd|--platform" lib/watch` 결과 비어 있음(event source 값으로 쓰이는 `'session'` 등은 예외로 보고).
-- [ ] 문서: README·`docs/harness-operation.md:192,194`(all/session Scope 문구 제거), `lib/cli/root.mjs` help.
-- [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
-- [ ] 회귀(관련 테스트만, v2): `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-*.test.mjs` — baseline 대비 새 실패 없음.
-- [ ] 커밋(Orchestrator): `feat(watch): 플랫폼 선택 메뉴 도입과 범위 옵션 제거`
+- [x] baseline: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-*.test.mjs` 실패 집합 기록.
+- [x] 기존 테스트 이전: `watch-cli.test.mjs`의 비TTY `runWatch(args, io)` 호출을 helper `follow(args, io, platforms)` = `followWatch(parseWatchArgs(args).options, {...io, platforms})`로 교체(기본 `platforms`는 registry에서 계산). `--cwd/--all/--session/--platform` 사례(예: `:186`, `:190`)는 삭제 또는 기본 worktree 사례로 변경. scope·watcher·dispatch 테스트의 all/session 사례 제거.
+- [x] RED: `watch-cli.test.mjs`에 `removed scope options are unknown`, `non-TTY and json require an interactive terminal`, `menu rows come from registry watch capability`, `unsupported row is not selectable`, `menu cancel restores terminal and never starts watcher`, `menu dispose precedes watch raw mode and first output`(fake TTY가 `setRawMode` 호출·write 순서 기록). `watch-import-graph.test.mjs`: `lib/watch/index.mjs`부터 정적 `import … from '…'`·`import('…')` 상대경로를 재귀 추적해 금지 디렉터리 없음 확인.
+- [x] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-app.test.mjs` → 새 테스트 FAIL.
+- [x] GREEN: interface 추출, menu, args, index, scope, watcher, status-line 정리, help 문구.
+- [x] GREEN 확인: 같은 명령 PASS. `rg -n "'session'|'all'|options\.session|--cwd|--platform" lib/watch` 결과 비어 있음(event source 값으로 쓰이는 `'session'` 등은 예외로 보고).
+- [x] 문서: README·`docs/harness-operation.md:192,194`(all/session Scope 문구 제거), `lib/cli/root.mjs` help.
+- [x] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
+- [x] 회귀(관련 테스트만, v2): `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs tests/node/tui-*.test.mjs` — baseline 대비 새 실패 없음.
+- [x] 커밋(Orchestrator): `feat(watch): 플랫폼 선택 메뉴 도입과 범위 옵션 제거`
+  - 진행 기록(2026-11-20): Implementer 9a215a7e(codex bridge; 중간에 테스트 파일 부분 변경 복구, Codex 사용량 한도 초과로 중단 후 재개) 구현, fresh QA 6d79e604 — AC2-1~AC2-4 실제 PTY로 pass, AC2-5 import 그래프·dispose 순서·host 중립 문서·tui-app pass. watch-*·tui-* 785 중 784 pass. 유일 실패 `tui-package-consumer`는 Orchestrator가 호스트에서 재실행해 12aa9a3·123e38a에서도 동일 assertion(HOME에 `.claude`/`.gemini` 생성)으로 실패함을 확인 → 기준선 실패. `check:manifest` 288 pass. README의 `docs/images/watch-flow.svg` 참조 제거(최종 Reviewer 확인 대상).
 
 **QA(fresh, 필수):** TTY에서 worktree의 `node bin/arc.mjs watch` 실행(가능하면 `script`/pty로): 메뉴 항목·`(not supported)`·미지원 선택 불가, `All`/개별 선택 후 현재 worktree 이벤트만, Back·Ctrl-C 후 터미널 복원, `node bin/arc.mjs watch | cat`·`--json` 비TTY exit 2, 제거 옵션 4개 exit 2. TTY 조작 불가 시 fake TTY 테스트 결과와 함께 한계 보고.
 

@@ -21,7 +21,7 @@ const meta = (id, cwd, originator='codex-tui', extra={}) => ({timestamp:iso(TIME
 const cm = (id,cwd,text='hello',entrypoint='cli',ts=TIME) => ({timestamp:iso(ts), type:'user', sessionId:id,cwd,entrypoint,version:'2.0',message:{content:text}});
 test('watch ambiguous with two candidates', async t => {
   let storeReads = 0;
-  const s = setup(t, {}, 'all', {createDispatchIndex:args => {
+  const s = setup(t, {}, 'repo', {createDispatchIndex:args => {
     const index = createDispatchIndex(args);
     return {...index, scan:async options => {
       if (args.storeDir || args.codexHome) storeReads++;
@@ -60,7 +60,7 @@ function setup(t, options={}, kind='dir', dependencies={}) {
     if (!value) throw Object.assign(Error('missing'),{code:'ENOENT'});
     return {mtimeMs:1,size:1,ino:1,mode:33188,isDirectory:()=>false,...value};
   };
-  const scope={kind,roots:kind==='all'||kind==='session'?[]:roots,excludedRoots:excluded.map(dir=>path.join(cwd,dir)),gitCommonDir:kind==='repo'?gcd:null,description:cwd};
+  const scope={kind,roots,excludedRoots:excluded.map(dir=>path.join(cwd,dir)),gitCommonDir:kind==='repo'?gcd:null,description:cwd};
   const git=(dir,args)=> {
     assert.ok(GIT_ALLOWED.some(a=>JSON.stringify(a)===JSON.stringify(args)));
     calls.push({dir,args});
@@ -68,7 +68,7 @@ function setup(t, options={}, kind='dir', dependencies={}) {
     if (args[0]==='worktree') return roots.map(r=>`worktree ${r}\0\0`).join('');
     return args.includes('--show-toplevel')?(typeof gitTop==='function'?gitTop(dir):gitTop):gcd;
   };
-  const w=createWatcher({options:{platforms:['codex','claude'],session:null,tail:20,verbose:false,...watchOptions},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock,dependencies:{lstat,...dependencies}});
+  const w=createWatcher({options:{platforms:['codex','claude'],tail:20,verbose:false,...watchOptions},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock,dependencies:{lstat,...dependencies}});
   t.after(()=>w.close());
   const c=(id,lines=[msg('hello')],{origin='codex-tui',age=300000,cwd:dir=cwd,extra={},suffix=''}={})=>h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl${suffix}`,[meta(id,dir,origin,extra),...lines],{mtime:clock-age});
   const cl=(id,lines,opts={})=>h.writeClaude(cwd.replace(/[^A-Za-z0-9]/g,'-'),id,lines??[cm(id,cwd)],{mtime:clock-300000,...opts});
@@ -110,7 +110,7 @@ test('AC-W41 Claude Skill and slash command render as SKILL',async t=>{
 
 test('AC-W42 Codex skill-only read replaces CMD by default',async t=>{
   for (const verbose of [false,true]) {
-    const s=setup(t,{verbose},'all'), file=s.c('codex-skills',[skillRead(path.join(s.h.codexHome,'skills/arc/SKILL.md'))]);
+    const s=setup(t,{verbose,root:'..'}), file=s.c('codex-skills',[skillRead(path.join(s.h.codexHome,'skills/arc/SKILL.md'))]);
     const first=content(await s.w.start());
     assert.equal(lines(first).filter(line=>line.endsWith('SKILL    arc')).length,1);
     assert.equal(first.filter(e=>e.kind==='command').length,verbose?1:0);
@@ -368,45 +368,6 @@ for (const kind of ['repo','dir']) {
     s.advance(2000);
     const later=await s.w.tick();
     assert.deepEqual(content(later),[]);
-    assert.ok(!notices(later).includes(diagnostic));
-  });
-}
-
-test('AC-W36 all and session still require a followed parent',async t=>{
-  for(const kind of ['all','session']) {
-    const s=setup(t,{session:kind==='session'?'selected':null},kind);
-    s.c('other',undefined,{age:kind==='all'?18000000:300000});
-    s.c('other-child',undefined,{extra:{parent_thread_id:'other'}});
-    s.c('selected');s.c('selected-child',undefined,{extra:{parent_thread_id:'selected'}});
-    const out=content(await s.w.start());
-    assert.deepEqual([...new Set(out.map(e=>e.sessionId))].sort(),['selected','selected-child']);
-  }
-});
-
-// Known metadata cannot replace a followed parent for the all/session hold deadline.
-for(const kind of ['session','all']) {
-  test(`AC-W36 ${kind} scope still holds and diagnoses children of known but unfollowed parents`,async t=>{
-    const s=setup(t,{session:kind==='session'?'selected':null,verbose:true},kind);
-    s.c('selected',undefined,{age:0});
-    // In all mode, 64 newer roots keep the known unselected parent out of followed.
-    if(kind==='all') for(let i=0;i<63;i++) s.c(`filler-${i}`,undefined,{age:0});
-    s.c('unselected');
-    s.c('unselected-child',undefined,{age:0,extra:{parent_thread_id:'unselected'}});
-    const initial=await s.w.start();
-    const diagnostic='parent session not found for unselected-child';
-    assert.ok(!content(initial).some(e=>['unselected','unselected-child'].includes(e.sessionId)));
-    assert.ok(!notices(initial).includes(diagnostic));
-    s.advance(1999);
-    const held=await s.w.tick();
-    assert.ok(!content(held).some(e=>e.sessionId==='unselected-child'));
-    assert.ok(!notices(held).includes(diagnostic));
-    s.advance(1);
-    const expired=await s.w.tick();
-    assert.ok(!content(expired).some(e=>e.sessionId==='unselected-child'));
-    assert.equal(notices(expired).filter(text=>text===diagnostic).length,1);
-    s.advance(2000);
-    const later=await s.w.tick();
-    assert.ok(!content(later).some(e=>e.sessionId==='unselected-child'));
     assert.ok(!notices(later).includes(diagnostic));
   });
 }
@@ -700,12 +661,12 @@ test('subdirectory sessions use the longest containing scope root on both platfo
   assert.ok(out.every(e=>e.root===nested));
 });
 
-test('all-scope roots use cached Git top-level results without leaking into JSON', async t => {
-  const s = setup(t,{},'all'), cwd = path.join(s.cwd,'src'), file = path.join(s.cwd,'docs/x.md');
+test('worktree roots use cached Git top-level results without leaking into JSON', async t => {
+  const s = setup(t,{}), cwd = path.join(s.cwd,'src'), file = path.join(s.cwd,'docs/x.md');
   s.c('first',[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}}}],{cwd});
   s.c('second',undefined,{cwd});
   let calls = 0;
-  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome},scope:{kind:'all',roots:[]},
+  const w = createWatcher({options:{tail:20},homes:{codex:s.h.codexHome},scope:{kind:'repo',roots:[s.cwd]},
     git:async (dir,args) => {
       if (args===GIT_ALLOWED[0]) { assert.equal(dir,cwd); calls++; return s.cwd + '\n'; }
       return null;
@@ -721,23 +682,6 @@ test('all-scope roots use cached Git top-level results without leaking into JSON
   assert.deepEqual(json.paths,[file]);
 });
 
-test('missing or failed Git top-level falls back to the session cwd', async t => {
-  for (const result of [null,'  ',new Error('git unavailable')]) {
-    const s = setup(t), cwd = path.join(s.cwd,'src');
-    s.c('fallback',undefined,{cwd});
-    const w = createWatcher({options:{tail:20,session:'fallback'},homes:{codex:s.h.codexHome},scope:{kind:'session',roots:[]},
-      git:async (dir,args) => {
-        if (args!==GIT_ALLOWED[0]) return null;
-        if (result instanceof Error) throw result;
-        return result;
-      },now:()=>TIME});
-    t.after(()=>w.close());
-    const out = content(await w.start());
-    assert.ok(out.length>0);
-    assert.ok(out.every(e=>e.root===cwd));
-  }
-});
-
 test('start shows banner, the last 20 recent events in ts order, then live',async t=>{
   const s=setup(t); s.c('codex',Array.from({length:15},(_,i)=>msg(`c${i}`,TIME-300000+i*2000)));
   s.cl('claude',Array.from({length:15},(_,i)=>cm('claude',s.cwd,`a${i}`,'cli',TIME-299000+i*2000)));
@@ -751,8 +695,8 @@ test('tail 0 and tail 5',async t=>{for(const tail of [0,5]){const s=setup(t,{tai
 test('sessions idle 10 to 30 minutes are followed without history',async t=>{const s=setup(t),f=s.c('old',undefined,{age:1200000});assert.equal(content(await s.w.start()).length,0);s.append(f,[msg('new')]);assert.equal(content(await s.w.tick())[0].text,'new');});
 test('one tick merges appends from several files by timestamp',async t=>{const s=setup(t),a=s.c('a'),b=s.c('b');await s.w.start();s.append(a,[msg('later',TIME+20)]);s.append(b,[msg('earlier',TIME+10)]);assert.deepEqual(content(await s.w.tick()).map(e=>e.text),['earlier','later']);});
 test('a new session is attached within 3 seconds',async t=>{const s=setup(t);await s.w.start();s.advance(2000);s.c('new');const out=await s.w.tick();assert.ok(content(out).some(e=>e.kind==='session'&&e.sessionId==='new'));});
-test('Codex Desktop rollouts and their children are excluded in every mode',async t=>{for(const kind of ['dir','all','session']){const s=setup(t,{session:kind==='session'?'desktop':null},kind);s.c('desktop',undefined,{origin:'Codex Desktop'});s.c('child',undefined,{extra:{parent_thread_id:'desktop'}});assert.equal(content(await s.w.start()).length,0);s.advance(3000);assert.equal(content(await s.w.tick()).length,0);}});
-test('out-of-scope cwd is excluded by default and included with all',async t=>{for(const kind of ['dir','all']){const s=setup(t,{},kind);s.c('outside',undefined,{cwd:path.join(s.h.root,'other')});assert.equal(content(await s.w.start()).length,kind==='all'?2:0);}});
+test('Codex Desktop rollouts and their children are excluded in directory and worktree scopes',async t=>{for(const kind of ['dir','repo']){const s=setup(t,{},kind);s.c('desktop',undefined,{origin:'Codex Desktop'});s.c('child',undefined,{extra:{parent_thread_id:'desktop'}});assert.equal(content(await s.w.start()).length,0);s.advance(3000);assert.equal(content(await s.w.tick()).length,0);}});
+test('out-of-scope cwd is excluded',async t=>{const s=setup(t);s.c('outside',undefined,{cwd:path.join(s.h.root,'other')});assert.equal(content(await s.w.start()).length,0);});
 test('a worktree added after start stays outside the scope after 30 seconds',async t=>{
   const s=setup(t,{},'repo'),other=path.join(s.h.root,'tree');
   const file=s.c('tree',undefined,{cwd:other});
@@ -833,23 +777,21 @@ test('Codex native arc_routing child threads render final agent messages with th
 });
 test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});
 test('Claude bridge transcript is labeled from the init session id, and a resumed id maps to the same dispatch',async t=>{const s=setup(t,{},'repo');s.cl('first',[cm('first',s.cwd,'first','sdk-cli')]);s.cl('resume',[cm('resume',s.cwd,'resume','sdk-cli')]);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"init","sessionId":"first"}\n','segments/1/events.jsonl':'{"kind":"init","sessionId":"resume"}\n'});const out=content(await s.w.start());assert.deepEqual(out.filter(e=>e.kind==='user').map(e=>[e.sessionId,e.label]).sort(),[['first','qa@d123'],['resume','qa@d123']]);});
-test('dispatch without a transcript shows DISPATCH lines only',async t=>{const s=setup(t,{verbose:true},'all');s.lease('d123');const out=await s.w.start();assert.deepEqual(content(out).map(e=>e.kind),['dispatch']);assert.ok(notices(out).includes('transcript not found for dispatch d123'));});
+test('dispatch without a transcript shows DISPATCH lines only',async t=>{const s=setup(t,{verbose:true},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.art('d123',{'record.json':{state:'running'}});s.lease('d123');const out=await s.w.start();assert.deepEqual(content(out).map(e=>e.kind),['dispatch']);assert.ok(notices(out).includes('transcript not found for dispatch d123'));});
 test('late mapping emits a notice and relabels later events',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('late1234',[msg('held')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='held'&&e.label==='exec#1234'));s.advance(500);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"late1234"}\n'});s.advance(1500);s.append(f,[msg('mapped',TIME+6000)]);const out=await s.w.tick();assert.ok(notices(out).includes('session late1234 is dispatch d123 (qa)'));assert.ok(content(out).some(e=>e.text==='mapped'&&e.label==='qa@d123'));});
 test('swapping lease hostPlatform leaves human output identical',async t=>{const s=setup(t,{},'repo');s.c('bridge',undefined,{origin:'codex_exec'});s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});let previous;for(const hostPlatform of ['codex','claude']){s.lease('d123',{hostPlatform});const w=createWatcher({options:{platforms:['codex','claude'],tail:20,verbose:false},homes:{codex:s.h.codexHome,claude:s.h.claudeHome},scope:{kind:'repo',roots:[s.cwd],gitCommonDir:s.gcd},git:()=>null,now:()=>TIME});const out=lines(await w.start());if(previous)assert.deepEqual(out,previous);previous=out;await w.close();}});
-test('held bridge lease shows raw reasons; no lease shows nothing',async t=>{const s=setup(t,{},'all');assert.equal(content(await s.w.start()).length,0);s.lease('d123',{state:'failed',reasons:['host_sandbox_blocked','permission_scope_unverified']});s.advance(2000);const out=await s.w.tick(),e=content(out)[0];assert.equal(e.platform,undefined);assert.equal(e.label,'qa@d123');assert.match(lines([e])[0],/arc\s+DISPATCH failed bridge wf-3 host_sandbox_blocked,permission_scope_unverified/);});
-test('platform filter removes other-platform sessions and unknown-platform dispatches',async t=>{const s=setup(t,{platforms:['codex']},'all');s.c('codex');s.cl('claude');s.lease('unknown');const out=content(await s.w.start());assert.ok(out.length>0);assert.ok(out.every(e=>e.platform==='codex'));});
-test('session filter by thread id, by dispatch id, and waiting for an unknown id',async t=>{for(const session of ['parent','d123','missing']){const s=setup(t,{session},'session');s.c('parent');s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('bridge',undefined,{origin:'codex_exec'});s.lease('d123',{sessionId:'bridge'});s.c('unrelated');const out=await s.w.start(),ids=[...new Set(content(out).map(e=>e.sessionId??e.dispatchId))].sort();assert.deepEqual(ids,session==='parent'?['child','parent']:session==='d123'?['bridge','d123']:[]);if(session==='missing')assert.ok(!notices(out).includes('waiting for session missing'));}});
+test('held bridge lease shows raw reasons; no lease shows nothing',async t=>{const s=setup(t,{},'repo');assert.equal(content(await s.w.start()).length,0);s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.art('d123',{'record.json':{state:'failed'}});s.lease('d123',{state:'failed',reasons:['host_sandbox_blocked','permission_scope_unverified']});s.advance(2000);const out=await s.w.tick(),e=content(out)[0];assert.equal(e.platform,undefined);assert.equal(e.label,'qa@d123');assert.match(lines([e])[0],/arc\s+DISPATCH failed bridge wf-3 host_sandbox_blocked,permission_scope_unverified/);});
+test('platform filter removes other-platform sessions and unknown-platform dispatches',async t=>{const s=setup(t,{platforms:['codex']},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('codex');s.cl('claude');s.art('unknown',{'record.json':{state:'running'}});s.lease('unknown');const out=content(await s.w.start());assert.ok(out.length>0);assert.ok(out.every(e=>e.platform==='codex'));});
 test('more than 64 candidates follows the newest 64 with one notice',async t=>{const s=setup(t,{tail:1000});for(let i=0;i<66;i++)s.c(`id${i}`,[],{age:i*1000+10000});const out=await s.w.start();assert.equal(content(out).length,64);assert.ok(!content(out).some(e=>['id64','id65'].includes(e.sessionId)));assert.equal(notices(out).filter(x=>x==='following the newest 64 sessions; others are skipped').length,1);s.advance(2000);assert.ok(!notices(await s.w.tick()).some(x=>x.includes('newest 64')));});
 test('a file idle 30 minutes is detached and reattached when it grows',async t=>{const s=setup(t,{verbose:true}),f=s.c('idle');await s.w.start();s.advance(1800000);assert.ok(notices(await s.w.tick()).includes('detached idle session idle'));s.append(f,[msg('return',TIME+1800000)]);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='return'));});
 test('verbose adds reasoning, settings and turn starts',async t=>{for(const verbose of [false,true]){const s=setup(t,{verbose});s.c('one',[{type:'event_msg',payload:{type:'thread_settings_applied',thread_settings:{model:'m'}}},{type:'event_msg',payload:{type:'task_started'}},{type:'event_msg',payload:{type:'item_completed',item:{type:'Reasoning',summary_text:['summary']}}}]);assert.deepEqual(content(await s.w.start()).map(e=>e.kind),verbose?['session','settings','turn_start','reasoning']:['session']);}});
 test('transcript text is sanitized before output',async t=>{const s=setup(t,{verbose:true});s.c('one',[msg('\x1b]0;x\x07 sk-abcdefghijklmnopqrst'),{type:'event_msg',payload:{type:'item_completed',item:{type:'McpToolCall',server:'\x1b[31mx',tool:'y'}}},{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{'\x1b[31mpassword=hidden':{}}}}}]);const out=content(await s.w.start());assert.ok(!JSON.stringify(out).includes('\\u001b'));assert.equal(out.find(e=>e.kind==='user').text,' ***');assert.equal(out.find(e=>e.kind==='tool').tool,'x.y');assert.deepEqual(out.find(e=>e.kind==='file_change').paths,['password=***']);});
-test('no marker string reaches any event in verbose mode',async t=>{const s=setup(t,{verbose:true,tail:1000},'all');const dir=fileURLToPath(new URL('./fixtures/watch/',import.meta.url));for(const name of fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl'))){const rows=fs.readFileSync(path.join(dir,name),'utf8').trim().split('\n').map(JSON.parse);if(name.startsWith('codex')){const m=rows.find(r=>r.type==='session_meta');if(m){m.payload.cwd=s.cwd;m.payload.originator='codex-tui';s.h.writeRollout(['2026','11','11'],`rollout-${name}`,rows,{mtime:TIME-300000});}}else{s.h.writeClaude('project',name,rows.map(r=>({...r,cwd:s.cwd})),{mtime:TIME-300000});}}assert.ok(!JSON.stringify(await s.w.start()).includes('WATCH_MARKER_'));});
+test('no marker string reaches any event in verbose mode',async t=>{const s=setup(t,{verbose:true,tail:1000});const dir=fileURLToPath(new URL('./fixtures/watch/',import.meta.url));for(const name of fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl'))){const rows=fs.readFileSync(path.join(dir,name),'utf8').trim().split('\n').map(JSON.parse);if(name.startsWith('codex')){const m=rows.find(r=>r.type==='session_meta');if(m){m.payload.cwd=s.cwd;m.payload.originator='codex-tui';s.h.writeRollout(['2026','11','11'],`rollout-${name}`,rows,{mtime:TIME-300000});}}else{s.h.writeClaude('project',name,rows.map(r=>({...r,cwd:s.cwd})),{mtime:TIME-300000});}}assert.ok(!JSON.stringify(await s.w.start()).includes('WATCH_MARKER_'));});
 test('removed and truncated session files produce verbose notices and keep other streams alive',async t=>{const s=setup(t,{verbose:true}),a=s.c('a'),b=s.c('b');await s.w.start();fs.unlinkSync(a);fs.writeFileSync(b,JSON.stringify(msg('reset'))+'\n');const out=await s.w.tick();assert.ok(notices(out).includes('session file removed: a'));assert.ok(notices(out).includes('session restarted from the beginning: b'));assert.ok(content(out).some(e=>e.text==='reset'));});
 test('a failed file read detaches only that file',async t=>{const s=setup(t,{verbose:true}),bad=s.c('bad'),good=s.c('good');await s.w.start();fs.unlinkSync(bad);fs.mkdirSync(bad);s.append(good,[msg('survives')]);const out=await s.w.tick();assert.ok(content(out).some(e=>e.text==='survives'));assert.ok(notices(out).some(text=>text.startsWith('session file unreadable: bad')));assert.deepEqual(await s.w.tick(),[]);});
 test('mapping during label hold releases buffered events with the bridge label',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('hold1234',[msg('first')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(1000);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"hold1234"}\n'});s.append(f,[msg('second',TIME+3000)]);const out=await s.w.tick();assert.ok(content(out).some(e=>e.text==='first'));assert.ok(content(out).every(e=>e.label==='qa@d123'));assert.ok(!notices(out).some(text=>text.includes('is dispatch')));});
-test('session filter by bridge session includes its dispatch and descendants',async t=>{const s=setup(t,{session:'bridge'},'session');s.c('bridge',undefined,{origin:'codex_exec'});s.c('child',undefined,{extra:{parent_thread_id:'bridge'}});s.c('unrelated');s.lease('d123',{sessionId:'bridge'});const out=content(await s.w.start());assert.deepEqual([...new Set(out.map(e=>e.sessionId??e.dispatchId))].sort(),['bridge','child','d123']);});
-test('dispatch platform falls back to followed session without using hostPlatform',async t=>{const s=setup(t,{platforms:['codex']},'all');s.c('bridge',undefined,{origin:'codex_exec'});s.lease('d123',{sessionId:'bridge',hostPlatform:'claude'});assert.equal(content(await s.w.start()).find(e=>e.kind==='dispatch').platform,'codex');});
-test('start and ticks never create or modify watch inputs',async t=>{const s=setup(t,{},'all');s.c('one');s.cl('two');const before=await s.h.snapshot();await s.w.start();s.advance(2000);await s.w.tick();await s.w.close();assert.deepEqual(await s.h.snapshot(),before);assert.equal(fs.existsSync(path.join(s.h.codexHome,'arc-role-dispatch')),false);});
+test('dispatch platform falls back to followed session without using hostPlatform',async t=>{const s=setup(t,{platforms:['codex']},'repo');s.art('d123',{'record.json':{state:'running'}});s.c('bridge',undefined,{origin:'codex_exec'});s.lease('d123',{sessionId:'bridge',hostPlatform:'claude'});assert.equal(content(await s.w.start()).find(e=>e.kind==='dispatch').platform,'codex');});
+test('start and ticks never create or modify watch inputs',async t=>{const s=setup(t,{});s.c('one');s.cl('two');const before=await s.h.snapshot();await s.w.start();s.advance(2000);await s.w.tick();await s.w.close();assert.deepEqual(await s.h.snapshot(),before);assert.equal(fs.existsSync(path.join(s.h.codexHome,'arc-role-dispatch')),false);});
 test('a partial line at startup is emitted after its newline arrives',async t=>{const s=setup(t),f=s.c('partial',[]);const line=JSON.stringify(msg('completed'));fs.appendFileSync(f,line.slice(0,-3));fs.utimesSync(f,new Date(TIME-300000),new Date(TIME-300000));await s.w.start();fs.appendFileSync(f,line.slice(-3)+'\n');assert.ok(content(await s.w.tick()).some(e=>e.text==='completed'));});
 
 test('Claude SESSION text includes entrypoint and version and omits missing items', async t => {
@@ -878,14 +820,15 @@ test('mapped Claude SESSION text appends dispatch and workflow ids', async t => 
   assert.equal(event.text, `claude-b sdk-cli 2.0 cwd=${s.cwd} dispatch d123 wf-3`);
 });
 
-test('Claude session filter follows only the selected session and its subagents', async t => {
-  const s = setup(t, {session:'claude-selected'}, 'session');
+test('Claude worktree scope excludes sessions and subagents in other directories', async t => {
+  const s = setup(t, {platforms:['claude']}, 'repo');
   const parent = s.cl('claude-selected', undefined, {subagents:[{
     agentId:'selected-child', meta:{agentType:'arc-qa'},
     lines:[cm('claude-child', s.cwd, 'selected child')],
   }]});
-  const other = s.cl('claude-other', undefined, {subagents:[{
-    agentId:'other-child', lines:[cm('unrelated-child', s.cwd, 'other child')],
+  const outside = path.join(s.h.root,'outside');
+  const other = s.cl('claude-other',[cm('claude-other',outside)], {subagents:[{
+    agentId:'other-child', lines:[cm('unrelated-child', outside, 'other child')],
   }]});
   s.c('codex-other');
   const out = content(await s.w.start());
@@ -893,15 +836,18 @@ test('Claude session filter follows only the selected session and its subagents'
   assert.equal(out.find(e => e.sessionId === 'agent-selected-child').parentId, 'claude-selected');
   s.advance(2000);
   s.append(parent, [cm('claude-selected', s.cwd, 'selected append')]);
-  s.append(other, [cm('claude-other', s.cwd, 'excluded append')]);
+  s.append(other, [cm('claude-other', outside, 'excluded append')]);
   assert.deepEqual(content(await s.w.tick()).map(e => [e.sessionId,e.text]),
     [['claude-selected','selected append']]);
 });
 
-test('Claude bridge session filter includes its dispatch events', async t => {
-  const s = setup(t, {session:'claude-selected'}, 'session');
+test('Claude watch includes current worktree dispatch events and excludes linked worktree dispatches', async t => {
+  const s = setup(t, {platforms:['claude']}, 'repo');
   s.cl('claude-selected', [cm('claude-selected', s.cwd, 'selected', 'sdk-cli')]);
-  s.cl('claude-other');
+  const outside = path.join(s.h.root,'linked-worktree');
+  s.cl('claude-other',[cm('claude-other',outside)]);
+  s.h.writeArtifacts(s.gcd,'other-workflow','',{'state.json':{target:{realpath:outside}}});
+  s.h.writeArtifacts(s.gcd,'other-workflow','dispatches/other-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"claude-other"}\n'});
   s.lease('d123', {hostPlatform:'codex'});
   s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
   s.art('d123', {'events.jsonl':'{"kind":"init","sessionId":"claude-selected"}\n'});
@@ -930,14 +876,12 @@ test('Claude init artifacts set dispatch platform independently of the Codex hos
 });
 
 // Catch extra mode words and the misplaced scope prefix in session banners.
-test('banner matches all four public scope forms exactly', async t => {
-  for (const kind of ['repo','dir','all','session']) {
-    const s = setup(t, {session:kind === 'session' ? 'abc-1' : null, platforms:['codex']}, kind);
+test('banner identifies worktree and directory scopes', async t => {
+  for (const kind of ['repo','dir']) {
+    const s = setup(t, {platforms:['codex']}, kind);
     const expected = {
       repo:`arc watch: scope ${s.cwd} (1 worktrees) · CODEX · Ctrl-C to stop`,
       dir:`arc watch: scope ${s.cwd} · CODEX · Ctrl-C to stop`,
-      all:'arc watch: scope all · CODEX · Ctrl-C to stop',
-      session:'arc watch: session abc-1 · CODEX · Ctrl-C to stop',
     };
     assert.equal((await s.w.start())[0].text, expected[kind]);
   }
@@ -1034,9 +978,10 @@ test('a newly discovered Claude transcript is buffered for label mapping rather 
 
 
 test('R1 H1 real Claude child shares parent sessionId without replacing its stream', async t => {
-  const s=setup(t, {tail:1000}, 'all');
+  const s=setup(t, {tail:1000});
   const fixture=name=>fs.readFileSync(new URL(`./fixtures/watch/${name}`,import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
-  const main=fixture('claude-main.jsonl'), child=fixture('claude-subagent.jsonl');
+  const atRoot = row => row.cwd ? {...row,cwd:s.cwd} : row;
+  const main=fixture('claude-main.jsonl').map(atRoot), child=fixture('claude-subagent.jsonl').map(atRoot);
   const id=main.find(r=>r.cwd&&r.sessionId).sessionId;
   assert.equal(child.find(r=>r.cwd&&r.sessionId).sessionId,id);
   const agentId=child.find(r=>r.agentId).agentId;
@@ -1090,15 +1035,6 @@ test('R1 M3 old-date rollout growth resumes from the startup offset', async t =>
   s.append(file,[msg('after detach')]);s.advance(2000);
   assert.deepEqual(content(await s.w.tick()).filter(e=>e.kind!=='session').map(e=>e.text),['after detach']);
 });
-
-test('R1 L2 waiting for a missing session is verbose only', async t => {
-  for(const verbose of [false,true]){
-    const s=setup(t,{session:'missing',verbose},'session');
-    assert.equal(notices(await s.w.start()).includes('waiting for session missing'),verbose);
-    s.advance(2000);assert.ok(!notices(await s.w.tick()).includes('waiting for session missing'));
-  }
-});
-
 
 test('R1 H2 child growth does not reread unchanged per-file agent metadata', async t => {
   const s=setup(t);
@@ -1434,16 +1370,6 @@ test('continuous transcript activity still scans every three seconds',async t=>{
     s.advance(500);s.append(file,[msg('still running')]);await s.w.tick();
     assert.equal(scans(s).length,count);
   }
-});
-
-test('shell scanning rotates three roots with at most two scans per tick',async t=>{
-  const s=setup(t,{},'all');s.top(dir=>dir);
-  const files=['one','two','three'].map(id=>s.c(id,[],{cwd:path.join(s.cwd,id)}));
-  await s.w.start();assert.equal(scans(s).length,3);s.advance(3000);
-  for(const file of files)s.append(file,[msg('activity')]);await s.w.tick();s.advance(1000);
-  await s.w.tick();assert.equal(scans(s).length,5);
-  await s.w.tick();assert.equal(scans(s).length,6);
-  assert.equal(new Set(scans(s).slice(3).map(c=>c.dir)).size,3);
 });
 
 test('shell scan reports every path in a sorted 500-file change',async t=>{

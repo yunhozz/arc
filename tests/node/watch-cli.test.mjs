@@ -6,11 +6,17 @@ import {EventEmitter, once} from 'node:events';
 import {spawn, execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {makeHomes} from './fixtures/watch/homes.mjs';
-import {parseWatchArgs, runWatch, WATCH_HELP} from '../../lib/watch/index.mjs';
+import * as watch from '../../lib/watch/index.mjs';
+import {DEFAULT_PLATFORM_REGISTRY} from '../../lib/runtime/platform-registry.mjs';
 import {runRoot} from '../../lib/cli/root.mjs';
 import {WATCH_KINDS, WATCH_LIMITS} from '../../lib/watch/model.mjs';
 import * as renderer from '../../lib/watch/render.mjs';
 import {GIT_ALLOWED, createGitRunner} from '../../lib/watch/git.mjs';
+
+const {parseWatchArgs, runWatch, WATCH_HELP} = watch;
+const supported = registry => registry.byDisplayOrder().filter(d => d.capabilities.watch.state === 'verified');
+const follow = (args, io, platforms = supported(DEFAULT_PLATFORM_REGISTRY).map(d => d.id)) =>
+  watch.followWatch(parseWatchArgs(args).options, {...io, platforms});
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const TIME = Date.parse('2026-11-11T12:00:00Z');
@@ -45,9 +51,9 @@ function setup(t) {
   const write = (id,dir=cwd,lines=[msg('hello')]) => h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl`,[
     {timestamp:iso(TIME),type:'session_meta',payload:{id,cwd:dir,originator:'codex-tui'}},...lines,
   ],{mtime:TIME});
-  async function start(args=[]) {
+  async function start(args=[], platforms) {
     argsJson=args.includes('--json');
-    const result=runWatch(args,io);t.after(()=>controller.abort());
+    const result=follow(args,io,platforms);t.after(()=>controller.abort());
     await Promise.race([started,result.then(code=>{throw Error(`watch exited before live: ${code}: ${error.text}`);})]);
     return {result};
   }
@@ -60,7 +66,10 @@ test('watch finds an anchor from all registered platforms despite the source fil
   s.h.writeMarker('claude', s.h.claudeHome);
   s.h.writeLease({dispatchId:'filtered-anchor', state:'running', sessionId:'source', updatedAt:iso(TIME)}, s.h.claudeHome);
   s.write('source');
-  const before = await s.h.snapshot(), {result} = await s.start(['--platform', 'codex', '--all', '--json']);
+  const gcd = path.join(s.cwd,'.git');
+  s.io.git = async (_dir,args) => args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;
+  s.h.writeArtifacts(gcd,'wf','dispatches/filtered-anchor',{'events.jsonl':'{"kind":"thread","threadId":"source"}\n'});
+  const before = await s.h.snapshot(), {result} = await s.start(['--json'], ['codex']);
   s.controller.abort();
   assert.equal(await result, 0);
   const rows = s.output.text.trim().split('\n').map(JSON.parse);
@@ -73,18 +82,18 @@ test('a Codex anchor marker preserves current composite watch output', async t =
   const s = setup(t);
   s.write('composite');
   s.h.writeLease({dispatchId:'current-anchor', state:'running', sessionId:'composite', role:'arc_qa', updatedAt:iso(TIME)});
-  const {result} = await s.start(['--all', '--json']);
+  const {result} = await s.start(['--json']);
   s.controller.abort();
   assert.equal(await result, 0);
   const baseline = s.output.text, controller = new AbortController(), output = new Output();
   s.h.writeMarker('codex', s.h.codexHome);
   s.h.writeMarker('claude', s.h.claudeHome, s.h.codexHome);
-  assert.equal(await runWatch(['--all', '--json'], {...s.io, output, signal:controller.signal,
+  assert.equal(await follow(['--json'], {...s.io, output, signal:controller.signal,
     setInterval(){controller.abort();return 17;}}), 0);
   assert.equal(output.text, baseline);
 });
 
-test('runWatch passes the user home for host skill roots',async t=>{
+test('followWatch passes the user home for host skill roots',async t=>{
   const s=setup(t), skillFile=path.join(s.h.userHome,'host-skills/arc/SKILL.md');
   s.write('host-skill',s.cwd,[
     {type:'world_state',payload:{state:{host_skills:{body:'r1 = ~/host-skills'}}}},
@@ -95,39 +104,35 @@ test('runWatch passes the user home for host skill roots',async t=>{
   assert.match(s.output.text,/SKILL    arc/);
   assert.doesNotMatch(s.output.text,/CMD|SKILL\.md|host-skills/);
 });
-test('parseWatchArgs accepts each documented option in both value forms', t => {
-  const s=setup(t);
-  assert.deepEqual(parseWatchArgs([]),{ok:true,options:{mode:'default',dir:null,session:null,platforms:['codex','claude'],tail:20,verbose:false,json:false,width:null,help:false}});
-  for (const [name,value,key,want] of [['tail','5','tail',5],['platform','claude','platforms',['claude']],['width','80','width',80],['cwd',s.cwd,'dir',fs.realpathSync(s.cwd)],['session','abc-1','session','abc-1']]) {
+test('parseWatchArgs accepts each documented option in both value forms', () => {
+  assert.deepEqual(parseWatchArgs([]),{ok:true,options:{tail:20,verbose:false,json:false,width:null,help:false}});
+  for (const [name,value,key,want] of [['tail','5','tail',5],['width','80','width',80]]) {
     for(const args of [[`--${name}`,value],[`--${name}=${value}`]]) {const r=parseWatchArgs(args);assert.equal(r.ok,true);assert.deepEqual(r.options[key],want);}
   }
   for(const flag of ['verbose','json','help']) assert.equal(parseWatchArgs([`--${flag}`]).options[flag],true);
-  assert.equal(parseWatchArgs(['--all']).options.mode,'all');
 });
 test('usage errors exit 2 with a message',async t=>{
   const s=setup(t);
-  for(const args of [['--foo'],['x'],['--tail','1','--tail','2'],['--cwd',s.cwd,'--all'],['--all','--session','x'],['--platform','both'],['--tail','-1'],['--tail','1001'],['--tail','1.5'],['--width','39'],['--width','2001'],['--session','a/b'],['--cwd'],['--cwd','/nonexistent-arc-watch'],['--json=true'],['--help','--help'],['--tail='],['--session',''],['--width'],['--cwd='],['--cwd','']]) {
+  for(const args of [['--foo'],['x'],['--tail','1','--tail','2'],['--tail','-1'],['--tail','1001'],['--tail','1.5'],['--width','39'],['--width','2001'],['--json=true'],['--help','--help'],['--tail='],['--width']]) {
     s.error.text='';assert.equal(await runWatch(args,{...s.io,setInterval(){throw Error('Invalid arguments started the watcher');}}),2,JSON.stringify(args));assert.match(s.error.text,/arc watch --help/);assert.equal(s.output.text,'');
   }
 });
-test('help lists line-time scope and SKILL/PLUGIN lines',async t=>{
-  const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
-  const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
+test('watch help explains platform choice, worktree scope and event output',async t=>{
+  const s=setup(t);
   assert.equal(await runWatch(['--help'],s.io),0);
-  assert.equal(s.output.text,expected.replace('A spinner on the last line shows while a turn is in progress (TTY only).','A status block on the last lines shows the watched path and, while a turn is in progress, a spinner (TTY only).')+'\n');
+  assert.equal(s.output.text,WATCH_HELP+'\n');
+  assert.match(s.output.text,/Choose All or one platform in the menu/);
+  assert.match(s.output.text,/current Git worktree, or the current directory outside Git/);
+  assert.match(s.output.text,/Requires an interactive terminal/);
+  assert.match(s.output.text,/each session's working directory at that point/);
+  assert.match(s.output.text,/SKILL and PLUGIN lines/);
+  assert.doesNotMatch(s.output.text,/--(?:cwd|all|session|platform)\b/);
   assert.equal(s.error.text,'');
-});
-test('watch help matches the spec text',async t=>{
-  const s=setup(t), spec=fs.readFileSync(path.join(root,'docs/superpowers/specs/2026-11-11-arc-watch-design.md'),'utf8');
-  const expected=spec.split('### 5.3 ')[1].split('```')[1].replace(/^\n|\n$/g,'');
-  assert.equal(WATCH_HELP,expected.replace('every worktree of the current Git repository','the current Git worktree').replace('Watch the repository or directory at <dir>','Watch the worktree or directory at <dir>').replace('Maximum width of one-line events (default: terminal width, or 200)','Maximum line width; one-line events are clipped, messages and file lists wrap (default: terminal width, or 200)').replace('User and agent messages are shown in full; other events use one line.','User and agent messages and file paths are shown in full; other events use one line.').replace('A spinner on the last line shows while a turn is in progress (TTY only).','A status block on the last lines shows the watched path and, while a turn is in progress, a spinner (TTY only).').replace('Bridge roles on a Codex host are currently held (host_sandbox_blocked) and appear once they run.','Claude bridge Scouter, Planner and Reviewer on a Codex host need per-call escalation approval (otherwise host_sandbox_blocked) and appear once they run; Claude bridge Implementer and QA stay held.').replace('Press Ctrl-C to stop.','Press Ctrl-L to clear the screen (TTY only) and Ctrl-C to stop.'));assert.equal(await runWatch(['--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
-  assert.match(WATCH_HELP,/host_sandbox_blocked/);assert.match(WATCH_HELP,/Codex Desktop/);
-  assert.match(WATCH_HELP,/per-call escalation approval/);assert.doesNotMatch(WATCH_HELP,/currently held/);
 });
 test('root lists watch and keeps other behavior',async t=>{
   const s=setup(t);assert.equal(await runRoot(['--help'],s.io),0);
   assert.ok(s.output.text.startsWith('Usage: arc\n       arc watch [options]\n       arc --help\n       arc --version\n'));
-  assert.match(s.output.text,/Run arc watch to follow Claude Code and Codex session activity\.\n$/);
+  assert.match(s.output.text,/Run arc watch in an interactive terminal to choose platforms and follow session activity in the current worktree\.\n$/);
   s.output.text='';assert.equal(await runRoot(['watch','--help'],s.io),0);assert.equal(s.output.text,WATCH_HELP+'\n');
   assert.equal(await runRoot(['install'],s.io),2);assert.match(s.error.text,/Unsupported arguments/);assert.match(s.error.text,/arc watch \[options\]/);
   s.output.text='';assert.equal(await runRoot(['--version'],s.io),0);assert.equal(s.output.text,JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version+'\n');
@@ -135,8 +140,8 @@ test('root lists watch and keeps other behavior',async t=>{
 });
 test('no usable source exits 1',async t=>{
   const s=setup(t);
-  for(const [args,env] of [[['--platform','claude'],{CLAUDE_CONFIG_DIR:'/elsewhere'}],[[],{CODEX_HOME:'',CLAUDE_CONFIG_DIR:'/elsewhere'}]]) {
-    s.error.text='';assert.equal(await runWatch(args,{...s.io,env}),1);assert.equal(s.error.text.trim().split('\n').length,1);assert.equal(s.output.text,'');
+  for(const [platforms,env] of [[['claude'],{CLAUDE_CONFIG_DIR:'/elsewhere'}],[undefined,{CODEX_HOME:'',CLAUDE_CONFIG_DIR:'/elsewhere'}]]) {
+    s.error.text='';assert.equal(await follow([],{...s.io,env},platforms),1);assert.equal(s.error.text.trim().split('\n').length,1);assert.equal(s.output.text,'');
   }
 });
 test('one disabled platform emits a notice and keeps the other live',async t=>{
@@ -151,9 +156,9 @@ test('abort stops timers and resolves 0',async t=>{
 test('already aborted signal does not start timers',async t=>{const s=setup(t);s.controller.abort();assert.equal(await runWatch([],s.io),0);assert.equal(s.cleared(),0);assert.equal(s.output.text,'');});
 test('EPIPE resolves 0 silently',async t=>{
   const s=setup(t);s.output.once('written',()=>s.output.emit('error',Object.assign(Error('pipe'),{code:'EPIPE'})));
-  assert.equal(await runWatch([],s.io),0);assert.equal(s.error.text,'');assert.equal(s.output.text.split('\n').filter(Boolean).length,1);
+  assert.equal(await follow([],s.io),0);assert.equal(s.error.text,'');assert.equal(s.output.text.split('\n').filter(Boolean).length,1);
 });
-test('unexpected exceptions return 1 with one stderr line',async t=>{const s=setup(t);s.io.git=async()=>{throw Error('unexpected\nfailure');};assert.equal(await runWatch([],s.io),1);assert.equal(s.error.text.trim().split('\n').length,1);});
+test('unexpected exceptions return 1 with one stderr line',async t=>{const s=setup(t);s.io.git=async()=>{throw Error('unexpected\nfailure');};assert.equal(await follow([],s.io),1);assert.equal(s.error.text.trim().split('\n').length,1);});
 test('color and width follow TTY, NO_COLOR, json and resize',async t=>{
   for(const [tty,env,args,ansi,width] of [[true,{},[],true,100],[true,{NO_COLOR:'1'},[],false,100],[true,{},['--json'],false,null],[false,{},[],false,200],[true,{},['--width','80'],true,80],[true,{},[],true,60]]) {
     const s=setup(t);s.output.isTTY=tty;s.output.columns=width===60?30:100;s.io.env=env;
@@ -178,17 +183,17 @@ test('markers never appear and secrets are masked in human and json modes',async
       else s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),name,rows.map(r=>({...r,cwd:s.cwd})),{mtime:TIME});
     }
     const file=s.write('secret',s.cwd,[msg('password=hidden sk-abcdefghijklmnopqrst')]);
-    const {result}=await s.start(['--all','--verbose','--tail','1000',...(json?['--json']:[])]);
+    const {result}=await s.start(['--verbose','--tail','1000',...(json?['--json']:[])]);
     for(let i=0;i<3;i++){fs.appendFileSync(file,JSON.stringify(msg('token=hidden'))+'\n');await s.step();}
     s.controller.abort();assert.equal(await result,0);assert.ok(!s.output.text.includes('WATCH_MARKER_'));assert.ok(!s.output.text.includes('hidden'));assert.match(s.output.text,/\*\*\*/);
   }
 });
-test('--cwd uses the selected directory rather than the invoking directory',async t=>{
+test('directory scope follows only activity under the invoking directory',async t=>{
   const s=setup(t), selected=path.join(s.h.root,'selected');fs.mkdirSync(selected);s.write('in',selected,[msg('selected event')]);s.write('out',s.cwd,[msg('outside event')]);
-  s.io.cwd=s.h.root;const {result}=await s.start(['--cwd','selected']);s.controller.abort();assert.equal(await result,0);assert.match(s.output.text,/selected event/);assert.ok(!s.output.text.includes('outside event'));assert.equal(s.calls[0].dir,fs.realpathSync(selected));
+  s.io.cwd=selected;const {result}=await s.start();s.controller.abort();assert.equal(await result,0);assert.match(s.output.text,/selected event/);assert.ok(!s.output.text.includes('outside event'));assert.equal(s.calls[0].dir,fs.realpathSync(selected));
 });
-test('default and --cwd isolate real linked worktrees in history and live output',async t=>{
-  for(const explicit of [false,true]) {
+test('All and individual selections isolate real linked worktrees in history and live output',async t=>{
+  for(const platforms of [undefined,['codex']]) {
     const s=setup(t), tree=path.join(s.h.root,'linked-tree'), sub=path.join(tree,'src');
     const env={PATH:process.env.PATH,HOME:s.h.userHome,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'};
     const git=args=>execFileSync('git',args,{cwd:s.cwd,env,stdio:'pipe'});
@@ -196,8 +201,8 @@ test('default and --cwd isolate real linked worktrees in history and live output
     git(['worktree','add','-b','linked',tree]);fs.mkdirSync(sub);
     const file=s.write('local',sub,[msg('local history')]);
     const foreign=s.write('foreign',s.cwd,[msg('foreign history')]);
-    s.io.git=createGitRunner({env});s.io.cwd=explicit?s.cwd:sub;
-    const {result}=await s.start(['--json',...(explicit?['--cwd',sub]:[])]);
+    s.io.git=createGitRunner({env});s.io.cwd=sub;
+    const {result}=await s.start(['--json'],platforms);
     const content=()=>s.output.text.trim().split('\n').map(JSON.parse).filter(e=>e.source!=='watch');
     assert.ok(content().some(e=>e.text==='local history'));
     assert.ok(content().every(e=>e.sessionId==='local'));
@@ -223,7 +228,8 @@ async function childWatch(t) {
   // A live source gives the broken-pipe test a write after the reader closes.
   const now=Date.now(), d=new Date(now), date=[d.getUTCFullYear(),String(d.getUTCMonth()+1).padStart(2,'0'),String(d.getUTCDate()).padStart(2,'0')];
   const file=s.h.writeRollout(date,'rollout-process.jsonl',[{timestamp:iso(now),type:'session_meta',payload:{id:'process',cwd:s.cwd,originator:'codex-tui'}}]);
-  const child=spawn(process.execPath,[path.join(root,'bin/arc.mjs'),'watch','--tail','0'],{cwd:s.cwd,env:{HOME:s.h.userHome,CODEX_HOME:s.h.codexHome,PATH:process.env.PATH,TZ:'UTC'}});
+  const child=spawn(process.execPath,['--input-type=module','--eval',
+    "import {followWatch, parseWatchArgs} from './lib/watch/index.mjs'; process.exitCode = await followWatch(parseWatchArgs(['--tail','0']).options, {cwd:process.env.WATCH_TEST_CWD, platforms:['codex']});"],{cwd:root,env:{HOME:s.h.userHome,CODEX_HOME:s.h.codexHome,PATH:process.env.PATH,TZ:'UTC',WATCH_TEST_CWD:s.cwd}});
   let stderr='',stdout='';child.stderr.on('data',s=>stderr+=s);
   t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});
   const closed=once(child,'close');
@@ -276,7 +282,7 @@ test('R1 M1 Claude-only watch reads Codex dispatch leases and Claude init artifa
  s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'bridge',[{type:'user',cwd:s.cwd,sessionId:'bridge',message:{content:'hello'}}],{mtime:TIME-300000});
  s.h.writeLease({dispatchId:'1234-dispatch',role:'arc_planner',state:'running',updatedAt:iso(TIME)});
  s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
- const {result}=await s.start(['--platform','claude','--json']);
+ const {result}=await s.start(['--json'],['claude']);
  const events=s.output.text.trim().split('\n').map(JSON.parse);
  assert.ok(events.some(e=>e.sessionId==='bridge'&&e.label==='planner@1234'));
  assert.ok(events.some(e=>e.kind==='dispatch'&&e.platform==='claude'&&e.label==='planner@1234'));
@@ -387,7 +393,8 @@ for (const [columns,args,maxColumns] of [[40,[],39],[80,['--width','200'],79]]) 
     const selected=path.join(fs.realpathSync(s.cwd),'project-'+'x'.repeat(100));fs.mkdirSync(selected);
     s.write('busy',selected);
     const writes=[];s.output.on('written',text=>writes.push(text));
-    const {result}=await s.start(['--cwd',selected,'--tail','0',...args]);
+    s.io.cwd=selected;
+    const {result}=await s.start(['--tail','0',...args]);
     const lines=writes.at(-1).split('\n');
     assert.equal(lines.length,2);
     for(const line of lines)assert.ok(renderer.displayWidth(line)<=maxColumns,JSON.stringify(line));
@@ -405,7 +412,8 @@ test('TTY status location removes directory control sequences and line breaks', 
   const s=setup(t);s.output.isTTY=true;s.output.columns=200;s.io.env={NO_COLOR:'1'};
   const parent=fs.realpathSync(s.cwd),selected=path.join(parent,'project\x1b]0;x\x07\n\rnext');fs.mkdirSync(selected);
   const writes=[];s.output.on('written',text=>writes.push(text));
-  const {result}=await s.start(['--cwd',selected]);
+  s.io.cwd=selected;
+  const {result}=await s.start();
   assert.equal(writes.at(-1),path.join(parent,'project next'));
   assert.doesNotMatch(writes.at(-1),/[\x00-\x1f\x7f-\x9f]/);
   s.output.text='';await s.step();
@@ -419,13 +427,14 @@ test('TTY status block erases both busy lines on stop', async t => {
   assert.equal(await result,0);assert.equal(s.output.text,'\r\x1b[2K\x1b[1A\x1b[2K');
 });
 test('TTY status block shows the selected location even when idle', async t => {
-  for (const mode of ['default','cwd','home','all','session']) {
+  for (const mode of ['outside-home','inside-home','home']) {
     const s=setup(t);s.output.isTTY=true;s.output.columns=200;s.io.env={NO_COLOR:'1'};
     s.io.userHome=fs.realpathSync(s.h.userHome);
-    const selected=path.join(s.h.userHome,'project');fs.mkdirSync(selected);
-    const args=mode==='cwd'?['--cwd',selected]:mode==='home'?['--cwd',s.h.userHome]:mode==='all'?['--all']:mode==='session'?['--session','x']:[];
-    const label=mode==='cwd'?'~/project':mode==='home'?'~':mode==='all'?'all directories':mode==='session'?'session x':s.cwd;
-    const {result}=await s.start(args);
+    const selected=path.join(s.io.userHome,'project');fs.mkdirSync(selected);
+    if(mode==='inside-home')s.io.cwd=selected;
+    if(mode==='home')s.io.cwd=s.io.userHome;
+    const label=mode==='inside-home'?'~/project':mode==='home'?'~':s.cwd;
+    const {result}=await s.start();
     assert.ok(s.output.text.endsWith(label),`${mode}: ${JSON.stringify(s.output.text)}`);
     assert.doesNotMatch(s.output.text,/working…/);
     s.controller.abort();assert.equal(await result,0);
@@ -492,7 +501,7 @@ test('startup and output errors restore TTY input even when raw mode restoration
     if(failure==='startup')s.io.git=async()=>{throw Error('startup failed');};
     if(failure==='closed')input.setRawMode=value=>{input.rawModes.push(value);if(!value)throw Error('closed TTY');};
     let result;
-    if(failure==='startup')result=runWatch([],s.io);
+    if(failure==='startup')result=follow([],s.io);
     else {
       ({result}=await s.start());
       if(failure==='output')s.output.emit('error',Object.assign(Error('pipe'),{code:'EPIPE'}));
@@ -541,5 +550,123 @@ test('non-TTY messages stay on one line unless --width requests wrapping', async
       assert.ok(bodyLines.slice(1).every(line=>line.startsWith(' '.repeat(25))));
       assert.equal(bodyLines.map(line=>line.slice(25)).join(''),text);
     }
+  }
+});
+
+const descriptors = DEFAULT_PLATFORM_REGISTRY.byDisplayOrder();
+const unsupported = descriptors.find(d => d.capabilities.watch.state !== 'verified');
+
+function menuTerminal(s, keys) {
+  const {input} = s.io, {output} = s;
+  input.isTTY = output.isTTY = true;
+  output.columns = 100;
+  output.rows = 24;
+  const timeline = [];
+  let menus = 0;
+  const setRawMode = input.setRawMode.bind(input);
+  input.setRawMode = value => {
+    timeline.push(value);
+    setRawMode(value);
+  };
+  output.on('written', text => {
+    timeline.push(text);
+    if (!text.includes('Which platform to watch?')) return;
+    const key = keys[menus++];
+    if (key === 'eof') queueMicrotask(() => input.emit('end'));
+    else if (key) queueMicrotask(() => input.emit('data', Buffer.from(key)));
+  });
+  return timeline;
+}
+
+test('removed scope options are unknown', async t => {
+  for (const args of [['--cwd','x'],['--all'],['--session','s'],['--platform','codex']]) {
+    const s = setup(t);
+    s.io.setInterval = () => s.controller.abort();
+    assert.equal(await runWatch(args,s.io),2);
+    assert.equal(s.error.text,'Error: Unknown option: '+args[0]+'. Run arc watch --help for usage.\n');
+    assert.equal(s.output.text,'');
+  }
+});
+
+test('non-TTY and json require an interactive terminal', async t => {
+  for (const [stdin,stdout] of [[false,false],[true,false],[false,true]]) {
+    for (const args of [[],['--json']]) {
+      const s = setup(t);
+      s.io.input.isTTY = stdin;
+      s.output.isTTY = stdout;
+      s.io.setInterval = () => s.controller.abort();
+      assert.equal(await runWatch(args,s.io),2);
+      assert.equal(s.error.text,'Error: arc watch needs an interactive terminal to choose platforms.\n');
+      assert.equal(s.output.text,'');
+    }
+  }
+});
+
+test('menu rows come from registry watch capability', async () => {
+  const file = new URL('../../lib/watch/menu.mjs',import.meta.url);
+  assert.ok(fs.existsSync(file),'watch menu module is missing');
+  const {watchMenuRows} = await import(file.href);
+  const zeta = {id:'zeta',label:'Zeta',capabilities:{watch:{state:'off'}}};
+  const eta = {id:'eta',label:'Eta',capabilities:{watch:{state:'verified'}}};
+  const beta = {id:'beta',label:'Beta',capabilities:{watch:{state:'verified'}}};
+  assert.deepEqual(watchMenuRows({byDisplayOrder:()=>[zeta,eta,beta]}),[
+    {label:'All',platforms:['eta','beta']},
+    {label:'Zeta  (not supported)',platforms:null},
+    {label:'Eta',platforms:['eta']},
+    {label:'Beta',platforms:['beta']},
+  ]);
+});
+
+test('unsupported row is not selectable', async t => {
+  const s = setup(t);
+  const timeline = menuTerminal(s,[
+    ...Array(descriptors.indexOf(unsupported)+1).fill('\x1b[B'),'\r','\x1b',
+  ]);
+  s.io.setInterval = () => s.controller.abort();
+  assert.equal(await runWatch([],s.io),0);
+  const screens = timeline.filter(frame => typeof frame === 'string' && frame.includes('Which platform to watch?'));
+  assert.ok(screens.length>1);
+  const first = strip(screens[0]);
+  const labels = ['All',...descriptors.map(d => d.label+(d.capabilities.watch.state==='verified'?'':'  (not supported)')),'Back'];
+  const indexes = labels.map(label => first.indexOf(label));
+  assert.ok(indexes.every((index,i) => index>=0 && (!i || index>indexes[i-1])),first);
+  assert.ok(strip(screens.at(-1)).includes(unsupported.label+' is not supported by arc watch.'));
+  assert.deepEqual(s.calls,[]);
+});
+
+test('menu cancel restores terminal and never starts watcher', async t => {
+  for (const [keys,code] of [[['\x1b[A','\r'],0],[['\x1b'],0],[['eof'],0],[['\x03'],130]]) {
+    const s = setup(t);
+    const timeline = menuTerminal(s,keys);
+    s.io.setInterval = () => s.controller.abort();
+    assert.equal(await runWatch([],s.io),code);
+    assert.deepEqual(s.io.input.rawModes,[true,false]);
+    assert.ok(timeline.some(frame => typeof frame==='string' && frame.includes('\x1b[?1049l')));
+    assert.deepEqual(s.calls,[]);
+  }
+});
+
+test('menu dispose precedes watch raw mode and first output', async t => {
+  for (const [keys,expected] of [
+    [['\r'],['local claude','local codex']],
+    [[...Array(descriptors.findIndex(d => d.id==='claude')+1).fill('\x1b[B'),'\r'],['local claude']],
+  ]) {
+    const s = setup(t);
+    const timeline = menuTerminal(s,keys);
+    s.write('local',s.cwd,[msg('local codex')]);
+    s.write('foreign',s.h.root,[msg('foreign codex')]);
+    s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'local-claude',[
+      {type:'user',cwd:s.cwd,sessionId:'local-claude',timestamp:iso(TIME),message:{content:'local claude'}},
+    ],{mtime:TIME});
+    s.io.setInterval = () => {s.controller.abort();return 17;};
+    assert.equal(await runWatch([],s.io),0);
+    const restored = timeline.indexOf(false);
+    const leftMenu = timeline.findIndex(frame => typeof frame==='string' && frame.includes('\x1b[?1049l'));
+    const watchRaw = timeline.lastIndexOf(true);
+    const firstWatch = timeline.findIndex(frame => typeof frame==='string' && frame.includes('arc watch: scope'));
+    assert.ok(restored>=0 && restored<leftMenu && leftMenu<watchRaw && watchRaw<firstWatch);
+    const output = timeline.slice(firstWatch).filter(frame => typeof frame==='string').map(strip).join('');
+    assert.deepEqual([...output.matchAll(/local (?:claude|codex)$/gm)].map(match => match[0]).sort(),expected);
+    assert.doesNotMatch(output,/foreign codex/);
   }
 });

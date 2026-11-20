@@ -31,7 +31,7 @@ arc
 npx --yes @yunhozz/arc
 ```
 
-The package provides the CLI; use the TUI to install the harness. Public commands: `arc`, `arc watch`, `arc --help`, `arc --version`; only the TUI requires terminal input/output.
+The package provides the CLI. Use `arc` to install or manage the harness. Both `arc` and `arc watch` require terminal input and output. `arc --help` and `arc --version` also work without a terminal.
 
 ## Manage ARC
 
@@ -49,16 +49,16 @@ The package provides the CLI; use the TUI to install the harness. Public command
 
 ## Watch sessions
 
-![arc watch flow](docs/images/watch-flow.svg)
+Run `arc watch` in an interactive terminal and choose **All** or one supported platform. The menu marks unsupported platforms and keeps them unavailable.
 
 | Visibility | Behavior |
 |---|---|
-| Shown | Claude Code/Codex activity, full messages, one-line other events, SKILL/PLUGIN lines, dispatch records |
+| Shown | Selected platform activity, full messages, one-line other events, SKILL/PLUGIN lines, dispatch records |
 | Hidden | Tool/command outputs; reasoning unless verbose; common secrets masked incompletely |
 | Excluded | Codex Desktop sessions; held bridges have no running activity |
 | Scope | Current Git worktree or directory outside Git; events follow session cwd. Markers select the anchor store; legacy Codex fallback; conflicting anchors: `dispatch store ambiguous`; old-store history is not merged |
 
-`arc watch --help` lists scope/history/platform/JSON options; Ctrl-L clears, Ctrl-C stops.
+`arc watch --help` lists history and output options. JSON output also requires an interactive terminal for the menu. During watch, Ctrl-L clears the screen and Ctrl-C stops.
 
 ## Models and language
 
