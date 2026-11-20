@@ -174,6 +174,57 @@ test('json lines follow schema v1',async t=>{
   const rows=s.output.text.trim().split('\n').map(JSON.parse);assert.ok(rows.some(e=>e.kind==='user'));
   for(const e of rows){assert.equal(e.v,1);for(const k of ['ts','observedAt','kind','source'])assert.ok(e[k]);assert.ok(WATCH_KINDS.includes(e.kind));assert.ok(Object.values(e).every(v=>v!==null));if(e.kind==='notice')assert.equal('platform'in e,false);}
 });
+test('json keeps prompt kind and full text', async t => {
+  const s = setup(t);
+  const text = `${'first '.repeat(220)}line\n\nsecond line`;
+  s.write('parent');
+  s.h.writeRollout(['2026','11','11'],'rollout-prompt-child.jsonl',[
+    {type:'session_meta',payload:{id:'prompt-child',cwd:s.cwd,originator:'codex-tui',parent_thread_id:'parent'}},
+    msg(text),
+  ],{mtime:TIME});
+  const {result} = await s.start(['--json','--tail','20']);
+  s.controller.abort();
+  assert.equal(await result,0);
+  const event = s.output.text.trim().split('\n').map(JSON.parse).find(e=>e.sessionId==='prompt-child' && e.kind==='prompt');
+  assert.equal(event?.text,text);
+  assert.equal(event.truncated,undefined);
+});
+
+test('user and prompt colors differ', async t => {
+  const s = setup(t);
+  s.output.isTTY = true;
+  s.output.columns = 120;
+  s.write('parent',s.cwd,[msg('top input')]);
+  s.h.writeRollout(['2026','11','11'],'rollout-color-child.jsonl',[
+    {type:'session_meta',payload:{id:'color-child',cwd:s.cwd,originator:'codex-tui',parent_thread_id:'parent'}},
+    msg('child input'),
+  ],{mtime:TIME});
+  const {result} = await s.start(['--tail','20']);
+  s.controller.abort();
+  assert.equal(await result,0);
+  assert.ok(s.output.text.includes('\x1b[1;97mUSER\x1b[0m     \x1b[97mtop input\x1b[0m'));
+  assert.ok(s.output.text.includes('\x1b[1;35mPROMPT\x1b[0m   \x1b[35mchild input\x1b[0m'));
+});
+
+test('a live prompt activates the TTY working status', async t => {
+  const s = setup(t);
+  s.output.isTTY = true;
+  s.output.columns = 120;
+  s.write('parent',s.cwd,[]);
+  const child = s.h.writeRollout(['2026','11','11'],'rollout-live-child.jsonl',[
+    {type:'session_meta',payload:{id:'live-child',cwd:s.cwd,originator:'codex-tui',parent_thread_id:'parent'}},
+  ],{mtime:TIME});
+  const {result} = await s.start(['--tail','0']);
+  assert.doesNotMatch(s.output.text,/working/);
+  s.output.text = '';
+  fs.appendFileSync(child,JSON.stringify(msg('live input'))+'\n');
+  await s.step();
+  assert.match(strip(s.output.text),/PROMPT +live input/);
+  assert.match(strip(s.output.text),/working…$/);
+  s.controller.abort();
+  assert.equal(await result,0);
+});
+
 test('markers never appear and secrets are masked in human and json modes',async t=>{
   for(const json of [false,true]){
     const s=setup(t), dir=path.join(root,'tests/node/fixtures/watch');

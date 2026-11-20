@@ -252,7 +252,7 @@ test('ARC agent role prefixes leave JSON role and message fields unchanged', () 
   }
 });
 test('tag colors follow the table and include the parenthesized part', () => {
-  const table = [[{kind:'user'},'1;35','USER'],[{kind:'agent',role:'qa'},'32','AGENT'],
+  const table = [[{kind:'user'},'1;97','USER'],[{kind:'prompt'},'1;35','PROMPT'],[{kind:'agent',role:'qa'},'32','AGENT'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD'],
     [{kind:'command',exitCode:1},'38;5;242','CMD'],[{kind:'command',exitCode:-1},'38;5;242','CMD'],
     [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'38;5;101','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
@@ -278,7 +278,7 @@ test('gemini platform color', () => {
   assert.ok(renderHuman({...event,platform:'gemini'},{...options,color:true}).includes('\x1b[38;5;135mGEMINI\x1b[0m'));
 });
 test('body color matches tag color without attributes', () => {
-  const table = [[{kind:'user'},'35'],[{kind:'agent'},'32'],
+  const table = [[{kind:'user'},'97'],[{kind:'prompt'},'35'],[{kind:'agent'},'32'],
     [{kind:'command'},'38;5;242'],[{kind:'command',exitCode:0},'38;5;242'],
     [{kind:'command',exitCode:1},'38;5;242'],[{kind:'command',exitCode:-1},'38;5;242'],
     [{kind:'file_change'},'33'],[{kind:'file_create'},'38;5;69'],[{kind:'file_delete'},'31'],[{kind:'tool'},'38;5;101'],[{kind:'spawn'},'38;5;141'],
@@ -292,7 +292,7 @@ test('body color matches tag color without attributes', () => {
   }
 });
 test('color off output is byte-identical for every kind', () => {
-  const table = [[{kind:'user'},'USER'],[{kind:'agent',role:'qa'},'AGENT'],
+  const table = [[{kind:'user'},'USER'],[{kind:'prompt'},'PROMPT'],[{kind:'agent',role:'qa'},'AGENT'],
     [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD'],
     [{kind:'command',exitCode:1},'CMD'],[{kind:'command',exitCode:-1},'CMD'],
     [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'file_delete'},'DELETE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],

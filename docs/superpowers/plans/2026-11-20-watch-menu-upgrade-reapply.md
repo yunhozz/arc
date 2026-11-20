@@ -173,11 +173,12 @@
 - AC3-3: `--json`에서 `"kind":"prompt"`, text 전문 유지. prompt 이벤트는 세션을 active로 표시.
 
 **단계(TDD):**
-- [ ] RED: `subagent and dispatch user messages become prompt`(watcher fixture 3종 + 상위 세션 대조), `user and prompt colors differ`, `json keeps prompt kind and full text`, `rg -n "'user'" lib/watch`로 찾은 소비 지점 중 prompt도 처리해야 하는 곳(tail, status-line busy 등) 회귀 테스트.
-- [ ] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-watcher.test.mjs tests/node/watch-cli.test.mjs` → FAIL.
-- [ ] GREEN 구현 → 같은 명령 PASS → 관련 테스트 `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs` baseline 대비 새 실패 없음(v2: 전체 npm test는 최종 검증에서만).
-- [ ] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
-- [ ] 커밋(Orchestrator): `feat(watch): 하위 세션 사용자 메시지를 PROMPT로 구분`
+- [x] RED: `subagent and dispatch user messages become prompt`(watcher fixture 3종 + 상위 세션 대조), `user and prompt colors differ`, `json keeps prompt kind and full text`, `rg -n "'user'" lib/watch`로 찾은 소비 지점 중 prompt도 처리해야 하는 곳(tail, status-line busy 등) 회귀 테스트.
+- [x] RED 확인: `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-watcher.test.mjs tests/node/watch-cli.test.mjs` → FAIL.
+- [x] GREEN 구현 → 같은 명령 PASS → 관련 테스트 `PYTHONDONTWRITEBYTECODE=1 node --test tests/node/watch-*.test.mjs` baseline 대비 새 실패 없음(v2: 전체 npm test는 최종 검증에서만).
+- [x] 패키징: `node scripts/update-manifest.mjs` → `npm run check:manifest`.
+- [x] 커밋(Orchestrator): `feat(watch): 하위 세션 사용자 메시지를 PROMPT로 구분`
+  - 진행 기록(2026-11-20): Implementer f5a46d09(codex bridge) 구현, fresh QA c989d6d7 — AC3-1~AC3-3 pass(실제 형식 JSONL·dispatch 기록을 `followWatch --tail`로 재생, ANSI·`--json` 확인, normalize-* diff 없음). watch-* 386→390 pass, 새 실패 없음. `check:manifest` 288 pass.
 
 **QA(fresh, 필수):** 실제 세션 transcript fixture(subagent 있는 Claude 세션, Codex 하위 thread, bridge dispatch)를 `--tail`로 재생해 태그·색과 `--json` kind 확인.
 
