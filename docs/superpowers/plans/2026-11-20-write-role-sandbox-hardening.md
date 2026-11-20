@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: v5 승인 (2026-11-20). v4: T4를 C-3+C-2로 변경. v5: C-3 (i)에 `.claude` 디렉터리 링크 포함. v2: T2 prepare 경로 보류 위치 정정. v3: `runtime-versions.test.mjs` 추가. Planner v0 + Orchestrator 반영: O1 쓰기 역할만, O2 해소, O4 `.codex` 사전 보류 추가.
+- 상태: v6 승인 (2026-11-20). v6: 최종 Reviewer 수정(B1 안전 목록, N1–N5). v4: T4를 C-3+C-2로 변경. v5: C-3 (i)에 `.claude` 디렉터리 링크 포함. v2: T2 prepare 경로 보류 위치 정정. v3: `runtime-versions.test.mjs` 추가. Planner v0 + Orchestrator 반영: O1 쓰기 역할만, O2 해소, O4 `.codex` 사전 보류 추가.
 - 작업 위치: `/Users/ma-24-007/Desktop/workspace/arc`, branch `fix/write-role-sandbox-hardening`, base `master` @ `b75d25a` (사용자 선택)
 - Risk: high. T2·T4는 task마다 fresh QA, 전체 수용 뒤 최종 Reviewer 1회.
 - 범위: spec §10의 T1, T2, T4. **T3(K-1 Grok deny, Grok P-1, L3, AC1)는 Grok 측정(M-K5–M-K16) 뒤 별도 plan으로 진행(보류).**
-- Spec: `docs/superpowers/specs/2026-11-20-write-role-sandbox-hardening-design.md` v4 (사용자 승인 2026-11-20)
+- Spec: `docs/superpowers/specs/2026-11-20-write-role-sandbox-hardening-design.md` v7 (사용자 승인 2026-11-20)
 
 **Goal:** README를 실제 게이트 상태(G1/GK1 `pass`)에 맞춘다. 모든 bridge 역할에서 제어 파일(`.git` config·hooks·info, Claude/Codex 설정, Grok 사용자 설정) 변경을 사후 감지해 fail-closed 처리한다. Claude 쓰기 역할이 `.git`에 쓰지 못하고 project/local settings 병합으로 범위가 넓어지지 않게 한다. 정상 작업(파일 편집, `node --test`, git 읽기)은 모든 플랫폼에서 그대로 동작해야 한다.
 
@@ -23,7 +23,7 @@
 
 - **D2 Claude settings** (T4, 의미 그대로, deep-freeze):
   `{"permissions":{"deny":["Edit(./.git/**)","Write(./.git/**)"]},"sandbox":{"enabled":true,"autoAllowBashIfSandboxed":true,"allowUnsandboxedCommands":false,"failIfUnavailable":true,"filesystem":{"denyWrite":["./.git"]}}}`
-- **C-1 인자 (v4 폐기):** `--setting-sources user`는 project CLAUDE.md 로딩을 끄므로 쓰지 않는다 (spec §11 L4 (c)). 대신 **C-3**: bridge route의 Claude `arc_implementer`/`arc_qa`는 worktree `.claude/settings.json`·`.claude/settings.local.json` 중 하나라도 (i) symlink이거나 일반 파일이 아님(v5: `.claude` 디렉터리 자체가 symlink이거나 디렉터리가 아니면 설정 파일 유무와 관계없이 보류), (ii) JSON 파싱 실패, (iii) 비어 있지 않은 `permissions.additionalDirectories`, (iv) `permissions.allow`에 `Edit(`/`Write(`/`MultiEdit(`/`NotebookEdit(`로 시작하는 항목, (v) `hooks` 키, (vi) `sandbox` 키, (vii) `permissions.defaultMode` 키가 있으면 `permission_scope_unverified`로 보류한다. 파일이 없으면 통과.
+- **C-1 인자 (v4 폐기):** `--setting-sources user`는 project CLAUDE.md 로딩을 끄므로 쓰지 않는다 (spec §11 L4 (c)). 대신 **C-3**: bridge route의 Claude `arc_implementer`/`arc_qa`는 worktree `.claude/settings.json`·`.claude/settings.local.json` 중 하나라도 (i) symlink이거나 일반 파일이 아님(v5: `.claude` 디렉터리 자체가 symlink이거나 디렉터리가 아니면 설정 파일 유무와 관계없이 보류), (ii) JSON 파싱 실패, (iii) 비어 있지 않은 `permissions.additionalDirectories`, (iv) `permissions.allow`에 도구 이름(앞뒤 공백 제거, `(` 앞 부분, 대소문자 무시)이 안전 목록 `Bash`·`Read`·`Grep`·`Glob`·`WebFetch`·`WebSearch` 밖인 항목(v6, 괄호 없는 `Write` 등 포함)이나 문자열이 아닌 항목, (v) `hooks` 키, (vi) `sandbox` 키, (vii) `permissions.defaultMode` 키가 있으면 `permission_scope_unverified`로 보류한다. 파일이 없으면 통과.
 - **측정 근거 버전:** Claude 2.1.327, Codex 0.170.0, macOS, 2026-11-20 (spec §11).
 - **reason code:** 새 코드 없음. 사전 보류 `permission_scope_unverified`, 사후 관측 `permission_violation_observed`, before snapshot 실패 `execution_failed`(spawn 없음).
 - **제어 파일 라벨** (record에는 위치만, 내용 없음): `git:config`, `git:config.worktree`, `git:hooks/<상대경로>`, `git:info/<상대경로>`, 상한 초과 시 `git:hooks` 또는 `git:info`, `worktree:.claude/settings.json`, `worktree:.claude/settings.local.json`, `worktree:.codex/config.toml`, `grok-home:config.toml`, `grok-home:sandbox.toml`.
@@ -218,6 +218,14 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 
 ---
 
+## 최종 Reviewer 수정 (v6, Implementer → Reviewer recheck, QA 재배정 없음)
+
+- B1: C-3 (iv)를 안전 목록 방식으로 (Global Constraints). live 근거: trusted project `allow:["Write","Edit"]`가 v5 C-3을 통과하고 바깥 Write를 허용함(2026-11-20 Orchestrator 실측).
+- N1: `grokConfigSecurityProjection`이 quoted key(`"permission_mode"`), dotted key(`sandbox.x`, `"sandbox".x`, `compat . claude . agents`)를 첫 segment 정규화로 판정하고, key에 `\`가 있거나 해석이 애매하면 `null`(전체 해시).
+- N2: `snapshotControlFiles`의 hooks/info 하위 디렉터리 readdir 실패(EACCES 등)는 throw 대신 해당 라벨의 상태값 `unreadable`로 기록 (최상위 `hooks`·`info`의 before 실패 규칙은 유지).
+- N3–N5 문서: bridge 실행 중 host Claude Code의 권한 규칙 저장("다시 묻지 않기") 금지와 linked worktree 권장, coordination 4종·README에 P-3 사전 보류와 제어 파일 위반 규칙(역할·allowedPaths 무관), hooks/info 1000개 초과 시 이후 변경 미감지 한계.
+- plan 본문의 오래된 C-1·"C-3 미채택" 문구는 v4 보충과 이 절이 우선한다.
+
 ## 최종 검증 (T1·T2·T4 수용 뒤, Orchestrator)
 
 - [ ] host 전체 `npm test`, `B0-host` 대비 baseline 실패와 현재 실패를 구분 기록, 새 실패 0건 (AC9).
@@ -249,7 +257,7 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 | T2 | 완료 | 이 커밋 | fresh QA 78172122(재확인 2회) | Implementer 62e2c464(v1 범위 중단) → dc294ba4(v2) → 1a861fb1(v3 hash) → 836fc9a5(QA 수정: 중간 symlink, HOME 격리, multiline·AC4 unknown 테스트, Grok 홈 부모 확인, 비원자 순회 문서화). host 통합 108 pass, 전체 3110/35 fail = B0 동일 |
 | T3 | 보류 | — | — | Grok 측정 대기 |
 | T4 | 완료 | 이 커밋 | fresh QA bc414593(재확인 1회) | Implementer 9d5af5ce(v3 C-1) → e520e1d4(v4 C-3+C-2) → 082d82a9(v5 `.claude` 링크 테스트·문서). L4: v3 인자에서 CLAUDE.md 미로딩으로 C-1 폐기, v4 인자 재측정 통과. host role-bridge-run 42 pass, 전체 3129/35 fail = B0 동일 |
-| 최종 Reviewer | 대기 | — | — | |
+| 최종 Reviewer | 완료 | 이 커밋 | — | Reviewer afe5e23c → 9f5c1aa9 → 9012aab8 수용. B1(live 확인)·N1–N5·R1–R4를 Implementer 2edf2260으로 수정. 최종 host: 통합 108 pass, 전체 3162/35 fail = B0 동일. T3(Grok) 보류 |
 
 ## 개정 이력
 
@@ -261,3 +269,4 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 | v3 | 2026-11-20 | 승인 | T2, T4 | host 전체 테스트에서 `tests/node/runtime-versions.test.mjs`의 모듈 해시 고정값 3건 실패(모듈 변경의 예정된 결과). T2·T4 allowedPaths에 추가, 고정값 갱신만 허용. 사용자 승인, 남은 T2는 fresh Implementer |
 | v4 | 2026-11-20 | 승인 | T4 | L4 (c) 실패로 C-1 폐기, C-3 추가(사용자 결정). T4 Interfaces·allowedPaths·테스트·문서 문장 변경(아래 T4 v4 보충). 남은 T4는 fresh Implementer |
 | v5 | 2026-11-20 | 승인 | T4 | T4 QA: `.claude` 링크 시 파일 부재여도 보류하는 구현을 기준으로 채택(사용자 결정). 테스트 1건과 문서 문구 보정, fresh Implementer |
+| v6 | 2026-11-20 | 승인 | 최종 | 최종 Reviewer B1(실측 확인)·N1–N5 반영, B1은 안전 목록 방식. 사용자 결정 |

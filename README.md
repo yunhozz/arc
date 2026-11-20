@@ -75,7 +75,7 @@ The package provides the CLI; use the TUI to install the harness. Public command
 
 | Platform | Host? | Native roles | Bridges to this platform | Authentication |
 |---|---|---|---|---|
-| Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA run with the recorded sandbox settings (`G1` pass) and are held with `permission_scope_unverified` if settings injection fails | `claude auth status` |
+| Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA run with the recorded sandbox settings (`G1` pass) and are held with `permission_scope_unverified` if settings injection fails or the worktree `.claude/settings*.json` would widen their scope | `claude auth status` |
 | Codex | Yes | Supported on CLI | From Claude; permissions claim capped at `operator-attested` | `codex app-server` refresh rotates `auth.json`; network required |
 | Gemini | No | Standalone verified | Read roles verified; write roles held: `permission_scope_unverified` | No probe; `unknown`, `auth unverified` warning |
 | Grok | No | Standalone enabled (not live-verified) | Read roles enabled (not live-verified); write roles run with a per-dispatch sandbox profile confirmed by `ProfileApplied` (`GK1` pass, live-verified on Grok 1.0.89 macOS); `~/.grok/config.toml` and `~/.grok/sandbox.toml` are not in the deny list; their security-relevant changes are detected after the run (`permission_violation_observed`); Configure sets `[compat.claude]` agents/skills/rules to false in `~/.grok/config.toml` (session effect unverified) | No probe; `unknown`, `auth unverified` warning |

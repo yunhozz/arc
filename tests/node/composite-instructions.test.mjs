@@ -138,10 +138,19 @@ test('coordination and operations document every host and target route from curr
 test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bridge writing gates', async () => {
   for (const platform of platforms) {
     const body = section(await coordination(platform));
-    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/QA bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, Edit\/Write allow rules, hooks, sandbox or defaultMode/, platform);
+    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/QA bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, allow rules for tools outside the safe list \(Bash, Read, Grep, Glob, WebFetch, WebSearch\), hooks, sandbox or defaultMode/, platform);
     assert.match(body, /Gemini bridge `arc_implementer` and `arc_qa` are held as `permission_scope_unverified` while GG1 is `fail`/, platform);
     assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/, platform);
     assert.match(body, /per-dispatch sandbox profile[^.]*GK1[^.]*\. [^.]*held as `permission_scope_unverified`[^.]*GK1/, platform);
+  }
+});
+
+test('every coordination reference states the control-file bridge holds and violations', async () => {
+  const expected = '- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info, `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.';
+  for (const platform of platforms) {
+    const body = section(await coordination(platform));
+    assert.ok(body.includes('### Bridge target rules\n\n' + expected + '\n\n**Claude**'), platform);
+    assert.match(body, /Changes to Git-ignored paths are outside post-run detection, except the control files listed above\./, platform);
   }
 });
 
@@ -262,7 +271,6 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`cancelled` event is also accepted for a `reserved` native lease/);
     assert.match(body, /Codex bridge[^.]*`permissions` claim is at most `operator-attested`[^.]*`user-config-mcp-not-controlled`/);
     assert.match(body, /Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed`/);
-    assert.match(body, /Changes to Git-ignored paths are outside post-run detection/);
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection/i);
     assert.match(body, /orphaned process group[^.]*reaped/);

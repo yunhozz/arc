@@ -630,6 +630,20 @@ test('snapshotControlFiles rejects relative paths, a missing gitCommonDir and an
   });
 });
 
+test('snapshotControlFiles records an unreadable hooks subdirectory as a control change', {skip: process.getuid?.() === 0}, async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  const subdir = path.join(target.gitCommonDir, 'hooks/x'), label = 'git:hooks/x/';
+  await t.test('unreadable subtree', async t => {
+    const result = await controlChange(target, async () => {
+      await fs.mkdir(subdir);
+      t.after(() => fs.chmod(subdir, 0o700));
+      await fs.chmod(subdir, 0o000);
+    });
+    assertControlViolation(result, label);
+    assert.equal((await snapshotControlFiles(target)).get(label), 'unreadable');
+  });
+});
+
 test('claudeProjectSettingsWidenScope checks both project settings files', async t => {
   const cases = [
     ['absent settings', null, null],
@@ -660,6 +674,24 @@ test('claudeProjectSettingsWidenScope checks both project settings files', async
         assert.match(result, expected);
         assert.match(result, /\.claude\/settings\.local\.json/);
       }
+    });
+  }
+});
+
+test('claudeProjectSettingsWidenScope allows only safe tool names in permissions.allow', async t => {
+  const held = [['Write'], ['Edit'], [' Edit(//x/**)'], ['write(src/**)'], ['*'], ['mcp__srv__tool'], [1], 'Write'];
+  const cases = [
+    ...held.map(allow => [allow, '.claude/settings.json: permissions.allow']),
+    [['Bash(npm test)', 'Read', 'Grep(**)', 'Glob', 'WebFetch(domain:x)', 'WebSearch'], null],
+    [[' bash (npm test)', 'READ'], null],
+  ];
+  for (const [allow, expected] of cases) {
+    await t.test(JSON.stringify(allow), async t => {
+      const worktree = await tempDir(t), settings = path.join(worktree, '.claude/settings.json');
+      await fs.mkdir(path.dirname(settings));
+      await fs.writeFile(settings, JSON.stringify({permissions: {allow}}));
+      const result = await roleObserve.claudeProjectSettingsWidenScope(worktree);
+      assert.equal(result, expected);
     });
   }
 });

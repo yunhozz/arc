@@ -1,6 +1,6 @@
 # 쓰기 역할 sandbox 경계 보강 spec
 
-- 상태: v6 승인 (2026-11-20). v5: AC4 상태 우선순위 정정. v6: F3을 C-3+C-2로 변경(L4에서 `--setting-sources user`가 project CLAUDE.md 로딩을 끔). T0 Claude·Codex 측정 반영, Grok 측정 보류로 T3 분리, P-3에 `.codex` 추가.
+- 상태: v7 승인 (2026-11-20). v7: C-3 allow 검사를 안전 목록 방식으로, Grok projection·snapshot 보강. v5: AC4 상태 우선순위 정정. v6: F3을 C-3+C-2로 변경(L4에서 `--setting-sources user`가 project CLAUDE.md 로딩을 끔). T0 Claude·Codex 측정 반영, Grok 측정 보류로 T3 분리, P-3에 `.codex` 추가.
 - 기준: `master` @ b75d25a, 작업 branch `fix/write-role-sandbox-hardening` (사용자 선택).
 - 경로: Architectural (보안 경계 변경). 위험도: high.
 - 승인 근거: 2026-11-20 사용자 요청 "1~4번에 대해 작업해줘". 대상은 PR #74 (d661b7d..1caf9d1) Reviewer finding 1–4.
@@ -111,7 +111,7 @@ Orchestrator가 §11에 결과를 기록한다. §6 분기 조건이 결과로 �
 ### 5.3 F3 Claude 설정 병합
 - **C-1 설정 소스 제한:** `--setting-sources user` 추가. M-C12 pass이고 M-C5/6/7에서 project 설정이 실제로 영향을 줄 때만 쓴다.
 - **C-2 `--settings` 안 deny:** D1에 `permissions.deny`(`Edit(./.git/hooks/**)`, `Edit(./.git/config)`, `Edit(./.git/info/**)`, `Edit(./.claude/**)` 및 대응 Write 규칙)와 Bash 쪽 `sandbox.filesystem` 쓰기 금지를 추가. 경로 문법과 키 이름은 M-C10으로 확정.
-- **C-3 prepare 정적 검사:** worktree `.claude/settings.json`·`.claude/settings.local.json`에 비어 있지 않은 `permissions.additionalDirectories`, `permissions.allow`의 `Edit(`/`Write(` 규칙, `hooks`, `sandbox` 중 하나라도 있으면 Claude 쓰기 역할을 `permission_scope_unverified`로 보류.
+- **C-3 prepare 정적 검사:** worktree `.claude/settings.json`·`.claude/settings.local.json`에 비어 있지 않은 `permissions.additionalDirectories`, `permissions.allow`의 쓰기 가능 규칙(v7: 안전 목록 `Bash`·`Read`·`Grep`·`Glob`·`WebFetch`·`WebSearch` 밖의 모든 도구 이름, 괄호 유무 무관), `hooks`, `sandbox` 중 하나라도 있으면 Claude 쓰기 역할을 `permission_scope_unverified`로 보류.
 - **v6 확정: C-3 + C-2.** C-1(`--setting-sources user`)은 project `CLAUDE.md` 로딩까지 끄므로(L4 (c)) 채택하지 않는다. C-3 보류는 bridge route의 Claude 쓰기 역할에 prepare와 run·resume(`buildBridgeInvocation`) 양쪽에서 적용하고, 설정 파일이 symlink이거나 파싱할 수 없으면 역시 보류한다.
 - **분기 (Q8 결정 반영, v3 기록):**
   - M-C5/6/7 모두 안전 → C-2만, "safe-mode가 project 권한·hook 무시"를 실측으로 문서화
@@ -236,3 +236,4 @@ M-K5–M-K16 **보류**: Grok API `402 Payment Required`(크레딧 소진). 사�
 | v4 | 2026-11-20 | 승인 | T2, T4 | plan 검토 결정: P-3에 `.codex` 추가(H10), C-1 쓰기 역할 한정 명시, 사용자 승인 |
 | v5 | 2026-11-20 | 승인 | T2 | T2 QA 발견 1: 세션 미식별과 위반이 겹치면 `unknown`(더 엄격한 hold) 유지로 AC4 정정. 사용자 결정 |
 | v6 | 2026-11-20 | 승인 | T4 | L4 (c): `--setting-sources user`가 project CLAUDE.md 로딩을 끔. F3을 C-3(prepare·run·resume 보류)+C-2로 변경. 사용자 결정 |
+| v7 | 2026-11-20 | 승인 | 최종 | 최종 Reviewer B1: trusted project `allow:["Write","Edit"]`가 C-3을 통과하고 바깥 Write 허용(실측). C-3 allow 검사를 안전 목록으로. N1 projection 표기 정규화, N2 하위 디렉터리 unreadable 상태값. 사용자 결정 |
