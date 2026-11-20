@@ -3,7 +3,7 @@
 > **실행 담당자 안내:** 이 plan은 Bounded 밀도로 작성했습니다(OD-9: Bounded이며 위험도는 significant). 진행 상황은 체크박스(`- [ ]`)로 표시합니다. 체크박스는 커밋 단위가 아닙니다. 승인된 최상위 작업 하나가 집중 커밋 하나에 대응합니다.
 
 - **목표:** 승인된 차이분 spec의 확정 편집 E1–E7(문서 4개 파일, 7곳)과 짝지은 테스트 문자열 TU-1을 적용합니다. `MANIFEST.sha256`과 golden은 다시 생성합니다. 의미는 바뀌지 않아야 합니다.
-- **정본 spec:** `docs/superpowers/specs/2026-11-20-harness-doc-refactor-2-design.md` (승인 당시 sha256 `40424434…806a1`, §11 OD-11 기록 추가 후 현재 sha256 `5eb62a91…b736`). 여기에 적지 않은 규칙은 1차 spec과 1차 plan(`2026-11-13-harness-doc-refactor*`)을 따릅니다.
+- **정본 spec:** `docs/superpowers/specs/2026-11-20-harness-doc-refactor-2-design.md` (승인 당시 sha256 `40424434…806a1`, §11 OD-11 기록 추가 후 v1(`0e3f237`) 시점 sha256 `5eb62a91…b736`, 이후 개정은 spec의 개정 이력 참조). 여기에 적지 않은 규칙은 1차 spec과 1차 plan(`2026-11-13-harness-doc-refactor*`)을 따릅니다.
 - **실행 대상:** `/Users/yunho/Desktop/project/arc/.claude/worktrees/harness-doc-refactor-2`, 브랜치 `refactor/harness-doc-refactor-2`, base `12aa9a3bbf9dc30243d69cb85a10b685d1162328`. `node_modules`와 `build/native`는 OD-11에 따라 준비되어 있고 둘 다 ignored 파일입니다.
 - **순서:** docs 커밋(spec과 plan) → T0 → T2 → 최종 Reviewer(1회). 1차와 ID를 맞추려고 T1과 T3은 비워 둡니다. 원천 편집과 bootstrap이 0건이라 해당 작업이 없습니다.
 - **역할:** T0 QA와 T2 QA는 매번 새로 배정하는 bridge QA(codex)입니다. T2 Implementer는 bridge(codex)이고 `allowedPaths`는 T2 허용 파일과 같습니다. 최종 Reviewer는 native입니다.
@@ -283,12 +283,27 @@ hold가 생기면 해당 작업만 멈추고 Orchestrator에 보고합니다. �
   - 원인은 fixture 가짜 CLI auth probe의 1,000ms 제한에 걸린 부하·동시 실행으로 추정한다.
 - 관찰: 공용 `.git`의 `FETCH_HEAD`와 refs 변경은 다른 세션의 동작이다(`watch-menu-upgrade-reapply`, `bridge-fetch-tolerance` 워크트리). T0·T2 dispatch의 `permission_violation_observed`도 이것 때문이다. 사용자 결정에 따라 외부 변경으로 기록했다.
 
+### 최종 검증 기록 (plan-level, 2026-11-20)
+
+- 최종 Reviewer(native, 1회, 대상 `12aa9a3..1123e9c`)는 승인 가능으로 판정했다. blocker와 major는 0건, minor는 3건이었다.
+  - AC2-11 기록: E1–E7과 TU-1의 강도·대상·조건·예외·우선순위·참조가 모두 그대로다.
+  - 놓친 대상 문장은 0건이다.
+- 지적 처리:
+  - R-1(spec §4 parity 문장): 사용자 승인으로 spec v2에서 정정했고, Reviewer 재확인에서 해소됐다.
+  - R-2(H1–H4 사유 표기): 사용자 승인으로 spec v2와 plan v3에서 정정했고, 재확인에서 해소됐다.
+  - R-3(Implementer 보고의 E2 위치 표기): 최종 보고에서 "Claude `worktree-creation.md:13`"으로 정리한다. 문서 변경은 없다.
+  - R-4(plan 머리말의 spec sha 표기, 재확인 중 발견): 사용자 승인으로 plan v4에서 정정했고, 재확인에서 해소됐다.
+  - 관찰: AC2-14의 "고유 줄(E1–E3) 외 플랫폼 간 차이가 보존된다"는 "대소문자 외 차이 보존"으로 해석한다. QA는 개정된 Q-C 기준으로 proven 판정했다.
+- 전체 상태: T0와 T2를 수락했고 최종 Reviewer 지적은 모두 해소됐다. AC2-13은 사용자 결정에 따라 환경 불안정으로 처분했다.
+
 ## 개정 이력
 
 | 버전 | 내용 | 승인 | 사유 |
 |---|---|---|---|
 | v1 | 최초 승인본(sha256 `c160907f…4088`) | 사용자 2026-11-20 | — |
 | v2 | Q-C의 gemini–grok `references/worktree-creation.md` 기대값을 `SAME`에서 `CASE_ONLY`(E4·E5)로 정정 | 사용자 2026-11-20T22:12:52+0900 | 6행의 플랫폼 이름 차이를 반영하지 못한 기대값 오류. 영향 작업은 T2 QA 재확인 |
+| v3 | 최종 보고 형식 5번의 H1–H4 R4 후보 사유를 "주체 생략"에서 "동사 없는 never 생략구"로 정정 | 사용자 2026-11-20T22:42:23+0900 | 최종 Reviewer minor R-2(1차 §4.1-4 hold 유형 표기 정정). 판정·AC 불변, 영향 작업 없음 |
+| v4 | 머리말의 spec sha 표기를 "현재"에서 "v1(`0e3f237`) 시점"으로 정정하고 spec 개정 이력을 참조하도록 함 | 사용자 2026-11-20T22:44:13+0900 | 최종 Reviewer 재확인 minor R-4(spec v2 정정의 부수 효과). 의미 불변 |
 
 ## 최종 보고 형식 (PL-6, Orchestrator가 작성)
 
@@ -296,7 +311,7 @@ hold가 생기면 해당 작업만 멈추고 Orchestrator에 보고합니다. �
 2. **제외 목록**(1차 §11.2 형식): superpowers 파일군, `docs/superpowers/**` 기존 파일, 코드와 설정(`*/skill/models.toml`, `lib/installer/language.mjs`, `lib/policy/render.mjs`, `lib/prompts/render.mjs`, `shared/skill/runtime/*.mjs`), 범위 기간에 바뀌지 않은 claude/codex `limits.md`·`arc-visual-companion.md`
 3. **불분명 목록:** `docs/harness-operation.md`(D5), `README.md`(OD-4), `gemini/GEMINI.md`·`gemini/instructions.md`·`grok/AGENTS.md`·`grok/instructions.md`(OD-5, 생성과 소비 경로 미확인)
 4. **hold 목록:** H1(새 hold, 1차 대응 미확인), H2, H3, H4, H5. OD-3 상속 hold의 gemini/grok 사본 위치. 실행 중 생긴 hold(예: golden)
-5. **R4 후보:** H1–H4, 모두 "주체 생략, 근거 미확인". 실행 중 새로 발견한 후보
+5. **R4 후보:** H1–H4, 모두 "동사 없는 never 생략구, 근거 미확인". 실행 중 새로 발견한 후보
 6. **`shared/skill/references/handoff-worktree.md:25/:32`:** 1차 개별 판정 귀속을 확인하지 못했습니다. `:25`는 비대상, `:32`는 hold로 처리했고 바이트는 바뀌지 않았습니다.
 7. **범위 밖 관찰:** OD-7 `lib/installer/language.mjs`의 Run mode 문구(제외, 수정 안 함)
 8. **검증 요약:** T0 표, T2 QA 결과(Q-A–Q-H), 최종 Reviewer 판정과 지적 처리, follow-up 커밋(있으면), 남은 hold

@@ -90,9 +90,9 @@ E1이 있는 `:10`의 같은 줄에는 hold H3(`never through a compound Git com
 
 | ID | 위치 | 원문 발췌 | 사유 | 묶음 |
 |---|---|---|---|---|
-| H1 (N12) | 4개 플랫폼 `skill/references/handoff-prep.md:90` | `Link commit SHA only in the canonical record, never the document.` | §4.1-4 주어가 생략된 구문이다. 1차 hold를 상속하는지는 개별 대조가 필요하다 | C/X/G/R 묶음 전체 hold |
+| H1 (N12) | 4개 플랫폼 `skill/references/handoff-prep.md:90` | `Link commit SHA only in the canonical record, never the document.` | §4.1-4 동사 없는 `never` 생략구다. 1차 hold를 상속하는지는 개별 대조가 필요하다 | C/X/G/R 묶음 전체 hold |
 | H2 (N14) | `claude/skill/references/worktree-creation.md:6`; `shared/skill/references/handoff-worktree.md:14` | `…, never remote HEAD/default branch or automatic fetch.` | 1차 생략구 hold 상속(T3-ledger:82) | claude·shared 같은 문장, 함께 hold |
-| H3 (N16) | `claude/skill/references/worktree-creation.md:10` | `Perform source checks before entry or after exit, never through a compound Git command in the isolated session.` | §4.1-4 주어가 생략된 절 | 고유 |
+| H3 (N16) | `claude/skill/references/worktree-creation.md:10` | `Perform source checks before entry or after exit, never through a compound Git command in the isolated session.` | §4.1-4 동사 없는 `never` 생략구 | 고유 |
 | H4 (N23) | `shared/skill/references/handoff-worktree.md:16` | `Collisions require new explicit choice, never automatic suffixes.` | 1차 생략구 hold 상속(T3-ledger:83) | 단일 파일 |
 | H5 | `shared/skill/references/handoff-worktree.md:32` | `Approved working revisions may differ from HEAD/index` | §4.1-3 허가와 가능성으로 모두 읽힌다. 1차 개별 판정은 확인하지 못했다 | 단일 파일 |
 
@@ -115,12 +115,12 @@ E1이 있는 `:10`의 같은 줄에는 hold H3(`never through a compound Git com
   - E3 구: gemini 1곳
   - E4–E7 구: gemini·grok 각 1곳
   - 이와 다른 위치가 나오면 그 위치를 묶음에 넣을지 판단해야 하므로 T2를 hold하고 보고한다.
-- **parity 검증**: 1차 §9 방식을 4개 플랫폼으로 넓힌다. 같은 이름의 파일 쌍(SKILL.md와 references)마다 플랫폼 간 diff를 변경 전후로 비교한다. 변경 후 diff는 변경 전 diff와 같아야 한다. 단, 고유 줄 편집 E1·E2·E3 때문에 생긴 차이는 대조표 행 ID로 설명돼야 한다. E4–E7은 gemini/grok 사이 diff를 바꾸지 않아야 한다.
+- **parity 검증**: 1차 §9 방식을 4개 플랫폼으로 넓힌다. 같은 이름의 파일 쌍(SKILL.md와 references)마다 플랫폼 간 diff를 변경 전후로 비교한다. 변경 후 diff는 변경 전 diff와 같아야 한다. 단, E1–E7 때문에 생긴 대소문자 차이는 대조표 행 ID로 설명돼야 한다. 고유 줄 편집 E1·E2·E3은 해당 플랫폼이 포함된 쌍에, E4–E7은 claude·codex와 gemini·grok 사이 쌍에 대소문자 차이를 만든다. gemini–grok 사이에서는 6행의 플랫폼 이름이 달라 그 줄이 diff에 남으므로 E4·E5가 대소문자 차이를 만들고, E6·E7은 두 파일의 같은 문장이라 diff를 바꾸지 않는다(plan v2 Q-C와 같다).
 
 ## 5. R4 구체화 (SP-5)
 
 - 원칙은 1차 §5(D6)와 같다. 저장소 안의 근거(path:line)로 원래 의도를 확인할 수 있을 때만, 주체·시점·대상을 명시하는 범위에서 구체화한다. 근거가 없거나 근거끼리 충돌하면 수정하지 않고 R4 후보로 보고한다. 묶음 문장은 모든 플랫폼에 근거가 있을 때만 함께 구체화한다.
-- 이번 범위의 R4 구체화는 **0건**이다. hold H1–H4는 주어가 생략된 구문이지만, 주어를 보충하면 행위 주체를 새로 정하는 것이 된다. 같은 규칙의 다른 위치 정의로 주체를 특정할 근거를 이번 판정에서 확인하지 않았다. 그래서 구체화하지 않는다. 최종 보고의 R4 후보 목록에는 H1–H4를 "주체 생략, 근거 미확인"으로 올린다.
+- 이번 범위의 R4 구체화는 **0건**이다. hold H1–H4는 동사 없는 `never` 생략구(1차 §4.1-4 hold 유형)다. 동사나 규범 강도를 보충하면 무엇을 금지하는지 새로 정하는 것이 된다. 같은 규칙의 다른 위치 정의로 그 내용을 특정할 근거를 이번 판정에서 확인하지 않았다. 그래서 구체화하지 않는다. 최종 보고의 R4 후보 목록에는 H1–H4를 "동사 없는 never 생략구, 근거 미확인"으로 올린다.
 - 구현 중 R4 후보를 새로 발견해도 편집하지 않고 보고한다(spec 범위 밖 편집 금지).
 
 ## 6. 통합(R3) (SP-6)
@@ -237,3 +237,10 @@ E1이 있는 `:10`의 같은 줄에는 hold H3(`never through a compound Git com
   - 실행 기록: target에 `node_modules`가 없어 첫 빌드가 `node-gyp` 미존재로 실패했다. 사용자 결정에 따라 target에서 `npm ci`(lockfile 기준 devDependencies `node-gyp@13.1.0`, `smol-toml@1.9.1`, 21개 패키지)를 실행한 뒤 다시 빌드해 성공했다(`Built darwin-arm64: 6f8a67d3…c4c3cd`). 이후 `git status --porcelain`은 spec 파일 1개만 표시했다(추적 파일 변경 0). `npm ci`는 EBADENGINE 경고(node v22.18.0)를 냈다. T0는 이 경고를 환경 정보로 기록한다.
 - bridge 역할 제약: bridge QA·Implementer 브리프에 heredoc·임시 파일 없이 실행할 수 있는 비교 방법(`git diff --word-diff`, `node -e` 한 줄 등)을 명시한다. `.git` 메타데이터를 바꾸는 명령(`git fetch`, `git gc` 등)은 금지한다.
 - P0-1의 독립 누락 검색은 T0 QA에서 잔존 스캔으로 대신한다(AC2-4).
+
+## 개정 이력
+
+| 버전 | 내용 | 승인 | 사유 |
+|---|---|---|---|
+| v1 | 최초 승인본(sha256 `40424434…806a1`). 승인된 §11 지시에 따라 OD-11 결정과 실행 기록을 덧붙였다(`5eb62a91…b736`, 커밋 `0e3f237`) | 사용자 2026-11-20 | — |
+| v2 | §3.2 H1·H3 사유와 §5 R4 후보 사유를 "주어 생략"에서 "동사 없는 `never` 생략구"로 정정. §4 parity 문장의 E4–E7 기대를 plan v2 Q-C와 일치시킴 | 사용자 2026-11-20T22:42:23+0900 | 최종 Reviewer minor R-1·R-2. 판정·범위·AC 불변, 영향 작업 없음 |
