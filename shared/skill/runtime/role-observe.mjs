@@ -7,9 +7,10 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
 import zlib from 'node:zlib';
-import {execFile} from 'node:child_process';
+import {execFile, spawnSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {DEFAULT_POLICY, CATALOG_MODEL_ALIASES} from './role-dispatch-policy.mjs';
+import {observeCooperativeTarget} from './scope.mjs';
 
 const execFileAsync = promisify(execFile);
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -253,6 +254,14 @@ const git = async (cwd, args, {allowFailure = false} = {}) => {
   }
 };
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
+
+/** Resolve the worktree root for a cwd that may be a subdirectory. */
+export async function resolveWorktree(cwd) {
+  const result = spawnSync('git', ['--no-pager', 'rev-parse', '--show-toplevel'], {cwd, env: gitEnv(), encoding: 'utf8', timeout: 10000});
+  if (result.error || result.status !== 0 || !result.stdout.endsWith('\n')) throw Error('Worktree root unavailable');
+  return observeCooperativeTarget(result.stdout.slice(0, -1));
+}
+
 async function contentDigest(filename) {
   let stat;
   try { stat = await fsp.lstat(filename); } catch (error) { return error.code === 'ENOENT' ? sha256('deleted') : sha256('unreadable'); }
@@ -261,6 +270,204 @@ async function contentDigest(filename) {
   return await new Promise(resolve => {
     const hash = crypto.createHash('sha256'), stream = fs.createReadStream(filename);
     stream.on('data', chunk => hash.update(chunk)); stream.on('end', () => resolve(hash.digest('hex'))); stream.on('error', () => resolve(sha256('unreadable')));
+  });
+}
+
+const missingTree = error => error.code === 'ENOENT' || error.code === 'ENOTDIR';
+const CONTROL_TREE_LIMIT = 1000;
+const controlStat = filename => fsp.lstat(filename).catch(error => {
+  if (missingTree(error)) return null;
+  throw error;
+});
+const sameControlEntry = (stat, current) => current?.dev === stat.dev && current?.ino === stat.ino;
+const entryIntact = async (filename, stat) => sameControlEntry(stat, await controlStat(filename));
+const rootIntact = async () => true;
+
+async function controlFileState(filename, {project, stat, parentIntact = rootIntact} = {}) {
+  let handle, bytes, digest;
+  let intact = parentIntact;
+  try {
+    if (!await parentIntact()) return 'changed';
+    stat ??= await controlStat(filename);
+    if (!stat) return sha256('deleted');
+    intact = async () => await parentIntact() && await entryIntact(filename, stat);
+    if (!await intact()) return 'changed';
+    if (stat.isSymbolicLink()) {
+      const target = await fsp.readlink(filename);
+      return await intact() ? `symlink:${target}` : 'changed';
+    }
+    if (!stat.isFile()) return sha256('directory');
+
+    // Refuse a replacement symlink and verify the opened file before reading bytes.
+    const {O_RDONLY, O_NOFOLLOW, O_NONBLOCK} = fs.constants;
+    handle = await fsp.open(filename, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+    if (!sameControlEntry(stat, await handle.stat()) || !await intact()) return 'changed';
+    if (project) {
+      bytes = await handle.readFile();
+    } else {
+      const hash = crypto.createHash('sha256');
+      for await (const chunk of handle.createReadStream({autoClose: false})) hash.update(chunk);
+      digest = hash.digest('hex');
+    }
+    if (!await intact()) return 'changed';
+  } catch {
+    return await intact().catch(() => true) ? sha256('unreadable') : 'changed';
+  } finally {
+    if (handle) await handle.close();
+  }
+  const projection = project ? project(bytes) : null;
+  return projection === null ? `${digest ?? sha256(bytes)}:${stat.dev}:${stat.ino}` : sha256('projection:' + projection);
+}
+
+async function snapshotControlTree(root, label) {
+  const entries = new Map();
+  const walk = async (dir, prefix, stat, parentIntact) => {
+    const intact = async () => await parentIntact() && await entryIntact(dir, stat);
+    const markChanged = () => {
+      for (const entry of entries.keys()) if (entry.startsWith(prefix + '/')) entries.delete(entry);
+      entries.set(prefix, 'changed');
+    };
+    if (!await intact()) return markChanged();
+    let names;
+    try { names = await fsp.readdir(dir); } catch (error) {
+      if (missingTree(error)) return markChanged();
+      const stillIntact = prefix === label ? await intact() : await intact().catch(() => true);
+      if (!stillIntact) return markChanged();
+      if (prefix !== label) {
+        entries.set(prefix + '/', 'unreadable');
+        return;
+      }
+      throw error;
+    }
+    if (!await intact()) return markChanged();
+    for (const name of names) {
+      if (name.endsWith('.lock')) continue;
+      if (!await intact()) return markChanged();
+      const filename = path.join(dir, name), entry = `${prefix}/${name}`;
+      let state;
+      try { state = await controlStat(filename); } catch {
+        entries.set(entry, sha256('unreadable'));
+      }
+      if (state?.isDirectory()) {
+        entries.set(entry + '/', `directory:${state.dev}:${state.ino}`);
+        if (entries.size <= CONTROL_TREE_LIMIT) await walk(filename, entry, state, intact);
+      } else if (state) {
+        entries.set(entry, await controlFileState(filename, {stat: state, parentIntact: intact}));
+      }
+      if (entries.size > CONTROL_TREE_LIMIT) break;
+    }
+    if (!await intact()) markChanged();
+  };
+
+  const stat = await controlStat(root);
+  if (!stat) return entries;
+  if (!stat.isDirectory()) return new Map([[label, await controlFileState(root, {stat})]]);
+  await walk(root, label, stat, rootIntact);
+  return entries.size > CONTROL_TREE_LIMIT ? new Map([[label, 'overflow']]) : entries;
+}
+
+async function snapshotWorktreeControlDirectory(worktree, name, files, entries) {
+  const dir = path.join(worktree, name), label = `worktree:${name}/`;
+  let stat;
+  try { stat = await controlStat(dir); } catch {
+    entries.set(label, sha256('unreadable'));
+    return;
+  }
+  if (stat && !stat.isDirectory()) {
+    entries.set(label, await controlFileState(dir, {stat}));
+    return;
+  }
+  const intact = async () => stat ? await entryIntact(dir, stat) : (await controlStat(dir)) === null;
+  const states = [];
+  for (const file of files) {
+    states.push(stat ? await controlFileState(path.join(dir, file), {parentIntact: intact}) : sha256('deleted'));
+  }
+  if (!await intact()) entries.set(label, 'changed');
+  else files.forEach((file, i) => entries.set(label + file, states[i]));
+}
+
+async function extraControlFileState({path: filename, project}) {
+  const parent = path.dirname(filename);
+  const stat = await controlStat(parent).catch(() => undefined);
+  if (stat === undefined) return sha256('unreadable');
+  if (!stat) return sha256('deleted');
+
+  const parentIntact = () => entryIntact(parent, stat).catch(() => false);
+  if (stat.isSymbolicLink()) {
+    const target = await fsp.readlink(parent).catch(() => null);
+    if (!await parentIntact()) return 'parent-changed';
+    return target === null ? sha256('unreadable') : `parent-symlink:${target}`;
+  }
+  if (!stat.isDirectory()) return 'parent-not-directory';
+  const state = await controlFileState(filename, {project, parentIntact});
+  return await parentIntact() ? state : 'parent-changed';
+}
+
+const CLAUDE_SAFE_ALLOW_TOOLS = new Set(['bash', 'read', 'grep', 'glob', 'webfetch', 'websearch']);
+
+function claudeSettingsScopeReason(bytes) {
+  let settings;
+  try { settings = JSON.parse(bytes.toString('utf8')); } catch { return 'invalid JSON'; }
+  if (!isObject(settings)) return null;
+  if (Object.hasOwn(settings, 'hooks')) return 'hooks';
+  if (Object.hasOwn(settings, 'sandbox')) return 'sandbox';
+  const {permissions} = settings;
+  if (!isObject(permissions)) return null;
+  if (permissions.additionalDirectories?.length > 0) return 'permissions.additionalDirectories';
+  if (Object.hasOwn(permissions, 'allow')) {
+    const {allow} = permissions;
+    if (!Array.isArray(allow) || allow.some(rule =>
+      typeof rule !== 'string' || !CLAUDE_SAFE_ALLOW_TOOLS.has(rule.split('(', 1)[0].trim().toLowerCase())
+    )) return 'permissions.allow';
+  }
+  if (Object.hasOwn(permissions, 'defaultMode')) return 'permissions.defaultMode';
+  return null;
+}
+
+/** Check Claude project and local settings before starting a writing bridge. */
+export async function claudeProjectSettingsWidenScope(worktree) {
+  for (const label of ['.claude/settings.json', '.claude/settings.local.json']) {
+    let scopeReason;
+    const state = await extraControlFileState({path: path.join(worktree, label), project: bytes => {
+      scopeReason = claudeSettingsScopeReason(bytes);
+      return 'claude-settings-read';
+    }}).catch(() => 'unreadable');
+    if (state === sha256('deleted')) continue;
+    if (state === sha256('projection:claude-settings-read')) {
+      if (scopeReason) return `${label}: ${scopeReason}`;
+      continue;
+    }
+    if (state === sha256('directory') || state.startsWith('symlink:')) return `${label}: not a regular file`;
+    return `${label}: settings path could not be verified`;
+  }
+  return null;
+}
+
+/** Snapshot of selected Git, worktree and optional platform control files. */
+export async function snapshotControlFiles({gitCommonDir, gitDir, worktree, extra = []}) {
+  if (![gitCommonDir, gitDir, worktree].every(dir => typeof dir === 'string' && path.isAbsolute(dir))) {
+    throw Error('Control snapshot requires absolute Git and worktree paths');
+  }
+  if (!(await fsp.lstat(gitCommonDir)).isDirectory()) throw Error('Git common directory is not a directory');
+  const files = [
+    {label: 'git:config', path: path.join(gitCommonDir, 'config')},
+    {label: 'git:config.worktree', path: path.join(gitDir, 'config.worktree')},
+  ];
+  const entries = new Map();
+  for (const file of files) entries.set(file.label, await controlFileState(file.path));
+  await snapshotWorktreeControlDirectory(worktree, '.claude', ['settings.json', 'settings.local.json'], entries);
+  await snapshotWorktreeControlDirectory(worktree, '.codex', ['config.toml'], entries);
+  for (const file of extra) entries.set(file.label, await extraControlFileState(file));
+  for (const tree of ['hooks', 'info']) {
+    for (const [label, state] of await snapshotControlTree(path.join(gitCommonDir, tree), `git:${tree}`)) entries.set(label, state);
+  }
+  return entries;
+}
+
+export function allowedPathsCoverControl(allowedPaths) {
+  return allowedPaths.some(entry => {
+    const normalized = path.posix.normalize(entry).replace(/\/$/, '').toLowerCase();
+    return normalized.startsWith('.git/') || ['.', '.git', '.claude', '.claude/settings.json', '.claude/settings.local.json', '.codex', '.codex/config.toml'].includes(normalized);
   });
 }
 
@@ -287,7 +494,7 @@ export async function snapshotWorktree(worktree) {
 }
 
 const allowedBy = (allowedPaths, file) => allowedPaths.some(entry => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
-/** Implementer and QA may change only allowedPaths (QA: none when empty or missing); read-only roles may change nothing; any HEAD, branch or ref change (created, deleted or moved) is a violation. Git-ignored paths are not observed. */
+/** Implementer and QA may change only allowedPaths (QA: none when empty or missing); read-only roles may change nothing; any HEAD, branch or ref change (created, deleted or moved) is a violation. Ordinary worktree snapshots omit Git-ignored paths; control files are compared regardless of allowedPaths and role. */
 export function detectViolations({role, allowedPaths, before, after}) {
   const headChanged = before.head !== after.head || before.branch !== after.branch;
   const refsBefore = before.refs ?? {}, refsAfter = after.refs ?? {};
@@ -296,5 +503,8 @@ export function detectViolations({role, allowedPaths, before, after}) {
   const changed = new Set();
   for (const file of new Set([...before.entries.keys(), ...after.entries.keys()])) if (before.entries.get(file) !== after.entries.get(file)) changed.add(file);
   const changedPaths = [...changed].filter(file => !allowedBy(allowed, file)).sort();
-  return {reason: headChanged || refsChanged || changedPaths.length ? 'permission_violation_observed' : null, changedPaths, headChanged, refsChanged};
+  const controlBefore = before.control ?? new Map(), controlAfter = after.control ?? new Map();
+  const controlChanged = [...new Set([...controlBefore.keys(), ...controlAfter.keys()])]
+    .filter(label => controlBefore.get(label) !== controlAfter.get(label)).sort();
+  return {reason: headChanged || refsChanged || changedPaths.length || controlChanged.length ? 'permission_violation_observed' : null, changedPaths, headChanged, refsChanged, controlChanged};
 }

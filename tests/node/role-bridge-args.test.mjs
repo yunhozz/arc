@@ -91,20 +91,36 @@ test('Claude argv per role matches spec 5.5', () => {
   assert.ok(planner.includes('--strict-mcp-config'));
   const loose = buildClaudeArgs({role: 'arc_planner', profile: claudeProfile('arc_planner'), policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G6: 'loose'}}});
   assert.ok(!loose.includes('--strict-mcp-config'));
-  assert.throws(() => buildClaudeArgs({role: 'arc_implementer', profile: claudeProfile('arc_implementer'), policy: passPolicy({G1: 'fail'})}), /sandbox/i);
   assert.throws(() => buildClaudeArgs({role: 'arc_qa', profile: claudeProfile('arc_qa'), policy: {...passPolicy(), claudeSandboxSettings: null}}), /sandbox/i);
 });
 
-test('default Claude argv applies the measured sandbox settings once and only to writing roles', () => {
-  const settings = {sandbox: {enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true}};
+test('Claude writing roles get D2 settings without --setting-sources', () => {
+  const settings = {
+    permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
+    sandbox: {
+      enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
+      filesystem: {denyWrite: ['./.git']},
+    },
+  };
   for (const role of ['arc_implementer', 'arc_qa']) {
     const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
+    assert.equal(args.includes('--setting-sources'), false, role);
     assert.equal(args.filter(arg => arg === '--settings').length, 1, role);
-    assert.equal(flagValue(args, '--settings'), JSON.stringify(settings), role);
+    assert.deepEqual(JSON.parse(flagValue(args, '--settings')), settings, role);
   }
+});
+
+test('Claude read roles get neither --settings nor --setting-sources', () => {
   for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer']) {
     const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
     assert.equal(args.includes('--settings'), false, role);
+    assert.equal(args.includes('--setting-sources'), false, role);
+  }
+});
+
+test('G1 fail still holds Claude writing roles', () => {
+  for (const role of ['arc_implementer', 'arc_qa']) {
+    assert.throws(() => buildClaudeArgs({role, profile: claudeProfile(role), policy: passPolicy({G1: 'fail'})}), /sandbox/i, role);
   }
 });
 

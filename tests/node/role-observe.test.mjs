@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import {renameSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import zlib from 'node:zlib';
 import {DEFAULT_POLICY, CODEX_DELEGATION_CALL_NAMES} from '../../lib/runtime/role-dispatch-policy.mjs';
+import {grokConfigSecurityProjection} from '../../lib/runtime/grok-sandbox.mjs';
+import * as roleObserve from '../../lib/runtime/role-observe.mjs';
 import {
   createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, matchModel, evaluateClaudeInit,
-  readClaudeTranscriptEffort, readCodexTurnContext, evaluateCodexContext, classifyFailure, snapshotWorktree, detectViolations
+  readClaudeTranscriptEffort, readCodexTurnContext, evaluateCodexContext, classifyFailure, snapshotWorktree, detectViolations,
+  snapshotControlFiles, allowedPathsCoverControl
 } from '../../lib/runtime/role-observe.mjs';
 
 const FIXTURES = new URL('./fixtures/role-bridge/', import.meta.url).pathname;
@@ -18,7 +22,12 @@ const tempDir = async t => {
   t.after(async () => { spawnSync('chmod', ['-R', 'u+rwx', dir]); await fs.rm(dir, {recursive: true, force: true}); });
   return dir;
 };
-const git = (cwd, ...args) => { const r = spawnSync('git', args, {cwd, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr); return r.stdout; };
+const git = (cwd, ...args) => {
+  const env = {...process.env, HOME: path.dirname(cwd), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
+  const r = spawnSync('git', args, {cwd, env, encoding: 'utf8'});
+  if (r.status !== 0) throw Error(r.stderr);
+  return r.stdout;
+};
 const makeRepo = async t => {
   const dir = path.join(await tempDir(t), 'repo');
   await fs.mkdir(dir);
@@ -29,6 +38,12 @@ const makeRepo = async t => {
   await fs.writeFile(path.join(dir, 'dirty.txt'), 'pre-existing local edit\n'); await fs.writeFile(path.join(dir, 'untracked-before.txt'), 'u\n');
   return dir;
 };
+
+test('fixture git uses a temporary HOME and disables global and system config', async t => {
+  const dir = await makeRepo(t);
+  const env = git(dir, '-c', 'alias.fixture-env=!printf "%s\\n" "$HOME" "$GIT_CONFIG_GLOBAL" "$GIT_CONFIG_NOSYSTEM"', 'fixture-env');
+  assert.deepEqual(env.trimEnd().split('\n'), [path.dirname(dir), '/dev/null', '1']);
+});
 
 test('line parser joins split chunks, ignores non-JSON and flags lines over 1 MiB', () => {
   const seen = [];
@@ -197,7 +212,7 @@ test('detectViolations on a repo with pre-existing dirty and untracked files', a
   assert.match(snap.entries.get('untracked-before.txt'), /^\?\?:[a-f0-9]{64}$/);
 
   // Review Focus 3: pre-existing dirty files untouched by a read-only role are not violations
-  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false});
+  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: []});
   // read-only role edits a tracked file, an already-dirty file, or creates a file
   for (const change of [() => fs.writeFile(path.join(dir, 'src/a.txt'), 'changed\n'), () => fs.writeFile(path.join(dir, 'dirty.txt'), 'edited again\n'), () => fs.writeFile(path.join(dir, 'new.txt'), 'n\n'), () => fs.rm(path.join(dir, 'untracked-before.txt'))]) {
     const result = await run('arc_scouter', undefined, change);
@@ -363,7 +378,7 @@ test('the policy alias list equals the short model names of the Claude catalog',
 
 test('snapshotWorktree records refs and detectViolations treats ref creation, deletion and movement as violations for every role', async t => {
   const dir = await makeRepo(t);
-  const git = (...args) => { const r = spawnSync('git', args, {cwd: dir, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr); return r.stdout; };
+  const gitHere = (...args) => git(dir, ...args);
   const check = async (role, allowedPaths, change) => {
     const before = await snapshotWorktree(dir);
     await change();
@@ -371,17 +386,338 @@ test('snapshotWorktree records refs and detectViolations treats ref creation, de
   };
   const snap = await snapshotWorktree(dir);
   assert.ok(Object.keys(snap.refs).some(name => name.startsWith('refs/heads/')));
-  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false});
-  const branch = await check('arc_implementer', ['src/'], async () => git('branch', 'side'));
+  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: []});
+  const branch = await check('arc_implementer', ['src/'], async () => gitHere('branch', 'side'));
   assert.equal(branch.refsChanged, true); assert.equal(branch.reason, 'permission_violation_observed'); assert.equal(branch.headChanged, false);
-  const tag = await check('arc_implementer', ['src/'], async () => git('tag', 'v1'));
+  const tag = await check('arc_implementer', ['src/'], async () => gitHere('tag', 'v1'));
   assert.equal(tag.refsChanged, true); assert.equal(tag.reason, 'permission_violation_observed');
-  const removed = await check('arc_qa', ['src/'], async () => git('branch', '-D', 'side'));
+  const removed = await check('arc_qa', ['src/'], async () => gitHere('branch', '-D', 'side'));
   assert.equal(removed.refsChanged, true);
-  git('branch', 'mover');
-  const moved = await check('arc_planner', undefined, async () => git('branch', '-f', 'mover', 'HEAD'));
+  gitHere('branch', 'mover');
+  const moved = await check('arc_planner', undefined, async () => gitHere('branch', '-f', 'mover', 'HEAD'));
   assert.equal(moved.refsChanged, false, 'a ref set to the same object is unchanged');
-  git('commit', '-q', '--allow-empty', '-m', 'next');
-  const forced = await check('arc_planner', undefined, async () => git('branch', '-f', 'mover', 'HEAD'));
+  gitHere('commit', '-q', '--allow-empty', '-m', 'next');
+  const forced = await check('arc_planner', undefined, async () => gitHere('branch', '-f', 'mover', 'HEAD'));
   assert.equal(forced.refsChanged, true);
+});
+
+const controlTarget = dir => ({gitCommonDir: path.join(dir, '.git'), gitDir: path.join(dir, '.git'), worktree: dir});
+const controlChange = async (target, change, {role = 'arc_implementer', allowedPaths = ['src/a.js']} = {}) => {
+  const snapshot = async () => ({
+    ...await snapshotWorktree(target.worktree),
+    control: await snapshotControlFiles(target),
+  });
+  const before = await snapshot();
+  await change();
+  return detectViolations({role, allowedPaths, before, after: await snapshot()});
+};
+const assertControlViolation = (result, label) => {
+  assert.deepEqual(result.controlChanged, [label]);
+  assert.equal(result.reason, 'permission_violation_observed');
+};
+
+test('control snapshot labels hook add, modify and delete; config; info/exclude; config.worktree', async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  git(dir, 'config', 'extensions.worktreeConfig', 'true');
+  const hook = path.join(target.gitCommonDir, 'hooks/pre-commit');
+  for (const change of [() => fs.writeFile(hook, 'first'), () => fs.writeFile(hook, 'second'), () => fs.unlink(hook)]) {
+    assertControlViolation(await controlChange(target, change), 'git:hooks/pre-commit');
+  }
+  assertControlViolation(await controlChange(target, () => git(dir, 'config', 'core.filemode', 'false')), 'git:config');
+  assertControlViolation(await controlChange(target, () => fs.appendFile(path.join(target.gitCommonDir, 'info/exclude'), '\nignored.txt\n')), 'git:info/exclude');
+  assertControlViolation(await controlChange(target, () => git(dir, 'config', '--worktree', 'core.filemode', 'true')), 'git:config.worktree');
+});
+
+test('git-ignored .claude/settings.local.json creation is a control violation with no changedPaths', async t => {
+  const dir = await makeRepo(t);
+  await fs.writeFile(path.join(dir, '.gitignore'), '.claude/settings.local.json\n');
+  await fs.mkdir(path.join(dir, '.claude'));
+  const result = await controlChange(controlTarget(dir), () => fs.writeFile(path.join(dir, '.claude/settings.local.json'), '{}'));
+  assert.deepEqual(result.changedPaths, []);
+  assertControlViolation(result, 'worktree:.claude/settings.local.json');
+});
+
+test('.codex/config.toml creation is labelled worktree:.codex/config.toml', async t => {
+  const dir = await makeRepo(t);
+  await fs.mkdir(path.join(dir, '.codex'));
+  const result = await controlChange(controlTarget(dir), () => fs.writeFile(path.join(dir, '.codex/config.toml'), 'model = "a"\n'));
+  assertControlViolation(result, 'worktree:.codex/config.toml');
+});
+
+test('extra entries are compared under their label', async t => {
+  const dir = await makeRepo(t), home = await tempDir(t);
+  const config = path.join(home, 'config.toml'), entry = {label: 'grok-home:config.toml', path: config};
+  await fs.writeFile(config, 'first');
+  const target = {...controlTarget(dir), extra: [entry]};
+  assertControlViolation(await controlChange(target, () => fs.writeFile(config, 'second')), 'grok-home:config.toml');
+  const projected = {...target, extra: [{...entry, project: () => 'same'}]};
+  const result = await controlChange(projected, async () => {
+    await fs.writeFile(path.join(home, 'new.toml'), 'third');
+    await fs.rename(path.join(home, 'new.toml'), config);
+  });
+  assert.deepEqual(result.controlChanged, []);
+  assert.equal(result.reason, null);
+});
+
+test('extra entry whose parent directory is a symlink is recorded without reading through it', async t => {
+  const dir = await makeRepo(t), home = await tempDir(t), outside = await tempDir(t);
+  const parent = path.join(home, '.grok'), config = path.join(parent, 'config.toml');
+  const label = 'grok-home:config.toml', bytes = 'permission_mode = "ask"\n';
+  await fs.mkdir(parent);
+  await fs.writeFile(config, bytes);
+  await fs.writeFile(path.join(outside, 'config.toml'), bytes);
+  const target = {...controlTarget(dir), extra: [{label, path: config, project: grokConfigSecurityProjection}]};
+  const before = await snapshotControlFiles(target);
+  await fs.rename(parent, path.join(home, 'original'));
+  await fs.symlink(outside, parent);
+  const after = await snapshotControlFiles(target);
+
+  assert.match(before.get(label), /^[a-f0-9]{64}$/);
+  assert.equal(after.get(label), `parent-symlink:${outside}`);
+  const worktree = {entries: new Map()};
+  assertControlViolation(detectViolations({
+    role: 'arc_implementer', before: {...worktree, control: before}, after: {...worktree, control: after},
+  }), label);
+});
+
+test('extra entry records a non-directory parent', async t => {
+  const dir = await makeRepo(t), home = await tempDir(t);
+  const parent = path.join(home, '.grok'), label = 'grok-home:config.toml';
+  await fs.writeFile(parent, 'not a directory');
+  const states = await snapshotControlFiles({
+    ...controlTarget(dir), extra: [{label, path: path.join(parent, 'config.toml')}],
+  });
+  assert.equal(states.get(label), 'parent-not-directory');
+});
+
+test('extra entry records a parent replacement after reading', async t => {
+  const dir = await makeRepo(t), home = await tempDir(t);
+  const parent = path.join(home, '.grok'), replacement = path.join(home, 'replacement');
+  const config = path.join(parent, 'config.toml'), label = 'grok-home:config.toml';
+  await fs.mkdir(parent);
+  await fs.mkdir(replacement);
+  await fs.writeFile(config, 'permission_mode = "ask"\n');
+  const project = bytes => {
+    renameSync(parent, path.join(home, 'original'));
+    renameSync(replacement, parent);
+    return grokConfigSecurityProjection(bytes);
+  };
+  const states = await snapshotControlFiles({...controlTarget(dir), extra: [{label, path: config, project}]});
+  assert.equal(states.get(label), 'parent-changed');
+});
+
+test('multiline Grok config detects edits inside non-security strings', async t => {
+  const dir = await makeRepo(t), home = await tempDir(t);
+  const config = path.join(home, 'config.toml'), label = 'grok-home:config.toml';
+  const bytes = 'description = """\nfirst line\n"""\npermission_mode = "ask"\n';
+  await fs.writeFile(config, bytes);
+  const target = {...controlTarget(dir), extra: [{label, path: config, project: grokConfigSecurityProjection}]};
+  assertControlViolation(await controlChange(target, () => fs.writeFile(config, bytes.replace('first line', 'edited line'))), label);
+});
+
+for (const [parent, name, label] of [
+  ['.claude', 'settings.json', 'worktree:.claude/'],
+  ['.codex', 'config.toml', 'worktree:.codex/'],
+  ['.git/hooks', 'pre-commit', 'git:hooks'],
+  ['.git/info/nested', 'config', 'git:info/nested'],
+]) {
+  test(`control snapshot records a symlink replacing ${parent} without reading its target`, async t => {
+    const dir = await makeRepo(t), outside = await tempDir(t), target = controlTarget(dir);
+    const watched = path.join(dir, parent);
+    await fs.mkdir(watched, {recursive: true});
+    await fs.writeFile(path.join(watched, name), 'same bytes');
+    await fs.writeFile(path.join(outside, name), 'same bytes');
+
+    const result = await controlChange(target, async () => {
+      await fs.rename(watched, path.join(path.dirname(dir), 'original'));
+      await fs.symlink(outside, watched);
+    });
+    assert.equal(result.reason, 'permission_violation_observed');
+    assert.ok(result.controlChanged.includes(label));
+    const after = await snapshotControlFiles(target);
+    assert.equal(after.get(label), `symlink:${outside}`);
+    assert.ok(!after.has(`${label.replace(/\/$/, '')}/${name}`));
+  });
+}
+
+test('replacement by an identical new file or a symlink is detected', async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  const hook = path.join(target.gitCommonDir, 'hooks/pre-commit');
+  const replacement = path.join(target.gitCommonDir, 'replacement');
+  await fs.writeFile(hook, 'same bytes');
+  await fs.writeFile(replacement, 'same bytes');
+  assertControlViolation(await controlChange(target, () => fs.rename(replacement, hook)), 'git:hooks/pre-commit');
+  assertControlViolation(await controlChange(target, async () => {
+    await fs.unlink(hook);
+    await fs.symlink('pre-commit.sample', hook);
+  }), 'git:hooks/pre-commit');
+});
+
+test('more than 1000 hook entries collapse to one overflow state', async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  const hooks = path.join(target.gitCommonDir, 'hooks');
+  await fs.rm(hooks, {recursive: true, force: true});
+  await fs.mkdir(hooks);
+  for (let i = 0; i < 1000; i++) await fs.writeFile(path.join(hooks, String(i)), '');
+  const before = await snapshotControlFiles(target);
+  assert.equal(before.get('git:hooks'), undefined);
+  assert.equal([...before].filter(([label]) => label.startsWith('git:hooks/')).length, 1000);
+  const result = await controlChange(target, () => fs.writeFile(path.join(hooks, '1000'), ''));
+  assert.equal(result.reason, 'permission_violation_observed');
+  assert.ok(result.controlChanged.includes('git:hooks'));
+  const after = await snapshotControlFiles(target);
+  assert.deepEqual([...after].filter(([label]) => label.startsWith('git:hooks')), [['git:hooks', 'overflow']]);
+});
+
+test('arc, index, objects, logs and lock files are ignored', async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  const result = await controlChange(target, async () => {
+    await fs.mkdir(path.join(target.gitCommonDir, 'arc'));
+    await fs.writeFile(path.join(target.gitCommonDir, 'arc/x'), 'lease');
+    await fs.writeFile(path.join(dir, 'src/a.js'), 'allowed');
+    git(dir, 'add', 'src/a.js');
+    await fs.appendFile(path.join(target.gitCommonDir, 'logs/HEAD'), '\n');
+    await fs.writeFile(path.join(target.gitCommonDir, 'objects/test-entry'), 'object');
+    await fs.writeFile(path.join(target.gitCommonDir, 'info/exclude.lock'), 'lock');
+  });
+  assert.deepEqual(result.controlChanged, []);
+  assert.equal(result.reason, null);
+});
+
+test('unchanged control files and absent .claude/.codex give no reason', async t => {
+  const dir = await makeRepo(t);
+  const result = await controlChange(controlTarget(dir), async () => {});
+  assert.deepEqual(result.controlChanged, []);
+  assert.equal(result.reason, null);
+});
+
+test('allowedPaths and read roles do not exempt control files', async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  await fs.mkdir(path.join(dir, '.claude'));
+  for (const role of ['arc_implementer', 'arc_reviewer']) {
+    const result = await controlChange(target, () => fs.writeFile(path.join(dir, '.claude/settings.json'), role), {role, allowedPaths: ['.claude/']});
+    assertControlViolation(result, 'worktree:.claude/settings.json');
+  }
+});
+
+test('linked worktree sees common hooks and its own config.worktree', async t => {
+  const dir = await makeRepo(t), worktree = path.join(path.dirname(dir), 'linked');
+  git(dir, 'config', 'extensions.worktreeConfig', 'true');
+  git(dir, 'worktree', 'add', '--detach', worktree);
+  const target = {
+    gitCommonDir: path.join(dir, '.git'),
+    gitDir: git(worktree, 'rev-parse', '--absolute-git-dir').trim(),
+    worktree,
+  };
+  assertControlViolation(await controlChange(target, () => fs.writeFile(path.join(target.gitCommonDir, 'hooks/post-checkout'), 'test')), 'git:hooks/post-checkout');
+  assertControlViolation(await controlChange(target, () => git(worktree, 'config', '--worktree', 'core.filemode', 'true')), 'git:config.worktree');
+});
+
+test('snapshotControlFiles rejects relative paths, a missing gitCommonDir and an unreadable hooks directory', async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  for (const key of ['gitCommonDir', 'gitDir', 'worktree']) {
+    await assert.rejects(snapshotControlFiles({...target, [key]: 'relative'}));
+  }
+  await assert.rejects(snapshotControlFiles({...target, gitCommonDir: path.join(dir, 'missing')}));
+  await t.test('unreadable hooks directory', {skip: process.getuid?.() === 0}, async () => {
+    const hooks = path.join(target.gitCommonDir, 'hooks'), {mode} = await fs.stat(hooks);
+    await fs.chmod(hooks, 0o000);
+    try {
+      await assert.rejects(snapshotControlFiles(target), {code: 'EACCES'});
+    } finally {
+      await fs.chmod(hooks, mode);
+    }
+  });
+});
+
+test('snapshotControlFiles records an unreadable hooks subdirectory as a control change', {skip: process.getuid?.() === 0}, async t => {
+  const dir = await makeRepo(t), target = controlTarget(dir);
+  const subdir = path.join(target.gitCommonDir, 'hooks/x'), label = 'git:hooks/x/';
+  await t.test('unreadable subtree', async t => {
+    const result = await controlChange(target, async () => {
+      await fs.mkdir(subdir);
+      t.after(() => fs.chmod(subdir, 0o700));
+      await fs.chmod(subdir, 0o000);
+    });
+    assertControlViolation(result, label);
+    assert.equal((await snapshotControlFiles(target)).get(label), 'unreadable');
+  });
+});
+
+test('claudeProjectSettingsWidenScope checks both project settings files', async t => {
+  const cases = [
+    ['absent settings', null, null],
+    ['benign settings', '{"permissions":{"allow":["Bash(npm test)"],"additionalDirectories":[]},"env":{"A":"1"}}', null],
+    ['symlink', 'symlink', /regular file/],
+    ['directory', 'directory', /regular file/],
+    ['invalid JSON', '{', /invalid JSON/],
+    ['additionalDirectories', '{"permissions":{"additionalDirectories":["../outside"]}}', /additionalDirectories/],
+    ...['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].map(tool => [tool, `{"permissions":{"allow":["Bash(npm test)","${tool}(src/**)"]}}`, /permissions\.allow/]),
+    ['hooks', '{"hooks":{}}', /hooks/],
+    ['sandbox', '{"sandbox":null}', /sandbox/],
+    ['defaultMode', '{"permissions":{"defaultMode":"default"}}', /defaultMode/],
+  ];
+  for (const [name, contents, expected] of cases) {
+    await t.test(name, async t => {
+      const worktree = await tempDir(t);
+      const settings = path.join(worktree, '.claude/settings.local.json');
+      if (contents !== null) {
+        await fs.mkdir(path.dirname(settings));
+        await fs.writeFile(path.join(worktree, '.claude/settings.json'), '{}');
+        if (contents === 'symlink') await fs.symlink('settings.json', settings);
+        else if (contents === 'directory') await fs.mkdir(settings);
+        else await fs.writeFile(settings, contents);
+      }
+      const result = await roleObserve.claudeProjectSettingsWidenScope?.(worktree);
+      if (expected === null) assert.equal(result, null);
+      else {
+        assert.match(result, expected);
+        assert.match(result, /\.claude\/settings\.local\.json/);
+      }
+    });
+  }
+});
+
+test('claudeProjectSettingsWidenScope allows only safe tool names in permissions.allow', async t => {
+  const held = [['Write'], ['Edit'], [' Edit(//x/**)'], ['write(src/**)'], ['*'], ['mcp__srv__tool'], [1], 'Write'];
+  const cases = [
+    ...held.map(allow => [allow, '.claude/settings.json: permissions.allow']),
+    [['Bash(npm test)', 'Read', 'Grep(**)', 'Glob', 'WebFetch(domain:x)', 'WebSearch'], null],
+    [[' bash (npm test)', 'READ'], null],
+  ];
+  for (const [allow, expected] of cases) {
+    await t.test(JSON.stringify(allow), async t => {
+      const worktree = await tempDir(t), settings = path.join(worktree, '.claude/settings.json');
+      await fs.mkdir(path.dirname(settings));
+      await fs.writeFile(settings, JSON.stringify({permissions: {allow}}));
+      const result = await roleObserve.claudeProjectSettingsWidenScope(worktree);
+      assert.equal(result, expected);
+    });
+  }
+});
+
+test('claudeProjectSettingsWidenScope holds when .claude is a symlink even without settings files', async t => {
+  await t.test('symlink to an empty outside directory', async t => {
+    const worktree = await tempDir(t);
+    const outside = await tempDir(t);
+    await fs.symlink(outside, path.join(worktree, '.claude'));
+    assert.ok(await roleObserve.claudeProjectSettingsWidenScope(worktree));
+  });
+
+  await t.test('regular file', async t => {
+    const worktree = await tempDir(t);
+    await fs.writeFile(path.join(worktree, '.claude'), '');
+    assert.ok(await roleObserve.claudeProjectSettingsWidenScope(worktree));
+  });
+});
+
+test('allowedPathsCoverControl', () => {
+  for (const entry of ['.git/', '.git', '.git/hooks/pre-commit', './.git/config', '.GIT/hooks/', '.claude/', '.claude',
+    '.claude/settings.json', '.claude/settings.local.json', '.Claude/Settings.json', '.codex/', '.codex/config.toml', '.', './']) {
+    assert.equal(allowedPathsCoverControl([entry]), true, entry);
+  }
+  for (const entry of ['src/a.js', '.claude/agents/x.md', '.github/', '.gitignore', '.claude-plugin/x', '.codexrc']) {
+    assert.equal(allowedPathsCoverControl([entry]), false, entry);
+  }
+  assert.equal(allowedPathsCoverControl([]), false);
 });

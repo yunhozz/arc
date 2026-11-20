@@ -304,3 +304,92 @@ test('AC7 event reader scans only the appended interval and preserves the file',
   });
   assert.equal(fs.readFileSync(events, 'utf8'), eventLine().repeat(2));
 });
+
+test('grokConfigSecurityProjection keeps only security keys', () => {
+  const project = source => sandbox.grokConfigSecurityProjection(Buffer.from(source));
+  const config = 'model = "a"\npermission_mode = "ask"\n[compat.claude]\nagents = false';
+  const expected = '\tpermission_mode = "ask"\ncompat.claude\t[compat.claude]\ncompat.claude\tagents = false';
+  assert.equal(project(config), expected);
+  for (const source of [
+    config.replace('"a"', '"b"'),
+    '# display preferences\n' + config,
+    config + '\n[ui]\ntheme = "dark"',
+  ]) assert.equal(project(source), expected);
+  for (const source of [
+    config.replace('"ask"', '"always-approve"'),
+    config.replace('agents = false', 'agents = true'),
+    'sandbox_profile = "x"\n' + config,
+    config + '\n[sandbox]\nmode = "workspace"',
+  ]) assert.notEqual(project(source), expected);
+  assert.equal(project('model = """multi\nline"""'), null);
+  assert.equal(project("model = '''multi\nline'''"), null);
+  assert.equal(project([0xff]), null);
+});
+
+test('grokConfigSecurityProjection includes quoted and dotted security keys', async t => {
+  const model = 'model = "a"\n';
+  for (const change of [
+    '"permission_mode" = "always-approve"',
+    'sandbox.x = 1',
+    '"sandbox".x = 1',
+    'compat . claude . agents = true',
+    '[ "compat" . claude ]\nagents = true',
+  ]) {
+    await t.test(change, () => {
+      const projection = sandbox.grokConfigSecurityProjection(Buffer.from(model + change));
+      assert.equal(typeof projection, 'string');
+      assert.ok(projection.includes(change.split('\n').at(-1)));
+    });
+  }
+  assert.equal(sandbox.grokConfigSecurityProjection(Buffer.from('"sandbox.x" = 1')), '');
+});
+
+test('grokConfigSecurityProjection falls back for escaped or unbalanced keys', async t => {
+  for (const config of ['"sand\\u0062ox".x = 1', '"sandbox.x = 1']) {
+    await t.test(config, () => {
+      assert.equal(sandbox.grokConfigSecurityProjection(Buffer.from(config)), null);
+    });
+  }
+});
+
+test('grokConfigSecurityProjection keeps the root table across nested array values', () => {
+  const project = source => sandbox.grokConfigSecurityProjection(Buffer.from(source));
+  const config = 'x = [\n[1]\n]\n';
+  assert.equal(project(config), '');
+  assert.equal(project(config + 'permission_mode = "always-approve"'), '\tpermission_mode = "always-approve"');
+});
+
+test('grokConfigSecurityProjection detects changes inside a multiline sandbox array', () => {
+  const project = source => sandbox.grokConfigSecurityProjection(Buffer.from(source));
+  const config = 'sandbox_paths = [\n"/a"\n]\n';
+  const before = project(config);
+  const after = project(config.replace('/a', '/b'));
+  assert.equal(typeof before, 'string');
+  assert.equal(typeof after, 'string');
+  assert.notEqual(after, before);
+});
+
+test('grokConfigSecurityProjection includes permission_mode anywhere in the effective path', () => {
+  const project = source => sandbox.grokConfigSecurityProjection(Buffer.from(source));
+  assert.equal(project('[ui]\npermission_mode = "x"'), 'ui\tpermission_mode = "x"');
+  assert.equal(project('ui.permission_mode.override = true'), '\tui.permission_mode.override = true');
+});
+
+test('grokConfigSecurityProjection ignores array brackets in strings and comments', () => {
+  const config = [
+    'x = [ # ]',
+    '"escaped quote: \\" and bracket: ]",',
+    "'literal quote: \" and bracket: [',",
+    ']',
+    'permission_mode = "ask"',
+  ].join('\n');
+  assert.equal(sandbox.grokConfigSecurityProjection(Buffer.from(config)), '\tpermission_mode = "ask"');
+});
+
+test('grokConfigSecurityProjection falls back for an unclosed array or a value quote spanning lines', async t => {
+  for (const config of ['x = [\n1', 'x = [\n"first\nsecond"\n]']) {
+    await t.test(config, () => {
+      assert.equal(sandbox.grokConfigSecurityProjection(Buffer.from(config)), null);
+    });
+  }
+});

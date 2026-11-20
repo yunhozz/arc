@@ -806,6 +806,76 @@ process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stri
   }
 });
 
+test('writing role changing a git hook fails permission_violation_observed with a controlFiles label and keeps the file', async t => {
+  const f = await setup(t, {roles: {arc_implementer: 'codex'}});
+  const hook = path.join(f.cwd, '.git/hooks/pre-commit');
+  const content = '# Changed by the fake child\n';
+  await f.codex.setScenario(codexOk(f, 93, {writes: [{path: hook, content}]}, {sandbox: 'workspace-write'}));
+  const prepared = await prepare(f, 'arc_implementer', {extra: {allowedPaths: ['a.txt']}});
+  await run(f, prepared.dispatchId);
+  const done = await settle(f, prepared.dispatchId);
+  assert.equal(done.routeStatus, 'failed');
+  assert.deepEqual(codes(done), ['permission_violation_observed']);
+  assert.deepEqual((await recordOf(f, prepared.dispatchId)).controlFiles, {changed: ['git:hooks/pre-commit']});
+  assert.equal(await fs.readFile(hook, 'utf8'), content);
+});
+
+test('read role creating .claude/settings.local.json fails permission_violation_observed', async t => {
+  const f = await claudeSetup(t, {roles: {arc_reviewer: 'claude'}});
+  const file = path.join(f.cwd, '.claude/settings.local.json');
+  await fs.writeFile(path.join(f.cwd, '.gitignore'), '.claude/settings.local.json\n');
+  await f.claude.setScenario({
+    events: [claudeInit(claudeTools(f, 'reviewer')), claudeResult()],
+    writes: [transcript(f), {path: file, content: '{}'}],
+  });
+  const prepared = await prepare(f, 'arc_reviewer');
+  await run(f, prepared.dispatchId);
+  const done = await settle(f, prepared.dispatchId);
+  assert.equal(done.routeStatus, 'failed');
+  assert.deepEqual(codes(done), ['permission_violation_observed']);
+  const record = await recordOf(f, prepared.dispatchId);
+  assert.deepEqual(record.violations.changedPaths, []);
+  assert.deepEqual(record.controlFiles, {changed: ['worktree:.claude/settings.local.json']});
+  assert.equal(await fs.readFile(file, 'utf8'), '{}');
+});
+
+test('unreadable hooks directory before spawn fails execution_failed without spawning', {skip: process.getuid?.() === 0}, async t => {
+  const f = await setup(t);
+  await f.codex.setScenario(codexOk(f, 94));
+  const prepared = await prepare(f, 'arc_planner');
+  const hooks = path.join(f.cwd, '.git/hooks');
+  const permissions = await mode(hooks);
+  await fs.chmod(hooks, 0o000);
+  try {
+    await run(f, prepared.dispatchId);
+    const done = await settle(f, prepared.dispatchId);
+    assert.equal(done.routeStatus, 'failed');
+    assert.deepEqual(codes(done), ['execution_failed']);
+    assert.equal((await recordOf(f, prepared.dispatchId)).spawned, false);
+    assert.deepEqual(await records(f.codex), []);
+  } finally {
+    await fs.chmod(hooks, permissions);
+  }
+});
+
+test('clean run with git status inside the child completes', async t => {
+  const f = await setup(t);
+  await f.codex.setScenario(codexOk(f, 95));
+  const cli = path.join(f.binDir, 'codex');
+  const source = await fs.readFile(cli, 'utf8');
+  const marker = "let stdin='';";
+  assert.ok(source.includes(marker));
+  await fs.writeFile(cli, source.replace(marker, `
+ if(cp.spawnSync('git',['status','--short'],{stdio:'ignore'}).status!==0)process.exit(9);
+ ${marker}`));
+  const prepared = await prepare(f, 'arc_planner');
+  await run(f, prepared.dispatchId);
+  const done = await settle(f, prepared.dispatchId);
+  assert.equal(done.routeStatus, 'completed', JSON.stringify(done.reasons));
+  assert.deepEqual(codes(done), []);
+  assert.equal((await recordOf(f, prepared.dispatchId)).controlFiles, undefined);
+});
+
 test('routing commands are denied inside a bridge child (ARC_BRIDGE_CHILD set) and nothing is reserved or started', async t => {
   const f = await setup(t);
   const base = {hostPlatform: 'claude', executionEnvironment: 'claude-cli'};

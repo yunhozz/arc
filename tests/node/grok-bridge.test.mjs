@@ -404,6 +404,31 @@ for (const role of ['arc_implementer', 'arc_qa']) test(`AC6 supervisor creates a
   await assert.rejects(fs.lstat(path.dirname(file)), {code: 'ENOENT'});
 });
 
+for (const [name, line, label, noIdentity] of [
+  ['Grok write role changing permission_mode in grok-home config.toml fails permission_violation_observed', 'permission_mode = "always-approve"\n', 'grok-home:config.toml'],
+  ['Grok write role adding a non-security key to grok-home config.toml completes', 'model = "grok-test"\n', null],
+  ['Grok missing session id keeps a control file violation on an unknown route', 'permission_mode = "always-approve"\n', 'grok-home:config.toml', true],
+]) test(name, async t => {
+  const f = await fixture(t, noIdentity ? {ARC_FAKE_GROK_SCENARIO: 'no-end'} : {}, false, writingPolicy);
+  await configureSandboxEvents(f, 'valid');
+  const config = path.join(f.homes.grok, 'config.toml');
+  const original = 'permission_mode = "ask"\n';
+  const content = label ? line : original + line;
+  await fs.writeFile(config, original);
+  const cli = path.join(f.base, 'bin', 'grok');
+  const source = await fs.readFile(cli, 'utf8');
+  assert.match(source, /^let stdin/m);
+  await fs.writeFile(cli, source.replace('let stdin', `await fs.writeFile(path.join(process.env.GROK_HOME, 'config.toml'), ${JSON.stringify(content)});\nlet stdin`));
+  const prepared = await f.prepare('arc_implementer');
+  assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+  const done = await f.run(prepared.dispatchId);
+  assert.equal(done.routeStatus, noIdentity ? 'unknown' : label ? 'failed' : 'completed', JSON.stringify(done));
+  if (noIdentity) assert.ok(codes(done).includes('permission_violation_observed'));
+  else assert.deepEqual(codes(done), label ? ['permission_violation_observed'] : []);
+  assert.deepEqual((await dispatchRecord(f, prepared.dispatchId)).controlFiles, label ? {changed: [label]} : undefined);
+  assert.equal(await fs.readFile(config, 'utf8'), content);
+});
+
 for (const scenario of ['absent', 'not-enforced', 'refused', 'rotated', 'truncated']) {
   test(`AC7 Grok writing dispatch cannot complete with ${scenario} application evidence`, async t => {
     const f = await fixture(t, {}, false, writingPolicy);

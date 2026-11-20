@@ -8,6 +8,7 @@ import {BRIDGE_GATE_RESULTS, CLAUDE_SANDBOX_SETTINGS, DESKTOP_CHECKLIST_PASSED, 
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
 import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
+import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
 
 const DAY = 86400000;
 const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 300, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
@@ -28,10 +29,20 @@ test('default bridge policy passes G1 and GK1, holds Desktop and requires per-ca
   assert.equal(DEFAULT_POLICY.gates, BRIDGE_GATE_RESULTS);
 });
 
-test('CLAUDE_SANDBOX_SETTINGS records the measured D1 object, deep-frozen', () => {
-  assert.deepEqual(CLAUDE_SANDBOX_SETTINGS, {sandbox: {enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true}});
+test('CLAUDE_SANDBOX_SETTINGS records the measured D2 object, deep-frozen', () => {
+  assert.deepEqual(CLAUDE_SANDBOX_SETTINGS, {
+    permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
+    sandbox: {
+      enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
+      filesystem: {denyWrite: ['./.git']},
+    },
+  });
   assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS), true);
+  assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS.permissions), true);
+  assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS.permissions.deny), true);
   assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS.sandbox), true);
+  assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS.sandbox.filesystem), true);
+  assert.equal(Object.isFrozen(CLAUDE_SANDBOX_SETTINGS.sandbox.filesystem.denyWrite), true);
   assert.equal(DEFAULT_POLICY.claudeSandboxSettings, CLAUDE_SANDBOX_SETTINGS);
 });
 
@@ -534,4 +545,70 @@ test('routing-status and prepare-dispatch report Unauthorized for a withheld Cod
   }
  }
  assert.equal(await leaseCount(f),0);
+});
+
+test('prepare holds permission_scope_unverified when allowedPaths cover a control file', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_implementer: 'codex', arc_qa: 'claude'}});
+  await okClis(f);
+  await t.test('native prepare allows a control-covering path', async () => {
+    const result = await prepare(f, request('arc_qa', {allowedPaths: ['.claude/settings.json']}));
+    assert.equal(result.route, 'native');
+    assert.equal(result.decision, 'allow');
+    assert.equal((await readLease(f.claudeHome, result.dispatchId)).state, 'reserved');
+  });
+  for (const entry of ['.claude/settings.json', '.git/hooks/', '.codex/config.toml']) {
+    const result = await prepare(f, request('arc_implementer', {allowedPaths: [entry]}));
+    assert.equal(result.decision, 'hold', entry);
+    assert.ok(codes(result).includes('permission_scope_unverified'), entry);
+    assert.equal(result.dispatchId, null, entry);
+  }
+  assert.equal(await leaseCount(f), 1);
+});
+
+test('buildBridgeInvocation rejects control-covering allowedPaths before reading the profile', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_implementer: 'codex'}});
+  await assert.rejects(buildBridgeInvocation({
+    lease: {role: 'arc_implementer', allowedPaths: ['.claude/settings.json']},
+    config: {roles: {arc_implementer: {platform: 'codex'}}},
+    homes: {codex: path.join(f.codexHome, 'missing')},
+  }), {reasonCode: 'permission_scope_unverified'});
+});
+
+test('prepare holds Claude writing bridges for widening settings at the worktree root', async t => {
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_implementer: 'claude', arc_planner: 'claude'}});
+  await okClis(f);
+  const cwd = path.join(f.cwd, 'src');
+  await fs.mkdir(cwd);
+  await fs.mkdir(path.join(f.cwd, '.claude'));
+  await fs.writeFile(path.join(f.cwd, '.claude/settings.json'), '{"permissions":{"additionalDirectories":["../outside"]}}');
+  const result = await prepare(f, request('arc_implementer'), {context: f.context({cwd})});
+  assert.equal(result.route, 'bridge');
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(result.dispatchId, null);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('prepare allows a native Claude writing role and a Claude read bridge with widening settings', async t => {
+  for (const [hostPlatform, role, route] of [['claude', 'arc_implementer', 'native'], ['codex', 'arc_planner', 'bridge']]) {
+    const f = await createRoutingFixture(t, {hostPlatform, roles: {[role]: 'claude'}});
+    await okClis(f);
+    await fs.mkdir(path.join(f.cwd, '.claude'));
+    await fs.writeFile(path.join(f.cwd, '.claude/settings.json'), '{"permissions":{"additionalDirectories":["../outside"]}}');
+    const result = await prepare(f, request(role));
+    assert.equal(result.route, route);
+    assert.equal(result.decision, 'allow');
+    assert.equal((await readLease(f.claudeHome, result.dispatchId)).state, 'reserved');
+  }
+});
+
+test('buildBridgeInvocation holds Claude QA run and resume when local settings contain hooks', async t => {
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_qa: 'claude'}});
+  await fs.mkdir(path.join(f.cwd, '.claude'));
+  await fs.writeFile(path.join(f.cwd, '.claude/settings.local.json'), '{"hooks":{}}');
+  for (const segment of [0, 1]) {
+    await assert.rejects(buildBridgeInvocation({
+      lease: {role: 'arc_qa', segment}, config: f.config, homes: f.homes, worktree: f.cwd,
+    }), {reasonCode: 'permission_scope_unverified', message: /settings\.local\.json.*hooks/});
+  }
 });

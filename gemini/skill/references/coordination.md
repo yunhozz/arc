@@ -176,9 +176,11 @@ GK2 is `approval`.
 
 ### Bridge target rules
 
+- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info, `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.
+
 **Claude**
 
-- Writing roles: Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` only when an injected G1 fails or settings are missing (G1).
+- Writing roles: Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing (G1). Claude Implementer/QA bridges also deny writes under `.git` (permission rules and sandbox `denyWrite`), and are held as `permission_scope_unverified` when the worktree `.claude/settings.json` or `.claude/settings.local.json` would widen their scope (additional directories, allow rules for tools outside the safe list (Bash, Read, Grep, Glob, WebFetch, WebSearch), hooks, sandbox or defaultMode).
 - Permission claim: Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.
 - Delegation: Role instructions forbid re-delegation. Claude children expose no Task tool. Apply the shared child guard below.
 - Execution confirmation: Check the stream session identity and model, transcript effort, and the observed terminal result.
@@ -215,7 +217,7 @@ GK2 is `approval`.
 - Active bridge dispatches block publishing the composite configuration (`Active bridge dispatches: <ids>`); finish or cancel them first. Native leases do not block.
 - `execution_identity_unverified` (no session ID was obtained) is recorded by the supervisor after exit and exposed by `observe`; `resume` holds with it for a dispatch without a session ID. The `run-dispatch` response and `prepare-dispatch` never carry it.
 - A leftover orphaned process group after the child leader exits by itself is reaped (SIGTERM, grace, then SIGKILL) before the post-run snapshot is taken, and `orphanGroupReaped` is recorded; if the group cannot be observed gone the dispatch is `unknown` (`terminal_state_unverified`) and keeps its slot.
-- Post-run detection compares the changed paths, `HEAD`, the branch and every Git ref. Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed` for every role, assuming no other Git activity changes refs during the run. Changes to Git-ignored paths are outside post-run detection.
+- Post-run detection compares the changed paths, `HEAD`, the branch and every Git ref. Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed` for every role, assuming no other Git activity changes refs during the run. Changes to Git-ignored paths are outside post-run detection, except the control files listed above.
 - `ARC_BRIDGE_CHILD` is set in the environment of every bridge child; routing commands are denied in a process that has it. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection.
 - CLI versions are not restricted. `routing-status` and bridge `prepare-dispatch` report the parsed `<cli> --version` result (`cliVersion.version`, or `null` with a `reason`) for information only; no version holds a native or bridge route.
 - There is no automatic fallback, substitution or retry. On any hold, deny or failure, report the reasons and release conditions and DO NOT use another model or platform. Run `routing-status` again only after the condition changed. Bridge dispatches count in the instance ledger; see [limits](limits.md).
