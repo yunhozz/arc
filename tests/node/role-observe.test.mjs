@@ -24,7 +24,7 @@ const tempDir = async t => {
 };
 const git = (cwd, ...args) => {
   const env = {...process.env, HOME: path.dirname(cwd), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
-  const r = spawnSync('git', args, {cwd, env, encoding: 'utf8'});
+  const r = spawnSync('git', ['--no-optional-locks', ...args], {cwd, env, encoding: 'utf8'});
   if (r.status !== 0) throw Error(r.stderr);
   return r.stdout;
 };
@@ -212,7 +212,7 @@ test('detectViolations on a repo with pre-existing dirty and untracked files', a
   assert.match(snap.entries.get('untracked-before.txt'), /^\?\?:[a-f0-9]{64}$/);
 
   // Review Focus 3: pre-existing dirty files untouched by a read-only role are not violations
-  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: []});
+  assert.deepEqual(await run('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: []});
   // read-only role edits a tracked file, an already-dirty file, or creates a file
   for (const change of [() => fs.writeFile(path.join(dir, 'src/a.txt'), 'changed\n'), () => fs.writeFile(path.join(dir, 'dirty.txt'), 'edited again\n'), () => fs.writeFile(path.join(dir, 'new.txt'), 'n\n'), () => fs.rm(path.join(dir, 'untracked-before.txt'))]) {
     const result = await run('arc_scouter', undefined, change);
@@ -376,7 +376,7 @@ test('the policy alias list equals the short model names of the Claude catalog',
   assert.deepEqual([...CATALOG_MODEL_ALIASES].sort(), shortNames);
 });
 
-test('snapshotWorktree records refs and detectViolations treats ref creation, deletion and movement as violations for every role', async t => {
+test('snapshotWorktree records refs and detectViolations rejects branch creation, deletion and movement for every role', async t => {
   const dir = await makeRepo(t);
   const gitHere = (...args) => git(dir, ...args);
   const check = async (role, allowedPaths, change) => {
@@ -386,11 +386,9 @@ test('snapshotWorktree records refs and detectViolations treats ref creation, de
   };
   const snap = await snapshotWorktree(dir);
   assert.ok(Object.keys(snap.refs).some(name => name.startsWith('refs/heads/')));
-  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: []});
+  assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: []});
   const branch = await check('arc_implementer', ['src/'], async () => gitHere('branch', 'side'));
   assert.equal(branch.refsChanged, true); assert.equal(branch.reason, 'permission_violation_observed'); assert.equal(branch.headChanged, false);
-  const tag = await check('arc_implementer', ['src/'], async () => gitHere('tag', 'v1'));
-  assert.equal(tag.refsChanged, true); assert.equal(tag.reason, 'permission_violation_observed');
   const removed = await check('arc_qa', ['src/'], async () => gitHere('branch', '-D', 'side'));
   assert.equal(removed.refsChanged, true);
   gitHere('branch', 'mover');
@@ -399,6 +397,88 @@ test('snapshotWorktree records refs and detectViolations treats ref creation, de
   gitHere('commit', '-q', '--allow-empty', '-m', 'next');
   const forced = await check('arc_planner', undefined, async () => gitHere('branch', '-f', 'mover', 'HEAD'));
   assert.equal(forced.refsChanged, true);
+});
+
+for (const [action, setupArgs, args] of [
+  ['creation', null, ['HEAD']],
+  ['movement', ['HEAD^'], ['HEAD']],
+  ['deletion', ['HEAD'], []],
+]) {
+  test(`detectViolations tolerates remote-tracking ref ${action}`, async t => {
+    const dir = await makeRepo(t);
+    const ref = 'refs/remotes/origin/main';
+    git(dir, 'commit', '-q', '--allow-empty', '-m', 'next');
+    if (setupArgs) git(dir, 'update-ref', ref, ...setupArgs);
+    const before = await snapshotWorktree(dir);
+    if (action === 'deletion') git(dir, 'update-ref', '-d', ref);
+    else git(dir, 'update-ref', ref, ...args);
+    const result = detectViolations({role: 'arc_reviewer', before, after: await snapshotWorktree(dir)});
+    assert.equal(result.reason, null);
+    assert.equal(result.refsChanged, false);
+    assert.deepEqual(result.toleratedRefs, [ref]);
+  });
+}
+
+test('detectViolations tolerates a new tag', async t => {
+  const dir = await makeRepo(t);
+  const before = await snapshotWorktree(dir);
+  git(dir, 'tag', 'v1');
+  const result = detectViolations({role: 'arc_implementer', allowedPaths: ['src/'], before, after: await snapshotWorktree(dir)});
+  assert.equal(result.reason, null);
+  assert.equal(result.refsChanged, false);
+  assert.deepEqual(result.toleratedRefs, ['refs/tags/v1']);
+});
+
+for (const [action, args] of [['movement', ['tag', '-f', 'v1']], ['deletion', ['tag', '-d', 'v1']]]) {
+  test(`detectViolations rejects existing tag ${action}`, async t => {
+    const dir = await makeRepo(t);
+    git(dir, 'tag', 'v1');
+    git(dir, 'commit', '-q', '--allow-empty', '-m', 'next');
+    const before = await snapshotWorktree(dir);
+    git(dir, ...args);
+    const result = detectViolations({role: 'arc_reviewer', before, after: await snapshotWorktree(dir)});
+    assert.equal(result.reason, 'permission_violation_observed');
+    assert.equal(result.refsChanged, true);
+  });
+}
+
+for (const [label, args] of [
+  ['branch', ['branch', 'side']],
+  ['notes', ['notes', 'add', '-m', 'note']],
+  ['stash', ['update-ref', 'refs/stash', 'HEAD']],
+  ['existing tag movement', ['tag', '-f', 'v1']],
+]) {
+  test(`detectViolations rejects ${label} changes alongside a tolerated ref`, async t => {
+    const dir = await makeRepo(t);
+    git(dir, 'tag', 'v1');
+    git(dir, 'commit', '-q', '--allow-empty', '-m', 'next');
+    const before = await snapshotWorktree(dir);
+    git(dir, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    git(dir, ...args);
+    const result = detectViolations({role: 'arc_reviewer', before, after: await snapshotWorktree(dir)});
+    assert.equal(result.reason, 'permission_violation_observed');
+    assert.equal(result.refsChanged, true);
+    assert.deepEqual(result.toleratedRefs, ['refs/remotes/origin/main']);
+  });
+}
+
+test('toleratedRecord returns null for empty lists', () => {
+  assert.equal(roleObserve.toleratedRecord({toleratedRefs: [], toleratedControl: []}), null);
+});
+
+test('toleratedRecord omits empty keys and sorts ref names', () => {
+  assert.deepEqual(roleObserve.toleratedRecord({toleratedRefs: ['refs/tags/z', 'refs/tags/a'], toleratedControl: []}),
+    {refs: ['refs/tags/a', 'refs/tags/z']});
+});
+
+test('toleratedRecord keeps 100 sorted names per list and marks truncation', () => {
+  const refs = Array.from({length: 100}, (_, index) => `refs/tags/v${String(index).padStart(3, '0')}`);
+  const control = Array.from({length: 100}, (_, index) => `git:info/${String(index).padStart(3, '0')}`);
+  assert.deepEqual(roleObserve.toleratedRecord({toleratedRefs: refs, toleratedControl: control}), {refs, control});
+  assert.deepEqual(roleObserve.toleratedRecord({toleratedRefs: ['refs/tags/v100', ...refs], toleratedControl: control}),
+    {refs, control, truncated: true});
+  assert.deepEqual(roleObserve.toleratedRecord({toleratedRefs: refs, toleratedControl: ['git:info/100', ...control]}),
+    {refs, control, truncated: true});
 });
 
 const controlTarget = dir => ({gitCommonDir: path.join(dir, '.git'), gitDir: path.join(dir, '.git'), worktree: dir});
@@ -415,6 +495,25 @@ const assertControlViolation = (result, label) => {
   assert.deepEqual(result.controlChanged, [label]);
   assert.equal(result.reason, 'permission_violation_observed');
 };
+
+test('detectViolations tolerates git:info/refs generated by update-server-info', async t => {
+  const dir = await makeRepo(t);
+  const result = await controlChange(controlTarget(dir), () => git(dir, 'update-server-info'));
+  assert.equal(result.reason, null);
+  assert.deepEqual(result.controlChanged, []);
+  assert.deepEqual(result.toleratedControl, ['git:info/refs']);
+});
+
+test('detectViolations rejects git:info/exclude alongside a tolerated info/refs change', async t => {
+  const dir = await makeRepo(t);
+  const result = await controlChange(controlTarget(dir), async () => {
+    git(dir, 'update-server-info');
+    await fs.appendFile(path.join(dir, '.git/info/exclude'), '\nignored-by-role\n');
+  });
+  assert.equal(result.reason, 'permission_violation_observed');
+  assert.deepEqual(result.controlChanged, ['git:info/exclude']);
+  assert.deepEqual(result.toleratedControl, ['git:info/refs']);
+});
 
 test('control snapshot labels hook add, modify and delete; config; info/exclude; config.worktree', async t => {
   const dir = await makeRepo(t), target = controlTarget(dir);

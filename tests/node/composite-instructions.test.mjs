@@ -146,7 +146,7 @@ test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bri
 });
 
 test('every coordination reference states the control-file bridge holds and violations', async () => {
-  const expected = '- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info, `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.';
+  const expected = '- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info (except `info/refs`, which `git update-server-info` may rewrite after a fetch or gc; that change alone is recorded under `tolerated.control`), `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.';
   for (const platform of platforms) {
     const body = section(await coordination(platform));
     assert.ok(body.includes('### Bridge target rules\n\n' + expected + '\n\n**Claude**'), platform);
@@ -270,7 +270,9 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`reserved` lease \(native or bridge\) becomes `cancelled` at once/);
     assert.match(body, /`cancelled` event is also accepted for a `reserved` native lease/);
     assert.match(body, /Codex bridge[^.]*`permissions` claim is at most `operator-attested`[^.]*`user-config-mcp-not-controlled`/);
-    assert.match(body, /Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed`/);
+    assert.match(body, /Any other ref creation, deletion or movement is a `permission_violation_observed` for every role, including any branch and moving or deleting an existing tag/);
+    assert.match(body, /These ref changes are not violations and are recorded in the dispatch record under `tolerated\.refs`, [^\n]+: remote-tracking refs \(`refs\/remotes\/\*\*`\) and tags that did not exist before the run\./);
+    assert.match(body, /Each `tolerated` list keeps at most 100 sorted names, and `tolerated\.truncated` is set when a list is longer\./);
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection/i);
     assert.match(body, /orphaned process group[^.]*reaped/);

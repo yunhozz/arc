@@ -89,7 +89,7 @@ const transcript = (f, session = 'sess-1', effort = 'low') => ({path: path.join(
 const claudeSetup = (t, over = {}) => setup(t, {roles: {arc_scouter: 'claude'}, hostPlatform: 'codex', ...over});
 const artifactOf = result => path.dirname(result.resultPath);
 const dirOf = (f, dispatchId) => path.join(f.cwd, '.git/arc/workflows/wf-1/dispatches', dispatchId);
-const gitIn = (f, ...args) => { const r = spawnSync('git', args, {cwd: f.cwd, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr); return r.stdout; };
+const gitIn = (f, ...args) => { const r = spawnSync('git', ['--no-optional-locks', ...args], {cwd: f.cwd, encoding: 'utf8'}); if (r.status !== 0) throw Error(r.stderr); return r.stdout; };
 const mode = async file => (await fs.stat(file)).mode & 0o777;
 const startInProcess = f => async () => ({pid: process.pid, startTime: processStartTime(process.pid)});
 
@@ -776,9 +776,19 @@ test('an orphaned group that cannot be reaped leaves unknown terminal_state_unve
   assert.ok(NON_TERMINAL.includes(lease.state));
 });
 
-test('branch and tag creation by a role fails permission_violation_observed and the record names refsChanged', async t => {
-  const f = await setup(t, {roles: {arc_planner: 'codex', arc_implementer: 'codex'}});
-  for (const [n, args] of [[91, ['branch', 'created-by-role']], [92, ['tag', 'tag-by-role']]]) {
+for (const [n, name, args, tolerated] of [
+  [91, 'branch creation fails with refsChanged', ['branch', 'created-by-role']],
+  [92, 'new tag creation completes with tolerated refs', ['tag', 'tag-by-role'], {refs: ['refs/tags/tag-by-role']}],
+  [100, 'existing tag movement fails with refsChanged', ['tag', '-f', 'tag-by-role']],
+  [101, 'remote-tracking ref creation completes with tolerated refs', ['update-ref', 'refs/remotes/origin/x', 'HEAD'], {refs: ['refs/remotes/origin/x']}],
+  [102, 'info/refs generation completes with tolerated control', ['update-server-info'], {control: ['git:info/refs']}],
+]) {
+  test(`bridge post-run detection: ${name}`, async t => {
+    const f = await setup(t, {roles: {arc_planner: 'codex', arc_implementer: 'codex'}});
+    if (n === 100) {
+      gitIn(f, 'tag', 'tag-by-role');
+      gitIn(f, 'commit', '-q', '--allow-empty', '-m', 'next');
+    }
     const script = `#!${process.execPath}
 const cp=require('node:child_process'),fs=require('node:fs');
 ${FAKE_CODEX_APP_SERVER}
@@ -798,13 +808,15 @@ process.stdout.write(JSON.stringify({type:'thread.started',thread_id:${JSON.stri
     const prepared = await prepare(f, 'arc_implementer');
     await run(f, prepared.dispatchId);
     const done = await settle(f, prepared.dispatchId);
-    assert.equal(done.routeStatus, 'failed', args.join(' ') + JSON.stringify(done.reasons));
-    assert.deepEqual(codes(done), ['permission_violation_observed']);
+    assert.equal(done.routeStatus, tolerated ? 'completed' : 'failed', args.join(' ') + JSON.stringify(done.reasons));
+    assert.deepEqual(codes(done), tolerated ? [] : ['permission_violation_observed']);
     const record = await recordOf(f, prepared.dispatchId);
-    assert.equal(record.violations.refsChanged, true);
+    assert.equal(record.violations.refsChanged, !tolerated);
     assert.equal(record.violations.headChanged, false);
-  }
-});
+    if (tolerated) assert.deepEqual(record.tolerated, tolerated);
+    else assert.equal(Object.hasOwn(record, 'tolerated'), false);
+  });
+}
 
 test('writing role changing a git hook fails permission_violation_observed with a controlFiles label and keeps the file', async t => {
   const f = await setup(t, {roles: {arc_implementer: 'codex'}});

@@ -494,17 +494,49 @@ export async function snapshotWorktree(worktree) {
 }
 
 const allowedBy = (allowedPaths, file) => allowedPaths.some(entry => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
-/** Implementer and QA may change only allowedPaths (QA: none when empty or missing); read-only roles may change nothing; any HEAD, branch or ref change (created, deleted or moved) is a violation. Ordinary worktree snapshots omit Git-ignored paths; control files are compared regardless of allowedPaths and role. */
+/**
+ * HEAD or branch changes are violations. Remote-tracking ref changes, new
+ * tags and changes to git:info/refs are tolerated and returned separately
+ * from violations. Any other ref creation, deletion or movement is a violation.
+ * Implementer and QA may change only allowedPaths (QA may change no paths
+ * when the list is empty or missing). Read-only roles may change no worktree
+ * paths. Ordinary worktree snapshots omit Git-ignored paths. Control files
+ * are compared regardless of role and allowedPaths.
+ */
 export function detectViolations({role, allowedPaths, before, after}) {
   const headChanged = before.head !== after.head || before.branch !== after.branch;
   const refsBefore = before.refs ?? {}, refsAfter = after.refs ?? {};
-  const refsChanged = [...new Set([...Object.keys(refsBefore), ...Object.keys(refsAfter)])].some(name => refsBefore[name] !== refsAfter[name]);
+  const toleratedRefs = [];
+  let refsChanged = false;
+  for (const name of new Set([...Object.keys(refsBefore), ...Object.keys(refsAfter)])) {
+    if (refsBefore[name] === refsAfter[name]) continue;
+    if (name.startsWith('refs/remotes/') || (name.startsWith('refs/tags/') && !Object.hasOwn(refsBefore, name))) {
+      toleratedRefs.push(name);
+    } else {
+      refsChanged = true;
+    }
+  }
   const allowed = (role === 'arc_implementer' || role === 'arc_qa') && Array.isArray(allowedPaths) ? allowedPaths : [];
   const changed = new Set();
   for (const file of new Set([...before.entries.keys(), ...after.entries.keys()])) if (before.entries.get(file) !== after.entries.get(file)) changed.add(file);
   const changedPaths = [...changed].filter(file => !allowedBy(allowed, file)).sort();
   const controlBefore = before.control ?? new Map(), controlAfter = after.control ?? new Map();
-  const controlChanged = [...new Set([...controlBefore.keys(), ...controlAfter.keys()])]
-    .filter(label => controlBefore.get(label) !== controlAfter.get(label)).sort();
-  return {reason: headChanged || refsChanged || changedPaths.length || controlChanged.length ? 'permission_violation_observed' : null, changedPaths, headChanged, refsChanged, controlChanged};
+  const controlChanged = [], toleratedControl = [];
+  for (const label of new Set([...controlBefore.keys(), ...controlAfter.keys()])) {
+    if (controlBefore.get(label) === controlAfter.get(label)) continue;
+    if (label === 'git:info/refs') toleratedControl.push(label);
+    else controlChanged.push(label);
+  }
+  const reason = headChanged || refsChanged || changedPaths.length || controlChanged.length ? 'permission_violation_observed' : null;
+  return {reason, changedPaths, headChanged, refsChanged, controlChanged: controlChanged.sort(), toleratedRefs: toleratedRefs.sort(), toleratedControl};
+}
+
+export function toleratedRecord({toleratedRefs = [], toleratedControl = []} = {}) {
+  const record = {};
+  for (const [key, names] of [['refs', toleratedRefs], ['control', toleratedControl]]) {
+    if (!names.length) continue;
+    record[key] = [...names].sort().slice(0, 100);
+    if (names.length > 100) record.truncated = true;
+  }
+  return Object.keys(record).length ? record : null;
 }

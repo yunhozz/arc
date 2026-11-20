@@ -150,6 +150,16 @@
 - **수정 금지:** `.claude/worktrees/harness-doc-refactor-2`, `.claude/worktrees/watch-menu-upgrade-reapply`.
 - **TDD:** 새 경우마다 RED 관찰 → 최소 구현 → GREEN → 전체 검사 순서로 진행한다(`references/test-driven-development.md`).
 - **커밋:** task마다 하나씩 Orchestrator가 만든다. 형식은 `type(scope): 한국어 설명`이다(예: `fix(runtime): bridge 사후 감지에서 fetch 변화 허용`).
+- **계약 테스트·golden 동반 갱신(v2):** runtime 모듈이나 `coordination.md`를 바꾸는 task는 다음 세 파일도 함께 갱신한다. 이전 runtime 변경(`7d3c795`, `d66bff6`)과 같은 방식이다.
+  - `tests/node/runtime-versions.test.mjs`
+    - `baselineHash`를 새 cooperative runtime 해시로 바꾼다.
+    - `cooperative-9` 버전 문자열, `previousRuntimeHash`, `historicalRuntimeHash`는 바꾸지 않는다.
+  - `tests/node/composite-instructions.test.mjs`
+    - 옛 ref 감지 문구(예: "Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed`")를 고정한 정규식을 새 문구로 바꾼다.
+    - 새 허용 규칙(`tolerated.refs`, `info/refs` 예외 등)을 확인하는 단언을 추가한다.
+  - `tests/node/fixtures/installed-layout-golden.json`
+    - `node tests/node/fixtures/installed-layout.mjs --write`로 다시 생성한다. 생성 전후의 diff는 이 task에서 바꾼 설치 파일의 해시로만 한정되어야 한다.
+    - 이 명령과 `installed-layout-golden.test.mjs`는 worktree의 `build/native`가 있어야 돈다. `build/native`는 git이 무시하는 경로이며, Orchestrator가 source checkout에서 복사해 두었다.
 
 ### Implementer·QA 브리프 환경 규칙
 Codex bridge(`workspace-write`, `approval_policy="never"`)에서 실행하므로 다음을 지킨다.
@@ -161,9 +171,9 @@ Codex bridge(`workspace-write`, `approval_policy="never"`)에서 실행하므로
 - allowedPaths 밖 파일이 필요해지면 멈추고 보고한다.
 
 ### task별 필수 검사
-모두 기준선 대비 새 실패가 없어야 한다.
+task 검증과 재검증(recheck)에서는 수정한 부분과 관련 테스트만 실행한다. 아래 검사는 모두 기준선 대비 새 실패가 없어야 한다. `npm test` 전체 회귀는 task 검사에 넣지 않고 최종 검증에서 한 번만 실행한다(v3).
 - 관련 테스트 단독 실행: `node --test tests/node/role-observe.test.mjs`, `node --test tests/node/role-bridge-run.test.mjs`
-- `PYTHONDONTWRITEBYTECODE=1 npm test`
+- 계약 테스트 단독 실행(v2): `node --test tests/node/runtime-versions.test.mjs tests/node/composite-instructions.test.mjs tests/node/installed-layout-golden.test.mjs`
 - `node scripts/update-runtime-assets.mjs --check`
 - `npm run check:manifest`
 - `npm run check:role-policy`
@@ -217,6 +227,9 @@ Codex bridge(`workspace-write`, `approval_policy="never"`)에서 실행하므로
 - `MANIFEST.sha256`
 - `tests/node/role-observe.test.mjs`
 - `tests/node/role-bridge-run.test.mjs`
+- `tests/node/runtime-versions.test.mjs` (v2)
+- `tests/node/composite-instructions.test.mjs` (v2)
+- `tests/node/fixtures/installed-layout-golden.json` (v2)
 
 **범위:**
 - `detectViolations`: 분류 2·3·5와 control `git:info/refs` 규칙을 넣고, 반환값에 `toleratedRefs`·`toleratedControl`을 추가한다. 이 시점에는 `refs/heads/**` 변경이 모두 위반이다.
@@ -283,6 +296,9 @@ Codex bridge(`workspace-write`, `approval_policy="never"`)에서 실행하므로
 - `MANIFEST.sha256`
 - `tests/node/role-observe.test.mjs`
 - `tests/node/role-bridge-run.test.mjs`
+- `tests/node/runtime-versions.test.mjs` (v2)
+- `tests/node/composite-instructions.test.mjs` (v2)
+- `tests/node/fixtures/installed-layout-golden.json` (v2)
 
 supervisor는 바꿀 필요가 없다. 필요해지면 보류한다.
 
@@ -338,7 +354,7 @@ supervisor는 바꿀 필요가 없다. 필요해지면 보류한다.
 
 **선행:** T2 수용과 커밋.
 
-**allowedPaths:** T1과 같은 12개.
+**allowedPaths:** T1과 같은 15개(v2 3개 포함).
 
 **범위:**
 - `observeHeadAdvance`를 export한다.
@@ -383,9 +399,13 @@ supervisor는 바꿀 필요가 없다. 필요해지면 보류한다.
 
 ## 최종 검증
 모든 task를 수용한 뒤에 하며, task의 선행 조건이 아니다.
+- 전체 회귀(v3): Orchestrator가 호스트에서 `PYTHONDONTWRITEBYTECODE=1 node --test --test-reporter=spec tests/node/*.test.mjs`를 한 번 실행한다. 실패 이름을 기준선 목록(`<git-common-dir>/arc/handoff/bridge-fetch-tolerance-baseline-fail.txt`)과 대조한다. 기준선에 없는 실패는 단독 실행으로 flake인지 확인한 뒤 결함이면 Implementer에 돌려보낸다.
 - 독립 최종 Reviewer가 전체 변경(`12aa9a3..HEAD`)을 1회 검토한다. 위 "검토 초점"과 R1–R9 잔여 위험을 문서와 대조한다.
 - Reviewer finding은 Implementer → Reviewer로 재확인한다. 수정은 Reviewer 재확인이 끝날 때까지 커밋하지 않고, 해결 후 follow-up 커밋 1개로 만든다.
 
 ## Revision history
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
+| v1 | 2026-11-20T22:11:11+0900 | 최초 승인 | T1, T2, T3 | 최초 plan |
+| v2 | 2026-11-20T22:35:54+0900 | contract | T1, T2, T3 | 계약 테스트(`runtime-versions`, `composite-instructions`)와 golden fixture가 runtime·문서 해시와 문구를 고정하고 있어서 동반 갱신이 필요함. 세 파일을 allowedPaths와 필수 검사에 추가 |
+| v3 | 2026-11-20T22:45:50+0900 | contract | T1, T2, T3 | 사용자 지시: 재검증은 수정 부분과 관련 테스트만 실행하고, `npm test` 전체 회귀는 최종 검증에서 한 번만 실행. task 필수 검사에서 전체 테스트를 빼고 최종 검증에 추가 |
