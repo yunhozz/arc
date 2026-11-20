@@ -111,9 +111,21 @@ On Claude and Codex Desktop, support is capped at `unverified`. This version pro
 | GG2 `fail` | Gemini host remains held pending live host measurement. |
 | Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
 | Versions | Routing reports CLI versions for Codex, Claude, Gemini and Grok. Version never blocks routing. Configure blocks composite platform selection when a CLI version falls outside the registry's `cli.supportedVersions` range. TUI status uses the same range. |
-| Detection | Compare git-visible tracked/untracked paths, HEAD, branch, every ref; ignored paths excluded |
+| Detection | Compare Git-visible tracked and untracked paths, HEAD, branch, and every ref. A separate control-file snapshot covers the paths below, including Git-ignored control files. |
 | Host home probe | Grok/Gemini host only: bridge prepare/run/resume create and remove one probe file in the target home first; denied → `host_sandbox_blocked`, missing → `activation_unverified`, unremovable → `residualPaths`. Subpath-only denials are not detected |
 | Child guard | `ARC_BRIDGE_CHILD` denies routing commands. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection. |
+
+The supervisor compares control files before and after every bridge run. When it detects a change, it reports `permission_violation_observed` and records only the affected labels in `controlFiles.changed`. It leaves the files in place. The labels cover the following paths.
+
+- Git common directory `config`, `hooks/**`, and `info/**` use `git:config`, `git:hooks/<relative path>`, and `git:info/<relative path>`. Each tree collapses to `git:hooks` or `git:info` when it exceeds 1,000 entries. The snapshot excludes `arc/**`, `objects`, `refs`, `index`, `logs`, and `*.lock` entries inside the scanned trees. A custom directory referenced by `core.hooksPath` outside the scanned trees is outside the comparison.
+- The worktree-specific Git directory's `config.worktree` uses `git:config.worktree`. The worktree's `.claude/settings.json`, `.claude/settings.local.json`, and `.codex/config.toml` use `worktree:.claude/settings.json`, `worktree:.claude/settings.local.json`, and `worktree:.codex/config.toml`.
+- For Grok write roles, `~/.grok/config.toml` and `~/.grok/sandbox.toml` use `grok-home:config.toml` and `grok-home:sandbox.toml`. The config comparison uses `permission_mode`, sandbox keys and tables, and `compat.claude` keys and tables. Multiline strings or invalid UTF-8 trigger a full-file comparison.
+
+The `hooks` and `info` walks use path-based directory reads because Node does not expose `openat` or `fdopendir`. The walk is non-atomic. If a symlink replaces a directory between checks, the snapshot may read the target's directory listing once. When the recheck detects the swap, the snapshot discards the directory's results and records a changed state. For Grok home control files, the snapshot checks only the immediate parent directory.
+
+Detection takes place after execution and treats legitimate changes as violations too. A failed before snapshot ends the dispatch with `execution_failed` before child startup. If the after snapshot fails, the permission claim remains unverified and there is no snapshot-based verdict. Bridge prepare, run, and resume hold with `permission_scope_unverified` if `allowedPaths` covers the worktree root, `.git` or a path below it, `.claude` or either settings file, or `.codex` or its `config.toml`.
+
+While a bridge is running, do not commit or run host commands that write `.git/config`, such as `git config` writes or `git push -u`.
 
 ## Install, update, remove
 

@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import {spawn, spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {GROK_CONTRACT, normalizeGrokStreamEvent, evaluateGrokObservation} from './grok-stream.mjs';
-import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline, readGrokProfileApplied} from './grok-sandbox.mjs';
+import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline, readGrokProfileApplied, grokConfigSecurityProjection} from './grok-sandbox.mjs';
 import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
 import {DEFAULT_POLICY, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
@@ -15,7 +15,7 @@ import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routi
 import {observeCooperativeTarget} from './scope.mjs';
 import {resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
 import {parseCompositeProfile, buildBridgeArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
-import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, detectViolations} from './role-observe.mjs';
+import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, detectViolations, allowedPathsCoverControl} from './role-observe.mjs';
 import {getPlatform, routingProfileFile} from './platform-registry.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -119,6 +119,7 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   if ((platform === 'gemini' || platform === 'grok') && lease.segment > 0 && !['on', 'verified'].includes(implementation?.resume)) throw fail('resume_unverified', platform === 'grok' ? 'Grok resume is not verified' : 'Gemini resume is not verified');
   if (!implementation) throw fail('permission_scope_unverified', 'Invalid composite profile: unknown platform');
   const permissions = ROLE_BRIDGE_PERMISSIONS[platform][lease.role];
+  if (Array.isArray(lease.allowedPaths) && allowedPathsCoverControl(lease.allowedPaths)) throw fail('permission_scope_unverified', 'allowedPaths cover a control file');
   let grokSandbox;
   if (platform === 'grok' && permissions.sandbox === 'custom') {
     const name = grokSandboxProfileName(lease.dispatchId);
@@ -273,8 +274,16 @@ export async function runSupervisor(options) {
       const {path, sha256, dirCreated} = createdGrokProfile;
       grokSandboxProfile = {name: invocation.grokSandbox.name, path, sha256, dirCreated, created: true, removed: null, dirRemoved: false, eventsBaseline: null, applied: null};
     }
+    const extra = invocation.grokSandbox ? [
+      {label: 'grok-home:config.toml', path: path.join(homes.grok, 'config.toml'), project: grokConfigSecurityProjection},
+      {label: 'grok-home:sandbox.toml', path: path.join(homes.grok, 'sandbox.toml')},
+    ] : [];
+    const snapshot = async () => ({
+      ...await snapshotWorktree(target.realpath),
+      control: await snapshotControlFiles({gitCommonDir: target.gitCommonDir, gitDir: target.gitDir, worktree: target.realpath, extra}),
+    });
     let before;
-    try { before = await snapshotWorktree(target.realpath); } catch { return await failWithProfileCleanup('execution_failed'); }
+    try { before = await snapshot(); } catch { return await failWithProfileCleanup('execution_failed'); }
 
     if (invocation.promptFile) {
       let promptFd;
@@ -444,8 +453,8 @@ export async function runSupervisor(options) {
     }
 
     let after = null;
-    try { after = await snapshotWorktree(target.realpath); } catch { after = null; }
-    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false};
+    try { after = await snapshot(); } catch { after = null; }
+    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: []};
     const codes = [];
     if (state.mismatch) codes.push(state.mismatch);
     if (state.internal) codes.push(state.internal);
@@ -495,7 +504,8 @@ export async function runSupervisor(options) {
     }
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
     if ((finalState === 'completed' || finalState === 'cancelled') && codes.includes('permission_scope_mismatch')) finalState = 'failed';
-    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...grokProfileRecord(), ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {})});
+    const controlFiles = violations.controlChanged.length ? {controlFiles: {changed: violations.controlChanged}} : {};
+    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...controlFiles, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...grokProfileRecord(), ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {})});
     await commit(finalState, codes, claims, {sessionId, resultPath});
   } catch {
     // Unexpected failure after the child started: stop it, then record a failed state if the child is gone.

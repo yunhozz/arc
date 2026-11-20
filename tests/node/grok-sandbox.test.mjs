@@ -304,3 +304,24 @@ test('AC7 event reader scans only the appended interval and preserves the file',
   });
   assert.equal(fs.readFileSync(events, 'utf8'), eventLine().repeat(2));
 });
+
+test('grokConfigSecurityProjection keeps only security keys', () => {
+  const project = source => sandbox.grokConfigSecurityProjection(Buffer.from(source));
+  const config = 'model = "a"\npermission_mode = "ask"\n[compat.claude]\nagents = false';
+  const expected = '\tpermission_mode = "ask"\ncompat.claude\t[compat.claude]\ncompat.claude\tagents = false';
+  assert.equal(project(config), expected);
+  for (const source of [
+    config.replace('"a"', '"b"'),
+    '# display preferences\n' + config,
+    config + '\n[ui]\ntheme = "dark"',
+  ]) assert.equal(project(source), expected);
+  for (const source of [
+    config.replace('"ask"', '"always-approve"'),
+    config.replace('agents = false', 'agents = true'),
+    'sandbox_profile = "x"\n' + config,
+    config + '\n[sandbox]\nmode = "workspace"',
+  ]) assert.notEqual(project(source), expected);
+  assert.equal(project('model = """multi\nline"""'), null);
+  assert.equal(project("model = '''multi\nline'''"), null);
+  assert.equal(project([0xff]), null);
+});

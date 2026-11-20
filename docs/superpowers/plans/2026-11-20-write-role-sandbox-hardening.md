@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: v1 승인 (2026-11-20). Planner v0 + Orchestrator 반영: O1 쓰기 역할만, O2 해소, O4 `.codex` 사전 보류 추가.
+- 상태: v3 승인 (2026-11-20). v2: T2 prepare 경로 보류 위치 정정. v3: `runtime-versions.test.mjs` 추가. Planner v0 + Orchestrator 반영: O1 쓰기 역할만, O2 해소, O4 `.codex` 사전 보류 추가.
 - 작업 위치: `/Users/ma-24-007/Desktop/workspace/arc`, branch `fix/write-role-sandbox-hardening`, base `master` @ `b75d25a` (사용자 선택)
 - Risk: high. T2·T4는 task마다 fresh QA, 전체 수용 뒤 최종 Reviewer 1회.
 - 범위: spec §10의 T1, T2, T4. **T3(K-1 Grok deny, Grok P-1, L3, AC1)는 Grok 측정(M-K5–M-K16) 뒤 별도 plan으로 진행(보류).**
@@ -86,7 +86,7 @@
 **목표:** 모든 bridge 역할 실행 전후로 제어 파일 상태를 비교해, 바뀌면 `allowedPaths`와 관계없이 `failed` + `permission_violation_observed`. Grok 쓰기 역할은 `~/.grok/config.toml`(보안 키)과 `~/.grok/sandbox.toml`도 비교. 제어 파일을 덮는 `allowedPaths`는 prepare·run·resume에서 보류.
 **배정:** H4(P-2, P-3), H1의 K-2, H9, H10(`.codex` 사전 보류), AC3, AC4, AC5(P-3 부분, C-3 미채택), AC6(harness-operation 감지 보장·한계, README Grok 행), AC7, AC8.
 **선행:** T1 수용·커밋.
-**allowedPaths:** `lib/runtime/role-observe.mjs`, `lib/runtime/role-supervisor.mjs`, `lib/runtime/grok-sandbox.mjs`, `shared/skill/runtime/role-observe.mjs`, `shared/skill/runtime/role-supervisor.mjs`, `shared/skill/runtime/grok-sandbox.mjs`, `tests/node/role-observe.test.mjs`, `tests/node/grok-sandbox.test.mjs`, `tests/node/role-routing-dispatch.test.mjs`, `tests/node/role-bridge-run.test.mjs`(host 실행), `tests/node/grok-bridge.test.mjs`(host 실행), `README.md`, `docs/harness-operation.md`, `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`.
+**allowedPaths:** `lib/runtime/role-observe.mjs`, `lib/runtime/role-supervisor.mjs`, `lib/runtime/grok-sandbox.mjs`, `lib/runtime/role-routing.mjs`(v2), `shared/skill/runtime/role-observe.mjs`, `shared/skill/runtime/role-supervisor.mjs`, `shared/skill/runtime/grok-sandbox.mjs`, `shared/skill/runtime/role-routing.mjs`(v2), `tests/node/role-observe.test.mjs`, `tests/node/grok-sandbox.test.mjs`, `tests/node/role-routing-dispatch.test.mjs`, `tests/node/role-bridge-run.test.mjs`(host 실행), `tests/node/grok-bridge.test.mjs`(host 실행), `tests/node/runtime-versions.test.mjs`(v3, 모듈 해시 고정값 갱신만), `README.md`, `docs/harness-operation.md`, `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`.
 
 **Interfaces (Produces):**
 - `role-observe.mjs`: `export async function snapshotControlFiles({gitCommonDir, gitDir, worktree, extra = []}) -> Promise<Map<string, string>>`
@@ -110,7 +110,8 @@
   - before/after: `{...await snapshotWorktree(target.realpath), control: await snapshotControlFiles({gitCommonDir: target.gitCommonDir, gitDir: target.gitDir, worktree: target.realpath, extra})}`. 위치는 기존 `:277`과 `:447`의 같은 try 블록.
   - `extra`는 `invocation.grokSandbox`일 때만 `[{label: 'grok-home:config.toml', path: path.join(homes.grok, 'config.toml'), project: grokConfigSecurityProjection}, {label: 'grok-home:sandbox.toml', path: path.join(homes.grok, 'sandbox.toml')}]`, 그 외 `[]`.
   - record에는 `controlChanged`가 비어 있지 않을 때만 최상위에 `controlFiles: {changed: [...]}` 추가.
-  - `buildBridgeInvocation`의 permissions 계산(`:121`) 바로 뒤, Grok 블록 앞에 `if (Array.isArray(lease.allowedPaths) && allowedPathsCoverControl(lease.allowedPaths)) throw fail('permission_scope_unverified', 'allowedPaths cover a control file')`.
+  - `buildBridgeInvocation`의 permissions 계산(`:121`) 바로 뒤, Grok 블록 앞에 `if (Array.isArray(lease.allowedPaths) && allowedPathsCoverControl(lease.allowedPaths)) throw fail('permission_scope_unverified', 'allowedPaths cover a control file')` (run·resume 경로).
+- `role-routing.mjs` (v2): `prepareRoleDispatch`는 `buildBridgeInvocation`을 호출하지 않으므로, route가 `bridge`로 정해진 뒤 lease 예약(`createLease`) 전에 `allowedPathsCoverControl(assignment.allowedPaths ?? [])`이 참이면 `permission_scope_unverified`로 hold하고 lease를 만들지 않는다. native route에는 적용하지 않는다 (사후 감지가 bridge 전용이고, native에서는 정당한 `.claude/settings.json` 편집 작업을 막게 되므로).
 
 - [ ] **Step 1 (RED): `tests/node/role-observe.test.mjs`** 에 추가. 기존 임시 저장소 helper를 재사용하고, 각 사례는 fresh before를 찍고 `role: 'arc_implementer'`, `allowedPaths: ['src/a.js']`로 `detectViolations` 호출.
   1. `control snapshot labels hook add, modify and delete; config; info/exclude; config.worktree` — 각각 `reason === 'permission_violation_observed'`, `controlChanged`가 `['git:hooks/pre-commit']`, `['git:config']`, `['git:info/exclude']`, `['git:config.worktree']`. `config.worktree` 사례는 before 전에 `git config extensions.worktreeConfig true`로 setup.
@@ -130,7 +131,7 @@
   - 다른 projection: `permission_mode = "ask"` → `"always-approve"`, `[compat.claude]` 아래 `agents = false` → `true`, 새 `sandbox_profile = "x"`, `[sandbox]` table 항목 추가.
   - `"""` 포함이나 잘못된 UTF-8이면 `null`.
 - [ ] **Step 3 (RED): `tests/node/role-routing-dispatch.test.mjs`** 에 추가.
-  - `prepare holds permission_scope_unverified when allowedPaths cover a control file` — 기존 bridge prepare fixture로 arc_implementer에 `['.claude/settings.json']`, `['.git/hooks/']`, `['.codex/config.toml']` 각각. `decision === 'hold'`, reasons에 `permission_scope_unverified`, dispatch 미시작.
+  - `prepare holds permission_scope_unverified when allowedPaths cover a control file` — (v2: `role-routing.mjs` 검사로 충족, native route는 허용됨을 함께 단언) 기존 bridge prepare fixture로 arc_implementer에 `['.claude/settings.json']`, `['.git/hooks/']`, `['.codex/config.toml']` 각각. `decision === 'hold'`, reasons에 `permission_scope_unverified`, dispatch 미시작.
   - `buildBridgeInvocation rejects control-covering allowedPaths before reading the profile` — codex arc_implementer 최소 lease/config로 직접 호출, `reasonCode === 'permission_scope_unverified'` (supervisor·resume 경로 확인).
 - [ ] **Step 4:** `node --test tests/node/role-observe.test.mjs tests/node/grok-sandbox.test.mjs tests/node/role-routing-dispatch.test.mjs` → 새 테스트 FAIL.
 - [ ] **Step 5 (GREEN):** Interfaces대로 `role-observe.mjs`, `grok-sandbox.mjs`, `role-supervisor.mjs` 구현. `detectViolations` doc comment에 "control files are compared regardless of allowedPaths and role" 추가.
@@ -172,7 +173,7 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 **목표:** Claude Implementer/QA bridge가 D2 settings로 Write·Edit·Bash 모두에서 `.git` 쓰기를 거부하고, user settings만 로드해 project/local settings가 Edit/Write 범위를 넓히지 못하게 한다. 일반 Edit, `node --test`, git 읽기는 정상 동작 (spec §11 FINAL).
 **배정:** H3(C-1+C-2, C-3 불필요), H7, AC2, AC6(harness-operation G1 행, coordination 4종, `composite-instructions.test.mjs` 정규식), AC7, AC10 L4.
 **선행:** T2 수용·커밋.
-**allowedPaths:** `lib/runtime/role-dispatch-policy.mjs`, `lib/runtime/role-bridge-args.mjs`, `shared/skill/runtime/role-dispatch-policy.mjs`, `shared/skill/runtime/role-bridge-args.mjs`, `tests/node/role-bridge-args.test.mjs`, `tests/node/role-routing-dispatch.test.mjs`, `tests/node/composite-instructions.test.mjs`, `tests/node/role-bridge-run.test.mjs`(Claude 인자·argsDigest를 정확히 단언하는 경우에만, host 실행), `docs/harness-operation.md`, `claude/skill/references/coordination.md`, `codex/skill/references/coordination.md`, `gemini/skill/references/coordination.md`, `grok/skill/references/coordination.md`, `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`.
+**allowedPaths:** `lib/runtime/role-dispatch-policy.mjs`, `lib/runtime/role-bridge-args.mjs`, `shared/skill/runtime/role-dispatch-policy.mjs`, `shared/skill/runtime/role-bridge-args.mjs`, `tests/node/role-bridge-args.test.mjs`, `tests/node/role-routing-dispatch.test.mjs`, `tests/node/composite-instructions.test.mjs`, `tests/node/runtime-versions.test.mjs`(v3, 모듈 해시 고정값 갱신만), `tests/node/role-bridge-run.test.mjs`(Claude 인자·argsDigest를 정확히 단언하는 경우에만, host 실행), `docs/harness-operation.md`, `claude/skill/references/coordination.md`, `codex/skill/references/coordination.md`, `gemini/skill/references/coordination.md`, `grok/skill/references/coordination.md`, `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`.
 
 **Interfaces:**
 - `RECORDED_CLAUDE_SANDBOX_SETTINGS`는 D2와 deepEqual, deep-frozen. 주석은 "Claude 2.1.327, 2026-11-20, T0 M-C10/M-C11/M-C12/FINAL".
@@ -237,7 +238,7 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 |---|---|---|---|---|
 | B0 | 완료 | — | — | 2026-11-20 host: tests 3073, fail 35, skip 15. 생성물 3종 clean, S-2 불변 |
 | T1 | 완료 | 이 커밋 | 없음(Orchestrator 확인) | Implementer codex bridge b994161d. host: 새 실패 0건(부하 flake 2건 단독 재실행 pass) |
-| T2 | 대기 | — | fresh 필수 | |
+| T2 | 완료 | 이 커밋 | fresh QA 78172122(재확인 2회) | Implementer 62e2c464(v1 범위 중단) → dc294ba4(v2) → 1a861fb1(v3 hash) → 836fc9a5(QA 수정: 중간 symlink, HOME 격리, multiline·AC4 unknown 테스트, Grok 홈 부모 확인, 비원자 순회 문서화). host 통합 108 pass, 전체 3110/35 fail = B0 동일 |
 | T3 | 보류 | — | — | Grok 측정 대기 |
 | T4 | 대기 | — | fresh 필수 | L4 포함 |
 | 최종 Reviewer | 대기 | — | — | |
@@ -248,3 +249,5 @@ Grok 측정(M-K5–M-K16, spec §11 보류) 뒤 별도 plan. 측정 재개 시 K
 |---|---|---|---|---|
 | v0 | — | 초안 | 전체 | Planner 최초 작성 |
 | v1 | 2026-11-20 | 승인 | T2, T4 | Orchestrator 반영: O1 쓰기 역할만(사용자 결정), O2 T0 증거로 해소, O4 `.codex` 사전 보류 추가(사용자 결정), O7 운영 규칙 문서화 명시 |
+| v2 | 2026-11-20 | 승인 | T2 | prepare 경로가 `buildBridgeInvocation`을 거치지 않음(Implementer 보고, Orchestrator 확인 `role-routing.mjs:168-175,274`). `role-routing.mjs`와 생성본을 allowedPaths에 추가하고 bridge route 한정 prepare 보류를 명시. 사용자 승인, 남은 T2는 fresh Implementer |
+| v3 | 2026-11-20 | 승인 | T2, T4 | host 전체 테스트에서 `tests/node/runtime-versions.test.mjs`의 모듈 해시 고정값 3건 실패(모듈 변경의 예정된 결과). T2·T4 allowedPaths에 추가, 고정값 갱신만 허용. 사용자 승인, 남은 T2는 fresh Implementer |

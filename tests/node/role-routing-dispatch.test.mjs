@@ -8,6 +8,7 @@ import {BRIDGE_GATE_RESULTS, CLAUDE_SANDBOX_SETTINGS, DESKTOP_CHECKLIST_PASSED, 
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
 import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
+import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
 
 const DAY = 86400000;
 const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 300, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
@@ -534,4 +535,31 @@ test('routing-status and prepare-dispatch report Unauthorized for a withheld Cod
   }
  }
  assert.equal(await leaseCount(f),0);
+});
+
+test('prepare holds permission_scope_unverified when allowedPaths cover a control file', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_implementer: 'codex', arc_qa: 'claude'}});
+  await okClis(f);
+  await t.test('native prepare allows a control-covering path', async () => {
+    const result = await prepare(f, request('arc_qa', {allowedPaths: ['.claude/settings.json']}));
+    assert.equal(result.route, 'native');
+    assert.equal(result.decision, 'allow');
+    assert.equal((await readLease(f.claudeHome, result.dispatchId)).state, 'reserved');
+  });
+  for (const entry of ['.claude/settings.json', '.git/hooks/', '.codex/config.toml']) {
+    const result = await prepare(f, request('arc_implementer', {allowedPaths: [entry]}));
+    assert.equal(result.decision, 'hold', entry);
+    assert.ok(codes(result).includes('permission_scope_unverified'), entry);
+    assert.equal(result.dispatchId, null, entry);
+  }
+  assert.equal(await leaseCount(f), 1);
+});
+
+test('buildBridgeInvocation rejects control-covering allowedPaths before reading the profile', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_implementer: 'codex'}});
+  await assert.rejects(buildBridgeInvocation({
+    lease: {role: 'arc_implementer', allowedPaths: ['.claude/settings.json']},
+    config: {roles: {arc_implementer: {platform: 'codex'}}},
+    homes: {codex: path.join(f.codexHome, 'missing')},
+  }), {reasonCode: 'permission_scope_unverified'});
 });

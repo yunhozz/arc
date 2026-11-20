@@ -1,6 +1,6 @@
 # 쓰기 역할 sandbox 경계 보강 spec
 
-- 상태: v4 승인 (2026-11-20). T0 Claude·Codex 측정 반영, Grok 측정 보류로 T3 분리, P-3에 `.codex` 추가.
+- 상태: v5 승인 (2026-11-20). v5: AC4 상태 우선순위 정정. T0 Claude·Codex 측정 반영, Grok 측정 보류로 T3 분리, P-3에 `.codex` 추가.
 - 기준: `master` @ b75d25a, 작업 branch `fix/write-role-sandbox-hardening` (사용자 선택).
 - 경로: Architectural (보안 경계 변경). 위험도: high.
 - 승인 근거: 2026-11-20 사용자 요청 "1~4번에 대해 작업해줘". 대상은 PR #74 (d661b7d..1caf9d1) Reviewer finding 1–4.
@@ -151,7 +151,7 @@ Orchestrator가 §11에 결과를 기록한다. §6 분기 조건이 결과로 �
 - **AC1** Grok 프로필 렌더 결과가 새 고정 fixture와 바이트 일치. deny 수·순서는 H1 결과, `strict` 문자열 없음.
 - **AC2** Claude 쓰기 역할 `--settings` JSON이 확정된 D1′와 deepEqual, deep-frozen. 읽기 역할에는 없음. C-1 채택 시 `--setting-sources user` 정확히 1회. 주입 `G1:'fail'` 보류 유지.
 - **AC3** P-2 단위 테스트(임시 git 저장소): hooks 추가·수정·삭제, `config`, `info/exclude`, `config.worktree`, `.claude/settings.local.json` 생성(git-ignored 포함), `extra` 변경, symlink 교체, 상한 초과 → 각각 `permission_violation_observed`와 라벨. `arc/**`, `index`, `objects` 변경 무시. 변경 없으면 코드 없음.
-- **AC4** supervisor 통합(fake claude/grok): child가 제어 파일을 바꾸면 `failed` + `permission_violation_observed`, 파일 보존(복구 없음). before 실패 시 spawn 없음.
+- **AC4** supervisor 통합(fake claude/grok): child가 제어 파일을 바꾸면 `failed` + `permission_violation_observed`, 파일 보존(복구 없음). 세션 식별까지 실패하면 기존 우선순위대로 `unknown`(hold, 슬롯 유지)이고 `permission_violation_observed`는 함께 기록된다(v5). before 실패 시 spawn 없음.
 - **AC5** P-3 보류(prepare·supervisor), C-3 채택 시 정적 검사 분기 테스트.
 - **AC6** 문서: README 두 행, `docs/harness-operation.md` G1/GK1 행의 보장·한계, coordination 4종, `composite-instructions.test.mjs` 정규식, README 정합성 테스트.
 - **AC7** `MANIFEST.sha256` 갱신, manifest 테스트와 runtime asset 동일성 검사 통과.
@@ -221,3 +221,4 @@ M-K5–M-K16 **보류**: Grok API `402 Payment Required`(크레딧 소진). 사�
 | v2 | 2026-11-20 | 승인 | T0, T2 | Codex M-X1 측정과 `.codex/config.toml` 감지 추가, 사용자 승인 |
 | v3 | 2026-11-20 | 승인 | T0–T4 | T0 Claude·Codex 결과 기록(§11), F3 분기 C-1+C-2 확정. Grok 측정 보류로 이번 plan은 T1·T2·T4만, T3(K-1, Grok P-1)은 Grok 측정 뒤 별도 진행. K-2(Grok config 감지)는 T2에 포함. 사용자 승인 |
 | v4 | 2026-11-20 | 승인 | T2, T4 | plan 검토 결정: P-3에 `.codex` 추가(H10), C-1 쓰기 역할 한정 명시, 사용자 승인 |
+| v5 | 2026-11-20 | 승인 | T2 | T2 QA 발견 1: 세션 미식별과 위반이 겹치면 `unknown`(더 엄격한 hold) 유지로 AC4 정정. 사용자 결정 |

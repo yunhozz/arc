@@ -19,6 +19,28 @@ const sameEntry = (first, second) => first.dev === second.dev && first.ino === s
 const identityOf = ({dev, ino}) => ({dev, ino});
 const sandboxEventsPath = grokHome => path.join(grokHome, 'sessions', 'sandbox-events.jsonl');
 
+export function grokConfigSecurityProjection(bytes) {
+  let config;
+  try { config = new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { return null; }
+  if (config.includes('"""') || config.includes("'''")) return null;
+
+  const lines = [];
+  let table = '';
+  for (const raw of config.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const header = /^(?:\[\[([^\]]+)\]\]|\[([^\]]+)\])\s*(?:#.*)?$/.exec(line);
+    if (header) table = (header[1] ?? header[2]).replace(/\s/g, '');
+    const equals = line.indexOf('=');
+    const key = equals < 0 ? '' : line.slice(0, equals).trim().replace(/["']/g, '');
+    if (table === 'compat.claude' || table.startsWith('compat.claude.') || table === 'sandbox' || table.startsWith('sandbox.')
+        || /^(permission_mode|sandbox[\w-]*)$/.test(key) || key.startsWith('compat.claude')) {
+      lines.push(`${table}\t${line}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 export function grokSandboxProfileName(dispatchId) {
   const prefix = typeof dispatchId === 'string' ? dispatchId.slice(0, 8) : '';
   return /^[0-9a-f]{8}$/.test(prefix) ? 'arc-bridge-' + prefix : null;
