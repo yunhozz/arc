@@ -38,8 +38,17 @@ export function assignTestIds(tests) {
 
 function fileFromName(name, ctx) {
   if (typeof name !== 'string' || !/[\\/]|[^.]\.[^./\\]+$/.test(name)) return '-';
-  const file = normalizeTestFile(name, ctx.worktree);
+  return existingTestFile(name, ctx);
+}
+
+function existingTestFile(raw, ctx) {
+  const file = normalizeTestFile(raw, ctx.worktree);
   return file !== '-' && ctx.fileExists(file) ? file : '-';
+}
+
+function symlinkedTestFile(raw, ctx) {
+  const file = normalizeTestFile(raw, ctx.worktree);
+  return file !== '-' && ctx.fileIsSymlink?.(file);
 }
 
 function duration(value, multiplier = 1) {
@@ -276,7 +285,7 @@ export function parseTap(text, ctx) {
 
     for (const point of level.points) {
       const headerFile = topLevel ? fileFromName(point.name, ctx) : '-';
-      const located = normalizeTestFile(point.location?.path, ctx.worktree);
+      const located = existingTestFile(point.location?.path, ctx);
       const file = located !== '-' ? located : headerFile !== '-' ? headerFile : inheritedFile;
       const hasChildren = Boolean(point.child?.points.length);
       if (hasChildren) {
@@ -288,13 +297,18 @@ export function parseTap(text, ctx) {
       if (hasChildren) continue;
 
       if (point.status === 'failed') {
-        const namedFile = normalizeTestFile(point.name, ctx.worktree);
-        if (namedFile !== '-' && ctx.fileExists(namedFile)) {
+        const namedFile = existingTestFile(point.name, ctx);
+        if ((namedFile === '-' && symlinkedTestFile(point.name, ctx)) ||
+            (located === '-' && symlinkedTestFile(point.location?.path, ctx))) {
+          incomplete.push(commandIssue('symlinked_test_file'));
+          continue;
+        }
+        if (namedFile !== '-') {
           incomplete.push(fileIssue(namedFile));
           continue;
         }
         // Node attaches source locations to ordinary failures too. Its top-level file point starts at 1:1.
-        if (!point.isSuite && topLevel && point.location?.atFileStart && located !== '-' && ctx.fileExists(located)) {
+        if (!point.isSuite && topLevel && point.location?.atFileStart && located !== '-') {
           incomplete.push(fileIssue(located));
           continue;
         }
@@ -305,6 +319,7 @@ export function parseTap(text, ctx) {
 
   visit(root, '-', '', true);
   if (invalid || diagnostic) incomplete.push(commandIssue('parse_error'));
+  if (root.plan === null) incomplete.push(commandIssue('plan_missing'));
   return {tests: assignTestIds(tests), incomplete, unmappedStatusCount: 0};
 }
 
@@ -354,7 +369,7 @@ function countTests(tests) {
   return counts;
 }
 
-export function summarizeCommand({format, results, streams, resultFiles, exit, truncated, ctx}) {
+export function summarizeCommand({format, results, streams, resultFiles, exit, truncated, ctx, allowEmpty = false}) {
   const {code: exitCode, signal = null, timedOut = false} = exit;
   const badExit = exitCode !== 0 || Boolean(signal) || timedOut;
   const tests = [];
@@ -377,18 +392,31 @@ export function summarizeCommand({format, results, streams, resultFiles, exit, t
 
   const parse = {'junit-xml': parseJunitXml, tap: parseTap, regex: parseRegex}[format];
   for (const text of texts) {
-    const parsed = parse(text, ctx, results);
+    let parsed;
+    try {
+      parsed = parse(text, ctx, results);
+    } catch {
+      incomplete.push(commandIssue('parse_error'));
+      continue;
+    }
     for (const item of parsed.tests) tests.push(item);
     for (const issue of parsed.incomplete) incomplete.push(issue);
     unmappedStatusCount += parsed.unmappedStatusCount;
   }
   const counts = countTests(tests);
+  if (timedOut) incomplete.push(commandIssue('timeout'));
+  else if (signal) incomplete.push(commandIssue('signal'));
   if (badExit && !counts.failed) incomplete.push(commandIssue('unattributed'));
-  if (!counts.total) incomplete.push(commandIssue('no_results'));
+  if (!counts.total && !allowEmpty) incomplete.push(commandIssue('no_results'));
   if (truncated) incomplete.push(commandIssue('output_truncated'));
 
   const uniqueIssues = new Map(incomplete.map(issue => [JSON.stringify([issue.scope, issue.path, issue.reason]), issue]));
   return {...summary, tests: assignTestIds(tests), counts, incomplete: [...uniqueIssues.values()], unmappedStatusCount};
+}
+
+export function isolationPasses(attempts) {
+  if (attempts.some(({status}) => status === 'passed')) return 'yes';
+  return attempts.some(({status}) => status === 'failed') ? 'no' : null;
 }
 
 function incompleteFor(summary, file) {
@@ -429,13 +457,12 @@ function intermittentTests(base, head, history, reruns) {
   for (const [key, {commandId, testId, byCacheKey, byRun}] of evidence) {
     const varyingHistory = [...byCacheKey.values()].filter(rows => new Set(rows.map(row => row.status)).size > 1).flat();
     const varyingReruns = [...byRun].some(([runId, attempts]) => {
-      const statuses = new Set(attempts.map(({status}) => status));
+      const statuses = new Set(attempts.map(({status}) => status).filter(status => status === 'passed' || status === 'failed'));
       return statuses.size > 1 || failures.get(runId)?.has(key) && statuses.has('passed');
     });
     if (varyingHistory.length || varyingReruns) {
       const attempts = [...byRun.values()].flat();
-      const passes = attempts.some(({status}) => status === 'passed');
-      candidates.push({commandId, testId, history: varyingHistory, reruns: attempts, passesInIsolation: passes ? 'yes' : 'no'});
+      candidates.push({commandId, testId, history: varyingHistory, reruns: attempts, passesInIsolation: isolationPasses(attempts)});
     }
   }
   return candidates;

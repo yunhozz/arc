@@ -7,7 +7,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
 import {getPlatform} from './platform-registry.mjs';
 import {inspectPath, within} from './scope.mjs';
-import {buildReport, compareRuns, PARSER_SCHEMA_VERSION, summarizeCommand, validateRegexSpec} from './test-results.mjs';
+import {buildReport, compareRuns, isolationPasses, PARSER_SCHEMA_VERSION, summarizeCommand, validateRegexSpec} from './test-results.mjs';
 
 export const VERIFY_COMMANDS = Object.freeze(['verify-start', 'verify-status', 'verify-compare', 'verify-rerun', 'verify-cleanup']);
 export const HEARTBEAT_INTERVAL_MS = 2000;
@@ -495,16 +495,17 @@ async function readRevision(git, cwd, revision, addReason) {
 export async function createSnapshot({cwd, head, runDir}, {env = process.env, envNames = [], beforeSnapshotWriteTree} = {}) {
   const index = path.join(runDir, 'snapshot.index');
   const git = gitRunner(env, envNames, {GIT_INDEX_FILE: index});
-  const read = args => gitOutput(git, cwd, args);
-  const writeIndex = async args => {
-    try {
-      return await read(args);
-    } finally {
-      // Git can replace the index with a new file created under its umask.
-      if (pathStat(index)) fs.chmodSync(index, 0o600);
-    }
-  };
   try {
+    const root = (await gitOutput(git, cwd, ['rev-parse', '--show-toplevel'])).replace(/\r?\n$/, '');
+    const read = args => gitOutput(git, root, args);
+    const writeIndex = async args => {
+      try {
+        return await read(args);
+      } finally {
+        // Git can replace the index with a new file created under its umask.
+        if (pathStat(index)) fs.chmodSync(index, 0o600);
+      }
+    };
     await writeIndex(['read-tree', head]);
     await writeIndex(['add', '-A', '--', '.']);
     await beforeSnapshotWriteTree?.();
@@ -515,7 +516,7 @@ export async function createSnapshot({cwd, head, runDir}, {env = process.env, en
       GIT_COMMITTER_NAME: 'arc-verify', GIT_COMMITTER_EMAIL: 'arc-verify',
       GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date
     });
-    const commit = (await gitOutput(commitGit, cwd, ['-c', 'commit.gpgSign=false', '-c', 'i18n.commitEncoding=UTF-8',
+    const commit = (await gitOutput(commitGit, root, ['-c', 'commit.gpgSign=false', '-c', 'i18n.commitEncoding=UTF-8',
       'commit-tree', tree, '-p', head, '-m', 'arc-verify snapshot'])).trim();
     const names = (await read(['diff-tree', '-r', '--no-renames', '--name-status', '-z', head, tree])).split('\0');
     const included = [];
@@ -800,30 +801,80 @@ function artifactDigests(patterns, worktree, limit, addReason) {
   })]);
 }
 
-function readResultFiles(resultPath, id, worktree, raw, limit, addReason, runId) {
-  const paths = matchingWorktreePaths(resultPath, worktree, limit, addReason);
+function worktreeFile(worktree, relative, {followSymlinks = false} = {}) {
+  if (path.isAbsolute(relative)) return null;
+  const filename = path.resolve(worktree, relative);
+  if (!within(worktree, filename)) return null;
+  try {
+    if (!followSymlinks) {
+      let entry = worktree;
+      for (const component of path.relative(worktree, filename).split(path.sep)) {
+        entry = path.join(entry, component);
+        const stat = fs.lstatSync(entry, {bigint: true});
+        if (stat.isSymbolicLink()) return {stat};
+        if (entry === filename) return stat.isFile() ? {resolved: filename, stat} : null;
+        if (!stat.isDirectory()) return null;
+      }
+      return null;
+    }
+    const resolved = fs.realpathSync(filename);
+    if (!within(worktree, resolved)) return null;
+    const stat = fs.lstatSync(resolved, {bigint: true});
+    return stat.isFile() ? {resolved, stat} : null;
+  } catch (error) {
+    if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+    return null;
+  }
+}
+
+function symlinkedWorktreePath(worktree, relative) {
+  return Boolean(worktreeFile(worktree, relative)?.stat.isSymbolicLink());
+}
+
+function findResultFiles(resultPath, worktree, limit, addReason) {
+  return matchingWorktreePaths(resultPath, worktree, limit, addReason).flatMap(relative => {
+    const file = worktreeFile(worktree, relative, {followSymlinks: true});
+    return file ? [{relative, ...file}] : [];
+  });
+}
+
+const resultFileVersion = ({resolved, stat}) => [resolved, stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join('\0');
+
+function readResultFiles(matches, {raw, id, runId} = {}) {
   const files = [];
-  for (const relative of paths) {
-    const filename = path.join(worktree, relative);
+  for (const {relative, resolved} of matches) {
     let bytes;
     try {
-      const resolved = fs.realpathSync(filename);
-      if (!within(worktree, resolved) || !fs.statSync(resolved).isFile()) continue;
       bytes = fs.readFileSync(resolved);
     } catch (error) {
       if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
       continue;
     }
-    const copy = path.join(raw, id + '.results', relative);
-    try {
-      makeDirectory(path.dirname(copy), true);
-      atomicWrite(copy, bytes);
-    } catch (error) {
-      throw storageError(error, {runId});
+    if (raw) {
+      const copy = path.join(raw, id + '.results', relative);
+      try {
+        makeDirectory(path.dirname(copy), true);
+        atomicWrite(copy, bytes);
+      } catch (error) {
+        throw storageError(error, {runId});
+      }
     }
     files.push({text: bytes.toString('utf8')});
   }
   return files;
+}
+
+function summarizeTaskOutput({results, output, worktree, files, allowEmpty}) {
+  return summarizeCommand({
+    format: results.format, results, resultFiles: files,
+    ctx: {
+      worktree,
+      fileExists: relative => Boolean(worktreeFile(worktree, relative)?.stat.isFile()),
+      fileIsSymlink: relative => symlinkedWorktreePath(worktree, relative)
+    },
+    streams: Object.fromEntries(Object.entries(output.buffers).map(([key, bytes]) => [key, bytes.toString('utf8')])),
+    exit: output.exit, truncated: output.truncated, allowEmpty
+  });
 }
 
 function cacheEligible(result) {
@@ -961,22 +1012,20 @@ class RunFailure extends Error {
 }
 
 async function createWorktree({git, cwd, commonDir, run, persist, internal}) {
-  let worktree;
-  let noHooks;
+  const {runId} = run;
+  const paths = ownedWorktreePaths(commonDir, runId);
+  const {root, parent, directory, repoHash, worktree, noHooks, owner} = paths;
+  const safety = {runId, code: 'unsafe_temp_path', lstat: internal.lstat ?? fs.lstatSync};
   try {
-    const repoHash = sha256Hex(commonDir).slice(0, 16);
-    const temporary = fs.realpathSync(os.tmpdir());
-    const parent = path.join(temporary, 'arc-verify', repoHash);
-    await inspectPath(parent, {missing: true, directory: true});
-    makeDirectory(parent, true);
-    const runDir = path.join(parent, run.runId);
-    makeDirectory(runDir);
-    worktree = path.join(runDir, 'wt');
-    noHooks = path.join(runDir, 'no-hooks');
+    verifyWorktreeAncestors(root, safety);
+    createWorktreeDirectory(root, safety, true);
+    createWorktreeDirectory(parent, safety, true);
+    createWorktreeDirectory(directory, safety);
     makeDirectory(noHooks);
-    writeJson(path.join(runDir, 'owner.json'), {tool: 'arc-verify', runId: run.runId, repoHash, commonDir, createdAt: nowIso()});
+    writeJson(owner, {tool: 'arc-verify', runId, repoHash, commonDir, createdAt: nowIso()});
   } catch (error) {
-    throw storageError(error, {runId: run.runId});
+    if (error instanceof VerifyError) throw error;
+    throw storageError(error, {runId});
   }
   run.worktree = {path: worktree, state: 'creating'};
   persist();
@@ -989,9 +1038,14 @@ async function createWorktree({git, cwd, commonDir, run, persist, internal}) {
     }
     throw new RunFailure('worktree_create_failed', error.message);
   }
-  fs.chmodSync(worktree, 0o700);
-  run.worktree.path = fs.realpathSync(worktree);
   run.worktree.state = 'retained';
+  verifyWorktreeDirectory(worktree, safety, {checkMode: false});
+  try {
+    fs.chmodSync(worktree, 0o700);
+  } catch (error) {
+    throw unsafeWorktreePath(worktree, safety, error);
+  }
+  verifyWorktreeDirectory(worktree, safety);
   await internal.afterCreate?.(run.worktree.path);
   try {
     if ((await gitOutput(git, worktree, ['rev-parse', 'HEAD'])).trim() !== run.commit) throw new RunFailure('worktree_oid_mismatch');
@@ -1440,6 +1494,12 @@ export async function verifyRerun({cwd, input, env = process.env}) {
         arg.replace(/\{(file|name|namePattern|testId|worktree|arcNodeReporter)\}/g, (_, name) => values[name]));
       runnable.cwd = resolveTaskCwd(runnable.cwd, worktree, runId);
       if (!path.isAbsolute(runnable.executable)) runnable.executable = executablePath(runnable.executable, runnable.env, runnable.cwd);
+      const {results} = command;
+      let resultsOverLimit = false;
+      const findFiles = () => results.path ? findResultFiles(results.path, worktree, GLOB_FILE_LIMIT,
+        () => { resultsOverLimit = true; }) : [];
+      // The original command or an earlier attempt may have left reports in this worktree.
+      const previous = new Map(findFiles().map(file => [file.relative, resultFileVersion(file)]));
       let output;
       try {
         output = await runChild(runnable);
@@ -1447,7 +1507,10 @@ export async function verifyRerun({cwd, input, env = process.env}) {
         if (isSandboxError(error)) throw new VerifyError('host_sandbox_blocked', 'hold', {runId, message: error.message});
         throw error;
       }
-      const status = output.exit.code === 0 && !output.exit.timedOut ? 'passed' : 'failed';
+      const files = readResultFiles(findFiles().filter(file => resultFileVersion(file) !== previous.get(file.relative)));
+      const summary = summarizeTaskOutput({results, output, worktree, files, allowEmpty: true});
+      const target = summary.tests.find(({file, suite, name}) => file === test.file && suite === test.suite && name === test.name);
+      const status = resultsOverLimit || summary.incomplete.length ? 'incomplete' : target?.status ?? 'no_match';
       const record = {attempt, status, ms: output.wallMs};
       try {
         appendJson(path.join(directory, 'reruns.jsonl'), {commandId: id, testId, ...record});
@@ -1455,8 +1518,8 @@ export async function verifyRerun({cwd, input, env = process.env}) {
         throw storageError(error, {runId});
       }
       attempts.push(record);
-      return allow({...request, runStatus: status, attempts,
-        passesInIsolation: attempts.some(entry => entry.status === 'passed') ? 'yes' : 'no'});
+      const runStatus = status === 'passed' || status === 'failed' ? status : 'inconclusive';
+      return allow({...request, runStatus, attempts, passesInIsolation: isolationPasses(attempts)});
     });
   } catch (error) {
     return verifyErrorResult(error);
@@ -1487,33 +1550,53 @@ async function verifyOwnedPath(run, worktree, missing) {
   }
 }
 
-function verifyCleanupPathSafety(paths, runId, lstat, {missing = false} = {}) {
+function unsafeWorktreePath(directory, {code, runId}, error) {
+  return new VerifyError(code, 'hold', {runId, path: directory, ...(error ? {message: error.message} : {})});
+}
+
+function verifyWorktreeDirectory(directory, safety, {ancestor = false, missing = false, checkMode = true} = {}) {
+  let stat;
+  try {
+    stat = safety.lstat(directory, {throwIfNoEntry: false});
+  } catch (error) {
+    throw unsafeWorktreePath(directory, safety, error);
+  }
+  if (!stat && missing) return false;
+  if (!stat?.isDirectory()) throw unsafeWorktreePath(directory, safety);
   const uid = process.geteuid?.();
+  const {uid: owner, mode} = stat;
+  const safe = ancestor
+    ? (owner === uid || owner === 0) && ((mode & 0o022) === 0 || (mode & 0o1000) !== 0)
+    : owner === uid && (!checkMode || (mode & 0o7777) === 0o700);
+  if (!safe) throw unsafeWorktreePath(directory, safety);
+  return true;
+}
+
+function verifyWorktreeAncestors(root, safety) {
   const ancestors = [];
-  for (let directory = path.dirname(paths.root); ; directory = path.dirname(directory)) {
+  for (let directory = path.dirname(root); ; directory = path.dirname(directory)) {
     ancestors.push(directory);
     if (path.dirname(directory) === directory) break;
   }
-  const directories = [...ancestors.reverse(), paths.root, paths.parent, paths.directory, paths.worktree];
-  for (const [index, directory] of directories.entries()) {
-    const isAncestor = index < ancestors.length;
-    let stat;
-    try {
-      stat = lstat(directory, {throwIfNoEntry: false});
-    } catch (error) {
-      throw new VerifyError('cleanup_unsafe_path', 'hold', {runId, path: directory, message: error.message});
-    }
-    if (!stat && !isAncestor && missing) return;
-    if (!stat?.isDirectory()) {
-      throw new VerifyError('cleanup_unsafe_path', 'hold', {runId, path: directory});
-    }
-    const {uid: owner, mode} = stat;
-    const safe = isAncestor
-      ? (owner === uid || owner === 0) && ((mode & 0o022) === 0 || (mode & 0o1000) !== 0)
-      : owner === uid && (mode & 0o7777) === 0o700;
-    if (!safe) {
-      throw new VerifyError('cleanup_unsafe_path', 'hold', {runId, path: directory});
-    }
+  for (const directory of ancestors.reverse()) verifyWorktreeDirectory(directory, safety, {ancestor: true});
+}
+
+function createWorktreeDirectory(directory, safety, allowExisting = false) {
+  try {
+    makeDirectory(directory);
+    fs.chmodSync(directory, 0o700);
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    if (!allowExisting) throw unsafeWorktreePath(directory, safety, error);
+  }
+  verifyWorktreeDirectory(directory, safety);
+}
+
+function verifyCleanupPathSafety(paths, runId, lstat, {missing = false} = {}) {
+  const safety = {runId, code: 'cleanup_unsafe_path', lstat};
+  verifyWorktreeAncestors(paths.root, safety);
+  for (const directory of [paths.root, paths.parent, paths.directory, paths.worktree]) {
+    if (!verifyWorktreeDirectory(directory, safety, {missing})) return;
   }
 }
 
@@ -1992,12 +2075,9 @@ async function executeRun({run, runDir, store, commonDir, git, environment, exec
           for (const task of executionCommands) {
             const output = await runTask(task, {worktree, phase: 'commands', id: task.id, run, raw, persist, internal});
             const {id, results, expandedFiles} = task;
-            const files = results.path ? readResultFiles(results.path, id, worktree, raw, globLimit, addReason, runId) : [];
-            const summary = summarizeCommand({
-              format: results.format, results, resultFiles: files, ctx: {worktree, commandId: id},
-              streams: Object.fromEntries(Object.entries(output.buffers).map(([key, bytes]) => [key, bytes.toString('utf8')])),
-              exit: output.exit, truncated: output.truncated
-            });
+            const files = results.path
+              ? readResultFiles(findResultFiles(results.path, worktree, globLimit, addReason), {raw, id, runId}) : [];
+            const summary = summarizeTaskOutput({results, output, worktree, files});
             if (output.truncated && results.format === 'none') summary.incomplete.push({scope: 'command', reason: 'output_truncated'});
             summaries.push({id, format: results.format, expandedFiles, summary: {...summary, wallMs: output.wallMs, groupKill: output.groupKill}});
           }
@@ -2021,14 +2101,12 @@ async function executeRun({run, runDir, store, commonDir, git, environment, exec
     resultSha256 = hit?.resultSha256 ?? sha256Hex(bytes);
     run.state = 'succeeded';
   } catch (error) {
-    if (!(error instanceof VerifyError) && !(error instanceof RunFailure)) {
-      clearInterval(heartbeatTimer);
-      throw error;
-    }
+    const expected = error instanceof VerifyError || error instanceof RunFailure;
     if (error instanceof VerifyError) hold = error;
     run.state = 'failed';
     run.cacheHit = false;
-    run.failure = {code: error.code, phase: currentPhase};
+    run.failure = expected ? {code: error.code, phase: currentPhase} :
+      {code: 'runner_error', phase: currentPhase, message: error?.message ?? String(error)};
     if (run.worktree) run.worktree.state = 'retained';
   } finally {
     clearInterval(loadTimer);

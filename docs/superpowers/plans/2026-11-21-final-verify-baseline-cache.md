@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 날짜: 2026-11-21 · 상태: v2 승인 (2026-11-21) · workflow: wf-final-verify-cache
+- 날짜: 2026-11-21 · 상태: v8 승인 (2026-11-21, 개정 이력 참조) · workflow: wf-final-verify-cache
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache`, 브랜치 `feat/final-verify-baseline-cache`, base `68ef36c864f7dfe6fa1bebffc15906f2d95a16a7`
 - 경로·위험: Architectural, significant
 
@@ -290,6 +290,40 @@
 6. **dogfood 실측:** 아래 절차. Orchestrator 결정(Q1)에 따라 위 4의 전체 회귀 실행을 겸할 수 있다.
 7. **최종 Reviewer 1회:** significant이므로 모든 task 수락과 필수 QA가 끝난 뒤 base `68ef36c8`..HEAD 전체 변경을 독립 Reviewer가 한 번 검토한다. 위험 기반 확인 항목: 캐시 오적중 경로(§6.6), `not_tool_owned` 판정, env 허용 목록, snapshot 불변, 네 사본 일치. 최종 검증 실행과 동시에 진행할 수 있다. Reviewer 지적은 Implementer → Reviewer로 처리하고(QA 재배정 없음), 최종 검증의 새 실패는 Implementer → QA로 처리한 뒤 영향 파일 Reviewer 증거를 refreshed-diff로 다시 확인한다.
 
+### 최종 검증 보정 (v8, 통합 브랜치 `feat/final-verify-models-watch`)
+
+**배경:** 최종 Reviewer(dispatch dddbe4f8) finding F1·F2·F3·F7과, dogfood baseline run의 결함 D1·D2를 spec v8로 보완했다. 사용자 결정(2026-11-21): "둘 다 spec 보완 후 수정", "F3·F7도 함께 수정". 나머지 낮음 finding(F4·F5·F6·F8)과 B 낮음 3건은 후속 과제로 남긴다. F9는 최종 검증에서 skip 수를 확인하는 것으로 처리한다. F10은 spec·plan 머리말 정정으로 처리했다.
+
+- D1: `final-verify.mjs:1997`이 `summarizeCommand`에 `ctx: {worktree, commandId}`만 넘긴다. `test-results.mjs:42,292,297`은 `ctx.fileExists`를 호출한다. 그래서 junit-xml·tap 결과 파싱이 `ctx.fileExists is not a function`으로 실패했다. 단위 테스트는 이 연결을 끝까지 검증하지 못했다.
+- D2: 위 예외 뒤에 run.json이 `running` 상태로 남았다. `detach:false` 호출은 hold `verify_error`로 끝났다(run `20261121T133730Z-b82839b2`).
+
+**Files:** `lib/runtime/{final-verify,test-results}.mjs`와 `shared/skill/runtime/` 미러, `tests/node/runtime-final-verify.test.mjs`, `tests/node/runtime-test-results.test.mjs`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`. 정책 문서와 `role-policy.json`은 바꾸지 않는다.
+
+- [x] **Step 1: 실패하는 테스트 작성**
+  - (D1) `foreground run with junit-xml stream infers files via worktree`: 실제 `verifyStart`가 `{arcNodeReporter}` junit-xml 출력을 파싱하고, `fileExists`가 worktree 기준으로 동작한다. 모의 ctx가 아니라 runner 경로를 끝까지 거친다. tap `location`·이름 경로 추론도 같은 경로로 확인한다.
+  - (D2) `runner exception marks run failed and stops heartbeat`: 파서가 아닌 runner 단계에서 예외를 주입하면 run이 `failed`가 되고 실패 단계와 메시지가 기록된다. `verify-status`가 `failed`를 반환한다. (§9.3) `parser exception records parse_error and run succeeds`.
+  - (F1) `start holds unsafe_temp_path`: 기존 `<tmp>/arc-verify`가 심볼릭 링크인 경우, 다른 모드(예: 0777)인 경우, 상위 디렉터리에 sticky 없는 other 쓰기가 있는 경우를 각각 확인한다. 생성 전에 걸리면 worktree 등록이 없어야 한다. `wt` 모드가 0700이 되는지도 확인한다. 테스트는 `TMPDIR`을 테스트 전용 디렉터리로 바꿔 실행한다. 다른 사용자 소유 경우는 root 없이 만들 수 없으므로 판정 함수 단위 테스트로 확인한다.
+  - (F2) `timeout with parsed failure is command incomplete`, `signal exit with parsed failure is command incomplete`, `tap without plan is plan_missing`. compare verdict가 `no-new-failures`가 되지 않는지도 확인한다.
+  - (F3) `rerun with filter matching zero tests is no_match and not a pass`, `rerun passes only when target test parsed as passed`.
+  - (F7) `snapshot from subdirectory cwd includes changes outside cwd`.
+- [x] **Step 2: RED 확인** — 새 테스트만 실패하고 기존 테스트는 통과한다.
+- [x] **Step 3: 구현** — spec v8 §5.5, §5.7, §8.2, §8.3-8, §9.2, §9.3, §10.1.
+- [x] **Step 4: 생성물** — `node scripts/update-runtime-assets.mjs`, `node tests/node/fixtures/installed-layout.mjs --write`, `node scripts/update-manifest.mjs`.
+- [x] **Step 5: GREEN 확인** — 관련 테스트(아래)와 check 4종.
+- [x] **Step 6: 커밋**(Orchestrator 수락 후): `fix(runtime): verify 생성 경로 소유 검사·중단 command incomplete·rerun 대상 판정·파서 연결 보완`, trailer `Plan-Revision: v7 -> v8`.
+
+**기준:** A-S1·A-S3·A-S4·A-S5 보완, AC-2(F3), AC-6(D1 뒤 dogfood), AC-7(F2), AC-10(F1·F7).
+
+**관련 테스트:** `tests/node/runtime-final-verify.test.mjs`, `tests/node/runtime-test-results.test.mjs`, `tests/node/runtime-assets.test.mjs`, `tests/node/runtime-versions.test.mjs`, `tests/node/installed-layout-golden.test.mjs`, `tests/node/manifest.test.mjs`.
+
+**검증 순서:** 같은 Implementer에서 Reviewer finding(F1·F2·F3·F7) 재검토는 Implementer → Reviewer로 진행한다. dogfood 결함(D1·D2)은 최종 검증의 새 실패이므로 Implementer → fresh QA로 확인한다. 그다음 Reviewer가 refreshed-diff를 확인한다. 수정은 재검토가 끝날 때까지 커밋하지 않는다. 그 뒤 Orchestrator가 dogfood와 전체 회귀를 다시 처음부터 실행한다.
+
+**결과(2026-11-21):**
+- Implementer `e4226604`(세그먼트 0~3)가 수정했다.
+- fresh QA `2fc37edd`가 D1·D2를 proven으로, symlink 판정을 resolved로 확인했다. 실제 dogfood 출력을 다시 파싱한 결과는 3,366건 중 fail 35, skip 15, 예외 0이다.
+- 같은 Reviewer가 네 차례 재검토했다. F1·F2·F3·F7과, 재검토 중 나온 N1~N3·N5~N7을 모두 resolved로 판정했다(N6은 spec 문구 정정). N4(win32)는 spec §13-7의 한계로 남겼다.
+- host 관련 9개 파일은 423/423 통과, skip 0이다. check 4종은 0이다.
+
 ### dogfood 절차 (§12.2, Orchestrator, claude host)
 
 호출: `node /Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache/lib/runtime/verify-cli.mjs <command> --cwd /Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache --workflow wf-final-verify-cache --input -`
@@ -388,3 +422,4 @@ T1 → T2 → T3 → T4 → T5 → 최종 검증(+최종 Reviewer). T1~T4가 같
 | v5 | 2026-11-21 | T4 Implementer 안전성 hold 후: spec v5 §8.5 중첩 worktree 보호(`nested_worktree`)를 T4 테스트와 구현에 추가 | 사용자 승인 2026-11-21 |
 | v6 | 2026-11-21 | T4 재시작 Implementer hold 후: spec v6 bare 저장소 감지·재검사 테스트 2건 추가, 경합 창은 알려진 한계 | 사용자 승인 2026-11-21 |
 | v7 | 2026-11-21 | T4 세 번째 Implementer hold 후: spec v7 도구 디렉터리 소유·0700·비symlink 확인(`cleanup_unsafe_path`) 테스트 추가 | 사용자 승인 2026-11-21 |
+| v8 | 2026-11-21 | 통합 브랜치 최종 검증에서: 최종 Reviewer F1·F2·F3·F7과 dogfood 결함 D1(`ctx.fileExists` 누락)·D2(runner 예외 뒤 `running` 고정)를 "최종 검증 보정 (v8)" 절로 추가 (spec v8과 함께). 머리말 상태 정정 | 사용자 결정 2026-11-21 |

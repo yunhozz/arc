@@ -1,7 +1,7 @@
 # 최종 검증 기준선 캐시·clean worktree·백그라운드 기준선 설계 (spec)
 
 - 날짜: 2026-11-21
-- 상태: v2 승인 (2026-11-21)
+- 상태: v8 승인 (2026-11-21, 개정 이력 참조)
 - workflow: wf-final-verify-cache
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache`, 브랜치 `feat/final-verify-baseline-cache`, base `68ef36c864f7dfe6fa1bebffc15906f2d95a16a7`
 - 경로·위험: Architectural, significant (검증 정책·새 runtime 명령)
@@ -122,7 +122,9 @@ ARC 최종 검증에서 가장 오래 걸리는 두 단계는 approved base의 �
 
 - 필수 `runId`, `testId`, `attempt`(1부터 정수), `sandboxMode`. 선택 `limit`(1~10, 기본 3; brief가 다른 상한을 정할 때).
 - 명시 호출 때만, foreground 동기 실행. 해당 run의 worktree에서 그 command의 `isolate.args`로 실행하고 시간 상한은 command `timeoutMs`.
-- 출력(allow): `{runId, testId, attempt, limit, runStatus: "passed"|"failed"|"not-run", reason?, attempts[{attempt, status, ms}], passesInIsolation: "yes"|"no"|null}`. `isolate`가 없으면 `runStatus:"not-run"`, `reason:"no_isolation_template"`(종료 0). `passesInIsolation`은 기록된 시도 중 하나라도 통과면 `yes`, 모두 실패면 `no`, 미실행이면 `null`.
+- 출력(allow): `{runId, testId, attempt, limit, runStatus: "passed"|"failed"|"inconclusive"|"not-run", reason?, attempts[{attempt, status, ms}], passesInIsolation: "yes"|"no"|null}`. `isolate`가 없으면 `runStatus:"not-run"`, `reason:"no_isolation_template"`(종료 0). `passesInIsolation`은 기록된 시도 중 하나라도 `passed`면 `yes`, 그렇지 않고 `failed` 시도가 있으면 `no`, 미실행이거나 결론 있는 시도(`passed`·`failed`)가 없으면 `null`(v8 보완 반영).
+- (v8) 시도의 통과 판정: 종료 코드만으로 정하지 않는다. 그 command의 `results`로 시도 출력을 파싱해 대상 테스트(`testId`의 file·suite·name)가 passed로 나와야 `passed`다. 대상이 결과에 없으면(필터가 0건을 고른 경우 등) 그 시도의 `status`는 `no_match`이고 통과로 세지 않는다. 파싱 결과가 incomplete이면 `status`는 `incomplete`이고 역시 통과로 세지 않는다. 시도가 모두 `no_match`·`incomplete`이면 `passesInIsolation`은 `null`이다.
+- (v8 보완) 대상이 `skipped`로 파싱되면 그 시도의 `status`는 `skipped`이고 통과로도 실패로도 세지 않는다. 시도 `status`가 `failed`인 경우는 대상이 failed로 파싱된 때뿐이다. 최상위 `runStatus`는 이번 시도 기준 `passed`(대상 passed), `failed`(대상 failed), `inconclusive`(`no_match`·`incomplete`·`skipped`), `not-run`(isolate 없음) 중 하나다. 재실행 기록이 없는 테스트의 `passesInIsolation`은 compare 보고서에서도 `null`이다.
 
 ### 5.6 `verify-cleanup`
 
@@ -142,6 +144,7 @@ ARC 최종 검증에서 가장 오래 걸리는 두 단계는 approved base의 �
 | `storage_unavailable` | hold | 전부 | `<git-common-dir>/arc/verify`나 system temp에 쓸 수 있게 됨(host 승인 필요 가능) |
 | `host_sandbox_blocked` | hold | 전부 | 쓰기 거부 원인 해소와 host 승인 |
 | `snapshot_failed` | hold | start | 원인 확인 후 새 start(원본 상태 불변) |
+| `unsafe_temp_path` | hold | start | 도구 임시 디렉터리와 상위 경로의 소유자·모드·심볼릭 링크 여부를 점검한 뒤 새 start(v8) |
 | `run_incomplete` | hold | compare·rerun | 대상 run이 `succeeded` |
 | `run_failed` | hold | compare | 새 start로 재기록(operator 결정) |
 | `run_unknown` | hold | compare·cleanup | operator 확인 후 새 start, cleanup은 pid 종료 확인 |
@@ -256,6 +259,8 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 
 `git -c core.hooksPath=<runDir>/no-hooks worktree add --detach --lock --reason "arc-verify:<runId>" <wt> <commit>`. hook을 꺼 post-checkout이 실행되지 않고, lock으로 다른 곳의 prune에서 보호하며, branch는 만들지 않는다. `<git-common-dir>/worktrees/<name>` 등록은 사용자가 Q1에서 승인한 Git 상태 변경이며 Orchestrator 호출로만 일어난다.
 
+(v8) 생성 시점 소유 전제: §8.5 판정 6과 같은 조건을 worktree 생성 전에 강제한다. `<tmp>/arc-verify`와 `<repoHash>`는 없으면 0700으로 만들고, 이미 있으면 심볼릭 링크가 아닌 실제 디렉터리이고 현재 사용자 소유이며 모드가 0700인지 `lstat`으로 확인한다. `<runId>`는 새로 만들어야 하며(이미 있으면 실패) 0700이다. 루트부터 `<tmp>/arc-verify`의 부모까지의 상위 디렉터리도 판정 6과 같은 조건(현재 사용자나 root 소유, group·other 쓰기가 없거나 sticky bit)을 만족해야 한다. `git worktree add` 직후 `wt`도 심볼릭 링크가 아닌 현재 사용자 소유 디렉터리여야 하며 모드를 0700으로 맞춘다. 하나라도 어긋나면 command를 실행하지 않고 hold `unsafe_temp_path`를 반환한다. worktree 생성 전에 걸리면 worktree를 만들지 않는다. 생성 뒤에 걸리면 §8.5 "start 쪽 실패" 규칙대로 남긴다.
+
 ### 8.3 미커밋 HEAD 스냅샷 (`snapshotWorkingTree: true`)
 
 1. 원본 cwd에서 `GIT_INDEX_FILE=<runDir>/snapshot.index git read-tree <HEAD>`.
@@ -265,6 +270,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 5. 바뀌는 것은 object DB의 loose object뿐이다. ref, 원본 index, 작업 파일, reflog는 바뀌지 않는다. 스냅샷 commit은 worktree HEAD가 참조하므로 gc 대상이 아니다.
 6. 보고: `included`는 `git diff-tree -r --name-status <HEAD> <tree>`, `excluded.ignored`는 `git ls-files --others --ignored --exclude-standard --directory`, `excluded.submodules`는 내용이 dirty한 submodule 경로(gitlink만 반영).
 7. 실패하면 hold `snapshot_failed`, 임시 index는 진단용으로 남긴다.
+8. (v8) 범위: 1~6의 Git 명령은 `--cwd`가 저장소의 하위 디렉터리여도 `git rev-parse --show-toplevel`의 작업 트리 최상위에서 실행한다. 그래서 스냅샷과 `included`·`excluded` 보고는 항상 작업 트리 전체를 다룬다.
 
 ### 8.4 clean·OID 검증 (위반이면 run `failed`, 자동 복구 없음)
 
@@ -312,7 +318,8 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 - 수용: XML 선언, 주석, PI(건너뜀), CDATA, 요소 `testsuites`/`testsuite`(중첩)/`testcase`와 자식 `failure`/`error`/`skipped`, 속성 `name`·`classname`·`file`·`time`, 엔티티 5종과 숫자 문자 참조.
 - `<!DOCTYPE`/외부 엔티티 거부. 파싱 오류는 그 command incomplete `parse_error`.
 - 분류: `failure`·`error`는 failed, `skipped`는 skipped, 나머지 passed.
-- `file` 출처 우선순위: testcase@file → 상위 testsuite@file → 경로처럼 보이고 worktree에 있는 testsuite@name → `-`. `suite`는 중첩 testsuite@name과 classname.
+- `file` 출처 우선순위: testcase@file → 상위 testsuite@file → 경로처럼 보이고 worktree에 있는 testsuite@name → `-`.
+- (v8 보완) 이름·location에서 파일을 추론할 때 "worktree에 있는 파일"은 worktree 안의 경로이고, 그 경로와 중간 경로 요소 어느 것도 심볼릭 링크가 아닌 일반 파일이라는 뜻이다(`lstat`). worktree 안을 가리키는 심볼릭 링크도 `-`이다. tap 추론에도 같은 판정을 쓴다. (v8 보완 N5) 하위 테스트가 없는 실패 test point의 설명이나 location이 worktree 안의 심볼릭 링크 경로(경로 자체나 중간 요소가 링크)로 해석되면, 파일 정체성으로 쓰지 않는다. 대신 그 command를 incomplete `symlinked_test_file`로 둔다. 파일 load 실패를 이름 있는 실패로 남겨 기준선에 흡수하지 않기 위해서다. "worktree 안"은 정규화한 경로가 worktree 안이라는 뜻이다. 링크 대상의 위치(worktree 밖)나 존재 여부(끊긴 링크, 링크된 디렉터리 아래의 없는 파일)와 관계없이 적용한다. `suite`는 중첩 testsuite@name과 classname.
 - testcase 없이 `error`가 있거나 errors>0인 testsuite는 그 파일 incomplete `file_error`.
 
 **tap**(13/14)
@@ -321,6 +328,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 - `file`: YAML `location` 경로 → 경로인 최상위 하위 테스트 이름 → `-`. node 내장 tap은 통과 test point에 `location`이 없으므로 node:test에는 ARC node reporter를 쓴다.
 - 하위 테스트 없이 실패한 test point로서 설명이나 location이 worktree 파일로 해석되면 그 파일 incomplete `file_error`.
 - `Bail out!`, plan 수 불일치는 command incomplete.
+- (v8) 최상위 plan `1..N`이 없으면 command incomplete `plan_missing`.
 
 **ARC node reporter**(`lib/runtime/node-test-reporter.mjs`, 결정 2026-11-21)
 - 배경: node 22 내장 reporter(tap, junit)는 실패한 test point에만 파일 위치를 적는다(node v22.18.0 실측 2026-11-21). 통과 테스트는 파일을 알 수 없어, 다른 파일의 같은 이름 테스트를 구분하지 못한다.
@@ -339,6 +347,8 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 ### 9.3 incomplete/unattributed 판정 (none 제외)
 
 - 비0 종료·signal·timeout인데 파싱된 failed가 0이면 command incomplete `unattributed`.
+- (v8) timeout이나 signal 종료는 파싱된 failed 수와 상관없이 항상 command incomplete다(`timeout`, `signal`). 끝까지 실행되지 않은 command의 결과는 완전한 결과로 보지 않는다.
+- (v8) 파서 안의 예기치 않은 예외는 그 command incomplete `parse_error`로 기록하고 run은 계속 진행한다.
 - 파싱 결과 0건은 command incomplete `no_results`.
 - 파싱 오류·결과 파일 없음·출력 잘림은 command incomplete(`parse_error`, `results_missing`, `output_truncated`).
 - 종료 0인데 failed가 있으면 그대로 기록.
@@ -361,6 +371,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 ### 9.5 간헐 후보
 
 - 판정(하나라도 해당): 같은 `cacheKey`의 `history.jsonl` 안 succeeded run 사이에서 같은 `(commandId, testId)` 결과가 다름, 같은 테스트의 `verify-rerun` 시도 사이 결과가 다름, 원 실패 뒤 단독 재실행에서 통과.
+- (v8 보완) rerun 시도 사이 비교는 `status`가 `passed`·`failed`인 시도만 쓴다. `no_match`·`incomplete`·`skipped` 시도는 결과가 다른 것으로 세지 않는다.
 - 별도 섹션에 run별 결과·load class와 `passesInIsolation`·시도 수를 보고한다.
 - 단독 통과는 원 실패를 지우지 않는다. 원래 분류(new/baseline)를 유지하고 후보 표지만 붙인다. head 테스트의 단독 재실행 실패는 `newFailures` 근거로 남는다.
 
@@ -378,6 +389,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 - `detach:false`: 같은 프로세스에서 동기 실행.
 - 단계 전환마다 run.json 갱신, `heartbeat.json {at, pid}`를 2초마다 기록. 비종료 상태에서 heartbeat가 15초 넘게 갱신되지 않으면 status는 `unknown`(상수, 테스트로 고정).
 - 자식 command는 `shell:false`, `detached:true`(프로세스 그룹). timeout이면 그룹에 SIGTERM, 10초 뒤 남아 있으면 SIGKILL, `timedOut` 기록. 자식 pid는 run.json에 기록.
+- (v8) runner 안의 예기치 않은 예외(§9.3 파서 예외 제외)는 run을 `failed`로 바꾸고 실패 단계와 메시지를 run.json에 기록한 뒤 heartbeat를 멈춘다. 비종료 상태로 남기지 않는다. `detach:false` 호출은 같은 `failed` 상태를 `verify-status` 형태로 반환한다.
 - runner 비정상 종료 결과는 `unknown`이며 남은 자식 pid 목록을 보고한다. 자동 재시작·재시도·자동 kill 없음. 새 기록 여부는 operator가 정한다.
 - 같은 repoHash에 활성 run(비종료이고 heartbeat 생존)이 있으면 새 run은 `queued`로 기다린다(기본 비동시). `declaredConcurrent:true`도 큐를 우회하지 않고 부하 표지만 바꾼다. foreground run도 같은 큐를 따른다.
 
@@ -505,7 +517,7 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 4. 디렉터리가 사라진 lock 등록에 대한 `git worktree remove` 동작(git 버전별).
 5. (해결 2026-11-21) node v22.18.0 내장 tap은 실패 test point에만 `location`이 있다. load 실패는 하위 테스트 없는 `not ok`이고 설명과 location이 그 파일이다. ARC node reporter로 해결한다(§9.2).
 6. installer parity 목록과 installed-layout golden 검증 테스트의 정확한 파일명.
-7. win32 loadavg `[0,0,0]` → unknown 경로와 프로세스 그룹 kill 동작.
+7. win32 loadavg `[0,0,0]` → unknown 경로와 프로세스 그룹 kill 동작. (v8) win32에는 `process.geteuid`가 없으므로 §8.2·§8.5 판정 6의 소유자 검사가 통과하지 못한다. 그래서 `verify-start`는 hold `unsafe_temp_path`, cleanup은 hold `cleanup_unsafe_path`가 된다(소스 추론, 미실측). win32 지원은 후속 과제이며 이번 범위에서는 알려진 한계다.
 
 ## 14. builder 재량
 
@@ -522,3 +534,4 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 | v5 | 2026-11-21 | plan T4 Implementer 안전성 hold 후 §8.5 대상 판정 5 중첩 보호와 §5.7 `nested_worktree` 추가(도구 worktree 안의 사용자 worktree·저장소가 `remove --force`로 지워지는 경로 차단) | 사용자 승인 2026-11-21 |
 | v6 | 2026-11-21 | T4 재시작 Implementer 안전성 hold 후 §8.5 판정 5 보강: bare 저장소 형태 감지 추가, unlock 직후·remove 직전 재검사, 보장 범위(일반 파일은 도구 소유)와 경합 창 한계 명시 | 사용자 승인 2026-11-21 |
 | v7 | 2026-11-21 | T4 세 번째 Implementer 안전성 hold(Git 재귀 삭제 중 symlink 교체 경합) 후 §8.5 판정 6 추가: 도구 디렉터리 경로 전체의 실제 디렉터리·현재 사용자 소유·0700 확인, 실패 시 hold `cleanup_unsafe_path`. 같은 사용자 경합은 v6 한계에 포함 | 사용자 승인 2026-11-21 |
+| v8 | 2026-11-21 | 통합 브랜치 최종 Reviewer finding과 dogfood 결함 보완: §8.2 생성 시점 소유 전제와 §5.7 `unsafe_temp_path`(F1), §9.3 timeout·signal 항상 incomplete와 §9.2 TAP `plan_missing`(F2), §5.5 rerun 통과는 대상 테스트 파싱으로 판정·`no_match`(F3), §8.3-8 스냅샷은 작업 트리 최상위 기준(F7), §9.3 파서 예외는 `parse_error`·§10.1 runner 예외는 run `failed`(dogfood: `ctx.fileExists` 누락 예외로 run이 `running`에 고정). 머리말 상태 표기 정정(F10). 재검토 보완(같은 v8): §9.2 파일 추론은 심볼릭 링크 제외(QA), §5.5 `skipped`·`runStatus:"inconclusive"`·재실행 없음은 `null`(N1·N3), §9.5 rerun 비교는 passed·failed만(N2), §13-7 win32 한계(N4), §9.2 symlink 경로 load 실패는 command incomplete `symlinked_test_file`(N5), §5.5 출력 enum 정정(N6) | 사용자 결정 2026-11-21("둘 다 spec 보완 후 수정", "F3·F7도 함께 수정", "중간+N1–N3 수정, N4 한계", N5 "수정") |

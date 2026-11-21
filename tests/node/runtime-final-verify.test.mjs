@@ -531,6 +531,68 @@ test('creates detached locked worktree under tmp arc-verify with owner.json', as
   assert.match(git(repo.cwd, 'worktree', 'list', '--porcelain'), new RegExp('detached\\nlocked arc-verify:'+result.runId));
 });
 
+test('start holds unsafe_temp_path', async t => {
+  for (const scenario of ['symlink', 'wrong mode', 'writable ancestor without sticky bit', 'wrong owner']) {
+    await t.test(scenario, async t => {
+      const repo = makeRepo(t);
+      const ancestor = path.join(repo.common, 'ancestor');
+      const temp = path.join(ancestor, 'tmp');
+      const root = path.join(temp, 'arc-verify');
+      fs.mkdirSync(temp, {recursive: true, mode: 0o700});
+      let unsafe = root;
+      const internal = {loadavg};
+      if (scenario === 'symlink') fs.symlinkSync(repo.common, root, 'dir');
+      if (scenario === 'wrong mode') {
+        fs.mkdirSync(root);
+        fs.chmodSync(root, 0o777);
+      }
+      if (scenario === 'writable ancestor without sticky bit') {
+        fs.chmodSync(ancestor, 0o702);
+        unsafe = ancestor;
+      }
+      if (scenario === 'wrong owner') {
+        fs.mkdirSync(root, {mode: 0o700});
+        internal.lstat = (filename, options) => {
+          const stat = fs.lstatSync(filename, options);
+          if (filename === root) stat.uid = process.geteuid() + 1;
+          return stat;
+        };
+      }
+      const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
+      // The in-process foreground runner reads TMPDIR from process.env.
+      const original = process.env.TMPDIR;
+      process.env.TMPDIR = temp;
+      let result;
+      try {
+        result = await verifyStart({cwd: repo.cwd, workflowId, input: repo.input, env: {...cleanEnv, TMPDIR: temp}}, internal);
+      } finally {
+        if (original === undefined) delete process.env.TMPDIR;
+        else process.env.TMPDIR = original;
+      }
+      if (result.code === 'host_sandbox_blocked') return t.skip(result.message ?? result.code);
+      assert.deepEqual([result.decision, result.code, result.path], ['hold', 'unsafe_temp_path', unsafe]);
+      assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registered);
+    });
+  }
+});
+
+test('start creates a worktree with mode 0700 under the selected TMPDIR', t => {
+  const repo = makeRepo(t);
+  const temp = path.join(repo.common, 'tmp');
+  fs.mkdirSync(temp, {mode: 0o700});
+  const [exit, result] = runCli('verify-start', repo.cwd, repo.input, {...cleanEnv, TMPDIR: temp});
+  if (result.code === 'host_sandbox_blocked') return t.skip(result.message ?? result.code);
+  assert.equal(exit, 0, JSON.stringify(result));
+  const {path: worktree} = result.worktree;
+  const directory = path.dirname(worktree);
+  const parent = path.dirname(directory);
+  const root = path.dirname(parent);
+  assert.equal(root, path.join(temp, 'arc-verify'));
+  for (const item of [root, parent, directory, worktree]) {
+    assert.equal(fs.lstatSync(item).mode & 0o7777, 0o700, item);
+  }
+});
+
 test('post-checkout hook does not run', async t => {
   const repo = makeRepo(t);
   const hook = path.join(repo.common, 'hooks/post-checkout');
@@ -627,6 +689,118 @@ test('result copy storage failure persists failed run', async t => {
     now: Date.now() + 30000
   });
   assert.equal(status.state, 'failed');
+});
+
+test('foreground run with junit-xml stream infers files via worktree', async t => {
+  const repo = makeRepo(t);
+  fs.writeFileSync(path.join(repo.cwd, 'tests/a.test.mjs'),
+    'import {describe, it} from "node:test"; describe("tests/a.test.mjs", () => it("works", () => {}));\n');
+  fs.writeFileSync(path.join(repo.common, 'outside.test.mjs'), '');
+  fs.symlinkSync(path.join(repo.common, 'outside.test.mjs'), path.join(repo.cwd, 'tests/linked.test.mjs'));
+  git(repo.cwd, 'add', 'tests');
+  git(repo.cwd, 'commit', '-qm', 'add result inference fixtures');
+  repo.input.revision = git(repo.cwd, 'rev-parse', 'HEAD');
+  // A file found only in the source checkout must not become a result identity.
+  fs.writeFileSync(path.join(repo.cwd, 'tests/source-only.test.mjs'), '');
+  repo.snapshot();
+  const junit = {format: 'junit-xml', stream: 'stdout'};
+  const inferredXml = '<testsuites>' +
+    ['tests/a.test.mjs', 'tests/source-only.test.mjs', 'tests/linked.test.mjs', 'tests/deep', '../outside.test.mjs']
+      .map(name => '<testsuite name="' + name + '"><testcase name="inferred"/></testsuite>').join('') + '</testsuites>';
+  const tapOutput = [
+    'TAP version 13', '# Subtest: tests/a.test.mjs', '    ok 1 - named', '    1..1', 'ok 1 - tests/a.test.mjs',
+    'not ok 2 - loader problem', '  ---', '  location: tests/deep/b.test.mjs:1:1', '  ...', '1..2'
+  ].join('\n');
+  repo.input.commands = [
+    {id: 'reporter', executable: process.execPath, args: ['--test', '--test-reporter={arcNodeReporter}',
+      '--test-reporter-destination=stdout', 'tests/a.test.mjs'], results: junit},
+    {id: 'inference', ...js('console.log(process.argv[1])', inferredXml), results: junit},
+    {id: 'tap', ...js('console.log(process.argv[1])', tapOutput), results: {format: 'tap', stream: 'stdout'}}
+  ];
+  const result = await start(t, repo);
+  if (!result) return;
+  assert.equal(result.state, 'succeeded');
+  const [reporter, inference, tap] = readJson(runFile(repo, result.runId, 'result.json')).commands.map(({summary}) => summary);
+  assert.deepEqual(reporter.tests.map(({file, name, status}) => [file, name, status]),
+    [['tests/a.test.mjs', 'works', 'passed']]);
+  assert.deepEqual(inference.tests.map(({file}) => file), ['tests/a.test.mjs', '-', '-', '-', '-']);
+  assert.deepEqual(tap.tests.map(({file, name}) => [file, name]), [['tests/a.test.mjs', 'named']]);
+  assert.ok(tap.incomplete.some(({scope, path, reason}) =>
+    scope === 'file' && path === 'tests/deep/b.test.mjs' && reason === 'file_error'));
+});
+
+test('worktree file inference rejects symlinks in JUnit and TAP', async t => {
+  const repo = makeRepo(t);
+  repo.input.prepare = [js(`
+    const fs = require('node:fs');
+    fs.symlinkSync('a.test.mjs', 'tests/alias.mjs');
+    fs.symlinkSync('deep', 'tests/linked-dir', 'dir');
+  `)];
+  const files = ['tests/a.test.mjs', 'tests/alias.mjs', 'tests/linked-dir/b.test.mjs'];
+  const junit = '<testsuites>' + files.map(file =>
+    '<testsuite name="' + file + '"><testcase name="fixture"/></testsuite>').join('') + '</testsuites>';
+  const tapNames = ['TAP version 13', ...files.map((file, i) => 'ok ' + (i + 1) + ' - ' + file), '1..3'].join('\n');
+  const tapLocations = ['TAP version 13', ...files.flatMap((file, i) =>
+    ['ok ' + (i + 1) + ' - fixture', '  ---', '  location: ' + file + ':2:1', '  ...']), '1..3'].join('\n');
+  repo.input.commands = [
+    {id: 'junit-names', format: 'junit-xml', output: junit},
+    {id: 'tap-names', format: 'tap', output: tapNames},
+    {id: 'tap-locations', format: 'tap', output: tapLocations}
+  ].map(({id, format, output}) => ({
+    id, ...js('process.stdout.write(process.argv[1])', output), results: {format, stream: 'stdout'}
+  }));
+  const result = await start(t, repo);
+  if (!result) return;
+  const {commands} = readJson(runFile(repo, result.runId, 'result.json'));
+  assert.equal(result.state, 'succeeded');
+  for (const {id, summary} of commands) {
+    await t.test(id, () => {
+      assert.deepEqual(summary.tests.map(({file}) => file), ['tests/a.test.mjs', '-', '-']);
+    });
+  }
+});
+
+test('runner exception marks run failed and stops heartbeat', async t => {
+  const repo = makeRepo(t);
+  const result = await start(t, repo, repo.input, {
+    heartbeatIntervalMs: 10,
+    afterCreate() { throw new Error('fixture runner exception'); }
+  });
+  if (!result) return;
+  const stored = readJson(runFile(repo, result.runId));
+  assert.deepEqual([result.state, stored.state, stored.failure.phase, stored.failure.message, stored.worktree.state],
+    ['failed', 'failed', 'worktree', 'fixture runner exception', 'retained']);
+  assert.deepEqual(result.failure, stored.failure);
+  const heartbeat = runFile(repo, result.runId, 'heartbeat.json');
+  const before = readJson(heartbeat);
+  await delay(60);
+  assert.deepEqual(readJson(heartbeat), before);
+  const statusResult = await status(repo, result.runId, 0, () => Date.now() + 30000);
+  assert.deepEqual([statusResult.state, statusResult.failure], ['failed', stored.failure]);
+});
+
+test('parser exception records parse_error and run succeeds', async t => {
+  const repo = makeRepo(t);
+  const output = 'TAP version 13\nok 1 - fixture parser exception\n1..1\n';
+  const split = String.prototype.split;
+  const parserFault = t.mock.method(String.prototype, 'split', function (...args) {
+    if (String(this) === output && String(args[0]) === String(/\r?\n/)) throw new Error('fixture parser exception');
+    return split.apply(this, args);
+  });
+  repo.input.commands = [{
+    id: 'report', ...js('process.stdout.write(process.argv[1])', output), results: {format: 'tap', stream: 'stdout'}
+  }, tapCommand()];
+  let result;
+  try {
+    result = await start(t, repo);
+  } finally {
+    parserFault.mock.restore();
+  }
+  if (!result) return;
+  assert.equal(result.state, 'succeeded');
+  const [report, following] = result.summary.commands;
+  assert.ok(report.incomplete.some(({scope, reason}) => scope === 'command' && reason === 'parse_error'));
+  assert.equal(following.tests.passed, 1);
 });
 
 test('status reports phases and summary', async t => {
@@ -726,6 +900,19 @@ test('snapshot reports included and excluded ignored paths', async t => {
     {status: 'A', path: 'new\tfile.txt'}, {status: 'D', path: 'tests/a.test.mjs'}, {status: 'M', path: 'tracked.txt'}
   ]);
   assert.deepEqual(result.snapshot.excluded, {ignored: ['ignored/'], submodules: []});
+});
+
+test('snapshot from subdirectory cwd includes changes outside cwd', async t => {
+  const repo = makeRepo(t);
+  const input = dirtySnapshot(repo);
+  const result = await start(t, {...repo, cwd: path.join(repo.cwd, 'tests/deep')}, input);
+  if (!result) return;
+  assert.equal(result.state, 'succeeded');
+  assert.deepEqual(result.snapshot.included, [
+    {status: 'A', path: 'new\tfile.txt'}, {status: 'D', path: 'tests/a.test.mjs'}, {status: 'M', path: 'tracked.txt'}
+  ]);
+  assert.deepEqual(result.snapshot.excluded.ignored, ['ignored/']);
+  assert.equal(fs.readFileSync(path.join(result.worktree.path, 'tracked.txt'), 'utf8'), 'modified\n');
 });
 
 test('same tree yields same snapshot OID', async t => {
@@ -1230,6 +1417,7 @@ function comparisonInput(repo) {
     assert.equal(id, 'tests/a.test.mjs::fixture::new (case)+$#1');
     assert.equal(process.cwd(), worktree);
     assert.ok(fs.existsSync(file));
+    fs.writeFileSync('results.xml', '<testsuite name="fixture"><testcase name="' + name + '" file="' + file + '"/></testsuite>');
   `, '{file}', '{name}', '{namePattern}', '{testId}', '{worktree}']};
   const command = js(script, path.join(repo.common, 'pass-new'));
   return {...repo.input, commands: [{id: 'tests', ...command,
@@ -1337,6 +1525,80 @@ test('compare writes report json and md and returns verdict', async t => {
   assert.match(fs.readFileSync(reportMd, 'utf8'), /기록 조건[\s\S]*새 실패[\s\S]*기준선 재현[\s\S]*간헐 후보[\s\S]*느린 상위/);
 });
 
+test('tap load failure of symlinked test file is command incomplete symlinked_test_file', async t => {
+  const repo = makeRepo(t);
+  const outside = path.join(repo.common, 'outside.mjs');
+  fs.writeFileSync(outside, '');
+  const prepare = [js([
+    'const fs = require("node:fs");',
+    'fs.symlinkSync("a.test.mjs", "tests/alias.mjs");',
+    'fs.symlinkSync("deep", "tests/linked-dir", "dir");',
+    'fs.symlinkSync(process.argv[1], "tests/outside-link.mjs");',
+    'fs.symlinkSync("missing.mjs", "tests/dangling-link.mjs");'
+  ].join('\n'), outside)];
+  const commands = [
+    ['link-name', 'not ok 1 - tests/alias.mjs'],
+    ['link-location', 'not ok 1 - loader error\n  ---\n  location: tests/alias.mjs:1:1\n  ...'],
+    ['parent-link-name', 'not ok 1 - tests/linked-dir/b.test.mjs'],
+    ['parent-link-location', 'not ok 1 - loader error\n  ---\n  location: tests/linked-dir/b.test.mjs:1:1\n  ...'],
+    ['outside-link-name', 'not ok 1 - tests/outside-link.mjs'],
+    ['dangling-link-location', 'not ok 1 - loader error\n  ---\n  location: tests/dangling-link.mjs:1:1\n  ...']
+  ].map(([id, point]) => ({
+    id, ...js('process.stdout.write(process.argv[1]); process.exitCode = 1;', 'TAP version 13\n' + point + '\n1..1\n'),
+    results: {format: 'tap', stream: 'stdout'}
+  }));
+  const input = {...repo.input, prepare, commands};
+  const base = await start(t, repo, input);
+  if (!base) return;
+  const head = await start(t, repo, {...input, role: 'head'});
+  if (!head) return;
+  await t.test('runner records command incomplete for both path forms in both runs', () => {
+    for (const result of [base, head]) {
+      assert.equal(result.state, 'succeeded');
+      const records = readJson(runFile(repo, result.runId, 'result.json')).commands;
+      const incomplete = records.filter(({summary}) => summary.incomplete.some(({scope, reason}) =>
+        scope === 'command' && reason === 'symlinked_test_file'));
+      assert.deepEqual(incomplete.map(({id}) => id), commands.map(({id}) => id));
+      assert.deepEqual(records.flatMap(({summary}) => summary.tests), []);
+    }
+  });
+  await t.test('compare reports candidates when base and head both have link load failures', () => {
+    const {reportJson, verdict} = compare(repo, base, head);
+    assert.equal(verdict, 'candidates');
+    const report = readJson(reportJson);
+    assert.deepEqual(report.newFailureCandidates.filter(({reason}) => reason === 'symlinked_test_file'),
+      commands.map(({id}) => ({commandId: id, testId: null, reason: 'symlinked_test_file'})));
+    assert.deepEqual(report.baselineReproduced, []);
+  });
+});
+
+test('tap load failure distinguishes symlinked, regular, missing and external paths', async t => {
+  const repo = makeRepo(t);
+  const outside = path.join(repo.common, 'outside.mjs');
+  fs.writeFileSync(outside, '');
+  const prepare = [js('require("node:fs").symlinkSync("deep", "tests/linked-dir", "dir");')];
+  const tapOutput = [
+    'TAP version 13',
+    'not ok 1 - tests/a.test.mjs',
+    'not ok 2 - tests/missing.mjs',
+    'not ok 3 - tests/linked-dir/missing.mjs',
+    'not ok 4 - ' + outside,
+    'not ok 5 - ../outside.mjs',
+    '1..5'
+  ].join('\n');
+  const commands = [{id: 'tap', ...js('console.log(process.argv[1]); process.exitCode = 1;', tapOutput),
+    results: {format: 'tap', stream: 'stdout'}}];
+  const result = await start(t, repo, {...repo.input, prepare, commands});
+  if (!result) return;
+  const [{summary}] = readJson(runFile(repo, result.runId, 'result.json')).commands;
+  assert.deepEqual(summary.incomplete, [
+    {scope: 'file', path: 'tests/a.test.mjs', reason: 'file_error'},
+    {scope: 'command', reason: 'symlinked_test_file'}
+  ]);
+  assert.deepEqual(summary.tests.map(({file, name, status}) => [file, name, status]),
+    ['tests/missing.mjs', outside, '../outside.mjs'].map(name => ['-', name, 'failed']));
+});
+
 test('compare records expanded file lists in the report', async t => {
   const repo = makeRepo(t);
   const {base, head} = await comparisonRuns(t, repo);
@@ -1387,6 +1649,63 @@ test('rerun passes attempt in isolation and reports passesInIsolation yes', asyn
   assert.deepEqual(result.attempts.map(({attempt, status}) => [attempt, status]), [[1, 'passed']]);
   assert.ok(result.attempts[0].ms >= 0);
   assert.ok(fs.existsSync(runFile(repo, head.runId, 'reruns.jsonl')));
+});
+
+test('rerun with filter matching zero tests is no_match and not a pass', async t => {
+  const repo = makeRepo(t);
+  fs.writeFileSync(path.join(repo.cwd, 'tests/a.test.mjs'),
+    'import {test} from "node:test"; test("target", () => {});\n');
+  git(repo.cwd, 'add', 'tests/a.test.mjs');
+  git(repo.cwd, 'commit', '-qm', 'add filtered test');
+  repo.snapshot();
+  const args = ['--test', '--test-reporter={arcNodeReporter}', '--test-reporter-destination=stdout'];
+  const input = {...repo.input, role: 'head', revision: git(repo.cwd, 'rev-parse', 'HEAD'), commands: [{
+    id: 'node', executable: process.execPath, args: [...args, 'tests/a.test.mjs'],
+    isolate: {args: [...args, '--test-name-pattern=^does not exist$', '{file}']},
+    results: {format: 'junit-xml', stream: 'stdout'}
+  }]};
+  const head = await start(t, repo, input);
+  if (!head) return;
+  const result = rerun(repo, head, {testId: 'tests/a.test.mjs::::target#1'});
+  assert.deepEqual([result.runStatus, result.attempts[0].status, result.passesInIsolation],
+    ['inconclusive', 'no_match', null]);
+});
+
+test('rerun passes only when target test parsed as passed', async t => {
+  const repo = makeRepo(t);
+  const evidence = path.join(repo.common, 'isolation.xml');
+  const xml = (file, suite, child = '') => '<testsuite name="' + suite + '"><testcase name="target" file="' +
+    file + '">' + child + '</testcase></testsuite>';
+  const target = 'tests/a.test.mjs';
+  const command = js('require("node:fs").writeFileSync("report.xml", process.argv[1])', xml(target, 'suite', '<failure/>'));
+  const input = {...repo.input, role: 'head', commands: [{
+    id: 'report', ...command, results: {format: 'junit-xml', path: 'report.xml'},
+    isolate: {args: js(`
+      const fs = require('node:fs');
+      if (fs.existsSync(process.argv[1])) fs.copyFileSync(process.argv[1], 'report.xml');
+    `, evidence).args}
+  }]};
+  const head = await start(t, repo, input);
+  if (!head) return;
+  const testId = 'tests/a.test.mjs::suite::target#1';
+  const cases = [
+    ['different file', xml('tests/deep/b.test.mjs', 'suite'), 'inconclusive', 'no_match', null],
+    ['different suite', xml(target, 'other'), 'inconclusive', 'no_match', null],
+    ['invalid report', '<testsuite>', 'inconclusive', 'incomplete', null],
+    ['skipped target', xml(target, 'suite', '<skipped/>'), 'inconclusive', 'skipped', null],
+    ['failed target', xml(target, 'suite', '<failure/>'), 'failed', 'failed', 'no'],
+    ['passed target', xml(target, 'suite'), 'passed', 'passed', 'yes'],
+    ['stale report', null, 'inconclusive', 'incomplete', 'yes']
+  ];
+  for (const [i, [name, output, runStatus, status, passes]] of cases.entries()) {
+    await t.test(name, () => {
+      if (output === null) fs.unlinkSync(evidence);
+      else fs.writeFileSync(evidence, output);
+      const result = rerun(repo, head, {testId, attempt: i + 1, limit: cases.length});
+      assert.deepEqual([result.runStatus, result.attempts.at(-1).status, result.passesInIsolation],
+        [runStatus, status, passes]);
+    });
+  }
 });
 
 test('rerun attempt out of order denies', async t => {
@@ -1741,9 +2060,9 @@ test('cleanup holds cleanup_unsafe_path for a writable ancestor without sticky b
   const temp = path.join(ancestor, 'temp');
   fs.mkdirSync(ancestor, {mode: 0o700});
   fs.mkdirSync(temp, {mode: 0o700});
-  fs.chmodSync(ancestor, 0o777);
   const env = {...cleanEnv, TMPDIR: temp};
   const run = verifyCli(repo, 'start', repo.input, 0, 'ok', env);
+  fs.chmodSync(ancestor, 0o777);
   const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
   for (const dryRun of [true, false]) {
     const result = cleanup(repo, run, dryRun, 3, 'cleanup_unsafe_path', env);

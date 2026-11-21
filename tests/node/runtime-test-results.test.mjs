@@ -246,10 +246,19 @@ test('tap TODO not ok is not failed and SKIP is skipped', () => {
 });
 
 test('tap Bail out and plan mismatch mark command incomplete', () => {
-  for (const text of ['Bail out! fatal', '1..2\nok 1 - only',
+  assert.deepEqual(parseTap('Bail out! fatal', ctx).incomplete,
+    [commandError('parse_error'), commandError('plan_missing')]);
+  for (const text of ['1..2\nok 1 - only',
     '# Subtest: parent\n    ok 1 - one\n    1..2\nok 1 - parent\n1..1']) {
     assert.deepEqual(parseTap(text, ctx).incomplete, [{scope: 'command', reason: 'parse_error'}]);
   }
+});
+
+test('tap without plan is plan_missing', () => {
+  const results = {format: 'tap', stream: 'stdout'};
+  const base = summarize({format: 'tap', results, streams: {stdout: 'ok 1 - only\n1..1'}});
+  const head = summarize({format: 'tap', results, streams: {stdout: 'ok 1 - only'}});
+  assertCommandIncompleteInCompare(base, head, 'plan_missing');
 });
 
 test('regex maps statusMap, fileError and counts unmapped', () => {
@@ -307,9 +316,39 @@ test('none passes on exit 0 and fails otherwise', () => {
 });
 
 test('nonzero exit without parsed failures is unattributed', () => {
-  for (const exit of [{code: 1}, {code: null, signal: 'SIGTERM'}, {code: 0, timedOut: true}]) {
-    assert.deepEqual(summarize({exit}).incomplete, [{scope: 'command', reason: 'unattributed'}]);
+  for (const [exit, reasons] of [
+    [{code: 1}, ['unattributed']],
+    [{code: null, signal: 'SIGTERM'}, ['signal', 'unattributed']],
+    [{code: 0, timedOut: true}, ['timeout', 'unattributed']]
+  ]) {
+    assert.deepEqual(summarize({exit}).incomplete, reasons.map(commandError));
   }
+});
+
+function assertCommandIncompleteInCompare(base, head, reason) {
+  assert.deepEqual(head.incomplete, [commandError(reason)]);
+  const report = compareRuns({
+    base: run(command(base.tests, {format: base.format})),
+    head: run(command(head.tests, {format: head.format, incomplete: head.incomplete}))
+  });
+  assert.equal(report.verdict, 'candidates');
+  assert.deepEqual(report.newFailureCandidates, [{commandId: 'unit', testId: null, reason}]);
+}
+
+test('timeout with parsed failure is command incomplete', () => {
+  const streams = {stdout: failingXml};
+  const base = summarize({streams, exit: {code: 1}});
+  const head = summarize({streams, exit: {code: null, signal: 'SIGTERM', timedOut: true}});
+  assert.equal(head.counts.failed, 1);
+  assertCommandIncompleteInCompare(base, head, 'timeout');
+});
+
+test('signal exit with parsed failure is command incomplete', () => {
+  const streams = {stdout: failingXml};
+  const base = summarize({streams, exit: {code: 1}});
+  const head = summarize({streams, exit: {code: null, signal: 'SIGTERM'}});
+  assert.equal(head.counts.failed, 1);
+  assertCommandIncompleteInCompare(base, head, 'signal');
 });
 
 test('zero results is no_results', () => {
@@ -436,8 +475,23 @@ test('intermittent from history mismatch and from rerun pass keeps original clas
   assert.deepEqual(result.intermittentCandidates.find(item => item.testId === two), {
     commandId: 'unit', testId: two, history: [
       {runId: 'r1', loadClass: 'quiet', status: 'passed'}, {runId: 'r2', loadClass: 'busy', status: 'failed'}
-    ], reruns: [], passesInIsolation: 'no'
+    ], reruns: [], passesInIsolation: null
   });
+});
+
+test('failed and inconclusive reruns do not create intermittent candidates', async t => {
+  const base = {runId: 'base', ...run(command([row('test', 'failed')]))};
+  const head = {runId: 'head', ...run(command([row('test', 'failed')]))};
+  const testId = 'a.test.mjs::::test#1';
+  for (const status of ['no_match', 'incomplete', 'skipped']) {
+    await t.test(status, () => {
+      const attempts = [{attempt: 1, status: 'failed'}, {attempt: 2, status}];
+      const result = compareRuns({base, head, reruns: [{commandId: 'unit', testId, attempts}]});
+      assert.deepEqual(result.intermittentCandidates, []);
+      assert.deepEqual(result.baselineReproduced, [{commandId: 'unit', testId}]);
+      assert.equal(result.verdict, 'no-new-failures');
+    });
+  }
 });
 
 function makeReport() {
