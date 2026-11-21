@@ -1,7 +1,7 @@
 ---
 name: arc-reviewer
 description: Independently review correctness security and policy consistency
-model: gemini-2.5-flash
+model: gemini-4-neon
 ---
 
 # Reviewer

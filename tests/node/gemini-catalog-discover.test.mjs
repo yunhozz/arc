@@ -46,6 +46,7 @@ test('gemini discover selects text family GA models only', async () => {
   assert.equal(result.status, 'ready');
   assert.deepEqual(result.catalog.pairs, [
     {model: 'gemini-2.5-flash', effort: 'default'}, {model: 'gemini-3.1-flash-lite', effort: 'default'}, {model: 'gemini-3.5-flash', effort: 'default'},
+    {model: 'gemini-4-argon', effort: 'default'},
   ]);
   assert.deepEqual(result.catalog.unavailable, []);
 });
@@ -54,6 +55,8 @@ test('selectGeminiCatalogModels drops previews and dedupes', () => {
   assert.deepEqual(selectGeminiCatalogModels(['gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-pro']), ['gemini-2.5-pro']);
   assert.deepEqual(selectGeminiCatalogModels(['gemini-3-flash', 'gemini-2.5-pro', 'gemini-3-flash', 'gemini-3.1-flash-lite']),
     ['gemini-3-flash', 'gemini-2.5-pro', 'gemini-3.1-flash-lite']);
+  const gemini4 = ['gemini-4-neon', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-argon'];
+  assert.deepEqual(selectGeminiCatalogModels(['gemini-4-neon-preview', ...gemini4, 'gemini-4-argon']), gemini4);
 });
 
 test('gemini discover follows nextPageToken and rejects repeated or invalid token', async () => {

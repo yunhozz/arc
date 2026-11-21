@@ -181,21 +181,29 @@ test('static gemini catalog passes selectGeminiCatalogModels unchanged', async (
   assert.deepEqual(selectGeminiCatalogModels(models), models);
 });
 
-test('L2 Gemini catalog order and role defaults match the live evidence selection', async () => {
+test('Gemini catalog order and role defaults match the packaged recommendations', async () => {
   const result = await loadStaticModelCatalog('gemini');
   assert.equal(result.status, 'ready');
   const models = result.catalog.pairs.map(pair => pair.model);
-  assert.deepEqual(models, ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+  assert.deepEqual(models, [
+    'gemini-4-neon', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-argon',
+    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite',
+  ]);
   for (const {model, effort} of result.catalog.pairs) {
-    assert.match(model, /^gemini-(\d+(?:\.\d+)?)-(pro|flash|flash-lite)$/);
+    assert.match(model, /^(?:gemini-\d+(?:\.\d+)?-(?:pro|flash|flash-lite)|gemini-\d+-(?:neon|hydrogen|carbon|argon))$/);
     assert.equal(getPlatform('gemini').routing.validatePair(model, effort), true);
     assert.equal(effort, 'default');
   }
   const settings = resolveModelSettings(loadModelConfig(fs.readFileSync(new URL('../../gemini/skill/models.toml', import.meta.url)), 'gemini'));
-  assert.equal(Object.keys(settings.roles).length, 5);
+  assert.deepEqual(Object.fromEntries(Object.entries(settings.roles).map(([role, {model}]) => [role, model])), {
+    arc_scouter: 'gemini-4-hydrogen',
+    arc_planner: 'gemini-4-carbon',
+    arc_implementer: 'gemini-4-hydrogen',
+    arc_qa: 'gemini-4-hydrogen',
+    arc_reviewer: 'gemini-4-neon',
+  });
   for (const [role, {model, effort}] of Object.entries(settings.roles)) {
     assert.ok(models.includes(model), `${role} default must belong to the catalog`);
-    assert.equal(model, 'gemini-2.5-flash');
     assert.equal(effort, 'default');
     const profile = fs.readFileSync(new URL(`../../gemini/agents/${role.replace('_', '-')}.md`, import.meta.url), 'utf8');
     assert.equal(/^model: (.+)$/m.exec(profile.split('---')[1])?.[1], model);

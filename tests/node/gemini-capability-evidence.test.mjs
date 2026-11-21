@@ -14,7 +14,10 @@ const LIVE_REJECTED = ['gemini-2.5-pro', 'gemini-2.5-flash-lite'];
 function verifyCatalogEvidence(models, defaults) {
   assert.deepEqual(selectGeminiCatalogModels(models), models, 'static catalog must pass model selection unchanged');
   assert.ok(LIVE_REJECTED.every(model => !models.includes(model)), 'rejected models must not appear in the catalog');
-  for (const model of defaults) assert.ok(LIVE_ACCEPTED.includes(model), 'role defaults must be accepted live');
+  for (const model of defaults) {
+    assert.ok(!LIVE_REJECTED.includes(model), 'role defaults must not be live-rejected');
+    assert.ok(models.includes(model), 'role defaults must belong to the static catalog');
+  }
 }
 
 // Live results are recorded in the Phase B plan progress record and promotion commit message.
@@ -32,8 +35,9 @@ function verifyEvidence(descriptor, models, defaults) {
 }
 
 const promoted = () => ({cli: {supportedVersions: SUPPORTED}, capabilities: Object.fromEntries(VERIFIED.map(key => [key, {state: 'verified'}]))});
-const catalogModels = ['gemini-3.8-flash', ...LIVE_ACCEPTED];
-const roleDefaults = ['gemini-2.5-flash'];
+// Gemini 4 defaults have not been verified live (web research 2026-11-21, Gemini 4 GA per Google release notes).
+const catalogModels = ['gemini-4-neon', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-argon', 'gemini-3.8-flash', ...LIVE_ACCEPTED];
+const roleDefaults = ['gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-hydrogen', 'gemini-4-hydrogen', 'gemini-4-neon'];
 
 test('operational Gemini capabilities, catalog and role defaults satisfy the fixed live contract', async () => {
   const result = await loadStaticModelCatalog('gemini');
@@ -42,8 +46,8 @@ test('operational Gemini capabilities, catalog and role defaults satisfy the fix
   verifyEvidence(getPlatform('gemini'), result.catalog.pairs.map(pair => pair.model), Object.values(settings.roles).map(role => role.model));
 });
 
-test('fixed contract accepts listed catalog models and all live-accepted role defaults', () => {
-  assert.doesNotThrow(() => verifyEvidence(promoted(), catalogModels, LIVE_ACCEPTED));
+test('fixed contract accepts role defaults listed in the catalog, including Gemini 4', () => {
+  assert.doesNotThrow(() => verifyEvidence(promoted(), catalogModels, [...roleDefaults, ...LIVE_ACCEPTED]));
 });
 
 test('fixed contract requires a Gemini descriptor', () => {
@@ -83,7 +87,7 @@ test('fixed contract rejects changed or missing supported-version ranges', () =>
 });
 
 test('catalog rejects models changed or removed by model selection', () => {
-  for (const model of ['gemini-3.8-flash-preview', 'gemini-3.8-flash', 'gemini-embedding-001']) {
+  for (const model of ['gemini-4-neon-preview', 'gemini-3.8-flash', 'gemini-embedding-001']) {
     assert.throws(() => verifyEvidence(promoted(), [...catalogModels, model], roleDefaults), /static catalog must pass model selection unchanged/);
   }
 });
@@ -92,8 +96,9 @@ for (const model of LIVE_REJECTED) test(`catalog rejects live-rejected model ${m
   assert.throws(() => verifyEvidence(promoted(), [...catalogModels, model], roleDefaults), /rejected models must not appear/);
 });
 
-test('catalog rejects a role default outside live accepted, including a listed-only model', () => {
-  for (const model of ['gemini-3.8-flash', 'gemini-2.5-pro']) {
-    assert.throws(() => verifyEvidence(promoted(), catalogModels, [model]), /role defaults must be accepted live/);
+test('catalog rejects a role default outside the catalog or rejected live', () => {
+  assert.throws(() => verifyEvidence(promoted(), catalogModels, ['gemini-3.7-flash']), /role defaults must belong to the static catalog/);
+  for (const model of LIVE_REJECTED) {
+    assert.throws(() => verifyEvidence(promoted(), catalogModels, [model]), /role defaults must not be live-rejected/);
   }
 });

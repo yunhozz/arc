@@ -1,6 +1,10 @@
 {
   "platform": "gemini",
   "pairs": [
+    {"model": "gemini-4-neon", "effort": "default"},
+    {"model": "gemini-4-hydrogen", "effort": "default"},
+    {"model": "gemini-4-carbon", "effort": "default"},
+    {"model": "gemini-4-argon", "effort": "default"},
     {"model": "gemini-3.8-flash", "effort": "default"},
     {"model": "gemini-3.7-flash", "effort": "default"},
     {"model": "gemini-3.6-flash", "effort": "default"},

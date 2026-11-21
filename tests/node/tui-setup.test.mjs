@@ -58,7 +58,7 @@ test('picker explains catalog models without effort capabilities',async()=>{
 });
 
 for(const target of ['codex','claude'])for(const source of ['draft','installed','package'])test(`install ${target} initial roles prefer ${source}`,async()=>{
- const installed=structuredClone(models[target].roles);installed.arc_scouter.model=target==='codex'?'gpt-6-luna':'sonnet';
+ const installed=structuredClone(models[target].roles);installed.arc_scouter.model=target==='codex'?'gpt-6-luna':'opus';
  const saved=source==='package'?[]:[{platform:target,state:'installed',settings:{modelConfig:{platform:target,version:3,roles:installed}}}];
  const draft=source==='draft'?installDraft(target):{};if(draft.roles)draft.roles.arc_scouter.model=target==='codex'?'gpt-6-astra':'fable';
  // An absent alternate platform keeps package fallback deterministic for both targets.
@@ -366,7 +366,10 @@ test('uninstalled initial platform uses role availability then display order fal
 });
 
 test('role editor Done updates the diagram draft and standalone prepare roles',async()=>{
- const draft=installDraft('claude'),steps=[['Configure',0],['Scouter',3,(_rows,options)=>options.onHorizontal({selected:1,direction:'right'})],['Configure',10,(_rows,options)=>assert.match(installBody(options).rows.join('\n'),/claude-fable-5-1/)] ];
+ const draft=installDraft('claude'),steps=[['Configure',0],['Scouter',3,(_rows,options)=>{
+  options.onHorizontal({selected:1,direction:'right'});
+  options.onHorizontal({selected:1,direction:'right'});
+ }],['Configure',10,(_rows,options)=>assert.match(installBody(options).rows.join('\n'),/claude-fable-5-1/)] ];
  const result=await installFlow({draft,ui:scripted(steps)});assert.equal(result.roles.arc_scouter.model,'claude-fable-5-1');assert.equal(draft.roles.arc_scouter.model,'claude-fable-5-1');assert.deepEqual(result.roles.arc_planner,models.claude.roles.arc_planner);
 });
 
