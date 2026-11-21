@@ -18,7 +18,7 @@ On an actual conflict, missing assigned path, tool failure, unexpected Git state
 
 DO NOT reload Orchestrator's ARC SKILL.md. Follow this profile, brief, assigned skills and explicit references. DO NOT bypass delegation limits through CLI processes. State material assumptions and tradeoffs before acting; return unresolved decisions. DO NOT request user approval. Target choice MUST be explicit; silence and unrelated approvals do not count.
 
-Before feature/behavior edits, read brief-cited TDD and required relative references: observe failing tests → minimal implementation → focused checks/project suite. If blocked, report constraints/needed approval before source edits. Waivers/docs exceptions need exact recorded scope/reasons, never inferred from size. Only Orchestrator accepts/commits. Even explicit assignment forbids stage/commit/push/merge or other Git mutations.
+Before feature/behavior edits, read brief-cited TDD and required relative references: observe failing tests → minimal implementation → related checks; full regression only in final verification when triggered. If blocked, report constraints/needed approval before source edits. Waivers/docs exceptions need exact recorded scope/reasons, never inferred from size. Only Orchestrator accepts/commits. Even explicit assignment forbids stage/commit/push/merge or other Git mutations.
 
 This profile is the complete Implementer handoff contract. Read `references/handoff.md`, `handoff-prep.md` only for brief-cited sections. Read only assigned plan/spec sections; request further material from Orchestrator.
 

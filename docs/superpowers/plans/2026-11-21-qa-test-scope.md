@@ -1,6 +1,6 @@
 # QA·최종 검증 테스트 범위 지침 구현 계획 (F1)
 
-- 상태: plan v1. 사용자 위임에 따라 Orchestrator가 승인했다(2026-11-21).
+- 상태: plan v2. 사용자 위임에 따라 Orchestrator가 승인했다(2026-11-21).
 - 승인 spec: `docs/superpowers/specs/2026-11-21-qa-test-scope-design.md` (sha256 `5480b693af9371aec0846bb9be2d311647523fef96e97e9e499e8bcc6cbf2192`)
 - 구현 위치: branch `fix/bridge-fetch-tolerance`, managed worktree `.claude/worktrees/bridge-fetch-tolerance`
 - approved base:
@@ -234,9 +234,7 @@ spec 6.1은 ARC 소유 파일에 "project suite"가 없다고 단언한다. 이 
 **allowedPaths**
 - `lib/prompts/agent-fragments.json`
 - `claude/agents/arc-implementer.md`, `gemini/agents/arc-implementer.md`, `grok/agents/arc-implementer.md`
-- `tests/node/fixtures/instruction-contracts.json`: 다음 항목만 바꾼다.
-  - `protected["claude/agents/arc-implementer.md"]`
-  - `agentProfileBaseline.profiles` 중 영향받는 항목
+- `tests/node/fixtures/instruction-contracts.json`: `agentProfileBaseline.profiles` 중 영향받는 항목만 바꾼다.
 - `tests/node/test-scope-contract.test.mjs`
 - `tests/node/fixtures/installed-layout-golden.json`
 - `MANIFEST.sha256`
@@ -278,7 +276,7 @@ spec 6.1은 ARC 소유 파일에 "project suite"가 없다고 단언한다. 이 
   - **`agentProfileBaseline.profiles`:** 영향받는 12개 항목을 아래 명령의 출력으로 교체한다. reviewer·scouter 8개는 값이 그대로인지 확인한다. `revision`은 바꾸지 않는다.
 
     `node --input-type=module -e "import fs from 'node:fs';import {createHash} from 'node:crypto';import {renderAgentProfile} from './lib/prompts/render.mjs';const r=JSON.parse(fs.readFileSync('lib/prompts/agent-fragments.json'));for(const t of r.targets)console.log(t.path,createHash('sha256').update(renderAgentProfile(t.path,fs.readFileSync(t.path),r)).digest('hex'))"`
-  - **`protected`:** `claude/agents/arc-implementer.md` 하나만 그 파일의 `shasum -a 256` 값으로 교체한다. gemini·grok 템플릿은 `protected`에 없다.
+  - **`protected`:** 바꾸지 않는다. 기준선 `90c3f259`에서 38개 중 21개(`claude/agents/arc-implementer.md` 포함)가 이미 불일치하고, 이를 단언하는 `profile models, permissions, canonical policy and CLI/runtime bytes are preserved`가 기준선 실패 목록에 있다. SHA 갱신 규칙에 따라 기준선 실패로 이름 단위 비교만 한다.
 - [ ] **T2-7 생성물 갱신**
   - `installed-layout.mjs --write`를 실행한다. golden diff는 영향받는 설치 프로필로만 한정돼야 한다.
   - `node scripts/update-manifest.mjs`를 실행한다.
@@ -286,7 +284,7 @@ spec 6.1은 ARC 소유 파일에 "project suite"가 없다고 단언한다. 이 
 **AC**
 - **T2-AC1:** fragment 개수 26, target 20, target별 fragment 개수 배열이 그대로다. ID를 추가하거나 바꾸지 않았다.
 - **T2-AC2:** 렌더된 QA·Implementer·Planner ×4에 새 문구가 있다. fragment, 템플릿, 렌더 결과 어디에도 `/project suite/i`가 없다.
-- **T2-AC3:** `agentProfileBaseline.profiles`는 영향받는 12개만, `protected`는 claude implementer 1개만 바뀌었다. `revision`은 그대로다.
+- **T2-AC3:** `agentProfileBaseline.profiles`는 영향받는 12개만, `protected`는 바뀌지 않았다. `revision`은 그대로다.
 - **T2-AC4:** 다음 파일은 바뀌지 않았다: `role-policy.json`(lib·shared), `render.mjs`, `codex/agents/arc-implementer.toml`, upstream 사본.
 - **T2-AC5:** 관련 테스트에서 기준선 대비 새 실패가 없다.
 
@@ -346,3 +344,4 @@ spec 6.1은 ARC 소유 파일에 "project suite"가 없다고 단언한다. 이 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 2026-11-21T10:04:29+0900 | 최초 승인(사용자 위임: "plan 작성하면 나 대신 승인하고 진행해") | T1, T2 | 최초 plan |
+| v2 | 2026-11-21T10:46:00+0900 | 사소한 개정(사용자 위임 승인) | T2 | T2-6 `protected` 갱신 삭제: 기준선에서 이미 실패하던 SHA라 v1의 SHA 갱신 규칙과 충돌 |
