@@ -150,7 +150,7 @@
   - `export async function dispatchVerify(command, ctx): result`: verify-cli가 부르는 단일 분기.
   - 저장 구조(§7)를 그대로 따른다. `run.json` 필드: `{schemaVersion, runId, role, state, revision, commit, tree, input(정규화), cacheKeyPhase1, cacheKey, cacheable, uncacheableReasons, cacheHit, reusedFrom, worktree{path,state}, phases[], load{...}, pid, children[], ignoredAfterPrepare[], failure?{code,phase}}`. `result.json`: `{commands:[{id, format, expandedFiles, summary}]}`. `record.json`: `{cacheKey, runId, resultSha256, loadClass, createdAt}`. `history.jsonl` 한 줄은 `{runId, role, state, loadClass, resultSha256}`.
 
-- [ ] **Step 1: 실패하는 테스트 작성** (`tests/node/runtime-final-verify.test.mjs`). 공용 헬퍼 `makeRepo(t)`는 tmp git 저장소를 만들고 커밋 2개, `.gitignore`, `tests/a.test.mjs` 등을 넣는다. `runCli(args, input, env)`는 `process.execPath lib/runtime/verify-cli.mjs`를 spawn하며 env에서 `ARC_BRIDGE_CHILD`를 지운다. 명령 픽스처는 `process.execPath -e`로 TAP·JUnit을 출력한다.
+- [x] **Step 1: 실패하는 테스트 작성** (`tests/node/runtime-final-verify.test.mjs`). 공용 헬퍼 `makeRepo(t)`는 tmp git 저장소를 만들고 커밋 2개, `.gitignore`, `tests/a.test.mjs` 등을 넣는다. `runCli(args, input, env)`는 `process.execPath lib/runtime/verify-cli.mjs`를 spawn하며 env에서 `ARC_BRIDGE_CHILD`를 지운다. 명령 픽스처는 `process.execPath -e`로 TAP·JUnit을 출력한다.
   - 입력: `rejects unknown and missing keys at every nesting level`(top, prepare[], commands[], results, isolate, keyInputs, toolVersionCommands[], seedFiles[] 각각이 deny `invalid_request`이고 종료 코드 2), `rejects host/environment mismatch`, `rejects baseline with snapshotWorkingTree`, `rejects duplicate or malformed command ids`, `rejects timeoutMs above 21600000`, `bridge child env denies every verify command`(5개 명령 모두 `bridge_child`·2), `unknown revision denies`, `executable_not_found denies`, `seed_conflicts_tracked denies`, `glob_empty holds with exit 3`.
   - 출력·종료: `emits one JSON line with decision, code, workflowId`, `unexpected exception is hold verify_error exit 1`.
   - glob: `expandGlob star does not cross slash`, `double star matches zero or more directories`, `results are sorted and come from revision tree not working tree`(작업 트리에만 있는 파일은 제외된다).
@@ -166,10 +166,10 @@
   - 저장: `store lives under realpath git-common-dir arc/verify with 0700/0600`, `machine id differs when randomId differs`(AC-5), `runId format`.
   - 경계: `new modules import only node builtins and sibling files`(세 파일의 import 문을 정규식으로 검사).
   - 보존(AC-10): 모든 통합 테스트의 `t.after`에서 원본 픽스처 저장소의 `git rev-parse HEAD`, refs 목록, `.git/index` 바이트, 추적·미추적 작업 파일 바이트가 시작 시점과 같은지 단언하는 `assertSourceUnchanged(snapshot)`.
-- [ ] **Step 2: RED 확인** — `node --test tests/node/runtime-final-verify.test.mjs`. 기대 결과: 모듈이 없어서 실패.
-- [ ] **Step 3: 구현** — 내부 테스트 옵션(`toolVersionTimeoutMs`, `globLimit`, `rawCap`, `killGraceMs`, `loadavg`, `afterCreate`)은 `verifyStart`의 두 번째 인자 `internal`로만 받는다. CLI에서는 접근할 수 없다. 머신 id는 §6.4 순서를 따르고 `machine.json`은 `wx` 배타 생성(EEXIST면 읽기)으로 만든다. worktree 생성은 §8.2 명령을 그대로 쓴다. phase2가 비어 있으면 start에서 바로 조회한다(§6.1). 캐시 기록은 `role:"baseline"`이고 §6.6을 만족할 때만 `record.json`을 쓴다. `history.jsonl`은 run마다 append한다(같은 키의 head run 포함).
-- [ ] **Step 4: 인벤토리·생성물** — `final-verify.mjs`·`verify-cli.mjs`를 정렬 위치에 넣고 생성물 3종을 다시 만든다.
-- [ ] **Step 5: GREEN 확인** — 아래 관련 테스트와 check를 실행한다.
+- [x] **Step 2: RED 확인** — `node --test tests/node/runtime-final-verify.test.mjs`. 기대 결과: 모듈이 없어서 실패.
+- [x] **Step 3: 구현** — 내부 테스트 옵션(`toolVersionTimeoutMs`, `globLimit`, `rawCap`, `killGraceMs`, `loadavg`, `afterCreate`)은 `verifyStart`의 두 번째 인자 `internal`로만 받는다. CLI에서는 접근할 수 없다. 머신 id는 §6.4 순서를 따르고 `machine.json`은 `wx` 배타 생성(EEXIST면 읽기)으로 만든다. worktree 생성은 §8.2 명령을 그대로 쓴다. phase2가 비어 있으면 start에서 바로 조회한다(§6.1). 캐시 기록은 `role:"baseline"`이고 §6.6을 만족할 때만 `record.json`을 쓴다. `history.jsonl`은 run마다 append한다(같은 키의 head run 포함).
+- [x] **Step 4: 인벤토리·생성물** — `final-verify.mjs`·`verify-cli.mjs`를 정렬 위치에 넣고 생성물 3종을 다시 만든다.
+- [x] **Step 5: GREEN 확인** — 아래 관련 테스트와 check를 실행한다.
 - [ ] **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify-start·verify-status와 기준선 캐시 키 추가`
 
 **기준:** AC-1(commands를 생략 없이 실행, 펼친 파일 목록 기록), AC-3, AC-5, AC-6(단위 부분), AC-10, AC-4의 부하 class 기록, A-C1·A-C3·A-C5·A-C6, A-S1(start·status)·A-S2·A-S3(생성·검증), §5.7 start·status 코드.
@@ -382,3 +382,4 @@ T1 → T2 → T3 → T4 → T5 → 최종 검증(+최종 Reviewer). T1~T4가 같
 |---|---|---|---|
 | v1 | 2026-11-21 | Planner 첫 완성본. Orchestrator 검토: 기준선을 clean worktree 기록으로 교체, dogfood prepare 확정(Q4), Q1~Q5 결정 기록 | 사용자 승인 2026-11-21 |
 | v2 | 2026-11-21 | T1 Step 0 hold(node tap 통과 test에 location 없음) 후 ARC node reporter를 T1에 추가, `{arcNodeReporter}` 자리표시자, dogfood node 명령을 junit-xml로 변경 (spec v2와 함께) | 사용자 승인 2026-11-21 |
+| v3 | 2026-11-21 | T2 QA finding 처분: spec v3 §6.1 보완(`{worktree}` PATH 실행 파일은 phase2 입력)에 맞춰 T2 기준 A-S2 해석을 갱신. task·파일 범위 불변 | 사용자 승인 2026-11-21 |

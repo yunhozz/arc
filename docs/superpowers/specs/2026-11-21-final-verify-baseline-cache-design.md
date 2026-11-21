@@ -180,6 +180,7 @@ ARC 최종 검증에서 가장 오래 걸리는 두 단계는 approved base의 �
 **phase2 (prepare 후 worktree에서 계산)**
 - `artifactPaths` 해시
 - `{worktree}`를 참조하는 `toolVersionCommands` 출력 해시
+- (v3) `{worktree}`를 포함한 PATH로 찾는 실행 파일의 realpath. 이 실행 파일은 worktree가 있어야 확인할 수 있다. 따라서 이런 실행 파일이 있으면 phase2가 비어 있지 않은 것으로 보고, 캐시 적중을 확인할 때도 worktree를 만든다. 적중하면 commands는 실행하지 않는다.
 - prepare 후 `git status --porcelain=v1 --ignored` 요약 해시
 
 **전체 키와 조회 순서**
@@ -505,3 +506,4 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 |---|---|---|---|
 | v1 | 2026-11-21 | Planner 첫 완성본. Orchestrator가 진입점(2a)·env 허용 목록 결정과 두 단계 키 수용을 반영, 정책 새 절에 env 문장 추가 | 사용자 승인 2026-11-21 |
 | v2 | 2026-11-21 | plan T1 Step 0 hold(node tap이 통과 test에 location 없음) 후 ARC node reporter 추가: §5.2 `{arcNodeReporter}` 자리표시자와 junit-xml `stream`, §9.2 reporter, §12 파일·테스트·dogfood, §13-5 해결 | 사용자 승인 2026-11-21 |
+| v3 | 2026-11-21 | plan T2 QA finding 후 §6.1 보완: `{worktree}` PATH로 찾는 실행 파일 realpath는 phase2 입력이고, 이 경우 적중 확인에도 worktree가 필요함을 명시(구현 동작과 일치, 코드 변경 없음) | 사용자 승인 2026-11-21 |
