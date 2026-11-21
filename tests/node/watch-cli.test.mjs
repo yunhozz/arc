@@ -10,6 +10,7 @@ import * as watch from '../../lib/watch/index.mjs';
 import {DEFAULT_PLATFORM_REGISTRY} from '../../lib/runtime/platform-registry.mjs';
 import {runRoot} from '../../lib/cli/root.mjs';
 import {WATCH_KINDS, WATCH_LIMITS} from '../../lib/watch/model.mjs';
+import {chooseWatchPlatforms} from '../../lib/watch/menu.mjs';
 import * as renderer from '../../lib/watch/render.mjs';
 import {GIT_ALLOWED, createGitRunner} from '../../lib/watch/git.mjs';
 
@@ -121,7 +122,7 @@ test('watch help explains platform choice, worktree scope and event output',asyn
   const s=setup(t);
   assert.equal(await runWatch(['--help'],s.io),0);
   assert.equal(s.output.text,WATCH_HELP+'\n');
-  assert.match(s.output.text,/Choose All or one platform in the menu/);
+  assert.match(s.output.text,/Check the platforms to watch in the menu; all supported platforms are checked by default/);
   assert.match(s.output.text,/current Git worktree, or the current directory outside Git/);
   assert.match(s.output.text,/Requires an interactive terminal/);
   assert.match(s.output.text,/each session's working directory at that point/);
@@ -659,6 +660,7 @@ function menuTerminal(s, keys) {
   output.rows = 24;
   const timeline = [];
   let menus = 0;
+  let menuClosed = false;
   const setRawMode = input.setRawMode.bind(input);
   input.setRawMode = value => {
     timeline.push(value);
@@ -666,12 +668,18 @@ function menuTerminal(s, keys) {
   };
   output.on('written', text => {
     timeline.push(text);
-    if (!text.includes('Which platform to watch?')) return;
-    const key = keys[menus++];
+    if (text.includes('\x1b[?1049l')) menuClosed = true;
+    // Drive input from terminal frames even when the menu title is wrong.
+    if (menuClosed || !text.startsWith('\x1b[?2026h')) return;
+    const key = keys[menus++] ?? 'eof';
     if (key === 'eof') queueMicrotask(() => input.emit('end'));
-    else if (key) queueMicrotask(() => input.emit('data', Buffer.from(key)));
+    else queueMicrotask(() => input.emit('data', Buffer.from(key)));
   });
   return timeline;
+}
+
+function watchMenuScreens(timeline) {
+  return timeline.filter(frame => typeof frame === 'string' && frame.includes('Which platforms to watch?')).map(strip);
 }
 
 test('removed scope options are unknown', async t => {
@@ -706,46 +714,52 @@ test('menu rows come from registry watch capability', async () => {
   const eta = {id:'eta',label:'Eta',capabilities:{watch:{state:'verified'}}};
   const beta = {id:'beta',label:'Beta',capabilities:{watch:{state:'verified'}}};
   assert.deepEqual(watchMenuRows({byDisplayOrder:()=>[zeta,eta,beta]}),[
-    {label:'All',platforms:['eta','beta']},
-    {label:'Zeta  (not supported)',platforms:null},
-    {label:'Eta',platforms:['eta']},
-    {label:'Beta',platforms:['beta']},
+    {id:'zeta',label:'Zeta',supported:false},
+    {id:'eta',label:'Eta',supported:true},
+    {id:'beta',label:'Beta',supported:true},
   ]);
 });
 
 test('unsupported row is not selectable', async t => {
   const s = setup(t);
   const timeline = menuTerminal(s,[
-    ...Array(descriptors.indexOf(unsupported)+1).fill('\x1b[B'),'\r','\x1b',
+    ...Array(descriptors.length-descriptors.indexOf(unsupported)).fill('\x1b[A'),'\r','\x1b',
   ]);
   s.io.setInterval = () => s.controller.abort();
   assert.equal(await runWatch([],s.io),0);
-  const screens = timeline.filter(frame => typeof frame === 'string' && frame.includes('Which platform to watch?'));
+  const screens = watchMenuScreens(timeline);
+  const firstFrame = timeline.find(frame => typeof frame === 'string' && frame.startsWith('\x1b[?2026h'));
+  assert.match(strip(firstFrame ?? ''),/Which platforms to watch\?/);
   assert.ok(screens.length>1);
-  const first = strip(screens[0]);
-  const labels = ['All',...descriptors.map(d => d.label+(d.capabilities.watch.state==='verified'?'':'  (not supported)')),'Back'];
+  const first = screens[0];
+  const labels = [...descriptors.map(d => d.capabilities.watch.state==='verified'
+    ? '[x] '+d.label : '[-] '+d.label+'  (not supported)'),'Watch','Back'];
   const indexes = labels.map(label => first.indexOf(label));
   assert.ok(indexes.every((index,i) => index>=0 && (!i || index>indexes[i-1])),first);
-  assert.ok(strip(screens.at(-1)).includes(unsupported.label+' is not supported by arc watch.'));
+  assert.doesNotMatch(first,/\bAll\b/);
+  assert.match(first,/Esc Exit/);
+  assert.ok(screens.at(-1).includes(unsupported.label+' is not supported by arc watch.'));
+  assert.ok(screens.at(-1).includes('[-] '+unsupported.label+'  (not supported)'));
   assert.deepEqual(s.calls,[]);
 });
 
 test('unsupported row notice clears when the cursor moves away', async t => {
   const s = setup(t);
   const timeline = menuTerminal(s,[
-    ...Array(descriptors.indexOf(unsupported)+1).fill('\x1b[B'),'\r','\x1b[A','\x1b[B','\x1b',
+    ...Array(descriptors.length-descriptors.indexOf(unsupported)).fill('\x1b[A'),'\r','\x1b[A','\x1b[B','\x1b',
   ]);
+  s.io.setInterval = () => s.controller.abort();
   assert.equal(await runWatch([],s.io),0);
-  const screens = timeline.filter(frame => typeof frame === 'string' && frame.includes('Which platform to watch?'));
+  const screens = watchMenuScreens(timeline);
   const message = unsupported.label+' is not supported by arc watch.';
-  const shown = screens.findIndex(frame => strip(frame).includes(message));
+  const shown = screens.findIndex(frame => frame.includes(message));
   assert.ok(shown >= 0);
   assert.ok(screens.length >= shown+3);
-  assert.ok(screens.slice(shown+1).every(frame => !strip(frame).includes(message)));
+  assert.ok(screens.slice(shown+1).every(frame => !frame.includes(message)));
 });
 
 test('menu cancel restores terminal and never starts watcher', async t => {
-  for (const [keys,code] of [[['\x1b[A','\r'],0],[['\x1b'],0],[['eof'],0],[['\x03'],130]]) {
+  for (const [keys,code] of [[['\x1b[B','\r'],0],[['\x1b'],0],[['eof'],0],[['\x03'],130]]) {
     const s = setup(t);
     const timeline = menuTerminal(s,keys);
     s.io.setInterval = () => s.controller.abort();
@@ -757,9 +771,10 @@ test('menu cancel restores terminal and never starts watcher', async t => {
 });
 
 test('menu dispose precedes watch raw mode and first output', async t => {
+  const k = descriptors.length-descriptors.findIndex(d => d.id==='codex');
   for (const [keys,expected] of [
     [['\r'],['local claude','local codex']],
-    [[...Array(descriptors.findIndex(d => d.id==='claude')+1).fill('\x1b[B'),'\r'],['local claude']],
+    [[...Array(k).fill('\x1b[A'),'\r',...Array(k).fill('\x1b[B'),'\r'],['local claude']],
   ]) {
     const s = setup(t);
     const timeline = menuTerminal(s,keys);
@@ -778,5 +793,56 @@ test('menu dispose precedes watch raw mode and first output', async t => {
     const output = timeline.slice(firstWatch).filter(frame => typeof frame==='string').map(strip).join('');
     assert.deepEqual([...output.matchAll(/local (?:claude|codex)$/gm)].map(match => match[0]).sort(),expected);
     assert.doesNotMatch(output,/foreign codex/);
+  }
+});
+
+test('empty selection is rejected with a notice', async t => {
+  const s = setup(t);
+  const keys = [];
+  for (const descriptor of descriptors.toReversed()) {
+    keys.push('\x1b[A');
+    if (descriptor.capabilities.watch.state === 'verified') keys.push('\r');
+  }
+  keys.push(...Array(descriptors.length).fill('\x1b[B'),'\r','\x1b[A','\x1b');
+  const timeline = menuTerminal(s,keys);
+  s.io.setInterval = () => s.controller.abort();
+  assert.equal(await runWatch([],s.io),0);
+  const screens = watchMenuScreens(timeline);
+  const message = 'Select at least one platform to watch.';
+  assert.ok(screens.at(-2)?.includes(message));
+  for (const descriptor of supported(DEFAULT_PLATFORM_REGISTRY)) {
+    assert.ok(screens.at(-2).includes('[ ] '+descriptor.label));
+  }
+  assert.ok(!screens.at(-1).includes(message));
+  assert.deepEqual(s.calls,[]);
+});
+
+test('no supported platform leaves only Back', async t => {
+  const s = setup(t);
+  s.io.registry = {
+    byDisplayOrder:()=>[{id:'zeta',label:'Zeta',capabilities:{watch:{state:'off'}}}],
+    byAnchorOrder:()=>[],
+  };
+  const timeline = menuTerminal(s,['\r','\x1b']);
+  s.io.setInterval = () => s.controller.abort();
+  assert.equal(await runWatch([],s.io),0,s.error.text);
+  const screens = watchMenuScreens(timeline);
+  assert.ok(screens[0]?.includes('[-] Zeta  (not supported)'));
+  assert.ok(screens[1]?.includes('Select at least one platform to watch.'));
+  assert.deepEqual(s.calls,[]);
+});
+
+test('confirm returns checked ids in display order', async t => {
+  const eta = {id:'eta',label:'Eta',capabilities:{watch:{state:'verified'}}};
+  const beta = {id:'beta',label:'Beta',capabilities:{watch:{state:'verified'}}};
+  const registry = {byDisplayOrder:()=>[eta,beta]};
+  for (const [keys,expected] of [
+    [['\x1b[A','\x1b[A','\r','\r','\x1b[B','\x1b[B','\r'],['eta','beta']],
+    [['\x1b[A','\x1b[A','\r','\x1b[B','\x1b[B','\r'],['beta']],
+  ]) {
+    const s = setup(t);
+    menuTerminal(s,keys);
+    const actual = await chooseWatchPlatforms({input:s.io.input,output:s.output,env:s.io.env,signals:s.io.process,registry});
+    assert.deepEqual(actual,expected);
   }
 });
