@@ -7,7 +7,9 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
 import {getPlatform} from './platform-registry.mjs';
 import {inspectPath, within} from './scope.mjs';
-import {buildReport, compareRuns, isolationPasses, PARSER_SCHEMA_VERSION, summarizeCommand, validateRegexSpec} from './test-results.mjs';
+import {
+  buildReport, compareRuns, isolationPasses, originalTestSpelling, PARSER_SCHEMA_VERSION, summarizeCommand, validateRegexSpec
+} from './test-results.mjs';
 
 export const VERIFY_COMMANDS = Object.freeze(['verify-start', 'verify-status', 'verify-compare', 'verify-rerun', 'verify-cleanup']);
 export const HEARTBEAT_INTERVAL_MS = 2000;
@@ -864,11 +866,11 @@ function readResultFiles(matches, {raw, id, runId} = {}) {
   return files;
 }
 
-function summarizeTaskOutput({results, output, worktree, files, allowEmpty}) {
+function summarizeTaskOutput({results, output, worktree, worktreeAlias, files, allowEmpty}) {
   return summarizeCommand({
     format: results.format, results, resultFiles: files,
     ctx: {
-      worktree,
+      worktree, worktreeAlias,
       fileExists: relative => Boolean(worktreeFile(worktree, relative)?.stat.isFile()),
       fileIsSymlink: relative => symlinkedWorktreePath(worktree, relative)
     },
@@ -1014,7 +1016,7 @@ class RunFailure extends Error {
 async function createWorktree({git, cwd, commonDir, run, persist, internal}) {
   const {runId} = run;
   const paths = ownedWorktreePaths(commonDir, runId);
-  const {root, parent, directory, repoHash, worktree, noHooks, owner} = paths;
+  const {root, parent, directory, repoHash, worktree, worktreeAlias, noHooks, owner} = paths;
   const safety = {runId, code: 'unsafe_temp_path', lstat: internal.lstat ?? fs.lstatSync};
   try {
     verifyWorktreeAncestors(root, safety);
@@ -1054,7 +1056,7 @@ async function createWorktree({git, cwd, commonDir, run, persist, internal}) {
     if (error instanceof RunFailure) throw error;
     throw new RunFailure('worktree_unclean', error.message);
   }
-  return run.worktree.path;
+  return {worktree, worktreeAlias};
 }
 
 async function seedWorktree(seeds, worktree, git) {
@@ -1470,7 +1472,7 @@ export async function verifyRerun({cwd, input, env = process.env}) {
 
     return await withOperationLock(path.join(directory, 'worktree-operation.lock'), async () => {
       const current = readStoredRun(directory, runId);
-      const worktree = ownedWorktreePaths(commonDir, runId).worktree;
+      const {worktree, worktreeAlias} = ownedWorktreePaths(commonDir, runId);
       if (current?.state !== 'succeeded' || current.worktree?.path !== worktree || !pathStat(worktree)) {
         throw hold('run_incomplete');
       }
@@ -1486,8 +1488,11 @@ export async function verifyRerun({cwd, input, env = process.env}) {
       const reporter = fs.realpathSync(REPORTER);
       const task = resolveTask({...command, args: []}, cwd, originalEnv, [], reporter, () => {}, GLOB_FILE_LIMIT);
       const runnable = materializeTask(task, worktree);
+      const worktreePaths = [worktree, worktreeAlias];
+      const isolateName = test.isolationNameParts?.map(part =>
+        typeof part === 'number' ? worktreePaths[part] : part).join('') ?? test.name;
       const values = {
-        file: test.file, name: test.name, namePattern: '^' + test.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$',
+        file: test.file, name: isolateName, namePattern: '^' + isolateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$',
         testId, worktree, arcNodeReporter: reporter
       };
       runnable.args = command.isolate.args.map(arg =>
@@ -1508,8 +1513,10 @@ export async function verifyRerun({cwd, input, env = process.env}) {
         throw error;
       }
       const files = readResultFiles(findFiles().filter(file => resultFileVersion(file) !== previous.get(file.relative)));
-      const summary = summarizeTaskOutput({results, output, worktree, files, allowEmpty: true});
-      const target = summary.tests.find(({file, suite, name}) => file === test.file && suite === test.suite && name === test.name);
+      const summary = summarizeTaskOutput({results, output, worktree, worktreeAlias, files, allowEmpty: true});
+      const spelling = originalTestSpelling(test);
+      const target = summary.tests.find(candidate => candidate.file === test.file && candidate.suite === test.suite &&
+        candidate.name === test.name && originalTestSpelling(candidate) === spelling);
       const status = resultsOverLimit || summary.incomplete.length ? 'incomplete' : target?.status ?? 'no_match';
       const record = {attempt, status, ms: output.wallMs};
       try {
@@ -1528,12 +1535,17 @@ export async function verifyRerun({cwd, input, env = process.env}) {
 
 function ownedWorktreePaths(commonDir, runId) {
   let temporary;
-  try { temporary = fs.realpathSync(os.tmpdir()); } catch (error) { throw storageError(error, {runId}); }
+  let temporaryAlias;
+  try {
+    temporaryAlias = os.tmpdir();
+    temporary = fs.realpathSync(temporaryAlias);
+  } catch (error) { throw storageError(error, {runId}); }
   const repoHash = sha256Hex(commonDir).slice(0, 16);
   const root = path.join(temporary, 'arc-verify');
   const parent = path.join(root, repoHash);
   const directory = path.join(parent, runId);
   return {repoHash, root, parent, directory, worktree: path.join(directory, 'wt'),
+    worktreeAlias: path.resolve(temporaryAlias, 'arc-verify', repoHash, runId, 'wt'),
     owner: path.join(directory, 'owner.json'), noHooks: path.join(directory, 'no-hooks')};
 }
 
@@ -2036,7 +2048,7 @@ async function executeRun({run, runDir, store, commonDir, git, environment, exec
     }, internal.sampleMs ?? LOAD_SAMPLE_MS);
     if (!hasPhase2 && !needsWorktreeKey) hit = await phase('cache', () => cacheLookup(store, run));
     if (!hit) {
-      const worktree = await phase('worktree', () => createWorktree({git, cwd, commonDir, run, persist, internal}));
+      const {worktree, worktreeAlias} = await phase('worktree', () => createWorktree({git, cwd, commonDir, run, persist, internal}));
       const entries = commands ? null : await worktreeRevisionFiles(git, worktree, input);
       let executionCommands = commands ?? resolveRunCommands(input, entries, {
         cwd, environment, reporter: fs.realpathSync(REPORTER), globLimit, addReason
@@ -2077,7 +2089,7 @@ async function executeRun({run, runDir, store, commonDir, git, environment, exec
             const {id, results, expandedFiles} = task;
             const files = results.path
               ? readResultFiles(findResultFiles(results.path, worktree, globLimit, addReason), {raw, id, runId}) : [];
-            const summary = summarizeTaskOutput({results, output, worktree, files});
+            const summary = summarizeTaskOutput({results, output, worktree, worktreeAlias, files});
             if (output.truncated && results.format === 'none') summary.incomplete.push({scope: 'command', reason: 'output_truncated'});
             summaries.push({id, format: results.format, expandedFiles, summary: {...summary, wallMs: output.wallMs, groupKill: output.groupKill}});
           }

@@ -1525,6 +1525,66 @@ test('compare writes report json and md and returns verdict', async t => {
   assert.match(fs.readFileSync(reportMd, 'utf8'), /기록 조건[\s\S]*새 실패[\s\S]*기준선 재현[\s\S]*간헐 후보[\s\S]*느린 상위/);
 });
 
+test('same test with run-specific worktree path in subTest name reproduces baseline in compare', async t => {
+  const repo = makeRepo(t);
+  repo.input.commands = [{
+    id: 'python', ...js(`console.error("  test_case (fixture.Case.test_case) (path='" + process.cwd() + "/tests/a.test.mjs') ... FAIL");
+      process.exitCode = 1;`),
+    results: {format: 'regex', stream: 'stderr', pattern: '^\\s*(?<name>.+) \\.\\.\\. (?<status>FAIL)$',
+      statusMap: {pass: [], fail: ['FAIL'], skip: []}}
+  }];
+  const base = await start(t, repo);
+  if (!base) return;
+  const head = await start(t, repo, {...repo.input, role: 'head'});
+  if (!head) return;
+  assert.notEqual(base.worktree.path, head.worktree.path);
+  const report = readJson(compare(repo, base, head).reportJson);
+  const testId = "-::::test_case (fixture.Case.test_case) (path='{worktree}/tests/a.test.mjs')#1";
+  assert.deepEqual(report.baselineReproduced, [{commandId: 'python', testId}]);
+  assert.deepEqual(report.newFailures, []);
+  assert.deepEqual(report.disappearedTests, []);
+});
+
+test('compare detects a normalized name collision in a persisted cache-hit baseline', async t => {
+  const repo = makeRepo(t);
+  const tmpAlias = path.join(repo.common, 'tmp-alias');
+  fs.symlinkSync(os.tmpdir(), tmpAlias, 'dir');
+  t.mock.method(os, 'tmpdir', () => tmpAlias);
+  const env = {...cleanEnv, TMPDIR: tmpAlias};
+  const script = `
+    const {existsSync, realpathSync} = require('node:fs');
+    const {tmpdir} = require('node:os');
+    const {join, relative} = require('node:path');
+    const real = process.cwd();
+    const alias = join(tmpdir(), relative(realpathSync(tmpdir()), real));
+    const name = root => "case('" + root + "/x')";
+    const row = (root, body = '') => '<testcase file="tests/a.test.mjs" name="' + name(root) + '">' + body + '</testcase>';
+    const rows = existsSync('tracked.txt') ? row(alias, '<failure/>') : row(real, '<failure/>') + row(alias);
+    console.log('<testsuite name="s">' + rows + '</testsuite>');
+    process.exitCode = 1;
+  `;
+  const input = {...repo.input, commands: [{id: 'tests', ...js(script), results: {format: 'junit-xml', stream: 'stdout'}}]};
+  const baseInput = {...input, revision: repo.first};
+  const base = await start(t, repo, baseInput, {env});
+  if (!base) return;
+  const cached = await start(t, repo, baseInput, {env});
+  if (!cached) return;
+  const head = await start(t, repo, {...input, role: 'head'}, {env});
+  if (!head) return;
+  assert.deepEqual([cached.cacheHit, cached.reusedFrom, cached.worktree], [true, base.runId, null]);
+  const testId = "tests/a.test.mjs::s::case('{worktree}/x')#1";
+  const report = readJson(compare(repo, cached, head).reportJson);
+  assert.deepEqual(report.newFailureCandidates, [{commandId: 'tests', testId, reason: 'normalized_name_collision'}]);
+  assert.deepEqual(report.baselineReproduced, []);
+  assert.equal(report.verdict, 'candidates');
+
+  const savedSummary = run => readJson(runFile(repo, run.runId, 'result.json')).commands[0].summary;
+  const collision = {file: 'tests/a.test.mjs', suite: 's', name: "case('{worktree}/x')"};
+  assert.deepEqual(savedSummary(base).normalizedNameCollisions, [collision]);
+  assert.deepEqual(savedSummary(cached).normalizedNameCollisions, [collision]);
+  assert.deepEqual(savedSummary(head).normalizedNameCollisions, []);
+});
+
 test('tap load failure of symlinked test file is command incomplete symlinked_test_file', async t => {
   const repo = makeRepo(t);
   const outside = path.join(repo.common, 'outside.mjs');
@@ -1640,6 +1700,152 @@ test('compare history mismatch under the same cacheKey yields intermittent candi
 function rerun(repo, head, options = {}, exit = 0, code = 'ok') {
   return verifyCli(repo, 'rerun', {runId: head.runId, testId: newFailureId, attempt: 1, sandboxMode: 'none', ...options}, exit, code);
 }
+
+test('verifyStart and verifyRerun normalize names containing both worktree path spellings', async t => {
+  const repo = makeRepo(t);
+  const alias = path.join(repo.common, 'tmp-alias');
+  const tmpdir = os.tmpdir();
+  fs.symlinkSync(tmpdir, alias, 'dir');
+  t.mock.method(os, 'tmpdir', () => alias);
+  fs.writeFileSync(path.join(repo.cwd, 'tests/a.test.mjs'), `
+    import assert from 'node:assert/strict';
+    import {realpathSync} from 'node:fs';
+    import {tmpdir} from 'node:os';
+    import {join, relative} from 'node:path';
+    import {test} from 'node:test';
+    const real = process.cwd();
+    const alias = join(tmpdir(), relative(realpathSync(tmpdir()), real));
+    assert.notEqual(alias, real);
+    test('fixture (' + real + ', ' + alias + '/tests/a.test.mjs)', () => {});
+  `);
+  git(repo.cwd, 'add', 'tests/a.test.mjs');
+  git(repo.cwd, 'commit', '-qm', 'add named worktree fixture');
+  repo.snapshot();
+  const args = ['--test', '--test-reporter={arcNodeReporter}', '--test-reporter-destination=stdout'];
+  const input = {...repo.input, role: 'head', revision: git(repo.cwd, 'rev-parse', 'HEAD'), commands: [{
+    id: 'node', executable: process.execPath, args: [...args, 'tests/a.test.mjs'],
+    env: {NODE_TEST_CONTEXT: 'blocked', ARC_BRIDGE_CHILD: 'blocked'},
+    isolate: {args: [...args, '--test-name-pattern={namePattern}', '{file}']},
+    results: {format: 'junit-xml', stream: 'stdout'}
+  }]};
+  const env = {...cleanEnv, TMPDIR: alias};
+  const head = await start(t, repo, input, {env});
+  if (!head) return;
+  const {tests} = readJson(runFile(repo, head.runId, 'result.json')).commands[0].summary;
+  const name = 'fixture ({worktree}, {worktree}/tests/a.test.mjs)';
+  const testId = `tests/a.test.mjs::::${name}#1`;
+  assert.deepEqual(tests.map(({testId, name, status}) => [testId, name, status]), [[testId, name, 'passed']]);
+  const result = verifyCli(repo, 'rerun', {runId: head.runId, testId, attempt: 1, sandboxMode: 'none'}, 0, 'ok', env);
+  assert.deepEqual([result.runStatus, result.passesInIsolation], ['passed', 'yes']);
+});
+
+test('rerun matches the original name when normalized test names collide', async t => {
+  const repo = makeRepo(t);
+  const alias = path.join(repo.common, 'tmp-alias');
+  fs.symlinkSync(os.tmpdir(), alias, 'dir');
+  t.mock.method(os, 'tmpdir', () => alias);
+  const marker = path.join(repo.common, 'emit-target');
+  const script = `
+    const assert = require('node:assert/strict');
+    const {existsSync, realpathSync} = require('node:fs');
+    const {tmpdir} = require('node:os');
+    const {join, relative} = require('node:path');
+    const [phase, marker, selected] = process.argv.slice(1);
+    const real = process.cwd();
+    const alias = join(tmpdir(), relative(realpathSync(tmpdir()), real));
+    assert.notEqual(alias, real);
+    const name = root => "case(path='" + root + "')";
+    const row = (root, body = '') => '<testcase file="tests/a.test.mjs" name="' + name(root) + '">' + body + '</testcase>';
+    if (phase === 'start') {
+      console.log('<testsuite>' + row(real, '<failure/>') + row(alias, '<failure/>') + '</testsuite>');
+      process.exitCode = 1;
+    } else {
+      assert.equal(selected, name(alias));
+      console.log('<testsuite>' + row(existsSync(marker) ? alias : real) + '</testsuite>');
+    }
+  `;
+  const input = {...repo.input, role: 'head', commands: [{
+    id: 'tests', ...js(script, 'start', marker), results: {format: 'junit-xml', stream: 'stdout'},
+    isolate: {args: js(script, 'isolate', marker, '{name}').args}
+  }]};
+  const env = {...cleanEnv, TMPDIR: alias};
+  const head = await start(t, repo, input, {env});
+  if (!head) return;
+  const id = "tests/a.test.mjs::::case(path='{worktree}')";
+  const {tests} = readJson(runFile(repo, head.runId, 'result.json')).commands[0].summary;
+  assert.deepEqual(tests.map(({testId, status}) => [testId, status]), [[id + '#1', 'failed'], [id + '#2', 'failed']]);
+
+  const attempt = attempt => verifyCli(repo, 'rerun', {
+    runId: head.runId, testId: id + '#2', attempt, sandboxMode: 'none'
+  }, 0, 'ok', env);
+  const otherOnly = attempt(1);
+  assert.deepEqual([otherOnly.runStatus, otherOnly.attempts[0].status, otherOnly.passesInIsolation],
+    ['inconclusive', 'no_match', null]);
+
+  fs.writeFileSync(marker, '');
+  const targetOnly = attempt(2);
+  assert.deepEqual([targetOnly.runStatus, targetOnly.attempts[1].status, targetOnly.passesInIsolation],
+    ['passed', 'passed', 'yes']);
+});
+
+test('rerun matches the original suite when normalized suite names collide', async t => {
+  const repo = makeRepo(t);
+  const tmpAlias = path.join(repo.common, 'tmp-alias');
+  fs.symlinkSync(os.tmpdir(), tmpAlias, 'dir');
+  t.mock.method(os, 'tmpdir', () => tmpAlias);
+  const env = {...cleanEnv, TMPDIR: tmpAlias};
+  const marker = path.join(repo.common, 'rerun-output');
+  const script = `
+    const assert = require('node:assert/strict');
+    const {readFileSync, realpathSync} = require('node:fs');
+    const {tmpdir} = require('node:os');
+    const {join, relative} = require('node:path');
+    const [phase, marker, selected] = process.argv.slice(1);
+    const real = process.cwd();
+    const alias = join(tmpdir(), relative(realpathSync(tmpdir()), real));
+    assert.notEqual(alias, real);
+    const row = (root, failed = false) => '<testsuite name="' + root + '/s"><testcase file="tests/a.test.mjs" name="x">' +
+      (failed ? '<failure/>' : '') + '</testcase></testsuite>';
+    const emit = rows => console.log('<testsuites>' + rows + '</testsuites>');
+    if (phase === 'start') {
+      emit(row(real, true) + row(alias, true));
+      process.exitCode = 1;
+    } else {
+      assert.equal(selected, 'x');
+      const mode = readFileSync(marker, 'utf8');
+      if (mode === 'other') emit(row(real));
+      if (mode === 'target') emit(row(alias));
+      if (mode === 'both') {
+        emit(row(real) + row(alias, true));
+        process.exitCode = 1;
+      }
+    }
+  `;
+  const input = {...repo.input, role: 'head', commands: [{
+    id: 'tests', ...js(script, 'start', marker), results: {format: 'junit-xml', stream: 'stdout'},
+    isolate: {args: js(script, 'isolate', marker, '{name}').args}
+  }]};
+  const head = await start(t, repo, input, {env});
+  if (!head) return;
+  const id = 'tests/a.test.mjs::{worktree}/s::x';
+  const {tests} = readJson(runFile(repo, head.runId, 'result.json')).commands[0].summary;
+  assert.deepEqual(tests.map(({testId, status}) => [testId, status]), [[id + '#1', 'failed'], [id + '#2', 'failed']]);
+
+  const cases = [
+    ['other', 'inconclusive', 'no_match'],
+    ['target', 'passed', 'passed'],
+    ['both', 'failed', 'failed']
+  ];
+  for (const [index, [mode, runStatus, status]] of cases.entries()) {
+    await t.test(mode, () => {
+      fs.writeFileSync(marker, mode);
+      const result = verifyCli(repo, 'rerun', {
+        runId: head.runId, testId: id + '#2', attempt: index + 1, sandboxMode: 'none'
+      }, 0, 'ok', env);
+      assert.deepEqual([result.runStatus, result.attempts.at(-1).status], [runStatus, status]);
+    });
+  }
+});
 
 test('rerun passes attempt in isolation and reports passesInIsolation yes', async t => {
   const repo = makeRepo(t);

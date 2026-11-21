@@ -1,7 +1,7 @@
 # 최종 검증 기준선 캐시·clean worktree·백그라운드 기준선 설계 (spec)
 
 - 날짜: 2026-11-21
-- 상태: v8 승인 (2026-11-21, 개정 이력 참조)
+- 상태: v9 승인 (2026-11-22, 개정 이력 참조)
 - workflow: wf-final-verify-cache
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache`, 브랜치 `feat/final-verify-baseline-cache`, base `68ef36c864f7dfe6fa1bebffc15906f2d95a16a7`
 - 경로·위험: Architectural, significant (검증 정책·새 runtime 명령)
@@ -312,6 +312,15 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 
 `file::suite1/suite2::name#k`. `file`은 worktree 기준 POSIX 상대경로(절대경로·`file://`·worktree realpath 접두사 제거, 모르면 `-`), `suite`는 중첩 suite 이름을 `/`로 연결(없으면 빈 문자열), `k`는 같은 command 안 같은 (file, suite, name)의 순번(1부터). 비교 단위는 `(commandId, testId)`.
 
+(v9) `suite`와 `name` 안에 worktree 경로가 나타나면 `{worktree}`로 바꾼 뒤 식별자를 만든다. 대상은 worktree realpath와, realpath를 거치기 전의 `os.tmpdir()` 기준 경로다(예: macOS의 `/var/...`와 `/private/var/...`). 이 경로는 run마다 다르므로, 바꾸지 않으면 같은 테스트가 run마다 다른 식별자를 갖는다. 예를 들어 Python subTest 매개변수에 파일 경로가 들어가면 기준선 실패가 '새 실패'와 '사라진 테스트'의 쌍으로 갈라진다. 바꾸는 범위는 이 경로 문자열뿐이고 나머지 이름은 그대로 둔다. 순번 `k`는 바꾼 뒤의 (file, suite, name)으로 센다. 보고서의 이름도 바꾼 값으로 쓴다. 경로의 시작과 끝은 다음 규칙으로 정한다.
+- 시작: 문자열 시작, 또는 공백·인용부호·`=`·`(`·`:`·`,`·`[`·`{`·`file://` 바로 뒤.
+- 끝: 경로 구분자 뒤는 늘 경로의 일부다. 인용부호로 시작한 경로는 같은 인용부호에서만 끝난다. 인용부호가 없으면 문자열 끝이나 공백에서 끝나고, 괄호 문맥에서는 닫는 괄호나 `,`에서도 끝난다.
+- 그래서 `'…/wt,other'`, `'…/wt other'`, `'…/wt:other'`는 worktree 경로가 아니므로 바꾸지 않는다.
+- 인용된 값 안에서도 쉼표나 공백 뒤는 새 경로의 시작으로 본다. 경로 목록이 들어간 값(예: `'/a,<worktree>/b'`)에서 worktree 경로를 빠뜨리지 않기 위해서다. 이 규칙 때문에 쉼표·공백을 포함한 다른 경로의 일부가 바뀔 수 있다.
+- 한계: 인용부호 없이 `<worktree>.`·`<worktree>;`처럼 위 끝 규칙에 없는 문자로 끝나는 경로는 바꾸지 않는다. 이런 이름은 run마다 달라서 새 실패·사라진 테스트의 쌍으로 보고될 수 있다. 실패를 숨기는 방향은 아니다.
+
+치환 충돌: 바꾸기 전 원래 표기가 서로 다른 테스트가 바꾼 뒤 같은 (file, suite, name)이 될 수 있다. 원래 표기는 suite의 각 요소와 name을 모두 포함한다. 예를 들어 경로 표기만 다르거나, 위의 쉼표·공백 규칙으로 다른 경로 일부가 바뀐 경우다. 이 경우 순번 `k`는 run 안의 출현 순서에만 기대므로, 기준선과 HEAD 사이에서 구성이나 순서가 바뀌면 다른 테스트끼리 짝지어질 수 있다. 그래서 어느 한 run에서라도 이런 충돌이 생긴 (commandId, file, suite, name)에 속한 HEAD 실패는 `baselineReproduced`로 흡수하지 않는다. 대신 `newFailureCandidates`에 사유 `normalized_name_collision`으로 올린다(§9.4-4). 원래 suite와 name이 완전히 같은 중복 테스트는 치환 충돌이 아니므로 이 규칙의 대상이 아니다. 재실행할 때는 저장해 둔 원래 이름(바꾸기 전 경로 표기)으로 isolate 인자를 만든다. 재실행 출력의 결과는 원래 표기(suite의 각 요소와 name)가 대상과 같을 때만 그 대상의 attempt로 인정한다. 바꾼 뒤 이름이 같아진 다른 테스트(다른 `k`)의 결과만 있으면 attempt는 `no_match`다.
+
 ### 9.2 파서 4종 (`lib/runtime/test-results.mjs`)
 
 **junit-xml**(의존성 없는 최소 파서)
@@ -361,7 +370,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 1. `newFailures`(finding): head에서 failed인데 base에서 passed·skipped이거나 base에 없는 테스트(완전한 파일에 한함)
 2. `baselineReproduced`: 양쪽 failed
 3. `baselineNotReproduced`: base failed, head passed(보고만)
-4. `newFailureCandidates`(흡수 금지): base에서 incomplete인 파일·command에 속한 head 실패, head에서 incomplete인 파일·command(이름 대신 incomplete 사유), none 형식 command가 head에서 실패(base도 실패했어도 명령 단위 후보)
+4. `newFailureCandidates`(흡수 금지): base에서 incomplete인 파일·command에 속한 head 실패, head에서 incomplete인 파일·command(이름 대신 incomplete 사유), none 형식 command가 head에서 실패(base도 실패했어도 명령 단위 후보), (v9) base·head 중 한쪽이라도 치환 충돌(§9.1)이 있는 (file, suite, name)에 속하고, 이 규칙이 없으면 `baselineReproduced`로 분류됐을 head 실패(사유 `normalized_name_collision`). 충돌 여부는 각 run의 저장 결과에 기록해서 캐시로 재사용한 기준선에서도 판정한다.
 5. `disappearedTests`, `addedTests`(완전한 파일 기준, 보고만)
 6. `addedFiles`, `removedFiles`(glob 펼침 차이)
 7. `intermittentCandidates`(§9.5)
@@ -379,7 +388,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 
 **JSON:** `schemaVersion`, `base{runId,commit,tree,load,cacheHit,reusedFrom}`, `head{...}`, `conditions{machineId,os,node,sandboxMode,hostPlatform,executionEnvironment,tmpdir{realpath,fsType},envNames,prepareDigest,seedDigest}`, `commands[{id, base{exitCode,wallMs,tests,incomplete}, head{...}}]`, `newFailures[]`, `baselineReproduced[]`, `baselineNotReproduced[]`, `newFailureCandidates[{commandId,testId|null,reason}]`, `intermittentCandidates[{commandId,testId,history[],reruns[],passesInIsolation}]`, `disappearedTests[]`, `addedTests[]`, `addedFiles[]`, `removedFiles[]`, `slowest{files[],tests[],phases[]}`(각 상위 `topN`), `verdict`, `generatedAt`.
 
-**md 순서:** 기록 조건, 명령별 합계·wall, 새 실패, 기준선 재현, 미재현, 간헐 후보, incomplete/none 후보, 사라진·새 테스트, 느린 상위 N(파일·테스트·prepare 단계).
+**md 순서:** 기록 조건, 명령별 합계·wall, 새 실패, 기준선 재현, 미재현, 간헐 후보, 새 실패 후보(incomplete·none·이름 있는 후보), 사라진·새 테스트, 느린 상위 N(파일·테스트·prepare 단계).
 
 ## 10. runner·부하·host (A-S5)
 
@@ -518,6 +527,7 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 5. (해결 2026-11-21) node v22.18.0 내장 tap은 실패 test point에만 `location`이 있다. load 실패는 하위 테스트 없는 `not ok`이고 설명과 location이 그 파일이다. ARC node reporter로 해결한다(§9.2).
 6. installer parity 목록과 installed-layout golden 검증 테스트의 정확한 파일명.
 7. win32 loadavg `[0,0,0]` → unknown 경로와 프로세스 그룹 kill 동작. (v8) win32에는 `process.geteuid`가 없으므로 §8.2·§8.5 판정 6의 소유자 검사가 통과하지 못한다. 그래서 `verify-start`는 hold `unsafe_temp_path`, cleanup은 hold `cleanup_unsafe_path`가 된다(소스 추론, 미실측). win32 지원은 후속 과제이며 이번 범위에서는 알려진 한계다.
+8. (v9) 파서 schema가 다른 run 사이의 compare·rerun 제한은 후속 과제다(Reviewer V9-7). 알려진 한계 두 가지가 있다. 첫째, v8 형식 base와 v9 head를 직접 비교하면 경로가 든 이름은 서로 다른 규칙의 testId가 되어 가짜 새 실패로 보고될 수 있다. 둘째, `originalSuiteParts`가 없는 이전 형식 result의 중첩 suite 테스트를 재실행하면 원래 표기가 맞지 않아 attempt가 늘 `no_match`(`runStatus:"inconclusive"`)가 된다(Reviewer V9-9). 두 경우 모두 실패를 흡수하는 방향은 아니다. 이전 형식 run이 대상이면 `verify-start`로 새로 기록한다.
 
 ## 14. builder 재량
 
@@ -535,3 +545,4 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 | v6 | 2026-11-21 | T4 재시작 Implementer 안전성 hold 후 §8.5 판정 5 보강: bare 저장소 형태 감지 추가, unlock 직후·remove 직전 재검사, 보장 범위(일반 파일은 도구 소유)와 경합 창 한계 명시 | 사용자 승인 2026-11-21 |
 | v7 | 2026-11-21 | T4 세 번째 Implementer 안전성 hold(Git 재귀 삭제 중 symlink 교체 경합) 후 §8.5 판정 6 추가: 도구 디렉터리 경로 전체의 실제 디렉터리·현재 사용자 소유·0700 확인, 실패 시 hold `cleanup_unsafe_path`. 같은 사용자 경합은 v6 한계에 포함 | 사용자 승인 2026-11-21 |
 | v8 | 2026-11-21 | 통합 브랜치 최종 Reviewer finding과 dogfood 결함 보완: §8.2 생성 시점 소유 전제와 §5.7 `unsafe_temp_path`(F1), §9.3 timeout·signal 항상 incomplete와 §9.2 TAP `plan_missing`(F2), §5.5 rerun 통과는 대상 테스트 파싱으로 판정·`no_match`(F3), §8.3-8 스냅샷은 작업 트리 최상위 기준(F7), §9.3 파서 예외는 `parse_error`·§10.1 runner 예외는 run `failed`(dogfood: `ctx.fileExists` 누락 예외로 run이 `running`에 고정). 머리말 상태 표기 정정(F10). 재검토 보완(같은 v8): §9.2 파일 추론은 심볼릭 링크 제외(QA), §5.5 `skipped`·`runStatus:"inconclusive"`·재실행 없음은 `null`(N1·N3), §9.5 rerun 비교는 passed·failed만(N2), §13-7 win32 한계(N4), §9.2 symlink 경로 load 실패는 command incomplete `symlinked_test_file`(N5), §5.5 출력 enum 정정(N6) | 사용자 결정 2026-11-21("둘 다 spec 보완 후 수정", "F3·F7도 함께 수정", "중간+N1–N3 수정, N4 한계", N5 "수정") |
+| v9 | 2026-11-22 | dogfood 비교에서 Python subTest 이름에 run별 worktree 절대경로가 들어가 기준선 실패 10건이 가짜 새 실패로 분류됨(AC-6 unmet): §9.1에 suite·name 안 worktree 경로를 `{worktree}`로 치환하는 규칙 추가. QA 반례(인용된 형제 경로 오탐, 동명 테스트 재실행 통과 오판)에 따라 경로 끝 판정과 재실행 결과 대조 규칙 보완. 인용된 값 안 쉼표·공백 뒤 경로 시작은 의도된 동작으로 명시. Reviewer V9-1·V9-2에 따라 경계 규칙을 구현대로 명시하고 한계를 적음. 치환 충돌 key의 head 실패를 `newFailureCandidates`(`normalized_name_collision`)로 올림(§9.1, §9.4-4). 충돌 비교에 suite 원래 표기 포함, md 후보 절 제목 일반화(§9.6), 재실행 대상 대조에 suite 원래 표기 포함. 이전 형식 run의 비교·재실행 한계를 §13-8에 적음(V9-7·V9-9) | 사용자 결정 2026-11-22("이름 정규화 수정 후 재실행", "둘 다 수정", "의도된 동작으로 명시", "보수적 검출 추가", "V9-5·V9-6 수정, V9-7 후속", "spec대로 수정", "spec 한계로 적고 커밋") |

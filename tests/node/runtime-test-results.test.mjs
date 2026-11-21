@@ -298,6 +298,72 @@ test('duplicate names get #k in order', () => {
   ]);
 });
 
+test('names containing worktree path normalize to {worktree} placeholder', async t => {
+  const worktree = '/private/tmp/arc-verify/repo/run/wt';
+  const worktreeAlias = '/tmp/arc-verify/repo/run/wt';
+  const pathContext = {...ctx, worktree, worktreeAlias};
+  const realName = `case(path='${worktree}/tests/a.test.mjs')`;
+  const aliasName = `case(path='${worktreeAlias}/tests/a.test.mjs')`;
+  const otherName = `case(path='${worktree}-other', other='/outside${worktree}')`;
+  const expectedSuite = 'outer/{worktree}/suite';
+  const expectedNames = ["case(path='{worktree}/tests/a.test.mjs')", "case(path='{worktree}/tests/a.test.mjs')", otherName];
+  const formats = {
+    'junit-xml': {
+      text: `<testsuite name="outer" file="${worktree}/a.test.mjs"><testsuite name="${worktreeAlias}/suite">` +
+        [realName, aliasName, otherName].map(name => `<testcase name="${name}"/>`).join('') + '</testsuite></testsuite>'
+    },
+    tap: {
+      text: `# Subtest: outer\n    # Subtest: ${worktreeAlias}/suite\n` +
+        [realName, aliasName, otherName].map((name, i) => `        ok ${i + 1} - ${name}\n` +
+          `          ---\n          location: '${worktree}/a.test.mjs:4:1'\n          ...\n`).join('') +
+        `        1..3\n    ok 1 - ${worktreeAlias}/suite\n    1..1\nok 1 - outer\n1..1\n`
+    },
+    regex: {
+      text: [realName, aliasName, otherName].map(name => `OK\t${worktree}/a.test.mjs\touter (${worktreeAlias}/suite)\t${name}`).join('\n'),
+      pattern: '^(?<status>[^\\t]+)\\t(?<file>[^\\t]+)\\t(?<suite>[^\\t]+)\\t(?<name>.+)$',
+      statusMap: {pass: ['OK']},
+      suite: 'outer ({worktree}/suite)'
+    },
+    none: {text: realName}
+  };
+  for (const [format, {text, suite = expectedSuite, ...extra}] of Object.entries(formats)) {
+    await t.test(format, () => {
+      const summary = summarize({format, ctx: pathContext, results: {stream: 'stdout', ...extra}, streams: {stdout: text}});
+      assert.deepEqual(summary.incomplete, []);
+      if (format === 'none') {
+        assert.deepEqual(summary.tests, []);
+        return;
+      }
+      assert.deepEqual(summary.tests.map(({file, suite, name, k, testId}) => [file, suite, name, k, testId]),
+        expectedNames.map((name, i) => {
+          const k = [1, 2, 1][i];
+          return ['a.test.mjs', suite, name, k, `a.test.mjs::${suite}::${name}#${k}`];
+        }));
+    });
+  }
+});
+
+test('preserves quoted sibling paths containing a comma, space, or colon', () => {
+  const worktree = '/private/tmp/arc-verify/repo/run/wt';
+  const worktreeAlias = '/tmp/arc-verify/repo/run/wt';
+  const names = [worktree, worktreeAlias].flatMap(root => [',', ' ', ':']
+    .map(separator => `case(path='${root}${separator}other')`));
+  const tests = names.map(name => ({file: 'a.test.mjs', suite: name, name, status: 'passed', durationMs: null}));
+  assert.deepEqual(assignTestIds(tests, {worktree, worktreeAlias}).map(({suite, name}) => [suite, name]),
+    names.map(name => [name, name]));
+});
+
+test('quoted path lists normalize worktree entries after a comma or space', () => {
+  const worktree = '/private/var/folders/example/T/arc-verify/repo/run/wt';
+  const worktreeAlias = '/var/folders/example/T/arc-verify/repo/run/wt';
+  const names = [worktree, worktreeAlias].flatMap(root => [',', ' ']
+    .map(separator => `case(path='/outside${separator}${root}/a')`));
+  const tests = names.map(name => ({file: 'a.test.mjs', suite: name, name, status: 'passed', durationMs: null}));
+  const expectedNames = ["case(path='/outside,{worktree}/a')", "case(path='/outside {worktree}/a')"];
+  assert.deepEqual(assignTestIds(tests, {worktree, worktreeAlias}).map(({suite, name}) => [suite, name]),
+    [...expectedNames, ...expectedNames].map(name => [name, name]));
+});
+
 function summarize(overrides = {}) {
   return summarizeCommand({
     format: 'junit-xml', results: {stream: 'stdout'}, streams: {stdout: passingXml, stderr: ''},
@@ -414,6 +480,82 @@ test('compare classifies new, reproduced, not reproduced, candidates, disappeare
   assert.deepEqual(ids('addedTests'), ['a.test.mjs::::added#1', 'a.test.mjs::::fresh failure#1']);
   assert.deepEqual(result.addedFiles, [{commandId: 'unit', path: 'new.test.mjs'}]);
   assert.deepEqual(result.removedFiles, [{commandId: 'unit', path: 'old.test.mjs'}]);
+});
+
+test('compare reports normalized name collisions on either side as failure candidates', async t => {
+  const summarizeRun = (runId, rows) => {
+    const worktreeAlias = `/var/folders/example/T/arc-verify/repo/${runId}/wt`;
+    const worktree = '/private' + worktreeAlias;
+    const roots = {real: worktree, alias: worktreeAlias};
+    const resultFiles = rows.map(([spelling, status], i) => ({path: `${i}.xml`, text:
+      `<testsuite name="s"><testcase file="a.test.mjs" name="case('${roots[spelling]}/x')">` +
+      (status === 'failed' ? '<failure/>' : '') + '</testcase></testsuite>'}));
+    const summary = summarize({ctx: {...ctx, worktree, worktreeAlias}, results: {path: '*.xml'}, resultFiles});
+    return run({...command([], {format: 'junit-xml'}), summary});
+  };
+  const scenarios = [
+    {label: 'base only', baseRows: [['real', 'failed'], ['alias', 'passed']], headRows: [['alias', 'failed']], collision: true},
+    {label: 'head only', baseRows: [['real', 'failed']], headRows: [['alias', 'failed'], ['real', 'passed']], collision: true},
+    {label: 'identical names', baseRows: [['real', 'failed'], ['real', 'passed']],
+      headRows: [['real', 'failed'], ['real', 'passed']], collision: false}
+  ];
+  const failure = {commandId: 'unit', testId: "a.test.mjs::s::case('{worktree}/x')#1"};
+  for (const {label, baseRows, headRows, collision} of scenarios) {
+    await t.test(label, () => {
+      const base = summarizeRun('base', baseRows);
+      const head = summarizeRun('head', headRows);
+      const result = compareRuns({base, head});
+      assert.deepEqual(result.newFailureCandidates, collision ? [{...failure, reason: 'normalized_name_collision'}] : []);
+      assert.deepEqual(result.baselineReproduced, collision ? [] : [failure]);
+      assert.deepEqual(result.newFailures, []);
+      assert.equal(result.verdict, collision ? 'candidates' : 'no-new-failures');
+      // Older saved summaries can contain original name parts without a collision list.
+      delete base.commands[0].summary.normalizedNameCollisions;
+      delete head.commands[0].summary.normalizedNameCollisions;
+      assert.deepEqual(compareRuns({base, head}), result);
+    });
+  }
+});
+
+test('compare detects normalized collisions in original JUnit and TAP suite names', async t => {
+  const fixtures = {
+    'junit-xml': rows => '<testsuites>' + rows.map(([suite, failed]) =>
+      `<testsuite name="${suite}"><testcase name="x">${failed ? '<failure/>' : ''}</testcase></testsuite>`
+    ).join('') + '</testsuites>',
+    tap: rows => [
+      'TAP version 13',
+      ...rows.flatMap(([suite, failed], i) => {
+        const status = failed ? 'not ok' : 'ok';
+        return [`# Subtest: ${suite}`, `    ${status} 1 - x`, '    1..1', `${status} ${i + 1} - ${suite}`];
+      }),
+      `1..${rows.length}`
+    ].join('\n')
+  };
+  const worktreeAlias = '/var/folders/example/T/arc-verify/repo/run/wt';
+  const worktree = '/private' + worktreeAlias;
+  const failure = {commandId: 'unit', testId: '-::{worktree}/s::x#1'};
+  for (const [format, render] of Object.entries(fixtures)) {
+    await t.test(format, () => {
+      const makeRun = rows => run({...command([], {format}), summary: summarize({format,
+        ctx: {...ctx, worktree, worktreeAlias}, streams: {stdout: render(rows)}})});
+      const real = `${worktree}/s`;
+      const alias = `${worktreeAlias}/s`;
+      const head = makeRun([[alias, true]]);
+      const base = makeRun([[real, true], [alias, false]]);
+      const result = compareRuns({base, head});
+      assert.deepEqual(result.newFailureCandidates, [{...failure, reason: 'normalized_name_collision'}]);
+      assert.deepEqual(result.baselineReproduced, []);
+      assert.deepEqual(result.newFailures, []);
+      assert.equal(result.verdict, 'candidates');
+
+      const identical = compareRuns({base: makeRun([[alias, true], [alias, false]]), head});
+      assert.deepEqual(identical.newFailureCandidates, []);
+      assert.deepEqual(identical.baselineReproduced, [failure]);
+
+      const saved = JSON.parse(JSON.stringify(base.commands[0].summary));
+      assert.deepEqual(saved.tests.map(({originalSuiteParts}) => originalSuiteParts), [[['', 0, '/s']], [['', 1, '/s']]]);
+    });
+  }
 });
 
 test('failure in base-incomplete file is a candidate, never baseline', () => {
@@ -533,6 +675,6 @@ test('report md sections follow §9.6 order', () => {
   const {md} = makeReport();
   assert.deepEqual([...md.matchAll(/^## (.+)$/gm)].map(match => match[1]), [
     '기록 조건', '명령별 합계 및 실행 시간', '새 실패', '기준선 재현', '기준선 미재현',
-    '간헐 후보', 'incomplete 및 none 후보', '사라진 테스트 및 새 테스트', '느린 상위 2개'
+    '간헐 후보', '새 실패 후보', '사라진 테스트 및 새 테스트', '느린 상위 2개'
   ]);
 });

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 날짜: 2026-11-21 · 상태: v8 승인 (2026-11-21, 개정 이력 참조) · workflow: wf-final-verify-cache
+- 날짜: 2026-11-21 · 상태: v9 승인 (2026-11-22, 개정 이력 참조) · workflow: wf-final-verify-cache
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache`, 브랜치 `feat/final-verify-baseline-cache`, base `68ef36c864f7dfe6fa1bebffc15906f2d95a16a7`
 - 경로·위험: Architectural, significant
 
@@ -324,6 +324,44 @@
 - 같은 Reviewer가 네 차례 재검토했다. F1·F2·F3·F7과, 재검토 중 나온 N1~N3·N5~N7을 모두 resolved로 판정했다(N6은 spec 문구 정정). N4(win32)는 spec §13-7의 한계로 남겼다.
 - host 관련 9개 파일은 423/423 통과, skip 0이다. check 4종은 0이다.
 
+### 최종 검증 보정 2 (v9, 통합 브랜치)
+
+**배경:** 22d8126b dogfood에서 baseline run `20261121T144438Z-45f20beb`와 head run `20261121T145444Z-a04507c0`을 비교했다. verdict는 `new-failures` 12건이었다.
+- Python 10건은 가짜다. `test_profiles_bound_recovery_without_relaxing_role_authority`의 subTest 이름 `(path='<tmp>/arc-verify/<hash>/<runId>/wt/...')`에 run별 경로가 들어 있었다. 그래서 같은 기준선 실패가 새 실패와 사라진 테스트로 갈렸다(AC-6 unmet).
+- node 2건은 verify-rerun 단독 실행에서 통과했다. 간헐 후보로 최종 보고에 남긴다.
+- 사용자 결정(2026-11-22): "이름 정규화 수정 후 재실행".
+
+**Files:** `lib/runtime/test-results.mjs`(필요하면 `final-verify.mjs`에서 ctx 전달)와 각 `shared/skill/runtime/` 미러, `tests/node/runtime-test-results.test.mjs`, `tests/node/runtime-final-verify.test.mjs`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`.
+
+- [x] **Step 1: 실패하는 테스트 작성** — 아래 (a)–(i)를 쓴다. (f)는 현재 동작을 고정하는 테스트라 RED가 없다.
+  - (a) `names containing worktree path normalize to {worktree} placeholder`: 파서 4종이 대상이다. realpath 형태와 tmpdir 비-realpath 형태를 둘 다 넣는다.
+  - (b) `same test with run-specific worktree path in subTest name reproduces baseline in compare`: 서로 다른 worktree 경로를 가진 두 run이 `baselineReproduced`로 나오고 `newFailures`와 `disappearedTests`가 비어야 한다.
+  - (c) runner 경로를 끝까지 거쳐, 실제 `verifyStart` 결과의 이름이 치환되는지 확인한다(D1 교훈).
+  - (d) QA 반례 1(사용자 결정 "둘 다 수정"): 인용된 `…/wt,other`, `…/wt other`, `…/wt:other`는 바뀌지 않는다.
+  - (e) QA 반례 2: 바꾼 뒤 이름이 같은 `#1`·`#2` 가운데 `#2`를 재실행했는데 출력에 `#1`만 있으면 attempt는 `no_match`다.
+  - (f) QA 재확인 사례(사용자 결정 "의도된 동작으로 명시"): 인용된 `'/outside,<worktree>/a'`와 `'/outside <worktree>/a'`는 `{worktree}`로 바뀐다. 이 테스트는 현재 동작을 고정한다.
+  - (g) Reviewer V9-1(사용자 결정 "보수적 검출 추가"): 원래 이름이 다른 두 테스트가 바꾼 뒤 같은 (file, suite, name)이 되고 base·head 사이에 구성이나 순서가 바뀐다. 이때 head 실패는 `baselineReproduced`가 아니라 `newFailureCandidates`(`normalized_name_collision`)로 나온다. 원래 이름이 완전히 같은 중복은 대상이 아니다. 캐시로 재사용한 base에서도 같게 판정한다.
+  - (h) Reviewer V9-5·V9-6(사용자 결정 "V9-5·V9-6 수정, V9-7 후속"): suite 원래 표기만 다른 충돌(예: junit `testsuite name="<real>/s"`와 `"<alias>/s"`, tap `# Subtest`)도 (g)와 같이 후보로 나온다. md 보고서의 후보 절 제목은 "새 실패 후보"다.
+  - (i) Reviewer V9-8(사용자 결정 "spec대로 수정"): suite 원래 표기만 다른 `#1`·`#2` 가운데 `#2`를 재실행했는데 출력에 `#1`만 있으면 attempt는 `no_match`다. 재실행 대상 대조는 suite와 name의 원래 표기를 모두 비교한다.
+- [x] **Step 2: RED 확인**
+- [x] **Step 3: 구현** — spec v9 §9.1, §9.4-4, §9.6 md 순서.
+- [x] **Step 4: 생성물**
+- [x] **Step 5: GREEN 확인** — 관련 테스트와 check 4종을 돌린다.
+- [x] **Step 6: 커밋**(Orchestrator 수락 후): `fix(runtime): verify 테스트 식별자에서 run별 worktree 경로 정규화`, trailer `Plan-Revision: v8 -> v9`.
+
+**검증 순서:**
+1. 최종 검증의 새 실패이므로 Implementer → fresh QA 순서로 확인한다. QA는 실제 head·baseline raw 출력에 수정된 파서를 적용했을 때 Python 10건이 기준선 재현으로 바뀌는지 확인한다.
+2. 이어서 같은 Reviewer가 refreshed diff를 확인한다.
+3. 커밋한다.
+4. 커밋 뒤 Orchestrator가 dogfood baseline·head를 다시 기록하고 비교한다.
+
+**결과(2026-11-22):**
+- Implementer `49ffc979`(세그먼트 0~7)가 수정했다. 세그먼트 0~1은 RED 실행 도구 거부와 fixture 입력 누락으로 멈췄다가 재개했다.
+- fresh QA `b373e73f`: AC-6 proven. 실제 raw 재파싱에서 Python 공통 testId 630, 새 실패 10 → 0, node 분류 변화 없음. QA 반례 2건은 수정했고 resolved다. 재확인 사례 1건은 의도된 동작으로 명시했다(f).
+- 같은 Reviewer가 네 차례 재검토했다. V9-1·V9-2·V9-4·V9-5·V9-6·V9-8은 resolved다. V9-3(file 별칭), V9-7(schema가 다른 run의 비교 제한), V9-9(이전 형식 run의 중첩 suite 재실행)는 후속 과제이며 spec §13-8에 한계로 적었다.
+- `PARSER_SCHEMA_VERSION`을 3으로 올렸다.
+- host 관련 9개 파일 445/445 통과, skip 0. check 4종 모두 0.
+
 ### dogfood 절차 (§12.2, Orchestrator, claude host)
 
 호출: `node /Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache/lib/runtime/verify-cli.mjs <command> --cwd /Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache --workflow wf-final-verify-cache --input -`
@@ -423,3 +461,4 @@ T1 → T2 → T3 → T4 → T5 → 최종 검증(+최종 Reviewer). T1~T4가 같
 | v6 | 2026-11-21 | T4 재시작 Implementer hold 후: spec v6 bare 저장소 감지·재검사 테스트 2건 추가, 경합 창은 알려진 한계 | 사용자 승인 2026-11-21 |
 | v7 | 2026-11-21 | T4 세 번째 Implementer hold 후: spec v7 도구 디렉터리 소유·0700·비symlink 확인(`cleanup_unsafe_path`) 테스트 추가 | 사용자 승인 2026-11-21 |
 | v8 | 2026-11-21 | 통합 브랜치 최종 검증에서: 최종 Reviewer F1·F2·F3·F7과 dogfood 결함 D1(`ctx.fileExists` 누락)·D2(runner 예외 뒤 `running` 고정)를 "최종 검증 보정 (v8)" 절로 추가 (spec v8과 함께). 머리말 상태 정정 | 사용자 결정 2026-11-21 |
+| v9 | 2026-11-22 | dogfood 비교의 가짜 새 실패(식별자에 worktree 경로)를 "최종 검증 보정 2 (v9)" 절로 추가 (spec v9와 함께) | 사용자 결정 2026-11-22 |
