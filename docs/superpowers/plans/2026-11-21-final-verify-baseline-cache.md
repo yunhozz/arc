@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 날짜: 2026-11-21 · 상태: v1 승인 (2026-11-21) · workflow: wf-final-verify-cache
+- 날짜: 2026-11-21 · 상태: v2 승인 (2026-11-21) · workflow: wf-final-verify-cache
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache`, 브랜치 `feat/final-verify-baseline-cache`, base `68ef36c864f7dfe6fa1bebffc15906f2d95a16a7`
 - 경로·위험: Architectural, significant
 
@@ -16,9 +16,9 @@
 
 ## Global Constraints
 
-- 새 모듈 세 개는 `node:` 내장 모듈과 같은 디렉터리의 `./*.mjs`만 import한다(`lib/runtime` 밖, 예를 들어 `lib/safe-fs` import 금지, spec §3).
+- 새 모듈 네 개(`node-test-reporter.mjs` 포함)는 `node:` 내장 모듈과 같은 디렉터리의 `./*.mjs`만 import한다(`lib/runtime` 밖, 예를 들어 `lib/safe-fs` import 금지, spec §3).
 - `lib/runtime/command.mjs`, `lib/runtime/cli.mjs`, `lib/runtime/bootstrap.mjs`, `lib/policy/role-policy.json`은 수정하지 않는다. `runtime-versions` baselineHash와 `cooperative-9`는 그대로 둔다.
-- 자식 프로세스는 모두 `shell:false`로 실행한다. 치환하는 자리표시자는 `{worktree}`(args·cwd·env)와 isolate용 `{file}` `{name}` `{namePattern}` `{testId}`뿐이다.
+- 자식 프로세스는 모두 `shell:false`로 실행한다. 치환하는 자리표시자는 `{worktree}`(args·cwd·env), `{arcNodeReporter}`(args만, spec §5.2)와 isolate용 `{file}` `{name}` `{namePattern}` `{testId}`뿐이다.
 - 자식 env는 허용 목록(`PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_ALL`, `TZ`, `PYTHONDONTWRITEBYTECODE` 중 설정된 것) + `keyInputs.envNames` + command·prepare `env`만 넘긴다. `ARC_BRIDGE_CHILD`는 넘기지 않는다(§6.3).
 - 종료 코드는 allow 0, deny 2, hold 3, 예외 1(`hold`/`verify_error`)이다. `ARC_BRIDGE_CHILD`가 있으면 모든 명령을 deny `bridge_child`로 거부한다.
 - 저장 위치는 `<realpath(git rev-parse --git-common-dir)>/arc/verify`이고 worktree 위치는 `<realpath(os.tmpdir())>/arc-verify/<repoHash16>/<runId>/wt`다. 디렉터리 0700, 파일 0600으로 만들고, 쓰기는 임시 파일 → fsync → rename 순서로 한다.
@@ -44,8 +44,9 @@
 |---|---|---|
 | `lib/runtime/test-results.mjs` (신규) | 식별자 정규화, junit-xml/tap/regex/none 파서, §9.3 판정, 비교 분류, 보고서 JSON/md | T1(+T4에서 간헐 이력 입력 보강 가능) |
 | `lib/runtime/final-verify.mjs` (신규) | 입력 검증, 키 phase1/phase2, 저장, 머신 id, glob, env, worktree·seed·prepare, runner(foreground·detach), heartbeat, 큐, 부하, 캐시, snapshot, compare 연결, rerun, cleanup, `--run` 진입 | T2·T3·T4 |
+| `lib/runtime/node-test-reporter.mjs` (신규) | node:test custom reporter, 모든 test에 `file`을 담은 junit-xml 출력(spec §9.2) | T1 |
 | `lib/runtime/verify-cli.mjs` (신규) | 옵션 파싱, `validateWorkflowId` 재사용, `ARC_BRIDGE_CHILD` 거부, 명령 분기, JSON 한 줄 출력, 종료 코드 | T2 |
-| `shared/skill/runtime/{test-results,final-verify,verify-cli}.mjs` (생성) | 미러 | 해당 task |
+| `shared/skill/runtime/{test-results,node-test-reporter,final-verify,verify-cli}.mjs` (생성) | 미러 | 해당 task |
 | `lib/installer/runtime-assets.mjs` | `RUNTIME_MODULE_PATHS` 정렬 삽입 | T1·T2 |
 | `tests/node/runtime-test-results.test.mjs` (신규) | 파서·비교·보고 단위 테스트 | T1·T4 |
 | `tests/node/runtime-final-verify.test.mjs` (신규) | 입력·키·env·worktree·runner·snapshot·cleanup 통합 테스트 | T2·T3·T4 |
@@ -54,7 +55,7 @@
 | `tests/node/test-scope-contract.test.mjs`, `tests/node/composite-instructions.test.mjs` | 계약 단언 추가 | T5 |
 | `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json` (생성) | manifest·설치 golden | 전 task |
 
-`RUNTIME_MODULE_PATHS` 정렬 위치(`lib/installer/runtime-assets.mjs:3-39`, `tests/node/runtime-assets.test.mjs:7-15`도 같은 순서): `lib/runtime/final-verify.mjs`는 `external.mjs`와 `gate.mjs` 사이, `lib/runtime/test-results.mjs`는 `target-preparation.mjs`와 `verification.mjs` 사이, `lib/runtime/verify-cli.mjs`는 `verification.mjs` 뒤(마지막)에 들어간다. 생성기는 canonical 파일 목록과 인벤토리가 정확히 같아야 통과하므로(`scripts/update-runtime-assets.mjs:16-18`), 모듈 파일을 만드는 task가 인벤토리와 `expectedPaths`도 함께 바꿔야 한다. 이 셋은 분리할 수 없다.
+`RUNTIME_MODULE_PATHS` 정렬 위치(`lib/installer/runtime-assets.mjs:3-39`, `tests/node/runtime-assets.test.mjs:7-15`도 같은 순서): `lib/runtime/final-verify.mjs`는 `external.mjs`와 `gate.mjs` 사이, `lib/runtime/node-test-reporter.mjs`는 정렬 순서상 알맞은 위치(Implementer가 실제 목록으로 확정), `lib/runtime/test-results.mjs`는 `target-preparation.mjs`와 `verification.mjs` 사이, `lib/runtime/verify-cli.mjs`는 `verification.mjs` 뒤(마지막)에 들어간다. 생성기는 canonical 파일 목록과 인벤토리가 정확히 같아야 통과하므로(`scripts/update-runtime-assets.mjs:16-18`), 모듈 파일을 만드는 task가 인벤토리와 `expectedPaths`도 함께 바꿔야 한다. 이 셋은 분리할 수 없다.
 
 ## 가정
 
@@ -66,12 +67,12 @@
 
 ---
 
-### Task 1: 결과 파서·식별자·비교·보고서 (`test-results.mjs`)
+### Task 1: 결과 파서·식별자·비교·보고서·ARC node reporter (`test-results.mjs`, `node-test-reporter.mjs`)
 
-**목표·범위:** spec §9 전부를 순수 함수로 구현한다(입출력은 문자열과 객체, 파일·프로세스 접근 없음). 결과 파일 읽기와 glob 탐색은 T2에서 호출자가 맡는다.
+**목표·범위:** spec §9 전부를 구현한다. `test-results.mjs`는 순수 함수다(입출력은 문자열과 객체, 파일·프로세스 접근 없음). `node-test-reporter.mjs`는 node:test custom reporter다(spec §9.2, v2). 결과 파일 읽기와 glob 탐색은 T2에서 호출자가 맡는다.
 
 **Files (bridge `allowedPaths`와 같음):**
-- Create: `lib/runtime/test-results.mjs`, `shared/skill/runtime/test-results.mjs`(생성), `tests/node/runtime-test-results.test.mjs`
+- Create: `lib/runtime/test-results.mjs`, `lib/runtime/node-test-reporter.mjs`, `shared/skill/runtime/test-results.mjs`·`shared/skill/runtime/node-test-reporter.mjs`(생성), `tests/node/runtime-test-results.test.mjs`
 - Modify: `lib/installer/runtime-assets.mjs`, `tests/node/runtime-assets.test.mjs`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
 
 **선행:** 없음.
@@ -84,14 +85,17 @@
 - `export function summarizeCommand({format, results, streams:{stdout,stderr}, resultFiles:[{path,text}]|null, exit:{code,signal,timedOut}, truncated:boolean, ctx}): {format, exitCode, signal, timedOut, tests[], counts{total,passed,failed,skipped}, incomplete[], unmappedStatusCount, status?:'pass'|'fail'}`: §9.3 규칙 적용. `none`은 `status`만 채운다.
 - `export function compareRuns({base, head, history?, reruns?}): {newFailures[], baselineReproduced[], baselineNotReproduced[], newFailureCandidates[{commandId,testId|null,reason}], intermittentCandidates[{commandId,testId,history[],reruns[],passesInIsolation}], disappearedTests[], addedTests[], addedFiles[], removedFiles[], verdict}`. `base`/`head` = `{commands:[{id, format, expandedFiles:string[], summary}]}`. `history` = `[{runId, loadClass, commands}]`(같은 cacheKey의 succeeded run들). `reruns` = `[{commandId,testId,attempts[{attempt,status}]}]`.
 - `export function buildReport({base, head, comparison, conditions, phases, topN, generatedAt}): {json: object, md: string}`: §9.6 필드와 md 순서.
+- `lib/runtime/node-test-reporter.mjs`: `export default async function* arcNodeReporter(source)`. node:test 이벤트(`test:pass`, `test:fail`, `test:start` 등)를 받아 spec §9.2 형식의 junit-xml 문자열 조각을 yield한다. 파일별 중첩 suite 구성은 이벤트의 `data.file`·`data.nesting`·`data.details.type`을 쓴다.
 
-- [ ] **Step 0: §13-5 실측 픽스처 확보** — Implementer가 임시 디렉터리에 세 파일(통과·실패 각 1개와 `describe` 중첩 1개가 있는 파일, import 시점에 throw하는 파일, 통과 파일)을 만들고, 실제 `node --test --test-reporter=tap a.test.mjs b.test.mjs c.test.mjs` 출력을 테스트 파일 안 문자열 상수 `NODE22_TAP_FIXTURE`로 옮긴다(절대경로는 `/WT/`로 바꾼다). node 버전을 주석으로 남긴다. 확인할 것은 두 가지다. (a) 각 test point YAML에 `location: '<path>:<line>:<col>'`가 있는가. (b) load 실패 파일이 하위 테스트 없는 `not ok`이고 설명 또는 location이 그 파일 경로인가. **(a)가 거짓이면** 같은 이름의 테스트가 파일 간에 순번으로만 짝지어지므로 Step 1 이후를 멈추고 Orchestrator에 보고한다(spec 결정 필요, T1 hold).
-- [ ] **Step 1: 실패하는 테스트 작성** (`tests/node/runtime-test-results.test.mjs`). 테스트 이름과 단언 요지:
+- [x] **Step 0: §13-5 실측 픽스처 확보**(v1 실행 결과: node v22.18.0에서 (a) 거짓 — 실패 test point에만 `location`, (b) 참. v2에서 ARC node reporter로 해결. 아래 원문은 기록용) — Implementer가 임시 디렉터리에 세 파일(통과·실패 각 1개와 `describe` 중첩 1개가 있는 파일, import 시점에 throw하는 파일, 통과 파일)을 만들고, 실제 `node --test --test-reporter=tap a.test.mjs b.test.mjs c.test.mjs` 출력을 테스트 파일 안 문자열 상수 `NODE22_TAP_FIXTURE`로 옮긴다(절대경로는 `/WT/`로 바꾼다). node 버전을 주석으로 남긴다. 확인할 것은 두 가지다. (a) 각 test point YAML에 `location: '<path>:<line>:<col>'`가 있는가. (b) load 실패 파일이 하위 테스트 없는 `not ok`이고 설명 또는 location이 그 파일 경로인가. **(a)가 거짓이면** 같은 이름의 테스트가 파일 간에 순번으로만 짝지어지므로 Step 1 이후를 멈추고 Orchestrator에 보고한다(spec 결정 필요, T1 hold).
+- [x] **Step 1: 실패하는 테스트 작성** (`tests/node/runtime-test-results.test.mjs`). 테스트 이름과 단언 요지:
   - `junit-xml parses nested suites, entities, CDATA and classifies failure/error/skipped`: `&lt;&amp;&#65;`가 `<&A`로 풀리고, failure·error는 failed, skipped는 skipped, 나머지는 passed다.
   - `junit-xml rejects DOCTYPE as parse_error`: command incomplete `parse_error`가 된다.
   - `junit-xml file precedence testcase@file > testsuite@file > path-like testsuite@name > '-'`
   - `junit-xml testsuite with errors and no testcase marks file_error`
-  - `tap parses node subtests with YAML location and duration_ms` (Step 0 픽스처 사용): testId는 `a.test.mjs::outer::inner#1` 형태이고 durationMs는 숫자다.
+  - `tap parses node subtests with YAML location and duration_ms` (Step 0 픽스처 사용): 실패 test의 testId는 `a.test.mjs::…#1` 형태이고, location이 없는 통과 test의 file은 `-`이며, durationMs는 숫자다.
+  - `arc node reporter gives every test its file`: 임시 디렉터리에 세 파일을 둔다. `a`에는 통과, 실패, `describe('outer')` 안의 `inner`를 넣고, `b`는 import 때 throw하게 하며, `c`에는 통과하는 `passes`를 넣는다. 각 파일에 `test.skip`과 `test.todo`를 1개씩 둔다. 실제 `node --test --test-reporter=<lib 경로> --test-reporter-destination=stdout`을 실행한다. 출력을 `parseJunitXml`로 읽었을 때 다음이 성립해야 한다. `a.test.mjs::::passes#1`과 `c.test.mjs::::passes#1`이 서로 다르다. `a.test.mjs::outer::inner#1`이 있다. `b.test.mjs`는 incomplete `file_error`다. skip과 todo는 skipped다. `durationMs`는 숫자다.
+  - `arc node reporter escapes XML special characters in names and messages`: 이름과 메시지에 `<&"'`가 들어 있어도 출력이 파싱되고 원문으로 복원된다.
   - `tap load failure without subtests marks file incomplete file_error` (Step 0 픽스처 사용)
   - `tap TODO not ok is not failed and SKIP is skipped`
   - `tap Bail out and plan mismatch mark command incomplete`
@@ -106,17 +110,17 @@
   - `verdict precedence new-failures > candidates > no-new-failures`
   - `intermittent from history mismatch and from rerun pass keeps original classification`: 단독 통과한 head 실패는 `newFailures`에 남고 `intermittentCandidates`에도 `passesInIsolation:'yes'`로 나타난다.
   - `report json has every §9.6 field and slowest topN`, `report md sections follow §9.6 order`: md 섹션 제목 순서를 단언한다.
-- [ ] **Step 2: RED 확인** — `node --test tests/node/runtime-test-results.test.mjs`. 기대 결과: 모듈이 없어서 import 실패.
-- [ ] **Step 3: 구현** — `lib/runtime/test-results.mjs`. XML·TAP는 의존성 없는 상태기계나 정규식으로 구현한다(§14 builder 재량). regex 패턴은 `new RegExp(pattern)`이고 플래그는 없다. 분류 키는 `(commandId, testId)`다.
-- [ ] **Step 4: 인벤토리·생성물** — `RUNTIME_MODULE_PATHS`와 `expectedPaths`에 `lib/runtime/test-results.mjs`를 정렬 위치에 넣고, 생성물 3종을 Global Constraints 순서로 다시 만든다.
-- [ ] **Step 5: GREEN 확인** — 아래 관련 테스트와 check가 모두 통과해야 한다.
+- [x] **Step 2: RED 확인** — `node --test tests/node/runtime-test-results.test.mjs`. 기대 결과: 모듈이 없어서 import 실패.
+- [x] **Step 3: 구현** — `lib/runtime/test-results.mjs`. XML·TAP는 의존성 없는 상태기계나 정규식으로 구현한다(§14 builder 재량). regex 패턴은 `new RegExp(pattern)`이고 플래그는 없다. 분류 키는 `(commandId, testId)`다.
+- [x] **Step 4: 인벤토리·생성물** — `RUNTIME_MODULE_PATHS`와 `expectedPaths`에 `lib/runtime/test-results.mjs`와 `lib/runtime/node-test-reporter.mjs`를 정렬 위치에 넣고, 생성물 3종을 Global Constraints 순서로 다시 만든다.
+- [x] **Step 5: GREEN 확인** — 아래 관련 테스트와 check가 모두 통과해야 한다.
 - [ ] **Step 6: 커밋**(Orchestrator가 수락한 뒤): `feat(runtime): 최종 검증 결과 파서와 비교 보고 모듈 추가`
 
 **기준:** AC-7(파서 4종, 파일 단위 incomplete), AC-2의 분류 필드 부분, AC-8의 `slowest` 계산, A-C7, A-S4.
 
 **관련 테스트(이유):** `tests/node/runtime-test-results.test.mjs`(신규 모듈을 직접 검증), `tests/node/runtime-assets.test.mjs`(인벤토리 변경), `tests/node/runtime-versions.test.mjs`(install-only 추가 뒤 baselineHash 불변 확인), `tests/node/installed-layout-golden.test.mjs`(golden 재생성), `tests/node/manifest.test.mjs`(MANIFEST 재생성). check: `node scripts/update-runtime-assets.mjs --check`, `node scripts/update-manifest.mjs --check`.
 
-**필수 QA·증거:** fresh QA(Codex bridge)가 위 관련 테스트와 check 2종을 다시 실행하고 실패를 테스트 이름별로 보고한다. Step 0 픽스처의 node 버전과 location 존재 여부도 증거로 첨부한다. **Hold:** Step 0 (a)가 거짓이거나 `runtime-versions`가 실패하면 T1 수락과 T2 이후를 hold한다.
+**필수 QA·증거:** fresh QA(Codex bridge)가 위 관련 테스트와 check 2종을 다시 실행하고 실패를 테스트 이름별로 보고한다. reporter 테스트를 실행한 node 버전도 증거로 첨부한다. **Hold:** `runtime-versions`가 실패하면 T1 수락과 T2 이후를 hold한다.
 
 ---
 
@@ -297,9 +301,9 @@
  "role":"baseline","revision":"68ef36c864f7dfe6fa1bebffc15906f2d95a16a7","detach":true,
  "prepare":[{"executable":"npm","args":["ci","--ignore-scripts"]},{"executable":"npm","args":["run","build:native"]}],
  "commands":[
-  {"id":"node","executable":"node","args":["--test","--test-reporter=tap",{"glob":"tests/node/*.test.mjs"}],
-   "results":{"format":"tap","stream":"stdout"},
-   "isolate":{"args":["--test","--test-reporter=tap","--test-name-pattern","{namePattern}","{file}"]}},
+  {"id":"node","executable":"node","args":["--test","--test-reporter={arcNodeReporter}","--test-reporter-destination=stdout",{"glob":"tests/node/*.test.mjs"}],
+   "results":{"format":"junit-xml","stream":"stdout"},
+   "isolate":{"args":["--test","--test-reporter={arcNodeReporter}","--test-reporter-destination=stdout","--test-name-pattern","{namePattern}","{file}"]}},
   {"id":"python","executable":"python3","args":["-B","-m","unittest","discover","-s","tests","-p","test_*.py","-v"],
    "env":{"PYTHONDONTWRITEBYTECODE":"1"},
    "results":{"format":"regex","stream":"stderr",
@@ -377,3 +381,4 @@ T1 → T2 → T3 → T4 → T5 → 최종 검증(+최종 Reviewer). T1~T4가 같
 | Version | Date | Change | Approval |
 |---|---|---|---|
 | v1 | 2026-11-21 | Planner 첫 완성본. Orchestrator 검토: 기준선을 clean worktree 기록으로 교체, dogfood prepare 확정(Q4), Q1~Q5 결정 기록 | 사용자 승인 2026-11-21 |
+| v2 | 2026-11-21 | T1 Step 0 hold(node tap 통과 test에 location 없음) 후 ARC node reporter를 T1에 추가, `{arcNodeReporter}` 자리표시자, dogfood node 명령을 junit-xml로 변경 (spec v2와 함께) | 사용자 승인 2026-11-21 |

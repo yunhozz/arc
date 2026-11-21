@@ -1,7 +1,7 @@
 # 최종 검증 기준선 캐시·clean worktree·백그라운드 기준선 설계 (spec)
 
 - 날짜: 2026-11-21
-- 상태: v1 승인 (2026-11-21)
+- 상태: v2 승인 (2026-11-21)
 - workflow: wf-final-verify-cache
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/final-verify-baseline-cache`, 브랜치 `feat/final-verify-baseline-cache`, base `68ef36c864f7dfe6fa1bebffc15906f2d95a16a7`
 - 경로·위험: Architectural, significant (검증 정책·새 runtime 명령)
@@ -85,7 +85,7 @@ ARC 최종 검증에서 가장 오래 걸리는 두 단계는 approved base의 �
     - `args[]`: 각 요소는 문자열 또는 `{glob: string}`
     - `timeoutMs`: 기본 3600000, 상한 21600000
   - `results`: 필수 `{format}`(`junit-xml|tap|regex|none`)
-    - `junit-xml`: `path` 필수(worktree 기준 상대 glob)
+    - `junit-xml`: `path`(worktree 기준 상대 glob) 또는 `stream`(`stdout|stderr`) 중 정확히 하나
     - `tap`: `stream`(`stdout|stderr`) 또는 `path` 중 정확히 하나
     - `regex`: `stream`(`stdout|stderr|both`), `pattern`, `statusMap` 필수. `statusMap`은 `{pass:[..], fail:[..], skip:[..]}` 필수, `fileError:[..]` 선택
     - `none`: 다른 키 없음
@@ -93,7 +93,8 @@ ARC 최종 검증에서 가장 오래 걸리는 두 단계는 approved base의 �
   - `keyInputs`: `{envNames, toolVersionCommands, dependencyPaths, artifactPaths}` 모두 필수(빈 배열 허용). `toolVersionCommands[]`는 `{executable, args}`. `dependencyPaths`는 worktree 밖 절대경로(전역 설치 등). `artifactPaths`는 worktree 기준 상대경로·glob.
   - `seedFiles[]`: `{source, dest}`. `source`는 cwd checkout 안 절대경로, `dest`는 worktree 기준 상대경로. revision에서 추적 중인 경로면 deny `seed_conflicts_tracked`.
 - 치환 규칙
-  - 자리표시자 `{worktree}`만 치환(args, cwd, env 값). 셸 없음(`shell:false`).
+  - 자리표시자 `{worktree}`(args, cwd, env 값)와 `{arcNodeReporter}`(args만)를 치환한다. 셸 없음(`shell:false`).
+  - `{arcNodeReporter}`는 `verify-cli.mjs`와 같은 디렉터리에 설치된 `node-test-reporter.mjs`의 절대 realpath다(§9.2). 이 파일 바이트는 다른 verify 모듈과 함께 키의 runtime 바이트에 포함된다.
   - `executable`은 실행 env의 PATH로 절대 realpath를 얻는다. 실패하면 deny `executable_not_found`.
   - `{glob}`은 revision tree(`git ls-tree -r`)에서 펼친다. 문법 `*`, `**`, `?`, 결과 정렬. 매치 0개면 hold `glob_empty`.
 - 검증·deny: commit으로 해석되지 않는 `revision`은 deny `unknown_revision`. `snapshotWorkingTree:true`인데 cwd HEAD가 `revision`과 다르면 deny `revision_mismatch`. `role:"baseline"`과 `snapshotWorkingTree:true` 조합은 `invalid_request`.
@@ -305,9 +306,16 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 **tap**(13/14)
 - 수용: `TAP version`, plan `1..N`, `ok`/`not ok` [번호] [- 설명], `# SKIP`/`# TODO`, 4칸 들여쓰기 하위 테스트와 `# Subtest:`, YAML `---`…`...`의 `duration_ms`·`location`(`path:line:col`).
 - `not ok`+TODO는 failed가 아니다. SKIP은 skipped.
-- `file`: YAML `location` 경로 → 경로인 최상위 하위 테스트 이름 → `-`.
+- `file`: YAML `location` 경로 → 경로인 최상위 하위 테스트 이름 → `-`. node 내장 tap은 통과 test point에 `location`이 없으므로 node:test에는 ARC node reporter를 쓴다.
 - 하위 테스트 없이 실패한 test point로서 설명이나 location이 worktree 파일로 해석되면 그 파일 incomplete `file_error`.
 - `Bail out!`, plan 수 불일치는 command incomplete.
+
+**ARC node reporter**(`lib/runtime/node-test-reporter.mjs`, 결정 2026-11-21)
+- 배경: node 22 내장 reporter(tap, junit)는 실패한 test point에만 파일 위치를 적는다(node v22.18.0 실측 2026-11-21). 통과 테스트는 파일을 알 수 없어, 다른 파일의 같은 이름 테스트를 구분하지 못한다.
+- node:test custom reporter(기본 export, 이벤트 async generator)다. `node:` 내장 모듈만 import한다. 사용 예: `node --test --test-reporter={arcNodeReporter} --test-reporter-destination=stdout <files>`. 결과 형식은 `junit-xml`, `stream:"stdout"`이다.
+- 출력: `testsuites` 루트 아래 `describe`(suite)마다 중첩 `testsuite name`을 두고, 각 test는 `testcase name file time`이다. `file`은 이벤트 `data.file`의 절대경로이고 파서가 §9.1로 정규화한다. `time`은 초 단위다. 실패는 `<failure message>`, skip은 `<skipped/>`, todo는 `<skipped message="todo"/>`다.
+- 파일 load 실패(그 파일의 최상위 실패 test로서 하위 테스트가 없고 이름이 그 파일 경로인 경우)는 `<testsuite name=<file> file=<file> errors="1">`에 `<error>`만 두고 testcase는 두지 않는다. 그러면 junit-xml 규칙에 따라 그 파일이 incomplete `file_error`가 된다.
+- node:test 외 프레임워크는 각자의 junit 출력(예: pytest `--junitxml`, jest-junit, go-junit-report) 또는 tap/regex를 쓴다.
 
 **regex**
 - 줄 단위로 `pattern`(JS RegExp, 플래그 없음) 적용. 명명 그룹 `status`·`name` 필수, `file`·`suite`·`duration`(ms) 선택.
@@ -426,14 +434,16 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 
 ### 12.1 영향 파일
 
-- 신규 원본: `lib/runtime/verify-cli.mjs`(진입점·옵션·키 검증·종료 코드), `lib/runtime/final-verify.mjs`(키·저장·worktree·snapshot·runner·부하·캐시·rerun·cleanup), `lib/runtime/test-results.mjs`(파서 4종·식별자·비교·보고서)
-- 생성 미러: `shared/skill/runtime/{verify-cli,final-verify,test-results}.mjs`(`node scripts/update-runtime-assets.mjs`)
-- 인벤토리: `lib/installer/runtime-assets.mjs` `RUNTIME_MODULE_PATHS`에 세 경로를 정렬 위치에 추가. `COOPERATIVE_RUNTIME_MODULES`(`bootstrap.mjs:7-12`)에는 추가하지 않는다(gate 판정에 쓰이지 않음, install-only는 runtimeHash 보존). `cooperative-9`와 baselineHash 불변.
+- 신규 원본: `lib/runtime/verify-cli.mjs`(진입점·옵션·키 검증·종료 코드), `lib/runtime/final-verify.mjs`(키·저장·worktree·snapshot·runner·부하·캐시·rerun·cleanup), `lib/runtime/test-results.mjs`(파서 4종·식별자·비교·보고서), `lib/runtime/node-test-reporter.mjs`(ARC node reporter, §9.2)
+- 생성 미러: `shared/skill/runtime/{verify-cli,final-verify,test-results,node-test-reporter}.mjs`(`node scripts/update-runtime-assets.mjs`)
+- 인벤토리: `lib/installer/runtime-assets.mjs` `RUNTIME_MODULE_PATHS`에 네 경로를 정렬 위치에 추가. `COOPERATIVE_RUNTIME_MODULES`(`bootstrap.mjs:7-12`)에는 추가하지 않는다(gate 판정에 쓰이지 않음, install-only는 runtimeHash 보존). `cooperative-9`와 baselineHash 불변.
 - 수정하지 않음: `lib/runtime/command.mjs`, `lib/runtime/cli.mjs`.
 - 문서: 네 사본 `verification.md`, `handoff-prep.md`, `coordination.md`.
 - manifest·설치: `MANIFEST.sha256` 재생성, `tests/node/fixtures/installed-layout-golden.json`(각 설치 항목에 `skills/arc/runtime/` 세 파일 해시 추가, `node tests/node/fixtures/installed-layout.mjs --write`), installer parity(`scripts/check-installer-parity.mjs`) 통과. 새 런타임 파일이 parity 목록에 자동 포함되는지는 plan에서 확인.
 
 ### 12.2 테스트 전략
+
+**ARC node reporter:** 실제 `node --test --test-reporter=<reporter>`를 픽스처 파일에 실행한다. 두 파일의 같은 이름 테스트가 서로 다른 `file`을 갖고, `describe` 중첩이 suite가 되며, load 실패 파일이 `file_error`가 되고, skip/todo가 분류되는지 확인한다. 출력은 junit-xml 파서를 거쳐 검증한다.
 
 **단위(신규 `tests/node/runtime-test-results.test.mjs`):** junit-xml(정상, 중첩, 엔티티, CDATA, DOCTYPE 거부, file_error), tap(13/14, node `# Subtest`, YAML `location`/`duration_ms`, TODO/SKIP, Bail out, plan 불일치), regex(statusMap, fileError, unmapped), none, 식별자 정규화와 `#k`, unattributed/no_results, 비교 분류 전 항목과 verdict, 간헐 후보(이력·rerun), 보고서 필드와 topN.
 
@@ -453,7 +463,7 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 **check 4종:** `node scripts/update-manifest.mjs --check`, `node scripts/update-role-policy.mjs --check`, `node scripts/check-installer-parity.mjs`, `node scripts/update-runtime-assets.mjs --check`.
 
 **dogfood 실측(최종 검증 단계, Orchestrator)**
-1. 이 저장소 base에서 `verify-start`(role baseline): node 전체(tap), Python(regex), check 4종(none).
+1. 이 저장소 base에서 `verify-start`(role baseline): node 전체(ARC node reporter, junit-xml stdout), Python(regex), check 4종(none).
 2. 같은 입력으로 다시 start해 cacheHit 확인.
 3. HEAD로 head run 실행 후 compare.
 4. 기록: 수동 기준선과 실패 이름 목록 일치, 메인 checkout ignored 파일이 있어도 manifest 가짜 실패 0건, 시간과 부하 class, host별 detach 생존(가능한 host만).
@@ -481,7 +491,7 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 2. Grok·Gemini host: detached 생존 근거 없음, 기본 foreground. (Grok 승인 서술 위치 `coordination.md:168`은 확인됨.)
 3. (해결) `COOPERATIVE_RUNTIME_MODULES`: gate 판정 모듈과 전이 의존만 대상, install-only 제외(`runtime-versions.test.mjs:19-50`, `bootstrap.mjs:7-21`).
 4. 디렉터리가 사라진 lock 등록에 대한 `git worktree remove` 동작(git 버전별).
-5. node `--test-reporter=tap` 다중 파일 실행의 YAML `location` 출력과 파일 load 실패 형태(파서 픽스처 근거).
+5. (해결 2026-11-21) node v22.18.0 내장 tap은 실패 test point에만 `location`이 있다. load 실패는 하위 테스트 없는 `not ok`이고 설명과 location이 그 파일이다. ARC node reporter로 해결한다(§9.2).
 6. installer parity 목록과 installed-layout golden 검증 테스트의 정확한 파일명.
 7. win32 loadavg `[0,0,0]` → unknown 경로와 프로세스 그룹 kill 동작.
 
@@ -494,3 +504,4 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 | Version | Date | Change | Approval |
 |---|---|---|---|
 | v1 | 2026-11-21 | Planner 첫 완성본. Orchestrator가 진입점(2a)·env 허용 목록 결정과 두 단계 키 수용을 반영, 정책 새 절에 env 문장 추가 | 사용자 승인 2026-11-21 |
+| v2 | 2026-11-21 | plan T1 Step 0 hold(node tap이 통과 test에 location 없음) 후 ARC node reporter 추가: §5.2 `{arcNodeReporter}` 자리표시자와 junit-xml `stream`, §9.2 reporter, §12 파일·테스트·dogfood, §13-5 해결 | 사용자 승인 2026-11-21 |
