@@ -1,38 +1,23 @@
 # How the ARC harness operates
 
-ARC installs files; the conversation Orchestrator coordinates work. Normative contracts: [Claude](../claude/skill/SKILL.md), [Codex](../codex/skill/SKILL.md), [Gemini](../gemini/skill/SKILL.md), references, and profiles; this guide adds no approval gates.
-Scheduling/limits are prompt policy, not interception or a sandbox; native settings affect their own sessions. Structural checks do not prove live compliance or application; verify in new sessions.
+ARC installs the harness files and the conversation Orchestrator coordinates work. The [Claude](../claude/skill/SKILL.md), [Codex](../codex/skill/SKILL.md), [Gemini](../gemini/skill/SKILL.md) and [Grok](../grok/skill/SKILL.md) skills define the workflow contracts with their references and profiles.
 
-```mermaid
-flowchart LR
-  R[Request] --> O[Orchestrator routing]
-  O --> S[Scouter: research]
-  O --> P[Planner: approved design/spec/plan]
-  O --> I[Implementer: assigned changes]
-  S --> O
-  P --> O
-  I --> Q[Required QA/rechecks] --> V[Final Reviewer when required] --> A[Orchestrator acceptance] --> C[Commit when authorized]
-  Q -. Failure .-> H[Hold affected work]
-  V -. Finding .-> H
-  H --> X[Inspect] --> Z[Resolve] --> B[Revalidate] --> O
-```
-
-Simple questions stay with Orchestrator; diagram stages depend on risk/plan rules below. Significant planned final review follows task acceptance/commits; significant unplanned review precedes acceptance.
+Role instructions govern scheduling and limits through prompt policy. Native settings apply to their own sessions. Verify live behavior and settings in new sessions.
 
 ## What ARC installs
 
-| Component | Claude Code | Codex | Gemini CLI |
-|---|---|---|---|
-| Home | `~/.claude`; conflicting `CLAUDE_CONFIG_DIR` rejected | `~/.codex` or `CODEX_HOME`; relative to CLI cwd | `~/.gemini`; any `GEMINI_CLI_HOME` rejected |
-| Skill | `skills/arc/` | Same | Same |
-| Models | `skills/arc/models.toml` | Same | Same |
-| Limits | `skills/arc/limits.toml` | Same | Same |
-| Five specialist profiles | `agents/arc-*.md` | `agents/arc-*.toml` | `agents/arc-*.md` |
-| Managed instructions | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` |
-| Native settings | `settings.json` | `config.toml` | `settings.json` preserved; no native settings written |
+| Component | Claude Code | Codex | Gemini CLI | Grok CLI |
+|---|---|---|---|---|
+| Home | `~/.claude`; conflicting `CLAUDE_CONFIG_DIR` rejected | `~/.codex` or `CODEX_HOME`, resolved relative to the CLI working directory if needed | `~/.gemini`; any `GEMINI_CLI_HOME` rejected | `~/.grok`; any `GROK_HOME` rejected |
+| Skill | `skills/arc/` | Same | Same | Same |
+| Models | `skills/arc/models.toml` | Same | Same | Same |
+| Limits | `skills/arc/limits.toml` | Same | Same | Same |
+| Five specialist profiles | `agents/arc-*.md` | `agents/arc-*.toml` | `agents/arc-*.md` | `agents/arc-*.md` |
+| Managed instructions | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` | `AGENTS.md` |
+| Native settings | `settings.json` | `config.toml` | Existing settings preserved | `config.toml`, ARC-managed `[compat.claude]` entries only |
 
-- `models.toml` schema v3: `version = 3`, five `[roles.<role>]` tables with exactly `model` and `model_reasoning_effort` (Codex) or `effort` (Claude/Gemini). Orchestrator uses the conversation model.
-- Legacy v1/v2 validates/converts to active values; writes use v3. Catalogs are packaged candidates, not account/version/provider availability; absent saved pairs stay visible but require reselection before Apply.
+- `models.toml` schema v3 has five `[roles.<role>]` tables with `model` and one effort field: `model_reasoning_effort` (Codex) or `effort` (Claude/Gemini/Grok). The Orchestrator uses the conversation model.
+- Valid v1/v2 settings convert to v3 on write. Catalog entries are candidates. Saved pairs missing from the catalog remain visible and require reselection before Apply.
 
 ## Mixed routing
 
@@ -46,16 +31,8 @@ Simple questions stay with Orchestrator; diagram stages depend on risk/plan rule
 | Activation | Host marker discovers anchor; runtime revalidates active config/all markers under lock and requires matching installed bytes. Historical v1 is migration-only; markers prove no login/permissions/model/effort. Apply publishes; reload in a new session |
 | Paths | Symlinked homes/parents refused for install, publication, locks |
 
-```mermaid
-flowchart LR
-  A[Anchor home: active file + lock + dispatch store]
-  P1[Participant: marker + arc-routing profiles] --> A
-  P2[Participant: marker + arc-routing profiles] --> A
-  H[Host-only participant: marker + empty profile map] --> A
-```
-
-- New leases are v2: `targetPlatform` comes from the assigned role and must belong to S; native target = host, bridge target differs; run/observe/resume/cancel derive it from the lease.
-- v1 read compatibility covers Claude/Codex hosts only (native = host, bridge = peer); other v1 hosts hold as `activation_unverified`.
+- New v2 leases record the assigned role's `targetPlatform` within the participant set. Run, observe, resume and cancel use that target.
+- Legacy v1 reads infer native = host and bridge = peer for Claude/Codex. Other v1 hosts hold as `activation_unverified`.
 
 ## Status and authentication
 
@@ -67,12 +44,12 @@ flowchart LR
 | `Incomplete` | Inconclusive check, never `Available` |
 | `Not verified`, `Unverified` | Verification/installation consistency unresolved |
 | `Unsupported version` | CLI version outside the supported range |
-| Codex | Home/composite auth uses `codex app-server` `getAuthStatus`; network refresh rotates `CODEX_HOME/auth.json` tokens |
 | Claude | `claude auth status` |
+| Codex | Home/composite auth uses `codex app-server` `getAuthStatus`; network refresh rotates `CODEX_HOME/auth.json` tokens |
 | Gemini | `auth.kind: none`, no probe, status `unknown`; `auth unverified` warning, not proof of login |
 | Grok | `auth.kind: none`, no probe, status `unknown`; Status runs only `grok --version`; `auth unverified` warning, not proof of login |
 
-Unknown Claude/Codex probe results block participation.
+Unknown Claude/Codex auth probe results block participation.
 
 ## Execution support
 
@@ -87,90 +64,62 @@ Unknown Claude/Codex probe results block participation.
 
 Read roles are Scouter, Planner and Reviewer. The table shows which routes the recorded gates permit; apply the host rules and check each dispatch result.
 
-| Host | Runtime approval | Target home probe | Desktop |
-|---|---|---|---|
-| Claude | No per-call ARC approval gate | None | Held |
-| Codex | G2 `escalation`: obtain user approval on every runtime call, including native commands, because it may write `CODEX_HOME`. The Orchestrator obtains each approval; the runtime does not check it. Refusal or denied write is `host_sandbox_blocked` | None | Held |
-| Gemini | CLI host held pending live host measurement | Bridge prepare/run/resume, if the host gate is released | No Desktop value |
-| Grok | GK2 `approval`: obtain user approval on every runtime call in ask mode. A denied write is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on | Bridge prepare/run/resume | No Desktop value |
-
-On Claude and Codex Desktop, support is capped at `unverified`. This version provides no checklist recording or release. Future checks cover CLI discovery, shared auth, the same worktree, supervisor survival, per-call escalation and a matching native revision tag.
-
-`executionEnvironment` is caller-declared. A terminal, TUI or IDE terminal uses the CLI value for its host. Use a Desktop value only for a confirmed Claude or Codex Desktop session. Determine the environment from the session itself; never infer it from paths. When unsure, use the CLI value. A false CLI declaration bypasses the Desktop hold.
-
-| Bridge contract | Guarantees and limits |
+| Host | Runtime approval and target home checks |
 |---|---|
-| G1 `pass` | On every host, Claude bridge Implementer/QA receive D2 settings that enable the sandbox, auto-allow sandboxed Bash, disallow unsandboxed commands, and fail if unavailable. D2 denies `Edit(./.git/**)` and `Write(./.git/**)` and sets sandbox `filesystem.denyWrite` to `["./.git"]` for Bash. At prepare and before run or resume, C-3 holds these bridges as `permission_scope_unverified` if `.claude/settings.json` or `.claude/settings.local.json` is unreadable, a symlink, an irregular file, or invalid JSON, or declares additional directories, hooks, sandbox settings, or a permission default mode. If present, `permissions.allow` must be an array of strings whose tool names are in the safe list `Bash`, `Read`, `Grep`, `Glob`, `WebFetch`, and `WebSearch`. The check trims the part before the first `(` and compares it case-insensitively. Absent settings files pass only when `.claude` is a real directory or absent. A `.claude` symlink or other non-directory path causes a hold as `permission_scope_unverified` regardless of whether settings files exist. |
-| GG1 `fail` | Gemini bridge Implementer/QA are held as `permission_scope_unverified`; read roles remain supported. |
-| GK1 `pass` | Grok bridge Implementer/QA use a per-dispatch profile with `extends = "workspace"` and 24 deny entries. A verified `ProfileApplied` event is required after execution for completion. Unlisted `~/.grok/*` paths, `~/.grok/sessions` and temporary directories remain writable. Reads are unrestricted and network access is allowed. Measurements cover Grok 1.0.89 on macOS only.<br>Grok records `ProfileApplied` itself in a file the child can write. If a Grok version neither applies the profile nor emits the event, a single forged candidate is indistinguishable from a genuine one. A forgery alongside a genuine event fails the two-candidate check.<br>On cancellation, the events check adds no `permission_scope_mismatch` if a valid events file has no matching `ProfileApplied` candidate or the file was absent both before and after execution. Other reasons still apply. |
-| G2 `escalation` | Codex-host calls require approval; no advance hold; detached supervisor survival observed under variant conditions |
-| G3 `pass` | Codex re-delegation is not prevented; rollout spawn detection fails dispatch: `delegation_observed` |
-| G4 `pass` | Current Codex gate permits dispatch; a failed gate would hold `permission_scope_unverified` |
-| G5 `wide` | Codex `workspace-write` can reach outside worktree; post-run detection does not cover those writes |
-| GK2 `approval` | Start Grok with `grok --permission-mode default` and use `Allow once` on each runtime call. `Always allow` saves `permission_mode = "always-approve"` in Grok configuration. The Orchestrator obtains each approval. |
-| GG2 `fail` | Gemini host remains held pending live host measurement. |
-| Claims | `supportStatus: verified` requires all five claims `runtime-observed`; Codex permissions capped at `operator-attested` (`user-config-mcp-not-controlled`, user MCP config) |
-| Versions | Routing reports CLI versions for Codex, Claude, Gemini and Grok. Version never blocks routing. Configure blocks composite platform selection when a CLI version falls outside the registry's `cli.supportedVersions` range. TUI status uses the same range. |
-| Detection | Compare Git-visible tracked and untracked paths, HEAD, branch, and every ref. A separate control-file snapshot covers the paths below, including Git-ignored control files. |
-| Host home probe | Grok/Gemini host only: bridge prepare/run/resume create and remove one probe file in the target home first; denied → `host_sandbox_blocked`, missing → `activation_unverified`, unremovable → `residualPaths`. Subpath-only denials are not detected |
-| Child guard | `ARC_BRIDGE_CHILD` denies routing commands. Re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection. |
+| Claude | ARC applies no per-call approval gate or target home probe. |
+| Codex | G2 `escalation` requires user approval on every runtime call, including native calls. The Orchestrator obtains approval. Refusal or a denied write holds as `host_sandbox_blocked`. Detached supervisor survival was observed under variant conditions. |
+| Gemini | GG2 `fail` holds the CLI host pending live measurement. |
+| Grok | GK2 `approval` requires ask mode and per-call user approval. Start with `grok --permission-mode default` and select `Allow once`. |
 
-Claude 2.1.327 measurements on macOS (2026-11-20) showed that trusted project settings could widen Write scope (M-C5b). D2 blocked writes under `.git` through Write, Edit and Bash, including with trusted project allow rules (M-C10/M-C11). The previous L4 invocation confirmed the `.git` denials and normal editing, `node --test` and Git reads (a), denial of both `.git` and outside writes with trusted settings (b), and an unchanged user settings hash and no local settings file creation (d). That invocation used `--setting-sources user`. L4 (c) showed that the option suppressed project `CLAUDE.md` loading, so C-3 replaces that option. Broad allow rules in `~/.claude/settings.json` are within the trust boundary. Measurements covered macOS only.
+The caller declares `executionEnvironment` from the session. Use the host's CLI value for a terminal, TUI or IDE terminal and when unsure. Use a Desktop value only for a confirmed Claude or Codex Desktop session. Both Desktop environments hold as `environment_unverified`. A future release would need to check CLI discovery, shared auth, a shared worktree, supervisor survival, per-call escalation and a matching native revision tag. Recording those checks releases nothing in this version.
 
-The supervisor compares control files before and after every bridge run. When it detects a change, it reports `permission_violation_observed` and records only the affected labels in `controlFiles.changed`. It leaves the files in place. The labels cover the following paths.
+| Bridge contract | Result and operational impact |
+|---|---|
+| G1 `pass` | Claude bridge write roles use the recorded sandbox and deny writes to `.git`. Unsafe or unreadable project settings hold as `permission_scope_unverified`. Live evidence covers Claude 2.1.327 on macOS. |
+| G3 `pass` | A Codex rollout with a detected child spawn fails as `delegation_observed`. |
+| G4 `pass` | Codex routes pass this gate. A failed G4 holds as `permission_scope_unverified`. |
+| G5 `wide` | Codex `workspace-write` may reach beyond the worktree, outside post-run detection. |
+| GG1 `fail` | Gemini bridge Implementer/QA hold as `permission_scope_unverified`. Read roles remain supported. |
+| GK1 `pass` | Grok bridge write roles require a per-dispatch sandbox profile and a verified `ProfileApplied` event. Live evidence covers Grok 1.0.89 on macOS. Unlisted home paths, session files and temporary directories remain writable. Reads and network access are allowed. |
+| Claims | `supportStatus: verified` requires all five claims to be `runtime-observed`. User MCP configuration caps Codex permission evidence at `operator-attested`. |
+| Versions | Routing reports CLI versions. Configure and Status use the registry's supported ranges, and Configure blocks composite platform selection outside those ranges. |
+| Target home probe | On Grok or Gemini hosts, bridge prepare/run/resume probe the target home. A denial holds as `host_sandbox_blocked`, a missing home as `activation_unverified`, and a failed cleanup reports `residualPaths`. The probe covers the home directory itself. |
+| Child guard | `ARC_BRIDGE_CHILD` blocks routing commands. Shell launches of a platform CLI fall outside `delegation_observed` detection. |
 
-- Git common directory `config`, `hooks/**`, and `info/**` use `git:config`, `git:hooks/<relative path>`, and `git:info/<relative path>`. When a tree exceeds 1,000 entries, the snapshot collapses it to one `overflow` state under `git:hooks` or `git:info`. Changes inside the tree go undetected while both snapshots report `overflow`. The snapshot excludes `arc/**`, `objects`, `refs`, `index`, `logs`, and `*.lock` entries inside the scanned trees. A custom directory referenced by `core.hooksPath` outside the scanned trees is outside the comparison. A change to `git:info/refs` alone is not a violation; it is recorded under `tolerated.control`.
-- The worktree-specific Git directory's `config.worktree` uses `git:config.worktree`. The worktree's `.claude/settings.json`, `.claude/settings.local.json`, and `.codex/config.toml` use `worktree:.claude/settings.json`, `worktree:.claude/settings.local.json`, and `worktree:.codex/config.toml`.
-- For Grok write roles, `~/.grok/config.toml` and `~/.grok/sandbox.toml` use `grok-home:config.toml` and `grok-home:sandbox.toml`. The config comparison uses `permission_mode`, sandbox keys and tables, and `compat.claude` keys and tables. Multiline strings, invalid UTF-8, and ambiguous or escaped key paths trigger a full-file comparison.
+For bridge target rules and the control files they cover, see [Claude](../claude/skill/references/coordination.md#bridge-target-rules) · [Codex](../codex/skill/references/coordination.md#bridge-target-rules) · [Gemini](../gemini/skill/references/coordination.md#bridge-target-rules) · [Grok](../grok/skill/references/coordination.md#bridge-target-rules).
 
-The `hooks` and `info` walks use path-based directory reads because Node does not expose `openat` or `fdopendir`. The walk is non-atomic. If a symlink replaces a directory between checks, the snapshot may read the target's directory listing once. When the recheck detects the swap, the snapshot discards the directory's results and records a changed state. If reading a nested directory fails without a detected replacement, its label ends in `/` and its state is `unreadable`. A read failure at the root of `hooks` or `info` can still fail the snapshot. For Grok home control files, the snapshot checks only the immediate parent directory.
+### Post-run detection limits
 
-Detection takes place after execution and treats legitimate changes as violations too, except the Git activity recorded under `tolerated` in the dispatch record. When `tolerated.refs` lists a ref such as another branch (for example `refs/heads/master`), `refs/remotes/origin/*` or the dispatch branch, check its source with `git log` and `git reflog` before you rebase, merge or accept. A worktree registered during the run, including by the role itself, also makes its branch tolerated. A failed before snapshot ends the dispatch with `execution_failed` before child startup. If the after snapshot fails, the permission claim remains unverified and there is no snapshot-based verdict. Bridge prepare, run, and resume hold with `permission_scope_unverified` if `allowedPaths` covers the worktree root, `.git` or a path below it, `.claude` or either settings file, or `.codex` or its `config.toml`.
+The supervisor compares Git-visible paths, HEAD, branch, refs and the control files listed in the bridge target rules before and after the run. Detected violations leave files in place and report affected control-file labels in `controlFiles.changed`. Outside the selected control files, Git-ignored paths and external `core.hooksPath` directories are missed. Changes within a hooks or info tree that exceeds 1,000 entries may go undetected while both snapshots report `overflow`. A failed before snapshot stops execution as `execution_failed`. A failed after snapshot leaves permissions unverified and yields no comparison verdict. Check `tolerated.refs` with `git log` and `git reflog` before rebasing, merging or accepting because the comparison cannot identify who made those changes.
 
-While a bridge is running, commit in the dispatch worktree only as fast-forward commits on its current branch, and for `arc_implementer` or `arc_qa` with `allowedPaths` only when every committed path is within those `allowedPaths`; read-only roles and QA without `allowedPaths` skip the path check. Do not amend, rebase, reset or switch branches there, and do not run host commands that write `.git/config`, such as `git config` writes or `git push -u`.
+### Working alongside a running bridge
 
-While a bridge runs in a checkout, avoid saving permission rules there from the host Claude Code session. Choosing “don't ask again” writes `.claude/settings.local.json`, and a detected change fails the running dispatch as `permission_violation_observed`. Prefer a linked worktree for bridge work.
+In the dispatch worktree, make only fast-forward commits on its current branch, within `allowedPaths` for Implementer and for QA with non-empty `allowedPaths`. Avoid amending, rebasing, resetting, switching branches or writing `.git/config` (including via `git push -u`).
+
+Avoid saving host permission rules in the dispatch checkout. Claude Code's “don't ask again” can change `.claude/settings.local.json` and fail the dispatch as `permission_violation_observed`. Use a linked worktree to isolate bridge work.
 
 ## Install, update, remove
 
-```mermaid
-flowchart LR
-  P[Prepare: validate and snapshot] --> R[Revalidate: stop on drift]
-  R --> T[Per-target transaction in anchor order]
-  T --> N[Next target: earlier success preserved]
-  N --> M[Mixed: recheck installs/auth/catalogs under anchor lock]
-  M --> A[Publish profiles/markers; replace active file last]
-  T -. Failure .-> E[Rollback target; report residuals]
-  A -. Failure .-> E
-```
+Management and watch require an interactive terminal for input and output, including when watch uses `--json`. `arc --help`, `arc --version` and `arc watch --help` work without a terminal.
 
 | Operation or mode | Action and confirmation |
 |---|---|
-| CLI | `arc`, `arc watch`, `arc --help`, `arc --version`. Management and watch need terminal input and output. Invalid arguments and non-interactive launches exit 2. Help, version and watch need no native installer |
-| Home | Configure, Status, Uninstall, Exit |
-| Diagram | Role boxes → Platform/Model/Effort → Done → Apply; compact rows on narrow terminals. Reuse draft, then composite, then first installed platform, else available platform defaults (fallback Claude); catalog failure blocks participating platform, no automatic reselection. Unverified blocks Apply |
-| Settings | Run mode/Language/limit rows on Configure; defaults Supervised/English/100 total/5 concurrent; unchanged mixed fields preserve values; edited values apply across S. Full Auto auto-decides only the gates in the installed skill's `references/planning.md#full-auto-run-mode` |
-| D1-a: size 1, standalone | Install/update selected P; other standalone homes untouched |
-| D1-b: size 1, Mixed | Confirm `Switch to <Label>` / `Mixed routing will be turned off.` (default Back); restore standalone in installed homes transactionally, then reprepare selected operation; later failure leaves restored standalone |
-| D1-c: size ≥2, new | Install S in anchor order; publish at anchor |
-| D1-d: size ≥2, same S | Install S in anchor order; republish at anchor |
-| Mixed publication | Owned standalone profiles replaced with routing profiles; rollback restores original bytes |
-| D1-e: size ≥2, changed S | Mode preview, no extra confirmation; install additions, transactionally restore departing standalone profiles/publish new markers; departing homes retain ARC. Anchor move locks old/new in ascending order, releases reverse; any non-terminal native/bridge lease in either store holds move |
-| Update | Status shows the version; Exact displayed version revalidated before upgrade; no newer/unavailable latest offers no Upgrade. Global replacement exits; npx preserves global CLI. After the harness update, ARC runs Configure → Apply with the current settings once for Mixed routing or once per installed standalone platform. After the first npx upgrade from 0.4.6 or earlier, run Configure → Apply manually because the previous package starts the upgrade. Same-version refresh: Configure; broken CLI: `npx --yes @yunhozz/arc@latest` |
-| Preservation / holds | Preserve outside managed blocks, unrelated settings/shared skills; malformed policy/config stops install. Omitted valid limits survive; concurrency mismatch needs explicit selection. Skip-global omits this operation's instructions/native settings, not prior changes. Unverified profiles preserved as residuals; inconsistent routing blocks publication/switch/remove; active bridges block publication/deactivation |
-| Native settings | Codex wait config merges supported `[features.multi_agent_v2]`, otherwise guidance; concurrency: integer `[agents].max_concurrent_threads_per_session`, Claude string `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` |
+| Settings | Configure defaults to Supervised, English, 100 total and 5 concurrent subagents. Edited mixed fields apply across participants. For the gates Full Auto can decide, see [Claude](../claude/skill/references/planning.md#full-auto-run-mode) · [Codex](../codex/skill/references/planning.md#full-auto-run-mode) · [Gemini](../gemini/skill/references/planning.md#full-auto-run-mode) · [Grok](../grok/skill/references/planning.md#full-auto-run-mode). |
+| Standalone | Apply updates the selected home. Switching out of Mixed requires confirmation and restores standalone profiles before the selected operation. |
+| New or same-participant Mixed | Install in anchor order, then publish at the anchor. Publication replaces owned standalone profiles with routing profiles. |
+| Changed Mixed participants | Preview the mode, install additions and restore departing homes to standalone. An anchor move locks both stores and holds on non-terminal leases. |
+| Update | Status revalidates the offered version. Global CLI replacement ends the session. An npx update leaves the global CLI in place. Use Configure for a same-version refresh. |
+| Preservation and holds | Preserve unrelated settings, shared skills and content outside managed blocks. Invalid policy or config, unresolved routing and active bridges can block applicable operations. |
+| Global settings | Skipping global changes preserves existing instructions and settings. Codex config supports wait and concurrency settings. Claude Code writes the concurrency limit in `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`. |
+| Recovery | Check reported residual paths. A rollback label alone provides no evidence of cleanup or backup. |
 
-Automatic re-application uses the same path as manual Configure → Apply. It rewrites global instructions and native concurrency settings using the current ARC configuration. ARC configuration values overwrite any manual edits to those instructions or settings.
+Automatic re-application uses the same path as manual Configure → Apply. It runs once for Mixed routing or once per installed standalone platform. On success, it applies the current ARC configuration to ARC-managed global instructions and native concurrency settings, overwriting edits within the managed scope. The native concurrency drift check holds automatic re-application only when the request omits a concurrency limit and an existing native value differs from that platform's saved ARC limit. For example, automatic re-application omits the limit when Mixed participants have different saved limits. If this check holds re-application, explicitly select the concurrency limit in Configure before choosing Apply. See [Upgrade](../README.md#upgrade) for the first npx upgrade from 0.4.6 or earlier and re-application recovery.
 
-Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active files/inconsistency is unverified):
+### Legacy migration
 
-1. Run Configure → Apply; acquire Claude then Codex anchor locks; no extra migration confirmation.
-2. Inspect both stores; any non-terminal lease holds before writes. Finish/cancel; lost supervisors/corrupt leases/uncertain exit require manual inspection/cleanup, never automatic deletion.
-3. One transaction writes Claude-home v2, repoints markers, removes old active file; failed recovery reports residual paths, restored rollback permits later Apply.
-4. Leave history in old store (never merged/read by runtime after move), release locks in reverse; legacy runtime holds `activation_unverified`. Legacy removal uses old anchor; downgrade needs older Configure.
-
-- `cooperative-9`: re-run Configure for all participants; active dispatches block publication; unknown/unsupervised starting leases need manual cleanup.
-- In-flight plan commands, including status, hold with `cooperative.versions`; results only, unresolved `versions-changed`; no automatic migration/approval renewal. Finish/handoff before upgrade or start fresh with new evidence/approvals.
+Configure → Apply moves a consistent legacy Codex-home v1 Mixed installation to the Claude anchor. The transaction repoints markers and leaves dispatch history in the old store.
+Finish or cancel non-terminal leases before migration. Inspect lost supervisors, corrupt leases and uncertain exits manually. Legacy removal uses the old anchor. After downgrade, run Configure in the older version.
+`cooperative.versions` holds in-flight plans when runtime or policy versions change. Finish or hand off before upgrade, or start a new workflow with fresh evidence and approvals.
 
 | Uninstall | Scope and boundaries |
 |---|---|
@@ -178,20 +127,12 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | Everything (incl. CLI) | Verified install/standalone platforms only; refused when a platform home cannot be resolved. Harness success required before verified global CLI removal, including npx; identity/context failure blocks harness writes; CLI failure preserves harness success; CLI removal ends session; preserve other packages/npx cache |
 | CLI only | `npm uninstall -g @yunhozz/arc`; harness remains |
 
-| Result | Message |
-|---|---|
-| Install | `ARC <version> installed for <Label>.` |
-| Mixed | `Mixed routing on: <Label> + <Label>.` |
-| Remove | `Removed from <Label>.`, `Removed ARC and CLI.`, or `Removed ARC.` (CLI absent) |
-| Switch | First adds `Mixed routing turned off.` |
-| Upgrade | On success, Result shows `ARC updated: <current> → <latest>.`. On failure, Result also shows any upgrade child output (`<Label>: harness updated`) and, when the CLI was replaced, `arc CLI: <previous> → <new>.`. If configuration re-application is held, resolve the reported issue and run Configure → Apply. |
-| Failure | `Error: <message>`, deduplicated `Residual path: …`, `Exit code: N`; earlier target success remains visible; rollback label proves no cleanup/backup |
-
 ## Watch
+
+Run `arc watch --help` for history and output options.
 
 | Concern | Behavior and limits |
 |---|---|
-| Options | History and output options are listed by `arc watch --help`, which also works without a terminal. Watch requires terminal input and output, including with `--json` |
 | Selection | Choose All supported platforms or one supported platform. Unsupported platforms are marked and unavailable. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130 |
 | Sources | Supported platform transcripts and dispatch leases/artifacts |
 | Scope | Every selection watches the current Git worktree or the current directory outside Git. Linked and nested worktrees are excluded. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
@@ -200,8 +141,7 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 | Hidden | Tool/command outputs, skill definitions/args, MCP args/results; reasoning only verbose; incomplete secret masking applies to JSON too |
 | Read-only | No network or CLI except restricted Git discovery/listing; no writes |
 | Display | TTY/width wraps messages/file lists; in a TTY, a bottom status block shows the watched path, with `working…` below it while a turn is in progress; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. During watch, Ctrl-L clears the screen and Ctrl-C or a stop signal exits 0. `working…` ends after interrupt or 5 minutes idle |
-| Shell detection | Git file list + lstat metadata, no content; inferred attribution may be wrong/include external edits/duplicate late tool events; ignored paths, unchanged fingerprints, non-Git roots missed. Own symlink metadata, no directories; other lstat errors retain prior fingerprint. Delay ~1s, ≥3s interval, ≤2 roots/tick, ≤32 roots; live path claims suppress one inferred report within 2 minutes; JSON adds `inferred:true` |
-| Bounds | Poll 500ms/discover 2s/exclusions 30s; 64 files, 1MiB/file/tick, 256KiB history/session, 64KiB cwd probe, 4MiB/line, 30min inactivity. Disable shell detection after >20000 files or 3 listing failures (timeout/buffer overflow included). Merge order per tick only; truncate/regrow past offset can be missed |
+| Shell detection | Git file lists and metadata infer edits, including possible external edits or duplicates. Ignored paths, unchanged fingerprints and non-Git roots are missed. Watch disables shell detection above 20,000 files or after three consecutive listing failures. Inferred JSON events carry `inferred:true`. |
 
 | KIND | Meaning |
 |---|---|
@@ -231,66 +171,26 @@ Legacy migration (only consistent Codex-home v1 is legacy; v2/multiple active fi
 
 With color enabled in a TTY, watch renders Markdown in AGENT and PROMPT messages. `NO_COLOR`, piped output and `--json` preserve the Markdown source text.
 
-## Workflow rules
+## Workflow contracts
 
-| Role | Return to Orchestrator (specialists at depth 2, no delegation) |
-|---|---|
-| Scouter | Sources/facts/uncertainty, no edits |
-| Planner | Complete drafts/criteria, no implementation |
-| Implementer | Scoped changes/checks/limits, no acceptance |
-| QA | Independent criterion evidence, no edits |
-| Reviewer | Final correctness/facts/security findings, no edits |
+Use the installed skill and its references for role ownership, approvals, limits, verification, recovery and commits. The repository also provides the [shared role policy](../lib/policy/role-policy.json).
 
-| Design path | Approval and preparation |
-|---|---|
-| Spike | Question/method/scope/criteria/constraints; probe-only grants no implementation |
-| Bounded | Short design, spec by judgment, plan as needed |
-| Architectural | Design → approved written spec → approved implementation plan |
-| Target | Explicit target before preparation; approved docs/verified commits before handoff; plan approval chooses no target; preserve unrelated ownership |
-| Plan omission | One local change, no dependent stages/shared state/lifecycle/order concerns, one focused path |
-| Small direct path | Prove all F1–F8 in the platform handoff; retain later gates. Reuse instruction reads only with verified source-set/hashes and same conversation; record envelope, refresh current state/evidence separately from valid target choice; missing/conflicting/inaccessible/ambiguous evidence requires full evaluation/hold |
-| Scheduling | Ready work needs approvals/inputs/contracts/predecessor evidence/acceptance/verified commit or no-change/capacity; serialize shared Git/files |
-| Limits | Freeze valid limits, reserve batches; nested/non-ARC descendants count, waiting consumes active capacity, completion frees active not cumulative, unknown is not zero; exhaustion waives no gate |
-
-| Risk | Verification flow |
-|---|---|
-| Narrow, understood, reversible, focused-verifiable | Implementer or approved direct edit → focused checks |
-| Ordinary behavior | Implementer → fresh QA; failure-first TDD unless recorded qualifying waiver (RED/GREEN only); non-behavior exception names structural checks |
-| Significant planned | Fresh Implementer and required QA per task (same-task QA corrections may reuse); all QA/rechecks → task acceptance/commits → one final Reviewer |
-| Significant unplanned | Fresh Implementer → fresh QA/rechecks → final whole-change Reviewer → acceptance; same-task QA corrections may reuse |
-| Instruction provenance | Brief separates user/workspace/installed/input sources and access/version/approval; missing root AGENTS.md invalidates no user instruction |
-| Visual evidence | Source/version/approval/criteria/method + actual output/revision/basis required: pass/mismatch/unverified; fresh QA compares, self-report cannot replace it. Structure/synthetic Claude.app observation proves no Claude Code CLI execution |
-
-- Reuse valid explicit approvals/targets/commits; silence/restart grants no authority. Specific requests may authorize scope; material scope/method/risk/new decisions require revised approval; continue authorized correction/checks to completion.
-- Orchestrator owns Git/acceptance: after required checks/acceptance, one focused task commit; no-change record only; preserve unrelated work, verify SHA/content/state. Push/merge/publish/deploy require separate authorization.
-- Significant planned final Reviewer findings repeat Implementer → Reviewer, no QA reassignment; fixes uncommitted until recheck/acceptance, then one focused follow-up; separate QA findings remain Implementer → QA.
-- Contract-preserving task progress needs no new approval; other spec/plan edits require revised approval. Keep approved revisions pending for first accepted top-level task executed/reconfirmed against them, otherwise current task/final Reviewer follow-up; only with no implementation left/no such commit may one standalone `docs(plan)` closing commit include all revisions, no implementation. Overall completion leaves none pending. Plan-level progress records (final verification/Reviewer verdicts/dispositions/completion) ride the plan's next task or follow-up commit; with none, they stay canonical only, plan doc unchanged, never alone a closing commit.
-- Record `Plan-Revision`, per-version `Plan-Approved-At` (actual ISO 8601), `Plan-Reason` trailers with ASCII `->`; preserve trailers/approval chronology; never amend/reset/replay/rewrite or create other docs/fixup commits. Full rules: [planning](../codex/skill/references/planning.md#plan-updates-during-execution), [preparation](../codex/skill/references/handoff-prep.md#execution-time-plan-revision), [commit](../codex/skill/references/commit.md#execution-time-plan-document-updates). Repository commit descriptions are concise Korean.
-- Failure: no automatic retry/fallback/stash/reset/clean/lock deletion/permission changes/bypass. Optional failed reads allow only brief-preauthorized side-effect-free alternatives with exact locator/version/purpose/authority/equivalent evidence; missing inputs/unknown/partial changes return immediately. Resume preserves approvals/completed work/failure/resolution/valid-invalid evidence/holds/next goal.
-
-On failure or partial completion, apply these steps in order:
-
-1. Record exact failed check, baseline/current revision, evidence, path/branch or detached HEAD/index/files/completed steps.
-2. Classify baseline/current impact and dependencies.
-3. Hold affected/dependent or impact-unknown work only; inspect, resolve, revalidate before resuming.
-4. Orchestrator validates authority/target/inputs/ownership/gates and releases approved independent work without unrelated delays; roles never self-release.
-5. Keep acceptance held while required checks remain unresolved; never hide failures/change criteria/waive checks.
+Repository commit descriptions are concise Korean.
 
 ## Maintenance and source map
 
 | Maintenance | Effect and boundaries |
 |---|---|
-| Reinstall | Active v3 settings survive reinstall/upgrade; packaged static files refresh, valid omitted limits survive; managed profiles/local manual edits replaced without persistent backup; new sessions required |
-| Static references | Shared and platform-specific files compose into installed references. npm/ignore-scripts/ZIP/clones use packaged references; source has no install hook, published postinstall informational only; no harness download/TTY/shell changes |
-| Runtime | Generated into shared payload |
-| Explicit upstream refresh | Local ignored `scripts/update-superpowers-local.sh` calls tracked updater, per-checkout only, absent from packages. One revision updates mapped platforms/manifest together; failure restores files/manifest, residuals reported. No automatic refresh on install/upgrade; concurrent same-target refresh/install/remove unsupported; provenance proves local consistency, not upstream authenticity |
-| Manifest | Update/check `MANIFEST.sha256`; models excluded |
-| Cleanup | Valid old completion blocks removed, no new shell registrations; status never edits shell files. Installer rollback and agent Git recovery are separate; inspect residuals |
+| Reinstall | Refreshes packaged files and replaces managed profiles. Valid model settings and omitted limits survive. Open new sessions to load the changes. |
+| Packaged references and runtime | Shared and platform sources compose into packaged references and a generated runtime. Published postinstall is informational. |
+| Explicit upstream refresh | Run the Updater in the checkout to refresh mapped references and the manifest together. Publication errors trigger rollback and may leave reported residual paths. If cleanup fails after publication, the published files remain in place. Install and upgrade use packaged references. |
+| Manifest | Update and check `MANIFEST.sha256`. Model settings are excluded. |
+| Cleanup | Install removes valid legacy completion blocks. Status leaves shell files alone. Inspect residuals separately from agent Git recovery. |
 
 | Concern | Source |
 |---|---|
-| Workflow contracts | Platform SKILL.md above and linked references: [Codex](../codex/skill/references), [Claude](../claude/skill/references), [shared](../shared/skill/references); [worktree preparation](../shared/skill/references/handoff-worktree.md) |
-| Profiles and models | [Codex](../codex/agents), [Claude](../claude/agents), [Gemini](../gemini/agents); [model settings](../README.md#models-and-language) |
-| CLI and management | [Root](../lib/cli/root.mjs), [TUI](../lib/tui/app.mjs), [operations](../lib/management/operations.mjs) |
+| References | [Claude](../claude/skill/references), [Codex](../codex/skill/references), [Gemini](../gemini/skill/references), [Grok](../grok/skill/references), [shared](../shared/skill/references) |
+| Profiles and models | [Claude](../claude/agents), [Codex](../codex/agents), [Gemini](../gemini/agents), [Grok](../grok/agents), [model settings](../README.md#models-and-language) |
+| CLI and management | [Root](../lib/cli/root.mjs), [TUI](../lib/tui/app.mjs), [operations](../lib/management/operations.mjs), [watch](../lib/watch/index.mjs) |
 | Installation and routing | [Targets](../lib/installer/targets.mjs), [plans](../lib/installer/plan.mjs), [settings](../lib/installer/runtime-config.mjs), [install](../lib/installer/install.mjs), [remove](../lib/installer/uninstall.mjs), [transactions](../lib/installer/transaction.mjs), [bridge gates](../lib/runtime/role-dispatch-policy.mjs) |
 | Maintenance checks | [Updater](../scripts/update-superpowers.mjs), [manifest](../scripts/update-manifest.mjs), [runtime copies](../scripts/update-runtime-assets.mjs), [harness tests](../tests/test_harness_contract.py), [Node tests](../tests/node) |
