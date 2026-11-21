@@ -8,7 +8,7 @@ const packageRoot=path.resolve('.');
 test('lifecycle ignores missing invocation cwd and relative homes without touching harness',async t=>{
  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc lifecycle ')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  for(const env of [{npm_lifecycle_event:'postinstall',CODEX_HOME:'relative'},{npm_lifecycle_event:'postinstall',INIT_CWD:'/missing/initial',CODEX_HOME:'custom codex'},{npm_lifecycle_event:'other'}]){
- let text='';assert.equal(await runPostinstall({packageRoot,cwd:root,env,output:{write:s=>text+=s}}),0);assert.equal(text,'Run arc to install or manage the ARC harness.\n');assert.deepEqual(fs.readdirSync(root),[]);
+ let text='';assert.equal(await runPostinstall({packageRoot,cwd:root,env,output:{write:s=>text+=s}}),0);assert.equal(text,'🎉 ARC installed successfully! Run arc to set up the harness.\n');assert.deepEqual(fs.readdirSync(root),[]);
  }
 });
 for(const event of ['end','close','error','SIGINT','SIGTERM'])test(`TUI ${event} restores raw mode and listeners`,async()=>{

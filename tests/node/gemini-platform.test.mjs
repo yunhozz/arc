@@ -32,7 +32,7 @@ test('Gemini registries agree in anchor and display order with install, nativePr
     authProbe: 'no official auth status command', watch: 'watch support out of scope',
   }).map(([key, reason]) => [key, {state: 'off', reason}]))});
   assert.equal(runtime.home.env, 'GEMINI_CLI_HOME');
-  assert.deepEqual(runtime.cli, {command: 'gemini', supportedVersions: '>=0.68.0 <0.69.0'});
+  assert.deepEqual(runtime.cli, {command: 'gemini', supportedVersions: null});
   assert.deepEqual(runtime.auth, {kind: 'none'});
   assert.deepEqual(runtime.models, {effortField: 'effort'});
   assert.equal(runtime.profile.ext, 'md');
@@ -181,21 +181,29 @@ test('static gemini catalog passes selectGeminiCatalogModels unchanged', async (
   assert.deepEqual(selectGeminiCatalogModels(models), models);
 });
 
-test('L2 Gemini catalog order and role defaults match the live evidence selection', async () => {
+test('Gemini catalog order and role defaults match the packaged recommendations', async () => {
   const result = await loadStaticModelCatalog('gemini');
   assert.equal(result.status, 'ready');
   const models = result.catalog.pairs.map(pair => pair.model);
-  assert.deepEqual(models, ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+  assert.deepEqual(models, [
+    'gemini-4-neon', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-argon',
+    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite',
+  ]);
   for (const {model, effort} of result.catalog.pairs) {
-    assert.match(model, /^gemini-(\d+(?:\.\d+)?)-(pro|flash|flash-lite)$/);
+    assert.match(model, /^(?:gemini-\d+(?:\.\d+)?-(?:pro|flash|flash-lite)|gemini-\d+-(?:neon|hydrogen|carbon|argon))$/);
     assert.equal(getPlatform('gemini').routing.validatePair(model, effort), true);
     assert.equal(effort, 'default');
   }
   const settings = resolveModelSettings(loadModelConfig(fs.readFileSync(new URL('../../gemini/skill/models.toml', import.meta.url)), 'gemini'));
-  assert.equal(Object.keys(settings.roles).length, 5);
+  assert.deepEqual(Object.fromEntries(Object.entries(settings.roles).map(([role, {model}]) => [role, model])), {
+    arc_scouter: 'gemini-4-hydrogen',
+    arc_planner: 'gemini-4-carbon',
+    arc_implementer: 'gemini-4-hydrogen',
+    arc_qa: 'gemini-4-hydrogen',
+    arc_reviewer: 'gemini-4-neon',
+  });
   for (const [role, {model, effort}] of Object.entries(settings.roles)) {
     assert.ok(models.includes(model), `${role} default must belong to the catalog`);
-    assert.equal(model, 'gemini-2.5-flash');
     assert.equal(effort, 'default');
     const profile = fs.readFileSync(new URL(`../../gemini/agents/${role.replace('_', '-')}.md`, import.meta.url), 'utf8');
     assert.equal(/^model: (.+)$/m.exec(profile.split('---')[1])?.[1], model);
@@ -326,7 +334,7 @@ test('L1 operational Gemini home follows CLI status with auth none after install
   for (const [cliVersion, authentication, want] of [
     [{version: null, reason: 'cli_not_found'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Not Available'],
     [{version: '0.68.0'}, {authStatus: 'unknown', reason: 'cli_not_found'}, 'Gemini: Not Available'],
-    [{version: '0.69.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Unsupported version'],
+    [{version: '0.69.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Available (auth unverified)'],
     [{version: '0.68.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Available (auth unverified)'],
   ]) assert.equal(homeStatusLine([{platform: 'gemini', state: 'absent', cliVersion, authentication}]), want);
 });
@@ -340,9 +348,9 @@ test('Gemini auth none probe does not spawn and returns unknown', async t => {
   assert.deepEqual(await probePlatformAuth(cli), {authStatus: 'unknown', reason: 'auth_unverified'});
 });
 
-test('range out version unsupported after install verification while off takes precedence', () => {
+test('Gemini CLI is available without a version range while off takes precedence', () => {
   const status = {platform: 'gemini', state: 'installed', authentication: {authStatus: 'unknown', reason: 'auth_unverified'}, cliVersion: {version: '0.69.0'}};
-  assert.equal(homeStatusLine([status]), 'Gemini: Unsupported version');
+  assert.equal(homeStatusLine([status]), 'Gemini: Available (auth unverified)');
   assert.ok(getPlatform('gemini'));
   const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}, standalone: {state: 'off'}, bridge: {state: 'off'}, compositeRole: {state: 'off'}}} : p));
   const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});

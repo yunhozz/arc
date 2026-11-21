@@ -21,13 +21,13 @@ EXPECTED = {
     'qa': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash']),
     'reviewer': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
 }
-# models.toml selects the "balanced" preset; shipped profiles keep their own defaults until apply-models renders the preset.
+# Package models.toml defaults applied by apply-models.
 BALANCED_PRESET = {
-    'scouter': ('haiku', 'high'),
-    'planner': ('sonnet', 'high'),
-    'implementer': ('sonnet', 'medium'),
-    'qa': ('haiku', 'max'),
-    'reviewer': ('sonnet', 'high'),
+    'scouter': ('sonnet', 'medium'),
+    'planner': ('opus', 'xhigh'),
+    'implementer': ('sonnet', 'high'),
+    'qa': ('sonnet', 'medium'),
+    'reviewer': ('opus', 'high'),
 }
 
 

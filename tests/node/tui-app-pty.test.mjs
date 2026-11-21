@@ -65,7 +65,7 @@ test('edited role Apply needs its own Enter and runs once',{skip:!available},asy
  const output=await drive(t,entry+'enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\n'+choosePair+moves(10)+'expect -exact {> Apply}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Are you sure/);
 });
 test('Status exposes a real selected upgrade row and applies once',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 → 1.10.0}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/ARC updated: 1\.9\.0 → 1\.10\.0\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 → 1.10.0}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/Update ran successfully! Please restart ARC to check\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
 });
 test('version without an upgrade selects Back and Enter returns home',{skip:!available},async t=>{
  const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 · up to date}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);

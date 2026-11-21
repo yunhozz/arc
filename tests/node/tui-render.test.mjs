@@ -18,6 +18,7 @@ test('shared hints exactly describe menu, page, input and busy controls',()=>{
  assert.equal(api.navigationHint('text'),'↑/↓: Select · Type/Paste Input · Backspace Delete · Enter Continue · Esc Home');
  assert.equal(api.navigationHint('busy'),'Ctrl+C Interrupt');
  assert.equal(api.navigationHint('checklist'),'↑/↓: Select · Enter Toggle · Esc Home');
+ assert.equal(api.navigationHint('checklist',{backLabel:'exit'}),'↑/↓: Select · Enter Toggle · Esc Exit');
 });
 test('detail wrapping preserves every escaped character without horizontal truncation',()=>{
  assert.equal(typeof api.wrapDetailRows,'function');const source='/tmp/'+('long/').repeat(30)+'END\x1b[2J\rnote';const lines=api.wrapDetailRows([source],24);

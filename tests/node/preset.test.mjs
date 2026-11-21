@@ -10,15 +10,79 @@ function selection(target, scenario='smart'){
  return {roles,verifiedCatalog:{platform,pairs:Object.values(roles).map(v=>({model:v.model,effort:v[field]}))}};
 }
 for(const platform of ['codex','claude'])test(`${platform} switches installed custom variant and preserves unrelated bytes`,async t=>{assert.equal(typeof api.buildPresetPlan,'function');const target=install(fixture(t),platform),before=fs.readFileSync(target.home+'/skills/arc/settings.toml');const plan=api.buildPresetPlan({target,...selection(target,'smart'),safeFs});const result=await api.switchPresetTargets([plan],{safeFs});assert.equal(result.results[0].status,'updated');assert.deepEqual(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),platform).roles,selection(target).roles);const body=fs.readFileSync(target.home+'/agents/'+target.profileNames[2],'utf8');assert.match(body,/custom-model/);assert.match(body,/User body Korean policy/);assert.deepEqual(fs.readFileSync(target.home+'/skills/arc/settings.toml'),before);assert.equal(api.buildPresetPlan({target,...selection(target,'smart'),safeFs}).specs.length,0);});
-test('all preflight blocks writes and second target failure preserves first success',async t=>{assert.equal(typeof api.buildPresetPlan,'function');const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p));let plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));fs.appendFileSync(targets[1].home+'/agents/'+targets[1].profileNames[0],'drift');let result=await api.switchPresetTargets(plans,{safeFs});assert.equal(result.results[0].status,'not-started');assert.deepEqual(loadModelConfig(fs.readFileSync(targets[0].home+'/skills/arc/models.toml'),'codex').roles,selection(targets[0],'balanced').roles);plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));result=await api.switchPresetTargets(plans,{safeFs,hooks:{fault(e){if(e.plan.target.platform==='claude'&&e.phase==='after-publish')throw Error('injected publish');}}});assert.equal(result.results[0].status,'updated');assert.equal(result.results[1].rollback,'restored');assert.deepEqual(loadModelConfig(fs.readFileSync(targets[1].home+'/skills/arc/models.toml'),'claude').roles,selection(targets[1],'balanced').roles);});
+test('all preflight blocks writes and second target failure preserves first success',async t=>{
+ assert.equal(typeof api.buildPresetPlan,'function');
+ const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p));
+ const modelPaths=targets.map(target=>target.home+'/skills/arc/models.toml');
+ const installedModels=modelPaths.map(file=>fs.readFileSync(file));
+ let plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));
+ fs.appendFileSync(targets[1].home+'/agents/'+targets[1].profileNames[0],'drift');
+ let result=await api.switchPresetTargets(plans,{safeFs});
+ assert.equal(result.results[0].status,'not-started');
+ assert.deepEqual(fs.readFileSync(modelPaths[0]),installedModels[0]);
+ plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));
+ result=await api.switchPresetTargets(plans,{safeFs,hooks:{fault(e){if(e.plan.target.platform==='claude'&&e.phase==='after-publish')throw Error('injected publish');}}});
+ assert.equal(result.results[0].status,'updated');
+ assert.equal(result.results[1].rollback,'restored');
+ assert.deepEqual(fs.readFileSync(modelPaths[1]),installedModels[1]);
+});
 
-for(const changed of [0,1])test(`preflight drift attributes target ${changed} and writes neither`,async t=>{const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p)),plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));fs.appendFileSync(targets[changed].home+'/agents/'+targets[changed].profileNames[0],'\n# drift\n');const result=await api.switchPresetTargets(plans,{safeFs});assert.equal(result.results[changed].status,'failed');assert.equal(result.results[1-changed].status,'not-started');for(const target of targets)assert.deepEqual(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),target.platform).roles,selection(target,'balanced').roles);});
-for(const platform of ['codex','claude'])for(const preset of ['economy','balanced','smart'])test(`${platform} ${preset} keeps all variants and nonmodel profile bytes`,async t=>{const target=install(fixture(t),platform),modelPath=target.home+'/skills/arc/models.toml',roles=loadModelConfig(fs.readFileSync(modelPath),platform).roles,before=new Map(target.profileNames.map(name=>[name,fs.readFileSync(target.home+'/agents/'+name,'utf8')]));fs.unlinkSync(target.home+'/skills/arc/settings.toml');const result=await api.switchPresetTargets([api.buildPresetPlan({target,...selection(target,preset),safeFs})],{safeFs});assert.equal(result.results[0].status,platform==='claude'&&preset==='balanced'?'unchanged':'updated');const config=loadModelConfig(fs.readFileSync(modelPath),platform);assert.deepEqual(config.roles,selection(target,preset).roles);for(const[name,text]of before){const after=fs.readFileSync(target.home+'/agents/'+name,'utf8'),strip=s=>s.replace(/^model(?:_reasoning_effort)?\s*=.*\n/gm,'').replace(/^(model|effort):.*\n/gm,'');assert.equal(strip(after),strip(text));}});
+for(const changed of [0,1])test(`preflight drift attributes target ${changed} and writes neither`,async t=>{
+ const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p));
+ const modelPaths=targets.map(target=>target.home+'/skills/arc/models.toml');
+ const installedModels=modelPaths.map(file=>fs.readFileSync(file));
+ const plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));
+ fs.appendFileSync(targets[changed].home+'/agents/'+targets[changed].profileNames[0],'\n# drift\n');
+ const result=await api.switchPresetTargets(plans,{safeFs});
+ assert.equal(result.results[changed].status,'failed');
+ assert.equal(result.results[1-changed].status,'not-started');
+ assert.deepEqual(modelPaths.map(file=>fs.readFileSync(file)),installedModels);
+});
+for(const platform of ['codex','claude'])for(const preset of ['economy','balanced','smart'])test(`${platform} ${preset} keeps all variants and nonmodel profile bytes`,async t=>{
+ const target=install(fixture(t),platform),modelPath=target.home+'/skills/arc/models.toml';
+ const before=new Map(target.profileNames.map(name=>[name,fs.readFileSync(target.home+'/agents/'+name,'utf8')]));
+ fs.unlinkSync(target.home+'/skills/arc/settings.toml');
+ const chosen=selection(target,preset);
+ const result=await api.switchPresetTargets([api.buildPresetPlan({target,...chosen,safeFs})],{safeFs});
+ assert.equal(result.results[0].status,'updated');
+ if(platform==='claude'&&preset==='balanced'){
+  const repeated=await api.switchPresetTargets([api.buildPresetPlan({target,...chosen,safeFs})],{safeFs});
+  assert.equal(repeated.results[0].status,'unchanged');
+ }
+ const config=loadModelConfig(fs.readFileSync(modelPath),platform);
+ assert.deepEqual(config.roles,chosen.roles);
+ for(const[name,text]of before){
+  const after=fs.readFileSync(target.home+'/agents/'+name,'utf8');
+  const strip=s=>s.replace(/^model(?:_reasoning_effort)?\s*=.*\n/gm,'').replace(/^(model|effort):.*\n/gm,'');
+  assert.equal(strip(after),strip(text));
+ }
+});
 for(const phase of ['before-stage','after-stage','before-publish','after-publish'])test(`transaction ${phase} restores exact model/profile bytes`,async t=>{const target=install(fixture(t),'codex'),plan=api.buildPresetPlan({target,...selection(target,'smart'),safeFs}),before=new Map(plan.managedPaths.map(p=>[p,fs.readFileSync(p)]));const result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(e){if(e.phase===phase)throw Error('injected '+phase);}}});assert.equal(result.results[0].status,'failed');assert.equal(result.results[0].rollback,'restored');assert.deepEqual(result.results[0].residualPaths,[]);for(const[p,bytes]of before)assert.deepEqual(fs.readFileSync(p),bytes);});
 test('rollback failure reports residual paths',async t=>{const target=install(fixture(t),'codex'),plan=api.buildPresetPlan({target,...selection(target,'smart'),safeFs});const result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(e){if(e.phase==='after-publish'||e.phase==='before-rollback')throw Error('injected rollback conflict');}}});assert.equal(result.results[0].rollback,'failed');assert.ok(result.results[0].residualPaths.some(p=>p.includes('.arc-stage-')));});
 test('missing profiles and invalid model inputs reject before writing',t=>{const target=install(fixture(t),'codex'),file=target.home+'/skills/arc/models.toml',before=fs.readFileSync(file);fs.unlinkSync(target.home+'/agents/'+target.profileNames[0]);assert.throws(()=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}),/missing/);fs.copyFileSync('codex/agents/'+target.profileNames[0],target.home+'/agents/'+target.profileNames[0]);fs.writeFileSync(file,before.toString().replace('model =','bad ='));assert.throws(()=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));});
 
-test('same preset repairs active drift and exact noop performs no staging or writes',async t=>{const target=install(fixture(t),'claude'),file=target.home+'/agents/'+target.profileNames[2];fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace(/^model: .+$/m,'model: drifted'));let plan=api.buildPresetPlan({target,...selection(target,'balanced'),safeFs});assert.equal(plan.specs.length,1);let result=await api.switchPresetTargets([plan],{safeFs});assert.equal(result.results[0].status,'updated');assert.doesNotMatch(fs.readFileSync(file,'utf8'),/model: drifted/);plan=api.buildPresetPlan({target,...selection(target,'balanced'),safeFs});const before=plan.managedPaths.map(p=>fs.statSync(p,{bigint:true}));assert.equal(plan.specs.length,0);result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(){assert.fail('noop staged work');}}});assert.equal(result.results[0].status,'unchanged');for(const[i,p]of plan.managedPaths.entries()){const now=fs.statSync(p,{bigint:true});assert.equal(now.ino,before[i].ino);assert.equal(now.mtimeNs,before[i].mtimeNs);}});
+test('same preset repairs active drift and exact noop performs no staging or writes',async t=>{
+ const target=install(fixture(t),'claude'),file=target.home+'/agents/'+target.profileNames[2];
+ const original=fs.readFileSync(file,'utf8');
+ const roles=loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),'claude').roles;
+ const verifiedCatalog={platform:'claude',pairs:Object.values(roles).map(({model,effort})=>({model,effort}))};
+ fs.writeFileSync(file,original.replace(/^model: .+$/m,'model: drifted'));
+ let plan=api.buildPresetPlan({target,roles,verifiedCatalog,safeFs});
+ assert.deepEqual(plan.specs.map(spec=>spec.path),[file]);
+ let result=await api.switchPresetTargets([plan],{safeFs});
+ assert.equal(result.results[0].status,'updated');
+ assert.equal(fs.readFileSync(file,'utf8'),original);
+ plan=api.buildPresetPlan({target,roles,verifiedCatalog,safeFs});
+ const before=plan.managedPaths.map(p=>fs.statSync(p,{bigint:true}));
+ assert.equal(plan.specs.length,0);
+ result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(){assert.fail('noop staged work');}}});
+ assert.equal(result.results[0].status,'unchanged');
+ for(const[i,p]of plan.managedPaths.entries()){
+  const now=fs.statSync(p,{bigint:true});
+  assert.equal(now.ino,before[i].ino);
+  assert.equal(now.mtimeNs,before[i].mtimeNs);
+ }
+});
 test('preset preserves language policy, limits, reference and global bytes',async t=>{const target=install(fixture(t),'claude'),paths=['skills/arc/settings.toml','skills/arc/limits.toml','skills/arc/SKILL.md','skills/arc/references/custom.md','CLAUDE.md','settings.json'];const before=new Map();for(const relative of paths){const p=target.home+'/'+relative;fs.mkdirSync(path.dirname(p),{recursive:true});const bytes=Buffer.from('preserved '+relative+'\r\nKorean policy\n');fs.writeFileSync(p,bytes);before.set(p,bytes);}const result=await api.switchPresetTargets([api.buildPresetPlan({target,...selection(target,'smart'),safeFs})],{safeFs});assert.equal(result.results[0].status,'updated');for(const[p,bytes]of before)assert.deepEqual(fs.readFileSync(p),bytes);});
 test('cleanup failure retains published files and reports residual staging path',async t=>{const target=install(fixture(t),'claude'),result=await api.switchPresetTargets([api.buildPresetPlan({target,...selection(target,'smart'),safeFs})],{safeFs,hooks:{fault(e){if(e.phase==='before-cleanup-item')throw Error('cleanup blocked');}}});assert.equal(result.results[0].status,'updated');assert.equal(result.results[0].error.code,'ARC_INSTALL_CLEANUP');assert.ok(result.results[0].residualPaths.length>0);assert.deepEqual(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),'claude').roles,selection(target).roles);});
 

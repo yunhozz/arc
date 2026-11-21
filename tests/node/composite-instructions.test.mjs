@@ -104,6 +104,29 @@ test('all four composite sections match byte-for-byte outside the native spawn i
   for (const [index, platform] of platforms.entries()) assert.equal(sections[index], sections[0], platform);
 });
 
+test('every coordination reference states verify-* host rules', async () => {
+  const rules = [
+    ['- Approval: No per-call ARC approval gate.',
+      '- Detached survival of the verify runner is unverified on a Claude host; use `detach: false` until it is verified.'],
+    ['- On a Codex host ask the user for escalation approval',
+      '- On a Codex host ask for the same escalation approval each time a `verify-*` command (`verify-start`, `verify-status`, `verify-compare`, `verify-rerun`, `verify-cleanup`) runs, because it writes `<git-common-dir>/arc/verify` and the system temporary directory; record an approved call as `sandboxMode: "escalated"`. Detached survival of the verify runner is unverified; use `detach: false` until it is verified.'],
+    ['- Approval: Hold the host',
+      '- Detached survival of the verify runner is unverified on a Gemini host; use `detach: false`.'],
+    ['- On a Grok host start the session',
+      '- On a Grok host ask the user for approval the same way each time a `verify-*` command runs. Detached survival of the verify runner is unverified; use `detach: false`.'],
+  ];
+  for (const platform of platforms) {
+    const document = await coordination(platform);
+    const lines = section(document).split('\n');
+    for (const [precedingBullet, rule] of rules) {
+      assert.equal(document.split(rule).length - 1, 1, `${platform} must contain exactly once: ${rule}`);
+      const precedingIndex = lines.findIndex(line => line.startsWith(precedingBullet));
+      assert.ok(precedingIndex >= 0, `${platform} missing preceding bullet: ${precedingBullet}`);
+      assert.equal(lines[precedingIndex + 1], rule, `${platform} must place the rule after ${precedingBullet}`);
+    }
+  }
+});
+
 test('coordination references document every host and target route from current policy', async () => {
   const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
   const environments = [...platforms.map(platform => `${platform}-cli`), 'claude-desktop', 'codex-desktop'];

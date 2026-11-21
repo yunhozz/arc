@@ -20,7 +20,7 @@ test('release consumer opens TUI only on explicit launch and installs independen
  assert.deepEqual(original.bin,{arc:'bin/arc.mjs'});assert.equal(original.scripts.postinstall,undefined);
  assert.equal(artifact.metadata.scripts.postinstall,'node scripts/postinstall.mjs');
  const installed=await s.runNpm(['i','-g','@yunhozz/arc','--foreground-scripts']);
- assert.equal(installed.code,0,installed.stdout+installed.stderr);assert.match(installed.stdout,/Run arc to install or manage/);
+ assert.equal(installed.code,0,installed.stdout+installed.stderr);assert.match(installed.stdout,/ARC installed successfully! Run arc to set up the harness\./);
  assert.doesNotMatch(installed.stdout,/Configure|\x1b\[\?1049h/);assert.deepEqual(fs.readdirSync(s.home),[]);
  const root=s.prefix+'/lib/node_modules/@yunhozz/arc',isolated=s.root+'/isolated package';fs.cpSync(root,isolated,{recursive:true});
  assert.equal(fs.existsSync(isolated+'/node_modules'),false);
@@ -49,7 +49,7 @@ test('release consumer opens TUI only on explicit launch and installs independen
   const tampered=spawnSync(process.execPath,[entry,'status',...args],{...opts,encoding:'utf8'});assert.equal(tampered.status,3);assert.equal(JSON.parse(tampered.stdout).decision,'hold');
  }
  });
- assert.deepEqual(resultRows(updated).slice(0,2),['ARC installed for Codex.','ARC installed for Claude.']);assert.doesNotMatch(resultRows(updated).join('\n'),/rollback|Open a new agent session/i);
+ assert.deepEqual(resultRows(updated).slice(0,2),['🎉 Setup ran successfully! Please restart ARC to check.','Apply to: Codex, Claude']);assert.doesNotMatch(resultRows(updated).join('\n'),/rollback|Open a new agent session/i);
  const shellBefore=fs.readFileSync(s.home+'/.zshrc');ctx.inspectGlobalArc=async()=>assert.fail('Settings cannot inspect CLI');const settings=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:'codex',removeCli:false}));assert.equal(settings.code,0);assert.equal(fs.existsSync(s.home+'/.codex/skills/arc'),false);assert.equal(fs.existsSync(s.home+'/.claude/skills/arc'),true);assert.deepEqual(fs.readFileSync(s.home+'/.zshrc'),shellBefore);
  const {verifyPayload}=await import(pathToFileURL(isolated+'/lib/installer/manifest.mjs'));
  for(const name of ['shared/skill/runtime/cli.mjs','shared/skill/runtime/command.mjs','shared/skill/runtime/role-policy.json','lib/tui/setup.mjs','lib/management/workflow.mjs']){

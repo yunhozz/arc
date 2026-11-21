@@ -1,23 +1,23 @@
 # Canonical source for every role model and effort.
-# Defaults come from the live-verified catalog (L2 evidence).
+# Defaults are recommended pairs from the packaged catalog.
 version = 3
 
 [roles.arc_scouter]
-model = "gemini-2.5-flash"
+model = "gemini-4-hydrogen"
 effort = "default"
 
 [roles.arc_planner]
-model = "gemini-2.5-flash"
+model = "gemini-4-carbon"
 effort = "default"
 
 [roles.arc_implementer]
-model = "gemini-2.5-flash"
+model = "gemini-4-hydrogen"
 effort = "default"
 
 [roles.arc_qa]
-model = "gemini-2.5-flash"
+model = "gemini-4-hydrogen"
 effort = "default"
 
 [roles.arc_reviewer]
-model = "gemini-2.5-flash"
+model = "gemini-4-neon"
 effort = "default"

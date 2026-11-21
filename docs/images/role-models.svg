@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 650" width="1560" height="650" role="img" aria-labelledby="title description">
-<title id="title">Role models and platforms</title>
-<desc id="description">The Orchestrator uses the current conversation model. Scouter, Planner, Implementer, QA, and Reviewer each have a platform, model, and effort. Any specialist role can use any participating platform. Matching cards show the five role defaults for Claude, Codex, Gemini, and Grok. Configure uses the packaged catalog and models.toml.</desc>
+<title id="title">Role models and platforms with default settings</title>
+<desc id="description">The Orchestrator uses the current conversation model. Any specialist role can use any participating platform. The cards list the default model and effort for Scouter, Planner, Implementer, QA, and Reviewer on Claude, Codex, Gemini, and Grok. Configure uses the packaged catalog and models.toml.</desc>
 <defs>
-<style>text{font-family:Arial,Helvetica,sans-serif;fill:#203442} .heading{font-size:30px;font-weight:700} .label{font-size:25px;font-weight:700} .detail{font-size:22px} .note{font-size:21px} .setting{font-size:17px} .card{fill:white;stroke:#b1c0c8;stroke-width:2}</style>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#203442} .heading{font-size:30px;font-weight:700} .label{font-size:25px;font-weight:700} .detail{font-size:22px} .note{font-size:21px} .setting{font-size:17px} .defaults .setting{font-size:15px} .card{fill:white;stroke:#b1c0c8;stroke-width:2}</style>
 </defs>
 <rect width="1560" height="650" rx="24" fill="#f4f6f5"/>
 <text x="50" y="51" class="heading">Role models and platforms</text>
@@ -40,34 +40,34 @@
 </g>
 
 <text x="50" y="263" class="label">Default models and efforts</text>
-<g transform="translate(50 285)">
+<g class="defaults" transform="translate(50 285)">
   <rect width="350" height="260" rx="14" class="card"/>
   <text x="20" y="41" class="label">Claude</text>
-  <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">haiku / high</text>
-  <text x="20" y="119" class="note">Planner</text><text x="142" y="119" class="setting">sonnet / xhigh</text>
-  <text x="20" y="155" class="note">Implementer</text><text x="142" y="155" class="setting">sonnet / medium</text>
-  <text x="20" y="191" class="note">QA</text><text x="142" y="191" class="setting">haiku / high</text>
-  <text x="20" y="227" class="note">Reviewer</text><text x="142" y="227" class="setting">sonnet / high</text>
+  <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">sonnet / medium</text>
+  <text x="20" y="119" class="note">Planner</text><text x="142" y="119" class="setting">opus / xhigh</text>
+  <text x="20" y="155" class="note">Implementer</text><text x="142" y="155" class="setting">sonnet / high</text>
+  <text x="20" y="191" class="note">QA</text><text x="142" y="191" class="setting">sonnet / medium</text>
+  <text x="20" y="227" class="note">Reviewer</text><text x="142" y="227" class="setting">opus / high</text>
 </g>
-<g transform="translate(420 285)">
+<g class="defaults" transform="translate(420 285)">
   <rect width="350" height="260" rx="14" class="card"/>
   <text x="20" y="41" class="label">Codex</text>
-  <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">gpt-6-luna / high</text>
-  <text x="20" y="119" class="note">Planner</text><text x="142" y="119" class="setting">gpt-6.1-sol / xhigh</text>
-  <text x="20" y="155" class="note">Implementer</text><text x="142" y="155" class="setting">gpt-6.1-sol / medium</text>
-  <text x="20" y="191" class="note">QA</text><text x="142" y="191" class="setting">gpt-6.1-terra / high</text>
-  <text x="20" y="227" class="note">Reviewer</text><text x="142" y="227" class="setting">gpt-6.1-sol / high</text>
+  <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">gpt-6.2-sol / high</text>
+  <text x="20" y="119" class="note">Planner</text><text x="142" y="119" class="setting">gpt-6.2-astra / xhigh</text>
+  <text x="20" y="155" class="note">Implementer</text><text x="142" y="155" class="setting">gpt-6.2-sol / medium</text>
+  <text x="20" y="191" class="note">QA</text><text x="142" y="191" class="setting">gpt-6.2-sol / high</text>
+  <text x="20" y="227" class="note">Reviewer</text><text x="142" y="227" class="setting">gpt-6.2-astra / high</text>
 </g>
-<g transform="translate(790 285)">
+<g class="defaults" transform="translate(790 285)">
   <rect width="350" height="260" rx="14" class="card"/>
   <text x="20" y="41" class="label">Gemini</text>
-  <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">gemini-2.5-flash / default</text>
-  <text x="20" y="119" class="note">Planner</text><text x="142" y="119" class="setting">gemini-2.5-flash / default</text>
-  <text x="20" y="155" class="note">Implementer</text><text x="142" y="155" class="setting">gemini-2.5-flash / default</text>
-  <text x="20" y="191" class="note">QA</text><text x="142" y="191" class="setting">gemini-2.5-flash / default</text>
-  <text x="20" y="227" class="note">Reviewer</text><text x="142" y="227" class="setting">gemini-2.5-flash / default</text>
+  <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">gemini-4-hydrogen / default</text>
+  <text x="20" y="119" class="note">Planner</text><text x="142" y="119" class="setting">gemini-4-carbon / default</text>
+  <text x="20" y="155" class="note">Implementer</text><text x="142" y="155" class="setting">gemini-4-hydrogen / default</text>
+  <text x="20" y="191" class="note">QA</text><text x="142" y="191" class="setting">gemini-4-hydrogen / default</text>
+  <text x="20" y="227" class="note">Reviewer</text><text x="142" y="227" class="setting">gemini-4-neon / default</text>
 </g>
-<g transform="translate(1160 285)">
+<g class="defaults" transform="translate(1160 285)">
   <rect width="350" height="260" rx="14" class="card"/>
   <text x="20" y="41" class="label">Grok</text>
   <text x="20" y="83" class="note">Scouter</text><text x="142" y="83" class="setting">grok-4.6 / default</text>

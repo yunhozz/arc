@@ -8,6 +8,14 @@ const anchorId = 'id="test-scope-and-result-comparison"';
 const anchor = `<a ${anchorId}></a>`;
 const heading = '## Test scope and result comparison';
 const riskAnchor = '<a id="risk-scaled-execution"></a>';
+const cleanWorktreeSentence = 'Run it in a clean detached worktree of the verified HEAD commit, prepared with the same prerequisites as the baseline, for example through the runtime [final verification commands](#final-verification-runtime-commands); uncommitted changes MAY be captured as a snapshot commit without changing refs, the index or working files, reporting included and excluded paths.';
+const fullRegressionWorktreeSentence = 'Full regression uses the same clean worktree and prerequisites as the baseline.';
+const backgroundBaselineSentence = 'Orchestrator MAY record the baseline in the background in a separate clean worktree immediately after base approval while continuing independent work, but MUST complete it before the result comparison. Record its load (quiet, contended or unknown), and by default DO NOT run baseline and HEAD verification concurrently. Reuse a cached baseline only when every cache key input matches and the cached run was quiet and complete; a missing, unreadable or differing input requires a fresh record, and a contended or unknown baseline serves only the current comparison.';
+const structuredResultsSentence = 'Identify tests by name from structured results such as JUnit XML, TAP or a declared line pattern; a failure without a test name, or in a command or file whose results are incomplete, is a new-failure candidate, never a baseline failure. Report intermittent candidates, tests whose outcomes differ across runs with the same inputs, separately from baseline and new failures. Report the slowest files and tests (default ten) for information only.';
+const runtimeCommandsAnchor = '<a id="final-verification-runtime-commands"></a>';
+const runtimeCommandsHeading = '## Final verification runtime commands';
+const runtimeCommandsParagraph = "Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <workspace> --workflow <id> --input -` with `verify-start`, `verify-status`, `verify-compare`, `verify-rerun` or `verify-cleanup`. The commands reject bridge children, never retry, restart or delete automatically, create worktrees only under the system temporary directory and store records under `<git-common-dir>/arc/verify`. Commands receive only a fixed environment allowlist plus declared `envNames` and command `env`, all of which enter the cache key; declare any other variable a check needs. Use `detach: true` only on a host whose detached-process survival is verified in [coordination](coordination.md); otherwise run with `detach: false`, through the host's own background facility where available. `verify-rerun` runs one isolated attempt per call within the rerun limit, and `verify-cleanup` removes only worktrees the tool created and recorded, on explicit request.";
+const handoffRunIdSentence = "While a background baseline run is still active, the brief MAY cite its `runId` and recording conditions instead of the completed record; the executor's comparison waits for its completion.";
 const finalFailureRule = 'A new failure from final verification follows Implementer → QA even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.';
 const finalPlanRecheckId = 'review.final-plan-recheck';
 const finalPlanRecheckSentence = 'Separate QA findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck.';
@@ -174,6 +182,41 @@ for (const platform of platforms) {
 
   test(`${platform} verification defines test scope before risk-scaled execution`, () => {
     assertTestScopeSection(readReference('verification.md'));
+  });
+
+  test(`${platform} final verification runs in a clean worktree`, () => {
+    const reference = readReference('verification.md');
+    for (const sentence of [cleanWorktreeSentence, fullRegressionWorktreeSentence, backgroundBaselineSentence, structuredResultsSentence]) {
+      assertOccursOnce(reference, sentence);
+    }
+    const paragraphs = reference.split('\n\n');
+    const finalVerification = paragraphs.find(text => text.startsWith('**Final verification**'));
+    const fullRegression = paragraphs.find(text => text.startsWith('**Full regression**'));
+    const baseline = paragraphs.find(text => text.startsWith('**Baseline:**'));
+    const resultComparison = paragraphs.find(text => text.startsWith('**Result comparison:**'));
+    assert.ok(finalVerification?.includes(`${cleanWorktreeSentence} Orchestrator then performs the result comparison below`));
+    assert.ok(fullRegression?.endsWith(fullRegressionWorktreeSentence));
+    assert.ok(baseline?.includes(`NEVER absorb them as baseline failures. ${backgroundBaselineSentence}`));
+    assert.ok(resultComparison?.includes(`Report baseline failures separately. ${structuredResultsSentence} If a failure looks intermittent`));
+  });
+
+  test(`${platform} runtime commands section sits between test scope and risk-scaled execution`, () => {
+    const reference = readReference('verification.md');
+    assertOccursOnce(reference, runtimeCommandsAnchor);
+    const lines = reference.split('\n');
+    const runtimeIndex = lines.indexOf(runtimeCommandsAnchor);
+    assert.ok(lines.indexOf(heading) < runtimeIndex);
+    assert.deepEqual(lines.slice(runtimeIndex - 2, runtimeIndex + 6), [
+      lines.find(line => line.startsWith('**Result comparison:**')),
+      '', runtimeCommandsAnchor, runtimeCommandsHeading, '', runtimeCommandsParagraph, '', riskAnchor,
+    ]);
+  });
+
+  test(`${platform} handoff-prep allows citing an active baseline runId`, () => {
+    const reference = readReference('handoff-prep.md');
+    assertOccursOnce(reference, handoffRunIdSentence);
+    const paragraph = reference.split('### Verification brief inputs\n\n')[1]?.split('\n\n')[0];
+    assert.ok(paragraph?.endsWith(handoffRunIdSentence));
   });
 
   test(`${platform} final verification routes new failures after the Reviewer starts`, () => {
