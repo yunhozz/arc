@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {installPsStub, psStubPath} from './fixtures/ps-stub.mjs';
+import {setTimeout as delay} from 'node:timers/promises';
+import {installPsStub, psAvailable, psStubPath, realPs} from './fixtures/ps-stub.mjs';
 import {loadModelConfig, renderProfiles, resolveModelSettings} from '../../lib/models/index.mjs';
 import {renameCompositeProfile} from '../../lib/installer/role-routing.mjs';
 import {ROUTING_ROLES, serializeRoleRoutingConfig, validateRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
@@ -14,6 +15,77 @@ import {runtimeRegistryOf} from '../../lib/runtime/platform-registry.mjs';
 const root = new URL('../../', import.meta.url).pathname;
 const digest = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 const VALUES = {claude: {model: 'haiku', effort: 'low'}, codex: {model: 'gpt-6-luna', effort: 'low'}};
+
+// Keep PID records outside snapshots rooted at the fixture's base directory.
+export const fixturePidFile = base => base + '.pids';
+
+function fixtureProcessTable() {
+  const result = realPs(['-axo', 'pid=,pgid=,lstart=,command=']);
+  if (result.status !== 0) throw result.error ?? new Error(result.stderr || 'Unable to read process table');
+  const processes = new Map();
+  for (const line of result.stdout.split('\n')) {
+    const match = /^\s*(\d+)\s+(\d+)\s+((?:\S+\s+){4}\S+)(?:\s+(.*))?$/.exec(line);
+    if (!match) continue;
+    const [, rawPid, rawPgid, lstart, command = ''] = match;
+    const pid = Number(rawPid);
+    if (pid <= 1 || pid === process.pid || pid === result.pid) continue;
+    processes.set(pid, {pid, pgid: Number(rawPgid), lstart, command});
+  }
+  return processes;
+}
+
+function trySignal(pid, signal) {
+  try {
+    return process.kill(pid, signal);
+  } catch {
+    return false;
+  }
+}
+
+export async function reapFixtureProcesses(base, {graceMs = 200, timeoutMs = 3000} = {}) {
+  const signalled = new Set();
+  let survivors = [];
+  const signalProcess = (pid, signal, groupLeader) => {
+    const sent = trySignal(pid, signal);
+    const sentToGroup = groupLeader && trySignal(-pid, signal);
+    if (sent || sentToGroup) signalled.add(pid);
+  };
+  const refreshSurvivors = () => {
+    const current = fixtureProcessTable();
+    survivors = survivors.filter(({pid, lstart}) => current.get(pid)?.lstart === lstart);
+    return current;
+  };
+
+  try {
+    if (!psAvailable()) return {skipped: true};
+    if (!path.isAbsolute(base) || base === path.parse(base).root) return {signalled: [], survived: []};
+    const pidFile = await fs.readFile(fixturePidFile(base), 'utf8').catch(() => '');
+    const registered = new Set(pidFile.split(/\s+/).filter(value => /^\d+$/.test(value)).map(Number));
+    // The PID registry only prioritizes confirmed fixture processes.
+    survivors = [...fixtureProcessTable().values()]
+      .filter(({command}) => command.includes(base))
+      .sort((a, b) => Number(registered.has(b.pid)) - Number(registered.has(a.pid)));
+    if (survivors.length) {
+      for (const {pid, pgid} of survivors) signalProcess(pid, 'SIGTERM', pgid === pid);
+      await delay(graceMs);
+      const current = refreshSurvivors();
+      for (const {pid, pgid} of survivors) {
+        const {command, pgid: currentPgid} = current.get(pid);
+        if (command.includes(base)) signalProcess(pid, 'SIGKILL', pgid === pid && currentPgid === pid);
+      }
+      const deadline = Date.now() + timeoutMs;
+      while (survivors.length) {
+        refreshSurvivors();
+        const remaining = deadline - Date.now();
+        if (!survivors.length || remaining <= 0) break;
+        await delay(Math.min(25, remaining));
+      }
+    }
+  } catch {
+    // Cleanup is best effort. Preserve the last known survivors if a ps snapshot fails.
+  }
+  return {signalled: [...signalled], survived: survivors.map(({pid}) => pid)};
+}
 
 async function copyRuntime(home) {
   const target = path.join(home, 'skills', 'arc', 'runtime');
@@ -42,7 +114,12 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   installPsStub();
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-route-'));
   // Tests may chmod directories; restore permissions before removing so a failing test leaves nothing behind.
-  t.after(async () => { spawnSync('chmod', ['-R', 'u+rwx', base]); await fs.rm(base, {recursive: true, force: true}); });
+  t.after(async () => {
+    await reapFixtureProcesses(base);
+    await fs.rm(fixturePidFile(base), {force: true});
+    spawnSync('chmod', ['-R', 'u+rwx', base]);
+    await fs.rm(base, {recursive: true, force: true});
+  });
   const userHome = path.join(base, 'home'), codexHome = path.join(userHome, '.codex'), claudeHome = path.join(userHome, '.claude');
   const cwd = path.join(base, 'repo'), binDir = path.join(base, 'bin');
   for (const dir of [codexHome, claudeHome, cwd, binDir]) await fs.mkdir(dir, {recursive: true});
@@ -124,8 +201,12 @@ function appServer(scenario) {
 `;
 
 const FAKE_SOURCE = `#!${process.execPath}
-const fs=require('node:fs'),cp=require('node:child_process');
-const platform=process.env.ARC_FAKE_CLI_PLATFORM_NAME||require('node:path').basename(process.argv[1]);
+const fs=require('node:fs'),cp=require('node:child_process'),path=require('node:path');
+const binDir=path.dirname(process.argv[1]);
+const pidFile=path.dirname(binDir)+'.pids';
+const recordPid=pid=>fs.appendFileSync(pidFile,String(pid)+'\\n');
+recordPid(process.pid);
+const platform=process.env.ARC_FAKE_CLI_PLATFORM_NAME||path.basename(process.argv[1]);
 const scenarioFile=process.env['ARC_FAKE_CLI_SCENARIO_'+platform.toUpperCase()];
 const scenario=scenarioFile&&fs.existsSync(scenarioFile)?JSON.parse(fs.readFileSync(scenarioFile,'utf8')):{};
 const args=process.argv.slice(2);
@@ -149,7 +230,19 @@ ${FAKE_CODEX_APP_SERVER}
  if(scenario.outputFile!==undefined){const at=args.indexOf('-o');if(at>=0)fs.writeFileSync(args[at+1],scenario.outputFile);}
  if(scenario.ignoreSigterm)process.on('SIGTERM',()=>{});
  for(const file of scenario.writes??[])fs.mkdirSync(require('node:path').dirname(file.path),{recursive:true}),fs.writeFileSync(file.path,file.content);
- if(scenario.grandchild){const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});if(scenario.grandchildPidFile)fs.writeFileSync(scenario.grandchildPidFile,String(child.pid));}
+ if(scenario.grandchild){
+  const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)','--',binDir],{stdio:'ignore'});
+  if(child.pid!==undefined)recordPid(child.pid);
+  if(scenario.grandchildPidFile)fs.writeFileSync(scenario.grandchildPidFile,String(child.pid));
+ }
+ const {ARC_FAKE_ESCAPE_PID_FILE: escapePid, ARC_FAKE_ESCAPE_RELEASE_FILE: escapeRelease}=process.env;
+ if(escapePid){
+  const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)','--',binDir],{detached:true,stdio:'ignore'});
+  recordPid(child.pid);
+  child.unref();
+  fs.writeFileSync(escapePid,String(child.pid));
+  while(escapeRelease&&!fs.existsSync(escapeRelease))await sleep(20);
+ }
  if(scenario.delayMs)await sleep(scenario.delayMs);
  for(const line of scenario.events??[])process.stdout.write((typeof line==='string'?line:JSON.stringify(line))+'\\n');
  if(scenario.stderr)process.stderr.write(scenario.stderr);
@@ -161,6 +254,7 @@ ${FAKE_CODEX_APP_SERVER}
 
 /** Installs a fake CLI executable. Scenario JSON is re-read on each call from ARC_FAKE_CLI_SCENARIO_<PLATFORM>. */
 export async function installFakeCli(t, binDir, platform, scenario = {}) {
+  t.after(() => fs.rm(fixturePidFile(path.dirname(binDir)), {force: true}));
   await fs.mkdir(binDir, {recursive: true});
   const scenarioPath = path.join(binDir, `.scenario-${platform}.json`), recordPath = path.join(binDir, `.record-${platform}.jsonl`);
   const setScenario = async value => fs.writeFile(scenarioPath, JSON.stringify({...value, recordPath}));

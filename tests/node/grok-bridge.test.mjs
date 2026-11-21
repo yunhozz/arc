@@ -74,7 +74,13 @@ test('normalize preserves data, thought isolation and unknown raw events', async
 // Real markers, profile hashes, leases and worktree snapshots; only the child CLI is fake.
 async function fixture(t, extraEnv = {}, hostBridge = false, dispatchPolicy = policy) {
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-grok-'));
-  t.after(() => fs.rm(base, {recursive: true, force: true}));
+  t.after(async () => {
+    const {fixturePidFile, reapFixtureProcesses} = await import('./role-fixtures.mjs');
+    await reapFixtureProcesses(base);
+    await fs.rm(fixturePidFile(base), {force: true});
+    spawnSync('chmod', ['-R', 'u+rwx', base]);
+    await fs.rm(base, {recursive: true, force: true});
+  });
   const cwd = path.join(base, 'repo'), userHome = path.join(base, 'home'), bin = path.join(base, 'bin');
   const homes = Object.fromEntries(registry.platformIds().map(id => [id, path.join(userHome, '.' + id)]));
   for (const dir of [cwd, bin, ...Object.values(homes)]) await fs.mkdir(dir, {recursive: true});

@@ -88,7 +88,7 @@ test('the two harness sections state the same rules', async () => {
 
 test('all four composite sections match byte-for-byte outside the native spawn instruction and readiness sentences', async () => {
   const readinessByPlatform = {
-    gemini: 'Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; do not invent native tool calls. ',
+    gemini: 'Gemini host capability remains off until live verification. Installed payload alone verifies no native invocation, bridge, authentication or concurrency behavior. Hold unavailable routes; DO NOT invent native tool calls. ',
     grok: 'Grok host readiness was verified with Grok 1.0.89. The live measurement covered per-call runtime approvals, sandbox write denials, supervisor survival and native spawn. Target-home denial was measured with the equivalent Seatbelt rule in a user shell. Live bridge-child execution and profile model application remain unverified. Hold unavailable routes. ',
   };
   const sections = await Promise.all(platforms.map(async platform => {
@@ -146,7 +146,7 @@ test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bri
 });
 
 test('every coordination reference states the control-file bridge holds and violations', async () => {
-  const expected = '- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info, `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.';
+  const expected = '- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info (except `info/refs`, which `git update-server-info` may rewrite after a fetch or gc; that change alone is recorded under `tolerated.control`), `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.';
   for (const platform of platforms) {
     const body = section(await coordination(platform));
     assert.ok(body.includes('### Bridge target rules\n\n' + expected + '\n\n**Claude**'), platform);
@@ -270,7 +270,13 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /`reserved` lease \(native or bridge\) becomes `cancelled` at once/);
     assert.match(body, /`cancelled` event is also accepted for a `reserved` native lease/);
     assert.match(body, /Codex bridge[^.]*`permissions` claim is at most `operator-attested`[^.]*`user-config-mcp-not-controlled`/);
-    assert.match(body, /Branch, tag and other ref creation, deletion or movement during a run is a `permission_violation_observed`/);
+    assert.match(body, /Any other ref creation, deletion or movement is a `permission_violation_observed` for every role, including any other change to the dispatch worktree's own branch, branches checked out by no worktree, and moving or deleting an existing tag\./);
+    assert.match(body, /These ref changes are not violations and are recorded in the dispatch record under `tolerated\.refs`, [^\n]+: remote-tracking refs \(`refs\/remotes\/\*\*`\), tags that did not exist before the run, and branches checked out by another registered worktree before or after the run\./);
+    assert.match(body, /If the worktree list cannot be parsed, does not include the dispatch worktree, or lists it on a different branch than its `HEAD`, no branch is tolerated this way\./);
+    assert.match(body, /A fast-forward of the dispatch worktree's own branch is not a violation, and is recorded under `tolerated\.refs` with its committed paths under `tolerated\.commitPaths`, when the branch did not change, the new commits include no merge commit, there are at most 100 of them touching at most 10,000 paths, and, for `arc_implementer` and for `arc_qa` with non-empty `allowedPaths`, every path they add, modify, delete or rename is within the role's `allowedPaths`\./);
+    assert.match(body, /For read-only roles and for `arc_qa` without `allowedPaths` the path check is skipped, so their fast-forward commits pass on the other conditions alone\./);
+    assert.match(body, /A rejected fast-forward is a `permission_violation_observed`, and its out-of-scope paths are listed in `changedPaths`\. Switching the branch, rewriting history, a detached `HEAD` move or a move on an unborn branch remains a violation\./);
+    assert.match(body, /Each `tolerated` list keeps at most 100 sorted names, and `tolerated\.truncated` is set when a list is longer\./);
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection/i);
     assert.match(body, /orphaned process group[^.]*reaped/);

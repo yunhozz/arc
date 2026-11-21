@@ -40,11 +40,15 @@ export const OBSERVE_MAX_WAIT_MS = 540000;
 export const BRIEF_MAX_BYTES = 262144;
 export const EVENTS_MAX_BYTES = 4194304;
 export const CANCEL_GRACE_MS = 10000;
+export const DESCENDANT_SAMPLE_MS = 1000;
+export const DESCENDANT_LIMIT = 256;
 export const LOCK_RETRY_MS = 2000;
 export const LEASE_RETENTION_MS = 2592000000;
 export const PROBE_TIMEOUT_MS = 10000;
 
 export const DEFAULT_POLICY = Object.freeze({
+  descendantSampleMs: DESCENDANT_SAMPLE_MS,
+  descendantLimit: DESCENDANT_LIMIT,
   gates: BRIDGE_GATE_RESULTS,
   claudeSandboxSettings: CLAUDE_SANDBOX_SETTINGS,
   codexDelegationCallNames: CODEX_DELEGATION_CALL_NAMES,
