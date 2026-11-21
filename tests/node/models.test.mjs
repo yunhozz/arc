@@ -10,8 +10,8 @@ import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {getPlatform} from '../../lib/runtime/platform-registry.mjs';
 const roles = ['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
 const defaults = {
- codex: [['gpt-6-luna','high'],['gpt-6.1-sol','xhigh'],['gpt-6.1-sol','medium'],['gpt-6.1-terra','high'],['gpt-6.1-sol','high']],
- claude: [['haiku','high'],['sonnet','xhigh'],['sonnet','medium'],['haiku','high'],['sonnet','high']],
+ codex: [['gpt-6.2-sol','high'],['gpt-6.2-astra','xhigh'],['gpt-6.2-sol','medium'],['gpt-6.2-sol','high'],['gpt-6.2-astra','high']],
+ claude: [['sonnet','medium'],['opus','xhigh'],['sonnet','high'],['sonnet','medium'],['opus','high']],
 };
 test('codex static catalog matches the GPT-6.2 and ultra contract', async()=>{
  const result=await loadStaticModelCatalog('codex');
@@ -58,7 +58,7 @@ for (const platform of ['codex','claude']) {
   assert.equal((text.match(/\[roles\.arc_/g)||[]).length,5);
   assert.deepEqual(api.loadModelConfig(text,platform),config);
  });
- test(`${platform} package defaults equal the former balanced values and exist in the static catalog`,async()=>{
+ test(`${platform} recommended package defaults exist in the static catalog`,async()=>{
   const config=api.loadModelConfig(source(),platform),catalog=await loadStaticModelCatalog(platform);
   assert.equal(config.version,3);assert.equal(configApi.readModelFileVersion(source()),3);
   assert.deepEqual(roles.map(role=>[config.roles[role].model,config.roles[role][field]]),defaults[platform]);

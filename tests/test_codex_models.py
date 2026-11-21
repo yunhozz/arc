@@ -45,6 +45,14 @@ BALANCED_SETTINGS = {
     "arc_reviewer": {"model": "gpt-6.1-sol", "model_reasoning_effort": "high"},
 }
 
+PACKAGE_DEFAULT_SETTINGS = {
+    "arc_scouter": {"model": "gpt-6.2-sol", "model_reasoning_effort": "high"},
+    "arc_planner": {"model": "gpt-6.2-astra", "model_reasoning_effort": "xhigh"},
+    "arc_implementer": {"model": "gpt-6.2-sol", "model_reasoning_effort": "medium"},
+    "arc_qa": {"model": "gpt-6.2-sol", "model_reasoning_effort": "high"},
+    "arc_reviewer": {"model": "gpt-6.2-astra", "model_reasoning_effort": "high"},
+}
+
 def settings_bytes(roles: dict, version=1, *, legacy=False) -> bytes:
     lines = [f"version = {json.dumps(version)}"]
     if not legacy:
@@ -95,7 +103,7 @@ class ModelSettingsTests(unittest.TestCase):
             self.fail(f"standard five-role settings must be accepted: {exc}")
         self.assertEqual(settings, FIVE_SETTINGS)
         self.assertEqual(set(self.module.ROLE_FILES), set(FIVE_SETTINGS))
-        self.assertEqual(self.module.load_settings(REPO / "codex/skill/models.toml"), BALANCED_SETTINGS)
+        self.assertEqual(self.module.load_settings(REPO / "codex/skill/models.toml"), PACKAGE_DEFAULT_SETTINGS)
 
     def test_model_rejects_unknown_missing_or_invalid_version(self) -> None:
         for roles in ({**FIVE_SETTINGS, "unknown": {"model": "x", "model_reasoning_effort": "low"}},

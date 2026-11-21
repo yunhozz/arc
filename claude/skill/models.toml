@@ -3,21 +3,21 @@
 version = 3
 
 [roles.arc_scouter]
-model = "haiku"
-effort = "high"
+model = "sonnet"
+effort = "medium"
 
 [roles.arc_planner]
-model = "sonnet"
+model = "opus"
 effort = "xhigh"
 
 [roles.arc_implementer]
 model = "sonnet"
-effort = "medium"
-
-[roles.arc_qa]
-model = "haiku"
 effort = "high"
 
-[roles.arc_reviewer]
+[roles.arc_qa]
 model = "sonnet"
+effort = "medium"
+
+[roles.arc_reviewer]
+model = "opus"
 effort = "high"

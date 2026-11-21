@@ -419,8 +419,9 @@ test('TUI role selection prepares only role pairs and keeps environment secrets 
 for(const firstCode of [0,1])test('role draft '+(firstCode?'survives failed execution':'is cleared after successful execution'),async()=>{
  const {runTui}=await load();const events=[enter,enter,...down(2),{name:'left'},...down(1),enter,...down(10),enter,enter,enter,...down(10),enter,enter,back];
  const session=terminal(events),prepared=[];let executed=0;
- await runTui({session,context:{env:{PATH:fixturePath},packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>[],prepareOperation:async(_c,options)=>{prepared.push(structuredClone(options));return{kind:'install',plans:[]};},executeOperation:async()=>({code:executed++===0?firstCode:0,results:[]})}});
- assert.equal(prepared.length,2);assert.equal(prepared[0].roles.arc_scouter.model,'haiku');assert.equal(prepared[0].roles.arc_scouter.effort,'medium');assert.equal(prepared[1].roles.arc_scouter.effort,firstCode?'medium':'high');
+ const statuses=[{platform:'gemini',state:'absent',cliVersion:{reason:'cli_not_found'}}];
+ await runTui({session,context:{env:{PATH:fixturePath},packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>statuses,prepareOperation:async(_c,options)=>{prepared.push(structuredClone(options));return{kind:'install',plans:[]};},executeOperation:async()=>({code:executed++===0?firstCode:0,results:[]})}});
+ assert.equal(prepared.length,2);assert.equal(prepared[0].roles.arc_scouter.model,'sonnet');assert.equal(prepared[0].roles.arc_scouter.effort,'low');assert.equal(prepared[1].roles.arc_scouter.effort,firstCode?'low':'medium');
 });
 
 test('idle refresh redraws while retaining one pending input and stops after Enter',async()=>{
