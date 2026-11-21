@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
+import {dirname} from 'node:path';
 import {spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 const argv = process.argv.slice(2), value = flag => argv[argv.indexOf(flag) + 1];
@@ -27,6 +28,7 @@ const {ARC_FAKE_ESCAPE_PID_FILE: escapePid, ARC_FAKE_ESCAPE_RELEASE_FILE: escape
 if (escapePid) {
   const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)', '--', process.argv[1]], {detached: true, stdio: 'ignore'});
   child.unref();
+  await fs.appendFile(`${dirname(dirname(process.argv[1]))}.pids`, `${child.pid}\n`);
   await fs.writeFile(escapePid, String(child.pid));
   if (escapeRelease) {
     while (!await fs.stat(escapeRelease).catch(error => {if (error.code !== 'ENOENT') throw error;})) await delay(20);

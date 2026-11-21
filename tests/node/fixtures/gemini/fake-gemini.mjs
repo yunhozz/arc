@@ -36,6 +36,7 @@ const {ARC_FAKE_ESCAPE_PID_FILE: escapePid, ARC_FAKE_ESCAPE_RELEASE_FILE: escape
 if (escapePid) {
   const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)', '--', process.argv[1]], {detached: true, stdio: 'ignore'});
   child.unref();
+  await fs.appendFile(`${path.dirname(path.dirname(process.argv[1]))}.pids`, `${child.pid}\n`);
   await fs.writeFile(escapePid, String(child.pid));
   if (escapeRelease) {
     while (!await fs.stat(escapeRelease).catch(error => {if (error.code !== 'ENOENT') throw error;})) await delay(20);

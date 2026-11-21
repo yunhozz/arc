@@ -158,19 +158,16 @@ export function createDescendantTracker({rootPid, rootPgid, selfPid, limit = DES
       if (root && rootInPlace && sameStart(currentRoot, root)) parents.push(rootPid);
       for (const entry of tracked.values()) {
         const current = byPid.get(entry.pid);
-        if (excluded.has(entry.pid) || !sameStart(current, entry)) continue;
+        if (excluded.has(entry.pid) || !sameStart(current, entry)) {
+          tracked.delete(entry.pid);
+          continue;
+        }
         tracked.set(entry.pid, processEntry(current));
         parents.push(entry.pid);
       }
       for (const parent of parents) {
         for (const entry of children.get(parent) ?? []) {
-          const previous = tracked.get(entry.pid);
-          if (previous && sameStart(entry, previous)) continue;
-          if (previous) {
-            tracked.set(entry.pid, processEntry(entry));
-            parents.push(entry.pid);
-            continue;
-          }
+          if (tracked.has(entry.pid)) continue;
           if (tracked.size >= limit) { truncated = true; continue; }
           tracked.set(entry.pid, processEntry(entry));
           parents.push(entry.pid);
@@ -428,7 +425,7 @@ export async function runSupervisor(options) {
     if (!Array.isArray(table)) return;
     tracker.update(table);
     const entries = tracker.entries();
-    if (!entries.length && !tracker.truncated) return;
+    if (!entries.length && !tracker.truncated && !savedSnapshot) return;
     const snapshot = JSON.stringify({
       version: 1, dispatchId, segment: lease.segment ?? 0, rootPid: child.pid, rootPgid: child.pid,
       rootStartTime: tracker.rootStartTime, truncated: tracker.truncated, entries,

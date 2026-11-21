@@ -152,7 +152,7 @@ test('fixture cleanup leaves an unrelated process listed in .pids alive', async 
   await t.test('close a fixture with a reused PID in its registry', async sub => {
     const f = await createRoutingFixture(sub);
     bases.push(f.base);
-    await fs.appendFile(path.join(f.binDir, '.pids'), `${decoy}\n`);
+    await fs.appendFile(`${f.base}.pids`, `${decoy}\n`);
     assert.ok(pidIsAlive(decoy), 'unrelated process is alive before fixture cleanup');
   });
   assert.ok(pidIsAlive(decoy), 'fixture cleanup killed an unrelated process listed in .pids');

@@ -87,8 +87,9 @@ test('Gemini result status determines terminal errors without legacy result fiel
 async function fixture(t, extraEnv = {}) {
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-gemini-'));
   t.after(async () => {
-    const {reapFixtureProcesses} = await import('./role-fixtures.mjs');
+    const {fixturePidFile, reapFixtureProcesses} = await import('./role-fixtures.mjs');
     await reapFixtureProcesses(base);
+    await fs.rm(fixturePidFile(base), {force: true});
     spawnSync('chmod', ['-R', 'u+rwx', base]);
     await fs.rm(base, {recursive: true, force: true});
   });

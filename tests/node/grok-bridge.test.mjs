@@ -75,8 +75,9 @@ test('normalize preserves data, thought isolation and unknown raw events', async
 async function fixture(t, extraEnv = {}, hostBridge = false, dispatchPolicy = policy) {
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-grok-'));
   t.after(async () => {
-    const {reapFixtureProcesses} = await import('./role-fixtures.mjs');
+    const {fixturePidFile, reapFixtureProcesses} = await import('./role-fixtures.mjs');
     await reapFixtureProcesses(base);
+    await fs.rm(fixturePidFile(base), {force: true});
     spawnSync('chmod', ['-R', 'u+rwx', base]);
     await fs.rm(base, {recursive: true, force: true});
   });

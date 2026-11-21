@@ -16,6 +16,9 @@ const root = new URL('../../', import.meta.url).pathname;
 const digest = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 const VALUES = {claude: {model: 'haiku', effort: 'low'}, codex: {model: 'gpt-6-luna', effort: 'low'}};
 
+// Keep PID records outside snapshots rooted at the fixture's base directory.
+export const fixturePidFile = base => base + '.pids';
+
 function fixtureProcessTable() {
   const result = realPs(['-axo', 'pid=,pgid=,lstart=,command=']);
   if (result.status !== 0) throw result.error ?? new Error(result.stderr || 'Unable to read process table');
@@ -56,7 +59,7 @@ export async function reapFixtureProcesses(base, {graceMs = 200, timeoutMs = 300
   try {
     if (!psAvailable()) return {skipped: true};
     if (!path.isAbsolute(base) || base === path.parse(base).root) return {signalled: [], survived: []};
-    const pidFile = await fs.readFile(path.join(base, 'bin', '.pids'), 'utf8').catch(() => '');
+    const pidFile = await fs.readFile(fixturePidFile(base), 'utf8').catch(() => '');
     const registered = new Set(pidFile.split(/\s+/).filter(value => /^\d+$/.test(value)).map(Number));
     // The PID registry only prioritizes confirmed fixture processes.
     survivors = [...fixtureProcessTable().values()]
@@ -113,6 +116,7 @@ export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claud
   // Tests may chmod directories; restore permissions before removing so a failing test leaves nothing behind.
   t.after(async () => {
     await reapFixtureProcesses(base);
+    await fs.rm(fixturePidFile(base), {force: true});
     spawnSync('chmod', ['-R', 'u+rwx', base]);
     await fs.rm(base, {recursive: true, force: true});
   });
@@ -199,7 +203,7 @@ function appServer(scenario) {
 const FAKE_SOURCE = `#!${process.execPath}
 const fs=require('node:fs'),cp=require('node:child_process'),path=require('node:path');
 const binDir=path.dirname(process.argv[1]);
-const pidFile=path.join(binDir,'.pids');
+const pidFile=path.dirname(binDir)+'.pids';
 const recordPid=pid=>fs.appendFileSync(pidFile,String(pid)+'\\n');
 recordPid(process.pid);
 const platform=process.env.ARC_FAKE_CLI_PLATFORM_NAME||path.basename(process.argv[1]);
@@ -250,6 +254,7 @@ ${FAKE_CODEX_APP_SERVER}
 
 /** Installs a fake CLI executable. Scenario JSON is re-read on each call from ARC_FAKE_CLI_SCENARIO_<PLATFORM>. */
 export async function installFakeCli(t, binDir, platform, scenario = {}) {
+  t.after(() => fs.rm(fixturePidFile(path.dirname(binDir)), {force: true}));
   await fs.mkdir(binDir, {recursive: true});
   const scenarioPath = path.join(binDir, `.scenario-${platform}.json`), recordPath = path.join(binDir, `.record-${platform}.jsonl`);
   const setScenario = async value => fs.writeFile(scenarioPath, JSON.stringify({...value, recordPath}));

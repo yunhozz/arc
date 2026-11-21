@@ -1,6 +1,6 @@
 # F2 후속 과제 구현 계획 (reviewer 검증 주체, final-plan-recheck, bridge 잔여 프로세스, JSDoc)
 
-- 상태: plan v6(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다. v3는 실제 ps 검증 절차 추가다(사용자 결정). v4는 T3 QA finding에 따른 신호 대상 판정 강화다. v5는 T4 추적 조건(계보 전용)과 `descendants.json` 형식 확정이다. v6는 T4 QA finding 5건 보강이다.)
+- 상태: plan v7(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다. v3는 실제 ps 검증 절차 추가다(사용자 결정). v4는 T3 QA finding에 따른 신호 대상 판정 강화다. v5는 T4 추적 조건(계보 전용)과 `descendants.json` 형식 확정이다. v6는 T4 QA finding 5건 보강이다. v7은 최종 단계 보정이다.)
 - 승인 spec: `docs/superpowers/specs/2026-11-21-f2-followups-design.md` (sha256 `5182babdee09e43fff6879a23b2d06abb2b54a0d7e04e781f44c73ec517e5c18`)
 - 구현 위치: branch `fix/bridge-fetch-tolerance`, managed worktree `.claude/worktrees/bridge-fetch-tolerance`
 - approved base
@@ -471,7 +471,7 @@
     - lstart는 `processStartTime`과 같이 공백을 정규화한다(85행).
     - 형식이 깨진 줄은 버린다.
   - `sampleProcessTable({timeoutMs = 5000} = {})`
-    - 비동기 `execFile('ps', ['-A','-o','pid=,ppid=,pgid=,lstart='])`로 실행한다. env는 `{PATH: process.env.PATH ?? '/usr/bin:/bin', LC_ALL:'C'}`로, 83행과 같은 규칙이다.
+    - 비동기 `execFile('ps', ['-A','-o','pid=,ppid=,pgid=,lstart=,uid=,stat='])`로 실행한다(v7: 구현이 uid·stat 열을 더해 소유자 확인과 zombie 제외에 쓴다). env는 `{PATH: process.env.PATH ?? '/usr/bin:/bin', LC_ALL:'C'}`로, 83행과 같은 규칙이다.
     - 실패하면 `null`을 돌려준다.
     - `spawnSync`는 쓰지 않는다.
   - `createDescendantTracker({rootPid, rootPgid, selfPid, limit})`
@@ -504,7 +504,7 @@
       - (F3) `reapGroup`으로 원래 group이 사라진 것을 확인하면, 자손 정리를 시작하기 전에 원래 group용 SIGKILL 타이머를 해제한다. 원래 group 정리가 끝난 뒤에 signal handler가 호출되면 원래 pgid에 다시 신호를 보내지 않는다.
       - (F4) child 종료를 관찰했으면, 자손 정리를 시작하기 전에 실행 deadline 타이머를 해제한다. 자손 정리 시간 때문에 `timeout` reason이 붙으면 안 된다.
       - (F5) `lstart`는 1초 단위라서, 같은 초에 pid가 재사용되면 구별할 수 없다. 보강책으로 root를 sample할 때마다 `ppid === selfPid`인지와 `pgid === rootPgid`인지 확인하고, 하나라도 다르면 root로 취급하지 않는다. sample을 찍은 뒤 신호를 보내기까지의 짧은 구간에 대상이 바뀌는 경우와 같은 초 재사용은 남는 한계로 기록한다.
-      - 기준선 `1ecf9cf9`부터 있던 문제가 하나 있다. 직접 cancel 경로가 원래 group에 SIGKILL을 보낼 때 pgid 재사용을 확인하지 않는다(`role-bridge.mjs:222-235`). 이 문제는 pre-existing으로 기록하고 이번 범위에서는 고치지 않는다.
+      - approved base `690e9aa4`부터 있던 문제가 하나 있다. 직접 cancel 경로가 원래 group에 SIGKILL을 보낼 때 pgid 재사용을 확인하지 않는다(`role-bridge.mjs:222-235`). 이 문제는 pre-existing으로 기록하고 이번 범위에서는 고치지 않는다.
   - **정상 종료 경로:** 432행 `reapGroup` 뒤, 433행 앞에 둔다.
     1. 최종 sample을 하고 `update`한다.
     2. escaped 항목에 `reapDescendants`를 실행한다.
@@ -554,7 +554,7 @@
   - `parseProcessTable`이 macOS·Linux 형식 예시와 깨진 줄을 처리한다.
   - tracker의 동작
     - ppid 사슬 fixpoint
-    - `pgid===rootPgid` 포함
+    - `pgid===rootPgid`만으로는 포함하지 않는다(v5 계보 전용)
     - 부모가 죽어 ppid=1이 된 뒤에도 알려진 항목을 유지한다.
     - `selfPid`와 조상을 제외한다.
     - 상한 256에서 `truncated`
@@ -654,6 +654,21 @@
 
 ---
 
+## 최종 단계 보정 (v7)
+- **최종 검증 새 실패 16건 (T3 회귀).** 실패 파일: `anchor-migration` 6건, `capability-surfaces` 2건, `gemini-composite` 4건, `gemini-platform` 1건, `install-mode-n-platform` 3건. 원인: T3의 `FAKE_SOURCE`가 `<base>/bin/.pids`를 쓴다. "파일을 바꾸지 않는다"를 검사하는 snapshot 테스트가 base 아래 트리를 비교하기 때문에 이 파일이 변경으로 잡힌다. T3 관련 테스트 선택에서 이 설치 경로 테스트들을 제외한 판단이 틀렸다.
+  - 수정: `.pids` 기록 위치를 fixture snapshot 범위 밖으로 옮긴다(예: base의 형제 경로). fixture 정리는 그 파일도 지운다. 신호 대상 판정 규칙(v4: command에 base 포함)은 그대로 둔다.
+  - 경로: 새 실패이므로 Implementer → QA로 처리한다. Reviewer 근거 중 영향받는 파일(`tests/node/role-fixtures.mjs`)은 갱신된 diff로 다시 확인한다.
+- **최종 Reviewer finding**
+  - F-1(중간): tracker가 사라진 identity를 지우지 않아 상한 256이 누적 관찰 수로 소진된다. 수정: 매 sample에서 사라졌거나 시작 시각이 바뀐 항목을 지우고, 살아 있는 항목만 상한에 센다. Implementer가 고치고 Reviewer가 재확인한다.
+  - F-7(nit): `role-observe.mjs` JSDoc 줄바꿈을 정리한다(주석만).
+  - F-4(nit): 이 plan의 문구 불일치를 v7에서 정정했다(T4-1 group 포함 문구, ps 열 목록, pre-existing 기준 커밋).
+  - F-2, F-3(낮음): 수용한 한계로 기록한다. (F-2) 표본 간격(기본 1초)보다 짧게 사는 중간 프로세스를 거쳐 ppid=1이 된 손자, 그리고 첫 sample 전에 root가 띄우고 끝난 손자는 계보로 연결되지 않는다. (F-3) ps를 쓸 수 없으면 추적이 조용히 꺼지고, record에서는 "탈출 자손 없음"과 구별되지 않는다.
+  - F-5(nit): coordination.md 사용자 문서 보강은 승인 범위 밖이므로 후속 과제로 둔다.
+  - F-6(nit): 의미상 모순이 없어서 변경하지 않는다.
+  - N-1(낮음, Reviewer 재확인): F-1 수정 후 `truncated`가 sample마다 초기화돼 상한 초과 이력이 사라졌다. `truncated`를 누적 플래그로 되돌렸다(상한은 살아 있는 항목만 센다).
+  - N-2(nit, Reviewer 재확인): `<base>.pids`가 mkdtemp 디렉터리 밖(tmpdir 형제 경로)에 생긴다. append할 때 symlink를 따라가고, 정리 hook 없이 비정상 종료하면 파일이 남을 수 있다. 테스트 전용이고 신호 대상 판정에는 쓰지 않으므로 수용한 한계로 둔다.
+- 위 수정은 커밋하지 않은 채로 QA와 Reviewer 재확인을 마친다. 그 뒤 follow-up 커밋 1개로 만들고 최종 검증을 다시 실행한다.
+
 ## 최종 검증
 모든 task를 수락한 뒤 한 번 실행한다. task의 선행 조건이 아니다.
 
@@ -709,3 +724,4 @@
 | v4 | 2026-11-21T12:35:13+09:00 | 설계 보강(범위 변화 없음) | T3 | T3 QA finding(높음): `.pids`의 숫자 pid가 재사용되면 무관한 프로세스에 신호 가능. 신호 대상을 command에 base가 들어간 프로세스로 한정하고 grandchild argv에 base 표시 추가 |
 | v5 | 2026-11-21T12:51:11+09:00 | 설계 명확화(범위 변화 없음) | T4 | T4 Implementer 질의: plan의 `pgid === rootPgid` 편입 조건이 spec 안전 장치(계보 전용)와 충돌 → 계보 전용으로 정정. `descendants.json` 최상위 형식 미정 → 확정 |
 | v6 | 2026-11-21T13:05:58+09:00 | 설계 보강(범위 변화 없음) | T4 | T4 QA finding: 기록 출처 미검증(높음), group 신호 우회(높음), 사라진 group 재신호(높음), 정리 중 timeout(중간), 같은 초 pid 재사용(중간) 보강. 기준선 cancel 경로 pgid 재사용은 pre-existing 기록 |
+| v7 | 2026-11-21T13:46:34+09:00 | 최종 단계 보정(범위 변화 없음) | T3, T4 | 최종 검증 새 실패 16건(T3 `.pids`가 snapshot 범위 안) 수정 경로, 최종 Reviewer F-1/F-7 수정, F-2/F-3 한계 기록, F-4 문구 정정 |

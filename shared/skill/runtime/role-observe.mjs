@@ -626,13 +626,12 @@ export async function observeHeadAdvance(root, before, after, role, allowedPaths
  * Any other ref creation, deletion or movement is a violation.
  * Implementer and QA may change only allowedPaths in the worktree; with an
  * empty or missing list they may change no worktree paths. Fast-forward
- * commit paths must stay within allowedPaths for Implementer and for QA with
- * a non-empty list; QA with an empty or missing list, like read-only roles,
- * may land a verified fast-forward touching any path.
- * Read-only roles may change no worktree
- * paths beyond verified fast-forward commits. Ordinary worktree snapshots
- * omit Git-ignored paths. Control files are compared regardless of role
- * and allowedPaths.
+ * commit paths must stay within allowedPaths for Implementer and for QA with a
+ * non-empty list; QA with an empty or missing list, like read-only roles, may
+ * land a verified fast-forward touching any path.
+ * Read-only roles may change no worktree paths beyond verified fast-forward
+ * commits. Ordinary worktree snapshots omit Git-ignored paths. Control files
+ * are compared regardless of role and allowedPaths.
  */
 export function detectViolations({role, allowedPaths, before, after, headAdvance}) {
   const branchSwitched = branchChanged(before, after);

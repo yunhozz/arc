@@ -71,7 +71,7 @@ test('a reused parent PID does not establish lineage for a new process', () => {
   tracked.update([root, known]);
   const untracked = row(ROOT_PID + 2, known.pid);
   tracked.update([root, {...known, ppid: 1, startTime: REUSED}, untracked]);
-  assert.equal(tracked.escaped().some(entry => entry.pid === untracked.pid), false);
+  assert.deepEqual(tracked.entries(), []);
 });
 
 test('F5 root identity requires its original parent and group in every sample', () => {
@@ -109,6 +109,24 @@ test('keeps at most 256 escaped descendants and records truncation', () => {
   tracked.update([root, ...children]);
   assert.equal(tracked.escaped().length, 256);
   assert.equal(tracked.truncated, true);
+
+  const untracked = {...children[256], ppid: 1};
+  tracked.update([root, children[0], untracked]);
+  assert.deepEqual(tracked.escaped(), [children[0]]);
+  assert.equal(tracked.truncated, true);
+});
+
+test('expired same-group descendants free capacity for a new escaped descendant', () => {
+  const tracked = tracker();
+  for (let i = 0; i < 300; i++) {
+    tracked.update([root, row(ROOT_PID + i + 1, ROOT_PID, ROOT_PID, `start-${i}`)]);
+    tracked.update([root]);
+  }
+
+  const escaped = row(ROOT_PID + 301, ROOT_PID);
+  tracked.update([root, escaped]);
+  assert.deepEqual(tracked.escaped(), [escaped]);
+  assert.equal(tracked.truncated, false);
 });
 
 test('signals only tracked identities that still match before each signal', async () => {
