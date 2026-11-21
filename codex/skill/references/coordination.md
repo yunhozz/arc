@@ -143,12 +143,14 @@ Read roles are Scouter, Planner and Reviewer. The table shows which routes the r
 **Claude**
 
 - Approval: No per-call ARC approval gate.
+- Detached survival of the verify runner is unverified on a Claude host; use `detach: false` until it is verified.
 - Target home probe: None.
 - Desktop: Held as described below.
 
 **Codex**
 
 - On a Codex host ask the user for escalation approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs, because each may write `CODEX_HOME`. The runtime does not check this approval; asking for it is an Orchestrator obligation. Without approval or on failure the result is `host_sandbox_blocked`.
+- On a Codex host ask for the same escalation approval each time a `verify-*` command (`verify-start`, `verify-status`, `verify-compare`, `verify-rerun`, `verify-cleanup`) runs, because it writes `<git-common-dir>/arc/verify` and the system temporary directory; record an approved call as `sandboxMode: "escalated"`. Detached survival of the verify runner is unverified; use `detach: false` until it is verified.
 - In a Codex host sandbox writes to `CODEX_HOME` are denied (G2), so a Codex-host bridge is not held in advance but runs only with the per-call escalation approval; a refused approval or a denied write is `host_sandbox_blocked`. Detached supervisor survival itself was observed under variant conditions, and native routes there remain supported.
 - Target home probe: None.
 - Desktop: Held as described below.
@@ -156,6 +158,7 @@ Read roles are Scouter, Planner and Reviewer. The table shows which routes the r
 **Gemini**
 
 - Approval: Hold the host pending live host measurement (GG2). The registry lists `gemini` and `gemini-cli`, but `compositeHost` is off.
+- Detached survival of the verify runner is unverified on a Gemini host; use `detach: false`.
 - Target home probe: See the shared probe rule below. The capability hold applies before the probe.
 - Desktop: No Desktop value.
 
@@ -164,6 +167,7 @@ Read roles are Scouter, Planner and Reviewer. The table shows which routes the r
 GK2 is `approval`.
 
 - On a Grok host start the session with `grok --permission-mode default` (ask), keep the platform-default sandbox off, and ask the user for approval each time any runtime command (`routing-status`, `prepare-dispatch`, `run-dispatch`, `observe`, `resume`, `cancel`) runs; NEVER use auto-review, `/auto`, `bypassPermissions`, `--always-approve` or `--yolo`, and DO NOT choose `Always allow`, which saves `permission_mode = "always-approve"` to the Grok config. Spawn with `spawn_subagent` only roles whose route is `native`; Grok can also list Claude `arc-routing-*` profiles, which remain bridge roles. The runtime does not check this approval; asking for it is an Orchestrator obligation. A denied write (for example by a host sandbox) is `host_sandbox_blocked`; ARC does not detect whether the host sandbox is on.
+- On a Grok host ask the user for approval the same way each time a `verify-*` command runs. Detached survival of the verify runner is unverified; use `detach: false`.
 - Target home probe: See the shared probe rule below.
 - Desktop: No Desktop value.
 
