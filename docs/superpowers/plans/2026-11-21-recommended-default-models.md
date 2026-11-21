@@ -173,10 +173,10 @@
 - 조건부: `MANIFEST.sha256`(`docs/images`가 목록에 있을 때만 `node scripts/update-manifest.mjs`)
 
 **단계:**
-- [ ] 1. 카드 값을 B-C1 그대로(Claude, Codex, Gemini, Grok 순) 바꾸고 title/desc 정합 확인.
-- [ ] 2. 텍스트 폭 확인(최장 `gpt-6.2-astra / xhigh`). 넘치면 기존 font-size·좌표 규칙 안에서만 조정.
-- [ ] 3. 그림 내 구 기본값 문자열 잔존 0 확인(`haiku`, `gpt-6-luna`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gemini-2.5-flash`), XML well-formed 확인(Node 파싱 또는 `xmllint --noout`).
-- [ ] 4. `role-models.svg` 참조 테스트를 grep으로 찾고 있으면 실행.
+- [x] 1. 카드 값을 B-C1 그대로(Claude, Codex, Gemini, Grok 순) 바꾸고 title/desc 정합 확인.
+- [x] 2. 텍스트 폭 확인(최장 `gpt-6.2-astra / xhigh`). 넘치면 기존 font-size·좌표 규칙 안에서만 조정.
+- [x] 3. 그림 내 구 기본값 문자열 잔존 0 확인(`haiku`, `gpt-6-luna`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gemini-2.5-flash`), XML well-formed 확인(Node 파싱 또는 `xmllint --noout`).
+- [x] 4. `role-models.svg` 참조 테스트를 grep으로 찾고 있으면 실행.
 
 **기준:** 카드 제목과 플랫폼별 값 20개가 B-C1과 일치, 텍스트 겹침·넘침 없음.
 
