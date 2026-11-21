@@ -6,6 +6,7 @@
 |---|---|---|
 | v1 | 2026-11-21 | 첫 완전 초안(Planner). 반영한 설계 승인 결정: E1 다시 그리기, E2 대체(문서 내용 검사 테스트 전부 제거), E3 삭제, E4 1줄, E5=A, E6 간결한 표 유지. Orchestrator 결정 O1·O2 추가 |
 | v2 | 2026-11-21T08:18:01Z | T2 AC1 변경(사용자 지시): 줄 수 기준을 빈 줄 제외로 바꾸고, 제목·표 앞뒤 빈 줄 복원과 `\` 줄바꿈 금지를 추가 |
+| v3 | 2026-11-21T08:47:55Z | 사용자 지시: README·운영 문서의 줄 수 제한을 모두 제거(T2·T3 AC1). 형식 규칙은 유지. 최종 Reviewer 후속 수정 R1–R5 추가 |
 
 ## 목표와 범위
 
@@ -123,7 +124,7 @@
 
 **편집 허용 파일:** `README.md`, `docs/images/role-models.svg`, `docs/images/role-flow.svg`(45줄 문구, 필요하면 `<desc>`), `MANIFEST.sha256`(재생성만)
 
-**README 목표 구조(약 55–65줄)**
+**README 목표 구조**
 
 1. 제목, 4개 플랫폼 소개, role-flow.svg
 2. Roles: 표 6행
@@ -193,7 +194,7 @@
 
 **AC**
 
-- AC1(v2): README가 (b)의 구조를 따르고 빈 줄을 뺀 줄 수가 65줄 이하다. 제목·표·목록 앞뒤에 빈 줄을 두고 줄 끝 `\` 강제 줄바꿈을 쓰지 않는다. 남긴 모든 사실에 코드나 정본 근거가 있다.
+- AC1(v3): README가 (b)의 구조를 따른다(줄 수 제한 없음). 제목·표·목록 앞뒤에 빈 줄을 두고 줄 끝 `\` 강제 줄바꿈을 쓰지 않는다. 남긴 모든 사실에 코드나 정본 근거가 있다.
 - AC2: (d) 1–8을 해소한다.
   - 4개 플랫폼이 소개·모델·플랫폼 표·Guides에 모두 나온다.
   - Claude·Codex만 다루는 서술이 없다.
@@ -234,7 +235,7 @@
 ## T3 harness-operation 축소·정정
 
 - **선행:** T2 수락·커밋
-- **목표:** 설계 초안 (a)·(b)의 구조로 줄이고(296줄 → 약 150–170줄) (d) 9–10을 해소한다.
+- **목표:** 설계 초안 (a)·(b)의 구조로 줄이고 (d) 9–10을 해소한다.
 
 **편집 허용 파일:** `docs/harness-operation.md`
 
@@ -266,7 +267,7 @@
 
 **AC**
 
-- AC1: (b)의 구조를 따르고 170줄 이하다.
+- AC1(v3): (b)의 구조를 따른다(줄 수 제한 없음). 제목·표·목록 앞뒤에 빈 줄을 두고 줄 끝 `\` 강제 줄바꿈을 쓰지 않는다.
 - AC2: 삭제한 정보마다 정본 위치가 있다.
   - 작업 보고에 "삭제 항목 → 정본 파일:절" 표를 첨부한다.
   - 정본이 없는 운영 정보는 남아 있어야 한다: bridge 실행 중 주의, 탐지 한계, KIND 표, 자동 재적용, uninstall 보존 범위.
@@ -322,6 +323,28 @@
    - 테스트 제거가 문서 검사 범위를 넘지 않았는지
 
    Reviewer 지적은 Implementer → Reviewer로 다시 확인한다(QA 재배정 없음). 수정은 미커밋 상태로 두었다가 수락 후 follow-up 커밋 1개로 만든다.
+
+### 최종 Reviewer 후속 수정(v3)
+
+최종 Reviewer(96ef3787)가 changes requested를 냈다. 아래 지적은 Implementer → Reviewer로 재검하고, QA는 재배정하지 않는다. 수정은 재검이 끝날 때까지 미커밋으로 두고, 해소한 뒤 후속 커밋 1개로 묶는다.
+
+- [x] R1(blocking): `docs/harness-operation.md` Watch 표 `Sources` 행에 Codex Desktop 세션이 제외된다는 사실을 넣는다. 근거는 `lib/watch/watcher.mjs:221`이다.
+- [x] R2: `docs/harness-operation.md` Update 행에 다음 복구 문장을 되살린다. "If the global CLI is broken, run `npx --yes @yunhozz/arc@latest`."
+- [x] R3: README Watch `Hidden` 행에 secret masking이 불완전하다는 경고를 한 문장 넣는다.
+- [x] R4: `docs/harness-operation.md` Grok host 행을 Codex 행과 같은 수준으로 맞춘다. 근거는 `grok/skill/references/coordination.md`의 host 규칙이다.
+  - `Always allow`를 고르면 `permission_mode = "always-approve"`가 저장된다는 위험을 적는다.
+  - 쓰기가 거부되면 `host_sandbox_blocked`가 된다는 점을 적는다.
+- [x] R5(nit): `tests/test_harness_contract.py`의 `test_stale_png_is_absent_and_unreferenced` 이름을 이제 하는 일에 맞게 `test_stale_png_is_unreferenced`로 바꾼다.
+- [x] README를 바꾸면 MANIFEST를 다시 만든다. 검증은 관련 검사만 한다(check:manifest, 해당 Python 테스트, 링크·형식 확인).
+- 진행 기록(2026-11-21)
+  - 최종 전체 검사: base 66137ddd와 HEAD 80809a5d를 비교했다. 새 실패는 0건이다.
+    - npm: 실패 43 → 35
+    - Python: 245 → 242(svg 테스트 3개 제거). 실패 547·오류 7은 같은 목록이다.
+    - manifest·role-policy는 pass, parity는 기준선과 같다.
+  - 최종 Reviewer 96ef3787: changes requested(blocking 1, non-blocking 5).
+    - plan v3로 줄 수 제한을 없앴다.
+    - Implementer 8dc9a561이 R1–R5를 고쳤다.
+    - Reviewer 재검 결과 approve.
 
 ## 의존
 

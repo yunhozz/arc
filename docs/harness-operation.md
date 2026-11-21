@@ -69,7 +69,7 @@ Read roles are Scouter, Planner and Reviewer. The table shows which routes the r
 | Claude | ARC applies no per-call approval gate or target home probe. |
 | Codex | G2 `escalation` requires user approval on every runtime call, including native calls. The Orchestrator obtains approval. Refusal or a denied write holds as `host_sandbox_blocked`. Detached supervisor survival was observed under variant conditions. |
 | Gemini | GG2 `fail` holds the CLI host pending live measurement. |
-| Grok | GK2 `approval` requires ask mode and per-call user approval. Start with `grok --permission-mode default` and select `Allow once`. |
+| Grok | GK2 `approval` requires ask mode and per-call user approval. Start with `grok --permission-mode default`, keep the host sandbox off, and select `Allow once`. `Always allow` saves `permission_mode = "always-approve"` to the Grok config. A denied write holds as `host_sandbox_blocked`. ARC cannot detect whether the host sandbox is on. |
 
 The caller declares `executionEnvironment` from the session. Use the host's CLI value for a terminal, TUI or IDE terminal and when unsure. Use a Desktop value only for a confirmed Claude or Codex Desktop session. Both Desktop environments hold as `environment_unverified`. A future release would need to check CLI discovery, shared auth, a shared worktree, supervisor survival, per-call escalation and a matching native revision tag. Recording those checks releases nothing in this version.
 
@@ -108,7 +108,7 @@ Management and watch require an interactive terminal for input and output, inclu
 | Standalone | Apply updates the selected home. Switching out of Mixed requires confirmation and restores standalone profiles before the selected operation. |
 | New or same-participant Mixed | Install in anchor order, then publish at the anchor. Publication replaces owned standalone profiles with routing profiles. |
 | Changed Mixed participants | Preview the mode, install additions and restore departing homes to standalone. An anchor move locks both stores and holds on non-terminal leases. |
-| Update | Status revalidates the offered version. Global CLI replacement ends the session. An npx update leaves the global CLI in place. Use Configure for a same-version refresh. |
+| Update | Status revalidates the offered version. Global CLI replacement ends the session. An npx update leaves the global CLI in place. If the global CLI is broken, run `npx --yes @yunhozz/arc@latest`. Use Configure for a same-version refresh. |
 | Preservation and holds | Preserve unrelated settings, shared skills and content outside managed blocks. Invalid policy or config, unresolved routing and active bridges can block applicable operations. |
 | Global settings | Skipping global changes preserves existing instructions and settings. Codex config supports wait and concurrency settings. Claude Code writes the concurrency limit in `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`. |
 | Recovery | Check reported residual paths. A rollback label alone provides no evidence of cleanup or backup. |
@@ -134,7 +134,7 @@ Run `arc watch --help` for history and output options.
 | Concern | Behavior and limits |
 |---|---|
 | Selection | Choose All supported platforms or one supported platform. Unsupported platforms are marked and unavailable. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130 |
-| Sources | Supported platform transcripts and dispatch leases/artifacts |
+| Sources | Supported platform transcripts and dispatch leases/artifacts. Codex Desktop sessions are excluded. |
 | Scope | Every selection watches the current Git worktree or the current directory outside Git. Linked and nested worktrees are excluded. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
 | Anchor | Marker active directory must match resolved registered home; one candidate selects store, none → legacy Codex, multiple → `dispatch store ambiguous` (other sources continue). No old-history merge |
 | Shown | Full USER, AGENT and PROMPT messages; role badge on its own line above the message when known; EDIT/CREATE/DELETE list all paths (two or more as `- ` items; a single path has no `- `); other events one line |

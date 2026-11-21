@@ -45,7 +45,7 @@ Run `arc watch` in an interactive terminal and choose **All**, Claude, or Codex 
 | Visibility | Events |
 |---|---|
 | Shown | Messages, SKILL and PLUGIN lines, and dispatch records. |
-| Hidden | Tool and command outputs. Reasoning requires `--verbose`. |
+| Hidden | Tool and command outputs. Reasoning requires `--verbose`. Secret masking is incomplete. |
 
 ## Models and language
 

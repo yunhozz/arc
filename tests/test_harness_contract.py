@@ -634,7 +634,7 @@ class DocumentationContractTests(unittest.TestCase):
                             anchors = {re.sub(r"[^\w -]", "", h.lower()).replace(" ", "-") for h in headings}
                             self.assertIn(anchor, anchors)
 
-    def test_stale_png_is_absent_and_unreferenced(self) -> None:
+    def test_stale_png_is_unreferenced(self) -> None:
         paths = []
         paths.extend((REPO / "shared/skill/references").glob("*.md"))
         for platform in PLATFORMS:
