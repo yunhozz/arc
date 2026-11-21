@@ -114,7 +114,7 @@
 - [x] **Step 3: 구현** — `lib/runtime/test-results.mjs`. XML·TAP는 의존성 없는 상태기계나 정규식으로 구현한다(§14 builder 재량). regex 패턴은 `new RegExp(pattern)`이고 플래그는 없다. 분류 키는 `(commandId, testId)`다.
 - [x] **Step 4: 인벤토리·생성물** — `RUNTIME_MODULE_PATHS`와 `expectedPaths`에 `lib/runtime/test-results.mjs`와 `lib/runtime/node-test-reporter.mjs`를 정렬 위치에 넣고, 생성물 3종을 Global Constraints 순서로 다시 만든다.
 - [x] **Step 5: GREEN 확인** — 아래 관련 테스트와 check가 모두 통과해야 한다.
-- [ ] **Step 6: 커밋**(Orchestrator가 수락한 뒤): `feat(runtime): 최종 검증 결과 파서와 비교 보고 모듈 추가`
+- [x] **Step 6: 커밋**(Orchestrator가 수락한 뒤): `feat(runtime): 최종 검증 결과 파서와 비교 보고 모듈 추가`
 
 **기준:** AC-7(파서 4종, 파일 단위 incomplete), AC-2의 분류 필드 부분, AC-8의 `slowest` 계산, A-C7, A-S4.
 
@@ -170,7 +170,7 @@
 - [x] **Step 3: 구현** — 내부 테스트 옵션(`toolVersionTimeoutMs`, `globLimit`, `rawCap`, `killGraceMs`, `loadavg`, `afterCreate`)은 `verifyStart`의 두 번째 인자 `internal`로만 받는다. CLI에서는 접근할 수 없다. 머신 id는 §6.4 순서를 따르고 `machine.json`은 `wx` 배타 생성(EEXIST면 읽기)으로 만든다. worktree 생성은 §8.2 명령을 그대로 쓴다. phase2가 비어 있으면 start에서 바로 조회한다(§6.1). 캐시 기록은 `role:"baseline"`이고 §6.6을 만족할 때만 `record.json`을 쓴다. `history.jsonl`은 run마다 append한다(같은 키의 head run 포함).
 - [x] **Step 4: 인벤토리·생성물** — `final-verify.mjs`·`verify-cli.mjs`를 정렬 위치에 넣고 생성물 3종을 다시 만든다.
 - [x] **Step 5: GREEN 확인** — 아래 관련 테스트와 check를 실행한다.
-- [ ] **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify-start·verify-status와 기준선 캐시 키 추가`
+- [x] **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify-start·verify-status와 기준선 캐시 키 추가`
 
 **기준:** AC-1(commands를 생략 없이 실행, 펼친 파일 목록 기록), AC-3, AC-5, AC-6(단위 부분), AC-10, AC-4의 부하 class 기록, A-C1·A-C3·A-C5·A-C6, A-S1(start·status)·A-S2·A-S3(생성·검증), §5.7 start·status 코드.
 
@@ -201,7 +201,7 @@
 - [x] **Step 2: RED 확인** — `node --test --test-name-pattern "snapshot|detach|unknown|queue|overlap|samples" tests/node/runtime-final-verify.test.mjs`. 기대 결과: T2 자리표시자 `verify_error`로 실패.
 - [x] **Step 3: 구현** — detach는 `role-supervisor.mjs:321-325` 패턴을 따른다(`spawn(process.execPath,[selfPath,'--run',runDir],{detached:true,stdio:'ignore',env:allowlist+내부변수,cwd:runDir}).unref()`). 큐 판정은 `<store>/runs/*/run.json` 중 비종료이고 heartbeat가 살아 있는 run을 보며, 판정 경합은 `<store>/queue.lock`(`wx` 배타 생성, 짧게 잡고 바로 해제)으로 직렬화한다. snapshot 작성자 날짜는 HEAD committer date를 `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`로 주고 이름·메일은 `arc-verify`로 고정한다.
 - [x] **Step 4: 생성물** — 3종을 다시 만든다.
-- [ ] **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify 미커밋 스냅샷과 백그라운드 runner·큐 추가`
+- [x] **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify 미커밋 스냅샷과 백그라운드 runner·큐 추가`
 
 **기준:** AC-4, AC-10(snapshot 불변), A-C4, A-C6(snapshot 경로), A-S3(§8.3), A-S5(§10.1·§10.2).
 
@@ -231,7 +231,7 @@
   - cleanup(§8.5, AC-10): `dryRun lists targets without changes`, `removes tool worktree and keeps runs evidence`(`runs/<runId>/` 유지, `git worktree list`에서 제거), `user-created worktree denies not_tool_owned`(같은 저장소의 사용자 worktree와 경로를 위조한 run.json), `owner.json mismatch denies not_tool_owned`, `active run holds run_active`, `unknown run allowed only when pid is gone`(살아 있는 pid면 hold `run_unknown`), `missing worktree directory is residual and cleanup_partial without prune`(디렉터리를 외부에서 삭제 → `residualPaths`에 경로가 있고 `git worktree list`에 등록이 그대로 남음, 가정 A4), `partial cleanup records state and re-call skips removed items`, `cacheKey cleanup renames record to record.removed.json and keeps history`, `source checkout and user worktree unchanged after cleanup`, (v5) `nested registered worktree holds nested_worktree and deletes nothing`, `nested foreign .git holds nested_worktree`, `dryRun reports nestedPaths`, (v6) `nested bare repository holds nested_worktree`, `nested check reruns after unlock before remove`, (v7) `unsafe tool directory holds cleanup_unsafe_path`(symlink, 다른 모드 각각).
 - [x] **Step 2: RED 확인** — `node --test --test-name-pattern "compare|rerun|cleanup" tests/node/runtime-final-verify.test.mjs`
 - [x] **Step 3: 구현** — compare는 두 run의 `result.json`을 읽어 T1 `compareRuns`에 넘기고 같은 cacheKey의 `history.jsonl`·rerun 기록을 붙인다. rerun 시도는 `runs/<runId>/reruns.jsonl`에 append한다. cleanup은 §8.5 순서를 따르되 디렉터리가 없으면 git 호출을 건너뛴다(A4).
-- [ ] **Step 4: 생성물**, **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify 비교·단독 재실행·정리 명령 추가`
+- [x] **Step 4: 생성물**, **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify 비교·단독 재실행·정리 명령 추가`
 
 **기준:** AC-1(보고서의 펼친 파일), AC-2, AC-4(compare hold), AC-8, AC-10, A-C2·A-C8, A-S1(compare·rerun·cleanup)·A-S3(§8.5)·A-S4 연결.
 
@@ -259,16 +259,16 @@
 - `handoff-prep.md:95` 문단 끝에 (6). 새 문장에 `verification.md#test-scope-and-result-comparison` 링크를 넣지 않는다(`assertTestScopeLink`가 정확히 1개를 요구).
 - `coordination.md` Host rules의 host 블록(`claude:146-170`, codex 사본은 2행 앞): **Claude** 블록은 `- Approval: No per-call ARC approval gate.` 다음, **Codex**는 `- On a Codex host ask the user for escalation approval ...` bullet 다음(claude :153, codex :151, gemini·grok :153), **Gemini**는 `- Approval: Hold the host ...` 다음, **Grok**는 `- On a Grok host start the session ...` bullet 다음에 (7)의 bullet을 넣는다. composite 절은 네 사본이 바이트 단위로 같아야 하므로(`composite-instructions.test.mjs:89-105`) 네 사본에 같은 4개 bullet을 넣는다. Claude bullet 문구는 `- Detached survival of the verify runner is unverified on a Claude host; use \`detach: false\` until it is verified.`이다(질문 Q2: dogfood 뒤 관측 문장으로 바꿀지).
 
-- [ ] **Step 1: 실패하는 계약 테스트 작성**
+- [x] **Step 1: 실패하는 계약 테스트 작성**
   - `test-scope-contract.test.mjs`에 상수 `cleanWorktreeSentence`, `fullRegressionWorktreeSentence`, `backgroundBaselineSentence`, `structuredResultsSentence`(spec §11 (1)~(4) 원문)와 `runtimeCommandsAnchor = '<a id="final-verification-runtime-commands"></a>'`, `runtimeCommandsHeading = '## Final verification runtime commands'`, `runtimeCommandsParagraph`((5) 원문), `handoffRunIdSentence`((6))를 추가한다. 플랫폼별로 새 테스트 3개:
     - `${platform} final verification runs in a clean worktree`: 4개 문장이 각각 1회 나타나고, Final verification 문단에 `${cleanWorktreeSentence} Orchestrator then performs the result comparison below`가 있고, Full regression 문단이 `fullRegressionWorktreeSentence`로 끝나며, Baseline 문단에 `NEVER absorb them as baseline failures. ${backgroundBaselineSentence}`, Result comparison 문단에 `Report baseline failures separately. ${structuredResultsSentence} If a failure looks intermittent`가 있다.
     - `${platform} runtime commands section sits between test scope and risk-scaled execution`: 앵커가 1회 나타나고, 제목이 앵커 바로 다음 줄이며, 문단이 일치하고, `riskAnchor` 앞에 있다. 기존 `assertTestScopeSection`은 그대로 통과해야 한다.
     - `${platform} handoff-prep allows citing an active baseline runId`: (6)이 `### Verification brief inputs` 문단 끝에 1회 나타난다.
   - `composite-instructions.test.mjs`: `every coordination reference states verify-* host rules`. 네 사본 모두에서 Codex·Grok·Gemini·Claude bullet이 각각 1회 나타나고 정해진 기존 bullet 바로 다음 줄에 있다. 기존 문장 단언은 수정하지 않는다.
-- [ ] **Step 2: RED 확인** — `node --test tests/node/test-scope-contract.test.mjs tests/node/composite-instructions.test.mjs`. 기대 결과: 새 테스트만 실패하고 기존 테스트는 통과.
-- [ ] **Step 3: 문서 수정** — 12개 파일에 문장을 넣는다(바이트 동일).
-- [ ] **Step 4: 생성물** — `node tests/node/fixtures/installed-layout.mjs --write`, `node scripts/update-manifest.mjs`. `node scripts/update-role-policy.mjs --check`가 변경 없이 통과하는지 확인한다.
-- [ ] **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `docs(verification): 최종 검증 clean worktree·기준선 캐시 정책과 verify 명령 안내 추가`
+- [x] **Step 2: RED 확인** — `node --test tests/node/test-scope-contract.test.mjs tests/node/composite-instructions.test.mjs`. 기대 결과: 새 테스트만 실패하고 기존 테스트는 통과.
+- [x] **Step 3: 문서 수정** — 12개 파일에 문장을 넣는다(바이트 동일).
+- [x] **Step 4: 생성물** — `node tests/node/fixtures/installed-layout.mjs --write`, `node scripts/update-manifest.mjs`. `node scripts/update-role-policy.mjs --check`가 변경 없이 통과하는지 확인한다.
+- [x] **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `docs(verification): 최종 검증 clean worktree·기준선 캐시 정책과 verify 명령 안내 추가`
 
 **기준:** AC-9, A-C9, A-S6.
 
