@@ -1,6 +1,6 @@
 # QA·최종 검증 테스트 범위 지침 구현 계획 (F1)
 
-- 상태: plan v2. 사용자 위임에 따라 Orchestrator가 승인했다(2026-11-21).
+- 상태: plan v3. 사용자 위임에 따라 Orchestrator가 승인했다(2026-11-21).
 - 승인 spec: `docs/superpowers/specs/2026-11-21-qa-test-scope-design.md` (sha256 `5480b693af9371aec0846bb9be2d311647523fef96e97e9e499e8bcc6cbf2192`)
 - 구현 위치: branch `fix/bridge-fetch-tolerance`, managed worktree `.claude/worktrees/bridge-fetch-tolerance`
 - approved base:
@@ -333,15 +333,37 @@ spec 6.1은 ARC 소유 파일에 "project suite"가 없다고 단언한다. 이 
   - baseline-incomplete 파일에서 나온 실패는 새 실패 후보로 보고 하나씩 확인한다.
   - 간헐 실패가 의심되면 그 테스트만 단독으로 최대 3회 다시 실행한다.
   - "passes in isolation: yes/no, N/M"을 기록한다. 단독 실행에서 통과해도 원래 실패를 지우지 않는다. 처리는 Orchestrator가 정한다.
-  - 새 실패 finding은 해당 task의 Implementer → QA로 처리한다. 이 처리는 최종 Reviewer가 시작하기 전에 끝낸다.
+  - 새 실패 finding은 최종 Reviewer가 이미 시작했더라도 해당 task의 Implementer → QA로 처리한다. 영향받는 파일에 대한 Reviewer 근거는 낡은 것이 되므로, 갱신된 diff로 재확인한다.
 - **최종 Reviewer 1회**
   - 독립 Reviewer가 전체 변경 `a4d71c2..HEAD`를 한 번 검토한다. Reviewer는 테스트를 실행하지 않는다.
   - 위 "검토 초점"과 spec R1–R8에 대조한다.
   - Reviewer finding은 Implementer가 고치고 Reviewer가 재확인한다. 재확인이 끝날 때까지 수정을 커밋하지 않고, 끝나면 follow-up 커밋 하나로 만든다.
 - 최종 검증 결과와 Reviewer 판정은 plan-level progress record 규칙을 따른다.
 
+## 최종 검증 기록 (plan-level progress record)
+- task 수락
+  - T1: 90c3f259, QA 92c3a292
+  - T2: 08a79b4b, QA 897081e9
+- 최종 검증
+  - 실행: Orchestrator 백그라운드, HEAD 08a79b4b.
+  - 전체 회귀: 조건 (1)에 해당해 실행했다. 역할 프로필 fragment가 공유 모듈이다.
+  - node: 3270건 중 실패 35건이다.
+  - Python: FAIL/ERROR 553건이다.
+  - node와 Python 모두 기준선과 이름 단위로 같다(새 실패 0, 해소 0).
+  - check 4종은 통과했다.
+- 최종 Reviewer
+  - 1차: 미승인. M1 1건, L1-L5 5건, N1-N3 3건.
+  - 수정: M1, L1, L2, L3, N2를 Implementer 4f6d1d54가 고쳤다. 관련 테스트에서 새 실패는 0건이다.
+  - 재확인: 승인.
+  - 수정하지 않은 finding
+    - L4(reviewer fragment)와 L5의 정책 제안: 후속 과제다.
+    - N1: 한계로 남긴다.
+    - N3: 사용자에게 질문한다.
+    - 재확인 nit 2건: canonical record에 해석을 기록했다.
+
 ## Revision history
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 2026-11-21T10:04:29+0900 | 최초 승인(사용자 위임: "plan 작성하면 나 대신 승인하고 진행해") | T1, T2 | 최초 plan |
 | v2 | 2026-11-21T10:46:00+0900 | 사소한 개정(사용자 위임 승인) | T2 | T2-6 `protected` 갱신 삭제: 기준선에서 이미 실패하던 SHA라 v1의 SHA 갱신 규칙과 충돌 |
+| v3 | 2026-11-21T11:05:00+0900 | 사소한 개정(사용자 위임 승인) | 최종 검증 | 최종 Reviewer M1: 병행 중 새 실패의 경로를 verification.md 새 문장과 맞춤 |
