@@ -7,7 +7,7 @@ import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {loadModelConfig, resolveModelSettings} from '../../lib/models/index.mjs';
 
 const VERIFIED = ['install', 'nativeProfile', 'catalog', 'standalone', 'bridge', 'compositeRole'];
-const SUPPORTED = '>=0.68.0 <0.69.0';
+const SUPPORTED = null;
 const LIVE_ACCEPTED = ['gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.6-flash'];
 const LIVE_REJECTED = ['gemini-2.5-pro', 'gemini-2.5-flash-lite'];
 
@@ -30,7 +30,7 @@ function verifyEvidence(descriptor, models, defaults) {
     }
   }
   assert.deepEqual(new Set(verified), new Set(VERIFIED), 'verified capabilities must equal the fixed verified set');
-  assert.equal(descriptor.cli.supportedVersions, SUPPORTED, 'supported versions must equal the fixed range');
+  assert.equal(descriptor.cli.supportedVersions, SUPPORTED, 'supported versions must be null');
   if (descriptor.capabilities.catalog.state === 'verified') verifyCatalogEvidence(models, defaults);
 }
 
@@ -78,11 +78,11 @@ test('fixed contract rejects a missing verified capability', () => {
   assert.throws(() => verifyEvidence(descriptor, catalogModels, roleDefaults), /verified capabilities must equal the fixed verified set/);
 });
 
-test('fixed contract rejects changed or missing supported-version ranges', () => {
-  for (const supportedVersions of ['>=0.68.0', '>=0.68.0 <0.70.0', null]) {
+test('fixed contract rejects configured supported-version ranges', () => {
+  for (const supportedVersions of ['>=0.68.0', '>=0.68.0 <0.70.0', '>=0.68.0 <0.69.0']) {
     const descriptor = promoted();
     descriptor.cli.supportedVersions = supportedVersions;
-    assert.throws(() => verifyEvidence(descriptor, catalogModels, roleDefaults), /supported versions must equal the fixed range/);
+    assert.throws(() => verifyEvidence(descriptor, catalogModels, roleDefaults), /supported versions must be null/);
   }
 });
 

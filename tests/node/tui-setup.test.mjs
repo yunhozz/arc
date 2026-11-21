@@ -105,6 +105,7 @@ for(const platform of ['codex','claude'])test(platform+' edited role serializes 
 
 // Task 15: missing diagram entry, wrong gates, or lost settings must fail these flows.
 const installStatuses=statuses.map(status=>({...status,authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}}));
+const absentGemini={platform:'gemini',state:'absent',cliVersion:{reason:'cli_not_found'}};
 const installRoles=platform=>Object.fromEntries(roles.map(role=>[role,{platform,model:models[platform].roles[role].model,effort:models[platform].roles[role][platform==='codex'?'model_reasoning_effort':'effort']} ]));
 const installDraft=(platform='codex',hosts=[platform])=>({roles:installRoles(platform),hosts});
 function installFlow(options){
@@ -321,7 +322,7 @@ test('catalog failure outside S does not block Apply; inside S blocks with catal
  for(const inside of [false,true]){
   const loads=[],pages=[],steps=[['Configure',0],['Scouter',3,(_rows,options)=>{options.onHorizontal({selected:0,direction:'left'});const body=options.renderBody({selected:0,columns:120,rows:40});assert.match(body.rows[0],/Codex/);}],['Configure',0],['Scouter',3],['Configure',10,(_rows,options)=>{const body=installBody(options);assert.equal(body.notices.some(row=>row.includes('catalog error')),inside);}]];
   if(inside)steps.push(['Configure',null,(_rows,options)=>{const body=installBody(options);assert.match(body.notices.join(' '),/Unavailable \(catalog error\)/);assert.match(body.rows[body.selected],/^Apply/);}]);
-  const result=await installFlow({draft:installDraft('codex',inside?['codex','claude']:['codex']),ui:scripted(steps,pages),loadCatalog:async p=>{loads.push(p);if(p==='claude')throw Error('offline');return {status:'ready',catalog:catalogs[p]};},prepare:async options=>{assert.equal(inside,false);return options;}});
+  const result=await installFlow({statuses:[...installStatuses,absentGemini],draft:installDraft('codex',inside?['codex','claude']:['codex']),ui:scripted(steps,pages),loadCatalog:async p=>{loads.push(p);if(p==='claude')throw Error('offline');return {status:'ready',catalog:catalogs[p]};},prepare:async options=>{assert.equal(inside,false);return options;}});
   assert.equal(result?.target??null,inside?null:'codex');assert.deepEqual(loads.sort(),['claude','codex']);assert.deepEqual(pages,[]);assert.equal(steps.length,0);
  }
 });
@@ -361,7 +362,7 @@ test('initial composite roles and hosts come from currentConfig and D1-e prepare
 test('uninstalled initial platform uses role availability then display order fallback',async()=>{
  for(const unavailable of [false,true]){
   const saved=installStatuses.map(status=>({...status,state:'absent',authentication:{authStatus:unavailable||status.platform==='claude'?'unauthorized':'authenticated'}}));
-  const result=await installFlow({statuses:saved,ui:scripted([['Configure',10]])});assert.equal(result.target,unavailable?'claude':'codex');
+  const result=await installFlow({statuses:[...saved,absentGemini],ui:scripted([['Configure',10]])});assert.equal(result.target,unavailable?'claude':'codex');
  }
 });
 

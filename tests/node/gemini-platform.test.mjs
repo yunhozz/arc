@@ -32,7 +32,7 @@ test('Gemini registries agree in anchor and display order with install, nativePr
     authProbe: 'no official auth status command', watch: 'watch support out of scope',
   }).map(([key, reason]) => [key, {state: 'off', reason}]))});
   assert.equal(runtime.home.env, 'GEMINI_CLI_HOME');
-  assert.deepEqual(runtime.cli, {command: 'gemini', supportedVersions: '>=0.68.0 <0.69.0'});
+  assert.deepEqual(runtime.cli, {command: 'gemini', supportedVersions: null});
   assert.deepEqual(runtime.auth, {kind: 'none'});
   assert.deepEqual(runtime.models, {effortField: 'effort'});
   assert.equal(runtime.profile.ext, 'md');
@@ -334,7 +334,7 @@ test('L1 operational Gemini home follows CLI status with auth none after install
   for (const [cliVersion, authentication, want] of [
     [{version: null, reason: 'cli_not_found'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Not Available'],
     [{version: '0.68.0'}, {authStatus: 'unknown', reason: 'cli_not_found'}, 'Gemini: Not Available'],
-    [{version: '0.69.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Unsupported version'],
+    [{version: '0.69.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Available (auth unverified)'],
     [{version: '0.68.0'}, {authStatus: 'unknown', reason: 'auth_unverified'}, 'Gemini: Available (auth unverified)'],
   ]) assert.equal(homeStatusLine([{platform: 'gemini', state: 'absent', cliVersion, authentication}]), want);
 });
@@ -348,9 +348,9 @@ test('Gemini auth none probe does not spawn and returns unknown', async t => {
   assert.deepEqual(await probePlatformAuth(cli), {authStatus: 'unknown', reason: 'auth_unverified'});
 });
 
-test('range out version unsupported after install verification while off takes precedence', () => {
+test('Gemini CLI is available without a version range while off takes precedence', () => {
   const status = {platform: 'gemini', state: 'installed', authentication: {authStatus: 'unknown', reason: 'auth_unverified'}, cliVersion: {version: '0.69.0'}};
-  assert.equal(homeStatusLine([status]), 'Gemini: Unsupported version');
+  assert.equal(homeStatusLine([status]), 'Gemini: Available (auth unverified)');
   assert.ok(getPlatform('gemini'));
   const runtime = createPlatformRegistry(DEFAULT_PLATFORM_REGISTRY.platforms.map(p => p.id === 'gemini' ? {...p, capabilities: {...p.capabilities, install: {state: 'off'}, nativeProfile: {state: 'off'}, catalog: {state: 'off'}, standalone: {state: 'off'}, bridge: {state: 'off'}, compositeRole: {state: 'off'}}} : p));
   const registry = createInstallerRegistry({runtime, descriptors: runtime.platforms.map(p => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(p.id), runtime: p}))});

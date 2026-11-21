@@ -127,13 +127,20 @@
   - `:328-344`의 `0.69.0` → `Gemini: Unsupported version` 기대: null에서는 CLI가 발견되면 `Gemini: Available (auth unverified)`가 되도록 바꾼다. 근거는 `lib/tui/mode.mjs:7-11`과 `lib/platforms/availability.mjs:57`이다.
   - `tests/node/gemini-capability-evidence.test.mjs`: `SUPPORTED`를 `null`로 바꾼다. `fixed contract rejects changed or missing supported-version ranges`(:77-80)는 '범위가 설정되면 거부(null만 허용)'로 바꾼다.
   - `tests/node/runtime-versions.test.mjs:11`: `baselineHash`만 새 runtimeHash로 바꾼다(선례 `ff53e784`). `:59`의 다른 상수와 다름 조건은 유지한다.
+  - (v4) `tests/node/tui-app.test.mjs`, `tests/node/tui-setup.test.mjs`: Gemini `0.68.0`을 installed로 두던 fixture는 범위 밖 버전이라는 이유로 Gemini를 선택 대상에서 빼고 있었다. 이 fixture를 의존하던 새 실패 4건을 맞춘다.
+    - 대상 테스트: `role draft is cleared after successful execution`, `role draft survives failed execution`, `catalog failure outside S does not block Apply; inside S blocks with catalog error`, `uninstalled initial platform uses role availability then display order fallback`
+    - 각 테스트의 원래 의도는 그대로 둔다.
+      - codex·claude만 대상으로 하던 테스트: 그 fixture에서 Gemini를 명시적으로 absent 또는 선택 불가로 둔다.
+      - Gemini가 선택 대상이어야 하는 테스트: helper에 gemini 기본값과 카탈로그를 추가한다.
+    - 단언을 삭제하거나 약화하지 않는다.
+    - 제품 코드(`lib/tui/`, `lib/platforms/`)는 바꾸지 않는다.
 - 재생성: installed-layout golden(16조합의 `platform-registry.mjs` 해시), `MANIFEST.sha256`.
 
 **단계:**
-- [ ] 1. 테스트 기대값을 먼저 바꾸고 RED를 확인한다.
-- [ ] 2. registry를 바꾸고 미러를 생성한다. 그다음 golden과 MANIFEST를 생성한다.
-- [ ] 3. 새 runtimeHash를 `cooperativeVersions()`로 계산해 `baselineHash`에 반영하고 GREEN을 확인한다.
-- [ ] 4. `supportedVersions`를 직접 단언하는 다른 테스트(`grok-platform`, `grok-capability-evidence`, `platform-registry`, `platform-availability`)가 바뀌지 않고 통과하는지 확인한다.
+- [x] 1. 테스트 기대값을 먼저 바꾸고 RED를 확인한다.
+- [x] 2. registry를 바꾸고 미러를 생성한다. 그다음 golden과 MANIFEST를 생성한다.
+- [x] 3. 새 runtimeHash를 `cooperativeVersions()`로 계산해 `baselineHash`에 반영하고 GREEN을 확인한다.
+- [x] 4. `supportedVersions`를 직접 단언하는 다른 테스트(`grok-platform`, `grok-capability-evidence`, `platform-registry`, `platform-availability`)가 바뀌지 않고 통과하는지 확인한다.
 
 **기준:** B-C9. Gemini는 버전과 무관하게 version 단계를 통과한다. CLI 미발견, capability, 인증, catalog 판단은 유지된다. Grok 범위는 그대로다. runtimeHash 계약은 새 baseline으로 통과한다.
 
@@ -148,7 +155,7 @@
 
 **필수 QA와 증거:** fresh QA가 위 테스트와 check 4종을 실행한다. `git diff`의 `lib/`·`shared/` 변경이 registry 한 줄과 미러뿐이고 Grok 범위가 바뀌지 않았음을 확인한다.
 
-**Hold:** null 처리에 로직 변경이 필요한 경우, Gemini 외 플랫폼 범위 변경이 필요한 경우, runtime-versions의 다른 상수 이동이 필요한 경우.
+**Hold:** null 처리에 로직 변경이 필요한 경우, Gemini 외 플랫폼 범위 변경이 필요한 경우, runtime-versions의 다른 상수 이동이 필요한 경우, (v4) TUI fixture 조정만으로 원래 의도를 유지할 수 없는 경우.
 
 **커밋(수락 후):** `feat(gemini): Gemini CLI 버전 제한 해제`
 
@@ -203,3 +210,4 @@
 | v1 | 2026-11-21 | Planner 첫 완성본, Orchestrator가 결정 3건·최종 검증 목록 반영 | 사용자 승인 2026-11-21 |
 | v2 | 2026-11-21 | T1 Implementer hold 후 정정 (a) instruction-contracts 수동 해시, (b) fixture 기반 치환 유지, (c) Codex 상수 분리. 사용자 결정에 따라 Gemini 기본값을 Gemini 4 역할별로 바꾸고 카탈로그·선택 규칙(B-C8)·live 계약(B-C10)을 반영. T2 신규 Gemini CLI 버전 제한 해제(B-C9), 기존 T2 → T3, 위험 significant와 최종 Reviewer | 사용자 승인 2026-11-21 |
 | v3 | 2026-11-21 | T1 GREEN의 새 실패 6건 대응: `preset.test.mjs` 기본값 의존 기대값 갱신을 T1에 추가, `tui-setup.test.mjs:368` 키 입력 재계산 명시. 기준 불변 | 사용자 승인 2026-11-21 |
+| v4 | 2026-11-21 | T2 Implementer hold 후: 버전 제한 해제로 Gemini `0.68.0` fixture가 선택 가능해져 생긴 TUI 새 실패 4건 대응으로 `tui-app`·`tui-setup` fixture 조정을 T2 범위에 추가. 제품 로직·기준 불변 | 사용자 승인 2026-11-21 |
