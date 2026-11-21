@@ -701,6 +701,24 @@
   - 재확인이 끝날 때까지 수정을 커밋하지 않고, 끝나면 follow-up 커밋 하나로 만든다.
 - 최종 검증 결과와 Reviewer 판정은 plan-level progress record 규칙을 따른다.
 
+## 최종 검증 기록 (plan-level progress record)
+- **1차 (HEAD `1732d1a3`)**
+  - 전체 회귀 조건 (1)에 해당해 전체 suite를 실행했다. 공유 모듈인 agent-fragments, role-policy, bridge runtime, role-fixtures를 바꿨기 때문이다.
+  - node 3353 tests 중 51 fail이었다. 기준선 35건에 새 실패 16건이 더해진 수다.
+  - 새 실패 16건의 원인은 T3 `bin/.pids`가 snapshot 범위 안에 있었던 것이다. v7 보정 경로로 처리했다.
+  - Python 실패 553건과 check 4종 결과는 기준선과 같았고, 잔여 프로세스는 0이었다.
+- **최종 Reviewer(native)**
+  - 1차 검토에서 F-1(중간), F-2·F-3(낮음), F-4~F-7(nit)을 받았다.
+  - 재확인 1에서 F-1·F-7 해소를 확인했고, 새로 N-1(낮음)과 N-2(nit)가 나왔다.
+  - 재확인 2에서 N-1 해소를 확인했다. 최종 판정은 approve다.
+- **보정 QA:** 새 실패 16건 수정을 accept했다. 낮음 1건은 auth probe 간헐 실패로, 단독 실행에서 3/3 통과했다.
+- **보정 후 실제 ps 실행:** 관련 25개 파일 780/780 통과, check 4종 통과, 잔여 프로세스 0. 보정은 follow-up 커밋 `ff53e784`로 반영했다.
+- **2차 (HEAD `ff53e784`)**
+  - node 3354 tests 중 3304 pass, 35 fail, 15 skip이었다. Python은 failures 547, errors 7이었고, check 4종은 통과했다.
+  - 기준선과 테스트 이름 단위로 비교한 결과 새 실패 0, 해소 0이었다(node, Python 모두).
+  - 실행 전후 잔여 프로세스는 0이었다.
+- 증거는 handoff `f2-followups/` 아래 `final/`, `fix/`, `fix2/`, `final2/`에 있다.
+
 ## Orchestrator 결정 (Planner 열린 질문 Q1–Q7)
 
 모두 Planner 추천을 채택했다. 단, Q1은 "바뀔 수 있다"가 아니라 확인된 사실이므로 spec AC1-2를 개정했다. Q2는 사용자 요청("codex에 한정하지 말고")에 맞춰 범위에 넣었다.
