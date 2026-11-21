@@ -40,7 +40,7 @@ Run `npm install --global @yunhozz/arc`, then run `arc` in an interactive termin
 
 ## Watch sessions
 
-Run `arc watch` in an interactive terminal and choose **All**, Claude, or Codex to follow activity in the current worktree (or directory outside Git). Gemini and Grok appear as unsupported and cannot be selected. Run `arc watch --help` for options.
+Run `arc watch` in an interactive terminal and check the platforms to watch (all supported platforms are checked by default) to follow activity in the current worktree (or directory outside Git). Platforms that arc watch does not support are shown in the menu but cannot be checked. Run `arc watch --help` for options.
 
 | Visibility | Events |
 |---|---|

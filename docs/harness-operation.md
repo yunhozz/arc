@@ -133,7 +133,7 @@ Run `arc watch --help` for history and output options.
 
 | Concern | Behavior and limits |
 |---|---|
-| Selection | Choose All supported platforms or one supported platform. Unsupported platforms are marked and unavailable. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130 |
+| Selection | Check the platforms to watch; all supported platforms are checked by default. Unsupported platforms are marked and cannot be checked. Confirming with no platform checked is refused. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130 |
 | Sources | Supported platform transcripts and dispatch leases/artifacts. Codex Desktop sessions are excluded. |
 | Scope | Every selection watches the current Git worktree or the current directory outside Git. Linked and nested worktrees are excluded. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
 | Anchor | Marker active directory must match resolved registered home; one candidate selects store, none → legacy Codex, multiple → `dispatch store ambiguous` (other sources continue). No old-history merge |

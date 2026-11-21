@@ -55,7 +55,7 @@
 
 **Steps**
 
-- [ ] **Step 1: 실패 테스트 작성·수정 (RED)**
+- [x] **Step 1: 실패 테스트 작성·수정 (RED)**
   - `tui-render.test.mjs`에 `assert.equal(api.navigationHint('checklist',{backLabel:'exit'}),'↑/↓: Select · Enter Toggle · Esc Exit')`를 추가한다. :20 기존 assert는 그대로 둔다.
   - `watch-cli.test.mjs`:
     - 제목 매칭(:669, :723, :739)을 `Which platforms to watch?`로 바꾼다. 첫 화면에 새 제목이 보이는지 확인한다.
@@ -71,17 +71,17 @@
       - 키 `['\x1b[A','\x1b[A','\r','\r','\x1b[B','\x1b[B','\r']`(eta 해제 후 재체크) → `['eta','beta']`
       - 키 `['\x1b[A','\x1b[A','\r','\x1b[B','\x1b[B','\r']` → `['beta']`
       - 직접 호출이 `menuTerminal`에서 동작하지 않으면 `runWatch` 경유로 관찰하는 대안을 쓰고 보고한다(같은 기준).
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
   - Run: `node --test tests/node/watch-cli.test.mjs tests/node/tui-render.test.mjs`
   - Expected: 바꾸거나 추가한 테스트가 FAIL한다(All 행 존재, 힌트 `Esc Home`, 새 안내 없음 등). 무관한 기존 실패는 이름으로 기록한다.
-- [ ] **Step 3: 구현 (GREEN)**
+- [x] **Step 3: 구현 (GREEN)**
   - `render.mjs:16`: checklist 분기를 `'↑/↓: Select · Enter Toggle · Esc '+(backLabel==='exit'?'Exit':'Home')`로 바꾼다.
   - `menu.mjs`: 위 "동작 결정"대로 `watchMenuRows`와 `chooseWatchPlatforms`를 고치고, `ui.menu` 제목을 `Which platforms to watch?`로 바꾼다. 새 import는 없다.
   - `index.mjs:18` Scope 문단: `Check the platforms to watch in the menu; all supported platforms are checked by default. Every selection watches the current Git worktree, or the current directory outside Git. Requires an interactive terminal.`
   - `README.md:43`: `Run \`arc watch\` in an interactive terminal and check the platforms to watch (all supported platforms are checked by default) to follow activity in the current worktree (or directory outside Git). Platforms that arc watch does not support are shown in the menu but cannot be checked. Run \`arc watch --help\` for options.`
   - `docs/harness-operation.md:136` Selection 셀: `Check the platforms to watch; all supported platforms are checked by default. Unsupported platforms are marked and cannot be checked. Confirming with no platform checked is refused. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130`
-  - `node scripts/update-manifest.mjs`로 `MANIFEST.sha256`을 갱신한다(`menu.mjs`와 `render.mjs` 해시 행만 바뀌어야 한다).
-- [ ] **Step 4: GREEN 확인과 task 필수 check** (아래 "필수 QA" 참조)
+  - `node scripts/update-manifest.mjs`로 `MANIFEST.sha256`을 갱신한다(이 task가 수정한 MANIFEST 추적 파일 `lib/watch/menu.mjs`, `lib/tui/render.mjs`, `lib/watch/index.mjs`, `README.md`의 해시 행만 바뀌어야 한다. `scripts/update-manifest.mjs:20`이 `README.md`와 `lib/` 전체를 추적한다).
+- [x] **Step 4: GREEN 확인과 task 필수 check** (아래 "필수 QA" 참조)
 - [ ] **Step 5: Orchestrator 수용 후 커밋**(Orchestrator 수행). 메시지: `feat(watch): 플랫폼 다중 선택 체크리스트 메뉴`
 
 **기준 (C-C1~C-C8 대응):**
@@ -97,7 +97,7 @@
 **필수 QA·focused check·증거 (수용 전, fresh QA):**
 - `node --test tests/node/watch-cli.test.mjs tests/node/tui-render.test.mjs tests/node/tui-app.test.mjs tests/node/watch-import-graph.test.mjs tests/node/manifest.test.mjs`: 전부 PASS. 실패가 있으면 이름과 기준선 여부를 기록한다.
 - `node scripts/update-manifest.mjs --check`: 종료 0.
-- 증거: 명령, 종료 코드, 테스트 합계, 변경 파일 목록(위 Files 외 변경 없음), MANIFEST diff가 두 파일 해시 행뿐이라는 점, `lib/watch/menu.mjs`에 새 import가 없다는 점.
+- 증거: 명령, 종료 코드, 테스트 합계, 변경 파일 목록(위 Files 외 변경 없음), MANIFEST diff가 이 task의 수정 추적 파일 4개 해시 행뿐이라는 점, `lib/watch/menu.mjs`에 새 import가 없다는 점.
 
 **관련 테스트와 이유:**
 - `tests/node/watch-cli.test.mjs`: 변경 모듈 `lib/watch/menu.mjs`와 `index.mjs`(help)를 직접 실행한다.
@@ -108,7 +108,7 @@
 
 **Hold:**
 - RED 단계에서 기준선 아닌 이유로 기존 테스트가 실패하면 GREEN 전에 Orchestrator에 보고한다.
-- MANIFEST diff에 두 파일 밖의 행이 생기면 중단하고 보고한다(ignored 파일 유입 가능성).
+- MANIFEST diff에 이 task의 수정 추적 파일 4개 밖의 행이 생기면 중단하고 보고한다(ignored 파일 유입 가능성).
 - `ui.menu` 시그니처 변경이나 `interface.mjs` 수정이 필요해지면 범위 변경이므로 중단하고 보고한다.
 
 ---
@@ -133,3 +133,4 @@
 | Version | Date | Change | Approval |
 |---|---|---|---|
 | v1 | 2026-11-21 | Planner 첫 완성본, Orchestrator가 최종 검증 목록 확정, 사용자 결정에 따라 메뉴 제목 복수형 반영 | 사용자 승인 2026-11-21 (제목 복수형 결정과 같은 답변) |
+| v2 | 2026-11-21 | Task 1 Implementer hold 후 MANIFEST 기대 범위 정정: 두 파일 → 이 task가 수정한 추적 파일 4개(`README.md`, `lib/watch/index.mjs` 추가). 기준 C-C1~C-C8 불변 | 사용자 승인 2026-11-21 |
