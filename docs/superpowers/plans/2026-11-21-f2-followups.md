@@ -1,6 +1,6 @@
 # F2 후속 과제 구현 계획 (reviewer 검증 주체, final-plan-recheck, bridge 잔여 프로세스, JSDoc)
 
-- 상태: plan v2(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다.)
+- 상태: plan v4(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다. v3는 실제 ps 검증 절차 추가다(사용자 결정). v4는 T3 QA finding에 따른 신호 대상 판정 강화다.)
 - 승인 spec: `docs/superpowers/specs/2026-11-21-f2-followups-design.md` (sha256 `5182babdee09e43fff6879a23b2d06abb2b54a0d7e04e781f44c73ec517e5c18`)
 - 구현 위치: branch `fix/bridge-fetch-tolerance`, managed worktree `.claude/worktrees/bridge-fetch-tolerance`
 - approved base
@@ -120,6 +120,12 @@
     - 자기 `t.after` 정리 hook
     - 파일 단위 잔여 검사. `realPs`를 쓰고, `psAvailable()`이 거짓이면 그 이유를 출력하고 건너뛴다.
   - 실제 ps가 필요한 단언도 `psAvailable()`이 거짓이면 `t.skip(REAL_PS_SKIP 문구)`로 건너뛰고, 그 사실을 결과에 남긴다.
+- **실제 ps 검증 절차 (v3, 사용자 결정 2026-11-21):** Codex bridge sandbox에서는 실제 `ps`가 실행되지 않는다(`psAvailable()` 거짓, `realPs` status `null`). 그래서 실제 ps가 필요한 T3·T4 테스트는 다음 절차로 증거를 만든다.
+  1. Implementer 1단계: 테스트만 작성한다(구현 전). 주입 ps로 돌아가는 단위 테스트는 Implementer가 RED를 관찰한다.
+  2. Orchestrator: 실제 ps가 되는 자기 세션에서 새 테스트 파일을 백그라운드로 실행해 RED를 기록한다.
+  3. Implementer 2단계(같은 dispatch resume): 구현하고 bridge에서 실행 가능한 관련 테스트를 돌린다.
+  4. Orchestrator: 새 테스트와 task 관련 테스트 전체를 실제 ps 환경에서 실행해 GREEN, 기준선 대비 새 실패, 실행 전후 잔여 프로세스를 기록한다. 로그는 handoff `f2-followups/` 아래 `t3-*`, `t4-*`.
+  5. fresh QA: 코드를 독립 검토하고, bridge에서 실행 가능한 테스트를 다시 돌리고, Orchestrator 로그를 검토한다. 실제 ps 테스트를 QA가 직접 재실행하지 못한 사실은 한계로 기록한다.
 - **커밋:** task마다 Orchestrator가 하나씩 만든다. 형식은 `type(scope): 한국어 설명`이다.
 
 ### Implementer·QA 브리프 환경 규칙
@@ -361,7 +367,7 @@
      - lstart는 공백으로 나눈 5개 토큰이다(macOS·Linux 공통 형식). 그 뒤 나머지가 command다.
   2. **대상**
      - (i) command에 `base`가 들어간 프로세스
-     - (ii) `<base>/bin/.pids`에 기록된 pid 중 표에 있는 것
+     - (ii) `<base>/bin/.pids`에 기록된 pid 중 표에 있고 command에 `base`가 들어간 것(v4: 숫자 pid만으로는 재사용된 pid를 구별할 수 없으므로 신호 대상 판정은 command의 base 포함으로만 한다. `.pids`는 조회 보조로만 쓴다)
      - 테스트 자신(`process.pid`)과 ps 자신은 제외한다.
   3. **신호**
      - 각 대상에 `process.kill(pid,'SIGTERM')`을 보낸다. `pgid===pid`이면 `process.kill(-pid,'SIGTERM')`도 보낸다.
@@ -373,6 +379,7 @@
 - **`.pids` 기록:** `FAKE_SOURCE` 시작부(127행 근처)에서 자기 pid를 `path.join(path.dirname(process.argv[1]),'.pids')`에 한 줄씩 append한다.
   - 기록 형식은 pid 숫자와 줄바꿈이다. lstart는 정리할 때 표에서 다시 읽는다.
   - grandchild(152행)는 `grandchildPidFile` 여부와 상관없이 같은 파일에 append한다. 기존 `grandchildPidFile` 동작은 유지한다.
+  - v4: grandchild의 실행 인자에 base 경로 표시(예: 추가 argv)를 넣어 command에 base가 나타나게 한다. 그래야 (ii)의 base 포함 조건으로 식별된다.
   - `.pids`는 base 아래에 있으므로 rm으로 함께 지워진다.
 - `role-bridge-run.test.mjs`의 기존 `pkill -f base`와 잔여 검사(27-40행)는 그대로 둔다. 중복이지만 해가 없고, 범위를 줄이기 위해서다.
 
@@ -427,7 +434,7 @@
 
 **보류 조건**
 - T2가 수락되지 않았다.
-- 실제 ps를 쓸 수 없는 환경이다. 이때는 AC5b가 unverified이고 Orchestrator에 보고한다.
+- Orchestrator 세션에서도 실제 ps를 쓸 수 없다. 이때는 AC5b가 unverified이고 사용자에게 보고한다.
 - 정리 대상에 base와 무관한 프로세스가 포함됐다.
 - 기존 테스트의 실행 시간이 크게 늘었다. 비교 근거는 기준선 실행 시간이다. 이때는 graceMs 조정을 보고한다.
 
@@ -633,7 +640,7 @@
 
 **보류 조건**
 - T3가 수락되지 않았다.
-- 실제 ps를 쓸 수 없는 환경이다. AC5a-1, -3, -4는 unverified이고 Orchestrator에 보고한다.
+- Orchestrator 세션에서도 실제 ps를 쓸 수 없다. AC5a-1, -3, -4는 unverified이고 사용자에게 보고한다.
 - 기존 record나 state가 기준선과 달라졌다. 특히 Q5 관련이다.
 - 새 runtime 모듈, inventory, stub 변경이 필요해졌다.
 - 테스트가 시간에 기대야만 결정적으로 돈다.
@@ -692,3 +699,5 @@
 |---|---|---|---|---|
 | v1 | 2026-11-21T11:54:55+09:00 | 최초 승인 | T1, T2, T3, T4 | 최초 plan |
 | v2 | 2026-11-21T12:16:28+09:00 | 문구 정정(범위 변화 없음) | T1 | T1 QA finding: T1 allowedPaths와 Q1 표에 Q1 결정 이전 문구("reviewer target 4개만")가 남아 있어 승인된 Q1 결정에 맞춰 정정 |
+| v3 | 2026-11-21T12:24:04+09:00 | 검증 절차 변경(사용자 결정) | T3, T4 | Codex bridge sandbox에서 실제 ps 불가. 실제 ps 테스트의 RED/GREEN은 Orchestrator가 실행하고 QA는 코드와 로그를 검토 |
+| v4 | 2026-11-21T12:35:13+09:00 | 설계 보강(범위 변화 없음) | T3 | T3 QA finding(높음): `.pids`의 숫자 pid가 재사용되면 무관한 프로세스에 신호 가능. 신호 대상을 command에 base가 들어간 프로세스로 한정하고 grandchild argv에 base 표시 추가 |
