@@ -1,6 +1,6 @@
 # F2 후속 과제 구현 계획 (reviewer 검증 주체, final-plan-recheck, bridge 잔여 프로세스, JSDoc)
 
-- 상태: plan v4(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다. v3는 실제 ps 검증 절차 추가다(사용자 결정). v4는 T3 QA finding에 따른 신호 대상 판정 강화다.)
+- 상태: plan v6(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다. v3는 실제 ps 검증 절차 추가다(사용자 결정). v4는 T3 QA finding에 따른 신호 대상 판정 강화다. v5는 T4 추적 조건(계보 전용)과 `descendants.json` 형식 확정이다. v6는 T4 QA finding 5건 보강이다.)
 - 승인 spec: `docs/superpowers/specs/2026-11-21-f2-followups-design.md` (sha256 `5182babdee09e43fff6879a23b2d06abb2b54a0d7e04e781f44c73ec517e5c18`)
 - 구현 위치: branch `fix/bridge-fetch-tolerance`, managed worktree `.claude/worktrees/bridge-fetch-tolerance`
 - approved base
@@ -475,9 +475,7 @@
     - 실패하면 `null`을 돌려준다.
     - `spawnSync`는 쓰지 않는다.
   - `createDescendantTracker({rootPid, rootPgid, selfPid, limit})`
-    - `update(table)`: 알려진 집합을 기준으로 fixpoint까지 반복해 추가한다. 추가 조건은 둘 중 하나다.
-      - `ppid`가 알려진 pid(시작 시각 일치)다.
-      - `pgid === rootPgid`다.
+    - `update(table)`: 알려진 집합을 기준으로 fixpoint까지 반복해 추가한다. 추가 조건은 `ppid`가 알려진 pid(시작 시각 일치)인 것 하나뿐이다(v5: 계보 전용. `pgid === rootPgid`만으로는 편입하지 않는다. 같은 group 구성원은 기존 group 정리가 처리한다).
     - supervisor 자신(`selfPid`)과 `process.ppid` 조상 사슬은 제외한다.
     - 상한을 넘으면 `truncated`가 된다.
     - `escaped()`: `pgid !== rootPgid`이고 root가 아닌 항목
@@ -499,6 +497,14 @@
     - 즉시 1회 sample한다.
     - 이후 `setInterval`을 `timers`에 넣는다. 이전 sample이 진행 중이면 건너뛴다.
     - 집합이 바뀌면 `descendants.json`(0600, tmp 파일에 쓰고 rename)을 `artifactDir`에 쓴다(Q3).
+    - v5 형식: `{"version":1,"rootPid":<n>,"rootPgid":<n>,"truncated":<bool>,"entries":[{"pid":<n>,"ppid":<n>,"pgid":<n>,"startTime":"<lstart 정규화>"}]}`. `entries`는 root를 제외한 추적 자손 전부(같은 group 포함)다. cancel 경로는 이 중 `pgid !== rootPgid`인 escaped 항목만 정리한다. 형식이 맞지 않으면 무시한다.
+    - v6 보강(T4 QA finding):
+      - (F1) `descendants.json`에 `dispatchId`, `segment`, `rootStartTime`을 더한다. cancel은 이 값이 lease의 dispatchId, segment, `child.pid`와 일치할 때만 기록을 쓴다. 같은 uid 사용자가 파일을 변조하는 경우는 위협 모델 밖이다. 같은 uid는 어차피 직접 신호를 보낼 수 있기 때문이다. 이 판단은 한계로 기록한다.
+      - (F2) group 신호(`kill(-pgid)`)는 직전 sample에서 그 pgid의 구성원이 모두 추적 중인 자손이고 identity가 일치할 때만 보낸다. 미추적 구성원, self, 조상, 다른 uid가 하나라도 있으면 개별 pid에만 보낸다.
+      - (F3) `reapGroup`으로 원래 group이 사라진 것을 확인하면, 자손 정리를 시작하기 전에 원래 group용 SIGKILL 타이머를 해제한다. 원래 group 정리가 끝난 뒤에 signal handler가 호출되면 원래 pgid에 다시 신호를 보내지 않는다.
+      - (F4) child 종료를 관찰했으면, 자손 정리를 시작하기 전에 실행 deadline 타이머를 해제한다. 자손 정리 시간 때문에 `timeout` reason이 붙으면 안 된다.
+      - (F5) `lstart`는 1초 단위라서, 같은 초에 pid가 재사용되면 구별할 수 없다. 보강책으로 root를 sample할 때마다 `ppid === selfPid`인지와 `pgid === rootPgid`인지 확인하고, 하나라도 다르면 root로 취급하지 않는다. sample을 찍은 뒤 신호를 보내기까지의 짧은 구간에 대상이 바뀌는 경우와 같은 초 재사용은 남는 한계로 기록한다.
+      - 기준선 `1ecf9cf9`부터 있던 문제가 하나 있다. 직접 cancel 경로가 원래 group에 SIGKILL을 보낼 때 pgid 재사용을 확인하지 않는다(`role-bridge.mjs:222-235`). 이 문제는 pre-existing으로 기록하고 이번 범위에서는 고치지 않는다.
   - **정상 종료 경로:** 432행 `reapGroup` 뒤, 433행 앞에 둔다.
     1. 최종 sample을 하고 `update`한다.
     2. escaped 항목에 `reapDescendants`를 실행한다.
@@ -701,3 +707,5 @@
 | v2 | 2026-11-21T12:16:28+09:00 | 문구 정정(범위 변화 없음) | T1 | T1 QA finding: T1 allowedPaths와 Q1 표에 Q1 결정 이전 문구("reviewer target 4개만")가 남아 있어 승인된 Q1 결정에 맞춰 정정 |
 | v3 | 2026-11-21T12:24:04+09:00 | 검증 절차 변경(사용자 결정) | T3, T4 | Codex bridge sandbox에서 실제 ps 불가. 실제 ps 테스트의 RED/GREEN은 Orchestrator가 실행하고 QA는 코드와 로그를 검토 |
 | v4 | 2026-11-21T12:35:13+09:00 | 설계 보강(범위 변화 없음) | T3 | T3 QA finding(높음): `.pids`의 숫자 pid가 재사용되면 무관한 프로세스에 신호 가능. 신호 대상을 command에 base가 들어간 프로세스로 한정하고 grandchild argv에 base 표시 추가 |
+| v5 | 2026-11-21T12:51:11+09:00 | 설계 명확화(범위 변화 없음) | T4 | T4 Implementer 질의: plan의 `pgid === rootPgid` 편입 조건이 spec 안전 장치(계보 전용)와 충돌 → 계보 전용으로 정정. `descendants.json` 최상위 형식 미정 → 확정 |
+| v6 | 2026-11-21T13:05:58+09:00 | 설계 보강(범위 변화 없음) | T4 | T4 QA finding: 기록 출처 미검증(높음), group 신호 우회(높음), 사라진 group 재신호(높음), 정리 중 timeout(중간), 같은 초 pid 재사용(중간) 보강. 기준선 cancel 경로 pgid 재사용은 pre-existing 기록 |

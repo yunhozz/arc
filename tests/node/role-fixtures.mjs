@@ -231,6 +231,14 @@ ${FAKE_CODEX_APP_SERVER}
   if(child.pid!==undefined)recordPid(child.pid);
   if(scenario.grandchildPidFile)fs.writeFileSync(scenario.grandchildPidFile,String(child.pid));
  }
+ const {ARC_FAKE_ESCAPE_PID_FILE: escapePid, ARC_FAKE_ESCAPE_RELEASE_FILE: escapeRelease}=process.env;
+ if(escapePid){
+  const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)','--',binDir],{detached:true,stdio:'ignore'});
+  recordPid(child.pid);
+  child.unref();
+  fs.writeFileSync(escapePid,String(child.pid));
+  while(escapeRelease&&!fs.existsSync(escapeRelease))await sleep(20);
+ }
  if(scenario.delayMs)await sleep(scenario.delayMs);
  for(const line of scenario.events??[])process.stdout.write((typeof line==='string'?line:JSON.stringify(line))+'\\n');
  if(scenario.stderr)process.stderr.write(scenario.stderr);

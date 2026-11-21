@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
 const argv = process.argv.slice(2), value = flag => argv[argv.indexOf(flag) + 1];
 if (argv.includes('--version')) {console.log('1.0.88'); process.exit(0);}
 let stdin = ''; for await (const chunk of process.stdin) stdin += chunk;
@@ -21,6 +23,15 @@ if (scenario === 'no-model') events = events.map(({model, ...event}) => event);
 if (scenario === 'no-end') events = events.filter(event => event.type !== 'end');
 if (scenario === 'write') await fs.writeFile('unexpected.txt', 'permission violation');
 if (scenario === 'hang') {process.on('SIGTERM', () => {}); events = process.env.ARC_FAKE_GROK_NO_EVENTS ? [] : [events.at(-1)];}
+const {ARC_FAKE_ESCAPE_PID_FILE: escapePid, ARC_FAKE_ESCAPE_RELEASE_FILE: escapeRelease} = process.env;
+if (escapePid) {
+  const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)', '--', process.argv[1]], {detached: true, stdio: 'ignore'});
+  child.unref();
+  await fs.writeFile(escapePid, String(child.pid));
+  if (escapeRelease) {
+    while (!await fs.stat(escapeRelease).catch(error => {if (error.code !== 'ENOENT') throw error;})) await delay(20);
+  }
+}
 for (const event of events) console.log(JSON.stringify(event));
 if (scenario === 'hang') setInterval(() => {}, 1000);
 else process.exitCode = scenario === 'exit-nonzero' ? 2 : 0;
