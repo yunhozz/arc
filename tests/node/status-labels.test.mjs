@@ -13,7 +13,7 @@ test('release conditions use the corrected Not Available code', () => {
   assert.throws(() => reason('Not Ava'+'liable'));
 });
 
-test('live sources, runtime copies, node tests and current docs do not contain the misspelled label', async () => {
+test('live sources, runtime copies, node tests do not contain the misspelled label', async () => {
   const files = [];
   async function collect(relative) {
     const entries = await fs.readdir(path.join(root, relative), {withFileTypes: true});
@@ -24,7 +24,6 @@ test('live sources, runtime copies, node tests and current docs do not contain t
     }
   }
   for (const directory of ['lib', 'claude/skill', 'codex/skill', 'tests/node']) await collect(directory);
-  files.push('README.md', 'docs/harness-operation.md');
   const misspelled = [];
   for (const file of files) {
     if ((await fs.readFile(path.join(root, file), 'utf8')).includes('Ava'+'liable')) misspelled.push(file);

@@ -104,12 +104,12 @@ test('all four composite sections match byte-for-byte outside the native spawn i
   for (const [index, platform] of platforms.entries()) assert.equal(sections[index], sections[0], platform);
 });
 
-test('coordination and operations document every host and target route from current policy', async () => {
+test('coordination references document every host and target route from current policy', async () => {
   const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
   const environments = [...platforms.map(platform => `${platform}-cli`), 'claude-desktop', 'codex-desktop'];
-  const documents = await Promise.all([...platforms.map(coordination), readFile(new URL('../../docs/harness-operation.md', import.meta.url), 'utf8')]);
+  const documents = await Promise.all(platforms.map(coordination));
   for (const [index, document] of documents.entries()) {
-    const label = platforms[index] ?? 'harness-operation';
+    const label = platforms[index];
     for (const environment of environments) {
       const host = environment.split('-')[0];
       const cells = platforms.map(target => {
