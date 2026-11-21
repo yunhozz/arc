@@ -1,6 +1,6 @@
 # F2 후속 과제 구현 계획 (reviewer 검증 주체, final-plan-recheck, bridge 잔여 프로세스, JSDoc)
 
-- 상태: plan v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정").
+- 상태: plan v2(v1 사용자 승인(2026-11-21T11:54:55+09:00). 열린 질문 Q1–Q7은 Orchestrator가 정했다(아래 "Orchestrator 결정"). v2는 Q1 결정과 어긋난 잔여 문구 정정이다.)
 - 승인 spec: `docs/superpowers/specs/2026-11-21-f2-followups-design.md` (sha256 `5182babdee09e43fff6879a23b2d06abb2b54a0d7e04e781f44c73ec517e5c18`)
 - 구현 위치: branch `fix/bridge-fetch-tolerance`, managed worktree `.claude/worktrees/bridge-fetch-tolerance`
 - approved base
@@ -200,7 +200,7 @@
 - role-policy managed 섹션 32개
   - `{claude,codex,gemini,grok}/agents/arc-{scouter,planner,implementer,qa,reviewer}.{md|toml}`. codex만 `.toml`이다.
   - `{claude,codex,gemini,grok}/skill/references/{planning,handoff,verification}.md`
-- `tests/node/fixtures/instruction-contracts.json`: `agentProfileBaseline.profiles` 중 reviewer target 4개만
+- `tests/node/fixtures/instruction-contracts.json`: `agentProfileBaseline.profiles`만(20개 모두 갱신 대상, Q1 결정)
 - `tests/node/test-scope-contract.test.mjs` (F1 계약 테스트에 단언 추가)
 - `tests/node/fixtures/installed-layout-golden.json`
 - `MANIFEST.sha256`
@@ -679,7 +679,7 @@
 
 | ID | 질문 | 결정 |
 |---|---|---|
-| Q1 | agents 원본에 managed 섹션이 들어 있다. 그래서 T1에서 policy를 다시 생성하면 reviewer 외 프로필 16개의 렌더 해시도 바뀔 수 있다. 이는 AC1-2("reviewer 4개만")와 충돌할 수 있다. | 바뀌면 SHA 갱신 규칙에 따라 기준선에서 통과하던 항목만 갱신한다. AC1-2는 "fragment 변경으로 바뀌는 항목은 reviewer 4개"로 해석하고, 그 해석을 기록한다. |
+| Q1 | agents 원본에 managed 섹션이 들어 있다. 그래서 T1에서 policy를 다시 생성하면 reviewer 외 프로필 16개의 렌더 해시도 바뀔 수 있다. 이는 AC1-2("reviewer 4개만")와 충돌할 수 있다. | 확인된 사실이다(20개 원본 모두 managed 섹션 포함). `profiles` 20개를 모두 갱신 대상으로 하고, spec AC1-2를 "fragment 문장은 reviewer 4개 렌더에만, 나머지 16개는 managed 섹션 밖 바이트 불변"으로 개정했다. |
 | Q2 | gemini·grok fixture(`gemini-bridge.test.mjs:89`, `grok-bridge.test.mjs`)의 정리도 rm뿐이다. spec (b)는 `createRoutingFixture`만 다룬다. | 플랫폼 대칭을 위해 T3에서 두 fixture의 hook도 `reapFixtureProcesses(base)`를 먼저 부르게 한다. 한 줄씩 추가하는 것이고 allowedPaths가 늘어난다. |
 | Q3 | `descendants.json`의 위치. spec은 "dispatch artifact"라고만 한다. | `segmentDirectory`(artifactDir, `gitCommonDir` 기준)에 둔다. cancel은 `resolveWorktree(context.cwd)`로 같은 경로를 다시 계산한다. dispatch store sidecar(anchor home)는 lease 목록 검증과 충돌할 위험을 확인하지 않았으므로 쓰지 않는다. |
 | Q4 | spec (b)의 "`/bin/ps` 절대 경로" | 기존 `realPs`(`ORIGINAL_PATH`, `ps-stub.mjs:30-32`)로 대체한다. 목적(stub 우회)은 같고, Linux에서 ps 위치가 달라도 동작한다. |
@@ -691,3 +691,4 @@
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 2026-11-21T11:54:55+09:00 | 최초 승인 | T1, T2, T3, T4 | 최초 plan |
+| v2 | 2026-11-21T12:16:28+09:00 | 문구 정정(범위 변화 없음) | T1 | T1 QA finding: T1 allowedPaths와 Q1 표에 Q1 결정 이전 문구("reviewer target 4개만")가 남아 있어 승인된 Q1 결정에 맞춰 정정 |

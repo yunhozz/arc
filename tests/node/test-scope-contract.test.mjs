@@ -9,6 +9,13 @@ const anchor = `<a ${anchorId}></a>`;
 const heading = '## Test scope and result comparison';
 const riskAnchor = '<a id="risk-scaled-execution"></a>';
 const finalFailureRule = 'A new failure from final verification follows Implementer → QA even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.';
+const finalPlanRecheckId = 'review.final-plan-recheck';
+const finalPlanRecheckSentence = 'Separate QA findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck.';
+const oldFinalPlanRecheckSentence = 'Separate QA findings follow Implementer → QA.';
+const reviewerVerificationSentence = 'QA owns task functional/test verification; Orchestrator runs final verification and owns overall completion and acceptance.';
+const reviewerFindingsSentence = 'New failures from final verification follow Implementer → QA; affected evidence needs a refreshed-diff recheck.';
+const oldReviewerVerificationPhrase = 'QA owns functional/test verification';
+const profileRoles = ['scouter', 'planner', 'implementer', 'qa', 'reviewer'];
 const baselineCoverage = 'covering every command final verification may run, including the full suite when the provisional trigger judgment is run or undetermined.';
 const wholePlanReviewerRule = 'Whole-plan Reviewer is part of final verification;';
 const qaAdditionsRule = 'additions within these categories with reasons are authorized;';
@@ -111,9 +118,59 @@ test('ARC agent fragments omit the project suite instruction', () => {
   assert.doesNotMatch(registrySource, /project suite/i);
 });
 
+test('canonical final-plan-recheck policy routes final verification failures to QA', () => {
+  const policy = JSON.parse(readAgent('lib/policy/role-policy.json'));
+  const rules = policy.rules.filter(rule => rule.id === finalPlanRecheckId);
+  assert.equal(rules.length, 1);
+  const [{id, roles, effect, controls, text}] = rules;
+  assert.deepEqual({id, roles, effect, controls}, {
+    id: finalPlanRecheckId,
+    roles: ['orchestrator', 'scouter', 'planner', 'implementer', 'qa', 'reviewer'],
+    effect: 'require',
+    controls: {codex: 'prompt', claude: 'prompt', gemini: 'prompt', grok: 'prompt'},
+  });
+  assertOccursOnce(text, finalPlanRecheckSentence);
+  assert.ok(!text.includes(oldFinalPlanRecheckSentence));
+  assert.ok(text.includes(`create one focused follow-up commit. ${finalPlanRecheckSentence} Preserve required QA`));
+});
+
 for (const platform of platforms) {
   const references = new URL(`../../${platform}/skill/references/`, import.meta.url);
   const readReference = name => readFileSync(new URL(name, references), 'utf8');
+  const extension = platform === 'codex' ? 'toml' : 'md';
+  const profilePath = role => `${platform}/agents/arc-${role}.${extension}`;
+
+  test(`${platform} reviewer render places the final verification sentences exactly once`, () => {
+    const reviewer = renderAgent(profilePath('reviewer'));
+    assertOccursOnce(reviewer, reviewerVerificationSentence);
+    assertOccursOnce(reviewer, reviewerFindingsSentence);
+    assert.ok(!reviewer.includes(oldReviewerVerificationPhrase));
+    assert.ok(reviewer.includes(`after required QA/focused checks and QA rechecks. ${reviewerVerificationSentence}\n`));
+    assert.ok(reviewer.includes(`before this final stage. ${reviewerFindingsSentence}\n`));
+  });
+
+  test(`${platform} non-reviewer renders omit the reviewer verification sentences`, () => {
+    for (const role of profileRoles.filter(role => role !== 'reviewer')) {
+      const rendered = renderAgent(profilePath(role));
+      assert.ok(!rendered.includes(reviewerVerificationSentence), profilePath(role));
+      assert.ok(!rendered.includes(reviewerFindingsSentence), profilePath(role));
+    }
+  });
+
+  const policyPaths = [
+    ...profileRoles.map(profilePath),
+    ...['planning', 'handoff', 'verification'].map(name => `${platform}/skill/references/${name}.md`),
+  ];
+  for (const path of policyPaths) {
+    test(`${path} places the final-plan-recheck sentence in its managed rule exactly once`, () => {
+      const source = readAgent(path).toString();
+      assertOccursOnce(source, finalPlanRecheckSentence);
+      assert.ok(!source.includes(oldFinalPlanRecheckSentence));
+      const managed = source.split('[ARC role policy: contract begin]')[1]?.split('[ARC role policy: contract end]')[0];
+      const rule = managed?.split('\n').find(line => line.startsWith(`- [${finalPlanRecheckId}] `));
+      assert.ok(rule?.includes(`create one focused follow-up commit. ${finalPlanRecheckSentence} Preserve required QA`));
+    });
+  }
 
   test(`${platform} verification defines test scope before risk-scaled execution`, () => {
     assertTestScopeSection(readReference('verification.md'));
@@ -154,8 +211,7 @@ for (const platform of platforms) {
 
   for (const role of Object.keys(profileRules)) {
     test(`${platform} ${role} places each test-scope rule exactly once`, () => {
-      const extension = platform === 'codex' ? 'toml' : 'md';
-      assertProfileTestScope(renderAgent(`${platform}/agents/arc-${role}.${extension}`), role);
+      assertProfileTestScope(renderAgent(profilePath(role)), role);
     });
   }
 
