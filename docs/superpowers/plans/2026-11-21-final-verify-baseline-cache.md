@@ -192,15 +192,15 @@
 **Interfaces — Consumes:** T2의 `verifyStart`/`verifyStatus`, 저장 구조, `classifyLoad`, 상수.
 **Interfaces — Produces:** `final-verify.mjs` 직접 실행 `node final-verify.mjs --run <runDir>`(runner 진입), `export async function runRunner(runDir): Promise<void>`, `export async function createSnapshot({cwd, head, runDir}): {commit, tree, included[{status,path}], excluded{ignored[],submodules[]}}`.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
   - snapshot: `snapshot leaves refs, index, reflog and working files byte- and mtime-identical`(수정·삭제·미추적·ignored 파일이 섞인 픽스처), `snapshot reports included and excluded ignored paths`, `same tree yields same snapshot OID`(두 번 호출 시 commit OID 같음), `snapshot with HEAD mismatch denies revision_mismatch`, `snapshot failure holds snapshot_failed and keeps temp index`(내부 훅으로 `write-tree` 실패 주입), `dirty submodule content is reported in excluded.submodules`(gitlink 픽스처).
-  - detach: `detach start returns queued or preparing immediately and status waits to succeeded`(`waitMs` 사용), `other commands work while detached run is active`(AC-4: 진행 중 status·다른 cleanup dryRun 호출이 즉시 반환), `heartbeat updates while running`.
+  - detach: `detach start returns queued or preparing immediately and status waits to succeeded`(`waitMs` 사용), `other commands work while detached run is active`(AC-4: 진행 중 status 호출이 즉시 반환. v4: cleanup dryRun 확인은 T4로 이동), `heartbeat updates while running`.
   - unknown: `killed runner reports unknown with child pids and no restart`(runner pid에 SIGKILL을 보낸 뒤 heartbeat.json의 `at`을 과거로 바꾸고 `now` 주입 → `unknown`, 15초 경과 후에도 새 프로세스가 없음), `stale heartbeat boundary 15000ms`(14999는 비종료 그대로, 15001은 unknown), `unreadable run.json reports unknown`.
   - 큐: `second start queues behind active run`(`queuedBehind`에 첫 runId), `declaredConcurrent does not bypass queue but marks contended`, `concurrent starts serialize and share machine id`(Promise.all로 CLI 2개 spawn), `foreground run follows the same queue`.
   - 부하: `overlapping runs are recorded in overlaps`, `samples are recorded at LOAD_SAMPLE_MS`(내부 옵션 `sampleMs` 단축).
-- [ ] **Step 2: RED 확인** — `node --test --test-name-pattern "snapshot|detach|unknown|queue|overlap|samples" tests/node/runtime-final-verify.test.mjs`. 기대 결과: T2 자리표시자 `verify_error`로 실패.
-- [ ] **Step 3: 구현** — detach는 `role-supervisor.mjs:321-325` 패턴을 따른다(`spawn(process.execPath,[selfPath,'--run',runDir],{detached:true,stdio:'ignore',env:allowlist+내부변수,cwd:runDir}).unref()`). 큐 판정은 `<store>/runs/*/run.json` 중 비종료이고 heartbeat가 살아 있는 run을 보며, 판정 경합은 `<store>/queue.lock`(`wx` 배타 생성, 짧게 잡고 바로 해제)으로 직렬화한다. snapshot 작성자 날짜는 HEAD committer date를 `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`로 주고 이름·메일은 `arc-verify`로 고정한다.
-- [ ] **Step 4: 생성물** — 3종을 다시 만든다.
+- [x] **Step 2: RED 확인** — `node --test --test-name-pattern "snapshot|detach|unknown|queue|overlap|samples" tests/node/runtime-final-verify.test.mjs`. 기대 결과: T2 자리표시자 `verify_error`로 실패.
+- [x] **Step 3: 구현** — detach는 `role-supervisor.mjs:321-325` 패턴을 따른다(`spawn(process.execPath,[selfPath,'--run',runDir],{detached:true,stdio:'ignore',env:allowlist+내부변수,cwd:runDir}).unref()`). 큐 판정은 `<store>/runs/*/run.json` 중 비종료이고 heartbeat가 살아 있는 run을 보며, 판정 경합은 `<store>/queue.lock`(`wx` 배타 생성, 짧게 잡고 바로 해제)으로 직렬화한다. snapshot 작성자 날짜는 HEAD committer date를 `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`로 주고 이름·메일은 `arc-verify`로 고정한다.
+- [x] **Step 4: 생성물** — 3종을 다시 만든다.
 - [ ] **Step 5: GREEN 확인**, **Step 6: 커밋**(Orchestrator 수락 후): `feat(runtime): verify 미커밋 스냅샷과 백그라운드 runner·큐 추가`
 
 **기준:** AC-4, AC-10(snapshot 불변), A-C4, A-C6(snapshot 경로), A-S3(§8.3), A-S5(§10.1·§10.2).
@@ -224,6 +224,7 @@
 **Interfaces — Produces:** `export async function verifyCompare(ctx)`, `verifyRerun(ctx)`, `verifyCleanup(ctx)`. isolate 치환: `{file}`=testId의 file, `{name}`=name, `{namePattern}`=`'^'+escapeRegExp(name)+'$'`, `{testId}`=testId 원문. 보고서 경로는 `<store>/reports/<baseRunId>..<headRunId>.{json,md}`.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
+  - (v4, T3에서 이동) `cleanup dryRun returns immediately while detached run is active`(AC-4).
   - compare 전제: `compare holds run_incomplete while base is running`(AC-4), `run_failed`, `run_unknown`, `role_mismatch`, `command_set_mismatch`(id 또는 glob 템플릿 차이), `prepare_mismatch`(prepare·seed 다이제스트), `execution_mismatch`(sandboxMode·host·machine id), `unknown_run denies`.
   - compare 결과: `compare writes report json and md and returns verdict`(새 실패 1, 기준선 재현 1, 후보 1이 있는 픽스처로 §9.6 필드 존재와 `verdict:'new-failures'`), `expanded file lists appear in report`(AC-1), `slowest has files, tests and phases topN`(AC-8, topN 2), `history mismatch under same cacheKey yields intermittent candidate`.
   - rerun(AC-2): `rerun passes attempt in isolation and reports passesInIsolation yes`, `attempt out of order denies`, `fourth attempt with default limit denies rerun_limit`, `limit option up to 10`, `no isolate template returns not-run exit 0`, `rerun on non-succeeded run holds run_incomplete`, `rerun with different sandboxMode holds execution_mismatch`, `isolated pass keeps newFailures classification in next compare`.
@@ -383,3 +384,4 @@ T1 → T2 → T3 → T4 → T5 → 최종 검증(+최종 Reviewer). T1~T4가 같
 | v1 | 2026-11-21 | Planner 첫 완성본. Orchestrator 검토: 기준선을 clean worktree 기록으로 교체, dogfood prepare 확정(Q4), Q1~Q5 결정 기록 | 사용자 승인 2026-11-21 |
 | v2 | 2026-11-21 | T1 Step 0 hold(node tap 통과 test에 location 없음) 후 ARC node reporter를 T1에 추가, `{arcNodeReporter}` 자리표시자, dogfood node 명령을 junit-xml로 변경 (spec v2와 함께) | 사용자 승인 2026-11-21 |
 | v3 | 2026-11-21 | T2 QA finding 처분: spec v3 §6.1 보완(`{worktree}` PATH 실행 파일은 phase2 입력)에 맞춰 T2 기준 A-S2 해석을 갱신. task·파일 범위 불변 | 사용자 승인 2026-11-21 |
+| v4 | 2026-11-21 | T3 Implementer hold 후: spec v4 §8.3 스냅샷 메시지 고정 반영, AC-4의 cleanup dryRun 동시 호출 확인을 T3에서 T4로 이동(T3는 status만) | 사용자 승인 2026-11-21 |

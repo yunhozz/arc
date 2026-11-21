@@ -259,7 +259,7 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 1. 원본 cwd에서 `GIT_INDEX_FILE=<runDir>/snapshot.index git read-tree <HEAD>`.
 2. `git add -A -- .`(미추적 비무시 파일 포함, 삭제 반영).
 3. `git write-tree`로 tree.
-4. `git commit-tree <tree> -p <HEAD> -m "arc-verify snapshot <runId>"`. author/committer는 고정 `arc-verify`, 날짜는 HEAD committer date(같은 tree면 같은 OID).
+4. `git commit-tree <tree> -p <HEAD> -m "arc-verify snapshot"`(v4: 메시지 고정, runId는 `run.json`에 기록). author/committer는 고정 `arc-verify`, 날짜는 HEAD committer date(같은 HEAD·tree면 같은 OID).
 5. 바뀌는 것은 object DB의 loose object뿐이다. ref, 원본 index, 작업 파일, reflog는 바뀌지 않는다. 스냅샷 commit은 worktree HEAD가 참조하므로 gc 대상이 아니다.
 6. 보고: `included`는 `git diff-tree -r --name-status <HEAD> <tree>`, `excluded.ignored`는 `git ls-files --others --ignored --exclude-standard --directory`, `excluded.submodules`는 내용이 dirty한 submodule 경로(gitlink만 반영).
 7. 실패하면 hold `snapshot_failed`, 임시 index는 진단용으로 남긴다.
@@ -507,3 +507,4 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 | v1 | 2026-11-21 | Planner 첫 완성본. Orchestrator가 진입점(2a)·env 허용 목록 결정과 두 단계 키 수용을 반영, 정책 새 절에 env 문장 추가 | 사용자 승인 2026-11-21 |
 | v2 | 2026-11-21 | plan T1 Step 0 hold(node tap이 통과 test에 location 없음) 후 ARC node reporter 추가: §5.2 `{arcNodeReporter}` 자리표시자와 junit-xml `stream`, §9.2 reporter, §12 파일·테스트·dogfood, §13-5 해결 | 사용자 승인 2026-11-21 |
 | v3 | 2026-11-21 | plan T2 QA finding 후 §6.1 보완: `{worktree}` PATH로 찾는 실행 파일 realpath는 phase2 입력이고, 이 경우 적중 확인에도 worktree가 필요함을 명시(구현 동작과 일치, 코드 변경 없음) | 사용자 승인 2026-11-21 |
+| v4 | 2026-11-21 | plan T3 Implementer hold 후 §8.3 정정: 스냅샷 commit 메시지에서 runId를 빼 `arc-verify snapshot`으로 고정(같은 HEAD·tree면 같은 OID 요구와의 모순 해소) | 사용자 승인 2026-11-21 |

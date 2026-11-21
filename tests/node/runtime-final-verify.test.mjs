@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {spawnSync} from 'node:child_process';
+import {spawn, spawnSync} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {
   VERIFY_COMMANDS, canonicalJson, sha256Hex, expandGlob, buildChildEnv, classifyLoad,
@@ -38,12 +39,21 @@ function sourceSnapshot(cwd) {
     return fs.readdirSync(directory, {withFileTypes: true}).sort((a, b) => a.name.localeCompare(b.name)).flatMap(entry => {
       if (entry.name === '.git') return [];
       const file = path.join(directory, entry.name);
-      return entry.isDirectory() ? files(file) : [[path.relative(cwd, file), fs.readFileSync(file)]];
+      return entry.isDirectory() ? files(file) : [trackedBytes(cwd, file)];
     });
+  }
+  function trackedBytes(root, file) {
+    return [path.relative(root, file), fs.readFileSync(file), fs.statSync(file, {bigint: true}).mtimeNs];
+  }
+  function gitFiles(relative) {
+    const file = path.join(cwd, '.git', relative);
+    if (!fs.existsSync(file)) return [];
+    return fs.statSync(file).isDirectory() ? files(file) : [trackedBytes(cwd, file)];
   }
   return {
     head: git(cwd, 'rev-parse', 'HEAD'), refs: git(cwd, 'show-ref'),
-    index: fs.readFileSync(path.join(cwd, '.git/index')), files: files(cwd)
+    gitFiles: ['HEAD', 'index', 'packed-refs', 'refs', 'logs'].flatMap(gitFiles),
+    files: files(cwd)
   };
 }
 
@@ -71,15 +81,17 @@ function makeRepo(t) {
   const store = path.join(common, 'arc/verify');
   const worktrees = path.join(fs.realpathSync(os.tmpdir()), 'arc-verify', sha256Hex(fs.realpathSync(common)).slice(0, 16));
   let snapshot = sourceSnapshot(cwd);
-  t.after(() => {
+  const teardown = [];
+  t.after(async () => {
     try {
+      await Promise.all(teardown.map(cleanup => cleanup()));
       assertSourceUnchanged(cwd, snapshot);
     } finally {
       fs.rmSync(worktrees, {recursive: true, force: true});
       fs.rmSync(root, {recursive: true, force: true});
     }
   });
-  return {cwd, common, store, first, revision, input: startInput(revision), snapshot: () => { snapshot = sourceSnapshot(cwd); }};
+  return {cwd, common, store, first, revision, teardown, input: startInput(revision), snapshot: () => { snapshot = sourceSnapshot(cwd); }};
 }
 
 function assertSourceUnchanged(cwd, snapshot) {
@@ -180,8 +192,6 @@ test('future paths return a not implemented hold', t => {
   const repo = makeRepo(t);
   const runId = '20261121T000000Z-00000000';
   for (const [command, input] of [
-    ['verify-start', {...repo.input, detach: true}],
-    ['verify-start', {...repo.input, role: 'head', snapshotWorkingTree: true}],
     ['verify-compare', {baseRunId: runId, headRunId: runId}],
     ['verify-rerun', {runId, testId: 'test', attempt: 1, sandboxMode: 'none'}],
     ['verify-cleanup', {runId, dryRun: true}],
@@ -681,4 +691,494 @@ test('new modules import only node builtins and sibling files', () => {
     assert.ok(imports.length);
     for (const [, specifier] of imports) assert.match(specifier, /^(?:node:[^/]+(?:\/.+)?|\.\/[\w-]+\.mjs)$/);
   }
+});
+
+function dirtySnapshot(repo) {
+  fs.writeFileSync(path.join(repo.cwd, 'tracked.txt'), 'modified\n');
+  fs.unlinkSync(path.join(repo.cwd, 'tests/a.test.mjs'));
+  fs.writeFileSync(path.join(repo.cwd, 'new\tfile.txt'), 'untracked\n');
+  fs.mkdirSync(path.join(repo.cwd, 'ignored'));
+  fs.writeFileSync(path.join(repo.cwd, 'ignored/local'), 'excluded\n');
+  repo.snapshot();
+  return {...repo.input, role: 'head', snapshotWorkingTree: true};
+}
+
+test('snapshot leaves refs, index, reflog and working files byte- and mtime-identical', async t => {
+  const repo = makeRepo(t);
+  const result = await start(t, repo, dirtySnapshot(repo));
+  if (!result) return;
+  assert.equal(result.state, 'succeeded');
+  assert.equal(git(result.worktree.path, 'rev-parse', 'HEAD'), result.snapshot.commit);
+  assert.equal(git(result.worktree.path, 'rev-parse', 'HEAD^{tree}'), result.snapshot.tree);
+  assert.equal(git(repo.cwd, 'rev-parse', result.commit + '^'), repo.revision);
+  assert.equal(fs.readFileSync(path.join(result.worktree.path, 'tracked.txt'), 'utf8'), 'modified\n');
+  assert.equal(fs.existsSync(path.join(result.worktree.path, 'tests/a.test.mjs')), false);
+  for (const filename of ['snapshot.index', 'run.json', 'heartbeat.json', 'result.json']) {
+    assert.equal(fs.statSync(runFile(repo, result.runId, filename)).mode & 0o777, 0o600, filename);
+  }
+});
+
+test('snapshot reports included and excluded ignored paths', async t => {
+  const repo = makeRepo(t);
+  const result = await start(t, repo, dirtySnapshot(repo));
+  if (!result) return;
+  assert.deepEqual(result.snapshot.included, [
+    {status: 'A', path: 'new\tfile.txt'}, {status: 'D', path: 'tests/a.test.mjs'}, {status: 'M', path: 'tracked.txt'}
+  ]);
+  assert.deepEqual(result.snapshot.excluded, {ignored: ['ignored/'], submodules: []});
+});
+
+test('same tree yields same snapshot OID', async t => {
+  const repo = makeRepo(t);
+  const input = dirtySnapshot(repo);
+  const first = await start(t, repo, input);
+  if (!first) return;
+  const second = await start(t, repo, input);
+  assert.notEqual(second.runId, first.runId);
+  assert.equal(second.snapshot.tree, first.snapshot.tree);
+  assert.equal(second.snapshot.commit, first.snapshot.commit);
+  assert.equal(git(repo.cwd, 'show', '-s', '--format=%s', first.snapshot.commit), 'arc-verify snapshot');
+});
+
+test('snapshot with HEAD mismatch denies revision_mismatch', t => {
+  const repo = makeRepo(t);
+  const [exit, result] = runCli('verify-start', repo.cwd, {...dirtySnapshot(repo), revision: repo.first});
+  assert.deepEqual([exit, result.decision, result.code], [2, 'deny', 'revision_mismatch']);
+});
+
+test('snapshot failure holds snapshot_failed and keeps temp index', async t => {
+  const repo = makeRepo(t);
+  const result = await verifyStart({cwd: repo.cwd, input: dirtySnapshot(repo), env: cleanEnv}, {
+    beforeSnapshotWriteTree() { throw Error('fixture write-tree failure'); }
+  });
+  assert.deepEqual([result.decision, result.code], ['hold', 'snapshot_failed']);
+  const index = runFile(repo, result.runId, 'snapshot.index');
+  assert.ok(fs.statSync(index).isFile());
+  assert.equal(fs.statSync(index).mode & 0o777, 0o600);
+});
+
+test('dirty submodule content is reported in excluded.submodules', async t => {
+  const source = makeRepo(t);
+  const repo = makeRepo(t);
+  git(repo.cwd, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', source.cwd, 'nested repo');
+  git(repo.cwd, 'commit', '-qm', 'add submodule');
+  const revision = git(repo.cwd, 'rev-parse', 'HEAD');
+  fs.writeFileSync(path.join(repo.cwd, 'nested repo/tracked.txt'), 'dirty\n');
+  repo.snapshot();
+  const result = await start(t, repo, {...repo.input, role: 'head', revision, snapshotWorkingTree: true});
+  if (!result) return;
+  assert.deepEqual(result.snapshot.excluded.submodules, ['nested repo']);
+  assert.deepEqual(result.snapshot.included, []);
+});
+
+function gatedRun(repo, name = 'gate') {
+  const gate = path.join(repo.common, name);
+  const task = js(`
+    const fs = require('node:fs');
+    const poll = setInterval(() => {
+      if (fs.existsSync(process.argv[1])) clearInterval(poll);
+    }, 10);
+  `, gate);
+  const release = () => fs.writeFileSync(gate, '');
+  repo.teardown.push(release);
+  return {
+    input: {...repo.input, role: 'head',
+      commands: [{id: 'gate', ...task, timeoutMs: 9000, results: {format: 'none'}}]},
+    release
+  };
+}
+
+function status(repo, runId, waitMs = 0, now = Date.now) {
+  return verifyStatus({cwd: repo.cwd, input: {runId, waitMs}, env: cleanEnv, now});
+}
+
+async function until(read, accept, ms = 6500) {
+  const deadline = performance.now() + ms;
+  do {
+    const value = await read();
+    if (accept(value)) return value;
+    await delay(25);
+  } while (performance.now() < deadline);
+  assert.fail('Timed out waiting for fixture state');
+}
+
+function pidGone(pid) {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    assert.equal(error.code, 'ESRCH');
+    return true;
+  }
+}
+
+function trackDetached(repo, result) {
+  if (result.decision !== 'allow' || !['queued', 'preparing'].includes(result.state)) return;
+  assert.ok(Number.isInteger(result.pid) && result.pid > 0 && result.pid !== process.pid);
+  repo.teardown.push(async () => {
+    await until(() => pidGone(result.pid), Boolean, 11000);
+    assert.throws(() => process.kill(result.pid, 0), {code: 'ESRCH'});
+  });
+}
+
+async function detach(t, repo, input, internal) {
+  const result = await start(t, repo, {...input, detach: true}, internal);
+  if (result) trackDetached(repo, result);
+  return result;
+}
+
+function running(repo, runId) {
+  return until(() => status(repo, runId), value =>
+    value.state === 'unknown' || value.state === 'failed' ||
+    value.state === 'running' && value.children.some(child => child.phase === 'commands'));
+}
+
+test('detach start returns queued or preparing immediately and status waits to succeeded', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const result = await detach(t, repo, gate.input);
+  if (!result) return;
+  assert.equal(result.state, 'preparing');
+  assert.equal((await running(repo, result.runId)).state, 'running');
+  const waiting = status(repo, result.runId, 7000);
+  gate.release();
+  assert.equal((await waiting).state, 'succeeded');
+});
+
+test('other commands work while detached run is active', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const result = await detach(t, repo, gate.input);
+  if (!result) return;
+  assert.equal((await running(repo, result.runId)).state, 'running');
+  const [exit, current] = runCli('verify-status', repo.cwd, {runId: result.runId});
+  assert.deepEqual([exit, current.decision, current.state], [0, 'allow', 'running']);
+  gate.release();
+});
+
+test('heartbeat updates while detached run is running', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const result = await detach(t, repo, gate.input);
+  if (!result) return;
+  const before = await running(repo, result.runId);
+  assert.equal(before.state, 'running');
+  const after = await until(() => status(repo, result.runId), value => Date.parse(value.heartbeatAt) > Date.parse(before.heartbeatAt));
+  assert.equal(after.state, 'running');
+  assert.equal(after.pid, result.pid);
+});
+
+test('killed runner reports unknown with child pids and no restart', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const result = await detach(t, repo, gate.input);
+  if (!result) return;
+  const live = await running(repo, result.runId);
+  assert.equal(live.state, 'running');
+  const child = live.children.find(entry => entry.phase === 'commands');
+  assert.ok(child.pid > 0);
+  repo.teardown.push(() => until(() => pidGone(child.pid), Boolean));
+  process.kill(result.pid, 'SIGKILL');
+  await until(() => pidGone(result.pid), Boolean);
+  assert.equal(pidGone(child.pid), false);
+  const at = new Date(Date.now() - 15001).toISOString();
+  fs.writeFileSync(runFile(repo, result.runId, 'heartbeat.json'), JSON.stringify({at, pid: result.pid}));
+  for (const elapsed of [15001, 30002]) {
+    const dead = await status(repo, result.runId, 0, Date.parse(at) + elapsed);
+    assert.deepEqual([dead.state, dead.pid, dead.children], ['unknown', result.pid, live.children]);
+  }
+  assert.deepEqual(fs.readdirSync(path.join(repo.store, 'runs')), [result.runId]);
+  gate.release();
+});
+
+test('stale heartbeat boundary 15000ms reports unknown only after the boundary', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const result = await detach(t, repo, gate.input);
+  if (!result) return;
+  const current = await running(repo, result.runId);
+  assert.equal(current.state, 'running');
+  const at = Date.parse(current.heartbeatAt);
+  for (const [elapsed, expected] of [[14999, 'running'], [15000, 'running'], [15001, 'unknown']]) {
+    assert.equal((await status(repo, result.runId, 0, at + elapsed)).state, expected);
+  }
+});
+
+test('unreadable run.json reports unknown', async t => {
+  const repo = makeRepo(t);
+  const result = await start(t, repo);
+  if (!result) return;
+  fs.writeFileSync(runFile(repo, result.runId), '{');
+  assert.equal((await status(repo, result.runId)).state, 'unknown');
+});
+
+for (const declaredConcurrent of [false, true]) {
+  test(declaredConcurrent ? 'declaredConcurrent does not bypass queue but marks contended' : 'second start queues behind active run', async t => {
+    const repo = makeRepo(t);
+    const gate = gatedRun(repo);
+    const first = await detach(t, repo, gate.input);
+    if (!first) return;
+    assert.equal((await running(repo, first.runId)).state, 'running');
+    const second = await detach(t, repo, {...gate.input, declaredConcurrent});
+    assert.deepEqual([second.state, second.queuedBehind], ['queued', [first.runId]]);
+    assert.equal((await status(repo, second.runId)).state, 'queued');
+    gate.release();
+    const finished = await status(repo, second.runId, 7000);
+    assert.equal(finished.state, 'succeeded');
+    assert.deepEqual(finished.load.overlaps, []);
+    if (declaredConcurrent) assert.equal(finished.load.class, 'contended');
+  });
+}
+
+function startCliAsync(repo, input) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cli, 'verify-start', '--cwd', repo.cwd, '--workflow', workflowId, '--input', '-'], {
+      env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
+    child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', exit => {
+      if (!stdout) return reject(Error('verify-start did not report a result: ' + stderr));
+      try {
+        const result = JSON.parse(stdout);
+        trackDetached(repo, result);
+        resolve([exit, result]);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    child.stdin.end(JSON.stringify(input));
+  });
+}
+
+test('concurrent starts serialize through the queue and share machine id', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const input = {...gate.input, detach: true};
+  const starts = await Promise.all([startCliAsync(repo, input), startCliAsync(repo, input)]);
+  for (const [exit, result] of starts) assert.deepEqual([exit, result.decision], [0, 'allow'], JSON.stringify(result));
+  const [first, second] = starts.map(([, value]) => value).sort((a, b) => a.queuedBehind.length - b.queuedBehind.length);
+  assert.deepEqual([first.state, second.state, second.queuedBehind], ['preparing', 'queued', [first.runId]]);
+  const machine = readJson(runFile(repo, first.runId)).machineId;
+  assert.ok(machine);
+  assert.equal(readJson(runFile(repo, second.runId)).machineId, machine);
+  gate.release();
+  assert.equal((await status(repo, second.runId, 7000)).state, 'succeeded');
+});
+
+test('foreground run follows the same queue', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const first = await detach(t, repo, gate.input);
+  if (!first) return;
+  const pending = start(t, repo, gate.input);
+  repo.teardown.push(() => pending);
+  const queued = await until(() => fs.readdirSync(path.join(repo.store, 'runs')).find(id => id !== first.runId &&
+    fs.existsSync(runFile(repo, id))), Boolean, 3500);
+  assert.equal((await status(repo, queued)).state, 'queued');
+  gate.release();
+  const second = await pending;
+  assert.deepEqual([second.state, second.queuedBehind], ['succeeded', [first.runId]]);
+});
+
+test('slow worktree Git keeps heartbeat fresh and the next run queued', async t => {
+  const repo = makeRepo(t);
+  const entered = path.join(repo.common, 'smudge-entered');
+  const release = path.join(repo.common, 'smudge-release');
+  const filter = path.join(repo.common, 'slow-smudge.cjs');
+  fs.writeFileSync(filter, `
+    const fs = require('node:fs');
+    const contents = fs.readFileSync(0);
+    fs.writeFileSync(process.argv[2], '');
+    const deadline = Date.now() + 2500;
+    const timer = setInterval(() => {
+      if (!fs.existsSync(process.argv[3]) && Date.now() < deadline) return;
+      clearInterval(timer);
+      process.stdout.write(contents);
+    }, 10);
+  `);
+  repo.teardown.push(() => fs.writeFileSync(release, ''));
+  const smudge = [process.execPath, filter, entered, release].map(arg => JSON.stringify(arg)).join(' ');
+  git(repo.cwd, 'config', 'filter.slow.smudge', smudge);
+  fs.writeFileSync(path.join(repo.cwd, '.gitattributes'), 'tracked.txt filter=slow\n');
+  git(repo.cwd, 'add', '.gitattributes');
+  git(repo.cwd, 'commit', '-qm', 'add slow smudge filter');
+  repo.input.revision = git(repo.cwd, 'rev-parse', 'HEAD');
+  repo.snapshot();
+
+  const internal = {heartbeatIntervalMs: 35, heartbeatStaleMs: 450};
+  const input = {...repo.input, role: 'head'};
+  const first = start(t, repo, input, internal);
+  repo.teardown.push(() => first);
+  await until(() => fs.existsSync(entered), Boolean);
+  const runs = path.join(repo.store, 'runs');
+  const [firstId] = fs.readdirSync(runs);
+  const firstStatus = () => verifyStatus({cwd: repo.cwd, input: {runId: firstId}, env: cleanEnv}, internal);
+  const before = await firstStatus();
+
+  const second = start(t, repo, input, internal);
+  repo.teardown.push(() => second);
+  const other = await until(() => fs.readdirSync(runs).find(id => id !== firstId && fs.existsSync(runFile(repo, id))), Boolean);
+  await delay(internal.heartbeatStaleMs);
+  const during = await firstStatus();
+  assert.equal(during.state, 'preparing');
+  assert.equal(during.phases.find(phase => phase.name === 'worktree').endedAt, null);
+  assert.ok(Date.parse(during.heartbeatAt) > Date.parse(before.heartbeatAt));
+  const queued = await status(repo, other);
+  assert.deepEqual([queued.state, queued.queuedBehind], ['queued', [firstId]]);
+
+  fs.writeFileSync(release, '');
+  const finished = await Promise.all([first, second]);
+  assert.deepEqual(finished.map(run => run.state), ['succeeded', 'succeeded']);
+});
+
+function queueLock(repo, {pid = process.pid, hostname = os.hostname()} = {}) {
+  fs.mkdirSync(repo.store, {recursive: true, mode: 0o700});
+  const filename = path.join(repo.store, 'queue.lock');
+  fs.writeFileSync(filename, JSON.stringify({pid, hostname, createdAt: new Date().toISOString()}), {mode: 0o600});
+  return filename;
+}
+
+test('published queue lock contains its owner immediately', async t => {
+  const repo = makeRepo(t);
+  const lock = path.join(repo.store, 'queue.lock');
+  const published = [];
+  const open = fs.openSync;
+  const link = fs.linkSync;
+  t.mock.method(fs, 'openSync', (filename, flags, ...args) => {
+    const fd = open(filename, flags, ...args);
+    if (filename === lock && flags === 'wx') published.push(fs.readFileSync(lock, 'utf8'));
+    return fd;
+  });
+  t.mock.method(fs, 'linkSync', (source, dest) => {
+    link(source, dest);
+    if (dest === lock) published.push(fs.readFileSync(lock, 'utf8'));
+  });
+  assert.equal((await start(t, repo)).state, 'succeeded');
+  assert.equal(published.length, 1);
+  assert.ok(published[0], 'queue.lock became visible before its owner was written');
+  const owner = JSON.parse(published[0]);
+  assert.deepEqual([owner.pid, owner.hostname], [process.pid, os.hostname()]);
+  assert.ok(Number.isFinite(Date.parse(owner.createdAt)));
+  assert.deepEqual(fs.readdirSync(repo.store).filter(name => name.startsWith('queue.lock')), []);
+});
+
+test('ownerless queue lock temporary files do not block start', async t => {
+  const repo = makeRepo(t);
+  fs.mkdirSync(repo.store, {recursive: true, mode: 0o700});
+  const orphan = path.join(repo.store, 'queue.lock.0123456789abcdef.tmp');
+  const writing = path.join(repo.store, 'queue.lock.0123456789fedcba.tmp');
+  fs.writeFileSync(orphan, '', {mode: 0o600});
+  const fd = fs.openSync(writing, 'wx', 0o600);
+  try {
+    assert.equal((await start(t, repo)).state, 'succeeded');
+    assert.equal(fs.statSync(writing).isFile(), true);
+  } finally {
+    fs.closeSync(fd);
+  }
+});
+
+test('dead queue lock owner is reclaimed by concurrent starts', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const dead = spawnSync(process.execPath, ['-e', '']);
+  assert.equal(dead.status, 0);
+  assert.throws(() => process.kill(dead.pid, 0), {code: 'ESRCH'});
+  const lock = queueLock(repo, {pid: dead.pid});
+  const started = performance.now();
+  const results = await Promise.all([
+    startCliAsync(repo, {...gate.input, detach: true}),
+    startCliAsync(repo, {...gate.input, detach: true})
+  ]);
+  for (const [exit, result] of results) assert.deepEqual([exit, result.decision], [0, 'allow'], JSON.stringify(result));
+  assert.ok(performance.now() - started < 5000);
+  const [first, second] = results.map(([, result]) => result).sort((a, b) => a.queuedBehind.length - b.queuedBehind.length);
+  assert.deepEqual([first.state, second.state, second.queuedBehind], ['preparing', 'queued', [first.runId]]);
+  gate.release();
+  assert.equal((await status(repo, second.runId, 7000)).state, 'succeeded');
+  assert.equal(fs.existsSync(lock), false);
+});
+
+test('live queue lock owner blocks admission until release', async t => {
+  const repo = makeRepo(t);
+  const lock = queueLock(repo);
+  let completed = false;
+  const pending = start(t, repo).finally(() => { completed = true; });
+  try {
+    const runs = path.join(repo.store, 'runs');
+    await until(() => fs.existsSync(runs), Boolean);
+    await delay(300);
+    assert.equal(completed, false);
+    assert.equal(readJson(lock).pid, process.pid);
+    assert.deepEqual(fs.readdirSync(runs).filter(id => fs.existsSync(runFile(repo, id))), []);
+  } finally {
+    if (fs.existsSync(lock)) fs.unlinkSync(lock);
+    await pending;
+  }
+  assert.equal((await pending).state, 'succeeded');
+});
+
+test('unverifiable queue lock owner holds with the reason and preserves the lock', async t => {
+  const foreign = makeRepo(t);
+  const unreadable = makeRepo(t);
+  const remoteLock = queueLock(foreign, {hostname: os.hostname() + '-other'});
+  const invalidLock = queueLock(unreadable);
+  fs.writeFileSync(invalidLock, '{');
+  await Promise.all([[foreign, remoteLock, /another host/i], [unreadable, invalidLock, /unreadable/i]].map(async ([repo, lock, reason]) => {
+    const original = fs.readFileSync(lock);
+    const result = await verifyStart({cwd: repo.cwd, input: repo.input, env: cleanEnv}, {queueLockWaitMs: 200});
+    assert.deepEqual([result.decision, result.code], ['hold', 'storage_unavailable']);
+    assert.match(result.message, reason);
+    assert.deepEqual(fs.readFileSync(lock), original);
+  }));
+});
+
+test('samples are recorded at LOAD_SAMPLE_MS', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  let observed = false;
+  const pending = start(t, repo, gate.input, {sampleMs: 25, loadavg: () => {
+    if (!observed) { observed = true; return loadavg(); }
+    return [1e6, 0, 0];
+  }});
+  repo.teardown.push(() => pending);
+  const runs = path.join(repo.store, 'runs');
+  const runId = await until(() => fs.existsSync(runs) && fs.readdirSync(runs).find(id => fs.existsSync(runFile(repo, id))), Boolean);
+  assert.equal((await running(repo, runId)).state, 'running');
+  await delay(100);
+  gate.release();
+  const result = await pending;
+  assert.equal(result.load.class, 'contended');
+  assert.ok(result.load.samples.length > 1);
+  assert.ok(result.load.samples.every(sample => sample.loadavg[0] === 1e6 && sample.freemem > 0 && Number.isFinite(Date.parse(sample.at))));
+});
+
+test('overlapping runs are recorded in overlaps', async t => {
+  const repo = makeRepo(t);
+  const first = gatedRun(repo, 'first-gate');
+  const second = gatedRun(repo, 'second-gate');
+  const firstPending = start(t, repo, first.input, {sampleMs: 25});
+  repo.teardown.push(() => firstPending);
+  const runs = path.join(repo.store, 'runs');
+  const firstId = await until(() => fs.existsSync(runs) && fs.readdirSync(runs).find(id => fs.existsSync(runFile(repo, id))), Boolean);
+  const started = await running(repo, firstId);
+  assert.equal(started.state, 'running');
+  // A second runner can start after the first heartbeat goes stale.
+  fs.writeFileSync(runFile(repo, firstId, 'heartbeat.json'), JSON.stringify({
+    at: new Date(Date.now() - 16000).toISOString(), pid: started.pid
+  }));
+  const secondPending = start(t, repo, second.input, {sampleMs: 25});
+  repo.teardown.push(() => secondPending);
+  const secondId = await until(() => fs.readdirSync(runs).find(id => id !== firstId && fs.existsSync(runFile(repo, id))), Boolean);
+  assert.equal((await running(repo, secondId)).state, 'running');
+  await until(() => status(repo, firstId), value => value.load?.overlaps.includes(secondId));
+  await until(() => status(repo, secondId), value => value.load?.overlaps.includes(firstId));
+  first.release();
+  second.release();
+  const [a, b] = await Promise.all([firstPending, secondPending]);
+  assert.deepEqual([a.load.class, a.load.overlaps], ['contended', [secondId]]);
+  assert.deepEqual([b.load.class, b.load.overlaps], ['contended', [firstId]]);
 });
