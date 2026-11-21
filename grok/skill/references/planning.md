@@ -66,7 +66,7 @@ For initial fast judgment apply the [fast gate](handoff.md#orchestrator-direct-p
 
 Apply Planner rules: ID/title, goal/scope/files, predecessors/dependencies, criteria, required pre-acceptance QA/checks/evidence and holds. Tasks MUST be independently implementable/verifiable/acceptable. Inseparable policy/profile/tests/manifest contracts start in one task. If inseparability appears later, stop for revised scope/planning/approvals; NEVER merge distinct approved tasks during execution.
 
-Substeps/checkboxes/RED-GREEN/commands are not commits. One top-level task becomes one focused commit after acceptance; [commit](commit.md) governs no-change/hold/resume. Reviewer is never a per-task check. Final whole verification has separate scope/timing; significant work lists one Reviewer after all task acceptances/risk checks. Task boundaries alone add no QA. Apply only to required plans; omission paths gain no plan obligation.
+Substeps/checkboxes/RED-GREEN/commands are not commits. One top-level task becomes one focused commit after acceptance; [commit](commit.md) governs no-change/hold/resume. Reviewer is never a per-task check. Final whole verification has separate scope/timing; significant work lists one Reviewer after all task acceptances/risk checks. Task boundaries alone add no QA. Apply only to required plans; omission paths gain no plan obligation. Plans list per-task related tests with reasons and a final verification section per [verification](verification.md#test-scope-and-result-comparison).
 
 <a id="dependency-and-readiness-record"></a>
 ## Dependency and readiness record
