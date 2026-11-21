@@ -4,22 +4,24 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import {spawn, spawnSync} from 'node:child_process';
+import {execFile, spawn, spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {promisify} from 'node:util';
 import {GROK_CONTRACT, normalizeGrokStreamEvent, evaluateGrokObservation} from './grok-stream.mjs';
 import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline, readGrokProfileApplied, grokConfigSecurityProjection} from './grok-sandbox.mjs';
 import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
-import {DEFAULT_POLICY, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
+import {DEFAULT_POLICY, DESCENDANT_LIMIT, DESCENDANT_SAMPLE_MS, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
 import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routing.mjs';
 import {resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
 import {parseCompositeProfile, buildBridgeArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
-import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, detectViolations, allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
+import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, observeHeadAdvance, detectViolations, toleratedRecord, allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
 import {getPlatform, routingProfileFile} from './platform-registry.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const sha256 = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 const STDERR_LIMIT = 65536;
+const execFileAsync = promisify(execFile);
 
 export const SUPERVISOR_IMPLEMENTATIONS = new Map([
   ['claude', {
@@ -77,16 +79,192 @@ export const SUPERVISOR_IMPLEMENTATIONS = new Map([
 ]);
 export const SUPERVISOR_PLATFORM_IDS = Object.freeze([...SUPERVISOR_IMPLEMENTATIONS.keys()]);
 
+const normalizePsWhitespace = value => value.trim().replace(/\s+/g, ' ');
+
 /** `ps -o lstart=` start time; used with the pid to tell a live process from a reused pid. Null when ps is unavailable or the pid is gone. */
 export function processStartTime(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   const result = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], {encoding: 'utf8', env: {PATH: process.env.PATH ?? '/usr/bin:/bin', LC_ALL: 'C'}, timeout: 5000});
   if (result.error || result.status !== 0) return null;
-  return result.stdout.trim().replace(/\s+/g, ' ') || null;
+  return normalizePsWhitespace(result.stdout) || null;
 }
 export function processAlive({pid, startTime} = {}) {
   const current = processStartTime(pid);
   return current !== null && current === startTime;
+}
+
+const LSTART = /[A-Z][a-z]{2} [A-Z][a-z]{2} [1-9]\d? \d{2}:\d{2}:\d{2} \d{4}/;
+const PROCESS_ROW = new RegExp(`^(\\d+) (\\d+) (\\d+) (${LSTART.source})(?: (\\d+) ([A-Za-z]\\S*))?$`);
+const validPid = pid => Number.isInteger(pid) && pid > 0 && pid <= 0x7fffffff;
+const sameStart = (row, entry) => row?.startTime === entry.startTime;
+const processEntry = ({pid, ppid, pgid, startTime}) => ({pid, ppid, pgid, startTime});
+
+export function parseProcessTable(stdout) {
+  const entries = [];
+  for (const line of stdout.split('\n')) {
+    const match = PROCESS_ROW.exec(normalizePsWhitespace(line));
+    if (!match) continue;
+    const [, pid, ppid, pgid, startTime, uid, stat] = match;
+    const entry = {pid: Number(pid), ppid: Number(ppid), pgid: Number(pgid), startTime};
+    if (!validPid(entry.pid) || (entry.ppid !== 0 && !validPid(entry.ppid)) || !validPid(entry.pgid)) continue;
+    if (stat?.startsWith('Z')) continue;
+    entries.push(uid === undefined ? entry : {...entry, uid: Number(uid)});
+  }
+  return entries;
+}
+
+export async function sampleProcessTable({timeoutMs = 5000} = {}) {
+  try {
+    const {stdout} = await execFileAsync('ps', ['-A', '-o', 'pid=,ppid=,pgid=,lstart=,uid=,stat='], {
+      encoding: 'utf8', env: {PATH: process.env.PATH ?? '/usr/bin:/bin', LC_ALL: 'C'}, timeout: timeoutMs,
+    });
+    return parseProcessTable(stdout);
+  } catch { return null; }
+}
+
+function supervisorLineage(byPid, selfPid) {
+  const excluded = new Set([selfPid]);
+  let parent = byPid.get(selfPid)?.ppid ?? (selfPid === process.pid ? process.ppid : 0);
+  while (validPid(parent) && !excluded.has(parent)) {
+    excluded.add(parent);
+    parent = byPid.get(parent)?.ppid;
+  }
+  return excluded;
+}
+
+export function createDescendantTracker({rootPid, rootPgid, selfPid, limit = DESCENDANT_LIMIT}) {
+  const tracked = new Map();
+  let root, truncated = false;
+  const entries = () => [...tracked.values()];
+  return {
+    get rootStartTime() { return root?.startTime; },
+    get truncated() { return truncated; },
+    entries,
+    escaped: () => entries().filter(entry => entry.pgid !== rootPgid),
+    update(table) {
+      const byPid = new Map(table.map(entry => [entry.pid, entry]));
+      const excluded = supervisorLineage(byPid, selfPid);
+      const currentRoot = byPid.get(rootPid);
+      const rootInPlace = currentRoot?.ppid === selfPid && currentRoot.pgid === rootPgid;
+      if (!root && rootInPlace) root = processEntry(currentRoot);
+      const children = new Map();
+      for (const entry of table) {
+        if (excluded.has(entry.pid) || entry.pid === rootPid) continue;
+        if (!children.has(entry.ppid)) children.set(entry.ppid, []);
+        children.get(entry.ppid).push(entry);
+      }
+      // Seed the walk only with identities still present in this sample.
+      const parents = [];
+      if (root && rootInPlace && sameStart(currentRoot, root)) parents.push(rootPid);
+      for (const entry of tracked.values()) {
+        const current = byPid.get(entry.pid);
+        if (excluded.has(entry.pid) || !sameStart(current, entry)) {
+          tracked.delete(entry.pid);
+          continue;
+        }
+        tracked.set(entry.pid, processEntry(current));
+        parents.push(entry.pid);
+      }
+      for (const parent of parents) {
+        for (const entry of children.get(parent) ?? []) {
+          if (tracked.has(entry.pid)) continue;
+          if (tracked.size >= limit) { truncated = true; continue; }
+          tracked.set(entry.pid, processEntry(entry));
+          parents.push(entry.pid);
+        }
+      }
+    },
+  };
+}
+
+export async function reapDescendants(entries, {sample = sampleProcessTable, kill = process.kill, graceMs = DEFAULT_POLICY.cancelGraceMs, timeoutMs = 500, truncated = false} = {}) {
+  const observed = entries.length, denied = new Set();
+  const uid = process.geteuid?.();
+  const readSample = async () => {
+    try {
+      const table = await sample();
+      return Array.isArray(table) ? new Map(table.map(entry => [entry.pid, entry])) : null;
+    } catch { return null; }
+  };
+  const signal = (targets, table, name) => {
+    const excluded = supervisorLineage(table, process.pid);
+    const eligible = [];
+    const send = target => {
+      try { kill(target, name); }
+      catch (error) {
+        // A group error does not identify which members are still alive.
+        if (target > 0 && error.code === 'EPERM') denied.add(target);
+      }
+    };
+    for (const entry of targets) {
+      const {pid} = entry, current = table.get(pid);
+      if (!sameStart(current, entry) || denied.has(pid)) continue;
+      if (pid <= 1 || excluded.has(pid) || (current.uid !== undefined && current.uid !== uid)) {
+        denied.add(pid);
+        continue;
+      }
+      eligible.push(entry);
+      send(pid);
+    }
+    const eligiblePids = new Set(eligible.map(entry => entry.pid));
+    const blockedGroups = new Set();
+    for (const member of table.values()) {
+      if (!eligiblePids.has(member.pid) || denied.has(member.pid)) blockedGroups.add(member.pgid);
+    }
+    for (const {pid, pgid} of eligible) {
+      if (pgid === pid && table.get(pid).pgid === pid && !blockedGroups.has(pid)) send(-pid);
+    }
+  };
+  const summary = survived => ({observed, reaped: observed - survived, survived, truncated});
+  if (!observed) return summary(0);
+  let table = await readSample();
+  if (!table) return summary(observed);
+  let remaining = entries.filter(entry => sameStart(table.get(entry.pid), entry));
+  signal(remaining, table, 'SIGTERM');
+  if (!remaining.some(entry => !denied.has(entry.pid))) return summary(denied.size);
+  if (graceMs > 0) await sleep(graceMs);
+  table = await readSample();
+  if (!table) return summary(remaining.length);
+  remaining = remaining.filter(entry => denied.has(entry.pid) || sameStart(table.get(entry.pid), entry));
+  signal(remaining, table, 'SIGKILL');
+  const deadline = Date.now() + timeoutMs;
+  while (remaining.some(entry => !denied.has(entry.pid))) {
+    table = await readSample();
+    if (!table) break;
+    remaining = remaining.filter(entry => denied.has(entry.pid) || sameStart(table.get(entry.pid), entry));
+    const wait = deadline - Date.now();
+    if (wait <= 0 || !remaining.some(entry => !denied.has(entry.pid))) break;
+    await sleep(Math.min(25, wait));
+  }
+  return summary(remaining.length);
+}
+
+const DESCENDANTS_FILE = 'descendants.json';
+const DESCENDANT_START = new RegExp(`^${LSTART.source}$`);
+export const descendantRecord = stats => stats && (stats.observed > 0 || stats.truncated) ? {escapedDescendants: stats} : {};
+
+export async function reapRecordedDescendants(artifactDir, lease, options) {
+  let file;
+  try {
+    file = await fsp.open(path.join(artifactDir, DESCENDANTS_FILE), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    const stat = await file.stat();
+    if (!stat.isFile() || stat.uid !== process.geteuid?.() || stat.size > 65536) return {};
+    const snapshot = JSON.parse(await file.readFile('utf8'));
+    const {version, dispatchId, segment, rootPid, rootPgid, rootStartTime, truncated, entries} = snapshot;
+    // Bind the snapshot to its lease. Tampering by a user with the same UID is outside this boundary.
+    if (Object.keys(snapshot).length !== 8 || version !== 1 || dispatchId !== lease.dispatchId || segment !== (lease.segment ?? 0) || !validPid(rootPid) || rootPid !== lease.child?.pid || rootPgid !== rootPid) return {};
+    const recordedStart = typeof rootStartTime === 'string' ? normalizePsWhitespace(rootStartTime) : '';
+    const leaseStart = lease.child?.startTime;
+    if (!DESCENDANT_START.test(recordedStart) || typeof leaseStart !== 'string' || recordedStart !== normalizePsWhitespace(leaseStart)) return {};
+    if (typeof truncated !== 'boolean' || !Array.isArray(entries) || entries.length > DESCENDANT_LIMIT) return {};
+    const seen = new Set([rootPid]);
+    for (const entry of entries) {
+      if (!entry || Object.keys(entry).length !== 4 || !validPid(entry.pid) || entry.pid <= 1 || seen.has(entry.pid) || !validPid(entry.ppid) || !validPid(entry.pgid) || typeof entry.startTime !== 'string' || !DESCENDANT_START.test(entry.startTime)) return {};
+      seen.add(entry.pid);
+    }
+    return descendantRecord(await reapDescendants(entries.filter(entry => entry.pgid !== rootPgid), {...options, truncated}));
+  } catch { return {}; }
+  finally { await file?.close().catch(() => {}); }
 }
 
 export {resolveWorktree};
@@ -153,6 +331,10 @@ export async function startSupervisor({codexHome, dispatchId, cwd, userHome, env
 export async function runSupervisor(options) {
   const {codexHome, dispatchId, cwd, userHome, env = process.env, policy = DEFAULT_POLICY} = options;
   const heartbeatMs = options.heartbeatMs ?? policy.heartbeatMs, graceMs = options.graceMs ?? policy.cancelGraceMs;
+  const descendantSampleMs = options.descendantSampleMs ?? policy.descendantSampleMs ?? DESCENDANT_SAMPLE_MS;
+  const descendantLimit = Math.min(options.descendantLimit ?? policy.descendantLimit ?? DESCENDANT_LIMIT, DESCENDANT_LIMIT);
+  const sampleProcesses = options.sampleProcesses ?? sampleProcessTable;
+  const stopSignal = options.stopSignal;
   const eventsMax = options.eventsMaxBytes ?? policy.eventsMaxBytes, codexWaitMs = options.codexWaitMs ?? 10000;
   const lockRetryMs = options.lockRetryMs ?? policy.lockRetryMs, lockDeadlineMs = options.lockDeadlineMs ?? 30000;
   const startedAt = new Date().toISOString();
@@ -225,13 +407,55 @@ export async function runSupervisor(options) {
     await writeRecord({state: 'failed', reasons: codes, spawned: spawned !== null, ...(spawned !== null ? {childPid: spawned} : {}), ...extra}).catch(() => {});
     await commit('failed', codes, claims);
   };
-  const failWithProfileCleanup = (code, spawned = null) => {
+  const failWithProfileCleanup = (code, spawned = null, extra = {}) => {
     cleanGrokProfile();
-    return earlyFailure(code, spawned, grokProfileRecord());
+    return earlyFailure(code, spawned, {...grokProfileRecord(), ...extra});
   };
 
   let child = null, eventsFd = null, killTimers = [], terminating = null, termAt = 0;
-  const killGroup = signal => { if (child?.pid) { try { (options.signalGroup ?? process.kill)(-child.pid, signal); } catch { /* group already gone */ } } };
+  let executionTimer, originalGroupGone;
+  const stopGroupSignals = gone => {
+    originalGroupGone = gone;
+    for (const timer of killTimers) clearTimeout(timer);
+    killTimers = [];
+  };
+  let tracker, descendantTimer, pendingSample, savedSnapshot, descendantCleanup, onStop;
+  const sampleDescendants = async () => {
+    const table = await sampleProcesses();
+    if (!Array.isArray(table)) return;
+    tracker.update(table);
+    const entries = tracker.entries();
+    if (!entries.length && !tracker.truncated && !savedSnapshot) return;
+    const snapshot = JSON.stringify({
+      version: 1, dispatchId, segment: lease.segment ?? 0, rootPid: child.pid, rootPgid: child.pid,
+      rootStartTime: tracker.rootStartTime, truncated: tracker.truncated, entries,
+    }) + '\n';
+    if (snapshot === savedSnapshot) return;
+    const file = path.join(artifactDir, DESCENDANTS_FILE);
+    const temporary = `${file}.${crypto.randomUUID()}.tmp`;
+    try {
+      await fsp.writeFile(temporary, snapshot, {mode: 0o600, flag: 'wx'});
+      await fsp.rename(temporary, file);
+      savedSnapshot = snapshot;
+    } finally { await fsp.unlink(temporary).catch(() => {}); }
+  };
+  const queueDescendantSample = () => {
+    if (!pendingSample) pendingSample = sampleDescendants().catch(() => {}).finally(() => { pendingSample = null; });
+  };
+  const finishDescendants = () => {
+    if (!tracker) return {};
+    if (!descendantCleanup) descendantCleanup = (async () => {
+      clearInterval(descendantTimer);
+      timers.delete(descendantTimer);
+      await pendingSample;
+      await sampleDescendants().catch(() => {});
+      return descendantRecord(await reapDescendants(tracker.escaped(), {
+        sample: sampleProcesses, kill: options.killProcess, graceMs, truncated: tracker.truncated,
+      }));
+    })().catch(() => ({}));
+    return descendantCleanup;
+  };
+  const killGroup = signal => { if (originalGroupGone === undefined && child?.pid) { try { (options.signalGroup ?? process.kill)(-child.pid, signal); } catch { /* group already gone */ } } };
   const groupAlive = () => { try { process.kill(-child.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
   // Terminal states are recorded only after the whole process group is observed gone: SIGKILL goes to the group after the grace period even when the leader already exited.
   const reapGroup = async () => {
@@ -303,10 +527,16 @@ export async function runSupervisor(options) {
     }
     // The child is a process-group leader so one signal reaches its descendants. The prompt uses the platform-specific input channel.
     child = spawn(cli.executable, invocation.args, {cwd: target.realpath, env: {...childEnv, ARC_BRIDGE_CHILD: dispatchId}, detached: true, stdio: ['pipe', 'pipe', 'pipe'], shell: false});
+    if (child.pid) tracker = createDescendantTracker({rootPid: child.pid, rootPgid: child.pid, selfPid: process.pid, limit: descendantLimit});
     let exitResolve, exited = false;
     const exitPromise = new Promise(resolve => { exitResolve = resolve; });
-    child.on('exit', (code, signal) => { exited = true; exitResolve({code, signal}); });
-    child.on('error', () => { exited = true; exitResolve({code: null, signal: null, spawnError: true}); });
+    const observeExit = exit => {
+      exited = true;
+      clearTimeout(executionTimer);
+      exitResolve(exit);
+    };
+    child.on('exit', (code, signal) => observeExit({code, signal}));
+    child.on('error', () => observeExit({code: null, signal: null, spawnError: true}));
     child.stdin.on('error', () => {});
     if (options.afterSpawn) await options.afterSpawn(child); // test injection point for post-spawn failures
     if (platform === 'grok') child.stdin.end();
@@ -317,15 +547,18 @@ export async function runSupervisor(options) {
     let eventsBytes = 0, eventsTruncated = false, stderrLength = 0, contextTask = null;
     const stderrParts = [];
     const terminate = why => {
-      if (terminating) return;
+      if (terminating || originalGroupGone !== undefined) return;
       terminating = why; termAt = Date.now(); killGroup('SIGTERM');
       killTimers.push(setTimeout(() => {
         killGroup('SIGKILL');
         killTimers.push(setTimeout(() => exitResolve({code: null, signal: null, unobserved: true}), graceMs));
       }, graceMs));
     };
+    onStop = () => terminate('supervisor_signal');
+    if (stopSignal?.aborted) onStop();
+    else stopSignal?.addEventListener('abort', onStop, {once: true});
     const deadline = options.timeoutMs ?? lease.timeoutMinutes * 60000;
-    timers.add(setTimeout(() => terminate('timeout'), deadline));
+    if (!exited) executionTimer = setTimeout(() => terminate('timeout'), deadline);
     let cancelBusy = false;
     timers.add(setInterval(async () => {
       if (cancelBusy || terminating || exited) return;
@@ -420,8 +653,10 @@ export async function runSupervisor(options) {
         if (!mine(current)) throw Error('Lease changed before the child was recorded');
         await writeLease(codexHome, {...current, state: 'running', child: {pid: child.pid, startTime}}, {runtimePlatforms});
       });
+      queueDescendantSample();
+      descendantTimer = setInterval(queueDescendantSample, descendantSampleMs);
+      timers.add(descendantTimer);
     } catch { state.internal = 'execution_failed'; terminate('internal'); }
-
 
     let exit = await exitPromise;
     // A cancel request whose own SIGTERM stopped the child before the marker poll ran still counts as a cancel, and the group is reaped the same way.
@@ -430,18 +665,19 @@ export async function runSupervisor(options) {
     let orphanGroupReaped = false;
     if (!termAt && !exit.unobserved && child?.pid && groupAlive()) { orphanGroupReaped = true; termAt = Date.now(); killGroup('SIGTERM'); }
     if (termAt && !exit.unobserved && !await reapGroup()) exit = {code: null, signal: null, unobserved: true};
+    stopGroupSignals(!exit.unobserved);
+    const escapes = await finishDescendants();
     await Promise.race([stdoutClosed, sleep(1000)]);
     parser.end();
     if (contextTask) await contextTask;
     for (const timer of timers) { clearInterval(timer); clearTimeout(timer); }
-    for (const timer of killTimers) clearTimeout(timer);
-    timers.clear(); killTimers = [];
+    timers.clear();
     fs.closeSync(eventsFd); eventsFd = null;
 
     if (exit.unobserved) {
       // The child was signalled but its exit was never observed: the slot stays occupied.
       const claims = {...lease.claims, terminal: {level: 'unverified', source: 'none'}};
-      await writeRecord({state: 'unknown', reasons: [...(terminating === 'timeout' ? ['timeout'] : []), 'terminal_state_unverified'], terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, ...retainGrokProfile()}).catch(() => {});
+      await writeRecord({state: 'unknown', reasons: [...(terminating === 'timeout' ? ['timeout'] : []), 'terminal_state_unverified'], terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, ...retainGrokProfile(), ...escapes}).catch(() => {});
       await locked(async () => {
         const current = await readLease(codexHome, dispatchId, {runtimePlatforms});
         if (current && !TERMINAL_STATES.includes(current.state)) await writeLease(codexHome, {...current, state: 'unknown', claims, reasons: [...(terminating === 'timeout' ? ['timeout'] : []), 'terminal_state_unverified'].map(reason)}, {runtimePlatforms});
@@ -451,7 +687,8 @@ export async function runSupervisor(options) {
 
     let after = null;
     try { after = await snapshot(); } catch { after = null; }
-    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: []};
+    const headAdvance = after ? await observeHeadAdvance(target.realpath, before, after, lease.role, lease.allowedPaths) : null;
+    const violations = after ? detectViolations({role: lease.role, allowedPaths: lease.allowedPaths, before, after, headAdvance}) : {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: [], toleratedCommitPaths: []};
     const codes = [];
     if (state.mismatch) codes.push(state.mismatch);
     if (state.internal) codes.push(state.internal);
@@ -502,25 +739,31 @@ export async function runSupervisor(options) {
     if (exit.spawnError && !codes.length) { codes.push('execution_failed'); finalState = 'failed'; }
     if ((finalState === 'completed' || finalState === 'cancelled') && codes.includes('permission_scope_mismatch')) finalState = 'failed';
     const controlFiles = violations.controlChanged.length ? {controlFiles: {changed: violations.controlChanged}} : {};
-    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...controlFiles, ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...grokProfileRecord(), ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {})});
+    const tolerated = toleratedRecord(violations);
+    await writeRecord({state: finalState, reasons: [...new Set(codes)], exit: {code: exit.code, signal: exit.signal}, terminatedBy: terminating, eventsTruncated, ignoredLines: parser.ignored, lineOverflow: parser.overflow, violations: {changedPaths: violations.changedPaths, headChanged: violations.headChanged, refsChanged: violations.refsChanged}, ...controlFiles, ...(tolerated ? {tolerated} : {}), ...(orphanGroupReaped ? {orphanGroupReaped: true} : {}), argsDigest: invocation.argsDigest, resultPath, ...grokProfileRecord(), ...(platform === 'gemini' ? {unverifiedContracts: {delegation: GEMINI_CONTRACT.delegation}} : platform === 'grok' ? {unverifiedContracts: {delegation: GROK_CONTRACT.delegation}} : {}), ...escapes});
     await commit(finalState, codes, claims, {sessionId, resultPath});
   } catch {
     // Unexpected failure after the child started: stop it, then record a failed state if the child is gone.
     const spawnedPid = child?.pid ?? null;
-    let stopped = true;
-    if (spawnedPid) { if (!termAt) { termAt = Date.now(); killGroup('SIGTERM'); } stopped = await reapGroup().catch(() => false); }
+    clearTimeout(executionTimer);
+    let stopped = originalGroupGone ?? true;
+    if (spawnedPid && originalGroupGone === undefined) { if (!termAt) { termAt = Date.now(); killGroup('SIGTERM'); } stopped = await reapGroup().catch(() => false); }
+    stopGroupSignals(stopped);
+    const escapes = await finishDescendants();
+    const details = {...escapes, ...(terminating === 'supervisor_signal' ? {terminatedBy: terminating} : {})};
     for (const timer of timers) { clearInterval(timer); clearTimeout(timer); }
-    for (const timer of killTimers) clearTimeout(timer);
-    if (stopped) await failWithProfileCleanup('execution_failed', spawnedPid).catch(() => {});
+    if (stopped) await failWithProfileCleanup('execution_failed', spawnedPid, details).catch(() => {});
     else {
       const codes = ['execution_failed', 'terminal_state_unverified'];
-      await writeRecord({state: 'unknown', reasons: codes, spawned: true, childPid: spawnedPid, ...retainGrokProfile()}).catch(() => {});
+      await writeRecord({state: 'unknown', reasons: codes, spawned: true, childPid: spawnedPid, ...retainGrokProfile(), ...details}).catch(() => {});
       await locked(async () => {
       const current = await readLease(codexHome, dispatchId, {runtimePlatforms});
       if (current && !TERMINAL_STATES.includes(current.state)) await writeLease(codexHome, {...current, state: 'unknown', reasons: codes.map(reason)}, {runtimePlatforms});
       }).catch(() => {});
     }
   } finally {
+    if (onStop) stopSignal?.removeEventListener('abort', onStop);
+    clearTimeout(executionTimer);
     for (const timer of timers) { clearInterval(timer); clearTimeout(timer); }
     if (eventsFd !== null) { try { fs.closeSync(eventsFd); } catch { /* closed */ } }
   }
@@ -529,5 +772,7 @@ export async function runSupervisor(options) {
 const isMain = () => { try { return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url); } catch { return false; } };
 if (isMain()) {
   const [, , codexHome, dispatchId, cwd, userHome] = process.argv;
-  runSupervisor({codexHome, dispatchId, cwd, userHome, env: process.env}).then(() => process.exit(0), () => process.exit(1));
+  const controller = new AbortController();
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.once(signal, () => controller.abort());
+  runSupervisor({codexHome, dispatchId, cwd, userHome, env: process.env, stopSignal: controller.signal}).then(() => process.exit(0), () => process.exit(1));
 }

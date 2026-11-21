@@ -7,19 +7,17 @@ import {gradientAt, toAnsi256} from '../../lib/color/palette.mjs';
 const strip = text => text.replace(/\x1b\[[0-9;]*m/g,'');
 const base = {label:'~/project',busy:false,glyph:'⠋',tick:0,color:false,fancy:false,width:80};
 
-test('watch location identifies session, all directories and home-relative paths', () => {
+test('watch location identifies current directory and home-relative paths', () => {
   for (const [options,expected] of [
-    [{mode:'session',session:'abc',dir:'/tmp',home:'/home/u'},'session abc'],
-    [{mode:'all',dir:'/tmp',home:'/home/u'},'all directories'],
-    [{mode:'cwd',dir:'/home/u/proj',home:'/home/u'},'~/proj'],
-    [{mode:'default',dir:'/home/u',home:'/home/u'},'~'],
-    [{mode:'default',dir:'/home/user/proj',home:'/home/u'},'/home/user/proj'],
-    [{mode:'cwd',dir:'/tmp/proj',home:'/home/u'},'/tmp/proj'],
+    [{dir:'/home/u/proj',home:'/home/u'},'~/proj'],
+    [{dir:'/home/u',home:'/home/u'},'~'],
+    [{dir:'/home/user/proj',home:'/home/u'},'/home/user/proj'],
+    [{dir:'/tmp/proj',home:'/home/u'},'/tmp/proj'],
   ]) assert.equal(watchLocationLabel(options),expected);
 });
 
 test('watch location sanitizes control sequences and line breaks after home abbreviation', () => {
-  assert.equal(watchLocationLabel({mode:'cwd',dir:'/home/u/project\x1b]0;x\x07\n\rnext',home:'/home/u'}),'~/project next');
+  assert.equal(watchLocationLabel({dir:'/home/u/project\x1b]0;x\x07\n\rnext',home:'/home/u'}),'~/project next');
 });
 
 test('idle status keeps the location and busy status adds working on the next line', () => {

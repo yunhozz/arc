@@ -2,6 +2,8 @@
 // Test-only fixture replay. No Gemini CLI or network access.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {spawn} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
 const args = process.argv.slice(2);
 if (args.includes('--version')) {console.log('0.68.0'); process.exit(0);}
 let stdin = '';
@@ -30,6 +32,16 @@ if (process.env.ARC_FAKE_GEMINI_NO_RESULT) lines = lines.filter(event => event.t
 if (process.env.ARC_FAKE_GEMINI_NO_EVENTS) lines = [];
 if (process.env.ARC_FAKE_GEMINI_WRITE) await fs.writeFile('unexpected.txt', 'permission violation');
 if (process.env.ARC_FAKE_GEMINI_HANG) {process.on('SIGTERM', () => {}); lines = lines.slice(0, 1);}
+const {ARC_FAKE_ESCAPE_PID_FILE: escapePid, ARC_FAKE_ESCAPE_RELEASE_FILE: escapeRelease} = process.env;
+if (escapePid) {
+  const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)', '--', process.argv[1]], {detached: true, stdio: 'ignore'});
+  child.unref();
+  await fs.appendFile(`${path.dirname(path.dirname(process.argv[1]))}.pids`, `${child.pid}\n`);
+  await fs.writeFile(escapePid, String(child.pid));
+  if (escapeRelease) {
+    while (!await fs.stat(escapeRelease).catch(error => {if (error.code !== 'ENOENT') throw error;})) await delay(20);
+  }
+}
 for (const event of lines) console.log(JSON.stringify(event));
 if (process.env.ARC_FAKE_GEMINI_HANG) setInterval(() => {}, 1000);
 else process.exitCode = process.env.ARC_FAKE_GEMINI_EXIT ? 2 : 0;

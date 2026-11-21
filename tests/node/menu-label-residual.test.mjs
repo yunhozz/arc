@@ -6,12 +6,11 @@ import {fileURLToPath} from 'node:url';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const self=fileURLToPath(import.meta.url);
-const EXTRA_PATHS = ['README.md','docs/harness-operation.md'];
 const legacyLabels=['Install / ' + 'Update', 'Check ' + 'Version'];
 
 test('no legacy Install/Update label in shipped code, payloads or tests',()=>{
  const {files}=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
- const targets=[...files.filter(name=>!name.startsWith('!')), 'tests/node', ...EXTRA_PATHS];
+ const targets=[...files.filter(name=>!name.startsWith('!')), 'tests/node'];
  const scanned=new Set(),matches=[];
  function scan(filename){
   if(filename===self||scanned.has(filename))return;

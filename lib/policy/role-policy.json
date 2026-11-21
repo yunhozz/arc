@@ -379,7 +379,7 @@
         "reviewer-findings"
       ],
       "authority": "orchestrator",
-      "text": "Complete required QA and QA failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without QA reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Separate QA findings follow Implementer → QA. Preserve required QA outside this final Reviewer exception.",
+      "text": "Complete required QA and QA failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without QA reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Separate QA findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck. Preserve required QA outside this final Reviewer exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt",

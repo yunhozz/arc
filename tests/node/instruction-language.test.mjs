@@ -38,7 +38,6 @@ const instructionFiles = [
   'claude/agents/arc-qa.md',
   'claude/agents/arc-reviewer.md',
   'claude/agents/arc-scouter.md',
-  'docs/harness-operation.md',
   'docs/runtime/planner-hook-context.md',
   'lib/policy/role-policy.json',
 ];

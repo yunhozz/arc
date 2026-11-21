@@ -6,7 +6,7 @@ import {makeHomes} from './fixtures/watch/homes.mjs';
 import {parseLeaseLenient, createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {createTestRuntimeRegistry} from './fixtures/platforms/zeta.mjs';
 
-const scan = (index, gitCommonDirs = [], includeAllLeases = false) => index.scan({gitCommonDirs, includeAllLeases});
+const scan = (index, gitCommonDirs = []) => index.scan({gitCommonDirs});
 const artifacts = (homes, gcd, id, files) => homes.writeArtifacts(gcd, 'w1', `dispatches/${id}`, files);
 
 async function resolveStore(args) {
@@ -24,7 +24,7 @@ test('watch reads claude anchor store', async t => {
   const before = await h.snapshot(), result = await resolveStore({homes});
   assert.deepEqual(result, {kind:'anchor', dir:path.join(homes.claude, 'arc-role-dispatch')});
   const index = createDispatchIndex({storeDir:result.dir});
-  await scan(index, [], true);
+  await scan(index, []);
   assert.deepEqual(index.list().map(ref => ref.dispatchId), ['claude-anchor']);
   assert.deepEqual(await h.snapshot(), before);
 });
@@ -39,8 +39,8 @@ test('watch reads codex anchor store for S={codex,zeta}', async t => {
   assert.deepEqual(visited, [homes.codex, homes.zeta]);
   assert.deepEqual(result, {kind:'anchor', dir:path.join(homes.codex, 'arc-role-dispatch')});
   const index = createDispatchIndex({storeDir:result.dir});
-  await scan(index, [], true);
-  assert.equal(index.byId('codex-anchor').inScope, true);
+  await scan(index, []);
+  assert.deepEqual(index.list().map(ref => ref.dispatchId), ['codex-anchor']);
 });
 
 test('watch falls back to CODEX_HOME store with zero candidates', async t => {
@@ -49,8 +49,8 @@ test('watch falls back to CODEX_HOME store with zero candidates', async t => {
   const result = await resolveStore({homes:{codex:h.codexHome, claude:h.claudeHome}});
   assert.deepEqual(result, {kind:'legacy', dir:path.join(h.codexHome, 'arc-role-dispatch')});
   const index = createDispatchIndex({storeDir:result.dir});
-  await scan(index, [], true);
-  assert.equal(index.byId('legacy').inScope, true);
+  await scan(index, []);
+  assert.deepEqual(index.list().map(ref => ref.dispatchId), ['legacy']);
   assert.deepEqual(await resolveStore({homes:{claude:h.claudeHome}}), {kind:'none'});
 });
 
@@ -188,8 +188,6 @@ test('repo scope includes only dispatches with artifacts under the scoped git co
   await scan(index, [gcd]);
   assert.equal(index.byId('d1').inScope, true);
   assert.equal(index.byId('d2').inScope, false);
-  await scan(index, [gcd], true);
-  assert.ok(index.list().every(ref => ref.inScope));
   await scan(index, [other]);
   assert.equal(index.byId('d1').inScope, false);
   assert.equal(index.byId('d2').inScope, true);
@@ -240,7 +238,7 @@ test('scan never creates or modifies files', async t => {
   await scan(index, [gcd]);
   assert.deepEqual(await homes.snapshot(), withLease);
   const absent = createDispatchIndex({storeDir:null});
-  assert.equal((await scan(absent, [gcd], true)).length, 1);
+  assert.equal((await scan(absent, [gcd])).length, 1);
   assert.equal(absent.bySession('T1').inScope, true);
   assert.deepEqual(absent.list().map(ref => ref.dispatchId), ['d1']);
   assert.equal(absent.byId('d2'), null);

@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';
+import {runNpxUpgrade} from '../../lib/npm/upgrade.mjs';
 const update=await import('../../lib/management/update.mjs');
 const {runChild}=await import('../../lib/cli/upgrade.mjs');
 // Service-level upgrade regressions remain after removing the public CLI parser.
@@ -23,3 +24,109 @@ test('private child classifies malformed invocation paths as input errors',async
 test('successful harness update reports the version and target without completion setup guidance',async()=>{const output=io();assert.equal(await executePreparedUpdate(output,dependencies('npx')),0);assert.match(output.text(),/ARC harness updated to 1\.2\.3\./);assert.match(output.text(),/Codex: harness updated/);assert.doesNotMatch(output.text(),/Previous.*version/);assert.doesNotMatch(output.text(),/rollback/i);assert.doesNotMatch(output.text(),/completion|eval |new.*shell.*session/i);});
 test('registry failure and harness cancellation never become a successful upgrade',async()=>{const output=io(),deps=dependencies();deps.resolveLatest=async()=>{throw Error('registry unavailable');};assert.equal(await executePreparedUpdate(output,deps),2);assert.deepEqual(deps.events,[]);const cancelled=dependencies('npx');cancelled.runNpxUpgrade=async()=>({code:130,signal:null,stdout:'codex: interrupted\n',stderr:''});assert.equal(await executePreparedUpdate(io(),cancelled),130);});
 test('global harness cancellation forwards child target and recovery output with exit 130',async()=>{const output=io(),deps=dependencies();deps.runUpgradeChild=async()=>({code:130,signal:null,stdout:'codex: installed; rollback: not-needed\nclaude: interrupted; rollback: restored\n',stderr:'Residual path: /recovery/claude-stage\n'});assert.equal(await executePreparedUpdate(output,deps),130);assert.match(output.text(),/codex: installed; rollback: not-needed/);assert.match(output.text(),/claude: interrupted; rollback: restored/);assert.match(output.text(),/Residual path: \/recovery\/claude-stage/);});
+
+function childFixture() {
+ const deps=dependencies(),streams=io();
+ deps.context.packageRoot=deps.packageRoot;
+ const request={protocol:1,expectedVersion:JSON.parse(fs.readFileSync('package.json')).version,invocationCwd:process.cwd(),expectedStateToken:deps.state.stateToken};
+ const reapplyWith=result=>{deps.reapplyConfiguration=async()=>{deps.events.push('reapply');return result;};};
+ reapplyWith({status:'skipped'});
+ return {deps,streams,reapplyWith,run:()=>runChild(request,streams,deps)};
+}
+
+test('child reapplies configuration only after harness success',async()=>{
+ const fixture=childFixture();
+ fixture.reapplyWith({status:'applied',mode:'composite',platforms:['codex','claude'],code:0,residualPaths:['/recovery/arc']});
+ assert.equal(await fixture.run(),0);
+ assert.deepEqual(fixture.deps.events,['harness','reapply']);
+ assert.match(fixture.streams.text(),/ARC harness updated to 0\.1\.5\.\nConfiguration re-applied: Mixed routing \(Claude \+ Codex\)\.\nResidual path: \/recovery\/arc\n/);
+});
+
+test('child skips reapply when nothing is installed and keeps output unchanged',async()=>{
+ const fixture=childFixture();
+ assert.equal(await fixture.run(),0);
+ assert.equal(fixture.streams.text(),'Codex: harness updated\nARC harness updated to 0.1.5.\n');
+ assert.deepEqual(fixture.deps.events,['harness','reapply']);
+});
+
+test('child never reapplies after harness failure or interrupt',async()=>{
+ for(const [code,status,abort] of [[1,'failed',false],[130,'interrupted',false],[130,'installed',true]]){
+  const fixture=childFixture();
+  fixture.deps.upgradeInstalledTargets=async()=>{
+   fixture.deps.events.push('harness');
+   if(abort)process.emit('SIGINT');
+   return {version:'0.1.5',results:[{platform:'codex',status}],interrupted:status==='interrupted'};
+  };
+  assert.equal(await fixture.run(),code);
+  assert.deepEqual(fixture.deps.events,['harness']);
+ }
+});
+
+test('child gives Configure Apply guidance on stderr when interrupted after harness success',async()=>{
+ const fixture=childFixture();
+ const upgradeHarness=fixture.deps.upgradeInstalledTargets;
+ let stderr='';
+ fixture.streams.error.write=text=>{stderr+=text;};
+ fixture.deps.upgradeInstalledTargets=async()=>{
+  const result=await upgradeHarness();
+  process.emit('SIGINT');
+  return result;
+ };
+ assert.equal(await fixture.run(),130);
+ assert.deepEqual(fixture.deps.events,['harness']);
+ assert.equal(stderr,'Configuration was not re-applied.\nRun arc → Configure → Apply to re-apply the configuration.\n');
+});
+
+test('child reports held reapply with active dispatches and exits 1',async()=>{
+ const fixture=childFixture();
+ fixture.reapplyWith({status:'held',mode:'composite',code:1,activeDispatches:['bridge-1','bridge-2'],error:Error('active dispatch'),residualPaths:[]});
+ assert.equal(await fixture.run(),1);
+ assert.match(fixture.streams.text(),/Configuration was not re-applied\.\nActive bridge dispatches \(2\): bridge-1, bridge-2\nAfter they finish, run arc → Configure → Apply\.\n/);
+});
+
+test('child reports partial standalone reapply and exits 1',async()=>{
+ const fixture=childFixture();
+ fixture.reapplyWith({status:'held',mode:'standalone',code:1,applied:['codex'],error:Error('Model catalog unavailable for Claude'),residualPaths:[]});
+ assert.equal(await fixture.run(),1);
+ assert.match(fixture.streams.text(),/Configuration was re-applied only for: Codex\.\nConfiguration was not re-applied\.\nError: Model catalog unavailable for Claude\nRun arc → Configure → Apply to re-apply the configuration\.\n/);
+});
+
+test('child reports other reapply errors with exit 1 and interrupt with 130',async()=>{
+ for(const code of [1,130]){
+  const fixture=childFixture();
+  fixture.deps.reapplyConfiguration=async()=>{if(code===130)process.emit('SIGINT');throw Error('reapply failed');};
+  assert.equal(await fixture.run(),code);
+  assert.match(fixture.streams.text(),/Configuration was not re-applied\.\nError: reapply failed\n/);
+ }
+});
+
+test('npx bootstrap uses the pinned package reapply export or falls back to its harness reporter',async t=>{
+ const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-npx-bootstrap-')));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const env={...process.env,PATH:path.join(root,'bin')};
+ fs.mkdirSync(path.join(root,'bin'));
+ fs.mkdirSync(path.join(root,'lib','management'),{recursive:true});
+ fs.writeFileSync(path.join(root,'bin','arc.mjs'),'');
+ fs.symlinkSync('arc.mjs',path.join(root,'bin','arc'));
+ fs.writeFileSync(path.join(root,'package.json'),JSON.stringify({name:'@yunhozz/arc',version:'1.2.3'}));
+ const stateToken='a'.repeat(64);
+ const exports=`
+  export function runtime(){return {
+   inspectNpmContext:({packageRoot})=>({kind:'npx',packageRoot}),
+   collectInstalledState:()=>({targets:[{}],stateToken:'${stateToken}'}),
+   upgradeInstalledTargets:()=>({text:'harness only'})
+  };}
+  export function report(result,output){output.write(result.text);return 0;}
+ `;
+ for(const withReapply of [false,true]){
+  fs.writeFileSync(path.join(root,'lib','management','update.mjs'),exports+(withReapply
+   ?"export async function upgradeAndReapply({api,root,state,output,signal,env,cwd,userHome}){if(root!==cwd||!state.targets.length||signal.aborted||!env.PATH||!userHome)throw Error('invalid upgrade context');output.write((await api.upgradeInstalledTargets()).text+' then reapply');return 1;}"
+   :''));
+  const result=await runNpxUpgrade({context:{kind:'npx',npmCli:'/fixture/npm'},expectedVersion:'1.2.3',expectedStateToken:stateToken,env,cwd:root,runNpm:async(_npm,args)=>{
+   const [node,...bootstrap]=args.slice(args.indexOf('--')+1);
+   return spawnSync(node,bootstrap,{cwd:root,env,encoding:'utf8'});
+  }});
+  assert.equal(result.stdout,withReapply?'harness only then reapply':'harness only',result.stderr);
+  assert.equal(result.status,withReapply?1:0);
+ }
+});
