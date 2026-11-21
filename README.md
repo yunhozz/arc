@@ -1,6 +1,6 @@
 # ARC — Agent Role Coordination
 
-ARC coordinates scoped roles, handoffs, and verification in Claude Code, Codex, and Gemini CLI.
+ARC coordinates scoped roles, handoffs, and verification in Claude Code, Codex, Gemini CLI, and Grok CLI.
 
 ![ARC workflow](docs/images/role-flow.svg)
 
@@ -19,46 +19,33 @@ ARC coordinates scoped roles, handoffs, and verification in Claude Code, Codex, 
 
 | Requirement | Support |
 |---|---|
-| Tools | Node.js 22+, npm, Git, network access |
-| OS | macOS 13+ or Linux glibc 2.28+; no Windows or musl |
-| CPU | arm64 or x64 |
-| Homes | Symlinked platform homes or parents are refused for install, publication, and routing locks |
+| Environment | Node.js 22+, npm, Git, and network access. macOS 13+ or Linux with glibc 2.28+, on arm64 or x64. |
+| Homes | ARC rejects symlinked platform homes or parents. `CLAUDE_CONFIG_DIR` must resolve to the default `~/.claude` if set. Leave `GEMINI_CLI_HOME` and `GROK_HOME` unset. |
 
-```sh
-npm install --global @yunhozz/arc
-arc
-# Without a global install:
-npx --yes @yunhozz/arc
-```
-
-The package provides the CLI. Use `arc` to install or manage the harness. Both `arc` and `arc watch` require terminal input and output. `arc --help` and `arc --version` also work without a terminal.
+Run `npm install --global @yunhozz/arc`, then run `arc` in an interactive terminal. To run without installing globally, use `npx --yes @yunhozz/arc`.
 
 ## Manage ARC
 
-| Home action | Effect |
+| Menu | Action |
 |---|---|
-| Configure | Edit role platform/model/effort, Hosts, Run mode (Supervised/Full Auto), Language, and subagent limits; `Apply` publishes; new sessions load profiles. Defaults: Supervised, English, 100 total/5 concurrent subagents; unchanged `(mixed)` settings preserve per-platform values |
-| Status | Installed on, settings, platform status, diagnostics, and ARC version (current/latest or lookup failure); `Upgrade` appears only when a newer version exists and an ARC harness is installed, and preserves settings. Global upgrade exits ARC; npx leaves the global CLI unchanged |
-| Uninstall | Remove a platform or `Everything (incl. CLI)` after confirmation (default `Back`); removing a Mixed participant restores others to standalone. Everything filters verified install/standalone platforms and removes CLI only after harness success. Unselected harnesses/user files remain. CLI only: `npm uninstall -g @yunhozz/arc` |
+| Configure | Choose role platforms, models, efforts, hosts, Run mode, language, and subagent limits. Select Apply to publish. |
+| Status | View installed platforms, settings, diagnostics, and version. Select Upgrade when available. |
+| Uninstall | Confirm removal of a platform or choose Everything (incl. CLI). |
 
-| Mode | Rule |
+| Mode | Meaning |
 |---|---|
-| Standalone | S = role platforms ∪ hosts; one participant |
-| Mixed (…) | Two or more participants; hosts may have no roles; anchor order: Claude > Codex > Gemini > Grok |
-| Unverified | `Apply` blocked; inspect inconsistent files/residual paths |
+| Standalone | The selected role platforms and hosts form one participant. |
+| Mixed | Two or more platforms participate. The first participant in Claude → Codex → Gemini → Grok order anchors routing. |
+| Unverified | Apply is blocked. Inspect the reported paths. |
 
 ## Watch sessions
 
-Run `arc watch` in an interactive terminal and choose **All** or one supported platform. The menu marks unsupported platforms and keeps them unavailable.
+Run `arc watch` in an interactive terminal and choose **All**, Claude, or Codex to follow activity in the current worktree (or directory outside Git). Gemini and Grok appear as unsupported and cannot be selected. Run `arc watch --help` for options.
 
-| Visibility | Behavior |
+| Visibility | Events |
 |---|---|
-| Shown | Selected platform activity, full messages, one-line other events, SKILL/PLUGIN lines, dispatch records |
-| Hidden | Tool/command outputs; reasoning unless verbose; common secrets masked incompletely |
-| Excluded | Codex Desktop sessions; held bridges have no running activity |
-| Scope | Current Git worktree or directory outside Git; events follow session cwd. Markers select the anchor store; legacy Codex fallback; conflicting anchors: `dispatch store ambiguous`; old-store history is not merged |
-
-`arc watch --help` lists history and output options. JSON output also requires an interactive terminal for the menu. During watch, Ctrl-L clears the screen and Ctrl-C stops.
+| Shown | Messages, SKILL and PLUGIN lines, and dispatch records. |
+| Hidden | Tool and command outputs. Reasoning requires `--verbose`. |
 
 ## Models and language
 
@@ -66,35 +53,32 @@ Run `arc watch` in an interactive terminal and choose **All** or one supported p
 
 | Setting | Details |
 |---|---|
-| Orchestrator model | Current conversation |
-| Specialist models | Installed [Claude](claude/skill/models.toml), [Codex](codex/skill/models.toml), [Gemini](gemini/skill/models.toml) settings; edit through role boxes |
-| Catalogs | Packaged candidates only; no model-list call/API key; no proof of account availability |
-| Language | English TUI; selected agent response language applies in new sessions |
+| Orchestrator model | Current conversation model. |
+| Specialist settings | [Claude](claude/skill/models.toml), [Codex](codex/skill/models.toml), [Gemini](gemini/skill/models.toml), [Grok](grok/skill/models.toml). Edit platform, model, and effort in Configure. |
+| Catalogs | Configure lists packaged candidates. Account access to a model may vary. |
+| Language | Configure sets the agent response language for new sessions. |
 
-## Platform and environment support
+## Platform support
 
-| Platform | Host? | Native roles | Bridges to this platform | Authentication |
-|---|---|---|---|---|
-| Claude | Yes | Supported on CLI | Scouter/Planner/Reviewer on Codex after per-call escalation; Implementer/QA run with the recorded sandbox settings (`G1` pass) and are held with `permission_scope_unverified` if settings injection fails or the worktree `.claude/settings*.json` would widen their scope | `claude auth status` |
-| Codex | Yes | Supported on CLI | From Claude; permissions claim capped at `operator-attested` | `codex app-server` refresh rotates `auth.json`; network required |
-| Gemini | No | Standalone verified | Read roles verified; write roles held: `permission_scope_unverified` | No probe; `unknown`, `auth unverified` warning |
-| Grok | No | Standalone enabled (not live-verified) | Read roles enabled (not live-verified); write roles run with a per-dispatch sandbox profile confirmed by `ProfileApplied` (`GK1` pass, live-verified on Grok 1.0.89 macOS); `~/.grok/config.toml` and `~/.grok/sandbox.toml` are not in the deny list; their security-relevant changes are detected after the run (`permission_violation_observed`); Configure sets `[compat.claude]` agents/skills/rules to false in `~/.grok/config.toml` (session effect unverified) | No probe; `unknown`, `auth unverified` warning |
+| Platform | Host | As bridge target | Auth check |
+|---|---|---|---|
+| Claude | Yes | All roles. Implementer and QA are sandboxed (`G1`). | `claude auth status` |
+| Codex | Yes | All roles | `codex app-server` auth refresh (network) |
+| Gemini | Held (`GG2`) | Read roles. Write roles are held (`GG1`). | None (`unknown`, `auth unverified`) |
+| Grok | Yes | All roles. Write roles use a per-dispatch sandbox profile (`GK1`). | None (`unknown`, `auth unverified`) |
 
-| executionEnvironment | Support and obligations |
-|---|---|
-| `claude-cli` | Native roles and Codex bridges |
-| `codex-cli` | Native roles and Claude read-role bridges; every runtime call needs escalation approval, including native calls; refusal/denied `CODEX_HOME` write: `host_sandbox_blocked`. Runtime does not check approval |
-| `claude-desktop`, `codex-desktop` | All native/bridge roles held: `environment_unverified` until a future ARC update |
+Standalone is verified for all four platforms in the registry. See [execution support](docs/harness-operation.md#execution-support) for measured coverage. Desktop environments are held. The caller declares `executionEnvironment` without inferring it from paths.
 
-`executionEnvironment` is caller-declared, not runtime-verified: use CLI values for terminal/IDE sessions, Desktop values for confirmed Desktop apps, never infer from paths. A false CLI declaration bypasses the Desktop hold.
+- Codex hosts require escalation approval on every runtime call.
+- Start Grok hosts with `grok --permission-mode default` and use `Allow once` on every runtime call.
 
 ## Upgrade
 
-- Re-run `Configure` after upgrading, including `cooperative-9`; in-flight workflow version mismatches hold with `cooperative.versions`, without automatic migration.
-- Existing Codex+Claude composites move to the Claude home; finish/cancel non-terminal dispatches in either store before applying. Old Codex dispatch history stays there.
-- Before downgrading from Full Auto, switch Run mode to Supervised and `Apply`; older CLIs read the v2 `settings.toml` as incomplete.
-- After downgrading, run the older version's `Configure` to restore its composite layout.
+- Status → Upgrade automatically reapplies the current configuration. Use Configure → Apply if reapplication is held or interrupted, its state is unknown, or this is the first npx upgrade from 0.4.6 or earlier. If the state is unknown, inspect the reported paths before retrying. In-progress plan workflows with changed versions are held under `cooperative.versions`.
+- Before downgrading from Full Auto, switch Run mode to Supervised and Apply. Older CLIs read the v2 `settings.toml` as incomplete.
+- After downgrading, run Configure in the older version to restore its composite layout.
+- See [legacy migration](docs/harness-operation.md#install-update-remove) for older Mixed installations.
 
 ## Guides
 
-[Harness operation](docs/harness-operation.md) · [Codex](codex/skill/SKILL.md) · [Claude Code](claude/skill/SKILL.md) · [Gemini CLI](gemini/skill/SKILL.md)
+[Harness operation](docs/harness-operation.md) · [Claude Code](claude/skill/SKILL.md) · [Codex](codex/skill/SKILL.md) · [Gemini CLI](gemini/skill/SKILL.md) · [Grok CLI](grok/skill/SKILL.md)

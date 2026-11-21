@@ -42,7 +42,7 @@
 <rect x="50" y="490" width="1460" height="112" rx="14" class="card" style="fill:#e9f1f7"/>
 <text x="70" y="524" class="label">Approved documents → platform preparation → handoff</text>
 <text x="70" y="555" class="detail">Complete document set; explicit target choice; verified document commit and actual state.</text>
-<text x="70" y="584" class="detail">Codex: managed worktree option. Claude v1: current checkout.</text>
+<text x="70" y="584" class="detail">Targets on every platform: current checkout, new task branch, or managed worktree.</text>
 <g class="connector"><path class="flow" d="M780 602 V632"/><polygon points="780,632 773,618 787,618" fill="#526675"/></g>
 <rect x="50" y="635" width="1460" height="110" rx="14" class="card"/>
 <text x="70" y="669" class="label">Ready independent tasks</text>
