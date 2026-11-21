@@ -8,7 +8,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {
   VERIFY_COMMANDS, canonicalJson, sha256Hex, expandGlob, buildChildEnv, classifyLoad,
-  validateVerifyInput, verifyStart, verifyStatus
+  validateVerifyInput, verifyCleanup, verifyStart, verifyStatus
 } from '../../lib/runtime/final-verify.mjs';
 import {runVerifyCommand} from '../../lib/runtime/verify-cli.mjs';
 
@@ -188,7 +188,7 @@ test('unexpected exception is hold verify_error exit 1', async () => {
   assert.deepEqual([exit, JSON.parse(output).decision, JSON.parse(output).code], [1, 'hold', 'verify_error']);
 });
 
-test('future paths return a not implemented hold', t => {
+test('compare, rerun and cleanup deny an unknown run', t => {
   const repo = makeRepo(t);
   const runId = '20261121T000000Z-00000000';
   for (const [command, input] of [
@@ -197,7 +197,7 @@ test('future paths return a not implemented hold', t => {
     ['verify-cleanup', {runId, dryRun: true}],
   ]) {
     const [exit, output] = runCli(command, repo.cwd, input);
-    assert.deepEqual([exit, output.decision, output.code, output.message], [3, 'hold', 'verify_error', 'not implemented']);
+    assert.deepEqual([exit, output.decision, output.code], [2, 'deny', 'unknown_run']);
   }
 });
 
@@ -1181,4 +1181,603 @@ test('overlapping runs are recorded in overlaps', async t => {
   const [a, b] = await Promise.all([firstPending, secondPending]);
   assert.deepEqual([a.load.class, a.load.overlaps], ['contended', [secondId]]);
   assert.deepEqual([b.load.class, b.load.overlaps], ['contended', [firstId]]);
+});
+
+function editRun(repo, runId, change) {
+  const filename = runFile(repo, runId);
+  const run = readJson(filename);
+  change(run);
+  fs.writeFileSync(filename, JSON.stringify(run));
+}
+
+function verifyCli(repo, operation, input, exit, code = 'ok', env = cleanEnv) {
+  const [actualExit, result] = runCli('verify-' + operation, repo.cwd, input, env);
+  assert.deepEqual([actualExit, result.decision, result.code], [exit, {0: 'allow', 2: 'deny', 3: 'hold'}[exit], code],
+    JSON.stringify(result));
+  return result;
+}
+
+function compare(repo, base, head, options = {}) {
+  return verifyCli(repo, 'compare', {baseRunId: base.runId, headRunId: head.runId, ...options}, 0);
+}
+
+const newFailureId = 'tests/a.test.mjs::fixture::new (case)+$#1';
+const originalFailureId = 'tests/a.test.mjs::fixture::prior fail#1';
+
+function comparisonInput(repo) {
+  const script = `
+    const fs = require('node:fs');
+    const changed = fs.existsSync('tracked.txt') &&
+      !fs.existsSync(process.argv[1]);
+    const test = (name, file, time, fail) =>
+      '<testcase name="' + name + '" file="' + file + '" time="' + time + '">' +
+      (fail ? '<failure/>' : '') + '</testcase>';
+    fs.writeFileSync('results.xml', '<testsuites><testsuite name="fixture">' +
+      test('new (case)+$', 'tests/a.test.mjs', 0.012, changed) +
+      test('prior fail', 'tests/a.test.mjs', 0.010, true) +
+      test('slow file', 'tests/deep/b.test.mjs', 0.020, false) +
+      test('quick', 'tests/c.test.mjs', 0.001, false) + '</testsuite>' +
+      (changed ? '<testsuite file="tests/c.test.mjs" errors="1"/>' : '') +
+      '</testsuites>');
+  `;
+  const isolate = {args: ['-e', `
+    const assert = require('node:assert/strict');
+    const fs = require('node:fs');
+    const [file, name, pattern, id, worktree] = process.argv.slice(1);
+    assert.equal(file, 'tests/a.test.mjs');
+    assert.equal(name, 'new (case)+$');
+    assert.equal(pattern, '^new \\\\(case\\\\)\\\\+\\\\$$');
+    assert.equal(id, 'tests/a.test.mjs::fixture::new (case)+$#1');
+    assert.equal(process.cwd(), worktree);
+    assert.ok(fs.existsSync(file));
+  `, '{file}', '{name}', '{namePattern}', '{testId}', '{worktree}']};
+  const command = js(script, path.join(repo.common, 'pass-new'));
+  return {...repo.input, commands: [{id: 'tests', ...command,
+    isolate, args: [...command.args, {glob: 'tests/**/*.test.mjs'}],
+    results: {format: 'junit-xml', path: 'results.xml'}}]};
+}
+
+async function comparisonRuns(t, repo) {
+  fs.rmSync(path.join(repo.cwd, 'tests/deep/b.test.mjs'));
+  fs.writeFileSync(path.join(repo.cwd, 'tests/c.test.mjs'), '// c\n');
+  git(repo.cwd, 'add', '-A');
+  git(repo.cwd, 'commit', '-qm', 'change test files');
+  const input = comparisonInput(repo);
+  repo.snapshot();
+  const base = await start(t, repo, {...input, revision: repo.first});
+  const head = await start(t, repo, {...input, revision: git(repo.cwd, 'rev-parse', 'HEAD'), role: 'head'});
+  assert.deepEqual([base.state, head.state], ['succeeded', 'succeeded']);
+  return {base, head};
+}
+
+for (const [name, code, change] of [
+  ['run_failed', 'run_failed', run => { run.state = 'failed'; }],
+  ['run_unknown', 'run_unknown', run => { run.state = 'unknown'; }],
+  ['role_mismatch', 'role_mismatch', run => { run.role = 'baseline'; }],
+  ['command_set_mismatch for a different id', 'command_set_mismatch', run => { run.input.commands[0].id = 'other'; }],
+  ['command_set_mismatch for a different glob template', 'command_set_mismatch', run => {
+    run.input.commands[0].args.push({glob: '**/*.test.mjs'});
+  }],
+  ['execution_mismatch for a different sandboxMode', 'execution_mismatch', run => { run.input.sandboxMode = 'sandboxed'; }],
+  ['execution_mismatch for a different host', 'execution_mismatch', run => { run.input.hostPlatform = 'claude'; }],
+  ['execution_mismatch for a different machine id', 'execution_mismatch', run => { run.machineId = 'another-machine'; }]
+]) {
+  test('compare holds ' + name, async t => {
+    const repo = makeRepo(t);
+    const base = await start(t, repo);
+    const head = await start(t, repo, {...repo.input, role: 'head'});
+    editRun(repo, head.runId, change);
+    verifyCli(repo, 'compare', {baseRunId: base.runId, headRunId: head.runId}, 3, code);
+  });
+}
+
+test('compare writes reports when only executionEnvironment differs', async t => {
+  const repo = makeRepo(t);
+  const base = await start(t, repo);
+  const head = await start(t, repo, {...repo.input, role: 'head', executionEnvironment: 'codex-desktop'});
+  assert.notEqual(base.cacheKeyPhase1, head.cacheKeyPhase1);
+
+  const {reportJson, reportMd, verdict} = compare(repo, base, head);
+  const report = readJson(reportJson);
+  assert.deepEqual([report.base.runId, report.head.runId], [base.runId, head.runId]);
+  assert.equal(report.conditions.executionEnvironment, 'codex-desktop');
+  assert.equal(verdict, 'no-new-failures');
+  assert.ok(fs.readFileSync(reportMd, 'utf8').includes(head.runId));
+});
+
+test('compare holds prepare_mismatch for different prepare commands', async t => {
+  const repo = makeRepo(t);
+  const base = await start(t, repo);
+  const head = await start(t, repo, {...repo.input, role: 'head', prepare: [js('')]});
+  verifyCli(repo, 'compare', {baseRunId: base.runId, headRunId: head.runId}, 3, 'prepare_mismatch');
+});
+
+test('compare holds prepare_mismatch when bytes at the same seed path differ', async t => {
+  const repo = makeRepo(t);
+  const source = path.join(repo.cwd, 'seed.txt');
+  const input = {...repo.input, seedFiles: [{source, dest: 'seed.txt'}]};
+  fs.writeFileSync(source, 'old');
+  const base = await start(t, repo, input);
+  fs.writeFileSync(source, 'new');
+  repo.snapshot();
+  const head = await start(t, repo, {...input, role: 'head'});
+  verifyCli(repo, 'compare', {baseRunId: base.runId, headRunId: head.runId}, 3, 'prepare_mismatch');
+});
+
+test('compare holds run_incomplete while base is running', async t => {
+  const repo = makeRepo(t);
+  const head = await start(t, repo, {...repo.input, role: 'head'});
+  const gate = gatedRun(repo);
+  const base = await detach(t, repo, {...gate.input, role: 'baseline'});
+  if (!base) return;
+  assert.equal((await running(repo, base.runId)).state, 'running');
+  verifyCli(repo, 'compare', {baseRunId: base.runId, headRunId: head.runId}, 3, 'run_incomplete');
+  gate.release();
+  assert.equal((await status(repo, base.runId, 7000)).state, 'succeeded');
+});
+
+test('compare writes report json and md and returns verdict', async t => {
+  const repo = makeRepo(t);
+  const {base, head} = await comparisonRuns(t, repo);
+  const {reportJson, reportMd, verdict, counts} = compare(repo, base, head);
+  const reportPath = path.join(repo.store, 'reports', base.runId + '..' + head.runId);
+  assert.deepEqual([reportJson, reportMd, verdict], [reportPath + '.json', reportPath + '.md', 'new-failures']);
+  const result = readJson(reportJson);
+  assert.deepEqual(result.newFailures, [{commandId: 'tests', testId: newFailureId}]);
+  assert.deepEqual(result.baselineReproduced, [{commandId: 'tests', testId: originalFailureId}]);
+  assert.deepEqual(result.newFailureCandidates, [{commandId: 'tests', testId: null, reason: 'file_error'}]);
+  assert.deepEqual([counts.newFailures, counts.baselineReproduced, counts.newFailureCandidates], [1, 1, 1]);
+  assert.equal(result.base.runId, base.runId);
+  assert.equal(result.head.runId, head.runId);
+  assert.ok(result.generatedAt);
+  assert.ok(result.schemaVersion);
+  assert.equal(result.conditions.sandboxMode, 'none');
+  assert.ok(result.conditions.tmpdir.realpath);
+  assert.deepEqual(result.intermittentCandidates, []);
+  assert.match(fs.readFileSync(reportMd, 'utf8'), /기록 조건[\s\S]*새 실패[\s\S]*기준선 재현[\s\S]*간헐 후보[\s\S]*느린 상위/);
+});
+
+test('compare records expanded file lists in the report', async t => {
+  const repo = makeRepo(t);
+  const {base, head} = await comparisonRuns(t, repo);
+  const {reportJson} = compare(repo, base, head);
+  const {commands, addedFiles, removedFiles} = readJson(reportJson);
+  assert.deepEqual(commands[0].base.expandedFiles, ['tests/a.test.mjs', 'tests/deep/b.test.mjs']);
+  assert.deepEqual(commands[0].head.expandedFiles, ['tests/a.test.mjs', 'tests/c.test.mjs']);
+  assert.deepEqual(addedFiles, [{commandId: 'tests', path: 'tests/c.test.mjs'}]);
+  assert.deepEqual(removedFiles, [{commandId: 'tests', path: 'tests/deep/b.test.mjs'}]);
+});
+
+test('compare slowest has files, tests and phases topN', async t => {
+  const repo = makeRepo(t);
+  const {base, head} = await comparisonRuns(t, repo);
+  const {reportJson} = compare(repo, base, head, {topN: 2});
+  const {slowest} = readJson(reportJson);
+  assert.deepEqual(slowest.files.map(({file}) => file), ['tests/a.test.mjs', 'tests/deep/b.test.mjs']);
+  assert.deepEqual(slowest.tests.map(({durationMs}) => durationMs), [20, 12]);
+  assert.equal(slowest.phases.length, 2);
+  assert.ok(slowest.phases[0].ms >= slowest.phases[1].ms);
+});
+
+test('compare history mismatch under the same cacheKey yields intermittent candidate', async t => {
+  const repo = makeRepo(t);
+  const {base, head} = await comparisonRuns(t, repo);
+  fs.writeFileSync(path.join(repo.common, 'pass-new'), '');
+  const second = await start(t, repo, {...comparisonInput(repo), revision: head.commit, role: 'head'});
+  assert.equal(second.cacheKey, head.cacheKey);
+  const {reportJson} = compare(repo, base, second);
+  const {intermittentCandidates, verdict} = readJson(reportJson);
+  const candidate = intermittentCandidates.find(item => item.testId === newFailureId);
+  assert.deepEqual(candidate.history, [
+    {runId: head.runId, loadClass: 'quiet', status: 'failed'},
+    {runId: second.runId, loadClass: 'quiet', status: 'passed'}
+  ]);
+  assert.equal(verdict, 'candidates');
+});
+
+function rerun(repo, head, options = {}, exit = 0, code = 'ok') {
+  return verifyCli(repo, 'rerun', {runId: head.runId, testId: newFailureId, attempt: 1, sandboxMode: 'none', ...options}, exit, code);
+}
+
+test('rerun passes attempt in isolation and reports passesInIsolation yes', async t => {
+  const repo = makeRepo(t);
+  const {head} = await comparisonRuns(t, repo);
+  const result = rerun(repo, head);
+  assert.deepEqual([result.runStatus, result.passesInIsolation, result.limit], ['passed', 'yes', 3]);
+  assert.deepEqual(result.attempts.map(({attempt, status}) => [attempt, status]), [[1, 'passed']]);
+  assert.ok(result.attempts[0].ms >= 0);
+  assert.ok(fs.existsSync(runFile(repo, head.runId, 'reruns.jsonl')));
+});
+
+test('rerun attempt out of order denies', async t => {
+  const repo = makeRepo(t);
+  const {head} = await comparisonRuns(t, repo);
+  rerun(repo, head, {attempt: 2}, 2, 'attempt_out_of_order');
+  assert.equal(fs.existsSync(runFile(repo, head.runId, 'reruns.jsonl')), false);
+});
+
+test('rerun fourth attempt with default limit denies rerun_limit', async t => {
+  const repo = makeRepo(t);
+  const {head} = await comparisonRuns(t, repo);
+  for (const attempt of [1, 2, 3]) rerun(repo, head, {attempt});
+  rerun(repo, head, {attempt: 4}, 2, 'rerun_limit');
+});
+
+test('rerun limit option permits up to 10 attempts', async t => {
+  const repo = makeRepo(t);
+  const {head} = await comparisonRuns(t, repo);
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    assert.equal(rerun(repo, head, {attempt, limit: 10}).attempts.length, attempt);
+  }
+  rerun(repo, head, {attempt: 11, limit: 10}, 2, 'rerun_limit');
+  rerun(repo, head, {attempt: 11, limit: 11}, 2, 'invalid_request');
+});
+
+test('rerun with no isolate template returns not-run exit 0', async t => {
+  const repo = makeRepo(t);
+  const head = await start(t, repo, {...repo.input, role: 'head'});
+  const result = rerun(repo, head, {testId: '-::::fixture#1'});
+  assert.deepEqual([result.runStatus, result.reason, result.attempts, result.passesInIsolation],
+    ['not-run', 'no_isolation_template', [], null]);
+});
+
+test('rerun on non-succeeded run holds run_incomplete', async t => {
+  const repo = makeRepo(t);
+  const head = await start(t, repo, {...repo.input, role: 'head'});
+  editRun(repo, head.runId, run => { run.state = 'failed'; });
+  rerun(repo, head, {}, 3, 'run_incomplete');
+});
+
+test('rerun with different sandboxMode holds execution_mismatch', async t => {
+  const repo = makeRepo(t);
+  const {head} = await comparisonRuns(t, repo);
+  rerun(repo, head, {sandboxMode: 'sandboxed'}, 3, 'execution_mismatch');
+});
+
+test('rerun isolated pass keeps newFailures classification in next compare', async t => {
+  const repo = makeRepo(t);
+  const {base, head} = await comparisonRuns(t, repo);
+  rerun(repo, head);
+  const {reportJson} = compare(repo, base, head);
+  const report = readJson(reportJson);
+  assert.deepEqual(report.newFailures, [{commandId: 'tests', testId: newFailureId}]);
+  assert.equal(report.intermittentCandidates[0].testId, newFailureId);
+  assert.equal(report.intermittentCandidates[0].passesInIsolation, 'yes');
+  assert.equal(report.intermittentCandidates[0].reruns.length, 1);
+});
+
+function cleanup(repo, run, dryRun = false, exit = 0, code = 'ok', env = cleanEnv) {
+  return verifyCli(repo, 'cleanup', {runId: run.runId, dryRun}, exit, code, env);
+}
+
+function cleanupTarget(run) {
+  return [{kind: 'worktree', path: run.worktree.path}];
+}
+
+test('cleanup dryRun returns immediately while detached run is active', async t => {
+  const repo = makeRepo(t);
+  const gate = gatedRun(repo);
+  const run = await detach(t, repo, gate.input);
+  if (!run) return;
+  assert.equal((await running(repo, run.runId)).state, 'running');
+  cleanup(repo, run, true, 3, 'run_active');
+  assert.equal((await status(repo, run.runId)).state, 'running');
+  gate.release();
+  assert.equal((await status(repo, run.runId, 7000)).state, 'succeeded');
+});
+
+test('cleanup dryRun lists targets without changes', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const before = fs.readFileSync(runFile(repo, run.runId));
+  const registration = git(repo.cwd, 'worktree', 'list', '--porcelain');
+  const result = cleanup(repo, run, true);
+  assert.deepEqual([result.dryRun, result.targets, result.removed, result.residualPaths],
+    [true, cleanupTarget(run), [], []]);
+  assert.deepEqual(fs.readFileSync(runFile(repo, run.runId)), before);
+  assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registration);
+  assert.ok(fs.existsSync(run.worktree.path));
+});
+
+test('cleanup removes tool worktree and keeps runs evidence', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const result = cleanup(repo, run);
+  assert.deepEqual(result.targets, cleanupTarget(run));
+  assert.ok(result.removed.includes(run.worktree.path));
+  assert.deepEqual(result.residualPaths, []);
+  assert.equal(fs.existsSync(path.dirname(run.worktree.path)), false);
+  assert.ok(fs.existsSync(runFile(repo, run.runId, 'result.json')));
+  assert.ok(fs.existsSync(runFile(repo, run.runId)));
+  assert.ok(!git(repo.cwd, 'worktree', 'list', '--porcelain').includes(run.worktree.path));
+});
+
+test('cleanup denies a user-created worktree even with a forged run.json path', async t => {
+  const repo = makeRepo(t);
+  const userTree = fs.mkdtempSync(path.join(os.tmpdir(), 'arc-verify-user-'));
+  t.after(() => fs.rmSync(userTree, {recursive: true, force: true}));
+  const run = await start(t, repo);
+  git(repo.cwd, 'worktree', 'add', '--detach', '--lock', '--reason', 'arc-verify:' + run.runId, userTree, run.commit);
+  editRun(repo, run.runId, saved => { saved.worktree.path = userTree; });
+  cleanup(repo, run, false, 2, 'not_tool_owned');
+  assert.ok(fs.existsSync(path.join(userTree, 'tracked.txt')));
+  assert.ok(fs.existsSync(run.worktree.path));
+});
+
+test('cleanup denies an owner.json mismatch', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const filename = path.join(path.dirname(run.worktree.path), 'owner.json');
+  fs.writeFileSync(filename, JSON.stringify({...readJson(filename), tool: 'different-tool'}));
+  cleanup(repo, run, false, 2, 'not_tool_owned');
+  assert.ok(fs.existsSync(run.worktree.path));
+});
+
+test('cleanup denies an OID mismatch or a different lock reason', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const {path: worktree} = run.worktree;
+  git(worktree, 'checkout', '--detach', repo.first);
+  cleanup(repo, run, false, 2, 'not_tool_owned');
+  git(worktree, 'checkout', '--detach', run.commit);
+  git(repo.cwd, 'worktree', 'unlock', worktree);
+  git(repo.cwd, 'worktree', 'lock', '--reason', 'manual lock', worktree);
+  cleanup(repo, run, false, 2, 'not_tool_owned');
+  assert.ok(fs.existsSync(worktree));
+});
+
+test('cleanup holds run_active', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  editRun(repo, run.runId, saved => { saved.state = 'running'; });
+  cleanup(repo, run, false, 3, 'run_active');
+  assert.ok(fs.existsSync(run.worktree.path));
+});
+
+test('cleanup allows unknown run only when pid is gone', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  editRun(repo, run.runId, saved => { saved.state = 'unknown'; });
+  cleanup(repo, run, false, 3, 'run_unknown');
+  const gone = spawnSync(process.execPath, ['-e', ''], {env: cleanEnv, shell: false});
+  assert.equal(gone.status, 0);
+  assert.throws(() => process.kill(gone.pid, 0), {code: 'ESRCH'});
+  editRun(repo, run.runId, saved => { saved.pid = gone.pid; });
+  cleanup(repo, run);
+  assert.equal(fs.existsSync(run.worktree.path), false);
+});
+
+test('cleanup marks a missing worktree as residual without pruning Git registration', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const {path: worktree} = run.worktree;
+  fs.rmSync(worktree, {recursive: true});
+  const result = cleanup(repo, run, false, 3, 'cleanup_partial');
+  assert.deepEqual(result.residualPaths, [worktree]);
+  assert.match(git(repo.cwd, 'worktree', 'list', '--porcelain'), new RegExp(run.runId + '/wt'));
+  assert.equal(readJson(runFile(repo, run.runId)).cleanup.state, 'partial');
+});
+
+test('cleanup records partial state and skips removed items on re-call', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const {path: worktree} = run.worktree;
+  const noHooks = path.join(path.dirname(worktree), 'no-hooks');
+  const blocker = path.join(noHooks, 'do-not-remove');
+  fs.writeFileSync(blocker, 'keep');
+  const first = cleanup(repo, run, false, 3, 'cleanup_partial');
+  assert.ok(first.removed.includes(worktree));
+  assert.ok(first.residualPaths.includes(noHooks));
+  assert.deepEqual(readJson(runFile(repo, run.runId)).cleanup, {
+    state: 'partial', removed: first.removed, residualPaths: first.residualPaths
+  });
+  assert.equal(fs.readFileSync(blocker, 'utf8'), 'keep');
+  fs.unlinkSync(blocker);
+  const second = cleanup(repo, run);
+  assert.deepEqual(second.residualPaths, []);
+  assert.equal(fs.existsSync(path.dirname(worktree)), false);
+  assert.ok(fs.existsSync(runFile(repo, run.runId, 'result.json')));
+});
+
+test('cleanup by cacheKey renames record to record.removed.json and keeps history', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const directory = path.join(repo.store, 'cache', run.cacheKey);
+  const record = path.join(directory, 'record.json');
+  const history = path.join(directory, 'history.jsonl');
+  const oldHistory = fs.readFileSync(history);
+  const oldRecord = fs.readFileSync(record);
+  const input = {cacheKey: run.cacheKey, dryRun: true};
+  const dryRun = verifyCli(repo, 'cleanup', input, 0);
+  assert.deepEqual(dryRun.targets, [{kind: 'cache-record', path: record}]);
+  assert.deepEqual(fs.readFileSync(record), oldRecord);
+  const result = verifyCli(repo, 'cleanup', {...input, dryRun: false}, 0);
+  assert.deepEqual(result.removed, [record]);
+  assert.deepEqual(fs.readFileSync(path.join(directory, 'record.removed.json')), oldRecord);
+  assert.deepEqual(fs.readFileSync(history), oldHistory);
+  assert.equal(fs.existsSync(record), false);
+  assert.ok(fs.existsSync(run.worktree.path));
+});
+
+test('cleanup leaves source checkout, user worktree and an external symlink target unchanged', async t => {
+  const repo = makeRepo(t);
+  const userTree = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'arc-verify-user-')));
+  t.after(() => fs.rmSync(userTree, {recursive: true, force: true}));
+  git(repo.cwd, 'worktree', 'add', '--detach', userTree, repo.revision);
+  fs.writeFileSync(path.join(userTree, 'personal.txt'), 'preserve');
+  const run = await start(t, repo);
+  fs.symlinkSync(userTree, path.join(run.worktree.path, 'external'), 'dir');
+  const registration = git(repo.cwd, 'worktree', 'list', '--porcelain').split('\n\n').find(entry =>
+    entry.split('\n')[0] === 'worktree ' + userTree);
+  const before = sourceSnapshot(repo.cwd);
+  cleanup(repo, run);
+  assertSourceUnchanged(repo.cwd, before);
+  assert.equal(fs.readFileSync(path.join(userTree, 'personal.txt'), 'utf8'), 'preserve');
+  assert.ok(git(repo.cwd, 'worktree', 'list', '--porcelain').includes(registration));
+});
+
+for (const [name, createNested, dryRun] of [
+  ['nested registered worktree holds nested_worktree and deletes nothing', (repo, nested) =>
+    git(repo.cwd, 'worktree', 'add', '--detach', nested, repo.revision), false],
+  ['nested registered worktree with alternate casing holds without a .git marker', (repo, nested) => {
+    const uppercase = path.join(path.dirname(path.dirname(nested)), 'WT');
+    const registered = fs.existsSync(uppercase) ? path.join(uppercase, path.basename(nested)) : nested;
+    git(repo.cwd, 'worktree', 'add', '--detach', '--lock', registered, repo.revision);
+    fs.unlinkSync(path.join(nested, '.git'));
+    assert.ok(git(repo.cwd, 'worktree', 'list', '--porcelain').includes('worktree ' + registered + '\n'));
+  }, false],
+  ['nested foreign .git holds nested_worktree', (_repo, nested) => {
+    fs.mkdirSync(nested);
+    git(nested, 'init', '-q');
+  }, false],
+  ['nested Git directory with filesystem-matched casing holds nested_worktree', (_repo, nested) => {
+    fs.mkdirSync(nested);
+    git(nested, 'init', '-q');
+    const marker = path.join(nested, '.git');
+    const alternate = path.join(nested, '.GIT');
+    if (fs.existsSync(alternate)) {
+      const renamed = path.join(nested, 'git-marker');
+      fs.renameSync(marker, renamed);
+      fs.renameSync(renamed, alternate);
+      assert.ok(fs.readdirSync(nested).includes('.GIT'));
+    }
+    assert.equal(git(nested, 'rev-parse', '--show-toplevel'), nested);
+  }, false],
+  ['dryRun reports nestedPaths', (_repo, nested) => {
+    fs.mkdirSync(nested);
+    fs.writeFileSync(path.join(nested, '.git'), 'gitdir: elsewhere\n');
+  }, true],
+  ['nested bare repository holds nested_worktree', (_repo, nested) => {
+    fs.mkdirSync(nested);
+    git(nested, 'init', '-q', '--bare');
+  }, false]
+]) {
+  test('cleanup ' + name, async t => {
+    const repo = makeRepo(t);
+    const run = await start(t, repo);
+    const nested = path.join(run.worktree.path, 'nested with space');
+    createNested(repo, nested);
+    const keeping = path.join(run.worktree.path, 'ordinary.txt');
+    fs.writeFileSync(keeping, 'keep');
+    const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
+    const result = cleanup(repo, run, dryRun, 3, 'nested_worktree');
+    assert.deepEqual(result.nestedPaths, [nested]);
+    assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registered);
+    assert.equal(fs.readFileSync(keeping, 'utf8'), 'keep');
+    assert.ok(fs.existsSync(nested));
+  });
+}
+
+test('cleanup nested check reruns after unlock before remove', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const worktree = run.worktree.path;
+  const nested = path.join(worktree, 'new-bare');
+  const actualGit = cleanEnv.PATH.split(path.delimiter).map(directory => path.join(directory, 'git')).find(filename =>
+    fs.existsSync(filename));
+  const shimDir = path.join(repo.common, 'git-shim');
+  fs.mkdirSync(shimDir);
+  fs.writeFileSync(path.join(shimDir, 'git'), `#!${process.execPath}
+    const {spawnSync} = require('node:child_process');
+    const fs = require('node:fs');
+    const actual = ${JSON.stringify(actualGit)};
+    const args = process.argv.slice(2);
+    const call = spawnSync(actual, args, {stdio: 'inherit', shell: false});
+    if (call.status !== 0) process.exit(call.status ?? 1);
+    if (args.includes('unlock')) {
+      const nested = ${JSON.stringify(nested)};
+      fs.mkdirSync(nested);
+      process.exitCode = spawnSync(actual, ['init', '-q', '--bare', nested], {stdio: 'inherit', shell: false}).status;
+    }
+  `, {mode: 0o700});
+  const env = {...cleanEnv, PATH: shimDir + path.delimiter + cleanEnv.PATH};
+  const result = cleanup(repo, run, false, 3, 'nested_worktree', env);
+  assert.deepEqual(result.nestedPaths, [nested]);
+  assert.ok(fs.existsSync(path.join(nested, 'HEAD')));
+  assert.ok(fs.existsSync(path.join(worktree, 'tracked.txt')));
+  assert.match(git(repo.cwd, 'worktree', 'list', '--porcelain'), new RegExp('locked arc-verify:' + run.runId));
+  fs.rmSync(nested, {recursive: true});
+  cleanup(repo, run);
+});
+
+test('cleanup holds cleanup_unsafe_path for a symlink in the tool path', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const worktree = run.worktree.path;
+  const moved = path.join(repo.common, 'moved-worktree');
+  fs.renameSync(worktree, moved);
+  fs.symlinkSync(moved, worktree, 'dir');
+  const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
+  for (const dryRun of [true, false]) cleanup(repo, run, dryRun, 3, 'cleanup_unsafe_path');
+  assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registered);
+  assert.ok(fs.lstatSync(worktree).isSymbolicLink());
+  assert.equal(fs.readFileSync(path.join(moved, 'tracked.txt'), 'utf8'), 'tracked\n');
+});
+
+test('cleanup holds cleanup_unsafe_path for a tool directory with a mode other than 0700', async t => {
+  const repo = makeRepo(t);
+  const temp = path.join(repo.common, 'temp');
+  fs.mkdirSync(temp, {mode: 0o700});
+  const env = {...cleanEnv, TMPDIR: temp};
+  const run = verifyCli(repo, 'start', repo.input, 0, 'ok', env);
+  const worktree = run.worktree.path;
+  const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
+  for (let directory = worktree; directory !== temp; directory = path.dirname(directory)) {
+    assert.equal(fs.lstatSync(directory).mode & 0o7777, 0o700, directory);
+    fs.chmodSync(directory, 0o755);
+    try {
+      for (const dryRun of [true, false]) cleanup(repo, run, dryRun, 3, 'cleanup_unsafe_path', env);
+      assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registered);
+      assert.ok(fs.existsSync(path.join(worktree, 'tracked.txt')));
+    } finally {
+      fs.chmodSync(directory, 0o700);
+    }
+  }
+});
+
+test('cleanup holds cleanup_unsafe_path for a writable ancestor without sticky bit', async t => {
+  const repo = makeRepo(t);
+  const ancestor = path.join(repo.common, 'shared');
+  const temp = path.join(ancestor, 'temp');
+  fs.mkdirSync(ancestor, {mode: 0o700});
+  fs.mkdirSync(temp, {mode: 0o700});
+  fs.chmodSync(ancestor, 0o777);
+  const env = {...cleanEnv, TMPDIR: temp};
+  const run = verifyCli(repo, 'start', repo.input, 0, 'ok', env);
+  const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
+  for (const dryRun of [true, false]) {
+    const result = cleanup(repo, run, dryRun, 3, 'cleanup_unsafe_path', env);
+    assert.equal(result.path, ancestor);
+  }
+  assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registered);
+  assert.ok(fs.existsSync(path.join(run.worktree.path, 'tracked.txt')));
+});
+
+test('cleanup allows a writable ancestor with sticky bit', async t => {
+  const repo = makeRepo(t);
+  const temp = path.join(repo.common, 'sticky-temp');
+  fs.mkdirSync(temp, {mode: 0o700});
+  fs.chmodSync(temp, 0o1777);
+  const env = {...cleanEnv, TMPDIR: temp};
+  const run = verifyCli(repo, 'start', repo.input, 0, 'ok', env);
+  assert.deepEqual(cleanup(repo, run, true, 0, 'ok', env).targets, cleanupTarget(run));
+  assert.ok(cleanup(repo, run, false, 0, 'ok', env).removed.includes(run.worktree.path));
+});
+
+test('cleanup holds cleanup_unsafe_path for an ancestor owned by another user', async t => {
+  const repo = makeRepo(t);
+  const run = await start(t, repo);
+  const root = path.parse(run.worktree.path).root;
+  const registered = git(repo.cwd, 'worktree', 'list', '--porcelain');
+  const lstat = (filename, options) => {
+    const stat = fs.lstatSync(filename, options);
+    if (filename === root) stat.uid = process.geteuid() + 1;
+    return stat;
+  };
+  for (const dryRun of [true, false]) {
+    const result = await verifyCleanup({cwd: repo.cwd, input: {runId: run.runId, dryRun}, env: cleanEnv}, {lstat});
+    assert.deepEqual([result.decision, result.code, result.path], ['hold', 'cleanup_unsafe_path', root]);
+  }
+  assert.equal(git(repo.cwd, 'worktree', 'list', '--porcelain'), registered);
+  assert.ok(fs.existsSync(path.join(run.worktree.path, 'tracked.txt')));
 });

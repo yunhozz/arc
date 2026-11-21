@@ -153,6 +153,8 @@ ARC 최종 검증에서 가장 오래 걸리는 두 단계는 approved base의 �
 | `rerun_limit` | deny | rerun | 없음(상한 도달) |
 | `run_active` | hold | cleanup | run이 종료 상태가 됨 |
 | `not_tool_owned` | deny | cleanup | 없음(도구가 만든 것이 아님) |
+| `cleanup_unsafe_path` | hold | cleanup | 도구 디렉터리의 소유자·모드·심볼릭 링크 여부를 점검한 뒤 재호출(v7) |
+| `nested_worktree` | hold | cleanup | operator가 `nestedPaths`의 worktree·저장소를 옮기거나 정리한 뒤 재호출(v5) |
 | `cleanup_partial` | hold | cleanup | residualPaths 점검 후 operator가 명시적으로 다시 호출 |
 | `worktree_unclean` / `worktree_oid_mismatch` / `prepare_dirtied_tree` | run `failed` 사유 | start runner | 원인 확인 후 새 start |
 
@@ -278,6 +280,15 @@ uncacheable이어도 run은 실행하며 결과는 이번 비교에 쓸 수 있�
 2. `owner.json`의 `tool`·`runId`·`repoHash` 일치
 3. `git worktree list --porcelain`에 그 경로가 detached·기록 OID·lock reason `arc-verify:<runId>`로 있음
 4. run 상태가 종료. 활성이면 hold `run_active`. unknown이면 `process.kill(pid, 0)`이 ESRCH일 때만 허용, 그 밖에는 hold `run_unknown`
+5. (v5) 중첩 보호: 아래 중 하나라도 있으면 아무것도 지우지 않고 hold `nested_worktree`를 반환하며 발견 경로를 `nestedPaths`로 보고한다.
+   - `git worktree list --porcelain`에 도구 worktree 경로 아래로 등록된 다른 worktree
+   - 도구 worktree 안에서 루트가 아닌 위치에 있는 `.git` 파일 또는 디렉터리(다른 저장소의 worktree·clone)
+   - (v6) 도구 worktree 안에서 Git 저장소 형태를 가진 디렉터리(`HEAD` 파일과 `objects/`·`refs/` 디렉터리를 함께 가진 bare 저장소 등)
+   - 검사를 끝낼 수 없으면(읽기 실패 등) 같은 hold로 처리한다.
+   - dryRun에서도 같은 검사를 하고 결과를 보고한다.
+   - (v6) 실제 정리에서는 `git worktree unlock` 직후, `remove` 직전에 이 검사를 다시 한다.
+   - (v6) 보장 범위와 한계: 도구 worktree는 도구가 만든 임시 디렉터리이므로, 위 감지에 걸리지 않는 일반 파일은 도구 소유로 보고 함께 지운다. 마지막 검사와 `remove` 사이에 다른 Git 프로세스가 중첩 worktree를 등록하는 경합은 원자적으로 막을 수 없으며 알려진 한계로 둔다.
+6. (v7) 디렉터리 소유 전제: 삭제 전에 `<tmp>/arc-verify`, `<repoHash>`, `<runId>`, `wt`가 모두 심볼릭 링크가 아닌 실제 디렉터리이고 현재 사용자 소유이며 모드가 0700인지 확인한다(`lstat`). 하나라도 아니면 아무것도 지우지 않고 hold `cleanup_unsafe_path`를 반환한다. 이 전제에서 도구 디렉터리를 바꿀 수 있는 주체는 같은 사용자뿐이다. 이 전제를 강제하기 위해 루트부터 `<tmp>/arc-verify`의 부모까지 각 상위 디렉터리도 `lstat`으로 확인한다. 각 디렉터리는 현재 사용자나 root 소유여야 하고, group·other 쓰기가 없거나 sticky bit가 있어야 한다. 하나라도 어긋나면 같은 hold로 처리한다(v7 보완, 사용자 확인 2026-11-21). Git 재귀 삭제 중에 같은 사용자 프로세스가 하위 디렉터리를 심볼릭 링크로 바꿔치기하는 경합은 v6 경합 한계에 포함한다.
 
 **동작**
 - `dryRun:true`는 대상만 나열.
@@ -508,3 +519,6 @@ Orchestrator MAY run `node <skill>/runtime/verify-cli.mjs <command> --cwd <works
 | v2 | 2026-11-21 | plan T1 Step 0 hold(node tap이 통과 test에 location 없음) 후 ARC node reporter 추가: §5.2 `{arcNodeReporter}` 자리표시자와 junit-xml `stream`, §9.2 reporter, §12 파일·테스트·dogfood, §13-5 해결 | 사용자 승인 2026-11-21 |
 | v3 | 2026-11-21 | plan T2 QA finding 후 §6.1 보완: `{worktree}` PATH로 찾는 실행 파일 realpath는 phase2 입력이고, 이 경우 적중 확인에도 worktree가 필요함을 명시(구현 동작과 일치, 코드 변경 없음) | 사용자 승인 2026-11-21 |
 | v4 | 2026-11-21 | plan T3 Implementer hold 후 §8.3 정정: 스냅샷 commit 메시지에서 runId를 빼 `arc-verify snapshot`으로 고정(같은 HEAD·tree면 같은 OID 요구와의 모순 해소) | 사용자 승인 2026-11-21 |
+| v5 | 2026-11-21 | plan T4 Implementer 안전성 hold 후 §8.5 대상 판정 5 중첩 보호와 §5.7 `nested_worktree` 추가(도구 worktree 안의 사용자 worktree·저장소가 `remove --force`로 지워지는 경로 차단) | 사용자 승인 2026-11-21 |
+| v6 | 2026-11-21 | T4 재시작 Implementer 안전성 hold 후 §8.5 판정 5 보강: bare 저장소 형태 감지 추가, unlock 직후·remove 직전 재검사, 보장 범위(일반 파일은 도구 소유)와 경합 창 한계 명시 | 사용자 승인 2026-11-21 |
+| v7 | 2026-11-21 | T4 세 번째 Implementer 안전성 hold(Git 재귀 삭제 중 symlink 교체 경합) 후 §8.5 판정 6 추가: 도구 디렉터리 경로 전체의 실제 디렉터리·현재 사용자 소유·0700 확인, 실패 시 hold `cleanup_unsafe_path`. 같은 사용자 경합은 v6 한계에 포함 | 사용자 승인 2026-11-21 |

@@ -7,7 +7,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
 import {getPlatform} from './platform-registry.mjs';
 import {inspectPath, within} from './scope.mjs';
-import {PARSER_SCHEMA_VERSION, summarizeCommand, validateRegexSpec} from './test-results.mjs';
+import {buildReport, compareRuns, PARSER_SCHEMA_VERSION, summarizeCommand, validateRegexSpec} from './test-results.mjs';
 
 export const VERIFY_COMMANDS = Object.freeze(['verify-start', 'verify-status', 'verify-compare', 'verify-rerun', 'verify-cleanup']);
 export const HEARTBEAT_INTERVAL_MS = 2000;
@@ -309,10 +309,6 @@ function isSandboxError(error) {
   return /operation not permitted|permission denied|sandbox/i.test(error.message) || ['EACCES', 'EPERM'].includes(error.code);
 }
 
-function notImplemented() {
-  return {decision: 'hold', code: 'verify_error', message: 'not implemented'};
-}
-
 function verifyErrorResult(error) {
   if (error instanceof VerifyError) return error.result;
   throw error;
@@ -321,12 +317,10 @@ function verifyErrorResult(error) {
 export async function dispatchVerify(command, ctx) {
   if (command === 'verify-start') return verifyStart(ctx);
   if (command === 'verify-status') return verifyStatus(ctx);
-  try {
-    validateVerifyInput(command, ctx.input);
-    return notImplemented();
-  } catch (error) {
-    return verifyErrorResult(error);
-  }
+  if (command === 'verify-compare') return verifyCompare(ctx);
+  if (command === 'verify-rerun') return verifyRerun(ctx);
+  if (command === 'verify-cleanup') return verifyCleanup(ctx);
+  return new VerifyError('invalid_request').result;
 }
 
 function gitRunner(env, envNames = [], internalEnv = {}) {
@@ -400,12 +394,12 @@ function appendJson(filename, data) {
   }
 }
 
-function machineIdentity(store) {
+function machineIdentity(store, {create = true} = {}) {
   const filename = path.join(store, 'machine.json');
   let machine;
   let fd;
   try {
-    fd = fs.openSync(filename, 'wx', 0o600);
+    if (create) fd = fs.openSync(filename, 'wx', 0o600);
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
   }
@@ -1145,8 +1139,7 @@ function reclaimQueueLock(filename, identity, hostname) {
   }
 }
 
-async function withQueueLock(store, action, waitMs = HEARTBEAT_STALE_MS) {
-  const filename = path.join(store, 'queue.lock');
+async function withOperationLock(filename, action, waitMs = HEARTBEAT_STALE_MS) {
   const hostname = os.hostname();
   const deadline = performance.now() + waitMs;
   for (;;) {
@@ -1172,6 +1165,10 @@ async function withQueueLock(store, action, waitMs = HEARTBEAT_STALE_MS) {
       throw storageError(error);
     }
   }
+}
+
+function withQueueLock(store, action, waitMs) {
+  return withOperationLock(path.join(store, 'queue.lock'), action, waitMs);
 }
 
 function readStoredRun(dir, id) {
@@ -1258,6 +1255,502 @@ function phase1Key(phase1, commands, prep, worktree) {
   });
 }
 
+function seedDigest(seeds) {
+  return hashJson(seeds.map(({dest, data}) => [dest, sha256Hex(data)]));
+}
+
+async function getRunDirectory(store, runId) {
+  const directory = path.join(store, 'runs', runId);
+  if (!pathStat(directory)) throw new VerifyError('unknown_run');
+  await validateStorePath(directory);
+  return directory;
+}
+
+function loadCommandRun(directory, runId) {
+  const run = readStoredRun(directory, runId);
+  const states = ['queued', 'preparing', 'running'];
+  const state = terminal(run?.state) ||
+    states.includes(run?.state) && heartbeatAlive(readHeartbeat(directory), Date.now()) ? run.state : 'unknown';
+  return {run, state};
+}
+
+function readRunResult(directory, runId, expectedHash) {
+  try {
+    const filename = path.join(directory, 'result.json');
+    if (!fs.lstatSync(filename).isFile()) throw Error('Expected a regular result file');
+    const bytes = fs.readFileSync(filename);
+    if (expectedHash && sha256Hex(bytes) !== expectedHash) throw Error('Result hash mismatch');
+    const result = JSON.parse(bytes);
+    if (!Array.isArray(result.commands) || !result.commands.every(command =>
+      Array.isArray(command?.summary?.tests) && Array.isArray(command.summary.incomplete) &&
+      Array.isArray(command.expandedFiles))) throw Error('Invalid command result');
+    return result;
+  } catch (error) {
+    throw new VerifyError('run_unknown', 'hold', {runId, message: error.message});
+  }
+}
+
+function readJsonLines(filename) {
+  try {
+    const stat = pathStat(filename);
+    if (!stat) return [];
+    if (!stat.isFile()) throw Error('Expected a regular JSONL file');
+    return fs.readFileSync(filename, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line));
+  } catch (error) {
+    throw storageError(error);
+  }
+}
+
+async function readComparisonHistory(store, runs) {
+  const history = [];
+  for (const cacheKey of new Set(runs.map(run => run.cacheKey).filter(key => CACHE_KEY.test(key)))) {
+    const directory = path.join(store, 'cache', cacheKey);
+    await validateStorePath(directory);
+    for (const {runId, state, loadClass, resultSha256} of readJsonLines(path.join(directory, 'history.jsonl'))) {
+      if (state !== 'succeeded') continue;
+      if (!RUN_ID.test(runId) || !CACHE_KEY.test(resultSha256)) throw storageError(Error('Invalid history entry'));
+      const runDirectory = await getRunDirectory(store, runId);
+      const {commands} = readRunResult(runDirectory, runId, resultSha256);
+      history.push({cacheKey, runId, loadClass, commands});
+    }
+  }
+  return history;
+}
+
+function readRunReruns(directory) {
+  return readJsonLines(path.join(directory, 'reruns.jsonl'));
+}
+
+function reportConditions(run) {
+  const {input, machineId, recording} = run;
+  const temp = recording?.tmpdir;
+  return {
+    machineId, os: recording?.os ?? null, node: recording?.node ?? null,
+    sandboxMode: input.sandboxMode, hostPlatform: input.hostPlatform, executionEnvironment: input.executionEnvironment,
+    tmpdir: {realpath: temp?.path ?? null, fsType: temp?.type ?? null},
+    envNames: input.keyInputs.envNames,
+    prepareDigest: recording?.prepareDigest ?? hashJson(input.prepare),
+    seedDigest: recording?.seedDigest ?? (input.seedFiles.length ? null : seedDigest([]))
+  };
+}
+
+export async function verifyCompare({cwd, input, env = process.env}) {
+  try {
+    const {baseRunId, headRunId, topN} = validateVerifyInput('verify-compare', input);
+    const {store, commonDir} = await getStorage(cwd, gitRunner(env));
+    const ids = [baseRunId, headRunId];
+    const directories = await Promise.all(ids.map(id => getRunDirectory(store, id)));
+    const runs = ids.map((id, i) => {
+      const {run, state} = loadCommandRun(directories[i], id);
+      if (state !== 'succeeded') {
+        const code = {failed: 'run_failed', unknown: 'run_unknown'}[state] ?? 'run_incomplete';
+        throw new VerifyError(code, 'hold', {runId: id});
+      }
+      return run;
+    });
+    const [base, head] = runs;
+    if (base.role !== 'baseline' || head.role !== 'head') throw new VerifyError('role_mismatch', 'hold');
+    const repoHash = sha256Hex(commonDir).slice(0, 16);
+    if (!base.machineId || base.machineId !== head.machineId ||
+        runs.some(run => run.repoHash !== undefined && run.repoHash !== repoHash) ||
+        ['hostPlatform', 'sandboxMode'].some(key => base.input[key] !== head.input[key])) {
+      throw new VerifyError('execution_mismatch', 'hold');
+    }
+    const templates = run => hashJson(Object.fromEntries(run.input.commands.map(command => [command.id, command])));
+    if (templates(base) !== templates(head)) throw new VerifyError('command_set_mismatch', 'hold');
+    const conditions = reportConditions(head);
+    const prior = reportConditions(base);
+    if (prior.prepareDigest !== conditions.prepareDigest || conditions.seedDigest === null ||
+        prior.seedDigest !== conditions.seedDigest) throw new VerifyError('prepare_mismatch', 'hold');
+
+    const [baseResult, headResult] = runs.map((run, i) => ({...run, ...readRunResult(directories[i], run.runId)}));
+    const history = await readComparisonHistory(store, runs);
+    const reruns = directories.flatMap((directory, i) => readRunReruns(directory).map(({commandId, testId, ...attempt}) =>
+      ({runId: ids[i], commandId, testId, attempts: [{...attempt, runId: ids[i]}]})));
+    const comparison = compareRuns({base: baseResult, head: headResult, history, reruns});
+    const {json, md} = buildReport({
+      base: baseResult, head: headResult, comparison, conditions, phases: head.phases, topN, generatedAt: nowIso()
+    });
+    const reports = path.join(store, 'reports');
+    await validateStorePath(reports, {create: true});
+    const prefix = path.join(reports, baseRunId + '..' + headRunId);
+    const reportJson = prefix + '.json';
+    const reportMd = prefix + '.md';
+    try {
+      writeJson(reportJson, json);
+      atomicWrite(reportMd, md);
+    } catch (error) {
+      throw storageError(error);
+    }
+    const counts = Object.fromEntries(Object.entries(comparison).filter(([, value]) => Array.isArray(value))
+      .map(([key, values]) => [key, values.length]));
+    return allow({reportJson, reportMd, verdict: comparison.verdict, counts});
+  } catch (error) {
+    return verifyErrorResult(error);
+  }
+}
+
+export async function verifyRerun({cwd, input, env = process.env}) {
+  try {
+    const {runId, testId, attempt, sandboxMode, limit} = validateVerifyInput('verify-rerun', input);
+    const {store, commonDir} = await getStorage(cwd, gitRunner(env));
+    const directory = await getRunDirectory(store, runId);
+    const {run, state} = loadCommandRun(directory, runId);
+    const hold = code => new VerifyError(code, 'hold', {runId});
+    if (state !== 'succeeded') throw hold('run_incomplete');
+    let currentMachine;
+    try { currentMachine = machineIdentity(store, {create: false}); } catch (error) { throw storageError(error, {runId}); }
+    if (!run.machineId || run.machineId !== currentMachine || run.input.sandboxMode !== sandboxMode) {
+      throw hold('execution_mismatch');
+    }
+    const {commands} = readRunResult(directory, runId);
+    const matches = commands.flatMap(({id, summary}) => summary.tests.filter(test => test.testId === testId)
+      .map(test => ({id, test})));
+    expect(matches.length === 1, 'testId must identify exactly one test in the run');
+    const [{id, test}] = matches;
+    const command = run.input.commands.find(command => command.id === id);
+    expect(command, 'Missing command template');
+    const request = {runId, testId, attempt, limit};
+    if (!command.isolate) return allow({...request, runStatus: 'not-run', reason: 'no_isolation_template',
+      attempts: [], passesInIsolation: null});
+
+    return await withOperationLock(path.join(directory, 'worktree-operation.lock'), async () => {
+      const current = readStoredRun(directory, runId);
+      const worktree = ownedWorktreePaths(commonDir, runId).worktree;
+      if (current?.state !== 'succeeded' || current.worktree?.path !== worktree || !pathStat(worktree)) {
+        throw hold('run_incomplete');
+      }
+      await verifyOwnedPath(current, worktree, false);
+      const attempts = readRunReruns(directory).filter(entry => entry.commandId === id && entry.testId === testId)
+        .map(({attempt, status, ms}) => ({attempt, status, ms}));
+      if (attempt !== attempts.length + 1) throw new VerifyError('attempt_out_of_order');
+      if (attempt > limit) throw new VerifyError('rerun_limit');
+
+      const originalEnv = run.recording
+        ? Object.fromEntries(Object.entries(run.keyEnvironment).filter(([key]) => !run.recording.absentEnvNames.includes(key)))
+        : buildChildEnv({parentEnv: env, envNames: run.input.keyInputs.envNames});
+      const reporter = fs.realpathSync(REPORTER);
+      const task = resolveTask({...command, args: []}, cwd, originalEnv, [], reporter, () => {}, GLOB_FILE_LIMIT);
+      const runnable = materializeTask(task, worktree);
+      const values = {
+        file: test.file, name: test.name, namePattern: '^' + test.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$',
+        testId, worktree, arcNodeReporter: reporter
+      };
+      runnable.args = command.isolate.args.map(arg =>
+        arg.replace(/\{(file|name|namePattern|testId|worktree|arcNodeReporter)\}/g, (_, name) => values[name]));
+      runnable.cwd = resolveTaskCwd(runnable.cwd, worktree, runId);
+      if (!path.isAbsolute(runnable.executable)) runnable.executable = executablePath(runnable.executable, runnable.env, runnable.cwd);
+      let output;
+      try {
+        output = await runChild(runnable);
+      } catch (error) {
+        if (isSandboxError(error)) throw new VerifyError('host_sandbox_blocked', 'hold', {runId, message: error.message});
+        throw error;
+      }
+      const status = output.exit.code === 0 && !output.exit.timedOut ? 'passed' : 'failed';
+      const record = {attempt, status, ms: output.wallMs};
+      try {
+        appendJson(path.join(directory, 'reruns.jsonl'), {commandId: id, testId, ...record});
+      } catch (error) {
+        throw storageError(error, {runId});
+      }
+      attempts.push(record);
+      return allow({...request, runStatus: status, attempts,
+        passesInIsolation: attempts.some(entry => entry.status === 'passed') ? 'yes' : 'no'});
+    });
+  } catch (error) {
+    return verifyErrorResult(error);
+  }
+}
+
+function ownedWorktreePaths(commonDir, runId) {
+  let temporary;
+  try { temporary = fs.realpathSync(os.tmpdir()); } catch (error) { throw storageError(error, {runId}); }
+  const repoHash = sha256Hex(commonDir).slice(0, 16);
+  const root = path.join(temporary, 'arc-verify');
+  const parent = path.join(root, repoHash);
+  const directory = path.join(parent, runId);
+  return {repoHash, root, parent, directory, worktree: path.join(directory, 'wt'),
+    owner: path.join(directory, 'owner.json'), noHooks: path.join(directory, 'no-hooks')};
+}
+
+async function verifyOwnedPath(run, worktree, missing) {
+  const deny = new VerifyError('not_tool_owned', 'deny', {runId: run.runId});
+  if (run.worktree?.path !== worktree) throw deny;
+  try {
+    await inspectPath(worktree, {directory: true, missing});
+    if (missing && !pathStat(worktree)) return false;
+    if (fs.realpathSync(worktree) === worktree) return true;
+    throw deny;
+  } catch {
+    throw deny;
+  }
+}
+
+function verifyCleanupPathSafety(paths, runId, lstat, {missing = false} = {}) {
+  const uid = process.geteuid?.();
+  const ancestors = [];
+  for (let directory = path.dirname(paths.root); ; directory = path.dirname(directory)) {
+    ancestors.push(directory);
+    if (path.dirname(directory) === directory) break;
+  }
+  const directories = [...ancestors.reverse(), paths.root, paths.parent, paths.directory, paths.worktree];
+  for (const [index, directory] of directories.entries()) {
+    const isAncestor = index < ancestors.length;
+    let stat;
+    try {
+      stat = lstat(directory, {throwIfNoEntry: false});
+    } catch (error) {
+      throw new VerifyError('cleanup_unsafe_path', 'hold', {runId, path: directory, message: error.message});
+    }
+    if (!stat && !isAncestor && missing) return;
+    if (!stat?.isDirectory()) {
+      throw new VerifyError('cleanup_unsafe_path', 'hold', {runId, path: directory});
+    }
+    const {uid: owner, mode} = stat;
+    const safe = isAncestor
+      ? (owner === uid || owner === 0) && ((mode & 0o022) === 0 || (mode & 0o1000) !== 0)
+      : owner === uid && (mode & 0o7777) === 0o700;
+    if (!safe) {
+      throw new VerifyError('cleanup_unsafe_path', 'hold', {runId, path: directory});
+    }
+  }
+}
+
+function verifyWorktreeOwner(paths, runId) {
+  let owner;
+  try { owner = readJson(paths.owner); } catch {}
+  if (owner?.tool !== 'arc-verify' || owner.runId !== runId || owner.repoHash !== paths.repoHash) {
+    throw new VerifyError('not_tool_owned', 'deny', {runId});
+  }
+}
+
+function checkCleanupState({run, state}, runId) {
+  if (terminal(state)) return;
+  if (state !== 'unknown') throw new VerifyError('run_active', 'hold', {runId});
+  if (Number.isSafeInteger(run?.pid) && run.pid > 0) {
+    try { process.kill(run.pid, 0); } catch (error) { if (error.code === 'ESRCH') return; }
+  }
+  throw new VerifyError('run_unknown', 'hold', {runId});
+}
+
+function nestedWorktreeError(runId, nestedPaths, message) {
+  return new VerifyError('nested_worktree', 'hold', {runId, nestedPaths: [...nestedPaths].sort(),
+    ...(message ? {message} : {})});
+}
+
+async function listCleanupWorktrees(git, cwd, worktree, runId) {
+  try {
+    const output = await gitOutput(git, cwd, ['worktree', 'list', '--porcelain', '-z']);
+    const entries = output.trimEnd().split('\0\0').filter(Boolean).map(record =>
+      Object.fromEntries(record.split('\0').map(line => {
+        const separator = line.indexOf(' ');
+        return separator === -1 ? [line, ''] : [line.slice(0, separator), line.slice(separator + 1)];
+      })));
+    if (!entries.length || !entries.every(entry => path.isAbsolute(entry.worktree ?? ''))) {
+      throw Error('Invalid Git worktree list');
+    }
+    return entries;
+  } catch (error) {
+    throw nestedWorktreeError(runId, [worktree], error.message);
+  }
+}
+
+function verifyWorktreeRegistration(entries, worktree, run, lock) {
+  const matches = entries.slice(1).filter(entry => entry.worktree === worktree);
+  const [entry] = matches;
+  if (matches.length !== 1 || !Object.hasOwn(entry, 'detached') || Object.hasOwn(entry, 'prunable') ||
+      !REVISION.test(run.commit) || entry.HEAD !== run.commit || entry.locked !== lock) {
+    throw new VerifyError('not_tool_owned', 'deny', {runId: run.runId});
+  }
+}
+
+function checkNestedWorktrees(entries, worktree, runId) {
+  const found = new Set();
+  const directories = [worktree];
+  let directory = worktree;
+  try {
+    const physicalWorktree = fs.realpathSync.native(worktree);
+    for (const {worktree: registered} of entries) {
+      if (registered === worktree) continue;
+      if (within(worktree, registered)) {
+        found.add(registered);
+        continue;
+      }
+      directory = registered;
+      try {
+        const physical = fs.realpathSync.native(registered);
+        if (within(physicalWorktree, physical)) found.add(physical);
+      } catch (error) {
+        if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+      }
+    }
+    while ((directory = directories.pop()) !== undefined) {
+      const marker = name => fs.statSync(path.join(directory, name), {throwIfNoEntry: false});
+      const hasGitMarker = directory !== worktree && pathStat(path.join(directory, '.git'));
+      const hasBareMarkers = marker('HEAD')?.isFile() && marker('objects')?.isDirectory() && marker('refs')?.isDirectory();
+      if (hasGitMarker || hasBareMarkers) {
+        found.add(directory);
+        continue;
+      }
+      for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+        if (entry.name !== '.git' && entry.isDirectory()) directories.push(path.join(directory, entry.name));
+      }
+    }
+  } catch (error) {
+    found.add(directory ?? worktree);
+    throw nestedWorktreeError(runId, found, error.message);
+  }
+  if (found.size) throw nestedWorktreeError(runId, found);
+}
+
+function cleanupResponse(dryRun, targets, removed, residualPaths, state) {
+  return {dryRun, targets, removed: [...removed], residualPaths, cleanup: {state}};
+}
+
+function checkpointCleanup(filename, run, removed, residualPaths) {
+  try {
+    run.cleanup = {state: residualPaths.length ? 'partial' : 'complete', removed: [...removed], residualPaths};
+    writeJson(filename, run);
+  } catch (error) {
+    throw storageError(error, {runId: run.runId, removed: [...removed], residualPaths});
+  }
+}
+
+async function cleanupRunWorktree({cwd, git, commonDir, directory, run, dryRun, lstat}) {
+  const {runId} = run;
+  if (!run.worktree) return allow(cleanupResponse(dryRun, [], [], [], 'complete'));
+  const paths = ownedWorktreePaths(commonDir, runId);
+  const {worktree, owner, noHooks} = paths;
+  if (run.worktree.path !== worktree) throw new VerifyError('not_tool_owned', 'deny', {runId});
+  verifyCleanupPathSafety(paths, runId, lstat, {missing: true});
+  const exists = await verifyOwnedPath(run, worktree, true);
+  const removed = new Set((run.cleanup?.removed ?? []).filter(item => [worktree, owner, noHooks, paths.directory].includes(item)));
+  const alreadyRemoved = removed.has(worktree);
+  if (exists && alreadyRemoved) throw new VerifyError('not_tool_owned', 'deny', {runId});
+  const targets = alreadyRemoved ? [] : [{kind: 'worktree', path: worktree}];
+  const residualPaths = [];
+  const runFile = path.join(directory, 'run.json');
+  function partial(message) {
+    if (!dryRun) checkpointCleanup(runFile, run, removed, residualPaths);
+    throw new VerifyError('cleanup_partial', 'hold', {
+      ...cleanupResponse(dryRun, targets, removed, residualPaths, 'partial'), runId, ...(message ? {message} : {})
+    });
+  }
+
+  if (!exists && !alreadyRemoved) {
+    // A registration with a missing directory needs operator action, never a global prune.
+    residualPaths.push(worktree);
+    partial();
+  }
+  const lock = 'arc-verify:' + runId;
+  if (!alreadyRemoved) {
+    verifyWorktreeOwner(paths, runId);
+    const entries = await listCleanupWorktrees(git, cwd, worktree, runId);
+    verifyWorktreeRegistration(entries, worktree, run, lock);
+    checkNestedWorktrees(entries, worktree, runId);
+  }
+  if (dryRun) return allow(cleanupResponse(true, targets, [], run.cleanup?.residualPaths ?? [],
+    run.cleanup?.state ?? 'pending'));
+
+  if (!alreadyRemoved) {
+    try {
+      await gitOutput(git, cwd, ['worktree', 'unlock', worktree]);
+    } catch (error) {
+      residualPaths.push(worktree);
+      partial(error.message);
+    }
+    try {
+      const entries = await listCleanupWorktrees(git, cwd, worktree, runId);
+      verifyCleanupPathSafety(paths, runId, lstat);
+      await verifyOwnedPath(run, worktree, false);
+      verifyWorktreeOwner(paths, runId);
+      verifyWorktreeRegistration(entries, worktree, run, undefined);
+      // Git has no atomic guard for a nested registration created between this scan and remove.
+      checkNestedWorktrees(entries, worktree, runId);
+      verifyCleanupPathSafety(paths, runId, lstat);
+      await gitOutput(git, cwd, ['worktree', 'remove', '--force', worktree]);
+    } catch (error) {
+      let lockRestoreError;
+      try {
+        await verifyOwnedPath(run, worktree, false);
+        verifyWorktreeOwner(paths, runId);
+        const entries = await listCleanupWorktrees(git, cwd, worktree, runId);
+        verifyWorktreeRegistration(entries, worktree, run, undefined);
+        await gitOutput(git, cwd, ['worktree', 'lock', '--reason', lock, worktree]);
+      } catch (restoreError) {
+        lockRestoreError = restoreError.message;
+      }
+      if (error instanceof VerifyError) {
+        if (lockRestoreError) error.result.lockRestoreError = lockRestoreError;
+        throw error;
+      }
+      residualPaths.push(worktree);
+      partial(lockRestoreError ? error.message + '; lock restoration: ' + lockRestoreError : error.message);
+    }
+    removed.add(worktree);
+    checkpointCleanup(runFile, run, removed, [owner, noHooks, paths.directory]);
+  }
+
+  verifyCleanupPathSafety(paths, runId, lstat, {missing: true});
+  if (await verifyOwnedPath(run, worktree, true)) throw new VerifyError('not_tool_owned', 'deny', {runId});
+  for (const [item, remove] of [[owner, fs.unlinkSync], [noHooks, fs.rmdirSync], [paths.directory, fs.rmdirSync]]) {
+    if (removed.has(item)) continue;
+    try {
+      remove(item);
+      removed.add(item);
+    } catch (error) {
+      if (error.code !== 'ENOENT') residualPaths.push(item);
+    }
+  }
+  if (residualPaths.length) partial();
+  for (const parent of [paths.parent, paths.root]) {
+    try { fs.rmdirSync(parent); } catch (error) {
+      if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) residualPaths.push(parent);
+    }
+  }
+  if (residualPaths.length) partial();
+  checkpointCleanup(runFile, run, removed, []);
+  return allow(cleanupResponse(false, targets, removed, [], 'complete'));
+}
+
+async function cleanupCacheRecord(store, cacheKey, dryRun) {
+  const directory = path.join(store, 'cache', cacheKey);
+  await validateStorePath(directory);
+  const record = path.join(directory, 'record.json');
+  try {
+    const stat = pathStat(record);
+    if (!stat) return allow(cleanupResponse(dryRun, [], [], [], 'complete'));
+    if (!stat.isFile()) throw Error('Expected a regular cache record');
+    const targets = [{kind: 'cache-record', path: record}];
+    if (dryRun) return allow(cleanupResponse(true, targets, [], [], 'pending'));
+    fs.renameSync(record, path.join(directory, 'record.removed.json'));
+    return allow(cleanupResponse(false, targets, [record], [], 'complete'));
+  } catch (error) {
+    throw storageError(error);
+  }
+}
+
+export async function verifyCleanup({cwd, input, env = process.env}, {lstat = fs.lstatSync} = {}) {
+  try {
+    const {dryRun, runId, cacheKey} = validateVerifyInput('verify-cleanup', input);
+    const git = gitRunner(env);
+    const {store, commonDir} = await getStorage(cwd, git);
+    if (cacheKey) return await cleanupCacheRecord(store, cacheKey, dryRun);
+    const directory = await getRunDirectory(store, runId);
+    const current = loadCommandRun(directory, runId);
+    checkCleanupState(current, runId);
+    if (dryRun) return await cleanupRunWorktree({cwd, git, commonDir, directory, run: current.run, dryRun, lstat});
+    return await withOperationLock(path.join(directory, 'worktree-operation.lock'), async () => {
+      const current = loadCommandRun(directory, runId);
+      checkCleanupState(current, runId);
+      return cleanupRunWorktree({cwd, git, commonDir, directory, run: current.run, dryRun, lstat});
+    });
+  } catch (error) {
+    return verifyErrorResult(error);
+  }
+}
+
 export async function verifyStart({cwd, input, env = process.env}, internal = {}) {
   try {
     input = validateVerifyInput('verify-start', input);
@@ -1316,7 +1809,13 @@ async function startRun({cwd, input, env, internal}) {
       input, cacheKeyPhase1, cacheKey: hasPhase2 ? null : cacheKeyPhase1,
       cacheable: !reasons.size, uncacheableReasons: [...reasons], cacheHit: 'pending', worktree: null,
       phases: [], load: makeLoad(input, internal.loadavg ?? os.loadavg), pid: process.pid, children: [],
-      ignoredAfterPrepare: [], queuedBehind, keyEnvironment, machineId
+      ignoredAfterPrepare: [], queuedBehind, keyEnvironment, machineId,
+      repoHash: sha256Hex(commonDir).slice(0, 16),
+      recording: {
+        os: phase1.os, node: phase1.nodeVersion, tmpdir: phase1.tmpdir[0],
+        prepareDigest: hashJson(input.prepare), seedDigest: seeds ? seedDigest(seeds) : null,
+        absentEnvNames: phase1.absentEnvNames
+      }
     };
     if (input.detach) {
       // Pin the preflight inputs so detach does not repeat tool probes or reread seed files.
@@ -1460,7 +1959,9 @@ async function executeRun({run, runDir, store, commonDir, git, environment, exec
         cwd, environment, reporter: fs.realpathSync(REPORTER), globLimit, addReason
       });
       await phase('prepare', async () => {
-        await seedWorktree(seeds ?? readSeeds(input, cwd, entries), worktree, git);
+        const actualSeeds = seeds ?? readSeeds(input, cwd, entries);
+        if (run.recording) run.recording.seedDigest = seedDigest(actualSeeds);
+        await seedWorktree(actualSeeds, worktree, git);
         const before = topLevelIgnored(await statusEntries(git, worktree));
         for (const [index, task] of prep.entries()) {
           const resolved = bindWorktreeExecutable(task, worktree, runId);
