@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 plan은 ARC Orchestrator가 조정합니다. task마다 fresh Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행합니다. Implementer와 QA는 Git 상태를 바꾸지 않습니다.
 
-- 상태: v3 (2026-11-22 사용자 승인. spec 5.1 Q1 갱신·Q3 인정, 5.2 U1 adapter 해시 갱신·U2·U3 opening 반영)
+- 상태: v4 (2026-11-23 사용자 위임 승인: T2 표 4 개정, T3 미개시. v3 2026-11-22 사용자 승인. spec 5.1 Q1 갱신·Q3 인정, 5.2 U1 adapter 해시 갱신·U2·U3 opening 반영)
 - Spec: `docs/superpowers/specs/2026-11-22-contract-test-baseline-design.md` (written-spec 승인 후 진행)
 - workflow: `2026-11-22-contract-baseline-failures`
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, `feat/qa-owned-verification`, approved base `2b482ea8`
@@ -128,10 +128,28 @@
   - 승인되지 않은 삭제나 owner 변경이 diff에 없는지 확인한다.
   - 판정에 동의하지 않는 항목은 unmet으로 보고한다.
 - 보류 조건: base 실행 결과가 로그와 다르거나, 판정 근거 커밋을 찾을 수 없거나, 패턴 하나가 여러 의무를 섞어 P와 L이 함께 나오면 해당 단위만 hold하고 보고한다. 기본은 L로 남긴다. 단위를 둘로 나누려면 D7에 따른 사용자 승인이 필요하다.
+- 진행 기록 (2026-11-23)
+  - Implementer `e2742fb2`: 1단계 대조표 작성, 사용자 M 16단위 승인 후 2단계 적용, 재개 8회. 재개는 QA 비동의와 A3 미충족 반영에 썼다.
+    - L 재판정: U018 U021 U046 U107 U110 U137 U140 U019 U022 U051 U056 U061 U064 U157 U147 U067 U070 U091 U096 U097 U159 U161 U088 U093 U094.
+    - 최종 집계: P 89, L 67(hold 42 포함), M 16, D 0.
+  - QA `31042252`: U147 비동의, U019·U022 A3 문제 제기. U019·U022는 `lower()` 적용 착오로 판명됐고, 대소문자를 구분하면 False여서 L을 유지했다.
+  - QA `9c81a864`: P 재확인을 3묶음으로 나눠 진행했다. 묶음 단위로 재개했다.
+    - P 판정 확인: 동의 92, 비동의 6(U067·U091·U096·U097·U159·U161). 비동의 6건은 모두 L로 이동했다.
+    - 나머지 검사
+      - proven: Python 35 tests, failures=36, errors=0. 표 3 양방향 일치, A5 13개 유지, 커밋 권한 2단위, A8, `check:manifest`, `git diff --check`.
+      - unmet(profile 기존 패턴 3개 변경): 표 4 개정으로 승인했다(사용자 위임). 개정 3패턴의 합성 결과 일치와 변이 실패는 proven.
+  - Orchestrator 직접 확인: QA 스크립트 오류로 남은 항목을 직접 확인했다. 읽기 전용 스크립트를 썼다.
+    - L 67단위: 원 패턴 문자열이 base와 현재 테스트 양쪽에 있고, 현재 owner에서 직접 평가하면 False다(63단위).
+    - 예외 4단위
+      - U003·U011: 순서 구간 추출(F001) 실패에 가려진 hold 단위다.
+      - U132·U134: 합성 순서 패턴이다. 단계 목록이 base와 같고, 추출식 변경은 P인 U131·U133이다.
+    - 바뀐 음성 검사 2개는 더 엄격해졌다.
+    - 자동 연결되지 않은 삭제 12행은 M(합성 profile·커밋 규칙 owner)을 위한 checker 구조 변경이다. 정규화는 같다.
+  - Orchestrator 수락. T3는 사용자 지시("T2까지만 진행")에 따라 이 작업에서 열지 않는다.
 
 ## T3. 소실 판정 규칙의 문서 복원 (조건부, 보류)
 
-- 상태: 보류. T2 수락과 소실 목록에 대한 항목별 사용자 결정 뒤에 spec·plan 개정(승인 필요)으로 구체화한다. 결정 전에는 Implementer를 배정하지 않는다.
+- 상태: 이 작업에서 열지 않음(2026-11-23 사용자 지시 "T2까지만 진행"). 소실 67단위는 T2 대조표 표 2·3에 남기고 후속 과제로 넘긴다. 원래 조건은 T2 수락과 소실 목록에 대한 항목별 사용자 결정 뒤에 spec·plan 개정(승인 필요)으로 구체화한다. 결정 전에는 Implementer를 배정하지 않는다.
 - 예정 범위(개정에서 확정)
   - 복원하기로 결정된 항목만, host 중립 문장으로 같은 reference를 가진 모든 플랫폼 문서(`codex`, `claude`, `gemini`, `grok`의 `skill/references/*`, 필요하면 `SKILL.md`와 agent profile)에 대칭으로 반영한다.
   - 문서가 생성물이면 생성 경로(`scripts/update-runtime-assets.mjs` 등)를 따른다. 생성 여부는 개정 전에 Scouter로 확인한다.
@@ -173,3 +191,4 @@
 | v1 | 2026-11-22 | — | Planner 첫 초안 + Orchestrator 검토(깊이 확정, T2 2단계 같은 Implementer 재개) | 사용자 "승인" |
 | v2 | 2026-11-22 | substantive | T1 결과에 따른 U1(adapter 해시 갱신)·U2(opening 반영) 단계 추가 | 사용자 결정(선택지 응답) |
 | v3 | 2026-11-22 | substantive | U3: opening의 의도된 차이 3개 반영 단계 추가 | 사용자 결정(선택지 응답) |
+| v4 | 2026-11-23 | substantive | T2 표 4 개정(profile ROLE_LOCAL 기존 패턴 3개를 현재 합성 문구로 대체, 의미 동등 이상). T3는 열지 않음 | 사용자 위임("plan 개정 승인이 필요하면 나 대신 진행해")에 따른 Orchestrator 승인 |

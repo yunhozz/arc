@@ -1,13 +1,25 @@
 """Approved structural policy checks; these do not prove live agent compliance."""
 
 from collections.abc import Mapping
+import json
 from pathlib import Path
 import re
+import subprocess
 import unittest
 
 
 REPO = Path(__file__).resolve().parents[1]
 PLATFORMS = ("codex", "claude")
+EVIDENCE_VERDICTS = r"criteria are proven, unmet or unverified\."
+ROLE_POLICY = "lib/policy/role-policy.json"
+COMMIT_RULE_ID = "git.orchestrator-accept-commit"
+COMMIT_RULE_PATTERN = (
+    r"only orchestrator accepts work and performs git mutations\. "
+    r"one approved top\-level plan task becomes one focused implementation commit "
+    r"after criteria, required checks and findings are satisfied\. orchestrator accepts, then"
+)
+PROFILE_WORKSPACE = r"(?:never|do not) create or switch.*(?:workspaces or branches|branches or workspaces)"
+PROFILE_FRAGMENT_PREFIX = "rendered:"
 
 # Each contract is evaluated at its owner independently for each platform.
 # Missing gates, acceptance boundaries, and adapter conflation are the breaks
@@ -106,48 +118,57 @@ COMMON_CONTRACTS = {
     )),
     "PLANNER_COMPLETE_BRIEF": ("references/planning.md", (
         r"original user requirements.*criteria ids.*approved decisions.*open decisions",
-        r"current behavior.*source.*generated.*runtime.*installer.*documentation",
+        r"current behavior and connected source/generated/runtime/installer/docs",
         r"exact.*current.stage.*deliverable",
         r"consolidated.*changed fields.*unchanged",
         r"no fixed call cap",
     )),
     "SCOPED_AUTHORIZATION": ("references/planning.md", (
-        r"explicit execution request.*authorization.*sufficiently specified scope",
-        r"execution intent.*expected outcome.*constraints.*document depth.*verification risk",
+        r"an explicit execution request authorizes only sufficiently specified scope from that request or a description the user explicitly references\.",
+        r"confirm intent/outcome/constraints/document depth/verification risk",
         r"no unresolved material.*(?:behavior|method|risk).*decision",
         r"record.*authorization evidence.*scope.*acceptance criteria.*constraints.*depth",
     )),
     "AUTHORIZATION_HOLDS": ("references/planning.md", (
-        r"silence.*ambiguous assent.*other work.*not authorization",
+        r"silence, ambiguous assent, other\-work approval and vague blanket improvements are insufficient\.",
         r"planner.*new material choices.*not.*approved",
-        r"material.*scope.*method.*risk.*hold affected work",
+        r"hold affected work for material changes to scope, method or risk, and report the missing decision, evidence and remaining scope\.",
     )),
     "COMPLETION_CONTINUITY": ("references/verification.md", (
-        r"approved scope.*continue.*execution.*correction.*reverification.*qa.*reviewer.*orchestrator acceptance.*report",
-        r"role completion report.*probe findings.*passing commands.*not.*overall completion",
-        r"remaining approved execution.*not.*optional.*user response",
+        (
+            r"once approval/depth/target/handoff hold, continue execution/correction/reverification/required qa\-reviewer/disposition/acceptance/report\.",
+            r"orchestrator decides final acceptance",
+        ),
+        r"reports/probes/commands never complete remaining approved scope\.",
+        r"do not make authorized execution an optional offer awaiting response\.",
     )),
     "PROBE_SCOPE": ("references/planning.md", (
         r"probe-only.*findings.*evidence.*limits.*uncertainty",
-        r"probe-only authorization does not authorize.*implementation",
-        r"explicitly requests both.*probe.*implementation.*sufficiently specified",
-        r"entire scope.*bounded.*internal investigation.*no new approval boundary",
+        r"it authorizes neither product retention nor subsequent implementation\.",
+        r"if explicitly requested probe\+implementation is fully specified, classify the whole scope\.",
+        r"under bounded conditions, probing is internal with no new report\-time approval boundary\.",
         r"unknown implementation.*not.*blanket authorization",
     )),
     "AUTHORIZATION_REUSE": ("references/handoff.md", (
-        r"reuse.*valid authorization.*same approved scope.*target",
+        r"reuse only for unchanged approved scope/workspace/repository/target with accessible valid evidence\.",
         r"restart.*new role assignment.*not.*repeat approval",
-        r"reuse.*never waives.*actual.*workspace.*branch.*head.*changes.*ownership",
+        (
+            r"every start/restart compares actual identity/branch/detached head/head/changes/preservation/ownership, approvals/artifacts, document sha/message/paths/content or absence and final state with the brief\.",
+            r"reuse waives none of gates 1–7\.",
+        ),
     )),
     "OWNERSHIP": ("references/coordination.md", (
-        r"qa: verifies without edits",
-        r"reviewer: independently reviews the final full change",
-        r"depth-2 roles cannot create agents or delegate",
+        r"\| qa \| verifies without editing \|",
+        r"\| reviewer \| independently reviews the final full change \|",
+        r"all five specialists report directly at depth 2 without creating agents/delegating\.",
         r"orchestrator.*acceptance.*completion",
     )),
     "DOCUMENT_ORDER": ("references/planning.md", (
         r"written-spec approval.*before.*(?:implementation planning|dependent plan)",
-        r"bounded.*spec only when|bounded written spec.*required by orchestrator",
+        (
+            r"if bounded requires written spec, record necessity/scope using approved short design as basis\.",
+            r"this applies recorded judgment, not new spec necessity\.",
+        ),
     )),
     "AUTHORING_EXCLUSIVITY": ("references/planning.md", (
         r"drafts are authored only by planner",
@@ -161,28 +182,28 @@ COMMON_CONTRACTS = {
         r"branch or detached head.*head.*staged/unstaged/untracked",
         r"approved.*document|document approvals",
         r"canonical.*record",
-        r"unchanged.*record file.*fresh implementer reads",
+        r"restart briefs send verified deltas and record\-relative `unchanged`; fresh implementer reads it and gets other fields fully\.",
         r"inaccessible.*(?:record|link).*evidence|inaccessible.*record.*block",
     )),
     "READINESS": ("references/planning.md", (
         r"a task is ready only when.*approvals.*preparation.*inputs/contracts.*predecessors.*required evidence.*orchestrator acceptance.*verified focused commits.*accepted no-change",
-        r"ownership/resources do not conflict.*check/qa path.*slot.*runtime limit",
-        r"completion reports alone do not release dependents",
-        r"same-file concurrent implementer edits.*(?:blocked|forbidden)",
+        r"nonconflicting ownership/resources, available checks/qa and slots under both full\-tree arc and lower actual runtime limits\.",
+        r"completion alone releases no dependent\.",
+        r"same\-file concurrent implementers are forbidden even on different lines\.",
     )),
     "COMMIT_NEXT_ACTION": ("references/commit.md", (
-        r"after orchestrator accepts a task, the next action is the required git state/scope checks, staging, and focused commit",
-    )),
-    "COMMIT_AUTHORITY": ("references/commit.md", (
-        r"only orchestrator accepts the task and executes its focused commit",
+        (
+            r"one approved top\-level task is one focused implementation commit\. orchestrator verifies criteria, current checks and findings, accepts by judgment, then immediately commits locally without separate user commit approval\.",
+            r"after acceptance, check git state/scope, stage and commit\.",
+        ),
     )),
     "COMMIT_BOUNDARY": ("references/commit.md", (
         r"(?:one approved top-level task.*one focused implementation commit|commit one logical task promptly)",
-        r"without additional user commit approval",
-        r"plan-skip paths.*no new.*(?:commit|plan) obligation",
+        r"orchestrator verifies criteria, current checks and findings, accepts by judgment, then immediately commits locally without separate user commit approval\.",
+        r"plan omission creates neither new plans nor automatic commits; follow applicable guidance/user requests\.",
         r"no-change task.*no empty commit",
-        r"resume.*verify.*existing commit sha.*content.*validity.*reuse",
-        r"task acceptance(?:/commit)?.*distinct from final plan acceptance",
+        r"resume verifies/reuses the same task's sha/content/validity without duplication\.",
+        r"task acceptance/commit differs from final plan acceptance",
     )),
     "RECOVERY": ("references/git-recovery.md", (
         r"stop.*(?:dependent work|implementer handoff)",
@@ -193,18 +214,18 @@ COMMON_CONTRACTS = {
     )),
     "EVIDENCE_LIMITS": ("references/verification.md", (
         r"structural checks prove structur(?:e|al criteria) only",
-        r"(?:do not prove.*runtime|text presence alone cannot establish agent compliance)",
-        r"proven, unmet, or unverified",
+        r"policy, generated\-file and manifest checks prove structure, not role behavior, installed builds, claude code cli compliance or fidelity\.",
+        EVIDENCE_VERDICTS,
     )),
 }
 
 ROLE_LOCAL = (
     r"report directly to orchestrator at depth 2",
-    r"do not spawn agents",
-    r"trust.*orchestrator.verified.*branch.*head.*approvals",
+    r"do not create agents or delegate to another role\.",
+    r"trust orchestrator's verified workspace, branch/head, approvals, execution\-target choice, document commits and handoff facts;",
     r"(?:actual.*conflict|conflict.*actually hit)",
-    r"preserve unrelated staged, unstaged, and untracked changes and edit ownership",
-    r"(?:never|do not) create or switch.*(?:workspaces or branches|branches or workspaces)",
+    r"preserve unrelated staged, unstaged and untracked changes and edit ownership\.",
+    PROFILE_WORKSPACE,
     r"(?:never|do not).*delete locks|(?:never|do not).*remove locks",
     r"expected tdd red.*not an operational failure",
 )
@@ -258,27 +279,63 @@ POLICY_CONTRACTS["OWNERSHIP"].update({
     for platform in PLATFORMS
 })
 
+# The commit documents still own their conflict checks and must carry the exact
+# generated rule. The canonical rule owns the positive exclusive authority check.
+POLICY_CONTRACTS["COMMIT_AUTHORITY"] = {
+    platform: (f"{platform}/skill/references/commit.md", ())
+    for platform in PLATFORMS
+}
+POLICY_CONTRACTS["COMMIT_AUTHORITY"]["canonical"] = (ROLE_POLICY, (COMMIT_RULE_PATTERN,))
 POLICY_CONTRACTS["COMMIT_AUTHORITY"]["claude-implementer"] = (
     "claude/agents/arc-implementer.md", (r"implementer must not commit, even when explicitly assigned",)
 )
+
+
+def contract_owner(contract: str, path: str, pattern: str | tuple[str, ...]) -> str:
+    if contract == "ROLE_LOCAL" and pattern != PROFILE_WORKSPACE:
+        return f"{PROFILE_FRAGMENT_PREFIX}{path}"
+    return path
+
+
+def normalize_contract(text: str) -> str:
+    return " ".join(text.lower().replace("**", "").split())
+
+
+def pattern_parts(pattern: str | tuple[str, ...]) -> tuple[str, ...]:
+    return (pattern,) if isinstance(pattern, str) else pattern
 
 
 def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     """Return contract IDs and owner paths for supplied text, without file I/O."""
     failures = []
 
-    def require(contract: str, path: str, patterns: tuple[str, ...]) -> None:
+    def require(contract: str, path: str, patterns: tuple[str | tuple[str, ...], ...]) -> None:
         if path not in texts:
             failures.append(f"{contract}: {path}: missing owner")
             return
-        text = " ".join(texts[path].lower().replace("**", "").split())
+        owner_texts = {path: normalize_contract(texts[path])}
         for pattern in patterns:
-            if not re.search(pattern, text):
+            owner = contract_owner(contract, path, pattern)
+            if owner not in texts:
+                failures.append(f"{contract}: {path}: missing rendered owner for {pattern}")
+                continue
+            if owner not in owner_texts:
+                owner_texts[owner] = normalize_contract(texts[owner])
+            if not all(re.search(part, owner_texts[owner]) for part in pattern_parts(pattern)):
                 failures.append(f"{contract}: {path}: missing {pattern}")
 
     for contract, owners in POLICY_CONTRACTS.items():
         for path, patterns in owners.values():
             require(contract, path, patterns)
+    if ROLE_POLICY in texts:
+        rule_line = f"- [{COMMIT_RULE_ID}] {texts[ROLE_POLICY]}"
+        for platform in PLATFORMS:
+            path, _ = POLICY_CONTRACTS["COMMIT_AUTHORITY"][platform]
+            if path in texts:
+                block = texts[path].partition("[ARC role policy: contract begin]")[2]
+                block, end, _ = block.partition("[ARC role policy: contract end]")
+                if not end or block.splitlines().count(rule_line) != 1:
+                    failures.append(f"COMMIT_AUTHORITY: {path}: missing generated {COMMIT_RULE_ID} rule")
     for contract, patterns in {
         "AUTHORIZATION_HOLDS": (r"silence is authorization",),
         "PROBE_SCOPE": (r"probe-only authorization authorizes implementation",),
@@ -304,7 +361,7 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
         if path not in texts:
             continue
         text = " ".join(texts[path].lower().split())
-        order = re.search(r"normal order:(.*?)(?:\.(?: |$)|$)", text)
+        order = re.search(r"\border:(?= initial design approval →)(.*?)(?:\.(?: |$)|$)", text)
         sequence = (
             "initial design approval", "execution-target choice", "target preparation and verification",
             "formal spec drafting", "written-spec approval", "formal plan drafting",
@@ -325,8 +382,8 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
             r"references/handoff.md",
         ))
         require("HANDOFF_GATE", f"{root}/references/handoff.md", (
-            r"before every implementer first start/restart.*handoff",
-            r"missing evidence.*block handoff",
+            r"before every start/restart verify approvals/artifacts or omissions, explicit target/reuse, accessible intended repository/workspace, actual git identity/state, preservation/ownership, docs commits or absence and no unresolved failure/partial completion\.",
+            r"any failure/missing condition blocks handoff",
             r"same conditions.*before an orchestrator direct edit",
         ))
         for owner in ("references/commit.md", "references/handoff-prep.md"):
@@ -334,11 +391,34 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
     return failures
 
 
+def render_profile(path: str, template: str) -> str:
+    # Use the same fragment validation and rendering as the installer.
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", """
+import {readFileSync} from "node:fs";
+import {renderAgentProfile} from "./lib/prompts/render.mjs";
+const registry = JSON.parse(readFileSync("./lib/prompts/agent-fragments.json", "utf8"));
+process.stdout.write(renderAgentProfile(process.argv[1], readFileSync(0), registry));
+""", path],
+        cwd=REPO, input=template, capture_output=True, encoding="utf-8",
+    )
+    if result.returncode:
+        raise RuntimeError(f"Could not expand {path}: {result.stderr}")
+    return result.stdout
+
+
 def policy_texts() -> dict[str, str]:
     paths = {path for owners in POLICY_CONTRACTS.values() for path, _ in owners.values()}
     for platform in PLATFORMS:
         paths.add(f"{platform}/skill/references/handoff-prep.md")
-    return {path: (REPO / path).read_text() for path in sorted(paths)}
+    texts = {path: (REPO / path).read_text() for path in sorted(paths)}
+    rules = json.loads(texts[ROLE_POLICY])["rules"]
+    texts[ROLE_POLICY] = next(
+        (rule["text"] for rule in rules if rule["id"] == COMMIT_RULE_ID), ""
+    )
+    for path, _ in POLICY_CONTRACTS["ROLE_LOCAL"].values():
+        texts[f"{PROFILE_FRAGMENT_PREFIX}{path}"] = render_profile(path, texts[path])
+    return texts
 
 
 class PolicyContractTests(unittest.TestCase):
@@ -350,25 +430,30 @@ class PolicyContractTests(unittest.TestCase):
         profile = " ".join((REPO / "codex/agents/arc-planner.toml").read_text().lower().split())
         planning = " ".join(self.texts["codex/skill/references/planning.md"].lower().split())
         coordination = " ".join((REPO / "codex/skill/references/coordination.md").read_text().lower().split())
-        for artifact, text in (("profile", profile), ("planning", planning), ("coordination", coordination)):
+        generated_progress = r"briefly state the stage, feedback being applied, actual blocker or next step"
+        for artifact, text, progress in (
+            ("profile", profile, generated_progress),
+            ("planning", planning, r"keep updates brief: stage, feedback being applied, actual blocker, or next step"),
+            ("coordination", coordination, generated_progress),
+        ):
             for pattern in (
-                r"report(?:s)? progress only to orchestrator.*initial drafting and revisions|initial drafting and revisions.*planner reports progress only to orchestrator",
-                r"keep updates brief: stage, feedback being applied, actual blocker, or next step",
-                r"omit draft prose.*excerpts",
+                r"(?:during initial drafting and revisions, report progress only to orchestrator|planner reports initial/revision progress only to orchestrator)",
+                progress,
+                r"(?:without draft prose or excerpts|never body/excerpts/incremental drafts)",
                 r"return the complete draft and self.review to orchestrator for review and correction",
-                r"raw subagent responses may appear in app or tool surfaces.*prompt policy cannot hide them",
+                r"raw responses may appear in app/tool surfaces; prompt policy cannot hide them\.",
             ):
                 with self.subTest(artifact=artifact, contract=pattern):
                     self.assertRegex(text, pattern)
         for pattern in (
             r"allow the initial draft and one consolidated correction",
-            r"do not invoke planner only to reformat or re.express a draft, fix a save error, or fix a patch.application error.*orchestrator handles these operations",
+            r"orchestrator handles reformatting, re\-expression, save and patch errors without planner calls\.",
             r"evaluate separate substantive work under the normal planner gate",
         ):
             with self.subTest(artifact="planning", contract=pattern):
                 self.assertRegex(planning, pattern)
         self.assertRegex(planning, r"orchestrator keeps user.facing progress brief and based on planner status.*do not relay draft content")
-        self.assertRegex(planning, r"at approval, present the integrated, saved and reviewed markdown document without repeating its body in chat")
+        self.assertRegex(planning, r"at approval present integrated/saved/reviewed markdown without repeating its body in chat\.")
 
     def assert_contracts(self, *contracts: str) -> None:
         failures = policy_contract_failures(self.texts)
@@ -401,13 +486,17 @@ class PolicyContractTests(unittest.TestCase):
                          "PROBE_SCOPE", "AUTHORIZATION_REUSE", "ROLE_LOCAL", "NATIVE_ADAPTERS",
                          "PLAN_UPDATE_CLASSIFICATION", "PLAN_REVISION_COMMIT", "PLAN_REVISION_EVIDENCE"):
             for path, patterns in POLICY_CONTRACTS[contract].values():
-                fixture = " ".join(self.texts[path].lower().replace("**", "").split())
                 for pattern in patterns:
-                    match = re.search(pattern, fixture)
+                    owner = contract_owner(contract, path, pattern)
+                    fixture = normalize_contract(self.texts[owner])
                     with self.subTest(contract=contract, path=path, pattern=pattern):
-                        self.assertIsNotNone(match, "The original required contract must exist")
-                        changed = re.sub(pattern, " [removed obligation] ", fixture)
-                        self.assertTrue(self.contract_failures_at(contract, path, changed))
+                        for part in pattern_parts(pattern):
+                            self.assertIsNotNone(
+                                re.search(part, fixture), "The original required contract must exist"
+                            )
+                            changed = re.sub(part, " [removed obligation] ", fixture)
+                            failures = policy_contract_failures({**self.texts, owner: changed})
+                            self.assertIn(f"{contract}: {path}: missing {pattern}", failures)
 
     def test_authorization_checker_rejects_scope_and_completion_overrides(self) -> None:
         # Contradictory permissions must not pass just because the required prose remains.
@@ -452,7 +541,9 @@ class PolicyContractTests(unittest.TestCase):
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
             text = " ".join(self.texts[path].split())
-            order = re.search(r"Normal order:.*?Implementer handoff\.", text).group()
+            match = re.search(r"Normal order:.*?Implementer handoff\.", text)
+            self.assertIsNotNone(match, f"{path}: missing Normal order gates")
+            order = match.group()
             for gate in ("target preparation and verification", "written-spec approval",
                          "individual plan approvals", "complete applicable set",
                          "existing-commit verification and one batch docs commit of remaining approved documents",
@@ -543,7 +634,14 @@ class PolicyContractTests(unittest.TestCase):
         self.assert_contracts("COMMIT_NEXT_ACTION", "COMMIT_AUTHORITY", "COMMIT_BOUNDARY")
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/commit.md"
-            for required in ("Hold the task commit", "Git failure/partial completion"):
+            for required in (
+                "Hold commits for unmet/unresolved criteria, failed/not-run required checks, "
+                "undispositioned findings/gaps, scope expansion/revised-plan needs, "
+                "ownership/staged scope/content mismatch, unexpected workspace/branch/HEAD/Git "
+                "state or failure/partial completion.",
+                "unexpected workspace/branch/HEAD/Git state or failure/partial completion. "
+                "Record reason/next action; NEVER waive criteria/checks to commit.",
+            ):
                 with self.subTest(path=path, guard=required):
                     self.assertIn(required, self.texts[path])
 
@@ -569,7 +667,6 @@ class PolicyContractTests(unittest.TestCase):
             for contract, owner, old, new in (
                 ("READINESS", "planning.md", "Orchestrator acceptance", "Implementer completion"),
                 ("COMMIT_BOUNDARY", "commit.md", "no empty commit", "an empty commit"),
-                ("EVIDENCE_LIMITS", "verification.md", "proven, unmet, or unverified", "passed"),
             ):
                 path = f"{platform}/skill/references/{owner}"
                 fixture = " ".join(self.texts[path].split())
@@ -577,6 +674,14 @@ class PolicyContractTests(unittest.TestCase):
                 changed = {**self.texts, path: fixture.replace(old, new)}
                 with self.subTest(contract=contract, path=path, mutation=old):
                     self.assertTrue(any(failure.startswith(f"{contract}: {path}:") for failure in policy_contract_failures(changed)))
+            path = f"{platform}/skill/references/verification.md"
+            fixture = normalize_contract(self.texts[path])
+            with self.subTest(contract="EVIDENCE_LIMITS", path=path, mutation=EVIDENCE_VERDICTS):
+                self.assertRegex(fixture, EVIDENCE_VERDICTS)
+                changed = {**self.texts, path: re.sub(EVIDENCE_VERDICTS, "passed", fixture)}
+                self.assertIn(
+                    f"EVIDENCE_LIMITS: {path}: missing {EVIDENCE_VERDICTS}", policy_contract_failures(changed)
+                )
 
     def test_policy_contract_checker_rejects_adapter_conflation(self) -> None:
         prep = self.texts["claude/skill/references/handoff-prep.md"]
@@ -655,7 +760,7 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
             text = (REPO / platform / "skill/references/handoff.md").read_text()
             with self.subTest(platform=platform):
                 for pattern in (
-                    r"user-provided instructions.*discovered workspace instruction files.*installed role references.*task inputs",
+                    r"Distinguish user instructions, discovered workspace instructions, installed references and inputs by source/applicability/version or approval/access\.",
                     r"root AGENTS\.md.*absence.*not.*absence of instructions",
                     r"exact locator.*approved version.*purpose.*method.*preconditions.*evidence.*return conditions",
                     r"approved visual source.*version.*approval.*access",
