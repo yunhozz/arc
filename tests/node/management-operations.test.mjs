@@ -94,6 +94,24 @@ test('active dispatch message is surfaced',async t=>{
  assert.equal(fs.existsSync(ctx.userHome+'/.claude/arc-role-platform-routing.json'),false);
 });
 
+test('composite settings preparation requires all participating ARC installations',async t=>{
+ const ctx=await compositeContext(t);
+ await assert.rejects(api.prepareCompositeOperation(ctx,{kind:'preset',config:await mixedConfig('prepare-incomplete')}),{
+  message:'All participating ARC installations are required to change composite settings',
+ });
+});
+
+test('composite preset publication requires all participating ARC installations to remain complete',async t=>{
+ const ctx=await compositeContext(t);
+ await standalone(ctx);
+ const prepared=await api.prepareCompositeOperation(ctx,{kind:'preset',config:await mixedConfig('publish-incomplete')});
+ fs.truncateSync(path.join(ctx.userHome,'.codex/skills/arc/SKILL.md'),0);
+ const result=await api.executeOperation(ctx,prepared);
+ assert.equal(result.code,1);
+ assert.equal(result.activation,'held');
+ assert.equal(result.error.message,'All participating ARC installations must be complete before publication');
+});
+
 test('composite operation results no longer report held / unverified and point to routing-status',async t=>{
  const ctx=context(t),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-astra',effort:'low'}])),config={version:1,revision:'rev-1',roles};
  const {installFakeCli}=await import('./role-fixtures.mjs'),bin=ctx.userHome+'/bin';for(const platform of ['codex','claude'])await installFakeCli(t,bin,platform);ctx.env={PATH:bin+':/usr/bin:/bin'};

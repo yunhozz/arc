@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {makeTerminal} from './helpers/tui-terminal.mjs';
+import {createTuiInterface} from '../../lib/tui/interface.mjs';
 const api=await import('../../lib/tui/terminal.mjs').catch(()=>({}));
 function session(t,options){assert.equal(typeof api.createTerminalSession,'function');const io=makeTerminal(options),session=api.createTerminalSession({...io,env:options?.env??{COLORTERM:'truecolor'}});t.after(()=>session.dispose());return{...io,session};}
 test('alternate screen starts before cursor hiding and bracketed paste',t=>{
@@ -167,4 +168,48 @@ test('basic home frames stay identical throughout shimmer',async t=>{
  const formatted=frame=>{const result=renderScreen({...home,frame});return result.text.split('\n').map((line,index)=>api.formatLine(line,result.styles.find(style=>style.line===index),'16')).join('\n');};
  assert.equal(formatted(9),formatted(0));
  const io=session(t,{env:{TERM:'xterm'}});io.session.render(home);const before=Buffer.byteLength(io.text());for(let frame=1;frame<=36;frame++)io.session.repaint({...home,frame});assert.equal(Buffer.byteLength(io.text())-before,0);
+});
+
+test('formatLine emits dim only in color modes and keeps existing attributes',()=>{
+ const line='row';
+ const base={from:0,to:3,role:'selected',fg:[255,0,0],bg:[0,0,0],bold:true};
+ for(const [depth,want] of [
+  ['16','\x1b[0;42;30mrow\x1b[0m'],
+  ['256','\x1b[0;1;38;5;196;48;5;16mrow\x1b[0m'],
+  ['truecolor','\x1b[0;1;38;2;255;0;0;48;2;0;0;0mrow\x1b[0m'],
+  ['none','row'],
+ ]){
+  assert.equal(api.formatLine(line,{runs:[base]},depth),want);
+  const dimmed=api.formatLine(line,{runs:[{...base,dim:true}]},depth);
+  assert.equal(dimmed,depth==='none'?line:want.replace('mrow','m\x1b[2mrow'));
+ }
+});
+
+test('a menu without rowTones emits the exact 375b77c9 frame in every color mode',async t=>{
+ // Captured from createTuiInterface and createTerminalSession at 375b77c9.
+ const cases=[
+  [{TERM:'xterm'},['1;92','42;30','42','2','32','2','2']],
+  [{TERM:'xterm-256color'},['1;38;5;122','1;38;5;231;48;5;29','48;5;23','38;5;145','38;5;72','38;5;145','38;5;66']],
+  [{TERM:'xterm',COLORTERM:'truecolor'},['1;38;2;110;231;183','1;38;2;236;253;245;48;2;6;95;70','48;2;9;70;53','38;2;150;170;160','38;2;36;140;106','38;2;150;170;160','38;2;70;95;85']],
+  [{TERM:'xterm',NO_COLOR:''},[]],
+ ];
+ const sgr=params=>'\x1b[0;'+params+'m',reset='\x1b[0m';
+ for(const [env,[title,selected,pad,back,rule,hint,separator]] of cases){
+  const io=session(t,{env,columns:24,rows:12});
+  const ui=createTuiInterface(io.session,{input:io.input});
+  const pending=ui.menu('Menu',['Watch','Other'],{backRow:true,backLabel:'exit'});
+  const frame=io.text();
+  io.send('\r');
+  assert.equal(await pending,0);
+  io.session.dispose();
+  const paint=(params,text)=>params?sgr(params)+text+reset:text;
+  const hintLine=hint&&hint!==separator
+   ? sgr(hint)+'↑/↓: Select'+sgr(separator)+' · '+sgr(hint)+'Enter Con'+reset
+   : paint(hint,'↑/↓: Select · Enter Con');
+  const selectedLine=selected?sgr(selected)+'> Watch'+sgr(pad)+' '.repeat(16)+reset:'> Watch'+' '.repeat(16);
+  const rows=[paint(title,'Menu'),selectedLine,'  Other','  ','  '+paint(back,'Back'),'',paint(rule,'─'.repeat(23)),hintLine];
+  const expected='\x1b[?1049h\x1b[H\x1b[2J\x1b[?25l\x1b[?2004h\x1b[?2026h'
+   +rows.map(row=>'\x1b[2K'+row+'\n').join('')+'\x1b[?2026l';
+  assert.equal(frame,expected,JSON.stringify(env));
+ }
 });

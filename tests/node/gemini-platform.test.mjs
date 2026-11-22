@@ -196,10 +196,10 @@ test('Gemini catalog order and role defaults match the packaged recommendations'
   }
   const settings = resolveModelSettings(loadModelConfig(fs.readFileSync(new URL('../../gemini/skill/models.toml', import.meta.url)), 'gemini'));
   assert.deepEqual(Object.fromEntries(Object.entries(settings.roles).map(([role, {model}]) => [role, model])), {
-    arc_scouter: 'gemini-4-hydrogen',
-    arc_planner: 'gemini-4-carbon',
-    arc_implementer: 'gemini-4-hydrogen',
-    arc_qa: 'gemini-4-hydrogen',
+    arc_scouter: 'gemini-4-neon',
+    arc_planner: 'gemini-4-neon',
+    arc_implementer: 'gemini-4-neon',
+    arc_qa: 'gemini-4-neon',
     arc_reviewer: 'gemini-4-neon',
   });
   for (const [role, {model, effort}] of Object.entries(settings.roles)) {

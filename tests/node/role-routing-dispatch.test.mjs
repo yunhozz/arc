@@ -94,9 +94,10 @@ test('default Desktop policy holds Codex native and bridge roles and Claude host
 });
 
 test('Desktop release condition tells terminal sessions to redeclare a CLI environment', () => {
-  const {releaseCondition} = reason('environment_unverified');
-  assert.match(releaseCondition, /not running inside a Desktop app/);
-  assert.match(releaseCondition, /codex-cli or claude-cli/);
+  assert.deepEqual(reason('environment_unverified'), {
+    code: 'environment_unverified',
+    releaseCondition: 'Desktop hosts are held in this release. If this session is not running inside a Desktop app (for example a terminal or IDE terminal session), declare a CLI environment (claude-cli or codex-cli or gemini-cli or grok-cli) instead; otherwise use a CLI host or a later ARC update that changes the support status.',
+  });
 });
 
 test('default Codex host maps Claude planner dispatch-directory and Claude-anchor-home EACCES to host_sandbox_blocked', async t => {

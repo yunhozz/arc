@@ -62,11 +62,42 @@ test('unregistered activeConfigPath is not a candidate', async t => {
   assert.deepEqual(await h.snapshot(), before);
 });
 
-test('parseLeaseLenient reads v2 like v1', () => {
+test('parseLeaseLenient preserves the execution platform from a v2 lease', () => {
   const lease = {dispatchId:'d-v2', workflowId:'wf', role:'arc_qa', route:'bridge', hostPlatform:'codex',
     state:'running', sessionId:'session', nativeAgentId:'agent', createdAt:'created', updatedAt:'updated', reasons:['reason']};
-  assert.deepEqual(parseLeaseLenient(JSON.stringify({version:2, targetPlatform:'claude', ...lease})),
-    parseLeaseLenient(JSON.stringify({version:1, ...lease})));
+  assert.deepEqual(parseLeaseLenient(JSON.stringify({version:2, targetPlatform:'zeta', ...lease})),
+    {...lease,version:2,targetPlatform:'zeta'});
+  assert.deepEqual(parseLeaseLenient(JSON.stringify({version:1, ...lease})),{...lease,version:1});
+});
+
+test('dispatch refs retain a v2 target independently of event inference', async t => {
+  const homes = makeHomes(t), index = createDispatchIndex(homes), gcd = path.join(homes.root, 'git');
+  const file = homes.writeLease({version:2, dispatchId:'d-v2', hostPlatform:'alpha', targetPlatform:'zeta'});
+  artifacts(homes, gcd, 'd-v2', {'events.jsonl':'{"kind":"init","sessionId":"C1"}\n'});
+  await scan(index, [gcd]);
+  assert.equal(index.byId('d-v2').targetPlatform, 'zeta');
+  assert.equal(index.byId('d-v2').childPlatform, null);
+  assert.equal(index.bySession('C1'), index.byId('d-v2'));
+  fs.unlinkSync(file);
+  await scan(index, [gcd]);
+  assert.equal(index.byId('d-v2').targetPlatform, undefined);
+  assert.equal(index.byId('d-v2').childPlatform, 'claude');
+});
+
+test('init infers Claude for legacy records but leaves a v2 lease without target unknown', async t => {
+  const homes = makeHomes(t), index = createDispatchIndex(homes), gcd = path.join(homes.root, 'git');
+  for (const [id,version] of [['v1',1],['unversioned',undefined],['v2',2]]) {
+    homes.writeLease({dispatchId:id,version});
+  }
+  for (const id of ['v1','unversioned','v2','record-only']) {
+    artifacts(homes, gcd, id, {'record.json':{state:'running'},
+      'events.jsonl':`{"kind":"init","sessionId":"${id}-session"}\n`});
+  }
+  await scan(index, [gcd]);
+  assert.equal(index.byId('v2').targetPlatform, undefined);
+  assert.equal(index.byId('v2').childPlatform, null);
+  assert.equal(index.bySession('v2-session'), index.byId('v2'));
+  for (const id of ['v1','unversioned','record-only']) assert.equal(index.byId(id).childPlatform, 'claude', id);
 });
 
 test('watch ignores malformed, mismatched and noncanonical markers', async t => {

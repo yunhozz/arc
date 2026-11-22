@@ -6,9 +6,16 @@ import {runtimeRegistryOf} from './platform-registry.mjs';
 
 const environments = new WeakMap();
 const authKinds = new WeakMap();
+export function unknownPlatformMessage(platform, knownIds) {
+  const id = typeof platform === 'string'
+    ? [...platform.replace(/[\p{Cc}\u2028\u2029]/gu, '')].slice(0, 256).join('')
+    : '(invalid)';
+  return `Unknown platform: ${id}. Known platforms: ${knownIds.join(', ')}`;
+}
 export function resolveConfigHome(platform, context = {}) {
-  const descriptor = runtimeRegistryOf(context).getPlatform(platform);
-  if (!descriptor) throw Error('Target must be codex or claude');
+  const registry = runtimeRegistryOf(context);
+  const descriptor = registry.getPlatform(platform);
+  if (!descriptor) throw Error(unknownPlatformMessage(platform, registry.byDisplayOrder().map(({id}) => id)));
   return descriptor.home.resolve(context);
 }
 export function resolveLocalCli(platform, { cwd, userHome, env = process.env, runtimePlatforms } = {}) {

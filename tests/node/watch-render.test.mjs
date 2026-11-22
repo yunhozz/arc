@@ -435,9 +435,18 @@ test('human and JSON file events preserve all 25 reported paths', () => {
   assert.deepEqual(renderHuman(input,options).split('\n').map(line=>line.slice(25)),paths.map(file=>'- ' + file));
 });
 
-test('JSON retains inferred file provenance without changing human output', () => {
-  const input={...event,kind:'file_change',paths:['/repo/golden'],text:undefined};
-  assert.equal(JSON.parse(renderJson({...input,inferred:true})).inferred,true);
-  assert.equal('inferred' in JSON.parse(renderJson(input)),false);
-  assert.equal(renderHuman({...input,inferred:true},options),renderHuman(input,options));
+test('inferred file events have identical human output and retain the inferred field in JSON', () => {
+  for (const kind of ['file_change','file_create','file_delete']) {
+    for (const paths of [['/repo/path-for-wrap.txt'],['/repo/path-for-wrap.txt','/repo/another.txt']]) {
+      const input = {...event,kind,root:'/repo',paths,text:undefined};
+      const inferredEvent = {...input,inferred:true};
+      const json = JSON.parse(renderJson(input));
+      assert.equal('inferred' in json,false);
+      assert.deepEqual(JSON.parse(renderJson(inferredEvent)), {...json,inferred:true});
+      for (const color of [false,true]) for (const [width,wrap] of [[120,false],[48,true]]) {
+        const settings = {...options,color,width,wrap};
+        assert.equal(renderHuman(inferredEvent,settings),renderHuman(input,settings));
+      }
+    }
+  }
 });

@@ -135,7 +135,7 @@ Run `arc watch --help` for history and output options.
 |---|---|
 | Selection | Check the platforms to watch; all supported platforms are checked by default. Unsupported platforms are marked and cannot be checked. Confirming with no platform checked is refused. Back, Escape and EOF exit 0. Ctrl-C in the menu exits 130 |
 | Sources | Supported platform transcripts and dispatch leases/artifacts. Codex Desktop sessions are excluded. |
-| Scope | Every selection watches the current Git worktree or the current directory outside Git. Linked and nested worktrees are excluded. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
+| Scope | Watch follows one selected Git worktree or the current directory outside Git. The picker lists linked worktrees regardless of location and selects the current worktree by default. Other worktrees are outside the selected scope. Events use the session working directory at the time of the event. Dispatches are matched by their workflow target or an in-scope session linked to the dispatch artifact |
 | Anchor | Marker active directory must match resolved registered home; one candidate selects store, none → legacy Codex, multiple → `dispatch store ambiguous` (other sources continue). No old-history merge |
 | Shown | Full USER, AGENT and PROMPT messages; role badge on its own line above the message when known; EDIT/CREATE/DELETE list all paths (two or more as `- ` items; a single path has no `- `); other events one line |
 | Hidden | Tool/command outputs, skill definitions/args, MCP args/results; reasoning only verbose; incomplete secret masking applies to JSON too |
@@ -174,6 +174,20 @@ With color enabled in a TTY, watch renders Markdown in AGENT and PROMPT messages
 ## Workflow contracts
 
 Use the installed skill and its references for role ownership, approvals, limits, verification, recovery and commits. The repository also provides the [shared role policy](../lib/policy/role-policy.json).
+
+The Orchestrator owns routing, approvals, integration, acceptance, and commits. It answers simple questions directly and can ask a Scouter to research sources or explore the repository. Design depth and verification risk are separate decisions.
+
+| Design depth | Approval and preparation |
+|---|---|
+| Spike | Approve the question and method, explore, report findings, and reassess the implementation and documents. |
+| Bounded | Approve a short design. Add a spec if required and a plan if needed. Omission requires narrow eligibility. |
+| Architectural | Approve the design direction, written spec, and implementation plan in order. |
+
+The Planner drafts each applicable stage for user approval. Approved documents precede platform preparation and handoff. Verify the complete document set, the explicit execution target choice, the document commit, and actual workspace state. Execution targets include the current checkout, a new task branch, and a managed worktree on each platform.
+
+Assign a fresh Implementer to each ready top-level task after verifying ownership, inputs, accepted predecessors, and capacity. Reserve slots within the total, concurrent, and runtime limits, and avoid concurrent edits to the same file. All specialists report back to the Orchestrator. The Orchestrator releases dependent work after acceptance and reassesses readiness as work proceeds.
+
+Low-risk work uses focused checks. Ordinary and significant work require fresh QA and evidence for each criterion. Accept each planned task and create a focused commit or record a no-change result. Significant planned work gets a whole-change Reviewer review after task acceptance. Significant unplanned work gets Reviewer review before acceptance. If verification fails, hold the affected work, inspect and resolve the failure, and revalidate before proceeding.
 
 Repository commit descriptions are concise Korean.
 

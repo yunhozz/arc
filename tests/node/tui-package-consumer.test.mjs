@@ -49,7 +49,9 @@ test('release consumer opens TUI only on explicit launch and installs independen
   const tampered=spawnSync(process.execPath,[entry,'status',...args],{...opts,encoding:'utf8'});assert.equal(tampered.status,3);assert.equal(JSON.parse(tampered.stdout).decision,'hold');
  }
  });
- assert.deepEqual(resultRows(updated).slice(0,2),['🎉 Setup ran successfully! Please restart ARC to check.','Apply to: Codex, Claude']);assert.doesNotMatch(resultRows(updated).join('\n'),/rollback|Open a new agent session/i);
+ const previousStates=Object.fromEntries(fresh.results.map(({platform,status})=>[platform,status]));
+ const rows=resultRows(updated,undefined,{previousStates});
+ assert.deepEqual(rows.slice(0,2),['🔧 Settings applied to Claude, Codex.','Restart ARC to check.']);assert.doesNotMatch(rows.join('\n'),/rollback|Open a new agent session/i);
  const shellBefore=fs.readFileSync(s.home+'/.zshrc');ctx.inspectGlobalArc=async()=>assert.fail('Settings cannot inspect CLI');const settings=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:'codex',removeCli:false}));assert.equal(settings.code,0);assert.equal(fs.existsSync(s.home+'/.codex/skills/arc'),false);assert.equal(fs.existsSync(s.home+'/.claude/skills/arc'),true);assert.deepEqual(fs.readFileSync(s.home+'/.zshrc'),shellBefore);
  const {verifyPayload}=await import(pathToFileURL(isolated+'/lib/installer/manifest.mjs'));
  for(const name of ['shared/skill/runtime/cli.mjs','shared/skill/runtime/command.mjs','shared/skill/runtime/role-policy.json','lib/tui/setup.mjs','lib/management/workflow.mjs']){

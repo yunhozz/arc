@@ -65,7 +65,7 @@ test('edited role Apply needs its own Enter and runs once',{skip:!available},asy
  const output=await drive(t,entry+'enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\n'+choosePair+moves(10)+'expect -exact {> Apply}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.doesNotMatch(output,/Are you sure/);
 });
 test('Status exposes a real selected upgrade row and applies once',{skip:!available},async t=>{
- const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 → 1.10.0}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/Update ran successfully! Please restart ARC to check\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
+ const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 → 1.10.0}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Upgrade}\nenter\n'+finish);assert.match(output,/CODE=0 CALLS=1 PREPARES=1/);assert.match(output,/Result/);assert.match(output,/Upgraded to ARC 1\.10\.0\.[\s\S]*Restart ARC to check\./);assert.doesNotMatch(output,/Review Update|Confirm Update/);
 });
 test('version without an upgrade selects Back and Enter returns home',{skip:!available},async t=>{
  const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 · up to date}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false});assert.match(output,/CODE=0 CALLS=0 PREPARES=1/);assert.doesNotMatch(output,/> Upgrade/);
@@ -77,9 +77,9 @@ test('uninstall absent platform cannot open confirmation in PTY',{skip:!availabl
  const output=await drive(t,'down\ndown\nenter\nexpect -exact {Claude  (not installed)}\nenter\nexpect -exact {Claude  (not installed)}\ndown\nexpect -exact {> Codex}\nenter\nexpect -exact {Remove ARC from Codex?}\nback\nexpect -exact {Esc Exit}\nback',{absentPlatforms:['claude']});
  assert.doesNotMatch(output,/Remove ARC from Claude\?/);assert.match(output,/CODE=0 CALLS=0 PREPARES=0/);
 });
-test('composite uninstall warning and result keep management message first in PTY',{skip:!available},async t=>{
- const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {Mixed routing will be turned off.}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Mixed routing turned off.}\nexpect -exact {Removed from Claude.}\n'+finish.replace('expect -exact {Result}\n',''),{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},execute:"return{code:0,messages:['Mixed routing turned off.'],results:[{platform:'claude',status:'uninstalled'}]};"});
- assert.match(output,/Mixed routing turned off\.[\s\S]*Removed from Claude\./);assert.match(output,/"switchFromComposite":true/);
+test('composite uninstall warning and result show removal before management message in PTY',{skip:!available},async t=>{
+ const output=await drive(t,'down\ndown\nenter\nexpect -exact {> Claude}\nenter\nexpect -exact {Remove ARC from Claude?}\nexpect -exact {Mixed routing will be turned off.}\nexpect -exact {> Back}\nsend -- "\\033\\[A"\nafter 80\nexpect -exact {> Remove}\nenter\nexpect -exact {Removed ARC from Claude.}\nexpect -exact {Mixed routing turned off.}\n'+finish.replace('expect -exact {Result}\n',''),{installState:{mode:'composite',platforms:['claude','codex'],anchor:'claude'},execute:"return{code:0,messages:['Mixed routing turned off.'],results:[{platform:'claude',status:'uninstalled'}]};"});
+ assert.match(output,/Removed ARC from Claude\.[\s\S]*Mixed routing turned off\./);assert.match(output,/"switchFromComposite":true/);
 });
 test('version lookup failure shows one diagnostic and only Back in PTY',{skip:!available},async t=>{
  const output=await drive(t,'down\nenter\nexpect -exact {Version                1.9.0 · latest unavailable}\nexpect -exact {offline}\nexpect -exact {> Back}\nenter\nexpect -exact {Esc Exit}\nback',{canUpgrade:false,latestVersion:null,latestError:{message:'offline\nhidden detail'}});

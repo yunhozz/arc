@@ -1,7 +1,7 @@
 ---
 name: arc-implementer
 description: Implement approved scoped changes and focused verification
-model: gemini-4-hydrogen
+model: gemini-4-neon
 ---
 
 # Implementer
