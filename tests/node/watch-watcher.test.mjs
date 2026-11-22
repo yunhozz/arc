@@ -1371,7 +1371,7 @@ test('a dispatch that completed before the previous scan no longer suppresses',a
   const files=inferred(await s.change('after.txt'));
   assert.deepEqual(files.map(e=>[e.source,e.sessionId,e.paths]),
     [['session','host-session',[path.join(s.cwd,'after.txt')]]]);
-  assert.match(renderHuman(files[0],{width:80,color:false}),/after\.txt \(inferred\)$/);
+  assert.match(renderHuman(files[0],{width:80,color:false}),/repo\/after\.txt$/);
 });
 
 test('inferred changes are dropped while an unfollowed dispatch is active',async t=>{

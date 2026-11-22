@@ -259,6 +259,11 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
 
 ### D8 (C8) 추정 파일 귀속 (사용자 결정: A+B, 플랫폼 중립)
 
+> **최종 개정(사용자 결정 2026-11-22, "그냥 `(inferred)` 표시만 지우라고"): 사람용 출력에서 `(inferred)` 글자만 없앤다.**
+> - 셸 변경 감지, 활성 dispatch 억제, dispatch 생존 판정, JSON의 `inferred` 필드는 그대로다.
+> - `renderHuman`은 `inferred:true` file 이벤트를 다른 file 이벤트와 똑같이 그린다(경로 1개면 `<path>`, 2개 이상이면 기존 `- <path>` 목록).
+> - 아래 "사람용 표시" 항목은 이 개정으로 폐기된다.
+
 - 배경
   - `scanRoot`(`lib/watch/watcher.mjs:480-533`)는 명시 `file_change` claim이 없는 변경을, 같은 root에서 가장 최근에 활동한 followed 세션에 `inferred:true`로 붙인다.
   - 그래서 선택하지 않은 플랫폼에서 실행된 role이나 watch가 따라가지 못하는 플랫폼에서 실행된 role이 고친 파일이 host 세션 이름으로 보인다.
@@ -350,6 +355,7 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
    - visibility 표
    - 지원 플랫폼은 Claude·Codex. Gemini·Grok은 메뉴에 보이지만 선택할 수 없고, 그 세션 활동은 worktree 목록에 반영되지 않는다
    - 예시 로그창(실제 함수 출력, 가상 값 `~/work/app`): worktree 화면(색 없음, 위 5행), 박스, 이벤트 3~5줄, Ctrl-H 한 페이지, status block 1줄
+   - 셸에서 바뀐 파일도 같은 worktree의 최근 세션 이름으로 보이고, 그 worktree에서 dispatch가 진행 중이면 보이지 않는다. `(inferred)` 표시는 README에 쓰지 않는다.
 7. Platform support: `docs/harness-operation.md:60,71`과 현재 README 지원 표에 맞춘다
 8. Upgrade: 핵심 2~3줄
 9. Guides
