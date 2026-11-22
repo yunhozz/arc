@@ -4,14 +4,14 @@ import {briefLines, renderBrief} from '../../lib/watch/brief.mjs';
 import {displayWidth} from '../../lib/watch/text-width.mjs';
 
 const brief = {scope:'~/work/app', branch:'feat/x', platforms:['claude','codex']};
-const options = {version:'0.5.0', keys:['Ctrl-C stop','Ctrl-L clear']};
+const options = {version:'0.5.0', keys:['Ctrl-C stop','Ctrl-H earlier','Ctrl-L clear']};
 const strip = line => line.replace(/\x1b\[[0-9;]*m/g,'');
 
 test('brief lines follow the approved order and wording', () => {
   const lines = briefLines(brief, options);
   assert.deepEqual(lines, ['arc watch 0.5.0','**Scope** ~/work/app (feat/x)',
-    '**Platforms** CLAUDE · CODEX','**Keys** Ctrl-C stop · Ctrl-L clear']);
-  assert.doesNotMatch(lines.join('\n'), /worktrees|Routing|Sessions|History|Ctrl-H/);
+    '**Platforms** CLAUDE · CODEX','**Keys** Ctrl-C stop · Ctrl-H earlier · Ctrl-L clear']);
+  assert.doesNotMatch(lines.join('\n'), /worktrees|Routing|Sessions|History/);
   assert.equal(briefLines({...brief,branch:undefined}, options)[1], '**Scope** ~/work/app');
   assert.equal(briefLines(brief, {...options,keys:['Ctrl-C stop']})[3], '**Keys** Ctrl-C stop');
 });

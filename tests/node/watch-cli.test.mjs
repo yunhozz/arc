@@ -127,7 +127,8 @@ test('watch help explains platform choice, worktree scope and event output',asyn
   assert.match(s.output.text,/Requires an interactive terminal/);
   assert.match(s.output.text,/each session's working directory at that point/);
   assert.match(s.output.text,/SKILL and PLUGIN lines/);
-  assert.match(s.output.text,/A startup box shows the watch version, scope, platforms and keys \(TTY only\)/);
+  assert.match(s.output.text,/A summary box at the start shows the scope, platforms and keys \(TTY only\)/);
+  assert.ok(s.output.text.endsWith('Press Ctrl-H to show earlier events from the history loaded at start, 20 at a time, Ctrl-L to clear the screen and Ctrl-C to stop. Ctrl-H and Ctrl-L work in a TTY only.\nTerminals that send ^H for Backspace also show earlier events on Backspace.\n'));
   assert.doesNotMatch(s.output.text,/--(?:cwd|all|session|platform)\b/);
   assert.equal(s.error.text,'');
 });
@@ -176,7 +177,7 @@ test('tty human output starts with the box and drops live', async t => {
   const version = JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version;
   assert.ok(output.includes(`│ arc watch ${version}`));
   assert.match(output, /│ Platforms  CODEX +│/);
-  assert.match(output, /│ Keys +Ctrl-C stop · Ctrl-L clear/);
+  assert.match(output, /│ Keys +Ctrl-C stop · Ctrl-H earlier · Ctrl-L clear/);
   assert.doesNotMatch(output, /NOTICE +(?:arc watch:|live\b)/);
   const boxEnd = output.indexOf('┘');
   const disabled = output.indexOf('claude disabled:');
