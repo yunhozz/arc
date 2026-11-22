@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 plan은 ARC Orchestrator가 조정합니다. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행합니다. Implementer와 QA는 Git 상태를 바꾸지 않습니다. 단계는 checkbox(`- [ ]`)로 추적합니다.
 
-- 날짜: 2026-11-22 · 상태: v3 (v2 승인 2026-11-22, v3 기계적 개정 승인 2026-11-22) · workflow: `2026-11-22-qa-verification-ownership`
+- 날짜: 2026-11-22 · 상태: v4 (v2 승인 2026-11-22, v3·v4 기계적 개정 승인 2026-11-22) · workflow: `2026-11-22-qa-verification-ownership`
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, 브랜치 `feat/qa-owned-verification`, base `5f6fa2e95e1415d44467eab235115d11998f4d34`
 - 경로·위험: Architectural, significant
 
@@ -247,31 +247,31 @@
 
 **Interfaces:**
 - Consumes: T1 이후 문서에 verify 참조가 없습니다.
-- Produces: `RUNTIME_MODULE_PATHS`가 34개 원소가 되고, `verification.mjs`가 마지막 원소가 됩니다.
+- Produces: `RUNTIME_MODULE_PATHS`가 35개 원소(base 39개 − 삭제 4개)가 되고, `verification.mjs`가 마지막 원소가 됩니다.
 
-- [ ] **Step 1: RED**
+- [x] **Step 1: RED**
   - `tests/node/runtime-assets.test.mjs` `expectedPaths`에서 4개 문자열을 뺍니다.
   - 실행: `node --test tests/node/runtime-assets.test.mjs`
   - 기대 결과: `installer inventory covers every canonical module…`가 실패하고, fixture를 쓰는 generator 테스트도 canonical-only 불일치로 실패할 수 있습니다. 실패 이름을 보고합니다.
-- [ ] **Step 2: 삭제와 인벤토리 수정**
+- [x] **Step 2: 삭제와 인벤토리 수정**
   - 위 10개 파일을 삭제합니다.
   - `runtime-assets.mjs`에서 `:16`, `:25`, `:40`, `:42`를 삭제합니다. 남는 마지막 원소 `'lib/runtime/verification.mjs'`의 쉼표는 기존 스타일에 맞춰 제거합니다.
-- [ ] **Step 3: GREEN**
+- [x] **Step 3: GREEN**
   - `node --test tests/node/runtime-assets.test.mjs tests/node/runtime-versions.test.mjs` PASS
   - `node scripts/update-runtime-assets.mjs --check` PASS
   - Glob `{lib/runtime,shared/skill/runtime}/{verify-cli,final-verify,test-results,node-test-reporter}.mjs`가 0건이어야 합니다.
-- [ ] **Step 4: golden**
+- [x] **Step 4: golden**
   - `--diff` 기대 결과는 정확히 64줄 `-`입니다: 16 레이아웃 × `skills/arc/runtime/{final-verify,node-test-reporter,test-results,verify-cli}.mjs`
   - 다르면 hold합니다. 같으면 `--write`를 실행하고 `--diff`가 비었는지 확인합니다.
-- [ ] **Step 5: MANIFEST**
+- [x] **Step 5: MANIFEST**
   - `node scripts/update-manifest.mjs`
   - 기대 결과: 8항목 삭제(lib 4, shared 4)와 `lib/installer/runtime-assets.mjs` 1항목 변경입니다.
-- [ ] **Step 6: digest**: T1 Step 10과 같은 절차로 8개를 갱신하고 근거를 보고합니다.
-- [ ] **Step 7: AC-8 Grep(읽기 전용)**
+- [x] **Step 6: digest**: T1 Step 10과 같은 절차로 8개를 갱신하고 근거를 보고합니다.
+- [x] **Step 7: AC-8 Grep(읽기 전용)**
   - 실행: `git grep -nE 'verify-start|verify-status|verify-compare|verify-rerun|verify-cleanup|verify-cli|final-verify\.mjs|test-results\.mjs|node-test-reporter\.mjs' -- ':!docs/superpowers'`
   - 기대 결과: 0건. untracked가 없으므로 `git grep`으로 충분합니다.
-- [ ] **Step 8: 관련 테스트와 check 실행**
-- [ ] **Step 9: 커밋(Orchestrator, 수락 뒤)**: `refactor(runtime): verify 런타임 도구·전용 테스트·설치 자산 삭제`
+- [x] **Step 8: 관련 테스트와 check 실행**
+- [x] **Step 9: 커밋(Orchestrator, 수락 뒤)**: `refactor(runtime): verify 런타임 도구·전용 테스트·설치 자산 삭제`
 
 **수용 기준:** AC-5, AC-6(T2분), AC-8, AC-9. AC-9는 spec §7.1 정적 근거(`lib/installer/transaction.mjs:62`, `:76`, `stage-cleanup.mjs` `cleanupStage`)를 QA 보고에 인용하고, 실제 업그레이드 동작은 unverified로 표시합니다.
 
@@ -290,6 +290,11 @@
 **Hold:** 삭제 뒤 다른 모듈이 import 실패할 때(spec은 서로만 import한다고 확인함), golden이나 MANIFEST가 예상과 다를 때
 
 ---
+
+**T2 진행 기록 (2026-11-22, Orchestrator 수락):**
+- Implementer(Codex bridge, dispatch `877d23cc`, 세그먼트 3개): Step 1 RED(5 실패)에서 plan의 "34개" 계산 착오를 발견해 hold했다. 사용자 승인 v4(35개)로 재개했다. 모듈 8개·전용 테스트 2개를 삭제했고 `RUNTIME_MODULE_PATHS`는 35개가 됐다. golden `--diff` 64줄 `-` 일치 후 `--write`. MANIFEST는 8 삭제 + `runtime-assets.mjs` 1 변경. digest는 변화가 없어 편집하지 않았다(plan 예상과 다름, 렌더링 digest에 runtime 미포함). 관련 테스트 267개 통과, check 4개 통과.
+- AC-8 Orchestrator 판정: grep 2건(`composite-instructions.test.mjs:120`, `test-scope-contract.test.mjs:214`)은 T1 부재 단언 리터럴이라 참조가 아니다.
+- fresh QA(Codex bridge, dispatch `a2e99971`): AC-5·AC-6(T2분)·AC-8 proven. AC-9는 정적 근거만 proven이고 실제 업그레이드는 unverified다. 실패가 없어 base 재실행은 불필요했다.
 
 ## 이 작업 QA의 실패 판정 절차 (spec R-1–R-6, §8에 따라 이번부터 적용)
 
@@ -367,3 +372,4 @@
 |---|---|---|---|---|
 | v2 | 2026-11-22 | — | 최초 승인본 | 사용자 "승인" |
 | v3 | 2026-11-22 | mechanical | Q3·T1 Files·Step 12를 실제 문서 커밋(`b3351cf`) 처리에 맞게 정정. 계약 변경 없음 | 사용자 "승인" |
+| v4 | 2026-11-22 | mechanical | T2 Interfaces의 `RUNTIME_MODULE_PATHS` 개수 계산 착오 정정(34 → 35). 삭제 범위 변경 없음 | 사용자 "승인" |
