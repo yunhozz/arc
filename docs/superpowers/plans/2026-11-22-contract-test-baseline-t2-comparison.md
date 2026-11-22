@@ -543,3 +543,16 @@ F001–F093은 기준 실행이다. F094–F103은 재개 2 로그에서 처음 
 - <code>/private/tmp/arc-cb-t2-recheck8.log</code>는 35 tests, failures=36, errors=0이다. F091이 추가됐다. 표 3과 이름·subTest·순서가 36/36 일치하며 L 67단위와 실패 줄을 양방향으로 연결했다. 기준에서 통과한 13개 테스트도 다시 통과했다.
 - D6는 P 89단위에서 양쪽 owner 일치 168건, COMMON_CONTRACTS 생성 블록 밖 일치 124건, 일치 제거 후 실패 184건을 확인했다. 기존 상충 주입 21건을 감지했고 기존 음성 검사 함수 8개의 AST가 동일했다. 앞선 L에 가려진 커밋 가드 네 제거 검사는 격리된 fixture에서 수행했다.
 - <code>npm run check:manifest</code>에서 보호 파일 292개를 확인했다.
+
+## 최종 리뷰 반영 (2026-11-23)
+
+- U111(claude EVIDENCE_LIMITS 두 번째 패턴)은 P로 유지한다.
+  - Reviewer는 주체 범위 축소로 보아 U107·U110과 기준이 다르다고 지적했다.
+  - base 단언은 `(?:do not prove.*runtime|text presence alone cannot establish agent compliance)`인 OR 조건이다. 첫째 대안(구조 검사는 runtime을 증명하지 않음)만으로도 통과했다.
+  - 현재 패턴 "policy, generated-file and manifest checks prove structure, not role behavior, installed builds, claude code cli compliance or fidelity."는 그 첫째 대안과 의미가 같거나 더 구체적이다. 따라서 base 단언의 판정력보다 약하지 않다.
+  - 둘째 대안의 일반 한정도 `claude/skill/references/verification.md:4` "text presence proves no compliance"에 남아 있다.
+  - U107·U110은 OR 대안이 없는 단일 단언이어서 기준이 다르다.
+- 후속 과제로 기록하고 이번 작업에서는 고치지 않는다(Reviewer non-blocking·참고).
+  - `PolicyContractTests.setUp`이 테스트마다 `node`로 profile을 다시 합성한다. `node`가 없으면 ERROR가 나고 실행 시간이 늘어난다. `setUpClass`로 한 번만 합성하거나 node 부재 메시지를 명확히 하는 것을 권장한다.
+  - 합성 owner(`rendered:`)는 미리 계산한 값이다. 앞으로 ROLE_LOCAL 변이 테스트를 추가하면 원본 변이 뒤 다시 합성해야 한다.
+  - `test_document_order_rejects_documents_before_target_choice`는 현재 문서에 `Normal order:`가 없어 판정력이 줄어든 상태다. T3에서 순서 문장을 복원하면 돌아온다.

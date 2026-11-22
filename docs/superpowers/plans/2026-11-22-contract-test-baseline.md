@@ -184,6 +184,19 @@
    - 승인되지 않은 삭제가 없는지
    - 대조표 판정의 타당성(표본이 아니라 P 전체)
 
+- 진행 기록 (2026-11-23)
+  - 최종 검증 QA `99b37795`(HEAD `243e2d3b`, 시작·끝 clean)
+    - proven
+      - Node 계약 테스트 200/200(`instruction-layout` 30/30, `agent-fragments` 5/5). Python failures=36, errors=0, 표 3과 36/36 일치.
+      - check 4종 통과. 변경 범위가 지정 파일로 한정됐다.
+      - 전체 회귀 트리거는 해당 없음.
+    - base 비교 unverified: `git archive` 추출본에 `build/native/index.json`이 없어 1건이 실행 환경 오류로 실패했다.
+    - Orchestrator 판정: HEAD에서 모두 통과했으므로 base보다 나빠진 결과는 없다.
+  - final Reviewer `806cd562`(native): blocking 0.
+    - non-blocking U111 판정 근거: 대조표 "최종 리뷰 반영"에 기록하고 P를 유지했다(base OR 단언의 첫째 대안과 동등).
+    - Node 의존·스냅샷·순서 검사 판정력: 후속 과제로 기록했다.
+    - Reviewer가 요청한 읽기 전용 git 확인 2건(master와 base 테스트 차이는 c486ce3e anchor 수정뿐, fixture `agentProfileBaseline` 무변경)은 Orchestrator가 확인했다.
+
 ## 개정 이력
 
 | 버전 | 날짜 | 분류 | 내용 | 승인 |
