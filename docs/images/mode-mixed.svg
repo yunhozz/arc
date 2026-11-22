@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 410" width="1120" height="410" role="img" aria-labelledby="title description">
+  <title id="title">Mixed routing example</title>
+  <desc id="description">The Orchestrator on a supported host routes Planner to Claude, Implementer and QA to Codex, Scouter to Gemini, and Reviewer to Grok. Gemini supports read roles and holds write roles. The first participant in Claude, Codex, Gemini, Grok order anchors routing.</desc>
+  <defs>
+    <style>
+      text{font-family:Arial,Helvetica,sans-serif;fill:#203442}
+      .heading{font-size:30px;font-weight:700}
+      .label{font-size:24px;font-weight:700}
+      .detail{font-size:21px}
+      .flow{fill:none;stroke:#526675;stroke-width:3}
+      .card{fill:white;stroke:#b1c0c8;stroke-width:2}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#526675"/>
+    </marker>
+  </defs>
+  <rect width="1120" height="410" rx="24" fill="#f4f6f5"/>
+  <text x="40" y="53" class="heading">Mixed</text>
+  <text x="40" y="91" class="detail">Example role assignments</text>
+  <rect x="420" y="78" width="280" height="86" rx="14" fill="#e9f1f7" stroke="#b1c0c8" stroke-width="2"/>
+  <text x="560" y="114" class="label" text-anchor="middle">Orchestrator</text>
+  <text x="560" y="141" class="detail" text-anchor="middle">supported host</text>
+  <path class="flow" d="M560 164 V201 M162 201 H957"/>
+  <path class="flow" marker-end="url(#arrow)" d="M162 201 V220"/>
+  <path class="flow" marker-end="url(#arrow)" d="M427 201 V220"/>
+  <path class="flow" marker-end="url(#arrow)" d="M692 201 V220"/>
+  <path class="flow" marker-end="url(#arrow)" d="M957 201 V220"/>
+  <g text-anchor="middle">
+    <rect x="40" y="220" width="245" height="114" rx="14" class="card"/>
+    <text x="162" y="256" class="label">Claude</text>
+    <text x="162" y="288" class="detail">Planner</text>
+    <rect x="305" y="220" width="245" height="114" rx="14" class="card"/>
+    <text x="427" y="256" class="label">Codex</text>
+    <text x="427" y="288" class="detail">Implementer, QA</text>
+    <rect x="570" y="220" width="245" height="114" rx="14" class="card"/>
+    <text x="692" y="256" class="label">Gemini</text>
+    <text x="692" y="288" class="detail">Scouter</text>
+    <text x="692" y="313" class="detail">read roles (write held)</text>
+    <rect x="835" y="220" width="245" height="114" rx="14" class="card"/>
+    <text x="957" y="256" class="label">Grok</text>
+    <text x="957" y="288" class="detail">Reviewer</text>
+  </g>
+  <text x="40" y="378" class="detail">The first participant in Claude → Codex → Gemini → Grok order anchors routing.</text>
+</svg>

@@ -485,4 +485,4 @@
 | T7 | 완료(QA C1·C2·C5~C7·C10·대칭 proven, C9 반영 지연 2초는 spec에 허용 기록, C8 바이트 동일성은 Implementer 비교로 갈음, verify 500/500 no-new-failures, 실환경 대조군 `(inferred)` 확인) | codex bridge 402df6ef, QA bd63c20a·d65aa655·47a6768c | 이 커밋 |
 | T8 | 완료(QA C3·C4·C6·C7·C9·대칭 proven, 실행 기준은 Orchestrator verify 583 통과·새 실패 0·golden 4/4로 확인, 고정 해시 갱신은 선례 1e4e6284) | codex bridge 52ba1f22·94f3d4c5, QA c22b5e64 | 이 커밋 |
 | T7-L | 완료(사용자 결정 "`(inferred)` 표시만 지우라고": 사람용 표시만 제거, 감지·억제·JSON 유지, watch 500/500. 앞선 기능 제거 시도 8c2ffb7e는 취소·복원) | codex bridge 9c0eb2a6 | 이 커밋 |
-| T6 | 대기 | - | - |
+| T6 | 완료(QA C1·C3~C8 proven, SVG 경계는 Orchestrator 렌더 확인, 가이드 이동 내용은 기존 README·도식 출처, 기존 실패 1건 동일) | codex bridge 7734a57a(취소, 초안)·5c23858c, QA b698c674 | 이 커밋 |
