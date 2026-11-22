@@ -216,14 +216,14 @@ test('installation leaves unsupported profile paths unmanaged',t=>{
 // Capture public output bytes and iteration order; normalize only the temporary
 // HOME so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'3ac0901fc71258354be17007338a151f8997c077a3c72e51f3504e4932f0fabb',
- 'codex:en:true':'3175c31d401612fcfdc9d95e521cfaf12c2248bc3972e63394bd7051153d3731',
- 'codex:ko:false':'b81c7b75c624a71aecdb5354124d6cadb7dba1f271253d6c92d73d8e5c80f288',
- 'codex:ko:true':'b89adcd0e02fb878fd6ff4a68b1e357b04b9cd926d766db6ee7077253c432146',
- 'claude:en:false':'ef77fe35cfafb81013cc0077a91d0c710b1093272949f7a4927722711442460a',
- 'claude:en:true':'442e6f4fdd5899315cac57828bd519abda399ae761011813ce39361b52ce2402',
- 'claude:ko:false':'186e8fc8444790a185f94b522313b420b8b55709033b5f5de80855bf97bb77b3',
- 'claude:ko:true':'cd66ffdfa1583f908b07fef14633cd525eff81992150e4f3246e570cd07e8d96',
+ 'codex:en:false':'8284eed82715586ac2c7bae090f1c148858cc7fe6e9dccdf48b2db26c176e37c',
+ 'codex:en:true':'d1a5e59383c9e948dbba2615a3b040a9adf22e05680c9facf08bcb6fd1c7be7c',
+ 'codex:ko:false':'775048f1d711ffdd51b9ef636c8a1069d97843c9dcb0628622958b2350067089',
+ 'codex:ko:true':'699863f25dcaf9d191a6086e237e637a05f6ecc03ecf02b67681bcd85199016b',
+ 'claude:en:false':'bba6694c8d527fadd15fd8663063354bebe2845bb0209de315813db270e8199f',
+ 'claude:en:true':'17c6c6c4d4e7c194517c07973d2c6a11c43112335450f22719eb12ceca9f701c',
+ 'claude:ko:false':'0374163692cb644bcf8738639f233a6518bc8085f9b1c88831f4855ed4de213b',
+ 'claude:ko:true':'50b856d2de95d5c55987ea169c071d3f5c6856b5369d0c7574e33f41fcc03c93',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});

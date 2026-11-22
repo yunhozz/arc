@@ -1,7 +1,7 @@
 # QA 소유 기준선 확인·최종 검증과 verify 런타임 삭제 설계 (spec)
 
 - 날짜: 2026-11-22
-- 상태: v3 (Planner 첫 완전 초안 v1 + Orchestrator 검토 개정 v2 + 사용자 결정 D4′ 반영, 승인 전)
+- 상태: v4 (v3 승인 2026-11-22, v4 최종 Reviewer finding 반영 개정 승인 2026-11-22)
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, 브랜치 `feat/qa-owned-verification` (2026-11-22 생성·검증), base `5f6fa2e95e1415d44467eab235115d11998f4d34`
 - 경로·위험: Architectural, significant (검증 정책, 공유 fragment, 공개 CLI 제거)
 - 승인 근거: 설계 승인(2026-11-22, 사용자). D1–D5와 규칙 방향을 승인함. 이후 사용자가 D4를 D4′(정적 분류 + 필요할 때만 임시 base worktree)로 바꿈(2026-11-22)
@@ -44,10 +44,10 @@
 
 ## 4. 규칙 요구사항
 **task QA의 실패 판정 (2단계)**
-- R-1: 1단계 정적 분류. QA는 HEAD에서 실패한 테스트마다 읽기 전용 `git diff --name-only <approved base> HEAD`로 다음 중 바뀐 것이 있는지 확인합니다: 테스트 파일, 그 파일이 직접 import·load하는 모듈, 읽는 fixture·데이터, 해당 test 설정.
+- R-1: 1단계 정적 분류. QA는 실패한 테스트마다 읽기 전용 diff로 다음 중 바뀐 것이 있는지 확인합니다. task QA는 커밋 전 작업을 검증하므로 `git diff --name-only <approved base>`(작업 트리)에 `git status --porcelain`의 untracked를 더하고, 최종 QA는 `git diff --name-only <approved base> HEAD`를 씁니다(v4, B1): 테스트 파일, 그 파일이 직접 import·load하는 모듈, 읽는 fixture·데이터, 해당 test 설정.
   - 하나도 바뀌지 않았으면 "변경 무관 실패"로 분류하고 base를 실행하지 않습니다.
   - 하나라도 바뀌었거나 판단할 수 없으면(동적 import, 이름 없는 실패, 파일 단위 로드 실패 포함) 2단계 대상으로 보고합니다. 근거 경로를 함께 적습니다.
-- R-2: 2단계 base 재실행. 2단계 대상이 있을 때만 Orchestrator가 base worktree를 만듭니다(이미 있으면 재사용). 경로와 prerequisite 상태(준비됨 / 미준비 + 필요한 명령)를 현재 QA에게 후속 지시로 보냅니다. Orchestrator는 그 worktree에서 테스트나 prerequisite를 실행하지 않습니다. QA는 대상 테스트만 같은 이름으로 base worktree에서 단독 실행합니다(Node `--test-name-pattern`, Python node id).
+- R-2: 2단계 base 재실행. 2단계 대상이 있을 때만 Orchestrator가 base worktree를 만듭니다(이미 있으면 재사용). 경로와 prerequisite 상태(준비됨 / 미준비 + 필요한 명령)를 현재 QA에게 후속 지시로 보냅니다. Orchestrator는 그 worktree에서 테스트를 실행하지 않습니다. prerequisite는 생성 때 준비하거나 QA가 환경 차단을 보고한 뒤 준비합니다(v4, N1). 모든 최종 판정 뒤 clean이면 Orchestrator가 지웁니다. 이 ARC 소유 base worktree는 Preservation rule의 worktree 삭제 금지에 대한 유일한 예외이며, clean이 아니면 삭제를 보류하고 사용자에게 넘깁니다(v4, B2). 위치 금지 문구는 host 중립으로 씁니다("a managed worktree directory (such as `.claude/worktrees/`)", v4, N4). QA는 대상 테스트만 같은 이름으로 base worktree에서 단독 실행합니다(Node `--test-name-pattern`, Python node id).
 - R-3: 2단계 판정표
 
 | HEAD | base 결과 | 판정 |
@@ -58,7 +58,7 @@
 | 파일 로드 실패 | 같은 파일 로드 실패 | 새 실패 후보(base 동일), Orchestrator disposition |
 | 파일 로드 실패 | 같은 파일 로드 성공 | 새 실패 |
 
-- R-4: (2단계) base에 prerequisite가 필요하거나 sandbox 때문에 실행할 수 없으면, QA는 설치하거나 생성하지 않고 환경 차단으로 보고합니다. 그러면 Orchestrator가 prerequisite를 준비하거나, 그 base worktree를 workspace로 하는 QA를 따로 배정합니다.
+- R-4: (2단계) base에 prerequisite가 필요하거나 sandbox 때문에 실행할 수 없으면, QA는 설치하거나 생성하지 않고 환경 차단으로 보고합니다. 그러면 Orchestrator가 prerequisite를 준비하거나, 그 base worktree를 workspace로 하는 QA를 따로 배정합니다. 둘 다 막히면 그 실패는 새 실패 후보로 남고 Orchestrator가 disposition합니다(v4, N3).
 - R-5: 간헐 진단은 HEAD에서만 단독으로, 브리프 한도까지(기본 3회) 합니다. 정적 분류와 base 재실행은 분류이지 간헐 진단이 아닙니다. 간헐 의심 테스트는 분류와 별도로 진단합니다.
 - R-6: 보고 행에는 다음을 적습니다.
   - 테스트 이름·파일
@@ -70,7 +70,7 @@
   - 환경 제약
 
 **최종 QA**
-- R-7: 모든 task를 수락·커밋한 뒤, 실행 대상 worktree의 verified HEAD에서 fresh QA 1회로 수행합니다. 시작과 종료 때 `git status --porcelain`이 clean인지 기록합니다. 수행 중에는 같은 workspace에 Implementer 편집을 배정하지 않습니다. 읽기 전용 final Reviewer는 병행할 수 있습니다.
+- R-7: 모든 task를 수락·커밋한 뒤, 실행 대상 worktree의 verified HEAD에서 fresh QA 1회로 수행합니다. 시작과 종료 때 `git status --porcelain`을 기록하고, clean이 아니면 환경 차단으로 최종 검증을 보류합니다. 수행 중에는 Orchestrator와 Implementer 누구도 그 workspace에 쓰지 않습니다(v4, N2). 읽기 전용 final Reviewer는 병행할 수 있습니다.
 - R-8: 범위는 세 가지입니다. (a) 계약 테스트 전부, (b) check 스크립트 전부, (c) 재변경 파일의 관련 테스트(§3). task QA에서 통과한 합집합은 다시 실행하지 않습니다.
 - R-9: Orchestrator가 재변경 목록을 계산해 브리프에 적습니다. QA는 읽기 전용 `git diff`로 대조하고, 3분류 안에서만 이유를 붙여 추가할 수 있습니다. 목록이 비면 그 이유를 보고합니다.
 - R-10: 전체 회귀
@@ -108,11 +108,11 @@
 - 그 단락(claude/gemini/grok 30–33행, codex 28–31행)
 
 ```
-**Final verification** runs once after all tasks are accepted and committed, as one fresh QA assignment at the verified HEAD of the execution target worktree: all contract tests, all check scripts and the related tests of re-changed files; it does not rerun the union of tests that task QA already passed. A re-changed file is a file that a task's QA verified, as a changed file or a related test file it ran, and that a later commit changed after that task's focused commit (`git diff --name-only <task commit> HEAD`), plus every non-documentation file changed in base..HEAD by a commit that no task QA verified. Orchestrator computes the list and cites it in the brief; QA cross-checks it with read-only `git diff`, MAY add items only within the three categories above with reasons, and reports the reason when the list is empty. QA records `git status --porcelain` as clean at start and end. While it runs, Orchestrator assigns no Implementer edits in that workspace; the read-only final Reviewer MAY run concurrently. A new failure from final verification follows Implementer → QA even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.
+**Final verification** runs once after all tasks are accepted and committed, as one fresh QA assignment at the verified HEAD of the execution target worktree: all contract tests, all check scripts and the related tests of re-changed files; it does not rerun the union of tests that task QA already passed. A re-changed file is a file that a task's QA verified, as a changed file or a related test file it ran, and that a later commit changed after that task's focused commit (`git diff --name-only <task commit> HEAD`), plus every non-documentation file changed in base..HEAD by a commit that no task QA verified. Orchestrator computes the list and cites it in the brief; QA cross-checks it with read-only `git diff`, MAY add items only within the three categories above with reasons, and reports the reason when the list is empty. QA records `git status --porcelain` at start and end; a state that is not clean is an environment block that holds final verification. While it runs, neither Orchestrator nor any Implementer writes in that workspace; the read-only final Reviewer MAY run concurrently. A new failure from final verification follows Implementer → QA even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.
 
 **Full regression** runs once within final verification only if at least one trigger applies: (1) the change modifies a shared module; (2) changes made by others were integrated after the approved base, by merge, rebase onto a newer base or cherry-pick; (3) the change modifies dependency manifests or lockfiles, language or runtime versions, or build or test configuration; (4) the change removes, renames or changes the signature of a public interface such as an exported function, CLI option or configuration key. A shared module is code, configuration, schema, data or generator input that more than one task, role, component or execution or delivery path imports, loads or renders at run time, including its mirrors and generated outputs; documentation read only by people and modules used by a single component are not shared. Decide from actual consumers; when they cannot be determined, treat the module as shared. Planner records a provisional judgment in the plan. Orchestrator cites its provisional judgment and reasons, including the integration history for trigger (2), in the final QA brief, and QA independently checks triggers (1), (3) and (4) from the base..HEAD diff and log. If either finds a trigger applies or cannot determine applicability, QA runs it once without further authorization; if no trigger applies, omit it and report the reason. Change size, risk level alone and out-of-scope failures seen during task checks are not triggers; report such failures as findings. Full regression failures follow the base check below.
 
-**Baseline:** No baseline run is recorded in advance, and no base worktree is prepared in advance. QA classifies each failure at HEAD in two steps. First, a static check: with read-only `git diff --name-only <approved base> HEAD`, QA checks whether the test file, the modules it directly imports or loads, the fixtures or data it reads, or its test configuration changed. If none changed, it is an unrelated failure: report it separately with that evidence; it is not a finding, and Orchestrator dispositions it. Because it rests on the diff, not a run, NEVER report it as a baseline failure. If any changed, or the check cannot decide (for example a dynamic import, a failure without a test name, or a file-level load failure), report the failure as needing a base run, with the changed paths. Second, only for those failures, Orchestrator prepares a clean detached worktree of the approved base revision at `<git-common-dir>/arc/base/<workflow>`, never under `.claude/worktrees/` or inside the execution target worktree, reuses it for that workflow, runs no tests or prerequisites there, sends its path and prerequisite state (prepared, or not prepared with the needed commands) to the current QA, and removes it only after all final dispositions. QA runs only those test names alone in the base worktree, for example with Node `--test-name-pattern` or a Python node id. A failure under the same name at base is a baseline failure; a pass at base, or a test or file absent at base, makes it a new failure; a base run that was not performed, was blocked by the environment, failed to load or lacks the name makes it a new-failure candidate. NEVER absorb a candidate as a baseline failure. Check a file-level load or collection failure by loading the same file at base; an identical load failure at base stays a new-failure candidate (same at base) for Orchestrator disposition. If base needs prerequisites or the sandbox prevents running there, QA installs or generates nothing and reports an environment block; Orchestrator then prepares the prerequisites or assigns a separate QA whose workspace is the base worktree. Static checks and base reruns classify failures; they are not intermittency diagnosis.
+**Baseline:** No baseline run is recorded in advance, and no base worktree is prepared in advance. QA classifies each failure in two steps. First, a static check against the approved base: task QA, which verifies uncommitted work, uses read-only `git diff --name-only <approved base>` plus the untracked files from `git status --porcelain`; final verification QA uses `git diff --name-only <approved base> HEAD`. QA checks whether the test file, the modules it directly imports or loads, the fixtures or data it reads, or its test configuration changed. If none changed, it is an unrelated failure: report it separately with that evidence; it is not a finding, and Orchestrator dispositions it. Because it rests on the diff, not a run, NEVER report it as a baseline failure. If any changed, or the check cannot decide (for example a dynamic import, a failure without a test name, or a file-level load failure), report the failure as needing a base run, with the changed paths. Second, only for those failures, Orchestrator prepares a clean detached worktree of the approved base revision at `<git-common-dir>/arc/base/<workflow>`, never under a managed worktree directory (such as `.claude/worktrees/`) or inside the execution target worktree, reuses it for that workflow, runs no tests there, and sends its path and prerequisite state (prepared, or not prepared with the needed commands) to the current QA. After all final dispositions Orchestrator removes it only if it is still clean; this ARC-owned base worktree is the only exception to the Preservation rule's worktree-deletion ban, and any other state holds removal for the user. QA runs only those test names alone in the base worktree, for example with Node `--test-name-pattern` or a Python node id. A failure under the same name at base is a baseline failure; a pass at base, or a test or file absent at base, makes it a new failure; a base run that was not performed, was blocked by the environment, failed to load or lacks the name makes it a new-failure candidate. NEVER absorb a candidate as a baseline failure. Check a file-level load or collection failure by loading the same file at base; an identical load failure at base stays a new-failure candidate (same at base) for Orchestrator disposition. If base needs prerequisites or the sandbox prevents running there, QA installs or generates nothing and reports an environment block; Orchestrator then prepares the prerequisites or assigns a separate QA whose workspace is the base worktree. If both are blocked, those failures stay new-failure candidates for Orchestrator disposition. Static checks and base reruns classify failures; they are not intermittency diagnosis.
 
 **Result comparison:** Compare failures by test name; only new failures are findings, and unrelated failures and new-failure candidates need Orchestrator disposition. Report baseline and unrelated failures separately. Identify tests by name from structured results such as JUnit XML, TAP or a declared line pattern; a failure without a test name, or in a command or file whose results are incomplete, is a new-failure candidate, never a baseline failure. Report intermittent candidates, tests whose outcomes differ across runs with the same inputs, separately from baseline and new failures. Report the slowest files and tests (default ten) for information only. If a failure looks intermittent, rerun only that test in isolation at HEAD, up to three times unless the brief sets another limit. This is diagnosis, not an automatic retry. Report "passes in isolation: yes/no" and the rerun count. A pass in isolation never erases the original failure; Orchestrator dispositions it. A failure in isolation is a new-failure finding. For each failure report the test name and file, HEAD command and result, static-check result (changed related paths, or none), base revision, command and result (pass, fail, absent, load-fail or not-run) when a base run was needed, verdict, isolated rerun count and outcome, and environment limits.
 ```
@@ -135,7 +135,7 @@
 ### 5.4 `lib/prompts/agent-fragments.json` 변경
 1. `qa.verification-steps` 1단계
    - 현재: `Final verification is run by Orchestrator, not QA.`
-   - 새: `When assigned final verification, run all contract tests, all check scripts and the brief's re-changed-file tests at the verified HEAD, plus full regression once when triggered.`
+   - 새(v4, N5): `When assigned final verification, run all contract tests, all check scripts and the brief's re-changed-file tests at the verified HEAD, plus full regression once when the brief's provisional judgment or your own check of triggers (1), (3) and (4) finds one applies or cannot decide.`
 2. `qa.verification-steps` 5단계
    - 현재: `Compare failures with the brief's baseline by test name; only new failures are findings.`
    - 새: `Classify each HEAD failure first by read-only diff against the approved base (unrelated when its test, direct imports, fixtures and test configuration are unchanged), and report the rest as needing a base run; when Orchestrator supplies a base worktree, rerun only those by test name and classify them as baseline, new or new-failure candidate. Only new failures are findings; unrelated failures and candidates need Orchestrator disposition.`
@@ -151,6 +151,13 @@
 implementer 템플릿 변경(claude 29행, gemini 21행, grok 21행. codex toml에는 이 문장이 없습니다):
 - 현재: `full regression only in Orchestrator's final verification when triggered.`
 - 새: `full regression only in final QA verification when triggered.`
+
+### 5.5 SKILL.md Preservation rule 예외 (v4, B2, 4 플랫폼)
+`{claude,codex,gemini,grok}/skill/SKILL.md`의 Preservation rule bullet에서 `NEVER automatically stash, reset, clean, unstage, discard, amend or delete branches/worktrees.` 바로 뒤에 아래 문장을 같은 바이트로 넣습니다. 기존 문장은 바꾸지 않습니다. 역할 프로필용 `common.preservation-choice-inspection` fragment는 바꾸지 않습니다(역할은 worktree를 지우지 않음).
+
+```
+The only exception is the ARC-owned base worktree under [verification](references/verification.md#test-scope-and-result-comparison), which Orchestrator removes after all final dispositions only if it is still clean.
+```
 
 ## 6. 파일 목록
 ### 6.1 삭제
@@ -228,6 +235,8 @@ Grep으로 확인한 결과, 이 4개 모듈은 서로만 import합니다. `test
 - AC-7: `role-policy.json`과 managed contract 구역이 바뀌지 않았습니다(`check:role-policy` 통과).
 - AC-8: 저장소의 비 `docs/superpowers` 파일에 `verify-start|verify-status|verify-compare|verify-rerun|verify-cleanup|verify-cli|final-verify.mjs|test-results.mjs|node-test-reporter.mjs` 참조가 없습니다(Grep).
 - AC-10: 4 플랫폼 문서와 QA fragment에 2단계 판정(정적 분류 → 필요 시 base 재실행)이 들어 있고, base worktree를 미리 만들라는 문장과 `.claude/worktrees/`에 두라는 문장이 없습니다.
+- AC-11 (v4): 4 플랫폼 verification.md Baseline 단락이 task QA 작업 트리 diff(+untracked)와 최종 QA `<approved base> HEAD`를 구분하고, base worktree 삭제 예외·host 중립 경로 문구·두 경로 차단 시 후보 처리를 담으며, Final verification 단락이 비 clean 보류와 Orchestrator 쓰기 금지를 담습니다(§5.1 v4 문안과 바이트 일치).
+- AC-12 (v4): 4 플랫폼 SKILL.md Preservation rule에 §5.5 문장이 정확히 1번, 기존 금지 문장 바로 뒤에 있습니다. QA fragment 1단계가 §5.4 v4 문장과 같습니다.
 - AC-9 (정적 근거): 설치 transaction이 `skills/arc`를 tree 단위로 교체한다는 근거(§7.1)를 기록합니다. 실제 업그레이드 동작은 unverified로 표시합니다.
 
 ## 10. 검증 방법
@@ -249,3 +258,10 @@ Grep으로 확인한 결과, 이 4개 모듈은 서로만 import합니다. `test
 - 문서 존재는 역할 행동을 증명하지 않습니다. 실제 QA·Orchestrator 준수 여부는 이후 실행에서 관찰해야 합니다.
 - 사용자 저장소에 남은 verify 기록은 방치합니다(D5).
 - `plan.test.mjs` digest는 손으로 옮기므로, 잘못된 값을 넣으면 의미 없는 통과나 실패가 생길 수 있습니다. 실제 출력과 대조한 근거가 필요합니다.
+
+## 개정 이력
+
+| 버전 | 날짜 | 내용 | 승인 |
+|---|---|---|---|
+| v3 | 2026-11-22 | 최초 승인본 | 사용자 "승인" |
+| v4 | 2026-11-22 | 최종 Reviewer finding 반영: B1(task QA diff 범위), B2(ARC 소유 base worktree 삭제 예외), N1(prerequisite 시점), N2(최종 QA 중 쓰기 금지·비 clean 보류), N3(두 경로 차단 시 후보), N4(host 중립 경로 문구), N5(QA 트리거 독립 확인), n1(상태 표기). 사용자 결정 2026-11-22 | 사용자 "승인" |

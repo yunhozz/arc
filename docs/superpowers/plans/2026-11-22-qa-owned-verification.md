@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 plan은 ARC Orchestrator가 조정합니다. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행합니다. Implementer와 QA는 Git 상태를 바꾸지 않습니다. 단계는 checkbox(`- [ ]`)로 추적합니다.
 
-- 날짜: 2026-11-22 · 상태: v4 (v2 승인 2026-11-22, v3·v4 기계적 개정 승인 2026-11-22) · workflow: `2026-11-22-qa-verification-ownership`
+- 날짜: 2026-11-22 · 상태: v5 (v2 승인 2026-11-22, v3·v4 기계적 개정 승인 2026-11-22, v5 최종 Reviewer 후속 T3 추가 승인 2026-11-22) · workflow: `2026-11-22-qa-verification-ownership`
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, 브랜치 `feat/qa-owned-verification`, base `5f6fa2e95e1415d44467eab235115d11998f4d34`
 - 경로·위험: Architectural, significant
 
@@ -12,7 +12,7 @@
 
 **Tech Stack:** Node.js ≥22 ESM, `node:test`, Python `unittest`, git CLI.
 
-**Spec:** `docs/superpowers/specs/2026-11-22-qa-owned-verification-design.md` v3(sha256 `77c14b59…4d67`, 2026-11-22 사용자 승인). 이 plan은 spec의 절 번호(§)를 인용하므로 실행자는 두 문서를 함께 읽습니다.
+**Spec:** `docs/superpowers/specs/2026-11-22-qa-owned-verification-design.md` v3(sha256 `77c14b59…4d67`, 2026-11-22 사용자 승인) → v4(sha256 `dc9365a5…b56a`, 2026-11-22 사용자 승인, T3 기준). 이 plan은 spec의 절 번호(§)를 인용하므로 실행자는 두 문서를 함께 읽습니다.
 
 ## Global Constraints
 
@@ -296,6 +296,66 @@
 - AC-8 Orchestrator 판정: grep 2건(`composite-instructions.test.mjs:120`, `test-scope-contract.test.mjs:214`)은 T1 부재 단언 리터럴이라 참조가 아니다.
 - fresh QA(Codex bridge, dispatch `a2e99971`): AC-5·AC-6(T2분)·AC-8 proven. AC-9는 정적 근거만 proven이고 실제 업그레이드는 unverified다. 실패가 없어 base 재실행은 불필요했다.
 
+### Task 3: 최종 Reviewer finding 후속 (spec v4)
+
+**목표·범위:** spec v4의 B1·B2·N1–N5 문안(§5.1 Final verification·Baseline 단락, §5.4 QA fragment 1단계, §5.5 SKILL.md 예외)을 4 플랫폼에 적용하고 계약으로 고정합니다(AC-11, AC-12, AC-10 갱신). 런타임·설치기는 건드리지 않습니다.
+
+**선행:** T1·T2 커밋(`36ac1993`), 최종 QA 완료(새 실패 0), spec v4 승인. 문서·생성물 prerequisite(`node_modules/`, `build/native/`)는 대상 worktree에 이미 있습니다.
+
+**Files (Implementer allowedPaths, 14개):**
+- Modify:
+  - `{claude,codex,gemini,grok}/skill/references/verification.md`
+  - `{claude,codex,gemini,grok}/skill/SKILL.md`
+  - `lib/prompts/agent-fragments.json`
+  - `tests/node/test-scope-contract.test.mjs`
+  - `tests/node/fixtures/instruction-contracts.json`, `tests/node/plan.test.mjs`, `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`
+- spec·plan은 Orchestrator 소유입니다. Implementer는 편집하지 않습니다.
+
+- [x] **Step 0:** 시작 `git status --porcelain`을 기록합니다. 기대값은 spec·plan 2개 수정뿐입니다. `node_modules/`·`build/native/` 존재만 확인합니다.
+- [x] **Step 1: RED** — `tests/node/test-scope-contract.test.mjs`
+  - `finalVerificationParagraph`, `baselineParagraph`를 spec v4 파일의 `**Final verification**`·`**Baseline:**` 단락(111·115행) 원문으로 바꿉니다.
+  - Baseline 단락 검사(현 `:247`)의 ``never under `.claude/worktrees/` or inside the execution target worktree``를 ``never under a managed worktree directory (such as `.claude/worktrees/`) or inside the execution target worktree``로 바꾸고, 옛 문구가 없음을 단언합니다.
+  - `profileRules` `qa[0].rule`의 끝 문장을 spec v4 §5.4 1단계 새 문장으로 바꾸고 `phrases`에 `'your own check of triggers (1), (3) and (4)'`를 추가합니다.
+  - 새 상수 `preservationException = 'The only exception is the ARC-owned base worktree under [verification](references/verification.md#test-scope-and-result-comparison), which Orchestrator removes after all final dispositions only if it is still clean.'`
+  - 신규 플랫폼별 테스트 `${platform} preservation rule allows only the ARC-owned base worktree exception`: `skill/SKILL.md`에 `preservationException`이 정확히 1회, `NEVER automatically stash, reset, clean, unstage, discard, amend or delete branches/worktrees. ${preservationException}` 위치에 있습니다.
+  - 실행: `node --test tests/node/test-scope-contract.test.mjs` → 바꾼·새 테스트만 실패. 실패 이름을 보고합니다.
+- [x] **Step 2: 문서 8개**
+  - `verification.md` 4개: Final verification·Baseline 단락을 spec v4 원문으로 교체합니다(Full regression·Result comparison 단락은 그대로).
+  - `SKILL.md` 4개: spec §5.5대로 기존 금지 문장 바로 뒤에 공백 1개 + 예외 문장을 같은 줄에 넣습니다. 다른 줄은 바꾸지 않습니다. managed 구역(`[ARC role policy: contract begin]`…`end`) 밖임을 확인했습니다.
+- [x] **Step 3: fragment** — `agent-fragments.json` `qa.verification-steps` 1단계의 `plus full regression once when triggered.`를 spec v4 §5.4 문장 끝부분으로 바꿉니다.
+- [x] **Step 4: GREEN** — `node --test tests/node/test-scope-contract.test.mjs tests/node/composite-instructions.test.mjs` PASS
+- [x] **Step 5: `instruction-contracts.json`**
+  - 렌더 해시: T1 Step 7 명령으로 계산해 qa 4개(`{claude,gemini,grok}/agents/arc-qa.md`, `codex/agents/arc-qa.toml`)만 바꿉니다. 다른 프로필 값이 달라지면 hold합니다.
+  - `platforms.claude.contracts[2].text`와 `platforms.codex.contracts[2].text`(Shared terms 계약)에 들어 있는 Preservation rule 문장 뒤에 같은 예외 문장을 넣습니다. 다른 계약 텍스트는 바꾸지 않습니다. `revision`은 T1 판단대로 유지합니다.
+  - 확인: `node --test tests/node/agent-fragments.test.mjs tests/node/instruction-layout.test.mjs` PASS(T1 QA가 base에서도 재현을 확인한 `instruction-layout` 기존 실패 5건은 같은 이름이면 기존 실패로 보고)
+- [x] **Step 6: golden** — `--diff` 기대 결과는 정확히 40줄 `~`입니다: 16 레이아웃 × `skills/arc/{SKILL.md,references/verification.md}` = 32줄, `*/write/*` 8 레이아웃의 `agents/arc-qa.{md,toml}` = 8줄. 다르면 `--write` 전에 hold합니다.
+- [x] **Step 7: MANIFEST** — `node scripts/update-manifest.mjs`. 기대 결과: 9항목 변경(SKILL.md 4, verification.md 4, `agent-fragments.json`), 추가·삭제 없음.
+- [x] **Step 8: digest** — T1 Step 10 절차. 실패가 없으면 편집하지 않고 그 출력을 근거로 보고합니다.
+- [x] **Step 9: 관련 테스트·check** — 아래 목록. 종료 `git status --porcelain`은 allowedPaths와 spec·plan만 보여야 합니다.
+- [x] **Step 10: 커밋(Orchestrator, Reviewer 재확인·수락 뒤):** `fix(verify): 최종 리뷰 반영 — QA diff 기준·base worktree 정리 예외 명시`. spec v4·plan v5 개정과 T3·최종 검증 진행 기록을 함께 넣고 `Plan-Revision`/`Plan-Approved-At`/`Plan-Reason` trailer를 붙입니다.
+
+**수용 기준:** AC-10(문구 갱신), AC-11, AC-12, AC-7(role-policy·managed 구역 불변).
+
+**관련 테스트(이유):** `test-scope-contract`(직접 계약), `composite-instructions`(references 구조), `agent-fragments`(렌더 해시), `instruction-layout`(SKILL.md 계약 텍스트·크기 한도), `instruction-language`(SKILL.md·references 언어 검사), `plan-level-records-contract`(verification 문장), `run-mode-contract`(fragment), `role-policy`(managed 구역), `plan`(digest), `installed-layout-golden`, `manifest`.
+
+**check:** `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check`, `node scripts/check-installer-parity.mjs`
+
+**검증 경로:** 승인된 plan의 최종 검증 절 5에 따라 최종 Reviewer finding 후속은 Implementer → Reviewer 재확인으로 처리하고 QA를 재배정하지 않습니다. Implementer가 위 관련 테스트·check 결과를 증거로 보고하고, Reviewer가 refreshed diff(`5f6fa2e9..` 작업 트리)로 B1·B2·N1–N5·n1 해소와 4 플랫폼 바이트 일치를 확인합니다.
+
+**Hold:** golden·MANIFEST·렌더 해시가 예상과 다를 때, 지정 밖 계약 단언을 고쳐야 할 때, role-policy·managed 구역이 바뀔 때, SKILL.md 크기 한도를 넘을 때
+
+---
+
+**T3 진행 기록 (2026-11-22, Orchestrator 수락):**
+- Implementer(Codex bridge, dispatch `b5e3b899`, 세그먼트 2개): RED(플랫폼별 4개 테스트) → GREEN 126 통과. 렌더 해시 변화는 qa 4개뿐. `instruction-contracts.json`은 claude·codex `contracts[2].text`와 qa 해시 4줄만 변경, `revision` 유지. golden `--diff` 40줄 `~` 일치 후 `--write`. MANIFEST 9항목 변경. digest 8개 갱신 후 통과. 관련 Node 11파일 413 통과 + 기존 실패 5(`instruction-layout`, T1 QA에서 base 재현 확인). check 4개 통과. Python 3파일 실패 545·오류 7(최종 QA의 base 동일 기존 실패 수와 같음, 개별 base 재대조는 안 함).
+- 편차: 첫 세그먼트에서 Implementer 스크립트의 출현 횟수 가정 오류로 Step 5에서 멈췄다(파일 변경 없음). 필드 경로 갱신 지시로 재개했다.
+- Reviewer 재확인(native, dispatch `421b28cb`): B1·B2·N1–N5·n1 모두 해소, 새 결함 없음, 4 플랫폼 바이트 일치와 생성물 범위 일치 확인. 비차단 n: Files 머리말 개수 오기(15 → 14), 이 기록과 함께 정정. 테스트는 Reviewer가 재실행하지 않았다(한계).
+- 검증 경로: plan 최종 검증 절 5에 따라 Implementer → Reviewer 재확인, QA 재배정 없음.
+
+**최종 검증 기록 (2026-11-22, T1·T2 뒤):**
+- 최종 QA(Codex bridge, dispatch `3c3541c1`, 세그먼트 3개): check 4개·재변경 관련 테스트 proven. 전체 회귀(트리거 1·4) Node 3,418(실패 50, 건너뜀 25), Python 242(실패 545, 오류 7). 새 실패 0: 기존 실패 Python 552·Node 46, 환경 차단 2(base 동일), 변경 무관 2. 두 worktree 시작·종료 clean.
+- 최종 Reviewer(native, dispatch `eb002053`): B1·B2·N1–N5·n1 finding → 사용자 결정으로 spec v4·T3.
+
 ## 이 작업 QA의 실패 판정 절차 (spec R-1–R-6, §8에 따라 이번부터 적용)
 
 1. QA는 관련 테스트를 HEAD에서 실행합니다. task QA에서 HEAD는 커밋 전 작업 트리입니다(A2). 실패마다 R-1 정적 분류를 합니다.
@@ -317,7 +377,7 @@
 4. prerequisite가 없거나 sandbox 쓰기 거부가 나면 R-4 환경 차단으로 보고합니다. 설치·생성하지 않습니다. bridge QA는 `.git` 안 쓰기가 거부될 수 있습니다(spec §7.2). 그러면 Orchestrator가 prerequisite를 준비하거나, base worktree를 workspace로 하는 QA를 따로 배정합니다.
 5. 간헐 의심은 HEAD에서만 단독으로 최대 3회 실행합니다(R-5).
 6. 보고 행에는 R-6 필드를 모두 적습니다.
-7. base worktree는 모든 최종 disposition 뒤 Orchestrator가 `git worktree remove <경로>`로 정리합니다.
+7. base worktree는 모든 최종 disposition 뒤 clean일 때만 Orchestrator가 `git worktree remove <경로>`로 정리합니다. clean이 아니면 사용자에게 넘깁니다(spec v4 R-2, B2).
 
 ## 최종 검증 (T1·T2 수락·커밋 뒤, fresh QA 1회)
 
@@ -373,3 +433,4 @@
 | v2 | 2026-11-22 | — | 최초 승인본 | 사용자 "승인" |
 | v3 | 2026-11-22 | mechanical | Q3·T1 Files·Step 12를 실제 문서 커밋(`b3351cf`) 처리에 맞게 정정. 계약 변경 없음 | 사용자 "승인" |
 | v4 | 2026-11-22 | mechanical | T2 Interfaces의 `RUNTIME_MODULE_PATHS` 개수 계산 착오 정정(34 → 35). 삭제 범위 변경 없음 | 사용자 "승인" |
+| v5 | 2026-11-22 | substantive | 최종 Reviewer finding(B1·B2·N1–N5·n1) 후속 Task 3 추가, spec v4 기준으로 전환, base worktree 정리 조건(clean일 때만) 반영, 최종 검증 기록 추가. 수락 시 T3 Files 개수 오기(15 → 14) 정정과 T3 진행 기록 추가 | 사용자 "승인" |
