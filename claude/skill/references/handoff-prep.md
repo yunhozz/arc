@@ -92,7 +92,7 @@ After initial document batching, follow [planning](planning.md#plan-updates-duri
 <a id="verification-brief-inputs"></a>
 ### Verification brief inputs
 
-Implementer and QA briefs that assign checks MUST include the baseline record reference (revision, commands, environment and failures by test name, with baseline-incomplete files marked), the related-test list with reasons and the intermittent-failure isolated rerun limit under [verification](verification.md#test-scope-and-result-comparison). While a background baseline run is still active, the brief MAY cite its `runId` and recording conditions instead of the completed record; the executor's comparison waits for its completion.
+Implementer and QA briefs that assign checks MUST include the approved base revision, the base worktree path and its prerequisite state when one already exists (prepared, or not prepared with the needed commands), the related-test list with reasons and the intermittent-failure isolated rerun limit under [verification](verification.md#test-scope-and-result-comparison). Final verification QA briefs also include the re-changed-file list and the provisional full-regression trigger judgment with reasons, including integration history.
 
 <a id="recovery-prerequisite"></a>
 ### Recovery prerequisite

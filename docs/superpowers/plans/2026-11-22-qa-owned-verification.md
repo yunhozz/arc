@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 plan은 ARC Orchestrator가 조정합니다. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행합니다. Implementer와 QA는 Git 상태를 바꾸지 않습니다. 단계는 checkbox(`- [ ]`)로 추적합니다.
 
-- 날짜: 2026-11-22 · 상태: v2 (Planner 첫 초안 v1 + Orchestrator 검토 개정, 승인 전) · workflow: `2026-11-22-qa-verification-ownership`
+- 날짜: 2026-11-22 · 상태: v3 (v2 승인 2026-11-22, v3 기계적 개정 승인 2026-11-22) · workflow: `2026-11-22-qa-verification-ownership`
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, 브랜치 `feat/qa-owned-verification`, base `5f6fa2e95e1415d44467eab235115d11998f4d34`
 - 경로·위험: Architectural, significant
 
@@ -84,18 +84,18 @@
   - `claude/agents/arc-implementer.md`, `gemini/agents/arc-implementer.md`, `grok/agents/arc-implementer.md`
   - `tests/node/test-scope-contract.test.mjs`, `tests/node/composite-instructions.test.mjs`
   - `tests/node/fixtures/instruction-contracts.json`, `tests/node/plan.test.mjs`, `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`
-- 커밋에는 Orchestrator 소유의 `docs/superpowers/specs/2026-11-22-qa-owned-verification-design.md`도 함께 넣습니다. Implementer는 이 파일을 편집하지 않습니다.
+- spec·plan 문서는 Orchestrator 소유이며 `b3351cf`에 커밋되어 있습니다. Implementer는 편집하지 않습니다.
 
 **Interfaces:**
 - Produces: 4 플랫폼 문서에서 `final-verification-runtime-commands`, `verify-cli`, `verify-*`, `verify runner`, `arc/verify`, `runId`가 사라집니다. T2는 이 상태를 전제로 런타임을 삭제합니다.
 - Produces: 테스트 상수 `finalVerificationParagraph`, `fullRegressionParagraph`, `baselineParagraph`, `resultComparisonParagraph`, `handoffBriefInputsParagraph`, `finalScopeSentence`, `fullRegressionQaSentence`, `baseVerdictSentence`. T2는 이 상수를 바꾸지 않습니다.
 
-- [ ] **Step 0: prerequisite 확인(읽기 전용)**
+- [x] **Step 0: prerequisite 확인(읽기 전용)**
   - `node_modules/`와 `build/native/`가 있는지 확인합니다.
   - 없으면 설치하지 말고 Orchestrator에 보고합니다(hold).
   - 시작할 때의 `git status --porcelain`을 기록합니다. 기대값은 untracked spec 1개뿐입니다.
 
-- [ ] **Step 1: `tests/node/test-scope-contract.test.mjs`를 새 문안 기대로 바꿉니다(RED)**
+- [x] **Step 1: `tests/node/test-scope-contract.test.mjs`를 새 문안 기대로 바꿉니다(RED)**
   - 삭제할 상수: `cleanWorktreeSentence`, `fullRegressionWorktreeSentence`, `backgroundBaselineSentence`, `runtimeCommandsHeading`, `runtimeCommandsParagraph`, `handoffRunIdSentence`, `baselineCoverage`. `runtimeCommandsAnchor`는 부재 검사용으로만 남깁니다.
   - 유지할 상수: `structuredResultsSentence`, `finalFailureRule`, `qaAdditionsRule`, `qaRerunLimit`, `wholePlanReviewerRule`, `oldReviewerVerificationPhrase`
   - 새 상수 (1) 단락 원문
@@ -135,7 +135,7 @@
     - 신규 `${platform} rendered profiles omit the retired verification sentences`: `profileRoles` 5개의 렌더 결과와 implementer 템플릿에 `retiredPhrases`가 하나도 없습니다.
   - 그대로 둘 테스트: project suite 2개, final-plan-recheck 2개, test-scope link, whole-plan Reviewer, non-reviewer 부재
 
-- [ ] **Step 2: `tests/node/composite-instructions.test.mjs:107-128`를 부재 테스트로 바꿉니다(RED)**
+- [x] **Step 2: `tests/node/composite-instructions.test.mjs:107-128`를 부재 테스트로 바꿉니다(RED)**
   - 이름은 `every coordination reference omits verify-* host rules`입니다.
   - 각 플랫폼 문서에 `verify runner`, `` `verify-* ``, `verify-start`, `arc/verify`가 없습니다.
   - `section(document)` 줄에서 `precedingBullet` 다음 줄이 아래 접두사로 시작합니다.
@@ -144,11 +144,11 @@
     - Gemini `- Approval: Hold the host` → `- Target home probe: See the shared probe rule below. The capability hold applies before the probe.`
     - Grok `- On a Grok host start the session` → `- Target home probe: See the shared probe rule below.`
 
-- [ ] **Step 3: RED 확인**
+- [x] **Step 3: RED 확인**
   - 실행: `node --test tests/node/test-scope-contract.test.mjs tests/node/composite-instructions.test.mjs`
   - 기대 결과: 바꾼·새 테스트만 실패합니다(4 플랫폼 × 문서·프로필 테스트, composite 부재 1개). 그대로 둔 테스트는 통과합니다. 실패 이름 목록을 보고합니다.
 
-- [ ] **Step 4: 문서 12개를 수정합니다**
+- [x] **Step 4: 문서 12개를 수정합니다**
   - `verification.md`
     - 네 단락(claude/gemini/grok `:22/:24/:26/:28`, codex `:20/:22/:24/:26`)을 spec 111/113/115/117행으로 바꿉니다.
     - runtime anchor부터 그 단락 뒤 빈 줄까지 삭제합니다(claude/gemini/grok `:30–:34`, codex `:28–:32`).
@@ -156,15 +156,15 @@
   - `handoff-prep.md:95`: spec 125행 원문으로 교체합니다. test-scope 링크는 1개를 유지합니다.
   - `coordination.md`: spec §5.3의 4줄을 삭제합니다(줄 번호는 위 "실제 대상 위치" 참조). 다른 bullet은 바꾸지 않습니다.
 
-- [ ] **Step 5: fragment와 implementer 템플릿을 수정합니다**
+- [x] **Step 5: fragment와 implementer 템플릿을 수정합니다**
   - `agent-fragments.json`의 `:82` 1·5단계, `:90`, `:54` 문장을 spec §5.4 1–4로 교체합니다. JSON 이스케이프를 유지합니다(문장 안에 `"`는 없습니다).
   - 세 템플릿의 `full regression only in Orchestrator's final verification when triggered.`를 `full regression only in final QA verification when triggered.`로 바꿉니다. codex toml은 바꾸지 않습니다.
 
-- [ ] **Step 6: 계약 GREEN 확인**
+- [x] **Step 6: 계약 GREEN 확인**
   - 실행: Step 3 명령
   - 기대 결과: 모두 PASS
 
-- [ ] **Step 7: `instruction-contracts.json`을 갱신합니다**
+- [x] **Step 7: `instruction-contracts.json`을 갱신합니다**
   - 렌더 해시를 계산합니다(읽기 전용, 저장소에 쓰지 않음):
     ```
     node -e "const fs=require('node:fs'),c=require('node:crypto');import('./lib/prompts/render.mjs').then(r=>{const reg=JSON.parse(fs.readFileSync('lib/prompts/agent-fragments.json','utf8'));for(const t of reg.targets)console.log(t.path,c.createHash('sha256').update(r.renderAgentProfile(t.path,fs.readFileSync(t.path),reg)).digest('hex'))})"
@@ -174,7 +174,7 @@
   - `revision` 필드는 `git log -p -- tests/node/fixtures/instruction-contracts.json`로 과거 관행을 확인해 따르고, 근거를 보고합니다. 관행이 불분명하면 유지합니다(spec §8 Q2).
   - 확인: `node --test tests/node/agent-fragments.test.mjs tests/node/instruction-layout.test.mjs` PASS
 
-- [ ] **Step 8: golden을 갱신합니다**
+- [x] **Step 8: golden을 갱신합니다**
   - `node tests/node/fixtures/installed-layout.mjs --diff`
   - 기대 결과는 정확히 78줄, 모두 `~`입니다.
     - 16 레이아웃 × `skills/arc/references/{verification,handoff-prep,coordination}.md` = 48줄
@@ -182,19 +182,19 @@
   - `+`나 `-`가 있거나 목록 밖 `~`가 있으면 `--write` 전에 hold하고 보고합니다.
   - 그다음 `--write`를 실행하고, `--diff` 출력이 비었는지 확인합니다.
 
-- [ ] **Step 9: MANIFEST를 갱신합니다**
+- [x] **Step 9: MANIFEST를 갱신합니다**
   - `node scripts/update-manifest.mjs`
   - 기대 결과(`git diff --stat MANIFEST.sha256`): 16개 항목만 바뀝니다(references 12, `lib/prompts/agent-fragments.json`, implementer 3). 항목 추가·삭제는 없습니다.
 
-- [ ] **Step 10: `plan.test.mjs` digest를 갱신합니다**
+- [x] **Step 10: `plan.test.mjs` digest를 갱신합니다**
   - 실행: `node --test --test-name-pattern='preserves public rendering baseline' tests/node/plan.test.mjs` → 8개 실패를 확인합니다.
   - 키별 actual 값을 `renderingBaseline`(`:219–:226`)에 옮기고, 같은 명령으로 8개 PASS를 확인합니다.
   - 실패 출력 발췌(키 → actual)를 근거로 보고합니다.
 
-- [ ] **Step 11: 관련 테스트와 check를 실행합니다(아래 목록)**
+- [x] **Step 11: 관련 테스트와 check를 실행합니다(아래 목록)**
   - 종료 시 `git status --porcelain`이 allowedPaths와 spec만 보여야 합니다.
 
-- [ ] **Step 12: 커밋(Orchestrator, 수락 뒤)**: `refactor(verify): QA 소유 2단계 실패 판정·최종 검증 규칙으로 전환`. spec 문서를 포함합니다. plan 문서 포함 여부는 Q3에 따릅니다.
+- [x] **Step 12: 커밋(Orchestrator, 수락 뒤)**: `refactor(verify): QA 소유 2단계 실패 판정·최종 검증 규칙으로 전환`. spec·plan 본문은 `b3351cf`에 이미 있으므로 다시 넣지 않고, T1 진행 기록과 대기 개정(v3)만 포함합니다(Q3).
 
 **수용 기준:** AC-1, AC-2, AC-3, AC-4, AC-6(T1분), AC-7, AC-10, 그리고 문서 쪽 AC-8(4 플랫폼 references에 verify 참조 없음).
 
@@ -225,6 +225,12 @@
 **Hold:** golden이나 MANIFEST가 예상과 다를 때, 지정 밖 계약 단언을 고쳐야 할 때, role-policy나 managed 구역이 바뀔 때, prerequisite가 없을 때
 
 ---
+
+**T1 진행 기록 (2026-11-22, Orchestrator 수락):**
+- Implementer(Codex bridge, dispatch `b734a3a9`, 세그먼트 2개): RED 44 실패 → GREEN 122 통과. 렌더 해시 15개·protected 해시 갱신, `revision`은 과거 관행대로 유지. golden `--diff` 78줄 일치 후 `--write`. MANIFEST 16 해시 변경. digest 8개 갱신. check 4개 통과.
+- fresh QA(Codex bridge, dispatch `fe6a5bca`): AC-1·2·3·4·7·10과 문서 쪽 AC-8 proven. 관련 테스트 실패 566건(테스트 메서드 178개, `instruction-layout` 5, `consumer` 10, Python 3개 파일)은 1단계에서 모두 "base 재실행 필요"로 분류됐다. 2단계(base worktree `<git-common-dir>/arc/base/2026-11-22-qa-verification-ownership`)에서 모두 같은 이름으로 base에서도 실패해 기존 실패로 판정했다. 새 실패·새 실패 후보는 0건이다.
+- Orchestrator disposition: 기존 실패는 이번 범위 밖이다. spec Result comparison("only new failures are findings")에 따라 AC-6(T1분)은 "새 실패 없음"으로 충족으로 본다.
+- 편차: Implementer 실행 중 Orchestrator가 문서 커밋과 plan v3 개정을 해서 `permission_violation_observed`가 기록됐다. reconcile했고 Implementer 위반은 아니다.
 
 ### Task 2: verify 런타임 삭제
 
@@ -353,4 +359,11 @@
 
 - Q1 → T1 Implementer 시작 전에 Orchestrator가 대상 worktree에서 `npm ci --ignore-scripts`와 `npm run build:native`를 준비합니다(spec R-12의 prerequisite 준비 책임). 둘 다 `.gitignore` 대상이라 추적 파일은 바뀌지 않습니다. Implementer Step 0은 존재만 확인합니다.
 - Q2 → A2를 확정합니다. task QA의 정적 분류는 base 대 작업 트리 diff(`git diff --name-only 5f6fa2e9`)와 `git status --porcelain`의 untracked를 합쳐 봅니다. 최종 QA는 `git diff --name-only 5f6fa2e9 HEAD`를 씁니다.
-- Q3 → plan 문서는 spec과 함께 T1 커밋에 넣습니다(ARC commit 규칙: 승인된 spec·plan은 다음 수락 커밋에 포함). T1 진행 기록은 T1 커밋에, T2 진행 기록은 T2 커밋에 넣습니다. plan-level 기록(최종 검증·Reviewer 결과)은 그 뒤 커밋이 없으면 canonical 인계 기록에만 둡니다.
+- Q3 → 최초 승인된 spec·plan은 ARC Planning document commit 규칙에 따라 문서 전용 커밋 `b3351cf`(`docs(plan): QA 소유 검증 전환 spec·plan 추가`)로 먼저 커밋했습니다. T1 커밋에는 T1 진행 기록과 이 v3 개정만, T2 커밋에는 T2 진행 기록만 넣습니다. plan-level 기록(최종 검증·Reviewer 결과)은 그 뒤 커밋이 없으면 canonical 인계 기록에만 둡니다.
+
+## 개정 이력
+
+| 버전 | 날짜 | 분류 | 내용 | 승인 |
+|---|---|---|---|---|
+| v2 | 2026-11-22 | — | 최초 승인본 | 사용자 "승인" |
+| v3 | 2026-11-22 | mechanical | Q3·T1 Files·Step 12를 실제 문서 커밋(`b3351cf`) 처리에 맞게 정정. 계약 변경 없음 | 사용자 "승인" |
