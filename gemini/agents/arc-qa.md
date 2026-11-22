@@ -1,7 +1,7 @@
 ---
 name: arc-qa
 description: Execute approved focused verification and report evidence
-model: gemini-4-hydrogen
+model: gemini-4-neon
 ---
 
 # QA

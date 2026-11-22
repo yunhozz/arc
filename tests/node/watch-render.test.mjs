@@ -45,7 +45,7 @@ test('CREATE, EDIT and DELETE keep all paths and colors even below prefix width'
     for (const color of [false,true]) {
       const out = renderHuman({...event,kind,text:'updated',root:'/repo/arc',paths:[file,'/private/tmp/outside.md']}, {...options,width,color});
       const plain = out.replace(/\x1b\[[0-9;]*m/g,'');
-      assert.equal(plain.slice(25), 'updated\n' + ' '.repeat(25) + '- arc/docs/' + 'long-name-'.repeat(20) + '.md\n' + ' '.repeat(25) + '- /private/tmp/outside.md');
+      assert.equal(plain.slice(25), 'updated\n' + ' '.repeat(25) + '• arc/docs/' + 'long-name-'.repeat(20) + '.md\n' + ' '.repeat(25) + '• /private/tmp/outside.md');
       assert.ok(!plain.includes('…'));
       assert.equal(plain.split('\n').length,3);
       if (color) assert.match(out,/\x1b\[/);
@@ -115,23 +115,23 @@ test('renderHuman includes failed tool names without text', () => {
 });
 test('renderHuman includes file change paths after optional text', () => {
   const input = {kind:'file_change',paths:['/a/x.mjs','/a/y.mjs']};
-  assert.equal(renderHuman(input,options).slice(25), '- /a/x.mjs\n' + ' '.repeat(25) + '- /a/y.mjs');
-  assert.equal(renderHuman({...input,text:'updated'},options).slice(25), 'updated\n' + ' '.repeat(25) + '- /a/x.mjs\n' + ' '.repeat(25) + '- /a/y.mjs');
+  assert.equal(renderHuman(input,options).slice(25), '• /a/x.mjs\n' + ' '.repeat(25) + '• /a/y.mjs');
+  assert.equal(renderHuman({...input,text:'updated'},options).slice(25), 'updated\n' + ' '.repeat(25) + '• /a/x.mjs\n' + ' '.repeat(25) + '• /a/y.mjs');
 });
-test('file paths are listed with "- " and continuation indent', () => {
+test('file paths are listed with "• " and continuation indent', () => {
   const indent = ' '.repeat(25);
   for (const kind of ['file_change','file_create','file_delete']) for (const color of [false,true]) {
     const input = {kind,text:'updated',root:'/repo/arc',paths:['/repo/arc/' + 'a'.repeat(30),'/repo/arc/short']};
     const out = renderHuman(input,{...options,width:45,wrap:true,color});
     assert.deepEqual(strip(out).split('\n').map(line=>line.slice(25)),[
-      'updated','- arc/' + 'a'.repeat(14),'  ' + 'a'.repeat(16),'- arc/short',
+      'updated','• arc/' + 'a'.repeat(14),'  ' + 'a'.repeat(16),'• arc/short',
     ]);
     assert.ok(strip(out).split('\n').slice(1).every(line=>line.startsWith(indent)));
     assert.ok(strip(out).split('\n').every(line=>renderer.displayWidth(line)<=45));
     if (!color) assert.doesNotMatch(out,/\x1b\[[0-9;]*m/);
   }
 });
-test('single file path has no "- " prefix', () => {
+test('single file path has no "• " prefix', () => {
   for (const kind of ['file_change','file_create','file_delete']) for (const color of [false,true]) {
     const out = renderHuman({kind,text:'updated',root:'/repo/arc',paths:['/repo/arc/file.mjs']},{...options,color});
     assert.equal(strip(out).slice(25),'updated\n' + ' '.repeat(25) + 'arc/file.mjs');
@@ -143,7 +143,7 @@ test('file path list prefixes count only visible sanitized paths', () => {
     for (const [paths,want] of [
       [['','/a'],'/a'],
       [[' \n ','\x1b[31m','/a'],'/a'],
-      [['/a','/b'],'- /a\n' + ' '.repeat(25) + '- /b'],
+      [['/a','/b'],'• /a\n' + ' '.repeat(25) + '• /b'],
     ]) {
       const out = renderHuman({kind,paths},{...options,color});
       assert.equal(strip(out).slice(25),want);
@@ -157,7 +157,7 @@ test('renderJson file paths keep the exact schema and unprefixed values', () => 
 test('renderHuman sanitizes and masks tool targets and file paths', () => {
   assert.equal(renderHuman({kind:'tool',tool:'WebFetch',text:'https://user:pw@host/x'},options).slice(25), 'WebFetch https://***@host/x');
   assert.equal(renderHuman({kind:'tool_failed',tool:'\x1b[31mBash'},options).slice(25), 'Bash');
-  assert.equal(renderHuman({kind:'file_change',text:'updated\nfiles',paths:['https://user:pw@host/x','\x1b[31m/a/y.mjs']},options).slice(25), 'updated files\n' + ' '.repeat(25) + '- https://***@host/x\n' + ' '.repeat(25) + '- /a/y.mjs');
+  assert.equal(renderHuman({kind:'file_change',text:'updated\nfiles',paths:['https://user:pw@host/x','\x1b[31m/a/y.mjs']},options).slice(25), 'updated files\n' + ' '.repeat(25) + '• https://***@host/x\n' + ' '.repeat(25) + '• /a/y.mjs');
 });
 
 test('message lines keep full text with hanging indent', () => {
@@ -338,10 +338,10 @@ const strip = value => value.replace(/\x1b\[[0-9;]*m/g,'');
 test('EDIT lists each path in input order with separately colored bodies', () => {
   const paths = ['/a/third','/a/first','/a/second'];
   const plain = renderHuman({...event,kind:'file_change',text:undefined,paths},options);
-  assert.equal(plain.slice(25), '- /a/third\n' + ' '.repeat(25) + '- /a/first\n' + ' '.repeat(25) + '- /a/second');
+  assert.equal(plain.slice(25), '• /a/third\n' + ' '.repeat(25) + '• /a/first\n' + ' '.repeat(25) + '• /a/second');
   const colored = renderHuman({...event,kind:'file_change',text:undefined,paths},{...options,color:true});
   assert.equal(strip(colored),plain);
-  assert.ok(colored.endsWith('\x1b[33m- /a/third\x1b[0m\n' + ' '.repeat(25) + '\x1b[33m- /a/first\x1b[0m\n' + ' '.repeat(25) + '\x1b[33m- /a/second\x1b[0m'));
+  assert.ok(colored.endsWith('\x1b[33m• /a/third\x1b[0m\n' + ' '.repeat(25) + '\x1b[33m• /a/first\x1b[0m\n' + ' '.repeat(25) + '\x1b[33m• /a/second\x1b[0m'));
 });
 test('empty file bodies preserve prefix spacing and ignore empty entries', () => {
   for (const kind of ['file_change','file_create','file_delete']) for (const color of [false,true]) {
@@ -432,12 +432,21 @@ test('human and JSON file events preserve all 25 reported paths', () => {
   const json = JSON.parse(renderJson(input));
   assert.equal(json.v,1);
   assert.deepEqual(json.paths,paths);
-  assert.deepEqual(renderHuman(input,options).split('\n').map(line=>line.slice(25)),paths.map(file=>'- ' + file));
+  assert.deepEqual(renderHuman(input,options).split('\n').map(line=>line.slice(25)),paths.map(file=>'• ' + file));
 });
 
-test('JSON retains inferred file provenance without changing human output', () => {
-  const input={...event,kind:'file_change',paths:['/repo/golden'],text:undefined};
-  assert.equal(JSON.parse(renderJson({...input,inferred:true})).inferred,true);
-  assert.equal('inferred' in JSON.parse(renderJson(input)),false);
-  assert.equal(renderHuman({...input,inferred:true},options),renderHuman(input,options));
+test('inferred file events have identical human output and retain the inferred field in JSON', () => {
+  for (const kind of ['file_change','file_create','file_delete']) {
+    for (const paths of [['/repo/path-for-wrap.txt'],['/repo/path-for-wrap.txt','/repo/another.txt']]) {
+      const input = {...event,kind,root:'/repo',paths,text:undefined};
+      const inferredEvent = {...input,inferred:true};
+      const json = JSON.parse(renderJson(input));
+      assert.equal('inferred' in json,false);
+      assert.deepEqual(JSON.parse(renderJson(inferredEvent)), {...json,inferred:true});
+      for (const color of [false,true]) for (const [width,wrap] of [[120,false],[48,true]]) {
+        const settings = {...options,color,width,wrap};
+        assert.equal(renderHuman(inferredEvent,settings),renderHuman(input,settings));
+      }
+    }
+  }
 });

@@ -9,6 +9,7 @@ import {
   runtimeRegistryOf, standaloneProfileFile, routingProfileFile,
 } from '../../lib/runtime/platform-registry.mjs';
 import {resolveConfigHome, resolveLocalCli, localCliEnvironment} from '../../lib/runtime/local-cli.mjs';
+import {resolveTarget, TargetConfigurationError} from '../../lib/installer/targets.mjs';
 import {ZETA_RUNTIME, createTestRuntimeRegistry} from './fixtures/platforms/zeta.mjs';
 
 function sourceFiles(relative) {
@@ -146,8 +147,15 @@ test('resolveConfigHome delegates without behavior change', () => {
   assert.throws(() => resolveConfigHome('codex', {...context, env: {CODEX_HOME: ''}}), {message: 'CODEX_HOME is empty or invalid'});
   assert.throws(() => resolveConfigHome('codex', {...context, cwd: 'relative', env: {CODEX_HOME: 'relative'}}), {message: 'cwd must be absolute for relative CODEX_HOME'});
   for (const value of ['/', '/users/test']) assert.throws(() => resolveConfigHome('codex', {...context, env: {CODEX_HOME: value}}), {message: 'Target home must not be the filesystem or user-home root'});
-  assert.throws(() => resolveConfigHome('zeta', context), {message: 'Target must be codex or claude'});
+  assert.throws(() => resolveConfigHome('zeta', context), {name: 'Error', message: 'Unknown platform: zeta. Known platforms: claude, codex, gemini, grok'});
   assert.equal(resolveConfigHome('zeta', {...context, runtimePlatforms: createTestRuntimeRegistry(), env: {ZETA_HOME: '/zeta'}}), '/zeta');
+});
+
+test('resolveTarget lists the default platforms for an unknown id', () => {
+  assert.throws(() => resolveTarget('zeta'), {
+    name: TargetConfigurationError.name,
+    message: 'Unknown platform: zeta. Known platforms: claude, codex, gemini, grok',
+  });
 });
 
 test('resolveLocalCli uses registry for ids', t => {
@@ -209,6 +217,10 @@ test('mixedLabel and sort helpers use runtime display and anchor order', () => {
   assert.deepEqual(installer.sortByAnchor(ids, reversed), ['claude', 'codex', 'zeta']);
   assert.deepEqual(ids, ['zeta', 'codex', 'claude']);
   assert.equal(installer.platformLabel('zeta', platforms), 'Zeta');
+  const unknown = 'mis\ns\u0085ing\u2028';
+  const message = 'Unknown platform: missing. Known platforms: zeta, codex, claude';
+  assert.throws(() => resolveConfigHome(unknown, {runtimePlatforms: runtime}), {message});
+  assert.throws(() => resolveTarget(unknown, {platforms: reversed}), {message});
 });
 
 test('installer descriptors expose format and leaf-module behavior', async () => {

@@ -1,7 +1,7 @@
 ---
 name: arc-scouter
 description: Research evidence and inspect assigned static source
-model: gemini-4-hydrogen
+model: gemini-4-neon
 ---
 
 # Scouter

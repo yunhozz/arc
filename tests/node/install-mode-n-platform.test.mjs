@@ -22,6 +22,7 @@ import {mixedConfig} from './fixtures/install-mode.mjs';
 import {collectStatus} from '../../lib/management/status.mjs';
 import {buildUpgradePlans, upgradeInstalledTargets} from '../../lib/installer/upgrade.mjs';
 import {prepareUpdate, runChild} from '../../lib/management/update.mjs';
+import {resultRows} from '../../lib/tui/app.mjs';
 
 async function composite(t) {
   const ctx = await compositeContext(t);
@@ -380,7 +381,7 @@ test('|S|=3 install-composite publishes at claude anchor', async t => {
   const ctx = await zetaContext(t);
   const {prepared, result} = await managementPublish(ctx, {platforms: ['zeta', 'claude', 'zeta']});
   assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'zeta']);
-  assert.equal(result.messages[0], 'Mixed routing on: Claude + Codex + Zeta.');
+  assert.equal(resultRows(result, ctx.platforms)[0], '✨ ARC installed for Claude, Codex, Zeta.');
   assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['claude', 'codex', 'zeta'], anchor: 'claude'});
   for (const id of ['claude', 'codex', 'zeta']) {
     assert.equal(fs.existsSync(active(ctx, id)), id === 'claude');
@@ -420,7 +421,7 @@ test('D1-d republish keeps v2 bytes and claude lock/store', async t => {
   const next = await management.prepareCompositeOperation(ctx, {kind: 'install', config: await mixedConfig('management-1')});
   const result = await management.executeCompositeOperation(ctx, next);
   assert.equal(result.code, 0, result.error?.stack); assert.ok(fs.readFileSync(filename).equals(before));
-  assert.equal(result.messages[0], 'Mixed routing on: Claude + Codex.');
+  assert.deepEqual(result.messages, []);
   assert.equal(fs.readFileSync(path.join(store, 'history'), 'utf8'), 'retained history');
   assert.equal(fs.existsSync(path.join(targets(ctx).claude.home, 'arc-role-platform-routing.lock')), false);
 });
@@ -436,9 +437,9 @@ test('kind preset, skipGlobal and target all remain accepted', async t => {
   assert.deepEqual(removal.plans.map(plan => plan.target.platform), ['claude', 'codex', 'zeta']);
   assert.equal((await management.executeOperation(ctx, removal)).code, 0);
 });
-test('activation message uses display-ordered mixed label', async t => {
+test('activation without history or residuals has no extra messages', async t => {
   const ctx = await compositeContext(t), {result} = await managementPublish(ctx);
-  assert.deepEqual(result.messages, ['Mixed routing on: Claude + Codex.', 'After upgrading ARC, run Configure again.']);
+  assert.deepEqual(result.messages, []);
 });
 test('management composite rejects unknown or singleton participating sets', async t => {
   const ctx = await zetaContext(t), config = await mixedConfig('invalid-set');

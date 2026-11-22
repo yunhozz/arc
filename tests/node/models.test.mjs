@@ -10,8 +10,8 @@ import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {getPlatform} from '../../lib/runtime/platform-registry.mjs';
 const roles = ['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
 const defaults = {
- codex: [['gpt-6.2-sol','high'],['gpt-6.2-astra','xhigh'],['gpt-6.2-sol','medium'],['gpt-6.2-sol','high'],['gpt-6.2-astra','high']],
- claude: [['sonnet','medium'],['opus','xhigh'],['sonnet','high'],['sonnet','medium'],['opus','high']],
+ codex: roles.map(()=>['gpt-6.2-sol','medium']),
+ claude: roles.map(()=>['opus','medium']),
 };
 test('codex static catalog matches the GPT-6.2 and ultra contract', async()=>{
  const result=await loadStaticModelCatalog('codex');

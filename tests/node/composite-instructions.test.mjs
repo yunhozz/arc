@@ -104,25 +104,27 @@ test('all four composite sections match byte-for-byte outside the native spawn i
   for (const [index, platform] of platforms.entries()) assert.equal(sections[index], sections[0], platform);
 });
 
-test('every coordination reference states verify-* host rules', async () => {
-  const rules = [
+test('every coordination reference omits verify-* host rules', async () => {
+  const neighbors = [
     ['- Approval: No per-call ARC approval gate.',
-      '- Detached survival of the verify runner is unverified on a Claude host; use `detach: false` until it is verified.'],
+      '- Target home probe: None.'],
     ['- On a Codex host ask the user for escalation approval',
-      '- On a Codex host ask for the same escalation approval each time a `verify-*` command (`verify-start`, `verify-status`, `verify-compare`, `verify-rerun`, `verify-cleanup`) runs, because it writes `<git-common-dir>/arc/verify` and the system temporary directory; record an approved call as `sandboxMode: "escalated"`. Detached survival of the verify runner is unverified; use `detach: false` until it is verified.'],
+      '- In a Codex host sandbox writes to `CODEX_HOME` are denied (G2)'],
     ['- Approval: Hold the host',
-      '- Detached survival of the verify runner is unverified on a Gemini host; use `detach: false`.'],
+      '- Target home probe: See the shared probe rule below. The capability hold applies before the probe.'],
     ['- On a Grok host start the session',
-      '- On a Grok host ask the user for approval the same way each time a `verify-*` command runs. Detached survival of the verify runner is unverified; use `detach: false`.'],
+      '- Target home probe: See the shared probe rule below.'],
   ];
   for (const platform of platforms) {
     const document = await coordination(platform);
+    for (const phrase of ['verify runner', '`verify-*', 'verify-start', 'arc/verify']) {
+      assert.ok(!document.includes(phrase), `${platform} must omit ${phrase}`);
+    }
     const lines = section(document).split('\n');
-    for (const [precedingBullet, rule] of rules) {
-      assert.equal(document.split(rule).length - 1, 1, `${platform} must contain exactly once: ${rule}`);
+    for (const [precedingBullet, followingBullet] of neighbors) {
       const precedingIndex = lines.findIndex(line => line.startsWith(precedingBullet));
       assert.ok(precedingIndex >= 0, `${platform} missing preceding bullet: ${precedingBullet}`);
-      assert.equal(lines[precedingIndex + 1], rule, `${platform} must place the rule after ${precedingBullet}`);
+      assert.ok(lines[precedingIndex + 1]?.startsWith(followingBullet), `${platform} must place ${followingBullet} after ${precedingBullet}`);
     }
   }
 });
@@ -235,11 +237,11 @@ test('limits and handoff references mention bridge counting, unknown slot retent
   }
 });
 
-test('operations return current routing status messages', async t => {
+test('composite operations omit routine publication messages', async t => {
   const {compositeContext,publish}=await import('./fixtures/install-mode.mjs');
   const result=await publish(await compositeContext(t));
   assert.equal(result.code,0,JSON.stringify(result));
-  assert.deepEqual(result.messages,['Mixed routing on: Claude + Codex.','After upgrading ARC, run Configure again.']);
+  assert.deepEqual(result.messages,[]);
 });
 
 test('instruction facts match the runtime behavior (observe keys, Desktop, G2, G3, versions, cancel, resume, brief)', async () => {

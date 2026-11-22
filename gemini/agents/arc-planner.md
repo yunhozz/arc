@@ -1,7 +1,7 @@
 ---
 name: arc-planner
 description: Draft scoped designs and implementation plans for Orchestrator
-model: gemini-4-carbon
+model: gemini-4-neon
 ---
 
 # Planner
