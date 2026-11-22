@@ -96,7 +96,7 @@ app/.claude/worktrees/brief  feat/brief        ● 4m ago · 2 sessions · CLAUD
 app/.gemini/worktrees/docs   docs/refresh      (no recent activity)
 ```
 
-After platform selection, the startup summary shows the scope, branch, platforms, and keys. Events then appear below it. Watch also shows shell file changes under the name of the most recent eligible session in the same worktree. It hides those changes while a dispatch is active in that worktree. If an active dispatch's location is unknown, it hides shell file changes across the same repository.
+After platform selection, the startup summary shows the scope, branch, platforms, and keys. Events then appear below it. Watch also shows shell file changes under the name of the most recent eligible session in the same worktree. The attribution is a best guess and can name the wrong session when several sessions are active at once.
 
 ```text
 ┌────────────────────────────────────────────────────────┐

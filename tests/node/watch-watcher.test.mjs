@@ -1243,6 +1243,13 @@ test('Claude successful rm reaches live DELETE output without exposing tool resu
 
 const inferred=events=>events.filter(e=>e.inferred);
 const scans=s=>s.calls.filter(c=>c.args[0]==='ls-files');
+
+function assertInferredCreate(s,events,name='changed.txt') {
+  assert.deepEqual(inferred(events).map(({source,sessionId,cwd,root,kind,paths,inferred})=>
+    ({source,sessionId,cwd,root,kind,paths,inferred})),[
+    {source:'session',sessionId:'host-session',cwd:s.cwd,root:s.cwd,kind:'file_create',paths:[path.join(s.cwd,name)],inferred:true},
+  ]);
+}
 async function shellActivity(s,file,delay=1000) {
   s.append(file,[msg('shell activity')]);
   await s.w.tick();s.advance(delay);
@@ -1295,14 +1302,14 @@ function leaseWithoutCwd(t, platforms=['claude'], options={}) {
   return {...s,writeLease};
 }
 
-test('stale reserved leases do not suppress inferred changes',async t=>{
+test('stale reserved leases leave inferred changes attributed to the recent session',async t=>{
   const s=leaseWithoutCwd(t);
   s.writeLease('reserved',TIME-600000);
   await s.w.start();
   assert.deepEqual(inferred(await s.change()).map(e=>[e.sessionId,e.kind]),[['host-session','file_create']]);
 });
 
-test('running leases with a stale heartbeat do not suppress',async t=>{
+test('running leases with a stale heartbeat leave inferred changes attributed to the recent session',async t=>{
   const s=leaseWithoutCwd(t);
   const lease=s.writeLease('running',TIME);
   fs.writeFileSync(lease.replace(/\.json$/,'.heartbeat.json'),JSON.stringify({at:TIME-30000,pid:10}));
@@ -1310,23 +1317,23 @@ test('running leases with a stale heartbeat do not suppress',async t=>{
   assert.deepEqual(inferred(await s.change()).map(e=>[e.sessionId,e.kind]),[['host-session','file_create']]);
 });
 
-test('running leases with a fresh heartbeat suppress',async t=>{
+test('running leases with a fresh heartbeat allow inferred changes',async t=>{
   const s=leaseWithoutCwd(t);
   const lease=s.writeLease('running',TIME-600000);
   const heartbeat=lease.replace(/\.json$/,'.heartbeat.json');
   fs.writeFileSync(heartbeat,JSON.stringify({at:TIME,pid:10}));
   await s.w.start();
-  assert.deepEqual(inferred(await s.change()),[]);
+  assertInferredCreate(s,await s.change());
   s.advance(30000);
-  assert.deepEqual(inferred(await s.change('stale.txt')).map(e=>e.paths),[[path.join(s.cwd,'stale.txt')]]);
+  assertInferredCreate(s,await s.change('stale.txt'), 'stale.txt');
   fs.writeFileSync(heartbeat,JSON.stringify({at:TIME+38000,pid:10}));
   fs.utimesSync(heartbeat,new Date(TIME+38000),new Date(TIME+38000));
-  assert.deepEqual(inferred(await s.change('renewed.txt')),[]);
+  assertInferredCreate(s,await s.change('renewed.txt'), 'renewed.txt');
   fs.unlinkSync(heartbeat);
-  assert.deepEqual(inferred(await s.change('removed.txt')).map(e=>e.paths),[[path.join(s.cwd,'removed.txt')]]);
+  assertInferredCreate(s,await s.change('removed.txt'), 'removed.txt');
 });
 
-test('a cwd-less dispatch mapped to a followed session is located by that session',async t=>{
+test('a mapped cwd-less dispatch leaves inferred changes attributed to the active session',async t=>{
   const s=leaseWithoutCwd(t,['claude','codex'],{excluded:['linked']});
   const linked=path.join(s.cwd,'linked');
   fs.mkdirSync(linked);
@@ -1335,30 +1342,27 @@ test('a cwd-less dispatch mapped to a followed session is located by that sessio
   const worker=s.c('worker',undefined,{origin:'codex_exec'});
   s.writeLease('running',TIME);
   await s.w.start();
-  assert.deepEqual(inferred(await s.change('local.txt')),[]);
+  assertInferredCreate(s,await s.change('local.txt'), 'local.txt');
   s.append(worker,[move(linked)]);
   assert.ok(notices(await s.w.tick()).includes(`session worker left scope: cwd=${linked}`));
-  assert.deepEqual(inferred(await s.change('after-move.txt')).map(e=>[e.sessionId,e.paths]),
-    [['host-session',[path.join(s.cwd,'after-move.txt')]]]);
+  assertInferredCreate(s,await s.change('after-move.txt'), 'after-move.txt');
 });
 
-test('inferred changes are dropped for a real-shaped lease without cwd',async t=>{
+test('a real-shaped running lease without cwd allows inferred changes',async t=>{
   const s=leaseWithoutCwd(t);
   s.writeLease('running',TIME);
   await s.w.start();
-  const events=await s.change();
-  assert.deepEqual(inferred(events),[]);
-  assert.ok(notices(events).includes(`inferred changes skipped: 1 active dispatches in ${s.cwd}`));
+  assertInferredCreate(s,await s.change());
 });
 
-test('a dispatch that completed after the previous scan still suppresses inferred changes',async t=>{
+test('a dispatch that completed after the previous scan allows inferred changes',async t=>{
   const s=leaseWithoutCwd(t);
   s.writeLease('running',TIME);
   await s.w.start();
   await s.change('first.txt');
   s.advance(100);
   s.writeLease('completed',TIME+4100);
-  assert.deepEqual(inferred(await s.change('during-dispatch.txt')),[]);
+  assertInferredCreate(s,await s.change('during-dispatch.txt'), 'during-dispatch.txt');
 });
 
 test('a dispatch that completed before the previous scan no longer suppresses',async t=>{
@@ -1374,24 +1378,19 @@ test('a dispatch that completed before the previous scan no longer suppresses',a
   assert.match(renderHuman(files[0],{width:80,color:false}),/repo\/after\.txt$/);
 });
 
-test('inferred changes are dropped while an unfollowed dispatch is active',async t=>{
+test('inferred changes are attributed while an unfollowed dispatch is active',async t=>{
   for (const [hostPlatform,targetPlatform,state] of [
     ['codex','claude','running'],['alpha','zeta','reserved'],['alpha','zeta','starting'],['alpha','zeta','unknown'],
   ]) {
     const s=attributionSetup(t,['codex','claude','zeta'],{verbose:true});
     s.lease('d123',{version:2,hostPlatform,targetPlatform,state});
     await s.w.start();
-    const reason=`inferred changes skipped: 1 active dispatches in ${s.cwd}`;
-    const first=await s.change();
-    assert.deepEqual(inferred(first),[],state);
-    assert.equal(notices(first).filter(text=>text===reason).length,1);
-    const next=await s.change('next.txt');
-    assert.deepEqual(inferred(next),[],state);
-    assert.equal(notices(next).includes(reason),false);
+    assertInferredCreate(s,await s.change());
+    assertInferredCreate(s,await s.change('next.txt'), 'next.txt');
   }
 });
 
-test('inferred changes are dropped while a followed dispatch is active',async t=>{
+test('inferred changes are attributed while a followed dispatch is active',async t=>{
   for (const [hostPlatform,targetPlatform,platform] of [
     ['codex','claude','claude'],['claude','codex','codex'],['alpha','zeta','claude'],
   ]) {
@@ -1401,54 +1400,39 @@ test('inferred changes are dropped while a followed dispatch is active',async t=
     else s.c(sessionId,undefined,{origin:'codex_exec'});
     s.lease('d123',{version:2,hostPlatform,targetPlatform,sessionId});
     await s.w.start();
-    assert.deepEqual(inferred(await s.change()),[],hostPlatform);
+    assertInferredCreate(s,await s.change());
   }
 });
 
-test('an active dispatch suppresses inferred changes even when its row is hidden',async t=>{
+test('inferred changes are attributed when the active dispatch row is hidden',async t=>{
   for (const [hostPlatform,targetPlatform] of [['codex','claude'],['alpha','zeta']]) {
     const s=attributionSetup(t,hostPlatform==='codex'?['codex']:['codex','zeta']);
     s.lease('d123',{version:2,hostPlatform,targetPlatform});
     const start=await s.w.start();
-    assert.deepEqual(inferred(await s.change()),[]);
     assert.equal(start.some(e=>e.kind==='dispatch'),false);
-    assert.deepEqual(inferred(await s.change('next.txt')),[]);
+    assertInferredCreate(s,await s.change());
+    assertInferredCreate(s,await s.change('next.txt'), 'next.txt');
   }
 });
 
-test('inferred suppression reports each active count once and keeps the snapshot current',async t=>{
-  for (const [hostPlatform,targetPlatform,verbose] of [
-    ['codex','claude',true],['alpha','zeta',true],['alpha','zeta',false],
-  ]) {
-    const s=attributionSetup(t,['codex','claude','zeta'],{verbose});
-    const fields={version:2,hostPlatform,targetPlatform};
-    s.lease('d123',fields);
-    s.lease('d234',fields);
-    await s.w.start();
-    const reason=count=>`inferred changes skipped: ${count} active dispatches in ${s.cwd}`;
-    const debug=events=>notices(events).filter(text=>text.startsWith('inferred changes skipped:'));
-    const first=await s.change();
-    assert.deepEqual(inferred(first),[]);
-    assert.deepEqual(debug(first),verbose?[reason(2)]:[]);
-    const second=await s.change('second.txt');
-    assert.deepEqual(inferred(second),[]);
-    assert.deepEqual(debug(second),[]);
-    s.lease('d345',fields);
-    const third=await s.change('third.txt');
-    assert.deepEqual(inferred(third),[]);
-    assert.deepEqual(debug(third),verbose?[reason(3)]:[]);
-    s.lease('d345',{...fields,state:'completed'});
-    const fourth=await s.change('fourth.txt');
-    assert.deepEqual(inferred(fourth),[]);
-    assert.deepEqual(debug(fourth),[]);
-    s.lease('d234',{...fields,state:'completed'});
-    const fifth=await s.change('fifth.txt');
-    assert.deepEqual(inferred(fifth),[]);
-    assert.deepEqual(debug(fifth),verbose?[reason(1)]:[]);
-    s.lease('d123',{...fields,state:'completed'});
-    const sixth=await s.change('sixth.txt');
-    assert.deepEqual(inferred(sixth).map(e=>[e.source,e.sessionId,e.paths]),
-      [['session','host-session',[path.join(s.cwd,'sixth.txt')]]]);
+test('a running dispatch without a location allows attribution to the most recent followed session',async t=>{
+  for (const [hostPlatform,targetPlatform] of [['codex','claude'],['alpha','zeta']]) {
+    await t.test(`${hostPlatform}/${targetPlatform}`,async t=>{
+      const s=attributionSetup(t,['codex','claude','alpha','zeta'],{workflowCwd:false});
+      const older=s.c('older-session');
+      s.lease('d123',{version:2,hostPlatform,targetPlatform,state:'running'});
+      const start=await s.w.start();
+      assert.ok(start.some(e=>e.sessionId==='older-session'));
+      assert.ok(start.some(e=>e.sessionId==='host-session'));
+      s.advance(3000);
+      s.append(older,[msg('earlier activity')]);
+      const earlier=await s.w.tick();
+      assert.ok(earlier.some(e=>e.sessionId==='older-session' && e.text==='earlier activity'));
+      s.advance(100);
+      s.stats.set(path.join(s.cwd,'changed.txt'),{});
+      s.files(['changed.txt']);
+      assertInferredCreate(s,await shellActivity(s,s.trigger));
+    });
   }
 });
 
@@ -1476,38 +1460,37 @@ test('dispatch in another worktree does not affect inferred attribution',async t
         state:'running',updatedAt:iso(TIME)});
     }
     await s.w.start();
-    assert.deepEqual(inferred(await s.change()).map(e=>[e.source,e.sessionId,e.cwd,e.root]),
-      [['session','host-session',s.cwd,s.cwd]]);
+    assertInferredCreate(s,await s.change());
   }
 });
 
 for (const [hostPlatform,targetPlatform] of [['codex','claude'],['claude','codex']]) {
-  test(`${hostPlatform} host with a ${targetPlatform} implementer shows the dispatch row and suppresses inferred changes`,async t=>{
+  test(`${hostPlatform} host with a ${targetPlatform} implementer shows the dispatch row and inferred changes`,async t=>{
     const s=attributionSetup(t,[targetPlatform]);
     s.lease('d123',{version:2,hostPlatform,targetPlatform});
     const start=await s.w.start();
     assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>[e.hostPlatform,e.platform]),[[hostPlatform,targetPlatform]]);
-    assert.deepEqual(inferred(await s.change()),[]);
+    assertInferredCreate(s,await s.change());
   });
 }
 
-test('native dispatch rows use the host platform while inferred changes are suppressed',async t=>{
+test('native dispatch rows use the host platform alongside inferred changes',async t=>{
   for (const hostPlatform of ['codex','alpha']) {
     const s=attributionSetup(t,hostPlatform==='codex'?['codex']:['codex',hostPlatform]);
     s.lease('d123',{hostPlatform,route:'native'},{'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
     const start=await s.w.start();
     assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[hostPlatform]);
-    assert.deepEqual(inferred(await s.change()),[]);
+    assertInferredCreate(s,await s.change());
   }
 });
 
-test('unwatchable targets show a dispatch row under the selected host and suppress inferred changes',async t=>{
+test('unwatchable targets show a dispatch row under the selected host alongside inferred changes',async t=>{
   for (const [hostPlatform,targetPlatform] of [['claude','gemini'],['codex','grok'],['alpha','omega'],['alpha','zeta']]) {
     const s=attributionSetup(t,hostPlatform==='alpha'?['alpha','codex']:[hostPlatform]);
     s.lease('d123',{version:2,hostPlatform,targetPlatform});
     const start=await s.w.start();
     assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[hostPlatform]);
-    assert.deepEqual(inferred(await s.change()),[]);
+    assertInferredCreate(s,await s.change());
   }
 });
 
@@ -1530,7 +1513,7 @@ test('dispatch rows prefer lease targetPlatform to followed sessions and event i
       {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
     const start=await s.w.start();
     assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[expected]);
-    assert.deepEqual(inferred(await s.change()),[]);
+    assertInferredCreate(s,await s.change());
   }
 });
 
@@ -1541,7 +1524,7 @@ test('dispatch rows prefer followed dispatch sessions to the native host and eve
     {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
   const start=await s.w.start();
   assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),['codex']);
-  assert.deepEqual(inferred(await s.change()),[]);
+  assertInferredCreate(s,await s.change());
 });
 
 test('a v2 bridge lease without a target does not use the event platform',async t=>{
@@ -1550,7 +1533,7 @@ test('a v2 bridge lease without a target does not use the event platform',async 
     {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
   const start=await s.w.start();
   assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),['alpha']);
-  assert.deepEqual(inferred(await s.change()),[]);
+  assertInferredCreate(s,await s.change());
 });
 
 test('a discovered transcript with no platform handler is ignored',async t=>{
@@ -1575,7 +1558,7 @@ test('a discovered transcript with no platform handler is ignored',async t=>{
   assert.equal(readHeads.includes(unsupported),false);
 });
 
-test('dispatch rows fall back to the event platform or host while inferred changes are suppressed',async t=>{
+test('dispatch rows fall back to the event platform or host alongside inferred changes',async t=>{
   for (const [artifacts,expected] of [
     [{'events.jsonl':'{"kind":"thread","threadId":"missing"}\n'},'codex'],
     [{},'alpha'],
@@ -1585,11 +1568,11 @@ test('dispatch rows fall back to the event platform or host while inferred chang
     s.lease('d123',artifacts?{hostPlatform:'alpha'}:{},artifacts??{});
     const start=await s.w.start();
     assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[expected]);
-    assert.deepEqual(inferred(await s.change()),[]);
+    assertInferredCreate(s,await s.change());
   }
 });
 
-test('an explicit bridge file change is visible while the same scan suppresses host inference',async t=>{
+test('an explicit bridge file change keeps its identity while the scan infers the unclaimed file',async t=>{
   const s=attributionSetup(t,['codex','alpha'],{verbose:true});
   const worker=s.c('worker',undefined,{origin:'codex_exec'});
   s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform:'codex',sessionId:'worker'});
@@ -1604,18 +1587,22 @@ test('an explicit bridge file change is visible while the same scan suppresses h
   s.append(worker,[{type:'event_msg',payload:{type:'item_completed',item:{
     type:'FileChange',changes:{[claimed]:{}},
   }}}]);
+  const bridge=await s.w.tick();
+  s.advance(100);
   s.append(s.trigger,[msg('host shell activity')]);
   const live=await s.w.tick();
   assert.ok(live.some(e=>e.sessionId==='host-session' && e.text==='host shell activity'));
   s.advance(1000);
   const scan=await s.w.tick();
-  const files=[...live,...scan].filter(e=>e.kind.startsWith('file_'));
+  const files=[...bridge,...live,...scan].filter(e=>e.kind.startsWith('file_'));
   assert.deepEqual(files.map(({kind,source,sessionId,dispatchId,workflowId,role,platform,label,cwd,root,paths,inferred})=>
     ({kind,source,sessionId,dispatchId,workflowId,role,platform,label,cwd,root,paths,inferred})),[{
     kind:'file_change',source:'bridge',sessionId:'worker',dispatchId:'d123',workflowId:'wf-3',role:'implementer',
     platform:'codex',label:'implementer@d123',cwd:s.cwd,root:s.cwd,paths:[claimed],inferred:undefined,
+  },{
+    kind:'file_create',source:'session',sessionId:'host-session',dispatchId:undefined,workflowId:undefined,role:undefined,
+    platform:'codex',label:'tui#sion',cwd:s.cwd,root:s.cwd,paths:[unclaimed],inferred:true,
   }]);
-  assert.ok(notices(scan).includes(`inferred changes skipped: 1 active dispatches in ${s.cwd}`));
 });
 
 test('dispatch rows use the same display platform rule',async t=>{

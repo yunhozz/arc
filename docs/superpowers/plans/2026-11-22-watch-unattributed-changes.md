@@ -22,14 +22,14 @@
   - `MANIFEST.sha256`
 - 선행: 없음
 - 단계
-  - [ ] RED: 억제를 전제한 테스트(HEAD `f677c216` 기준 `tests/node/watch-watcher.test.mjs` 1244-1634 구간의 억제·notice 테스트, 예: 1313, 1329, 1345, 1354, 1377, 1394, 1408, 1419, 1485, 1494, 1504, 1525, 1537, 1547, 1578, 1592)의 단언을 "가장 최근 후보 세션 identity로 `inferred:true` 귀속"으로 바꾸고, 제목의 suppress/skipped를 새 의미로 바꾼다. notice 1회 규칙만 검사하던 테스트는 "notice가 나오지 않는다"로 바꾸거나 목적이 사라졌으면 삭제하고 이유를 보고한다. 활성 dispatch가 없는 테스트는 건드리지 않는다. `node --test tests/node/watch-watcher.test.mjs`에서 바꾼 테스트만 실패하는 것을 확인하고 실패 이름을 보고한다. 최종 목록은 Implementer가 실제 단언을 보고 확정해 보고한다.
-  - [ ] 새 테스트: 위치 불명 dispatch(lease에 cwd 없음, 매핑 없음)가 있어도 이 root의 셸 변경이 최근 후보에 귀속되어 나온다. host/target 조합 `codex/claude`와 `alpha/zeta` 모두.
-  - [ ] `scanRoot`의 `:585` 조건에서 억제 호출을 없애 v0.5.0(`5f6fa2e9:lib/watch/watcher.mjs:522-527`)과 같은 귀속 경로로 되돌린다.
-  - [ ] spec 3.1의 제거 대상(함수·notice·상태 필드·전용 상수·`prevScanAt`)을 지운다. 각각 다른 사용처가 없는지 grep으로 확인하고 결과를 보고한다. `lib/watch/dispatch.mjs`는 바꾸지 않는다.
-  - [ ] `README.md` 99행을 spec 5절대로 고친다.
-  - [ ] GREEN: `node --test tests/node/watch-watcher.test.mjs tests/node/watch-render.test.mjs tests/node/watch-dispatch.test.mjs` 통과.
-  - [ ] `node scripts/update-manifest.mjs`. 기대: `lib/watch/watcher.mjs`, `lib/watch/model.mjs`(바뀐 경우), `README.md`(manifest 대상이면) 해시만 변경, 추가·삭제 없음. 다르면 hold.
-  - [ ] 커밋(Orchestrator, 수락 뒤): `fix(watch): 활성 dispatch 중에도 셸 변경을 최근 세션에 귀속해 표시`
+  - [x] RED: 억제를 전제한 테스트(HEAD `f677c216` 기준 `tests/node/watch-watcher.test.mjs` 1244-1634 구간의 억제·notice 테스트, 예: 1313, 1329, 1345, 1354, 1377, 1394, 1408, 1419, 1485, 1494, 1504, 1525, 1537, 1547, 1578, 1592)의 단언을 "가장 최근 후보 세션 identity로 `inferred:true` 귀속"으로 바꾸고, 제목의 suppress/skipped를 새 의미로 바꾼다. notice 1회 규칙만 검사하던 테스트는 "notice가 나오지 않는다"로 바꾸거나 목적이 사라졌으면 삭제하고 이유를 보고한다. 활성 dispatch가 없는 테스트는 건드리지 않는다. `node --test tests/node/watch-watcher.test.mjs`에서 바꾼 테스트만 실패하는 것을 확인하고 실패 이름을 보고한다. 최종 목록은 Implementer가 실제 단언을 보고 확정해 보고한다.
+  - [x] 새 테스트: 위치 불명 dispatch(lease에 cwd 없음, 매핑 없음)가 있어도 이 root의 셸 변경이 최근 후보에 귀속되어 나온다. host/target 조합 `codex/claude`와 `alpha/zeta` 모두.
+  - [x] `scanRoot`의 `:585` 조건에서 억제 호출을 없애 v0.5.0(`5f6fa2e9:lib/watch/watcher.mjs:522-527`)과 같은 귀속 경로로 되돌린다.
+  - [x] spec 3.1의 제거 대상(함수·notice·상태 필드·전용 상수·`prevScanAt`)을 지운다. 각각 다른 사용처가 없는지 grep으로 확인하고 결과를 보고한다. `lib/watch/dispatch.mjs`는 바꾸지 않는다.
+  - [x] `README.md` 99행을 spec 5절대로 고친다.
+  - [x] GREEN: `node --test tests/node/watch-watcher.test.mjs tests/node/watch-render.test.mjs tests/node/watch-dispatch.test.mjs` 통과.
+  - [x] `node scripts/update-manifest.mjs`. 기대: `lib/watch/watcher.mjs`, `lib/watch/model.mjs`(바뀐 경우), `README.md`(manifest 대상이면) 해시만 변경, 추가·삭제 없음. 다르면 hold.
+  - [x] 커밋(Orchestrator, 수락 뒤): `fix(watch): 활성 dispatch 중에도 셸 변경을 최근 세션에 귀속해 표시`
 - 관련 테스트와 이유
   - `tests/node/watch-watcher.test.mjs`: 바뀌는 분기와 귀속 회귀. A1–A3, A7.
   - `tests/node/watch-render.test.mjs`: 귀속된 추정 행의 human/JSON 형식 회귀(render는 바꾸지 않음).
@@ -38,6 +38,11 @@
   - README를 읽는 테스트가 있는지 Implementer가 grep으로 확인하고, 있으면 관련 테스트에 이유와 함께 추가한다.
 - Check: `npm run check:manifest`
 - 수용 기준: A1–A7. QA는 fresh로 관련 테스트와 check를 돌리고, `git grep`으로 A4를 확인한다.
+- 진행 기록 (2026-11-22)
+  - Implementer `d045d0a1`: 억제 제거, 테스트 16건 귀속 기대로 전환·1건 삭제(count별 notice 계약 소멸), 위치 불명 dispatch 테스트 추가, README 99행, MANIFEST 해시 3개.
+  - QA `8762cd56`: A1 unmet(다른 worktree 테스트에 kind·paths 단언 없음) → 재개 1에서 활성 dispatch 테스트 단언 보강.
+  - QA `6c427bac`: A2 unmet(재개 1이 비활성 dispatch 테스트 3건 단언까지 바꿈, Orchestrator 지시 범위 오류) → 재개 2에서 그 3건 단언을 `f677c216`과 같게 복원.
+  - QA `7cff5654`: A1–A7 proven. 관련 테스트 311건, README 패키징 테스트 26건 통과, `check:manifest` 통과. Orchestrator 수락.
 
 ## 최종 검증 (T1 수락·커밋 뒤, fresh QA 1회)
 
