@@ -37,7 +37,7 @@ function verifyEvidence(descriptor, models, defaults) {
 const promoted = () => ({cli: {supportedVersions: SUPPORTED}, capabilities: Object.fromEntries(VERIFIED.map(key => [key, {state: 'verified'}]))});
 // Gemini 4 defaults have not been verified live (web research 2026-11-21, Gemini 4 GA per Google release notes).
 const catalogModels = ['gemini-4-neon', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-argon', 'gemini-3.8-flash', ...LIVE_ACCEPTED];
-const roleDefaults = ['gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-hydrogen', 'gemini-4-hydrogen', 'gemini-4-neon'];
+const roleDefaults = Array(5).fill('gemini-4-neon');
 
 test('operational Gemini capabilities, catalog and role defaults satisfy the fixed live contract', async () => {
   const result = await loadStaticModelCatalog('gemini');

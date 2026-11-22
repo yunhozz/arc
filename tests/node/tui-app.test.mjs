@@ -421,7 +421,7 @@ for(const firstCode of [0,1])test('role draft '+(firstCode?'survives failed exec
  const session=terminal(events),prepared=[];let executed=0;
  const statuses=[{platform:'gemini',state:'absent',cliVersion:{reason:'cli_not_found'}}];
  await runTui({session,context:{env:{PATH:fixturePath},packageRoot:fileURLToPath(new URL('../../',import.meta.url))},services:{currentInstallState:()=>({mode:'standalone',platforms:[]}),currentInstallMode:()=>'standalone',collectStatus:async()=>statuses,prepareOperation:async(_c,options)=>{prepared.push(structuredClone(options));return{kind:'install',plans:[]};},executeOperation:async()=>({code:executed++===0?firstCode:0,results:[]})}});
- assert.equal(prepared.length,2);assert.equal(prepared[0].roles.arc_scouter.model,'sonnet');assert.equal(prepared[0].roles.arc_scouter.effort,'low');assert.equal(prepared[1].roles.arc_scouter.effort,firstCode?'low':'medium');
+ assert.equal(prepared.length,2);assert.equal(prepared[0].roles.arc_scouter.model,'opus');assert.equal(prepared[0].roles.arc_scouter.effort,'low');assert.equal(prepared[1].roles.arc_scouter.effort,firstCode?'low':'medium');
 });
 
 test('idle refresh redraws while retaining one pending input and stops after Enter',async()=>{

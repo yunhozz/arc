@@ -46,11 +46,11 @@ BALANCED_SETTINGS = {
 }
 
 PACKAGE_DEFAULT_SETTINGS = {
-    "arc_scouter": {"model": "gpt-6.2-sol", "model_reasoning_effort": "high"},
-    "arc_planner": {"model": "gpt-6.2-astra", "model_reasoning_effort": "xhigh"},
+    "arc_scouter": {"model": "gpt-6.2-sol", "model_reasoning_effort": "medium"},
+    "arc_planner": {"model": "gpt-6.2-sol", "model_reasoning_effort": "medium"},
     "arc_implementer": {"model": "gpt-6.2-sol", "model_reasoning_effort": "medium"},
-    "arc_qa": {"model": "gpt-6.2-sol", "model_reasoning_effort": "high"},
-    "arc_reviewer": {"model": "gpt-6.2-astra", "model_reasoning_effort": "high"},
+    "arc_qa": {"model": "gpt-6.2-sol", "model_reasoning_effort": "medium"},
+    "arc_reviewer": {"model": "gpt-6.2-sol", "model_reasoning_effort": "medium"},
 }
 
 def settings_bytes(roles: dict, version=1, *, legacy=False) -> bytes:

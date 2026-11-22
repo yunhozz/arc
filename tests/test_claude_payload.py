@@ -23,11 +23,11 @@ EXPECTED = {
 }
 # Package models.toml defaults applied by apply-models.
 BALANCED_PRESET = {
-    'scouter': ('sonnet', 'medium'),
-    'planner': ('opus', 'xhigh'),
-    'implementer': ('sonnet', 'high'),
-    'qa': ('sonnet', 'medium'),
-    'reviewer': ('opus', 'high'),
+    'scouter': ('opus', 'medium'),
+    'planner': ('opus', 'medium'),
+    'implementer': ('opus', 'medium'),
+    'qa': ('opus', 'medium'),
+    'reviewer': ('opus', 'medium'),
 }
 
 
@@ -210,7 +210,7 @@ class ClaudePayloadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             target = self.fixture(Path(tmp).resolve())
             config = target / 'skills/arc/models.toml'
-            config.write_text(config.read_text().replace('model = "sonnet"', 'model = "opus"'))
+            config.write_text(config.read_text().replace('model = "opus"', 'model = "haiku"'))
             before = {p.relative_to(target): (p.read_bytes(), p.stat().st_mode) for p in target.rglob('*') if p.is_file()}
             for flag in ('--check', '--dry-run'):
                 result = subprocess.run([sys.executable, '-B', str(target / 'skills/arc/scripts/apply-models.py'), flag], capture_output=True, text=True)
@@ -257,7 +257,7 @@ class ClaudePayloadTests(unittest.TestCase):
             codex.parent.mkdir(parents=True)
             codex.write_bytes(b'unchanged')
             config = target / 'skills/arc/models.toml'
-            config.write_text(config.read_text().replace('model = "sonnet"', 'model = "opus"'))
+            config.write_text(config.read_text().replace('model = "opus"', 'model = "haiku"'))
             profiles = list((target / 'agents').glob('*.md'))
             for profile in profiles:
                 profile.chmod(0o640)
@@ -266,8 +266,7 @@ class ClaudePayloadTests(unittest.TestCase):
             self.assertEqual(codex.read_bytes(), b'unchanged')
             for profile in profiles:
                 self.assertEqual(profile.stat().st_mode & 0o777, 0o640)
-                if profile.name not in ('arc-scouter.md', 'arc-qa.md'):
-                    self.assertIn(b'model: opus', profile.read_bytes())
+                self.assertIn(b'model: haiku', profile.read_bytes())
 
     def test_apply_models_failure_restores_all_prior_profiles(self):
         module = self.module()
