@@ -1407,7 +1407,7 @@ test('inferred changes are dropped while a followed dispatch is active',async t=
 
 test('an active dispatch suppresses inferred changes even when its row is hidden',async t=>{
   for (const [hostPlatform,targetPlatform] of [['codex','claude'],['alpha','zeta']]) {
-    const s=attributionSetup(t,hostPlatform==='codex'?['codex']:['codex',hostPlatform]);
+    const s=attributionSetup(t,hostPlatform==='codex'?['codex']:['codex','zeta']);
     s.lease('d123',{version:2,hostPlatform,targetPlatform});
     const start=await s.w.start();
     assert.deepEqual(inferred(await s.change()),[]);
@@ -1481,9 +1481,9 @@ test('dispatch in another worktree does not affect inferred attribution',async t
   }
 });
 
-for (const [hostPlatform,targetPlatform] of [['codex','claude'],['claude','codex'],['alpha','zeta']]) {
+for (const [hostPlatform,targetPlatform] of [['codex','claude'],['claude','codex']]) {
   test(`${hostPlatform} host with a ${targetPlatform} implementer shows the dispatch row and suppresses inferred changes`,async t=>{
-    const s=attributionSetup(t,hostPlatform==='alpha'?['codex','zeta']:[targetPlatform]);
+    const s=attributionSetup(t,[targetPlatform]);
     s.lease('d123',{version:2,hostPlatform,targetPlatform});
     const start=await s.w.start();
     assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>[e.hostPlatform,e.platform]),[[hostPlatform,targetPlatform]]);
@@ -1502,7 +1502,7 @@ test('native dispatch rows use the host platform while inferred changes are supp
 });
 
 test('unwatchable targets show a dispatch row under the selected host and suppress inferred changes',async t=>{
-  for (const [hostPlatform,targetPlatform] of [['claude','gemini'],['codex','grok'],['alpha','omega']]) {
+  for (const [hostPlatform,targetPlatform] of [['claude','gemini'],['codex','grok'],['alpha','omega'],['alpha','zeta']]) {
     const s=attributionSetup(t,hostPlatform==='alpha'?['alpha','codex']:[hostPlatform]);
     s.lease('d123',{version:2,hostPlatform,targetPlatform});
     const start=await s.w.start();
@@ -1511,14 +1511,27 @@ test('unwatchable targets show a dispatch row under the selected host and suppre
   }
 });
 
+test('a Gemini home still shows the dispatch row under the selected Claude host',async t=>{
+  for (const platforms of [['claude'],['claude','codex']]) {
+    const s=attributionSetup(t,platforms,{
+      extraHomes:h=>({...dispatchHomes(h),gemini:path.join(h.userHome,'.gemini')}),
+    });
+    s.lease('d123',{version:2,hostPlatform:'claude',targetPlatform:'gemini'});
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>[e.dispatchId,e.platform]),[['d123','claude']],platforms.join(', '));
+  }
+});
+
 test('dispatch rows prefer lease targetPlatform to followed sessions and event inference',async t=>{
-  const s=attributionSetup(t,['codex','zeta']);
-  s.c('worker',undefined,{origin:'codex_exec'});
-  s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform:'zeta',sessionId:'worker'},
-    {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
-  const start=await s.w.start();
-  assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),['zeta']);
-  assert.deepEqual(inferred(await s.change()),[]);
+  for (const [targetPlatform,expected] of [['claude','claude'],['zeta','alpha']]) {
+    const s=attributionSetup(t,['codex','claude','alpha','zeta']);
+    s.c('worker',undefined,{origin:'codex_exec'});
+    s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform,sessionId:'worker'},
+      {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[expected]);
+    assert.deepEqual(inferred(await s.change()),[]);
+  }
 });
 
 test('dispatch rows prefer followed dispatch sessions to the native host and event inference',async t=>{
@@ -1608,8 +1621,8 @@ test('an explicit bridge file change is visible while the same scan suppresses h
 test('dispatch rows use the same display platform rule',async t=>{
   for (const [platforms, expected] of [
     [['codex'],[]],
-    [['codex','alpha'],[['d234','alpha'],['d345',undefined]]],
-    [['codex','zeta'],[['d123','zeta'],['d345',undefined]]],
+    [['codex','alpha'],[['d123','alpha'],['d234','alpha'],['d345',undefined]]],
+    [['codex','zeta'],[['d345',undefined]]],
   ]) {
     const s=attributionSetup(t,platforms);
     s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform:'zeta'});

@@ -270,7 +270,8 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
   - host와 실행 플랫폼은 어느 것이든 될 수 있다(Claude·Codex·Gemini·Grok, registry에 주입된 플랫폼 포함). 규칙에 플랫폼 id를 하드코딩하지 않는다.
 - 플랫폼 용어
   - 선택 플랫폼: 사용자가 메뉴에서 고른 `platforms`.
-  - 감시 가능 플랫폼: 이번 watch에서 transcript를 읽을 수 있는 플랫폼(`homes[id] !== null`).
+  - 감시 가능 플랫폼: 이번 watch에서 transcript를 읽을 수 있는 플랫폼. `homes[id]`가 null이 아니고 watcher의 transcript 플랫폼 표(`TRANSCRIPT_HANDLERS`)에 있어야 한다.
+    - 최종 리뷰 M1(2026-11-22): `homes`는 registry 전체를 해석하므로 Gemini·Grok도 경로가 있다. `homes`만 보면 Gemini target dispatch의 표시 플랫폼이 선택 불가한 gemini가 되어 행이 항상 숨겨진다.
   - 실행 플랫폼(target): dispatch를 실제로 수행하는 플랫폼.
     1. lease v2의 `targetPlatform`(`parseLeaseLenient`가 이 키도 읽는다. 스키마는 바꾸지 않는다).
     2. 없으면 그 dispatch에 매핑된 followed 세션의 플랫폼(기존 `dispatchEvents`의 `followedRow?.platform`과 같다).
@@ -405,6 +406,13 @@ SVG 디자인(기존 `role-flow.svg` 톤), `renderBox` 줄바꿈(`renderLine` �
 - 추정 파일 귀속: A(활성 dispatch 우선 귀속 또는 생략)+B(사람용 `(inferred)` 표시), T7로 추가. host·실행 플랫폼을 특정하지 않는 범용 규칙으로 한다.
 - 플랫폼 비대칭 전수 조사: watch 2건은 T7에 포함, watch 밖 문구 3건은 별도 task T8(D9)로 처리.
 - 추정 파일 귀속 개정: 활성 dispatch가 있으면 bridge 쪽 수정을 추정 행으로 보여 주지 않는다(dispatch 라벨 귀속 철회).
+
+## 최종 리뷰 후 남긴 한계 (2026-11-22)
+
+- 매핑 세션은 있으나 그 cwd가 없으면 해당 dispatch는 어느 root에서도 활성으로 세지 않는다(억제 누락 가능, 경계 사례).
+- `environment_unverified` 안내의 CLI 목록은 기본 runtime registry 기준이다(정적 release condition).
+- worktree 메뉴는 공용 TUI 규칙(정의된 `NO_COLOR`면 색 끔), watch 이벤트 출력은 빈 `NO_COLOR`를 색 켬으로 본다. 공용 TUI와 일관성을 위해 메뉴 쪽을 유지했다.
+- worktree 행의 세션 수에 subagent 세션이 포함된다.
 
 ## 미결 사항
 

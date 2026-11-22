@@ -486,3 +486,4 @@
 | T8 | 완료(QA C3·C4·C6·C7·C9·대칭 proven, 실행 기준은 Orchestrator verify 583 통과·새 실패 0·golden 4/4로 확인, 고정 해시 갱신은 선례 1e4e6284) | codex bridge 52ba1f22·94f3d4c5, QA c22b5e64 | 이 커밋 |
 | T7-L | 완료(사용자 결정 "`(inferred)` 표시만 지우라고": 사람용 표시만 제거, 감지·억제·JSON 유지, watch 500/500. 앞선 기능 제거 시도 8c2ffb7e는 취소·복원) | codex bridge 9c0eb2a6 | 이 커밋 |
 | T6 | 완료(QA C1·C3~C8 proven, SVG 경계는 Orchestrator 렌더 확인, 가이드 이동 내용은 기존 README·도식 출처, 기존 실패 1건 동일) | codex bridge 7734a57a(취소, 초안)·5c23858c, QA b698c674 | 이 커밋 |
+| 최종 리뷰 반영 | 완료(M1 감시 가능 정의에 transcript 표 조건 추가, README 억제 범위 서술 보정, NO_COLOR 수정은 공용 TUI 일관성으로 철회·한계 기록, watch 500/500) | codex bridge ae29b990, Reviewer native | 이 커밋 |
