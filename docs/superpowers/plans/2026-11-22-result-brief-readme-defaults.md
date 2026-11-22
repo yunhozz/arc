@@ -278,7 +278,8 @@
   - `lib/watch/model.mjs`(`worktreePickerMax: 20`)
   - `lib/watch/watcher.mjs`: 옵션 `probe`, `attach`(`:230-252`)에서 probe면 `readTail`·`emit`·shell root 생략, 반환 객체 `listActivity()`, `brief.scope = scope.display ?? watchLocationLabel(…)`, `brief.branch = scope.branch`
   - `lib/watch/index.mjs`: `:13-34` help Scope 절, `:36-58` `runWatch` 흐름, `:61-75,164-166` `followWatch`가 `io.scope`·`io.homes`를 받으면 다시 해석하지 않음
-- Modify(조건부, A7): `lib/tui/interface.mjs`에 `ui.menu` 옵션 `rowTones`(하위 호환) 추가. 테스트는 `tests/node/tui-interface.test.mjs`(없으면 해당 메뉴 테스트 파일)
+- Modify(A7, 확인됨): `lib/tui/interface.mjs`에 `ui.menu` 옵션 `rowTones`(하위 호환) 추가, `lib/tui/render.mjs`에 행 dim 렌더 추가. 테스트는 `tests/node/tui-render.test.mjs`와 기존 메뉴 호출자 테스트(`tui-app`, `tui-custom-preset`)
+- Modify(A6 보완): `lib/watch/watcher.mjs`의 `cwdInScope`·`verifyCwd`가 probe 모드에서 경로 판정만 쓰게 한다
 - Test 수정(영향 범위)
   - `tests/node/watch-cli.test.mjs`에서 `runWatch`를 부르는 테스트(`grep -n "runWatch(" tests/node/watch-cli.test.mjs`)를 모두 확인한다. fixture cwd가 Git이면 worktree 화면이 먼저 나오므로 키 입력 앞에 `'\r'`(현재 worktree 선택)을 넣는다.
   - `menu dispose precedes watch raw mode and first output`(`:773-797`)은 alt-screen 종료가 두 번 생긴다. `leftMenu`는 마지막 종료(`lastIndexOf('\x1b[?1049l')`) 기준, `restored`도 마지막 raw 해제 기준으로 바꾼다.
@@ -443,6 +444,6 @@
 | T2 | 완료(QA proven, verify no-new-failures) | codex bridge 233cb74e, QA e47f4792 | 이 커밋 |
 | T3 | 완료(QA proven, C3는 새 바이트 테스트를 base 코드에서 통과시켜 확인) | codex bridge d91f354e, QA ac113aa7 | 이 커밋 |
 | T4 | 완료(QA proven, C9는 T3 바이트 테스트 무변경·통과로 확인) | codex bridge a116c130, QA c7c484c1 | 이 커밋 |
-| T5 | 대기 | - | - |
+| T5 | 완료(재QA proven, A6·A7·D7 폭 규칙 보완) | codex bridge b0c022df, QA e687d04e·63b9e498 | 이 커밋 |
 | T7 | 대기(T5 후, T6 전) | - | - |
 | T6 | 대기 | - | - |

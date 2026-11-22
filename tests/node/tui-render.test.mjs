@@ -287,3 +287,22 @@ test('fitChoiceRow keeps fitting rows and ellipsizes long rows to one line',()=>
  const long='[-] Codex   - Unavailable  (unauthorized) (auth unverified)',fitted=api.fitChoiceRow(long,40);
  assert.ok(fitted.endsWith('…'));assert.ok([...fitted].reduce((width,character)=>width+api.cellWidth(character),0)<=37);assert.ok(long.startsWith(fitted.slice(0,-1)));
 });
+
+test('dim menu rows retain selection styling and leave other rows unchanged',()=>{
+ const screen={title:'Menu',rows:['Selected inactive','Inactive','Active'],selected:0};
+ const original=api.renderScreen(screen);
+ const dimmed=api.renderScreen({...screen,rowTones:['dim','dim']});
+ assert.equal(dimmed.text,original.text);
+ for(const depth of ['16','256','truecolor','none']){
+  const format=rendered=>rendered.text.split('\n').map((line,index)=>formatLine(line,rendered.styles.find(style=>style.line===index),depth));
+  const before=format(original),after=format(dimmed);
+  assert.equal(after[0],before[0]);
+  assert.deepEqual(after.slice(3),before.slice(3));
+  if(depth==='none')assert.deepEqual(after,before);
+  else{
+   assert.match(after[1],/\x1b\[2m[^\n]*> Selected inactive/);
+   assert.ok(dimmed.styles.find(style=>style.line===1).runs.some(run=>run.role==='selected'&&run.bg));
+   assert.equal(after[2],'\x1b[2m  Inactive\x1b[0m');
+  }
+ }
+});

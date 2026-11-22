@@ -189,6 +189,12 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
   - (b) main 안의 worktree: `<basename(mainRoot)>/<mainRoot 기준 상대 경로>`. 예: `app/.claude/worktrees/x`, `app/.gemini/worktrees/y`
   - (c) main 밖의 worktree(Codex 앱 경로, sibling)나 main이 없을 때: `~` 축약 절대 경로
   - 경로 열이 할당 폭을 넘으면 첫 구간과 마지막 두 구간만 남기고 가운데를 `…`로 줄인다. 예: `~/…/7f3a/app`
+  - 그래도 넘치면 차례로 줄인다(T5 QA 보완). 각 단계에서 맞는 첫 형태를 쓴다.
+    1. `<첫 구간>/…/<마지막 두 구간>`
+    2. `<첫 구간>/…/<마지막 구간>`
+    3. `…/<마지막 구간>`
+    4. `…<마지막 구간의 뒷부분>`
+  - 구간 중간을 자르는 것은 4단계에서만 허용한다. 예(열 13): `~/work/app-hotfix` → `…/app-hotfix`. 예(열 13): `app/.claude/worktrees/brief` → `app/…/brief`.
   - 경로 비교는 `realPath` 결과로 한다.
 - 박스 Scope는 위치와 무관하게 항상 `~` 축약 절대 경로(`scope.display`)를 쓴다.
 - 흐름(`runWatch`, TTY)
@@ -215,6 +221,11 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
     - color가 켜지면 비활성 행 전체를 `\x1b[2m`으로 칠한다.
     - color가 꺼지면(`NO_COLOR` 등) 활동 열을 `(no recent activity)`로 쓴다.
   - 열 너비를 맞추고 `fitChoiceRow`로 폭에 맞춘다.
+  - 열 폭 배분(T5 QA 보완)
+    - 활동 열을 먼저 보존한다. 자연 폭의 합이 들어가지 않으면 경로 열을 최소 12칸까지 먼저 줄인다(위 생략 규칙 사용).
+    - 그다음 브랜치 열을 최소 8칸까지 줄인다.
+    - 그래도 넘치면 활동 열 끝을 `…`로 자른다.
+    - 폭 80에서 경로 27·브랜치 16·활동 34칸인 행은 활동 열이 잘리지 않아야 한다.
 - 순서
   1. 현재 worktree(활동 여부와 무관)
   2. 활동이 있는 나머지 worktree, `lastActivity` 내림차순
@@ -330,7 +341,10 @@ SVG 디자인(기존 `role-flow.svg` 톤), `renderBox` 줄바꿈(`renderLine` �
 - A3: startup에서 `showHistory`가 거짓이어도 `normalize`는 범위 판정을 마친 이벤트를 반환한다.
 - A5: probe가 `readTail` 없이 `headCwd`·`latestCwd`만으로 적격 판정과 귀속을 할 수 있다(`lib/watch/watcher.mjs:409-416`).
 - A6: 모든 root를 넣은 probe scope로 프로젝트 안과 밖의 worktree 세션을 찾는다(Claude startup 전체 scan `lib/watch/watcher.mjs:376`, Codex는 rollout 전체를 cwd로 판정).
+  - T5 확인(2026-11-22): 성립하지 않는다. 적격 판정 `cwdInScope`(`lib/watch/watcher.mjs:59-62`)가 `scope.roots[0]`과 nested git 확인만 통과시켜 두 번째 이후 root의 세션이 빠진다.
+  - 보완: probe 모드에서는 `cwdInScope`가 `inScope(scope,cwd)`(모든 roots에 대한 경로 판정)만 쓰고, `selectedRoot` 비교와 `verifyCwd`의 git 확인을 건너뛴다. worktree 귀속은 `groupActivity`가 가장 깊은 root로 정한다. probe가 아닌 경로의 판정은 바꾸지 않는다.
 - A7: `ui.menu`(`lib/tui/interface.mjs`)가 행별 흐림을 지원한다. 지원하지 않으면 하위 호환 옵션 `rowTones`(행 index별 `'dim'|undefined`)를 추가한다. 기존 호출자는 영향을 받지 않는다.
+  - T5 확인(2026-11-22): 지원하지 않고 렌더러(`lib/tui/render.mjs`)에도 dim 처리가 없다. `rowTones`는 `interface.mjs`의 옵션 전달과 `render.mjs`의 행 렌더(color일 때만 `\x1b[2m`, 선택 행 강조와 공존)까지 하위 호환으로 추가한다.
 
 ## 사용자 결정 기록 (2026-11-22)
 

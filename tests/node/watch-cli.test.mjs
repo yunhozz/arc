@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {EventEmitter, once} from 'node:events';
 import {spawn, execFileSync} from 'node:child_process';
@@ -122,8 +123,9 @@ test('watch help explains platform choice, worktree scope and event output',asyn
   const s=setup(t);
   assert.equal(await runWatch(['--help'],s.io),0);
   assert.equal(s.output.text,WATCH_HELP+'\n');
-  assert.match(s.output.text,/Check the platforms to watch in the menu; all supported platforms are checked by default/);
-  assert.match(s.output.text,/current Git worktree, or the current directory outside Git/);
+  assert.match(s.output.text,/Then check the platforms to watch; all supported platforms are checked by default/);
+  assert.match(s.output.text,/first choose the worktree to watch from git worktree list/);
+  assert.match(s.output.text,/Outside Git the current directory is watched/);
   assert.match(s.output.text,/Requires an interactive terminal/);
   assert.match(s.output.text,/each session's working directory at that point/);
   assert.match(s.output.text,/SKILL and PLUGIN lines/);
@@ -704,7 +706,6 @@ function menuTerminal(s, keys) {
   output.rows = 24;
   const timeline = [];
   let menus = 0;
-  let menuClosed = false;
   const setRawMode = input.setRawMode.bind(input);
   input.setRawMode = value => {
     timeline.push(value);
@@ -712,9 +713,8 @@ function menuTerminal(s, keys) {
   };
   output.on('written', text => {
     timeline.push(text);
-    if (text.includes('\x1b[?1049l')) menuClosed = true;
     // Drive input from terminal frames even when the menu title is wrong.
-    if (menuClosed || !text.startsWith('\x1b[?2026h')) return;
+    if (!text.startsWith('\x1b[?2026h')) return;
     const key = keys[menus++] ?? 'eof';
     if (key === 'eof') queueMicrotask(() => input.emit('end'));
     else queueMicrotask(() => input.emit('data', Buffer.from(key)));
@@ -784,7 +784,7 @@ test('unsupported row is not selectable', async t => {
   assert.match(first,/Esc Exit/);
   assert.ok(screens.at(-1).includes(unsupported.label+' is not supported by arc watch.'));
   assert.ok(screens.at(-1).includes('[-] '+unsupported.label+'  (not supported)'));
-  assert.deepEqual(s.calls,[]);
+  assert.deepEqual(s.calls.map(({args})=>args),[GIT_ALLOWED[0]]);
 });
 
 test('unsupported row notice clears when the cursor moves away', async t => {
@@ -810,7 +810,7 @@ test('menu cancel restores terminal and never starts watcher', async t => {
     assert.equal(await runWatch([],s.io),code);
     assert.deepEqual(s.io.input.rawModes,[true,false]);
     assert.ok(timeline.some(frame => typeof frame==='string' && frame.includes('\x1b[?1049l')));
-    assert.deepEqual(s.calls,[]);
+    assert.deepEqual(s.calls.map(({args})=>args),[GIT_ALLOWED[0]]);
   }
 });
 
@@ -821,7 +821,8 @@ test('menu dispose precedes watch raw mode and first output', async t => {
     [[...Array(k).fill('\x1b[A'),'\r',...Array(k).fill('\x1b[B'),'\r'],['local claude']],
   ]) {
     const s = setup(t);
-    const timeline = menuTerminal(s,keys);
+    pickerRepo(s);
+    const timeline = menuTerminal(s,['\r',...keys]);
     s.write('local',s.cwd,[msg('local codex')]);
     s.write('foreign',s.h.root,[msg('foreign codex')]);
     s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'local-claude',[
@@ -829,8 +830,8 @@ test('menu dispose precedes watch raw mode and first output', async t => {
     ],{mtime:TIME});
     s.io.setInterval = () => {s.controller.abort();return 17;};
     assert.equal(await runWatch([],s.io),0);
-    const restored = timeline.indexOf(false);
-    const leftMenu = timeline.findIndex(frame => typeof frame==='string' && frame.includes('\x1b[?1049l'));
+    const leftMenu = timeline.findLastIndex(frame => typeof frame==='string' && frame.includes('\x1b[?1049l'));
+    const restored = timeline.lastIndexOf(false,leftMenu);
     const watchRaw = timeline.lastIndexOf(true);
     const firstWatch = timeline.findIndex(frame => typeof frame==='string' && frame.includes('arc watch '));
     assert.ok(restored>=0 && restored<leftMenu && leftMenu<watchRaw && watchRaw<firstWatch);
@@ -858,7 +859,7 @@ test('empty selection is rejected with a notice', async t => {
     assert.ok(screens.at(-2).includes('[ ] '+descriptor.label));
   }
   assert.ok(!screens.at(-1).includes(message));
-  assert.deepEqual(s.calls,[]);
+  assert.deepEqual(s.calls.map(({args})=>args),[GIT_ALLOWED[0]]);
 });
 
 test('no supported platform leaves only Back', async t => {
@@ -873,7 +874,7 @@ test('no supported platform leaves only Back', async t => {
   const screens = watchMenuScreens(timeline);
   assert.ok(screens[0]?.includes('[-] Zeta  (not supported)'));
   assert.ok(screens[1]?.includes('Select at least one platform to watch.'));
-  assert.deepEqual(s.calls,[]);
+  assert.deepEqual(s.calls.map(({args})=>args),[GIT_ALLOWED[0]]);
 });
 
 test('confirm returns checked ids in display order', async t => {
@@ -888,5 +889,169 @@ test('confirm returns checked ids in display order', async t => {
     menuTerminal(s,keys);
     const actual = await chooseWatchPlatforms({input:s.io.input,output:s.output,env:s.io.env,signals:s.io.process,registry});
     assert.deepEqual(actual,expected);
+  }
+});
+
+function pickerRepo(s, branches=[{root:s.cwd,branch:'main'}]) {
+  branches = branches.map(branch=>({...branch,root:fs.realpathSync(branch.root)}));
+  s.io.cwd = fs.realpathSync(s.io.cwd);
+  const {root} = branches[0];
+  const porcelain = branches.map(({root,branch})=>[
+    'worktree '+root,'HEAD '+'a'.repeat(40),'branch refs/heads/'+branch,'','',
+  ].join('\0')).join('');
+  s.io.git = async (dir,args) => {
+    s.calls.push({dir,args});
+    if (args===GIT_ALLOWED[0]) return branches.toReversed().find(({root})=>dir===root||dir.startsWith(root+path.sep))?.root ?? null;
+    if (args===GIT_ALLOWED[1]) return root+'/.git';
+    if (args===GIT_ALLOWED[2]) return porcelain;
+    if (args===GIT_ALLOWED[3]) return '';
+    assert.fail('unexpected Git command');
+  };
+}
+
+const pickerTitles = timeline => timeline
+  .filter(frame=>typeof frame==='string' && frame.startsWith('\x1b[?2026h'))
+  .map(frame=>/Which (?:worktree|platforms) to watch\?/.exec(frame)?.[0]);
+
+test('non-git directory skips the worktree menu', async t => {
+  const s = setup(t);
+  const timeline = menuTerminal(s,['\x1b']);
+  assert.equal(await runWatch([],s.io),0);
+  assert.deepEqual(pickerTitles(timeline),['Which platforms to watch?']);
+});
+
+test('single worktree still shows the worktree menu', async t => {
+  const s = setup(t);
+  pickerRepo(s);
+  const timeline = menuTerminal(s,['\r','\x1b']);
+  s.io.setInterval = () => s.controller.abort();
+  assert.equal(await runWatch([],s.io),0);
+  assert.deepEqual(pickerTitles(timeline),['Which worktree to watch?','Which platforms to watch?']);
+  assert.equal(s.calls.filter(({args})=>args===GIT_ALLOWED[2]).length,1);
+});
+
+test('chosen worktree becomes the watch scope', async t => {
+  const s = setup(t), outside = path.join(s.h.userHome,'outside');
+  fs.mkdirSync(outside);
+  pickerRepo(s,[{root:s.cwd,branch:'main'},{root:outside,branch:'topic'}]);
+  const timeline = menuTerminal(s,['\x1b[B','\r','\r']);
+  s.write('local',s.cwd,[msg('current history')]);
+  s.write('outside',outside,[msg('outside history')]);
+  s.advance(11*60*1000);
+  const recent = TIME+11*60*1000;
+  const recentFile = s.write('outside-new',outside,[{...msg('outside recent'),timestamp:iso(recent)}]);
+  fs.utimesSync(recentFile,new Date(recent),new Date(recent));
+  s.io.setInterval = () => {
+    s.io.input.emit('data',Buffer.from('\x08'));
+    s.controller.abort();
+    return 17;
+  };
+  assert.equal(await runWatch([],s.io),0);
+  assert.deepEqual(pickerTitles(timeline),['Which worktree to watch?','Which worktree to watch?','Which platforms to watch?']);
+  assert.match(strip(s.output.text),/Scope.*~\/outside \(topic\)/);
+  assert.match(strip(s.output.text),/outside recent/);
+  assert.match(strip(s.output.text),/outside history/);
+  assert.doesNotMatch(strip(s.output.text),/current history/);
+});
+
+test('platform menu follows the worktree menu', async t => {
+  const s = setup(t), other = path.join(s.cwd,'nested');
+  fs.mkdirSync(other);
+  pickerRepo(s,[{root:s.cwd,branch:'main'},{root:other,branch:'other'}]);
+  const timeline = menuTerminal(s,['\r','\x1b']);
+  s.io.setInterval = () => s.controller.abort();
+  assert.equal(await runWatch([],s.io),0);
+  assert.deepEqual(pickerTitles(timeline),['Which worktree to watch?','Which platforms to watch?']);
+  assert.match(strip(timeline.find(frame=>typeof frame==='string'&&frame.includes('Which worktree'))),/repo\/nested/);
+});
+
+test('worktree listing failure falls back to the current worktree', async t => {
+  const s = setup(t);
+  pickerRepo(s);
+  const git = s.io.git;
+  let lists = 0;
+  s.io.git = async (dir,args) => {
+    if (args!==GIT_ALLOWED[2]) return git(dir,args);
+    lists++;
+    return null;
+  };
+  const timeline = menuTerminal(s,['\r']);
+  s.io.setInterval = () => {s.controller.abort();return 17;};
+  assert.equal(await runWatch(['--json'],s.io),0);
+  assert.deepEqual(pickerTitles(timeline),['Which platforms to watch?']);
+  const header = s.output.text.split('\n').map(line=>line.slice(line.indexOf('{"v":')))
+    .filter(line=>line.startsWith('{"v":')).map(JSON.parse).find(event=>event.text.startsWith('arc watch:'));
+  assert.match(header.text,/\(1 worktrees\)/);
+  assert.equal(lists,1);
+});
+
+test('a failed activity probe keeps the current Git worktree and its branch', async t => {
+  const s = setup(t), nested = path.join(s.cwd,'nested');
+  fs.mkdirSync(nested);
+  pickerRepo(s,[{root:s.cwd,branch:'main'},{root:nested,branch:'feature'}]);
+  s.write('current',s.cwd,[msg('current worktree history')]);
+  s.write('nested',nested,[msg('nested worktree history')]);
+  const readdir = fsp.readdir;
+  let failures = 0;
+  t.mock.method(fsp,'readdir',async (dir,...args)=>{
+    if (!failures && String(dir).startsWith(path.join(s.h.codexHome,'sessions')+path.sep)) {
+      failures++;
+      throw Object.assign(Error('probe could not read sessions'),{code:'EIO'});
+    }
+    return readdir(dir,...args);
+  });
+  const timeline = menuTerminal(s,['\r']);
+  s.io.setInterval = () => {s.controller.abort();return 17;};
+  assert.equal(await runWatch([],s.io),0,s.error.text);
+  assert.equal(failures,1);
+  assert.deepEqual(pickerTitles(timeline),['Which platforms to watch?']);
+  assert.match(strip(s.output.text),/Scope[^\n]+\/repo *(?:│\n│ *)?\(main\)/);
+  assert.match(strip(s.output.text),/current worktree history/);
+  assert.doesNotMatch(strip(s.output.text),/nested worktree history/);
+});
+
+for (const [selection,keys,other] of [
+  ['main',['\r','\r'],'nested'],
+  ['nested',['\x1b[B','\r','\r'],'main'],
+]) {
+  test(`selecting ${selection} keeps startup and Ctrl-H in its worktree`, async t => {
+    const s = setup(t), nested = path.join(s.cwd,'nested');
+    fs.mkdirSync(nested);
+    pickerRepo(s,[{root:s.cwd,branch:'main'},{root:nested,branch:'feature'}]);
+    const recent = TIME+11*60*1000;
+    s.advance(recent-TIME);
+    for (const [name,dir] of [['main',s.cwd],['nested',nested]]) {
+      s.write(name+'-earlier',dir,[msg(name+' earlier history')]);
+      const file = s.write(name+'-recent',dir,[{...msg(name+' recent history'),timestamp:iso(recent)}]);
+      fs.utimesSync(file,new Date(recent),new Date(recent));
+    }
+    const timeline = menuTerminal(s,keys);
+    let startup, earlier;
+    s.io.setInterval = () => {
+      startup = strip(s.output.text);
+      const offset = s.output.text.length;
+      s.io.input.emit('data',Buffer.from('\x08'));
+      earlier = strip(s.output.text.slice(offset));
+      s.controller.abort();
+      return 17;
+    };
+    assert.equal(await runWatch([],s.io),0,s.error.text);
+    assert.deepEqual([...new Set(pickerTitles(timeline))],['Which worktree to watch?','Which platforms to watch?']);
+    assert.ok(startup.includes(selection+' recent history'));
+    assert.ok(!startup.includes('earlier history'));
+    assert.ok(earlier.includes(selection+' earlier history'));
+    assert.ok(!earlier.includes(other+' earlier history'));
+    assert.ok(!startup.includes(other+' recent history'));
+  });
+}
+
+test('worktree menu exit and EOF return 0 and interrupt returns 130', async t => {
+  for(const [key,code] of [['\x1b',0],['eof',0],['\x03',130]]){
+    const s = setup(t);
+    pickerRepo(s);
+    const timeline = menuTerminal(s,[key]);
+    assert.equal(await runWatch([],s.io),code);
+    assert.deepEqual(pickerTitles(timeline),['Which worktree to watch?']);
+    assert.deepEqual(s.io.input.rawModes,[true,false]);
   }
 });
