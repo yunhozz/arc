@@ -13,6 +13,7 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
 - G7(C7) Git 저장소에서는 플랫폼 메뉴 전에 같은 git-common-dir의 모든 worktree를 활동 정보와 함께 보여 주고, 하나를 골라 watch 범위로 삼는다.
 - G4(C4) README를 재구성하고 모드별 도식과 watch 예시 로그(worktree 선택, 박스, Ctrl-H)를 넣는다.
 - G5(C5) 패키지 `models.toml` 기본값을 플랫폼별 단일 값으로 통일한다.
+- G9(C9) watch 밖 오류·안내 문구에서 플랫폼을 Claude·Codex 둘로 한정한 표현을 registry 기반 중립 문구로 바꾼다.
 - G8(C8) watch 셸 변경 감지가 진행 중인 dispatch의 수정을 다른 세션에 귀속하지 않게 하고, 사람용 출력에서 추정 귀속을 표시한다.
 
 ## 비목표
@@ -267,34 +268,70 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
   - 감시 가능 플랫폼: 이번 watch에서 transcript를 읽을 수 있는 플랫폼(`homes[id] !== null`).
   - 실행 플랫폼(target): dispatch를 실제로 수행하는 플랫폼.
     1. lease v2의 `targetPlatform`(`parseLeaseLenient`가 이 키도 읽는다. 스키마는 바꾸지 않는다).
-    2. 없으면 `route === 'native'`일 때 `hostPlatform`.
-    3. 그래도 없으면 dispatch 이벤트에서 추론한 기존 `childPlatform`.
-    4. 그래도 없으면 모름.
+    2. 없으면 그 dispatch에 매핑된 followed 세션의 플랫폼(기존 `dispatchEvents`의 `followedRow?.platform`과 같다).
+    3. 없으면 `route === 'native'`일 때 `hostPlatform`.
+    4. 그래도 없으면 dispatch 이벤트에서 추론한 기존 `childPlatform`.
+    5. 그래도 없으면 모름.
+    - T7 확인(2026-11-22): 2단계가 빠지면 target 정보가 없는 기존 dispatch 행(`tests/node/watch-watcher.test.mjs:795`)이 host 기준으로 숨겨진다. 2단계로 기존 동작을 유지한다.
 - 표시 플랫폼(dispatch 행과 추정 귀속에 공통인 헬퍼)
   - 실행 플랫폼이 감시 가능하면 그 플랫폼이다.
   - 아니면 `hostPlatform`이다.
   - 둘 다 모르면 기존 규칙(`platforms.length < 2`이면 숨김)을 따른다.
   - dispatch가 보이는 조건은 표시 플랫폼이 선택 플랫폼에 들어 있는 것이다. `dispatchEvents`(`:209-210`)도 이 헬퍼를 쓴다.
   - 따라서 Claude·Codex가 아닌 플랫폼에서 실행된 role의 dispatch 행과 추정 변경은 host가 선택됐을 때 보인다.
-- 활성 dispatch
-  - 조건 1: `state`가 `reserved`·`starting`·`running`·`unknown`이다. runtime `NON_TERMINAL_STATES`와 같은 값이고, watch 안 상수로 둔다.
-  - 조건 2: `dispatchInScope(ref)`이다.
-  - 조건 3: `ref.cwd`의 git top이 scan 중인 `top`과 같다.
-  - `ref.cwd`가 없으면 세지 않는다.
-- 귀속 규칙. claim으로 빠지지 않은 변경이 하나 이상일 때만 적용한다.
-  - 활성 dispatch 0개: 기존과 같다(가장 최근 followed 후보).
-  - 활성 dispatch 정확히 1개: 아래 셋 중 처음 맞는 경우를 쓴다.
-    - 그 dispatch에 매핑된 followed 세션(어느 플랫폼이든)이 있으면 그 세션 identity로 붙인다(`source:'bridge'`).
-    - 없고 표시 플랫폼이 선택 플랫폼에 들면 dispatch identity로 붙인다: `source:'dispatch'`, `label:dispatchLabel(rawRole,dispatchId)`, `dispatchId`, `workflowId`, `role`, `platform:<실행 플랫폼, 모르면 표시 플랫폼>`, `cwd:ref.cwd`, `root:top`.
-    - 그 밖에는 이벤트를 내지 않는다.
-  - 활성 dispatch 2개 이상: 이벤트를 내지 않는다. `--verbose`면 debug notice `inferred changes skipped: <n> active dispatches in <top>`를 같은 top·같은 n 조합당 1회 낸다.
+- 활성 dispatch(실환경 확인으로 개정 2026-11-22)
+  - 조건 1(상태): 다음 중 하나를 만족한다.
+    - `state`가 `reserved`·`starting`·`running`·`unknown`이다. runtime `NON_TERMINAL_STATES`와 같은 값이고, watch 안 상수로 둔다.
+    - 종료 상태인데 `updatedAt`이 이 root의 직전 scan 시작 시각(`prevScanAt`, 첫 scan이면 watch 시작 시각) 이후다.
+    - 이유: 종료 직전에 쓴 파일은 종료 뒤 scan에서 발견된다.
+  - 조건 1-2(생존, 실환경 재확인 2026-11-22): 오래된 lease가 억제를 영구히 붙잡지 않도록, non-terminal이라도 살아 있는 것만 센다.
+    - `starting`·`running`·`unknown`: dispatch store의 `<id>.heartbeat.json`이 있으면 `at`이 `L.dispatchHeartbeatStaleMs`(30초. runtime heartbeat 5초의 6배) 안이어야 한다. 파일이 없으면 `updatedAt`이 `L.dispatchIdleMs`(10분) 안이어야 한다.
+    - `reserved`: supervisor가 아직 없는 예약 상태다. `updatedAt`이 `L.dispatchIdleMs` 안이어야 한다.
+    - 실환경 근거: 이 저장소 store에 며칠 전 `reserved` lease 3개가 heartbeat 없이 남아 있었다. 또 다른 세션의 `running` QA는 heartbeat가 최신이었다.
+    - 반영 지연(QA 47a6768c 검토 후 허용): heartbeat와 lease는 discovery(`L.discoveryMs` 2초) 때 읽는다. 그래서 생존 판정은 최대 2초 늦게 반영된다. heartbeat 주기 5초·기준 30초에 비해 작고, lease 상태 읽기도 원래 같은 지연을 가진다.
+  - 조건 2(범위): `dispatchInScope(ref)`이다.
+  - 조건 3(위치): 다음 중 하나다.
+    - `ref.cwd`가 있으면 그 git top이 scan 중인 `top`과 같다.
+    - `ref.cwd`가 없으면 같은 git-common-dir의 dispatch(`ref.inScope`)를 모든 root에서 활성으로 센다.
+    - 이유: 실제 lease와 workflow 기록에는 cwd가 없다(lease에 cwd 필드가 없고 `state.json`도 없다). 억제가 넓어져도 추정 행이 빠질 뿐이다.
+    - cwd가 없어도 그 dispatch에 매핑된 followed 세션이 있으면 그 세션 cwd의 git top으로 위치를 정한다. 매핑이 없을 때만 모든 root로 센다.
+    - 한계: 같은 저장소의 다른 worktree에서 다른 세션이 돌리는 bridge도 위치를 모르면 이 root의 추정 행을 숨긴다. 정확히 하려면 runtime이 lease에 대상 worktree를 기록해야 한다. runtime 변경은 이번 범위 밖이라 후속 과제로 남긴다.
+- 귀속 규칙. claim으로 빠지지 않은 변경이 하나 이상일 때만 적용한다. (사용자 결정 2026-11-22로 개정: bridge 쪽 수정은 추정 행으로 보여 주지 않는다.)
+  - 활성 dispatch 0개: 기존과 같다(가장 최근 followed 후보, `inferred:true`).
+  - 활성 dispatch 1개 이상: 추정 파일 이벤트를 내지 않는다. dispatch identity나 bridge 세션 identity로도 귀속하지 않는다.
+    - `--verbose`면 debug notice `inferred changes skipped: <n> active dispatches in <top>`를 같은 top·n 조합당 1회 낸다.
+    - bridge 세션을 따라가는 중이면, 그 세션 transcript의 명시적 file 이벤트는 기존대로 보인다. 이것은 추정이 아니다.
+  - 표시 플랫폼 헬퍼는 dispatch 행 필터에만 쓴다.
   - 어느 경우든 스냅샷 갱신, `claims` 정리, `candidates` 비우기는 기존대로 한다.
 - 사람용 표시(`renderHuman`): `inferred:true`인 file 이벤트
   - 경로 1개: `<path> (inferred)`.
   - 경로 2개 이상: 첫 본문 줄 `(inferred)` 뒤에 기존 `- <path>` 목록.
   - 색 여부와 무관하게 같은 문자열이다. 줄바꿈·폭 규칙은 기존과 같다.
 - JSON: 변경 없음(`inferred` 필드는 이미 있다).
+- 플랫폼 추론 보강(사용자 요청 전수 조사 결과, 2026-11-22)
+  - 이벤트 추론 `childPlatform`(`lib/watch/dispatch.mjs`의 `thread`면 codex, 아니면 claude)은 v1 lease이거나 lease가 없는 레거시 기록에서만 쓴다. v2 lease인데 `targetPlatform`이 없으면 모름으로 둔다.
+  - watcher의 transcript 처리 분기(cwd 추출, normalize)는 플랫폼 id를 키로 한 표에서 고른다. 표에 없는 플랫폼은 따라가지 않는다(이벤트를 내지 않는다). `codex`가 아니면 모두 Claude 처리로 보내는 이분기를 없앤다. 기본 registry에서의 동작은 바뀌지 않는다.
 - 비목표: claim TTL, 스캔 주기, `git.mjs` 허용 명령, dispatch store 스키마, `lib/runtime`은 바꾸지 않는다.
+
+### D9 (C9) 플랫폼 중립 문구 (사용자 결정: 별도 task)
+
+- 배경: 플랫폼 비대칭 전수 조사(2026-11-22)에서 동작은 registry 기반인데 문구만 두 플랫폼으로 한정한 지점이 나왔다.
+- 대상과 새 문구
+  - `lib/runtime/local-cli.mjs:11`과 `lib/installer/targets.mjs:8`의 `Target must be codex or claude`
+    - 새 문구: `Unknown platform: <id>. Known platforms: <registry 표시 순서 id, ', ' 연결>`
+    - `<id>`는 sanitize해 한 줄로 쓴다.
+  - `lib/runtime/role-dispatch-policy.mjs:75` `environment_unverified` 안내의 `declare codex-cli or claude-cli instead`
+    - 새 문구: `declare a CLI environment (<registry CLI 실행 환경 id, ' or ' 연결>) instead`
+    - 목록은 registry의 CLI 실행 환경에서 만든다. 예: `claude-cli or codex-cli or gemini-cli or grok-cli`.
+    - 문장의 나머지 부분은 그대로 둔다.
+  - `lib/management/operations.mjs:93`
+    - 새 문구: `All participating ARC installations are required to change composite settings`
+  - `lib/management/operations.mjs:144`
+    - 새 문구: `All participating ARC installations must be complete before publication`
+- `shared/skill/runtime/`의 복사본은 `node scripts/update-runtime-assets.mjs`로 맞춘다. 손으로 따로 고치지 않는다.
+- 동작은 바꾸지 않는다. 오류 종류, 코드, `reason`, `releaseCondition` 키는 그대로다.
+- 이 문구를 단언하는 테스트(`tests/node/platform-registry.test.mjs:149`, `tests/node/role-routing-dispatch.test.mjs:99`)는 새 문구로 바꾼다.
+  - 주입 플랫폼(`zeta`)이 목록에 나타나는지 단언한다.
 
 ### D4 (C4) README 구성
 
@@ -356,6 +393,8 @@ SVG 디자인(기존 `role-flow.svg` 톤), `renderBox` 줄바꿈(`renderLine` �
 - worktree 선택: "session"이 아니라 worktree 선택. 비활성은 흐리게 표시, Git이면 항상 화면 표시, CLI 플래그 없음.
 - README 도식: `role-flow.svg` 교체, `role-models.svg` 삭제.
 - 추정 파일 귀속: A(활성 dispatch 우선 귀속 또는 생략)+B(사람용 `(inferred)` 표시), T7로 추가. host·실행 플랫폼을 특정하지 않는 범용 규칙으로 한다.
+- 플랫폼 비대칭 전수 조사: watch 2건은 T7에 포함, watch 밖 문구 3건은 별도 task T8(D9)로 처리.
+- 추정 파일 귀속 개정: 활성 dispatch가 있으면 bridge 쪽 수정을 추정 행으로 보여 주지 않는다(dispatch 라벨 귀속 철회).
 
 ## 미결 사항
 

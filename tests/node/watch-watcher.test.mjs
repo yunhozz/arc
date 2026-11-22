@@ -13,6 +13,8 @@ import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {resolveDispatchStore} from '../../lib/watch/anchor-store.mjs';
 import {GIT_ALLOWED} from '../../lib/watch/git.mjs';
 import {WATCH_KINDS} from '../../lib/watch/model.mjs';
+import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY} from '../../lib/runtime/platform-registry.mjs';
+import {ZETA_RUNTIME} from './fixtures/platforms/zeta.mjs';
 
 const TIME = Date.parse('2026-11-11T12:00:00Z');
 const iso = n => new Date(n).toISOString();
@@ -48,7 +50,7 @@ test('watch ambiguous with two candidates', async t => {
 });
 
 function setup(t, options={}, kind='dir', dependencies={}) {
-  const {excluded=[],root,...watchOptions}=options;
+  const {excluded=[],root,registry,extraHomes,...watchOptions}=options;
   const h = makeHomes(t), repo = path.join(h.root,'repo'), gcd=path.join(h.root,'git');
   fs.mkdirSync(repo);
   const cwd = fs.realpathSync(repo);
@@ -68,7 +70,7 @@ function setup(t, options={}, kind='dir', dependencies={}) {
     if (args[0]==='worktree') return roots.map(r=>`worktree ${r}\0\0`).join('');
     return args.includes('--show-toplevel')?(typeof gitTop==='function'?gitTop(dir):gitTop):gcd;
   };
-  const w=createWatcher({options:{platforms:['codex','claude'],tail:20,verbose:false,...watchOptions},homes:{codex:h.codexHome,claude:h.claudeHome},scope,git,now:()=>clock,dependencies:{lstat,...dependencies}});
+  const w=createWatcher({options:{platforms:['codex','claude'],tail:20,verbose:false,...watchOptions},homes:{codex:h.codexHome,claude:h.claudeHome,...extraHomes?.(h)},scope,git,now:()=>clock,registry,dependencies:{lstat,...dependencies}});
   t.after(()=>w.close());
   const c=(id,lines=[msg('hello')],{origin='codex-tui',age=300000,cwd:dir=cwd,extra={},suffix=''}={})=>h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl${suffix}`,[meta(id,dir,origin,extra),...lines],{mtime:clock-age});
   const cl=(id,lines,opts={})=>h.writeClaude(cwd.replace(/[^A-Za-z0-9]/g,'-'),id,lines??[cm(id,cwd)],{mtime:clock-300000,...opts});
@@ -740,6 +742,16 @@ test('compressed rollouts are skipped with a verbose notice',async t=>{const s=s
 test('subagent rollouts attach under their parent at depth 1 and 2',async t=>{const s=setup(t);s.c('parent1234');s.c('child',undefined,{cwd:s.cwd,extra:{source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_qa'}}}}});s.c('grand',undefined,{extra:{parent_thread_id:'child',depth:2,agent_nickname:'Aristotle'}});const out=content(await s.w.start());for(const [id,label,parentId,depth] of [['child','tui#1234/qa','parent1234',1],['grand','tui#1234/qa/Aristotle','child',2]]){const e=out.find(e=>e.sessionId===id);assert.equal(e.label,label);assert.equal(e.parentId,parentId);assert.equal(e.depth,depth);}});
 test('a child found before its parent is held up to 2 seconds',async t=>{const s=setup(t,{verbose:true});s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('orphan',undefined,{extra:{parent_thread_id:'missing'}});assert.equal(content(await s.w.start()).length,0);s.advance(1000);s.c('parent');assert.ok(content(await s.w.tick()).some(e=>e.sessionId==='child'));s.advance(1000);const out=await s.w.tick();assert.ok(notices(out).some(x=>x.includes('orphan')));assert.ok(!content(out).some(e=>e.sessionId==='orphan'));});
 test('a codex-tui rollout without parent fields is top-level',async t=>{const s=setup(t);s.c('solo1234');assert.equal(content(await s.w.start())[0].label,'tui#1234');});
+test('claude child sessions keep their own version',async t=>{
+  const s=setup(t);
+  s.cl('parent',[{...cm('parent',s.cwd),version:'2.0'}],{subagents:[{
+    agentId:'child',lines:[{...cm('child',s.cwd),version:'2.1'}],
+  }]});
+  const events=content(await s.w.start());
+  assert.equal(events.find(e=>e.kind==='session' && e.sessionId==='parent')?.text,`parent cli 2.0 cwd=${s.cwd}`);
+  assert.equal(events.find(e=>e.kind==='session' && e.sessionId==='agent-child')?.text,`agent-ch cli 2.1 cwd=${s.cwd}`);
+});
+
 test('Claude subagent labels from meta agentType with fallback',async t=>{const s=setup(t);s.cl('parent1234',undefined,{subagents:[{agentId:'qa',meta:{agentType:'arc-qa'},lines:[cm('child-qa',s.cwd)]},{agentId:'fallback',lines:[cm('child-fallback',s.cwd)]}]});const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='main#1234/qa'&&e.parentId==='parent1234'));assert.ok(out.some(e=>e.label==='main#1234/agent'));});
 test('Claude native reviewer handback-only transcript renders its role and masks message secrets', async t => {
   const s=setup(t);
@@ -1236,6 +1248,377 @@ async function shellActivity(s,file,delay=1000) {
   await s.w.tick();s.advance(delay);
   return s.w.tick();
 }
+
+const dispatchRegistry = createPlatformRegistry([
+  ...DEFAULT_PLATFORM_REGISTRY.platforms,
+  ...['alpha','zeta','omega'].map((id,index)=>({...ZETA_RUNTIME,id,label:id,anchorOrder:index+4,displayOrder:index+4})),
+]);
+const dispatchHomes=h=>({alpha:path.join(h.userHome,'.alpha'),zeta:path.join(h.userHome,'.zeta'),omega:null,gemini:null,grok:null});
+
+function attributionSetup(t, platforms, options={}) {
+  const {workflowCwd=true,...watchOptions}=options;
+  const s=setup(t,{platforms,registry:dispatchRegistry,extraHomes:dispatchHomes,...watchOptions},'repo');
+  const trigger=platforms.includes('codex') ? s.c('host-session') : s.cl('host-session');
+  if (workflowCwd) s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
+  const lease=(id, fields={}, artifacts={})=>{
+    const file=s.lease(id,{role:'arc_implementer',...fields});
+    s.art(id,{'record.json':{},...artifacts});
+    return file;
+  };
+  const change=async (name='changed.txt')=>{
+    const file=path.join(s.cwd,name);
+    s.stats.set(file,{mtimeMs:s.stats.size+2});
+    s.files([...s.stats.keys()].map(file=>path.relative(s.cwd,file)));
+    s.advance(3000);
+    if (platforms.includes('codex')) return shellActivity(s,trigger);
+    s.append(trigger,[cm('host-session',s.cwd,'shell activity')]);
+    await s.w.tick();s.advance(1000);
+    return s.w.tick();
+  };
+  return {...s,trigger,lease,change};
+}
+
+function leaseWithoutCwd(t, platforms=['claude'], options={}) {
+  const s=attributionSetup(t,platforms,{workflowCwd:false,verbose:true,...options});
+  s.h.writeMarker('claude',s.h.claudeHome);
+  s.h.writeArtifacts(s.gcd,'wf-3','dispatches/d123',{'events.jsonl':'{"kind":"thread","threadId":"worker"}\n'});
+  const writeLease=(state,updatedAt)=>{
+    const file=s.h.writeLease({
+      version:2,targetPlatform:'codex',dispatchId:'d123',workflowId:'wf-3',taskId:'task',requestId:'request',
+      role:'arc_implementer',route:'bridge',hostPlatform:'claude',executionEnvironment:'codex-cli',revision:'test',
+      state,supervisor:null,child:null,sessionId:'worker',claims:[],reasons:[],allowedPaths:[],
+      resultPath:path.join(s.gcd,'result.json'),segment:0,createdAt:iso(TIME-1000),updatedAt:iso(updatedAt),
+    },s.h.claudeHome);
+    fs.utimesSync(file,new Date(updatedAt),new Date(updatedAt));
+    return file;
+  };
+  return {...s,writeLease};
+}
+
+test('stale reserved leases do not suppress inferred changes',async t=>{
+  const s=leaseWithoutCwd(t);
+  s.writeLease('reserved',TIME-600000);
+  await s.w.start();
+  assert.deepEqual(inferred(await s.change()).map(e=>[e.sessionId,e.kind]),[['host-session','file_create']]);
+});
+
+test('running leases with a stale heartbeat do not suppress',async t=>{
+  const s=leaseWithoutCwd(t);
+  const lease=s.writeLease('running',TIME);
+  fs.writeFileSync(lease.replace(/\.json$/,'.heartbeat.json'),JSON.stringify({at:TIME-30000,pid:10}));
+  await s.w.start();
+  assert.deepEqual(inferred(await s.change()).map(e=>[e.sessionId,e.kind]),[['host-session','file_create']]);
+});
+
+test('running leases with a fresh heartbeat suppress',async t=>{
+  const s=leaseWithoutCwd(t);
+  const lease=s.writeLease('running',TIME-600000);
+  const heartbeat=lease.replace(/\.json$/,'.heartbeat.json');
+  fs.writeFileSync(heartbeat,JSON.stringify({at:TIME,pid:10}));
+  await s.w.start();
+  assert.deepEqual(inferred(await s.change()),[]);
+  s.advance(30000);
+  assert.deepEqual(inferred(await s.change('stale.txt')).map(e=>e.paths),[[path.join(s.cwd,'stale.txt')]]);
+  fs.writeFileSync(heartbeat,JSON.stringify({at:TIME+38000,pid:10}));
+  fs.utimesSync(heartbeat,new Date(TIME+38000),new Date(TIME+38000));
+  assert.deepEqual(inferred(await s.change('renewed.txt')),[]);
+  fs.unlinkSync(heartbeat);
+  assert.deepEqual(inferred(await s.change('removed.txt')).map(e=>e.paths),[[path.join(s.cwd,'removed.txt')]]);
+});
+
+test('a cwd-less dispatch mapped to a followed session is located by that session',async t=>{
+  const s=leaseWithoutCwd(t,['claude','codex'],{excluded:['linked']});
+  const linked=path.join(s.cwd,'linked');
+  fs.mkdirSync(linked);
+  s.trees([s.cwd,linked]);
+  s.top(cwd=>cwd===linked?linked:s.cwd);
+  const worker=s.c('worker',undefined,{origin:'codex_exec'});
+  s.writeLease('running',TIME);
+  await s.w.start();
+  assert.deepEqual(inferred(await s.change('local.txt')),[]);
+  s.append(worker,[move(linked)]);
+  assert.ok(notices(await s.w.tick()).includes(`session worker left scope: cwd=${linked}`));
+  assert.deepEqual(inferred(await s.change('after-move.txt')).map(e=>[e.sessionId,e.paths]),
+    [['host-session',[path.join(s.cwd,'after-move.txt')]]]);
+});
+
+test('inferred changes are dropped for a real-shaped lease without cwd',async t=>{
+  const s=leaseWithoutCwd(t);
+  s.writeLease('running',TIME);
+  await s.w.start();
+  const events=await s.change();
+  assert.deepEqual(inferred(events),[]);
+  assert.ok(notices(events).includes(`inferred changes skipped: 1 active dispatches in ${s.cwd}`));
+});
+
+test('a dispatch that completed after the previous scan still suppresses inferred changes',async t=>{
+  const s=leaseWithoutCwd(t);
+  s.writeLease('running',TIME);
+  await s.w.start();
+  await s.change('first.txt');
+  s.advance(100);
+  s.writeLease('completed',TIME+4100);
+  assert.deepEqual(inferred(await s.change('during-dispatch.txt')),[]);
+});
+
+test('a dispatch that completed before the previous scan no longer suppresses',async t=>{
+  const s=leaseWithoutCwd(t);
+  s.writeLease('running',TIME);
+  await s.w.start();
+  s.advance(100);
+  s.writeLease('completed',TIME+100);
+  await s.change('previous.txt');
+  const files=inferred(await s.change('after.txt'));
+  assert.deepEqual(files.map(e=>[e.source,e.sessionId,e.paths]),
+    [['session','host-session',[path.join(s.cwd,'after.txt')]]]);
+  assert.match(renderHuman(files[0],{width:80,color:false}),/after\.txt \(inferred\)$/);
+});
+
+test('inferred changes are dropped while an unfollowed dispatch is active',async t=>{
+  for (const [hostPlatform,targetPlatform,state] of [
+    ['codex','claude','running'],['alpha','zeta','reserved'],['alpha','zeta','starting'],['alpha','zeta','unknown'],
+  ]) {
+    const s=attributionSetup(t,['codex','claude','zeta'],{verbose:true});
+    s.lease('d123',{version:2,hostPlatform,targetPlatform,state});
+    await s.w.start();
+    const reason=`inferred changes skipped: 1 active dispatches in ${s.cwd}`;
+    const first=await s.change();
+    assert.deepEqual(inferred(first),[],state);
+    assert.equal(notices(first).filter(text=>text===reason).length,1);
+    const next=await s.change('next.txt');
+    assert.deepEqual(inferred(next),[],state);
+    assert.equal(notices(next).includes(reason),false);
+  }
+});
+
+test('inferred changes are dropped while a followed dispatch is active',async t=>{
+  for (const [hostPlatform,targetPlatform,platform] of [
+    ['codex','claude','claude'],['claude','codex','codex'],['alpha','zeta','claude'],
+  ]) {
+    const selected=hostPlatform==='alpha' ? ['codex','claude','alpha'] : ['codex','claude'];
+    const s=attributionSetup(t,selected), sessionId='worker';
+    if (platform==='claude') s.cl(sessionId,[cm(sessionId,s.cwd,'work','sdk-cli')]);
+    else s.c(sessionId,undefined,{origin:'codex_exec'});
+    s.lease('d123',{version:2,hostPlatform,targetPlatform,sessionId});
+    await s.w.start();
+    assert.deepEqual(inferred(await s.change()),[],hostPlatform);
+  }
+});
+
+test('an active dispatch suppresses inferred changes even when its row is hidden',async t=>{
+  for (const [hostPlatform,targetPlatform] of [['codex','claude'],['alpha','zeta']]) {
+    const s=attributionSetup(t,hostPlatform==='codex'?['codex']:['codex',hostPlatform]);
+    s.lease('d123',{version:2,hostPlatform,targetPlatform});
+    const start=await s.w.start();
+    assert.deepEqual(inferred(await s.change()),[]);
+    assert.equal(start.some(e=>e.kind==='dispatch'),false);
+    assert.deepEqual(inferred(await s.change('next.txt')),[]);
+  }
+});
+
+test('inferred suppression reports each active count once and keeps the snapshot current',async t=>{
+  for (const [hostPlatform,targetPlatform,verbose] of [
+    ['codex','claude',true],['alpha','zeta',true],['alpha','zeta',false],
+  ]) {
+    const s=attributionSetup(t,['codex','claude','zeta'],{verbose});
+    const fields={version:2,hostPlatform,targetPlatform};
+    s.lease('d123',fields);
+    s.lease('d234',fields);
+    await s.w.start();
+    const reason=count=>`inferred changes skipped: ${count} active dispatches in ${s.cwd}`;
+    const debug=events=>notices(events).filter(text=>text.startsWith('inferred changes skipped:'));
+    const first=await s.change();
+    assert.deepEqual(inferred(first),[]);
+    assert.deepEqual(debug(first),verbose?[reason(2)]:[]);
+    const second=await s.change('second.txt');
+    assert.deepEqual(inferred(second),[]);
+    assert.deepEqual(debug(second),[]);
+    s.lease('d345',fields);
+    const third=await s.change('third.txt');
+    assert.deepEqual(inferred(third),[]);
+    assert.deepEqual(debug(third),verbose?[reason(3)]:[]);
+    s.lease('d345',{...fields,state:'completed'});
+    const fourth=await s.change('fourth.txt');
+    assert.deepEqual(inferred(fourth),[]);
+    assert.deepEqual(debug(fourth),[]);
+    s.lease('d234',{...fields,state:'completed'});
+    const fifth=await s.change('fifth.txt');
+    assert.deepEqual(inferred(fifth),[]);
+    assert.deepEqual(debug(fifth),verbose?[reason(1)]:[]);
+    s.lease('d123',{...fields,state:'completed'});
+    const sixth=await s.change('sixth.txt');
+    assert.deepEqual(inferred(sixth).map(e=>[e.source,e.sessionId,e.paths]),
+      [['session','host-session',[path.join(s.cwd,'sixth.txt')]]]);
+  }
+});
+
+test('terminal dispatches do not affect inferred attribution',async t=>{
+  for (const [hostPlatform,targetPlatform] of [['codex','claude'],['alpha','zeta']]) {
+    const s=attributionSetup(t,['codex','claude','zeta']);
+    for (const state of ['completed','failed','cancelled']) s.lease(state,{version:2,state,hostPlatform,targetPlatform});
+    await s.w.start();
+    assert.deepEqual(inferred(await s.change()).map(e=>[e.source,e.sessionId,e.cwd,e.root]),
+      [['session','host-session',s.cwd,s.cwd]]);
+  }
+});
+
+test('dispatch in another worktree does not affect inferred attribution',async t=>{
+  for (const [hostPlatform,targetPlatform] of [['codex','claude'],['alpha','zeta']]) {
+    const s=attributionSetup(t,['codex','claude','zeta'],{excluded:['linked']});
+    const linked=path.join(s.cwd,'linked'), nested=path.join(s.cwd,'nested');
+    for (const cwd of [linked,nested]) fs.mkdirSync(cwd);
+    s.trees([s.cwd,linked]);
+    s.top(cwd=>cwd===nested ? nested : s.cwd);
+    for (const [id,cwd] of [['excluded',linked],['different-top',nested]]) {
+      s.h.writeArtifacts(s.gcd,id,'',{'state.json':{target:{realpath:cwd}}});
+      s.h.writeArtifacts(s.gcd,id,`dispatches/${id}`,{'record.json':{state:'running'}});
+      s.h.writeLease({version:2,dispatchId:id,hostPlatform,targetPlatform,workflowId:id,
+        state:'running',updatedAt:iso(TIME)});
+    }
+    await s.w.start();
+    assert.deepEqual(inferred(await s.change()).map(e=>[e.source,e.sessionId,e.cwd,e.root]),
+      [['session','host-session',s.cwd,s.cwd]]);
+  }
+});
+
+for (const [hostPlatform,targetPlatform] of [['codex','claude'],['claude','codex'],['alpha','zeta']]) {
+  test(`${hostPlatform} host with a ${targetPlatform} implementer shows the dispatch row and suppresses inferred changes`,async t=>{
+    const s=attributionSetup(t,hostPlatform==='alpha'?['codex','zeta']:[targetPlatform]);
+    s.lease('d123',{version:2,hostPlatform,targetPlatform});
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>[e.hostPlatform,e.platform]),[[hostPlatform,targetPlatform]]);
+    assert.deepEqual(inferred(await s.change()),[]);
+  });
+}
+
+test('native dispatch rows use the host platform while inferred changes are suppressed',async t=>{
+  for (const hostPlatform of ['codex','alpha']) {
+    const s=attributionSetup(t,hostPlatform==='codex'?['codex']:['codex',hostPlatform]);
+    s.lease('d123',{hostPlatform,route:'native'},{'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[hostPlatform]);
+    assert.deepEqual(inferred(await s.change()),[]);
+  }
+});
+
+test('unwatchable targets show a dispatch row under the selected host and suppress inferred changes',async t=>{
+  for (const [hostPlatform,targetPlatform] of [['claude','gemini'],['codex','grok'],['alpha','omega']]) {
+    const s=attributionSetup(t,hostPlatform==='alpha'?['alpha','codex']:[hostPlatform]);
+    s.lease('d123',{version:2,hostPlatform,targetPlatform});
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[hostPlatform]);
+    assert.deepEqual(inferred(await s.change()),[]);
+  }
+});
+
+test('dispatch rows prefer lease targetPlatform to followed sessions and event inference',async t=>{
+  const s=attributionSetup(t,['codex','zeta']);
+  s.c('worker',undefined,{origin:'codex_exec'});
+  s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform:'zeta',sessionId:'worker'},
+    {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
+  const start=await s.w.start();
+  assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),['zeta']);
+  assert.deepEqual(inferred(await s.change()),[]);
+});
+
+test('dispatch rows prefer followed dispatch sessions to the native host and event inference',async t=>{
+  const s=attributionSetup(t,['codex','zeta']);
+  s.c('worker',undefined,{origin:'codex_exec'});
+  s.lease('d123',{hostPlatform:'zeta',route:'native',sessionId:'worker'},
+    {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
+  const start=await s.w.start();
+  assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),['codex']);
+  assert.deepEqual(inferred(await s.change()),[]);
+});
+
+test('a v2 bridge lease without a target does not use the event platform',async t=>{
+  const s=attributionSetup(t,['codex','alpha']);
+  s.lease('d123',{version:2,hostPlatform:'alpha'},
+    {'events.jsonl':'{"kind":"init","sessionId":"missing"}\n'});
+  const start=await s.w.start();
+  assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),['alpha']);
+  assert.deepEqual(inferred(await s.change()),[]);
+});
+
+test('a discovered transcript with no platform handler is ignored',async t=>{
+  let unsupported;
+  const readHeads=[];
+  const s=setup(t,{platforms:['claude','zeta'],registry:dispatchRegistry,extraHomes:dispatchHomes},'repo',{
+    createClaudeDiscovery:options=>{
+      const discovery=createClaudeDiscovery(options);
+      return {...discovery,scan:async args=>(await discovery.scan(args)).map(item=>
+        item.file===unsupported ? {...item,platform:'zeta'} : item)};
+    },
+    readClaudeHead:async file=>{readHeads.push(file);return readClaudeHead(file);},
+  });
+  unsupported=s.cl('unsupported',[cm('unsupported',s.cwd,'foreign history')]);
+  const supported=s.cl('supported',[cm('supported',s.cwd,'local history')]);
+  assert.deepEqual([...new Set(content(await s.w.start()).map(e=>e.sessionId))],['supported']);
+  assert.deepEqual(s.w.listActivity().map(row=>row.platform),['claude']);
+  s.advance(3000);
+  s.append(unsupported,[cm('unsupported',s.cwd,'foreign live')]);
+  s.append(supported,[cm('supported',s.cwd,'local live')]);
+  assert.deepEqual(content(await s.w.tick()).map(e=>e.text),['local live']);
+  assert.equal(readHeads.includes(unsupported),false);
+});
+
+test('dispatch rows fall back to the event platform or host while inferred changes are suppressed',async t=>{
+  for (const [artifacts,expected] of [
+    [{'events.jsonl':'{"kind":"thread","threadId":"missing"}\n'},'codex'],
+    [{},'alpha'],
+    [null,undefined],
+  ]) {
+    const s=attributionSetup(t,['codex','alpha']);
+    s.lease('d123',artifacts?{hostPlatform:'alpha'}:{},artifacts??{});
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>e.platform),[expected]);
+    assert.deepEqual(inferred(await s.change()),[]);
+  }
+});
+
+test('an explicit bridge file change is visible while the same scan suppresses host inference',async t=>{
+  const s=attributionSetup(t,['codex','alpha'],{verbose:true});
+  const worker=s.c('worker',undefined,{origin:'codex_exec'});
+  s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform:'codex',sessionId:'worker'});
+  const claimed=path.join(s.cwd,'claimed.txt'), unclaimed=path.join(s.cwd,'unclaimed.txt');
+  s.stats.set(claimed,{mtimeMs:1});
+  s.files(['claimed.txt']);
+  await s.w.start();
+  s.advance(3000);
+  s.stats.set(claimed,{mtimeMs:2});
+  s.stats.set(unclaimed,{mtimeMs:2});
+  s.files(['claimed.txt','unclaimed.txt']);
+  s.append(worker,[{type:'event_msg',payload:{type:'item_completed',item:{
+    type:'FileChange',changes:{[claimed]:{}},
+  }}}]);
+  s.append(s.trigger,[msg('host shell activity')]);
+  const live=await s.w.tick();
+  assert.ok(live.some(e=>e.sessionId==='host-session' && e.text==='host shell activity'));
+  s.advance(1000);
+  const scan=await s.w.tick();
+  const files=[...live,...scan].filter(e=>e.kind.startsWith('file_'));
+  assert.deepEqual(files.map(({kind,source,sessionId,dispatchId,workflowId,role,platform,label,cwd,root,paths,inferred})=>
+    ({kind,source,sessionId,dispatchId,workflowId,role,platform,label,cwd,root,paths,inferred})),[{
+    kind:'file_change',source:'bridge',sessionId:'worker',dispatchId:'d123',workflowId:'wf-3',role:'implementer',
+    platform:'codex',label:'implementer@d123',cwd:s.cwd,root:s.cwd,paths:[claimed],inferred:undefined,
+  }]);
+  assert.ok(notices(scan).includes(`inferred changes skipped: 1 active dispatches in ${s.cwd}`));
+});
+
+test('dispatch rows use the same display platform rule',async t=>{
+  for (const [platforms, expected] of [
+    [['codex'],[]],
+    [['codex','alpha'],[['d234','alpha'],['d345',undefined]]],
+    [['codex','zeta'],[['d123','zeta'],['d345',undefined]]],
+  ]) {
+    const s=attributionSetup(t,platforms);
+    s.lease('d123',{version:2,hostPlatform:'alpha',targetPlatform:'zeta'});
+    s.lease('d234',{version:2,hostPlatform:'alpha',targetPlatform:'omega'});
+    s.lease('d345');
+    const start=await s.w.start();
+    assert.deepEqual(start.filter(e=>e.kind==='dispatch').map(e=>[e.dispatchId,e.platform]),expected);
+  }
+});
 
 // Scheduling from the final row.gitTop loses an earlier in-scope line's scan.
 test('same-poll exit still schedules the in-scope root shell scan',async t=>{

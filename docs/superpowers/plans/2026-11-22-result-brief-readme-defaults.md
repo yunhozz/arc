@@ -389,11 +389,48 @@
 
 ---
 
+### Task T8: 플랫폼 중립 오류·안내 문구 (C9)
+
+**목표:** D9를 구현한다.
+
+**선행:** T7 수락.
+
+**Files:**
+- Modify
+  - `lib/runtime/local-cli.mjs`
+  - `lib/runtime/role-dispatch-policy.mjs`
+  - `lib/installer/targets.mjs`
+  - `lib/management/operations.mjs`
+- 재생성
+  - `node scripts/update-runtime-assets.mjs`(`shared/skill/runtime/` 복사본)
+  - `node scripts/update-manifest.mjs`
+- Test
+  - `tests/node/platform-registry.test.mjs:149`
+  - `tests/node/role-routing-dispatch.test.mjs:99`
+  - 같은 문구를 쓰는 다른 테스트(`grep`으로 찾는다)
+
+**단계:**
+- [ ] 1. RED: 새 문구와 주입 플랫폼 목록을 단언하도록 테스트를 바꾸고 실패를 확인한다.
+- [ ] 2. GREEN: 문구를 바꾸고 runtime assets와 MANIFEST를 다시 만든다.
+- [ ] 3. check 4종을 실행한다.
+
+**관련 테스트(이유):**
+- `tests/node/{platform-registry,role-routing-dispatch,local-cli,installer-targets,management-update,composite-instructions,install-mode-n-platform,runtime-assets}.test.mjs` 중 존재하는 것: 문구와 동작 불변 확인
+- runtime assets 관련 테스트
+
+**기준:** D9 리터럴을 따른다. 동작·reason·키는 바뀌지 않는다. 복사본은 생성기로만 맞춘다. 플랫폼 id를 하드코딩하지 않는다.
+
+**Hold:** 문구 외의 동작을 바꿔야 할 때.
+
+**커밋:** `fix(runtime): 플랫폼을 두 개로 한정한 오류·안내 문구를 registry 기반으로 수정`
+
+---
+
 ### Task T6: README 재구성과 모드 도식 (C4)
 
 **목표:** D4를 구현한다. SVG 교체·삭제는 승인되어 있다.
 
-**선행:** T1, T3, T4, T5, T7 수락.
+**선행:** T1, T3, T4, T5, T7, T8 수락.
 
 **Files:**
 - Modify: `README.md`
@@ -428,10 +465,10 @@
 
 ## 최종 검증 (모든 task 수락 후, Orchestrator 백그라운드)
 
-- 관련 테스트 합집합: T1~T7(A7로 `rowTones`를 추가했으면 `tui-interface`, `tui-app`, `tui-setup` 포함)
+- 관련 테스트 합집합: T1~T8(A7로 `rowTones`를 추가했으면 `tui-interface`, `tui-app`, `tui-setup` 포함)
 - 계약 테스트: `tests/node/{instruction-layout,agent-fragments,installed-layout-golden,manifest,gemini-capability-evidence}.test.mjs`
 - check 4종: `node scripts/update-manifest.mjs --check`, `node scripts/update-role-policy.mjs --check`, `node scripts/check-installer-parity.mjs`, `node scripts/update-runtime-assets.mjs --check`
-- 전체 회귀 잠정 판단: **미발동**
+- 전체 회귀 잠정 판단: **발동**(T8이 runtime assets를 바꾼다). 이전 판단은 미발동이었다.
   - 근거: runtime, shared, 카탈로그, 설치 로직, git 허용 명령을 바꾸지 않는다. watch 변경은 `lib/watch` 안에 머물고 기존 scope 함수는 그대로 둔 채 함수만 추가한다. `lib/tui/interface.mjs`를 바꾸더라도 하위 호환 옵션 추가뿐이며 그 소비자는 합집합에 들어 있다.
   - 발동 조건: 지정 키 밖의 계약 변경, check 실패, runtime assets 변경, T5가 probe 아닌 경로의 watch 테스트나 `ui.menu` 기존 동작을 깰 때.
 - 최종 Reviewer 1회(전체 변경). 중점: 성공 판정과 신규/기존 판정, watch JSON 계약, Ctrl-H interleave와 상한, worktree 열거의 위치 무관성과 범위 교체 정확성(main·nested·바깥)·흐림과 `NO_COLOR` 대체·probe 비용, README 사실 정확성과 대칭, 추정 귀속의 활성 dispatch 판정과 플랫폼 필터.
@@ -445,5 +482,6 @@
 | T3 | 완료(QA proven, C3는 새 바이트 테스트를 base 코드에서 통과시켜 확인) | codex bridge d91f354e, QA ac113aa7 | 이 커밋 |
 | T4 | 완료(QA proven, C9는 T3 바이트 테스트 무변경·통과로 확인) | codex bridge a116c130, QA c7c484c1 | 이 커밋 |
 | T5 | 완료(재QA proven, A6·A7·D7 폭 규칙 보완) | codex bridge b0c022df, QA e687d04e·63b9e498 | 이 커밋 |
-| T7 | 대기(T5 후, T6 전) | - | - |
+| T7 | 완료(QA C1·C2·C5~C7·C10·대칭 proven, C9 반영 지연 2초는 spec에 허용 기록, C8 바이트 동일성은 Implementer 비교로 갈음, verify 500/500 no-new-failures, 실환경 대조군 `(inferred)` 확인) | codex bridge 402df6ef, QA bd63c20a·d65aa655·47a6768c | 이 커밋 |
+| T8 | 대기(T7 후, T6 전) | - | - |
 | T6 | 대기 | - | - |
