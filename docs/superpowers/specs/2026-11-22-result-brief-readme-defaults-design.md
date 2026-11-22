@@ -329,6 +329,10 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
   - `lib/management/operations.mjs:144`
     - 새 문구: `All participating ARC installations must be complete before publication`
 - `shared/skill/runtime/`의 복사본은 `node scripts/update-runtime-assets.mjs`로 맞춘다. 손으로 따로 고치지 않는다.
+- runtime 모듈 바이트가 바뀌므로 고정 해시 두 곳을 함께 갱신한다(선례 `1e4e6284`).
+  - `tests/node/runtime-versions.test.mjs`의 `baselineHash`
+  - `tests/node/fixtures/installed-layout-golden.json`의 `local-cli.mjs`·`role-dispatch-policy.mjs` 항목
+  - cooperative runtime 버전 문자열(`cooperative-9`)은 바꾸지 않는다. 문구만 바뀌고 계약은 같다. 설치된 host·bridge가 해시가 다른 runtime을 섞어 쓰지 않도록 갱신 설치가 필요하다는 점은 기존 업그레이드 경로와 같다.
 - 동작은 바꾸지 않는다. 오류 종류, 코드, `reason`, `releaseCondition` 키는 그대로다.
 - 이 문구를 단언하는 테스트(`tests/node/platform-registry.test.mjs:149`, `tests/node/role-routing-dispatch.test.mjs:99`)는 새 문구로 바꾼다.
   - 주입 플랫폼(`zeta`)이 목록에 나타나는지 단언한다.
