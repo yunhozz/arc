@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 plan은 ARC Orchestrator가 조정합니다. task마다 fresh Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행합니다. Implementer와 QA는 Git 상태를 바꾸지 않습니다.
 
-- 상태: v1 (2026-11-22 사용자 승인, spec 5.1 결정 Q1 갱신·Q2 출처 확인 후 갱신·Q3 인정)
+- 상태: v3 (2026-11-22 사용자 승인. spec 5.1 Q1 갱신·Q3 인정, 5.2 U1 adapter 해시 갱신·U2·U3 opening 반영)
 - Spec: `docs/superpowers/specs/2026-11-22-contract-test-baseline-design.md` (written-spec 승인 후 진행)
 - workflow: `2026-11-22-contract-baseline-failures`
 - 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, `feat/qa-owned-verification`, approved base `2b482ea8`
@@ -27,30 +27,32 @@
   - `tests/node/fixtures/instruction-contracts.json`
 - 선행: 문서 커밋. Q1·Q2 결정이 spec에 기록돼 있으면 반영하고, 미결정이면 보류 항목으로 진행한다.
 - 단계
-  - [ ] 진단(RED): 진단 스크립트로 두 가지를 출력하고 spec 1.1·1.2와 같은지 보고한다. 다르면 hold.
+  - [x] 진단(RED): 진단 스크립트로 두 가지를 출력하고 spec 1.1·1.2와 같은지 보고한다. 다르면 hold.
     - 모든 `fixture.platforms.{codex,claude}.contracts` 항목에 대해 테스트와 같은 `normalize`와 relocation을 적용한 포함 여부
     - 모든 `fixture.protected` 항목의 sha256 일치 여부
     - 함께 `node --test tests/node/instruction-layout.test.mjs` 결과(실패 3개, 이름)를 보고한다.
-  - [ ] 문서 계약 갱신. heading `Ownership`(codex, claude), `Instruction and execution adapter`(codex, claude), `Design path and plan depth`(codex, claude), `Models`(claude).
+  - [x] 문서 계약 갱신. heading `Ownership`(codex, claude), `Instruction and execution adapter`(codex, claude), `Design path and plan depth`(codex, claude), `Models`(claude).
     - 항목마다 현재 문서 구절과 변경 근거 커밋(`77ad4041`·`d0b27ce2`·`e5f3cf7c`, `48aa233d`, `b349c45c`, `5cc1162d`)의 diff를 대조해, 바뀐 부분이 그 커밋들로 설명되는지 확인한다. 설명되지 않는 차이가 있으면 그 항목은 hold.
     - 기본은 `relocations`에 쌍을 더한다. 두 플랫폼 문구가 다르거나 부분 문자열이 중복이면 해당 플랫폼 `text`를 바꾼다.
     - 항목마다 방식, 바뀐 구절의 전후, 근거 커밋을 보고한다.
     - 기대 문장에서 바뀐 구절이 아닌 부분을 지우지 않는다.
-  - [ ] protected 재확인. 16개 파일마다 다음을 표로 보고한다.
+  - [x] protected 재확인. 16개 파일마다 다음을 표로 보고한다.
     1. `git log --reverse --format=%h -S'<fixture 해시>' -- tests/node/fixtures/instruction-contracts.json`의 첫 커밋이 spec 1.2의 기록 커밋(`0fdf0427`, `1f6b11b0`, `1c3328d7`, `2a55d06e`, `ae08430d`)과 같은지 확인한다.
     2. `git log --format=%h <기록 커밋>..HEAD -- <파일>`이 spec 1.2 및 Scouter A 표와 같은지 확인한다.
     3. profile이면 `git diff <기록 커밋>..HEAD -- <파일>`에서 `model`, `model_reasoning_effort`, `permissionMode`, `tools`, `disallowedTools`, `sandbox_mode` 줄 변경이 없는지 확인한다.
     - 하나라도 다르면 그 파일은 갱신하지 않고 hold로 보고한다.
-  - [ ] 재확인을 통과한 파일의 해시를 HEAD 바이트 sha256으로 바꾼다.
-  - [ ] Q1. 결정이 "갱신"이면 `Complete planning-document set`에 relocation `mechanical records below` → `task progress records below`를 더한다. 미결정이거나 "보류"면 바꾸지 않는다.
-  - [ ] Q2. 결정이 spec 기본값(출처 확인 후 갱신)이면 다음을 보고한 뒤, 두 조건이 맞을 때만 4개 해시를 갱신한다.
+  - [x] 재확인을 통과한 파일의 해시를 HEAD 바이트 sha256으로 바꾼다.
+  - [x] U2(v2): `opening`(양 플랫폼)에 `983c4d68`의 `**Role routing gate:**` 문단 삽입을 D2 방식으로 반영한다. v3: U3의 차이 3개(`31b7d0f7`, `b349c45c`, `e5222b5b`)도 같은 방식으로 반영한다. 그 밖의 opening 차이가 있으면 hold.
+  - [x] Q1. 결정이 "갱신"이면 `Complete planning-document set`에 relocation `mechanical records below` → `task progress records below`를 더한다. 미결정이거나 "보류"면 바꾸지 않는다.
+  - [x] Q2. 결정이 spec 기본값(출처 확인 후 갱신)이면 다음을 보고한 뒤, 두 조건이 맞을 때만 4개 해시를 갱신한다.
     - `git show --stat 0fdf0427`로 이동 전 경로를 찾는다.
     - `git show 0fdf0427^:<이전 경로>`의 sha256이 fixture 값과 같은지 본다.
     - `git diff 0fdf0427^:<이전 경로> 0fdf0427:<새 경로>`의 내용을 본다.
     - 조건이 맞지 않으면 갱신하지 않고 diff 요약을 보고한다. 결정이 "보류"면 확인 없이 바꾸지 않는다.
-  - [ ] GREEN: `node --test tests/node/instruction-layout.test.mjs tests/node/agent-fragments.test.mjs`를 실행하고 진단 스크립트를 다시 돌린다. 남은 불일치는 Q1·Q2 보류분과 hold 파일뿐이어야 한다.
-  - [ ] `npm run check:manifest` 통과. `git diff --name-only`가 `tests/node/fixtures/instruction-contracts.json` 하나뿐인지 확인한다.
-  - [ ] 커밋(Orchestrator, 수락 뒤): `test(contract): instruction-layout fixture를 의도 확인된 문서·해시 변경에 맞춤`
+  - [x] U1(v2): Q2 확인 결과(R100 이동, 이후 변경 없음, fixture 값이 이동 전 해시와도 불일치)를 근거로 adapter 4개 해시를 현재 바이트 sha256으로 갱신한다.
+  - [x] GREEN: `node --test tests/node/instruction-layout.test.mjs tests/node/agent-fragments.test.mjs`를 실행하고 진단 스크립트를 다시 돌린다. v2 기준 남은 불일치는 hold 파일뿐이어야 한다.
+  - [x] `npm run check:manifest` 통과. `git diff --name-only`가 `tests/node/fixtures/instruction-contracts.json` 하나뿐인지 확인한다.
+  - [x] 커밋(Orchestrator, 수락 뒤): `test(contract): instruction-layout fixture를 의도 확인된 문서·해시 변경에 맞춤`
 - 관련 테스트와 이유
   - `tests/node/instruction-layout.test.mjs`: 갱신 대상 fixture를 직접 검사한다. 문서 계약 2개와 protected 1개가 대상이고, 나머지 27개는 회귀 확인이다.
   - `tests/node/agent-fragments.test.mjs`: 같은 fixture의 `agentProfileBaseline`을 읽으므로 그 구역이 그대로인지 확인한다.
@@ -62,6 +64,12 @@
   - protected 16개 재확인 표를 다시 계산해 Implementer 보고와 대조한다.
   - JSON diff에서 `agentProfileBaseline`, `opening`, `bootstrap`, `skill`, `global` 변경이 없음을 확인한다.
 - 보류 조건: 진단 결과가 spec과 다르거나, 재확인이 맞지 않거나, 근거 커밋으로 설명되지 않는 문서 차이가 있으면 해당 항목만 hold하고 Orchestrator에 보고한다. 나머지 항목은 계속한다.
+- 진행 기록 (2026-11-22)
+  - Implementer `42fef95f`: 문서 계약 9개 relocation 반영, protected 16개 재확인 표 작성 후 원표 위치 미제공으로 갱신 보류(Orchestrator 브리프 누락), Q2 출처 확인 결과 fixture 값이 이동 전 해시와도 불일치해 보류, `opening` 불일치 발견.
+  - 사용자 결정 U1·U2 → plan v2. Implementer `9d2916c7`(fresh): 16개를 Scouter A 원표로 독립 대조 후 갱신, adapter 4개 갱신, `opening`은 추가 차이 3개로 hold.
+  - QA `1766c086`: 문서 계약 9개·해시 20개 proven, `opening` 2건 hold 확인.
+  - 사용자 결정 U3("모두 반영") → plan v3. Implementer `477bedfb`(fresh): `run` 필드(`ec866c65`)로 한 번 더 hold. Orchestrator 판정: U3-2는 `Pre-action gate record` 문단의 현재 문장 전체이며 같은 문단의 `ec866c65` `run` 필드를 포함한다. 재개 후 `opening` 반영.
+  - QA `1766c086` 재개 2회(1회차는 zsh `status` 읽기 전용 변수 명령 오류): U2·U3, A1, A2, A6–A8 proven. `instruction-layout` 30/30, `agent-fragments` 5/5. A5는 최종 검증에서 확인. Orchestrator 수락.
 
 ## T2. harness 계약 테스트 항목별 대조와 기대 갱신
 
@@ -163,3 +171,5 @@
 | 버전 | 날짜 | 분류 | 내용 | 승인 |
 |---|---|---|---|---|
 | v1 | 2026-11-22 | — | Planner 첫 초안 + Orchestrator 검토(깊이 확정, T2 2단계 같은 Implementer 재개) | 사용자 "승인" |
+| v2 | 2026-11-22 | substantive | T1 결과에 따른 U1(adapter 해시 갱신)·U2(opening 반영) 단계 추가 | 사용자 결정(선택지 응답) |
+| v3 | 2026-11-22 | substantive | U3: opening의 의도된 차이 3개 반영 단계 추가 | 사용자 결정(선택지 응답) |

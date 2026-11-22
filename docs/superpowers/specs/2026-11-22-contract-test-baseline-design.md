@@ -1,7 +1,7 @@
 # 계약 테스트 기존 실패 정비 설계
 
 - 날짜: 2026-11-22
-- 상태: v1 (Planner 첫 초안 + Orchestrator 검토, 2026-11-22 사용자 승인)
+- 상태: v3 (T1 결과에 따른 사용자 결정 U1·U2·U3 반영, 2026-11-22 사용자 승인)
 - workflow: `2026-11-22-contract-baseline-failures`
 - 실행 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/qa-owned-verification`, 브랜치 `feat/qa-owned-verification`, approved base `2b482ea8`
 - 사용자 승인 진행 순서: T1 → T2 → T3(조건부). 사용자 "그 순서로 진행해"
@@ -50,7 +50,7 @@
   - 기본은 `fixture.relocations[heading]`에 `이전 부분 문자열 → 현재 문자열` 쌍을 더하는 방식이다. 원래 baseline 문장을 fixture에 그대로 두고, 바뀐 부분만 기록으로 남기기 위해서다.
   - 두 플랫폼에서 바뀐 텍스트가 다르거나, 같은 부분 문자열이 두 번 이상 나와 `replaceAll`이 의도와 다르게 적용되면 그 플랫폼 항목의 `text`를 현재 문장으로 바꾼다.
   - 어느 방식이든 이전 기대 문장 가운데 바뀐 구절이 아닌 부분을 지우지 않는다. 새로 들어간 문단은 기대 문자열에 포함한다. 결과적으로 기대는 같거나 더 길어진다.
-  - `fixture.agentProfileBaseline`, `opening`, `bootstrap`, `skill`, `global`은 건드리지 않는다.
+  - `fixture.agentProfileBaseline`, `bootstrap`, `skill`, `global`은 건드리지 않는다. `opening`은 U2(5.2절)에 따라 `983c4d68`의 `**Role routing gate:**` 문단 삽입만 같은 방식으로 반영한다.
 - D3 Node protected 해시(분류 A, 16개)
   - 갱신 전에 파일마다 확인한다. (a) fixture 해시를 처음 기록한 커밋, (b) 그 커밋부터 HEAD까지 그 파일을 바꾼 커밋 목록, (c) 이 둘이 1.2절 및 Scouter A 표와 같은지.
   - profile이면 (d) 위 필드 diff가 없는지도 확인한다.
@@ -83,7 +83,7 @@
 
 ## 4. 수용 기준
 
-- A1 Node: `tests/node/instruction-layout.test.mjs`에서 남은 실패는 Q1·Q2 결정 상태로 설명되는 것뿐이다. 진단으로 전체 불일치 목록을 뽑았을 때 Q1 미결정이면 `Complete planning-document set` 2개, Q2 미결정 또는 보류면 adapter 해시 4개, D3에서 보류된 파일만 남는다.
+- A1 Node: `tests/node/instruction-layout.test.mjs`에서 남은 실패는 Q1·Q2 결정 상태로 설명되는 것뿐이다. v2(U1·U2 반영) 기준으로는 D3 hold 파일이 없으면 3개 테스트가 모두 통과한다. 진단으로 전체 불일치 목록을 뽑았을 때 Q1 미결정이면 `Complete planning-document set` 2개, Q2 미결정 또는 보류면 adapter 해시 4개, D3에서 보류된 파일만 남는다.
 - A2 `tests/node/agent-fragments.test.mjs`는 base `2b482ea8`와 결과가 같다(fixture 공유).
 - A3 Python: T2 뒤 `tests/test_harness_contract.py`의 FAIL·ERROR 줄이 모두 소실 목록(L, 승인 전 D·M) 단위 하나 이상에 대응한다. 소실 목록의 각 단위는 FAIL 줄을 하나 이상 만든다. 변이 검사 subTest는 단위와 1:1이다.
 - A4 T2에서 바꾼 패턴과 단언은 모두 D6의 1–5를 만족하고, 대조표에 이전 문장, 현재 문장, 판정 근거, 전후 패턴이 있다.
@@ -124,6 +124,13 @@
 - Q3: 인정(기본값). COMMON_CONTRACTS owner는 제외하고, 대조표에 "생성 블록 근거"로 표시한다.
 - Q4: 기본값. D·M 항목은 T2 체크포인트에서 항목별 승인, 승인 전에는 실패로 남긴다.
 
+### 5.2 T1 결과에 따른 사용자 결정 (2026-11-22, v2)
+
+- U1 (Q2 대체): adapter 해시 4개는 `0fdf0427`의 이동이 R100(바이트 동일)이고 이후 변경이 없으나 fixture 값이 이동 전 바이트 해시와도 다르다. fixture 값이 잘못 기록된 것으로 보고 현재 바이트 sha256으로 갱신한다.
+- U2: 문서 계약 대조에서 새로 드러난 `opening`(양 플랫폼 `SKILL.md`)의 불일치는 `983c4d68` `fix(skill): 통합모드 역할 경로 게이트를 SKILL.md 상단에 추가`가 넣은 `**Role routing gate:**` 문단 때문이다. D2와 같은 방식(기존 기대 유지, 새 문단 포함)으로 반영한다.
+
+- U3 (v3): `opening`에는 U2 문단 외에 의도된 커밋의 차이 3개가 더 있다. (1) 삽입 문단의 `Never substitute` → `NEVER substitute`(`31b7d0f7`), (2) `**Pre-action gate record:**` 문단 추가(`b349c45c`), (3) `Same-task corrections/rechecks default to current Implementer/QA…` → `Same-task corrections and rechecks use the current Implementer…`와 최종 Reviewer 재확인 규칙 추가(`e5222b5b`). 넷 모두 D2 방식으로 반영한다(사용자 "모두 반영").
+
 ## 6. 위험과 한계
 
 - 의미 동등성은 사람의 판정이다. QA가 P 판정 전부를 독립적으로 다시 확인하고, 최종 Reviewer가 전체 diff에서 계약 약화를 본다.
@@ -136,3 +143,5 @@
 | 버전 | 날짜 | 분류 | 내용 | 승인 |
 |---|---|---|---|---|
 | v1 | 2026-11-22 | — | Planner 첫 초안 + Orchestrator 검토(변경 없음) | 사용자 "승인", Q1–Q3 결정(Q4 기본값) |
+| v2 | 2026-11-22 | substantive | T1 결과: U1(adapter 해시 현재 바이트로 갱신, Q2 대체), U2(`opening`의 Role routing gate 문단 반영) | 사용자 결정(선택지 응답) |
+| v3 | 2026-11-22 | substantive | U3: `opening`의 의도된 차이 3개 추가 반영 | 사용자 결정(선택지 응답) |
