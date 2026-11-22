@@ -13,6 +13,7 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
 - G7(C7) Git 저장소에서는 플랫폼 메뉴 전에 같은 git-common-dir의 모든 worktree를 활동 정보와 함께 보여 주고, 하나를 골라 watch 범위로 삼는다.
 - G4(C4) README를 재구성하고 모드별 도식과 watch 예시 로그(worktree 선택, 박스, Ctrl-H)를 넣는다.
 - G5(C5) 패키지 `models.toml` 기본값을 플랫폼별 단일 값으로 통일한다.
+- G8(C8) watch 셸 변경 감지가 진행 중인 dispatch의 수정을 다른 세션에 귀속하지 않게 하고, 사람용 출력에서 추정 귀속을 표시한다.
 
 ## 비목표
 
@@ -86,6 +87,7 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
 ### D2 (C2) 성공 결과 행
 
 - 성공 조건: `code===0`이고, 모든 결과가 성공 상태(`installed` 또는 `uninstalled`)이며, `error`가 없다. update는 `code===0`이면 성공이다.
+  - `cli`가 있으면 `cli.error`가 없고 `cli.status`가 `removed`·`absent` 중 하나여야 한다. 그 밖의 CLI 상태(`skipped` 등)는 성공 문구가 정의되지 않았으므로 기존 진단 행으로 보여 준다(T2 QA 확인).
 - 플랫폼 목록은 `sortByDisplay` 순서로 나열하고, 라벨은 `platformLabel`을 쓴다.
 - 신규/기존 판정
   - TUI 홈 루프가 동작 직전에 모은 `statuses`(`lib/tui/app.mjs:91`)로 `previousStates`를 만든다.
@@ -243,6 +245,46 @@ ARC를 설치하거나 관리하는 사용자가 결과를 한눈에 이해하�
   - 플래그는 없다.
 - `WATCH_HELP` Scope 절(`lib/watch/index.mjs:17-18`) 대체 문구: `In a Git repository, first choose the worktree to watch from git worktree list, wherever it was created; the current worktree is selected, recent session activity is shown, and worktrees without recent activity are dimmed. Outside Git the current directory is watched. Then check the platforms to watch; all supported platforms are checked by default. Requires an interactive terminal.`
 
+### D8 (C8) 추정 파일 귀속 (사용자 결정: A+B, 플랫폼 중립)
+
+- 배경
+  - `scanRoot`(`lib/watch/watcher.mjs:480-533`)는 명시 `file_change` claim이 없는 변경을, 같은 root에서 가장 최근에 활동한 followed 세션에 `inferred:true`로 붙인다.
+  - 그래서 선택하지 않은 플랫폼에서 실행된 role이나 watch가 따라가지 못하는 플랫폼에서 실행된 role이 고친 파일이 host 세션 이름으로 보인다.
+  - host와 실행 플랫폼은 어느 것이든 될 수 있다(Claude·Codex·Gemini·Grok, registry에 주입된 플랫폼 포함). 규칙에 플랫폼 id를 하드코딩하지 않는다.
+- 플랫폼 용어
+  - 선택 플랫폼: 사용자가 메뉴에서 고른 `platforms`.
+  - 감시 가능 플랫폼: 이번 watch에서 transcript를 읽을 수 있는 플랫폼(`homes[id] !== null`).
+  - 실행 플랫폼(target): dispatch를 실제로 수행하는 플랫폼.
+    1. lease v2의 `targetPlatform`(`parseLeaseLenient`가 이 키도 읽는다. 스키마는 바꾸지 않는다).
+    2. 없으면 `route === 'native'`일 때 `hostPlatform`.
+    3. 그래도 없으면 dispatch 이벤트에서 추론한 기존 `childPlatform`.
+    4. 그래도 없으면 모름.
+- 표시 플랫폼(dispatch 행과 추정 귀속에 공통인 헬퍼)
+  - 실행 플랫폼이 감시 가능하면 그 플랫폼이다.
+  - 아니면 `hostPlatform`이다.
+  - 둘 다 모르면 기존 규칙(`platforms.length < 2`이면 숨김)을 따른다.
+  - dispatch가 보이는 조건은 표시 플랫폼이 선택 플랫폼에 들어 있는 것이다. `dispatchEvents`(`:209-210`)도 이 헬퍼를 쓴다.
+  - 따라서 Claude·Codex가 아닌 플랫폼에서 실행된 role의 dispatch 행과 추정 변경은 host가 선택됐을 때 보인다.
+- 활성 dispatch
+  - 조건 1: `state`가 `reserved`·`starting`·`running`·`unknown`이다. runtime `NON_TERMINAL_STATES`와 같은 값이고, watch 안 상수로 둔다.
+  - 조건 2: `dispatchInScope(ref)`이다.
+  - 조건 3: `ref.cwd`의 git top이 scan 중인 `top`과 같다.
+  - `ref.cwd`가 없으면 세지 않는다.
+- 귀속 규칙. claim으로 빠지지 않은 변경이 하나 이상일 때만 적용한다.
+  - 활성 dispatch 0개: 기존과 같다(가장 최근 followed 후보).
+  - 활성 dispatch 정확히 1개: 아래 셋 중 처음 맞는 경우를 쓴다.
+    - 그 dispatch에 매핑된 followed 세션(어느 플랫폼이든)이 있으면 그 세션 identity로 붙인다(`source:'bridge'`).
+    - 없고 표시 플랫폼이 선택 플랫폼에 들면 dispatch identity로 붙인다: `source:'dispatch'`, `label:dispatchLabel(rawRole,dispatchId)`, `dispatchId`, `workflowId`, `role`, `platform:<실행 플랫폼, 모르면 표시 플랫폼>`, `cwd:ref.cwd`, `root:top`.
+    - 그 밖에는 이벤트를 내지 않는다.
+  - 활성 dispatch 2개 이상: 이벤트를 내지 않는다. `--verbose`면 debug notice `inferred changes skipped: <n> active dispatches in <top>`를 같은 top·같은 n 조합당 1회 낸다.
+  - 어느 경우든 스냅샷 갱신, `claims` 정리, `candidates` 비우기는 기존대로 한다.
+- 사람용 표시(`renderHuman`): `inferred:true`인 file 이벤트
+  - 경로 1개: `<path> (inferred)`.
+  - 경로 2개 이상: 첫 본문 줄 `(inferred)` 뒤에 기존 `- <path>` 목록.
+  - 색 여부와 무관하게 같은 문자열이다. 줄바꿈·폭 규칙은 기존과 같다.
+- JSON: 변경 없음(`inferred` 필드는 이미 있다).
+- 비목표: claim TTL, 스캔 주기, `git.mjs` 허용 명령, dispatch store 스키마, `lib/runtime`은 바꾸지 않는다.
+
 ### D4 (C4) README 구성
 
 1. 제목과 소개(네 플랫폼, host 중립)
@@ -299,6 +341,7 @@ SVG 디자인(기존 `role-flow.svg` 톤), `renderBox` 줄바꿈(`renderLine` �
 - Ctrl-H: 이전 이벤트 보기, 항상 20개, 시작 시 읽은 이력만, 0x7f 무시.
 - worktree 선택: "session"이 아니라 worktree 선택. 비활성은 흐리게 표시, Git이면 항상 화면 표시, CLI 플래그 없음.
 - README 도식: `role-flow.svg` 교체, `role-models.svg` 삭제.
+- 추정 파일 귀속: A(활성 dispatch 우선 귀속 또는 생략)+B(사람용 `(inferred)` 표시), T7로 추가. host·실행 플랫폼을 특정하지 않는 범용 규칙으로 한다.
 
 ## 미결 사항
 

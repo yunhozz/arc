@@ -349,11 +349,50 @@
 
 ---
 
+### Task T7: watch 추정 파일 귀속 정정과 표시 (C8)
+
+**목표:** D8을 구현한다.
+
+**선행:** T5 수락(같은 `watcher.mjs`를 고친다).
+
+**Files:**
+- Modify: `lib/watch/watcher.mjs`(`scanRoot` 귀속 분기, 활성 dispatch 판정 헬퍼)
+- Modify: `lib/watch/render.mjs`(`renderHuman` 본문 구성)
+- Modify: `lib/watch/watcher.mjs`의 `dispatchEvents` 플랫폼 필터를 공통 표시 플랫폼 헬퍼로 교체
+- Modify: `lib/watch/dispatch.mjs`(`parseLeaseLenient`가 `targetPlatform`도 읽고 ref에 전달, 스키마 불변)
+- Test: `tests/node/watch-watcher.test.mjs`, `tests/node/watch-render.test.mjs`
+- 재생성: `node scripts/update-manifest.mjs`(대상이면)
+
+**단계:**
+- [ ] 1. RED: 아래 테스트를 추가하거나 바꾸고 실패를 확인한다.
+  - 모든 경우를 registry 주입 플랫폼(예: `alpha` host, `zeta` 실행, 감시 불가 `omega`)으로도 한 번씩 돌려 플랫폼 id 하드코딩이 없음을 보인다.
+  - watcher 귀속: `inferred changes go to the single active dispatch when its session is not followed`, `inferred changes use the followed session of the active dispatch on any platform`, `inferred changes are dropped when the dispatch display platform is not selected`, `inferred changes are dropped with two active dispatches`(verbose notice 1회 포함), `terminal dispatches do not affect inferred attribution`, `dispatch in another worktree does not affect inferred attribution`
+  - host와 target 조합: `codex host with a claude implementer`, `claude host with a codex implementer`, `native route uses the host as target`, `unwatchable target is shown under its selected host`(예: Gemini·Grok 실행)
+  - 플랫폼 결정: `target platform comes from lease targetPlatform before event inference`, `dispatch rows use the same display platform rule`(기존 `dispatchEvents` 테스트 회귀 포함)
+  - render: `JSON retains inferred file provenance without changing human output`(`:438`)를 `inferred file events are marked in human output and JSON is unchanged`로 바꾼다. 경로 1개·2개 이상, color·no color, 좁은 폭 줄바꿈.
+- [ ] 2. GREEN: D8 귀속 규칙과 표시를 구현한다.
+- [ ] 3. 기존 inferred 테스트(`watch-watcher.test.mjs:589`, `:1228-1280` 부근)가 dispatch 0개 경로로 그대로 통과하는지 확인한다.
+
+**관련 테스트(이유):**
+- `tests/node/watch-watcher.test.mjs`: scan·귀속
+- `tests/node/watch-render.test.mjs`: 표시
+- `tests/node/watch-dispatch.test.mjs`(있으면), `tests/node/watch-index.test.mjs`(있으면): dispatch 인덱스와 출력 경로 회귀
+
+**기준:** D8 준수, 플랫폼 id 하드코딩 없음(host·target 대칭), dispatch 0개 경로 불변, JSON 불변, 스냅샷·claim 처리 불변.
+
+**필수 QA:** 기준선 대조, 경우별 이벤트 예(identity 필드 포함), 사람용 출력 예(폭 80·40).
+
+**Hold:** dispatch store 스키마나 `lib/runtime`을 바꿔야 할 때, 표시 플랫폼 헬퍼 적용으로 기존 `dispatchEvents` 테스트 기대가 바뀔 때(목록과 이유 보고).
+
+**커밋:** `fix(watch): 진행 중 dispatch의 추정 파일 변경 귀속 정정과 inferred 표시`
+
+---
+
 ### Task T6: README 재구성과 모드 도식 (C4)
 
 **목표:** D4를 구현한다. SVG 교체·삭제는 승인되어 있다.
 
-**선행:** T1, T3, T4, T5 수락.
+**선행:** T1, T3, T4, T5, T7 수락.
 
 **Files:**
 - Modify: `README.md`
@@ -388,21 +427,22 @@
 
 ## 최종 검증 (모든 task 수락 후, Orchestrator 백그라운드)
 
-- 관련 테스트 합집합: T1~T6(A7로 `rowTones`를 추가했으면 `tui-interface`, `tui-app`, `tui-setup` 포함)
+- 관련 테스트 합집합: T1~T7(A7로 `rowTones`를 추가했으면 `tui-interface`, `tui-app`, `tui-setup` 포함)
 - 계약 테스트: `tests/node/{instruction-layout,agent-fragments,installed-layout-golden,manifest,gemini-capability-evidence}.test.mjs`
 - check 4종: `node scripts/update-manifest.mjs --check`, `node scripts/update-role-policy.mjs --check`, `node scripts/check-installer-parity.mjs`, `node scripts/update-runtime-assets.mjs --check`
 - 전체 회귀 잠정 판단: **미발동**
   - 근거: runtime, shared, 카탈로그, 설치 로직, git 허용 명령을 바꾸지 않는다. watch 변경은 `lib/watch` 안에 머물고 기존 scope 함수는 그대로 둔 채 함수만 추가한다. `lib/tui/interface.mjs`를 바꾸더라도 하위 호환 옵션 추가뿐이며 그 소비자는 합집합에 들어 있다.
   - 발동 조건: 지정 키 밖의 계약 변경, check 실패, runtime assets 변경, T5가 probe 아닌 경로의 watch 테스트나 `ui.menu` 기존 동작을 깰 때.
-- 최종 Reviewer 1회(전체 변경). 중점: 성공 판정과 신규/기존 판정, watch JSON 계약, Ctrl-H interleave와 상한, worktree 열거의 위치 무관성과 범위 교체 정확성(main·nested·바깥)·흐림과 `NO_COLOR` 대체·probe 비용, README 사실 정확성과 대칭.
+- 최종 Reviewer 1회(전체 변경). 중점: 성공 판정과 신규/기존 판정, watch JSON 계약, Ctrl-H interleave와 상한, worktree 열거의 위치 무관성과 범위 교체 정확성(main·nested·바깥)·흐림과 `NO_COLOR` 대체·probe 비용, README 사실 정확성과 대칭, 추정 귀속의 활성 dispatch 판정과 플랫폼 필터.
 
 ## 진행 기록
 
 | Task | 상태 | Implementer | 커밋 |
 |---|---|---|---|
 | T1 | 완료(QA proven, 새 실패 0) | codex bridge b54b7031 | 이 커밋 |
-| T2 | 대기 | - | - |
+| T2 | 완료(QA proven, verify no-new-failures) | codex bridge 233cb74e, QA e47f4792 | 이 커밋 |
 | T3 | 대기 | - | - |
 | T4 | 대기 | - | - |
 | T5 | 대기 | - | - |
+| T7 | 대기(T5 후, T6 전) | - | - |
 | T6 | 대기 | - | - |
