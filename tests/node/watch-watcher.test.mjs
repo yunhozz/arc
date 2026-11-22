@@ -687,7 +687,9 @@ test('start shows banner, the last 20 recent events in ts order, then live',asyn
   s.cl('claude',Array.from({length:15},(_,i)=>cm('claude',s.cwd,`a${i}`,'cli',TIME-299000+i*2000)));
   const out=await s.w.start(); assert.equal(out.length,22);
   assert.equal(out[0].text,`arc watch: scope ${s.cwd} · CODEX+CLAUDE · Ctrl-C to stop`);
+  assert.deepEqual(out[0].brief,{scope:s.cwd,platforms:['claude','codex']});
   assert.equal(out.at(-1).text,'live');
+  assert.equal(out.at(-1).startup,'live');
   assert.deepEqual(content(out).map(e=>e.text),Array.from({length:10},(_,i)=>[`c${i+5}`,`a${i+5}`]).flat());
   assert.deepEqual(await s.w.tick(),[]);
 });
@@ -883,7 +885,9 @@ test('banner identifies worktree and directory scopes', async t => {
       repo:`arc watch: scope ${s.cwd} (1 worktrees) · CODEX · Ctrl-C to stop`,
       dir:`arc watch: scope ${s.cwd} · CODEX · Ctrl-C to stop`,
     };
-    assert.equal((await s.w.start())[0].text, expected[kind]);
+    const [header] = await s.w.start();
+    assert.equal(header.text, expected[kind]);
+    assert.deepEqual(header.brief,{scope:s.cwd,platforms:['codex']});
   }
 });
 

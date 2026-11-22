@@ -127,6 +127,7 @@ test('watch help explains platform choice, worktree scope and event output',asyn
   assert.match(s.output.text,/Requires an interactive terminal/);
   assert.match(s.output.text,/each session's working directory at that point/);
   assert.match(s.output.text,/SKILL and PLUGIN lines/);
+  assert.match(s.output.text,/A startup box shows the watch version, scope, platforms and keys \(TTY only\)/);
   assert.doesNotMatch(s.output.text,/--(?:cwd|all|session|platform)\b/);
   assert.equal(s.error.text,'');
 });
@@ -148,6 +149,48 @@ test('no usable source exits 1',async t=>{
 test('one disabled platform emits a notice and keeps the other live',async t=>{
   const s=setup(t);s.io.env={CODEX_HOME:''};const {result}=await s.start(['--json']);s.controller.abort();assert.equal(await result,0);
   const rows=s.output.text.trim().split('\n').map(JSON.parse);assert.ok(rows.some(e=>e.text.includes('codex')&&e.kind==='notice'));assert.ok(rows.some(e=>e.text==='live'));assert.equal(s.error.text,'');
+});
+test('json output on a tty is unchanged and has no box', async t => {
+  const s = setup(t);
+  s.output.isTTY = true;
+  const {result} = await s.start(['--json','--tail','0'], ['codex','claude']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  const notice = text => JSON.stringify({v:1,ts:iso(TIME),observedAt:iso(TIME),source:'watch',label:'watch',kind:'notice',text});
+  const header = `arc watch: scope ${fs.realpathSync(s.cwd)} · CODEX+CLAUDE · Ctrl-C to stop`;
+  assert.equal(s.output.text, `${notice(header)}\n${notice('live')}\n`);
+});
+test('tty human output starts with the box and drops live', async t => {
+  const s = setup(t);
+  s.output.isTTY = true;
+  s.io.input.isTTY = true;
+  s.output.columns = 100;
+  s.io.env = {NO_COLOR:'1',CLAUDE_CONFIG_DIR:'/elsewhere'};
+  s.h.writeRollout(['2026','11','11'],'rollout-compressed.jsonl.zst',[],{mtime:TIME});
+  s.write('startup-history',s.cwd,[msg('startup history')]);
+  const {result} = await s.start(['--verbose']);
+  const output = s.output.text;
+  s.controller.abort();
+  assert.equal(await result, 0);
+  assert.match(output, /^┌/);
+  const version = JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version;
+  assert.ok(output.includes(`│ arc watch ${version}`));
+  assert.match(output, /│ Platforms  CODEX +│/);
+  assert.match(output, /│ Keys +Ctrl-C stop · Ctrl-L clear/);
+  assert.doesNotMatch(output, /NOTICE +(?:arc watch:|live\b)/);
+  const boxEnd = output.indexOf('┘');
+  const disabled = output.indexOf('claude disabled:');
+  const diagnostic = output.indexOf('compressed session skipped');
+  const history = output.indexOf('startup history');
+  assert.ok(boxEnd >= 0 && boxEnd < disabled && disabled < diagnostic && diagnostic < history, output);
+});
+test('non-tty human output keeps the two notices', async t => {
+  const s = setup(t);
+  const {result} = await s.start(['--tail','0'], ['codex']);
+  s.controller.abort();
+  assert.equal(await result, 0);
+  const prefix = `${new Date(TIME).toLocaleTimeString('en-GB', {hour12:false})} watch  NOTICE   `;
+  assert.equal(s.output.text, `${prefix}arc watch: scope ${fs.realpathSync(s.cwd)} · CODEX · Ctrl-C to stop\n${prefix}live\n`);
 });
 test('abort stops timers and resolves 0',async t=>{
   const s=setup(t);const {result}=await s.start();s.controller.abort();assert.equal(await result,0);assert.equal(s.cleared(),1);
@@ -788,7 +831,7 @@ test('menu dispose precedes watch raw mode and first output', async t => {
     const restored = timeline.indexOf(false);
     const leftMenu = timeline.findIndex(frame => typeof frame==='string' && frame.includes('\x1b[?1049l'));
     const watchRaw = timeline.lastIndexOf(true);
-    const firstWatch = timeline.findIndex(frame => typeof frame==='string' && frame.includes('arc watch: scope'));
+    const firstWatch = timeline.findIndex(frame => typeof frame==='string' && frame.includes('arc watch '));
     assert.ok(restored>=0 && restored<leftMenu && leftMenu<watchRaw && watchRaw<firstWatch);
     const output = timeline.slice(firstWatch).filter(frame => typeof frame==='string').map(strip).join('');
     assert.deepEqual([...output.matchAll(/local (?:claude|codex)$/gm)].map(match => match[0]).sort(),expected);

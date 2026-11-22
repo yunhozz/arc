@@ -441,7 +441,7 @@
 |---|---|---|---|
 | T1 | 완료(QA proven, 새 실패 0) | codex bridge b54b7031 | 이 커밋 |
 | T2 | 완료(QA proven, verify no-new-failures) | codex bridge 233cb74e, QA e47f4792 | 이 커밋 |
-| T3 | 대기 | - | - |
+| T3 | 완료(QA proven, C3는 새 바이트 테스트를 base 코드에서 통과시켜 확인) | codex bridge d91f354e, QA ac113aa7 | 이 커밋 |
 | T4 | 대기 | - | - |
 | T5 | 대기 | - | - |
 | T7 | 대기(T5 후, T6 전) | - | - |
