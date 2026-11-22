@@ -34,7 +34,7 @@ for (const platform of ['codex','claude']) for (const [contract,patterns] of Obj
 for (const platform of ['codex','claude']) {
  test(`${platform} applies existing gates only when triggered without adding new obligations`,()=>{
   const check=text=>{
-   assert.match(text,/first edit, target selection, TDD, role assignment, QA\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
+   assert.match(text,/[Ff]irst edit, target selection, TDD, role assignment, QA\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
    assert.match(text,/fast path itself does not require untriggered role assignment, QA\/Reviewer, acceptance or commit/);
   };
   const core=read(file(platform,'core'));

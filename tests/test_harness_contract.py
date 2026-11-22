@@ -630,8 +630,10 @@ class DocumentationContractTests(unittest.TestCase):
                     with self.subTest(source=str(path.relative_to(REPO)), target=target):
                         self.assertTrue(resolved.exists(), f"Missing local link: {target}")
                         if anchor and resolved.suffix == ".md":
-                            headings = re.findall(r"^#{1,6} (.+)$", resolved.read_text(), re.M)
+                            markdown = resolved.read_text()
+                            headings = re.findall(r"^#{1,6} (.+)$", markdown, re.M)
                             anchors = {re.sub(r"[^\w -]", "", h.lower()).replace(" ", "-") for h in headings}
+                            anchors.update(re.findall(r'<a\s+id="([^"]+)"\s*>', markdown))
                             self.assertIn(anchor, anchors)
 
     def test_stale_png_is_unreferenced(self) -> None:
