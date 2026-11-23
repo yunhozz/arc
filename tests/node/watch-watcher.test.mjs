@@ -12,7 +12,7 @@ import {readCodexMeta} from '../../lib/watch/discover-codex.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {resolveDispatchStore} from '../../lib/watch/anchor-store.mjs';
 import {GIT_ALLOWED} from '../../lib/watch/git.mjs';
-import {WATCH_KINDS} from '../../lib/watch/model.mjs';
+import {WATCH_KINDS,WATCH_LIMITS} from '../../lib/watch/model.mjs';
 import {createPlatformRegistry, DEFAULT_PLATFORM_REGISTRY} from '../../lib/runtime/platform-registry.mjs';
 import {ZETA_RUNTIME} from './fixtures/platforms/zeta.mjs';
 
@@ -607,7 +607,7 @@ for (const failure of ['null','exception']) {
     assert.deepEqual(recovered.map(e=>e.kind),['session','user']);
     assert.equal(s.calls.filter(c=>c.dir===sub&&c.args===GIT_ALLOWED[0]).length,2);
     s.advance(1000);
-    const inferred=content(await s.w.tick()).filter(e=>e.inferred);
+    const inferred=content(await scanAndConfirm(s)).filter(e=>e.inferred);
     assert.deepEqual(inferred.map(e=>({kind:e.kind,sessionId:e.sessionId,cwd:e.cwd,root:e.root,paths:e.paths})),[
       {kind:'file_change',sessionId:id,cwd:sub,root:s.cwd,paths:[changed]},
     ]);
@@ -1253,7 +1253,13 @@ function assertInferredCreate(s,events,name='changed.txt') {
 async function shellActivity(s,file,delay=1000) {
   s.append(file,[msg('shell activity')]);
   await s.w.tick();s.advance(delay);
-  return s.w.tick();
+  return scanAndConfirm(s);
+}
+
+async function scanAndConfirm(s) {
+  const out=await s.w.tick();s.advance(WATCH_LIMITS.shellConfirmMs);
+  out.push(...await s.w.tick());
+  return out;
 }
 
 const dispatchRegistry = createPlatformRegistry([
@@ -1280,7 +1286,7 @@ function attributionSetup(t, platforms, options={}) {
     if (platforms.includes('codex')) return shellActivity(s,trigger);
     s.append(trigger,[cm('host-session',s.cwd,'shell activity')]);
     await s.w.tick();s.advance(1000);
-    return s.w.tick();
+    return scanAndConfirm(s);
   };
   return {...s,trigger,lease,change};
 }
@@ -1593,7 +1599,7 @@ test('an explicit bridge file change keeps its identity while the scan infers th
   const live=await s.w.tick();
   assert.ok(live.some(e=>e.sessionId==='host-session' && e.text==='host shell activity'));
   s.advance(1000);
-  const scan=await s.w.tick();
+  const scan=await scanAndConfirm(s);
   const files=[...bridge,...live,...scan].filter(e=>e.kind.startsWith('file_'));
   assert.deepEqual(files.map(({kind,source,sessionId,dispatchId,workflowId,role,platform,label,cwd,root,paths,inferred})=>
     ({kind,source,sessionId,dispatchId,workflowId,role,platform,label,cwd,root,paths,inferred})),[{
@@ -1629,7 +1635,7 @@ test('same-poll exit still schedules the in-scope root shell scan',async t=>{
   s.append(file,[cm(id,s.cwd,'trigger'),cm(id,s.wt,'hidden')]);
   const live=await s.w.tick();
   assert.deepEqual(content(live).map(e=>[e.kind,e.text]),[['user','trigger']]);
-  s.advance(3000);const scan=await s.w.tick();
+  s.advance(3000);const scan=await scanAndConfirm(s);
   assert.deepEqual(inferred(scan).map(e=>[e.kind,e.paths,e.sessionId,e.cwd,e.root]),
     [['file_create',[created],id,s.cwd,s.cwd]]);
   assert.equal([...live,...scan].some(e=>e.text==='hidden'),false);
@@ -1645,7 +1651,7 @@ test('inferred file events keep the in-scope identity after the session leaves s
   s.stats.set(created,{});s.files(['new.txt']);
   s.advance(1000);s.append(file,[cm(id,s.wt,'hidden')]);
   assert.deepEqual(await s.w.tick(),[]);
-  s.advance(3000);const scan=await s.w.tick();out.push(...scan);
+  s.advance(3000);const scan=await scanAndConfirm(s);out.push(...scan);
   assert.deepEqual(inferred(scan).map(e=>[e.kind,e.paths,e.sessionId,e.cwd,e.root]),
     [['file_create',[created],id,s.cwd,s.cwd]]);
   for(const output of [JSON.stringify(out),out.map(renderJson).join('\n'),lines(out).join('\n')]) {
@@ -1662,11 +1668,157 @@ test('shell baseline and history are silent; delayed scans emit sorted CREATE ED
   s.stats.set(a,{mtimeMs:2});s.stats.delete(gone);s.stats.set(z,{});s.files(['z','a']);
   s.append(file,[msg('running shell')]);await s.w.tick();s.advance(999);
   assert.deepEqual(inferred(await s.w.tick()),[]);assert.equal(scans(s).length,1);
-  s.advance(1);const out=inferred(await s.w.tick());
+  s.advance(1);const out=inferred(await scanAndConfirm(s));
   assert.deepEqual(out.map(e=>[e.kind,e.paths,e.sessionId]),[
     ['file_create',[z],'shell'],['file_change',[a],'shell'],['file_delete',[gone],'shell'],
   ]);
   assert.ok(out.every(e=>e.inferred===true));
+});
+
+for (const [variant,kind] of [
+  ['Codex FileChange','file_change'],['Claude Write','file_change'],['Claude rm','file_delete'],
+]) test(`late explicit events replace a held inferred change (${variant})`,async t=>{
+  const s=setup(t), file=path.join(s.cwd,'tracked.txt'), codex=variant==='Codex FileChange';
+  const writer=codex?s.c('writer'):s.cl('writer');
+  const other=codex?s.cl('other'):s.c('other');
+  const tool=variant==='Claude rm'?'Bash':'Write';
+  s.files(['tracked.txt']);s.stats.set(file,{});
+  const out=await s.w.start();s.advance(3000);
+  if (!codex) {
+    s.append(writer,[claudeTool('writer',s.cwd,tool,tool==='Bash'?{command:'rm tracked.txt'}:{file_path:file})]);
+    out.push(...await s.w.tick());s.advance(100);
+  }
+  if (kind==='file_delete') s.stats.delete(file);
+  else s.stats.set(file,{mtimeMs:2});
+  s.append(other,[codex?cm('other',s.cwd,'unrelated activity'):msg('unrelated activity')]);
+  out.push(...await s.w.tick());s.advance(1000);
+  out.push(...await s.w.tick());
+
+  s.advance(100);
+  s.append(writer,[codex?{
+    type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}},
+  }:{type:'user',cwd:s.cwd,message:{content:[{type:'tool_result',tool_use_id:`call-${tool}`}]}}]);
+  out.push(...await s.w.tick());s.advance(3000);out.push(...await s.w.tick());
+  s.advance(2000);out.push(...await s.w.tick());
+  assert.deepEqual(out.filter(e=>e.paths?.includes(file)).map(e=>[e.kind,e.sessionId,e.inferred]),
+    [[kind,'writer',undefined]]);
+});
+
+for (const [variant,kind] of [
+  ['Codex FileChange','file_change'],['Claude Write','file_change'],['Claude rm','file_delete'],
+]) test(`a late explicit event also claims the tool's follow-up change (${variant})`,async t=>{
+  const s=setup(t), file=path.join(s.cwd,'tracked.txt'), codex=variant==='Codex FileChange';
+  const writer=codex?s.c('writer'):s.cl('writer');
+  const other=codex?s.cl('other'):s.c('other');
+  const tool=variant==='Claude rm'?'Bash':'Write';
+  s.files(['tracked.txt']);s.stats.set(file,{});
+  const out=await s.w.start();s.advance(3000);
+  if (!codex) {
+    s.append(writer,[claudeTool('writer',s.cwd,tool,tool==='Bash'?{command:'rm tracked.txt'}:{file_path:file})]);
+    out.push(...await s.w.tick());s.advance(100);
+  }
+
+  s.stats.set(file,{mtimeMs:2});
+  s.append(other,[codex?cm('other',s.cwd,'activity before the scan'):msg('activity before the scan')]);
+  out.push(...await s.w.tick());s.advance(1000);
+  out.push(...await s.w.tick());
+
+  s.advance(100);
+  if (kind==='file_delete') s.stats.delete(file);
+  else s.stats.set(file,{mtimeMs:3});
+  s.append(writer,[codex?{
+    type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[file]:{}}}},
+  }:{type:'user',cwd:s.cwd,message:{content:[{type:'tool_result',tool_use_id:`call-${tool}`}]}}]);
+  out.push(...await s.w.tick());s.advance(100);
+  s.append(other,[codex?cm('other',s.cwd,'more recent activity'):msg('more recent activity')]);
+  out.push(...await s.w.tick());s.advance(2800);
+  out.push(...await s.w.tick());s.advance(WATCH_LIMITS.shellConfirmMs);
+  out.push(...await s.w.tick());
+
+  assert.deepEqual(out.filter(e=>e.paths?.includes(file)).map(e=>[e.kind,e.sessionId,e.inferred]),
+    [[kind,'writer',undefined]]);
+});
+
+test('held changes confirm without transcript activity or extra listings',async t=>{
+  const s=setup(t), session=s.c('shell'), file=path.join(s.cwd,'new.txt');
+  await s.w.start();s.advance(3000);
+  s.stats.set(file,{});s.files(['new.txt']);
+  s.append(session,[msg('shell activity')]);await s.w.tick();s.advance(1000);
+  const detected=await s.w.tick(), gitCalls=s.calls.length;
+  assert.deepEqual(inferred(detected),[]);
+  s.advance(1999);
+  assert.deepEqual(inferred(await s.w.tick()),[]);
+  s.advance(1);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_create',[file],'shell']]);
+  assert.equal(s.calls.length,gitCalls);
+});
+
+for (const change of ['edit','delete']) test(`a re-change while held emits one net event (${change})`,async t=>{
+  const s=setup(t), session=s.c('shell'), file=path.join(s.cwd,'new.txt');
+  await s.w.start();s.advance(3000);
+  s.stats.set(file,{});s.files(['new.txt']);
+  s.append(session,[msg('created')]);await s.w.tick();s.advance(1000);
+  const out=await s.w.tick();s.advance(500);
+  if (change==='delete') s.stats.delete(file);
+  else s.stats.set(file,{mtimeMs:2});
+  s.append(session,[msg('changed again')]);out.push(...await s.w.tick());
+  // Wait until the second scan is eligible before the next tick can confirm.
+  s.advance(2500);out.push(...await s.w.tick());
+  s.advance(2000);out.push(...await s.w.tick());
+  assert.deepEqual(inferred(out).map(e=>[e.kind,e.paths]),
+    change==='delete'?[]:[['file_create',[file]]]);
+});
+
+const codexCommand={type:'event_msg',payload:{type:'item_completed',item:{
+  type:'CommandExecution',command:'touch new.txt',exit_code:0,
+}}};
+
+for (const platform of ['codex','claude']) test(`held shell changes prefer the session that ran a shell command (${platform})`,async t=>{
+  const s=setup(t), codex=platform==='codex', file=path.join(s.cwd,'new.txt');
+  const runner=codex?s.c('runner'):s.cl('runner');
+  const other=codex?s.cl('other'):s.c('other');
+  await s.w.start();s.advance(3000);
+  s.append(runner,[codex?codexCommand:claudeTool('runner',s.cwd,'Bash',{command:'touch new.txt'})]);
+  await s.w.tick();s.advance(100);
+  s.append(runner,[codex?msg('runner update'):cm('runner',s.cwd,'runner update')]);
+  await s.w.tick();s.advance(100);
+  s.stats.set(file,{});s.files(['new.txt']);
+  s.append(other,[codex?cm('other',s.cwd,'unrelated activity'):msg('unrelated activity')]);
+  await s.w.tick();s.advance(1000);
+  const out=await s.w.tick();s.advance(2000);out.push(...await s.w.tick());
+  assert.deepEqual(inferred(out).map(e=>[e.kind,e.paths,e.sessionId]),[['file_create',[file],'runner']]);
+});
+
+test('held shell changes prefer the latest command over a later message from another runner',async t=>{
+  const s=setup(t), first=s.c('first'), second=s.cl('second'), file=path.join(s.cwd,'new.txt');
+  await s.w.start();s.advance(3000);
+  s.append(first,[codexCommand]);await s.w.tick();s.advance(100);
+  s.append(second,[claudeTool('second',s.cwd,'Bash',{command:'touch new.txt'})]);await s.w.tick();s.advance(100);
+  s.stats.set(file,{});s.files(['new.txt']);
+  s.append(first,[msg('later activity')]);await s.w.tick();s.advance(1000);
+  const out=await s.w.tick();s.advance(2000);out.push(...await s.w.tick());
+  assert.deepEqual(inferred(out).map(e=>[e.kind,e.paths,e.sessionId]),[['file_create',[file],'second']]);
+});
+
+for (const variant of ['a prior range command','a skill-only command']) test(`held shell changes ignore ${variant}`,async t=>{
+  const s=setup(t,{verbose:true}), runner=s.c('runner'), other=s.cl('other'), file=path.join(s.cwd,'new.txt');
+  await s.w.start();s.advance(3000);
+  if (variant==='a prior range command') {
+    s.append(runner,[codexCommand]);await s.w.tick();s.advance(1000);await s.w.tick();s.advance(3000);
+    s.append(runner,[msg('no command in this range')]);await s.w.tick();
+  } else {
+    s.append(runner,[skillRead(path.join(s.h.codexHome,'skills/arc/SKILL.md'))]);
+    const skill=await s.w.tick();
+    assert.ok(skill.some(e=>e.kind==='command' && e.sessionId==='runner'));
+    assert.ok(skill.some(e=>e.skill==='arc' && e.sessionId==='runner'));
+  }
+  s.advance(100);
+  s.stats.set(file,{});s.files(['new.txt']);
+  s.append(other,[cm('other',s.cwd,'most recent activity')]);await s.w.tick();s.advance(1000);
+  await s.w.tick();s.advance(2000);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_create',[file],'other']]);
 });
 
 test('shell scan suppresses three FileChange claims but reports a silent golden write and later edit',async t=>{
@@ -1676,7 +1828,7 @@ test('shell scan suppresses three FileChange claims but reports a silent golden 
   for(const p of [...claimed,'golden'])s.stats.set(path.join(s.cwd,p),{mtimeMs:2});
   s.append(file,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:Object.fromEntries(claimed.map(p=>[p,{}]))}}}]);
   const direct=await s.w.tick();assert.equal(direct.filter(e=>e.kind==='file_change').length,1);
-  s.advance(1000);const out=inferred(await s.w.tick());
+  s.advance(1000);const out=inferred(await scanAndConfirm(s));
   assert.deepEqual(out.map(e=>[e.kind,e.paths,e.sessionId]),[['file_change',[golden],'exec-shell']]);
   const a=path.join(s.cwd,'a');
   s.advance(3000);s.stats.set(a,{mtimeMs:3});
@@ -1690,7 +1842,7 @@ test('post claims are discarded after their first scan and do not hide a later c
   s.append(file,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[x]:{}}}}}]);
   assert.deepEqual((await s.w.tick()).filter(e=>e.kind==='file_change').map(e=>e.paths),[[x]]);
   s.advance(1000);
-  assert.deepEqual(inferred(await s.w.tick()),[]);
+  assert.deepEqual(inferred(await scanAndConfirm(s)),[]);
   assert.equal(scans(s).length,2);
   s.advance(3000);s.stats.set(x,{mtimeMs:2});
   assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[x]]]);
@@ -1752,7 +1904,7 @@ test('rm -r dir suppresses inferred deletions under the directory',async t=>{
   const direct=await s.w.tick();
   assert.deepEqual(direct.filter(e=>e.kind==='file_delete').map(e=>[e.paths,e.inferred]),[[[dir],undefined]]);
   s.advance(1000);
-  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths]),[
+  assert.deepEqual(inferred(await scanAndConfirm(s)).map(e=>[e.kind,e.paths]),[
     ['file_change',[path.join(s.cwd,modified)]],['file_delete',[path.join(s.cwd,sibling)]],
   ]);
 });
@@ -1792,7 +1944,7 @@ test('internal claim fields are not emitted',async t=>{
     assert.equal(Object.hasOwn(event,'releasePaths'),false);
   }
   s.stats.set(x,{mtimeMs:2});s.advance(1000);
-  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths]),[['file_change',[x]]]);
+  assert.deepEqual(inferred(await scanAndConfirm(s)).map(e=>[e.kind,e.paths]),[['file_change',[x]]]);
 });
 
 test('shell claims survive unchanged scans until a pending Claude Edit lands',async t=>{
@@ -1928,7 +2080,7 @@ test('shell scans respect held events and do not reactivate an ended turn',async
   s.advance(3000);const file=path.join(s.h.codexHome,'sessions','2026','11','11','rollout-held.jsonl');
   s.stats.set(path.join(s.cwd,'new'),{});s.files(['new']);
   s.append(file,[{type:'event_msg',payload:{type:'task_complete'}}]);await s.w.tick();assert.equal(s.w.busy(),false);
-  s.advance(1000);assert.equal(inferred(await s.w.tick()).length,1);assert.equal(s.w.busy(),false);
+  s.advance(1000);assert.equal(inferred(await scanAndConfirm(s)).length,1);assert.equal(s.w.busy(),false);
 });
 
 
@@ -1947,7 +2099,7 @@ for (const aliasTop of [false,true]) test(`shell claims suppress aliases with ${
     A:{},[path.join(alias,'gone')]:{type:'delete'},
   }}}}]);
   await s.w.tick();s.advance(1000);
-  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths,e.sessionId]),[
+  assert.deepEqual(inferred(await scanAndConfirm(s)).map(e=>[e.kind,e.paths,e.sessionId]),[
     ['file_change',[b],'alias-shell'],
   ]);
 });
@@ -1962,5 +2114,5 @@ test('shell claims canonicalize directories without following the claimed symlin
   fs.writeFileSync(target,'silent target write');fs.unlinkSync(link);fs.symlinkSync('different-target',link);
   s.append(transcript,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{link:{}}}}}]);
   await s.w.tick();s.advance(1000);
-  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths]),[['file_change',[target]]]);
+  assert.deepEqual(inferred(await scanAndConfirm(s)).map(e=>[e.kind,e.paths]),[['file_change',[target]]]);
 });

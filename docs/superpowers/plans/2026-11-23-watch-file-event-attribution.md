@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 계획은 ARC Orchestrator가 조정한다. 태스크마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행한다. Implementer·QA는 Git 상태를 바꾸지 않는다. 하위 체크박스는 진행 추적용이며 커밋 단위가 아니다.
 
-- 상태: v1 (Planner 초안, Orchestrator 검토)
+- 상태: v2 (T2 claim 저장 규칙 개정, 2026-11-23)
 - 설계: 승인 설계(사용자 2026-11-23: O2 승인, 순수 셸 귀속 "command 우선", 새 worktree). 별도 spec 문서 없이 아래 "설계 요약"에 담는다.
 - workflow: `watch-file-attribution`
 - 대상: `/Users/ma-24-007/Desktop/workspace/arc/.claude/worktrees/watch-file-event-attribution`, 브랜치 `fix/watch-file-event-attribution`, base `f786e4a1155287eff80d4abe56f7cebaf6598e3b`
@@ -26,7 +26,7 @@
   - (e) root 라우팅: claim은 경로가 속한 shell root(가장 긴 top 접두사)에, 없으면 `row.gitTop` root.
 - 확인 유예 + command 우선 귀속 (T2)
   - scan의 claim 없는 변경은 즉시 emit하지 않고 `state.unconfirmed`에 보관.
-  - claim 기록 시 같은 경로가 unconfirmed에 있으면 그 항목 삭제, claim 미저장 → 명시 이벤트만 남음.
+  - claim 기록 시 같은 경로가 unconfirmed에 있으면 그 항목을 삭제하고 claim도 저장한다(post는 다음 비교 scan 1회, pre는 기존 TTL) → 명시 이벤트만 남고, 같은 도구의 후속 파일 상태 변화도 다음 scan에서 소비된다.
   - `WATCH_LIMITS.shellConfirmMs`(2000) 경과 항목 emit. 확정은 `scanShell`에서 transcript 활동 없이, 추가 git 호출 없이. 후보 범위는 직전 candidates 비움~확정 시점, `candidates.clear()`는 unconfirmed가 빈 뒤로.
   - 유예 중 재변경은 경로당 1건, kind는 처음 발견 직전 snapshot 값(`base`) 대비 순변경, 순변경 없으면 버림.
   - 귀속: 후보 중 `command` 이벤트를 낸 followed 후보가 있으면 가장 최근 `lastCommandAt` 후보, 없으면 U7대로 가장 최근 활동 후보. 계속 `inferred:true`, 플랫폼 id 분기 없음.
@@ -40,7 +40,9 @@
 - L1: CLI별 transcript 기록 지연 미실측. 명시 이벤트가 `shellConfirmMs`보다 늦으면 중복이 남는다(그 claim은 다음 scan 뒤 폐기되어 누락으로 번지지 않음).
 - L2: `shellConfirmMs` 2000ms는 실측 조정 전. 셸 변경 표시가 최대 약 2s 늦다.
 - L3: 대소문자 비구분 FS의 claim·snapshot 경로 표기 차이 미확인.
-- L4: pre claim(Edit) 기록 시 같은 경로 unconfirmed가 있으면 그 변경을 지우고 claim을 저장하지 않으므로, 권한 대기 뒤 실제 반영 시 inferred 1건이 나올 수 있다.
+- L4: pre claim(Edit) 기록 시 같은 경로 unconfirmed가 있으면 그 변경을 지우고 claim도 저장하므로, 그 보류 변경이 다른 세션의 셸 변경이었다면 명시 Edit 행으로만 보인다(추정 행 없음).
+- L5: 확정 유예(2s)가 scan 최소 간격(3s)보다 짧아, 확정 전 어떤 scan도 관찰하지 못한 재변경은 확정 뒤 별도 이벤트로 표시된다(WD7은 확정 전 scan이 관찰한 재변경에만 적용). 확정 전 재scan은 WD6(추가 git 0회)과 충돌하므로 하지 않는다.
+- L6: 조상 디렉터리를 `file_path`로 준 합성 Edit 입력은 보류된 하위 파일 처리에서 잔여 항목을 남길 수 있다(실제 Claude 생성 여부 미확인). 변경이 끊이지 않아 후보 범위가 오래 유지되면 그 범위의 첫 command 세션이 계속 우선된다(WD14 정의 안의 동작).
 
 ## 수락 기준 (확정)
 
@@ -125,22 +127,22 @@
   - `pickCandidate(state) -> [id,value]|undefined`: followed·identity 있는 후보 중 `lastCommandAt` 있는 후보가 있으면 `lastCommandAt` 내림차순(동률 `ts` 내림차순), 없으면 `ts` 내림차순(U7).
   - `confirmRoot(state, out)`: `now()-firstSeenAt>=L.shellConfirmMs` 항목을 kind별 정렬 paths로 묶어 `pickCandidate` 후보에 `inferred:true` emit(후보 없으면 현행처럼 미출력). unconfirmed가 비면 `candidates.clear()`. git 호출 없음.
 - 단계
-  - [ ] RED(`tests/node/watch-watcher.test.mjs`):
+  - [x] RED(`tests/node/watch-watcher.test.mjs`):
     - RT1 `late explicit events replace a held inferred change` (WD1, WD2): Codex FileChange / Claude Write / Claude rm 3 변형.
     - RT6a `held changes confirm without transcript activity or extra listings` (WD6)
     - RT6b `a re-change while held emits one net event` (WD7): create 뒤 수정 1건, create 뒤 삭제 0건.
     - RT-C `held shell changes prefer the session that ran a shell command` (WD14): 플랫폼 두 방향, 이전 범위 command 미반영, `skillOnly` 미반영 변형.
     - 새 테스트만 실패하는지 확인, 이름 보고.
-  - [ ] GREEN 구현:
+  - [x] GREEN 구현:
     - `scanRoot`: claim으로 억제되지 않은 변경은 unconfirmed에 넣는다. 이미 있으면 `base`와 현재 snapshot으로 kind 재계산, 순변경 없으면 delete, `firstSeenAt` 유지.
     - scan 끝 `candidates.clear()`는 `unconfirmed.size===0`일 때만(`pending` 초기화는 그대로).
-    - claim 기록 시 대상 root `unconfirmed`에 정확 키가 있으면 항목 삭제·claim 미저장; `key+path.sep` 하위 항목은 삭제하고 claim은 저장.
+    - claim 기록 시 대상 root `unconfirmed`에 정확 키 또는 `key+path.sep` 하위 항목이 있으면 그 항목들을 삭제하고, claim은 항상 저장한다(post/pre 유효 규칙은 T1 그대로).
     - `scanShell`: 기존 scan 루프 뒤 모든 shell root에 `confirmRoot`(`pending`·`off` 무관, `shellScansPerTick` 미포함).
-  - [ ] 타이밍 조정: `shellActivity` 헬퍼(base :1253)와 `attributionSetup.change`(base :1275)가 scan tick 뒤 `advance(WATCH_LIMITS.shellConfirmMs)` + tick을 더해 두 출력을 합쳐 반환. 헬퍼 밖 scan 직후 inferred 단언 테스트(예: base :1656, :1679, :1575)에는 확정용 `advance`/`tick`만 추가. 단언 내용(kind·paths·sessionId·개수·`scans` 수) 불변. 바꾼 테스트 목록 보고.
-  - [ ] `docs/harness-operation.md` :144 Shell detection 행 끝에 영어 문장 추가(제안): "Unclaimed shell changes wait about 2 seconds before display so a late tool event can replace them; the inferred owner is the most recent session that ran a shell command in that window, otherwise the most recently active session." 한글 금지.
-  - [ ] GREEN: 관련 테스트 명령 통과(새 실패 없음).
-  - [ ] `node scripts/update-manifest.mjs`: `lib/watch/watcher.mjs`, `lib/watch/model.mjs` 해시만 변경(`docs/harness-operation.md`는 manifest 대상 아님, 확인됨). 다르면 hold.
-  - [ ] 커밋(Orchestrator, 수락 뒤): `fix(watch): 셸 변경을 잠시 보류해 늦은 명시 이벤트와 중복을 없애고 셸 명령 세션에 우선 귀속`
+  - [x] 타이밍 조정: `shellActivity` 헬퍼(base :1253)와 `attributionSetup.change`(base :1275)가 scan tick 뒤 `advance(WATCH_LIMITS.shellConfirmMs)` + tick을 더해 두 출력을 합쳐 반환. 헬퍼 밖 scan 직후 inferred 단언 테스트(예: base :1656, :1679, :1575)에는 확정용 `advance`/`tick`만 추가. 단언 내용(kind·paths·sessionId·개수·`scans` 수) 불변. 바꾼 테스트 목록 보고.
+  - [x] `docs/harness-operation.md` :144 Shell detection 행 끝에 영어 문장 추가(제안): "Unclaimed shell changes wait about 2 seconds before display so a late tool event can replace them; the inferred owner is the most recent session that ran a shell command in that window, otherwise the most recently active session." 한글 금지.
+  - [x] GREEN: 관련 테스트 명령 통과(새 실패 없음).
+  - [x] `node scripts/update-manifest.mjs`: `lib/watch/watcher.mjs`, `lib/watch/model.mjs` 해시만 변경(`docs/harness-operation.md`는 manifest 대상 아님, 확인됨). 다르면 hold.
+  - [x] 커밋(Orchestrator, 수락 뒤): `fix(watch): 셸 변경을 잠시 보류해 늦은 명시 이벤트와 중복을 없애고 셸 명령 세션에 우선 귀속`
 - 관련 테스트와 이유
   - `tests/node/watch-watcher.test.mjs`: 유예·확정·순변경·command 우선, 귀속 타이밍 회귀(WD10).
   - `tests/node/watch-cli.test.mjs`: `WATCH_LIMITS` import, 문서 한글 금지 검사(WD13) 위치 확인.
@@ -152,9 +154,9 @@
 - 수락 기준: WD1, WD2, WD6, WD7, WD10, WD11, WD12, WD13, WD14 (WD5 회귀 유지)
 - 보류 조건: 기존 테스트의 타이밍 외 단언 변경 필요; `shellConfirmMs`≠2000 필요; confirm의 git 호출 필요; 플랫폼 id 분기 필요; 확정 시 후보 부재 등 새 제품 결정; tui/consumer 변경 필요.
 - 자체 검토
-  - [ ] scan tick에서 inferred가 나오지 않고 confirm tick은 git 0회.
-  - [ ] `lastCommandAt`이 줄마다 보존되고 candidates 비움과 함께 사라진다.
-  - [ ] JSON 필드 집합 불변, 문서 영어 전용.
+  - [x] scan tick에서 inferred가 나오지 않고 confirm tick은 git 0회.
+  - [x] `lastCommandAt`이 줄마다 보존되고 candidates 비움과 함께 사라진다.
+  - [x] JSON 필드 집합 불변, 문서 영어 전용.
 
 ## 최종 검증 (T1·T2 수락·커밋 뒤, fresh QA 1회)
 
@@ -164,6 +166,13 @@
 3. (c) 재변경 파일(`lib/watch/watcher.mjs`, `tests/node/watch-watcher.test.mjs`, `MANIFEST.sha256`) 재확인: 최종 HEAD에서 `node --test tests/node/watch-*.test.mjs` 1회 + `lib/watch/`를 import하는 다른 테스트(grep).
 4. 전체 회귀 잠정 판정: 실행하지 않음. 근거: 변경이 `lib/watch` 내부 동작·테스트·문서 한 행·MANIFEST에 한정, 공유 생성기·runtime 설치 경로·설정·공개 JSON 필드 불변, base 이후 merge 없음 예상. 트리거: diff가 범위 밖, MANIFEST 변경이 예상 밖, (b) runtime-assets/parity 실패, QA 판단 불가 → 전체 회귀 1회 후 base 실패 목록과 비교(새 실패 없음 기준, 의심 테스트 단독 1회 재실행).
 5. final Reviewer: 전 태스크 수락 뒤 base `f786e4a1`..HEAD 전체 변경 1회. 초점: claim 수명과 unconfirmed 상호작용, candidates 비움 시점, 순변경 계산, 플랫폼 중립, 내부 필드 비노출. 지적은 Implementer → Reviewer 재확인, 수락 뒤 후속 커밋 1개.
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-23 (사용자 플랜 승인, 커밋 cb1a9534 전) | initial | T1, T2 | 최초 승인 |
+| v2 | 2026-11-23T01:14:43Z | contract | T2 | T2 QA가 재현한 WD1·WD2 중복(보류 항목 삭제 시 claim 미저장) 해소를 위해 claim 저장 규칙 변경, 한계 L4 갱신·L5·L6 추가 |
 
 ## 위험·깊이 근거
 
