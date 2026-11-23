@@ -53,3 +53,52 @@ for (const platform of platforms) {
     });
   }
 }
+
+const commitGateContracts = [
+  {
+    name: 'Commit gate',
+    files: ['SKILL.md'],
+    phrase: "**Commit gate:** Before every `git commit`, Orchestrator inspects the staged paths and the exact message. A docs-only commit that modifies an existing spec or plan is made only to carry pending user-approved revisions with `Plan-Revision`/`Plan-Approved-At`/`Plan-Reason` trailers. Plan-level progress records (final verification results, final Reviewer verdicts and dispositions, completion status) NEVER justify a commit alone: when no implementation work remains they stay only in the canonical handoff record and the plan document stays unchanged. A final Reviewer finding on the plan or spec document itself is a plan revision that needs user approval before any edit. If the gate fails, do not commit; report to the user.",
+  },
+  {
+    name: 'staged commit gate',
+    files: ['references/commit.md'],
+    phrase: "Then apply the SKILL.md Commit gate to `git diff --cached --name-status` and the exact message file; hold the commit if it is docs-only, modifies an existing spec or plan and lacks a `Plan-Revision` trailer for each modified document.",
+  },
+  {
+    name: 'new commit recheck',
+    files: ['references/commit.md'],
+    phrase: "Recheck the new commit against the Commit gate with `git show --name-status --format=%B <sha>`.",
+  },
+  {
+    name: 'closing commit eligibility',
+    files: ['references/commit.md'],
+    phrase: "The closing commit exists only to carry pending user-approved spec/plan revisions: with no pending revision there is no closing commit, whatever plan-level progress records remain.",
+  },
+  {
+    name: 'plan or spec revision approval',
+    files: ['references/commit.md'],
+    phrase: "Changing plan or spec content other than progress records, including fixing its final verification section or wording after a final Reviewer finding, is a plan revision: obtain applicable user approval under [planning](planning.md#plan-updates-during-execution) before editing; until then record the finding and its disposition only in the canonical handoff record.",
+  },
+  {
+    name: 'plan commit range audit',
+    files: ['references/verification.md'],
+    phrase: "Before the overall completion report and any push, PR or merge authorization request, Orchestrator lists every commit in the plan's base..HEAD range with `git log --name-status --format='%h %s%n%(trailers:key=Plan-Revision)'` and confirms none is a docs-only commit modifying an existing spec or plan without `Plan-Revision` trailers; any such commit holds completion and is reported to the user.",
+  },
+  {
+    name: 'role policy commit gate',
+    files: ['references/commit.md', 'references/planning.md', 'references/handoff-prep.md', 'references/verification.md'],
+    phrase: "Before every commit Orchestrator applies the Commit gate; a docs-only commit modifying an existing spec or plan without Plan-Revision trailers for approved pending revisions is never made.",
+  },
+];
+
+for (const platform of platforms) {
+  for (const {name, files, phrase} of commitGateContracts) {
+    test(`${platform} includes the ${name} clause exactly once in each target`, () => {
+      for (const file of files) {
+        const content = readFileSync(new URL(`../../${platform}/skill/${file}`, import.meta.url), 'utf8');
+        assert.equal(content.split(phrase).length - 1, 1, file);
+      }
+    });
+  }
+}

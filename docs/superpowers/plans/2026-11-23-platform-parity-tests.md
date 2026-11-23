@@ -2,7 +2,7 @@
 
 > **For agentic workers:** ARC Orchestrator가 조정한다. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행한다. Implementer와 QA는 Git 상태를 바꾸지 않는다. 단계는 checkbox(`- [ ]`)로 추적한다.
 
-- 날짜: 2026-11-23 · 상태: v3 (사용자 승인 2026-11-23, T14 추가) · workflow: `2026-11-23-platform-parity`
+- 날짜: 2026-11-23 · 상태: v5 (사용자 승인 2026-11-23, T14 삽입 위치를 기존 계약 구간 밖으로, 마지막 task QA의 최종 범위 흡수 적용) · workflow: `2026-11-23-platform-parity`
 - 대상: managed worktree `.claude/worktrees/last-task-final-verification`, 브랜치 `feat/last-task-final-verification`, base: 이 계획 문서 커밋(첫 Implementer 전 `docs(plan)` 커밋)의 HEAD. 줄 번호는 `50d83c6323b3b1cdf0bfdfb1823faf792f8142df` 기준이며 그 뒤 변경은 이 계획 문서 커밋(`c81cc22`)과 T6 커밋(`0f3b9c8`)이다
 - 계획 경로: `docs/superpowers/plans/2026-11-23-platform-parity-tests.md`
 - 경로·위험: plan 필요, 별도 spec 없음(설계 승인으로 진행). 깊이 라벨은 Orchestrator 기록을 따른다(가정 A1). 위험은 significant로 본다. 공유 계약 테스트, Python 계약, installer-parity 원장 결합이 걸려 있고, T14는 4 플랫폼 지침과 role-policy 생성 산출물을 바꾼다.
@@ -627,14 +627,14 @@
 
 **목표·범위:** 4 플랫폼에 같은 영어 문구를 추가한다. 기존 고정 문장은 한 글자도 바꾸지 않는다(추가만). 기계적 검사는 넣지 않는다.
 
-1. `{platform}/skill/SKILL.md`: `**Pre-action gate record:**` 문단 바로 뒤에 새 문단:
+1. `{platform}/skill/SKILL.md`: `opening` 계약 구간이 끝나는 `Standalone document writing …` 문단 뒤, `Shared terms` 앵커 앞에 새 문단(v5):
    > **Commit gate:** Before every `git commit`, Orchestrator inspects the staged paths and the exact message. A docs-only commit that modifies an existing spec or plan is made only to carry pending user-approved revisions with `Plan-Revision`/`Plan-Approved-At`/`Plan-Reason` trailers. Plan-level progress records (final verification results, final Reviewer verdicts and dispositions, completion status) NEVER justify a commit alone: when no implementation work remains they stay only in the canonical handoff record and the plan document stays unchanged. A final Reviewer finding on the plan or spec document itself is a plan revision that needs user approval before any edit. If the gate fails, do not commit; report to the user.
 2. `{platform}/skill/references/commit.md`:
-   - 체크리스트 2번 끝: "Then apply the SKILL.md Commit gate to `git diff --cached --name-status` and the exact message file; hold the commit if it is docs-only, modifies an existing spec or plan and lacks a `Plan-Revision` trailer for each modified document."
-   - 체크리스트 3번 끝: "Recheck the new commit against the Commit gate with `git show --name-status --format=%B <sha>`."
+   - `Automatic commit after plan-task acceptance` 절의 마지막 문단(Conventional Commits) 뒤 새 문단 첫 문장(v5: 이 절 전체가 `instruction-layout` 계약 본문이라 절 안의 다른 위치는 계약을 깸): "Then apply the SKILL.md Commit gate to `git diff --cached --name-status` and the exact message file; hold the commit if it is docs-only, modifies an existing spec or plan and lacks a `Plan-Revision` trailer for each modified document."
+   - 같은 새 문단 둘째 문장: "Recheck the new commit against the Commit gate with `git show --name-status --format=%B <sha>`."
    - closing 커밋 문단(`Only when no implementation work remains before overall completion MAY …`) 맨 앞: "The closing commit exists only to carry pending user-approved spec/plan revisions: with no pending revision there is no closing commit, whatever plan-level progress records remain."
    - plan-level 진행 기록 문단 뒤: "Changing plan or spec content other than progress records, including fixing its final verification section or wording after a final Reviewer finding, is a plan revision: obtain applicable user approval under [planning](planning.md#plan-updates-during-execution) before editing; until then record the finding and its disposition only in the canonical handoff record."
-3. `{platform}/skill/references/verification.md` 완료 절의 plan-level 기록 확인 문장 뒤: "Before the overall completion report and any push, PR or merge authorization request, Orchestrator lists every commit in the plan's base..HEAD range with `git log --name-status --format='%h %s%n%(trailers:key=Plan-Revision)'` and confirms none is a docs-only commit modifying an existing spec or plan without `Plan-Revision` trailers; any such commit holds completion and is reported to the user."
+3. `{platform}/skill/references/verification.md` 완료 절의 plan-level 기록 확인 문장 쌍(`plan-level-records-contract`가 한 문자열로 검사하는 두 문장)이 끝난 뒤(v4): "Before the overall completion report and any push, PR or merge authorization request, Orchestrator lists every commit in the plan's base..HEAD range with `git log --name-status --format='%h %s%n%(trailers:key=Plan-Revision)'` and confirms none is a docs-only commit modifying an existing spec or plan without `Plan-Revision` trailers; any such commit holds completion and is reported to the user."
 4. `lib/policy/role-policy.json`의 `git.orchestrator-accept-commit` rule text 끝: "Before every commit Orchestrator applies the Commit gate; a docs-only commit modifying an existing spec or plan without Plan-Revision trailers for approved pending revisions is never made." rule ID·`operations`·`evidence`는 바꾸지 않는다. 산출물은 `node scripts/update-role-policy.mjs`로만 만든다.
 
 정확한 삽입 위치(줄·anchor)는 Step 0에서 4 플랫폼 각각 확정한다. 플랫폼별 기존 문장 차이(예: codex 줄 번호)가 있어도 새 문구 텍스트는 같다.
@@ -644,20 +644,20 @@
 **Files (allowedPaths):**
 - Modify `{claude,codex,gemini,grok}/skill/SKILL.md`, `{claude,codex,gemini,grok}/skill/references/commit.md`, `{claude,codex,gemini,grok}/skill/references/verification.md`
 - Modify `lib/policy/role-policy.json`, `update-role-policy.mjs`가 다시 만드는 산출물(Orchestrator가 Step 0 결과로 정확한 목록을 확정해 brief에 적는다)
-- Modify `tests/node/plan-level-records-contract.test.mjs`, `tests/node/fixtures/instruction-contracts.json`(protected hash·필요 시 크기 상한)
-- Regenerate only via tools: `MANIFEST.sha256`(`node scripts/update-manifest.mjs`), golden(`node tests/node/fixtures/installed-layout.mjs --diff`, 예상 diff 확인 뒤 `--write`)
+- Modify `tests/node/plan-level-records-contract.test.mjs`, `tests/node/fixtures/instruction-contracts.json`(protected hash·필요 시 크기 상한. v4: 기존 계약 본문 문자열은 바꾸지 않는다)
+- Regenerate only via tools: `MANIFEST.sha256`(`node scripts/update-manifest.mjs`), 런타임 복제본 `shared/skill/runtime/role-policy.json`(`node scripts/update-runtime-assets.mjs`, v4), golden(`node tests/node/fixtures/installed-layout.mjs --diff`, 예상 diff 확인 뒤 `--write`)
 - 수정 금지: `tests/test_harness_contract.py`(T5), `tests/node/role-policy.test.mjs`(T1), 설치본(`~/.claude` 등)
 
-- [ ] **Step 0:** 공통 Step 0. 추가로 4 플랫폼 삽입 위치, `update-role-policy.mjs`의 예상 대상 파일 목록(managed 구역·agent 프로필 투영 여부), fixture 크기 상한과 protected 항목, 기존 고정 문장 계약(`plan-level-records-contract`, `test_harness_contract.py:48`, `:90–117`)을 확인해 기록한다.
-- [ ] **Step 1 (RED):** `plan-level-records-contract.test.mjs`에 새 문장(SKILL.md gate, commit.md 4문장, verification.md 1문장, role-policy 1문장)을 추가하고 4 플랫폼에서 각각 정확히 한 번 나오는지 단언한다. 실행해 실패를 기록한다.
-- [ ] **Step 2:** SKILL.md 4개에 Commit gate를 넣는다.
-- [ ] **Step 3:** commit.md 4개에 4문장을 넣는다.
-- [ ] **Step 4:** verification.md 4개에 범위 감사 문장을 넣는다.
-- [ ] **Step 5:** role-policy rule text에 문장을 덧붙이고 `node scripts/update-role-policy.mjs`, `npm run check:role-policy`를 실행한다.
-- [ ] **Step 6:** fixture(protected hash, 필요 시 크기 상한)와 MANIFEST·golden을 도구로 다시 만든다. 상한을 올려야 하면 값과 이유를 보고한다. `node scripts/update-runtime-assets.mjs --check`를 확인한다.
-- [ ] **Step 7:** 관련 테스트와 check를 실행한다.
-- [ ] **Step 8:** 공통 종료.
-- [ ] **Step 9: 커밋(Orchestrator, 수락 뒤, 새 Commit gate 적용):** `docs(skill): plan 기록 단독 커밋을 막는 Commit gate와 commit·verification 문구 추가`
+- [x] **Step 0:** 공통 Step 0. 추가로 4 플랫폼 삽입 위치, `update-role-policy.mjs`의 예상 대상 파일 목록(managed 구역·agent 프로필 투영 여부), fixture 크기 상한과 protected 항목, 기존 고정 문장 계약(`plan-level-records-contract`, `test_harness_contract.py:48`, `:90–117`)을 확인해 기록한다.
+- [x] **Step 1 (RED):** `plan-level-records-contract.test.mjs`에 새 문장(SKILL.md gate, commit.md 4문장, verification.md 1문장, role-policy 1문장)을 추가하고 4 플랫폼에서 각각 정확히 한 번 나오는지 단언한다. 실행해 실패를 기록한다.
+- [x] **Step 2:** SKILL.md 4개에 Commit gate를 넣는다.
+- [x] **Step 3:** commit.md 4개에 4문장을 넣는다.
+- [x] **Step 4:** verification.md 4개에 범위 감사 문장을 넣는다.
+- [x] **Step 5:** role-policy rule text에 문장을 덧붙이고 `node scripts/update-role-policy.mjs`, `npm run check:role-policy`를 실행한다.
+- [x] **Step 6:** fixture(protected hash, 필요 시 크기 상한)와 MANIFEST·golden을 도구로 다시 만든다. 상한을 올려야 하면 값과 이유를 보고한다. `shared/skill/runtime/role-policy.json` 등 런타임 복제본은 `node scripts/update-runtime-assets.mjs`(쓰기)로만 다시 만들고 `--check`로 확인한다(v4).
+- [x] **Step 7:** 관련 테스트와 check를 실행한다.
+- [x] **Step 8:** 공통 종료.
+- [x] **Step 9: 커밋(Orchestrator, 수락 뒤, 새 Commit gate 적용):** `docs(skill): plan 기록 단독 커밋을 막는 Commit gate와 commit·verification 문구 추가`
 
 **수용 기준:** 새 문구가 4 플랫폼에 같은 텍스트로 각각 한 번씩만 있다. 기존 고정 문장 계약(`plan-level-records-contract` 기존 항목, `test_harness_contract.py`)이 수정 없이 통과한다. `check:role-policy`·`check:manifest`·`update-runtime-assets --check`가 통과한다. 링크·anchor가 유효하다. 제품 텍스트는 영어다. 설치본은 바뀌지 않았다. 신규 실패와 단언 약화가 없다.
 
@@ -669,7 +669,11 @@
 
 **Hold:** 기존 고정 문장을 바꿔야 하는 경우, fixture 크기 상한 초과, T1·T5 소유 파일 수정 필요, 생성기가 예상 밖 파일을 바꾸는 경우
 
-**진행 기록 (T14):** 미기록
+**진행 기록 (T14):** 2026-11-23 수락. Implementer `268bb62f`(v5). 앞선 `2fc5ed76`(v3), `cdf3f46f`(v4)는 Step 0 hold·편집 없음, 승인된 계획 개정(v4, v5)으로 교체.
+- 네 플랫폼 동일 영어 문구: `SKILL.md` Commit gate(`Standalone document writing` 문단 뒤), `commit.md` 4문장(해당 절 마지막 문단 뒤 새 문단, 진행 기록 문단 뒤, closing 문단 앞), `verification.md` 범위 감사(확인 문장 쌍 뒤), `lib/policy/role-policy.json` `git.orchestrator-accept-commit` 문장 추가. 기존 고정 문장 바이트 불변.
+- 생성물: 정책 관리 구간 16개(플랫폼별 commit·verification·planning·handoff-prep), 에이전트 프로필 0개, `shared/skill/runtime/role-policy.json`(`update-runtime-assets.mjs`), `MANIFEST.sha256`, golden(16 조합 × 6파일 해시). fixture는 protected hash 2개만 갱신, 크기 상한 불변.
+- `plan-level-records-contract` 24 → 52(RED 28 실패 후 통과). 음성 확인: grok 문구 변경 시 해당 계약 1건 실패.
+- 마지막 task QA(`a3315f0b`, final scope): task 수락, final-scope 통과. 계약 테스트·check 전부 통과(`--complete`는 base `50d83c63`과 같은 `consumer.test.mjs` 3건에서 조기 종료). 범위 감사 통과. 전체 회귀 trigger (1) 해당: 호스트 Node 3717/3680 pass/22 fail(base 이름 동일)/15 skip, Python 242 실행 failures=486 errors=6(`git archive 50d83c63` 실행과 이름 동일). sandbox 바이트코드 차단 41건·후보 2건은 호스트에서 통과.
 
 ---
 
@@ -725,7 +729,7 @@
 
 ## 최종 검증(모든 task 수락·커밋 뒤)
 
-**범위·시점:** 마지막 task 커밋 뒤 한 번 실행한다. 개별 task 수락을 늦추지 않는다. 설치된 규칙에 따라 마지막 task QA가 최종 범위를 흡수하거나, verified HEAD에서 fresh QA를 1회 실행한다.
+**범위·시점:** 한 번 실행한다. 개별 task 수락을 늦추지 않는다. v5(사용자 지시 "새 규칙을 이번 세션에 적용해"): 이 브랜치의 새 규칙대로 T14 QA가 마지막 task QA로서 최종 범위를 흡수한다. Orchestrator는 다른 task가 모두 수락·커밋된 뒤 T14 QA brief에 final scope를 지정하고 시작 HEAD를 기록한다. T14 QA는 task 관련 테스트, 아래 1–3, 트리거 시 full regression 1회를 실행하고 task verdict와 final-scope verdict를 따로 낸다. T14 커밋 뒤 트리가 QA가 검증한 상태와 같고(plan 기록·pending revision 행 제외) 뒤 커밋·통합이 없으면 별도 fresh QA 최종 검증은 생략한다. 아니면 verified HEAD에서 fresh QA를 1회 실행한다.
 
 1. **계약 테스트 전부**
    - `tests/node/test-scope-contract.test.mjs`, `tests/node/plan-level-records-contract.test.mjs`, `tests/node/run-mode-contract.test.mjs`, `tests/node/composite-instructions.test.mjs`, `tests/node/instruction-layout.test.mjs`, `tests/node/agent-fragments.test.mjs`, `tests/node/role-policy.test.mjs`, `tests/node/parity-check.test.mjs`
@@ -737,7 +741,7 @@
    - (v3) 범위 감사: `git log --name-status --format='%h %s%n%(trailers:key=Plan-Revision)' 50d83c63..HEAD`에 trailer 없이 기존 plan/spec만 바꾼 커밋이 없어야 한다.
 3. **재변경 파일 관련 테스트**
    - 설계상 task 간 파일 중첩은 없다. 예상 재변경 파일은 T14가 다시 만드는 MANIFEST·golden·`instruction-contracts.json`이며(F2 이후 재변경), 관련 테스트는 `manifest`, `installed-layout-golden`, `instruction-layout`, `composite-instructions`다(v3).
-   - Orchestrator가 목록을 계산하고 QA가 `git diff`로 대조한다.
+   - Orchestrator가 목록을 계산하고 QA가 `git diff`로 대조한다. v5: 마지막 task final scope에서는 앞선 task QA가 검증했고 T14 미커밋 diff(untracked 포함)가 바꾸는 파일도 포함한다.
 4. **전체 회귀 잠정 판정: 실행**
    - 트리거 1: 공유 계약 테스트(role-policy, parity-check, manifest)와 Python 계약 2파일이 바뀌고, 여러 테스트 파일에 걸친 변경이다(v3: T14가 4 플랫폼 지침·role-policy 산출물·payload·MANIFEST·golden을 바꾼다).
    - 트리거 2: 없음 예상(base 뒤 병합 없음).
@@ -786,6 +790,8 @@
 | v1 | 2026-11-23 (사용자 "승인") | initial | 전체 | 최초 계획 |
 | v2 | 2026-11-23 (사용자 "별도 계획으로 분리") | scope | T6, 전체 순서·최종 검증 | T6 Step 0에서 U3 스크립트 의존 Python 메서드 13개가 installer-parity 원장에 매핑되어 있음이 드러났다. U3를 별도 계획으로 분리하고, T6을 manifest 4 플랫폼 확장만으로 줄였다. T6 선행 의존을 없앴고 최종 검증 트리거 1을 고쳤다. |
 | v3 | 2026-11-23 (사용자 "그냥 c81cc22252984529c446f0f4f94044f22d2b623e 커밋의 plan에 추가해", v3 개정안 "승인") | scope | T14 추가, Goal·Architecture·범위·Review Focus·파일 표·의존성·최종 검증 1–5·A2·D10, 머리말 base 문장 정정 | plan 수준 진행 기록만 담은 단독 docs(plan) 커밋(2dfdf9a, b37534d, 1971f59)이 반복되어, 4 플랫폼 Commit gate·commit.md·verification.md·role-policy 문구 강화(T14)를 추가했다. 기계적 검사는 사용자 결정으로 제외. |
+| v4 | 2026-11-23 (사용자 T14 수정안 "위치만 옮김") | scope | T14 항목 2·3, Files, Step 6 | T14 Step 0에서 체크리스트 2·3번 끝 삽입은 `instruction-layout`의 기존 계약 본문(`instruction-contracts.json`)을, verification.md 확인 문장 뒤 삽입은 `plan-level-records-contract`의 두 문장 연속 검사를 깨고, 런타임 복제본은 `update-runtime-assets.mjs` 쓰기 모드로만 갱신됨이 드러났다. 문구는 v3와 같고, commit.md 두 문장은 체크리스트 뒤 새 문단으로, verification.md 문장은 확인 문장 쌍 뒤로 옮기고, 런타임 생성 명령을 허용했다. |
+| v5 | 2026-11-23 (사용자 "새 규칙을 이번 세션에 적용해", T14 v5 개정안 "v5 승인") | scope | T14 항목 1·2, 최종 검증 범위·시점, 재변경 파일 | v4 Implementer(`cdf3f46f`) Step 0에서 SKILL.md `opening`과 commit.md `Automatic commit after plan-task acceptance` 계약이 문단 사이 삽입에 깨짐이 드러나 두 위치를 계약 구간 밖(opening 끝 문단 뒤, 해당 절 마지막 문단 뒤)으로 옮겼다. 문구 텍스트는 v3와 같다. 마지막 task QA의 최종 범위 흡수 규칙을 이 계획에 적용했다. |
 
 ## 자체 검토 체크리스트
 

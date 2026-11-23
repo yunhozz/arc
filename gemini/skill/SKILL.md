@@ -23,6 +23,8 @@ Follow user and project instructions. Orchestrator uses the current conversation
 
 Standalone document writing has no specialist auto-route. Design, spec, plan and brainstorming drafts are not standalone writing. For mixed research and document requests, assign only research explicitly to Scouter. Live operational inspection and cleanup are outside Scouter scope; this boundary assigns no owner.
 
+**Commit gate:** Before every `git commit`, Orchestrator inspects the staged paths and the exact message. A docs-only commit that modifies an existing spec or plan is made only to carry pending user-approved revisions with `Plan-Revision`/`Plan-Approved-At`/`Plan-Reason` trailers. Plan-level progress records (final verification results, final Reviewer verdicts and dispositions, completion status) NEVER justify a commit alone: when no implementation work remains they stay only in the canonical handoff record and the plan document stays unchanged. A final Reviewer finding on the plan or spec document itself is a plan revision that needs user approval before any edit. If the gate fails, do not commit; report to the user.
+
 <a id="shared-terms"></a>
 ## Shared terms
 
