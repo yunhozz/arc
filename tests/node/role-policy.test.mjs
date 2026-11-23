@@ -316,7 +316,7 @@ test('design and brainstorming hold repeated unmet criteria without progress', (
 });
 
 // H1/H2/H4: emitted role contracts must not lose bounded recovery or provenance.
-// Approved structural checks; consuming-agent behavior is verified separately by fresh QA.
+// Approved structural checks; consuming-agent behavior is verified separately by fresh Tester.
 test('bounded read recovery and provenance reach every role on both platforms', () => {
   for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
     const output = api.renderPolicySection(policy(), {platform, audience});
@@ -335,12 +335,12 @@ test('bounded read recovery and provenance reach every role on both platforms', 
   }
 });
 // H3: losing source/output identity must fail before a visual claim is accepted.
-test('visual evidence is carried from implementation to fresh QA', () => {
+test('visual evidence is carried from implementation to fresh Tester', () => {
   for (const platform of ['codex', 'claude']) for (const audience of ['implementer', 'tester']) {
     const output = api.renderPolicySection(policy(), {platform, audience});
     for (const required of [/approved visual source.*version.*approval.*access/i,
       /criterion IDs.*properties.*comparison method/i, /actual.output identity.*revision.*basis/i,
-      /pass.*mismatch.*unverified/, /fresh QA.*actual comparison/i,
+      /pass.*mismatch.*unverified/, /fresh Tester.*actual comparison/i,
       /revision.*unverified.*visible.*mismatch/i]) assert.match(output, required);
   }
 });

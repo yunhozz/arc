@@ -152,7 +152,7 @@ test('coordination references document every host and target route from current 
         assert.deepEqual(holds, ['arc_implementer', 'arc_tester']);
         assert.deepEqual(bridgeGateReasons({platform: target, role: 'arc_tester', hostPlatform: host}), ['permission_scope_unverified']);
         assert.equal(target, 'gemini');
-        return 'Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`)';
+        return 'Bridge, read roles only (GG1 `fail`; Implementer/Tester held as `permission_scope_unverified`)';
       });
       const row = document.split('\n').find(line => line.startsWith(`| \`${environment}\` |`));
       assert.deepEqual(row?.split('|').slice(2, 6).map(cell => cell.trim()), cells, `${label}: ${environment}`);
@@ -163,7 +163,7 @@ test('coordination references document every host and target route from current 
 test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bridge writing gates', async () => {
   for (const platform of platforms) {
     const body = section(await coordination(platform));
-    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/QA bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, allow rules for tools outside the safe list \(Bash, Read, Grep, Glob, WebFetch, WebSearch\), hooks, sandbox or defaultMode/, platform);
+    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/Tester bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, allow rules for tools outside the safe list \(Bash, Read, Grep, Glob, WebFetch, WebSearch\), hooks, sandbox or defaultMode/, platform);
     assert.match(body, /Gemini bridge `arc_implementer` and `arc_tester` are held as `permission_scope_unverified` while GG1 is `fail`/, platform);
     assert.match(body, /Grok bridge `arc_implementer` and `arc_tester` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/, platform);
     assert.match(body, /per-dispatch sandbox profile[^.]*GK1[^.]*\. [^.]*held as `permission_scope_unverified`[^.]*GK1/, platform);

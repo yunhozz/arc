@@ -17,7 +17,7 @@ const fastContracts = {
  'instruction fingerprint': [/Instruction fingerprint/, /resolved path/, /entire file bytes/, /same conversation context/, /HEAD.*manifest/, /new role.*actual instructions/],
  'task envelope': [/Task envelope/, /path.*outcome.*scope.*approval.*risk.*TDD.*verification.*refresh/s, /existing canonical handoff record.*inline scope record/, /eight.*brief.*order/],
  'target and evidence': [/target choice validity.*evidence validity/, /HEAD.*dirty.*do not invalidate/, /Revalidate only affected evidence/, /inaccessible.*hold/],
- 'execution boundaries': [/first direct edit.*Implementer.*TDD.*QA.*Reviewer.*acceptance.*commit/s]
+ 'execution boundaries': [/first direct edit.*Implementer.*TDD.*Tester.*Reviewer.*acceptance.*commit/s]
 };
 for (const platform of ['codex','claude']) for (const [contract,patterns] of Object.entries(fastContracts)) {
  test(`${platform} fast path preserves ${contract}`,()=>{
@@ -34,8 +34,8 @@ for (const platform of ['codex','claude']) for (const [contract,patterns] of Obj
 for (const platform of ['codex','claude']) {
  test(`${platform} applies existing gates only when triggered without adding new obligations`,()=>{
   const check=text=>{
-   assert.match(text,/[Ff]irst edit, target selection, TDD, role assignment, QA\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
-   assert.match(text,/fast path itself does not require untriggered role assignment, QA\/Reviewer, acceptance or commit/);
+   assert.match(text,/[Ff]irst edit, target selection, TDD, role assignment, Tester\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
+   assert.match(text,/fast path itself does not require untriggered role assignment, Tester\/Reviewer, acceptance or commit/);
   };
   const core=read(file(platform,'core'));
   check(core);
@@ -43,7 +43,7 @@ for (const platform of ['codex','claude']) {
   assert.throws(()=>check(core.replace('does not require untriggered','requires untriggered')));
   const handoff=fastSections(read(file(platform,'handoff')));
   assert.match(handoff,/existing triggers determine whether each gate applies/);
-  assert.match(handoff,/does not add untriggered role, QA\/Reviewer, acceptance or commit obligations/);
+  assert.match(handoff,/does not add untriggered role, Tester\/Reviewer, acceptance or commit obligations/);
  });
  test(`${platform} reuse requires the same absolute locator even when resolved paths match`,()=>{
   const check=text=>{

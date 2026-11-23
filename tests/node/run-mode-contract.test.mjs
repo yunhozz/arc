@@ -39,7 +39,7 @@ Applies only when the installed SKILL.md contains \`**Run mode:** Full Auto.\` a
 | Preservation-rule Git actions | unchanged | Still prohibited; stop and report |
 | Permission or sandbox approval | user | — |
 | Unknown slot or exhausted capacity | user | — |
-| Plan depth, local commit, QA, Reviewer, acceptance | unchanged | — |
+| Plan depth, local commit, Tester, Reviewer, acceptance | unchanged | — |
 
 Records:
 - Each auto decision: user-visible progress message \`auto-decided (Full Auto): <gate> → <choice>; reason; alternatives; evidence\`, plus the same entry in the canonical handoff record.

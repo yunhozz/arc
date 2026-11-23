@@ -220,7 +220,7 @@ test('prompt permissions use the opened file when its path becomes a symlink', a
   assert.equal(await fs.readFile(opened, 'utf8'), 'Private role instructions\n\n\nPrivate task brief');
 });
 
-test('AC-K6 Implementer/QA hold without spawning when GK1 fails', async t => {
+test('AC-K6 Implementer/Tester hold without spawning when GK1 fails', async t => {
   const f = await fixture(t, {}, false, failedWritingPolicy);
   for (const role of ['arc_implementer', 'arc_tester']) {
     const result = await f.prepare(role); assert.equal(result.decision, 'hold'); assert.ok(codes(result).includes('permission_scope_unverified'));
@@ -685,7 +685,7 @@ for (const failAfterSpawn of [false, true]) test(`E${failAfterSpawn ? 16 : 15} r
 });
 
 // Operational registry must retain the permission, host and resume boundaries after promotion.
-test('operational Grok Implementer and QA hold without leases when GK1 fails', async t => {
+test('operational Grok Implementer and Tester hold without leases when GK1 fails', async t => {
   const f = await fixture(t), context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
   const marker = path.join(f.base, 'version-commands');
   writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker});

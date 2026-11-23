@@ -22,7 +22,7 @@ Reserve before each call. Confirmed creation becomes a created/active ID. Releas
 
 Preserve the ledger across continuation, resume and compaction, and reconcile actual IDs before dispatch. NEVER reset lost counters to zero. Incomplete reconstruction holds creation and reports unknown budget; use a conservative upper bound only when records support it.
 
-Confirmed completion or termination frees active capacity. Exhaustion holds creation and reports remaining work/budget; it never waives QA/Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.
+Confirmed completion or termination frees active capacity. Exhaustion holds creation and reports remaining work/budget; it never waives Tester/Reviewer, role freshness, approval, ownership, dependency or same-file edit gates.
 
 Cumulative limits and scheduling are prompt policy, not hard runtime controls. Text tests prove package consistency, not live compliance/native support.
 Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.

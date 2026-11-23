@@ -176,7 +176,7 @@ if (process.env.ARC_LIVE_CLI_TESTS !== '1') {
     });
 
     // Host codex -> claude bridge. G2 escalation requires per-call user approval; prepare may still be blocked by the host sandbox.
-    // G1 keeps Claude bridge Implementer and QA held for unverified sandbox injection. No model is called in these cases.
+    // G1 keeps Claude bridge Implementer and Tester held for unverified sandbox injection. No model is called in these cases.
     const readOnlyOnClaude = roleOn('claude', ['arc_planner', 'arc_reviewer', 'arc_scouter']);
     test('host codex to claude bridge: read-only role is allowed, or host_sandbox_blocked inside a Codex sandbox', {skip: readOnlyOnClaude ? false : 'no read-only role is routed to claude in the active configuration', timeout: 5 * 60 * 1000}, async t => {
       t.after(cleanupDispatches); // also runs when node:test times the test out; the finally below covers normal and failing exits

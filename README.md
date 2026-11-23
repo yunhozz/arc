@@ -21,7 +21,7 @@ The Orchestrator in your conversation assigns work to specialists and accepts th
 | Scouter | Researches sources and explores the repository |
 | Planner | Drafts designs, specs, and plans |
 | Implementer | Makes assigned changes |
-| QA | Runs assigned verification |
+| Tester | Runs assigned verification |
 | Reviewer | Independently reviews changes |
 
 In **Standalone**, the Orchestrator and all five specialist roles run on the same platform.
@@ -132,7 +132,7 @@ Standalone is verified for all four platforms in the registry. For Mixed, check 
 
 | Platform | Host | As bridge target | Auth check |
 |---|---|---|---|
-| Claude | Yes | All roles. Implementer and QA are sandboxed (`G1`). | `claude auth status` |
+| Claude | Yes | All roles. Implementer and Tester are sandboxed (`G1`). | `claude auth status` |
 | Codex | Yes | All roles | `codex app-server` auth refresh (network) |
 | Gemini | Held (`GG2`) | Read roles. Write roles are held (`GG1`). | None (`unknown`, `auth unverified`) |
 | Grok | Yes | All roles. Write roles use a per-dispatch sandbox profile (`GK1`). | None (`unknown`, `auth unverified`) |

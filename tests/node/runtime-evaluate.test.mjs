@@ -21,7 +21,7 @@ test('self asserted role or approval cannot grant authority and docs commit gate
  assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');
  const b=setup('implementer','commit');b.r.role='orchestrator';b.r.approved=true;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'deny');
 });
-test('temporary QA output is scoped and acceptance Git external actions require evidence',()=>{
+test('temporary Tester output is scoped and acceptance Git external actions require evidence',()=>{
  const a=setup('tester','temporary-write');assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');a.s.assignments[0].temporary={paths:['/workspace/file'],cleanupOwner:'actor',expiresAt:'2030-01-01T00:00:00Z'};assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
  for(const op of ['accept','commit','push']){const b=setup('orchestrator',op);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');}
  for(const mode of ['small-task','no-plan']){const b=setup('orchestrator','assign-agent');b.s.mode=mode;b.r.descriptor={role:'implementer',actorRef:'new',taskId:'T1'};assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');}

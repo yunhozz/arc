@@ -137,7 +137,7 @@ const legacyExpectedPairs=JSON.parse(fs.readFileSync(new URL('../fixtures/qa-leg
 // E1: literal, independently recorded active values must survive real publication.
 for(const platform of ['codex','claude'])for(const version of [1,2])for(const active of ['economy','balanced','smart','custom']){
  if(version===1&&active==='custom')continue; // Existing v1 rejects custom; authority clarification pending.
- test(`QA E1 ${platform} v${version} ${active} upgrade preserves all active models and efforts`,async t=>{
+ test(`Tester E1 ${platform} v${version} ${active} upgrade preserves all active models and efforts`,async t=>{
   const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',old=seed(home,platform),modelPath=old.target.home+'/skills/arc/models.toml';
   const expected=Object.fromEntries(modelRoles.map((role,index)=>[role,{model:legacyExpectedPairs[platform][active][index][0],[field]:legacyExpectedPairs[platform][active][index][1]}]));
   let legacy=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8').replace('version = 1',`version = ${version}`).replace('preset = "balanced"',`preset = "${active}"`);

@@ -229,7 +229,7 @@ test('detectViolations on a repo with pre-existing dirty and untracked files', a
   assert.equal(outside.reason, 'permission_violation_observed'); assert.deepEqual(outside.changedPaths, ['docs/b.txt']);
   assert.equal((await run('arc_implementer', ['src/'], () => fs.writeFile(path.join(dir, 'untracked-new.txt'), 'x'))).reason, 'permission_violation_observed');
   assert.equal((await run('arc_implementer', ['src/'], () => fs.writeFile(path.join(dir, 'srcx.txt'), 'x'))).reason, 'permission_violation_observed');
-  // QA with empty or missing allowedPaths: any change is a violation
+  // Tester with empty or missing allowedPaths: any change is a violation
   assert.equal((await run('arc_tester', [], () => fs.writeFile(path.join(dir, 'tester.txt'), 'x'))).reason, 'permission_violation_observed');
   assert.equal((await run('arc_tester', undefined, () => fs.writeFile(path.join(dir, 'qa2.txt'), 'x'))).reason, 'permission_violation_observed');
   assert.equal((await run('arc_tester', [], async () => {})).reason, null);
@@ -480,7 +480,7 @@ test('snapshotWorktree returns null for an unknown NUL-delimited worktree attrib
 });
 
 test('snapshotWorktree preserves a newline path with a colliding directory name', async t => {
-  const {main, linked} = await makeLinkedRepo(t, 'linked\nlocked for QA');
+  const {main, linked} = await makeLinkedRepo(t, 'linked\nlocked for Tester');
   await fs.mkdir(path.join(path.dirname(main), 'linked'));
   const snap = await snapshotWorktree(main);
   assert.deepEqual(snap.worktreeBranches, {[main]: 'refs/heads/main', [linked]: 'refs/heads/other-wt'});
@@ -499,7 +499,7 @@ test('snapshotWorktree keeps the original prunable path and tolerates another wo
 });
 
 test('snapshotWorktree fallback rejects non-prunable paths that cannot resolve to a directory', async t => {
-  const {main, linked} = await makeLinkedRepo(t, 'linked\nlocked for QA');
+  const {main, linked} = await makeLinkedRepo(t, 'linked\nlocked for Tester');
   const truncated = path.join(path.dirname(linked), 'linked');
   await withWorktreeListOverride('legacy-invalid-path', args => {
     if (args.includes('-z')) throw unsupportedWorktreeListZ();

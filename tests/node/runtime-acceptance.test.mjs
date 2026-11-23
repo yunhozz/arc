@@ -68,7 +68,7 @@ test('durable acceptance and reconciliation update target only from verified obs
  assert.equal((await runCooperativeCommand({...args,command:'status'})).decision,'allow');
  assert.equal((await invoke('reconcile',{intentId:'r1',result})).decision,'hold');stored=JSON.parse(await fs.readFile(file));assert.equal(stored.commits.length,1);
 });
-test('historical QA for an observed committed task does not become an active pending-task failure',async()=>{
+test('historical Tester for an observed committed task does not become an active pending-task failure',async()=>{
  const {evaluateCooperative}=await import('../../lib/runtime/evaluate.mjs'),{cooperativeVersions}=await import('../../lib/runtime/bootstrap.mjs');
  const f=fixture();Object.assign(f.state,{workflowKind:'cooperative',contractVersion:1,schemaVersion:1,workflowId:'history',coverage:{enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false},versions:await cooperativeVersions()});
  for(const key of ['actors','selections','identities','leases','scopes','approvals','documents','requests','results','audit','targetHistory'])f.state[key]=[];f.state.records[0].actor=f.request.actor;

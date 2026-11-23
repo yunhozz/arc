@@ -296,7 +296,7 @@ test('desktop environments hold environment_unverified until checklist passes', 
 });
 
 test('gate results hold only the affected role, platform and host', async t => {
-  // G1 fail: Claude bridge Implementer and QA hold, other Claude bridge roles allow.
+  // G1 fail: Claude bridge Implementer and Tester hold, other Claude bridge roles allow.
   const g1 = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_implementer: 'claude', arc_tester: 'claude', arc_planner: 'claude'}});
   await okClis(g1);
   const g1Policy = policyWith({gates: {G1: 'fail', G2: 'pass'}});
@@ -686,7 +686,7 @@ test('prepare allows a native Claude writing role and a Claude read bridge with 
   }
 });
 
-test('buildBridgeInvocation holds Claude QA run and resume when local settings contain hooks', async t => {
+test('buildBridgeInvocation holds Claude Tester run and resume when local settings contain hooks', async t => {
   const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_tester: 'claude'}});
   await fs.mkdir(path.join(f.cwd, '.claude'));
   await fs.writeFile(path.join(f.cwd, '.claude/settings.local.json'), '{"hooks":{}}');

@@ -888,7 +888,7 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 | T2 | 수용(2026-11-23) | (이 commit) | Implementer 3c40cb55, QA bb2dfa67. C1~C3 proven, 관련 테스트 672 통과·0 실패. sandbox에서 건너뛴 `processStartTime uses real ps lstart`는 Orchestrator host 실행에서 통과해 C4 proven |
 | T3 | 수용(2026-11-23) | (이 commit) | Implementer 15e2f1fb, QA 937587d7. C1~C8 proven, 관련 테스트 266 통과·0 실패, check 4개 통과, schemaVersion 1 유지. sandbox EPERM으로 막힌 runtime-cli는 Orchestrator host 실행에서 12/12 통과. 실 Git 통합(`ARC_RUN_GIT_INTEGRATION=1`)은 32개 중 31 통과, 실패 1건 `cooperative CLI verifies exact approved document commit before durable assignment intent`는 base 코드에서도 같은 `cooperative.assignment-scope` hold로 실패(baseline) |
 | T4 | 수용(2026-11-24) | (이 commit) | plan v3(사용자 결정 "alias 판정+진행"). Implementer b2b9adba hold 종료(변경 없음, 활성 legacy composite 판정 불가 재현) → plan 개정으로 fresh Implementer 82441e7c, QA fa347e0f. C1~C5·C4a·C4b proven(4개 플랫폼 × 3동작). 구현 중 자체 해결: 최초 설치 rollback 빈 디렉터리 잔존(transaction 생성 디렉터리 정리), 공개 plan hash 8건 회귀(부재 legacy 후보 snapshot 제외). C6: check 4개 통과, 관련 테스트 527개 중 실패 1·skip 1 — `transaction.test.mjs` `Claude allowed external skill link…`는 Orchestrator host에서 base 코드도 동일 실패(baseline), `upgrade-harness` `source auto upgrade excludes the current worktree local wrapper`는 로컬 wrapper 부재로 skip(환경, base도 동일 조건, T4 동작과 무관; unverified 유지) |
-| T5 | 대기 | | |
+| T5 | 수용(2026-11-24) | (이 commit) | Implementer df4a5e2b(segment 1은 Codex usage limit로 실패·변경 없음, 사용자 "재개" 후 이어감), QA 7dc0504c. C1~C4·C6 proven. Orchestrator 범위 결정: REN-1이 요구하는 allowedPaths 내 원천 4개(`lib/installer/language.mjs`, `lib/runtime/{acceptance,verification,role-observe}.mjs`) 포함. 문장 결정: `independently QA/review your own work` → `perform Tester or Reviewer verification of your own work`(기존 `independently verify` 금지 계약과 충돌 회피, 의미 보존 — 최종 Reviewer 확인 대상). C5: QA 스크립트 오류로 미완료된 해시 대조를 Orchestrator가 결정론적 스크립트로 수행 — installed-layout-golden 75개 경로 양방향 불일치 0, instruction-contracts 직접 해시 일치·변경 원천 1:1, `agentProfileBaseline` 20개는 fragment 확장 해시로 `agent-fragments` 등 39/39 통과. Node 379/380(baseline `Codex existing root field edits…`), Python 375건 base signature 일치·HEAD 전용 0. REN-2 비어 있음 |
 | T6 | 대기 | | |
 | T7 | 대기 | | |
 | 최종 검증 | 대기 | | |
@@ -901,3 +901,175 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 | v1 | 2026-11-23 | Planner 첫 초안을 Orchestrator가 검토하고 결정(Q1~Q5)을 반영해 저장 |
 | v2 | 2026-11-23 | T1 hold 해소(사용자 결정): 연산 `qa` legacy alias를 T1에 추가하고 hold 조건에서 제외, 수용 기준 테스트 수 정정(Node 7 + 연산 alias 2 + Python 2). 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-23 |
 | v3 | 2026-11-24 | T4 hold 해소(사용자 결정 "alias 판정+진행"): 활성 legacy composite 판정 전용 alias, hash 일치 시 이전·불일치 시 보존+residual 후 진행, allowedPaths에 `lib/management/` 추가, 테스트 2개·수용 기준 1개 추가. 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-24 |
+
+**T5 기준(2026-11-24, QA 7dc0504c 전수 대조 proven):** 주 검색 163줄, 보조 검색 89줄, 파일·줄 기준 합집합 167줄. legacy 읽기·거부 코드 42줄, 그 테스트 98줄, legacy fixture 27줄, 3분류 밖 0줄. 이 표가 T1 표를 대체한다(줄 번호는 T5 시점).
+
+| 파일:줄 | 문자열 | 분류 | 사유 |
+|---|---|---|---|
+| `claude/skill/scripts/model_config.py:35` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `claude/skill/scripts/model_config.py:38` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `claude/skill/scripts/model_config.py:40` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `claude/skill/scripts/model_config.py:41` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `codex/skill/scripts/model_config.py:82` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `codex/skill/scripts/model_config.py:85` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `codex/skill/scripts/model_config.py:87` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `codex/skill/scripts/model_config.py:88` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 및 신규 스키마 입력 거부 |
+| `lib/installer/legacy-profiles.mjs:7` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 삭제 또는 잔존 판정에 사용하는 구 역할 식별자 |
+| `lib/models/config.mjs:6` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 모델 설정 키 읽기 |
+| `lib/platforms/formats/gemini-markdown.mjs:37` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 프로필 소유권 확인을 위한 legacy 이름 판별 |
+| `lib/platforms/formats/grok-markdown.mjs:38` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 프로필 소유권 확인을 위한 legacy 이름 판별 |
+| `lib/platforms/formats/markdown.mjs:9` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 프로필 소유권 확인을 위한 legacy 이름 판별 |
+| `lib/platforms/formats/toml.mjs:9` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 프로필 소유권 확인을 위한 legacy 이름 판별 |
+| `lib/runtime/cooperative-schema.mjs:9` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `lib/runtime/cooperative-schema.mjs:15` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `lib/runtime/cooperative-schema.mjs:16` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `lib/runtime/cooperative-schema.mjs:17` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `lib/runtime/cooperative-schema.mjs:18` | `_qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `lib/runtime/operations.mjs:6` | `qa` | legacy 읽기·거부 코드 | 저장된 구 연산 또는 역할의 읽기 alias |
+| `lib/runtime/operations.mjs:7` | `qa` | legacy 읽기·거부 코드 | 저장된 구 연산 또는 역할의 읽기 alias |
+| `lib/runtime/role-bridge.mjs:53` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 역할의 새 dispatch 또는 재개 거부와 사유 보고 |
+| `lib/runtime/role-dispatch-policy.mjs:85` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 역할의 새 dispatch 또는 재개 거부와 사유 보고 |
+| `lib/runtime/role-routing-config.mjs:4` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 routing 설정·레코드의 역할 읽기와 신규 입력 판별 |
+| `lib/runtime/role-routing-config.mjs:15` | `qa`, `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 routing 설정·레코드의 역할 읽기와 신규 입력 판별 |
+| `lib/runtime/role-routing-config.mjs:27` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 routing 설정·레코드의 역할 읽기와 신규 입력 판별 |
+| `lib/runtime/role-routing.mjs:233` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 역할의 새 dispatch 또는 재개 거부와 사유 보고 |
+| `lib/watch/labels.mjs:6` | `qa` | legacy 읽기·거부 코드 | 구 dispatch 역할을 읽어 현행 역할명으로 표시 |
+| `lib/watch/labels.mjs:7` | `qa` | legacy 읽기·거부 코드 | 구 dispatch 역할을 읽어 현행 역할명으로 표시 |
+| `shared/skill/runtime/cooperative-schema.mjs:9` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `shared/skill/runtime/cooperative-schema.mjs:15` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `shared/skill/runtime/cooperative-schema.mjs:16` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `shared/skill/runtime/cooperative-schema.mjs:17` | `qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `shared/skill/runtime/cooperative-schema.mjs:18` | `_qa` | legacy 읽기·거부 코드 | 구 cooperative actor 판별과 새 요청 거부 |
+| `shared/skill/runtime/operations.mjs:6` | `qa` | legacy 읽기·거부 코드 | 저장된 구 연산 또는 역할의 읽기 alias |
+| `shared/skill/runtime/operations.mjs:7` | `qa` | legacy 읽기·거부 코드 | 저장된 구 연산 또는 역할의 읽기 alias |
+| `shared/skill/runtime/role-bridge.mjs:53` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 역할의 새 dispatch 또는 재개 거부와 사유 보고 |
+| `shared/skill/runtime/role-dispatch-policy.mjs:85` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 역할의 새 dispatch 또는 재개 거부와 사유 보고 |
+| `shared/skill/runtime/role-routing-config.mjs:4` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 routing 설정·레코드의 역할 읽기와 신규 입력 판별 |
+| `shared/skill/runtime/role-routing-config.mjs:15` | `qa`, `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 routing 설정·레코드의 역할 읽기와 신규 입력 판별 |
+| `shared/skill/runtime/role-routing-config.mjs:27` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 routing 설정·레코드의 역할 읽기와 신규 입력 판별 |
+| `shared/skill/runtime/role-routing.mjs:233` | `arc_qa`, `_qa` | legacy 읽기·거부 코드 | 구 역할의 새 dispatch 또는 재개 거부와 사유 보고 |
+| `tests/fixtures/models-claude-v1.toml:42` | `arc_qa`, `_qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/models-claude-v1.toml:46` | `arc_qa`, `_qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/models-claude-v1.toml:50` | `arc_qa`, `_qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/models-codex-v1.toml:42` | `arc_qa`, `_qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/models-codex-v1.toml:46` | `arc_qa`, `_qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/models-codex-v1.toml:50` | `arc_qa`, `_qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/qa-legacy-model-values.json:6` | `qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/fixtures/qa-legacy-model-values.json:12` | `qa` | legacy fixture | 승인된 구 모델 설정과 구 모델값 원본 |
+| `tests/installer-parity.json:87` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키 읽기·거부 검증의 테스트 매핑 |
+| `tests/installer-parity.json:91` | `arc_qa` | 그 테스트 | 구 모델 키 읽기·거부 검증의 테스트 매핑 |
+| `tests/installer-parity.json:139` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키 읽기·거부 검증의 테스트 매핑 |
+| `tests/installer-parity.json:143` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키 읽기·거부 검증의 테스트 매핑 |
+| `tests/installer-parity.json:10124` | `arc_qa` | 그 테스트 | 구 모델 키 읽기·거부 검증의 테스트 매핑 |
+| `tests/installer-parity.json:10130` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키 읽기·거부 검증의 테스트 매핑 |
+| `tests/installer-parity.json:10569` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10809` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10813` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10849` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10863` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10867` | `QA` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10881` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10885` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:10895` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11043` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11047` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11051` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11055` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11189` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11683` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11687` | `qa`, `qa.` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11691` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:11699` | `qa` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/installer-parity.json:14020` | `arc-qa`, `qa.` | legacy fixture | check-installer-parity가 해시로 보호하는 과거 테스트 assertion 원문 |
+| `tests/node/legacy-profile-cleanup.test.mjs:45` | `arc_qa`, `arc-qa`, `_qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:47` | `arc-qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:62` | `arc_qa`, `_qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:68` | `qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:71` | `qa`, `_qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:79` | `arc_qa`, `_qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:114` | `qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:155` | `arc_qa`, `_qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/legacy-profile-cleanup.test.mjs:157` | `arc_qa`, `_qa` | 그 테스트 | 구 프로필 설치·업그레이드의 소유권·정리 검증 |
+| `tests/node/models.test.mjs:14` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/models.test.mjs:21` | `qa`, `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/models.test.mjs:23` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/models.test.mjs:29` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/models.test.mjs:30` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/models.test.mjs:33` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/models.test.mjs:44` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 키의 값 보존과 신규 스키마에서의 거부 검증 |
+| `tests/node/role-bridge-resume.test.mjs:97` | `arc_qa`, `_qa` | 그 테스트 | 구 역할 dispatch 재개 거부 검증 |
+| `tests/node/role-bridge-resume.test.mjs:98` | `qa` | 그 테스트 | 구 역할 dispatch 재개 거부 검증 |
+| `tests/node/role-bridge-resume.test.mjs:99` | `arc_qa`, `_qa` | 그 테스트 | 구 역할 dispatch 재개 거부 검증 |
+| `tests/node/role-dispatch-policy.test.mjs:7` | `arc_qa`, `_qa` | 그 테스트 | 현행 dispatch 제한표에서 구 역할 키 배제 검증 |
+| `tests/node/role-routing-config.test.mjs:46` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:50` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:54` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:55` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:56` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:65` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:68` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:71` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:72` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-config.test.mjs:77` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 읽기·현행 직렬화·신규 스키마 거부 검증 |
+| `tests/node/role-routing-dispatch.test.mjs:35` | `arc_qa`, `qa`, `_qa` | 그 테스트 | 구 routing 레코드의 읽기와 새 dispatch·재개 거부 검증 |
+| `tests/node/role-routing-dispatch.test.mjs:62` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 레코드의 읽기와 새 dispatch·재개 거부 검증 |
+| `tests/node/role-routing-dispatch.test.mjs:495` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 레코드의 읽기와 새 dispatch·재개 거부 검증 |
+| `tests/node/role-routing-dispatch.test.mjs:506` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 레코드의 읽기와 새 dispatch·재개 거부 검증 |
+| `tests/node/role-routing-dispatch.test.mjs:514` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 레코드의 읽기와 새 dispatch·재개 거부 검증 |
+| `tests/node/role-routing-dispatch.test.mjs:518` | `arc_qa`, `_qa` | 그 테스트 | 구 routing 레코드의 읽기와 새 dispatch·재개 거부 검증 |
+| `tests/node/runtime-acceptance.test.mjs:23` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-acceptance.test.mjs:25` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-acceptance.test.mjs:27` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-acceptance.test.mjs:29` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-acceptance.test.mjs:32` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-acceptance.test.mjs:34` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-evaluate.test.mjs:39` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-evaluate.test.mjs:43` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-evaluate.test.mjs:44` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-evaluate.test.mjs:49` | `qa` | 그 테스트 | 저장된 구 신원·체크·recheck의 수용 읽기 호환 검증 |
+| `tests/node/runtime-schema.test.mjs:28` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:30` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:31` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:32` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:37` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:54` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:58` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-schema.test.mjs:65` | `qa` | 그 테스트 | 저장된 구 연산·체크 읽기 및 구 값 보존 검증 |
+| `tests/node/runtime-store.test.mjs:11` | `qa` | 그 테스트 | 새 구 연산 요청 거부와 저장 바이트 보존 검증 |
+| `tests/node/runtime-store.test.mjs:17` | `qa` | 그 테스트 | 새 구 연산 요청 거부와 저장 바이트 보존 검증 |
+| `tests/node/runtime-verification.test.mjs:22` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:24` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:30` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:31` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:33` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:36` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:42` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:45` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:49` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:51` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:73` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:74` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:78` | `_qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:88` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:90` | `_qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/runtime-verification.test.mjs:99` | `qa` | 그 테스트 | 구 검증 actor·intent·체크의 호환 읽기와 새 입력 거부 검증 |
+| `tests/node/upgrade-harness.test.mjs:136` | `qa` | 그 테스트 | 구 모델값 보존 검증의 fixture 참조 |
+| `tests/node/watch-dispatch.test.mjs:93` | `qa` | 그 테스트 | 구 역할이 있는 dispatch·label의 읽기 호환 검증 |
+| `tests/node/watch-labels.test.mjs:23` | `arc_qa`, `_qa` | 그 테스트 | 구 역할이 있는 dispatch·label의 읽기 호환 검증 |
+| `tests/node/watch-labels.test.mjs:24` | `arc-qa`, `qa` | 그 테스트 | 구 역할이 있는 dispatch·label의 읽기 호환 검증 |
+| `tests/qa_model_cases.py:14` | `qa` | 그 테스트 | 구 모델 fixture 로딩과 legacy 키 테스트 입력 구성 |
+| `tests/qa_model_cases.py:18` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 fixture 로딩과 legacy 키 테스트 입력 구성 |
+| `tests/qa_model_cases.py:22` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 fixture 로딩과 legacy 키 테스트 입력 구성 |
+| `tests/test_claude_payload.py:61` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:65` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:69` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:154` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:160` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:161` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:162` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:163` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:164` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_claude_payload.py:165` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_codex_models.py:80` | `arc_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_codex_models.py:83` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+| `tests/test_codex_models.py:90` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |

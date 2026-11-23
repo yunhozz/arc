@@ -262,7 +262,7 @@ test('missing host gate key is fail-closed in prepare without DEFAULT fallback',
   assert.equal((await f.cancel(fallback.dispatchId)).decision, 'allow');
 });
 
-test('default policy holds Gemini QA under GG1 and Grok Implementer under the Gemini host gate', async t => {
+test('default policy holds Gemini Tester under GG1 and Grok Implementer under the Gemini host gate', async t => {
   for (const {host, target, role, assignment} of [
     {host: 'grok', target: 'gemini', role: 'arc_tester'},
     {host: 'gemini', target: 'grok', role: 'arc_implementer', assignment: {allowedPaths: ['src/']}},

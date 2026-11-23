@@ -1,4 +1,4 @@
-"""Independent legacy model literals and real Python CLI evidence for I1 QA."""
+"""Independent legacy model literals and real Python CLI evidence for I1 Tester."""
 import json
 import os
 from pathlib import Path
