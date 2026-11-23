@@ -880,7 +880,7 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 | task | 상태 | commit | 비고 |
 |---|---|---|---|
 | T1 | 수용(2026-11-23) | (이 commit) | Implementer 3272105d(fresh, plan v2), QA 8d138f20. C1~C9 proven. 새 실패 18건 수정 후 resolved. Python 159개는 base와 실패 signature 일치(baseline). runtime-cli 3개는 bridge sandbox EPERM으로 차단됐으나 Orchestrator host 실행에서 12/12 통과. bridge 간헐 후보 1건은 단독 실행 통과(disposition: 이번 변경과 무관한 간헐). 환경 준비: build/native 복사(native 입력 base와 동일), base worktree `.git/arc/base/qa-mode-verification` |
-| T2 | 대기 | | |
+| T2 | 수용(2026-11-23) | (이 commit) | Implementer 3c40cb55, QA bb2dfa67. C1~C3 proven, 관련 테스트 672 통과·0 실패. sandbox에서 건너뛴 `processStartTime uses real ps lstart`는 Orchestrator host 실행에서 통과해 C4 proven |
 | T3 | 대기 | | |
 | T4 | 대기 | | |
 | T5 | 대기 | | |

@@ -1,6 +1,7 @@
 import {runtimeRegistryOf} from './platform-registry.mjs';
 
 export const ROUTING_ROLES = Object.freeze(['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer']);
+export const LEGACY_ROUTING_ROLES = Object.freeze({arc_qa: 'arc_tester'});
 export const ROUTING_CONFIG_VERSION = 3;
 const validText = value => typeof value === 'string' && value.length > 0 && value === value.trim() && !/[\p{Cc}\u2028\u2029]/u.test(value);
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
@@ -8,6 +9,12 @@ const v1Platforms = Object.freeze(['codex', 'claude']);
 const isV1Platforms = platforms => platforms.length === v1Platforms.length && v1Platforms.every((id, index) => platforms[index] === id);
 // Keep injected validation context out of the public config and serialized bytes.
 const configRegistries = new WeakMap();
+
+export function displayRoutingRole(role) {
+  if (ROUTING_ROLES.includes(role)) return role;
+  if (typeof role === 'string' && /^arc[_-](?:routing[_-])?qa$/.test(role)) return LEGACY_ROUTING_ROLES.arc_qa;
+  return null;
+}
 
 export function validRoleValues(platform, model, effort, {runtimePlatforms} = {}) {
   const registry = runtimeRegistryOf({runtimePlatforms});
@@ -19,7 +26,7 @@ export function validateRoleRoutingConfig(config, opts = {}) {
   let roles = config.roles;
   if (roles && typeof roles === 'object' && !Array.isArray(roles) && Object.hasOwn(roles, 'arc_qa')) {
     if (config.version === ROUTING_CONFIG_VERSION || Object.hasOwn(roles, 'arc_tester')) throw Error('Invalid role routing configuration');
-    roles = Object.fromEntries(Object.entries(roles).map(([role, fields]) => [role === 'arc_qa' ? 'arc_tester' : role, fields]));
+    roles = Object.fromEntries(Object.entries(roles).map(([role, fields]) => [Object.hasOwn(LEGACY_ROUTING_ROLES, role) ? LEGACY_ROUTING_ROLES[role] : role, fields]));
   }
   if (!exact(roles, ROUTING_ROLES)) throw Error('Invalid role routing configuration');
   const registry = runtimeRegistryOf(opts);

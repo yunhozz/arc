@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
-import {createRoutingFixture} from './role-fixtures.mjs';
+import {createRoutingFixture, legacyDispatchCases, legacyDispatchFixture} from './role-fixtures.mjs';
 import {psAvailable, realPs} from './fixtures/ps-stub.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {readLease, writeLease, cancelRequested, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
@@ -87,6 +87,38 @@ const transcript = f => ({path: path.join(f.claudeHome, 'projects/proj/sess-1.js
 const dirOf = (f, dispatchId) => path.join(f.cwd, '.git/arc/workflows/wf-1/dispatches', dispatchId);
 const mode = async file => (await fs.stat(file)).mode & 0o777;
 const flag = (argv, name) => argv[argv.indexOf(name) + 1];
+
+test('legacy dispatch resume holds with reason code', async t => {
+  const f = await legacyDispatchFixture(t);
+  for (const {hostPlatform, targetPlatform} of legacyDispatchCases) {
+    await t.test(hostPlatform, async () => {
+      const context = f.context({hostPlatform, executionEnvironment: hostPlatform + '-cli'});
+      for (const [role, route, target] of [
+        ['arc_qa', 'bridge', targetPlatform],
+        ['arc-routing-qa', 'bridge', targetPlatform],
+        ['arc_qa', 'native', hostPlatform],
+      ]) {
+        const dispatchId = [hostPlatform, role, route].join('-');
+        const directory = dirOf(f, dispatchId);
+        await fs.mkdir(directory, {recursive: true});
+        const file = await f.seed({hostPlatform, targetPlatform: target, role, route, dispatchId,
+          state: 'completed', sessionId: THREAD(12)});
+        const before = await fs.readFile(file);
+        let startCount = 0;
+        const result = await resumeRoleDispatch({context, dispatchId, brief: 'continue',
+          startSupervisor: async () => { startCount += 1; throw Error('Unexpected supervisor launch'); }});
+        assert.equal(startCount, 0);
+        assert.deepEqual(await fs.readdir(directory), []);
+        assert.deepEqual(await fs.readFile(file), before);
+        const lease = await readLease(f.claudeHome, dispatchId);
+        assert.equal(lease.segment, 0);
+        assert.equal(lease.child, null);
+        assert.equal(result.decision, 'hold', role);
+        assert.deepEqual(codes(result), ['legacy_role_resume_unsupported']);
+      }
+    });
+  }
+});
 
 test('resume segment uses arc_tester 60 minute timeout', async t => {
   const f = await setup(t, {roles: {arc_tester: 'codex'}});

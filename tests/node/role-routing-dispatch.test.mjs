@@ -3,12 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
-import {createRoutingFixture} from './role-fixtures.mjs';
+import {createRoutingFixture, legacyDispatchCases, legacyDispatchFixture} from './role-fixtures.mjs';
 import {BRIDGE_GATE_RESULTS, CLAUDE_SANDBOX_SETTINGS, DESKTOP_CHECKLIST_PASSED, DEFAULT_POLICY, bridgeGateReasons, reason} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing.mjs';
-import {cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
+import {cancelRoleDispatch, recordRoleObservation, runBridgeDispatch} from '../../lib/runtime/role-bridge.mjs';
 import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
+import {resolveWorktree} from '../../lib/runtime/role-observe.mjs';
+import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
+import {dispatchLabel} from '../../lib/watch/labels.mjs';
+import {renderHuman} from '../../lib/watch/render.mjs';
 
 const DAY = 86400000;
 const policyWith = (over = {}) => ({...DEFAULT_POLICY, probeTimeoutMs: 10000, lockRetryMs: 300, ...over, gates: {...DEFAULT_POLICY.gates, ...over.gates}});
@@ -21,6 +25,47 @@ const codes = result => result.reasons.map(reason => reason.code);
 const leaseCount = async f => { try { return (await fs.readdir(dispatchDirectory(f.claudeHome))).length; } catch (error) { if (error.code === 'ENOENT') return 0; throw error; } };
 const okClis = async (f, claudeVersion = '2.1.322 (Claude Code)', codexVersion = 'codex-cli 0.167.0') => { await f.cli('claude', {version: claudeVersion}); await f.cli('codex', {version: codexVersion}); };
 const skipRoot = t => process.getuid?.() === 0 && t.skip('root ignores directory permissions');
+
+test('legacy dispatch observe cancel and watch label', async t => {
+  const f = await legacyDispatchFixture(t);
+  const index = createDispatchIndex({storeDir: f.storeDir});
+  for (const {hostPlatform, targetPlatform, profileName} of legacyDispatchCases) {
+    await t.test(hostPlatform, async () => {
+      const context = f.context({hostPlatform, executionEnvironment: hostPlatform + '-cli'});
+      const records = [['arc_qa', 'old1'], ['arc-routing-qa', 'old2'], ['arc_tester', 'new1']];
+      for (const [role, prefix] of records) {
+        await f.seed({hostPlatform, targetPlatform, role, dispatchId: prefix + '-' + hostPlatform});
+      }
+      await index.scan({gitCommonDirs: []});
+      for (const [role, prefix] of records) {
+        const dispatchId = prefix + '-' + hostPlatform;
+        const observed = await recordRoleObservation({context, dispatchId});
+        const cancelled = await cancelRoleDispatch({context, dispatchId});
+        assert.equal(observed.decision, 'allow', role);
+        assert.equal(observed.routeStatus, 'reserved', role);
+        assert.equal(cancelled.decision, 'allow', role);
+        assert.equal(cancelled.routeStatus, 'cancelled', role);
+        assert.equal((await readLease(f.claudeHome, dispatchId)).role, role);
+        const ref = index.byId(dispatchId);
+        const label = dispatchLabel(ref.rawRole, dispatchId);
+        const rendered = renderHuman({kind: 'agent', role: ref.role, label, text: 'dispatch result'}, {width: 100, color: false});
+        assert.equal(label, 'tester@' + prefix, role);
+        assert.match(rendered, /\bTESTER\b/, role);
+        for (const output of [observed, cancelled]) {
+          assert.equal(output.role, 'arc_tester', role);
+          assert.equal(output.profileName, profileName, role);
+        }
+      }
+    });
+  }
+  const dispatchId = 'legacy-reserved';
+  const file = await f.seed({dispatchId, role: 'arc_qa', hostPlatform: 'claude', targetPlatform: 'codex'});
+  const before = await fs.readFile(file);
+  const result = await runBridgeDispatch({context: f.context(), dispatchId, brief: 'start',
+    startSupervisor: async () => assert.fail('legacy dispatch must not start a supervisor')});
+  assert.equal(result.decision, 'deny');
+  assert.deepEqual(await fs.readFile(file), before);
+});
 
 test('default bridge policy passes G1 and GK1, holds Desktop and requires per-call escalation for G2', () => {
   assert.deepEqual(BRIDGE_GATE_RESULTS, {G1: 'pass', G2: 'escalation', G3: 'pass', G4: 'pass', G5: 'wide', G6: 'strict', G7: 'pass', G8: 'pass', GG1: 'fail', GG2: 'fail', GK1: 'pass', GK2: 'approval'});
@@ -436,6 +481,44 @@ const runCli = (f, command, input, extraEnv = {}) => new Promise((resolve, rejec
   child.on('error', reject);
   child.on('close', code => { clearTimeout(timer); resolve({code, stdout, stderr, json: stdout.trim() ? JSON.parse(stdout.trim().split('\n').at(-1)) : null}); });
   child.stdin.end(JSON.stringify(input));
+});
+
+async function snapshotTree(directory) {
+  const snapshot = [];
+  for (const name of (await fs.readdir(directory)).sort()) {
+    const file = path.join(directory, name);
+    snapshot.push([name, (await fs.lstat(file)).isDirectory() ? await snapshotTree(file) : await fs.readFile(file)]);
+  }
+  return snapshot;
+}
+
+test('prepare-dispatch rejects arc_qa without writes', async t => {
+  const f = await legacyDispatchFixture(t);
+  const {gitCommonDir} = await resolveWorktree(f.cwd);
+  const workflows = path.join(gitCommonDir, 'arc', 'workflows');
+  const workflow = path.join(workflows, 'wf-1');
+  await fs.mkdir(workflow, {recursive: true});
+  await fs.writeFile(path.join(workflow, 'state.json'), '{"revision":"untouched"}\n');
+  const before = await snapshotTree(workflows);
+  const beforeLeases = await snapshotTree(f.storeDir);
+  for (const {hostPlatform} of legacyDispatchCases) {
+    await t.test(hostPlatform, async () => {
+      const input = {hostPlatform, executionEnvironment: hostPlatform + '-cli', role: 'arc_qa',
+        expectedRevision: f.revision, requestId: 'old-request', taskId: 'old-task'};
+      const {code, json, stderr} = await runCli(f, 'prepare-dispatch', input);
+      assert.deepEqual(await snapshotTree(workflows), before);
+      assert.deepEqual(await snapshotTree(f.storeDir), beforeLeases);
+      assert.equal(code, 2, stderr);
+      assert.equal(json.decision, 'deny');
+      assert.equal(json.dispatchId, null);
+      assert.deepEqual(codes(json), ['legacy_role_arc_qa']);
+    });
+  }
+  const dispatchId = 'legacy-store';
+  const file = await f.seed({dispatchId, role: 'arc_qa', hostPlatform: 'claude', targetPlatform: 'codex'});
+  const legacy = JSON.parse(await fs.readFile(file, 'utf8'));
+  await assert.rejects(createLease(f.claudeHome, {...legacy, dispatchId: 'new-lease'}), /legacy dispatch role/);
+  await assert.rejects(fs.access(path.join(f.storeDir, 'new-lease.json')), {code: 'ENOENT'});
 });
 
 test('installed cli.mjs maps allow/hold/deny to exit 0/3/2', async t => {

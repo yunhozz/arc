@@ -90,7 +90,7 @@ test('init infers Claude for legacy records but leaves a v2 lease without target
     homes.writeLease({dispatchId:id,version});
   }
   for (const id of ['v1','unversioned','v2','record-only']) {
-    artifacts(homes, gcd, id, {'record.json':{state:'running'},
+    artifacts(homes, gcd, id, {'record.json':{state:'running', role:'arc-routing-qa'},
       'events.jsonl':`{"kind":"init","sessionId":"${id}-session"}\n`});
   }
   await scan(index, [gcd]);
@@ -98,6 +98,7 @@ test('init infers Claude for legacy records but leaves a v2 lease without target
   assert.equal(index.byId('v2').childPlatform, null);
   assert.equal(index.bySession('v2-session'), index.byId('v2'));
   for (const id of ['v1','unversioned','record-only']) assert.equal(index.byId(id).childPlatform, 'claude', id);
+  assert.equal(index.byId('record-only').role, 'tester');
 });
 
 test('watch ignores malformed, mismatched and noncanonical markers', async t => {
