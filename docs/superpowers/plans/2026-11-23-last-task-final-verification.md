@@ -130,8 +130,8 @@
 
 **Produces (T2가 사용, T2는 변경하지 않음):** 용어 `last-task final scope`, `fresh QA final verification`, `[final plan Reviewer correction loop]`의 Orchestrator focused check 절차. 테스트 상수 `finalVerificationParagraph`, `lastTaskFinalScopeParagraph`, `correctionChecksParagraph`.
 
-- [ ] **Step 0:** 시작 `git status --porcelain` 기록, prerequisite 존재 확인(없으면 hold).
-- [ ] **Step 1: RED** `tests/node/test-scope-contract.test.mjs`
+- [x] **Step 0:** 시작 `git status --porcelain` 기록, prerequisite 존재 확인(없으면 hold).
+- [x] **Step 1: RED** `tests/node/test-scope-contract.test.mjs`
   - 바꿀 상수: `finalVerificationParagraph`=N1, `finalScopeSentence`=N1 첫 문장(`…task QA already passed.`까지), `finalFailureRule`=N1 마지막 문장, `fullRegressionParagraph`=N3 적용 전문, `baselineParagraph`=N4 적용 전문, `handoffBriefInputsParagraph`=N8 적용 전문
   - 새 상수: `lastTaskFinalScopeParagraph`=N2, `correctionChecksParagraph`=N5, `committedPlanCorrectionSentence`=N6 새 문장, `planningFinalTimingPhrase`=N9, `retiredReferencePhrases`=[`'A new failure from final verification follows'`, `'Final verification QA briefs also include'`, `'in the final QA brief'`, ``'final verification QA uses `git diff'``, `'Final whole verification has separate scope/timing'`]
   - `sectionPhrases`에 `'Last-task final scope'` 추가
@@ -142,13 +142,13 @@
   - 신규 `${platform} planning separates final timing unless the last task carries it`: planning.md에 N9 1회, test-scope 링크 1회
   - 신규 `${platform} references omit retired final verification sentences`: verification·handoff-prep·planning에 `retiredReferencePhrases` 없음
   - 실행: `node --test tests/node/test-scope-contract.test.mjs` → 바꾼·새 플랫폼별 테스트만 실패. 실패 이름 보고.
-- [ ] **Step 2:** 12개 문서를 "실제 대상 위치"대로 수정. 그 밖의 줄과 managed 구역은 바꾸지 않는다.
-- [ ] **Step 3: GREEN** 같은 명령 전부 PASS.
-- [ ] **Step 4: golden** `--diff` 기대: 정확히 48줄 `~`(16 레이아웃 × `skills/arc/references/{verification,handoff-prep,planning}.md`). 다르면 `--write` 전 hold. 같으면 `--write` 후 `--diff` 비었는지 확인.
-- [ ] **Step 5: MANIFEST** `node scripts/update-manifest.mjs` → 12항목 변경, 추가·삭제 없음.
-- [ ] **Step 6: digest** `node --test --test-name-pattern='preserves public rendering baseline' tests/node/plan.test.mjs`. 실패하면 키별 actual 값을 옮겨 재통과, 실패 없으면 편집하지 않음. 출력 발췌를 근거로 제출.
-- [ ] **Step 7:** 관련 테스트·check 실행. 종료 `git status --porcelain`에는 allowedPaths와 Orchestrator 소유 plan 문서만.
-- [ ] **Step 8: 커밋(Orchestrator, 수락 뒤):** `docs(verify): 마지막 task QA 최종 범위 흡수와 최종 수정 사전 점검 규칙 정의`
+- [x] **Step 2:** 12개 문서를 "실제 대상 위치"대로 수정. 그 밖의 줄과 managed 구역은 바꾸지 않는다.
+- [x] **Step 3: GREEN** 같은 명령 전부 PASS.
+- [x] **Step 4: golden** `--diff` 기대: 정확히 48줄 `~`(16 레이아웃 × `skills/arc/references/{verification,handoff-prep,planning}.md`). 다르면 `--write` 전 hold. 같으면 `--write` 후 `--diff` 비었는지 확인.
+- [x] **Step 5: MANIFEST** `node scripts/update-manifest.mjs` → 12항목 변경, 추가·삭제 없음.
+- [x] **Step 6: digest** `node --test --test-name-pattern='preserves public rendering baseline' tests/node/plan.test.mjs`. 실패하면 키별 actual 값을 옮겨 재통과, 실패 없으면 편집하지 않음. 출력 발췌를 근거로 제출.
+- [x] **Step 7:** 관련 테스트·check 실행. 종료 `git status --porcelain`에는 allowedPaths와 Orchestrator 소유 plan 문서만.
+- [x] **Step 8: 커밋(Orchestrator, 수락 뒤):** `docs(verify): 마지막 task QA 최종 범위 흡수와 최종 수정 사전 점검 규칙 정의`
 
 **수용 기준:**
 - A1 문서 쪽: 지정, 범위, 두 판정, skip (a)–(e), 동일 QA 재실행 예외, fallback, 재변경 정의 확장, 정적 분류 형식, 트리거 문구
@@ -163,6 +163,8 @@
 **필수 QA·증거:** fresh QA, 4 플랫폼 hunk 동일성(파일별 `git diff` 비교), golden 48줄 목록, MANIFEST 12항목, digest 근거, verification.md Baseline 절차에 따른 실패 판정
 
 **Hold:** golden·MANIFEST가 예상과 다를 때, 지정 밖 단언을 고쳐야 할 때, managed 구역이 바뀔 때, 문서 크기 한도 초과
+
+**진행 기록 (T1):** 2026-11-23 수락. Implementer(codex bridge) 15파일 변경, RED 32건(8 이름 × 4 플랫폼) → GREEN 117/117. fresh QA: C1–C7 proven, Node 관련 테스트 410/410, check 4종 통과, golden 48항목·MANIFEST 12항목, digest 8/8. Python 3파일 실패 493건(failures 487, errors 6)은 `eba2521` 아카이브와 이름별 대조로 baseline 356·unrelated 137, 신규 0.
 
 ---
 
