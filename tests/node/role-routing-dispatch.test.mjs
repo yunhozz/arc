@@ -32,12 +32,17 @@ test('legacy dispatch observe cancel and watch label', async t => {
   for (const {hostPlatform, targetPlatform, profileName} of legacyDispatchCases) {
     await t.test(hostPlatform, async () => {
       const context = f.context({hostPlatform, executionEnvironment: hostPlatform + '-cli'});
-      const records = [['arc_qa', 'old1'], ['arc-routing-qa', 'old2'], ['arc_tester', 'new1']];
+      const records = [
+        ['arc_qa', 'old1', targetPlatform === 'codex' ? 'arc_routing_qa' : 'arc-routing-qa'],
+        ['arc-routing-qa', 'old2', 'arc-routing-qa'],
+        ['arc_routing_qa', 'old3', 'arc_routing_qa'],
+        ['arc_tester', 'new1', profileName]
+      ];
       for (const [role, prefix] of records) {
         await f.seed({hostPlatform, targetPlatform, role, dispatchId: prefix + '-' + hostPlatform});
       }
       await index.scan({gitCommonDirs: []});
-      for (const [role, prefix] of records) {
+      for (const [role, prefix, expectedProfile] of records) {
         const dispatchId = prefix + '-' + hostPlatform;
         const observed = await recordRoleObservation({context, dispatchId});
         const cancelled = await cancelRoleDispatch({context, dispatchId});
@@ -53,7 +58,7 @@ test('legacy dispatch observe cancel and watch label', async t => {
         assert.match(rendered, /\bTESTER\b/, role);
         for (const output of [observed, cancelled]) {
           assert.equal(output.role, 'arc_tester', role);
-          assert.equal(output.profileName, profileName, role);
+          assert.equal(output.profileName, expectedProfile, role);
         }
       }
     });

@@ -36,17 +36,48 @@ test('Orchestrator acceptance and Git allow only exact observed registered evide
  const a=setup('orchestrator','accept');a.s.tasks[0].criteria=['criterion'];a.s.tasks[0].requiredChecks=['check'];a.s.identities.push({actorRef:'tester-agent',role:'tester',taskId:'T1',observationRef:'tester-obs'});a.s.checks=[{id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'tester-agent',resultRef:'obs'}];a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};fact(a,'acceptance',a.r.descriptor);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
  const b=setup('orchestrator','commit');b.s.acceptances=[{taskId:'T1',actorRef:'actor',fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]}];b.s.tasks[0].status='accepted';b.r.descriptor={fingerprint:'diff',parent:'head',indexTree:'tree',kind:'task',paths:['file']};fact(b,'git-index',b.r.descriptor);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'allow');b.e.facts[0].revision=9;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');
 });
-test('stored qa identity can attest a required check for acceptance',()=>{
+test('stored qa assignment and identity can attest a required check for acceptance',()=>{
  const a=setup('orchestrator','accept');
  a.s.tasks[0].criteria=['criterion'];
  a.s.tasks[0].requiredChecks=['check'];
  a.s.identities.push({actorRef:'qa-agent',role:'qa',taskId:'T1',observationRef:'qa-obs'});
+ a.s.assignments.push({actorRef:'qa-agent',taskId:'T1',role:'qa',paths:['/workspace/file'],operations:['check'],approvalRef:'approval'});
  a.s.checks.push({id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'qa-agent',resultRef:'obs'});
  a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};
  fact(a,'acceptance',a.r.descriptor);
  const decision=api.evaluate(policy,a.s,a.r,a.e);
  assert.equal(decision.decision,'allow',decision.reason);
  assert.equal(a.s.identities[1].role,'qa');
+});
+
+test('a new assignment request cannot use the legacy qa role',()=>{
+ const a=assign();
+ a.r.descriptor.role='qa';
+ const result=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(result.decision,'deny');
+ assert.deepEqual(result.ruleIds,['runtime.identity']);
+ assert.equal(result.proposedTransition,null);
+});
+
+test('a stored qa identity cannot authorize a new check',()=>{
+ const a=setup('qa','check');
+ a.r.descriptor={executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]};
+ a.s.assignments[0].checks=[a.r.descriptor];
+ const result=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(result.decision,'deny');
+ assert.deepEqual(result.ruleIds,['runtime.identity']);
+ assert.equal(result.proposedTransition,null);
+});
+
+test('a new tester check needs a current assignment role',()=>{
+ const a=setup('tester','check');
+ a.r.descriptor={executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]};
+ a.s.assignments[0].checks=[a.r.descriptor];
+ a.s.assignments[0].role='qa';
+ const result=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(result.decision,'hold');
+ assert.deepEqual(result.ruleIds,['runtime.assignment']);
+ assert.equal(result.proposedTransition,null);
 });
 test('first Implementer assignment needs complete document hashes approvals and docs-only Git fact',()=>{
  const a=assign();assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
@@ -71,6 +102,32 @@ function assign(){
  return a;
 }
 function observed(pending){return {actorRef:'spawned-agent',taskId:'T1',role:'implementer',platform:'codex',observationRef:'spawn-result',eventRef:'host-spawn-event',correlationRef:'platform-call',assignmentId:'request',paths:['/workspace/file'],operations:['read','write'],approvalRef:'approval',provenance:{source:'platform-event',eventRef:'host-spawn-event',actorRef:'spawned-agent',platform:'codex',correlationRef:'platform-call',verification:{status:'verified',verifierRef:'native-provider',sourceRef:'host-spawn-event'}}};}
+test('a canonical tester observation matches the original legacy identity and assignment',()=>{
+ const a=assign();
+ const pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;
+ const observation={...observed(),role:'tester',operations:['read']};
+ const assignment=pending.assignments.at(-1);
+ Object.assign(assignment,{role:'qa',actorRef:observation.actorRef,status:'active',operations:['read']});
+ pending.identities.push({actorRef:observation.actorRef,taskId:'T1',role:'qa',observationRef:observation.observationRef});
+ pending.leases.push({actorRef:observation.actorRef,taskId:'T1',status:'active'});
+ const result=identity.registerAgentObservation(pending,observation);
+ assert.equal(result.decision,'allow');
+ assert.equal(result.proposedTransition,null);
+ assert.equal(result.state.identities.at(-1).role,'qa');
+ assert.equal(result.state.assignments.at(-1).role,'qa');
+});
+test('a new tester observation cannot activate a pending legacy qa assignment',()=>{
+ const a=assign();
+ const pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;
+ Object.assign(pending.assignments.at(-1),{role:'qa',operations:['read']});
+ const before=structuredClone(pending);
+ const result=identity.registerAgentObservation(pending,{...observed(),role:'tester',operations:['read']});
+ assert.equal(result.decision,'hold');
+ assert.equal(result.reasonCode,'legacy_role_pending_assignment_unsupported');
+ assert.equal(result.proposedTransition,null);
+ assert.deepEqual(result.state,before);
+ assert.deepEqual(pending,before);
+});
 test('authorized assignment records pending only and matching host observation activates identity and lease',()=>{
  const a=assign();const decision=api.evaluate(policy,a.s,a.r,a.e);assert.equal(decision.decision,'allow');assert.ok(decision.proposedTransition);
  const pending=decision.proposedTransition.assignments.find(x=>x.assignmentId==='request');assert.equal(pending.status,'pending');assert.equal(pending.actorRef,null);assert.equal(decision.proposedTransition.identities.length,1);assert.equal(decision.proposedTransition.leases.length,1);

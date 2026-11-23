@@ -141,10 +141,17 @@ test('Codex Git escalation requires sandbox denial and stays limited to the exac
 });
 test('worktree handoff records use the same runtime write and inline fallback guidance on every platform',()=>{
  const expected=fixture.worktreeHandoffRecordGuidance;
- for(const platform of ['claude','codex','gemini','grok']) for(const name of ['handoff','git-recovery','worktree-creation']){
-  const document=file(platform,name);
-  assert.ok(read(document).split('\n').includes(expected),document);
+ const authorization=fixture.worktreeHandoffRecordAuthorization;
+ for(const platform of ['claude','codex','gemini','grok']){
+  for(const name of ['handoff','git-recovery','worktree-creation']){
+   const document=file(platform,name);
+   const paragraph=name==='handoff'?expected+' '+authorization:expected;
+   assert.ok(read(document).split('\n').includes(paragraph),document);
+  }
  }
+});
+test('Codex coordination uses the current Tester role in its task name example',()=>{
+ assert.match(read(file('codex','coordination')),/`tester_installer_checks`/);
 });
 test('profile models, permissions, canonical policy and CLI/runtime bytes are preserved',()=>{
  for(const[name,hash]of Object.entries(fixture.protected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),hash,name);

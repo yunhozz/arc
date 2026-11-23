@@ -30,3 +30,15 @@ export function normalizeStoredOperations(state) {
  if (approvals.some((entry, i) => entry !== state.approvals[i]) || assignments.some((entry, i) => entry !== state.assignments[i]) || audit.some((entry, i) => entry !== state.audit[i])) return {...state, approvals, assignments, audit};
  return state;
 }
+
+/** Writes may retain aliases on existing history, but must use current names for new records. */
+export function hasNewStoredOperationAliases(state, previous) {
+ const hasNewAlias = (operations, original) => Array.isArray(operations)
+  && operations.some((operation, index) => isLegacyOperation(operation) && operation !== original?.[index]);
+ const approvals = new Map(previous.approvals.map((entry, index) => [entry?.id ?? index, entry]));
+ const assignmentKey = (entry, index) => entry?.assignmentId ?? entry?.actorRef ?? entry?.intentId ?? index;
+ const assignments = new Map(previous.assignments.map((entry, index) => [assignmentKey(entry, index), entry]));
+ return state.approvals.some((entry, index) => hasNewAlias(entry?.scope?.operations, approvals.get(entry?.id ?? index)?.scope?.operations))
+  || state.assignments.some((entry, index) => hasNewAlias(entry?.operations, assignments.get(assignmentKey(entry, index))?.operations))
+  || state.audit.some((entry, index) => isLegacyOperation(entry?.operation) && entry.operation !== previous.audit[index]?.operation);
+}

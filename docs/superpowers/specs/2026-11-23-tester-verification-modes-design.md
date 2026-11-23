@@ -1,7 +1,7 @@
 # Tester 검증 모드와 전체 회귀 대체 — 설계 명세
 
 - 날짜: 2026-11-23
-- 상태: written spec v1.4 (2026-11-23 사용자 승인, v1.4 개정 2026-11-24 승인)
+- 상태: written spec v1.5 (2026-11-23 사용자 승인, v1.5 개정 2026-11-24 승인)
 - 깊이: Architectural (spec + plan)
 - 근거: 설계 승인(2026-11-23 사용자 "승인"), 실행 대상 결정 "새 worktree+브랜치"
 - 소스: `/Users/yunho/Desktop/project/arc`, `master`, HEAD `f786e4a1155287eff80d4abe56f7cebaf6598e3b` (clean)
@@ -372,13 +372,14 @@ AC: 테스트가 다음을 확인한다.
 **MIG-5 cooperative state**
 
 - 저장된 `qa`는 읽기 전용 legacy alias로 보고 `tester`와 같은 것으로 해석한다.
-  - 대상 기록: check·intent의 `verificationActor.role`, finding의 `recheckActor.role`, identity role
+  - 대상 기록: check·intent의 `verificationActor.role`, finding의 `recheckActor.role`, identity role, provider state `assignments[].role`(v1.5), cooperative state `actors[].role`·`records[].actor.role`(v1.5)
   - 적용 위치: 독립성 검사(`verification.mjs:30`), 최종 review 선행 조건(`verification.mjs:76`), acceptance(`acceptance.mjs:23,25`), evaluate(`evaluate.mjs:101`)
 - 새 기록은 `tester`로만 쓴다.
 - 새 요청에서 `actor.role: "qa"`가 오면 사유 코드와 함께 거부한다. 정규화해서 기록하지 않는다(D5와 일관).
 - runtime 연산명도 같은 방식으로 처리한다(2026-11-23 사용자 결정).
   - 저장된 연산 `qa`는 읽기 전용 legacy alias로 보고 `test`로 해석한다. 저장 위치: `approvals[].scope.operations`, `assignments[].operations`, `audit`
   - 새 기록은 `test`로만 쓴다.
+  - (v1.5) 읽기 시 정규화는 비교·검증에만 쓰고, 기존 기록을 다시 저장할 때 원본 값(`qa`)을 바꾸지 않는다. role alias도 같다.
   - 새 요청의 연산 `qa`는 거부한다.
   - 근거: `lib/runtime/schema.mjs:37`, `store.mjs:55`, `cooperative.mjs:184`. 기존 state가 이 enum으로 검증된다.
 - RuntimeHash drift는 기존대로 stale/hold이다. 자동 갱신·마이그레이션은 없다.
@@ -474,6 +475,7 @@ managed worktree에 진입한 세션(Claude `EnterWorktree`)에서 Write/Edit �
 - 재현: 2026-11-23, 이 작업의 worktree 진입 직후
 - 원인: sandbox나 OS 권한이 아니라 파일 도구의 worktree 격리 가드다.
 - 현행 지침에는 inline fallback만 있다(`git-recovery.md` "Handoff record write denial", `handoff.md`). 이를 Bash 등으로 우회하면 `scope.non-escalation` 위반이다.
+- (v1.5) HND-1 명령은 이 우회에 해당하지 않는다. 사용자가 승인한 공식 runtime 경로(Q3 (a))이고, 대상이 `<git-common-dir>/arc/handoff/<slug>.md`로 고정되며, 권한·sandbox를 바꾸지 않는다. 이 근거를 4개 플랫폼 문서의 해당 문단에도 한 문장으로 적는다.
 
 **HND-1 지원되는 기록 경로**
 
@@ -656,3 +658,4 @@ ARC는 worktree 세션에서도 canonical handoff 기록을 쓸 수 있는 공�
 | v1.2 | 2026-11-23 | Q2(uninstall 적용)·Q3(runtime 명령 신설) 결정 반영. 사용자 written-spec 승인("결정 반영 후 승인") |
 | v1.3 | 2026-11-23 | T1 hold(저장 연산 `qa`) 해소: MIG-5에 연산 legacy alias 추가(사용자 결정 "test로 변경+legacy 읽기") |
 | v1.4 | 2026-11-24 | T4 hold(활성 legacy composite 설치 판정 불가) 해소: MIG-4에 판정 전용 alias와 hash 일치·불일치 처리 추가(사용자 결정 "alias 판정+진행") |
+| v1.5 | 2026-11-24 | 최종 검증·최종 Reviewer 후속(사용자 결정): MIG-5 대상에 assignment·actors·records role 추가, 읽기 정규화의 원본 보존 명시, HND-1이 우회가 아닌 근거 명시 |

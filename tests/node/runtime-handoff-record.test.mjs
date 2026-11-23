@@ -64,6 +64,64 @@ test('rejects symlinked handoff directory', async t => {
   assert.deepEqual(await fs.readdir(outside), []);
 });
 
+test('reports an unsafe handoff link inside the common directory as a path check failure', async t => {
+  const {writeHandoffRecord} = await loadWriter();
+  const {cwd, arc, handoff} = await linkedWorktree(t);
+  const inside = path.join(arc, 'inside');
+  await fs.mkdir(inside, {recursive: true});
+  await fs.symlink(inside, handoff, 'junction');
+  const result = await writeHandoffRecord({cwd, slug: 'task', content: '# Record\n'});
+  assert.equal(result.decision, 'hold');
+  assert.equal(result.reasonCode, 'handoff_write_failed');
+  assert.equal(result.fallback, 'inline');
+  assert.match(result.message, /symlink/i);
+  assert.deepEqual(await fs.readdir(inside), []);
+});
+
+test('holds when the Git common directory has a symlinked ancestor', async t => {
+  const {writeHandoffRecord} = await loadWriter();
+  const {directory, cwd, arc} = await linkedWorktree(t);
+  const linkedRepo = path.join(directory, 'repo-link');
+  const ancestor = path.dirname(path.dirname(arc));
+  await fs.symlink(ancestor, linkedRepo, 'junction');
+  const lstat = fs.lstat;
+  // Git canonicalizes its output. Simulate the link appearing at the later filesystem inspection.
+  const stub = t.mock.method(fs, 'lstat', (filename, ...args) => lstat(filename === ancestor ? linkedRepo : filename, ...args));
+  const result = await writeHandoffRecord({cwd, slug: 'task', content: '# Record\n'});
+  stub.mock.restore();
+  assert.equal(result.decision, 'hold');
+  assert.equal(result.reasonCode, 'handoff_write_failed');
+  assert.equal(result.fallback, 'inline');
+  assert.ok(result.message.includes(ancestor));
+  assert.match(result.message, /symlink/i);
+  await assert.rejects(fs.lstat(arc), {code: 'ENOENT'});
+});
+
+test('a failed temporary file sync leaves the previous handoff and no temporary file', async t => {
+  const {writeHandoffRecord} = await loadWriter();
+  const {cwd, handoff} = await linkedWorktree(t);
+  const slug = 'task';
+  const filename = path.join(handoff, 'task.md');
+  const before = '# Original\n';
+  assert.equal((await writeHandoffRecord({cwd, slug, content: before})).decision, 'allow');
+  const open = fs.open;
+  const stub = t.mock.method(fs, 'open', async (...args) => {
+    const handle = await open(...args);
+    if (args[1] === 'wx' && path.dirname(args[0]) === handoff) {
+      handle.sync = async () => {throw Error('temporary sync failed');};
+    }
+    return handle;
+  });
+  const result = await writeHandoffRecord({cwd, slug, content: '# Replacement\n'});
+  stub.mock.restore();
+  assert.equal(result.decision, 'hold');
+  assert.equal(result.reasonCode, 'handoff_write_failed');
+  assert.equal(result.fallback, 'inline');
+  assert.match(result.message, /temporary sync failed/);
+  assert.equal(await fs.readFile(filename, 'utf8'), before);
+  assert.deepEqual(await fs.readdir(handoff), ['task.md']);
+});
+
 test('reports failure with inline fallback', async t => {
   const {writeHandoffRecord} = await loadWriter();
   const {cwd, arc} = await linkedWorktree(t);

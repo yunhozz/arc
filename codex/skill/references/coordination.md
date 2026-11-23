@@ -58,7 +58,7 @@ Return the complete first required draft and self-review from the verified sourc
 
 ## Context discipline and handoffs
 
-Only Orchestrator creates/assigns specialists. Every `spawn_agent` sets descriptive lowercase snake_case `task_name` as `<role>_<short_task>` (e.g. `planner_scope_review`, `qa_installer_checks`), never random/arbitrary. It identifies the run; `agent_type`/profile determine role/model.
+Only Orchestrator creates/assigns specialists. Every `spawn_agent` sets descriptive lowercase snake_case `task_name` as `<role>_<short_task>` (e.g. `planner_scope_review`, `tester_installer_checks`), never random/arbitrary. It identifies the run; `agent_type`/profile determine role/model.
 
 Use this fixed brief order:
 

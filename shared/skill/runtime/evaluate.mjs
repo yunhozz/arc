@@ -21,13 +21,14 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const within=(base,file)=>{const relative=path.relative(base,file);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative));};
 /** Pure policy decision. Evidence is supplied by a trusted adapter/provider, never tool arguments. */
 export function evaluate(policy, state, request, evidence){
+ const stored=state;
  const result=(decision,id,reason,requiredEvidence=[])=>({decision,ruleIds:[id],reason,requiredEvidence,expectedRevision:state?.revision??0,proposedTransition:null,coverage:{platform:request?.platform??'unknown',enforcement:'decision-only'}});
  try{state=validateWorkflowState(state);validateRequest(request);validateEvidence(evidence);}catch(error){return result('hold','runtime.schema',error.message,['valid-state-request-evidence']);}
  if(policy?.runtime?.schemaVersion!==1||!same(policy.runtime.roles,ROLES)||!Array.isArray(policy.runtime.ruleIds)||!Array.isArray(policy.runtime.requiredEvidence)||policy.runtime.status!=='decision-only')return result('hold','runtime.policy','runtime policy unavailable',['runtime-policy']);
  const actor=state.identities.find(i=>i.actorRef===request.actorRef);
  if(!actor)return result('hold','runtime.identity','platform identity unresolved',['platform-identity']);
  const role=actor.role;
- const roleRule={orchestrator:'role.orchestrator-boundary',scouter:'role.scouter-read-only',planner:'role.planner-draft-only',implementer:'role.implementer-implementation',tester:'role.tester-verification',reviewer:'role.reviewer-independent'}[role];
+ const roleRule={orchestrator:'role.orchestrator-boundary',scouter:'role.scouter-read-only',planner:'role.planner-draft-only',implementer:'role.implementer-implementation',tester:'role.tester-verification',reviewer:'role.reviewer-independent'}[role]??'runtime.identity';
  if(!ROLE_OPERATIONS[role]?.includes(request.operation))return result('deny',GIT_OPERATIONS.includes(request.operation)?'git.specialists-deny':roleRule,'operation forbidden for assigned role');
  const lease=state.leases.find(l=>l.actorRef===actor.actorRef);
  if(lease?.status==='retired')return result('deny','runtime.identity','retired identity');
@@ -82,7 +83,7 @@ export function evaluate(policy, state, request, evidence){
   if(d.checks&&(!Array.isArray(approval.scope.checks)||d.checks.some(c=>!approval.scope.checks.some(approved=>same(approved,c)))))return result('hold','runtime.assignment','delegated checks not approved',['delegated-checks']);
   if(d.temporary&&!same(d.temporary,approval.scope.temporary))return result('hold','runtime.assignment','delegated temporary scope not approved',['delegated-temporary-scope']);
   if(state.assignments.some(a=>a.assignmentId===request.requestId||a.correlationRef===d.correlationRef))return result('hold','runtime.identity','assignment correlation already registered',['new-assignment-correlation']);
-  const next=structuredClone(state);
+  const next=structuredClone(stored);
   if(d.role==='planner'){
    const stage=state.plannerLedger?.stages.find(s=>s.id===d.plannerCall?.stageId),proof=fact('planner-call');
    const contract=stage&&{document:stage.document,inputVersion:stage.inputVersion,criteriaVersion:stage.criteriaVersion,scopeVersion:stage.scopeVersion};

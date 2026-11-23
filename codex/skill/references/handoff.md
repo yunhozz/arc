@@ -76,7 +76,7 @@ Changed scope/workspace/repository/target/candidate needs fresh choice before de
 
 Maintain one accessible initial canonical record, not a separate service. Resolve `git rev-parse --path-format=absolute --git-common-dir`; write `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` with scope/version/identity/evidence. Use a unique dated-plan stem or no-plan spec/task slug; NEVER overwrite another record. It is outside working tree, shared by linked worktrees, not a Git mutation, never staged/committed, secret-free. Give every brief its absolute path; update task ID/SHA/state after accepted commits. NEVER delete automatically.
 
-In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.
+In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails. This user-approved ARC runtime command respects `scope.non-escalation` by writing only to `<git-common-dir>/arc/handoff/<slug>.md` and leaving permissions and sandbox settings unchanged.
 
 Unavailable/denied record writes require reason/full inline record in every Implementer brief, without deltas or record-file `unchanged`; inline satisfies accessibility.
 

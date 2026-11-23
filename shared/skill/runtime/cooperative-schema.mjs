@@ -1,4 +1,4 @@
-import {ROLES,isLegacyOperation,normalizeStoredOperations} from './operations.mjs';
+import {ROLES,canonicalCooperativeRole,hasNewStoredOperationAliases,isLegacyOperation,normalizeStoredOperations} from './operations.mjs';
 import {assertSecretFree} from './external.mjs';
 import {object,text,validatePlannerLedger} from './schema.mjs';
 import {absolute,validateWorkflowId} from './scope.mjs';
@@ -6,7 +6,7 @@ import {validateTargetPreparationRecord} from './target-preparation.mjs';
 const fail=message=>{throw Error('Cooperative schema: '+message);};
 const hash=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.test(value);
 const revision=value=>Number.isSafeInteger(value)&&value>=0;
-const actor=(value,recognizeLegacy=false)=>object(value)&&text(value.id)&&Object.keys(value).every(k=>['id','role'].includes(k))&&(value.role===undefined||ROLES.includes(value.role)||recognizeLegacy&&value.role==='qa');
+const actor=value=>object(value)&&text(value.id)&&Object.keys(value).every(k=>['id','role'].includes(k))&&(value.role===undefined||ROLES.includes(canonicalCooperativeRole(value.role)));
 const statement=value=>object(value)&&text(value.messageRef)&&object(value.data);
 function fields(value,allowed){if(!object(value)||Object.keys(value).some(k=>!allowed.includes(k)))fail('unexpected input field');}
 function json(value){try{const encoded=JSON.stringify(value);if(encoded===undefined)fail('JSON input');}catch{fail('JSON input');}}
@@ -25,7 +25,7 @@ export function validateCooperativeCommand(command){
  const allowed=name==='init'?['mode','actor','selection']:name==='record'?['requestId','expectedRevision','actor','evidence']:resultStatement?['requestId','expectedRevision','actor','intentId','result']:['requestId','expectedRevision','actor','operation','taskId','arguments'];
  fields(input,allowed);json(input);
  // Recognize this input shape so command entry points can return the role denial.
- if(!actor(input.actor,true))fail('actor attestation');
+ if(!actor(input.actor))fail('actor attestation');
  if(name==='init'){
   if(!['plan','no-plan','small-task'].includes(input.mode)||!object(input.selection)||!text(input.selection.messageRef)||!hash(input.selection.contentHash)||Object.keys(input.selection).some(k=>!['messageRef','contentHash'].includes(k)))fail('target selection');
   return command;
@@ -44,7 +44,7 @@ export function validateCooperativeCommand(command){
  if((name==='prepare'||name==='result'&&!resultStatement)&&(!text(input.operation)||isLegacyOperation(input.operation)))fail('operation');
  return command;
 }
-export function validateCooperativeState(state,{allowLegacyOperations=true}={}){
+export function validateCooperativeState(state,{allowLegacyOperations=true,preserveStoredOperations=false,legacyOperationsFrom}={}){
  if(!object(state)||state.workflowKind!=='cooperative'||state.contractVersion!==1||state.schemaVersion!==1||!revision(state.revision)||state.mode!=='plan')fail('explicit cooperative contract');
  validateWorkflowId(state.workflowId);
  if(!object(state.target)||!absolute(state.target.realpath)||!absolute(state.target.gitCommonDir)||!absolute(state.target.gitDir)||!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(state.target.head)||!(state.target.branch===null||text(state.target.branch)))fail('target');
@@ -70,6 +70,6 @@ export function validateCooperativeState(state,{allowLegacyOperations=true}={}){
  for(const document of documents){try{validateTargetPreparationRecord('destination',document);}catch{fail('target document');}if(document.sourceLink!=='operator-attested'||document.verification?.status!=='verified'||document.verification?.source!=='local-bytes'||!text(document.messageRef)||!transitions.some(t=>t.intentId===document.intentId&&t.messageRef===document.transitionRef&&t.targetVersion===document.targetVersion)||!state.records.some(r=>r.kind==='target-preparation'&&r.messageRef===document.messageRef&&r.source==='operator-attested'))fail('target document provenance');}
  assertSecretFree(state);json(state);
  const normalized=normalizeStoredOperations(state);
- if(!allowLegacyOperations&&normalized!==state)fail('legacy operation in new state');
- return normalized;
+ if(!allowLegacyOperations&&normalized!==state&&(!legacyOperationsFrom||hasNewStoredOperationAliases(state,legacyOperationsFrom)))fail('legacy operation in new state');
+ return preserveStoredOperations?state:normalized;
 }

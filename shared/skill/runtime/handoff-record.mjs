@@ -8,11 +8,12 @@ export async function writeHandoffRecord({cwd, slug, content}) {
     return {decision: 'deny', reasonCode: 'invalid_slug', message: 'Invalid handoff record slug.'};
   }
 
+  let gitCommonDir;
   let filename;
   let temporaryFile;
   try {
     if (typeof content !== 'string' || !content.length) throw Error('Expected nonempty handoff content.');
-    const {gitCommonDir} = await observeCooperativeTarget(cwd);
+    ({gitCommonDir} = await observeCooperativeTarget(cwd));
     const directory = path.join(gitCommonDir, 'arc', 'handoff');
     filename = path.join(directory, `${slug}.md`);
     if (!within(gitCommonDir, filename)) {
@@ -35,6 +36,7 @@ export async function writeHandoffRecord({cwd, slug, content}) {
     temporaryFile = candidate;
     try {
       await file.writeFile(content, 'utf8');
+      await file.sync();
     } finally {
       await file.close();
     }
@@ -42,10 +44,14 @@ export async function writeHandoffRecord({cwd, slug, content}) {
     temporaryFile = undefined;
     return {decision: 'allow', path: filename, created};
   } catch (error) {
-    if (filename && error.message === 'Unsafe symlink path') {
-      return {decision: 'deny', reasonCode: 'path_outside_common_dir', message: `Handoff record path must not use symbolic links: ${filename}`};
+    if (gitCommonDir && error.symlinkPath && within(gitCommonDir, error.symlinkPath)) {
+      const destination = await fs.readlink(error.symlinkPath).catch(() => null);
+      if (destination !== null && !within(gitCommonDir, path.resolve(path.dirname(error.symlinkPath), destination))) {
+        return {decision: 'deny', reasonCode: 'path_outside_common_dir', message: `Handoff record path must stay inside the Git common directory: ${filename}`};
+      }
     }
-    return {decision: 'hold', reasonCode: 'handoff_write_failed', message: filename ? `${filename}: ${error.message}` : error.message, fallback: 'inline'};
+    const failedPath = error.symlinkPath ?? filename;
+    return {decision: 'hold', reasonCode: 'handoff_write_failed', message: failedPath ? `${failedPath}: ${error.message}` : error.message, fallback: 'inline'};
   } finally {
     if (temporaryFile) await fs.rm(temporaryFile, {force: true}).catch(() => {});
   }

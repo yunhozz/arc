@@ -31,7 +31,9 @@ const displayRoleOf=lease=>displayRoutingRole(lease.role)??lease.role;
 function fromLease(lease,decision=['failed','unknown'].includes(lease.state)?'hold':'allow',runtimePlatforms=DEFAULT_PLATFORM_REGISTRY){
  const platform=leaseTargetPlatform(lease,runtimePlatforms);
  const role=displayRoleOf(lease);
- return {decision,routeStatus:lease.state,supportStatus:supportOf(lease),dispatchId:lease.dispatchId,route:lease.route,profileName:profileName(platform,role,{runtimePlatforms}),executionEnvironment:lease.executionEnvironment,hostPlatform:lease.hostPlatform,role,requested:{platform,model:lease.claims?.model?.requested??null,effort:lease.claims?.effort?.requested??null},authentication:null,cliVersion:null,claims:lease.claims,reasons:lease.reasons,resultPath:lease.resultPath};
+ const legacy=lease.role!==role;
+ const name=legacy&&/^arc[_-]routing[_-]/.test(lease.role)?lease.role:profileName(platform,legacy?'arc_qa':role,{runtimePlatforms});
+ return {decision,routeStatus:lease.state,supportStatus:supportOf(lease),dispatchId:lease.dispatchId,route:lease.route,profileName:name,executionEnvironment:lease.executionEnvironment,hostPlatform:lease.hostPlatform,role,requested:{platform,model:lease.claims?.model?.requested??null,effort:lease.claims?.effort?.requested??null},authentication:null,cliVersion:null,claims:lease.claims,reasons:lease.reasons,resultPath:lease.resultPath};
 }
 const residualOf=error=>Array.isArray(error?.residualPaths)?error.residualPaths:undefined;
 const hold=(context,dispatchId,code,error)=>{const result=blank(context,dispatchId,'hold',code);const residual=residualOf(error);if(residual)result.residualPaths=residual;return result;};
