@@ -353,7 +353,7 @@
         "required-qa"
       ],
       "authority": "orchestrator",
-      "text": "Significant/high-risk plan work follows Implementer → required fresh QA → Orchestrator acceptance and focused commit for each task. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is not a per-task or per-commit gate. Preserve required checks and necessary finding rechecks.",
+      "text": "Significant/high-risk plan work follows Implementer → required fresh QA → Orchestrator acceptance and focused commit for each task; the last task's QA may carry the final verification scope, otherwise one fresh QA runs final verification. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is not a per-task or per-commit gate. Preserve required checks and necessary finding rechecks.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt",
@@ -379,7 +379,7 @@
         "reviewer-findings"
       ],
       "authority": "orchestrator",
-      "text": "Complete required QA and QA failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without QA reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Separate QA findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck. Preserve required QA outside this final Reviewer exception.",
+      "text": "Complete required QA and QA failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without QA reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks. Before the commit, Orchestrator runs focused related checks only, without edits, on the Reviewer-resolved correction diff; a failure not shown unrelated returns as a correction finding to Implementer → Reviewer. Then accept and create one focused follow-up commit. Separate QA findings and new failures from a fresh QA final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck. Preserve required QA outside this final Reviewer exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt",

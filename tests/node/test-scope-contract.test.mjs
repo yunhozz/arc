@@ -25,10 +25,13 @@ const fullRegressionQaSentence = 'If either finds a trigger applies or cannot de
 const baseVerdictSentence = 'A failure under the same name at base is a baseline failure; a pass at base, or a test or file absent at base, makes it a new failure; a base run that was not performed, was blocked by the environment, failed to load or lacks the name makes it a new-failure candidate.';
 const finalFailureRule = "A new failure from that fresh QA final verification follows Implementer → QA even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.";
 const finalPlanRecheckId = 'review.final-plan-recheck';
-const finalPlanRecheckSentence = 'Separate QA findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck.';
+const finalPlanRecheckSentence = 'Separate QA findings and new failures from a fresh QA final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck.';
+const retiredFinalPlanRecheckSentence = 'Separate QA findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → QA; Reviewer evidence for affected files then needs a refreshed-diff recheck.';
+const correctionChecksPolicySentence = 'Before the commit, Orchestrator runs focused related checks only, without edits, on the Reviewer-resolved correction diff; a failure not shown unrelated returns as a correction finding to Implementer → Reviewer.';
+const significantPlanClause = "; the last task's QA may carry the final verification scope, otherwise one fresh QA runs final verification.";
 const oldFinalPlanRecheckSentence = 'Separate QA findings follow Implementer → QA.';
 const reviewerVerificationSentence = 'QA owns task and final functional/test verification; Orchestrator owns overall completion and acceptance.';
-const reviewerFindingsSentence = 'New failures from final verification follow Implementer → QA; affected evidence needs a refreshed-diff recheck.';
+const reviewerFindingsSentence = 'New failures from a fresh QA final verification follow Implementer → QA; affected evidence needs a refreshed-diff recheck. A failed Orchestrator focused check on a resolved correction diff returns as a correction finding for your recheck.';
 const oldReviewerVerificationPhrase = 'QA owns functional/test verification';
 const profileRoles = ['scouter', 'planner', 'implementer', 'qa', 'reviewer'];
 const wholePlanReviewerRule = 'Whole-plan Reviewer is part of final verification;';
@@ -41,6 +44,8 @@ const retiredPhrases = [
   'Orchestrator runs final verification',
   'In final verification list the union',
   "full regression only in Orchestrator's final verification",
+  'Separate QA findings and new failures from final verification, which',
+  'New failures from final verification follow Implementer → QA',
 ];
 const retiredReferencePhrases = [
   'A new failure from final verification follows',
@@ -94,9 +99,9 @@ const profileRules = {
   qa: [
     {
       lineStart: '1. Use the shared brief, criteria, Implementer summary and relevant prior findings. ',
-      rule: `Independently verify assigned behavior with related tests only: test files directly exercising changed modules, contract tests the change requires updating and matching check scripts; ${qaAdditionsRule} report each selection and reason. When assigned final verification, run all contract tests, all check scripts and the brief's re-changed-file tests at the verified HEAD, plus full regression once when the brief's provisional judgment or your own check of triggers (1), (3) and (4) finds one applies or cannot decide.`,
+      rule: `Independently verify assigned behavior with related tests only: test files directly exercising changed modules, contract tests the change requires updating and matching check scripts; ${qaAdditionsRule} report each selection and reason. When assigned final verification, run all contract tests, all check scripts and the brief's re-changed-file tests at the verified HEAD, plus full regression once when the brief's provisional judgment or your own check of triggers (1), (3) and (4) finds one applies or cannot decide. When assigned last-task final scope, run the same scope with the task's related tests on the uncommitted tree, record \`git status --porcelain\` at start and end, and report a task verdict and a final-scope verdict separately.`,
       after: ' Use approved structural/consistency checks for policy/configuration.',
-      phrases: ['with related tests only', qaAdditionsRule, "the brief's re-changed-file tests at the verified HEAD", 'your own check of triggers (1), (3) and (4)'],
+      phrases: ['with related tests only', qaAdditionsRule, "the brief's re-changed-file tests at the verified HEAD", 'your own check of triggers (1), (3) and (4)', 'a task verdict and a final-scope verdict'],
     },
     {
       lineStart: '5. Structural checks prove structural criteria only,',
@@ -118,7 +123,7 @@ const profileRules = {
     {
       lineStart: 'Return one complete plan draft covering all top-level tasks and dependencies;',
       before: 'required QA/focused checks/evidence before acceptance and holds. ',
-      rule: "List each task's related tests with reasons. In final verification list all contract tests and check scripts, expected cross-task file overlap that may need recheck, and a provisional full-regression trigger judgment with reason.",
+      rule: "List each task's related tests with reasons. In final verification list all contract tests and check scripts, expected cross-task file overlap that may need recheck, and a provisional full-regression trigger judgment with reason. That section defines the final scope whether the last task's QA carries it or a fresh QA runs it.",
       after: ' Put inseparable changes in one task from the outset.',
       phrases: ["List each task's related tests with reasons", 'provisional full-regression trigger judgment', 'expected cross-task file overlap that may need recheck'],
     },
@@ -161,7 +166,15 @@ test('canonical final-plan-recheck policy routes final verification failures to 
   });
   assertOccursOnce(text, finalPlanRecheckSentence);
   assert.ok(!text.includes(oldFinalPlanRecheckSentence));
+  assert.ok(!text.includes(retiredFinalPlanRecheckSentence));
+  assert.ok(text.includes(`uncommitted through Reviewer rechecks. ${correctionChecksPolicySentence} Then accept`));
   assert.ok(text.includes(`create one focused follow-up commit. ${finalPlanRecheckSentence} Preserve required QA`));
+});
+
+test('canonical significant-plan policy lets the last task QA carry final scope', () => {
+  const policy = JSON.parse(readAgent('lib/policy/role-policy.json'));
+  const rule = policy.rules.find(rule => rule.id === 'review.significant-plan');
+  assert.ok(rule?.text.includes(`for each task${significantPlanClause} After all tasks`));
 });
 
 for (const platform of platforms) {
@@ -196,6 +209,7 @@ for (const platform of platforms) {
       const source = readAgent(path).toString();
       assertOccursOnce(source, finalPlanRecheckSentence);
       assert.ok(!source.includes(oldFinalPlanRecheckSentence));
+      assert.ok(!source.includes(retiredFinalPlanRecheckSentence));
       const managed = source.split('[ARC role policy: contract begin]')[1]?.split('[ARC role policy: contract end]')[0];
       const rule = managed?.split('\n').find(line => line.startsWith(`- [${finalPlanRecheckId}] `));
       assert.ok(rule?.includes(`create one focused follow-up commit. ${finalPlanRecheckSentence} Preserve required QA`));

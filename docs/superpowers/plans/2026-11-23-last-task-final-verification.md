@@ -182,8 +182,8 @@
 
 **Consumes:** T1의 용어와 상수(변경하지 않음)
 
-- [ ] **Step 0:** 시작 `git status --porcelain` 기록.
-- [ ] **Step 1: RED** `tests/node/test-scope-contract.test.mjs`
+- [x] **Step 0:** 시작 `git status --porcelain` 기록.
+- [x] **Step 1: RED** `tests/node/test-scope-contract.test.mjs`
   - 상수: `finalPlanRecheckSentence`=N11의 `Separate QA findings and new failures from a fresh QA final verification, …refreshed-diff recheck.`, `retiredFinalPlanRecheckSentence`=옛 문장(`…from final verification, which may run concurrently with the final Reviewer, …`), `correctionChecksPolicySentence`=N11의 `Before the commit, … to Implementer → Reviewer.`, `significantPlanClause`=N10의 `; the last task's QA may carry the final verification scope, otherwise one fresh QA runs final verification.`, `reviewerFindingsSentence`=N12(c) 전문(두 문장)
   - `retiredPhrases`에 `'Separate QA findings and new failures from final verification, which'`, `'New failures from final verification follow Implementer → QA'` 추가
   - canonical 테스트: 위치 단언 `create one focused follow-up commit. ${finalPlanRecheckSentence} Preserve required QA` 유지, `uncommitted through Reviewer rechecks. ${correctionChecksPolicySentence} Then accept` 단언, 옛 문장 부재 단언
@@ -192,19 +192,19 @@
   - `profileRules`: `qa[0].rule` 끝에 N12(b), phrases에 `'a task verdict and a final-scope verdict'` 추가. `planner[0].rule` 끝에 N12(a)(`after`는 그대로)
   - reviewer render 위치 단언 `before this final stage. ${reviewerFindingsSentence}\n` 유지
   - 실행: `node --test tests/node/test-scope-contract.test.mjs` → 위 테스트만 실패, 실패 이름 보고.
-- [ ] **Step 2:** `role-policy.json` 두 text를 N10·N11로, fragment 3개를 N12로 수정. JSON 이스케이프·단일 행 유지(`validateRolePolicy`는 개행 거부).
-- [ ] **Step 3: 재생성** `npm run update:role-policy` → `Updated role policy (32 targets)` 기대. `node scripts/update-runtime-assets.mjs` → 미러 1개. 32 이외 대상이 바뀌면 hold.
-- [ ] **Step 4: GREEN** `node --test tests/node/test-scope-contract.test.mjs tests/node/role-policy.test.mjs` PASS, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check` PASS.
-- [ ] **Step 5: `instruction-contracts.json`**
+- [x] **Step 2:** `role-policy.json` 두 text를 N10·N11로, fragment 3개를 N12로 수정. JSON 이스케이프·단일 행 유지(`validateRolePolicy`는 개행 거부).
+- [x] **Step 3: 재생성** `npm run update:role-policy` → `Updated role policy (32 targets)` 기대. `node scripts/update-runtime-assets.mjs` → 미러 1개. 32 이외 대상이 바뀌면 hold.
+- [x] **Step 4: GREEN** `node --test tests/node/test-scope-contract.test.mjs tests/node/role-policy.test.mjs` PASS, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check` PASS.
+- [x] **Step 5: `instruction-contracts.json`**
   - 렌더 해시: 2026-11-22 plan T1 Step 7의 `node -e` 명령으로 계산(저장소에 쓰지 않음). `agentProfileBaseline.profiles` 20개 모두 변경.
   - `protected`: `shasum -a 256`으로 12개 변경(claude 5 `.md`, codex 5 `.toml`, `lib/policy/role-policy.json`, `shared/skill/runtime/role-policy.json`; 두 role-policy 값은 같아야 함).
   - `contracts[]`와 `revision` 유지.
   - 확인: `node --test tests/node/agent-fragments.test.mjs tests/node/instruction-layout.test.mjs`. base에서도 같은 이름으로 재현되는 실패는 기존 실패로 보고.
-- [ ] **Step 6: golden** `--diff` 예상 104줄 `~`(16 × references 3 = 48, `*/write/*` 8 × agents 5 = 40, 16 × `skills/arc/runtime/role-policy.json` = 16). 다르면 `--write` 전 hold하고 실제 목록 보고.
-- [ ] **Step 7: MANIFEST** 35항목 변경, 추가·삭제 없음(references 12, agents 20, role-policy 2, `agent-fragments.json` 1).
-- [ ] **Step 8: digest** T1 Step 6과 같은 절차.
-- [ ] **Step 9:** 관련 테스트·check 실행. 종료 `git status --porcelain` 기준은 T1과 같다.
-- [ ] **Step 10: 커밋(Orchestrator, 수락 뒤):** `refactor(policy): 최종 검증 흡수·최종 수정 사전 점검을 정책과 프로필에 반영`
+- [x] **Step 6: golden** `--diff` 예상 104줄 `~`(16 × references 3 = 48, `*/write/*` 8 × agents 5 = 40, 16 × `skills/arc/runtime/role-policy.json` = 16). 다르면 `--write` 전 hold하고 실제 목록 보고.
+- [x] **Step 7: MANIFEST** 35항목 변경, 추가·삭제 없음(references 12, agents 20, role-policy 2, `agent-fragments.json` 1).
+- [x] **Step 8: digest** T1 Step 6과 같은 절차.
+- [x] **Step 9:** 관련 테스트·check 실행. 종료 `git status --porcelain` 기준은 T1과 같다.
+- [x] **Step 10: 커밋(Orchestrator, 수락 뒤):** `refactor(policy): 최종 검증 흡수·최종 수정 사전 점검을 정책과 프로필에 반영`
 
 **수용 기준:**
 - A1·A2의 정책·프로필 반영(N10–N12), 4 플랫폼 managed 구역 일치
@@ -218,6 +218,8 @@
 **필수 QA·증거:** fresh QA, 생성기 출력(32 targets), 렌더 해시 20개·protected 12개 계산 근거, golden 목록, MANIFEST 35항목, digest 근거, 실패 판정
 
 **Hold:** 생성 대상 수·golden·MANIFEST가 예상과 다를 때, SKILL.md나 지정 밖 대상이 바뀔 때, 지정 밖 단언을 고쳐야 할 때
+
+**진행 기록 (T2):** 2026-11-23 수락. Implementer(codex bridge) 40파일 변경, RED 50건 → GREEN. 생성기 32 targets, 미러 1, golden 104항목, MANIFEST 35항목, 렌더 해시 20·protected 12, digest 8. fresh QA: C1–C7 proven, Node 관련 14파일 480 pass/0 fail/1 skip, check 4종 통과. Python 3파일 failures 485·errors 6: `eba2521` 대비 신규 0, 기준 실패 2건 해소(`test_final_reviewer_findings_on_committed_work` claude·codex), 기준선 재현 451·무관 40(Orchestrator 처분: 테스트·직접 입력·설정이 기준과 동일).
 
 ---
 
