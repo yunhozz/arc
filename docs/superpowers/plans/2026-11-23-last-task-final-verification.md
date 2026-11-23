@@ -2,7 +2,7 @@
 
 > **For agentic workers:** ARC Orchestrator 조정. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개. Implementer와 QA는 Git 상태를 바꾸지 않는다. 단계는 checkbox(`- [ ]`)로 추적한다.
 
-- 날짜: 2026-11-23 · 상태: v2 · workflow: `2026-11-23-last-task-final-verification`
+- 날짜: 2026-11-23 · 상태: v3 · workflow: `2026-11-23-last-task-final-verification`
 - 대상: managed worktree `.claude/worktrees/last-task-final-verification`, 브랜치 `feat/last-task-final-verification`, base `f786e4a1155287eff80d4abe56f7cebaf6598e3b`
 - 경로·위험: Bounded(plan 필요, 별도 spec 없음), significant(공유 역할 계약·생성기 입력)
 
@@ -250,7 +250,31 @@
 
 **진행 기록 (F1·최종 Reviewer):** 2026-11-23. 최종 Reviewer 1회차: blocking 0, should-fix 2(N2 (a) 오래된 판정, commit.md:22 사전 점검 누락), nit 3(변경 없음으로 처분: 운영 메모 / D4 / `check:role-policy` 간접 고정). 사용자 결정 "둘 다 수정" → v2. Implementer(codex bridge) 12파일, RED 8 → GREEN, golden 32·MANIFEST 8, 관련 Node 415/415, check 4종 통과, Python 이름 기준 신규 0. Reviewer 재확인(새 인스턴스, 4 플랫폼 원문 직접 대조): 두 finding 해결, N1–N13 4 플랫폼 바이트 일치, 신규 finding 없음. Orchestrator 사전 점검: `test-scope-contract`·`instruction-layout`·`installed-layout-golden`·`manifest` 238/238, `check:manifest`·`check:role-policy` 통과, golden `--diff` 0.
 
-## 최종 검증 (T1·T2 수락·커밋 뒤)
+### Task F2: 지침 계약 fixture의 플랫폼 범위를 4개로 확장 (v3)
+
+**배경:** 사용자 요청으로 플랫폼 치우침을 조사했다(2026-11-23, Scouter 조사와 Orchestrator의 기계 후보 추출). `tests/node/fixtures/instruction-contracts.json`의 `platforms`와 `protected`가 codex·claude만 다루고, 이를 읽는 `tests/node/instruction-layout.test.mjs:22`·`:104`의 루프도 `['codex','claude']`로 고정되어 있다. 사용자는 이 두 항목(fixture contracts, protected 해시)만 이 계획에서 고치고, 나머지 치우침(테스트 GAP #3–#7, 보안 UNCLEAR, 미완료 테스트 분류)은 같은 브랜치의 별도 계획으로 분리하도록 결정했다.
+
+**목표·범위:** gemini·grok을 fixture `platforms`와 `protected`에 추가하고, `instruction-layout.test.mjs`의 플랫폼 루프를 4개 플랫폼으로 확장해 새 항목이 실제로 검사되게 한다. 지침 문서·정책·생성기는 바꾸지 않는다.
+
+**선행:** F1 커밋(`bf031d8f`), watch 브랜치 병합(`dc1826b9`).
+
+**Files (allowedPaths):**
+- Modify: `tests/node/fixtures/instruction-contracts.json`(`platforms.gemini`·`platforms.grok` 추가, `protected`에 gemini·grok의 `agents/arc-{implementer,planner,qa,reviewer,scouter}.md` 5개와 `skill/models.toml`), `tests/node/instruction-layout.test.mjs`(플랫폼 루프 확장)
+- 필요할 때만 갱신: `MANIFEST.sha256`(`node scripts/update-manifest.mjs`), `tests/node/fixtures/installed-layout-golden.json`(테스트 fixture가 그 대상일 때만 `--diff` 확인 뒤 `--write`)
+
+- [x] **Step 1: RED** `instruction-layout.test.mjs`의 `['codex','claude']` 루프 2곳을 `['claude','codex','gemini','grok']`로 바꾸고 실행해, gemini·grok의 fixture 항목 부재로 실패하는 테스트 이름을 보고한다.
+- [x] **Step 2:** fixture에 `platforms.gemini`·`platforms.grok`을 기존 codex·claude 항목과 같은 구조(`skill`, `global`, `bootstrap`, `opening`, `contracts`)로 추가한다. 값은 현재 저장소 파일에서 기존 항목과 같은 방식으로 도출한다(bytes·lines 상한, bootstrap 본문, opening, contracts 원문). gemini·grok 전용 진입점(`gemini/GEMINI.md`, `grok/AGENTS.md`, `instructions.md`) 때문에 bootstrap이나 한도가 codex·claude와 다른 함수·경로를 써야 하면 hold하고 보고한다.
+- [x] **Step 3:** `protected`에 gemini·grok의 agent 5개와 `skill/models.toml`을 `shasum -a 256` 값으로 추가한다. `revision`과 기존 항목은 유지한다.
+- [x] **Step 4: GREEN** `instruction-layout` PASS. 이어서 관련 테스트(`instruction-layout`, `agent-fragments`, `test-scope-contract`, `composite-instructions`, `instruction-language`, `manifest`, `installed-layout-golden`)와 check 4종을 실행한다.
+- [x] **Step 5: 커밋(Orchestrator, QA 수락 뒤):** `test(contract): 지침 계약 fixture와 protected 해시를 네 플랫폼으로 확장`
+
+**수용 기준:** fixture `platforms`가 4개 플랫폼이고 각 항목이 현재 파일과 일치, `protected`에 gemini·grok 12개 항목 추가, `instruction-layout`이 4개 플랫폼을 순회하며 통과, 지침 문서·정책·런타임 불변, 관련 테스트 신규 실패 없음.
+
+**필수 QA:** fresh QA(task 관련 테스트와 fixture 값의 독립 재계산).
+
+**진행 기록 (F2):** 2026-11-23 수락. Implementer(codex bridge) 2파일 변경, RED 4건(gemini·grok bootstrap·contracts) → GREEN 44/44. Orchestrator 결정(보류 4회 처분): (1) `Failure and external-action boundaries`는 Markdown 제목이 아닌 계약 라벨이므로 claude와 같은 라벨 목록을 쓰고 원문은 각 플랫폼 `commit.md:18`; (2) 기준 리비전 `a86953f`에 gemini·grok이 없어 `skill`·`global` 상한은 claude 값을 복사(실측 skill 18,004·18,237바이트, bootstrap 1,550·1,548바이트로 상한 미만); (3) `relocations`는 기준 문구→현재 문구 규칙이므로 gemini·grok `text`는 현재 원문에 역적용해 저장하고 정방향 재적용 왕복이 32개 계약 모두 바이트 일치; (4) NEW 값 10개 중 각 플랫폼 5개 1회·5개 부재(부재 시 OLD도 부재). gemini·grok 계약 16개씩, protected 12개 추가, MANIFEST·golden 변경 없음. fresh QA: C1–C8 proven(값·해시 독립 재계산, 음성 검증 포함), 관련 7파일 313/313, check 4종 통과. Python 테스트는 이 fixture를 읽지 않음.
+
+## 최종 검증 (T1·T2·F1·F2 수락·커밋 뒤)
 
 **범위·시점:** T2 커밋 뒤 한 번. 개별 task 수락을 늦추지 않는다. 이번 실행은 설치된 v0.5.1 규칙을 따르므로(결정 D1) verified HEAD에서 fresh QA 1회, 시작·종료 `git status --porcelain` clean.
 
@@ -284,6 +308,7 @@
 |---|---|---|---|---|
 | v1 | 2026-11-23 | — | 최초 계획 | 사용자 승인 2026-11-23 |
 | v2 | 2026-11-23 | 최종 Reviewer finding | N2a(skip 조건 (a)를 커밋 트리 판정으로 좁힘), N13(commit.md 후속 커밋 전 Orchestrator focused check), Follow-up F1, D4 보정 | 사용자 승인 2026-11-23 ("둘 다 수정") |
+| v3 | 2026-11-23 | 사용자 요청(플랫폼 치우침) | Task F2(fixture `platforms`·`protected`에 gemini·grok 추가, `instruction-layout` 루프 확장), 최종 검증 대상에 F1·F2와 watch 병합(`dc1826b9`) 포함, 나머지 치우침은 별도 계획 | 사용자 승인 2026-11-23 ("fixture contracts", "protected 해시", "1번으로 진행하고, 이 브랜치에서 새 계획으로 분리해") |
 
 ## 자체 검토 체크리스트
 

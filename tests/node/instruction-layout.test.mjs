@@ -19,7 +19,7 @@ const fastContracts = {
  'target and evidence': [/target choice validity.*evidence validity/, /HEAD.*dirty.*do not invalidate/, /Revalidate only affected evidence/, /inaccessible.*hold/],
  'execution boundaries': [/first direct edit.*Implementer.*TDD.*QA.*Reviewer.*acceptance.*commit/s]
 };
-for (const platform of ['codex','claude']) for (const [contract,patterns] of Object.entries(fastContracts)) {
+for (const platform of ['claude','codex','gemini','grok']) for (const [contract,patterns] of Object.entries(fastContracts)) {
  test(`${platform} fast path preserves ${contract}`,()=>{
   const section=fastSections(read(file(platform,'handoff')));
   for(const pattern of patterns) assert.match(section,pattern);
@@ -101,7 +101,7 @@ function checkLayout(platform,documents){
  }
  for(const rule of defaultRolePolicy.rules)assert.ok([...documents.values()].some(text=>text.includes(`- [${rule.id}] ${rule.text}`)),`unreachable rule ${rule.id}`);
 }
-for(const platform of ['codex','claude']){
+for(const platform of ['claude','codex','gemini','grok']){
  test(`${platform} bootstrap preserves activation while deferring policy contracts`,()=>{
   const text=agentsBlockBody(`/Users/u/.${platform}`,'/Users/u','en',platform),base=fixture.platforms[platform];
   assert.equal(text.trim(),base.bootstrap);
