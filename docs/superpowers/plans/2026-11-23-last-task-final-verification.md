@@ -2,7 +2,7 @@
 
 > **For agentic workers:** ARC Orchestrator 조정. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개. Implementer와 QA는 Git 상태를 바꾸지 않는다. 단계는 checkbox(`- [ ]`)로 추적한다.
 
-- 날짜: 2026-11-23 · 상태: v1 · workflow: `2026-11-23-last-task-final-verification`
+- 날짜: 2026-11-23 · 상태: v2 · workflow: `2026-11-23-last-task-final-verification`
 - 대상: managed worktree `.claude/worktrees/last-task-final-verification`, 브랜치 `feat/last-task-final-verification`, base `f786e4a1155287eff80d4abe56f7cebaf6598e3b`
 - 경로·위험: Bounded(plan 필요, 별도 spec 없음), significant(공유 역할 계약·생성기 입력)
 
@@ -107,6 +107,12 @@
     > ` When assigned last-task final scope, run the same scope with the task's related tests on the uncommitted tree, record `git status --porcelain` at start and end, and report a task verdict and a final-scope verdict separately.`
   - (c) `reviewer.final-plan-findings` 마지막 문장 `New failures from final verification follow Implementer → QA; affected evidence needs a refreshed-diff recheck.`를 다음으로 교체:
     > New failures from a fresh QA final verification follow Implementer → QA; affected evidence needs a refreshed-diff recheck. A failed Orchestrator focused check on a resolved correction diff returns as a correction finding for your recheck.
+
+- **N2a (v2, 최종 Reviewer finding 1)** N2의 skip 조건 (a)에서 `(a) the final-scope verdict passed and every failure is dispositioned as baseline or unrelated;`를 다음으로 교체한다. 수정 전 트리의 최종 범위 판정으로 skip하는 경로를 막는다.
+  > (a) the final-scope verdict on the tree that is committed passed and every failure is dispositioned as baseline or unrelated;
+
+- **N13 (v2, 최종 Reviewer finding 2)** 4 플랫폼 commit.md `:22`에서 `repeat Implementer → Reviewer without QA reassignment until resolved, then accept and create one focused follow-up commit.`를 다음으로 교체한다.
+  > repeat Implementer → Reviewer without QA reassignment until resolved, run the Orchestrator focused checks in the [final plan Reviewer correction loop](verification.md#final-plan-reviewer-correction-loop), then accept and create one focused follow-up commit.
 
 ## 가정
 
@@ -223,6 +229,27 @@
 
 ---
 
+### Follow-up F1: 최종 Reviewer finding 수정 (v2)
+
+**목표·범위:** N2a, N13을 적용하고 계약 테스트로 고정한다. 최종 Reviewer finding 수정이므로 설치된 v0.5.1 규칙에 따라 Implementer → Reviewer로 반복하고, 수정은 Reviewer 재확인이 끝날 때까지 커밋하지 않으며, 해결 후 후속 커밋 1개로 수락한다.
+
+**선행:** T1·T2 수락·커밋, 최종 Reviewer 1회 완료.
+
+**Files (allowedPaths, 15개):**
+- Modify: `{claude,codex,gemini,grok}/skill/references/verification.md`(N2a, 손 편집 영역만), `{claude,codex,gemini,grok}/skill/references/commit.md`(N13, 손 편집 영역만), `tests/node/test-scope-contract.test.mjs`
+- 생성 값 옮김: `tests/node/fixtures/instruction-contracts.json`(commit 절 `contracts[].text`의 해당 문장만 N13으로; 해시·`revision` 유지), `tests/node/fixtures/installed-layout-golden.json`, `MANIFEST.sha256`, `tests/node/plan.test.mjs`(digest가 실패할 때만)
+
+- [x] **Step 1: RED** `lastTaskFinalScopeParagraph`를 N2a 적용 전문으로 갱신하고, 신규 `${platform} commit follow-up runs Orchestrator focused checks`(commit.md에 N13 문장 1회, 옛 `until resolved, then accept and create one focused follow-up commit.` 부재)를 추가한다. 실행 후 실패 이름 보고.
+- [x] **Step 2:** 8개 문서 수정, fixture `contracts[].text` 해당 문장 교체.
+- [x] **Step 3: GREEN** `test-scope-contract`, `instruction-layout` PASS.
+- [x] **Step 4:** golden `--diff` 예상 32줄 `~`(16 레이아웃 × `skills/arc/references/{verification,commit}.md`), MANIFEST 8항목, digest 확인. 다르면 hold.
+- [x] **Step 5:** 관련 테스트(`test-scope-contract`, `instruction-layout`, `composite-instructions`, `instruction-language`, `plan-level-records-contract`, `role-policy`, `plan`, `installed-layout-golden`, `manifest`, Python 3파일)와 check 4종 실행.
+- [x] **Step 6: 커밋(Orchestrator, Reviewer 재확인·수락 뒤):** `docs(verify): skip 조건을 커밋 트리 판정으로 좁히고 commit 절에 사전 점검 추가`
+
+**수용 기준:** N2a·N13 4 플랫폼 바이트 일치, 옛 문구 부재, managed 구역 불변, 생성물 `--check` 통과, 관련 테스트 신규 실패 없음, 최종 Reviewer 재확인 해결.
+
+**진행 기록 (F1·최종 Reviewer):** 2026-11-23. 최종 Reviewer 1회차: blocking 0, should-fix 2(N2 (a) 오래된 판정, commit.md:22 사전 점검 누락), nit 3(변경 없음으로 처분: 운영 메모 / D4 / `check:role-policy` 간접 고정). 사용자 결정 "둘 다 수정" → v2. Implementer(codex bridge) 12파일, RED 8 → GREEN, golden 32·MANIFEST 8, 관련 Node 415/415, check 4종 통과, Python 이름 기준 신규 0. Reviewer 재확인(새 인스턴스, 4 플랫폼 원문 직접 대조): 두 finding 해결, N1–N13 4 플랫폼 바이트 일치, 신규 finding 없음. Orchestrator 사전 점검: `test-scope-contract`·`instruction-layout`·`installed-layout-golden`·`manifest` 238/238, `check:manifest`·`check:role-policy` 통과, golden `--diff` 0.
+
 ## 최종 검증 (T1·T2 수락·커밋 뒤)
 
 **범위·시점:** T2 커밋 뒤 한 번. 개별 task 수락을 늦추지 않는다. 이번 실행은 설치된 v0.5.1 규칙을 따르므로(결정 D1) verified HEAD에서 fresh QA 1회, 시작·종료 `git status --porcelain` clean.
@@ -249,13 +276,14 @@
 - **D1** 이번 plan 실행은 설치된 v0.5.1 규칙(fresh final QA, Reviewer 병행 가능)을 따른다. 새 규칙은 T2 커밋 전에는 정의되지 않고, 실행을 지배하는 설치본은 v0.5.1이다.
 - **D2** `role.orchestrator-boundary`는 바꾸지 않는다. N5·N11에 "without edits"가 있고, core는 SKILL.md에 렌더되므로 크기 한도·fixture 위험이 있다.
 - **D3** CLI 절에 문장을 추가하지 않는다. 현행 문장과 모순이 없으며 Reviewer 확인 항목으로 둔다.
-- **D4** commit.md는 바꾸지 않는다. N2 (c)가 분류된 진행 기록을 허용하고, 실제 기재 여부는 Orchestrator가 기존 규칙으로 판단한다.
+- **D4** commit.md의 plan-level 기록 열거(`:33`)는 바꾸지 않는다. N2 (c)가 분류된 진행 기록을 허용하고, 실제 기재 여부는 Orchestrator가 기존 규칙으로 판단한다. v2에서 `:22`의 최종 Reviewer 후속 커밋 문장에만 Orchestrator focused check 단계를 추가한다(N13).
 
 ## 개정 이력
 
 | 버전 | 날짜 | 분류 | 내용 | 승인 |
 |---|---|---|---|---|
 | v1 | 2026-11-23 | — | 최초 계획 | 사용자 승인 2026-11-23 |
+| v2 | 2026-11-23 | 최종 Reviewer finding | N2a(skip 조건 (a)를 커밋 트리 판정으로 좁힘), N13(commit.md 후속 커밋 전 Orchestrator focused check), Follow-up F1, D4 보정 | 사용자 승인 2026-11-23 ("둘 다 수정") |
 
 ## 자체 검토 체크리스트
 
