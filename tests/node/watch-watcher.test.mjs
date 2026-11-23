@@ -1774,6 +1774,75 @@ const codexCommand={type:'event_msg',payload:{type:'item_completed',item:{
   type:'CommandExecution',command:'touch new.txt',exit_code:0,
 }}};
 
+test('activity after a scan but before confirmation stays a candidate for the next scan',async t=>{
+  const s=setup(t), shell=s.c('shell');
+  const x=path.join(s.cwd,'tracked.txt'), y=path.join(s.cwd,'new.txt');
+  s.files(['tracked.txt']);s.stats.set(x,{});
+  await s.w.start();s.advance(3000);
+
+  s.stats.set(x,{mtimeMs:2});
+  s.append(shell,[msg('changed tracked.txt')]);await s.w.tick();s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()),[]);
+
+  s.advance(500);s.stats.set(y,{});s.files(['tracked.txt','new.txt']);
+  s.append(shell,[codexCommand]);await s.w.tick();
+  s.advance(1500);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_change',[x],'shell']]);
+
+  s.advance(1000);
+  assert.deepEqual(inferred(await scanAndConfirm(s)).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_create',[y],'shell']]);
+});
+
+test('a late claim that empties held changes closes the candidate range',async t=>{
+  const s=setup(t), runner=s.c('runner'), writer=s.cl('writer');
+  const x=path.join(s.cwd,'new.txt'), y=path.join(s.cwd,'next.txt');
+  s.files(['new.txt']);s.stats.set(x,{});
+  await s.w.start();s.advance(3000);
+
+  s.stats.set(x,{mtimeMs:2});
+  s.append(runner,[codexCommand]);await s.w.tick();s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()),[]);
+
+  // The runner stays active in the next range without running another command.
+  s.advance(100);s.append(runner,[msg('checking the result')]);await s.w.tick();
+  s.advance(100);s.append(writer,[claudeTool('writer',s.cwd,'Write',{file_path:x})]);await s.w.tick();
+  s.advance(100);s.append(writer,[{type:'user',cwd:s.cwd,message:{content:[
+    {type:'tool_result',tool_use_id:'call-Write'},
+  ]}}]);
+  const explicit=await s.w.tick();
+  assert.deepEqual(explicit.filter(e=>e.paths?.includes(x)).map(e=>[e.kind,e.sessionId,e.inferred]),
+    [['file_change','writer',undefined]]);
+
+  s.advance(2700);s.stats.set(y,{});s.files(['new.txt','next.txt']);
+  assert.deepEqual(inferred(await scanAndConfirm(s)).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_create',[y],'writer']]);
+});
+
+test('a pending Edit claim keeps another session\'s held shell change',async t=>{
+  const s=setup(t), shell=s.c('shell'), editor=s.cl('editor'), x=path.join(s.cwd,'new.txt');
+  s.files(['new.txt']);s.stats.set(x,{});
+  await s.w.start();s.advance(3000);
+
+  s.stats.set(x,{mtimeMs:2});
+  s.append(shell,[codexCommand]);await s.w.tick();s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()),[]);
+
+  s.advance(100);s.append(editor,[claudeTool('editor',s.cwd,'Edit',{file_path:x})]);
+  const pending=await s.w.tick();
+  assert.deepEqual(pending.filter(e=>e.paths?.includes(x)).map(e=>[e.kind,e.sessionId,e.inferred]),
+    [['file_change','editor',undefined]]);
+  s.advance(100);s.append(editor,[{type:'user',cwd:s.cwd,message:{content:[
+    {type:'tool_result',tool_use_id:'call-Edit',is_error:true},
+  ]}}]);
+  assert.ok((await s.w.tick()).some(e=>e.kind==='tool_failed' && e.sessionId==='editor'));
+
+  s.advance(1800);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_change',[x],'shell']]);
+});
+
 for (const platform of ['codex','claude']) test(`held shell changes prefer the session that ran a shell command (${platform})`,async t=>{
   const s=setup(t), codex=platform==='codex', file=path.join(s.cwd,'new.txt');
   const runner=codex?s.c('runner'):s.cl('runner');

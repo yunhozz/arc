@@ -2,7 +2,7 @@
 
 > **For agentic workers:** 이 계획은 ARC Orchestrator가 조정한다. 태스크마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행한다. Implementer·QA는 Git 상태를 바꾸지 않는다. 하위 체크박스는 진행 추적용이며 커밋 단위가 아니다.
 
-- 상태: v2 (T2 claim 저장 규칙 개정, 2026-11-23)
+- 상태: v4 (v3 + 한계 L4·L6 문구 정정, 2026-11-23)
 - 설계: 승인 설계(사용자 2026-11-23: O2 승인, 순수 셸 귀속 "command 우선", 새 worktree). 별도 spec 문서 없이 아래 "설계 요약"에 담는다.
 - workflow: `watch-file-attribution`
 - 대상: `/Users/ma-24-007/Desktop/workspace/arc/.claude/worktrees/watch-file-event-attribution`, 브랜치 `fix/watch-file-event-attribution`, base `f786e4a1155287eff80d4abe56f7cebaf6598e3b`
@@ -26,8 +26,9 @@
   - (e) root 라우팅: claim은 경로가 속한 shell root(가장 긴 top 접두사)에, 없으면 `row.gitTop` root.
 - 확인 유예 + command 우선 귀속 (T2)
   - scan의 claim 없는 변경은 즉시 emit하지 않고 `state.unconfirmed`에 보관.
-  - claim 기록 시 같은 경로가 unconfirmed에 있으면 그 항목을 삭제하고 claim도 저장한다(post는 다음 비교 scan 1회, pre는 기존 TTL) → 명시 이벤트만 남고, 같은 도구의 후속 파일 상태 변화도 다음 scan에서 소비된다.
-  - `WATCH_LIMITS.shellConfirmMs`(2000) 경과 항목 emit. 확정은 `scanShell`에서 transcript 활동 없이, 추가 git 호출 없이. 후보 범위는 직전 candidates 비움~확정 시점, `candidates.clear()`는 unconfirmed가 빈 뒤로.
+  - post claim 기록 시 같은 경로(또는 하위)가 unconfirmed에 있으면 그 항목을 삭제하고 claim도 저장한다(post는 다음 비교 scan 1회) → 명시 이벤트만 남고, 같은 도구의 후속 파일 상태 변화도 다음 scan에서 소비된다. pre claim(`claimBefore`, 변경 전 기록)은 unconfirmed를 지우지 않고 claim만 저장한다(그 시점 보류 변경은 다른 주체의 것이므로 확정 시 inferred로 표시).
+  - `WATCH_LIMITS.shellConfirmMs`(2000) 경과 항목 emit. 확정은 `scanShell`에서 transcript 활동 없이, 추가 git 호출 없이.
+  - 후보 범위는 타임스탬프로 구분한다. shell state에 각 scan의 시작 시각(`rangeStart`=마지막 scan의 `scanStart`)을 기록하고, 범위를 닫을 때(scan 끝·확정 뒤·post claim이 보류를 지운 뒤 unconfirmed가 비었을 때) `ts <= rangeStart`인 후보만 제거하고, 남는 후보의 `lastCommandAt <= rangeStart`도 제거한다. 마지막 scan 뒤 활동한 후보와 그 command는 다음 범위로 이어진다.
   - 유예 중 재변경은 경로당 1건, kind는 처음 발견 직전 snapshot 값(`base`) 대비 순변경, 순변경 없으면 버림.
   - 귀속: 후보 중 `command` 이벤트를 낸 followed 후보가 있으면 가장 최근 `lastCommandAt` 후보, 없으면 U7대로 가장 최근 활동 후보. 계속 `inferred:true`, 플랫폼 id 분기 없음.
 
@@ -40,9 +41,9 @@
 - L1: CLI별 transcript 기록 지연 미실측. 명시 이벤트가 `shellConfirmMs`보다 늦으면 중복이 남는다(그 claim은 다음 scan 뒤 폐기되어 누락으로 번지지 않음).
 - L2: `shellConfirmMs` 2000ms는 실측 조정 전. 셸 변경 표시가 최대 약 2s 늦다.
 - L3: 대소문자 비구분 FS의 claim·snapshot 경로 표기 차이 미확인.
-- L4: pre claim(Edit) 기록 시 같은 경로 unconfirmed가 있으면 그 변경을 지우고 claim도 저장하므로, 그 보류 변경이 다른 세션의 셸 변경이었다면 명시 Edit 행으로만 보인다(추정 행 없음).
+- L4: pre claim(Edit)은 보류 변경을 지우지 않으므로, Edit 직전에 같은 파일에 생긴 다른 세션의 셸 변경은 inferred로, Edit 자체는 명시 EDIT로 각각 보인다. Edit가 실패하면 claim만 해제된다. 역순 경쟁: Edit 자신의 변경이 `tool_use` 줄을 읽기 전에 scan에 잡히면 그 변경은 보류 뒤 inferred로 확정되어 명시 EDIT와 함께 중복 1건이 되고, 소비되지 않은 pre claim이 120s 동안 남아 그 사이 다른 세션의 같은 경로 변경 1건을 숨길 수 있다(base에도 있던 경로, 권한 대기 Edit와 구분할 수 없어 이번 범위 밖).
 - L5: 확정 유예(2s)가 scan 최소 간격(3s)보다 짧아, 확정 전 어떤 scan도 관찰하지 못한 재변경은 확정 뒤 별도 이벤트로 표시된다(WD7은 확정 전 scan이 관찰한 재변경에만 적용). 확정 전 재scan은 WD6(추가 git 0회)과 충돌하므로 하지 않는다.
-- L6: 조상 디렉터리를 `file_path`로 준 합성 Edit 입력은 보류된 하위 파일 처리에서 잔여 항목을 남길 수 있다(실제 Claude 생성 여부 미확인). 변경이 끊이지 않아 후보 범위가 오래 유지되면 그 범위의 첫 command 세션이 계속 우선된다(WD14 정의 안의 동작).
+- L6: 조상 디렉터리를 `file_path`로 준 합성 Edit 입력은 보류된 하위 파일 처리에서 잔여 항목을 남길 수 있다(실제 Claude 생성 여부 미확인). tick이 드물어 확정과 다음 scan 사이에 보류가 비지 않으면 후보 범위가 이어지고, 그 동안 그 범위에서 가장 최근 command를 낸 세션이 우선된다(WD14 정의 안의 동작).
 
 ## 수락 기준 (확정)
 
@@ -173,6 +174,8 @@
 |---|---|---|---|---|
 | v1 | 2026-11-23 (사용자 플랜 승인, 커밋 cb1a9534 전) | initial | T1, T2 | 최초 승인 |
 | v2 | 2026-11-23T01:14:43Z | contract | T2 | T2 QA가 재현한 WD1·WD2 중복(보류 항목 삭제 시 claim 미저장) 해소를 위해 claim 저장 규칙 변경, 한계 L4 갱신·L5·L6 추가 |
+| v3 | 2026-11-23T01:28:03Z | contract | 최종 Reviewer 후속(T2 영역) | 최종 Reviewer F1(확정 시 다음 범위 후보까지 비워 셸 변경 누락)·F2(이전 범위 lastCommandAt 이월)·F3(pre claim이 다른 세션 보류 변경 삭제) 해소: 후보 범위 타임스탬프 경계, pre claim 보류 보존, L4 갱신. 회귀 테스트 3건 추가. 수락 기준 불변. 최종 QA 판정에 따라 전체 회귀 트리거(1)(MANIFEST 공유 데이터) 성립 — 최종 상태에서 1회 실행 |
+| v4 | 2026-11-23T01:42:23Z | mechanical | 없음(문서) | 최종 Reviewer 재확인 N1·N2: L4에 역순 경쟁(중복 1건·120s 억제 가능) 추가, L6 문구를 실제 동작(가장 최근 command 세션, 범위가 이어지는 조건)에 맞게 정정 |
 
 ## 위험·깊이 근거
 
