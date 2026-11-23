@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v1 (2026-11-23 사용자 승인)
-- Spec: `docs/superpowers/specs/2026-11-23-tester-verification-modes-design.md` (written spec v1.2, 2026-11-23 사용자 승인)
+- 상태: plan v2 (2026-11-23 사용자 승인, v2 개정 승인)
+- Spec: `docs/superpowers/specs/2026-11-23-tester-verification-modes-design.md` (written spec v1.3, 2026-11-23 사용자 승인)
 - 실행 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/tester-verification-modes`, 브랜치 `feat/tester-verification-modes`, base `f786e4a1155287eff80d4abe56f7cebaf6598e3b`
 
 **Goal:** 검증 역할을 QA에서 Tester로 전면 변경하고 legacy 읽기 호환을 둔다. brief 필드 `mode: task | final`로 두 모드를 운영한다. 전체 회귀 자동 실행을 트리거별 대체 검사와 판단 불가 disposition으로 바꾼다. worktree 세션용 handoff 기록 명령을 추가한다.
@@ -188,6 +188,12 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
   - `ROLES = ['orchestrator','scouter','planner','implementer','tester','reviewer']`
   - `OPERATIONS`의 `'qa'`를 `'test'`로 바꾼다.
   - `ROLE_OPERATIONS.tester = ['read','check','temporary-write']`
+  - 연산 legacy alias(spec v1.3 MIG-5)
+    - `export const LEGACY_OPERATIONS = Object.freeze({qa: 'test'})`
+    - 저장된 state를 읽을 때 `approvals[].scope.operations`, `assignments[].operations`, `audit`의 `qa`를 `test`로 해석한다(`schema.mjs:37`, `store.mjs:55`, `cooperative.mjs:184`).
+    - 쓰기는 `test`로만 한다.
+    - 새 요청의 연산 `qa`는 거부한다.
+    - 이 alias를 T1에 넣는 이유: 연산 enum rename과 분리하면 기존 state fixture 테스트가 깨진다.
 - `lib/runtime/role-dispatch-policy.mjs`: `ROLE_TIMEOUT_MINUTES.arc_tester === 60`. `arc_qa` 키는 없다.
 - policy 토큰
   - 역할 `tester`, 규칙 `role.tester-verification`
@@ -211,6 +217,9 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
     - `arc_tester timeout is 60 minutes`: `ROLE_TIMEOUT_MINUTES.arc_tester === 60`이고 `!Object.hasOwn(ROLE_TIMEOUT_MINUTES,'arc_qa')`
   - `tests/node/role-bridge-resume.test.mjs`
     - `resume segment uses arc_tester 60 minute timeout`: `lease.timeoutMinutes === 60`이고 타이머가 segment별로 새로 걸린다.
+  - `tests/node/runtime-schema.test.mjs`(또는 state 검증을 다루는 기존 파일)
+    - `stored qa operation reads as test`: 저장된 state의 `qa` 연산이 검증을 통과하고 `test`로 해석된다.
+    - `new request with qa operation is rejected`: state 파일 바이트가 그대로다.
   - Python `tests/test_codex_models.py`·`tests/test_claude_payload.py`
     - `test_v3_arc_qa_values_upgrade_to_v4_arc_tester`
     - `test_v4_rejects_arc_qa`
@@ -226,7 +235,7 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 - [ ] **Step 3: 최소 구현**
   - Interfaces 값으로 원천을 고치고 profile 파일 4개를 새 이름으로 다시 쓴다.
   - normalize는 `validateModelConfig` 진입부에서 한 번만 한다. Python도 같은 위치에 `_normalize_legacy_roles(data)`를 둔다.
-  - 연산 `'qa'`가 state 스키마(`schema.mjs`, `cooperative-schema.mjs`)에 저장되는 값이면 hold하고 보고한다.
+  - 연산 `'qa'`는 state에 저장되는 값이다(2026-11-23 확인). 그래서 위 `LEGACY_OPERATIONS` 읽기 alias를 구현한다.
 - [ ] **Step 4: 생성물 재생성**
   - 절차 G 1~6을 수행한다.
   - `tests/installer-parity.json`에 MIG-1 Node·Python 대응 항목을 추가한다. `task` 형식이 제한되면 hold한다.
@@ -240,7 +249,10 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 
 **수용 기준:**
 
-- 새 테스트 7개(Node 5, Python 2)가 통과한다.
+- 새 테스트 11개가 통과한다.
+  - Node 7개: models 2, role-routing-config 3, role-dispatch-policy 1, role-bridge-resume 1
+  - 연산 alias 2개
+  - Python 2개
 - 기존 권한·gate·allowedPaths 테스트가 키 이름만 바꾼 상태로 통과한다(MOD-3).
 - 역할이 5개이고 모드별 키가 없다(MOD-1).
 - 4개 플랫폼 `models.toml`이 v4 `arc_tester`다.
@@ -266,7 +278,6 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 
 **hold 조건:**
 
-- 연산 `'qa'`가 state에 저장되는 값이다.
 - parity `task` 형식이 제한된다.
 - golden·instruction fixture diff에 rename·해시 밖의 변경이 있다.
 - Python 실패가 기준선 36건 밖에 있고 new-failure로 분류된다.
@@ -725,9 +736,99 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 
 Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `파일:줄 | 문자열 | 분류 | 사유`
 
+**T1 기준(2026-11-23, QA 재판정 proven):** legacy 읽기·거부 코드 15줄, legacy fixture 26줄, 그 테스트 48줄, 3분류 밖 0줄. 대문자 산문 `QA`는 T5 대상. `tests/installer-parity.json`의 삭제된 `tests/test_target_install.py` inventory 항목(원 `sourceSha256` 고정, 더 이전 이름 `arc-coder.md` 포함)은 Orchestrator disposition에 따라 legacy fixture로 분류한다.
+
 | 파일:줄 | 문자열 | 분류 | 사유 |
 |---|---|---|---|
-| (작성 예정) | | | |
+| claude/skill/scripts/model_config.py:35 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| claude/skill/scripts/model_config.py:38 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| claude/skill/scripts/model_config.py:40 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| claude/skill/scripts/model_config.py:41 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| codex/skill/scripts/model_config.py:82 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| codex/skill/scripts/model_config.py:85 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| codex/skill/scripts/model_config.py:87 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| codex/skill/scripts/model_config.py:88 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 및 v4 구 키 거부 |
+| lib/models/config.mjs:6 | arc_qa, _qa | legacy 읽기·거부 코드 | v1–v3 모델 설정 키 읽기 |
+| lib/runtime/operations.mjs:6 | qa | legacy 읽기·거부 코드 | 저장된 연산 읽기 alias |
+| lib/runtime/role-routing-config.mjs:20 | arc_qa, _qa | legacy 읽기·거부 코드 | v1·v2 routing 설정 키 읽기 |
+| lib/runtime/role-routing-config.mjs:22 | arc_qa, _qa | legacy 읽기·거부 코드 | v1·v2 routing 설정 키 읽기 |
+| shared/skill/runtime/operations.mjs:6 | qa | legacy 읽기·거부 코드 | 저장된 연산 읽기 alias |
+| shared/skill/runtime/role-routing-config.mjs:20 | arc_qa, _qa | legacy 읽기·거부 코드 | v1·v2 routing 설정 키 읽기 |
+| shared/skill/runtime/role-routing-config.mjs:22 | arc_qa, _qa | legacy 읽기·거부 코드 | v1·v2 routing 설정 키 읽기 |
+| tests/fixtures/models-claude-v1.toml:42 | arc_qa, _qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/models-claude-v1.toml:46 | arc_qa, _qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/models-claude-v1.toml:50 | arc_qa, _qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/models-codex-v1.toml:42 | arc_qa, _qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/models-codex-v1.toml:46 | arc_qa, _qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/models-codex-v1.toml:50 | arc_qa, _qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/qa-legacy-model-values.json:6 | qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/fixtures/qa-legacy-model-values.json:12 | qa | legacy fixture | 승인된 기존 모델값 또는 v1 설정의 원본 |
+| tests/installer-parity.json:87 | arc_qa, _qa | 그 테스트 | MIG-1 구 모델 키 검증의 현행 테스트 매핑 |
+| tests/installer-parity.json:91 | arc_qa | 그 테스트 | MIG-1 구 모델 키 검증의 현행 테스트 매핑 |
+| tests/installer-parity.json:139 | arc_qa, _qa | 그 테스트 | MIG-1 구 모델 키 검증의 현행 테스트 매핑 |
+| tests/installer-parity.json:143 | arc_qa, _qa | 그 테스트 | MIG-1 구 모델 키 검증의 현행 테스트 매핑 |
+| tests/installer-parity.json:10124 | arc_qa | 그 테스트 | MIG-1 구 모델 키 검증의 현행 테스트 매핑 |
+| tests/installer-parity.json:10130 | arc_qa, _qa | 그 테스트 | MIG-1 구 모델 키 검증의 현행 테스트 매핑 |
+| tests/installer-parity.json:10569 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10809 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10813 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10849 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10863 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10881 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10885 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:10895 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11043 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11047 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11051 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11055 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11189 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11683 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11687 | qa, qa. | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11691 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:11699 | qa | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/installer-parity.json:14020 | arc-qa, qa. | legacy fixture | check-installer-parity.mjs가 해시로 고정한 과거 assertion 원문 |
+| tests/node/models.test.mjs:14 | arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/models.test.mjs:21 | qa, arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/models.test.mjs:23 | arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/models.test.mjs:29 | arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/models.test.mjs:30 | arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/models.test.mjs:33 | arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/models.test.mjs:44 | arc_qa, _qa | 그 테스트 | legacy 모델 설정 보존 및 v4 구 키 거부 |
+| tests/node/role-dispatch-policy.test.mjs:7 | arc_qa, _qa | 그 테스트 | 현행 timeout 표에 구 역할 키가 없는지 확인 |
+| tests/node/role-routing-config.test.mjs:46 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:50 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:54 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:55 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:56 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:65 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:68 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:71 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:72 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/role-routing-config.test.mjs:77 | arc_qa, _qa | 그 테스트 | legacy routing 읽기·재직렬화 및 v3 구 키 거부 |
+| tests/node/runtime-schema.test.mjs:21 | qa | 그 테스트 | 저장 상태에서 구 연산을 읽는 검증 |
+| tests/node/runtime-schema.test.mjs:23 | qa | 그 테스트 | 저장 상태에서 구 연산을 읽는 검증 |
+| tests/node/runtime-schema.test.mjs:24 | qa | 그 테스트 | 저장 상태에서 구 연산을 읽는 검증 |
+| tests/node/runtime-schema.test.mjs:25 | qa | 그 테스트 | 저장 상태에서 구 연산을 읽는 검증 |
+| tests/node/runtime-schema.test.mjs:30 | qa | 그 테스트 | 저장 상태에서 구 연산을 읽는 검증 |
+| tests/node/runtime-store.test.mjs:11 | qa | 그 테스트 | 신규 요청에서 구 연산 거부 및 바이트 보존 |
+| tests/node/runtime-store.test.mjs:17 | qa | 그 테스트 | 신규 요청에서 구 연산 거부 및 바이트 보존 |
+| tests/node/upgrade-harness.test.mjs:136 | qa | 그 테스트 | 보존한 legacy 모델값 fixture 참조 |
+| tests/qa_model_cases.py:14 | qa | 그 테스트 | 보존 fixture 참조와 구 키 입력 구성 |
+| tests/qa_model_cases.py:18 | arc_qa, _qa | 그 테스트 | 보존 fixture 참조와 구 키 입력 구성 |
+| tests/qa_model_cases.py:22 | arc_qa, _qa | 그 테스트 | 보존 fixture 참조와 구 키 입력 구성 |
+| tests/test_claude_payload.py:61 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:65 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:69 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:154 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:160 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:161 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:162 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:163 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:164 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_claude_payload.py:165 | arc_qa, _qa | 그 테스트 | legacy v1 입력과 v4 구 키의 유효성 검증 |
+| tests/test_codex_models.py:80 | arc_qa | 그 테스트 | legacy v3 모델값 업그레이드 검증 |
+| tests/test_codex_models.py:83 | arc_qa, _qa | 그 테스트 | legacy v3 모델값 업그레이드 검증 |
+| tests/test_codex_models.py:90 | arc_qa, _qa | 그 테스트 | legacy v3 모델값 업그레이드 검증 |
 
 예상 항목:
 
@@ -778,7 +879,7 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 
 | task | 상태 | commit | 비고 |
 |---|---|---|---|
-| T1 | 대기 | | |
+| T1 | 수용(2026-11-23) | (이 commit) | Implementer 3272105d(fresh, plan v2), QA 8d138f20. C1~C9 proven. 새 실패 18건 수정 후 resolved. Python 159개는 base와 실패 signature 일치(baseline). runtime-cli 3개는 bridge sandbox EPERM으로 차단됐으나 Orchestrator host 실행에서 12/12 통과. bridge 간헐 후보 1건은 단독 실행 통과(disposition: 이번 변경과 무관한 간헐). 환경 준비: build/native 복사(native 입력 base와 동일), base worktree `.git/arc/base/qa-mode-verification` |
 | T2 | 대기 | | |
 | T3 | 대기 | | |
 | T4 | 대기 | | |
@@ -793,3 +894,4 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 | 버전 | 날짜 | 내용 |
 |---|---|---|
 | v1 | 2026-11-23 | Planner 첫 초안을 Orchestrator가 검토하고 결정(Q1~Q5)을 반영해 저장 |
+| v2 | 2026-11-23 | T1 hold 해소(사용자 결정): 연산 `qa` legacy alias를 T1에 추가하고 hold 조건에서 제외, 수용 기준 테스트 수 정정(Node 7 + 연산 alias 2 + Python 2). 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-23 |

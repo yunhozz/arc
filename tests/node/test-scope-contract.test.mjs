@@ -26,7 +26,7 @@ const oldFinalPlanRecheckSentence = 'Separate QA findings follow Implementer →
 const reviewerVerificationSentence = 'QA owns task and final functional/test verification; Orchestrator owns overall completion and acceptance.';
 const reviewerFindingsSentence = 'New failures from final verification follow Implementer → QA; affected evidence needs a refreshed-diff recheck.';
 const oldReviewerVerificationPhrase = 'QA owns functional/test verification';
-const profileRoles = ['scouter', 'planner', 'implementer', 'qa', 'reviewer'];
+const profileRoles = ['scouter', 'planner', 'implementer', 'tester', 'reviewer'];
 const wholePlanReviewerRule = 'Whole-plan Reviewer is part of final verification;';
 const qaAdditionsRule = 'additions within these categories with reasons are authorized;';
 const qaRerunLimit = "up to the brief's limit (default three),";
@@ -79,7 +79,7 @@ function assertOccursOnce(text, phrase) {
 }
 
 const profileRules = {
-  qa: [
+  tester: [
     {
       lineStart: '1. Use the shared brief, criteria, Implementer summary and relevant prior findings. ',
       rule: `Independently verify assigned behavior with related tests only: test files directly exercising changed modules, contract tests the change requires updating and matching check scripts; ${qaAdditionsRule} report each selection and reason. When assigned final verification, run all contract tests, all check scripts and the brief's re-changed-file tests at the verified HEAD, plus full regression once when the brief's provisional judgment or your own check of triggers (1), (3) and (4) finds one applies or cannot decide.`,
@@ -143,7 +143,7 @@ test('canonical final-plan-recheck policy routes final verification failures to 
   const [{id, roles, effect, controls, text}] = rules;
   assert.deepEqual({id, roles, effect, controls}, {
     id: finalPlanRecheckId,
-    roles: ['orchestrator', 'scouter', 'planner', 'implementer', 'qa', 'reviewer'],
+    roles: ['orchestrator', 'scouter', 'planner', 'implementer', 'tester', 'reviewer'],
     effect: 'require',
     controls: {codex: 'prompt', claude: 'prompt', gemini: 'prompt', grok: 'prompt'},
   });

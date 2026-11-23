@@ -42,10 +42,10 @@ test('composite Install Settings are applied equally to both install plans',asyn
  for(const plan of prepared.plans){assert.equal(plan.language,'ko');assert.equal(plan.skipGlobal,true);assert.deepEqual(plan.limits,{version:1,max_total_subagents:7,max_concurrent_subagents:3});assert.equal(plan.concurrentExplicit,true);assert.deepEqual(plan.globalChanges,[]);}
  assert.equal((await api.executeOperation(ctx,prepared)).code,0);
 });
-test('composite Change Models migrates legacy model files to v3 atomically',async t=>{
+test('composite Change Models migrates legacy model files to v4 atomically',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);await publish(ctx);
  for(const platform of ['codex','claude'])fs.writeFileSync(ctx.userHome+'/.'+platform+'/skills/arc/models.toml',fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url)));
  const prepared=await api.prepareCompositeOperation(ctx,{kind:'preset',config:await mixedConfig('legacy-change')});
  const result=await api.executeOperation(ctx,prepared);assert.equal(result.code,0);
- for(const platform of ['codex','claude'])assert.match(fs.readFileSync(ctx.userHome+'/.'+platform+'/skills/arc/models.toml','utf8'),/^version = 3$/m);
+ for(const platform of ['codex','claude'])assert.match(fs.readFileSync(ctx.userHome+'/.'+platform+'/skills/arc/models.toml','utf8'),/^version = 4$/m);
 });

@@ -47,7 +47,7 @@ async function preparePublication(context, platforms) {
     const platform = platforms[index % platforms.length];
     return [role, {platform, ...pairs[platform]}];
   }));
-  for (const role of ['arc_scouter', 'arc_qa']) roles[role] = {platform: 'grok', ...pairs.grok};
+  for (const role of ['arc_scouter', 'arc_tester']) roles[role] = {platform: 'grok', ...pairs.grok};
   return management.prepareOperation(context, {kind: 'install', target: 'composite', platforms,
     config: {revision, platforms, roles}});
 }
@@ -62,7 +62,7 @@ async function execute(context, prepared) {
 function assertPublished(context, platforms) {
   assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms, anchor: 'claude'});
   const config = JSON.parse(fs.readFileSync(activePath(context, 'claude'), 'utf8'));
-  assert.equal(config.version, 2);
+  assert.equal(config.version, 3);
   assert.equal(config.revision, revision);
   assert.deepEqual(config.platforms, platforms);
   for (const id of ids) {
@@ -78,7 +78,7 @@ function assertPublished(context, platforms) {
   }
   const marker = JSON.parse(fs.readFileSync(markerPath(context, 'grok'), 'utf8'));
   assert.ok(marker.profiles.arc_scouter);
-  assert.ok(marker.profiles.arc_qa);
+  assert.ok(marker.profiles.arc_tester);
   for (const role of Object.keys(marker.profiles)) {
     const relative = `agents/arc-routing-${role.slice(4)}.md`;
     assert.equal(marker.profiles[role].path, relative);
@@ -136,11 +136,11 @@ test('prepare arc_scouter targeting grok records lease v2', async t => {
 });
 
 // Bypassing an injected GK1 failure or a lease written despite the hold must fail.
-test('prepare arc_qa targeting grok holds permission_scope_unverified without lease', async t => {
+test('prepare arc_tester targeting grok holds permission_scope_unverified without lease', async t => {
   const context = await contextFor(t);
   await execute(context, await preparePublication(context, ['claude', 'grok']));
-  const prepared = await prepareRoleDispatch({context: {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 't6-qa'},
-    expectedRevision: revision, assignment: {role: 'arc_qa', taskId: 'T6-qa', requestId: 't6-qa'},
+  const prepared = await prepareRoleDispatch({context: {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 't6-tester'},
+    expectedRevision: revision, assignment: {role: 'arc_tester', taskId: 'T6-tester', requestId: 't6-tester'},
     policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, GK1: 'fail'}}});
   assert.equal(prepared.decision, 'hold');
   assert.equal(prepared.route, 'bridge');
@@ -150,14 +150,14 @@ test('prepare arc_qa targeting grok holds permission_scope_unverified without le
   assert.equal(fs.existsSync(path.join(context.userHome, 'unexpected-command')), false);
 });
 
-test('default policy allows prepare of arc_qa targeting Grok', async t => {
+test('default policy allows prepare of arc_tester targeting Grok', async t => {
   const context = await contextFor(t);
   await execute(context, await preparePublication(context, ['claude', 'grok']));
   const prepared = await prepareRoleDispatch({
-    context: {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 't6-qa-default'},
-    expectedRevision: revision, assignment: {role: 'arc_qa', taskId: 'T6-qa-default', requestId: 't6-qa-default'},
+    context: {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 't6-tester-default'},
+    expectedRevision: revision, assignment: {role: 'arc_tester', taskId: 'T6-tester-default', requestId: 't6-tester-default'},
   });
   assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
   assert.equal(prepared.route, 'bridge');
-  assert.equal((await readLease(home(context, 'claude'), prepared.dispatchId, context)).role, 'arc_qa');
+  assert.equal((await readLease(home(context, 'claude'), prepared.dispatchId, context)).role, 'arc_tester');
 });

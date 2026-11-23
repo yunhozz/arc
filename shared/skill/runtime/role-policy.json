@@ -18,7 +18,7 @@
       "description": "Implement assigned approved changes and focused checks."
     },
     {
-      "id": "qa",
+      "id": "tester",
       "description": "Run approved checks and report evidence."
     },
     {
@@ -34,7 +34,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "deny",
@@ -61,7 +61,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "deny",
@@ -123,7 +123,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "require",
@@ -153,7 +153,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "require",
@@ -262,9 +262,9 @@
       }
     },
     {
-      "id": "role.qa-verification",
+      "id": "role.tester-verification",
       "roles": [
-        "qa"
+        "tester"
       ],
       "effect": "allow",
       "operations": [
@@ -296,7 +296,7 @@
       ],
       "evidence": [
         "assigned-final-diff",
-        "relevant-qa-evidence"
+        "relevant-tester-evidence"
       ],
       "authority": "orchestrator",
       "text": "Independently inspect assigned final changes and evidence, and report actionable findings and limits. Remain read-only: DO NOT execute QA tests, edit files, perform Git mutations or decide acceptance.",
@@ -314,7 +314,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "require",
@@ -322,8 +322,8 @@
         "no-plan-final-review"
       ],
       "evidence": [
-        "required-qa",
-        "qa-rechecks"
+        "required-tester",
+        "tester-rechecks"
       ],
       "authority": "orchestrator",
       "text": "Significant/high-risk work without a plan follows Implementer → QA and required QA rechecks → Reviewer of the final full change → Orchestrator acceptance. DO NOT omit Reviewer because no plan exists. This adds no plan obligation.",
@@ -341,7 +341,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "require",
@@ -350,7 +350,7 @@
       ],
       "evidence": [
         "all-tasks-accepted",
-        "required-qa"
+        "required-tester"
       ],
       "authority": "orchestrator",
       "text": "Significant/high-risk plan work follows Implementer → required fresh QA → Orchestrator acceptance and focused commit for each task. After all tasks are accepted and required QA is complete, Reviewer reviews the final full change once. Reviewer is not a per-task or per-commit gate. Preserve required checks and necessary finding rechecks.",
@@ -368,7 +368,7 @@
         "scouter",
         "planner",
         "implementer",
-        "qa",
+        "tester",
         "reviewer"
       ],
       "effect": "require",
@@ -458,18 +458,18 @@
   "review": {
     "noPlan": [
       "implementer",
-      "qa",
+      "tester",
       "reviewer",
       "orchestrator-accept"
     ],
     "planTask": [
       "implementer",
-      "fresh-qa",
+      "fresh-tester",
       "orchestrator-accept",
       "orchestrator-commit"
     ],
     "planFinal": [
-      "required-qa",
+      "required-tester",
       "reviewer"
     ],
     "planFinding": [
@@ -692,7 +692,7 @@
       "scouter",
       "planner",
       "implementer",
-      "qa",
+      "tester",
       "reviewer"
     ],
     "requiredEvidence": [

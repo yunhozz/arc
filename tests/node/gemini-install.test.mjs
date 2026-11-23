@@ -47,8 +47,8 @@ test('gemini standalone install layout', async t => {
   }
   const payload = verifyPayload(context);
   assert.ok(payload.modelInputs.gemini, 'verified Gemini templates must be validated');
-  const template = path.join(context.packageRoot, 'gemini/agents/arc-qa.md');
-  fs.writeFileSync(template, fs.readFileSync(template, 'utf8').replace('{{ARC_AGENT_FRAGMENT:qa.contract-intro}}', ''));
+  const template = path.join(context.packageRoot, 'gemini/agents/arc-tester.md');
+  fs.writeFileSync(template, fs.readFileSync(template, 'utf8').replace('{{ARC_AGENT_FRAGMENT:tester.contract-intro}}', ''));
   refreshManifest(context.packageRoot);
   assert.throws(() => verifyPayload(context), {code: 'ARC_PAYLOAD_VALIDATION', message: /Invalid profile markers/});
 });

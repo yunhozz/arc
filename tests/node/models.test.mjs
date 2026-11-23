@@ -8,11 +8,42 @@ import * as api from '../../lib/models/index.mjs';
 import * as configApi from '../../lib/models/config.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {getPlatform} from '../../lib/runtime/platform-registry.mjs';
-const roles = ['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
+import {buildPresetPlan, switchPresetTargets} from '../../lib/installer/preset.mjs';
+import {openRoot} from '../../lib/safe-fs/index.mjs';
+const roles = ['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'];
+const legacyRole = role => role === 'arc_tester' ? 'arc_qa' : role;
 const defaults = {
  codex: roles.map(()=>['gpt-6.2-sol','medium']),
  claude: roles.map(()=>['opus','medium']),
 };
+const legacyV3 = () => fs.readFileSync(new URL('../../claude/skill/models.toml', import.meta.url), 'utf8')
+ .replace(/^version = \d+$/m, 'version = 3')
+ .replace(/\[roles\.arc_(?:qa|tester)\][^[]*/, '[roles.arc_qa]\nmodel = "m-x"\neffort = "high"\n\n');
+
+test('v3 arc_qa values upgrade to v4 arc_tester', () => {
+ const config = api.loadModelConfig(legacyV3(), 'claude');
+ assert.deepEqual(config.roles.arc_tester, {model: 'm-x', effort: 'high'});
+ const rewritten = api.serializeModelConfig(config);
+ assert.match(rewritten, /^version = 4$/m);
+ assert.match(rewritten, /^\[roles\.arc_tester\]$/m);
+ assert.doesNotMatch(rewritten, /arc_qa/);
+ assert.throws(() => api.loadModelConfig(`${legacyV3()}\n[roles.arc_tester]\nmodel = "other"\neffort = "low"\n`, 'claude'), /both arc_qa and arc_tester/);
+});
+
+test('v4 with arc_qa is rejected without writing', async t => {
+ const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'arc-model-schema-')));
+ t.after(() => fs.rmSync(home, {recursive: true, force: true}));
+ const modelPath = path.join(home, 'skills/arc/models.toml');
+ fs.mkdirSync(path.dirname(modelPath), {recursive: true});
+ const before = Buffer.from(legacyV3().replace('version = 3', 'version = 4'));
+ fs.writeFileSync(modelPath, before);
+ const safeFs = {openRoot};
+ await assert.rejects(async () => {
+  const plan = buildPresetPlan({target: {platform: 'claude', home, profileNames: []}, safeFs});
+  await switchPresetTargets([plan], {safeFs});
+ }, /arc_qa/);
+ assert.deepEqual(fs.readFileSync(modelPath), before);
+});
 test('codex static catalog matches the GPT-6.2 and ultra contract', async()=>{
  const result=await loadStaticModelCatalog('codex');
  assert.equal(result.status,'ready');
@@ -41,36 +72,36 @@ for (const platform of ['codex','claude']) {
  const field=platform==='codex'?'model_reasoning_effort':'effort';
  const legacy=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8');
  const source=()=>fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url),'utf8');
- test(`${platform} loadModelConfig converts v1 and v2 active presets and custom to v3 roles`,()=>{
+ test(`${platform} loadModelConfig converts v1 and v2 active presets and custom to v4 roles`,()=>{
   for(const version of [1,2]) for(const preset of ['economy','balanced','smart','custom']) {
    const custom=Object.fromEntries(roles.map(role=>[role,{model:platform==='codex'?'legacy-custom':'sonnet',[field]:'low'}]));
-   const text=legacy.replace('version = 1',`version = ${version}`).replace('preset = "balanced"',`preset = "${preset}"`)+(preset==='custom'?roles.map(role=>`\n[custom.${role}]\nmodel = "${custom[role].model}"\n${field} = "low"\n`).join(''):'');
+   const text=legacy.replace('version = 1',`version = ${version}`).replace('preset = "balanced"',`preset = "${preset}"`)+(preset==='custom'?roles.map(role=>`\n[custom.${legacyRole(role)}]\nmodel = "${custom[role].model}"\n${field} = "low"\n`).join(''):'');
    if(version===1&&preset==='custom'){assert.throws(()=>api.loadModelConfig(text,platform));continue;}
    const parsed=configApi.parseToml(text), loaded=api.loadModelConfig(text,platform);
-   assert.equal(loaded.version,3);
-   assert.deepEqual(loaded.roles,preset==='custom'?custom:Object.fromEntries(roles.map(role=>[role,{...parsed.roles[role][preset]}])));
+   assert.equal(loaded.version,4);
+   assert.deepEqual(loaded.roles,preset==='custom'?custom:Object.fromEntries(roles.map(role=>[role,{...parsed.roles[legacyRole(role)][preset]}])));
    assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(loaded),platform),loaded);
   }
  });
- test(`${platform} serializeModelConfig writes version 3 without preset`,()=>{
+ test(`${platform} serializeModelConfig writes version 4 without preset`,()=>{
   const config=api.loadModelConfig(source(),platform),text=api.serializeModelConfig(config);
-  assert.match(text,/^version = 3$/m);assert.doesNotMatch(text,/preset/);
+  assert.match(text,/^version = 4$/m);assert.doesNotMatch(text,/preset/);
   assert.equal((text.match(/\[roles\.arc_/g)||[]).length,5);
   assert.deepEqual(api.loadModelConfig(text,platform),config);
  });
  test(`${platform} recommended package defaults exist in the static catalog`,async()=>{
   const config=api.loadModelConfig(source(),platform),catalog=await loadStaticModelCatalog(platform);
-  assert.equal(config.version,3);assert.equal(configApi.readModelFileVersion(source()),3);
+  assert.equal(config.version,4);assert.equal(configApi.readModelFileVersion(source()),4);
   assert.deepEqual(roles.map(role=>[config.roles[role].model,config.roles[role][field]]),defaults[platform]);
   for(const role of roles)assert.ok(catalog.catalog.pairs.some(p=>p.model===config.roles[role].model&&p.effort===config.roles[role][field]));
  });
- test(`${platform} v3 rejects exact schema violations and invalid inactive legacy values`,()=>{
+ test(`${platform} v4 rejects exact schema violations and invalid inactive legacy values`,()=>{
   const config=api.loadModelConfig(source(),platform);
-  for(const mutate of [c=>c.version=4,c=>c.preset='balanced',c=>delete c.roles.arc_qa,c=>c.roles.extra={},c=>c.roles.arc_qa.extra=true,c=>c.roles.arc_qa.model=' bad ',c=>c.roles.arc_qa[field]='']){
+  for(const mutate of [c=>c.version=5,c=>c.preset='balanced',c=>delete c.roles.arc_tester,c=>c.roles.extra={},c=>c.roles.arc_tester.extra=true,c=>c.roles.arc_tester.model=' bad ',c=>c.roles.arc_tester[field]='']){
    const invalid=structuredClone(config);mutate(invalid);assert.throws(()=>api.serializeModelConfig(invalid),{code:'ARC_MODEL_VALIDATION'});
   }
   assert.throws(()=>api.loadModelConfig(legacy.replace('model = "'+(platform==='codex'?'gpt-6-luna':'haiku')+'"','model = ""'),platform));
-  for(const text of ['version = [',source()+'\nversion = 3',source().replace(/version = [123]/,'version = 3.0')])assert.throws(()=>api.loadModelConfig(text,platform));
+  for(const text of ['version = [',source()+'\nversion = 4',source().replace(/version = 4/,'version = 4.0')])assert.throws(()=>api.loadModelConfig(text,platform));
  });
  test(`${platform} withRoles clones and renders selected role values`,()=>{
   const config=api.loadModelConfig(source(),platform),before=structuredClone(config),selected=structuredClone(config.roles);

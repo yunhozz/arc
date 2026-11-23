@@ -61,12 +61,12 @@ test('claude scan skips inaccessible project directories', {skip:process.getuid?
 });
 test('claude subagents with and without meta', async t => {
   const h = makeHomes(t), file = h.writeClaude('-repo','sid',[],{subagents:[
-    {agentId:'good',meta:{agentType:'arc-qa',description:'check'}},
+    {agentId:'good',meta:{agentType:'arc-tester',description:'check'}},
     {agentId:'broken',meta:'{'}, {agentId:'missing'},
   ]});
   const before = await h.snapshot(), found = await createClaudeDiscovery(h).subagents(file);
   assert.equal(found.length,3);
-  assert.deepEqual(found.find(row=>row.agentId==='good').meta,{agentType:'arc-qa',description:'check'});
+  assert.deepEqual(found.find(row=>row.agentId==='good').meta,{agentType:'arc-tester',description:'check'});
   for (const id of ['broken','missing']) assert.equal(found.find(row=>row.agentId===id).meta,null);
   assert.deepEqual(await h.snapshot(),before);
 });

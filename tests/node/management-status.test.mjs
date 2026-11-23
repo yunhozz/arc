@@ -84,8 +84,8 @@ test('management status refreshes by default and supports a local Codex recheck'
 });
 
 for(const platform of ['codex','claude'])for(const kind of ['file','symlink','owned'])test(`${platform} ${kind} profile alone reports ${kind==='owned'?'incomplete':'absent with residual'}`,async t=>{
- const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-orphan-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));const ext=platform==='codex'?'toml':'md',filename=userHome+'/.'+platform+'/agents/arc-qa.'+ext;fs.mkdirSync(path.dirname(filename),{recursive:true});
- if(kind==='file')fs.writeFileSync(filename,'user profile');else if(kind==='symlink')fs.symlinkSync(userHome+'/missing-user-target',filename);else fs.copyFileSync(platform+'/agents/arc-qa.'+ext,filename);
+ const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-status-orphan-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));const ext=platform==='codex'?'toml':'md',filename=userHome+'/.'+platform+'/agents/arc-tester.'+ext;fs.mkdirSync(path.dirname(filename),{recursive:true});
+ if(kind==='file')fs.writeFileSync(filename,'user profile');else if(kind==='symlink')fs.symlinkSync(userHome+'/missing-user-target',filename);else fs.copyFileSync(platform+'/agents/arc-tester.'+ext,filename);
  const status=(await api.collectStatus({userHome,cwd:userHome,env:{},safeFs})).find(item=>item.platform===platform);assert.equal(status.state,kind==='owned'?'incomplete':'absent');
  if(kind!=='owned'){assert.deepEqual(status.residualPaths,[filename]);assert.deepEqual(status.diagnostics,[]);}else assert.match(status.diagnostics[0].message,/Incomplete ARC installation/);
 });
@@ -138,8 +138,8 @@ test('injected zeta status reads standalone and composite through its registry',
 test('composite static catalog validation accepts injected zeta and rejects missing pairs',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
  const {assertCompositeCatalogRoles}=await import('../../lib/models/static-catalog.mjs');
- const ctx=createTestRegistries(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'zeta',model:'zeta-model',effort:'high'}]));
+ const ctx=createTestRegistries(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{platform:'zeta',model:'zeta-model',effort:'high'}]));
  const catalogs={zeta:{platform:'zeta',pairs:[{model:'zeta-model',effort:'high'}]}};
  assert.doesNotThrow(()=>assertCompositeCatalogRoles({...ctx,roles,catalogs}));
- assert.throws(()=>assertCompositeCatalogRoles({...ctx,roles:{...roles,arc_qa:{platform:'zeta',model:'other',effort:'high'}},catalogs}),/unavailable for arc_qa/);
+ assert.throws(()=>assertCompositeCatalogRoles({...ctx,roles:{...roles,arc_tester:{platform:'zeta',model:'other',effort:'high'}},catalogs}),/unavailable for arc_tester/);
 });

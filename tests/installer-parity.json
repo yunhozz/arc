@@ -81,6 +81,15 @@
           "file": "tests/test_codex_models.py",
           "test": "test_naming_v5_settings_and_serialization",
           "class": "ModelSettingsTests"
+        },
+        {
+          "file": "tests/node/models.test.mjs",
+          "test": "v3 arc_qa values upgrade to v4 arc_tester"
+        },
+        {
+          "file": "tests/test_codex_models.py",
+          "test": "test_v3_arc_qa_values_upgrade_to_v4_arc_tester",
+          "class": "ModelSettingsTests"
         }
       ],
       "assertionLines": [
@@ -124,6 +133,15 @@
           "file": "tests/test_codex_models.py",
           "test": "test_model_rejects_old_role_ids_and_invalid_fields_without_writes",
           "class": "ModelSettingsTests"
+        },
+        {
+          "file": "tests/node/models.test.mjs",
+          "test": "v4 with arc_qa is rejected without writing"
+        },
+        {
+          "file": "tests/test_claude_payload.py",
+          "test": "test_v4_rejects_arc_qa",
+          "class": "ClaudePayloadTests"
         }
       ],
       "assertionLines": [
@@ -672,14 +690,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read",
+        "test": "test_tester_and_reviewer_profiles_hold_contract_without_full_reference_read",
         "class": "ConditionalReferenceTests"
       },
       "reclassification": "ARC policy/profile prose assertions remain Python coverage for T7 preservation.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_and_reviewer_profiles_hold_contract_without_full_reference_read",
+          "test": "test_tester_and_reviewer_profiles_hold_contract_without_full_reference_read",
           "class": "ConditionalReferenceTests"
         }
       ],
@@ -764,14 +782,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_dependency_boundary_is_qa_only",
+        "test": "test_dependency_boundary_is_tester_only",
         "class": "ReviewerOncePerPlanTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_dependency_boundary_is_qa_only",
+          "test": "test_dependency_boundary_is_tester_only",
           "class": "ReviewerOncePerPlanTests"
         }
       ],
@@ -971,13 +989,13 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_plan_case_qa_requirement_is_satisfied_by_task_checks",
+        "test": "test_plan_case_tester_requirement_is_satisfied_by_task_checks",
         "class": "WholeSystemReviewFollowUpTests"
       },
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_plan_case_qa_requirement_is_satisfied_by_task_checks",
+          "test": "test_plan_case_tester_requirement_is_satisfied_by_task_checks",
           "class": "WholeSystemReviewFollowUpTests"
         }
       ],
@@ -1164,14 +1182,14 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_qa_fix_restorations",
+        "test": "test_tester_fix_restorations",
         "class": "SharedTermsTests"
       },
       "reclassification": "Original Python assertion remains active in the full regression. Exact legacy assertion migration/CLI-policy integration is deferred to T7; this is not claimed as T5 Node coverage.",
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_fix_restorations",
+          "test": "test_tester_fix_restorations",
           "class": "SharedTermsTests"
         }
       ],
@@ -1747,13 +1765,13 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_qa_ui_browser_acceptance_contract",
+        "test": "test_tester_ui_browser_acceptance_contract",
         "class": "RolePolicyTests"
       },
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_ui_browser_acceptance_contract",
+          "test": "test_tester_ui_browser_acceptance_contract",
           "class": "RolePolicyTests"
         }
       ],
@@ -1771,13 +1789,13 @@
       "status": "verified",
       "destination": {
         "file": "tests/test_arc_policy.py",
-        "test": "test_qa_reporting_contract",
+        "test": "test_tester_reporting_contract",
         "class": "RolePolicyTests"
       },
       "destinations": [
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_reporting_contract",
+          "test": "test_tester_reporting_contract",
           "class": "RolePolicyTests"
         }
       ],
@@ -10091,6 +10109,29 @@
     }
   ],
   "taskCoverage": {
+    "T1": {
+      "scope": [
+        "MIG-1 preserves legacy v3 role settings and writes canonical v4 settings",
+        "MIG-1 rejects the legacy key in v4 without changing the file"
+      ],
+      "nodeTests": [
+        "tests/node/models.test.mjs"
+      ],
+      "pythonTests": [
+        {
+          "file": "tests/test_codex_models.py",
+          "class": "ModelSettingsTests",
+          "test": "test_v3_arc_qa_values_upgrade_to_v4_arc_tester",
+          "assertionLines": [86, 88, 89, 90]
+        },
+        {
+          "file": "tests/test_claude_payload.py",
+          "class": "ClaudePayloadTests",
+          "test": "test_v4_rejects_arc_qa",
+          "assertionLines": [69, 71]
+        }
+      ]
+    },
     "T2": {
       "nodeTests": [
         "tests/node/models.test.mjs",
@@ -14685,12 +14726,12 @@
         },
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_ui_browser_acceptance_contract",
+          "test": "test_tester_ui_browser_acceptance_contract",
           "class": "RolePolicyTests"
         },
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_reporting_contract",
+          "test": "test_tester_reporting_contract",
           "class": "RolePolicyTests"
         },
         {
@@ -14846,12 +14887,12 @@
         },
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_ui_browser_acceptance_contract",
+          "test": "test_tester_ui_browser_acceptance_contract",
           "class": "RolePolicyTests"
         },
         {
           "file": "tests/test_arc_policy.py",
-          "test": "test_qa_reporting_contract",
+          "test": "test_tester_reporting_contract",
           "class": "RolePolicyTests"
         },
         {

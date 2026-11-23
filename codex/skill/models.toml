@@ -1,6 +1,6 @@
 # Canonical source for every role model and effort.
 # Use configured settings as specified. Report unavailable settings.
-version = 3
+version = 4
 
 [roles.arc_scouter]
 model = "gpt-6.2-sol"
@@ -14,7 +14,7 @@ model_reasoning_effort = "medium"
 model = "gpt-6.2-sol"
 model_reasoning_effort = "medium"
 
-[roles.arc_qa]
+[roles.arc_tester]
 model = "gpt-6.2-sol"
 model_reasoning_effort = "medium"
 

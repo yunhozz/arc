@@ -1,6 +1,6 @@
 # Canonical source for every role model and effort.
 # Defaults use one packaged model for every role.
-version = 3
+version = 4
 
 [roles.arc_scouter]
 model = "gemini-4-neon"
@@ -14,7 +14,7 @@ effort = "default"
 model = "gemini-4-neon"
 effort = "default"
 
-[roles.arc_qa]
+[roles.arc_tester]
 model = "gemini-4-neon"
 effort = "default"
 

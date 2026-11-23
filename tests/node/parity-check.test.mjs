@@ -44,7 +44,7 @@ test('paired specialist payloads deliver the same bounded recovery and visual co
   const policy = JSON.parse(fs.readFileSync('lib/policy/role-policy.json'));
   const inputs = new Map(POLICY_TARGETS.map(({path: name}) => [name, fs.readFileSync(name)]));
   const outputs = buildPolicyOutputs(inputs, policy);
-  for (const role of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
+  for (const role of ['scouter', 'planner', 'implementer', 'tester', 'reviewer']) {
     const contracts = ['codex', 'claude'].map(platform => {
       const name = `${platform}/agents/arc-${role}.${platform === 'codex' ? 'toml' : 'md'}`;
       const text = outputs.get(name).toString();

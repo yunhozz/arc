@@ -20,7 +20,7 @@ import {renderLanguagePolicy} from '../../lib/installer/language.mjs';
 import {safeFs,roles,compositeContext,targets,agents,mixedConfig,standalone,publish,profileFiles,standaloneNames,switched,assertStandalone} from './fixtures/install-mode.mjs';
 
 test('isOwnedStandaloneProfile accepts shipped profiles and rejects renamed or contract-less bytes',()=>{
- for(const [platform,ext] of [['claude','md'],['codex','toml']])for(const role of roles){const bytes=fs.readFileSync(path.join(sourceRoot,platform,'agents',`arc-${role}.${ext}`));assert.equal(isOwnedStandaloneProfile(bytes,platform,'arc_'+role),true);assert.equal(isOwnedStandaloneProfile(Buffer.from(bytes.toString().replace('[ARC role policy: contract begin]','')),platform,'arc_'+role),false);assert.equal(isOwnedStandaloneProfile(bytes,platform,'arc_qa'),role==='qa');}
+ for(const [platform,ext] of [['claude','md'],['codex','toml']])for(const role of roles){const bytes=fs.readFileSync(path.join(sourceRoot,platform,'agents',`arc-${role}.${ext}`));assert.equal(isOwnedStandaloneProfile(bytes,platform,'arc_'+role),true);assert.equal(isOwnedStandaloneProfile(Buffer.from(bytes.toString().replace('[ARC role policy: contract begin]','')),platform,'arc_'+role),false);assert.equal(isOwnedStandaloneProfile(bytes,platform,'arc_tester'),role==='tester');}
 });
 test('readInstallMode reports standalone, composite and unverified',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);assert.equal(readInstallMode({...ctx,targets:targets(ctx)}).mode,'standalone');assert.equal((await publish(ctx)).code,0);

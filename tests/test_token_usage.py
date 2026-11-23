@@ -74,9 +74,9 @@ class TokenUsageTest(unittest.TestCase):
         cases = {
             "main": {"thread_source": "user", "source": "vscode"},
             "arc_implementer": {"thread_source": "subagent", "agent_role": "arc_implementer"},
-            "arc_qa": {
+            "arc_tester": {
                 "thread_source": "subagent",
-                "source": {"subagent": {"thread_spawn": {"agent_role": "arc_qa"}}},
+                "source": {"subagent": {"thread_spawn": {"agent_role": "arc_tester"}}},
             },
             "guardian": {"source": {"subagent": {"other": "guardian"}}},
             "subagent": {"thread_source": "subagent", "source": {"subagent": {"thread_spawn": {}}}},

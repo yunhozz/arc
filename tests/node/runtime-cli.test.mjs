@@ -42,7 +42,7 @@ test('workflow CLI persists task check failure correction and fresh recheck; sco
  const task={id:'T1',paths:[path.join(cwd,'bin/arc.mjs')],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1};
  mutate('record',{evidence:{kind:'acceptance-evidence',messageRef:'task',data:{kind:'task',task}}});
  let status=invoke('status');assert.equal(status.state.tasks.length,1);const fingerprint=status.changeFingerprints.tasks.T1;
- const arguments_={scope:'task',actor:{id:'fresh-qa',role:'qa'},descriptor,changeFingerprint:fingerprint};
+ const arguments_={scope:'task',actor:{id:'fresh-tester',role:'tester'},descriptor,changeFingerprint:fingerprint};
  const intentId='r'+revision;mutate('prepare',{operation:'check',taskId:'T1',arguments:arguments_});
  mutate('result',{intentId,result:{status:'failed',messageRef:'check:failed',data:{actor:arguments_.actor,scope:'task',taskId:'T1',descriptor,changeFingerprint:fingerprint,verdict:'unmet'}}},3);
  status=invoke('status',undefined,3);assert.equal(status.state.findings[0].status,'open');assert.equal(status.state.checks[0].status,'failed');

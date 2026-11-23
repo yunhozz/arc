@@ -52,7 +52,7 @@ export async function transactWorkflow({statePath,expectedRevision,requestId,req
   for(const old of state.leases){const current=next.leases.find(l=>l.actorRef===old.actorRef);if(old.status==='retired'&&(!current||current.status!=='retired'||current.taskId!==old.taskId))throw Error('Retired lease revival forbidden');}
   next.revision=state.revision+1;next.requests=prior?state.requests.map(r=>r.requestId===requestId?{requestId,requestFingerprint,decision}:r):[...state.requests,{requestId,requestFingerprint,decision}];
   next.audit=[...state.audit,{requestId,revision:next.revision,decision:decision.decision,ruleIds:decision.ruleIds??[],result:'pending'}];
-  validateWorkflowState(next);
+  validateWorkflowState(next,{allowLegacyOperations:false});
   await saveDurableState({statePath,state:next});
   return {state:next,decision,replayed:false};
  }finally{

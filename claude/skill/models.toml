@@ -1,6 +1,6 @@
 # Canonical source for every role model and effort.
 # Use configured settings as specified. Report unavailable settings.
-version = 3
+version = 4
 
 [roles.arc_scouter]
 model = "opus"
@@ -14,7 +14,7 @@ effort = "medium"
 model = "opus"
 effort = "medium"
 
-[roles.arc_qa]
+[roles.arc_tester]
 model = "opus"
 effort = "medium"
 

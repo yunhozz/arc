@@ -45,8 +45,8 @@ for (const injected of [false, true]) {
     assert.deepEqual(prepared.platforms, platforms);
     assert.equal(prepared.anchor, anchor);
     const value = injected
-      ? {version: 2, revision: input.config.revision, platforms: ['claude', 'zeta'], roles: input.config.roles}
-      : {version: 2, revision: input.config.revision, platforms: ['claude', 'codex'], roles: input.config.roles};
+      ? {version: 3, revision: input.config.revision, platforms: ['claude', 'zeta'], roles: input.config.roles}
+      : {version: 3, revision: input.config.revision, platforms: ['claude', 'codex'], roles: input.config.roles};
     assert.equal(prepared.bytes.toString(), JSON.stringify(value, null, 2) + '\n');
     assert.ok(prepared.managedPaths.includes(path.join(input.targets[anchor].home, 'arc-role-platform-routing.json')));
   });
@@ -85,12 +85,12 @@ for (const injected of [false, true]) {
   });
 }
 
-test('management composite fallback keeps production v2 bytes, paths and options', async t => {
+test('management composite fallback keeps production v3 bytes, paths and options', async t => {
   const context = await compositeContext(t), config = await mixedConfig('management-default');
   const prepared = await prepareCompositeOperation(context, {kind: 'install', config});
   const explicit = await prepareCompositeOperation(context, {kind: 'install', config, platforms: ['claude', 'codex']});
   assert.deepEqual(prepared, explicit);
-  assert.equal(prepared.files.bytes.toString(), JSON.stringify(config, null, 2) + '\n');
+  assert.equal(prepared.files.bytes.toString(), JSON.stringify({...config, version: 3}, null, 2) + '\n');
   assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex']);
   assert.deepEqual(prepared.options, {target: 'composite'});
   assert.equal(prepared.files.anchor, 'claude');
@@ -101,7 +101,7 @@ test('management composite fallback includes injected host-only zeta in anchor o
   const prepared = await prepareCompositeOperation(context, {kind: 'install', config});
   assert.deepEqual(prepared.files.platforms, ['claude', 'codex', 'zeta']);
   assert.deepEqual(prepared.plans.map(plan => plan.target.platform), ['claude', 'codex', 'zeta']);
-  assert.equal(prepared.config.version, 2);
+  assert.equal(prepared.config.version, 3);
   assert.equal(prepared.files.anchor, 'claude');
 });
 

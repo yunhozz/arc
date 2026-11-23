@@ -88,6 +88,35 @@ const dirOf = (f, dispatchId) => path.join(f.cwd, '.git/arc/workflows/wf-1/dispa
 const mode = async file => (await fs.stat(file)).mode & 0o777;
 const flag = (argv, name) => argv[argv.indexOf(name) + 1];
 
+test('resume segment uses arc_tester 60 minute timeout', async t => {
+  const f = await setup(t, {roles: {arc_tester: 'codex'}});
+  const {dispatchId} = await prepare(f, 'arc_tester');
+  const scenario = codexOk(f, 24);
+  scenario.writes[0].content = scenario.writes[0].content.replace('read-only', 'workspace-write');
+  await f.codex.setScenario(scenario);
+  const options = {codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env};
+  const startSupervisor = startInProcess();
+  const originalSetTimeout = globalThis.setTimeout;
+  const deadlines = [];
+  t.mock.method(globalThis, 'setTimeout', (callback, delay, ...args) => {
+    if (delay === 60 * 60 * 1000) deadlines.push(delay);
+    return originalSetTimeout(callback, delay, ...args);
+  });
+
+  assert.equal((await run(f, dispatchId, 'first segment', {startSupervisor})).decision, 'allow');
+  await runSupervisor(options);
+  assert.equal((await readLease(f.claudeHome, dispatchId)).state, 'completed');
+  assert.deepEqual(deadlines, [3600000]);
+
+  assert.equal((await resume(f, dispatchId, 'second segment', {startSupervisor})).decision, 'allow');
+  const resumed = await readLease(f.claudeHome, dispatchId);
+  assert.equal(resumed.segment, 1);
+  assert.equal(resumed.timeoutMinutes, 60);
+  await runSupervisor(options);
+  assert.equal((await readLease(f.claudeHome, dispatchId)).state, 'completed');
+  assert.deepEqual(deadlines, [3600000, 3600000]);
+});
+
 async function completedClaude(t) {
   const f = await claudeSetup(t);
   await f.claude.setScenario({events: [claudeInit(claudeTools(f)), claudeResult('first')], writes: [transcript(f)]});

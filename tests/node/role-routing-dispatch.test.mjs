@@ -50,16 +50,16 @@ test('default Codex host permits Claude bridge gates and honors injected G1 and 
   const input = {platform: 'claude', role: 'arc_planner', hostPlatform: 'codex'};
   assert.deepEqual(bridgeGateReasons(input), []);
   assert.deepEqual(bridgeGateReasons({...input, policy: policyWith({gates: {G1: 'pass', G2: 'fail'}})}), ['host_sandbox_blocked']);
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     assert.deepEqual(bridgeGateReasons({...input, role}), [], role);
     assert.deepEqual(bridgeGateReasons({...input, role, policy: policyWith({gates: {G1: 'fail'}})}), ['permission_scope_unverified'], role);
   }
 });
 
 test('default Codex CLI policy allows Claude bridge roles and injected G1 failure holds writing roles', async t => {
-  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude', arc_reviewer: 'claude', arc_implementer: 'claude', arc_qa: 'claude'}});
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude', arc_reviewer: 'claude', arc_implementer: 'claude', arc_tester: 'claude'}});
   await okClis(f);
-  for (const role of ['arc_planner', 'arc_reviewer', 'arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_planner', 'arc_reviewer', 'arc_implementer', 'arc_tester']) {
     const result = await prepare(f, request(role), {policy: DEFAULT_POLICY});
     try {
       assert.equal(result.decision, 'allow', role);
@@ -69,7 +69,7 @@ test('default Codex CLI policy allows Claude bridge roles and injected G1 failur
       assert.ok(result.dispatchId, role);
     } finally { if (result.dispatchId) await cancel(f, result.dispatchId); }
   }
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     const result = await prepare(f, request(role), {policy: policyWith({gates: {G1: 'fail'}})});
     assert.equal(result.decision, 'hold', role);
     assert.deepEqual(codes(result), ['permission_scope_unverified'], role);
@@ -116,16 +116,16 @@ test('default Codex host maps Claude planner dispatch-directory and Claude-ancho
 });
 
 test('routing-status returns revision, per-role routes, profile names and auth without creating leases', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const status = await routingStatus({context: f.context(), policy: policyWith()});
   assert.equal(status.decision, 'allow');
   assert.equal(status.revision, f.revision);
   assert.equal(status.hostPlatform, 'claude');
-  assert.equal(status.roles.arc_qa.route, 'bridge');
-  assert.equal(status.roles.arc_qa.platform, 'codex');
-  assert.equal(status.roles.arc_qa.profileName, 'arc_routing_qa');
-  assert.equal(status.roles.arc_qa.revisionTag, `[arc-routing rev ${f.revision}]`);
+  assert.equal(status.roles.arc_tester.route, 'bridge');
+  assert.equal(status.roles.arc_tester.platform, 'codex');
+  assert.equal(status.roles.arc_tester.profileName, 'arc_routing_tester');
+  assert.equal(status.roles.arc_tester.revisionTag, `[arc-routing rev ${f.revision}]`);
   assert.equal(status.roles.arc_planner.route, 'native');
   assert.equal(status.roles.arc_planner.profileName, 'arc-routing-planner');
   assert.equal(status.platforms.codex.authentication.status, 'Available');
@@ -138,7 +138,7 @@ test('routing-status returns revision, per-role routes, profile names and auth w
 });
 
 test('routing-status holds activation_unverified on marker hash mismatch', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const file = path.join(f.claudeHome, 'agents/arc-routing-planner.md'), bytes = await fs.readFile(file);
   await fs.writeFile(file, Buffer.concat([bytes, Buffer.from(' ')]));
@@ -150,10 +150,10 @@ test('routing-status holds activation_unverified on marker hash mismatch', async
 });
 
 test('prepare-dispatch allows native and bridge with reserved lease and initial claims', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_implementer: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex', arc_implementer: 'codex'}});
   await okClis(f);
-  const native = await prepare(f, request('arc_planner')), qa = await prepare(f, request('arc_qa')), impl = await prepare(f, request('arc_implementer'));
-  for (const result of [native, qa, impl]) {
+  const native = await prepare(f, request('arc_planner')), tester = await prepare(f, request('arc_tester')), impl = await prepare(f, request('arc_implementer'));
+  for (const result of [native, tester, impl]) {
     assert.equal(result.decision, 'allow');
     assert.equal(result.routeStatus, 'reserved');
     assert.equal(result.supportStatus, 'unverified');
@@ -162,49 +162,49 @@ test('prepare-dispatch allows native and bridge with reserved lease and initial 
   }
   assert.equal(native.route, 'native');
   assert.equal(native.profileName, 'arc-routing-planner');
-  assert.equal(qa.route, 'bridge');
-  assert.equal(qa.profileName, 'arc_routing_qa');
+  assert.equal(tester.route, 'bridge');
+  assert.equal(tester.profileName, 'arc_routing_tester');
   for (const level of Object.values(native.claims).map(claim => claim.level)) assert.equal(level, 'operator-attested');
   assert.equal(native.claims.permissions.source, 'prompt-contract');
   assert.equal(native.claims.identity.source, 'orchestrator');
-  for (const claim of Object.values(qa.claims)) assert.equal(claim.level, 'unverified');
-  const leases = {native: await readLease(f.claudeHome, native.dispatchId), qa: await readLease(f.claudeHome, qa.dispatchId), impl: await readLease(f.claudeHome, impl.dispatchId)};
+  for (const claim of Object.values(tester.claims)) assert.equal(claim.level, 'unverified');
+  const leases = {native: await readLease(f.claudeHome, native.dispatchId), tester: await readLease(f.claudeHome, tester.dispatchId), impl: await readLease(f.claudeHome, impl.dispatchId)};
   assert.equal(leases.native.timeoutMinutes, 20);
-  assert.equal(leases.qa.timeoutMinutes, 30);
+  assert.equal(leases.tester.timeoutMinutes, 60);
   assert.equal(leases.impl.timeoutMinutes, 60);
   assert.equal(leases.impl.state, 'reserved');
   assert.deepEqual(leases.impl.allowedPaths, ['src/']);
   assert.equal(leases.impl.revision, f.revision);
   assert.equal(leases.impl.workflowId, 'wf-1');
   assert.match(leases.impl.profileHash, /^sha256:[a-f0-9]{64}$/);
-  assert.equal((await fs.stat(path.join(dispatchDirectory(f.claudeHome), `${qa.dispatchId}.json`))).mode & 0o777, 0o600);
+  assert.equal((await fs.stat(path.join(dispatchDirectory(f.claudeHome), `${tester.dispatchId}.json`))).mode & 0o777, 0o600);
   await assert.rejects(fs.access(path.join(f.claudeHome, 'arc-role-platform-routing.lock')), {code: 'ENOENT'});
 });
 
 test('prepare-dispatch never emits native_provider_unavailable, capacity_unverified or model_effort_observer_unavailable', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const seen = [];
-  for (const role of ['arc_planner', 'arc_qa']) seen.push(...codes(await prepare(f, request(role))));
+  for (const role of ['arc_planner', 'arc_tester']) seen.push(...codes(await prepare(f, request(role))));
   await f.cli('codex', {auth: 'unauthorized', version: 'codex-cli 0.167.0'});
-  seen.push(...codes(await prepare(f, request('arc_qa'))));
+  seen.push(...codes(await prepare(f, request('arc_tester'))));
   await f.cli('codex', {version: 'garbage'});
-  seen.push(...codes(await prepare(f, request('arc_qa'))));
+  seen.push(...codes(await prepare(f, request('arc_tester'))));
   assert.ok(seen.length > 0);
   for (const code of ['native_provider_unavailable', 'capacity_unverified', 'model_effort_observer_unavailable']) assert.equal(seen.includes(code), false, code);
 });
 
 test('prepare-dispatch maps CLI absence, unauthorized and probe failure to Not Available, Unauthorized, Incomplete holds', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await f.cli('claude', {version: '2.1.322'});
-  let result = await prepare(f, request('arc_qa'));
+  let result = await prepare(f, request('arc_tester'));
   assert.equal(result.decision, 'hold');
   assert.equal(result.authentication.status, 'Not Available');
   assert.ok(codes(result).includes('Not Available'));
   assert.equal(result.dispatchId, null);
   for (const [auth, status] of [['unauthorized', 'Unauthorized'], ['error', 'Incomplete'], ['hang', 'Incomplete']]) {
     await f.cli('codex', {auth, version: 'codex-cli 0.167.0'});
-    result = await prepare(f, request('arc_qa'), {policy: policyWith({probeTimeoutMs: 500})}); // the hang scenario needs a short probe timeout
+    result = await prepare(f, request('arc_tester'), {policy: policyWith({probeTimeoutMs: 500})}); // the hang scenario needs a short probe timeout
     assert.equal(result.decision, 'hold', auth);
     assert.equal(result.routeStatus, 'held');
     assert.equal(result.authentication.status, status, auth);
@@ -216,10 +216,10 @@ test('prepare-dispatch maps CLI absence, unauthorized and probe failure to Not A
 
 test('bridge CLI versions are reported but never gate dispatch', async t => {
   const passing = policyWith({gates: {G1: 'pass', G2: 'pass'}});
-  const claudeHost = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const claudeHost = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   for (const [version, parsed] of [['codex-cli 0.167.0', '0.167.0'], ['codex-cli 0.169.0', '0.169.0'], ['codex-cli 0.166.9', '0.166.9'], ['garbage', null]]) {
     await claudeHost.cli('claude', {version: 'garbage'}); await claudeHost.cli('codex', {version});
-    const bridge = await prepare(claudeHost, request('arc_qa'), {policy: passing});
+    const bridge = await prepare(claudeHost, request('arc_tester'), {policy: passing});
     assert.equal(bridge.decision, 'allow', version);
     assert.ok(!codes(bridge).includes('permission_scope_unverified'), version);
     assert.deepEqual(bridge.cliVersion, parsed ? {version: parsed} : {version: null, reason: 'version_unparsed'}, version);
@@ -252,10 +252,10 @@ test('desktop environments hold environment_unverified until checklist passes', 
 
 test('gate results hold only the affected role, platform and host', async t => {
   // G1 fail: Claude bridge Implementer and QA hold, other Claude bridge roles allow.
-  const g1 = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_implementer: 'claude', arc_qa: 'claude', arc_planner: 'claude'}});
+  const g1 = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_implementer: 'claude', arc_tester: 'claude', arc_planner: 'claude'}});
   await okClis(g1);
   const g1Policy = policyWith({gates: {G1: 'fail', G2: 'pass'}});
-  for (const role of ['arc_implementer', 'arc_qa']) { const r = await prepare(g1, request(role), {policy: g1Policy}); assert.equal(r.decision, 'hold', role); assert.deepEqual(codes(r), ['permission_scope_unverified'], role); }
+  for (const role of ['arc_implementer', 'arc_tester']) { const r = await prepare(g1, request(role), {policy: g1Policy}); assert.equal(r.decision, 'hold', role); assert.deepEqual(codes(r), ['permission_scope_unverified'], role); }
   assert.equal((await prepare(g1, request('arc_planner'), {policy: g1Policy})).decision, 'allow');
   // G2 fail with a Codex host: bridge hosts_sandbox_blocked, native allowed.
   const g2 = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_planner: 'claude'}});
@@ -266,55 +266,55 @@ test('gate results hold only the affected role, platform and host', async t => {
   assert.deepEqual(codes(blocked), ['host_sandbox_blocked']);
   assert.equal((await prepare(g2, request('arc_scouter'), {policy: g2Policy})).decision, 'allow');
   // G2 fail does not affect a Claude host.
-  const claudeHost = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const claudeHost = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(claudeHost);
-  assert.equal((await prepare(claudeHost, request('arc_qa'), {policy: g2Policy})).decision, 'allow');
+  assert.equal((await prepare(claudeHost, request('arc_tester'), {policy: g2Policy})).decision, 'allow');
   // G4 fail: every Codex bridge role holds.
-  const g4 = await createRoutingFixture(t, {roles: Object.fromEntries(['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'].map(role => [role, 'codex']))});
+  const g4 = await createRoutingFixture(t, {roles: Object.fromEntries(['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer'].map(role => [role, 'codex']))});
   await okClis(g4);
-  for (const role of ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer']) {
+  for (const role of ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer']) {
     const r = await prepare(g4, request(role), {policy: policyWith({gates: {G4: 'fail'}})});
     assert.equal(r.decision, 'hold', role); assert.deepEqual(codes(r), ['permission_scope_unverified'], role);
   }
   // G3 fail and G5 wide are not hold reasons.
   const g35 = policyWith({gates: {G3: 'fail', G5: 'wide', G6: 'none'}});
-  assert.equal((await prepare(claudeHost, request('arc_qa'), {policy: g35})).decision, 'allow');
+  assert.equal((await prepare(claudeHost, request('arc_tester'), {policy: g35})).decision, 'allow');
 });
 
 test('duplicate requestId and duplicate non-terminal task-role are denied', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
-  const first = await prepare(f, {role: 'arc_qa', requestId: 'r-1', taskId: 'T-1'});
+  const first = await prepare(f, {role: 'arc_tester', requestId: 'r-1', taskId: 'T-1'});
   assert.equal(first.decision, 'allow');
   const sameRequest = await prepare(f, {role: 'arc_planner', requestId: 'r-1', taskId: 'T-9'});
   assert.equal(sameRequest.decision, 'deny');
   assert.deepEqual(codes(sameRequest), ['duplicate_dispatch']);
-  const sameTaskRole = await prepare(f, {role: 'arc_qa', requestId: 'r-2', taskId: 'T-1'});
+  const sameTaskRole = await prepare(f, {role: 'arc_tester', requestId: 'r-2', taskId: 'T-1'});
   assert.equal(sameTaskRole.decision, 'deny');
   assert.equal(sameTaskRole.dispatchId, null);
   assert.equal((await listLeases(f.claudeHome)).length, 1);
   await writeLease(f.claudeHome, {...(await readLease(f.claudeHome, first.dispatchId)), state: 'completed'});
-  assert.equal((await prepare(f, {role: 'arc_qa', requestId: 'r-3', taskId: 'T-1'})).decision, 'allow');
+  assert.equal((await prepare(f, {role: 'arc_tester', requestId: 'r-3', taskId: 'T-1'})).decision, 'allow');
 });
 
 test('bridge concurrency and workflow total come from host limits.toml and unknown leases count', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_scouter: 'codex', arc_reviewer: 'codex'}, limits: {total: 100, concurrent: 2}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex', arc_scouter: 'codex', arc_reviewer: 'codex'}, limits: {total: 100, concurrent: 2}});
   await okClis(f);
   const a = await prepare(f, request('arc_scouter'), {policy: policyWith()}), b = await prepare(f, request('arc_reviewer'), {policy: policyWith()});
   assert.equal(a.decision, 'allow'); assert.equal(b.decision, 'allow');
-  let third = await prepare(f, request('arc_qa'), {policy: policyWith()});
+  let third = await prepare(f, request('arc_tester'), {policy: policyWith()});
   assert.equal(third.decision, 'hold');
   assert.deepEqual(codes(third), ['capacity_exhausted']);
   await writeLease(f.claudeHome, {...(await readLease(f.claudeHome, a.dispatchId)), state: 'unknown'});
-  third = await prepare(f, request('arc_qa'), {policy: policyWith()});
+  third = await prepare(f, request('arc_tester'), {policy: policyWith()});
   assert.deepEqual(codes(third), ['capacity_exhausted']);
   assert.equal((await prepare(f, request('arc_planner'), {policy: policyWith()})).decision, 'allow');
   await writeLease(f.claudeHome, {...(await readLease(f.claudeHome, a.dispatchId)), state: 'completed'});
-  assert.equal((await prepare(f, request('arc_qa'), {policy: policyWith()})).decision, 'allow');
+  assert.equal((await prepare(f, request('arc_tester'), {policy: policyWith()})).decision, 'allow');
 
-  const g = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_scouter: 'codex', arc_reviewer: 'codex'}, limits: {total: 3, concurrent: 5}});
+  const g = await createRoutingFixture(t, {roles: {arc_tester: 'codex', arc_scouter: 'codex', arc_reviewer: 'codex'}, limits: {total: 3, concurrent: 5}});
   await okClis(g);
-  for (const role of ['arc_scouter', 'arc_reviewer', 'arc_qa']) {
+  for (const role of ['arc_scouter', 'arc_reviewer', 'arc_tester']) {
     const r = await prepare(g, request(role), {policy: policyWith()}); assert.equal(r.decision, 'allow', role);
     await writeLease(g.claudeHome, {...(await readLease(g.claudeHome, r.dispatchId)), state: 'completed'});
   }
@@ -328,7 +328,7 @@ test('bridge concurrency and workflow total come from host limits.toml and unkno
 });
 
 test('allowedPaths validation', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_implementer: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex', arc_implementer: 'codex'}});
   await okClis(f);
   const deny = async assignment => { const r = await prepare(f, assignment); assert.equal(r.decision, 'deny', JSON.stringify(assignment)); assert.deepEqual(codes(r), ['invalid_request']); };
   await deny({role: 'arc_implementer', requestId: 'a1', taskId: 'a1'});
@@ -336,9 +336,9 @@ test('allowedPaths validation', async t => {
   await deny({role: 'arc_planner', requestId: 'a3', taskId: 'a3', allowedPaths: ['src/']});
   await deny({role: 'arc_scouter', requestId: 'a4', taskId: 'a4', allowedPaths: []});
   await deny({role: 'unknown_role', requestId: 'a5', taskId: 'a5'});
-  await deny({role: 'arc_qa', requestId: '', taskId: 'a6'});
-  assert.equal((await prepare(f, {role: 'arc_qa', requestId: 'ok1', taskId: 'ok1'})).decision, 'allow');
-  assert.equal((await prepare(f, {role: 'arc_qa', requestId: 'ok2', taskId: 'ok2', allowedPaths: ['tests/', 'lib/a.mjs']})).decision, 'allow');
+  await deny({role: 'arc_tester', requestId: '', taskId: 'a6'});
+  assert.equal((await prepare(f, {role: 'arc_tester', requestId: 'ok1', taskId: 'ok1'})).decision, 'allow');
+  assert.equal((await prepare(f, {role: 'arc_tester', requestId: 'ok2', taskId: 'ok2', allowedPaths: ['tests/', 'lib/a.mjs']})).decision, 'allow');
   const bad = await prepareRoleDispatch({context: f.context({hostPlatform: 'claude', executionEnvironment: 'codex-cli'}), assignment: request('arc_planner'), expectedRevision: f.revision, policy: policyWith()});
   assert.equal(bad.decision, 'deny');
   assert.equal(await leaseCount(f), 2);
@@ -346,19 +346,19 @@ test('allowedPaths validation', async t => {
 
 test('EACCES on dispatch directory or lock maps to host_sandbox_blocked', async t => {
   skipRoot(t);
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   await fs.mkdir(dispatchDirectory(f.claudeHome), {mode: 0o700});
   await fs.chmod(dispatchDirectory(f.claudeHome), 0o500);
   try {
-    const dirResult = await prepare(f, request('arc_qa'), {policy: policyWith()});
+    const dirResult = await prepare(f, request('arc_tester'), {policy: policyWith()});
     assert.equal(dirResult.decision, 'hold');
     assert.deepEqual(codes(dirResult), ['host_sandbox_blocked']);
   } finally { await fs.chmod(dispatchDirectory(f.claudeHome), 0o700); }
   await fs.chmod(dispatchDirectory(f.claudeHome), 0o700);
   await fs.chmod(f.claudeHome, 0o500);
   try {
-    const lockResult = await prepare(f, request('arc_qa'), {policy: policyWith()});
+    const lockResult = await prepare(f, request('arc_tester'), {policy: policyWith()});
     assert.equal(lockResult.decision, 'hold');
     assert.deepEqual(codes(lockResult), ['host_sandbox_blocked']);
   } finally { await fs.chmod(f.claudeHome, 0o700); }
@@ -367,10 +367,10 @@ test('EACCES on dispatch directory or lock maps to host_sandbox_blocked', async 
 const writeForeignLock = async f => { const lock = path.join(f.claudeHome, 'arc-role-platform-routing.lock'); await fs.writeFile(lock, JSON.stringify({version: 1, operationId: 'other-operation', pid: 1, createdAt: new Date().toISOString()}) + '\n', {mode: 0o600}); return lock; };
 
 test('lock busy beyond retry window holds activation_unverified with residual lock path and keeps the lock file', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const lock = await writeForeignLock(f), started = Date.now();
-  const result = await prepare(f, request('arc_qa'), {policy: policyWith({lockRetryMs: 300})});
+  const result = await prepare(f, request('arc_tester'), {policy: policyWith({lockRetryMs: 300})});
   assert.ok(Date.now() - started >= 250);
   assert.equal(result.decision, 'hold');
   assert.deepEqual(codes(result), ['activation_unverified']);
@@ -383,20 +383,20 @@ test('lock busy beyond retry window holds activation_unverified with residual lo
 });
 
 test('lock released within retry window allows', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const lock = await writeForeignLock(f);
   setTimeout(() => fs.unlink(lock).catch(() => {}), 300);
-  const result = await prepare(f, request('arc_qa'), {policy: policyWith({lockRetryMs: 2000})});
+  const result = await prepare(f, request('arc_tester'), {policy: policyWith({lockRetryMs: 2000})});
   assert.equal(result.decision, 'allow');
 });
 
 test('prune failure does not change the decision and old terminal leases are pruned under the lock', async t => {
   skipRoot(t);
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const now = Date.parse('2026-06-30T00:00:00.000Z');
-  const old = {version: 1, dispatchId: 'old', workflowId: 'wf-0', taskId: 'T0', requestId: 'req-old', role: 'arc_qa', route: 'bridge', hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'rev-0', profileHash: 'sha256:' + 'b'.repeat(64), argsDigest: null, state: 'completed', supervisor: null, child: null, sessionId: null, timeoutMinutes: 30, claims: null, reasons: [], allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: new Date(now - 40 * DAY).toISOString(), updatedAt: new Date(now - 40 * DAY).toISOString()};
+  const old = {version: 1, dispatchId: 'old', workflowId: 'wf-0', taskId: 'T0', requestId: 'req-old', role: 'arc_tester', route: 'bridge', hostPlatform: 'claude', executionEnvironment: 'claude-cli', revision: 'rev-0', profileHash: 'sha256:' + 'b'.repeat(64), argsDigest: null, state: 'completed', supervisor: null, child: null, sessionId: null, timeoutMinutes: 30, claims: null, reasons: [], allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: new Date(now - 40 * DAY).toISOString(), updatedAt: new Date(now - 40 * DAY).toISOString()};
   await createLease(f.claudeHome, old);
   const pruned = await routingStatus({context: f.context(), now, policy: policyWith()});
   assert.deepEqual(pruned.pruned, {removed: 1, errors: 0});
@@ -408,11 +408,11 @@ test('prune failure does not change the decision and old terminal leases are pru
   assert.equal(status.decision, 'allow');
   assert.deepEqual(status.pruned, {removed: 0, errors: 1});
   await f.cli('codex', {auth: 'unauthorized', version: 'codex-cli 0.167.0'});
-  const held = await prepare(f, request('arc_qa'), {now});
+  const held = await prepare(f, request('arc_tester'), {now});
   assert.equal(held.decision, 'hold');
   assert.deepEqual(codes(held), ['Unauthorized']);
   await fs.chmod(dispatchDirectory(f.claudeHome), 0o700);
-  const reallowed = await (async () => { await f.cli('codex', {version: 'codex-cli 0.167.0'}); return prepare(f, request('arc_qa'), {now}); })();
+  const reallowed = await (async () => { await f.cli('codex', {version: 'codex-cli 0.167.0'}); return prepare(f, request('arc_tester'), {now}); })();
   assert.equal(reallowed.decision, 'allow');
   assert.equal(await readLease(f.claudeHome, 'old'), null);
 });
@@ -439,7 +439,7 @@ const runCli = (f, command, input, extraEnv = {}) => new Promise((resolve, rejec
 });
 
 test('installed cli.mjs maps allow/hold/deny to exit 0/3/2', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const base = {hostPlatform: 'claude', executionEnvironment: 'claude-cli'};
   const status = await runCli(f, 'routing-status', base);
@@ -465,7 +465,7 @@ test('installed cli.mjs maps allow/hold/deny to exit 0/3/2', async t => {
 });
 
 test('duplicate requestId is global across workflows while task-role duplication stays per workflow', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);
   const first = await prepare(f, {role: 'arc_planner', requestId: 'shared-req', taskId: 'T-1'});
   assert.equal(first.decision, 'allow');
@@ -497,18 +497,18 @@ test('Claude sandbox settings require both a passing G1 and a recorded object', 
   assert.equal(policyModule.effectiveClaudeSandboxSettings({gates: {G1: 'pass'}, claudeSandboxSettings: null}), null);
   const recorded = {sandbox: {enabled: true}};
   assert.deepEqual(policyModule.effectiveClaudeSandboxSettings({gates: {G1: 'pass'}, claudeSandboxSettings: recorded}), recorded);
-  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_implementer: 'claude', arc_qa: 'claude', arc_planner: 'claude'}});
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_implementer: 'claude', arc_tester: 'claude', arc_planner: 'claude'}});
   await okClis(f);
   const noJson = policyWith({gates: {G1: 'pass', G2: 'pass'}, claudeSandboxSettings: null});
-  for (const role of ['arc_implementer', 'arc_qa']) { const r = await prepare(f, request(role), {policy: noJson}); assert.equal(r.decision, 'hold', role); assert.deepEqual(codes(r), ['permission_scope_unverified'], role); }
+  for (const role of ['arc_implementer', 'arc_tester']) { const r = await prepare(f, request(role), {policy: noJson}); assert.equal(r.decision, 'hold', role); assert.deepEqual(codes(r), ['permission_scope_unverified'], role); }
   assert.equal((await prepare(f, request('arc_planner'), {policy: noJson})).decision, 'allow');
   const withJson = policyWith({gates: {G1: 'pass', G2: 'pass'}, claudeSandboxSettings: recorded});
-  for (const role of ['arc_implementer', 'arc_qa']) assert.equal((await prepare(f, request(role), {policy: withJson})).decision, 'allow', role);
+  for (const role of ['arc_implementer', 'arc_tester']) assert.equal((await prepare(f, request(role), {policy: withJson})).decision, 'allow', role);
 });
 
 test('parallel prepare-dispatch calls create exactly one lease per duplicate key and never exceed bridge limits', async t => {
   const wide = policyWith({lockRetryMs: 15000});
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex', arc_scouter: 'codex'}, limits: {total: 100, concurrent: 2}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex', arc_scouter: 'codex'}, limits: {total: 100, concurrent: 2}});
   await okClis(f);
   const taskRole = await Promise.all(Array.from({length: 6}, (_, i) => prepare(f, {role: 'arc_planner', requestId: `par-a-${i}`, taskId: 'T-par'}, {policy: wide})));
   assert.equal(taskRole.filter(r => r.decision === 'allow').length, 1);
@@ -517,7 +517,7 @@ test('parallel prepare-dispatch calls create exactly one lease per duplicate key
   const sameRequest = await Promise.all(Array.from({length: 6}, (_, i) => prepare(f, {role: 'arc_planner', requestId: 'par-b', taskId: `T-b-${i}`}, {policy: wide})));
   assert.equal(sameRequest.filter(r => r.decision === 'allow').length, 1);
   assert.equal((await listLeases(f.claudeHome)).length, 2);
-  const bridges = await Promise.all(Array.from({length: 6}, (_, i) => prepare(f, {role: i % 2 ? 'arc_qa' : 'arc_scouter', requestId: `par-c-${i}`, taskId: `T-c-${i}`}, {policy: wide})));
+  const bridges = await Promise.all(Array.from({length: 6}, (_, i) => prepare(f, {role: i % 2 ? 'arc_tester' : 'arc_scouter', requestId: `par-c-${i}`, taskId: `T-c-${i}`}, {policy: wide})));
   assert.equal(bridges.filter(r => r.decision === 'allow').length, 2);
   assert.ok(bridges.filter(r => r.decision !== 'allow').every(r => r.decision === 'hold' && codes(r).includes('capacity_exhausted')));
   assert.equal((await listLeases(f.claudeHome)).filter(lease => lease.route === 'bridge').length, 2);
@@ -534,14 +534,14 @@ test('parallel child processes reserve the same requestId exactly once', async t
 });
 
 test('routing-status and prepare-dispatch report Unauthorized for a withheld Codex token without leaking token or error text',async t=>{
- const f=await createRoutingFixture(t,{roles:{arc_qa:'codex'}});await f.cli('claude',{version:'2.1.322'});
+ const f=await createRoutingFixture(t,{roles:{arc_tester:'codex'}});await f.cli('claude',{version:'2.1.322'});
  for(const [authStatus,status,reason] of [['revoked','Unauthorized','token_rejected'],['chatgpt-ok','Available'],['error','Incomplete','status_command_failed']]) {
   await f.cli('codex',{authStatus,version:'codex-cli 0.167.0'});
   const value=await routingStatus({context:f.context(),policy:policyWith()});
   assert.deepEqual(value.platforms.codex.authentication,{status,...(reason?{reason}:{})});
   assert.doesNotMatch(JSON.stringify(value),/fixture-token-SECRET|refresh token/);
   if(status!=='Available') {
-   const held=await prepare(f,request('arc_qa'));assert.equal(held.decision,'hold');assert.ok(codes(held).includes(status));
+   const held=await prepare(f,request('arc_tester'));assert.equal(held.decision,'hold');assert.ok(codes(held).includes(status));
    assert.doesNotMatch(JSON.stringify(held),/fixture-token-SECRET|refresh token/);
   }
  }
@@ -549,10 +549,10 @@ test('routing-status and prepare-dispatch report Unauthorized for a withheld Cod
 });
 
 test('prepare holds permission_scope_unverified when allowedPaths cover a control file', async t => {
-  const f = await createRoutingFixture(t, {roles: {arc_implementer: 'codex', arc_qa: 'claude'}});
+  const f = await createRoutingFixture(t, {roles: {arc_implementer: 'codex', arc_tester: 'claude'}});
   await okClis(f);
   await t.test('native prepare allows a control-covering path', async () => {
-    const result = await prepare(f, request('arc_qa', {allowedPaths: ['.claude/settings.json']}));
+    const result = await prepare(f, request('arc_tester', {allowedPaths: ['.claude/settings.json']}));
     assert.equal(result.route, 'native');
     assert.equal(result.decision, 'allow');
     assert.equal((await readLease(f.claudeHome, result.dispatchId)).state, 'reserved');
@@ -604,12 +604,12 @@ test('prepare allows a native Claude writing role and a Claude read bridge with 
 });
 
 test('buildBridgeInvocation holds Claude QA run and resume when local settings contain hooks', async t => {
-  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_qa: 'claude'}});
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {arc_tester: 'claude'}});
   await fs.mkdir(path.join(f.cwd, '.claude'));
   await fs.writeFile(path.join(f.cwd, '.claude/settings.local.json'), '{"hooks":{}}');
   for (const segment of [0, 1]) {
     await assert.rejects(buildBridgeInvocation({
-      lease: {role: 'arc_qa', segment}, config: f.config, homes: f.homes, worktree: f.cwd,
+      lease: {role: 'arc_tester', segment}, config: f.config, homes: f.homes, worktree: f.cwd,
     }), {reasonCode: 'permission_scope_unverified', message: /settings\.local\.json.*hooks/});
   }
 });

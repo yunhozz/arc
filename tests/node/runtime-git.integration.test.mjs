@@ -30,7 +30,7 @@ test('actual isolated repository verifies docs/task SHA parent tree, holds inval
  let observed=await evidenceApi.readGitEvidence({target,documents,gitRunner});
  const state={workflowId:'workflow',revision:0,target,mode:'plan',documents,
   identities:[{actorRef:'root',role:'orchestrator',taskId:'T1'}],leases:[{actorRef:'root',taskId:'T1',status:'active'}],
-  tasks:[{id:'T1',status:'pending',paths:[path.join(root,'code.mjs')],criteria:['criterion'],requiredChecks:['qa']}],
+  tasks:[{id:'T1',status:'pending',paths:[path.join(root,'code.mjs')],criteria:['criterion'],requiredChecks:['tester']}],
   approvals:documents.map(d=>({id:d.approvalRef,source:'user-message',messageRef:d.kind,contentHash:d.contentHash})),acceptances:[],commits:[],audit:[]};
  const request={requestId:'docs',actorRef:'root',taskId:'T1',operation:'commit',cwd:root,paths:documents.map(d=>d.path),descriptor:{kind:'documents',parent:base,indexTree:observed.indexTree,fingerprint:observed.stagedFingerprint,paths:documents.map(d=>d.gitPath)}};
  let allowed=await gateApi.runGate({phase:'preflight',state,request,gitEvidence:observed});assert.equal(allowed.decision,'allow');
@@ -53,7 +53,7 @@ test('actual isolated repository verifies docs/task SHA parent tree, holds inval
  const committedDocs=await evidenceApi.readGitEvidence({target:state.target,documents,gitRunner});assert.equal(committedDocs.docsCommit.commit,docsSha);assert.equal(committedDocs.docsCommit.tree,docsResult.tree);
  await fs.writeFile(path.join(root,'code.mjs'),'export const value=2;\n');
  git('add','--','code.mjs');observed=await evidenceApi.readGitEvidence({target:state.target,documents,gitRunner});
- state.tasks[0].status='accepted';state.acceptances=[{taskId:'T1',actorRef:'root',fingerprint:observed.stagedFingerprint,criteria:['criterion'],checkIds:['qa'],findingIds:[]}];
+ state.tasks[0].status='accepted';state.acceptances=[{taskId:'T1',actorRef:'root',fingerprint:observed.stagedFingerprint,criteria:['criterion'],checkIds:['tester'],findingIds:[]}];
  const taskRequest={...request,requestId:'task',paths:[path.join(root,'code.mjs')],descriptor:{kind:'task',parent:docsSha,indexTree:observed.indexTree,fingerprint:observed.stagedFingerprint,paths:['code.mjs']}};
  const preflight=await gateApi.runGate({phase:'preflight',state,request:taskRequest,gitEvidence:observed});assert.equal(preflight.decision,'allow');
  git('commit','-m','T1');const taskSha=git('rev-parse','HEAD');
@@ -155,10 +155,10 @@ test('cooperative acceptance reconciles actual focused Git commit and preserves 
   for(const [id,file] of [['T1','code.mjs'],['T2','other.mjs']])await mutate('record',{evidence:{kind:'acceptance-evidence',messageRef:'task:'+id,data:{kind:'task',task:{id,paths:[path.join(root,file)],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1}}}});
   await fs.writeFile(path.join(root,'code.mjs'),'two');git('add','--','code.mjs');
   const changes=(await cli('status')).changeFingerprints,changeFingerprint=changes.tasks.T1;
-  const qa={id:'fresh-qa',role:'qa'},checkId='r'+revision;
-  await mutate('prepare',{operation:'check',taskId:'T1',arguments:{scope:'task',actor:qa,descriptor,changeFingerprint}});
+  const tester={id:'fresh-tester',role:'tester'},checkId='r'+revision;
+  await mutate('prepare',{operation:'check',taskId:'T1',arguments:{scope:'task',actor:tester,descriptor,changeFingerprint}});
   const check=spawnSync(process.execPath,['--version'],{cwd:root,env:descriptor.env,encoding:'utf8'});assert.equal(check.status,0,check.stderr);
-  await mutate('result',{intentId:checkId,result:{status:'succeeded',messageRef:'qa:actual-node-version',data:{actor:qa,descriptor,scope:'task',taskId:'T1',changeFingerprint,verdict:'proven'}}});
+  await mutate('result',{intentId:checkId,result:{status:'succeeded',messageRef:'tester:actual-node-version',data:{actor:tester,descriptor,scope:'task',taskId:'T1',changeFingerprint,verdict:'proven'}}});
   const args={messageRef:'operator:criterion-evidence',criteria:['works'],checkIds:[checkId],findingIds:[],changeFingerprint};
   // Unstaged task bytes and another task's staged change both hold before mutation.
   await fs.writeFile(path.join(root,'code.mjs'),'unstaged');await mutate('prepare',{operation:'accept',taskId:'T1',arguments:args},3);await fs.writeFile(path.join(root,'code.mjs'),'two');

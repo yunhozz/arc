@@ -16,7 +16,7 @@ function context(a){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'arc-claude-'
 const decision=response=>response.hookSpecificOutput?.permissionDecision??'allow';
 test('six roles use provider identity and common role policy, never tool supplied role',async()=>{
  assert.equal(typeof api.runClaudeGate,'function');
- for(const [role,allowed,denied] of [['planner','draft','write'],['scouter','read','operational-query'],['implementer','write','commit'],['qa','read','write'],['reviewer','review','check'],['orchestrator','read','scope-expansion']]){
+ for(const [role,allowed,denied] of [['planner','draft','write'],['scouter','read','operational-query'],['implementer','write','commit'],['tester','read','write'],['reviewer','review','check'],['orchestrator','read','scope-expansion']]){
   const a=setup(role,allowed);assert.equal(decision(await api.runClaudeGate(event(),context(a))),'allow',role);
   const b=setup(role,denied);assert.equal(decision(await api.runClaudeGate(event(),context(b))),'deny',role);
  }
@@ -148,5 +148,5 @@ test('SubagentStart with ARC_BRIDGE_CHILD is not recorded',async()=>{
  let results=0;const d=context(a);d.env={ARC_BRIDGE_CHILD:'dispatch-1'};d.recordToolResult=()=>{results++;};
  assert.deepEqual(await api.runClaudeGate({hook_event_name:'PostToolUse',session_id:'session',tool_use_id:'call',tool_name:'Read',tool_input:{},tool_response:{},cwd:'/workspace'},d),{});assert.equal(results,0);
  const e=context(a);e.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runClaudeGate(event(),e)),'allow','PreToolUse judgement is unchanged');
- const g=context(setup('qa','write'));g.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runClaudeGate(event(),g)),'deny','PreToolUse still denies under the marker');
+ const g=context(setup('tester','write'));g.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runClaudeGate(event(),g)),'deny','PreToolUse still denies under the marker');
 });

@@ -324,7 +324,7 @@ test('bridge implementations cover every bridge-verified platform', async () => 
 test('lease hostPlatform accepts only registered ids', async () => {
   const {validateLease} = await import('../../lib/runtime/role-dispatch-store.mjs');
   const lease = {
-    version: 1, dispatchId: 'd1', workflowId: 'wf-1', taskId: 'T1', requestId: 'req-d1', role: 'arc_qa', route: 'bridge',
+    version: 1, dispatchId: 'd1', workflowId: 'wf-1', taskId: 'T1', requestId: 'req-d1', role: 'arc_tester', route: 'bridge',
     hostPlatform: 'codex', executionEnvironment: 'codex-cli', revision: 'rev-1', profileHash: null, argsDigest: null,
     state: 'reserved', supervisor: null, child: null, sessionId: null, timeoutMinutes: 30, claims: null, reasons: [],
     allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',

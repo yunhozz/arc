@@ -17,3 +17,15 @@ test('request and evidence reject unknown operations and incomplete provenance',
 test('schema requires hash algorithms and rejects malformed workflow records',()=>{
  for(const mutate of [s=>s.versions.policyHash='bare-hash',s=>s.tasks[0].criteria=undefined,s=>s.assignments.push({}),s=>s.checks.push({}),s=>s.findings.push({}),s=>s.acceptances.push({}),s=>s.commits.push({}),s=>s.documents.push({kind:'spec',path:'/workspace/spec',gitPath:'../spec',contentHash:'hash',approvalRef:'a'})]){const s=state();mutate(s);assert.throws(()=>api.validateWorkflowState(s));}
 });
+
+test('stored qa operation reads as test', () => {
+ const stored = state();
+ stored.approvals.push({id: 'approval', source: 'user-message', messageRef: 'message', contentHash: 'sha256:' + 'a'.repeat(64), scope: {taskId: 'T1', target: '/workspace', operations: ['qa'], paths: ['/workspace/file']}});
+ stored.assignments.push({actorRef: 'actor', taskId: 'T1', role: 'implementer', paths: ['/workspace/file'], operations: ['read', 'qa'], approvalRef: 'approval'});
+ stored.audit.push({operation: 'qa'});
+ const loaded = api.validateWorkflowState(stored);
+ assert.deepEqual(loaded.approvals[0].scope.operations, ['test']);
+ assert.deepEqual(loaded.assignments[0].operations, ['read', 'test']);
+ assert.equal(loaded.audit[0].operation, 'test');
+ assert.deepEqual(stored.approvals[0].scope.operations, ['qa']);
+});

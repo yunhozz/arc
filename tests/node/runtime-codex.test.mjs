@@ -16,7 +16,7 @@ function context(a){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'arc-codex-')
 const decision=response=>response.hookSpecificOutput.permissionDecision;
 test('six roles use provider identity and common role policy, never tool supplied role',async()=>{
  assert.equal(typeof api.runCodexGate,'function');
- for(const [role,allowed,denied] of [['planner','draft','write'],['scouter','read','operational-query'],['implementer','write','commit'],['qa','read','write'],['reviewer','review','check'],['orchestrator','read','scope-expansion']]){
+ for(const [role,allowed,denied] of [['planner','draft','write'],['scouter','read','operational-query'],['implementer','write','commit'],['tester','read','write'],['reviewer','review','check'],['orchestrator','read','scope-expansion']]){
   const a=setup(role,allowed);assert.equal(decision(await api.runCodexGate(event(),context(a))),'allow',role);
   const b=setup(role,denied);assert.equal(decision(await api.runCodexGate(event(),context(b))),'deny',role);
  }
@@ -147,5 +147,5 @@ test('SubagentStart with ARC_BRIDGE_CHILD is not recorded',async()=>{
  const a=setup('implementer','write');const c=context(a);let calls=0;c.observeAgent=()=>{calls++;return {decision:'deny'};};c.env={ARC_BRIDGE_CHILD:'dispatch-1'};
  assert.deepEqual(await api.runCodexGate({hook_event_name:'SubagentStart',session_id:'session',agent_id:'child',agent_type:'implementer'},c),{});assert.equal(calls,0);
  const e=context(a);e.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runCodexGate(event(),e)),'allow','PreToolUse judgement is unchanged');
- const g=context(setup('qa','write'));g.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runCodexGate(event(),g)),'deny','PreToolUse still denies under the marker');
+ const g=context(setup('tester','write'));g.env={ARC_BRIDGE_CHILD:'dispatch-1'};assert.equal(decision(await api.runCodexGate(event(),g)),'deny','PreToolUse still denies under the marker');
 });

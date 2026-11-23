@@ -1,7 +1,7 @@
 # Tester 검증 모드와 전체 회귀 대체 — 설계 명세
 
 - 날짜: 2026-11-23
-- 상태: written spec v1.2 (2026-11-23 사용자 승인)
+- 상태: written spec v1.3 (2026-11-23 사용자 승인, v1.3 개정 승인)
 - 깊이: Architectural (spec + plan)
 - 근거: 설계 승인(2026-11-23 사용자 "승인"), 실행 대상 결정 "새 worktree+브랜치"
 - 소스: `/Users/yunho/Desktop/project/arc`, `master`, HEAD `f786e4a1155287eff80d4abe56f7cebaf6598e3b` (clean)
@@ -372,6 +372,11 @@ AC: 테스트가 다음을 확인한다.
   - 적용 위치: 독립성 검사(`verification.mjs:30`), 최종 review 선행 조건(`verification.mjs:76`), acceptance(`acceptance.mjs:23,25`), evaluate(`evaluate.mjs:101`)
 - 새 기록은 `tester`로만 쓴다.
 - 새 요청에서 `actor.role: "qa"`가 오면 사유 코드와 함께 거부한다. 정규화해서 기록하지 않는다(D5와 일관).
+- runtime 연산명도 같은 방식으로 처리한다(2026-11-23 사용자 결정).
+  - 저장된 연산 `qa`는 읽기 전용 legacy alias로 보고 `test`로 해석한다. 저장 위치: `approvals[].scope.operations`, `assignments[].operations`, `audit`
+  - 새 기록은 `test`로만 쓴다.
+  - 새 요청의 연산 `qa`는 거부한다.
+  - 근거: `lib/runtime/schema.mjs:37`, `store.mjs:55`, `cooperative.mjs:184`. 기존 state가 이 enum으로 검증된다.
 - RuntimeHash drift는 기존대로 stale/hold이다. 자동 갱신·마이그레이션은 없다.
 
 AC: 테스트가 다음을 확인한다.
@@ -645,3 +650,4 @@ ARC는 worktree 세션에서도 canonical handoff 기록을 쓸 수 있는 공�
 | v1 | 2026-11-23 | Planner 첫 초안을 Orchestrator가 검토하고 수정: D7·D9를 SUB-1·SUB-3b에 연결, cooperative `qa` 새 요청 거부(MIG-5), 승인 전체 회귀를 이어 갈 수 없을 때 hold(FR-1), UND-2 Full Auto 제외 명시, MOD-2에 coordination 문장 갱신 추가 |
 | v1.1 | 2026-11-23 | 사용자 요청으로 HND(worktree 세션 handoff 기록 쓰기) 범위 추가, Q3 추가 |
 | v1.2 | 2026-11-23 | Q2(uninstall 적용)·Q3(runtime 명령 신설) 결정 반영. 사용자 written-spec 승인("결정 반영 후 승인") |
+| v1.3 | 2026-11-23 | T1 hold(저장 연산 `qa`) 해소: MIG-5에 연산 legacy alias 추가(사용자 결정 "test로 변경+legacy 읽기") |

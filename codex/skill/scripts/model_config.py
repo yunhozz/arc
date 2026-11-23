@@ -12,11 +12,8 @@ from typing import TypedDict
 
 
 ROLE_FILES: dict[str, str] = {
-    "arc_scouter": "arc-scouter.toml",
-    "arc_planner": "arc-planner.toml",
-    "arc_implementer": "arc-implementer.toml",
-    "arc_qa": "arc-qa.toml",
-    "arc_reviewer": "arc-reviewer.toml",
+    f"arc_{role}": f"arc-{role}.toml"
+    for role in ("scouter", "planner", "implementer", "tester", "reviewer")
 }
 
 
@@ -75,19 +72,35 @@ def _parse_file(path: Path, label: str) -> tuple[bytes, str, dict]:
 
 
 _LEGACY_PRESETS = ("economy", "balanced", "smart")
+_MODEL_SCHEMA_VERSION = 4
+
+
+def _normalize_legacy_roles(data: dict, path: Path) -> dict:
+    normalized = dict(data)
+    for field in ("roles", "custom"):
+        roles = data.get(field)
+        if not isinstance(roles, dict) or "arc_qa" not in roles:
+            continue
+        if data["version"] == _MODEL_SCHEMA_VERSION:
+            raise _error(path, field, "version 4 must not contain arc_qa")
+        if "arc_tester" in roles:
+            raise _error(path, field, "must not contain both arc_qa and arc_tester")
+        normalized[field] = {"arc_tester" if role == "arc_qa" else role: values for role, values in roles.items()}
+    return normalized
 
 
 def validate_config(config: dict, path: Path) -> dict:
-    if isinstance(config, dict) and type(config.get("version")) is int and config["version"] == 3:
+    if not isinstance(config, dict) or type(config.get("version")) is not int or config["version"] not in (1, 2, 3, _MODEL_SCHEMA_VERSION):
+        raise _error(path, "settings", "update to version 4 role settings; reinstall ARC or edit models.toml")
+    config = _normalize_legacy_roles(config, path)
+    if config["version"] >= 3:
         if set(config) != {"version", "roles"} or not isinstance(config["roles"], dict) or set(config["roles"]) != set(ROLE_FILES):
-            raise _error(path, "settings", "update to version 3 role settings; requires exactly the five ARC roles")
-        return {"version": 3, "roles": {role: _settings_for_profile(values, role, path) for role, values in config["roles"].items()}}
-    if not isinstance(config, dict) or type(config.get("version")) is not int or config["version"] not in (1, 2):
-        raise _error(path, "settings", "update to version 3 role settings; reinstall ARC or edit models.toml")
+            raise _error(path, "settings", f"version {config['version']} requires exactly the five ARC roles")
+        return {"version": _MODEL_SCHEMA_VERSION, "roles": {role: _settings_for_profile(values, role, path) for role, values in config["roles"].items()}}
     has_custom = "custom" in config
     allowed = {"version", "preset", "roles"} | ({"custom"} if config["version"] == 2 and has_custom else set())
     if set(config) != allowed:
-        raise _error(path, "settings", "update to version 3 role settings; reinstall ARC or edit models.toml")
+        raise _error(path, "settings", "update to version 4 role settings; reinstall ARC or edit models.toml")
     if not isinstance(config["preset"], str) or config["preset"] not in (*_LEGACY_PRESETS, "custom") or (config["preset"] == "custom" and not has_custom):
         raise _error(path, "preset", "must select an available preset")
     roles = config["roles"]
@@ -105,19 +118,19 @@ def validate_config(config: dict, path: Path) -> dict:
         for role, values in custom.items():
             _settings_for_profile(values, f"custom.{role}", path)
     active = config["custom"] if config["preset"] == "custom" else {role: variants[config["preset"]] for role, variants in roles.items()}
-    return {"version": 3, "roles": copy.deepcopy(active)}
+    return {"version": _MODEL_SCHEMA_VERSION, "roles": copy.deepcopy(active)}
 
 
 def load_settings(config_path: Path) -> dict[str, RoleSettings]:
-    """Validate v1/v2/v3 and return the active role settings."""
+    """Validate model settings versions 1 through 4 and return the active roles."""
     _, _, config = _parse_file(config_path, "settings")
     return validate_config(config, config_path)["roles"]
 
 
 def serialize_settings(config: dict) -> bytes:
-    """Serialize active roles using schema v3."""
+    """Serialize active roles using schema v4."""
     config = validate_config(config, Path("models.toml"))
-    lines = ["version = 3"]
+    lines = [f"version = {_MODEL_SCHEMA_VERSION}"]
     for role in ROLE_FILES:
         lines.extend(["", f"[roles.{role}]"])
         lines.extend(f"{key} = {json.dumps(config['roles'][role][key], ensure_ascii=False)}" for key in _MODEL_FIELDS)

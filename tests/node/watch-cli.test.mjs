@@ -83,7 +83,7 @@ test('watch finds an anchor from all registered platforms despite the source fil
 test('a Codex anchor marker preserves current composite watch output', async t => {
   const s = setup(t);
   s.write('composite');
-  s.h.writeLease({dispatchId:'current-anchor', state:'running', sessionId:'composite', role:'arc_qa', updatedAt:iso(TIME)});
+  s.h.writeLease({dispatchId:'current-anchor', state:'running', sessionId:'composite', role:'arc_tester', updatedAt:iso(TIME)});
   const {result} = await s.start(['--json']);
   s.controller.abort();
   assert.equal(await result, 0);
@@ -464,7 +464,7 @@ test('bridge and subagent AGENT lines show the role', async t => {
   s.io.git=async(dir,args)=>args[0]==='worktree'?`worktree ${s.cwd}\0\0`:args.includes('--show-toplevel')?s.cwd:gcd;
   s.write('parent1234');
   s.h.writeRollout(['2026','11','11'],'rollout-child.jsonl',[
-    {timestamp:iso(TIME),type:'session_meta',payload:{id:'child',cwd:s.cwd,originator:'codex-tui',source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_qa'}}}}},
+    {timestamp:iso(TIME),type:'session_meta',payload:{id:'child',cwd:s.cwd,originator:'codex-tui',source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_tester'}}}}},
     {timestamp:iso(TIME),type:'event_msg',payload:{type:'item_completed',item:{type:'AgentMessage',content:[{type:'Text',text:'child answer'}]}}},
   ],{mtime:TIME});
   s.h.writeClaude(s.cwd.replace(/[^A-Za-z0-9]/g,'-'),'bridge',[
@@ -475,7 +475,7 @@ test('bridge and subagent AGENT lines show the role', async t => {
   s.h.writeArtifacts(gcd,'wf','dispatches/1234-dispatch',{'events.jsonl':'{"kind":"init","sessionId":"bridge"}\n'});
   const {result}=await s.start();s.controller.abort();assert.equal(await result,0);
   assert.match(s.output.text,/AGENT    PLANNER\n {25}bridge answer/);
-  assert.match(s.output.text,/AGENT    QA\n {25}child answer/);
+  assert.match(s.output.text,/AGENT    TESTER\n {25}child answer/);
 });
 
 

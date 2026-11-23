@@ -608,7 +608,7 @@ export async function observeHeadAdvance(root, before, after, role, allowedPaths
     }
     const paths = [...uniquePaths].sort();
     const allowed = Array.isArray(allowedPaths) ? allowedPaths : [];
-    if (role === 'arc_implementer' || (role === 'arc_qa' && allowed.length)) {
+    if (role === 'arc_implementer' || (role === 'arc_tester' && allowed.length)) {
       const outOfScopePaths = paths.filter(file => !allowedBy(allowed, file));
       if (outOfScopePaths.length) return {...reject('out_of_scope'), outOfScopePaths};
     }
@@ -656,7 +656,7 @@ export function detectViolations({role, allowedPaths, before, after, headAdvance
       refsChanged = true;
     }
   }
-  const allowed = (role === 'arc_implementer' || role === 'arc_qa') && Array.isArray(allowedPaths) ? allowedPaths : [];
+  const allowed = (role === 'arc_implementer' || role === 'arc_tester') && Array.isArray(allowedPaths) ? allowedPaths : [];
   const changed = new Set();
   for (const file of new Set([...before.entries.keys(), ...after.entries.keys()])) {
     if (before.entries.get(file) !== after.entries.get(file) && !allowedBy(allowed, file)) changed.add(file);

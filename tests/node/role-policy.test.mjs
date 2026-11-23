@@ -28,7 +28,7 @@ test('approval.run-mode immediately follows external authority in policy order',
 });
 
 test('approval.run-mode is rendered for specialists', () => {
-  const output = api.renderPolicySection(api.defaultRolePolicy, {platform:'claude', audience:'qa'});
+  const output = api.renderPolicySection(api.defaultRolePolicy, {platform:'claude', audience:'tester'});
   assert.match(output, /^- \[approval\.run-mode\] /m);
 });
 
@@ -54,7 +54,7 @@ test('policy projections reject unknown duplicate and uncovered rules', () => {
 test('orchestrator projections preserve canonical text and order', () => {
   const expected = {
     core: ['scope.non-escalation', 'external.explicit-user-authority', 'approval.run-mode', 'role.orchestrator-boundary'],
-    assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.implementer-implementation', 'role.qa-verification', 'role.reviewer-independent'],
+    assignment: ['git.specialists-deny', 'role.scouter-read-only', 'role.planner-draft-only', 'role.implementer-implementation', 'role.tester-verification', 'role.reviewer-independent'],
     planning: ['git.orchestrator-accept-commit', 'approval.run-mode', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck', 'planning.plan-revision', 'planning.planner-brief'],
     handoff: ['git.specialists-deny', 'role.implementer-implementation', 'review.significant-no-plan', 'review.significant-plan', 'review.final-plan-recheck'],
     preparation: ['scope.non-escalation', 'git.specialists-deny', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-revision'],
@@ -102,7 +102,7 @@ test('plan-level progress records extend accept-commit and plan-revision text on
     'role.scouter-read-only',
     'role.planner-draft-only',
     'role.implementer-implementation',
-    'role.qa-verification',
+    'role.tester-verification',
     'role.reviewer-independent',
     'review.significant-no-plan',
     'review.significant-plan',
@@ -152,7 +152,7 @@ test('default policy rendering preserves complete existing contracts', () => {
 });
 // A caller must not accidentally replace a specialist's complete role contract with a subset.
 test('specialist rendering rejects partial projections', () => {
-  for (const platform of ['codex', 'claude']) for (const audience of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) for (const section of ['contract', 'global']) {
+  for (const platform of ['codex', 'claude']) for (const audience of ['scouter', 'planner', 'implementer', 'tester', 'reviewer']) for (const section of ['contract', 'global']) {
     assert.throws(() => api.renderPolicySection(policy(), {platform, audience, section, projection:'core'}), /specialist.*projection/i);
   }
 });
@@ -190,11 +190,11 @@ test('generation is deterministic and preserves buffers when any target is malfo
 test('review routing keeps final review and its plan-only correction exception', () => {
   assert.equal(typeof api.validateRolePolicy,'function');
   const p=policy(); api.validateRolePolicy(p);
-  assert.deepEqual(p.review.noPlan,['implementer','qa','reviewer','orchestrator-accept']);
-  assert.deepEqual(p.review.planTask,['implementer','fresh-qa','orchestrator-accept','orchestrator-commit']);
-  assert.deepEqual(p.review.planFinal,['required-qa','reviewer']);
+  assert.deepEqual(p.review.noPlan,['implementer','tester','reviewer','orchestrator-accept']);
+  assert.deepEqual(p.review.planTask,['implementer','fresh-tester','orchestrator-accept','orchestrator-commit']);
+  assert.deepEqual(p.review.planFinal,['required-tester','reviewer']);
   assert.deepEqual(p.review.planFinding,['implementer','reviewer']);
-  for(const mutate of [p=>p.review.noPlan.splice(2,1),p=>p.review.planTask.splice(2,0,'reviewer'),p=>p.review.planFinding.splice(1,0,'qa')]) {
+  for(const mutate of [p=>p.review.noPlan.splice(2,1),p=>p.review.planTask.splice(2,0,'reviewer'),p=>p.review.planFinding.splice(1,0,'tester')]) {
     const bad=policy(); mutate(bad); assert.throws(()=>api.validateRolePolicy(bad),/policy/i);
   }
   const output=api.renderPolicySection(p,{platform:'codex',audience:'orchestrator',section:'contract'});
@@ -336,7 +336,7 @@ test('bounded read recovery and provenance reach every role on both platforms', 
 });
 // H3: losing source/output identity must fail before a visual claim is accepted.
 test('visual evidence is carried from implementation to fresh QA', () => {
-  for (const platform of ['codex', 'claude']) for (const audience of ['implementer', 'qa']) {
+  for (const platform of ['codex', 'claude']) for (const audience of ['implementer', 'tester']) {
     const output = api.renderPolicySection(policy(), {platform, audience});
     for (const required of [/approved visual source.*version.*approval.*access/i,
       /criterion IDs.*properties.*comparison method/i, /actual.output identity.*revision.*basis/i,

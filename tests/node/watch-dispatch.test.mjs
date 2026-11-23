@@ -63,7 +63,7 @@ test('unregistered activeConfigPath is not a candidate', async t => {
 });
 
 test('parseLeaseLenient preserves the execution platform from a v2 lease', () => {
-  const lease = {dispatchId:'d-v2', workflowId:'wf', role:'arc_qa', route:'bridge', hostPlatform:'codex',
+  const lease = {dispatchId:'d-v2', workflowId:'wf', role:'arc_tester', route:'bridge', hostPlatform:'codex',
     state:'running', sessionId:'session', nativeAgentId:'agent', createdAt:'created', updatedAt:'updated', reasons:['reason']};
   assert.deepEqual(parseLeaseLenient(JSON.stringify({version:2, targetPlatform:'zeta', ...lease})),
     {...lease,version:2,targetPlatform:'zeta'});
@@ -156,7 +156,7 @@ test('heartbeat, cancel and temporary files are ignored', async t => {
 test('state or reasons changes yield one update; unchanged yields none', async t => {
   const homes = makeHomes(t), index = createDispatchIndex(homes);
   const write = (state, reasons, time) => {
-    const file = homes.writeLease({dispatchId:'d1', state, reasons, route:'custom route', role:'arc_routing_qa'});
+    const file = homes.writeLease({dispatchId:'d1', state, reasons, route:'custom route', role:'arc_routing_tester'});
     fs.utimesSync(file, time, time);
     return file;
   };
@@ -171,8 +171,8 @@ test('state or reasons changes yield one update; unchanged yields none', async t
   const updates = await scan(index);
   assert.equal(updates.length, 1);
   assert.equal(updates[0].first, false);
-  assert.equal(updates[0].ref.role, 'qa');
-  assert.equal(updates[0].ref.rawRole, 'arc_routing_qa');
+  assert.equal(updates[0].ref.role, 'tester');
+  assert.equal(updates[0].ref.rawRole, 'arc_routing_tester');
   assert.equal(updates[0].ref.route, 'custom route');
   write('completed', ['custom_reason_xyz'], 1002);
   assert.equal((await scan(index)).length, 1);
@@ -214,7 +214,7 @@ test('repo scope includes only dispatches with artifacts under the scoped git co
   const homes = makeHomes(t), index = createDispatchIndex(homes), gcd = path.join(homes.root, 'git'), other = path.join(homes.root, 'other');
   homes.writeLease({dispatchId:'d1'});
   homes.writeLease({dispatchId:'d2'});
-  artifacts(homes, gcd, 'd1', {'record.json':{role:'arc_qa', state:'running'}});
+  artifacts(homes, gcd, 'd1', {'record.json':{role:'arc_tester', state:'running'}});
   artifacts(homes, other, 'd2', {'record.json':{state:'running'}});
   await scan(index, [gcd]);
   assert.equal(index.byId('d1').inScope, true);
@@ -227,7 +227,7 @@ test('repo scope includes only dispatches with artifacts under the scoped git co
 test('pruned lease falls back to record.json', async t => {
   const homes = makeHomes(t), index = createDispatchIndex(homes), gcd = path.join(homes.root, 'git');
   const file = homes.writeLease({dispatchId:'d1', role:'arc_implementer', state:'running'});
-  artifacts(homes, gcd, 'd1', {'record.json':{role:'arc_qa', state:'completed', reasons:['custom_reason_xyz']}});
+  artifacts(homes, gcd, 'd1', {'record.json':{role:'arc_tester', state:'completed', reasons:['custom_reason_xyz']}});
   artifacts(homes, gcd, 'd2', {'segments/1/record.json':{role:'arc_reviewer', state:'failed'}});
   await scan(index, [gcd]);
   assert.equal(index.byId('d1').role, 'implementer');
@@ -236,7 +236,7 @@ test('pruned lease falls back to record.json', async t => {
   const updates = await scan(index, [gcd]);
   assert.equal(updates.length, 1);
   assert.equal(updates[0].first, false);
-  assert.equal(index.byId('d1').role, 'qa');
+  assert.equal(index.byId('d1').role, 'tester');
   assert.equal(index.byId('d1').state, 'completed');
   assert.deepEqual(index.byId('d1').reasons, ['custom_reason_xyz']);
 });
@@ -246,7 +246,7 @@ test('hostPlatform does not change mapping', async t => {
   artifacts(homes, gcd, 'd1', {'events.jsonl':'{"kind":"init","sessionId":"C1"}\n'});
   const refs = [];
   for (const hostPlatform of ['codex', 'claude']) {
-    homes.writeLease({dispatchId:'d1', hostPlatform, role:'arc_qa'});
+    homes.writeLease({dispatchId:'d1', hostPlatform, role:'arc_tester'});
     const index = createDispatchIndex(homes);
     await scan(index, [gcd]);
     const {hostPlatform:host, ...ref} = index.bySession('C1');

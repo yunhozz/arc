@@ -8,7 +8,7 @@ import {createLease, ensureDispatchDirectory, dispatchDirectory, listLeases, pru
 
 const DAY = 86400000;
 const lease = (id, extra = {}) => ({
-  version: 1, dispatchId: id, workflowId: 'wf-1', taskId: 'T1', requestId: `req-${id}`, role: 'arc_qa', route: 'bridge', hostPlatform: 'claude', executionEnvironment: 'claude-cli',
+  version: 1, dispatchId: id, workflowId: 'wf-1', taskId: 'T1', requestId: `req-${id}`, role: 'arc_tester', route: 'bridge', hostPlatform: 'claude', executionEnvironment: 'claude-cli',
   revision: 'rev-1', profileHash: 'sha256:' + 'a'.repeat(64), argsDigest: null, state: 'reserved', supervisor: null, child: null, sessionId: null, timeoutMinutes: 30,
   claims: null, reasons: [], allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', ...extra
 });

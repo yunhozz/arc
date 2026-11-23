@@ -5,7 +5,7 @@ import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '.
 import {agentsBlockBody,renderManagedBlock} from '../../lib/installer/global-config.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','tester','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),safeFs,...extra});}
 const supervisedPolicy="**Run mode:** Supervised. Every approval and choice gate in this skill and its references requires the user's explicit answer; Orchestrator does not auto-decide gates.";
 const supervisedSettings='version = 1\nlanguage = "en"\n';
@@ -83,7 +83,7 @@ test('plan rejects fragments that move model fields into a TOML table before wri
  assert.throws(()=>api.buildInstallPlan({payload:input,target:targets.resolveTarget('codex',{userHome:home,env:{},cwd:home}),safeFs}),{code:'ARC_PAYLOAD_VALIDATION',message:/Final profile model settings changed/});
  assert.deepEqual(fs.readdirSync(home),[]);
 });
-test('plan generates buffers and snapshots while optional external skills are absent',t=>{const home=fixture(t);assert.equal(typeof api.buildInstallPlan,'function');const p=plan(home);assert.equal(p.target.platform,'codex');assert.ok(p.generated.profiles instanceof Map);assert.match(p.generated.models.toString(),/version = 3/);assert.equal(p.globalChanges.length,2);assert.equal(p.externalPaths.length,0);assert.ok(p.snapshot instanceof Map);assert.deepEqual(fs.readdirSync(home),[]);});
+test('plan generates buffers and snapshots while optional external skills are absent',t=>{const home=fixture(t);assert.equal(typeof api.buildInstallPlan,'function');const p=plan(home);assert.equal(p.target.platform,'codex');assert.ok(p.generated.profiles instanceof Map);assert.match(p.generated.models.toString(),/version = 4/);assert.equal(p.globalChanges.length,2);assert.equal(p.externalPaths.length,0);assert.ok(p.snapshot instanceof Map);assert.deepEqual(fs.readdirSync(home),[]);});
 test('single-target plan never inspects another platform home',t=>{const home=fixture(t);fs.symlinkSync('/outside',`${home}/.claude`);assert.equal(plan(home).target.platform,'codex');fs.unlinkSync(`${home}/.claude`);fs.symlinkSync('/outside',`${home}/.codex`);assert.equal(plan(home,'claude').target.platform,'claude');});
 for(const label of ['symlink parent','special profile','global invalid UTF8'])test(`plan rejects ${label} before writes`,t=>{const home=fixture(t);fs.mkdirSync(`${home}/.codex/agents`,{recursive:true});if(label==='symlink parent'){fs.rmSync(`${home}/.codex/agents`,{recursive:true});fs.symlinkSync('/tmp',`${home}/.codex/agents`);}if(label==='special profile')assert.equal(cp.spawnSync('mkfifo',[`${home}/.codex/agents/arc-implementer.toml`]).status,0);if(label==='special external tree'){fs.mkdirSync(`${home}/.codex/skills/brainstorming`,{recursive:true});assert.equal(cp.spawnSync('mkfifo',[`${home}/.codex/skills/brainstorming/pipe`]).status,0);}if(label==='global invalid UTF8')fs.writeFileSync(`${home}/.codex/AGENTS.md`,Buffer.from([255]));assert.throws(()=>plan(home),{code:label==='global invalid UTF8'?'ARC_GLOBAL_CONFIGURATION':'ARC_TARGET_CONFIGURATION'});});
 test('skip-global does not read invalid global contents',t=>{const home=fixture(t);fs.mkdirSync(`${home}/.codex`);fs.writeFileSync(`${home}/.codex/AGENTS.md`,Buffer.from([255]));assert.deepEqual(plan(home,'codex',{skipGlobal:true}).globalChanges,[]);});
@@ -201,7 +201,7 @@ for(const platform of ['codex','claude'])test(`${platform} installs instruction 
 });
 
 test('supplied complete model config renders custom models without resetting other presets',async t=>{
- const {loadModelConfig}=await import('../../lib/models/index.mjs');const config=loadModelConfig(payload().modelInputs.codex.models,'codex');config.roles.arc_implementer.model='custom-model';config.roles.arc_qa.model='preserve-other-role';
+ const {loadModelConfig}=await import('../../lib/models/index.mjs');const config=loadModelConfig(payload().modelInputs.codex.models,'codex');config.roles.arc_implementer.model='custom-model';config.roles.arc_tester.model='preserve-other-role';
  const result=plan(fixture(t),'codex',{modelConfig:config,preset:'smart'});assert.deepEqual(loadModelConfig(result.generated.models,'codex'),config);assert.match(result.generated.profiles.get('arc-implementer.toml').toString(),/custom-model/);
  assert.throws(()=>plan(fixture(t),'claude',{modelConfig:config}),/platform/i);
 });
@@ -216,14 +216,14 @@ test('installation leaves unsupported profile paths unmanaged',t=>{
 // Capture public output bytes and iteration order; normalize only the temporary
 // HOME so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'aeb20efb1bba8e5c9c0a86d11279b2ee00878d40c821b029ef2b88e6bfe15ae4',
- 'codex:en:true':'787689e2d836445ff8dcc0ed28bb6a8d4e78eb58f4f7c930f839e70d6f30e91b',
- 'codex:ko:false':'ed2579a5e2317459ae162d36b2ea3fe0860a4c6292423d5c38e4fe2c1ab96819',
- 'codex:ko:true':'88f3ff9607e98cca651bdcb8dea7f0e98da060c3591ae4edc51f5428d508178f',
- 'claude:en:false':'0be7269fe1a94821d751665881d47212a1f12228e1f0596c941da3cb8fd26fe0',
- 'claude:en:true':'c9284e1c4708017be260d82760f2b57d73b06b85be6c1efd195c4deaa316ac03',
- 'claude:ko:false':'902b588c04159c3163138768d73f1318dc34c515a2b5c24fbb17fe3cd37bb66e',
- 'claude:ko:true':'0797329a972eafb7f0bb7c8644b7ca15c5a43d243e18321fffb3d1ff830e8e07',
+ 'codex:en:false':'6e6e07573fa5fa6bf61acac04fc7aa3d92c6d8e4c7773784be216d0bf9d3ad35',
+ 'codex:en:true':'7d2075a8495ce7fe792fba2b48a8b2776bf899f13044ba3aeb1729d21638a3f1',
+ 'codex:ko:false':'f2e0925cf18764a18fb8c130c870ab7b4fe9ec5cc7b38adce4b516f570f547b1',
+ 'codex:ko:true':'7e1cd52cac7b3cebc4591ca48d703958b16f2e325829c327a2c5c74ac66c4887',
+ 'claude:en:false':'f033cbd3038e7bdc289db631abdd0273930df983e8e208b5f0149181a8e339b5',
+ 'claude:en:true':'72df447d3a41cd154e5e4e6de31a98adb61feb023380470e23969baa5ca90cbc',
+ 'claude:ko:false':'78cf50c3dcc5fbedf30e4cf213802eecab7d919657d7f9fe44a0102b2fce3b2a',
+ 'claude:ko:true':'19909b3ff91986f1a6fbe86554be27f7bed74374a9632a32d233f6ae487daa61',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
@@ -280,22 +280,22 @@ test('HSR: Claude planning preserves native user hooks without adding handlers',
 
 for(const platform of ['codex','claude'])test(platform+' install renders the selected Custom roles and rejects absent catalog pairs',t=>{
  const home=fixture(t),effort=platform==='codex'?'model_reasoning_effort':'effort';
- const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
  const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]};
  const result=plan(home,platform,{roles:customRoles,verifiedCatalog});
- assert.match(result.generated.models.toString(),/^version = 3$/m);
+ assert.match(result.generated.models.toString(),/^version = 4$/m);
  for(const bytes of result.generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);
  assert.throws(()=>plan(home,platform,{roles:customRoles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
 });
 
 for(const platform of ['codex','claude'])test(platform+' install validates newly edited roles',t=>{
- const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]};
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]};
  assert.throws(()=>plan(home,platform,{roles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
  const result=plan(home,platform,{roles,verifiedCatalog:catalog});assert.match(result.generated.models.toString(),/fixture-model/);
 });
 
 for(const platform of ['codex','claude'])test(platform+' Install preserves supplied active model config without catalog',t=>{
- const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
- const result=plan(home,platform,{modelConfig:{platform,version:3,roles}});const parsed=result.generated.models.toString();assert.match(parsed,/^version = 3$/m);assert.match(parsed,/saved-model/);
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
+ const result=plan(home,platform,{modelConfig:{platform,version:4,roles}});const parsed=result.generated.models.toString();assert.match(parsed,/^version = 4$/m);assert.match(parsed,/saved-model/);
 });
 for(const platform of ['codex','claude'])test(`${platform} install profiles contain expanded shared instructions`,t=>{const home=fixture(t),result=plan(home,platform);for(const bytes of result.generated.profiles.values()){assert.doesNotMatch(bytes.toString(),/ARC_AGENT_FRAGMENT/);assert.match(bytes.toString(),/Use the approval evidence and scope/);}});

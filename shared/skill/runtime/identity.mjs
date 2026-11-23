@@ -7,7 +7,7 @@ import {fingerprintRequest,saveDurableState} from './store.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 /** Observation is supplied by the trusted platform provider, never agent/tool arguments. */
 export function registerAgentObservation(state, observation){
- validateWorkflowState(state);
+ state=validateWorkflowState(state);
  const result=(decision,reason)=>({decision,reason,state,proposedTransition:null});
  if(!observation||!text(observation.actorRef)||!text(observation.taskId)||!text(observation.observationRef)||!ROLES.includes(observation.role))return result('hold','complete observed identity required');
  const old=state.identities.find(i=>i.actorRef===observation.actorRef);

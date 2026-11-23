@@ -230,11 +230,11 @@ test('detectViolations on a repo with pre-existing dirty and untracked files', a
   assert.equal((await run('arc_implementer', ['src/'], () => fs.writeFile(path.join(dir, 'untracked-new.txt'), 'x'))).reason, 'permission_violation_observed');
   assert.equal((await run('arc_implementer', ['src/'], () => fs.writeFile(path.join(dir, 'srcx.txt'), 'x'))).reason, 'permission_violation_observed');
   // QA with empty or missing allowedPaths: any change is a violation
-  assert.equal((await run('arc_qa', [], () => fs.writeFile(path.join(dir, 'qa.txt'), 'x'))).reason, 'permission_violation_observed');
-  assert.equal((await run('arc_qa', undefined, () => fs.writeFile(path.join(dir, 'qa2.txt'), 'x'))).reason, 'permission_violation_observed');
-  assert.equal((await run('arc_qa', [], async () => {})).reason, null);
+  assert.equal((await run('arc_tester', [], () => fs.writeFile(path.join(dir, 'tester.txt'), 'x'))).reason, 'permission_violation_observed');
+  assert.equal((await run('arc_tester', undefined, () => fs.writeFile(path.join(dir, 'qa2.txt'), 'x'))).reason, 'permission_violation_observed');
+  assert.equal((await run('arc_tester', [], async () => {})).reason, null);
   // HEAD change
-  const committed = await run('arc_implementer', ['src/', 'docs/', 'dirty.txt', 'qa.txt', 'qa2.txt', 'new.txt', 'untracked-new.txt', 'srcx.txt', 'untracked-before.txt'], async () => { git(dir, 'add', '-A'); git(dir, 'commit', '-q', '-m', 'role commit'); });
+  const committed = await run('arc_implementer', ['src/', 'docs/', 'dirty.txt', 'tester.txt', 'qa2.txt', 'new.txt', 'untracked-new.txt', 'srcx.txt', 'untracked-before.txt'], async () => { git(dir, 'add', '-A'); git(dir, 'commit', '-q', '-m', 'role commit'); });
   assert.equal(committed.headChanged, true); assert.equal(committed.reason, 'permission_violation_observed');
   const branched = await run('arc_reviewer', undefined, async () => { git(dir, 'checkout', '-q', '-b', 'other'); });
   assert.equal(branched.headChanged, true); assert.equal(branched.reason, 'permission_violation_observed');
@@ -391,7 +391,7 @@ test('snapshotWorktree records refs and detectViolations rejects unchecked-out b
   assert.deepEqual(await check('arc_reviewer', undefined, async () => {}), {reason: null, changedPaths: [], headChanged: false, refsChanged: false, controlChanged: [], toleratedRefs: [], toleratedControl: [], toleratedCommitPaths: []});
   const branch = await check('arc_implementer', ['src/'], async () => gitHere('branch', 'side'));
   assert.equal(branch.refsChanged, true); assert.equal(branch.reason, 'permission_violation_observed'); assert.equal(branch.headChanged, false);
-  const removed = await check('arc_qa', ['src/'], async () => gitHere('branch', '-D', 'side'));
+  const removed = await check('arc_tester', ['src/'], async () => gitHere('branch', '-D', 'side'));
   assert.equal(removed.refsChanged, true);
   gitHere('branch', 'mover');
   const moved = await check('arc_planner', undefined, async () => gitHere('branch', '-f', 'mover', 'HEAD'));
@@ -850,7 +850,7 @@ for (const [name, why, change] of [
 }
 
 for (const [role, allowedPaths] of [
-  ['arc_reviewer', []], ['arc_qa', []], ['arc_qa', undefined],
+  ['arc_reviewer', []], ['arc_tester', []], ['arc_tester', undefined],
 ]) {
   for (const [name, change, why] of [
     ['new file', async dir => {

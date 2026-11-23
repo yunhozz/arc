@@ -18,7 +18,7 @@ import {verifyPayload} from '../../../lib/installer/manifest.mjs';
 import {prepareCompositeDeactivation} from '../../../lib/installer/role-routing.mjs';
 import {renderLanguagePolicy} from '../../../lib/installer/language.mjs';
 const native=loadNative({artifactDirectory:'build/native'}),safeFs={openRoot:p=>openRoot(p,{native})};
-const roles=['scouter','planner','implementer','qa','reviewer'];
+const roles=['scouter','planner','implementer','tester','reviewer'];
 async function compositeContext(t){
  const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-mode-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));
  const context={packageRoot:staticPackageFixture(t),userHome,cwd:userHome,env:{PATH:userHome+'/bin:/usr/bin:/bin'},safeFs};

@@ -88,7 +88,7 @@ test('cleanup failure retains published files and reports residual staging path'
 
 for(const platform of ['codex','claude'])test(platform+' persists changed Custom roles and treats identical roles as noop',async t=>{
  const target=install(fixture(t),platform),effort=platform==='codex'?'model_reasoning_effort':'effort';
- const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
  const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'},{model:'other-model',effort:'medium'}],unavailable:[]};
  let plan=api.buildPresetPlan({target,safeFs,roles:customRoles,verifiedCatalog});
  assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');
@@ -102,7 +102,7 @@ for(const platform of ['codex','claude'])test(platform+' persists changed Custom
 });
 
 test('Custom transaction failure restores original model and profile bytes',async t=>{
- const target=install(fixture(t),'codex'),customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',model_reasoning_effort:'high'}]));
+ const target=install(fixture(t),'codex'),customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{model:'fixture-model',model_reasoning_effort:'high'}]));
  const plan=api.buildPresetPlan({target,safeFs,roles:customRoles,verifiedCatalog:{platform:'codex',pairs:[{model:'fixture-model',effort:'high'}]}}),before=new Map(plan.managedPaths.map(name=>[name,fs.readFileSync(name)]));
  const result=await api.switchPresetTargets([plan],{safeFs,hooks:{fault(event){if(event.phase==='after-publish')throw Error('fixture failure');}}});
  assert.equal(result.results[0].status,'failed');assert.equal(result.results[0].rollback,'restored');for(const[name,bytes]of before)assert.deepEqual(fs.readFileSync(name),bytes);
@@ -115,10 +115,10 @@ for(const platform of ['codex','claude'])test(platform+' Apply persists active r
  assert.deepEqual(loadModelConfig(fs.readFileSync(file),platform).roles,chosen.roles);
 });
 
-test('Change Models rewrites a v2 file as v3 even when roles are unchanged',async t=>{
+test('Change Models rewrites a v2 file as v4 even when roles are unchanged',async t=>{
  const home=fixture(t),target=resolveTarget('codex',{userHome:home,env:{}}),text=fs.readFileSync(new URL('../fixtures/models-codex-v1.toml',import.meta.url),'utf8').replace('version = 1','version = 2');
  fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.mkdirSync(target.home+'/agents');fs.writeFileSync(target.home+'/skills/arc/models.toml',text);
  const config=loadModelConfig(text,'codex');for(const[name,bytes]of renderProfiles(new Map(target.profileNames.map(name=>[name,fs.readFileSync('codex/agents/'+name)])),resolveModelSettings(config)))fs.writeFileSync(target.home+'/agents/'+name,bytes);
  const plan=api.buildPresetPlan({target,safeFs});assert.equal(plan.specs.length,1);
- assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');assert.match(fs.readFileSync(target.home+'/skills/arc/models.toml','utf8'),/^version = 3$/m);
+ assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');assert.match(fs.readFileSync(target.home+'/skills/arc/models.toml','utf8'),/^version = 4$/m);
 });

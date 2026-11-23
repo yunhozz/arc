@@ -59,7 +59,7 @@ COMMON_CONTRACTS = {
         # R-6: explicit ownership in every role brief.
         r"brief[^.]*orchestrator-owned[^.]*pending revision[^.]*version[^.]*contenthash",
         r"if another task's progress records were committed after approval[^.]*brief[^.]*sha-256 of the working-tree document content[^.]*approved content plus those progress records",
-        r"implementer[^.]*qa[^.]*preserve[^.]*neither[^.]*own[^.]*unrelated user",
+        r"implementer[^.]*(?i:QA)[^.]*preserve[^.]*neither[^.]*own[^.]*unrelated user",
         # R-7/R-8: all pending revisions, fallback order and unsafe separation hold.
         r"include all pending revisions in the accepted commit of the first top-level task[^.]*executed or reconfirmed[^.]*revised version, otherwise a current task or final reviewer follow-up commit",
         r"standalone[^.]*docs\(plan\)[^.]*no implementation[^.]*canonical[^.]*evidence",
@@ -136,7 +136,7 @@ COMMON_CONTRACTS = {
     )),
     "COMPLETION_CONTINUITY": ("references/verification.md", (
         (
-            r"once approval/depth/target/handoff hold, continue execution/correction/reverification/required qa\-reviewer/disposition/acceptance/report\.",
+            r"once approval/depth/target/handoff hold, continue execution/correction/reverification/required (?i:QA)\-reviewer/disposition/acceptance/report\.",
             r"orchestrator decides final acceptance",
         ),
         r"reports/probes/commands never complete remaining approved scope\.",
@@ -158,7 +158,7 @@ COMMON_CONTRACTS = {
         ),
     )),
     "OWNERSHIP": ("references/coordination.md", (
-        r"\| qa \| verifies without editing \|",
+        r"\| (?i:QA) \| verifies without editing \|",
         r"\| reviewer \| independently reviews the final full change \|",
         r"all five specialists report directly at depth 2 without creating agents/delegating\.",
         r"orchestrator.*acceptance.*completion",
@@ -187,7 +187,7 @@ COMMON_CONTRACTS = {
     )),
     "READINESS": ("references/planning.md", (
         r"a task is ready only when.*approvals.*preparation.*inputs/contracts.*predecessors.*required evidence.*orchestrator acceptance.*verified focused commits.*accepted no-change",
-        r"nonconflicting ownership/resources, available checks/qa and slots under both full\-tree arc and lower actual runtime limits\.",
+        r"nonconflicting ownership/resources, available checks/(?i:QA) and slots under both full\-tree arc and lower actual runtime limits\.",
         r"completion alone releases no dependent\.",
         r"same\-file concurrent implementers are forbidden even on different lines\.",
     )),
@@ -797,7 +797,7 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
         sources = {"canonical": common}
         for platform, extension in (("codex", "toml"), ("claude", "md")):
             sources[f"{platform}/core"] = (REPO / platform / "skill/SKILL.md").read_text()
-            for role in ("scouter", "planner", "implementer", "qa", "reviewer"):
+            for role in ("scouter", "planner", "implementer", "tester", "reviewer"):
                 sources[f"{platform}/{role}"] = (REPO / platform / "agents" / f"arc-{role}.{extension}").read_text()
         for name, text in sources.items():
             with self.subTest(source=name):

@@ -97,7 +97,7 @@ async function copyRuntime(home) {
 async function renderPlatform(platform, config) {
   const ext = platform === 'codex' ? 'toml' : 'md', field = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
   const inputs = {};
-  for (const role of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
+  for (const role of ['scouter', 'planner', 'implementer', 'tester', 'reviewer']) {
     const name = `arc-${role}.${ext}`;
     inputs[name] = await fs.readFile(path.join(root, platform, 'agents', name));
   }
@@ -109,7 +109,7 @@ async function renderPlatform(platform, config) {
   return result;
 }
 
-/** roles: {arc_qa:'codex'} assigns that role to a platform; every other role stays on hostPlatform. */
+/** roles: {arc_tester:'codex'} assigns that role to a platform; every other role stays on hostPlatform. */
 export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claude', limits = {total: 100, concurrent: 5}, revision = 'rev-1', runtimePlatforms} = {}) {
   installPsStub();
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-route-'));

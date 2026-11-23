@@ -24,5 +24,5 @@ test('uninstall one platform during composite leaves the other standalone',async
  const ctx=await compositeContext(t);await standalone(ctx);await publish(ctx);const prepared=await api.prepareOperation(ctx,{kind:'uninstall',target:'all',removeCli:false});assert.equal(prepared.kind,'uninstall');assert.deepEqual(prepared.plans.map(plan=>plan.target.platform),['codex','gemini','grok','claude']);const result=await api.executeOperation(ctx,prepared);assert.equal(result.code,0,JSON.stringify(result));
 });
 test('composite single uninstall preserves unowned profiles as residuals',async t=>{
- const ctx=await compositeContext(t);await standalone(ctx);await publish(ctx);const filename=ctx.userHome+'/.codex/agents/arc-qa.toml';fs.writeFileSync(filename,'mine\n');const result=await switched(ctx,'uninstall');assert.equal(result.code,0,JSON.stringify(result));assert.equal(fs.readFileSync(filename,'utf8'),'mine\n');assert.ok(result.results[0].residualPaths.includes(filename));
+ const ctx=await compositeContext(t);await standalone(ctx);await publish(ctx);const filename=ctx.userHome+'/.codex/agents/arc-tester.toml';fs.writeFileSync(filename,'mine\n');const result=await switched(ctx,'uninstall');assert.equal(result.code,0,JSON.stringify(result));assert.equal(fs.readFileSync(filename,'utf8'),'mine\n');assert.ok(result.results[0].residualPaths.includes(filename));
 });

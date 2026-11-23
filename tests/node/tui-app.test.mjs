@@ -32,7 +32,7 @@ test('operational Grok Status is Available with auth unverified without repeated
 const blockingNotice='Force finish marks the native/reserved entries cancelled. Native agents in other sessions are not stopped.';
 const blockingEntry={home:'/home/codex',dispatchId:'12345678-native',role:'arc_implementer',workflowId:'work',route:'native',state:'reserved',hostPlatform:'codex',updatedAt:'2026-11-17T00:00:00.000Z',forceFinishable:true};
 async function blockedTui({kind='composite',entries=[blockingEntry],events=[enter,enter,back],result,retryResult,forceResult={finished:[blockingEntry.dispatchId],skipped:[],residualPaths:[]},forceError,prepareError,uninstall=false,columns=120}={}){
- const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
+ const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
  const session=terminal([...(uninstall?[...down(2),enter,enter,{name:'up'},enter]:[enter,...down(10),enter]),...events],{columns});
  const requests=[],preparations=[],executions=[],forces=[],order=[];let busy=false;
  session.setBusy=value=>{busy=value;};
@@ -160,10 +160,10 @@ test('active dispatch summary handles singular eligible and plural ineligible en
  const escaped=await blockedTui({entries,events:[back,back]});assert.equal(escaped.session.screens.some(screen=>screen.title==='Result'),false);assert.equal(escaped.session.screens.at(-1).title,'ARC');
 });
 test('active dispatch roles use install display names and preserve unknown roles',async()=>{
- const roles=['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer','custom_role'];
+ const roles=['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer','custom_role'];
  const {session}=await blockedTui({entries:roles.map(role=>({...blockingEntry,role}))});
  const screen=session.screens.find(screen=>screen.title==='Active dispatches');
- assert.deepEqual(screen.rows.slice(3,9).map(row=>row.split(/ {2,}/)[1]),['Scouter','Planner','Implementer','QA','Reviewer','custom_role']);
+ assert.deepEqual(screen.rows.slice(3,9).map(row=>row.split(/ {2,}/)[1]),['Scouter','Planner','Implementer','Tester','Reviewer','custom_role']);
 });
 test('narrow active dispatch table shortens workflow first and then truncates row ends by cell width',async t=>{
  const width=text=>[...escapeTerminalText(text)].reduce((sum,character)=>sum+cellWidth(character),0);
@@ -176,7 +176,7 @@ test('narrow active dispatch table shortens workflow first and then truncates ro
   assert.deepEqual(wrapDetailRows(table,60),table);
  });
  await t.test('wide and escaped values',async()=>{
-  const {session}=await blockedTui({columns:60,entries:[{...blockingEntry,role:'QA',workflowId:'검증\t작업-with-a-long-suffix',updatedAt:'invalid'}]});
+  const {session}=await blockedTui({columns:60,entries:[{...blockingEntry,role:'Tester',workflowId:'검증\t작업-with-a-long-suffix',updatedAt:'invalid'}]});
   const screen=session.screens.find(screen=>screen.title==='Active dispatches'),header=screen.rows.findIndex(row=>row.startsWith('ID ')),table=screen.rows.slice(header,header+2);
   assert.ok(table.every(row=>width(row)<=57));assert.match(table[1],/검증\\x09.*…/);assert.deepEqual(wrapDetailRows(table,60),table);
  });
@@ -448,7 +448,7 @@ test('idle refresh redraws while retaining one pending input and stops after Ent
 test('diagram idle frames blink only the focused border while keeping its label',async()=>{
  const {createTuiInterface}=await load(),session=terminal([]),times=[];let resolveEvent;
  session.nextEvent=()=>new Promise(resolve=>{resolveEvent=resolve;});session.render=screen=>{session.screens.push(screen);times.push(Date.now());return{selectionEnabled:true};};
- const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'model-a',effort:'high'}]));
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{platform:'codex',model:'model-a',effort:'high'}]));
  const editing=runInstallFlow({ui:createTuiInterface(session),statuses:[],draft:{roles,hosts:['codex']},installState:{mode:'standalone',platforms:[]},loadCatalog:async()=>({status:'ready',catalog:{platform:'codex',pairs:[{model:'model-a',effort:'high'}]}})});
  await new Promise(resolve=>setTimeout(resolve,700));resolveEvent(back);await assert.rejects(editing,{code:'ARC_TUI_HOME'});
  assert.ok(session.screens.length>=2);assert.ok(times[1]-times[0]>=550&&times[1]-times[0]<1000);
@@ -488,7 +488,7 @@ test('unverified Apply lists real management residual paths without preparing',a
  const {compositeContext,targets}=await import('./fixtures/install-mode.mjs');
  const {mkdirSync,writeFileSync}=await import('node:fs'),{join}=await import('node:path');
  const context=await compositeContext(t),home=targets(context).codex.home;
- const residualPaths=['arc-role-platform-routing.prepared.json','agents/arc-routing-qa.toml'].map(name=>join(home,name));
+ const residualPaths=['arc-role-platform-routing.prepared.json','agents/arc-routing-tester.toml'].map(name=>join(home,name));
  mkdirSync(join(home,'agents'),{recursive:true});for(const filename of residualPaths)writeFileSync(filename,'{}');
  const {runTui}=await load(),session=terminal([enter,...down(10),enter,back,back]);let preparations=0;
  assert.equal(await runTui({session,context,services:{collectStatus:async()=>[],prepareOperation:async()=>{preparations++;assert.fail('unverified cannot prepare');},executeOperation:async()=>assert.fail('unverified cannot execute')}}),0);
@@ -579,7 +579,7 @@ test('Status uses injected registry labels and display order for four platforms'
  assert.deepEqual(session.screens.find(screen=>screen.title==='Status').rows,['Installed on   Mixed (Claude + Codex + Zeta + Eta)','','Claude         Available','Codex          Available','Zeta           Available · auth unverified','Eta            Not verified','','Version        1.0.0 · up to date','','Notes','• claude detail (Claude)','• codex detail (Codex)','• zeta detail (Zeta)','• eta detail (Eta)','','Back']);
 });
 test('app loads current composite config and prepares diagram snapshot under busy',async()=>{
- const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
+ const {runTui}=await load(),roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{platform:'codex',model:'gpt-6-luna',effort:'high'}]));
  const session=terminal([enter,...down(10),enter,enter,back]),catalogLoads=[],prepared=[];let configLoads=0,busy=false;
  session.setBusy=value=>{busy=value;};
  const code=await runTui({session,context:{env:{PATH:fixturePath}},services:{currentInstallState:()=>({mode:'composite',platforms:['claude','codex'],anchor:'claude'}),collectStatus:async()=>['codex','claude'].map(platform=>({platform,state:'installed',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}})),readCompositeConfig:async()=>{configLoads++;return {version:2,revision:'saved',platforms:['claude','codex'],roles};},loadCatalog:async platform=>{catalogLoads.push(platform);return {status:'ready',catalog:{platform,pairs:[{model:platform==='codex'?'gpt-6-luna':'sonnet',effort:'high'}]}};},prepareOperation:async(context,options)=>{assert.equal(busy,true);assert.ok(context.signal);prepared.push(options);return{kind:'composite',options};},executeOperation:async(_context,operation)=>{assert.equal(busy,true);assert.equal(operation.options,prepared[0]);return{code:0,results:[]};}}});

@@ -74,11 +74,11 @@
       "text": "- Use brief evidence first. For broad additional facts, return a Scouter lookup request to Orchestrator instead of exploring yourself. Read only what is needed to pin edit locations; DO NOT reread unchanged files already in context.\n- Follow the brief's Read/Grep budget; without one, use about 15 for Bounded and about 30 for Architectural. If more is needed, stop and return what is missing. Before depth is chosen or for Spike work, expect a number in the brief; if none is given, use about 15. Upstream brainstorming's \"Look Before You Ask\" reading is satisfied within brief evidence and this budget. The exploration budget is not a Planner call-count limit.\n- When the brief's depth is Bounded, include per task ID/title, goal/scope/files, predecessors, criteria and required checks/evidence. Exact signatures, per-step test code, Review Focus and the four-part self-review MAY be omitted in favor of a short self-review checklist. Architectural keeps full `writing-plans.md` density. This ARC adaptation takes precedence over `writing-plans.md` density for Bounded only; upstream text is unchanged. This density adaptation waives no approvals, required checks, QA or Reviewer obligations.\n- Orchestrator MAY set a handback size limit in the brief."
     },
     {
-      "id": "qa.contract-intro",
+      "id": "tester.contract-intro",
       "text": "This profile is the complete QA contract. "
     },
     {
-      "id": "qa.verification-steps",
+      "id": "tester.verification-steps",
       "text": "1. Use the shared brief, criteria, Implementer summary and relevant prior findings. Independently verify assigned behavior with related tests only: test files directly exercising changed modules, contract tests the change requires updating and matching check scripts; additions within these categories with reasons are authorized; report each selection and reason. When assigned final verification, run all contract tests, all check scripts and the brief's re-changed-file tests at the verified HEAD, plus full regression once when the brief's provisional judgment or your own check of triggers (1), (3) and (4) finds one applies or cannot decide. Use approved structural/consistency checks for policy/configuration.\n2. Run authorized tests and inspect output, but DO NOT edit source, documents, tests or configuration. DO NOT repair failures or broaden verification without authorization.\n3. Report every brief criterion by ID or original wording. Record method/scope, run status, accessible evidence, criterion verdict, unverified reason and remaining scope.\n4. Run status is passed, failed, not run or environment blocked. Verdict is proven, unmet or unverified. Passing alone proves no criterion; connect conditions/expected results to observations. Keep partial checks, out-of-scope criteria, missing checks and environment blocks unverified. Omit no criterion. PASS means run status only.\n5. Structural checks prove structural criteria only, not behavior, installation or live agent compliance. After a fix, rerun reproduction and invalidated checks; report the prior finding resolved, unresolved or unverified with evidence. Classify each HEAD failure first by read-only diff against the approved base (unrelated when its test, direct imports, fixtures and test configuration are unchanged), and report the rest as needing a base run; when Orchestrator supplies a base worktree, rerun only those by test name and classify them as baseline, new or new-failure candidate. Only new failures are findings; unrelated failures and candidates need Orchestrator disposition. Rerun a suspected intermittent test alone, up to the brief's limit (default three), as diagnosis rather than retry; report passes-in-isolation and rerun count.\n6. Only with assigned UI criteria and a brief citation to installed ARC `references/verification.md`'s `UI browser acceptance checks`, read/follow that section before launching apps or using browser tools. Otherwise DO NOT launch apps/browsers for UI acceptance. Report missing citations/prerequisites and leave criteria unverified.\n7. Report exact commands, results, evidence, unresolved issues and limits. Separate failures from environment problems. Run approved checks and report only; DO NOT edit, repair, plan or decide acceptance."
     },
     {
@@ -140,7 +140,7 @@
       ]
     },
     {
-      "path": "claude/agents/arc-qa.md",
+      "path": "claude/agents/arc-tester.md",
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
@@ -149,9 +149,9 @@
         "common.optional-read-exception",
         "common.resume-gates",
         "claude.profile-guidance",
-        "qa.contract-intro",
+        "tester.contract-intro",
         "common.verification-reference",
-        "qa.verification-steps"
+        "tester.verification-steps"
       ]
     },
     {
@@ -215,16 +215,16 @@
       ]
     },
     {
-      "path": "codex/agents/arc-qa.toml",
+      "path": "codex/agents/arc-tester.toml",
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
         "codex.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
-        "qa.contract-intro",
+        "tester.contract-intro",
         "common.verification-reference",
-        "qa.verification-steps"
+        "tester.verification-steps"
       ]
     },
     {
@@ -285,16 +285,16 @@
       ]
     },
     {
-      "path": "gemini/agents/arc-qa.md",
+      "path": "gemini/agents/arc-tester.md",
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
         "common.preservation-choice-inspection",
         "common.optional-read-exception",
         "common.resume-gates",
-        "qa.contract-intro",
+        "tester.contract-intro",
         "common.verification-reference",
-        "qa.verification-steps"
+        "tester.verification-steps"
       ]
     },
     {
@@ -355,16 +355,16 @@
       ]
     },
     {
-      "path": "grok/agents/arc-qa.md",
+      "path": "grok/agents/arc-tester.md",
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
         "common.preservation-choice-inspection",
         "common.optional-read-exception",
         "common.resume-gates",
-        "qa.contract-intro",
+        "tester.contract-intro",
         "common.verification-reference",
-        "qa.verification-steps"
+        "tester.verification-steps"
       ]
     },
     {

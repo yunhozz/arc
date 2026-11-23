@@ -19,7 +19,7 @@ const UNVERIFIED_CONTRACTS = [
 ];
 
 const VERIFIED_CONTRACTS = [
-  {id: 'permission-sandbox-effect', risk: 'R4', roles: ['arc_implementer', 'arc_qa']},
+  {id: 'permission-sandbox-effect', risk: 'R4', roles: ['arc_implementer', 'arc_tester']},
 ];
 
 function verifyEvidence(descriptor) {
@@ -64,7 +64,7 @@ test('Grok unverified role contracts retain five risk links including read-role 
 
 test('Grok sandbox permission evidence is verified for writing roles only', () => {
   assert.deepEqual(VERIFIED_CONTRACTS, [
-    {id: 'permission-sandbox-effect', risk: 'R4', roles: ['arc_implementer', 'arc_qa']},
+    {id: 'permission-sandbox-effect', risk: 'R4', roles: ['arc_implementer', 'arc_tester']},
   ]);
 });
 

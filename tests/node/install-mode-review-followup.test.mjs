@@ -22,8 +22,8 @@ for(const mode of ['composite','unverified'])test(`all install and preset refuse
 
 for(const platform of ['codex','claude'])test(`${platform} Change Models preserves unowned profiles and reports residuals without blocking`,async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);const target=targets(ctx)[platform],dir=path.join(target.home,'agents'),ext=platform==='codex'?'toml':'md';
- const contractless=path.join(dir,'arc-scouter.'+ext),renamed=path.join(dir,'arc-planner.'+ext),link=path.join(dir,'arc-qa.'+ext),outside=path.join(ctx.userHome,'outside');
- fs.writeFileSync(contractless,'');fs.writeFileSync(renamed,fs.readFileSync(renamed,'utf8').replace(platform==='codex'?'name = "arc_planner"':'name: arc-planner',platform==='codex'?'name = "arc_qa"':'name: arc-qa'));fs.writeFileSync(outside,'user data');fs.unlinkSync(link);fs.symlinkSync(outside,link);
+ const contractless=path.join(dir,'arc-scouter.'+ext),renamed=path.join(dir,'arc-planner.'+ext),link=path.join(dir,'arc-tester.'+ext),outside=path.join(ctx.userHome,'outside');
+ fs.writeFileSync(contractless,'');fs.writeFileSync(renamed,fs.readFileSync(renamed,'utf8').replace(platform==='codex'?'name = "arc_planner"':'name: arc-planner',platform==='codex'?'name = "arc_tester"':'name: arc-tester'));fs.writeFileSync(outside,'user data');fs.unlinkSync(link);fs.symlinkSync(outside,link);
  const saved=fs.readFileSync(renamed),catalog=(await loadStaticModelCatalog(platform)).catalog,pair=catalog.pairs.find(p=>p.model==='gpt-6.1-sol')??catalog.pairs[0],modelsPath=path.join(target.home,'skills/arc/models.toml'),config=loadModelConfig(fs.readFileSync(modelsPath),platform);
  const roles=Object.fromEntries(Object.keys(config.roles).map(r=>[r,{model:pair.model,[platform==='codex'?'model_reasoning_effort':'effort']:pair.effort}]));
  const prepared=await api.prepareOperation(ctx,{kind:'preset',target:platform,roles,verifiedCatalog:catalog});
@@ -40,7 +40,7 @@ for(const platform of ['codex','claude'])test(`${platform} explicit install role
 });
 
 test('standalone to composite Install displays each residual path once',async t=>{
- const ctx=await compositeContext(t);await standalone(ctx);const filename=ctx.userHome+'/.claude/agents/arc-qa.md';fs.writeFileSync(filename,'user profile');const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));assert.equal(resultRows(result).filter(row=>row==='Residual path: '+filename).length,1);
+ const ctx=await compositeContext(t);await standalone(ctx);const filename=ctx.userHome+'/.claude/agents/arc-tester.md';fs.writeFileSync(filename,'user profile');const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));assert.equal(resultRows(result).filter(row=>row==='Residual path: '+filename).length,1);
 });
 
 for(const platform of ['codex','claude'])test(`${platform} occupied unowned profile paths remain installed and are residuals`,async t=>{

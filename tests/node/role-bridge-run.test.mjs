@@ -473,11 +473,11 @@ test('auth, model and effort error streams classify to distinct failed reasons; 
 });
 
 test('supervisor lease writes during concurrent prepare-dispatch never surface activation_unverified', async t => {
-  const f = await setup(t, {roles: {arc_planner: 'codex', arc_qa: 'codex'}, limits: {total: 200, concurrent: 100}});
+  const f = await setup(t, {roles: {arc_planner: 'codex', arc_tester: 'codex'}, limits: {total: 200, concurrent: 100}});
   await f.codex.setScenario(codexOk(f, 40, {delayMs: 1200}));
   const first = await prepare(f, 'arc_planner');
   const running = run(f, first.dispatchId);
-  const results = await Promise.all(Array.from({length: 20}, () => prepareRoleDispatch({context: f.context(), assignment: {role: 'arc_qa', requestId: nextId(), taskId: nextId()}, expectedRevision: f.revision, policy: policyWith()})));
+  const results = await Promise.all(Array.from({length: 20}, () => prepareRoleDispatch({context: f.context(), assignment: {role: 'arc_tester', requestId: nextId(), taskId: nextId()}, expectedRevision: f.revision, policy: policyWith()})));
   await running;
   for (const result of results) assert.equal(result.decision, 'allow', JSON.stringify(result.reasons));
   assert.equal(results.some(result => codes(result).includes('activation_unverified')), false);

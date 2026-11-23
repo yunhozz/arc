@@ -12,8 +12,8 @@ function fixture(kind='task'){
  const documents=['spec','plan'].map(kind=>({kind,path:`/workspace/${kind}.md`,gitPath:`${kind}.md`,contentHash:hash(kind),approvalRef:kind}));
  const state={workflowId:'workflow',revision:4,target,mode:'plan',documents,
   identities:[{actorRef:'root',role:'orchestrator',taskId:'T1'}],leases:[{actorRef:'root',taskId:'T1',status:'active'}],
-  tasks:[{id:'T1',status:'accepted',paths:['/workspace/code.mjs'],criteria:['criterion'],requiredChecks:['qa']}],
-  acceptances:[{taskId:'T1',actorRef:'root',fingerprint:hash('diff'),criteria:['criterion'],checkIds:['qa'],findingIds:[]}],
+  tasks:[{id:'T1',status:'accepted',paths:['/workspace/code.mjs'],criteria:['criterion'],requiredChecks:['tester']}],
+  acceptances:[{taskId:'T1',actorRef:'root',fingerprint:hash('diff'),criteria:['criterion'],checkIds:['tester'],findingIds:[]}],
   approvals:documents.map(d=>({id:d.approvalRef,source:'user-message',messageRef:d.kind,contentHash:d.contentHash})),commits:[],audit:[]};
  const request={requestId:'commit-1',actorRef:'root',taskId:'T1',operation:'commit',cwd:'/workspace',paths:paths.map(p=>'/workspace/'+p),descriptor:{kind,parent:target.head,indexTree:sha('b'),fingerprint:hash('diff'),paths}};
  const gitEvidence={target,indexTree:sha('b'),stagedFingerprint:hash('diff'),stagedPaths:paths,workingPaths:[],untrackedPaths:[],documents:documents.map(d=>({...d,observedHash:d.contentHash}))};

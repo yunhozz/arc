@@ -264,7 +264,7 @@ test('missing host gate key is fail-closed in prepare without DEFAULT fallback',
 
 test('default policy holds Gemini QA under GG1 and Grok Implementer under the Gemini host gate', async t => {
   for (const {host, target, role, assignment} of [
-    {host: 'grok', target: 'gemini', role: 'arc_qa'},
+    {host: 'grok', target: 'gemini', role: 'arc_tester'},
     {host: 'gemini', target: 'grok', role: 'arc_implementer', assignment: {allowedPaths: ['src/']}},
   ]) {
     const policy = {...DEFAULT_POLICY, probeTimeoutMs: 10000};
