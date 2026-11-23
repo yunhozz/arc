@@ -44,6 +44,28 @@ test('drift injected before staging is rejected before replacing user bytes',t=>
 for(const phase of ['before-prepare','before-stage','after-stage','before-preserve','after-preserve','before-publish','after-publish'])test(`fault boundary ${phase} preserves original target and user profiles`,t=>{const f=transactionFixture(t),plan=simplePlan(f);transaction.capturePlanSnapshot(plan,{safeFs});let triggered=false;assert.throws(()=>transaction.applyTransaction(plan,{safeFs,acquired:{references:referenceFixture(),skills:new Map()},hooks:{fault(event){if(event.phase===phase&&!triggered){triggered=true;throw Error('boundary failure');}}}}));assert.equal(triggered,true);for(const group of ['skills','agents'])assert.equal(fs.readdirSync(f.home+'/'+group).some(n=>n.startsWith('.arc-stage-')),false);assert.equal(fs.readFileSync(f.home+'/skills/arc/SKILL.md','utf8'),'old skill');assert.equal(fs.readFileSync(f.home+'/agents/user-profile','utf8'),'user-owned');});
 test('Claude allowed external skill link becomes independent and rollback restores original literal link',t=>{const f=transactionFixture(t,'claude'),plan=simplePlan(f),external=f.home+'/skills/brainstorming';fs.mkdirSync(f.userHome+'/.codex/skills/brainstorming',{recursive:true});fs.writeFileSync(f.userHome+'/.codex/skills/brainstorming/SKILL.md','codex source');const literal='../../.codex/skills/brainstorming';fs.symlinkSync(literal,external);plan.externalPaths=[external];transaction.capturePlanSnapshot(plan,{safeFs});const acquired={references:referenceFixture(),skills:new Map([['brainstorming',{rootMetadata:{mode:0o40755n,atimeNs:1700000000000000000n,mtimeNs:1700000000000000000n},entries:new Map([['SKILL.md',{type:'file',bytes:Buffer.from('independent'),mode:0o644n}]])}]])};assert.throws(()=>transaction.applyTransaction(plan,{safeFs,acquired,hooks:{fault(event){if(event.phase==='after-publish'&&event.path.endsWith('/skills/arc'))throw Error('later failure');}}}),{code:'ARC_INSTALL_FAILED'});assert.equal(fs.readlinkSync(external),literal);assert.equal(fs.readFileSync(f.userHome+'/.codex/skills/brainstorming/SKILL.md','utf8'),'codex source');transaction.capturePlanSnapshot(plan,{safeFs});transaction.applyTransaction(plan,{safeFs,acquired});assert.equal(fs.lstatSync(external).isDirectory(),true);assert.equal(fs.readFileSync(external+'/SKILL.md','utf8'),'independent');assert.equal(fs.readFileSync(f.userHome+'/.codex/skills/brainstorming/SKILL.md','utf8'),'codex source');});
 test('new targets are removed from their public names after rollback',t=>{const f=transactionFixture(t),plan=simplePlan(f);fs.rmSync(f.home+'/skills/arc',{recursive:true});transaction.capturePlanSnapshot(plan,{safeFs});assert.throws(()=>transaction.applyTransaction(plan,{safeFs,acquired:{references:referenceFixture(),skills:new Map()},hooks:{fault(event){if(event.phase==='after-publish')throw Error('rollback');}}}));assert.equal(fs.existsSync(f.home+'/skills/arc'),false);});
+test('rollback prunes only empty parents created by the transaction', t => {
+ const fixture=transactionFixture(t),plan=simplePlan(fixture);
+ const temporary=fixture.home+'/temporary',existing=fixture.home+'/existing',occupied=fixture.home+'/occupied/nested';
+ fs.mkdirSync(existing);
+ const files=[temporary+'/nested/profile',existing+'/profile',occupied+'/profile'];
+ plan.managedPaths=files;
+ transaction.capturePlanSnapshot(plan,{safeFs});
+ assert.throws(()=>transaction.applyTransaction(plan,{
+  safeFs,
+  specs:files.map(path=>({path,bytes:Buffer.from('installer bytes')})),
+  hooks:{fault(event){
+   if(event.phase==='after-publish'&&event.path===files[2]){
+    fs.writeFileSync(occupied+'/user','user bytes');
+    throw Error('injected rollback');
+   }
+  }},
+ }),{code:'ARC_INSTALL_FAILED',rollback:'restored'});
+ assert.equal(fs.existsSync(temporary),false);
+ assert.deepEqual(fs.readdirSync(existing),[]);
+ assert.deepEqual(fs.readdirSync(occupied),['user']);
+ assert.equal(fs.readFileSync(occupied+'/user','utf8'),'user bytes');
+});
 test('successful publish cleanup failure keeps new files and reports the owned stage',t=>{
  const f=transactionFixture(t),plan=simplePlan(f);transaction.capturePlanSnapshot(plan,{safeFs});let rollback=false,deleted=false;
  const result=transaction.applyTransaction(plan,{safeFs,acquired:{references:referenceFixture(),skills:new Map()},hooks:{fault(event){if(event.phase==='before-rollback')rollback=true;if(event.phase==='after-cleanup-item'&&!deleted){deleted=true;throw Error('cleanup interrupted after deletion');}}}});

@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v2 (2026-11-23 사용자 승인, v2 개정 승인)
-- Spec: `docs/superpowers/specs/2026-11-23-tester-verification-modes-design.md` (written spec v1.3, 2026-11-23 사용자 승인)
+- 상태: plan v3 (2026-11-23 사용자 승인, v3 개정 2026-11-24 승인)
+- Spec: `docs/superpowers/specs/2026-11-23-tester-verification-modes-design.md` (written spec v1.4, 2026-11-24 개정 승인)
 - 실행 대상: `/Users/yunho/Desktop/project/arc/.claude/worktrees/tester-verification-modes`, 브랜치 `feat/tester-verification-modes`, base `f786e4a1155287eff80d4abe56f7cebaf6598e3b`
 
 **Goal:** 검증 역할을 QA에서 Tester로 전면 변경하고 legacy 읽기 호환을 둔다. brief 필드 `mode: task | final`로 두 모드를 운영한다. 전체 회귀 자동 실행을 트리거별 대체 검사와 판단 불가 disposition으로 바꾼다. worktree 세션용 handoff 기록 명령을 추가한다.
@@ -408,15 +408,16 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 - 기존 소유 판정으로 ARC 소유가 확인되면 같은 transaction에서 제거한다.
 - 소유가 확인되지 않으면 보존하고 residual로 보고한다.
 - 소유 판정 규칙의 의미는 바꾸지 않는다.
+- (v3) 활성 legacy composite 설치는 install-mode 판정에서 legacy profile을 tester 자리로 인정한다(판정 전용 alias). hash 일치면 새 tester profile을 쓰고 legacy를 같은 transaction에서 제거한다. 불일치면 보존하고 `legacyResiduals`로 보고한 뒤 새 tester profile을 쓰고 진행한다. 활성 marker가 제거된 경로를 가리키지 않게 한다.
 
 **Files:**
 
 - Create: `lib/installer/legacy-profiles.mjs`
-- Modify: `lib/installer/plan.mjs:76` 근처, `lib/installer/transaction.mjs:62` 근처, `lib/installer/install-mode.mjs`, `lib/installer/role-routing.mjs:98`, `lib/platforms/formats/*.mjs`(legacy 판정 전용 인자), uninstall 경로 모듈
+- Modify: `lib/management/operations.mjs:46` 근처(install-mode 판정), `lib/installer/upgrade-state.mjs:26` 근처, `lib/installer/uninstall.mjs:51` 근처, `lib/installer/plan.mjs:76` 근처, `lib/installer/transaction.mjs:62` 근처, `lib/installer/install-mode.mjs`, `lib/installer/role-routing.mjs:98`, `lib/platforms/formats/*.mjs`(legacy 판정 전용 인자), uninstall 경로 모듈
 - Test: 신규 `tests/node/legacy-profile-cleanup.test.mjs`. 필요하면 `tests/node/fixtures/install-mode.mjs` helper도 쓴다.
 - 생성물: 절차 G 3, 5, 6
 
-**allowedPaths:** `lib/installer/`, `lib/platforms/formats/`, `tests/node/`, `MANIFEST.sha256`
+**allowedPaths:** `lib/installer/`, `lib/management/`, `lib/platforms/formats/`, `tests/node/`, `MANIFEST.sha256`
 
 **선행:** T1. T2·T3와는 독립이다.
 
@@ -435,6 +436,8 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
   - `foreign legacy profile is preserved and reported`
   - `composite hash mismatch is preserved and reported`
   - `failure rolls back legacy removal`
+  - (v3) `active legacy composite migrates with matching hash`(install·upgrade·uninstall 중단 없음, legacy 제거, 새 tester profile, marker 일관성)
+  - (v3) `active legacy composite keeps edited profile as residual`(보존·보고 후 진행)
 - [ ] **Step 2: 실패 확인**
   - `node --test tests/node/legacy-profile-cleanup.test.mjs`
 - [ ] **Step 3: 구현**
@@ -448,6 +451,7 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 
 - MIG-4 AC 4개를 4개 플랫폼 × 3동작에서 확인한다.
 - 기존 소유 판정 테스트가 변경 없이 통과한다.
+- (v3) 활성 legacy composite 설치(Claude·Codex 등 composite 지원 플랫폼)에서 hash 일치·불일치 각각 install·upgrade·uninstall이 중단 없이 진행된다.
 
 **관련 테스트**
 
@@ -463,6 +467,7 @@ Test 갱신: Node는 `rg -l` 결과 약 75개 파일, Python은 `tests/test_code
 
 - 소유 판정 의미를 바꾸지 않고는 legacy 판정을 할 수 없을 때
 - uninstall이 transaction을 쓰지 않아 rollback AC를 충족할 수 없을 때
+- (v3) 판정 전용 alias가 standalone·composite 소유 판정 결과를 바꿔야만 가능할 때
 
 ---
 
@@ -882,7 +887,7 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 | T1 | 수용(2026-11-23) | (이 commit) | Implementer 3272105d(fresh, plan v2), QA 8d138f20. C1~C9 proven. 새 실패 18건 수정 후 resolved. Python 159개는 base와 실패 signature 일치(baseline). runtime-cli 3개는 bridge sandbox EPERM으로 차단됐으나 Orchestrator host 실행에서 12/12 통과. bridge 간헐 후보 1건은 단독 실행 통과(disposition: 이번 변경과 무관한 간헐). 환경 준비: build/native 복사(native 입력 base와 동일), base worktree `.git/arc/base/qa-mode-verification` |
 | T2 | 수용(2026-11-23) | (이 commit) | Implementer 3c40cb55, QA bb2dfa67. C1~C3 proven, 관련 테스트 672 통과·0 실패. sandbox에서 건너뛴 `processStartTime uses real ps lstart`는 Orchestrator host 실행에서 통과해 C4 proven |
 | T3 | 수용(2026-11-23) | (이 commit) | Implementer 15e2f1fb, QA 937587d7. C1~C8 proven, 관련 테스트 266 통과·0 실패, check 4개 통과, schemaVersion 1 유지. sandbox EPERM으로 막힌 runtime-cli는 Orchestrator host 실행에서 12/12 통과. 실 Git 통합(`ARC_RUN_GIT_INTEGRATION=1`)은 32개 중 31 통과, 실패 1건 `cooperative CLI verifies exact approved document commit before durable assignment intent`는 base 코드에서도 같은 `cooperative.assignment-scope` hold로 실패(baseline) |
-| T4 | 대기 | | |
+| T4 | 수용(2026-11-24) | (이 commit) | plan v3(사용자 결정 "alias 판정+진행"). Implementer b2b9adba hold 종료(변경 없음, 활성 legacy composite 판정 불가 재현) → plan 개정으로 fresh Implementer 82441e7c, QA fa347e0f. C1~C5·C4a·C4b proven(4개 플랫폼 × 3동작). 구현 중 자체 해결: 최초 설치 rollback 빈 디렉터리 잔존(transaction 생성 디렉터리 정리), 공개 plan hash 8건 회귀(부재 legacy 후보 snapshot 제외). C6: check 4개 통과, 관련 테스트 527개 중 실패 1·skip 1 — `transaction.test.mjs` `Claude allowed external skill link…`는 Orchestrator host에서 base 코드도 동일 실패(baseline), `upgrade-harness` `source auto upgrade excludes the current worktree local wrapper`는 로컬 wrapper 부재로 skip(환경, base도 동일 조건, T4 동작과 무관; unverified 유지) |
 | T5 | 대기 | | |
 | T6 | 대기 | | |
 | T7 | 대기 | | |
@@ -895,3 +900,4 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 |---|---|---|
 | v1 | 2026-11-23 | Planner 첫 초안을 Orchestrator가 검토하고 결정(Q1~Q5)을 반영해 저장 |
 | v2 | 2026-11-23 | T1 hold 해소(사용자 결정): 연산 `qa` legacy alias를 T1에 추가하고 hold 조건에서 제외, 수용 기준 테스트 수 정정(Node 7 + 연산 alias 2 + Python 2). 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-23 |
+| v3 | 2026-11-24 | T4 hold 해소(사용자 결정 "alias 판정+진행"): 활성 legacy composite 판정 전용 alias, hash 일치 시 이전·불일치 시 보존+residual 후 진행, allowedPaths에 `lib/management/` 추가, 테스트 2개·수용 기준 1개 추가. 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-24 |

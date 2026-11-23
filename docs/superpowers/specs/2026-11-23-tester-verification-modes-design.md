@@ -1,7 +1,7 @@
 # Tester 검증 모드와 전체 회귀 대체 — 설계 명세
 
 - 날짜: 2026-11-23
-- 상태: written spec v1.3 (2026-11-23 사용자 승인, v1.3 개정 승인)
+- 상태: written spec v1.4 (2026-11-23 사용자 승인, v1.4 개정 2026-11-24 승인)
 - 깊이: Architectural (spec + plan)
 - 근거: 설계 승인(2026-11-23 사용자 "승인"), 실행 대상 결정 "새 worktree+브랜치"
 - 소스: `/Users/yunho/Desktop/project/arc`, `master`, HEAD `f786e4a1155287eff80d4abe56f7cebaf6598e3b` (clean)
@@ -357,6 +357,9 @@ upgrade는 새 payload에 없는 구 profile을 자동 제거하지 않는다(Sc
 - 소유가 아니거나 판정할 수 없으면 보존하고, 결과 보고에 residual 경로로 표시한다.
 - 소유 판정 규칙의 의미는 바꾸지 않는다.
 - uninstall에도 같은 소유 판정을 적용한다(Q2 결정). 소유가 확인된 legacy profile은 제거하고, 아닌 파일은 보존하며 residual로 보고한다.
+- 활성 composite 설치(v0.5.1 이하, routing 설정에 `arc_qa` 항목과 `arc-routing-qa.*` profile)는 install-mode 판정에서 legacy profile을 tester 역할 자리로 인정한다(읽기 전용 alias, 판정 전용). 소유 판정 규칙은 그대로다.
+  - hash 일치: 같은 transaction에서 새 tester profile을 쓰고 legacy profile을 제거한다. 활성 marker가 제거된 경로를 가리키지 않게 한다.
+  - hash 불일치(사용자가 수정한 파일): legacy profile은 보존하고 `legacyResiduals`로 보고한다. tester 자리는 비어 있는 것으로 보고 새 tester profile을 쓴 뒤 진행한다. uninstall은 보존·보고 후 나머지를 제거한다.
 
 AC: 테스트가 다음을 확인한다.
 
@@ -364,6 +367,7 @@ AC: 테스트가 다음을 확인한다.
 - marker 없는 동명 파일 보존과 residual 보고
 - composite hash 불일치 시 보존과 residual 보고
 - 실패 시 transaction rollback으로 원상태 유지
+- 활성 legacy composite 설치의 install·upgrade·uninstall이 중단 없이 진행된다(hash 일치·불일치 각각)
 
 **MIG-5 cooperative state**
 
@@ -651,3 +655,4 @@ ARC는 worktree 세션에서도 canonical handoff 기록을 쓸 수 있는 공�
 | v1.1 | 2026-11-23 | 사용자 요청으로 HND(worktree 세션 handoff 기록 쓰기) 범위 추가, Q3 추가 |
 | v1.2 | 2026-11-23 | Q2(uninstall 적용)·Q3(runtime 명령 신설) 결정 반영. 사용자 written-spec 승인("결정 반영 후 승인") |
 | v1.3 | 2026-11-23 | T1 hold(저장 연산 `qa`) 해소: MIG-5에 연산 legacy alias 추가(사용자 결정 "test로 변경+legacy 읽기") |
+| v1.4 | 2026-11-24 | T4 hold(활성 legacy composite 설치 판정 불가) 해소: MIG-4에 판정 전용 alias와 hash 일치·불일치 처리 추가(사용자 결정 "alias 판정+진행") |
