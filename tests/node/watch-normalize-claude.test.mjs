@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as claude from '../../lib/watch/normalize-claude.mjs';
 import {createClaudeState,parseClaudeHead,parseClaudeAgentMeta,normalizeClaudeLine} from '../../lib/watch/normalize-claude.mjs';
+import {WATCH_LIMITS} from '../../lib/watch/model.mjs';
 const fixture = name => fs.readFileSync(new URL(`./fixtures/watch/${name}.jsonl`,import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
 const assistant = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'assistant',message:{content,...extra}},state);
 const user = (content, state=createClaudeState(), extra={}) => normalizeClaudeLine({type:'user',message:{content},...extra},state);
@@ -162,11 +163,48 @@ test('tool failures carry only the tool name', () => {
  for(let i=0;i<600;i++) assistant([{type:'tool_use',id:`t${i}`,name:'Read',input:{}}],state);
  assert.deepEqual(user([result],state),[{kind:'tool_failed'}]);
 });
+test('Edit, MultiEdit and NotebookEdit file changes are marked claimBefore', () => {
+ for (const [name,key] of [['Edit','file_path'],['MultiEdit','file_path'],['NotebookEdit','notebook_path']]) {
+  assert.deepEqual(tool(name,{[key]:'/r/edit'}),[{kind:'file_change',paths:['/r/edit'],claimBefore:true}],name);
+ }
+ const state=createClaudeState();
+ for (const [type,kind] of [['create','file_create'],['update','file_change']]) {
+  assistant([{type:'tool_use',id:'write',name:'Write',input:{file_path:'/r/write'}}],state);
+  assert.deepEqual(user([{type:'tool_result',tool_use_id:'write'}],state,{toolUseResult:{type}}),
+   [{kind,paths:['/r/write']}]);
+ }
+ state.cwd='/r';
+ assistant([{type:'tool_use',id:'rm',name:'Bash',input:{command:'rm -r dir'}}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'rm'}],state),[{kind:'file_delete',paths:['/r/dir']}]);
+});
+test('a failed Edit result carries releasePaths; a successful one does not', () => {
+ const state=createClaudeState();
+ assistant([
+  {type:'tool_use',id:'failed',name:'Edit',input:{file_path:'/r/failed'}},
+  {type:'tool_use',id:'success',name:'Edit',input:{file_path:'/r/success'}},
+  {type:'tool_use',id:'read',name:'Read',input:{file_path:'/r/read'}},
+ ],state);
+ const failure=id=>user([{type:'tool_result',tool_use_id:id,is_error:true}],state);
+ assert.deepEqual(user([{type:'tool_result',tool_use_id:'success'}],state),[]);
+ assert.deepEqual(failure('success'),[{kind:'tool_failed',tool:'Edit'}]);
+ assert.deepEqual(failure('read'),[{kind:'tool_failed',tool:'Read'}]);
+ assert.deepEqual(failure('failed'),[{kind:'tool_failed',tool:'Edit',releasePaths:['/r/failed']}]);
+ assert.deepEqual(failure('failed'),[{kind:'tool_failed',tool:'Edit'}]);
+});
+test('edit path cache is bounded by toolCacheMax', () => {
+ const state=createClaudeState();
+ for (let i=0;i<=WATCH_LIMITS.toolCacheMax;i++) {
+  assistant([{type:'tool_use',id:`edit-${i}`,name:'Edit',input:{file_path:`/r/${i}`}}],state);
+ }
+ const failure=i=>user([{type:'tool_result',tool_use_id:`edit-${i}`,is_error:true}],state);
+ assert.deepEqual(failure(0),[{kind:'tool_failed'}]);
+ assert.deepEqual(failure(1),[{kind:'tool_failed',tool:'Edit',releasePaths:['/r/1']}]);
+});
 test('assistant blocks map to agent, reasoning, command, edit, spawn, tool', () => {
  assert.deepEqual(assistant([{type:'text',text:'hello'},{type:'thinking',thinking:'plan',signature:'WATCH_MARKER_signature'},{type:'redacted_thinking',data:'WATCH_MARKER_redacted'}]),[{kind:'agent',text:'hello'},{kind:'reasoning',text:'plan'}]);
  assert.deepEqual(assistant([{type:'thinking',thinking:''}]),[]);
  assert.deepEqual(tool('Bash',{command:'a\nb'}),[{kind:'command',text:'a\nb'}]);
- for(const name of ['Edit','MultiEdit','NotebookEdit']) assert.deepEqual(tool(name,{file_path:'/a',notebook_path:'/a',content:'WATCH_MARKER_file'}),[{kind:'file_change',paths:['/a']}]);
+ for(const name of ['Edit','MultiEdit','NotebookEdit']) assert.deepEqual(tool(name,{file_path:'/a',notebook_path:'/a',content:'WATCH_MARKER_file'}),[{kind:'file_change',paths:['/a'],claimBefore:true}]);
  for(const name of ['Agent','Task']) assert.deepEqual(tool(name,{subagent_type:'arc-routing-planner',description:'Native planner routing demo',prompt:'WATCH_MARKER_prompt'}),[{kind:'spawn',text:'arc-routing-planner: Native planner routing demo'}]);
  for(const [name,key] of [['Read','file_path'],['Grep','pattern'],['Glob','path'],['WebFetch','url'],['WebSearch','query']]) assert.deepEqual(tool(name,{[key]:'target'}),[{kind:'tool',tool:name,text:'target'}]);
  for(const name of ['mcp__srv__tool','Unknown']) assert.deepEqual(tool(name,{query:'WATCH_MARKER_input'}),[{kind:'tool',tool:name}]);

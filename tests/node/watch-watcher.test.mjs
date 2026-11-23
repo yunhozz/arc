@@ -1683,6 +1683,118 @@ test('shell scan suppresses three FileChange claims but reports a silent golden 
   assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[a]]]);
 });
 
+test('post claims are discarded after their first scan and do not hide a later change',async t=>{
+  const s=setup(t), x=path.join(s.cwd,'x');
+  s.files(['x']);s.stats.set(x,{});
+  const file=s.c('late-claim');await s.w.start();s.advance(3000);
+  s.append(file,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[x]:{}}}}}]);
+  assert.deepEqual((await s.w.tick()).filter(e=>e.kind==='file_change').map(e=>e.paths),[[x]]);
+  s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()),[]);
+  assert.equal(scans(s).length,2);
+  s.advance(3000);s.stats.set(x,{mtimeMs:2});
+  assert.deepEqual(inferred(await shellActivity(s,file)).map(e=>[e.kind,e.paths]),[['file_change',[x]]]);
+});
+
+test('post claims survive a failed listing until a scan compares',async t=>{
+  const s=setup(t), x=path.join(s.cwd,'x');
+  s.files(['x']);s.stats.set(x,{});
+  const writer=s.c('writer'), observer=s.c('observer');
+  await s.w.start();s.advance(3000);
+  assert.equal(scans(s).length,1);
+  s.stats.set(x,{mtimeMs:2});
+  s.append(writer,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[x]:{}}}}}]);
+  const explicit=(await s.w.tick()).filter(e=>e.kind==='file_change');
+  assert.deepEqual(explicit.map(e=>[e.paths,e.sessionId,e.inferred]),[[[x],'writer',undefined]]);
+
+  s.files(null);s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()),[]);
+  assert.equal(scans(s).length,2);
+
+  s.files(['x']);s.advance(3000);
+  const recovered=inferred(await shellActivity(s,observer));
+  assert.equal(scans(s).length,3);
+  assert.deepEqual(recovered.map(e=>[e.kind,e.paths,e.sessionId]),[]);
+
+  s.advance(3000);s.stats.set(x,{mtimeMs:3});
+  assert.deepEqual(inferred(await shellActivity(s,observer)).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_change',[x],'observer']]);
+});
+
+test('a failed Claude Edit releases its claim',async t=>{
+  const s=setup(t), x=path.join(s.cwd,'x');
+  s.files(['x']);s.stats.set(x,{});
+  const edit=s.cl('failed-edit'), shell=s.c('shell');await s.w.start();s.advance(3000);
+  s.append(edit,[{type:'assistant',cwd:s.cwd,message:{content:[
+    {type:'tool_use',id:'edit-x',name:'Edit',input:{file_path:x}},
+  ]}}]);
+  assert.deepEqual((await s.w.tick()).filter(e=>e.kind==='file_change').map(e=>e.paths),[[x]]);
+  s.advance(1000);assert.deepEqual(inferred(await s.w.tick()),[]);
+  s.append(edit,[{type:'user',cwd:s.cwd,message:{content:[
+    {type:'tool_result',tool_use_id:'edit-x',is_error:true},
+  ]}}]);
+  await s.w.tick();s.advance(2000);s.stats.set(x,{mtimeMs:2});
+  assert.deepEqual(inferred(await shellActivity(s,shell)).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_change',[x],'shell']]);
+});
+
+test('rm -r dir suppresses inferred deletions under the directory',async t=>{
+  const s=setup(t), dir=path.join(s.cwd,'dir');
+  const removed=['dir/a','dir/sub/b'], modified='dir/c', sibling='dir-old/d';
+  s.files([...removed,modified,sibling]);
+  for (const file of [...removed,modified,sibling]) s.stats.set(path.join(s.cwd,file),{});
+  const file=s.cl('remove-dir');await s.w.start();s.advance(3000);
+  for (const name of [...removed,sibling]) s.stats.delete(path.join(s.cwd,name));
+  s.stats.set(path.join(s.cwd,modified),{mtimeMs:2});
+  s.append(file,[{type:'assistant',cwd:s.cwd,message:{content:[
+    {type:'tool_use',id:'rm',name:'Bash',input:{command:'rm -r dir'}},
+  ]}},{type:'user',cwd:s.cwd,message:{content:[{type:'tool_result',tool_use_id:'rm'}]}}]);
+  const direct=await s.w.tick();
+  assert.deepEqual(direct.filter(e=>e.kind==='file_delete').map(e=>[e.paths,e.inferred]),[[[dir],undefined]]);
+  s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths]),[
+    ['file_change',[path.join(s.cwd,modified)]],['file_delete',[path.join(s.cwd,sibling)]],
+  ]);
+});
+
+test('claims route to the shell root that owns the path',async t=>{
+  const s=setup(t), nested=path.join(s.cwd,'nested');
+  fs.mkdirSync(nested);
+  const x=path.join(nested,'x'), y=path.join(nested,'y');
+  s.top(dir=>dir===nested?nested:s.cwd);
+  s.files(['x','y']);s.stats.set(x,{});s.stats.set(y,{});
+  const main=s.c('main'), child=s.c('nested',undefined,{cwd:nested});
+  await s.w.start();s.advance(3000);
+  s.stats.set(x,{mtimeMs:2});s.stats.set(y,{mtimeMs:2});
+  s.append(main,[{type:'event_msg',payload:{type:'item_completed',item:{type:'FileChange',changes:{[x]:{}}}}}]);
+  const direct=await s.w.tick();
+  assert.deepEqual(direct.filter(e=>e.kind==='file_change').map(e=>[e.paths,e.sessionId]),[[[x],'main']]);
+  assert.deepEqual(inferred(await shellActivity(s,child)).map(e=>[e.kind,e.paths,e.sessionId]),
+    [['file_change',[y],'nested']]);
+});
+
+test('internal claim fields are not emitted',async t=>{
+  const s=setup(t), x=path.join(s.cwd,'x');
+  s.files(['x']);s.stats.set(x,{});
+  const file=s.cl('internal-fields');await s.w.start();s.advance(3000);
+  s.append(file,[{type:'assistant',cwd:s.cwd,message:{content:[
+    {type:'tool_use',id:'edit-x',name:'MultiEdit',input:{file_path:'x'}},
+  ]}},{type:'user',cwd:s.cwd,message:{content:[
+    {type:'tool_result',tool_use_id:'edit-x',is_error:true},
+  ]}}]);
+  const direct=await s.w.tick();
+  const events=direct.filter(e=>['file_change','tool_failed'].includes(e.kind));
+  assert.deepEqual(events.map(e=>[e.kind,e.paths,e.tool]),[
+    ['file_change',['x'],undefined],['tool_failed',undefined,'MultiEdit'],
+  ]);
+  for (const event of events) {
+    assert.equal(Object.hasOwn(event,'claimBefore'),false);
+    assert.equal(Object.hasOwn(event,'releasePaths'),false);
+  }
+  s.stats.set(x,{mtimeMs:2});s.advance(1000);
+  assert.deepEqual(inferred(await s.w.tick()).map(e=>[e.kind,e.paths]),[['file_change',[x]]]);
+});
+
 test('shell claims survive unchanged scans until a pending Claude Edit lands',async t=>{
   const s=setup(t), x=path.join(s.cwd,'x');
   s.files(['x']);s.stats.set(x,{});

@@ -76,25 +76,25 @@
   - watcher 클로저 헬퍼 `claimKey(row, file) -> string`, `claimRoot(key, row) -> shellState|undefined`: `!off` shellRoots 중 `key===top || key.startsWith(top+path.sep)`인 가장 긴 top, 없으면 `shellRoots.get(row.gitTop)`(off면 `undefined`). 새 shell root는 만들지 않는다(AC-W38).
   - normalize-claude: `state.edits: Map<toolId,string[]>`(`toolCacheMax` 상한), Edit 계열 `file_change`에 `claimBefore:true`, 실패 `tool_failed`에 `releasePaths:string[]`(Edit 기억이 있을 때만).
 - 단계
-  - [ ] RED 단위(`tests/node/watch-normalize-claude.test.mjs`):
+  - [x] RED 단위(`tests/node/watch-normalize-claude.test.mjs`):
     - `Edit, MultiEdit and NotebookEdit file changes are marked claimBefore`: 세 이름 각각 `{kind:'file_change',paths:[p],claimBefore:true}`. Write 결과 `file_change`/`file_create`, rm 결과 `file_delete`에는 없음.
     - `a failed Edit result carries releasePaths; a successful one does not`: `is_error:true`이면 `{kind:'tool_failed',tool:'Edit',releasePaths:[p]}`, 성공·Edit 아닌 도구 실패에는 없음.
     - `edit path cache is bounded by toolCacheMax`: `toolCacheMax+1`개 기록 뒤 가장 오래된 id 실패에는 `releasePaths` 없음.
     - Edit 이벤트를 `deepEqual`하는 기존 단언은 `claimBefore:true` 추가로만 고치고, 고친 테스트 이름을 보고한다.
-  - [ ] RED 통합(`tests/node/watch-watcher.test.mjs`):
+  - [x] RED 통합(`tests/node/watch-watcher.test.mjs`):
     - RT2 `post claims are discarded after their first scan and do not hide a later change` (WD3)
     - RT3 `a failed Claude Edit releases its claim` (WD4)
     - RT4 `rm -r dir suppresses inferred deletions under the directory` (WD8)
     - RT5 `claims route to the shell root that owns the path` (WD9): 중첩 worktree 포함, `top`을 dir 함수로 지정해 shell root 두 개.
     - `internal claim fields are not emitted` (WD11)
     - `node --test tests/node/watch-normalize-claude.test.mjs tests/node/watch-watcher.test.mjs`에서 새 테스트(와 기대만 바꾼 단위 테스트)만 실패하는지 확인, 실패 이름 보고.
-  - [ ] GREEN 구현:
+  - [x] GREEN 구현:
     - normalize-claude: `state.edits` 지연 초기화, Edit 계열 `claimBefore:true` + id가 문자열이면 경로 기억, `tool_result`에서 꺼내 지우고 `is_error`면 `releasePaths`.
     - watcher: 기록 시 `{ts:now(),before:e.claimBefore===true}`를 `claimRoot`에 저장. `tool_failed.releasePaths`는 같은 키 계산으로 해당 root에서 delete(`live`·`inside`·`!off` 조건 동일). `clean`에서 두 내부 필드 delete.
     - `scanRoot`: TTL 만료는 `before` claim에만. `file_delete`는 정확 키가 없을 때 `file.startsWith(C+path.sep)`인 claim C로도 억제(정확 키 일치는 현행대로 delete). scan 끝에 `!before && ts<=scanStart` claim 모두 삭제.
-  - [ ] GREEN: 관련 테스트 명령 통과, 기존 실패는 base와 동일.
-  - [ ] `node scripts/update-manifest.mjs`: `lib/watch/watcher.mjs`, `lib/watch/normalize-claude.mjs` 해시만 변경·추가/삭제 없음. 다르면 hold.
-  - [ ] 커밋(Orchestrator, 수락 뒤): `fix(watch): 셸 claim을 첫 scan·실패 Edit·소속 root 기준으로 정리해 누락을 막음`
+  - [x] GREEN: 관련 테스트 명령 통과, 기존 실패는 base와 동일.
+  - [x] `node scripts/update-manifest.mjs`: `lib/watch/watcher.mjs`, `lib/watch/normalize-claude.mjs` 해시만 변경·추가/삭제 없음. 다르면 hold.
+  - [x] 커밋(Orchestrator, 수락 뒤): `fix(watch): 셸 claim을 첫 scan·실패 Edit·소속 root 기준으로 정리해 누락을 막음`
 - 관련 테스트와 이유
   - `tests/node/watch-normalize-claude.test.mjs`: `claimBefore`·`releasePaths`·캐시 상한, Edit 이벤트 형태 회귀.
   - `tests/node/watch-watcher.test.mjs`: claim 매칭·TTL·라우팅·디렉터리 억제, WD5·귀속 회귀.
@@ -105,9 +105,9 @@
 - 수락 기준: WD3, WD4, WD5, WD8, WD9, WD11, WD12(T1 diff 범위), WD13(manifest 부분)
 - 보류 조건: WD5·기존 귀속 테스트 단언 변경 필요; `normalize-codex.mjs`·`render.mjs`·`scope.mjs` 수정 필요; 이벤트 표시 시점 변경; MANIFEST 변경이 위 두 해시 밖.
 - 자체 검토
-  - [ ] 확인 유예 코드가 들어가지 않았다.
-  - [ ] off root·범위 밖 줄은 claim·release 모두 하지 않는다.
-  - [ ] 내부 필드 2개가 `clean`에서 제거된다.
+  - [x] 확인 유예 코드가 들어가지 않았다.
+  - [x] off root·범위 밖 줄은 claim·release 모두 하지 않는다.
+  - [x] 내부 필드 2개가 `clean`에서 제거된다.
 
 ## T2. 확인 유예와 command 우선 귀속 (+문서)
 
