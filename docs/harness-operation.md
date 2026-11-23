@@ -141,7 +141,7 @@ Run `arc watch --help` for history and output options.
 | Hidden | Tool/command outputs, skill definitions/args, MCP args/results; reasoning only verbose; incomplete secret masking applies to JSON too |
 | Read-only | No network or CLI except restricted Git discovery/listing; no writes |
 | Display | TTY/width wraps messages/file lists; in a TTY, a bottom status block shows the watched path, with `working…` below it while a turn is in progress; JSON v1 preserves message lines/absolute paths; other text capped at 1000 code points. During watch, Ctrl-L clears the screen and Ctrl-C or a stop signal exits 0. `working…` ends after interrupt or 5 minutes idle |
-| Shell detection | Git file lists and metadata infer edits, including possible external edits or duplicates. Ignored paths, unchanged fingerprints and non-Git roots are missed. Watch disables shell detection above 20,000 files or after three consecutive listing failures. Inferred JSON events carry `inferred:true`. |
+| Shell detection | Git file lists and metadata infer edits, including possible external edits or duplicates. Ignored paths, unchanged fingerprints and non-Git roots are missed. Watch disables shell detection above 20,000 files or after three consecutive listing failures. Inferred JSON events carry `inferred:true`. Unclaimed shell changes wait about 2 seconds before display so a late tool event can replace them. Watch attributes each inferred change to the candidate with the most recent shell command, or to the most recently active candidate when none ran a command. |
 
 | KIND | Meaning |
 |---|---|
