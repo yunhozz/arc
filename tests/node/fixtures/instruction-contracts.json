@@ -240,6 +240,7 @@
       ]
     }
   },
+  "worktreeHandoffRecordGuidance": "In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.",
   "protected": {
     "shared/skill/runtime/evaluate.mjs": "21d295a4b004a7388a42489ae4d8284c91b011f08e18b9fc2cec4fc33c75c614",
     "shared/skill/runtime/identity.mjs": "496db04ff1856493f445e57aa64959e29238628447bd0e51ee74427a2bcc6aac",

@@ -3,6 +3,8 @@
 
 Use this procedure only under the [managed-worktree handoff contract](handoff-worktree.md) after explicit new-managed-worktree selection. The app chooses the actual path; DO NOT propose siblings or require user-specified paths.
 
+In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.
+
 Use only the app tool:
 
     mcp__codex_app__create_worktree({

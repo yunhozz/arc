@@ -139,6 +139,13 @@ test('Codex Git escalation requires sandbox denial and stays limited to the exac
  assert.match(recovery,/request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access/);
  assert.doesNotMatch(recovery,/evidence of permission-system denial/);
 });
+test('worktree handoff records use the same runtime write and inline fallback guidance on every platform',()=>{
+ const expected=fixture.worktreeHandoffRecordGuidance;
+ for(const platform of ['claude','codex','gemini','grok']) for(const name of ['handoff','git-recovery','worktree-creation']){
+  const document=file(platform,name);
+  assert.ok(read(document).split('\n').includes(expected),document);
+ }
+});
 test('profile models, permissions, canonical policy and CLI/runtime bytes are preserved',()=>{
  for(const[name,hash]of Object.entries(fixture.protected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),hash,name);
 });

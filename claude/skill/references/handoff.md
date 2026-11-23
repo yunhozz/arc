@@ -76,6 +76,8 @@ Changed scope/workspace/repository/target/candidate needs fresh choice before de
 
 Maintain one accessible initial canonical record, not a separate service. Resolve `git rev-parse --path-format=absolute --git-common-dir`; write `<git-common-dir>/arc/handoff/<plan-or-task-slug>.md` with scope/version/identity/evidence. Use a unique dated-plan stem or no-plan spec/task slug; NEVER overwrite another record. It is outside working tree, shared by linked worktrees, not a Git mutation, never staged/committed, secret-free. Give every brief its absolute path; update task ID/SHA/state after accepted commits. NEVER delete automatically.
 
+In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.
+
 Unavailable/denied record writes require reason/full inline record in every Implementer brief, without deltas or record-file `unchanged`; inline satisfies accessibility.
 
 Restart briefs send verified deltas and record-relative `unchanged`; fresh Implementer reads it and gets other fields fully. Include record location, next goal/ownership, changed decisions/approvals/docs/scope or no-change, current Git/differences, choice/reuse validation, refreshed commit/artifact checks, final verification/issues. Inaccessible records, missing evidence or unclear ownership block edits. Prior conversation/inaccessible links are no substitute. Revalidate revised docs/approvals/state; NEVER backdate pre-gate preparation.
