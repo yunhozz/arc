@@ -6,10 +6,17 @@ import {validateTargetPreparationRecord} from './target-preparation.mjs';
 const fail=message=>{throw Error('Cooperative schema: '+message);};
 const hash=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.test(value);
 const revision=value=>Number.isSafeInteger(value)&&value>=0;
-const actor=value=>object(value)&&text(value.id)&&Object.keys(value).every(k=>['id','role'].includes(k))&&(value.role===undefined||ROLES.includes(value.role));
+const actor=(value,recognizeLegacy=false)=>object(value)&&text(value.id)&&Object.keys(value).every(k=>['id','role'].includes(k))&&(value.role===undefined||ROLES.includes(value.role)||recognizeLegacy&&value.role==='qa');
 const statement=value=>object(value)&&text(value.messageRef)&&object(value.data);
 function fields(value,allowed){if(!object(value)||Object.keys(value).some(k=>!allowed.includes(k)))fail('unexpected input field');}
 function json(value){try{const encoded=JSON.stringify(value);if(encoded===undefined)fail('JSON input');}catch{fail('JSON input');}}
+export function legacyCooperativeRoleDenial(input){
+ let ruleId;
+ if(input?.actor?.role==='qa')ruleId='cooperative.verification-actor';
+ else if(input?.arguments?.actor?.role==='qa'||input?.result?.data?.actor?.role==='qa')ruleId='cooperative.verification-independence';
+ else if(input?.evidence?.kind==='finding'&&input.evidence.data?.actor?.role==='qa')ruleId='cooperative.finding-resolution';
+ if(ruleId)return {decision:'deny',ruleIds:[ruleId],reason:'legacy_role_qa'};
+}
 export function validateCooperativeCommand(command){
  assertSecretFree(command);fields(command,['command','input']);const {input,command:name}=command;
  if(!['init','record','status','reconcile','prepare','result'].includes(name))fail('command');
@@ -17,7 +24,8 @@ export function validateCooperativeCommand(command){
  const resultStatement=name==='reconcile'||name==='result'&&input?.operation===undefined;
  const allowed=name==='init'?['mode','actor','selection']:name==='record'?['requestId','expectedRevision','actor','evidence']:resultStatement?['requestId','expectedRevision','actor','intentId','result']:['requestId','expectedRevision','actor','operation','taskId','arguments'];
  fields(input,allowed);json(input);
- if(!actor(input.actor))fail('actor attestation');
+ // Recognize this input shape so command entry points can return the role denial.
+ if(!actor(input.actor,true))fail('actor attestation');
  if(name==='init'){
   if(!['plan','no-plan','small-task'].includes(input.mode)||!object(input.selection)||!text(input.selection.messageRef)||!hash(input.selection.contentHash)||Object.keys(input.selection).some(k=>!['messageRef','contentHash'].includes(k)))fail('target selection');
   return command;

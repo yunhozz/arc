@@ -19,8 +19,90 @@ test('changedDiffInvalidatesCheck',()=>{const f=fixture(),intent=prepared(f);f.e
 test('scopeExpansionRequiresNewApproval',()=>{const f=fixture();f.state=api.invalidateAffectedEvidence({state:f.state,changedVersions:{scopeVersion:1}});assert.equal(gate(f).decision,'hold');});
 test('staleApprovalCannotAuthorizeDependentTask',()=>{const f=fixture();f.state.tasks.push({...structuredClone(f.state.tasks[0]),id:'T2',dependencies:['T1']});assert.equal(typeof api.invalidateAffectedEvidence,'function');const next=api.invalidateAffectedEvidence({state:f.state,changedVersions:{scopeVersion:1},affectedTaskIds:['T1']});assert.equal(next.tasks.find(t=>t.id==='T2').status,'held');assert.equal(f.state.scopeVersion,0);assert.equal(gate({...f,state:next}).decision,'hold');});
 test('freshTaskActorsCannotCrossTasks',()=>{for(const actor of ['qa1','implementer1']){const f=fixture();f.state.checks.push({scope:'task',taskId:'T0',verificationActor:{id:actor,role:'tester'}});f.request.arguments.actor.id=actor;assert.equal(gate(f).decision,'hold');}});
+test('legacy qa and tester share identity',()=>{
+ const f=fixture();
+ const legacyActor={id:'qa1',role:'qa'};
+ f.state.checks.push({scope:'task',taskId:'T1',verificationActor:legacyActor});
+ f.state.intents.push({scope:'task',taskId:'T1',status:'succeeded',verificationActor:legacyActor});
+ const intent=prepared(f);
+ assert.deepEqual(intent.verificationActor,{id:'qa1',role:'tester'});
+ assert.equal(result(f,intent).decision,'allow');
+ assert.equal(f.state.checks[0].verificationActor.role,'qa');
+ assert.equal(f.state.intents[0].verificationActor.role,'qa');
+});
+test('legacy qa reuse across tasks stays rejected',()=>{
+ for(const key of ['checks','intents']){
+  const f=fixture();
+  f.state[key].push({scope:'task',taskId:'T0',status:'succeeded',verificationActor:{id:'qa1',role:'qa'}});
+  const d=gate(f);
+  assert.equal(d.decision,'hold');
+  assert.deepEqual(d.ruleIds,['cooperative.verification-independence']);
+ }
+});
+test('a tester result can reconcile a legacy qa intent and records a tester check',()=>{
+ const f=fixture(),intent=prepared(f);
+ const actor={...intent.verificationActor};
+ intent.verificationActor.role='qa';
+ const d=result(f,{...intent,verificationActor:actor});
+ assert.equal(d.decision,'allow',d.reason);
+ assert.deepEqual(d.proposedTransition.check.verificationActor,actor);
+ assert.equal(f.state.intents[0].verificationActor.role,'qa');
+});
+test('prepare check accepts tester and rejects qa',async t=>{
+ const fs=await import('node:fs/promises'),os=await import('node:os'),path=await import('node:path');
+ const {initializeCooperativeWorkflow}=await import('../../lib/runtime/bootstrap.mjs'),{runCooperativeCommand}=await import('../../lib/runtime/cooperative.mjs'),{workflowStatePath}=await import('../../lib/runtime/scope.mjs');
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'arc-verification-actor-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const cwd=path.join(root,'workspace'),common=path.join(root,'common');
+ await fs.mkdir(cwd);
+ await fs.mkdir(common);
+ const target={realpath:cwd,gitCommonDir:common,gitDir:common,head:'a'.repeat(40),branch:'main'};
+ const actor={id:'operator',role:'orchestrator'},args={cwd,workflowId:'actor',observe:async()=>target,readChanges:async()=>({tasks:{T1:hash}})};
+ await initializeCooperativeWorkflow({...args,input:{mode:'plan',actor,selection:{messageRef:'target',contentHash:hash}}});
+ const file=await workflowStatePath(target,args.workflowId),state=JSON.parse(await fs.readFile(file));
+ const f=fixture();
+ state.tasks=f.state.tasks;
+ state.tasks[0].paths=[path.join(cwd,'a')];
+ const descriptor=state.tasks[0].requiredChecks[0];
+ descriptor.cwd=cwd;
+ state.records=f.state.records.map(r=>({...r,actor}));
+ const before=Buffer.from(JSON.stringify(state));
+ await fs.writeFile(file,before);
+ const input={...f.request,expectedRevision:0,arguments:{...f.request.arguments,descriptor}};
+ for(const [oldInput,ruleId] of [
+  [{...input,arguments:{...input.arguments,actor:{id:'qa1',role:'qa'}}},'cooperative.verification-independence'],
+  [{...input,actor:{id:'operator',role:'qa'}},'cooperative.verification-actor'],
+ ]){
+  const denied=await runCooperativeCommand({...args,command:'prepare',input:oldInput});
+  assert.equal(denied.decision,'deny');
+  assert.equal(denied.reason,'legacy_role_qa');
+  assert.deepEqual(denied.ruleIds,[ruleId]);
+  assert.equal(denied.persisted,false);
+  assert.deepEqual(await fs.readFile(file),before);
+ }
+ const allowed=await runCooperativeCommand({...args,command:'prepare',input});
+ assert.equal(allowed.decision,'allow');
+ assert.equal(allowed.persisted,true);
+ assert.deepEqual(JSON.parse(await fs.readFile(file)).intents[0].verificationActor,{id:'qa1',role:'tester'});
+ const preparedBytes=await fs.readFile(file);
+ const denied=await runCooperativeCommand({...args,command:'result',input:{requestId:'reply',expectedRevision:1,actor,intentId:input.requestId,result:{status:'succeeded',messageRef:'passed',data:{actor:{id:'qa1',role:'qa'},descriptor,scope:'task',taskId:'T1',changeFingerprint:hash,verdict:'proven'}}}});
+ assert.equal(denied.decision,'deny');
+ assert.equal(denied.reason,'legacy_role_qa');
+ assert.deepEqual(await fs.readFile(file),preparedBytes);
+});
 test('reviewerIsNotPerTaskGate',()=>{const f=fixture();assert.equal(gate(f).decision,'allow');f.request.operation='review';f.request.arguments.actor={id:'reviewer1',role:'reviewer'};assert.equal(gate(f).decision,'hold');});
 test('finalReviewWaitsForAcceptedTasks',()=>{const f=fixture('final','review');assert.equal(gate(f).decision,'hold');f.state.tasks[0].status='accepted';f.state.checks.push({id:'tester',scope:'task',taskId:'T1',operation:'check',status:'passed',descriptor:f.state.tasks[0].requiredChecks[0],changeFingerprint:hash,verificationActor:{id:'qa1',role:'tester'},resultRef:'tester:passed',verdict:'proven',source:'operator-attested'});assert.equal(gate(f).decision,'allow');});
+test('final scope still allows review only',()=>{
+ const f=fixture('final','review');
+ f.state.tasks[0].status='accepted';
+ const descriptor=f.state.tasks[0].requiredChecks[0];
+ f.state.checks.push({id:'legacy-check',scope:'task',taskId:'T1',operation:'check',status:'passed',descriptor,changeFingerprint:hash,verificationActor:{id:'qa1',role:'qa'},resultRef:'legacy:passed',verdict:'proven',source:'operator-attested'});
+ const check={...f.request,operation:'check',arguments:{...f.request.arguments,descriptor,actor:{id:'tester2',role:'tester'}}};
+ const d=gate({...f,request:check});
+ assert.equal(d.decision,'hold');
+ assert.deepEqual(d.ruleIds,['cooperative.verification-final']);
+ assert.equal(gate(f).decision,'allow');
+});
 test('finalReviewerFindingUsesImplementerReviewerRecheck',()=>{const f=fixture('final','review');f.state.tasks[0].status='accepted';f.state.findings.push({id:'F1',scope:'final',origin:'final-review',status:'resolved',taskId:'T1',resolutionRef:'implementer:fix',resolutionActor:{id:'implementer1',role:'implementer'},changeFingerprint:hash});f.request.arguments.findingIds=['F1'];const intent=prepared(f);const d=result(f,intent);assert.equal(d.decision,'allow');assert.equal(d.proposedTransition.findings[0].status,'closed');assert.equal(d.proposedTransition.check.verificationActor.role,'reviewer');});
 test('unresolvedFindingBlocksAffectedTransition',()=>{const f=fixture();f.state.findings.push({id:'F1',scope:'task',taskId:'T1',status:'open'});assert.equal(gate(f).decision,'hold');});
 test('noPlanAndOmissionRemainUnsupportedWithoutPolicyViolation',()=>{for(const mode of ['no-plan','small-task']){const f=fixture();f.state.mode=mode;const d=gate(f);assert.deepEqual(d.ruleIds,['cooperative.unsupported']);assert.deepEqual(d.requiredEvidence,[]);}});

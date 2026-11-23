@@ -36,6 +36,18 @@ test('Orchestrator acceptance and Git allow only exact observed registered evide
  const a=setup('orchestrator','accept');a.s.tasks[0].criteria=['criterion'];a.s.tasks[0].requiredChecks=['check'];a.s.identities.push({actorRef:'tester-agent',role:'tester',taskId:'T1',observationRef:'tester-obs'});a.s.checks=[{id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'tester-agent',resultRef:'obs'}];a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};fact(a,'acceptance',a.r.descriptor);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
  const b=setup('orchestrator','commit');b.s.acceptances=[{taskId:'T1',actorRef:'actor',fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]}];b.s.tasks[0].status='accepted';b.r.descriptor={fingerprint:'diff',parent:'head',indexTree:'tree',kind:'task',paths:['file']};fact(b,'git-index',b.r.descriptor);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'allow');b.e.facts[0].revision=9;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');
 });
+test('stored qa identity can attest a required check for acceptance',()=>{
+ const a=setup('orchestrator','accept');
+ a.s.tasks[0].criteria=['criterion'];
+ a.s.tasks[0].requiredChecks=['check'];
+ a.s.identities.push({actorRef:'qa-agent',role:'qa',taskId:'T1',observationRef:'qa-obs'});
+ a.s.checks.push({id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'qa-agent',resultRef:'obs'});
+ a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};
+ fact(a,'acceptance',a.r.descriptor);
+ const decision=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(decision.decision,'allow',decision.reason);
+ assert.equal(a.s.identities[1].role,'qa');
+});
 test('first Implementer assignment needs complete document hashes approvals and docs-only Git fact',()=>{
  const a=assign();assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
  a.e.facts[0].data.paths.push('implementation.mjs');assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');

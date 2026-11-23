@@ -5,6 +5,8 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fingerprintRequest} from './store.mjs';
 import {absolute,within,inspectPath} from './scope.mjs';
+import {legacyCooperativeRoleDenial} from './cooperative-schema.mjs';
+import {canonicalCooperativeRole} from './operations.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const text=v=>typeof v==='string'&&v.length>0;
 const hash=v=>typeof v==='string'&&/^sha256:[a-f0-9]{64}$/.test(v);
@@ -27,7 +29,8 @@ const assignedImplementer=(state,id,taskId)=>state.assignments.some(a=>a.agentId
 function independent(state,actor,taskId){
  if(!fields(actor,['id','role'])||!text(actor.id))return false;
  if(state.assignments.some(a=>a.agentId===actor.id))return false;
- return !(state.intents??[]).some(i=>i.verificationActor?.id===actor.id&&(i.verificationActor.role!==actor.role||actor.role==='tester'&&i.taskId!==taskId))&&!(state.checks??[]).some(c=>c.verificationActor?.id===actor.id&&(c.verificationActor.role!==actor.role||actor.role==='tester'&&c.taskId!==taskId));
+ const conflicts=entry=>entry.verificationActor?.id===actor.id&&(canonicalCooperativeRole(entry.verificationActor.role)!==actor.role||actor.role==='tester'&&entry.taskId!==taskId);
+ return !(state.intents??[]).some(conflicts)&&!(state.checks??[]).some(conflicts);
 }
 /** Invalidate only the affected dependency closure; preserve all historical evidence. */
 export function invalidateAffectedEvidence({state,changedVersions={},affectedTaskIds}={}){
@@ -62,6 +65,8 @@ function record({state,request,evidence}){
 }
 /** Pure cooperative gate: verifies recorded consistency, never identity or semantic sufficiency. */
 export function evaluateCooperativeVerification({state,request,evidence}={}){
+ const denial=legacyCooperativeRoleDenial(request);
+ if(denial)return {...base(state),...denial};
  if(state?.mode!=='plan')return hold(state,'unsupported','Only the complete spec and plan path is supported');
  if(!request||request.expectedRevision!==state.revision)return hold(state,'revision','Stale verification request');
  if(request.actor?.role!=='orchestrator')return hold(state,'verification-actor','Orchestrator statement required');
@@ -73,7 +78,7 @@ export function evaluateCooperativeVerification({state,request,evidence}={}){
  if(a.scope==='task'&&(!authorized(state,t)||t.status==='held'||request.operation==='review'||!t.requiredChecks.some(d=>same(d,a.descriptor))))return hold(state,'verification-task','Current task approval and exact assigned check required; Reviewer is final only');
  if(a.scope==='final'&&(request.taskId!==undefined||request.operation!=='review'||!state.tasks.length||state.tasks.some(t=>!authorized(state,t)||!['accepted','committed'].includes(t.status))))return hold(state,'verification-final','Final review follows accepted tasks and required task checks');
  const finalCorrection=a.scope==='final'&&state.findings.some(f=>f.origin==='final-review'&&f.status==='resolved'&&a.findingIds?.includes(f.id));
- if(a.scope==='final'&&!finalCorrection&&state.tasks.some(task=>task.requiredChecks.some(descriptor=>!state.checks.some(c=>c.scope==='task'&&c.taskId===task.id&&c.operation==='check'&&!c.stale&&c.status==='passed'&&c.verdict==='proven'&&text(c.resultRef)&&c.verificationActor?.role==='tester'&&same(c.descriptor,descriptor)&&(c.changeFingerprint===evidence.changes?.tasks?.[task.id]||task.status==='committed'&&state.commits?.some(commit=>commit.taskId===task.id&&commit.observationSource==='local-git'&&commit.fingerprint===c.changeFingerprint&&commit.postCommitFingerprint===evidence.changes?.tasks?.[task.id]))))))return hold(state,'verification-final-checks','Initial final review requires current task QA evidence');
+ if(a.scope==='final'&&!finalCorrection&&state.tasks.some(task=>task.requiredChecks.some(descriptor=>!state.checks.some(c=>c.scope==='task'&&c.taskId===task.id&&c.operation==='check'&&!c.stale&&c.status==='passed'&&c.verdict==='proven'&&text(c.resultRef)&&canonicalCooperativeRole(c.verificationActor?.role)==='tester'&&same(c.descriptor,descriptor)&&(c.changeFingerprint===evidence.changes?.tasks?.[task.id]||task.status==='committed'&&state.commits?.some(commit=>commit.taskId===task.id&&commit.observationSource==='local-git'&&commit.fingerprint===c.changeFingerprint&&commit.postCommitFingerprint===evidence.changes?.tasks?.[task.id]))))))return hold(state,'verification-final-checks','Initial final review requires current task QA evidence');
  if(a.actor?.role!==(request.operation==='review'?'reviewer':'tester')||a.actor.id===request.actor.id||!independent(state,a.actor,request.taskId))return hold(state,'verification-independence','Independent actor statement and fresh task QA required');
  const findings=state.findings.filter(f=>f.status!=='closed'&&(a.scope==='final'||f.scope==='task'&&f.taskId===request.taskId));
  if(a.findingIds!==undefined&&(!list(a.findingIds)||a.findingIds.some(id=>!findings.some(f=>f.id===id))))return hold(state,'finding-recheck','Unknown finding recheck');
@@ -85,10 +90,13 @@ export function evaluateCooperativeVerification({state,request,evidence}={}){
 function outcome({state,request,evidence}){
  const intent=state.intents.find(i=>i.requestId===request.intentId),r=request.result,d=r?.data;
  if(!intent||!['check','review'].includes(intent.operation)||!['prepared','unknown','mismatch'].includes(intent.status))return hold(state,'verification-intent','Matching unresolved verification intent required');
- const valid=r&&['succeeded','failed','unknown','mismatch'].includes(r.status)&&text(r.messageRef)&&fields(d,['actor','descriptor','scope','taskId','changeFingerprint','verdict'])&&['proven','unmet','unverified'].includes(d.verdict)&&same(d.actor,intent.verificationActor)&&same(d.descriptor,intent.descriptor)&&d.scope===intent.scope&&d.taskId===intent.taskId&&d.changeFingerprint===intent.changeFingerprint;
- const fresh=!intent.stale&&intent.changeFingerprint===current(state,intent.scope,intent.taskId,evidence?.changes)&&(intent.scope==='task'||intent.scopeVersion===state.scopeVersion)&&intent.targetVersion===state.targetVersion&&same(intent.target,state.target)&&same(intent.versions,state.versions)&&independent(state,intent.verificationActor,intent.taskId)&&same(intent.approval,approval(state,intent.taskId))&&intent.taskFingerprint===fingerprintRequest(intent.scope==='final'?state.tasks:state.tasks.find(t=>t.id===intent.taskId));
+ const storedActor=intent.verificationActor;
+ const role=canonicalCooperativeRole(storedActor?.role);
+ const verificationActor=role===storedActor?.role?storedActor:{...storedActor,role};
+ const valid=r&&['succeeded','failed','unknown','mismatch'].includes(r.status)&&text(r.messageRef)&&fields(d,['actor','descriptor','scope','taskId','changeFingerprint','verdict'])&&['proven','unmet','unverified'].includes(d.verdict)&&same(d.actor,verificationActor)&&same(d.descriptor,intent.descriptor)&&d.scope===intent.scope&&d.taskId===intent.taskId&&d.changeFingerprint===intent.changeFingerprint;
+ const fresh=!intent.stale&&intent.changeFingerprint===current(state,intent.scope,intent.taskId,evidence?.changes)&&(intent.scope==='task'||intent.scopeVersion===state.scopeVersion)&&intent.targetVersion===state.targetVersion&&same(intent.target,state.target)&&same(intent.versions,state.versions)&&independent(state,verificationActor,intent.taskId)&&same(intent.approval,approval(state,intent.taskId))&&intent.taskFingerprint===fingerprintRequest(intent.scope==='final'?state.tasks:state.tasks.find(t=>t.id===intent.taskId));
  const status=!valid?'mismatch':r.status;
- const check={id:intent.requestId,operation:intent.operation,scope:intent.scope,taskId:intent.taskId,descriptor:structuredClone(intent.descriptor),verificationActor:structuredClone(intent.verificationActor),changeFingerprint:intent.changeFingerprint,resultRef:r?.messageRef,verdict:valid?d.verdict:'unverified',status:fresh&&status==='succeeded'&&d.verdict==='proven'?'passed':status==='failed'||d?.verdict==='unmet'?'failed':'unverified',stale:!fresh,source:'operator-attested'};
+ const check={id:intent.requestId,operation:intent.operation,scope:intent.scope,taskId:intent.taskId,descriptor:structuredClone(intent.descriptor),verificationActor:structuredClone(verificationActor),changeFingerprint:intent.changeFingerprint,resultRef:r?.messageRef,verdict:valid?d.verdict:'unverified',status:fresh&&status==='succeeded'&&d.verdict==='proven'?'passed':status==='failed'||d?.verdict==='unmet'?'failed':'unverified',stale:!fresh,source:'operator-attested'};
  const findings=[];
  if(check.status==='failed')findings.push({id:intent.requestId+':failure',checkId:check.id,scope:intent.scope,taskId:intent.taskId,origin:intent.operation==='review'?'final-review':'check',status:'open',source:'operator-attested',messageRef:r.messageRef});
  if(check.status==='passed')for(const id of intent.findingIds){const f=state.findings.find(f=>f.id===id);if(!f||f.status!=='resolved'||f.changeFingerprint!==intent.changeFingerprint)return hold(state,'finding-recheck','Finding changed after prepare');findings.push({...f,status:'closed',recheckRef:r.messageRef,recheckActor:structuredClone(d.actor)});}

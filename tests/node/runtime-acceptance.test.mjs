@@ -20,6 +20,19 @@ test('acceptRequiresExactCriteriaChecksAndFindings',()=>{
  const f=fixture();assert.equal(accept(f).decision,'allow');assert.equal(f.state.tasks[0].status,'pending');
  for(const mutate of [f=>f.request.arguments.criteria=[],f=>f.request.arguments.checkIds=[],f=>f.state.checks[0].changeFingerprint=hash('d'),f=>f.state.checks[0].verificationActor.id='implementer',f=>f.state.findings.push({id:'F',scope:'task',taskId:'T1',status:'open'}),f=>f.state.records[0].messageRef='changed',f=>f.request.actor.role='implementer']){const f=fixture();mutate(f);assert.equal(accept(f).decision,'hold');}
 });
+test('legacy qa check satisfies acceptance',()=>{
+ const f=fixture();
+ f.state.checks[0].verificationActor.role='qa';
+ assert.equal(accept(f).decision,'allow');
+ assert.equal(f.state.checks[0].verificationActor.role,'qa');
+});
+test('legacy qa finding recheck satisfies acceptance',()=>{
+ const f=fixture();
+ f.request.arguments.findingIds=['F1'];
+ f.state.findings.push({id:'F1',scope:'task',taskId:'T1',status:'closed',resolutionRef:'fix',resolutionActor:{id:'implementer',role:'implementer'},recheckRef:'recheck',recheckActor:{id:'qa1',role:'qa'},changeFingerprint:hash('a')});
+ assert.equal(accept(f).decision,'allow');
+ assert.equal(f.state.findings[0].recheckActor.role,'qa');
+});
 test('acceptedFingerprintCannotCommitDifferentIndex',()=>{for(const mutate of [f=>f.gitEvidence.indexTree=oid('d'),f=>f.gitEvidence.stagedFingerprint=hash('d'),f=>f.evidence.changes.tasks.T1=hash('d'),f=>f.state.tasks[0].criteria=['changed']]){const f=accepted();mutate(f);assert.equal(prepare(f).decision,'hold');}});
 test('unrelatedStagedPathsHold',()=>{const f=fixture();f.gitEvidence.stagedPaths.push('other.mjs');assert.equal(accept(f).decision,'hold');const g=fixture();g.state.tasks.push({...g.state.tasks[0],id:'T2'});assert.equal(accept(g).decision,'hold','overlapping another task must hold');});
 test('unstagedScopedChangesHold',()=>{for(const key of ['workingPaths','untrackedPaths']){const f=fixture();f.gitEvidence[key]=['code.mjs'];assert.equal(accept(f).decision,'hold');}});

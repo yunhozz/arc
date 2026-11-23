@@ -4,7 +4,13 @@ export const GIT_OPERATIONS = Object.freeze(['stage','commit','push','merge','re
 export const EXTERNAL_OPERATIONS = Object.freeze(['push','merge','deploy','publish','external-message']);
 export const OPERATIONS = Object.freeze(['read','draft','write','check','test','review','temporary-write','operational-query','install','prepare-target','request-approval','assign-agent','accept','transition','scope-expansion','indirect-bypass',...new Set([...GIT_OPERATIONS,...EXTERNAL_OPERATIONS])]);
 export const LEGACY_OPERATIONS = Object.freeze({qa: 'test'});
+export const LEGACY_COOPERATIVE_ROLES = Object.freeze({qa: 'tester'});
 export const ROLE_OPERATIONS = Object.freeze({orchestrator:['read','write','check','prepare-target','request-approval','assign-agent','accept','transition','install',...GIT_OPERATIONS,...EXTERNAL_OPERATIONS],scouter:['read'],planner:['read','draft'],implementer:['read','write','check'],tester:['read','check','temporary-write'],reviewer:['read','review']});
+
+/** Compare a stored role without rewriting historical evidence. */
+export function canonicalCooperativeRole(role) {
+ return typeof role === 'string' && Object.hasOwn(LEGACY_COOPERATIVE_ROLES, role) ? LEGACY_COOPERATIVE_ROLES[role] : role;
+}
 
 export const isLegacyOperation = operation => typeof operation === 'string' && Object.hasOwn(LEGACY_OPERATIONS, operation);
 const currentOperation = operation => isLegacyOperation(operation) ? LEGACY_OPERATIONS[operation] : operation;
