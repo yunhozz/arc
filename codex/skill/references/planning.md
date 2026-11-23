@@ -70,6 +70,8 @@ Apply Planner rules: ID/title, goal/scope/files, predecessors/dependencies, crit
 
 Substeps/checkboxes/RED-GREEN/commands are not commits. One top-level task becomes one focused commit after acceptance; [commit](commit.md) governs no-change/hold/resume. Reviewer is never a per-task check. Final whole verification has separate scope/timing; significant work lists one Reviewer after all task acceptances/risk checks. Task boundaries alone add no Tester. Apply only to required plans; omission paths gain no plan obligation. Plans list per-task related tests with reasons and a final verification section per [verification](verification.md#test-scope-and-result-comparison).
 
+Include the provisional trigger judgment with the substitute-check list and reasons in the plan's final verification section.
+
 <a id="dependency-and-readiness-record"></a>
 ## Dependency and readiness record
 

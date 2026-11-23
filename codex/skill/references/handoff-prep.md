@@ -92,7 +92,7 @@ After initial document batching, follow [planning](planning.md#plan-updates-duri
 <a id="verification-brief-inputs"></a>
 ### Verification brief inputs
 
-Implementer and Tester briefs that assign checks MUST include the approved base revision, the base worktree path and its prerequisite state when one already exists (prepared, or not prepared with the needed commands), the related-test list with reasons and the intermittent-failure isolated rerun limit under [verification](verification.md#test-scope-and-result-comparison). Final verification Tester briefs also include the re-changed-file list and the provisional full-regression trigger judgment with reasons, including integration history.
+Tester briefs MUST include the required field `mode: task | final`. One assignment performs one mode; the only exception is the approved full regression follow-up in final mode. Implementer and Tester briefs that assign checks MUST include the approved base revision, the base worktree path and its prerequisite state when one already exists (prepared, or not prepared with the needed commands), the related-test list with reasons and the intermittent-failure isolated rerun limit under [verification](verification.md#test-scope-and-result-comparison). A `mode: task` brief cites those inputs for uncommitted task work. A `mode: final` brief also cites the provisional trigger judgment with reasons, integration history, reused evidence with its commit or tree hash, the full regression approval record when present, and the re-changed-file list.
 
 <a id="recovery-prerequisite"></a>
 ### Recovery prerequisite

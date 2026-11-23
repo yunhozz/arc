@@ -843,65 +843,6 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 - legacy fixture
 - `test-scope-contract`의 retired phrase 목록
 
-## 요구 ID 추적표
-
-| ID | task | 입증 |
-|---|---|---|
-| MODE-1 | T6 | `mode field and single-mode assignment` + profile-render |
-| MODE-2 | T6 | `task mode forbids full regression and reverse dependency search` |
-| MODE-3 | T6 (명칭 T5) | `final mode lists four categories and affected tool conditions` |
-| MODE-4 | T6 | agent-fragments + retired phrase |
-| SUB-0 | T6 (명칭 T5) | 동일성 + retired `runs it once without further authorization` |
-| SUB-1~4 | T6 | `trigger substitute checks table` |
-| SUB-5 | T6 (명칭 T5) | needle |
-| IMP-1 | T6 | `impact procedure order` |
-| UND-1 | T6 | `undeterminable report and disposition` |
-| UND-2 | T6 | 같음 |
-| FR-1 | T6(문안), T1(timeout) | `approved full regression follow-up`, `resume segment uses arc_tester 60 minute timeout` |
-| FR-2 | T6 | needle |
-| CI-1 | T6 | `ci substitution conditions` |
-| BRF-1 | T6 | `planner and brief inputs` + planner rule + 이 plan 최종 검증 절 |
-| BRF-2 | T6 | 같음 |
-| REN-1 | T1, T5, 최종 검증 | 검색 + 부록 A |
-| REN-2 | T5 Step 5, 최종 검증 | `git diff --diff-filter=MDR` 결과 없음 |
-| REN-3 | 매 task 절차 G | check 4개 |
-| MIG-1 | T1 | Node·Python 새 테스트 + installer-parity |
-| MIG-2 | T1 | role-routing-config 새 테스트 3개 |
-| MIG-3 | T2 | 새 테스트 3개(4개 플랫폼) |
-| MIG-4 | T4 | legacy-profile-cleanup(4개 플랫폼 × 3동작) |
-| MIG-5 | T3 | 새 테스트 6개 |
-| MOD-1 | T1 | model-catalog·preset·tui-setup |
-| MOD-2 | T1 | role-dispatch-policy + coordination·limits |
-| MOD-3 | T1 | 기존 권한·gate 테스트 |
-| COOP-1 | T3 | runtime-verification·acceptance legacy 사례 |
-| COOP-2 | T3, T6 | `final scope still allows review only`, `final-mode results are not cooperative checks` |
-| PLT-1 | T2·T4·T5·T6, 최종 Reviewer | 계약 테스트 + 검토 |
-| SELF-1 | 최종 검증 | 보고 요건 4항목 |
-| HND-1 | T7 | runtime-handoff-record |
-| HND-2 | T7 | instruction-layout |
-
-## 진행 기록
-
-| task | 상태 | commit | 비고 |
-|---|---|---|---|
-| T1 | 수용(2026-11-23) | (이 commit) | Implementer 3272105d(fresh, plan v2), QA 8d138f20. C1~C9 proven. 새 실패 18건 수정 후 resolved. Python 159개는 base와 실패 signature 일치(baseline). runtime-cli 3개는 bridge sandbox EPERM으로 차단됐으나 Orchestrator host 실행에서 12/12 통과. bridge 간헐 후보 1건은 단독 실행 통과(disposition: 이번 변경과 무관한 간헐). 환경 준비: build/native 복사(native 입력 base와 동일), base worktree `.git/arc/base/qa-mode-verification` |
-| T2 | 수용(2026-11-23) | (이 commit) | Implementer 3c40cb55, QA bb2dfa67. C1~C3 proven, 관련 테스트 672 통과·0 실패. sandbox에서 건너뛴 `processStartTime uses real ps lstart`는 Orchestrator host 실행에서 통과해 C4 proven |
-| T3 | 수용(2026-11-23) | (이 commit) | Implementer 15e2f1fb, QA 937587d7. C1~C8 proven, 관련 테스트 266 통과·0 실패, check 4개 통과, schemaVersion 1 유지. sandbox EPERM으로 막힌 runtime-cli는 Orchestrator host 실행에서 12/12 통과. 실 Git 통합(`ARC_RUN_GIT_INTEGRATION=1`)은 32개 중 31 통과, 실패 1건 `cooperative CLI verifies exact approved document commit before durable assignment intent`는 base 코드에서도 같은 `cooperative.assignment-scope` hold로 실패(baseline) |
-| T4 | 수용(2026-11-24) | (이 commit) | plan v3(사용자 결정 "alias 판정+진행"). Implementer b2b9adba hold 종료(변경 없음, 활성 legacy composite 판정 불가 재현) → plan 개정으로 fresh Implementer 82441e7c, QA fa347e0f. C1~C5·C4a·C4b proven(4개 플랫폼 × 3동작). 구현 중 자체 해결: 최초 설치 rollback 빈 디렉터리 잔존(transaction 생성 디렉터리 정리), 공개 plan hash 8건 회귀(부재 legacy 후보 snapshot 제외). C6: check 4개 통과, 관련 테스트 527개 중 실패 1·skip 1 — `transaction.test.mjs` `Claude allowed external skill link…`는 Orchestrator host에서 base 코드도 동일 실패(baseline), `upgrade-harness` `source auto upgrade excludes the current worktree local wrapper`는 로컬 wrapper 부재로 skip(환경, base도 동일 조건, T4 동작과 무관; unverified 유지) |
-| T5 | 수용(2026-11-24) | (이 commit) | Implementer df4a5e2b(segment 1은 Codex usage limit로 실패·변경 없음, 사용자 "재개" 후 이어감), QA 7dc0504c. C1~C4·C6 proven. Orchestrator 범위 결정: REN-1이 요구하는 allowedPaths 내 원천 4개(`lib/installer/language.mjs`, `lib/runtime/{acceptance,verification,role-observe}.mjs`) 포함. 문장 결정: `independently QA/review your own work` → `perform Tester or Reviewer verification of your own work`(기존 `independently verify` 금지 계약과 충돌 회피, 의미 보존 — 최종 Reviewer 확인 대상). C5: QA 스크립트 오류로 미완료된 해시 대조를 Orchestrator가 결정론적 스크립트로 수행 — installed-layout-golden 75개 경로 양방향 불일치 0, instruction-contracts 직접 해시 일치·변경 원천 1:1, `agentProfileBaseline` 20개는 fragment 확장 해시로 `agent-fragments` 등 39/39 통과. Node 379/380(baseline `Codex existing root field edits…`), Python 375건 base signature 일치·HEAD 전용 0. REN-2 비어 있음 |
-| T6 | 대기 | | |
-| T7 | 대기 | | |
-| 최종 검증 | 대기 | | |
-| 최종 Reviewer | 대기 | | |
-
-## 개정 이력
-
-| 버전 | 날짜 | 내용 |
-|---|---|---|
-| v1 | 2026-11-23 | Planner 첫 초안을 Orchestrator가 검토하고 결정(Q1~Q5)을 반영해 저장 |
-| v2 | 2026-11-23 | T1 hold 해소(사용자 결정): 연산 `qa` legacy alias를 T1에 추가하고 hold 조건에서 제외, 수용 기준 테스트 수 정정(Node 7 + 연산 alias 2 + Python 2). 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-23 |
-| v3 | 2026-11-24 | T4 hold 해소(사용자 결정 "alias 판정+진행"): 활성 legacy composite 판정 전용 alias, hash 일치 시 이전·불일치 시 보존+residual 후 진행, allowedPaths에 `lib/management/` 추가, 테스트 2개·수용 기준 1개 추가. 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-24 |
-
 **T5 기준(2026-11-24, QA 7dc0504c 전수 대조 proven):** 주 검색 163줄, 보조 검색 89줄, 파일·줄 기준 합집합 167줄. legacy 읽기·거부 코드 42줄, 그 테스트 98줄, legacy fixture 27줄, 3분류 밖 0줄. 이 표가 T1 표를 대체한다(줄 번호는 T5 시점).
 
 | 파일:줄 | 문자열 | 분류 | 사유 |
@@ -1073,3 +1014,62 @@ Orchestrator가 T1, T5, 최종 검증의 검색 결과로 채운다. 형식: `�
 | `tests/test_codex_models.py:80` | `arc_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
 | `tests/test_codex_models.py:83` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
 | `tests/test_codex_models.py:90` | `arc_qa`, `_qa` | 그 테스트 | 구 모델 입력의 값 보존·스키마 거부 검증 |
+
+## 요구 ID 추적표
+
+| ID | task | 입증 |
+|---|---|---|
+| MODE-1 | T6 | `mode field and single-mode assignment` + profile-render |
+| MODE-2 | T6 | `task mode forbids full regression and reverse dependency search` |
+| MODE-3 | T6 (명칭 T5) | `final mode lists four categories and affected tool conditions` |
+| MODE-4 | T6 | agent-fragments + retired phrase |
+| SUB-0 | T6 (명칭 T5) | 동일성 + retired `runs it once without further authorization` |
+| SUB-1~4 | T6 | `trigger substitute checks table` |
+| SUB-5 | T6 (명칭 T5) | needle |
+| IMP-1 | T6 | `impact procedure order` |
+| UND-1 | T6 | `undeterminable report and disposition` |
+| UND-2 | T6 | 같음 |
+| FR-1 | T6(문안), T1(timeout) | `approved full regression follow-up`, `resume segment uses arc_tester 60 minute timeout` |
+| FR-2 | T6 | needle |
+| CI-1 | T6 | `ci substitution conditions` |
+| BRF-1 | T6 | `planner and brief inputs` + planner rule + 이 plan 최종 검증 절 |
+| BRF-2 | T6 | 같음 |
+| REN-1 | T1, T5, 최종 검증 | 검색 + 부록 A |
+| REN-2 | T5 Step 5, 최종 검증 | `git diff --diff-filter=MDR` 결과 없음 |
+| REN-3 | 매 task 절차 G | check 4개 |
+| MIG-1 | T1 | Node·Python 새 테스트 + installer-parity |
+| MIG-2 | T1 | role-routing-config 새 테스트 3개 |
+| MIG-3 | T2 | 새 테스트 3개(4개 플랫폼) |
+| MIG-4 | T4 | legacy-profile-cleanup(4개 플랫폼 × 3동작) |
+| MIG-5 | T3 | 새 테스트 6개 |
+| MOD-1 | T1 | model-catalog·preset·tui-setup |
+| MOD-2 | T1 | role-dispatch-policy + coordination·limits |
+| MOD-3 | T1 | 기존 권한·gate 테스트 |
+| COOP-1 | T3 | runtime-verification·acceptance legacy 사례 |
+| COOP-2 | T3, T6 | `final scope still allows review only`, `final-mode results are not cooperative checks` |
+| PLT-1 | T2·T4·T5·T6, 최종 Reviewer | 계약 테스트 + 검토 |
+| SELF-1 | 최종 검증 | 보고 요건 4항목 |
+| HND-1 | T7 | runtime-handoff-record |
+| HND-2 | T7 | instruction-layout |
+
+## 진행 기록
+
+| task | 상태 | commit | 비고 |
+|---|---|---|---|
+| T1 | 수용(2026-11-23) | (이 commit) | Implementer 3272105d(fresh, plan v2), QA 8d138f20. C1~C9 proven. 새 실패 18건 수정 후 resolved. Python 159개는 base와 실패 signature 일치(baseline). runtime-cli 3개는 bridge sandbox EPERM으로 차단됐으나 Orchestrator host 실행에서 12/12 통과. bridge 간헐 후보 1건은 단독 실행 통과(disposition: 이번 변경과 무관한 간헐). 환경 준비: build/native 복사(native 입력 base와 동일), base worktree `.git/arc/base/qa-mode-verification` |
+| T2 | 수용(2026-11-23) | (이 commit) | Implementer 3c40cb55, QA bb2dfa67. C1~C3 proven, 관련 테스트 672 통과·0 실패. sandbox에서 건너뛴 `processStartTime uses real ps lstart`는 Orchestrator host 실행에서 통과해 C4 proven |
+| T3 | 수용(2026-11-23) | (이 commit) | Implementer 15e2f1fb, QA 937587d7. C1~C8 proven, 관련 테스트 266 통과·0 실패, check 4개 통과, schemaVersion 1 유지. sandbox EPERM으로 막힌 runtime-cli는 Orchestrator host 실행에서 12/12 통과. 실 Git 통합(`ARC_RUN_GIT_INTEGRATION=1`)은 32개 중 31 통과, 실패 1건 `cooperative CLI verifies exact approved document commit before durable assignment intent`는 base 코드에서도 같은 `cooperative.assignment-scope` hold로 실패(baseline) |
+| T4 | 수용(2026-11-24) | (이 commit) | plan v3(사용자 결정 "alias 판정+진행"). Implementer b2b9adba hold 종료(변경 없음, 활성 legacy composite 판정 불가 재현) → plan 개정으로 fresh Implementer 82441e7c, QA fa347e0f. C1~C5·C4a·C4b proven(4개 플랫폼 × 3동작). 구현 중 자체 해결: 최초 설치 rollback 빈 디렉터리 잔존(transaction 생성 디렉터리 정리), 공개 plan hash 8건 회귀(부재 legacy 후보 snapshot 제외). C6: check 4개 통과, 관련 테스트 527개 중 실패 1·skip 1 — `transaction.test.mjs` `Claude allowed external skill link…`는 Orchestrator host에서 base 코드도 동일 실패(baseline), `upgrade-harness` `source auto upgrade excludes the current worktree local wrapper`는 로컬 wrapper 부재로 skip(환경, base도 동일 조건, T4 동작과 무관; unverified 유지) |
+| T5 | 수용(2026-11-24) | (이 commit) | Implementer df4a5e2b(segment 1은 Codex usage limit로 실패·변경 없음, 사용자 "재개" 후 이어감), QA 7dc0504c. C1~C4·C6 proven. Orchestrator 범위 결정: REN-1이 요구하는 allowedPaths 내 원천 4개(`lib/installer/language.mjs`, `lib/runtime/{acceptance,verification,role-observe}.mjs`) 포함. 문장 결정: `independently QA/review your own work` → `perform Tester or Reviewer verification of your own work`(기존 `independently verify` 금지 계약과 충돌 회피, 의미 보존 — 최종 Reviewer 확인 대상). C5: QA 스크립트 오류로 미완료된 해시 대조를 Orchestrator가 결정론적 스크립트로 수행 — installed-layout-golden 75개 경로 양방향 불일치 0, instruction-contracts 직접 해시 일치·변경 원천 1:1, `agentProfileBaseline` 20개는 fragment 확장 해시로 `agent-fragments` 등 39/39 통과. Node 379/380(baseline `Codex existing root field edits…`), Python 375건 base signature 일치·HEAD 전용 0. REN-2 비어 있음 |
+| T6 | 수용(2026-11-24) | (이 commit) | Implementer 3abbbe36(segment 0은 편집 스크립트 구문 오류로 쓰기 전 종료), QA 088ca144. C1·C3·C5 proven(QA). CI-1 tree hash 표현은 spec 본문의 "근거 있는 일치" 허용 범위(조건 완화 아님). QA가 전수 대조를 끝내지 못한 C2·C4·C6은 Orchestrator 결정론적 검사로 proven: 폐기 문구 7개 원천 전체 0건, fragment needle 존재, 3개 문서 변경 줄 4개 플랫폼 바이트 동일·host 전용 도구명 0건, 변경 fragment 3개(implementer·planner·tester) ↔ golden 렌더 profile 변경 12개 1:1(Reviewer·Scouter 무변경). Node 374/375(baseline `Codex existing root field edits…`), Python 375건 base signature 일치. 부록 A T5 절 위치 정리(T5 commit에서 개정 이력 뒤에 붙은 것을 부록 A로 이동)를 이 commit에 포함 |
+| T7 | 대기 | | |
+| 최종 검증 | 대기 | | |
+| 최종 Reviewer | 대기 | | |
+
+## 개정 이력
+
+| 버전 | 날짜 | 내용 |
+|---|---|---|
+| v1 | 2026-11-23 | Planner 첫 초안을 Orchestrator가 검토하고 결정(Q1~Q5)을 반영해 저장 |
+| v2 | 2026-11-23 | T1 hold 해소(사용자 결정): 연산 `qa` legacy alias를 T1에 추가하고 hold 조건에서 제외, 수용 기준 테스트 수 정정(Node 7 + 연산 alias 2 + Python 2). 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-23 |
+| v3 | 2026-11-24 | T4 hold 해소(사용자 결정 "alias 판정+진행"): 활성 legacy composite 판정 전용 alias, hash 일치 시 이전·불일치 시 보존+residual 후 진행, allowedPaths에 `lib/management/` 추가, 테스트 2개·수용 기준 1개 추가. 분류: 계약 변경(수용 기준·범위), 승인: 사용자 2026-11-24 |
