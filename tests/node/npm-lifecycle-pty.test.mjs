@@ -7,5 +7,7 @@ test('global npm lifecycle on a real PTY installs only CLI and restores terminal
  for(const extraEnv of [{},{CI:'true'},{npm_config_ignore_scripts:'true'}]){
  const r=await box.runPty(['i','-g','@yunhozz/arc'],[],{extraEnv});assert.equal(r.code,0,r.text);assert.match(r.text,/ARC_TERMINAL_RESTORED/);assert.doesNotMatch(r.text,/ARC Management|Select an installation|ARC version .* installed!/);assert.equal(fs.existsSync(box.prefix+'/bin/arc'),true);
  }
- assert.equal(fs.existsSync(box.home+'/.codex'),false);assert.equal(fs.existsSync(box.home+'/.claude'),false);assert.equal(fs.existsSync(box.home+'/.zshrc'),false);
+ assert.equal(fs.existsSync(box.home+'/.codex'),false);assert.equal(fs.existsSync(box.home+'/.claude'),false);
+ for(const platform of ['gemini','grok'])assert.equal(fs.existsSync(box.home+'/.'+platform),false);
+ assert.equal(fs.existsSync(box.home+'/.zshrc'),false);
 });

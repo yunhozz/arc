@@ -23,7 +23,7 @@ test('live sources, runtime copies, node tests do not contain the misspelled lab
       else if (entry.isFile()) files.push(file);
     }
   }
-  for (const directory of ['lib', 'claude/skill', 'codex/skill', 'tests/node']) await collect(directory);
+  for (const directory of ['lib', 'claude/skill', 'codex/skill', 'tests/node', 'gemini/skill', 'grok/skill']) await collect(directory);
   const misspelled = [];
   for (const file of files) {
     if ((await fs.readFile(path.join(root, file), 'utf8')).includes('Ava'+'liable')) misspelled.push(file);

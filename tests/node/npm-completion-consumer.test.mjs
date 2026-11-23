@@ -27,6 +27,7 @@ test('Git global install and reinstall preserve an executable CLI with inherited
   assert.equal(fs.existsSync(home+'/.zshrc'),false);
  }
  assert.equal(fs.existsSync(home+'/.codex'),false);assert.equal(fs.existsSync(home+'/.claude'),false);
+ for(const platform of ['gemini','grok'])assert.equal(fs.existsSync(home+'/.'+platform),false);
 });
 
 test('removed install arguments fail without creating harness or shell files',t=>{

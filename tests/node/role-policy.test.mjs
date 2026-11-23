@@ -62,7 +62,7 @@ test('orchestrator projections preserve canonical text and order', () => {
     commit: ['scope.non-escalation', 'git.orchestrator-accept-commit', 'external.explicit-user-authority', 'planning.plan-revision'],
   };
   const p = policy();
-  for (const platform of ['codex', 'claude']) for (const [projection, ids] of Object.entries(expected)) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) for (const [projection, ids] of Object.entries(expected)) {
     const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection, skillPath:'/tmp/café folder/SKILL.md'});
     const lines = output.split('\n');
     assert.deepEqual(lines.slice(1, -2), ids.map(id => `- [${id}] ${p.rules.find(rule => rule.id === id).text}`));
@@ -137,7 +137,7 @@ test('plan-level progress records extend accept-commit and plan-revision text on
 // Adding projections must not change existing installed contracts or global-section filtering.
 test('default policy rendering preserves complete existing contracts', () => {
   const p = policy();
-  for (const platform of ['codex', 'claude']) for (const {id:audience} of p.roles) for (const section of ['contract', 'global']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) for (const {id:audience} of p.roles) for (const section of ['contract', 'global']) {
     const options = {platform, audience, section, skillPath:'~/.arc/SKILL.md'};
     const expectedRules = p.rules.filter(rule => section === 'global' || audience === 'orchestrator' || rule.roles.includes(audience));
     const expected = ['Generated from lib/policy/role-policy.json; do not edit this managed section manually.',
@@ -152,7 +152,7 @@ test('default policy rendering preserves complete existing contracts', () => {
 });
 // A caller must not accidentally replace a specialist's complete role contract with a subset.
 test('specialist rendering rejects partial projections', () => {
-  for (const platform of ['codex', 'claude']) for (const audience of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) for (const section of ['contract', 'global']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) for (const audience of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) for (const section of ['contract', 'global']) {
     assert.throws(() => api.renderPolicySection(policy(), {platform, audience, section, projection:'core'}), /specialist.*projection/i);
   }
 });
@@ -223,7 +223,7 @@ test('runtime evidence policy rejects missing roles rules and evidence requireme
 
 test('instruction policy targets use the approved action projections',()=>{
  const placements={'SKILL':'core',coordination:'assignment',planning:'planning',handoff:'handoff','handoff-prep':'preparation',verification:'verification',commit:'commit'};
- for(const platform of ['codex','claude'])for(const[name,projection]of Object.entries(placements)){
+ for(const platform of ['codex','claude','gemini','grok'])for(const[name,projection]of Object.entries(placements)){
   const target=api.POLICY_TARGETS.find(t=>t.path===`${platform}/skill/${name==='SKILL'?'SKILL.md':`references/${name}.md`}`);
   assert.ok(target,`${platform}/${name}`);assert.equal(target.projection,projection);
  }
@@ -232,7 +232,7 @@ test('instruction policy targets use the approved action projections',()=>{
 // An omitted projection would hide the new plan update gate from its owner surface.
 test('plan update and Planner brief rules reach their owning contracts', () => {
   const p = policy();
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     for (const projection of ['planning', 'preparation', 'verification', 'commit']) {
       const output = api.renderPolicySection(p, {platform, audience:'orchestrator', projection});
       assert.match(output, /\[planning\.plan-revision\]/);
@@ -244,7 +244,7 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
 
 // Losing the reuse conditions would either repeat valid work or reuse stale inputs.
 test('planner brief projection preserves scoped context and evidence reuse', () => {
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
     assert.match(output, /reuse.*Planner.*context.*valid/i, platform);
     assert.match(output, /follow-up.*changed fields.*accessible.*prior brief/i, platform);
@@ -255,7 +255,7 @@ test('planner brief projection preserves scoped context and evidence reuse', () 
 
 // Dispatch must not bypass either existing decision when a condition is unverified.
 test('planner policy allows the first source draft before target preparation', () => {
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const output=api.renderPolicySection(policy(), {platform, audience:'planner', projection:'full'});
     assert.match(output,/first required.*draft.*source.*before.*target preparation/i,platform);
     assert.match(output,/prepared target.*before.*saving/i,platform);
@@ -263,7 +263,7 @@ test('planner policy allows the first source draft before target preparation', (
 });
 
 test('planner brief projection preserves the existing dispatch gates', () => {
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
     assert.match(output, /F1–F8 direct-path eligibility.*Bounded plan-omission eligibility independently/i, platform);
     assert.match(output, /each path.*all.*existing conditions.*proven/i, platform);
@@ -271,8 +271,8 @@ test('planner brief projection preserves the existing dispatch gates', () => {
   }
 });
 
-test('spec and plan revision ownership reaches both platform contracts', () => {
-  for (const platform of ['codex', 'claude']) {
+test('spec and plan revision ownership reaches all four platform contracts', () => {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
     assert.match(output, /Planner returns a complete.*first draft and self-review/i);
     assert.match(output, /Orchestrator reviews and directly revises the same spec or plan/i);
@@ -289,7 +289,7 @@ test('spec and plan revision ownership reaches both platform contracts', () => {
 });
 
 test('platform role gates preserve Planner first drafts and Orchestrator spec/plan revisions', () => {
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const skill = fs.readFileSync(new URL(`${platform}/skill/SKILL.md`, root), 'utf8');
     const gate = skill.match(/^\*\*Role gate:\*\*.*$/m)?.[0];
     assert.ok(gate, `${platform}: role gate`);
@@ -300,7 +300,7 @@ test('platform role gates preserve Planner first drafts and Orchestrator spec/pl
 });
 
 test('design and brainstorming retain consolidated Planner correction', () => {
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
     assert.match(output, /design and brainstorming.*one consolidated correction/i, platform);
     assert.match(output, /further calls.*(?:scope|evidence).*unmet checklist items.*new input.*criterion.*progress/i, platform);
@@ -308,7 +308,7 @@ test('design and brainstorming retain consolidated Planner correction', () => {
 });
 
 test('design and brainstorming hold repeated unmet criteria without progress', () => {
-  for (const platform of ['codex', 'claude']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
     assert.match(output, /repeated unmet criteria without new input, evidence or progress.*hold/i, platform);
     assert.match(output, /do not.*count rewording.*agent replacement as progress/i, platform);
@@ -317,8 +317,8 @@ test('design and brainstorming hold repeated unmet criteria without progress', (
 
 // H1/H2/H4: emitted role contracts must not lose bounded recovery or provenance.
 // Approved structural checks; consuming-agent behavior is verified separately by fresh QA.
-test('bounded read recovery and provenance reach every role on both platforms', () => {
-  for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
+test('bounded read recovery and provenance reach every role on all four platforms', () => {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) for (const {id: audience} of policy().roles) {
     const output = api.renderPolicySection(policy(), {platform, audience});
     for (const required of [
       /optional read method/i, /pre-authorized.*side-effect-free/i,
@@ -336,7 +336,7 @@ test('bounded read recovery and provenance reach every role on both platforms', 
 });
 // H3: losing source/output identity must fail before a visual claim is accepted.
 test('visual evidence is carried from implementation to fresh QA', () => {
-  for (const platform of ['codex', 'claude']) for (const audience of ['implementer', 'qa']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) for (const audience of ['implementer', 'qa']) {
     const output = api.renderPolicySection(policy(), {platform, audience});
     for (const required of [/approved visual source.*version.*approval.*access/i,
       /criterion IDs.*properties.*comparison method/i, /actual.output identity.*revision.*basis/i,
@@ -355,7 +355,7 @@ test('failure disposition orders baseline evidence classification scoped holds a
     /Fourth, Orchestrator must release already-approved independent work without waiting for unrelated failures/i,
     /Finally, keep acceptance held while any required check remains unresolved/i,
   ];
-  for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) for (const {id: audience} of policy().roles) {
     const output = api.renderPolicySection(policy(), {platform, audience});
     let offset = 0;
     for (const step of sequence) {

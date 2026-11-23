@@ -15,7 +15,7 @@ import {migrationRegistries} from './fixtures/legacy-composite.mjs';
 const packageRoot=fileURLToPath(new URL('../../',import.meta.url));
 const roles=['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
 const names=['Scouter','Planner','Implementer','QA','Reviewer'];
-const models=Object.fromEntries(['codex','claude'].map(p=>[p,loadModelConfig(readFileSync(new URL(`../../${p}/skill/models.toml`,import.meta.url)),p)]));
+const models=Object.fromEntries(['codex','claude','gemini','grok'].map(p=>[p,loadModelConfig(readFileSync(new URL(`../../${p}/skill/models.toml`,import.meta.url)),p)]));
 const catalogs=Object.fromEntries(await Promise.all(['codex','claude'].map(async p=>[p,(await loadStaticModelCatalog(p)).catalog])));
 const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models[platform]}}));
 
@@ -57,14 +57,26 @@ test('picker explains catalog models without effort capabilities',async()=>{
  assert.match(notice,/unknown-model/);assert.match(notice,/Effort capability/);
 });
 
-for(const target of ['codex','claude'])for(const source of ['draft','installed','package'])test(`install ${target} initial roles prefer ${source}`,async()=>{
- const installed=structuredClone(models[target].roles);installed.arc_scouter.model=target==='codex'?'gpt-6-luna':'sonnet';
+const scouterModels={
+ codex:{draft:'gpt-6-astra',installed:'gpt-6-luna',package:'gpt-6.2-sol'},
+ claude:{draft:'fable',installed:'sonnet',package:'opus'},
+ gemini:{draft:'gemini-4-carbon',installed:'gemini-4-hydrogen',package:'gemini-4-neon'},
+ grok:{draft:'grok-4.5',installed:'grok-4.5',package:'grok-4.6'},
+};
+for(const target of ['codex','claude','gemini','grok'])for(const source of ['draft','installed','package'])test(`install ${target} initial roles prefer ${source}`,async()=>{
+ const scouter=scouterModels[target],installed=structuredClone(models[target].roles);
+ // Grok has one non-default model, so its draft case competes with an unchanged installation.
+ installed.arc_scouter.model=source==='draft'&&scouter.draft===scouter.installed?scouter.package:scouter.installed;
  const saved=source==='package'?[]:[{platform:target,state:'installed',settings:{modelConfig:{platform:target,version:3,roles:installed}}}];
- const draft=source==='draft'?installDraft(target):{};if(draft.roles)draft.roles.arc_scouter.model=target==='codex'?'gpt-6-astra':'fable';
- // An absent alternate platform keeps package fallback deterministic for both targets.
- const statuses=[...saved,...(source==='package'?[{platform:target,state:'absent',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}}]:[]),{platform:target==='codex'?'claude':'codex',state:'absent',authentication:{authStatus:'unauthorized'}}];
- const ui=scripted([['Configure',null,(_rows,options)=>{const text=installBody(options).rows.join('\n');assert.match(text,new RegExp(source==='draft'?draft.roles.arc_scouter.model:source==='installed'?installed.arc_scouter.model:models[target].roles.arc_scouter.model));}]]);
- await installFlow({statuses,draft,loadRoleDefaults:p=>setup.loadRoleDefaults({context:{packageRoot},statuses:saved,target:p}),ui});
+ const draft=source==='draft'?installDraft(target):{};if(draft.roles)draft.roles.arc_scouter.model=scouter.draft;
+ const alternates=Object.keys(scouterModels).filter(platform=>platform!==target).map(platform=>({platform,state:'absent',cliVersion:{reason:'cli_not_found'}}));
+ const statuses=[...saved,...(source==='package'?[{platform:target,state:'absent',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}}]:[]),...alternates];
+ const ui=scripted([['Configure',null,(_rows,options)=>{
+  const [text]=installBody(options,10,72).rows;
+  const model=scouter[source].replaceAll('.','[.]');
+  assert.match(text,new RegExp(`^Scouter: .* / ${model} / `));
+ }]]);
+ await installFlow({statuses,draft,loadRoleDefaults:p=>setup.loadRoleDefaults({context:{packageRoot},statuses:saved,target:p}),loadCatalog:loadStaticModelCatalog,ui});
 });
 test('session draft wins over current composite config and Back prepares nothing',async()=>{
  const draft=installDraft('codex',['codex','claude']),before=structuredClone(draft.roles);

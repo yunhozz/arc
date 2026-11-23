@@ -8,6 +8,7 @@ import * as api from '../../lib/models/index.mjs';
 import * as configApi from '../../lib/models/config.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {getPlatform} from '../../lib/runtime/platform-registry.mjs';
+import {parse} from '../../vendor/toml/dist/index.js';
 const roles = ['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
 const defaults = {
  codex: roles.map(()=>['gpt-6.2-sol','medium']),
@@ -95,11 +96,13 @@ test('vendor check rejects parser drift against the exact pinned source', t => {
   fs.writeFileSync(`${root}/vendor/toml/dist/index.js`,'tampered'); run=spawnSync(process.execPath,[script,'--root',root,'--check'],{encoding:'utf8'}); assert.equal(run.status,1); assert.match(run.stderr,/vendor/i);
 });
 test('public ModelConfig includes platform while TOML remains platform field-free', () => {
-  for (const platform of ['codex','claude']) {
+  const platforms=['codex','claude','gemini','grok'];
+  for (const platform of platforms) {
     const source=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url),'utf8');
     const config=api.loadModelConfig(source,platform); assert.equal(config.platform,platform);
     assert.doesNotMatch(api.serializeModelConfig(config),/^platform\s*=/m);
-    assert.throws(()=>api.serializeModelConfig({...config,platform:platform==='codex'?'claude':'codex'}),{code:'ARC_MODEL_VALIDATION'});
+    const otherPlatform=platforms.find(candidate=>candidate!==platform);
+    assert.throws(()=>api.serializeModelConfig({...config,platform:otherPlatform}),{code:'ARC_MODEL_VALIDATION'});
   }
 });
 test('vendor generator normalizes only trailing horizontal JS whitespace and records the rule', t => {
@@ -133,10 +136,14 @@ test('normalized vendored TOML preserves pinned upstream parser and serializer b
   const settings={version:5,roles:{arc_implementer:{model:'gpt-6.1-sol',model_reasoning_effort:'medium'}}}; assert.equal(vendored.stringify(settings),upstream.stringify(settings));
 });
 
-for (const platform of ['codex','claude']) test(`${platform} rejects unsupported implementation model keys without mutating input`,()=>{
+for (const platform of ['codex','claude','gemini','grok']) test(`${platform} rejects unsupported implementation model keys without mutating input`,()=>{
  const text=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url),'utf8');
+ const fixtureRole=parse(text).roles.arc_implementer;
+ const field=Object.keys(fixtureRole).find(key=>key==='model_reasoning_effort'||key==='effort');
+ assert.ok(field,`${platform} package config must define an effort field`);
  const config=api.loadModelConfig(text,platform),before=structuredClone(config);
  assert.deepEqual(api.loadModelConfig(api.serializeModelConfig(config),platform),config);
+ assert.deepEqual({...parse(api.serializeModelConfig(config)).roles.arc_implementer},{model:fixtureRole.model,[field]:fixtureRole[field]});
  const invalid=structuredClone(config);invalid.roles.arc_unknown=invalid.roles.arc_implementer;delete invalid.roles.arc_implementer;
  assert.throws(()=>api.loadModelConfig(text.replaceAll('arc_implementer','arc_unknown'),platform),{code:'ARC_MODEL_VALIDATION'});
  assert.throws(()=>api.serializeModelConfig(invalid),{code:'ARC_MODEL_VALIDATION'});

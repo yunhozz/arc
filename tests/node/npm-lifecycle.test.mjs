@@ -24,7 +24,9 @@ test('real npm no-terminal global, local and npx preparation keep harness homes 
  const {createNpmSandbox}=await import('./fixtures/npm-sandbox.mjs');
  const box=await createNpmSandbox(t);box.addPackage(await box.packReleaseFixture(packageRoot));
  for(const args of [['i','-g','@yunhozz/arc'],['i','@yunhozz/arc'],['exec','--yes','--package=@yunhozz/arc','--','arc','--version']]){
-  const result=await box.runNpm(args);assert.equal(result.code,0,result.stderr+'\n'+result.stdout);assert.doesNotMatch(result.stdout+result.stderr,/Select an installation|ARC version .* installed!/);assert.equal(fs.existsSync(box.home+'/.codex'),false);assert.equal(fs.existsSync(box.home+'/.claude'),false);assert.equal(fs.existsSync(box.home+'/.zshrc'),false);
+  const result=await box.runNpm(args);assert.equal(result.code,0,result.stderr+'\n'+result.stdout);assert.doesNotMatch(result.stdout+result.stderr,/Select an installation|ARC version .* installed!/);assert.equal(fs.existsSync(box.home+'/.codex'),false);assert.equal(fs.existsSync(box.home+'/.claude'),false);
+  for(const platform of ['gemini','grok'])assert.equal(fs.existsSync(box.home+'/.'+platform),false);
+  assert.equal(fs.existsSync(box.home+'/.zshrc'),false);
  }
  assert.equal(fs.existsSync(box.prefix+'/bin/arc'),true);assert.ok(box.registryAudit.some(item=>item.path.includes('tarballs')));
 });

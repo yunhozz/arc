@@ -364,60 +364,64 @@ function manualTimeout(t, milliseconds) {
   };
 }
 
-test('F3 finished group handling blocks pending KILL and late supervisor TERM', async t => {
-  const graceMs = 41237;
-  const timer = manualTimeout(t, graceMs);
-  const allSignals = [];
-  for (const abortBeforeExit of [true, false]) {
-    const f = await setup(t, 'codex');
+const cleanupPlatforms = ['claude', 'codex', 'gemini', 'grok'];
+
+for (const platform of cleanupPlatforms) {
+  test(`${platform} F3 finished group handling blocks pending KILL and late supervisor TERM`, async t => {
+    const graceMs = 41237;
+    const timer = manualTimeout(t, graceMs);
+    const allSignals = [];
+    for (const abortBeforeExit of [true, false]) {
+      const f = await setup(t, platform);
+      const dispatch = await start(f);
+      const controller = new AbortController();
+      const signals = [];
+      let samples = 0;
+      await supervise(f, dispatch.dispatchId, {
+        graceMs, descendantSampleMs: 60000, stopSignal: controller.signal,
+        afterSpawn(child) {
+          f.rememberChild(child);
+          if (abortBeforeExit) controller.abort();
+        },
+        signalGroup(_pid, signal) { signals.push(signal); },
+        sampleProcesses: async () => {
+          if (++samples === 2) {
+            if (abortBeforeExit) timer.fire();
+            else controller.abort();
+          }
+          return [];
+        },
+      });
+      assert.equal(samples, 2);
+      allSignals.push(signals);
+    }
+    assert.ok(timer.scheduled >= 1, 'the early stop must schedule group escalation');
+    assert.deepEqual(allSignals, [['SIGTERM'], []]);
+  });
+
+  test(`${platform} F4 the execution deadline cannot turn a completed CLI into a timeout during cleanup`, async t => {
+    const timeoutMs = 41238;
+    const timer = manualTimeout(t, timeoutMs);
+    const f = await setup(t, platform);
     const dispatch = await start(f);
-    const controller = new AbortController();
-    const signals = [];
     let samples = 0;
+    const signals = [];
     await supervise(f, dispatch.dispatchId, {
-      graceMs, descendantSampleMs: 60000, stopSignal: controller.signal,
-      afterSpawn(child) {
-        f.rememberChild(child);
-        if (abortBeforeExit) controller.abort();
-      },
+      timeoutMs, descendantSampleMs: 60000,
       signalGroup(_pid, signal) { signals.push(signal); },
       sampleProcesses: async () => {
-        if (++samples === 2) {
-          if (abortBeforeExit) timer.fire();
-          else controller.abort();
-        }
+        if (++samples === 2) timer.fire();
         return [];
       },
     });
     assert.equal(samples, 2);
-    allSignals.push(signals);
-  }
-  assert.ok(timer.scheduled >= 1, 'the early stop must schedule group escalation');
-  assert.deepEqual(allSignals, [['SIGTERM'], []]);
-});
-
-test('F4 the execution deadline cannot turn a completed CLI into a timeout during cleanup', async t => {
-  const timeoutMs = 41238;
-  const timer = manualTimeout(t, timeoutMs);
-  const f = await setup(t, 'codex');
-  const dispatch = await start(f);
-  let samples = 0;
-  const signals = [];
-  await supervise(f, dispatch.dispatchId, {
-    timeoutMs, descendantSampleMs: 60000,
-    signalGroup(_pid, signal) { signals.push(signal); },
-    sampleProcesses: async () => {
-      if (++samples === 2) timer.fire();
-      return [];
-    },
+    assert.equal(timer.scheduled, 1);
+    const lease = await dispatch.read();
+    assert.deepEqual(lease.reasons.map(reason => reason.code), []);
+    assert.equal(lease.state, 'completed');
+    assert.deepEqual(signals, []);
   });
-  assert.equal(samples, 2);
-  assert.equal(timer.scheduled, 1);
-  const lease = await dispatch.read();
-  assert.deepEqual(lease.reasons.map(reason => reason.code), []);
-  assert.equal(lease.state, 'completed');
-  assert.deepEqual(signals, []);
-});
+}
 
 function processRows() {
   const result = realPs(['-A', '-ww', '-o', 'pid=,ppid=,pgid=,lstart=,stat=,command=']);
@@ -554,30 +558,34 @@ for (const signal of ['SIGTERM', 'SIGKILL']) {
   });
 }
 
-test('surviving escaped descendants do not change the lease state or reasons', async t => {
-  const clean = await setup(t, 'codex');
-  const baseline = await start(clean);
-  await supervise(clean, baseline.dispatchId, {sampleProcesses: async () => []});
-  const expected = await baseline.read();
-  assert.equal(expected.state, 'completed', JSON.stringify(expected.reasons));
-  const baselineRecord = await readJson(path.join(baseline.artifact, 'record.json'));
-  assert.equal(Object.hasOwn(baselineRecord, 'escapedDescendants'), false);
+for (const platform of cleanupPlatforms) {
+  test(`${platform} surviving escaped descendants do not change the lease state or reasons`, async t => {
+    const clean = await setup(t, platform);
+    const baseline = await start(clean);
+    await supervise(clean, baseline.dispatchId, {sampleProcesses: async () => []});
+    const expected = await baseline.read();
+    assert.equal(expected.state, 'completed', JSON.stringify(expected.reasons));
+    assert.deepEqual(expected.reasons, []);
+    const baselineRecord = await readJson(path.join(baseline.artifact, 'record.json'));
+    assert.equal(Object.hasOwn(baselineRecord, 'escapedDescendants'), false);
+    assert.deepEqual(baselineRecord.reasons, []);
 
-  const f = await setup(t, 'codex');
-  const dispatch = await start(f);
-  let table = [];
-  await supervise(f, dispatch.dispatchId, {
-    afterSpawn(child) {
-      f.rememberChild(child);
-      table = [row(child.pid, process.pid), row(ROOT_PID, child.pid)];
-    },
-    sampleProcesses: async () => table,
-    killProcess() {},
+    const f = await setup(t, platform);
+    const dispatch = await start(f);
+    let table = [];
+    await supervise(f, dispatch.dispatchId, {
+      afterSpawn(child) {
+        f.rememberChild(child);
+        table = [row(child.pid, process.pid), row(ROOT_PID, child.pid)];
+      },
+      sampleProcesses: async () => table,
+      killProcess() {},
+    });
+    const record = await readJson(path.join(dispatch.artifact, 'record.json'));
+    assert.equal(record.escapedDescendants?.survived, 1);
+    const actual = await dispatch.read();
+    assert.equal(actual.state, expected.state);
+    assert.deepEqual(actual.reasons, expected.reasons);
+    assert.deepEqual(record.reasons, baselineRecord.reasons);
   });
-  const record = await readJson(path.join(dispatch.artifact, 'record.json'));
-  assert.equal(record.escapedDescendants?.survived, 1);
-  const actual = await dispatch.read();
-  assert.equal(actual.state, expected.state);
-  assert.deepEqual(actual.reasons, expected.reasons);
-  assert.deepEqual(record.reasons, baselineRecord.reasons);
-});
+}

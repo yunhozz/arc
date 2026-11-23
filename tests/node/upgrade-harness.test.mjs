@@ -30,11 +30,62 @@ test('upgrade preserves full-auto settings, skill policy and last managed bullet
  assert.match(fs.readFileSync(path.join(supervisedArc,'SKILL.md'),'utf8'),/^\*\*Run mode:\*\* Supervised\./m);
  assert.doesNotMatch(fs.readFileSync(supervisedTarget.instructionPath,'utf8'),/ARC Run mode is Full Auto/);
 });
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));modelInputs[platform]={models,profiles};}files.set('shared/skill/references/brainstorming.md',Buffer.from('package pinned'));return{files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url)))};}
-function seed(home,platform,skipGlobal=false){const target=resolveTarget(platform,{userHome:home,env:{},cwd:home});applyTransaction(buildInstallPlan({payload:payload(),target,language:platform==='codex'?'ko':'en',safeFs,skipGlobal,limits:{max_total_subagents:37,max_concurrent_subagents:3}}),{safeFs});const legacy=target.home+'/skills/arc/references/superpowers';fs.mkdirSync(legacy,{recursive:true});fs.writeFileSync(legacy+'/obsolete','legacy nested');const filename=target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform);for(const role of Object.values(config.roles))role.model=platform==='codex'?'custom-codex':'custom-claude';fs.writeFileSync(filename,serializeModelConfig(config));const native=platform==='codex'?'[agents]\nmax_concurrent_threads_per_session = 9\n':'{"env":{"CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS":"9"}}\n';fs.writeFileSync(target.runtimeConfigPath,native);return{target,config,native};}
-for(const platform of ['codex','claude'])test(`${platform} upgrades same-version harness with all settings and native drift preserved`,async t=>{const home=fixture(t),old=seed(home,platform),state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.equal(typeof api.buildUpgradePlans,'function');const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform).roles,old.config.roles);assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),old.config);const {installTargets}=await import('../../lib/installer/install.mjs');const result=await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(result.results[0].status,'installed');assert.equal(fs.readFileSync(old.target.runtimeConfigPath,'utf8'),old.native);assert.deepEqual(loadModelConfig(fs.readFileSync(old.target.home+'/skills/arc/models.toml'),platform),old.config);assert.match(fs.readFileSync(old.target.home+'/skills/arc/SKILL.md','utf8'),/new harness/);assert.equal(plans[0].language,platform==='codex'?'ko':'en');assert.equal(plans[0].limits.max_concurrent_subagents,3);});
+const upgradePlatforms=['codex','claude','gemini','grok'];
+function payload(){const files=new Map(),modelInputs={};for(const platform of upgradePlatforms){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));modelInputs[platform]={models,profiles};}files.set('shared/skill/references/brainstorming.md',Buffer.from('package pinned'));return{files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url)))};}
+function seed(home,platform,skipGlobal=false){
+ const target=resolveTarget(platform,{userHome:home,env:{},cwd:home});
+ applyTransaction(buildInstallPlan({payload:payload(),target,language:platform==='codex'?'ko':'en',safeFs,skipGlobal,limits:{max_total_subagents:37,max_concurrent_subagents:3}}),{safeFs});
+ const legacy=target.home+'/skills/arc/references/superpowers';
+ fs.mkdirSync(legacy,{recursive:true});
+ fs.writeFileSync(legacy+'/obsolete','legacy nested');
+ const filename=target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform);
+ for(const role of Object.values(config.roles))role.model='custom-'+platform;
+ fs.writeFileSync(filename,serializeModelConfig(config));
+ const native={
+  codex:'[agents]\nmax_concurrent_threads_per_session = 9\n',
+  claude:'{"env":{"CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS":"9"}}\n',
+  gemini:'{"general":{"previewFeatures":true}}\n',
+  grok:'model = "grok-4.6"\n',
+ }[platform];
+ fs.writeFileSync(target.runtimeConfigPath,native);
+ return{target,config,native};
+}
+for(const platform of upgradePlatforms)test(`${platform} upgrades same-version harness with all settings and native drift preserved`,async t=>{
+ const home=fixture(t),old=seed(home,platform);
+ const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
+ assert.equal(typeof api.buildUpgradePlans,'function');
+ const upgraded=payload();
+ upgraded.files.set(platform+'/skill/SKILL.md',Buffer.from('upgraded harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));
+ const plans=api.buildUpgradePlans({payload:upgraded,state,safeFs});
+ assert.deepEqual(plans.map(plan=>plan.target.platform),[platform]);
+ assert.deepEqual(loadModelConfig(plans[0].generated.models,platform).roles,old.config.roles);
+ assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),old.config);
+ const {installTargets}=await import('../../lib/installer/install.mjs');
+ const result=await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});
+ assert.equal(result.results[0].status,'installed');
+ assert.equal(fs.readFileSync(old.target.runtimeConfigPath,'utf8'),old.native);
+ assert.deepEqual(loadModelConfig(fs.readFileSync(old.target.home+'/skills/arc/models.toml'),platform),old.config);
+ assert.match(fs.readFileSync(old.target.home+'/skills/arc/SKILL.md','utf8'),/^upgraded harness /);
+ assert.equal(plans[0].language,platform==='codex'?'ko':'en');
+ assert.equal(plans[0].limits.max_concurrent_subagents,3);
+});
 test('absent global blocks stay absent and external skill sentinel survives',async t=>{const home=fixture(t),old=seed(home,'codex',true);fs.writeFileSync(old.target.instructionPath,'user instructions\n');fs.writeFileSync(home+'/.zshrc','user shell\n');fs.mkdirSync(old.target.home+'/skills/user-skill');fs.writeFileSync(old.target.home+'/skills/user-skill/sentinel','keep');const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(plans[0].globalChanges,[]);const {installTargets}=await import('../../lib/installer/install.mjs');await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(fs.readFileSync(old.target.instructionPath,'utf8'),'user instructions\n');assert.equal(fs.readFileSync(home+'/.zshrc','utf8'),'user shell\n');assert.equal(fs.readFileSync(old.target.home+'/skills/user-skill/sentinel','utf8'),'keep');});
-test('shared completion has one owner and instruction user text survives',t=>{const home=fixture(t);for(const platform of ['codex','claude']){const {target}=seed(home,platform);fs.appendFileSync(target.instructionPath,'\nuser tail\n');}fs.writeFileSync(home+'/.zshrc','# user shell\n# >>> arc completion >>>\nold\n# <<< arc completion <<<\n# user tail\n');const plans=api.buildUpgradePlans({payload:payload(),state:stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),safeFs});assert.equal(plans.filter(p=>p.managedPaths.includes(home+'/.zshrc')).length,1);for(const plan of plans){assert.match(plan.globalChanges.find(x=>x.path===plan.target.instructionPath).content.toString(),/user tail/);}assert.equal(plans[0].globalChanges.find(x=>x.path===home+'/.zshrc').content.toString(),'# user shell\n# user tail\n');assert.equal(plans[1].snapshot.has(home+'/.zshrc'),false);});
+test('shared completion has one owner and instruction user text survives',t=>{
+ const home=fixture(t);
+ for(const platform of upgradePlatforms){
+  const {target}=seed(home,platform);
+  fs.appendFileSync(target.instructionPath,'\nuser tail\n');
+ }
+ const completion=home+'/.zshrc';
+ fs.writeFileSync(completion,'# user shell\n# >>> arc completion >>>\nold\n# <<< arc completion <<<\n# user tail\n');
+ const plans=api.buildUpgradePlans({payload:payload(),state:stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),safeFs});
+ assert.deepEqual(plans.map(plan=>plan.target.platform),['claude','codex','gemini','grok']);
+ assert.equal(plans.filter(plan=>plan.managedPaths.includes(completion)).length,1);
+ for(const plan of plans)assert.match(plan.globalChanges.find(change=>change.path===plan.target.instructionPath).content.toString(),/user tail/);
+ const [owner,...others]=plans;
+ assert.equal(owner.globalChanges.find(change=>change.path===completion).content.toString(),'# user shell\n# user tail\n');
+ for(const plan of others)assert.equal(plan.snapshot.has(completion),false);
+});
 test('changed snapshot fails planning before payload writes',t=>{const home=fixture(t),old=seed(home,'codex'),state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});fs.appendFileSync(old.target.home+'/skills/arc/models.toml','\n# changed\n');assert.throws(()=>api.buildUpgradePlans({payload:payload(),state,safeFs}),{code:'ARC_INSTALL_DRIFT'});assert.match(fs.readFileSync(old.target.home+'/skills/arc/models.toml','utf8'),/# changed/);});
 test('second target preparation failure reports first installed and second unchanged',async t=>{const home=fixture(t);seed(home,'claude');const old=seed(home,'codex'),before=fs.readFileSync(old.target.home+'/skills/arc/models.toml');const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plans=api.buildUpgradePlans({payload:payload(),state,safeFs});const {installTargets}=await import('../../lib/installer/install.mjs');const result=await installTargets(plans,{safeFs,hooks:{fault(event){if(event.phase==='before-prepare'&&event.plan.target.platform==='codex')throw Error('second preparation failed');}}});assert.deepEqual(result.results.map(x=>x.status),['installed','failed']);assert.deepEqual(fs.readFileSync(old.target.home+'/skills/arc/models.toml'),before);});
 test('second target publish failure restores prior bytes while first target stays upgraded',async t=>{
@@ -88,7 +139,7 @@ test('static upgrade never opens an acquisition workspace and leaves package unc
 });
 test('source auto upgrade excludes a regular worktree-local wrapper from verified files and installed trees',async t=>{const home=fixture(t),packageRoot=staticPackageFixture(t),wrapper='scripts/update-superpowers-local.sh';seed(home,'codex');fs.writeFileSync(packageRoot+'/.git','gitdir: /unfollowed/worktree/metadata\n');fs.writeFileSync(packageRoot+'/'+wrapper,'#!/bin/sh\nexit 99\n');refreshManifest(packageRoot);const bytes=fs.readFileSync(packageRoot+'/'+wrapper),state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),payload=verifyPayload({packageRoot,safeFs}),result=await api.upgradeInstalledTargets({packageRoot,state,safeFs,acquisition:async()=>assert.fail('automatic acquisition must not run')});assert.equal(result.results[0].status,'installed');assert.equal(payload.files.has(wrapper),false);assert.equal(fs.existsSync(home+'/.codex/skills/arc/'+wrapper),false);assert.deepEqual(fs.readFileSync(home+'/.codex/skills/arc/references/brainstorming.md'),payload.files.get('shared/skill/references/brainstorming.md'));assert.deepEqual(fs.readFileSync(packageRoot+'/'+wrapper),bytes);});
 
-for(const platform of ['codex','claude'])test(`${platform} canonical profile publication failure restores profiles and settings`,t=>{
+for(const platform of upgradePlatforms)test(`${platform} canonical profile publication failure restores profiles and settings`,t=>{
  const home=fixture(t),old=seed(home,platform),current=old.target.home+'/agents/arc-implementer.'+(platform==='codex'?'toml':'md'),models=old.target.home+'/skills/arc/models.toml';
  const profileBytes=fs.readFileSync(current),modelBytes=fs.readFileSync(models);
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plan=api.buildUpgradePlans({payload:payload(),state,safeFs})[0];
@@ -114,13 +165,14 @@ test('source auto upgrade excludes the current worktree local wrapper',{skip:pro
  assert.deepEqual(verifyPayload(input).files,payload.files);
 });
 
-for(const platform of ['codex','claude'])test(platform+' offline upgrade preserves active role settings',t=>{
+for(const platform of upgradePlatforms)test(platform+' offline upgrade preserves active role settings',t=>{
  const home=fixture(t),old=seed(home,platform),filename=old.target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform),field=platform==='codex'?'model_reasoning_effort':'effort';
- config.roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}]));fs.writeFileSync(filename,serializeModelConfig(config));
+ const effort=platform==='gemini'||platform==='grok'?'default':'high';
+ config.roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:effort}]));fs.writeFileSync(filename,serializeModelConfig(config));
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),fetchBefore=globalThis.fetch;globalThis.fetch=async()=>assert.fail('offline upgrade fetched catalog');
  try{const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),config);for(const bytes of plans[0].generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);}finally{globalThis.fetch=fetchBefore;}
 });
-for(const platform of ['codex','claude'])test(`${platform} upgrade profiles contain expanded shared instructions`,t=>{const home=fixture(t);seed(home,platform);const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});for(const bytes of plans[0].generated.profiles.values())assert.doesNotMatch(bytes.toString(),/ARC_AGENT_FRAGMENT/);});
+for(const platform of upgradePlatforms)test(`${platform} upgrade profiles contain expanded shared instructions`,t=>{const home=fixture(t);seed(home,platform);const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});for(const bytes of plans[0].generated.profiles.values())assert.doesNotMatch(bytes.toString(),/ARC_AGENT_FRAGMENT/);});
 
 for(const missing of [false,true])test(missing?'upgrade keeps legacy active values that are missing from the catalog':'upgrade keeps the installed v1 balanced values',async t=>{
  const home=fixture(t),target=resolveTarget('codex',{userHome:home,env:{}});seed(home,'codex');

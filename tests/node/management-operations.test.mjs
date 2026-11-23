@@ -68,9 +68,33 @@ test('source auto install excludes the current worktree local wrapper',{skip:pro
  assert.deepEqual(verifyPayload(ctx).files,payload.files);
 });
 
-for(const platform of ['codex','claude'])test(platform+' Settings removes only its ARC settings and never inspects CLI',async t=>{const ctx=context(t);assert.equal((await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'all',language:'en'}))).code,0);const opposite=platform==='codex'?'claude':'codex',shell='mine\n# >>> arc completion >>>\nkeep\n# <<< arc completion <<<\n';fs.writeFileSync(ctx.userHome+'/.zshrc',shell);const native=platform==='codex'?'/config.toml':'/settings.json',nativeBytes=fs.readFileSync(ctx.userHome+'/.'+platform+native);const otherBytes=fs.readFileSync(ctx.userHome+'/.'+opposite+'/skills/arc/settings.toml');ctx.inspectGlobalArc=async()=>assert.fail('Settings must not inspect CLI');ctx.uninstallGlobal=async()=>assert.fail('Settings must preserve CLI');const result=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:platform,removeCli:false}));assert.equal(result.code,0);assert.equal(result.exitSession,false);assert.equal(result.cli,undefined);assert.equal(fs.existsSync(ctx.userHome+'/.'+platform+'/skills/arc'),false);assert.deepEqual(fs.readFileSync(ctx.userHome+'/.'+platform+native),nativeBytes);assert.deepEqual(fs.readFileSync(ctx.userHome+'/.'+opposite+'/skills/arc/settings.toml'),otherBytes);assert.equal(fs.readFileSync(ctx.userHome+'/.zshrc','utf8'),shell);const global=platform==='codex'?'/AGENTS.md':'/CLAUDE.md';assert.doesNotMatch(fs.readFileSync(ctx.userHome+'/.'+platform+global,'utf8'),/<!-- arc:begin -->/);});
+// Grok is covered as a peer here because its uninstall removes ARC-managed compatibility lines.
+const installedPlatforms=['codex','claude','gemini','grok'];
+for(const platform of ['codex','claude','gemini'])test(platform+' Settings removes only its ARC settings and never inspects CLI',async t=>{
+ const ctx=context(t);
+ assert.equal((await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'install',target:'all',language:'en'}))).code,0);
+ const native=platform==='codex'?'/config.toml':'/settings.json';
+ // Gemini's installer leaves its native settings to the user.
+ if(platform==='gemini')fs.writeFileSync(ctx.userHome+'/.'+platform+native,'{"theme":"Light"}\n');
+ const shell='mine\n# >>> arc completion >>>\nkeep\n# <<< arc completion <<<\n';
+ fs.writeFileSync(ctx.userHome+'/.zshrc',shell);
+ const nativeBytes=fs.readFileSync(ctx.userHome+'/.'+platform+native);
+ const otherPaths=installedPlatforms.filter(other=>other!==platform)
+  .map(other=>ctx.userHome+'/.'+other+'/skills/arc/settings.toml');
+ const otherBytes=otherPaths.map(filename=>fs.readFileSync(filename));
+ ctx.inspectGlobalArc=async()=>assert.fail('Settings must not inspect CLI');
+ ctx.uninstallGlobal=async()=>assert.fail('Settings must preserve CLI');
+ const result=await api.executeOperation(ctx,await api.prepareOperation(ctx,{kind:'uninstall',target:platform,removeCli:false}));
+ assert.equal(result.code,0);assert.equal(result.exitSession,false);assert.equal(result.cli,undefined);
+ assert.equal(fs.existsSync(ctx.userHome+'/.'+platform+'/skills/arc'),false);
+ assert.deepEqual(fs.readFileSync(ctx.userHome+'/.'+platform+native),nativeBytes);
+ assert.deepEqual(otherPaths.map(filename=>fs.readFileSync(filename)),otherBytes);
+ assert.equal(fs.readFileSync(ctx.userHome+'/.zshrc','utf8'),shell);
+ const global={codex:'/AGENTS.md',claude:'/CLAUDE.md',gemini:'/GEMINI.md'}[platform];
+ assert.doesNotMatch(fs.readFileSync(ctx.userHome+'/.'+platform+global,'utf8'),/<!-- arc:begin -->/);
+});
 
-test('uninstall prepared options normalize omitted CLI removal and preserve explicit false',async t=>{const ctx=context(t);ctx.inspectGlobalArc=async()=>({kind:'absent'});for(const target of ['codex','claude','all']){const legacy=await api.prepareOperation(ctx,{kind:'uninstall',target});assert.equal(legacy.options.removeCli,true,target);const settings=await api.prepareOperation(ctx,{kind:'uninstall',target,removeCli:false});assert.equal(settings.options.removeCli,false,target);}});
+test('uninstall prepared options normalize omitted CLI removal and preserve explicit false',async t=>{const ctx=context(t);ctx.inspectGlobalArc=async()=>({kind:'absent'});for(const target of ['codex','claude','all','gemini','grok']){const legacy=await api.prepareOperation(ctx,{kind:'uninstall',target});assert.equal(legacy.options.removeCli,true,target);const settings=await api.prepareOperation(ctx,{kind:'uninstall',target,removeCli:false});assert.equal(settings.options.removeCli,false,target);}});
 
 test('management prepares and applies Custom roles without exposing context secrets',async t=>{
  const userHome=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-custom-management-')));t.after(()=>fs.rmSync(userHome,{recursive:true,force:true}));

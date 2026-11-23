@@ -5,37 +5,67 @@ function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdi
 function install(home,platform){const target=resolveTarget(platform,{userHome:home,env:{}});fs.mkdirSync(target.home+'/skills/arc',{recursive:true});fs.mkdirSync(target.home+'/agents');const config=loadModelConfig(fs.readFileSync(`${platform}/skill/models.toml`),platform);fs.writeFileSync(target.home+'/skills/arc/models.toml',serializeModelConfig(config));const profiles=new Map(target.profileNames.map(name=>[name,Buffer.from(platform==='codex'?fs.readFileSync(`${platform}/agents/${name}`,'utf8').replace('developer_instructions = """','developer_instructions = """\nUser body Korean policy'):fs.readFileSync(`${platform}/agents/${name}`,'utf8')+'\nUser body Korean policy\n')]));for(const[name,bytes]of (platform==='claude'?renderProfiles(profiles,resolveModelSettings(config)):profiles))fs.writeFileSync(target.home+'/agents/'+name,bytes);for(const name of ['settings.toml','limits.toml','SKILL.md'])fs.writeFileSync(target.home+'/skills/arc/'+name,'preserve '+name);return target;}
 function selection(target, scenario='smart'){
  const platform=target.platform,field=platform==='codex'?'model_reasoning_effort':'effort';
- const text=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8').replace('preset = "balanced"',`preset = "${scenario}"`);
- const roles=loadModelConfig(text,platform).roles;if(scenario==='smart')roles.arc_implementer.model='custom-model';
+ let roles;
+ if(platform==='gemini'||platform==='grok'){
+  assert.equal(scenario,'smart');
+  const model=platform==='gemini'?'gemini-4-neon':'grok-4.6';
+  roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model,effort:'default'}]));
+ }else{
+  const text=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8').replace('preset = "balanced"',`preset = "${scenario}"`);
+  roles=loadModelConfig(text,platform).roles;
+ }
+ if(scenario==='smart')roles.arc_implementer.model='custom-model';
  return {roles,verifiedCatalog:{platform,pairs:Object.values(roles).map(v=>({model:v.model,effort:v[field]}))}};
 }
-for(const platform of ['codex','claude'])test(`${platform} switches installed custom variant and preserves unrelated bytes`,async t=>{assert.equal(typeof api.buildPresetPlan,'function');const target=install(fixture(t),platform),before=fs.readFileSync(target.home+'/skills/arc/settings.toml');const plan=api.buildPresetPlan({target,...selection(target,'smart'),safeFs});const result=await api.switchPresetTargets([plan],{safeFs});assert.equal(result.results[0].status,'updated');assert.deepEqual(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),platform).roles,selection(target).roles);const body=fs.readFileSync(target.home+'/agents/'+target.profileNames[2],'utf8');assert.match(body,/custom-model/);assert.match(body,/User body Korean policy/);assert.deepEqual(fs.readFileSync(target.home+'/skills/arc/settings.toml'),before);assert.equal(api.buildPresetPlan({target,...selection(target,'smart'),safeFs}).specs.length,0);});
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} switches installed custom variant and preserves unrelated bytes`,async t=>{assert.equal(typeof api.buildPresetPlan,'function');const target=install(fixture(t),platform),before=fs.readFileSync(target.home+'/skills/arc/settings.toml');const plan=api.buildPresetPlan({target,...selection(target,'smart'),safeFs});const result=await api.switchPresetTargets([plan],{safeFs});assert.equal(result.results[0].status,'updated');assert.deepEqual(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),platform).roles,selection(target).roles);const body=fs.readFileSync(target.home+'/agents/'+target.profileNames[2],'utf8');assert.match(body,/custom-model/);assert.match(body,/User body Korean policy/);assert.deepEqual(fs.readFileSync(target.home+'/skills/arc/settings.toml'),before);assert.equal(api.buildPresetPlan({target,...selection(target,'smart'),safeFs}).specs.length,0);});
+const preflightPlatforms=['codex','claude','gemini','grok'];
 test('all preflight blocks writes and second target failure preserves first success',async t=>{
  assert.equal(typeof api.buildPresetPlan,'function');
- const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p));
- const modelPaths=targets.map(target=>target.home+'/skills/arc/models.toml');
- const installedModels=modelPaths.map(file=>fs.readFileSync(file));
- let plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));
- fs.appendFileSync(targets[1].home+'/agents/'+targets[1].profileNames[0],'drift');
- let result=await api.switchPresetTargets(plans,{safeFs});
- assert.equal(result.results[0].status,'not-started');
- assert.deepEqual(fs.readFileSync(modelPaths[0]),installedModels[0]);
- plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));
- result=await api.switchPresetTargets(plans,{safeFs,hooks:{fault(e){if(e.plan.target.platform==='claude'&&e.phase==='after-publish')throw Error('injected publish');}}});
- assert.equal(result.results[0].status,'updated');
- assert.equal(result.results[1].rollback,'restored');
- assert.deepEqual(fs.readFileSync(modelPaths[1]),installedModels[1]);
+ const scenarios=[
+  {failedPlatform:'claude',preflight:['not-started','failed','not-started','not-started'],publish:['updated','failed','not-started','not-started']},
+  {failedPlatform:'grok',preflight:['not-started','not-started','not-started','failed'],publish:['updated','updated','updated','failed']},
+ ];
+ for(const {failedPlatform,preflight,publish} of scenarios){
+  const home=fixture(t),targets=preflightPlatforms.map(platform=>install(home,platform));
+  const failedIndex=preflightPlatforms.indexOf(failedPlatform);
+  const modelPaths=targets.map(target=>target.home+'/skills/arc/models.toml');
+  const profilePaths=targets.map(target=>target.profileNames.map(name=>target.home+'/agents/'+name));
+  const managedPaths=profilePaths.map((profiles,index)=>[modelPaths[index],...profiles]);
+  const chosen=targets.map(target=>selection(target,'smart'));
+  let plans=targets.map((target,index)=>api.buildPresetPlan({target,...chosen[index],safeFs}));
+  fs.appendFileSync(profilePaths[failedIndex][0],'drift');
+  const installed=managedPaths.map(files=>files.map(file=>fs.readFileSync(file)));
+  let result=await api.switchPresetTargets(plans,{safeFs});
+  assert.deepEqual(result.results.map(({status})=>status),preflight,failedPlatform);
+  assert.deepEqual(managedPaths.map(files=>files.map(file=>fs.readFileSync(file))),installed,failedPlatform);
+
+  plans=targets.map((target,index)=>api.buildPresetPlan({target,...chosen[index],safeFs}));
+  result=await api.switchPresetTargets(plans,{safeFs,hooks:{fault(e){
+   if(e.plan.target.platform===failedPlatform&&e.phase==='after-publish'&&e.path===profilePaths[failedIndex][2])throw Error('injected publish');
+  }}});
+  assert.deepEqual(result.results.map(({status})=>status),publish,failedPlatform);
+  assert.equal(result.results[failedIndex].error.message,'injected publish');
+  assert.equal(result.results[failedIndex].rollback,'restored');
+  for(const [index,target] of targets.entries()){
+   if(index<failedIndex){
+    assert.match(fs.readFileSync(modelPaths[index],'utf8'),/^model = "custom-model"$/m);
+    assert.match(fs.readFileSync(profilePaths[index][2],'utf8'),/custom-model/);
+   }else{
+    assert.deepEqual(managedPaths[index].map(file=>fs.readFileSync(file)),installed[index],target.platform);
+   }
+  }
+ }
 });
 
-for(const changed of [0,1])test(`preflight drift attributes target ${changed} and writes neither`,async t=>{
- const home=fixture(t),targets=['codex','claude'].map(p=>install(home,p));
+for(const [changed,platform] of preflightPlatforms.entries())test(
+ changed<2?`preflight drift attributes target ${changed} and writes neither`:`preflight drift attributes ${platform} and leaves all targets unwritten`,async t=>{
+ const home=fixture(t),targets=preflightPlatforms.map(p=>install(home,p));
  const modelPaths=targets.map(target=>target.home+'/skills/arc/models.toml');
  const installedModels=modelPaths.map(file=>fs.readFileSync(file));
  const plans=targets.map(target=>api.buildPresetPlan({target,...selection(target,'smart'),safeFs}));
  fs.appendFileSync(targets[changed].home+'/agents/'+targets[changed].profileNames[0],'\n# drift\n');
  const result=await api.switchPresetTargets(plans,{safeFs});
- assert.equal(result.results[changed].status,'failed');
- assert.equal(result.results[1-changed].status,'not-started');
+ assert.deepEqual(result.results.map(({status})=>status),targets.map((_,i)=>i===changed?'failed':'not-started'));
  assert.deepEqual(modelPaths.map(file=>fs.readFileSync(file)),installedModels);
 });
 for(const platform of ['codex','claude'])for(const preset of ['economy','balanced','smart'])test(`${platform} ${preset} keeps all variants and nonmodel profile bytes`,async t=>{
@@ -86,19 +116,25 @@ test('same preset repairs active drift and exact noop performs no staging or wri
 test('preset preserves language policy, limits, reference and global bytes',async t=>{const target=install(fixture(t),'claude'),paths=['skills/arc/settings.toml','skills/arc/limits.toml','skills/arc/SKILL.md','skills/arc/references/custom.md','CLAUDE.md','settings.json'];const before=new Map();for(const relative of paths){const p=target.home+'/'+relative;fs.mkdirSync(path.dirname(p),{recursive:true});const bytes=Buffer.from('preserved '+relative+'\r\nKorean policy\n');fs.writeFileSync(p,bytes);before.set(p,bytes);}const result=await api.switchPresetTargets([api.buildPresetPlan({target,...selection(target,'smart'),safeFs})],{safeFs});assert.equal(result.results[0].status,'updated');for(const[p,bytes]of before)assert.deepEqual(fs.readFileSync(p),bytes);});
 test('cleanup failure retains published files and reports residual staging path',async t=>{const target=install(fixture(t),'claude'),result=await api.switchPresetTargets([api.buildPresetPlan({target,...selection(target,'smart'),safeFs})],{safeFs,hooks:{fault(e){if(e.phase==='before-cleanup-item')throw Error('cleanup blocked');}}});assert.equal(result.results[0].status,'updated');assert.equal(result.results[0].error.code,'ARC_INSTALL_CLEANUP');assert.ok(result.results[0].residualPaths.length>0);assert.deepEqual(loadModelConfig(fs.readFileSync(target.home+'/skills/arc/models.toml'),'claude').roles,selection(target).roles);});
 
-for(const platform of ['codex','claude'])test(platform+' persists changed Custom roles and treats identical roles as noop',async t=>{
+for(const platform of ['codex','claude','gemini','grok'])test(platform+' persists changed Custom roles and treats identical roles as noop',async t=>{
  const target=install(fixture(t),platform),effort=platform==='codex'?'model_reasoning_effort':'effort';
- const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
- const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'},{model:'other-model',effort:'medium'}],unavailable:[]};
+ const defaultEffortOnly=platform==='gemini'||platform==='grok';
+ const initialEffort=defaultEffortOnly?'default':'high',changedEffort=defaultEffortOnly?'default':'medium';
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:initialEffort}]));
+ const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:initialEffort},{model:'other-model',effort:changedEffort}],unavailable:[]};
  let plan=api.buildPresetPlan({target,safeFs,roles:customRoles,verifiedCatalog});
  assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');
  const modelPath=target.home+'/skills/arc/models.toml';assert.deepEqual(loadModelConfig(fs.readFileSync(modelPath),platform).roles,customRoles);
  plan=api.buildPresetPlan({target,safeFs,roles:customRoles,verifiedCatalog});assert.equal(plan.specs.length,0);
  const reordered=Object.fromEntries(Object.entries(customRoles).reverse());plan=api.buildPresetPlan({target,safeFs,roles:reordered,verifiedCatalog});assert.equal(plan.specs.length,0);
- const changed=structuredClone(customRoles);changed.arc_implementer={model:'other-model',[effort]:'medium'};
+ const changed=structuredClone(customRoles);changed.arc_implementer={model:'other-model',[effort]:changedEffort};
  plan=api.buildPresetPlan({target,safeFs,roles:changed,verifiedCatalog});assert.ok(plan.specs.length>0);
  assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');assert.deepEqual(loadModelConfig(fs.readFileSync(modelPath),platform).roles,changed);
- assert.throws(()=>api.buildPresetPlan({target,safeFs,roles:changed,verifiedCatalog:{platform,pairs:[{model:'fixture-model',effort:'high'}]}}),/catalog/i);
+ if(defaultEffortOnly){
+  assert.throws(()=>api.buildPresetPlan({target,safeFs,roles:changed,verifiedCatalog:{platform,pairs:[{model:'fixture-model',effort:'default'}]}}),/catalog/i);
+ }else{
+  assert.throws(()=>api.buildPresetPlan({target,safeFs,roles:changed,verifiedCatalog:{platform,pairs:[{model:'fixture-model',effort:'high'}]}}),/catalog/i);
+ }
 });
 
 test('Custom transaction failure restores original model and profile bytes',async t=>{
@@ -108,7 +144,7 @@ test('Custom transaction failure restores original model and profile bytes',asyn
  assert.equal(result.results[0].status,'failed');assert.equal(result.results[0].rollback,'restored');for(const[name,bytes]of before)assert.deepEqual(fs.readFileSync(name),bytes);
 });
 
-for(const platform of ['codex','claude'])test(platform+' Apply persists active roles and validates their pairs',async t=>{
+for(const platform of ['codex','claude','gemini','grok'])test(platform+' Apply persists active roles and validates their pairs',async t=>{
  const target=install(fixture(t),platform),chosen=selection(target),file=target.home+'/skills/arc/models.toml';
  assert.throws(()=>api.buildPresetPlan({target,roles:chosen.roles,safeFs,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
  const plan=api.buildPresetPlan({target,...chosen,safeFs});assert.equal((await api.switchPresetTargets([plan],{safeFs})).results[0].status,'updated');

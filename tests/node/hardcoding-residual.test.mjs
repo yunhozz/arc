@@ -107,9 +107,15 @@ test('management composite fallback includes injected host-only zeta in anchor o
 
 test('setup role defaults keep production values and unknown-target error', () => {
   const context = {packageRoot: new URL('../../', import.meta.url).pathname};
-  for (const target of ['claude', 'codex']) {
-    const modelConfig = loadModelConfig(fs.readFileSync(path.join(context.packageRoot, target, 'skill/models.toml')), target);
-    assert.deepEqual(loadRoleDefaults({context, statuses: [], target}), modelConfig.roles);
+  for (const [target, defaults, installed] of [
+    ['claude', {model: 'opus', effort: 'medium'}, {model: 'opus', effort: 'high'}],
+    ['codex', {model: 'gpt-6.2-sol', model_reasoning_effort: 'medium'}, {model: 'gpt-6.2-sol', model_reasoning_effort: 'high'}],
+    ['gemini', {model: 'gemini-4-neon', effort: 'default'}, {model: 'gemini-4-hydrogen', effort: 'default'}],
+    ['grok', {model: 'grok-4.6', effort: 'default'}, {model: 'grok-4.5', effort: 'default'}],
+  ]) {
+    const packageRoles = {arc_scouter: defaults, arc_planner: defaults, arc_implementer: defaults, arc_qa: defaults, arc_reviewer: defaults};
+    const modelConfig = {platform: target, version: 3, roles: {...packageRoles, arc_implementer: installed}};
+    assert.deepEqual(loadRoleDefaults({context, statuses: [], target}), packageRoles);
     assert.deepEqual(loadRoleDefaults({context, statuses: [{platform: target, settings: {modelConfig}}], target}), modelConfig.roles);
   }
   assert.throws(() => loadRoleDefaults({context, statuses: [], target: 'missing'}), {name: 'ModelValidationError', message: 'Unsupported role target', code: 'ARC_MODEL_VALIDATION'});

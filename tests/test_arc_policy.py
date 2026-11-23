@@ -381,8 +381,8 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
         self.assertRegex(core, r"depends on a still-unverified risky contract, complete applicable qa at that dependency boundary")
         self.assertNotRegex(core, r"qa/review at that dependency boundary")
 
-    def platform_texts(self, suffix):
-        for platform in ("codex", "claude"):
+    def platform_texts(self, suffix, platforms=("codex", "claude")):
+        for platform in platforms:
             path = REPO / platform / suffix
             yield platform, " ".join(path.read_text().lower().split())
 
@@ -398,7 +398,8 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
             self.assertRegex(text, r"repeat.*until.*resolved")
 
     def test_pre_final_qa_failures_keep_qa_recheck(self) -> None:
-        for platform, text in self.platform_texts("skill/references/verification.md"):
+        platforms = ("codex", "claude", "gemini", "grok")
+        for platform, text in self.platform_texts("skill/references/verification.md", platforms):
             with self.subTest(platform=platform):
                 self.assertRegex(text, r"before.*initial final.*reviewer.*qa.*failures.*implementer.*qa recheck")
 
@@ -1499,9 +1500,9 @@ class InternalSuperpowersContractTests(unittest.TestCase):
         for source, destination in mapping.items():
             actual = (base / destination).read_bytes()
             self.assertEqual(hashlib.sha256(actual).hexdigest(), provenance['files'][source])
-            for platform in ('codex', 'claude'):
+            for platform in ('codex', 'claude', 'gemini', 'grok'):
                 self.assertFalse((REPO / f'{platform}/skill/references/{destination}').exists())
-        for platform in ('codex', 'claude'):
+        for platform in ('codex', 'claude', 'gemini', 'grok'):
             self.assertNotEqual((REPO / f'{platform}/skill/references/arc-visual-companion.md').read_bytes(), (base / 'visual-companion.md').read_bytes())
 
 
@@ -1609,7 +1610,8 @@ class HarnessReliabilityProfileTests(unittest.TestCase):
                     self.assertIn("Specialist roles MUST NOT change Git state", text)
 
     def test_visual_roles_preserve_output_identity_and_verdict_limits(self):
-        for platform, extension in (("codex", "toml"), ("claude", "md")):
+        for platform in ("codex", "claude", "gemini", "grok"):
+            extension = "toml" if platform == "codex" else "md"
             for role in ("implementer", "qa"):
                 text = (REPO / platform / "agents" / f"arc-{role}.{extension}").read_text()
                 with self.subTest(platform=platform, role=role):
@@ -1620,7 +1622,7 @@ class HarnessReliabilityProfileTests(unittest.TestCase):
 
 class FastEvidenceChoiceTests(unittest.TestCase):
     def test_target_change_holds_edits_until_choice_and_state_confirmed(self):
-        for platform in ('codex', 'claude'):
+        for platform in ('codex', 'claude', 'gemini', 'grok'):
             text = (REPO / platform / 'skill/references/handoff.md').read_text()
             section = text.split('### Evidence refresh', 1)[1].split('## Cooperative CLI', 1)[0]
             with self.subTest(platform=platform):

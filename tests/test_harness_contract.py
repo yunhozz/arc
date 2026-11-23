@@ -649,12 +649,13 @@ class PolicyContractTests(unittest.TestCase):
         self.assert_contracts("NATIVE_ADAPTERS")
 
     def test_commit_guidance_uses_english_descriptions(self) -> None:
-        for platform in PLATFORMS:
+        for platform in ("codex", "claude", "gemini", "grok"):
             for owner in ("commit.md", "handoff-prep.md"):
                 path = f"{platform}/skill/references/{owner}"
+                text = (REPO / path).read_text().lower()
                 with self.subTest(path=path):
-                    self.assertRegex(" ".join(self.texts[path].lower().split()), r"english (?:description|conventional commit)")
-                    self.assertNotRegex(self.texts[path].lower(), r"korean\s+(?:description|conventional commit)")
+                    self.assertRegex(" ".join(text.split()), r"english (?:description|conventional commit)")
+                    self.assertNotRegex(text, r"korean\s+(?:description|conventional commit)")
 
     def test_policy_contract_checker_rejects_missing_guards(self) -> None:
         for contract, owners in POLICY_CONTRACTS.items():
@@ -704,9 +705,10 @@ class DocumentationContractTests(unittest.TestCase):
     """Approved artifact contracts; source review and rendering remain necessary."""
 
     def test_maintained_local_links_resolve(self) -> None:
+        platforms = ("codex", "claude", "gemini", "grok")
         paths = []
         paths.extend((REPO / "shared/skill/references").glob("*.md"))
-        for platform in PLATFORMS:
+        for platform in platforms:
             paths.append(REPO / platform / "skill/SKILL.md")
             paths.extend((REPO / platform / "skill/references").glob("*.md"))
         self.assertTrue(paths)
@@ -718,15 +720,15 @@ class DocumentationContractTests(unittest.TestCase):
                 filename, _, anchor = unquote(target).partition("#")
                 resolved = path.parent / filename if filename else path
                 resolutions = [resolved]
-                for owner in (*PLATFORMS, "shared"):
+                for owner in (*platforms, "shared"):
                     skill_root = REPO / owner / "skill"
                     if not path.is_relative_to(skill_root):
                         continue
                     if resolved.resolve().is_relative_to(skill_root):
                         relative = resolved.resolve().relative_to(skill_root)
-                        platforms = PLATFORMS if owner == "shared" else (owner,)
+                        link_platforms = platforms if owner == "shared" else (owner,)
                         resolutions = []
-                        for platform in platforms:
+                        for platform in link_platforms:
                             candidates = (REPO / platform / "skill" / relative,
                                           REPO / "shared/skill" / relative)
                             resolutions.append(next((candidate for candidate in candidates if candidate.exists()), candidates[0]))
@@ -744,7 +746,7 @@ class DocumentationContractTests(unittest.TestCase):
     def test_stale_png_is_unreferenced(self) -> None:
         paths = []
         paths.extend((REPO / "shared/skill/references").glob("*.md"))
-        for platform in PLATFORMS:
+        for platform in ("codex", "claude", "gemini", "grok"):
             paths.extend((REPO / platform / "skill").rglob("*.md"))
             paths.extend((REPO / platform / "agents").iterdir())
         for path in paths:
@@ -795,7 +797,8 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
             r"Finally, keep acceptance held while any required check remains unresolved",
         )
         sources = {"canonical": common}
-        for platform, extension in (("codex", "toml"), ("claude", "md")):
+        for platform in ("codex", "claude", "gemini", "grok"):
+            extension = "toml" if platform == "codex" else "md"
             sources[f"{platform}/core"] = (REPO / platform / "skill/SKILL.md").read_text()
             for role in ("scouter", "planner", "implementer", "qa", "reviewer"):
                 sources[f"{platform}/{role}"] = (REPO / platform / "agents" / f"arc-{role}.{extension}").read_text()
@@ -811,7 +814,7 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
 
 class EnvelopeRefreshTests(unittest.TestCase):
     def test_envelope_fingerprint_distinguishes_source_access_states(self):
-        for platform in PLATFORMS:
+        for platform in ("codex", "claude", "gemini", "grok"):
             text = (REPO / platform / 'skill/references/handoff.md').read_text()
             section = text.split('### Instruction fingerprint', 1)[1].split('### Task envelope', 1)[0]
             with self.subTest(platform=platform):

@@ -244,15 +244,15 @@ test('standalone child stops before the next platform when publication is unknow
  assert.deepEqual(attempted,['claude']);
 });
 
-for(const ids of [['claude'],['claude','codex']])test('standalone child preserves settings for '+ids.join(', '),async t=>{
+for(const ids of [['claude'],['claude','codex'],['claude','codex','gemini','grok']])test('standalone child preserves settings for '+ids.join(', '),async t=>{
  const context=await compositeContext(t);
  await installStandalone(context,ids);
- const homes=targets(context);
- const before=ids.map(id=>configBytes(homes[id].home));
+ const homes=ids.map(id=>context.userHome+'/.'+id);
+ const before=homes.map(configBytes);
  const result=await upgrade(context);
  assert.equal(result.code,0,result.stderr);
- assert.ok(result.stdout.includes('Configuration re-applied: '+(ids.length===1?'Claude':'Claude, Codex')+'.\n'));
- assert.deepEqual(ids.map(id=>configBytes(homes[id].home)),before);
+ assert.ok(result.stdout.includes('Configuration re-applied: '+ids.map(id=>id[0].toUpperCase()+id.slice(1)).join(', ')+'.\n'));
+ assert.deepEqual(homes.map(configBytes),before);
 });
 
 test('standalone reapply requests match unchanged Configure Apply',async t=>{

@@ -5,7 +5,7 @@ import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '.
 import {agentsBlockBody,renderManagedBlock} from '../../lib/installer/global-config.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude','gemini','grok']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),safeFs,...extra});}
 const supervisedPolicy="**Run mode:** Supervised. Every approval and choice gate in this skill and its references requires the user's explicit answer; Orchestrator does not auto-decide gates.";
 const supervisedSettings='version = 1\nlanguage = "en"\n';
@@ -139,33 +139,37 @@ test('concurrency above total keeps configured values and explains effective fre
  assert.match(result.globalChanges.find(change=>change.path.endsWith('config.toml')).content.toString(),/max_concurrent_threads_per_session = 9/);
  assert.ok(result.summary.some(note=>/effective concurrency.*at most 2.*fresh ARC session.*lower.*cumulative use.*native capacity/i.test(note)),result.summary.join('\n'));
 });
-for(const platform of ['codex','claude'])for(const language of ['en','ko'])test(`${platform} generates selected ${language} settings and policies together`,t=>{
+const instructionFilenames={codex:'AGENTS.md',claude:'CLAUDE.md',gemini:'GEMINI.md',grok:'AGENTS.md'};
+for(const platform of ['codex','claude','gemini','grok'])for(const language of ['en','ko'])test(`${platform} generates selected ${language} settings and policies together`,t=>{
  const result=plan(fixture(t),platform,{language});assert.equal(result.generated.skill.get('settings.toml')?.toString(),`version = 1\nlanguage = "${language}"\n`);
- for(const bytes of [result.generated.skill.get('SKILL.md'),...result.generated.profiles.values(),result.globalChanges.find(change=>change.path.endsWith(platform==='codex'?'AGENTS.md':'CLAUDE.md')).content]){assert.match(bytes.toString(),new RegExp(language==='en'?'English':'Korean'));assert.doesNotMatch(bytes.toString(),/\{\{ARC_OUTPUT_LANGUAGE_POLICY\}\}/);}
+ const filename=instructionFilenames[platform],instructions=result.globalChanges.find(change=>path.basename(change.path)===filename);
+ assert.ok(instructions,`Missing global change for ${filename}`);
+ for(const bytes of [result.generated.skill.get('SKILL.md'),...result.generated.profiles.values(),instructions.content]){assert.match(bytes.toString(),new RegExp(language==='en'?'English':'Korean'));assert.doesNotMatch(bytes.toString(),/\{\{ARC_OUTPUT_LANGUAGE_POLICY\}\}/);}
 });
 test('language preview rejects changed settings before planning writes',t=>{
  const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home,env:{}});assert.equal(typeof api.previewLanguage,'function');const preview=api.previewLanguage({target,safeFs});fs.mkdirSync(`${home}/.codex/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.codex/skills/arc/settings.toml`,'version = 1\nlanguage = "ko"\n');assert.throws(()=>plan(home,'codex',{language:'en',languagePreview:preview}),{code:'ARC_INSTALL_DRIFT'});
 });
-for(const platform of ['codex','claude'])test(`${platform} language settings and generated prompts roll back together`,async t=>{
- const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}}),root=target.home;const{applyTransaction}=await import('../../lib/installer/transaction.mjs');
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} language settings and generated prompts roll back together`,async t=>{
+ const home=fixture(t),root=path.join(home,`.${platform}`),instructions=path.join(root,instructionFilenames[platform]);
+ const profiles=['scouter','planner','implementer','qa','reviewer'].map(role=>`${root}/agents/arc-${role}.${platform==='codex'?'toml':'md'}`);
+ const{applyTransaction}=await import('../../lib/installer/transaction.mjs');
  applyTransaction(plan(home,platform,{language:'ko'}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});
- const paths=[`${root}/skills/arc/settings.toml`,`${root}/skills/arc/SKILL.md`,...target.profileNames.map(name=>`${root}/agents/${name}`),target.instructionPath];const old=paths.map(filename=>fs.readFileSync(filename));
- const next=plan(home,platform,{language:'en'});assert.throws(()=>applyTransaction(next,{safeFs,acquired:{skills:new Map(),references:referenceFixture()},hooks:{fault(event){if(event.phase==='after-publish'&&event.path===target.instructionPath)throw Error('language publication failure');}}}),/language publication failure/);
+ const paths=[`${root}/skills/arc/settings.toml`,`${root}/skills/arc/SKILL.md`,...profiles,instructions];const old=paths.map(filename=>fs.readFileSync(filename));
+ const next=plan(home,platform,{language:'en'});assert.throws(()=>applyTransaction(next,{safeFs,acquired:{skills:new Map(),references:referenceFixture()},hooks:{fault(event){if(event.phase==='after-publish'&&event.path===instructions)throw Error('language publication failure');}}}),/language publication failure/);
  for(const[ i,filename]of paths.entries())assert.deepEqual(fs.readFileSync(filename),old[i],filename);
 });
 test('invalid existing language blocks explicit reinstall and skip-global still generates local policies',t=>{
  const home=fixture(t),root=home+'/.claude';fs.mkdirSync(root+'/skills/arc',{recursive:true});fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "fr"\n');assert.throws(()=>plan(home,'claude',{language:'ko',skipGlobal:true}),/Invalid ARC language settings/);
  fs.writeFileSync(root+'/skills/arc/settings.toml','version = 1\nlanguage = "en"\n');const next=plan(home,'claude',{language:'ko',skipGlobal:true});assert.deepEqual(next.globalChanges,[]);assert.match(next.generated.skill.get('SKILL.md').toString(),/Korean/);for(const bytes of next.generated.profiles.values())assert.match(bytes.toString(),/Korean/);
 });
-for(const platform of ['codex','claude'])test(`install plan preserves ${platform} notice in the skill and defers the global contract`,t=>{
+for(const platform of ['codex','claude','gemini','grok'])test(`install plan preserves ${platform} notice in the skill and defers the global contract`,t=>{
  const home=fixture(t),input=payload();input.files.set(`${platform}/skill/SKILL.md`,fs.readFileSync(new URL(`../../${platform}/skill/SKILL.md`,import.meta.url)));
  const result=api.buildInstallPlan({payload:input,target:targets.resolveTarget(platform,{userHome:home,env:{},cwd:home}),safeFs});
- const change=result.globalChanges.find(c=>c.path===result.target.instructionPath);
- assert.ok(change);assert.doesNotMatch(change.content.toString(),/\[platform\.|\[ARC role policy:/);
+ const filename=instructionFilenames[platform],change=result.globalChanges.find(c=>path.basename(c.path)===filename);
+ assert.ok(change,`Missing global change for ${filename}`);assert.doesNotMatch(change.content.toString(),/\[platform\.|\[ARC role policy:/);
  const skill=result.generated.skill.get('SKILL.md').toString();
  const contract=skill.split('[ARC role policy: contract begin]')[1].split('[ARC role policy: contract end]')[0];
- assert.ok(contract.includes(`[platform.${platform}]`));
- assert.ok(!contract.includes(`[platform.${platform==='codex'?'claude':'codex'}]`));
+ assert.deepEqual(contract.match(/\[platform\.[^\]]+\]/g),[`[platform.${platform}]`]);
 });
 test('HSR: Claude model update and uninstall preserve unrelated assets',async t=>{
  const home=fixture(t),first=plan(home,'claude');const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
@@ -181,22 +185,24 @@ test('HSR: Claude model update and uninstall preserve unrelated assets',async t=
  const result=await uninstallTargets([buildUninstallPlan({target:first.target,safeFs})],{safeFs});assert.equal(result.results[0].status,'uninstalled');
  assert.equal(fs.existsSync(`${home}/.claude/skills/arc/hooks`),false);assert.equal(fs.readFileSync(`${home}/.claude/agents/user-agent.md`,'utf8'),'preserve');
 });
-for(const platform of ['codex','claude'])test(`${platform} installs instruction references into a custom spaced home and preserves globals on reinstall`,async t=>{
- // Claude keeps its supported default directory under the spaced temporary HOME; only Codex supports a custom agent home.
- const home=fixture(t),custom=platform==='codex'?home+'/custom agent home':home+'/.claude',environment=platform==='codex'?{CODEX_HOME:custom}:{};
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} installs instruction references into a custom spaced home and preserves globals on reinstall`,async t=>{
+ // Only Codex uses a custom agent directory in this test.
+ const home=fs.mkdtempSync(path.join(fixture(t),'user home '));
+ const custom=platform==='codex'?home+'/custom agent home':`${home}/.${platform}`,environment=platform==='codex'?{CODEX_HOME:custom}:{};
  const input=payload();
  const core=fs.readFileSync(new URL(`../../${platform}/skill/SKILL.md`,import.meta.url),'utf8');const names=['SKILL.md',...[...core.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g)].map(match=>match[1])];
  for(const name of new Set(names)){const source=fs.existsSync(new URL(`../../${platform}/skill/${name}`,import.meta.url))?`${platform}/skill/${name}`:`shared/skill/${name}`;input.files.set(source,fs.readFileSync(new URL(`../../${source}`,import.meta.url)));}
  const target=targets.resolveTarget(platform,{userHome:home,env:environment,cwd:home});
  const make=extra=>api.buildInstallPlan({payload:input,target,language:'ko',safeFs,...extra});
  const {applyTransaction}=await import('../../lib/installer/transaction.mjs');
- const globals=target.instructionPath;fs.mkdirSync(path.dirname(globals),{recursive:true});fs.writeFileSync(globals,'User instructions — café\r\n');
+ const globals=path.join(custom,instructionFilenames[platform]);fs.mkdirSync(path.dirname(globals),{recursive:true});fs.writeFileSync(globals,'User instructions — café\r\n');
  applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});
  const installed=fs.readFileSync(custom+'/skills/arc/SKILL.md','utf8');assert.match(installed,/Use Korean by default/);
  for(const match of installed.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(custom+'/skills/arc/'+match[1]),match[1]);
  assert.match(fs.readFileSync(custom+'/skills/arc/references/coordination.md','utf8'),/\[role.implementer-implementation\]/);
- assert.ok(fs.readFileSync(globals,'utf8').startsWith('User instructions — café\r\n'));
- const before=fs.readFileSync(globals);applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
+ const before=fs.readFileSync(globals);assert.ok(before.toString().startsWith('User instructions — café\r\n'));
+ assert.ok(before.includes('<!-- arc:begin -->'),`Missing managed ARC block in ${globals}`);
+ applyTransaction(make({}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
  applyTransaction(make({skipGlobal:true}),{safeFs,acquired:{skills:new Map(),references:referenceFixture()}});assert.deepEqual(fs.readFileSync(globals),before);
 });
 
@@ -224,8 +230,16 @@ const renderingBaseline={
  'claude:en:true':'1570be91b5579d790d8e41f956d07ce8073f594afe09dc8da45494b62071cd27',
  'claude:ko:false':'8895fb6c18b835f3bd5d2d2e218267b17b5aad00e01acb80cfcc69142c5ac2ff',
  'claude:ko:true':'93f7493a3a1c8b004288df8ec861e078e9f8c5d053e520d46c88d6c66b1046d4',
+ 'gemini:en:false':'a9d80a0e9a0d333fe14d31eabc4d4630d46ddb04fd2fb0cef3735dcb34535a90',
+ 'gemini:en:true':'487a5a0b44df8898d752d77171884983cdf7b868741b4a4b376beef07769f89a',
+ 'gemini:ko:false':'2f7b21c1e07258c354e6d5052c4072c4eb62d97c36e1c775afa72263b85ca0db',
+ 'gemini:ko:true':'093701bd3b6ba108881d6619fadf8a6afeaa26d550c9ef86df75536f8b26c18f',
+ 'grok:en:false':'ca45833acd293a606c3ce6e29444ba98c1874213a0b4b55754283ed48918278e',
+ 'grok:en:true':'3a701184e033d312c56a61f8590ccae27ed83f4ae5391f1e0cf33d472f294e5e',
+ 'grok:ko:false':'6d63c6f5555f351677b8d55dbf15677b71edff35db80883b4946d782e84fb718',
+ 'grok:ko:true':'4c69655078d7674b1806c4b64644422670aaf41fdc434f0df1cc47058d2faf55',
 };
-for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
+for(const platform of ['codex','claude','gemini','grok'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
  const limitsPreview=api.previewLimits({target,safeFs}),languagePreview=api.previewLanguage({target,safeFs});
  const result=plan(home,platform,{language,skipGlobal,limitsPreview,languagePreview,limits:{max_total_subagents:2,max_concurrent_subagents:9},concurrentExplicit:true});
@@ -278,24 +292,33 @@ test('HSR: Claude planning preserves native user hooks without adding handlers',
  fs.writeFileSync(home+'/.claude/settings.json',JSON.stringify({hooks}));const result=plan(home,'claude');assert.deepEqual(JSON.parse(result.globalChanges.find(c=>c.path.endsWith('settings.json')).content).hooks,hooks);
 });
 
-for(const platform of ['codex','claude'])test(platform+' install renders the selected Custom roles and rejects absent catalog pairs',t=>{
+const additionalCatalogPairs={
+ gemini:{model:'gemini-4-hydrogen',effort:'default'},
+ grok:{model:'grok-4.5',effort:'default'},
+};
+for(const platform of ['codex','claude','gemini','grok'])test(platform+' install renders the selected Custom roles and rejects absent catalog pairs',t=>{
  const home=fixture(t),effort=platform==='codex'?'model_reasoning_effort':'effort';
- const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[effort]:'high'}]));
- const verifiedCatalog={platform,pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]};
+ const pair=additionalCatalogPairs[platform]??{model:'fixture-model',effort:'high'};
+ const customRoles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:pair.model,[effort]:pair.effort}]));
+ const verifiedCatalog={platform,pairs:[pair],unavailable:[]};
  const result=plan(home,platform,{roles:customRoles,verifiedCatalog});
  assert.match(result.generated.models.toString(),/^version = 3$/m);
- for(const bytes of result.generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);
+ for(const bytes of result.generated.profiles.values())assert.ok(bytes.toString().includes(pair.model));
  assert.throws(()=>plan(home,platform,{roles:customRoles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
 });
 
-for(const platform of ['codex','claude'])test(platform+' install validates newly edited roles',t=>{
- const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}])),catalog={platform,pairs:[{model:'fixture-model',effort:'high'}]};
+for(const platform of ['codex','claude','gemini','grok'])test(platform+' install validates newly edited roles',t=>{
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort';
+ const pair=additionalCatalogPairs[platform]??{model:'fixture-model',effort:'high'};
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:pair.model,[field]:pair.effort}])),catalog={platform,pairs:[pair]};
  assert.throws(()=>plan(home,platform,{roles,verifiedCatalog:{platform,pairs:[]}}),/catalog/i);
- const result=plan(home,platform,{roles,verifiedCatalog:catalog});assert.match(result.generated.models.toString(),/fixture-model/);
+ const result=plan(home,platform,{roles,verifiedCatalog:catalog});assert.ok(result.generated.models.toString().includes(pair.model));
 });
 
-for(const platform of ['codex','claude'])test(platform+' Install preserves supplied active model config without catalog',t=>{
- const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'saved-model',[field]:'high'}]));
- const result=plan(home,platform,{modelConfig:{platform,version:3,roles}});const parsed=result.generated.models.toString();assert.match(parsed,/^version = 3$/m);assert.match(parsed,/saved-model/);
+for(const platform of ['codex','claude','gemini','grok'])test(platform+' Install preserves supplied active model config without catalog',t=>{
+ const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort';
+ const pair=additionalCatalogPairs[platform]??{model:'saved-model',effort:'high'};
+ const roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:pair.model,[field]:pair.effort}]));
+ const result=plan(home,platform,{modelConfig:{platform,version:3,roles}});const parsed=result.generated.models.toString();assert.match(parsed,/^version = 3$/m);assert.ok(parsed.includes(pair.model));
 });
-for(const platform of ['codex','claude'])test(`${platform} install profiles contain expanded shared instructions`,t=>{const home=fixture(t),result=plan(home,platform);for(const bytes of result.generated.profiles.values()){assert.doesNotMatch(bytes.toString(),/ARC_AGENT_FRAGMENT/);assert.match(bytes.toString(),/Use the approval evidence and scope/);}});
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} install profiles contain expanded shared instructions`,t=>{const home=fixture(t),result=plan(home,platform);for(const bytes of result.generated.profiles.values()){assert.doesNotMatch(bytes.toString(),/ARC_AGENT_FRAGMENT/);assert.match(bytes.toString(),/Use the approval evidence and scope/);}});

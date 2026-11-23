@@ -32,9 +32,15 @@ test('Codex existing root field edits preserve indentation, comments and nested 
   const out = api.renderProfiles(input, settings('codex')).get('arc-implementer.toml').toString();
   assert.ok(out.includes('model = "gpt-6-astra" # keep\n')); assert.ok(out.includes('\t"model_reasoning_effort" = "high"  # keep too\n')); assert.ok(out.endsWith('[nested]\nmodel = "nested"\n'));
 });
-for (const platform of ['codex','claude']) test(`${platform} invalid/missing profile set fails without output`, () => {
-  const input = profiles(platform); const name = Object.keys(input)[0]; delete input[name]; assert.throws(() => api.renderProfiles(input, settings(platform)), { code: 'ARC_MODEL_VALIDATION' });
-  input[name] = Buffer.from(platform === 'codex' ? 'name = "wrong"' : '---\nname: wrong\n---\nbody'); assert.throws(() => api.renderProfiles(input, settings(platform)), { code: 'ARC_MODEL_VALIDATION' });
+for (const platform of ['codex','claude','gemini','grok']) test(`${platform} invalid/missing profile set fails without output`, () => {
+  const input = profiles(platform); const name = Object.keys(input)[0]; delete input[name];
+  if (platform === 'codex' || platform === 'claude') {
+    assert.throws(() => api.renderProfiles(input, settings(platform)), { code: 'ARC_MODEL_VALIDATION' });
+    input[name] = Buffer.from(platform === 'codex' ? 'name = "wrong"' : '---\nname: wrong\n---\nbody');
+    assert.throws(() => api.renderProfiles(input, settings(platform)), { code: 'ARC_MODEL_VALIDATION' });
+  } else {
+    assert.throws(() => api.renderProfiles(input, settings(platform)), { code: 'ARC_MODEL_VALIDATION', message: /five platform role files/ });
+  }
 });
 test('manifest generator protects vendored runtime files and license', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(),'arc-vendor-manifest-')); t.after(() => fs.rmSync(root,{recursive:true,force:true}));
@@ -46,9 +52,13 @@ test('public renderProfiles returns a Map of profile names to buffers', () => {
   const config=api.loadModelConfig(fs.readFileSync(new URL('../../codex/skill/models.toml',import.meta.url),'utf8'),'codex');
   const rendered=api.renderProfiles(profiles('codex'),api.resolveModelSettings(config)); assert.ok(rendered instanceof Map); assert.ok(Buffer.isBuffer(rendered.get('arc-implementer.toml')));
 });
-for (const platform of ['codex','claude']) test(`${platform} rejects a BOM instead of silently removing non-model bytes`, () => {
+for (const platform of ['codex','claude','gemini','grok']) test(`${platform} rejects a BOM instead of silently removing non-model bytes`, () => {
   const input=profiles(platform); const name=Object.keys(input)[0]; input[name]=Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),input[name]]);
-  assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});
+  if (platform==='codex'||platform==='claude') {
+    assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});
+  } else {
+    assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION',message:/UTF-8 BOM/});
+  }
 });
 test('model changes preserve policy blocks and Codex feature settings together',()=>{
  const input=profiles('codex');
@@ -60,11 +70,16 @@ test('model changes preserve policy blocks and Codex feature settings together',
  const end=original.toString().indexOf('[ARC role policy: contract end]')+'[ARC role policy: contract end]'.length;
  assert.ok(start>=0); assert.ok(rendered.includes(original.toString().slice(start,end)));
 });
-for(const platform of ['codex','claude'])test(`${platform} rejects unsupported profile names without changing inputs`,()=>{
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} rejects unsupported profile names without changing inputs`,()=>{
  const input=profiles(platform),ext=platform==='codex'?'toml':'md',old='arc-unknown.'+ext,current='arc-implementer.'+ext;
  input[old]=Buffer.from(input[current].toString().replaceAll('arc_implementer','arc_unknown').replaceAll('arc-implementer','arc-unknown'));delete input[current];
  const before=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,Buffer.from(v)]));
- assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});assert.deepEqual(input,before);
+ if(platform==='codex'||platform==='claude'){
+  assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION'});
+ }else{
+  assert.throws(()=>api.renderProfiles(input,settings(platform)),{code:'ARC_MODEL_VALIDATION',message:/five platform role files/});
+ }
+ assert.deepEqual(input,before);
 });
 
 for(const eol of ['\n','\r\n'])test(`HSR: Claude hook-free profiles and optional user frontmatter round-trip ${JSON.stringify(eol)}`,()=>{

@@ -45,14 +45,16 @@ test('paired specialist payloads deliver the same bounded recovery and visual co
   const inputs = new Map(POLICY_TARGETS.map(({path: name}) => [name, fs.readFileSync(name)]));
   const outputs = buildPolicyOutputs(inputs, policy);
   for (const role of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
-    const contracts = ['codex', 'claude'].map(platform => {
+    const contracts = ['codex', 'claude', 'gemini', 'grok'].map(platform => {
       const name = `${platform}/agents/arc-${role}.${platform === 'codex' ? 'toml' : 'md'}`;
       const text = outputs.get(name).toString();
-      assert.match(text, /optional read method/i);
+      assert.match(text, /optional read method/i, `${role} on ${platform}`);
       const body = text.split('[ARC role policy: contract begin]')[1].split('[ARC role policy: contract end]')[0];
-      return body.split('\n').filter(line => !line.startsWith('- [platform.')).join('\n');
+      return { platform, body: body.split('\n').filter(line => !line.startsWith('- [platform.')).join('\n') };
     });
-    assert.equal(contracts[0], contracts[1], role);
+    for (const { platform, body } of contracts) {
+      assert.equal(body, contracts[0].body, `${role} on ${platform}`);
+    }
   }
   assert.equal(outputs.has('claude/skill/hooks/git-policy.json'), false);
 });

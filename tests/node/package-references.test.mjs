@@ -10,3 +10,17 @@ for(const failure of ['shared reference','manifest'])test(`publication failure r
 test('unsupported upstream files are rejected before publication and disposed once',async t=>{const root=fixture(t),before=protectedBytes(root),bundle=referenceFixture('B');bundle.entries.set('brainstorming/new-file.md',{type:'file',bytes:Buffer.from('new unsupported file'),mode:0o644n});bundle.provenance.files['brainstorming/new-file.md']=createHash('sha256').update('new unsupported file').digest('hex');bundle.entries.get('provenance.json').bytes=Buffer.from(JSON.stringify(bundle.provenance));let disposed=0;await assert.rejects(()=>api.refreshPackageReferences({packageRoot:root,safeFs,acquisition:async()=>({references:bundle,async dispose(){disposed++;}})}),/unsupported/i);unchanged(root,before);assert.equal(disposed,1);});
 test('refresh reports publication plus disposal failures and disposes exactly once',async t=>{const root=fixture(t);let calls=0;await assert.rejects(()=>api.refreshPackageReferences({packageRoot:root,safeFs,acquisition:async()=>({references:referenceFixture(),async dispose(){calls++;throw Object.assign(Error('cleanup failed'),{residualPaths:['/owned/work']});}}),hooks:{fault(event){if(event.phase==='before-publish')throw Error('publish failed');}}}),error=>{assert.ok(error instanceof AggregateError);assert.ok(error.residualPaths.includes('/owned/work'));return true;});assert.equal(calls,1);});
 test('unsafe package destination is rejected before acquisition without touching outside bytes',async t=>{const root=fixture(t),outside=root+'/outside',leaf=root+'/shared/skill/references/scripts/helper.js';fs.mkdirSync(outside);fs.writeFileSync(outside+'/sentinel','keep');fs.unlinkSync(leaf);fs.symlinkSync(outside+'/sentinel',leaf);let calls=0;await assert.rejects(()=>api.refreshPackageReferences({packageRoot:root,safeFs,acquisition:async()=>{calls++;return{references:referenceFixture()};}}));assert.equal(calls,0);assert.equal(fs.readFileSync(outside+'/sentinel','utf8'),'keep');});
+
+for (const platform of ['claude', 'codex', 'gemini', 'grok']) {
+  test(`static package has no ${platform} imported reference copies`, () => {
+    const root = new URL('../../', import.meta.url);
+    const manifest = fs.readFileSync(new URL('MANIFEST.sha256', root), 'utf8').split('\n');
+    for (const [, filename] of referencePaths) {
+      const name = `${platform}/skill/references/${filename}`;
+      assert.equal(fs.existsSync(new URL(name, root)), false, name);
+      assert.equal(manifest.some(line => line.endsWith(`  ${name}`)), false, name);
+    }
+    const nested = `${platform}/skill/references/superpowers`;
+    assert.equal(fs.existsSync(new URL(nested, root)), false, nested);
+  });
+}

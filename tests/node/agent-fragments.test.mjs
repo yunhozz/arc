@@ -10,7 +10,8 @@ const read = (path) => readFile(new URL(path, root));
 test('planner profiles request one complete plan covering all top-level tasks', async () => {
   const { renderAgentProfile } = await import('../../lib/prompts/render.mjs');
   const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
-  for (const target of ['codex/agents/arc-planner.toml', 'claude/agents/arc-planner.md']) {
+  for (const platform of ['codex', 'claude', 'gemini', 'grok']) {
+    const target = `${platform}/agents/arc-planner.${platform === 'codex' ? 'toml' : 'md'}`;
     const rendered = renderAgentProfile(target, await read(target), registry).toString();
     assert.ok(/one complete plan (?:draft )?(?:covering|containing) all top-level tasks/i.test(rendered), `${target} lacks the whole-plan instruction`);
   }

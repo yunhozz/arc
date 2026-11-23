@@ -1,15 +1,19 @@
-# 플랫폼 parity 테스트 확장과 legacy 모델 스크립트 제거 구현 계획
+# 플랫폼 parity 테스트 확장과 Commit gate 문구 강화 구현 계획
 
 > **For agentic workers:** ARC Orchestrator가 조정한다. task마다 Implementer → fresh QA → Orchestrator 수락 → focused commit 1개 순서로 진행한다. Implementer와 QA는 Git 상태를 바꾸지 않는다. 단계는 checkbox(`- [ ]`)로 추적한다.
 
-- 날짜: 2026-11-23 · 상태: v1 (사용자 승인 2026-11-23) · workflow: `2026-11-23-platform-parity`
-- 대상: managed worktree `.claude/worktrees/last-task-final-verification`, 브랜치 `feat/last-task-final-verification`, base: 이 계획 문서 커밋(첫 Implementer 전 `docs(plan)` 커밋)의 HEAD. 줄 번호는 `50d83c6323b3b1cdf0bfdfb1823faf792f8142df` 기준이며 그 뒤 변경은 현재 계획의 마무리 커밋(문서만)뿐이다
+- 날짜: 2026-11-23 · 상태: v3 (사용자 승인 2026-11-23, T14 추가) · workflow: `2026-11-23-platform-parity`
+- 대상: managed worktree `.claude/worktrees/last-task-final-verification`, 브랜치 `feat/last-task-final-verification`, base: 이 계획 문서 커밋(첫 Implementer 전 `docs(plan)` 커밋)의 HEAD. 줄 번호는 `50d83c6323b3b1cdf0bfdfb1823faf792f8142df` 기준이며 그 뒤 변경은 이 계획 문서 커밋(`c81cc22`)과 T6 커밋(`0f3b9c8`)이다
 - 계획 경로: `docs/superpowers/plans/2026-11-23-platform-parity-tests.md`
-- 경로·위험: plan 필요, 별도 spec 없음(설계 승인으로 진행). 깊이 라벨은 Orchestrator 기록을 따른다(가정 A1). 위험은 significant로 본다. 공유 계약 테스트, payload 삭제, MANIFEST·golden 재생성, Python 계약, installer-parity 원장 결합이 걸려 있다.
+- 경로·위험: plan 필요, 별도 spec 없음(설계 승인으로 진행). 깊이 라벨은 Orchestrator 기록을 따른다(가정 A1). 위험은 significant로 본다. 공유 계약 테스트, Python 계약, installer-parity 원장 결합이 걸려 있고, T14는 4 플랫폼 지침과 role-policy 생성 산출물을 바꾼다.
 
-**Goal:** 테스트에서 codex·claude만 다루던 플랫폼 루프와 시나리오를 claude·codex·gemini·grok 4개로 넓혀, gemini·grok의 회귀가 테스트에서 드러나게 한다. legacy인 `apply-models.py`·`model_config.py`(claude·codex)와 이를 고정하던 테스트·fixture·MANIFEST·golden 항목을 제거한다(U3).
+**Goal:** 테스트에서 codex·claude만 다루던 플랫폼 루프와 시나리오를 claude·codex·gemini·grok 4개로 넓혀, gemini·grok의 회귀가 테스트에서 드러나게 한다.
 
-**Architecture:** 제품 코드(`lib/`, `bin/`, `shared/skill/runtime/`, 정책, 지침 문서)는 바꾸지 않는다. task는 파일 단위로 나눠 두 task가 같은 파일을 편집하지 않게 했다. payload를 바꾸는 task는 T6 하나뿐이며 먼저 실행한다. 확장한 테스트가 gemini·grok의 실제 제품 차이를 드러내면 그 항목은 hold하고 보고한다(Q5). 제품 수정은 이 계획에 넣지 않는다.
+(v2) legacy `apply-models.py`·`model_config.py` 제거(U3)는 이 계획에서 뺐다. 이 스크립트에 기대는 Python 테스트 13개가 installer-parity 원장의 parity 근거로 연결되어 있어, 원장 재매핑과 함께 별도 계획에서 다룬다(D4).
+
+(v3) 또한 plan 수준 진행 기록만 담은 단독 `docs(plan)` 커밋(2dfdf9a, b37534d, 1971f59)이 반복되지 않도록, 4 플랫폼 SKILL.md에 Commit gate를 두고 commit.md·verification.md·role-policy 문구를 강화한다(T14). 기계적 검사(runtime 명령, git hook)는 넣지 않는다(사용자 결정 2026-11-23 "기계적 검사 제외. 지침 문서 강화만.").
+
+**Architecture:** T1–T13은 제품 코드(`lib/`, `bin/`, `shared/skill/runtime/`, 정책, 지침 문서)를 바꾸지 않는다. T14만 지침 문서·role-policy·생성 산출물·payload를 바꾼다(v3). task는 파일 단위로 나눠 두 task가 같은 파일을 편집하지 않게 했다. T14 외에 payload를 바꾸는 task는 없다(v3). 확장한 테스트가 gemini·grok의 실제 제품 차이를 드러내면 그 항목은 hold하고 보고한다(Q5). 제품 수정은 이 계획에 넣지 않는다.
 
 **Tech Stack:** Node.js ≥22 ESM, `node:test`, Python `unittest`, git CLI.
 
@@ -17,15 +21,16 @@
 - Q1: U4 분류를 사전 Spike로 수행(완료)
 - Q2: Python에서 현재 실패하는 메서드는 바꾸지 않고 hold 목록에 둔다. subTest도 추가하지 않는다.
 - Q3: U1은 별도 보안 계획으로 넘긴다.
-- Q4: U3 제거를 이 계획에 포함한다.
+- Q4: U3 제거를 이 계획에 포함한다 → v2(2026-11-23 사용자 "별도 계획으로 분리")로 이 계획에서 제외.
 - Q5: 실제 제품 차이가 나오면 hold하고 보고한다.
+- v3(2026-11-23): 사용자 "그냥 c81cc22252984529c446f0f4f94044f22d2b623e 커밋의 plan에 추가해", 결정 "기계적 검사 제외. 지침 문서 강화만.", 기존 closing 문장은 "전제 문장만 추가", role-policy 덧붙임 "예", 범위 감사 "예", v3 개정안 "승인".
 
 근거 문서는 `/private/tmp/claude-501/-Users-ma-24-007-Desktop-workspace-arc/99737933-b2af-4438-a13f-76ed45deb3d3/scratchpad/s0-summary.md`이다.
 
 ## Global Constraints
 
-- **범위:** 테스트 파일과 U3 제거 대상만 바꾼다. U3 제거 대상은 스크립트 4개, 관련 테스트·fixture, `MANIFEST.sha256`, golden이다.
-  - 바꾸지 않는 것: `lib/`, `bin/`, `scripts/`, `shared/`, `{platform}/skill/**`(U3 스크립트 4개 제외), `{platform}/agents/**`, `lib/policy/**`, 지침 문서.
+- **범위:** T1–T13은 테스트 파일만 바꾼다. T14는 자기 allowedPaths를 따른다(v3).
+  - 바꾸지 않는 것(T14 allowedPaths 제외): `lib/`, `bin/`, `scripts/`, `shared/`, `{platform}/skill/**`, `MANIFEST.sha256`, golden, `{platform}/agents/**`, `lib/policy/**`, 지침 문서.
   - 공유 test fixture 모듈(`tests/node/fixtures/*.mjs`, `tests/node/role-fixtures.mjs`)도 바꾸지 않는다. 이를 바꿔야 확장할 수 있으면 해당 항목만 hold한다.
 - **확장 형태:** 기존 배열의 순서를 지키고 뒤에 `'gemini'`, `'grok'`을 붙인다(예: `['codex','claude']` → `['codex','claude','gemini','grok']`).
   - 새 테스트의 4 플랫폼 순서는 registry 순서 `['claude','codex','gemini','grok']`를 쓴다(`tests/node/grok-platform.test.mjs:153`, `tests/node/platform-registry.test.mjs:72`).
@@ -71,7 +76,7 @@
 - **원장 영향 경로**
   - (1) 매핑된 테스트 이름 변경 → `destinations[].test` 불일치
   - (2) 넓힌 본문이 매핑 테스트를 실패시킴 → `--complete` 실패(Q5 hold로 처리)
-  - (3) U3가 매핑된 Python 메서드를 삭제
+  - (3) 매핑된 테스트 메서드 삭제(v1의 U3 사례: `tests/test_codex_models.py`의 `ApplyModelsTests` 5개와 `model_config.py`를 import하는 `ModelSettingsTests` 8개. v2에서 U3를 제외해 해당 없음)
 - **처리 규칙**
   - 생성기는 없다. 원장 편집은 수동이고 inventory 해시와 개수를 바꿀 수 없다.
   - 이 계획은 원장을 편집하지 않는다. 모든 task는 (1)과 (3)을 피한다.
@@ -88,7 +93,7 @@
 | T3 | `tests/node/package.test.mjs` | 없음 |
 | T4 | `tests/node/all-targets.test.mjs`, `tests/node/upgrade-harness.test.mjs`, `tests/node/npm-upgrade-consumer.test.mjs`, `tests/node/consumer.test.mjs` | 없음 |
 | T5 | `tests/test_harness_contract.py`, `tests/test_arc_policy.py` | 없음 |
-| T6 | `claude/skill/scripts/apply-models.py`, `claude/skill/scripts/model_config.py`, `codex/skill/scripts/apply-models.py`, `codex/skill/scripts/model_config.py`(삭제), `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`(재생성), `tests/test_codex_models.py`, `tests/test_claude_payload.py`, `tests/qa_model_cases.py`, `tests/node/manifest.test.mjs` | 있음 |
+| T6 | `tests/node/manifest.test.mjs` | 없음 |
 | T7 | `tests/node/plan.test.mjs`, `tests/node/global-config.test.mjs` | 없음 |
 | T8 | `tests/node/models.test.mjs`, `tests/node/profile-render.test.mjs`, `tests/node/preset.test.mjs`, `tests/node/tui-setup.test.mjs` | 없음 |
 | T9 | `tests/node/management-operations.test.mjs`, `tests/node/management-status.test.mjs`, `tests/node/uninstall.test.mjs`, `tests/node/hardcoding-residual.test.mjs` | 없음 |
@@ -96,16 +101,18 @@
 | T11 | `tests/node/npm-lifecycle.test.mjs`, `tests/node/npm-lifecycle-pty.test.mjs`, `tests/node/npm-completion-consumer.test.mjs`, `tests/node/runtime-installed-entry.test.mjs` | 없음 |
 | T12 | `tests/node/package-references.test.mjs`, `tests/node/superpowers.test.mjs`, `tests/node/status-labels.test.mjs` | 없음 |
 | T13 | `tests/node/role-routing-dispatch.test.mjs`, `tests/node/role-supervisor-descendants.test.mjs`(조건부) | 없음 |
+| T14 | `{claude,codex,gemini,grok}/skill/SKILL.md`, `{…}/skill/references/commit.md`, `{…}/skill/references/verification.md`, `lib/policy/role-policy.json`과 `scripts/update-role-policy.mjs` 생성 산출물(Step 0 목록), `tests/node/plan-level-records-contract.test.mjs`, `tests/node/fixtures/instruction-contracts.json`, `MANIFEST.sha256`, golden | 있음(지침·정책) |
 
-`tests/node/manifest.test.mjs`를 T6에 둔 이유는 결정 D7을 참고한다. `tests/installer-parity.json`은 어느 task도 편집하지 않는다.
+ `tests/installer-parity.json`은 어느 task도 편집하지 않는다.
 
 ## Review Focus
 
 1. 확장이 제품 차이를 숨기지 않는지. Q5 hold 처분, 단언 약화·플랫폼별 예외 분기 추가가 없는지 확인한다.
 2. 원장 매핑 테스트 이름 보존, `--complete` 통과
-3. T6 삭제 범위. 스크립트를 실행하거나 import하는 테스트만 삭제됐는지, 스크립트와 무관한 계약 단언이 함께 사라지지 않았는지 확인한다.
+3. T1–T13에서 payload·MANIFEST·golden 변경이 없는지 확인한다(v3).
 4. Python Q2: base에서 실패하던 메서드가 바뀌지 않았는지 확인한다.
 5. 임시 음성 확인을 되돌렸는지, 종료 diff에 남지 않았는지 확인한다.
+6. (v3) T14: 기존 고정 문장이 한 글자도 바뀌지 않았는지(추가만), 새 문구가 4 플랫폼에 같은 텍스트로 각각 한 번씩만 있는지 확인한다.
 
 ---
 
@@ -119,14 +126,14 @@
 
 **Files (allowedPaths):** Modify `tests/node/role-policy.test.mjs`, `tests/node/agent-fragments.test.mjs`
 
-- [ ] **Step 0:** 공통 Step 0.
-- [ ] **Step 1:** 구간 안의 플랫폼 루프를 확장 형태로 넓힌다.
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** 구간 안의 플랫폼 루프를 확장 형태로 넓힌다.
   - 경로는 `${platform}/agents/arc-${role}.${platform==='codex'?'toml':'md'}`, `${platform}/skill/references/*.md`처럼 일반화한다.
   - `[platform.claude]`처럼 플랫폼 고유 규칙 ID를 단언하는 곳은 `lib/policy/role-policy.json`의 플랫폼별 규칙 데이터로 기대값을 정한다(읽기만). 하드코딩 분기는 추가하지 않는다.
-- [ ] **Step 2:** `agent-fragments.test.mjs:13`의 대상 프로필을 4 플랫폼 Planner 프로필로 넓힌다.
-- [ ] **Step 3:** `node --test tests/node/role-policy.test.mjs tests/node/agent-fragments.test.mjs`를 실행한다. 통과하면 RED 규칙의 (a)(b)를 증거로 남긴다. 실패하면 Q5로 분류한다.
-- [ ] **Step 4:** 공통 종료.
-- [ ] **Step 5: 커밋(Orchestrator, 수락 뒤):** `test(policy): role-policy·fragment 계약을 네 플랫폼으로 확장`
+- [x] **Step 2:** `agent-fragments.test.mjs:13`의 대상 프로필을 4 플랫폼 Planner 프로필로 넓힌다.
+- [x] **Step 3:** `node --test tests/node/role-policy.test.mjs tests/node/agent-fragments.test.mjs`를 실행한다. 통과하면 RED 규칙의 (a)(b)를 증거로 남긴다. 실패하면 Q5로 분류한다.
+- [x] **Step 4:** 공통 종료.
+- [x] **Step 5: 커밋(Orchestrator, 수락 뒤):** `test(policy): role-policy·fragment 계약을 네 플랫폼으로 확장`
 
 **수용 기준:**
 - 구간 안의 `['codex','claude']` 루프가 남지 않는다. 남기면 이유와 hold 목록이 있어야 한다.
@@ -147,7 +154,7 @@
 
 **Hold:** Q5, masking, 원장 이름 변경 필요
 
-**진행 기록 (T1):** 미기록
+**진행 기록 (T1):** 2026-11-23 수락. Implementer(`7adeecb0`): base role-policy 30/30·agent-fragments 5/5, 원장 매핑 없음. `role-policy.test.mjs` 15개 루프(:65, :140, :155, :226, :235, :247, :258, :266, :275, :292, :303, :311, :321, :339, :358)와 `agent-fragments.test.mjs:13`을 4 플랫폼으로 확장(반복 수 2배). 원장 미매핑 테스트 이름 2개 `both`→`all four`. 음성 확인: gemini notice 기대값을 메모리에서 바꾸면 `:69` strictEqual 실패. Orchestrator 호스트: role-policy·agent-fragments·test-scope-contract·instruction-layout 201/201, `check:role-policy` 48, installer-parity 235/736/14. fresh QA(`12b79803`, 재확인 1회): 수락 권고, finding 없음. POLICY_TARGETS 48개(플랫폼당 12) 중 T1 명시 검사 32개(지침 7 + Planner 프로필 1, × 4), 48개 생성 출력 바이트 일치.
 
 ---
 
@@ -161,12 +168,12 @@
 
 **Files (allowedPaths):** Modify `tests/node/parity-check.test.mjs`. `tests/installer-parity.json`은 read-only.
 
-- [ ] **Step 0:** 공통 Step 0. `node scripts/check-installer-parity.mjs`와 `--complete`의 base 결과를 기록한다. `--complete`가 base에서 실패하면 실패 메시지를 기준으로 기록한다.
-- [ ] **Step 1:** `:48`을 `['codex','claude','gemini','grok']`로 바꾼다. 확장자 식을 유지하고, 4개 본문이 모두 같다는 단언(`contracts.every(c => c === contracts[0])`)으로 일반화한다. 실패 메시지에 role과 platform을 남긴다.
-- [ ] **Step 2:** `node --test tests/node/parity-check.test.mjs`를 실행한다. 통과하면 RED 규칙 (b)를 적용한다. gemini·grok 본문이 `[platform.` 외 줄에서 다르면 Q5 hold로 처리하고 차이 줄을 보고한다.
-- [ ] **Step 3:** 원장 결합을 대조한다. `:37` 개수 단언이 바뀌지 않았고 이 task가 원장을 편집하지 않았음을 보고한다.
-- [ ] **Step 4:** 공통 종료.
-- [ ] **Step 5: 커밋(Orchestrator, 수락 뒤):** `test(parity): paired specialist payload 비교를 네 플랫폼으로 확장`
+- [x] **Step 0:** 공통 Step 0. `node scripts/check-installer-parity.mjs`와 `--complete`의 base 결과를 기록한다. `--complete`가 base에서 실패하면 실패 메시지를 기준으로 기록한다.
+- [x] **Step 1:** `:48`을 `['codex','claude','gemini','grok']`로 바꾼다. 확장자 식을 유지하고, 4개 본문이 모두 같다는 단언(`contracts.every(c => c === contracts[0])`)으로 일반화한다. 실패 메시지에 role과 platform을 남긴다.
+- [x] **Step 2:** `node --test tests/node/parity-check.test.mjs`를 실행한다. 통과하면 RED 규칙 (b)를 적용한다. gemini·grok 본문이 `[platform.` 외 줄에서 다르면 Q5 hold로 처리하고 차이 줄을 보고한다.
+- [x] **Step 3:** 원장 결합을 대조한다. `:37` 개수 단언이 바뀌지 않았고 이 task가 원장을 편집하지 않았음을 보고한다.
+- [x] **Step 4:** 공통 종료.
+- [x] **Step 5: 커밋(Orchestrator, 수락 뒤):** `test(parity): paired specialist payload 비교를 네 플랫폼으로 확장`
 
 **수용 기준:**
 - 4 플랫폼 × 5 역할 비교
@@ -181,7 +188,7 @@
 
 **Hold:** Q5, `--complete`의 신규 실패
 
-**진행 기록 (T2):** 미기록
+**진행 기록 (T2):** 2026-11-23 수락. Implementer(`adb44585`): base parity-check 17/17, 원장 매핑 없음. `:48`을 4 플랫폼으로 넓히고 역할별 codex 본문과 플랫폼별 `assert.equal`(메시지 `${role} on ${platform}`)로 비교(계획의 `every` 단언과 동등, 20회). `optional read method` 단언도 4 플랫폼. 음성 확인: gemini implementer 본문에 줄 삽입 시 `implementer on gemini` 실패. Orchestrator 호스트: parity-check+role-policy 47/47, installer-parity 일반 모드 235/736/14, `--complete`는 base(cc47979)와 변경 후 모두 exit 1로 `consumer.test.mjs`의 같은 기준 실패 3건에서 중단(그 뒤 매핑 실행은 미검증). fresh QA(`b3ec8544`, 재확인 1회): 수락 권고, finding 없음. S0 HISTORICAL 96줄은 원장의 기존 설치 동작 근거(95줄 Claude 스킬 링크 예외, 1줄 Codex 선행 대상 시나리오)로 D5에 따라 변경 불필요.
 
 ---
 
@@ -189,15 +196,15 @@
 
 **목표·범위:** `tests/node/package.test.mjs:10`(ordinary 파일 목록), `:14`, `:22`의 codex·claude 한정 경로와 루프에 gemini·grok을 추가한다. `:9`의 cache 경로도 같은 구성이면 함께 넓힌다.
 
-**선행:** T6 수락·커밋(payload 구성이 확정된 뒤 base를 기록하기 위해서다).
+**선행:** 없음(v2: payload 변경 task가 없어짐).
 
 **Files (allowedPaths):** Modify `tests/node/package.test.mjs`
 
-- [ ] **Step 0:** 공통 Step 0. base는 T6 커밋 뒤 HEAD다.
-- [ ] **Step 1:** 합성 경로 `gemini/skill/scripts/nested/...`, `grok/skill/scripts/nested/...`와 `:14`·`:22`의 플랫폼 목록을 확장한다.
-- [ ] **Step 2:** `node --test tests/node/package.test.mjs`를 실행한다. 통과하면 RED 규칙 (a)(b)를 적용한다.
-- [ ] **Step 3:** 공통 종료.
-- [ ] **Step 4: 커밋:** `test(package): package 포함·제외 검사를 네 플랫폼으로 확장`
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** 합성 경로 `gemini/skill/scripts/nested/...`, `grok/skill/scripts/nested/...`와 `:14`·`:22`의 플랫폼 목록을 확장한다.
+- [x] **Step 2:** `node --test tests/node/package.test.mjs`를 실행한다. 통과하면 RED 규칙 (a)(b)를 적용한다.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋:** `test(package): package 포함·제외 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 4 플랫폼 경로가 포함·제외 규칙 양쪽에서 검사되고, 신규 실패가 없다.
 
@@ -209,7 +216,7 @@
 
 **Hold:** Q5, masking
 
-**진행 기록 (T3):** 미기록
+**진행 기록 (T3):** 2026-11-23 수락. Implementer(`4992042d`): base package 10/10, 원장 매핑 없음. `:9` 캐시 표본 6→10(gemini·grok 중첩 `__pycache__`·`outside.pyc`), `:10` 일반 파일 3→5, `:14` 포함 단언 7→11(`SKILL.md` 2→4), `:22` 플랫폼 루프 2→4(기본 파일 12→24, 공유 참조 사본 제외 26→52, `references/superpowers/` 제외 2→4). 음성 확인: grok `brainstorming.md` 기대를 뒤집으면 `false !== true` 실패. 테스트 이름("for both platforms") 유지(이름 보존 규칙, 원장 미매핑). Orchestrator 호스트: package·release-artifact·manifest 118/118, `check:manifest` 292. fresh QA(`bddcded0`): 수락, finding 없음.
 
 ---
 
@@ -223,19 +230,19 @@
 - (c) `tests/node/npm-upgrade-consumer.test.mjs:8`, `:16`, `:24`
 - (d) `tests/node/consumer.test.mjs:12–18`의 codex·claude 한정 루프
 
-**선행:** T6 수락·커밋(packed payload).
+**선행:** 없음(v2).
 
 **Files (allowedPaths):** Modify `tests/node/all-targets.test.mjs`, `tests/node/upgrade-harness.test.mjs`, `tests/node/npm-upgrade-consumer.test.mjs`, `tests/node/consumer.test.mjs`
 
-- [ ] **Step 0:** 공통 Step 0. npm sandbox 테스트가 bridge sandbox에서 실행되지 않으면 Orchestrator의 host 출력을 기준으로 쓴다.
-- [ ] **Step 1: RED 기대 없음** all-targets 신규 테스트를 추가한다. 입력 plan은 같은 파일의 `plans(t)` 방식을 4 플랫폼으로 일반화한 지역 helper로 만든다. 공유 fixture는 바꾸지 않는다. 통과하면 음성 확인을 한다(실패 주입 위치를 grok으로 바꿔 기대 상태가 어긋나는지 보고 되돌림).
-- [ ] **Step 2:** (b)–(d)를 넓힌다.
+- [x] **Step 0:** 공통 Step 0. npm sandbox 테스트가 bridge sandbox에서 실행되지 않으면 Orchestrator의 host 출력을 기준으로 쓴다.
+- [x] **Step 1: RED 기대 없음** all-targets 신규 테스트를 추가한다. 입력 plan은 같은 파일의 `plans(t)` 방식을 4 플랫폼으로 일반화한 지역 helper로 만든다. 공유 fixture는 바꾸지 않는다. 통과하면 음성 확인을 한다(실패 주입 위치를 grok으로 바꿔 기대 상태가 어긋나는지 보고 되돌림).
+- [x] **Step 2:** (b)–(d)를 넓힌다.
   - 각 테스트의 설치 명령이 이미 4 플랫폼을 설치하는 경우(`--target all` 등)에는 단언 루프만 넓힌다.
   - codex·claude만 설치하는 경우, 같은 파일 안에서 CLI가 지원하는 대상 지정만 바꿔 확장한다.
   - 공유 fixture(`tests/node/fixtures/npm-sandbox*` 등) 변경이 필요하면 그 항목만 hold한다.
-- [ ] **Step 3:** 4개 파일을 실행한다(npm sandbox 테스트는 host 필요 시 Orchestrator 실행).
-- [ ] **Step 4:** 공통 종료.
-- [ ] **Step 5: 커밋:** `test(lifecycle): 네 플랫폼 설치 순서·부분 실패와 upgrade·consumer 검사 확장`
+- [x] **Step 3:** 4개 파일을 실행한다(npm sandbox 테스트는 host 필요 시 Orchestrator 실행).
+- [x] **Step 4:** 공통 종료.
+- [x] **Step 5: 커밋:** `test(lifecycle): 네 플랫폼 설치 순서·부분 실패와 upgrade·consumer 검사 확장`
 
 **수용 기준:**
 - 4 플랫폼 순서와 3번째 실패 시 상태(claude·codex `installed`, gemini 실패, grok `not-started`, 앞선 설치 보존)가 단언된다.
@@ -254,7 +261,14 @@
 
 **Hold:** Q5(예: gemini·grok 부분 실패 상태가 다르다), 공유 fixture 변경 필요, masking
 
-**진행 기록 (T4):** 미기록
+**진행 기록 (T4):** 2026-11-23 수락. Implementer(`b296ac05`, 후속 2회: `consumer:18` 패치 재개, QA finding 수정).
+- 호스트 base(40a13ed, 4파일): 61 tests, 49 pass, 11 fail, 1 skip. 최종: 71 tests, 59 pass, 11 fail(이름 동일), 1 skip.
+- (a) 신규 `All installs four targets in registry order`, `All stops at a third-target failure, keeps earlier installs and leaves the fourth not-started`(지역 helper, 기존 `:4–16` 불변). 음성 확인: 실패 주입을 grok으로 옮기면 gemini `installed`·grok `failed`로 단언 실패.
+- (b) `upgrade-harness.test.mjs`: `payload()` 4 플랫폼, `seed()`가 gemini·grok 설치, `collectInstalledState()`·`buildUpgradePlans()` 경유 계획·적용 단언. gemini·grok 형제 테스트 8개(same-version, profile publication failure, offline, expanded shared instructions) 추가, 공유 완료 계획 2→4. v1/v2 legacy 사례는 입력 fixture가 codex·claude뿐이라 유지. 음성 확인: grok `SKILL.md` 기대 `/^new harness /` 실패. 최초 구현은 입력만 넓혀 QA finding(미충족) → 수정.
+- (c) hold(masking): `npm-upgrade-consumer:8`, `:16`, `:24`(유일 테스트가 base 실패, 부분 실패 구간 `ARC harness updated to 0.1.6.` 출력).
+- (d) `consumer:18` 4 플랫폼 제거 확장(압축 줄을 여러 줄로 풀고 기존 단언 6개 유지). 음성 확인: grok `not-started` 기대가 `grok: uninstalled`에서 실패. hold(masking): `consumer:12`, `:13`, `:14`, `:16`(base 실패: manifest `scripts/deploy.sh` 누락, `preset is not defined`).
+- 기준 이슈 기록: 원장 이름 불일치(`all-targets` `All preserves external literal links and installs independent internal snapshots`, `consumer` `packed tarball executes every target and preset without Python or source access`)는 base부터 존재. 관련 `transaction.test.mjs:45`는 50d83c6 base 실패. `--complete`는 base부터 `consumer` 매핑 실패로 조기 종료.
+- fresh QA(`1c03ca65`, finding 1건 → 재확인): 수락.
 
 ---
 
@@ -266,19 +280,19 @@
 
 **Files (allowedPaths):** Modify `tests/test_harness_contract.py`, `tests/test_arc_policy.py`
 
-- [ ] **Step 0:** 공통 Step 0. 대상 메서드별 base 상태표를 만든다.
+- [x] **Step 0:** 공통 Step 0. 대상 메서드별 base 상태표를 만든다.
   ```
   PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -v -s tests -p test_harness_contract.py
   PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -v -s tests -p test_arc_policy.py
   ```
   각 대상 줄이 속한 메서드명과 `ok/FAIL/ERROR`를 기록한다. 편집 전에 이 표를 제출한다.
-- [ ] **Step 1:** `ok` 메서드만 넓힌다.
+- [x] **Step 1:** `ok` 메서드만 넓힌다.
   - `:12`가 여러 메서드가 쓰는 모듈 상수이고 그중 하나라도 base에서 실패하면 상수는 바꾸지 않는다. 대신 통과 메서드 안에서만 지역 4 플랫폼 튜플을 쓴다.
   - 이미 `subTest(platform=…)`를 쓰는 루프(`:498` 부근)는 그 구조를 유지한다.
-- [ ] **Step 2:** 실패 메서드는 바꾸지 않고 hold 목록에 둔다. 메서드명, base 실패 요약, 대상 줄을 적는다.
-- [ ] **Step 3:** 같은 명령을 재실행한다. 넓힌 메서드가 통과하는지, 신규 실패가 없는지 메서드 이름 기준으로 대조한다. 넓힌 메서드가 실패하면 Q5 hold로 처리한다.
-- [ ] **Step 4:** 공통 종료.
-- [ ] **Step 5: 커밋:** `test(contract): 통과 중인 Python 계약 루프를 네 플랫폼으로 확장`
+- [x] **Step 2:** 실패 메서드는 바꾸지 않고 hold 목록에 둔다. 메서드명, base 실패 요약, 대상 줄을 적는다.
+- [x] **Step 3:** 같은 명령을 재실행한다. 넓힌 메서드가 통과하는지, 신규 실패가 없는지 메서드 이름 기준으로 대조한다. 넓힌 메서드가 실패하면 Q5 hold로 처리한다.
+- [x] **Step 4:** 공통 종료.
+- [x] **Step 5: 커밋:** `test(contract): 통과 중인 Python 계약 루프를 네 플랫폼으로 확장`
 
 **수용 기준:**
 - base 상태표가 있다.
@@ -286,7 +300,7 @@
 - base 실패 메서드의 diff는 없다(QA가 메서드 범위 diff로 확인).
 - 신규 실패가 없다.
 
-**관련 테스트(이유):** 두 파일(직접). `test_claude_payload.py`는 같은 문서를 읽지만 T6 소유이므로 실행만 한다.
+**관련 테스트(이유):** 두 파일(직접). `test_claude_payload.py`는 같은 문서를 읽으므로 실행만 한다.
 
 **check:** 없음(정책 산출물 불변)
 
@@ -294,67 +308,40 @@
 
 **Hold:** Q5, 공유 상수 충돌
 
-**진행 기록 (T5):** 미기록
+**진행 기록 (T5):** 2026-11-23 수락. Implementer(`5bf5475d`): base 상태표 harness 35 메서드(ok 17·FAIL 18), policy 119 메서드(ok 11·FAIL 102·ERROR 6). 확장 9개(harness `test_commit_guidance_uses_english_descriptions`, `test_maintained_local_links_resolve`, `test_stale_png_is_unreferenced`, `test_failure_disposition_orders_evidence_classification_holds_and_release`, `test_envelope_fingerprint_distinguishes_source_access_states`; policy `test_pre_final_qa_failures_keep_qa_recheck`, `test_flat_imported_assets_match_original_provenance_and_both_platforms`, `test_visual_roles_preserve_output_identity_and_verdict_limits`, `test_target_change_holds_edits_until_choice_and_state_confirmed`), 모두 base ok → ok. `:12` `PLATFORMS`는 base 실패 메서드도 쓰므로 유지하고 통과 메서드 안에서 지역 4 플랫폼 튜플을 썼다.
+- hold(Q2, base FAIL 30): harness `test_planner_progress_and_saved_approval_contract`, `test_explicit_request_authorization_has_scoped_conditions`, `test_authorization_reuse_preserves_target_and_state_gates`, `test_contract_mutations_reject_removed_holds_and_role_guards`, `test_common_contracts_have_platform_owners`, `test_document_order_accepts_choice_before_writing`, `test_document_order_rejects_missing_required_gates`, `test_planner_authorship_contract`, `test_planner_authorship_allows_user_preferences`, `test_handoff_and_role_local_guards_remain_accessible`, `test_readiness_requires_acceptance_and_verified_result`, `test_commit_contract_distinguishes_plan_skip_and_no_change`, `test_commit_authority_is_orchestrator_only`, `test_commit_checker_preserves_hold_and_reuse_contracts`, `test_native_adapters_remain_explicit`, `test_policy_contract_checker_rejects_missing_guards`, `test_handoff_preserves_provenance_visual_and_resume_fields`, `test_verification_and_visual_companion_keep_visual_gaps_visible`; policy `test_final_plan_reviewer_corrections_skip_qa`, `test_final_reviewer_findings_on_committed_work`, `test_final_review_exception_preserves_scope_and_roles`, `test_planner_drafting_preflight_requires_complete_brief`, `test_planner_returns_complete_draft_and_self_review`, `test_planner_followup_batches_substantive_omissions`, `test_planner_turn_minimization_preserves_approval_gates`, `test_models_scouter_lookup_exception`, `test_installed_limits_policy_replaces_manual_config`, `test_qa_freshness_and_no_contradictory_substitution`, `test_internal_superpowers_paths_and_runtime_boundaries`, `test_profiles_bound_recovery_without_relaxing_role_authority`.
+- hold(공유 상수 의존, base ok 12): `:12` 공유 상수·owner 표·checker에 의존하는 `PolicyContractTests` 12개(상수 유지 규칙).
+- 원장: harness 매핑 0, policy 87. 대상과 겹친 3개(`test_models_scouter_lookup_exception`, `test_final_reviewer_findings_on_committed_work`, `test_installed_limits_policy_replaces_manual_config`)는 base FAIL로 미변경.
+- 음성 확인: grok `brainstorming.md` 존재 기대를 임시로 넣으면 `AssertionError`, 원복 후 ok.
+- Orchestrator 호스트: harness Ran 35·failures 36, policy Ran 119·failures 331·errors 6(base와 동일 총계). fresh QA(`e3e023d9`, 재확인 1회): 수락. base·현재 154 메서드 상태 변화 0, 실패·오류 헤더(subTest 포함) harness 36·policy 337(고유 336) 일치.
 
 ---
 
-### Task 6: legacy 모델 스크립트 제거(U3)와 manifest 계약 4 플랫폼화
+### Task 6: manifest 계약의 4 플랫폼 확장 (v2: U3 제외)
 
-**목표·범위:**
-- (a) U3: `claude/skill/scripts/{apply-models.py,model_config.py}`와 `codex/skill/scripts/{apply-models.py,model_config.py}`를 삭제한다.
-  - 이 스크립트를 실행하거나 import하는 테스트·helper를 정리한다: `tests/test_codex_models.py:264,360,385`, `tests/test_claude_payload.py:24,53,55,216,228,264,383–384,799–800`, `tests/qa_model_cases.py:62`.
-  - `MANIFEST.sha256`과 golden을 재생성한다.
-  - `tests/node/manifest.test.mjs:48`(MANIFEST에서 `codex/skill/scripts/model_config.py` 줄을 빼는 mutation)을 남아 있는 다른 payload 파일로 바꾼다.
-- (b) manifest GAP: `tests/node/manifest.test.mjs:77`, `:78`(platform 복사본 C1 거부), `:93`(coordination.md 필수·최신)의 `['codex','claude']`를 4 플랫폼으로 넓힌다.
+**목표·범위:** `tests/node/manifest.test.mjs:77`, `:78`(platform 복사본 C1 거부), `:93`(coordination.md 필수·최신)의 `['codex','claude']`를 4 플랫폼으로 넓힌다. `:48`의 mutation(`codex/skill/scripts/model_config.py` 줄 제거)은 스크립트가 남으므로 그대로 둔다.
 
-**선행:** 없음. 첫 번째로 실행한다(payload를 바꾸는 유일한 task).
+**선행:** 없음.
 
-**Files (allowedPaths):**
-- Delete: 위 스크립트 4개
-- Modify: `tests/test_codex_models.py`, `tests/test_claude_payload.py`, `tests/qa_model_cases.py`, `tests/node/manifest.test.mjs`
-- Regenerate: `MANIFEST.sha256`(`node scripts/update-manifest.mjs`), `tests/node/fixtures/installed-layout-golden.json`(`node tests/node/fixtures/installed-layout.mjs --diff` 뒤 `--write`)
+**Files (allowedPaths):** Modify `tests/node/manifest.test.mjs`
 
-- [ ] **Step 0:** 공통 Step 0.
-  - 원장 조회 대상: `tests/test_codex_models.py`, `tests/test_claude_payload.py`, `tests/node/manifest.test.mjs`
-  - 삭제 예정 Python 메서드가 원장에 매핑되어 있으면 그 메서드는 hold한다.
-  - `qa_model_cases` import 위치를 read-only로 찾아 기록한다.
-  - 정적 참조를 재확인한다. `apply-models|model_config|skill/scripts`가 `lib/`, `bin/`, `scripts/`, `shared/`, `{platform}/skill/**/*.md`에 없어야 한다(S0와 이번 grep 근거). 하나라도 발견되면 hold한다.
-- [ ] **Step 1: RED** manifest GAP 확장(`:77`, `:78`, `:93`)을 실행한다. 통과하면 음성 확인을 한다.
-- [ ] **Step 2:** 스크립트 4개를 삭제한다.
-  - 스크립트를 실행하거나 import하는 테스트 메서드·helper 사례만 삭제한다.
-  - 같은 메서드가 스크립트와 무관한 계약(예: `models.toml` 값, 프로필 내용)을 함께 단언하면 그 단언은 스크립트 없이 유지한다. 유지할 수 없으면 hold한다.
-  - 삭제·변경한 메서드 목록과 각각에 대응하는 Node 커버리지(예: `models.test.mjs`의 `loadModelConfig`)를 보고한다.
-- [ ] **Step 3:** `manifest.test.mjs:48`의 mutation 대상을 남는 codex payload 파일로 바꾸고, 그 mutation이 여전히 실패를 유발하는지 확인한다.
-- [ ] **Step 4: MANIFEST** `node scripts/update-manifest.mjs`를 실행한다. 정확히 4항목이 삭제되어야 하고 추가·변경은 없어야 한다. 다르면 hold한다.
-- [ ] **Step 5: golden** `--diff` 기대는 정확히 16줄 삭제다(8 레이아웃 × 2, base `:68-69`, `:136-137`, `:209-210`, `:282-283`, `:350-351`, `:418-419`, `:491-492`, `:564-565`). 다르면 `--write` 전에 hold한다.
-- [ ] **Step 6:** 관련 테스트를 확인한다.
-  - `node --test --test-name-pattern='preserves public rendering baseline' tests/node/plan.test.mjs`가 실패하면 hold한다(T7 소유).
-  - `package.test.mjs:9-10`, `release-artifact.test.mjs:40`은 합성 경로이므로 통과를 기대한다. 실패하면 hold한다(비소유 파일).
-- [ ] **Step 7:** 공통 종료.
-- [ ] **Step 8: 커밋:** `chore(payload): legacy 모델 스크립트를 제거하고 manifest 계약을 네 플랫폼으로 확장`
+- [x] **Step 0:** 공통 Step 0. 원장 조회 대상: `tests/node/manifest.test.mjs`(v1 Step 0 결과: 매핑 4건 `descriptor-verifies bytes and mutable model inputs`, `dynamic payload rejects malformed provenance`, `manifest reference coverage rejects missing entries and changed hashes`, `payload leaf replacement cannot read an outside regular-file sentinel`, 확장 대상과 겹치지 않음; base 82 pass).
+- [x] **Step 1:** `:77`, `:78`, `:93`의 루프를 확장 형태로 넓힌다.
+- [x] **Step 2:** `node --test tests/node/manifest.test.mjs`를 실행한다. 통과하면 RED 규칙 (a)(b)를 적용한다. gemini·grok에서 실패하면 Q5로 분류한다.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋:** `test(manifest): payload 복사본·coordination 검사를 네 플랫폼으로 확장`
 
-**수용 기준:**
-- 스크립트 4개가 없다.
-- MANIFEST에서 4항목, golden에서 16줄이 삭제되고 그 밖의 변경이 없다.
-- 제품 코드 diff가 없다(`git diff 50d83c63 -- lib bin scripts shared` 비어 있음).
-- 삭제 메서드 목록과 근거가 있다.
-- manifest C1·coordination 검사가 4 플랫폼에서 이뤄진다.
-- 신규 실패가 없다.
+**수용 기준:** C1 복사본 거부와 coordination.md 필수·최신 검사가 4 플랫폼에서 이뤄진다. 매핑 테스트 이름이 유지된다. 신규 실패가 없다. 제품·payload diff가 없다.
 
-**관련 테스트(이유):**
-- `manifest`, `installed-layout-golden`(생성물)
-- `package`, `release-artifact`(payload 목록·cache)
-- `plan`(digest)
-- `packed-consumer`, `skill-sources`, `runtime-assets`(설치 payload)
-- Python `test_codex_models.py`, `test_claude_payload.py`, `qa_model_cases` importer, `test_arc_policy.py`(`:505`는 `assertNotIn`이므로 편집 불필요)
+**관련 테스트(이유):** `manifest`(직접), `installed-layout-golden`(payload 목록), `package-references`(같은 C1 규칙)
 
 **check:** `npm run check:manifest`, `node scripts/check-installer-parity.mjs`
 
-**필수 QA·증거:** fresh QA, MANIFEST·golden 목록, 삭제 메서드 대조, 정적 참조 재확인, 음성 확인
+**필수 QA·증거:** fresh QA, 음성 확인, 확장 반복 수
 
-**Hold:** 동적·문서 참조 발견, 원장 매핑 메서드 삭제 필요, 생성물 개수 불일치, plan digest 실패, 비소유 파일 실패
+**Hold:** Q5, masking, 원장 이름 변경 필요
 
-**진행 기록 (T6):** 미기록
+**진행 기록 (T6):** v1 Implementer(`e9842af0`, 2026-11-23)가 Step 0에서 hold했다. 원장이 스크립트 의존 Python 메서드 13개를 parity 근거로 매핑하고 있었다. 파일 변경은 없다. 사용자 결정으로 U3를 분리하고 v2로 재정의했다(fresh Implementer). v2 Implementer(`8db11336`): base 82 pass → 88 pass/0 fail(C1 참조 복사본 2→4 테스트, 런타임 복사본 반복 2→4, coordination.md 4→8 테스트). 음성 확인: gemini 런타임 기대값을 메모리에서 바꾸면 `reintroduced platform runtime copy fails C1`이 `ERR_ASSERTION`으로 실패, 되돌림. Orchestrator 호스트: manifest+installed-layout-golden 92/0, `check:manifest` 292, installer-parity 235/736/14 통과. `package-references`의 `publishes both flat platforms and manifest consistently without replacing ARC-owned files` 1건 실패(fixture ENOENT)는 `50d83c6` 전체 회귀 실패 목록에 있는 기준 실패. fresh QA(`ab3388d6`): 수락 권고, finding 없음. 2026-11-23 수락.
 
 ---
 
@@ -365,19 +352,19 @@
   - `:93`, `:128`, `:261`은 조사에서 분류되지 않았으므로 바꾸지 않는다(D8).
 - `tests/node/global-config.test.mjs:10`(home·SKILL 경로 쌍), `:31`(platform 인자)
 
-**선행:** T6 수락·커밋.
+**선행:** 없음(v2).
 
 **Files (allowedPaths):** Modify `tests/node/plan.test.mjs`, `tests/node/global-config.test.mjs`
 
-- [ ] **Step 0:** 공통 Step 0. 두 파일 모두 원장 매핑이 많으므로 기존 이름을 보존한다.
-- [ ] **Step 1:** `payload()`를 확장한다. 프로필 파일명과 확장자는 저장소의 `{gemini,grok}/agents/arc-*.md`에서 읽는다.
-- [ ] **Step 2:** 루프를 넓힌다.
+- [x] **Step 0:** 공통 Step 0. 두 파일 모두 원장 매핑이 많으므로 기존 이름을 보존한다.
+- [x] **Step 1:** `payload()`를 확장한다. 프로필 파일명과 확장자는 저장소의 `{gemini,grok}/agents/arc-*.md`에서 읽는다.
+- [x] **Step 2:** 루프를 넓힌다.
   - `:228`(public rendering baseline)은 gemini·grok의 새 digest 상수를 현재 출력에서 기록한다. 이것은 characterization pin이다. QA가 같은 값을 독립 재계산하고, gemini·grok 렌더가 같은 테스트의 claude 구조 단언을 통과하는지 확인한다.
   - `:281–297`은 gemini·grok catalog pair가 저장소 데이터(`{platform}/skill/models.toml`, 기존 catalog fixture)로 이미 있을 때만 넓힌다. 없으면 hold한다.
-- [ ] **Step 3:** global-config `:10`에 `['/Users/u/.gemini','~/.gemini/skills/arc/SKILL.md']`, `['/Users/u/.grok','~/.grok/skills/arc/SKILL.md']`를 추가하고, `:31` 루프를 넓힌다. 제품 블록이 플랫폼별로 다르면 Q5로 처리한다.
-- [ ] **Step 4:** 두 파일을 실행한다. 통과하면 음성 확인을 한다.
-- [ ] **Step 5:** 공통 종료.
-- [ ] **Step 6: 커밋:** `test(plan): install plan·global bootstrap 검사를 네 플랫폼으로 확장`
+- [x] **Step 3:** global-config `:10`에 `['/Users/u/.gemini','~/.gemini/skills/arc/SKILL.md']`, `['/Users/u/.grok','~/.grok/skills/arc/SKILL.md']`를 추가하고, `:31` 루프를 넓힌다. 제품 블록이 플랫폼별로 다르면 Q5로 처리한다.
+- [x] **Step 4:** 두 파일을 실행한다. 통과하면 음성 확인을 한다.
+- [x] **Step 5:** 공통 종료.
+- [x] **Step 6: 커밋:** `test(plan): install plan·global bootstrap 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 대상 루프 확장 또는 hold 기록, 새 digest의 QA 독립 재계산, 기존 매핑 이름 유지, 신규 실패 없음
 
@@ -389,7 +376,14 @@
 
 **Hold:** Q5, catalog 부재, masking
 
-**진행 기록 (T7):** 미기록
+**진행 기록 (T7):** 2026-11-23 수락. Implementer(`7eb77c81`, 후속 1회: QA finding 수정).
+- 호스트(4파일: plan, global-config, installed-layout-golden, instruction-layout) base 152 pass → 182 pass, 0 fail. `check-installer-parity` 일반 모드 exit 0(236 IDs, 739 assertions).
+- plan: `payload()` 2→4, 루프 `:142`, `:149`, `:160`, `:184`, `:228`(4→16 조합), `:281`, `:291`, `:297`, `:301`를 gemini·grok으로 확장(67→93). D8의 `:93`, `:128`, `:261` 불변. catalog는 저장소의 `gemini-4-hydrogen/default`, `grok-4.5/default` 사용.
+- `:228` 새 digest 8개(gemini·grok × en·ko × skipGlobal)는 QA가 독립 재계산해 일치. 음성 확인: `gemini:en:false` 값 변경 시 실패.
+- `:142`, `:149`, `:160`, `:184` 기대 경로는 리터럴 지침 파일명(codex `AGENTS.md`, claude `CLAUDE.md`, gemini `GEMINI.md`, grok `AGENTS.md`)과 테스트 홈으로 구성. 최초 구현은 `result.target.instructionPath`로 조회해 QA finding(기존 단언 약화) → 수정. 음성 확인: gemini 기대 `WRONG.md`에서 실패.
+- global-config: `:10` gemini·grok 홈/SKILL 쌍 추가, `:31` 루프 확장(37→41). Q5·masking·catalog hold 없음.
+- 원장 매핑 이름 10개 유지·통과.
+- fresh QA(`f6f1806f`, finding 1건 → 재확인): 수락.
 
 ---
 
@@ -406,14 +400,14 @@
 
 **Files (allowedPaths):** Modify 위 4개 파일
 
-- [ ] **Step 0:** 공통 Step 0.
-- [ ] **Step 1:** models `:98`의 mismatch 식을 일반화한다(다른 아무 플랫폼). `:136`의 필드명(`model_reasoning_effort`/`effort`)은 각 플랫폼 `models.toml`에서 읽는다. gemini·grok 필드를 정할 수 없으면 hold한다.
-- [ ] **Step 2:** profile-render는 gemini·grok 프로필(`.md`)을 claude 방식으로 확장한다. 렌더러가 gemini·grok을 거부하면 Q5로 처리한다.
-- [ ] **Step 3:** preset은 같은 파일의 `fixture(t)`·`install(home,p)`가 gemini·grok을 지원할 때만 넓힌다. 공유 fixture 변경이 필요하면 hold한다.
-- [ ] **Step 4:** tui-setup `:60`은 플랫폼별 scouter 모델 값을 `models[target]`에서 고른다(현재 `target==='codex'?'gpt-6-luna':'sonnet'`). 패키지 기본값과 다른 유효 값을 플랫폼 catalog나 `models.toml`에서 고를 수 없으면 hold한다.
-- [ ] **Step 5:** 4개 파일을 실행한다. 음성 확인을 한다.
-- [ ] **Step 6:** 공통 종료.
-- [ ] **Step 7: 커밋:** `test(models): 모델 설정·렌더·preset 검사를 네 플랫폼으로 확장`
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** models `:98`의 mismatch 식을 일반화한다(다른 아무 플랫폼). `:136`의 필드명(`model_reasoning_effort`/`effort`)은 각 플랫폼 `models.toml`에서 읽는다. gemini·grok 필드를 정할 수 없으면 hold한다.
+- [x] **Step 2:** profile-render는 gemini·grok 프로필(`.md`)을 claude 방식으로 확장한다. 렌더러가 gemini·grok을 거부하면 Q5로 처리한다.
+- [x] **Step 3:** preset은 같은 파일의 `fixture(t)`·`install(home,p)`가 gemini·grok을 지원할 때만 넓힌다. 공유 fixture 변경이 필요하면 hold한다.
+- [x] **Step 4:** tui-setup `:60`은 플랫폼별 scouter 모델 값을 `models[target]`에서 고른다(현재 `target==='codex'?'gpt-6-luna':'sonnet'`). 패키지 기본값과 다른 유효 값을 플랫폼 catalog나 `models.toml`에서 고를 수 없으면 hold한다.
+- [x] **Step 5:** 4개 파일을 실행한다. 음성 확인을 한다.
+- [x] **Step 6:** 공통 종료.
+- [x] **Step 7: 커밋:** `test(models): 모델 설정·렌더·preset 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 대상 루프 확장 또는 hold 기록, 신규 실패 없음
 
@@ -425,7 +419,15 @@
 
 **Hold:** Q5, 필드·catalog 부재, 공유 fixture 필요, masking
 
-**진행 기록 (T8):** 미기록
+**진행 기록 (T8):** 2026-11-23 수락. Implementer(`cce4a47d`, 후속 1회: QA finding 2건 수정).
+- 호스트(6파일: models, profile-render, preset, tui-setup, model-catalog, preset-cli) 177 tests, 176 pass, 1 fail(`Codex existing root field edits preserve indentation, comments and nested fields`, 50d83c6 base 실패·masking). 대상 4파일 base 128/1 → 150/1. 원장 매핑 없음, 기존 이름 129개 유지.
+- models `:98` mismatch를 현재와 다른 첫 플랫폼으로 일반화, `:136` effort 필드는 각 `models.toml`에서 읽음(21→23). `:40` v1 불변.
+- profile-render: 파일 누락·BOM·미지원 이름 3계열 2→4(16→22). hold(Q5): 기본 렌더러가 정상 gemini·grok `.md` 프로필을 `ARC_MODEL_VALIDATION` `Invalid Claude profile identity or role tools`로 거부(`lib/models/profiles.mjs:95`, `.md`→`renderClaude`). 정상 렌더 비모델 바이트 보존과 잘못된 본문 검사는 미확장.
+- preset: Custom 전환, preflight drift, Custom 저장·noop, Apply 4계열 2→4, `:15` preflight·두 번째 대상 실패는 네 대상 설치 + claude·grok 게시 실패 시나리오(26→34). hold: v1 legacy `economy`·`balanced`·`smart` 변형(fixture가 codex·claude뿐).
+- tui-setup `:60` 초기 역할 6→12, 리터럴 scouter `gpt-6-luna`, `sonnet`, `gemini-4-hydrogen`, `grok-4.5`(catalog 유효·기본값과 다름), Scouter 행 범위 정규식(기존보다 강함).
+- 최초 구현은 `preset:15` 누락과 기존 단언 문구 변경으로 QA finding → 수정(codex·claude 원문 복원).
+- 음성 확인: 파일별 gemini 기대값 변경, grok 게시 결과 `failed`→`updated` → 실패.
+- fresh QA(`6930d4b3`, finding 2건 → 재확인): 수락.
 
 ---
 
@@ -441,13 +443,13 @@
 
 **Files (allowedPaths):** Modify 위 4개 파일
 
-- [ ] **Step 0:** 공통 Step 0.
-- [ ] **Step 1:** 각 루프를 확장 형태로 넓힌다.
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** 각 루프를 확장 형태로 넓힌다.
   - management-status `:9`는 `staticPackageFixture`가 gemini·grok 설치를 이미 지원할 때만 넓힌다. fixture 변경이 필요하면 hold한다.
   - hardcoding-residual `:110`은 zeta 주입 시나리오(`:22-25`)를 바꾸지 않고 기본 경로의 대상 루프만 넓힌다.
-- [ ] **Step 2:** 실행하고 음성 확인을 한다.
-- [ ] **Step 3:** 공통 종료.
-- [ ] **Step 4: 커밋:** `test(management): 관리 작업·상태·제거 검사를 네 플랫폼으로 확장`
+- [x] **Step 2:** 실행하고 음성 확인을 한다.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋:** `test(management): 관리 작업·상태·제거 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 플랫폼별 설정 제거가 다른 플랫폼을 보존하는지, 전역 블록·언어 설정 제거, 비관리 프로필 보존, 패키지 기본값 대 설치 기본값이 4 플랫폼에서 단언된다(또는 hold 기록). 신규 실패 없음.
 
@@ -459,7 +461,14 @@
 
 **Hold:** Q5, fixture 필요, masking
 
-**진행 기록 (T9):** 미기록
+**진행 기록 (T9):** 2026-11-23 수락. Implementer(`5951d03a`, 후속 1회: QA finding 2건 수정).
+- 호스트(6파일: management-operations, management-status, uninstall, hardcoding-residual, uninstall-cli, management-update) 123 tests, 122 pass, 0 fail, 1 skip(`source auto install excludes the current worktree local wrapper`, base와 동일). 대상 4파일 base 95 pass/1 skip → 102/1. 원장 매핑 없음, 기존 이름 유지.
+- management-operations `:71` 설정 전용 제거 2→3 대상(다른 3개 플랫폼 설정 바이트 보존), `:73` 제거 옵션 3→5. management-status `:9` 2→4(기존 `staticPackageFixture`). uninstall `:24` 전역 ARC 블록 제거, `:29` 언어 설정 제거·사용자 파일 보존·비관리 프로필 보존 2→4. hardcoding-residual `:110` 패키지 대 설치 기본값 2→4(zeta 시나리오 불변).
+- 경로는 기존 식 일반화(`ctx.userHome+'/.'+platform`, `userHome+'/.'+platform`, `platform==='codex'` 분기), 지침 파일명만 리터럴 맵. 비관리 프로필은 테스트 홈 안에 두고 `plan.target.home` 일치 단언 추가.
+- hold(Q5): `grok Settings removes only its ARC settings and never inspects CLI` — `removeCli:false` 제거 시 `~/.grok/config.toml`의 ARC 관리 `[compat.claude]` 블록 116바이트가 0바이트가 됨(`lib/installer/uninstall.mjs:23` `removeGrokCompat`→빈 바이트 쓰기). grok 제거 사례만 되돌림.
+- 최초 구현은 경로를 플랫폼별 리터럴로 열거(Orchestrator brief의 과도한 "literal" 문구 때문)하고 비관리 프로필을 고정 경로에 두어 QA finding 2건 → 수정.
+- 음성 확인: gemini 기대값 4건 변경, gemini 프로필을 `.gemini` 밖에 둠 → 실패.
+- fresh QA(`382c31d9`, finding 2건 → 재확인): 수락.
 
 ---
 
@@ -474,13 +483,13 @@
 
 **Files (allowedPaths):** Modify 위 3개 파일
 
-- [ ] **Step 0:** 공통 Step 0.
-- [ ] **Step 1:** 넓힌다.
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** 넓힌다.
   - review-followup은 `tests/node/fixtures/install-mode.mjs`의 `profileFiles`가 codex·claude 한정(`:38`)이다. 테스트가 그 helper에 의존하면 해당 테스트만 hold한다(fixture는 범위 밖, D6).
   - `:16-18`(composite 쌍)은 바꾸지 않는다.
-- [ ] **Step 2:** 실행하고 음성 확인을 한다.
-- [ ] **Step 3:** 공통 종료.
-- [ ] **Step 4: 커밋:** `test(upgrade): 프로필 보존·upgrade 상태 검사를 네 플랫폼으로 확장`
+- [x] **Step 2:** 실행하고 음성 확인을 한다.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋:** `test(upgrade): 프로필 보존·upgrade 상태 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 대상 확장 또는 hold 기록, 신규 실패 없음
 
@@ -492,7 +501,13 @@
 
 **Hold:** Q5, fixture 의존, masking
 
-**진행 기록 (T10):** 미기록
+**진행 기록 (T10):** 2026-11-23 수락. Implementer(`32c1d071`).
+- 호스트(5파일: install-mode-review-followup, upgrade-reapply, upgrade-state, upgrade-snapshot-scope, install-mode-switch) 95 tests, 95 pass, 0 fail. 대상 3파일 base 62 → 82 pass. 원장 매핑 없음, 기존 이름 유지.
+- review-followup `:23`, `:37`, `:46`(`empty`·`symlink`), `:55` 2→4. upgrade-state `:37`, `:44`(`file`·`symlink`), `:53` 2→4. upgrade-reapply `:254`에 `standalone child preserves settings for claude, codex, gemini, grok` 추가(2→3 케이스, 네 홈 설치 후 `models.toml`·`settings.toml`·`limits.toml` 재적용 전후 바이트 비교).
+- hold(D6): review-followup `:16-18` composite 쌍(`profileFiles` fixture가 codex·claude 한정). Q5·masking hold 없음.
+- 경로는 `userHome+'/.'+platform`과 기존 확장자 분기로 일반화, 수집 대상 `entry.target.home`의 테스트 홈 일치 단언 추가. 부재 대상 순서는 `['claude','codex','gemini','grok'].filter(id=>id!==platform)`로 일반화(기존 두 케이스 순서 유지).
+- 음성 확인: gemini 기대값 3건 변경 → 실패.
+- fresh QA(`daea80ec`): 수락.
 
 ---
 
@@ -506,11 +521,11 @@
 
 **Files (allowedPaths):** Modify 위 4개 파일
 
-- [ ] **Step 0:** 공통 Step 0. npm sandbox·PTY 테스트는 필요하면 host에서 실행한다.
-- [ ] **Step 1:** 단언을 추가하고 루프를 넓힌다. 부재 단언의 음성 확인: sandbox home에 `.gemini`를 임시로 만드는 줄을 넣어 실패하는지 보고 되돌린다.
-- [ ] **Step 2:** 실행.
-- [ ] **Step 3:** 공통 종료.
-- [ ] **Step 4: 커밋:** `test(npm): 설치 부작용 부재와 런타임 엔트리 검사를 네 플랫폼으로 확장`
+- [x] **Step 0:** 공통 Step 0. npm sandbox·PTY 테스트는 필요하면 host에서 실행한다.
+- [x] **Step 1:** 단언을 추가하고 루프를 넓힌다. 부재 단언의 음성 확인: sandbox home에 `.gemini`를 임시로 만드는 줄을 넣어 실패하는지 보고 되돌린다.
+- [x] **Step 2:** 실행.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋:** `test(npm): 설치 부작용 부재와 런타임 엔트리 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 4 플랫폼 home 부재 단언, 런타임 엔트리 확장 또는 hold 기록, 신규 실패 없음
 
@@ -522,7 +537,13 @@
 
 **Hold:** Q5(예: npm 설치가 `.gemini`를 만든다), masking
 
-**진행 기록 (T11):** 미기록
+**진행 기록 (T11):** 2026-11-23 수락. Implementer(`c7e3f32b`).
+- 호스트(4파일) 13 tests, 10 pass, 2 fail, 1 skip. 실패 `codex installed endpoint preserves workflow guards without package dependencies`, `claude installed endpoint preserves workflow guards without package dependencies`(50d83c6 base 실패). skip `Git global install and reinstall preserve an executable CLI with inherited global configuration`(`ARC_TEST_GIT_FIXTURE_REPO` 미제공, base와 동일). 원장 매핑 없음.
+- `.gemini`·`.grok` 부재 단언을 기존 `.codex`·`.claude` 단언 옆에 추가: npm-lifecycle `:27`(`box.home+'/.'+platform`, 전역·로컬·npx), npm-lifecycle-pty `:10`, npm-completion-consumer `:29`(`home+'/.'+platform`, 두 번 설치 후).
+- npm-completion-consumer Git 설치 검사는 Orchestrator가 fixture `ARC_TEST_GIT_FIXTURE_REPO`=이 worktree(커밋 HEAD `4cd1b1a`), `ARC_TEST_REQUIRE_GIT_FIXTURE=1`로 호스트 실행: 1 pass(두 설치 exit 0, 새 단언 통과).
+- hold(masking): runtime-installed-entry `:9` 루프(두 테스트 base 실패).
+- 음성 확인: sandbox home에 `.gemini` 생성 → 새 부재 단언 실패.
+- fresh QA(`e194c625`, Git 설치 미검증 → 호스트 증거 재확인): 수락.
 
 ---
 
@@ -533,15 +554,15 @@
 - `tests/node/superpowers.test.mjs:21`: nested reference payload 거부. prefix 목록에 `'gemini'`, `'grok'`을 추가한다.
 - `tests/node/status-labels.test.mjs:26`: status label 오타 검사 대상에 gemini·grok skill 디렉터리를 추가한다.
 
-**선행:** T6 수락·커밋(MANIFEST 내용).
+**선행:** 없음(v2).
 
 **Files (allowedPaths):** Modify 위 3개 파일
 
-- [ ] **Step 0:** 공통 Step 0.
-- [ ] **Step 1:** 넓힌다. superpowers에서 `validateFlatReferenceFiles`가 gemini·grok prefix를 거부하지 않으면 Q5로 처리한다(제품 차이).
-- [ ] **Step 2:** 실행하고 음성 확인을 한다.
-- [ ] **Step 3:** 공통 종료.
-- [ ] **Step 4: 커밋:** `test(payload): reference·label 정적 검사를 네 플랫폼으로 확장`
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** 넓힌다. superpowers에서 `validateFlatReferenceFiles`가 gemini·grok prefix를 거부하지 않으면 Q5로 처리한다(제품 차이).
+- [x] **Step 2:** 실행하고 음성 확인을 한다.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋:** `test(payload): reference·label 정적 검사를 네 플랫폼으로 확장`
 
 **수용 기준:** 3개 검사가 4 플랫폼에 적용되거나 hold가 기록된다. 신규 실패 없음.
 
@@ -553,7 +574,12 @@
 
 **Hold:** Q5, masking
 
-**진행 기록 (T12):** 미기록
+**진행 기록 (T12):** 2026-11-23 수락. Implementer(`1a34afd0`).
+- 호스트(5파일: package-references, superpowers, status-labels, manifest, skill-sources) base 117 tests/116 pass/1 fail → 123/122/1(실패 이름 동일). `npm run check:manifest`: 292 files verified. 원장 매핑 없음.
+- hold(masking): `package-references:8` `publishes both flat platforms and manifest consistently without replacing ARC-owned files`(base·after 모두 `codex/skill/references/scripts/arc-owned.js` 쓰기 `ENOENT`). 대신 신규 `static package has no ${platform} imported reference copies` 4건(리터럴 `referencePaths` 13개, 저장소 파일·`MANIFEST.sha256`·nested `superpowers` 부재). 게시 직후 복사본 부재는 미검증으로 hold에 남음.
+- `superpowers:21` prefix 3→5(gemini·grok 거부 확인, Q5 없음). `status-labels:26` 스캔에 `gemini/skill`, `grok/skill` 추가.
+- 음성 확인: gemini 부재 기대를 실재 파일로 변경, gemini nested 입력에서 `superpowers/` 제거, grok `SKILL.md` 오타 주입 → 각각 실패.
+- fresh QA(`e9ba3f09`): 수락.
 
 ---
 
@@ -574,11 +600,11 @@
 
 **Files (allowedPaths):** Modify(조건부) `tests/node/role-routing-dispatch.test.mjs`, `tests/node/role-supervisor-descendants.test.mjs`. 판정용 read-only: `tests/node/gemini-bridge.test.mjs`, `tests/node/grok-bridge.test.mjs`, `tests/node/role-fixtures.mjs`
 
-- [ ] **Step 0:** 공통 Step 0.
-- [ ] **Step 1:** U-a와 U-b에 규칙을 적용하고 판정 근거(파일:줄)를 기록한다.
-- [ ] **Step 2:** 확장한 경우에는 실행하고 음성 확인을 한다.
-- [ ] **Step 3:** 공통 종료.
-- [ ] **Step 4: 커밋(변경 시):** `test(bridge): 잔여 플랫폼 판정 항목 확장`
+- [x] **Step 0:** 공통 Step 0.
+- [x] **Step 1:** U-a와 U-b에 규칙을 적용하고 판정 근거(파일:줄)를 기록한다.
+- [x] **Step 2:** 확장한 경우에는 실행하고 음성 확인을 한다.
+- [x] **Step 3:** 공통 종료.
+- [x] **Step 4: 커밋(변경 시):** `test(bridge): 잔여 플랫폼 판정 항목 확장`
 
 **수용 기준:** 두 항목 모두 판정과 근거가 있다. 확장 시 신규 실패 없음.
 
@@ -588,7 +614,62 @@
 
 **Hold:** 규칙상 hold, Q5
 
-**진행 기록 (T13):** 미기록
+**진행 기록 (T13):** 2026-11-23 수락. Implementer(`52a6d69c`).
+- 호스트(4파일: role-routing-dispatch, role-supervisor-descendants, gemini-bridge, grok-bridge) 160 tests, 160 pass, 0 fail, 0 skip(sandbox `ps` 의존 6건 포함). 원장 매핑 없음.
+- U-a `hold`: `role-routing-dispatch:217` `bridge CLI versions are reported but never gate dispatch`(파싱 가능·`garbage` 버전, `allow`, `cliVersion`/`version_unparsed`)와 같은 계약이 `gemini-bridge`·`grok-bridge`에 없음(NO-GAP 아님). `createRoutingFixture`(`tests/node/role-fixtures.mjs:129`)는 역할 설정·홈이 claude·codex 한정 → 후속 후보(gemini·grok 역할과 버전 입력 fixture).
+- U-b `widened`: `role-supervisor-descendants`의 F3 종료 후 신호 억제, F4 정리 중 기한 만료, 생존 descendant lease 상태·사유 보존 3계약이 `:458` 4 플랫폼 회수 루프와 별개라 4 플랫폼으로 확장(3→12, 기존 `setup`·`installReplay`·replay fixture 사용). 대상 3개 이름에 플랫폼 접두어(원장 미매핑), 생존 사례에 기준 빈 사유 단언 2개 추가, 기존 단언 삭제·변경 0.
+- 음성 확인: gemini F4 기대 `failed` → 실패.
+- fresh QA(`c59935f1`): 수락.
+
+---
+
+### Task 14: plan 기록 단독 커밋 금지 규칙의 Commit gate 문구 강화 (v3)
+
+**목표·범위:** 4 플랫폼에 같은 영어 문구를 추가한다. 기존 고정 문장은 한 글자도 바꾸지 않는다(추가만). 기계적 검사는 넣지 않는다.
+
+1. `{platform}/skill/SKILL.md`: `**Pre-action gate record:**` 문단 바로 뒤에 새 문단:
+   > **Commit gate:** Before every `git commit`, Orchestrator inspects the staged paths and the exact message. A docs-only commit that modifies an existing spec or plan is made only to carry pending user-approved revisions with `Plan-Revision`/`Plan-Approved-At`/`Plan-Reason` trailers. Plan-level progress records (final verification results, final Reviewer verdicts and dispositions, completion status) NEVER justify a commit alone: when no implementation work remains they stay only in the canonical handoff record and the plan document stays unchanged. A final Reviewer finding on the plan or spec document itself is a plan revision that needs user approval before any edit. If the gate fails, do not commit; report to the user.
+2. `{platform}/skill/references/commit.md`:
+   - 체크리스트 2번 끝: "Then apply the SKILL.md Commit gate to `git diff --cached --name-status` and the exact message file; hold the commit if it is docs-only, modifies an existing spec or plan and lacks a `Plan-Revision` trailer for each modified document."
+   - 체크리스트 3번 끝: "Recheck the new commit against the Commit gate with `git show --name-status --format=%B <sha>`."
+   - closing 커밋 문단(`Only when no implementation work remains before overall completion MAY …`) 맨 앞: "The closing commit exists only to carry pending user-approved spec/plan revisions: with no pending revision there is no closing commit, whatever plan-level progress records remain."
+   - plan-level 진행 기록 문단 뒤: "Changing plan or spec content other than progress records, including fixing its final verification section or wording after a final Reviewer finding, is a plan revision: obtain applicable user approval under [planning](planning.md#plan-updates-during-execution) before editing; until then record the finding and its disposition only in the canonical handoff record."
+3. `{platform}/skill/references/verification.md` 완료 절의 plan-level 기록 확인 문장 뒤: "Before the overall completion report and any push, PR or merge authorization request, Orchestrator lists every commit in the plan's base..HEAD range with `git log --name-status --format='%h %s%n%(trailers:key=Plan-Revision)'` and confirms none is a docs-only commit modifying an existing spec or plan without `Plan-Revision` trailers; any such commit holds completion and is reported to the user."
+4. `lib/policy/role-policy.json`의 `git.orchestrator-accept-commit` rule text 끝: "Before every commit Orchestrator applies the Commit gate; a docs-only commit modifying an existing spec or plan without Plan-Revision trailers for approved pending revisions is never made." rule ID·`operations`·`evidence`는 바꾸지 않는다. 산출물은 `node scripts/update-role-policy.mjs`로만 만든다.
+
+정확한 삽입 위치(줄·anchor)는 Step 0에서 4 플랫폼 각각 확정한다. 플랫폼별 기존 문장 차이(예: codex 줄 번호)가 있어도 새 문구 텍스트는 같다.
+
+**선행:** 없음(권장 순서상 마지막). T1(role-policy 테스트)·T5(Python 계약)·T12(package-references)가 먼저 4 플랫폼으로 넓어져야 이 task의 관련 테스트로 작동한다.
+
+**Files (allowedPaths):**
+- Modify `{claude,codex,gemini,grok}/skill/SKILL.md`, `{claude,codex,gemini,grok}/skill/references/commit.md`, `{claude,codex,gemini,grok}/skill/references/verification.md`
+- Modify `lib/policy/role-policy.json`, `update-role-policy.mjs`가 다시 만드는 산출물(Orchestrator가 Step 0 결과로 정확한 목록을 확정해 brief에 적는다)
+- Modify `tests/node/plan-level-records-contract.test.mjs`, `tests/node/fixtures/instruction-contracts.json`(protected hash·필요 시 크기 상한)
+- Regenerate only via tools: `MANIFEST.sha256`(`node scripts/update-manifest.mjs`), golden(`node tests/node/fixtures/installed-layout.mjs --diff`, 예상 diff 확인 뒤 `--write`)
+- 수정 금지: `tests/test_harness_contract.py`(T5), `tests/node/role-policy.test.mjs`(T1), 설치본(`~/.claude` 등)
+
+- [ ] **Step 0:** 공통 Step 0. 추가로 4 플랫폼 삽입 위치, `update-role-policy.mjs`의 예상 대상 파일 목록(managed 구역·agent 프로필 투영 여부), fixture 크기 상한과 protected 항목, 기존 고정 문장 계약(`plan-level-records-contract`, `test_harness_contract.py:48`, `:90–117`)을 확인해 기록한다.
+- [ ] **Step 1 (RED):** `plan-level-records-contract.test.mjs`에 새 문장(SKILL.md gate, commit.md 4문장, verification.md 1문장, role-policy 1문장)을 추가하고 4 플랫폼에서 각각 정확히 한 번 나오는지 단언한다. 실행해 실패를 기록한다.
+- [ ] **Step 2:** SKILL.md 4개에 Commit gate를 넣는다.
+- [ ] **Step 3:** commit.md 4개에 4문장을 넣는다.
+- [ ] **Step 4:** verification.md 4개에 범위 감사 문장을 넣는다.
+- [ ] **Step 5:** role-policy rule text에 문장을 덧붙이고 `node scripts/update-role-policy.mjs`, `npm run check:role-policy`를 실행한다.
+- [ ] **Step 6:** fixture(protected hash, 필요 시 크기 상한)와 MANIFEST·golden을 도구로 다시 만든다. 상한을 올려야 하면 값과 이유를 보고한다. `node scripts/update-runtime-assets.mjs --check`를 확인한다.
+- [ ] **Step 7:** 관련 테스트와 check를 실행한다.
+- [ ] **Step 8:** 공통 종료.
+- [ ] **Step 9: 커밋(Orchestrator, 수락 뒤, 새 Commit gate 적용):** `docs(skill): plan 기록 단독 커밋을 막는 Commit gate와 commit·verification 문구 추가`
+
+**수용 기준:** 새 문구가 4 플랫폼에 같은 텍스트로 각각 한 번씩만 있다. 기존 고정 문장 계약(`plan-level-records-contract` 기존 항목, `test_harness_contract.py`)이 수정 없이 통과한다. `check:role-policy`·`check:manifest`·`update-runtime-assets --check`가 통과한다. 링크·anchor가 유효하다. 제품 텍스트는 영어다. 설치본은 바뀌지 않았다. 신규 실패와 단언 약화가 없다.
+
+**관련 테스트(이유):** `plan-level-records-contract`(직접), `test_harness_contract.py`·`test_arc_policy.py`(commit.md 고정 문장), `role-policy`·`agent-fragments`(정책 산출물), `instruction-layout`·`composite-instructions`·`test-scope-contract`·`run-mode-contract`(지침 구조·fixture), `package-references`(링크), `manifest`·`installed-layout-golden`(MANIFEST·golden)
+
+**check:** `npm run check:role-policy`, `npm run check:manifest`, `node scripts/update-runtime-assets.mjs --check`, `node scripts/check-installer-parity.mjs`
+
+**필수 QA·증거:** fresh QA, 4 플랫폼 문구 동일성 diff, 기존 고정 문장 무변경 증명(삭제 줄이 기존 문장을 포함하지 않음), 임시 음성 확인(한 플랫폼 문구를 바꾸면 계약 테스트 실패), role-policy 투영 대상 수 독립 확인
+
+**Hold:** 기존 고정 문장을 바꿔야 하는 경우, fixture 크기 상한 초과, T1·T5 소유 파일 수정 필요, 생성기가 예상 밖 파일을 바꾸는 경우
+
+**진행 기록 (T14):** 미기록
 
 ---
 
@@ -631,16 +712,16 @@
 
 | task | 선행 | 공유 자원·충돌 | 준비 조건 |
 |---|---|---|---|
-| T6 | 없음 | payload, MANIFEST, golden | prerequisite |
 | T1, T2, T5, T8, T9, T10, T11, T13 | 없음 | 파일 중복 없음 | 즉시 가능 |
-| T3, T4, T7, T12 | T6 커밋 | T6 결과 payload 위에서 base 기록 | T6 수락·커밋 |
+| T3, T4, T6, T7, T12 | 없음(v2) | 파일 중복 없음 | 즉시 가능 |
+| T14 | 없음(v3) | MANIFEST·golden·`instruction-contracts.json` 재생성. role-policy 산출물은 T1 테스트가, commit.md 고정 문장은 T5 Python 계약이 읽는다 | 권장: T1·T5·T12 수락 뒤 |
 
-- **권장 순서(같은 worktree, 직렬 기본):** T6 → T1 → T2 → T5 → T3 → T4 → T7 → T12 → T8 → T9 → T10 → T11 → T13
+- **권장 순서(같은 worktree, 직렬):** T6 → T1 → T2 → T5 → T3 → T4 → T7 → T12 → T8 → T9 → T10 → T11 → T13 → T14 (v2: 의존성은 없고 번호 순서만 권장. v3: T14는 마지막)
 - **병렬 조건**
-  - 파일은 서로 겹치지 않지만, 현재 routing에서 Implementer·QA는 codex bridge이므로 같은 worktree에서는 한 번에 bridge 하나만 실행한다(쓰기 bridge와 읽기 bridge도 동시에 두지 않는다: 2026-11-23 Scouter가 동시 Implementer 쓰기로 `permission_violation_observed`). 병렬이 필요하면 task별 별도 worktree를 사용자 선택으로 준비한다. 순서 제약은 T6 이전 T1·T2·T5·T8–T11·T13, T6 이후 T3·T4·T7·T12다.
+  - 파일은 서로 겹치지 않지만, 현재 routing에서 Implementer·QA는 codex bridge이므로 같은 worktree에서는 한 번에 bridge 하나만 실행한다(쓰기 bridge와 읽기 bridge도 동시에 두지 않는다: 2026-11-23 Scouter가 동시 Implementer 쓰기로 `permission_violation_observed`). 병렬이 필요하면 task별 별도 worktree를 사용자 선택으로 준비한다. 순서 제약은 없다(v2).
   - bridge Implementer는 같은 worktree에서 쓰기 bridge 1개만 허용한다. 실행 중에는 commit하지 않는다.
   - 병렬 실행 시 각 QA의 status 판정은 자기 allowedPaths 기준으로 한다.
-- **hold 전파:** 한 task의 Q5 hold는 그 task만 막는다. T6이 hold되면 T3·T4·T7·T12만 막힌다.
+- **hold 전파:** 한 task의 Q5 hold는 그 task만 막는다.
 
 ## 최종 검증(모든 task 수락·커밋 뒤)
 
@@ -653,22 +734,21 @@
    - `npm run check:manifest`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs --check`
    - `node scripts/check-installer-parity.mjs`, `node scripts/check-installer-parity.mjs --complete`
    - `--complete`는 base(`50d83c63`) 결과와 비교한다.
+   - (v3) 범위 감사: `git log --name-status --format='%h %s%n%(trailers:key=Plan-Revision)' 50d83c63..HEAD`에 trailer 없이 기존 plan/spec만 바꾼 커밋이 없어야 한다.
 3. **재변경 파일 관련 테스트**
-   - 설계상 task 간 파일 중첩은 없다. 예상 재변경 파일도 없다.
-   - 예외: T6 hold 처분으로 `plan.test.mjs` digest가 바뀌면 T7과 겹친다. 이 경우 `plan`, `installed-layout-golden`을 실행한다.
+   - 설계상 task 간 파일 중첩은 없다. 예상 재변경 파일은 T14가 다시 만드는 MANIFEST·golden·`instruction-contracts.json`이며(F2 이후 재변경), 관련 테스트는 `manifest`, `installed-layout-golden`, `instruction-layout`, `composite-instructions`다(v3).
    - Orchestrator가 목록을 계산하고 QA가 `git diff`로 대조한다.
 4. **전체 회귀 잠정 판정: 실행**
-   - 트리거 1: T6이 payload 파일을 삭제하고 공유 생성물(MANIFEST, golden)과 공유 Python helper(`tests/qa_model_cases.py`)를 바꾼다. Python 계약 2파일도 변경된다.
+   - 트리거 1: 공유 계약 테스트(role-policy, parity-check, manifest)와 Python 계약 2파일이 바뀌고, 여러 테스트 파일에 걸친 변경이다(v3: T14가 4 플랫폼 지침·role-policy 산출물·payload·MANIFEST·golden을 바꾼다).
    - 트리거 2: 없음 예상(base 뒤 병합 없음).
    - 트리거 3: 없음 예상(`package.json`·lockfile·테스트 설정 불변).
-   - 트리거 4: 없음 예상(rule ID·CLI·export 불변).
+   - 트리거 4: 없음 예상(rule ID·CLI·export 불변. v3: role-policy rule text만 바뀐다).
    - QA가 트리거 1·3·4를 독립 확인한다.
    - 명령: `npm test`, `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests`
    - 판정 기준: 기존 실패가 있다(Node 22건 이름 기준, Python 약 486 failures·6 errors). 이름 기준 "신규 실패 없음"으로 판정하고 verification.md의 Baseline·Result comparison을 적용한다.
-   - T6에서 삭제된 Python 메서드의 소멸은 신규 실패가 아니다. 삭제 목록으로 처분한다.
    - 각 task의 hold 목록 항목은 base 실패 그대로여야 한다.
 5. **최종 Reviewer 1회(significant):** 모든 task 수락과 필수 QA 뒤, 독립 Reviewer가 `50d83c63..HEAD` 전체를 검토한다.
-   - 확인 항목: Review Focus 1–5, 제품 코드 diff 없음, Q5·Q2 hold 목록 일관성, U3 삭제 완결성, 원장 무변경
+   - 확인 항목: Review Focus 1–6, T1–T13 제품 코드 diff 없음, Q5·Q2 hold 목록 일관성, T14 외 payload 무변경, 원장 무변경, (v3) 새 Commit gate 문구가 기존 규칙(commit.md·planning.md·handoff-prep.md·role-policy)과 모순되지 않는지
    - finding은 Implementer → Reviewer 경로를 따른다.
 
 ## 위험
@@ -684,17 +764,18 @@
 - **D1 (Q3)** U1(worktree `.grok/config.toml`, `.gemini/settings.json`이 control snapshot과 allowedPaths deny에 빠짐)은 별도 고우선 보안 계획으로 넘긴다. `role-observe.test.mjs:1204`도 그 계획의 범위다.
 - **D2 (Q2)** Python에서 base 실패 메서드는 바꾸지 않는다(subTest 추가 없음). hold 목록으로 보고한다.
 - **D3 (Q5)** 실제 gemini·grok 제품 차이는 hold하고 보고한다. 제품 수정은 넣지 않는다.
-- **D4 (Q4)** U3 스크립트 4개를 제거한다. 정적 참조가 없음을 S0과 이번 grep으로 확인했다. MANIFEST와 golden 외에는 tests에서만 참조된다. 남은 참조: `package.test.mjs:9-10`, `release-artifact.test.mjs:40`은 합성 경로, `test_arc_policy.py:505`는 `assertNotIn`.
+- **D4 (Q4, v2 개정)** U3 스크립트 4개 제거는 이 계획에서 뺀다(사용자 2026-11-23 "별도 계획으로 분리"). 근거: `tests/installer-parity.json`이 `tests/test_codex_models.py`의 `ApplyModelsTests` 5개(`apply-models.py` 실행)와 `ModelSettingsTests` 8개(`setUp`에서 `model_config.py` import)를 legacy installer 동작의 parity 근거로 매핑한다. 이 계획은 원장을 편집하지 않는다(D5). 별도 계획에서는 13개 항목을 같은 동작을 검증하는 Node 테스트로 재매핑한 뒤 스크립트를 제거한다. 정적 코드 참조는 없다(lib/bin/scripts/shared/skill 문서 grep 0건).
 - **D5** 이 계획은 `tests/installer-parity.json`을 편집하지 않는다. 원장 변경이 필요하면 plan 개정으로 처리한다.
 - **D6** 공유 test fixture 모듈은 바꾸지 않는다. 필요한 확장은 해당 항목만 hold한다.
-- **D7** `tests/node/manifest.test.mjs`는 U3(`:48`)와 manifest GAP(`:77`, `:78`, `:93`)이 모두 편집해야 한다. 같은 파일을 두 task가 편집하지 않도록 T6에 묶었다. 둘 다 payload 구성 계약이다.
+- **D7** (v2) `tests/node/manifest.test.mjs`는 T6만 편집한다. `:48` mutation은 스크립트가 남으므로 유지한다.
 - **D8** `plan.test.mjs:93`, `:128`, `:261`과 `models.test.mjs:40`은 조사에서 분류되지 않았거나 HISTORICAL이므로 바꾸지 않는다. 후속 후보로 남긴다.
 - **D9** 후속 후보: `tui-package-consumer.test.mjs:43`(env-gated), `live-upstream.mjs:13`(live probe), T13의 hold 결과, 각 task의 Q5 hold 결과. 직전 계획 최종 Reviewer nit(2026-11-23)에서 넘어온 2건도 있다. (1) `tests/node/fixtures/instruction-contracts.json`의 4 플랫폼 `skill`·`global` 크기 상한이 현재 크기의 약 1.8배라 느슨하다. 함께 조일지 검토한다. (2) `gemini/skill/references/coordination.md:76`(`AskUserQuestion`), `:83`(Long Bash)에 Claude 전용으로 보이는 문구가 있고, fixture가 이 문구를 고정한다(`instruction-contracts.json:306`). 지침 문서 수정은 이 계획의 범위 밖이므로 별도 문서 계획으로 다루고, 그때 fixture도 함께 바꾼다.
+- **D10** (v3) 반복된 plan 기록 단독 커밋(2dfdf9a, b37534d, 1971f59) 재발 방지는 문구 강화(T14)로만 한다. 사용자 결정: 기계적 검사 제외, 기존 closing 문장은 재작성 없이 전제 문장만 추가(T5 Python 계약 충돌 회피), role-policy 덧붙임, 완료·push 전 범위 감사. 이 계획의 마무리부터 새 규칙을 적용한다: 마지막 task 뒤 구현 작업이 없으면 plan-level 기록은 handoff 기록에만 두고 마감 커밋을 만들지 않는다.
 
 ## 가정
 
 - **A1** 깊이는 "plan 필요, 별도 spec 없음"이다. 승인된 설계가 spec 역할을 하며, Orchestrator 기록과 다르면 Orchestrator가 바로잡는다.
-- **A2** MANIFEST는 `tests/` 파일을 포함하지 않는다. 2026-11-23 F2 기록에서 fixture를 바꿨을 때 MANIFEST에 변경이 없었다. 따라서 T6 외 task는 MANIFEST·golden을 바꾸지 않는다.
+- **A2** MANIFEST는 `tests/` 파일을 포함하지 않는다. 2026-11-23 F2 기록에서 fixture를 바꿨을 때 MANIFEST에 변경이 없었다. 따라서 T1–T13은 MANIFEST·golden을 바꾸지 않는다. T14는 도구로 다시 만든다(v3).
 - **A3** golden의 scripts 항목은 claude·codex 8 레이아웃 × 2이다(base `:68–565`의 16줄).
 - **A4** S0이 인용한 줄 번호는 base `50d83c63` 기준이며, Implementer가 Step 0에서 재확인한다.
 
@@ -703,10 +784,12 @@
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 2026-11-23 (사용자 "승인") | initial | 전체 | 최초 계획 |
+| v2 | 2026-11-23 (사용자 "별도 계획으로 분리") | scope | T6, 전체 순서·최종 검증 | T6 Step 0에서 U3 스크립트 의존 Python 메서드 13개가 installer-parity 원장에 매핑되어 있음이 드러났다. U3를 별도 계획으로 분리하고, T6을 manifest 4 플랫폼 확장만으로 줄였다. T6 선행 의존을 없앴고 최종 검증 트리거 1을 고쳤다. |
+| v3 | 2026-11-23 (사용자 "그냥 c81cc22252984529c446f0f4f94044f22d2b623e 커밋의 plan에 추가해", v3 개정안 "승인") | scope | T14 추가, Goal·Architecture·범위·Review Focus·파일 표·의존성·최종 검증 1–5·A2·D10, 머리말 base 문장 정정 | plan 수준 진행 기록만 담은 단독 docs(plan) 커밋(2dfdf9a, b37534d, 1971f59)이 반복되어, 4 플랫폼 Commit gate·commit.md·verification.md·role-policy 문구 강화(T14)를 추가했다. 기계적 검사는 사용자 결정으로 제외. |
 
 ## 자체 검토 체크리스트
 
-- [x] T1–T5, U3(T6), U4 GAP(T7–T12), 잔여 UNSURE(T13)를 배정했다. 두 task가 같은 파일을 편집하지 않는다(파일 표).
+- [x] T1–T5, manifest(T6, v2에서 U3 제외), U4 GAP(T7–T12), 잔여 UNSURE(T13)를 배정했다. 두 task가 같은 파일을 편집하지 않는다(파일 표).
 - [x] UNSURE 38개 위치에 판정을 내렸다. 잔여 2건에는 구체 규칙을 정했다.
 - [x] 원장 결합(이름, `--complete`, Python 삭제)과 처리 규칙(편집 없음, 개정 경로)을 정했다.
 - [x] RED가 나오지 않는 경우의 음성 확인, masking, Q2, Q5 규칙을 정했다.

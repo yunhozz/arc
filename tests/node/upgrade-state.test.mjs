@@ -34,23 +34,24 @@ test('ARC directory alone and symlink global destinations fail before writes',t=
 test('native and completion changes invalidate state token; malformed markers fail',t=>{const home=fixture(t),target=seed(home,'codex');const collect=()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});const before=collect().stateToken;fs.writeFileSync(target.runtimeConfigPath,'[agents]\nmax_concurrent_threads_per_session = 8\n');assert.notEqual(collect().stateToken,before);const native=collect().stateToken;fs.writeFileSync(home+'/.zshrc','# user setting\n');assert.notEqual(collect().stateToken,native);fs.writeFileSync(home+'/.zshrc','# >>> arc completion >>>\n');assert.throws(collect,/Malformed/);});
 test('malformed native configuration produces a target configuration diagnostic',t=>{const home=fixture(t),target=seed(home,'codex');fs.writeFileSync(target.runtimeConfigPath,'[agents');assert.throws(()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),{code:'ARC_TARGET_CONFIGURATION'});});
 
-for(const platform of ['codex','claude'])test(`${platform} collection ignores unsupported profiles and requires canonical profiles`,t=>{
- const home=fixture(t),target=seed(home,platform),ext=platform==='codex'?'toml':'md',canonical=target.home+'/agents/arc-implementer.'+ext,unknown=target.home+'/agents/arc-unknown.'+ext;
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} collection ignores unsupported profiles and requires canonical profiles`,t=>{
+ const home=fixture(t),targetHome=home+'/.'+platform,ext=platform==='codex'?'toml':'md',canonical=targetHome+'/agents/arc-implementer.'+ext,unknown=targetHome+'/agents/arc-unknown.'+ext;
+ seed(home,platform);
  fs.writeFileSync(unknown,'unmanaged');const collect=()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});
- const entry=collect().targets[0];assert.equal(entry.snapshot.has(unknown),false);assert.ok(entry.snapshot.has(canonical));
+ const entry=collect().targets[0];assert.equal(entry.target.home,targetHome);assert.equal(entry.snapshot.has(unknown),false);assert.ok(entry.snapshot.has(canonical));
  fs.unlinkSync(canonical);assert.throws(collect,/missing profile/);assert.equal(fs.readFileSync(unknown,'utf8'),'unmanaged');
 });
 
-for(const platform of ['codex','claude'])for(const kind of ['file','symlink'])test(`${platform} unowned ${kind} without ARC is residual and does not block the other upgrade target`,t=>{
+for(const platform of ['codex','claude','gemini','grok'])for(const kind of ['file','symlink'])test(`${platform} unowned ${kind} without ARC is residual and does not block the other upgrade target`,t=>{
  const home=fixture(t),other=platform==='codex'?'claude':'codex';seed(home,other);
- const target=resolveTarget(platform,{userHome:home,env:{},cwd:home}),filename=target.home+'/agents/'+target.profileNames[0];fs.mkdirSync(path.dirname(filename),{recursive:true});
+ const targetHome=home+'/.'+platform,ext=platform==='codex'?'toml':'md',filename=targetHome+'/agents/arc-scouter.'+ext;fs.mkdirSync(path.dirname(filename),{recursive:true});
  if(kind==='file')fs.writeFileSync(filename,'user profile');else fs.symlinkSync(home+'/missing-user-target',filename);
  const state=api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.deepEqual(state.targets.map(entry=>entry.target.platform),[other]);assert.deepEqual(state.residualPaths,[filename]);
  if(kind==='file')assert.equal(fs.readFileSync(filename,'utf8'),'user profile');else assert.equal(fs.readlinkSync(filename),home+'/missing-user-target');
- assert.equal(fs.existsSync(target.home+'/skills/arc'),false);
+ assert.equal(fs.existsSync(targetHome+'/skills/arc'),false);
 });
 
-for(const platform of ['codex','claude'])test(`${platform} owned profile without ARC remains incomplete`,t=>{
- const home=fixture(t),target=resolveTarget(platform,{userHome:home,env:{},cwd:home}),name=target.profileNames[0];fs.mkdirSync(target.home+'/agents',{recursive:true});fs.copyFileSync(platform+'/agents/'+name,target.home+'/agents/'+name);
+for(const platform of ['codex','claude','gemini','grok'])test(`${platform} owned profile without ARC remains incomplete`,t=>{
+ const home=fixture(t),targetHome=home+'/.'+platform,ext=platform==='codex'?'toml':'md',name='arc-scouter.'+ext;fs.mkdirSync(targetHome+'/agents',{recursive:true});fs.copyFileSync(platform+'/agents/'+name,targetHome+'/agents/'+name);
  assert.throws(()=>api.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),/Incomplete ARC installation/);
 });
