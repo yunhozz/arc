@@ -36,7 +36,7 @@ const forbidden = ['--always-approve', '--allow', '-c', '--continue', '-r', '--r
 for (const role of ROUTING_ROLES) test(`AC-K5 arguments for ${role}`, () => {
   assert.equal(typeof argsApi.buildGrokArgs, 'function');
   const args = argsApi.buildGrokArgs({role, profile: {model: 'grok-test'}, sessionId: SESSION, promptFile: '/segment/prompt.md', sandboxProfile: 'arc-bridge-0123abcd'});
-  const writing = ['arc_implementer', 'arc_qa'].includes(role);
+  const writing = ['arc_implementer', 'arc_tester'].includes(role);
   assert.deepEqual(args, ['--prompt-file', '/segment/prompt.md', '--output-format', 'streaming-json', '-m', 'grok-test', '--session-id', SESSION,
     '--permission-mode', writing ? 'acceptEdits' : 'plan', '--sandbox', writing ? 'arc-bridge-0123abcd' : 'read-only',
     ...(writing ? [] : ['--deny', 'Bash', '--deny', 'Edit', '--deny', 'Write', '--deny', 'MCPTool']), '--no-auto-update', '--no-subagents']);
@@ -220,9 +220,9 @@ test('prompt permissions use the opened file when its path becomes a symlink', a
   assert.equal(await fs.readFile(opened, 'utf8'), 'Private role instructions\n\n\nPrivate task brief');
 });
 
-test('AC-K6 Implementer/QA hold without spawning when GK1 fails', async t => {
+test('AC-K6 Implementer/Tester hold without spawning when GK1 fails', async t => {
   const f = await fixture(t, {}, false, failedWritingPolicy);
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     const result = await f.prepare(role); assert.equal(result.decision, 'hold'); assert.ok(codes(result).includes('permission_scope_unverified'));
   }
   await assert.rejects(fs.access(f.record), {code: 'ENOENT'});
@@ -382,7 +382,7 @@ for (const scenario of ['E2 allowed path', 'E3 existing profile', 'E4 symlink di
   if (scenario.startsWith('E4')) assert.ok((await fs.lstat(directory)).isSymbolicLink());
 });
 
-for (const role of ['arc_implementer', 'arc_qa']) test(`AC6 supervisor creates and removes ${role} profile around the fake Grok child`, async t => {
+for (const role of ['arc_implementer', 'arc_tester']) test(`AC6 supervisor creates and removes ${role} profile around the fake Grok child`, async t => {
   const f = await fixture(t, {}, false, writingPolicy);
   await configureSandboxEvents(f, 'valid');
   const prepared = await f.prepare(role);
@@ -685,11 +685,11 @@ for (const failAfterSpawn of [false, true]) test(`E${failAfterSpawn ? 16 : 15} r
 });
 
 // Operational registry must retain the permission, host and resume boundaries after promotion.
-test('operational Grok Implementer and QA hold without leases when GK1 fails', async t => {
+test('operational Grok Implementer and Tester hold without leases when GK1 fails', async t => {
   const f = await fixture(t), context = {...f.context, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY};
   const marker = path.join(f.base, 'version-commands');
   writeFakeGrokCli({bin: path.join(f.base, 'bin'), marker});
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     const result = await prepareRoleDispatch({context, assignment: {role, taskId: crypto.randomUUID(), requestId: crypto.randomUUID(), ...(role === 'arc_implementer' ? {allowedPaths: ['src/']} : {})}, expectedRevision: 't12', policy: failedWritingPolicy});
     assert.equal(result.decision, 'hold');
     assert.deepEqual(codes(result), ['permission_scope_unverified']);

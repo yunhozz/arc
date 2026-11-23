@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import {COOPERATIVE_RUNTIME_MODULES, cooperativeVersions} from './bootstrap.mjs';
 import {inspectPath} from './scope.mjs';
 import {resolveConfigHome, resolveLocalCli, probePlatformAuth, probeCodexAuthStatus, probeCliVersion} from './local-cli.mjs';
-import {ROUTING_ROLES, parseRoleRoutingConfig} from './role-routing-config.mjs';
+import {LEGACY_ROUTING_ROLES, ROUTING_ROLES, parseRoleRoutingConfig} from './role-routing-config.mjs';
 import {DEFAULT_POLICY, HOST_SANDBOX_GATES, reason, profileName, revisionTag, hostGateReasons, bridgeGateReasons, environmentReasons, initialClaims, capabilityReasons} from './role-dispatch-policy.mjs';
 import {NON_TERMINAL_STATES, createLease, listLeases, pruneTerminalLeases, readHostLimits} from './role-dispatch-store.mjs';
 import {allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
@@ -172,7 +172,7 @@ function validateAssignment(assignment,expectedRevision,context){
  const paths=assignment.allowedPaths;
  if(role==='arc_implementer')return Array.isArray(paths)&&paths.length>0&&paths.every(validRelativePath);
  if(paths===undefined)return true;
- return role==='arc_qa'&&Array.isArray(paths)&&paths.every(validRelativePath);
+ return role==='arc_tester'&&Array.isArray(paths)&&paths.every(validRelativePath);
 }
 const blankResult=(host,environment,role)=>({decision:'hold',routeStatus:'held',supportStatus:'unverified',dispatchId:null,route:null,profileName:null,executionEnvironment:environment,hostPlatform:host,role,requested:null,authentication:null,cliVersion:null,claims:null,reasons:[]});
 const classify=error=>{
@@ -230,6 +230,7 @@ export async function routingStatus({context,now=Date.now(),policy=DEFAULT_POLIC
 export async function prepareRoleDispatch({context,assignment,expectedRevision,now=Date.now(),policy=DEFAULT_POLICY}={}){
  const host=hostOf(context),environment=environmentOf(context,host),role=ROUTING_ROLES.includes(assignment?.role)?assignment.role:null;
  const result=blankResult(host,environment,role);
+ if(typeof assignment?.role==='string'&&Object.hasOwn(LEGACY_ROUTING_ROLES,assignment.role)){result.decision='deny';result.reasons=[reason('legacy_role_arc_qa')];return result;}
  if(!host||!environment||!validateAssignment(assignment,expectedRevision,context)){result.decision='deny';result.reasons=[reason('invalid_request')];return result;}
  const codes=new Set();let duplicate=false,anchorHome;
  const homes=resolveRuntimeHomes(context),runtimePlatforms=runtimeRegistryOf(context);
@@ -241,7 +242,7 @@ export async function prepareRoleDispatch({context,assignment,expectedRevision,n
    const requested=config.roles[role],route=requested.platform===host?'native':'bridge';
    result.requested={...requested};result.route=route;result.profileName=profileName(requested.platform,role,{runtimePlatforms});
    if(route==='bridge'&&allowedPathsCoverControl(assignment.allowedPaths??[])){result.reasons=[reason('permission_scope_unverified')];return;}
-   if(route==='bridge'&&requested.platform==='claude'&&(role==='arc_implementer'||role==='arc_qa')){
+   if(route==='bridge'&&requested.platform==='claude'&&(role==='arc_implementer'||role==='arc_tester')){
     const target=typeof context.cwd==='string'?await resolveWorktree(context.cwd).catch(()=>null):null;
     if(!target||await claudeProjectSettingsWidenScope(target.realpath)){result.reasons=[reason('permission_scope_unverified')];return;}
    }

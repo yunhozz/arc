@@ -142,7 +142,7 @@ test('busy heading shows the braille spinner frame',()=>{
 const diagramApi=await import('../../lib/tui/diagram.mjs').catch(()=>({}));
 const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs');
 const {diagramRegistry}=await import('./fixtures/platforms/diagram.mjs');
-const diagramRoles=['Scouter','Planner','Implementer','QA','Reviewer'].map((role,index)=>({role,platform:index===1?'claude':'codex',model:index===1?'opus':'gpt-5.5',effort:['low','medium','high','medium','high'][index]}));
+const diagramRoles=['Scouter','Planner','Implementer','Tester','Reviewer'].map((role,index)=>({role,platform:index===1?'claude':'codex',model:index===1?'opus':'gpt-5.5',effort:['low','medium','high','medium','high'][index]}));
 const diagramCells=text=>[...text].reduce((total,character)=>total+api.cellWidth(character),0);
 function renderDiagram(values=diagramRoles,options={}){
  assert.equal(typeof diagramApi.diagramRows,'function');
@@ -158,7 +158,7 @@ test('diagram box shows role on top border and three inner lines',()=>{
  assert.equal(result.rows[3],'│ effort: low          │  │ effort: medium       │  │ effort: high         │');
  assert.equal(result.rows[4],'└'+'─'.repeat(11)+'┬'+'─'.repeat(10)+'┘  └'+'─'.repeat(11)+'┬'+'─'.repeat(10)+'┘  └'+'─'.repeat(11)+'┬'+'─'.repeat(10)+'┘');
  assert.equal(result.rows[6],' '.repeat(32)+'Orchestrator');
- assert.match(result.rows[8],/^ {13}┌─ QA ─/);assert.match(result.rows[8],/┌─ Reviewer ─/);
+ assert.match(result.rows[8],/^ {13}┌─ Tester ─/);assert.match(result.rows[8],/┌─ Reviewer ─/);
  assert.equal(result.rows[5][12],'┴');assert.equal(result.rows[5][38],'┼');assert.equal(result.rows[5][64],'┴');
  assert.equal(result.rows[7][25],'┬');assert.equal(result.rows[7][38],'┼');assert.equal(result.rows[7][51],'┬');
 });
@@ -197,7 +197,7 @@ test('diagram thresholds include box width, viewport height and footer space',()
  ])assert.equal(renderDiagram(diagramRoles,options).mode,mode,JSON.stringify(options));
  assert.deepEqual(renderDiagram(diagramRoles,{columns:78}).rows,[
   'Scouter: Codex / gpt-5.5 / low','Planner: Claude / opus / medium',
-  'Implementer: Codex / gpt-5.5 / high','QA: Codex / gpt-5.5 / medium','Reviewer: Codex / gpt-5.5 / high','',
+  'Implementer: Codex / gpt-5.5 / high','Tester: Codex / gpt-5.5 / medium','Reviewer: Codex / gpt-5.5 / high','',
  ]);
  assert.deepEqual(renderDiagram(diagramRoles,{rows:15}).rows,['Menu requires 40 columns and 16 rows.']);
  assert.deepEqual(renderDiagram(diagramRoles,{columns:10,rows:2}).rows,['40x16']);

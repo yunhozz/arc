@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from tests.qa_model_cases import current_role
 
 ROOT = Path(__file__).resolve().parents[1]
 PAYLOAD = ROOT / 'claude'
@@ -18,7 +19,7 @@ EXPECTED = {
     'scouter': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']),
     'planner': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
     'implementer': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit']),
-    'qa': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash']),
+    'tester': ('sonnet', 'medium', ['Read', 'Grep', 'Glob', 'Bash']),
     'reviewer': ('sonnet', 'high', ['Read', 'Grep', 'Glob']),
 }
 # Package models.toml defaults applied by apply-models.
@@ -26,7 +27,7 @@ BALANCED_PRESET = {
     'scouter': ('opus', 'medium'),
     'planner': ('opus', 'medium'),
     'implementer': ('opus', 'medium'),
-    'qa': ('opus', 'medium'),
+    'tester': ('opus', 'medium'),
     'reviewer': ('opus', 'medium'),
 }
 
@@ -57,10 +58,22 @@ class ClaudePayloadTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
+    def test_v4_rejects_arc_qa(self):
+        module = self.module()
+        original = (PAYLOAD / 'skill/models.toml').read_bytes()
+        invalid = re.sub(rb'^version = \d+$', b'version = 4', original, flags=re.MULTILINE)
+        invalid = invalid.replace(b'roles.arc_tester', b'roles.arc_qa')
+        with tempfile.TemporaryDirectory() as temporary:
+            config = Path(temporary).resolve() / 'models.toml'
+            config.write_bytes(invalid)
+            with self.assertRaisesRegex(module.ValidationError, 'arc_qa'):
+                module.load_settings(config)
+            self.assertEqual(config.read_bytes(), invalid)
+
     def test_v3_round_trip(self):
         import tomllib
         module = self.module()
-        config = {'version': 3, 'roles': {f'arc_{role}': {'model': 'sonnet', 'effort': 'high'} for role in EXPECTED}}
+        config = {'version': 4, 'roles': {f'arc_{role}': {'model': 'sonnet', 'effort': 'high'} for role in EXPECTED}}
         content = module.serialize_settings(config)
         self.assertEqual(tomllib.loads(content.decode()), config)
         self.assertNotIn(b'preset', content)
@@ -78,8 +91,8 @@ class ClaudePayloadTests(unittest.TestCase):
                 if version == 1 and preset == 'custom': continue
                 config = copy.deepcopy(legacy); config.update(version=version, preset=preset)
                 if preset == 'custom': config['custom'] = {f'arc_{role}': {'model': 'opus', 'effort': 'low'} for role in EXPECTED}
-                expected = config['custom'] if preset == 'custom' else {role: variants[preset] for role, variants in config['roles'].items()}
-                self.assertEqual(module.validate_config(config, Path('models.toml')), {'version': 3, 'roles': expected})
+                expected = config['custom'] if preset == 'custom' else {current_role(role): variants[preset] for role, variants in config['roles'].items()}
+                self.assertEqual(module.validate_config(config, Path('models.toml')), {'version': 4, 'roles': expected})
 
     def fixture(self, root):
         target = root / '.claude'
@@ -168,9 +181,9 @@ class ClaudePayloadTests(unittest.TestCase):
         for active in ('custom', 'balanced'):
             for mutation in ('missing', 'extra', 'field'):
                 invalid = copy.deepcopy(selected); invalid['preset'] = active
-                if mutation == 'missing': invalid['custom'].pop('arc_qa')
+                if mutation == 'missing': invalid['custom'].pop('arc_tester')
                 if mutation == 'extra': invalid['custom']['extra'] = {}
-                if mutation == 'field': invalid['custom']['arc_qa']['effort'] = 'extreme'
+                if mutation == 'field': invalid['custom']['arc_tester']['effort'] = 'extreme'
                 with self.subTest(active=active, mutation=mutation), self.assertRaises(module.ValidationError):
                     module.validate_settings(invalid)
         invalid = copy.deepcopy(selected); invalid.pop('custom')
@@ -237,7 +250,7 @@ class ClaudePayloadTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(subprocess.run(command + ['--check'], capture_output=True).returncode, 0)
                 for role, variants in config['roles'].items():
-                    profile = module.parse_profile((target / 'agents' / (role.replace('_', '-') + '.md')).read_bytes())
+                    profile = module.parse_profile((target / 'agents' / (current_role(role).replace('_', '-') + '.md')).read_bytes())
                     self.assertEqual({key: profile[key] for key in variants[preset]}, variants[preset])
             legacy = 'version = 1\n' + '\n'.join(f'[roles.{role}]\nmodel = "sonnet"\neffort = "low"' for role in config['roles'])
             for text in (legacy, source.replace('model = "haiku"', 'model = 3', 1)):
@@ -294,7 +307,7 @@ class ClaudePayloadTests(unittest.TestCase):
         self.assertTrue((PAYLOAD / 'skill/SKILL.md').is_file(), 'Claude CEO adapter must be shipped')
         required = {'coordination', 'planning', 'handoff', 'handoff-prep', 'commit', 'verification', 'git-recovery', 'arc-visual-companion', 'limits', 'worktree-creation'}
         self.assertEqual({p.stem for p in (PAYLOAD / 'skill/references').glob('*.md')}, required)
-        # Policy semantics are independently reviewed by QA; executable tool authority is checked above.
+        # Policy semantics are independently reviewed by Tester; executable tool authority is checked above.
 
     def test_ceo_direct_path_requires_pre_edit_approval_and_handoff_gates(self):
         # Static regression for the reviewed approval contract; does not prove agent compliance.
@@ -447,7 +460,7 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_claude_verification_ui_criterion_and_reviewer_rules(self):
         text = self.read_claude('skill/references/verification.md')
         self.assert_all(text, (
-            '### UI browser acceptance checks', 'QA-created processes', 'cites this section with its path',
+            '### UI browser acceptance checks', 'Tester-created processes', 'cites this section with its path',
             'not proof', 'unavailable', '### Criterion evidence and finding handoff',
             'passed, failed, not run, or environment blocked', 'proven, unmet, or unverified',
             'PASS, if used, means only run status', 'Structural checks prove structure only',
@@ -460,12 +473,12 @@ class ClaudePayloadTests(unittest.TestCase):
         ))
 
     def test_claude_agent_profiles_hold_acceptance_contracts(self):
-        qa = self.read_claude('agents/arc-qa.md')
-        self.assert_all(qa, ('UI browser acceptance checks', 'cites', 'unverified', 'environment blocked',
+        tester = self.read_claude('agents/arc-tester.md')
+        self.assert_all(tester, ('UI browser acceptance checks', 'cites', 'unverified', 'environment blocked',
                              'proven, unmet, or unverified', 'only run status'))
         rev = self.read_claude('agents/arc-reviewer.md')
         self.assert_all(rev, ('source-inferred', 'execution-observed', 'criterion, expected behavior',
-                              'after the required QA', 'diff artifact', 'limits'))
+                              'after the required Tester', 'diff artifact', 'limits'))
         plan = self.korean_policy(self.read_claude('agents/arc-planner.md'))
         self.assert_all(plan, ('Korean', 'ID and title', 'hold conditions', 'one focused implementation commit',
                                'never Reviewer as a per-task', 'single independent Reviewer', 'complete drafts'))
@@ -560,12 +573,12 @@ class RoleHardeningTests(unittest.TestCase):
                        'MUST NEVER invoke `brainstorming` or `writing-plans` through its own Skill tool',
                        'auto-triggers in Orchestrator context, Orchestrator stops and routes to Planner', "that skill's SKILL.md path",
                        'skip questions', 'never waives design or approval gates', 'returns questions to Orchestrator',
-                       'FRESH Implementer', 'FRESH QA'):
+                       'FRESH Implementer', 'FRESH Tester'):
             with self.subTest(needle=needle):
                 self.assertIn(' '.join(needle.split()), ' '.join(gate.split()))
         self.assertIn('Integrate means save, route, and obtain approval; never author', self.text('skill/references/planning.md'))
-        self.assertIn('same-task corrections and rechecks default to the current Implementer and QA', gate)
-        self.assertIn('Implementer and QA freshness follow the Role gate', self.text('skill/references/coordination.md'))
+        self.assertIn('same-task corrections and rechecks default to the current Implementer and Tester', gate)
+        self.assertIn('Implementer and Tester freshness follow the Role gate', self.text('skill/references/coordination.md'))
 
     def test_every_profile_has_stay_in_role_line(self):
         for role in EXPECTED:
@@ -573,26 +586,26 @@ class RoleHardeningTests(unittest.TestCase):
                 body = self.text(f'agents/arc-{role}.md')
                 self.assertRegex(body, r'Stay in your role: ONLY [^;]+; NEVER [^.]+\.')
 
-    def test_qa_freshness_and_no_contradictory_substitution(self):
+    def test_tester_freshness_and_no_contradictory_substitution(self):
         core = self.text('skill/SKILL.md')
-        self.assertNotIn('QA or Orchestrator focused checks', core)
+        self.assertNotIn('Tester or Orchestrator focused checks', core)
         verification = self.text('skill/references/verification.md')  # the risk table and freshness rule live here
-        self.assertRegex(verification, r'Ordinary and significant plan tasks.*FRESH QA')
+        self.assertRegex(verification, r'Ordinary and significant plan tasks.*FRESH Tester')
         self.assertRegex(verification, r'small, low-risk tasks.*Orchestrator focused checks')
-        self.assertNotIn('QA or Orchestrator focused checks', verification)
-        self.assertIn('FRESH QA instance per task that needs QA', verification)
-        self.assertIn('a QA finding within the current task does not itself create a new task', core)
+        self.assertNotIn('Tester or Orchestrator focused checks', verification)
+        self.assertIn('FRESH Tester instance per task that needs Tester', verification)
+        self.assertIn('a Tester finding within the current task does not itself create a new task', core)
         coordination = self.text('skill/references/coordination.md')
-        self.assertIn('default to the current Implementer for same-task QA corrections', coordination)
+        self.assertIn('default to the current Implementer for same-task Tester corrections', coordination)
         self.assertIn('Replace or restart a role only when its context is invalid or unavailable, or the task boundary changes', coordination)
-        self.assertIn('default to the current QA for post-fix rechecks of the same task', verification)
+        self.assertIn('default to the current Tester for post-fix rechecks of the same task', verification)
         self.assertIn('actual actor, target state, outcomes, and limitations', verification)
-        self.assertIn('Reusing QA does not reuse stale evidence', verification)
+        self.assertIn('Reusing Tester does not reuse stale evidence', verification)
 
     def test_reviewer_reuse_requires_independence_and_refreshed_context(self):
         verification = self.text('skill/references/verification.md')
         for phrase in (
-            'Fresh-per-task rules apply to Implementer and QA, not Reviewer',
+            'Fresh-per-task rules apply to Implementer and Tester, not Reviewer',
             'Orchestrator may reuse a Reviewer only while independent of implementation and self-review',
             'relevant assignment context remains valid',
             'refreshed review scope, target state, and evidence are provided',
@@ -619,7 +632,7 @@ class RoleHardeningTests(unittest.TestCase):
 
     def test_dangling_references_removed_and_terms_defined(self):
         core = self.text('skill/SKILL.md')
-        for gone in ('branch protection', 'Implementer repair limits', 'existing CEO depth judgment', 'short design', 'QA or Orchestrator'):
+        for gone in ('branch protection', 'Implementer repair limits', 'existing CEO depth judgment', 'short design', 'Tester or Orchestrator'):
             with self.subTest(gone=gone):
                 self.assertNotIn(gone, core)
         handoff = (PAYLOAD / 'skill/references/handoff.md').read_text()
@@ -631,8 +644,8 @@ class RoleHardeningTests(unittest.TestCase):
         self.assertIn('simple, self-contained question', core)
         self.assertIn('and assigned dependent docs', self.text('skill/references/coordination.md'))
 
-    def test_qa_browser_instructions_match_allowlist(self):
-        for text in (self.text('skill/references/verification.md'), self.text('agents/arc-qa.md')):
+    def test_tester_browser_instructions_match_allowlist(self):
+        for text in (self.text('skill/references/verification.md'), self.text('agents/arc-tester.md')):
             self.assertNotIn('allowlisted browser tools', text)
             self.assertNotIn('Use browsers', text)
         self.assertIn('through Bash only', self.text('skill/references/verification.md'))
@@ -650,11 +663,11 @@ class Task4FollowUpTests(unittest.TestCase):
     def text(self, *parts):
         return ' '.join((PAYLOAD.joinpath(*parts)).read_text().split())
 
-    def test_failed_check_or_qa_finding_routes_to_implementer(self):
+    def test_failed_check_or_tester_finding_routes_to_implementer(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', core)
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', self.text('skill/references/handoff.md'))
-        self.assertRegex(self.text('skill/references/handoff.md'), r'failed focused check or a QA finding routes the correction to Implementer')
+        self.assertRegex(self.text('skill/references/handoff.md'), r'failed focused check or a Tester finding routes the correction to Implementer')
 
     def test_design_drafts_are_not_standalone_document_writing(self):
         self.assertRegex(self.text('skill/SKILL.md'), r'Standalone document writing has no specialist auto-route\. Design, spec, plan, and brainstorming drafts are not standalone document writing \(see Role gate\)')

@@ -89,7 +89,7 @@ test('AC-K9 Grok render ownership and routing round trip uses exactly three fron
   for (const eol of ['\n', '\r\n']) {
     const rendered = format.render(source.replaceAll('\n', eol), 'arc_planner', setting);
     assert.equal(format.isOwnedStandalone(rendered, 'arc_planner'), true);
-    assert.equal(format.isOwnedStandalone(rendered, 'arc_qa'), false);
+    assert.equal(format.isOwnedStandalone(rendered, 'arc_tester'), false);
     assert.deepEqual(rendered.toString().split(/\r?\n---\r?\n/)[0].split(/\r?\n/).slice(1).map(line => line.split(':')[0]), ['name', 'description', 'model']);
     assert.match(rendered.toString(), /model: grok-test/);
     assert.doesNotMatch(rendered.toString(), /model: grok-4.6/);

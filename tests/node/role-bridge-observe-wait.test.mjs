@@ -9,9 +9,9 @@ import {readLease, writeLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
 
 async function setup(t, state) {
-  const f = await createRoutingFixture(t, {roles: {arc_qa: 'codex'}});
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await f.cli('codex', {version: 'codex-cli 0.167.0'});
-  const prepared = await prepareRoleDispatch({context: f.context(), assignment: {role: 'arc_qa', requestId: 'observe-req', taskId: 'observe-task'}, expectedRevision: f.revision});
+  const prepared = await prepareRoleDispatch({context: f.context(), assignment: {role: 'arc_tester', requestId: 'observe-req', taskId: 'observe-task'}, expectedRevision: f.revision});
   assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
   assert.equal(prepared.route, 'bridge');
   f.dispatchId = prepared.dispatchId;

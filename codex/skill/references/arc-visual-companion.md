@@ -6,7 +6,7 @@ Read before offering or operating the companion.
 <a id="visual-companion"></a>
 ## Visual companion
 
-Design discussion is distinct from QA UI acceptance under an approved test brief.
+Design discussion is distinct from Tester UI acceptance under an approved test brief.
 
 1. Planner returns a useful visual question, reason, options, user decision and complete content draft; no screen writing, server/browser operation or approval request.
 2. Orchestrator offers in a separate message when visuals clarify the question, then waits for acceptance. After refusal, continue in text without reoffering unless the user raises it.
@@ -19,12 +19,12 @@ Upstream guide/scripts: `<installed ARC>/references/visual-companion.md` and adj
 2. Record `screen_dir`, `state_dir` and the complete keyed URL from the server or this session's `state/server-info`. NEVER guess another session path.
 3. A/B highlighting proves selection display only. Separately inspect that session's exact `state_dir/events` for saved events. Clicking starts neither a chat turn nor an automatic response.
 4. Tell the user to return to chat and send a follow-up after selection. On the actual next turn, reread the same events file and combine it with the current message. Current chat text is primary; events are supplemental. Chat wins conflicts; clarify missing/ambiguous feedback.
-5. DO NOT infer storage from highlighting or next-turn consumption from an earlier QA parse. Preserve imported guide/scripts.
+5. DO NOT infer storage from highlighting or next-turn consumption from an earlier Tester parse. Preserve imported guide/scripts.
 
 <a id="follow-up-verification-of-approved-visual-sources"></a>
 ## Follow-up verification of approved visual sources
 
-Each visual criterion requires the exact approved source location, version, approval and access state; criterion IDs, properties and comparison method; and evidence linking the actual output to its revision. Implementer reporting does not replace fresh QA comparison.
+Each visual criterion requires the exact approved source location, version, approval and access state; criterion IDs, properties and comparison method; and evidence linking the actual output to its revision. Implementer reporting does not replace fresh Tester comparison.
 
 - Record pass/mismatch/unverified and connect to proven/unmet/unverified criterion verdicts. Pass requires accessible evidence meeting the criterion; unsupported claims remain unverified.
 - A missing revision link is unverified; a visible difference is a mismatch. Record them separately without inferring the current branch UI state.

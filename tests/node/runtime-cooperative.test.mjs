@@ -46,6 +46,39 @@ test('attestationIsNotPlatformEvent: records statements without provider identit
  assert.equal(schema.validateCooperativeState(state),state);
  await assert.rejects(api.runCooperativeCommand({...f.args,command:'record',input:{...record('r2',1),source:'platform-event'}}),/input|schema|field/i);
 });
+test('cooperative status reads a stored qa actor and record but rejects a new qa actor',async t=>{
+ const f=await start(t);
+ await api.runCooperativeCommand({...f.args,command:'record',input:record('historical',0)});
+ const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ state.actors[0].actor.role='qa';
+ state.records[0].actor.role='qa';
+ const before=JSON.stringify(state);
+ await fs.writeFile(f.statePath,before);
+ const status=await api.runCooperativeCommand({...f.args,command:'status',input:undefined});
+ assert.equal(status.decision,'allow');
+ assert.equal(status.state.actors[0].actor.role,'qa');
+ assert.equal(status.state.records[0].actor.role,'qa');
+ const result=await api.runCooperativeCommand({...f.args,command:'record',input:{...record('new-legacy',1),actor:{id:'tester',role:'qa'}}});
+ assert.equal(result.decision,'deny');
+ assert.equal(result.reason,'legacy_role_qa');
+ assert.equal(await fs.readFile(f.statePath,'utf8'),before);
+});
+test('cooperative write preserves stored qa values alongside a current tester audit entry',async t=>{
+ const f=await start(t),state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ state.approvals.push({source:'operator-attested',scope:{operations:['qa']}});
+ state.assignments.push({source:'operator-attested',operations:['qa']});
+ state.audit.push({operation:'qa',actor:{id:'historical',role:'qa'}});
+ await fs.writeFile(f.statePath,JSON.stringify(state));
+ const result=await api.runCooperativeCommand({...f.args,command:'prepare',
+  input:{requestId:'current-test',expectedRevision:0,actor:{id:'current',role:'tester'},operation:'test'}});
+ assert.equal(result.persisted,true);
+ const saved=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ assert.deepEqual(saved.approvals,state.approvals);
+ assert.deepEqual(saved.assignments,state.assignments);
+ assert.deepEqual(saved.audit.slice(0,-1),state.audit);
+ assert.equal(saved.audit.at(-1).operation,'test');
+ assert.equal(saved.audit.at(-1).actor.role,'tester');
+});
 test('requestFingerprintConflict and replay never reuse a prior successful mutation',async t=>{
  const f=await start(t);const input=record('same',0);await api.runCooperativeCommand({...f.args,command:'record',input});const before=await fs.readFile(f.statePath,'utf8');
  const replay=await api.runCooperativeCommand({...f.args,command:'record',input});assert.equal(replay.decision,'hold');assert.equal(replay.replayed,true);

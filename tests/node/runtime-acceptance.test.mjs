@@ -6,8 +6,8 @@ function fixture(){
  const target={realpath:'/workspace',gitCommonDir:'/repo/.git',gitDir:'/repo/.git',branch:'main',head:oid('a')};
  const descriptor={executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]};
  const task={id:'T1',paths:['/workspace/code.mjs'],criteria:['works'],requiredChecks:[descriptor],dependencies:[],approvalRef:'approved',approvalVersion:1,documentVersion:1,scopeVersion:0,targetVersion:1,status:'pending'};
- const state={mode:'plan',revision:1,target,targetVersion:1,scopeVersion:0,versions:{runtimeHash:hash('a')},tasks:[task],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',scopeVersion:0,targetVersion:1,data:{approvalVersion:1,documentVersion:1}}],assignments:[{taskId:'T1',agentId:'implementer',status:'active'}],checks:[{id:'qa',scope:'task',taskId:'T1',operation:'check',descriptor,verificationActor:{id:'qa1',role:'qa'},status:'passed',verdict:'proven',changeFingerprint:hash('a'),resultRef:'qa:passed',source:'operator-attested'}],findings:[],acceptances:[],commits:[],intents:[],unresolved:[]};
- const request={requestId:'accept',expectedRevision:1,actor:{id:'operator',role:'orchestrator'},taskId:'T1',operation:'accept',arguments:{messageRef:'operator:accepted',criteria:['works'],checkIds:['qa'],findingIds:[],changeFingerprint:hash('a')}};
+ const state={mode:'plan',revision:1,target,targetVersion:1,scopeVersion:0,versions:{runtimeHash:hash('a')},tasks:[task],records:[{kind:'approval',messageRef:'approved',source:'operator-attested',scopeVersion:0,targetVersion:1,data:{approvalVersion:1,documentVersion:1}}],assignments:[{taskId:'T1',agentId:'implementer',status:'active'}],checks:[{id:'tester',scope:'task',taskId:'T1',operation:'check',descriptor,verificationActor:{id:'qa1',role:'tester'},status:'passed',verdict:'proven',changeFingerprint:hash('a'),resultRef:'tester:passed',source:'operator-attested'}],findings:[],acceptances:[],commits:[],intents:[],unresolved:[]};
+ const request={requestId:'accept',expectedRevision:1,actor:{id:'operator',role:'orchestrator'},taskId:'T1',operation:'accept',arguments:{messageRef:'operator:accepted',criteria:['works'],checkIds:['tester'],findingIds:[],changeFingerprint:hash('a')}};
  const git={target,indexTree:oid('b'),stagedFingerprint:hash('b'),stagedPaths:['code.mjs'],workingPaths:[],untrackedPaths:[]};
  return {state,request,evidence:{changes:{tasks:{T1:hash('a')},final:hash('a')},git},gitEvidence:git};
 }
@@ -19,6 +19,19 @@ function reconcile(f){assert.equal(typeof api.reconcileCooperativeCommit,'functi
 test('acceptRequiresExactCriteriaChecksAndFindings',()=>{
  const f=fixture();assert.equal(accept(f).decision,'allow');assert.equal(f.state.tasks[0].status,'pending');
  for(const mutate of [f=>f.request.arguments.criteria=[],f=>f.request.arguments.checkIds=[],f=>f.state.checks[0].changeFingerprint=hash('d'),f=>f.state.checks[0].verificationActor.id='implementer',f=>f.state.findings.push({id:'F',scope:'task',taskId:'T1',status:'open'}),f=>f.state.records[0].messageRef='changed',f=>f.request.actor.role='implementer']){const f=fixture();mutate(f);assert.equal(accept(f).decision,'hold');}
+});
+test('legacy qa check satisfies acceptance',()=>{
+ const f=fixture();
+ f.state.checks[0].verificationActor.role='qa';
+ assert.equal(accept(f).decision,'allow');
+ assert.equal(f.state.checks[0].verificationActor.role,'qa');
+});
+test('legacy qa finding recheck satisfies acceptance',()=>{
+ const f=fixture();
+ f.request.arguments.findingIds=['F1'];
+ f.state.findings.push({id:'F1',scope:'task',taskId:'T1',status:'closed',resolutionRef:'fix',resolutionActor:{id:'implementer',role:'implementer'},recheckRef:'recheck',recheckActor:{id:'qa1',role:'qa'},changeFingerprint:hash('a')});
+ assert.equal(accept(f).decision,'allow');
+ assert.equal(f.state.findings[0].recheckActor.role,'qa');
 });
 test('acceptedFingerprintCannotCommitDifferentIndex',()=>{for(const mutate of [f=>f.gitEvidence.indexTree=oid('d'),f=>f.gitEvidence.stagedFingerprint=hash('d'),f=>f.evidence.changes.tasks.T1=hash('d'),f=>f.state.tasks[0].criteria=['changed']]){const f=accepted();mutate(f);assert.equal(prepare(f).decision,'hold');}});
 test('unrelatedStagedPathsHold',()=>{const f=fixture();f.gitEvidence.stagedPaths.push('other.mjs');assert.equal(accept(f).decision,'hold');const g=fixture();g.state.tasks.push({...g.state.tasks[0],id:'T2'});assert.equal(accept(g).decision,'hold','overlapping another task must hold');});
@@ -55,7 +68,7 @@ test('durable acceptance and reconciliation update target only from verified obs
  assert.equal((await runCooperativeCommand({...args,command:'status'})).decision,'allow');
  assert.equal((await invoke('reconcile',{intentId:'r1',result})).decision,'hold');stored=JSON.parse(await fs.readFile(file));assert.equal(stored.commits.length,1);
 });
-test('historical QA for an observed committed task does not become an active pending-task failure',async()=>{
+test('historical Tester for an observed committed task does not become an active pending-task failure',async()=>{
  const {evaluateCooperative}=await import('../../lib/runtime/evaluate.mjs'),{cooperativeVersions}=await import('../../lib/runtime/bootstrap.mjs');
  const f=fixture();Object.assign(f.state,{workflowKind:'cooperative',contractVersion:1,schemaVersion:1,workflowId:'history',coverage:{enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false},versions:await cooperativeVersions()});
  for(const key of ['actors','selections','identities','leases','scopes','approvals','documents','requests','results','audit','targetHistory'])f.state[key]=[];f.state.records[0].actor=f.request.actor;

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import {validateCooperativeCommand,validateCooperativeState} from './cooperative-schema.mjs';
+import {legacyCooperativeRoleDenial,validateCooperativeCommand,validateCooperativeState} from './cooperative-schema.mjs';
 import {observeCooperativeTarget,validateObservedTarget,validateWorkflowId,workflowStatePath,inspectPath} from './scope.mjs';
 import {saveDurableState} from './store.mjs';
 export const COOPERATIVE_RUNTIME_MODULES=Object.freeze([
@@ -22,6 +22,8 @@ export async function cooperativeVersions(){
 }
 export async function initializeCooperativeWorkflow({cwd,workflowId,input,observe=observeCooperativeTarget,storage={}}){
  validateWorkflowId(workflowId);validateCooperativeCommand({command:'init',input});
+ const denial=legacyCooperativeRoleDenial(input);
+ if(denial)return commandResult({workflowId,input,...denial});
  if(input.mode!=='plan')return commandResult({workflowId,input,decision:'hold',ruleId:'cooperative.unsupported'});
  const target=await validateObservedTarget(cwd,await observe(cwd));const statePath=await workflowStatePath(target,workflowId);
  const parent=path.dirname(statePath);await fs.mkdir(parent,{recursive:true,mode:0o700});await inspectPath(parent,{directory:true});

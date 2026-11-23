@@ -1,4 +1,4 @@
-"""Independent legacy model literals and real Python CLI evidence for I1 QA."""
+"""Independent legacy model literals and real Python CLI evidence for I1 Tester."""
 import json
 import os
 from pathlib import Path
@@ -10,8 +10,16 @@ import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-ROLES = ('arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer')
+ROLES = ('arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer')
 PAIRS = json.loads((ROOT / 'tests/fixtures/qa-legacy-model-values.json').read_text())
+
+
+def current_role(role):
+    return 'arc_tester' if role == 'arc_qa' else role
+
+
+def legacy_role(role):
+    return 'arc_qa' if role == 'arc_tester' else role
 
 
 def model_case(platform, version, active):
@@ -20,13 +28,13 @@ def model_case(platform, version, active):
                 for i, role in enumerate(ROLES)}
     if version == 3:
         source = 'version = 3\n' + ''.join(
-            f'\n[roles.{role}]\nmodel = "{value["model"]}"\n{field} = "{value[field]}"\n'
+            f'\n[roles.{legacy_role(role)}]\nmodel = "{value["model"]}"\n{field} = "{value[field]}"\n'
             for role, value in expected.items())
     else:
         source = (ROOT / f'tests/fixtures/models-{platform}-v1.toml').read_text()
         source = source.replace('version = 1', f'version = {version}').replace('preset = "balanced"', f'preset = "{active}"')
         if active == 'custom':
-            source += ''.join(f'\n[custom.{role}]\nmodel = "{value["model"]}"\n{field} = "{value[field]}"\n'
+            source += ''.join(f'\n[custom.{legacy_role(role)}]\nmodel = "{value["model"]}"\n{field} = "{value[field]}"\n'
                               for role, value in expected.items())
     return source.encode(), expected
 
@@ -45,16 +53,16 @@ def exercise_python_model_matrix(test, module, platform):
                 original.write_bytes(source)
                 parsed = tomllib.loads(source.decode())
                 before = json.loads(json.dumps(parsed))
-                test.assertEqual(module.validate_config(parsed, original), {'version': 3, 'roles': expected})
+                test.assertEqual(module.validate_config(parsed, original), {'version': 4, 'roles': expected})
                 test.assertEqual(parsed, before)
                 test.assertEqual(module.load_settings(original), expected)
                 canonical = module.serialize_settings(parsed)
-                test.assertEqual(tomllib.loads(canonical.decode()), {'version': 3, 'roles': expected})
+                test.assertEqual(tomllib.loads(canonical.decode()), {'version': 4, 'roles': expected})
                 test.assertNotIn(b'preset', canonical)
                 output = root / 'canonical.toml'
                 output.write_bytes(canonical)
                 test.assertEqual(module.load_settings(output), expected)
-                # The CLI reads the old file and the serializer's actual v3 output.
+                # The CLI reads the old file and the serializer's actual v4 output.
                 for filename in (original, output):
                     agents = root / ('agents-' + filename.stem)
                     shutil.copytree(ROOT / platform / 'agents', agents)

@@ -608,7 +608,7 @@ export async function observeHeadAdvance(root, before, after, role, allowedPaths
     }
     const paths = [...uniquePaths].sort();
     const allowed = Array.isArray(allowedPaths) ? allowedPaths : [];
-    if (role === 'arc_implementer' || (role === 'arc_qa' && allowed.length)) {
+    if (role === 'arc_implementer' || (role === 'arc_tester' && allowed.length)) {
       const outOfScopePaths = paths.filter(file => !allowedBy(allowed, file));
       if (outOfScopePaths.length) return {...reject('out_of_scope'), outOfScopePaths};
     }
@@ -624,10 +624,10 @@ export async function observeHeadAdvance(root, before, after, role, allowedPaths
  * git:info/refs are tolerated and returned separately from violations.
  * Other HEAD changes and branch switches are violations.
  * Any other ref creation, deletion or movement is a violation.
- * Implementer and QA may change only allowedPaths in the worktree; with an
+ * Implementer and Tester may change only allowedPaths in the worktree; with an
  * empty or missing list they may change no worktree paths. Fast-forward
- * commit paths must stay within allowedPaths for Implementer and for QA with a
- * non-empty list; QA with an empty or missing list, like read-only roles, may
+ * commit paths must stay within allowedPaths for Implementer and for Tester with a
+ * non-empty list; Tester with an empty or missing list, like read-only roles, may
  * land a verified fast-forward touching any path.
  * Read-only roles may change no worktree paths beyond verified fast-forward
  * commits. Ordinary worktree snapshots omit Git-ignored paths. Control files
@@ -656,7 +656,7 @@ export function detectViolations({role, allowedPaths, before, after, headAdvance
       refsChanged = true;
     }
   }
-  const allowed = (role === 'arc_implementer' || role === 'arc_qa') && Array.isArray(allowedPaths) ? allowedPaths : [];
+  const allowed = (role === 'arc_implementer' || role === 'arc_tester') && Array.isArray(allowedPaths) ? allowedPaths : [];
   const changed = new Set();
   for (const file of new Set([...before.entries.keys(), ...after.entries.keys()])) {
     if (before.entries.get(file) !== after.entries.get(file) && !allowedBy(allowed, file)) changed.add(file);

@@ -8,6 +8,47 @@ const request = () => ({requestId:'request',platform:'codex',operation:'read',ac
 
 const api=await import('../../lib/runtime/store.mjs').catch(()=>({}));
 const input=(id,descriptor={})=>{const normalized={...request(),requestId:id,descriptor};return {requestId:id,request:normalized,requestFingerprint:api.fingerprintRequest(normalized)};};
+test('new request with qa operation is rejected', async t => {
+ const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arc-legacy-operation-'));
+ t.after(() => fs.rm(dir, {recursive:true, force:true}));
+ const statePath = path.join(dir, 'state.json');
+ const before = Buffer.from(JSON.stringify(state()));
+ await fs.writeFile(statePath, before);
+ const legacyRequest = {...request(), operation: 'qa'};
+ await assert.rejects(api.transactWorkflow({statePath, expectedRevision: 0, requestId: legacyRequest.requestId,
+  request: legacyRequest, requestFingerprint: api.fingerprintRequest(legacyRequest),
+  decide: () => ({decision: 'allow', proposedTransition: null})
+ }), /Runtime schema: request/);
+ assert.deepEqual(await fs.readFile(statePath), before);
+});
+test('provider transaction preserves historical operation and role values on disk',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'arc-store-legacy-'));
+ t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const statePath=path.join(dir,'state.json'),old=state();
+ old.approvals.push({id:'approval',source:'user-message',messageRef:'approval-message',contentHash:'sha256:'+'a'.repeat(64),scope:{taskId:'T1',target:'/workspace',operations:['qa'],paths:['/workspace/file']}});
+ old.assignments.push({actorRef:'historical',taskId:'T1',role:'tester',paths:['/workspace/file'],operations:['read','qa'],approvalRef:'approval'});
+ old.identities.push({actorRef:'historical',taskId:'T1',role:'qa',observationRef:'old-observation'});
+ old.audit.push({operation:'qa'});
+ await fs.writeFile(statePath,JSON.stringify(old));
+ await api.transactWorkflow({statePath,expectedRevision:0,...input('current'),decide:()=>({decision:'allow',proposedTransition:null})});
+ const saved=JSON.parse(await fs.readFile(statePath,'utf8'));
+ assert.deepEqual(saved.approvals,old.approvals);
+ assert.deepEqual(saved.assignments,old.assignments);
+ assert.deepEqual(saved.identities,old.identities);
+ assert.deepEqual(saved.audit[0],old.audit[0]);
+ assert.equal(saved.audit[1].requestId,'current');
+});
+test('provider transaction rejects introducing a legacy operation in a new state transition',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'arc-store-new-operation-'));
+ t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const statePath=path.join(dir,'state.json'),before=JSON.stringify(state());
+ await fs.writeFile(statePath,before);
+ await assert.rejects(api.transactWorkflow({statePath,expectedRevision:0,...input('current'),decide:next=>{
+  next.approvals.push({id:'approval',source:'user-message',messageRef:'approval-message',contentHash:'sha256:'+'a'.repeat(64),scope:{taskId:'T1',target:'/workspace',operations:['qa'],paths:['/workspace/file']}});
+  return {decision:'allow',proposedTransition:next};
+ }}),/legacy operation in new state/);
+ assert.equal(await fs.readFile(statePath,'utf8'),before);
+});
 test('transactions serialize revisions replay safely survive restart and retain state on failure',async t=>{
  assert.equal(typeof api.transactWorkflow,'function');const dir=await fs.mkdtemp(path.join(os.tmpdir(),'arc-store-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));const statePath=path.join(dir,'state.json');await fs.writeFile(statePath,JSON.stringify(state()));
  const args={statePath,expectedRevision:0,...input('r'),decide:s=>({decision:'allow',proposedTransition:{...s,revision:s.revision+1}})};
@@ -69,7 +110,7 @@ test('verified reconciliation persists and rereads commit while forged or mutate
 
 test('current authority cannot reauthorize a repeated side-effecting request',async t=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'arc-effect-replay-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
- for(const operation of ['write','temporary-write','check','qa','operational-query','install','prepare-target','request-approval','stage','rebase','reset','branch-create','branch-switch','worktree-create','worktree-remove','external-message']){
+ for(const operation of ['write','temporary-write','check','test','operational-query','install','prepare-target','request-approval','stage','rebase','reset','branch-create','branch-switch','worktree-create','worktree-remove','external-message']){
   const statePath=path.join(dir,operation+'.json');await fs.writeFile(statePath,JSON.stringify(state()));const r={...request(),operation};let checks=0;
   const args={statePath,expectedRevision:0,requestId:r.requestId,request:r,requestFingerprint:api.fingerprintRequest(r),decide:()=>{checks++;return {decision:'allow',proposedTransition:null};}};
   assert.equal((await api.transactWorkflow(args)).decision.decision,'allow');const before=await fs.readFile(statePath,'utf8');const replay=await api.transactWorkflow(args);

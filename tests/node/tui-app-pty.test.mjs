@@ -124,7 +124,7 @@ test('Configure Back preserves the edited language across reopening',{skip:!avai
 test('role edits reach Run mode without triggering Apply',{skip:!available},async t=>{
  const catalog={status:'ready',catalog:{platform:'claude',pairs:[{model:'fixture-model',effort:'high'}],unavailable:[]}};
  let steps=entry;
- for(const name of ['Scouter','Planner','Implementer','QA','Reviewer'])steps+='enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {'+name+'}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Configure}\nexpect -exact {Esc Home}\ndown\nexpect -exact {Esc Home}\n';
+ for(const name of ['Scouter','Planner','Implementer','Tester','Reviewer'])steps+='enter\nexpect -exact {Platform}\nexpect -exact {Esc Home}\ndown\nenter\nexpect -exact {Model — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {Effort — '+name+'}\nexpect -exact {Esc Home}\nenter\nexpect -exact {'+name+'}\nexpect -exact {Esc Home}\ndown\ndown\nenter\nexpect -exact {Configure}\nexpect -exact {Esc Home}\ndown\nexpect -exact {Esc Home}\n';
  const output=await drive(t,steps+'down\nexpect -exact {> Run mode}\nsend -- "\\003"',{catalog});assert.match(output,/CODE=130 CALLS=0 PREPARES=0/);assert.doesNotMatch(output,/entitlement|permission.{0,30}(?:unverified|not verified)/i);
 });
 test('diagram resize blocks editing and role picker retains pending effort',{skip:!available},async t=>{

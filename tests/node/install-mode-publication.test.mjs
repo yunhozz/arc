@@ -21,14 +21,14 @@ import {safeFs,roles,compositeContext,targets,agents,mixedConfig,standalone,publ
 
 test('composite install leaves no standalone profiles on either home',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));
- assert.deepEqual(agents(ctx,'claude'),['arc-routing-planner.md','arc-routing-reviewer.md']);assert.deepEqual(agents(ctx,'codex'),['arc-routing-implementer.toml','arc-routing-qa.toml','arc-routing-scouter.toml']);
+ assert.deepEqual(agents(ctx,'claude'),['arc-routing-planner.md','arc-routing-reviewer.md']);assert.deepEqual(agents(ctx,'codex'),['arc-routing-implementer.toml','arc-routing-scouter.toml','arc-routing-tester.toml']);
 });
 test('failed composite publication restores standalone profiles byte for byte',async t=>{
  const ctx=await compositeContext(t);await standalone(ctx);const before=profileFiles(ctx);ctx.hooks={fault:e=>{if(e.phase==='before-publish'&&e.path.endsWith('arc-role-platform-routing.json'))throw Error('fault');}};
  const result=await publish(ctx);assert.equal(result.code,1);assert.deepEqual(profileFiles(ctx),before);assert.equal(fs.existsSync(ctx.userHome+'/.claude/arc-role-platform-routing.json'),false);
 });
 test('unowned standalone profile is kept and reported as residual',async t=>{
- const ctx=await compositeContext(t);await standalone(ctx);const user=ctx.userHome+'/.claude/agents/arc-qa.md',link=ctx.userHome+'/.codex/agents/arc-qa.toml',outside=ctx.userHome+'/mine';fs.writeFileSync(user,'my profile\n');fs.writeFileSync(outside,'outside\n');fs.unlinkSync(link);fs.symlinkSync(outside,link);
+ const ctx=await compositeContext(t);await standalone(ctx);const user=ctx.userHome+'/.claude/agents/arc-tester.md',link=ctx.userHome+'/.codex/agents/arc-tester.toml',outside=ctx.userHome+'/mine';fs.writeFileSync(user,'my profile\n');fs.writeFileSync(outside,'outside\n');fs.unlinkSync(link);fs.symlinkSync(outside,link);
  const result=await publish(ctx);assert.equal(result.code,0,JSON.stringify(result));assert.equal(fs.readFileSync(user,'utf8'),'my profile\n');assert.equal(fs.readlinkSync(link),outside);for(const filename of [user,link])assert.ok(result.messages.includes('Residual path: '+filename));
 });
 test('active bridge lease blocks publication and deactivation without changes',async t=>{

@@ -28,7 +28,7 @@ const forbidden = ['--allowed-tools', '--yolo', 'yolo', '--skip-trust', '--raw-o
 for (const role of ROUTING_ROLES) test(`Gemini arguments enforce permissions and omit unsafe flags for ${role}`, () => {
   assert.equal(typeof argsApi.buildGeminiArgs, 'function');
   const args = argsApi.buildGeminiArgs({role, model: 'gemini-test', sessionId: SESSION, policyFile: '/policy/role.toml'});
-  const writing = ['arc_implementer', 'arc_qa'].includes(role);
+  const writing = ['arc_implementer', 'arc_tester'].includes(role);
   assert.deepEqual(args.slice(0, 9), ['-p', 'Follow the role instructions and task on stdin.', '-m', 'gemini-test', '-o', 'stream-json', '--session-id', SESSION, '--approval-mode']);
   assert.equal(args[9], writing ? 'auto_edit' : 'plan');
   assert.equal(args[args.indexOf('--policy') + 1], '/policy/role.toml');
@@ -61,7 +61,7 @@ test('runtime Gemini parser round trips installer render and rejects missing req
 
 test('GG1 and GG2 hold writing roles and Gemini hosts', () => {
   assert.equal(BRIDGE_GATE_RESULTS.GG1, 'fail'); assert.equal(BRIDGE_GATE_RESULTS.GG2, 'fail');
-  for (const role of ['arc_implementer', 'arc_qa']) assert.deepEqual(bridgeGateReasons({platform: 'gemini', hostPlatform: 'claude', role}), ['permission_scope_unverified']);
+  for (const role of ['arc_implementer', 'arc_tester']) assert.deepEqual(bridgeGateReasons({platform: 'gemini', hostPlatform: 'claude', role}), ['permission_scope_unverified']);
   assert.deepEqual(bridgeGateReasons({platform: 'codex', hostPlatform: 'gemini', role: 'arc_scouter'}), ['host_sandbox_blocked']);
   assert.deepEqual(bridgeGateReasons({platform: 'gemini', hostPlatform: 'claude', role: 'arc_scouter'}), []);
 });
@@ -171,7 +171,7 @@ for (const [scenario, env, want] of [
 
 test('Gemini writing dispatches are held before a child is spawned', async t => {
   const f = await fixture(t);
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     const result = await f.prepare(role); assert.equal(result.decision, 'hold'); assert.ok(codes(result).includes('permission_scope_unverified'));
   }
   await assert.rejects(fs.access(f.record), {code: 'ENOENT'});

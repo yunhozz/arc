@@ -69,7 +69,7 @@ const profiles = (context, id) => homeBytes(path.join(home(context, id), 'agents
 function assertComposite(context, platforms, anchor) {
   assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms, anchor});
   const config = JSON.parse(fs.readFileSync(activePath(context, anchor)));
-  assert.equal(config.version, 2);
+  assert.equal(config.version, 3);
   assert.deepEqual(config.platforms, platforms);
   for (const id of ids) {
     assert.equal(fs.existsSync(activePath(context, id)), id === anchor, id);
@@ -90,7 +90,7 @@ function assertComposite(context, platforms, anchor) {
   }
 }
 
-for (const platforms of sets) test(`AC-G8 publish ${platforms.join('+')} writes v2 and all home markers`, async t => {
+for (const platforms of sets) test(`AC-G8 publish ${platforms.join('+')} writes v3 and all home markers`, async t => {
   const context = await contextFor(t);
   const {prepared, result} = await publish(context, platforms);
   assert.equal(result.activation, 'published');
@@ -238,7 +238,7 @@ for (const role of [false, true]) test(`${role ? 'injected compositeRole-off' : 
     Object.assign(context, {runtimePlatforms, platforms: createInstallerRegistry({runtime: runtimePlatforms, descriptors: runtimePlatforms.platforms.map(runtime => ({...DEFAULT_INSTALLER_REGISTRY.getPlatform(runtime.id), runtime}))})});
   }
   const config = await configFor(context, ['claude', 'codex'], 'operational-off');
-  if (role) config.roles.arc_qa = {platform: 'gemini', model: 'gemini-2.5-flash', effort: 'default'};
+  if (role) config.roles.arc_tester = {platform: 'gemini', model: 'gemini-2.5-flash', effort: 'default'};
   else await publish(context, ['claude', 'codex'], 'operational-existing-pair');
   const before = homeBytes(context.userHome);
   await assert.rejects(management.prepareOperation(context, {kind: 'install', target: 'composite', platforms: ids, config}), /Gemini is not available: capability not verified/);

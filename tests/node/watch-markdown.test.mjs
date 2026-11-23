@@ -133,8 +133,8 @@ test('markdown avoids emphasis false positives and tolerates open fence', () => 
 });
 
 test('markdown preserves the role badge and continuation indent', () => {
-  const lines = renderHuman({...event, role:'qa', text:'# 제목\n- 항목'}, {width:60, color:true, wrap:true}).split('\n');
-  assert.match(lines[0], /\x1b\[1;38;5;16;48;5;228m QA \x1b\[0m$/);
+  const lines = renderHuman({...event, role:'tester', text:'# 제목\n- 항목'}, {width:60, color:true, wrap:true}).split('\n');
+  assert.match(lines[0], /\x1b\[1;38;5;16;48;5;228m TESTER \x1b\[0m$/);
   assert.deepEqual(lines.slice(1).map(plain), [' '.repeat(25) + '제목', ' '.repeat(25) + '• 항목']);
 });
 

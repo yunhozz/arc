@@ -13,8 +13,8 @@ import {loadModelConfig} from '../../lib/models/index.mjs';
 import {loadStaticModelCatalog} from '../../lib/models/static-catalog.mjs';
 import {migrationRegistries} from './fixtures/legacy-composite.mjs';
 const packageRoot=fileURLToPath(new URL('../../',import.meta.url));
-const roles=['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
-const names=['Scouter','Planner','Implementer','QA','Reviewer'];
+const roles=['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'];
+const names=['Scouter','Planner','Implementer','Tester','Reviewer'];
 const models=Object.fromEntries(['codex','claude'].map(p=>[p,loadModelConfig(readFileSync(new URL(`../../${p}/skill/models.toml`,import.meta.url)),p)]));
 const catalogs=Object.fromEntries(await Promise.all(['codex','claude'].map(async p=>[p,(await loadStaticModelCatalog(p)).catalog])));
 const statuses=['codex','claude'].map(platform=>({platform,state:'installed',settings:{language:'en',limits:{max_total_subagents:100,max_concurrent_subagents:5},modelConfig:models[platform]}}));
@@ -59,7 +59,7 @@ test('picker explains catalog models without effort capabilities',async()=>{
 
 for(const target of ['codex','claude'])for(const source of ['draft','installed','package'])test(`install ${target} initial roles prefer ${source}`,async()=>{
  const installed=structuredClone(models[target].roles);installed.arc_scouter.model=target==='codex'?'gpt-6-luna':'sonnet';
- const saved=source==='package'?[]:[{platform:target,state:'installed',settings:{modelConfig:{platform:target,version:3,roles:installed}}}];
+ const saved=source==='package'?[]:[{platform:target,state:'installed',settings:{modelConfig:{platform:target,version:4,roles:installed}}}];
  const draft=source==='draft'?installDraft(target):{};if(draft.roles)draft.roles.arc_scouter.model=target==='codex'?'gpt-6-astra':'fable';
  // An absent alternate platform keeps package fallback deterministic for both targets.
  const statuses=[...saved,...(source==='package'?[{platform:target,state:'absent',authentication:{authStatus:'authenticated'},cliVersion:{version:'1.0.0'}}]:[]),{platform:target==='codex'?'claude':'codex',state:'absent',authentication:{authStatus:'unauthorized'}}];
@@ -278,7 +278,7 @@ test('(mixed) field untouched is omitted, touched applies to S',async()=>{
  const inputs=['9','4'];ui.text=async(_title,raw)=>{assert.equal(raw,'');return inputs.shift();};
  const options=await installFlow({statuses:saved,draft,ui});
  assert.deepEqual(options.settings,{skipGlobal:false,runMode:'supervised',language:'en',maxTotalSubagents:9,maxConcurrentSubagents:4,concurrentSelected:true});assert.deepEqual(options.platforms,['claude','codex']);
- for(const rule of ['D1-c','D1-d','D1-e']){const value=setup.installPrepareOptions({...plan,rule},draft,catalogs);assert.equal(value.target,'composite');assert.equal(value.config.version,2);assert.deepEqual(value.config.roles,draft.roles);assert.ok(value.config.revision);}
+ for(const rule of ['D1-c','D1-d','D1-e']){const value=setup.installPrepareOptions({...plan,rule},draft,catalogs);assert.equal(value.target,'composite');assert.equal(value.config.version,3);assert.deepEqual(value.config.roles,draft.roles);assert.ok(value.config.revision);}
  const single=setup.installPrepareOptions({rule:'D1-b',platforms:['codex'],anchor:'codex'},draft,catalogs);assert.equal(single.switchFromComposite,true);assert.deepEqual(single.roles,models.codex.roles);assert.strictEqual(single.verifiedCatalog,catalogs.codex);assert.equal(single.skipGlobal,false);assert.equal(single.runMode,'supervised');
 });
 
@@ -302,7 +302,7 @@ test('touched run mode survives a Hosts change',async()=>{
 });
 
 test('hosts lock role platforms and preview mode in Apply',async()=>{
- const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');assert.equal(rows[3],'[-] Grok    - Unavailable  (unsupported version)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',4],['Configure',10,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-7),['Hosts: Claude, Codex','Run mode              < Supervised >','Language              < English >','Total subagents       100','Concurrent subagents  5','Apply - Mixed (Claude + Codex)','Back']);}]];
+ const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows)=>{assert.equal(rows[0],'[ ] Claude');assert.equal(rows[1],'[■] Codex   (used by Scouter, Planner, Implementer, Tester, Reviewer)');assert.equal(rows[2],'[-] Gemini  - Unavailable  (capability not verified)');assert.equal(rows[3],'[-] Grok    - Unavailable  (unsupported version)');}],['Hosts — CLIs where you start ARC sessions',0,rows=>assert.match(rows[1],/^\[■\]/)],['Hosts — CLIs where you start ARC sessions',4],['Configure',10,(_rows,options)=>{assert.deepEqual(options.notice,[]);assert.deepEqual(installBody(options).rows.slice(-7),['Hosts: Claude, Codex','Run mode              < Supervised >','Language              < English >','Total subagents       100','Concurrent subagents  5','Apply - Mixed (Claude + Codex)','Back']);}]];
  const result=await installFlow({draft:installDraft(),ui:scripted(steps)});assert.deepEqual(result.platforms,['claude','codex']);assert.equal(result.target,'composite');assert.equal(result.settings.skipGlobal,false);assert.deepEqual(result.config.roles,installRoles('codex'));assert.equal(steps.length,0);
 });
 
@@ -346,7 +346,7 @@ test('Configure compact and guard boundaries preserve access to the controls',as
 
 test('install hosts use injected registry labels, order and reason detail',async()=>{
  assert.equal(typeof setup.editHosts,'function');const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries(['codex','claude','zeta','eta']);
- const hosts=['eta'],steps=[['Hosts — CLIs where you start ARC sessions',3,(rows,options)=>{assert.deepEqual(rows.slice(0,4),['[ ] Claude','[■] Codex   (used by Scouter, Planner, Implementer, QA, Reviewer)','[ ] Zeta','[-] Eta     - Unavailable  (capability not verified)']);assert.deepEqual(options.notice({selected:3,columns:120,rows:40}),["Roles' platforms are always included.",'Eta: capability not verified']);}],['Hosts — CLIs where you start ARC sessions',3,rows=>assert.match(rows[3],/^\[-\]/)],['Hosts — CLIs where you start ARC sessions',2,rows=>assert.match(rows[3],/^\[-\]/)],['Hosts — CLIs where you start ARC sessions',4]];
+ const hosts=['eta'],steps=[['Hosts — CLIs where you start ARC sessions',3,(rows,options)=>{assert.deepEqual(rows.slice(0,4),['[ ] Claude','[■] Codex   (used by Scouter, Planner, Implementer, Tester, Reviewer)','[ ] Zeta','[-] Eta     - Unavailable  (capability not verified)']);assert.deepEqual(options.notice({selected:3,columns:120,rows:40}),["Roles' platforms are always included.",'Eta: capability not verified']);}],['Hosts — CLIs where you start ARC sessions',3,rows=>assert.match(rows[3],/^\[-\]/)],['Hosts — CLIs where you start ARC sessions',2,rows=>assert.match(rows[3],/^\[-\]/)],['Hosts — CLIs where you start ARC sessions',4]];
  const result=await setup.editHosts({ui:scripted(steps),hosts,rolePlatforms:['codex','codex','codex','codex','codex'],availabilityOf:id=>({selectable:id!=='eta',reason:id==='eta'?'capability_not_verified':null}),registry});assert.deepEqual(result,['codex','zeta']);assert.deepEqual(hosts,['eta']);assert.equal(steps.length,0);
  assert.deepEqual(await setup.editHosts({ui:scripted([['Hosts — CLIs where you start ARC sessions',4]]),hosts:[],rolePlatforms:[],availabilityOf:()=>({selectable:true}),registry}),[]);
  assert.equal(await setup.editHosts({ui:scripted([['Hosts — CLIs where you start ARC sessions',0],['Hosts — CLIs where you start ARC sessions',null]]),hosts:[],rolePlatforms:[],availabilityOf:()=>({selectable:true}),registry}),null);
@@ -386,10 +386,10 @@ test('composite gates distinguish role and host usage and standalone ignores aut
  const result=await installFlow({statuses:saved,draft:installDraft(),ui:scripted([['Configure',10]])});assert.equal(result.target,'codex');
 });
 
-test('injected third host produces a version 2 routing config and registry labels',async()=>{
+test('injected third host produces a version 3 routing config and registry labels',async()=>{
  const {createTestRegistries}=await import('./fixtures/platforms/zeta.mjs'),{platforms:registry}=createTestRegistries(),draft=installDraft('codex',['zeta','claude','codex']);
  const result=await installFlow({draft,registry,statuses:[...installStatuses,{platform:'zeta',state:'absent',authentication:{authStatus:'unknown'}}],loadCatalog:async p=>({status:'ready',catalog:p==='zeta'?{platform:'zeta',pairs:[{model:'opus',effort:'high'}]}:catalogs[p]}),ui:scripted([['Configure',10,(_rows,options)=>assert.deepEqual(options.notice,['Zeta: auth unverified'])]])});
- assert.deepEqual(result.platforms,['claude','codex','zeta']);assert.equal(result.config.version,2);assert.deepEqual(result.config.platforms,['claude','codex','zeta']);assert.equal(result.settings.skipGlobal,false);
+ assert.deepEqual(result.platforms,['claude','codex','zeta']);assert.equal(result.config.version,3);assert.deepEqual(result.config.platforms,['claude','codex','zeta']);assert.equal(result.settings.skipGlobal,false);
 });
 
 test('compact blocked screen keeps Back selectable through the real UI',async()=>{
@@ -483,13 +483,13 @@ test('Hosts suffixes align by label display width including wide and combining c
 test('Hosts identifies roles in install order and locked Enter explains how to remove the host',async()=>{
  const draft=installDraft('claude',['codex','claude']);
  draft.roles.arc_planner=installRoles('codex').arc_planner;
- draft.roles.arc_qa=installRoles('codex').arc_qa;
+ draft.roles.arc_tester=installRoles('codex').arc_tester;
  const steps=[['Configure',5],['Hosts — CLIs where you start ARC sessions',1,(rows,options)=>{
-  assert.equal(rows[1],'[■] Codex   (used by Planner, QA)');
+  assert.equal(rows[1],'[■] Codex   (used by Planner, Tester)');
   assert.deepEqual(options.notice({selected:1}),['No host can be changed now: all platforms are used by roles or unavailable.']);
   assert.equal(options.hint,'checklist');
  }],['Hosts — CLIs where you start ARC sessions',4,(rows,options)=>{
-  assert.equal(rows[1],'[■] Codex   (used by Planner, QA)');
+  assert.equal(rows[1],'[■] Codex   (used by Planner, Tester)');
   assert.deepEqual(options.notice({selected:1}),['No host can be changed now: all platforms are used by roles or unavailable.',"Change those roles' platform to remove Codex."]);
   assert.equal(options.info,undefined);
  }],['Configure',null]];

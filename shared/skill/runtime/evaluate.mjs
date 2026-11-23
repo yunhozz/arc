@@ -14,20 +14,21 @@ import {prepareCooperativeAssignment} from './assignment.mjs';
  * @property {object} coverage
  */
 import path from 'node:path';
-import {validateCooperativeState,validateCooperativeCommand} from './cooperative-schema.mjs';
+import {legacyCooperativeRoleDenial,validateCooperativeState,validateCooperativeCommand} from './cooperative-schema.mjs';
 import {validateWorkflowState, validateRequest, validateEvidence,validatePlannerStage} from './schema.mjs';
-import {ROLES, ROLE_OPERATIONS, GIT_OPERATIONS, EXTERNAL_OPERATIONS} from './operations.mjs';
+import {ROLES, ROLE_OPERATIONS, GIT_OPERATIONS, EXTERNAL_OPERATIONS, canonicalCooperativeRole} from './operations.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const within=(base,file)=>{const relative=path.relative(base,file);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative));};
 /** Pure policy decision. Evidence is supplied by a trusted adapter/provider, never tool arguments. */
 export function evaluate(policy, state, request, evidence){
+ const stored=state;
  const result=(decision,id,reason,requiredEvidence=[])=>({decision,ruleIds:[id],reason,requiredEvidence,expectedRevision:state?.revision??0,proposedTransition:null,coverage:{platform:request?.platform??'unknown',enforcement:'decision-only'}});
- try{validateWorkflowState(state);validateRequest(request);validateEvidence(evidence);}catch(error){return result('hold','runtime.schema',error.message,['valid-state-request-evidence']);}
+ try{state=validateWorkflowState(state);validateRequest(request);validateEvidence(evidence);}catch(error){return result('hold','runtime.schema',error.message,['valid-state-request-evidence']);}
  if(policy?.runtime?.schemaVersion!==1||!same(policy.runtime.roles,ROLES)||!Array.isArray(policy.runtime.ruleIds)||!Array.isArray(policy.runtime.requiredEvidence)||policy.runtime.status!=='decision-only')return result('hold','runtime.policy','runtime policy unavailable',['runtime-policy']);
  const actor=state.identities.find(i=>i.actorRef===request.actorRef);
  if(!actor)return result('hold','runtime.identity','platform identity unresolved',['platform-identity']);
  const role=actor.role;
- const roleRule={orchestrator:'role.orchestrator-boundary',scouter:'role.scouter-read-only',planner:'role.planner-draft-only',implementer:'role.implementer-implementation',qa:'role.qa-verification',reviewer:'role.reviewer-independent'}[role];
+ const roleRule={orchestrator:'role.orchestrator-boundary',scouter:'role.scouter-read-only',planner:'role.planner-draft-only',implementer:'role.implementer-implementation',tester:'role.tester-verification',reviewer:'role.reviewer-independent'}[role]??'runtime.identity';
  if(!ROLE_OPERATIONS[role]?.includes(request.operation))return result('deny',GIT_OPERATIONS.includes(request.operation)?'git.specialists-deny':roleRule,'operation forbidden for assigned role');
  const lease=state.leases.find(l=>l.actorRef===actor.actorRef);
  if(lease?.status==='retired')return result('deny','runtime.identity','retired identity');
@@ -53,7 +54,7 @@ export function evaluate(policy, state, request, evidence){
  if(role==='implementer'&&['accepted','committed'].includes(task.status))return result('deny','runtime.identity','task execution ended');
  if(request.operation==='temporary-write'){
   const temporary=assignment.temporary;
-  if(!temporary||temporary.cleanupOwner!==request.actorRef||!Number.isFinite(Date.parse(temporary.expiresAt))||!Number.isFinite(Date.parse(evidence.observedAt))||Date.parse(temporary.expiresAt)<=Date.parse(evidence.observedAt)||!request.paths.every(p=>temporary.paths?.some(base=>within(base,p))))return result('hold','role.qa-verification','temporary scope lifetime and cleanup ownership required',['temporary-assignment']);
+  if(!temporary||temporary.cleanupOwner!==request.actorRef||!Number.isFinite(Date.parse(temporary.expiresAt))||!Number.isFinite(Date.parse(evidence.observedAt))||Date.parse(temporary.expiresAt)<=Date.parse(evidence.observedAt)||!request.paths.every(p=>temporary.paths?.some(base=>within(base,p))))return result('hold','role.tester-verification','temporary scope lifetime and cleanup ownership required',['temporary-assignment']);
  }
  if(request.operation==='check'){
   if(!assignment.checks?.some(c=>same(c,request.descriptor)))return result('hold',roleRule,'exact assigned check descriptor required',['check-descriptor']);
@@ -82,7 +83,7 @@ export function evaluate(policy, state, request, evidence){
   if(d.checks&&(!Array.isArray(approval.scope.checks)||d.checks.some(c=>!approval.scope.checks.some(approved=>same(approved,c)))))return result('hold','runtime.assignment','delegated checks not approved',['delegated-checks']);
   if(d.temporary&&!same(d.temporary,approval.scope.temporary))return result('hold','runtime.assignment','delegated temporary scope not approved',['delegated-temporary-scope']);
   if(state.assignments.some(a=>a.assignmentId===request.requestId||a.correlationRef===d.correlationRef))return result('hold','runtime.identity','assignment correlation already registered',['new-assignment-correlation']);
-  const next=structuredClone(state);
+  const next=structuredClone(stored);
   if(d.role==='planner'){
    const stage=state.plannerLedger?.stages.find(s=>s.id===d.plannerCall?.stageId),proof=fact('planner-call');
    const contract=stage&&{document:stage.document,inputVersion:stage.inputVersion,criteriaVersion:stage.criteriaVersion,scopeVersion:stage.scopeVersion};
@@ -98,7 +99,7 @@ export function evaluate(policy, state, request, evidence){
  }
  if(request.operation==='accept'){
   const d=request.descriptor;const observed=fact('acceptance')?.data;
-  const checks=Array.isArray(d.checkIds)&&task.requiredChecks?.every(id=>d.checkIds?.includes(id)&&state.checks.some(c=>c.id===id&&c.taskId===task.id&&c.status==='passed'&&c.fingerprint===d.fingerprint&&c.resultRef&&c.actorRef!==actor.actorRef&&state.identities.some(i=>i.actorRef===c.actorRef&&i.taskId===task.id&&i.role==='qa')));
+  const checks=Array.isArray(d.checkIds)&&task.requiredChecks?.every(id=>d.checkIds?.includes(id)&&state.checks.some(c=>c.id===id&&c.taskId===task.id&&c.status==='passed'&&c.fingerprint===d.fingerprint&&c.resultRef&&c.actorRef!==actor.actorRef&&state.identities.some(i=>i.actorRef===c.actorRef&&i.taskId===task.id&&canonicalCooperativeRole(i.role)==='tester')));
   const findings=state.findings.filter(f=>f.taskId===task.id);
   if(!observed||!same(observed,d)||!d.fingerprint||!task.criteria?.length||!same(task.criteria,d.criteria)||!checks||findings.some(f=>!Array.isArray(d.findingIds)||!d.findingIds.includes(f.id)||!f.resolutionRef))return result('hold','git.orchestrator-accept-commit','criteria checks findings and fingerprint verification required',['acceptance-evidence']);
  }
@@ -123,6 +124,8 @@ export function evaluateCooperative({policy,state,request,evidence}={}){
  const base={expectedRevision:state?.revision??0,coverage:{enforcement:'cooperative',provenance:'operator-attested',nativeVerified:false}};
  const hold=(id,reason)=>({...base,decision:'hold',ruleIds:[id],reason,requiredEvidence:[],nextActions:[],proposedTransition:null});
  try{validateCooperativeState(state);validateCooperativeCommand(request);}catch(error){return hold('cooperative.schema',error.message);}
+ const denial=legacyCooperativeRoleDenial(request.input);
+ if(denial)return {...base,...denial,requiredEvidence:[],nextActions:[],proposedTransition:null};
  if(state.intents.some(i=>i.operation==='plan-amend'&&['prepared','unknown','mismatch','failed'].includes(i.status)))return {...hold('cooperative.plan-amend-removed','Legacy plan-amend intent is no longer supported; inspect Git history and any refs/arc/recovery/* refs manually, then start a new workflow'),nextActions:['inspect-legacy-plan-amend','start-new-workflow']};
  if(request.command==='prepare'&&request.input?.operation==='plan-amend')return hold('cooperative.plan-amend-removed','Plan-amend operation is no longer supported');
  if(policy!==undefined&&policy.workflowKind!=='cooperative')return hold('cooperative.contract','Explicit cooperative policy required');

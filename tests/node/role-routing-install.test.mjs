@@ -21,7 +21,7 @@ const EXT = {codex: 'toml', claude: 'md'};
 
 async function inputsFor(platform) {
   const inputs = {};
-  for (const role of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
+  for (const role of ['scouter', 'planner', 'implementer', 'tester', 'reviewer']) {
     const name = `arc-${role}.${EXT[platform]}`;
     inputs[name] = await fs.readFile(path.join(root, platform, 'agents', name));
   }
@@ -30,7 +30,7 @@ async function inputsFor(platform) {
 }
 
 // Starts from the fixture's runtime copies, then clears its pre-published composite state so the real prepare/publish path runs.
-async function freshInstall(t, revision, roles = {arc_qa: 'codex'}) {
+async function freshInstall(t, revision, roles = {arc_tester: 'codex'}) {
   const f = await createRoutingFixture(t, {roles, revision: /^[A-Za-z0-9._-]{1,128}$/.test(revision) ? revision : 'rev-fixture'});
   const names = ROUTING_ROLES.map(role => role.slice(4));
   for (const platform of ['codex', 'claude']) {
@@ -57,7 +57,7 @@ test('composite profiles carry the revision tag on both platforms and markers ha
   const s = await freshInstall(t, rev);
   await install(s);
   const tag = `[arc-routing rev ${rev}]`;
-  const codexQa = await fs.readFile(path.join(s.f.codexHome, 'agents/arc-routing-qa.toml'));
+  const codexQa = await fs.readFile(path.join(s.f.codexHome, 'agents/arc-routing-tester.toml'));
   assert.ok(parseToml(codexQa.toString('utf8')).description.endsWith(` ${tag}`));
   const claudeBytes = await fs.readFile(path.join(s.f.claudeHome, 'agents/arc-routing-planner.md'));
   const line = claudeBytes.toString('utf8').split('\n').find(l => l.startsWith('description:'));
@@ -75,9 +75,9 @@ test('routing-status revisionTag equals the tag inside the installed profile', {
   await install(s);
   await s.f.cli('claude', {version: '2.1.322 (Claude Code)'}); await s.f.cli('codex', {version: 'codex-cli 0.167.0'});
   const status = await routingStatus({context: s.f.context(), policy: undefined});
-  const tag = status.roles.arc_qa.revisionTag;
+  const tag = status.roles.arc_tester.revisionTag;
   assert.equal(tag, revisionTag(rev));
-  const codexQa = await fs.readFile(path.join(s.f.codexHome, 'agents/arc-routing-qa.toml'), 'utf8');
+  const codexQa = await fs.readFile(path.join(s.f.codexHome, 'agents/arc-routing-tester.toml'), 'utf8');
   assert.ok(parseToml(codexQa).description.endsWith(` ${tag}`));
   const planner = await fs.readFile(path.join(s.f.claudeHome, 'agents/arc-routing-planner.md'), 'utf8');
   assert.ok(planner.split('\n').find(l => l.startsWith('description:')).endsWith(` ${tag}`));
@@ -90,8 +90,8 @@ test('untaggable revision is rejected before publication', {timeout: 60000}, asy
       error => error.name === 'TargetConfigurationError' && error.message === 'Composite revision cannot be tagged', JSON.stringify(rev));
     for (const platform of ['codex', 'claude']) assert.deepEqual((await fs.readdir(path.join(s.f.homes[platform], 'agents'))).filter(n => n.startsWith('arc-routing-')), []);
   }
-  const bytes = Buffer.from('name: arc-qa\ndescription: a\ndescription: b\n');
-  assert.throws(() => renameCompositeProfile(bytes, 'claude', 'arc_qa', 'rev-1'), /Cannot identify|cannot be tagged/);
+  const bytes = Buffer.from('name: arc-tester\ndescription: a\ndescription: b\n');
+  assert.throws(() => renameCompositeProfile(bytes, 'claude', 'arc_tester', 'rev-1'), /Cannot identify|cannot be tagged/);
 });
 
 test('rendered standalone profiles have no composite revision tag', {timeout: 60000}, async t => {

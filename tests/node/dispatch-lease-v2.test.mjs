@@ -39,7 +39,7 @@ async function fixture(t) {
   await installFakeCli(t, bin, 'claude', {version: '2.1.322'});
   await fs.symlink(process.execPath, path.join(bin, 'zeta'));
   const config = {version: 2, revision: 'lease-rev', platforms: ['claude', 'codex', 'zeta'], roles: Object.fromEntries(ROUTING_ROLES.map(role => [role,
-    {platform: role === 'arc_planner' ? 'zeta' : role === 'arc_qa' ? 'codex' : 'claude', model: 'haiku', effort: 'low'}]))};
+    {platform: role === 'arc_planner' ? 'zeta' : role === 'arc_tester' ? 'codex' : 'claude', model: 'haiku', effort: 'low'}]))};
   const bytes = Buffer.from(JSON.stringify(config)), activePath = path.join(homes.claude, 'arc-role-platform-routing.json');
   await fs.writeFile(activePath, bytes);
   const versions = await cooperativeVersions();
@@ -104,7 +104,7 @@ test('valid v2 uses explicit registered target and enforces S only with config',
   const value = lease({version: 2, targetPlatform: 'zeta'}), options = {runtimePlatforms: registry};
   assert.deepEqual(validateLease(value, options), value);
   assert.equal(leaseTargetPlatform(value, registry), 'zeta');
-  assert.deepEqual(validateLease(value, {...options, config: {roles: {arc_planner: {platform: 'zeta'}, arc_qa: {platform: 'codex'}}}}), value);
+  assert.deepEqual(validateLease(value, {...options, config: {roles: {arc_planner: {platform: 'zeta'}, arc_tester: {platform: 'codex'}}}}), value);
 });
 
 for (const [name, extra] of [
@@ -119,7 +119,7 @@ for (const [name, extra] of [
   test(`invalid v2 rejected: ${name}`, () => {
     const value = lease({version: 2, targetPlatform: 'claude', ...extra});
     for (const key of Object.keys(value)) if (value[key] === undefined) delete value[key];
-    assert.throws(() => validateLease(value, {runtimePlatforms: registry, config: {roles: {arc_qa: {platform: 'codex'}, arc_scouter: {platform: 'claude'}}}}));
+    assert.throws(() => validateLease(value, {runtimePlatforms: registry, config: {roles: {arc_tester: {platform: 'codex'}, arc_scouter: {platform: 'claude'}}}}));
   });
 }
 

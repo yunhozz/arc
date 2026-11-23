@@ -34,7 +34,7 @@ test('watch ambiguous with two candidates', async t => {
   s.h.writeMarker('claude', s.h.claudeHome);
   s.lease('must-not-read');
   s.c('still-live');
-  s.art('artifact-only', {'record.json':{state:'completed', role:'arc_qa', updatedAt:iso(TIME)},
+  s.art('artifact-only', {'record.json':{state:'completed', role:'arc_tester', updatedAt:iso(TIME)},
     'events.jsonl':'{"kind":"thread","threadId":"still-live"}\n'});
   assert.deepEqual(await resolveDispatchStore({homes:{codex:s.h.codexHome, claude:s.h.claudeHome}}), {kind:'ambiguous'});
   const before = await s.h.snapshot(), events = await s.w.start();
@@ -75,7 +75,7 @@ function setup(t, options={}, kind='dir', dependencies={}) {
   const c=(id,lines=[msg('hello')],{origin='codex-tui',age=300000,cwd:dir=cwd,extra={},suffix=''}={})=>h.writeRollout(['2026','11','11'],`rollout-${id}.jsonl${suffix}`,[meta(id,dir,origin,extra),...lines],{mtime:clock-age});
   const cl=(id,lines,opts={})=>h.writeClaude(cwd.replace(/[^A-Za-z0-9]/g,'-'),id,lines??[cm(id,cwd)],{mtime:clock-300000,...opts});
   const append=(file,lines)=>{fs.appendFileSync(file,lines.map(x=>JSON.stringify(x)).join('\n')+'\n'); fs.utimesSync(file,new Date(clock),new Date(clock));};
-  const lease=(id,extra={})=>h.writeLease({dispatchId:id,role:'arc_qa',state:'running',route:'bridge',workflowId:'wf-3',updatedAt:iso(clock),...extra});
+  const lease=(id,extra={})=>h.writeLease({dispatchId:id,role:'arc_tester',state:'running',route:'bridge',workflowId:'wf-3',updatedAt:iso(clock),...extra});
   const art=(id,files)=>h.writeArtifacts(gcd,'wf-3',`dispatches/${id}`,files);
   return {h,cwd,gcd,w,c,cl,append,lease,art,advance:n=>clock+=n,trees:r=>roots=r,calls,stats,files:r=>shellFiles=r,top:r=>gitTop=r};
 }
@@ -253,24 +253,24 @@ test('AC-W40 GIT_ALLOWED stays four commands',()=>{
 test('AC-W35 subagents are scoped by their own cwd and keep parent labels',async t=>{
   const s=setup(t);
   s.c('parent1234',undefined,{cwd:'/outside'});
-  s.c('child',[msg('review',TIME,'AgentMessage')],{extra:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_qa'}});
+  s.c('child',[msg('review',TIME,'AgentMessage')],{extra:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_tester'}});
   s.c('grand',undefined,{extra:{parent_thread_id:'child',depth:2,agent_nickname:'Aristotle'}});
   s.cl('main1234',[cm('main1234','/outside')],{subagents:[{
-    agentId:'qa',meta:{agentType:'arc-qa'},lines:[cm('main1234',s.cwd,'Claude child')],
+    agentId:'tester',meta:{agentType:'arc-tester'},lines:[cm('main1234',s.cwd,'Claude child')],
   }]});
   const out=content(await s.w.start());
   assert.ok(!out.some(e=>['parent1234','main1234'].includes(e.sessionId)));
   for(const [id,label,parentId,depth] of [
-    ['child','tui#1234/qa','parent1234',1],
-    ['grand','tui#1234/qa/Aristotle','child',2],
-    ['agent-qa','main#1234/qa','main1234',1],
+    ['child','tui#1234/tester','parent1234',1],
+    ['grand','tui#1234/tester/Aristotle','child',2],
+    ['agent-tester','main#1234/tester','main1234',1],
   ]) {
     const e=out.find(e=>e.sessionId===id);
     assert.ok(e,`${id} must attach using its own cwd`);
     assert.equal(e.label,label);assert.equal(e.parentId,parentId);
     assert.equal(e.depth,depth);assert.equal(e.source,'subagent');
   }
-  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT +QA\n {25}review$/);
+  assert.match(lines(out.filter(e=>e.sessionId==='child'&&e.kind==='agent'))[0],/AGENT +TESTER\n {25}review$/);
 });
 
 test('AC-W35 outside children do not output under in-scope parents',async t=>{
@@ -327,7 +327,7 @@ for (const kind of ['repo','dir']) {
   for (const origin of ['Codex Desktop','codex-tui']) {
     test(`L3 ancestors found during the hold decide the chain (${kind}, ${origin})`,async t=>{
       const s=setup(t,{verbose:true},kind);
-      s.c('chain-child',undefined,{cwd:'/outside',extra:{parent_thread_id:'root1234',depth:1,agent_role:'arc_qa'}});
+      s.c('chain-child',undefined,{cwd:'/outside',extra:{parent_thread_id:'root1234',depth:1,agent_role:'arc_tester'}});
       s.c('chain-grand',undefined,{extra:{parent_thread_id:'chain-child',depth:2,agent_nickname:'Aristotle'}});
       const initial=await s.w.start();
       assert.deepEqual(content(initial),[]);
@@ -340,7 +340,7 @@ for (const kind of ['repo','dir']) {
       if (origin==='Codex Desktop') assert.deepEqual(events,[]);
       else {
         assert.deepEqual(events.map(e=>e.kind),['session','prompt']);
-        assert.ok(events.every(e=>e.sessionId==='chain-grand'&&e.label==='tui#1234/qa/Aristotle'
+        assert.ok(events.every(e=>e.sessionId==='chain-grand'&&e.label==='tui#1234/tester/Aristotle'
           &&e.parentId==='chain-child'&&e.depth===2&&e.source==='subagent'));
       }
       s.advance(2000);
@@ -739,7 +739,7 @@ test('dispatches without transcripts require a workflow target in the selected w
 });
 test('direct codex exec and non-cli Claude entrypoints are included with labels',async t=>{const s=setup(t);s.c('id-1234',undefined,{origin:'codex_exec'});s.cl('id-5678',[cm('id-5678',s.cwd,'hello','sdk-cli')]);const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='exec#1234'));assert.ok(out.some(e=>e.label==='main:sdk-cli#5678'));assert.ok(out.some(e=>e.text===`id-1234 codex_exec 1.0 cwd=${s.cwd}`));});
 test('compressed rollouts are skipped with a verbose notice',async t=>{const s=setup(t,{verbose:true});s.c('z',[],{suffix:'.zst'});assert.ok(notices(await s.w.start()).includes('compressed session skipped: rollout-z.jsonl.zst'));});
-test('subagent rollouts attach under their parent at depth 1 and 2',async t=>{const s=setup(t);s.c('parent1234');s.c('child',undefined,{cwd:s.cwd,extra:{source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_qa'}}}}});s.c('grand',undefined,{extra:{parent_thread_id:'child',depth:2,agent_nickname:'Aristotle'}});const out=content(await s.w.start());for(const [id,label,parentId,depth] of [['child','tui#1234/qa','parent1234',1],['grand','tui#1234/qa/Aristotle','child',2]]){const e=out.find(e=>e.sessionId===id);assert.equal(e.label,label);assert.equal(e.parentId,parentId);assert.equal(e.depth,depth);}});
+test('subagent rollouts attach under their parent at depth 1 and 2',async t=>{const s=setup(t);s.c('parent1234');s.c('child',undefined,{cwd:s.cwd,extra:{source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:'arc_tester'}}}}});s.c('grand',undefined,{extra:{parent_thread_id:'child',depth:2,agent_nickname:'Aristotle'}});const out=content(await s.w.start());for(const [id,label,parentId,depth] of [['child','tui#1234/tester','parent1234',1],['grand','tui#1234/tester/Aristotle','child',2]]){const e=out.find(e=>e.sessionId===id);assert.equal(e.label,label);assert.equal(e.parentId,parentId);assert.equal(e.depth,depth);}});
 test('a child found before its parent is held up to 2 seconds',async t=>{const s=setup(t,{verbose:true});s.c('child',undefined,{extra:{parent_thread_id:'parent'}});s.c('orphan',undefined,{extra:{parent_thread_id:'missing'}});assert.equal(content(await s.w.start()).length,0);s.advance(1000);s.c('parent');assert.ok(content(await s.w.tick()).some(e=>e.sessionId==='child'));s.advance(1000);const out=await s.w.tick();assert.ok(notices(out).some(x=>x.includes('orphan')));assert.ok(!content(out).some(e=>e.sessionId==='orphan'));});
 test('a codex-tui rollout without parent fields is top-level',async t=>{const s=setup(t);s.c('solo1234');assert.equal(content(await s.w.start())[0].label,'tui#1234');});
 test('claude child sessions keep their own version',async t=>{
@@ -752,7 +752,7 @@ test('claude child sessions keep their own version',async t=>{
   assert.equal(events.find(e=>e.kind==='session' && e.sessionId==='agent-child')?.text,`agent-ch cli 2.1 cwd=${s.cwd}`);
 });
 
-test('Claude subagent labels from meta agentType with fallback',async t=>{const s=setup(t);s.cl('parent1234',undefined,{subagents:[{agentId:'qa',meta:{agentType:'arc-qa'},lines:[cm('child-qa',s.cwd)]},{agentId:'fallback',lines:[cm('child-fallback',s.cwd)]}]});const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='main#1234/qa'&&e.parentId==='parent1234'));assert.ok(out.some(e=>e.label==='main#1234/agent'));});
+test('Claude subagent labels from meta agentType with fallback',async t=>{const s=setup(t);s.cl('parent1234',undefined,{subagents:[{agentId:'tester',meta:{agentType:'arc-tester'},lines:[cm('child-tester',s.cwd)]},{agentId:'fallback',lines:[cm('child-fallback',s.cwd)]}]});const out=content(await s.w.start());assert.ok(out.some(e=>e.label==='main#1234/tester'&&e.parentId==='parent1234'));assert.ok(out.some(e=>e.label==='main#1234/agent'));});
 test('Claude native reviewer handback-only transcript renders its role and masks message secrets', async t => {
   const s=setup(t);
   s.cl('parent1234',undefined,{subagents:[{
@@ -775,13 +775,13 @@ test('Claude native reviewer handback-only transcript renders its role and masks
 test('Codex native arc_routing child threads render final agent messages with their roles', async t => {
   const s=setup(t);
   s.c('parent1234');
-  for (const role of ['scouter','planner','implementer','qa','reviewer']) {
+  for (const role of ['scouter','planner','implementer','tester','reviewer']) {
     s.c(role,[msg(`${role} final report`,TIME,'AgentMessage'),{type:'event_msg',payload:{type:'task_complete'}}],{
       extra:{source:{subagent:{thread_spawn:{parent_thread_id:'parent1234',depth:1,agent_role:`arc_routing_${role}`}}}},
     });
   }
   const out=content(await s.w.start());
-  for (const [role,title] of [['scouter','SCOUTER'],['planner','PLANNER'],['implementer','IMPLEMENTER'],['qa','QA'],['reviewer','REVIEWER']]) {
+  for (const [role,title] of [['scouter','SCOUTER'],['planner','PLANNER'],['implementer','IMPLEMENTER'],['tester','TESTER'],['reviewer','REVIEWER']]) {
     const report=out.find(e=>e.sessionId===role&&e.kind==='agent');
     assert.ok(report);
     assert.equal(report.label,`tui#1234/${role}`);
@@ -789,12 +789,12 @@ test('Codex native arc_routing child threads render final agent messages with th
     assert.equal(lines([report])[0].slice(25),`${title}\n${' '.repeat(25)}${role} final report`);
   }
 });
-test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='qa@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});
-test('Claude bridge transcript is labeled from the init session id, and a resumed id maps to the same dispatch',async t=>{const s=setup(t,{},'repo');s.cl('first',[cm('first',s.cwd,'first','sdk-cli')]);s.cl('resume',[cm('resume',s.cwd,'resume','sdk-cli')]);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"init","sessionId":"first"}\n','segments/1/events.jsonl':'{"kind":"init","sessionId":"resume"}\n'});const out=content(await s.w.start());assert.deepEqual(out.filter(e=>e.kind==='prompt').map(e=>[e.sessionId,e.label]).sort(),[['first','qa@d123'],['resume','qa@d123']]);});
+test('codex_exec bridge rollout is labeled role@id4 from the thread event',async t=>{const s=setup(t,{},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('bridge',undefined,{origin:'codex_exec',cwd:'/outside'});s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});const out=content(await s.w.start());assert.ok(out.some(e=>e.sessionId==='bridge'&&e.label==='tester@d123'&&e.source==='bridge'&&e.text.endsWith(' dispatch d123 wf-3')));assert.equal(out.find(e=>e.kind==='dispatch').platform,'codex');});
+test('Claude bridge transcript is labeled from the init session id, and a resumed id maps to the same dispatch',async t=>{const s=setup(t,{},'repo');s.cl('first',[cm('first',s.cwd,'first','sdk-cli')]);s.cl('resume',[cm('resume',s.cwd,'resume','sdk-cli')]);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"init","sessionId":"first"}\n','segments/1/events.jsonl':'{"kind":"init","sessionId":"resume"}\n'});const out=content(await s.w.start());assert.deepEqual(out.filter(e=>e.kind==='prompt').map(e=>[e.sessionId,e.label]).sort(),[['first','tester@d123'],['resume','tester@d123']]);});
 test('dispatch without a transcript shows DISPATCH lines only',async t=>{const s=setup(t,{verbose:true},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.art('d123',{'record.json':{state:'running'}});s.lease('d123');const out=await s.w.start();assert.deepEqual(content(out).map(e=>e.kind),['dispatch']);assert.ok(notices(out).includes('transcript not found for dispatch d123'));});
-test('late mapping emits a notice and relabels later events',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('late1234',[msg('held')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='held'&&e.label==='exec#1234'));s.advance(500);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"late1234"}\n'});s.advance(1500);s.append(f,[msg('mapped',TIME+6000)]);const out=await s.w.tick();assert.ok(notices(out).includes('session late1234 is dispatch d123 (qa)'));assert.ok(content(out).some(e=>e.text==='mapped'&&e.label==='qa@d123'));});
+test('late mapping emits a notice and relabels later events',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('late1234',[msg('held')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='held'&&e.label==='exec#1234'));s.advance(500);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"late1234"}\n'});s.advance(1500);s.append(f,[msg('mapped',TIME+6000)]);const out=await s.w.tick();assert.ok(notices(out).includes('session late1234 is dispatch d123 (tester)'));assert.ok(content(out).some(e=>e.text==='mapped'&&e.label==='tester@d123'));});
 test('swapping lease hostPlatform leaves human output identical',async t=>{const s=setup(t,{},'repo');s.c('bridge',undefined,{origin:'codex_exec'});s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"bridge"}\n'});let previous;for(const hostPlatform of ['codex','claude']){s.lease('d123',{hostPlatform});const w=createWatcher({options:{platforms:['codex','claude'],tail:20,verbose:false},homes:{codex:s.h.codexHome,claude:s.h.claudeHome},scope:{kind:'repo',roots:[s.cwd],gitCommonDir:s.gcd},git:()=>null,now:()=>TIME});const out=lines(await w.start());if(previous)assert.deepEqual(out,previous);previous=out;await w.close();}});
-test('held bridge lease shows raw reasons; no lease shows nothing',async t=>{const s=setup(t,{},'repo');assert.equal(content(await s.w.start()).length,0);s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.art('d123',{'record.json':{state:'failed'}});s.lease('d123',{state:'failed',reasons:['host_sandbox_blocked','permission_scope_unverified']});s.advance(2000);const out=await s.w.tick(),e=content(out)[0];assert.equal(e.platform,undefined);assert.equal(e.label,'qa@d123');assert.match(lines([e])[0],/arc\s+DISPATCH failed bridge wf-3 host_sandbox_blocked,permission_scope_unverified/);});
+test('held bridge lease shows raw reasons; no lease shows nothing',async t=>{const s=setup(t,{},'repo');assert.equal(content(await s.w.start()).length,0);s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.art('d123',{'record.json':{state:'failed'}});s.lease('d123',{state:'failed',reasons:['host_sandbox_blocked','permission_scope_unverified']});s.advance(2000);const out=await s.w.tick(),e=content(out)[0];assert.equal(e.platform,undefined);assert.equal(e.label,'tester@d123');assert.match(lines([e])[0],/arc\s+DISPATCH failed bridge wf-3 host_sandbox_blocked,permission_scope_unverified/);});
 test('platform filter removes other-platform sessions and unknown-platform dispatches',async t=>{const s=setup(t,{platforms:['codex']},'repo');s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});s.c('codex');s.cl('claude');s.art('unknown',{'record.json':{state:'running'}});s.lease('unknown');const out=content(await s.w.start());assert.ok(out.length>0);assert.ok(out.every(e=>e.platform==='codex'));});
 test('more than 64 candidates follows the newest 64 with one notice',async t=>{const s=setup(t,{tail:1000});for(let i=0;i<66;i++)s.c(`id${i}`,[],{age:i*1000+10000});const out=await s.w.start();assert.equal(content(out).length,64);assert.ok(!content(out).some(e=>['id64','id65'].includes(e.sessionId)));assert.equal(notices(out).filter(x=>x==='following the newest 64 sessions; others are skipped').length,1);s.advance(2000);assert.ok(!notices(await s.w.tick()).some(x=>x.includes('newest 64')));});
 test('a file idle 30 minutes is detached and reattached when it grows',async t=>{const s=setup(t,{verbose:true}),f=s.c('idle');await s.w.start();s.advance(1800000);assert.ok(notices(await s.w.tick()).includes('detached idle session idle'));s.append(f,[msg('return',TIME+1800000)]);s.advance(2000);assert.ok(content(await s.w.tick()).some(e=>e.text==='return'));});
@@ -803,7 +803,7 @@ test('transcript text is sanitized before output',async t=>{const s=setup(t,{ver
 test('no marker string reaches any event in verbose mode',async t=>{const s=setup(t,{verbose:true,tail:1000});const dir=fileURLToPath(new URL('./fixtures/watch/',import.meta.url));for(const name of fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl'))){const rows=fs.readFileSync(path.join(dir,name),'utf8').trim().split('\n').map(JSON.parse);if(name.startsWith('codex')){const m=rows.find(r=>r.type==='session_meta');if(m){m.payload.cwd=s.cwd;m.payload.originator='codex-tui';s.h.writeRollout(['2026','11','11'],`rollout-${name}`,rows,{mtime:TIME-300000});}}else{s.h.writeClaude('project',name,rows.map(r=>({...r,cwd:s.cwd})),{mtime:TIME-300000});}}assert.ok(!JSON.stringify(await s.w.start()).includes('WATCH_MARKER_'));});
 test('removed and truncated session files produce verbose notices and keep other streams alive',async t=>{const s=setup(t,{verbose:true}),a=s.c('a'),b=s.c('b');await s.w.start();fs.unlinkSync(a);fs.writeFileSync(b,JSON.stringify(msg('reset'))+'\n');const out=await s.w.tick();assert.ok(notices(out).includes('session file removed: a'));assert.ok(notices(out).includes('session restarted from the beginning: b'));assert.ok(content(out).some(e=>e.text==='reset'));});
 test('a failed file read detaches only that file',async t=>{const s=setup(t,{verbose:true}),bad=s.c('bad'),good=s.c('good');await s.w.start();fs.unlinkSync(bad);fs.mkdirSync(bad);s.append(good,[msg('survives')]);const out=await s.w.tick();assert.ok(content(out).some(e=>e.text==='survives'));assert.ok(notices(out).some(text=>text.startsWith('session file unreadable: bad')));assert.deepEqual(await s.w.tick(),[]);});
-test('mapping during label hold releases buffered events with the bridge label',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('hold1234',[msg('first')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(1000);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"hold1234"}\n'});s.append(f,[msg('second',TIME+3000)]);const out=await s.w.tick();assert.ok(content(out).some(e=>e.text==='first'));assert.ok(content(out).every(e=>e.label==='qa@d123'));assert.ok(!notices(out).some(text=>text.includes('is dispatch')));});
+test('mapping during label hold releases buffered events with the bridge label',async t=>{const s=setup(t,{},'repo');await s.w.start();s.advance(2000);const f=s.c('hold1234',[msg('first')],{origin:'codex_exec',age:0});assert.equal(content(await s.w.tick()).length,0);s.advance(1000);s.lease('d123');s.art('d123',{'events.jsonl':'{"kind":"thread","threadId":"hold1234"}\n'});s.append(f,[msg('second',TIME+3000)]);const out=await s.w.tick();assert.ok(content(out).some(e=>e.text==='first'));assert.ok(content(out).every(e=>e.label==='tester@d123'));assert.ok(!notices(out).some(text=>text.includes('is dispatch')));});
 test('dispatch platform falls back to followed session without using hostPlatform',async t=>{const s=setup(t,{platforms:['codex']},'repo');s.art('d123',{'record.json':{state:'running'}});s.c('bridge',undefined,{origin:'codex_exec'});s.lease('d123',{sessionId:'bridge',hostPlatform:'claude'});assert.equal(content(await s.w.start()).find(e=>e.kind==='dispatch').platform,'codex');});
 test('start and ticks never create or modify watch inputs',async t=>{const s=setup(t,{});s.c('one');s.cl('two');const before=await s.h.snapshot();await s.w.start();s.advance(2000);await s.w.tick();await s.w.close();assert.deepEqual(await s.h.snapshot(),before);assert.equal(fs.existsSync(path.join(s.h.codexHome,'arc-role-dispatch')),false);});
 test('a partial line at startup is emitted after its newline arrives',async t=>{const s=setup(t),f=s.c('partial',[]);const line=JSON.stringify(msg('completed'));fs.appendFileSync(f,line.slice(0,-3));fs.utimesSync(f,new Date(TIME-300000),new Date(TIME-300000));await s.w.start();fs.appendFileSync(f,line.slice(-3)+'\n');assert.ok(content(await s.w.tick()).some(e=>e.text==='completed'));});
@@ -837,7 +837,7 @@ test('mapped Claude SESSION text appends dispatch and workflow ids', async t => 
 test('Claude worktree scope excludes sessions and subagents in other directories', async t => {
   const s = setup(t, {platforms:['claude']}, 'repo');
   const parent = s.cl('claude-selected', undefined, {subagents:[{
-    agentId:'selected-child', meta:{agentType:'arc-qa'},
+    agentId:'selected-child', meta:{agentType:'arc-tester'},
     lines:[cm('claude-child', s.cwd, 'selected child')],
   }]});
   const outside = path.join(s.h.root,'outside');
@@ -989,7 +989,7 @@ test('a newly discovered Claude transcript is buffered for label mapping rather 
   s.lease('d123');
   s.art('d123', {'events.jsonl':'{"kind":"init","sessionId":"new-claude"}\n'});
   const out = content(await s.w.tick());
-  assert.ok(out.some(e => e.kind === 'prompt' && e.text === 'buffered Claude event' && e.label === 'qa@d123'));
+  assert.ok(out.some(e => e.kind === 'prompt' && e.text === 'buffered Claude event' && e.label === 'tester@d123'));
 });
 
 
@@ -998,7 +998,7 @@ test('subagent and dispatch user messages become prompt', async t => {
   s.c('codex-parent', [msg('Codex user')]);
   s.c('codex-child', [msg('Codex prompt')], {extra:{parent_thread_id:'codex-parent'}});
   s.cl('claude-parent', [cm('claude-parent',s.cwd,'Claude user')], {subagents:[{
-    agentId:'child', meta:{agentType:'arc_qa'},
+    agentId:'child', meta:{agentType:'arc_tester'},
     lines:[cm('claude-parent',s.cwd,'Claude prompt')], mtime:TIME-300000,
   }]});
   s.c('bridge', [msg('Bridge prompt')], {origin:'codex_exec'});
@@ -1080,7 +1080,7 @@ test('R1 H2 child growth does not reread unchanged per-file agent metadata', asy
   const s=setup(t);
   const file=s.cl('parent',undefined,{subagents:[
     {agentId:'one',meta:{agentType:'arc-planner'},lines:[cm('parent',s.cwd)],mtime:TIME-300000},
-    {agentId:'two',meta:{agentType:'arc-qa'},lines:[cm('parent',s.cwd)],mtime:TIME-300000},
+    {agentId:'two',meta:{agentType:'arc-tester'},lines:[cm('parent',s.cwd)],mtime:TIME-300000},
     {agentId:'old',meta:{agentType:'arc-scouter'},lines:[cm('parent',s.cwd)],mtime:TIME-18000000},
   ]});
   s.cl('old-parent',undefined,{mtime:TIME-18000000,subagents:[
@@ -1121,7 +1121,7 @@ test('AC-W26 verbose diagnostic notices use id8 for every session identity', asy
   for (const file of files) fs.unlinkSync(file);
   const out=await s.w.tick();
   for (const id of ids) assert.ok(notices(out).includes(`session file removed: ${id.slice(0,8)}`));
-  assert.doesNotMatch(lines(out,true).join('\n'), /tui#|exec#|main#|qa@d123/);
+  assert.doesNotMatch(lines(out,true).join('\n'), /tui#|exec#|main#|tester@d123/);
 });
 
 test('busy tracks user and agent activity, ends, and five minutes of inactivity', async t => {
@@ -1141,7 +1141,7 @@ test('busy tracks user and agent activity, ends, and five minutes of inactivity'
 test('Claude subagent handback stops busy after its parent turn has ended', async t => {
   const s = setup(t), id = 'claude-parent';
   const parent = s.cl(id, [cm(id,s.cwd)], {subagents:[{
-    agentId:'busy-child', meta:{agentType:'arc-qa'},
+    agentId:'busy-child', meta:{agentType:'arc-tester'},
     lines:[cm(id,s.cwd), {type:'assistant',message:{content:[
       {type:'tool_use',id:'read',name:'Read',input:{file_path:'/input'}},
     ]}}], mtime:TIME-300000,

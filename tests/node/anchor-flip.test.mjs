@@ -25,9 +25,9 @@ const operationalLegacy = async t => Object.assign(await legacyComposite(t, {ope
   platforms: DEFAULT_INSTALLER_REGISTRY, runtimePlatforms: DEFAULT_PLATFORM_REGISTRY, packageRoot: staticPackageFixture(t),
 });
 const prepare = async context => management.prepareOperation(context, {kind: 'install', target: 'composite',
-  platforms: ['claude', 'codex'], config: await mixedConfig('flip-v2')});
+  platforms: ['claude', 'codex'], config: await mixedConfig('flip-v3')});
 
-test('AC-A5 publish after migration is v2 and lock order claude then codex', async t => {
+test('AC-A5 publish after migration is v3 and lock order claude then codex', async t => {
   const context = await operationalLegacy(t), prepared = await prepare(context), locks = [], open = fsp.open;
   assert.equal(prepared.files.anchor, 'claude');
   t.mock.method(fsp, 'open', async (filename, flags, ...args) => {
@@ -37,7 +37,7 @@ test('AC-A5 publish after migration is v2 and lock order claude then codex', asy
   });
   const result = await management.executeOperation(context, prepared);
   assert.equal(result.code, 0, result.error?.stack);
-  assert.equal(JSON.parse(fs.readFileSync(activePath(context, 'claude'))).version, 2);
+  assert.equal(JSON.parse(fs.readFileSync(activePath(context, 'claude'))).version, 3);
   assert.deepEqual(locks, ['claude', 'codex']);
   assert.equal(fs.existsSync(activePath(context, 'codex')), false);
 });
@@ -85,7 +85,7 @@ test('AC-L2 claude-anchored composite prepare/run/observe/resume/cancel match Ph
 test('AC-A2 operational legacy migration', async t => {
   const context = await operationalLegacy(t), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
   assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',
-    homes: {claude: 'composite', codex: 'composite', gemini: 'standalone', grok: 'standalone'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
+    homes: {claude: 'composite', codex: 'composite', gemini: 'standalone', grok: 'standalone'}, config: {...raw, version: 3, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
   const before = homeBytes(context.userHome), runtimeContext = {...context, hostPlatform: 'claude', executionEnvironment: 'claude-cli', workflowId: 'legacy'};
   assert.deepEqual((await routingStatus({context: runtimeContext, policy})).reasons.map(reason => reason.code), ['activation_unverified']);
   assert.deepEqual(homeBytes(context.userHome), before);
@@ -102,7 +102,7 @@ test('AC-A2 operational legacy migration', async t => {
   const result = await management.executeOperation(context, prepared);
   assert.equal(result.code, 0);
   assert.ok(result.messages.includes(`Dispatch history stays in ${oldStore}.`));
-  assert.equal(JSON.parse(fs.readFileSync(activePath(context, 'claude'))).version, 2);
+  assert.equal(JSON.parse(fs.readFileSync(activePath(context, 'claude'))).version, 3);
   for (const id of ['claude', 'codex']) assert.equal(JSON.parse(fs.readFileSync(markerPath(context, id))).activeConfigPath, activePath(context, 'claude'));
   assert.equal(fs.existsSync(activePath(context, 'codex')), false);
   assert.deepEqual(homeBytes(path.join(path.dirname(activePath(context, 'codex')), 'arc-role-dispatch')), history);
@@ -124,30 +124,30 @@ test('symlinked claude home ancestor is rejected after flip without file changes
   assert.equal((await management.executeOperation(context, await prepare(context))).code, 0);
 });
 
-for (const platforms of [undefined, ['codex', 'claude']]) test(`installed historical v1 ${platforms ? 'explicit' : 'implicit'} platforms serialize to runtime-compatible v2`, async () => {
+for (const platforms of [undefined, ['codex', 'claude']]) test(`installed historical v1 ${platforms ? 'explicit' : 'implicit'} platforms serialize to runtime-compatible v3`, async () => {
   const {roles} = await mixedConfig('installed-round-trip');
   const input = {version: 1, revision: 'installed-round-trip', ...(platforms ? {platforms} : {}), roles};
   const installed = parseInstalledRoutingConfig(JSON.stringify(input));
   const bytes = serializeRoleRoutingConfig(installed);
-  const expected = {version: 2, revision: input.revision, platforms: ['claude', 'codex'], roles};
+  const expected = {version: 3, revision: input.revision, platforms: ['claude', 'codex'], roles};
   assert.deepEqual(installed, expected);
   assert.deepEqual(JSON.parse(bytes), expected);
   assert.deepEqual(parseRoleRoutingConfig(bytes), expected);
 });
 
-test('serializer always emits v2 for the pair and runtime keeps strict v1 read compatibility', async () => {
+test('serializer always emits v3 for the pair and runtime keeps strict v1 read compatibility', async () => {
   const {roles} = await mixedConfig('serialization'), old = {version: 1, revision: 'serialization', roles};
   const runtimePlatforms = historical();
   for (const platforms of [undefined, ['codex', 'claude']]) {
     const input = {...old, ...(platforms ? {platforms} : {})};
     const parsed = parseRoleRoutingConfig(JSON.stringify(input), {runtimePlatforms});
-    assert.deepEqual(JSON.parse(serializeRoleRoutingConfig(parsed)), {...old, version: 2, platforms: ['codex', 'claude']});
+    assert.deepEqual(JSON.parse(serializeRoleRoutingConfig(parsed)), {...old, version: 3, platforms: ['codex', 'claude']});
     assert.throws(() => parseRoleRoutingConfig(JSON.stringify(input)));
     assert.deepEqual(parseInstalledRoutingConfig(JSON.stringify(input)).platforms, ['claude', 'codex']);
   }
   assert.throws(() => parseRoleRoutingConfig(JSON.stringify({...old, platforms: ['claude', 'codex']})));
   assert.throws(() => parseInstalledRoutingConfig(JSON.stringify({...old, platforms: ['claude', 'codex']})));
   const config = buildRoleRoutingConfig({revision: old.revision, platforms: ['codex', 'claude'], roles});
-  assert.equal(config.version, 2);
-  assert.deepEqual(JSON.parse(serializeRoleRoutingConfig(config)), {...old, version: 2, platforms: ['claude', 'codex']});
+  assert.equal(config.version, 3);
+  assert.deepEqual(JSON.parse(serializeRoleRoutingConfig(config)), {...old, version: 3, platforms: ['claude', 'codex']});
 });

@@ -10,7 +10,7 @@ import {profileName} from '../../lib/runtime/role-dispatch-policy.mjs';
 
 const CLAUDE_TOOLS = {
   arc_scouter: ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'], arc_planner: ['Read', 'Grep', 'Glob'],
-  arc_implementer: ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'], arc_qa: ['Read', 'Grep', 'Glob', 'Bash'], arc_reviewer: ['Read', 'Grep', 'Glob']
+  arc_implementer: ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'], arc_tester: ['Read', 'Grep', 'Glob', 'Bash'], arc_reviewer: ['Read', 'Grep', 'Glob']
 };
 const SANDBOX = {sandbox: {enabled: true, failIfUnavailable: true}};
 const passPolicy = (extra = {}) => ({...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G1: 'pass', ...extra}, claudeSandboxSettings: SANDBOX});
@@ -35,12 +35,12 @@ test('parseCompositeProfile reads fixture-rendered Claude and Codex profiles for
 });
 
 test('parseCompositeProfile rejects missing model or malformed developer_instructions', () => {
-  const claude = '---\nname: arc-routing-qa\ndescription: d\nmodel: haiku\neffort: low\ntools:\n  - Read\n---\nbody\n';
+  const claude = '---\nname: arc-routing-tester\ndescription: d\nmodel: haiku\neffort: low\ntools:\n  - Read\n---\nbody\n';
   assert.equal(parseCompositeProfile('claude', Buffer.from(claude)).instructions.trim(), 'body');
   assert.throws(() => parseCompositeProfile('claude', Buffer.from(claude.replace('model: haiku\n', ''))));
   assert.throws(() => parseCompositeProfile('claude', Buffer.from(claude.replace('---\nbody', '---'))));
   assert.throws(() => parseCompositeProfile('claude', Buffer.from('no frontmatter')));
-  const codex = 'name = "arc_routing_qa"\ndescription = "d"\nmodel = "gpt-6-luna"\nmodel_reasoning_effort = "low"\ndeveloper_instructions = """\nhello\n"""\n';
+  const codex = 'name = "arc_routing_tester"\ndescription = "d"\nmodel = "gpt-6-luna"\nmodel_reasoning_effort = "low"\ndeveloper_instructions = """\nhello\n"""\n';
   assert.equal(parseCompositeProfile('codex', Buffer.from(codex)).instructions.trim(), 'hello');
   assert.throws(() => parseCompositeProfile('codex', Buffer.from(codex.replace('model = "gpt-6-luna"\n', ''))));
   assert.throws(() => parseCompositeProfile('codex', Buffer.from(codex.replace('"""\nhello\n"""', '"""\nhello\n'))));
@@ -50,15 +50,15 @@ test('parseCompositeProfile rejects missing model or malformed developer_instruc
 
 test('ROLE_BRIDGE_PERMISSIONS follows spec 5.5', () => {
   const p = ROLE_BRIDGE_PERMISSIONS;
-  for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer', 'arc_qa']) assert.equal(p.claude[role].permissionMode, 'default');
+  for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer', 'arc_tester']) assert.equal(p.claude[role].permissionMode, 'default');
   assert.equal(p.claude.arc_implementer.permissionMode, 'acceptEdits');
-  assert.deepEqual(ROUTING_ROLES.filter(r => p.claude[r].sandbox), ['arc_implementer', 'arc_qa']);
+  assert.deepEqual(ROUTING_ROLES.filter(r => p.claude[r].sandbox), ['arc_implementer', 'arc_tester']);
   for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer']) assert.equal(p.codex[role].sandboxMode, 'read-only');
-  for (const role of ['arc_qa', 'arc_implementer']) assert.equal(p.codex[role].sandboxMode, 'workspace-write');
+  for (const role of ['arc_tester', 'arc_implementer']) assert.equal(p.codex[role].sandboxMode, 'workspace-write');
   assert.deepEqual(ROUTING_ROLES.filter(r => p.codex[r].search), ['arc_scouter']);
 });
 
-for (const role of ['arc_implementer', 'arc_qa']) test(`AC4 Grok ${role} requires a valid custom sandbox name`, () => {
+for (const role of ['arc_implementer', 'arc_tester']) test(`AC4 Grok ${role} requires a valid custom sandbox name`, () => {
   const input = {role, profile: {model: 'grok-test'}, sessionId: '11111111-1111-4111-8111-111111111111', promptFile: '/segment/prompt.md'};
   for (const sandboxProfile of [undefined, 'workspace', 'arc-bridge-0123Abcd', 'arc-bridge-0123abc', 'arc-bridge-0123abcd\n']) {
     assert.throws(() => buildGrokArgs({...input, sandboxProfile}), /sandbox/i);
@@ -81,17 +81,17 @@ test('Claude argv per role matches spec 5.5', () => {
   const impl = buildClaudeArgs({role: 'arc_implementer', profile: claudeProfile('arc_implementer'), policy: passPolicy()});
   assert.equal(flagValue(impl, '--permission-mode'), 'acceptEdits');
   assert.deepEqual(JSON.parse(flagValue(impl, '--settings')), SANDBOX);
-  const qa = buildClaudeArgs({role: 'arc_qa', profile: claudeProfile('arc_qa'), policy: passPolicy()});
-  assert.equal(flagValue(qa, '--permission-mode'), 'default');
-  assert.ok(qa.includes('--settings'));
-  for (const args of [planner, impl, qa]) {
+  const tester = buildClaudeArgs({role: 'arc_tester', profile: claudeProfile('arc_tester'), policy: passPolicy()});
+  assert.equal(flagValue(tester, '--permission-mode'), 'default');
+  assert.ok(tester.includes('--settings'));
+  for (const args of [planner, impl, tester]) {
     // no positional prompt: every non-flag argument is the value of the preceding flag
     args.forEach((arg, i) => { if (!arg.startsWith('--') && arg !== '-p') assert.ok(args[i - 1].startsWith('--'), `positional argument at ${i}`); });
   }
   assert.ok(planner.includes('--strict-mcp-config'));
   const loose = buildClaudeArgs({role: 'arc_planner', profile: claudeProfile('arc_planner'), policy: {...DEFAULT_POLICY, gates: {...DEFAULT_POLICY.gates, G6: 'loose'}}});
   assert.ok(!loose.includes('--strict-mcp-config'));
-  assert.throws(() => buildClaudeArgs({role: 'arc_qa', profile: claudeProfile('arc_qa'), policy: {...passPolicy(), claudeSandboxSettings: null}}), /sandbox/i);
+  assert.throws(() => buildClaudeArgs({role: 'arc_tester', profile: claudeProfile('arc_tester'), policy: {...passPolicy(), claudeSandboxSettings: null}}), /sandbox/i);
 });
 
 test('Claude writing roles get D2 settings without --setting-sources', () => {
@@ -102,7 +102,7 @@ test('Claude writing roles get D2 settings without --setting-sources', () => {
       filesystem: {denyWrite: ['./.git']},
     },
   };
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
     assert.equal(args.includes('--setting-sources'), false, role);
     assert.equal(args.filter(arg => arg === '--settings').length, 1, role);
@@ -119,7 +119,7 @@ test('Claude read roles get neither --settings nor --setting-sources', () => {
 });
 
 test('G1 fail still holds Claude writing roles', () => {
-  for (const role of ['arc_implementer', 'arc_qa']) {
+  for (const role of ['arc_implementer', 'arc_tester']) {
     assert.throws(() => buildClaudeArgs({role, profile: claudeProfile(role), policy: passPolicy({G1: 'fail'})}), /sandbox/i, role);
   }
 });
@@ -141,7 +141,7 @@ test('Codex argv per role matches spec 5.5', () => {
     const cValues = rest.flatMap((a, i) => a === '-c' ? [rest[i + 1]] : []);
     const sandbox = ROLE_BRIDGE_PERMISSIONS.codex[role].sandboxMode;
     assert.deepEqual(cValues, ['model_reasoning_effort="low"', `developer_instructions=${JSON.stringify(codexProfile(role).instructions)}`, `sandbox_mode=${JSON.stringify(sandbox)}`, 'approval_policy="never"']);
-    assert.equal(sandbox, role === 'arc_qa' || role === 'arc_implementer' ? 'workspace-write' : 'read-only');
+    assert.equal(sandbox, role === 'arc_tester' || role === 'arc_implementer' ? 'workspace-write' : 'read-only');
     assert.equal(JSON.parse(cValues[1].slice('developer_instructions='.length)), codexProfile(role).instructions);
     assert.equal(flagValue(rest, '-o'), resultPath);
     assert.equal(rest.at(-1), '-');
@@ -150,7 +150,7 @@ test('Codex argv per role matches spec 5.5', () => {
 });
 
 test('Codex resume argv uses exec resume <tid>, -c sandbox_mode and no -C or --sandbox', () => {
-  const args = buildCodexArgs({role: 'arc_qa', profile: codexProfile('arc_qa'), worktree: '/work/repo', resultPath: '/work/out/r.txt', threadId: 'tid-1', policy: DEFAULT_POLICY});
+  const args = buildCodexArgs({role: 'arc_tester', profile: codexProfile('arc_tester'), worktree: '/work/repo', resultPath: '/work/out/r.txt', threadId: 'tid-1', policy: DEFAULT_POLICY});
   assert.deepEqual(args.slice(0, 4), ['exec', 'resume', 'tid-1', '--json']);
   assert.ok(args.includes('sandbox_mode="workspace-write"') && args.includes('approval_policy="never"'));
   assert.ok(!args.includes('-C') && !args.includes('--sandbox') && !args.includes('--skip-git-repo-check'));
@@ -190,7 +190,7 @@ test('argv never contains environment secret values and argsDigest is stable', t
 // Omitting isolation flags would start user or extension MCP servers in a bridge child.
 for (const role of ROUTING_ROLES) test(`Gemini bridge arguments isolate MCP and extensions for ${role}`, () => {
   const sessionId = '11111111-1111-4111-8111-111111111111';
-  const writing = ['arc_implementer', 'arc_qa'].includes(role);
+  const writing = ['arc_implementer', 'arc_tester'].includes(role);
   const args = buildGeminiArgs({role, model: 'gemini-test', sessionId, policyFile: '/policy/role.toml'});
   assert.deepEqual(args, ['-p', 'Follow the role instructions and task on stdin.', '-m', 'gemini-test', '-o', 'stream-json', '--session-id', sessionId,
     '--approval-mode', writing ? 'auto_edit' : 'plan', '--policy', '/policy/role.toml', ...(writing ? ['--sandbox'] : []),

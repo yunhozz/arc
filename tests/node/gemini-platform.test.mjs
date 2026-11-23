@@ -199,7 +199,7 @@ test('Gemini catalog order and role defaults match the packaged recommendations'
     arc_scouter: 'gemini-4-neon',
     arc_planner: 'gemini-4-neon',
     arc_implementer: 'gemini-4-neon',
-    arc_qa: 'gemini-4-neon',
+    arc_tester: 'gemini-4-neon',
     arc_reviewer: 'gemini-4-neon',
   });
   for (const [role, {model, effort}] of Object.entries(settings.roles)) {
@@ -237,7 +237,7 @@ test('Gemini profiles render owned markdown and rename only the routing identity
   assert.deepEqual(descriptor.runtimeConfig, {});
   assert.deepEqual(descriptor.isolationEnv('/work'), {});
   assert.equal(descriptor.uninstallSummary, 'Gemini settings.json is preserved.');
-  for (const eol of ['\n', '\r\n']) for (const suffix of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
+  for (const eol of ['\n', '\r\n']) for (const suffix of ['scouter', 'planner', 'implementer', 'tester', 'reviewer']) {
     const role = `arc_${suffix}`, source = `---\nname: arc-${suffix}\ndescription: Role instructions\nmodel: gemini-x\n---\n[ARC role policy: contract begin]\nInstructions\n[ARC role policy: contract end]\n`.replaceAll('\n', eol);
     const rendered = descriptor.profiles.render(source, role, {model: 'gemini-y', effort: 'default'});
     assert.equal(rendered.toString(), source.replace('model: gemini-x', 'model: gemini-y'));
@@ -255,7 +255,7 @@ test('Gemini profiles render owned markdown and rename only the routing identity
 
 test('Gemini profiles reject non-string scalars, YAML syntax and malformed frontmatter', () => {
   const profiles = DEFAULT_INSTALLER_REGISTRY.getPlatform('gemini').profiles;
-  const source = '---\nname: arc-qa\ndescription: Role instructions\nmodel: gemini-x\n---\n[ARC role policy: contract begin]\nInstructions\n[ARC role policy: contract end]\n';
+  const source = '---\nname: arc-tester\ndescription: Role instructions\nmodel: gemini-x\n---\n[ARC role policy: contract begin]\nInstructions\n[ARC role policy: contract end]\n';
   const malformed = [
     ...['[x]', '[]', ']x', '{a: b}', '- item', '? item', ': item', ',item', '@item', '`item', '%YAML 1.2',
       '|', '> text', '&anchor text', '*anchor', '!tag text', 'text # comment', '"text"', "'text'",
@@ -269,15 +269,15 @@ test('Gemini profiles reject non-string scalars, YAML syntax and malformed front
   ];
   for (const eol of ['\n', '\r\n']) for (const {label, text} of malformed) {
     const bytes = Buffer.from(text.replaceAll('\n', eol));
-    assert.throws(() => profiles.render(bytes.toString(), 'arc_qa', {model: 'gemini-y', effort: 'default'}), {code: 'ARC_TARGET_CONFIGURATION'}, label);
-    assert.equal(profiles.isOwnedStandalone(bytes, 'arc_qa'), false, label);
-    assert.throws(() => profiles.renameForRouting(bytes, 'arc_qa', 'rev-1'), {code: 'ARC_TARGET_CONFIGURATION'}, label);
+    assert.throws(() => profiles.render(bytes.toString(), 'arc_tester', {model: 'gemini-y', effort: 'default'}), {code: 'ARC_TARGET_CONFIGURATION'}, label);
+    assert.equal(profiles.isOwnedStandalone(bytes, 'arc_tester'), false, label);
+    assert.throws(() => profiles.renameForRouting(bytes, 'arc_tester', 'rev-1'), {code: 'ARC_TARGET_CONFIGURATION'}, label);
   }
-  const rendered = profiles.render(source, 'arc_qa', {model: 'gemini-y', effort: 'default'});
-  assert.deepEqual(profiles.render(rendered.toString(), 'arc_qa', {model: 'gemini-y', effort: 'default'}), rendered);
+  const rendered = profiles.render(source, 'arc_tester', {model: 'gemini-y', effort: 'default'});
+  assert.deepEqual(profiles.render(rendered.toString(), 'arc_tester', {model: 'gemini-y', effort: 'default'}), rendered);
   const tagged = source.replace('Role instructions', 'Role instructions [arc-routing rev rev-1]');
-  assert.equal(profiles.isOwnedStandalone(Buffer.from(tagged), 'arc_qa'), true);
-  assert.equal(profiles.render(tagged, 'arc_qa', {model: 'gemini-x', effort: 'default'}).toString(), tagged);
+  assert.equal(profiles.isOwnedStandalone(Buffer.from(tagged), 'arc_tester'), true);
+  assert.equal(profiles.render(tagged, 'arc_tester', {model: 'gemini-x', effort: 'default'}).toString(), tagged);
 });
 
 test('L3 rendered Gemini routing profile has exactly the live-verified frontmatter keys', () => {
@@ -297,7 +297,7 @@ test('L4 operational Gemini standalone management installs owned profiles', asyn
   assert.equal(result.code, 0, JSON.stringify(result));
   assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['gemini', 'installed']]);
   const home = path.join(context.userHome, '.gemini');
-  assert.deepEqual(fs.readdirSync(path.join(home, 'agents')).sort(), ['arc-implementer.md', 'arc-planner.md', 'arc-qa.md', 'arc-reviewer.md', 'arc-scouter.md']);
+  assert.deepEqual(fs.readdirSync(path.join(home, 'agents')).sort(), ['arc-implementer.md', 'arc-planner.md', 'arc-reviewer.md', 'arc-scouter.md', 'arc-tester.md']);
   assert.match(fs.readFileSync(path.join(home, 'GEMINI.md'), 'utf8'), /<!-- arc:begin -->[\s\S]*<!-- arc:end -->/);
   assert.equal((await collectStatus(context)).find(status => status.platform === 'gemini').state, 'installed');
 });

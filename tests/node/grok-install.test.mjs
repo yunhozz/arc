@@ -53,8 +53,8 @@ test('grok standalone install layout', async t => {
   }
   const payload = verifyPayload(context);
   assert.ok(payload.modelInputs.grok, 'verified Grok templates must be validated');
-  const template = path.join(context.packageRoot, 'grok/agents/arc-qa.md');
-  fs.writeFileSync(template, fs.readFileSync(template, 'utf8').replace('{{ARC_AGENT_FRAGMENT:qa.contract-intro}}', ''));
+  const template = path.join(context.packageRoot, 'grok/agents/arc-tester.md');
+  fs.writeFileSync(template, fs.readFileSync(template, 'utf8').replace('{{ARC_AGENT_FRAGMENT:tester.contract-intro}}', ''));
   refreshManifest(context.packageRoot);
   assert.throws(() => verifyPayload(context), {code: 'ARC_PAYLOAD_VALIDATION', message: /Invalid profile markers/});
 });
@@ -210,7 +210,7 @@ test('models.toml defaults', async t => {
   const context = await contextFor(t);
   await install(context);
   const config = parseToml(fs.readFileSync(path.join(context.userHome, '.grok/skills/arc/models.toml'), 'utf8'));
-  assert.equal(config.version, 3n);
+  assert.equal(config.version, 4n);
   assert.deepEqual(Object.keys(config.roles).sort(), roles.map(role => `arc_${role}`).sort());
   for (const role of roles) assert.deepEqual({...config.roles[`arc_${role}`]}, {model: 'grok-4.6', effort: 'default'});
 });

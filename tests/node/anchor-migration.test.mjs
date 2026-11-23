@@ -9,6 +9,7 @@ import {resolveTargets} from '../../lib/installer/targets.mjs';
 import {publishCompositeFiles} from '../../lib/installer/role-routing.mjs';
 import {createLease, writeLease} from '../../lib/runtime/role-dispatch-store.mjs';
 import {routingStatus, prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
+import {ROUTING_CONFIG_VERSION} from '../../lib/runtime/role-routing-config.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {collectInstalledState} from '../../lib/installer/upgrade-state.mjs';
 import {upgradeInstalledTargets} from '../../lib/installer/upgrade.mjs';
@@ -35,7 +36,7 @@ function rewriteConfig(context, config) {
 test('legacy v1 at codex home is composite with legacyAnchor', async t => {
   const context = await legacyComposite(t), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
   assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex',
-    homes: {claude: 'composite', codex: 'composite', zeta: 'standalone'}, config: {...raw, version: 2, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
+    homes: {claude: 'composite', codex: 'composite', zeta: 'standalone'}, config: {...raw, version: ROUTING_CONFIG_VERSION, platforms: ['claude', 'codex']}, residualPaths: [], legacyAnchor: true});
   assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['claude', 'codex'], anchor: 'codex', legacyAnchor: true});
   assert.deepEqual(management.readCompositeConfig(context), legacyState(context).config);
 });
@@ -74,7 +75,7 @@ for (const kind of ['install', 'preset']) test(`legacy Install/Update moves anch
   const result = await management.executeOperation(context, prepared);
   assert.equal(result.code, 0, result.error?.stack ?? result.results.find(item => item.error)?.error?.stack);
   const config = JSON.parse(fs.readFileSync(activePath(context, 'claude')));
-  assert.equal(config.version, 2);
+  assert.equal(config.version, ROUTING_CONFIG_VERSION);
   assert.deepEqual(config.platforms, ['claude', 'codex']);
   assert.equal(fs.existsSync(activePath(context, 'codex')), false);
   for (const id of ['codex', 'claude']) assert.equal(JSON.parse(fs.readFileSync(markerPath(context, id))).activeConfigPath, activePath(context, 'claude'));
@@ -178,7 +179,7 @@ test('legacy status adds move diagnostic', async t => {
 });
 test('injected codex-first order: codex v1 at codex home stays normal composite without legacyAnchor', async t => {
   const context = await legacyComposite(t, {operational: true}), raw = JSON.parse(fs.readFileSync(activePath(context, 'codex')));
-  assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, version: 2, platforms: ['codex', 'claude']}, residualPaths: []});
+  assert.deepEqual(legacyState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex', homes: {codex: 'composite', claude: 'composite', zeta: 'standalone'}, config: {...raw, version: ROUTING_CONFIG_VERSION, platforms: ['codex', 'claude']}, residualPaths: []});
   assert.deepEqual(management.currentInstallState(context), {mode: 'composite', platforms: ['codex', 'claude'], anchor: 'codex'});
   assert.equal('anchorMove' in await prepare(context), false);
 });

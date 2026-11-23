@@ -140,7 +140,7 @@ test('subagent session_meta exposes parent, depth and role', () => {
  assert.equal(parseCodexMeta({...row,payload:{...p,source:{}}}).agentRole,'arc_scouter');
  const nested={...p}; for(const k of ['parent_thread_id','agent_role','agent_nickname','agent_path']) delete nested[k];
  assert.deepEqual(parseCodexMeta({...row,payload:nested}),meta);
- assert.equal(parseCodexMeta({...row,payload:{...p,agent_role:'arc_qa'}}).agentRole,'arc_qa');
+ assert.equal(parseCodexMeta({...row,payload:{...p,agent_role:'arc_tester'}}).agentRole,'arc_tester');
 });
 test('command keeps the script and drops aggregated output', () => {
  assert.deepEqual(item('CommandExecution',{command:['/bin/zsh','-lc','git status'],exit_code:1,aggregated_output:'WATCH_MARKER_aggregated_output'}),[{kind:'command',text:'git status',exitCode:1}]);
@@ -171,7 +171,7 @@ test('settings, user, agent, approval, error rows', () => {
  assert.deepEqual(event('error',{message:'boom'}),[{kind:'error',text:'boom'}]);
 });
 test('spawn calls from function and custom tool calls', () => {
- for(const type of ['function_call','custom_tool_call']) for(const [args,text] of [[{agent_type:'arc_qa',task_name:'check',message:'WATCH_MARKER_spawn_message'},'arc_qa: check'],[{agent_type:'arc_qa'},'arc_qa'],[{},''],['broken','']]) {
+ for(const type of ['function_call','custom_tool_call']) for(const [args,text] of [[{agent_type:'arc_tester',task_name:'check',message:'WATCH_MARKER_spawn_message'},'arc_tester: check'],[{agent_type:'arc_tester'},'arc_tester'],[{},''],['broken','']]) {
  assert.deepEqual(normalize({type:'response_item',payload:{type,namespace:'collaboration',name:'spawn_agent',arguments:typeof args==='string'?args:JSON.stringify(args)}}),[{kind:'spawn',tool:'spawn_agent',text}]);
  }
 });

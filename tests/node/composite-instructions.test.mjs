@@ -69,7 +69,7 @@ test('both coordination references define Composite Platform Role Dispatch with 
     for (const key of ['hostPlatform', 'executionEnvironment', 'expectedRevision', 'requestId', 'taskId', 'allowedPaths', 'dispatchId', 'brief', 'waitMs', 'event', 'nativeAgentId']) assert.ok(body.includes('`' + key), harness + ' key ' + key);
     // exit codes, gates, limits
     assert.match(body, /allow 0, deny 2, hold 3, error 1/);
-    for (const needle of ['permission_scope_unverified', 'host_sandbox_blocked', 'delegation_observed', 'environment_unverified', 'native_profile_reload_unverified', 'new session', 'model argument', 'rev ', 'Active bridge dispatches', 'CLI versions are not restricted', '60 minutes', '30 minutes', '20 minutes', '30 days', 'cancelling', 'terminal_state_unverified', 'completed` or `failed']) assert.ok(body.includes(needle), harness + ' needle ' + needle);
+    for (const needle of ['permission_scope_unverified', 'host_sandbox_blocked', 'delegation_observed', 'environment_unverified', 'native_profile_reload_unverified', 'new session', 'model argument', 'rev ', 'Active bridge dispatches', 'CLI versions are not restricted', '60 minutes', '20 minutes', '30 days', 'cancelling', 'terminal_state_unverified', 'completed` or `failed']) assert.ok(body.includes(needle), harness + ' needle ' + needle);
     assert.match(body, /no automatic (?:fallback|substitution)/i);
     assert.match(body, /short polling loop/i);
     assert.match(body, /each (?:call|time)[^.]*escalation|escalation approval[^.]*each/i);
@@ -130,7 +130,7 @@ test('every coordination reference omits verify-* host rules', async () => {
 });
 
 test('coordination references document every host and target route from current policy', async () => {
-  const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
+  const roles = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer'];
   const environments = [...platforms.map(platform => `${platform}-cli`), 'claude-desktop', 'codex-desktop'];
   const documents = await Promise.all(platforms.map(coordination));
   for (const [index, document] of documents.entries()) {
@@ -149,10 +149,10 @@ test('coordination references document every host and target route from current 
         if (route === 'native') return 'Native, all roles';
         const holds = roles.filter(role => bridgeGateReasons({platform: target, role, hostPlatform: host}).length > 0);
         if (holds.length === 0) return 'Bridge, all roles';
-        assert.deepEqual(holds, ['arc_implementer', 'arc_qa']);
-        assert.deepEqual(bridgeGateReasons({platform: target, role: 'arc_qa', hostPlatform: host}), ['permission_scope_unverified']);
+        assert.deepEqual(holds, ['arc_implementer', 'arc_tester']);
+        assert.deepEqual(bridgeGateReasons({platform: target, role: 'arc_tester', hostPlatform: host}), ['permission_scope_unverified']);
         assert.equal(target, 'gemini');
-        return 'Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`)';
+        return 'Bridge, read roles only (GG1 `fail`; Implementer/Tester held as `permission_scope_unverified`)';
       });
       const row = document.split('\n').find(line => line.startsWith(`| \`${environment}\` |`));
       assert.deepEqual(row?.split('|').slice(2, 6).map(cell => cell.trim()), cells, `${label}: ${environment}`);
@@ -163,9 +163,9 @@ test('coordination references document every host and target route from current 
 test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bridge writing gates', async () => {
   for (const platform of platforms) {
     const body = section(await coordination(platform));
-    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/QA bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, allow rules for tools outside the safe list \(Bash, Read, Grep, Glob, WebFetch, WebSearch\), hooks, sandbox or defaultMode/, platform);
-    assert.match(body, /Gemini bridge `arc_implementer` and `arc_qa` are held as `permission_scope_unverified` while GG1 is `fail`/, platform);
-    assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/, platform);
+    assert.match(body, /- Writing roles: Claude bridge [^\n]+\(G1\)\. Claude Implementer\/Tester bridges[^\n]+`\.git`[^\n]+`denyWrite`[^\n]+`permission_scope_unverified`[^\n]+`\.claude\/settings\.json` or `\.claude\/settings\.local\.json`[^\n]+additional directories, allow rules for tools outside the safe list \(Bash, Read, Grep, Glob, WebFetch, WebSearch\), hooks, sandbox or defaultMode/, platform);
+    assert.match(body, /Gemini bridge `arc_implementer` and `arc_tester` are held as `permission_scope_unverified` while GG1 is `fail`/, platform);
+    assert.match(body, /Grok bridge `arc_implementer` and `arc_tester` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/, platform);
     assert.match(body, /per-dispatch sandbox profile[^.]*GK1[^.]*\. [^.]*held as `permission_scope_unverified`[^.]*GK1/, platform);
   }
 });
@@ -229,7 +229,7 @@ test('limits and handoff references mention bridge counting, unknown slot retent
   for (const harness of Object.keys(harnesses)) {
     const limits = await read(harness, 'limits.md');
     assert.doesNotMatch(limits, /Current role routing is held before reservation/);
-    for (const needle of ['bridge dispatch', 'ledger', '`max_concurrent_subagents`', '`max_total_subagents`', '`unknown`', 'slot', '60 minutes', '30 minutes', '20 minutes', '30 days']) assert.ok(limits.includes(needle), harness + ' limits ' + needle);
+    for (const needle of ['bridge dispatch', 'ledger', '`max_concurrent_subagents`', '`max_total_subagents`', '`unknown`', 'slot', '60 minutes', '20 minutes', '30 days']) assert.ok(limits.includes(needle), harness + ' limits ' + needle);
     const handoff = await read(harness, 'handoff.md');
     for (const needle of ['`resultPath`', 'stdin', 'fixed brief order']) assert.ok(handoff.includes(needle), harness + ' handoff ' + needle);
     assert.match(handoff, /bridge[^.]*final message[^.]*`resultPath`|`resultPath`[^.]*final message/i);
@@ -298,16 +298,16 @@ test('follow-up facts: reserved native cancel, Codex bridge permission cap, ref 
     assert.match(body, /Any other ref creation, deletion or movement is a `permission_violation_observed` for every role, including any other change to the dispatch worktree's own branch, branches checked out by no worktree, and moving or deleting an existing tag\./);
     assert.match(body, /These ref changes are not violations and are recorded in the dispatch record under `tolerated\.refs`, [^\n]+: remote-tracking refs \(`refs\/remotes\/\*\*`\), tags that did not exist before the run, and branches checked out by another registered worktree before or after the run\./);
     assert.match(body, /If the worktree list cannot be parsed, does not include the dispatch worktree, or lists it on a different branch than its `HEAD`, no branch is tolerated this way\./);
-    assert.match(body, /A fast-forward of the dispatch worktree's own branch is not a violation, and is recorded under `tolerated\.refs` with its committed paths under `tolerated\.commitPaths`, when the branch did not change, the new commits include no merge commit, there are at most 100 of them touching at most 10,000 paths, and, for `arc_implementer` and for `arc_qa` with non-empty `allowedPaths`, every path they add, modify, delete or rename is within the role's `allowedPaths`\./);
-    assert.match(body, /For read-only roles and for `arc_qa` without `allowedPaths` the path check is skipped, so their fast-forward commits pass on the other conditions alone\./);
+    assert.match(body, /A fast-forward of the dispatch worktree's own branch is not a violation, and is recorded under `tolerated\.refs` with its committed paths under `tolerated\.commitPaths`, when the branch did not change, the new commits include no merge commit, there are at most 100 of them touching at most 10,000 paths, and, for `arc_implementer` and for `arc_tester` with non-empty `allowedPaths`, every path they add, modify, delete or rename is within the role's `allowedPaths`\./);
+    assert.match(body, /For read-only roles and for `arc_tester` without `allowedPaths` the path check is skipped, so their fast-forward commits pass on the other conditions alone\./);
     assert.match(body, /A rejected fast-forward is a `permission_violation_observed`, and its out-of-scope paths are listed in `changedPaths`\. Switching the branch, rewriting history, a detached `HEAD` move or a move on an unborn branch remains a violation\./);
     assert.match(body, /Each `tolerated` list keeps at most 100 sorted names, and `tolerated\.truncated` is set when a list is longer\./);
     assert.match(body, /`ARC_BRIDGE_CHILD`[^.]*routing commands are denied/);
     assert.match(body, /re-running `codex exec`, `claude -p`, `gemini` or `grok` through a shell is outside `delegation_observed` detection/i);
     assert.match(body, /orphaned process group[^.]*reaped/);
-    assert.match(body, /Claude bridge `arc_implementer` and `arc_qa` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing \(G1\)/);
+    assert.match(body, /Claude bridge `arc_implementer` and `arc_tester` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing \(G1\)/);
     assert.ok(body.includes('Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.'), harness);
-    assert.match(body, /Grok bridge `arc_implementer` and `arc_qa` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/);
+    assert.match(body, /Grok bridge `arc_implementer` and `arc_tester` use a per-dispatch sandbox profile and require a verified `ProfileApplied` event after execution \(GK1\), with read-role behavior unchanged/);
     assert.doesNotMatch(body, /`claude-cli` hosts are supported\./);
   }
 });

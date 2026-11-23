@@ -212,7 +212,7 @@ test('platform list uses fake registry labels and order without moving available
   assert.deepEqual(rows,['Claude - Unavailable  (unauthorized)','Codex','Zeta','Eta']);
   assert.equal(options.selected,2);return null;
  }]);
- assert.equal(await roleEditor.selectPlatform({ui,roleName:'QA',current:'zeta',availabilityOf:id=>id==='claude'?unauthorized:selectable,registry}),null);ui.done();
+ assert.equal(await roleEditor.selectPlatform({ui,roleName:'Tester',current:'zeta',availabilityOf:id=>id==='claude'?unauthorized:selectable,registry}),null);ui.done();
 });
 
 test('platform list truncates choices while bottom reasons wrap safely',async()=>{
@@ -226,7 +226,7 @@ test('platform list truncates choices while bottom reasons wrap safely',async()=
   assert.doesNotMatch(output.text,/\nZeta/);assert.ok(output.text.replace(/\n  /g,'').includes('\\x0aZeta:'));assert.match(output.text,/unauthorized/);assert.equal(output.selectionEnabled,true);
   return null;
  }]);
- assert.equal(await roleEditor.selectPlatform({ui,roleName:'QA',current:'zeta',availabilityOf:()=>unauthorized,registry}),null);ui.done();
+ assert.equal(await roleEditor.selectPlatform({ui,roleName:'Tester',current:'zeta',availabilityOf:()=>unauthorized,registry}),null);ui.done();
 });
 
 test('unavailable current platform permits model and effort editing except catalog_error',async()=>{

@@ -17,7 +17,7 @@ const fastContracts = {
  'instruction fingerprint': [/Instruction fingerprint/, /resolved path/, /entire file bytes/, /same conversation context/, /HEAD.*manifest/, /new role.*actual instructions/],
  'task envelope': [/Task envelope/, /path.*outcome.*scope.*approval.*risk.*TDD.*verification.*refresh/s, /existing canonical handoff record.*inline scope record/, /eight.*brief.*order/],
  'target and evidence': [/target choice validity.*evidence validity/, /HEAD.*dirty.*do not invalidate/, /Revalidate only affected evidence/, /inaccessible.*hold/],
- 'execution boundaries': [/first direct edit.*Implementer.*TDD.*QA.*Reviewer.*acceptance.*commit/s]
+ 'execution boundaries': [/first direct edit.*Implementer.*TDD.*Tester.*Reviewer.*acceptance.*commit/s]
 };
 for (const platform of ['codex','claude']) for (const [contract,patterns] of Object.entries(fastContracts)) {
  test(`${platform} fast path preserves ${contract}`,()=>{
@@ -34,8 +34,8 @@ for (const platform of ['codex','claude']) for (const [contract,patterns] of Obj
 for (const platform of ['codex','claude']) {
  test(`${platform} applies existing gates only when triggered without adding new obligations`,()=>{
   const check=text=>{
-   assert.match(text,/[Ff]irst edit, target selection, TDD, role assignment, QA\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
-   assert.match(text,/fast path itself does not require untriggered role assignment, QA\/Reviewer, acceptance or commit/);
+   assert.match(text,/[Ff]irst edit, target selection, TDD, role assignment, Tester\/Reviewer, acceptance and commit gates apply when their existing triggers are met/);
+   assert.match(text,/fast path itself does not require untriggered role assignment, Tester\/Reviewer, acceptance or commit/);
   };
   const core=read(file(platform,'core'));
   check(core);
@@ -43,7 +43,7 @@ for (const platform of ['codex','claude']) {
   assert.throws(()=>check(core.replace('does not require untriggered','requires untriggered')));
   const handoff=fastSections(read(file(platform,'handoff')));
   assert.match(handoff,/existing triggers determine whether each gate applies/);
-  assert.match(handoff,/does not add untriggered role, QA\/Reviewer, acceptance or commit obligations/);
+  assert.match(handoff,/does not add untriggered role, Tester\/Reviewer, acceptance or commit obligations/);
  });
  test(`${platform} reuse requires the same absolute locator even when resolved paths match`,()=>{
   const check=text=>{
@@ -95,7 +95,7 @@ function checkLayout(platform,documents){
  assert.ok(exceptions?.includes('small-task, plan-omission, or TDD exception')&&exceptions.includes('read the full conditions')&&exceptions.includes('references/handoff.md'),'missing full exception gate');
  for(const target of POLICY_TARGETS.filter(t=>t.platform===platform&&t.audience==='orchestrator')){
   const name=target.path.endsWith('/SKILL.md')?'core':path.basename(target.path,'.md');
-  for(const rule of defaultRolePolicy.rules.filter(rule=>({core:['scope.non-escalation','external.explicit-user-authority','role.orchestrator-boundary'],coordination:['git.specialists-deny','role.scouter-read-only','role.planner-draft-only','role.implementer-implementation','role.qa-verification','role.reviewer-independent'],planning:['git.orchestrator-accept-commit','review.significant-no-plan','review.significant-plan','review.final-plan-recheck'],handoff:['git.specialists-deny','role.implementer-implementation','review.significant-no-plan','review.significant-plan','review.final-plan-recheck'],'handoff-prep':['scope.non-escalation','git.specialists-deny','git.orchestrator-accept-commit','external.explicit-user-authority'],verification:['git.orchestrator-accept-commit','review.significant-no-plan','review.significant-plan','review.final-plan-recheck'],commit:['scope.non-escalation','git.orchestrator-accept-commit','external.explicit-user-authority']}[name]??[]).includes(rule.id))){
+  for(const rule of defaultRolePolicy.rules.filter(rule=>({core:['scope.non-escalation','external.explicit-user-authority','role.orchestrator-boundary'],coordination:['git.specialists-deny','role.scouter-read-only','role.planner-draft-only','role.implementer-implementation','role.tester-verification','role.reviewer-independent'],planning:['git.orchestrator-accept-commit','review.significant-no-plan','review.significant-plan','review.final-plan-recheck'],handoff:['git.specialists-deny','role.implementer-implementation','review.significant-no-plan','review.significant-plan','review.final-plan-recheck'],'handoff-prep':['scope.non-escalation','git.specialists-deny','git.orchestrator-accept-commit','external.explicit-user-authority'],verification:['git.orchestrator-accept-commit','review.significant-no-plan','review.significant-plan','review.final-plan-recheck'],commit:['scope.non-escalation','git.orchestrator-accept-commit','external.explicit-user-authority']}[name]??[]).includes(rule.id))){
    assert.ok(documents.get(name).includes(`- [${rule.id}] ${rule.text}`),`missing canonical contract ${platform}/${name}/${rule.id}`);
   }
  }
@@ -138,6 +138,20 @@ test('Codex Git escalation requires sandbox denial and stays limited to the exac
  assert.match(recovery,/Only when evidence confirms that the sandbox denied an already authorized operation/);
  assert.match(recovery,/request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access/);
  assert.doesNotMatch(recovery,/evidence of permission-system denial/);
+});
+test('worktree handoff records use the same runtime write and inline fallback guidance on every platform',()=>{
+ const expected=fixture.worktreeHandoffRecordGuidance;
+ const authorization=fixture.worktreeHandoffRecordAuthorization;
+ for(const platform of ['claude','codex','gemini','grok']){
+  for(const name of ['handoff','git-recovery','worktree-creation']){
+   const document=file(platform,name);
+   const paragraph=name==='handoff'?expected+' '+authorization:expected;
+   assert.ok(read(document).split('\n').includes(paragraph),document);
+  }
+ }
+});
+test('Codex coordination uses the current Tester role in its task name example',()=>{
+ assert.match(read(file('codex','coordination')),/`tester_installer_checks`/);
 });
 test('profile models, permissions, canonical policy and CLI/runtime bytes are preserved',()=>{
  for(const[name,hash]of Object.entries(fixture.protected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),hash,name);

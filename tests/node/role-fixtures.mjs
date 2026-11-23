@@ -11,10 +11,45 @@ import {renameCompositeProfile} from '../../lib/installer/role-routing.mjs';
 import {ROUTING_ROLES, serializeRoleRoutingConfig, validateRoleRoutingConfig} from '../../lib/runtime/role-routing-config.mjs';
 import {cooperativeVersions} from '../../lib/runtime/bootstrap.mjs';
 import {runtimeRegistryOf} from '../../lib/runtime/platform-registry.mjs';
+import {dispatchDirectory} from '../../lib/runtime/role-dispatch-store.mjs';
 
 const root = new URL('../../', import.meta.url).pathname;
 const digest = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 const VALUES = {claude: {model: 'haiku', effort: 'low'}, codex: {model: 'gpt-6-luna', effort: 'low'}};
+
+export const legacyDispatchCases = [
+  {hostPlatform: 'claude', targetPlatform: 'codex', profileName: 'arc_routing_tester'},
+  {hostPlatform: 'codex', targetPlatform: 'gemini', profileName: 'arc-routing-tester'},
+  {hostPlatform: 'gemini', targetPlatform: 'grok', profileName: 'arc-routing-tester'},
+  {hostPlatform: 'grok', targetPlatform: 'claude', profileName: 'arc-routing-tester'},
+];
+
+export async function legacyDispatchFixture(t) {
+  const f = await createRoutingFixture(t);
+  const markerFile = 'arc-role-platform-routing.prepared.json';
+  const marker = JSON.parse(await fs.readFile(path.join(f.claudeHome, markerFile), 'utf8'));
+  for (const platform of ['gemini', 'grok']) {
+    const targetHome = path.join(f.userHome, '.' + platform);
+    await fs.mkdir(targetHome);
+    await fs.writeFile(path.join(targetHome, markerFile), JSON.stringify({...marker, platform, targetHome, profiles: {}}));
+  }
+  const storeDir = dispatchDirectory(f.claudeHome);
+  await fs.mkdir(storeDir);
+  return {...f, storeDir, async seed({hostPlatform, targetPlatform, role, dispatchId, ...fields}) {
+    const time = new Date().toISOString();
+    const lease = {
+      version: 2, dispatchId, workflowId: 'wf-1', taskId: dispatchId, requestId: dispatchId, role,
+      route: 'bridge', hostPlatform, targetPlatform, executionEnvironment: hostPlatform + '-cli',
+      revision: f.revision, profileHash: 'sha256:' + 'a'.repeat(64), argsDigest: null, state: 'reserved',
+      supervisor: null, child: null, sessionId: null, timeoutMinutes: 60, claims: null, reasons: [],
+      allowedPaths: [], resultPath: null, segment: 0, nativeAgentId: null, createdAt: time, updatedAt: time,
+      ...fields
+    };
+    const file = path.join(storeDir, dispatchId + '.json');
+    await fs.writeFile(file, JSON.stringify(lease));
+    return file;
+  }};
+}
 
 // Keep PID records outside snapshots rooted at the fixture's base directory.
 export const fixturePidFile = base => base + '.pids';
@@ -97,7 +132,7 @@ async function copyRuntime(home) {
 async function renderPlatform(platform, config) {
   const ext = platform === 'codex' ? 'toml' : 'md', field = platform === 'codex' ? 'model_reasoning_effort' : 'effort';
   const inputs = {};
-  for (const role of ['scouter', 'planner', 'implementer', 'qa', 'reviewer']) {
+  for (const role of ['scouter', 'planner', 'implementer', 'tester', 'reviewer']) {
     const name = `arc-${role}.${ext}`;
     inputs[name] = await fs.readFile(path.join(root, platform, 'agents', name));
   }
@@ -109,7 +144,7 @@ async function renderPlatform(platform, config) {
   return result;
 }
 
-/** roles: {arc_qa:'codex'} assigns that role to a platform; every other role stays on hostPlatform. */
+/** roles: {arc_tester:'codex'} assigns that role to a platform; every other role stays on hostPlatform. */
 export async function createRoutingFixture(t, {roles = {}, hostPlatform = 'claude', limits = {total: 100, concurrent: 5}, revision = 'rev-1', runtimePlatforms} = {}) {
   installPsStub();
   const base = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'arc-route-'));

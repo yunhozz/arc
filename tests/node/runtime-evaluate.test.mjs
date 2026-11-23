@@ -10,7 +10,7 @@ const policy=JSON.parse(fs.readFileSync(new URL('../../lib/policy/role-policy.js
 function setup(role,operation){const s=state();s.identities=[{actorRef:'actor',role,taskId:'T1',observationRef:'obs'}];s.leases=[{actorRef:'actor',taskId:'T1',status:'active'}];s.assignments=[{actorRef:'actor',taskId:'T1',role,paths:['/workspace/file'],operations:[operation],approvalRef:'approval'}];s.approvals=[{id:'approval',source:'user-message',messageRef:'message',contentHash:'sha256:'+'a'.repeat(64),scope:{taskId:'T1',target:'/workspace',operations:[operation],paths:['/workspace/file']}}];return {s,r:{...request(),operation},e:{observedAt:'2026-10-20T00:00:00Z',target:s.target,revision:s.revision,versions:s.versions,resolvedPaths:[{path:'/workspace',realpath:'/workspace'},{path:'/workspace/file',realpath:'/workspace/file'}],provenance:[{id:'obs',source:'platform-event',eventRef:'event',actorRef:'actor',platform:'codex',verification:{status:'verified',verifierRef:'platform-provider',sourceRef:'event'}},{id:'approval',source:'user-message',messageRef:'message',contentHash:'sha256:'+'a'.repeat(64),verification:{status:'verified',verifierRef:'message-provider',sourceRef:'message'}}]}};}
 test('six roles allow assigned operations and deny independent role violations',()=>{
  assert.equal(typeof api.evaluate,'function');
- for(const [role,allowed,denied] of [['planner','draft','write'],['scouter','read','operational-query'],['implementer','write','commit'],['qa','check','write'],['reviewer','review','check'],['orchestrator','read','scope-expansion']]) {
+ for(const [role,allowed,denied] of [['planner','draft','write'],['scouter','read','operational-query'],['implementer','write','commit'],['tester','check','write'],['reviewer','review','check'],['orchestrator','read','scope-expansion']]) {
   const a=setup(role,allowed);if(allowed==='check'){a.s.assignments[0].checks=[{executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]}];a.r.descriptor=a.s.assignments[0].checks[0];}assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow',role);
   const d=setup(role,denied);assert.equal(api.evaluate(policy,d.s,d.r,d.e).decision,'deny',role);
   assert.equal(api.evaluate(policy,a.s,a.r,{provenance:[]}).decision,'hold',role+' missing proof');
@@ -21,8 +21,8 @@ test('self asserted role or approval cannot grant authority and docs commit gate
  assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');
  const b=setup('implementer','commit');b.r.role='orchestrator';b.r.approved=true;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'deny');
 });
-test('temporary QA output is scoped and acceptance Git external actions require evidence',()=>{
- const a=setup('qa','temporary-write');assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');a.s.assignments[0].temporary={paths:['/workspace/file'],cleanupOwner:'actor',expiresAt:'2030-01-01T00:00:00Z'};assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
+test('temporary Tester output is scoped and acceptance Git external actions require evidence',()=>{
+ const a=setup('tester','temporary-write');assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');a.s.assignments[0].temporary={paths:['/workspace/file'],cleanupOwner:'actor',expiresAt:'2030-01-01T00:00:00Z'};assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
  for(const op of ['accept','commit','push']){const b=setup('orchestrator',op);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');}
  for(const mode of ['small-task','no-plan']){const b=setup('orchestrator','assign-agent');b.s.mode=mode;b.r.descriptor={role:'implementer',actorRef:'new',taskId:'T1'};assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');}
 });
@@ -33,8 +33,51 @@ test('identity never rebinds another task or revives a retired lease',()=>{
 });
 function fact(a,kind,data){a.e.facts=[{kind,workflowId:a.s.workflowId,revision:a.s.revision,target:a.s.target,policyHash:a.s.versions.policyHash,sourceRef:'obs',data}];}
 test('Orchestrator acceptance and Git allow only exact observed registered evidence',()=>{
- const a=setup('orchestrator','accept');a.s.tasks[0].criteria=['criterion'];a.s.tasks[0].requiredChecks=['check'];a.s.identities.push({actorRef:'qa-agent',role:'qa',taskId:'T1',observationRef:'qa-obs'});a.s.checks=[{id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'qa-agent',resultRef:'obs'}];a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};fact(a,'acceptance',a.r.descriptor);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
+ const a=setup('orchestrator','accept');a.s.tasks[0].criteria=['criterion'];a.s.tasks[0].requiredChecks=['check'];a.s.identities.push({actorRef:'tester-agent',role:'tester',taskId:'T1',observationRef:'tester-obs'});a.s.checks=[{id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'tester-agent',resultRef:'obs'}];a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};fact(a,'acceptance',a.r.descriptor);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
  const b=setup('orchestrator','commit');b.s.acceptances=[{taskId:'T1',actorRef:'actor',fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]}];b.s.tasks[0].status='accepted';b.r.descriptor={fingerprint:'diff',parent:'head',indexTree:'tree',kind:'task',paths:['file']};fact(b,'git-index',b.r.descriptor);assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'allow');b.e.facts[0].revision=9;assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'hold');
+});
+test('stored qa assignment and identity can attest a required check for acceptance',()=>{
+ const a=setup('orchestrator','accept');
+ a.s.tasks[0].criteria=['criterion'];
+ a.s.tasks[0].requiredChecks=['check'];
+ a.s.identities.push({actorRef:'qa-agent',role:'qa',taskId:'T1',observationRef:'qa-obs'});
+ a.s.assignments.push({actorRef:'qa-agent',taskId:'T1',role:'qa',paths:['/workspace/file'],operations:['check'],approvalRef:'approval'});
+ a.s.checks.push({id:'check',taskId:'T1',status:'passed',fingerprint:'diff',actorRef:'qa-agent',resultRef:'obs'});
+ a.r.descriptor={fingerprint:'diff',criteria:['criterion'],checkIds:['check'],findingIds:[]};
+ fact(a,'acceptance',a.r.descriptor);
+ const decision=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(decision.decision,'allow',decision.reason);
+ assert.equal(a.s.identities[1].role,'qa');
+});
+
+test('a new assignment request cannot use the legacy qa role',()=>{
+ const a=assign();
+ a.r.descriptor.role='qa';
+ const result=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(result.decision,'deny');
+ assert.deepEqual(result.ruleIds,['runtime.identity']);
+ assert.equal(result.proposedTransition,null);
+});
+
+test('a stored qa identity cannot authorize a new check',()=>{
+ const a=setup('qa','check');
+ a.r.descriptor={executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]};
+ a.s.assignments[0].checks=[a.r.descriptor];
+ const result=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(result.decision,'deny');
+ assert.deepEqual(result.ruleIds,['runtime.identity']);
+ assert.equal(result.proposedTransition,null);
+});
+
+test('a new tester check needs a current assignment role',()=>{
+ const a=setup('tester','check');
+ a.r.descriptor={executable:'/bin/check',args:[],cwd:'/workspace',env:{},outputs:[]};
+ a.s.assignments[0].checks=[a.r.descriptor];
+ a.s.assignments[0].role='qa';
+ const result=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(result.decision,'hold');
+ assert.deepEqual(result.ruleIds,['runtime.assignment']);
+ assert.equal(result.proposedTransition,null);
 });
 test('first Implementer assignment needs complete document hashes approvals and docs-only Git fact',()=>{
  const a=assign();assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'allow');
@@ -45,7 +88,7 @@ test('unverified provenance and escaped realpaths never grant authority',()=>{
  const b=setup('implementer','write');b.e.resolvedPaths[1].realpath='/workspace-other/file';assert.equal(api.evaluate(policy,b.s,b.r,b.e).decision,'deny');
 });
 test('expired temporary assignments and invalid policy cannot allow requests',()=>{
- const a=setup('qa','temporary-write');a.s.assignments[0].temporary={paths:['/workspace/file'],cleanupOwner:'actor',expiresAt:'2000-01-01T00:00:00Z'};a.e.observedAt='2026-10-20T00:00:00Z';assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');
+ const a=setup('tester','temporary-write');a.s.assignments[0].temporary={paths:['/workspace/file'],cleanupOwner:'actor',expiresAt:'2000-01-01T00:00:00Z'};a.e.observedAt='2026-10-20T00:00:00Z';assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');
  const b=setup('implementer','write');assert.equal(api.evaluate({...policy,runtime:{schemaVersion:1}},b.s,b.r,b.e).decision,'hold');
 });
 
@@ -59,15 +102,41 @@ function assign(){
  return a;
 }
 function observed(pending){return {actorRef:'spawned-agent',taskId:'T1',role:'implementer',platform:'codex',observationRef:'spawn-result',eventRef:'host-spawn-event',correlationRef:'platform-call',assignmentId:'request',paths:['/workspace/file'],operations:['read','write'],approvalRef:'approval',provenance:{source:'platform-event',eventRef:'host-spawn-event',actorRef:'spawned-agent',platform:'codex',correlationRef:'platform-call',verification:{status:'verified',verifierRef:'native-provider',sourceRef:'host-spawn-event'}}};}
+test('a canonical tester observation matches the original legacy identity and assignment',()=>{
+ const a=assign();
+ const pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;
+ const observation={...observed(),role:'tester',operations:['read']};
+ const assignment=pending.assignments.at(-1);
+ Object.assign(assignment,{role:'qa',actorRef:observation.actorRef,status:'active',operations:['read']});
+ pending.identities.push({actorRef:observation.actorRef,taskId:'T1',role:'qa',observationRef:observation.observationRef});
+ pending.leases.push({actorRef:observation.actorRef,taskId:'T1',status:'active'});
+ const result=identity.registerAgentObservation(pending,observation);
+ assert.equal(result.decision,'allow');
+ assert.equal(result.proposedTransition,null);
+ assert.equal(result.state.identities.at(-1).role,'qa');
+ assert.equal(result.state.assignments.at(-1).role,'qa');
+});
+test('a new tester observation cannot activate a pending legacy qa assignment',()=>{
+ const a=assign();
+ const pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;
+ Object.assign(pending.assignments.at(-1),{role:'qa',operations:['read']});
+ const before=structuredClone(pending);
+ const result=identity.registerAgentObservation(pending,{...observed(),role:'tester',operations:['read']});
+ assert.equal(result.decision,'hold');
+ assert.equal(result.reasonCode,'legacy_role_pending_assignment_unsupported');
+ assert.equal(result.proposedTransition,null);
+ assert.deepEqual(result.state,before);
+ assert.deepEqual(pending,before);
+});
 test('authorized assignment records pending only and matching host observation activates identity and lease',()=>{
  const a=assign();const decision=api.evaluate(policy,a.s,a.r,a.e);assert.equal(decision.decision,'allow');assert.ok(decision.proposedTransition);
  const pending=decision.proposedTransition.assignments.find(x=>x.assignmentId==='request');assert.equal(pending.status,'pending');assert.equal(pending.actorRef,null);assert.equal(decision.proposedTransition.identities.length,1);assert.equal(decision.proposedTransition.leases.length,1);
  const result=identity.registerAgentObservation(decision.proposedTransition,observed());assert.equal(result.decision,'allow');assert.equal(result.state.identities.find(x=>x.actorRef==='spawned-agent').taskId,'T1');assert.equal(result.state.leases.find(x=>x.actorRef==='spawned-agent').status,'active');assert.equal(result.state.assignments.find(x=>x.assignmentId==='request').status,'active');
 });
 test('missing correlation or mismatched approved assignment scope never creates authority',()=>{
- for(const mutate of [a=>a.e.facts.pop(),a=>a.e.provenance[0].correlationRef='wrong',a=>delete a.e.provenance[0].requestId,a=>a.r.descriptor.actorRef='arbitrary',a=>a.r.descriptor.paths=['/workspace/other'],a=>a.r.descriptor.operations=['commit'],a=>a.r.descriptor.approvalRef='other',a=>a.r.descriptor.role='qa']){const a=assign();mutate(a);const result=api.evaluate(policy,a.s,a.r,a.e);assert.notEqual(result.decision,'allow');assert.equal(result.proposedTransition,null);}
+ for(const mutate of [a=>a.e.facts.pop(),a=>a.e.provenance[0].correlationRef='wrong',a=>delete a.e.provenance[0].requestId,a=>a.r.descriptor.actorRef='arbitrary',a=>a.r.descriptor.paths=['/workspace/other'],a=>a.r.descriptor.operations=['commit'],a=>a.r.descriptor.approvalRef='other',a=>a.r.descriptor.role='tester']){const a=assign();mutate(a);const result=api.evaluate(policy,a.s,a.r,a.e);assert.notEqual(result.decision,'allow');assert.equal(result.proposedTransition,null);}
  const a=assign();const pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;assert.ok(pending);
- for(const mutate of [o=>delete o.provenance,o=>o.correlationRef='wrong',o=>o.assignmentId='wrong',o=>o.taskId='T2',o=>o.role='qa',o=>o.paths=['/workspace/other'],o=>o.operations=['commit'],o=>o.approvalRef='other',o=>o.platform='claude',o=>delete o.eventRef]){const o=observed();mutate(o);assert.notEqual(identity.registerAgentObservation(pending,o).decision,'allow');assert.equal(pending.identities.length,1);}
+ for(const mutate of [o=>delete o.provenance,o=>o.correlationRef='wrong',o=>o.assignmentId='wrong',o=>o.taskId='T2',o=>o.role='tester',o=>o.paths=['/workspace/other'],o=>o.operations=['commit'],o=>o.approvalRef='other',o=>o.platform='claude',o=>delete o.eventRef]){const o=observed();mutate(o);assert.notEqual(identity.registerAgentObservation(pending,o).decision,'allow');assert.equal(pending.identities.length,1);}
 });
 test('document approval provenance must match both issuing source and message verification',()=>{
  for(const mutate of [p=>p.source='human-confirmation',p=>p.verification.sourceRef='another-message']){const a=assign();a.s.approvals.push({...a.s.approvals[0],id:'doc-approval',messageRef:'doc-message'});for(const d of a.s.documents)d.approvalRef='doc-approval';a.e.facts[0].data.documents=a.s.documents;const p={...structuredClone(a.e.provenance[1]),id:'doc-approval',messageRef:'doc-message',verification:{status:'verified',verifierRef:'message-provider',sourceRef:'doc-message'}};mutate(p);a.e.provenance.push(p);assert.equal(api.evaluate(policy,a.s,a.r,a.e).decision,'hold');}

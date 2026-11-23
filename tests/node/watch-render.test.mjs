@@ -67,7 +67,7 @@ test('kind tags follow the spec table', () => {
   assert.equal(kindTag({kind:'command',exitCode:2}), 'CMD');
 });
 test('non-message lines still clip to width', () => {
-  const line = renderHuman({...event,label:'tui#e2e8/qa/Aristotle/Plato',text:'x'.repeat(500)}, {...options,width:80});
+  const line = renderHuman({...event,label:'tui#e2e8/tester/Aristotle/Plato',text:'x'.repeat(500)}, {...options,width:80});
   assert.ok([...line].length <= 80);
   assert.ok(line.endsWith('…'));
   assert.ok(!line.includes('Plato'));
@@ -191,7 +191,7 @@ test('agent tags stay AGENT regardless of roles or label tails', () => {
   for (const input of [
     {role:'implementer'},
     {source:'subagent',label:'main#7f77/general-purpose'},
-    {source:'subagent',label:'tui#e2e8/qa/' + 'N'.repeat(25)},
+    {source:'subagent',label:'tui#e2e8/tester/' + 'N'.repeat(25)},
     {source:'subagent',label:'tui#e2e8/' + '😀'.repeat(21)},
     {source:'session',label:'tui#e2e8'},
     {source:'bridge',role:'planner',label:'planner@b9a1'},
@@ -199,10 +199,10 @@ test('agent tags stay AGENT regardless of roles or label tails', () => {
     {source:'subagent',label:'unknown'},
     {role:'N'.repeat(21)},
   ]) assert.equal(kindTag({kind:'agent',...input}), 'AGENT');
-  assert.equal(kindTag({kind:'command',role:'qa',exitCode:0}), 'CMD');
+  assert.equal(kindTag({kind:'command',role:'tester',exitCode:0}), 'CMD');
 });
 const arcRoles = [['scouter','SCOUTER','1;38;5;16;48;5;117'],['planner','PLANNER','1;38;5;231;48;5;98'],
-  ['implementer','IMPLEMENTER','1;38;5;16;48;5;214'],['qa','QA','1;38;5;16;48;5;228'],
+  ['implementer','IMPLEMENTER','1;38;5;16;48;5;214'],['tester','TESTER','1;38;5;16;48;5;228'],
   ['reviewer','REVIEWER','1;38;5;231;48;5;161'],['orchestrator','ORCHESTRATOR','1;38;5;16;48;5;255']];
 test('agent role badge sits alone on the first line', () => {
   const input = {...event,kind:'agent',role:'planner',text:'hello'};
@@ -232,7 +232,7 @@ test('non-ARC agents and non-agent events never gain a role prefix', () => {
     {kind:'agent',source:'bridge',label:'planner@b9a1'},
     {kind:'agent',role:'general-purpose'}, {kind:'agent',role:'😀'},
     {kind:'agent',role:'toString'}, {kind:'agent',role:'__proto__'},
-    {kind:'user',role:'qa'}, {kind:'command',role:'qa'},
+    {kind:'user',role:'tester'}, {kind:'command',role:'tester'},
   ]) for (const color of [false,true]) {
     assert.equal(strip(renderHuman({...event,...input,text:'a\nb'}, {...options,color})).slice(25),
       input.kind === 'command' ? 'a b' : 'a\n' + ' '.repeat(25) + 'b');
@@ -252,7 +252,7 @@ test('ARC agent role prefixes leave JSON role and message fields unchanged', () 
   }
 });
 test('tag colors follow the table and include the parenthesized part', () => {
-  const table = [[{kind:'user'},'1;97','USER'],[{kind:'prompt'},'1;35','PROMPT'],[{kind:'agent',role:'qa'},'32','AGENT'],
+  const table = [[{kind:'user'},'1;97','USER'],[{kind:'prompt'},'1;35','PROMPT'],[{kind:'agent',role:'tester'},'32','AGENT'],
     [{kind:'command'},'38;5;242','CMD'],[{kind:'command',exitCode:0},'38;5;242','CMD'],
     [{kind:'command',exitCode:1},'38;5;242','CMD'],[{kind:'command',exitCode:-1},'38;5;242','CMD'],
     [{kind:'file_change'},'33','EDIT'],[{kind:'file_create'},'38;5;69','CREATE'],[{kind:'file_delete'},'31','DELETE'],[{kind:'tool'},'38;5;101','TOOL'],[{kind:'spawn'},'38;5;141','SPAWN'],
@@ -292,7 +292,7 @@ test('body color matches tag color without attributes', () => {
   }
 });
 test('color off output is byte-identical for every kind', () => {
-  const table = [[{kind:'user'},'USER'],[{kind:'prompt'},'PROMPT'],[{kind:'agent',role:'qa'},'AGENT'],
+  const table = [[{kind:'user'},'USER'],[{kind:'prompt'},'PROMPT'],[{kind:'agent',role:'tester'},'AGENT'],
     [{kind:'command'},'CMD'],[{kind:'command',exitCode:0},'CMD'],
     [{kind:'command',exitCode:1},'CMD'],[{kind:'command',exitCode:-1},'CMD'],
     [{kind:'file_change'},'EDIT'],[{kind:'file_create'},'CREATE'],[{kind:'file_delete'},'DELETE'],[{kind:'tool'},'TOOL'],[{kind:'spawn'},'SPAWN'],
@@ -302,7 +302,7 @@ test('color off output is byte-identical for every kind', () => {
     [{kind:'settings'},'SETTINGS'],[{kind:'turn_start'},'TURN'],[{kind:'reasoning'},'THINK'],[{kind:'other'},'ITEM']];
   for (const [input,tag] of table) {
     const line = renderHuman({platform:'codex',...input,text:'t'}, {...options,verbose:true});
-    assert.equal(line, `00:00:00 CODEX  ${tag.padEnd(8)} ${input.kind === 'agent' ? 'QA\n' + ' '.repeat(25) : ''}t`);
+    assert.equal(line, `00:00:00 CODEX  ${tag.padEnd(8)} ${input.kind === 'agent' ? 'TESTER\n' + ' '.repeat(25) : ''}t`);
     assert.doesNotMatch(line,/\x1b/);
   }
 });

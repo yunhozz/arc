@@ -11,16 +11,21 @@ const topCases = [
   [{platform:'claude', sessionId:'…-834bbf7c0f77'}, 'main#0f77'],
 ];
 const childCases = [
-  ['tui#e2e8', {agentRole:'arc_routing_qa'}, 'tui#e2e8/qa'],
+  ['tui#e2e8', {agentRole:'arc_routing_tester'}, 'tui#e2e8/tester'],
   ['tui#e2e8', {agentRole:'explorer', nickname:'Aristotle'}, 'tui#e2e8/Aristotle'],
   ['tui#e2e8', {agentRole:'explorer'}, 'tui#e2e8/explorer'],
   ['main#0f77', {agentType:'general-purpose'}, 'main#0f77/general-purpose'],
   ['main#0f77', {agentType:'arc-routing-planner'}, 'main#0f77/planner'],
-  ['planner@b9a1', {agentRole:'arc_qa'}, 'planner@b9a1/qa'],
+  ['planner@b9a1', {agentRole:'arc_tester'}, 'planner@b9a1/tester'],
 ];
-const dispatchCases = [['arc_planner','b9a1c3d4-xx','planner@b9a1'], ['arc_qa','d-3f2a9','qa@d3f2'], [null,'b9a1c3','dispatch@b9a1']];
+const dispatchCases = [
+  ['arc_planner','b9a1c3d4-xx','planner@b9a1'], ['arc_tester','d-3f2a9','tester@d3f2'],
+  ['arc_qa','d-3f2a9','tester@d3f2'], ['arc_routing_qa','d-3f2a9','tester@d3f2'],
+  ['arc-qa','d-3f2a9','tester@d3f2'], ['arc-routing-qa','d-3f2a9','tester@d3f2'],
+  [null,'b9a1c3','dispatch@b9a1'],
+];
 test('roleFromName accepts arc and arc_routing forms on both platforms', () => {
-  for (const [name, role] of [['arc_qa','qa'], ['arc_routing_qa','qa'], ['arc-routing-planner','planner'], ['arc-implementer','implementer'], ['arc_scouter','scouter']]) assert.equal(roleFromName(name), role);
+  for (const [name, role] of [['arc_tester','tester'], ['arc_routing_tester','tester'], ['arc-routing-planner','planner'], ['arc-implementer','implementer'], ['arc_scouter','scouter']]) assert.equal(roleFromName(name), role);
   for (const name of ['general-purpose','arc_orchestrator','',null]) assert.equal(roleFromName(name), null);
 });
 test('topLabel builds kind#last4 for each origin', () => {

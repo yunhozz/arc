@@ -5,27 +5,27 @@ import {GROK_CONTRACT} from './grok-stream.mjs';
 import {GEMINI_CONTRACT} from './gemini-stream.mjs';
 import {DEFAULT_POLICY, effectiveClaudeSandboxSettings} from './role-dispatch-policy.mjs';
 
-const ROLES = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_qa', 'arc_reviewer'];
+const ROLES = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer'];
 const deepFreeze = value => { for (const child of Object.values(value)) if (child && typeof child === 'object') deepFreeze(child); return Object.freeze(value); };
 export const ROLE_BRIDGE_PERMISSIONS = deepFreeze({
   claude: {
     arc_scouter: {permissionMode: 'default', sandbox: false}, arc_planner: {permissionMode: 'default', sandbox: false},
-    arc_implementer: {permissionMode: 'acceptEdits', sandbox: true}, arc_qa: {permissionMode: 'default', sandbox: true}, arc_reviewer: {permissionMode: 'default', sandbox: false}
+    arc_implementer: {permissionMode: 'acceptEdits', sandbox: true}, arc_tester: {permissionMode: 'default', sandbox: true}, arc_reviewer: {permissionMode: 'default', sandbox: false}
   },
   gemini: {
     arc_scouter: {approvalMode: 'plan', sandbox: false}, arc_planner: {approvalMode: 'plan', sandbox: false},
-    arc_implementer: {approvalMode: 'auto_edit', sandbox: true}, arc_qa: {approvalMode: 'auto_edit', sandbox: true}, arc_reviewer: {approvalMode: 'plan', sandbox: false}
+    arc_implementer: {approvalMode: 'auto_edit', sandbox: true}, arc_tester: {approvalMode: 'auto_edit', sandbox: true}, arc_reviewer: {approvalMode: 'plan', sandbox: false}
   },
   grok: {
     arc_scouter: {permissionMode: 'plan', sandbox: 'read-only', deny: GROK_CONTRACT.readOnlyDeny},
     arc_planner: {permissionMode: 'plan', sandbox: 'read-only', deny: GROK_CONTRACT.readOnlyDeny},
     arc_reviewer: {permissionMode: 'plan', sandbox: 'read-only', deny: GROK_CONTRACT.readOnlyDeny},
     arc_implementer: {permissionMode: 'acceptEdits', sandbox: 'custom', deny: []},
-    arc_qa: {permissionMode: 'acceptEdits', sandbox: 'custom', deny: []},
+    arc_tester: {permissionMode: 'acceptEdits', sandbox: 'custom', deny: []},
   },
   codex: {
     arc_scouter: {sandboxMode: 'read-only', search: true}, arc_planner: {sandboxMode: 'read-only', search: false},
-    arc_implementer: {sandboxMode: 'workspace-write', search: false}, arc_qa: {sandboxMode: 'workspace-write', search: false}, arc_reviewer: {sandboxMode: 'read-only', search: false}
+    arc_implementer: {sandboxMode: 'workspace-write', search: false}, arc_tester: {sandboxMode: 'workspace-write', search: false}, arc_reviewer: {sandboxMode: 'read-only', search: false}
   }
 });
 

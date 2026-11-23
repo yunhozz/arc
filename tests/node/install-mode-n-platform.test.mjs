@@ -58,7 +58,7 @@ test('orphan marker or routing profile → unverified', async t => {
   const ctx = await compositeContext(t);
   const home = targets(ctx).codex.home;
   fs.mkdirSync(path.join(home, 'agents'), {recursive: true});
-  for (const name of ['arc-role-platform-routing.prepared.json', 'agents/arc-routing-qa.toml']) {
+  for (const name of ['arc-role-platform-routing.prepared.json', 'agents/arc-routing-tester.toml']) {
     const filename = path.join(home, name);
     fs.writeFileSync(filename, '{}');
     const result = state(ctx);
@@ -69,7 +69,7 @@ test('orphan marker or routing profile → unverified', async t => {
 });
 test('management unverified state retains known residual paths', async t => {
   const ctx = await compositeContext(t), home = targets(ctx).codex.home;
-  const residualPaths = ['arc-role-platform-routing.prepared.json', 'agents/arc-routing-qa.toml'].map(name => path.join(home, name));
+  const residualPaths = ['arc-role-platform-routing.prepared.json', 'agents/arc-routing-tester.toml'].map(name => path.join(home, name));
   fs.mkdirSync(path.join(home, 'agents'), {recursive: true});
   for (const filename of residualPaths) fs.writeFileSync(filename, '{}');
   const detected = state(ctx), result = management.currentInstallState(ctx);
@@ -182,7 +182,7 @@ async function compositeFilesFixture(t, platforms, rolePlatforms) {
     }
   }
   const roles = (await mixedConfig('n-files-1')).roles;
-  const pairs = {codex: roles.arc_qa, claude: roles.arc_planner};
+  const pairs = {codex: roles.arc_tester, claude: roles.arc_planner};
   for (const [index, role] of ROUTING_ROLES.entries()) {
     const platform = rolePlatforms[index % rolePlatforms.length];
     const pair = pairs[platform === 'codex' ? 'codex' : 'claude'];
@@ -215,8 +215,8 @@ test('F4 status reports standalone outside S during composite', async t => {
   }], ordinary);
   const zeta = statuses.find(item => item.platform === 'zeta');
   assert.equal(zeta.state, 'installed');
-  assert.ok(zeta.snapshot.has(path.join(targets.zeta.home, 'agents/arc-qa.md')));
-  fs.unlinkSync(path.join(targets.zeta.home, 'agents/arc-qa.md'));
+  assert.ok(zeta.snapshot.has(path.join(targets.zeta.home, 'agents/arc-tester.md')));
+  fs.unlinkSync(path.join(targets.zeta.home, 'agents/arc-tester.md'));
   const damaged = (await collectStatus(context)).find(item => item.platform === 'zeta');
   assert.equal(damaged.state, 'incomplete');
   assert.match(damaged.diagnostics[0].message, /missing profile/);
@@ -230,7 +230,7 @@ test('F4 upgrade rewrites standalone profiles outside S', async t => {
   const plans = buildUpgradePlans({payload, state, safeFs, registry: context.platforms});
   for (const id of ['claude', 'codex']) assert.equal(plans.find(plan => plan.target.platform === id).profileWrites.size, 0);
   assert.deepEqual([...plans.find(plan => plan.target.platform === 'zeta').profileWrites.keys()].sort(), [
-    'arc-implementer.md', 'arc-planner.md', 'arc-qa.md', 'arc-reviewer.md', 'arc-scouter.md',
+    'arc-implementer.md', 'arc-planner.md', 'arc-reviewer.md', 'arc-scouter.md', 'arc-tester.md',
   ]);
   const result = await upgradeInstalledTargets({...context, state, registry: context.platforms});
   assert.deepEqual(result.results.map(item => [item.platform, item.status]), [['claude', 'installed'], ['codex', 'installed'], ['zeta', 'installed']]);
@@ -264,7 +264,7 @@ test('|S|=3 publish writes active only at anchor and markers in all homes', asyn
   assert.equal(result.published, true);
   const activeConfigPath = active(fixture.context, 'claude');
   const config = JSON.parse(fs.readFileSync(activeConfigPath));
-  assert.equal(config.version, 2);
+  assert.equal(config.version, 3);
   assert.deepEqual(config.platforms, ['claude', 'codex', 'zeta']);
   for (const id of fixture.platforms) {
     assert.equal(fs.existsSync(active(fixture.context, id)), id === 'claude');
@@ -400,11 +400,11 @@ test('partial install failure does not publish', async t => {
   for (const id of ['claude', 'codex', 'zeta']) assert.equal(fs.existsSync(active(ctx, id)), false);
   assert.equal(fs.existsSync(path.join(resolveTargets(ctx).targets.codex.home, 'skills/arc/SKILL.md')), true);
 });
-test('D1-d republish keeps v2 bytes and claude lock/store', async t => {
+test('D1-d republish keeps v3 bytes and claude lock/store', async t => {
   const ctx = await compositeContext(t); await managementPublish(ctx);
   const filename = active(ctx, 'claude'), before = fs.readFileSync(filename);
   assert.deepEqual(Object.keys(JSON.parse(before)), ['version', 'revision', 'platforms', 'roles']);
-  assert.equal(JSON.parse(before).version, 2);
+  assert.equal(JSON.parse(before).version, 3);
   assert.deepEqual(JSON.parse(before).platforms, ['claude', 'codex']);
   const store = path.join(targets(ctx).claude.home, 'arc-role-dispatch');
   fs.mkdirSync(store, {recursive: true}); fs.writeFileSync(path.join(store, 'history'), 'retained history');
@@ -444,7 +444,7 @@ test('activation without history or residuals has no extra messages', async t =>
 test('management composite rejects unknown or singleton participating sets', async t => {
   const ctx = await zetaContext(t), config = await mixedConfig('invalid-set');
   await assert.rejects(management.prepareCompositeOperation(ctx, {kind: 'install', platforms: ['unknown'], config}), {message: 'Unknown platform: unknown'});
-  const roles = Object.fromEntries(ROUTING_ROLES.map(role => [role, {...config.roles.arc_qa}]));
+  const roles = Object.fromEntries(ROUTING_ROLES.map(role => [role, {...config.roles.arc_tester}]));
   await assert.rejects(management.prepareCompositeOperation(ctx, {kind: 'install', platforms: ['codex'], config: {...config, roles}}), {message: 'Mixed routing requires at least two platforms'});
   roles.arc_planner = {platform: 'unknown', model: 'model', effort: 'high'};
   await assert.rejects(management.prepareCompositeOperation(ctx, {kind: 'install', platforms: ['claude', 'codex'], config: {...config, roles}}), {message: 'Unknown platform: unknown'});
@@ -467,7 +467,7 @@ test('uninstall injected standalone and composite zeta preserves ownership and a
   const ctx = await zetaContext(t); await installAll(ctx, ['zeta']);
   const target = resolveTargets(ctx).targets.zeta;
   const standalonePlan = buildUninstallPlan({...ctx, target, removeCompletion: false});
-  assert.ok(standalonePlan.removals.includes(path.join(target.home, 'agents/arc-qa.md')));
+  assert.ok(standalonePlan.removals.includes(path.join(target.home, 'agents/arc-tester.md')));
   const {loadStaticModelCatalog} = await import('../../lib/models/static-catalog.mjs');
   const pair = (await loadStaticModelCatalog('claude')).catalog.pairs[0];
   const config = {revision: 'uninstall-anchor', roles: Object.fromEntries(ROUTING_ROLES.map(role => [role, {platform: 'claude', ...pair}]))};
@@ -490,10 +490,10 @@ test('preset injected zeta reads and renders owned and residual profiles', async
   assert.ok(custom.specs.some(spec => spec.path.endsWith('/models.toml')));
   assert.equal((await management.executeOperation(ctx, {kind: 'preset', plans: [custom]})).code, 0);
   assert.match(fs.readFileSync(path.join(target.home, 'skills/arc/models.toml'), 'utf8'), /zeta-model/);
-  assert.match(fs.readFileSync(path.join(target.home, 'agents/arc-qa.md'), 'utf8'), /model: zeta-model/);
-  fs.writeFileSync(path.join(target.home, 'agents/arc-qa.md'), 'user profile');
+  assert.match(fs.readFileSync(path.join(target.home, 'agents/arc-tester.md'), 'utf8'), /model: zeta-model/);
+  fs.writeFileSync(path.join(target.home, 'agents/arc-tester.md'), 'user profile');
   const residual = buildPresetPlan({...ctx, target, roles, verifiedCatalog, loadPayload: () => verifyPayload(ctx)});
-  assert.deepEqual(residual.residualPaths, [path.join(target.home, 'agents/arc-qa.md')]);
+  assert.deepEqual(residual.residualPaths, [path.join(target.home, 'agents/arc-tester.md')]);
 });
 
 test('catalog role validation passes the injected zeta runtime registry', async () => {
@@ -502,7 +502,7 @@ test('catalog role validation passes the injected zeta runtime registry', async 
   const roles = Object.fromEntries(ROUTING_ROLES.map(role => [role, {model: 'zeta-model', effort: 'high'}]));
   const catalog = {platform: 'zeta', pairs: [{model: 'zeta-model', effort: 'high'}]};
   assert.doesNotThrow(() => assertCatalogRoles({...registries, platform: 'zeta', roles, catalog}));
-  assert.throws(() => assertCatalogRoles({...registries, platform: 'zeta', roles: {...roles, arc_qa: {model: 'other', effort: 'high'}}, catalog}), /absent from the catalog/);
+  assert.throws(() => assertCatalogRoles({...registries, platform: 'zeta', roles: {...roles, arc_tester: {model: 'other', effort: 'high'}}, catalog}), /absent from the catalog/);
 });
 
 test('install plan validates zeta custom roles using the injected registry', async t => {
@@ -510,7 +510,7 @@ test('install plan validates zeta custom roles using the injected registry', asy
   const roles = Object.fromEntries(ROUTING_ROLES.map(role => [role, {model: 'zeta-model', effort: 'high'}]));
   const prepared = await management.prepareOperation(ctx, {kind: 'install', target: 'zeta', roles, verifiedCatalog: {platform: 'zeta', pairs: [{model: 'zeta-model', effort: 'high'}]}});
   assert.equal(prepared.plans[0].target.platform, 'zeta');
-  assert.match(prepared.plans[0].generated.profiles.get('arc-qa.md').toString(), /model: zeta-model/);
+  assert.match(prepared.plans[0].generated.profiles.get('arc-tester.md').toString(), /model: zeta-model/);
 });
 
 import {createLease, readLease, writeLease} from '../../lib/runtime/role-dispatch-store.mjs';
@@ -528,7 +528,7 @@ async function prepareSetChange(ctx, platforms, revision, options = {}) {
 }
 
 async function codexAnchorConfig(revision) {
-  const config = await mixedConfig(revision), pair = config.roles.arc_qa;
+  const config = await mixedConfig(revision), pair = config.roles.arc_tester;
   return {...config, platforms: ['codex', 'zeta'], roles: Object.fromEntries(ROUTING_ROLES.map(role => [role, {...pair}]))};
 }
 async function publishCodexAnchor(context) {
@@ -694,7 +694,7 @@ test('anchor move codex→claude rewrites active, markers, old active removed', 
   const result = await management.executeCompositeOperation(ctx, prepared);
   assert.equal(result.code, 0, result.error?.stack);
   assert.deepEqual(management.currentInstallState(ctx), {mode: 'composite', platforms: ['claude', 'zeta'], anchor: 'claude'});
-  assert.equal(JSON.parse(fs.readFileSync(active(ctx, 'claude'))).version, 2);
+  assert.equal(JSON.parse(fs.readFileSync(active(ctx, 'claude'))).version, 3);
   for (const id of ['claude', 'zeta']) assert.equal(JSON.parse(fs.readFileSync(markerName(targets[id].home))).activeConfigPath, active(ctx, 'claude'));
   assert.equal(fs.existsSync(active(ctx, 'codex')), false);
   assert.equal(fs.existsSync(markerName(targets.codex.home)), false);

@@ -30,7 +30,7 @@ test('upgrade preserves full-auto settings, skill policy and last managed bullet
  assert.match(fs.readFileSync(path.join(supervisedArc,'SKILL.md'),'utf8'),/^\*\*Run mode:\*\* Supervised\./m);
  assert.doesNotMatch(fs.readFileSync(supervisedTarget.instructionPath,'utf8'),/ARC Run mode is Full Auto/);
 });
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','qa','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));modelInputs[platform]={models,profiles};}files.set('shared/skill/references/brainstorming.md',Buffer.from('package pinned'));return{files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url)))};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(platform+'/skill/models.toml'),profiles=new Map();for(const role of ['scouter','planner','implementer','tester','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(platform+'/agents/'+name));}files.set(platform+'/skill/SKILL.md',Buffer.from('new harness {{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));modelInputs[platform]={models,profiles};}files.set('shared/skill/references/brainstorming.md',Buffer.from('package pinned'));return{files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url)))};}
 function seed(home,platform,skipGlobal=false){const target=resolveTarget(platform,{userHome:home,env:{},cwd:home});applyTransaction(buildInstallPlan({payload:payload(),target,language:platform==='codex'?'ko':'en',safeFs,skipGlobal,limits:{max_total_subagents:37,max_concurrent_subagents:3}}),{safeFs});const legacy=target.home+'/skills/arc/references/superpowers';fs.mkdirSync(legacy,{recursive:true});fs.writeFileSync(legacy+'/obsolete','legacy nested');const filename=target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform);for(const role of Object.values(config.roles))role.model=platform==='codex'?'custom-codex':'custom-claude';fs.writeFileSync(filename,serializeModelConfig(config));const native=platform==='codex'?'[agents]\nmax_concurrent_threads_per_session = 9\n':'{"env":{"CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS":"9"}}\n';fs.writeFileSync(target.runtimeConfigPath,native);return{target,config,native};}
 for(const platform of ['codex','claude'])test(`${platform} upgrades same-version harness with all settings and native drift preserved`,async t=>{const home=fixture(t),old=seed(home,platform),state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.equal(typeof api.buildUpgradePlans,'function');const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform).roles,old.config.roles);assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),old.config);const {installTargets}=await import('../../lib/installer/install.mjs');const result=await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(result.results[0].status,'installed');assert.equal(fs.readFileSync(old.target.runtimeConfigPath,'utf8'),old.native);assert.deepEqual(loadModelConfig(fs.readFileSync(old.target.home+'/skills/arc/models.toml'),platform),old.config);assert.match(fs.readFileSync(old.target.home+'/skills/arc/SKILL.md','utf8'),/new harness/);assert.equal(plans[0].language,platform==='codex'?'ko':'en');assert.equal(plans[0].limits.max_concurrent_subagents,3);});
 test('absent global blocks stay absent and external skill sentinel survives',async t=>{const home=fixture(t),old=seed(home,'codex',true);fs.writeFileSync(old.target.instructionPath,'user instructions\n');fs.writeFileSync(home+'/.zshrc','user shell\n');fs.mkdirSync(old.target.home+'/skills/user-skill');fs.writeFileSync(old.target.home+'/skills/user-skill/sentinel','keep');const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(plans[0].globalChanges,[]);const {installTargets}=await import('../../lib/installer/install.mjs');await installTargets(plans,{safeFs,acquisition:async()=>({references:referenceFixture()})});assert.equal(fs.readFileSync(old.target.instructionPath,'utf8'),'user instructions\n');assert.equal(fs.readFileSync(home+'/.zshrc','utf8'),'user shell\n');assert.equal(fs.readFileSync(old.target.home+'/skills/user-skill/sentinel','utf8'),'keep');});
@@ -116,7 +116,7 @@ test('source auto upgrade excludes the current worktree local wrapper',{skip:pro
 
 for(const platform of ['codex','claude'])test(platform+' offline upgrade preserves active role settings',t=>{
  const home=fixture(t),old=seed(home,platform),filename=old.target.home+'/skills/arc/models.toml',config=loadModelConfig(fs.readFileSync(filename),platform),field=platform==='codex'?'model_reasoning_effort':'effort';
- config.roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}]));fs.writeFileSync(filename,serializeModelConfig(config));
+ config.roles=Object.fromEntries(['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'].map(role=>[role,{model:'fixture-model',[field]:'high'}]));fs.writeFileSync(filename,serializeModelConfig(config));
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),fetchBefore=globalThis.fetch;globalThis.fetch=async()=>assert.fail('offline upgrade fetched catalog');
  try{const plans=api.buildUpgradePlans({payload:payload(),state,safeFs});assert.deepEqual(loadModelConfig(plans[0].generated.models,platform),config);for(const bytes of plans[0].generated.profiles.values())assert.match(bytes.toString(),/fixture-model/);}finally{globalThis.fetch=fetchBefore;}
 });
@@ -127,35 +127,35 @@ for(const missing of [false,true])test(missing?'upgrade keeps legacy active valu
  let text=fs.readFileSync(new URL('../fixtures/models-codex-v1.toml',import.meta.url),'utf8');if(missing)text=text.replaceAll('gpt-6.1-sol','legacy-unlisted');
  fs.writeFileSync(target.home+'/skills/arc/models.toml',text);
  const plans=api.buildUpgradePlans({payload:payload(),state:stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),safeFs});
- assert.match(plans[0].generated.models.toString(),/^version = 3$/m);assert.equal(loadModelConfig(plans[0].generated.models,'codex').roles.arc_planner.model,missing?'legacy-unlisted':'gpt-6.1-sol');
+ assert.match(plans[0].generated.models.toString(),/^version = 4$/m);assert.equal(loadModelConfig(plans[0].generated.models,'codex').roles.arc_planner.model,missing?'legacy-unlisted':'gpt-6.1-sol');
  assert.match(plans[0].generated.profiles.get('arc-planner.toml').toString(),new RegExp('^model = "'+(missing?'legacy-unlisted':'gpt-6.1-sol')+'"$','m'));
- const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets(plans,{safeFs})).results[0].status,'installed');assert.match(fs.readFileSync(target.home+'/skills/arc/models.toml','utf8'),/^version = 3$/m);
+ const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets(plans,{safeFs})).results[0].status,'installed');assert.match(fs.readFileSync(target.home+'/skills/arc/models.toml','utf8'),/^version = 4$/m);
 });
 
-const qaRoles=['arc_scouter','arc_planner','arc_implementer','arc_qa','arc_reviewer'];
-const qaExpectedPairs=JSON.parse(fs.readFileSync(new URL('../fixtures/qa-legacy-model-values.json',import.meta.url)));
+const modelRoles=['arc_scouter','arc_planner','arc_implementer','arc_tester','arc_reviewer'];
+const legacyExpectedPairs=JSON.parse(fs.readFileSync(new URL('../fixtures/qa-legacy-model-values.json',import.meta.url)));
 // E1: literal, independently recorded active values must survive real publication.
 for(const platform of ['codex','claude'])for(const version of [1,2])for(const active of ['economy','balanced','smart','custom']){
  if(version===1&&active==='custom')continue; // Existing v1 rejects custom; authority clarification pending.
- test(`QA E1 ${platform} v${version} ${active} upgrade preserves all active models and efforts`,async t=>{
+ test(`Tester E1 ${platform} v${version} ${active} upgrade preserves all active models and efforts`,async t=>{
   const home=fixture(t),field=platform==='codex'?'model_reasoning_effort':'effort',old=seed(home,platform),modelPath=old.target.home+'/skills/arc/models.toml';
-  const expected=Object.fromEntries(qaRoles.map((role,index)=>[role,{model:qaExpectedPairs[platform][active][index][0],[field]:qaExpectedPairs[platform][active][index][1]}]));
+  const expected=Object.fromEntries(modelRoles.map((role,index)=>[role,{model:legacyExpectedPairs[platform][active][index][0],[field]:legacyExpectedPairs[platform][active][index][1]}]));
   let legacy=fs.readFileSync(new URL(`../fixtures/models-${platform}-v1.toml`,import.meta.url),'utf8').replace('version = 1',`version = ${version}`).replace('preset = "balanced"',`preset = "${active}"`);
-  if(active==='custom')legacy+=qaRoles.map(role=>`\n[custom.${role}]\nmodel = "${expected[role].model}"\n${field} = "${expected[role][field]}"\n`).join('');
+  if(active==='custom')legacy+=modelRoles.map(role=>`\n[custom.${role}]\nmodel = "${expected[role].model}"\n${field} = "${expected[role][field]}"\n`).join('');
   fs.writeFileSync(modelPath,legacy);
   // Render the old active values into the old profiles before collecting state.
   const {renderProfiles}=await import('../../lib/models/index.mjs');
   const inputs=new Map(old.target.profileNames.map(name=>[name,fs.readFileSync(old.target.home+'/agents/'+name)]));
   for(const [name,bytes]of renderProfiles(inputs,{platform,roles:expected}))fs.writeFileSync(old.target.home+'/agents/'+name,bytes);
-  const before=new Map(qaRoles.map(role=>{
+  const before=new Map(modelRoles.map(role=>{
    const file=old.target.home+'/agents/'+role.replace('_','-')+(platform==='codex'?'.toml':'.md'),text=fs.readFileSync(file,'utf8');
    const values=platform==='codex'?(parseToml(text)):Object.fromEntries([...text.matchAll(/^(model|effort): (.+)$/gm)].map(m=>[m[1],m[2]]));
    assert.deepEqual({model:values.model,[field]:values[field]},expected[role]);return [role,expected[role]];
   }));
   const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home}),plans=api.buildUpgradePlans({payload:payload(),state,safeFs});
   const {installTargets}=await import('../../lib/installer/install.mjs');assert.equal((await installTargets(plans,{safeFs})).results[0].status,'installed');
-  const upgraded=fs.readFileSync(modelPath,'utf8');assert.match(upgraded,/^version = 3$/m);assert.doesNotMatch(upgraded,/preset\s*=/);assert.deepEqual(loadModelConfig(upgraded,platform).roles,expected);
-  for(const role of qaRoles){
+  const upgraded=fs.readFileSync(modelPath,'utf8');assert.match(upgraded,/^version = 4$/m);assert.doesNotMatch(upgraded,/preset\s*=/);assert.deepEqual(loadModelConfig(upgraded,platform).roles,expected);
+  for(const role of modelRoles){
    const text=fs.readFileSync(old.target.home+'/agents/'+role.replace('_','-')+(platform==='codex'?'.toml':'.md'),'utf8'),values=platform==='codex'?parseToml(text):Object.fromEntries([...text.matchAll(/^(model|effort): (.+)$/gm)].map(m=>[m[1],m[2]]));
    assert.deepEqual({model:values.model,[field]:values[field]},before.get(role));
   }
@@ -165,7 +165,7 @@ import {parseToml} from '../../lib/models/config.mjs';
 
 for(const skipped of ['codex','claude'])test(`upgrade output reports ${skipped} skipped-platform residual from collected state`,async t=>{
  const {report}=await import('../../lib/management/update.mjs'),home=fixture(t),installed=skipped==='codex'?'claude':'codex';seed(home,installed);
- const ext=skipped==='codex'?'toml':'md',filename=path.join(home,'.'+skipped,'agents','arc-qa.'+ext);fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'user profile');
+ const ext=skipped==='codex'?'toml':'md',filename=path.join(home,'.'+skipped,'agents','arc-tester.'+ext);fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,'user profile');
  const state=stateApi.collectInstalledState({safeFs,userHome:home,env:{},cwd:home});assert.deepEqual(state.residualPaths,[filename]);
  const result=await api.upgradeInstalledTargets({packageRoot:staticPackageFixture(t),state,safeFs});let stdout='',stderr='';const code=report(result,{write:s=>stdout+=s},{write:s=>stderr+=s});
  assert.equal(code,0,stderr);assert.equal(stdout.split('\n').filter(line=>line==='Residual path: '+filename).length,1);assert.match(stdout,new RegExp((installed==='codex'?'Codex':'Claude')+': harness updated'));assert.equal(fs.readFileSync(filename,'utf8'),'user profile');assert.equal(fs.existsSync(path.join(home,'.'+skipped,'skills/arc')),false);

@@ -8,12 +8,12 @@ import stat
 import tempfile
 import tomllib
 
-ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'implementer', 'qa', 'reviewer')}
+ROLE_FILES = {f'arc_{role}': f'arc-{role}.md' for role in ('scouter', 'planner', 'implementer', 'tester', 'reviewer')}
 ROLE_TOOLS = {
     'scouter': ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'],
     'planner': ['Read', 'Grep', 'Glob'],
     'implementer': ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'],
-    'qa': ['Read', 'Grep', 'Glob', 'Bash'],
+    'tester': ['Read', 'Grep', 'Glob', 'Bash'],
     'reviewer': ['Read', 'Grep', 'Glob'],
 }
 EFFORTS = {'low', 'medium', 'high', 'xhigh', 'max'}
@@ -25,6 +25,21 @@ class ValidationError(ValueError):
 
 
 _LEGACY_PRESETS = ('economy', 'balanced', 'smart')
+_MODEL_SCHEMA_VERSION = 4
+
+
+def _normalize_legacy_roles(data: dict) -> dict:
+    normalized = dict(data)
+    for field in ('roles', 'custom'):
+        roles = data.get(field)
+        if not isinstance(roles, dict) or 'arc_qa' not in roles:
+            continue
+        if data['version'] == _MODEL_SCHEMA_VERSION:
+            raise ValidationError('version 4 must not contain arc_qa')
+        if 'arc_tester' in roles:
+            raise ValidationError(f'{field} must not contain both arc_qa and arc_tester')
+        normalized[field] = {'arc_tester' if role == 'arc_qa' else role: values for role, values in roles.items()}
+    return normalized
 
 
 def _validate_role(settings: dict, name: str) -> dict:
@@ -39,16 +54,17 @@ def _validate_role(settings: dict, name: str) -> dict:
 
 
 def validate_settings(data: dict) -> dict:
-    if isinstance(data, dict) and type(data.get('version')) is int and data['version'] == 3:
+    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] not in (1, 2, 3, _MODEL_SCHEMA_VERSION):
+        raise ValidationError('update to version 4 role settings; reinstall ARC or edit models.toml')
+    data = _normalize_legacy_roles(data)
+    if data['version'] >= 3:
         if set(data) != {'version', 'roles'} or not isinstance(data['roles'], dict) or set(data['roles']) != set(ROLE_FILES):
-            raise ValidationError('version 3 requires exactly the five ARC roles')
+            raise ValidationError(f"version {data['version']} requires exactly the five ARC roles")
         return {role: _validate_role(values, role) for role, values in data['roles'].items()}
-    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] not in (1, 2):
-        raise ValidationError('update to version 3 role settings; reinstall ARC or edit models.toml')
     has_custom = 'custom' in data
     allowed = {'version', 'preset', 'roles'} | ({'custom'} if data['version'] == 2 and has_custom else set())
     if set(data) != allowed:
-        raise ValidationError('update to version 3 role settings; reinstall ARC or edit models.toml')
+        raise ValidationError('update to version 4 role settings; reinstall ARC or edit models.toml')
     if not isinstance(data['preset'], str) or data['preset'] not in (*_LEGACY_PRESETS, 'custom') or (data['preset'] == 'custom' and not has_custom):
         raise ValidationError('preset must select an available preset')
     roles = data['roles']
@@ -72,13 +88,13 @@ def validate_settings(data: dict) -> dict:
 
 
 def validate_config(config: dict, path: Path) -> dict:
-    return {'version': 3, 'roles': validate_settings(config)}
+    return {'version': _MODEL_SCHEMA_VERSION, 'roles': validate_settings(config)}
 
 
 def serialize_settings(config: dict) -> bytes:
     import json
     config = validate_config(config, Path('models.toml'))
-    lines = ['version = 3']
+    lines = [f'version = {_MODEL_SCHEMA_VERSION}']
     for role in ROLE_FILES:
         lines.extend(['', f'[roles.{role}]'])
         lines.extend(f'{key} = {json.dumps(config["roles"][role][key], ensure_ascii=False)}' for key in ('model', 'effort'))
