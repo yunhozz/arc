@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture, FAKE_CODEX_APP_SERVER} from './role-fixtures.mjs';
@@ -10,10 +11,12 @@ import {ORIGINAL_PATH, psAvailable, realPs, withPath, writeFailingPs} from './fi
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {readLease, writeLease, requestCancel, cancelRequested, readHeartbeat, writeHeartbeat, listLeases, dispatchDirectory, NON_TERMINAL_STATES as NON_TERMINAL} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch, withRoutingLock} from '../../lib/runtime/role-routing.mjs';
-import {runBridgeDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
-import {runSupervisor, startSupervisor, processAlive, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
+import {runBridgeDispatch, resumeRoleDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
+import {buildBridgeInvocation, runSupervisor, startSupervisor, processAlive, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
 import {runWorkflowCommand} from '../../lib/runtime/command.mjs';
 import {parseCompositeProfile} from '../../lib/runtime/role-bridge-args.mjs';
+import * as scratchApi from '../../lib/runtime/tool-access.mjs';
+import {render as renderGrok, renameForRouting as renameGrok} from '../../lib/platforms/formats/grok-markdown.mjs';
 
 const TERMINAL = ['completed', 'failed', 'cancelled'];
 const SECRET = 'sk-test-SECRET-0123456789abcdef';
@@ -733,7 +736,154 @@ const runOrphanDispatch = async (f, extra = {}) => {
   await runSupervisor({codexHome: f.claudeHome, dispatchId: prepared.dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, graceMs: 300, heartbeatMs: 100, ...extra});
   return prepared.dispatchId;
 };
-const recordOf = async (f, id) => JSON.parse(await fs.readFile(path.join(f.base, 'repo/.git/arc/workflows/wf-1/dispatches', id, 'record.json'), 'utf8'));
+const recordOf = async (f, id, segment = 0) => JSON.parse(await fs.readFile(path.join(dirOf(f, id), ...(segment ? ['segments', String(segment)] : []), 'record.json'), 'utf8'));
+
+async function scratchDispatch(t, {role = 'arc_implementer', hang = false, snapshotFailure = false, removeFails = false, preExisting = false, toolAccess, observeToolContext} = {}) {
+  const f = await setup(t, {roles: {[role]: 'codex'}});
+  const {dispatchId} = await prepare(f, role, {extra: toolAccess ? {toolAccess} : {}});
+  const scratch = path.join(f.base, 'scratch');
+  if (preExisting) await fs.mkdir(scratch);
+  await f.codex.setScenario({...codexOk(f, 110, {}, {sandbox: role === 'arc_planner' ? 'read-only' : 'workspace-write'}), hang});
+  if (role !== 'arc_planner') {
+    const filename = path.join(f.binDir, 'codex');
+    const source = await fs.readFile(filename, 'utf8');
+    const marker = "let stdin='';";
+    assert.ok(source.includes(marker));
+    const evidence = path.join(scratch, 'evidence', 'child.txt');
+    await fs.writeFile(filename, source.replace(marker, `${marker}\n try { fs.writeFileSync(${JSON.stringify(evidence)}, 'from child'); } catch (error) { if (error.code !== 'ENOENT') throw error; }`));
+  }
+  let snapshotRead;
+  const scratchIo = {
+    async create(input) {
+      assert.equal(input.scratch, `/private/tmp/arc-bridge-${dispatchId.slice(0, 8)}`);
+      await scratchApi.createScratch({...input, scratch, parent: null});
+      if (snapshotFailure) {
+        const readdir = fs.readdir;
+        snapshotRead = t.mock.method(fs, 'readdir', (filename, ...args) => {
+          if (filename === path.join(f.cwd, '.git', 'hooks')) throw Object.assign(Error('fixture snapshot failure'), {code: 'EACCES'});
+          return readdir(filename, ...args);
+        });
+      }
+    },
+    collect: input => scratchApi.collectEvidence({...input, scratch}),
+    remove: () => removeFails ? false : scratchApi.removeScratch(scratch),
+  };
+  const started = await run(f, dispatchId, 'scratch test', {startSupervisor: startInProcess(f), observeToolContext});
+  assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
+  const supervise = async (options = {}, segment = 0) => {
+    try {
+      await runSupervisor({codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, scratchIo, heartbeatMs: 50, graceMs: 100, ...options});
+    } finally { snapshotRead?.mock.restore(); }
+    return recordOf(f, dispatchId, segment);
+  };
+  return {f, dispatchId, scratch, supervise};
+}
+
+test('scratch exists during the child and is removed after completion', async t => {
+  const {f, dispatchId, scratch, supervise} = await scratchDispatch(t);
+  const record = await supervise();
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  assert.equal(record.toolAccess.scratch.removed, true);
+  assert.equal(record.toolAccess.evidence.copied, 1);
+  assert.equal(await fs.readFile(path.join(dirOf(f, dispatchId), 'evidence', 'child.txt'), 'utf8'), 'from child');
+  assert.equal(record.argsDigest, (await readLease(f.claudeHome, dispatchId)).argsDigest);
+  await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+});
+
+test('run, resume and both supervisor segments compute the same scratch toolContext', async t => {
+  const contexts = [];
+  const capture = phase => toolContext => contexts.push({phase, toolContext});
+  const {f, dispatchId, supervise} = await scratchDispatch(t, {
+    toolAccess: {network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: ['ci']},
+    observeToolContext: capture('run'),
+  });
+  const first = await supervise({observeToolContext: capture('supervisor')});
+  assert.equal(first.state, 'completed', JSON.stringify(first.reasons));
+  const resumed = await resumeRoleDispatch({context: f.context(), dispatchId, brief: 'continue scratch test', policy: policyWith(),
+    startSupervisor: startInProcess(f), observeToolContext: capture('resume')});
+  assert.equal(resumed.decision, 'allow', JSON.stringify(resumed.reasons));
+  const second = await supervise({observeToolContext: capture('resumed supervisor')}, 1);
+  assert.equal(second.state, 'completed', JSON.stringify(second.reasons));
+
+  assert.deepEqual(contexts.map(({phase}) => phase), ['run', 'supervisor', 'resume', 'resumed supervisor']);
+  const expected = contexts[0].toolContext;
+  const scratch = `/private/tmp/arc-bridge-${dispatchId.slice(0, 8)}`;
+  assert.equal(expected.scratch, scratch);
+  assert.ok(Array.isArray(expected.env));
+  assert.equal(Object.fromEntries(expected.env).TMPDIR, `${scratch}/tmp`);
+  assert.equal(Object.fromEntries(expected.env).CI, '1');
+  assert.deepEqual(expected.grants.envPresets, ['base', 'caches', 'ci']);
+  for (const {phase, toolContext} of contexts.slice(1)) assert.deepEqual(toolContext, expected, phase);
+});
+
+test('scratch is cleaned on earlyFailure, cancel and timeout', async t => {
+  for (const [kind, state, reasons] of [
+    ['earlyFailure', 'failed', ['execution_failed']], ['cancel', 'cancelled', []], ['timeout', 'failed', ['timeout']],
+  ]) {
+    await t.test(kind, async t => {
+      const {f, dispatchId, scratch, supervise} = await scratchDispatch(t, {hang: kind !== 'earlyFailure', snapshotFailure: kind === 'earlyFailure'});
+      const record = await supervise({
+        ...(kind === 'timeout' ? {timeoutMs: 500} : {}),
+        ...(kind === 'cancel' ? {afterSpawn: () => requestCancel(f.claudeHome, dispatchId)} : {}),
+      });
+      assert.equal(record.state, state, JSON.stringify(record.reasons));
+      assert.deepEqual(record.reasons, reasons);
+      if (kind === 'earlyFailure') assert.equal(record.spawned, false);
+      assert.equal(record.toolAccess.scratch.removed, true);
+      await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+    });
+  }
+});
+
+test('scratch removal failure is a warning only', async t => {
+  const {scratch, supervise} = await scratchDispatch(t, {removeFails: true});
+  const record = await supervise();
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  assert.deepEqual(record.reasons, []);
+  assert.equal(record.toolAccess.scratch.removed, false);
+  assert.ok((await fs.lstat(scratch)).isDirectory());
+});
+
+test('pre-existing scratch fails execution_failed without spawn', async t => {
+  const {f, scratch, supervise} = await scratchDispatch(t, {preExisting: true});
+  const record = await supervise();
+  assert.equal(record.state, 'failed');
+  assert.deepEqual(record.reasons, ['execution_failed']);
+  assert.equal(record.spawned, false);
+  assert.equal(record.toolAccess, undefined);
+  assert.deepEqual(await records(f.codex), []);
+  assert.deepEqual(await fs.readdir(scratch), []);
+});
+
+test('scratch outside the worktree leaves changedPaths and controlChanged empty', async t => {
+  const {supervise} = await scratchDispatch(t);
+  const record = await supervise();
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  assert.equal(record.toolAccess.evidence.copied, 1);
+  assert.deepEqual(record.violations.changedPaths, []);
+  assert.equal(record.controlFiles, undefined);
+});
+
+test('read roles and grok create no scratch', async t => {
+  const {f, dispatchId, scratch, supervise} = await scratchDispatch(t, {role: 'arc_planner'});
+  const record = await supervise();
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  assert.equal(record.toolAccess, undefined);
+  await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+
+  const role = 'arc_implementer', grokHome = path.join(f.userHome, '.grok');
+  const profile = renameGrok(renderGrok('---\nname: arc-implementer\ndescription: Role instructions\nmodel: grok-test\n---\nImplement the task\n', role, {model: 'grok-test', effort: 'default'}), role, f.revision);
+  await fs.mkdir(path.join(grokHome, 'agents'), {recursive: true});
+  await fs.writeFile(path.join(grokHome, 'agents', 'arc-routing-implementer.md'), profile);
+  const invocation = await buildBridgeInvocation({
+    lease: {version: 2, role, dispatchId, route: 'bridge', hostPlatform: 'claude', targetPlatform: 'grok', segment: 0, sessionId: dispatchId, allowedPaths: ['src/'],
+      profileHash: 'sha256:' + createHash('sha256').update(profile).digest('hex')},
+    config: {roles: {[role]: {platform: 'grok', model: 'grok-test', effort: 'default'}}},
+    homes: {...f.homes, grok: grokHome}, worktree: f.cwd, resultPath: path.join(f.base, 'result.md'),
+    userHome: f.userHome, env: f.env, target: {gitDir: path.join(f.cwd, '.git'), gitCommonDir: path.join(f.cwd, '.git')},
+  });
+  assert.equal(invocation.toolContext, null);
+});
 
 test('a leader that exits by itself leaves no grandchild: the group is reaped, the lease completes and the record notes orphanGroupReaped', async t => {
   const f = await setup(t);

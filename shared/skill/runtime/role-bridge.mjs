@@ -40,7 +40,7 @@ const hold=(context,dispatchId,code,error)=>{const result=blank(context,dispatch
 const classifyLock=error=>{const code=error?.code==='ARC_ROUTING_LOCK_RELEASE'&&error.failure?error.failure.code:error?.code;return code==='ARC_HOST_SANDBOX'?'host_sandbox_blocked':'activation_unverified';};
 
 /** Starts the detached supervisor for a reserved bridge lease; the supervisor, not this function, spawns the child. */
-export async function runBridgeDispatch({context,dispatchId,brief,now=Date.now(),policy=DEFAULT_POLICY,startSupervisor:starter=startSupervisor}={}){
+export async function runBridgeDispatch({context,dispatchId,brief,now=Date.now(),policy=DEFAULT_POLICY,startSupervisor:starter=startSupervisor,observeToolContext}={}){
  if(!validContext(context)||typeof dispatchId!=='string'||!ID.test(dispatchId)||dispatchId.startsWith('.')||typeof brief!=='string'){return blank(context,dispatchId,'deny','invalid_request');}
  const bytes=Buffer.byteLength(brief,'utf8');
  if(bytes<1||bytes>policy.briefMaxBytes)return blank(context,dispatchId,'deny','invalid_request');
@@ -60,7 +60,7 @@ export async function runBridgeDispatch({context,dispatchId,brief,now=Date.now()
    if(capabilities.length){result=blank(context,dispatchId,'hold',capabilities[0]);return;}
    let target;try{target=await resolveWorktree(context.cwd);}catch{result=blank(context,dispatchId,'hold','activation_unverified');return;}
    const directory=artifactDirectory(target,lease.workflowId,dispatchId),resultPath=path.join(directory,'result.md');
-   let invocation;try{invocation=await buildBridgeInvocation({lease,config,homes,worktree:target.realpath,resultPath,policy});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
+   let invocation;try{invocation=await buildBridgeInvocation({lease,config,homes,worktree:target.realpath,resultPath,userHome:context.userHome,env:context.env??process.env,target,runtimePlatforms,policy,observeToolContext});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
    await fsp.mkdir(directory,{recursive:true,mode:0o700});await fsp.chmod(directory,0o700);
    await fsp.writeFile(path.join(directory,'brief.md'),brief,{mode:0o600,flag:'w'});await fsp.chmod(path.join(directory,'brief.md'),0o600);
    if(Object.hasOwn(HOST_SANDBOX_GATES,lease.hostPlatform)){
@@ -140,7 +140,7 @@ export async function recordRoleObservation({context,dispatchId,waitMs,event,nat
 }
 
 /** Continues a completed or failed bridge dispatch in its recorded session. The input carries no session id; only the lease value is used. */
-export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(),policy=DEFAULT_POLICY,startSupervisor:starter=startSupervisor,supervisorImplementations=SUPERVISOR_IMPLEMENTATIONS}={}){
+export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(),policy=DEFAULT_POLICY,startSupervisor:starter=startSupervisor,supervisorImplementations=SUPERVISOR_IMPLEMENTATIONS,observeToolContext}={}){
  if(!validContext(context)||typeof dispatchId!=='string'||!ID.test(dispatchId)||dispatchId.startsWith('.')||typeof brief!=='string'){return blank(context,dispatchId,'deny','invalid_request');}
  const bytes=Buffer.byteLength(brief,'utf8');
  if(bytes<1||bytes>policy.briefMaxBytes)return blank(context,dispatchId,'deny','invalid_request');
@@ -174,7 +174,7 @@ export async function resumeRoleDispatch({context,dispatchId,brief,now=Date.now(
    if(codes.size){result=blank(context,dispatchId,'hold','activation_unverified');result.reasons=[...codes].map(reason);return;}
    let target;try{target=await resolveWorktree(context.cwd);}catch{result=blank(context,dispatchId,'hold','activation_unverified');return;}
    const segment=lease.segment+1,directory=segmentDirectory(target,lease.workflowId,dispatchId,segment),resultPath=path.join(directory,'result.md');
-   let invocation;try{invocation=await buildBridgeInvocation({lease:{...lease,segment},config,homes,worktree:target.realpath,resultPath,policy,supervisorImplementations});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
+   let invocation;try{invocation=await buildBridgeInvocation({lease:{...lease,segment},config,homes,worktree:target.realpath,resultPath,userHome:context.userHome,env:context.env??process.env,target,runtimePlatforms,policy,supervisorImplementations,observeToolContext});}catch(error){result=blank(context,dispatchId,'hold',error.reasonCode??'activation_unverified');return;}
    await fsp.mkdir(directory,{recursive:true,mode:0o700});await fsp.chmod(path.dirname(directory),0o700);await fsp.chmod(directory,0o700);
    await fsp.writeFile(path.join(directory,'brief.md'),brief,{mode:0o600,flag:'w'});await fsp.chmod(path.join(directory,'brief.md'),0o600);
    if(Object.hasOwn(HOST_SANDBOX_GATES,lease.hostPlatform)){
