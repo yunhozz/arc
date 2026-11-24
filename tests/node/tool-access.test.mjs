@@ -203,7 +203,7 @@ test('measured host service gates expose the MI-A and MI-B conditions', async ()
   for (const platform of ['codex', 'claude']) {
     assert.equal(TOOL_ACCESS_GATES['service.browser-cdp'][platform], 'conditional');
     assert.equal(TOOL_ACCESS_CONDITIONS['service.browser-cdp'][platform],
-      'home and ~/Library reads denied (MI-A); files outside home such as /etc remain readable through file://');
+      'home and ~/Library reads denied (MI-A); files outside home such as /etc remain readable through file://; concurrent loopback dispatches can connect to the unauthenticated CDP port (R-1)');
     for (const engine of ['chromium', 'firefox', 'webkit']) {
       const mechanism = `service.browser-playwright-${engine}`;
       assert.equal(TOOL_ACCESS_GATES[mechanism][platform], 'held');

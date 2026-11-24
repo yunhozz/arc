@@ -5,9 +5,9 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture, legacyDispatchCases, legacyDispatchFixture} from './role-fixtures.mjs';
-import {psAvailable, realPs} from './fixtures/ps-stub.mjs';
+import {ORIGINAL_PATH, psAvailable, realPs, withPath} from './fixtures/ps-stub.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
-import {readLease, writeLease, cancelRequested, listLeases} from '../../lib/runtime/role-dispatch-store.mjs';
+import {readLease, writeLease, cancelRequested, listLeases, dispatchDirectory, pruneTerminalLeases} from '../../lib/runtime/role-dispatch-store.mjs';
 import {prepareRoleDispatch} from '../../lib/runtime/role-routing.mjs';
 import {runBridgeDispatch, recordRoleObservation, resumeRoleDispatch, cancelRoleDispatch} from '../../lib/runtime/role-bridge.mjs';
 import {runSupervisor, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
@@ -423,6 +423,220 @@ test('cancel of unknown keeps unknown when the process cannot be identified, and
   const gone = await unknownLease(f, {pid: 999999, startTime: 'Mon Jan  1 00:00:00 2001'});
   result = await cancel(f, gone);
   assert.equal(result.routeStatus, 'cancelled', 'an exited pid is observed gone');
+});
+
+test('cancel and observe recover recorded services before the role CLI starts', async t => {
+  const hasRealPs = psAvailable();
+  const f = await setup(t, {roles: {arc_tester: 'codex'}});
+  const access = fs.access;
+  t.mock.method(fs, 'access', (filename, ...args) => {
+    if (filename === '/usr/bin/sandbox-exec' || filename === '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') return Promise.resolve();
+    return access(filename, ...args);
+  });
+  const staleStart = 'Mon Jan 1 00:00:00 2001';
+  const policy = policyWith({cancelGraceMs: 200});
+  for (const mode of ['cancel', 'observe', 'reused leader', 'wrong segment', 'extra key', 'symlink', 'missing', 'pending spawn',
+    'cancel live role group', 'observe live role group', 'cancel evidence failure', 'observe evidence failure',
+    'cancel supervisor found in census', 'observe supervisor found in census', 'cancel existing evidence', 'observe existing evidence',
+    'cancel retained artifact quarantine', 'observe retained anchor quarantine', 'observe transient EPERM after KILL',
+    'cancel persistent EPERM after KILL', 'observe transient EPERM before KILL', 'cancel EPERM with live members',
+    'cancel incomplete recovery evidence', 'observe verified recovery evidence', 'cancel retained host quarantine before evidence']) {
+    await t.test(mode, async t => {
+      const observing = mode.startsWith('observe');
+      const liveRoleGroup = mode.endsWith('live role group');
+      const evidenceFailure = mode.endsWith('evidence failure');
+      const supervisorInCensus = mode.endsWith('supervisor found in census');
+      const existingEvidence = mode.endsWith('existing evidence');
+      const retained = mode.includes('retained');
+      const useAnchor = mode.endsWith('anchor quarantine');
+      const eperm = mode.includes('EPERM');
+      const epermBeforeKill = mode.endsWith('before KILL') || mode.endsWith('with live members');
+      const persistentEperm = mode.includes('persistent EPERM') || mode.endsWith('with live members');
+      const waitingGroup = mode.endsWith('with live members');
+      const recoveryEvidence = mode.endsWith('recovery evidence');
+      const verifiedEvidence = mode.includes('verified recovery evidence');
+      const retainedHost = mode.endsWith('before evidence');
+      const prepared = await prepareRoleDispatch({context: f.context(), assignment: {
+        role: 'arc_tester', requestId: nextId(), taskId: nextId(),
+        toolAccess: {network: null, domains: [], unixSockets: [], paths: [], services: ['browser-cdp'], envPresets: []},
+      }, expectedRevision: f.revision, policy});
+      assert.equal(prepared.decision, 'allow', JSON.stringify(prepared.reasons));
+      const {dispatchId} = prepared;
+      t.after(async () => writeLease(f.claudeHome, {...await readLease(f.claudeHome, dispatchId), state: 'failed'}));
+      const started = await run(f, dispatchId, 'crashed service', {policy,
+        startSupervisor: async () => ({pid: process.pid, startTime: staleStart})});
+      assert.equal(started.routeStatus, 'starting');
+      const lease = await readLease(f.claudeHome, dispatchId);
+      assert.equal(lease.child, null);
+      const directory = path.dirname(lease.resultPath);
+      const hostDir = `/private/tmp/arc-host-${dispatchId.slice(0, 8)}`;
+      const scratch = `/private/tmp/arc-bridge-${dispatchId.slice(0, 8)}`;
+      for (const dir of [hostDir, scratch]) {
+        await fs.mkdir(dir, {mode: 0o700});
+        t.after(() => fs.rm(dir, {recursive: true, force: true}));
+      }
+      await fs.mkdir(path.join(scratch, 'evidence'));
+      await fs.writeFile(path.join(scratch, 'evidence', 'child.txt'), 'from crashed dispatch');
+      const previousEvidence = path.join(directory, 'evidence', 'child.txt');
+      if (existingEvidence || recoveryEvidence || retainedHost) {
+        await fs.mkdir(path.dirname(previousEvidence));
+        await fs.writeFile(previousEvidence, 'previous copy');
+      }
+      const recoveryCopies = async () => (await fs.readdir(directory)).filter(name => name.startsWith('evidence-recovery-')).sort();
+      if (recoveryEvidence) {
+        const copy = path.join(directory, 'evidence-recovery-fixture');
+        await fs.mkdir(copy);
+        await fs.writeFile(path.join(copy, 'child.txt'), verifiedEvidence ? 'from crashed dispatch' : 'partial');
+      }
+      if (evidenceFailure) {
+        const open = fs.open;
+        t.mock.method(fs, 'open', (filename, ...args) => {
+          if (filename === previousEvidence) throw Object.assign(Error('fixture copy failure'), {code: 'EACCES'});
+          return open(filename, ...args);
+        });
+      }
+      const identity = async dir => {
+        const {dev, ino} = await fs.lstat(dir);
+        return {dev, ino};
+      };
+      const child = startStray(f, !mode.endsWith('before KILL'));
+      const roleChild = liveRoleGroup ? startStray(f, true) : null;
+      if (roleChild) {
+        await writeLease(f.claudeHome, {...lease, state: 'running', child: {pid: roleChild.pid, startTime: staleStart}});
+      }
+      await sleep(200);
+      const startTime = hasRealPs ? await withPath(ORIGINAL_PATH, () => processStartTime(child.pid)) : 'Tue Nov 24 17:24:34 2026';
+      assert.ok(startTime && startTime !== staleStart);
+      const snapshot = {version: 1, dispatchId, segment: mode === 'wrong segment' ? 1 : lease.segment,
+        hostDir: await identity(hostDir), scratch: await identity(scratch), pending: null, services: [
+          {id: 'browser-cdp', pid: child.pid, pgid: child.pid, startTime: mode === 'reused leader' ? staleStart : startTime},
+        ]};
+      if (mode === 'extra key') snapshot.services[0].extra = true;
+      if (mode === 'pending spawn') Object.assign(snapshot, {services: [], pending: 'browser-cdp'});
+      const filename = path.join(directory, 'host-services.json');
+      if (mode === 'symlink') {
+        const other = path.join(directory, 'other.json');
+        await fs.writeFile(other, JSON.stringify(snapshot), {mode: 0o600});
+        await fs.symlink(other, filename);
+      } else if (mode !== 'missing') {
+        await fs.writeFile(filename, JSON.stringify(snapshot), {mode: 0o600});
+      }
+      const quarantined = [];
+      let retainedPath;
+      const anchor = dispatchDirectory(f.claudeHome);
+      if (retainedHost) {
+        await fs.mkdir(path.join(anchor, `.cleanup-${dispatchId}-${lease.segment}-${path.basename(hostDir)}-fixture`, 'tree'), {recursive: true});
+      }
+      const sent = [];
+      let deniedProbes = 0;
+      if (eperm) {
+        const kill = process.kill;
+        t.mock.method(process, 'kill', (pid, signal) => {
+          if (pid === -child.pid) {
+            if (signal === 'SIGTERM' || signal === 'SIGKILL') sent.push(signal);
+            const phase = epermBeforeKill ? 'SIGTERM' : 'SIGKILL';
+            if (signal === 0 && sent.includes(phase) && (persistentEperm || deniedProbes < 2)) {
+              deniedProbes++;
+              throw Object.assign(Error('fixture EPERM on kill(0)'), {code: 'EPERM'});
+            }
+          }
+          return kill(pid, signal);
+        });
+      }
+      const rename = fs.rename;
+      t.mock.method(fs, 'rename', async (from, to) => {
+        if (from === scratch || from === hostDir) {
+          const atArtifact = to.startsWith(directory + path.sep);
+          if (useAnchor && atArtifact) throw Object.assign(Error('different volume'), {code: 'EXDEV'});
+          assert.ok(to.startsWith((useAnchor ? anchor : directory) + path.sep));
+          const copy = existingEvidence || recoveryEvidence || retainedHost ? (await recoveryCopies())[0] : 'evidence';
+          assert.equal(await fs.readFile(path.join(directory, copy, 'child.txt'), 'utf8'), 'from crashed dispatch');
+          quarantined.push(from);
+          if (retained && from === scratch) retainedPath = to;
+        }
+        return rename(from, to);
+      });
+      if (retained) {
+        const rm = fs.rm;
+        t.mock.method(fs, 'rm', (filename, options) => {
+          if (filename === retainedPath) throw Object.assign(Error('fixture quarantine deletion failure'), {code: 'EACCES'});
+          return rm(filename, options);
+        });
+      }
+      const recover = () => observing ? recordRoleObservation({context: f.context(), dispatchId, lostMs: 0,
+        now: Date.now() + 1000, policy}) : cancel(f, dispatchId, {policy});
+      let psPath = ORIGINAL_PATH;
+      if (!hasRealPs || supervisorInCensus) {
+        // Supply the process census when the sandbox blocks ps, while keeping real group signals.
+        await fs.writeFile(path.join(f.base, 'ps'), `#!/usr/bin/env node
+const [option, ...args] = process.argv.slice(2);
+const start = ${JSON.stringify(startTime)};
+const pid = ${child.pid};
+if (option === '-A') {
+  console.log(${process.pid}, ${process.ppid}, ${process.pid}, ${supervisorInCensus ? JSON.stringify(staleStart) : 'start'}, ${process.geteuid()}, 'S');
+  try { process.kill(pid, 0); console.log(pid, ${process.pid}, pid, start, ${process.geteuid()}, 'S'); }
+  catch { /* no live group member */ }
+} else if (option === '-o' && Number(args[2]) === pid) console.log(start);
+else process.exitCode = 1;
+`, {mode: 0o700});
+        psPath = f.base + path.delimiter + process.env.PATH;
+      }
+      const result = await withPath(psPath, recover);
+      if (eperm) {
+        assert.deepEqual(sent, epermBeforeKill ? ['SIGTERM'] : ['SIGTERM', 'SIGKILL']);
+        assert.equal(result.hostServiceRecovery, persistentEperm ? 'warning' : 'ok');
+        assert.ok(deniedProbes >= (waitingGroup ? 1 : 2), 'waits through denied probes without adding signals');
+        if (!waitingGroup) assert.equal(await waitDead(child.pid, 1000), true);
+        for (const dir of [hostDir, scratch]) {
+          if (persistentEperm) assert.ok((await fs.lstat(dir)).isDirectory());
+          else await assert.rejects(fs.lstat(dir), {code: 'ENOENT'});
+        }
+      } else if (recoveryEvidence || retainedHost) {
+        assert.equal(await waitDead(child.pid, 1000), true);
+        assert.equal(result.hostServiceRecovery, verifiedEvidence ? 'ok' : 'warning');
+        assert.deepEqual(await recoveryCopies(), recoveryEvidence ? ['evidence-recovery-fixture'] : []);
+        assert.equal(await fs.readFile(previousEvidence, 'utf8'), 'previous copy');
+        if (verifiedEvidence) assert.deepEqual(quarantined, [scratch, hostDir]);
+        else {
+          assert.deepEqual(quarantined, []);
+          assert.equal(await fs.readFile(path.join(scratch, 'evidence', 'child.txt'), 'utf8'), 'from crashed dispatch');
+        }
+      } else if (retained) {
+        assert.equal(await waitDead(child.pid, 1000), true);
+        assert.equal(result.hostServiceRecovery, 'warning');
+        assert.ok(retainedPath);
+        assert.ok((await fs.lstat(retainedPath)).isDirectory());
+        for (const dir of [hostDir, scratch]) await assert.rejects(fs.lstat(dir), {code: 'ENOENT'});
+        const retry = await withPath(psPath, () => cancel(f, dispatchId, {policy}));
+        assert.equal(retry.hostServiceRecovery, 'warning');
+        assert.ok((await fs.lstat(retainedPath)).isDirectory());
+        assert.equal((await listLeases(f.claudeHome)).filter(item => item.dispatchId === dispatchId).length, 1);
+        assert.deepEqual(await pruneTerminalLeases(f.claudeHome, {retentionMs: Number.MAX_SAFE_INTEGER}), {removed: 0, errors: 0});
+      } else if (mode === 'cancel' || mode === 'observe' || existingEvidence) {
+        assert.equal(await waitDead(child.pid, 1000), true, `${mode} reaps the TERM-ignoring service group`);
+        assert.equal(result.hostServiceRecovery, 'ok');
+        assert.deepEqual(quarantined, [scratch, hostDir]);
+        for (const dir of [hostDir, scratch]) await assert.rejects(fs.lstat(dir), {code: 'ENOENT'});
+        assert.equal(await fs.readFile(previousEvidence, 'utf8'), existingEvidence ? 'previous copy' : 'from crashed dispatch');
+        if (observing) {
+          assert.equal(result.routeStatus, 'unknown');
+          assert.deepEqual(codes(result), ['terminal_state_unverified']);
+        }
+      } else {
+        const serviceStopped = liveRoleGroup || evidenceFailure;
+        if (serviceStopped) assert.equal(await waitDead(child.pid, 1000), true);
+        else assert.equal(alive(child.pid), true);
+        assert.equal(result.hostServiceRecovery, 'warning');
+        assert.deepEqual(quarantined, []);
+        for (const dir of [hostDir, scratch]) assert.ok((await fs.lstat(dir)).isDirectory());
+        if (roleChild) assert.equal(alive(roleChild.pid), true);
+      }
+      if (!observing) {
+        // Reaping an auxiliary service does not prove the role CLI's terminal state.
+        assert.equal(result.decision, 'hold');
+      }
+    });
+  }
 });
 
 test('resume checks the bridge concurrency limit under the lock: others + 1 must fit, and the workflow total is not increased', async t => {

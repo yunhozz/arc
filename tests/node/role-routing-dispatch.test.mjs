@@ -611,6 +611,19 @@ test('Codex profile mode holds when user config defines permissions.arc_bridge',
       const prepared = await prepare(f, assignment(), {context});
       assert.equal(prepared.decision, 'hold');
       assert.deepEqual(codes(prepared), ['permission_scope_unverified']);
+      for (const definition of ['permissions = { arc_bridge = { extends = ":workspace" } }', "[permissions.'arc_bridge']",
+        '[permissions]\nmarker = """\n[x]\n"""\narc_bridge = {}',
+        '[permissions]\nmarker = [\n["x"]\n]\narc_bridge = {}',
+        '[permissions]\nother = true\n[unrelated]\narc_bridge = {}']) {
+        await t.test(definition, async () => {
+          await fs.writeFile(file, definition + '\n');
+          const held = await prepare(f, assignment(), {context});
+          if (held.decision === 'allow') await cancel(f, held.dispatchId);
+          assert.equal(held.decision, 'hold');
+          assert.deepEqual(codes(held), ['permission_scope_unverified']);
+        });
+      }
+      await fs.writeFile(file, conflict);
       let started = false;
       const run = await runBridgeDispatch({context, dispatchId: reserved.dispatchId,
         brief: 'test preflight', policy: policyWith(), startSupervisor: async () => { started = true; }});
@@ -726,6 +739,41 @@ test('conditional grant is reported in result.toolAccess.conditions', async t =>
   assert.deepEqual(result.toolAccess?.conditions.map(({mechanism}) => mechanism), ['codexProfile', 'network.domains']);
   assert.equal(result.toolAccess.conditions.find(({mechanism}) => mechanism === 'network.domains').condition,
     TOOL_ACCESS_CONDITIONS['network.domains'].codex);
+});
+
+test('Codex domains prepare holds when either config defines a shell environment exclude', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const projectConfig = path.join(f.cwd, '.codex');
+  await fs.mkdir(projectConfig);
+  const domains = () => request('arc_tester', {toolAccess: toolAccessRequest({network: 'domains', domains: ['example.com']})});
+  for (const [name, filename, config] of [
+    ['user table', path.join(f.codexHome, 'config.toml'), '[shell_environment_policy]\nexclude = ["SECRET_*"]\n'],
+    ['project inline table', path.join(projectConfig, 'config.toml'), "shell_environment_policy = { 'exclude' = [] }\n"],
+    ['project dotted key', path.join(projectConfig, 'config.toml'), 'shell_environment_policy."excl\\u0075de" = []\n'],
+    ['user multiline string', path.join(f.codexHome, 'config.toml'), '[shell_environment_policy]\nmarker = """\n[x]\n"""\nexclude = []\n'],
+    ['project multiline array', path.join(projectConfig, 'config.toml'), '[shell_environment_policy]\nmarker = [\n["x"]\n]\nexclude = []\n'],
+  ]) {
+    await t.test(name, async t => {
+      const original = await fs.readFile(filename).catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      t.after(() => original === null ? fs.unlink(filename) : fs.writeFile(filename, original));
+      await fs.writeFile(filename, config);
+      const held = await prepare(f, domains());
+      if (held.decision === 'allow') await cancel(f, held.dispatchId);
+      assert.equal(held.decision, 'hold');
+      assert.deepEqual(codes(held), ['permission_scope_unverified']);
+      const loopback = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'loopback'})}));
+      assert.equal(loopback.decision, 'allow', JSON.stringify(loopback.reasons));
+      await cancel(f, loopback.dispatchId);
+      await fs.writeFile(filename, '[shell_environment_policy]\n# exclude = ["COMMENT"]\n');
+      const commented = await prepare(f, domains());
+      assert.equal(commented.decision, 'allow', JSON.stringify(commented.reasons));
+      await cancel(f, commented.dispatchId);
+    });
+  }
 });
 
 test('duplicate requestId is global across workflows while task-role duplication stays per workflow', async t => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import {readFileSync} from 'node:fs';
+import fsSync, {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
@@ -757,7 +757,7 @@ async function scratchDispatch(t, {role = 'arc_implementer', hang = false, snaps
   const scratchIo = {
     async create(input) {
       assert.equal(input.scratch, `/private/tmp/arc-bridge-${dispatchId.slice(0, 8)}`);
-      await scratchApi.createScratch({...input, scratch, parent: null});
+      const identity = await scratchApi.createScratch({...input, scratch, parent: null});
       if (snapshotFailure) {
         const readdir = fs.readdir;
         snapshotRead = t.mock.method(fs, 'readdir', (filename, ...args) => {
@@ -765,9 +765,10 @@ async function scratchDispatch(t, {role = 'arc_implementer', hang = false, snaps
           return readdir(filename, ...args);
         });
       }
+      return identity;
     },
     collect: input => scratchApi.collectEvidence({...input, scratch}),
-    remove: () => removeFails ? false : scratchApi.removeScratch(scratch),
+    remove: (_filename, options) => removeFails ? false : scratchApi.removeScratch(scratch, options),
   };
   const started = await run(f, dispatchId, 'scratch test', {startSupervisor: startInProcess(f), observeToolContext});
   assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
@@ -791,7 +792,8 @@ test('scratch exists during the child and is removed after completion', async t 
   await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
 });
 
-async function serviceDispatch(t, {startFails = false, cleanupFails = false, fakeServices = [], failedService} = {}) {
+async function serviceDispatch(t, {startFails = false, cleanupFails = false, startTimeUnavailable = false,
+  snapshotWriteFails = false, quarantineFailure = null, replacedHostDir = false, fakeServices = [], failedService} = {}) {
   const f = await setup(t, {roles: {arc_tester: 'codex'}});
   const service = 'browser-cdp';
   const endpoint = {port: 41999, url: 'http://127.0.0.1:41999'};
@@ -826,17 +828,56 @@ async function serviceDispatch(t, {startFails = false, cleanupFails = false, fak
   assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
 
   const events = [];
+  const quarantines = [];
+  const treeDeletes = [];
+  const artifactDir = dirOf(f, dispatchId);
+  const anchorDir = dispatchDirectory(f.claudeHome);
+  const rename = fs.rename, rm = fs.rm;
+  const replacement = path.join(f.base, 'host-replacement');
+  if (replacedHostDir) {
+    await fs.mkdir(replacement);
+    const mkdir = fs.mkdir;
+    t.mock.method(fs, 'mkdir', async (filename, options) => {
+      const result = await mkdir(filename, options);
+      if (filename === hostDir) {
+        await rename(hostDir, path.join(f.base, 'original-host-dir'));
+        await fs.symlink(replacement, hostDir);
+      }
+      return result;
+    });
+  }
+  t.mock.method(fs, 'rename', async (from, to) => {
+    if (from !== scratch && from !== hostDir) return rename(from, to);
+    const atArtifact = to.startsWith(artifactDir + path.sep);
+    assert.ok(atArtifact || to.startsWith(anchorDir + path.sep), to);
+    events.push(from === scratch ? 'remove scratch' : 'remove host dir');
+    quarantines.push({from, to});
+    if ((from === scratch && quarantineFailure === 'EXDEV') || (atArtifact && quarantineFailure === 'artifact EXDEV')) {
+      throw Object.assign(Error('different volume'), {code: 'EXDEV'});
+    }
+    await rename(from, to);
+    if (from === scratch && quarantineFailure === 'changed identity') {
+      await rename(to, to + '.original');
+      await fs.mkdir(to);
+    }
+  });
+  t.mock.method(fs, 'rm', (filename, options) => {
+    if (options?.recursive && (filename === scratch || filename === hostDir
+      || filename.startsWith(artifactDir + path.sep) || filename.startsWith(anchorDir + path.sep))) {
+      treeDeletes.push(filename);
+    }
+    return rm(filename, options);
+  });
+  t.after(async () => rm(scratch, {recursive: true, force: true}));
+  t.after(async () => rm(hostDir, {recursive: true, force: true}));
   const scratchIo = {
     create: scratchApi.createScratch,
     collect(input) {
       events.push('collect');
       return scratchApi.collectEvidence(input);
     },
-    remove(filename) {
-      events.push('remove scratch');
-      return scratchApi.removeScratch(filename);
-    },
   };
+  let serviceProcess;
   const endpoints = {[service]: endpoint};
   for (const id of fakeServices) endpoints[id] = {wsEndpoint: `ws://127.0.0.1:42000/${id}`, version: '1.2.3'};
   const hostServiceIo = {
@@ -846,18 +887,15 @@ async function serviceDispatch(t, {startFails = false, cleanupFails = false, fak
       const dirArg = args.find(arg => arg.startsWith('--user-data-dir='));
       const portFile = path.join(dirArg.slice('--user-data-dir='.length), 'DevToolsActivePort');
       const script = "require('node:fs').writeFileSync(process.argv[1], '41999\\n'); setInterval(() => {}, 1000);";
-      return spawn(process.execPath, ['-e', script, portFile], options);
+      serviceProcess = spawn(process.execPath, ['-e', script, portFile], options);
+      return serviceProcess;
     },
     kill(pid, signal) {
       if (signal === 'SIGTERM') events.push('stop service');
       return process.kill(pid, signal);
     },
     sleep: ms => sleep(Math.min(ms, 30)),
-    async removeDir(dir) {
-      await fs.rm(dir, {recursive: true});
-      if (dir === hostDir) events.push('remove host dir');
-      else if (cleanupFails) throw Error('fixture cleanup failure');
-    },
+    ...(cleanupFails ? {removeDir: async () => { throw Error('fixture cleanup failure'); }} : {}),
   };
   if (fakeServices.length) {
     hostServiceIo.start = async input => {
@@ -876,10 +914,114 @@ async function serviceDispatch(t, {startFails = false, cleanupFails = false, fak
     events.push('spawn CLI');
     assert.deepEqual(JSON.parse(await fs.readFile(path.join(scratch, 'services.json'), 'utf8')), endpoints);
   };
-  await runSupervisor({codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome,
+  if (snapshotWriteFails) {
+    const writeFileSync = fsSync.writeFileSync;
+    t.mock.method(fsSync, 'writeFileSync', (filename, ...args) => {
+      if (typeof filename === 'string' && path.basename(filename).startsWith('host-services.json.')) {
+        throw Object.assign(Error('fixture recovery write failure'), {code: 'ENOSPC'});
+      }
+      return writeFileSync(filename, ...args);
+    });
+  }
+  const runServiceSupervisor = () => runSupervisor({codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome,
     env: f.env, scratchIo, hostServiceIo, afterSpawn, heartbeatMs: 50, graceMs: 100, policy});
-  return {f, scratch, hostDir, endpoint, events, record: await recordOf(f, dispatchId)};
+  let psPath = ORIGINAL_PATH;
+  if (startTimeUnavailable) psPath = process.env.PATH; // The routing stub returns an intentionally unverified lstart.
+  else if (!psAvailable()) {
+    await fs.writeFile(path.join(f.base, 'ps'), `#!/usr/bin/env node
+const [option, field, selector, pid] = process.argv.slice(2);
+if (option !== '-o' || field !== 'lstart=' || selector !== '-p' || !/^[1-9][0-9]*$/.test(pid)) {
+  process.exitCode = 1;
+} else {
+  try { process.kill(Number(pid), 0); console.log('Tue Nov 24 17:24:34 2026    '); }
+  catch { process.exitCode = 1; }
 }
+`, {mode: 0o700});
+    psPath = f.base + path.delimiter + process.env.PATH;
+  }
+  const supervise = () => withPath(psPath, runServiceSupervisor);
+  await supervise();
+  return {f, dispatchId, scratch, hostDir, endpoint, events, quarantines, treeDeletes, serviceProcess, supervise, policy, replacement,
+    record: await recordOf(f, dispatchId)};
+}
+
+test('normal cleanup quarantines scratch and hostDir and refuses unsafe recursive deletion', async t => {
+  for (const failure of [null, 'EXDEV', 'changed identity']) {
+    await t.test(failure ?? 'verified directories', async t => {
+      const {record, scratch, hostDir, quarantines, treeDeletes} = await serviceDispatch(t, {quarantineFailure: failure});
+      assert.equal(record.state, 'completed');
+      const attempts = failure === 'EXDEV' ? [scratch, scratch, hostDir] : [scratch, hostDir];
+      assert.deepEqual(quarantines.map(({from}) => from), attempts);
+      assert.deepEqual(treeDeletes, quarantines.filter(({from}) => !failure || from === hostDir).map(({to}) => to));
+      assert.equal(record.toolAccess.scratch.removed, !failure);
+      if (failure === 'EXDEV') assert.ok((await fs.lstat(scratch)).isDirectory());
+      if (failure === 'changed identity') assert.ok((await fs.lstat(quarantines[0].to)).isDirectory());
+    });
+  }
+});
+
+test('artifact EXDEV uses the anchor quarantine and leaves the dispatch resumable', async t => {
+  const {f, dispatchId, scratch, hostDir, quarantines, treeDeletes, record, supervise, policy} =
+    await serviceDispatch(t, {quarantineFailure: 'artifact EXDEV'});
+  assert.equal(record.state, 'completed');
+  assert.equal(record.toolAccess.scratch.removed, true);
+  assert.deepEqual(quarantines.map(({from}) => from), [scratch, scratch, hostDir, hostDir]);
+  const anchor = dispatchDirectory(f.claudeHome);
+  const fallback = quarantines.filter(({to}) => to.startsWith(anchor + path.sep));
+  assert.equal(fallback.length, 2);
+  assert.deepEqual(treeDeletes, fallback.map(({to}) => to));
+  for (const dir of [scratch, hostDir]) await assert.rejects(fs.lstat(dir), {code: 'ENOENT'});
+  assert.deepEqual((await listLeases(f.claudeHome)).map(lease => lease.dispatchId), [dispatchId]);
+  const resumed = await resumeRoleDispatch({context: f.context(), dispatchId, brief: 'continue after quarantine',
+    startSupervisor: startInProcess(f), policy});
+  assert.equal(resumed.routeStatus, 'starting', JSON.stringify(resumed.reasons));
+  await supervise();
+  assert.equal((await recordOf(f, dispatchId, 1)).state, 'completed');
+});
+
+test('replaced hostDir fails before service spawn and preserves the replacement', async t => {
+  const {record, hostDir, replacement, events, quarantines} = await serviceDispatch(t, {replacedHostDir: true});
+  assert.equal(record.state, 'failed');
+  assert.deepEqual(record.reasons, ['execution_failed']);
+  assert.equal(record.spawned, false);
+  assert.ok(!events.includes('start service'));
+  assert.ok(!quarantines.some(({from}) => from === hostDir));
+  assert.equal(await fs.readlink(hostDir), replacement);
+  assert.deepEqual(await fs.readdir(replacement), []);
+});
+
+test('service recovery recording failures warn without failing a ready service', async t => {
+  for (const failure of ['startTimeUnavailable', 'snapshotWriteFails']) {
+    await t.test(failure, async t => {
+      const {events, endpoint, record} = await serviceDispatch(t, {[failure]: true});
+      assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+      assert.deepEqual(record.reasons, []);
+      assert.equal(record.toolAccess.hostServiceRecovery, 'warning');
+      assert.deepEqual(record.toolAccess.hostServices, [{id: 'browser-cdp', started: true, endpoint, cleanup: 'ok'}]);
+      assert.deepEqual(events, ['start service', 'spawn CLI', 'stop service', 'collect', 'remove scratch', 'remove host dir']);
+    });
+  }
+});
+
+test('supervisor records the host service group and directory identities in the segment artifact', async t => {
+  const {f, dispatchId, serviceProcess, record} = await serviceDispatch(t);
+  assert.equal(record.state, 'completed');
+  const filename = path.join(dirOf(f, dispatchId), 'host-services.json');
+  const snapshot = JSON.parse(await fs.readFile(filename, 'utf8'));
+  assert.equal((await fs.stat(filename)).mode & 0o777, 0o600);
+  assert.equal(snapshot.dispatchId, dispatchId);
+  assert.equal(snapshot.segment, 0);
+  assert.equal(snapshot.pending, null);
+  assert.equal(snapshot.services.length, 1);
+  const [{startTime, ...service}] = snapshot.services;
+  assert.deepEqual(service, {id: 'browser-cdp', pid: serviceProcess.pid, pgid: serviceProcess.pid});
+  if (!psAvailable()) assert.equal(startTime, 'Tue Nov 24 17:24:34 2026');
+  assert.match(startTime, /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/);
+  for (const {dev, ino} of [snapshot.hostDir, snapshot.scratch]) {
+    assert.ok(Number.isSafeInteger(dev));
+    assert.ok(Number.isSafeInteger(ino) && ino > 0);
+  }
+});
 
 test('services start before spawn and stop before scratch removal', async t => {
   const {scratch, hostDir, endpoint, events, record} = await serviceDispatch(t);
@@ -963,7 +1105,7 @@ test('Claude fake child receives settings env and supervisor argsDigest matches 
   const scratchIo = {
     create: input => scratchApi.createScratch({...input, scratch, parent: null}),
     collect: input => scratchApi.collectEvidence({...input, scratch}),
-    remove: () => scratchApi.removeScratch(scratch),
+    remove: (_filename, options) => scratchApi.removeScratch(scratch, options),
   };
   await runSupervisor({codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, scratchIo,
     heartbeatMs: 50, graceMs: 100});

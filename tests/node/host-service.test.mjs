@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {once} from 'node:events';
 import fs from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -67,6 +68,7 @@ async function cdpFixture(t, {source, removeFails = false} = {}) {
   const dir = path.join(hostDir, cdp);
   const dataDir = path.join(dir, 'udd');
   const signals = [];
+  let child;
   const io = {
     spawn(executable, args, options) {
       assert.equal(executable, sandbox);
@@ -78,7 +80,8 @@ async function cdpFixture(t, {source, removeFails = false} = {}) {
         '--disable-extensions', '--use-mock-keychain', '--no-sandbox', '--disable-gpu',
         '--proxy-server=127.0.0.1:9', '--proxy-bypass-list=127.0.0.1;localhost', 'about:blank']);
       const script = source ?? `require('node:fs').writeFileSync(process.argv[1], '${port}\\n/devtools/browser/test\\n'); setInterval(() => {}, 1000);`;
-      return spawn(process.execPath, ['-e', script, path.join(dataDir, 'DevToolsActivePort')], options);
+      child = spawn(process.execPath, ['-e', script, path.join(dataDir, 'DevToolsActivePort')], options);
+      return child;
     },
     kill(pid, signal) {
       assert.ok(pid < 0);
@@ -93,7 +96,7 @@ async function cdpFixture(t, {source, removeFails = false} = {}) {
     },
   };
   const start = (timeoutMs = 2000) => startHostService({id: cdp, dispatchId, userHome: home, timeoutMs, io});
-  return {start, dir, dataDir, home, signals};
+  return {start, dir, dataDir, home, signals, get child() { return child; }};
 }
 
 test('cdp start reads DevToolsActivePort and returns endpoint', async t => {
@@ -106,25 +109,38 @@ test('cdp start reads DevToolsActivePort and returns endpoint', async t => {
       '(version 1)\n(allow default)\n' +
       `(deny file-read* file-write* (subpath "${await fs.realpath(home)}"))\n` +
       '(deny process-exec (regex #"GoogleUpdater"))\n' +
-      `(allow file-read* file-write* (subpath "${await fs.realpath(dataDir)}"))\n`);
+      `(allow file-read* file-write* (subpath "${await fs.realpath(dataDir)}"))\n` +
+      '(deny network-outbound)\n' +
+      '(allow network-outbound (remote ip "localhost:*"))\n');
   } finally {
     assert.equal(await record.stop(), 'ok');
   }
   await assert.rejects(fs.lstat(dir), {code: 'ENOENT'});
 });
 
-test('start failure and timeout are execution_failed and kill the group', async t => {
-  for (const [name, source, timeout] of [
-    ['exit', 'process.exit(1)', 2000],
-    ['timeout', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);", 250],
+test('start failure and timeout are execution_failed and clean up the group', async t => {
+  for (const [name, source, timeout, expectedSignals] of [
+    ['exit', 'process.exit(1)', 2000, [0]],
+    ['timeout', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);", 250, ['SIGTERM', 'SIGKILL']],
   ]) {
     await t.test(name, async t => {
       const {start, dir, signals} = await cdpFixture(t, {source});
       await assert.rejects(start(timeout), startupFailure);
-      assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
+      assert.deepEqual(signals, expectedSignals);
       await assert.rejects(fs.lstat(dir), {code: 'ENOENT'});
     });
   }
+});
+
+test('stop skips termination signals when the exited CDP group no longer exists', async t => {
+  const fixture = await cdpFixture(t);
+  const record = await fixture.start();
+  const exit = once(fixture.child, 'exit');
+  fixture.child.kill('SIGTERM');
+  await exit;
+  assert.equal(await record.stop(), 'ok');
+  assert.deepEqual(fixture.signals, [0]);
+  await assert.rejects(fs.lstat(fixture.dir), {code: 'ENOENT'});
 });
 
 test('stop returns warning when removal fails', async t => {

@@ -986,4 +986,3 @@
 - O5 수용(가정 유지): 라벨 `cooperative-9`는 유지하고 `baselineHash`만 갱신한다. 기존 버전 테스트가 다른 규칙을 요구하면 Implementer가 멈추고 보고한다.
 - O6 수용: MI 결과로 gate 값이 바뀌면 Orchestrator가 spec 측정 결과 절을 개정한다. 개정본은 해당 task 커밋에 함께 넣는다.
 - A3 확인: `git diff 6244a8af -- lib/runtime shared`가 비어 있다(2026-11-24).
-

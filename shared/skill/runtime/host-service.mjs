@@ -14,7 +14,6 @@ export const HOST_SERVICES = Object.freeze({
 export const CHROME_EXECUTABLE = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
 export const hostDirFor = dispatchId => `/private/tmp/arc-host-${dispatchId.replaceAll('-', '').slice(0, 8)}`;
-const removeDir = dir => fsp.rm(dir, {recursive: true});
 
 export function resolveGlobalPlaywright({run = childProcess.spawnSync} = {}) {
   const probe = run('npm', ['root', '-g'], {cwd: '/private/tmp', encoding: 'utf8', timeout: PROBE_TIMEOUT_MS});
@@ -71,6 +70,8 @@ export function renderSandboxProfile({kind, userHome, dataDir}) {
     `(deny file-read* file-write* (subpath "${profilePath(userHome)}"))`,
     '(deny process-exec (regex #"GoogleUpdater"))',
     `(allow file-read* file-write* (subpath "${profilePath(dataDir)}"))`,
+    '(deny network-outbound)',
+    '(allow network-outbound (remote ip "localhost:*"))',
     '',
   ].join('\n');
 }
@@ -93,7 +94,7 @@ async function waitForCdpPort(dataDir, timeoutMs, exited, wait) {
   throw startFailed();
 }
 
-export async function startHostService({id, dispatchId, userHome, timeoutMs = PROBE_TIMEOUT_MS, io = {}}) {
+export async function startHostService({id, dispatchId, userHome, timeoutMs = PROBE_TIMEOUT_MS, onSpawn, io = {}}) {
   // Playwright launches remain disabled until each engine's isolation is measured.
   if (HOST_SERVICES[id]?.kind !== 'cdp') throw startFailed();
   const hostDir = hostDirFor(dispatchId);
@@ -105,13 +106,21 @@ export async function startHostService({id, dispatchId, userHome, timeoutMs = PR
     const signalGroup = signal => {
       try { kill(-child.pid, signal); } catch (error) { if (error.code !== 'ESRCH') warning = true; }
     };
-    if (child?.pid) {
+    let groupExists = Boolean(child?.pid);
+    if (groupExists && exited) {
+      try { kill(-child.pid, 0); } catch (error) {
+        if (error.code === 'ESRCH') groupExists = false;
+        else warning = true;
+      }
+    }
+    if (groupExists) {
       signalGroup('SIGTERM');
       try { await wait(CANCEL_GRACE_MS); } catch { warning = true; }
       signalGroup('SIGKILL');
     }
-    if (created) {
-      try { await (io.removeDir ?? removeDir)(dir); } catch { warning = true; }
+    // The supervisor removes the complete hostDir after collecting evidence.
+    if (created && io.removeDir) {
+      try { await io.removeDir(dir); } catch { warning = true; }
     }
     return warning ? 'warning' : 'ok';
   })();
@@ -131,6 +140,7 @@ export async function startHostService({id, dispatchId, userHome, timeoutMs = PR
     const markExited = () => { exited = true; };
     child.once('error', markExited);
     child.once('exit', markExited);
+    if (child.pid) onSpawn?.(child.pid);
     const port = await waitForCdpPort(dataDir, timeoutMs, () => exited, wait);
     return {id, started: true, endpoint: {port, url: `http://127.0.0.1:${port}`}, stop};
   } catch {

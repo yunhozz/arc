@@ -109,11 +109,22 @@ const uniformGates = state => Object.fromEntries(Object.keys(writingGates).map(m
 
 const playwrightCondition = 'no host-global Playwright install; isolation unmeasured (MI-B)';
 const browserConditions = {
-  'service.browser-cdp': 'home and ~/Library reads denied (MI-A); files outside home such as /etc remain readable through file://',
+  'service.browser-cdp': 'home and ~/Library reads denied (MI-A); files outside home such as /etc remain readable through file://; concurrent loopback dispatches can connect to the unauthenticated CDP port (R-1)',
   'service.browser-playwright-chromium': playwrightCondition,
   'service.browser-playwright-firefox': playwrightCondition,
   'service.browser-playwright-webkit': playwrightCondition,
 };
+
+function configHasEntry(config, section, entry) {
+  // The installed runtime has no TOML parser. Match both tokens anywhere outside comments.
+  const uncommented = config.replace(/("""(?:\\[\s\S]|[^\\])*?"""|'''[\s\S]*?'''|"(?:[^"\\\r\n]|\\.)*"|'[^'\r\n]*')|#[^\r\n]*/g, (_match, quoted) => {
+    if (!quoted) return '';
+    if (!quoted.startsWith('"')) return quoted;
+    return quoted.replace(/\\(?:u([\da-fA-F]{4})|U([\da-fA-F]{8})|.)/g, (escape, short, long) =>
+      short || long ? String.fromCodePoint(Number.parseInt(short ?? long, 16)) : escape);
+  });
+  return section.test(uncommented) && entry.test(uncommented);
+}
 
 async function codexUserProfileConflict({grants, worktree, homes, io}) {
   if (!grants.mechanisms.includes('codexProfile')) return null;
@@ -130,9 +141,9 @@ async function codexUserProfileConflict({grants, worktree, homes, io}) {
         if (error.code === 'ENOENT') continue;
         return hold;
       }
-      if (/^\s*\[\s*permissions\s*\.\s*"?arc_bridge"?\s*[\].]/m.test(config)
-        || /^\s*permissions\s*\.\s*"?arc_bridge"?\s*[.=]/m.test(config)
-        || (/^\s*\[\s*permissions\s*\]/m.test(config) && /^\s*"?arc_bridge"?\s*[.=]/m.test(config))) return hold;
+      if (configHasEntry(config, /(?<![\w-])permissions(?![\w-])/, /(?<![\w-])arc_bridge(?![\w-])/)) return hold;
+      if (grants.network === 'domains' && configHasEntry(config,
+        /(?<![\w-])shell_environment_policy(?![\w-])/, /(?<![\w-])exclude(?![\w-])/)) return hold;
     }
   } catch { return hold; }
   return null;
@@ -332,8 +343,8 @@ async function lstatIfPresent(filename) {
   }
 }
 
-export async function createScratch({scratch, parent, uid}) {
-  let created = false;
+export async function createScratch({scratch, parent, uid, artifactDir = path.dirname(scratch), fallbackDir, quarantineKey}) {
+  let identity;
   try {
     if (parent) {
       let madeParent = false;
@@ -347,30 +358,82 @@ export async function createScratch({scratch, parent, uid}) {
       if (madeParent) await fsp.chmod(parent, 0o700);
     }
     await fsp.mkdir(scratch, {mode: 0o700});
-    created = true;
+    const stat = await fsp.lstat(scratch);
+    if (!stat.isDirectory() || stat.uid !== uid) throw Error('Scratch directory changed during creation');
+    identity = {dev: stat.dev, ino: stat.ino};
     await fsp.chmod(scratch, 0o700);
     for (const name of ['tmp', 'cache', 'sock', 'evidence']) {
       const directory = path.join(scratch, name);
       await fsp.mkdir(directory, {mode: 0o700});
       await fsp.chmod(directory, 0o700);
     }
+    return identity;
   } catch (error) {
-    if (created) await removeScratch(scratch);
+    if (identity) await removeScratch(scratch, {identity, artifactDir, fallbackDir, quarantineKey});
     throw Object.assign(error, {reasonCode: error.reasonCode ?? 'execution_failed'});
   }
 }
 
-export async function removeScratch(scratch) {
+function verifyQuarantineRoot(stat) {
+  if (!stat?.isDirectory() || stat.uid !== process.geteuid()) throw Error('Unverified quarantine root');
+}
+
+async function hasRetainedQuarantine(root, prefix) {
+  const stat = await lstatIfPresent(root);
+  if (!stat) return false;
+  verifyQuarantineRoot(stat);
+  return (await fsp.readdir(root)).some(name => name.startsWith(prefix));
+}
+
+const quarantinePrefix = (source, key) => key ? `.cleanup-${key}-${path.basename(source)}-` : '.cleanup-';
+
+export async function hasRetainedCleanup(source, {artifactDir, fallbackDir, quarantineKey}) {
+  const prefix = quarantinePrefix(source, quarantineKey);
+  return await hasRetainedQuarantine(artifactDir, prefix)
+    || Boolean(fallbackDir && await hasRetainedQuarantine(fallbackDir, prefix));
+}
+
+async function quarantineAndRemove(source, identity, root, prefix) {
+  if (containsPath(source, root) || !ownedDirectory(await lstatIfPresent(source), identity)) return false;
+  verifyQuarantineRoot(await fsp.lstat(root));
+  const quarantine = await fsp.mkdtemp(path.join(root, prefix));
   try {
-    if (!(await fsp.lstat(scratch)).isDirectory()) return false;
-    await fsp.rm(scratch, {recursive: true, force: false});
+    const moved = path.join(quarantine, 'tree');
+    try { await fsp.rename(source, moved); }
+    catch (error) {
+      if (error.code === 'EXDEV') return 'cross-device';
+      throw error;
+    }
+    if (!ownedDirectory(await fsp.lstat(moved), identity)) return false;
+    await fsp.rm(moved, {recursive: true, force: false});
     return true;
+  } finally {
+    // A moved directory which failed verification stays in the protected quarantine.
+    await fsp.rmdir(quarantine).catch(() => {});
+  }
+}
+
+export async function removeScratch(scratch, options) {
+  const {artifactDir = path.dirname(scratch), fallbackDir, quarantineKey, missingOk = false} = options ?? {};
+  const prefix = quarantinePrefix(scratch, quarantineKey);
+  try {
+    const source = await lstatIfPresent(scratch);
+    if (missingOk && await hasRetainedCleanup(scratch, {artifactDir, fallbackDir, quarantineKey})) return false;
+    if (!source) return missingOk;
+    const identity = options ? options.identity : source;
+    const removed = await quarantineAndRemove(scratch, identity, artifactDir, prefix);
+    if (removed === 'cross-device' && fallbackDir) {
+      return await quarantineAndRemove(scratch, identity, fallbackDir, prefix) === true;
+    }
+    return removed === true;
   } catch {
     return false;
   }
 }
 
 const sameEntry = (a, b) => a && a.dev === b.dev && a.ino === b.ino;
+const sameVersion = (a, b) => sameEntry(a, b) && a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs;
+const ownedDirectory = (stat, identity) => stat?.isDirectory() && stat.uid === process.geteuid() && identity && sameEntry(stat, identity);
 
 async function readEvidenceFile(filename, stat, maxBytes, parentIntact) {
   const source = await fsp.open(filename, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -393,7 +456,7 @@ async function readEvidenceFile(filename, stat, maxBytes, parentIntact) {
   }
 }
 
-export async function collectEvidence({scratch, artifactDir, limits = EVIDENCE_LIMITS}) {
+export async function collectEvidence({scratch, artifactDir, limits = EVIDENCE_LIMITS, identity, recovery = false}) {
   const result = {copied: 0, skipped: [], truncated: false};
   const skip = (relative, truncated = false) => {
     if (result.skipped.length < EVIDENCE_LIMITS.entries) result.skipped.push(relative);
@@ -401,20 +464,53 @@ export async function collectEvidence({scratch, artifactDir, limits = EVIDENCE_L
   };
   const sourceRoot = path.join(scratch, 'evidence');
   const scratchStat = await lstatIfPresent(scratch);
+  if (identity && scratchStat && !ownedDirectory(scratchStat, identity)) throw Error('Scratch directory changed before evidence collection');
   if (!scratchStat?.isDirectory()) return result;
   const sourceStat = await lstatIfPresent(sourceRoot);
   if (!sourceStat) return result;
   if (!sourceStat.isDirectory()) { skip('.'); return result; }
   if (!(await fsp.lstat(artifactDir)).isDirectory()) throw Error('Evidence artifact directory is not a directory');
-  const destinationRoot = path.join(artifactDir, 'evidence');
+  let destinationRoot = path.join(artifactDir, 'evidence');
+  let verifyExisting = false;
+  const unverified = () => Error('Existing recovery evidence could not be verified');
+  const verifyDirectory = async filename => {
+    const stat = await lstatIfPresent(filename);
+    if (!stat?.isDirectory() || stat.uid !== process.geteuid()) throw unverified();
+  };
   const makeDirectory = async filename => {
     await fsp.mkdir(filename, {mode: 0o700});
     await fsp.chmod(filename, 0o700);
   };
-  await makeDirectory(destinationRoot);
+  if (recovery) {
+    const copies = (await fsp.readdir(artifactDir)).filter(name => name.startsWith('evidence-recovery-'));
+    if (copies.length > 1) throw unverified();
+    if (copies.length === 1) {
+      destinationRoot = path.join(artifactDir, copies[0]);
+      verifyExisting = true;
+    }
+  }
+  if (!verifyExisting) {
+    try { await makeDirectory(destinationRoot); }
+    catch (error) {
+      if (!recovery || error.code !== 'EEXIST') throw error;
+      // An exclusive fixed name also prevents concurrent recovery from creating extra copies.
+      destinationRoot = path.join(artifactDir, 'evidence-recovery-1');
+      try { await makeDirectory(destinationRoot); }
+      catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        verifyExisting = true;
+      }
+    }
+  }
+  if (verifyExisting) await verifyDirectory(destinationRoot);
+  const compareSource = verifyExisting ? sameVersion : sameEntry;
   let visited = 0, totalBytes = 0;
   const walk = async (directory, stat, parentIntact, depth) => {
-    const intact = async () => await parentIntact() && sameEntry(await lstatIfPresent(directory), stat);
+    const intact = async () => {
+      const matches = await parentIntact() && compareSource(await lstatIfPresent(directory), stat);
+      if (verifyExisting && !matches) throw unverified();
+      return matches;
+    };
     if (!await intact()) return;
     const names = (await fsp.readdir(directory)).sort();
     if (!await intact()) return;
@@ -429,7 +525,7 @@ export async function collectEvidence({scratch, artifactDir, limits = EVIDENCE_L
       if (depth > limits.depth) { skip(relative, true); return; }
       const entry = await lstatIfPresent(source);
       if (entry?.isDirectory()) {
-        await makeDirectory(destination);
+        await (verifyExisting ? verifyDirectory(destination) : makeDirectory(destination));
         await walk(source, entry, intact, depth + 1);
         if (result.truncated) return;
       } else if (entry?.isFile()) {
@@ -438,18 +534,27 @@ export async function collectEvidence({scratch, artifactDir, limits = EVIDENCE_L
         const {bytes, truncated} = await readEvidenceFile(source, entry, maxBytes, intact);
         if (truncated) { skip(relative, true); return; }
         if (!bytes) { skip(relative); continue; }
-        const output = await fsp.open(destination, 'wx', 0o600);
-        try {
-          await output.writeFile(bytes);
-          await output.chmod(0o600);
-        } finally { await output.close(); }
+        if (verifyExisting) {
+          const copy = await lstatIfPresent(destination);
+          if (!copy?.isFile() || copy.uid !== process.geteuid() || copy.size !== bytes.length) throw unverified();
+          const {bytes: copied} = await readEvidenceFile(destination, copy, bytes.length, intact);
+          if (!copied?.equals(bytes) || !sameVersion(await lstatIfPresent(source), entry)) throw unverified();
+        } else {
+          const output = await fsp.open(destination, 'wx', 0o600);
+          try {
+            await output.writeFile(bytes);
+            await output.chmod(0o600);
+          } finally { await output.close(); }
+        }
         totalBytes += bytes.length;
         result.copied++;
       } else {
         skip(relative);
       }
     }
+    if (verifyExisting) await intact();
   };
   await walk(sourceRoot, sourceStat, async () => sameEntry(await lstatIfPresent(scratch), scratchStat), 1);
+  if (verifyExisting && (result.truncated || result.skipped.length)) throw unverified();
   return result;
 }

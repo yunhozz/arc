@@ -1,6 +1,6 @@
 # bridge 역할 sandbox 도구 접근 spec
 
-- 상태: v1.5 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3·T4·T5 측정 결과 반영, 개정 이력 참조)
+- 상태: v1.6 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3·T4·T5 측정 결과 + 최종 Reviewer 보정 반영, 개정 이력 참조)
 - workflow: `2026-11-24-bridge-sandbox-tool-access`
 - 대상: `/Users/ma-24-007/Desktop/workspace/arc/.claude/worktrees/bridge-sandbox-tool-access`, `fix/bridge-sandbox-tool-access`, base `6244a8af`
 - 경로·깊이·위험: Architectural, Architectural plan, high
@@ -158,7 +158,7 @@ bridge 역할은 플랫폼 OS sandbox(macOS Seatbelt) 안에서 돈다. 이 sand
      - lstat 기준 정규 파일과 디렉터리만 복사한다. symlink, socket, FIFO, device는 건너뛰고 기록한다.
      - 경로 탈출을 거부한다.
      - 상한: 전체 64 MiB, 파일당 16 MiB, 항목 256개, 깊이 8. 넘으면 남은 항목을 건너뛰고 `truncated:true`로 둔다.
-  2. 그다음 `<S>`를 no-follow로 재귀 삭제한다.
+  2. 그다음 `<S>`를 격리 위치로 rename하고 dev/ino·uid를 다시 확인한 뒤 재귀 삭제한다. 원래 경로에서 재귀 삭제하지 않는다(N2). 격리 위치는 dispatch artifact 디렉터리이고, 볼륨이 달라 EXDEV면 anchor home의 `arc-role-dispatch/`를 쓴다. 둘 다 실패하면 삭제하지 않고 경고를 남긴다.
   3. 실패하면 경고로만 기록한다(`scratch.removed:false`). terminal 상태는 바꾸지 않는다.
 - 결과 레코드: `toolAccess.scratch = {path, removed}`, `toolAccess.evidence = {copied, skipped, truncated}`
 
@@ -273,6 +273,10 @@ exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_r
   - 저장소 코드를 실행하지 않는다. worktree의 `node_modules`는 import하지 않는다.
   - 수명은 dispatch와 같다. 시작은 scratch 생성 뒤, CLI spawn 전이다.
   - 종료는 모든 terminal 경로에서 한다: SIGTERM group → `CANCEL_GRACE_MS` → SIGKILL → 디렉터리 삭제. 실패하면 경고만 남긴다(D-e).
+    - 이미 종료된 서비스의 process group이 남아 있지 않으면 신호를 보내지 않는다(PID 재사용 방지).
+    - supervisor가 비정상 종료한 경우에 대비해, 서비스 pid·pgid·startTime을 lease에 묶인 artifact 기록으로 남긴다. supervisor가 없는 dispatch를 정리하는 경로(cancel, observe의 `unknown` 판정)는 기록을 검증하고 supervisor가 없음을 다시 확인한 뒤 서비스를 회수하고, `evidence/`를 복사한 다음 hostDir·scratch를 삭제한다. role child group이 남아 있으면 삭제를 보류하고 경고를 남긴다.
+    - 삭제는 정상 정리와 회수 모두 4.1 정리 2단계의 격리 규칙을 따른다. 격리 뒤 삭제에 실패한 잔존물이 있으면 회수를 다시 시도해도 `ok`로 바꾸지 않고 경고를 유지한다. 정상 정리가 남긴 `evidence/`가 있으면 회수는 복구 사본 이름으로 따로 복사한다. 기존 복구 사본이 있으면 다시 복사하지 않고 현재 evidence와 대조하며, 확인할 수 없으면 삭제를 보류하고 경고를 남긴다.
+    - hostDir 생성 직후 확인에서 디렉터리·uid가 다르면 서비스를 시작하지 않고 `execution_failed`다. 검증에 실패하면 회수하지 않고 경고를 남긴다. 서비스가 준비됐는데 회수 기록만 실패하면 실행을 계속하고 `toolAccess.hostServiceRecovery: "warning"`을 남긴다(시작 실패만 `execution_failed`).
   - host 디렉터리: `/private/tmp/arc-host-<id8>/<service>/`, 0700
     - Codex profile에 `"read"`로 넣어 역할이 쓰지 못하게 한다.
     - Claude는 원래 그 경로에 쓸 수 없다.
@@ -294,7 +298,10 @@ exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_r
   (deny file-read* file-write* (subpath "<H>"))
   (deny process-exec (regex #"GoogleUpdater"))
   (allow file-read* file-write* (subpath "<realpath udd>"))
+  (deny network-outbound)
+  (allow network-outbound (remote ip "localhost:*"))
   ```
+  - network 두 줄: CDP 클라이언트는 `Target.createBrowserContext`의 `proxyServer`로 `--proxy-server`를 우회할 수 있다(R-1 측정). 외부 차단은 proxy 인자가 아니라 sandbox profile이 맡는다. unix socket은 열지 않는다. 열면 docker 같은 host socket(10.4 금지)과 mDNSResponder를 통한 DNS 질의가 가능해진다(N1 측정).
   - `~/Library` 읽기 허용은 필요 없었다(MI-A). 홈 아래 읽기는 모두 거부된다.
   - `--use-mock-keychain`이 없으면 Chrome이 Keychain 접근에서 멈췄다(MI-A).
   - port는 `<udd>/DevToolsActivePort`에서 읽는다. 대기 상한은 `PROBE_TIMEOUT_MS`다.
@@ -388,7 +395,7 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 | `paths` | pass (id 0개) | pass (id 0개) | unmeasured | held | B13 |
 | `network.domains` | conditional (proxy 미준수 도구 실패) | conditional (proxy 미준수 도구 실패. Read 도구 거부 MI-7, 디렉터리 denyRead MI-9 확인) | unmeasured | held | B2·B6·B7, MI-6·MI-7·MI-9 |
 | `network.full` | held (domains 가능, D-d) | held (domains 가능, D-d) | unmeasured | held | SX1(Codex는 `network.enabled`로 전부 열림) |
-| `service.browser-cdp` | conditional (홈·`~/Library` 읽기 거부. 홈 밖 파일(`/etc` 등)은 file://로 읽힘, MI-A) | conditional (같음) | unmeasured | held | SX4·SC3·SX7, MI-A |
+| `service.browser-cdp` | conditional (홈·`~/Library` 읽기 거부. 홈 밖 파일(`/etc` 등)은 file://로 읽힘. CDP 포트는 인증이 없어 같은 시각의 다른 loopback dispatch가 접속할 수 있음. MI-A, R-1) | conditional (같음) | unmeasured | held | SX4·SC3·SX7, MI-A, R-1 |
 | `service.browser-playwright-*` | held (host 전역 Playwright 없음, 격리 미측정 MI-B) | held (같음) | unmeasured | held | B10·B11, MI-B |
 
 - 프로세스 조회(B8)와 recursive `fs.watch`(B9)는 gate가 아니다. 범주 처리(M7, polling)로 다룬다.
@@ -400,7 +407,8 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 |---|---|---|
 | Codex profile 전환 | `.git`·`.codex` 보호가 사라진다(B1 실측) | R1 보호 항목 강제(없으면 throw), 테스트 고정, MI-3 common dir 측정, 실행 뒤 제어 파일 대조 유지 |
 | Codex `exec` 경로 | 측정은 `codex sandbox`였다. exec에서 플래그 거부나 다른 동작이 있을 수 있다 | MI-1을 T3 첫 단계로 둔다. 실패하면 Codex 부여 gate를 held로 둔다 |
-| Codex `-c` 병합 | 사용자 `permissions.arc_bridge` 정의가 섞일 수 있다 | 충돌 시 `permission_scope_unverified`, MI-2 |
+| Codex `-c` 병합 | 사용자 `permissions.arc_bridge` 정의가 섞일 수 있다 | 충돌 시 `permission_scope_unverified`, MI-2. inline table·따옴표 형식 등 판별이 애매한 정의도 hold 쪽으로 판정한다 |
+| Codex domains env 정리 | `-c shell_environment_policy.exclude=[...]`는 사용자 설정의 exclude 목록을 대체한다(R-6 측정). 사용자가 제외해 둔 env가 domains dispatch에 드러난다 | 사용자·프로젝트 Codex 설정에 `shell_environment_policy.exclude`가 있으면 domains 요청을 `permission_scope_unverified`로 hold한다 |
 | Codex 관측 | profile mode의 `sandbox_policy.type`이 다르면 permission claim이 약해진다 | MI-1에서 상수 기록. 실패하면 claim `unverified`를 결과에 드러낸다 |
 | loopback | Codex는 포트를 한정할 수 없어 localhost의 모든 서비스(host DB 등)에 닿는다 | 요청 dispatch만, 역할 표 제한, docker 등 socket은 M5, 문서 명시 |
 | Implementer loopback | Implementer가 로컬 서비스에 쓰기 요청을 보낼 수 있다 | 요청 기반, 외부망 없음(D-h), 문서 명시 |
@@ -408,10 +416,10 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 | Claude Read 도구 | sandbox `denyRead`는 Bash에만 적용된다. Read 도구로 비밀을 읽어 Bash로 내보낼 수 있다 | `permissions.deny` Read 규칙 추가, MI-7 통과 전까지 Claude domains는 conditional. 실패하면 held |
 | Claude env | `""`는 삭제가 아니라 빈 값이다. CLI 자신의 인증 env가 비면 실패할 수 있다 | MI-6, 문서 명시 |
 | Codex domains | npm처럼 proxy를 따르지 않는 도구가 실패한다 | 한계로 문서화. 설치는 M7 |
-| browser-cdp | host 권한 일부를 위임한다. `~/Library` 읽기, `file:///etc/hosts` 읽기, `(allow default)` 아래 proxy 밖 통신(WebRTC 등) 가능성 | sandbox-exec 격리, 임시 프로필, proxy 외부 차단, 수명 제한, MI-A 축소, 결과 기록 |
+| browser-cdp | host 권한 일부를 위임한다. 홈 밖 파일(`file:///etc/hosts` 등) 읽기. CDP로 context별 proxy를 바꿔 proxy를 우회할 수 있다(R-1). CDP 포트에 인증이 없어 같은 시각의 다른 loopback dispatch(Implementer 포함)가 접속해 조종할 수 있다 | sandbox-exec 격리(홈 읽기 거부, 외부 network-outbound 거부), 임시 프로필, 수명 제한, crash 뒤 회수, 결과 기록. 다른 dispatch의 접속은 한계로 문서화하고, 접속 주체 제한은 후속 설계로 둔다 |
 | browser-playwright | 격리 미측정, 버전 불일치 | MI-B 통과 전 conditional. host 설치본만 사용(저장소 코드 비실행) |
 | host 디렉터리 | 역할이 Chrome 프로필을 조작할 수 있다 | Codex `"read"` 항목, Claude는 원래 쓰기 불가 |
-| scratch | `/tmp` 아래 예측 가능한 이름 | 비재귀 mkdir + 0700. 기존 경로가 있으면 실패 |
+| scratch | `/tmp` 아래 예측 가능한 이름. 같은 시각의 다른 쓰기 dispatch가 이 dispatch의 `evidence/`나 hostDir에 쓸 수 있다(`/tmp`가 쓰기 가능하므로) | 비재귀 mkdir + 0700. 기존 경로가 있으면 실패. evidence는 역할이 제공한 것이며 무결성을 보장하지 않는다고 문서화한다 |
 | 저장소 밖 쓰기 | post-run 검사로 감지할 수 없다 | 문서에 감지 한계로 명시 |
 | always-on env | 모든 쓰기 dispatch의 args가 바뀐다 | 키·값 고정 데이터, 바이트 테스트 |
 | `Write(./.git/**)` 제거 | 보호가 약해진 것으로 보일 수 있다 | 측정 근거 주석, MI-4 live 확인 |
@@ -522,6 +530,15 @@ T5 측정 (Chrome 158.0.8127.37, scratch 저장소, 홈 probe 파일은 측정 �
 | MI-B | 측정 불가. host 전역 `playwright`·`playwright-core`가 없다(Q1에 따라 설치하지 않음) | Playwright 세 gate `held`, launcher·profile 방어용 throw |
 | AC9 live (구성 요소) | pass. 실제 worktree 모듈과 Chrome·CLI로 Codex Tester(profile mode B argv)와 Claude Tester(`buildClaudeArgs` settings)가 `services.json` endpoint, `/json/version`, localhost 페이지, 스크린샷, 외부 차단, `~/.gitconfig` 차단을 모두 확인했다. 한계: scratch·hostDir 삭제는 harness가 직접 호출했다. Claude는 `ARC_*` env를 프로세스 env에도 넣어 settings만의 전달은 입증하지 않았다. supervisor 전체 dispatch live는 머지·설치 뒤 확인한다(사용자 결정, O3 경로는 설치 marker runtime 해시 불일치로 `activation_unverified`) | 정리 순서는 supervisor 연결 테스트로 고정 |
 - 발견(후속): Claude Bash의 `TMPDIR`는 settings env와 달리 `/tmp/claude-<uid>`로 강제된다. Claude Tester는 Write 도구가 없어 Bash heredoc 스크립트가 CLI 명령 검증기에 막힌다.
+
+최종 Reviewer 지적 측정 (2026-11-24, Chrome 158.0.8127.37, codex-cli 0.170.0)
+
+| ID | 결과 | 구현 반영 |
+|---|---|---|
+| R-1 | 확인. v1.5 profile로 띄운 browser-cdp에서 기본 context는 example.com 차단, `Target.createBrowserContext({proxyServer:"direct://"})`와 proxy를 비운 context는 example.com이 열렸다. profile에 network 두 줄(4.6)을 더하면 3회 반복 모두 두 context 차단, 기본 context 차단, localhost 페이지·스크린샷 성공, 홈 파일 거부 | `chrome.sb`에 network 두 줄, gate 조건 문구에 CDP 접속 한계 추가 |
+| N1 | 확인. sandbox-exec + 더미 소켓으로 비교했다. `(remote unix-socket)` 허용이 있으면 임의 unix socket 연결과 DNS 질의가 성공하고 TCP만 거부됐다. 허용이 없으면 unix socket, DNS, TCP가 모두 거부됐다 | unix socket 허용 줄을 넣지 않음 |
+| N2 | 재현되지 않음. Node v22.21.0 `fsp.rm(recursive)`와 symlink 교체를 300회 경합시켰고 대상 밖 삭제는 0회였다. 안전하다는 증명은 아니다 | 역할이 쓸 수 없는 위치로 rename한 뒤 삭제 |
+| R-6 | 확인. scratch `CODEX_HOME`의 `[shell_environment_policy] exclude=["ARC_PROBE_USER"]`가 단독일 때는 제거되고, `-c shell_environment_policy.exclude=["ARC_PROBE_CLI"]`를 함께 주면 `ARC_PROBE_USER`가 다시 보였다(대체). `codex sandbox`로 측정 | 사용자·프로젝트 설정에 exclude가 있으면 domains hold |
 
 ## 9. 수용 기준
 
@@ -649,3 +666,4 @@ T5 측정 (Chrome 158.0.8127.37, scratch 저장소, 홈 probe 파일은 측정 �
 - v1.3 (2026-11-24, T3 수용): 8.2 구현 단계 측정 결과(MI-C, MI-1, MI-2, MI-3, MI-9 Codex) 추가. 4.4에 후보 B 채택 표기, 6장 `codexProfile` 근거 갱신, 8.1 결과 기록 위치를 8.2로 정정(plan O6)
 - v1.4 (2026-11-24, T4 수용): 8.2에 T4 측정(MI-4–9 Claude) 추가, 6장 Claude `network.domains` 근거 갱신(plan O6)
 - v1.5 (2026-11-24, T5 수용): 4.6 `chrome.sb`를 MI-A 확정 형식으로 바꾸고 `--use-mock-keychain` 추가, MI-B 측정 불가 기록, 6장 `service.*` 행 갱신, 8.2에 T5 측정(MI-A, MI-B, AC9 구성 요소 live) 추가(plan O6)
+- v1.6 (2026-11-24, 최종 Reviewer 보정): R-1(CDP proxy 우회) 측정으로 `chrome.sb`에 network-outbound 거부 추가, crash 뒤 서비스 회수, 종료된 group 신호 생략, R-6(exclude 대체) 측정으로 domains hold, 사용자 `arc_bridge` 판정 강화, 7장 위험(CDP 접속, evidence 무결성) 갱신, 6장 `service.browser-cdp` 조건 갱신, 8.2 측정 추가, N1(unix socket 허용 제거)·N2(격리 뒤 삭제) 측정과 규칙, 4.1 정리 2단계 갱신
