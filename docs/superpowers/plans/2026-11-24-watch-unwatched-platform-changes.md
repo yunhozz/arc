@@ -116,6 +116,19 @@
   - 실패는 위 실패 판정 방법으로 분류한다.
   - C1–C7마다 proven, unmet, unverified 중 하나와 근거를 적는다.
 
+- 진행 기록 (2026-11-24)
+  - Implementer `9e29ff8a` (Codex bridge)
+    - 첫 RED에서 R1, R3, R4가 새 테스트 fixture 문제로 실패해 hold했다.
+    - 재개 1에서 fixture를 보정했다. 재-RED는 R1, R2만 양방향으로 실패했다.
+    - GREEN 뒤 watcher 테스트 176개가 통과했다.
+    - README 의존 테스트는 `release-artifact`, `native-loader`, `release-artifact-process` 세 파일로 확정했다.
+    - MANIFEST는 해시 두 개만 바뀌었다. R4b는 기존 inferred 출력으로 관찰했다.
+  - Tester `1e2cce48` (task mode)
+    - 첫 brief에 `mode`가 빠져 검증을 보류했고, 재개 1에서 `mode: task`를 넣어 검증했다.
+    - 관련 테스트 362개가 통과했고 `check:manifest`도 통과했다. C1–C7은 모두 proven이다.
+    - C5는 R4b가 hidden 수를 직접 세지 않아 cap 코드 대조로 보완했다.
+  - Orchestrator가 수락했다.
+
 ## 최종 검증 (T1 수락·커밋 뒤, fresh Tester 1회)
 
 - verified HEAD에서 한다. 시작과 끝의 `git status --porcelain`이 clean이 아니면 보류한다.
