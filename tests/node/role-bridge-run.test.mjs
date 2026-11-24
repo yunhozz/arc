@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-import {spawn, spawnSync} from 'node:child_process';
+import childProcess, {spawn, spawnSync} from 'node:child_process';
 import {createRoutingFixture, FAKE_CODEX_APP_SERVER} from './role-fixtures.mjs';
 import {ORIGINAL_PATH, psAvailable, realPs, withPath, writeFailingPs} from './fixtures/ps-stub.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
@@ -16,6 +16,7 @@ import {buildBridgeInvocation, runSupervisor, startSupervisor, processAlive, pro
 import {runWorkflowCommand} from '../../lib/runtime/command.mjs';
 import {argsDigest, parseCompositeProfile} from '../../lib/runtime/role-bridge-args.mjs';
 import * as scratchApi from '../../lib/runtime/tool-access.mjs';
+import {startHostService} from '../../lib/runtime/host-service.mjs';
 import {render as renderGrok, renameForRouting as renameGrok} from '../../lib/platforms/formats/grok-markdown.mjs';
 
 const TERMINAL = ['completed', 'failed', 'cancelled'];
@@ -788,6 +789,150 @@ test('scratch exists during the child and is removed after completion', async t 
   assert.equal(await fs.readFile(path.join(dirOf(f, dispatchId), 'evidence', 'child.txt'), 'utf8'), 'from child');
   assert.equal(record.argsDigest, (await readLease(f.claudeHome, dispatchId)).argsDigest);
   await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+});
+
+async function serviceDispatch(t, {startFails = false, cleanupFails = false, fakeServices = [], failedService} = {}) {
+  const f = await setup(t, {roles: {arc_tester: 'codex'}});
+  const service = 'browser-cdp';
+  const endpoint = {port: 41999, url: 'http://127.0.0.1:41999'};
+  const access = fs.access;
+  t.mock.method(fs, 'access', (filename, ...args) => {
+    if (filename === '/usr/bin/sandbox-exec' || filename === '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') return Promise.resolve();
+    return access(filename, ...args);
+  });
+  let policy = policyWith();
+  if (fakeServices.length) {
+    const toolAccessGates = {...scratchApi.TOOL_ACCESS_GATES};
+    for (const id of fakeServices) {
+      const mechanism = `service.${id}`;
+      toolAccessGates[mechanism] = {...toolAccessGates[mechanism], codex: 'conditional'};
+    }
+    policy = policyWith({toolAccessGates});
+    const globalRoot = path.join(f.base, 'global-modules');
+    await fs.mkdir(path.join(globalRoot, 'playwright'), {recursive: true});
+    await fs.writeFile(path.join(globalRoot, 'playwright', 'package.json'), '{"version":"1.2.3"}');
+    const spawnSync = childProcess.spawnSync;
+    t.mock.method(childProcess, 'spawnSync', (command, args, options) =>
+      command === 'npm' && args.join(' ') === 'root -g'
+        ? {status: 0, stdout: globalRoot + '\n', stderr: ''}
+        : spawnSync(command, args, options));
+  }
+  const toolAccess = {network: null, domains: [], unixSockets: [], paths: [], services: [service, ...fakeServices], envPresets: []};
+  const {dispatchId} = await prepare(f, 'arc_tester', {extra: {toolAccess}, policy});
+  const scratch = `/private/tmp/arc-bridge-${dispatchId.slice(0, 8)}`;
+  const hostDir = `/private/tmp/arc-host-${dispatchId.slice(0, 8)}`;
+  await f.codex.setScenario(codexOk(f, 181, {}, {sandbox: 'workspace-write'}));
+  const started = await run(f, dispatchId, 'host service test', {startSupervisor: startInProcess(f), policy});
+  assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
+
+  const events = [];
+  const scratchIo = {
+    create: scratchApi.createScratch,
+    collect(input) {
+      events.push('collect');
+      return scratchApi.collectEvidence(input);
+    },
+    remove(filename) {
+      events.push('remove scratch');
+      return scratchApi.removeScratch(filename);
+    },
+  };
+  const endpoints = {[service]: endpoint};
+  for (const id of fakeServices) endpoints[id] = {wsEndpoint: `ws://127.0.0.1:42000/${id}`, version: '1.2.3'};
+  const hostServiceIo = {
+    spawn(_executable, args, options) {
+      events.push('start service');
+      if (startFails) throw Error('fixture start failure');
+      const dirArg = args.find(arg => arg.startsWith('--user-data-dir='));
+      const portFile = path.join(dirArg.slice('--user-data-dir='.length), 'DevToolsActivePort');
+      const script = "require('node:fs').writeFileSync(process.argv[1], '41999\\n'); setInterval(() => {}, 1000);";
+      return spawn(process.execPath, ['-e', script, portFile], options);
+    },
+    kill(pid, signal) {
+      if (signal === 'SIGTERM') events.push('stop service');
+      return process.kill(pid, signal);
+    },
+    sleep: ms => sleep(Math.min(ms, 30)),
+    async removeDir(dir) {
+      await fs.rm(dir, {recursive: true});
+      if (dir === hostDir) events.push('remove host dir');
+      else if (cleanupFails) throw Error('fixture cleanup failure');
+    },
+  };
+  if (fakeServices.length) {
+    hostServiceIo.start = async input => {
+      const {id} = input;
+      if (id === service) return startHostService(input);
+      assert.ok(fakeServices.includes(id));
+      events.push(`start ${id}`);
+      if (id === failedService) throw Error('fixture start failure');
+      return {id, started: true, endpoint: endpoints[id], stop: async () => {
+        events.push(`stop ${id}`);
+        return 'ok';
+      }};
+    };
+  }
+  const afterSpawn = async () => {
+    events.push('spawn CLI');
+    assert.deepEqual(JSON.parse(await fs.readFile(path.join(scratch, 'services.json'), 'utf8')), endpoints);
+  };
+  await runSupervisor({codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome,
+    env: f.env, scratchIo, hostServiceIo, afterSpawn, heartbeatMs: 50, graceMs: 100, policy});
+  return {f, scratch, hostDir, endpoint, events, record: await recordOf(f, dispatchId)};
+}
+
+test('services start before spawn and stop before scratch removal', async t => {
+  const {scratch, hostDir, endpoint, events, record} = await serviceDispatch(t);
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  assert.deepEqual(events, ['start service', 'spawn CLI', 'stop service', 'collect', 'remove scratch', 'remove host dir']);
+  assert.deepEqual(record.toolAccess.hostServices, [{id: 'browser-cdp', started: true, endpoint, cleanup: 'ok'}]);
+  await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+  await assert.rejects(fs.lstat(hostDir), {code: 'ENOENT'});
+});
+
+test('service start failure is execution_failed without spawn', async t => {
+  const {f, scratch, hostDir, events, record} = await serviceDispatch(t, {startFails: true});
+  assert.equal(record.state, 'failed');
+  assert.deepEqual(record.reasons, ['execution_failed']);
+  assert.equal(record.spawned, false);
+  assert.deepEqual(await records(f.codex), []);
+  assert.deepEqual(events, ['start service', 'collect', 'remove scratch', 'remove host dir']);
+  await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+  await assert.rejects(fs.lstat(hostDir), {code: 'ENOENT'});
+});
+
+test('service cleanup warning keeps completed state', async t => {
+  const {endpoint, record} = await serviceDispatch(t, {cleanupFails: true});
+  assert.equal(record.state, 'completed');
+  assert.deepEqual(record.reasons, []);
+  assert.deepEqual(record.toolAccess.hostServices, [{id: 'browser-cdp', started: true, endpoint, cleanup: 'warning'}]);
+});
+
+test('multiple host services stop in reverse order before evidence and directory cleanup', async t => {
+  const {scratch, hostDir, events, record} = await serviceDispatch(t, {fakeServices: ['browser-playwright-chromium']});
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  assert.deepEqual(events, [
+    'start service', 'start browser-playwright-chromium', 'spawn CLI',
+    'stop browser-playwright-chromium', 'stop service', 'collect', 'remove scratch', 'remove host dir',
+  ]);
+  await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+  await assert.rejects(fs.lstat(hostDir), {code: 'ENOENT'});
+});
+
+test('later host service start failure stops prior services in reverse order without spawning CLI', async t => {
+  const {f, scratch, hostDir, events, record} = await serviceDispatch(t, {
+    fakeServices: ['browser-playwright-chromium', 'browser-playwright-firefox'], failedService: 'browser-playwright-firefox',
+  });
+  assert.equal(record.state, 'failed');
+  assert.deepEqual(record.reasons, ['execution_failed']);
+  assert.equal(record.spawned, false);
+  assert.deepEqual(await records(f.codex), []);
+  assert.deepEqual(events, [
+    'start service', 'start browser-playwright-chromium', 'start browser-playwright-firefox',
+    'stop browser-playwright-chromium', 'stop service', 'collect', 'remove scratch', 'remove host dir',
+  ]);
+  await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+  await assert.rejects(fs.lstat(hostDir), {code: 'ENOENT'});
 });
 
 test('Codex fake child receives env set items and argsDigest matches across run and supervisor', async t => {

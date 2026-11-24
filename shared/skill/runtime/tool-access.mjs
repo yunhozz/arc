@@ -2,6 +2,7 @@ import path from 'node:path';
 import {constants} from 'node:fs';
 import fsp from 'node:fs/promises';
 import {resolveWorktree} from './role-observe.mjs';
+import {hostDirFor, hostServicePreflight} from './host-service.mjs';
 
 function deepFreeze(value) {
   for (const child of Object.values(value)) {
@@ -97,18 +98,18 @@ const writingGates = {
   'network.domains': 'conditional',
   // Codex 0.170.0 / Claude 2.1.327, 2026-11-24, T0·T0b SX1
   'network.full': 'held',
-  // Codex 0.170.0 / Claude 2.1.327, 2026-11-24, T0·T0b SX4, SC3, SX7
+  // Chrome 158.0.8127.37, 2026-11-24, MI-A
   'service.browser-cdp': 'conditional',
-  // Codex 0.170.0 / Claude 2.1.327, 2026-11-24, T0·T0b B10, B11
-  'service.browser-playwright-chromium': 'conditional',
-  'service.browser-playwright-firefox': 'conditional',
-  'service.browser-playwright-webkit': 'conditional',
+  // Chrome 158.0.8127.37, 2026-11-24, MI-B
+  'service.browser-playwright-chromium': 'held',
+  'service.browser-playwright-firefox': 'held',
+  'service.browser-playwright-webkit': 'held',
 };
 const uniformGates = state => Object.fromEntries(Object.keys(writingGates).map(mechanism => [mechanism, state]));
 
-const playwrightCondition = 'host Playwright server isolation pending MI-B';
+const playwrightCondition = 'no host-global Playwright install; isolation unmeasured (MI-B)';
 const browserConditions = {
-  'service.browser-cdp': 'host Chrome reads ~/Library (SX7); narrowing pending MI-A',
+  'service.browser-cdp': 'home and ~/Library reads denied (MI-A); files outside home such as /etc remain readable through file://',
   'service.browser-playwright-chromium': playwrightCondition,
   'service.browser-playwright-firefox': playwrightCondition,
   'service.browser-playwright-webkit': playwrightCondition,
@@ -167,7 +168,7 @@ export const TOOL_ACCESS_ADAPTERS = deepFreeze({
     },
     scratchRoot: ({id8}) => `/private/tmp/arc-bridge-${id8}`,
     extraMechanisms: grants => (grants.network !== null || grants.paths.length || grants.unixSockets.length) ? ['codexProfile'] : [],
-    preflight: [codexUserProfileConflict],
+    preflight: [codexUserProfileConflict, checkHostServices],
   },
   claude: {
     ...noAdapter,
@@ -186,11 +187,15 @@ export const TOOL_ACCESS_ADAPTERS = deepFreeze({
     },
     scratchRoot: ({id8, uid}) => `${claudeScratchParent({uid})}/arc-bridge-${id8}`,
     scratchParent: claudeScratchParent,
-    preflight: [claudeAllowWriteDirsExist],
+    preflight: [claudeAllowWriteDirsExist, checkHostServices],
   },
   grok: {...noAdapter, gates: uniformGates('unmeasured')},
   gemini: {...noAdapter, gates: uniformGates('held')},
 });
+
+function checkHostServices({grants, io}) {
+  return hostServicePreflight({services: grants.services ?? [], io});
+}
 
 function mechanismView(field) {
   const view = {};
@@ -302,13 +307,22 @@ export function buildToolContext({platform, role, dispatchId, toolAccess, uid, u
   const adapter = TOOL_ACCESS_ADAPTERS[platform];
   const scratch = adapter.scratchRoot({id8: dispatchId.replaceAll('-', '').slice(0, 8), uid});
   const forbidden = resolveForbidden({worktree, userHome, homes, env});
+  const hostDir = grants.services.length ? hostDirFor(dispatchId) : null;
+  if (hostDir && forbidden.write.some(({path: filename}) => containsPath(filename, hostDir) || containsPath(hostDir, filename))) {
+    throw Object.assign(Error('Host service directory overlaps a protected path'), {reasonCode: 'permission_scope_unverified'});
+  }
   const {conditions} = toolAccessReasons({platform, role, route: 'bridge', toolAccess, policy});
   const secretPatterns = grants.network === 'domains' ? forbidden.envWhenExternal.map(glob => new RegExp(`^${glob.replaceAll('*', '.*')}$`)) : [];
   return {
     scratch, parent: adapter.scratchParent?.({uid}) ?? null, env: renderEnv(grants.envPresets, scratch), grants, forbidden,
     secretEnvNames: envNames.filter(name => secretPatterns.some(pattern => pattern.test(name))).sort(),
-    hostDir: null, worktree, gitDir, gitCommonDir, conditions,
+    hostDir, worktree, gitDir, gitCommonDir, conditions,
   };
+}
+
+function containsPath(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
 }
 
 async function lstatIfPresent(filename) {

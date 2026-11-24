@@ -31,6 +31,12 @@ const codexContext = (role, worktree, access) => buildToolContext({
 const envItems = context => context.env.flatMap(([key, value]) => ['-c', `shell_environment_policy.set.${key}=${JSON.stringify(value)}`]);
 const codexInput = {role: 'arc_tester', profile: codexProfile('arc_tester'), worktree: '/w', resultPath: '/result'};
 const loopbackContext = () => codexContext(codexInput.role, codexInput.worktree, toolAccess({network: 'loopback'}));
+
+test('Codex services grant adds host dir read entry after protection entries', () => {
+  const toolContext = codexContext(codexInput.role, codexInput.worktree, toolAccess({services: ['browser-cdp']}));
+  const args = buildCodexArgs({...codexInput, toolContext});
+  assert.ok(args.includes('permissions.arc_bridge.filesystem={"/w/.git"="read","/w/.codex"="read","/private/tmp/arc-host-01234567"="read"}'));
+});
 const claudeScratch = '/private/tmp/claude-501/arc-bridge-01234567';
 const claudeContext = (role, access, envNames, homes = {claude: '/config/claude'}) => buildToolContext({
   platform: 'claude', role, dispatchId: '01234567-1111-4111-8111-111111111111', uid: 501,

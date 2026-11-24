@@ -1,6 +1,6 @@
 # bridge 역할 sandbox 도구 접근 spec
 
-- 상태: v1.4 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3·T4 측정 결과 반영, 개정 이력 참조)
+- 상태: v1.5 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3·T4·T5 측정 결과 반영, 개정 이력 참조)
 - workflow: `2026-11-24-bridge-sandbox-tool-access`
 - 대상: `/Users/ma-24-007/Desktop/workspace/arc/.claude/worktrees/bridge-sandbox-tool-access`, `fix/bridge-sandbox-tool-access`, base `6244a8af`
 - 경로·깊이·위험: Architectural, Architectural plan, high
@@ -284,17 +284,19 @@ exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_r
   ```
   sandbox-exec -f <hostdir>/chrome.sb "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     --headless=new --remote-debugging-address=127.0.0.1 --remote-debugging-port=0 --user-data-dir=<hostdir>/udd
-    --no-first-run --no-default-browser-check --disable-extensions --no-sandbox --disable-gpu
+    --no-first-run --no-default-browser-check --disable-extensions --use-mock-keychain --no-sandbox --disable-gpu
     --proxy-server=127.0.0.1:9 --proxy-bypass-list=127.0.0.1;localhost about:blank
   ```
-  `chrome.sb`(측정 형식, MI-A에서 축소)
+  `chrome.sb`(MI-A 확정 형식, `<H>`·`<udd>`는 realpath. `"`·`\`·개행이 든 경로는 거부한다)
   ```
   (version 1)
   (allow default)
   (deny file-read* file-write* (subpath "<H>"))
-  (allow file-read* (subpath "<H>/Library") (literal "<H>"))
+  (deny process-exec (regex #"GoogleUpdater"))
   (allow file-read* file-write* (subpath "<realpath udd>"))
   ```
+  - `~/Library` 읽기 허용은 필요 없었다(MI-A). 홈 아래 읽기는 모두 거부된다.
+  - `--use-mock-keychain`이 없으면 Chrome이 Keychain 접근에서 멈췄다(MI-A).
   - port는 `<udd>/DevToolsActivePort`에서 읽는다. 대기 상한은 `PROBE_TIMEOUT_MS`다.
   - endpoint: `{"port":<n>,"url":"http://127.0.0.1:<n>"}`
   - `<-loopback>` bypass 문법은 쓰지 않는다(SX6).
@@ -304,6 +306,7 @@ exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_r
   - endpoint: `{"wsEndpoint":"ws://127.0.0.1:<n>/<guid>","version":"<playwright version>"}`
     - client와 server의 Playwright 버전이 다르면 connect가 실패할 수 있다. 문서화한다.
   - 격리와 외부 차단(`proxy` 옵션)은 MI-B에서 브라우저별로 측정한 형식으로 적용한다.
+  - MI-B는 측정하지 못했다(host 전역 Playwright 없음, Q1에 따라 설치하지 않음). launcher와 sandbox profile은 확정되지 않았고, 구현은 방어용 throw로 둔다.
 - 서비스를 요청하면 유효 network가 loopback 이상으로 올라가고 scratch socket 허용이 붙는다.
 
 ### 4.7 M7 host 전용
@@ -385,8 +388,8 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 | `paths` | pass (id 0개) | pass (id 0개) | unmeasured | held | B13 |
 | `network.domains` | conditional (proxy 미준수 도구 실패) | conditional (proxy 미준수 도구 실패. Read 도구 거부 MI-7, 디렉터리 denyRead MI-9 확인) | unmeasured | held | B2·B6·B7, MI-6·MI-7·MI-9 |
 | `network.full` | held (domains 가능, D-d) | held (domains 가능, D-d) | unmeasured | held | SX1(Codex는 `network.enabled`로 전부 열림) |
-| `service.browser-cdp` | conditional (`~/Library` 읽기, MI-A) | conditional (같음) | unmeasured | held | SX4·SC3·SX7 |
-| `service.browser-playwright-*` | conditional (host 격리 MI-B) | conditional (같음) | unmeasured | held | B10·B11 |
+| `service.browser-cdp` | conditional (홈·`~/Library` 읽기 거부. 홈 밖 파일(`/etc` 등)은 file://로 읽힘, MI-A) | conditional (같음) | unmeasured | held | SX4·SC3·SX7, MI-A |
+| `service.browser-playwright-*` | held (host 전역 Playwright 없음, 격리 미측정 MI-B) | held (같음) | unmeasured | held | B10·B11, MI-B |
 
 - 프로세스 조회(B8)와 recursive `fs.watch`(B9)는 gate가 아니다. 범주 처리(M7, polling)로 다룬다.
 - MI 결과로 값이 바뀌면 해당 구현 task 안에서 값과 근거 주석(버전, 날짜, 측정 ID)을 함께 바꾼다. 기존 `BRIDGE_GATE_RESULTS` 주석 형식을 따른다.
@@ -510,6 +513,15 @@ T4 측정 (Claude 2.1.327, scratch 저장소, 홈 probe 파일은 측정 뒤 삭
 | MI-7 | pass. `Read(~/…)`, `Read(//<abs>…)` 모두 Read 도구 명시적 거부. 규칙이 없으면 cwd 밖 Read는 승인 요청(ask)으로 멈춘다(대조군) | `<form>` = 절대 경로(`Read(//<abs>/**)`, `Read(//<abs>)`). `<cli-homes>`가 홈 밖일 수 있어서다 |
 | MI-8 | pass. 실제 `buildClaudeArgs` Scouter argv(`--permission-mode default --allowedTools WebFetch,WebSearch`)로 WebFetch·WebSearch 성공, `permission_denials` 없음 | B12 유지 |
 | MI-9 (Claude) | pass. 디렉터리 `denyRead`에서 하위 파일 읽기와 `ls` 거부, 파일 경로도 거부 | Claude domains `conditional` 유지, 조건 문구를 proxy 한계로 교체 |
+
+T5 측정 (Chrome 158.0.8127.37, scratch 저장소, 홈 probe 파일은 측정 뒤 삭제)
+
+| ID | 결과 | 구현 반영 |
+|---|---|---|
+| MI-A | pass. 4.6 확정 형식으로 3회 반복: localhost 페이지·스크린샷 성공, example.com 차단(proxy), 홈 파일·`~/Library` 파일 `ERR_FILE_NOT_FOUND`, `/etc/hosts`는 읽힘. `~/Library` 읽기 허용 없이 동작했다. `--use-mock-keychain`이 없을 때의 멈춤과, 측정을 오염시킨 GoogleUpdater 실행을 profile과 인자로 막았다. 측정본은 deny와 allow 사이에 빈 줄이 있고 구현 렌더링에는 없다(규칙 같음) | `chrome.sb` 확정, Chrome 인자에 `--use-mock-keychain`, `service.browser-cdp` conditional 조건 문구 교체 |
+| MI-B | 측정 불가. host 전역 `playwright`·`playwright-core`가 없다(Q1에 따라 설치하지 않음) | Playwright 세 gate `held`, launcher·profile 방어용 throw |
+| AC9 live (구성 요소) | pass. 실제 worktree 모듈과 Chrome·CLI로 Codex Tester(profile mode B argv)와 Claude Tester(`buildClaudeArgs` settings)가 `services.json` endpoint, `/json/version`, localhost 페이지, 스크린샷, 외부 차단, `~/.gitconfig` 차단을 모두 확인했다. 한계: scratch·hostDir 삭제는 harness가 직접 호출했다. Claude는 `ARC_*` env를 프로세스 env에도 넣어 settings만의 전달은 입증하지 않았다. supervisor 전체 dispatch live는 머지·설치 뒤 확인한다(사용자 결정, O3 경로는 설치 marker runtime 해시 불일치로 `activation_unverified`) | 정리 순서는 supervisor 연결 테스트로 고정 |
+- 발견(후속): Claude Bash의 `TMPDIR`는 settings env와 달리 `/tmp/claude-<uid>`로 강제된다. Claude Tester는 Write 도구가 없어 Bash heredoc 스크립트가 CLI 명령 검증기에 막힌다.
 
 ## 9. 수용 기준
 
@@ -636,3 +648,4 @@ T4 측정 (Claude 2.1.327, scratch 저장소, 홈 probe 파일은 측정 뒤 삭
 - v1.1 (2026-11-24, plan 검토): MI-2를 `CODEX_HOME` scratch 복사본 측정으로 바꿔 10.4(사용자 설정 수정 금지)와의 충돌을 없앰
 - v1.3 (2026-11-24, T3 수용): 8.2 구현 단계 측정 결과(MI-C, MI-1, MI-2, MI-3, MI-9 Codex) 추가. 4.4에 후보 B 채택 표기, 6장 `codexProfile` 근거 갱신, 8.1 결과 기록 위치를 8.2로 정정(plan O6)
 - v1.4 (2026-11-24, T4 수용): 8.2에 T4 측정(MI-4–9 Claude) 추가, 6장 Claude `network.domains` 근거 갱신(plan O6)
+- v1.5 (2026-11-24, T5 수용): 4.6 `chrome.sb`를 MI-A 확정 형식으로 바꾸고 `--use-mock-keychain` 추가, MI-B 측정 불가 기록, 6장 `service.*` 행 갱신, 8.2에 T5 측정(MI-A, MI-B, AC9 구성 요소 live) 추가(plan O6)

@@ -191,7 +191,42 @@ test('FORBIDDEN is the single source', async () => {
 
 test('new modules contain no platform name branches', async () => {
   await toolAccess();
-  const source = await readFile(moduleUrl, 'utf8');
-  assert.doesNotMatch(source, /(===|!==)\s*['"](codex|claude|grok|gemini)['"]/);
-  assert.doesNotMatch(source, /case ['"](codex|claude|grok|gemini)['"]/);
+  for (const url of [moduleUrl, new URL('host-service.mjs', moduleUrl)]) {
+    const source = await readFile(url, 'utf8');
+    assert.doesNotMatch(source, /(===|!==)\s*['"](codex|claude|grok|gemini)['"]/);
+    assert.doesNotMatch(source, /case ['"](codex|claude|grok|gemini)['"]/);
+  }
+});
+
+test('measured host service gates expose the MI-A and MI-B conditions', async () => {
+  const {TOOL_ACCESS_GATES, TOOL_ACCESS_CONDITIONS} = await toolAccess();
+  for (const platform of ['codex', 'claude']) {
+    assert.equal(TOOL_ACCESS_GATES['service.browser-cdp'][platform], 'conditional');
+    assert.equal(TOOL_ACCESS_CONDITIONS['service.browser-cdp'][platform],
+      'home and ~/Library reads denied (MI-A); files outside home such as /etc remain readable through file://');
+    for (const engine of ['chromium', 'firefox', 'webkit']) {
+      const mechanism = `service.browser-playwright-${engine}`;
+      assert.equal(TOOL_ACCESS_GATES[mechanism][platform], 'held');
+      assert.equal(TOOL_ACCESS_CONDITIONS[mechanism][platform], 'no host-global Playwright install; isolation unmeasured (MI-B)');
+    }
+  }
+});
+
+test('host directory rejects protected paths in both containment directions', async t => {
+  const {buildToolContext} = await toolAccess();
+  const hostDir = '/private/tmp/arc-host-01234567';
+  const build = protectedHome => buildToolContext({
+    platform: 'codex', role: tester, dispatchId: '01234567-1111-4111-8111-111111111111',
+    toolAccess: request({services: ['browser-cdp']}), uid: 501, userHome: '/users/test',
+    homes: {codex: protectedHome}, worktree: '/worktree',
+  });
+  for (const [name, home] of [
+    ['protected path contains host directory', '/private/tmp'],
+    ['host directory contains protected path', hostDir + '/codex'],
+  ]) {
+    await t.test(name, () => {
+      assert.throws(() => build(home), {reasonCode: 'permission_scope_unverified'});
+    });
+  }
+  assert.equal(build(hostDir + '-sibling').hostDir, hostDir);
 });

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {spawn} from 'node:child_process';
+import childProcess, {spawn} from 'node:child_process';
 import {createRoutingFixture, legacyDispatchCases, legacyDispatchFixture} from './role-fixtures.mjs';
 import {BRIDGE_GATE_RESULTS, CLAUDE_SANDBOX_SETTINGS, DESKTOP_CHECKLIST_PASSED, DEFAULT_POLICY, bridgeGateReasons, reason} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
@@ -10,7 +10,7 @@ import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing
 import {cancelRoleDispatch, recordRoleObservation, runBridgeDispatch} from '../../lib/runtime/role-bridge.mjs';
 import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
 import {resolveWorktree} from '../../lib/runtime/role-observe.mjs';
-import {TOOL_ACCESS_CONDITIONS} from '../../lib/runtime/tool-access.mjs';
+import {TOOL_ACCESS_CONDITIONS, TOOL_ACCESS_GATES} from '../../lib/runtime/tool-access.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {dispatchLabel} from '../../lib/watch/labels.mjs';
 import {renderHuman} from '../../lib/watch/render.mjs';
@@ -554,6 +554,34 @@ test('installed cli.mjs maps allow/hold/deny to exit 0/3/2', async t => {
 });
 
 const toolAccessRequest = overrides => ({network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: [], ...overrides});
+
+test('services preflight hold', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const service = 'browser-playwright-chromium';
+  const original = childProcess.spawnSync;
+  const probe = t.mock.method(childProcess, 'spawnSync', (command, args, options) => {
+    if (command === 'npm') {
+      assert.deepEqual(args, ['root', '-g']);
+      return {status: 0, stdout: f.base + '\n', stderr: ''};
+    }
+    return original(command, args, options);
+  });
+  const assignment = () => request('arc_tester', {toolAccess: toolAccessRequest({services: [service]})});
+  const mechanism = `service.${service}`;
+  const policy = policyWith({toolAccessGates: {
+    ...TOOL_ACCESS_GATES, [mechanism]: {...TOOL_ACCESS_GATES[mechanism], codex: 'conditional'},
+  }});
+  const result = await prepare(f, assignment(), {policy});
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(probe.mock.calls.filter(call => call.arguments[0] === 'npm').length, 1);
+  const defaultGate = await prepare(f, assignment());
+  assert.equal(defaultGate.decision, 'hold');
+  assert.deepEqual(codes(defaultGate), ['permission_scope_unverified']);
+  assert.equal(probe.mock.calls.filter(call => call.arguments[0] === 'npm').length, 1);
+  assert.equal(await leaseCount(f), 0);
+});
 
 test('Codex profile mode holds when user config defines permissions.arc_bridge', async t => {
   const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
