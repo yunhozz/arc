@@ -139,14 +139,14 @@ Standalone is verified for all four platforms in the registry. For Mixed, check 
 
 Codex hosts require escalation approval on every runtime call. Start Grok hosts with `grok --permission-mode default` and use `Allow once` on every runtime call.
 
-### Bridge 도구 접근
+### Bridge tool access
 
-Orchestrator는 현재 dispatch에 필요한 접근만 `toolAccess`로 요청합니다. Codex·Claude bridge의 Implementer와 Tester는 기본으로 임시 작업 디렉터리와 캐시 설정을 받습니다. Implementer는 loopback을 요청할 수 있고, Tester는 도메인 제한 외부망이나 브라우저 서비스를 요청할 수도 있습니다. 두 플랫폼에서 `network.domains`와 `browser-cdp`는 조건부 허용이며, `network.full`과 Playwright 서비스 3종은 보류 상태입니다. Grok의 도구 접근은 미측정 상태이며 Gemini는 보류 상태입니다.
+The Orchestrator requests only the access the current dispatch needs through `toolAccess`. On Claude and Codex bridges, the Implementer and Tester receive a temporary work directory and cache settings by default. The Implementer can request loopback, and the Tester can also request domain-restricted network access or browser services. On both platforms, `network.domains` and `browser-cdp` are conditionally allowed, while `network.full` and the three Playwright services are held. Gemini is held, and Grok tool access is unmeasured.
 
-- **영구 금지** — 작업 트리의 `.git`·`.codex`, CLI 홈, 인증·설정 경로, 셸 시작 파일, LaunchAgents·Keychains에 대한 쓰기 권한과 Docker·Colima·SSH agent·GPG agent 소켓 접근은 부여하지 않습니다.
-- **호스트 전용** — `ps`·`pgrep` 등 다른 프로세스 조회, Docker, 실제 CLI 인증·설정 쓰기, 의존성 설치와 그에 필요한 외부 fetch, Git 쓰기, Cypress, 키체인 작업은 Orchestrator가 권한을 확인해 호스트에서 수행합니다.
+- **Never granted** — Write access to the worktree's `.git` and `.codex`, CLI homes, auth and config paths, shell startup files, LaunchAgents, and Keychains, and access to Docker, Colima, SSH agent, and GPG agent sockets.
+- **Host only** — Inspecting other processes such as `ps` and `pgrep`, Docker, real CLI auth and config writes, dependency installs and the external fetches they need, Git writes, Cypress, and keychain operations. The Orchestrator checks permissions and runs these on the host.
 
-요청별 역할 제한, gate와 측정 근거는 [운영 가이드의 도구 접근 절](docs/harness-operation.md#bridge-도구-접근)에 있습니다.
+Per-request role limits, gates, and measurement evidence are in the [tool access section of the operation guide](docs/harness-operation.md#bridge-tool-access).
 
 ## Upgrade
 
