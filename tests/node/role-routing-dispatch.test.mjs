@@ -82,7 +82,7 @@ test('default bridge policy passes G1 and GK1, holds Desktop and requires per-ca
 
 test('CLAUDE_SANDBOX_SETTINGS records the measured D2 object, deep-frozen', () => {
   assert.deepEqual(CLAUDE_SANDBOX_SETTINGS, {
-    permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
+    permissions: {deny: ['Edit(./.git/**)']},
     sandbox: {
       enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
       filesystem: {denyWrite: ['./.git']},

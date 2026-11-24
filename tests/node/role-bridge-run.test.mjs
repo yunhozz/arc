@@ -804,6 +804,37 @@ test('Codex fake child receives env set items and argsDigest matches across run 
   assert.equal(result.argsDigest, reservedDigest);
 });
 
+test('Claude fake child receives settings env and supervisor argsDigest matches run-dispatch', async t => {
+  const f = await claudeSetup(t, {roles: {arc_tester: 'claude'}});
+  const policy = policyWith(hostClaudeGates);
+  const toolAccess = {network: 'domains', domains: ['example.com'], unixSockets: [], paths: [], services: [], envPresets: ['ci']};
+  f.env = {...f.env, ARC_FAKE_TOKEN: SECRET};
+  await f.claude.setScenario({events: [claudeInit(claudeTools(f, 'tester')), claudeResult()], writes: [transcript(f)]});
+  const {dispatchId} = await prepare(f, 'arc_tester', {policy, extra: {toolAccess}});
+  const started = await run(f, dispatchId, 'settings test', {policy, startSupervisor: startInProcess(f)});
+  assert.equal(started.decision, 'allow', JSON.stringify(started.reasons));
+  const reservedDigest = (await readLease(f.claudeHome, dispatchId)).argsDigest;
+  const scratch = path.join(f.base, 'scratch');
+  const scratchIo = {
+    create: input => scratchApi.createScratch({...input, scratch, parent: null}),
+    collect: input => scratchApi.collectEvidence({...input, scratch}),
+    remove: () => scratchApi.removeScratch(scratch),
+  };
+  await runSupervisor({codexHome: f.claudeHome, dispatchId, cwd: f.cwd, userHome: f.userHome, env: f.env, scratchIo,
+    heartbeatMs: 50, graceMs: 100});
+  const record = await recordOf(f, dispatchId);
+  assert.equal(record.state, 'completed', JSON.stringify(record.reasons));
+  const [{argv}] = await records(f.claude);
+  const rawSettings = argv[argv.indexOf('--settings') + 1];
+  const {env} = JSON.parse(rawSettings);
+  assert.equal(env.CI, '1');
+  assert.equal(env.ARC_FAKE_TOKEN, '');
+  assert.equal(env.TMPDIR, `/private/tmp/claude-${process.getuid()}/arc-bridge-${dispatchId.slice(0, 8)}/tmp`);
+  assert.ok(!rawSettings.includes(SECRET));
+  assert.equal(argsDigest(argv), reservedDigest);
+  assert.equal(record.argsDigest, reservedDigest);
+});
+
 test('Codex resume re-applies profile args', async t => {
   const {f, dispatchId, supervise} = await scratchDispatch(t, {
     toolAccess: {network: 'loopback', domains: [], unixSockets: [], paths: [], services: [], envPresets: []},

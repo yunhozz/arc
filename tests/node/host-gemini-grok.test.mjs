@@ -88,10 +88,13 @@ async function assertNoProbe(home) {
 const assertNoLock = anchor => assert.rejects(fs.access(path.join(anchor, 'arc-role-platform-routing.lock')), {code: 'ENOENT'});
 const assertAllowed = result => assert.equal(result.decision, 'allow', JSON.stringify(result.reasons));
 
+const claudeScouterTools = ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'];
+
 function profileBytes(platform, role, descriptor, {model, effort}) {
   const name = descriptor.profile.routingName(role);
   if (platform === 'codex') return `name = "${name}"\ndescription = "Role instructions"\nmodel = "${model}"\nmodel_reasoning_effort = "${effort}"\ndeveloper_instructions = """Private role instructions"""\n`;
-  const options = platform === 'claude' ? `effort: ${effort}\ntools:\n  - Read\n` : '';
+  const tools = role === 'arc_scouter' ? claudeScouterTools : ['Read'];
+  const options = platform === 'claude' ? `effort: ${effort}\ntools:\n${tools.map(tool => `  - ${tool}\n`).join('')}` : '';
   return `---\nname: ${name}\ndescription: Role instructions\nmodel: ${model}\n${options}---\nPrivate role instructions\n`;
 }
 
@@ -160,7 +163,7 @@ async function hostFixture(t, {host, anchor = 'claude', policy = approval, roleP
   const thread = '01a1c596-43f9-77a0-b0bb-000000000001', session = 'host-fixture-session';
   const claude = await installFakeCli(t, bin, 'claude', {
     version: '2.1.322 (Claude Code)',
-    events: [{type: 'system', subtype: 'init', session_id: session, tools: ['Read'], model: 'claude-haiku-5-5', permissionMode: 'default'},
+    events: [{type: 'system', subtype: 'init', session_id: session, tools: claudeScouterTools, model: 'claude-haiku-5-5', permissionMode: 'default'},
       {type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'Claude result'}],
     writes: [{path: path.join(homes.claude, 'projects/proj', session + '.jsonl'), content: JSON.stringify({type: 'assistant', output_config: {effort: 'low'}}) + '\n'}],
   });

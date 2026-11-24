@@ -11,7 +11,6 @@ test('read-role and non-adapter argv equal base 6244a8af golden', async t => {
   for (const {key, platform, inputs} of cases) {
     if (platform === 'claude' && inputs.role === 'arc_scouter') {
       await t.test(`${key} adds the B12 WebFetch and WebSearch allowance`, t => {
-        t.todo('T4 adds the B12 allowance');
         const expected = [...combinations[key]];
         const mode = expected.indexOf('--permission-mode');
         assert.equal(expected[mode + 1], 'default');

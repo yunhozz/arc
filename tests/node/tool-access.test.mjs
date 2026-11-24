@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {lstat, mkdir, mkdtemp, readFile, rmdir, symlink, unlink, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 const moduleUrl = new URL('../../lib/runtime/tool-access.mjs', import.meta.url);
@@ -111,6 +113,47 @@ test('always-on grants apply only where scratch and env.base/env.caches pass', a
     assert.deepEqual(grants.envPresets, ['base', 'caches']);
     assert.deepEqual(grants.mechanisms, ['scratch', 'env.base', 'env.caches']);
     assert.deepEqual(await toolAccessPreflight({platform, role: tester, grants}), []);
+  }
+});
+
+test('Claude domains stays conditional with the measured read denials', async () => {
+  const {toolAccessReasons} = await toolAccess();
+  assert.deepEqual(toolAccessReasons({platform: 'claude', role: tester, route: 'bridge',
+    toolAccess: request({network: 'domains', domains: ['example.com']})}), {
+    reasons: [], conditions: [{mechanism: 'network.domains',
+      condition: 'tools that ignore the network proxy (for example npm) fail (B2); Read tool denial verified by MI-7, directory denyRead by MI-9'}],
+  });
+});
+
+test('Claude allowWrite preflight holds an unresolved path grant', async () => {
+  const {toolAccessPreflight} = await toolAccess();
+  const context = {platform: 'claude', role: tester, grants: {paths: ['missing']}};
+  assert.deepEqual(await toolAccessPreflight(context), ['permission_scope_unverified']);
+});
+
+test('Claude allowWrite preflight requires a real directory for each registered path', async t => {
+  const {toolAccessPreflight} = await toolAccess();
+  const root = await mkdtemp(path.join(tmpdir(), 'arc-claude-allow-write-'));
+  const toolPaths = {
+    directory: path.join(root, 'directory'),
+    file: path.join(root, 'file'),
+    missing: path.join(root, 'missing'),
+    link: path.join(root, 'link'),
+  };
+  await mkdir(toolPaths.directory);
+  await writeFile(toolPaths.file, 'fixture');
+  await symlink(toolPaths.directory, toolPaths.link, 'dir');
+  t.after(async () => {
+    await unlink(toolPaths.link);
+    await unlink(toolPaths.file);
+    await rmdir(toolPaths.directory);
+    await rmdir(root);
+  });
+  for (const id of ['directory', 'file', 'missing', 'link']) {
+    await t.test(id, async () => {
+      const context = {platform: 'claude', role: tester, grants: {paths: [id]}, io: {lstat}};
+      assert.deepEqual(await toolAccessPreflight(context, {toolPaths}), id === 'directory' ? [] : ['permission_scope_unverified']);
+    });
   }
 });
 

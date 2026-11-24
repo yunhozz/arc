@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {createRoutingFixture} from './role-fixtures.mjs';
 import * as dispatchPolicy from '../../lib/runtime/role-dispatch-policy.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
@@ -10,6 +11,7 @@ import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCo
 import {profileName} from '../../lib/runtime/role-dispatch-policy.mjs';
 import * as codexArgs from '../../lib/runtime/role-bridge-args.mjs';
 import {buildToolContext, resolveForbidden} from '../../lib/runtime/tool-access.mjs';
+import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
 
 const CLAUDE_TOOLS = {
   arc_scouter: ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'], arc_planner: ['Read', 'Grep', 'Glob'],
@@ -29,6 +31,19 @@ const codexContext = (role, worktree, access) => buildToolContext({
 const envItems = context => context.env.flatMap(([key, value]) => ['-c', `shell_environment_policy.set.${key}=${JSON.stringify(value)}`]);
 const codexInput = {role: 'arc_tester', profile: codexProfile('arc_tester'), worktree: '/w', resultPath: '/result'};
 const loopbackContext = () => codexContext(codexInput.role, codexInput.worktree, toolAccess({network: 'loopback'}));
+const claudeScratch = '/private/tmp/claude-501/arc-bridge-01234567';
+const claudeContext = (role, access, envNames, homes = {claude: '/config/claude'}) => buildToolContext({
+  platform: 'claude', role, dispatchId: '01234567-1111-4111-8111-111111111111', uid: 501,
+  userHome: '/home/test', homes, worktree: '/w', toolAccess: access, envNames,
+});
+const claudeArgs = (role, toolContext) => buildClaudeArgs({role, profile: claudeProfile(role), toolContext});
+const d2Prime = {
+  permissions: {deny: ['Edit(./.git/**)']},
+  sandbox: {
+    enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
+    filesystem: {denyWrite: ['./.git']},
+  },
+};
 
 test('parseCompositeProfile reads fixture-rendered Claude and Codex profiles for all five roles', async t => {
   const claude = await createRoutingFixture(t, {hostPlatform: 'claude'});
@@ -108,7 +123,7 @@ test('Claude argv per role matches spec 5.5', () => {
 
 test('Claude writing roles get D2 settings without --setting-sources', () => {
   const settings = {
-    permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
+    permissions: {deny: ['Edit(./.git/**)']},
     sandbox: {
       enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
       filesystem: {denyWrite: ['./.git']},
@@ -127,6 +142,82 @@ test('Claude read roles get neither --settings nor --setting-sources', () => {
     const args = buildClaudeArgs({role, profile: claudeProfile(role), policy: DEFAULT_POLICY});
     assert.equal(args.includes('--settings'), false, role);
     assert.equal(args.includes('--setting-sources'), false, role);
+  }
+});
+
+test('Claude writing roles get D2′ plus base/caches env settings bytes', () => {
+  for (const role of ['arc_implementer', 'arc_tester']) {
+    const context = claudeContext(role);
+    const args = claudeArgs(role, context);
+    const env = Object.fromEntries(context.env);
+    assert.equal(env.TMPDIR, `${claudeScratch}/tmp`);
+    assert.equal(env.npm_config_cache, `${claudeScratch}/cache/npm`);
+    assert.equal(flagValue(args, '--settings'), JSON.stringify({...d2Prime, env}));
+  }
+});
+
+test('Claude allowedTools absent from profile tools throws', () => {
+  const role = 'arc_scouter';
+  for (const missing of ['WebFetch', 'WebSearch']) {
+    const profile = {...claudeProfile(role), tools: CLAUDE_TOOLS[role].filter(tool => tool !== missing)};
+    assert.throws(() => buildClaudeArgs({role, profile}), {message: 'Claude allowedTools must be listed in profile tools'});
+  }
+});
+
+test('Claude bridge invocation holds when an allowed tool is absent from the reserved profile', async t => {
+  const role = 'arc_scouter';
+  const f = await createRoutingFixture(t, {hostPlatform: 'codex', roles: {[role]: 'claude'}});
+  const filename = path.join(f.claudeHome, 'agents/arc-routing-scouter.md');
+  const original = await fs.readFile(filename, 'utf8');
+  const modified = original.replace(/^\s+- WebSearch\r?\n/m, '');
+  assert.ok(parseCompositeProfile('claude', Buffer.from(original)).tools.includes('WebSearch'));
+  assert.ok(!parseCompositeProfile('claude', Buffer.from(modified)).tools.includes('WebSearch'));
+  const invocation = {
+    lease: {version: 2, role, route: 'bridge', hostPlatform: 'codex', targetPlatform: 'claude', sessionId: null,
+      profileHash: 'sha256:' + createHash('sha256').update(modified).digest('hex')},
+    config: f.config, homes: f.homes, worktree: f.cwd, resultPath: path.join(f.base, 'result'), userHome: f.userHome, env: f.env,
+  };
+  await fs.writeFile(filename, modified);
+  await assert.rejects(buildBridgeInvocation(invocation), {reasonCode: 'permission_scope_unverified', message: 'Profile arguments unavailable'});
+});
+
+test('Claude network settings for loopback, domains and sockets', () => {
+  const role = 'arc_tester';
+  const loopback = claudeContext(role, toolAccess({network: 'loopback'}));
+  const loopbackNetwork = {allowedDomains: ['localhost', '127.0.0.1'], allowLocalBinding: true, allowUnixSockets: [`${claudeScratch}/sock`]};
+  assert.equal(flagValue(claudeArgs(role, loopback), '--settings'), JSON.stringify({
+    ...d2Prime, sandbox: {...d2Prime.sandbox, network: loopbackNetwork}, env: Object.fromEntries(loopback.env),
+  }));
+
+  const homes = {grok: '/opt/grok', codex: '/home/test/.config/codex-cli', claude: '/config/claude', gemini: '/home/test/.git-tools/gemini'};
+  const domains = claudeContext(role, toolAccess({network: 'domains', domains: ['z.example.com', 'a.example.com']}), ['ZZ_TOKEN', 'AWS_PROFILE', 'LANG'], homes);
+  const denyRead = ['/config/claude', '/home/test/.aws', '/home/test/.config/codex-cli', '/home/test/.config/gcloud',
+    '/home/test/.config/gh', '/home/test/.docker', '/home/test/.git-tools/gemini', '/home/test/.gitconfig',
+    '/home/test/.gnupg', '/home/test/.kube', '/home/test/.netrc', '/home/test/.npmrc', '/home/test/.ssh', '/opt/grok'];
+  const readRules = ['Read(//config/claude/**)', 'Read(//home/test/.aws/**)', 'Read(//home/test/.config/codex-cli/**)',
+    'Read(//home/test/.config/gcloud/**)', 'Read(//home/test/.config/gh/**)', 'Read(//home/test/.docker/**)',
+    'Read(//home/test/.git-tools/gemini/**)', 'Read(//home/test/.gitconfig)', 'Read(//home/test/.gnupg/**)',
+    'Read(//home/test/.kube/**)', 'Read(//home/test/.netrc)', 'Read(//home/test/.npmrc)', 'Read(//home/test/.ssh/**)', 'Read(//opt/grok/**)'];
+  const env = {...Object.fromEntries(domains.env), AWS_PROFILE: '', ZZ_TOKEN: ''};
+  assert.equal(flagValue(claudeArgs(role, domains), '--settings'), JSON.stringify({
+    permissions: {deny: ['Edit(./.git/**)', ...readRules]},
+    sandbox: {...d2Prime.sandbox, filesystem: {denyWrite: ['./.git'], denyRead},
+      network: {...loopbackNetwork, allowedDomains: ['localhost', '127.0.0.1', 'a.example.com', 'z.example.com']}},
+    env: Object.fromEntries(Object.keys(env).sort().map(name => [name, env[name]])),
+  }));
+});
+
+test('Claude domains secret env names change argsDigest', () => {
+  const role = 'arc_tester';
+  const access = toolAccess({network: 'domains', domains: ['a.example.com']});
+  const digest = names => argsDigest(claudeArgs(role, claudeContext(role, access, names)));
+  assert.notEqual(digest(['A_TOKEN']), digest(['B_TOKEN']));
+  assert.equal(digest(['A_TOKEN', 'LANG']), digest(['A_TOKEN']));
+});
+
+test('other Claude roles have no allowedTools', () => {
+  for (const role of ROUTING_ROLES.filter(role => role !== 'arc_scouter')) {
+    assert.ok(!claudeArgs(role, claudeContext(role)).includes('--allowedTools'), role);
   }
 });
 

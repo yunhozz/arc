@@ -104,7 +104,8 @@ async function fixture(t, extraEnv = {}, hostBridge = false, dispatchPolicy = po
     await fs.mkdir(path.join(home, 'agents'));
     const profiles = {};
     for (const role of ROUTING_ROLES.filter(role => config.roles[role].platform === id)) {
-      const relative = `agents/arc-routing-${role.slice(4)}.md`, content = id === 'claude' ? Buffer.from(`---\nname: arc-routing-${role.slice(4)}\ndescription: Role instructions [arc-routing rev t12]\nmodel: sonnet\neffort: high\ntools:\n  - Read\n---\nPrivate role instructions\n`) : renameForRouting(render(source(role), role, {model: 'grok-test', effort: 'default'}), role, 't12');
+      const scouterTools = role === 'arc_scouter' ? '  - Grep\n  - Glob\n  - WebFetch\n  - WebSearch\n' : '';
+      const relative = `agents/arc-routing-${role.slice(4)}.md`, content = id === 'claude' ? Buffer.from(`---\nname: arc-routing-${role.slice(4)}\ndescription: Role instructions [arc-routing rev t12]\nmodel: sonnet\neffort: high\ntools:\n  - Read\n${scouterTools}---\nPrivate role instructions\n`) : renameForRouting(render(source(role), role, {model: 'grok-test', effort: 'default'}), role, 't12');
       await fs.writeFile(path.join(home, relative), content); profiles[role] = {path: relative, hash: digest(content)};
     }
     await fs.writeFile(path.join(home, 'arc-role-platform-routing.prepared.json'), JSON.stringify({version: 1, revision: 't12', platform: id, targetHome: home, activeConfigPath: activePath, configHash: digest(bytes), runtime: {version: versions.runtime, hash: versions.runtimeHash, policyHash: versions.policyHash}, profiles}));

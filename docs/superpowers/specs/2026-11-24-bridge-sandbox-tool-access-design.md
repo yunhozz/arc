@@ -1,6 +1,6 @@
 # bridge 역할 sandbox 도구 접근 spec
 
-- 상태: v1.3 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3 측정 결과 반영, 개정 이력 참조)
+- 상태: v1.4 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3·T4 측정 결과 반영, 개정 이력 참조)
 - workflow: `2026-11-24-bridge-sandbox-tool-access`
 - 대상: `/Users/ma-24-007/Desktop/workspace/arc/.claude/worktrees/bridge-sandbox-tool-access`, `fix/bridge-sandbox-tool-access`, base `6244a8af`
 - 경로·깊이·위험: Architectural, Architectural plan, high
@@ -383,7 +383,7 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 | `unixSockets.scratch` | pass | pass | unmeasured | held | SX4·B5 / SC3·B5 |
 | `unixSockets.registered` | pass (id 0개) | pass (id 0개) | unmeasured | held | B5 |
 | `paths` | pass (id 0개) | pass (id 0개) | unmeasured | held | B13 |
-| `network.domains` | conditional (proxy 미준수 도구 실패) | conditional (MI-7 Read 도구 거부 확인 전까지) | unmeasured | held | B2·B6·B7 |
+| `network.domains` | conditional (proxy 미준수 도구 실패) | conditional (proxy 미준수 도구 실패. Read 도구 거부 MI-7, 디렉터리 denyRead MI-9 확인) | unmeasured | held | B2·B6·B7, MI-6·MI-7·MI-9 |
 | `network.full` | held (domains 가능, D-d) | held (domains 가능, D-d) | unmeasured | held | SX1(Codex는 `network.enabled`로 전부 열림) |
 | `service.browser-cdp` | conditional (`~/Library` 읽기, MI-A) | conditional (같음) | unmeasured | held | SX4·SC3·SX7 |
 | `service.browser-playwright-*` | conditional (host 격리 MI-B) | conditional (같음) | unmeasured | held | B10·B11 |
@@ -499,6 +499,17 @@ MI-3 대상별 결과 (배치 1: 저장소 밖 worktree, 배치 2: `R/.claude/wo
 
 - 두 배치 모두 같은 결과다. 자기 worktree만 쓰기 가능했다. (b)가 (a)보다 새로 연 대상이 없으므로 (b)를 채택했다.
 - 저장소는 실제 배치와 같게 home 아래 임시 경로에 두었고, 측정 뒤 지웠다.
+
+T4 측정 (Claude 2.1.327, scratch 저장소, 홈 probe 파일은 측정 뒤 삭제)
+
+| ID | 결과 | 구현 반영 |
+|---|---|---|
+| MI-4 | pass. D2′(`Write` 규칙 없음) + `acceptEdits`에서 Write 도구 `.git/hooks/x`, Edit 도구 `.git/config`, Bash `echo >> .git/config`, Bash `touch .git/hooks/y`가 모두 거부됐다. `.git/config` 해시 불변, 작업 트리 쓰기는 허용 | `RECORDED_CLAUDE_SANDBOX_SETTINGS.permissions.deny = ['Edit(./.git/**)']` |
+| MI-5 | pass. `acceptEdits` + loopback settings에서 bind+connect 200, 외부 차단. `-p`에서는 복합 Bash 명령이 승인 요청으로 멈추므로 단일 명령으로 측정했다 | Claude `network.loopback` pass 유지 |
+| MI-6 | pass. domains settings + 비밀 env 빈 값에서 CLI 인증·실행 유지, Bash에서 빈 값. 허용 목록 밖 도메인 차단 | 비밀 env 이름 → `""` |
+| MI-7 | pass. `Read(~/…)`, `Read(//<abs>…)` 모두 Read 도구 명시적 거부. 규칙이 없으면 cwd 밖 Read는 승인 요청(ask)으로 멈춘다(대조군) | `<form>` = 절대 경로(`Read(//<abs>/**)`, `Read(//<abs>)`). `<cli-homes>`가 홈 밖일 수 있어서다 |
+| MI-8 | pass. 실제 `buildClaudeArgs` Scouter argv(`--permission-mode default --allowedTools WebFetch,WebSearch`)로 WebFetch·WebSearch 성공, `permission_denials` 없음 | B12 유지 |
+| MI-9 (Claude) | pass. 디렉터리 `denyRead`에서 하위 파일 읽기와 `ls` 거부, 파일 경로도 거부 | Claude domains `conditional` 유지, 조건 문구를 proxy 한계로 교체 |
 
 ## 9. 수용 기준
 
@@ -624,3 +635,4 @@ MI-3 대상별 결과 (배치 1: 저장소 밖 worktree, 배치 2: `R/.claude/wo
 - v1.2 (2026-11-24, T1 중): 5.3 정규식 TLD 자리에 punycode `xn--…`를 허용해 본문("punycode `xn--`는 regex가 허용한다")·RF5와 맞춤
 - v1.1 (2026-11-24, plan 검토): MI-2를 `CODEX_HOME` scratch 복사본 측정으로 바꿔 10.4(사용자 설정 수정 금지)와의 충돌을 없앰
 - v1.3 (2026-11-24, T3 수용): 8.2 구현 단계 측정 결과(MI-C, MI-1, MI-2, MI-3, MI-9 Codex) 추가. 4.4에 후보 B 채택 표기, 6장 `codexProfile` 근거 갱신, 8.1 결과 기록 위치를 8.2로 정정(plan O6)
+- v1.4 (2026-11-24, T4 수용): 8.2에 T4 측정(MI-4–9 Claude) 추가, 6장 Claude `network.domains` 근거 갱신(plan O6)

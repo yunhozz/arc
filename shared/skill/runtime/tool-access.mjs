@@ -137,6 +137,17 @@ async function codexUserProfileConflict({grants, worktree, homes, io}) {
   return null;
 }
 
+async function claudeAllowWriteDirsExist({grants, io}, {toolPaths = TOOL_PATHS} = {}) {
+  const hold = 'permission_scope_unverified';
+  for (const id of grants.paths) {
+    if (!Object.hasOwn(toolPaths, id)) return hold;
+    try {
+      if (!(await io.lstat(toolPaths[id])).isDirectory()) return hold;
+    } catch { return hold; }
+  }
+  return null;
+}
+
 const noAdapter = {scratchRoot: null, scratchParent: null, extraMechanisms: () => [], preflight: [], conditions: {}};
 const claudeScratchParent = ({uid}) => `/private/tmp/claude-${uid}`;
 export const TOOL_ACCESS_ADAPTERS = deepFreeze({
@@ -160,10 +171,22 @@ export const TOOL_ACCESS_ADAPTERS = deepFreeze({
   },
   claude: {
     ...noAdapter,
-    gates: writingGates,
-    conditions: {...browserConditions, 'network.domains': 'Read tool denial unverified until MI-7'},
+    gates: {
+      ...writingGates,
+      // Claude 2.1.327, 2026-11-24, MI-5
+      'network.loopback': 'pass',
+      // Claude 2.1.327, 2026-11-24, MI-6
+      // Claude 2.1.327, 2026-11-24, MI-7
+      // Claude 2.1.327, 2026-11-24, MI-9
+      'network.domains': 'conditional',
+    },
+    conditions: {
+      ...browserConditions,
+      'network.domains': 'tools that ignore the network proxy (for example npm) fail (B2); Read tool denial verified by MI-7, directory denyRead by MI-9',
+    },
     scratchRoot: ({id8, uid}) => `${claudeScratchParent({uid})}/arc-bridge-${id8}`,
     scratchParent: claudeScratchParent,
+    preflight: [claudeAllowWriteDirsExist],
   },
   grok: {...noAdapter, gates: uniformGates('unmeasured')},
   gemini: {...noAdapter, gates: uniformGates('held')},
@@ -252,9 +275,9 @@ export function toolAccessReasons({platform, role, route, toolAccess, policy}) {
   return {reasons: [], conditions};
 }
 
-export async function toolAccessPreflight(context) {
+export async function toolAccessPreflight(context, options) {
   for (const check of TOOL_ACCESS_ADAPTERS[context.platform]?.preflight ?? []) {
-    const reason = await check(context);
+    const reason = await check(context, options);
     if (reason !== null) return [reason];
   }
   return [];
