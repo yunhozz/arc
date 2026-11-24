@@ -1,6 +1,6 @@
 # bridge 역할 sandbox 도구 접근 spec
 
-- 상태: v1.1 승인 (사용자, 2026-11-24) (설계 v2 승인 2026-11-24 기준, T0·T0b·추가 측정 반영)
+- 상태: v1.3 (v1.1 사용자 승인 2026-11-24 + 5.3 정규식 의도 정합 개정 + T3 측정 결과 반영, 개정 이력 참조)
 - workflow: `2026-11-24-bridge-sandbox-tool-access`
 - 대상: `/Users/ma-24-007/Desktop/workspace/arc/.claude/worktrees/bridge-sandbox-tool-access`, `fix/bridge-sandbox-tool-access`, base `6244a8af`
 - 경로·깊이·위험: Architectural, Architectural plan, high
@@ -205,7 +205,7 @@ exec --json -C <wt> -m <model> -c model_reasoning_effort="<e>" -c developer_inst
   -c sandbox_mode="workspace-write" -c approval_policy="never" [M2 env 항목...] -o <result> -
 ```
 
-**Codex profile mode (후보 A. 플래그 이름과 값은 `t0/t0b-codex.sh`·`b1f.sh`·`sx4.sh`에서 실제로 쓴 것이다. `exec`에서의 위치는 MI-1에서 확정한다)**
+**Codex profile mode (후보 A. 플래그 이름과 값은 `t0/t0b-codex.sh`·`b1f.sh`·`sx4.sh`에서 실제로 쓴 것이다. MI-1 결과 `exec`는 A를 거부해 후보 B를 채택했다. 확정 형식은 8.2)**
 ```
 exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_reasoning_effort="<e>"
   -c developer_instructions="<...>"
@@ -228,6 +228,7 @@ exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_r
   5. 비밀 경로 `"none"`(domains일 때만, B6 형식)
   - 3–5는 각각 경로 이름순이다.
 - 후보 B(MI-1에서 A가 거부될 때만): `-P arc_bridge` 대신 `-c default_permissions="arc_bridge"`, `--enable network_proxy` 대신 `-c features.network_proxy=true`
+  - **채택(MI-1, codex-cli 0.170.0)**: `codex exec`가 `-P`를 거부했다(`unexpected argument '-P'`). 구현은 B를 쓴다(`CODEX_PROFILE_ARGS_FORM='B'`).
 - A·B 모두 실패하면 Codex의 loopback, unixSockets, domains, paths, services gate를 `held`로 바꾼다.
 - resume(`exec resume <tid>`)에도 같은 profile 인자를 다시 넣는다. MI-1에서 확인한다.
 - Codex 검증 기대값: profile mode의 `expected.sandboxMode`는 MI-1에서 관측한 `turn_context.sandbox_policy.type` 값을 상수로 기록한 것이다(`CODEX_PROFILE_SANDBOX_TYPE`). 안정적인 값이 없으면 permissions claim은 `unverified`가 되고, 그 사실을 문서와 결과에 남긴다(새 reason code 없음).
@@ -377,7 +378,7 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 | `scratch` | pass | pass | unmeasured | held | SX3, SC0·SC2 |
 | `env.base`·`env.caches` | pass | pass | unmeasured | held | SX3, SC2, B4 |
 | `env.ci`·`env.daemon-off`·`env.polling` | pass (효과 미측정) | pass (효과 미측정) | unmeasured | held | 메커니즘 SX3·SC2. polling은 B9 |
-| `codexProfile` (profile mode 전제) | conditional (R1 보호 항목 필수, MI-1·MI-3) | – | – | – | B1 |
+| `codexProfile` (profile mode 전제) | conditional (R1 보호 항목 필수, MI-1·MI-3 측정 완료) | – | – | – | B1, MI-1, MI-3 |
 | `network.loopback` | pass | pass | unmeasured | held | SX1·B3 / SC1·B3 |
 | `unixSockets.scratch` | pass | pass | unmeasured | held | SX4·B5 / SC3·B5 |
 | `unixSockets.registered` | pass (id 0개) | pass (id 0개) | unmeasured | held | B5 |
@@ -452,7 +453,52 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
    - (b)에서 새로 쓸 수 있게 된 대상이 (a)보다 하나도 없으면 (b)를 채택한다. git 제어 대상은 모두 쓰기 불가여야 한다.
    - 아니면 (c)로 같은 판정을 한다. 통과하면 adapter가 `<gitDir>`·`<gitCommonDir>` 항목을 항상 넣는다. 이를 위해 `buildBridgeInvocation`에 `target.gitDir`·`target.gitCommonDir`를 넘긴다.
    - (c)도 실패하면 `codexProfile` gate는 held다.
-5. 결과(대상별 a/b/c 표)를 spec 11장 측정 결과 절과 테스트 주석에 기록한다.
+5. 결과(대상별 a/b/c 표)를 8.2 측정 결과 절과 테스트 주석에 기록한다.
+
+### 8.2 구현 단계 측정 결과
+
+Orchestrator가 host에서 측정했다(2026-11-24, macOS 25.5, codex-cli 0.170.0, claude 2.1.327). 원본 기록은 커밋하지 않는다.
+
+| ID | 결과 | 구현 반영 |
+|---|---|---|
+| MI-C | pass. `/private/tmp/claude-501`가 이미 있었고(owner 현재 사용자, 0700), Claude D2 Bash에서 `<S>/tmp`·`<S>/evidence` 쓰기와 `TMPDIR=<S>/tmp`의 `mkdtemp`가 성공했다 | Claude scratch gate pass 유지(T2) |
+| MI-1 | 후보 A 거부(`unexpected argument '-P'`). 후보 B pass. 신규와 resume 모두: `.git/config`·`.git/hooks`·`.codex` 쓰기 거부(해시 불변), workspace·scratch 쓰기 OK, loopback bind+connect 200, scratch unix socket OK, 외부(example.com) 차단. rollout `turn_context.sandbox_policy.type`은 신규·resume 모두 `workspace-write`로 안정 | `CODEX_PROFILE_ARGS_FORM='B'`, `CODEX_PROFILE_SANDBOX_TYPE='workspace-write'`, `codexProfile` 조건 문구에서 `exec acceptance pending` 제거(T3) |
+| MI-2 | 병합된다. scratch `CODEX_HOME/config.toml`의 `[permissions.arc_bridge.filesystem]` 항목이 `-c permissions.arc_bridge.filesystem={...}`와 함께 적용됐다. 빈 `CODEX_HOME` 대조군에서는 적용되지 않았다. 실제 `~/.codex`는 건드리지 않았다 | 사용자 설정 충돌 검사(`permission_scope_unverified`) 유지. prepare 호출 위치가 worktree 하위여도 worktree 루트 기준으로 검사(T3) |
+| MI-3 | (b) 채택. 아래 표 | `CODEX_PROFILE_GIT_ENTRIES=false`(T3) |
+| MI-9 (Codex) | pass. 디렉터리 `"none"` 항목에서 하위 파일 읽기와 `ls`가 모두 거부됐다. 절대 경로와 `~/` 형식 모두 동작 | domains 비밀 경로 렌더링 유지(T3) |
+
+확정된 Codex profile mode 신규 argv(MI-1, loopback + scratch socket 예):
+```
+exec --json -C <wt> [-m … -c model_reasoning_effort=… -c developer_instructions=…]
+  -c default_permissions="arc_bridge" -c features.network_proxy=true
+  -c permissions.arc_bridge.extends=":workspace"
+  -c permissions.arc_bridge.filesystem={"<wt>/.git"="read","<wt>/.codex"="read",…}
+  -c permissions.arc_bridge.network.enabled=true
+  -c permissions.arc_bridge.network.domains={"127.0.0.1"="allow"}
+  -c permissions.arc_bridge.network.allow_local_binding=true
+  -c permissions.arc_bridge.network.unix_sockets={"<S>/sock"="allow"}
+  -c approval_policy="never" [M2 env 항목…] -o <result> -
+```
+- resume: `exec resume --json <같은 -c 목록> -o <result> <thread_id> -`
+- `features.network_proxy`와 `network.*` 키는 유효 network ≠ null일 때만 넣는다(paths만이면 없음).
+
+MI-3 대상별 결과 (배치 1: 저장소 밖 worktree, 배치 2: `R/.claude/worktrees/w2`)
+
+| 대상 | (a) | (b) | (c) |
+|---|---|---|---|
+| `W/.git` 파일 | denied | denied | denied |
+| `R/.git/config` | denied | denied | denied |
+| `R/.git/hooks/pre-commit` | denied | denied | denied |
+| `R/.git/refs/heads/probe` | denied | denied | denied |
+| `R/.git/packed-refs` | denied | denied | denied |
+| `R/.git/objects/probe` | denied | denied | denied |
+| `R/.git/worktrees/<n>/HEAD` | denied | denied | denied |
+| `R/.git/worktrees/<n>/config.worktree` | denied | denied | denied |
+| `R/.git/info/exclude` | denied | denied | denied |
+| `R/` 작업 트리 파일(배치 2) | denied | denied | denied |
+
+- 두 배치 모두 같은 결과다. 자기 worktree만 쓰기 가능했다. (b)가 (a)보다 새로 연 대상이 없으므로 (b)를 채택했다.
+- 저장소는 실제 배치와 같게 home 아래 임시 경로에 두었고, 측정 뒤 지웠다.
 
 ## 9. 수용 기준
 
@@ -577,3 +623,4 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 - v1 승인 (2026-11-24): Q1 (a) 전역 설치본, Q2–Q6 제안대로, Q7 경로 확인
 - v1.2 (2026-11-24, T1 중): 5.3 정규식 TLD 자리에 punycode `xn--…`를 허용해 본문("punycode `xn--`는 regex가 허용한다")·RF5와 맞춤
 - v1.1 (2026-11-24, plan 검토): MI-2를 `CODEX_HOME` scratch 복사본 측정으로 바꿔 10.4(사용자 설정 수정 금지)와의 충돌을 없앰
+- v1.3 (2026-11-24, T3 수용): 8.2 구현 단계 측정 결과(MI-C, MI-1, MI-2, MI-3, MI-9 Codex) 추가. 4.4에 후보 B 채택 표기, 6장 `codexProfile` 근거 갱신, 8.1 결과 기록 위치를 8.2로 정정(plan O6)

@@ -14,7 +14,7 @@ import {prepareRoleDispatch, withRoutingLock} from '../../lib/runtime/role-routi
 import {runBridgeDispatch, resumeRoleDispatch, recordRoleObservation} from '../../lib/runtime/role-bridge.mjs';
 import {buildBridgeInvocation, runSupervisor, startSupervisor, processAlive, processStartTime} from '../../lib/runtime/role-supervisor.mjs';
 import {runWorkflowCommand} from '../../lib/runtime/command.mjs';
-import {parseCompositeProfile} from '../../lib/runtime/role-bridge-args.mjs';
+import {argsDigest, parseCompositeProfile} from '../../lib/runtime/role-bridge-args.mjs';
 import * as scratchApi from '../../lib/runtime/tool-access.mjs';
 import {render as renderGrok, renameForRouting as renameGrok} from '../../lib/platforms/formats/grok-markdown.mjs';
 
@@ -788,6 +788,42 @@ test('scratch exists during the child and is removed after completion', async t 
   assert.equal(await fs.readFile(path.join(dirOf(f, dispatchId), 'evidence', 'child.txt'), 'utf8'), 'from child');
   assert.equal(record.argsDigest, (await readLease(f.claudeHome, dispatchId)).argsDigest);
   await assert.rejects(fs.lstat(scratch), {code: 'ENOENT'});
+});
+
+test('Codex fake child receives env set items and argsDigest matches across run and supervisor', async t => {
+  const {f, dispatchId, supervise} = await scratchDispatch(t, {
+    toolAccess: {network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: ['ci']},
+  });
+  const reservedDigest = (await readLease(f.claudeHome, dispatchId)).argsDigest;
+  const result = await supervise();
+  assert.equal(result.state, 'completed', JSON.stringify(result.reasons));
+  const [{argv}] = await records(f.codex);
+  assert.ok(argv.includes('shell_environment_policy.set.CI="1"'));
+  assert.ok(argv.includes(`shell_environment_policy.set.TMPDIR="/private/tmp/arc-bridge-${dispatchId.slice(0, 8)}/tmp"`));
+  assert.equal(argsDigest(argv), reservedDigest);
+  assert.equal(result.argsDigest, reservedDigest);
+});
+
+test('Codex resume re-applies profile args', async t => {
+  const {f, dispatchId, supervise} = await scratchDispatch(t, {
+    toolAccess: {network: 'loopback', domains: [], unixSockets: [], paths: [], services: [], envPresets: []},
+  });
+  const first = await supervise();
+  assert.equal(first.state, 'completed', JSON.stringify(first.reasons));
+  const resumed = await resumeRoleDispatch({context: f.context(), dispatchId, brief: 'continue profile test',
+    policy: policyWith(), startSupervisor: startInProcess(f)});
+  assert.equal(resumed.decision, 'allow', JSON.stringify(resumed.reasons));
+  const lease = await readLease(f.claudeHome, dispatchId);
+  const second = await supervise({}, 1);
+  assert.equal(second.state, 'completed', JSON.stringify(second.reasons));
+  const [{argv: initialArgs}, {argv: resumedArgs}] = await records(f.codex);
+  assert.deepEqual(resumedArgs.slice(0, 4), ['exec', 'resume', lease.sessionId, '--json']);
+  const profileArgs = args => args.filter(arg => /^(?:default_permissions|features\.network_proxy|permissions\.arc_bridge\.)/.test(arg));
+  assert.ok(profileArgs(initialArgs).includes('default_permissions="arc_bridge"'));
+  assert.deepEqual(profileArgs(resumedArgs), profileArgs(initialArgs));
+  assert.ok(!resumedArgs.some(arg => arg.startsWith('sandbox_mode=')));
+  assert.equal(argsDigest(resumedArgs), lease.argsDigest);
+  assert.equal(second.argsDigest, lease.argsDigest);
 });
 
 test('run, resume and both supervisor segments compute the same scratch toolContext', async t => {

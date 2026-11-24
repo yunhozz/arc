@@ -556,9 +556,9 @@
   1. `Codex writer sandbox mode argv equals base plus sorted env items`: `toolContext`(always-on)의 argv에서 env `-c` 쌍을 빼면 기존 기대 배열과 같아야 한다. env 쌍은 `-o` 바로 앞에 연속으로 있어야 한다.
   2. `Codex profile mode omits sandbox_mode and starts filesystem with R1 entries`(Tester loopback)
      - `sandbox_mode=` 문자열이 없다.
-     - `-P`와 `arc_bridge`가 MI-1 위치에 있다.
+     - `-P`와 `arc_bridge`가 MI-1 위치에 있다. (MI-1 결과 B 형식: `-c default_permissions="arc_bridge"`. spec 8.2)
      - filesystem 값이 `{"/w/.git"="read","/w/.codex"="read"`로 시작한다.
-     - `--enable network_proxy`가 있다.
+     - `--enable network_proxy`가 있다. (B 형식: `-c features.network_proxy=true`)
      - unix_sockets가 `<S>/sock`이다.
   3. `Codex profile argv matches MI-1 recorded form`: 신규와 resume argv가 MI-1 기록 배열과 같아야 한다. 기록 값을 테스트 상수로 두고, 측정 ID와 날짜를 주석으로 단다.
   4. `missing protection entries throw`: `assertCodexProtection([['/w/.codex','read']], '/w')`가 throw한다. `buildBridgeInvocation`에서는 `permission_scope_unverified`로 이어진다(Step 2).

@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createRoutingFixture} from './role-fixtures.mjs';
+import * as dispatchPolicy from '../../lib/runtime/role-dispatch-policy.mjs';
 import {DEFAULT_POLICY} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {ROUTING_ROLES} from '../../lib/runtime/role-routing-config.mjs';
 import {parseCompositeProfile, ROLE_BRIDGE_PERMISSIONS, buildClaudeArgs, buildCodexArgs, buildGeminiArgs, buildGrokArgs, argsDigest} from '../../lib/runtime/role-bridge-args.mjs';
 import {profileName} from '../../lib/runtime/role-dispatch-policy.mjs';
+import * as codexArgs from '../../lib/runtime/role-bridge-args.mjs';
+import {buildToolContext, resolveForbidden} from '../../lib/runtime/tool-access.mjs';
 
 const CLAUDE_TOOLS = {
   arc_scouter: ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'], arc_planner: ['Read', 'Grep', 'Glob'],
@@ -17,6 +20,15 @@ const passPolicy = (extra = {}) => ({...DEFAULT_POLICY, gates: {...DEFAULT_POLIC
 const claudeProfile = role => ({name: profileName('claude', role), description: 'd', model: 'haiku', effort: 'low', tools: CLAUDE_TOOLS[role], instructions: 'Be careful.\nLine two.'});
 const codexProfile = role => ({name: profileName('codex', role), description: 'd', model: 'gpt-6-luna', effort: 'low', tools: null, instructions: 'Codex "quoted" \\ instructions\nline two'});
 const flagValue = (args, flag) => args[args.indexOf(flag) + 1];
+const toolAccess = overrides => ({network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: [], ...overrides});
+const codexContext = (role, worktree, access) => buildToolContext({
+  platform: 'codex', role, dispatchId: '01234567-1111-4111-8111-111111111111', uid: 501,
+  userHome: '/home/test', homes: {codex: '/config/codex'}, worktree,
+  gitDir: '/main/.git/worktrees/test', gitCommonDir: '/main/.git', toolAccess: access,
+});
+const envItems = context => context.env.flatMap(([key, value]) => ['-c', `shell_environment_policy.set.${key}=${JSON.stringify(value)}`]);
+const codexInput = {role: 'arc_tester', profile: codexProfile('arc_tester'), worktree: '/w', resultPath: '/result'};
+const loopbackContext = () => codexContext(codexInput.role, codexInput.worktree, toolAccess({network: 'loopback'}));
 
 test('parseCompositeProfile reads fixture-rendered Claude and Codex profiles for all five roles', async t => {
   const claude = await createRoutingFixture(t, {hostPlatform: 'claude'});
@@ -133,19 +145,105 @@ test('Claude resume argv re-specifies model, effort, tools, permission and setti
 test('Codex argv per role matches spec 5.5', () => {
   const worktree = '/work/repo', resultPath = '/work/out/result.txt';
   for (const role of ROUTING_ROLES) {
-    const args = buildCodexArgs({role, profile: codexProfile(role), worktree, resultPath, policy: DEFAULT_POLICY});
+    const toolContext = codexContext(role, worktree);
+    const args = buildCodexArgs({role, profile: codexProfile(role), worktree, resultPath, policy: DEFAULT_POLICY, toolContext});
     assert.equal(args[0] === '--search', role === 'arc_scouter');
     const rest = role === 'arc_scouter' ? args.slice(1) : args;
     assert.deepEqual(rest.slice(0, 5), ['exec', '--json', '-C', worktree, '-m']);
     assert.equal(rest[5], 'gpt-6-luna');
     const cValues = rest.flatMap((a, i) => a === '-c' ? [rest[i + 1]] : []);
     const sandbox = ROLE_BRIDGE_PERMISSIONS.codex[role].sandboxMode;
-    assert.deepEqual(cValues, ['model_reasoning_effort="low"', `developer_instructions=${JSON.stringify(codexProfile(role).instructions)}`, `sandbox_mode=${JSON.stringify(sandbox)}`, 'approval_policy="never"']);
+    assert.deepEqual(cValues, ['model_reasoning_effort="low"', `developer_instructions=${JSON.stringify(codexProfile(role).instructions)}`, `sandbox_mode=${JSON.stringify(sandbox)}`, 'approval_policy="never"',
+      ...(toolContext ? envItems(toolContext).filter((_, index) => index % 2) : [])]);
     assert.equal(sandbox, role === 'arc_tester' || role === 'arc_implementer' ? 'workspace-write' : 'read-only');
     assert.equal(JSON.parse(cValues[1].slice('developer_instructions='.length)), codexProfile(role).instructions);
     assert.equal(flagValue(rest, '-o'), resultPath);
     assert.equal(rest.at(-1), '-');
     assert.ok(!rest.includes('--skip-git-repo-check') && !rest.includes('--sandbox'));
+  }
+});
+
+test('Codex writer sandbox mode argv equals base plus sorted env items', () => {
+  for (const role of ['arc_implementer', 'arc_tester']) {
+    const input = {...codexInput, role, profile: codexProfile(role)};
+    const toolContext = codexContext(role, input.worktree);
+    const base = buildCodexArgs(input);
+    const args = buildCodexArgs({...input, toolContext});
+    const env = envItems(toolContext);
+    const output = args.indexOf('-o');
+    assert.deepEqual(toolContext.env.map(([key]) => key), toolContext.env.map(([key]) => key).sort());
+    assert.deepEqual(args.slice(output - env.length, output), env);
+    assert.deepEqual([...args.slice(0, output - env.length), ...args.slice(output)], base);
+    assert.deepEqual(buildCodexArgs({...input, toolContext: null}), base);
+  }
+});
+
+test('Codex profile mode omits sandbox_mode and starts filesystem with R1 entries', () => {
+  const args = buildCodexArgs({...codexInput, toolContext: loopbackContext()});
+  assert.ok(!args.some(arg => arg.startsWith('sandbox_mode=')));
+  assert.deepEqual(args.slice(4, 8), ['-c', 'default_permissions="arc_bridge"', '-c', 'features.network_proxy=true']);
+  assert.match(args.find(arg => arg.startsWith('permissions.arc_bridge.filesystem=')) ?? '',
+    /^permissions\.arc_bridge\.filesystem=\{"\/w\/\.git"="read","\/w\/\.codex"="read"/);
+  assert.ok(args.includes('permissions.arc_bridge.network.unix_sockets={"/private/tmp/arc-bridge-01234567/sock"="allow"}'));
+});
+
+// Codex 0.170.0, 2026-11-24, MI-1
+const MI1_PROFILE_SELECTION = ['-c', 'default_permissions="arc_bridge"', '-c', 'features.network_proxy=true'];
+const MI1_PROFILE_SETTINGS = [
+  '-c', 'permissions.arc_bridge.extends=":workspace"',
+  '-c', 'permissions.arc_bridge.filesystem={"/w/.git"="read","/w/.codex"="read"}',
+  '-c', 'permissions.arc_bridge.network.enabled=true',
+  '-c', 'permissions.arc_bridge.network.domains={"127.0.0.1"="allow"}',
+  '-c', 'permissions.arc_bridge.network.allow_local_binding=true',
+  '-c', 'permissions.arc_bridge.network.unix_sockets={"/private/tmp/arc-bridge-01234567/sock"="allow"}',
+  '-c', 'approval_policy="never"',
+  '-c', 'shell_environment_policy.set.TMPDIR="/private/tmp/arc-bridge-01234567/tmp"',
+];
+test('Codex profile argv matches MI-1 recorded form', () => {
+  const toolContext = {...loopbackContext(), env: [['TMPDIR', '/private/tmp/arc-bridge-01234567/tmp']]};
+  const model = ['-m', 'gpt-6-luna', '-c', 'model_reasoning_effort="low"', '-c',
+    `developer_instructions=${JSON.stringify(codexInput.profile.instructions)}`];
+  const settings = [...MI1_PROFILE_SELECTION, ...model, ...MI1_PROFILE_SETTINGS, '-o', '/result', '-'];
+  assert.deepEqual(buildCodexArgs({...codexInput, toolContext}), ['exec', '--json', '-C', '/w', ...settings]);
+  // The bridge keeps its existing resume thread ID position.
+  assert.deepEqual(buildCodexArgs({...codexInput, toolContext, threadId: 'tid-1'}), ['exec', 'resume', 'tid-1', '--json', ...settings]);
+});
+
+test('missing protection entries throw', () => {
+  assert.throws(() => codexArgs.assertCodexProtection([['/w/.codex', 'read']], '/w'),
+    {message: 'Codex profile protection entries missing'});
+});
+
+test('paths-only grant uses profile mode without network keys', () => {
+  const toolContext = codexContext(codexInput.role, '/w', toolAccess({paths: ['first', 'second']}));
+  const args = buildCodexArgs({...codexInput, toolContext}, {toolPaths: {first: '/z/output', second: '/a/output'}});
+  assert.ok(args.includes('default_permissions="arc_bridge"'));
+  assert.ok(args.includes('permissions.arc_bridge.filesystem={"/w/.git"="read","/w/.codex"="read","/a/output"="write","/z/output"="write"}'));
+  assert.ok(!args.some(arg => arg === '--enable' || arg.includes('network_proxy') || arg.startsWith('permissions.arc_bridge.network.')));
+});
+
+test('domains renders none entries for readWhenExternal and env exclude', () => {
+  const toolContext = codexContext(codexInput.role, '/w', toolAccess({network: 'domains', domains: ['z.example.com', 'a.example.com']}));
+  const forbidden = resolveForbidden({worktree: '/w', userHome: '/home/test', homes: {codex: '/config/codex'}});
+  const denied = forbidden.readWhenExternal.map(entry => JSON.stringify(entry.path)).sort().map(key => `${key}="none"`);
+  const args = buildCodexArgs({...codexInput, toolContext});
+  assert.ok(args.includes(`permissions.arc_bridge.filesystem={"/w/.git"="read","/w/.codex"="read",${denied.join(',')}}`));
+  assert.ok(args.includes('permissions.arc_bridge.network.domains={"127.0.0.1"="allow","a.example.com"="allow","z.example.com"="allow"}'));
+  assert.deepEqual(args.slice(-5, -3), ['-c', `shell_environment_policy.exclude=${JSON.stringify(forbidden.envWhenExternal)}`]);
+});
+
+test('git entries follow CODEX_PROFILE_GIT_ENTRIES', () => {
+  // Codex 0.170.0, 2026-11-24, MI-3
+  assert.equal(dispatchPolicy.CODEX_PROFILE_GIT_ENTRIES, false);
+  assert.deepEqual(codexArgs.codexFilesystemEntries(loopbackContext()), [['/w/.git', 'read'], ['/w/.codex', 'read']]);
+});
+
+test('Codex read roles ignore toolContext', () => {
+  for (const role of ['arc_scouter', 'arc_planner', 'arc_reviewer']) {
+    for (const threadId of [null, 'tid-1']) {
+      const input = {...codexInput, role, profile: codexProfile(role), threadId};
+      assert.deepEqual(buildCodexArgs({...input, toolContext: loopbackContext()}), buildCodexArgs(input));
+    }
   }
 });
 

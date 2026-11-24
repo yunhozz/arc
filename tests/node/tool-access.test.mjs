@@ -82,7 +82,7 @@ test('gate states map to reasons', async () => {
     assert.deepEqual(reasons(toolAccessGates), {reasons: ['permission_scope_unverified'], conditions: []});
   }
   assert.deepEqual(reasons({...gates, codexProfile: {codex: 'conditional'}, 'network.loopback': pass}, 'loopback'), {
-    reasons: [], conditions: [{mechanism: 'codexProfile', condition: 'profile mode requires worktree .git and .codex read entries (B1); exec acceptance pending MI-1/MI-3'}],
+    reasons: [], conditions: [{mechanism: 'codexProfile', condition: 'profile mode requires worktree .git and .codex read entries (verified by MI-1/MI-3)'}],
   });
 });
 

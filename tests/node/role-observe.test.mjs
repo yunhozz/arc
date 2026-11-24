@@ -9,6 +9,7 @@ import {syncBuiltinESMExports} from 'node:module';
 import {promisify} from 'node:util';
 import zlib from 'node:zlib';
 import {DEFAULT_POLICY, CODEX_DELEGATION_CALL_NAMES} from '../../lib/runtime/role-dispatch-policy.mjs';
+import * as dispatchPolicy from '../../lib/runtime/role-dispatch-policy.mjs';
 import {grokConfigSecurityProjection} from '../../lib/runtime/grok-sandbox.mjs';
 import * as roleObserve from '../../lib/runtime/role-observe.mjs';
 import {
@@ -351,6 +352,27 @@ test('F-7 compressed .jsonl.zst rollouts are read like plain ones; corrupt, unsu
   assert.equal(await readCodexTurnContext({codexHome: zstHome, threadId: spawnId, delegationNames: [], zstdDecompress: () => { throw Error('boom'); }}), null);
   // plain files are unaffected by missing zstd support
   assert.ok(await readCodexTurnContext({codexHome: plainHome, threadId: id, delegationNames: [], zstdDecompress: null}));
+});
+
+test('profile mode expectation uses CODEX_PROFILE_SANDBOX_TYPE', () => {
+  // Codex 0.170.0, 2026-11-24, MI-1
+  assert.equal(dispatchPolicy.CODEX_PROFILE_SANDBOX_TYPE, 'workspace-write');
+  const expected = {...CODEX_EXPECTED, sandboxMode: dispatchPolicy.CODEX_PROFILE_SANDBOX_TYPE};
+  const matching = evaluateCodexContext({context: codexContext({sandboxMode: 'workspace-write'}), expected});
+  assert.equal(matching.reason, null);
+  assert.equal(matching.claims.permissions.level, 'operator-attested');
+  const different = evaluateCodexContext({context: codexContext({sandboxMode: 'read-only'}), expected});
+  assert.equal(different.reason, 'permission_scope_mismatch');
+  assert.equal(different.claims.permissions.level, 'unverified');
+});
+
+test('null expected sandboxMode yields unverified permissions with note', () => {
+  for (const context of [codexContext({sandboxMode: 'workspace-write'}), null]) {
+    const outcome = evaluateCodexContext({context, expected: {...CODEX_EXPECTED, sandboxMode: null}});
+    assert.equal(outcome.reason, null);
+    assert.equal(outcome.claims.permissions.level, 'unverified');
+    assert.match(outcome.claims.permissions.details, /codex-profile-sandbox-type-unrecorded/);
+  }
 });
 
 test('Codex permissions claim never reaches runtime-observed even when G3 passes and every observed setting matches', () => {

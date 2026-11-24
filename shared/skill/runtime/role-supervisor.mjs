@@ -10,7 +10,7 @@ import {promisify} from 'node:util';
 import {GROK_CONTRACT, normalizeGrokStreamEvent, evaluateGrokObservation} from './grok-stream.mjs';
 import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline, readGrokProfileApplied, grokConfigSecurityProjection} from './grok-sandbox.mjs';
 import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
-import {DEFAULT_POLICY, DESCENDANT_LIMIT, DESCENDANT_SAMPLE_MS, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
+import {CODEX_PROFILE_SANDBOX_TYPE, DEFAULT_POLICY, DESCENDANT_LIMIT, DESCENDANT_SAMPLE_MS, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
 import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
 import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routing.mjs';
 import {resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
@@ -328,7 +328,9 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   const expected = platform === 'claude'
     ? {model: requested.model, effort: requested.effort, tools: profile.tools, permissionMode: permissions.permissionMode}
     : platform === 'gemini' || platform === 'grok' ? {model: requested.model, effort: 'default'}
-    : {model: requested.model, effort: requested.effort, sandboxMode: permissions.sandboxMode, approvalPolicy: 'never'};
+    : {model: requested.model, effort: requested.effort,
+      sandboxMode: toolContext?.grants.mechanisms.includes('codexProfile') ? CODEX_PROFILE_SANDBOX_TYPE : permissions.sandboxMode,
+      approvalPolicy: 'never'};
   observeToolContext?.(structuredClone(toolContext));
   return {platform, args, argsDigest: argsDigest(args), expected, requested, toolContext, ...(platform === 'gemini' ? {stdinInstructions: profile.instructions} : {}), ...(platform === 'grok' ? {promptFile: {path: grokPromptFile(resultPath), instructions: profile.instructions}, childEnv: GROK_CONTRACT.childEnv} : {}), ...(grokSandbox ? {grokSandbox} : {})};
 }

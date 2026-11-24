@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import {GROK_CONTRACT} from './grok-stream.mjs';
 import {GEMINI_CONTRACT} from './gemini-stream.mjs';
-import {DEFAULT_POLICY, effectiveClaudeSandboxSettings} from './role-dispatch-policy.mjs';
+import {CODEX_PROFILE_ARGS_FORM, CODEX_PROFILE_GIT_ENTRIES, DEFAULT_POLICY, effectiveClaudeSandboxSettings} from './role-dispatch-policy.mjs';
+import {TOOL_PATHS, TOOL_UNIX_SOCKETS} from './tool-access.mjs';
 
 const ROLES = ['arc_scouter', 'arc_planner', 'arc_implementer', 'arc_tester', 'arc_reviewer'];
 const deepFreeze = value => { for (const child of Object.values(value)) if (child && typeof child === 'object') deepFreeze(child); return Object.freeze(value); };
@@ -198,13 +199,80 @@ export function buildClaudeArgs({role, profile, sessionId = null, policy = DEFAU
   return args;
 }
 
-export function buildCodexArgs({role, profile, worktree, resultPath, threadId = null, policy = DEFAULT_POLICY}) {
+const codexProtectionPaths = worktree => [path.join(worktree, '.git'), path.join(worktree, '.codex')];
+
+export function assertCodexProtection(entries, worktree) {
+  if (!codexProtectionPaths(worktree).every((name, index) =>
+    entries[index]?.[0] === name && entries[index]?.[1] === 'read' && entries[index]?.length === 2)) {
+    throw Error('Codex profile protection entries missing');
+  }
+}
+
+export function codexFilesystemEntries({worktree, gitDir, gitCommonDir, hostDir, grants, forbidden}, toolPaths = TOOL_PATHS) {
+  const protectedPaths = codexProtectionPaths(worktree);
+  if (CODEX_PROFILE_GIT_ENTRIES) protectedPaths.push(...[gitDir, gitCommonDir].filter(Boolean));
+  const entries = [...new Set(protectedPaths)].map(name => [name, 'read']);
+  if (hostDir) entries.push([hostDir, 'read']);
+  for (const name of grants.paths.map(id => toolPaths[id]).sort()) {
+    if (!path.isAbsolute(name)) throw Error('Absolute tool path required');
+    entries.push([name, 'write']);
+  }
+  if (grants.network === 'domains') {
+    for (const name of [...new Set(forbidden.readWhenExternal.map(entry => entry.path))].sort()) entries.push([name, 'none']);
+  }
+  return entries;
+}
+
+export function renderCodexTable(entries) {
+  return '{' + entries.map(([key, value]) => JSON.stringify(key) + '=' + JSON.stringify(value)).join(',') + '}';
+}
+
+function codexProfileSettings(toolContext, worktree, toolPaths) {
+  const {grants, scratch} = toolContext;
+  const entries = codexFilesystemEntries(toolContext, toolPaths);
+  assertCodexProtection(entries, worktree);
+  const profile = 'permissions.arc_bridge';
+  const settings = ['-c', `${profile}.extends=":workspace"`, '-c', `${profile}.filesystem=${renderCodexTable(entries)}`];
+  if (grants.network !== null) {
+    const domains = ['127.0.0.1', ...[...grants.domains].sort()].map(name => [name, 'allow']);
+    const sockets = [path.join(scratch, 'sock'), ...grants.unixSockets.map(id => TOOL_UNIX_SOCKETS[id]).sort()].map(name => [name, 'allow']);
+    settings.push('-c', `${profile}.network.enabled=true`,
+      '-c', `${profile}.network.domains=${renderCodexTable(domains)}`,
+      '-c', `${profile}.network.allow_local_binding=true`,
+      '-c', `${profile}.network.unix_sockets=${renderCodexTable(sockets)}`);
+  }
+  return settings;
+}
+
+export function buildCodexArgs({role, profile, worktree, resultPath, threadId = null, policy = DEFAULT_POLICY, toolContext = null},
+  {toolPaths = TOOL_PATHS} = {}) {
   void policy;
   const permissions = permissionsFor('codex', role);
   if (typeof resultPath !== 'string' || !path.isAbsolute(resultPath)) throw Error('Absolute resultPath required');
-  const settings = ['-m', requireText(profile?.model, 'model'), '-c', `model_reasoning_effort=${JSON.stringify(requireText(profile.effort, 'effort'))}`,
-    '-c', `developer_instructions=${JSON.stringify(requireText(profile.instructions, 'instructions'))}`, '-c', `sandbox_mode=${JSON.stringify(permissions.sandboxMode)}`,
-    '-c', 'approval_policy="never"', '-o', resultPath, '-'];
+  const writerContext = permissions.sandboxMode === 'workspace-write' ? toolContext : null;
+  const profileMode = writerContext?.grants.mechanisms.includes('codexProfile');
+  const settings = [];
+  if (profileMode) {
+    if (CODEX_PROFILE_ARGS_FORM === 'B') {
+      settings.push('-c', 'default_permissions="arc_bridge"');
+      if (writerContext.grants.network !== null) settings.push('-c', 'features.network_proxy=true');
+    } else {
+      settings.push('-P', 'arc_bridge');
+      if (writerContext.grants.network !== null) settings.push('--enable', 'network_proxy');
+    }
+  }
+  settings.push('-m', requireText(profile?.model, 'model'), '-c', `model_reasoning_effort=${JSON.stringify(requireText(profile.effort, 'effort'))}`,
+    '-c', `developer_instructions=${JSON.stringify(requireText(profile.instructions, 'instructions'))}`);
+  if (profileMode) settings.push(...codexProfileSettings(writerContext, worktree, toolPaths));
+  else settings.push('-c', `sandbox_mode=${JSON.stringify(permissions.sandboxMode)}`);
+  settings.push('-c', 'approval_policy="never"');
+  for (const [key, value] of writerContext?.env ?? []) {
+    settings.push('-c', `shell_environment_policy.set.${key}=${JSON.stringify(value)}`);
+  }
+  if (profileMode && writerContext.grants.network === 'domains') {
+    settings.push('-c', `shell_environment_policy.exclude=${JSON.stringify(writerContext.forbidden.envWhenExternal)}`);
+  }
+  settings.push('-o', resultPath, '-');
   if (threadId !== null) {
     if (typeof threadId !== 'string' || !/^[A-Za-z0-9._-]+$/.test(threadId)) throw Error('Invalid threadId');
     return [...(permissions.search ? ['--search'] : []), 'exec', 'resume', threadId, '--json', ...settings];
