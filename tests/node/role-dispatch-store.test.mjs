@@ -41,6 +41,32 @@ test('lease create/read/write keeps 0600 file and 0700 directory and exact keys'
   await assert.rejects(readLease(home, '../x'));
 });
 
+const v2 = {version: 2, targetPlatform: 'codex'};
+const toolAccess = {network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: ['ci', 'polling']};
+const v3 = {...v2, version: 3, toolAccess};
+
+test('lease v1 v2 v3 round-trip', async t => {
+  const home = await tmp(t);
+  for (const fields of [{}, v2, v3]) {
+    const value = lease(`v${fields.version ?? 1}`, fields);
+    assert.deepEqual(await createLease(home, value), value);
+    assert.deepEqual(await readLease(home, value.dispatchId), value);
+    const written = await writeLease(home, {...value, state: 'running'}, {now: Date.parse(value.updatedAt)});
+    assert.deepEqual(written, {...value, state: 'running'});
+    assert.deepEqual(await readLease(home, value.dispatchId), written);
+  }
+});
+
+test('v3 requires toolAccess key and valid normalized value', () => {
+  assert.throws(() => validateLease(lease('no-access', {...v2, version: 3})), /Invalid lease keys/);
+  assert.throws(() => validateLease(lease('unsorted', {...v3, toolAccess: {...toolAccess, envPresets: ['polling', 'ci']}})), /Invalid lease values/);
+  assert.throws(() => validateLease(lease('read-role', {...v3, role: 'arc_reviewer'})), /Invalid lease values/);
+});
+
+test('v2 with toolAccess key is rejected', () => {
+  assert.throws(() => validateLease(lease('v2-with-access', {...v2, toolAccess})), /Invalid lease keys/);
+});
+
 test('listLeases throws on an unparsable lease file', async t => {
   const home = await tmp(t);
   assert.deepEqual(await listLeases(home), []);

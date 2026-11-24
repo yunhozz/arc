@@ -209,6 +209,12 @@ GK2 is `approval`.
 - Delegation: The dispatch record reports `unverifiedContracts.delegation` as `undetectable`.
 - Execution confirmation: Check the stream session ID against the recorded ID, the observed model and the terminal result. Effort stays `unverified`.
 
+### Bridge tool access
+
+The Orchestrator requests `toolAccess` only for the current bridge dispatch when the approved task needs it (D-a). Use scratch first. Scouter, Planner and Reviewer cannot request `toolAccess`. Implementer may request loopback, registered path or socket IDs, and the `ci`, `daemon-off` and `polling` presets. Tester may also request domain-scoped or full network access and registered browser services, subject to the platform gates. On Codex and Claude, the gates for full network access and all three Playwright services have the value `held`. Never enable additional access by default for Tester. Check the dispatch's `toolAccess.conditions` when a grant is conditional.
+
+Use `ARC_SCRATCH_DIR` for temporary files and put files that must survive the dispatch in `ARC_EVIDENCE_DIR` for supervisor collection. Read `ARC_HOST_SERVICES_FILE` for service endpoints when a host service was granted. When a host-only operation blocks a check, report it as “environment constraint (host only)” and identify the blocked check and what remains unverified. Host-only operations include process inspection (`ps`, `pgrep`), Docker, writes to actual CLI authentication or configuration, dependency installation and its remote fetches, Git writes, Cypress, and Keychain operations. The Orchestrator handles host verification within existing authority.
+
 ### Shared dispatch rules
 
 - Bridge children receive the profile instructions only and NEVER load ARC `SKILL.md`. Role instructions forbid re-delegation.

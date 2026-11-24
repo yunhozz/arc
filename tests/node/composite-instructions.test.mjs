@@ -39,6 +39,18 @@ for (const harness of Object.keys(harnesses)) {
   });
 }
 
+for (const platform of platforms) {
+  test(`${platform} skill requires Tester brief mode immediately after the fresh Tester sentence`, async () => {
+    const skill = await readFile(new URL(`../../${platform}/skill/SKILL.md`, import.meta.url), 'utf8');
+    const taskParagraphStart = 'Each top-level task (one plan task, or the entire request without a plan) receives a fresh Implementer.';
+    const freshTester = 'Each task requiring Tester receives fresh Tester, never reused from another task.';
+    const modeRule = 'Every Tester brief, including correction rechecks and resumed assignments, MUST state `mode: task` or `mode: final` under [verification](references/verification.md#test-scope-and-result-comparison).';
+    assert.equal(skill.split(modeRule).length - 1, 1, `${platform} skill must contain the Tester brief mode rule exactly once`);
+    const taskParagraph = skill.split('\n\n').find(paragraph => paragraph.startsWith(taskParagraphStart));
+    assert.ok(taskParagraph?.includes(`${freshTester} ${modeRule}`), `${platform} Tester brief mode rule must directly follow the fresh Tester sentence in the task paragraph`);
+  });
+}
+
 test('execution mode precedes standalone names and forbids standalone names in composite mode', async () => {
   const paragraphs = {};
   for (const harness of Object.keys(harnesses)) {

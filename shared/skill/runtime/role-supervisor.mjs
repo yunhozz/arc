@@ -10,13 +10,15 @@ import {promisify} from 'node:util';
 import {GROK_CONTRACT, normalizeGrokStreamEvent, evaluateGrokObservation} from './grok-stream.mjs';
 import {GROK_SANDBOX_RELATIVE, grokSandboxProfileName, renderGrokSandboxProfile, grokProfileCovered, inspectGrokProfileSlot, checkGrokHome, createGrokSandboxProfile, verifyGrokSandboxProfile, removeGrokSandboxProfile, grokEventsBaseline, readGrokProfileApplied, grokConfigSecurityProjection} from './grok-sandbox.mjs';
 import {GEMINI_CONTRACT, normalizeGeminiStreamEvent, evaluateGeminiObservation} from './gemini-stream.mjs';
-import {DEFAULT_POLICY, DESCENDANT_LIMIT, DESCENDANT_SAMPLE_MS, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
-import {readLease, writeLease, writeHeartbeat, cancelRequested, TERMINAL_STATES} from './role-dispatch-store.mjs';
+import {CODEX_PROFILE_SANDBOX_TYPE, DEFAULT_POLICY, DESCENDANT_LIMIT, DESCENDANT_SAMPLE_MS, reason, bridgeGateReasons} from './role-dispatch-policy.mjs';
+import {readLease, writeLease, writeHeartbeat, cancelRequested, dispatchDirectory, TERMINAL_STATES} from './role-dispatch-store.mjs';
 import {withRoutingLock, readActivation, resolveRuntimeHomes} from './role-routing.mjs';
 import {resolveLocalCli, localCliEnvironment} from './local-cli.mjs';
 import {parseCompositeProfile, buildBridgeArgs, argsDigest, ROLE_BRIDGE_PERMISSIONS} from './role-bridge-args.mjs';
 import {createLineParser, normalizeClaudeStreamEvent, normalizeCodexStreamEvent, eventRecord, evaluateClaudeInit, evaluateCodexContext, readClaudeTranscriptEffort, readCodexTurnContext, classifyFailure, snapshotWorktree, snapshotControlFiles, observeHeadAdvance, detectViolations, toleratedRecord, allowedPathsCoverControl, claudeProjectSettingsWidenScope, resolveWorktree} from './role-observe.mjs';
 import {getPlatform, routingProfileFile} from './platform-registry.mjs';
+import {buildToolContext, collectEvidence, createScratch, hasRetainedCleanup, removeScratch, toolAccessPreflight, toolAccessReasons, TOOL_ACCESS_ADAPTERS} from './tool-access.mjs';
+import {hostDirFor, startHostService, writeServicesFile} from './host-service.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const sha256 = bytes => 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
@@ -267,6 +269,150 @@ export async function reapRecordedDescendants(artifactDir, lease, options) {
   finally { await file?.close().catch(() => {}); }
 }
 
+const HOST_SERVICES_FILE = 'host-services.json';
+const HOST_SERVICES_MAX_BYTES = 16384;
+const dirIdentity = ({dev, ino}) => ({dev, ino});
+const hasKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+  && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+const validDirIdentity = value => hasKeys(value, ['dev', 'ino']) && Number.isSafeInteger(value.dev)
+  && Number.isSafeInteger(value.ino) && value.ino > 0;
+
+function writeHostServicesSnapshot(artifactDir, snapshot) {
+  const filename = path.join(artifactDir, HOST_SERVICES_FILE);
+  const temporary = `${filename}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(snapshot) + '\n', {mode: 0o600, flag: 'wx'});
+    fs.renameSync(temporary, filename);
+  } finally {
+    try { fs.unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+}
+
+function hostServiceGroupStatus(pgid) {
+  try { process.kill(-pgid, 0); return 'present'; }
+  catch (error) {
+    if (error.code === 'ESRCH') return 'gone';
+    if (error.code === 'EPERM') return 'denied';
+    throw error;
+  }
+}
+
+async function waitForHostServiceGroupExit(pgid) {
+  const deadline = performance.now() + 500;
+  while (hostServiceGroupStatus(pgid) !== 'gone') {
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) return false;
+    await sleep(Math.min(25, remaining));
+  }
+  return true;
+}
+
+async function recoveryProcessTable(supervisor) {
+  const table = await sampleProcessTable();
+  const rows = new Map(table?.map(row => [row.pid, row]));
+  if (!rows.has(process.pid)) throw Error('Process table unavailable');
+  if (supervisor && sameStart(rows.get(supervisor.pid), supervisor)) throw Error('Supervisor still present');
+  return rows;
+}
+
+async function reapHostServiceGroup(entry, graceMs, supervisor) {
+  const {pid, pgid, startTime} = entry;
+  const groupMembers = table => [...table.values()].filter(row => row.pgid === pgid);
+  const safeMembers = table => {
+    const lineage = supervisorLineage(table, process.pid);
+    const members = groupMembers(table);
+    if (members.some(row => row.uid !== process.geteuid() || lineage.has(row.pid))) throw Error('Unverified service group');
+    return members;
+  };
+  const signal = name => {
+    try { process.kill(-pgid, name); }
+    catch (error) { if (error.code !== 'ESRCH') throw error; }
+  };
+  const before = await recoveryProcessTable(supervisor);
+  const leader = before.get(pid);
+  if (!leader) {
+    const status = hostServiceGroupStatus(pgid);
+    if (status !== 'denied') return status === 'gone';
+    const fresh = await recoveryProcessTable(supervisor);
+    return groupMembers(fresh).length === 0 && await waitForHostServiceGroupExit(pgid);
+  }
+  if (leader.pgid !== pgid || leader.startTime !== startTime) return false;
+  const members = safeMembers(before);
+  signal('SIGTERM');
+  if (graceMs > 0) await sleep(graceMs);
+  const status = hostServiceGroupStatus(pgid);
+  if (status === 'gone') return true;
+
+  // A leader can exit on TERM while its descendants keep the group alive.
+  const after = await recoveryProcessTable(supervisor);
+  const currentLeader = after.get(pid);
+  if (currentLeader && (currentLeader.pgid !== pgid || currentLeader.startTime !== startTime)) return false;
+  const remaining = safeMembers(after);
+  // macOS can report a zombie-only group as EPERM until it is reaped.
+  if (status === 'denied') return remaining.length === 0 && await waitForHostServiceGroupExit(pgid);
+  if (!members.some(member => after.get(member.pid)?.pgid === pgid && sameStart(after.get(member.pid), member))) {
+    return remaining.length === 0 && await waitForHostServiceGroupExit(pgid);
+  }
+  signal('SIGKILL');
+  return await waitForHostServiceGroupExit(pgid);
+}
+
+const quarantineOptions = (artifactDir, anchorHome, lease) => ({
+  artifactDir, fallbackDir: dispatchDirectory(anchorHome), quarantineKey: `${lease.dispatchId}-${lease.segment ?? 0}`,
+});
+
+export async function reapRecordedHostServices(artifactDir, lease, {anchorHome, graceMs = DEFAULT_POLICY.cancelGraceMs} = {}) {
+  let file;
+  try {
+    const requested = lease.toolAccess.services;
+    const adapter = TOOL_ACCESS_ADAPTERS[lease.targetPlatform];
+    const uid = process.geteuid(), id8 = lease.dispatchId.replaceAll('-', '').slice(0, 8);
+    const scratch = adapter?.scratchRoot?.({id8, uid});
+    if (!scratch) return 'warning';
+    const hostDir = hostDirFor(lease.dispatchId);
+    file = await fsp.open(path.join(artifactDir, HOST_SERVICES_FILE), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    const stat = await file.stat();
+    if (!stat.isFile() || stat.uid !== uid || stat.size > HOST_SERVICES_MAX_BYTES) return 'warning';
+    const bytes = Buffer.alloc(HOST_SERVICES_MAX_BYTES + 1);
+    const {bytesRead} = await file.read(bytes, 0, bytes.length, 0);
+    if (bytesRead !== stat.size) return 'warning';
+    const snapshot = JSON.parse(bytes.toString('utf8', 0, bytesRead));
+    if (!hasKeys(snapshot, ['version', 'dispatchId', 'segment', 'hostDir', 'scratch', 'services', 'pending'])
+      || snapshot.version !== 1 || snapshot.dispatchId !== lease.dispatchId || snapshot.segment !== (lease.segment ?? 0)
+      || !validDirIdentity(snapshot.hostDir) || !validDirIdentity(snapshot.scratch)
+      || (snapshot.pending !== null && !requested.includes(snapshot.pending))
+      || !Array.isArray(snapshot.services) || snapshot.services.length > requested.length
+      || (!snapshot.services.length && snapshot.pending === null)) return 'warning';
+    const ids = new Set(), pids = new Set();
+    for (const entry of snapshot.services) {
+      if (!hasKeys(entry, ['id', 'pid', 'pgid', 'startTime']) || !requested.includes(entry.id) || ids.has(entry.id) || entry.id === snapshot.pending
+        || !validPid(entry.pid) || entry.pid <= 1 || entry.pgid !== entry.pid || pids.has(entry.pid)
+        || typeof entry.startTime !== 'string' || !DESCENDANT_START.test(entry.startTime)) return 'warning';
+      ids.add(entry.id);
+      pids.add(entry.pid);
+    }
+    for (const entry of snapshot.services.reverse()) {
+      if (!await reapHostServiceGroup(entry, graceMs, lease.supervisor)) return 'warning';
+    }
+    if (snapshot.pending !== null || snapshot.services.length !== requested.length) return 'warning';
+    if (lease.child && hostServiceGroupStatus(lease.child.pid) !== 'gone') return 'warning';
+    const parent = adapter.scratchParent?.({uid});
+    if (parent) {
+      const parentStat = await fsp.lstat(parent);
+      if (!parentStat.isDirectory() || parentStat.uid !== uid) return 'warning';
+    }
+    const cleanup = {...quarantineOptions(artifactDir, anchorHome, lease), missingOk: true};
+    if (await hasRetainedCleanup(scratch, cleanup) || await hasRetainedCleanup(hostDir, cleanup)) return 'warning';
+    await collectEvidence({scratch, artifactDir, identity: snapshot.scratch, recovery: true});
+    await recoveryProcessTable(lease.supervisor);
+    if (lease.child && hostServiceGroupStatus(lease.child.pid) !== 'gone') return 'warning';
+    const scratchRemoved = await removeScratch(scratch, {...cleanup, identity: snapshot.scratch});
+    const hostRemoved = await removeScratch(hostDir, {...cleanup, identity: snapshot.hostDir});
+    return hostRemoved && scratchRemoved ? 'ok' : 'warning';
+  } catch { return 'warning'; }
+  finally { await file?.close().catch(() => {}); }
+}
+
 export {resolveWorktree};
 export const artifactDirectory = (target, workflowId, dispatchId) => path.join(target.gitCommonDir, 'arc', 'workflows', workflowId, 'dispatches', dispatchId);
 /** Segment 0 (the first run) keeps its files in the dispatch directory; resumed segments use segments/<n>/. */
@@ -278,9 +424,9 @@ export const geminiPolicyFile = (homes, role) => path.join(homes.gemini ?? '', '
 export const grokPromptFile = resultPath => path.join(path.dirname(resultPath), 'prompt.md');
 
 /** Builds the child CLI arguments from the hash-verified target profile. Errors carry reasonCode. */
-export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, policy = DEFAULT_POLICY, supervisorImplementations = SUPERVISOR_IMPLEMENTATIONS}) {
+export async function buildBridgeInvocation({lease, config, homes, worktree, resultPath, userHome, env = process.env, target = {}, runtimePlatforms, policy = DEFAULT_POLICY, supervisorImplementations = SUPERVISOR_IMPLEMENTATIONS, observeToolContext}) {
   const fail = (reasonCode, message) => Object.assign(Error(message), {reasonCode});
-  const requested = config.roles[lease.role], platform = lease.version === 2 ? lease.targetPlatform : requested.platform;
+  const requested = config.roles[lease.role], platform = lease.version >= 2 ? lease.targetPlatform : requested.platform;
   if (platform !== requested.platform) throw fail('activation_unverified', 'Lease target differs from the active role target');
   const implementation = supervisorImplementations.get(platform);
   if (platform === 'gemini' || platform === 'grok' || lease.hostPlatform === 'gemini' || lease.hostPlatform === 'grok') {
@@ -306,16 +452,32 @@ export async function buildBridgeInvocation({lease, config, homes, worktree, res
   let bytes;
   try { bytes = await fsp.readFile(file); } catch { throw fail('activation_unverified', 'Profile unreadable'); }
   if (sha256(bytes) !== lease.profileHash) throw fail('activation_unverified', 'Profile hash differs from the reserved lease');
+  const {reasons} = toolAccessReasons({platform, role: lease.role, route: lease.route, toolAccess: lease.toolAccess, policy});
+  if (reasons.length) throw fail(reasons[0], 'Tool access is not available for this dispatch');
+  const cli = resolveLocalCli(platform, {cwd: worktree, userHome, env, runtimePlatforms});
+  if (lease.toolAccess !== undefined && cli.reason) throw fail('permission_scope_unverified', 'Tool access requires a local CLI');
+  const cliEnv = cli.reason ? env : localCliEnvironment(cli);
+  const toolContext = buildToolContext({
+    platform, role: lease.role, dispatchId: lease.dispatchId, toolAccess: lease.toolAccess, uid: process.getuid(),
+    userHome, homes, env: cliEnv, envNames: Object.keys(cliEnv), worktree, gitDir: target.gitDir, gitCommonDir: target.gitCommonDir, policy,
+  });
+  if (toolContext) {
+    const preflightReasons = await toolAccessPreflight({platform, role: lease.role, grants: toolContext.grants, worktree, userHome, homes, env: cliEnv, io: fsp});
+    if (preflightReasons.length) throw fail(preflightReasons[0], 'Tool access preflight failed');
+  }
   let profile, args;
   try {
     profile = parseCompositeProfile(platform, bytes);
-    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy, policyFile: geminiPolicyFile(homes, lease.role), ...(platform === 'grok' ? {promptFile: grokPromptFile(resultPath), sandboxProfile: grokSandbox?.name} : {}), resume: lease.segment > 0});
+    args = buildBridgeArgs(platform, {role: lease.role, profile, sessionId: lease.sessionId, worktree, resultPath, threadId: lease.sessionId, policy, policyFile: geminiPolicyFile(homes, lease.role), ...(platform === 'grok' ? {promptFile: grokPromptFile(resultPath), sandboxProfile: grokSandbox?.name} : {}), resume: lease.segment > 0, toolContext});
   } catch { throw fail('permission_scope_unverified', 'Profile arguments unavailable'); }
   const expected = platform === 'claude'
     ? {model: requested.model, effort: requested.effort, tools: profile.tools, permissionMode: permissions.permissionMode}
     : platform === 'gemini' || platform === 'grok' ? {model: requested.model, effort: 'default'}
-    : {model: requested.model, effort: requested.effort, sandboxMode: permissions.sandboxMode, approvalPolicy: 'never'};
-  return {platform, args, argsDigest: argsDigest(args), expected, requested, ...(platform === 'gemini' ? {stdinInstructions: profile.instructions} : {}), ...(platform === 'grok' ? {promptFile: {path: grokPromptFile(resultPath), instructions: profile.instructions}, childEnv: GROK_CONTRACT.childEnv} : {}), ...(grokSandbox ? {grokSandbox} : {})};
+    : {model: requested.model, effort: requested.effort,
+      sandboxMode: toolContext?.grants.mechanisms.includes('codexProfile') ? CODEX_PROFILE_SANDBOX_TYPE : permissions.sandboxMode,
+      approvalPolicy: 'never'};
+  observeToolContext?.(structuredClone(toolContext));
+  return {platform, args, argsDigest: argsDigest(args), expected, requested, toolContext, ...(platform === 'gemini' ? {stdinInstructions: profile.instructions} : {}), ...(platform === 'grok' ? {promptFile: {path: grokPromptFile(resultPath), instructions: profile.instructions}, childEnv: GROK_CONTRACT.childEnv} : {}), ...(grokSandbox ? {grokSandbox} : {})};
 }
 
 /** Starts this module as a detached supervisor process (own session, stdio ignored, unref'd). env defaults to the inherited environment. */
@@ -338,6 +500,9 @@ export async function runSupervisor(options) {
   const eventsMax = options.eventsMaxBytes ?? policy.eventsMaxBytes, codexWaitMs = options.codexWaitMs ?? 10000;
   const lockRetryMs = options.lockRetryMs ?? policy.lockRetryMs, lockDeadlineMs = options.lockDeadlineMs ?? 30000;
   const startedAt = new Date().toISOString();
+  const scratchIo = {create: createScratch, collect: collectEvidence, remove: removeScratch, ...options.scratchIo};
+  const hostServiceIo = options.hostServiceIo;
+  const startService = hostServiceIo?.start ?? startHostService;
 
   // Lease writes retry a busy lock; the supervisor never gives up a terminal write because of a short contention.
   const locked = async fn => {
@@ -366,6 +531,7 @@ export async function runSupervisor(options) {
     return true;
   });
   if (!guarded) return; // not the supervisor registered for this dispatch
+  const quarantine = quarantineOptions(artifactDir, codexHome, lease);
 
   const timers = new Set();
   let hbBusy = false;
@@ -373,9 +539,40 @@ export async function runSupervisor(options) {
   await beat();
   timers.add(setInterval(beat, heartbeatMs));
 
+  let createdScratch, scratchIdentity, createdHostDir, hostDirIdentity, toolAccessResult;
+  let hostServiceRecoveryWarning = false;
+  const hostServices = [];
+  const recordHostServiceRecovery = record => {
+    if (hostServiceRecoveryWarning) return;
+    try { record(); } catch { hostServiceRecoveryWarning = true; }
+  };
+  const finishToolAccess = async () => {
+    if (!createdScratch) return {};
+    return toolAccessResult ??= (async () => {
+      const {scratch, conditions} = createdScratch;
+      for (const service of [...hostServices].reverse()) {
+        if (!service.started) continue;
+        try { service.cleanup = await service.stop(); } catch { service.cleanup = 'warning'; }
+      }
+      let evidence = {copied: 0, skipped: [], truncated: false}, collected = false, removed = false;
+      try { evidence = await scratchIo.collect({scratch, artifactDir, identity: scratchIdentity}); collected = true; } catch { /* preserve terminal result */ }
+      try { removed = await scratchIo.remove(scratch, {...quarantine, identity: scratchIdentity}); } catch { /* reported below */ }
+      if (createdHostDir) {
+        if (!await removeScratch(createdHostDir, {...quarantine, identity: hostDirIdentity})) {
+          for (const service of hostServices) service.cleanup = 'warning';
+        }
+      }
+      const servicesRecord = createdScratch.hostDir ? {
+        hostServices: hostServices.map(({id, started, endpoint, cleanup}) => ({id, started, endpoint, cleanup})),
+        ...(hostServiceRecoveryWarning ? {hostServiceRecovery: 'warning'} : {}),
+      } : {};
+      return {toolAccess: {conditions, scratch: {path: scratch, removed: collected && removed}, evidence, ...servicesRecord}};
+    })();
+  };
   const writeRecord = async body => {
+    const toolAccessRecord = await finishToolAccess();
     const file = path.join(artifactDir, 'record.json');
-    await fsp.writeFile(file, JSON.stringify({version: 1, dispatchId, role: lease.role, startedAt, endedAt: new Date().toISOString(), ...body}, null, 2) + '\n', {mode: 0o600});
+    await fsp.writeFile(file, JSON.stringify({version: 1, dispatchId, role: lease.role, startedAt, endedAt: new Date().toISOString(), ...body, ...toolAccessRecord}, null, 2) + '\n', {mode: 0o600});
     await fsp.chmod(file, 0o600);
   };
   const commit = async (state, codes, claims, extra = {}) => {
@@ -475,7 +672,7 @@ export async function runSupervisor(options) {
     const implementation = (options.supervisorImplementations ?? SUPERVISOR_IMPLEMENTATIONS).get(platform);
     if (!implementation) throw Error('Invalid composite profile: unknown platform');
     let invocation;
-    try { invocation = await buildBridgeInvocation({lease, config, homes, worktree: target.realpath, resultPath: resultFile, policy, supervisorImplementations: options.supervisorImplementations}); } catch (error) { return await earlyFailure(error.reasonCode ?? 'activation_unverified'); }
+    try { invocation = await buildBridgeInvocation({lease, config, homes, worktree: target.realpath, resultPath: resultFile, userHome, env, target, runtimePlatforms, policy, supervisorImplementations: options.supervisorImplementations, observeToolContext: options.observeToolContext}); } catch (error) { return await earlyFailure(error.reasonCode ?? 'activation_unverified'); }
     if (invocation.argsDigest !== lease.argsDigest) return await earlyFailure('activation_unverified');
     const brief = await fsp.readFile(path.join(artifactDir, 'brief.md'), 'utf8');
     const cli = resolveLocalCli(platform, context);
@@ -494,6 +691,48 @@ export async function runSupervisor(options) {
       }
       const {path, sha256, dirCreated} = createdGrokProfile;
       grokSandboxProfile = {name: invocation.grokSandbox.name, path, sha256, dirCreated, created: true, removed: null, dirRemoved: false, eventsBaseline: null, applied: null};
+    }
+    if (invocation.toolContext) {
+      const {scratch, parent, hostDir, grants} = invocation.toolContext;
+      try { scratchIdentity = await scratchIo.create({scratch, parent, uid: process.getuid(), ...quarantine}); }
+      catch (error) { return await earlyFailure(error.reasonCode ?? 'execution_failed'); }
+      createdScratch = invocation.toolContext;
+      if (hostDir) {
+        try {
+          await fsp.mkdir(hostDir, {mode: 0o700});
+          const stat = fs.lstatSync(hostDir);
+          if (!stat.isDirectory() || stat.uid !== process.geteuid()) throw Error('Host directory changed during creation');
+          hostDirIdentity = dirIdentity(stat);
+          createdHostDir = hostDir;
+          const recovery = {version: 1, dispatchId, segment: lease.segment ?? 0,
+            hostDir: hostDirIdentity, scratch: scratchIdentity, services: [], pending: null};
+          for (const id of grants.services) {
+            try {
+              // A crash during spawn leaves an explicit unverified entry until the identity is published.
+              recordHostServiceRecovery(() => {
+                recovery.pending = id;
+                writeHostServicesSnapshot(artifactDir, recovery);
+              });
+              hostServices.push(await startService({
+                id, dispatchId, scratch, userHome, timeoutMs: policy.probeTimeoutMs, io: hostServiceIo,
+                onSpawn(pid) {
+                  recordHostServiceRecovery(() => {
+                    const startTime = processStartTime(pid);
+                    if (typeof startTime !== 'string' || !DESCENDANT_START.test(startTime)) throw Error('Host service start time unavailable');
+                    recovery.services.push({id, pid, pgid: pid, startTime});
+                    recovery.pending = null;
+                    writeHostServicesSnapshot(artifactDir, recovery);
+                  });
+                },
+              }));
+            } catch (error) {
+              hostServices.push({id, started: false, endpoint: null, cleanup: error.cleanup ?? 'ok'});
+              throw error;
+            }
+          }
+          await writeServicesFile(scratch, hostServices);
+        } catch { return await earlyFailure('execution_failed'); }
+      }
     }
     const extra = invocation.grokSandbox ? [
       {label: 'grok-home:config.toml', path: path.join(homes.grok, 'config.toml'), project: grokConfigSecurityProjection},

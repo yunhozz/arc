@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {spawn} from 'node:child_process';
+import childProcess, {spawn} from 'node:child_process';
 import {createRoutingFixture, legacyDispatchCases, legacyDispatchFixture} from './role-fixtures.mjs';
 import {BRIDGE_GATE_RESULTS, CLAUDE_SANDBOX_SETTINGS, DESKTOP_CHECKLIST_PASSED, DEFAULT_POLICY, bridgeGateReasons, reason} from '../../lib/runtime/role-dispatch-policy.mjs';
 import {dispatchDirectory, listLeases, readLease, writeLease, createLease} from '../../lib/runtime/role-dispatch-store.mjs';
@@ -10,6 +10,7 @@ import {prepareRoleDispatch, routingStatus} from '../../lib/runtime/role-routing
 import {cancelRoleDispatch, recordRoleObservation, runBridgeDispatch} from '../../lib/runtime/role-bridge.mjs';
 import {buildBridgeInvocation} from '../../lib/runtime/role-supervisor.mjs';
 import {resolveWorktree} from '../../lib/runtime/role-observe.mjs';
+import {TOOL_ACCESS_CONDITIONS, TOOL_ACCESS_GATES} from '../../lib/runtime/tool-access.mjs';
 import {createDispatchIndex} from '../../lib/watch/dispatch.mjs';
 import {dispatchLabel} from '../../lib/watch/labels.mjs';
 import {renderHuman} from '../../lib/watch/render.mjs';
@@ -81,7 +82,7 @@ test('default bridge policy passes G1 and GK1, holds Desktop and requires per-ca
 
 test('CLAUDE_SANDBOX_SETTINGS records the measured D2 object, deep-frozen', () => {
   assert.deepEqual(CLAUDE_SANDBOX_SETTINGS, {
-    permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
+    permissions: {deny: ['Edit(./.git/**)']},
     sandbox: {
       enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
       filesystem: {denyWrite: ['./.git']},
@@ -550,6 +551,229 @@ test('installed cli.mjs maps allow/hold/deny to exit 0/3/2', async t => {
   const staleRevision = await runCli(f, 'prepare-dispatch', {...base, role: 'arc_planner', expectedRevision: 'other', requestId: 'c4', taskId: 'c4'});
   assert.equal(staleRevision.code, 3);
   assert.deepEqual(codes(staleRevision.json), ['activation_unverified']);
+});
+
+const toolAccessRequest = overrides => ({network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: [], ...overrides});
+
+test('services preflight hold', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const service = 'browser-playwright-chromium';
+  const original = childProcess.spawnSync;
+  const probe = t.mock.method(childProcess, 'spawnSync', (command, args, options) => {
+    if (command === 'npm') {
+      assert.deepEqual(args, ['root', '-g']);
+      return {status: 0, stdout: f.base + '\n', stderr: ''};
+    }
+    return original(command, args, options);
+  });
+  const assignment = () => request('arc_tester', {toolAccess: toolAccessRequest({services: [service]})});
+  const mechanism = `service.${service}`;
+  const policy = policyWith({toolAccessGates: {
+    ...TOOL_ACCESS_GATES, [mechanism]: {...TOOL_ACCESS_GATES[mechanism], codex: 'conditional'},
+  }});
+  const result = await prepare(f, assignment(), {policy});
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(probe.mock.calls.filter(call => call.arguments[0] === 'npm').length, 1);
+  const defaultGate = await prepare(f, assignment());
+  assert.equal(defaultGate.decision, 'hold');
+  assert.deepEqual(codes(defaultGate), ['permission_scope_unverified']);
+  assert.equal(probe.mock.calls.filter(call => call.arguments[0] === 'npm').length, 1);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('Codex profile mode holds when user config defines permissions.arc_bridge', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const configDir = path.join(f.cwd, '.codex');
+  await fs.mkdir(configDir);
+  const subdir = path.join(f.cwd, 'src');
+  await fs.mkdir(subdir);
+  const assignment = () => request('arc_tester', {toolAccess: toolAccessRequest({network: 'loopback'})});
+  const paths = [path.join(f.codexHome, 'config.toml'), path.join(configDir, 'config.toml')];
+  const original = await Promise.all(paths.map(file => fs.readFile(file).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  })));
+  for (const [index, file] of paths.entries()) {
+    await t.test(index === 0 ? 'Codex home config' : 'worktree config', async t => {
+      t.after(async () => {
+        if (original[index] === null) await fs.unlink(file);
+        else await fs.writeFile(file, original[index]);
+      });
+      const conflict = index === 0 ? '[permissions.arc_bridge]\n' : 'permissions."arc_bridge".extends = ":workspace"\n';
+      const context = f.context({cwd: index === 0 ? f.cwd : subdir});
+      await fs.writeFile(file, '# [permissions.arc_bridge]\n');
+      const reserved = await prepare(f, assignment(), {context});
+      assert.equal(reserved.decision, 'allow', JSON.stringify(reserved.reasons));
+      await fs.writeFile(file, conflict);
+      const prepared = await prepare(f, assignment(), {context});
+      assert.equal(prepared.decision, 'hold');
+      assert.deepEqual(codes(prepared), ['permission_scope_unverified']);
+      for (const definition of ['permissions = { arc_bridge = { extends = ":workspace" } }', "[permissions.'arc_bridge']",
+        '[permissions]\nmarker = """\n[x]\n"""\narc_bridge = {}',
+        '[permissions]\nmarker = [\n["x"]\n]\narc_bridge = {}',
+        '[permissions]\nother = true\n[unrelated]\narc_bridge = {}']) {
+        await t.test(definition, async () => {
+          await fs.writeFile(file, definition + '\n');
+          const held = await prepare(f, assignment(), {context});
+          if (held.decision === 'allow') await cancel(f, held.dispatchId);
+          assert.equal(held.decision, 'hold');
+          assert.deepEqual(codes(held), ['permission_scope_unverified']);
+        });
+      }
+      await fs.writeFile(file, conflict);
+      let started = false;
+      const run = await runBridgeDispatch({context, dispatchId: reserved.dispatchId,
+        brief: 'test preflight', policy: policyWith(), startSupervisor: async () => { started = true; }});
+      assert.equal(started, false);
+      assert.equal(run.decision, 'hold');
+      assert.deepEqual(codes(run), ['permission_scope_unverified']);
+      const sandbox = await prepare(f, request('arc_tester'), {context});
+      assert.equal(sandbox.decision, 'allow', JSON.stringify(sandbox.reasons));
+    });
+  }
+});
+
+test('Codex profile missing R1 protection holds dispatch before supervisor start', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const reserved = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'loopback'})}));
+  assert.equal(reserved.decision, 'allow', JSON.stringify(reserved.reasons));
+
+  const join = path.join;
+  let omittedCodex = false;
+  const joinMock = t.mock.method(path, 'join', (...parts) => {
+    if (!omittedCodex && parts.length === 2 && parts[0] === f.cwd && parts[1] === '.codex') {
+      // Collapse the builder's first two filesystem entries into one. The guard resolves both paths normally.
+      omittedCodex = true;
+      return join(f.cwd, '.git');
+    }
+    return join(...parts);
+  });
+  const startSupervisor = t.mock.fn(async () => ({pid: process.pid, startTime: 'fixture'}));
+  const observeToolContext = t.mock.fn();
+  let run;
+  try {
+    run = await runBridgeDispatch({context: f.context(), dispatchId: reserved.dispatchId,
+      brief: 'check R1 protection', policy: policyWith(), startSupervisor, observeToolContext});
+  } finally {
+    joinMock.mock.restore();
+  }
+  assert.equal(omittedCodex, true);
+  assert.equal(run.decision, 'hold');
+  assert.deepEqual(codes(run), ['permission_scope_unverified']);
+  assert.equal(startSupervisor.mock.callCount(), 0);
+  assert.equal(observeToolContext.mock.callCount(), 0);
+  const lease = await readLease(f.claudeHome, reserved.dispatchId);
+  assert.equal(lease.state, 'reserved');
+  assert.equal(lease.argsDigest, null);
+});
+
+test('prepare-dispatch accepts toolAccess and stores lease version 3 normalized', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const input = {
+    hostPlatform: 'claude', executionEnvironment: 'claude-cli', expectedRevision: f.revision,
+    ...request('arc_tester', {toolAccess: toolAccessRequest({network: 'loopback', envPresets: ['polling', 'ci']})}),
+  };
+  const {code, json, stderr} = await runCli(f, 'prepare-dispatch', input);
+  assert.equal(code, 0, JSON.stringify(json) ?? stderr);
+  assert.equal(json.decision, 'allow');
+  const stored = await readLease(f.claudeHome, json.dispatchId);
+  assert.equal(stored.version, 3);
+  assert.equal(stored.targetPlatform, 'codex');
+  assert.deepEqual(stored.toolAccess, toolAccessRequest({network: 'loopback', envPresets: ['ci', 'polling']}));
+});
+
+test('prepare-dispatch without toolAccess still writes lease version 2', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester'));
+  assert.equal(result.decision, 'allow');
+  assert.equal(Object.hasOwn(result, 'toolAccess'), false);
+  const stored = await readLease(f.claudeHome, result.dispatchId);
+  assert.equal(stored.version, 2);
+  assert.deepEqual(Object.keys(stored), [
+    'version', 'targetPlatform', 'dispatchId', 'workflowId', 'taskId', 'requestId', 'role', 'route',
+    'hostPlatform', 'executionEnvironment', 'revision', 'profileHash', 'argsDigest', 'state', 'supervisor',
+    'child', 'sessionId', 'timeoutMinutes', 'claims', 'reasons', 'allowedPaths', 'resultPath', 'segment',
+    'nativeAgentId', 'createdAt', 'updatedAt',
+  ]);
+});
+
+test('read role toolAccess is denied invalid_request', async t => {
+  const f = await createRoutingFixture(t);
+  await okClis(f);
+  const result = await prepare(f, request('arc_planner', {toolAccess: toolAccessRequest()}));
+  assert.equal(result.decision, 'deny');
+  assert.deepEqual(codes(result), ['invalid_request']);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('native route toolAccess is held permission_scope_unverified', async t => {
+  const f = await createRoutingFixture(t);
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest()}));
+  assert.equal(result.route, 'native');
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('full network is held', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'full'})}));
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('conditional grant is reported in result.toolAccess.conditions', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'domains', domains: ['example.com']})}));
+  assert.equal(result.decision, 'allow');
+  assert.deepEqual(result.toolAccess?.conditions.map(({mechanism}) => mechanism), ['codexProfile', 'network.domains']);
+  assert.equal(result.toolAccess.conditions.find(({mechanism}) => mechanism === 'network.domains').condition,
+    TOOL_ACCESS_CONDITIONS['network.domains'].codex);
+});
+
+test('Codex domains prepare holds when either config defines a shell environment exclude', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const projectConfig = path.join(f.cwd, '.codex');
+  await fs.mkdir(projectConfig);
+  const domains = () => request('arc_tester', {toolAccess: toolAccessRequest({network: 'domains', domains: ['example.com']})});
+  for (const [name, filename, config] of [
+    ['user table', path.join(f.codexHome, 'config.toml'), '[shell_environment_policy]\nexclude = ["SECRET_*"]\n'],
+    ['project inline table', path.join(projectConfig, 'config.toml'), "shell_environment_policy = { 'exclude' = [] }\n"],
+    ['project dotted key', path.join(projectConfig, 'config.toml'), 'shell_environment_policy."excl\\u0075de" = []\n'],
+    ['user multiline string', path.join(f.codexHome, 'config.toml'), '[shell_environment_policy]\nmarker = """\n[x]\n"""\nexclude = []\n'],
+    ['project multiline array', path.join(projectConfig, 'config.toml'), '[shell_environment_policy]\nmarker = [\n["x"]\n]\nexclude = []\n'],
+  ]) {
+    await t.test(name, async t => {
+      const original = await fs.readFile(filename).catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      t.after(() => original === null ? fs.unlink(filename) : fs.writeFile(filename, original));
+      await fs.writeFile(filename, config);
+      const held = await prepare(f, domains());
+      if (held.decision === 'allow') await cancel(f, held.dispatchId);
+      assert.equal(held.decision, 'hold');
+      assert.deepEqual(codes(held), ['permission_scope_unverified']);
+      const loopback = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'loopback'})}));
+      assert.equal(loopback.decision, 'allow', JSON.stringify(loopback.reasons));
+      await cancel(f, loopback.dispatchId);
+      await fs.writeFile(filename, '[shell_environment_policy]\n# exclude = ["COMMENT"]\n');
+      const commented = await prepare(f, domains());
+      assert.equal(commented.decision, 'allow', JSON.stringify(commented.reasons));
+      await cancel(f, commented.dispatchId);
+    });
+  }
 });
 
 test('duplicate requestId is global across workflows while task-role duplication stays per workflow', async t => {

@@ -7,6 +7,13 @@ export const BRIDGE_GATE_RESULTS = Object.freeze({G1: 'pass', G2: 'escalation', 
 export const HOST_SANDBOX_GATES = Object.freeze({grok: 'GK2', gemini: 'GG2'});
 export const HOST_GATE_ALLOWED = Object.freeze(['pass', 'approval']);
 
+// Codex 0.170.0, 2026-11-24, MI-1
+export const CODEX_PROFILE_ARGS_FORM = 'B';
+// Codex 0.170.0, 2026-11-24, MI-1
+export const CODEX_PROFILE_SANDBOX_TYPE = 'workspace-write';
+// Codex 0.170.0, 2026-11-24, MI-3
+export const CODEX_PROFILE_GIT_ENTRIES = false;
+
 function deepFreeze(value) {
   for (const nested of Object.values(value)) {
     if (nested !== null && typeof nested === 'object') deepFreeze(nested);
@@ -15,8 +22,9 @@ function deepFreeze(value) {
 }
 
 // Claude 2.1.327, 2026-11-20, T0 M-C10/M-C11/M-C12/FINAL
+// Claude 2.1.327, 2026-11-24, T0 부수 발견(Write 규칙 무효 경고) + MI-4
 const RECORDED_CLAUDE_SANDBOX_SETTINGS = deepFreeze({
-  permissions: {deny: ['Edit(./.git/**)', 'Write(./.git/**)']},
+  permissions: {deny: ['Edit(./.git/**)']},
   sandbox: {
     enabled: true,
     autoAllowBashIfSandboxed: true,

@@ -190,9 +190,12 @@ export async function readCodexTurnContext({codexHome, threadId, delegationNames
 
 export function evaluateCodexContext({context, expected, policy = DEFAULT_POLICY}) {
   const gates = policy.gates ?? DEFAULT_POLICY.gates;
+  const sandboxUnrecorded = expected.sandboxMode === null;
+  const sandboxNote = 'codex-profile-sandbox-type-unrecorded';
   if (!isObject(context)) {
     const none = {level: 'unverified', source: 'none'};
-    return {reason: null, claims: {model: {...none, requested: expected.model}, effort: {...none, requested: expected.effort}, permissions: {...none, details: null}}};
+    return {reason: null, claims: {model: {...none, requested: expected.model}, effort: {...none, requested: expected.effort},
+      permissions: {...none, details: sandboxUnrecorded ? sandboxNote : null}}};
   }
   const turns = Array.isArray(context.turns) && context.turns.length ? context.turns : [context];
   const present = value => value !== undefined && value !== null && value !== '';
@@ -202,11 +205,13 @@ export function evaluateCodexContext({context, expected, policy = DEFAULT_POLICY
     return turns.every(item => present(item[field])) ? 'ok' : 'missing';
   };
   const model = judge('model', value => matchModel(expected.model, value)), effort = judge('effort', value => value === expected.effort);
-  const sandbox = judge('sandboxMode', value => value === expected.sandboxMode), approval = judge('approvalPolicy', value => value === expected.approvalPolicy);
+  const sandbox = sandboxUnrecorded ? 'missing' : judge('sandboxMode', value => value === expected.sandboxMode);
+  const approval = judge('approvalPolicy', value => value === expected.approvalPolicy);
   const settings = sandbox === 'mismatch' || approval === 'mismatch' ? 'mismatch' : sandbox === 'ok' && approval === 'ok' ? 'ok' : 'missing';
   const delegationDetectable = gates.G3 === 'pass', delegated = delegationDetectable && context.delegationObserved === true;
   // The child loads the user's Codex config (MCP servers and so on), which ARC does not control: the claim never exceeds operator-attested.
   const notes = ['user-config-mcp-not-controlled'];
+  if (sandboxUnrecorded) notes.push(sandboxNote);
   if (gates.G5 === 'wide') notes.push('writable-root-wider-than-worktree');
   if (!delegationDetectable) notes.push('delegation-not-detectable');
   if (settings === 'mismatch') notes.push('sandbox or approval policy differs from the requested values');
