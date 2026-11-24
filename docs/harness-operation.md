@@ -16,7 +16,7 @@ Role instructions govern scheduling and limits through prompt policy. Native set
 | Managed instructions | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` | `AGENTS.md` |
 | Native settings | `settings.json` | `config.toml` | Existing settings preserved | `config.toml`, ARC-managed `[compat.claude]` entries only |
 
-- `models.toml` schema v3 has five `[roles.<role>]` tables with `model` and one effort field: `model_reasoning_effort` (Codex) or `effort` (Claude/Gemini/Grok). The Orchestrator uses the conversation model.
+- `models.toml` schema v3 has five `[roles.<role>]` tables with `model` and one effort field: `effort` for Claude, `model_reasoning_effort` for Codex, and `effort` for Gemini and Grok. The Orchestrator uses the conversation model.
 - Valid v1/v2 settings convert to v3 on write. Catalog entries are candidates. Saved pairs missing from the catalog remain visible and require reselection before Apply.
 
 ## Mixed routing
@@ -55,10 +55,10 @@ Unknown Claude/Codex auth probe results block participation.
 
 | executionEnvironment | Claude target | Codex target | Gemini target | Grok target |
 |---|---|---|---|---|
-| `claude-cli` | Native, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
-| `codex-cli` | Bridge, all roles | Native, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Bridge, all roles |
+| `claude-cli` | Native, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/Tester held as `permission_scope_unverified`) | Bridge, all roles |
+| `codex-cli` | Bridge, all roles | Native, all roles | Bridge, read roles only (GG1 `fail`; Implementer/Tester held as `permission_scope_unverified`) | Bridge, all roles |
 | `gemini-cli` | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) | Held (`capability_not_verified`; GG2 `fail`, `compositeHost` off) |
-| `grok-cli` | Bridge, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/QA held as `permission_scope_unverified`) | Native, all roles |
+| `grok-cli` | Bridge, all roles | Bridge, all roles | Bridge, read roles only (GG1 `fail`; Implementer/Tester held as `permission_scope_unverified`) | Native, all roles |
 | `claude-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
 | `codex-desktop` | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) | Held (`environment_unverified`) |
 
@@ -79,11 +79,11 @@ The caller declares `executionEnvironment` from the session. Use the host's CLI 
 | G3 `pass` | A Codex rollout with a detected child spawn fails as `delegation_observed`. |
 | G4 `pass` | Codex routes pass this gate. A failed G4 holds as `permission_scope_unverified`. |
 | G5 `wide` | Codex `workspace-write` may reach beyond the worktree, outside post-run detection. |
-| GG1 `fail` | Gemini bridge Implementer/QA hold as `permission_scope_unverified`. Read roles remain supported. |
+| GG1 `fail` | Gemini bridge Implementer/Tester hold as `permission_scope_unverified`. Read roles remain supported. |
 | GK1 `pass` | Grok bridge write roles require a per-dispatch sandbox profile and a verified `ProfileApplied` event. Live evidence covers Grok 1.0.89 on macOS. Unlisted home paths, session files and temporary directories remain writable. Reads and network access are allowed. |
 | Claims | `supportStatus: verified` requires all five claims to be `runtime-observed`. User MCP configuration caps Codex permission evidence at `operator-attested`. |
 | Versions | Routing reports CLI versions. Configure and Status use the registry's supported ranges, and Configure blocks composite platform selection outside those ranges. |
-| Target home probe | On Grok or Gemini hosts, bridge prepare/run/resume probe the target home. A denial holds as `host_sandbox_blocked`, a missing home as `activation_unverified`, and a failed cleanup reports `residualPaths`. The probe covers the home directory itself. |
+| Target home probe | On Gemini or Grok hosts, bridge prepare/run/resume probe the target home. A denial holds as `host_sandbox_blocked`, a missing home as `activation_unverified`, and a failed cleanup reports `residualPaths`. The probe covers the home directory itself. |
 | Child guard | `ARC_BRIDGE_CHILD` blocks routing commands. Shell launches of a platform CLI fall outside `delegation_observed` detection. |
 
 For bridge target rules and the control files they cover, see [Claude](../claude/skill/references/coordination.md#bridge-target-rules) · [Codex](../codex/skill/references/coordination.md#bridge-target-rules) · [Gemini](../gemini/skill/references/coordination.md#bridge-target-rules) · [Grok](../grok/skill/references/coordination.md#bridge-target-rules).
@@ -94,124 +94,124 @@ The supervisor compares Git-visible paths, HEAD, branch, refs and the control fi
 
 ### Working alongside a running bridge
 
-In the dispatch worktree, make only fast-forward commits on its current branch, within `allowedPaths` for Implementer and for QA with non-empty `allowedPaths`. Avoid amending, rebasing, resetting, switching branches or writing `.git/config` (including via `git push -u`).
+In the dispatch worktree, make only fast-forward commits on its current branch, within `allowedPaths` for Implementer and for Tester with non-empty `allowedPaths`. Avoid amending, rebasing, resetting, switching branches or writing `.git/config` (including via `git push -u`).
 
 Avoid saving host permission rules in the dispatch checkout. Claude Code's “don't ask again” can change `.claude/settings.local.json` and fail the dispatch as `permission_violation_observed`. Use a linked worktree to isolate bridge work.
 
-## Bridge 도구 접근
+## Bridge tool access
 
-Orchestrator는 검증에 필요한 최소 접근만 해당 bridge dispatch에 요청한다(D-a). 읽기 역할은 Scouter, Planner, Reviewer이며 쓰기 역할은 Implementer와 Tester다. 아래 기준선은 대상 플랫폼의 기존 bridge 동작과 `toolAccess` 적용 범위를 함께 보여 준다.
+The Orchestrator requests only the minimum access verification needs for that bridge dispatch (D-a). Read roles are Scouter, Planner and Reviewer; write roles are Implementer and Tester. The baseline below shows each target platform's existing bridge behavior together with the scope where `toolAccess` applies.
 
-| 대상 | 읽기 역할 | Implementer | Tester |
+| Target | Read roles | Implementer | Tester |
 |---|---|---|---|
-| Codex | 기존 인자 유지. 웹 조회는 `--search` 측정에서 동작(B12) | `workspace-write`와 scratch·기본 preset. 유효 네트워크 또는 등록 경로·소켓 부여에는 permission profile 적용(MI-1·MI-3) | 같은 기준선에 역할 표와 gate가 허용하는 도메인·서비스 요청 추가 |
-| Claude | Scouter는 `--allowedTools WebFetch,WebSearch` 사용(B12·MI-8). Planner·Reviewer에는 Bash 없음 | D2′ sandbox, scratch·기본 preset. `Edit(./.git/**)`와 sandbox `denyWrite`로 Git 보호(MI-4). Loopback bind 확인(MI-5) | 같은 기준선에 역할 표와 gate가 허용하는 도메인·서비스 요청 추가 |
-| Grok | 기존 인자 유지. 내장 읽기 전용 모드의 강제 보장 없음 | 기존 GK1 per-dispatch sandbox. `toolAccess`는 미측정(B14) | 기존 GK1 per-dispatch sandbox. `toolAccess`는 미측정(B14) |
-| Gemini | 기존 읽기 역할 bridge 유지 | GG1 실패로 bridge 보류 | GG1 실패로 bridge 보류 |
+| Claude | Scouter uses `--allowedTools WebFetch,WebSearch` (B12·MI-8). Planner and Reviewer have no Bash | D2′ sandbox with scratch and default presets. `Edit(./.git/**)` and sandbox `denyWrite` protect Git (MI-4). Loopback bind confirmed (MI-5) | Same baseline plus domain and service requests the role table and gates allow |
+| Codex | Existing arguments kept. Web lookup works as measured with `--search` (B12) | `workspace-write` with scratch and default presets. A permission profile applies when effective network access or registered paths or sockets are granted (MI-1·MI-3) | Same baseline plus domain and service requests the role table and gates allow |
+| Gemini | Existing read-role bridge kept | Bridge held because GG1 failed | Bridge held because GG1 failed |
+| Grok | Existing arguments kept. The built-in read-only mode is not guaranteed to be enforced | Existing GK1 per-dispatch sandbox. `toolAccess` unmeasured (B14) | Existing GK1 per-dispatch sandbox. `toolAccess` unmeasured (B14) |
 
-### 도구 범주
+### Tool categories
 
-● 필요, ○ 가끔 필요, – 해당 없음. 필요도는 접근 허용 여부와 별도로 기록한다.
+● needed, ○ sometimes needed, – not applicable. Need is recorded separately from whether access is allowed.
 
-| ID | 범주 | 읽기 / Implementer / Tester | 처리와 측정 근거 |
+| ID | Category | Read / Implementer / Tester | Handling and measurement evidence |
 |---|---|---|---|
-| C1 | 임시 파일 | – / ● / ● | M1 scratch. SX3·SC0·SC2·MI-C |
-| C2 | 패키지·툴체인 캐시 | – / ● / ● | M2 `caches`, 필요하면 등록된 M3 경로. B4에서 npm·Python·uv 확인. Gradle·Go·Maven 미측정 |
-| C3 | 의존성 설치·원격 fetch | – / ○ / – | M7 호스트 전용(D-h) |
-| C4 | 브라우저·테스트 러너 | – / ○ / ● | M6 CDP(SX4·SC3·MI-A). Playwright 호스트 연결 성공(B10), sandbox 내 실행 실패(B11), 호스트 격리 미측정(MI-B). Cypress는 M7 |
-| C5 | 로컬 TCP 서비스 | – / ○ / ● | M4 `loopback`. SX1·SC1 |
-| C6 | Unix 소켓 | – / ○ / ● | M4 네트워크 활성 시 scratch 소켓 자동 허용. 등록 ID는 0개. SX4·SC3·B5 |
-| C7 | Docker·Colima·SSH agent·GPG agent | – / – / ○ | M5 영구 금지. B5에서 Docker 소켓 거부 확인 |
-| C8 | 자체 서버 bind | – / ○ / ● | M4 요청 기반 `loopback`. B3·MI-1·MI-5 |
-| C9 | CLI 인증·설정 읽기 | ○ / ● / ● | 기존 동작 유지. `domains` 사용 시 M5 읽기 제한. B6·MI-7·MI-9 |
-| C10 | CLI 인증·설정 쓰기 | – / – / – | M5·M7. B1에서 `~/.codex` 쓰기 차단 확인 |
-| C11 | 언어 서버·빌드 데몬 | – / ○ / ○ | M2 `daemon-off`. 효과 미측정 |
-| C12 | 프로세스 조회·시그널 | – / ○ / ○ | 자기 자식 프로세스에 시그널 허용, 다른 프로세스 조회는 M7. B8 |
-| C13 | 파일 감시·EMFILE | – / ○ / ○ | M2 `polling`. B9에서 recursive `fs.watch` 실패 확인 |
-| C14 | `.git` 쓰기 | – / – / – | M5, Codex profile 보호(R1), Git 쓰기는 M7. B1·MI-1·MI-3·MI-4 |
-| C15 | 키체인·GUI·OS 서비스 | – / – / – | M5, 키체인 작업은 M7 |
-| C16 | 텔레메트리·업데이트 확인 | – / ● / ● | M2 `base`에서 비활성화. SC3에서 agent-browser 버전 확인 차단 |
-| C17 | 대화형 프롬프트 | – / ○ / ○ | M2 `base`의 `GIT_TERMINAL_PROMPT=0`과 요청형 `ci` |
-| C18 | 장기 백그라운드 프로세스 | – / ○ / ● | dispatch 동안 허용하고 terminal 상태에서 process group 종료 |
-| C19 | 증거 산출물 | – / ○ / ● | M1 `evidence/`에서 artifact 디렉터리로 복사. B10 |
-| C20 | 읽기 역할 웹 조회 | ● / – / – | Codex 기존 동작 유지. Claude Scouter 웹 도구 허용. B12·MI-8 |
-| C21 | 읽기 역할 도구 실행 | ● / – / – | 기존 역할 도구 범위 적용 |
+| C1 | Temporary files | – / ● / ● | M1 scratch. SX3·SC0·SC2·MI-C |
+| C2 | Package and toolchain caches | – / ● / ● | M2 `caches`, plus registered M3 paths if needed. B4 confirmed npm, Python and uv. Gradle, Go and Maven unmeasured |
+| C3 | Dependency installs and remote fetch | – / ○ / – | M7 host only (D-h) |
+| C4 | Browsers and test runners | – / ○ / ● | M6 CDP (SX4·SC3·MI-A). Playwright host connection succeeded (B10), in-sandbox launch failed (B11), host isolation unmeasured (MI-B). Cypress is M7 |
+| C5 | Local TCP services | – / ○ / ● | M4 `loopback`. SX1·SC1 |
+| C6 | Unix sockets | – / ○ / ● | M4 allows scratch sockets automatically when network is enabled. 0 registered IDs. SX4·SC3·B5 |
+| C7 | Docker, Colima, SSH agent, GPG agent | – / – / ○ | M5 never granted. B5 confirmed the Docker socket is denied |
+| C8 | Own server bind | – / ○ / ● | M4 request-based `loopback`. B3·MI-1·MI-5 |
+| C9 | CLI auth and config reads | ○ / ● / ● | Existing behavior kept. M5 read restrictions under `domains`. B6·MI-7·MI-9 |
+| C10 | CLI auth and config writes | – / – / – | M5·M7. B1 confirmed writes to `~/.codex` are blocked |
+| C11 | Language servers and build daemons | – / ○ / ○ | M2 `daemon-off`. Effect unmeasured |
+| C12 | Process inspection and signals | – / ○ / ○ | Signals to own child processes allowed; inspecting other processes is M7. B8 |
+| C13 | File watching and EMFILE | – / ○ / ○ | M2 `polling`. B9 confirmed recursive `fs.watch` fails |
+| C14 | `.git` writes | – / – / – | M5, Codex profile protection (R1), Git writes are M7. B1·MI-1·MI-3·MI-4 |
+| C15 | Keychain, GUI and OS services | – / – / – | M5; keychain operations are M7 |
+| C16 | Telemetry and update checks | – / ● / ● | Disabled in M2 `base`. SC3 confirmed the agent-browser version check is blocked |
+| C17 | Interactive prompts | – / ○ / ○ | `GIT_TERMINAL_PROMPT=0` in M2 `base` and the requestable `ci` |
+| C18 | Long-running background processes | – / ○ / ● | Allowed during the dispatch; the process group is terminated at terminal state |
+| C19 | Evidence artifacts | – / ○ / ● | Copied from M1 `evidence/` to the artifact directory. B10 |
+| C20 | Read-role web lookup | ● / – / – | Claude Scouter web tools allowed. Existing Codex behavior kept. B12·MI-8 |
+| C21 | Read-role tool execution | ● / – / – | Existing role tool scope applies |
 
-새 도구는 저장소 쓰기, 영구 금지 목록, env 우회, 등록 경로, 가장 좁은 통신 범위, 저장소 코드를 실행하지 않는 호스트 서비스, 호스트 전용 순으로 검토한다.
+Review a new tool in this order: repository writes, the never-granted list, env bypass, registered paths, the narrowest network scope, a host service that does not run repository code, and host only.
 
-### 접근 메커니즘
+### Access mechanisms
 
-- **M1 scratch** — Codex·Claude bridge 쓰기 역할마다 supervisor가 0700 디렉터리와 `tmp/`, `cache/`, `sock/`, `evidence/`를 만든다. Codex는 `/private/tmp/arc-bridge-<id8>`, Claude는 현재 사용자 소유의 `/private/tmp/claude-<uid>/arc-bridge-<id8>`를 쓴다. 역할은 `ARC_SCRATCH_DIR`에 임시 파일을 두고, 보존할 파일은 `ARC_EVIDENCE_DIR`에 둔다. 종료 시 정규 파일과 디렉터리만 dispatch artifact의 `evidence/`에 복사한다. 상한은 전체 64 MiB, 파일당 16 MiB, 항목 256개, 깊이 8이다. 초과는 `truncated`로 기록한다. 정상 정리와 회수 모두 scratch와 hostDir의 소유자와 dev/ino를 확인하고, 역할이 쓸 수 없는 격리 위치로 `rename`한 뒤 다시 확인하고 재귀 삭제한다. 첫 격리 위치는 segment artifact 아래다. 볼륨이 달라 `EXDEV`가 발생하면 anchor home의 `arc-role-dispatch/` 아래를 사용한다. 두 위치 모두 이동에 실패하면 원본 경로에 남는다. 이동 후 검증이나 삭제가 실패하면 해당 격리 위치의 `.cleanup-*` 아래에 남으며, 회수를 재시도해도 경고를 유지한다.
-- **M2 env preset** — `base`는 임시·캐시·소켓 경로와 세 가지 `ARC_*` 변수, 프롬프트·텔레메트리·업데이트 설정을 전달한다. `caches`는 npm·Python·uv·Yarn·pip·Poetry·Go 빌드·Homebrew 캐시를 scratch 아래로 지정한다. `base`와 `caches`는 지원되는 쓰기 역할에 자동 적용된다. `ci`는 비대화형 실행, `daemon-off`는 Nx·Gradle 데몬 중지, `polling`은 지원 도구의 폴링 감시를 요청한다. Codex는 `shell_environment_policy.set`, Claude는 settings의 `env`를 쓴다. B4에서 npm·Python·uv 동작을 확인했고, 다른 캐시 변수와 요청형 preset의 도구별 효과는 미측정이다.
-- **M3 등록 경로** — `paths`는 ARC에 등록된 ID만 받는다. 현재 등록은 0개다. 절대 realpath가 필요하며 symlink, 홈 자체, CLI 홈과 영구 금지 경로에 겹치는 경로는 거부한다. Codex는 profile에 `"write"`를 넣고 Claude는 이미 존재하는 디렉터리를 `sandbox.filesystem.allowWrite`에 넣는다(B13).
-- **M4 네트워크와 Unix 소켓** — 서비스 요청에서 `network`가 `null`이면 유효 값은 `loopback`이다. 유효 값이 `null`이 아니면 scratch의 `sock/`가 자동 허용된다. 추가 소켓은 등록 ID로만 지정하며 현재 등록은 0개다. Codex는 네트워크나 등록 경로·소켓 부여에 `arc_bridge` profile을 사용하고, 새 실행과 resume 모두 `default_permissions` 및 네트워크 사용 시 `features.network_proxy`를 전달한다(MI-1). Profile은 작업 트리의 `.git`·`.codex` 절대 경로를 읽기 전용으로 지정한다(MI-1·MI-3). 사용자나 작업 트리의 Codex 설정에 `permissions.arc_bridge`가 이미 있으면 병합 위험으로 보류한다(MI-2). Claude는 `allowedDomains`, `allowLocalBinding`, `allowUnixSockets`를 sandbox settings에 담는다.
-- **M5 영구 금지** — `FORBIDDEN`은 작업 트리의 `.git`·`.codex`, 플랫폼별 CLI 홈, `~/.ssh`, `~/.aws`, `~/.config/gh`, `~/.config/gcloud`, `~/.npmrc`, `~/.netrc`, `~/.docker`, `~/.kube`, `~/.gnupg`, `~/.gitconfig`, 셸 시작 파일(`~/.zshrc`, `~/.zprofile`, `~/.zshenv`, `~/.bashrc`, `~/.bash_profile`, `~/.profile`), `~/Library/LaunchAgents`, `~/Library/Keychains`에 대한 쓰기 부여를 금지한다. 금지 소켓은 `/var/run/docker.sock`, `~/.docker`, `~/.colima`, `$SSH_AUTH_SOCK`이 가리키는 경로, `~/.gnupg`다. Scratch, 등록 경로·소켓, 호스트 서비스 디렉터리가 이 목록에 겹치는지도 검사한다. `domains`에서는 인증·설정 경로 10개와 CLI 홈의 읽기를 차단하고, 자격 증명 패턴에 맞는 env를 정리한다. Codex는 filesystem `"none"`과 env `exclude`를 쓰고, Claude는 sandbox `denyRead`와 `Read` 거부 규칙을 함께 적용하며 해당 env를 빈 문자열로 설정한다.
-- **M6 호스트 서비스** — Tester 요청에 따라 supervisor가 scratch 생성 뒤와 CLI 실행 전에 서비스를 시작하고, 모든 terminal 경로에서 종료 및 정리한다. 호스트 서비스는 저장소 코드나 작업 트리의 `node_modules`를 실행하지 않는다. 역할은 `ARC_HOST_SERVICES_FILE`이 가리키는 `services.json`에서 서비스 ID별 endpoint를 읽는다. CDP는 격리 프로필과 임시 사용자 데이터 디렉터리로 Chrome을 실행한다. Playwright 3종은 현재 보류다. 호스트 전역 `playwright` 또는 `playwright-core`가 필요한 설계이며 launcher와 격리 프로필은 MI-B에서 측정하지 못했다. 서비스 시작 실패는 `execution_failed`, 정리 실패는 경고로 기록한다.
-- **M7 호스트 전용** — `ps`·`pgrep` 등 다른 프로세스 조회, Docker, 실제 CLI 인증·설정 쓰기, 의존성 설치와 그에 필요한 원격 fetch, Git 쓰기, Cypress, 키체인 작업을 포함한다. Bridge 역할은 해당 제약으로 검사를 끝낼 수 없으면 “환경 제한(host 전용)”이라고 보고하고, 막힌 검사와 미검증 범위를 적는다. Orchestrator는 기존 권한 범위에서 호스트 확인을 맡는다.
+- **M1 scratch** — For each Claude or Codex bridge write role, the supervisor creates a 0700 directory with `tmp/`, `cache/`, `sock/` and `evidence/`. Claude uses `/private/tmp/claude-<uid>/arc-bridge-<id8>`, owned by the current user, and Codex uses `/private/tmp/arc-bridge-<id8>`. Roles keep temporary files in `ARC_SCRATCH_DIR` and files to keep in `ARC_EVIDENCE_DIR`. On exit, only regular files and directories are copied to the dispatch artifact's `evidence/`. Limits are 64 MiB total, 16 MiB per file, 256 entries and depth 8. Overflow is recorded as `truncated`. Both normal cleanup and recovery check the owner and dev/ino of scratch and hostDir, `rename` them to a quarantine location the role cannot write, check again and delete recursively. The first quarantine location is under the segment artifact. If the volumes differ and `EXDEV` occurs, `arc-role-dispatch/` in the anchor home is used. If moving fails at both locations, the files stay at the original path. If verification or deletion fails after the move, they stay under `.cleanup-*` in that quarantine location, and the warning persists even when recovery is retried.
+- **M2 env preset** — `base` passes the temporary, cache and socket paths, three `ARC_*` variables, and prompt, telemetry and update settings. `caches` points the npm, Python, uv, Yarn, pip, Poetry, Go build and Homebrew caches under scratch. `base` and `caches` apply automatically to supported write roles. `ci` requests non-interactive execution, `daemon-off` stops Nx and Gradle daemons, and `polling` requests polling watchers in tools that support it. Claude uses the settings `env` and Codex uses `shell_environment_policy.set`. B4 confirmed npm, Python and uv behavior; the other cache variables and the per-tool effect of requestable presets are unmeasured.
+- **M3 registered paths** — `paths` accepts only IDs registered with ARC. There are currently 0 registrations. An absolute realpath is required, and paths that are symlinks, the home itself, or overlap a CLI home or a never-granted path are refused. Claude puts existing directories in `sandbox.filesystem.allowWrite` and Codex puts `"write"` in the profile (B13).
+- **M4 network and Unix sockets** — When a service request has `network` set to `null`, the effective value is `loopback`. When the effective value is not `null`, the scratch `sock/` is allowed automatically. Additional sockets are specified only by registered ID, and there are currently 0 registrations. Claude puts `allowedDomains`, `allowLocalBinding` and `allowUnixSockets` in the sandbox settings. Codex uses the `arc_bridge` profile to grant network access or registered paths and sockets, and both new runs and resume pass `default_permissions` and, when network is used, `features.network_proxy` (MI-1). The profile sets the absolute paths of the worktree's `.git` and `.codex` to read-only (MI-1·MI-3). If the user's or the worktree's Codex config already has `permissions.arc_bridge`, the request is held because of the merge risk (MI-2).
+- **M5 never granted** — `FORBIDDEN` prohibits granting writes to the worktree's `.git` and `.codex`, each platform's CLI home, `~/.ssh`, `~/.aws`, `~/.config/gh`, `~/.config/gcloud`, `~/.npmrc`, `~/.netrc`, `~/.docker`, `~/.kube`, `~/.gnupg`, `~/.gitconfig`, shell startup files (`~/.zshrc`, `~/.zprofile`, `~/.zshenv`, `~/.bashrc`, `~/.bash_profile`, `~/.profile`), `~/Library/LaunchAgents` and `~/Library/Keychains`. Forbidden sockets are `/var/run/docker.sock`, `~/.docker`, `~/.colima`, the path `$SSH_AUTH_SOCK` points to, and `~/.gnupg`. Scratch, registered paths and sockets, and host service directories are also checked for overlap with this list. Under `domains`, reads of 10 auth and config paths and the CLI home are blocked, and env variables matching credential patterns are cleared. Claude applies sandbox `denyRead` together with `Read` deny rules and sets those env variables to empty strings; Codex uses filesystem `"none"` and env `exclude`.
+- **M6 host services** — On a Tester request, the supervisor starts services after creating scratch and before launching the CLI, and stops and cleans them up on every terminal path. Host services do not run repository code or the worktree's `node_modules`. The role reads each service ID's endpoint from the `services.json` that `ARC_HOST_SERVICES_FILE` points to. CDP launches Chrome with an isolated profile and a temporary user data directory. The three Playwright services are currently held. Their design needs a host-global `playwright` or `playwright-core`, and MI-B could not measure the launcher and isolated profile. A service start failure is recorded as `execution_failed`, and a cleanup failure as a warning.
+- **M7 host only** — Covers inspecting other processes such as `ps` and `pgrep`, Docker, real CLI auth and config writes, dependency installs and the remote fetches they need, Git writes, Cypress, and keychain operations. When a bridge role cannot finish a check because of these limits, it reports "environment limit (host only)" and lists the blocked checks and unverified scope. The Orchestrator handles the host check within its existing permissions.
 
-### 요청 계약
+### Request contract
 
-`prepare-dispatch`의 선택 키 `toolAccess`를 쓰면 아래 여섯 키를 모두 전달한다. 배열은 중복 없는 문자열만 받으며 저장 시 이름순으로 정규화된다. 형태 또는 역할 표 위반은 `invalid_request`다. 요청이 있으면 lease v3, 생략하면 v2를 쓴다. Native 경로에서 유효한 요청을 전달하면 `permission_scope_unverified`로 보류한다.
+When you use the optional `prepare-dispatch` key `toolAccess`, pass all six keys below. Arrays accept only unique strings and are normalized to name order when stored. A shape or role table violation is `invalid_request`. A request uses lease v3; omitting it uses v2. Passing a valid request on a native route holds as `permission_scope_unverified`.
 
 ```json
 {"network": "loopback", "domains": [], "unixSockets": [], "paths": [], "services": [], "envPresets": []}
 ```
 
-| 키 | 읽기 역할 | Implementer | Tester |
+| Key | Read roles | Implementer | Tester |
 |---|---|---|---|
-| `toolAccess` | `invalid_request` | 선택 | 선택 |
+| `toolAccess` | `invalid_request` | Optional | Optional |
 | `network` | — | `null`, `"loopback"` | `null`, `"loopback"`, `"domains"`, `"full"` |
-| `domains` | — | `[]` | `"domains"`이면 1–16개, 그 외 `[]` |
-| `unixSockets` | — | 등록 ID(현재 0개) | 등록 ID(현재 0개) |
-| `paths` | — | 등록 ID(현재 0개) | 등록 ID(현재 0개) |
+| `domains` | — | `[]` | 1–16 entries when `"domains"`, otherwise `[]` |
+| `unixSockets` | — | Registered IDs (currently 0) | Registered IDs (currently 0) |
+| `paths` | — | Registered IDs (currently 0) | Registered IDs (currently 0) |
 | `services` | — | `[]` | `browser-cdp`, `browser-playwright-chromium`, `browser-playwright-firefox`, `browser-playwright-webkit` |
 | `envPresets` | — | `ci`, `daemon-off`, `polling` | `ci`, `daemon-off`, `polling` |
 
-도메인은 점을 하나 이상 포함하는 소문자 ASCII 이름이어야 한다. 전체 길이는 최대 253자, 각 레이블은 최대 63자이며 최상위 레이블은 영문자 2–63자 또는 규칙에 맞는 `xn--` 이름이다. 와일드카드, IP 리터럴, `localhost`와 그 하위 도메인, `.local`·`.internal`·`.home.arpa`로 끝나는 이름, scheme, 포트, 경로, 끝 점, 대문자와 공백을 거부한다.
+A domain must be a lowercase ASCII name with at least one dot. The total length is at most 253 characters and each label at most 63, and the top-level label is 2–63 letters or a valid `xn--` name. Wildcards, IP literals, `localhost` and its subdomains, names ending in `.local`, `.internal` or `.home.arpa`, schemes, ports, paths, trailing dots, uppercase letters and whitespace are refused.
 
-요청 형태가 유효해도 모든 적용 gate가 `pass` 또는 `conditional`이어야 부여할 수 있다. `held`·`unmeasured` 또는 필수 사전 검사 실패는 `permission_scope_unverified`다. 조건부 부여의 범위는 결과의 `toolAccess.conditions`에 기록된다. `network.full`과 Playwright 서비스 ID는 계약에 있지만 현재 gate가 보류한다.
+Even a validly shaped request is granted only when every applicable gate is `pass` or `conditional`. `held`, `unmeasured` or a failed required precheck is `permission_scope_unverified`. The scope of a conditional grant is recorded in the result's `toolAccess.conditions`. `network.full` and the Playwright service IDs are in the contract but are currently held by their gates.
 
-### Gate와 측정 근거
+### Gates and measurement evidence
 
-값은 `TOOL_ACCESS_GATES` 기준이다. Grok 공통 근거는 B14(2026-11-24에도 402가 지속되어 T6 생략), Gemini 공통 근거는 GG1이다. `—`는 해당 플랫폼의 gate가 정의되지 않았음을 뜻한다.
+Values follow `TOOL_ACCESS_GATES`. The common Gemini evidence is GG1, and the common Grok evidence is B14 (402 persisted on 2026-11-24, so T6 was skipped). `—` means no gate is defined for that platform.
 
-| 메커니즘 | Codex | Claude | Grok | Gemini | 측정 ID와 적용 조건 |
+| Mechanism | Claude | Codex | Gemini | Grok | Measurement IDs and conditions |
 |---|---|---|---|---|---|
-| `scratch` | pass | pass | unmeasured | held | SX3·SC0·SC2·MI-C |
-| `env.base` | pass | pass | unmeasured | held | SX3·SC2 |
-| `env.caches` | pass | pass | unmeasured | held | SX3·SC2·B4 |
-| `env.ci` | pass | pass | unmeasured | held | SX3·SC2. env 전달 확인 |
-| `env.daemon-off` | pass | pass | unmeasured | held | SX3·SC2. env 전달 확인 |
-| `env.polling` | pass | pass | unmeasured | held | SX3·SC2. B9에서 감시 제약 확인 |
-| `codexProfile` | conditional | — | — | — | B1·MI-1·MI-3. 작업 트리 `.git`·`.codex`의 읽기 전용 항목 필수 |
-| `network.loopback` | pass | pass | unmeasured | held | SX1·SC1·B3·MI-1·MI-5 |
-| `unixSockets.scratch` | pass | pass | unmeasured | held | SX4·SC3·B5·MI-1 |
-| `unixSockets.registered` | pass | pass | unmeasured | held | B5. 등록 ID 0개 |
-| `paths` | pass | pass | unmeasured | held | B13. 등록 ID 0개 |
-| `network.domains` | conditional | conditional | unmeasured | held | B2·B6·B7·MI-6·MI-7·MI-9. Proxy 미준수 도구는 실패하며, Codex 외부 읽기 제한과 Claude Read 도구·디렉터리 읽기 제한 확인 |
-| `network.full` | held | held | unmeasured | held | SX1·D-d. 도메인을 좁힐 수 있는 Codex·Claude에서 보류 |
-| `service.browser-cdp` | conditional | conditional | unmeasured | held | SX4·SC3·SX7·MI-A·R-1. 홈과 `~/Library` 읽기 거부. 홈 밖 `/etc` 등의 파일은 `file://`로 접근 가능. 같은 시각의 다른 loopback dispatch가 인증 없는 CDP 포트에 접속할 수 있음 |
-| `service.browser-playwright-chromium` | held | held | unmeasured | held | B10·B11·MI-B. 호스트 전역 Playwright 부재로 격리 미측정 |
-| `service.browser-playwright-firefox` | held | held | unmeasured | held | B10·B11·MI-B. 호스트 전역 Playwright 부재로 격리 미측정 |
-| `service.browser-playwright-webkit` | held | held | unmeasured | held | B10·B11·MI-B. 호스트 전역 Playwright 부재로 격리 미측정 |
+| `scratch` | pass | pass | held | unmeasured | SX3·SC0·SC2·MI-C |
+| `env.base` | pass | pass | held | unmeasured | SX3·SC2 |
+| `env.caches` | pass | pass | held | unmeasured | SX3·SC2·B4 |
+| `env.ci` | pass | pass | held | unmeasured | SX3·SC2. Env delivery confirmed |
+| `env.daemon-off` | pass | pass | held | unmeasured | SX3·SC2. Env delivery confirmed |
+| `env.polling` | pass | pass | held | unmeasured | SX3·SC2. B9 confirmed watcher limits |
+| `codexProfile` | — | conditional | — | — | B1·MI-1·MI-3. Read-only entries for the worktree's `.git` and `.codex` required |
+| `network.loopback` | pass | pass | held | unmeasured | SX1·SC1·B3·MI-1·MI-5 |
+| `unixSockets.scratch` | pass | pass | held | unmeasured | SX4·SC3·B5·MI-1 |
+| `unixSockets.registered` | pass | pass | held | unmeasured | B5. 0 registered IDs |
+| `paths` | pass | pass | held | unmeasured | B13. 0 registered IDs |
+| `network.domains` | conditional | conditional | held | unmeasured | B2·B6·B7·MI-6·MI-7·MI-9. Tools that ignore the proxy fail; Claude Read tool and directory read limits and Codex external read limits confirmed |
+| `network.full` | held | held | held | unmeasured | SX1·D-d. Held on Claude and Codex, where domains can be narrowed |
+| `service.browser-cdp` | conditional | conditional | held | unmeasured | SX4·SC3·SX7·MI-A·R-1. Reads of home and `~/Library` denied. Files outside home such as `/etc` are reachable through `file://`. Another loopback dispatch running at the same time can connect to the unauthenticated CDP port |
+| `service.browser-playwright-chromium` | held | held | held | unmeasured | B10·B11·MI-B. Isolation unmeasured because host-global Playwright is absent |
+| `service.browser-playwright-firefox` | held | held | held | unmeasured | B10·B11·MI-B. Isolation unmeasured because host-global Playwright is absent |
+| `service.browser-playwright-webkit` | held | held | held | unmeasured | B10·B11·MI-B. Isolation unmeasured because host-global Playwright is absent |
 
-### 운영 한계와 확인 결과
+### Operational limits and findings
 
-- **Loopback**은 포트를 한정할 수 없다. 같은 호스트의 DB 등 다른 로컬 서비스에도 닿을 수 있고 Implementer가 로컬 서비스에 쓰기 요청을 보낼 수 있다. Codex의 proxy를 따르지 않는 도구는 `domains` 허용 목록에 대상이 있어도 실패한다(B2의 npm). 도메인 형식 검사는 DNS rebinding으로 이름이 사설 IP로 해석되는 경우를 검증하지 못한다.
-- **Codex 설정** — 사용자 및 작업 트리의 `config.toml`에서 주석을 제외하고 `permissions`와 `arc_bridge`가 함께 나타나면 profile mode 요청을 `permission_scope_unverified`로 보류한다. `domains` 요청에서는 `shell_environment_policy`와 `exclude`가 함께 나타나도 보류한다. CLI의 `exclude` 인자가 기존 목록을 대체하는 동작을 R-6에서 확인했다. 토큰이 서로 다른 섹션이나 문자열에 있어도 보류될 수 있다. 시스템·관리 설정 계층은 검사하지 않는다(미측정).
-- **실행 뒤 변경 감지**는 작업 트리와 지정된 제어 파일을 비교한다. 이 범위 밖의 저장소 외부 쓰기는 감지할 수 없다. Codex `workspace-write`의 범위 한계는 G5에 기록되어 있다.
-- **Evidence 무결성** — 같은 시각의 다른 쓰기 dispatch가 이 dispatch의 `evidence/`와 hostDir에 쓸 수 있다. Evidence는 역할이 제공한 자료이며 무결성을 보장하지 않는다.
-- **파일 감시·프로세스 조회** — B9의 Node recursive `fs.watch`는 `EMFILE`로 실패했다. `polling` preset은 이를 지원하는 도구에만 적용되며 Node의 직접 호출은 바꾸지 않는다. `ps`·`pgrep` 등 다른 프로세스 조회는 호스트 전용이다(B8).
-- **Chrome CDP** — MI-A에서 로컬 페이지와 스크린샷, 홈과 `~/Library`의 파일 읽기 거부를 확인했다. `file:///etc/hosts`는 읽을 수 있었다. Sandbox는 네트워크 송신을 localhost로 제한한다. R-1·N1의 실제 Chrome에서는 기본 context와 proxy 설정을 바꾼 context의 외부 접속 차단을 확인했다. N1의 Unix 소켓 연결과 DNS 거부는 같은 규칙의 `sandbox-exec`에서 더미 소켓과 `getaddrinfo`로 측정했고, Chrome의 DNS 질의 자체는 관측하지 않았다. Docker 같은 호스트 소켓 접근은 금지한다. WebRTC 경로는 별도 측정이 필요하다. 같은 시각의 다른 loopback dispatch가 인증 없는 CDP 포트에 접속할 수 있다. `--use-mock-keychain`을 적용해 키체인 접근에서 멈추는 문제를 피했다.
-- **호스트 서비스 회수** — `cancel`과 `observe`의 `unknown` 전환에서는 dispatch 및 segment에 묶인 기록을 검증한다. 신호를 보내기 전에 같은 프로세스 목록에서 supervisor가 사라졌는지 다시 확인한다. 서비스 그룹 종료 대기 중 `EPERM`이 발생하면 종료 확인 기한까지 기다린다. 격리 잔존물은 evidence 복사 전에 확인한다. `evidence/`가 이미 있으면 별도의 `evidence-recovery-*`에 복사하고, 재시도에서는 기존 복구 사본을 현재 evidence와 대조한다. 역할 CLI의 그룹이 남아 있거나 격리 잔존물이 있거나 복사·대조를 완료할 수 없으면 scratch와 hostDir의 삭제를 보류하고 응답에 `hostServiceRecovery: "warning"`을 남긴다. 서비스가 준비됐는데 시작 시 회수 기록을 남기지 못하면 정상 실행과 종료 정리를 계속하고, 결과의 `toolAccess.hostServiceRecovery`에 `"warning"`을 기록한다.
-- **Playwright** — 호스트 전역 패키지가 없어 MI-B에서 브라우저별 격리, `~/Library` 읽기 및 `file://` 접근을 검증하지 못했다. Chromium·Firefox·WebKit 서비스 모두 `held`다. Playwright 클라이언트와 서버 버전이 다르면 연결에 실패할 수 있다.
-- **Claude env** — `domains`에서 정리하는 변수는 삭제 대신 값이 `""`로 설정된다. MI-6에서는 CLI 인증이 유지됐지만, 자격 증명을 해당 env에 의존하는 환경에서는 인증에 실패할 수 있다. Claude Bash는 `TMPDIR`를 자체 경로로 설정할 수 있으므로 증거 저장에는 `ARC_EVIDENCE_DIR`를 사용한다.
-- **AC9 구성 요소 live** — Codex·Claude Tester에서 `services.json` endpoint, CDP `/json/version`, localhost 페이지·스크린샷, 외부 접속 차단과 `~/.gitconfig` 읽기 차단을 확인했다. Scratch·호스트 디렉터리 정리는 harness가 직접 호출했고 Claude에 `ARC_*`를 프로세스 env로도 전달했다. Supervisor 전체 dispatch live는 사용자 결정에 따라 머지·설치 뒤 확인한다.
+- **Loopback** cannot be limited by port. It can reach other local services on the same host, such as databases, and the Implementer can send write requests to local services. Tools that ignore the Codex proxy fail even when the target is in the `domains` allowlist (npm in B2). Domain format checks cannot detect DNS rebinding, where a name resolves to a private IP.
+- **Claude env** — Variables cleared under `domains` are set to `""` rather than removed. CLI auth persisted in MI-6, but auth can fail in environments whose credentials depend on those env variables. Claude Bash can set `TMPDIR` to its own path, so use `ARC_EVIDENCE_DIR` for evidence.
+- **Codex config** — If `permissions` and `arc_bridge` both appear, outside comments, in the user's or the worktree's `config.toml`, profile mode requests are held as `permission_scope_unverified`. For `domains` requests, the request is also held when `shell_environment_policy` and `exclude` both appear. R-6 confirmed that the CLI `exclude` argument replaces the existing list. Requests can be held even when the tokens are in different sections or strings. System and managed config layers are not checked (unmeasured).
+- **Post-run change detection** compares the worktree and the selected control files. Writes outside the repository beyond that scope cannot be detected. The scope limit of Codex `workspace-write` is recorded in G5.
+- **Evidence integrity** — Another write dispatch running at the same time can write to this dispatch's `evidence/` and hostDir. Evidence is material the role provides, and its integrity is not guaranteed.
+- **File watching and process inspection** — In B9, Node's recursive `fs.watch` failed with `EMFILE`. The `polling` preset applies only to tools that support it and does not change direct Node calls. Inspecting other processes such as `ps` and `pgrep` is host only (B8).
+- **Chrome CDP** — MI-A confirmed local pages and screenshots, and denied file reads in home and `~/Library`. `file:///etc/hosts` was readable. The sandbox limits outbound network traffic to localhost. In real Chrome, R-1 and N1 confirmed external connections are blocked in both the default context and a context with changed proxy settings. N1 measured Unix socket connections and DNS denial with a dummy socket and `getaddrinfo` under `sandbox-exec` with the same rules; Chrome's own DNS queries were not observed. Access to host sockets such as Docker is forbidden. WebRTC paths need separate measurement. Another loopback dispatch running at the same time can connect to the unauthenticated CDP port. `--use-mock-keychain` avoids hangs on keychain access.
+- **Host service recovery** — On `cancel` and on an `observe` transition to `unknown`, records bound to the dispatch and segment are verified. Before sending a signal, the same process list is checked again to confirm the supervisor is gone. If `EPERM` occurs while waiting for the service group to exit, recovery waits until the exit-confirmation deadline. Quarantine residue is checked before evidence is copied. If `evidence/` already exists, the copy goes to a separate `evidence-recovery-*`, and a retry compares the existing recovery copy with the current evidence. If the role CLI's group remains, quarantine residue exists, or copying or comparison cannot finish, deletion of scratch and hostDir is held and the response carries `hostServiceRecovery: "warning"`. If services became ready but the recovery record could not be written at start, the normal run and exit cleanup continue and the result's `toolAccess.hostServiceRecovery` records `"warning"`.
+- **Playwright** — Without a host-global package, MI-B could not verify per-browser isolation, `~/Library` reads or `file://` access. The Chromium, Firefox and WebKit services are all `held`. Connections can fail when the Playwright client and server versions differ.
+- **AC9 component live checks** — Claude and Codex Testers confirmed the `services.json` endpoint, CDP `/json/version`, localhost pages and screenshots, blocked external connections, and blocked reads of `~/.gitconfig`. The harness called scratch and host directory cleanup directly and also passed `ARC_*` to Claude as process env. A live check of a full supervisor dispatch follows merge and install, per the user's decision.
 
-기존 역할의 관찰 사항 두 건을 기록한다.
+Two observations about existing roles:
 
-- Claude Planner와 Reviewer bridge에는 Bash가 없다. 쉘 실행이 필요한 확인은 해당 역할의 결과에서 미검증으로 보고한다.
-- Grok bridge 읽기 역할은 CLI 내장 read-only 모드가 강제되지 않는다. 역할 지침의 읽기 전용 범위와 실행 뒤 변경 검사를 적용한다.
+- Claude Planner and Reviewer bridges have no Bash. Checks that need shell execution are reported as unverified in that role's result.
+- Grok bridge read roles do not get an enforced CLI built-in read-only mode. The read-only scope from the role instructions and the post-run change check apply.
 
 ## Install, update, remove
 
@@ -225,7 +225,7 @@ Management and watch require an interactive terminal for input and output, inclu
 | Changed Mixed participants | Preview the mode, install additions and restore departing homes to standalone. An anchor move locks both stores and holds on non-terminal leases. |
 | Update | Status revalidates the offered version. Global CLI replacement ends the session. An npx update leaves the global CLI in place. If the global CLI is broken, run `npx --yes @yunhozz/arc@latest`. Use Configure for a same-version refresh. |
 | Preservation and holds | Preserve unrelated settings, shared skills and content outside managed blocks. Invalid policy or config, unresolved routing and active bridges can block applicable operations. |
-| Global settings | Skipping global changes preserves existing instructions and settings. Codex config supports wait and concurrency settings. Claude Code writes the concurrency limit in `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`. |
+| Global settings | Skipping global changes preserves existing instructions and settings. Claude Code writes the concurrency limit in `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`. Codex config supports wait and concurrency settings. |
 | Recovery | Check reported residual paths. A rollback label alone provides no evidence of cleanup or backup. |
 
 Automatic re-application uses the same path as manual Configure → Apply. It runs once for Mixed routing or once per installed standalone platform. On success, it applies the current ARC configuration to ARC-managed global instructions and native concurrency settings, overwriting edits within the managed scope. The native concurrency drift check holds automatic re-application only when the request omits a concurrency limit and an existing native value differs from that platform's saved ARC limit. For example, automatic re-application omits the limit when Mixed participants have different saved limits. If this check holds re-application, explicitly select the concurrency limit in Configure before choosing Apply. See [Upgrade](../README.md#upgrade) for the first npx upgrade from 0.4.6 or earlier and re-application recovery.
@@ -302,7 +302,7 @@ The Planner drafts each applicable stage for user approval. Approved documents p
 
 Assign a fresh Implementer to each ready top-level task after verifying ownership, inputs, accepted predecessors, and capacity. Reserve slots within the total, concurrent, and runtime limits, and avoid concurrent edits to the same file. All specialists report back to the Orchestrator. The Orchestrator releases dependent work after acceptance and reassesses readiness as work proceeds.
 
-Low-risk work uses focused checks. Ordinary and significant work require fresh QA and evidence for each criterion. Accept each planned task and create a focused commit or record a no-change result. Significant planned work gets a whole-change Reviewer review after task acceptance. Significant unplanned work gets Reviewer review before acceptance. If verification fails, hold the affected work, inspect and resolve the failure, and revalidate before proceeding.
+Low-risk work uses focused checks. Ordinary and significant work require fresh Tester verification and evidence for each criterion. Accept each planned task and create a focused commit or record a no-change result. Significant planned work gets a whole-change Reviewer review after task acceptance. Significant unplanned work gets Reviewer review before acceptance. If verification fails, hold the affected work, inspect and resolve the failure, and revalidate before proceeding.
 
 Repository commit descriptions are concise Korean.
 
