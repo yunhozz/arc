@@ -1248,6 +1248,9 @@ const platformFixtures = {
   codex: {
     session:(s,id,age)=>s.c(id,[msg(id)],{age}),
     message:(s,id,text)=>msg(text),
+    move:(id,cwd)=>[move(cwd),msg('outside')],
+    orphan:s=>s.c('agent-orphan',undefined,{extra:{parent_thread_id:'missing'}}),
+    compressed:s=>s.c('compressed',[],{suffix:'.zst'}),
     edit:(s,id,file)=>({type:'event_msg',payload:{type:'item_completed',item:{
       type:'FileChange',changes:{[file]:{}},
     }}}),
@@ -1255,6 +1258,10 @@ const platformFixtures = {
   claude: {
     session:(s,id,age=300000)=>s.cl(id,[cm(id,s.cwd,id)],{mtime:TIME-age}),
     message:(s,id,text)=>cm(id,s.cwd,text),
+    move:(id,cwd)=>[cm(id,cwd,'outside')],
+    orphan:s=>s.cl('unattached-parent',[cm('unattached-parent','/outside')],{subagents:[{
+      agentId:'orphan',lines:[cm('unattached-parent',s.cwd)],
+    }]}),
     edit:(s,id,file)=>claudeTool(id,s.cwd,'Edit',{file_path:file,old_string:'before',new_string:'after'}),
   },
 };
@@ -1379,6 +1386,103 @@ for (const [selected, unselected] of [['codex','claude'],['claude','codex']]) {
     s.advance(3000);fs.unlinkSync(workerFile);
     const live=await s.w.tick();
     assert.ok(!notices(live).some(text=>text.includes('unselect')));
+  });
+
+  function hiddenDiagnostic(name, prefix, scenario) {
+    test(`R5 hides ${name} for an unselected session ${title}`,async t=>{
+      for (const [platforms,count] of [[[selected],0],[[selected,unselected],1]]) {
+        const out=await scenario(t,{platforms,verbose:true});
+        assert.equal(notices(out).filter(text=>text.startsWith(prefix)).length,count,platforms.join(', '));
+      }
+    });
+  }
+
+  hiddenDiagnostic('the scope exit diagnostic','session worker left scope: cwd=',async (t,options)=>{
+    const s=movingSetup(t,options), file=worker.session(s,'worker');
+    await s.w.start();
+    s.append(file,worker.move('worker',s.wt));
+    return s.w.tick();
+  });
+
+  hiddenDiagnostic('the attach read failure','session file unreadable: worker (ENOENT)',async (t,options)=>{
+    const s=setup(t,options,'repo'), nested=path.join(s.cwd,'nested');
+    fs.mkdirSync(nested);
+    const file=worker.session(s,'worker');
+    s.append(file,worker.move('worker',nested));
+    // Remove the file during the latest cwd check, after discovery has read it.
+    s.top(dir=>{
+      if (dir===nested) fs.unlinkSync(file);
+      return s.cwd;
+    });
+    return s.w.start();
+  });
+
+  for (const [name,prefix,change] of [
+    ['the poll read failure','session file unreadable: worker', (s,file)=>{
+      fs.unlinkSync(file);
+      fs.mkdirSync(file);
+    }],
+    ['the restart diagnostic','session restarted from the beginning: worker', (s,file)=>{
+      fs.writeFileSync(file,'');
+    }],
+    ['the idle detach diagnostic','detached idle session worker', s=>s.advance(1800000)],
+  ]) {
+    hiddenDiagnostic(name,prefix,async (t,options)=>{
+      const s=setup(t,options), file=worker.session(s,'worker');
+      await s.w.start();
+      change(s,file);
+      return s.w.tick();
+    });
+  }
+
+  hiddenDiagnostic('the oversized line diagnostic','line over 4 MiB skipped in worker',async (t,options)=>{
+    const s=setup(t,options), file=worker.session(s,'worker');
+    await s.w.start();
+    fs.appendFileSync(file,'x'.repeat(5*1024*1024)+'\n');
+    const events=[];
+    for (let i=0;i<6;i++) events.push(...await s.w.tick());
+    return events;
+  });
+
+  hiddenDiagnostic('the missing parent diagnostic','parent session not found for agent-orphan',async (t,options)=>{
+    // An out-of-scope parent can fall out of the ancestry cache before its child attaches.
+    const s=setup(t,options,'dir',{maxKnown:1});
+    worker.orphan(s);
+    const events=await s.w.start();
+    s.advance(2000);
+    events.push(...await s.w.tick());
+    return events;
+  });
+
+  if (worker.compressed) {
+    hiddenDiagnostic('the compressed transcript diagnostic','compressed session skipped: rollout-compressed.jsonl.zst',async (t,options)=>{
+      const s=setup(t,options);
+      worker.compressed(s);
+      return s.w.start();
+    });
+  }
+
+  hiddenDiagnostic('the late dispatch mapping notice','session worker is dispatch d123 (tester)',async (t,options)=>{
+    const s=setup(t,options,'repo');
+    worker.session(s,'worker');
+    await s.w.start();
+    s.advance(2000);
+    s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
+    s.art('d123',{'record.json':{}});
+    s.lease('d123',{version:2,hostPlatform:selected,targetPlatform:selected,sessionId:'worker'});
+    return s.w.tick();
+  });
+
+  test(`R5 excludes cwd-less dispatches tied only to an unselected session ${title}`,async t=>{
+    for (const [platforms,expected] of [[[selected],[]],[[selected,unselected],[['d123',selected]]]]) {
+      const s=setup(t,{platforms,verbose:true},'repo');
+      worker.session(s,'worker');
+      s.art('d123',{'record.json':{}});
+      // Keep the dispatch display platform selected in both runs so only scope decides visibility.
+      s.lease('d123',{version:2,hostPlatform:selected,targetPlatform:selected,sessionId:'worker'});
+      const events=await s.w.start();
+      assert.deepEqual(events.filter(e=>e.kind==='dispatch').map(e=>[e.dispatchId,e.platform]),expected,platforms.join(', '));
+    }
   });
 
   test(`R6 does not open a shell scan root for unselected sessions alone ${title}`,async t=>{
