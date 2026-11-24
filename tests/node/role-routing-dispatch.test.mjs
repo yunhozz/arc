@@ -552,6 +552,76 @@ test('installed cli.mjs maps allow/hold/deny to exit 0/3/2', async t => {
   assert.deepEqual(codes(staleRevision.json), ['activation_unverified']);
 });
 
+const toolAccessRequest = overrides => ({network: null, domains: [], unixSockets: [], paths: [], services: [], envPresets: [], ...overrides});
+
+test('prepare-dispatch accepts toolAccess and stores lease version 3 normalized', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const input = {
+    hostPlatform: 'claude', executionEnvironment: 'claude-cli', expectedRevision: f.revision,
+    ...request('arc_tester', {toolAccess: toolAccessRequest({network: 'loopback', envPresets: ['polling', 'ci']})}),
+  };
+  const {code, json, stderr} = await runCli(f, 'prepare-dispatch', input);
+  assert.equal(code, 0, JSON.stringify(json) ?? stderr);
+  assert.equal(json.decision, 'allow');
+  const stored = await readLease(f.claudeHome, json.dispatchId);
+  assert.equal(stored.version, 3);
+  assert.equal(stored.targetPlatform, 'codex');
+  assert.deepEqual(stored.toolAccess, toolAccessRequest({network: 'loopback', envPresets: ['ci', 'polling']}));
+});
+
+test('prepare-dispatch without toolAccess still writes lease version 2', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester'));
+  assert.equal(result.decision, 'allow');
+  assert.equal(Object.hasOwn(result, 'toolAccess'), false);
+  const stored = await readLease(f.claudeHome, result.dispatchId);
+  assert.equal(stored.version, 2);
+  assert.deepEqual(Object.keys(stored), [
+    'version', 'targetPlatform', 'dispatchId', 'workflowId', 'taskId', 'requestId', 'role', 'route',
+    'hostPlatform', 'executionEnvironment', 'revision', 'profileHash', 'argsDigest', 'state', 'supervisor',
+    'child', 'sessionId', 'timeoutMinutes', 'claims', 'reasons', 'allowedPaths', 'resultPath', 'segment',
+    'nativeAgentId', 'createdAt', 'updatedAt',
+  ]);
+});
+
+test('read role toolAccess is denied invalid_request', async t => {
+  const f = await createRoutingFixture(t);
+  await okClis(f);
+  const result = await prepare(f, request('arc_planner', {toolAccess: toolAccessRequest()}));
+  assert.equal(result.decision, 'deny');
+  assert.deepEqual(codes(result), ['invalid_request']);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('native route toolAccess is held permission_scope_unverified', async t => {
+  const f = await createRoutingFixture(t);
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest()}));
+  assert.equal(result.route, 'native');
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('full network is held', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'full'})}));
+  assert.equal(result.decision, 'hold');
+  assert.deepEqual(codes(result), ['permission_scope_unverified']);
+  assert.equal(await leaseCount(f), 0);
+});
+
+test('conditional grant is reported in result.toolAccess.conditions', async t => {
+  const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
+  await okClis(f);
+  const result = await prepare(f, request('arc_tester', {toolAccess: toolAccessRequest({network: 'domains', domains: ['example.com']})}));
+  assert.equal(result.decision, 'allow');
+  assert.deepEqual(result.toolAccess?.conditions.map(({mechanism}) => mechanism), ['codexProfile', 'network.domains']);
+});
+
 test('duplicate requestId is global across workflows while task-role duplication stays per workflow', async t => {
   const f = await createRoutingFixture(t, {roles: {arc_tester: 'codex'}});
   await okClis(f);

@@ -350,7 +350,7 @@ exec --json -C <wt> -P arc_bridge [--enable network_proxy] -m <model> -c model_r
 ### 5.3 domains 값 검증
 - 모두 만족해야 한다
   - 소문자 ASCII
-  - `^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`
+  - `^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$`
   - 점이 1개 이상, TLD는 영문자. punycode `xn--`는 regex가 허용한다.
 - 거부(`invalid_request`)
   - 와일드카드(`*`)
@@ -575,4 +575,5 @@ prepare(`role-routing.mjs`)와 `buildBridgeInvocation` 모두 같은 함수 `too
 ## 개정 이력
 - 초안 (2026-11-24): 설계 v2, T0·T0b·추가 측정, B12 결정 반영
 - v1 승인 (2026-11-24): Q1 (a) 전역 설치본, Q2–Q6 제안대로, Q7 경로 확인
+- v1.2 (2026-11-24, T1 중): 5.3 정규식 TLD 자리에 punycode `xn--…`를 허용해 본문("punycode `xn--`는 regex가 허용한다")·RF5와 맞춤
 - v1.1 (2026-11-24, plan 검토): MI-2를 `CODEX_HOME` scratch 복사본 측정으로 바꿔 10.4(사용자 설정 수정 금지)와의 충돌을 없앰

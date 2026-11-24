@@ -36,7 +36,7 @@
   - Implementer: network는 `null`·`"loopback"`. services는 `[]`.
   - Tester: network는 4종 모두. services는 `browser-cdp`, `browser-playwright-chromium`, `browser-playwright-firefox`, `browser-playwright-webkit`.
   - envPresets는 두 역할 모두 `ci`, `daemon-off`, `polling`이다. `base`·`caches`를 요청하면 `invalid_request`다.
-- **domains(spec 5.3):** regex `^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`
+- **domains(spec 5.3):** regex `^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$`
   - 거부: `*`, IPv4·IPv6 literal, `localhost`, `*.localhost`, `*.local`, `*.internal`, `*.home.arpa`, 17개 이상
   - `network==="domains"`이면 1–16개, 아니면 `[]`
 - **scratch 경로(spec 4.1):**
