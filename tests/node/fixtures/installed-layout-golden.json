@@ -2,7 +2,7 @@
   "version": 1,
   "combinations": {
     "claude/omit/en": {
-      "skills/arc/SKILL.md": "d9036261bf5e12de970767d6af869a11273f41149dc6c16dc37dc6a21fb0b03d",
+      "skills/arc/SKILL.md": "89b42904b927e9d16833d847fd54039a2c414bc40a7cff539f9a529cd73f094c",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "e9b512beeb9c5f2a2f2c8eb60d430ac71d0833aaaf94167080a1344b255c0dd7",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -73,7 +73,7 @@
       "skills/arc/settings.toml": "7dffcadbda65374ad4108f44528712b1dba8401970d07bc177ffdb795d0c8b6e"
     },
     "claude/omit/ko": {
-      "skills/arc/SKILL.md": "e7e523d0896677f00f4efa9d62a788abfc4afbaacc80a24796e912d98a9791d1",
+      "skills/arc/SKILL.md": "74417893cea71f8203feb68504124b89e56586259a4258d75533f3fd7ff3c1a9",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "e9b512beeb9c5f2a2f2c8eb60d430ac71d0833aaaf94167080a1344b255c0dd7",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -149,7 +149,7 @@
       "agents/arc-reviewer.md": "17183fc8853ea0b6957839189fed9ea5fcb3e651c928b9a09247b29439294531",
       "agents/arc-scouter.md": "1dc08a7f06428a5887669b114265802398d39ad800a238b7c0d06b94d476ca85",
       "agents/arc-tester.md": "a936ba389445ef126776f21baa6050f81ff4fc31000a6193019880b09bcc1054",
-      "skills/arc/SKILL.md": "d9036261bf5e12de970767d6af869a11273f41149dc6c16dc37dc6a21fb0b03d",
+      "skills/arc/SKILL.md": "89b42904b927e9d16833d847fd54039a2c414bc40a7cff539f9a529cd73f094c",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "e9b512beeb9c5f2a2f2c8eb60d430ac71d0833aaaf94167080a1344b255c0dd7",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -225,7 +225,7 @@
       "agents/arc-reviewer.md": "b746b34020ab4f2691d46ea6ff848ed6c655f59f8930b7290945e06ca371a8d9",
       "agents/arc-scouter.md": "328a6125dacfae339d2ab1a49f79b00f20c15a4975157959fba2af41baa1cf4a",
       "agents/arc-tester.md": "79586832192d65ccb1a5cefb99697d7898fa93bfb29813b583ffc6ff4a65d786",
-      "skills/arc/SKILL.md": "e7e523d0896677f00f4efa9d62a788abfc4afbaacc80a24796e912d98a9791d1",
+      "skills/arc/SKILL.md": "74417893cea71f8203feb68504124b89e56586259a4258d75533f3fd7ff3c1a9",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "e9b512beeb9c5f2a2f2c8eb60d430ac71d0833aaaf94167080a1344b255c0dd7",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -296,7 +296,7 @@
       "skills/arc/settings.toml": "708ca3abc0f89a5fc6a1aef04af831bf582060d46da82957568897d7691e9f9b"
     },
     "codex/omit/en": {
-      "skills/arc/SKILL.md": "8a0538d1faf5681fbf17369acbb504ab4e5b24b4cc7fa4e176dce8db5da2ea77",
+      "skills/arc/SKILL.md": "225f828c51371fd86392e1aeb9b0685b58d5429ce342ae25a7f6bd537e25606d",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "a9ce045285e4a3caccf7380eb265530371512e22bf6f88fed14baaacbfb4a3f4",
       "skills/arc/references/arc-visual-companion.md": "43aab56a8230903c7c8be08031388db666804d369dc1fcce9ac67a5932a238aa",
@@ -367,7 +367,7 @@
       "skills/arc/settings.toml": "7dffcadbda65374ad4108f44528712b1dba8401970d07bc177ffdb795d0c8b6e"
     },
     "codex/omit/ko": {
-      "skills/arc/SKILL.md": "eb1c06948ce130f66be027ef8624170195c8964b920de5bd59ee51e8e87800fd",
+      "skills/arc/SKILL.md": "0c394e0eccc1742a1678fd328b2af1073f8a8775756909006e37117e99f25293",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "a9ce045285e4a3caccf7380eb265530371512e22bf6f88fed14baaacbfb4a3f4",
       "skills/arc/references/arc-visual-companion.md": "43aab56a8230903c7c8be08031388db666804d369dc1fcce9ac67a5932a238aa",
@@ -443,7 +443,7 @@
       "agents/arc-reviewer.toml": "d28e57965cb765311dafc75d58878cb6913c620081d6f12c735bb75cbd74eb81",
       "agents/arc-scouter.toml": "e14e92c1389b519f622293d0a2cdeb2e3d82e10eecb62fe89774a058218088e8",
       "agents/arc-tester.toml": "5f6457d44f4bdd3fcb8f2ffa7cf05348bed318c6c6fee1a1a50f6a3b880ddab0",
-      "skills/arc/SKILL.md": "8a0538d1faf5681fbf17369acbb504ab4e5b24b4cc7fa4e176dce8db5da2ea77",
+      "skills/arc/SKILL.md": "225f828c51371fd86392e1aeb9b0685b58d5429ce342ae25a7f6bd537e25606d",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "a9ce045285e4a3caccf7380eb265530371512e22bf6f88fed14baaacbfb4a3f4",
       "skills/arc/references/arc-visual-companion.md": "43aab56a8230903c7c8be08031388db666804d369dc1fcce9ac67a5932a238aa",
@@ -519,7 +519,7 @@
       "agents/arc-reviewer.toml": "a8a4d4fc3d1b4f1d07dde67ae23a6fb94de51bfaf48cee17d03f2d656af5a11d",
       "agents/arc-scouter.toml": "6e43b3ad315122b0a0fd374803478d776edb6ff2340edb7b19b703d7edc4f311",
       "agents/arc-tester.toml": "437db50d71de5ec1a0f994e4d3cef9bee38366be8b1ce3a9a7a2e97229630e4c",
-      "skills/arc/SKILL.md": "eb1c06948ce130f66be027ef8624170195c8964b920de5bd59ee51e8e87800fd",
+      "skills/arc/SKILL.md": "0c394e0eccc1742a1678fd328b2af1073f8a8775756909006e37117e99f25293",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "a9ce045285e4a3caccf7380eb265530371512e22bf6f88fed14baaacbfb4a3f4",
       "skills/arc/references/arc-visual-companion.md": "43aab56a8230903c7c8be08031388db666804d369dc1fcce9ac67a5932a238aa",
@@ -590,7 +590,7 @@
       "skills/arc/settings.toml": "708ca3abc0f89a5fc6a1aef04af831bf582060d46da82957568897d7691e9f9b"
     },
     "gemini/omit/en": {
-      "skills/arc/SKILL.md": "1114577081dc08149ce6d9e58cafba9b89cf5d5f6561490838a5b5047ebc5e3c",
+      "skills/arc/SKILL.md": "d1494c4251b98ce7d96aad245cb8f4ed5d541792a327560de9f87f957a36890b",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "f68c900d7dc9a8921e570d426125d5a5aa2cf1b8efad4d0f698dfb0b6947b5c0",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -659,7 +659,7 @@
       "skills/arc/settings.toml": "7dffcadbda65374ad4108f44528712b1dba8401970d07bc177ffdb795d0c8b6e"
     },
     "gemini/omit/ko": {
-      "skills/arc/SKILL.md": "12d1dcef4cda754a38019b608a9c2e0b1fab632ecbae56abd50e6d528ce5577f",
+      "skills/arc/SKILL.md": "de0454e0886ba5ce37e1b1acd9fee5d4be3835b7923cf378cf1c500c6f08c9ff",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "f68c900d7dc9a8921e570d426125d5a5aa2cf1b8efad4d0f698dfb0b6947b5c0",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -733,7 +733,7 @@
       "agents/arc-reviewer.md": "3576a2e02ca71491ab4bfa0dc7e20964349e4208a4beb22cd8dfd15672f3b9e5",
       "agents/arc-scouter.md": "359ed944b6e03d2cba73582e6f22a28b2a75aba4174925d4ce0325dbb3e5c0f3",
       "agents/arc-tester.md": "dd323982b5b74475a5614998e0fe70446893f87b7ca6ae7ecbf6d849494a61f5",
-      "skills/arc/SKILL.md": "1114577081dc08149ce6d9e58cafba9b89cf5d5f6561490838a5b5047ebc5e3c",
+      "skills/arc/SKILL.md": "d1494c4251b98ce7d96aad245cb8f4ed5d541792a327560de9f87f957a36890b",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "f68c900d7dc9a8921e570d426125d5a5aa2cf1b8efad4d0f698dfb0b6947b5c0",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -807,7 +807,7 @@
       "agents/arc-reviewer.md": "2a099a7efff9fb983c63fb96af08021964270a2c26f6077b75a8a02c7689bfa8",
       "agents/arc-scouter.md": "771519e6071515c640e29b1463c714bb32b8b41714816fb713d9ce3a29e9f72a",
       "agents/arc-tester.md": "31e4c89f3479c1ebf3a8293776901731035b6ee8b787cbb469112d62c5184ca4",
-      "skills/arc/SKILL.md": "12d1dcef4cda754a38019b608a9c2e0b1fab632ecbae56abd50e6d528ce5577f",
+      "skills/arc/SKILL.md": "de0454e0886ba5ce37e1b1acd9fee5d4be3835b7923cf378cf1c500c6f08c9ff",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "f68c900d7dc9a8921e570d426125d5a5aa2cf1b8efad4d0f698dfb0b6947b5c0",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -876,7 +876,7 @@
       "skills/arc/settings.toml": "708ca3abc0f89a5fc6a1aef04af831bf582060d46da82957568897d7691e9f9b"
     },
     "grok/omit/en": {
-      "skills/arc/SKILL.md": "b139c305aec21ad32063eb60939d4bfefdb8b9c55c1299d79bfae4ff7bae6e84",
+      "skills/arc/SKILL.md": "ee02c772e9954836b3f307697d7dcc653183bedd6fccd42d8f97d5dcbd251af0",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "1f3a58471abd55d7153dc2912e59571bf989813bf3abbfb32f593b1f62b06cd5",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -945,7 +945,7 @@
       "skills/arc/settings.toml": "7dffcadbda65374ad4108f44528712b1dba8401970d07bc177ffdb795d0c8b6e"
     },
     "grok/omit/ko": {
-      "skills/arc/SKILL.md": "558471010cf1e8f528c621b4b5a8898bb8b5d1969a2144996c441f12ff352ad2",
+      "skills/arc/SKILL.md": "0b1ba8e950d800dc012f2ca0dae0b1546a73f059b948b5a709183a945e8d5ddb",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "1f3a58471abd55d7153dc2912e59571bf989813bf3abbfb32f593b1f62b06cd5",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -1019,7 +1019,7 @@
       "agents/arc-reviewer.md": "c7efe3fe49cc3454a3b92ef0a43c0be536d52aea5636ff199bd90a060d393140",
       "agents/arc-scouter.md": "8f2a12dd6a9c79497ba5483f430a682e64dd6f17060f9c13136d9c33bbc7f4ac",
       "agents/arc-tester.md": "12cef86df606c3c9e1df672df934856347c51acfbcea43a8345b248848677f4d",
-      "skills/arc/SKILL.md": "b139c305aec21ad32063eb60939d4bfefdb8b9c55c1299d79bfae4ff7bae6e84",
+      "skills/arc/SKILL.md": "ee02c772e9954836b3f307697d7dcc653183bedd6fccd42d8f97d5dcbd251af0",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "1f3a58471abd55d7153dc2912e59571bf989813bf3abbfb32f593b1f62b06cd5",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
@@ -1093,7 +1093,7 @@
       "agents/arc-reviewer.md": "41dee1a9128c1942f24c2b5208c210935286f04540e316c68cddb88bde739f64",
       "agents/arc-scouter.md": "1074e721d052b2af00000bfaa4021150e9a9a14b8cee5314c38f9db72dff736e",
       "agents/arc-tester.md": "86e0bf5262f38a687b4c400a0f034c14034ba7c4909d515fb5e237ff1960ea7f",
-      "skills/arc/SKILL.md": "558471010cf1e8f528c621b4b5a8898bb8b5d1969a2144996c441f12ff352ad2",
+      "skills/arc/SKILL.md": "0b1ba8e950d800dc012f2ca0dae0b1546a73f059b948b5a709183a945e8d5ddb",
       "skills/arc/limits.toml": "eae8c065adcd9b6894d8339ed50a8e83f316d2d56d42a1908edde43f680ac0cf",
       "skills/arc/models.toml": "1f3a58471abd55d7153dc2912e59571bf989813bf3abbfb32f593b1f62b06cd5",
       "skills/arc/references/arc-visual-companion.md": "7073692b58dbfe3e0762a3d0d098c0810239a62a573b5e096bd04398e785dfd1",
