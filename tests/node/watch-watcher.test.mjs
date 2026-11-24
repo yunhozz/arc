@@ -1244,6 +1244,258 @@ test('Claude successful rm reaches live DELETE output without exposing tool resu
 const inferred=events=>events.filter(e=>e.inferred);
 const scans=s=>s.calls.filter(c=>c.args[0]==='ls-files');
 
+const platformFixtures = {
+  codex: {
+    session:(s,id,age)=>s.c(id,[msg(id)],{age}),
+    message:(s,id,text)=>msg(text),
+    move:(id,cwd)=>[move(cwd),msg('outside')],
+    orphan:s=>s.c('agent-orphan',undefined,{extra:{parent_thread_id:'missing'}}),
+    compressed:s=>s.c('compressed',[],{suffix:'.zst'}),
+    edit:(s,id,file)=>({type:'event_msg',payload:{type:'item_completed',item:{
+      type:'FileChange',changes:{[file]:{}},
+    }}}),
+  },
+  claude: {
+    session:(s,id,age=300000)=>s.cl(id,[cm(id,s.cwd,id)],{mtime:TIME-age}),
+    message:(s,id,text)=>cm(id,s.cwd,text),
+    move:(id,cwd)=>[cm(id,cwd,'outside')],
+    orphan:s=>s.cl('unattached-parent',[cm('unattached-parent','/outside')],{subagents:[{
+      agentId:'orphan',lines:[cm('unattached-parent',s.cwd)],
+    }]}),
+    edit:(s,id,file)=>claudeTool(id,s.cwd,'Edit',{file_path:file,old_string:'before',new_string:'after'}),
+  },
+};
+
+for (const [selected, unselected] of [['codex','claude'],['claude','codex']]) {
+  const title = `(selected platform: ${selected})`;
+  const host = platformFixtures[selected], worker = platformFixtures[unselected];
+
+  test(`R1 suppresses explicit changes from an unselected bridge session ${title}`,async t=>{
+    async function scenario(platforms) {
+      const s=setup(t,{platforms,verbose:true},'repo');
+      const hostFile=host.session(s,'selected-session'), workerFile=worker.session(s,'unselected-session');
+      const file=path.join(s.cwd,'claimed.txt');
+      s.files(['claimed.txt']);s.stats.set(file,{mtimeMs:1});
+      s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
+      s.art('d123',{'record.json':{}});
+      s.lease('d123',{version:2,hostPlatform:selected,targetPlatform:unselected,sessionId:'unselected-session'});
+      const events=await s.w.start();
+      s.advance(3000);s.stats.set(file,{mtimeMs:2});
+      s.append(workerFile,[worker.edit(s,'unselected-session',file)]);
+      events.push(...await s.w.tick());
+      s.advance(100);s.append(hostFile,[host.message(s,'selected-session','selected activity')]);
+      events.push(...await s.w.tick());
+      s.advance(1000);events.push(...await s.w.tick());
+      const selectedRows=events.filter(e=>e.sessionId==='selected-session');
+      return {events,file,selectedRows:JSON.parse(JSON.stringify(selectedRows).replaceAll(s.cwd,'/repo'))};
+    }
+    const only=await scenario([selected]), both=await scenario([selected,unselected]);
+    assert.deepEqual(both.events.filter(e=>e.paths?.includes(both.file) && e.kind.startsWith('file_'))
+      .map(e=>[e.kind,e.source,e.sessionId,e.inferred]),[['file_change','bridge','unselected-session',undefined]]);
+    assert.deepEqual(only.events.filter(e=>e.paths?.includes(only.file) && e.kind.startsWith('file_')),[]);
+    assert.ok(!only.events.some(e=>e.sessionId==='unselected-session'));
+    assert.deepEqual(only.selectedRows,both.selectedRows);
+  });
+
+  test(`R2 consumes shell changes attributed to the latest unselected session ${title}`,async t=>{
+    async function scenario(platforms) {
+      const s=setup(t,{platforms});
+      const hostFile=host.session(s,'selected-session'), workerFile=worker.session(s,'unselected-session');
+      const file=path.join(s.cwd,'shell.txt');
+      await s.w.start();s.advance(3000);
+      s.append(hostFile,[host.message(s,'selected-session','earlier activity')]);
+      const before=await s.w.tick();
+      s.advance(100);s.files(['shell.txt']);s.stats.set(file,{});
+      s.append(workerFile,[worker.message(s,'unselected-session','shell activity')]);
+      const workerTick=await s.w.tick();
+      s.advance(1000);const firstScan=await s.w.tick();
+      s.advance(3000);s.append(hostFile,[host.message(s,'selected-session','later activity')]);
+      const hostTick=await s.w.tick();
+      s.advance(1000);const nextScan=await s.w.tick();
+      const fileEvents=events=>events.filter(e=>e.kind.startsWith('file_') && e.paths?.includes(file));
+      assert.equal(scans(s).length,3);
+      return {initial:fileEvents([...before,...workerTick,...firstScan]),later:fileEvents([...hostTick,...nextScan])};
+    }
+    const only=await scenario([selected]), both=await scenario([selected,unselected]);
+    assert.deepEqual(both.initial.map(e=>[e.sessionId,e.kind,e.inferred]),[['unselected-session','file_create',true]]);
+    assert.deepEqual(only.initial,[]);
+    assert.deepEqual(only.later,[]);
+  });
+
+  test(`R3 preserves dispatch display and missing-transcript diagnostics ${title}`,async t=>{
+    const s=setup(t,{platforms:[selected],verbose:true},'repo');
+    worker.session(s,'unselected-session');
+    s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
+    s.art('d123',{'record.json':{}});
+    s.lease('d123',{hostPlatform:selected,route:'native',sessionId:'unselected-session'});
+    const out=await s.w.start();
+    assert.deepEqual(out.filter(e=>e.kind==='dispatch').map(e=>[e.dispatchId,e.platform]),[['d123',selected]]);
+    assert.ok(notices(out).includes('transcript not found for dispatch d123'));
+    assert.ok(!out.some(e=>e.sessionId==='unselected-session'));
+  });
+
+  test(`R4 keeps unselected activity out of status ${title}`,async t=>{
+    const s=setup(t,{platforms:[selected]});
+    host.session(s,'selected-session',600000);
+    const workerFile=worker.session(s,'unselected-session');
+    await s.w.start();
+    s.advance(3000);s.append(workerFile,[worker.message(s,'unselected-session','private activity')]);
+    await s.w.tick();
+    assert.equal(s.w.busy(),false);
+    assert.deepEqual(s.w.listActivity().map(row=>row.platform),[selected]);
+  });
+
+  test(`R4 preserves the visible session limit and its notice ${title}`,async t=>{
+    const s=setup(t,{platforms:[selected],tail:1000});
+    worker.session(s,'unselected-session',10000);
+    for(let i=0;i<66;i++) host.session(s,`selected-${i}`,20000+i*1000);
+    const out=await s.w.start();
+    assert.equal(new Set(content(out).map(e=>e.sessionId)).size,64);
+    assert.ok(!out.some(e=>['selected-64','selected-65'].includes(e.sessionId)));
+    assert.equal(notices(out).filter(text=>text==='following the newest 64 sessions; others are skipped').length,1);
+    s.advance(3000);
+    assert.ok(!notices(await s.w.tick()).some(text=>text.includes('newest 64')));
+    assert.deepEqual(s.w.listActivity().map(row=>row.platform),Array(64).fill(selected));
+  });
+
+  test(`R4b silently excludes the oldest unselected session at the session limit ${title}`,async t=>{
+    const s=setup(t,{platforms:[selected],verbose:true});
+    const hostFile=host.session(s,'selected-session');
+    const workers=Array.from({length:65},(_,i)=>worker.session(s,`worker-${i}`,10000+i*1000));
+    const events=await s.w.start();
+    s.advance(3000);
+    s.files(['shell.txt']);s.stats.set(path.join(s.cwd,'shell.txt'),{});
+    s.append(hostFile,[host.message(s,'selected-session','shell activity')]);
+    events.push(...await s.w.tick());
+    s.advance(100);s.append(workers[64],[worker.message(s,'worker-64','excluded activity')]);
+    events.push(...await s.w.tick());
+    s.advance(1000);events.push(...await s.w.tick());
+    assert.deepEqual(inferred(events).map(e=>[e.kind,e.sessionId]),[['file_create','selected-session']]);
+    assert.ok(!notices(events).some(text=>text.includes('newest 64')));
+  });
+
+  test(`R5 hides verbose diagnostics and earlier history for unselected sessions ${title}`,async t=>{
+    const s=setup(t,{platforms:[selected],verbose:true,earlier:true,tail:0});
+    host.session(s,'selected-session');
+    const workerFile=worker.session(s,'unselected-session');
+    const out=await s.w.start();
+    assert.ok(!out.some(e=>e.sessionId==='unselected-session'));
+    const earlier=s.w.earlier(20);
+    assert.ok(earlier.events.some(e=>e.sessionId==='selected-session'));
+    assert.ok(!earlier.events.some(e=>e.sessionId==='unselected-session'));
+    s.advance(3000);fs.unlinkSync(workerFile);
+    const live=await s.w.tick();
+    assert.ok(!notices(live).some(text=>text.includes('unselect')));
+  });
+
+  function hiddenDiagnostic(name, prefix, scenario) {
+    test(`R5 hides ${name} for an unselected session ${title}`,async t=>{
+      for (const [platforms,count] of [[[selected],0],[[selected,unselected],1]]) {
+        const out=await scenario(t,{platforms,verbose:true});
+        assert.equal(notices(out).filter(text=>text.startsWith(prefix)).length,count,platforms.join(', '));
+      }
+    });
+  }
+
+  hiddenDiagnostic('the scope exit diagnostic','session worker left scope: cwd=',async (t,options)=>{
+    const s=movingSetup(t,options), file=worker.session(s,'worker');
+    await s.w.start();
+    s.append(file,worker.move('worker',s.wt));
+    return s.w.tick();
+  });
+
+  hiddenDiagnostic('the attach read failure','session file unreadable: worker (ENOENT)',async (t,options)=>{
+    const s=setup(t,options,'repo'), nested=path.join(s.cwd,'nested');
+    fs.mkdirSync(nested);
+    const file=worker.session(s,'worker');
+    s.append(file,worker.move('worker',nested));
+    // Remove the file during the latest cwd check, after discovery has read it.
+    s.top(dir=>{
+      if (dir===nested) fs.unlinkSync(file);
+      return s.cwd;
+    });
+    return s.w.start();
+  });
+
+  for (const [name,prefix,change] of [
+    ['the poll read failure','session file unreadable: worker', (s,file)=>{
+      fs.unlinkSync(file);
+      fs.mkdirSync(file);
+    }],
+    ['the restart diagnostic','session restarted from the beginning: worker', (s,file)=>{
+      fs.writeFileSync(file,'');
+    }],
+    ['the idle detach diagnostic','detached idle session worker', s=>s.advance(1800000)],
+  ]) {
+    hiddenDiagnostic(name,prefix,async (t,options)=>{
+      const s=setup(t,options), file=worker.session(s,'worker');
+      await s.w.start();
+      change(s,file);
+      return s.w.tick();
+    });
+  }
+
+  hiddenDiagnostic('the oversized line diagnostic','line over 4 MiB skipped in worker',async (t,options)=>{
+    const s=setup(t,options), file=worker.session(s,'worker');
+    await s.w.start();
+    fs.appendFileSync(file,'x'.repeat(5*1024*1024)+'\n');
+    const events=[];
+    for (let i=0;i<6;i++) events.push(...await s.w.tick());
+    return events;
+  });
+
+  hiddenDiagnostic('the missing parent diagnostic','parent session not found for agent-orphan',async (t,options)=>{
+    // An out-of-scope parent can fall out of the ancestry cache before its child attaches.
+    const s=setup(t,options,'dir',{maxKnown:1});
+    worker.orphan(s);
+    const events=await s.w.start();
+    s.advance(2000);
+    events.push(...await s.w.tick());
+    return events;
+  });
+
+  if (worker.compressed) {
+    hiddenDiagnostic('the compressed transcript diagnostic','compressed session skipped: rollout-compressed.jsonl.zst',async (t,options)=>{
+      const s=setup(t,options);
+      worker.compressed(s);
+      return s.w.start();
+    });
+  }
+
+  hiddenDiagnostic('the late dispatch mapping notice','session worker is dispatch d123 (tester)',async (t,options)=>{
+    const s=setup(t,options,'repo');
+    worker.session(s,'worker');
+    await s.w.start();
+    s.advance(2000);
+    s.h.writeArtifacts(s.gcd,'wf-3','',{'state.json':{target:{realpath:s.cwd}}});
+    s.art('d123',{'record.json':{}});
+    s.lease('d123',{version:2,hostPlatform:selected,targetPlatform:selected,sessionId:'worker'});
+    return s.w.tick();
+  });
+
+  test(`R5 excludes cwd-less dispatches tied only to an unselected session ${title}`,async t=>{
+    for (const [platforms,expected] of [[[selected],[]],[[selected,unselected],[['d123',selected]]]]) {
+      const s=setup(t,{platforms,verbose:true},'repo');
+      worker.session(s,'worker');
+      s.art('d123',{'record.json':{}});
+      // Keep the dispatch display platform selected in both runs so only scope decides visibility.
+      s.lease('d123',{version:2,hostPlatform:selected,targetPlatform:selected,sessionId:'worker'});
+      const events=await s.w.start();
+      assert.deepEqual(events.filter(e=>e.kind==='dispatch').map(e=>[e.dispatchId,e.platform]),expected,platforms.join(', '));
+    }
+  });
+
+  test(`R6 does not open a shell scan root for unselected sessions alone ${title}`,async t=>{
+    const s=setup(t,{platforms:[selected]});
+    const workerFile=worker.session(s,'unselected-session');
+    await s.w.start();s.advance(3000);
+    s.files(['shell.txt']);s.stats.set(path.join(s.cwd,'shell.txt'),{});
+    s.append(workerFile,[worker.message(s,'unselected-session','shell activity')]);
+    await s.w.tick();s.advance(1000);await s.w.tick();
+    assert.equal(scans(s).length,0);
+  });
+}
+
 function assertInferredCreate(s,events,name='changed.txt') {
   assert.deepEqual(inferred(events).map(({source,sessionId,cwd,root,kind,paths,inferred})=>
     ({source,sessionId,cwd,root,kind,paths,inferred})),[
