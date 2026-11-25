@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v1 (사용자 승인: 2026-11-25T16:44:53+09:00에 "plan 나오면 승인하고 진행해"로 사전 승인)
+- 상태: plan v1 (사용자 승인: 2026-11-25T16:44:53+09:00에 "plan 나오면 승인하고 진행해"로 사전 승인). T1 수락(2026-11-25): 관련 테스트의 Node 1건·Python 493건 실패는 base와 이름이 같아 baseline. AC8은 최종 검증 범위
 - Spec: `docs/superpowers/specs/2026-11-25-full-regression-parallel-design.md` (2026-11-25T16:43:45+09:00 이전 사용자 승인, Q1–Q7 모두 (A), sha256 `a928122456dc448e25ea2d3a06fabc09d4f3166d8135b70ca71db0bd12bfb64c`). 사용자 지시(2026-11-25)에 따라 spec과 plan은 T1 구현 전에 별도 docs 커밋으로 먼저 커밋합니다.
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, approved base `4d80d208`
 - 경로: Architectural, task 1개. 분리하지 않는 이유: 문서, fragment, 계약 테스트, 해시 fixture는 서로 떼면 테스트가 깨집니다(spec §10).
@@ -98,7 +98,7 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
 
 **Interfaces:** export, CLI, `settings.toml` 키는 바뀌지 않습니다.
 
-- [ ] **Step 1: 테스트 먼저 (`tests/node/test-scope-contract.test.mjs`)**
+- [x] **Step 1: 테스트 먼저 (`tests/node/test-scope-contract.test.mjs`)**
   - 상수를 추가합니다. 값은 spec 원문 그대로입니다.
     - `approvedFullRegressionSentence`: §5.1 변경 후 문장
     - `suiteParallelismParagraph`: §5.2
@@ -123,7 +123,7 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
     - `phrases`: `[testerSuiteParallelismRule]` (렌더 결과에 정확히 한 번)
   - `sectionPhrases`에 `'shard manifest'`를 추가합니다.
   - 기존 상수와 기존 단언은 바꾸지 않습니다. E1 줄 전체 검사(`:212-234`)와 Final mode 바로 다음 Command execution 검사(`:246-256`)도 그대로 둡니다.
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
   - `node --test tests/node/test-scope-contract.test.mjs`
   - 다음 테스트만 FAIL해야 합니다.
     - 새 테스트 2개
@@ -131,7 +131,7 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
     - `{platform} tester places each test-scope rule exactly once` 4개
     - `{platform} verification defines test scope before risk-scaled execution` 4개 (`shard manifest`)
   - 그 밖의 실패는 이름과 함께 보고합니다.
-- [ ] **Step 3: 문안 편집 (AC1–AC4)**
+- [x] **Step 3: 문안 편집 (AC1–AC4)**
   - 4개 `verification.md`
     - Approved full regression 문단의 첫 문장을 §5.1로 바꿉니다. claude:54, codex:52, gemini:54, grok:54입니다.
     - `**Command execution:**` 문단 다음에 빈 줄을 두고 §5.2를 넣습니다. claude/gemini/grok:26, codex:24 다음입니다.
@@ -139,7 +139,7 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
   - `agent-fragments.json` `tester.verification-steps`
     - `Use approved structural/consistency checks for policy/configuration.` 바로 뒤, `\n2.` 앞에 §5.4 문장을 넣습니다. 맨 앞 공백을 포함하고, JSON 이스케이프 외에는 바이트를 그대로 둡니다.
     - step 2와 그 밖의 fragment는 바꾸지 않습니다.
-- [ ] **Step 4: fixture 측정과 반영 (AC7)**
+- [x] **Step 4: fixture 측정과 반영 (AC7)**
   - `agentProfileBaseline.profiles`: 다음 4개만 바꿉니다. `revision`과 `protected`는 그대로입니다.
     - `claude/agents/arc-tester.md`
     - `codex/agents/arc-tester.toml`
@@ -181,7 +181,7 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
     - `node --test --test-name-pattern 'preserves public rendering baseline' tests/node/plan.test.mjs`를 실행합니다.
     - 실패한 키의 실제 digest로 해당 값만 바꿉니다. 예상은 8개 키 모두입니다. 합성 payload가 tester profile을 렌더하기 때문입니다.
     - 다른 줄은 바꾸지 않습니다. 다시 실행해서 통과해야 합니다.
-- [ ] **Step 5: MANIFEST**
+- [x] **Step 5: MANIFEST**
   - 마지막에 `node scripts/update-manifest.mjs`를 실행하고 `npm run check:manifest`로 확인합니다.
   - diff는 다음 5줄에만 있어야 합니다.
     - `claude/skill/references/verification.md`
@@ -189,14 +189,14 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
     - `gemini/skill/references/verification.md`
     - `grok/skill/references/verification.md`
     - `lib/prompts/agent-fragments.json`
-- [ ] **Step 6: 관련 테스트, check, 범위 확인**
+- [x] **Step 6: 관련 테스트, check, 범위 확인**
   - 아래 최소 집합을 실행합니다. Node 파일은 `node --test <파일들>` 한 명령의 내장 병렬로 실행합니다. Python `unittest`는 설치된 병렬 모드가 없으므로 순차로 실행하고 그 이유를 보고합니다.
   - AC2: `git diff --word-diff 4d80d208 -- '*/skill/references/verification.md'`에서 다음 세 가지만 보여야 합니다.
     - Approved 문단의 삽입 `except shard Testers under **Full regression shards** below`
     - 새 문단 2개
   - AC5: `git diff --name-only 4d80d208 -- '*/skill/SKILL.md' '*/skill/references/limits.md' '*/skill/references/handoff-prep.md' lib/policy/role-policy.json shared/skill/runtime/role-policy.json '*/agents/*'`의 출력이 비어 있어야 합니다.
   - `git status --porcelain`으로 변경 파일이 allowedPaths 10개와 untracked spec·plan뿐인지 확인합니다.
-- [ ] **Step 7: Commit (Orchestrator)**
+- [x] **Step 7: Commit (Orchestrator)**
   - 수락한 뒤 10개 파일을 commit 하나로 만듭니다. spec과 plan은 앞선 docs 커밋에 있습니다.
   - 메시지: `chore(policy): 전체 회귀 shard와 suite 내장 병렬 실행 규칙 추가`
 

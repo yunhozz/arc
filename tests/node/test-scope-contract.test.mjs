@@ -42,6 +42,10 @@ const oldReviewerVerificationPhrase = 'Tester owns functional/test verification'
 const profileRoles = ['scouter', 'planner', 'implementer', 'tester', 'reviewer'];
 const commandExecutionRule = 'Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, stop it, confirm it has exited, then report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.';
 const commandExecutionParagraph = "**Command execution:** Implementer and Tester briefs MUST NOT prescribe detached execution such as `&`, `nohup` or `setsid`; they require long commands to run in the foreground and be waited on in the same session until an exit code. Orchestrator does not run a Tester's assigned suites in its place unless Tester reports an environment block with evidence and the user chooses that run.";
+const approvedFullRegressionSentence = "**Approved full regression** requires explicit user approval, and the current final-mode Tester runs it as a follow-up; no new Tester is assigned except shard Testers under **Full regression shards** below.";
+const suiteParallelismParagraph = "**Suite parallelism:** A Tester runs each multi-file suite command with the test runner's built-in parallel mode inside that one foreground command; a parallel mode that needs a package or plugin not already installed counts as no parallel mode. It runs a suite sequentially only when its tests are known to interfere with each other or the runner has no parallel mode, and reports the reason. Briefs MUST NOT split a suite into sequential groups for any other reason; splitting across Testers follows **Full regression shards** below. This changes how a command runs, not which tests run.";
+const fullRegressionShardsParagraph = "**Full regression shards:** Orchestrator MAY split an approved full regression into shards only when, from recorded prior run times, it is likely to exceed one Tester's time limit for its route, such as the bridge `arc_tester` 60-minute lease, or when independent suites, such as a sequential Python suite and a Node suite, can run at the same time; it records the reason. A shard is one whole suite command or a set of whole test files, never a subset of test names. Before dispatch Orchestrator lists every test file and suite command of the approved full regression at the verified HEAD as the inventory and writes a shard manifest that assigns each item to exactly one shard, so that the shards do not overlap and their union equals the inventory. Tests known to share state, such as fixed ports, the same temporary or workspace paths or global configuration, go in one shard. The current final-mode Tester runs one shard as its follow-up; each other shard goes to a fresh Tester whose `mode: final` brief adds `shard: <id> of <n>`, the shard's files or command and the manifest. Each shard Tester runs only its shard with no other final-mode checks, reports the files it actually ran and classifies failures only by the static check under **Baseline** below. All shards run at the same verified HEAD in the same workspace; each Tester records `git status --porcelain` at start and end, and no one writes in that workspace until every shard ends. Orchestrator reserves the whole shard batch under [limits](limits.md#counting-and-reservations) and serializes shards that do not fit; each shard Tester is a created and active instance, and the follow-up adds none. When the runner has a parallelism option, Orchestrator sets it per shard so that the combined workers stay within the host's available parallelism. After every shard has reported, Orchestrator sends the shard failures that need a base run to the current final-mode Tester, which reruns each alone at HEAD, with no other test command running in that workspace, up to the brief's isolated rerun limit; a pass alone is an intermittent candidate, and a failure alone follows the base check below. Orchestrator merges the shard results and verifies that every inventory item has complete results exactly once; an item without complete results is a new-failure candidate and leaves the run incomplete. A blocked or timed-out shard follows the resume rule above; its items stay unverified, and the user decides whether a new Tester runs only the items without complete results. Sharding splits the one approved run and adds no run. The approved full regression is complete only when every shard has reported, coverage is verified and every shard failure is classified or dispositioned. Record the reason, inventory, manifest, Tester IDs and per-shard results with the approved full regression record.";
+const testerSuiteParallelismRule = "Run each multi-file suite command with the test runner's built-in parallel mode inside that one foreground command; run it sequentially only when its tests are known to interfere with each other or the runner has no installed parallel mode, and report the reason. A brief with `shard: <id> of <n>` limits final mode to that approved full regression shard: run only its listed files or command, report the files actually run and classify failures only by the static base check; run isolated or base reruns only when Orchestrator sends them after every shard has reported.";
 const wholePlanReviewerRule = 'Whole-plan Reviewer is part of final verification;';
 const qaAdditionsRule = 'additions within these categories with reasons are authorized;';
 const qaRerunLimit = "up to the brief's limit (default three),";
@@ -78,6 +82,7 @@ const sectionPhrases = [
   'new-failure candidate',
   'fresh Tester assignment',
   'diagnosis, not an automatic retry',
+  'shard manifest',
 ];
 
 export function assertTestScopeSection(text) {
@@ -118,6 +123,12 @@ const profileRules = {
       before: 'unresolved or unverified with evidence. ',
       rule: `Classify each HEAD failure first by read-only diff against the approved base (unrelated when its test, direct imports, fixtures and test configuration are unchanged), and report the rest as needing a base run; when Orchestrator supplies a base worktree, rerun only those by test name and classify them as baseline, new or new-failure candidate. Only new failures are findings; unrelated failures and candidates need Orchestrator disposition. Rerun a suspected intermittent test alone, ${qaRerunLimit} as diagnosis rather than retry; report passes-in-isolation and rerun count.`,
       phrases: ['by test name', qaRerunLimit, 'passes-in-isolation and rerun count', 'read-only diff against the approved base'],
+    },
+    {
+      lineStart: '1. Use the shared brief, criteria, Implementer summary and relevant prior findings. ',
+      before: 'Use approved structural/consistency checks for policy/configuration. ',
+      rule: testerSuiteParallelismRule,
+      phrases: [testerSuiteParallelismRule],
     },
   ],
   implementer: [
@@ -255,6 +266,18 @@ test('command execution paragraph immediately follows Final mode in each referen
   }
 });
 
+test('suite parallelism paragraph immediately follows Command execution in each reference', () => {
+  for (const platform of platforms) {
+    const paragraphs = testScope(platform).split('\n\n');
+    const matches = paragraphs.filter(paragraph => paragraph.startsWith('**Suite parallelism:**'));
+    assert.deepEqual(matches, [suiteParallelismParagraph], platform);
+    const commandIndex = paragraphs.indexOf(commandExecutionParagraph);
+    assert.ok(commandIndex >= 0, platform);
+    assert.equal(paragraphs[commandIndex + 1], suiteParallelismParagraph, platform);
+    assert.ok(paragraphs[commandIndex + 2]?.startsWith('Read-only reverse dependency search'), platform);
+  }
+});
+
 test('trigger substitute checks table', () => {
   const cases = [
     ['(1) Shared module', ['reverse dependencies', 'static import, require, load and path-string references', 'mirrors and generated outputs', 'nearest package manifest directory', 'otherwise the test directory', 'suspected dynamic reference']],
@@ -322,8 +345,10 @@ test('approved full regression follow-up', () => {
   const expiredApproval = 'If HEAD changes before the final Reviewer starts, an expired approval needs re-approval and a rerun at the new HEAD, or a fresh disposition under **Undeterminable scope**, before the Reviewer starts.';
   const runLimit = 'The approved full regression runs once per approval.';
   for (const platform of platforms) {
-    assertPhrases(findParagraph(testScope(platform), '**Approved full regression**'), [
-      'the current final-mode Tester runs it as a follow-up; no new Tester is assigned',
+    const paragraph = findParagraph(testScope(platform), '**Approved full regression**');
+    assert.ok(paragraph.startsWith(approvedFullRegressionSentence), platform);
+    assertPhrases(paragraph, [
+      approvedFullRegressionSentence,
       'bridge resumes the same dispatch',
       'native continues the same assignment',
       'each segment starts a new lease.timeoutMinutes timer',
@@ -334,6 +359,18 @@ test('approved full regression follow-up', () => {
     ], platform);
     assertOccursOnce(verification(platform), expiredApproval);
     assertOccursOnce(verification(platform), runLimit);
+  }
+});
+
+test('full regression shards paragraph sits between Approved full regression and CI substitution', () => {
+  for (const platform of platforms) {
+    const paragraphs = testScope(platform).split('\n\n');
+    const matches = paragraphs.filter(paragraph => paragraph.startsWith('**Full regression shards:**'));
+    assert.deepEqual(matches, [fullRegressionShardsParagraph], platform);
+    const approvedIndex = paragraphs.findIndex(paragraph => paragraph.startsWith('**Approved full regression**'));
+    assert.ok(approvedIndex >= 0, platform);
+    assert.equal(paragraphs[approvedIndex + 1], fullRegressionShardsParagraph, platform);
+    assert.ok(paragraphs[approvedIndex + 2]?.startsWith('**CI substitution**'), platform);
   }
 });
 
