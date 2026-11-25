@@ -2,10 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v2 (v1 2026-11-25T14:57:37+09:00 이전 사용자 승인; v2 2026-11-25T15:14:02+09:00 사용자 승인). T1·T2 수락 완료(2026-11-25). T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
+- 상태: plan v3 (v1 2026-11-25T14:57:37+09:00 이전 사용자 승인; v2 2026-11-25T15:14:02+09:00 사용자 승인; v3 2026-11-25T15:29:45+09:00 사용자 승인: T3 추가). T1·T2·T3 수락 완료(2026-11-25). T3 관련 테스트의 Node 1건·Python 493건 실패는 base와 이름이 같아 baseline으로 처분. T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
 - Spec: `docs/superpowers/specs/2026-11-25-commit-message-language-design.md` (2026-11-25 사용자 승인, sha256 `0c912577064bbd852c288b1a2e35c0b0c3d74df960c3f7c85aa2005e07702a34`)
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, base `b522c873`
-- 경로: Bounded, plan 필요 (task 2개)
+- 경로: Bounded, plan 필요 (task 3개)
 
 ## 개정 이력
 
@@ -13,6 +13,7 @@
 |---|---|---|---|---|---|
 | v1 | 2026-11-25 | 최초 | spec 구현 계획(T1, T2) | T1, T2 | 사용자 승인 |
 | v2 | 2026-11-25 | 검증 절차 변경 | 최종 검증의 전체 suite, `consumer.test.mjs`, base 비교를 Orchestrator가 아니라 final Tester가 직접 실행. 실행이 다시 실패하면 원인을 분석해 이 브랜치에서 수정 | 최종 검증 | 사용자 지시 |
+| v3 | 2026-11-25 | 범위 추가 | final Tester 실행이 다시 실패함(실행 중인 명령을 남기고 turn 종료, 분리 실행 brief). 재발을 막는 명령 실행 규칙 T3 추가. commit-message-language spec 밖의 범위이며 사용자 지시("또 실패하면 … 이 브랜치에서 수정해")에 따름 | T3, 최종 검증 | 사용자 승인 |
 
 **Goal:** 설치 언어(`en`/`ko`)를 커밋 description과 body의 기본 언어로 씁니다. 사용자가 명시적으로 언어를 요청하거나 프로젝트 지시가 언어를 정하면 그쪽이 우선합니다. 4개 플랫폼의 `references/commit.md`에 marker `{{ARC_COMMIT_LANGUAGE_POLICY}}`를 두고, 설치할 때 이 marker를 치환합니다.
 
@@ -56,6 +57,7 @@
 | 3 | 4개 플랫폼 commit.md·handoff-prep.md 문장이 spec §3.2와 같다. 원본에는 marker가 정확히 1개 있다. 영어를 강제하는 문구가 남아 있지 않다 | AC3, AC6 |
 | 4 | fixture 해시 변경이 의도한 항목에만 있다: golden 32항목, `renderingBaseline` 8개, MANIFEST의 해당 항목 | AC8, AC9 |
 | 5 | 합성 payload fixture(`plan.test.mjs`, `upgrade-harness.test.mjs`)를 고친 방식이 렌더러 검사를 느슨하게 만들지 않았다 | spec R2 |
+| 6 | E1·E2가 승인 문안과 바이트까지 같고 위치가 맞다. 해시 변경이 T3-AC4 범위뿐이다. 측정하지 않은 플랫폼 동작을 단정하지 않는다 | T3-AC1–AC4 |
 
 ## 파일 구조
 
@@ -284,6 +286,119 @@ MANIFEST.sha256
 
 ---
 
+### Task T3: 명령 실행 규칙 — 분리 실행과 미완료 종료 금지 (plan v3 추가)
+
+**배경 (측정값):** Codex CLI 0.172, macOS, workspace-write에서 측정했습니다.
+- 이전 final Tester는 foreground 명령이 실행 중일 때 turn을 끝냈고 결과를 잃었습니다(dispatch exit 0, terminatedBy null).
+- 이번 final Tester는 brief의 `( cmd > log; echo exit > done ) &`를 따랐습니다. `( sleep 20; echo x > bg.done ) &` 다음 호출에서 `sleep 30`을 해도 `bg.done`이 생기지 않았습니다. stderr에 `nice(5) failed: operation not permitted`도 나왔습니다. 작업이 사라지는 원인은 분리해 확인하지 않았습니다.
+- 260초 foreground 명령은 실행 1회와 같은 exec session polling 8회로 exit 0까지 끝났습니다(gpt-6.1-terra/medium, 1회 측정).
+- 측정하지 않은 것: 10분이 넘는 전체 suite, sandbox 안의 `consumer.test.mjs`, 다른 플랫폼, gpt-6.2-sol.
+
+**목표:** Implementer와 Tester의 명령 실행 규칙(E1)과 Orchestrator 쪽 규칙(E2)을 4개 플랫폼에 같은 문장으로 넣습니다. 문안에는 측정하지 않은 플랫폼별 동작을 쓰지 않습니다.
+
+**E1** (영문 그대로. `implementer.execution-steps` 4번과 `tester.verification-steps` 2번에 같은 바이트로 넣습니다):
+
+> Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.
+
+적용 뒤 줄은 다음과 같습니다.
+- Implementer 4번: `4. DO NOT recreate, clean up or archive worktrees. <E1>`. 기존 두 문장 `Wait once for long commands with the longest yield or report them to Orchestrator. DO NOT repeat `sleep` or short status checks.`는 지웁니다.
+- Tester 2번: 기존 줄 끝(`…broaden verification without authorization.`)에 ` <E1>`을 붙입니다.
+
+**E2** (영문 그대로. 4개 플랫폼 `verification.md`의 `**Final mode**` 문단 바로 다음 문단):
+
+> **Command execution:** Implementer and Tester briefs MUST NOT prescribe detached execution such as `&`, `nohup` or `setsid`; they require long commands to run in the foreground and be waited on in the same session until an exit code. Orchestrator does not run a Tester's assigned suites in its place unless Tester reports an environment block with evidence and the user chooses that run.
+
+**배치 이유:**
+- 새 fragment를 만들면 `render.mjs`의 `EXPECTED`, registry target 8개, 템플릿 8개, `protected` 4개, 개수 단언까지 바뀝니다. 기존 fragment 두 개의 문구만 고치는 쪽이 가장 작습니다.
+- E2를 `verification.md` test-scope 절에 두면 native와 bridge에 모두 적용됩니다. Tester 배정 전에 읽는 문서이고, 검사를 배정하는 Implementer brief도 이 절을 근거로 씁니다.
+- `resultComparisonParagraph`는 절의 마지막 문단이어야 하므로(`test-scope-contract.test.mjs:436`) 그 뒤에는 넣지 않습니다.
+- `coordination.md`의 "Long commands use one wait at maximum yield" 등은 Orchestrator 자신의 대기 규칙이고 계약 fixture에 고정돼 있어 바꾸지 않습니다.
+
+**Files (allowedPaths, 정확히 10개 파일):**
+
+```
+lib/prompts/agent-fragments.json
+claude/skill/references/verification.md
+codex/skill/references/verification.md
+gemini/skill/references/verification.md
+grok/skill/references/verification.md
+tests/node/test-scope-contract.test.mjs
+tests/node/fixtures/instruction-contracts.json
+tests/node/fixtures/installed-layout-golden.json
+tests/node/plan.test.mjs
+MANIFEST.sha256
+```
+
+바꾸지 않는 것: profile 템플릿 20개, `protected` 전체, `lib/prompts/render.mjs`, `lib/policy/role-policy.json`과 런타임 사본, `coordination.md`, SKILL.md, managed section, `agent-fragments.test.mjs`(fragment 26개와 target별 개수가 그대로).
+
+**선행:** T1·T2 커밋, plan v3 사용자 승인. 새 Implementer를 배정합니다.
+
+- [ ] **Step 1: 테스트 먼저 (`tests/node/test-scope-contract.test.mjs`)**
+  - 상수 `commandExecutionRule`(E1)과 `commandExecutionParagraph`(E2)를 추가합니다.
+  - 4개 플랫폼에서 Implementer와 Tester 렌더에 E1이 정확히 한 번 있습니다. 나머지 세 role에는 없습니다.
+  - Implementer에서 `4. DO NOT recreate, clean up or archive worktrees. `로 시작하는 줄이 정확히 하나이고 E1로 끝납니다.
+  - Tester에서 `2. Run authorized tests and inspect output, `으로 시작하는 줄이 정확히 하나이고 E1로 끝납니다.
+  - `Wait once for long commands`가 registry 원본과 렌더 20개에 없습니다.
+  - 4개 플랫폼에서 `**Command execution:**`로 시작하는 문단이 정확히 하나이고 E2와 같으며, `**Final mode**` 문단 바로 다음에 있습니다.
+- [ ] **Step 2: RED 확인**
+  - `node --test tests/node/test-scope-contract.test.mjs`에서 새 테스트만 실패해야 합니다. 다른 실패는 이름과 함께 보고합니다.
+- [ ] **Step 3: 문안 편집**
+  - `agent-fragments.json` 두 fragment의 `text`, 4개 플랫폼 `verification.md`를 고칩니다.
+- [ ] **Step 4: fixture 해시**
+  - `instruction-contracts.json`의 `agentProfileBaseline.profiles`에서 `arc-implementer` 4개와 `arc-tester` 4개, 모두 8개만 바꿉니다. 계산은 `agent-fragments.test.mjs:29-34` 방식이며 일회성으로 하고 새 파일은 만들지 않습니다. `revision`과 `protected`는 그대로 둡니다.
+  - `node tests/node/fixtures/installed-layout.mjs --diff`의 `~`가 다음 32항목에만 있으면 `--write`로 씁니다. 그 밖의 항목이나 `+`/`-`가 있으면 hold합니다.
+    - `skills/arc/references/verification.md` 16개
+    - write 조합 8개 × `agents/arc-implementer.*`, `agents/arc-tester.*` 16개
+  - `plan.test.mjs`의 `renderingBaseline` 8개 값만 바꿉니다. 다른 줄은 바꾸지 않습니다.
+- [ ] **Step 5: MANIFEST**
+  - 마지막에 `node scripts/update-manifest.mjs`, `npm run check:manifest`를 실행합니다. diff는 `agent-fragments.json` 1줄과 `verification.md` 4줄, 모두 5줄이어야 합니다.
+- [ ] **Step 6: 관련 테스트와 범위 확인**
+  - 아래 최소 집합을 실행하고, `git status --porcelain`으로 변경 파일이 allowedPaths 10개와 plan 문서뿐인지 확인합니다.
+- [ ] **Step 7: Commit (Orchestrator)**
+  - 10개 파일과 plan v3 개정을 commit 하나로 만듭니다.
+  - 메시지: `chore(policy): 명령 분리 실행과 미완료 종료 금지 명시`
+  - 마지막 trailer 단락에 `Plan-Revision: <gitPath> v2 -> v3`, `Plan-Approved-At`(실제 승인 시각, 초와 timezone 포함), `Plan-Reason`, `Co-Authored-By`를 빈 줄 없이 둡니다.
+
+**수용 기준:**
+
+| AC | 내용 | 확인 |
+|---|---|---|
+| T3-AC1 | E1이 4개 플랫폼 Implementer·Tester 렌더에 같은 바이트로 정확히 한 번, 지정한 줄 끝에 있고 다른 role에는 없다 | Step 1 테스트 |
+| T3-AC2 | `Wait once for long commands`가 원본과 렌더에 없다 | Step 1 테스트 |
+| T3-AC3 | E2가 4개 플랫폼에 정확히 한 번, Final mode 문단 바로 다음에 있고 test-scope 절이 플랫폼끼리 byte-identical이다 | Step 1 테스트와 기존 절 비교 |
+| T3-AC4 | 바뀐 해시가 profile baseline 8, golden 32, `renderingBaseline` 8, MANIFEST 5뿐이고 `protected`는 그대로다 | diff와 관련 테스트 |
+| T3-AC5 | 관련 테스트와 check 통과, 기준선에 없던 새 실패 없음 | task Tester |
+| T3-AC6 | 변경 파일이 allowedPaths와 plan 문서 안에 있다 | `git status --porcelain` |
+
+이 AC는 문안과 구조만 증명합니다. role이 실제로 지키는지는 증명하지 않으며, 다음 final Tester 실행에서 관찰한 범위만 기록합니다.
+
+**task 검증 (fresh Tester, `mode: task`) 최소 집합**
+
+| 항목 | 분류·이유 |
+|---|---|
+| `tests/node/test-scope-contract.test.mjs` | (b) 갱신한 계약 |
+| `tests/node/agent-fragments.test.mjs` | (b) profile 해시 8개, fragment 개수 유지 |
+| `tests/node/instruction-layout.test.mjs` | (b) fixture 계약과 `protected` |
+| `tests/node/installed-layout-golden.test.mjs` | (b) golden |
+| `tests/node/plan.test.mjs` | (b) `renderingBaseline` |
+| `tests/node/{run-mode-contract,instruction-language,plan-level-records-contract,role-policy}.test.mjs` | (a) fragment나 변경 문서를 직접 읽음 |
+| `tests/node/{manifest,profile-render,upgrade-harness}.test.mjs` | (a) `agent-fragments.json`을 payload나 렌더 입력으로 읽음 |
+| Python `tests.test_harness_contract`, `tests.test_arc_policy`, `tests.test_claude_payload` | (a) 렌더 profile·verification.md를 읽음. 기존 실패는 이름으로 구분 |
+| `npm run check:manifest`, `npm run check:role-policy`, `node scripts/check-installer-parity.mjs`, `node tests/node/fixtures/installed-layout.mjs --diff`(출력 없음) | (c) check |
+
+`test_arc_policy.py:859-863`은 현재 없는 문구를 기대하므로 이미 실패하는 테스트로 보입니다(읽기로만 판단). base에서도 실패하면 baseline이고 이번에 고치지 않습니다.
+
+T3의 Implementer와 Tester brief에도 E1 전문을 넣습니다.
+
+**hold 조건:**
+- 목록 밖 파일을 고쳐야 하는 경우
+- `protected`나 지정하지 않은 golden 항목이 바뀌는 경우
+- 생성 스크립트가 sandbox에 막힌 경우(environment block)
+- 기준선에 없던 새 실패가 생긴 경우
+- role 명령이 다시 미완료로 끝난 경우. 성공으로 기록하거나 자동으로 재시도하지 않고 Orchestrator가 원인을 확인합니다.
+
+---
+
 ## R2/R3 해소 (plan 작성 시 읽기 결과)
 
 - **R2 (합성 payload):** `buildInstallPlan`에 도달하는 합성 payload는 두 곳입니다. 둘 다 T2에 넣었습니다.
@@ -343,6 +458,19 @@ T2를 수락·커밋한 뒤, verified HEAD에서 fresh Tester를 한 번 배정�
 - item, cause, substitute checks run, remaining unverified scope를 보고합니다.
 - 사용자가 다음 중 하나를 고를 때까지 최종 수용과 최종 Reviewer를 보류합니다: (i) full regression 승인, (ii) CI 대체, (iii) unverified 처분.
 
+**T3 이후 다시 시작 (v3)**
+
+1. 앞선 final Tester 시도의 결과는 쓰지 않습니다. 완료된 명령 결과가 없고, HEAD도 바뀝니다.
+2. T3를 수락·커밋한 뒤 새 HEAD에서 clean 상태를 확인하고, fresh Tester(`mode: final`)에게 새로 배정합니다.
+3. brief에 E1 전문을 넣습니다. 설치된 profile에는 아직 이 규칙이 없을 수 있기 때문입니다. 명령은 파일 묶음 단위로 나누고, 명령마다 exit code와 테스트 이름별 결과를 요구합니다. 분리 실행이나 done 파일 방식은 쓰지 않습니다.
+4. 실행 범위 1–4는 새 HEAD에서 모두 다시 실행합니다. `consumer.test.mjs`와 필요한 base 재실행도 Tester가 직접 합니다.
+5. 재변경 파일 후보는 `MANIFEST.sha256`, `instruction-contracts.json`, `installed-layout-golden.json`, `plan.test.mjs`(T2 → T3)와 `test-scope-contract.test.mjs`(T2 Tester가 실행 → T3 변경)입니다. Orchestrator가 T1·T2 각 커밋 기준 `git diff --name-only`로 확정하고 Tester가 교차 확인합니다.
+6. 트리거 (1) 출발점에 `lib/prompts/agent-fragments.json`과 4개 플랫폼 `verification.md`를 추가합니다. 추가 후보: `test-scope-contract`, `agent-fragments`, `run-mode-contract`, `manifest`, `package`, `plan`, `upgrade-harness`, `installed-layout-golden`, `instruction-layout`, 설치 profile을 검사하는 `gemini-install`·`grok-install`·`consumer`, Python 3개. (2)–(4)의 잠정 판단은 그대로입니다.
+7. Tester dispatch의 60분 제한 안에 끝나지 않으면 environment block으로 보고하고 hold합니다. Orchestrator가 대신 실행하려면 사용자 선택이 있어야 합니다.
+8. 보고, 새 실패의 Implementer → Tester 처리, candidate 처분, 승인된 full regression, undeterminable 처분이 모두 끝난 뒤 최종 Reviewer가 `b522c873..HEAD` 전체를 한 번 검토합니다.
+
+final-mode Tester가 찾은 새 실패를 고치면 Implementer → Tester로 처리합니다. 최종 Reviewer finding은 Implementer → Reviewer로 처리합니다.
+
 **최종 Reviewer**
 - final Tester 작업이 끝난 뒤 base..HEAD 전체를 한 번 검토합니다. 초점은 Review Focus 1–5입니다.
 - finding은 Implementer → Reviewer로 처리하고 Tester는 다시 배정하지 않습니다.
@@ -360,8 +488,10 @@ T2를 수락·커밋한 뒤, verified HEAD에서 fresh Tester를 한 번 배정�
 | spec §4 fixture | T2 Step 1, 5, 6 | AC8, AC9 |
 | spec R2 | T2 Step 1 | Review Focus 5 |
 | managed section 무변경 | T2 Step 3 | AC10 |
+| 사용자 지시(Tester 실행 실패 수정) | T3 | T3-AC1–AC6, 다음 final Tester 실행 관찰 |
 
 ## 참고
 
 - spec §4 표에 없던 테스트 파일 4개를 T2에 넣었습니다. `upgrade-harness.test.mjs`는 spec R2 처리 방침에 따른 것이고, `consumer`·`gemini-install`·`grok-install`은 AC4·AC5 증빙용입니다. spec은 바꾸지 않았습니다.
 - `MANIFEST.sha256`에는 `docs/`와 `tests/`가 들어가지 않습니다.
+- T2 Step 2와 T2 task 검증 표의 "`consumer.test.mjs`는 Orchestrator가 host에서 실행"은 v1 시점의 기록입니다. 최종 검증에는 v2·v3를 적용합니다.
