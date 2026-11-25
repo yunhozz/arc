@@ -40,7 +40,7 @@ const reviewerVerificationSentence = 'Tester owns task and final functional/test
 const reviewerFindingsSentence = 'Final-mode Tester work, including Implementer → Tester rechecks of its new failures, concludes before this final stage begins.';
 const oldReviewerVerificationPhrase = 'Tester owns functional/test verification';
 const profileRoles = ['scouter', 'planner', 'implementer', 'tester', 'reviewer'];
-const commandExecutionRule = 'Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.';
+const commandExecutionRule = 'Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, stop it, confirm it has exited, then report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.';
 const commandExecutionParagraph = "**Command execution:** Implementer and Tester briefs MUST NOT prescribe detached execution such as `&`, `nohup` or `setsid`; they require long commands to run in the foreground and be waited on in the same session until an exit code. Orchestrator does not run a Tester's assigned suites in its place unless Tester reports an environment block with evidence and the user chooses that run.";
 const wholePlanReviewerRule = 'Whole-plan Reviewer is part of final verification;';
 const qaAdditionsRule = 'additions within these categories with reasons are authorized;';
@@ -214,6 +214,10 @@ test('foreground command execution rule is confined to the prescribed Implemente
     implementer: '4. DO NOT recreate, clean up or archive worktrees. ',
     tester: '2. Run authorized tests and inspect output, ',
   };
+  const expectedLines = {
+    implementer: `${stepStarts.implementer}${commandExecutionRule}`,
+    tester: `${stepStarts.tester}but DO NOT edit source, documents, tests or configuration. DO NOT repair failures or broaden verification without authorization. ${commandExecutionRule}`,
+  };
   for (const platform of platforms) {
     for (const role of profileRoles) {
       const profile = renderPlatformProfile(platform, role);
@@ -223,7 +227,7 @@ test('foreground command execution rule is confined to the prescribed Implemente
       if (lineStart) {
         const matchingLines = profile.split('\n').filter(line => line.startsWith(lineStart));
         assert.equal(matchingLines.length, 1, label);
-        assert.ok(matchingLines[0].endsWith(` ${commandExecutionRule}`), label);
+        assert.equal(matchingLines[0], expectedLines[role], label);
       }
     }
   }

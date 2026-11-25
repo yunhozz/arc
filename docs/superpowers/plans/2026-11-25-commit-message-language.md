@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v3 (v1 2026-11-25T14:57:37+09:00 이전 사용자 승인; v2 2026-11-25T15:14:02+09:00 사용자 승인; v3 2026-11-25T15:29:45+09:00 사용자 승인: T3 추가). T1·T2·T3 수락 완료(2026-11-25). T3 관련 테스트의 Node 1건·Python 493건 실패는 base와 이름이 같아 baseline으로 처분. T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
+- 상태: plan v4 (v1 2026-11-25T14:57:37+09:00 이전 사용자 승인; v2 2026-11-25T15:14:02+09:00 사용자 승인; v3 2026-11-25T15:29:45+09:00 사용자 승인: T3 추가; v4 2026-11-25T16:23:46+09:00 사용자 승인: 최종 Reviewer N3·N6 수정). T1·T2·T3·R1 수락 완료(2026-11-25). final Tester(ce4abc86)에서 새 실패 없음; AC5·AC8·AC9·T3-AC4·T3-AC5의 final 미검증은 사용자가 미검증으로 처분. T3 관련 테스트의 Node 1건·Python 493건 실패는 base와 이름이 같아 baseline으로 처분. T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
 - Spec: `docs/superpowers/specs/2026-11-25-commit-message-language-design.md` (2026-11-25 사용자 승인, sha256 `0c912577064bbd852c288b1a2e35c0b0c3d74df960c3f7c85aa2005e07702a34`)
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, base `b522c873`
 - 경로: Bounded, plan 필요 (task 3개)
@@ -14,6 +14,7 @@
 | v1 | 2026-11-25 | 최초 | spec 구현 계획(T1, T2) | T1, T2 | 사용자 승인 |
 | v2 | 2026-11-25 | 검증 절차 변경 | 최종 검증의 전체 suite, `consumer.test.mjs`, base 비교를 Orchestrator가 아니라 final Tester가 직접 실행. 실행이 다시 실패하면 원인을 분석해 이 브랜치에서 수정 | 최종 검증 | 사용자 지시 |
 | v3 | 2026-11-25 | 범위 추가 | final Tester 실행이 다시 실패함(실행 중인 명령을 남기고 turn 종료, 분리 실행 brief). 재발을 막는 명령 실행 규칙 T3 추가. commit-message-language spec 밖의 범위이며 사용자 지시("또 실패하면 … 이 브랜치에서 수정해")에 따름 | T3, 최종 검증 | 사용자 승인 |
+| v4 | 2026-11-25 | 리뷰 수정 | 최종 Reviewer non-blocking N3(E1 안에서 "미완료 명령을 두고 보고 금지"와 "완료할 수 없으면 보고"가 충돌)와 N6(T3 계약 테스트의 줄 검사가 시작·끝만 확인)을 사용자가 이번 브랜치에서 고치기로 선택. N5(T3 체크박스)는 진행 기록으로 함께 반영 | 최종 Reviewer 수정 | 사용자 승인 |
 
 **Goal:** 설치 언어(`en`/`ko`)를 커밋 description과 body의 기본 언어로 씁니다. 사용자가 명시적으로 언어를 요청하거나 프로젝트 지시가 언어를 정하면 그쪽이 우선합니다. 4개 플랫폼의 `references/commit.md`에 marker `{{ARC_COMMIT_LANGUAGE_POLICY}}`를 두고, 설치할 때 이 marker를 치환합니다.
 
@@ -296,7 +297,7 @@ MANIFEST.sha256
 
 **목표:** Implementer와 Tester의 명령 실행 규칙(E1)과 Orchestrator 쪽 규칙(E2)을 4개 플랫폼에 같은 문장으로 넣습니다. 문안에는 측정하지 않은 플랫폼별 동작을 쓰지 않습니다.
 
-**E1** (영문 그대로. `implementer.execution-steps` 4번과 `tester.verification-steps` 2번에 같은 바이트로 넣습니다):
+**E1** (영문 그대로. `implementer.execution-steps` 4번과 `tester.verification-steps` 2번에 같은 바이트로 넣습니다). v4에서 다섯 번째 문장을 E1v4로 개정했습니다("최종 Reviewer 수정 R1" 절):
 
 > Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.
 
@@ -333,28 +334,28 @@ MANIFEST.sha256
 
 **선행:** T1·T2 커밋, plan v3 사용자 승인. 새 Implementer를 배정합니다.
 
-- [ ] **Step 1: 테스트 먼저 (`tests/node/test-scope-contract.test.mjs`)**
+- [x] **Step 1: 테스트 먼저 (`tests/node/test-scope-contract.test.mjs`)**
   - 상수 `commandExecutionRule`(E1)과 `commandExecutionParagraph`(E2)를 추가합니다.
   - 4개 플랫폼에서 Implementer와 Tester 렌더에 E1이 정확히 한 번 있습니다. 나머지 세 role에는 없습니다.
   - Implementer에서 `4. DO NOT recreate, clean up or archive worktrees. `로 시작하는 줄이 정확히 하나이고 E1로 끝납니다.
   - Tester에서 `2. Run authorized tests and inspect output, `으로 시작하는 줄이 정확히 하나이고 E1로 끝납니다.
   - `Wait once for long commands`가 registry 원본과 렌더 20개에 없습니다.
   - 4개 플랫폼에서 `**Command execution:**`로 시작하는 문단이 정확히 하나이고 E2와 같으며, `**Final mode**` 문단 바로 다음에 있습니다.
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
   - `node --test tests/node/test-scope-contract.test.mjs`에서 새 테스트만 실패해야 합니다. 다른 실패는 이름과 함께 보고합니다.
-- [ ] **Step 3: 문안 편집**
+- [x] **Step 3: 문안 편집**
   - `agent-fragments.json` 두 fragment의 `text`, 4개 플랫폼 `verification.md`를 고칩니다.
-- [ ] **Step 4: fixture 해시**
+- [x] **Step 4: fixture 해시**
   - `instruction-contracts.json`의 `agentProfileBaseline.profiles`에서 `arc-implementer` 4개와 `arc-tester` 4개, 모두 8개만 바꿉니다. 계산은 `agent-fragments.test.mjs:29-34` 방식이며 일회성으로 하고 새 파일은 만들지 않습니다. `revision`과 `protected`는 그대로 둡니다.
   - `node tests/node/fixtures/installed-layout.mjs --diff`의 `~`가 다음 32항목에만 있으면 `--write`로 씁니다. 그 밖의 항목이나 `+`/`-`가 있으면 hold합니다.
     - `skills/arc/references/verification.md` 16개
     - write 조합 8개 × `agents/arc-implementer.*`, `agents/arc-tester.*` 16개
   - `plan.test.mjs`의 `renderingBaseline` 8개 값만 바꿉니다. 다른 줄은 바꾸지 않습니다.
-- [ ] **Step 5: MANIFEST**
+- [x] **Step 5: MANIFEST**
   - 마지막에 `node scripts/update-manifest.mjs`, `npm run check:manifest`를 실행합니다. diff는 `agent-fragments.json` 1줄과 `verification.md` 4줄, 모두 5줄이어야 합니다.
-- [ ] **Step 6: 관련 테스트와 범위 확인**
+- [x] **Step 6: 관련 테스트와 범위 확인**
   - 아래 최소 집합을 실행하고, `git status --porcelain`으로 변경 파일이 allowedPaths 10개와 plan 문서뿐인지 확인합니다.
-- [ ] **Step 7: Commit (Orchestrator)**
+- [x] **Step 7: Commit (Orchestrator)**
   - 10개 파일과 plan v3 개정을 commit 하나로 만듭니다.
   - 메시지: `chore(policy): 명령 분리 실행과 미완료 종료 금지 명시`
   - 마지막 trailer 단락에 `Plan-Revision: <gitPath> v2 -> v3`, `Plan-Approved-At`(실제 승인 시각, 초와 timezone 포함), `Plan-Reason`, `Co-Authored-By`를 빈 줄 없이 둡니다.
@@ -396,6 +397,57 @@ T3의 Implementer와 Tester brief에도 E1 전문을 넣습니다.
 - 생성 스크립트가 sandbox에 막힌 경우(environment block)
 - 기준선에 없던 새 실패가 생긴 경우
 - role 명령이 다시 미완료로 끝난 경우. 성공으로 기록하거나 자동으로 재시도하지 않고 Orchestrator가 원인을 확인합니다.
+
+---
+
+### 최종 Reviewer 수정 R1: E1 중단 절차와 줄 전체 검사 (plan v4 추가)
+
+**배경:** 최종 Reviewer(b522c873..ce4abc86)는 blocking finding 없이 non-blocking 6건을 보고했습니다. 사용자는 N3, N6, N5를 이번 브랜치에서 처리하고 N1·N2·N4는 후속 과제로 남기기로 했습니다.
+- N3: E1의 "NEVER end the turn or report while a command you started is unfinished"와 "If a command cannot be run to completion, report an environment block …"이 함께 있으면, 멈춘 명령 앞에서 보고할 방법이 없습니다.
+- N6: `test-scope-contract.test.mjs`의 E1 줄 검사가 시작 문자열과 끝 문자열만 확인해서, 중간에 다른 문장이 끼어도 통과합니다.
+
+**E1 개정 (E1v4).** 바뀌는 곳은 다섯 번째 문장뿐입니다. 이전 `If a command cannot be run to completion, report an environment block` 부분이 `If a command cannot be run to completion, stop it, confirm it has exited, then report an environment block`이 됩니다. 전문(영문 그대로, `implementer.execution-steps` 4번과 `tester.verification-steps` 2번에 같은 바이트로):
+
+> Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, stop it, confirm it has exited, then report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.
+
+E2와 `verification.md`는 바꾸지 않습니다.
+
+**Files (allowedPaths, 정확히 6개 파일):**
+
+```
+lib/prompts/agent-fragments.json
+tests/node/test-scope-contract.test.mjs
+tests/node/fixtures/instruction-contracts.json
+tests/node/fixtures/installed-layout-golden.json
+tests/node/plan.test.mjs
+MANIFEST.sha256
+```
+
+이 plan 문서는 Orchestrator가 고칩니다(N5 체크박스와 v4 기록).
+
+- [x] **Step 1: 테스트 먼저.** `commandExecutionRule`을 E1v4로 바꿉니다. E1을 넣는 줄 검사를 줄 전체 동등성으로 바꿉니다. Implementer는 `4. DO NOT recreate, clean up or archive worktrees. ` + E1, Tester는 `2. Run authorized tests and inspect output, but DO NOT edit source, documents, tests or configuration. DO NOT repair failures or broaden verification without authorization. ` + E1과 정확히 같은 줄이 하나씩 있어야 합니다. 나머지 단언은 그대로 둡니다.
+- [x] **Step 2: RED 확인.** `node --test tests/node/test-scope-contract.test.mjs`에서 E1 관련 테스트만 실패해야 합니다.
+- [x] **Step 3: 문안 편집.** `agent-fragments.json`의 두 fragment에서 위 한 부분만 바꿉니다.
+- [x] **Step 4: fixture 해시.**
+  - `agentProfileBaseline.profiles`: `arc-implementer` 4개와 `arc-tester` 4개, 모두 8개만 바꿉니다. `revision`과 `protected`는 그대로 둡니다.
+  - golden: `--diff`의 `~`가 write 조합 8개 × `agents/arc-implementer.*`·`agents/arc-tester.*`, 모두 16항목에만 있을 때 `--write`로 씁니다.
+  - `renderingBaseline`: 바뀌는 값만 바꿉니다(최대 8개).
+- [x] **Step 5: MANIFEST.** `node scripts/update-manifest.mjs`, `npm run check:manifest`를 실행합니다. diff는 `agent-fragments.json` 1줄이어야 합니다.
+- [x] **Step 6: 관련 테스트.** T3 task 검증 최소 집합을 Implementer가 실행하고 base와 실패 이름을 대조합니다.
+- [x] **Step 7: 재확인과 커밋.** 최종 Reviewer가 diff를 다시 확인합니다(Tester는 다시 배정하지 않음). 그 뒤 Orchestrator가 follow-up commit 하나를 만듭니다. 메시지는 `chore(policy): 실행 불가 명령의 중단 절차와 줄 전체 검사 추가`이고, trailer는 `Plan-Revision v3 -> v4`, `Plan-Approved-At`, `Plan-Reason`, `Co-Authored-By`입니다.
+
+**수용 기준:**
+- R1-AC1: E1v4가 4개 플랫폼 Implementer·Tester 렌더에 같은 바이트로 정확히 한 번 있고, 지정한 줄과 줄 전체가 같으며, 다른 role에는 없습니다.
+- R1-AC2: 바뀐 해시는 profile baseline 8, golden 16, `renderingBaseline` ≤8, MANIFEST 1뿐이고 `protected`는 그대로입니다.
+- R1-AC3: 관련 테스트와 check를 실행했을 때 기준선에 없던 새 실패가 없습니다.
+- R1-AC4: 변경 파일은 allowedPaths 6개와 plan 문서뿐입니다.
+
+**hold 조건:** T3와 같습니다.
+
+**후속 과제(이번에 고치지 않음):**
+- N1: UI 서버 검사와 E1의 관계 명시
+- N2: Claude·Gemini·Grok의 `run_in_background`가 분리 실행에 해당하는지
+- N4: E2 예외를 HEAD suite로 한정할지
 
 ---
 
