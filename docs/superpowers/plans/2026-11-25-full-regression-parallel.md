@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v1 (사용자 승인: 2026-11-25T16:44:53+09:00에 "plan 나오면 승인하고 진행해"로 사전 승인). T1 수락(2026-11-25): 관련 테스트의 Node 1건·Python 493건 실패는 base와 이름이 같아 baseline. AC8은 최종 검증 범위
-- Spec: `docs/superpowers/specs/2026-11-25-full-regression-parallel-design.md` (2026-11-25T16:43:45+09:00 이전 사용자 승인, Q1–Q7 모두 (A), sha256 `a928122456dc448e25ea2d3a06fabc09d4f3166d8135b70ca71db0bd12bfb64c`). 사용자 지시(2026-11-25)에 따라 spec과 plan은 T1 구현 전에 별도 docs 커밋으로 먼저 커밋합니다.
+- 상태: plan v2 (v1 사용자 승인: 2026-11-25T16:44:53+09:00에 "plan 나오면 승인하고 진행해"로 사전 승인). T1 수락(2026-11-25): 관련 테스트의 Node 1건·Python 493건 실패는 base와 이름이 같아 baseline. AC8은 최종 검증 범위; v2 2026-11-25T17:26:11+09:00 사용자 상시 지시("선택해야 할 일이 있으면 모두 권장안으로 진행해")에 따라 승인: 최종 Reviewer N1–N3 문안 수정. R1 수락(2026-11-25): 관련 테스트 실패는 base와 이름이 같음, 최종 Reviewer 재확인에서 N1–N3 해소. 승인된 full regression(22a50a5c, shard 2개) 완료
+- Spec: `docs/superpowers/specs/2026-11-25-full-regression-parallel-design.md` (2026-11-25T16:43:45+09:00 이전 사용자 승인, Q1–Q7 모두 (A), 승인 당시 sha256 `a928122456dc448e25ea2d3a06fabc09d4f3166d8135b70ca71db0bd12bfb64c`; 이후 §5.3에 plan v2 개정 안내 한 줄만 추가). 사용자 지시(2026-11-25)에 따라 spec과 plan은 T1 구현 전에 별도 docs 커밋으로 먼저 커밋합니다.
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, approved base `4d80d208`
 - 경로: Architectural, task 1개. 분리하지 않는 이유: 문서, fragment, 계약 테스트, 해시 fixture는 서로 떼면 테스트가 깨집니다(spec §10).
 
@@ -12,6 +12,7 @@
 | 버전 | 일자 | 분류 | 사유 | 영향 task | 승인 |
 |---|---|---|---|---|---|
 | v1 | 2026-11-25 | 최초 | spec §5.1–5.4 구현 계획 | T1 | 사용자 사전 승인 |
+| v2 | 2026-11-25 | 리뷰 수정 | 최종 Reviewer non-blocking N1(현재 final Tester의 shard brief에 `shard:` 필드 없음), N2(shard 사후 단독 재실행 실패가 Result comparison의 new-failure finding과 다르게 읽힘), N3(HEAD 재실행이 환경에 막힌 경우 처리와 git common directory 공유 상태 누락)을 §5.3 문단 수정으로 해소. N4는 기록 보충과 후속 과제(병렬도 여유분은 새 결정) | R1 | 사용자 상시 지시로 권장안 승인 |
 
 **Goal:** Tester는 여러 파일 suite 명령을 runner 내장 병렬 모드로 실행합니다(G1). 승인된 전체 회귀는 겹치지 않는 shard로 나눌 수 있습니다(G2). 기존 follow-up 규칙과 single-mode 규칙은 shard와 충돌하지 않게 맞춥니다(G3).
 
@@ -242,6 +243,26 @@ Python 테스트 3개는 목록에 넣지 않았습니다. 바뀌는 문장을 �
 - 생성 스크립트가 allowedPaths 밖에 쓰거나 sandbox에 막힌 경우(environment block)
 - 기준선에 없던 새 실패나 new-failure candidate가 생긴 경우
 - role 명령이 미완료로 끝난 경우. 성공으로 기록하거나 자동으로 재시도하지 않습니다.
+
+---
+
+### 최종 Reviewer 수정 R1: shard 문단 명확화 (plan v2 추가)
+
+spec §5.3 문단을 아래 문단으로 바꿉니다(영문 그대로, 4개 플랫폼 같은 바이트). 바뀌는 곳은 세 곳뿐입니다: 공유 상태 예시에 `the git common directory` 추가(N3), 현재 final-mode Tester의 follow-up brief에도 `shard:` 필드를 넣는 문장 추가(N1), 사후 단독 재실행의 성격과 환경 차단 처리 문장 추가(N2, N3).
+
+> **Full regression shards:** Orchestrator MAY split an approved full regression into shards only when, from recorded prior run times, it is likely to exceed one Tester's time limit for its route, such as the bridge `arc_tester` 60-minute lease, or when independent suites, such as a sequential Python suite and a Node suite, can run at the same time; it records the reason. A shard is one whole suite command or a set of whole test files, never a subset of test names. Before dispatch Orchestrator lists every test file and suite command of the approved full regression at the verified HEAD as the inventory and writes a shard manifest that assigns each item to exactly one shard, so that the shards do not overlap and their union equals the inventory. Tests known to share state, such as fixed ports, the same temporary or workspace paths, the git common directory or global configuration, go in one shard. The current final-mode Tester runs one shard as its follow-up; each other shard goes to a fresh Tester whose `mode: final` brief adds `shard: <id> of <n>`, the shard's files or command and the manifest. The current final-mode Tester's follow-up brief also adds `shard: <id> of <n>` and its shard's files or command. Each shard Tester runs only its shard with no other final-mode checks, reports the files it actually ran and classifies failures only by the static check under **Baseline** below. All shards run at the same verified HEAD in the same workspace; each Tester records `git status --porcelain` at start and end, and no one writes in that workspace until every shard ends. Orchestrator reserves the whole shard batch under [limits](limits.md#counting-and-reservations) and serializes shards that do not fit; each shard Tester is a created and active instance, and the follow-up adds none. When the runner has a parallelism option, Orchestrator sets it per shard so that the combined workers stay within the host's available parallelism. After every shard has reported, Orchestrator sends the shard failures that need a base run to the current final-mode Tester, which reruns each alone at HEAD, with no other test command running in that workspace, up to the brief's isolated rerun limit; a pass alone is an intermittent candidate, and a failure alone follows the base check below; this rerun classifies the failure and is not the intermittency check under **Result comparison**. A rerun at HEAD that the environment blocks leaves that failure a new-failure candidate for Orchestrator disposition. Orchestrator merges the shard results and verifies that every inventory item has complete results exactly once; an item without complete results is a new-failure candidate and leaves the run incomplete. A blocked or timed-out shard follows the resume rule above; its items stay unverified, and the user decides whether a new Tester runs only the items without complete results. Sharding splits the one approved run and adds no run. The approved full regression is complete only when every shard has reported, coverage is verified and every shard failure is classified or dispositioned. Record the reason, inventory, manifest, Tester IDs and per-shard results with the approved full regression record.
+
+**Files (allowedPaths, 정확히 8개 파일):** `{claude,codex,gemini,grok}/skill/references/verification.md`, `tests/node/test-scope-contract.test.mjs`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`, `MANIFEST.sha256`. fragment와 `instruction-contracts.json`은 바뀌지 않아야 합니다.
+
+- [x] **Step 1:** `fullRegressionShardsParagraph` 상수를 새 문단으로 바꾸고 RED(해당 테스트만 실패)를 확인합니다.
+- [x] **Step 2:** 4개 `verification.md`의 문단을 바꿉니다.
+- [x] **Step 3:** golden `--diff`가 `skills/arc/references/verification.md` 16항목에만 `~`일 때 `--write`합니다. `renderingBaseline`은 측정해서 바뀐 키만 바꿉니다. MANIFEST는 4개 `verification.md` 4줄만 바뀌어야 합니다.
+- [x] **Step 4:** T1 task 검증 최소 집합을 Implementer가 실행하고 base와 실패 이름을 대조합니다.
+- [x] **Step 5:** 최종 Reviewer 재확인(Tester 재배정 없음) 뒤 Orchestrator가 follow-up commit 하나를 만듭니다. trailer는 commit.md 형식(`Plan-Revision: <gitPath> v1 -> v2`, `Plan-Approved-At: <gitPath> v2 <ISO time>`, `Plan-Reason: <gitPath> v2 <reason>`)과 `Co-Authored-By`입니다. spec은 버전 체계가 없어 trailer 대상에 넣지 않습니다.
+
+**수용 기준:** 새 문단이 4개 플랫폼에 정확히 한 번, 기존 위치에 있습니다. 해시 변경은 golden 16, `renderingBaseline`(측정값), MANIFEST 4뿐입니다. 관련 테스트에 새 실패가 없습니다. hold 조건은 T1과 같습니다.
+
+**후속 과제:** N4 병렬도 여유분(예: shard 전체 worker를 가용 병렬도보다 작게), `git status --porcelain`이 `.git` 아래 쓰기를 감지하지 못하는 한계, `handoff-prep.md`의 shard brief 입력.
 
 ---
 
