@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v1 (2026-11-25 사용자 승인). T1 수락 완료(2026-11-25)
+- 상태: plan v2 (v1 2026-11-25 사용자 승인; v2는 final verification 새 실패 수정 T2 추가, 2026-11-25 사용자 승인). T1·T2 수락 완료(2026-11-25)
 - Spec: `docs/superpowers/specs/2026-11-25-final-tester-before-reviewer-design.md` v2 (2026-11-25 사용자 승인)
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, base `d15e3d2595e666e3a8becf523e7a03f691f3305a`
 - 경로: Architectural
@@ -211,6 +211,23 @@ task mode에서는 full regression, substitute check, 역의존성 탐색을 하
 - 생성 스크립트가 allowedPaths 밖에 쓰거나, sandbox 또는 native build에 막힙니다.
 - 목록에 없는 테스트 파일까지 고쳐야 합니다(범위 변경).
 - 기준선 밖에서 새 실패나 new-failure candidate가 나옵니다.
+
+---
+
+### Task T2: final verification 새 실패 수정 — `plan.test.mjs` 렌더링 baseline 해시 (plan v2 추가, 2026-11-25 사용자 승인)
+
+**배경:** final verification에서 `tests/node/plan.test.mjs`의 `{codex,claude} {en,ko} skipGlobal={false,true} preserves public rendering baseline` 8건이 HEAD `75887e65`에서만 실패하고 base `d15e3d25`에서는 통과했습니다. 이 테스트는 설치 plan의 공개 출력 해시(`renderingBaseline`)를 고정하는데, T1에서 profile·skill 문서 내용이 바뀌어 해시가 달라졌습니다. T1 파일 목록에서 빠졌던 fixture입니다.
+
+**Files (allowedPaths):** `tests/node/plan.test.mjs`
+
+- [x] **Step 1:** `renderingBaseline`의 8개 값만 현재 HEAD 렌더 결과의 sha256으로 바꿉니다. 테스트가 쓰는 계산 방식을 그대로 따르고, 다른 줄이나 테스트 로직은 바꾸지 않습니다. 일회성 계산만 하고 새 파일은 만들지 않습니다.
+- [x] **Step 2:** `node --test tests/node/plan.test.mjs`가 통과합니다(8건 해소, 다른 실패 없음).
+- [x] **Step 3:** diff가 `renderingBaseline` 8줄에만 있는지 확인합니다.
+- [x] **Step 4: Commit (Orchestrator)** `test(plan): 정책 문안 변경에 맞춰 렌더링 baseline 해시 갱신`. plan v2 개정을 같은 commit에 넣습니다.
+
+**수용 기준:** T2-AC1 8건 통과, T2-AC2 diff 범위가 해시 8줄, T2-AC3 `plan.test.mjs`의 다른 테스트 결과가 base와 같음.
+
+**task 검증:** fresh Tester(`mode: task`)가 `tests/node/plan.test.mjs`를 실행하고 diff 범위를 확인합니다. 이후 현재 final Tester가 재변경 파일 관련 테스트로 다시 확인합니다.
 
 ---
 
