@@ -379,7 +379,7 @@
         "reviewer-findings"
       ],
       "authority": "orchestrator",
-      "text": "Complete required Tester and Tester failure rechecks before the initial final overall Reviewer review. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without Tester reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Separate Tester findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → Tester; Reviewer evidence for affected files then needs a refreshed-diff recheck. Preserve required Tester outside this final Reviewer exception.",
+      "text": "Complete required Tester, Tester failure rechecks and final-mode Tester work before the initial final overall Reviewer review; final-mode Tester work concludes when its report is delivered, its new failures are resolved through Implementer → Tester recheck, its new-failure and intermittent candidates are dispositioned, any approved full regression is complete and every undeterminable-scope item is dispositioned. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without Tester reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Tester findings and new failures from final verification follow Implementer → Tester before that review begins. Preserve required Tester outside this final Reviewer exception.",
       "controls": {
         "codex": "prompt",
         "claude": "prompt",

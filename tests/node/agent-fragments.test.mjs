@@ -55,6 +55,15 @@ test('rejects altered inventory and markers outside the authorized body', async 
   assert.throws(() => renderAgentProfile(target.path, Buffer.from(text.replace('---\n', `---\n${marker}\n`)), registry));
 });
 
+test('rejects commit language policy markers in agent fragments', async () => {
+  const { validateAgentRegistry } = await import('../../lib/prompts/render.mjs');
+  const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
+  assert.doesNotThrow(() => validateAgentRegistry(registry));
+  const changed = structuredClone(registry);
+  changed.fragments[0].text += ' {{ARC_COMMIT_LANGUAGE_POLICY}}';
+  assert.throws(() => validateAgentRegistry(changed), /Invalid fragment/);
+});
+
 test('preserves CRLF and does not mutate the registry across deterministic renders', async () => {
   const { renderAgentProfile } = await import('../../lib/prompts/render.mjs');
   const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));

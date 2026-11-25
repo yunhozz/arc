@@ -386,8 +386,10 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
             r"any failure/missing condition blocks handoff",
             r"same conditions.*before an orchestrator direct edit",
         ))
-        for owner in ("references/commit.md", "references/handoff-prep.md"):
-            require("COMMIT_BOUNDARY", f"{root}/{owner}", (r"(?:specific |concise |specific, |concise, )*english (?:description|conventional commit)",))
+        require("COMMIT_BOUNDARY", f"{root}/references/commit.md", (r"\{\{arc_commit_language_policy\}\}",))
+        require("COMMIT_BOUNDARY", f"{root}/references/handoff-prep.md", (
+            r"conventional commit message under \[commit\]\(commit\.md#automatic-commit-after-plan-task-acceptance\)",
+        ))
     return failures
 
 
@@ -648,13 +650,15 @@ class PolicyContractTests(unittest.TestCase):
     def test_native_adapters_remain_explicit(self) -> None:
         self.assert_contracts("NATIVE_ADAPTERS")
 
-    def test_commit_guidance_uses_english_descriptions(self) -> None:
+    def test_commit_guidance_uses_installed_language_marker(self) -> None:
         for platform in PLATFORMS:
-            for owner in ("commit.md", "handoff-prep.md"):
-                path = f"{platform}/skill/references/{owner}"
-                with self.subTest(path=path):
-                    self.assertRegex(" ".join(self.texts[path].lower().split()), r"english (?:description|conventional commit)")
-                    self.assertNotRegex(self.texts[path].lower(), r"korean\s+(?:description|conventional commit)")
+            with self.subTest(platform=platform):
+                commit = self.texts[f"{platform}/skill/references/commit.md"]
+                prep = self.texts[f"{platform}/skill/references/handoff-prep.md"]
+                self.assertEqual(commit.count("{{ARC_COMMIT_LANGUAGE_POLICY}}"), 1)
+                for text in (commit, prep):
+                    self.assertNotRegex(text.lower(), r"(?:english|korean)\s+(?:description|conventional commit)")
+                self.assertIn("commit.md#automatic-commit-after-plan-task-acceptance", prep)
 
     def test_policy_contract_checker_rejects_missing_guards(self) -> None:
         for contract, owners in POLICY_CONTRACTS.items():

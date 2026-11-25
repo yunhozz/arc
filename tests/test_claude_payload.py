@@ -517,7 +517,7 @@ class ClaudePayloadTests(unittest.TestCase):
     def test_claude_commit_and_recovery_rules(self):
         commit = self.read_claude('skill/references/commit.md')
         self.assert_all(commit, ('Hold the task commit', 'no empty commit', 'existing commit', 'follow-up task',
-                                 '<type>(<scope>): <description>', 'English description',
+                                 '<type>(<scope>): <description>', '{{ARC_COMMIT_LANGUAGE_POLICY}}', 'concise specific description',
                                  'remaining final verification', 'hold/no-change/reuse reasons'))
         self.assertNotIn('when repository instructions require', commit)
         prep = self.read_claude('skill/references/handoff-prep.md')

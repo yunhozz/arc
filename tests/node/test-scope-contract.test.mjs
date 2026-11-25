@@ -13,7 +13,11 @@ const modeField = '`mode: task | final`';
 const singleModeRule = 'One assignment performs one mode; the only exception is the approved full regression follow-up in final mode.';
 const taskModeParagraph = "**Task mode** assigns a fresh Tester for each top-level task requiring Tester verification. Task checks and rechecks verify uncommitted work and run only tests related to the change: test files that directly exercise a changed module, contract tests that the change requires updating, and the matching check scripts. The brief lists the minimum set; executors MAY add only items in these three categories, each with a reason. Other additions need Orchestrator authorization. Report every selected item and why. Read only to confirm the brief and identify tests in those categories. In task mode, never run full regression or substitute checks. In task mode, do not search reverse dependencies. Failures follow Implementer → Tester recheck, reusing the current Tester for the same task. This rule takes precedence over the upstream TDD per-task project-suite instruction; upstream text is unchanged. Report every failure observed in any run by name.";
 const finalScopeSentence = '**Final mode** runs once after all tasks are accepted and committed, as one fresh Tester assignment at the verified HEAD of the execution target worktree. Run (1) all contract tests, (2) all check scripts, (3) the related tests of re-changed files and (4) substitute checks for applicable triggers. Final mode does not rerun the union of tests that task Tester already passed.';
-const finalVerificationParagraph = finalScopeSentence + " A re-changed file is a file that a task's Tester verified, as a changed file or a related test file it ran, and that a later commit changed after that task's focused commit (`git diff --name-only <task commit> HEAD`), plus every non-documentation file changed in base..HEAD by a commit that no task Tester verified. Orchestrator computes the list and cites it in the brief; Tester cross-checks it with read-only `git diff`, MAY add items only within the three categories above with reasons, and reports the reason when the list is empty. Tester records `git status --porcelain` at start and end; a state that is not clean is an environment block that holds final verification. While it runs, neither Orchestrator nor any Implementer writes in that workspace; the read-only final Reviewer MAY run concurrently. A new failure from final verification follows Implementer → Tester even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.";
+const finalFailureRule = 'A new failure from final verification follows Implementer → Tester.';
+const finalReviewerStartSentence = 'The final Reviewer starts only after final-mode Tester work concludes: the final Tester report is delivered, every new failure is resolved through Implementer → Tester recheck, every new-failure candidate and intermittent candidate is dispositioned, any approved full regression is complete and every undeterminable-scope item is dispositioned under **Undeterminable scope** below.';
+const preReviewOutputSentence = 'Reviewer output produced before that point is not the initial final review.';
+const finalVerificationParagraph = finalScopeSentence + " A re-changed file is a file that a task's Tester verified, as a changed file or a related test file it ran, and that a later commit changed after that task's focused commit (`git diff --name-only <task commit> HEAD`), plus every non-documentation file changed in base..HEAD by a commit that no task Tester verified. Orchestrator computes the list and cites it in the brief; Tester cross-checks it with read-only `git diff`, MAY add items only within the three categories above with reasons, and reports the reason when the list is empty. Tester records `git status --porcelain` at start and end; a state that is not clean is an environment block that holds final verification. While it runs, neither Orchestrator nor any Implementer writes in that workspace."
+  + ` ${finalFailureRule} ${finalReviewerStartSentence} ${preReviewOutputSentence}`;
 const substituteHeading = '**Trigger substitute checks**';
 const triggerParagraph = substituteHeading + " run in final mode for each applicable trigger: (1) the change modifies a shared module; (2) changes made by others were integrated after the approved base, by merge, rebase onto a newer base or cherry-pick; (3) the change modifies dependency manifests or lockfiles, language or runtime versions, or build or test configuration; (4) the change removes, renames or changes the signature of a public interface such as an exported function, CLI option or configuration key. A shared module is code, configuration, schema, data or generator input that more than one task, role, component or execution or delivery path imports, loads or renders at run time, including its mirrors and generated outputs; documentation read only by people and modules used by a single component are not shared. Decide from actual consumers; when they cannot be determined, treat the module as shared.";
 const triggerCheck = 'Tester independently checks triggers (1), (3) and (4) from the base..HEAD diff and log';
@@ -27,14 +31,21 @@ const handoffBriefInputsParagraph = "Tester briefs MUST include the required fie
 const structuredResultsSentence = 'Identify tests by name from structured results such as JUnit XML, TAP or a declared line pattern; a failure without a test name, or in a command or file whose results are incomplete, is a new-failure candidate, never a baseline failure. Report intermittent candidates, tests whose outcomes differ across runs with the same inputs, separately from baseline and new failures. Report the slowest files and tests (default ten) for information only.';
 const runtimeCommandsAnchor = 'final-verification-runtime-commands';
 const baseVerdictSentence = 'A failure under the same name at base is a baseline failure; a pass at base, or a test or file absent at base, makes it a new failure; a base run that was not performed, was blocked by the environment, failed to load or lacks the name makes it a new-failure candidate.';
-const finalFailureRule = 'A new failure from final verification follows Implementer → Tester even after the final Reviewer has started; Reviewer evidence for affected files becomes stale and needs a refreshed-diff recheck.';
 const finalPlanRecheckId = 'review.final-plan-recheck';
-const finalPlanRecheckSentence = 'Separate Tester findings and new failures from final verification, which may run concurrently with the final Reviewer, follow Implementer → Tester; Reviewer evidence for affected files then needs a refreshed-diff recheck.';
+const finalPlanRecheckSentence = 'Tester findings and new failures from final verification follow Implementer → Tester before that review begins.';
+const finalPlanRecheckText = 'Complete required Tester, Tester failure rechecks and final-mode Tester work before the initial final overall Reviewer review; final-mode Tester work concludes when its report is delivered, its new failures are resolved through Implementer → Tester recheck, its new-failure and intermittent candidates are dispositioned, any approved full regression is complete and every undeterminable-scope item is dispositioned. Once that review begins on plan work, every final Reviewer finding, including behavior, follows Implementer → Reviewer without Tester reassignment until resolved. Keep corrections uncommitted through Reviewer rechecks, then accept and create one focused follow-up commit. Tester findings and new failures from final verification follow Implementer → Tester before that review begins. Preserve required Tester outside this final Reviewer exception.';
 const oldFinalPlanRecheckSentence = 'Separate Tester findings follow Implementer → Tester.';
+const plannerFinalPlanRecheckSentence = 'Preserve required Tester, Tester failure rechecks and concluded final-mode Tester work before the initial final review.';
 const reviewerVerificationSentence = 'Tester owns task and final functional/test verification; Orchestrator owns overall completion and acceptance.';
-const reviewerFindingsSentence = 'New failures from final verification follow Implementer → Tester; affected evidence needs a refreshed-diff recheck.';
+const reviewerFindingsSentence = 'Final-mode Tester work, including Implementer → Tester rechecks of its new failures, concludes before this final stage begins.';
 const oldReviewerVerificationPhrase = 'Tester owns functional/test verification';
 const profileRoles = ['scouter', 'planner', 'implementer', 'tester', 'reviewer'];
+const commandExecutionRule = 'Run each command in the foreground. If the tool returns while the command is still running, keep waiting on that same session with the longest supported wait until it reports an exit code; DO NOT replace that wait with `sleep` loops or short status checks. DO NOT detach commands with `&`, `nohup`, `setsid` or an equivalent. NEVER end the turn or report while a command you started is unfinished. If a command cannot be run to completion, stop it, confirm it has exited, then report an environment block with the command, elapsed time, partial output and what remains unverified. Return a brief that prescribes detached execution to Orchestrator as an instruction conflict.';
+const commandExecutionParagraph = "**Command execution:** Implementer and Tester briefs MUST NOT prescribe detached execution such as `&`, `nohup` or `setsid`; they require long commands to run in the foreground and be waited on in the same session until an exit code. Orchestrator does not run a Tester's assigned suites in its place unless Tester reports an environment block with evidence and the user chooses that run.";
+const approvedFullRegressionSentence = "**Approved full regression** requires explicit user approval, and the current final-mode Tester runs it as a follow-up; no new Tester is assigned except shard Testers under **Full regression shards** below.";
+const suiteParallelismParagraph = "**Suite parallelism:** A Tester runs each multi-file suite command with the test runner's built-in parallel mode inside that one foreground command; a parallel mode that needs a package or plugin not already installed counts as no parallel mode. It runs a suite sequentially only when its tests are known to interfere with each other or the runner has no parallel mode, and reports the reason. Briefs MUST NOT split a suite into sequential groups for any other reason; splitting across Testers follows **Full regression shards** below. This changes how a command runs, not which tests run.";
+const fullRegressionShardsParagraph = "**Full regression shards:** Orchestrator MAY split an approved full regression into shards only when, from recorded prior run times, it is likely to exceed one Tester's time limit for its route, such as the bridge `arc_tester` 60-minute lease, or when independent suites, such as a sequential Python suite and a Node suite, can run at the same time; it records the reason. A shard is one whole suite command or a set of whole test files, never a subset of test names. Before dispatch Orchestrator lists every test file and suite command of the approved full regression at the verified HEAD as the inventory and writes a shard manifest that assigns each item to exactly one shard, so that the shards do not overlap and their union equals the inventory. Tests known to share state, such as fixed ports, the same temporary or workspace paths, the git common directory or global configuration, go in one shard. The current final-mode Tester runs one shard as its follow-up; each other shard goes to a fresh Tester whose `mode: final` brief adds `shard: <id> of <n>`, the shard's files or command and the manifest. The current final-mode Tester's follow-up brief also adds `shard: <id> of <n>` and its shard's files or command. Each shard Tester runs only its shard with no other final-mode checks, reports the files it actually ran and classifies failures only by the static check under **Baseline** below. All shards run at the same verified HEAD in the same workspace; each Tester records `git status --porcelain` at start and end, and no one writes in that workspace until every shard ends. Orchestrator reserves the whole shard batch under [limits](limits.md#counting-and-reservations) and serializes shards that do not fit; each shard Tester is a created and active instance, and the follow-up adds none. When the runner has a parallelism option, Orchestrator sets it per shard so that the combined workers stay within the host's available parallelism. After every shard has reported, Orchestrator sends the shard failures that need a base run to the current final-mode Tester, which reruns each alone at HEAD, with no other test command running in that workspace, up to the brief's isolated rerun limit; a pass alone is an intermittent candidate, and a failure alone follows the base check below; this rerun classifies the failure and is not the intermittency check under **Result comparison**. A rerun at HEAD that the environment blocks leaves that failure a new-failure candidate for Orchestrator disposition. Orchestrator merges the shard results and verifies that every inventory item has complete results exactly once; an item without complete results is a new-failure candidate and leaves the run incomplete. A blocked or timed-out shard follows the resume rule above; its items stay unverified, and the user decides whether a new Tester runs only the items without complete results. Sharding splits the one approved run and adds no run. The approved full regression is complete only when every shard has reported, coverage is verified and every shard failure is classified or dispositioned. Record the reason, inventory, manifest, Tester IDs and per-shard results with the approved full regression record.";
+const testerSuiteParallelismRule = "Run each multi-file suite command with the test runner's built-in parallel mode inside that one foreground command; run it sequentially only when its tests are known to interfere with each other or the runner has no installed parallel mode, and report the reason. A brief with `shard: <id> of <n>` limits final mode to that approved full regression shard: run only its listed files or command, report the files actually run and classify failures only by the static base check; run isolated or base reruns only when Orchestrator sends them after every shard has reported.";
 const wholePlanReviewerRule = 'Whole-plan Reviewer is part of final verification;';
 const qaAdditionsRule = 'additions within these categories with reasons are authorized;';
 const qaRerunLimit = "up to the brief's limit (default three),";
@@ -52,6 +63,12 @@ const retiredPhrases = [
   '**Full regression** runs once within final verification',
   "plus full regression once when the brief's provisional judgment",
 ];
+const retiredFinalOrderPhrases = [
+  'MAY run concurrently',
+  'even after the final Reviewer has started',
+  'which may run concurrently with the final Reviewer',
+  'while Reviewer and independent work continue',
+];
 const testScopeLink = /\[[^\]\n]+\]\(verification\.md#test-scope-and-result-comparison\)/g;
 const sectionPhrases = [
   'related to the change',
@@ -65,6 +82,7 @@ const sectionPhrases = [
   'new-failure candidate',
   'fresh Tester assignment',
   'diagnosis, not an automatic retry',
+  'shard manifest',
 ];
 
 export function assertTestScopeSection(text) {
@@ -105,6 +123,12 @@ const profileRules = {
       before: 'unresolved or unverified with evidence. ',
       rule: `Classify each HEAD failure first by read-only diff against the approved base (unrelated when its test, direct imports, fixtures and test configuration are unchanged), and report the rest as needing a base run; when Orchestrator supplies a base worktree, rerun only those by test name and classify them as baseline, new or new-failure candidate. Only new failures are findings; unrelated failures and candidates need Orchestrator disposition. Rerun a suspected intermittent test alone, ${qaRerunLimit} as diagnosis rather than retry; report passes-in-isolation and rerun count.`,
       phrases: ['by test name', qaRerunLimit, 'passes-in-isolation and rerun count', 'read-only diff against the approved base'],
+    },
+    {
+      lineStart: '1. Use the shared brief, criteria, Implementer summary and relevant prior findings. ',
+      before: 'Use approved structural/consistency checks for policy/configuration. ',
+      rule: testerSuiteParallelismRule,
+      phrases: [testerSuiteParallelismRule],
     },
   ],
   implementer: [
@@ -196,6 +220,64 @@ test('final mode lists four categories and affected tool conditions', () => {
   }
 });
 
+test('foreground command execution rule is confined to the prescribed Implementer and Tester steps', () => {
+  const stepStarts = {
+    implementer: '4. DO NOT recreate, clean up or archive worktrees. ',
+    tester: '2. Run authorized tests and inspect output, ',
+  };
+  const expectedLines = {
+    implementer: `${stepStarts.implementer}${commandExecutionRule}`,
+    tester: `${stepStarts.tester}but DO NOT edit source, documents, tests or configuration. DO NOT repair failures or broaden verification without authorization. ${commandExecutionRule}`,
+  };
+  for (const platform of platforms) {
+    for (const role of profileRoles) {
+      const profile = renderPlatformProfile(platform, role);
+      const label = `${platform} ${role}`;
+      const lineStart = stepStarts[role];
+      assert.equal(profile.split(commandExecutionRule).length - 1, lineStart ? 1 : 0, label);
+      if (lineStart) {
+        const matchingLines = profile.split('\n').filter(line => line.startsWith(lineStart));
+        assert.equal(matchingLines.length, 1, label);
+        assert.equal(matchingLines[0], expectedLines[role], label);
+      }
+    }
+  }
+});
+
+test('retired long command wait rule is absent from the registry and all rendered profiles', () => {
+  const retiredRule = /Wait once for long commands/;
+  assert.doesNotMatch(registrySource, retiredRule);
+  for (const platform of platforms) {
+    for (const role of profileRoles) {
+      assert.doesNotMatch(renderPlatformProfile(platform, role), retiredRule, `${platform} ${role}`);
+    }
+  }
+});
+
+test('command execution paragraph immediately follows Final mode in each reference', () => {
+  for (const platform of platforms) {
+    const matches = verification(platform).split('\n\n')
+      .filter(paragraph => paragraph.startsWith('**Command execution:**'));
+    assert.deepEqual(matches, [commandExecutionParagraph], platform);
+    const paragraphs = testScope(platform).split('\n\n');
+    const finalModeIndex = paragraphs.indexOf(finalVerificationParagraph);
+    assert.ok(finalModeIndex >= 0, platform);
+    assert.equal(paragraphs[finalModeIndex + 1], commandExecutionParagraph, platform);
+  }
+});
+
+test('suite parallelism paragraph immediately follows Command execution in each reference', () => {
+  for (const platform of platforms) {
+    const paragraphs = testScope(platform).split('\n\n');
+    const matches = paragraphs.filter(paragraph => paragraph.startsWith('**Suite parallelism:**'));
+    assert.deepEqual(matches, [suiteParallelismParagraph], platform);
+    const commandIndex = paragraphs.indexOf(commandExecutionParagraph);
+    assert.ok(commandIndex >= 0, platform);
+    assert.equal(paragraphs[commandIndex + 1], suiteParallelismParagraph, platform);
+    assert.ok(paragraphs[commandIndex + 2]?.startsWith('Read-only reverse dependency search'), platform);
+  }
+});
+
 test('trigger substitute checks table', () => {
   const cases = [
     ['(1) Shared module', ['reverse dependencies', 'static import, require, load and path-string references', 'mirrors and generated outputs', 'nearest package manifest directory', 'otherwise the test directory', 'suspected dynamic reference']],
@@ -249,8 +331,7 @@ test('undeterminable report and disposition', () => {
       '(i) approve full regression',
       '(ii) substitute the project CI full test results',
       '(iii) disposition as unverified',
-      'final acceptance is held',
-      'Reviewer and independent work continue',
+      'final acceptance and the final Reviewer are held, while independent work continues',
       'never auto-decided in Full Auto',
       'does not turn a criterion into proven',
     ], platform);
@@ -260,17 +341,36 @@ test('undeterminable report and disposition', () => {
 });
 
 test('approved full regression follow-up', () => {
+  const expiration = 'Approval is valid only for that workflow and HEAD and expires when HEAD changes.';
+  const expiredApproval = 'If HEAD changes before the final Reviewer starts, an expired approval needs re-approval and a rerun at the new HEAD, or a fresh disposition under **Undeterminable scope**, before the Reviewer starts.';
+  const runLimit = 'The approved full regression runs once per approval.';
   for (const platform of platforms) {
-    assertPhrases(findParagraph(testScope(platform), '**Approved full regression**'), [
-      'the current final-mode Tester runs it as a follow-up; no new Tester is assigned',
+    const paragraph = findParagraph(testScope(platform), '**Approved full regression**');
+    assert.ok(paragraph.startsWith(approvedFullRegressionSentence), platform);
+    assertPhrases(paragraph, [
+      approvedFullRegressionSentence,
       'bridge resumes the same dispatch',
       'native continues the same assignment',
       'each segment starts a new lease.timeoutMinutes timer',
       'if the same assignment cannot continue, report an environment block and hold; the user decides whether to assign a new Tester',
-      'valid only for that workflow and HEAD',
-      'runs once',
+      `${expiration} ${expiredApproval}`,
+      runLimit,
       'Approved full regression failures follow the base check below.',
     ], platform);
+    assertOccursOnce(verification(platform), expiredApproval);
+    assertOccursOnce(verification(platform), runLimit);
+  }
+});
+
+test('full regression shards paragraph sits between Approved full regression and CI substitution', () => {
+  for (const platform of platforms) {
+    const paragraphs = testScope(platform).split('\n\n');
+    const matches = paragraphs.filter(paragraph => paragraph.startsWith('**Full regression shards:**'));
+    assert.deepEqual(matches, [fullRegressionShardsParagraph], platform);
+    const approvedIndex = paragraphs.findIndex(paragraph => paragraph.startsWith('**Approved full regression**'));
+    assert.ok(approvedIndex >= 0, platform);
+    assert.equal(paragraphs[approvedIndex + 1], fullRegressionShardsParagraph, platform);
+    assert.ok(paragraphs[approvedIndex + 2]?.startsWith('**CI substitution**'), platform);
   }
 });
 
@@ -330,11 +430,33 @@ test('canonical final-plan-recheck policy routes final verification failures to 
   assert.ok(text.includes(`create one focused follow-up commit. ${finalPlanRecheckSentence} Preserve required Tester`));
 });
 
+test('canonical final-plan-recheck policy matches the approved text', () => {
+  const policy = JSON.parse(readAgent('lib/policy/role-policy.json'));
+  assert.equal(policy.rules.find(rule => rule.id === finalPlanRecheckId)?.text, finalPlanRecheckText);
+});
+
+test('policy and fragment sources omit the retired final order phrases', () => {
+  for (const path of [
+    'lib/policy/role-policy.json',
+    'lib/prompts/agent-fragments.json',
+    'shared/skill/runtime/role-policy.json',
+  ]) {
+    const source = readAgent(path).toString();
+    for (const phrase of retiredFinalOrderPhrases) {
+      assert.ok(!source.includes(phrase), `${path} must omit ${phrase}`);
+    }
+  }
+});
+
 for (const platform of platforms) {
   const references = new URL(`../../${platform}/skill/references/`, import.meta.url);
   const readReference = name => readFileSync(new URL(name, references), 'utf8');
   const extension = platform === 'codex' ? 'toml' : 'md';
   const profilePath = role => `${platform}/agents/arc-${role}.${extension}`;
+
+  test(`${platform} planner render places the final-plan-recheck sentence exactly once`, () => {
+    assertOccursOnce(renderAgent(profilePath('planner')), plannerFinalPlanRecheckSentence);
+  });
 
   test(`${platform} reviewer render places the final verification sentences exactly once`, () => {
     const reviewer = renderAgent(profilePath('reviewer'));
@@ -407,11 +529,13 @@ for (const platform of platforms) {
     assert.ok(!reference.includes('baseline record reference'));
   });
 
-  test(`${platform} final verification routes new failures after the Reviewer starts`, () => {
+  test(`${platform} final Reviewer starts only after final-mode Tester work concludes`, () => {
     const reference = readReference('verification.md');
-    assertOccursOnce(reference, finalFailureRule);
+    for (const sentence of [finalFailureRule, finalReviewerStartSentence, preReviewOutputSentence]) {
+      assertOccursOnce(reference, sentence);
+    }
     const paragraph = findParagraph(reference, '**Final mode**');
-    assert.ok(paragraph?.endsWith(`the read-only final Reviewer MAY run concurrently. ${finalFailureRule}`));
+    assert.ok(paragraph?.endsWith(`neither Orchestrator nor any Implementer writes in that workspace. ${finalFailureRule} ${finalReviewerStartSentence} ${preReviewOutputSentence}`));
   });
 
   test(`${platform} base verdict sentences sit in place`, () => {
@@ -473,6 +597,19 @@ for (const platform of platforms) {
     const template = readAgent(path).toString();
     for (const phrase of retiredPhrases) {
       assert.ok(!template.includes(phrase), `${path} template must omit ${phrase}`);
+    }
+  });
+
+  test(`${platform} sources and rendered profiles omit the retired final order phrases`, () => {
+    const sources = [
+      [`${platform}/skill/SKILL.md`, readAgent(`${platform}/skill/SKILL.md`).toString()],
+      ...['verification.md', 'planning.md', 'handoff.md'].map(name => [name, readReference(name)]),
+      ...profileRoles.map(role => [profilePath(role), renderAgent(profilePath(role))]),
+    ];
+    for (const [path, source] of sources) {
+      for (const phrase of retiredFinalOrderPhrases) {
+        assert.ok(!source.includes(phrase), `${path} must omit ${phrase}`);
+      }
     }
   });
 
