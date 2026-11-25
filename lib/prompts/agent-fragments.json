@@ -63,7 +63,7 @@
     },
     {
       "id": "planner.final-plan-recheck",
-      "text": "After the initial full Reviewer review, repeat necessary rechecks until resolved. Final overall Reviewer findings on plan work, including behavior findings, follow Implementer → Reviewer without Tester reassignment. Preserve required Tester and Tester failure rechecks before the initial final review."
+      "text": "After the initial full Reviewer review, repeat necessary rechecks until resolved. Final overall Reviewer findings on plan work, including behavior findings, follow Implementer → Reviewer without Tester reassignment. Preserve required Tester, Tester failure rechecks and concluded final-mode Tester work before the initial final review."
     },
     {
       "id": "planner.workflow-contract",
@@ -91,7 +91,7 @@
     },
     {
       "id": "reviewer.final-plan-findings",
-      "text": "Final overall Reviewer findings on plan work, including behavior findings, follow Implementer → Reviewer without Tester reassignment until resolved, including repeat findings. Review the latest committed/uncommitted correction diff supplied by Orchestrator. Remain read-only. Earlier Tester is not post-fix verification. Preserve required Tester and Tester failure rechecks before this final stage. New failures from final verification follow Implementer → Tester; affected evidence needs a refreshed-diff recheck."
+      "text": "Final overall Reviewer findings on plan work, including behavior findings, follow Implementer → Reviewer without Tester reassignment until resolved, including repeat findings. Review the latest committed/uncommitted correction diff supplied by Orchestrator. Remain read-only. Earlier Tester is not post-fix verification. Preserve required Tester and Tester failure rechecks before this final stage. Final-mode Tester work, including Implementer → Tester rechecks of its new failures, concludes before this final stage begins."
     },
     {
       "id": "scouter.research-brief",
