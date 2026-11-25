@@ -104,3 +104,34 @@ test('renderRunModePolicy rejects missing or repeated markers and invalid modes'
   }
   assert.throws(() => api.renderRunModePolicy(Buffer.from(marker), 'x'), /Invalid run mode: x/);
 });
+
+test('commitLanguagePolicy returns the exact policy for en and ko', () => {
+  assert.equal(typeof api.commitLanguagePolicy, 'function');
+  for (const [language, name] of [['en', 'English'], ['ko', 'Korean']]) {
+    const expected = 'Write the description and any body in ' + name + ' by default. An explicit user language request or applicable project instructions that fix the commit message language override this installed default. Keep `<type>`, `<scope>`, identifiers, code, paths, commands, literal values and Git trailer keys exactly.';
+    assert.equal(api.commitLanguagePolicy(language), expected);
+  }
+  assert.throws(() => api.commitLanguagePolicy('fr'), /Invalid language: fr/);
+});
+
+test('renderCommitLanguagePolicy replaces exactly one marker for en and ko', () => {
+  assert.equal(typeof api.renderCommitLanguagePolicy, 'function');
+  const marker = '{{ARC_COMMIT_LANGUAGE_POLICY}}';
+  const template = Buffer.from('a ' + marker + ' b');
+  for (const language of ['en', 'ko']) {
+    const rendered = api.renderCommitLanguagePolicy(template, language);
+    assert.deepEqual(rendered, Buffer.from('a ' + api.commitLanguagePolicy(language) + ' b'));
+    assert.equal(rendered.includes(marker), false);
+  }
+});
+
+test('renderCommitLanguagePolicy rejects missing or repeated markers and invalid languages', () => {
+  const marker = '{{ARC_COMMIT_LANGUAGE_POLICY}}';
+  for (const input of [Buffer.from('no marker'), Buffer.from(marker + marker), undefined]) {
+    assert.throws(
+      () => api.renderCommitLanguagePolicy(input, 'en'),
+      /Expected exactly one ARC commit language policy marker/,
+    );
+  }
+  assert.throws(() => api.renderCommitLanguagePolicy(Buffer.from(marker), 'fr'), /Invalid language/);
+});
