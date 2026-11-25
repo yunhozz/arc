@@ -270,6 +270,9 @@ test('undeterminable report and disposition', () => {
 });
 
 test('approved full regression follow-up', () => {
+  const expiration = 'Approval is valid only for that workflow and HEAD and expires when HEAD changes.';
+  const expiredApproval = 'If HEAD changes before the final Reviewer starts, an expired approval needs re-approval and a rerun at the new HEAD, or a fresh disposition under **Undeterminable scope**, before the Reviewer starts.';
+  const runLimit = 'The approved full regression runs once per approval.';
   for (const platform of platforms) {
     assertPhrases(findParagraph(testScope(platform), '**Approved full regression**'), [
       'the current final-mode Tester runs it as a follow-up; no new Tester is assigned',
@@ -277,10 +280,12 @@ test('approved full regression follow-up', () => {
       'native continues the same assignment',
       'each segment starts a new lease.timeoutMinutes timer',
       'if the same assignment cannot continue, report an environment block and hold; the user decides whether to assign a new Tester',
-      'valid only for that workflow and HEAD',
-      'runs once',
+      `${expiration} ${expiredApproval}`,
+      runLimit,
       'Approved full regression failures follow the base check below.',
     ], platform);
+    assertOccursOnce(verification(platform), expiredApproval);
+    assertOccursOnce(verification(platform), runLimit);
   }
 });
 

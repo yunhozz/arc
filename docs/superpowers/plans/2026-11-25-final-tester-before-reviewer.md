@@ -2,10 +2,18 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v2 (v1 2026-11-25 사용자 승인; v2는 final verification 새 실패 수정 T2 추가, 2026-11-25 사용자 승인). T1·T2 수락 완료(2026-11-25)
+- 상태: plan v3 (v1 2026-11-25 사용자 승인; v2는 final verification 새 실패 수정 T2 추가, 2026-11-25 사용자 승인; v3는 최종 Reviewer non-blocking finding 수정 T3 추가, 2026-11-25 사용자 fix 결정). T1·T2·T3 수락 완료(2026-11-25)
 - Spec: `docs/superpowers/specs/2026-11-25-final-tester-before-reviewer-design.md` v2 (2026-11-25 사용자 승인)
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, base `d15e3d2595e666e3a8becf523e7a03f691f3305a`
 - 경로: Architectural
+
+## 개정 이력
+
+| 버전 | 일자 | 분류 | 사유 | 영향 task | 승인 |
+|---|---|---|---|---|---|
+| v1 | 2026-11-25 | 최초 | spec v2 구현 계획(T1) | T1 | 사용자 승인 |
+| v2 | 2026-11-25 | 범위 추가 | final verification 새 실패(`plan.test.mjs` 렌더링 baseline 8건) 수정 T2 추가 | T2 | 사용자 승인. `dc8e4192`에 커밋됐으나 당시 이 표의 행과 `Plan-*` trailer가 빠져 있어 v3 커밋에서 보완 기록함 |
+| v3 | 2026-11-25 | 범위 추가 | 최종 Reviewer non-blocking finding(만료된 full regression 승인, R13)과 재확인 N1(R14) 수정 T3 추가. R13·R14는 spec v2의 R1–R12 밖 문안이며 사용자 fix 결정으로 생긴 범위임 | T3 | 사용자 fix 결정 2건 |
 
 **Goal:** 최종 Reviewer가 final-mode Tester 작업이 끝난 뒤에만 시작하도록 4개 플랫폼의 정책 문안, 관리 규칙, agent fragment를 순차 규칙으로 바꿉니다. 계약 테스트, fixture, 생성물, MANIFEST도 이 변경에 맞춰 갱신합니다.
 
@@ -228,6 +236,31 @@ task mode에서는 full regression, substitute check, 역의존성 탐색을 하
 **수용 기준:** T2-AC1 8건 통과, T2-AC2 diff 범위가 해시 8줄, T2-AC3 `plan.test.mjs`의 다른 테스트 결과가 base와 같음.
 
 **task 검증:** fresh Tester(`mode: task`)가 `tests/node/plan.test.mjs`를 실행하고 diff 범위를 확인합니다. 이후 현재 final Tester가 재변경 파일 관련 테스트로 다시 확인합니다.
+
+---
+
+### Task T3: 최종 Reviewer finding 수정 — 만료된 full regression 승인 처리 (plan v3 추가, 2026-11-25 사용자 fix 결정)
+
+**배경:** 최종 Reviewer의 non-blocking 관찰입니다. `verification.md`의 **Approved full regression** 문단은 "Approval is valid only for that workflow and HEAD and expires when HEAD changes."라고 합니다. 그런데 R1은 Reviewer 시작 전에 새 실패를 수정(HEAD 변경 가능)하고 "any approved full regression is complete"도 요구합니다. 만료된 승인을 어떻게 다루는지가 문안에 없습니다.
+
+**R13** (4개 플랫폼 `verification.md`, 위 문장 바로 뒤에 추가, 영문 그대로):
+
+> If HEAD changes before the final Reviewer starts, an expired approval needs re-approval and a rerun at the new HEAD, or a fresh disposition under **Undeterminable scope**, before the Reviewer starts.
+
+**R14** (최종 Reviewer 재확인 N1, 사용자 fix 결정): 같은 문단의 "The approved full regression runs once."를 다음 문장으로 바꿉니다.
+
+> The approved full regression runs once per approval.
+
+**Files (allowedPaths):** `{claude,codex,gemini,grok}/skill/references/verification.md`, `tests/node/test-scope-contract.test.mjs`, `tests/node/fixtures/instruction-contracts.json`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`, `MANIFEST.sha256`
+
+- [x] **Step 1:** `test-scope-contract.test.mjs`의 test-scope 절 기대 문안에 R13·R14를 넣고, R13이 플랫폼별로 정확히 한 번 위 문장 바로 뒤에 오는지, R14가 플랫폼별로 정확히 한 번 있는지 검증합니다. RED를 확인합니다.
+- [x] **Step 2:** 4개 플랫폼 `verification.md`에 R13을 추가하고 R14로 문장을 바꿉니다. 관리 섹션은 건드리지 않습니다.
+- [x] **Step 3:** 내용 변경으로 달라지는 fixture만 갱신합니다. 대상은 installed-layout golden(`--diff`로 `references/verification.md` 항목만 `~`인지 확인한 뒤 `--write`), `plan.test.mjs`의 `renderingBaseline` 해시, `instruction-contracts.json`(해당하는 경우만)입니다. 마지막에 `node scripts/update-manifest.mjs`를 실행합니다.
+- [x] **Step 4:** `node --test`로 `test-scope-contract`, `instruction-layout`, `installed-layout-golden`, `plan`, `manifest` 테스트를 실행하고 check 스크립트도 통과시킵니다. 실제로 필요하지 않은 fixture 파일은 바꾸지 않습니다.
+- [x] **Step 5:** 최종 Reviewer가 재확인합니다(Implementer → Reviewer, Tester 재배정 없음). 그동안 수정분은 커밋하지 않습니다.
+- [x] **Step 6: Commit (Orchestrator)** `chore(policy): 만료된 full regression 승인 처리와 승인당 1회 실행 명시`. plan v3 개정과 plan-level 기록을 함께 넣습니다.
+
+**수용 기준:** T3-AC1 R13·R14가 4개 플랫폼에 각각 정확히 한 번, test-scope 절이 byte-identical. T3-AC2 관련 테스트와 check 스크립트 통과. T3-AC3 변경 파일이 allowedPaths 안에 있음. T3-AC4 최종 Reviewer 재확인에서 finding 해소.
 
 ---
 
