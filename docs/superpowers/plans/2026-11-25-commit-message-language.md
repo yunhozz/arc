@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v1 (2026-11-25T14:57:37+09:00 이전 사용자 승인). T1·T2 수락 완료(2026-11-25). T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
+- 상태: plan v2 (v1 2026-11-25T14:57:37+09:00 이전 사용자 승인; v2 2026-11-25T15:14:02+09:00 사용자 승인). T1·T2 수락 완료(2026-11-25). T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
 - Spec: `docs/superpowers/specs/2026-11-25-commit-message-language-design.md` (2026-11-25 사용자 승인, sha256 `0c912577064bbd852c288b1a2e35c0b0c3d74df960c3f7c85aa2005e07702a34`)
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, base `b522c873`
 - 경로: Bounded, plan 필요 (task 2개)
@@ -12,6 +12,7 @@
 | 버전 | 일자 | 분류 | 사유 | 영향 task | 승인 |
 |---|---|---|---|---|---|
 | v1 | 2026-11-25 | 최초 | spec 구현 계획(T1, T2) | T1, T2 | 사용자 승인 |
+| v2 | 2026-11-25 | 검증 절차 변경 | 최종 검증의 전체 suite, `consumer.test.mjs`, base 비교를 Orchestrator가 아니라 final Tester가 직접 실행. 실행이 다시 실패하면 원인을 분석해 이 브랜치에서 수정 | 최종 검증 | 사용자 지시 |
 
 **Goal:** 설치 언어(`en`/`ko`)를 커밋 description과 body의 기본 언어로 씁니다. 사용자가 명시적으로 언어를 요청하거나 프로젝트 지시가 언어를 정하면 그쪽이 우선합니다. 4개 플랫폼의 `references/commit.md`에 marker `{{ARC_COMMIT_LANGUAGE_POLICY}}`를 두고, 설치할 때 이 marker를 치환합니다.
 
@@ -36,7 +37,7 @@
 - Implementer(Codex bridge, sandbox) 규칙
   - allowedPaths는 정확한 파일 목록입니다.
   - 실행 중인 명령이 있으면 turn을 끝내지 않습니다.
-  - 긴 suite(전체 `tests/node`, `consumer.test.mjs`)는 bridge role이 아니라 Orchestrator가 host에서 실행하고 결과를 전달합니다.
+  - 긴 suite(전체 `tests/node`, `consumer.test.mjs`)도 Tester가 직접 실행합니다(v2). 명령이 끝날 때까지 기다리고, sandbox에 실제로 막히면 environment block으로 보고합니다. 실행이 다시 실패하면 Orchestrator가 원인을 분석해 이 브랜치에서 수정합니다.
   - bridge가 실행되는 동안 Orchestrator는 ref를 움직이지 않습니다.
 - Implementer와 Tester는 Git 상태를 바꾸지 않습니다. stage와 commit은 Orchestrator만 합니다.
 - 커밋 메시지
@@ -307,7 +308,7 @@ T2를 수락·커밋한 뒤, verified HEAD에서 fresh Tester를 한 번 배정�
 - base `b522c873`의 깨끗한 worktree에서 같은 테스트 이름끼리 대조합니다.
 - 이 worktree에는 native addon을 쓰기 위해 ignore된 `build` symlink가 있어야 합니다.
 - 기존 실패와 불안정한 테스트는 단독으로 다시 실행해 구분합니다.
-- 전체 suite 같은 긴 실행은 Orchestrator가 host에서 하고, 결과를 Tester에게 넘깁니다.
+- 전체 suite, `consumer.test.mjs`, base 이름별 재실행은 final Tester가 직접 실행합니다(v2). Orchestrator는 base worktree만 준비하고 그곳에서 테스트를 돌리지 않습니다.
 
 **실행 범위**
 1. **모든 계약 테스트**
