@@ -163,7 +163,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         ))
         self.contracts(commit, (
             r"local.*does not authorize early planning-document commits.*pre-implementer.*batch.*unchanged",
-            r"conventional commits.*english description.*trailing period.*lowercase.*scope",
+            r"conventional commits.*specific description.*trailing period.*lowercase.*scope.*\{\{arc_commit_language_policy\}\}",
             r"historical spec/plan.*not.*retroactively",
             r"structural checks.*do not prove.*agent runtime",
         ))

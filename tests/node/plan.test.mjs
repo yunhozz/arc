@@ -5,7 +5,7 @@ import {openRoot} from '../../lib/safe-fs/index.mjs';import {loadNative} from '.
 import {agentsBlockBody,renderManagedBlock} from '../../lib/installer/global-config.mjs';
 const api=await import('../../lib/installer/plan.mjs').catch(()=>({}));const targets=await import('../../lib/installer/targets.mjs').catch(()=>({}));const native=loadNative({artifactDirectory:'build/native'});const safeFs={openRoot:p=>openRoot(p,{native})};
 function fixture(t){const home=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'arc-plan-')));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
-function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','tester','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
+function payload(){const files=new Map(),modelInputs={};for(const platform of ['codex','claude']){const models=fs.readFileSync(new URL(`../../${platform}/skill/models.toml`,import.meta.url));const profiles=new Map();for(const role of ['scouter','planner','implementer','tester','reviewer']){const name=`arc-${role}.${platform==='codex'?'toml':'md'}`;profiles.set(name,fs.readFileSync(new URL(`../../${platform}/agents/${name}`,import.meta.url)));}files.set(`${platform}/skill/SKILL.md`,Buffer.from('ARC payload\n{{ARC_OUTPUT_LANGUAGE_POLICY}}\n\n{{ARC_RUN_MODE_POLICY}}'));files.set(`${platform}/skill/models.toml`,models);const commitPath=`${platform}/skill/references/commit.md`;files.set(commitPath,fs.readFileSync(new URL(`../../${commitPath}`,import.meta.url)));modelInputs[platform]={models,profiles};}files.set('shared/skill/runtime/git-query.mjs',fs.readFileSync(new URL('../../shared/skill/runtime/git-query.mjs',import.meta.url)));return{packageRoot:'/verified-package',files,modelInputs,agentRegistry:JSON.parse(fs.readFileSync(new URL('../../lib/prompts/agent-fragments.json',import.meta.url))),snapshot:new Map()};}
 function plan(home,platform='codex',extra={}){return api.buildInstallPlan({payload:payload(),target:targets.resolveTarget(platform,{userHome:home,env:extra.environment??{},cwd:home}),safeFs,...extra});}
 const supervisedPolicy="**Run mode:** Supervised. Every approval and choice gate in this skill and its references requires the user's explicit answer; Orchestrator does not auto-decide gates.";
 const supervisedSettings='version = 1\nlanguage = "en"\n';
@@ -142,6 +142,13 @@ test('concurrency above total keeps configured values and explains effective fre
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])test(`${platform} generates selected ${language} settings and policies together`,t=>{
  const result=plan(fixture(t),platform,{language});assert.equal(result.generated.skill.get('settings.toml')?.toString(),`version = 1\nlanguage = "${language}"\n`);
  for(const bytes of [result.generated.skill.get('SKILL.md'),...result.generated.profiles.values(),result.globalChanges.find(change=>change.path.endsWith(platform==='codex'?'AGENTS.md':'CLAUDE.md')).content]){assert.match(bytes.toString(),new RegExp(language==='en'?'English':'Korean'));assert.doesNotMatch(bytes.toString(),/\{\{ARC_OUTPUT_LANGUAGE_POLICY\}\}/);}
+ const commit=result.generated.skill.get('references/commit.md').toString();
+ assert.ok(commit.includes(`Write the description and any body in ${language==='en'?'English':'Korean'} by default.`));
+ assert.doesNotMatch(commit,/\{\{ARC_COMMIT_LANGUAGE_POLICY\}\}/);
+});
+for(const platform of ['codex','claude'])for(const language of ['en','ko'])test(`${platform} ${language} generated skill has no ARC markers`,t=>{
+ const result=plan(fixture(t),platform,{language});
+ for(const [name,bytes] of result.generated.skill)assert.doesNotMatch(bytes.toString(),/\{\{ARC_[A-Z_]+\}\}/,name);
 });
 test('language preview rejects changed settings before planning writes',t=>{
  const home=fixture(t),target=targets.resolveTarget('codex',{userHome:home,env:{}});assert.equal(typeof api.previewLanguage,'function');const preview=api.previewLanguage({target,safeFs});fs.mkdirSync(`${home}/.codex/skills/arc`,{recursive:true});fs.writeFileSync(`${home}/.codex/skills/arc/settings.toml`,'version = 1\nlanguage = "ko"\n');assert.throws(()=>plan(home,'codex',{language:'en',languagePreview:preview}),{code:'ARC_INSTALL_DRIFT'});
@@ -216,14 +223,14 @@ test('installation leaves unsupported profile paths unmanaged',t=>{
 // Capture public output bytes and iteration order; normalize only the temporary
 // HOME so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'daa646051953f059c9b332397c09b70a9e8cf1b589e8b0d962562e0583566f5a',
- 'codex:en:true':'cf62f91386af20904ef5d72b0b2b2054c42bc941dda06f34d252f4e187dbde2e',
- 'codex:ko:false':'e8a80b15a258b29f97cbaa7ce478aaf2ff39b7a722e3195c646fad569d1f7ea3',
- 'codex:ko:true':'e9c9a65ed307a78027cddc1b2a1581ab61f0381f5a2a019d0636c5214776fe21',
- 'claude:en:false':'3520b54341dd949e8de2287a555889f935ff8ef3e94a268fd623841bc7868bd7',
- 'claude:en:true':'299e631c492531bc7c7d2e197d8f76de98d7b7f67e4078e4c70fe19cea9b8f2d',
- 'claude:ko:false':'e8570225b3f081a42b38c947f48b63831c52f1db567b253f2f547806b563047a',
- 'claude:ko:true':'cf60867dd87025c9510ca93f66eade4ebb2cecd84ad8d23059c0bb0be9cb403b',
+ 'codex:en:false':'303a589469751d900ad535cbac89d8ed4f3c9464f9215ddf6ae76c7a7dc87c84',
+ 'codex:en:true':'2c01d012743b3726544686f7240d6e92f6085d312778995055b734492407697a',
+ 'codex:ko:false':'1cc5f518f4dfd487dbc162179b672f4762d0ff890531c01ec5349d87f84c3c71',
+ 'codex:ko:true':'b82e5be54af9d7283a58adb93443a5571870706d17ca241c6e02c8425e5fe706',
+ 'claude:en:false':'c3ad46e16d83567bfa5aeef36b715ddb2d1747eb007fdc673179eabccf75bb9c',
+ 'claude:en:true':'793bc0e5edc4c2358595ff95528fb4fa157f1c0e4d19282358e1a2d14c480355',
+ 'claude:ko:false':'b520444cb68d8285f6ac405ce89e447ba1f3f671c80de5de3707dd23132a1048',
+ 'claude:ko:true':'fdf73a95a8214ca4267af391921581c5b6f7bdebc66a0126b04336b8c299d465',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});

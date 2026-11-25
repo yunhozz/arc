@@ -70,7 +70,7 @@ Begin after target preparation and all applicable documents are written/individu
 For worktrees verify actual registration/a verified native attachment mechanism session attachment/identity/base/branch and directly written documents or protected legacy/restart transfers before target docs commits. Commit remaining approvals once at target; no automatic source docs commit.
 
 1. Verify already committed approvals by SHA, actual message/paths/content and selected-checkout validity; reuse without recommitting.
-2. Record remaining approved versions/paths. Finalize a specific English Conventional Commit message before the first commit.
+2. Record remaining approved versions/paths. Finalize a specific Conventional Commit message under [commit](commit.md#automatic-commit-after-plan-task-acceptance) before the first commit.
 3. Batch all remaining approved documents into one focused docs commit. Staged paths/diff MUST match exactly; unrelated staging blocks commit. No implementation files.
 4. If all validly committed, verify only. NEVER duplicate/empty-commit/amend/reset/recommit merely to combine SHAs. DO NOT use temporary messages followed by routine `git commit --amend`.
 5. Failure/staged-content mismatch stops handoff. Inspect branch/HEAD/index/partial completion and resolve before resuming; NEVER commit implementation instead.

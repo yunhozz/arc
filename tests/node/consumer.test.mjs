@@ -63,6 +63,9 @@ test('packed instruction references install with valid links for both platforms 
  assert.equal(result.status,0,result.stderr);
  for(const[platform,dir,name]of [['codex',codex,'AGENTS.md'],['claude',claude,'CLAUDE.md']]){
   const skillRoot=path.join(dir,'skills/arc'),core=fs.readFileSync(path.join(skillRoot,'SKILL.md'),'utf8');assert.match(core,/Use Korean by default/);
+  const commit=fs.readFileSync(path.join(skillRoot,'references/commit.md'),'utf8');
+  assert.match(commit,/Write the description and any body in Korean by default\./);
+  assert.doesNotMatch(commit,/\{\{ARC_/);
   assert.ok(fs.existsSync(path.join(skillRoot,'references/coordination.md')));
   for(const link of core.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g))assert.ok(fs.existsSync(path.join(skillRoot,link[1])),`${platform}/${link[1]}`);
   assert.match(fs.readFileSync(path.join(skillRoot,'references/coordination.md'),'utf8'),/\[role.implementer-implementation\]/);

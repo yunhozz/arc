@@ -23,7 +23,7 @@ For final Reviewer findings on committed plan work, define follow-up task/requir
 
 Local commit authority never permits early planning-document commits. Pre-Implementer approvals/explicit target/batch preparation remain. NEVER amend planning or implementation commits or retroactively authorize past work. Structural checks prove no live compliance.
 
-Use Conventional Commits `<type>(<scope>): <description>` with concise specific English description, no trailing period, lowercase scope when useful and one logical task. Body/footer only when needed; preserve Git trailers.
+Use Conventional Commits `<type>(<scope>): <description>` with a concise specific description, no trailing period, lowercase scope when useful and one logical task. {{ARC_COMMIT_LANGUAGE_POLICY}} Body/footer only when needed; preserve Git trailers.
 
 <a id="execution-time-plan-document-updates"></a>
 ## Execution-time plan document updates

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-- 상태: plan v1 (2026-11-25T14:57:37+09:00 이전 사용자 승인). T1 수락 완료(2026-11-25)
+- 상태: plan v1 (2026-11-25T14:57:37+09:00 이전 사용자 승인). T1·T2 수락 완료(2026-11-25). T2의 실제 CLI ko 설치 확인(`consumer.test.mjs`)은 base에도 있는 `scripts/deploy.sh` manifest 누락으로 assertion에 도달하지 못해 미확인으로 처분
 - Spec: `docs/superpowers/specs/2026-11-25-commit-message-language-design.md` (2026-11-25 사용자 승인, sha256 `0c912577064bbd852c288b1a2e35c0b0c3d74df960c3f7c85aa2005e07702a34`)
 - 실행 대상: `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `chore/final-tester-before-reviewer`, base `b522c873`
 - 경로: Bounded, plan 필요 (task 2개)
@@ -178,7 +178,7 @@ MANIFEST.sha256
 
 **Interfaces:** export는 바뀌지 않습니다. 설치되는 `skills/arc/references/commit.md`의 내용만 언어별로 달라집니다.
 
-- [ ] **Step 1: 테스트와 기대값 먼저 갱신**
+- [x] **Step 1: 테스트와 기대값 먼저 갱신**
   - `tests/node/plan.test.mjs`
     - `:8` `payload()`에서 플랫폼별로 실제 `references/commit.md` 파일을 `files`에 추가합니다(`${platform}/skill/references/commit.md`).
     - `:144` 언어 테스트에 두 가지를 확인하는 assertion을 추가합니다.
@@ -211,18 +211,18 @@ MANIFEST.sha256
       - commit.md에 marker가 정확히 1개 있습니다.
       - 두 파일 모두 `(?:english|korean)\s+(?:description|conventional commit)`에 걸리지 않습니다.
       - handoff-prep.md에 `commit.md#automatic-commit-after-plan-task-acceptance`가 있습니다.
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
   - `node --test tests/node/plan.test.mjs tests/node/upgrade-harness.test.mjs tests/node/gemini-install.test.mjs tests/node/grok-install.test.mjs tests/node/instruction-layout.test.mjs`
   - `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_harness_contract tests.test_claude_payload tests.test_arc_policy`
   - 새 기대값과 관련된 테스트만 FAIL해야 합니다. 그 밖의 실패는 이름과 함께 보고합니다.
   - `consumer.test.mjs`는 실행하지 않습니다(Orchestrator가 host에서 실행).
-- [ ] **Step 3: 원본 문서 편집 (AC3, AC6)**
+- [x] **Step 3: 원본 문서 편집 (AC3, AC6)**
   - 4개 플랫폼 `commit.md:26`과 `handoff-prep.md:73`을 spec §3.2 문장으로 바꿉니다.
   - managed section은 건드리지 않습니다.
-- [ ] **Step 4: 치환 연결 (AC4, AC5)**
+- [x] **Step 4: 치환 연결 (AC4, AC5)**
   - `lib/installer/plan.mjs:7` import에 `renderCommitLanguagePolicy`를 추가합니다.
   - `:36` 다음에 spec §3.3의 한 줄을 넣습니다.
-- [ ] **Step 5: fixture 해시 재계산 (AC8, AC9)**
+- [x] **Step 5: fixture 해시 재계산 (AC8, AC9)**
   - `renderingBaseline` 8개
     - 테스트의 계산 방식(`plan.test.mjs:228-239`)을 그대로 따릅니다.
     - 일회성 계산만 하고 새 파일은 만들지 않습니다.
@@ -231,16 +231,16 @@ MANIFEST.sha256
     - `~` 항목이 16개 조합 × `skills/arc/references/{commit,handoff-prep}.md`(32항목)에만 있으면 `--write`로 씁니다.
     - 그 밖의 항목이나 `+`/`-` 항목이 있으면 hold합니다.
     - 쓴 뒤에는 en과 ko의 commit.md 해시가 서로 달라야 합니다.
-- [ ] **Step 6: MANIFEST**
+- [x] **Step 6: MANIFEST**
   - 마지막에 `node scripts/update-manifest.mjs`를 실행하고 `npm run check:manifest`로 확인합니다.
   - diff는 commit.md 4줄, handoff-prep.md 4줄, `lib/installer/plan.mjs` 1줄에만 있어야 합니다.
-- [ ] **Step 7: 관련 테스트, check, 범위 확인**
+- [x] **Step 7: 관련 테스트, check, 범위 확인**
   - 아래 최소 집합을 실행합니다.
   - grep으로 확인합니다.
     - `rg -c -F '{{ARC_COMMIT_LANGUAGE_POLICY}}' {claude,codex,gemini,grok}/skill/references/commit.md`: 파일마다 1
     - `rg -n -i -e 'English description' -e 'English Conventional Commit' {claude,codex,gemini,grok}/skill`: 0건
   - `git status --porcelain`으로 변경 파일이 allowedPaths 20개뿐인지 확인합니다.
-- [ ] **Step 8: Commit (Orchestrator)**
+- [x] **Step 8: Commit (Orchestrator)**
   - 수락한 뒤 20개 파일을 commit 하나로 만듭니다.
   - 메시지: `feat(installer): 커밋 메시지 언어를 설치 언어 설정에 맞춤`
 

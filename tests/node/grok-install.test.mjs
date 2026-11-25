@@ -42,6 +42,9 @@ test('grok standalone install layout', async t => {
   const context = await contextFor(t);
   await install(context);
   const home = path.join(context.userHome, '.grok');
+  const commit = fs.readFileSync(path.join(home, 'skills/arc/references/commit.md'), 'utf8');
+  assert.match(commit, /Write the description and any body in English by default\./);
+  assert.doesNotMatch(commit, /\{\{ARC_/);
   assert.deepEqual(fs.readdirSync(path.join(home, 'agents')).sort(), roles.map(role => `arc-${role}.md`).sort());
   for (const name of ['SKILL.md', 'models.toml', 'settings.toml', 'limits.toml', 'references/coordination.md', 'runtime/cli.mjs', 'runtime/platform-registry.mjs']) assert.ok(fs.existsSync(path.join(home, 'skills/arc', name)), name);
   assert.match(fs.readFileSync(path.join(home, 'AGENTS.md'), 'utf8'), /<!-- arc:begin -->[\s\S]*~\/\.grok\/skills\/arc\/SKILL.md[\s\S]*<!-- arc:end -->/);
