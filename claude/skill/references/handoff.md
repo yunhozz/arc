@@ -24,7 +24,7 @@ Before every Implementer start or restart, verify access to the supplied absolut
 
 The first required spec/plan draft follows choice and verified source evidence and precedes actual preparation; saving follows verified preparation. Initial design MAY precede choice. Preparation alone authorizes no Implementer. All approvals/full documents/verified batch or valid absence/final Git checks remain. Separate planned scope/paths, actual preparation and drafting/save/approval/commit, recording chronology/gaps.
 
-After initial design approval record explicit selection: current checkout, new task branch from verified base there, or managed worktree/task branch. Without choice/valid reuse, wait. Reuse through unchanged-scope/target drafting/implementation. Authorized HEAD/dirty changes alone do not invalidate choice; verify preservation/ownership. Changed scope/target requires fresh choice before dependent drafting/preparation without waiting for full documents. NEVER fall back automatically.
+After initial design approval, or within the Architectural [start confirmation](planning.md#architectural-start-confirmation), record explicit selection: current checkout, new task branch from verified base there, or managed worktree/task branch. Without choice/valid reuse, wait. Reuse through unchanged-scope/target drafting/implementation. Authorized HEAD/dirty changes alone do not invalidate choice; verify preservation/ownership. Changed scope/target requires fresh choice before dependent drafting/preparation without waiting for full documents. NEVER fall back automatically.
 
 <a id="implementer-handoff-gate"></a>
 ### Implementer handoff gate

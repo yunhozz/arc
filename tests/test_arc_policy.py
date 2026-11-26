@@ -1630,13 +1630,13 @@ class SpecPlanApprovalMergeTests(unittest.TestCase):
     PLATFORMS = ("claude", "codex", "gemini", "grok")
     APPROVAL_RULES = (
         'Design, spec and plan stages remain separately ordered: Architectural plan drafting starts only after the spec is saved, reviewed and revised and its reviewed path, version and SHA-256 are fixed; NEVER draft spec and plan concurrently.',
-        'Architectural approves design, then complete Planner spec/self-review and Orchestrator save/review/revision without a separate spec approval request; a fresh plan Planner then drafts from the reviewed spec, and the spec and every plan receive one [combined approval](#architectural-combined-approval).',
+        'Architectural replaces design approval with one [start confirmation](#architectural-start-confirmation), then complete Planner spec/self-review and Orchestrator save/review/revision without a separate spec approval request; a fresh plan Planner then drafts from the reviewed spec, and the spec and every plan receive one [combined approval](#architectural-combined-approval).',
         'Bounded has no spec stage, spec approval or spec-necessity record. If Bounded work appears to need a spec-level document, do not write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting. Required plans alone imply no written spec.',
-        'Assess plan depth after design approval and before Implementer, separately from files/LOC/Bounded label.',
+        'Assess plan depth after design approval (Architectural: start confirmation) and before Implementer, separately from files/LOC/Bounded label.',
         'Architectural always uses `writing-plans` and the combined spec+plan approval regardless of size/locality/risk.',
         'Labels/no-plan requests do not bypass judgment.',
         'Approve design and all required plans; no spec. Draft the first required plan before target preparation; complete set before batch/handoff',
-        'Design → reviewed written spec → all `writing-plans` plans → one combined spec+plan approval. First spec draft before target preparation; full set before batch/final checks/handoff',
+        'Start confirmation → reviewed written spec → all `writing-plans` plans → one combined spec+plan approval. First spec draft before target preparation; full set before batch/final checks/handoff',
         '<a id="architectural-combined-approval"></a>',
         '## Architectural combined approval',
         "1. Sequential drafting (R0): Assign the fresh plan Planner only after the spec Planner returned the complete draft and self-review, Orchestrator saved it in the prepared target, reviewed it and made needed revisions, and the reviewed spec's path, version and SHA-256 are fixed and cited in the plan brief. NEVER draft a plan early or dispatch spec and plan Planners in parallel. Request no approval between the spec and plan stages.",
@@ -1663,7 +1663,7 @@ class SpecPlanApprovalMergeTests(unittest.TestCase):
         '| Written spec approval |',
         'spec approval precedes dependent planning',
     )
-    INVENTORY_REFERENCE = r"attaching the author judgments made since design approval \(\[decision inventory\]\(#decision-inventory\)\)"
+    INVENTORY_REFERENCE = r"attaching the complete author-judgment lists of the spec and every plan \(\[decision inventory\]\(#decision-inventory\)\)"
     CLASSIFICATION_REFERENCE = r"classified under \[question classification\]\(#decision-inventory\)"
 
     def reference(self, platform, name):
@@ -1706,7 +1706,7 @@ class SpecPlanApprovalMergeTests(unittest.TestCase):
                         self.fail("Obsolete spec approval wording")
 
     def test_planner_brief_rp1_in_managed_section(self):
-        rule = 'Obtain design approval before spec or plan drafting. For Architectural work, draft the spec and then the plan with fresh Planners, assigning the plan Planner only after the spec is saved and reviewed and its path, version and SHA-256 are fixed; NEVER draft them concurrently; then obtain one combined spec+plan approval. Bounded work has no spec stage; required plans keep their own approval.'
+        rule = 'For Bounded work, obtain design approval before plan drafting. For Architectural work, obtain one start confirmation (scope and explicit target; no design document or design approval) before spec drafting, let the design Planner continue as the spec Planner (a fresh spec Planner when it is unavailable or invalid), then draft the plan with a fresh Planner, assigning the plan Planner only after the spec is saved and reviewed and its path, version and SHA-256 are fixed; NEVER draft them concurrently; then obtain one combined spec+plan approval. Bounded work has no spec stage; required plans keep their own approval.'
         for platform in self.PLATFORMS:
             with self.subTest(platform=platform):
                 planning = self.reference(platform, "planning").decode()
@@ -1752,10 +1752,10 @@ class DesignConversationPolicyTests(unittest.TestCase):
         "<a id=\"design-conversation\"></a>",
         "### Design conversation",
         "These rules apply to feature/design/behavior design and brainstorming. Spike, the direct path (F1–F8) and non-behavior paths keep their existing rules and need no conversation. Planner never talks to the user directly: Planner → Orchestrator → user → Orchestrator → the same design Planner.",
-        "1. Response shape: each design Planner response is exactly one of: one question; 2–3 approaches with a recommendation and a selection question; one design section with a confirmation question; or the final design. Planner splits each response into a user message and Orchestrator notes; Orchestrator relays the user message unchanged.",
+        "1. Response shape: each design Planner response is exactly one of: one question; 2–3 approaches with a recommendation and a selection question; one design section with a confirmation question; or the final design (Architectural: the start summary). Planner splits each response into a user message and Orchestrator notes; Orchestrator relays the user message unchanged.",
         "2. When to ask: ask one question at a time, only when the answer changes the outcome and neither the sources nor the conversation already answer it. Otherwise state \"my judgment\" with its reason so the user can correct it.",
         "3. Reason first: when the user's reason is unknown, first ask one open question without options; offer options only after hearing the reason.",
-        "4. Short path and opt-out: when the request is clear enough, the first response may carry a short design and ask for approval. When the user says to just proceed, stop asking, decide the remaining items as author judgments and list them in the final design.",
+        "4. Short path and opt-out: when the request is clear enough, the first response may carry a short design and ask for approval (Architectural: a short start summary and ask for start confirmation). When the user says to just proceed, stop asking, decide the remaining items as author judgments and list them in the final design or start summary.",
         "5. Relay: Orchestrator relays each user answer verbatim to the same design Planner and marks any interpretation it adds separately.",
         "6. No spinning: every call carries a new user answer or new evidence. DO NOT repeat a question without progress; without progress, report the blocked criterion, observed facts and the decision needed to unblock, and hold.",
         "7. Reuse and correction: reuse the same design Planner while role, context and source remain valid. Conversation responses are expected returns, not missing or failed drafts, and use no correction opportunity. Orchestrator's fixed-checklist review and one consolidated correction apply to the final design.",
@@ -1766,20 +1766,20 @@ class DesignConversationPolicyTests(unittest.TestCase):
         "In the design stage, conversation responses are expected returns and use no correction opportunity; calls after the final-design correction still need new input.",
     )
     MANAGED_RULES = (
-        "For design and brainstorming, follow planning.md's design conversation: each Planner response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design. Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state the judgment and its reason. Ask an open question about the user's reason before offering options. A clear request may receive a short design for approval at once; when the user says to proceed, stop asking and list the remaining author judgments in the final design. Relay user answers verbatim and mark added interpretation separately. Every call needs a new user answer or new evidence; without progress, report the blocked criterion, observed facts and needed decision, and hold. Conversation responses use no correction opportunity.",
+        "For design and brainstorming, follow planning.md's design conversation: each Planner response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design (Architectural: the start summary). Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state the judgment and its reason. Ask an open question about the user's reason before offering options. A clear request may receive a short design for approval at once; when the user says to proceed, stop asking and list the remaining author judgments in the final design or start summary. Relay user answers verbatim and mark added interpretation separately. Every call needs a new user answer or new evidence; without progress, report the blocked criterion, observed facts and needed decision, and hold. Conversation responses use no correction opportunity.",
         "Orchestrator reviews the final design once with the fixed checklist, including decision-inventory completeness and no ambiguous scope wording, and sends one consolidated correction using changed fields only.",
     )
     INVENTORY_RULES = (
-        "; roles/approval/commit boundaries; completeness; inventory/scope notation (final design: complete [decision inventory](#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
+        "; roles/approval/commit boundaries; completeness; inventory/scope notation (final design, Architectural start summary and Architectural spec: complete [decision inventory](#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
         "<a id=\"decision-inventory\"></a>",
         "### Decision inventory and question classification",
-        "1. Decision inventory: before returning the final design, Planner lists what spec and plan drafting must decide, such as changed files, data formats, table notation, tests and generated artifacts, and classifies each item as a user decision (asked in the conversation; the answer is recorded in the design), an author judgment (a minor item that does not change the deliverable; record \"my judgment\" and the reason) or already answered (cite the existing source or conversation). Bounded short designs carry a proportional inventory of a few lines; the per-file scope notation stays mandatory.",
+        "1. Decision inventory: before returning the final design or Architectural start summary, Planner lists what spec and plan drafting must decide, such as changed files, data formats, table notation, tests and generated artifacts, and classifies each item as a user decision (asked in the conversation; the answer is recorded in the design, or for Architectural in the start summary and then the spec), an author judgment (a minor item that does not change the deliverable; record \"my judgment\" and the reason) or already answered (cite the existing source or conversation). Bounded short designs carry a proportional inventory of a few lines; the per-file scope notation stays mandatory.",
         "2. Scope notation: designs, specs and plans mark every file or contract \"change\" or \"no change (reason)\". DO NOT use ambiguous scope wording such as \"review only\" or \"if needed\".",
         "3. Final design: the final design and its design approval request attach the author-judgment list.",
     )
     CLASSIFICATION_RULES = (
-        "4. Spec and plan questions: spec and plan Planners classify each question raised while drafting. Answered by the design: follow it and cite the basis. Minor: decide it as an author judgment and record it in the document's author-judgment list with ID, judgment and reason; it is not an open decision. Genuinely new decision (changes the deliverable and is absent from the design): return it as an open decision with why the design review missed it; Orchestrator routes it to the user.",
-        "5. Approval attachments: the Architectural [combined approval](#architectural-combined-approval) request and the Bounded plan approval request attach the author judgments made since design approval. The approval unit is unchanged.",
+        "4. Spec and plan questions: spec and plan Planners classify each question raised while drafting. Answered by the design (Architectural: the confirmed start summary): follow it and cite the basis. Minor: decide it as an author judgment and record it in the document's author-judgment list with ID, judgment and reason; it is not an open decision. Genuinely new decision (changes the deliverable and is absent from the design or confirmed start summary): return it as an open decision with why the design review or start confirmation missed it; Orchestrator routes it to the user.",
+        "5. Approval attachments: the Architectural [combined approval](#architectural-combined-approval) request attaches the complete author-judgment lists of the spec and every plan, and the Bounded plan approval request attaches the author judgments made since design approval. The approval unit is unchanged.",
     )
     FULL_AUTO_RULES = (
         "8. Full Auto: under [Full Auto](#full-auto-run-mode), Orchestrator records answers decidable within the original request as auto-decisions and sends only questions that need a new decision to the user; [approval.run-mode] limits apply unchanged.",
@@ -1820,7 +1820,7 @@ class DesignConversationPolicyTests(unittest.TestCase):
                 editorial, _ = self.planning_parts(platform)
                 self.assert_rules(editorial, self.CLASSIFICATION_RULES)
                 self.assert_rules(editorial, (
-                    "attaching the author judgments made since design approval ([decision inventory](#decision-inventory));",
+                    "attaching the complete author-judgment lists of the spec and every plan ([decision inventory](#decision-inventory));",
                     "classified under [question classification](#decision-inventory).",
                 ))
 
@@ -1865,3 +1865,113 @@ class DesignConversationPolicyTests(unittest.TestCase):
                 self.assert_rules(editorial, ("plus " + self.REVIEWED_SPEC + ",",))
                 self.assert_rules(self.reference(platform, "coordination"), (self.REVIEWED_SPEC,))
                 self.assert_rules(managed, (self.REVIEWED_SPEC,))
+
+
+class ArchitecturalStartConfirmationTests(unittest.TestCase):
+    PLATFORMS = ("claude", "codex", "gemini", "grok")
+    START_ANCHOR = b'<a id="architectural-start-confirmation"></a>'
+    INVENTORY_ANCHOR = b'<a id="decision-inventory"></a>'
+    START_SECTION = """<a id="architectural-start-confirmation"></a>
+### Architectural start confirmation
+
+1. Scope: on the Architectural path there is no design document and no design approval. Bounded keeps its design approval; Spike, the direct path (F1–F8) and non-behavior paths are unchanged.
+2. Start summary: when the [design conversation](#design-conversation) ends, the design Planner returns a short start summary instead of a final design: scope to change, user decisions, author judgments, already-answered items, open checks, path/depth/risk judgment, document set with planned relative paths, and every file or contract marked change or no change (reason). It carries the [decision inventory](#decision-inventory).
+3. Confirmation: Orchestrator presents the summary and, in one confirmation, obtains the user's scope confirmation and explicit target choice under [handoff](handoff.md). The summary is neither saved nor committed. The confirmed summary supplies the approved scope/depth/document set and explicit choice required by the [formal drafting boundary](#formal-drafting-boundary).
+4. Continuation: Orchestrator sends the same Planner a spec-stage delta brief with verified source/branch/HEAD/ownership, the target choice, confirmed scope, document set, planned paths and exploration budget; that Planner returns the complete first spec draft and self-review. If that Planner is unavailable or its role, context or source is no longer valid, assign a fresh spec Planner with a complete initial brief.
+5. Records: the spec records the conversation's user decisions and author judgments; later author judgments join the same list. A genuinely new decision during spec or plan drafting goes to the user; Orchestrator records the answer in the spec, rechecks spec↔plan consistency and redrafts affected documents. No design approval is requested.
+6. Full Auto: under [Full Auto](#full-auto-run-mode), scope confirmation within the original request may be auto-decided; target choice follows the Execution-target choice row; [approval.run-mode] limits apply unchanged.""".encode()
+    INSERTION_RULES = (
+        "Initial design/brainstorming MAY precede target choice. On the Architectural path, [start confirmation](#architectural-start-confirmation) supplies the approved scope/depth/document set and the explicit choice that the next sentence requires. Before the first required spec/plan draft, record",
+        "3. NEVER reuse a Planner instance across stages, except the Architectural continuation below.",
+        "; within a spec or plan stage, reuse that stage's Planner only for a budget-hold delta. On the Architectural path, the design Planner returns the start summary instead of a final design and, after [start confirmation](#architectural-start-confirmation), continues as the spec Planner through a spec-stage delta brief while role, context and source remain valid. Every plan stage, and an Architectural spec stage without that continuation, uses a fresh Planner; its initial brief contains",
+        "On the Architectural path the conversation ends with the start summary instead of a final design; the summary receives no consolidated correction, and Orchestrator's review and direct revision apply to the spec draft.",
+        "On the Architectural path they do not apply to the start summary; the spec draft takes Orchestrator's review and direct revision.",
+        "On the Architectural path the start summary and its start-confirmation request attach it, and the spec records the user decisions and author judgments.",
+        "On the Architectural path, [start confirmation](#architectural-start-confirmation) takes the place of initial design approval in this order and carries the explicit target choice.",
+        "Hold, obtain the applicable design approval (Bounded; Architectural records the new decision in the revised spec) and document approvals below",
+    )
+    FULL_AUTO_ROW = "| Architectural start confirmation | auto | Scope only within the original request, otherwise user; target follows the Execution-target choice row |"
+    COORDINATION_RULES = (
+        "NEVER reuse a Planner across stages, except that on the Architectural path the design Planner continues as the spec Planner after [start confirmation](planning.md#architectural-start-confirmation) while role, context and source remain valid.",
+        "Every plan stage, and an Architectural spec stage without that continuation, uses a fresh Planner whose brief contains",
+    )
+    HANDOFF_RULE = "After initial design approval, or within the Architectural [start confirmation](planning.md#architectural-start-confirmation), record explicit selection:"
+    SKILL_RULE = "`design` (Planner design required, approved, start confirmed (Architectural) or omitted, and why)"
+    MANAGED_RULES = (
+        "Reuse the same Planner instance only within the design/brainstorming stage while its role, context and source remain valid, except that on the Architectural path that Planner continues as the spec Planner after start confirmation through a spec-stage delta brief; use a fresh Planner instance for each plan stage, and for an Architectural spec stage when that Planner is unavailable or its role, context or source is no longer valid, whose initial brief contains every required field, saved document paths and approved versions (for the Architectural plan stage, the reviewed spec path, version and SHA-256).",
+        "On the Architectural path the start summary receives no consolidated correction; the spec draft takes Orchestrator's review and direct revision.",
+    )
+    REMOVED_WORDING = (
+        "Architectural approves design",
+        "revised design approval",
+        "After architectural design approval",
+        "Obtain design approval before spec or plan drafting",
+        "After design approval, the spec stage",
+        "Approved design scope/evidence",
+    )
+
+    def reference(self, platform, name):
+        return (REPO / platform / "skill/references" / f"{name}.md").read_bytes()
+
+    def planning_parts(self, platform):
+        planning = self.reference(platform, "planning")
+        editorial, _, managed = planning.partition(b"[ARC role policy: contract begin]")
+        return editorial, managed.partition(b"[ARC role policy: contract end]")[0]
+
+    def test_start_confirmation_section_identical_on_every_platform(self):
+        sections = []
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                editorial, _ = self.planning_parts(platform)
+                self.assertEqual(self.reference(platform, "planning").count(self.START_ANCHOR), 1)
+                _, start, after_start = editorial.partition(self.START_ANCHOR)
+                section, inventory, _ = after_start.partition(self.INVENTORY_ANCHOR)
+                self.assertEqual(inventory, self.INVENTORY_ANCHOR)
+                actual = start + section
+                self.assertEqual(actual.strip(), self.START_SECTION)
+                sections.append(actual)
+        self.assertEqual(len(set(sections)), 1)
+
+    def test_architectural_insertions_present(self):
+        for platform in self.PLATFORMS:
+            editorial, _ = self.planning_parts(platform)
+            for rule in self.INSERTION_RULES:
+                with self.subTest(platform=platform, rule=rule):
+                    self.assertIn(rule.encode(), editorial)
+            with self.subTest(platform=platform, rule=self.FULL_AUTO_ROW):
+                planning = self.reference(platform, "planning")
+                _, _, full_auto = planning.partition(b'<a id="full-auto-run-mode"></a>')
+                _, header, table = full_auto.partition(b"| Gate | Full Auto | Rule |\n")
+                self.assertTrue(header)
+                rows = table.split(b"\n\n", 1)[0].splitlines()
+                self.assertIn(self.FULL_AUTO_ROW.encode() + b"\n", [row + b"\n" for row in rows])
+
+    def test_coordination_handoff_skill_wording(self):
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                coordination = self.reference(platform, "coordination")
+                for rule in self.COORDINATION_RULES:
+                    self.assertIn(rule.encode(), coordination)
+                self.assertIn(self.HANDOFF_RULE.encode(), self.reference(platform, "handoff"))
+                skill = (REPO / platform / "skill/SKILL.md").read_bytes()
+                self.assertIn(self.SKILL_RULE.encode(), skill)
+
+    def test_planner_brief_continuation_in_managed_section(self):
+        for platform in self.PLATFORMS:
+            _, managed = self.planning_parts(platform)
+            planning = self.reference(platform, "planning")
+            for rule in self.MANAGED_RULES:
+                with self.subTest(platform=platform, rule=rule):
+                    self.assertEqual(managed.count(rule.encode()), 1)
+                    self.assertEqual(planning.count(rule.encode()), 1)
+
+    def test_removed_design_approval_wording_absent(self):
+        paths = [path for platform in self.PLATFORMS
+                 for path in (REPO / platform / "skill").rglob("*.md")]
+        paths += [REPO / "lib/policy/role-policy.json", REPO / "lib/prompts/agent-fragments.json"]
+        for path in paths:
+            text = path.read_text()
+            for phrase in self.REMOVED_WORDING:
+                if phrase in text:
+                    with self.subTest(path=path.relative_to(REPO), phrase=phrase):
+                        self.fail("Obsolete Architectural design approval wording")

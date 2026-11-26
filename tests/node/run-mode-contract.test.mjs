@@ -25,6 +25,7 @@ Applies only when the installed SKILL.md contains \`**Run mode:** Full Auto.\` a
 | Branch name collision | auto | Next numeric suffix (\`-2\`, \`-3\`, …) |
 | Planner options and questions | auto | Recommended option; record assumptions in the brief |
 | Design and short-design approval | auto | After Orchestrator review |
+| Architectural start confirmation | auto | Scope only within the original request, otherwise user; target follows the Execution-target choice row |
 | Architectural spec+plan combined approval | auto | Only with zero open decisions; otherwise user |
 | Plan approval | auto | Only with zero open decisions; otherwise user |
 | Spec/plan revision within the original scope | auto | Scope-expanding revisions → user |
