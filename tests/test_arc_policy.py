@@ -435,7 +435,7 @@ class PlannerDraftingDisciplineTests(unittest.TestCase):
                 r"raw subagent responses may appear in app or tool surfaces.*prompt policy cannot hide them",
             ),
             "planning.planner-brief": (
-                r"allow the initial draft and one consolidated correction",
+                r"reviews the final design once with the fixed checklist.*one consolidated correction",
                 r"do not invoke planner only to reformat or re.express a draft, fix a save error, or fix a patch.application error.*orchestrator handles these operations",
                 r"evaluate separate substantive work under the normal planner gate",
                 r"keep user.facing progress brief and based on planner status.*do not relay draft content",
@@ -1663,8 +1663,8 @@ class SpecPlanApprovalMergeTests(unittest.TestCase):
         '| Written spec approval |',
         'spec approval precedes dependent planning',
     )
-    INVENTORY_REFERENCE = r"attaching the author judgments made since design approval \((?:\[decision inventory\]\(#decision-inventory\)|decision inventory)\)"
-    CLASSIFICATION_REFERENCE = r"classified under (?:\[question classification\]\(#decision-inventory\)|question classification)"
+    INVENTORY_REFERENCE = r"attaching the author judgments made since design approval \(\[decision inventory\]\(#decision-inventory\)\)"
+    CLASSIFICATION_REFERENCE = r"classified under \[question classification\]\(#decision-inventory\)"
 
     def reference(self, platform, name):
         return (REPO / platform / "skill/references" / f"{name}.md").read_bytes()
@@ -1740,3 +1740,128 @@ class SpecPlanApprovalMergeTests(unittest.TestCase):
             for rule in rules:
                 with self.subTest(platform=platform, rule=rule):
                     self.assertIn(rule, handoff)
+
+
+class DesignConversationPolicyTests(unittest.TestCase):
+    PLATFORMS = ("claude", "codex", "gemini", "grok")
+    DESIGN_RULES = (
+        "Within the design/brainstorming stage, reuse one Planner instance for every [design conversation](#design-conversation) response, the final design, its consolidated correction and any eligible further call while role, context and source remain valid;",
+        "In the design stage, [design conversation](#design-conversation) responses are expected returns and use no correction opportunity.",
+        "For design and brainstorming, finish the checklist on the final design before one consolidated correction covering",
+        "For design and brainstorming, converse under [design conversation](#design-conversation) and allow one consolidated correction on the final design.",
+        "<a id=\"design-conversation\"></a>",
+        "### Design conversation",
+        "These rules apply to feature/design/behavior design and brainstorming. Spike, the direct path (F1–F8) and non-behavior paths keep their existing rules and need no conversation. Planner never talks to the user directly: Planner → Orchestrator → user → Orchestrator → the same design Planner.",
+        "1. Response shape: each design Planner response is exactly one of: one question; 2–3 approaches with a recommendation and a selection question; one design section with a confirmation question; or the final design. Planner splits each response into a user message and Orchestrator notes; Orchestrator relays the user message unchanged.",
+        "2. When to ask: ask one question at a time, only when the answer changes the outcome and neither the sources nor the conversation already answer it. Otherwise state \"my judgment\" with its reason so the user can correct it.",
+        "3. Reason first: when the user's reason is unknown, first ask one open question without options; offer options only after hearing the reason.",
+        "4. Short path and opt-out: when the request is clear enough, the first response may carry a short design and ask for approval. When the user says to just proceed, stop asking, decide the remaining items as author judgments and list them in the final design.",
+        "5. Relay: Orchestrator relays each user answer verbatim to the same design Planner and marks any interpretation it adds separately.",
+        "6. No spinning: every call carries a new user answer or new evidence. DO NOT repeat a question without progress; without progress, report the blocked criterion, observed facts and the decision needed to unblock, and hold.",
+        "7. Reuse and correction: reuse the same design Planner while role, context and source remain valid. Conversation responses are expected returns, not missing or failed drafts, and use no correction opportunity. Orchestrator's fixed-checklist review and one consolidated correction apply to the final design.",
+        "8. Full Auto: under [Full Auto](#full-auto-run-mode), Orchestrator records answers decidable within the original request as auto-decisions and sends only questions that need a new decision to the user; [approval.run-mode] limits apply unchanged.",
+    )
+    COORDINATION_RULES = (
+        "Within the design/brainstorming stage one Planner handles every [design conversation](planning.md#design-conversation) response, the final design, its consolidated correction and any eligible further call;",
+        "In the design stage, conversation responses are expected returns and use no correction opportunity; calls after the final-design correction still need new input.",
+    )
+    MANAGED_RULES = (
+        "For design and brainstorming, follow planning.md's design conversation: each Planner response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design. Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state the judgment and its reason. Ask an open question about the user's reason before offering options. A clear request may receive a short design for approval at once; when the user says to proceed, stop asking and list the remaining author judgments in the final design. Relay user answers verbatim and mark added interpretation separately. Every call needs a new user answer or new evidence; without progress, report the blocked criterion, observed facts and needed decision, and hold. Conversation responses use no correction opportunity.",
+        "Orchestrator reviews the final design once with the fixed checklist, including decision-inventory completeness and no ambiguous scope wording, and sends one consolidated correction using changed fields only.",
+    )
+    INVENTORY_RULES = (
+        "; roles/approval/commit boundaries; completeness; inventory/scope notation (final design: complete [decision inventory](#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
+        "<a id=\"decision-inventory\"></a>",
+        "### Decision inventory and question classification",
+        "1. Decision inventory: before returning the final design, Planner lists what spec and plan drafting must decide, such as changed files, data formats, table notation, tests and generated artifacts, and classifies each item as a user decision (asked in the conversation; the answer is recorded in the design), an author judgment (a minor item that does not change the deliverable; record \"my judgment\" and the reason) or already answered (cite the existing source or conversation). Bounded short designs carry a proportional inventory of a few lines; the per-file scope notation stays mandatory.",
+        "2. Scope notation: designs, specs and plans mark every file or contract \"change\" or \"no change (reason)\". DO NOT use ambiguous scope wording such as \"review only\" or \"if needed\".",
+        "3. Final design: the final design and its design approval request attach the author-judgment list.",
+    )
+    CLASSIFICATION_RULES = (
+        "4. Spec and plan questions: spec and plan Planners classify each question raised while drafting. Answered by the design: follow it and cite the basis. Minor: decide it as an author judgment and record it in the document's author-judgment list with ID, judgment and reason; it is not an open decision. Genuinely new decision (changes the deliverable and is absent from the design): return it as an open decision with why the design review missed it; Orchestrator routes it to the user.",
+        "5. Approval attachments: the Architectural [combined approval](#architectural-combined-approval) request and the Bounded plan approval request attach the author judgments made since design approval. The approval unit is unchanged.",
+    )
+    FULL_AUTO_RULES = (
+        "8. Full Auto: under [Full Auto](#full-auto-run-mode), Orchestrator records answers decidable within the original request as auto-decisions and sends only questions that need a new decision to the user; [approval.run-mode] limits apply unchanged.",
+        "6. Full Auto: author judgments are not open decisions when [Full Auto](#full-auto-run-mode) counts zero open decisions.",
+    )
+    REVIEWED_SPEC = "saved document paths and approved versions (for the Architectural plan stage, the reviewed spec path, version and SHA-256)"
+
+    def reference(self, platform, name):
+        return (REPO / platform / "skill/references" / f"{name}.md").read_bytes()
+
+    def assert_rules(self, text, rules):
+        for rule in rules:
+            with self.subTest(rule=rule):
+                self.assertIn(rule.encode(), text)
+
+    def planning_parts(self, platform):
+        planning = self.reference(platform, "planning")
+        editorial, _, managed = planning.partition(b"[ARC role policy: contract begin]")
+        return editorial, managed.partition(b"[ARC role policy: contract end]")[0]
+
+    def test_design_conversation_rules_present_on_every_platform(self):
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                editorial, managed = self.planning_parts(platform)
+                self.assert_rules(editorial, self.DESIGN_RULES)
+                self.assert_rules(self.reference(platform, "coordination"), self.COORDINATION_RULES)
+                self.assert_rules(managed, self.MANAGED_RULES)
+
+    def test_decision_inventory_and_scope_notation_rules_present(self):
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                editorial, _ = self.planning_parts(platform)
+                self.assert_rules(editorial, self.INVENTORY_RULES)
+
+    def test_spec_plan_question_classification_and_attachments_present(self):
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                editorial, _ = self.planning_parts(platform)
+                self.assert_rules(editorial, self.CLASSIFICATION_RULES)
+                self.assert_rules(editorial, (
+                    "attaching the author judgments made since design approval ([decision inventory](#decision-inventory));",
+                    "classified under [question classification](#decision-inventory).",
+                ))
+
+    def test_author_judgments_not_open_decisions_under_full_auto(self):
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                lines = self.reference(platform, "planning").splitlines(keepends=True)
+                for rule in self.FULL_AUTO_RULES:
+                    with self.subTest(rule=rule):
+                        self.assertIn(rule.encode() + b"\n", lines)
+
+    def test_design_stage_correction_wording_removed(self):
+        removed = (
+            "a resend after a return without a draft uses the consolidated-correction opportunity",
+            "allow initial draft and one consolidated correction",
+            "allow the initial draft and one consolidated correction",
+            "and focused questions",
+            "review only",
+            "if needed",
+        )
+        planning_refs = {REPO / platform / "skill/references/planning.md" for platform in self.PLATFORMS}
+        fragments = REPO / "lib/prompts/agent-fragments.json"
+        paths = [path for platform in self.PLATFORMS
+                 for path in (REPO / platform / "skill").rglob("*") if path.is_file()]
+        paths += [REPO / "lib/policy/role-policy.json", fragments]
+        scope_notation = self.INVENTORY_RULES[4]
+        for path in paths:
+            content = path.read_text()
+            if path in planning_refs:
+                before, anchor, after = content.partition('<a id="decision-inventory"></a>')
+                content = before + anchor + after.replace(scope_notation, "", 1)
+            if path == fragments:
+                content = content.replace("Independently review only that scope", "", 1)
+            for phrase in removed:
+                with self.subTest(path=path.relative_to(REPO), phrase=phrase):
+                    self.assertEqual(content.count(phrase), 0)
+
+    def test_sj6_reviewed_spec_suffix(self):
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                editorial, managed = self.planning_parts(platform)
+                self.assert_rules(editorial, ("plus " + self.REVIEWED_SPEC + ",",))
+                self.assert_rules(self.reference(platform, "coordination"), (self.REVIEWED_SPEC,))
+                self.assert_rules(managed, (self.REVIEWED_SPEC,))

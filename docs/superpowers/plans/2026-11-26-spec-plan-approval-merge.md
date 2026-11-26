@@ -431,9 +431,9 @@
 
 **spec 매핑:** G4, G5, P20–P25, §3.1.3, §3.1.4, C1a/C1b, RP2, RP3, F4–F6, SJ3–SJ11, SJ13, §6.1 G4/G5 행, §6.2 G4/G5 테스트
 
-- [ ] **Step 1: 기준선 기록.** I11: base에서 `test_arc_policy.py:439–442,464`, `test_claude_payload.py:436`, `test_harness_contract.py:123` 결과를 기록합니다.
+- [x] **Step 1: 기준선 기록.** I11: base에서 `test_arc_policy.py:439–442,464`, `test_claude_payload.py:436`, `test_harness_contract.py:123` 결과를 기록합니다.
 
-- [ ] **Step 2: 실패 테스트 작성.**
+- [x] **Step 2: 실패 테스트 작성.**
   - (a) 기존 assert 갱신:
     - `test_harness_contract.py:451`, `test_arc_policy.py:438`, `test_claude_payload.py:435`: 정규식을 `reviews the final design once with the fixed checklist.*one consolidated correction`으로 바꿉니다.
     - `role-policy.test.mjs:302`: 이름을 `design and brainstorming converse and keep one final-design correction`으로 바꿉니다.
@@ -457,9 +457,9 @@
     - `and focused questions`는 없어야 합니다.
     - F2 문장(`without a separate spec approval; a fresh plan Planner drafts next.`)이 F4 뒤 같은 bullet에 남아 있어야 합니다.
 
-- [ ] **Step 3: 실패 확인.** `python3 -m unittest discover -s tests -p 'test_arc_policy.py'`, `node --test tests/node/role-policy.test.mjs tests/node/agent-fragments.test.mjs` → 새·변경 테스트 FAIL
+- [x] **Step 3: 실패 확인.** `python3 -m unittest discover -s tests -p 'test_arc_policy.py'`, `node --test tests/node/role-policy.test.mjs tests/node/agent-fragments.test.mjs` → 새·변경 테스트 FAIL
 
-- [ ] **Step 4: 구현.**
+- [x] **Step 4: 구현.**
   - I10: 대상 문장이 4개 플랫폼에서 바이트까지 같은지 확인합니다. 다르면 hold합니다.
   - `planning.md`:
     - P20–P23 적용, 40행 SJ6 덧붙임
@@ -469,17 +469,17 @@
   - `role-policy.json`: RP2, RP3, SJ6. inventory와 세 갈래 분류는 넣지 않습니다(SJ8).
   - `agent-fragments.json`: F4(3번째 bullet), F6(3번째 bullet 뒤 새 bullet, SJ11), F5(5번째 bullet)
 
-- [ ] **Step 5: 생성.** `npm run update:role-policy`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs`, `--check` (모두 PASS)
+- [x] **Step 5: 생성.** `npm run update:role-policy`, `npm run check:role-policy`, `node scripts/update-runtime-assets.mjs`, `--check` (모두 PASS)
 
-- [ ] **Step 6: fixture 갱신.** golden `--write`/`--diff`, renderingBaseline(I1), protected 2개(I2)와 PI4, PI1, PI2, `update-manifest`, `check:manifest`
+- [x] **Step 6: fixture 갱신.** golden `--write`/`--diff`, renderingBaseline(I1), protected 2개(I2)와 PI4, PI1, PI2, `update-manifest`, `check:manifest`
 
-- [ ] **Step 7: task-level 검증(fresh Tester).**
+- [x] **Step 7: task-level 검증(fresh Tester).**
   - T1 Step 7의 Python 3개와 Node 목록을 그대로 실행합니다(`role-policy.test.mjs`, `agent-fragments.test.mjs` 포함).
   - 회귀 확인: `role-policy.test.mjs:306,310`, `test_arc_policy.py:464`, `test_harness_contract.py:123`, `instruction-contracts.json:68,180` anchor
   - check 스크립트 5개
   - 기대: 기준선 대비 새 실패 없음
 
-- [ ] **Step 8: Orchestrator 수용 후 커밋.** 메시지 예: `chore(policy): design 단계 대화 방식과 결정 inventory·질문 분류 규칙 추가`
+- [x] **Step 8: Orchestrator 수용 후 커밋.** 메시지 예: `chore(policy): design 단계 대화 방식과 결정 inventory·질문 분류 규칙 추가`
 
 **관련 테스트와 이유:** T1과 같은 정책 문구 테스트입니다. 추가로 `role-policy.test.mjs`(RP2·RP3 원문 검사, 306·310 회귀)와 `agent-fragments`(F4–F6)를 봅니다.
 
@@ -491,6 +491,8 @@
 - 생성기 check가 실패할 때
 - 회귀 assert에서 새 실패가 나올 때
 - AC17 grep에 허용 예외 외의 결과가 나올 때
+
+**진행 기록 (2026-11-26):** Implementer(bridge 5b339076, segment 2개; 1차는 자기 편집 스크립트 IndexError로 중단, 같은 세션 resume으로 완료). fresh Tester(ff391f68, mode: task): 새 실패 0, check 5개 통과, §7.2 grep은 허용 예외만, AC5·AC11a·AC12–AC15·AC17 proven. AC9는 생성 실행 이력 미확인으로 unverified였으나 check:role-policy·update-runtime-assets --check 통과로 Orchestrator가 proven 처리(T1과 같은 근거).
 
 ---
 

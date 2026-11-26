@@ -106,3 +106,23 @@ test('rendered planner profiles require a reviewed spec and one combined approva
     for (const phrase of removed) assert.ok(!rendered.includes(phrase), `${path} still has: ${phrase}`);
   }
 });
+
+test('rendered planner profiles carry design conversation inventory and question classification', async () => {
+  const { renderAgentProfile } = await import('../../lib/prompts/render.mjs');
+  const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
+  const targets = registry.targets.filter(({ path }) => /\/agents\/arc-planner\.(?:md|toml)$/.test(path));
+  assert.equal(targets.length, 4);
+  const conversation = "Converse through Orchestrator under planning.md's design conversation: each response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design with context, Spike/Bounded/Architectural path, options, tradeoffs, criteria and assumptions. Split each response into a user message, which Orchestrator relays unchanged, and Orchestrator notes. Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state your judgment and reason. Ask an open question about the user's reason before offering options. For a clear request, the first response may be a short design for approval; when the user says to proceed, stop asking and list the remaining author judgments. Each call carries a new user answer, relayed verbatim with any Orchestrator interpretation marked, or new evidence; without progress, return the blocked criterion, observed facts and needed decision as a hold. The same design Planner continues while role, context and source remain valid; conversation responses use no correction opportunity, and only the final design receives Orchestrator's one consolidated correction. Before the final design, build a decision inventory classifying each item as user decision, author judgment or already answered, mark every file or contract change or no change (reason) without ambiguous scope wording, and attach the author-judgment list.";
+  const classification = "- In spec and plan stages, classify each drafting question: answered by the design → follow it and cite the basis; minor, with no deliverable change → decide it as an author judgment and list it with ID, judgment and reason (not an open decision); genuinely new decision that changes the deliverable and is absent from the design → return it as an open decision with why the design review missed it. Mark every file or contract change or no change (reason).";
+  const plan = "When needed, return the complete proportional plan, dependencies, assumptions, author judgments, open decisions, verification needs and self-review.";
+  const specHandoff = 'without a separate spec approval; a fresh plan Planner drafts next.';
+  for (const { path } of targets) {
+    const rendered = renderAgentProfile(path, await read(path), registry).toString();
+    const lines = rendered.split('\n');
+    const conversationIndex = lines.findIndex(line => line.startsWith('- ') && line.includes(conversation) && line.endsWith(specHandoff));
+    assert.ok(conversationIndex >= 0, `${path} lacks the design conversation and spec handoff bullet`);
+    assert.equal(lines[conversationIndex + 1], classification, path);
+    assert.ok(lines.some(line => line.startsWith('- ') && line.includes(plan)), `${path} lacks the plan return fields`);
+    assert.ok(!rendered.includes('and focused questions'), `${path} retains obsolete design questions wording`);
+  }
+});

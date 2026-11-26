@@ -446,7 +446,7 @@ class PolicyContractTests(unittest.TestCase):
                 with self.subTest(artifact=artifact, contract=pattern):
                     self.assertRegex(text, pattern)
         for pattern in (
-            r"allow the initial draft and one consolidated correction",
+            r"reviews the final design once with the fixed checklist.*one consolidated correction",
             r"orchestrator handles reformatting, re\-expression, save and patch errors without planner calls\.",
             r"evaluate separate substantive work under the normal planner gate",
         ):
