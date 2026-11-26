@@ -5,14 +5,15 @@
 - **Goal:** 지침 문장을 글자 그대로 고정하는 곳을 `tests/node/fixtures/rule-pins.json` 하나로 모읍니다(U7). 그다음 4플랫폼 지침 문서를 의미를 보존하며 정리합니다(U3·U4·U5).
 - **Architecture:** 테스트를 먼저 정비합니다(W1·W2). 그다음 원천을 고치고 재생성합니다(W3). 이어서 agents(W4), SKILL.md(W5), reference 문서(W6–W15)를 하나씩 처리합니다. reference 문서는 공통 S run을 `shared/skill/references/<name>-common.md`로 바이트 그대로 옮긴 뒤 편집합니다. 남은 규칙 고정은 같은 task 안에서 ledger 치환표로 갱신합니다(§7).
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침 문서, 생성 스크립트(`scripts/update-role-policy.mjs`, `update-runtime-assets.mjs`, `update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
-- **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v1, SHA-256 `7dbdef53a276a3b6046a093b83f893fae0db386494995188f3d92f4ec6e0d4db`. 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
+- **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v2, SHA-256 `8decdf5224eb9a8d30cf7ee184c636138f9b3b9e15f9070c6fd4dee8b0349a4a`. 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
 - **실행 대상:** `/Users/yunho/Desktop/project/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `8ec7d907f77e1fb288f6ce63d8a8973d9aacb7ed`
 - **역할:** Implementer와 Tester는 Codex bridge이고, Reviewer는 native Claude입니다. bridge 역할은 Git 상태를 바꾸지 않으며, 커밋은 Orchestrator만 합니다.
-- **plan 버전:** v1(Planner 첫 초안 v0 + Orchestrator 검토 수정, spec과 함께 승인 대기)
+- **plan 버전:** v3(v2 승인 뒤 W1 PH-1에 따른 PJ15 추가, 사용자 선택으로 승인)
 
 ## Global Constraints
 
 - 줄 번호 인용의 기준은 base `8ec7d907`입니다(spec 머리말).
+- 기준선은 `.git/arc/workflows/harness-doc-refactor-3/t0-baseline.md`입니다(v2). 현재 checkout의 `tests/node/manifest.test.mjs` 16건 실패는 환경 기준선이고(U10), Python 기준선 실패는 §3.8 (a)·(b)로 나뉩니다. 모든 비교는 test ID 기준입니다.
 - Python은 항상 `PYTHONDONTWRITEBYTECODE=1 python3 -B …`로 실행합니다.
 - Git 조회에는 항상 `git --no-optional-locks`를 붙입니다. `.git` 메타데이터를 바꾸는 명령은 bridge에서 금지합니다. 예: `add`, `commit`, `stash`, `reset`, `fetch`, `gc`, index를 쓰는 `status`.
 - heredoc과 프로세스 치환은 쓰지 않습니다. 일회성 검사는 `node -e '…'` 한 줄로 합니다. 저장소 안에 임시 파일을 만들지 않습니다.
@@ -68,7 +69,7 @@
   - `node scripts/update-runtime-assets.mjs --check`
   - `node scripts/check-installer-parity.mjs`
   - `node tests/node/fixtures/installed-layout.mjs --diff`
-- **CS-X(PJ9):** T0 (9)에서 찾은 no change 테스트 파일. 대상은 지침 문서·원천을 읽고 토큰을 확인하는 파일이며, 해당 문서 task에서만 추가로 실행합니다.
+- **CS-X(PJ9):** 각 편집 task의 D-0(v2, 구 T0 (9))에서 찾은 no change 테스트 파일. 대상은 지침 문서·원천을 읽고 토큰을 확인하는 파일이며, 해당 문서 task에서만 추가로 실행합니다.
 - 모든 명령 뒤에 `; echo "exit=$?"`를 붙입니다. test ID는 `파일::test 이름`(Python은 `파일::Class.method`)으로 비교합니다.
 
 ### 1.2 새 인터페이스(W1에서 정의하고 이후 task가 사용)
@@ -99,6 +100,8 @@
 - **literal 고정**(PJ4): 항목 `text`는 literal 그대로입니다. 여러 문장으로 된 literal도 항목 1개로 둡니다. spec 예시 RP-001이 이 방식입니다. 규칙 문장과 아닌 문장이 섞여 있으면 통째로 이전하고 애매 표시를 합니다.
 - **regex 고정**: base 문서에서 맞는 문장 전체를 문장마다 항목으로 만듭니다(§3.2). 맞는 문장이 base에 없으면 그 test는 기준선 실패여야 합니다. 기준선 실패가 아니면 그 행을 hold하고 보고합니다.
 - **섹션 전문**(`contracts[].text`, `opening`, `bootstrap`): 문장 단위로 하위 행 `M-…​.k`를 만들고, 문장마다 §3.1을 적용합니다.
+- **stale 고정**(v2, U9·J44): T0 (b) 기준선 실패 test의 고정은 먼저 stale을 판정합니다. 맞히는 문장·heading이 플랫폼별 base 대상 텍스트에 없으면 "삭제(stale)"이고, 대응표 사유에 판정 명령(`node -e` 포함 검색·match)과 결과를 적습니다. 애매하면 유지하고 애매 표시를 합니다. 의도된 기준선 실패(§3.8 (a), `test_harness_contract.py`)는 판정 없이 "유지(기준선 실패)"입니다.
+- **no change 테스트에 이미 있는 규칙**(v3, PJ15): 규칙 문장이 §2의 no change 테스트(예: `tests/node/global-config.test.mjs:10`)에 이미 고정돼 있으면 RP를 만들지 않습니다. 정비 대상 쪽 사본은 분류 6(중복)으로 삭제하고, 대체 수단에 그 no change 테스트의 `path:line`을 적고 애매 목록에 올립니다. no change 테스트는 고치지 않습니다.
 - **부재 검사**(`doesNotMatch`, `!includes`, `assert.ok(!…)`): 분류 3(구조)로 유지하고 애매 표시를 합니다(PJ5). 대상은 effective 텍스트로 바꿉니다.
 - **이미 같은 (`doc`, `text`) 항목이 있는 규칙**: 새 항목을 만들지 않습니다. 기존 항목 `origin`에 위치를 추가하고, 대응표에는 그 RP-ID를 적습니다(PJ6). 분류는 4로 둡니다.
 - `platforms`에는 원래 테스트가 돌던 플랫폼만 적습니다. 예: claude/codex 루프이면 `["claude","codex"]`입니다. 새 플랫폼을 추가하면 새 고정이 되므로 J34에 따라 하지 않습니다(PJ2).
@@ -107,6 +110,8 @@
 ---
 
 ## T0 — 기준선과 전수 조사 (fresh Tester, 커밋 없음)
+
+> **v2 상태(2026-11-26):** 결과는 `.git/arc/workflows/harness-doc-refactor-3/t0-baseline.md`입니다. 단계 1–4, 9, 10, 12를 완료했습니다. bridge Tester가 전수 목록을 한 보고로 반환하지 못해(U11, J45) 나머지는 옮겼습니다: 단계 5(inventory) → W1 Step 4·W2 Step 1, 단계 7(parity destination) → W2 Step 1, 단계 6·11(H-6·CS-X) → 편집 task의 D-0, 단계 8(링크 기준선) → TD-6과 최종 Tester 3단계의 base 대비 비교. 아래 원래 단계는 기록으로 남깁니다.
 
 - **목표:** 모든 비교의 기준이 되는 실행 결과, 고정 inventory, 링크 기준선, 사전 위험(H-3·H-6·H-8·PJ9)을 확정합니다.
 - **파일:** change 0. 읽기와 실행만 합니다. **allowedPaths:** 없음(쓰기 금지)
@@ -143,7 +148,7 @@
   - Modify: `tests/node/fixtures/instruction-contracts.json`, `tests/node/instruction-layout.test.mjs`, `tests/node/agent-fragments.test.mjs`, `tests/node/role-policy.test.mjs`
   - 손대지 않는 파일: 지침 문서 전부, 원천, `MANIFEST.sha256`, golden, W2 대상 7개 파일, `tests/installer-parity.json`
 - **allowedPaths:** `tests/node/fixtures/rule-pins.json`, `tests/node/rule-pins.test.mjs`, `tests/node/fixtures/effective-doc.mjs`, `tests/node/fixtures/instruction-contracts.json`, `tests/node/instruction-layout.test.mjs`, `tests/node/agent-fragments.test.mjs`, `tests/node/role-policy.test.mjs`
-- **선행:** T0 수락. H-1·H-6 해당 없음.
+- **선행:** T0 수락(v2 범위).
 - **Interfaces:** §1.2를 만듭니다(Produces). W2–W15가 사용합니다.
 
 - [ ] **Step 1: `effective-doc.mjs` 작성.** `effectiveText`와 `effectiveSection`을 §1.2 시그니처대로 만듭니다. 파일 읽기는 `fs.readFileSync(…,'utf8')`로 합니다.
@@ -168,7 +173,7 @@
     - heading이 없으면 throw하는지 확인합니다.
   - W2 대기 목록(PJ10): `const pendingW2 = ['tests/node/test-scope-contract.test.mjs','tests/node/composite-instructions.test.mjs','tests/node/plan-level-records-contract.test.mjs','tests/node/run-mode-contract.test.mjs','tests/test_arc_policy.py','tests/test_claude_payload.py','tests/test_harness_contract.py']`. W2가 이 상수를 지웁니다.
 - [ ] **Step 3: 빈 fixture로 실패 확인.** `{"version":1,"rules":[]}` 상태에서 `node --test tests/node/rule-pins.test.mjs`를 실행합니다. 기대: 스키마·포함·배타성은 통과하고(항목 0), effective 자체 검사도 통과합니다. 이어서 임시로 존재하지 않는 `text` 항목 하나를 넣어 포함 test가 FAIL하는지 확인한 뒤 그 항목을 지웁니다.
-- [ ] **Step 4: 대응표 작성(W1 범위).** T0 inventory의 W1 대상 행(`instruction-layout`, `agent-fragments`, `role-policy`, `instruction-contracts.json`)마다 §1.3에 따라 분류와 처리를 정합니다. 예상되는 처리는 다음과 같습니다. 최종 판정은 행마다 §3.1로 내립니다.
+- [ ] **Step 4: inventory와 대응표 작성(W1 범위).** 먼저 W1 대상 4개 파일의 inventory를 spec §3.9 형식으로 만듭니다(U11). 부분 참고 자료(`t0-baseline.md` 끝)는 그대로 믿지 않습니다. 그 inventory 행(`instruction-layout`, `agent-fragments`, `role-policy`, `instruction-contracts.json`)마다 §1.3에 따라 분류와 처리를 정합니다. 예상되는 처리는 다음과 같습니다. 최종 판정은 행마다 §3.1로 내립니다.
   - `instruction-layout.test.mjs:13` `gates` trigger 셀 → core RP(J38). `checkLayout`은 "core 표에 `references/<name>.md` 링크 행이 있다"만 확인합니다.
   - `:14-33` fast path → regex마다 문장 RP(doc `handoff`, `["claude","codex"]`). `**F1**`–`**F8**` 같은 토큰은 `effectiveSection(p,'handoff','## Orchestrator direct path for small tasks')`의 토큰 확인으로 바꿉니다. `assert.throws` 자기 검사(`:26-31,42-43,55-56`)는 삭제합니다(J42). `fastSections`는 삭제합니다(§4.5).
   - `:58-67` `node --input-type=module`, `realpathSync`, `createHash("sha256")`, 필드명 → 구조(effective section 토큰)
@@ -186,7 +191,7 @@
 - [ ] **Step 6: `instruction-contracts.json` 정비(§3.5).**
   - 남는 키: `platforms.<p>.contracts[]{heading,destination,reader}`, `platforms.<p>.skill{bytes,lines}`, `platforms.<p>.global{bytes,lines}`, `protected`(agent 항목 제외)
   - 삭제하는 키: `text`, `requiredBefore`, `relocations`, `opening`, `bootstrap`, `worktreeHandoffRecordGuidance`, `worktreeHandoffRecordAuthorization`, `agentProfileBaseline`
-- [ ] **Step 7: 테스트 3개 파일을 대응표대로 수정합니다.** 고정이 모두 빠진 test는 삭제할 수 있습니다. 단 parity destination(T0 7단계)과 기준선 실패 test는 예외입니다(J32·J33). 남는 test의 이름은 바꾸지 않습니다.
+- [ ] **Step 7: 테스트 3개 파일을 대응표대로 수정합니다.** 고정이 모두 빠진 test는 삭제할 수 있습니다. 단 parity destination(W2 Step 1 목록)과 의도된 기준선 실패 test(§3.8 (a))는 예외입니다(J32·J33). 남는 test의 이름은 바꾸지 않습니다.
 - [ ] **Step 8: 실행.** `node --test --test-reporter=tap tests/node/rule-pins.test.mjs tests/node/instruction-layout.test.mjs tests/node/agent-fragments.test.mjs tests/node/role-policy.test.mjs`를 실행합니다. 기대: T0 대비 새 실패 0, rule-pins 4개 test 통과
 - [ ] **Step 9: P3 자체 확인.** `node -e`로 대응표의 이전 행마다 확인합니다. literal이면 `rp.text.includes(literal)`, regex이면 `new RegExp(src,flags).test(이어 붙인 rp.text)`가 참이어야 합니다.
 - [ ] **Step 10: CS 전체(CS-N, CS-P, CS-S)를 실행합니다.** MANIFEST·golden diff가 0인지 확인합니다(W1은 설치 파일을 바꾸지 않습니다).
@@ -198,12 +203,12 @@
   - `instruction-layout`, `agent-fragments`, `role-policy`: 정비 대상입니다.
   - 나머지 CS: fixture 키 삭제가 다른 소비자를 깨지 않는지 확인합니다. grep 결과 소비자는 2개 파일뿐입니다.
 - **Tester(task 모드) 확인:**
-  - TW-1 P1: T0 inventory에서 W1 대상 행을 독립적으로 다시 만들어 대응표 행 수·위치와 대조합니다.
+  - TW-1 P1: 대상 파일에서 inventory를 독립적으로 다시 만들어 Implementer inventory·대응표의 행 수·위치와 대조합니다.
   - TW-2 P2: 규칙 행의 삭제·낱말 전환이 0건입니다.
   - TW-3 P3: Step 9를 독립적으로 다시 실행합니다.
   - TW-4 P4·P5: `rule-pins.test.mjs`가 통과합니다. `pendingW2` 외의 예외가 없습니다.
   - TW-5 J33: W1 파일 안 parity destination test가 남아 있고 이름이 같습니다. `node scripts/check-installer-parity.mjs` 종료 코드가 T0와 같습니다.
-  - TW-6: CS 전체 새 실패 0(test ID 기준). 삭제된 test는 대응표에 있습니다. 기준선 실패 test 본문 diff는 0입니다.
+  - TW-6: CS 전체 새 실패 0(test ID 기준). 삭제된 test는 대응표에 있습니다. 의도된 기준선 실패(§3.8 (a)) test 본문 diff는 0입니다. "삭제(stale)" 행마다 판정 근거를 독립적으로 재실행해 확인합니다.
   - TW-7: `grep -n "agentProfileBaseline\|requiredBefore\|relocations" tests/node`의 결과가 0건입니다.
 - **커밋 메시지 초안:**
   ```
@@ -229,7 +234,10 @@
 - **선행:** W1 수락·커밋
 - **Interfaces:** `effectiveText`/`effectiveSection`(W1)을 사용합니다. Python은 `_effective`/`_effective_section`을 파일마다 정의합니다(§1.2).
 
-- [ ] **Step 1: 대응표 W2 행 작성.** §1.3 절차를 따릅니다.
+- [ ] **Step 1: inventory와 대응표 W2 행 작성.** §1.3 절차를 따릅니다.
+  - 먼저 W2 대상 7개 파일의 inventory를 spec §3.9 형식으로 만듭니다(U11). 기준선 실패 여부 열은 `t0-baseline.md`의 method 목록으로 채웁니다.
+  - parity destination 목록(구 T0 단계 7): `node -e`로 `tests/installer-parity.json`의 `entries[].destinations[]`와 `legacyHelpers[].destinations[]` 가운데 정비 대상 파일의 test를 모아 보고합니다.
+  - (b) 기준선 실패 test의 고정은 stale 판정(§1.3)을 먼저 합니다.
   - 관리 블록 사본(P0-9: `test_arc_policy.py` 56건, `test_claude_payload.py` 38건, `test_harness_contract.py` 36건, `test-scope-contract` 20건)은 중복으로 삭제합니다. 맡은 행은 `instruction-layout.test.mjs:96-102` 동적 비교와 J35 해시입니다.
   - `test-scope-contract.test.mjs:88-101`: anchor 1회·heading 순서는 플랫폼 파일 기준으로 유지합니다. 본문 확인은 `effectiveSection`으로 바꿉니다(§4.5).
   - W1 항목과 (`doc`,`text`)가 같은 규칙은 PJ6에 따라 기존 RP의 `origin`에 추가합니다.
@@ -238,8 +246,8 @@
 - [ ] **Step 4: Python 3개 파일 수정.**
   - 파일마다 `_effective(platform, name)`을 두고, 문서 본문 읽기를 그것으로 바꿉니다.
   - 문장 확인 assertion은 Python에서 없앱니다. 규칙이면 RP로 이전하고, 아니면 §3.1에 따라 처리합니다.
-  - 고정을 모두 잃는 parity destination test(T0 7단계)에는 `pins = json.loads((<파일의 기존 루트 상수> / "tests/node/fixtures/rule-pins.json").read_text())`, `ids = {r["id"] for r in pins["rules"]}`, `self.assertTrue({"RP-xxx", …} <= ids)`를 남깁니다(§3.3).
-  - 기준선 실패 test 본문은 바꾸지 않습니다(J32).
+  - 고정을 모두 잃는 parity destination test(Step 1 목록)에는 `pins = json.loads((<파일의 기존 루트 상수> / "tests/node/fixtures/rule-pins.json").read_text())`, `ids = {r["id"] for r in pins["rules"]}`, `self.assertTrue({"RP-xxx", …} <= ids)`를 남깁니다(§3.3).
+  - 의도된 기준선 실패(§3.8 (a), `test_harness_contract.py`) test 본문은 바꾸지 않습니다(J32). (b) test는 대응표대로 정비합니다.
 - [ ] **Step 5: `rule-pins.test.mjs`에서 `pendingW2` 상수와 그 사용을 지웁니다.**
 - [ ] **Step 6: 실행.** CS-N, CS-P, CS-S, `node scripts/check-installer-parity.mjs --complete`. 기대: T0 대비 새 실패 0. `--complete`는 T0와 같은 결과여야 합니다.
 - [ ] **Step 7: P3 자체 확인(W1 Step 9와 같은 방법, W2 행)**
@@ -261,7 +269,7 @@
 
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
   ```
-- **hold:** H-1, H-7, PH-1, PH-2. 기준선 실패 test가 통과로 바뀌면 보고하고 수락 전에 Orchestrator가 판단합니다(§3.8).
+- **hold:** H-1, H-7, PH-1, PH-2. (a) 기준선 실패 test가 통과로 바뀌면 보고하고 수락 전에 Orchestrator가 판단합니다. (b) test가 통과로 바뀌는 것은 보고만 합니다(§3.8).
 
 ---
 
@@ -282,6 +290,7 @@
   - `tests/node/fixtures/instruction-contracts.json`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
 - **선행:** W2 수락·커밋, H-3 해당 없음
 
+- [ ] **Step 0: D-0을 원천 3개와 생성 대상 문서에 적용합니다.**
 - [ ] **Step 1: ledger 작성과 원천 편집.**
   - 문자열마다 §5.1–5.3을 적용하고, ledger 행(§8 형식)을 씁니다. `may`가 양쪽으로 읽히면 hold합니다(H-5).
   - JSON 문자열의 이스케이프와 JS 리터럴의 따옴표 구조는 바꾸지 않습니다.
@@ -328,6 +337,7 @@
   - 손대지 않는 파일: `lib/prompts/agent-fragments.json`, 관리 블록, frontmatter, TOML 키·구조
 - **allowedPaths:** `claude/agents/`, `codex/agents/`, `gemini/agents/`, `grok/agents/`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
 - **선행:** W3 수락·커밋
+- [ ] 0. D-0을 agent 파일에 적용합니다.
 - [ ] 1. 플랫폼 묶음(J41)을 확인합니다. 같은 문장이 여러 플랫폼 파일에 있으면 묶음 단위로 ledger 행을 씁니다.
 - [ ] 2. §5를 적용해 편집합니다. marker 줄, 관리 블록, frontmatter, TOML `"""` 경계는 바이트 그대로 둡니다.
 - [ ] 3. §7 RP 갱신(`agent:*`)과 치환표를 작성합니다.
@@ -358,6 +368,7 @@
   - 손대지 않는 파일: 관리 블록, gate 표의 링크 셀, `references/<name>.md#<id>` 링크, `instruction-contracts.json`(bytes·lines)
 - **allowedPaths:** `claude/skill/SKILL.md`, `codex/skill/SKILL.md`, `gemini/skill/SKILL.md`, `grok/skill/SKILL.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
 - **선행:** W4 수락·커밋
+- [ ] 0. D-0을 SKILL.md에 적용합니다.
 - [ ] 1. 편집과 ledger 작성. gate trigger 셀(J38)이 바뀌면 core RP를 갱신합니다(§7).
 - [ ] 2. 크기 확인: `wc -c -l */skill/SKILL.md` 값이 `instruction-contracts.json`의 `skill.bytes`·`skill.lines`보다 작아야 합니다(AC-12).
 - [ ] 3. RP 치환표, MANIFEST, golden(기대: SKILL.md `~`), CS 전체, 보고
@@ -391,6 +402,11 @@
 
 ### 공통 절차(D-1–D-11)
 
+- [ ] **D-0: no change 테스트 의존 조사(v2, 구 T0 단계 6·11, H-6·PH-3).** 이 task가 바꾸는 문서(원천 포함)마다 다음을 합니다.
+    - `tests/` 아래 `*.mjs|*.py|*.json` 가운데 정비 대상 10개 파일, `rule-pins.json`, `tests/installer-parity.json`, golden을 뺀 파일에서 그 문서의 경로·파일명을 참조하는 파일을 `rg -l`로 찾습니다. 문서 이름을 쓰지 않고 읽는 경우를 위해, 편집 대상 문장의 20자 이상 조각도 같은 파일 집합에서 검색합니다.
+    - 찾은 파일의 assertion 가운데 문서 본문 토큰(길이 무관)이나 20자 이상 산문 literal을 확인하는 것을 `path:line | 문서 | 토큰`으로 나열합니다. 이 목록이 이 task의 CS-X입니다.
+    - 산문 literal이 편집·이동 대상이면 편집 전에 멈추고 보고합니다(H-6). 토큰이 이동 대상 run에 속하면 편집 전에 멈추고 보고합니다(PH-3).
+    - 알려진 후보: `tests/node/grok-install.test.mjs:236`(Grok sandbox 산문, H-6 후보). W6에서는 shared reference 간접 열거(H-8)도 다시 확인합니다.
 - [ ] **D-1: S 재판정(J27).** 4플랫폼 파일을 heading 줄로 섹션을 나누고, 빈 줄로 블록을 나눕니다.
   - 같은 heading 아래에서 4플랫폼 바이트가 모두 같은 블록을 S로 봅니다. `<a id>` 줄과 heading 줄은 run 경계이며 옮기지 않습니다(PJ11).
   - S run은 4플랫폼 모두에서 같은 순서로 이어지는 S 블록의 최대 연속입니다.
@@ -424,7 +440,7 @@
     - run마다 이동 전 4플랫폼 바이트가 같습니다(D-1을 독립적으로 재실행).
     - 공용 문서 텍스트가 원문과 같습니다(J29 예외).
     - 원래 위치에 연결 문장이 바이트 그대로 있습니다.
-    - 링크 무결성(T0 8단계와 같은 방법)에서 T0 대비 새로 깨진 링크가 0입니다.
+    - 링크 무결성(v2): base `8ec7d907`(`git --no-optional-locks show`)과 HEAD에서 같은 방법으로 검사합니다. 상대 링크의 대상 파일이 플랫폼 디렉터리나 `shared/skill/references/`에 있는지, `#id`가 `<a id>`나 heading slug에 있는지 봅니다. base 대비 새로 깨진 링크가 0이어야 합니다.
   - TD-7 AC-4: golden 줄이 기대 범위 안에 있습니다.
   - CS 전체와 해당 CS-X에서 새 실패 0입니다.
 - **hold(공통):** H-2, H-4(run 단위), H-5(문장, 묶음), H-6, PH-1, PH-3. W6 전에 H-8을 보고합니다.
@@ -462,7 +478,7 @@
   - 손대지 않는 파일: `instruction-language.test.mjs`(이미 두 파일이 목록에 있습니다), N 문단의 플랫폼별 고유명
 - **allowedPaths:** `claude/skill/references/worktree-creation.md`, `codex/skill/references/worktree-creation.md`, `gemini/skill/references/worktree-creation.md`, `grok/skill/references/worktree-creation.md`, `shared/skill/references/handoff-worktree.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
 - **선행:** W14 수락·커밋
-- [ ] 1. D-5–D-7, D-9–D-11을 적용합니다(이동 단계 D-1–D-4, D-8 없음). guidance 문단 RP(doc `worktree-creation`)와 `shared:handoff-worktree` RP를 갱신합니다.
+- [ ] 1. D-0, D-5–D-7, D-9–D-11을 적용합니다(이동 단계 D-1–D-4, D-8 없음). guidance 문단 RP(doc `worktree-creation`)와 `shared:handoff-worktree` RP를 갱신합니다.
 - **AC:** AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, AC-10, AC-13
 - **Tester 확인:** TD-1, TD-3, TD-4, TD-5, TD-7과 TD-6의 링크 무결성 부분
 - **커밋 메시지 초안:**
@@ -481,7 +497,7 @@
 - **실행:**
   - [ ] 1. 최종 HEAD에서 CS-N, CS-P, CS-S, CS-X 전체를 실행하고 T0와 비교합니다(AC-2, AC-3).
   - [ ] 2. `node scripts/check-installer-parity.mjs --complete`를 실행합니다. T0에서 실패였다면 같은 실패인지 비교합니다.
-  - [ ] 3. 링크 무결성 전체(T0 8단계와 같은 방법, 공용 문서 9개 포함): 새로 깨진 링크 0(AC-9)
+  - [ ] 3. 링크 무결성 전체(TD-6과 같은 base 대비 방법, 공용 문서 9개 포함): 새로 깨진 링크 0(AC-9)
   - [ ] 4. AC-1: `git --no-optional-locks diff --name-only 8ec7d907..HEAD`가 §2 change 행과 spec·plan만 포함합니다.
   - [ ] 5. AC-6: 배타성 test 통과. `grep -n "agentProfileBaseline\|createHash" tests/node/agent-fragments.test.mjs tests/node/fixtures/instruction-contracts.json` 결과 0. `node -e` 로 `instruction-contracts.json`의 모든 `platforms.*.contracts[]`에 `text` 키가 0건인지 확인. 섹션 전문 비교 0. `pendingW2` 0
   - [ ] 6. AC-10: 대상 범위 전체 잔존 스캔과 누적 ledger의 대응
@@ -524,7 +540,7 @@
 | §3.4 | effective 문서 | W1 Step 1, W2 Step 4 |
 | §3.5 | instruction-contracts | W1 Step 6, W3 Step 4 |
 | §3.6 | 관리 블록 사본 | W1 Step 4, W2 Step 1 |
-| §3.7 | parity destination | T0 7단계, W1·W2(TW-5) |
+| §3.7 | parity destination | W2 Step 1(v2), W1·W2(TW-5) |
 | §3.8 | 기준선 실패 | T0 4단계, 모든 task |
 | §3.9–3.10 | 대응표·P1–P5 | W1, W2 |
 | §4 | 추출·링크 | W6–W14 D-1–D-4, 최종 Tester 3단계 |
@@ -570,6 +586,7 @@
 | PJ11 | `<a id>` 줄은 run 경계로 보고, 그 뒤 run의 `<id>`로 씁니다. 공용 문서의 run은 원래 문서 순서를 지킵니다. | §4.2의 "anchor는 옮기지 않는다"를 지키면서 `effectiveSection`이 하위 heading을 올바로 모으게 합니다. |
 | PJ12 | 대응표·ledger·T0 결과는 bridge 역할이 보고 본문으로 반환하고, Orchestrator가 workflow 디렉터리에 저장합니다. | bridge는 `.git` 아래에 쓸 수 없습니다. J14·J24에 따라 커밋하지 않습니다. |
 | PJ13 | `agent-fragments.test.mjs:19`의 test 이름은 내용이 구조 검사로 바뀌어도 유지합니다. | §3.2 "test 이름은 바꾸지 않는다"를 따릅니다. |
+| PJ15 | (v3, 사용자 선택 2026-11-26) no change 테스트가 이미 고정한 규칙 문장은 RP로 만들지 않고, 정비 대상 쪽 사본을 중복으로 삭제합니다(§1.3). | W1에서 PH-1 발생(`global-config.test.mjs:10`). 보호는 그대로 남고, 배타성 검사와 §2 no change를 함께 지킵니다. |
 | PJ14 | 재작성된 링크를 포함한 RP는 D-7에서 링크 재작성 ledger 행으로 갱신합니다. | §7은 "규칙 문장 변경"을 치환 대상으로 봅니다. 링크 재작성도 ledger 종류에 들어 있습니다(§8). |
 
 ## 4. Plan-level hold(PH)
@@ -578,11 +595,13 @@
 |---|---|---|
 | PH-1 | 배타성 검사가 change 범위 밖 파일(no change 테스트나 fixture, 예: `bridge-args-golden.json`)에서 RP text를 찾았다. | 해당 task를 hold하고 파일·RP-ID를 보고합니다. Orchestrator가 plan/spec 개정을 판단합니다. |
 | PH-2 | 대응표나 ledger를 보고 본문에 다 담을 수 없다. | 수락을 hold합니다. Orchestrator가 보관 방법을 정합니다. |
-| PH-3 | T0 (9) 토큰이 이동 대상 run에 속한다. | 그 문서 task를 hold합니다. Orchestrator가 plan 개정을 판단합니다. |
+| PH-3 | D-0(v2) 토큰이 이동 대상 run에 속한다. | 그 문서 task를 hold합니다. Orchestrator가 plan 개정을 판단합니다. |
 
 ## 5. 개정 이력
 
 | 버전 | 내용 | 승인 |
 |---|---|---|
 | v0 | 첫 초안(Planner) | spec v1과 함께 한 번에 승인받을 때까지 대기(대체됨) |
-| v1 | Orchestrator 검토: 최종 Tester 5단계의 무효 grep 패턴(`contracts\[\]\.text`)을 `node -e` 키 검사로 교체. 머리말 plan 버전 표기를 v1로 갱신 | spec v1과 함께 한 번에 승인받을 때까지 대기 |
+| v1 | Orchestrator 검토: 최종 Tester 5단계의 무효 grep 패턴(`contracts\[\]\.text`)을 `node -e` 키 검사로 교체. 머리말 plan 버전 표기를 v1로 갱신 | 2026-11-26 사용자 "승인"(spec v1과 함께), 커밋 bea8cc3e |
+| v2 | Orchestrator 개정(T0 결과): T0 결과 위치와 재배치(단계 5·6·7·8·11), stale 판정(§1.3), W1 Step 4·W2 Step 1 inventory, D-0 신설(W3–W15), TD-6·최종 Tester 링크 base 비교, 기준선 실패 (a)/(b) 구분, spec v2 인용 | 2026-11-26 사용자 "승인"(spec v2와 함께) |
+| v3 | PJ15 추가와 §1.3 규칙 1줄(W1 PH-1, `global-config.test.mjs:10`) | 2026-11-26 사용자 선택 "기존 고정에 맡기고 중복 삭제" |

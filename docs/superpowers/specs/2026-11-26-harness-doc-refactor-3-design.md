@@ -26,10 +26,13 @@
 | U6(수정) | 원래 결정은 (다)였다. 고정 문장도 같은 기준으로 다루고 테스트 기대 문자열을 함께 고치되, 검사 삭제·패턴 완화·`/i` 변경은 하지 않고, 바꾼 고정 문장은 전후를 기록한다. **2026-11-26 수정**: 이 규칙은 U7 정비 뒤에도 남는 규칙 문장 고정에만 적용한다. 나머지 고정은 U7에 따라 지우거나 완화한다. |
 | U7 | 정비 1안. 규칙 문장만 글자 그대로 고정한다(대소문자 구분, 한 곳에서 한 번만 확인). 설명 산문은 섹션 전문 비교와 agent 프로필 SHA 비교를 없애고, heading·anchor·링크·핵심 낱말이 있는지만 확인한다. |
 | U8 | 규칙 문장 범주는 승인, 금지, 권한, Git, 외부 작업, 역할 경계다. |
+| U9 | (2026-11-26, T0 결과 후) 정비 대상 파일의 기준선 실패 test도 고정마다 분류해 정비한다. base 문서에 맞는 문장이 없는 고정(stale)은 삭제하고 대응표에 남긴다. `tests/test_harness_contract.py`의 의도된 기준선 실패(T3 결정 대기 기록)는 건드리지 않는다. |
+| U10 | (2026-11-26) 실행 대상은 현재 checkout을 유지한다. 현재 checkout의 git-ignored 로컬 파일 `scripts/update-superpowers-local.sh` 때문에 생기는 `tests/node/manifest.test.mjs` 16건 실패는 환경 기준선으로 기록하고 test ID로 비교한다. T0 기준선의 일부는 깨끗한 임시 worktree에서 쟀다(§3.8). |
+| U11 | (2026-11-26) 고정 inventory는 T0가 아니라 정비 task(W1·W2)에서 Implementer가 대응표와 함께 만들고, 그 task의 Tester가 독립적으로 다시 만들어 대조한다. |
 
 U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정이 플랫폼당 약 550건, 테스트 파일 약 20개)를 알린 뒤 사용자가 "(다) 그대로 진행"을 골랐다. 그 뒤 사용자가 범위 통합("테스트 정비 작업과 리팩토링을 함께 진행해")을 요청하고 U7을 선택해 위와 같이 수정됐다.
 
-작성자 판단 J1–J43은 §13에 있다.
+작성자 판단 J1–J45는 §13에 있다.
 
 ## 1. 의도, 목표, 비목표
 
@@ -86,7 +89,9 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 
 정비 대상 테스트 파일(§2의 "테스트(정비)" 행)에서 지침 문서·원천·렌더링 결과를 상대로 문자열이나 정규식을 확인하는 assertion은 하나하나가 고정 1건이다. 대상 assertion은 `includes`, `assert.match`, `assert.equal`, `startsWith`, `assertIn`, `assertRegex`, `split` 기반 섹션 자르기 등이다. 고정마다 아래 순서대로 보고, 처음 해당하는 분류 하나를 붙인다.
 
-1. **기준선 실패**: T0에서 실패한 test ID에 속한 assertion이다. → 유지한다. 그 test 본문은 수정하지 않는다(J32).
+1. **기준선 실패**: T0에서 실패한 test ID에 속한 assertion이다.
+   - (a) 의도된 기준선 실패(`tests/test_harness_contract.py`, §3.8 (a)): 유지한다. 그 test 본문은 수정하지 않는다(J32).
+   - (b) 그 밖의 기준선 실패(U9): 고정이 맞히는 문장·heading이 base의 대상 텍스트에 없으면 stale이다. → 삭제한다(처리 "삭제(stale)", J44). 맞는 문장이 있거나 고정이 문서 문자열 고정이 아니면 이 분류를 건너뛰고 2–6을 적용한다. stale 판정이 애매하면 유지하고 애매 표시를 한다.
 2. **동작**: 비교 대상이 지침 파일 읽기나 지침 template 렌더링이 아니라 코드 실행 결과(spawn 출력, 런타임 함수 반환값, 설치 결과 목록)다. → 유지한다(J23).
 3. **구조**: heading, `<a id>`, 링크 대상, 파일 존재, 표 행 존재, marker, 규칙 ID, 개수, 순서, 크기 상한, 플랫폼 간 동등성을 고정한다. → 유지한다. 대상 본문이 공용 문서로 옮겨질 수 있으면 effective 문서(§3.4)를 읽게 바꾼다.
 4. **규칙**: 고정이 맞히는 문서 문장(정규식이면 T0 base에서 실제로 맞는 문장)이 아래 (a)와 (b)를 모두 만족한다. → `rule-pins.json`으로 이전한다.
@@ -215,22 +220,27 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 
 ### 3.8 기준선 실패(J25, J32)
 
-- T0는 정비 대상 파일에서 실패하는 test ID를 적는다. 여기에는 Python의 의도된 실패 36건과 Node 환경 실패가 들어간다.
-- 그 test 본문은 이 작업에서 바꾸지 않는다. 대응표에는 "유지(기준선 실패)"로 적는다.
+- T0는 정비 대상 파일과 계약 검사 집합에서 실패하는 test ID를 적는다. T0 결과(`.git/arc/workflows/harness-doc-refactor-3/t0-baseline.md`):
+  - (a) 의도된 기준선 실패: `tests/test_harness_contract.py` failures=33(고유 method 16개, 2026-11-22 대조표 표 3의 기록)
+  - (b) 그 밖의 Python 기준선 실패: `tests/test_arc_policy.py` failures=331·errors=6–7(고유 method 108개), `tests/test_claude_payload.py` failures=117(고유 method 32개). 깨끗한 worktree에서도 같다.
+  - (c) 환경 기준선: 현재 checkout의 `tests/node/manifest.test.mjs` 16건(U10). 깨끗한 worktree에서는 82/82 통과한다.
+  - (d) `node scripts/check-installer-parity.mjs --complete`: `tests/node/consumer.test.mjs` 3건 실패.
+- (a)의 test 본문은 이 작업에서 바꾸지 않는다. 대응표에는 "유지(기준선 실패)"로 적는다.
+- (b)의 test는 §3.1-1(b)로 정비한다. 정비 뒤 통과로 바뀌면 보고한다(새 실패가 아니다). 여전히 실패하면 남은 실패 assertion을 대응표에 적는다.
 - 리팩토링 task 때문에 그 test의 실패 메시지가 달라져도, 같은 test ID의 실패라면 새 실패가 아니다.
-- 그 test가 통과로 바뀌면 보고한다.
+- (a)의 test가 통과로 바뀌면 보고한다.
 
 ### 3.9 대응표(J24, SC-8)
 
 - workflow 산출물이며 커밋하지 않는다. 저장 위치는 `.git/arc/workflows/harness-doc-refactor-3/` 아래다.
 - 형식: `행 ID | 테스트 path:line | 이전 방식(literal/regex/섹션 전문/SHA/1회·위치) | 분류(§3.1 1–6) | 처리(유지/규칙 fixture 이전/구조·낱말 전환/삭제) | 대체 수단(RP-ID, 구조 assertion 위치, 맡은 행 ID) | 사유 | 애매 표시`
-- 행 범위: T0 inventory(§9 T0)에 있는 모든 고정이 정확히 한 행씩 가진다.
+- 행 범위: 정비 task(W1·W2)의 Implementer가 만든 대상 파일 inventory(U11, J45)에 있는 모든 고정이 정확히 한 행씩 가진다. inventory 행 형식은 `path:line | 방식(literal/regex/섹션 전문/SHA/1회·위치/부재) | 대상 doc | 플랫폼 루프 | test ID | 기준선 실패 여부`다.
 
 ### 3.10 규칙 보호가 빠지지 않았다는 증명
 
 정비 task마다 Tester가 다음을 확인한다.
-- P1 완전성: T0 inventory의 모든 고정이 대응표에 한 행씩 있다. Tester가 inventory를 독립적으로 다시 만들어 행 수와 위치를 대조한다.
-- P2 규칙 처리: 분류가 규칙인 행은 처리가 모두 "규칙 fixture 이전(RP-ID)"이거나 "유지(기준선 실패)"다. 삭제나 낱말 전환은 0건이다.
+- P1 완전성: 정비 task inventory의 모든 고정이 대응표에 한 행씩 있다. Tester가 inventory를 독립적으로 다시 만들어 행 수와 위치를 대조한다.
+- P2 규칙 처리: 분류가 규칙인 행은 처리가 모두 "규칙 fixture 이전(RP-ID)"이거나 "유지(기준선 실패)"다. 삭제나 낱말 전환은 0건이다. "삭제(stale)" 행은 분류가 기준선 실패(b)이고, 맞는 문장이 base 대상 텍스트에 없다는 기계적 근거(검색 방법과 결과)를 가진다.
 - P3 포함 관계: 이전한 행마다 원래 assertion이 대체 항목 `text`에 대해서도 통과한다. literal이면 `text`가 그 literal을 포함하고, regex이면 `text`(항목이 여럿이면 이어 붙인 텍스트)에 match된다. `node -e` 한 줄로 기계적으로 확인한다.
 - P4 base 통과: 정비 task HEAD에서 `rule-pins.test.mjs`가 통과한다. 이 시점의 문서는 base와 같다.
 - P5 배타성: `rule-pins.test.mjs`의 배타성 검사가 통과한다.
@@ -399,7 +409,7 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 
 | 단위 | 내용 | 선행 |
 |---|---|---|
-| T0 기준선·전수(Tester, 커밋 없음) | (1) 계약 검사 집합(§11.1)의 기준선 실행: test ID별 결과, 종료 코드, build/native 여부, golden `--diff` 결과 (2) P0-8: Python 의도된 실패 36건 중 정비 대상 파일에 속한 test ID (3) 고정 inventory: §2 정비 대상 파일의 모든 고정(literal·regex·섹션 자르기·SHA). 정규식 고정과 `p0-pinned.md`에 빠진 20자 미만 literal을 포함한다. (4) 그 밖의 Node 테스트에서 공백을 포함한 20자 이상 literal 가운데 지침 문서에 나오는 것(H-6) (5) parity destination 중 정비 대상 파일에 있는 test 목록 (6) 링크 무결성 기준선(§4.4) (7) POLICY_TARGETS 목록 (8) shared reference 디렉터리를 정확히 열거하는 테스트가 있는지 | 대상 준비 |
+| T0 기준선·전수(Tester, 커밋 없음) | (1) 계약 검사 집합(§11.1)의 기준선 실행: test ID별 결과, 종료 코드, build/native 여부, golden `--diff` 결과 (2) P0-8: Python 의도된 실패 36건 중 정비 대상 파일에 속한 test ID (3) (U11로 W1·W2로 옮김) (4) 그 밖의 Node 테스트에서 공백을 포함한 20자 이상 literal 가운데 지침 문서에 나오는 것(H-6) (5) parity destination 중 정비 대상 파일에 있는 test 목록 (6) 링크 무결성 기준선(§4.4) (7) POLICY_TARGETS 목록 (8) shared reference 디렉터리를 정확히 열거하는 테스트가 있는지 | 대상 준비 |
 | W1 정비 A | `rule-pins.json`, `rule-pins.test.mjs`, `effective-doc.mjs`를 새로 만든다. `instruction-contracts.json`(§3.5), `instruction-layout.test.mjs`, `agent-fragments.test.mjs`, `role-policy.test.mjs`를 정비한다. 대응표의 해당 행을 쓴다. | T0 |
 | W2 정비 B | `test-scope-contract`, `composite-instructions`, `plan-level-records-contract`, `run-mode-contract`, Python 3개를 정비한다. 대응표의 나머지 행을 쓴다. | W1 |
 | W3 원천 | §6 전체 | W2 |
@@ -416,7 +426,7 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | ID | 기준 | 검증 |
 |---|---|---|
 | AC-1 | `8ec7d907..HEAD`에서 바뀐 파일이 §2의 change 행(과 spec·plan)뿐이다. no change 파일의 diff는 0이다. | `git diff --name-only` 대조 |
-| AC-2 | 각 task와 최종 시점에 T0 대비 계약 검사 집합의 새 실패가 0건이다(test ID 기준). 삭제된 test는 대응표에 있다. 기준선 실패 test 본문의 diff는 0이다. | Tester 비교 |
+| AC-2 | 각 task와 최종 시점에 T0 대비 계약 검사 집합의 새 실패가 0건이다(test ID 기준). 삭제된 test는 대응표에 있다. 의도된 기준선 실패(§3.8 (a)) test 본문의 diff는 0이다. 기준선 실패(b) test의 "삭제(stale)" 행은 대응표에 근거가 있다. | Tester 비교 |
 | AC-3 | `npm run check:role-policy`, `npm run check:manifest`, `node scripts/update-runtime-assets.mjs --check`, `node scripts/check-installer-parity.mjs`의 종료 코드가 0이다. T0에서 이미 실패였다면 같은 실패가 유지된다. | 명령 실행 |
 | AC-4 | golden은 task마다 갱신된다. diff는 바뀐 설치 파일의 SHA와 새 `*-common.md` 항목 추가로만 한정된다. 조건을 충족하지 못하면 H-2를 따른다. | `installed-layout.mjs --diff` 기록 |
 | AC-5 | §3.10의 P1–P5를 충족한다. | Tester, Reviewer |
@@ -462,7 +472,7 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 
 | ID | 조건 | 처리 |
 |---|---|---|
-| H-1 | T0 inventory와 대응표가 맞지 않는다(P1 실패). | 해당 정비 task의 수락을 hold한다. |
+| H-1 | 정비 task inventory와 대응표가 맞지 않는다(P1 실패). | 해당 정비 task의 수락을 hold한다. |
 | H-2 | golden: T0 실패, `build/native` 없음, 범위 밖 diff 중 하나에 해당한다. | `--write`를 hold하고 보고한다. 빌드·환경 변경은 Orchestrator가 사용자 결정을 받는다. |
 | H-3 | POLICY_TARGETS에 §2 change 밖의 파일이 있다. | W3를 hold하고 보고한다. |
 | H-4 | 이동 대상 run이 task 시작 시점의 4플랫폼 바이트 비교에서 같지 않다. | 그 run은 옮기지 않고 D로 기록한다. |
@@ -510,7 +520,9 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | J29 | 옮긴 문단 안의 같은 파일 fragment 링크를 `<name>.md#id`로 바꾼다. | 공용 문서에서 `#id`는 다른 파일을 가리키게 되기 때문이다. |
 | J30 | fixture는 `rule-pins.json`, 검사기는 `rule-pins.test.mjs`, helper는 `effective-doc.mjs`다. Python helper는 파일별 내부 함수로 둔다. 플랫폼별 문구는 항목을 나누고 template은 쓰지 않는다. | 기존 fixture 관례를 따른다. 새 Python 모듈을 만들지 않는다. |
 | J31 | 애매한 판정의 기본값은 규칙 이전이다. | 보호를 줄이는 쪽으로 혼자 정하지 않는다. |
-| J32 | 기준선 실패 test의 본문은 이 작업에서 바꾸지 않는다. | 의도된 기준선 기록을 보존한다. |
+| J32 | 의도된 기준선 실패(`test_harness_contract.py`) test의 본문은 이 작업에서 바꾸지 않는다(v2: U9로 범위를 좁힘). | 의도된 기준선 기록(T3 결정 대기)을 보존한다. |
+| J44 | stale 판정은 기계적으로 한다. literal은 플랫폼별 base 대상 텍스트에 대한 포함 검색, regex는 match, 섹션 자르기는 heading 존재로 본다. 공백 정규화 외의 변형은 하지 않는다. | U9 적용을 재현 가능하게 한다. 사라진 규칙의 기록은 대응표 삭제 행이 맡는다. |
+| J45 | 정비 대상 파일 inventory는 W1·W2 Implementer가 만든다. T0의 H-6·CS-X·링크 기준선 조사는 각 문서 task와 최종 Tester가 해당 범위만 base 대비로 수행한다(plan v2). | bridge Tester가 저장소 전체 전수 목록을 한 보고로 반환하지 못했다(T0 시도 결과). 범위를 task 단위로 나누면 같은 검증을 유지한다. |
 | J33 | parity destination test는 삭제하지 않고 이름도 바꾸지 않는다. 고정이 다 빠지면 구조 assertion이나 ID assertion을 남긴다. | 동결된 parity 계약(`check-installer-parity.mjs:13-58`) |
 | J34 | 새 문장 고정을 추가하지 않는다. | 범위를 넓히지 않는다. |
 | J35 | `role-policy.json` 두 곳의 protected 해시는 유지하고 원천 task에서 갱신한다. | 관리 블록 규칙 문구를 지키는 유일한 바이트 고정이다. U7은 agent 프로필 SHA만 지목한다. |
@@ -528,4 +540,5 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | 버전 | 내용 | 승인 | 사유 |
 |---|---|---|---|
 | v0 | 첫 초안(Planner) | 미승인(spec과 plan을 한 번에 승인받을 때까지 대기) | — |
-| v1 | Orchestrator 검토 수정: §5.3 허용 예시의 근거 인용을 확인된 위치 없이 일반화하고 구현 때 확인하도록 표시 | 미승인 | 첫 초안 self-review의 미확인 항목 |
+| v1 | Orchestrator 검토 수정: §5.3 허용 예시의 근거 인용을 확인된 위치 없이 일반화하고 구현 때 확인하도록 표시 | 2026-11-26 사용자 "승인"(plan v1과 함께), 커밋 bea8cc3e | 첫 초안 self-review의 미확인 항목 |
+| v2 | Orchestrator 개정: U9–U11 추가, §3.1-1·§3.8·§3.9·§3.10(P1·P2)·§9 T0·AC-2·H-1·J32 수정, J44·J45 추가 | 승인 대기 | T0 결과: Python 기준선 실패가 기록보다 크고(실제 stale 고정), bridge Tester가 전수 inventory를 반환하지 못함. 사용자 결정 U9–U11 |

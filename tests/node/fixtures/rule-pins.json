@@ -1,0 +1,4518 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "RP-001",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Before the first specialist creation or assignment and related coordination decisions",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-002",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Before the first specialist creation",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-003",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Design/plan-depth judgments",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-004",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Every Implementer first start/restart",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-005",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Orchestrator's verification design",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-006",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Plan-task acceptance",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-007",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Execution-target choice request",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:13"
+      ]
+    },
+    {
+      "id": "RP-008",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Select the existing direct path only when all eight conditions are `proven`.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:16"
+      ]
+    },
+    {
+      "id": "RP-009",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Record each as `proven`, `unmet`, or `unverified` with evidence; any `unmet`, `unverified`, missing or ambiguous condition requires full evaluation.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:16"
+      ]
+    },
+    {
+      "id": "RP-010",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "For every file record source kind, absolute and resolved path, read sections, available revision, SHA-256 of entire file bytes, access state, observation and read-context references.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:17"
+      ]
+    },
+    {
+      "id": "RP-011",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Reuse read content only for the same source-set, absolute source locators, resolved paths, hashes, scope and same conversation context with meaning still available.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:17",
+        "tests/node/instruction-layout.test.mjs:50"
+      ]
+    },
+    {
+      "id": "RP-012",
+      "category": "git",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Neither HEAD nor installer manifest substitutes for actual installed-source hash.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:17"
+      ]
+    },
+    {
+      "id": "RP-013",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Record native role profile source/version when assigned; a new role receives actual instructions, profile, needed paths and criteria, not merely a hash.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:17"
+      ]
+    },
+    {
+      "id": "RP-014",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Record task path and outcome; instructions; target; approval; scope and criteria; risk and depth; TDD; verification; refresh.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:18"
+      ]
+    },
+    {
+      "id": "RP-015",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Specifically include task ID/path, source fingerprint/read context, workspace/branch/HEAD/change state/preservation/ownership, scope approval and target choice, edit boundaries/criteria, F1–F8 evidence/risk/depth, TDD or recorded exception, criterion checks/Tester/Reviewer/acceptance, and observations/changes/revalidation/holds.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:18"
+      ]
+    },
+    {
+      "id": "RP-016",
+      "category": "prohibition",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Link accessible records; inaccessible references do not replace required content.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:18"
+      ]
+    },
+    {
+      "id": "RP-017",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Embed it in the existing eight specialist brief fields in their fixed order, without a ninth field or full history.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:18"
+      ]
+    },
+    {
+      "id": "RP-018",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "The nine fields are `task`, `instructions`, `target`, `authorization`, `scopeCriteria`, `riskDepth`, `tdd`, `verification`, and `refresh`; task records the task ID/path and selected path `fast-direct` or `full`, and verification includes criteria-specific checks and their evidence.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:18",
+        "tests/node/instruction-layout.test.mjs:65",
+        "tests/node/instruction-layout.test.mjs:66"
+      ]
+    },
+    {
+      "id": "RP-019",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Place the compact envelope in the existing canonical handoff record or existing inline scope record, not a new file, store or API.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:18"
+      ]
+    },
+    {
+      "id": "RP-020",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Evaluate target choice validity separately from evidence validity.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:19"
+      ]
+    },
+    {
+      "id": "RP-021",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Approved HEAD or expected dirty changes do not invalidate target choice by themselves: record current state, preservation and ownership, and assess affected criteria/checks.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:19"
+      ]
+    },
+    {
+      "id": "RP-022",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Revalidate only affected evidence; a related file change after a check leaves that check unverified until repeated as needed.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:19"
+      ]
+    },
+    {
+      "id": "RP-023",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Unclear impact, missing or inaccessible evidence, ownership conflict, failure or partial/unknown state requires existing hold and recovery; workspace/target change or loss of trust follows target-choice rules.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:19"
+      ]
+    },
+    {
+      "id": "RP-024",
+      "category": "git",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "This gate does not replace the first direct edit gate, Implementer start/restart gate, target choice, TDD, independent Tester and Reviewer, acceptance or commit; existing triggers determine whether each gate applies.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:20",
+        "tests/node/instruction-layout.test.mjs:45"
+      ]
+    },
+    {
+      "id": "RP-025",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "First edit, target selection, TDD, role assignment, Tester/Reviewer, acceptance and commit gates apply when their existing triggers are met.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:37"
+      ]
+    },
+    {
+      "id": "RP-026",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "The fast path itself does not require untriggered role assignment, Tester/Reviewer, acceptance or commit.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:38"
+      ]
+    },
+    {
+      "id": "RP-027",
+      "category": "git",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "The fast path does not add untriggered role, Tester/Reviewer, acceptance or commit obligations.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:46"
+      ]
+    },
+    {
+      "id": "RP-028",
+      "category": "prohibition",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Different absolute locators cannot be reused even if they resolve to the same path.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:51"
+      ]
+    },
+    {
+      "id": "RP-029",
+      "category": "git",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "A new conversation or lost context requires reread; unchanged HEAD alone does not prove instruction, file or check evidence current.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:60"
+      ]
+    },
+    {
+      "id": "RP-030",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Otherwise use full evaluation of handoff, planning and verification.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:70"
+      ]
+    },
+    {
+      "id": "RP-031",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Read additional triggered references at their existing before-action gates.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:70"
+      ]
+    },
+    {
+      "id": "RP-032",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Before classifying a small-task, plan-omission, or TDD exception, read the full conditions for the initial fast judgment: [handoff](references/handoff.md#orchestrator-direct-path-for-small-tasks) `Orchestrator direct path for small tasks`, [planning](references/planning.md#authorization-and-scope) `Authorization and scope` and [planning](references/planning.md#design-path-and-plan-depth) `Design path and plan depth`, and [verification](references/verification.md#risk-scaled-execution) `Risk-scaled execution`.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:95"
+      ]
+    },
+    {
+      "id": "RP-033",
+      "category": "approval",
+      "doc": "handoff-prep",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Begin after target preparation and all applicable documents are written and approved. Architectural paths permit no document commit before the one combined spec+plan approval; after it, record the spec and every plan in one planning-document commit. Bounded plan-required paths commit their approved plans in one planning-document commit. Plan-less paths commit their own approved document set.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:126"
+      ]
+    },
+    {
+      "id": "RP-034",
+      "category": "approval",
+      "doc": "shared:handoff-worktree",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Only for existing approved documents in legacy/pre-existing-document, restart, or explicit-target-change cases; not normal new documents:",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:134"
+      ]
+    },
+    {
+      "id": "RP-035",
+      "category": "permission",
+      "doc": "git-recovery",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Only when evidence confirms that the sandbox denied an already authorized operation, request through the permission system only the supported minimum escalation for that exact single Git command and workspace, never broad Git access.",
+      "origin": [
+        "tests/node/instruction-layout.test.mjs:138",
+        "tests/node/instruction-layout.test.mjs:139"
+      ]
+    },
+    {
+      "id": "RP-036",
+      "category": "prohibition",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Return one complete plan draft covering all top-level tasks and dependencies; DO NOT split it into a Planner call per implementation task.",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:15"
+      ]
+    },
+    {
+      "id": "RP-037",
+      "category": "approval",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "Architectural plan drafting requires the saved, Orchestrator-reviewed spec's path, version and SHA-256; NEVER draft a plan before or in parallel with the spec. The spec and plans receive one combined approval; Bounded work has no spec stage.",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:98"
+      ]
+    },
+    {
+      "id": "RP-038",
+      "category": "approval",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "without a separate spec approval; a fresh plan Planner drafts next.",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:99"
+      ]
+    },
+    {
+      "id": "RP-039",
+      "category": "git",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "In the Architectural plan stage, whose brief cites the reviewed spec's path, version and SHA-256, always read brief-cited `references/writing-plans.md`, regardless of size, locality or risk. NEVER edit the spec; return needed spec changes under the question classification above.",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:100"
+      ]
+    },
+    {
+      "id": "RP-040",
+      "category": "approval",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "Converse through Orchestrator under planning.md's design conversation: each response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design (on the Architectural path, the start summary) with context, Spike/Bounded/Architectural path, options, tradeoffs, criteria and assumptions. Split each response into a user message, which Orchestrator relays unchanged, and Orchestrator notes. Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state your judgment and reason. Ask an open question about the user's reason before offering options. For a clear request, the first response may be a short design for approval; when the user says to proceed, stop asking and list the remaining author judgments. Each call carries a new user answer, relayed verbatim with any Orchestrator interpretation marked, or new evidence; without progress, return the blocked criterion, observed facts and needed decision as a hold. The same design Planner continues while role, context and source remain valid; conversation responses use no correction opportunity, and only the final design receives Orchestrator's one consolidated correction. Before the final design or Architectural start summary, build a decision inventory classifying each item as user decision, author judgment or already answered, mark every file or contract change or no change (reason) without ambiguous scope wording, and attach the author-judgment list.",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:115"
+      ]
+    },
+    {
+      "id": "RP-041",
+      "category": "approval",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "- In spec and plan stages, classify each drafting question: answered by the design or confirmed start summary → follow it and cite the basis; minor, with no deliverable change → decide it as an author judgment and list it with ID, judgment and reason (not an open decision); genuinely new decision that changes the deliverable and is absent from the design or confirmed start summary → return it as an open decision with why the design review or start confirmation missed it. Mark every file or contract change or no change (reason).",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:116"
+      ]
+    },
+    {
+      "id": "RP-042",
+      "category": "role-boundary",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "When needed, return the complete proportional plan, dependencies, assumptions, author judgments, open decisions, verification needs and self-review.",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:117"
+      ]
+    },
+    {
+      "id": "RP-043",
+      "category": "approval",
+      "doc": "agent:planner",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "On the Architectural path there is no design document or design approval: after Orchestrator relays the start confirmation in a spec-stage delta brief, continue as the spec Planner and return a complete spec and self-review;",
+      "origin": [
+        "tests/node/agent-fragments.test.mjs:124"
+      ]
+    },
+    {
+      "id": "RP-044",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "**Role gate:** Only Planner authors design/brainstorming drafts and first complete spec/plan drafts.",
+      "origin": [
+        "tests/node/role-policy.test.mjs:296",
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-045",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "claude",
+        "codex"
+      ],
+      "text": "Orchestrator reviews and directly revises the same spec or plan when needed; missing or failed first drafts do not transfer initial authorship.",
+      "origin": [
+        "tests/node/role-policy.test.mjs:297",
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-046",
+      "category": "role-boundary",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Use English by default for user-facing responses, progress updates, reports, and document titles and prose, including designs, specs, and plans.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-047",
+      "category": "role-boundary",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve identifiers, skill/API names, code, paths, commands, and literal values exactly.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-048",
+      "category": "role-boundary",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Resolve `~` to the current user's home directory.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-049",
+      "category": "role-boundary",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Design and brainstorming drafts and first complete spec and plan drafts are authored only by the Planner; route drafting skills to the Planner.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-050",
+      "category": "approval",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "New product decisions outside approved scope require user input first.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-051",
+      "category": "role-boundary",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "For repository implementation, configuration, or test work, Orchestrator owns coordination and acceptance; assign file edits and other work to the other roles according to their defined responsibilities.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-052",
+      "category": "prohibition",
+      "doc": "bootstrap",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator MUST NOT edit implementation, configuration, or test-code files directly, except under the ARC Orchestrator direct path for small, low-risk tasks.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:13",
+        "tests/node/fixtures/instruction-contracts.json:125"
+      ]
+    },
+    {
+      "id": "RP-053",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "**Execution-target gate:** Before any task's first repository edit and every Implementer first start/restart, record explicit user target choice (or a Full Auto auto-decision under the Run mode policy) or verify valid reuse under [handoff](references/handoff.md#common-handoff-gate).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-054",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Current workspace/branch, edit requests and silence do not select a target.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-055",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Present supported [preparation options](references/handoff-prep.md#execution-target-request-gate); the user MAY choose the current checkout.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-056",
+      "category": "approval",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "New product decisions outside approved scope require user input first.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-057",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator NEVER invokes `brainstorming`/`writing-plans` through its own Skill tool.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-058",
+      "category": "approval",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Skipping questions never waives design/approval gates.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-059",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "**Role routing gate:** Before any specialist creation or assignment, check whether `..",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-060",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "If it exists, run `routing-status` and follow [coordination](references/coordination.md#composite-platform-role-dispatch) for every role, using only the returned native profile or bridge.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-061",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER substitute a generic or built-in agent (for example `general-purpose`, `fork` or `default`), an `arc-<role>`/`arc_<role>` name, another model or another platform.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-062",
+      "category": "approval",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "**Pre-action gate record:** Before a task's first specialist creation or assignment, its first repository edit, or any decision to skip the Planner design stage, read the applicable references first, then post one line in a user-visible progress message with `mode` (standalone, or composite with routing revision), `run` (Run mode in effect: `supervised` or `full-auto`), `class` (work type), `path` (direct with all F1–F8 proven, Spike, Bounded or Architectural), `design` (Planner design required, approved, start confirmed (Architectural) or omitted, and why), `depth` (plan required, or the omission reason), `risk` (level and reason) and `refs` (reference sections actually read).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-063",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "A field that a later stage decides (for example `path` or `depth` before Planner design) is recorded as `pending` with that stage; for work with no edits or design, such as Scouter-only research, `path`, `design` and `depth` are `n/a` with the reason; any other empty or unverified field holds that action.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-064",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Post a new line when a recorded fact changes.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-065",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Each task requiring Tester receives fresh Tester, never reused from another task.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-066",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Every Tester brief, including correction rechecks and resumed assignments, MUST state `mode: task` or `mode: final` under [verification](references/verification.md#test-scope-and-result-comparison).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-067",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Same-task corrections and rechecks use the current Implementer and, for Tester findings or required Tester rechecks, the current Tester while assignment remains valid.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-068",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow user and project instructions.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-069",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Route by object or deliverable, not verbs alone.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-070",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "For mixed research and document requests, assign only research explicitly to Scouter.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-071",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Live operational inspection and cleanup are outside Scouter scope; this boundary assigns no owner.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:14",
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-072",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Assigns edits to Implementer; owns scope, planning, approval, integration (save/review/directly revise the same spec or plan after Planner first draft, route decisions and request approval), verification, acceptance and completion |",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-073",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before the first specialist creation or assignment, check whether `arc-role-platform-routing.prepared.json` exists in the platform home that contains this skill (`..",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-074",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "If it exists, ARC runs in `Mixed routing` mode: follow [Composite Platform Role Dispatch](#composite-platform-role-dispatch) for every role, starting with `routing-status`, and use only the profile or bridge it returns.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-075",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER invoke `arc-<role>` or `arc_<role>` names in this mode, even if they are listed.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-076",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER pass a model argument when spawning them.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-077",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Read limits before first creation and maintain cumulative ledger/reservations.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-078",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Parallelize independent tasks only; dependent handoffs are sequential and edit scopes never overlap.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19",
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-079",
+      "category": "permission",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "After each read-only role return (Scouter/Planner/Reviewer), compare `git status` with the pre-spawn snapshot.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19"
+      ]
+    },
+    {
+      "id": "RP-080",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Concurrent Implementer edits and ignored/out-of-repository paths cannot be attributed/detected.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19"
+      ]
+    },
+    {
+      "id": "RP-081",
+      "category": "permission",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Read-only is prompt policy, not sandbox enforcement.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:19"
+      ]
+    },
+    {
+      "id": "RP-082",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Apply platform/user/project instructions by precedence, then ARC ownership/permissions/models/concurrency/routing/approval and role-local references.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-083",
+      "category": "permission",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Skills add neither agents nor authority.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-084",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve plan approval, workspace, design, spec and all applicable requirements.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-085",
+      "category": "permission",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow an applicable higher-priority prohibition on adding or running tests; when its precedence and scope are clear, neither report a conflict on that basis nor ask permission to violate it.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-086",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record unperformed verification; hold only affected work and acceptance when scope or precedence is genuinely unclear or required verification is blocked.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-087",
+      "category": "git",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Adapt local `brainstorming` role/save/early-spec-commit instructions to Planner ownership and planning/handoff evidence gates, preserving upstream text.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-088",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Report conflicts/missing required references before dependent work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-089",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator integrates results, routes decisions/approvals and owns acceptance/completion.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-090",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Run dependent implementation sequentially with a fresh Implementer per top-level task.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-091",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reuse current Implementer only for same-task correction/rework/rechecks while scope/workspace/ownership/context remain valid.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-092",
+      "category": "git",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before reuse, compare actual workspace, branch/HEAD and change state to the brief.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-093",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before each call, identify the task and current Implementer.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-094",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Send same-task corrections, rework and rechecks as follow-up work in that conversation.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-095",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before a same-task replacement, establish an allowed reason: the existing context is invalid/unavailable or the Implementer cannot continue, or an approved plan/acceptance-criteria amendment requires a fresh Implementer.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-096",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record the prior conversation ID, status, reason and supporting evidence before calling.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-097",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Hold if the reason is not established.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-098",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Replace/restart only for invalid/unavailable context or changed task boundary, except approved plan/criteria amendments require a fresh Implementer for remaining work even within the same task.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-099",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow [risk-scaled execution](verification.md#risk-scaled-execution) at task boundaries.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:26",
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-100",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Apply these terms across references and the Implementer profile, preserving context-specific commands, paths and state checks.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-101",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "**Preservation rule:** Preserve unrelated staged, unstaged and untracked changes and edit ownership.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-102",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER automatically stash, reset, clean, unstage, discard, amend or delete branches/worktrees.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-103",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "The only exception is the ARC-owned base worktree under [verification](references/verification.md#test-scope-and-result-comparison), which Orchestrator removes after all final dispositions only if it is still clean.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-104",
+      "category": "approval",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator includes completed task progress records and approved pending spec/plan revisions in subsequent accepted commits under [planning](references/planning.md#plan-updates-during-execution), [preparation](references/handoff-prep.md#execution-time-plan-revision) and [commit](references/commit.md#execution-time-plan-document-updates).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-105",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Plan-level progress records ride the plan's next commit or stay only in the canonical record.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-106",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "No separate docs/fixup commit except the standalone `docs(plan)` closing exception.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-107",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER amend or rewrite planning or implementation history.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-108",
+      "category": "permission",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER change permissions, delete locks or bypass the sandbox to proceed.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-109",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Stop and report to Orchestrator, who reports to the user.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-110",
+      "category": "approval",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "**Explicit choice:** Only clear user selection counts, except a recorded Full Auto auto-decision for a gate the installed Run mode permits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-111",
+      "category": "approval",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Planning approval, silence, refusal of another option and ambiguous replies do not.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-112",
+      "category": "git",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record actual path, branch or detached HEAD, HEAD, index, files and completed steps.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-113",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER automatically retry, fall back or repeat completed work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-114",
+      "category": "prohibition",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Passing runs, reports and dispositions never turn unverified into proven.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-115",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Keep unverified scope visible.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-116",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "**Common handoff gate:** The full verification before every Implementer first start/restart and Orchestrator direct edit; see [handoff](references/handoff.md#common-handoff-gate).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-117",
+      "category": "permission",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Optional read failure recovery is limited to the pre-authorized [scope.non-escalation] exception.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-118",
+      "category": "permission",
+      "doc": "core",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve role authority and equivalent evidence; NEVER bypass required inputs/gates or mutation stop conditions.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:33",
+        "tests/node/fixtures/instruction-contracts.json:145"
+      ]
+    },
+    {
+      "id": "RP-119",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before every start/restart verify approvals/artifacts or omissions, explicit target/reuse, accessible intended repository/workspace, actual Git identity/state, preservation/ownership, docs commits or absence and no unresolved failure/partial completion.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:40",
+        "tests/node/fixtures/instruction-contracts.json:152"
+      ]
+    },
+    {
+      "id": "RP-120",
+      "category": "prohibition",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Depth 2 NEVER creates/switches workspace/branches.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:40",
+        "tests/node/fixtures/instruction-contracts.json:152"
+      ]
+    },
+    {
+      "id": "RP-121",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Direct edits require the same.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:40",
+        "tests/node/fixtures/instruction-contracts.json:152"
+      ]
+    },
+    {
+      "id": "RP-122",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Selected worktrees require common directory, registration, app-managed current-chat attachment, approved branch and source preservation through [managed preparation](handoff-worktree.md) only.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:40"
+      ]
+    },
+    {
+      "id": "RP-123",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Waiver requires all low-risk and plan-skip/direct conditions, recorded scope/justification/criteria/checks before work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-124",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "User/task-specific TDD overrides it; only qualifying tasks override local generic triggers without changing skills.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-125",
+      "category": "prohibition",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Waiver skips RED-GREEN only, preserving focused checks/risk-scaled Tester/Reviewer; NEVER claim TDD.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-126",
+      "category": "permission",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow an applicable higher-priority prohibition on adding or running tests; when precedence and scope are clear, DO NOT report a conflict on that basis or ask permission to violate it.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-127",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record unperformed verification and its limits; if precedence or scope is genuinely unclear, or required verification is blocked, hold only affected work and acceptance and report the evidence.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-128",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Other blocked required steps need recorded decision/required human approval, not internal substitutes.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-129",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Non-behavior docs/config use specifically approved exceptions only, NEVER generalize to behavior.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:47",
+        "tests/node/fixtures/instruction-contracts.json:159"
+      ]
+    },
+    {
+      "id": "RP-130",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Low risk requires narrow/understood/reversible/focused-verifiable work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-131",
+      "category": "external",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Shared role/behavior contracts/state, lifecycle/integration order, security/permissions, data loss/migration, public interfaces and costly install/deploy/rollback are significant.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-132",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Unclear risk requires investigation/higher flow.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-133",
+      "category": "git",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reviewer is never a plan-task/commit prerequisite.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-134",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Plans review once at final relevant state after task acceptances/checks and concluded final-mode Tester work; no-plan Reviewer follows Tester before acceptance.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-135",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve specific commitments.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-136",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reuse evidence only for matching scope/state/independence/freshness/flow position.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-137",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Tester independently checks without edits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-138",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reviewer performs no Tester/planning/editing/delegation/completion decisions.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-139",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator routes fixes to Implementer and required Tester rechecks; direct-check failures return to normal flow.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-140",
+      "category": "prohibition",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reuse Reviewer only with independence, valid context and refreshed scope/target/evidence, never an old verdict or waived timing/coverage.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-141",
+      "category": "approval",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record which risk/instruction/approved obligations each check satisfies.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-142",
+      "category": "prohibition",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "DO NOT automatically assign Tester/Reviewer for clear low-risk scope with sufficient evidence and no requirement.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-143",
+      "category": "permission",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Metadata counts alone prove no significance; one permission/loss rule may.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-144",
+      "category": "approval",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Confirm cleanup targets unused, required materials intact, ignore patterns scoped and diff approved before focused-check-only acceptance.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-145",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Distinguish environment failures from code failures and report exact limits and gaps.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-146",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Use Planner/Scouter only for unresolved planning/discovery.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-147",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator assigns support as needed.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-148",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Claim only verified outputs.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-149",
+      "category": "role-boundary",
+      "doc": "verification",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Read cited `references/test-driven-development.md`, preserving exceptions.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:54",
+        "tests/node/fixtures/instruction-contracts.json:166"
+      ]
+    },
+    {
+      "id": "RP-150",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record target choice/reuse before first edit; scope approval alone selects no target.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-151",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Exclude Spike/Architectural, ordinary behavior/significant/high/unclear risk and active Implementer file overlaps.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61"
+      ]
+    },
+    {
+      "id": "RP-152",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record scope/files, every condition's justification, criteria/checks, not brainstorming.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-153",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "A specific existing request may authorize under [planning](planning.md#authorization-and-scope); otherwise obtain explicit approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-154",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Read this/[preparation](handoff-prep.md), pass full gate before edit and edit approved files surgically, preserving others.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-155",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow Implementer TDD/recorded waivers; explicit TDD still requires local skill.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-156",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record files/checks/criterion evidence/gaps.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-157",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator is not independent; assign Tester for incomplete evidence.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-158",
+      "category": "prohibition",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Failed checks/Tester findings route to Implementer/recheck, never self-correction.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-159",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Add no plans/automatic commits to omission paths; follow guidance/user requests.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:61",
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-160",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Only Orchestrator creates/assigns specialists.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-161",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Every `spawn_agent` sets descriptive lowercase snake_case `task_name` as `<role>_<short_task>` (e.g. `planner_scope_review`, `tester_installer_checks`), never random/arbitrary.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-162",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Use this fixed brief order:",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-163",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow-ups send changed fields only; mark others `unchanged` relative to a received brief.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-164",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Send a self-contained needed subset and accessible artifacts.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-165",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Omit full history/repeated instructions/raw logs.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-166",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "No-findings reports may be brief; requested full drafts remain complete.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-167",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Cite locations/commands/links, investigating gaps only.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-168",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Reuse relevant valid context with deltas; start fresh for unrelated/bloated context.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-169",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "`request_user_input` uses `title`/`options`, never `question`.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-170",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Implementer briefs cite spec/plan task-section line ranges and needed excerpts/criteria/constraints; NEVER request whole-document reading.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-171",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Follow [Planner preparation/feedback](planning.md#planner-drafting-preparation-and-consolidated-feedback).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-172",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Complete the initial brief and whole-draft checklist; directly revise the same spec or plan after Planner returns its complete first draft and self-review.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-173",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve the Planner path for design/brainstorming revisions.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-174",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Skip questions already resolved by evidence/direct inspection.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-175",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Wait with maximum supported `wait_agent` timeout until completion; timeouts do not justify polling.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-176",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Use `list_agents` only to resolve unknown names/state, never sleep/short-wait loops.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-177",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex"
+      ],
+      "text": "Batch corrections in one complete brief per objective.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68"
+      ]
+    },
+    {
+      "id": "RP-178",
+      "category": "git",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Read needed file/output ranges only (`rg -n`, `sed -n`, `head`/`tail`) and cap output.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-179",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "DO NOT reread unchanged context material.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-180",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Already-read unchanged mandatory references/SKILL.md need no follow-up reread; newly triggered mandatory reads remain required.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-181",
+      "category": "git",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before handoff briefly state role/objective/output; after return combine findings/next stage.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-182",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER expose hidden reasoning/raw prompts.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-183",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "The [task envelope](handoff.md#orchestrator-direct-path-for-small-tasks) fits this fixed brief order: Goal carries task/path/outcome; Criteria carries IDs and checks; Exact scope/ownership carries target/state/ownership/record; Constraints/decisions carries approval, F1–F8, risk/depth and TDD; Evidence carries fingerprint and approval/check evidence; Prior findings carries changes, revalidation and holds; Exact next objective gives the bounded next goal; Return format requests evidence, limits and unresolved points.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:68",
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-184",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "DO NOT substitute settings or reduce effort; report unavailability.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:75",
+        "tests/node/fixtures/instruction-contracts.json:187"
+      ]
+    },
+    {
+      "id": "RP-185",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Changes do not automatically reparent or prove runtime parent behavior.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:75",
+        "tests/node/fixtures/instruction-contracts.json:187"
+      ]
+    },
+    {
+      "id": "RP-186",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "After approval and before first assignment, canonically link every task ID to plan version.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-187",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record explicit/implicit predecessors, inputs/outputs/shared contracts, files/conflicting resources, check/Tester paths, ready/held/reasons, initial ready batch and capacity/serialization reasons.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-188",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Ready requires approvals/preparation, settled inputs/contracts, predecessor checks/Orchestrator acceptance/verified commits or accepted no-change, nonconflicting ownership/resources, available checks/Tester and slots under both full-tree ARC and lower actual runtime limits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-189",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Read [limits](limits.md); report runtime constraints without claiming capability.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-190",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Start ready independent tasks concurrently with fresh Implementers within capacity.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-191",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record holds/serialization rather than silently following order.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-192",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve risk/Tester/Reviewer/target gates.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-193",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Update on reports/checks/acceptance/commit/slot return/conflicts.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-194",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Failed/uncertain predecessors hold only their chains.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-195",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Refresh handoff each dispatch; shared Git follows commit rules.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-196",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "This map cannot rewrite approved boundaries or waive approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-197",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "After A's checks/acceptance/verified commit, B may start while D continues.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:82",
+        "tests/node/fixtures/instruction-contracts.json:194"
+      ]
+    },
+    {
+      "id": "RP-198",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record depth separately from risk.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-199",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Risk controls checks/review, not design paths/plan approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-200",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Bounded/omission is not low risk; Architectural adds no Tester/Reviewer at every stage.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-201",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Apply risk rules and specific obligations.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-202",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before feature/design/behavior work, assign brief/evidence/local `brainstorming` to Planner.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-203",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Planner proposes context/path/options/tradeoffs/criteria/assumptions/questions; Orchestrator selects path, integrates, announces scope, routes revisions and obtains approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-204",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER run drafting skills itself.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-205",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Direct path uses scope record only.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-206",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Spike distinguishes probe-only from specific combined scope.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-207",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Bounded approves short design before Implementer; direct edits use approved scope record.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-208",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Architectural replaces design approval with one [start confirmation](#architectural-start-confirmation), then complete Planner spec/self-review and Orchestrator save/review/revision without a separate spec approval request; a fresh plan Planner then drafts from the reviewed spec, and the spec and every plan receive one [combined approval](#architectural-combined-approval).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-209",
+      "category": "permission",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Planner is read-only and requests no approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-210",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Assess plan depth after design approval (Architectural: start confirmation) and before Implementer, separately from files/LOC/Bounded label.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-211",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Architectural always uses `writing-plans` and the combined spec+plan approval regardless of size/locality/risk.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-212",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Bounded skips only for one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns and one verification path.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-213",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Otherwise require a plan.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-214",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Labels/no-plan requests do not bypass judgment.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-215",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record dependencies/depth reasons; also post the design path, depth and risk judgments in the SKILL.md Pre-action gate record.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-216",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator saves/reviews/obtains approval before Implementer at user path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-217",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Non-behavior docs/config omit only inapplicable stages.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-218",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Direct edits need approved scope record and same first-edit gates.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-219",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Bounded has no spec stage, spec approval or spec-necessity record.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-220",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "If Bounded work appears to need a spec-level document, do not write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-221",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Required plans alone imply no written spec.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-222",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Only Planner authors the first complete spec or plan draft and self-review.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-223",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator reviews and directly revises the same document before approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-224",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Design approval or start confirmation does not transfer initial authorship.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-225",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Sequential drafting (R0): Assign the fresh plan Planner only after the spec Planner returned the complete draft and self-review, Orchestrator saved it in the prepared target, reviewed it and made needed revisions, and the reviewed spec's path, version and SHA-256 are fixed and cited in the plan brief.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-226",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER draft a plan early or dispatch spec and plan Planners in parallel.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-227",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Request no approval between the spec and plan stages.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-228",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Approval unit (R1): Before requesting approval, verify spec↔plan consistency: every spec requirement and acceptance criterion maps to plan tasks or final verification, and the plan cites the current spec version and SHA-256.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-229",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Request one combined approval for the exact versions and SHA-256 of the spec and every in-scope plan, attaching the complete author-judgment lists of the spec and every plan ([decision inventory](#decision-inventory)); record it once and make every document's `approvalRef` cite it.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-230",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Partial answers (R2): A reply approving only part of the set, such as approving the spec while asking for plan changes, is a revision request.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-231",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator revises the documents directly, asking the user first for decisions outside approved scope; after any spec change it rechecks spec↔plan consistency; then it requests combined approval for the whole revised set.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-232",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Partial approvals never carry over.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-233",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Invalidation (R3): Any content change to any document after the approval request voids that request; request combined approval again for the current set.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-234",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Spec ownership in the plan stage (R4): The plan Planner never edits the spec; it returns needed spec changes classified under [question classification](#decision-inventory).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-235",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Rework (R5): If spec rejection requires substantive plan rework, use a fresh plan Planner under the normal Planner gate; Orchestrator handles formatting, re-expression, save and patch errors.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-236",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Commit and Implementer (R6): Before combined approval, commit no planning document and start no Implementer.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-237",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "After it, make one planning-document commit under [handoff-prep](handoff-prep.md#planning-document-commit).",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-238",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "For initial fast judgment apply the [fast gate](handoff.md#orchestrator-direct-path-for-small-tasks); its sufficient conditions do not change these depth decisions.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:89",
+        "tests/node/fixtures/instruction-contracts.json:208"
+      ]
+    },
+    {
+      "id": "RP-239",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before the first Architectural spec save or any plan save, read this and record accessible brief/canonical evidence.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:96",
+        "tests/node/fixtures/instruction-contracts.json:215"
+      ]
+    },
+    {
+      "id": "RP-240",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Saving creates reviewable files, not approval/commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:96",
+        "tests/node/fixtures/instruction-contracts.json:215"
+      ]
+    },
+    {
+      "id": "RP-241",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Architectural only |",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:96",
+        "tests/node/fixtures/instruction-contracts.json:215"
+      ]
+    },
+    {
+      "id": "RP-242",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Saving for review requires no prior document approval, but does require valid target choice/actual preparation.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:96",
+        "tests/node/fixtures/instruction-contracts.json:215"
+      ]
+    },
+    {
+      "id": "RP-243",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "The reviewed Architectural spec enters the document set before dependent planning; approval follows once for the full set.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:96",
+        "tests/node/fixtures/instruction-contracts.json:215"
+      ]
+    },
+    {
+      "id": "RP-244",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER call uncommitted files committed.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:96",
+        "tests/node/fixtures/instruction-contracts.json:215"
+      ]
+    },
+    {
+      "id": "RP-245",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Include all current-scope required specs/plans, excluding future projects.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-246",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record scope/depth/absolute paths/coverage/versions/status/dependencies/order/omissions/reasons/pending drafting and approvals.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-247",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Complete means every required document written and approved (Architectural: one combined spec+plan approval; Bounded: plan approval) and no unresolved decision requiring another document.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-248",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Omit no required artifact.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-249",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "A required plan implies no spec.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-250",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Spec stages cover Architectural only; plan stages cover required plans only.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-251",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Add no spec duty to Spike/plan-skip/non-behavior paths.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-252",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Order: initial design approval → explicit target and source snapshot → first required draft/self-review → focused preparation gate → actual preparation/comparison → save/review/revision → Architectural: dependent plan drafting/save/review/revision → spec↔plan consistency check → one combined approval; Bounded: plan approval → full set → verify existing commits/batch remaining approvals → final Git → Implementer.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-253",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "On the Architectural path, [start confirmation](#architectural-start-confirmation) takes the place of initial design approval in this order and carries the explicit target choice.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-254",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Omission skips only inapplicable documents with rationale.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-255",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Complete documents precede staging/commit/handoff, not initial preparation/choice request.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-256",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Partial approvals authorize no early implementation.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-257",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Defer local `brainstorming`'s early spec commit: save/self-review/review the uncommitted spec, draft/save/review all plans, obtain the combined approval, then final batch.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-258",
+      "category": "external",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Modify no external skill. `writing-plans` implementation commits grant neither planning-document commits nor early Implementer.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-259",
+      "category": "permission",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Implementer probes require handoff; read-only Orchestrator/Planner probes without Implementer do not trigger it |",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-260",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Complete approvals, target choice, actual docs or valid absence, then handoff |",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-261",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Draft the first required plan before target preparation; complete set before batch/handoff |",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-262",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Preserve target/Git/docs-or-absence/handoff |",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-263",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "New planning scope requires list/depth/dependency reassessment and approvals before dependent drafting/commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-264",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Approved-body changes need revised approval except task progress records below.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-265",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Running Implementer stops before newly dependent edits; inspect actual changes/Git without retrospective preparation claims.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-266",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reflect approved versions through pending revisions below.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:103",
+        "tests/node/fixtures/instruction-contracts.json:222"
+      ]
+    },
+    {
+      "id": "RP-267",
+      "category": "approval",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "One approved top-level task is one focused implementation commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-268",
+      "category": "approval",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator verifies criteria, current checks and findings, accepts by judgment, then immediately commits locally without separate user commit approval.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-269",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "After acceptance, Orchestrator records that task's progress (checkboxes, notes, results, evidence and status) and includes it with that task's implementation work in the same commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-270",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "DO NOT amend the original planning commit or create a separate docs/fixup commit for those records.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-271",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "After acceptance, check Git state/scope, stage and commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-272",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER commit before acceptance or defer until plan completion.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-273",
+      "category": "prohibition",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Implementer completion is not acceptance; explicit assignment never permits Implementer commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-274",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Substeps and checkboxes track progress, not commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-275",
+      "category": "prohibition",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Completion marks, reports and passing checks do not establish acceptance; connect conditions and expected results to evidence.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-276",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Plan omission creates neither new plans nor automatic commits; follow applicable guidance/user requests.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-277",
+      "category": "external",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Push/merge/publish/deploy/install retain separate approvals.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-278",
+      "category": "approval",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Before commit verify approved plan version/task ID/accepted scope, actual absolute workspace/repository/branch or detached HEAD/HEAD, staged/unstaged/untracked state and ownership.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-279",
+      "category": "approval",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Verify staged content/paths include only this task, its own progress records, eligible plan-level progress records, eligible pending approved spec/plan revisions and final message; verify revision scope and required trailers.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-280",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Unrelated staging blocks commit under Preservation rule.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-281",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "After commit verify SHA/message/paths/content, HEAD/branch and remaining state.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-282",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Canonically link plan path/version, task ID, acceptance evidence/judgment, required checks/findings, commit results/state, hold/no-change/reuse reasons and remaining final verification.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-283",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Hold commits for unmet/unresolved criteria, failed/not-run required checks, undispositioned findings/gaps, scope expansion/revised-plan needs, ownership/staged scope/content mismatch, unexpected workspace/branch/HEAD/Git state or failure/partial completion.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229",
+        "tests/node/fixtures/instruction-contracts.json:236"
+      ]
+    },
+    {
+      "id": "RP-284",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Record reason/next action; NEVER waive criteria/checks to commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229",
+        "tests/node/fixtures/instruction-contracts.json:236"
+      ]
+    },
+    {
+      "id": "RP-285",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Inspect actual branch/HEAD/index/working tree/partial completion before retry; uncertain commit creation stops immediate retries.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229",
+        "tests/node/fixtures/instruction-contracts.json:236"
+      ]
+    },
+    {
+      "id": "RP-286",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "No-change tasks record acceptance/no change without empty commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-287",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Missing records require actual-result inspection before retry.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-288",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Normal accepted commits retain valid choice reuse with fresh state/ownership checks.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-289",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Task acceptance/commit differs from final plan acceptance; remaining Tester/Reviewer/integration checks retain their timing.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-290",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "For final Reviewer findings on committed plan work, define follow-up task/required planning/approvals.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-291",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Orchestrator refreshes committed state plus uncommitted diff/changed-file list in Reviewer artifacts/briefs.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-292",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Reuse/assign an independent Reviewer; repeat Implementer → Reviewer without Tester reassignment until resolved, then accept and create one focused follow-up commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-293",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Final Tester findings retain Implementer → Tester before a new commit.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-294",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER automatically amend/reset/duplicate original implementation commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-295",
+      "category": "git",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER amend planning or implementation commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-296",
+      "category": "approval",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Scope expansion retains planning/approval duties.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-297",
+      "category": "permission",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Local commit authority never permits early planning-document commits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-298",
+      "category": "approval",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "NEVER amend planning or implementation commits or retroactively authorize past work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-299",
+      "category": "role-boundary",
+      "doc": "commit",
+      "platforms": [
+        "codex",
+        "claude"
+      ],
+      "text": "Use Conventional Commits `<type>(<scope>): <description>` with a concise specific description, no trailing period, lowercase scope when useful and one logical task.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:110",
+        "tests/node/fixtures/instruction-contracts.json:229"
+      ]
+    },
+    {
+      "id": "RP-300",
+      "category": "role-boundary",
+      "doc": "core",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Orchestrator uses the current conversation model for simple self-contained questions answerable from context or one quick read without edits and coordinates substantive multistep implementation, configuration, tests and mixed work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:126"
+      ]
+    },
+    {
+      "id": "RP-301",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "ARC limits do not prove native concurrency/depth support.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-302",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Scouter/Planner/Reviewer cannot edit, execute commands or save documents.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-303",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Tester verifies without edits.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:131"
+      ]
+    },
+    {
+      "id": "RP-304",
+      "category": "permission",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Allowlists/prompts are not a filesystem sandbox; declarations prove no enforcement.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-305",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Unverified risky dependencies require boundary Tester and resolved/explicitly dispositioned findings before implementation, not blanket task gates.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:138"
+      ]
+    },
+    {
+      "id": "RP-306",
+      "category": "approval",
+      "doc": "handoff",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Selected worktrees require common directory, registration, `EnterWorktree` session attachment, approved branch and source preservation through [managed preparation](handoff-worktree.md) only.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:152"
+      ]
+    },
+    {
+      "id": "RP-307",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Exclude Architectural, ordinary behavior/significant/high/unclear risk and active Implementer file overlaps.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:173"
+      ]
+    },
+    {
+      "id": "RP-308",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Only Orchestrator invokes/assigns Claude roles.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-309",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "`AskUserQuestion` uses only `question`, `header` of at most 12 characters, 2–4 `options` with `label`/`description`, and `multiSelect`.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-310",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Start installed `arc-*` names with scoped briefs only, never inheriting forks such as `fork`; claim fresh isolation only with evidence.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-311",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Reuse valid related context, not unrelated/bloated context.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-312",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Read before dependent work.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-313",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Write final base..",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-314",
+      "category": "approval",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "HEAD diff/changed-file list to `<git-common-dir>/arc/review/<slug>.diff`, using handoff slug/approved base HEAD.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-315",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Use foreground Agent results or background completion notifications.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-316",
+      "category": "prohibition",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "NEVER poll/sleep-poll for timeout/delay.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-317",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Batch corrections in one brief.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:180"
+      ]
+    },
+    {
+      "id": "RP-318",
+      "category": "role-boundary",
+      "doc": "coordination",
+      "platforms": [
+        "claude"
+      ],
+      "text": "For visualization read [visual companion](arc-visual-companion.md), use only actual allowlisted tools and report unavailable/unverified scope.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:187"
+      ]
+    },
+    {
+      "id": "RP-319",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Initial design/brainstorming MAY precede target choice.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-320",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "On the Architectural path, [start confirmation](#architectural-start-confirmation) supplies the approved scope/depth/document set and the explicit choice that the next sentence requires.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-321",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Before the first required spec/plan draft, record verified source workspace/repository, branch/HEAD, changes/ownership, explicit choice, approved scope/depth/document set and planned relative paths.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-322",
+      "category": "prohibition",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Missing or mismatched evidence holds affected work; preparation alone never starts Implementer.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-323",
+      "category": "role-boundary",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Small-task direct edits follow only [handoff](handoff.md#orchestrator-direct-path-for-small-tasks), stopping/reclassifying changed scope/risk.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-324",
+      "category": "approval",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Otherwise follow this reference. `brainstorming`/`writing-plans` instruct existing roles, not extra agents; ARC routing/approval overrides alternate executors.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-325",
+      "category": "git",
+      "doc": "planning",
+      "platforms": [
+        "claude"
+      ],
+      "text": "Missing required skills block their stage.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:201"
+      ]
+    },
+    {
+      "id": "RP-326",
+      "category": "git",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:243"
+      ]
+    },
+    {
+      "id": "RP-327",
+      "category": "git",
+      "doc": "git-recovery",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:243"
+      ]
+    },
+    {
+      "id": "RP-328",
+      "category": "git",
+      "doc": "worktree-creation",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:243"
+      ]
+    },
+    {
+      "id": "RP-329",
+      "category": "permission",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "This user-approved ARC runtime command respects `scope.non-escalation` by writing only to `<git-common-dir>/arc/handoff/<slug>.md` and leaving permissions and sandbox settings unchanged.",
+      "origin": [
+        "tests/node/fixtures/instruction-contracts.json:244"
+      ]
+    }
+  ]
+}
