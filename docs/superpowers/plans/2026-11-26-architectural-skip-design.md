@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown policy references, JSON registry(`role-policy.json`, `agent-fragments.json`), Python `unittest`, Node.js ESM(`node --test`)
 
-**Spec:** `docs/superpowers/specs/2026-11-26-architectural-skip-design-design.md`, 버전 v1, SHA-256 `b6b6c22d07918af8a33fc85b51071d487445f29cba7474926cbe5ab235dbba9a`(Orchestrator full 리뷰 OR1–OR4 완료, 결합 승인 전). design 문서는 없습니다(spec U6, 새 흐름 선적용).
+**Spec:** `docs/superpowers/specs/2026-11-26-architectural-skip-design-design.md`, 버전 v2, SHA-256 `634df49c3c0d6193c58434c549be04a31992ce9a033dd5daf9b026b8aa691dba`(Orchestrator full 리뷰 OR1–OR4 완료, 결합 승인 전). design 문서는 없습니다(spec U6, 새 흐름 선적용).
 
 **대상:** `/Users/ma-24-007/Desktop/workspace/arc`, 현재 checkout 브랜치 `chore/spec-plan-approval-merge`, base `0ecc5bb8f640b190e9f2b1eac0318784bc7db445`. 새 브랜치나 worktree는 만들지 않습니다.
 
@@ -342,8 +342,16 @@
 - [x] 범위 표기: 모든 파일을 "바꾼다 / 안 바꾼다(이유)"로 표기했습니다. 조건부 파일(`installer-parity.json`)은 변경 조건을 PJ8로 확정했습니다.
 - [x] Review Focus 5개 항목마다 소유 검증이 있습니다.
 
+## 최종 Reviewer follow-up R1 (plan v2)
+
+- 근거: 최종 Reviewer(60d212ff) approve + finding L1·L2. 사용자 "지금 고침" 및 개정 승인(2026-11-26T05:49:21Z).
+- 범위: spec v2의 P8, RP3, §3.1.1-3, §3.1.1-4 문구를 4개 플랫폼 `planning.md`(편집 구간 P8·§3.1.1, 관리 구간 RP3는 `lib/policy/role-policy.json` 수정 후 `npm run update:role-policy`)에 반영. `tests/test_arc_policy.py` `ArchitecturalStartConfirmationTests`의 기대 문구(§3.1.1 블록, P8 삽입, RP3 삽입) 갱신. 생성물·해시 fixture(`shared/skill/runtime/role-policy.json`, `instruction-contracts.json` protected·사본 해당분, `installed-layout-golden.json`, `plan.test.mjs` renderingBaseline 바뀐 key만, `MANIFEST.sha256`)는 T1 Step 5–6 절차로 재생성.
+- allowedPaths: T1 목록과 같다.
+- 검증: Implementer 자체 확인 후 fresh Tester(관련: `ArchitecturalStartConfirmationTests`·`SpecPlanApprovalMergeTests`·`DesignConversationPolicyTests`, T1 Step 7 Node 목록, check 5개, N5 grep), 이어서 Reviewer recheck(L1·L2 해소). 수용 후 follow-up 커밋 1개에 spec·plan v1→v2 `Plan-Revision` trailer 포함.
+
 ## 개정 이력
 
 | Version | Approval time | Classification | Affected tasks | Reason |
 |---|---|---|---|---|
 | v1 | 결합 승인 대기 | initial | T1 | spec v1(`b6b6c22d…dbba9a`) 기준 첫 초안. Orchestrator 리뷰: spec OR4(PJ2 반영)에 맞춰 spec 해시 동기화, 다른 수정 없음 |
+| v2 | 2026-11-26T05:49:21Z | correction | T1 follow-up(R1) | 최종 Reviewer L1·L2 반영을 위한 follow-up 절 추가, spec v2 SHA 동기화 |
