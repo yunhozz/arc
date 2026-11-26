@@ -177,6 +177,7 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
      - `rule-pins.json` 자신
      - `tests/installer-parity.json`(동결 inventory)
      - `tests/node/fixtures/installed-layout-golden.json`
+     - (v3, J46) `tests/test_harness_contract.py`의 의도된 기준선 실패 test(§3.8 (a)) 본문에 있는 사본, 그리고 (v4) 그 test들이 쓰는 같은 파일의 모듈 수준 계약 상수에 있는 사본. 검사기에 RP-ID별 예외 목록(RP-ID → 그 test 이름 또는 상수 이름)을 두고, 예외는 그 파일·그 RP-ID에만 적용한다. 같은 RP의 다른 파일 사본은 그대로 실패한다.
 - Python의 사용: Python은 문장을 확인하지 않는다. J33에 따라 고정을 모두 이전한 parity destination test만 `json.loads((REPO / "tests/node/fixtures/rule-pins.json").read_text())`로 fixture를 읽고, 대체 항목 ID가 있는지만 확인한다(`self.assertTrue({…} <= ids)`). 같은 문장을 두 언어에서 두 번 확인하지 않기 위해서다.
 
 ### 3.4 effective 문서
@@ -522,6 +523,8 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | J31 | 애매한 판정의 기본값은 규칙 이전이다. | 보호를 줄이는 쪽으로 혼자 정하지 않는다. |
 | J32 | 의도된 기준선 실패(`test_harness_contract.py`) test의 본문은 이 작업에서 바꾸지 않는다(v2: U9로 범위를 좁힘). | 의도된 기준선 기록(T3 결정 대기)을 보존한다. |
 | J44 | stale 판정은 기계적으로 한다. literal은 플랫폼별 base 대상 텍스트에 대한 포함 검색, regex는 match, 섹션 자르기는 heading 존재로 본다. 공백 정규화 외의 변형은 하지 않는다. | U9 적용을 재현 가능하게 한다. 사라진 규칙의 기록은 대응표 삭제 행이 맡는다. |
+| J46 | (v3, 사용자 선택 2026-11-26) J32 보호 test 본문에 RP text 사본이 있으면 RP를 유지하고 배타성 검사에서 그 사본만 RP-ID별로 예외로 둔다(§3.3). | W2에서 RP-284가 `test_harness_contract.py:643`(`test_commit_checker_preserves_hold_and_reuse_contracts`)과 겹쳤다. 그 test는 앞 줄(:634)에서 먼저 실패하므로 RP를 지우면 그 문장은 실제로 확인되지 않는다. J32와 확인 유지를 함께 지킨다. |
+| J47 | (v4) J32 보호 test가 쓰는 `test_harness_contract.py` 모듈 수준 계약 상수도 J32·J46과 같이 다룬다(바꾸지 않고 RP-ID별 예외). | W2 M-W2-1102: 상수를 바꾸면 보호 test의 동작이 바뀐다. |
 | J45 | 정비 대상 파일 inventory는 W1·W2 Implementer가 만든다. T0의 H-6·CS-X·링크 기준선 조사는 각 문서 task와 최종 Tester가 해당 범위만 base 대비로 수행한다(plan v2). | bridge Tester가 저장소 전체 전수 목록을 한 보고로 반환하지 못했다(T0 시도 결과). 범위를 task 단위로 나누면 같은 검증을 유지한다. |
 | J33 | parity destination test는 삭제하지 않고 이름도 바꾸지 않는다. 고정이 다 빠지면 구조 assertion이나 ID assertion을 남긴다. | 동결된 parity 계약(`check-installer-parity.mjs:13-58`) |
 | J34 | 새 문장 고정을 추가하지 않는다. | 범위를 넓히지 않는다. |
@@ -541,4 +544,6 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 |---|---|---|---|
 | v0 | 첫 초안(Planner) | 미승인(spec과 plan을 한 번에 승인받을 때까지 대기) | — |
 | v1 | Orchestrator 검토 수정: §5.3 허용 예시의 근거 인용을 확인된 위치 없이 일반화하고 구현 때 확인하도록 표시 | 2026-11-26 사용자 "승인"(plan v1과 함께), 커밋 bea8cc3e | 첫 초안 self-review의 미확인 항목 |
-| v2 | Orchestrator 개정: U9–U11 추가, §3.1-1·§3.8·§3.9·§3.10(P1·P2)·§9 T0·AC-2·H-1·J32 수정, J44·J45 추가 | 승인 대기 | T0 결과: Python 기준선 실패가 기록보다 크고(실제 stale 고정), bridge Tester가 전수 inventory를 반환하지 못함. 사용자 결정 U9–U11 |
+| v2 | Orchestrator 개정: U9–U11 추가, §3.1-1·§3.8·§3.9·§3.10(P1·P2)·§9 T0·AC-2·H-1·J32 수정, J44·J45 추가 | 2026-11-26 사용자 "승인"(plan v2와 함께), 커밋 92de0747 | T0 결과: Python 기준선 실패가 기록보다 크고(실제 stale 고정), bridge Tester가 전수 inventory를 반환하지 못함. 사용자 결정 U9–U11 |
+| v3 | Orchestrator 개정: §3.3 배타성 예외에 J32 보호 test 본문 사본(RP-ID별) 추가, J46 추가 | 2026-11-26 사용자 선택 "보호 test만 검사 예외" | W2 PH-1: RP-284와 `tests/test_harness_contract.py:643` 충돌 |
+| v4 | §3.3 예외를 J32 보호 test가 쓰는 모듈 수준 상수로 넓힘, J47 추가 | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) | W2 hold M-W2-1102 |

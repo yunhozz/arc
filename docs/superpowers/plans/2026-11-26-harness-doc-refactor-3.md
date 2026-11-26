@@ -5,10 +5,10 @@
 - **Goal:** 지침 문장을 글자 그대로 고정하는 곳을 `tests/node/fixtures/rule-pins.json` 하나로 모읍니다(U7). 그다음 4플랫폼 지침 문서를 의미를 보존하며 정리합니다(U3·U4·U5).
 - **Architecture:** 테스트를 먼저 정비합니다(W1·W2). 그다음 원천을 고치고 재생성합니다(W3). 이어서 agents(W4), SKILL.md(W5), reference 문서(W6–W15)를 하나씩 처리합니다. reference 문서는 공통 S run을 `shared/skill/references/<name>-common.md`로 바이트 그대로 옮긴 뒤 편집합니다. 남은 규칙 고정은 같은 task 안에서 ledger 치환표로 갱신합니다(§7).
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침 문서, 생성 스크립트(`scripts/update-role-policy.mjs`, `update-runtime-assets.mjs`, `update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
-- **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v2, SHA-256 `8decdf5224eb9a8d30cf7ee184c636138f9b3b9e15f9070c6fd4dee8b0349a4a`. 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
+- **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v4, SHA-256 `0e552d572a34ac1bbfc0d2763d0a00ab82050bbb58336696dc7f3ac107c0efd3`. 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
 - **실행 대상:** `/Users/yunho/Desktop/project/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `8ec7d907f77e1fb288f6ce63d8a8973d9aacb7ed`
 - **역할:** Implementer와 Tester는 Codex bridge이고, Reviewer는 native Claude입니다. bridge 역할은 Git 상태를 바꾸지 않으며, 커밋은 Orchestrator만 합니다.
-- **plan 버전:** v3(v2 승인 뒤 W1 PH-1에 따른 PJ15 추가, 사용자 선택으로 승인)
+- **plan 버전:** v7(v6 뒤 PJ19·PJ20 추가, Orchestrator 대리 승인)
 
 ## Global Constraints
 
@@ -102,6 +102,15 @@
 - **섹션 전문**(`contracts[].text`, `opening`, `bootstrap`): 문장 단위로 하위 행 `M-…​.k`를 만들고, 문장마다 §3.1을 적용합니다.
 - **stale 고정**(v2, U9·J44): T0 (b) 기준선 실패 test의 고정은 먼저 stale을 판정합니다. 맞히는 문장·heading이 플랫폼별 base 대상 텍스트에 없으면 "삭제(stale)"이고, 대응표 사유에 판정 명령(`node -e` 포함 검색·match)과 결과를 적습니다. 애매하면 유지하고 애매 표시를 합니다. 의도된 기준선 실패(§3.8 (a), `test_harness_contract.py`)는 판정 없이 "유지(기준선 실패)"입니다.
 - **no change 테스트에 이미 있는 규칙**(v3, PJ15): 규칙 문장이 §2의 no change 테스트(예: `tests/node/global-config.test.mjs:10`)에 이미 고정돼 있으면 RP를 만들지 않습니다. 정비 대상 쪽 사본은 분류 6(중복)으로 삭제하고, 대체 수단에 그 no change 테스트의 `path:line`을 적고 애매 목록에 올립니다. no change 테스트는 고치지 않습니다.
+- **대소문자를 접어 비교하던 고정**(v5, PJ17): 원래 test가 문서를 소문자로 바꾼 뒤 소문자 literal을 확인했다면, RP `text`는 base 문서에 실제로 있는 대소문자 그대로의 문장으로 적고(spec §3.3 `text` 정의) 애매 표시를 합니다. P3는 같은 접기 방식으로 원래 literal이 RP `text`에 들어 있는지로 확인합니다.
+- **W2 hold 처리 규칙**(v6, PJ18):
+  - (가) 섹션 경계를 넘어서만 맞는 regex: 7천 자 범위를 통째로 고정하지 않습니다. regex의 literal 조각마다 그 조각을 품은 base 문장을 RP로 옮기고(이미 있으면 PJ6 재사용) 애매 표시를 합니다. P3는 조각마다 같은 doc·플랫폼의 RP `text`에 들어 있는지로 확인합니다.
+  - (나) stale selector(heading·구분자)가 다른 assertion의 범위를 정하는 경우: 의존 assertion까지 한 묶음으로 처리합니다. 내용이 base의 다른 실제 heading 아래에 하나로 있으면 그 heading의 effective 섹션으로 다시 묶고(구조), 아니면 묶음 전체를 stale 판정해 삭제(stale)합니다.
+  - (다) 같은 literal이 W2 파일의 다른 assertion(부재 검사의 예외 포함)에도 있는 경우: RP 하나로 모으고 나머지는 분류 6(중복) 삭제나 fixture에서 읽은 RP text 참조로 바꿉니다.
+  - (라) 낱말 하나뿐인 literal: 규칙 문장이 아니므로 분류 3(구조·낱말) 유지입니다.
+  - (마) `test_harness_contract.py` 모듈 수준 계약 상수에 있는 사본(spec J47): 상수는 그대로 두고 `j32Protected`에 RP-ID → 상수 이름으로 넣습니다.
+- **1회·위치 고정**(v7, PJ20): 원래 assertion이 문장의 출현 횟수나 위치·인접 순서를 확인했다면, 문장 자체는 RP로 옮기더라도 횟수·순서 확인은 RP 존재 검사로 대신할 수 없습니다. 그 확인은 RP text를 fixture에서 읽어 쓰는 구조 assertion(횟수·순서)으로 남기고, 분류 6(중복) 삭제로 처리하지 않습니다.
+- **J32 보호 test 본문에 있는 규칙**(v4, PJ16): RP text 사본이 의도된 기준선 실패 test(§3.8 (a)) 본문에 있으면 RP를 유지하고, `rule-pins.test.mjs`의 RP-ID별 예외 목록(`j32Protected`: RP-ID → `tests/test_harness_contract.py` test 이름)에 넣습니다. 보호 test 본문은 고치지 않습니다. 예외는 그 파일·그 RP-ID에만 적용합니다.
 - **부재 검사**(`doesNotMatch`, `!includes`, `assert.ok(!…)`): 분류 3(구조)로 유지하고 애매 표시를 합니다(PJ5). 대상은 effective 텍스트로 바꿉니다.
 - **이미 같은 (`doc`, `text`) 항목이 있는 규칙**: 새 항목을 만들지 않습니다. 기존 항목 `origin`에 위치를 추가하고, 대응표에는 그 RP-ID를 적습니다(PJ6). 분류는 4로 둡니다.
 - `platforms`에는 원래 테스트가 돌던 플랫폼만 적습니다. 예: claude/codex 루프이면 `["claude","codex"]`입니다. 새 플랫폼을 추가하면 새 고정이 되므로 J34에 따라 하지 않습니다(PJ2).
@@ -248,7 +257,7 @@
   - 문장 확인 assertion은 Python에서 없앱니다. 규칙이면 RP로 이전하고, 아니면 §3.1에 따라 처리합니다.
   - 고정을 모두 잃는 parity destination test(Step 1 목록)에는 `pins = json.loads((<파일의 기존 루트 상수> / "tests/node/fixtures/rule-pins.json").read_text())`, `ids = {r["id"] for r in pins["rules"]}`, `self.assertTrue({"RP-xxx", …} <= ids)`를 남깁니다(§3.3).
   - 의도된 기준선 실패(§3.8 (a), `test_harness_contract.py`) test 본문은 바꾸지 않습니다(J32). (b) test는 대응표대로 정비합니다.
-- [ ] **Step 5: `rule-pins.test.mjs`에서 `pendingW2` 상수와 그 사용을 지웁니다.**
+- [ ] **Step 5: `rule-pins.test.mjs`에서 `pendingW2` 상수와 그 사용을 지웁니다.** (v4, PJ16) 대신 `j32Protected` 예외 목록을 둡니다. 목록의 각 항목은 해당 RP text가 그 test 본문 안에 실제로 있어야 하고(목록이 낡으면 실패), 그 밖의 사본은 그대로 실패합니다.
 - [ ] **Step 6: 실행.** CS-N, CS-P, CS-S, `node scripts/check-installer-parity.mjs --complete`. 기대: T0 대비 새 실패 0. `--complete`는 T0와 같은 결과여야 합니다.
 - [ ] **Step 7: P3 자체 확인(W1 Step 9와 같은 방법, W2 행)**
 - [ ] **Step 8: AC-6 확인.**
@@ -260,7 +269,7 @@
 - **AC:** AC-1, AC-2, AC-3, AC-5(P1–P5, 전체), AC-6(전체). AC-13의 기준 시점(W2 수락 시점 RP 항목 수)도 정합니다.
 - **관련 테스트와 이유:** 정비 대상 7개입니다. `rule-pins.test.mjs`는 배타성이 이제 전체 범위로 적용되기 때문입니다. `check-installer-parity --complete`는 Python destination 보존 때문입니다.
 - **Tester(task 모드) 확인:** TW-1–TW-7을 W2 범위에 적용합니다. 추가로 다음을 확인합니다.
-  - TW-8: `pendingW2`가 0건입니다.
+  - TW-8: `pendingW2`가 0건입니다. `j32Protected` 항목마다 RP text가 지정 test 본문(`test_harness_contract.py`, §3.8 (a) method)에 있고, 그 test 본문 diff는 0입니다.
   - TW-9: W2 수락 시점 RP 항목 수를 기록합니다(AC-13 기준).
   - TW-10: Python에 rule text 문장 비교가 0건입니다. 배타성 test가 같은 것을 보장합니다.
 - **커밋 메시지 초안:**
@@ -579,7 +588,7 @@
 | PJ4 | literal 고정은 literal 그대로 항목 1개로 옮깁니다. regex만 문장 단위로 펼칩니다. 섹션 전문은 문장 단위로 판정합니다. | spec 예시 RP-001과 §3.2, §3.5를 따릅니다. |
 | PJ5 | 부재 검사(`doesNotMatch`, `!includes`)는 구조로 유지하고 애매 목록에 올립니다. | §3.1의 1–6 정의는 맞히는 문장이 있는 고정을 전제합니다. 부재 검사를 삭제하면 보호가 줄어듭니다(J31 취지). 이 검사는 문구를 고정하지 않으므로 U7과 충돌하지 않습니다. |
 | PJ6 | 이미 같은 (`doc`,`text`) 항목이 있는 규칙은 기존 항목의 `origin`에 추가합니다. | §3.3 유일성 검사와 §3.1-6 중복 규칙을 함께 만족시킵니다. |
-| PJ7 | 배타성 검사는 원문 형태와 `JSON.stringify` 이스케이프 형태를 모두 찾습니다. | JSON 안의 따옴표 이스케이프 때문에 생기는 거짓 음성을 막습니다. 검사를 강화하는 방향이고 완화가 아닙니다. |
+| PJ7 | 배타성 검사는 원문 형태와 `JSON.stringify` 이스케이프 형태를 모두 찾습니다. (v7, PJ19) `.py` 파일은 인접 문자열 literal 이어 붙이기(`"a " "b"`, 줄바꿈 포함)를 합친 형태도 찾습니다. | JSON 안의 따옴표 이스케이프 때문에 생기는 거짓 음성을 막습니다. 검사를 강화하는 방향이고 완화가 아닙니다. |
 | PJ8 | T0 (4)의 "지침 문서"에 원천과 렌더링 결과(`role-policy` text, fragments, `agentsBlockBody`, agent profile)를 포함합니다. | §2가 원천을 지침 대상으로 분류합니다. W3가 이 문구를 바꿉니다. |
 | PJ9 | T0 (9)를 추가합니다. no change 테스트가 지침 문서 토큰을 길이와 관계없이 확인하면 목록(CS-X)을 만들고, 해당 문서 task와 최종 Tester에서 실행합니다. 이동 run에 걸리면 PH-3으로 hold합니다. | H-6은 20자 이상 literal만 다룹니다. 짧은 토큰도 run 이동으로 플랫폼 파일에서 빠지면 깨질 수 있는데, 계약 검사 집합 밖이라 그대로 지나칠 수 있습니다. 검증을 더하는 쪽이고 범위를 바꾸지 않습니다. |
 | PJ10 | W1의 배타성 검사는 W2 대상 7개 파일을 임시로 빼고(`pendingW2`), W2에서 지웁니다. | W2 파일에 같은 문장 사본이 남아 있으면 W1 수락 시점에 배타성이 새 실패가 됩니다. 최종 상태는 spec §3.3과 같습니다. |
@@ -587,13 +596,18 @@
 | PJ12 | 대응표·ledger·T0 결과는 bridge 역할이 보고 본문으로 반환하고, Orchestrator가 workflow 디렉터리에 저장합니다. | bridge는 `.git` 아래에 쓸 수 없습니다. J14·J24에 따라 커밋하지 않습니다. |
 | PJ13 | `agent-fragments.test.mjs:19`의 test 이름은 내용이 구조 검사로 바뀌어도 유지합니다. | §3.2 "test 이름은 바꾸지 않는다"를 따릅니다. |
 | PJ15 | (v3, 사용자 선택 2026-11-26) no change 테스트가 이미 고정한 규칙 문장은 RP로 만들지 않고, 정비 대상 쪽 사본을 중복으로 삭제합니다(§1.3). | W1에서 PH-1 발생(`global-config.test.mjs:10`). 보호는 그대로 남고, 배타성 검사와 §2 no change를 함께 지킵니다. |
+| PJ16 | (v4, 사용자 선택 2026-11-26 "보호 test만 검사 예외") J32 보호 test 본문의 RP text 사본은 RP-ID별 예외로 배타성 검사에서 뺍니다(§1.3, spec J46). | W2 PH-1: RP-284와 `test_harness_contract.py:643` 충돌. 그 test는 :634에서 먼저 실패해 사본은 실제 확인을 하지 않으므로 RP 유지가 보호를 지킵니다. |
+| PJ17 | (v5) 대소문자를 접어 비교하던 literal은 base 원문 대소문자로 RP를 만듭니다(§1.3). | spec §3.3이 `text`를 "base 문서에 있는 그대로, 대소문자 구분"으로 정합니다. PJ4의 "literal 그대로"보다 spec이 우선합니다. 보호 범위는 같습니다. |
+| PJ18 | (v6) W2 hold 34행의 처리 규칙 (가)–(마)(§1.3). | 범위를 넓게 고정하지 않으면서 각 규칙 조각의 보호를 유지합니다(J31). 대리 승인은 사용자 위임(2026-11-27)에 따릅니다. |
+| PJ19 | (v7) 배타성 검사에 Python 인접 문자열 literal 합치기 형태를 추가합니다(PJ7). | W2 Tester가 `test_harness_contract.py:666`에서 RP-283 사본을 찾았는데 현재 검사는 놓쳤습니다. 검사를 강화하는 방향입니다. |
+| PJ20 | (v7) 1회·위치 고정은 구조 assertion으로 남깁니다(§1.3). | W2 Tester가 1회·인접 검사를 중복 삭제한 행(M-W2-1373 등)을 찾았습니다. RP 존재 검사로는 그 보호가 남지 않습니다(J31). |
 | PJ14 | 재작성된 링크를 포함한 RP는 D-7에서 링크 재작성 ledger 행으로 갱신합니다. | §7은 "규칙 문장 변경"을 치환 대상으로 봅니다. 링크 재작성도 ledger 종류에 들어 있습니다(§8). |
 
 ## 4. Plan-level hold(PH)
 
 | ID | 조건 | 처리 |
 |---|---|---|
-| PH-1 | 배타성 검사가 change 범위 밖 파일(no change 테스트나 fixture, 예: `bridge-args-golden.json`)에서 RP text를 찾았다. | 해당 task를 hold하고 파일·RP-ID를 보고합니다. Orchestrator가 plan/spec 개정을 판단합니다. |
+| PH-1 | 배타성 검사가 change 범위 밖 파일(no change 테스트나 fixture, 예: `bridge-args-golden.json`)에서 RP text를 찾았다. (v4) J32 보호 test 본문 사본은 PJ16으로 처리하고 hold하지 않습니다. | 해당 task를 hold하고 파일·RP-ID를 보고합니다. Orchestrator가 plan/spec 개정을 판단합니다. |
 | PH-2 | 대응표나 ledger를 보고 본문에 다 담을 수 없다. | 수락을 hold합니다. Orchestrator가 보관 방법을 정합니다. |
 | PH-3 | D-0(v2) 토큰이 이동 대상 run에 속한다. | 그 문서 task를 hold합니다. Orchestrator가 plan 개정을 판단합니다. |
 
@@ -605,3 +619,7 @@
 | v1 | Orchestrator 검토: 최종 Tester 5단계의 무효 grep 패턴(`contracts\[\]\.text`)을 `node -e` 키 검사로 교체. 머리말 plan 버전 표기를 v1로 갱신 | 2026-11-26 사용자 "승인"(spec v1과 함께), 커밋 bea8cc3e |
 | v2 | Orchestrator 개정(T0 결과): T0 결과 위치와 재배치(단계 5·6·7·8·11), stale 판정(§1.3), W1 Step 4·W2 Step 1 inventory, D-0 신설(W3–W15), TD-6·최종 Tester 링크 base 비교, 기준선 실패 (a)/(b) 구분, spec v2 인용 | 2026-11-26 사용자 "승인"(spec v2와 함께) |
 | v3 | PJ15 추가와 §1.3 규칙 1줄(W1 PH-1, `global-config.test.mjs:10`) | 2026-11-26 사용자 선택 "기존 고정에 맡기고 중복 삭제" |
+| v4 | PJ16 추가, §1.3 규칙 1줄, W2 Step 5·TW-8·PH-1 보완, spec v3 인용(W2 PH-1, RP-284) | 2026-11-26 사용자 선택 "보호 test만 검사 예외" |
+| v5 | PJ17 추가와 §1.3 규칙 1줄(W2 M-W2-1224·1527, 소문자 접기 literal) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
+| v6 | PJ18 추가와 §1.3 규칙, spec v4 인용(W2 hold 34행) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
+| v7 | PJ19·PJ20 추가와 §1.3 규칙(W2 Tester 결과) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |

@@ -407,11 +407,39 @@ process.stdout.write(renderAgentProfile(process.argv[1], readFileSync(0), regist
     return result.stdout
 
 
+def _effective(platform: str, name: str) -> str:
+    skill = REPO / platform / "skill"
+    if name == "core":
+        return (skill / "SKILL.md").read_text(encoding="utf-8")
+    local = (skill / "references" / f"{name}.md").read_text(encoding="utf-8")
+    common = REPO / "shared/skill/references" / f"{name}-common.md"
+    if common.exists():
+        return local + "\n" + common.read_text(encoding="utf-8")
+    return local
+
+
+def _effective_section(platform: str, name: str, heading: str) -> str:
+    depth = heading.index(" ")
+    pattern = rf"^{re.escape(heading)}$(?:\n.*?)(?=^#{{1,{depth}}} |\Z)"
+    sections = re.findall(pattern, _effective(platform, name), flags=re.M | re.S)
+    if not sections:
+        raise AssertionError(f"{platform}/{name}: missing {heading}")
+    return "\n".join(sections)
+
+
 def policy_texts() -> dict[str, str]:
     paths = {path for owners in POLICY_CONTRACTS.values() for path, _ in owners.values()}
     for platform in PLATFORMS:
         paths.add(f"{platform}/skill/references/handoff-prep.md")
-    texts = {path: (REPO / path).read_text() for path in sorted(paths)}
+    texts = {}
+    for path in sorted(paths):
+        platform, _, payload = path.partition("/skill/")
+        if payload == "SKILL.md":
+            texts[path] = _effective(platform, "core")
+        elif payload.startswith("references/"):
+            texts[path] = _effective(platform, Path(payload).stem)
+        else:
+            texts[path] = (REPO / path).read_text()
     rules = json.loads(texts[ROLE_POLICY])["rules"]
     texts[ROLE_POLICY] = next(
         (rule["text"] for rule in rules if rule["id"] == COMMIT_RULE_ID), ""
@@ -784,38 +812,11 @@ class HarnessReliabilityDeliveryTests(unittest.TestCase):
                                     r"revision.*unverified.*visible.*mismatch"):
                         self.assertRegex(" ".join(text.split()), pattern)
 
-    def test_failure_disposition_orders_evidence_classification_holds_and_release(self):
-        # H1-04/H4-02: approved written-contract coverage, not agent runtime proof.
-        import json
-        policy = json.loads((REPO / "lib/policy/role-policy.json").read_text())
-        common = next(rule["text"] for rule in policy["rules"] if rule["id"] == "scope.non-escalation")
-        sequence = (
-            r"First, record the exact failed check.*?baseline revision.*?current revision",
-            r"Second, classify each failure.*?baseline or current.*?affected scope.*?dependency",
-            r"Third, hold only affected or dependent tasks and checks.*?unknown.*?only work whose impact is unknown",
-            r"Fourth, Orchestrator MUST release already-approved independent work without waiting for unrelated failures",
-            r"Finally, keep acceptance held while any required check remains unresolved",
-        )
-        sources = {"canonical": common}
-        for platform, extension in (("codex", "toml"), ("claude", "md")):
-            sources[f"{platform}/core"] = (REPO / platform / "skill/SKILL.md").read_text()
-            for role in ("scouter", "planner", "implementer", "tester", "reviewer"):
-                sources[f"{platform}/{role}"] = (REPO / platform / "agents" / f"arc-{role}.{extension}").read_text()
-        for name, text in sources.items():
-            with self.subTest(source=name):
-                remaining = " ".join(text.split())
-                for step in sequence:
-                    match = re.search(step, remaining)
-                    self.assertIsNotNone(match, f"Missing or out-of-order disposition step: {step}")
-                    remaining = remaining[match.end():]
-                self.assertRegex(text, r"Specialists report evidence.*MUST NOT self-authorize release")
-
 
 class EnvelopeRefreshTests(unittest.TestCase):
     def test_envelope_fingerprint_distinguishes_source_access_states(self):
         for platform in PLATFORMS:
-            text = (REPO / platform / 'skill/references/handoff.md').read_text()
-            section = text.split('### Instruction fingerprint', 1)[1].split('### Task envelope', 1)[0]
+            section = _effective_section(platform, "handoff", "### Instruction fingerprint")
             with self.subTest(platform=platform):
                 self.assertRegex(section, r'available.*absent.*inaccessible.*conflicting.*unverified')
                 self.assertRegex(section, r'user-provided.*workspace.*installed.*task inputs')
