@@ -527,7 +527,7 @@ class ClaudePayloadTests(unittest.TestCase):
         plan = self.read_claude('skill/references/planning.md')
         self.assert_all(plan, ('Administrative status updates must accurately describe actual progress',
                                'before Implementer or an Orchestrator direct edit', 'regardless of locality, risk, or size',
-                               'does not require written-spec approval; it requires valid execution-target choice and actual preparation',
+                               'Saving for review requires no prior document approval, but does require valid target choice/actual preparation',
                                'leave runtime compliance unverified', 'stops before edits dependent on new plans'))
         rec = self.read_claude('skill/references/git-recovery.md')
         self.assert_all(rec, ('never broad Git access', 'concurrent Git activity', 'remaining uncertainty'))
@@ -714,9 +714,11 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         self.assertIn("normal order:", planning)
         order = planning.split("normal order:", 1)[1].split("implementer handoff", 1)[0]
         cursor = 0
-        for marker in ("initial design approval", "execution-target choice", "target preparation and verification",
-                       "formal spec drafting", "written-spec approval", "formal plan drafting", "individual plan approvals",
-                       "complete applicable set", "batch docs commit", "final git verification"):
+        for marker in ("initial design approval", "explicit target and source snapshot", "first required draft/self-review",
+                       "focused preparation gate", "actual preparation/comparison", "save/review/revision",
+                       "architectural: dependent plan drafting/save/review/revision", "spec↔plan consistency check",
+                       "one combined approval; bounded: plan approval", "full set",
+                       "verify existing commits/batch remaining approvals", "final git"):
             found = order.find(marker, cursor)
             self.assertGreaterEqual(found, cursor, marker)
             cursor = found + len(marker)
@@ -742,7 +744,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
                        "repository", "current branch or detached head", "base head", "new-branch candidate",
                        "collision status", "staged/unstaged/untracked changes", "preservation and edit ownership"):
             self.assertIn(phrase, presentation)
-        self.assertIn("does not require completed documents or individual approvals", gate)
+        self.assertIn("completed documents/approvals are not yet required", gate)
 
     def test_formal_drafting_and_save_require_prepared_target(self):
         text = self.text("planning")

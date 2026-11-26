@@ -37,7 +37,7 @@ COMMON_CONTRACTS = {
         r"approved-body changes need revised approval except task progress records below",
         r"goals[^.]*task boundaries[^.]*scope[^.]*criteria[^.]*method[^.]*risk[^.]*dependencies[^.]*checks[^.]*revised approval before affected work",
         r"contract revision[^.]*fresh implementer[^.]*remaining work",
-        r"written-spec approval[^.]*before[^.]*dependent plan revision",
+        r"execution-time document revisions take this approval: a spec change with affected plans needs one combined revision approval for the spec and those plans; a plan-only change needs plan approval; a spec-only change needs spec approval after orchestrator records why no plan is affected\. partial approvals never carry over\.",
         r"mechanical[^.]*(?:correction|fix)[^.]*plan revision",
         # R-3/R-4: same file, pending state and append-only actual approval history.
         r"after approval orchestrator edits the same file, appends a revision-history row and leaves the revision uncommitted",
@@ -164,11 +164,9 @@ COMMON_CONTRACTS = {
         r"orchestrator.*acceptance.*completion",
     )),
     "DOCUMENT_ORDER": ("references/planning.md", (
-        r"written-spec approval.*before.*(?:implementation planning|dependent plan)",
-        (
-            r"if bounded requires written spec, record necessity/scope using approved short design as basis\.",
-            r"this applies recorded judgment, not new spec necessity\.",
-        ),
+        r"the reviewed architectural spec enters the document set before dependent planning; approval follows once for the full set",
+        r"bounded has no spec stage, spec approval or spec-necessity record\.",
+        r"reassess the design path as architectural.*path-change approval",
     )),
     "AUTHORING_EXCLUSIVITY": ("references/planning.md", (
         r"drafts are authored only by planner",
@@ -363,11 +361,11 @@ def policy_contract_failures(texts: Mapping[str, str]) -> list[str]:
         text = " ".join(texts[path].lower().split())
         order = re.search(r"\border:(?= initial design approval →)(.*?)(?:\.(?: |$)|$)", text)
         sequence = (
-            "initial design approval", "execution-target choice", "target preparation and verification",
-            "formal spec drafting", "written-spec approval", "formal plan drafting",
-            "individual plan approvals", "complete applicable set",
-            "existing-commit verification and one batch docs commit of remaining approved documents",
-            "final git verification", "implementer handoff",
+            "initial design approval", "explicit target and source snapshot", "first required draft/self-review",
+            "focused preparation gate", "actual preparation/comparison", "save/review/revision",
+            "architectural: dependent plan drafting/save/review/revision", "spec↔plan consistency check",
+            "one combined approval; bounded: plan approval", "full set",
+            "verify existing commits/batch remaining approvals", "final git", "implementer",
         )
         if not order or not re.search(".*".join(map(re.escape, sequence)), order.group(1)):
             failures.append(f"DOCUMENT_ORDER: {path}: missing or reversed Normal order gates")
@@ -529,13 +527,14 @@ class PolicyContractTests(unittest.TestCase):
                 self.assertEqual(self.contract_failures_at("DOCUMENT_ORDER", path, self.texts[path]), [])
 
     def test_document_order_rejects_documents_before_target_choice(self) -> None:
-        reverse = ("Normal order: initial design approval → formal spec drafting → written-spec approval → "
-                   "formal plan drafting → individual plan approvals → complete applicable set → "
-                   "execution-target choice → target preparation and verification → existing-commit verification "
-                   "and one batch docs commit → final Git verification → Implementer handoff.")
+        reverse = ("Order: initial design approval → first required draft/self-review → save/review/revision → "
+                   "explicit target and source snapshot → focused preparation gate → actual preparation/comparison → "
+                   "Architectural: dependent plan drafting/save/review/revision → spec↔plan consistency check → "
+                   "one combined approval; Bounded: plan approval → full set → verify existing commits/batch remaining approvals → "
+                   "final Git → Implementer.")
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
-            fixture = re.sub(r"Normal order:.*?Implementer handoff\.", reverse, self.texts[path], flags=re.S)
+            fixture = re.sub(r"Order: initial design approval.*?→ Implementer\.", reverse, self.texts[path], flags=re.S)
             with self.subTest(path=path):
                 self.assertTrue(self.contract_failures_at("DOCUMENT_ORDER", path, fixture))
 
@@ -543,13 +542,12 @@ class PolicyContractTests(unittest.TestCase):
         for platform in PLATFORMS:
             path = f"{platform}/skill/references/planning.md"
             text = " ".join(self.texts[path].split())
-            match = re.search(r"Normal order:.*?Implementer handoff\.", text)
+            match = re.search(r"Order: initial design approval.*?→ Implementer\.", text)
             self.assertIsNotNone(match, f"{path}: missing Normal order gates")
             order = match.group()
-            for gate in ("target preparation and verification", "written-spec approval",
-                         "individual plan approvals", "complete applicable set",
-                         "existing-commit verification and one batch docs commit of remaining approved documents",
-                         "final Git verification", "Implementer handoff"):
+            for gate in ("actual preparation/comparison", "save/review/revision", "spec↔plan consistency check",
+                         "one combined approval", "Bounded: plan approval", "full set",
+                         "verify existing commits/batch remaining approvals", "final Git", "Implementer"):
                 with self.subTest(path=path, gate=gate):
                     self.assertIn(gate, order)
                     fixture = text.replace(order, order.replace(gate, "omitted"))

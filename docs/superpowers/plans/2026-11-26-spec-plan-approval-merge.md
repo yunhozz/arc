@@ -137,9 +137,9 @@
 
 **spec 매핑:** G1, G2, P1–P19, §3.1.1(R0–R6), §3.1.2(R8), H1–H4, §3.3, RP1, F1–F3, §5 1–8단계, §6.1의 해당 행, §6.2의 G1/G2 테스트
 
-- [ ] **Step 1: 기준선 기록.** base worktree `.git/arc/base`(313b0d03, `build/native` symlink)에서 아래 Step 5의 검증 명령을 실행하고 기존 실패 목록을 기록합니다(I8·I11).
+- [x] **Step 1: 기준선 기록.** base worktree `.git/arc/base`(313b0d03, `build/native` symlink)에서 아래 Step 5의 검증 명령을 실행하고 기존 실패 목록을 기록합니다(I8·I11).
 
-- [ ] **Step 2: 실패 테스트 작성.**
+- [x] **Step 2: 실패 테스트 작성.**
   - (a) 기존 assert를 spec 문구로 바꿉니다.
     - `instruction-layout.test.mjs:126`: H3의 새 69행 문장으로 바꿉니다.
     - `run-mode-contract.test.mjs:28`: `planningSection`의 해당 행을 P18 `| Architectural spec+plan combined approval | auto | Only with zero open decisions; otherwise user |`로 바꿉니다. P19 행과 Full Auto 절의 나머지는 그대로 둡니다(SJ3).
@@ -162,11 +162,11 @@
     - F1, F2(변경 부분), F3 원문이 `includes`되어야 합니다.
     - `Required written-spec approval precedes`, `obtains written-spec approval`, `After written-spec approval`은 없어야 합니다.
 
-- [ ] **Step 3: 실패 확인.**
+- [x] **Step 3: 실패 확인.**
   - 명령: `python3 -m unittest discover -s tests -p 'test_arc_policy.py'`, `node --test tests/node/agent-fragments.test.mjs tests/node/instruction-layout.test.mjs tests/node/run-mode-contract.test.mjs`
   - 기대: 새 test와 변경 assert가 FAIL하고, 그 밖에는 기준선과 같습니다.
 
-- [ ] **Step 4: 구현.**
+- [x] **Step 4: 구현.**
   - I4 확인: 4개 플랫폼의 대상 문장이 바이트까지 같은지 확인합니다. 다르면 hold합니다.
   - `planning.md` 4개(관리 구간 밖):
     - P1–P17을 spec 표의 위치에 적용합니다(C/Gm/Gr 행 기준, Codex는 표의 Cd 행).
@@ -177,11 +177,11 @@
   - `role-policy.json`: RP1(지울 문장 → 넣을 문장).
   - `agent-fragments.json`: F1, F2, F3. "바꾸지 않는 문장"(spec §3.5 끝)은 그대로 둡니다.
 
-- [ ] **Step 5: 생성·동기화(§5).**
+- [x] **Step 5: 생성·동기화(§5).**
   - `npm run update:role-policy`, 이어서 `npm run check:role-policy` (PASS)
   - `node scripts/update-runtime-assets.mjs`, 이어서 `node scripts/update-runtime-assets.mjs --check` (PASS)
 
-- [ ] **Step 6: fixture 갱신.**
+- [x] **Step 6: fixture 갱신.**
   - `node tests/node/fixtures/installed-layout.mjs --write`, 이어서 `--diff` (차이 없음)
   - renderingBaseline 8개를 I1 방법으로 갱신합니다.
   - instruction-contracts protected 2개(`lib/policy/role-policy.json`, `shared/skill/runtime/role-policy.json`)를 I2 방법으로 갱신하고, PI4를 적용합니다.
@@ -189,7 +189,7 @@
   - PI2: `node scripts/check-installer-parity.mjs` (PASS)
   - `node scripts/update-manifest.mjs`, 이어서 `npm run check:manifest` (PASS)
 
-- [ ] **Step 7: task-level 검증(fresh Tester).**
+- [x] **Step 7: task-level 검증(fresh Tester).**
   - `python3 -m unittest discover -s tests -p 'test_arc_policy.py'`
   - `python3 -m unittest discover -s tests -p 'test_harness_contract.py'`
   - `python3 -m unittest discover -s tests -p 'test_claude_payload.py'`
@@ -197,7 +197,7 @@
   - check 스크립트 5개: `check:role-policy`, `update-runtime-assets --check`, `installed-layout --diff`, `check-installer-parity`, `check:manifest`
   - 기대: 새·변경 테스트가 PASS하고 기준선 대비 새 실패가 없습니다. 의심 건은 단독 재실행합니다.
 
-- [ ] **Step 8: Orchestrator 수용 후 커밋.** 메시지 예: `chore(policy): Bounded spec 단계를 없애고 Architectural spec·plan 결합 승인을 도입`
+- [x] **Step 8: Orchestrator 수용 후 커밋.** 메시지 예: `chore(policy): Bounded spec 단계를 없애고 Architectural spec·plan 결합 승인을 도입`
 
 **관련 테스트와 이유:**
 - `test_arc_policy.py`, `test_harness_contract.py`, `test_claude_payload.py`: 바뀐 정책 문구를 직접 검사합니다.
@@ -206,6 +206,8 @@
 - `agent-fragments`: F1–F3을 검사합니다.
 - `role-policy.test.mjs`: 306·310 회귀를 확인합니다.
 - `plan.test.mjs`, `manifest.test.mjs`, `package.test.mjs`, `runtime-versions`: 생성물과 해시에 영향을 받습니다.
+
+**진행 기록 (2026-11-26):** Implementer(bridge 543263c8) 완료, fresh Tester(2d97ac3a, mode: task) 새 실패 0·check 5개 통과·AC 판정 proven(AC9는 check:role-policy·update-runtime-assets --check 통과로 Orchestrator가 proven 처리). 범위 내 추가: `tests/node/fixtures/instruction-contracts.json` `agentProfileBaseline`의 Planner 프로필 4개 digest 갱신(F1–F3 직접 결과).
 
 **수용 기준:** AC1a, AC1b, AC2, AC3a, AC3b, AC3c, AC4, AC5(T1 부분, 링크 연결은 T3), AC6, AC7, AC8, AC9(T1 부분), AC11a(T1 갱신분)
 

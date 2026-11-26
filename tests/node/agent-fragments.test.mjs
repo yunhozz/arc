@@ -87,3 +87,22 @@ test('rejects Codex markers hidden in a multiline description instead of root in
   assert.doesNotThrow(() => parseToml(fake));
   assert.throws(() => renderAgentProfile(target.path, Buffer.from(fake), registry), /Invalid profile markers/);
 });
+
+
+test('rendered planner profiles require a reviewed spec and one combined approval', async () => {
+  const { renderAgentProfile } = await import('../../lib/prompts/render.mjs');
+  const registry = JSON.parse(await read('lib/prompts/agent-fragments.json'));
+  const targets = registry.targets.filter(({ path }) => /\/agents\/arc-planner\.(?:md|toml)$/.test(path));
+  assert.equal(targets.length, 4);
+  const required = [
+    "Architectural plan drafting requires the saved, Orchestrator-reviewed spec's path, version and SHA-256; NEVER draft a plan before or in parallel with the spec. The spec and plans receive one combined approval; Bounded work has no spec stage.",
+    "without a separate spec approval; a fresh plan Planner drafts next.",
+    "In the Architectural plan stage, whose brief cites the reviewed spec's path, version and SHA-256, always read brief-cited `references/writing-plans.md`, regardless of size, locality or risk. NEVER edit the spec; return needed spec changes under the question classification above.",
+  ];
+  const removed = ['Required written-spec approval precedes', 'obtains written-spec approval', 'After written-spec approval'];
+  for (const { path } of targets) {
+    const rendered = renderAgentProfile(path, await read(path), registry).toString();
+    for (const phrase of required) assert.ok(rendered.includes(phrase), `${path} lacks: ${phrase}`);
+    for (const phrase of removed) assert.ok(!rendered.includes(phrase), `${path} still has: ${phrase}`);
+  }
+});

@@ -158,7 +158,7 @@ class TaskCommitPolicyTests(unittest.TestCase):
         commit = self.section("commit", "## automatic commit after plan-task acceptance")
         planning = self.section("planning", "### complete planning-document set")
         self.contracts(planning, (
-            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*implementer handoff",
+            r"order: initial design approval.*explicit target and source snapshot.*first required draft/self-review.*focused preparation gate.*actual preparation/comparison.*save/review/revision.*architectural: dependent plan drafting/save/review/revision.*spec↔plan consistency check.*one combined approval; bounded: plan approval.*full set.*verify existing commits/batch remaining approvals.*final git.*implementer",
             r"while documents.*do not.*stage documents.*commit planning documents",
         ))
         self.contracts(commit, (
@@ -220,7 +220,7 @@ class ConditionalReferenceTests(unittest.TestCase):
     def test_planning_order_and_recovery_protections_remain(self) -> None:
         planning = policy_text("planning")
         for contract in (
-            r"normal order: initial design approval.*execution-target choice.*target preparation and verification.*written-spec approval.*individual plan approvals.*complete applicable set.*batch docs commit.*final git verification.*implementer handoff",
+            r"order: initial design approval.*explicit target and source snapshot.*first required draft/self-review.*focused preparation gate.*actual preparation/comparison.*save/review/revision.*architectural: dependent plan drafting/save/review/revision.*spec↔plan consistency check.*one combined approval; bounded: plan approval.*full set.*verify existing commits/batch remaining approvals.*final git.*implementer",
             r"while documents.*do not stage documents or commit planning documents",
             r"architectural work always.*writing-plans.*written plan approval",
             r"skip planning only for one local change.*no dependent stages.*shared state.*lifecycle.*integration-order.*one focused verification path",
@@ -242,7 +242,7 @@ class ConditionalReferenceTests(unittest.TestCase):
 
     def test_references_preserve_policy_contracts(self) -> None:
         contracts = {
-            "planning": ("complete planning-document set", "written-spec approval", "individually approved"),
+            "planning": ("complete planning-document set", "reviewed architectural spec", "one combined approval"),
             "handoff": ("planning document commit", "unrelated staged", "approved-content verification"),
             "verification": ("criterion verdict", "ui browser acceptance checks", "whole-change review"),
             "git-recovery": ("git metadata write denial", "partial completion", "do not delete lock files"),
@@ -464,7 +464,7 @@ class PlannerDraftingDisciplineTests(unittest.TestCase):
         self.contracts((r"fixed checklist.*scope.*ownership.*conflicts.*dependencies.*evidence.*approval.*completeness", r"substantive omissions.*one consolidated follow.up request", r"do not split.*omission"))
 
     def test_planner_turn_minimization_preserves_approval_gates(self):
-        self.contracts((r"initial design.*spec approval.*formal plan.*separate.*stages", r"additional planner calls.*user.approved.*(?:scope|evidence).*concrete unmet checklist", r"no fixed call cap.*never accept an incomplete draft"))
+        self.contracts((r"design, spec and plan stages remain separately ordered.*architectural plan drafting starts only after the spec is saved, reviewed and revised", r"additional planner calls.*user.approved.*(?:scope|evidence).*concrete unmet checklist", r"no fixed call cap.*never accept an incomplete draft"))
 
 class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_codex_spawn_fork_and_user_input_policy(self) -> None:
@@ -661,7 +661,7 @@ class ARCPreactionGateTests(unittest.TestCase):
         planning = policy_text("planning").split("### document-save evidence gates")[0]
         self.assertIn("orchestrator must not substitute an independently authored spec", planning)
         self.assertRegex(planning, r"planner.*complete spec draft and self-review.*orchestrator integrates, saves, self-reviews")
-        self.assertRegex(planning, r"bounded written spec.*orchestrator's recorded plan-depth judgment.*planner.*proportional complete spec draft.*self-review.*orchestrator.*individual written-spec approval")
+        self.assertRegex(planning, r"bounded has no spec stage, spec approval or spec-necessity record.*reassess the design path as architectural.*path-change approval")
         planner = " ".join(tomllib.loads((REPO / "codex/agents/arc-planner.toml").read_text())
                            ["developer_instructions"].lower().split())
         self.assertRegex(planner, r"complete spec draft and self-review.*orchestrator integrates/saves/self-reviews")
@@ -676,25 +676,22 @@ class ARCPreactionGateTests(unittest.TestCase):
             for phrase in ("approved design scope", "approval evidence", "planner's complete spec draft",
                            "self-review", "orchestrator's integration/save/review responsibility", "absolute save path"):
                 self.assertIn(phrase, spec)
-        with self.subTest(path="bounded_required_spec"):
-            for phrase in ("first required bounded written spec save", "orchestrator's recorded plan-depth judgment",
-                           "approved short design", "spec-necessity rationale and scope", "proportional complete draft",
-                           "self-review", "orchestrator's integration/save/review responsibility", "individual written-spec approval"):
-                self.assertIn(phrase, spec)
-        with self.subTest(path="short_design_distinction"):
-            self.assertRegex(spec, r"saving or approving the short design does not replace.*required spec.*drafting.*self-review.*individual approval")
-        with self.subTest(path="spec_approval_order"):
-            self.assertRegex(spec, r"architectural and required bounded specs.*approved versions.*applicable document set")
-            self.assertRegex(spec, r"written-spec approval.*before dependent plan drafting")
+        with self.subTest(path="architectural_spec_only"):
+            self.assertIn("architectural only", spec)
+            self.assertNotIn("required bounded spec", gates)
+            self.assertIn("reassess the design path as architectural", planning)
+        with self.subTest(path="spec_review_order"):
+            self.assertIn("the reviewed architectural spec enters the document set before dependent planning", gates)
+            self.assertIn("approval follows once for the full set", gates)
         with self.subTest(path="save_without_circular_approval"):
-            self.assertIn("does not require written-spec approval; it requires valid execution-target choice and actual preparation", spec)
+            self.assertIn("saving for review requires no prior document approval, but does require valid target choice/actual preparation", gates)
         complete = planning.split("### complete planning-document set")[1].split("### evidence refresh and limits")[0]
         rows = {line.split("|")[1].strip().lower(): " ".join(line.lower().split())
                 for line in (REPO / "codex/skill/references/planning.md").read_text().splitlines()
                 if line.startswith("| ") and len(line.split("|")) >= 4}
         with self.subTest(path="bounded_plan_required_without_spec"):
             self.assertIn("a required plan does not itself require a written spec", complete)
-            self.assertIn("only when orchestrator's recorded plan-depth judgment requires it", rows["bounded, plan required"])
+            self.assertIn("approve design and all required plans; no spec", rows["bounded, plan required"])
         for path, row, contract in (
             ("spike", "spike probe", "do not force specs/plans for still-unknown implementation"),
             ("bounded_plan_skip", "bounded, plan skipped", "approve the short design"),
@@ -704,7 +701,7 @@ class ARCPreactionGateTests(unittest.TestCase):
                 self.assertIn(contract, rows[row])
                 self.assertIn("no new spec obligation", rows[row])
         with self.subTest(path="plan_save"):
-            for phrase in ("approved design", "approved written-spec version", "plan-depth", "dependencies",
+            for phrase in ("approved design", "reviewed spec path/version/sha-256 and review evidence", "plan-depth", "dependencies",
                            "planner's complete plan draft", "self-review", "absolute save path"):
                 self.assertIn(phrase, plan)
             self.assertRegex(plan, r"missing.*mismatched.*stop.*save.*orchestrator")
@@ -721,7 +718,7 @@ class ARCPreactionGateTests(unittest.TestCase):
         for phrase in ("planned document scope", "absolute paths", "design/plan depth", "valid omissions",
                        "dependencies", "changes", "ownership"):
             self.assertIn(phrase, choice)
-        self.assertIn("does not require completed documents or individual approvals", choice)
+        self.assertIn("completed documents/approvals are not yet required", choice)
         self.assertIn("do not require choice evidence before asking for that choice", choice)
         self.assertIn("required artifacts, not a spec on every path", choice)
 
@@ -736,8 +733,8 @@ class ARCPreactionGateTests(unittest.TestCase):
             with self.subTest(evidence=phrase):
                 self.assertIn(phrase, gate)
         planning = policy_text("planning").split("### complete planning-document set")[1]
-        self.assertRegex(planning, r"defers.*brainstorming.*commit the spec.*written-spec review")
-        self.assertIn("spec steps apply only to architectural and required bounded specs", planning)
+        self.assertRegex(planning, r"defer.*brainstorming.*early spec commit.*review the uncommitted spec.*obtain the combined approval")
+        self.assertIn("spec stages cover architectural only; plan stages cover required plans only", planning)
         commit = handoff.split("### planning document commit")[1].split("### recovery prerequisite")[0]
         for contract in (r"reuse valid commits without recommitting", r"batch all remaining uncommitted approved documents",
                          r"staged paths and staged diff match exactly", r"finalizes.*message before the first commit",
@@ -1518,9 +1515,11 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
         self.assertIn("normal order:", planning)
         order = planning.split("normal order:", 1)[1].split("implementer handoff", 1)[0]
         cursor = 0
-        for marker in ("initial design approval", "execution-target choice", "target preparation and verification",
-                       "formal spec drafting", "written-spec approval", "formal plan drafting", "individual plan approvals",
-                       "complete applicable set", "batch docs commit", "final git verification"):
+        for marker in ("initial design approval", "explicit target and source snapshot", "first required draft/self-review",
+                       "focused preparation gate", "actual preparation/comparison", "save/review/revision",
+                       "architectural: dependent plan drafting/save/review/revision", "spec↔plan consistency check",
+                       "one combined approval; bounded: plan approval", "full set",
+                       "verify existing commits/batch remaining approvals", "final git"):
             found = order.find(marker, cursor)
             self.assertGreaterEqual(found, cursor, marker)
             cursor = found + len(marker)
@@ -1548,7 +1547,7 @@ class WorkspaceBeforeDocumentsTests(unittest.TestCase):
                        "repository", "current branch or detached head", "base head", "new-branch candidate",
                        "collision status", "staged/unstaged/untracked changes", "preservation and edit ownership"):
             self.assertIn(phrase, presentation)
-        self.assertIn("does not require completed documents or individual approvals", gate)
+        self.assertIn("completed documents/approvals are not yet required", gate)
 
     def test_formal_drafting_and_save_require_prepared_target(self):
         text = self.text("planning")
@@ -1625,3 +1624,119 @@ class FastEvidenceChoiceTests(unittest.TestCase):
             section = text.split('### Evidence refresh', 1)[1].split('## Cooperative CLI', 1)[0]
             with self.subTest(platform=platform):
                 self.assertRegex(section, r'target change.*new choice.*state confirmation.*dependent edit')
+
+
+class SpecPlanApprovalMergeTests(unittest.TestCase):
+    PLATFORMS = ("claude", "codex", "gemini", "grok")
+    APPROVAL_RULES = (
+        'Design, spec and plan stages remain separately ordered: Architectural plan drafting starts only after the spec is saved, reviewed and revised and its reviewed path, version and SHA-256 are fixed; NEVER draft spec and plan concurrently.',
+        'Architectural approves design, then complete Planner spec/self-review and Orchestrator save/review/revision without a separate spec approval request; a fresh plan Planner then drafts from the reviewed spec, and the spec and every plan receive one [combined approval](#architectural-combined-approval).',
+        'Bounded has no spec stage, spec approval or spec-necessity record. If Bounded work appears to need a spec-level document, do not write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting. Required plans alone imply no written spec.',
+        'Assess plan depth after design approval and before Implementer, separately from files/LOC/Bounded label.',
+        'Architectural always uses `writing-plans` and the combined spec+plan approval regardless of size/locality/risk.',
+        'Labels/no-plan requests do not bypass judgment.',
+        'Approve design and all required plans; no spec. Draft the first required plan before target preparation; complete set before batch/handoff',
+        'Design → reviewed written spec → all `writing-plans` plans → one combined spec+plan approval. First spec draft before target preparation; full set before batch/final checks/handoff',
+        '<a id="architectural-combined-approval"></a>',
+        '## Architectural combined approval',
+        "1. Sequential drafting (R0): Assign the fresh plan Planner only after the spec Planner returned the complete draft and self-review, Orchestrator saved it in the prepared target, reviewed it and made needed revisions, and the reviewed spec's path, version and SHA-256 are fixed and cited in the plan brief. NEVER draft a plan early or dispatch spec and plan Planners in parallel. Request no approval between the spec and plan stages.",
+        '3. Partial answers (R2): A reply approving only part of the set, such as approving the spec while asking for plan changes, is a revision request. Orchestrator revises the documents directly, asking the user first for decisions outside approved scope; after any spec change it rechecks spec↔plan consistency; then it requests combined approval for the whole revised set. Partial approvals never carry over.',
+        '4. Invalidation (R3): Any content change to any document after the approval request voids that request; request combined approval again for the current set.',
+        '6. Rework (R5): If spec rejection requires substantive plan rework, use a fresh plan Planner under the normal Planner gate; Orchestrator handles formatting, re-expression, save and patch errors.',
+        '7. Commit and Implementer (R6): Before combined approval, commit no planning document and start no Implementer. After it, make one planning-document commit under [handoff-prep](handoff-prep.md#planning-document-commit).',
+        'Execution-time document revisions take this approval: a spec change with affected plans needs one combined revision approval for the spec and those plans; a plan-only change needs plan approval; a spec-only change needs spec approval after Orchestrator records why no plan is affected. Partial approvals never carry over.',
+        '| Architectural spec+plan combined approval | auto | Only with zero open decisions; otherwise user |',
+        '| Plan approval | auto | Only with zero open decisions; otherwise user |',
+    )
+    REMOVED_WORDING = (
+        'spec-required Bounded',
+        'required Bounded spec',
+        'Required Bounded specs',
+        'records Bounded spec necessity',
+        'If Bounded requires written spec',
+        'written-spec approval before',
+        'sequential design/spec/plan approvals',
+        'Required written-spec approval precedes',
+        'obtains written-spec approval',
+        'After written-spec approval',
+        'ordered written-spec/dependent-plan',
+        '| Written spec approval |',
+        'spec approval precedes dependent planning',
+    )
+    INVENTORY_REFERENCE = r"attaching the author judgments made since design approval \((?:\[decision inventory\]\(#decision-inventory\)|decision inventory)\)"
+    CLASSIFICATION_REFERENCE = r"classified under (?:\[question classification\]\(#decision-inventory\)|question classification)"
+
+    def reference(self, platform, name):
+        return (REPO / platform / "skill/references" / f"{name}.md").read_bytes()
+
+    def test_combined_approval_rules_present_on_every_platform(self):
+        for platform in self.PLATFORMS:
+            planning = self.reference(platform, "planning").decode()
+            for rule in self.APPROVAL_RULES:
+                with self.subTest(platform=platform, rule=rule):
+                    self.assertIn(rule, planning)
+            with self.subTest(platform=platform):
+                self.assertRegex(planning, self.INVENTORY_REFERENCE)
+                self.assertRegex(planning, self.CLASSIFICATION_REFERENCE)
+
+    def test_combined_approval_text_identical_across_platforms(self):
+        def approval_lines(platform):
+            planning = self.reference(platform, "planning")
+            section = planning.split(b'<a id="architectural-combined-approval"></a>', 1)
+            self.assertEqual(len(section), 2, platform)
+            combined = section[1].split(b'<a id="top-level-plan-tasks"></a>', 1)[0]
+            rules = tuple(line for line in planning.splitlines(keepends=True)
+                          if any(rule.encode() in line for rule in self.APPROVAL_RULES))
+            return combined, rules
+
+        expected = approval_lines(self.PLATFORMS[0])
+        for platform in self.PLATFORMS[1:]:
+            with self.subTest(platform=platform):
+                self.assertEqual(approval_lines(platform), expected)
+
+    def test_removed_spec_approval_wording_absent(self):
+        paths = [path for platform in self.PLATFORMS
+                 for path in (REPO / platform / "skill").rglob("*.md")]
+        paths += [REPO / "lib/policy/role-policy.json", REPO / "lib/prompts/agent-fragments.json"]
+        for path in paths:
+            text = path.read_text()
+            for phrase in self.REMOVED_WORDING:
+                if phrase in text:
+                    with self.subTest(path=path.relative_to(REPO), phrase=phrase):
+                        self.fail("Obsolete spec approval wording")
+
+    def test_planner_brief_rp1_in_managed_section(self):
+        rule = 'Obtain design approval before spec or plan drafting. For Architectural work, draft the spec and then the plan with fresh Planners, assigning the plan Planner only after the spec is saved and reviewed and its path, version and SHA-256 are fixed; NEVER draft them concurrently; then obtain one combined spec+plan approval. Bounded work has no spec stage; required plans keep their own approval.'
+        for platform in self.PLATFORMS:
+            with self.subTest(platform=platform):
+                planning = self.reference(platform, "planning").decode()
+                self.assertEqual(planning.count(rule), 1)
+                managed = planning.split("[ARC role policy: contract begin]", 1)[1]
+                self.assertIn(rule, managed.split("[ARC role policy: contract end]", 1)[0])
+
+    def test_handoff_prep_applicable_approvals(self):
+        rules = (
+            'Completed documents/approvals are not yet required;',
+            'Document staging/commit also verifies the full set, applicable approvals (Architectural combined spec+plan approval; Bounded plan approval)/versions/dependencies and actual index.',
+            'Begin after target preparation and all applicable documents are written and approved. Architectural paths permit no document commit before the one combined spec+plan approval; after it, record the spec and every plan in one planning-document commit. Bounded plan-required paths commit their approved plans in one planning-document commit. Plan-less paths commit their own approved document set.',
+            'Verify applicable approvals under [planning](planning.md#plan-updates-during-execution) (combined spec+plan revision approval, plan approval, or spec approval with recorded no-plan-impact), actual approval time, preparation and holds;',
+        )
+        for platform in self.PLATFORMS:
+            prep = self.reference(platform, "handoff-prep").decode()
+            for rule in rules:
+                with self.subTest(platform=platform, rule=rule):
+                    self.assertIn(rule, prep)
+
+    def test_handoff_cooperative_plan_mode_wording(self):
+        rules = (
+            'Supported plan-mode handoffs',
+            'Verify the approved planning-document docs-only commit (Architectural spec/plan; Bounded plan)',
+            '`documents` is exactly the prepared document set (spec/plan for Architectural, plan for Bounded) with ',
+            'Support is `plan` mode with the Architectural spec+plan or Bounded plan-only set, not no-plan/omission.',
+            'Applicable design/spec/plan approvals/artifacts or valid omissions',
+        )
+        for platform in self.PLATFORMS:
+            handoff = self.reference(platform, "handoff").decode()
+            for rule in rules:
+                with self.subTest(platform=platform, rule=rule):
+                    self.assertIn(rule, handoff)

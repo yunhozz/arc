@@ -167,7 +167,7 @@ Evaluate target choice validity separately from evidence validity. Approved HEAD
 <a id="cooperative-cli-verification-handoff"></a>
 ## Cooperative CLI verification handoff
 
-Supported spec+plan handoffs include registered task contract, exact check descriptor, task/final scope, `status.changeFingerprints`, independent actor attestations, intent ID/result messageRef/verdict. Authorized roles execute after `prepare` and record through `result`; CLI records prove no identity/compliance.
+Supported plan-mode handoffs include registered task contract, exact check descriptor, task/final scope, `status.changeFingerprints`, independent actor attestations, intent ID/result messageRef/verdict. Authorized roles execute after `prepare` and record through `result`; CLI records prove no identity/compliance.
 
 Include spec/plan paths in cooperative `task.paths` to commit task progress records and pending revisions; missing paths hold the commit until an approved scope revision, and the cooperative CLI does not support the standalone `docs(plan)` closing commit, so include pending revisions in task or follow-up commits. When `task.paths` includes the plan path, the cooperative CLI holds R-8 separation commits (staging progress records without revision hunks) at both preflight and result verification; while revisions are pending, prior-version tasks cannot be committed through the CLI. Plan-level progress records follow the same `task.paths` rule; when no task or follow-up commit follows, they stay only in the canonical record, and the cooperative CLI adds no support for them.
 
@@ -190,9 +190,9 @@ In approved plan mode all mutations pass stdin JSON through `node "$ARC_RUNTIME_
 
 Entry installation/update migrates no common-directory state or approvals. Preserve runtime/hash/target/actor/revision gates; drift holds evidence for current recovery/approval. New workflows prove no historical compliance.
 
-1. Verify approved spec/plan docs-only commit, exact set/Git objects/current bytes. Only then run `init`, approval `record`, `prepare`, even if approval preceded commit.
+1. Verify the approved planning-document docs-only commit (Architectural spec/plan; Bounded plan), exact set/Git objects/current bytes. Only then run `init`, approval `record`, `prepare`, even if approval preceded commit.
 2. At final HEAD `init` with `mode: "plan"`, `actor: {id: "operator"}`, `selection: {messageRef, contentHash}`.
-3. Record confirmed approval as `{requestId, expectedRevision, actor, evidence: {kind: "approval", messageRef, data: {approvalVersion, documentVersion, documents}}}`. `documents` is exactly spec/plan with `{kind, path, gitPath, contentHash, approvalRef, commit}`; `contentHash`=`sha256:<hex>`, `approvalRef` matches approval `messageRef`. HEAD drift needs fresh observation/renewed approval, not reconnection to old intent.
+3. Record confirmed approval as `{requestId, expectedRevision, actor, evidence: {kind: "approval", messageRef, data: {approvalVersion, documentVersion, documents}}}`. `documents` is exactly the prepared document set (spec/plan for Architectural, plan for Bounded) with `{kind, path, gitPath, contentHash, approvalRef, commit}`; `contentHash`=`sha256:<hex>`, `approvalRef` matches approval `messageRef`. HEAD drift needs fresh observation/renewed approval, not reconnection to old intent.
 4. `prepare` with `{requestId, expectedRevision, actor, operation: "assign-agent", taskId, arguments: {role: "implementer", paths, operations: ["edit"], documents, approvalRef, approvalVersion, documentVersion, correlation}}`. Absolute `paths` remain in checkout. Confirm `allow`, `persisted: true` and saved intent.
 5. Invoke native assignment with saved task/scope/correlation.
 6. Record `{requestId, expectedRevision, actor, intentId, result: {status, messageRef, data: {correlation, taskId, agentId}}}`. `intentId` is prepare requestId. Distinguish `succeeded`, `failed`, `unknown`, `mismatch`. Success needs returned agent ID; unknown/mismatch holds duplicate assignment for investigation.
@@ -202,7 +202,7 @@ Approval/assignment are `operator-attested`, not native identity/event authentic
 <a id="external-operations-and-recovery-in-the-cooperative-cli"></a>
 ## External operations and recovery in the cooperative CLI
 
-Three phases cover state/documents/assignment; scope/verification/acceptance/focused commits; external approval/results/audit recovery. Inspect nine areas/limits with `status.support`. Support is spec+plan `plan`, not no-plan/omission. CLI executes no native/provider/push/merge/deploy/publish calls.
+Three phases cover state/documents/assignment; scope/verification/acceptance/focused commits; external approval/results/audit recovery. Inspect nine areas/limits with `status.support`. Support is `plan` mode with the Architectural spec+plan or Bounded plan-only set, not no-plan/omission. CLI executes no native/provider/push/merge/deploy/publish calls.
 
 Operator-confirmed approvals/results are `operator-attested`, `nativeVerified: false`, `remoteVerified: false`; no outside-call blocking or independent remote verification.
 
