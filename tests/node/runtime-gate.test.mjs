@@ -24,6 +24,29 @@ test('docs-only preflight allows the exact complete approved document set',async
  assert.equal(result.decision,'allow');assert.equal(result.proposedTransition?.commits?.length??0,0,'permission is not a completed commit');
  assert.equal(f.state.commits.length,0);
 });
+function planOnlyPreflight(){
+ const f=fixture('documents');
+ f.state.documents.shift();
+ f.request.paths=['/workspace/plan.md'];
+ f.request.descriptor.paths=['plan.md'];
+ f.gitEvidence.stagedPaths=['plan.md'];
+ f.gitEvidence.documents.shift();
+ return f;
+}
+test('docs-only preflight allows the bounded plan-only set',async()=>{
+ const f=planOnlyPreflight();f.state.planningDepth='Bounded';
+ const result=await api.runGate(f);
+ assert.equal(result.decision,'allow',result.reason);
+});
+test('docs-only preflight holds architectural plan-only set',async()=>{
+ const legacy=planOnlyPreflight(),architectural=planOnlyPreflight(),bounded=fixture('documents');
+ architectural.state.planningDepth='Architectural';bounded.state.planningDepth='Bounded';
+ for(const f of [legacy,architectural,bounded]){
+  const result=await api.runGate(f);
+  assert.equal(result.decision,'hold');
+  assert.equal(result.reason,'Complete exact approved planning-document set required');
+ }
+});
 for(const [name,mutate] of [
  ['mixed implementation',f=>{f.gitEvidence.stagedPaths.push('code.mjs');}],
  ['missing document',f=>{f.gitEvidence.stagedPaths.pop();}],

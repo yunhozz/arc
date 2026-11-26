@@ -23,8 +23,8 @@ test('real branch preparation retains source history and links prepared bytes', 
  const state=async()=>JSON.parse(await fs.readFile(statePath,'utf8'));
  const record=async(kind,messageRef,data)=>{const s=await state();return runCooperativeCommand({...common,command:'record',input:{requestId:messageRef,expectedRevision:s.revision,actor,evidence:{kind,messageRef,data}}});};
  const docs=[{kind:'spec',path:'spec.md'},{kind:'plan',path:'plan.md'}];
- await record('approval','scope',{targetPreparation:{depth:'Bounded',documents:docs,selectionRef:'selection',kind:'branch',candidate:'feature',base:source.head,workflowId:'integration',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1}});
- const intent={type:'intent',id:'intent',workflowId:'integration',sourceTarget:source,sourceTargetVersion:1,selectionRef:'selection',approvalRef:'scope',depth:'Bounded',kind:'branch',candidate:'feature',base:source.head,firstStageId:'stage',documents:docs};
+ await record('approval','scope',{targetPreparation:{depth:'Architectural',documents:docs,selectionRef:'selection',kind:'branch',candidate:'feature',base:source.head,workflowId:'integration',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1}});
+ const intent={type:'intent',id:'intent',workflowId:'integration',sourceTarget:source,sourceTargetVersion:1,selectionRef:'selection',approvalRef:'scope',depth:'Architectural',kind:'branch',candidate:'feature',base:source.head,firstStageId:'stage',documents:docs};
  assert.equal((await record('target-preparation','intent',intent)).decision,'allow');
  const contract={document:{path:path.join(root,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,targetIntentId:'intent'};
  await record('approval','stage-approval',{plannerStage:contract});
@@ -103,7 +103,7 @@ test('real linked worktree requires both Git registration and app attachment att
  await initializeCooperativeWorkflow({...common,input:{mode:'plan',actor:{id:'operator'},selection:{messageRef:'selection',contentHash:'sha256:'+'a'.repeat(64)}}});
  const state=async()=>JSON.parse(await fs.readFile(statePath,'utf8'));
  const record=async(kind,messageRef,data)=>{const s=await state();return runCooperativeCommand({...common,command:'record',input:{requestId:messageRef,expectedRevision:s.revision,actor,evidence:{kind,messageRef,data}}});};
- const documents=[{kind:'spec',path:'spec.md'}],scope={depth:'Bounded',documents,selectionRef:'selection',kind:'worktree',candidate:'feature',base:source.head,workflowId:'worktree',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1};
+ const documents=[{kind:'spec',path:'spec.md'},{kind:'plan',path:'plan.md'}],scope={depth:'Architectural',documents,selectionRef:'selection',kind:'worktree',candidate:'feature',base:source.head,workflowId:'worktree',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1};
  await record('approval','scope',{targetPreparation:scope});
  assert.equal((await record('target-preparation','intent',{type:'intent',id:'intent',approvalRef:'scope',...scope})).decision,'allow');
  const contract={document:{path:path.join(root,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,targetIntentId:'intent'};
@@ -133,7 +133,7 @@ test('claude managed worktree under .claude/worktrees with operator attachment i
  await initializeCooperativeWorkflow({...common,input:{mode:'plan',actor:{id:'operator'},selection:{messageRef:'selection',contentHash:'sha256:'+'a'.repeat(64)}}});
  const state=async()=>JSON.parse(await fs.readFile(statePath,'utf8'));
  const record=async(kind,messageRef,data)=>{const s=await state();return runCooperativeCommand({...common,command:'record',input:{requestId:messageRef,expectedRevision:s.revision,actor,evidence:{kind,messageRef,data}}});};
- const documents=[{kind:'spec',path:'spec.md'}],scope={depth:'Bounded',documents,selectionRef:'selection',kind:'worktree',candidate:'feature',base:source.head,workflowId:'worktree',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1};
+ const documents=[{kind:'spec',path:'spec.md'},{kind:'plan',path:'plan.md'}],scope={depth:'Architectural',documents,selectionRef:'selection',kind:'worktree',candidate:'feature',base:source.head,workflowId:'worktree',firstStageId:'stage',sourceTarget:source,sourceTargetVersion:1};
  await record('approval','scope',{targetPreparation:scope});
  assert.equal((await record('target-preparation','intent',{type:'intent',id:'intent',approvalRef:'scope',...scope})).decision,'allow');
  const contract={document:{path:path.join(root,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,targetIntentId:'intent'};

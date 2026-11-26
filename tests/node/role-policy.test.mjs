@@ -299,10 +299,11 @@ test('platform role gates preserve Planner first drafts and Orchestrator spec/pl
   }
 });
 
-test('design and brainstorming retain consolidated Planner correction', () => {
+test('design and brainstorming converse and keep one final-design correction', () => {
   for (const platform of ['codex', 'claude']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
-    assert.match(output, /design and brainstorming.*one consolidated correction/i, platform);
+    assert.match(output, /design and brainstorming.*design conversation.*final design/i, platform);
+    assert.match(output, /reviews the final design once with the fixed checklist.*one consolidated correction/i, platform);
     assert.match(output, /further calls.*(?:scope|evidence).*unmet checklist items.*new input.*criterion.*progress/i, platform);
   }
 });

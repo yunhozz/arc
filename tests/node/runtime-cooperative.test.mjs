@@ -203,12 +203,16 @@ test('planner artifact drift and a new ref for used bytes do not authorize furth
  await plannerArtifact(f,'input:alias','input',bytes,semantic);assert.equal((await plannerPrepare(f,'repeat','further',{...extra,reviewRef:'review:more',evidenceRefs:['input:alias']})).decision,'deny');
 });
 test('planner plan drafting checks its spec prerequisite without requiring the future plan approval',async t=>{
- const f=await start(t),contract={document:{path:path.join(f.cwd,'plan.md'),kind:'plan',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0};
+ const f=await plannerStart(t),contract={document:{path:path.join(f.cwd,'plan.md'),kind:'plan',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0};
  const send=async(id,kind,data)=>{const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));return api.runCooperativeCommand({...f.args,command:'record',input:record(id,s.revision,{kind,messageRef:id,data})}).catch(error=>({decision:'hold',error:error.message}));};
  // The role is an explicit cooperative attestation, never provider identity.
  const actor={id:'operator',role:'orchestrator'};
  const put=async(id,kind,data)=>{const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));return api.runCooperativeCommand({...f.args,command:'record',input:{...record(id,s.revision,{kind,messageRef:id,data}),actor}});};
  await put('approve-plan-stage','approval',{plannerStage:contract});const stage={id:'plan-stage',...contract,approvalRef:'approve-plan-stage',criteria:[{id:'C1',status:'open',judgmentRef:'C1'}]};assert.equal((await put('no-prereq','planner-stage',stage)).decision,'hold');
+ assert.equal((await plannerPrepare(f,'spec-call')).decision,'allow');
+ assert.equal((await plannerResult(f,'spec-call',{complete:true})).decision,'allow');
+ await put('approve-plan-stage-review','approval',{plannerStage:contract,prerequisiteRefs:['review:spec-call']});
+ assert.equal((await put('review-only','planner-stage',{...stage,approvalRef:'approve-plan-stage-review'})).decision,'hold');
  await put('spec-approved','approval',{kind:'spec'});await put('approve-plan-stage-2','approval',{plannerStage:contract,prerequisiteRefs:['spec-approved']});stage.approvalRef='approve-plan-stage-2';assert.equal((await put('register-plan','planner-stage',stage)).decision,'allow');
  const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));assert.equal((await api.runCooperativeCommand({...f.args,command:'prepare',input:{requestId:'draft-plan',expectedRevision:s.revision,actor,operation:'planner-call',arguments:{stageId:'plan-stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}}})).decision,'allow');
 });

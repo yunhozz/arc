@@ -43,6 +43,7 @@ export function validateWorkflowState(s,{allowLegacyOperations=true,preserveStor
  if(['policyHash','runtimeHash','adapterHash'].some(k=>!hash(s.versions[k])))fail('hash algorithm');
  if(!object(s.target)||!absolute(s.target.realpath)||['repository','worktree','baseHead','head'].some(k=>!text(s.target[k]))||!(s.target.branch===null||text(s.target.branch)))fail('target');
  if(!['plan','small-task','no-plan'].includes(s.mode))fail('mode');
+ if(s.planningDepth!==undefined&&!['Architectural','Bounded'].includes(s.planningDepth))fail('planning depth');
  for(const k of ['documents','approvals','tasks','assignments','identities','leases','checks','findings','acceptances','commits','audit','capabilities','requests'])if(!Array.isArray(s[k]))fail(k);
  const stored=s,normalized=normalizeStoredOperations(s);
  if(!allowLegacyOperations&&normalized!==s&&(!legacyOperationsFrom||hasNewStoredOperationAliases(s,legacyOperationsFrom)))fail('legacy operation in new state');
@@ -65,6 +66,21 @@ export function validateWorkflowState(s,{allowLegacyOperations=true,preserveStor
  if(s.requests.some(r=>!object(r)||!text(r.requestId)||!hash(r.requestFingerprint)||!object(r.decision))||new Set(s.requests.map(r=>r.requestId)).size!==s.requests.length)fail('request replay');
  if(s.plannerLedger!==undefined){validatePlannerLedger(s.plannerLedger);if(s.plannerLedger.stages.some(stage=>stage.workflowId!==s.workflowId))fail('Planner workflow binding');}
  return preserveStoredOperations?stored:s;
+}
+export function planningDocumentKinds(depth){
+ return depth==='Bounded'?['plan']:['plan','spec'];
+}
+export function hasExactPlanningKinds(documents,kinds){
+ if(!Array.isArray(documents)||documents.length!==kinds.length)return false;
+ const actual=documents.map(d=>d?.kind).sort();
+ return kinds.every((kind,index)=>kind===actual[index]);
+}
+export function preparedTargetIntent(state){
+ return state.targetIntents?.find(i=>state.targetTransitions?.some(t=>t.intentId===i.id&&t.targetVersion===state.targetVersion));
+}
+export function expectedCooperativePlanningKinds(state){
+ const intent=preparedTargetIntent(state);
+ return intent?[...new Set(intent.documents.map(d=>d.kind))].sort():planningDocumentKinds();
 }
 export function validateRequest(r){
  if(!object(r)||['requestId','actorRef','taskId','toolName'].some(k=>!text(r[k]))||!isPlatformId(r.platform)||!OPERATIONS.includes(r.operation)||!absolute(r.cwd)||!object(r.arguments)||!object(r.descriptor)||!strings(r.paths)||r.paths.some(p=>!absolute(p)))fail('request');

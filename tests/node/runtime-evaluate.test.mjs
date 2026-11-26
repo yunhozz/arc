@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {validateWorkflowState} from '../../lib/runtime/schema.mjs';
 const state = () => ({schemaVersion:1,workflowId:'workflow',revision:0,versions:{policy:'1',runtime:'1',adapter:'1',policyHash:'sha256:'+ 'a'.repeat(64),runtimeHash:'sha256:'+ 'b'.repeat(64),adapterHash:'sha256:'+ 'c'.repeat(64)},target:{realpath:'/workspace',repository:'repo',worktree:'wt',branch:'main',baseHead:'base',head:'head'},documents:[],approvals:[],tasks:[{id:'T1',status:'pending',paths:['/workspace/file'],dependencies:[],baseCommit:'head',criteria:['criterion'],requiredChecks:[]}],assignments:[],identities:[],leases:[],checks:[],findings:[],acceptances:[],commits:[],audit:[],capabilities:[],requests:[],mode:'plan'});
 const request = () => ({requestId:'request',platform:'codex',operation:'read',actorRef:'actor',taskId:'T1',cwd:'/workspace',toolName:'Read',arguments:{},paths:['/workspace/file'],descriptor:{}});
 
@@ -102,6 +103,88 @@ function assign(){
  return a;
 }
 function observed(pending){return {actorRef:'spawned-agent',taskId:'T1',role:'implementer',platform:'codex',observationRef:'spawn-result',eventRef:'host-spawn-event',correlationRef:'platform-call',assignmentId:'request',paths:['/workspace/file'],operations:['read','write'],approvalRef:'approval',provenance:{source:'platform-event',eventRef:'host-spawn-event',actorRef:'spawned-agent',platform:'codex',correlationRef:'platform-call',verification:{status:'verified',verifierRef:'native-provider',sourceRef:'host-spawn-event'}}};}
+function planOnlyAssignment(){
+ const a=assign();
+ a.s.documents=a.s.documents.filter(d=>d.kind==='plan');
+ Object.assign(a.e.facts[0].data,{documents:a.s.documents,paths:['plan.md']});
+ return a;
+}
+test('first Implementer accepts bounded plan-only set when planningDepth is Bounded',()=>{
+ const a=planOnlyAssignment();a.s.planningDepth='Bounded';
+ const allowed=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(allowed.decision,'allow',allowed.reason);
+ a.e.facts.shift();
+ const uncommitted=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(uncommitted.decision,'hold');
+ assert.equal(uncommitted.reason,'Git object and approval verification required');
+ const mixed=assign();mixed.s.planningDepth='Bounded';
+ const held=api.evaluate(policy,mixed.s,mixed.r,mixed.e);
+ assert.equal(held.decision,'hold');
+ assert.equal(held.reason,'approved complete planning-document set required');
+});
+test('missing planningDepth keeps requiring spec and plan',()=>{
+ for(const depth of [undefined,'Architectural']){
+  const a=planOnlyAssignment();if(depth)a.s.planningDepth=depth;
+  const held=api.evaluate(policy,a.s,a.r,a.e);
+  assert.equal(held.decision,'hold');
+  assert.equal(held.reason,'approved complete planning-document set required');
+ }
+});
+test('documents commit accepts bounded plan-only set',()=>{
+ for(const kinds of [['plan'],['spec','plan']]){
+  const a=setup('orchestrator','commit');a.s.planningDepth='Bounded';
+  a.s.documents=kinds.map(kind=>({kind,path:`/workspace/${kind}.md`,gitPath:`${kind}.md`,contentHash:'sha256:'+'a'.repeat(64),approvalRef:'approval'}));
+  a.r.paths=a.s.documents.map(d=>d.path);a.s.assignments[0].paths=['/workspace'];a.s.approvals[0].scope.paths=['/workspace'];
+  a.e.resolvedPaths.push(...a.r.paths.map(p=>({path:p,realpath:p})));
+  a.r.descriptor={kind:'documents',parent:'head',indexTree:'tree',fingerprint:'diff',paths:a.s.documents.map(d=>d.gitPath)};
+  fact(a,'git-index',a.r.descriptor);
+  const result=api.evaluate(policy,a.s,a.r,a.e);
+  assert.equal(result.decision,kinds.length===1?'allow':'hold',result.reason);
+  if(kinds.length===2)assert.equal(result.reason,'exact approved documents required');
+ }
+});
+function plannerAssignment(kind){
+ const a=assign();
+ const stage={id:kind,workflowId:a.s.workflowId,document:{path:'/workspace/file',kind,phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,approvalRef:'approval',criteria:[{id:'C1',status:'open',judgmentRef:'criterion'}],calls:[],pending:null,result:null,review:null};
+ a.s.documents=[];a.s.plannerLedger={version:1,stages:[stage]};
+ const scope=a.s.approvals[0].scope;
+ scope.roles=['planner'];scope.operations.push('draft');
+ scope.plannerStage={document:stage.document,inputVersion:1,criteriaVersion:1,scopeVersion:0};
+ Object.assign(a.r.descriptor,{role:'planner',operations:['draft'],plannerCall:{stageId:kind,kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}});
+ a.e.facts[1].data={requestId:a.r.requestId,platform:a.r.platform,...a.r.descriptor};
+ a.e.facts.push({...a.e.facts[1],kind:'planner-call',data:{stageId:kind,inputVersion:1,criteriaVersion:1,scopeVersion:0,artifacts:[]}});
+ return {a,stage};
+}
+test('plan Planner assignment accepts a ready reviewed spec stage without spec approval',()=>{
+ const {a,stage}=plannerAssignment('plan');a.s.planningDepth='Architectural';
+ const reviewed={...stage,id:'spec',document:{...stage.document,kind:'spec',path:'/workspace/spec.md'},ready:true,
+  criteria:[{id:'C1',status:'resolved',judgmentRef:'review'}],
+  result:{ref:'result',status:'succeeded',artifactRef:'draft',selfReviewRef:'self'},
+  review:{full:true,complete:true,resultRef:'result'},
+  artifacts:[['draft','draft'],['self','self-review']].map(([ref,purpose])=>({ref,purpose,path:'/workspace/'+ref+'.md',hash:'sha256:'+'a'.repeat(64),criterionIds:['C1'],verification:{status:'verified',source:'local-bytes'}}))};
+ a.s.plannerLedger.stages.push(reviewed);
+ const allowed=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(allowed.decision,'allow',allowed.reason);
+ for(const override of [{scopeVersion:1},{ready:false}]){
+  a.s.plannerLedger.stages[1]={...reviewed,...override};
+  const held=api.evaluate(policy,a.s,a.r,a.e);
+  assert.equal(held.decision,'hold');
+  assert.equal(held.reason,'Reviewed spec prerequisite required');
+ }
+});
+test('bounded spec Planner stage is held',()=>{
+ const {a}=plannerAssignment('spec');a.s.planningDepth='Bounded';
+ const held=api.evaluate(policy,a.s,a.r,a.e);
+ assert.equal(held.decision,'hold');
+ assert.equal(held.reason,'Bounded depth has no spec stage');
+ const plan=plannerAssignment('plan').a;plan.s.planningDepth='Bounded';
+ const allowed=api.evaluate(policy,plan.s,plan.r,plan.e);
+ assert.equal(allowed.decision,'allow',allowed.reason);
+});
+test('invalid planningDepth value is rejected',()=>{
+ assert.doesNotThrow(()=>validateWorkflowState(state()));
+ assert.throws(()=>validateWorkflowState({...state(),planningDepth:'bounded'}),/planning depth/);
+});
 test('a canonical tester observation matches the original legacy identity and assignment',()=>{
  const a=assign();
  const pending=api.evaluate(policy,a.s,a.r,a.e).proposedTransition;

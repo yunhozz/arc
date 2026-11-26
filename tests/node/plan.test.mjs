@@ -223,14 +223,14 @@ test('installation leaves unsupported profile paths unmanaged',t=>{
 // Capture public output bytes and iteration order; normalize only the temporary
 // HOME so the baseline is independent of the fixture.
 const renderingBaseline={
- 'codex:en:false':'93c1b71295be6206d6452f1b01f0ca21e6e7cdb6b3288a2cdba8400777a133bf',
- 'codex:en:true':'c98490427893f09af8b8ffabd2c10c99c4579d0f700c31eb1ffab0fbdf297b0d',
- 'codex:ko:false':'5b3ab56262c905352e794cdd7e137016b6a6bbde0935432961c8734c4ac47430',
- 'codex:ko:true':'de67f7e4c91066b39ef8c47a44ec49341016001bcc0caec8cdd106a2a23a3323',
- 'claude:en:false':'207e256dfb5d5cb8e120b32c013f87c9ae64932462f47e90bb37cfc1fae23245',
- 'claude:en:true':'1a4f7da73184876ebc7e2f722da586cb13b3af9fb8900d94718b631b8c886c97',
- 'claude:ko:false':'06b822c5988059c4256464c6bec99e068251cfb5c12e93e72ae16d263b3c42c6',
- 'claude:ko:true':'61249f4f41053646d34845a7f76cbc59f07796dea1e8444087268c74973d6998',
+ 'codex:en:false':'d91ce11ea693cf8482fd3a64cdaa14a831ae4b1cd80707022618e20c8ef8964b',
+ 'codex:en:true':'dd2e002bd819193b0db79041f4a390360a4be7b60b5597b7fa3dbdf1984d4a54',
+ 'codex:ko:false':'4783476afb6602dfc65d7af0a64a1d731c7f3284809798e6b577c94309caff2d',
+ 'codex:ko:true':'8e050292f6165e5ca9f5de66c5b2f0b08baef2903f9b7149d85556bf8742cd32',
+ 'claude:en:false':'5b9697b5b2668a5cd5eda9ba9bde78a1c17cbae27656ec2bd4a222ba4386aab0',
+ 'claude:en:true':'cfc5620e581563f0a00798e3ad190d71afceac6147c0885b616e36f0530ab564',
+ 'claude:ko:false':'30abaeddc398a688f4b178a0dfb076b8f8b7b46753086a2b3356a843ac3f5fd2',
+ 'claude:ko:true':'8195ad3109387e9c502905ab6e36d08eabeffe83031f7df7b5041ec4732508d7',
 };
 for(const platform of ['codex','claude'])for(const language of ['en','ko'])for(const skipGlobal of [false,true])test(`${platform} ${language} skipGlobal=${skipGlobal} preserves public rendering baseline`,t=>{
  const home=fixture(t),target=targets.resolveTarget(platform,{userHome:home,env:{}});
