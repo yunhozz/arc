@@ -13,6 +13,7 @@ import {fingerprintRequest,saveDurableState,applyCooperativeCommitTransition,app
 import {commandResult,cooperativeVersions} from './bootstrap.mjs';
 import {evaluateCooperative,reconcileCooperativeResult} from './evaluate.mjs';
 import {evaluateTargetPreparation,readTargetPreparationEvidence} from './target-preparation.mjs';
+import {expectedCooperativePlanningKinds,hasExactPlanningKinds,preparedTargetIntent} from './schema.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const sameCheckout=(a,b)=>['realpath','gitCommonDir','gitDir'].every(k=>a[k]===b[k]);
 /** Only trusted code may inject observation/storage. CLI JSON cannot set either. */
@@ -59,8 +60,17 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
   const changes=state.tasks.length?await readChanges({state}):undefined;
   const plannerArtifacts=plannerWork?await readPlannerArtifacts(state,command==='record'&&input.evidence.kind==='planner-evidence'?input.evidence:undefined):undefined;
   const plannerHistory=command==='record'&&input.evidence.kind==='planner-stage'?await readPlannerHistory(state,statePath,input.evidence.data.document?.path):{};
+  let reviewedSpec;
+  if(command==='record'&&input.evidence.kind==='planner-stage'&&input.evidence.data.document?.kind==='plan'){
+   const intent=preparedTargetIntent(state),spec=intent?.documents.find(d=>d.kind==='spec');
+   if(spec){
+    let observed;
+    try{observed=await readTargetPreparationEvidence({state,targetIntent:intent,destination:{realpath:state.target.realpath,path:spec.path},observe,readChanges});}catch{}
+    reviewedSpec={path:spec.path,hash:observed?.destination?.document?.hash};
+   }
+  }
   let destinationReview=false;
-  let decision=evaluateCooperative({state,request:{command,input},evidence:{target:currentTarget,versions,git,changes,requestFingerprint,plannerArtifacts,...plannerHistory}});
+  let decision=evaluateCooperative({state,request:{command,input},evidence:{target:currentTarget,versions,git,changes,requestFingerprint,plannerArtifacts,...plannerHistory,reviewedSpec}});
   if(command==='record'&&input.evidence.kind==='planner-review'){
    const data=input.evidence.data,stage=state.plannerLedger?.stages.find(s=>s.id===data.stageId),intent=state.targetIntents?.find(i=>i.id===stage?.targetIntentId),transition=state.targetTransitions?.find(t=>t.intentId===intent?.id&&t.targetVersion===state.targetVersion),document=intent?.documents.find(d=>d.kind===stage?.document.kind);
    if(transition&&document){
@@ -70,7 +80,11 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
     decision=valid?{decision:'allow',ruleIds:['cooperative.target-preparation']}:{decision:'hold',ruleIds:['cooperative.target-preparation'],reason:'Current destination bytes and complete source-bound review required'};
    }
   }
-  if(command==='record'&&['document','approval'].includes(input.evidence.kind)&&state.targetIntents?.some(intent=>!state.targetTransitions?.some(t=>t.intentId===intent.id)&&intent.documents.some(doc=>doc.kind===input.evidence.data.kind&&(input.evidence.data.path===doc.path||input.evidence.data.path===path.join(intent.sourceTarget.realpath,doc.path)))))decision={decision:'hold',ruleIds:['cooperative.target-preparation'],reason:'Prepared target transition required before document records'};
+  if(command==='record'&&['document','approval'].includes(input.evidence.kind)){
+   const {kind,data}=input.evidence;
+   const documents=kind==='approval'&&Array.isArray(data.documents)?data.documents:[data];
+   if(state.targetIntents?.some(intent=>!state.targetTransitions?.some(t=>t.intentId===intent.id)&&intent.documents.some(doc=>documents.some(d=>d?.kind===doc.kind&&[doc.path,path.join(intent.sourceTarget.realpath,doc.path)].includes(d.path)))))decision={decision:'hold',ruleIds:['cooperative.target-preparation'],reason:'Prepared target transition required before document records'};
+  }
   if(command==='record'&&input.evidence.kind==='approval'){
    const data=input.evidence.data,intent=state.targetIntents?.find(i=>state.targetTransitions?.some(t=>t.intentId===i.id&&t.targetVersion===state.targetVersion)&&i.documents.some(d=>d.kind===data.kind));
    if(intent){
@@ -79,6 +93,25 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
     const review=state.records.findLast(r=>r.kind==='planner-review'&&r.scopeVersion===state.scopeVersion&&r.targetVersion===state.targetVersion&&r.data?.stageId===stage?.id&&r.data?.resultRef===stage?.result?.ref&&r.data?.full===true&&r.data?.complete===true&&r.data?.hash===data.contentHash);
     let observed;try{observed=await readTargetPreparationEvidence({state,targetIntent:intent,destination:{realpath:state.target.realpath,path:document.path},observe,readChanges});}catch{}
     if(stage?.scopeVersion!==state.scopeVersion||![document.path,path.join(state.target.realpath,document.path)].includes(data.path)||!review||observed?.destination?.document?.hash!==data.contentHash||!same(currentTarget,state.target)||!same(versions,state.versions)||input.actor.role!=='orchestrator')decision={decision:'hold',ruleIds:['cooperative.target-preparation'],reason:'Current reviewed destination bytes required for approval'};
+   }
+  }
+  if(command==='record'&&input.evidence.kind==='approval'&&Array.isArray(input.evidence.data.documents)&&decision.decision==='allow'){
+   const intent=preparedTargetIntent(state),documents=input.evidence.data.documents;
+   if(intent){
+    let valid=input.actor.role==='orchestrator'&&same(currentTarget,state.target)&&same(versions,state.versions)&&hasExactPlanningKinds(documents,expectedCooperativePlanningKinds(state));
+    for(const doc of intent.documents){
+     if(!valid)break;
+     const absolutePath=path.join(state.target.realpath,doc.path);
+     const entry=documents.find(d=>d.kind===doc.kind&&[doc.path,absolutePath].includes(d.path));
+     const firstStage=state.plannerLedger?.stages.find(s=>s.id===intent.firstStageId);
+     const stage=firstStage?.document.kind===doc.kind?firstStage:state.plannerLedger?.stages.find(s=>s.document.kind===doc.kind&&s.document.path===absolutePath&&s.targetVersion===state.targetVersion);
+     const review=entry&&state.records.findLast(r=>r.kind==='planner-review'&&r.source==='operator-attested'&&r.scopeVersion===state.scopeVersion&&r.targetVersion===state.targetVersion&&r.data?.stageId===stage?.id&&r.data?.resultRef===stage?.result?.ref&&r.data?.full===true&&r.data?.complete===true&&r.data?.hash===entry.contentHash);
+     if(!review||stage?.scopeVersion!==state.scopeVersion){valid=false;break;}
+     let observed;
+     try{observed=await readTargetPreparationEvidence({state,targetIntent:intent,destination:{realpath:state.target.realpath,path:doc.path},observe,readChanges});}catch{}
+     valid=same(observed?.destination?.target,state.target)&&observed.destination.document?.hash===entry.contentHash;
+    }
+    if(!valid)decision={decision:'hold',ruleIds:['cooperative.target-preparation'],reason:'Current reviewed bytes required for every approved document'};
    }
   }
   if(command==='record'&&input.evidence.kind==='target-preparation'){
@@ -171,7 +204,7 @@ export async function runCooperativeCommand({cwd,workflowId,command,input,observ
      const task=state.tasks.find(t=>t.id===id),approval=state.records.findLast(r=>r.kind==='approval'&&(!r.data.affectedTaskIds||r.data.affectedTaskIds.includes(id)));
      if(!task||task.invalidated||task.scopeVersion!==state.scopeVersion||!approval||approval.revision<=marker.revision||approval.scopeVersion!==state.scopeVersion||approval.targetVersion!==state.targetVersion||task.approvalRef!==approval.messageRef||task.approvalVersion!==approval.data.approvalVersion||task.documentVersion!==approval.data.documentVersion){ready=false;break;}
      const documents=approval.data.documents;
-     if(!Array.isArray(documents)||documents.length!==2||!['spec','plan'].every(kind=>documents.some(d=>d.kind===kind))){ready=false;break;}
+     if(!hasExactPlanningKinds(documents,expectedCooperativePlanningKinds(state))){ready=false;break;}
      try{const observed=await readGit({target:currentTarget,documents});if(!same(observed.target,currentTarget)||!observed.docsCommit||!same(observed.docsCommit.documents,documents)||documents.some(d=>d.commit!==observed.docsCommit.commit||d.approvalRef!==approval.messageRef||!observed.documents?.some(o=>o.path===d.path&&o.gitPath===d.gitPath&&o.observedHash===d.contentHash&&o.currentHash===d.contentHash))){ready=false;break;}}
      catch{ready=false;break;}
      const scope=state.scopes.find(s=>s.scopeVersion===state.scopeVersion);if(!scope||task.paths.some(p=>!scope.data.paths.some(base=>within(base,p)))){ready=false;break;}

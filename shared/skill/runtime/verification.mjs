@@ -67,7 +67,7 @@ function record({state,request,evidence}){
 export function evaluateCooperativeVerification({state,request,evidence}={}){
  const denial=legacyCooperativeRoleDenial(request);
  if(denial)return {...base(state),...denial};
- if(state?.mode!=='plan')return hold(state,'unsupported','Only the complete spec and plan path is supported');
+ if(state?.mode!=='plan')return hold(state,'unsupported','Only the plan path is supported');
  if(!request||request.expectedRevision!==state.revision)return hold(state,'revision','Stale verification request');
  if(request.actor?.role!=='orchestrator')return hold(state,'verification-actor','Orchestrator statement required');
  if(request.operation==='verification-record')return record({state,request,evidence});

@@ -1,6 +1,7 @@
 import {validateGitPreflight,validateGitCommitResult} from './git-evidence.mjs';
 export {validateGitPreflight,validateGitCommitResult} from './git-evidence.mjs';
 import path from 'node:path';
+import {hasExactPlanningKinds,planningDocumentKinds} from './schema.mjs';
 
 const reconciliations=new WeakMap();
 export function verifiedReconciliation(decision,state,next,expectedCommit){const proof=reconciliations.get(decision);return !!proof&&proof.before===JSON.stringify(state)&&proof.after===JSON.stringify(next)&&(expectedCommit===undefined||proof.expected===JSON.stringify(expectedCommit));}
@@ -33,7 +34,7 @@ export async function runGate({phase,state,request,gitEvidence,expectedCommit,re
    return path.relative(state.target.realpath,file).split(path.sep).join('/');
   }),d.paths))return hold('Request paths differ from commit paths');
   if(d.kind==='documents'){
-   if(state.mode!=='plan'||state.documents?.length!==2||!samePaths(state.documents.map(x=>x.kind),['spec','plan'])||!samePaths(d.paths,state.documents.map(x=>x.gitPath)))return hold('Complete exact approved spec and plan set required','runtime.docs-commit');
+   if(state.mode!=='plan'||!hasExactPlanningKinds(state.documents,planningDocumentKinds(state.planningDepth))||!samePaths(d.paths,state.documents.map(x=>x.gitPath)))return hold('Complete exact approved planning-document set required','runtime.docs-commit');
    for(const document of state.documents){
     const approvals=state.approvals?.filter(a=>a.id===document.approvalRef);
     if(!hash(document.contentHash)||document.path!==path.join(state.target.realpath,...document.gitPath.split('/'))||approvals?.length!==1||!['user-message','human-confirmation'].includes(approvals[0].source)||!approvals[0].messageRef||approvals[0].contentHash!==document.contentHash)return hold('Approved document hash unavailable','runtime.docs-commit');

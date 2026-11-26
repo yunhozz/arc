@@ -55,7 +55,7 @@
 | PJ13 | `evaluate.mjs:220`의 prepared intent 조회는 helper로 바꾸지 않습니다. | 행동 변화가 없고 diff만 줄어듭니다. |
 | PJ14 | RT4·RT5 테스트는 spec이 지정한 파일(`runtime-cooperative.test.mjs`)에 둡니다. 단, prepared intent fixture(`plannerStart`, `plannerPrepare`)가 `runtime-target-preparation.test.mjs`에만 있으면 그 파일에 같은 이름으로 둡니다. | 결과물과 테스트 이름은 같고, 두 파일 모두 allowedPaths에 있습니다. |
 | PJ15 | `instruction-contracts.json`의 비보호 항목이 이번에 바뀐 정책 문장을 복사하고 있으면, 새 문장으로 갱신합니다(PI4). | fixture를 정책 원문과 맞추는 것이고, spec §5의 6단계와 같은 성격입니다. |
-| PJ16 | 기존 런타임 테스트가 "Bounded intent의 {spec,plan}을 allow"로 기대하고 있으면 hold로 바꿉니다. | RT1/G1의 직접 결과입니다. AC10e의 "기존 테스트 그대로 통과"는 Architectural/legacy `{spec,plan}` 시나리오를 가리킵니다. |
+| PJ16 | 기존 런타임 테스트가 "Bounded intent의 {spec,plan}을 allow"로 직접 기대하고 있으면 hold로 바꿉니다. spec이 들어간 흐름을 검증하는 준비 fixture(`runtime-target-preparation.integration.test.mjs` 포함)는 depth를 Architectural로 바꿔 흐름 검증을 유지하고, spec이 필요 없는 Bounded fixture는 plan-only 세트를 씁니다(실행 중 개정 2026-11-26). | RT1/G1의 직접 결과입니다. AC10e의 "기존 테스트 그대로 통과"는 Architectural/legacy `{spec,plan}` 시나리오를 가리킵니다. |
 
 ## 확인 항목 배치
 
@@ -245,6 +245,7 @@
   - `shared/skill/runtime/verification.mjs`
 - 테스트:
   - `tests/node/runtime-target-preparation.test.mjs`
+  - `tests/node/runtime-target-preparation.integration.test.mjs` (PJ16, 실행 중 개정 2026-11-26)
   - `tests/node/runtime-cooperative.test.mjs`
   - `tests/node/runtime-assignment.test.mjs`
   - `tests/node/runtime-evaluate.test.mjs`
@@ -269,9 +270,9 @@
 
 **spec 매핑:** G3, RT1–RT9, §4.6, §4.7(새 게이트 없음), §4.8, §5 2·4–8단계, §6.1 런타임 행, §6.2 런타임 테스트, §9
 
-- [ ] **Step 1: 기준선 기록.** base worktree에서 `node --test tests/node/runtime-*.test.mjs`를 실행하고 결과를 기록합니다. I6를 다시 확인합니다: `rg -n "Only the complete spec and plan|approved complete spec and plan required|Approved spec prerequisite|Complete exact approved spec and plan set" tests` 결과가 0건이어야 합니다.
+- [x] **Step 1: 기준선 기록.** base worktree에서 `node --test tests/node/runtime-*.test.mjs`를 실행하고 결과를 기록합니다. I6를 다시 확인합니다: `rg -n "Only the complete spec and plan|approved complete spec and plan required|Approved spec prerequisite|Complete exact approved spec and plan set" tests` 결과가 0건이어야 합니다.
 
-- [ ] **Step 2: 실패 테스트 작성.** 모든 assert는 `decision`과, 해당하면 `reason`의 정확한 문자열을 검사합니다. 파일 위치는 PJ14를 따릅니다.
+- [x] **Step 2: 실패 테스트 작성.** 모든 assert는 `decision`과, 해당하면 `reason`의 정확한 문자열을 검사합니다. 파일 위치는 PJ14를 따릅니다.
 
   `runtime-target-preparation.test.mjs`:
   1. `bounded intent with a spec document is held`
@@ -282,7 +283,7 @@
      - 362 흐름에서 리뷰까지 진행한 뒤, `approvalRef` 없는 destination → `allow`
      - `after.targetDocuments[0].reviewRef==='review:destination'`, `'approvalRef' in after.targetDocuments[0] === false`
      - `validateTargetPreparationRecord('destination',{...request,approvalRef:''})`는 throw
-  3. `bounded plan destination without approvalRef is held` → `hold`, reason `'Document approval required for this destination'`. Architectural plan destination에 approvalRef가 없어도 같은 hold입니다. 추가 assert(RT2 결합 승인 항목): approvalRef가 결합 승인 record(`data.documents`)를 가리키고 plan 항목의 kind·path·contentHash가 일치하면 Architectural plan destination은 `allow`, contentHash가 다르면 `hold`.
+  3. `bounded plan destination without approvalRef is held` → `hold`, reason `'Document approval required for this destination'`. Architectural plan destination에 approvalRef가 없어도 같은 hold입니다. 추가 assert(RT2 결합 승인 항목, 실행 중 개정 2026-11-26): approvalRef가 결합 승인 record(`data.documents`)를 가리키고 spec 항목의 kind·path·contentHash가 일치하면 Architectural spec destination은 `allow`, contentHash가 다르면 `hold`. Architectural plan destination은 approvalRef가 결합 승인을 가리켜도 첫 stage가 아니므로 `hold`(reason `'Current transition, source attestation and observed destination bytes required'`).
   4. `architectural plan stage registers with a saved reviewed spec and no spec approval`
      - spec destination(approvalRef 없음) 뒤에 `approval {plannerStage:plan, prerequisiteRefs:['review:destination']}` → `planner-stage` `allow`
      - state에 `kind:'approval'`이면서 `data.kind==='spec'`인 record가 0개
@@ -325,9 +326,9 @@
   21. `docs-only preflight holds architectural plan-only set`: `'Architectural'`이거나 필드 없음 + `[plan]` → `hold`, `'Complete exact approved planning-document set required'`. Bounded `{spec,plan}`도 hold
   - 기존 82/153/171행, gate 22/31행, assignment 16–18/24/129/160행, cooperative 180/239행은 그대로 둡니다. PJ16에 해당하는 assert만 hold로 바꿉니다.
 
-- [ ] **Step 3: 실패 확인.** `node --test tests/node/runtime-target-preparation.test.mjs tests/node/runtime-cooperative.test.mjs tests/node/runtime-assignment.test.mjs tests/node/runtime-evaluate.test.mjs tests/node/runtime-gate.test.mjs` → 새 테스트 FAIL, 기존 테스트는 기준선과 같음
+- [x] **Step 3: 실패 확인.** `node --test tests/node/runtime-target-preparation.test.mjs tests/node/runtime-cooperative.test.mjs tests/node/runtime-assignment.test.mjs tests/node/runtime-evaluate.test.mjs tests/node/runtime-gate.test.mjs` → 새 테스트 FAIL, 기존 테스트는 기준선과 같음
 
-- [ ] **Step 4: 구현.**
+- [x] **Step 4: 구현.**
   - `schema.mjs`: 45행(mode 검사) 뒤에 `if(s.planningDepth!==undefined&&!['Architectural','Bounded'].includes(s.planningDepth))fail('planning depth');`를 넣습니다(RT7). Interfaces의 helper 4개는 `validateWorkflowState` 닫는 괄호와 `validateRequest` 사이에 둡니다. 87행 이후는 수정하지 않습니다.
   - `target-preparation.mjs`:
     - 52행(RT1): Bounded + spec이면 `hold('Bounded depth has no spec stage')`를 기존 조건 앞에 둡니다.
@@ -348,21 +349,21 @@
   - `gate.mjs`: `./schema.mjs`에서 import합니다. 36행(RT8) 조건과 reason을 `'Complete exact approved planning-document set required'`로 바꿉니다. 37–40행은 그대로 둡니다.
   - `verification.mjs`: 70행 reason만 `'Only the plan path is supported'`로 바꿉니다.
 
-- [ ] **Step 5: 생성.** `node scripts/update-runtime-assets.mjs`, 이어서 `--check` (PASS)
+- [x] **Step 5: 생성.** `node scripts/update-runtime-assets.mjs`, 이어서 `--check` (PASS)
 
-- [ ] **Step 6: fixture 갱신.**
+- [x] **Step 6: fixture 갱신.**
   - `runtime-versions.test.mjs`: `baselineHash`를 실패 출력의 실제 값으로 갱신합니다(PJ10).
   - instruction-contracts protected 6개: lib와 shared의 `evaluate.mjs`, `schema.mjs`, `gate.mjs`(I2)
   - golden `--write`/`--diff`, renderingBaseline(I1), PI2
   - `node scripts/update-manifest.mjs`, 이어서 `npm run check:manifest`
 
-- [ ] **Step 7: task-level 검증(fresh Tester).**
+- [x] **Step 7: task-level 검증(fresh Tester).**
   - `node --test tests/node/runtime-target-preparation.test.mjs tests/node/runtime-cooperative.test.mjs tests/node/runtime-assignment.test.mjs tests/node/runtime-evaluate.test.mjs tests/node/runtime-gate.test.mjs tests/node/runtime-target-preparation.integration.test.mjs tests/node/runtime-git.integration.test.mjs tests/node/runtime-versions.test.mjs tests/node/instruction-layout.test.mjs tests/node/plan.test.mjs tests/node/manifest.test.mjs`
   - check 스크립트: `update-runtime-assets --check`, `installed-layout --diff`, `check-installer-parity`, `check:manifest`
   - AC16 중간 확인: `git diff -U0 313b0d033df744760978335c38e2b7b334760045 -- lib/runtime/evaluate.mjs lib/runtime/schema.mjs`의 hunk 구간(old range)이 `evaluate.mjs` 157–190행과 `schema.mjs`의 `validatePlannerStage` 구간(87행부터 함수 끝까지)과 겹치지 않아야 합니다.
   - 기대: 21개 새 테스트 PASS, 기준선 대비 새 실패 없음
 
-- [ ] **Step 8: Orchestrator 수용 후 커밋.** 메시지 예: `feat(runtime): 리뷰된 spec 전제·결합 승인·Bounded plan-only 게이트 지원`
+- [x] **Step 8: Orchestrator 수용 후 커밋.** 메시지 예: `feat(runtime): 리뷰된 spec 전제·결합 승인·Bounded plan-only 게이트 지원`
 
 **관련 테스트와 이유:**
 - `runtime-*` 5개 파일: RT1–RT9의 직접 검사입니다.
@@ -377,6 +378,8 @@
 - AC16 hunk가 겹칠 때
 - integration 테스트에서 새 실패가 나올 때
 - 기존 `{spec,plan}` 테스트가 PJ16 외의 이유로 깨질 때
+
+**진행 기록 (2026-11-26):** Implementer(bridge 6d3ecabc, segment 2개) 완료. 1차 segment의 RT2 plan destination hold는 spec v3·plan v2 개정(R8 결합 수정 승인 2026-11-26T02:12:42Z)으로 해결했다. PJ16 integration fixture는 별도 Implementer(bridge 658108f9)가 고쳤다(3/3, base 3/3). fresh Tester(8ef2aa3e, mode: task): 새 실패 0, check 4개 통과, AC10a–d·AC11a·AC9·AC16 proven. AC10e는 diff상 §4.6 유지 확인. `runtime-git.integration.test.mjs:97` 1건이 base와 작업 트리에서 같은 assert로 실패해 기준선 실패로 분류했고, final Tester가 다시 판정한다.
 
 ---
 
@@ -568,3 +571,10 @@
 - [x] 범위 표기: 모호한 범위 표현을 쓰지 않았습니다. PI3은 "안 바꾼다"로 확정했습니다.
 - [x] anchor 순서 문제는 PJ1로 해결했고, 어느 중간 커밋에도 깨진 링크가 없습니다.
 - [x] OD1은 spec RT2 결합 승인 항목으로, PI3은 위임 확인으로 해결했습니다(Orchestrator 리뷰).
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v1 | 2026-11-26T01:38:25Z | initial | T1, T2, T3 | spec·plan 결합 승인 |
+| v2 | 2026-11-26T02:12:42Z | contract | T2 | T2 테스트 3 assert를 spec v3 RT2에 맞춤; PJ16에 흐름 fixture의 Architectural 전환 추가와 `runtime-target-preparation.integration.test.mjs` 파일 추가 |

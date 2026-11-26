@@ -2,7 +2,7 @@
 
 - 단계: written spec (Planner 첫 초안 → Orchestrator 저장·리뷰·수정. 승인 요청은 plan과 결합)
 - 근거 design: 개정 design v2, 사용자 승인 2026-11-26. 경로 `/private/tmp/claude-501/-Users-ma-24-007-Desktop-workspace-arc/881cf134-8e38-4d55-bdab-567b83f71dcf/scratchpad/2026-11-26-spec-plan-approval-merge-design-v2.md`, SHA-256 `f7f93a099808717d73190c7cb33b6b6f25545b07a1629946bd9fd330213b6c60`. 이 spec은 design v2의 결정(G1–G5, R0–R8, U1–U7, J1–J10, AC1–AC17)을 모두 담는다.
-- 버전: v2 (Planner 초안 + Orchestrator 리뷰 수정: SJ6, RT2 결합 승인 destination 검증). spec v1(SHA-256 `de0cbbe28d84a8d9bbe55d32ddf770e262e7627e0ca2ed79d141b7142db02936`, 리뷰됨, 미승인)을 design v2 §10에 따라 개정했다.
+- 버전: v3 (Planner 초안 + Orchestrator 리뷰 수정: SJ6, RT2 결합 승인 destination 검증; 실행 중 개정: RT2 destination 범위 정정). v2 SHA-256 `21cfea857635c4ec39d806d78505cae2f9f0a864bbeaf7024f01b615e7a299fd`(결합 승인 2026-11-26). spec v1(SHA-256 `de0cbbe28d84a8d9bbe55d32ddf770e262e7627e0ca2ed79d141b7142db02936`, 리뷰됨, 미승인)을 design v2 §10에 따라 개정했다.
 - 출처: `/Users/ma-24-007/Desktop/workspace/arc` master `313b0d033df744760978335c38e2b7b334760045`
 - 대상: 현재 checkout의 브랜치 `chore/spec-plan-approval-merge` (base 313b0d03)
 - 경로/깊이/위험: Architectural / plan 필요 / 중상
@@ -255,7 +255,7 @@ F6 문구(새 bullet):
 - `evaluateTargetPreparation` destination 분기 규칙:
   - `approvalRef`가 없으면 `intent.depth==='Architectural' && document.kind==='spec'`일 때만 허용한다. 그 밖의 경우(Bounded plan, Architectural plan)는 hold한다. reason은 `Document approval required for this destination`이다.
   - `approvalRef`가 있으면 지금의 approval 검증(kind, contentHash, path 일치)을 그대로 한다(하위 호환).
-  - `approvalRef`가 결합 승인 record(`data.documents` 배열)를 가리키면, 그 배열에서 `kind`·경로(`[doc.path, path.join(state.target.realpath, doc.path)]` 방식)·`contentHash`가 request와 모두 일치하는 항목이 정확히 1개 있어야 한다. 없으면 hold하고 reason은 기존 approval 불일치 reason을 쓴다. 이렇게 하면 결합 승인 1건으로 Architectural spec·plan destination을 모두 기록할 수 있다(R1, plan 리뷰 Orchestrator 결정).
+  - `approvalRef`가 결합 승인 record(`data.documents` 배열)를 가리키면, 그 배열에서 `kind`·경로(`[doc.path, path.join(state.target.realpath, doc.path)]` 방식)·`contentHash`가 request와 모두 일치하는 항목이 정확히 1개 있어야 한다. 없으면 hold하고 reason은 기존 approval 불일치 reason을 쓴다. destination 기록은 첫 stage 문서(Architectural에서는 spec)에만 쓰인다(`intent.firstStageId`, 75행). plan은 전환 뒤 준비된 대상에서 작성되어 `planner-review`·`approval` 기록(RT4)으로 연결되므로, Architectural plan destination은 approvalRef가 있어도 첫 stage가 아니라서 hold된다. R1(결합 승인 1건이 spec·plan 세트 전체를 가리킴)은 RT4와 `assignment.mjs:28`이 보장한다(실행 중 개정 2026-11-26, R8 결합 수정 승인 대상).
   - full/complete 리뷰, `review.data.hash===request.hash`, criteria resolved, 관찰 바이트 일치 검증은 두 경우 모두 그대로다.
 
 ### 4.3 cooperative: plan 단계 전제 (`evaluate.mjs:221–226`)
@@ -561,3 +561,10 @@ G4/G5 (대상은 같다):
 - §11: I10–I12를 추가했다.
 - §12: T1–T3를 반영했다.
 - §13: 작성자 판단 목록을 신설했다.
+
+## 개정 이력
+
+| Version | Approval time | Classification | Affected tasks | Reason |
+|---|---|---|---|---|
+| v2 | 2026-11-26T01:38:25Z | initial | T1, T2, T3 | spec·plan 결합 승인 |
+| v3 | 2026-11-26T02:12:42Z | contract | T2 | RT2: destination은 첫 stage(spec)에만 쓰이며 Architectural plan destination은 hold. R1은 RT4와 `assignment.mjs:28`이 보장 |

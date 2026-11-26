@@ -13,6 +13,31 @@ function fixture(){
  return {state,request,observations};
 }
 const prepare=f=>{assert.equal(typeof api.prepareCooperativeAssignment,'function','assignment gate must exist');return api.prepareCooperativeAssignment(f);};
+function preparedDocumentSet(depth,kinds){
+ const f=fixture();
+ const git=f.observations.git,documents=f.request.arguments.documents;
+ f.state.targetIntents=[{id:'intent',depth,documents:(depth==='Bounded'?['plan']:['spec','plan']).map(kind=>({kind,path:kind+'.md'}))}];
+ f.state.targetTransitions=[{intentId:'intent',targetVersion:f.state.targetVersion}];
+ if(kinds.length===1){
+  documents.shift();git.documents.shift();git.docsCommit.paths.shift();
+ }
+ return f;
+}
+test('bounded plan-only committed set is assignable',()=>{
+ const result=prepare(preparedDocumentSet('Bounded',['plan']));
+ assert.equal(result.decision,'allow',result.reason);
+ assert.deepEqual(result.ruleIds,['cooperative.assignment-prepared']);
+});
+test('architectural intent with plan-only set is held',()=>{
+ const result=prepare(preparedDocumentSet('Architectural',['plan']));
+ assert.equal(result.decision,'hold');
+ assert.deepEqual(result.ruleIds,['cooperative.documents']);
+});
+test('bounded intent with spec and plan set is held',()=>{
+ const result=prepare(preparedDocumentSet('Bounded',['spec','plan']));
+ assert.equal(result.decision,'hold');
+ assert.deepEqual(result.ruleIds,['cooperative.documents']);
+});
 test('uncommittedDocumentsHold',()=>{const f=fixture();delete f.observations.git.docsCommit;assert.equal(prepare(f).decision,'hold');});
 test('approvedHashesMustMatchObjectsAndCurrentFiles',()=>{for(const key of ['observedHash','currentHash']){const f=fixture();f.observations.git.documents[0][key]='sha256:'+'c'.repeat(64);assert.equal(prepare(f).decision,'hold');}const f=fixture();assert.equal(prepare(f).decision,'allow');});
 test('docsCommitContainsExactSet',()=>{const f=fixture();f.observations.git.docsCommit.paths.push('code.mjs');assert.equal(prepare(f).decision,'hold');});

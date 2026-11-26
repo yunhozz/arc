@@ -145,7 +145,7 @@ test('architectural approval cannot omit the required spec',async t=>{
 
 test('intent cannot change the approved branch candidate',async t=>{
  const f=await start(t),state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
- const documents=[{kind:'spec',path:'spec.md'}];
+ const documents=[{kind:'plan',path:'plan.md'}];
  const send=async(kind,messageRef,data)=>{const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));return api.runCooperativeCommand({...f.args,command:'record',input:{requestId:messageRef,expectedRevision:s.revision,actor:{id:'operator',role:'orchestrator'},evidence:{kind,messageRef,data}}});};
  await send('approval','scope-approval',{targetPreparation:{depth:'Bounded',documents,selectionRef:'user:target',kind:'branch',candidate:'approved',base:f.target.head,workflowId:'workflow',firstStageId:'stage',sourceTarget:state.target,sourceTargetVersion:1}});
  const intent={type:'intent',id:'intent',workflowId:'workflow',sourceTarget:state.target,sourceTargetVersion:1,selectionRef:'user:target',approvalRef:'scope-approval',depth:'Bounded',kind:'branch',candidate:'different',base:f.target.head,firstStageId:'stage',documents};
@@ -154,7 +154,7 @@ test('intent cannot change the approved branch candidate',async t=>{
 
 test('intent cannot use approval for a different source target version',async t=>{
  const f=await start(t),state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
- const documents=[{kind:'spec',path:'spec.md'}];
+ const documents=[{kind:'plan',path:'plan.md'}];
  const send=async(kind,messageRef,data)=>{const s=JSON.parse(await fs.readFile(f.statePath,'utf8'));return api.runCooperativeCommand({...f.args,command:'record',input:{requestId:messageRef,expectedRevision:s.revision,actor:{id:'operator',role:'orchestrator'},evidence:{kind,messageRef,data}}});};
  await send('approval','scope-approval',{targetPreparation:{depth:'Bounded',documents,selectionRef:'user:target',kind:'branch',candidate:'feature',base:f.target.head,workflowId:'workflow',firstStageId:'stage',sourceTarget:state.target,sourceTargetVersion:2}});
  const intent={type:'intent',id:'intent',workflowId:'workflow',sourceTarget:state.target,sourceTargetVersion:1,selectionRef:'user:target',approvalRef:'scope-approval',depth:'Bounded',kind:'branch',candidate:'feature',base:f.target.head,firstStageId:'stage',documents};
@@ -186,19 +186,37 @@ test('a required spec must be the first source draft before a plan',async t=>{
  assert.equal((await send('planner-stage','stage',{id:'stage',...contract,approvalRef:'stage-approval',criteria:[{id:'C1',status:'open',judgmentRef:'criterion'}]})).decision,'hold');
 });
 
-async function intentStart(t,documents=[{kind:'spec',path:'spec.md'}]){
+const architecturalDocuments=[{kind:'spec',path:'spec.md'},{kind:'plan',path:'plan.md'}];
+
+test('bounded intent with a spec document is held',async t=>{
+ const f=await start(t);
+ const send=async(kind,messageRef,data)=>{
+  const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+  return api.runCooperativeCommand({...f.args,command:'record',input:{requestId:messageRef,expectedRevision:state.revision,actor:{id:'operator',role:'orchestrator'},evidence:{kind,messageRef,data}}});
+ };
+ for(const [id,documents] of [['both',architecturalDocuments],['spec',[architecturalDocuments[0]]],['plan',[architecturalDocuments[1]]]]){
+  const scope={depth:'Bounded',documents,selectionRef:'user:target',kind:'branch',candidate:'feature',base:f.target.head,workflowId:'workflow',firstStageId:'stage',sourceTarget:f.target,sourceTargetVersion:1};
+  await send('approval','approval:'+id,{targetPreparation:scope});
+  const result=await send('target-preparation',id,{...scope,type:'intent',id,approvalRef:'approval:'+id});
+  assert.equal(result.decision,id==='plan'?'allow':'hold',result.reason);
+  if(id!=='plan')assert.equal(result.reason,'Bounded depth has no spec stage');
+ }
+});
+
+async function intentStart(t,documents=architecturalDocuments,depth='Architectural'){
  const f=await start(t);f.call=async(command,input)=>api.runCooperativeCommand({...f.args,command,input});
- f.send=async(kind,data,messageRef)=>{const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));return f.call('record',{requestId:'record:'+messageRef,expectedRevision:state.revision,actor:{id:'operator',role:'orchestrator'},evidence:{kind,messageRef,data}});};
+ f.send=async(kind,data,messageRef,actor={id:'operator',role:'orchestrator'})=>{const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));return f.call('record',{requestId:'record:'+messageRef,expectedRevision:state.revision,actor,evidence:{kind,messageRef,data}});};
  const state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
- await f.send('approval',{targetPreparation:{depth:'Bounded',documents,selectionRef:'user:target',kind:'branch',candidate:'feature',base:f.target.head,workflowId:'workflow',firstStageId:'stage',sourceTarget:state.target,sourceTargetVersion:1}},'approved:scope');
- const intent={type:'intent',id:'intent-1',workflowId:'workflow',sourceTarget:state.target,sourceTargetVersion:state.targetVersion,selectionRef:'user:target',approvalRef:'approved:scope',depth:'Bounded',kind:'branch',candidate:'feature',base:f.target.head,documents,firstStageId:'stage'};
+ await f.send('approval',{targetPreparation:{depth,documents,selectionRef:'user:target',kind:'branch',candidate:'feature',base:f.target.head,workflowId:'workflow',firstStageId:'stage',sourceTarget:state.target,sourceTargetVersion:1}},'approved:scope');
+ const intent={type:'intent',id:'intent-1',workflowId:'workflow',sourceTarget:state.target,sourceTargetVersion:state.targetVersion,selectionRef:'user:target',approvalRef:'approved:scope',depth,kind:'branch',candidate:'feature',base:f.target.head,documents,firstStageId:'stage'};
  const recorded=await f.send('target-preparation',intent,'intent:1').catch(error=>({decision:'hold',error:error.message}));
  assert.equal(recorded.decision,'allow',recorded.error);
  return {f,state};
 }
-async function plannerStart(t,documents){
- const {f}=await intentStart(t,documents);
- const contract={document:{path:path.join(f.cwd,'spec.md'),kind:'spec',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,targetIntentId:'intent-1'};
+async function plannerStart(t,documents,depth){
+ const {f}=await intentStart(t,documents,depth);
+ const kind=depth==='Bounded'?'plan':'spec';
+ const contract={document:{path:path.join(f.cwd,kind+'.md'),kind,phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion:0,targetIntentId:'intent-1'};
  await f.send('approval',{plannerStage:contract},'approved:stage');
  f.stage={id:'stage',...contract,approvalRef:'approved:stage',criteria:[{id:'C1',status:'open',judgmentRef:'criterion:1'}]};
  const registered=await f.send('planner-stage',f.stage,'stage:registered').catch(error=>({decision:'hold',error:error.message}));
@@ -228,7 +246,7 @@ test('persisted preparation records reject malformed arrays and dangling referen
  }
 });
 test('persisted intent must retain its exact orchestrator-approved scope',async t=>{
- const {f}=await intentStart(t),state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ const {f}=await intentStart(t,[architecturalDocuments[1]],'Bounded'),state=JSON.parse(await fs.readFile(f.statePath,'utf8'));
  const {validateCooperativeState}=await import('../../lib/runtime/cooperative-schema.mjs');
  for(const mutate of [s=>s.targetIntents[0].candidate='other',s=>s.targetIntents[0].documents[0].path='other.md',s=>s.targetIntents[0].depth='Architectural',s=>s.records.find(r=>r.messageRef==='approved:scope').actor.role='planner',s=>s.records.find(r=>r.messageRef==='approved:scope').scopeVersion++]){
   const invalid=structuredClone(state);mutate(invalid);assert.throws(()=>validateCooperativeState(invalid));
@@ -359,19 +377,162 @@ test('source draft cannot be recorded as an approved destination document before
  assert.equal(decision.decision,'hold');
 });
 
-test('prepared destination review and approval bind observed file bytes without making source stage ready',async t=>{
- const f=await plannerStart(t,[{kind:'spec',path:'spec.md'},{kind:'plan',path:'plan.md'}]);await plannerPrepare(f,'first');
+async function preparedFirstDocument(t,depth='Architectural'){
+ const f=await plannerStart(t,depth==='Bounded'?[architecturalDocuments[1]]:architecturalDocuments,depth);await plannerPrepare(f,'first');
+ const document=f.stage.document.kind+'.md';
  await f.send('planner-result',{stageId:'stage',callRequestId:'first',status:'succeeded',chatDraft:{intentId:'intent-1',draftRef:'chat:draft',selfReviewRef:'chat:review',complete:true}},'chat:result');
  await f.send('target-preparation',{type:'checkpoint',intentId:'intent-1',stageId:'stage',resultRef:'chat:result',selfReviewRef:'chat:review'},'checkpoint:1');
  const before=JSON.parse(await fs.readFile(f.statePath,'utf8'));f.args.observe=async()=>({...f.target,branch:'feature'});
  assert.equal((await f.send('target-preparation',{type:'transition',intentId:'intent-1',checkpointRef:'checkpoint:1',expectedRevision:before.revision,destination:{realpath:f.cwd}},'transition:1')).decision,'allow');
- await fs.writeFile(path.join(f.cwd,'spec.md'),'draft');
+ await fs.writeFile(path.join(f.cwd,document),'draft');
  const hash='sha256:7743ce348d9284d677a185f33295b92266cc435a5b5f775029b300066d26693a';
- assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'approval:before-review')).decision,'hold');
+ assert.equal((await f.send('approval',{kind:f.stage.document.kind,path:document,contentHash:hash},'approval:before-review')).decision,'hold');
  const review={stageId:'stage',resultRef:'chat:result',full:true,complete:true,hash,criteria:[{id:'C1',status:'resolved',judgmentRef:'judgment'}]};
  assert.equal((await f.send('planner-review',review,'review:destination')).decision,'allow');
- assert.equal((await f.send('approval',{kind:'spec',path:path.join(f.cwd,'spec.md'),contentHash:hash},'approval:destination')).decision,'allow');
- const request={type:'destination',intentId:'intent-1',transitionRef:'transition:1',stageId:'stage',resultRef:'chat:result',selfReviewRef:'chat:review',path:'spec.md',hash,mode:0o100644,reviewRef:'review:destination',approvalRef:'approval:destination',targetVersion:2,destination:{realpath:f.cwd,path:'spec.md'}};
+ const request={type:'destination',intentId:'intent-1',transitionRef:'transition:1',stageId:'stage',resultRef:'chat:result',selfReviewRef:'chat:review',path:document,hash,mode:0o100644,reviewRef:'review:destination',targetVersion:2,destination:{realpath:f.cwd,path:document}};
+ return {f,request,review,hash};
+}
+async function registerPreparedPlan(f,prerequisiteRefs,suffix='valid',scopeVersion=0){
+ const plan={document:{path:path.join(f.cwd,'plan.md'),kind:'plan',phase:'draft'},inputVersion:1,criteriaVersion:1,scopeVersion};
+ const approvalRef='approved:plan:'+suffix;
+ await f.send('approval',{plannerStage:plan,prerequisiteRefs},approvalRef);
+ return f.send('planner-stage',{id:'plan-stage',...plan,approvalRef,criteria:[{id:'P1',status:'open',judgmentRef:'criterion'}]},'stage:plan:'+suffix);
+}
+test('architectural spec destination may omit approvalRef with a full review',async t=>{
+ const {f,request}=await preparedFirstDocument(t);
+ const decision=await f.send('target-preparation',request,'destination:1');
+ assert.equal(decision.decision,'allow',decision.reason);
+ const after=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ assert.equal(after.targetDocuments[0].reviewRef,'review:destination');
+ assert.equal('approvalRef' in after.targetDocuments[0],false);
+ assert.throws(()=>preparation.validateTargetPreparationRecord('destination',{...request,approvalRef:''}));
+});
+test('bounded plan destination without approvalRef is held',async t=>{
+ const {f,request}=await preparedFirstDocument(t,'Bounded');
+ const result=await f.send('target-preparation',request,'destination:1');
+ assert.equal(result.decision,'hold');
+ assert.equal(result.reason,'Document approval required for this destination');
+ const prepared=await preparedForCombinedApproval(t);
+ const combined=await prepared.f.send('approval',{documents:prepared.documents},'combined:docs');
+ assert.equal(combined.decision,'allow',combined.reason);
+ const specRequest={...prepared.request,approvalRef:'combined:docs'};
+ const approvedSpec=await prepared.f.send('target-preparation',specRequest,'destination:spec-approved');
+ assert.equal(approvedSpec.decision,'allow',approvedSpec.reason);
+ const state=JSON.parse(await fs.readFile(prepared.f.statePath,'utf8'));
+ const approval=state.records.find(r=>r.messageRef==='combined:docs');
+ approval.data.documents[0].contentHash='sha256:'+'0'.repeat(64);
+ const evidence=await preparation.readTargetPreparationEvidence({state,targetIntent:state.targetIntents[0],destination:specRequest.destination,observe:prepared.f.args.observe,readChanges:prepared.f.args.readChanges});
+ const mismatch=evaluateTargetPreparation({state,request:specRequest,evidence});
+ assert.equal(mismatch.decision,'hold');
+ assert.equal(mismatch.reason,'Current full review and document approval required');
+ const planRequest=preparedPlanDestination(prepared.f,prepared.documents[1].contentHash);
+ const unapproved=await prepared.f.send('target-preparation',planRequest,'destination:plan-unapproved');
+ assert.equal(unapproved.decision,'hold');
+ assert.equal(unapproved.reason,'Document approval required for this destination');
+ const approvedRequest={...planRequest,approvalRef:'combined:docs'};
+ const approved=await prepared.f.send('target-preparation',approvedRequest,'destination:plan-approved');
+ assert.equal(approved.decision,'hold');
+ assert.equal(approved.reason,'Current transition, source attestation and observed destination bytes required');
+});
+test('architectural plan stage registers with a saved reviewed spec and no spec approval',async t=>{
+ const {f,request}=await preparedFirstDocument(t);
+ const destination=await f.send('target-preparation',request,'destination:1');
+ const result=await registerPreparedPlan(f,['review:destination']);
+ assert.equal(result.decision,'allow',result.reason);
+ assert.equal(destination.decision,'allow',destination.reason);
+ const after=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ assert.equal(after.records.filter(r=>r.kind==='approval'&&r.data.kind==='spec').length,0);
+});
+test('architectural plan stage holds when reviewed spec bytes changed or review is incomplete',async t=>{
+ const {f,request,review}=await preparedFirstDocument(t);
+ const destination=await f.send('target-preparation',request,'destination:1');
+ const unrelated=await registerPreparedPlan(f,['unrelated:review'],'unrelated');
+ assert.equal(unrelated.decision,'hold');
+ assert.equal(unrelated.reason,'Reviewed spec prerequisite is required for plan drafting');
+ await fs.writeFile(path.join(f.cwd,'spec.md'),'changed');
+ const changed=await registerPreparedPlan(f,['review:destination'],'changed');
+ assert.equal(changed.decision,'hold');
+ assert.equal(changed.reason,'Reviewed spec bytes changed');
+ assert.equal(destination.decision,'allow',destination.reason);
+ await f.send('scope',{paths:[path.join(f.cwd,'changed')]},'new-scope');
+ assert.equal((await f.send('planner-review',review,'stale-review')).decision,'hold');
+ assert.equal((await registerPreparedPlan(f,['review:destination'],'stale',1)).decision,'hold');
+});
+test('legacy approved spec still satisfies the plan prerequisite',async t=>{
+ const {f,request,hash}=await preparedFirstDocument(t);
+ assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'approval:destination')).decision,'allow');
+ assert.equal((await f.send('target-preparation',{...request,approvalRef:'approval:destination'},'destination:1')).decision,'allow');
+ assert.equal((await registerPreparedPlan(f,['approval:destination'])).decision,'allow');
+});
+
+function preparedPlanDestination(f,hash){
+ return {type:'destination',intentId:'intent-1',transitionRef:'transition:1',stageId:'plan-stage',resultRef:'plan-result',selfReviewRef:'plan-self',path:'plan.md',hash,mode:0o100644,reviewRef:'plan-review',targetVersion:2,destination:{realpath:f.cwd,path:'plan.md'}};
+}
+async function reviewPreparedPlan(f){
+ const planHash='sha256:64879f7d6b960a01909762d911a32d4582c20010c5641ee90278b644a9e3b525';
+ await fs.writeFile(path.join(f.cwd,'plan.md'),'plan');await fs.writeFile(path.join(f.cwd,'plan-self.md'),'self');
+ let currentPlan=JSON.parse(await fs.readFile(f.statePath,'utf8'));
+ assert.equal((await f.call('prepare',{requestId:'plan-call',expectedRevision:currentPlan.revision,actor:{id:'operator',role:'orchestrator'},operation:'planner-call',arguments:{stageId:'plan-stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}})).decision,'allow');
+ for(const [ref,purpose,file] of [['plan-draft','draft','plan.md'],['plan-self','self-review','plan-self.md']])assert.equal((await f.send('planner-evidence',{stageId:'plan-stage',path:path.join(f.cwd,file),purpose,criterionIds:['P1']},ref)).decision,'allow');
+ assert.equal((await f.send('planner-result',{stageId:'plan-stage',callRequestId:'plan-call',status:'succeeded',artifactRef:'plan-draft',selfReviewRef:'plan-self'},'plan-result')).decision,'allow');
+ assert.equal((await f.send('planner-review',{stageId:'plan-stage',resultRef:'plan-result',full:true,complete:true,hash:planHash,criteria:[{id:'P1',status:'resolved',judgmentRef:'plan-judgment'}]},'plan-review')).decision,'allow');
+ return planHash;
+}
+async function preparedForCombinedApproval(t){
+ const {f,request,hash}=await preparedFirstDocument(t);
+ assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'approval:destination')).decision,'allow');
+ assert.equal((await f.send('target-preparation',{...request,approvalRef:'approval:destination'},'destination:1')).decision,'allow');
+ assert.equal((await registerPreparedPlan(f,['approval:destination'])).decision,'allow');
+ const planHash=await reviewPreparedPlan(f);
+ const documents=[{kind:'spec',path:path.join(f.cwd,'spec.md'),contentHash:hash},{kind:'plan',path:path.join(f.cwd,'plan.md'),contentHash:planHash}];
+ return {f,documents,request};
+}
+test('combined approval verifies reviewed current bytes for every document',async t=>{
+ const {f,documents}=await preparedForCombinedApproval(t);
+ assert.equal((await f.send('approval',{documents},'combined')).decision,'allow');
+ const wrongActor=await f.send('approval',{documents},'wrong:actor',{id:'planner',role:'planner'});
+ await fs.writeFile(path.join(f.cwd,'plan.md'),'changed');
+ const changed=await f.send('approval',{documents},'changed:bytes');
+ for(const held of [changed,wrongActor]){
+  assert.equal(held.decision,'hold');
+  assert.equal(held.reason,'Current reviewed bytes required for every approved document');
+ }
+});
+test('combined approval with a partial document set is held',async t=>{
+ const {f,documents}=await preparedForCombinedApproval(t);
+ const partial=await f.send('approval',{documents:[documents[1]]},'partial');
+ assert.equal(partial.decision,'hold');
+ assert.equal(partial.reason,'Current reviewed bytes required for every approved document');
+ const {f:unprepared}=await intentStart(t);
+ const before=await unprepared.send('approval',{documents:documents.map(d=>({...d,path:path.basename(d.path)}))},'early:combined');
+ assert.equal(before.decision,'hold');
+ assert.equal(before.reason,'Prepared target transition required before document records');
+});
+async function readinessAfterPlanOnlyApproval(t,depth){
+ const {f}=await preparedFirstDocument(t,depth);
+ await f.send('scope',{paths:[f.cwd]},'new-scope');
+ const state=JSON.parse(await fs.readFile(f.statePath,'utf8')),commit=state.target.head;
+ const documents=[{kind:'plan',path:path.join(f.cwd,'plan.md'),gitPath:'plan.md',contentHash:'sha256:'+'a'.repeat(64),approvalRef:'docs:approved',commit}];
+ // An already recorded approval isolates the readiness check from the approval record gate.
+ state.records.push({kind:'approval',messageRef:'docs:approved',actor:{id:'operator',role:'orchestrator'},source:'operator-attested',revision:++state.revision,scopeVersion:state.scopeVersion,targetVersion:state.targetVersion,data:{approvalVersion:1,documentVersion:1,documents}});
+ await fs.writeFile(f.statePath,JSON.stringify(state));
+ f.args.readGit=async()=>({target:state.target,docsCommit:{commit,documents,paths:['plan.md']},documents:documents.map(d=>({...d,observedHash:d.contentHash,currentHash:d.contentHash}))});
+ const task={id:'T1',paths:[path.join(f.cwd,'code.mjs')],criteria:['works'],requiredChecks:[{executable:'/bin/check',args:[],cwd:f.cwd,env:{},outputs:[]}],dependencies:[],approvalRef:'docs:approved',approvalVersion:1,documentVersion:1,scopeVersion:state.scopeVersion,targetVersion:state.targetVersion};
+ const result=await f.send('acceptance-evidence',{kind:'task',task},'task:current');
+ assert.equal(result.decision,'allow',result.reason);
+ return JSON.parse(await fs.readFile(f.statePath,'utf8')).unresolved.find(marker=>marker.kind==='scope-changed');
+}
+test('readiness resolves for a bounded plan-only approval',async t=>{
+ const marker=await readinessAfterPlanOnlyApproval(t,'Bounded');
+ assert.equal(marker.resolvedBy,'record:task:current');
+ assert.equal(marker.resolutionEvidence.contracts[0].documents.length,1);
+});
+test('readiness holds an architectural plan-only approval',async t=>{
+ const marker=await readinessAfterPlanOnlyApproval(t,'Architectural');
+ assert.equal(marker.resolvedBy,undefined);
+});
+test('prepared destination review and approval bind observed file bytes without making source stage ready',async t=>{
+ const {f,request,review,hash}=await preparedFirstDocument(t);
  const current=JSON.parse(await fs.readFile(f.statePath,'utf8'));
  const intent=current.targetIntents.find(i=>i.id===request.intentId);
  const evidence=await preparation.readTargetPreparationEvidence({state:current,targetIntent:intent,destination:request.destination,observe:f.args.observe,readChanges:f.args.readChanges});
@@ -384,25 +545,23 @@ test('prepared destination review and approval bind observed file bytes without 
  await f.send('approval',{plannerStage:plan,prerequisiteRefs:['unrelated:spec']},'plan:bad-approval');
  assert.equal((await f.send('planner-stage',{id:'plan-stage',...plan,approvalRef:'plan:bad-approval',criteria:[{id:'P1',status:'open',judgmentRef:'criterion'}]},'plan:bad-stage')).decision,'hold');
  const wrong={...plan,document:{...plan.document,path:path.join(f.cwd,'wrong-plan.md')}};
- await f.send('approval',{plannerStage:wrong,prerequisiteRefs:['approval:destination']},'plan:wrong-path-approval');
+ await f.send('approval',{plannerStage:wrong,prerequisiteRefs:['review:destination']},'plan:wrong-path-approval');
  assert.equal((await f.send('planner-stage',{id:'plan-stage',...wrong,approvalRef:'plan:wrong-path-approval',criteria:[{id:'P1',status:'open',judgmentRef:'criterion'}]},'plan:wrong-path')).decision,'hold');
- await f.send('approval',{plannerStage:plan,prerequisiteRefs:['approval:destination']},'plan:approval');
+ await f.send('approval',{plannerStage:plan,prerequisiteRefs:['review:destination']},'plan:approval');
  assert.equal((await f.send('planner-stage',{id:'plan-stage',...plan,approvalRef:'plan:approval',criteria:[{id:'P1',status:'open',judgmentRef:'criterion'}]},'plan:stage')).decision,'allow');
- const planHash='sha256:64879f7d6b960a01909762d911a32d4582c20010c5641ee90278b644a9e3b525';
- await fs.writeFile(path.join(f.cwd,'plan.md'),'plan');await fs.writeFile(path.join(f.cwd,'plan-self.md'),'self');
- let currentPlan=JSON.parse(await fs.readFile(f.statePath,'utf8'));
- assert.equal((await f.call('prepare',{requestId:'plan-call',expectedRevision:currentPlan.revision,actor:{id:'operator',role:'orchestrator'},operation:'planner-call',arguments:{stageId:'plan-stage',kind:'initial',intent:'substantive',criterionIds:[],evidenceRefs:[]}})).decision,'allow');
- for(const [ref,purpose,file] of [['plan-draft','draft','plan.md'],['plan-self','self-review','plan-self.md']])assert.equal((await f.send('planner-evidence',{stageId:'plan-stage',path:path.join(f.cwd,file),purpose,criterionIds:['P1']},ref)).decision,'allow');
- assert.equal((await f.send('planner-result',{stageId:'plan-stage',callRequestId:'plan-call',status:'succeeded',artifactRef:'plan-draft',selfReviewRef:'plan-self'},'plan-result')).decision,'allow');
- assert.equal((await f.send('planner-review',{stageId:'plan-stage',resultRef:'plan-result',full:true,complete:true,hash:planHash,criteria:[{id:'P1',status:'resolved',judgmentRef:'plan-judgment'}]},'plan-review')).decision,'allow');
+ const planHash=await reviewPreparedPlan(f);
  assert.equal((await f.send('approval',{kind:'plan',path:'wrong-plan.md',contentHash:planHash},'wrong-plan-approval')).decision,'hold');
  assert.equal((await f.send('approval',{kind:'plan',path:'plan.md',contentHash:'sha256:'+'0'.repeat(64)},'wrong-plan-hash')).decision,'hold');
  assert.equal((await f.send('approval',{kind:'plan',path:'plan.md',contentHash:planHash},'approved-plan')).decision,'allow');
+ const documents=[{kind:'spec',path:path.join(f.cwd,'spec.md'),contentHash:hash},{kind:'plan',path:path.join(f.cwd,'plan.md'),contentHash:planHash}];
+ assert.equal((await f.send('approval',{documents:[documents[1]]},'partial:docs')).decision,'hold');
+ assert.equal((await f.send('approval',{documents},'combined:docs')).decision,'allow');
+ assert.equal((await f.send('target-preparation',{...request,approvalRef:'combined:docs'},'destination:combined')).decision,'allow');
  await f.send('scope',{paths:[path.join(f.cwd,'changed')]},'new-scope');
  assert.equal((await f.send('planner-review',review,'stale-review')).decision,'hold');
  assert.equal((await f.send('approval',{kind:'spec',path:'spec.md',contentHash:hash},'stale-spec-approval')).decision,'hold');
  assert.equal((await f.send('target-preparation',request,'stale-destination')).decision,'hold');
- const nextPlan={...plan,scopeVersion:1};await f.send('approval',{plannerStage:nextPlan,prerequisiteRefs:['approval:destination']},'stale-prerequisite-approval');
+ const nextPlan={...plan,scopeVersion:1};await f.send('approval',{plannerStage:nextPlan,prerequisiteRefs:['review:destination']},'stale-prerequisite-approval');
  assert.equal((await f.send('planner-stage',{id:'another-plan',...nextPlan,approvalRef:'stale-prerequisite-approval',criteria:[{id:'P1',status:'open',judgmentRef:'criterion'}]},'stale-prerequisite-stage')).decision,'hold');
 });
 
