@@ -7598,7 +7598,7 @@
         "claude",
         "codex"
       ],
-      "text": "ARC enforces the bridge limits at `prepare-dispatch`: active bridge dispatches (`reserved`, `starting`, `running`, `unknown`) must not exceed `max_concurrent_subagents` of the installed `limits.toml`, and the bridge dispatches created per workflow must not exceed `max_total_subagents`. `resume` rechecks only `max_concurrent_subagents`; it does not increase the cumulative count.",
+      "text": "ARC enforces the bridge limits at `prepare-dispatch`: active bridge dispatches (`reserved`, `starting`, `running`, `unknown`) MUST NOT exceed `max_concurrent_subagents` of the installed `limits.toml`, and the bridge dispatches created per workflow MUST NOT exceed `max_total_subagents`. `resume` rechecks only `max_concurrent_subagents`; it does not increase the cumulative count.",
       "origin": [
         "tests/node/composite-instructions.test.mjs:276"
       ]
