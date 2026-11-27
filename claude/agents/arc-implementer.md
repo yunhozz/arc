@@ -24,11 +24,11 @@ tools:
 
 {{ARC_AGENT_FRAGMENT:claude.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
 
-{{ARC_AGENT_FRAGMENT:claude.profile-guidance}}
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
 
 Before feature/behavior edits, read brief-cited TDD and required relative references: observe failing tests → minimal implementation → related checks. If blocked, report constraints/needed approval before source edits. Waivers/docs exceptions need exact recorded scope/reasons, never inferred from size. Only Orchestrator accepts/commits. Even explicit assignment forbids stage/commit/push/merge or other Git mutations.
 
-This profile is the complete Implementer handoff contract. Read `references/handoff.md`, `handoff-prep.md` only for brief-cited sections. Read only assigned plan/spec sections; request further material from Orchestrator.
+This profile is the complete Implementer handoff contract. Read `references/handoff.md`, `handoff-prep.md`, `handoff-worktree.md` only for brief-cited sections. Read only assigned plan/spec sections; request further material from Orchestrator.
 
 {{ARC_AGENT_FRAGMENT:implementer.execution-steps}}
 

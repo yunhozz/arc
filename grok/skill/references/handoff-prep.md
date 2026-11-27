@@ -16,23 +16,14 @@ Present each supported option with:
 - Planned documents, coverage, expected relative paths, dependencies/order and pending drafting/approval.
 - Verified absolute workspace/repository, branch or detached HEAD, base HEAD, validated offered branch candidate/collision, staged/unstaged/untracked state, preservation/ownership.
 
-Obtain explicit choice before preparation.
+Shared text for this section: [handoff-prep-common.md#execution-target-request-gate](handoff-prep-common.md#execution-target-request-gate). It applies here exactly as if written in place.
 
 Present current checkout (current branch/detached HEAD), new task branch in that checkout, or new managed worktree and task branch at `.grok/worktrees/<name>`. Planning approval/silence chooses none. Before offering managed worktrees, verify/present source absolute path/repository/common directory, source branch/detached HEAD/full SHA, approved candidate/collision, name/path, planned documents and existing approved transfer/commit scope. Validate naming/collision and source unrelated staging/approved document HEAD/index/working bytes. NEVER substitute/fetch remote/default base. Only after explicit selection read [handoff-worktree](handoff-worktree.md), before creation/branch/transfer. Preserve unrelated work; no preparation stash/reset/clean.
 
 <a id="git-mutation-evidence-gate"></a>
 ### Git mutation evidence gate
 
-Before branch/worktree preparation, obtain the complete first required draft and self-review and pass the focused source/intent/preservation check. Before every preparation mutation (branch creation/switch, worktree creation, approved-doc staging/commit), read this and record/recheck:
-
-1. Explicit choice or verified valid reuse.
-2. Absolute workspace/intended repository, actual branch or detached HEAD and HEAD.
-3. Staged/unstaged/untracked state, preservation and ownership.
-4. Exact command/paths/approved scope; no unresolved failure or partial completion.
-
-Missing or mismatched evidence blocks mutation. Initial preparation verifies planned scope/inputs without requiring complete approved documents. Document staging/commit also verifies the full set, applicable approvals (Architectural combined spec+plan approval; Bounded plan approval)/versions/dependencies and actual index. Read-only Git remains allowed. External skills' early commits grant no authority.
-
-After branch/commit operations verify path/branch/HEAD/preservation/result before dependent action. After staging verify index paths/diff and finalized message. Unrelated staged paths block changes. Revalidate affected evidence after a change or failure; NEVER retroactively authorize pre-gate actions.
+Shared text for this section: [handoff-prep-common.md#git-mutation-evidence-gate](handoff-prep-common.md#git-mutation-evidence-gate). It applies here exactly as if written in place.
 
 <a id="new-task-branch"></a>
 <a id="new-task-branch-naming"></a>
@@ -61,7 +52,7 @@ Immediately recheck workspace, branch/detached HEAD, base and candidate. Changed
 <a id="current-checkout"></a>
 ### Current checkout
 
-After explicit selection or valid reuse, verify absolute workspace, branch/detached HEAD, HEAD and existing changes/preservation/ownership. Record state/choice. Missing choice, uncertain state or unclear ownership blocks handoff.
+Shared text for this section: [handoff-prep-common.md#current-checkout](handoff-prep-common.md#current-checkout). It applies here exactly as if written in place.
 
 <a id="planning-document-commit"></a>
 ### Planning document commit
@@ -76,18 +67,12 @@ For worktrees verify actual registration/a verified native attachment mechanism 
 5. Failure/staged-content mismatch stops handoff. Inspect branch/HEAD/index/partial completion and resolve before resuming; NEVER commit implementation instead.
 6. Verify SHA/message/paths/content, post-commit HEAD/branch and remaining state in the brief, including selected base and actual order/deviations. Command success alone proves no preparation. Docs commit is neither implementation acceptance nor push approval; no push without separate explicit request.
 
-Skip only when depth rules required no documents and none were created; record why. Uncommitted documents are not absent. This adds neither documents nor gate exceptions. Unchanged authorized target/scope needs no repeated choice.
+Shared text for this section: [handoff-prep-common.md#planning-document-commit](handoff-prep-common.md#planning-document-commit). It applies here exactly as if written in place.
 
 <a id="execution-time-plan-revision"></a>
 ### Execution-time plan revision
 
-After initial document batching, follow [planning](planning.md#plan-updates-during-execution) for spec/plan revisions and same-task progress records. Orchestrator alone manages pending revisions and Git; preserve unrelated work and actual approval chronology.
-
-1. Classify progress records versus contract/mechanical plan revisions. Verify applicable approvals under [planning](planning.md#plan-updates-during-execution) (combined spec+plan revision approval, plan approval, or spec approval with recorded no-plan-impact), actual approval time, preparation and holds; contract revisions require a fresh Implementer for remaining work. NEVER authorize past work retroactively.
-2. After approval edit the same document, append its revision-history row and leave it uncommitted. Record each pending revision with its approved content hash and approval in the canonical `.git/arc/handoff/<workflow>/` record: `gitPath`, `fromVersion`, `toVersion`, `contentHash` (approved content SHA-256), `approvalRef`, `approvedAt` (actual time), `classification` (`contract|mechanical`), `reason`, `affectedTaskIds`, `status` (`pending|committed`). Preserve each full approved version at `.git/arc/handoff/<workflow>/plan-revisions/<flattened-gitPath>.v<N>.md`; NEVER overwrite prior approvals or copies.
-3. In every role brief identify the Orchestrator-owned pending revision, working-tree version and `contentHash`. If another task's progress records were committed after approval, also include in the brief the SHA-256 of the working-tree document content, which is the approved content plus those progress records. Implementer and Tester preserve it untouched as neither their own work nor unrelated user changes.
-4. Include all pending revisions in the accepted commit of the first top-level task executed or reconfirmed against the revised version, otherwise a current task or final Reviewer follow-up commit. Only before overall completion, a standalone `docs(plan)` closing commit MAY include all pending revisions/trailers and no implementation files when no implementation work remains; keep canonical supporting evidence. Exclude pending revision hunks from independent prior-version task commits; hold the commit if separation is unsafe. Add `Plan-Revision: <gitPath> v<from> -> v<to>`, `Plan-Approved-At: <gitPath> v<N> <actual ISO 8601 approval time>` and `Plan-Reason: <gitPath> v<N> <reason>`: one revision trailer per document, approval/reason trailers per version after from through to; repeat keys as needed and preserve existing Git trailers. Use ASCII `->`. Plan-level progress records follow [commit](commit.md#execution-time-plan-document-updates) and alone never justify the closing commit.
-5. After commit verify the SHA-256 of each committed document's content (not the Git blob OID) equals the latest approved `contentHash` if no progress records have been committed since approval. Otherwise compare against the latest approved copy and allow only classified progress records of this commit's task or committed for other tasks after approval (including R-8 separation) and plan-level progress records carried by this commit. Record the SHA-256 of the expected content used for this comparison in the canonical record; NEVER overwrite approved copies. Mark recorded revisions `committed` and verify no pending revisions remain under [verification](verification.md#evidence-after-plan-revision-commit). Link commit SHA only in the canonical record, never the document. NEVER amend/reset/replay/rewrite planning or implementation commits or create other docs/fixup commits.
+Shared text for this section: [handoff-prep-common.md#execution-time-plan-revision](handoff-prep-common.md#execution-time-plan-revision). It applies here exactly as if written in place.
 
 <a id="verification-brief-inputs"></a>
 ### Verification brief inputs
@@ -97,12 +82,12 @@ Tester briefs MUST include the required field `mode: task | final`. One assignme
 <a id="recovery-prerequisite"></a>
 ### Recovery prerequisite
 
-Read [git-recovery](git-recovery.md) before dependent collision/failure/partial-completion/metadata-denial recovery. Stop/preservation rules are mandatory.
+Shared text for this section: [handoff-prep-common.md#recovery-prerequisite](handoff-prep-common.md#recovery-prerequisite). It applies here exactly as if written in place.
 
 <a id="instruction-and-input-provenance"></a>
 ## Instruction and input provenance
 
-Distinguish instruction/input sources, versions/approvals and access. Missing root AGENTS.md alone implies no missing user instructions. Optional reads follow only [handoff](handoff.md#instruction-sources-bounded-read-recovery-visual-evidence-and-resumption)'s pre-authorization. This exception never covers Git/generation/preparation failure or partial changes. Verify resolution evidence/gates before resume.
+Shared text for this section: [handoff-prep-common.md#instruction-and-input-provenance](handoff-prep-common.md#instruction-and-input-provenance). It applies here exactly as if written in place.
 
 [ARC role policy: contract begin]
 Generated from lib/policy/role-policy.json; do not edit this managed section manually.

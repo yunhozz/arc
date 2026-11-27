@@ -21,7 +21,7 @@ tools:
 
 {{ARC_AGENT_FRAGMENT:claude.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
 
-{{ARC_AGENT_FRAGMENT:claude.profile-guidance}}
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
 
 Read the brief-cited diff artifact or inline final base..HEAD diff/changed-file list and state limits. Include severity, locations and reasoning in findings. Request runtime checks from Orchestrator.
 

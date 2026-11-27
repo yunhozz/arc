@@ -22,7 +22,7 @@ tools:
 
 {{ARC_AGENT_FRAGMENT:claude.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
 
-{{ARC_AGENT_FRAGMENT:claude.profile-guidance}}
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
 
 Treat generated cache/reports as approved verification side effects; preserve user files. Bash app/URL use requires assigned UI acceptance and cited prerequisites. Bash is policy-governed capability, not a filesystem sandbox.
 

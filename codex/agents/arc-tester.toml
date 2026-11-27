@@ -20,7 +20,13 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 
 {{ARC_AGENT_FRAGMENT:common.specialist-basics}}
 
+{{ARC_AGENT_FRAGMENT:common.preservation-choice-inspection}}
+
 {{ARC_AGENT_FRAGMENT:codex.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
+
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
+
+Treat generated cache/reports as approved verification side effects; preserve user files. Shell app/URL use requires assigned UI acceptance and cited prerequisites. Shell is policy-governed capability, not a filesystem sandbox.
 
 {{ARC_AGENT_FRAGMENT:tester.contract-intro}}{{ARC_AGENT_FRAGMENT:common.verification-reference}}
 

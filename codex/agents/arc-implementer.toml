@@ -25,7 +25,9 @@ This profile is the complete Implementer handoff contract. Read `references/hand
 {{ARC_AGENT_FRAGMENT:common.preservation-choice-inspection}}
 
 
-{{ARC_AGENT_FRAGMENT:common.optional-read-exception}}
+{{ARC_AGENT_FRAGMENT:codex.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
+
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
 
 {{ARC_AGENT_FRAGMENT:implementer.execution-steps}}
 """

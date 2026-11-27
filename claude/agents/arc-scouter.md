@@ -23,7 +23,7 @@ tools:
 
 {{ARC_AGENT_FRAGMENT:claude.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
 
-{{ARC_AGENT_FRAGMENT:claude.profile-guidance}}
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
 
 DO NOT execute commands or request user approval. Read the brief/named research skills; report unavailable capabilities. Distinguish observation from inference.
 

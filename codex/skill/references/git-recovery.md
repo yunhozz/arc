@@ -10,7 +10,7 @@ Apply the Preservation rule: preserve unrelated work and recovery artifacts. No 
 <a id="branch-collision-and-invalid-names"></a>
 ## Branch collisions and invalid names
 
-Invalid names, creation/switch failures, lookup errors or unexpected branches require recorded errors/state and stopped handoff. Branch creation without switching is partial completion; report it without automatic deletion or success claims. No branch/checkout fallback. New collision suffixes need approval. Preserve staged/unstaged/untracked changes; blocked switching or unclear ownership waits for Orchestrator.
+Shared text for this section: [git-recovery-common.md#branch-collision-and-invalid-names](git-recovery-common.md#branch-collision-and-invalid-names). It applies here exactly as if written in place.
 
 <a id="git-metadata-write-denial"></a>
 ## Git metadata write denial
@@ -24,17 +24,12 @@ Invalid names, creation/switch failures, lookup errors or unexpected branches re
 <a id="handoff-record-write-denial"></a>
 ## Handoff record write denial
 
-In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.
+Shared text for this section: [git-recovery-common.md#handoff-record-write-denial](git-recovery-common.md#handoff-record-write-denial). It applies here exactly as if written in place.
 
 If canonical-record writing is denied/unavailable, stop it and report path/error. NEVER change permissions or bypass sandbox. Use [handoff](handoff.md)'s inline fallback.
 
 <a id="recovery-cases"></a>
 ## Recovery cases
-
-<a id="existing-changes-and-failures"></a>
-### Existing changes and failures
-
-A branch does not isolate uncommitted changes in another directory. Record task relationship/preservation/ownership in the brief. NEVER automatically commit/delete changes to prepare. Approved docs commits on the three paths are the sole exception; preserve unrelated dirty files. Switching blocks or unclear ownership hold handoff until resolution. Both operational failure and missing target choice block handoff.
 
 <a id="worktree-failures-and-partial-completion"></a>
 ### Worktree failures and partial completion

@@ -46,6 +46,12 @@ test('spawn requires Agent matcher, trusted assignment correlation and docs evid
  assert.equal(decision(await api.runCodexGate(event('Agent'),context(a))),'deny');
  assert.equal(api.normalizeCodexEvent(event('spawn_agent'),context(a)).coverage.status,'unknown');
 });
+test('Codex assignment validation errors name the normalized tool',()=>{
+ for(const tool of ['spawn_agent','Agent']){
+  const a=setup('orchestrator','read');
+  assert.throws(()=>api.normalizeCodexEvent(event(tool),context(a)),{message:'spawn_agent tool requires assignment validation'});
+ }
+});
 test('normalization rejects untrusted semantic mapping and mismatched session',()=>{
  const a=setup('implementer','write');const c=context(a);delete c.describeTool;
  assert.throws(()=>api.normalizeCodexEvent(event(),c));

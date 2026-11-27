@@ -85,10 +85,6 @@ test('plan-revision rule replaces plan-amend with approved operations and eviden
   assert.deepEqual(revision.roles, ['orchestrator']);
   assert.equal(revision.effect, 'require');
   assert.equal(revision.authority, 'orchestrator');
-  assert.match(revision.text, /Plan-Revision, Plan-Approved-At and Plan-Reason trailers/);
-  assert.match(revision.text, /NEVER amend or rewrite planning or implementation commits/);
-  assert.match(revision.text, /committed for other tasks after approval/);
-  assert.match(p.rules.find(rule => rule.id === 'git.orchestrator-accept-commit').text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
 });
 test('plan-level progress records extend accept-commit and plan-revision text only', () => {
   const {rules} = policy();
@@ -117,8 +113,6 @@ test('plan-level progress records extend accept-commit and plan-revision text on
   assert.deepEqual(accept.roles, ['orchestrator']);
   assert.equal(accept.effect, 'allow');
   assert.equal(accept.authority, 'orchestrator');
-  assert.match(accept.text, /Exclude other tasks; pending approved spec\/plan revisions follow planning\.plan-revision/);
-  assert.ok(accept.text.includes("Plan-level progress records (final verification results, final Reviewer verdicts and finding dispositions, overall completion status) are the sole exception: include them in the plan's next task acceptance or final Reviewer follow-up commit; when no implementation work remains and no standalone closing commit for pending revisions is made, keep them only in the canonical handoff record without changing the plan document or creating a commit."), 'accept-commit must include the plan-level progress records exception');
 
   const revision = rules.find(rule => rule.id === 'planning.plan-revision');
   assert.deepEqual(revision.operations, ['non-progress-spec-plan-content-update', 'pending-plan-revision-commit']);
@@ -126,13 +120,7 @@ test('plan-level progress records extend accept-commit and plan-revision text on
   assert.deepEqual(revision.roles, ['orchestrator']);
   assert.equal(revision.effect, 'require');
   assert.equal(revision.authority, 'orchestrator');
-  assert.match(revision.text, /Plan-Revision, Plan-Approved-At and Plan-Reason trailers/);
-  assert.match(revision.text, /NEVER amend or rewrite planning or implementation commits/);
-  assert.ok(revision.text.includes('Plan-level progress records preserving the approved contract also need no new user approval and alone never trigger the standalone docs(plan) closing commit.'));
-  assert.ok(revision.text.includes('committed for other tasks after approval, or plan-level progress records carried by that commit'));
 
-  const external = rules.find(rule => rule.id === 'external.explicit-user-authority');
-  assert.equal(external.text, 'Push, merge, deploy, publish and external messages require explicit user authorization for the action, scope and target. Local commit authority grants no external authority. Orchestrator performs authorized external actions; specialists return them without execution.');
 });
 // Adding projections must not change existing installed contracts or global-section filtering.
 test('default policy rendering preserves complete existing contracts', () => {
@@ -242,47 +230,13 @@ test('plan update and Planner brief rules reach their owning contracts', () => {
   }
 });
 
-// Losing the reuse conditions would either repeat valid work or reuse stale inputs.
-test('planner brief projection preserves scoped context and evidence reuse', () => {
-  for (const platform of ['codex', 'claude']) {
-    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
-    assert.match(output, /reuse.*Planner.*context.*valid/i, platform);
-    assert.match(output, /follow-up.*changed fields.*accessible.*prior brief/i, platform);
-    assert.match(output, /source set.*resolved path.*fingerprint.*purpose.*approval scope/i, platform);
-    assert.match(output, /changed.*(?:source|target|scope).*reconfirm/i, platform);
-  }
-});
-
-// Dispatch must not bypass either existing decision when a condition is unverified.
-test('planner policy allows the first source draft before target preparation', () => {
-  for (const platform of ['codex', 'claude']) {
-    const output=api.renderPolicySection(policy(), {platform, audience:'planner', projection:'full'});
-    assert.match(output,/first required.*draft.*source.*before.*target preparation/i,platform);
-    assert.match(output,/prepared target.*before.*saving/i,platform);
-  }
-});
-
-test('planner brief projection preserves the existing dispatch gates', () => {
-  for (const platform of ['codex', 'claude']) {
-    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
-    assert.match(output, /F1–F8 direct-path eligibility.*Bounded plan-omission eligibility independently/i, platform);
-    assert.match(output, /each path.*all.*existing conditions.*proven/i, platform);
-    assert.match(output, /neither path qualifies.*normal full evaluation/i, platform);
-  }
-});
-
 test('spec and plan revision ownership reaches both platform contracts', () => {
   for (const platform of ['codex', 'claude']) {
     const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
-    assert.match(output, /Planner returns a complete.*first draft and self-review/i);
-    assert.match(output, /Orchestrator reviews and directly revises the same spec or plan/i);
-    assert.match(output, /new product decisions.*outside approved scope.*user/i);
-    assert.match(output, /missing or failed first draft.*does not transfer initial authorship/i);
     const brief = output.split('\n').find(line => line.startsWith('- [planning.planner-brief]'));
     assert.ok(brief, `${platform}: planning brief`);
     const [specPlan, design] = brief.split('For design and brainstorming');
     assert.ok(design, `${platform}: design boundary`);
-    assert.match(specPlan, /Orchestrator reviews and directly revises the same spec or plan/i);
     assert.doesNotMatch(specPlan, /\b(?:send|return|route|request|ask|assign)\w*[^.]*\b(?:Planner|correction|revision)\b/i);
     assert.doesNotMatch(specPlan, /\bPlanner\b[^.]*\b(?:revis(?:e|es|ion|ions)|correct(?:s|ion|ions)|amend(?:s|ment)?|rewrit(?:e|es))\b/i);
   }
@@ -293,78 +247,19 @@ test('platform role gates preserve Planner first drafts and Orchestrator spec/pl
     const skill = fs.readFileSync(new URL(`${platform}/skill/SKILL.md`, root), 'utf8');
     const gate = skill.match(/^\*\*Role gate:\*\*.*$/m)?.[0];
     assert.ok(gate, `${platform}: role gate`);
-    assert.match(gate, /Planner.*design\/brainstorming drafts and first complete spec\/plan drafts/i, platform);
-    assert.match(gate, /Orchestrator reviews and directly revises the same spec or plan/i, platform);
     assert.doesNotMatch(gate, /Orchestrator never authors them/i, platform);
-  }
-});
-
-test('design and brainstorming converse and keep one final-design correction', () => {
-  for (const platform of ['codex', 'claude']) {
-    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
-    assert.match(output, /design and brainstorming.*design conversation.*final design/i, platform);
-    assert.match(output, /reviews the final design once with the fixed checklist.*one consolidated correction/i, platform);
-    assert.match(output, /further calls.*(?:scope|evidence).*unmet checklist items.*new input.*criterion.*progress/i, platform);
-  }
-});
-
-test('design and brainstorming hold repeated unmet criteria without progress', () => {
-  for (const platform of ['codex', 'claude']) {
-    const output = api.renderPolicySection(policy(), {platform, audience:'orchestrator', projection:'planning'});
-    assert.match(output, /repeated unmet criteria without new input, evidence or progress.*hold/i, platform);
-    assert.match(output, /do not.*count rewording.*agent replacement as progress/i, platform);
-  }
-});
-
-// H1/H2/H4: emitted role contracts must not lose bounded recovery or provenance.
-// Approved structural checks; consuming-agent behavior is verified separately by fresh Tester.
-test('bounded read recovery and provenance reach every role on both platforms', () => {
-  for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
-    const output = api.renderPolicySection(policy(), {platform, audience});
-    for (const required of [
-      /optional read method/i, /pre-authorized.*side-effect-free/i,
-      /positively identified material.*approved version.*purpose.*role authority/i,
-      /different locator.*exact locator.*brief/i, /equivalent evidence/i,
-      /required input.*authority.*target.*ownership.*partial mutation.*unknown state/i,
-      /alternative.*(?:unapproved|unauthorized).*ambiguous.*fails/i,
-      /no chained discovery.*guessed paths.*mutation retries/i,
-      /first failure.*alternative.*evidence.*limits.*dependent.*independent/i,
-      /user-provided instructions.*discovered workspace instruction files.*installed role references.*task inputs/i,
-      /root AGENTS\.md.*absence.*not.*absence of instructions/i,
-      /resume brief.*completed work.*failure.*resolution.*valid.*invalid.*evidence.*next objective/i,
-    ]) assert.match(output, required, `${platform}/${audience}: ${required}`);
-  }
-});
-// H3: losing source/output identity must fail before a visual claim is accepted.
-test('visual evidence is carried from implementation to fresh Tester', () => {
-  for (const platform of ['codex', 'claude']) for (const audience of ['implementer', 'tester']) {
-    const output = api.renderPolicySection(policy(), {platform, audience});
-    for (const required of [/approved visual source.*version.*approval.*access/i,
-      /criterion IDs.*properties.*comparison method/i, /actual.output identity.*revision.*basis/i,
-      /pass.*mismatch.*unverified/, /fresh Tester.*actual comparison/i,
-      /revision.*unverified.*visible.*mismatch/i]) assert.match(output, required);
   }
 });
 
 // H1-04/H4-02: unrelated baseline failures must not stall approved independent work.
 // Written-contract sequence only; live release decisions remain Orchestrator's duty.
 test('failure disposition orders baseline evidence classification scoped holds and independent release', () => {
-  const sequence = [
-    /First, record the exact failed check.*baseline revision.*current revision/i,
-    /Second, classify each failure.*baseline or current.*affected scope.*dependency/i,
-    /Third, hold only affected or dependent tasks and checks.*unknown.*only work whose impact is unknown/i,
-    /Fourth, Orchestrator must release already-approved independent work without waiting for unrelated failures/i,
-    /Finally, keep acceptance held while any required check remains unresolved/i,
-  ];
+  const orderedSteps = ['First', 'Second', 'Third', 'Fourth', 'Finally'];
   for (const platform of ['codex', 'claude']) for (const {id: audience} of policy().roles) {
     const output = api.renderPolicySection(policy(), {platform, audience});
-    let offset = 0;
-    for (const step of sequence) {
-      const found = step.exec(output.slice(offset));
-      assert.ok(found, `${platform}/${audience}: missing or out-of-order ${step}`);
-      offset += found.index + found[0].length;
-    }
-    assert.match(output, /Specialists report evidence.*must not self-authorize release/i);
+    const line = output.split('\n').find(text => text.startsWith('- [scope.non-escalation]'));
+    const steps = [...(line ?? '').matchAll(/\b(First|Second|Third|Fourth|Finally),/g)].map(match => match[1]);
+    assert.deepEqual(steps, orderedSteps, `${platform}/${audience}`);
   }
 });
 

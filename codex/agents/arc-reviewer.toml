@@ -20,7 +20,13 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 
 {{ARC_AGENT_FRAGMENT:common.specialist-basics}}
 
+{{ARC_AGENT_FRAGMENT:common.preservation-choice-inspection}}
+
 {{ARC_AGENT_FRAGMENT:codex.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
+
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
+
+Read the brief-cited diff artifact or inline final base..HEAD diff/changed-file list and state limits. Include severity, locations and reasoning in findings. Request runtime checks from Orchestrator.
 
 {{ARC_AGENT_FRAGMENT:reviewer.contract-intro}}{{ARC_AGENT_FRAGMENT:common.verification-reference}}
 
