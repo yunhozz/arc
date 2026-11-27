@@ -13,6 +13,7 @@ const instructionFiles = [
   'codex/skill/references/git-recovery.md',
   'codex/skill/references/handoff-prep.md',
   'shared/skill/references/handoff-worktree.md',
+  'shared/skill/references/handoff-prep-common.md',
   'shared/skill/references/handoff-common.md',
   'shared/skill/references/git-recovery-common.md',
   'shared/skill/references/coordination-common.md',
