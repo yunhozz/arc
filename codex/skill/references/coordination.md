@@ -98,21 +98,13 @@ Shared text for this section: [coordination-common.md#coordination-shared-host-r
 
 ### Bridge target rules
 
-- Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info (except `info/refs`, which `git update-server-info` may rewrite after a fetch or gc; that change alone is recorded under `tolerated.control`), `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.
-
-**Claude**
-
-- Writing roles: Claude bridge `arc_implementer` and `arc_tester` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing (G1). Claude Implementer/Tester bridges also deny writes under `.git` (permission rules and sandbox `denyWrite`), and are held as `permission_scope_unverified` when the worktree `.claude/settings.json` or `.claude/settings.local.json` would widen their scope (additional directories, allow rules for tools outside the safe list (Bash, Read, Grep, Glob, WebFetch, WebSearch), hooks, sandbox or defaultMode).
-- Permission claim: Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.
-- Delegation: Role instructions forbid re-delegation. Claude children expose no Task tool. Apply the shared child guard below.
-- Execution confirmation: Check the stream session identity and model, transcript effort, and the observed terminal result.
-
 Shared text for this section: [coordination-common.md#coordination-bridge-target-rules](coordination-common.md#coordination-bridge-target-rules). It applies here exactly as if written in place.
 
 ### Bridge tool access
 
 Shared text for this section: [coordination-common.md#coordination-bridge-tool-access](coordination-common.md#coordination-bridge-tool-access). It applies here exactly as if written in place.
 
+<a id="coordination-shared-dispatch-rules"></a>
 ### Shared dispatch rules
 
 - Bridge children receive the profile instructions only and NEVER load ARC `SKILL.md`. Role instructions forbid re-delegation.

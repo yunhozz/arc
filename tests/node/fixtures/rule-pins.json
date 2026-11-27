@@ -10705,7 +10705,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Apply the shared child guard below.",
+      "text": "Apply the shared child guard in [Shared dispatch rules](coordination.md#coordination-shared-dispatch-rules).",
       "origin": [
         "tests/node/composite-instructions.test.mjs:98",
         "tests/node/composite-instructions.test.mjs:116"
