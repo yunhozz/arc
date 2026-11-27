@@ -31,11 +31,6 @@ If canonical-record writing is denied/unavailable, stop it and report path/error
 <a id="recovery-cases"></a>
 ## Recovery cases
 
-<a id="existing-changes-and-failures"></a>
-### Existing changes and failures
-
-A branch does not isolate uncommitted changes in another directory. Record task relationship/preservation/ownership in the brief. NEVER automatically commit/delete changes to prepare. Approved docs commits on the three paths are the sole exception; preserve unrelated dirty files. Switching blocks or unclear ownership hold handoff until resolution. Both operational failure and missing target choice block handoff.
-
 <a id="worktree-failures-and-partial-completion"></a>
 ### Worktree failures and partial completion
 

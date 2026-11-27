@@ -14,7 +14,7 @@ Shared text for this section: [limits-common.md#counting-and-reservations](limit
 Shared text for this section: [limits-common.md#continuation-and-exhaustion](limits-common.md#continuation-and-exhaustion). It applies here exactly as if written in place.
 
 Cumulative limits and scheduling are prompt policy, not hard runtime controls. Text tests prove package consistency, not live compliance/native support.
-Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.
+Codex `[agents].max_concurrent_threads_per_session` constrains its native session.
 Independent sessions/accounts/platforms do not share the ledger. Agent Teams and hosted APIs are outside this contract. Verify native application separately in a supported new session.
 
 Shared text for this section: [limits-common.md#continuation-and-exhaustion-2](limits-common.md#continuation-and-exhaustion-2). It applies here exactly as if written in place.

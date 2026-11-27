@@ -338,7 +338,6 @@ class SharedTermsTests(unittest.TestCase):
             ("verification", "## risk-scaled execution"),
             ("handoff", "### checkout approval"),
             ("handoff-prep", "### execution-target request gate"),
-            ("git-recovery", "### existing changes and failures"),
             ("handoff-prep", "### git mutation evidence gate"),
             ("handoff-prep", "### planning document commit"),
             ("git-recovery", "### worktree failures and partial completion"),
@@ -590,12 +589,6 @@ class RolePolicyTests(unittest.TestCase):
 
     def test_managed_branch_selection_order_and_collision_reuse(self) -> None:
         self._workspace_handoff_section("New managed worktree")
-
-    def test_workspace_handoff_preserves_existing_changes(self) -> None:
-        self._workspace_handoff_section("Existing changes and failures")
-
-    def test_workspace_handoff_failures_do_not_fallback(self) -> None:
-        self._workspace_handoff_section("Existing changes and failures")
 
     def test_workspace_handoff_commits_approved_plan_docs_before_implementer(self) -> None:
         self._workspace_handoff_section("Planning document commit")

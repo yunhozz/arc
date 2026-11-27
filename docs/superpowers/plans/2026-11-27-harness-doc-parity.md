@@ -7,7 +7,7 @@
 - **근거:** `build/hdq-artifacts/findings.md`, `asym-*.md`, `mentions.md`. 공용 문서 추출 규칙은 `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md` §4.3–4.4(272–296행)을 따릅니다.
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침, 생성 스크립트(`scripts/update-runtime-assets.mjs`, `scripts/update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
 - **실행 대상:** workspace `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `f74a5ec0`. 현재 브랜치에 이어서 진행합니다(사용자 선택 2026-11-27, PH-1 해소).
-- **plan 버전:** v4(v4 개정: T4 allowedPaths에 `tests/node/fixtures/instruction-contracts.json` 185·197행 Codex adapter 해시 값 추가. v3 v3 개정: T3 allowedPaths에 `lib/prompts/render.mjs` `EXPECTED` 표 값 추가. v2 v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
+- **plan 버전:** v5(v5 개정: T5 allowedPaths에 `tests/test_arc_policy.py` heading 존재 검사 정리 추가. v4 v4 개정: T4 allowedPaths에 `tests/node/fixtures/instruction-contracts.json` 185·197행 Codex adapter 해시 값 추가. v3 v3 개정: T3 allowedPaths에 `lib/prompts/render.mjs` `EXPECTED` 표 값 추가. v2 v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
 
 ## Global Constraints
 
@@ -339,7 +339,7 @@
 ## T5 — 확인 후 반영 (C5, C7, C8)
 
 - **목표:** T0 R2·R4로 확인한 사실에 맞게 C5·C7·C8을 반영합니다.
-- **allowedPaths:** `shared/skill/references/coordination-common.md`, `codex/skill/references/limits.md`, `shared/skill/references/git-recovery-common.md`, `claude/skill/references/git-recovery.md`, `codex/skill/references/git-recovery.md`, `gemini/skill/references/git-recovery.md`, `grok/skill/references/git-recovery.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만)
+- **allowedPaths:** `shared/skill/references/coordination-common.md`, `codex/skill/references/limits.md`, `shared/skill/references/git-recovery-common.md`, `claude/skill/references/git-recovery.md`, `codex/skill/references/git-recovery.md`, `gemini/skill/references/git-recovery.md`, `grok/skill/references/git-recovery.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만), (v5) `tests/test_arc_policy.py`(아래 C-T5-C8c 세 곳만)
 - **선행:** T4 수락·커밋, T0 R2·R4 결론
 - **C5 분기:**
   - (v2 확정, T0 R2: Codex·Claude·Gemini `held`, Grok `unmeasured`, `lib/runtime/tool-access.mjs:100,108`, `docs/harness-operation.md:192–196`; 사용자 결정 2026-11-27) `coordination-common.md` `On Codex and Claude, the gates for full network access and all three Playwright services have the value `held`.` → `On Codex, Claude and Gemini, the gates for full network access and all three Playwright services have the value `held`; on Grok they are `unmeasured`.` RP-760 `text`를 같은 ID로 새 문장 전체로 치환합니다.
@@ -352,8 +352,10 @@
   - (v2 확정, 사용자 결정 2026-11-27)
   - C-T5-C8a: claude/gemini/grok `git-recovery.md` `## Handoff record write denial` 섹션의 문단 `Orchestrator inspects related processes/ACLs read-only itself or assigns Tester; Scouter/Planner/Reviewer cannot execute commands. Failed profile reapplication MUST restore replaced bytes/modes. If rollback fails, preserve recovery files/paths; NEVER claim clean state or remove recovery material.`에서 뒤 두 문장(`Failed profile reapplication … recovery material.`)을 지우고 첫 문장만 남깁니다. 지운 두 문장은 바이트 그대로 `shared/skill/references/git-recovery-common.md`의 기존 run `handoff-record-write-denial` 끝에 새 문단으로 붙입니다. 4플랫폼(codex 포함)이 이미 이 run에 연결 문장을 두고 있으므로 새 연결 문장은 없습니다.
   - C-T5-C8b: `codex/skill/references/git-recovery.md`의 `<a id="existing-changes-and-failures"></a>`, `### Existing changes and failures`, 그 아래 문단(`A branch does not isolate uncommitted changes … missing target choice block handoff.`)과 뒤따르는 빈 줄을 지웁니다. 이 anchor를 참조하는 곳은 없습니다(Orchestrator grep). RP-698(이 문단의 문장)을 삭제합니다(승인 예외). TD-4의 `<a id>`·heading 집합 diff는 이 1건만 예외입니다.
+  - C-T5-C8c(v5, 사용자 결정 2026-11-27): C8b로 지우는 heading의 존재만 확인하던 `tests/test_arc_policy.py` 검사를 정리합니다. (1) `SharedTermsTests.test_term_usage_sites`의 목록 항목 `("git-recovery", "### existing changes and failures"),` 한 줄 삭제, (2) `RolePolicyTests.test_workspace_handoff_preserves_existing_changes` method 삭제, (3) `RolePolicyTests.test_workspace_handoff_failures_do_not_fallback` method 삭제. 다른 줄은 바꾸지 않습니다. 보호 테스트 `tests/test_harness_contract.py` RECOVERY 패턴은 C8b 뒤에도 codex effective git-recovery에서 모두 매치됨을 T5 1차 D-0이 확인했습니다(`build/hdq-artifacts/T5/d0-cs-x.txt`).
   - 강도: 옮긴 문장의 MUST·NEVER는 그대로 4플랫폼에 적용됩니다(codex는 확장). 지운 codex 문단의 NEVER 1개는 사용자 결정에 따른 승인 예외입니다(TD-2).
 - 반영할 것이 하나도 없으면 이 task는 변경 없음으로 끝나고 커밋하지 않습니다.
+- **결과(T5 수락 2026-11-27):** Implementer 786a7494(D-0 hold: test_arc_policy heading 검사) → plan v5 → fresh Implementer c32700c4. Tester 57da2f6f TD-1–TD-8 proven, RECOVERY 보호 패턴 전후 매치, CS-N 358 통과, CS-P 기준선 35 method 동일(C8c 삭제 test 2개 별도), RP 805, 링크 732/0.
 - **AC:** 반영 문구가 T0 근거 `path:line`과 대응하고 새 실패가 0입니다.
 - **Tester:** TD-1–TD-8
 - **hold:** H-C, H-RP, H-2
@@ -465,6 +467,7 @@ B1–B4·B6–B9·B15·C1·C2·C6 → T1 / B5 → T2 / B10–B13·B16–B18 → 
 
 | 버전 | 내용 |
 |---|---|
+| v5 | Orchestrator 개정(2026-11-27, 사용자 승인): T5에 C-T5-C8c(test_arc_policy.py heading 존재 검사 3곳 정리)와 allowedPaths 추가(T5 1차 Implementer 786a7494가 D-0에서 hold) |
 | v4 | Orchestrator 개정(2026-11-27, 사용자 승인): T4 allowedPaths에 instruction-contracts.json 185·197행 해시 값 추가(T4 1차 Implementer 83bac850이 CS-N 새 실패 1건으로 hold) |
 | v3 | Orchestrator 개정(2026-11-27, 사용자 승인): T3에 C-T3-12와 allowedPaths `lib/prompts/render.mjs`(`EXPECTED` 표 값만) 추가 |
 | v2 | Orchestrator 개정(2026-11-27): T1 1차 실행의 새 실패 3건 정합(C-T1-20·21, RP-629), T5 C5·C8 문구 확정(사용자 결정, RP-698 삭제), T6 추가(R1 설계 (a)·AJ-T6-1–5 사용자 승인, RP-810), 항목 수 흐름·최종 검사 갱신 |

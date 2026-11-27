@@ -11,3 +11,5 @@ Invalid names, creation/switch failures, lookup errors or unexpected branches re
 ## Handoff record write denial
 
 In a worktree session, use the ARC runtime command `node <runtime>/cli.mjs handoff-record write --cwd <abs> --slug <slug> --input -` instead of a file tool. Set `<runtime>` to the installed ARC skill runtime directory and send a JSON object with a nonempty `content` string containing the full Markdown record on stdin. Use the existing inline fallback if the command fails.
+
+Failed profile reapplication MUST restore replaced bytes/modes. If rollback fails, preserve recovery files/paths; NEVER claim clean state or remove recovery material.

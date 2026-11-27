@@ -10049,18 +10049,6 @@
       ]
     },
     {
-      "id": "RP-698",
-      "category": "git",
-      "doc": "git-recovery",
-      "platforms": [
-        "codex"
-      ],
-      "text": "Approved docs commits on the three paths are the sole exception; preserve unrelated dirty files.",
-      "origin": [
-        "tests/test_arc_policy.py:1147"
-      ]
-    },
-    {
       "id": "RP-699",
       "category": "git",
       "doc": "shared:handoff-worktree",
@@ -11004,7 +10992,7 @@
         "gemini",
         "grok"
       ],
-      "text": "On Codex and Claude, the gates for full network access and all three Playwright services have the value `held`.",
+      "text": "On Codex, Claude and Gemini, the gates for full network access and all three Playwright services have the value `held`; on Grok they are `unmeasured`.",
       "origin": [
         "tests/node/composite-instructions.test.mjs:98",
         "tests/node/composite-instructions.test.mjs:116"
