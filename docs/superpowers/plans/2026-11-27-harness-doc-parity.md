@@ -7,7 +7,7 @@
 - **근거:** `build/hdq-artifacts/findings.md`, `asym-*.md`, `mentions.md`. 공용 문서 추출 규칙은 `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md` §4.3–4.4(272–296행)을 따릅니다.
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침, 생성 스크립트(`scripts/update-runtime-assets.mjs`, `scripts/update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
 - **실행 대상:** workspace `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `f74a5ec0`. 현재 브랜치에 이어서 진행합니다(사용자 선택 2026-11-27, PH-1 해소).
-- **plan 버전:** v2(v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
+- **plan 버전:** v3(v3 개정: T3 allowedPaths에 `lib/prompts/render.mjs` `EXPECTED` 표 값 추가. v2 v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
 
 ## Global Constraints
 
@@ -272,7 +272,7 @@
 ## T3 — agent 프로필 보완 (B10–B13, B16–B18)
 
 - **목표:** Codex 프로필에 빠진 fragment와 안내를 채우고, Claude·Gemini·Grok Implementer 읽기 목록에 `handoff-worktree.md`를 넣습니다.
-- **allowedPaths:** `lib/prompts/agent-fragments.json`, `codex/agents/`, `claude/agents/`, `gemini/agents/arc-implementer.md`, `grok/agents/arc-implementer.md`, `tests/node/agent-fragments.test.mjs`(17행만), `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만). `update-runtime-assets --check`가 실패할 때만 `shared/skill/runtime/`를 추가합니다.
+- **allowedPaths:** `lib/prompts/agent-fragments.json`, (v3) `lib/prompts/render.mjs`(`EXPECTED` 표 값만), `codex/agents/`, `claude/agents/`, `gemini/agents/arc-implementer.md`, `grok/agents/arc-implementer.md`, `tests/node/agent-fragments.test.mjs`(17행만), `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만). `update-runtime-assets --check`가 실패할 때만 `shared/skill/runtime/`를 추가합니다.
 - **선행:** T2 수락·커밋
 - **편집표:**
 
@@ -289,12 +289,14 @@
 | C-T3-09 | B18 | `codex/agents/arc-tester.toml`, profile-guidance 다음·`tester.contract-intro` 앞 | 추가(`gemini/agents/arc-tester.md:21` 원문): `Treat generated cache/reports as approved verification side effects; preserve user files. Shell app/URL use requires assigned UI acceptance and cited prerequisites. Shell is policy-governed capability, not a filesystem sandbox.` |
 | C-T3-10 | B16 | `claude/agents/arc-implementer.md:31`, `gemini/agents/arc-implementer.md:23`, grok 대응 줄 | ``Read `references/handoff.md`, `handoff-prep.md` only`` → ``Read `references/handoff.md`, `handoff-prep.md`, `handoff-worktree.md` only`` (`codex/agents/arc-implementer.toml:23` 형태) |
 | C-T3-11 | B10·B11·B17 | `tests/node/agent-fragments.test.mjs:17` | `[8, 14, 10, 12, 11, 5, 12, 8, 10, 9, 6, 12, 8, 10, 9, 6, 12, 8, 10, 9]` → `[8, 14, 10, 12, 11, 8, 14, 10, 12, 11, 6, 12, 8, 10, 9, 6, 12, 8, 10, 9]`. `:15`(26)와 `:16`(20)은 그대로입니다. |
+| C-T3-12 | B10·B11·B17(v3) | `lib/prompts/render.mjs:4` `EXPECTED` | `claude/agents/arc-*.md` 5개 항목의 `claude.profile-guidance` → `common.profile-guidance`. `codex/agents/arc-*.toml` 5개 항목의 배열을 C-T3-03·05·06 적용 뒤 실제 marker 순서로 맞춥니다. 검증 로직과 다른 항목은 바꾸지 않습니다. (T3 1차 Implementer 072b7b16이 이 표 때문에 `Invalid fragment`로 hold) |
 
 - 배열 값은 설계에 적힌 값입니다. Implementer는 수정한 registry를 렌더한 결과에서 target별 fragment 수를 `node -e`로 뽑아 이 배열과 같은지 확인합니다. 다르면 편집하지 않고 hold합니다(H-ARR).
 - TOML `"""` 경계, frontmatter, 관리 블록은 바이트 그대로 둡니다. Gemini·Grok 프로필의 인라인 profile-guidance(`:19`)는 그대로 둡니다.
 - **RP 변경표:** RP-626(`agent:reviewer`, `diff artifact`)의 `platforms`를 4플랫폼으로 바꿉니다. 먼저 gemini·grok 렌더 결과에 이 문구가 있는지 확인합니다.
 - **생성물:** MANIFEST, golden(설치 agent profile `~`), CS-R. `node scripts/update-runtime-assets.mjs --check`가 실패하면 재생성합니다.
-- **단계:** [ ] D-0(CS-X 후보: `run-mode-contract.test.mjs:53`, codex profile 관련 테스트) [ ] D-1–D-4. 이때 `node --test tests/node/agent-fragments.test.mjs` exit 0이어야 합니다.
+- **단계:** [x] D-0(CS-X 후보: `run-mode-contract.test.mjs:53`, codex profile 관련 테스트) [x] D-1–D-4. 이때 `node --test tests/node/agent-fragments.test.mjs` exit 0이어야 합니다.
+- **결과(T3 수락 2026-11-27):** Implementer 072b7b16(hold: render.mjs EXPECTED) → plan v3 → fresh Implementer 0b99debb. Tester 502112d4 TD-1–4·6–8·11 proven, fragment 실측 배열 일치, CS-N 358 통과, CS-P 기준선 35 method 동일, RP 806, 링크 732/0.
 - **AC:**
   - AC-T3-1: 편집표가 모두 반영됩니다.
   - AC-T3-2: fragment 26개, target 20개이고, 배열이 실제 렌더 결과와 같으며 중복이나 순서 오류가 없습니다.
@@ -462,5 +464,6 @@ B1–B4·B6–B9·B15·C1·C2·C6 → T1 / B5 → T2 / B10–B13·B16–B18 → 
 
 | 버전 | 내용 |
 |---|---|
+| v3 | Orchestrator 개정(2026-11-27, 사용자 승인): T3에 C-T3-12와 allowedPaths `lib/prompts/render.mjs`(`EXPECTED` 표 값만) 추가 |
 | v2 | Orchestrator 개정(2026-11-27): T1 1차 실행의 새 실패 3건 정합(C-T1-20·21, RP-629), T5 C5·C8 문구 확정(사용자 결정, RP-698 삭제), T6 추가(R1 설계 (a)·AJ-T6-1–5 사용자 승인, RP-810), 항목 수 흐름·최종 검사 갱신 |
 | v1 | 초안(Planner, 2026-11-27). Orchestrator 검토 개정: OD-1(C7·C8 분기, T5 allowedPaths)·OD-2 해소 반영. 커밋 전 정정(사용자 승인): plan 문서를 T1 커밋이 아닌 실행 전 계획 문서 커밋으로 |

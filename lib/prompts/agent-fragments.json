@@ -30,7 +30,7 @@
       "text": "Stop dependent work on an actual conflict, missing assigned path, tool failure, unexpected Git state or partial completion. Report observed workspace, branch/HEAD, files, completed steps and needed resolution to Orchestrator. DO NOT retry or fall back automatically."
     },
     {
-      "id": "claude.profile-guidance",
+      "id": "common.profile-guidance",
       "text": "DO NOT reload Orchestrator's ARC SKILL.md. Follow this profile, brief, assigned skills and explicit references. DO NOT bypass delegation limits through CLI processes. State material assumptions and tradeoffs before acting; return unresolved decisions. DO NOT request user approval. Target choice MUST be explicit; silence and unrelated approvals do not count."
     },
     {
@@ -116,7 +116,7 @@
         "claude.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
-        "claude.profile-guidance",
+        "common.profile-guidance",
         "implementer.execution-steps"
       ]
     },
@@ -129,7 +129,7 @@
         "claude.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
-        "claude.profile-guidance",
+        "common.profile-guidance",
         "planner.target-evidence",
         "planner.workflow-contract",
         "planner.exploration-density",
@@ -148,7 +148,7 @@
         "claude.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
-        "claude.profile-guidance",
+        "common.profile-guidance",
         "tester.contract-intro",
         "common.verification-reference",
         "tester.verification-steps"
@@ -163,7 +163,7 @@
         "claude.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
-        "claude.profile-guidance",
+        "common.profile-guidance",
         "reviewer.contract-intro",
         "common.verification-reference",
         "reviewer.review-steps",
@@ -180,7 +180,7 @@
         "claude.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
-        "claude.profile-guidance",
+        "common.profile-guidance",
         "scouter.research-brief",
         "scouter.research-mode",
         "common.read-only-no-mutations",
@@ -193,7 +193,10 @@
         "common.brief-boundary",
         "common.specialist-basics",
         "common.preservation-choice-inspection",
+        "codex.incident-prefix",
         "common.optional-read-exception",
+        "common.resume-gates",
+        "common.profile-guidance",
         "implementer.execution-steps"
       ]
     },
@@ -202,9 +205,11 @@
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
+        "common.preservation-choice-inspection",
         "codex.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
+        "common.profile-guidance",
         "planner.target-evidence",
         "planner.workflow-contract",
         "planner.exploration-density",
@@ -219,9 +224,11 @@
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
+        "common.preservation-choice-inspection",
         "codex.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
+        "common.profile-guidance",
         "tester.contract-intro",
         "common.verification-reference",
         "tester.verification-steps"
@@ -232,9 +239,11 @@
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
+        "common.preservation-choice-inspection",
         "codex.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
+        "common.profile-guidance",
         "reviewer.contract-intro",
         "common.verification-reference",
         "reviewer.review-steps",
@@ -247,9 +256,11 @@
       "fragments": [
         "common.brief-boundary",
         "common.specialist-basics",
+        "common.preservation-choice-inspection",
         "codex.incident-prefix",
         "common.optional-read-exception",
         "common.resume-gates",
+        "common.profile-guidance",
         "scouter.research-brief",
         "scouter.research-mode",
         "common.read-only-no-mutations",

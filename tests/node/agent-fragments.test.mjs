@@ -14,7 +14,7 @@ test('expands all approved profile templates to their independently recorded ori
   const fragments = new Map(registry.fragments.map(({id, text}) => [id, text]));
   assert.equal(registry.fragments.length, 26);
   assert.equal(registry.targets.length, 20);
-  assert.deepEqual(registry.targets.map((target) => target.fragments.length), [8, 14, 10, 12, 11, 5, 12, 8, 10, 9, 6, 12, 8, 10, 9, 6, 12, 8, 10, 9]);
+  assert.deepEqual(registry.targets.map((target) => target.fragments.length), [8, 14, 10, 12, 11, 8, 14, 10, 12, 11, 6, 12, 8, 10, 9, 6, 12, 8, 10, 9]);
   for (const target of registry.targets) {
     const source = await read(target.path);
     const before = Buffer.from(source);

@@ -9056,7 +9056,10 @@
       "category": "role-boundary",
       "doc": "agent:reviewer",
       "platforms": [
-        "claude"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
       "text": "diff artifact",
       "origin": [

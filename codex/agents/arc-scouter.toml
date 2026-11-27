@@ -20,7 +20,13 @@ Generated from lib/policy/role-policy.json; do not edit this managed section man
 
 {{ARC_AGENT_FRAGMENT:common.specialist-basics}}
 
+{{ARC_AGENT_FRAGMENT:common.preservation-choice-inspection}}
+
 {{ARC_AGENT_FRAGMENT:codex.incident-prefix}} {{ARC_AGENT_FRAGMENT:common.optional-read-exception}} {{ARC_AGENT_FRAGMENT:common.resume-gates}}
+
+{{ARC_AGENT_FRAGMENT:common.profile-guidance}}
+
+Read the brief/named research skills; report unavailable capabilities. Distinguish observation from inference.
 
 {{ARC_AGENT_FRAGMENT:scouter.research-brief}}
 
