@@ -11698,6 +11698,21 @@
       "origin": [
         "docs/superpowers/plans/2026-11-27-harness-doc-parity.md (B5, user-approved 2026-11-27)"
       ]
+    },
+    {
+      "id": "RP-810",
+      "category": "role-boundary",
+      "doc": "handoff",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "With `Mixed routing`, after step 4 run `prepare-dispatch` with `role: \"arc_implementer\"`",
+      "origin": [
+        "docs/superpowers/plans/2026-11-27-harness-doc-parity.md (T6, user-approved 2026-11-27)"
+      ]
     }
   ]
 }
