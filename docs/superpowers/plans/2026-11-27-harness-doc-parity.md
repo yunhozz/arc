@@ -255,7 +255,8 @@
   - RP-591(`complete keyed URL`): `platforms`를 4플랫폼으로 바꿉니다.
   - RP-809를 새로 넣습니다(승인 예외). `{ "id": "RP-809", "category": "prohibition", "doc": "arc-visual-companion", "platforms": ["claude","codex","gemini","grok"], "text": "NEVER expose secrets or publish previews without authorization.", "origin": ["docs/superpowers/plans/2026-11-27-harness-doc-parity.md (B5, user-approved 2026-11-27)"] }`
 - **생성물:** MANIFEST, golden(4개 `arc-visual-companion.md`와 공용 문서 `~`), CS-R
-- **단계:** [ ] D-0(heading으로 자르는 테스트 재확인) [ ] D-1–D-4. 옮긴 텍스트가 원문과 같은지 `node -e`로 확인합니다(중립 도입 문단만 예외).
+- **단계:** [x] D-0(heading으로 자르는 테스트 재확인) [x] D-1–D-4. 옮긴 텍스트가 원문과 같은지 `node -e`로 확인합니다(중립 도입 문단만 예외).
+- **결과(T2 수락 2026-11-27):** Implementer eee5932d, Tester d562ffda TD-1–TD-8 proven, CS-N 358 통과, CS-P 기준선 35 method 동일, RP 806, 링크 732/0.
 - **AC:**
   - AC-T2-1: 4플랫폼 `effectiveText('<p>','arc-visual-companion')`에 공용 run이 1회씩 있습니다.
   - AC-T2-2: 플랫폼 파일의 `<a id>`·heading diff가 0입니다.

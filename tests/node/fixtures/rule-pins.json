@@ -8612,7 +8612,10 @@
       "category": "role-boundary",
       "doc": "arc-visual-companion",
       "platforms": [
-        "codex"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
       "text": "complete keyed URL",
       "origin": [
@@ -8648,7 +8651,10 @@
       "category": "approval",
       "doc": "arc-visual-companion",
       "platforms": [
-        "codex"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
       "text": "waits for acceptance",
       "origin": [
@@ -11685,6 +11691,21 @@
       "text": "Whole-plan Reviewer is part of final verification; task commits prove no unperformed final checks.",
       "origin": [
         "tests/test_arc_policy.py:98"
+      ]
+    },
+    {
+      "id": "RP-809",
+      "category": "prohibition",
+      "doc": "arc-visual-companion",
+      "platforms": [
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
+      ],
+      "text": "NEVER expose secrets or publish previews without authorization.",
+      "origin": [
+        "docs/superpowers/plans/2026-11-27-harness-doc-parity.md (B5, user-approved 2026-11-27)"
       ]
     }
   ]
