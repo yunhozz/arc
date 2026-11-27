@@ -151,11 +151,6 @@ GK2 is `approval`.
 <a id="coordination-bridge-target-rules"></a>
 ### Bridge target rules
 
-- Writing roles: Claude bridge `arc_implementer` and `arc_tester` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing (G1). Claude Implementer/Tester bridges also deny writes under `.git` (permission rules and sandbox `denyWrite`), and are held as `permission_scope_unverified` when the worktree `.claude/settings.json` or `.claude/settings.local.json` would widen their scope (additional directories, allow rules for tools outside the safe list (Bash, Read, Grep, Glob, WebFetch, WebSearch), hooks, sandbox or defaultMode).
-- Permission claim: Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.
-- Delegation: Role instructions forbid re-delegation. Claude children expose no Task tool. Apply the shared child guard below.
-- Execution confirmation: Check the stream session identity and model, transcript effort, and the observed terminal result.
-
 **Codex**
 
 - Gate: G4 applies to every Codex bridge role. G4 `pass` permits dispatch; a failed G4 holds as `permission_scope_unverified`.

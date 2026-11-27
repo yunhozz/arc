@@ -65,7 +65,7 @@ Record depth separately from risk. Risk controls checks/review, not design paths
 4. Record dependencies/depth reasons; also post the design path, depth and risk judgments in the SKILL.md Pre-action gate record. Planner returns complete plan/assumptions/open decisions/checks/self-review. Orchestrator saves/reviews/obtains approval before Implementer at user path or `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`. Default spec path is `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
 5. Every Implementer first start/restart needs applicable approvals/artifacts/brief/findings and full handoff. Non-behavior docs/config omit only inapplicable stages. Direct edits need approved scope record and same first-edit gates.
 
-Bounded has no spec stage, spec approval or spec-necessity record. If Bounded work appears to need a spec-level document, do not write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting. Required plans alone imply no written spec.
+Bounded has no spec stage, spec approval or spec-necessity record. If Bounded work appears to need a spec-level document, DO NOT write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting. Required plans alone imply no written spec.
 
 Only Planner authors the first complete spec or plan draft and self-review. Orchestrator reviews and directly revises the same document before approval. Unavailable/failed Planner stops first drafting rather than transferring authorship. Design approval or start confirmation does not transfer initial authorship.
 

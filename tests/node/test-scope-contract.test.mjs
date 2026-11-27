@@ -363,6 +363,7 @@ test('policy and fragment sources omit the retired final order phrases', () => {
 for (const platform of platforms) {
   const references = new URL(`../../${platform}/skill/references/`, import.meta.url);
   const readReference = name => readFileSync(new URL(name, references), 'utf8');
+  const readEffectiveReference = name => effectiveText(platform, name.slice(0, -3));
   const extension = platform === 'codex' ? 'toml' : 'md';
   const profilePath = role => `${platform}/agents/arc-${role}.${extension}`;
 
@@ -387,14 +388,15 @@ for (const platform of platforms) {
     }
   });
 
-  const policyPaths = [
-    ...profileRoles.map(profilePath),
-    ...['planning', 'handoff', 'verification'].map(name => `${platform}/skill/references/${name}.md`),
+  const policySources = [
+    ...profileRoles.map(role => [profilePath(role)]),
+    ...['planning', 'handoff', 'verification'].map(name => [`${platform}/skill/references/${name}.md`, name]),
   ];
-  for (const path of policyPaths) {
+  for (const [path, reference] of policySources) {
     test(`${path} places the final-plan-recheck sentence in its managed rule exactly once`, () => {
       const source = readAgent(path).toString();
-      assert.ok(!source.includes(oldFinalPlanRecheckSentence));
+      const effective = reference ? effectiveText(platform, reference) : source;
+      assert.ok(!effective.includes(oldFinalPlanRecheckSentence));
       assertOccursOnce(source, finalPlanRecheckSentence);
       const managed = source.split('[ARC role policy: contract begin]')[1]?.split('[ARC role policy: contract end]')[0];
       assertOccursOnce(managed ?? '', `- [${finalPlanRecheckId}] `);
@@ -420,18 +422,18 @@ for (const platform of platforms) {
   });
 
   test(`${platform} verification omits the runtime commands section`, () => {
-    const reference = readReference('verification.md');
+    const effective = effectiveText(platform, 'verification');
     for (const phrase of [runtimeCommandsAnchor, '## Final verification runtime commands', 'verify-cli', 'arc/verify']) {
-      assert.ok(!reference.includes(phrase), `must omit ${phrase}`);
+      assert.ok(!effective.includes(phrase), `must omit ${phrase}`);
     }
-    const lines = reference.split('\n');
+    const lines = readReference('verification.md').split('\n');
     const riskIndex = lines.indexOf(riskAnchor);
     assert.equal(lines[riskIndex - 1], '');
     assert.ok(lines[riskIndex - 2]?.startsWith('**Result comparison:**'));
   });
 
   test(`${platform} handoff-prep brief inputs cite the approved base`, () => {
-    const reference = readReference('handoff-prep.md');
+    const reference = effectiveText(platform, 'handoff-prep');
     const section = effectiveSection(platform, 'handoff-prep', '### Verification brief inputs');
     assertPhrases(section, [modeField, '`mode: task`', '`mode: final`'], platform);
     assert.ok(!reference.includes('runId'));
@@ -476,7 +478,7 @@ for (const platform of platforms) {
 
   test(`${platform} ARC references omit the project suite instruction`, () => {
     for (const name of readdirSync(references).filter(name => name.endsWith('.md'))) {
-      assert.doesNotMatch(readReference(name), /project suite/i, name);
+      assert.doesNotMatch(readEffectiveReference(name), /project suite/i, name);
     }
   });
 
@@ -488,8 +490,9 @@ for (const platform of platforms) {
 
   test(`${platform} sources and rendered profiles omit the retired verification sentences`, () => {
     for (const name of ['verification.md', 'handoff-prep.md', 'planning.md']) {
+      const reference = readEffectiveReference(name);
       for (const phrase of retiredPhrases) {
-        assert.ok(!readReference(name).includes(phrase), `${name} must omit ${phrase}`);
+        assert.ok(!reference.includes(phrase), `${name} must omit ${phrase}`);
       }
     }
     for (const phrase of retiredPhrases) {
@@ -512,7 +515,7 @@ for (const platform of platforms) {
   test(`${platform} sources and rendered profiles omit the retired final order phrases`, () => {
     const sources = [
       [`${platform}/skill/SKILL.md`, readAgent(`${platform}/skill/SKILL.md`).toString()],
-      ...['verification.md', 'planning.md', 'handoff.md'].map(name => [name, readReference(name)]),
+      ...['verification.md', 'planning.md', 'handoff.md'].map(name => [name, readEffectiveReference(name)]),
       ...profileRoles.map(role => [profilePath(role), renderAgent(profilePath(role))]),
     ];
     for (const [path, source] of sources) {

@@ -22,7 +22,7 @@
         "claude",
         "codex"
       ],
-      "text": "Before the first specialist creation",
+      "text": "Before the first specialist creation; capacity, reservations, cumulative ledger",
       "origin": [
         "tests/node/instruction-layout.test.mjs:13"
       ]
@@ -3072,7 +3072,7 @@
         "codex",
         "claude"
       ],
-      "text": "If Bounded work appears to need a spec-level document, do not write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting.",
+      "text": "If Bounded work appears to need a spec-level document, DO NOT write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting.",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:89",
         "tests/node/fixtures/instruction-contracts.json:208",
@@ -5310,7 +5310,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Bounded has no spec stage, spec approval or spec-necessity record. If Bounded work appears to need a spec-level document, do not write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting. Required plans alone imply no written spec.",
+      "text": "Bounded has no spec stage, spec approval or spec-necessity record. If Bounded work appears to need a spec-level document, DO NOT write one inside Bounded: reassess the design path as Architectural, inform the user and obtain the path-change approval required by existing rules before dependent drafting. Required plans alone imply no written spec.",
       "origin": [
         "tests/test_arc_policy.py:1634",
         "tests/test_arc_policy.py:1677"

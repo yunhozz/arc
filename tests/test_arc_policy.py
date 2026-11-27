@@ -74,21 +74,13 @@ def policy_text(name: str) -> str:
 class TaskCommitPolicyTests(unittest.TestCase):
     # TASK-01's user-approved structural exception: RED/GREEN checks of the
     # written contract only, not consuming-agent runtime compliance.
-    def section(self, name: str, heading: str) -> str:
-        text = policy_text(name)
-        self.assertIn(heading, text)
-        section = text.split(heading, 1)[1]
-        for boundary in (" ## ", " ### "):
-            section = section.split(boundary, 1)[0]
-        return section
-
     def contracts(self, text: str, patterns: tuple[str, ...]) -> None:
         for pattern in patterns:
             with self.subTest(contract=pattern):
                 self.assertRegex(text, pattern)
 
     def test_ceo_commits_accepted_top_level_task_without_user_approval(self) -> None:
-        commit = self.section("commit", "## automatic commit after plan-task acceptance")
+        commit = " ".join(_effective_section("codex", "commit", "## Automatic commit after plan-task acceptance").lower().split())
         self.assertNotIn("optionally create", commit)
 
     def test_planner_groups_inseparable_changes_and_defines_task_gates(self) -> None:
@@ -174,8 +166,9 @@ class ConditionalReferenceTests(unittest.TestCase):
         implementer = " ".join(tomllib.loads((REPO / "codex/agents/arc-implementer.toml").read_text())
                          ["developer_instructions"].lower().split())
         self.assertNotRegex(implementer, r"before every first start or restart, read")
-        texts = {path.name: " ".join(path.read_text().lower().split()) for path in
-                 [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]}
+        paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml"),
+                 *(REPO / "shared/skill/references").glob("*-common.md")]
+        texts = {path.name: " ".join(path.read_text().lower().split()) for path in paths}
         for name, text in texts.items():
             for absent in (r"implementer independently", r"implementer's independent", r"implementer independent check",
                            r"orchestrator and implementer independently", r"independent checkout"):
@@ -217,7 +210,8 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
                             for line in _effective("codex", "verification").lower().splitlines()))
 
     def test_no_per_task_reviewer_wording(self) -> None:
-        paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml")]
+        paths = [*(REPO / "codex/skill").rglob("*.md"), *(REPO / "codex/agents").glob("*.toml"),
+                 *(REPO / "shared/skill/references").glob("*-common.md")]
         for path in paths:
             text = " ".join(path.read_text().lower().split())
             with self.subTest(file=path.name, absent="accepted and Tester'd".lower()):
@@ -239,11 +233,11 @@ class ReviewerOncePerPlanTests(unittest.TestCase):
 
 class ResearchRoutingAndBriefTests(unittest.TestCase):
     def test_codex_spawn_fork_and_user_input_policy(self) -> None:
-        skill = " ".join((REPO / "codex/skill/references/coordination.md").read_text().split())
+        skill = " ".join(_effective("codex", "coordination").split())
         self.assertNotIn("When supported, start specialists", skill)
 
     def test_claude_native_role_and_ask_user_question_policy(self) -> None:
-        skill = " ".join((REPO / "claude/skill/references/coordination.md").read_text().split())
+        skill = " ".join(_effective("claude", "coordination").split())
         self.assertNotIn("When supported, start specialists", skill)
 
     # Structural checks of the written contract only, not consuming-agent runtime compliance.
@@ -257,8 +251,8 @@ class ResearchRoutingAndBriefTests(unittest.TestCase):
 
     def test_models_scouter_lookup_exception(self) -> None:
         for platform in ("codex", "claude"):
-            text = (REPO / platform / "skill/references/coordination.md").read_text().lower()
-            models = " ".join(text.split("## models", 1)[1].split("\n## ", 1)[0].split())
+            text = _effective(platform, "coordination").lower()
+            models = " ".join(_effective_section(platform, "coordination", "## Models").lower().split())
             with self.subTest(platform=platform):
                 self.assertNotIn("reasoning_effort", models)
                 self.assertNotIn("bounded scouter lookup", models)
@@ -331,7 +325,7 @@ class SharedTermsTests(unittest.TestCase):
                 with self.subTest(reference=name, term=term):
                     if name == "verification" and term == "evidence verdict":
                         continue
-                    self.assertNotIn(term.capitalize(), raw_policy_text(name))
+                    self.assertNotIn(term.capitalize(), " ".join(_effective("codex", name).split()))
 
     def test_tester_fix_restorations(self) -> None:
         core = policy_text("verification")
@@ -736,15 +730,15 @@ class CodexRoleHardeningTests(unittest.TestCase):
         self.assertLessEqual(len(re.findall(r"[.!?](?:\s|$)", gate)), 5)
 
     def test_tester_freshness_and_no_contradictory_substitution(self) -> None:
-        core, verification = self.raw("verification"), self.raw("verification")
-        for text in (core, verification):
-            self.assertNotIn("Tester or Orchestrator focused checks", text)
+        verification = " ".join(_effective("codex", "verification").split())
+        self.assertNotIn("Tester or Orchestrator focused checks", verification)
 
     def test_restart_brief_rule_lives_in_handoff_only(self) -> None:
         core, handoff = self.skill(), self.raw("handoff")
         self.assertNotIn("delta-only restart brief", core)
         self.assertNotIn("`unchanged` means unchanged relative to", core)
-        self.assertNotIn("carries the full record inline (no delta", handoff)
+        effective_handoff = " ".join(_effective("codex", "handoff").split())
+        self.assertNotIn("carries the full record inline (no delta", effective_handoff)
         self.assertEqual(handoff.count("full record inline"), 1)
 
     def test_read_only_roles_drop_sandbox_mode_and_use_prompt_guards(self) -> None:
@@ -761,7 +755,8 @@ class CodexRoleHardeningTests(unittest.TestCase):
                 self.assertNotIn(gone, core)
 
     def test_worktree_branch_collision_never_auto_suffixes(self) -> None:
-        self.assertNotIn("append `-2`", self.raw("handoff-prep"))
+        prep = " ".join(_effective("codex", "handoff-prep").split())
+        self.assertNotIn("append `-2`", prep)
 
     def test_limits_policy_is_not_hard_runtime_enforcement(self) -> None:
         text = (REPO / "codex/skill/references/limits.md").read_text()
@@ -902,6 +897,7 @@ class SpecPlanApprovalMergeTests(unittest.TestCase):
     def test_removed_spec_approval_wording_absent(self):
         paths = [path for platform in self.PLATFORMS
                  for path in (REPO / platform / "skill").rglob("*.md")]
+        paths += (REPO / "shared/skill/references").glob("*-common.md")
         paths += [REPO / "lib/policy/role-policy.json", REPO / "lib/prompts/agent-fragments.json"]
         for path in paths:
             text = path.read_text()
@@ -984,6 +980,7 @@ class DesignConversationPolicyTests(unittest.TestCase):
         fragments = REPO / "lib/prompts/agent-fragments.json"
         paths = [path for platform in self.PLATFORMS
                  for path in (REPO / platform / "skill").rglob("*") if path.is_file()]
+        paths += (REPO / "shared/skill/references").glob("*-common.md")
         paths += [REPO / "lib/policy/role-policy.json", fragments]
         scope_notation = W2_RULE_PINS["RP-708"]
         for path in paths:
@@ -1067,6 +1064,7 @@ class ArchitecturalStartConfirmationTests(unittest.TestCase):
     def test_removed_design_approval_wording_absent(self):
         paths = [path for platform in self.PLATFORMS
                  for path in (REPO / platform / "skill").rglob("*.md")]
+        paths += (REPO / "shared/skill/references").glob("*-common.md")
         paths += [REPO / "lib/policy/role-policy.json", REPO / "lib/prompts/agent-fragments.json"]
         for path in paths:
             text = path.read_text()

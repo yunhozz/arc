@@ -561,7 +561,8 @@ class Task4FollowUpTests(unittest.TestCase):
     def test_failed_check_or_tester_finding_routes_to_implementer(self):
         core = self.text('skill/SKILL.md')
         self.assertNotIn('or corrects them within an eligible Orchestrator direct path', core)
-        self.assertNotIn('or corrects them within an eligible Orchestrator direct path', self.text('skill/references/handoff.md'))
+        handoff = ' '.join(_effective('claude', 'handoff').split())
+        self.assertNotIn('or corrects them within an eligible Orchestrator direct path', handoff)
 
     def test_corrections_go_to_implementer_and_bounded_uses_scope_record(self):
         core = self.text('skill/SKILL.md')
