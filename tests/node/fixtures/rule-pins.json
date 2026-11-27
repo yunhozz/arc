@@ -2888,7 +2888,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Architectural replaces design approval with one [start confirmation](#architectural-start-confirmation), then complete Planner spec/self-review and Orchestrator save/review/revision without a separate spec approval request; a fresh plan Planner then drafts from the reviewed spec, and the spec and every plan receive one [combined approval](#architectural-combined-approval).",
+      "text": "Architectural replaces design approval with one [start confirmation](planning.md#architectural-start-confirmation), then complete Planner spec/self-review and Orchestrator save/review/revision without a separate spec approval request; a fresh plan Planner then drafts from the reviewed spec, and the spec and every plan receive one [combined approval](planning.md#architectural-combined-approval).",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:89",
         "tests/node/fixtures/instruction-contracts.json:208",
@@ -3552,7 +3552,7 @@
         "gemini",
         "grok"
       ],
-      "text": "On the Architectural path, [start confirmation](#architectural-start-confirmation) takes the place of initial design approval in this order and carries the explicit target choice.",
+      "text": "On the Architectural path, [start confirmation](planning.md#architectural-start-confirmation) takes the place of initial design approval in this order and carries the explicit target choice.",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:103",
         "tests/node/fixtures/instruction-contracts.json:222",
@@ -4469,7 +4469,7 @@
       "platforms": [
         "claude"
       ],
-      "text": "On the Architectural path, [start confirmation](#architectural-start-confirmation) supplies the approved scope/depth/document set and the explicit choice that the next sentence requires.",
+      "text": "On the Architectural path, [start confirmation](planning.md#architectural-start-confirmation) supplies the approved scope/depth/document set and the explicit choice that the next sentence requires.",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:201"
       ]
@@ -5422,7 +5422,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Initial design/brainstorming MAY precede target choice. On the Architectural path, [start confirmation](#architectural-start-confirmation) supplies the approved scope/depth/document set and the explicit choice that the next sentence requires. Before the first required spec/plan draft, record",
+      "text": "Initial design/brainstorming MAY precede target choice. On the Architectural path, [start confirmation](planning.md#architectural-start-confirmation) supplies the approved scope/depth/document set and the explicit choice that the next sentence requires. Before the first required spec/plan draft, record",
       "origin": [
         "tests/test_arc_policy.py:1884",
         "tests/test_arc_policy.py:1940"
@@ -5470,7 +5470,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Start summary: when the [design conversation](#design-conversation) ends, the design Planner returns a short start summary instead of a final design: scope to change, user decisions, author judgments, already-answered items, open checks, path/depth/risk judgment, document set with planned relative paths, and every file or contract marked change or no change (reason).",
+      "text": "Start summary: when the [design conversation](planning.md#design-conversation) ends, the design Planner returns a short start summary instead of a final design: scope to change, user decisions, author judgments, already-answered items, open checks, path/depth/risk judgment, document set with planned relative paths, and every file or contract marked change or no change (reason).",
       "origin": [
         "tests/test_arc_policy.py:1878",
         "tests/test_arc_policy.py:1931"
@@ -5486,7 +5486,7 @@
         "gemini",
         "grok"
       ],
-      "text": "It carries the [decision inventory](#decision-inventory).",
+      "text": "It carries the [decision inventory](planning.md#decision-inventory).",
       "origin": [
         "tests/test_arc_policy.py:1878",
         "tests/test_arc_policy.py:1931"
@@ -5534,7 +5534,7 @@
         "gemini",
         "grok"
       ],
-      "text": "The confirmed summary supplies the approved scope/depth/document set and explicit choice required by the [formal drafting boundary](#formal-drafting-boundary).",
+      "text": "The confirmed summary supplies the approved scope/depth/document set and explicit choice required by the [formal drafting boundary](planning.md#formal-drafting-boundary).",
       "origin": [
         "tests/test_arc_policy.py:1879",
         "tests/test_arc_policy.py:1931"
@@ -5630,7 +5630,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Full Auto: under [Full Auto](#full-auto-run-mode), scope confirmation within the original request may be auto-decided; target choice follows the Execution-target choice row; [approval.run-mode] limits apply unchanged.",
+      "text": "Full Auto: under [Full Auto](planning.md#full-auto-run-mode), scope confirmation within the original request MAY be auto-decided; target choice follows the Execution-target choice row; [approval.run-mode] limits apply unchanged.",
       "origin": [
         "tests/test_arc_policy.py:1882",
         "tests/test_arc_policy.py:1931"
@@ -8701,7 +8701,7 @@
         "codex",
         "claude"
       ],
-      "text": "Orchestrator saves and reviews it against the fixed checklist: scope/evidence; targets/ownership/paths; policy/conflicts; task boundaries/dependencies/criteria; checks/evidence/holds; roles/approval/commit boundaries; completeness; inventory/scope notation (final design, Architectural start summary and Architectural spec: complete [decision inventory](#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
+      "text": "Orchestrator saves and reviews it against the fixed checklist: scope/evidence; targets/ownership/paths; policy/conflicts; task boundaries/dependencies/criteria; checks/evidence/holds; roles/approval/commit boundaries; completeness; inventory/scope notation (final design, Architectural start summary and Architectural spec: complete [decision inventory](planning.md#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
       "origin": [
         "tests/test_arc_policy.py:464"
       ]
@@ -9171,7 +9171,7 @@
         "gemini",
         "grok"
       ],
-      "text": "; within a spec or plan stage, reuse that stage's Planner only for a budget-hold delta. On the Architectural path, the design Planner returns the start summary instead of a final design and, after [start confirmation](#architectural-start-confirmation), continues as the spec Planner through a spec-stage delta brief while role, context and source remain valid. Every plan stage, and an Architectural spec stage without that continuation, uses a fresh Planner; its initial brief contains",
+      "text": "; within a spec or plan stage, reuse that stage's Planner only for a budget-hold delta. On the Architectural path, the design Planner returns the start summary instead of a final design and, after [start confirmation](planning.md#architectural-start-confirmation), continues as the spec Planner through a spec-stage delta brief while role, context and source remain valid. Every plan stage, and an Architectural spec stage without that continuation, uses a fresh Planner; its initial brief contains",
       "origin": [
         "tests/test_arc_policy.py:1940"
       ]
@@ -9291,7 +9291,7 @@
         "gemini",
         "grok"
       ],
-      "text": "1. Decision inventory: before returning the final design or Architectural start summary, Planner lists what spec and plan drafting must decide, such as changed files, data formats, table notation, tests and generated artifacts, and classifies each item as a user decision (asked in the conversation; the answer is recorded in the design, or for Architectural in the start summary and then the spec), an author judgment (a minor item that does not change the deliverable; record \"my judgment\" and the reason) or already answered (cite the existing source or conversation). Bounded short designs carry a proportional inventory of a few lines; the per-file scope notation stays mandatory.",
+      "text": "1. Decision inventory: before returning the final design or Architectural start summary, Planner lists what spec and plan drafting MUST decide, such as changed files, data formats, table notation, tests and generated artifacts, and classifies each item as a user decision (asked in the conversation; the answer is recorded in the design, or for Architectural in the start summary and then the spec), an author judgment (a minor item that does not change the deliverable; record \"my judgment\" and the reason) or already answered (cite the existing source or conversation). Bounded short designs carry a proportional inventory of a few lines; the per-file scope notation stays mandatory.",
       "origin": [
         "tests/test_arc_policy.py:1796"
       ]
@@ -9321,7 +9321,7 @@
         "gemini",
         "grok"
       ],
-      "text": "; roles/approval/commit boundaries; completeness; inventory/scope notation (final design, Architectural start summary and Architectural spec: complete [decision inventory](#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
+      "text": "; roles/approval/commit boundaries; completeness; inventory/scope notation (final design, Architectural start summary and Architectural spec: complete [decision inventory](planning.md#decision-inventory); every document: every file or contract marked change or no change (reason), no ambiguous scope wording).",
       "origin": [
         "tests/test_arc_policy.py:1796"
       ]
@@ -9381,7 +9381,7 @@
         "gemini",
         "grok"
       ],
-      "text": "4. Short path and opt-out: when the request is clear enough, the first response may carry a short design and ask for approval (Architectural: a short start summary and ask for start confirmation). When the user says to just proceed, stop asking, decide the remaining items as author judgments and list them in the final design or start summary.",
+      "text": "4. Short path and opt-out: when the request is clear enough, the first response MAY carry a short design and ask for approval (Architectural: a short start summary and ask for start confirmation). When the user says to just proceed, stop asking, decide the remaining items as author judgments and list them in the final design or start summary.",
       "origin": [
         "tests/test_arc_policy.py:1796"
       ]
@@ -9441,7 +9441,7 @@
         "gemini",
         "grok"
       ],
-      "text": "For design and brainstorming, converse under [design conversation](#design-conversation) and allow one consolidated correction on the final design.",
+      "text": "For design and brainstorming, converse under [design conversation](planning.md#design-conversation) and allow one consolidated correction on the final design.",
       "origin": [
         "tests/test_arc_policy.py:1796"
       ]
@@ -9471,7 +9471,7 @@
         "gemini",
         "grok"
       ],
-      "text": "In the design stage, [design conversation](#design-conversation) responses are expected returns and use no correction opportunity.",
+      "text": "In the design stage, [design conversation](planning.md#design-conversation) responses are expected returns and use no correction opportunity.",
       "origin": [
         "tests/test_arc_policy.py:1796"
       ]
@@ -9531,7 +9531,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Within the design/brainstorming stage, reuse one Planner instance for every [design conversation](#design-conversation) response, the final design, its consolidated correction and any eligible further call while role, context and source remain valid;",
+      "text": "Within the design/brainstorming stage, reuse one Planner instance for every [design conversation](planning.md#design-conversation) response, the final design, its consolidated correction and any eligible further call while role, context and source remain valid;",
       "origin": [
         "tests/test_arc_policy.py:1796"
       ]
