@@ -7,7 +7,7 @@
 - **근거:** `build/hdq-artifacts/findings.md`, `asym-*.md`, `mentions.md`. 공용 문서 추출 규칙은 `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md` §4.3–4.4(272–296행)을 따릅니다.
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침, 생성 스크립트(`scripts/update-runtime-assets.mjs`, `scripts/update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
 - **실행 대상:** workspace `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `f74a5ec0`. 현재 브랜치에 이어서 진행합니다(사용자 선택 2026-11-27, PH-1 해소).
-- **plan 버전:** v3(v3 개정: T3 allowedPaths에 `lib/prompts/render.mjs` `EXPECTED` 표 값 추가. v2 v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
+- **plan 버전:** v4(v4 개정: T4 allowedPaths에 `tests/node/fixtures/instruction-contracts.json` 185·197행 Codex adapter 해시 값 추가. v3 v3 개정: T3 allowedPaths에 `lib/prompts/render.mjs` `EXPECTED` 표 값 추가. v2 v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
 
 ## Global Constraints
 
@@ -314,15 +314,16 @@
 ## T4 — Codex runtime 오류 메시지 (B14, TDD)
 
 - **목표:** `lib/runtime/adapters/codex.mjs:25`의 오류 메시지를 고정된 `Agent`가 아니라 실제 도구 경로 기준으로 바꿉니다.
-- **allowedPaths:** `lib/runtime/adapters/codex.mjs`, `tests/node/runtime-codex.test.mjs`, `shared/skill/runtime/adapters/codex.mjs`(생성물), `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만)
+- **allowedPaths:** `lib/runtime/adapters/codex.mjs`, `tests/node/runtime-codex.test.mjs`, (v4) `tests/node/fixtures/instruction-contracts.json`(185·197행 `shared/skill/runtime/adapters/codex.mjs`·`lib/runtime/adapters/codex.mjs` SHA-256 값만; `instruction-layout.test.mjs::profile models, permissions, canonical policy and CLI/runtime bytes are preserved`가 고정), `shared/skill/runtime/adapters/codex.mjs`(생성물), `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만)
 - **선행:** T3 수락·커밋(AJ-13)
 - **단계:**
-  - [ ] 1. **RED.** `tests/node/runtime-codex.test.mjs`에 새 test를 하나 추가합니다. `tool_name`이 `spawn_agent`이고 `describeTool`이 `operation: 'read'`처럼 `assign-agent`가 아닌 값을 반환하면, `normalizeCodexEvent`가 메시지 `spawn_agent tool requires assignment validation`으로 throw해야 합니다. `Agent` 입력도 toolPath 기준으로 같은 메시지를 기대합니다(AJ-10).
-  - [ ] 2. `node --test --test-name-pattern='<새 test 이름>' tests/node/runtime-codex.test.mjs`를 실행합니다. 메시지 불일치로 실패(exit ≠ 0)하는 것을 확인하고 원 출력을 보고합니다.
-  - [ ] 3. **GREEN.** `throw Error('Agent tool requires assignment validation')` → `throw Error(toolPath+' tool requires assignment validation')`. 그 밖의 줄은 바꾸지 않습니다. `claude.mjs:34`는 바꾸지 않습니다.
-  - [ ] 4. 같은 test를 다시 실행해 exit 0인지 보고, `node --test tests/node/runtime-codex.test.mjs` 전체도 exit 0인지 봅니다.
-  - [ ] 5. `node scripts/update-runtime-assets.mjs`를 실행하고, `--check`가 exit 0인지 봅니다. 그다음 MANIFEST, golden(`--diff` 기대: runtime `adapters/codex.mjs`의 `~`), CS-R을 처리합니다.
-  - [ ] 6. CS-N, CS-S, CS-R, CS-X(`runtime-codex.test.mjs`)를 실행합니다. CS-P는 지침을 바꾸지 않으므로 뺍니다.
+  - [x] 1. **RED.** `tests/node/runtime-codex.test.mjs`에 새 test를 하나 추가합니다. `tool_name`이 `spawn_agent`이고 `describeTool`이 `operation: 'read'`처럼 `assign-agent`가 아닌 값을 반환하면, `normalizeCodexEvent`가 메시지 `spawn_agent tool requires assignment validation`으로 throw해야 합니다. `Agent` 입력도 toolPath 기준으로 같은 메시지를 기대합니다(AJ-10).
+  - [x] 2. `node --test --test-name-pattern='<새 test 이름>' tests/node/runtime-codex.test.mjs`를 실행합니다. 메시지 불일치로 실패(exit ≠ 0)하는 것을 확인하고 원 출력을 보고합니다.
+  - [x] 3. **GREEN.** `throw Error('Agent tool requires assignment validation')` → `throw Error(toolPath+' tool requires assignment validation')`. 그 밖의 줄은 바꾸지 않습니다. `claude.mjs:34`는 바꾸지 않습니다.
+  - [x] 4. 같은 test를 다시 실행해 exit 0인지 보고, `node --test tests/node/runtime-codex.test.mjs` 전체도 exit 0인지 봅니다.
+  - [x] 5. `node scripts/update-runtime-assets.mjs`를 실행하고, `--check`가 exit 0인지 봅니다. 그다음 MANIFEST, golden(`--diff` 기대: runtime `adapters/codex.mjs`의 `~`), CS-R을 처리합니다.
+  - [x] 6. CS-N, CS-S, CS-R, CS-X(`runtime-codex.test.mjs`)를 실행합니다. CS-P는 지침을 바꾸지 않으므로 뺍니다.
+- **결과(T4 수락 2026-11-27):** Implementer 83bac850(RED→GREEN, hold: instruction-contracts 해시) → plan v4 → fresh Implementer 2d729679. Tester 1cb8291e AC-T4-1–3·TD-1·7·8·12·되돌림 proven. runtime-codex 실패 4건은 base 동일(ARC_BRIDGE_CHILD 환경 의존 기준선). CS-N 358 통과.
 - **AC:**
   - AC-T4-1: RED 실패를 관찰한 뒤 GREEN 통과가 보고됩니다.
   - AC-T4-2: 원천과 생성물이 같습니다(`--check` 0).
@@ -464,6 +465,7 @@ B1–B4·B6–B9·B15·C1·C2·C6 → T1 / B5 → T2 / B10–B13·B16–B18 → 
 
 | 버전 | 내용 |
 |---|---|
+| v4 | Orchestrator 개정(2026-11-27, 사용자 승인): T4 allowedPaths에 instruction-contracts.json 185·197행 해시 값 추가(T4 1차 Implementer 83bac850이 CS-N 새 실패 1건으로 hold) |
 | v3 | Orchestrator 개정(2026-11-27, 사용자 승인): T3에 C-T3-12와 allowedPaths `lib/prompts/render.mjs`(`EXPECTED` 표 값만) 추가 |
 | v2 | Orchestrator 개정(2026-11-27): T1 1차 실행의 새 실패 3건 정합(C-T1-20·21, RP-629), T5 C5·C8 문구 확정(사용자 결정, RP-698 삭제), T6 추가(R1 설계 (a)·AJ-T6-1–5 사용자 승인, RP-810), 항목 수 흐름·최종 검사 갱신 |
 | v1 | 초안(Planner, 2026-11-27). Orchestrator 검토 개정: OD-1(C7·C8 분기, T5 allowedPaths)·OD-2 해소 반영. 커밋 전 정정(사용자 승인): plan 문서를 T1 커밋이 아닌 실행 전 계획 문서 커밋으로 |
