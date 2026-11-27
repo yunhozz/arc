@@ -5736,7 +5736,7 @@
         "gemini",
         "grok"
       ],
-      "text": "In task mode, never run full regression or substitute checks.",
+      "text": "In task mode, NEVER run full regression or substitute checks.",
       "origin": [
         "tests/node/test-scope-contract.test.mjs:14"
       ]
@@ -5751,7 +5751,7 @@
         "gemini",
         "grok"
       ],
-      "text": "In task mode, do not search reverse dependencies.",
+      "text": "In task mode, DO NOT search reverse dependencies.",
       "origin": [
         "tests/node/test-scope-contract.test.mjs:14"
       ]
