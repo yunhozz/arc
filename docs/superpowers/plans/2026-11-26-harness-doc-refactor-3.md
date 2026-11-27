@@ -8,7 +8,7 @@
 - **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v5(v4 SHA-256 `0e552d572a34ac1bbfc0d2763d0a00ab82050bbb58336696dc7f3ac107c0efd3`에 J48 추가). 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
 - **실행 대상:** `/Users/yunho/Desktop/project/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `8ec7d907f77e1fb288f6ce63d8a8973d9aacb7ed`
 - **역할:** Implementer와 Tester는 Codex bridge이고, Reviewer는 native Claude입니다. bridge 역할은 Git 상태를 바꾸지 않으며, 커밋은 Orchestrator만 합니다.
-- **plan 버전:** v8(v7 뒤 PJ21 추가, 사용자 선택 2026-11-27)
+- **plan 버전:** v9(v8 뒤 PJ22 추가, Orchestrator 대리 승인)
 
 ## Global Constraints
 
@@ -420,6 +420,7 @@
 - [ ] **D-1: S 재판정(J27).** 4플랫폼 파일을 heading 줄로 섹션을 나누고, 빈 줄로 블록을 나눕니다.
   - 같은 heading 아래에서 4플랫폼 바이트가 모두 같은 블록을 S로 봅니다. `<a id>` 줄과 heading 줄은 run 경계이며 옮기지 않습니다(PJ11).
   - S run은 4플랫폼 모두에서 같은 순서로 이어지는 S 블록의 최대 연속입니다.
+  - (v9, PJ22) 설치 때 치환되는 marker(`{{ARC_…}}`)가 든 블록은 옮기지 않습니다. 그 블록은 `<a id>` 줄처럼 run 경계로 보고 플랫폼 파일에 남깁니다. S run은 그 블록 앞뒤로 나눕니다. 예: `commit.md:26` `{{ARC_COMMIT_LANGUAGE_POLICY}}`
   - `p0-classify.md` 범위와 차이가 나면 보고합니다. 4플랫폼이 다른 run은 D로 기록합니다(H-4).
   - 결과는 `run ID | 섹션 heading | claude 줄 범위 | 4플랫폼 바이트 동일 확인` 표로 남깁니다.
 - [ ] **D-2: 이동(바이트 그대로).**
@@ -603,6 +604,7 @@
 | PJ19 | (v7) 배타성 검사에 Python 인접 문자열 literal 합치기 형태를 추가합니다(PJ7). | W2 Tester가 `test_harness_contract.py:666`에서 RP-283 사본을 찾았는데 현재 검사는 놓쳤습니다. 검사를 강화하는 방향입니다. |
 | PJ20 | (v7) 1회·위치 고정은 구조 assertion으로 남깁니다(§1.3). | W2 Tester가 1회·인접 검사를 중복 삭제한 행(M-W2-1373 등)을 찾았습니다. RP 존재 검사로는 그 보호가 남지 않습니다(J31). |
 | PJ21 | (v8, 사용자 선택 2026-11-27 "해시 값만 change로 추가") W3–W15는 `tests/node/plan.test.mjs`의 `renderingBaseline` 값 8개를 갱신합니다(Global Constraints, spec J48). | W3 CS-X에서 렌더링 해시 8건 불일치. 렌더링 출력이 바뀌는 모든 task에서 같은 일이 생깁니다. |
+| PJ22 | (v9) install marker(`{{ARC_…}}`)가 든 블록은 run 경계로 보고 옮기지 않습니다(D-1). | W7 D-0 PH-3: 설치기는 플랫폼 `references/commit.md`에 `{{ARC_COMMIT_LANGUAGE_POLICY}}`가 정확히 한 번 있기를 요구합니다. 옮기면 en·ko 렌더링 8건이 실패합니다. 설치 코드와 no change 테스트를 바꾸지 않고 이동 범위만 좁힙니다. 대리 승인은 사용자 위임(2026-11-27, 이 세션에서 "위임 유지")에 따릅니다. |
 | PJ14 | 재작성된 링크를 포함한 RP는 D-7에서 링크 재작성 ledger 행으로 갱신합니다. | §7은 "규칙 문장 변경"을 치환 대상으로 봅니다. 링크 재작성도 ledger 종류에 들어 있습니다(§8). |
 
 ## 4. Plan-level hold(PH)
@@ -626,3 +628,4 @@
 | v6 | PJ18 추가와 §1.3 규칙, spec v4 인용(W2 hold 34행) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
 | v7 | PJ19·PJ20 추가와 §1.3 규칙(W2 Tester 결과) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
 | v8 | PJ21 추가, Global Constraints에 `plan.test.mjs` 해시 갱신 규칙과 TD-10, W3–W15 allowedPaths에 `tests/node/plan.test.mjs` 추가, spec v5 인용 | 2026-11-27 사용자 선택 "해시 값만 change로 추가" |
+| v9 | PJ22 추가와 D-1 규칙 1줄(W7 D-0 PH-3, `commit.md:26` install marker) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27 "위임 유지") |
