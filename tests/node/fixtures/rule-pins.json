@@ -2307,7 +2307,7 @@
         "codex",
         "claude"
       ],
-      "text": "No-findings reports may be brief; requested full drafts remain complete.",
+      "text": "No-findings reports MAY be brief; requested full drafts remain complete.",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:68",
         "tests/node/fixtures/instruction-contracts.json:180"
@@ -10961,7 +10961,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Implementer may request loopback, registered path or socket IDs, and the `ci`, `daemon-off` and `polling` presets.",
+      "text": "Implementer MAY request loopback, registered path or socket IDs, and the `ci`, `daemon-off` and `polling` presets.",
       "origin": [
         "tests/node/composite-instructions.test.mjs:98",
         "tests/node/composite-instructions.test.mjs:116"
@@ -10977,7 +10977,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Tester may also request domain-scoped or full network access and registered browser services, subject to the platform gates.",
+      "text": "Tester MAY also request domain-scoped or full network access and registered browser services, subject to the platform gates.",
       "origin": [
         "tests/node/composite-instructions.test.mjs:98",
         "tests/node/composite-instructions.test.mjs:116"
@@ -11009,7 +11009,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Never enable additional access by default for Tester.",
+      "text": "NEVER enable additional access by default for Tester.",
       "origin": [
         "tests/node/composite-instructions.test.mjs:98",
         "tests/node/composite-instructions.test.mjs:116"
@@ -11041,7 +11041,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Use `ARC_SCRATCH_DIR` for temporary files and put files that must survive the dispatch in `ARC_EVIDENCE_DIR` for supervisor collection.",
+      "text": "Use `ARC_SCRATCH_DIR` for temporary files and put files that MUST survive the dispatch in `ARC_EVIDENCE_DIR` for supervisor collection.",
       "origin": [
         "tests/node/composite-instructions.test.mjs:98",
         "tests/node/composite-instructions.test.mjs:116"
