@@ -29,7 +29,7 @@ After explicit selection or valid reuse, verify absolute workspace, branch/detac
 <a id="planning-document-commit"></a>
 ### Planning document commit
 
-Skip only when depth rules required no documents and none were created; record why. Uncommitted documents are not absent. This adds neither documents nor gate exceptions. Unchanged authorized target/scope needs no repeated choice.
+Skip only when depth rules required no documents and none were created; record why. Uncommitted documents are not absent. This adds neither documents nor gate exceptions. Unchanged authorized target/scope needs no repeated choice. NEVER automatically commit or delete other changes to prepare a target; approved planning-document commits are the sole exception, and unrelated dirty files stay preserved.
 
 <a id="execution-time-plan-revision"></a>
 ### Execution-time plan revision
