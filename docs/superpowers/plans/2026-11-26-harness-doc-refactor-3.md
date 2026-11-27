@@ -5,10 +5,10 @@
 - **Goal:** 지침 문장을 글자 그대로 고정하는 곳을 `tests/node/fixtures/rule-pins.json` 하나로 모읍니다(U7). 그다음 4플랫폼 지침 문서를 의미를 보존하며 정리합니다(U3·U4·U5).
 - **Architecture:** 테스트를 먼저 정비합니다(W1·W2). 그다음 원천을 고치고 재생성합니다(W3). 이어서 agents(W4), SKILL.md(W5), reference 문서(W6–W15)를 하나씩 처리합니다. reference 문서는 공통 S run을 `shared/skill/references/<name>-common.md`로 바이트 그대로 옮긴 뒤 편집합니다. 남은 규칙 고정은 같은 task 안에서 ledger 치환표로 갱신합니다(§7).
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침 문서, 생성 스크립트(`scripts/update-role-policy.mjs`, `update-runtime-assets.mjs`, `update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
-- **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v4, SHA-256 `0e552d572a34ac1bbfc0d2763d0a00ab82050bbb58336696dc7f3ac107c0efd3`. 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
+- **Spec:** `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md`, 버전 v5(v4 SHA-256 `0e552d572a34ac1bbfc0d2763d0a00ab82050bbb58336696dc7f3ac107c0efd3`에 J48 추가). 이 plan의 §·J·U·AC·H 인용은 모두 이 spec을 가리킵니다.
 - **실행 대상:** `/Users/yunho/Desktop/project/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `8ec7d907f77e1fb288f6ce63d8a8973d9aacb7ed`
 - **역할:** Implementer와 Tester는 Codex bridge이고, Reviewer는 native Claude입니다. bridge 역할은 Git 상태를 바꾸지 않으며, 커밋은 Orchestrator만 합니다.
-- **plan 버전:** v7(v6 뒤 PJ19·PJ20 추가, Orchestrator 대리 승인)
+- **plan 버전:** v8(v7 뒤 PJ21 추가, 사용자 선택 2026-11-27)
 
 ## Global Constraints
 
@@ -30,6 +30,7 @@
   - 대응표(§3.9): `M-<task>-<nnn>`. 여러 문장으로 나뉜 고정은 `M-W1-012.1`처럼 하위 번호를 붙입니다.
   - ledger(§8): `L-<task>-<nnn>`
 - 대응표, ledger, T0 결과는 커밋하지 않는 workflow 산출물입니다. Implementer와 Tester는 이것을 보고 본문으로 반환하고, Orchestrator가 `.git/arc/workflows/harness-doc-refactor-3/` 아래에 저장합니다(PJ12).
+- (v8, PJ21, spec J48) W3–W15의 allowedPaths에는 `tests/node/plan.test.mjs`가 들어갑니다. 바꿀 수 있는 것은 `renderingBaseline` 객체의 해시 값 8개뿐입니다. 키, test 로직, 다른 줄은 바이트 그대로 둡니다. 해시는 MANIFEST·golden 갱신 뒤 `node --test --test-name-pattern='preserves public rendering baseline' tests/node/plan.test.mjs`의 실패 메시지(actual)로 얻습니다. 전후 값을 보고합니다. 이 test는 그 task의 CS-X에 늘 들어갑니다. Tester는 TD-10으로 다음을 확인합니다. `git --no-optional-locks diff -U0 -- tests/node/plan.test.mjs`의 바뀐 줄이 `renderingBaseline` 값 줄뿐이어야 하고, 그 8개 test가 통과해야 합니다.
 - 커밋 메시지 형식은 `type(scope): 한국어 설명`이고, 본문 끝에 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`을 붙입니다. amend는 금지합니다.
 
 ## Review Focus
@@ -288,7 +289,7 @@
 - **Files:**
   - Modify(편집): `lib/policy/role-policy.json`, `lib/prompts/agent-fragments.json`, `lib/installer/global-config.mjs`(`agentsBlockBody` 문장 리터럴만)
   - Modify(생성기 출력): `{claude,codex,gemini,grok}/skill/SKILL.md`, `{claude,codex,gemini,grok}/agents/*`, `{claude,codex,gemini,grok}/skill/references/{coordination,planning,handoff,handoff-prep,commit,verification}.md`의 관리 블록, `shared/skill/runtime/role-policy.json`
-  - Modify(고정값): `tests/node/fixtures/instruction-contracts.json`(protected 해시 2개만), `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
+  - Modify(고정값): `tests/node/fixtures/instruction-contracts.json`(protected 해시 2개만), `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(v8, `renderingBaseline` 값만)
   - 손대지 않는 파일: `lib/policy/*.mjs`, `lib/prompts/render.mjs`, 그 밖의 `lib/installer/*`, `scripts/*`, 관리 블록 밖의 문서 산문, agent template 산문
 - **allowedPaths:**
   - `lib/policy/role-policy.json`, `lib/prompts/agent-fragments.json`, `lib/installer/global-config.mjs`
@@ -296,7 +297,7 @@
   - `claude/agents/`, `codex/agents/`, `gemini/agents/`, `grok/agents/`
   - `{claude,codex,gemini,grok}/skill/references/{coordination,planning,handoff,handoff-prep,commit,verification}.md` (24개 파일로 펼쳐 넣습니다)
   - `shared/skill/runtime/role-policy.json`
-  - `tests/node/fixtures/instruction-contracts.json`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
+  - `tests/node/fixtures/instruction-contracts.json`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(v8)
 - **선행:** W2 수락·커밋, H-3 해당 없음
 
 - [ ] **Step 0: D-0을 원천 3개와 생성 대상 문서에 적용합니다.**
@@ -344,7 +345,7 @@
 - **Files:**
   - Modify: `{claude,gemini,grok}/agents/arc-{implementer,planner,reviewer,scouter,tester}.md`, `codex/agents/arc-{…}.toml`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, golden
   - 손대지 않는 파일: `lib/prompts/agent-fragments.json`, 관리 블록, frontmatter, TOML 키·구조
-- **allowedPaths:** `claude/agents/`, `codex/agents/`, `gemini/agents/`, `grok/agents/`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
+- **allowedPaths:** `claude/agents/`, `codex/agents/`, `gemini/agents/`, `grok/agents/`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(v8)
 - **선행:** W3 수락·커밋
 - [ ] 0. D-0을 agent 파일에 적용합니다.
 - [ ] 1. 플랫폼 묶음(J41)을 확인합니다. 같은 문장이 여러 플랫폼 파일에 있으면 묶음 단위로 ledger 행을 씁니다.
@@ -375,7 +376,7 @@
 - **Files:**
   - Modify: `{claude,codex,gemini,grok}/skill/SKILL.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, golden
   - 손대지 않는 파일: 관리 블록, gate 표의 링크 셀, `references/<name>.md#<id>` 링크, `instruction-contracts.json`(bytes·lines)
-- **allowedPaths:** `claude/skill/SKILL.md`, `codex/skill/SKILL.md`, `gemini/skill/SKILL.md`, `grok/skill/SKILL.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
+- **allowedPaths:** `claude/skill/SKILL.md`, `codex/skill/SKILL.md`, `gemini/skill/SKILL.md`, `grok/skill/SKILL.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(v8)
 - **선행:** W4 수락·커밋
 - [ ] 0. D-0을 SKILL.md에 적용합니다.
 - [ ] 1. 편집과 ledger 작성. gate trigger 셀(J38)이 바뀌면 core RP를 갱신합니다(§7).
@@ -406,7 +407,7 @@
 - **allowedPaths:**
   - `claude/skill/references/<name>.md`, `codex/skill/references/<name>.md`, `gemini/skill/references/<name>.md`, `grok/skill/references/<name>.md`
   - `shared/skill/references/<name>-common.md`
-  - `tests/node/fixtures/rule-pins.json`, `tests/node/instruction-language.test.mjs`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
+  - `tests/node/fixtures/rule-pins.json`, `tests/node/instruction-language.test.mjs`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(v8)
 - **선행:** 직전 문서 task 수락·커밋. W6은 W5 수락과 H-8 보고 완료가 선행입니다.
 
 ### 공통 절차(D-1–D-11)
@@ -485,7 +486,7 @@
 - **Files:**
   - Modify: `{claude,codex,gemini,grok}/skill/references/worktree-creation.md`, `shared/skill/references/handoff-worktree.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, golden
   - 손대지 않는 파일: `instruction-language.test.mjs`(이미 두 파일이 목록에 있습니다), N 문단의 플랫폼별 고유명
-- **allowedPaths:** `claude/skill/references/worktree-creation.md`, `codex/skill/references/worktree-creation.md`, `gemini/skill/references/worktree-creation.md`, `grok/skill/references/worktree-creation.md`, `shared/skill/references/handoff-worktree.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`
+- **allowedPaths:** `claude/skill/references/worktree-creation.md`, `codex/skill/references/worktree-creation.md`, `gemini/skill/references/worktree-creation.md`, `grok/skill/references/worktree-creation.md`, `shared/skill/references/handoff-worktree.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(v8)
 - **선행:** W14 수락·커밋
 - [ ] 1. D-0, D-5–D-7, D-9–D-11을 적용합니다(이동 단계 D-1–D-4, D-8 없음). guidance 문단 RP(doc `worktree-creation`)와 `shared:handoff-worktree` RP를 갱신합니다.
 - **AC:** AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, AC-10, AC-13
@@ -601,6 +602,7 @@
 | PJ18 | (v6) W2 hold 34행의 처리 규칙 (가)–(마)(§1.3). | 범위를 넓게 고정하지 않으면서 각 규칙 조각의 보호를 유지합니다(J31). 대리 승인은 사용자 위임(2026-11-27)에 따릅니다. |
 | PJ19 | (v7) 배타성 검사에 Python 인접 문자열 literal 합치기 형태를 추가합니다(PJ7). | W2 Tester가 `test_harness_contract.py:666`에서 RP-283 사본을 찾았는데 현재 검사는 놓쳤습니다. 검사를 강화하는 방향입니다. |
 | PJ20 | (v7) 1회·위치 고정은 구조 assertion으로 남깁니다(§1.3). | W2 Tester가 1회·인접 검사를 중복 삭제한 행(M-W2-1373 등)을 찾았습니다. RP 존재 검사로는 그 보호가 남지 않습니다(J31). |
+| PJ21 | (v8, 사용자 선택 2026-11-27 "해시 값만 change로 추가") W3–W15는 `tests/node/plan.test.mjs`의 `renderingBaseline` 값 8개를 갱신합니다(Global Constraints, spec J48). | W3 CS-X에서 렌더링 해시 8건 불일치. 렌더링 출력이 바뀌는 모든 task에서 같은 일이 생깁니다. |
 | PJ14 | 재작성된 링크를 포함한 RP는 D-7에서 링크 재작성 ledger 행으로 갱신합니다. | §7은 "규칙 문장 변경"을 치환 대상으로 봅니다. 링크 재작성도 ledger 종류에 들어 있습니다(§8). |
 
 ## 4. Plan-level hold(PH)
@@ -623,3 +625,4 @@
 | v5 | PJ17 추가와 §1.3 규칙 1줄(W2 M-W2-1224·1527, 소문자 접기 literal) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
 | v6 | PJ18 추가와 §1.3 규칙, spec v4 인용(W2 hold 34행) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
 | v7 | PJ19·PJ20 추가와 §1.3 규칙(W2 Tester 결과) | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) |
+| v8 | PJ21 추가, Global Constraints에 `plan.test.mjs` 해시 갱신 규칙과 TD-10, W3–W15 allowedPaths에 `tests/node/plan.test.mjs` 추가, spec v5 인용 | 2026-11-27 사용자 선택 "해시 값만 change로 추가" |

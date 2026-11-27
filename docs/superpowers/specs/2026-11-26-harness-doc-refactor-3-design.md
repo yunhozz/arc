@@ -69,13 +69,14 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | 테스트(정비) | `tests/node/fixtures/instruction-contracts.json` | change(§3.5) | U7 |
 | 테스트(정비) | `tests/node/instruction-layout.test.mjs`, `agent-fragments.test.mjs`, `role-policy.test.mjs`, `test-scope-contract.test.mjs`, `composite-instructions.test.mjs`, `plan-level-records-contract.test.mjs`, `run-mode-contract.test.mjs` | change | U7, §3 |
 | 테스트(정비) | `tests/test_arc_policy.py`, `tests/test_claude_payload.py`, `tests/test_harness_contract.py` | change | U7, §3 |
+| 테스트(렌더링 해시) | `tests/node/plan.test.mjs`의 `renderingBaseline` 값 8개 | (v5) change. 렌더링 출력이 바뀌는 task가 해시 값만 새 값으로 바꾼다. 키·test 로직·그 밖의 줄은 바꾸지 않는다. | J48 |
 | 테스트(구조) | `tests/node/instruction-language.test.mjs` | change. `instructionFiles`에 새 `*-common.md` 9개를 추가만 하고, 검사 방식은 바꾸지 않는다. | Hangul 금지 검사가 새 지침 파일에도 적용되어야 한다. |
 | 새 테스트 | `tests/node/fixtures/rule-pins.json`, `tests/node/rule-pins.test.mjs`, `tests/node/fixtures/effective-doc.mjs` | change(신규) | J18, J30 |
 | 계획 문서 | 이 spec과 plan | change(Orchestrator 저장) | — |
 | parity | `tests/installer-parity.json` | **no change**. 원 assertion inventory가 SHA로 동결돼 있다(`scripts/check-installer-parity.mjs:13-19`). destination 보존은 J33이 맡는다. | 동결 계약 |
 | parity 검사기 | `scripts/check-installer-parity.mjs` | no change. 생성기·검사 코드다. | v1 no change |
 | Python | `tests/test_codex_models.py`, `tests/test_token_usage.py`, `tests/qa_model_cases.py` | no change. `model_reasoning_effort` 같은 비산문 토큰과 models 설정만 고정한다(`p0-pinned.md:3237-3244`). `models.toml`은 수정 대상이 아니다. | J20, J23 |
-| Node 기타 | `p0-pinned.md:2-81`에서 1–42건으로 잡힌 나머지 Node 테스트(`role-observe`, `role-routing-dispatch`, `grok-bridge`, `role-bridge-run`, `install-mode-*`, `host-gemini-grok`, `manifest`, `plan`, `gemini-platform`, `platform-registry`, `profile-render`, `parity-check`, `legacy-profile-cleanup`, `role-fixtures.mjs`, `readme-gate-consistency` 등) | no change. 고정 대상이 marker(`[ARC role policy: contract begin]`, `{{ARC_OUTPUT_LANGUAGE_POLICY}}`), ID(`common.brief-boundary`, `- [git.specialists-deny]`), 경로, 런타임 출력 토큰(`permission_scope_unverified`)이고(`p0-pinned.md:85-102,114-115,1185-1191`), 리팩토링은 이것들을 바꾸지 않는다(J20, J23). T0 검사에서 이 파일들에 산문 고정이 나오면 §12 H-6을 따른다. | J23, J43 |
+| Node 기타 | `p0-pinned.md:2-81`에서 1–42건으로 잡힌 나머지 Node 테스트(`role-observe`, `role-routing-dispatch`, `grok-bridge`, `role-bridge-run`, `install-mode-*`, `host-gemini-grok`, `manifest`, `plan`(v5: `renderingBaseline` 값만 change, J48), `gemini-platform`, `platform-registry`, `profile-render`, `parity-check`, `legacy-profile-cleanup`, `role-fixtures.mjs`, `readme-gate-consistency` 등) | no change. 고정 대상이 marker(`[ARC role policy: contract begin]`, `{{ARC_OUTPUT_LANGUAGE_POLICY}}`), ID(`common.brief-boundary`, `- [git.specialists-deny]`), 경로, 런타임 출력 토큰(`permission_scope_unverified`)이고(`p0-pinned.md:85-102,114-115,1185-1191`), 리팩토링은 이것들을 바꾸지 않는다(J20, J23). T0 검사에서 이 파일들에 산문 고정이 나오면 §12 H-6을 따른다. | J23, J43 |
 | 생성기·설치 코드 | `lib/policy/*.mjs`, `lib/prompts/render.mjs`, `lib/installer/skill-sources.mjs`, `lib/installer/superpowers.mjs`, `scripts/*` | no change | v1 |
 | fixture 도구 | `tests/node/fixtures/installed-layout.mjs`, `static-references.mjs` | no change. 새 shared 파일은 golden 재생성이 반영한다. | v1 |
 | superpowers | `shared/skill/references/{brainstorming,writing-plans,test-driven-development,writing-good-tests,visual-companion,builder-check-prompt}.md`, `superpowers-*`, `references/scripts/*` | no change | 제외 |
@@ -525,6 +526,7 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | J44 | stale 판정은 기계적으로 한다. literal은 플랫폼별 base 대상 텍스트에 대한 포함 검색, regex는 match, 섹션 자르기는 heading 존재로 본다. 공백 정규화 외의 변형은 하지 않는다. | U9 적용을 재현 가능하게 한다. 사라진 규칙의 기록은 대응표 삭제 행이 맡는다. |
 | J46 | (v3, 사용자 선택 2026-11-26) J32 보호 test 본문에 RP text 사본이 있으면 RP를 유지하고 배타성 검사에서 그 사본만 RP-ID별로 예외로 둔다(§3.3). | W2에서 RP-284가 `test_harness_contract.py:643`(`test_commit_checker_preserves_hold_and_reuse_contracts`)과 겹쳤다. 그 test는 앞 줄(:634)에서 먼저 실패하므로 RP를 지우면 그 문장은 실제로 확인되지 않는다. J32와 확인 유지를 함께 지킨다. |
 | J47 | (v4) J32 보호 test가 쓰는 `test_harness_contract.py` 모듈 수준 계약 상수도 J32·J46과 같이 다룬다(바꾸지 않고 RP-ID별 예외). | W2 M-W2-1102: 상수를 바꾸면 보호 test의 동작이 바뀐다. |
+| J48 | (v5, 사용자 선택 2026-11-27 "해시 값만 change로 추가") `tests/node/plan.test.mjs:223-247`의 `renderingBaseline`은 설치 계획 렌더링 출력(profile·skill 파일 전체)의 SHA-256을 고정한다. 렌더링 출력을 바꾸는 task(W3–W15)는 J35 해시처럼 그 값만 새 값으로 바꾸고 전후 값을 기록한다. 키, test 로직, 다른 줄은 바꾸지 않는다. | W3 실행 중 CS-X에서 8개 조합 해시 불일치를 확인했다. 지침 문서를 고치면 매 task 바뀌는 값이고, 과거 정책 변경 커밋(`10b5fc27` 등)도 같이 갱신했다. 문구를 고정하지 않으므로 U7과 충돌하지 않는다. |
 | J45 | 정비 대상 파일 inventory는 W1·W2 Implementer가 만든다. T0의 H-6·CS-X·링크 기준선 조사는 각 문서 task와 최종 Tester가 해당 범위만 base 대비로 수행한다(plan v2). | bridge Tester가 저장소 전체 전수 목록을 한 보고로 반환하지 못했다(T0 시도 결과). 범위를 task 단위로 나누면 같은 검증을 유지한다. |
 | J33 | parity destination test는 삭제하지 않고 이름도 바꾸지 않는다. 고정이 다 빠지면 구조 assertion이나 ID assertion을 남긴다. | 동결된 parity 계약(`check-installer-parity.mjs:13-58`) |
 | J34 | 새 문장 고정을 추가하지 않는다. | 범위를 넓히지 않는다. |
@@ -547,3 +549,4 @@ U6의 원래 결정과 재확인 이력: 고정 규모(손작성 산문 고정�
 | v2 | Orchestrator 개정: U9–U11 추가, §3.1-1·§3.8·§3.9·§3.10(P1·P2)·§9 T0·AC-2·H-1·J32 수정, J44·J45 추가 | 2026-11-26 사용자 "승인"(plan v2와 함께), 커밋 92de0747 | T0 결과: Python 기준선 실패가 기록보다 크고(실제 stale 고정), bridge Tester가 전수 inventory를 반환하지 못함. 사용자 결정 U9–U11 |
 | v3 | Orchestrator 개정: §3.3 배타성 예외에 J32 보호 test 본문 사본(RP-ID별) 추가, J46 추가 | 2026-11-26 사용자 선택 "보호 test만 검사 예외" | W2 PH-1: RP-284와 `tests/test_harness_contract.py:643` 충돌 |
 | v4 | §3.3 예외를 J32 보호 test가 쓰는 모듈 수준 상수로 넓힘, J47 추가 | 2026-11-27 Orchestrator 대리 승인(사용자 위임 2026-11-27) | W2 hold M-W2-1102 |
+| v5 | §2에 `tests/node/plan.test.mjs` `renderingBaseline` 값 change 행 추가, Node 기타 행 주석, J48 추가 | 2026-11-27 사용자 선택 "해시 값만 change로 추가" | W3 CS-X: `plan.test.mjs` 렌더링 해시 8건 불일치 |

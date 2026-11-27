@@ -533,7 +533,7 @@
         "gemini",
         "grok"
       ],
-      "text": "Converse through Orchestrator under planning.md's design conversation: each response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design (on the Architectural path, the start summary) with context, Spike/Bounded/Architectural path, options, tradeoffs, criteria and assumptions. Split each response into a user message, which Orchestrator relays unchanged, and Orchestrator notes. Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state your judgment and reason. Ask an open question about the user's reason before offering options. For a clear request, the first response may be a short design for approval; when the user says to proceed, stop asking and list the remaining author judgments. Each call carries a new user answer, relayed verbatim with any Orchestrator interpretation marked, or new evidence; without progress, return the blocked criterion, observed facts and needed decision as a hold. The same design Planner continues while role, context and source remain valid; conversation responses use no correction opportunity, and only the final design receives Orchestrator's one consolidated correction. Before the final design or Architectural start summary, build a decision inventory classifying each item as user decision, author judgment or already answered, mark every file or contract change or no change (reason) without ambiguous scope wording, and attach the author-judgment list.",
+      "text": "Converse through Orchestrator under planning.md's design conversation: each response is exactly one of one question, 2–3 approaches with a recommendation and a selection question, one design section with a confirmation question, or the final design (on the Architectural path, the start summary) with context, Spike/Bounded/Architectural path, options, tradeoffs, criteria and assumptions. Split each response into a user message, which Orchestrator relays unchanged, and Orchestrator notes. Ask one question at a time only when the answer changes the outcome and is not already answered; otherwise state your judgment and reason. Ask an open question about the user's reason before offering options. For a clear request, the first response MAY be a short design for approval; when the user says to proceed, stop asking and list the remaining author judgments. Each call carries a new user answer, relayed verbatim with any Orchestrator interpretation marked, or new evidence; without progress, return the blocked criterion, observed facts and needed decision as a hold. The same design Planner continues while role, context and source remain valid; conversation responses use no correction opportunity, and only the final design receives Orchestrator's one consolidated correction. Before the final design or Architectural start summary, build a decision inventory classifying each item as user decision, author judgment or already answered, mark every file or contract change or no change (reason) without ambiguous scope wording, and attach the author-judgment list.",
       "origin": [
         "tests/node/agent-fragments.test.mjs:115"
       ]
@@ -6923,7 +6923,7 @@
         "gemini",
         "grok"
       ],
-      "text": "1. Use the shared brief, criteria, Implementer summary and relevant prior findings. Require the field `mode: task | final` in the brief. One assignment performs one mode; the only exception is the approved full regression follow-up in final mode. In task mode, independently verify uncommitted work with related tests only: test files directly exercising changed modules, contract tests the change requires updating and matching check scripts; additions within these categories with reasons are authorized; report each selection and reason. In task mode, never run full regression or substitute checks. In task mode, do not search reverse dependencies. Recheck fixes as the current Tester for the same task. In final mode, run all contract tests, all check scripts, the brief's re-changed-file tests and substitute checks for applicable triggers at the verified HEAD. Independently check triggers (1), (3) and (4) from the base..HEAD diff and log and use the brief's integration history for trigger (2). Follow the impact procedure in installed ARC `references/verification.md`. Use approved structural/consistency checks for policy/configuration.",
+      "text": "1. Use the shared brief, criteria, Implementer summary and relevant prior findings. Require the field `mode: task | final` in the brief. One assignment performs one mode; the only exception is the approved full regression follow-up in final mode. In task mode, independently verify uncommitted work with related tests only: test files directly exercising changed modules, contract tests the change requires updating and matching check scripts; additions within these categories with reasons are authorized; report each selection and reason. In task mode, NEVER run full regression or substitute checks. In task mode, DO NOT search reverse dependencies. Recheck fixes as the current Tester for the same task. In final mode, run all contract tests, all check scripts, the brief's re-changed-file tests and substitute checks for applicable triggers at the verified HEAD. Independently check triggers (1), (3) and (4) from the base..HEAD diff and log and use the brief's integration history for trigger (2). Follow the impact procedure in installed ARC `references/verification.md`. Use approved structural/consistency checks for policy/configuration.",
       "origin": [
         "tests/node/test-scope-contract.test.mjs:118"
       ]
@@ -7224,7 +7224,7 @@
         "gemini",
         "grok"
       ],
-      "text": "In task mode, never run full regression or substitute checks.",
+      "text": "In task mode, NEVER run full regression or substitute checks.",
       "origin": [
         "tests/node/test-scope-contract.test.mjs:202"
       ]
@@ -7239,7 +7239,7 @@
         "gemini",
         "grok"
       ],
-      "text": "In task mode, do not search reverse dependencies.",
+      "text": "In task mode, DO NOT search reverse dependencies.",
       "origin": [
         "tests/node/test-scope-contract.test.mjs:203"
       ]
