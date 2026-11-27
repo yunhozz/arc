@@ -7,7 +7,7 @@
 - **근거:** `build/hdq-artifacts/findings.md`, `asym-*.md`, `mentions.md`. 공용 문서 추출 규칙은 `docs/superpowers/specs/2026-11-26-harness-doc-refactor-3-design.md` §4.3–4.4(272–296행)을 따릅니다.
 - **Tech Stack:** Node `node:test`, Python `unittest`, JSON fixture, Markdown/TOML 지침, 생성 스크립트(`scripts/update-runtime-assets.mjs`, `scripts/update-manifest.mjs`, `tests/node/fixtures/installed-layout.mjs`)
 - **실행 대상:** workspace `/Users/ma-24-007/Desktop/workspace/arc`, 브랜치 `refactor/harness-doc-refactor-3`, base `f74a5ec0`. 현재 브랜치에 이어서 진행합니다(사용자 선택 2026-11-27, PH-1 해소).
-- **plan 버전:** v1(사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
+- **plan 버전:** v2(v2 개정: T1 테스트 정합 3건, T5 C5·C8 문구 확정, T6 추가. v1 사용자 승인 2026-11-27. AJ-1·AJ-2·AJ-3 수용, B14는 설계대로 `toolPath`. 커밋 전 계획 문서 커밋 경계 정정 승인 2026-11-27)
 
 ## Global Constraints
 
@@ -20,10 +20,10 @@
   - 기존 공용 문서의 첫 줄과 머리말은 바꾸지 않습니다.
 - 같은 문장은 4플랫폼 묶음으로 같은 편집을 합니다. 묶음 중 한 곳이 hold이면 묶음 전체를 hold합니다(J41).
 - **규칙 fixture(`tests/node/fixtures/rule-pins.json`):** 이전 plan의 규칙을 따릅니다. ID는 재사용하지 않고, 패턴을 완화하지 않으며, 대소문자 무시를 추가하지 않습니다. 기존 문장 치환은 같은 ID의 `text`를 바꾸는 방식으로 합니다. 이번 설계가 승인한 예외는 아래뿐입니다(사용자 결정 "B 18건 모두 승인", `design-approved.md:3`).
-  - 삭제: RP-307(B4, `design-approved.md:10`)
-  - 새 항목: RP-809(B5 비밀·게시 금지, `design-approved.md:11`)
-  - `platforms`를 4플랫폼으로 확장(PJ2 예외): RP-057(B7), RP-300(B8), RP-151(B4), RP-079(B15), RP-594·RP-591(B5, 설계의 "8612행 항목"이 RP-591입니다), RP-626(B12)
-  - 항목 수는 806 → 806입니다(−RP-307, +RP-809).
+  - 삭제: RP-307(B4, `design-approved.md:10`), RP-698(v2, T5 C8 Codex `git-recovery.md:37` 문단 제거, 사용자 결정 2026-11-27)
+  - 새 항목: RP-809(B5 비밀·게시 금지, `design-approved.md:11`), RP-810(v2, T6 5단계 문장, 사용자 결정 2026-11-27)
+  - `platforms`를 4플랫폼으로 확장(PJ2 예외): RP-057(B7), RP-300(B8), RP-151(B4), RP-079(B15), RP-594·RP-591(B5, 설계의 "8612행 항목"이 RP-591입니다), RP-626(B12), RP-629(v2, T1 C-T1-14 문장의 같은 ID 치환과 함께)
+  - 항목 수: 806 → T1 805(−RP-307) → T2 806(+RP-809) → T5 805(−RP-698) → T6 806(+RP-810).
 - 4플랫폼 확장 RP는 확장한 플랫폼마다 effective 텍스트에 그 문장이 실제로 있어야 합니다. `node -e`로 확인하고, 없으면 그 RP 묶음을 hold합니다.
 - `tests/node/plan.test.mjs`는 `renderingBaseline` 해시 값 줄만 바꿀 수 있습니다. 해시는 MANIFEST·golden을 갱신한 뒤 `node --test --test-name-pattern='preserves public rendering baseline' tests/node/plan.test.mjs`의 실패 메시지(actual)에서 얻습니다. 판정은 `node --test`의 exit code로 합니다.
 - 테스트는 관련된 것만 실행합니다. 전체 `npm test`는 금지합니다.
@@ -66,9 +66,11 @@
 | T0 수락 | 없음 | 커밋하지 않습니다. 결과는 workflow 산출물(`.git/arc/workflows/harness-doc-parity/t0.md`, Orchestrator 저장)입니다. | — |
 | T1 수락 | Orchestrator | T1 변경 | `fix(skill): 지침 문서의 플랫폼 비대칭 가정 보완` |
 | T2–T5 각 수락 | Orchestrator | 그 task의 allowedPaths 변경 | task마다 적었습니다. |
+| T6 수락 | Orchestrator | T6 allowedPaths 변경 | `fix(skill): plan-mode Implementer 배정 절차의 경로별 기록 보완` |
 | 최종 Reviewer 지적 해소 | Orchestrator | 수정분. Reviewer 재확인 뒤 follow-up 커밋 1개 | `fix(skill): 플랫폼 균등 보완 최종 리뷰 지적 반영` |
 
-- 실행 순서: T0 → T1 → T2 → T3 → T4 → T5 → 최종 Tester → 최종 Reviewer
+- 실행 순서: T0 → T1 → T2 → T3 → T4 → T5 → T6 → 최종 Tester → 최종 Reviewer
+- v2 개정은 v2로 다시 실행하는 T1의 수락 커밋에 `Plan-Revision`·`Plan-Approved-At`·`Plan-Reason` trailer와 함께 들어갑니다.
 - T4는 내용상 독립이지만 MANIFEST·golden을 함께 쓰고 bridge는 동시에 하나만 돌리므로 순서대로 진행합니다(AJ-13).
 - 모든 task의 공통 수락 전제: fresh Tester(task 모드) 보고가 있고 남은 실패가 없어야 합니다. Reviewer는 task 단위 검사가 아닙니다.
 
@@ -119,7 +121,7 @@
 
 - **TD-1 문구 대응:** diff hunk가 대응표 행과 1:1입니다. 추가된 문장은 모두 설계 문구나 원문 출처(path:line)와 바이트로 같습니다. 원칙 설명 문장이 새로 생기지 않았습니다.
 - **TD-2 강도 보존:** 바뀐 문장마다 MUST/NEVER/DO NOT/MAY/never 토큰 다중집합을 비교합니다. 줄거나 바뀐 곳이 승인 목록(C2 codex `MAY`)뿐이어야 합니다.
-- **TD-3 RP:** `rule-pins.json` diff가 RP 변경표와 1:1입니다. 항목 수가 806이어야 합니다.
+- **TD-3 RP:** `rule-pins.json` diff가 RP 변경표와 1:1입니다. 항목 수가 그 task 시점의 값(Global Constraints 항목 수 줄)이어야 합니다.
 - **TD-4 구조:** 기존 파일의 `<a id>` 집합과 heading 줄 diff가 0입니다(새 공용 run은 예외). 관리 블록 바이트가 같습니다. 사라진 backtick span은 설계가 지운 것(C1의 `AskUserQuestion`·`run_in_background`·`timeout`·`fork` 등)뿐입니다.
 - **TD-5 공용 추출(T1 C6, T2 B5):** 연결 문장이 바이트 그대로 있습니다. 옮긴 문단이 원문(승인 편집 반영)과 같습니다. 4플랫폼 `effectiveText`에 그 문단이 1회씩 들어 있습니다.
 - **TD-6 링크:** base와 HEAD를 같은 방법으로 검사합니다. 새로 깨진 링크가 0이어야 합니다(기준 724/0).
@@ -152,7 +154,7 @@
     - 통과 중이면 B2·B3 묶음을 hold하고(H-R3) 사용자 결정으로 넘깁니다(OD-2). T1의 나머지 항목은 진행합니다.
   - **B5 heading 의존 테스트가 있을 때:** T2를 hold합니다(H-B5).
   - **SKILL.md 크기 여유가 B6–B8 증가분(codex 약 +60 bytes)보다 작을 때:** 해당 SKILL.md 묶음을 hold합니다(H-SIZE). 상한값은 바꾸지 않습니다.
-  - **R1이 "공백 있음"일 때:** 설계 범위 밖의 새 결정이므로 Orchestrator가 사용자에게 넘깁니다. T1–T4는 handoff-common을 편집하지 않으므로 영향이 없습니다. 반영이 결정되면 plan 개정으로 task를 추가합니다.
+  - **R1이 "공백 있음"일 때:** 설계 범위 밖의 새 결정이므로 Orchestrator가 사용자에게 넘깁니다. T1–T4는 handoff-common을 편집하지 않으므로 영향이 없습니다. 반영이 결정되면 plan 개정으로 task를 추가합니다. (v2: 공백 확인, 사용자 결정 "이번 plan에 추가", 설계 (a) 승인 → T6)
   - **R2·R4 결과:** T5에 반영합니다. 애매하면 사용자 재질문 hold입니다(H-C).
   - **R5 후보:** 이번 범위 밖입니다. 후속 과제로 기록하고, 반영하려면 별도 승인이 필요합니다.
 - **TD:** 없음(조사 결과는 Orchestrator가 검토합니다)
@@ -170,6 +172,7 @@
   - `claude/skill/references/worktree-creation.md`
   - `claude/skill/SKILL.md`, `codex/skill/SKILL.md`, `gemini/skill/SKILL.md`, `grok/skill/SKILL.md`
   - `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(`renderingBaseline` 값만)
+  - (v2) `tests/node/composite-instructions.test.mjs`(161행만), `tests/test_arc_policy.py`(565행만)
 - **선행:** T0 수락. R3 분기가 개정을 요구하면 개정 승인까지
 - **편집표(이전 → 이후):**
 
@@ -202,14 +205,21 @@
   - RP-057: `text`를 `…through its own skill invocation.`으로 바꾸고 `platforms`를 4플랫폼으로 바꿉니다.
   - RP-300: `platforms`를 4플랫폼으로 바꿉니다.
   - RP-079: `platforms`를 4플랫폼으로 바꿉니다.
+  - (v2) RP-629: `text` `through Bash only` → `through the shell only`(C-T1-14·15의 새 문장 조각), `platforms`를 4플랫폼으로 바꿉니다.
   - RP-309·RP-310·RP-314·RP-315(claude 전용)는 바꾸지 않습니다.
+- **(v2) 테스트 literal 정합**(T1 1차 실행에서 새 실패 3건, T0 R3가 놓친 고정; 허용 변경은 아래 literal뿐):
+  - C-T1-20 `tests/node/composite-instructions.test.mjs:161`: `/^### Bridge target rules\n\n- Bridge prepare, run and resume[^\n]+\n\n\*\*Claude\*\*/m` → `/^### Bridge target rules\n\n- Bridge prepare, run and resume[^\n]+\n- All bridge children: Apply the shared child guard in [^\n]+\n\n\*\*Claude\*\*/m` (C-T1-01 bullet을 정확한 위치로 고정합니다. 완화가 아닙니다.)
+  - C-T1-21 `tests/test_arc_policy.py:565`: `"Planner/Reviewer"` → `"Native roles inherit session cwd"` (C-T1-09의 새 문장)
+  - RP-629는 위 RP 변경표 행으로 처리합니다.
 - **생성물:** MANIFEST(설치 파일 행), golden(조합마다 `~` 행이 바뀐 references와 SKILL.md에 대응), CS-R 해시
 - **단계:**
-  - [ ] D-0. CS-X 후보는 `tests/test_harness_contract.py`, `tests/test_claude_payload.py:488–496`, `composite-instructions`, `grok-install.test.mjs`, gemini 관련 테스트(T0 R3로 확정)입니다.
-  - [ ] D-1부터 D-4까지 진행합니다. 추가로 SKILL.md 크기를 `wc -c -l */skill/SKILL.md`로 재고 상한 미만인지 확인합니다.
+  - [x] D-0. CS-X 후보는 `tests/test_harness_contract.py`, `tests/test_claude_payload.py:488–496`, `composite-instructions`, `grok-install.test.mjs`, gemini 관련 테스트(T0 R3로 확정)입니다.
+  - [x] D-1부터 D-4까지 진행합니다. 추가로 SKILL.md 크기를 `wc -c -l */skill/SKILL.md`로 재고 상한 미만인지 확인합니다.
+  - 결과(T1 수락 2026-11-27): Implementer 7d77e278(1차, 새 실패 3건) → plan v2 → fresh Implementer b95d1054(새 실패 0). Tester 22811746 TD-1–TD-8 proven, CS-N 358 통과, CS-P 기준선 35 method 동일, RP 805, 링크 728/0.
 - **AC:**
   - AC-T1-1: C-T1-01–19가 모두 반영되고, allowedPaths 밖 diff가 0입니다.
   - AC-T1-2: RP 변경표가 반영되고, 항목 수 805(RP-809는 T2에서 추가)에서 `rule-pins` test가 통과합니다.
+  - AC-T1-5(v2): `composite-instructions.test.mjs`와 `test_arc_policy.py::RolePolicyTests.test_claude_managed_worktree_creation_covers_ac19`가 통과하고, 두 파일의 diff가 C-T1-20·21 한 줄씩뿐입니다.
   - AC-T1-3: SKILL.md가 크기 상한을 통과합니다.
   - AC-T1-4: 새 실패가 0입니다.
 - **관련 테스트와 이유:**
@@ -328,17 +338,17 @@
 - **allowedPaths:** `shared/skill/references/coordination-common.md`, `codex/skill/references/limits.md`, `shared/skill/references/git-recovery-common.md`, `claude/skill/references/git-recovery.md`, `codex/skill/references/git-recovery.md`, `gemini/skill/references/git-recovery.md`, `grok/skill/references/git-recovery.md`, `tests/node/fixtures/rule-pins.json`, `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만)
 - **선행:** T4 수락·커밋, T0 R2·R4 결론
 - **C5 분기:**
-  - Gemini·Grok도 두 gate 값이 `held`일 때: `coordination-common.md:190` `On Codex and Claude, the gates for full network access and all three Playwright services have the value `held`.` → `On every platform, the gates for full network access and all three Playwright services have the value `held`.` RP-760의 `text` 해당 부분도 같은 ID로 치환합니다.
-  - 값이 다르거나 근거가 없을 때: 확인된 값만 플랫폼별로 적는 문구 초안을 Orchestrator에 반환하고, 사용자 재질문 hold입니다(H-C).
+  - (v2 확정, T0 R2: Codex·Claude·Gemini `held`, Grok `unmeasured`, `lib/runtime/tool-access.mjs:100,108`, `docs/harness-operation.md:192–196`; 사용자 결정 2026-11-27) `coordination-common.md` `On Codex and Claude, the gates for full network access and all three Playwright services have the value `held`.` → `On Codex, Claude and Gemini, the gates for full network access and all three Playwright services have the value `held`; on Grok they are `unmeasured`.` RP-760 `text`를 같은 ID로 새 문장 전체로 치환합니다.
 - **C7 분기**(설계 결정 C7 선택지 1: Scouter 확인 뒤 사실에 맞게):
   - 대상: `codex/skill/references/limits.md:17` `Codex `[agents].max_concurrent_threads_per_session` and Claude `settings.json.env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` constrain their respective sessions.`
   - R2에서 Codex 설치가 Claude 설정을 다루지 않는다고 확인될 때: → `Codex `[agents].max_concurrent_threads_per_session` constrains its native session.`
   - Codex 설치가 Claude 설정도 다룰 때: 변경하지 않습니다.
   - 근거가 애매할 때: H-C
 - **C8 분기**(설계 결정 C8 선택지 1):
-  - 대상: claude/gemini/grok `git-recovery.md:31` 문단과 `codex/skill/references/git-recovery.md:37` 문단(`### Existing changes and failures`)
-  - R4에서 같은 의무가 다른 문서에 없다고 확인될 때: 두 문단의 플랫폼 중립 부분을 `git-recovery-common.md`의 새 run(§4.3 규칙, 같은 섹션이면 `<id>-2`)으로 옮겨 4플랫폼에 적용합니다. `Scouter/Planner/Reviewer cannot execute commands`가 들어 있는 문장(`Orchestrator inspects related processes/ACLs read-only itself or assigns Tester; …`)은 Codex에 맞지 않으므로 claude/gemini/grok 플랫폼 파일에 남깁니다. 옮기는 문장은 바이트 그대로이고, 원래 자리에는 연결 문장을 둡니다. heading이 플랫폼마다 달라 연결 위치가 정해지지 않으면 문구 초안을 반환하고 H-C입니다.
-  - 같은 의무가 이미 다른 곳에 있을 때(S): 변경하지 않습니다.
+  - (v2 확정, 사용자 결정 2026-11-27)
+  - C-T5-C8a: claude/gemini/grok `git-recovery.md` `## Handoff record write denial` 섹션의 문단 `Orchestrator inspects related processes/ACLs read-only itself or assigns Tester; Scouter/Planner/Reviewer cannot execute commands. Failed profile reapplication MUST restore replaced bytes/modes. If rollback fails, preserve recovery files/paths; NEVER claim clean state or remove recovery material.`에서 뒤 두 문장(`Failed profile reapplication … recovery material.`)을 지우고 첫 문장만 남깁니다. 지운 두 문장은 바이트 그대로 `shared/skill/references/git-recovery-common.md`의 기존 run `handoff-record-write-denial` 끝에 새 문단으로 붙입니다. 4플랫폼(codex 포함)이 이미 이 run에 연결 문장을 두고 있으므로 새 연결 문장은 없습니다.
+  - C-T5-C8b: `codex/skill/references/git-recovery.md`의 `<a id="existing-changes-and-failures"></a>`, `### Existing changes and failures`, 그 아래 문단(`A branch does not isolate uncommitted changes … missing target choice block handoff.`)과 뒤따르는 빈 줄을 지웁니다. 이 anchor를 참조하는 곳은 없습니다(Orchestrator grep). RP-698(이 문단의 문장)을 삭제합니다(승인 예외). TD-4의 `<a id>`·heading 집합 diff는 이 1건만 예외입니다.
+  - 강도: 옮긴 문장의 MUST·NEVER는 그대로 4플랫폼에 적용됩니다(codex는 확장). 지운 codex 문단의 NEVER 1개는 사용자 결정에 따른 승인 예외입니다(TD-2).
 - 반영할 것이 하나도 없으면 이 task는 변경 없음으로 끝나고 커밋하지 않습니다.
 - **AC:** 반영 문구가 T0 근거 `path:line`과 대응하고 새 실패가 0입니다.
 - **Tester:** TD-1–TD-8
@@ -347,17 +357,37 @@
 
 ---
 
+## T6 — plan-mode Implementer 배정의 경로별 절차 (R1, v2 추가)
+
+- **목표:** `shared/skill/references/handoff-common.md` Initial Implementer assignment 절차의 5단계와 6단계 일부를 경로별 문장으로 바꿉니다. runtime은 바꾸지 않습니다(설계 (a), `build/hdq-artifacts/t6-design.md`). 근거: `lib/runtime/assignment.mjs:15–21,38–41`(agentId는 비어 있지 않은 문자열만 검사), `lib/runtime/role-routing.mjs:232–271`(prepare-dispatch는 cooperative state를 참조하지 않음), `lib/runtime/verification.mjs:63`.
+- **allowedPaths:** `shared/skill/references/handoff-common.md`, `tests/node/fixtures/rule-pins.json`(RP-810 추가만), `MANIFEST.sha256`, `tests/node/fixtures/installed-layout-golden.json`, `tests/node/plan.test.mjs`(값만)
+- **선행:** T5 수락·커밋(변경 없음 포함)
+- **편집표:**
+  - C-T6-01 5단계 줄 `5. Invoke native assignment with saved task/scope/correlation.` → `5. Assign the Implementer with saved task/scope/correlation. Without `Mixed routing`, invoke native assignment. With `Mixed routing`, after step 4 run `prepare-dispatch` with `role: "arc_implementer"`, the same `taskId` and `allowedPaths` set to the worktree-relative form of saved `paths`, then follow the native or bridge route in [coordination](coordination-common.md#coordination-composite-platform-role-dispatch); the brief carries saved task/scope/correlation.`
+  - C-T6-02 6단계의 `Success needs returned agent ID;` → `Success needs the returned agent ID; on a bridge route it is the `dispatchId`, recorded after `run-dispatch` returns `allow`. A `prepare-dispatch` or `run-dispatch` hold/deny is `failed` after `cancel` of any still-reserved lease; a dispatch that becomes `unknown` is `unknown`.` 뒤의 `unknown/mismatch holds duplicate assignment for investigation.`와 6단계의 나머지는 그대로 둡니다.
+  - 링크 대상 anchor는 `shared/skill/references/coordination-common.md`에만 있으므로 `coordination-common.md#…`로 씁니다. Implementer는 링크 검사로 대상이 실제로 있는지 확인합니다.
+- **RP:** RP-810 `{ "id": "RP-810", "category": "<RP-809와 같은 스키마의 알맞은 값>", "doc": "handoff", "platforms": ["claude","codex","gemini","grok"], "text": "With `Mixed routing`, after step 4 run `prepare-dispatch` with `role: \"arc_implementer\"`", "origin": ["docs/superpowers/plans/2026-11-27-harness-doc-parity.md (T6, user-approved 2026-11-27)"] }`. category 값과 `doc` 이름은 기존 handoff 항목을 본떠 맞추고 보고합니다.
+- **AC:** AC-T6-1 두 문장이 승인 문구와 바이트로 같음, AC-T6-2 섹션의 다른 줄과 파일의 다른 부분 diff 0, AC-T6-3 강도 토큰 다중집합 불변, AC-T6-4 4플랫폼 `effectiveText`에 새 문장 1회씩, AC-T6-5 새로 깨진 링크 0, AC-T6-6 RP-810 포함 검사 통과·항목 수 806, AC-T6-7 MANIFEST·golden diff가 handoff-common 행뿐(rendering 값 예외), AC-T6-8 새 실패 0, AC-T6-9 원칙 설명 문장 없음
+- **관련 테스트:** `rule-pins`(RP-810), `instruction-language`(handoff-common 영어), `composite-instructions`·`test-scope-contract`(effective handoff), `installed-layout-golden`·`manifest`·CS-R, CS-P(`test_claude_payload.py`가 effective handoff를 읽음)
+- **TDD:** 해당 없음(문서·fixture만, runtime 동작 불변). RP-810을 먼저 넣어 red를 확인하는 것은 선택입니다.
+- **Tester:** TD-1–TD-4, TD-6–TD-8
+- **hold:** H-RP, H-2
+- **커밋:** `fix(skill): plan-mode Implementer 배정 절차의 경로별 기록 보완`
+- **후속(범위 밖, handoff 기록):** AJ-T6-4 Tester/Reviewer bridge actor id 규칙(`verification-common.md:124`), AJ-T6-5 교정 시 새 Implementer와 task당 assignment 1개 제약(`assignment.mjs:21`, `verification.mjs:63`)
+
+---
+
 ## 최종 Tester (final 모드)
 
-- **선행:** T1–T5 수락(T5는 변경 없음일 수 있음), task Tester 재확인 완료
+- **선행:** T1–T6 수락(T5는 변경 없음일 수 있음), task Tester 재확인 완료
 - [ ] 1. 최종 HEAD에서 CS-N, CS-P, CS-S, CS-R, 모든 task의 CS-X 합집합을 실행하고 §1.1 기준선과 test ID로 비교합니다.
 - [ ] 2. `node scripts/check-installer-parity.mjs --complete`를 실행합니다. consumer 3건이 기준선과 같은지 봅니다.
 - [ ] 3. 링크 무결성 전체: base `f74a5ec0` 대비 새로 깨진 링크가 0이어야 합니다(기준 724/0).
-- [ ] 4. `git --no-optional-locks diff --name-only f74a5ec0..HEAD`가 계획 문서 커밋의 plan 문서와 T1–T5 allowedPaths만 포함하는지 봅니다.
-- [ ] 5. RP 항목이 806건이고, 4플랫폼 확장 RP 8개(RP-057·079·151·300·591·594·626·809)가 포함 검사를 통과하는지 봅니다.
+- [ ] 4. `git --no-optional-locks diff --name-only f74a5ec0..HEAD`가 계획 문서 커밋의 plan 문서와 T1–T6 allowedPaths만 포함하는지 봅니다.
+- [ ] 5. RP 항목이 806건이고(RP-307·RP-698 삭제, RP-809·RP-810 추가), 4플랫폼 RP 10개(RP-057·079·151·300·591·594·626·629·809·810)가 포함 검사를 통과하는지 봅니다.
 - [ ] 6. 원칙 문장 추가 금지: 누적 diff의 추가 문장 전체가 대응표와 1:1인지 다시 확인합니다.
 - [ ] 7. `installed-layout.mjs --diff`가 0줄이어야 합니다(H-2이면 그 hold 기록).
-- **겹치는 파일(재확인 대상):** `rule-pins.json`(T1·T2·T3·T5), `MANIFEST.sha256`·golden·`plan.test.mjs`(T1–T5), `coordination-common.md`(T1·T5), `arc-visual-companion-common.md`(T1·T2), `claude/agents/`(T3)
+- **겹치는 파일(재확인 대상):** `rule-pins.json`(T1·T2·T3·T5·T6), `MANIFEST.sha256`·golden·`plan.test.mjs`(T1–T6), `coordination-common.md`(T1·T5), `arc-visual-companion-common.md`(T1·T2), `claude/agents/`(T3)
 - **전체 회귀 trigger 잠정 판단:** 실행하지 않습니다.
   - 대체 검사: 위 1–7과 CS-X 합집합
   - 사유: 변경이 지침 텍스트, fixture, 생성물, 메시지 리터럴 한 줄에 한정됩니다. 사용자 환경 기록에 따라 전체 `npm test`는 금지입니다. 필요하다고 판단되면 Orchestrator가 사용자 승인을 받습니다.
@@ -376,7 +406,7 @@
 
 - **C3** `shared/skill/references/visual-companion.md:60`: 사용자 결정으로 유지합니다.
 - **C4** `coordination-common.md:154` 보호 경로 목록: 문서를 유지합니다. Gemini 설정 경로 보완은 후속 과제로 handoff에 기록합니다.
-- `handoff-common.md:150` "Invoke native assignment": S, 현행 유지(R1은 확인만 합니다)
+- `handoff-common.md:150` "Invoke native assignment": (v2) T6에서 바꿉니다.
 - `grok/skill/SKILL.md:3`: A
 - `lib/runtime/adapters/claude.mjs:34`: Claude Agent 도구는 고유 기능(A)
 - claude·codex `coordination.md`의 `:48`·`:49`·`:55`(codex `:48`·`:49`·`:53`): 각 플랫폼 고유 도구(A)
@@ -431,4 +461,5 @@ B1–B4·B6–B9·B15·C1·C2·C6 → T1 / B5 → T2 / B10–B13·B16–B18 → 
 
 | 버전 | 내용 |
 |---|---|
+| v2 | Orchestrator 개정(2026-11-27): T1 1차 실행의 새 실패 3건 정합(C-T1-20·21, RP-629), T5 C5·C8 문구 확정(사용자 결정, RP-698 삭제), T6 추가(R1 설계 (a)·AJ-T6-1–5 사용자 승인, RP-810), 항목 수 흐름·최종 검사 갱신 |
 | v1 | 초안(Planner, 2026-11-27). Orchestrator 검토 개정: OD-1(C7·C8 분기, T5 allowedPaths)·OD-2 해소 반영. 커밋 전 정정(사용자 승인): plan 문서를 T1 커밋이 아닌 실행 전 계획 문서 커밋으로 |

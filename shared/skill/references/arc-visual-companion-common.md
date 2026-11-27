@@ -11,4 +11,4 @@ Each visual criterion requires the exact approved source location, version, appr
 - A missing revision link is unverified; a visible difference is a mismatch. Record them separately without inferring the current branch UI state.
 - Hold comparison for inaccessible source/output or missing interpretation approval.
 
-Static checks of policy, generated files and the manifest prove structure only, not actual role behavior, installed builds, Claude Code CLI compliance or visual fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Separate baseline failures. Independent progress never relaxes checks or criteria.
+Static checks of policy, generated files and the manifest prove structure only, not actual role behavior, installed builds, platform CLI compliance or visual fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Separate baseline failures. Independent progress never relaxes checks or criteria.

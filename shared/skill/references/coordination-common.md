@@ -152,12 +152,13 @@ GK2 is `approval`.
 ### Bridge target rules
 
 - Bridge prepare, run and resume hold `permission_scope_unverified` when `allowedPaths` cover `.`, `.git`, `.claude`, `.claude/settings*.json`, `.codex` or `.codex/config.toml`; any change to `.git` config, hooks or info (except `info/refs`, which `git update-server-info` may rewrite after a fetch or gc; that change alone is recorded under `tolerated.control`), `.claude/settings*.json` or `.codex/config.toml` fails the dispatch as `permission_violation_observed` regardless of role and `allowedPaths`, and Grok writing roles also fail on changes to the security keys of the Grok home `config.toml` or to its `sandbox.toml`.
+- All bridge children: Apply the shared child guard in [Shared dispatch rules](coordination.md#coordination-shared-dispatch-rules). The guard denies routing commands only; native delegation inside a child follows each platform's Delegation item below.
 
 **Claude**
 
 - Writing roles: Claude bridge `arc_implementer` and `arc_tester` run with recorded sandbox settings on every host and are held as `permission_scope_unverified` when an injected G1 fails or settings are missing (G1). Claude Implementer/Tester bridges also deny writes under `.git` (permission rules and sandbox `denyWrite`), and are held as `permission_scope_unverified` when the worktree `.claude/settings.json` or `.claude/settings.local.json` would widen their scope (additional directories, allow rules for tools outside the safe list (Bash, Read, Grep, Glob, WebFetch, WebSearch), hooks, sandbox or defaultMode).
 - Permission claim: Compare the `init` event with the expected tools and permission mode. If `init` is missing, the `permissions` claim is `unverified`. If the tools or permission mode differ, the claim is `unverified` and the reason is `permission_scope_mismatch`.
-- Delegation: Role instructions forbid re-delegation. Claude children expose no Task tool. Apply the shared child guard in [Shared dispatch rules](coordination.md#coordination-shared-dispatch-rules).
+- Delegation: Role instructions forbid re-delegation. Claude children expose no Task tool.
 - Execution confirmation: Check the stream session identity and model, transcript effort, and the observed terminal result.
 
 **Codex**

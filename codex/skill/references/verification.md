@@ -10,7 +10,7 @@ Read before verification design, Tester/Reviewer assignment, correction rechecks
 
 Each criterion needs the exact approved source, version, approval and access state; IDs, properties and comparison method; and a link between output and revision. Implementer reporting does not replace fresh Tester. Record pass/mismatch/unverified and connect to criterion verdicts; pass needs accessible supporting evidence. Missing linkage is unverified; visible difference is mismatch, separately, without inferring current branch UI. Hold comparison when materials are inaccessible or interpretation approval is missing.
 
-Policy, generated-file and manifest checks prove structure, not role behavior, installed builds, Claude Code CLI compliance or fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Report baseline failures separately; independent progress does not relax checks.
+Policy, generated-file and manifest checks prove structure, not role behavior, installed builds, platform CLI compliance or fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Report baseline failures separately; independent progress does not relax checks.
 
 <a id="test-scope-and-result-comparison"></a>
 ## Test scope and result comparison
@@ -55,12 +55,12 @@ DO NOT delay independently acceptable tasks solely for final-only checks or defe
 
 Committed-plan final Reviewer findings need a follow-up task/planning/approvals. Keep corrections uncommitted; refresh committed state plus uncommitted diff/files in Reviewer artifacts/briefs. Reuse/assign independent Reviewer and repeat Implementer → Reviewer until resolved, then accept/commit one focused follow-up. Final-mode Tester findings use Implementer → Tester and conclude before the initial final review. No automatic amend/reset/duplicate originals; scope growth retains planning/approvals.
 
-
+Shared text for this section: [verification-common.md#reviewer-timing-and-task-acceptance-2](verification-common.md#reviewer-timing-and-task-acceptance-2). It applies here exactly as if written in place.
 
 <a id="ui-browser-acceptance-checks"></a>
 ### UI browser acceptance checks
 
-With assigned criteria/cited prerequisites, Tester MAY use available approved browser tools for apps/URLs.
+With assigned criteria/cited prerequisites, Tester uses browser tools its platform actually provides; without one, it launches/exercises apps/URLs through the shell only, following installed browser-skill CLI guidance.
 
 Shared text for this section: [verification-common.md#ui-browser-acceptance-checks](verification-common.md#ui-browser-acceptance-checks). It applies here exactly as if written in place.
 

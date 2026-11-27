@@ -1,7 +1,7 @@
 <a id="verification-and-acceptance"></a>
 # Verification and acceptance
 
-Behavior work follows meaningful failing test observation → minimal implementation → focused success → scoped checks under [Test scope and result comparison](#test-scope-and-result-comparison). Report skill/test constraints before edits. Waivers need recorded narrow/understood/reversible scope, no dependent/cross-component lifecycle stages and one check path. Docs exceptions permit named structural checks only, never TDD claims. Report side effects within scope. Reviewer lacks Bash and requests runtime checks. Local tests prove neither remote models nor effort application. Policy prose needs independent role/approval review; text presence proves no compliance. Unexpected failure triggers diagnosis/holds; expected RED grants no unrelated repairs.
+Behavior work follows meaningful failing test observation → minimal implementation → focused success → scoped checks under [Test scope and result comparison](#test-scope-and-result-comparison). Report skill/test constraints before edits. Waivers need recorded narrow/understood/reversible scope, no dependent/cross-component lifecycle stages and one check path. Docs exceptions permit named structural checks only, never TDD claims. Report side effects within scope. Reviewer does not run commands for verification and requests runtime checks. Local tests prove neither remote models nor effort application. Policy prose needs independent role/approval review; text presence proves no compliance. Unexpected failure triggers diagnosis/holds; expected RED grants no unrelated repairs.
 
 Read before verification design, Tester/Reviewer assignment, correction rechecks or UI acceptance. Tester/Reviewer use their profiles and brief-cited sections only. Design companions differ from UI acceptance.
 
@@ -12,7 +12,7 @@ Read before verification design, Tester/Reviewer assignment, correction rechecks
 
 Each criterion needs the exact approved source, version, approval and access state; IDs, properties and comparison method; and a link between output and revision. Implementer reporting does not replace fresh Tester. Record pass/mismatch/unverified and connect to criterion verdicts; pass needs accessible supporting evidence. Missing linkage is unverified; visible difference is mismatch, separately, without inferring current branch UI. Hold comparison when materials are inaccessible or interpretation approval is missing.
 
-Policy, generated-file and manifest checks prove structure, not role behavior, installed builds, Gemini CLI compliance or fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Report baseline failures separately; independent progress does not relax checks.
+Policy, generated-file and manifest checks prove structure, not role behavior, installed builds, platform CLI compliance or fidelity. Report changes, exclusions, checks run and omitted, criterion evidence and limits, and platform availability. Report baseline failures separately; independent progress does not relax checks.
 
 <a id="test-scope-and-result-comparison"></a>
 ## Test scope and result comparison
@@ -57,12 +57,12 @@ DO NOT delay independently acceptable tasks solely for final-only checks or defe
 
 Committed-plan final Reviewer findings need a follow-up task/planning/approvals. Keep corrections uncommitted; refresh committed state plus uncommitted diff/files in Reviewer artifacts/briefs. Reuse/assign independent Reviewer and repeat Implementer → Reviewer until resolved, then accept/commit one focused follow-up. Final-mode Tester findings use Implementer → Tester and conclude before the initial final review. No automatic amend/reset/duplicate originals; scope growth retains planning/approvals.
 
-Orchestrator writes approved-base final base..HEAD diff/changed-file list to `<git-common-dir>/arc/review/<slug>.diff`, using handoff slug and absolute brief citation; inline if small/write denied. Reviewer reads artifact, not Git commands, stating limits.
+Shared text for this section: [verification-common.md#reviewer-timing-and-task-acceptance-2](verification-common.md#reviewer-timing-and-task-acceptance-2). It applies here exactly as if written in place.
 
 <a id="ui-browser-acceptance-checks"></a>
 ### UI browser acceptance checks
 
-Tester has no browser tool: launch/exercise apps/URLs through Bash only with assigned criteria/cited prerequisites, following installed browser-skill CLI guidance.
+With assigned criteria/cited prerequisites, Tester uses browser tools its platform actually provides; without one, it launches/exercises apps/URLs through the shell only, following installed browser-skill CLI guidance.
 
 Shared text for this section: [verification-common.md#ui-browser-acceptance-checks](verification-common.md#ui-browser-acceptance-checks). It applies here exactly as if written in place.
 

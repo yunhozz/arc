@@ -20,6 +20,8 @@ Shared text for this section: [coordination-common.md#coordination-execution-mod
 
 ARC limits do not prove native concurrency/depth support. Invoke installed native names and receive results; report unavailable execution. Scouter/Planner/Reviewer cannot edit, execute commands or save documents. Tester verifies without edits. Stay within shipped allowlists, which are not filesystem sandboxes.
 
+After each read-only role return (Scouter/Planner/Reviewer), compare `git status` with the pre-spawn snapshot. Unexpected changes stop under Preservation rule. Concurrent Implementer edits and ignored/out-of-repository paths cannot be attributed/detected. Read-only is prompt policy, not sandbox enforcement.
+
 <a id="instruction-and-execution-adapter"></a>
 ## Instruction and execution adapter
 

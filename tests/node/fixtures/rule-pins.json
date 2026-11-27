@@ -772,10 +772,12 @@
       "category": "prohibition",
       "doc": "core",
       "platforms": [
+        "claude",
         "codex",
-        "claude"
+        "gemini",
+        "grok"
       ],
-      "text": "Orchestrator NEVER invokes `brainstorming`/`writing-plans` through its own Skill tool.",
+      "text": "Orchestrator NEVER invokes `brainstorming`/`writing-plans` through its own skill invocation.",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:14",
         "tests/node/fixtures/instruction-contracts.json:126"
@@ -1088,7 +1090,10 @@
       "category": "permission",
       "doc": "coordination",
       "platforms": [
-        "codex"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
       "text": "After each read-only role return (Scouter/Planner/Reviewer), compare `git status` with the pre-spawn snapshot.",
       "origin": [
@@ -2100,7 +2105,10 @@
       "category": "role-boundary",
       "doc": "handoff",
       "platforms": [
-        "codex"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
       "text": "Exclude Spike/Architectural, ordinary behavior/significant/high/unclear risk and active Implementer file overlaps.",
       "origin": [
@@ -4227,7 +4235,10 @@
       "category": "role-boundary",
       "doc": "core",
       "platforms": [
-        "claude"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
       "text": "Orchestrator uses the current conversation model for simple self-contained questions answerable from context or one quick read without edits and coordinates substantive multistep implementation, configuration, tests and mixed work.",
       "origin": [
@@ -4304,18 +4315,6 @@
       "text": "Selected worktrees require common directory, registration, `EnterWorktree` session attachment, approved branch and source preservation through [managed preparation](handoff-worktree.md) only.",
       "origin": [
         "tests/node/fixtures/instruction-contracts.json:152"
-      ]
-    },
-    {
-      "id": "RP-307",
-      "category": "role-boundary",
-      "doc": "handoff",
-      "platforms": [
-        "claude"
-      ],
-      "text": "Exclude Architectural, ordinary behavior/significant/high/unclear risk and active Implementer file overlaps.",
-      "origin": [
-        "tests/node/fixtures/instruction-contracts.json:173"
       ]
     },
     {
@@ -9087,9 +9086,12 @@
       "category": "permission",
       "doc": "verification",
       "platforms": [
-        "claude"
+        "claude",
+        "codex",
+        "gemini",
+        "grok"
       ],
-      "text": "through Bash only",
+      "text": "through the shell only",
       "origin": [
         "tests/test_claude_payload.py:651"
       ]

@@ -20,6 +20,8 @@ Shared text for this section: [coordination-common.md#coordination-execution-mod
 
 ARC limits do not prove native concurrency/depth support. Invoke installed native names and receive results; report unavailable execution. Scouter/Planner/Reviewer cannot edit, execute commands or save documents. Tester verifies without edits. Use only actually available, authorized tools; prompt contracts are not filesystem sandboxes.
 
+After each read-only role return (Scouter/Planner/Reviewer), compare `git status` with the pre-spawn snapshot. Unexpected changes stop under Preservation rule. Concurrent Implementer edits and ignored/out-of-repository paths cannot be attributed/detected. Read-only is prompt policy, not sandbox enforcement.
+
 <a id="instruction-and-execution-adapter"></a>
 ## Instruction and execution adapter
 
@@ -52,7 +54,7 @@ Shared text for this section: [coordination-common.md#coordination-context-disci
 - Implementer briefs cite spec/plan task-section line ranges and needed excerpts/criteria/constraints; NEVER request whole-document reading.
 - Follow [Planner preparation/feedback](planning.md#planner-drafting-preparation-and-consolidated-feedback). Complete the initial brief and whole-draft checklist; directly revise the same spec or plan after Planner returns its complete first draft and self-review. Preserve the Planner path for design/brainstorming revisions.
 - Before optional calls name the unresolved question/expected artifact. Skip questions already resolved by evidence/direct inspection.
-- Use foreground Agent results or background completion notifications. Report unavailable execution; invent no API. NEVER poll/sleep-poll for timeout/delay. Batch corrections in one brief. Long Bash uses sufficient `timeout` or `run_in_background` plus completion notification.
+- Wait for actual role results or completion notifications from the available tool. Report unavailable execution; invent no API. NEVER poll/sleep-poll for timeout/delay. Batch corrections in one brief. Long shell commands use a sufficient timeout or the available background mode plus completion notification.
 - Read needed file/output ranges only (`rg -n`, `sed -n`, `head`/`tail`) and cap output. DO NOT reread unchanged context material. Already-read unchanged mandatory references/SKILL.md need no follow-up reread; newly triggered mandatory reads remain required.
 - At plan completion or before another plan in a long session, record canonical handoff and recommend a new session.
 - Before handoff briefly state role/objective/output; after return combine findings/next stage. NEVER expose hidden reasoning/raw prompts.

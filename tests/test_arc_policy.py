@@ -562,7 +562,7 @@ class RolePolicyTests(unittest.TestCase):
             "4": ("git worktree list --porcelain", "common", "HEAD", "branch", "index", "files"),
             "5": ('EnterWorktree({path:"<abs>"})', "git rev-parse --show-toplevel", "realpath", "pwd", "compound"),
             "6": ("type:'worktree-attachment'", "realpath", "gitDir", "gitCommonDir", "cwd", "toplevel"),
-            "7": ("Planner/Reviewer", "--cwd <worktree realpath>", "brief"),
+            "7": ("Native roles inherit session cwd", "--cwd <worktree realpath>", "brief"),
             "8": ('ExitWorktree({action:"keep"})', "git worktree remove/prune"),
             "9": ("Stop and inspect", "retry", "fallback", "M1", "M3", "deletion"),
         }

@@ -158,7 +158,7 @@ test('every coordination reference states Claude G1, Gemini GG1 and Grok GK1 bri
 test('every coordination reference states the control-file bridge holds and violations', async () => {
   for (const platform of platforms) {
     const body = compositeSection(platform);
-    assert.match(body, /^### Bridge target rules\n\n- Bridge prepare, run and resume[^\n]+\n\n\*\*Claude\*\*/m, platform);
+    assert.match(body, /^### Bridge target rules\n\n- Bridge prepare, run and resume[^\n]+\n- All bridge children: Apply the shared child guard in [^\n]+\n\n\*\*Claude\*\*/m, platform);
   }
 });
 

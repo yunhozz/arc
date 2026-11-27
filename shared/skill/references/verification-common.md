@@ -88,6 +88,11 @@ Existing commit evidence links remain valid because history is unchanged. For a 
 
 Task acceptance differs from final verification/acceptance. Connect criteria/observations/current checks/findings, not checkboxes/reports/passing commands alone. Use fresh Tester where required or low-risk focused checks. For same-task Tester findings and required Tester rechecks, reuse the current Tester while scope/workspace/ownership/context remain valid. Final overall Reviewer findings on plan work follow Implementer → Reviewer without Tester reassignment; see the [final plan Reviewer correction loop](verification.md#final-plan-reviewer-correction-loop).
 
+<a id="reviewer-timing-and-task-acceptance-2"></a>
+## Task acceptance and final plan acceptance
+
+Orchestrator writes approved-base final base..HEAD diff/changed-file list to `<git-common-dir>/arc/review/<slug>.diff`, using handoff slug and absolute brief citation; inline if small/write denied. Reviewer reads artifact, not Git commands, stating limits.
+
 <a id="ui-browser-acceptance-checks"></a>
 ### UI browser acceptance checks
 

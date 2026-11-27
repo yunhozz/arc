@@ -47,6 +47,7 @@ Shared text for this section: [coordination-common.md#coordination-context-disci
 - Send a self-contained needed subset and accessible artifacts. Omit full history/repeated instructions/raw logs. No-findings reports MAY be brief; requested full drafts remain complete. Cite locations/commands/links, investigating gaps only.
 - Every spawn uses `fork_turns="none"` and the shared brief; full-history forks are forbidden. Reuse relevant valid context with deltas; start fresh for unrelated/bloated context. Implementer/Tester freshness follows Role gate.
 - `request_user_input` uses `title`/`options`, never `question`.
+- Write final base..HEAD diff/changed-file list to `<git-common-dir>/arc/review/<slug>.diff`, using handoff slug/approved base HEAD. Inline if small or write denied. Reviewer reads and states limits; follow verification.
 - Implementer briefs cite spec/plan task-section line ranges and needed excerpts/criteria/constraints; NEVER request whole-document reading.
 - Follow [Planner preparation/feedback](planning.md#planner-drafting-preparation-and-consolidated-feedback). Complete the initial brief and whole-draft checklist; directly revise the same spec or plan after Planner returns its complete first draft and self-review. Preserve the Planner path for design/brainstorming revisions.
 - Before optional calls name the unresolved question/expected artifact. Skip questions already resolved by evidence/direct inspection.

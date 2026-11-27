@@ -77,7 +77,7 @@ Waiver skips RED-GREEN only, preserving focused checks/risk-scaled Tester/Review
 <a id="orchestrator-direct-path-for-small-tasks"></a>
 ## Orchestrator direct path for small tasks
 
-Record target choice/reuse before first edit; scope approval alone selects no target. Direct edits without Planner/Implementer need every low-risk/plan-skip condition: one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns, one check path and no significant trigger. Exclude Architectural, ordinary behavior/significant/high/unclear risk and active Implementer file overlaps. File count proves no eligibility.
+Record target choice/reuse before first edit; scope approval alone selects no target. Direct edits without Planner/Implementer need every low-risk/plan-skip condition: one local change, no dependent stages/cross-component shared state/lifecycle/integration-order concerns, one check path and no significant trigger. Exclude Spike/Architectural, ordinary behavior/significant/high/unclear risk and active Implementer file overlaps. File count proves no eligibility.
 
 Shared text for this section: [handoff-common.md#orchestrator-direct-path-for-small-tasks](handoff-common.md#orchestrator-direct-path-for-small-tasks). It applies here exactly as if written in place.
 
