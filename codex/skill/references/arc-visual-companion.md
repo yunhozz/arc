@@ -1,12 +1,5 @@
-<a id="visual-companion-contract"></a>
-# Visual companion contract
-
-Read before offering or operating the companion.
-
 <a id="visual-companion"></a>
-## Visual companion
-
-Design discussion is distinct from Tester UI acceptance under an approved test brief.
+# Visual companion
 
 Shared text for this section: [arc-visual-companion-common.md#visual-companion](arc-visual-companion-common.md#visual-companion). It applies here exactly as if written in place.
 

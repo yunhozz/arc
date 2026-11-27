@@ -5,6 +5,8 @@ This file holds text shared by every platform's arc-visual-companion.md. Each pa
 <a id="visual-companion"></a>
 # Visual companion
 
+Read before offering or operating the companion. Design discussion is distinct from Tester UI acceptance under an approved test brief.
+
 Use visuals when they materially help design discussion or verification. Orchestrator determines actual capability/consent. Planner returns visualization needs only; DO NOT invent browser/shell access. Other depth-2 roles stay within their profile tool limits and cannot delegate visualization.
 
 - Verify actual browser/preview capability; NEVER assume platform preview support.
